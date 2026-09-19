@@ -185,6 +185,24 @@ so it installs without torch). `stt/factory.py` selects on `[stt] engine` and
 falls back to faster-whisper with a warning whenever an engine's optional
 dependency is absent or its model fails to load — dictation always comes up.
 
+That fallback is deliberately quiet at the decode layer (a log line, never a
+crash), which on a real machine meant it was quiet everywhere: `[stt] engine =
+"parakeet"` with `onnx_asr` missing degraded silently to a much smaller,
+less accurate model with nothing surfaced anywhere a user would see it.
+`yazses doctor`'s `_configured_engine_check` closes that — it reports `WARN`
+with the exact `features enable` fix whenever the configured non-default
+engine's dependency cannot actually be found, distinct from `_stt_engine_check`
+above it (which only asks whether faster-whisper itself, the universal
+fallback, can load — `OK` in both the healthy and the silently-downgraded
+case). The dependency loss that triggered this was `system/deps.py::install_packages`
+installing a feature's extra via a bare `uv pip install`, which never touches a
+`uv tool install`'s own receipt — so `uv tool upgrade` (what the tray's
+"Install update" and `yazses update` both run for that install method)
+reconciled the venv back to a receipt that never listed it, and removed it.
+`install_packages` now detects a `uv tool`-managed environment and records the
+extra in its receipt instead, merged with whatever was already there, so a
+second feature enabled later cannot silently drop the first.
+
 Neither Parakeet nor Moonshine supports `initial_prompt`, so the personal
 dictionary reaches them a different way: `postprocess/vocab_correct.py` (#73)
 recovers mis-heard vocabulary *after* decoding, which is why it was built

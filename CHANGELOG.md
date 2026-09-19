@@ -20,6 +20,35 @@ The `homebrew` and `aur` jobs already avoid this by calling
 now does the same, matching them rather than depending on a maintainer's separate
 `chore(release):` commit landing first.
 
+### Fixed — `uv tool upgrade` silently deleted an optional STT engine, on every update
+
+`yazses features enable stt-parakeet` (or any other feature with an optional dependency)
+installed the package with a bare `uv pip install --python <this venv>`, which never
+touches a `uv tool install`'s own record of what belongs in that environment. The next
+`uv tool upgrade yazses` — what the tray's **Install update** button and `yazses update`
+both run for a `uv tool` install — rebuilds the venv from exactly that record and removes
+anything it does not list. Reproduced in an isolated `UV_TOOL_DIR`: installing `onnx-asr`
+this way and then running `uv tool upgrade yazses` printed `Modified yazses environment -
+onnx-asr==0.12.0` and the package was gone, even when the yazses version itself did not
+change. Found because it happened for real: Parakeet (a materially more accurate STT
+engine) silently stopped loading and fell back to a small Whisper model, with nothing
+surfaced anywhere — one WARNING line in a rotating log file was the only trace, right
+after clicking the tray's own "Install update".
+
+`system/deps.py::install_packages` now detects a `uv tool`-managed environment and
+records the dependency in its `uv-receipt.toml` instead — merged with whatever
+requirements were already recorded there, because a naive `uv tool install --with X`
+**replaces** the with-list rather than adding to it, which would have silently dropped a
+first feature's dependency the moment a second one was enabled (confirmed against the
+real `uv` CLI before writing the merge). Falls back to the previous behavior, with a
+warning that it may not survive an update, if the receipt cannot be read or rewritten.
+
+Paired with a `yazses doctor` check that was simply missing: the existing **STT engine**
+row only asks whether faster-whisper — the universal fallback — can load, which is `OK`
+in both the healthy and the silently-degraded case. Doctor now also reports a configured,
+non-default engine (`parakeet`/`moonshine`) whose dependency cannot be found, by name,
+with the exact `yazses features enable <slug>` fix.
+
 ## [2.37.1] - 2026-09-19
 
 ### Security — `anyio` bumped past three advisories opened right after v2.37.0 shipped

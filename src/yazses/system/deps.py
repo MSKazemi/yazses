@@ -9,14 +9,19 @@ from __future__ import annotations
 
 import importlib.util
 import os
+import re
 import shutil
 import subprocess
 import sys
 import sysconfig
+import tomllib
 from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
 
 from yazses.system.snap import dependency_install_advice, in_snap
+
+# The only package this module ever installs dependencies *for*.
+_TOOL_NAME = "yazses"
 
 
 def missing_modules(modules: Iterable[str]) -> list[str]:
@@ -97,6 +102,118 @@ def install_command(packages: Sequence[str]) -> list[str]:
     if shutil.which("uv"):
         return ["uv", "pip", "install", "--python", sys.executable, *packages]
     return [sys.executable, "-m", "pip", "install", *packages]
+
+
+def _uv_tool_receipt() -> Path | None:
+    """The ``uv-receipt.toml`` for this install, if the running interpreter *is*
+    a ``uv tool install`` of yazses. ``None`` for every other kind of install
+    (pipx, a plain venv, a dev checkout's ``.venv``) — those have no receipt and
+    must keep using :func:`install_command`.
+
+    ``uv tool dir`` (never a hardcoded path) so a ``UV_TOOL_DIR`` override, or a
+    future change to uv's default layout, cannot make this silently stop
+    matching. Compared with the same not-symlink-resolved normalisation as
+    :func:`_env_prefix` above and for the identical reason: resolving symlinks
+    would collapse two different venvs built on the same base interpreter.
+    """
+    if not shutil.which("uv"):
+        return None
+    try:
+        out = subprocess.run(
+            ["uv", "tool", "dir"], capture_output=True, text=True, check=True, timeout=10,
+        )
+    except (subprocess.CalledProcessError, OSError, subprocess.SubprocessError):
+        return None
+    tool_dir = out.stdout.strip()
+    if not tool_dir:
+        return None
+    env_dir = Path(tool_dir) / _TOOL_NAME
+    if _norm(str(env_dir)) != _norm(sys.prefix):
+        return None
+    receipt = env_dir / "uv-receipt.toml"
+    return receipt if receipt.exists() else None
+
+
+def _requirement_name(requirement: str) -> str:
+    """``"onnx-asr[cpu,hub]>=0.12"`` -> ``"onnx-asr"``, canonicalised.
+
+    Canonicalised (lowercase, ``_``/``.`` folded to ``-``) so a receipt entry and
+    a newly-requested requirement for the same distribution are recognised as
+    the same package even when their spelling differs, which is how PyPI itself
+    treats package names.
+    """
+    name = re.split(r"[<>=!~\[; ]", requirement, maxsplit=1)[0].strip()
+    return re.sub(r"[-_.]+", "-", name).lower()
+
+
+def _render_requirement(entry: dict) -> str:
+    """A parsed ``uv-receipt.toml`` requirement dict back into a PEP 508 string."""
+    name = entry.get("name", "")
+    extras = entry.get("extras") or []
+    specifier = entry.get("specifier") or ""
+    suffix = f"[{','.join(extras)}]" if extras else ""
+    return f"{name}{suffix}{specifier}"
+
+
+def _persist_uv_tool_extras(receipt: Path, packages: Sequence[str]) -> bool:
+    """Record *packages* in the uv tool's own receipt, so they survive the next
+    ``uv tool upgrade`` — the upgrade command the tray's "Install update" and
+    `yazses update` both run for this install method.
+
+    Why this exists: ``uv tool upgrade`` rebuilds the tool's venv from exactly
+    what its receipt lists. A package installed the other way this module knows
+    — a bare ``uv pip install --python <venv>`` — never touches that receipt, so
+    it looks to uv like something that should not be there, and the next upgrade
+    removes it. Reproduced in isolation (a throwaway ``UV_TOOL_DIR``): installing
+    `onnx-asr` via ``uv pip install`` and then running ``uv tool upgrade yazses``
+    printed ``Modified yazses environment - onnx-asr==0.12.0`` and the package
+    was gone, even though the yazses version itself did not change. This is
+    almost certainly why a real install's Parakeet engine (an opt-in extra,
+    enabled through this exact path) silently stopped loading and fell back to
+    a smaller, less accurate model right after using the tray's own "Install
+    update" button — with no error the user would ever see.
+
+    The fix installs the same way ``yazses features enable <name>`` is
+    documented to work everywhere else, but reissues it as
+    ``uv tool install --with <every requirement already on the receipt> --with
+    <the new ones> <the exact yazses spec already on the receipt>`` — because a
+    bare ``uv tool install --with X yazses`` does not *add* X, it **replaces**
+    the whole with-list, which would silently drop a second feature's extra the
+    moment a third one is enabled. Confirmed the same way: enabling one extra,
+    then a second with a second bare ``--with``, left only the second in the
+    receipt.
+
+    Best-effort: any failure to parse the receipt or run the command returns
+    False so the caller can fall back to the plain install, which still enables
+    the feature for *this* session even if it will not survive an upgrade.
+    """
+    try:
+        data = tomllib.loads(receipt.read_text(encoding="utf-8"))
+    except (OSError, tomllib.TOMLDecodeError):
+        return False
+    requirements = data.get("tool", {}).get("requirements", [])
+    target = _TOOL_NAME
+    withs: dict[str, str] = {}
+    for entry in requirements:
+        name = entry.get("name", "")
+        if not name:
+            continue
+        rendered = _render_requirement(entry)
+        if _requirement_name(name) == _TOOL_NAME:
+            target = rendered
+        else:
+            withs[_requirement_name(name)] = rendered
+    for pkg in packages:
+        withs[_requirement_name(pkg)] = pkg
+    cmd = ["uv", "tool", "install"]
+    for spec in withs.values():
+        cmd += ["--with", spec]
+    cmd.append(target)
+    try:
+        subprocess.run(cmd, check=True)
+        return True
+    except (subprocess.CalledProcessError, OSError, subprocess.SubprocessError):
+        return False
 
 
 def daemon_interpreter_differs(lifecycle=None) -> str | None:
@@ -184,7 +301,6 @@ def install_packages(packages: Sequence[str], *, echo=print) -> bool:
     if blocked is not None:
         echo(blocked)
         return False
-    cmd = install_command(packages)
     echo("Installing dependencies: " + " ".join(packages))
     other = daemon_interpreter_differs()
     if other is not None:
@@ -199,6 +315,24 @@ def install_packages(packages: Sequence[str], *, echo=print) -> bool:
             "  them into the daemon's environment instead, e.g.\n"
             f"    {other} -m pip install " + " ".join(packages) + "\n"
         )
+
+    # A `uv tool install` reinstalls this interpreter itself from its own
+    # receipt on every `uv tool upgrade` — the command the tray's "Install
+    # update" and `yazses update` both run for this install method. A package
+    # landing here any other way looks, to that reconciliation, like it should
+    # not be there, and disappears on the next upgrade with no error anyone
+    # sees. Recording it in the receipt instead is what makes it survive.
+    receipt = _uv_tool_receipt()
+    if receipt is not None:
+        if _persist_uv_tool_extras(receipt, packages):
+            echo("Recorded in the uv tool install, so it survives future upgrades.")
+            return True
+        echo(
+            "Could not update the uv tool install's own record of its dependencies "
+            "— installing this session only. It may not survive the next update."
+        )
+
+    cmd = install_command(packages)
     try:
         subprocess.run(cmd, check=True)
         return True

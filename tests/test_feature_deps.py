@@ -45,6 +45,8 @@ def test_install_command_falls_back_to_pip(monkeypatch):
 
 
 def test_install_packages_success(monkeypatch):
+    # Not a uv-tool install: exercises the plain install_command() path below.
+    monkeypatch.setattr(deps, "_uv_tool_receipt", lambda: None)
     calls = []
     monkeypatch.setattr(deps.subprocess, "run", lambda cmd, check: calls.append(cmd))
     assert deps.install_packages(["pkg-a", "pkg-b"], echo=lambda *_: None) is True
@@ -52,6 +54,8 @@ def test_install_packages_success(monkeypatch):
 
 
 def test_install_packages_reports_failure(monkeypatch):
+    monkeypatch.setattr(deps, "_uv_tool_receipt", lambda: None)
+
     def boom(cmd, check):
         raise deps.subprocess.CalledProcessError(1, cmd)
 

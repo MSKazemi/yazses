@@ -7,6 +7,7 @@ when Mac and Windows ship they grow their own extras blocks.
 
 from __future__ import annotations
 
+import importlib.util
 import os
 import platform as platform_module  # `platform` is a local in run_doctor (the Platform bundle)
 import shutil
@@ -450,6 +451,55 @@ def _stt_engine_check(engine: str) -> _Check:
             f"\u2014 dictation cannot transcribe anything. Fix: {fix}",
         )
     return (label, "OK", f"faster-whisper ready (ctranslate2 {ctranslate2.__version__}){via}")
+
+
+# Import name -> (feature slug, human name), for every non-default `[stt] engine`.
+# Kept beside `stt/factory.py::_build_raw_engine`'s own dispatch rather than
+# imported from it, because that function is heavy-import-guarded and this
+# check must stay a cheap `find_spec` -- importing the factory to ask it would
+# import `numpy` and the engine modules just to answer a yes/no question.
+_ENGINE_MODULES = {
+    "parakeet": ("onnx_asr", "stt-parakeet", "Parakeet"),
+    "moonshine": ("moonshine_onnx", "stt-moonshine", "Moonshine"),
+}
+
+
+def _configured_engine_check(engine: str) -> _Check | None:
+    """Is the *configured* `[stt] engine` actually the one that will decode?
+
+    `_stt_engine_check` above answers a different, unconditional question --
+    "can faster-whisper load at all" -- because `stt/factory.py` falls back to
+    it no matter what `[stt] engine` says, so its absence is the one failure
+    that always matters. That is also exactly why it cannot tell you whether a
+    *configured* Parakeet or Moonshine engine is the one actually running:
+    "faster-whisper ready" is true in both the working case and the silently
+    degraded one.
+
+    Found on a real machine: `[stt] engine = "parakeet"` with `onnx_asr` missing
+    logs one WARNING line to a rotating file nobody reads, and dictation falls
+    back to a much smaller Whisper model with no error surfaced anywhere a user
+    would see it -- for as long as the mismatch lasts, which was until someone
+    happened to grep the log. `yazses doctor` is the one place that answer
+    belongs, next to the model and hotkey checks it already reports.
+
+    Returns ``None`` for the default engine (nothing extra to check) or an
+    unrecognised one (`_stt_engine_check`'s own "unknown engine" warning covers
+    that at decode time; doctor is not the place to re-derive the valid set).
+    """
+    name = (engine or "").strip().lower()
+    if name not in _ENGINE_MODULES:
+        return None
+    module, slug, human = _ENGINE_MODULES[name]
+    label = f"{human} engine"
+    if importlib.util.find_spec(module) is not None:
+        return (label, "OK", f"configured and installed ({module})")
+    return (
+        label,
+        "WARN",
+        f"[stt] engine = \"{name}\" but its dependency ({module}) is not installed "
+        f"— dictation is silently using faster-whisper instead. "
+        f"Fix: yazses features enable {slug}",
+    )
 
 
 def _model_check(model: str, hf_cache: Path) -> _Check:
@@ -1440,7 +1490,11 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
     # load is the reason nothing will ever be typed, and the order they are read in is
     # the order they should be fixed in.
     if cfg is not None:
-        checks.append(_stt_engine_check(getattr(cfg.stt, "engine", "")))
+        engine = getattr(cfg.stt, "engine", "")
+        checks.append(_stt_engine_check(engine))
+        engine_check = _configured_engine_check(engine)
+        if engine_check is not None:
+            checks.append(engine_check)
 
     # Configured STT model availability (downloaded vs fetched-on-first-use).
     if cfg is not None:
