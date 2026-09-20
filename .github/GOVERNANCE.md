@@ -21,9 +21,10 @@ Stewards are recorded in [`.github/CODEOWNERS`](CODEOWNERS), which also makes
 GitHub request their review automatically. Adding yourself there is part of the PR
 that makes you a steward.
 
-Stewardship **lapses quietly** after roughly three months of silence. No drama, no
-hard feelings, and the door stays open — announcing a break is the polite version
-and is always welcome.
+Stewardship **lapses quietly after 30 days without substantive project activity**. This is
+not a penalty: the purpose is to keep review ownership and CODEOWNERS aligned with people
+who are currently available. The role can be restored when someone returns and becomes
+active again. Announcing a break is always welcome.
 
 **Current maintainer:** [@MSKazemi](https://github.com/MSKazemi)
 (Mohsen Seyedkazemi Ardebili).
