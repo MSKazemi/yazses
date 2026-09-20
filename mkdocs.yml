@@ -391,6 +391,7 @@ nav:
           - Accessibility & throughput: design/accessibility-and-throughput-spec.md
           - CI/CD audit: design/ci-cd-audit.md
           - Troubleshooting review: design/troubleshooting-full-review.md
+          - White paper authoring standard: design/white-paper-authoring-standard.md
       - Mobile (in design):
           - Overview: mobile/index.md
           - Android architecture: mobile/architecture.md
