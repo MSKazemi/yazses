@@ -10,23 +10,29 @@ CPU. Dictation works out of the box; the extras beyond it are opt-in and off by 
 
 ## ⬇️ Install
 
-| Your computer | Install it | Full guide |
+| Your computer | Recommended install | Full guide |
 |---|---|---|
 | 🐧 **Linux** | `bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install.sh)` | **[Linux install →](https://mskazemi.com/yazses/install-linux.html)** |
-| 🍎 **macOS** | `pipx install yazses` | **[macOS install →](https://mskazemi.com/yazses/macos-install.html)** |
+| 🍎 **macOS (Apple Silicon)** | `brew tap MSKazemi/yazses && brew trust MSKazemi/yazses && brew install --cask yazses` | **[macOS install →](https://mskazemi.com/yazses/macos-install.html)** |
+| 🍎 **macOS (Intel)** | Download the `-macos-x86_64.dmg` from [Releases](https://github.com/MSKazemi/yazses/releases/latest) | **[macOS install →](https://mskazemi.com/yazses/macos-install.html)** |
 | 🪟 **Windows** | `winget install MSKazemi.YazSes` | **[Windows install →](https://mskazemi.com/yazses/windows-install.html)** |
 
-Then run these two:
+After installation, run:
 
 ```bash
 yazses quickstart   # 3 steps tailored to your machine — read-only, changes nothing
+yazses doctor       # verify microphone, hotkey and text injection
 yazses start        # now hold your hotkey, speak, release
 ```
 
-*On Apple Silicon, a Raspberry Pi, or anything not x86_64?* The
-**[platform support matrix](https://mskazemi.com/yazses/platform-support.html)** lists every
-OS and CPU with the channel that works there today — `pipx install yazses` works everywhere
-that is supported at all, because the published wheel is architecture-independent.
+On a native macOS or Windows desktop install, the app can also be launched from
+the normal application menu; the CLI remains available for diagnostics and advanced setup.
+
+*On Apple Silicon, Intel macOS, ARM64 Windows, a Raspberry Pi, or another less common CPU?*
+The **[platform support matrix](https://mskazemi.com/yazses/platform-support.html)** lists the
+tested install channel for each OS/architecture combination. `pipx install yazses` remains a
+portable fallback on supported Python/platform combinations, but the native package is the
+better desktop experience when one is available.
 
 **How it works:** you hold a key → YazSes records → [faster-whisper](https://github.com/SYSTRAN/faster-whisper)
 transcribes it on your CPU → the text is typed into whatever window has focus. There is no
