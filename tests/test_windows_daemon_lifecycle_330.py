@@ -65,13 +65,17 @@ def test_windows_module_does_not_redeclare_the_shared_call_error():
 
 
 def test_catching_the_shared_name_catches_the_windows_error():
-    """The handler shape from cli.py, tray/app.py and mcp/server.py, verbatim."""
+    """The handler shape from cli.py, tray/app.py and mcp/server.py, verbatim.
+
+    No `else: pytest.fail(...)` here — CodeQL correctly flagged it as unreachable:
+    the `try` unconditionally raises, so control either lands in `except` (and the
+    assertion below runs) or the exception propagates uncaught (and pytest reports
+    that failure on its own). There is no third path for an `else` to catch.
+    """
     try:
         raise win_ipc.IpcUnreachableError(r"\\.\pipe\yazses-alice-daemon")
     except IpcUnreachableError as exc:
         assert "yazses-alice-daemon" in str(exc)
-    else:  # pragma: no cover - the assertion above is the point
-        pytest.fail("the shared handler did not catch the Windows transport's error")
 
 
 def test_windows_error_keeps_its_pipe_name_and_cause():
@@ -307,7 +311,7 @@ def test_no_platform_transport_shadows_a_shared_ipc_name():
     `except` sites in `cli.py` import, so those handlers were dead code on
     Windows while behaving correctly on Linux and macOS.
     """
-    import yazses.ipc.client as shared
+    from yazses.ipc import client as shared
 
     shared_names = {
         name: obj for name, obj in vars(shared).items() if not name.startswith("_") and isinstance(obj, type)
