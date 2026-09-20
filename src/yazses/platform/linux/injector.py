@@ -74,6 +74,10 @@ class LinuxInjector:
     def inject_key_sequence(self, keys: list[str]) -> None:
         if not keys:
             return
+        selected_backend = os.environ.get("YAZSES_INJECTOR", "").strip().lower()
+        if selected_backend == "unicode":
+            self._primary.inject_key_sequence(keys)
+            return
         if self._is_wayland:
             if shutil.which("ydotool"):
                 for combo in keys:
