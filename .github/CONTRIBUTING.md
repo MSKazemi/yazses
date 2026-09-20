@@ -97,10 +97,13 @@ Reviewing someone else's PR — including as your own next step after a first me
 and a path into reviewing that does not start with repository permissions.
 
 [`GOVERNANCE.md`](GOVERNANCE.md) is the short version: what you can merge yourself,
-what needs an ADR, how **module stewardship** works (two non-trivial PRs to a module
-and it is yours to review), and the handful of things — no telemetry, offline by
-default, off by default, honesty about what exists — that a PR cannot change without
-a superseding ADR. Worth two minutes before you propose anything structural.
+what needs an ADR, and the promotion path from **Contributor → Regular contributor →
+Module steward → Maintainer**. Regular contributors can review bounded L0/L1 work without
+receiving write access; module stewardship adds bounded ownership of one area after two
+non-trivial contributions plus good review judgement. The same document also lists the
+handful of things — no telemetry, offline by default, off by default, honesty about what
+exists — that a PR cannot change without a superseding ADR. Worth two minutes before you
+propose anything structural.
 
 ## Before opening a pull request
 
