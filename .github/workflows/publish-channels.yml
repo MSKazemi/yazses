@@ -172,6 +172,30 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         if: env.HAVE_SECRET == 'yes'
 
+      - name: Sync the winget-pkgs fork with upstream before submitting
+        # `wingetcreate submit` opens its PR from a fork of microsoft/winget-pkgs owned by
+        # whoever WINGET_TOKEN belongs to. That fork only moves when something pushes to
+        # it, and nothing here ever does -- a manual PR bypasses the fork entirely, and a
+        # bot-only PR merges upstream, not back into the fork. Left alone long enough
+        # (microsoft/winget-pkgs takes hundreds of commits a day) it falls behind far
+        # enough that GitHub refuses to fast-forward it for a new PR branch, and
+        # wingetcreate's own error is exactly the fix: "Sync your fork manually and try
+        # again." First seen on v2.37.2: refresh-package-manifests.py now runs correctly
+        # (see the step below), the manifest exists, submit reaches "Submitting pull
+        # request for manifest..." and only then fails there.
+        #
+        # Best-effort: an already-synced fork, or a merge GitHub can fast-forward
+        # trivially, both succeed; a genuine conflict (something pushed directly to the
+        # fork's master, which nothing here does) would need a human regardless, and
+        # failing loudly here would block the whole job on a problem the submit step
+        # reports just as clearly.
+        if: env.HAVE_SECRET == 'yes'
+        continue-on-error: true
+        shell: pwsh
+        run: gh api -X POST repos/MSKazemi/winget-pkgs/merge-upstream -f branch=master
+        env:
+          GH_TOKEN: ${{ secrets.WINGET_TOKEN }}
+
       - name: Submit the manifests to microsoft/winget-pkgs
         if: env.HAVE_SECRET == 'yes'
         shell: pwsh

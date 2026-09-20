@@ -6,6 +6,23 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the winget publish job's own fork had fallen behind upstream
+
+v2.37.2's release proved the manifest-generation fix (above) correct — the job reached
+`Submitting pull request for manifest...`, further than it had ever gotten — and then
+failed there: `The forked repository could not be synced with the upstream commits. Sync
+your fork manually and try again.` The fork `wingetcreate submit` opens its PR from had
+not moved since 2026-09-12, and `microsoft/winget-pkgs` takes hundreds of commits a day.
+Nothing in this repository was ever making it move — a manual PR bypasses the fork, and a
+bot-submitted one merges upstream, not back into it.
+
+The job now fast-forwards the fork from upstream before submitting
+(`gh api -X POST repos/MSKazemi/winget-pkgs/merge-upstream`), best-effort so an
+already-current fork or a trivial fast-forward both succeed silently and a genuine
+conflict fails at the same submit step it always did. Verified against the real fork
+before committing this: `Successfully fetched and fast-forwarded from upstream
+microsoft:master`.
+
 ## [2.37.2] - 2026-09-19
 
 ### Fixed — the winget publish job expected the manifest it was supposed to generate
