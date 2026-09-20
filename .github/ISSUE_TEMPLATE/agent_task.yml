@@ -1,0 +1,157 @@
+name: 🤖 Agent-ready task
+description: >-
+  A single unit of work, scoped and specified enough that a human contributor
+  or a coding agent can implement it end-to-end in one PR with no follow-up
+  questions. Use this instead of the generic feature request once a design
+  (ADR/spec) exists and you're ready to split it into buildable pieces.
+title: "[task]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Before filling this in:** if you can't answer every required field
+        precisely, the task is not ready to open yet — go back to the
+        design/spec/roadmap doc and split it further. A task that needs a
+        judgment call mid-implementation is a design gap, not an
+        implementation detail.
+
+  - type: input
+    id: goal
+    attributes:
+      label: One-sentence goal
+      description: What exists after this ships that didn't before.
+      placeholder: "Add a pure language-profile resolver for en/zh-CN/zh-TW with no I/O."
+    validations:
+      required: true
+
+  - type: textarea
+    id: non_goals
+    attributes:
+      label: Explicitly out of scope
+      description: >-
+        Name the things a reasonable contributor might assume are included
+        but are not — this is what keeps the PR small.
+      placeholder: |
+        - Does NOT wire the resolver into the CLI or daemon (see #CHN-13).
+        - Does NOT add Cantonese — Mandarin only.
+    validations:
+      required: true
+
+  - type: textarea
+    id: integration
+    attributes:
+      label: Where this plugs in
+      description: >-
+        The exact file(s), Protocol/interface, or seam this extends —
+        link the ADR/spec section. An agent should not have to search the
+        repo to find the boundary.
+      placeholder: |
+        Extends `src/yazses/config.py` (new `LanguageProfile` dataclass) and
+        `src/yazses/stt/factory.py::build_engine` (reads the resolved profile).
+        See design/chinese/target-architecture.md#profile-resolver, ADR-v2-135.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: lazy_load
+    attributes:
+      label: Does this add any dependency beyond the base install?
+      options:
+        - "No — pure stdlib / existing deps only"
+        - "Yes — must be lazy-loaded behind an optional extra"
+    validations:
+      required: true
+
+  - type: textarea
+    id: lazy_load_detail
+    attributes:
+      label: If yes — the lazy-load contract
+      description: >-
+        Name the extra, where it's registered, and confirm the default
+        (English/CPU) install path imports nothing new. Required if you
+        answered "Yes" above.
+      placeholder: |
+        Package: opencc-python-reimplemented, behind the `chinese` extra.
+        Registered in system/features.py::_FEATURE_DEPS["chinese-language"].
+        Import happens only inside stt/factory.py when
+        config.language.profile == "zh-*" — never at module load time.
+        `yazses doctor` on a default English install must show no new
+        import and no new download.
+    validations:
+      required: false
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria (Given / When / Then)
+      description: Testable statements, not prose. This is what "done" means.
+      placeholder: |
+        - [ ] Given config.language.profile="en", resolve_profile() returns the
+              English profile and imports no Chinese-only module.
+        - [ ] Given profile="zh-CN", resolve_profile() returns script="simplified".
+        - [ ] Given an invalid profile string, resolve_profile() raises
+              ValueError naming the invalid value (not a bare KeyError).
+    validations:
+      required: true
+
+  - type: textarea
+    id: tests
+    attributes:
+      label: Required tests
+      description: >-
+        Which existing test file/pattern to follow, and whether this must
+        run in ordinary CI with no model, network, or hardware.
+      placeholder: |
+        tests/test_language_profile.py, pure unit tests, no model download,
+        follows the style of tests/test_stt_language.py. Must pass in the
+        default CI matrix (no `chinese` extra installed).
+    validations:
+      required: true
+
+  - type: textarea
+    id: docs
+    attributes:
+      label: Docs to update
+      placeholder: |
+        - docs/configuration.md (new [language] keys)
+        - CHANGELOG.md
+    validations:
+      required: false
+
+  - type: input
+    id: done_command
+    attributes:
+      label: Definition-of-done command
+      description: The exact command a reviewer (or the agent itself) runs to prove it's finished.
+      placeholder: "uv run python -m pytest tests/test_language_profile.py -v && uv run ruff check src tests"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: size
+    attributes:
+      label: Size
+      description: If this is L, consider whether it should be split before opening.
+      options:
+        - "S — under ~150 lines"
+        - "M — ~150-400 lines"
+        - "L — 400+ lines (justify why this can't split further)"
+    validations:
+      required: true
+
+  - type: input
+    id: depends_on
+    attributes:
+      label: Blocked by (issue numbers)
+      placeholder: "#378 (ADR approval)"
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: suitability
+    attributes:
+      label: Suitable for
+      options:
+        - label: A coding agent can implement this end-to-end from this description alone
+        - label: Needs a native-language/domain reviewer before merge
+        - label: Needs real hardware to verify (cannot be done in a container)
