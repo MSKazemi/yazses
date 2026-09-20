@@ -66,6 +66,28 @@ Within that area they may review and approve **L0-L2** work, unless the change e
 L3 because it touches privacy, dependencies, permissions, public interfaces, release paths,
 accepted ADRs or other protected boundaries.
 
+### Active-role review
+
+Delegated roles are **active responsibilities, not permanent titles**. They are reviewed
+continuously and may be narrowed, paused or removed when that is safer for the project.
+
+- **Inactivity:** after **30 days without substantive project activity**, an active steward
+  role lapses and any associated CODEOWNERS or delegated repository permission may be
+  removed. Returning contributors can regain the role after becoming active again.
+- **Review quality:** repeated inaccurate approvals, repeated failure to follow the review
+  lanes, or repeatedly approving work the reviewer could not verify can lead to a narrower
+  role or loss of review authority. A single ordinary mistake should normally lead to
+  feedback, not removal.
+- **Project boundaries:** bypassing privacy, permission, dependency, security or ADR
+  boundaries can cause an immediate pause of delegated authority while the change is
+  reviewed.
+- **Conduct or permission misuse:** repository permissions may be removed immediately when
+  needed to protect contributors, users or the repository. Public explanations should be
+  given when appropriate; security and Code-of-Conduct matters may need to remain private.
+
+Reducing a role does not erase past credit. `CONTRIBUTORS.md` records work that happened;
+CODEOWNERS and repository permissions record who is responsible **now**.
+
 ## How decisions get made
 
 Most changes need no ceremony: open a PR, a steward or the maintainer reviews it,
