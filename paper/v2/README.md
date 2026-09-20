@@ -100,3 +100,19 @@ Every central sentence in the Results section should be reducible to:
 > **claim → artifact → population/corpus → condition → uncertainty → caveat**
 
 If one of those pieces is absent, the claim is not ready for the manuscript.
+
+
+## Authorship, consent, and publication governance
+
+The second paper uses an explicit three-gate publication protocol. Start with **[authorship/README.md](authorship/README.md)**.
+
+The governing rule is intentionally strict: every person in the frozen contributor roster is invited, silence is not consent, and publication is blocked unless every candidate explicitly opts in and every confirmed author approves the same final manuscript fingerprint.
+
+Supporting documents:
+
+- **[authorship/CANDIDATE_AUTHOR_ROSTER.md](authorship/CANDIDATE_AUTHOR_ROSTER.md)** — 28-person seed roster derived from the project's public contributor records; must be reconciled again at the final authorship cutoff.
+- **[authorship/COMMUNICATION_TEMPLATES.md](authorship/COMMUNICATION_TEMPLATES.md)** — public/private invitation text, metadata form, reminders, draft-review messages, final approval request, withdrawal handling, and publication notice.
+- **[authorship/APPROVAL_PROTOCOL.md](authorship/APPROVAL_PROTOCOL.md)** — per-author state machine, immutable source/PDF fingerprint, approval evidence rules, invalidation and reapproval triggers, withdrawal handling, and audit summary.
+- **[authorship/ARCHIVE_ORG_PUBLICATION_CHECKLIST.md](authorship/ARCHIVE_ORG_PUBLICATION_CHECKLIST.md)** — pre-upload, Internet Archive metadata/file checks, post-upload verification, and corrected-version procedure.
+
+Private contact emails and raw consent evidence belong in an access-controlled registry outside this public repository. The repository records the process, public-safe author metadata, manuscript fingerprints, and aggregate approval state.
