@@ -8,7 +8,7 @@
     <title>YazSes (Install)</title>
     <authors>Mohsen Seyedkazemi Ardebili</authors>
     <projectUrl>https://mskazemi.com/yazses/</projectUrl>
-    <iconUrl>https://raw.githubusercontent.com/MSKazemi/yazses/main/snap/gui/yazses.png</iconUrl>
+    <iconUrl>https://cdn.jsdelivr.net/gh/MSKazemi/yazses@v2.37.1/snap/gui/yazses.png</iconUrl>
     <copyright>2026 Mohsen Seyedkazemi Ardebili</copyright>
     <licenseUrl>https://github.com/MSKazemi/yazses/blob/main/LICENSE</licenseUrl>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
