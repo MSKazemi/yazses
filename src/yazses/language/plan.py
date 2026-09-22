@@ -108,17 +108,24 @@ def resolve_profile(
     requested_engine = _engine(engine) if engine is not None else current_engine
     requested_model = _model(model) if model is not None else current_model
 
-    if profile.speech_language == "zh":
-        if engine is not None and requested_engine != "faster-whisper":
-            raise LanguageProfileError(
-                f"Mandarin profile {profile.id!r} cannot use engine "
-                f"{requested_engine!r}: the current P1 Mandarin backend is "
-                "'faster-whisper'."
-            )
-        if model is not None:
-            problem = language_model_problem(requested_model, "zh")
-            if problem:
-                raise LanguageProfileError(problem)
+    if engine is not None and requested_engine != "faster-whisper":
+        raise LanguageProfileError(
+            "Explicit --engine overrides in language profiles currently support only "
+            "'faster-whisper'. Existing compatible specialized English engines are "
+            "preserved when no override is requested; configure engine-specific models "
+            "through their own feature/settings path."
+        )
+    if model is not None and requested_engine != "faster-whisper":
+        raise LanguageProfileError(
+            "Explicit --model overrides in language profiles are validated only for "
+            "'faster-whisper'. Switch to --engine faster-whisper as well, or configure "
+            "the specialized engine through its own feature/settings path."
+        )
+
+    if profile.speech_language == "zh" and model is not None:
+        problem = language_model_problem(requested_model, "zh")
+        if problem:
+            raise LanguageProfileError(problem)
 
     if mode == "recommended":
         target_engine = profile.recommended_engine
