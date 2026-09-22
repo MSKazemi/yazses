@@ -91,6 +91,7 @@ Current programme ADR set:
 - ADR-v2-137 — face gesture as an intent-bearing switch;
 - ADR-v2-138 — hands-free bundle is composition, not a second pipeline;
 - ADR-v2-139 — gaze calibration coordinate space and invalidation.
+- ADR-v2-141 — coarse target -> semantic UI entity grounding (proposed).
 
 ## Gate 3 — implementation-ready spec
 
