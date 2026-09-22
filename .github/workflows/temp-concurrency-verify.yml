@@ -1,0 +1,24 @@
+name: Temporary concurrency verification
+
+on:
+  push:
+    branches: ["verify/workflow-concurrency-arm"]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: "latest"
+          python-version: "3.12"
+      - run: uv sync
+      - name: Ruff
+        run: uv run ruff check src tests scripts
+      - name: Concurrency regression test
+        run: uv run python -m pytest tests/test_workflow_concurrency.py -q
