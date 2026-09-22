@@ -2,6 +2,11 @@
 
 **Status:** Accepted (2026-08 design, in force)
 **Deciders:** Mohsen Seyedkazemi Ardebili
+
+> **2026-09-22 attribution update:** [ADR-024](adr-024-remote-coding-agents.md) supersedes
+> only ADR-023's sample wording that asked a PR to state AI assistance. The bounded-task,
+> readiness, scope, validation and human-responsibility decisions in this ADR remain in force.
+> Current project policy credits the human contributor only and forbids tool attribution.
 **Context links:** [`campaign/README.md`](../../campaign/README.md) (the mechanics this
 ADR explains the reasoning for), [`AGENTS.md`](../../AGENTS.md), [`.github/CONTRIBUTING.md`](../../.github/CONTRIBUTING.md)
 ("Using an AI coding assistant"), [[adr-021-invest-in-error-cost]] (the same "L3 is never
