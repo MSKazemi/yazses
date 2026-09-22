@@ -58,6 +58,11 @@ All tasks below are attached to milestone **Hands-free — perception & accessib
 | EYE-QA-KDE-B | #438 |
 | EYE-QA-X11-B | #439 |
 | EYE-QA-HIDPI-B | #440 |
+| EYE-GROUND-001 | #441 |
+| EYE-GROUND-002 | #442 |
+| EYE-GROUND-003 | #443 |
+| EYE-GROUND-004 | #444 |
+| EYE-GROUND-005 | #445 |
 
 ## How to use a task
 
@@ -105,6 +110,47 @@ Do not solve a later task "while here". Small PRs are a design goal.
 | EYE-WAYLAND-001 | Define honest gaze-target semantics on Wayland | L1 research/design | 2–4 h | Wayland for validation | gaze routing + portal research |
 | EYE-ACCESS-001 | Accessibility co-design + fatigue/usability protocol | L1 research | multi-session | yes | experimental runtime |
 | EYE-SETTINGS-001 | Accessible settings/recovery surface for hands-free controls | L3 | 2–4 h | no for CI | config + observability stable |
+
+## Grounded semantic target extension
+
+These tasks come from the 2026-09-22 Magic Pointer / Apple onscreen-awareness research synthesis.
+They extend the eye programme without redefining webcam gaze as a precision pointer.
+
+| ID | Issue | Work | Cloud-agent/Jules after blockers? | Depends on |
+|---|---:|---|---:|---|
+| EYE-GROUND-001 | #441 | Pure target/candidate/result contracts | **yes** | ADR-v2-141 accepted |
+| EYE-GROUND-002 | #442 | Pure resolver + ambiguity/abstention | **yes** | #441 |
+| EYE-GROUND-003 | #443 | Optional gaze/deixis integration seam | **yes** (fake source in CI) | #441, #442 |
+| EYE-GROUND-004 | #444 | Live AT-SPI/AX/UIA coverage study | **no** — real desktop evidence | research plan |
+| EYE-GROUND-005 | #445 | Deterministic wrong-target/abstention harness | **yes** | #441, #442 |
+
+**Important:** `agent-ready` may be added only after design/blockers are merged. The `jules` label,
+once the Jules GitHub App is configured, is an execution trigger rather than a readiness category.
+
+### EYE-GROUND-001 — pure target/semantic contracts
+
+Implement only the dependency-free values/protocol specified by ADR-v2-141. No runtime wiring or
+platform library.
+
+### EYE-GROUND-002 — pure resolver
+
+Deterministic geometry + semantic evidence. Intent hints refine the plausible set; they never pull an
+off-region element into it. Ambiguous input abstains.
+
+### EYE-GROUND-003 — gaze/deixis integration
+
+Inject an optional semantic source. Existing Glance-Type and window-level deixis behavior remains the
+fallback when it is absent/ambiguous/failing.
+
+### EYE-GROUND-004 — semantic-source field evidence
+
+Human/platform study. Use controlled synthetic content and publish aggregate/derived data only. A
+cloud agent may build tooling but cannot certify the observations.
+
+### EYE-GROUND-005 — evaluation harness
+
+Pure trace replay for grounded-correct, grounded-wrong, ambiguous and unresolved outcomes. No product
+threshold may be inferred from synthetic fixtures alone.
 
 ## Detailed contracts
 
