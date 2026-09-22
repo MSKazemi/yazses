@@ -86,6 +86,23 @@ human, permanently. `cloud_agent_ready` is false for every compatibility, measur
 localization task for exactly this reason, and the validator rejects the row if someone
 sets it true.
 
+### Cloud-agent readiness is not an execution trigger
+
+The task field `cloud_agent_ready: true` means a clean cloud/container environment can produce
+the implementation **and all evidence required to call that task complete**. It is an eligibility
+signal only.
+
+It does **not**:
+- grant a tool repository access;
+- assign the task;
+- apply an external execution label;
+- authorize a merge;
+- turn hardware/native-language evidence into something a VM may infer.
+
+For Google Jules, the repository-specific trigger is the `jules` issue label after the owner has
+installed the Google Labs Jules GitHub App. A maintainer applies that label deliberately. See
+[`docs/contribute/jules.md`](../docs/contribute/jules.md).
+
 ## Running a session, or reviewing
 
 - [`sprint-kit.md`](sprint-kit.md) — a 90-minute group session. **Parked until there are
