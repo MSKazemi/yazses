@@ -34,15 +34,6 @@ uv run ruff check src tests scripts
 uv run mypy src
 ```
 
-## AI assistance
-
-<!-- Using a coding agent is fine and increasingly common — it never changes whether we
-     accept a PR, only how carefully we read it. Say which tool, if any, and what you
-     checked yourself. Delete this section if you wrote it all by hand. -->
-
-Tool used:
-What I verified personally:
-
 ## Checklist
 
 <!-- Docs-only PR (a translation, an example config, a typo, adding yourself to a list)?
