@@ -218,5 +218,6 @@ The v2 programme: interaction layer, cognitive layer, and everything after.
 | [adr-v2-138-hands-free-composition](adr-v2-138-hands-free-composition.md) | Hands-free mode is a composition preset with one global safety state | Proposed |
 | [adr-v2-139-gaze-calibration-coordinate-space](adr-v2-139-gaze-calibration-coordinate-space.md) | Gaze calibration is bound to display topology and camera geometry | Proposed |
 | [adr-v2-140-evaluation-evidence-and-research-consent](adr-v2-140-evaluation-evidence-and-research-consent.md) | Community hardware QA and human research are separate evidence classes | Proposed |
+| [adr-v2-141-grounded-target-resolution](adr-v2-141-grounded-target-resolution.md) | Ground coarse targets into semantic UI entities before planning actions | Proposed |
 
 <!-- END GENERATED ADR INDEX -->
