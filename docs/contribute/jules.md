@@ -15,6 +15,12 @@ This page explains how to connect Jules without granting unnecessary GitHub acce
 maintainers can trigger it from an issue, and how an outside contributor can use Jules
 without becoming a collaborator on the upstream repository.
 
+Jules is a third-party service. Its pricing, quotas, included usage and account terms can change
+independently of this repository. Before using a paid or metered account, read
+[Third-party coding tools: accounts, costs, and responsibility](third-party-coding-tools.md).
+YazSes does not require Jules and does not assume or reimburse a contributor's Jules charges unless
+there is a separate written agreement made before the expense.
+
 ## The access model in one minute
 
 YazSes is currently owned by the personal GitHub account `MSKazemi`.
