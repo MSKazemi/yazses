@@ -11,6 +11,23 @@ commands. If your tool looks for its own filename and finds nothing, read this o
 
 The human who opens the PR is responsible for it. Do not open a PR the author has not read.
 
+### Remote coding agents
+
+Remote coding agents use this same file; do not create a second tool-specific rulebook.
+For Google Jules, see [the connection/runbook](docs/contribute/jules.md). Jules automatically
+reads root `AGENTS.md`.
+
+Two distinctions matter:
+
+- `agent-ready` means an issue is specified well enough for an agent; it does **not** start work.
+- `jules` is an external execution trigger. Apply it deliberately only after blockers/design
+  gates are clear; never mass-apply it from task-generation automation.
+
+If a remote tool supports commit-authorship settings, configure it so the **human user is the
+sole author**. For Jules, choose **Commit Authoring → User only**. Rule 8 below still applies:
+do not add tool co-authors, generated-with footers, or AI attribution to project artifacts.
+
+
 ## What this project is
 
 YazSes is a cross-platform, **fully offline** hold-to-talk voice dictation daemon for Linux,
