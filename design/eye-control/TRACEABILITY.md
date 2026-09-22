@@ -146,5 +146,8 @@ Before recommended status, add:
 | Research analysis | `METRICS.md` | #426 | reproducible tables/figures |
 | Tester/participant wording | `DATA_SHARING.md` | #427 | reviewed public/research materials |
 | Beginner instruction usability | `BEGINNER_TESTING.md` | #449 | first-time-reader review |
+| Slot readiness / matrix registry | `VALIDATION_OPERATIONS.md` | #454 | validated PLANNED/READY registry |
+| Coverage dashboard | `VALIDATION_OPERATIONS.md` | #455 | generated engineering coverage view |
+| Contributor task-finder integration | campaign inventory contract | #456 | READY eye slots discoverable as no-code measurement tasks |
 
 Community QA rows are not automatically eligible for participant-level paper analysis.
