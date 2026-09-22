@@ -22,6 +22,7 @@ site](https://mskazemi.com/yazses/) instead. This directory answers the other qu
 | [`emg-protocol.md`](emg-protocol.md) | The YESP serial protocol for the EMG activation source. |
 | [`v2-cognitive-layer/`](v2-cognitive-layer/) | Design notes for the opt-in perceptual/personalization features. |
 | [`meeting-mode/`](meeting-mode/), [`mobile/`](mobile/) | Subsystem design notes. |
+| [`eye-control/`](eye-control/) | Eye/gaze/head/face-camera accessibility programme: as-built audit, roadmap, test gates and agent-sized tasks. |
 | [`packaging/`](packaging/) | Release-engineering runbooks: APT, PPA, Snap, macOS notarisation, Windows signing. Procedures only — they name GitHub Secret *keys*, never values. |
 
 ## The visibility contract
