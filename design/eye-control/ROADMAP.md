@@ -334,6 +334,59 @@ Research checklist:
 A dedicated tracker may unlock precision pointer experiments, but must not change the webcam
 accuracy claims.
 
+## Cross-cutting production track — must land before bundle promotion
+
+These are not optional polish. They close failure modes that cut across the feature phases.
+
+### X1 — Camera permissions and packaging (#414)
+
+Define one matrix for source installs, frozen/bundled apps and OS permission surfaces.
+
+**Gate:** a package never asks for a webcam permission when its shipped runtime cannot use the
+camera feature, and permission denial never breaks ordinary dictation.
+
+### X2 — Display topology, multi-monitor and HiDPI (#415)
+
+Implement ADR-v2-139.
+
+**Gate:** calibration/window hit-testing use one coordinate space; incompatible display/camera
+topology makes calibration stale instead of silently wrong.
+
+### X3 — Observability (#416)
+
+Add privacy-safe health to `doctor`/status.
+
+**Gate:** user can distinguish dependency/model/device/permission/stale-signal/calibration/backend
+failures without exposing landmarks or frames.
+
+### X4 — Global safety / kill / watchdog (#417)
+
+Implement ADR-v2-138's ACTIVE/PAUSED/FAULTED semantics.
+
+**Gate:** stale sensor state cannot move/click/fire; user can pause/stop without relying on accurate
+pointer control.
+
+### X5 — Wayland gaze target semantics (#418)
+
+Separate the question "can YazSes inject pointer events?" from "can YazSes identify/focus the
+gaze-selected dictation target?"
+
+**Gate:** GNOME/KDE behavior is documented from supported APIs and fallback is explicit.
+
+### X6 — Accessibility co-design and fatigue (#419)
+
+Use structured field reports before recommending defaults.
+
+**Gate:** multiple environments/people, error/recovery metrics and fatigue/usability observations.
+
+### X7 — Settings/control surface (#420)
+
+Expose frequent recovery/config actions in the existing settings system after the underlying
+contracts stabilize.
+
+**Gate for recommended status:** enable/pause/recenter/dwell/switch mapping/calibration/status do not
+require editing TOML or an undocumented terminal flow.
+
 ## Dependency graph
 
 ```text
@@ -344,6 +397,17 @@ P1 shared perception
 P3 pointer sinks --------------+
                                  +--> P7 dedicated tracker (independent gaze provider)
 ```
+
+## Programme management artifacts
+
+The implementation roadmap is only one layer. The complete control set is:
+
+- [GOVERNANCE.md](GOVERNANCE.md) — artifact/release gates and label policy;
+- [TRACEABILITY.md](TRACEABILITY.md) — ADR -> spec -> issue -> verification;
+- [RISK_REGISTER.md](RISK_REGISTER.md) — known failure modes and release blockers;
+- [TEST_PLAN.md](TEST_PLAN.md) — CI, traces and live-hardware validation;
+- [AGENT_TASKS.md](AGENT_TASKS.md) — agent-sized issue catalogue;
+- [CONTRIBUTING.md](CONTRIBUTING.md) — contributor/agent workflow.
 
 ## Delivery policy for small PRs
 
