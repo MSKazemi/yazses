@@ -5,6 +5,8 @@ description: "Least-privilege setup for Google Jules: repository access, issue-l
 
 # Using Google Jules with YazSes
 
+**Upstream setup tracking:** [#447 — connect Google Labs Jules and run a smoke task](https://github.com/MSKazemi/yazses/issues/447)
+
 Jules is welcome here, but it is **an execution tool, not the source of project policy**.
 The repository's canonical coding-agent instructions remain [`AGENTS.md`](../../AGENTS.md),
 and Jules automatically reads a root `AGENTS.md` when it prepares a task.
