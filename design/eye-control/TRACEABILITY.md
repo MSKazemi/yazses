@@ -15,6 +15,7 @@ This is the one-page map from **decision -> spec -> issue -> verification**.
 | Hands-free is composition | ADR-v2-138 | `design/specs/eye-handsfree-bundle.md` | #410 + #416 + #417 | end-to-end scenario |
 | Calibration topology | ADR-v2-139 | `design/specs/eye-implicit-calibration.md` | #397–#398 + #415 | invalidation/rollback tests |
 | Dedicated tracker seam | future ADR only if study warrants | future spec | #412 | API/licensing study |
+| Grounded semantic targets | ADR-v2-141 (Proposed) | `design/specs/eye-grounded-targets.md` | #441–#445 | pure resolver + semantic coverage + wrong-target/abstention |
 
 ## Cross-cutting implementation gaps
 
@@ -71,6 +72,15 @@ DESIGN / GOVERNANCE
                                     #419 co-design
                                       |
                            experimental -> recommendation gate
+
+  ADR-141 grounded target resolution
+      |
+      +--> #441 contracts
+            -> #442 pure resolver
+                 +-> #443 gaze/deixis integration
+                 +-> #445 evaluation harness
+      |
+      +--> #444 live semantic-source coverage (human/platform evidence)
 
   #412 dedicated tracker study is parallel/future
 ```
