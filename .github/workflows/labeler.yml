@@ -12,6 +12,11 @@ on:
   pull_request_target:
     types: [opened, synchronize, reopened]
 
+# A synchronize event makes any earlier label run for this PR obsolete.
+concurrency:
+  group: label-prs-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 # Read-only at the top; the label write lives in the job that labels. Same reasoning
 # as the note above: this is a `pull_request_target` workflow, so the token is a real
 # one, and the narrower it is when the file grows the better.
