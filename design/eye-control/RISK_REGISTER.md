@@ -34,6 +34,11 @@ Scales:
 | R-22 | Dedicated tracker SDK imposes incompatible license/runtime | H | Unknown | licensing/API study before dependency | #412 |
 | R-23 | User's face characteristics/lighting materially change detector reliability | H | High | per-user neutral calibration + heterogeneous field evidence | #406, #411 |
 | R-24 | Error recovery itself triggers an action | H | Low/Medium | recovery returns to paused/neutral state; explicit re-arm | #417 |
+| R-25 | Correct window but wrong semantic control is grounded | H | Medium | ambiguity/abstention policy; wrong-target harness | #442, #445 |
+| R-26 | Accessibility tree is missing, stale or exposes unusable bounds/actions | M/H | High/Unknown by app | live coverage study; explicit unresolved fallback | #444 |
+| R-27 | Voice label/role hint overrides spatial evidence and selects an off-region element | H | Low/Medium | invariant: hint refines plausible set only; regression fixtures | #442 |
+| R-28 | Future OCR/VLM fallback captures private screen content or adds egress/dependency cost | Critical | Unknown | explicitly deferred; separate ADR/privacy/egress review required | deferred — no implementation issue |
+| R-29 | Target confidence is mistaken for permission to execute a risky action | H | Medium | grounding never executes; keep action risk/confirmation downstream | ADR-v2-141 + #443 |
 
 ## Release blockers
 
@@ -54,6 +59,16 @@ The following block experimental -> recommended promotion:
 - no R-18 usability/fatigue evidence;
 - only one camera/environment tested;
 - defaults derived solely from one developer's setup.
+
+### Grounded-target promotion blockers
+
+Exact-element grounding must remain experimental until:
+
+- #444 has real multi-platform semantic-source evidence;
+- #445 reports wrong-target and abstention separately;
+- R-25/R-27 have deterministic regression coverage;
+- no implementation has introduced the deferred R-28 screenshot/VLM path without a new ADR;
+- action confirmation remains independent from resolution confidence.
 
 ## Updating this register
 
