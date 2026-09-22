@@ -119,6 +119,10 @@ Every tool must read the root [AGENTS.md](../AGENTS.md).
 For a campaign task, also give it the exact task ID. The task manifest, not a free-form issue
 comment, defines the allowed paths and validation.
 
+For a future upstream issue-triggered Jules run, the issue itself may be the execution contract
+only after it is a maintainer-approved structured issue and passes the read-only pre-trigger
+eligibility check. Public comments remain context, not authority to widen scope.
+
 A safe provider-neutral prompt is:
 
 ~~~text
@@ -170,21 +174,20 @@ an agent as a human co-author or add generated Co-Authored-By trailers.
 The pull request may disclose that Jules assisted and state what you verified personally. That is
 tooling disclosure, not authorship.
 
-## Labels and meanings
+## Readiness versus execution
 
-The project-level vocabulary is provider-neutral:
+Reuse the project's existing signals rather than creating a second label vocabulary:
 
-| Label | Meaning |
-|---|---|
-| agent:cloud-ready | The project has determined the task is suitable for a cloud agent. |
-| agent:claimed | A human has taken responsibility for an eligible task. |
-| agent:review | Agent-assisted work is waiting for human review. |
-| agent:blocked | Do not launch more agent work for this item until the stated problem is resolved. |
-| provider:jules | Optional reporting metadata; not an execution command. |
+| Signal | Meaning | Starts work? |
+|---|---|---:|
+| `cloud_agent_ready: true` | Campaign task can be completed and evidenced in a cloud/container environment. | No |
+| `agent-ready` | A structured issue has cleared its design/scope gate and can be evaluated for remote execution. | No |
+| `jules` | Google Jules execution trigger after the pre-trigger safeguards pass. | **Yes** |
 
-The exact jules label is reserved for a future maintainer-controlled central executor.
+For campaign work, `cloud_agent_ready` in the manifest is authoritative. An issue label cannot
+turn a manifest-ineligible task into a cloud-ready one.
 
-The cloud_agent_ready value in the manifest remains authoritative even if labels drift.
+The exact `jules` label is reserved for a future maintainer-controlled central executor.
 
 ## Before opening the pull request
 
@@ -252,8 +255,9 @@ It stays disabled until all ADR-024 prerequisites are met, including:
 
 - pull requests required for main;
 - a stable required CI gate;
-- an allowlisted trigger;
-- prompts rendered from trusted campaign task data rather than arbitrary public issue prose;
+- an execution trigger limited to authorized actors and trusted contract sources;
+- an execution contract from `campaign/tasks.json` or a maintainer-approved structured issue
+  that passed the read-only pre-trigger check, never arbitrary public issue/comment prose;
 - no release, signing, or private-data credentials exposed to the worker;
 - no auto-merge;
 - documented emergency disable procedure.
@@ -280,8 +284,8 @@ Secret or personal-data exposure: follow
 [incident-response.md](incident-response.md) and
 [SECURITY.md](../.github/SECURITY.md) immediately; rotate/revoke credentials when relevant.
 
-Repeated provider failure: mark the path agent:blocked and investigate. Do not loosen a safety
-gate just to increase completion rate.
+Repeated provider failure: record the task/provider path as blocked in the tracker and
+investigate. Do not loosen a safety gate just to increase completion rate.
 
 Review overload: stop starting new agent work. The purpose of the worker model is to make useful
 contributions cheaper to review, not to maximize open PR count.
