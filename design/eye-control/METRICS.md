@@ -200,6 +200,39 @@ Primary aggregate:
 
 Keep neutral and normal-speaking blocks separately identifiable.
 
+## Semantic grounding metrics
+
+Use for #441–#445 and any future "look at this field/button/item" refinement.
+
+Per trial:
+- target source and coarse target ID (synthetic/non-sensitive);
+- eligible semantic candidate count;
+- candidates with usable bounds;
+- actionable candidate count;
+- candidates spatially plausible after coarse-target filtering;
+- optional candidate count after an intent/role hint;
+- result state: `grounded`, `ambiguous`, `unresolved`;
+- correctness when ground truth is available: `correct` / `wrong`;
+- stale/coordinate-space-mismatch reason where applicable;
+- resolver latency when performance is being studied.
+
+Aggregate:
+- grounded-correct rate;
+- grounded-wrong rate;
+- ambiguity rate;
+- unresolved/abstention rate;
+- semantic coverage (targets with at least one usable candidate);
+- actionable coverage;
+- candidate-count distribution before/after spatial filtering;
+- candidate-count distribution after optional intent hint.
+
+Safety rule:
+**wrong target and abstention are not the same error.** A resolver that declines an ambiguous target
+may be safer than one that always returns an element.
+
+Do not store private UI text, screenshots, raw accessibility objects, email/document content or
+window titles containing personal information. Controlled task fixtures should use synthetic labels.
+
 ## Hands-free workflow metrics
 
 - task completion yes/no;
