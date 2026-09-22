@@ -51,3 +51,15 @@ settings-gui:
   - changed-files:
       - any-glob-to-any-file:
           - "src/yazses/settingsui/**"
+
+
+accessibility:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "src/yazses/gaze/**"
+          - "src/yazses/headpointer/**"
+          - "src/yazses/gesture/**"
+          - "src/yazses/perception/**"
+          - "design/eye-control/**"
+          - "design/specs/eye-*.md"
+          - "design/adr/adr-v2-13[5-9]-*.md"
