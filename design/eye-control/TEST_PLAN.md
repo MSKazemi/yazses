@@ -277,3 +277,19 @@ Experimental -> recommended additionally requires:
 - false-activation/error measurements appropriate to the modality;
 - no unresolved severe accessibility safety issue;
 - defaults justified by data rather than one developer's setup.
+
+
+## Evaluation level cross-reference
+
+This test plan describes *how* to test individual contracts. The programme-wide evidence ladder and
+cross-platform/person replication rules live in [EVALUATION.md](EVALUATION.md).
+
+Use [METRICS.md](METRICS.md) for exact field definitions and provenance. Use
+[DATA_SHARING.md](DATA_SHARING.md) before asking a community tester to post a result.
+
+Automated implementation work is tracked by #421–#424. Public no-code hardware slots are #428–#437.
+Research protocol/analysis work is #425–#427.
+
+A public hardware report should default to `study_mode=community_qa`. It becomes
+`study_mode=research` only when collected under a named research protocol; changing the JSON label
+after the fact is not consent.
