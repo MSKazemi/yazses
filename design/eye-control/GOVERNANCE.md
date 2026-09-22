@@ -246,3 +246,47 @@ If implementation reveals the design is wrong:
 4. only then resume implementation.
 
 That is cheaper than letting an agent silently create a second architecture.
+
+
+## Evidence classes and paper eligibility
+
+Use the evaluation levels in [EVALUATION.md](EVALUATION.md):
+
+- **E0/E1** — automated CI/platform contract;
+- **E2** — synthetic trace replay;
+- **E3** — one-machine human-operated hardware smoke;
+- **E4** — same platform on different computers;
+- **E5** — different people;
+- **E6** — repeated sessions/test-retest;
+- **E7** — controlled human study.
+
+### Paper-use rule
+
+- Automated and synthetic data may support software/system claims when provenance is complete.
+- Public GitHub community QA is **engineering evidence by default** and is not automatically
+  participant data for a paper.
+- Human-performance paper claims use data collected under the named research protocol after the
+  applicable ethics/review determination and participant information/consent.
+- If a community tester later joins the study, collect a new research session rather than
+  retroactively relabeling the public issue.
+
+### Independent units
+
+For reporting:
+- machine count is not participant count;
+- session count is not participant count;
+- trial count is not participant count.
+
+A result with 400 trials from one person remains one participant for participant-level claims.
+
+### Validation coverage for recommended status
+
+Before an eye/camera capability becomes recommended, the programme should have:
+- at least two physical computers for every claimed major platform/session bucket where practical;
+- cross-person evidence for person-calibrated behavior;
+- repeat-session evidence for calibration/drift-sensitive behavior;
+- negative/failure results preserved;
+- the applicable research protocol for any human-performance paper claim.
+
+The exact research sample size is determined by the frozen study/analysis plan, not by this governance
+document.
