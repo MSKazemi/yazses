@@ -136,6 +136,13 @@ For eye/camera work, also follow
 [`design/eye-control/GOVERNANCE.md`](https://github.com/MSKazemi/yazses/blob/plan/eye-control-roadmap-2026-09-22/design/eye-control/GOVERNANCE.md)
 until that planning PR is merged.
 
+## Preferred first upstream smoke task
+
+After this guide/ADR has merged and the owner setup is complete, use
+[#448 — JULES-PREFLIGHT-001](https://github.com/MSKazemi/yazses/issues/448) for the first
+upstream Jules run. It is intentionally read-only, deterministic and independent of hardware.
+Do not add `agent-ready` or `jules` to #448 until #446 is merged.
+
 ## Maintainer preflight before applying `jules`
 
 Run this review **before** applying the trigger label, because the label itself starts external work.
