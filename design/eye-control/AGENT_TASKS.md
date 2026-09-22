@@ -55,6 +55,9 @@ All tasks below are attached to milestone **Hands-free — perception & accessib
 | EYE-QA-X11-A | #435 |
 | EYE-QA-HIDPI-A | #436 |
 | EYE-QA-REPEAT-A | #437 |
+| EYE-QA-KDE-B | #438 |
+| EYE-QA-X11-B | #439 |
+| EYE-QA-HIDPI-B | #440 |
 
 ## How to use a task
 
@@ -380,6 +383,9 @@ report** unless the issue says otherwise. Public reports are engineering QA, not
 | #435 | Linux X11 | existing gaze/pointer path |
 | #436 | HiDPI / multi-monitor | coordinate + calibration topology |
 | #437 | same person/computer x3 sessions | test-retest drift/stability |
+| #438 | KDE Plasma Wayland B | different computer/person replication |
+| #439 | Linux X11 B | different computer/person replication |
+| #440 | HiDPI / multi-monitor B | different topology/computer replication |
 
 All no-code slots are `good first issue`, `measurement-wanted`, and `hardware-required`.
 A reproducible FAIL/PARTIAL/BLOCKED result is a valid completed contribution.
