@@ -357,3 +357,19 @@ Additionally requires:
 - accessibility/co-design evidence;
 - all research claims backed by paper-eligible data collected under the appropriate protocol.
 
+
+
+## Current no-code replication slots
+
+The initial community QA matrix is now explicitly replicated:
+
+- Windows: #428 + #429
+- macOS: #430 + #431
+- GNOME Wayland: #432 + #433
+- KDE Wayland: #434 + #438
+- X11: #435 + #439
+- HiDPI/multi-monitor: #436 + #440
+- test/retest same person/computer: #437
+
+These issue pairs are engineering replication, not a substitute for the controlled human-study sample
+defined by #425.
