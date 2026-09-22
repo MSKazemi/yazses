@@ -38,6 +38,23 @@ All tasks below are attached to milestone **Hands-free — perception & accessib
 | EYE-WAYLAND-001 | #418 |
 | EYE-ACCESS-001 | #419 |
 | EYE-SETTINGS-001 | #420 |
+| EYE-EVAL-001 | #421 |
+| EYE-EVAL-002 | #422 |
+| EYE-EVAL-003 | #423 |
+| EYE-EVAL-CI-001 | #424 |
+| EYE-PAPER-001 | #425 |
+| EYE-PAPER-002 | #426 |
+| EYE-CONSENT-001 | #427 |
+| EYE-QA-WIN-A | #428 |
+| EYE-QA-WIN-B | #429 |
+| EYE-QA-MAC-A | #430 |
+| EYE-QA-MAC-B | #431 |
+| EYE-QA-GNOME-A | #432 |
+| EYE-QA-GNOME-B | #433 |
+| EYE-QA-KDE-A | #434 |
+| EYE-QA-X11-A | #435 |
+| EYE-QA-HIDPI-A | #436 |
+| EYE-QA-REPEAT-A | #437 |
 
 ## How to use a task
 
@@ -329,3 +346,40 @@ Issue #419. Required before recommended defaults. Negative results stay in the r
 
 Issue #420. Expose enable/pause/recenter/dwell/switch mapping/calibration/status in the existing
 settings system once the underlying contracts stabilize.
+
+
+## Evaluation and evidence tasks
+
+These tasks make the programme measurable without turning public GitHub testing into accidental human
+research.
+
+| Task | What it produces | Contributor type | Hardware |
+|---|---|---|---|
+| #421 EYE-EVAL-001 | Versioned result JSON schema + validator | Python / agent-ready | no |
+| #422 EYE-EVAL-002 | Deterministic gaze/pointer/face test fixtures | Python / agent-ready | no |
+| #423 EYE-EVAL-003 | Local privacy-safe evaluation runner/exporter | Python / agent-ready | no for CI |
+| #424 EYE-EVAL-CI-001 | Windows/macOS/Linux non-hardware CI matrix | CI / Python | hosted runners |
+| #425 EYE-PAPER-001 | Frozen human-study + ethics/preregistration plan | research/design | no |
+| #426 EYE-PAPER-002 | Reproducible de-identified analysis pipeline | Python/research | no |
+| #427 EYE-CONSENT-001 | Plain-language data-sharing review | documentation | no |
+
+### No-code hardware validation slots
+
+Each issue below is intentionally one small contribution: **one tester, one computer, one scripted
+report** unless the issue says otherwise. Public reports are engineering QA, not paper consent.
+
+| Issue | Environment | Why it exists |
+|---|---|---|
+| #428 | Windows 11 A | first independent Windows host |
+| #429 | Windows 11 B | different computer/person replication |
+| #430 | macOS Apple Silicon A | first independent Mac host |
+| #431 | macOS Apple Silicon B | different computer/person replication |
+| #432 | Ubuntu/GNOME Wayland A | first GNOME/Wayland host |
+| #433 | Ubuntu/GNOME Wayland B | different computer/person replication |
+| #434 | KDE Plasma Wayland | compositor/portal variation |
+| #435 | Linux X11 | existing gaze/pointer path |
+| #436 | HiDPI / multi-monitor | coordinate + calibration topology |
+| #437 | same person/computer x3 sessions | test-retest drift/stability |
+
+All no-code slots are `good first issue`, `measurement-wanted`, and `hardware-required`.
+A reproducible FAIL/PARTIAL/BLOCKED result is a valid completed contribution.
