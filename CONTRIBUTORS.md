@@ -172,6 +172,9 @@ found defects that no amount of reading the code here would have surfaced.
 - [@Parinitha-26](https://github.com/Parinitha-26)
 - [@Prithvi4904](https://github.com/Prithvi4904) — first README translation (Hindi), and the
   language switcher that makes every later translation reachable
+- [@sameer8945](https://github.com/sameer8945) — Windows 11 showcase entry: dictation into
+  VS Code, PowerShell and the browser while coding
+  ([#391](https://github.com/MSKazemi/yazses/pull/391))
 - [@slegarraga](https://github.com/slegarraga) — see **Testing & field reports** above
 - [@visheshbpatel](https://github.com/visheshbpatel) (Vishesh Patel) — Windows 11 showcase entry:
   dictation into PowerShell, VS Code and the browser, on the platform this project has

@@ -70,4 +70,12 @@ Any setup is welcome — beginner or power user. 💛
   searches and writing emails. It worked reliably even when I was not sitting close to the
   laptop, and it could accurately recognize my speech without me having to speak loudly.
 
+### @sameer8945
+- **OS / desktop:** Windows 11
+- **Mic:** laptop built-in microphone
+- **Apps you dictate into:**  VS Code, PowerShell, web browser
+- **How you use YazSes:**  Mostly for typing while coding and working on GitHub. It’s nice being able to just
+  hold the key, say what I want, and have it appear wherever I'm working instead of constantly switching back
+  to the keyboard.
+    
 <!-- Add your entry above this line's section by appending a new ### block at the end. -->
