@@ -465,6 +465,16 @@ These are engineering QA, not automatic paper participants.
 See [EVALUATION.md](EVALUATION.md), [METRICS.md](METRICS.md),
 [DATA_SHARING.md](DATA_SHARING.md), and [PAPER_EVIDENCE.md](PAPER_EVIDENCE.md).
 
+### V5 — validation operations and contributor discovery
+
+After the schema/evaluator is stable:
+- #454 creates the machine-readable PLANNED/READY slot registry;
+- #455 generates an engineering coverage dashboard;
+- #456 exposes only READY slots in YazSes's existing contributor task finder.
+
+This prevents issue spam while still making one-sitting hardware tasks easy to find. It also keeps
+human hardware evidence explicitly non-cloud-agent-certifiable.
+
 ## Dependency graph
 
 ```text
