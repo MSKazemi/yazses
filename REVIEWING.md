@@ -45,6 +45,21 @@ of what lane the task claimed.
 If you cannot personally judge one of these, say so and hand it on. "I can't verify this,
 passing to someone who speaks Tamil" is a complete and useful review.
 
+### Agent-produced pull requests
+
+Review the **change**, not the brand of tool that produced it. Project artifacts credit the human
+contributor only (ADR-024), so the PR should not need an AI-tool disclosure section.
+
+What changes for the reviewer is evidence discipline, not the approval bar:
+
+- do not accept "the agent says tests passed" when CI/command output says otherwise;
+- do not let a polished explanation substitute for a missing acceptance criterion;
+- do not let a cloud agent claim hardware/native-language/human-study evidence it could not observe;
+- do not treat agent self-review as an independent reviewer;
+- keep the same risk lane and escalation rules.
+
+A correct, bounded agent-assisted PR should be no harder to merge than the same diff typed manually.
+
 ## Review responses
 
 Adapt these; do not paste them verbatim into a first-time contributor's PR.
