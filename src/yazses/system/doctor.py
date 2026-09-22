@@ -568,6 +568,87 @@ def _autostart_check(platform) -> _Check | None:
     )
 
 
+def _language_profile_checks(cfg) -> list[_Check]:
+    """Report Mandarin profile coherence and language-specific degradations.
+
+    This stays lightweight: profile derivation and import-spec probes only.
+    Model cache availability already has its own doctor row.
+    """
+
+    from yazses.language import derive_status
+    from yazses.system.deps import missing_modules
+
+    status = derive_status(cfg)
+    speech = status.speech_language
+
+    if speech not in {"en", "zh"} and not status.output_script:
+        return []
+
+    if not status.coherent:
+        if speech == "zh" and status.output_script == "traditional":
+            fix = "yazses language set zh-TW"
+        elif speech == "zh" and status.output_script == "simplified":
+            fix = "yazses language set zh-CN"
+        elif speech == "en":
+            fix = "yazses language set en"
+        else:
+            fix = "yazses language status"
+        return [(
+            "Language profile",
+            "FAIL",
+            "; ".join(status.problems) + f". Fix: `{fix}`",
+        )]
+
+    out: list[_Check] = []
+    if speech == "en":
+        out.append((
+            "Language profile",
+            "OK",
+            "en — English speech; Han-script normalisation off",
+        ))
+        return out
+
+    if not status.output_script:
+        out.append((
+            "Language profile",
+            "WARN",
+            "Mandarin speech is configured but output script is not pinned. "
+            "Choose `yazses language set zh-CN` or `yazses language set zh-TW`.",
+        ))
+        return out
+
+    profile = status.profile_match or "Mandarin"
+    model_note = "custom model" if status.custom_model else "profile model"
+    out.append((
+        "Language profile",
+        "OK",
+        f"{profile} — Mandarin speech, {status.output_script} output, {model_note}",
+    ))
+
+    if missing_modules(("opencc",)):
+        out.append((
+            "Chinese script",
+            "WARN",
+            f"{status.output_script} output is requested but OpenCC is missing, so "
+            "recognized Han is left in the model\'s original script. Fix: "
+            f"`yazses language set {profile}`",
+        ))
+    else:
+        out.append((
+            "Chinese script",
+            "OK",
+            f"OpenCC available — {status.output_script} output can be enforced",
+        ))
+
+    if bool(getattr(cfg.commands, "enabled", True)):
+        out.append((
+            "Mandarin commands",
+            "WARN",
+            "dictation can be Mandarin, but Tier-1 spoken command grammar is still "
+            "English-only in this build; Mandarin command localization is not yet wired",
+        ))
+    return out
+
 def _config_validity(config_file: Path) -> list[_Check]:
     """Report values the loader had to repair or fall back on.
 
@@ -689,6 +770,7 @@ def _config_summary(
             f"{config_file} (absent — using built-in defaults)",
         ))
     out.extend(_config_validity(config_file))
+    out.extend(_language_profile_checks(cfg))
     out.extend(_llm_endpoint_check(cfg))
     out.extend(_corpus_redaction_check(cfg))
     drift = hotkey_drift_note(
