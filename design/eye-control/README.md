@@ -274,4 +274,9 @@ See the programme set:
 - [RISK_REGISTER.md](RISK_REGISTER.md) — safety/reliability risks and blockers;
 - [TEST_PLAN.md](TEST_PLAN.md) — hermetic and hardware validation;
 - [AGENT_TASKS.md](AGENT_TASKS.md) — issue/task catalogue;
-- [CONTRIBUTING.md](CONTRIBUTING.md) — contributor + coding-agent workflow.
+- [CONTRIBUTING.md](CONTRIBUTING.md) — contributor + coding-agent workflow;
+- [EVALUATION.md](EVALUATION.md) — automated, hardware, cross-person and repeated-session evaluation ladder;
+- [METRICS.md](METRICS.md) — canonical machine-readable parameters/metrics;
+- [DATA_SHARING.md](DATA_SHARING.md) — public QA vs research consent/data-use rules;
+- [PAPER_EVIDENCE.md](PAPER_EVIDENCE.md) — paper-quality study/data plan;
+- [RESEARCH_PARTICIPANT_TEMPLATE.md](RESEARCH_PARTICIPANT_TEMPLATE.md) — pre-recruitment information/consent template.
