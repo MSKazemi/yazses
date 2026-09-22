@@ -658,7 +658,7 @@ already covers the licence grant.
 
 - 🌱 **New here?** Start with a [good first issue](https://github.com/MSKazemi/yazses/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) — each is small and self-contained, and we're happy to help you through your first PR.
 - 🚀 **First time? [Start here](https://mskazemi.com/yazses/contribute/start.html)** — one page, pick the row matching what you have in front of you, finish in 15–45 minutes. No permission needed, nothing is assigned, and coding agents are welcome (there's a copy-paste prompt).
-- 🤖 **Using Google Jules?** [Connect it with least privilege](docs/contribute/jules.md) — the owner installs the GitHub App once for upstream; outside contributors can use Jules on a fork and open a normal PR.
+- 🤖 **Using Google Jules?** [Connect it with least privilege](docs/contribute/jules.md) — the owner installs the GitHub App once for upstream; outside contributors can use Jules on a fork and open a normal PR. Paid/metred coding tools are optional; [your provider account and charges remain your responsibility](docs/contribute/third-party-coding-tools.md).
 - 🎯 **Want the full list?** [**Filter 130 open tasks**](https://mskazemi.com/yazses/contribute/find.html) by what you have, your time, and whether you want to write code
   — each one names the exact files you may touch, the command that says you're done, and an
   honest time estimate. Filter by what you actually have: a browser, a terminal, a specific
