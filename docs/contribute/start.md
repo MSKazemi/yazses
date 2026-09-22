@@ -56,6 +56,11 @@ Using Google Jules against GitHub? Read [Using Google Jules with YazSes](jules.m
 upstream repository uses a one-time GitHub App installation; outside contributors normally
 connect Jules to their own fork and open a standard PR.
 
+Using any paid or metered coding service is optional. Your provider account, plan, usage limits and
+charges remain your responsibility; YazSes does not require or reimburse them unless separately
+agreed in writing. Read [the third-party coding-tool notice](third-party-coding-tools.md) before
+turning on metered/overage usage.
+
 Copy this, replacing the task ID:
 
 ```text
