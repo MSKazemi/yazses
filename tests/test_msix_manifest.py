@@ -82,17 +82,17 @@ def test_run_full_trust_capability_is_declared(manifest: ET.Element) -> None:
 def test_microphone_is_declared_and_webcam_is_not(manifest: ET.Element) -> None:
     """Microphone is required. Webcam is deliberately absent.
 
-    The gaze and face-gesture adapters are part of YazSes and work on a normal install.
-    This package is a frozen bundle built without optional extras and an MSIX cannot add
-    them afterwards, so a webcam capability here would ask the user and a Store reviewer
-    to grant camera access nobody using this package could benefit from.
+    Glance-Type gaze is implemented and works on a normal install when its optional
+    dependencies are enabled. Face-Gesture is planned/experimental and does not yet have
+    a runtime detector or activation adapter. This frozen package carries no optional gaze
+    dependencies, so neither feature provides a reachable camera path here.
     """
     devices = [c.get("Name") for c in manifest.findall("d:Capabilities/d:DeviceCapability", NS)]
     assert "microphone" in devices, f"microphone capability missing; got {devices}"
     assert "webcam" not in devices, (
-        "webcam is declared, but this frozen bundle carries no optional extras and an "
-        "MSIX cannot add them, so no camera code path is reachable here; an unused "
-        "capability is a certification question with no upside"
+        "webcam is declared, but this frozen bundle carries no optional gaze dependencies "
+        "and Face-Gesture has no reachable runtime implementation, so no camera path is "
+        "available here; an unused capability is a certification question with no upside"
     )
 
 
