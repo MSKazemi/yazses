@@ -1,0 +1,251 @@
+# Agent-sized task catalogue — eye / camera control
+
+This is the source text for GitHub child issues under #102. Issue numbers are populated after issue
+creation. Each task is intentionally narrow enough to hand to a coding agent **together with the
+linked ADR/roadmap section**.
+
+## How to use a task
+
+A contributor or coding agent should:
+
+1. read [README.md](README.md) and the task's prerequisite files;
+2. inspect the named existing tests before editing;
+3. change only the allowed-path area unless the issue explains why expansion is necessary;
+4. add a failing test first for the contract being introduced/fixed;
+5. run the narrow validation commands;
+6. run the repository test/lint/type-check set when feasible;
+7. report hardware evidence separately from CI evidence.
+
+Do not solve a later task "while here". Small PRs are a design goal.
+
+## Task inventory
+
+| ID | Task | Risk | Typical size | Hardware for coding? | Depends on |
+|---|---|---:|---:|---|---|
+| EYE-DOC-001 | Correct stale Face-Gesture implementation claims | L1 | 30–45 min | no | none |
+| EYE-ARCH-001 | Add pure shared perception signal contracts | L2 | 60–90 min | no | ADR-v2-135 |
+| EYE-CAM-001 | Add one-owner camera/perception lifecycle | L2 | 90–150 min | no | EYE-ARCH-001 |
+| EYE-CAM-002 | Emit gaze + head pose + blendshapes from one MediaPipe result | L3 | 2–3 h | no (fake MP) | EYE-CAM-001 |
+| EYE-CAM-003 | Refactor existing gaze backend to consume shared perception | L3 | 2–3 h | no | EYE-CAM-002 |
+| EYE-GAZE-001 | Runtime click/gaze sample capture for implicit calibration | L3 | 2–3 h | no for CI | EYE-CAM-003 |
+| EYE-GAZE-002 | Apply/persist/rollback implicit calibration behind holdout gate | L2 | 90–150 min | no | EYE-GAZE-001 |
+| EYE-MEASURE-001 | Add privacy-safe gaze field-measurement report for #104 | L2 | 90–150 min | no for coding; yes for evidence | EYE-CAM-003 |
+| EYE-PTR-001 | Define PointerSink protocol + shared fake contract suite | L2 | 60–90 min | no | none |
+| EYE-PTR-002 | Add X11 pointer sink | L2 | 60–120 min | no for CI | EYE-PTR-001 |
+| EYE-PTR-003 | Add macOS + Windows pointer sinks behind platform abstraction | L3 | 2–3 h | no for CI | EYE-PTR-001 |
+| EYE-PTR-004 | Extend existing XDG RemoteDesktop portal session for POINTER | L3 | 2–3 h | no for CI; Wayland for smoke | EYE-PTR-001 |
+| EYE-HEAD-001 | Wire Head-Pointer runtime loop to shared pose + PointerSink | L3 | 2–3 h | no for CI | EYE-CAM-002 + one pointer sink |
+| EYE-HEAD-002 | Add re-centre, pause/clutch and dwell-click feedback | L2 | 90–150 min | no for CI | EYE-HEAD-001 |
+| EYE-FACE-001 | Pure calibrated/hysteretic face-switch detector | L2 | 90–150 min | no | EYE-CAM-002 |
+| EYE-FACE-002 | Face-switch activation adapter + configurable action mapping | L3 | 2–3 h | no | EYE-FACE-001 |
+| EYE-GESTURE-001 | Feed head/face tokens into existing Gesture Chords runtime | L2 | 90–150 min | no | EYE-FACE-002 |
+| EYE-BENCH-001 | False-activation numeric trace harness + report template | L2 | 60–120 min | no for harness; yes for evidence | EYE-FACE-001 |
+| EYE-BUNDLE-001 | Compose a hands-free preset from shipped components | L3 | 2–3 h | no for CI | head + face + pointer path |
+| EYE-HW-001 | Run cross-hardware accessibility acceptance matrix | L1 research | 1–2 h/device | yes | experimental runtime available |
+| EYE-TRACKER-001 | Dedicated eye-tracker API/licensing capability study | L1 research | 2–4 h | no | webcam programme stable |
+
+## Detailed contracts
+
+### EYE-DOC-001 — correct stale Face-Gesture implementation claims
+
+**Problem:** `docs/store-submission.md`, the MSIX manifest comment and its test say the
+Face-Gesture adapter already exists/works. Repository search shows no runtime implementation.
+
+**Allowed paths**
+- `docs/store-submission.md`
+- `packaging/windows/msix/AppxManifest.xml`
+- `tests/test_msix_manifest.py`
+
+**Done when**
+- text says gaze is implemented;
+- Face-Gesture is clearly planned/experimental, not currently reachable;
+- webcam-capability rationale remains correct for the frozen MSIX;
+- manifest tests still pass.
+
+**Validate**
+```sh
+uv run python -m pytest tests/test_msix_manifest.py -q
+```
+
+### EYE-ARCH-001 — pure signal contracts
+
+Create dependency-free dataclasses/protocols for derived camera signals.
+
+**Allowed paths**
+- a new small module under `src/yazses/perception/`
+- focused tests under `tests/`
+
+**Must not**
+- import cv2/mediapipe;
+- own a thread;
+- open a camera;
+- include raw frame fields.
+
+**Tests**
+- immutable/value semantics;
+- optional/missing signals;
+- confidence/time validation if implemented.
+
+### EYE-CAM-001 — single camera owner
+
+Implement the source lifecycle using injected capture/processor seams.
+
+**Acceptance**
+- one open for N consumers;
+- close after final consumer;
+- start/stop idempotent;
+- disabled means zero imports/probes/opens;
+- failure is contained;
+- unit tests use fakes.
+
+### EYE-CAM-002 — one MediaPipe result -> three signal families
+
+Upgrade FaceLandmarker options to emit blendshapes and facial transform data while preserving gaze
+landmarks.
+
+**Acceptance**
+- fake MediaPipe result produces deterministic gaze/head/face derived values;
+- no second FaceLandmarker;
+- no behavior regression in existing gaze tests;
+- missing transform/blendshape degrades per-channel, not whole-source crash.
+
+### EYE-CAM-003 — migrate gaze without changing semantics
+
+Adapt `GazeTargeter`/backend path to shared gaze samples.
+
+**Acceptance**
+- existing `test_gaze_*.py` suites remain green;
+- confidence threshold and focused-window fallback unchanged;
+- camera lifetime now belongs to shared source;
+- public config compatibility retained.
+
+### EYE-GAZE-001 — runtime implicit-calibration capture
+
+Wire click observations to timestamped gaze without putting OS hooks in `implicit.py`.
+
+**Acceptance**
+- pure click-observer protocol/fake;
+- configurable look-back/association window;
+- rejects missing/low-confidence samples;
+- capture is opt-in;
+- tests prove no storage of images/text.
+
+### EYE-GAZE-002 — apply refined map safely
+
+Use existing `refined_if_better` and calibration store.
+
+**Acceptance**
+- baseline persists until candidate wins held-out evaluation;
+- failed/worse candidate leaves bytes/state unchanged;
+- status identifies active calibration source;
+- rollback is tested.
+
+### EYE-MEASURE-001 — field evidence for #104
+
+Add a command/report helper that produces derived metrics suitable for attaching to #104.
+
+**Never export:** frames, face mesh, screenshots, transcript or window titles by default.
+
+**Test:** golden schema + privacy assertions + empty/partial session.
+
+### EYE-PTR-001 — PointerSink
+
+Create the smallest platform-independent pointer output contract and common behavior tests.
+
+**Acceptance**
+- fake records motion/click/scroll;
+- unsupported capabilities explicit;
+- no camera/headpointer imports;
+- no shell commands in the protocol module.
+
+### EYE-PTR-002 / 003 / 004 — one backend per PR
+
+Implement exactly one platform family in each PR. Reuse existing platform/injection mechanisms.
+
+For Wayland, extend `src/yazses/inject/portal.py`; do not create a parallel D-Bus session.
+
+### EYE-HEAD-001 — runtime head pointer
+
+Reference `WIRE-HEADPOINTER-001`.
+
+**Acceptance**
+- shared HeadPoseSignal -> existing `pose_to_cursor`;
+- move via PointerSink;
+- dwell via existing `DwellClicker`;
+- signal loss stops;
+- feature enable becomes truthfully reachable only when enough backend capability exists;
+- update feature-registry wiring honesty tests.
+
+### EYE-HEAD-002 — control/recovery UX
+
+Add recenter, pause and dwell feedback. No feature should trap a user behind a moving pointer.
+
+**Acceptance**
+- pause suppresses movement and click;
+- re-centre changes neutral reference;
+- dwell progress is observable before firing;
+- startup/signal recovery cannot immediately click.
+
+### EYE-FACE-001 — deliberate face switch detector
+
+Pure numeric algorithm over blendshapes.
+
+**Acceptance**
+- neutral baseline;
+- enter/exit hysteresis;
+- min-hold;
+- refractory period;
+- confidence gate;
+- one event per gesture;
+- fixture traces cover ordinary blink, talking-like mouth movement and deliberate action.
+
+Do not label any gesture "recommended" from synthetic tests.
+
+### EYE-FACE-002 — activation adapter
+
+Map detector event -> abstract switch/activation event.
+
+**Acceptance**
+- detector has no knowledge of daemon actions;
+- mapping configuration validated;
+- destructive action passes existing confirmation policy;
+- unmapped/unknown gesture does nothing;
+- can freeze head-pointer motion during commit gesture.
+
+### EYE-GESTURE-001 — chord runtime
+
+Reference `WIRE-GESTURE-001`.
+
+Feed abstract head/face tokens to the existing input-agnostic chord resolver. Do not duplicate chord
+logic.
+
+### EYE-BENCH-001 — false activations
+
+Build trace runner that reports:
+- intended activations;
+- detected activations;
+- misses;
+- false activations;
+- false activations/hour where duration is known.
+
+No photos required.
+
+### EYE-BUNDLE-001 — hands-free preset
+
+Preset only; no new parallel pipeline.
+
+**Acceptance**
+- expands into existing feature configs;
+- one disable action stops pointer/switch/camera consumers;
+- `doctor` can list unavailable prerequisites;
+- docs show at least one "speech + head pointer + face switch" workflow and fallback.
+
+### EYE-HW-001 — acceptance matrix
+
+Use [TEST_PLAN.md](TEST_PLAN.md). Contributors report environment + derived metrics. Negative results
+are valid.
+
+### EYE-TRACKER-001 — dedicated tracker study
+
+Output a short design note comparing APIs/licensing across target OSes. No vendor SDK is added in
+this task.
