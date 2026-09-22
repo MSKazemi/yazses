@@ -3,7 +3,7 @@
 **Programme:** Eye / camera control  
 **Date:** 2026-09-22  
 **Input research:** [`docs/research/grounded-multimodal-interaction.md`](../../docs/research/grounded-multimodal-interaction.md)  
-**Proposed decision:** [ADR-v2-140](../adr/adr-v2-140-grounded-target-resolution.md)  
+**Proposed decision:** [ADR-v2-141](../adr/adr-v2-141-grounded-target-resolution.md)  
 **Implementation spec:** [`eye-grounded-targets.md`](../specs/eye-grounded-targets.md)
 
 This plan answers the questions that code generation cannot settle. The goal is to learn whether a
@@ -190,7 +190,7 @@ the window-only baseline cannot safely perform.
 
 ## Evidence gates
 
-### Accept ADR-v2-140
+### Accept ADR-v2-141
 
 Requires:
 
