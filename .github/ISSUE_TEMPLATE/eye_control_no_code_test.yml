@@ -1,0 +1,166 @@
+name: 🧪 No-code eye-control test
+description: >-
+  A small, guided hardware check for people who do not need to write code.
+  Run one scripted test on one computer and report what happened.
+title: "[eye-test]: "
+labels: ["accessibility", "measurement-wanted", "hardware-required", "good first issue"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **You do not need to be a developer.** One computer + one short test is useful.
+
+        This is a **public engineering QA report, not research consent**. Do not upload
+        a face photo/video, raw webcam frame, private dictated text, diagnosis, email,
+        device serial number, access token, or sensitive screenshot.
+
+        If a future paper needs human-participant data, that will use a separate
+        research protocol and consent process.
+
+  - type: checkboxes
+    id: public_ack
+    attributes:
+      label: Before you start
+      options:
+        - label: I understand this issue is public and I will not post sensitive/private data
+          required: true
+        - label: I can stop the test at any time if the pointer/camera control is uncomfortable
+          required: true
+
+  - type: dropdown
+    id: use
+    attributes:
+      label: Use of this report
+      options:
+        - "Engineering QA only"
+        - "Engineering QA; I am willing to be contacted separately about a future research study"
+        - "This run is under an existing named research protocol"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: test
+    attributes:
+      label: Which small test are you doing?
+      options:
+        - "Camera enable / disable / release"
+        - "Gaze: choose one of four large targets"
+        - "Head-Pointer: move to large targets"
+        - "Face switch: deliberate activation + neutral period"
+        - "Pause / kill / recovery after camera loss"
+        - "Wayland pointer permission / movement"
+        - "Multi-monitor or HiDPI calibration check"
+        - "Hands-free scripted workflow"
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: YazSes version or commit
+      placeholder: "v2.x.y or commit SHA"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os_family
+    attributes:
+      label: Operating system
+      options:
+        - "Windows 11"
+        - "macOS"
+        - "Ubuntu / GNOME Wayland"
+        - "KDE Plasma Wayland"
+        - "Linux X11"
+        - "Other Linux"
+        - "Other"
+    validations:
+      required: true
+
+  - type: input
+    id: os_detail
+    attributes:
+      label: OS / desktop version
+      placeholder: "Ubuntu 26.04 GNOME; Windows 11 24H2; macOS 27"
+    validations:
+      required: true
+
+  - type: input
+    id: computer
+    attributes:
+      label: Computer (broad model is enough)
+      placeholder: "ThinkPad T14 Gen 4; MacBook Air M3; desktop AMD Ryzen"
+    validations:
+      required: true
+
+  - type: input
+    id: camera
+    attributes:
+      label: Camera
+      placeholder: "Built-in webcam; Logitech C920"
+    validations:
+      required: true
+
+  - type: input
+    id: display
+    attributes:
+      label: Display setup
+      placeholder: "1 monitor 1920x1080 @ 100%; 2 monitors, external at 150%"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: result
+    attributes:
+      label: Overall result
+      options:
+        - "PASS — the scripted steps worked"
+        - "PARTIAL — some steps worked"
+        - "FAIL — reproducible problem"
+        - "BLOCKED — I could not start because of dependency/permission/hardware"
+    validations:
+      required: true
+
+  - type: textarea
+    id: counts
+    attributes:
+      label: Simple counts / measurements
+      description: >-
+        Copy the numbers the test script asks for. If none were produced, say "none".
+      placeholder: |
+        Example:
+        attempts: 40
+        correct: 35
+        wrong: 2
+        fallback: 3
+        OR
+        test duration: 15 minutes
+        false activations: 1
+    validations:
+      required: true
+
+  - type: textarea
+    id: failure
+    attributes:
+      label: What went wrong or what was easy?
+      description: Plain language is better than technical guessing.
+      placeholder: "After I turned my head left, the pointer stopped for about two seconds..."
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety / privacy checks
+      options:
+        - label: I was able to pause/stop the control
+        - label: Losing the camera did not keep repeating the last action
+        - label: I did not see YazSes save webcam images/video
+        - label: Disabling the feature released/stopped camera use
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Optional notes
+      description: >-
+        Do not include personal contact information or sensitive screen/text content.
