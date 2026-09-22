@@ -147,6 +147,22 @@ body:
     validations:
       required: false
 
+  - type: dropdown
+    id: remote_execution
+    attributes:
+      label: Remote-agent execution class
+      description: >-
+        This is eligibility, not an execution trigger. Choose whether a clean
+        cloud VM can produce all evidence required by this issue. Maintainers
+        may apply an external trigger such as `jules` only after blockers are
+        clear and the issue is otherwise agent-ready.
+      options:
+        - "Cloud-ready — implementation and required evidence can be completed in a clean VM"
+        - "Code-ready, but human/device/native-language evidence is still required"
+        - "Not suitable for remote-agent execution"
+    validations:
+      required: true
+
   - type: checkboxes
     id: suitability
     attributes:
