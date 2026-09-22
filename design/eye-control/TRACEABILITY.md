@@ -147,3 +147,5 @@ Before recommended status, add:
 | Tester/participant wording | `DATA_SHARING.md` | #427 | reviewed public/research materials |
 
 Community QA rows are not automatically eligible for participant-level paper analysis.
+
+| Beginner instruction usability | `BEGINNER_TESTING.md` | #449 | first-time-reader review |
