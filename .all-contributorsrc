@@ -286,11 +286,20 @@
     },
     {
       "login": "musabustun",
-      "name": "Musab Yusuf Üstün",
+      "name": "Musab Yusuf \u00dcst\u00fcn",
       "avatar_url": "https://avatars.githubusercontent.com/u/59414375?v=4",
       "profile": "https://github.com/musabustun",
       "contributions": [
         "translation"
+      ]
+    },
+    {
+      "login": "sameer8945",
+      "name": "sameer",
+      "avatar_url": "https://avatars.githubusercontent.com/u/224630461?v=4",
+      "profile": "https://github.com/sameer8945",
+      "contributions": [
+        "doc"
       ]
     }
   ]

@@ -23,7 +23,7 @@
       "the feature enabled and observed doing something on your machine"
     ],
     "state": "open",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-AFFECT-001",
@@ -49,7 +49,7 @@
       "the feature enabled and observed doing something on your machine"
     ],
     "state": "open",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-AGENT-001",
@@ -75,7 +75,7 @@
       "the feature enabled and observed doing something on your machine"
     ],
     "state": "open",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-AUDIOGUARD-001",
@@ -101,7 +101,7 @@
       "the feature enabled and observed doing something on your machine"
     ],
     "state": "open",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-AUTOSTOP-001",
@@ -127,7 +127,7 @@
       "the feature enabled and observed doing something on your machine"
     ],
     "state": "open",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-BOOKMARKS-001",
@@ -153,7 +153,7 @@
       "the feature enabled and observed doing something on your machine"
     ],
     "state": "open",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-BREATH-001",
@@ -179,7 +179,7 @@
       "the feature enabled and observed doing something on your machine"
     ],
     "state": "open",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-BRIDGE-001",
@@ -205,7 +205,7 @@
       "the feature enabled and observed doing something on your machine"
     ],
     "state": "open",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-CMDSPOTTER-001",
@@ -230,8 +230,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "open",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-CODEC-001",
@@ -256,8 +256,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "open",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-COMPOSE-001",
@@ -282,8 +282,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "open",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-CONTOUR-001",
@@ -308,8 +308,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "open",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-CROWDPROOF-001",
@@ -334,8 +334,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "open",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-GESTURE-001",
@@ -360,8 +360,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "open",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-HATSELECT-001",
@@ -386,8 +386,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "open",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-HEADPOINTER-001",
@@ -412,8 +412,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "open",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-HESITATION-001",
@@ -438,8 +438,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "open",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-HOTWORDS-001",
@@ -464,8 +464,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "open",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-INTERPRET-001",
@@ -490,8 +490,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "open",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-INVOLUNTARY-001",
@@ -516,8 +516,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "open",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-LANGROUTE-001",
@@ -542,8 +542,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "open",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-LIPREAD-001",
@@ -568,8 +568,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "open",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-LOADGUARD-001",
@@ -594,8 +594,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "open",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-MORSEVOX-001",
@@ -620,8 +620,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "open",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-MOUSEGRID-001",
@@ -646,8 +646,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "open",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-MOUTHSWITCH-001",
@@ -672,8 +672,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "open",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-MULTIPROFILE-001",
@@ -698,8 +698,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "open",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-PILOT-001",
@@ -724,8 +724,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "open",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-PREDICT-001",
@@ -750,8 +750,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "open",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-PRONUNCIATION-001",
@@ -776,8 +776,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "open",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-PROOFBACK-001",
@@ -802,8 +802,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "open",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-PROSODYPUNCT-001",
@@ -828,8 +828,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "open",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-RAG-001",
@@ -854,8 +854,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "open",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-READBACK-CLONE-001",
@@ -880,8 +880,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "open",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-REASK-001",
@@ -906,8 +906,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "open",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-SCREENGROUNDED-001",
@@ -932,8 +932,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "open",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-SCRIBE-001",
@@ -958,8 +958,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "open",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-SCRUB-001",
@@ -984,8 +984,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "open",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-SENTIMENT-001",
@@ -1010,8 +1010,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "open",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-SIGN-001",
@@ -1036,8 +1036,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "open",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-SPATIALVAD-001",
@@ -1062,8 +1062,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "open",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-VOCALJOYSTICK-001",
@@ -1088,8 +1088,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "open",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-VOICEGUARD-001",
@@ -1114,8 +1114,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "open",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-VOICEHEALTH-001",
@@ -1140,8 +1140,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "open",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-WAKEWORD-001",
@@ -1166,8 +1166,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "open",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "I18N-AR-M1",
