@@ -242,3 +242,36 @@ def test_the_browser_only_contribution_path_is_advertised():
         "README.md no longer links the Codespaces one-click path — the Dev Container "
         "only helps people who know it is there"
     )
+
+
+# ADR-024 makes authorship policy explicit: YazSes credits the human contributor, not
+# the coding tool. This exact contradiction existed in three shipped surfaces at once:
+# AGENTS.md forbade attribution while CONTRIBUTING, the first-contribution page and the
+# PR template asked for it. Keep a small regression test because prose drift is the bug.
+ATTRIBUTION_SURFACES = (
+    "AGENTS.md",
+    CONTRIBUTING,
+    "docs/contribute/start.md",
+    ".github/PULL_REQUEST_TEMPLATE.md",
+)
+
+_FORBIDDEN_ATTRIBUTION_SNIPPETS = (
+    "## AI assistance",
+    "Mention in the PR body if a change was largely AI-generated",
+    "Say in the pull request that you used one",
+    "Tool used:\nWhat I verified personally:",
+)
+
+
+def test_no_contributor_surface_requests_ai_attribution():
+    """Project artifacts credit the human contributor only (ADR-024)."""
+    stale: list[tuple[str, str]] = []
+    for name in ATTRIBUTION_SURFACES:
+        text = _read(name)
+        for snippet in _FORBIDDEN_ATTRIBUTION_SNIPPETS:
+            if snippet.lower() in text.lower():
+                stale.append((name, snippet))
+    assert not stale, (
+        "these contributor surfaces still request coding-tool/AI attribution, "
+        f"contradicting AGENTS.md and ADR-024: {stale}"
+    )
