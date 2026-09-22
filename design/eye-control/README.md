@@ -236,6 +236,7 @@ Status vocabulary in this programme:
 - [ADR-v2-137 — face gesture emits switch intent](../adr/adr-v2-137-face-switch-intent.md)
 - [ADR-v2-138 — hands-free composition + global safety state](../adr/adr-v2-138-hands-free-composition.md)
 - [ADR-v2-139 — calibration coordinate space/topology](../adr/adr-v2-139-gaze-calibration-coordinate-space.md)
+- [ADR-v2-140 — community QA vs human research evidence](../adr/adr-v2-140-evaluation-evidence-and-research-consent.md)
 
 ADR-v2-135 and the follow-on programme ADRs do **not** replace those
 decisions. It defines the missing shared camera seam beneath them.
