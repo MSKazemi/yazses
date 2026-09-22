@@ -1,22 +1,16 @@
 ---
 title: "YazSes — español"
-description: "YazSes es un demonio de dictado por voz libre, de código abierto y sin conexión, para Linux, macOS y Windows. Mantén pulsada una tecla, habla y suéltala: el texto aparece donde estés escribiendo. Todo se ejecuta en tu propia máquina: sin nube, sin cuenta y sin suscripción."
+description: "YazSes es un servicio de dictado por voz libre y de código abierto, que se ejecuta en tu propio equipo, para Linux, macOS y Windows. Mantén presionada una tecla, habla y suéltala: el texto aparece donde estés escribiendo. Todo se ejecuta en tu propio equipo: sin nube, sin cuenta y sin suscripción."
 alternates:
   en: index.md
 ---
 
 **Read this in other languages:** [English](../index.md) · [Deutsch](../de/index.md) · [Nederlands](../nl/index.md) · [Tiếng Việt](../vi/index.md) · [Türkçe](../tr/index.md) · [bahasa Indonesia](../id/index.md) · español · [français](../fr/index.md) · [italiano](../it/index.md) · [polski](../pl/index.md) · [português do Brasil](../pt-BR/index.md) · [svenska](../sv/index.md) · [čeština](../cs/index.md) · [ελληνικά](../el/index.md) · [Русский](../ru/index.md) · [українська](../uk/index.md) · [اردو](../ur/index.md) · [العربية](../ar/index.md) · [فارسی](../fa/index.md) · [हिंदी](../hi/index.md) · [বাংলা](../bn/index.md) · [தமிழ்](../ta/index.md) · [తెలుగు](../te/index.md) · [ไทย](../th/index.md) · [日本語](../ja/index.md) · [简体中文](../zh-CN/index.md) · [繁體中文](../zh-TW/index.md) · [한국어](../ko/index.md)
-<!-- yazses-l10n: locale=es; source=README.md; source_sha=3baacb8; scope=partial; status=draft -->
-
-> ⚠️ **Traducción preliminar** — Asistida por máquina y aún sin revisar por un hablante nativo.
->
-> *This is a machine-assisted **draft** translation, not yet reviewed by a native
-> speaker. English is authoritative: [README.md](https://github.com/MSKazemi/yazses#readme). Improving it is a
-> welcome first contribution — see [issue #339](https://github.com/MSKazemi/yazses/issues/339).*
+<!-- yazses-l10n: locale=es; source=README.md; source_sha=5b5fd29; scope=partial; status=active; reviewer=@laurash96 -->
 
 # YazSes
 
-YazSes es un demonio de dictado por voz libre, de código abierto y sin conexión, para Linux, macOS y Windows. Mantén pulsada una tecla, habla y suéltala: el texto aparece donde estés escribiendo. Todo se ejecuta en tu propia máquina: sin nube, sin cuenta y sin suscripción.
+YazSes es un servicio de dictado por voz libre y de código abierto, que se ejecuta en tu propio equipo, para Linux, macOS y Windows. Mantén presionada una tecla, habla y suéltala: el texto aparece donde estés escribiendo. Todo se ejecuta en tu propio equipo: sin nube, sin cuenta y sin suscripción.
 
 ## Instalación
 
@@ -36,12 +30,12 @@ La primera ejecución descarga una vez un modelo de voz (unos 148 MB). Después 
 ## Qué hace
 
 - **Dictado** — Mantén la tecla, habla y suelta. El texto se escribe en la ventana activa.
-- **Comandos de voz** — Di «guardar archivo» o «ir a la línea 40» y actúa, en vez de escribir las palabras.
+- **Comandos de voz** — Di «guardar archivo» o «ir a la línea 40» y lo ejecuta, en vez de escribir las palabras.
 - **Reuniones y grabaciones** — Transcribe un archivo de audio o graba una reunión entera con etiquetas de hablante, todo sin conexión.
 
 ## Privacidad
 
-El audio se transcribe en tu máquina y nunca se envía a ninguna parte. No hay telemetría ni ruta a la nube.
+El audio se transcribe en tu equipo y, de forma predeterminada, no sale de él. No hay telemetría ni ruta a la nube.
 
 ## Más
 
