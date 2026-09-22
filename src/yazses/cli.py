@@ -99,6 +99,81 @@ model_app = typer.Typer(
 )
 app.add_typer(model_app, rich_help_panel=_SETUP)
 
+language_app = typer.Typer(
+    name="language",
+    help="Inspect dictation-language profiles and effective STT language state.",
+    context_settings=CONTEXT_SETTINGS,
+    no_args_is_help=True,
+)
+app.add_typer(language_app, rich_help_panel=_SETUP)
+
+
+@language_app.command("list")
+def language_list() -> None:
+    """List the high-level language profiles YazSes can resolve coherently."""
+    from yazses.language import list_profiles
+
+    for profile in list_profiles():
+        aliases = [a for a in profile.aliases if a.lower() != profile.id.lower()]
+        alias_text = f"  aliases: {', '.join(aliases)}" if aliases else ""
+        script = profile.output_script or "none"
+        typer.echo(
+            f"{profile.id:<6}  {profile.label}  "
+            f"(speech={profile.speech_language}, script={script}, "
+            f"recommended={profile.recommended_engine}/{profile.recommended_model})"
+            f"{alias_text}"
+        )
+
+
+@language_app.command("status")
+def language_status(
+    json_output: bool = typer.Option(
+        False,
+        "--json",
+        help="Emit a machine-readable status object.",
+    ),
+) -> None:
+    """Show the effective speech language, Han script, model, and profile coherence."""
+    import json
+
+    from yazses.config import load_config
+    from yazses.language import derive_status
+
+    platform = get_platform()
+    cfg = load_config(platform.paths.config_file)
+    status = derive_status(cfg)
+
+    payload = {
+        "speech_language": status.speech_language,
+        "output_script": status.output_script,
+        "engine": status.engine,
+        "model": status.model,
+        "profile_match": status.profile_match,
+        "custom_model": status.custom_model,
+        "coherent": status.coherent,
+        "problems": list(status.problems),
+    }
+
+    if json_output:
+        typer.echo(json.dumps(payload, ensure_ascii=False, sort_keys=True))
+    else:
+        speech = status.speech_language or "auto"
+        script = status.output_script or "model/default"
+        profile = status.profile_match or "(custom / no exact profile)"
+        if status.custom_model and status.profile_match:
+            profile += " — custom model"
+        typer.echo(f"Speech:        {speech}")
+        typer.echo(f"Script:        {script}")
+        typer.echo(f"STT:           {status.engine} / {status.model}")
+        typer.echo(f"Profile match: {profile}")
+        typer.echo(f"Status:        {'coherent' if status.coherent else 'INVALID'}")
+        for problem in status.problems:
+            typer.echo(f"  - {problem}", err=True)
+
+    if not status.coherent:
+        raise typer.Exit(1)
+
+
 corpus_app = typer.Typer(
     name="corpus",
     help="Inspect or clear the local learning corpus.",
