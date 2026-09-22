@@ -63,6 +63,15 @@ There is no project requirement to use the largest model, maximum reasoning effo
 sandbox, or a paid agent run. Small bounded tasks are deliberately designed to work without
 that.
 
+### If you want to use a cloud agent on campaign work
+
+Use the fork-first worker flow in
+[`campaign/agent-workers.md`](../../campaign/agent-workers.md). It explains how task claims,
+`cloud_agent_ready`, allowed paths, provider-specific execution triggers such as Jules, and
+human review fit together. The key distinction is that **agent readiness is project metadata;
+provider execution is contributor-owned**. A normal contributor does not need upstream write
+access or a project-owned agent credential.
+
 ## One prompt for any agent
 
 Paste this after opening the repository in your agent:
