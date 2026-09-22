@@ -6,7 +6,7 @@
 | **Status** | Proposed |
 | **Date** | 2026-09-22 |
 | **Programme** | `design/eye-control/` |
-| **Decision** | ADR-v2-140 (Proposed) |
+| **Decision** | ADR-v2-141 (Proposed) |
 | **Research** | `docs/research/grounded-multimodal-interaction.md` |
 | **Related** | ADR-v2-010 gaze routing; ADR-v2-007 Voice Pilot; ADR-019 egress; ADR-021 error cost |
 
@@ -322,7 +322,7 @@ Real platform claims belong to EYE-GROUND-004 evidence.
 
 A child issue may receive `agent-ready` only when:
 
-- ADR-v2-140 is accepted or the issue is explicitly limited to non-binding research/prototype work;
+- ADR-v2-141 is accepted or the issue is explicitly limited to non-binding research/prototype work;
 - prerequisite issue is merged;
 - issue names allowed files/seams;
 - exact narrow test command is present;
