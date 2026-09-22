@@ -94,11 +94,42 @@ other tracker can replace webcam gaze without changing routing, deixis, or safet
 
 This is **not** an immediate dependency for the webcam programme.
 
+### UC-7 — Grounded target resolution: look roughly, act semantically
+
+The 2026 Google Magic Pointer / Apple Siri AI research does not change the webcam accuracy ceiling.
+It changes **where precision should come from**.
+
+A coarse gaze/mouse/head target should identify the plausible region; accessibility/application
+semantics should identify the exact UI entity; voice should state the operation. The proposed
+ADR-v2-141 and [grounded-target spec](../specs/eye-grounded-targets.md) add that missing seam without
+turning gaze into a fake high-precision cursor.
+
+Initial scope is semantic-first and screenshot-free:
+
+```text
+coarse target -> structured UI candidates -> grounded / ambiguous / unresolved
+             + spoken intent hint          -> planner -> safety -> action
+```
+
+OCR/VLM fallback is deliberately deferred until [the evaluation plan](GROUNDED_INTERACTION_RESEARCH.md)
+measures a real semantic gap.
+
+**Delivery:** #441–#445. This extension does not block the original head/face hands-free bundle.
+
 ## State-of-the-art snapshot (2026-09-22)
 
 This is a product/architecture refresh, not a replacement for
 [`docs/research/eye-control.md`](../../docs/research/eye-control.md), which contains the
 peer-reviewed gaze-accuracy evidence.
+
+### Google + Apple: grounding is becoming a system interaction layer
+
+Google Magic Pointer and Apple's Siri AI / onscreen-awareness APIs converge on the same HCI split:
+pointing says **which thing**, language says **what to do**, and a semantic layer resolves the exact
+entity. For YazSes the practical lesson is semantic refinement, not screenshot-first automation.
+
+See the cited public synthesis:
+[Grounded multimodal interaction](../../docs/research/grounded-multimodal-interaction.md).
 
 ### Apple: separate pointer, snapping, dwell and commit controls
 
@@ -207,6 +238,7 @@ Status vocabulary in this programme:
 | Shared camera/perception source | **DESIGNED by this programme** | proposed ADR-v2-135 | protocol + lifecycle + refactor |
 | Wayland pointer injection | **PARTIAL** | keyboard portal exists | request POINTER, emit motion/buttons, tests |
 | Dedicated eye tracker backend | **RESEARCH** | eye-control research | provider protocol + licensing/device study |
+| Grounded semantic target resolution | **DESIGNED / proposed** | ADR-v2-141 + `eye-grounded-targets.md` | #441–#445; structured semantic source evidence |
 | Hands-free bundle/profile | **DESIGNED** | #102 + research directions | compose features into one usable mode |
 
 ### Important planning corrections
@@ -236,6 +268,7 @@ Status vocabulary in this programme:
 - [ADR-v2-137 — face gesture emits switch intent](../adr/adr-v2-137-face-switch-intent.md)
 - [ADR-v2-138 — hands-free composition + global safety state](../adr/adr-v2-138-hands-free-composition.md)
 - [ADR-v2-139 — calibration coordinate space/topology](../adr/adr-v2-139-gaze-calibration-coordinate-space.md)
+- [ADR-v2-141 — ground coarse targets into semantic UI entities](../adr/adr-v2-141-grounded-target-resolution.md)
 - [ADR-v2-140 — community QA vs human research evidence](../adr/adr-v2-140-evaluation-evidence-and-research-consent.md)
 
 ADR-v2-135 and the follow-on programme ADRs do **not** replace those
