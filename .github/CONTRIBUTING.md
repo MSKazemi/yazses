@@ -225,14 +225,21 @@ forever. The one part that may **not** drift is the contributor wall — it is g
 identical in every language, and a stale copy quietly drops a real person from the surface
 people actually look at. A test enforces that, so copy that block across verbatim.
 
-## Using an AI coding assistant
+## Using a coding agent
 
 That is fine, and increasingly common — but the PR is yours, so please read and understand
-every line before you open it, and confirm the tests pass locally rather than assuming.
-[`AGENTS.md`](../AGENTS.md) gives your assistant the project conventions, the gates, and the two
-rules it is most likely to break (**no network calls or telemetry**, and **new features ship
-off by default**). Mention in the PR body if a change was largely AI-generated; it only
-changes how carefully we review, never whether we accept it.
+every line before you open it, and confirm the tests pass rather than assuming.
+[`AGENTS.md`](../AGENTS.md) is the canonical instruction file for every assistant and remote
+coding agent.
+
+**Credit the human contributor, not the tool.** Do not add an AI/coding agent as an author,
+co-author, contributor or generator in commits, PR text, issues or release notes. If a remote
+tool has an authorship mode, configure it to commit as the human user only.
+
+Using Google Jules? Read the [Jules access and issue-trigger guide](../docs/contribute/jules.md).
+It explains the one-time GitHub App installation for the upstream repo, the fork workflow for
+outside contributors, and why `agent-ready` and the execution-triggering `jules` label are
+different.
 
 ## After it is merged — please take the credit publicly
 
