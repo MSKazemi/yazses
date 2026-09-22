@@ -105,6 +105,11 @@ the hardware.
   What a $20 webcam can and cannot know about where you look — and why
   "coarse but honest" beats "precise but fake".
 
+- :material-target: **[Grounded multimodal interaction](grounded-multimodal-interaction.md)**
+  How Google Magic Pointer and Apple's onscreen-awareness stack turn pointing,
+  gaze and language into structured targets — and what architectural layer
+  YazSes is still missing.
+
 - :material-microphone-outline: **[Voice control](voice-control.md)**
   Local speech recognition passed the cloud in 2025–26. The numbers, the
   latency physics, and the whisper channel.
