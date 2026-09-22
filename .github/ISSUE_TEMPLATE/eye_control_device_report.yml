@@ -17,6 +17,36 @@ body:
 
         See `design/eye-control/TEST_PLAN.md` for the measurement definitions.
 
+  - type: markdown
+    attributes:
+      value: |
+        **This GitHub issue is public engineering QA, not research consent.**
+        Your GitHub username and anything you type here will be publicly visible and may be
+        indexed or mirrored. Do not post sensitive data. See
+        `design/eye-control/DATA_SHARING.md`.
+
+  - type: dropdown
+    id: use
+    attributes:
+      label: How may this report be used?
+      description: >-
+        This controls project use of the report. Selecting research interest does NOT enroll
+        you in a study; research consent, if any, happens separately.
+      options:
+        - "Engineering QA only — do not treat this report as research participant data"
+        - "Engineering QA; I am willing to be contacted separately about a future research study"
+        - "This run was collected under an existing named research protocol (enter protocol ID in notes)"
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: public_ack
+    attributes:
+      label: Public-report acknowledgement
+      options:
+        - label: I understand this GitHub issue is public and I will not post face/video, private text, diagnosis, contact details, serial numbers, or secrets
+          required: true
+
   - type: dropdown
     id: capability
     attributes:
