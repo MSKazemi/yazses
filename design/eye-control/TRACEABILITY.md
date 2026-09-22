@@ -145,7 +145,6 @@ Before recommended status, add:
 | Human-study design/ethics | `PAPER_EVIDENCE.md` | #425 | frozen protocol + determination |
 | Research analysis | `METRICS.md` | #426 | reproducible tables/figures |
 | Tester/participant wording | `DATA_SHARING.md` | #427 | reviewed public/research materials |
+| Beginner instruction usability | `BEGINNER_TESTING.md` | #449 | first-time-reader review |
 
 Community QA rows are not automatically eligible for participant-level paper analysis.
-
-| Beginner instruction usability | `BEGINNER_TESTING.md` | #449 | first-time-reader review |
