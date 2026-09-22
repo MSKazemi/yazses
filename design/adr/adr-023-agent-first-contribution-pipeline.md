@@ -26,6 +26,12 @@ is a net win for the maintainer, not a new source of review burden?**
 
 ## Decision
 
+Keep one canonical repository instruction source, `AGENTS.md`. Where a major tool uses a
+different auto-discovery filename, ship only a thin adapter that imports the canonical file
+(for example `CLAUDE.md` → `AGENTS.md` and `GEMINI.md` → `AGENTS.md`). A tool adapter may
+not copy setup commands, policy, or architecture rules: duplicated agent instructions are
+treated as configuration drift.
+
 Structure every advertised contribution — human-only or agent-assisted — as a **bounded
 contract**, not a prompt: the objective is that a contributor can pick a task, hand it to
 an agent, inspect the diff, run one validation command, and open a correct PR in 10–30
@@ -60,6 +66,7 @@ Task ID: COMPAT-GNOME47-WAYLAND-001
 Risk: L0 — schema-only
 Expected time: 15–25 minutes
 Cloud agent: No; real desktop evidence required
+Cost: No paid service required; no authority to enable overages or incur project expenses
 
 Read first:
 - AGENTS.md
@@ -156,9 +163,9 @@ touches: audio or text leaving the machine; telemetry, analytics, crash reportin
 cloud fallback; microphone permissions or ambient capture; command execution or shell
 interpolation; a dependency addition or lockfile change; an IPC/public interface or an
 accepted ADR; a default feature state; or release signing and packaging credentials. These
-map directly onto `AGENTS.md`'s L3 list and onto the non-negotiables in the top-level
-`CLAUDE.md` this project's own agents are held to — the same reasoning applied to
-contributors' agents as to the maintainer's.
+map directly onto the canonical top-level `AGENTS.md` — the same public instruction file
+used for Claude Code, Codex, ChatGPT, Gemini, Cursor, and other assistants — so contributors'
+agents and maintainers' agents are held to the same repository-visible boundaries.
 
 ## Consequences
 

@@ -84,7 +84,7 @@ In your own terminal: `asciinema play docs/demo/yazses-cli.cast`.
 > ⭐ **If that looks useful, a star is how other people find it.** There's no company and no
 > ad budget behind this — word of mouth is the entire distribution strategy.
 
-> 🙌 **Want to help?** **[Start here](https://mskazemi.com/yazses/contribute/start.html)** — one page, pick the row matching what you have, finish in 15–45 minutes. No permission needed and nothing is assigned; coding agents are welcome and there's a copy-paste prompt. Several tasks need **no Python at all** — [translate the README](https://github.com/MSKazemi/yazses/issues/18) into your language, [add your microphone](https://github.com/MSKazemi/yazses/issues/21) to the known-good list, or just run it and tell us what happened. [#22](https://github.com/MSKazemi/yazses/issues/22) lists everything open. The test suite is fully offline and takes about 30 seconds, so you need no microphone, model or GPU to contribute.
+> 🙌 **Want to help?** **[Start here](https://mskazemi.com/yazses/contribute/start.html)** — one page, pick the row matching what you have, finish in 15–45 minutes. No permission needed and nothing is assigned; coding agents are welcome and there's a copy-paste prompt. **AI tools are optional; you never need to pay for one to contribute.** If you use one, read the [safe agent guide](docs/contribute/ai-agents.md) first. Several tasks need **no Python at all** — [translate the README](https://github.com/MSKazemi/yazses/issues/18) into your language, [add your microphone](https://github.com/MSKazemi/yazses/issues/21) to the known-good list, or just run it and tell us what happened. [#22](https://github.com/MSKazemi/yazses/issues/22) lists everything open. The test suite is fully offline and takes about 30 seconds, so you need no microphone, model or GPU to contribute.
 
 ---
 
@@ -657,7 +657,7 @@ account beyond GitHub. Opening the pull request is the whole contract — Apache
 already covers the licence grant.
 
 - 🌱 **New here?** Start with a [good first issue](https://github.com/MSKazemi/yazses/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) — each is small and self-contained, and we're happy to help you through your first PR.
-- 🚀 **First time? [Start here](https://mskazemi.com/yazses/contribute/start.html)** — one page, pick the row matching what you have in front of you, finish in 15–45 minutes. No permission needed, nothing is assigned, and coding agents are welcome (there's a copy-paste prompt).
+- 🚀 **First time? [Start here](https://mskazemi.com/yazses/contribute/start.html)** — one page, pick the row matching what you have in front of you, finish in 15–45 minutes. No permission needed, nothing is assigned, and coding agents are welcome (there's a copy-paste prompt). AI tools are optional; [use them safely](docs/contribute/ai-agents.md) and do not assume YazSes authorizes or reimburses their costs.
 - 🎯 **Want the full list?** [**Filter 130 open tasks**](https://mskazemi.com/yazses/contribute/find.html) by what you have, your time, and whether you want to write code
   — each one names the exact files you may touch, the command that says you're done, and an
   honest time estimate. Filter by what you actually have: a browser, a terminal, a specific

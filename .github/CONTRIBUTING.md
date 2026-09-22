@@ -237,6 +237,21 @@ rules it is most likely to break (**no network calls or telemetry**, and **new f
 off by default**). Mention in the PR body if a change was largely AI-generated; it only
 changes how carefully we review, never whether we accept it.
 
+**You never need to pay for an AI tool to contribute.** Claude Code, Codex, ChatGPT, Gemini,
+Cursor, Copilot, Jules and similar products are third-party services. If you choose to use
+one, its subscription, API, token, credit, cloud, and overage charges are your responsibility.
+YazSes does not reimburse those charges unless a maintainer agreed in writing in advance to
+a specific expense and amount.
+
+Before using a coding agent, read **[Using AI coding agents safely](../docs/contribute/ai-agents.md)**.
+It shows how to work from your fork, keep approval controls on, tell subscription usage from
+API billing, and avoid accidentally enabling paid continuation. The canonical project policy
+is **[Third-party AI tools: billing, responsibility, and no reimbursement](../THIRD_PARTY_AI_TOOLS.md)**.
+
+Provider prices, limits, and billing behavior change. Our examples are teaching material, not
+a promise about a provider account. Always check the provider's current official terms,
+pricing, usage page, and billing settings before enabling paid usage.
+
 ## After it is merged — please take the credit publicly
 
 Two things happen without you asking: you are added to

@@ -7,7 +7,10 @@ command that decides whether it is done, and an honest estimate of how long it t
 
 Nothing is assigned and you do not need permission. Pick a task, say so on the issue it
 came from so nobody doubles up, and open the pull request. A coding agent is welcome —
-you remain the author, and you are expected to have read every line you send.
+you remain the author, and you are expected to have read every line you send. "Agent-ready"
+or "cloud-ready" describes technical suitability only; it is **not** authorization to buy
+credits, enable overages, or incur cloud costs. See
+[`docs/contribute/ai-agents.md`](../docs/contribute/ai-agents.md) before using a paid service.
 
 ## How this is put together
 

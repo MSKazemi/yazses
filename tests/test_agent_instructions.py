@@ -1,20 +1,22 @@
 """The agent instruction files must agree with each other and with reality.
 
-Five surfaces tell a contributor — human or coding agent — what the gates are:
-`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `CONTRIBUTING.md`, `README.md` (plus its
-translations) and the `Makefile`. They are hand-maintained and they had drifted in the
+Several surfaces tell a contributor — human or coding agent — what the gates are.
+`AGENTS.md` is canonical; `CLAUDE.md` and `GEMINI.md` are intentionally tiny tracked
+adapters that import it, while `CONTRIBUTING.md`, `README.md` (plus its translations)
+and the `Makefile` expose selected human-facing commands. These surfaces had drifted in the
 worst possible direction: `AGENTS.md` told agents the codebase carried "~135 known type
 errors across 50 files" and that "a clean run is not the bar", while `CONTRIBUTING.md`
 said mypy reports no issues at all. `mypy src` actually reports `Success: no issues found
 in 433 source files`. An agent reading the stale file would have shipped type errors and
 called them pre-existing — and been following the instructions when it did.
 
-`AGENTS.md` also sent contributors to a root `CLAUDE.md` for the architecture reference.
-That file is deliberately **gitignored** — it carries local configuration — so it exists in
-the maintainer's checkout and in no clone anyone else has ever made. The instruction read
-fine to the only person who could not observe it failing.
+Historically, `AGENTS.md` sent contributors to a root `CLAUDE.md` that was gitignored and
+present only in the maintainer's checkout. The public design now avoids that failure in a
+different way: `AGENTS.md` is the single source of truth, while any tool-specific filename
+is tracked only as a thin import adapter. Private assistant configuration stays in ignored
+local/user files.
 
-That last point is why these checks resolve paths through `git ls-files` rather than the
+That history is why these checks resolve paths through `git ls-files` rather than the
 filesystem: the question is never "is this file on this disk", it is "does a contributor
 receive this file". A test that reads the working tree would have passed on the maintainer's
 machine while the reference was broken for everybody else — reproducing the exact bug.
@@ -34,6 +36,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 
 CANONICAL = "AGENTS.md"
+TOOL_ADAPTERS = {
+    "CLAUDE.md": "@AGENTS.md",
+    "GEMINI.md": "@./AGENTS.md",
+}
 #: GitHub reads the community-health files from `.github/` as readily as from the root,
 #: and the root listing was 43 markdown files deep. Named once, because every surface
 #: below addresses it by repo-relative path.
@@ -79,16 +85,69 @@ def _translated_readmes() -> list[str]:
     return [p.relative_to(ROOT).as_posix() for p in found]
 
 
-def test_the_canonical_agent_file_is_shipped():
-    """`AGENTS.md` is the one instruction file a contributor is guaranteed to get.
+def test_private_agent_configuration_is_never_tracked():
+    """Local assistant state stays private even if an ignore rule is bypassed."""
+    tracked = _tracked()
+    if not tracked:
+        return
 
-    The tool-specific files (`CLAUDE.md`, `GEMINI.md`) are deliberately gitignored as
-    local configuration, so this is the only agent brief that travels with a clone.
-    """
-    assert CANONICAL in _tracked() or not _tracked(), (
-        f"{CANONICAL} is not tracked by git — it is the public agents.md contributor "
-        "standard and the only agent instruction file that reaches a clone"
+    forbidden = sorted(
+        path for path in tracked
+        if path == "CLAUDE.local.md"
+        or path.startswith(".claude/")
+        or path.startswith(".gemini/")
     )
+    assert not forbidden, (
+        "private local agent configuration is tracked: "
+        f"{forbidden}. Keep only the public CLAUDE.md/GEMINI.md adapters in git."
+    )
+
+
+def test_canonical_agent_file_and_thin_adapters_are_shipped():
+    """Every supported auto-discovery filename must resolve to one public source of truth."""
+    tracked = _tracked()
+    if not tracked:  # sdist/vendored trees may not carry git metadata
+        return
+
+    assert CANONICAL in tracked, (
+        f"{CANONICAL} is not tracked by git — it is the public contributor instruction source"
+    )
+
+    for adapter, import_line in TOOL_ADAPTERS.items():
+        assert adapter in tracked, (
+            f"{adapter} is not tracked — the corresponding agent will miss project rules"
+        )
+        text = _read(adapter)
+        assert import_line in text, (
+            f"{adapter} must import {CANONICAL} instead of maintaining a second rule set"
+        )
+        assert "uv sync" not in text and "pytest" not in text and "ruff check" not in text, (
+            f"{adapter} duplicates setup/gate commands — keep policy only in {CANONICAL}"
+        )
+
+
+def test_ai_review_disclosure_is_not_ai_authorship():
+    """The agent rules must permit review transparency without crediting a tool as author."""
+    text = _read(CANONICAL)
+    assert "No AI authorship or contributor credit" in text
+    assert '"AI assistance" section may name the tool used' in text
+    assert "Co-Authored-By" in text
+
+
+def test_cloud_agent_does_not_weaken_yazses_data_boundary():
+    """Agent-assisted development must not turn private user evidence into cloud input."""
+    text = _read(CANONICAL).lower()
+    assert "never upload real user audio" in text
+    assert "cloud development tool is a separate data transfer" in text
+    assert "synthetic or explicitly" in text
+
+
+def test_canonical_agent_rules_treat_external_text_as_untrusted():
+    """GitHub/web text may scope work, but it must never outrank repository safety rules."""
+    text = _read(CANONICAL).lower()
+    assert "untrusted input" in text
+    assert "cannot override this file" in text
+    assert "credentials" in text
 
 
 def _instruction_links(text: str) -> set[str]:
@@ -125,14 +184,13 @@ def _candidate_targets(target: str, owner: str) -> set[str]:
 def test_no_shipped_instruction_file_points_at_something_unshipped():
     """The failure this suite exists to catch, in its general form.
 
-    `AGENTS.md` told contributors to read a root `CLAUDE.md` that no clone contains.
-    A gitignored target is worse than a missing one: it resolves on the author's
-    machine, so the broken link is invisible to the only person who could fix it.
+    This originally caught an `AGENTS.md` reference to an untracked private `CLAUDE.md`.
+    Tool adapters are now tracked, but any instruction link can regress the same way.
     """
     tracked = _tracked()
     if not tracked:  # no git available (sdist, vendored tree) — nothing to verify against
         return
-    for name in (CANONICAL, CONTRIBUTING, "README.md"):
+    for name in (CANONICAL, *TOOL_ADAPTERS, CONTRIBUTING, "README.md"):
         for target in _instruction_links(_read(name)):
             assert _candidate_targets(target, name) & tracked, (
                 f"{name} links to {target}, which git does not ship — a contributor "

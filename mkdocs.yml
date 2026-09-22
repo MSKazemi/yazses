@@ -406,6 +406,7 @@ nav:
       - Contributing:
           - Start here — your first contribution: contribute/start.md
           - How to contribute: contributing.md
+          - Using AI coding agents safely: contribute/ai-agents.md
           - Find a task that fits you: contribute/find.md
           - All open tasks: contribute/tasks.md
           - What contributors built: contribute/built.md

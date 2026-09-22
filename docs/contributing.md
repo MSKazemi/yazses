@@ -108,7 +108,14 @@ covers the rest, including how a module becomes yours to review.
 **Using an AI assistant is fine** — increasingly normal — but the pull request is yours, so
 please read every line and confirm the tests pass rather than assuming.
 [`AGENTS.md`](https://github.com/MSKazemi/yazses/blob/main/AGENTS.md) gives your assistant the
-conventions and the two rules it is most likely to break.
+project conventions and safety boundaries.
+
+AI tools are **optional**. You never need to buy a subscription, tokens, credits, cloud
+compute, or a usage reset to contribute. If you choose a third-party agent, its account and
+charges are your responsibility; YazSes does not reimburse them unless a maintainer approved
+a specific expense and amount in writing beforehand. Read
+[Using AI coding agents safely](contribute/ai-agents.md) before connecting Claude Code,
+Codex, ChatGPT, or another agent.
 
 ## Questions
 
