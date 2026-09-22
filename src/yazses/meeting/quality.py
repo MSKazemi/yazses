@@ -32,7 +32,6 @@ against real transcripts without a decode.
 """
 from __future__ import annotations
 
-import re
 import unicodedata
 from collections import Counter
 from dataclasses import dataclass, field
@@ -60,8 +59,11 @@ MIN_DISTINCT_NGRAM_RATIO = 0.35
 MAX_REPEAT_RUN = 12
 # "Thin" needs a long recording to be meaningful: a 30 s clip holding one word is an
 # accidental start, already described by `capture_state`, and calling it thin as well
-# is a second word for a fact the user has been told. Slow, sparse conversation runs
-# ~60-80 wpm; the healthy samples above run ~107-118.
+# is a second word for a fact the user has been told. Slow, sparse English conversation
+# runs ~60-80 words/min; the healthy samples above run ~107-118. Han transcripts use
+# characters as quality units, so the same low threshold is deliberately conservative:
+# it prevents the known one-token-per-sentence false alarm without claiming this English
+# calibration is a finished Mandarin benchmark.
 THIN_MIN_DURATION_S = 300.0
 THIN_MAX_WPM = 25.0
 # The live transcript is a second decode of the same audio. This much more content in
@@ -72,7 +74,22 @@ LIVE_DISAGREEMENT_RATIO = 3.0
 # result and a 7-word live one is a 3.5x "disagreement" about nothing).
 LIVE_MIN_BATCH_WORDS = 20
 
-_WORD_RE = re.compile(r"[^\W\d_]+", re.UNICODE)
+
+def _is_han(ch: str) -> bool:
+    """True for Unicode Han ideographs used by Chinese text.
+
+    Ranges are explicit rather than locale/model dependent. This keeps the quality
+    guard stdlib-only and makes Simplified/Traditional handling identical.
+    """
+
+    cp = ord(ch)
+    return (
+        0x3400 <= cp <= 0x4DBF
+        or 0x4E00 <= cp <= 0x9FFF
+        or 0xF900 <= cp <= 0xFAFF
+        or 0x20000 <= cp <= 0x2FA1F
+        or 0x30000 <= cp <= 0x323AF
+    )
 
 
 @dataclass(frozen=True)
@@ -128,13 +145,41 @@ class TranscriptQuality:
 
 
 def tokenize(text: str) -> list[str]:
-    """Lowercased word tokens, punctuation and digits dropped. Pure.
+    """Language-neutral quality tokens, punctuation and digits dropped. Pure.
 
-    NFKC first so a transcript carrying composed and decomposed forms of the same word
-    does not read as two distinct words and inflate the distinct-ngram ratio — which
-    would make a *degenerate* transcript look healthier, the wrong direction to fail in.
+    Alphabetic scripts keep the historical word-run behaviour. Each Han ideograph is
+    one quality token because normal Mandarin text is not whitespace-segmented: treating
+    an entire Chinese sentence as one "word" makes a healthy long meeting look almost
+    empty and can trigger QUALITY_THIN.
+
+    These are *quality units*, not a claim that one Han character is one linguistic word.
+    The stored field names stay unchanged for backward compatibility. Both the live and
+    batch paths call this same function, so their ratio remains comparable.
+
+    NFKC first so composed/decomposed Latin forms compare identically and full-width
+    forms are normalised before tokenisation.
     """
-    return _WORD_RE.findall(unicodedata.normalize("NFKC", text or "").lower())
+
+    normalised = unicodedata.normalize("NFKC", text or "").lower()
+    tokens: list[str] = []
+    word: list[str] = []
+
+    def flush_word() -> None:
+        if word:
+            tokens.append("".join(word))
+            word.clear()
+
+    for ch in normalised:
+        if _is_han(ch):
+            flush_word()
+            tokens.append(ch)
+        elif ch.isalpha():
+            word.append(ch)
+        else:
+            flush_word()
+
+    flush_word()
+    return tokens
 
 
 def _ngrams(tokens: list[str], n: int = NGRAM) -> list[tuple[str, ...]]:
