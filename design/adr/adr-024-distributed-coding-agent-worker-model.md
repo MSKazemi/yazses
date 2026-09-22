@@ -139,42 +139,60 @@ This keeps worker identity and billing/quota responsibility with the person who 
 provider. The canonical billing/responsibility rules remain THIRD_PARTY_AI_TOOLS.md; this ADR
 does not create reimbursement, spending authority, or a requirement to use a paid agent.
 
-### 4. Issue text is context, not executable authority
+### 4. Public issue text is not automatically executable authority
 
-Public issue text is untrusted input.
+Public issue text and comments are untrusted input. Applying an execution trigger to an
+arbitrary user-authored issue would turn prose from an untrusted boundary into instructions for
+a privileged external worker.
 
-An autonomous agent prompt must not be constructed by blindly forwarding an arbitrary issue
-body or comment. The executable contract is rendered from reviewed repository data:
+A central executor may act only from one of two reviewed contract sources:
 
-- task ID;
+1. a campaign task whose authoritative scope comes from `campaign/tasks.json`; or
+2. a **trusted structured issue** that was authored or explicitly approved by a maintainer,
+   has the required scope/acceptance/validation fields, and passed the read-only pre-trigger
+   eligibility check.
+
+For a campaign-backed task, the manifest wins over issue prose for allowed paths, validation,
+risk, and cloud readiness. For a trusted structured issue, the issue body is the reviewed
+contract, but later public comments remain context only and cannot silently widen that contract.
+
+In both cases the agent must receive the same minimum contract:
+
+- task/issue identifier;
 - goal/value;
-- allowed_paths;
+- allowed or expected paths/seams;
 - acceptance criteria or evidence requirements;
 - validation commands;
 - AGENTS.md;
 - explicit escalation boundaries.
 
-Issue discussion may be linked as background, but it cannot widen the allowed paths, weaken
-validation, or override a non-negotiable project rule.
+Issue discussion may be linked as background, but it cannot weaken validation, authorize
+credentials, override a non-negotiable rule, or expand scope without a human revising and
+re-approving the execution contract.
 
-This prevents a public commenter from converting prose into repository automation instructions.
+This preserves the useful built-in Jules issue-label workflow without treating every public
+issue as safe executable input.
 
-### 5. Literal jules is reserved for central execution
+### 5. Readiness and execution use different signals
 
-The exact GitHub label jules has provider-defined executable semantics when the Jules GitHub App
-is connected to a repository. It is therefore **not** used as the generic readiness label.
+The exact GitHub label `jules` has provider-defined executable semantics when the Jules GitHub
+App is connected to a repository. It is therefore **not** a generic readiness label.
 
-Project metadata should use provider-neutral labels such as:
+Reuse the repository's existing provider-neutral readiness signals:
 
-- agent:cloud-ready
-- agent:claimed
-- agent:review
-- agent:blocked
+- `cloud_agent_ready` in `campaign/tasks.json` means the complete campaign task can be
+  produced and evidenced in a cloud/container environment;
+- `agent-ready` on a structured GitHub issue means the issue has cleared its design/scope
+  gate and may be evaluated by the pre-trigger checker.
 
-If provider labels are useful for reporting, use non-executable names such as provider:jules.
+Neither starts work.
 
-The literal jules label is reserved for a future maintainer-controlled central executor and may
-only be applied after that executor satisfies the safeguards below.
+The literal `jules` label is an **execution action** and is reserved for a future
+maintainer-controlled upstream Jules executor. It may only be applied after the issue/task
+passes the safeguards below.
+
+If operational status labels are added later, they must not duplicate these two readiness
+sources or acquire provider-defined execution semantics.
 
 ### 6. Human review remains mandatory
 
@@ -248,8 +266,11 @@ true:
 
 1. main requires pull requests rather than accepting ordinary direct contributor pushes;
 2. a stable aggregate required check exists and is required by the ruleset;
-3. the central trigger is allowlisted to trusted actors or trusted task IDs;
-4. the prompt is generated from campaign/tasks.json, never arbitrary public issue prose;
+3. the central trigger is limited to trusted contract sources and the actor applying the
+   execution label is authorized to do so;
+4. the execution contract comes from `campaign/tasks.json` or a maintainer-approved structured
+   issue that has passed the read-only pre-trigger check — never an arbitrary public issue body
+   or comment stream;
 5. the executor receives no release/signing/private-data credentials;
 6. it cannot auto-merge;
 7. literal jules is documented as an executable label;
@@ -281,7 +302,8 @@ This list is a minimum. AGENTS.md and later ADRs may make the boundary stricter.
 | AGENTS.md on the target base branch | project invariants and agent rules | merge approval |
 | contributor fork | producing a candidate diff | upstream write authority |
 | contributor agent account | executing the contributor's chosen task | project secrets or maintainer identity |
-| public issues/comments | discussion and links | executable instructions |
+| arbitrary public issues/comments | discussion and links | executable instructions |
+| maintainer-approved structured issue | reviewed issue-level execution contract | permission to bypass AGENTS/CI/review |
 | GitHub CI on a PR | machine-checkable evidence | product/design judgement |
 | human reviewer | acceptance decision inside governance | bypassing non-negotiable ADR boundaries |
 
@@ -384,7 +406,7 @@ If an agent exposes a secret or personal data:
 
 If the agent repeatedly ignores allowed_paths or validation:
 
-- mark the task or provider path agent:blocked;
+- record the task/provider path as blocked in the tracker or issue;
 - do not weaken the validation to make the agent pass.
 
 If review capacity is exceeded:
