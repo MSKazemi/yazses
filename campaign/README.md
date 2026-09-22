@@ -19,6 +19,7 @@ you remain the author, and you are expected to have read every line you send.
 | `generated/stats.json` | **Generated.** Counts, and the review cost if everything merged. |
 | `generated/dashboard.md` | **Generated.** What contributors have actually built, by category. |
 | `incident-response.md` | Spam, fabricated evidence, plagiarism, leaked data, harassment. |
+| `agent-workers.md` | Fork-first cloud-agent contribution model, Jules notes, safety boundaries, and pilot rules. |
 
 ```sh
 uv run python scripts/check-task.py APP-014    # ← contributors: check your work before pushing
@@ -85,6 +86,11 @@ behaved the way a report claims, or that an architectural change is right. Those
 human, permanently. `cloud_agent_ready` is false for every compatibility, measurement and
 localization task for exactly this reason, and the validator rejects the row if someone
 sets it true.
+
+For cloud coding agents, [`agent-workers.md`](agent-workers.md) adds the execution boundary:
+contributors use their own agent account against their own fork; the task manifest decides
+eligibility; and the exact `jules` label is reserved rather than used as a generic
+agent-ready marker.
 
 ## Running a session, or reviewing
 
