@@ -231,8 +231,13 @@ Status vocabulary in this programme:
 - [ADR-011 — privacy / local camera handling](../adr/adr-011.md)
 - [ADR-014 — held-out validation](../adr/adr-014-tune-holdout-validation.md)
 - [ADR-v2-129 — killer features follow-up list](../adr/adr-v2-129-killer-features-10x.md)
+- [ADR-v2-135 — shared camera perception](../adr/adr-v2-135-shared-camera-perception.md)
+- [ADR-v2-136 — pointer-output boundary](../adr/adr-v2-136-pointer-output-boundary.md)
+- [ADR-v2-137 — face gesture emits switch intent](../adr/adr-v2-137-face-switch-intent.md)
+- [ADR-v2-138 — hands-free composition + global safety state](../adr/adr-v2-138-hands-free-composition.md)
+- [ADR-v2-139 — calibration coordinate space/topology](../adr/adr-v2-139-gaze-calibration-coordinate-space.md)
 
-The new [ADR-v2-135](../adr/adr-v2-135-shared-camera-perception.md) does **not** replace those
+ADR-v2-135 and the follow-on programme ADRs do **not** replace those
 decisions. It defines the missing shared camera seam beneath them.
 
 ## Non-goals
@@ -262,5 +267,11 @@ research / use case
   -> hardware evidence where hardware matters
 ```
 
-See [ROADMAP.md](ROADMAP.md), [TEST_PLAN.md](TEST_PLAN.md), and
-[AGENT_TASKS.md](AGENT_TASKS.md) for the executable plan.
+See the programme set:
+- [ROADMAP.md](ROADMAP.md) — dependency-ordered delivery;
+- [GOVERNANCE.md](GOVERNANCE.md) — artifact/release gates and label policy;
+- [TRACEABILITY.md](TRACEABILITY.md) — ADR -> spec -> issue -> verification;
+- [RISK_REGISTER.md](RISK_REGISTER.md) — safety/reliability risks and blockers;
+- [TEST_PLAN.md](TEST_PLAN.md) — hermetic and hardware validation;
+- [AGENT_TASKS.md](AGENT_TASKS.md) — issue/task catalogue;
+- [CONTRIBUTING.md](CONTRIBUTING.md) — contributor + coding-agent workflow.
