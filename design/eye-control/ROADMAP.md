@@ -387,6 +387,42 @@ contracts stabilize.
 **Gate for recommended status:** enable/pause/recenter/dwell/switch mapping/calibration/status do not
 require editing TOML or an undocumented terminal flow.
 
+## Evaluation and evidence track
+
+Evaluation is a parallel workstream, not something added after implementation.
+
+### V1 — schema and deterministic tasks
+
+- #421 versioned privacy-safe result schema;
+- #422 generated gaze/pointer/face evaluation tasks.
+
+### V2 — local evaluator + automated matrix
+
+- #423 local result runner/exporter;
+- #424 Windows/macOS/Linux CI matrix for E0–E2 evidence.
+
+### V3 — community hardware replication
+
+No-code slots #428–#437 cover:
+- Windows A/B;
+- macOS A/B;
+- GNOME Wayland A/B;
+- KDE Wayland;
+- X11;
+- HiDPI/multi-monitor;
+- same-person three-session test/retest.
+
+These are engineering QA, not automatic paper participants.
+
+### V4 — paper-quality human evidence
+
+- #425 freeze research questions/protocol/analysis + ethics gate before recruitment;
+- #426 reproducible de-identified analysis;
+- #427 tester/participant data-sharing language review.
+
+See [EVALUATION.md](EVALUATION.md), [METRICS.md](METRICS.md),
+[DATA_SHARING.md](DATA_SHARING.md), and [PAPER_EVIDENCE.md](PAPER_EVIDENCE.md).
+
 ## Dependency graph
 
 ```text
