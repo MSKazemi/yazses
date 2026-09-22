@@ -4,6 +4,34 @@ This is the source text for GitHub child issues under #102. Issue numbers are po
 creation. Each task is intentionally narrow enough to hand to a coding agent **together with the
 linked ADR/roadmap section**.
 
+## GitHub issue map
+
+All tasks below are attached to milestone **Hands-free — perception & accessibility** (#10).
+
+| Task | Issue |
+|---|---:|
+| EYE-DOC-001 | #392 |
+| EYE-ARCH-001 | #393 |
+| EYE-CAM-001 | #394 |
+| EYE-CAM-002 | #395 |
+| EYE-CAM-003 | #396 |
+| EYE-GAZE-001 | #397 |
+| EYE-GAZE-002 | #398 |
+| EYE-MEASURE-001 | #399 |
+| EYE-PTR-001 | #400 |
+| EYE-PTR-002 | #401 |
+| EYE-PTR-003 | #402 |
+| EYE-PTR-004 | #403 |
+| EYE-HEAD-001 | #404 |
+| EYE-HEAD-002 | #405 |
+| EYE-FACE-001 | #406 |
+| EYE-FACE-002 | #407 |
+| EYE-GESTURE-001 | #408 |
+| EYE-BENCH-001 | #409 |
+| EYE-BUNDLE-001 | #410 |
+| EYE-HW-001 | #411 |
+| EYE-TRACKER-001 | #412 |
+
 ## How to use a task
 
 A contributor or coding agent should:
