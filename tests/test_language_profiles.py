@@ -222,3 +222,14 @@ def test_recommended_mode_rejects_explicit_model_or_engine_overrides():
             mode="recommended",
             engine="faster-whisper",
         )
+
+
+def test_explicit_non_whisper_engine_override_is_outside_language_profile_scope():
+    with pytest.raises(LanguageProfileError, match="faster-whisper"):
+        resolve_profile("en", SttConfig(), engine="parakeet")
+
+
+def test_model_override_on_preserved_specialized_engine_is_refused():
+    stt = SttConfig(engine="parakeet", model="nemo-parakeet-tdt-0.6b-v2")
+    with pytest.raises(LanguageProfileError, match="model"):
+        resolve_profile("en", stt, model="small")
