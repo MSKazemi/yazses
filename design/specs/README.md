@@ -28,3 +28,22 @@ hard one · C = re-scope or pivot before building.
 
 All specs follow ADR-011 (off by default, fully local/offline) and the optional-extra dependency
 pattern (deps imported only when the feature is enabled).
+
+
+## Eye / camera accessibility programme (2026-09)
+
+These specs are the implementation-ready companions to the eye-control ADRs and
+[`design/eye-control/`](../eye-control/). They use the same privacy/offline rules as the original
+v2 specs but are tracked as a subsystem programme rather than as the original ten-feature set.
+
+| Area | Spec | Status | Primary issues |
+|---|---|---|---|
+| Shared camera perception | [eye-shared-perception.md](eye-shared-perception.md) | Proposed | #393–#396 |
+| Pointer output boundary | [eye-pointer-output.md](eye-pointer-output.md) | Proposed | #400–#403 |
+| Head-Pointer runtime | [eye-head-pointer-runtime.md](eye-head-pointer-runtime.md) | Proposed | #404–#405 |
+| Face-Gesture Switch | [eye-face-switch.md](eye-face-switch.md) | Proposed | #406–#409 |
+| Implicit gaze calibration | [eye-implicit-calibration.md](eye-implicit-calibration.md) | Proposed | #397–#399 |
+| Hands-free composition | [eye-handsfree-bundle.md](eye-handsfree-bundle.md) | Proposed | #410 + cross-cutting safety/ops issues |
+
+An issue is `agent-ready` only when the relevant spec and prerequisite ADR are sufficient to
+implement the task without inventing a new policy.
