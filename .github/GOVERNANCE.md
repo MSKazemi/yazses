@@ -10,20 +10,83 @@ never has to guess who can say yes.
 
 | Role | What it means | How you get it |
 |---|---|---|
-| **Contributor** | You opened an issue or a PR. That is the whole bar. | Do it |
-| **Module steward** | You own a module's *internal* design: you review its PRs, and your call decides how it works inside the boundaries its ADRs set. | Ship two non-trivial PRs to that module, then ask on the issue or the relevant epic |
-| **Maintainer** | Architecture, ADRs, releases, signing keys, the final call when consensus does not appear. | Currently one person; see *Growing the maintainer group* |
+| **Visitor** | You use YazSes, join a Discussion, report what happened, or ask a question. No repository permission is needed. | Show up |
+| **Contributor** | You opened an issue or PR, reviewed a translation, tested hardware, or otherwise contributed useful evidence. | Do it |
+| **Regular contributor** | You have contributed repeatedly and shown that you understand the project's review, privacy, and scope rules. You can review bounded L0/L1 work and help triage newcomers; this is recognition, not automatic write access. | Usually after roughly three meaningful contributions, including at least one merged PR. There is no hard counter: ask, or a maintainer may invite you |
+| **Module steward** | You own a module's *internal* design: you review its PRs, and your call decides how it works inside the boundaries its ADRs set. | Ship two non-trivial PRs to that module, review well, then ask on the issue or the relevant epic |
+| **Maintainer** | Architecture, ADRs, releases, signing keys, L3 review, and the final call when consensus does not appear. | See *Growing the maintainer group* |
+| **Core team** | The active maintainers and active module stewards, as a public shorthand for the people carrying ongoing project responsibility. It is not a separate permission tier. | Automatic while active in one of those roles |
 
 Stewards are recorded in [`.github/CODEOWNERS`](CODEOWNERS), which also makes
 GitHub request their review automatically. Adding yourself there is part of the PR
 that makes you a steward.
 
-Stewardship **lapses quietly** after roughly three months of silence. No drama, no
-hard feelings, and the door stays open — announcing a break is the polite version
-and is always welcome.
+Stewardship **lapses quietly after 30 days without substantive project activity**. This is
+not a penalty: the purpose is to keep review ownership and CODEOWNERS aligned with people
+who are currently available. The role can be restored when someone returns and becomes
+active again. Announcing a break is always welcome.
 
 **Current maintainer:** [@MSKazemi](https://github.com/MSKazemi)
 (Mohsen Seyedkazemi Ardebili).
+
+## Promotion path
+
+The normal path is:
+
+`Visitor → Contributor → Regular contributor → Module steward → Maintainer`
+
+The **Core team** is not another rung after maintainer; it is the active maintainers and
+module stewards viewed as one group.
+
+Promotion is about **trust and judgement, not collecting commits**. Code, documentation,
+translation review, hardware testing, issue triage, reproductions and thoughtful PR review
+all count when they are useful to the project.
+
+### Regular contributors
+
+Regular contributor is deliberately a responsibility step before repository write access.
+A regular contributor may:
+
+- review and approve **L0/L1** work described in [`REVIEWING.md`](../REVIEWING.md) when
+  they can personally verify it;
+- help triage issues and point newcomers at a well-scoped task;
+- review translations, documentation, hardware reports and other areas where human
+  judgement matters;
+- draft or perform reviews without being responsible for merging the change.
+
+A maintainer still performs the merge unless repository permissions have been delegated
+separately. Roughly three meaningful contributions is a useful signal, not a rule: one
+excellent sustained contribution can matter more than several mechanical ones.
+
+### Module stewards
+
+A module steward has bounded ownership. After two non-trivial contributions to an area and
+evidence of good review judgement, they can be added to [`.github/CODEOWNERS`](CODEOWNERS).
+Within that area they may review and approve **L0-L2** work, unless the change escalates to
+L3 because it touches privacy, dependencies, permissions, public interfaces, release paths,
+accepted ADRs or other protected boundaries.
+
+### Active-role review
+
+Delegated roles are **active responsibilities, not permanent titles**. They are reviewed
+continuously and may be narrowed, paused or removed when that is safer for the project.
+
+- **Inactivity:** after **30 days without substantive project activity**, an active steward
+  role lapses and any associated CODEOWNERS or delegated repository permission may be
+  removed. Returning contributors can regain the role after becoming active again.
+- **Review quality:** repeated inaccurate approvals, repeated failure to follow the review
+  lanes, or repeatedly approving work the reviewer could not verify can lead to a narrower
+  role or loss of review authority. A single ordinary mistake should normally lead to
+  feedback, not removal.
+- **Project boundaries:** bypassing privacy, permission, dependency, security or ADR
+  boundaries can cause an immediate pause of delegated authority while the change is
+  reviewed.
+- **Conduct or permission misuse:** repository permissions may be removed immediately when
+  needed to protect contributors, users or the repository. Public explanations should be
+  given when appropriate; security and Code-of-Conduct matters may need to remain private.
+
+Reducing a role does not erase past credit. `CONTRIBUTORS.md` records work that happened;
+CODEOWNERS and repository permissions record who is responsible **now**.
 
 ## How decisions get made
 
@@ -85,10 +148,14 @@ re-litigation in someone else's PR review.
 ## Growing the maintainer group
 
 The project currently has one maintainer, which is a single point of failure and
-not a permanent state. Someone becomes a maintainer by having been a steward who
-consistently reviewed well, exercised judgement in line with the principles above,
-and stayed around. There is no election and no quota — it is an invitation, and the
-bar is trust rather than commit count.
+not a permanent state. A future maintainer will normally have been a module steward
+who has stayed active over time, consistently reviewed other people's work well,
+handled disagreement constructively, understood the privacy and ADR boundaries, and
+helped carry project work beyond their own patches (for example triage, releases or
+cross-module review).
+
+There is no election, quota or required PR count. Maintainer access is an invitation,
+and the bar is trust and judgement rather than commit count.
 
 If the maintainer becomes unreachable for an extended period, the project is
 Apache-2.0 and the community is free to fork; the maintainer would rather that
