@@ -1,5 +1,7 @@
 """PR workflow concurrency must retire obsolete heads without dropping main checks."""
 
+# Temporary runtime-concurrency validation marker; removed in the next commit.
+
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
