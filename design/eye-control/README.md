@@ -313,4 +313,6 @@ See the programme set:
 - [METRICS.md](METRICS.md) — canonical machine-readable parameters/metrics;
 - [DATA_SHARING.md](DATA_SHARING.md) — public QA vs research consent/data-use rules;
 - [PAPER_EVIDENCE.md](PAPER_EVIDENCE.md) — paper-quality study/data plan;
-- [RESEARCH_PARTICIPANT_TEMPLATE.md](RESEARCH_PARTICIPANT_TEMPLATE.md) — pre-recruitment information/consent template.
+- [RESEARCH_PARTICIPANT_TEMPLATE.md](RESEARCH_PARTICIPANT_TEMPLATE.md) — pre-recruitment information/consent template;
+- [VALIDATION_MATRIX.md](VALIDATION_MATRIX.md) — same-task cross-OS/computer/person replication matrix;
+- [BEGINNER_TESTING.md](BEGINNER_TESTING.md) — pick-one no-code contributor guide.
