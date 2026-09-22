@@ -31,6 +31,13 @@ All tasks below are attached to milestone **Hands-free — perception & accessib
 | EYE-BUNDLE-001 | #410 |
 | EYE-HW-001 | #411 |
 | EYE-TRACKER-001 | #412 |
+| EYE-PERM-001 | #414 |
+| EYE-DISPLAY-001 | #415 |
+| EYE-OBS-001 | #416 |
+| EYE-SAFETY-001 | #417 |
+| EYE-WAYLAND-001 | #418 |
+| EYE-ACCESS-001 | #419 |
+| EYE-SETTINGS-001 | #420 |
 
 ## How to use a task
 
@@ -71,6 +78,13 @@ Do not solve a later task "while here". Small PRs are a design goal.
 | EYE-BUNDLE-001 | Compose a hands-free preset from shipped components | L3 | 2–3 h | no for CI | head + face + pointer path |
 | EYE-HW-001 | Run cross-hardware accessibility acceptance matrix | L1 research | 1–2 h/device | yes | experimental runtime available |
 | EYE-TRACKER-001 | Dedicated eye-tracker API/licensing capability study | L1 research | 2–4 h | no | webcam programme stable |
+| EYE-PERM-001 | Cross-platform camera permission + packaging contract | L2 | 2–3 h | no for CI | shared-perception design |
+| EYE-DISPLAY-001 | Multi-monitor/HiDPI coordinate + calibration invalidation | L2 | 2–3 h | no | ADR-v2-139 |
+| EYE-OBS-001 | Doctor/status observability for sensor/backend health | L2 | 90–150 min | no | signal/source state contracts |
+| EYE-SAFETY-001 | Global pause/kill state + stale-signal watchdog | L2 | 2–3 h | no | ADR-v2-138 |
+| EYE-WAYLAND-001 | Define honest gaze-target semantics on Wayland | L1 research/design | 2–4 h | Wayland for validation | gaze routing + portal research |
+| EYE-ACCESS-001 | Accessibility co-design + fatigue/usability protocol | L1 research | multi-session | yes | experimental runtime |
+| EYE-SETTINGS-001 | Accessible settings/recovery surface for hands-free controls | L3 | 2–4 h | no for CI | config + observability stable |
 
 ## Detailed contracts
 
@@ -277,3 +291,41 @@ are valid.
 
 Output a short design note comparing APIs/licensing across target OSes. No vendor SDK is added in
 this task.
+
+
+## Cross-cutting production tasks
+
+These tasks are **release obligations**, not extra features.
+
+### EYE-PERM-001 — permissions and packaging
+
+Issue #414. Ensure camera permission/capability matches what each install format can actually run.
+Ordinary dictation must survive permission denial.
+
+### EYE-DISPLAY-001 — multi-monitor / HiDPI / invalidation
+
+Issue #415. Implements ADR-v2-139 so calibration cannot silently survive an incompatible display or
+camera topology.
+
+### EYE-OBS-001 — observability
+
+Issue #416. Add privacy-safe camera/perception/head/face/pointer health to doctor/status.
+
+### EYE-SAFETY-001 — global stop and stale-signal watchdog
+
+Issue #417. One ACTIVE/PAUSED/FAULTED safety state suppresses continuous actions and prevents stale
+pose/switch replay.
+
+### EYE-WAYLAND-001 — gaze targeting semantics
+
+Issue #418. Research/design first: pointer portal capability is not the same thing as permission to
+focus a gaze-selected window.
+
+### EYE-ACCESS-001 — co-design and fatigue evidence
+
+Issue #419. Required before recommended defaults. Negative results stay in the record.
+
+### EYE-SETTINGS-001 — usable control surface
+
+Issue #420. Expose enable/pause/recenter/dwell/switch mapping/calibration/status in the existing
+settings system once the underlying contracts stabilize.
