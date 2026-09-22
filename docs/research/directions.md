@@ -90,6 +90,15 @@ finish a real workflow with no keyboard and no mouse, and how much slower is it.
 scripted workflow. That is an afternoon of integration and an hour of observation, and it
 would produce the first evidence anyone has about this project's accessibility claims.
 
+**Architectural direction from 2026 platform research.** Google's Magic Pointer and
+Apple's Siri AI / Visual Intelligence stack suggest that these modules should not be joined
+only as independent input tricks. The stronger composition is **target → ground → resolve
+→ plan → confirm → act**: gaze/head/mouse chooses a coarse target, accessibility/app
+semantics resolve the exact entity, voice supplies the intent, and the existing safety
+layer governs execution. See
+[Grounded multimodal interaction](grounded-multimodal-interaction.md). This is a research
+direction, not yet an accepted ADR.
+
 ### 3. Composition, not transcription
 
 **Problem: A2.** In the largest published sample of real correction behaviour — 266
