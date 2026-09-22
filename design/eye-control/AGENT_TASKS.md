@@ -59,6 +59,9 @@ All tasks below are attached to milestone **Hands-free — perception & accessib
 | EYE-QA-X11-B | #439 |
 | EYE-QA-HIDPI-B | #440 |
 | EYE-BEGINNER-001 | #449 |
+| EYE-VALOPS-001 | #454 |
+| EYE-VALOPS-002 | #455 |
+| EYE-CONTRIB-001 | #456 |
 | EYE-GROUND-001 | #441 |
 | EYE-GROUND-002 | #442 |
 | EYE-GROUND-003 | #443 |
@@ -446,3 +449,13 @@ A reproducible FAIL/PARTIAL/BLOCKED result is a valid completed contribution.
 The no-code hardware slots #428–#440 are all labeled `good first issue`, `hardware-required`,
 `measurement-wanted`, and `size:s`. They intentionally ask for one named test pack, not the
 whole eye-control stack.
+
+
+### Validation operations tooling
+
+- #454 — machine-readable PLANNED/READY slot registry + offline validator;
+- #455 — generated validation coverage dashboard;
+- #456 — expose only READY no-code eye slots in the existing YazSes contributor task finder.
+
+These are intentionally **not** `agent-ready` while their design/evaluator blockers remain open.
+Human hardware evidence remains `cloud_agent_ready=false` even after the tooling is automated.
