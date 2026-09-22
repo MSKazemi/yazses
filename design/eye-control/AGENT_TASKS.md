@@ -58,6 +58,7 @@ All tasks below are attached to milestone **Hands-free — perception & accessib
 | EYE-QA-KDE-B | #438 |
 | EYE-QA-X11-B | #439 |
 | EYE-QA-HIDPI-B | #440 |
+| EYE-BEGINNER-001 | #449 |
 | EYE-GROUND-001 | #441 |
 | EYE-GROUND-002 | #442 |
 | EYE-GROUND-003 | #443 |
@@ -435,3 +436,13 @@ report** unless the issue says otherwise. Public reports are engineering QA, not
 
 All no-code slots are `good first issue`, `measurement-wanted`, and `hardware-required`.
 A reproducible FAIL/PARTIAL/BLOCKED result is a valid completed contribution.
+
+
+### Immediate no-code documentation task
+
+- #449 — read the beginner testing instructions as a first-time contributor and report the first
+  confusing step. No hardware and no coding required.
+
+The no-code hardware slots #428–#440 are all labeled `good first issue`, `hardware-required`,
+`measurement-wanted`, and `size:s`. They intentionally ask for one named test pack, not the
+whole eye-control stack.
