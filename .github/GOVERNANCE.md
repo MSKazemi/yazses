@@ -52,6 +52,23 @@ review would mean self-approval theatre, and requiring status checks would block
 direct pushes rather than only merges. That is a trade made knowingly, and it is
 the first thing to revisit when there is a second maintainer.
 
+## Remote coding agents have no governance role
+
+A coding agent may implement a bounded task; it does not become a contributor role, reviewer,
+steward or maintainer by doing so.
+
+- GitHub App access for a remote agent is **tool access**, not human collaborator status.
+- `agent-ready` / `cloud_agent_ready` describe task suitability; they do not grant merge authority.
+- An execution trigger such as `jules` starts external work and is applied deliberately by a human.
+- Agent-produced PRs follow the same L0–L3 review lanes as every other PR.
+- Passing CI or an agent self-review does not decide architecture, hardware truth, native-language
+  quality, privacy policy or release approval.
+- Outside contributors do not receive upstream write solely because they prefer a remote agent;
+  the normal fork-and-PR path remains valid.
+
+See [ADR-024](../design/adr/adr-024-remote-coding-agents.md) and the
+[Jules runbook](../docs/contribute/jules.md).
+
 ## Things that are not up for negotiation in a PR
 
 These are settled by [ADR-011](../docs/privacy-statement.md) and its mobile
