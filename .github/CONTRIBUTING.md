@@ -241,6 +241,12 @@ It explains the one-time GitHub App installation for the upstream repo, the fork
 outside contributors, and why `agent-ready` and the execution-triggering `jules` label are
 different.
 
+**Third-party accounts and costs are optional and belong to the person using them.** YazSes does
+not require a paid coding agent and does not reimburse subscriptions, API usage, credits, tokens,
+compute or overages unless that expense was agreed in writing in advance. Check the provider's
+current official pricing/terms and configure your own spend/usage limits before running it. See
+[Third-party coding tools: accounts, costs, and responsibility](../docs/contribute/third-party-coding-tools.md).
+
 ## After it is merged — please take the credit publicly
 
 Two things happen without you asking: you are added to
