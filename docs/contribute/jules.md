@@ -136,6 +136,23 @@ For eye/camera work, also follow
 [`design/eye-control/GOVERNANCE.md`](https://github.com/MSKazemi/yazses/blob/plan/eye-control-roadmap-2026-09-22/design/eye-control/GOVERNANCE.md)
 until that planning PR is merged.
 
+## Maintainer preflight before applying `jules`
+
+Run this review **before** applying the trigger label, because the label itself starts external work.
+
+- [ ] The issue is labelled `agent-ready`.
+- [ ] The governing ADR/spec is on the branch Jules will actually read, normally `main`.
+- [ ] Every issue named under "Blocked by" is closed/merged, or the issue has no blocker.
+- [ ] The issue has one reviewable goal and an exact definition-of-done command.
+- [ ] Required evidence is cloud-completable; otherwise split code from human/device evidence.
+- [ ] The task does not ask the agent to choose a new product/architecture policy.
+- [ ] No secret, credential, private file or unpublished participant data is required.
+- [ ] The expected diff does not require bypassing the normal review lane.
+- [ ] Commit Authoring is still set to **User only**.
+- [ ] A human is available to review the resulting plan/diff before merge.
+
+If any item is false, leave `jules` off the issue.
+
 ## What is safe to give Jules
 
 Good Jules tasks are the repository's **A3 / cloud-ready** tasks: the full result can be
