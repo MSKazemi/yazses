@@ -212,5 +212,10 @@ The v2 programme: interaction layer, cognitive layer, and everything after.
 | [adr-v2-132-assisted-bug-reporting](adr-v2-132-assisted-bug-reporting.md) | Assisted bug reporting: what a "send this as an issue" button may do | ** |
 | [adr-v2-133-diarization-clustering-default](adr-v2-133-diarization-clustering-default.md) | The diarization clustering default, measured on real meeting audio | Accepted — 2026-08-23 |
 | [adr-v2-134-meeting-transcript-quality-gate](adr-v2-134-meeting-transcript-quality-gate.md) | Meeting transcript quality gate (two transcripts, one verdict) | Accepted |
+| [adr-v2-135-shared-camera-perception](adr-v2-135-shared-camera-perception.md) | Shared camera perception source for gaze, head pose and face switches | Proposed |
+| [adr-v2-136-pointer-output-boundary](adr-v2-136-pointer-output-boundary.md) | Pointer output is a platform boundary, not a Head-Pointer implementation detail | Proposed |
+| [adr-v2-137-face-switch-intent](adr-v2-137-face-switch-intent.md) | Face gestures emit switch intent; they never execute desktop actions directly | Proposed |
+| [adr-v2-138-hands-free-composition](adr-v2-138-hands-free-composition.md) | Hands-free mode is a composition preset with one global safety state | Proposed |
+| [adr-v2-139-gaze-calibration-coordinate-space](adr-v2-139-gaze-calibration-coordinate-space.md) | Gaze calibration is bound to display topology and camera geometry | Proposed |
 
 <!-- END GENERATED ADR INDEX -->
