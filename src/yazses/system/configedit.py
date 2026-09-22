@@ -7,6 +7,7 @@ without disturbing the rest of the file or its comments.
 """
 from __future__ import annotations
 
+import hashlib
 import os
 import re
 import tempfile
@@ -136,6 +137,19 @@ class ConfigEditBusyError(RuntimeError):
     """Another process is currently writing the same config file."""
 
 
+class ConfigEditConflictError(RuntimeError):
+    """The config changed after a caller planned a multi-key transaction."""
+
+
+def config_revision(path) -> str:
+    """Stable revision token for optimistic config transactions."""
+
+    p = Path(path)
+    if not p.exists():
+        return "missing"
+    return "sha256:" + hashlib.sha256(p.read_bytes()).hexdigest()
+
+
 def _config_lock_path(path: Path) -> Path:
     return path.with_name(path.name + ".lock")
 
@@ -183,6 +197,8 @@ def _fsync_parent(path: Path) -> None:
 def set_config_keys_atomic(
     path,
     changes: Iterable[ConfigChange],
+    *,
+    expected_revision: str | None = None,
 ) -> tuple[str, ...]:
     """Apply several comment-preserving TOML edits as one visible transaction.
 
@@ -190,6 +206,10 @@ def set_config_keys_atomic(
     held. The candidate is parsed before commit, flushed to disk, then installed with
     an atomic replace. Any failure before the replace leaves the original byte-for-byte
     untouched.
+
+    expected_revision is an optimistic-concurrency guard. When provided, the target
+    is compared while the OS lock is held; a mismatch raises ConfigEditConflictError
+    before a temporary candidate is created.
 
     This function does not download models, install dependencies, or restart the daemon.
     Those preflight/application steps belong to the higher orchestration layer; this
@@ -205,6 +225,13 @@ def set_config_keys_atomic(
     temp_path: Path | None = None
     try:
         p.parent.mkdir(parents=True, exist_ok=True)
+        if expected_revision is not None:
+            actual_revision = config_revision(p)
+            if actual_revision != expected_revision:
+                raise ConfigEditConflictError(
+                    "Config changed after this operation was planned; "
+                    "re-read it and resolve the complete transaction again."
+                )
         existed = p.exists()
         mode = None
         original = b""
