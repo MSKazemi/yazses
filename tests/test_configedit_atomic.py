@@ -10,6 +10,8 @@ from yazses.system import configedit
 from yazses.system.configedit import (
     ConfigChange,
     ConfigEditBusyError,
+    ConfigEditConflictError,
+    config_revision,
     set_config_key,
     set_config_keys_atomic,
 )
@@ -158,3 +160,30 @@ def test_atomic_batch_repairs_a_utf8_bom_while_preserving_values(tmp_path):
     parsed = tomllib.loads(raw.decode("utf-8"))
     assert parsed["stt"]["model"] == "base.en"
     assert parsed["stt"]["language"] == "en"
+
+
+def test_expected_revision_rejects_a_stale_plan_without_writing(tmp_path):
+    p = tmp_path / "config.toml"
+    p.write_text('[stt]\nmodel = "base.en"\n', encoding="utf-8")
+    revision = config_revision(p)
+
+    p.write_text('[stt]\nmodel = "small"\n', encoding="utf-8")
+    concurrent = p.read_bytes()
+
+    with pytest.raises(ConfigEditConflictError, match="changed"):
+        set_config_keys_atomic(
+            p,
+            [ConfigChange("stt", "language", "zh")],
+            expected_revision=revision,
+        )
+
+    assert p.read_bytes() == concurrent
+
+
+def test_missing_and_empty_files_have_different_revisions(tmp_path):
+    p = tmp_path / "config.toml"
+    missing = config_revision(p)
+    p.write_bytes(b"")
+
+    assert missing == "missing"
+    assert config_revision(p) != missing
