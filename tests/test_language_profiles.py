@@ -210,3 +210,15 @@ def test_unpinned_mandarin_script_is_coherent_but_not_a_profile_match():
 def test_invalid_resolution_mode_is_refused():
     with pytest.raises(ValueError):
         resolve_profile("en", SttConfig(), mode="magic")  # type: ignore[arg-type]
+
+
+def test_recommended_mode_rejects_explicit_model_or_engine_overrides():
+    with pytest.raises(LanguageProfileError):
+        resolve_profile("zh-CN", SttConfig(), mode="recommended", model="large-v3")
+    with pytest.raises(LanguageProfileError):
+        resolve_profile(
+            "zh-CN",
+            SttConfig(),
+            mode="recommended",
+            engine="faster-whisper",
+        )
