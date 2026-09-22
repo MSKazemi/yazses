@@ -28,3 +28,14 @@ hard one · C = re-scope or pivot before building.
 
 All specs follow ADR-011 (off by default, fully local/offline) and the optional-extra dependency
 pattern (deps imported only when the feature is enabled).
+
+
+## Additional implementation specs
+
+These specs are not part of the original ten-feature v2 set above; they document later cross-cutting work.
+
+| Feature | Spec | Status |
+|---|---|---|
+| First-class Mandarin language support | [chinese-language-support.md](chinese-language-support.md) | Proposed — transactional English/Mandarin profiles, Simplified/Traditional output, localized command grammar, and measured release gate. |
+
+The companion design package is [`../chinese/`](../chinese/).
