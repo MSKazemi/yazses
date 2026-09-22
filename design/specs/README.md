@@ -44,6 +44,7 @@ v2 specs but are tracked as a subsystem programme rather than as the original te
 | Face-Gesture Switch | [eye-face-switch.md](eye-face-switch.md) | Proposed | #406–#409 |
 | Implicit gaze calibration | [eye-implicit-calibration.md](eye-implicit-calibration.md) | Proposed | #397–#399 |
 | Hands-free composition | [eye-handsfree-bundle.md](eye-handsfree-bundle.md) | Proposed | #410 + cross-cutting safety/ops issues |
+| Grounded semantic targets | [eye-grounded-targets.md](eye-grounded-targets.md) | Proposed | #441–#445 |
 
 An issue is `agent-ready` only when the relevant spec and prerequisite ADR are sufficient to
 implement the task without inventing a new policy.
