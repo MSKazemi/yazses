@@ -334,6 +334,48 @@ Research checklist:
 A dedicated tracker may unlock precision pointer experiments, but must not change the webcam
 accuracy claims.
 
+## Phase 8 — grounded semantic target resolution (optional extension)
+
+**Outcome:** a coarse target such as webcam gaze can be refined to an exact structured UI entity
+without claiming pixel-precise gaze and without making screenshots/VLM the default architecture.
+
+This phase is **not a blocker** for the original head-pointer/face-switch hands-free bundle. It is an
+additive interaction layer that can proceed once its proposed ADR is accepted.
+
+### P8.1 — pure target/entity contracts (#441)
+
+Add dependency-free target snapshot, semantic candidate, grounding evidence and
+grounded/ambiguous/unresolved result values.
+
+### P8.2 — deterministic resolver (#442)
+
+Resolve only spatially plausible candidates; optional role/label hints may refine but never pull an
+off-region entity into scope. Ambiguity must abstain.
+
+### P8.3 — gaze/deixis integration seam (#443)
+
+Use a fake/optional semantic source to refine the current looked-at window while preserving all
+existing behavior when semantics are absent or ambiguous.
+
+### P8.4 — live semantic coverage study (#444)
+
+Measure AT-SPI, macOS Accessibility and Windows UI Automation across representative app classes.
+This is human/platform evidence, not cloud-agent work.
+
+### P8.5 — wrong-target/abstention harness (#445)
+
+Replay privacy-safe derived traces and compare window-only vs grounded strategies.
+
+**Exit gates**
+
+- no screen capture/OCR/VLM is required for the first tier;
+- resolver is pure and deterministic;
+- off-region label matches cannot win;
+- ambiguous input abstains;
+- current gaze/deixis behavior is unchanged without the new source;
+- wrong-target + abstention are measured separately;
+- structured semantic coverage is measured before any OCR/VLM proposal.
+
 ## Cross-cutting production track — must land before bundle promotion
 
 These are not optional polish. They close failure modes that cut across the feature phases.
