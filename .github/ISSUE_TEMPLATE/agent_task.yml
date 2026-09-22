@@ -147,6 +147,22 @@ body:
     validations:
       required: false
 
+  - type: dropdown
+    id: remote_execution
+    attributes:
+      label: Remote-agent execution class
+      description: >-
+        Eligibility only — this does not start an agent or authorize a merge.
+        Choose whether a clean cloud VM can produce all evidence required by
+        this issue. For campaign tasks, campaign/tasks.json cloud_agent_ready
+        remains authoritative.
+      options:
+        - "Cloud-ready — implementation and all required evidence can be completed in a clean VM"
+        - "Code-ready only — implementation can run remotely, but human/device/native-language evidence is still required"
+        - "Not suitable for remote-agent execution"
+    validations:
+      required: true
+
   - type: checkboxes
     id: suitability
     attributes:
