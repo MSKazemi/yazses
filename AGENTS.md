@@ -95,10 +95,11 @@ regression test.
    OS, implement every Protocol under `src/yazses/platform/<os>/` and register it in
    `platform/factory.py`.
 7. **Tests come with the change**, in the same PR. New behaviour without a test is not done.
-8. **No AI attribution anywhere.** Never credit Codex, GPT, ChatGPT, AI, or an automated
-   assistant as an author, co-author, contributor, or generator in commits, issues, pull
-   requests, release notes, or any other project artifact. In particular, do not add
-   `Co-Authored-By` trailers or "generated with" footers.
+8. **No AI authorship.** A coding agent is a tool, not a project author, co-author, or
+   contributor. Do not add agent `Co-Authored-By` trailers, "generated with" credit
+   footers, contributor-list entries, or release-note authorship. PR-level tooling disclosure
+   is allowed and encouraged when useful: naming the assistant and stating what the human
+   verified is review context, not authorship. The human opening the PR remains responsible.
 9. **A guard is judged on how rarely it fires.** `cmdsafety`, `checkdigit` and the
    no-text-target guard all interrupt the user. One that fires on a house number teaches
    people to dismiss it, and a dismissed guard costs attention and catches nothing — so
