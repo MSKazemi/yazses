@@ -12,8 +12,8 @@ This is the one-page map from **decision -> spec -> issue -> verification**.
 | Head-Pointer runtime | ADR-v2-052 + ADR-v2-136 | `design/specs/eye-head-pointer-runtime.md` | #404–#405 | fake trace + hardware acceptance |
 | Face gesture is a switch | ADR-v2-137 | `design/specs/eye-face-switch.md` | #406–#409 | false activations/hour |
 | Gesture composition | ADR-v2-043 + ADR-v2-137 | `design/specs/eye-face-switch.md` | #408 | chord resolver tests |
-| Hands-free is composition | ADR-v2-138 | `design/specs/eye-handsfree-bundle.md` | #410 + safety/observability tasks | end-to-end scenario |
-| Calibration topology | ADR-v2-139 | `design/specs/eye-implicit-calibration.md` | #397–#398 + topology issue | invalidation/rollback tests |
+| Hands-free is composition | ADR-v2-138 | `design/specs/eye-handsfree-bundle.md` | #410 + #416 + #417 | end-to-end scenario |
+| Calibration topology | ADR-v2-139 | `design/specs/eye-implicit-calibration.md` | #397–#398 + #415 | invalidation/rollback tests |
 | Dedicated tracker seam | future ADR only if study warrants | future spec | #412 | API/licensing study |
 
 ## Cross-cutting implementation gaps
