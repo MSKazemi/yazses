@@ -60,6 +60,7 @@ Binding for v1.0. Supersede with a new ADR; do not edit in place.
 | [adr-021-invest-in-error-cost](adr-021-invest-in-error-cost.md) | The one thing to invest in: carry the cost of an error through the pipeline | Accepted |
 | [adr-022-a-confirmation-a-voice-user-cannot-give](adr-022-a-confirmation-a-voice-user-cannot-give.md) | A confirmation a voice user cannot give | Proposed |
 | [adr-023-agent-first-contribution-pipeline](adr-023-agent-first-contribution-pipeline.md) | Agent-first contribution pipeline: the design behind `campaign/` | Accepted |
+| [adr-024-remote-coding-agents](adr-024-remote-coding-agents.md) | Remote coding agents use the existing task contract; tool identity is not authorship | Accepted |
 
 ### v0.4 series
 
