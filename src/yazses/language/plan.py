@@ -91,6 +91,11 @@ def resolve_profile(
 
     if mode not in ("preserve", "recommended"):
         raise ValueError("mode must be 'preserve' or 'recommended'")
+    if mode == "recommended" and (model is not None or engine is not None):
+        raise LanguageProfileError(
+            "Recommended mode selects the profile engine/model itself; do not combine "
+            "it with an explicit model or engine override."
+        )
 
     profile = get_profile(requested)
     stt = _stt(current)
