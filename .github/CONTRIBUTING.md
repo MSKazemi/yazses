@@ -16,6 +16,21 @@ and say hi on it — several need no Python at all (docs, an example config, tes
 hardware). We aim to respond to issues and PRs within a few days, and we would rather merge
 a small imperfect PR and polish it afterwards than leave you waiting.
 
+## No-code eye / camera testing
+
+If you have a real Windows, macOS, GNOME Wayland, KDE Wayland, X11, or HiDPI/multi-monitor
+computer, the eye-control programme has deliberately small **no-code** validation tasks.
+
+Start with [`design/eye-control/BEGINNER_TESTING.md`](../design/eye-control/BEGINNER_TESTING.md).
+It points you to one 15–20 minute issue for your environment. You run one named test pack,
+report **PASS / PARTIAL / FAIL / BLOCKED**, and you are done. A failure is useful evidence.
+
+Those public reports are engineering QA, not automatic enrollment in a research study. The guide
+also says exactly what technical data is useful and what must never be posted publicly.
+
+No camera hardware? #449 is a tiny first contribution: read the beginner instructions and report
+the first confusing step.
+
 ## Getting started
 
 **Want to skip setup entirely?** The repo ships a
