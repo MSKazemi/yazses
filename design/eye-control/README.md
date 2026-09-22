@@ -315,4 +315,5 @@ See the programme set:
 - [PAPER_EVIDENCE.md](PAPER_EVIDENCE.md) — paper-quality study/data plan;
 - [RESEARCH_PARTICIPANT_TEMPLATE.md](RESEARCH_PARTICIPANT_TEMPLATE.md) — pre-recruitment information/consent template;
 - [VALIDATION_MATRIX.md](VALIDATION_MATRIX.md) — same-task cross-OS/computer/person replication matrix;
-- [BEGINNER_TESTING.md](BEGINNER_TESTING.md) — pick-one no-code contributor guide.
+- [BEGINNER_TESTING.md](BEGINNER_TESTING.md) — pick-one no-code contributor guide;
+- [VALIDATION_OPERATIONS.md](VALIDATION_OPERATIONS.md) — slot lifecycle, readiness, A/B replication and contributor-credit rules.
