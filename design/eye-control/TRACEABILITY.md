@@ -120,3 +120,20 @@ Before recommended status, add:
 8. false-activation/error metrics;
 9. accessibility review;
 10. resolved/accepted risk register.
+
+
+## Evaluation traceability
+
+| Evidence need | Contract | Issues | Output |
+|---|---|---|---|
+| Metric/result semantics | `METRICS.md` | #421 | versioned result schema |
+| Standard non-sensitive tasks | `EVALUATION.md` | #422 | deterministic task fixtures |
+| Local privacy-safe capture | `DATA_SHARING.md` | #423 | local validated JSON |
+| Cross-OS automated evidence | E0–E2 | #424 | CI artifacts |
+| Cross-machine hardware QA | E3/E4 | #428–#436 | public community QA reports |
+| Test-retest stability | E6 | #437 | 3 session artifacts |
+| Human-study design/ethics | `PAPER_EVIDENCE.md` | #425 | frozen protocol + determination |
+| Research analysis | `METRICS.md` | #426 | reproducible tables/figures |
+| Tester/participant wording | `DATA_SHARING.md` | #427 | reviewed public/research materials |
+
+Community QA rows are not automatically eligible for participant-level paper analysis.
