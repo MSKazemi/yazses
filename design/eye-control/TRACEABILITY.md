@@ -23,12 +23,12 @@ programme also tracks:
 
 | Gap | Why it is separate | Required result |
 |---|---|---|
-| Camera permissions + packaging | OS/package permissions can make correct code unreachable | explicit permission matrix + package behavior |
-| Multi-monitor/HiDPI/topology | gaze coordinates and calibration can silently become wrong | canonical coordinate space + invalidation |
-| Observability | assistive sensor failure must be diagnosable without logs full of biometric detail | `doctor`/status state |
-| Global pause/kill/watchdog | continuous pointer/switch input needs an immediate escape | one safety control across consumers |
-| Wayland gaze target semantics | pointer portal does not automatically solve "which window receives dictation" | documented supported/fallback behavior |
-| Accessibility co-design | synthetic tests do not establish usability/fatigue/defaults | structured review protocol + evidence |
+| Camera permissions + packaging | OS/package permissions can make correct code unreachable | #414 — explicit permission matrix + package behavior |
+| Multi-monitor/HiDPI/topology | gaze coordinates and calibration can silently become wrong | #415 — canonical coordinate space + invalidation |
+| Observability | assistive sensor failure must be diagnosable without logs full of biometric detail | #416 — `doctor`/status state |
+| Global pause/kill/watchdog | continuous pointer/switch input needs an immediate escape | #417 — one safety control across consumers |
+| Wayland gaze target semantics | pointer portal does not automatically solve "which window receives dictation" | #418 — documented supported/fallback behavior |
+| Accessibility co-design | synthetic tests do not establish usability/fatigue/defaults | #419 — structured review protocol + evidence |
 
 These gaps receive dedicated issues in milestone #10.
 
