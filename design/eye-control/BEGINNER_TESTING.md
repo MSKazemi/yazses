@@ -5,6 +5,22 @@ You can help this programme **without writing code**.
 A useful contribution can be one short test on one computer. You do not need to understand gaze
 algorithms, MediaPipe, Python, ADRs or research statistics.
 
+## Is the test available yet?
+
+The guide lists both **future PLANNED slots** and **currently READY slots**.
+
+Before claiming an issue:
+- open it;
+- if it has the `help wanted` label and a **READY** banner, you may start;
+- if it begins with **PLANNED — not yet available**, do not claim it or invent manual steps;
+- `good first issue` is added only when the task is both READY and beginner-safe.
+
+Hardware slots #428–#440 are intentionally visible before they are ready so the project can show the
+future validation matrix. They become real contributor tasks only after their evaluator/runtime
+blockers merge.
+
+If no hardware slot is READY, choose another current contributor task rather than forcing the test.
+
 ## Pick one task
 
 ### I have Windows 11
