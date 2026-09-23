@@ -51,6 +51,8 @@ def test_jules_guide_is_discoverable_from_contributor_surfaces() -> None:
         ROOT / "README.md": "docs/contribute/jules.md",
         ROOT / "docs" / "contribute" / "ai-agents.md": "jules.md",
         ROOT / "campaign" / "agent-workers.md": "../docs/contribute/jules.md",
+        ROOT / ".github" / "CONTRIBUTING.md": "../docs/contribute/jules.md",
+        ROOT / "docs" / "contribute" / "start.md": "jules.md",
         ROOT / "mkdocs.yml": "Connect Google Jules: contribute/jules.md",
     }
 
