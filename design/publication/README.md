@@ -24,6 +24,10 @@ existing manuscript privacy boundary.
 
 - [paper-v2/](paper-v2/) — research synthesis, manuscript plan, all-contributor authorship protocol,
   final-approval process, and Internet Archive publication checklist for the second YazSes paper.
+  Start with [paper-v2/STATUS.md](paper-v2/STATUS.md) for the current results/gaps and execution map.
+  Work is coordinated in [issue #510](https://github.com/MSKazemi/yazses/issues/510); authorship and
+  final-publication operations are tracked separately in
+  [issue #484](https://github.com/MSKazemi/yazses/issues/484).
 
 ## Rule for future papers
 
