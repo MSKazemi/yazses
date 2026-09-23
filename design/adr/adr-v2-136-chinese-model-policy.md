@@ -40,11 +40,19 @@ Benchmark alternative models through the existing `SttEngine` protocol. A new ru
 
 ### Evaluation priority
 
-1. Same-runtime checkpoints: `large-v3-turbo`, `large-v3`.
-2. Compact Chinese-focused candidate: SenseVoiceSmall.
-3. Chinese streaming candidate: Paraformer-zh / Paraformer-zh-streaming.
-4. Broad dialect candidate: Qwen3-ASR-0.6B.
+1. Same-runtime checkpoints: `large-v3-turbo`, `large-v3` (Whisper code + weights: MIT).
+2. Broad dialect candidate: Qwen3-ASR-0.6B (official model card: Apache-2.0).
+3. Chinese streaming candidate: Paraformer-zh / Paraformer-zh-streaming, pinned to an
+   exact checkpoint/revision whose model weights explicitly declare Apache-2.0.
+4. SenseVoiceSmall as a **research-only** comparison while its weights use the custom
+   FunASR Model Open Source License; it is not a permissive-license production candidate.
 5. Larger models only where target hardware/use case justifies them.
+
+A toolkit's source-code license is not sufficient evidence for a model checkpoint. Every
+production candidate records the exact weight repository, immutable revision/commit and
+weight-license source. YazSes prefers MIT/Apache-2.0/BSD-style model-weight licenses for
+recommended profiles; a custom model license requires explicit maintainer/legal review before
+bundling or recommending the weights.
 
 ### Promotion requirement
 
@@ -55,7 +63,9 @@ A new engine becomes a recommended profile only if YazSes measurements demonstra
 - >=30% latency/core-cost reduction at non-inferior quality, or
 - a supported language capability the baseline lacks,
 
-while also passing packaging, timestamp, streaming, offline and license gates.
+while also passing packaging, timestamp, streaming, offline and license gates. The license
+gate requires an auditable weight license for the exact revision; permissive licenses are the
+default for recommended profiles.
 
 ## Consequences
 
@@ -81,7 +91,11 @@ Rejected for P1. Its broad Chinese dialect support is compelling, but the offici
 
 ### Adopt SenseVoiceSmall immediately
 
-Rejected for P1, but selected as the first compact alternative prototype. It is promising for CPU Chinese/Cantonese, yet still needs adapter, timestamp, packaging, license and comparative measurements.
+Rejected for P1 and not a permissive-license production candidate at present. It is promising
+for CPU Chinese/Cantonese and may be benchmarked for research comparison, but its current
+weights point to the custom FunASR Model Open Source License rather than MIT/Apache/BSD. Any
+future production use requires explicit review of the exact weight revision in addition to
+adapter, timestamp, packaging and comparative measurements.
 
 ### Use `large-v3` as the default Chinese model
 
@@ -95,7 +109,7 @@ Deferred. First establish validated presets and capability data. Hidden automati
 
 A superseding ADR must include:
 
-- exact model and weight license;
+- exact model repository, immutable revision/commit and model-weight license source;
 - corpus/split/normalization;
 - CER and error analysis;
 - RTF/latency/RSS/core-seconds;
