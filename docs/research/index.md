@@ -84,6 +84,13 @@ the hardware.
   correction cost outranks word error rate, and the three things we have not
   measured.
 
+- :material-file-document-edit-outline: **[Paper v2 evidence programme](https://github.com/MSKazemi/yazses/tree/main/design/publication/paper-v2)**
+  The public research package for the next YazSes paper: what is genuinely new
+  since v1, the August/Azure experiment campaign, the claim ledger, manuscript
+  plan, authorship protocol, and the open replication/human-study work.
+  [Current status](https://github.com/MSKazemi/yazses/blob/main/design/publication/paper-v2/STATUS.md)
+  · [programme issue #510](https://github.com/MSKazemi/yazses/issues/510).
+
 - :material-alphabetical-variant: **[Glossary](glossary.md)**
   Plain definitions for the speech, HCI and evaluation terms these pages use —
   including why WER is not enough and what text-entry research reports instead.
