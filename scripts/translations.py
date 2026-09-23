@@ -63,32 +63,6 @@ def _t(**overrides) -> dict:
 
 
 LOCALES: dict[str, dict] = {
-    "es": {"name": "español", "issue": 170, "strings": _t(
-        draft_title="Traducción preliminar",
-        draft_body="Asistida por máquina y aún sin revisar por un hablante nativo.",
-        pitch=(
-            "YazSes es un demonio de dictado por voz libre, de código abierto y sin "
-            "conexión, para Linux, macOS y Windows. Mantén pulsada una tecla, habla y "
-            "suéltala: el texto aparece donde estés escribiendo. Todo se ejecuta en tu "
-            "propia máquina: sin nube, sin cuenta y sin suscripción."),
-        install_heading="Instalación", platform="Plataforma", command="Comando",
-        any_os="Cualquier sistema",
-        first_run=("La primera ejecución descarga una vez un modelo de voz (unos 148 MB). "
-                   "Después no necesita red en absoluto."),
-        does_heading="Qué hace", does_1_title="Dictado",
-        does_1="Mantén la tecla, habla y suelta. El texto se escribe en la ventana activa.",
-        does_2_title="Comandos de voz",
-        does_2="Di «guardar archivo» o «ir a la línea 40» y actúa, en vez de escribir las palabras.",
-        does_3_title="Reuniones y grabaciones",
-        does_3=("Transcribe un archivo de audio o graba una reunión entera con etiquetas "
-                "de hablante, todo sin conexión."),
-        privacy_heading="Privacidad",
-        privacy=("El audio se transcribe en tu máquina y nunca se envía a ninguna parte. "
-                 "No hay telemetría ni ruta a la nube."),
-        more_heading="Más", more="El resto de la documentación está por ahora en inglés.",
-        link_docs="Documentación", link_readme="README completo en inglés",
-        link_issues="Incidencias y preguntas")},
-
     "pt-BR": {"name": "português do Brasil", "issue": 174, "strings": _t(
         draft_title="Tradução preliminar",
         draft_body="Assistida por máquina e ainda não revisada por um falante nativo.",
@@ -644,6 +618,7 @@ LOCALES.pop("ru-note", None)
 # the localisation tooling exists to avoid — but the language switcher has to list
 # them, or adding a generated locale silently drops them from every README.
 HUMAN_LOCALES: dict[str, str] = {
+    "es": "español",
     "hi": "हिंदी",
     "ko": "한국어",
     "ru": "Русский",

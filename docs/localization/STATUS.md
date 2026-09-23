@@ -27,7 +27,7 @@ language fixes it.
 | Nederlands (`nl`) | [docs/nl/index.md](https://mskazemi.com/yazses/nl/index.html) | partial | *needed* | `3baacb8` | draft | needs a native reviewer — [#194](https://github.com/MSKazemi/yazses/issues/194) |
 | Tiếng Việt (`vi`) | [docs/vi/index.md](https://mskazemi.com/yazses/vi/index.html) | partial | *needed* | `3baacb8` | draft | needs a native reviewer — [#205](https://github.com/MSKazemi/yazses/issues/205) |
 | bahasa Indonesia (`id`) | [docs/id/index.md](https://mskazemi.com/yazses/id/index.html) | partial | *needed* | `3baacb8` | draft | needs a native reviewer — [#179](https://github.com/MSKazemi/yazses/issues/179) |
-| español (`es`) | [docs/es/index.md](https://mskazemi.com/yazses/es/index.html) | partial | *needed* | `3baacb8` | draft | needs a native reviewer — [#170](https://github.com/MSKazemi/yazses/issues/170) |
+| español (`es`) | [docs/es/index.md](https://mskazemi.com/yazses/es/index.html) | partial | [@laurash96](https://github.com/laurash96) | `5b5fd29` | active | covers the hero, install and quickstart, "what it does" and privacy only; re-check against English when the README changes materially |
 | français (`fr`) | [docs/fr/index.md](https://mskazemi.com/yazses/fr/index.html) | partial | *needed* | `3baacb8` | draft | needs a native reviewer — [#175](https://github.com/MSKazemi/yazses/issues/175) |
 | italiano (`it`) | [docs/it/index.md](https://mskazemi.com/yazses/it/index.html) | partial | *needed* | `3baacb8` | draft | needs a native reviewer — [#197](https://github.com/MSKazemi/yazses/issues/197) |
 | polski (`pl`) | [docs/pl/index.md](https://mskazemi.com/yazses/pl/index.html) | partial | *needed* | `3baacb8` | draft | needs a native reviewer — [#200](https://github.com/MSKazemi/yazses/issues/200) |
