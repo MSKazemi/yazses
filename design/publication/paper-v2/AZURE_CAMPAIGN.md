@@ -170,8 +170,12 @@ The result is intentionally mixed. Several defaults survived; several rationales
 
 Prefer these for headline claims:
 
-- `paper/results/wer.json`
 - `paper/results/wer-test-other.json`
+- the final frozen clean eight-engine matrix to be produced under #495
+
+The current uncontended clean eight-engine evidence is `paper/results/probes/wer-vm-clean.json`.
+It is reproducible and suitable for drafting, but it remains under `probes/`; do not misidentify
+the older `paper/results/wer.json` (the v1 three-checkpoint laptop run) as its source.
 - `paper/results/beam-test-clean.json`
 - `paper/results/beam-test-other.json`
 - `paper/results/onset.json`
@@ -214,7 +218,7 @@ A probe may become a central paper result if all of the following hold:
 
 | question | primary artifact(s) |
 |---|---|
-| Which local ASR engine/checkpoint has the best clean point estimate? | `wer.json` |
+| Which local ASR engine/checkpoint has the best clean point estimate? | currently `probes/wer-vm-clean.json`; freeze/promote under #495 |
 | Which degrades least on harder speech? | `wer-test-other.json` |
 | Is `large-v3` reproducible? | `probes/largev3-instability-test-other.json`, `decode-determinism-*` |
 | Which error component moves across repeats? | `largev3-instability-*`, `decode-mechanism-*` |
