@@ -10,6 +10,10 @@ body:
       value: |
         Thank you for testing the hands-free stack on real hardware.
 
+        **Use this form only when a READY eye-control validation/measurement issue asks for a
+        public hardware report.** If the parent issue is still PLANNED, do not collect or post
+        replacement data on your own.
+
         **Privacy:** please do not attach a face photo/video, raw face landmarks,
         diagnosis/disability details, private transcript text, or screenshots of
         sensitive applications. Derived measurements and environment descriptions
@@ -20,22 +24,35 @@ body:
   - type: markdown
     attributes:
       value: |
-        **This GitHub issue is public engineering QA, not research consent.**
-        Your GitHub username and anything you type here will be publicly visible and may be
-        indexed or mirrored. Do not post sensitive data. See
-        `design/eye-control/DATA_SHARING.md`.
+        **This GitHub issue is public community engineering QA (`community_qa`), not research
+        consent or a research-participant submission.** Your GitHub username and anything you type
+        here will be publicly visible and may be indexed or mirrored. Do not post sensitive data.
+        See `design/eye-control/DATA_SHARING.md`.
+
+        If you are enrolled in a research study, submit research measurements through that study's
+        approved private/de-identified process. Do not use this public form as the research dataset.
+
+  - type: input
+    id: ready_issue
+    attributes:
+      label: READY parent validation / measurement issue
+      description: >-
+        Enter the issue number that requested this public engineering report. It must currently be
+        marked READY / help wanted, or otherwise explicitly request a hardware report.
+      placeholder: "#411"
+    validations:
+      required: true
 
   - type: dropdown
-    id: use
+    id: research_contact
     attributes:
-      label: How may this report be used?
+      label: Optional future research contact preference
       description: >-
-        This controls project use of the report. Selecting research interest does NOT enroll
-        you in a study; research consent, if any, happens separately.
+        This choice does not make this QA report research data. Research enrollment and consent
+        happen separately.
       options:
-        - "Engineering QA only — do not treat this report as research participant data"
-        - "Engineering QA; I am willing to be contacted separately about a future research study"
-        - "This run was collected under an existing named research protocol (enter protocol ID in notes)"
+        - "QA only — do not contact me about research through this issue"
+        - "I am willing to be contacted separately about a future research study"
     validations:
       required: true
 
