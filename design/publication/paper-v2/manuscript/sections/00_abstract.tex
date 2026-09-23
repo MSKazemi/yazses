@@ -1,0 +1,40 @@
+\begin{abstract}
+Offline speech recognition has improved to the point that practical voice input can run entirely
+on commodity CPUs, avoiding the privacy and connectivity costs of cloud transcription. However,
+the usefulness of an interactive dictation system depends on more than a single word-error-rate
+measurement on clean speech. Model-specific tail failures, decoder configuration, hardware
+variation, audio difficulty, and task-specific post-processing can materially affect user-visible
+behavior while remaining hidden by corpus-average accuracy.
+
+We present an expanded empirical evaluation of \YazSes, a privacy-first offline voice-input
+system. Building on an earlier evaluation limited primarily to three Whisper checkpoints on clean
+LibriSpeech speech and one Linux laptop, we evaluate eight local engine/checkpoint configurations,
+clean and harder speech conditions, repeated decoding, four operating-system/ISA environments,
+interaction-specific latency mechanisms, and real annotated meetings. On a controlled Azure CPU
+host, Parakeet TDT 0.6B v2 produced the lowest \wer{} point estimate on the measured
+200-utterance clean subset at 2.06\%, compared with 2.66\% for Whisper \texttt{small.en},
+while Moonshine/tiny produced the lowest measured \rtf{} at 0.016. On the corresponding harder
+split, Parakeet increased to 2.88\%, while several other configurations approximately doubled
+their error rate.
+
+Repeated decoding exposed a distinct failure mode in Whisper \texttt{large-v3}. Across repeated
+runs of the same hard-speech subset, substitutions remained fixed at 87, deletions at 15, and
+correct-word hits at 3,619, while insertions varied from 101 to 184. Thus the observed run-to-run
+\wer{} variation was driven by extra emitted text rather than changes in recognition
+substitutions. Follow-up experiments further show that previous-text conditioning has
+checkpoint-dependent effects: it benefits smaller checkpoints in the measured conditions, is
+byte-identical at \texttt{medium.en}, and is associated with rare runaway continuation in
+\texttt{large-v3}.
+
+The broader evaluation also changes several system-level conclusions. Synthetic leading silence
+does not recover speech that was never captured; CPU streaming is not a general latency
+improvement; cross-platform numerical variation is checkpoint-dependent; and a diarization
+clustering threshold that appeared reasonable on short or synthetic audio produced 75.21\% mean
+diarization error rate on the 16-recording AMI test split. Recalibration reduced mean \der{} to
+26.71\%, while experiments with known speaker count showed that obtaining the correct number of
+speakers and reducing \der{} are distinct objectives.
+
+These results suggest that offline interactive speech systems should report reproducibility,
+tail failures, hardware dependence, and task-specific metrics alongside conventional aggregate
+\wer{}.
+\end{abstract}
