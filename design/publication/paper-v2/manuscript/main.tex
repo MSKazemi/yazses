@@ -1,0 +1,52 @@
+\documentclass[10pt]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{geometry}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage[numbers,sort&compress]{natbib}
+
+\geometry{margin=1in}
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue,
+  citecolor=blue,
+  urlcolor=blue
+}
+
+\input{macros}
+
+\title{\YazSes: Reproducible Offline Voice Input Across Engines, Hardware, and Meeting Conditions}
+\author{YazSes Contributors\\
+\small Working public draft; final authorship governed by repository issue \#484}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\input{sections/00_abstract}
+\input{sections/01_introduction}
+\input{sections/02_research_questions}
+\input{sections/03_system}
+\input{sections/04_methodology}
+\input{sections/05_results_asr}
+\input{sections/06_results_reproducibility}
+\input{sections/07_results_platform}
+\input{sections/08_results_interaction}
+\input{sections/09_results_meeting}
+\input{sections/10_discussion}
+\input{sections/11_threats}
+\input{sections/12_related_work}
+\input{sections/13_future_work}
+\input{sections/14_conclusion}
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+\end{document}
