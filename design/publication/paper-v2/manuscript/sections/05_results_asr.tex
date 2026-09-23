@@ -1,0 +1,69 @@
+\section{Results I: Accuracy and Robustness Across Local ASR Engines}
+
+Table~\ref{tab:clean-asr} compares eight local engine/checkpoint configurations on the
+200-utterance \texttt{test-clean} subset using the shared Azure CPU condition.
+
+% TODO(#508): generate this table from paper/results/wer.json.
+\begin{table}[ht]
+\centering
+\caption{Clean-speech ASR results on the measured 200-utterance LibriSpeech
+\texttt{test-clean} subset. RTF is specific to the Azure CPU host.}
+\label{tab:clean-asr}
+\begin{tabular}{lrrr}
+\toprule
+Engine / checkpoint & WER (\%) & 95\% CI & RTF \\
+\midrule
+Parakeet TDT 0.6B v2 & 2.06 & 1.54--2.68 & 0.050 \\
+Whisper \texttt{small.en} & 2.66 & 2.05--3.28 & 0.092 \\
+Moonshine base & 3.17 & 2.49--4.02 & 0.023 \\
+Whisper \texttt{large-v3} & 3.23 & 1.95--5.00 & 0.451 \\
+Whisper \texttt{medium.en} & 3.28 & 2.09--5.01 & 0.246 \\
+Whisper \texttt{base.en} & 4.01 & 3.21--4.87 & 0.042 \\
+Moonshine tiny & 4.20 & 3.42--5.06 & 0.016 \\
+Whisper \texttt{tiny.en} & 5.18 & 4.22--6.31 & 0.028 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Parakeet TDT 0.6B v2 has the lowest \wer{} point estimate in this condition. However, its
+interval overlaps those of several competing checkpoints, including \texttt{small.en} and
+\texttt{large-v3}; this result should therefore be read as a measured point-estimate ordering
+rather than proof of universal statistical superiority.
+
+The speed comparison shows a different ordering. Moonshine/tiny and Moonshine/base are the
+fastest measured configurations on this host, while the larger Whisper checkpoints require
+substantially more compute. Thus the accuracy and latency rankings are not interchangeable.
+
+The harder \texttt{test-other} condition changes the magnitude of the trade-offs
+(Table~\ref{tab:hard-asr}).
+
+% TODO(#508): generate from paper/results/wer.json and wer-test-other.json.
+\begin{table}[ht]
+\centering
+\caption{Clean-to-hard robustness comparison. The \texttt{large-v3} hard value is shown as the
+range represented by archived repeated measurements rather than as one silently selected run.}
+\label{tab:hard-asr}
+\begin{tabular}{lrrr}
+\toprule
+Engine / checkpoint & Clean WER & Hard WER & Hard/Clean \\
+\midrule
+Parakeet TDT 0.6B v2 & 2.06 & 2.88 & 1.4$\times$ \\
+Whisper \texttt{large-v3} & 3.23 & 4.86--7.69 & 1.5--2.4$\times$ \\
+Whisper \texttt{medium.en} & 3.28 & 5.51 & 1.7$\times$ \\
+Whisper \texttt{small.en} & 2.66 & 5.59 & 2.1$\times$ \\
+Moonshine base & 3.17 & 8.04 & 2.5$\times$ \\
+Whisper \texttt{base.en} & 4.01 & 9.46 & 2.4$\times$ \\
+Moonshine tiny & 4.20 & 10.35 & 2.5$\times$ \\
+Whisper \texttt{tiny.en} & 5.18 & 11.61 & 2.2$\times$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Every measured configuration degrades on the harder split, but the degradation is not uniform.
+Parakeet shows the smallest measured multiplier in this comparison, while several configurations
+approximately double or more than double their \wer{}.
+
+The central result is not that one recognizer is universally preferable. Rather, a clean-speech
+measurement hides meaningful differences in robustness. For an interactive system, model
+selection should therefore consider the expected acoustic condition rather than relying on a
+clean benchmark alone.
