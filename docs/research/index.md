@@ -110,6 +110,12 @@ the hardware.
   gaze and language into structured targets — and what architectural layer
   YazSes is still missing.
 
+- :material-vector-link: **[Grounded Interaction Kernel](interaction-kernel.md)**
+  The proposed common contract for observations, grounded targets, uncertain
+  intent hypotheses, authority, action proposals and verified outcomes — plus
+  the scientific bottlenecks that must be measured before agentic, spatial or
+  robotic extensions.
+
 - :material-microphone-outline: **[Voice control](voice-control.md)**
   Local speech recognition passed the cloud in 2025–26. The numbers, the
   latency physics, and the whisper channel.
