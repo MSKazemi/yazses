@@ -124,7 +124,7 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 |---|---|---|---|---|
 | `enabled` | bool | `true` |  |  |
 | `profile` | str | `"auto"` |  |  |
-| `language` | str | `"auto"` |  | auto follows [stt] language; explicit en \| zh |
+| `language` | str | `"auto"` |  | auto \| en \| zh |
 | `custom` | list | `[]` |  |  |
 | `slm_model_path` | str | `""` |  | path to GGUF file; empty = disabled |
 | `slm_confidence_threshold` | float | `0.75` |  |  |

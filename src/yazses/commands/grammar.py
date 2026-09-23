@@ -9,10 +9,12 @@ from __future__ import annotations
 import logging
 from typing import Protocol
 
+from yazses.commands.grammars.en import ENGLISH_GRAMMAR
 from yazses.commands.grammars.en import (
-    ENGLISH_GRAMMAR,
-    normalise_numwords as _normalise_numwords,
-    strip_outer_punct as _strip_outer_punct,
+    normalise_numwords as _normalise_numwords,  # noqa: F401 — compat re-export
+)
+from yazses.commands.grammars.en import (
+    strip_outer_punct as _strip_outer_punct,  # noqa: F401 — compat re-export
 )
 from yazses.commands.grammars.registry import get_grammar
 from yazses.commands.types import CommandIntent, IntentType

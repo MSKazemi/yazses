@@ -5,15 +5,13 @@ from pathlib import Path
 
 import pytest
 
-from yazses.config import CommandsConfig, load_config_checked
-
 from yazses.commands.grammar import IntentType, classify
 from yazses.commands.grammars.registry import (
     get_grammar,
     resolve_command_language,
 )
 from yazses.commands.grammars.zh import SAFE_CORE_ACTIONS, parse_number_0_99
-
+from yazses.config import CommandsConfig, load_config_checked
 
 FIXTURES = Path(__file__).parent / "fixtures" / "commands"
 

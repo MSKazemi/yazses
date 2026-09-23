@@ -90,8 +90,9 @@ This is intentionally **not full parity with the English command grammar yet**. 
 terminal execution (the English `run ...` family) and open-ended refactor/create commands
 are not registered in P1. An unmatched Chinese phrase remains dictation on the normal
 dictation key; in dedicated command mode it remains unmatched and is not executed. The
-Chinese Tier-1 path also does not fall through to the English SLM router, so ordinary
-Chinese prose cannot become a fuzzy English command.
+Chinese Tier-1 path also does not fall through to the English SLM router — which is
+opt-in and off unless `[commands] slm_model_path` names a local model anyway — so
+ordinary Chinese prose cannot become a fuzzy English command.
 
 ## How accurate is it really?
 
