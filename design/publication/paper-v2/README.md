@@ -8,10 +8,17 @@ This directory is the **public planning and evidence-synthesis package** for a s
 
 ## Read this package in this order
 
-1. **[RESULTS_DELTA.md](RESULTS_DELTA.md)** — what is genuinely new relative to arXiv v1, with the key numbers and explicit supported/qualified/refuted status.
-2. **[AZURE_CAMPAIGN.md](AZURE_CAMPAIGN.md)** — reconstruction of the August measurement campaign: machines, corpora, experiment sequence, evidence hierarchy, and provenance rules.
-3. **[CLAIM_LEDGER.md](CLAIM_LEDGER.md)** — candidate manuscript claims mapped to exact result artifacts and their current evidentiary strength.
-4. **[MANUSCRIPT_PLAN.md](MANUSCRIPT_PLAN.md)** — paper thesis, research questions, contribution framing, section plan, tables/figures, statistical rules, future work, and submission gates.
+1. **[STATUS.md](STATUS.md)** — current paper direction, strongest results, September follow-up, open work packages, and evidence/publication readiness gates.
+2. **[RESULTS_DELTA.md](RESULTS_DELTA.md)** — what is genuinely new relative to arXiv v1, with the key numbers and explicit supported/qualified/refuted status.
+3. **[AZURE_CAMPAIGN.md](AZURE_CAMPAIGN.md)** — reconstruction of the August measurement campaign: machines, corpora, experiment sequence, evidence hierarchy, and provenance rules.
+4. **[CLAIM_LEDGER.md](CLAIM_LEDGER.md)** — candidate manuscript claims mapped to exact result artifacts and their current evidentiary strength.
+5. **[MANUSCRIPT_PLAN.md](MANUSCRIPT_PLAN.md)** — paper thesis, research questions, contribution framing, section plan, tables/figures, statistical rules, future work, and submission gates.
+
+## Work tracking
+
+- **[#510 — paper-v2 programme epic](https://github.com/MSKazemi/yazses/issues/510):** scientific evidence freeze, replication, figures, human/external-validity studies, and manuscript readiness.
+- **[#484 — authorship/publication operations](https://github.com/MSKazemi/yazses/issues/484):** contributor roster, explicit opt-in, manuscript review, unanimous final approval, and publication.
+- The individual scientific work packages are linked from [STATUS.md](STATUS.md).
 
 ## What changed since the first paper
 
