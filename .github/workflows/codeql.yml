@@ -12,6 +12,11 @@ on:
     # Weekly, so a newly-published query pattern is caught even when the code is quiet.
     - cron: "24 5 * * 1"
 
+# Supersede obsolete PR analyses, but never collapse main pushes or the weekly scan.
+concurrency:
+  group: codeql-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 

@@ -60,6 +60,7 @@ Binding for v1.0. Supersede with a new ADR; do not edit in place.
 | [adr-021-invest-in-error-cost](adr-021-invest-in-error-cost.md) | The one thing to invest in: carry the cost of an error through the pipeline | Accepted |
 | [adr-022-a-confirmation-a-voice-user-cannot-give](adr-022-a-confirmation-a-voice-user-cannot-give.md) | A confirmation a voice user cannot give | Proposed |
 | [adr-023-agent-first-contribution-pipeline](adr-023-agent-first-contribution-pipeline.md) | Agent-first contribution pipeline: the design behind `campaign/` | Accepted |
+| [adr-024-distributed-coding-agent-worker-model](adr-024-distributed-coding-agent-worker-model.md) | Distributed coding-agent worker model | Proposed |
 
 ### v0.4 series
 
@@ -212,6 +213,7 @@ The v2 programme: interaction layer, cognitive layer, and everything after.
 | [adr-v2-132-assisted-bug-reporting](adr-v2-132-assisted-bug-reporting.md) | Assisted bug reporting: what a "send this as an issue" button may do | ** |
 | [adr-v2-133-diarization-clustering-default](adr-v2-133-diarization-clustering-default.md) | The diarization clustering default, measured on real meeting audio | Accepted — 2026-08-23 |
 | [adr-v2-134-meeting-transcript-quality-gate](adr-v2-134-meeting-transcript-quality-gate.md) | Meeting transcript quality gate (two transcripts, one verdict) | Accepted |
+
 | [adr-v2-135-language-profile-presets](adr-v2-135-language-profile-presets.md) | Language profiles are transactional presets over canonical config | Proposed |
 | [adr-v2-136-chinese-model-policy](adr-v2-136-chinese-model-policy.md) | Chinese P1 stays on the existing Whisper engine; alternatives must win by measurement | Proposed |
 | [adr-v2-137-localized-command-grammars](adr-v2-137-localized-command-grammars.md) | Localize command grammars, not command semantics | Proposed |
