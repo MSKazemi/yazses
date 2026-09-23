@@ -9,7 +9,6 @@ from typer.testing import CliRunner
 from yazses import cli
 from yazses.system import configedit
 
-
 runner = CliRunner()
 
 

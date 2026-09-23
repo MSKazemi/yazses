@@ -6,7 +6,7 @@ import sys
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as _pkg_version
 from pathlib import Path
-from typing import Optional
+from typing import Literal, Optional
 
 import typer
 
@@ -317,7 +317,9 @@ def language_set(
 
     platform = get_platform()
     config_file = platform.paths.config_file
-    mode = "recommended" if recommended_model else "preserve"
+    mode: Literal["preserve", "recommended"] = (
+        "recommended" if recommended_model else "preserve"
+    )
     prerequisite_changed = False
 
     for attempt in range(2):
