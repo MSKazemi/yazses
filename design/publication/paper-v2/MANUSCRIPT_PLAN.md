@@ -48,7 +48,7 @@ Do synthetic onset padding and streaming provide the benefits the product ration
 **Primary outcomes:** paired first-word correctness, speech-end→final text, time to first partial, visible-at-release fraction.
 
 ### RQ6 — Meeting diarization
-Does the shipped diarization configuration transfer to real meetings, and what do threshold and known speaker count actually control?
+Does the shipped diarization configuration transfer to real meetings, and what do threshold and a speaker-count ceiling actually control?
 
 **Primary outcomes:** time-weighted DER, per-recording mean DER, collar DER, speaker-count error, paired condition differences.
 
@@ -84,7 +84,7 @@ Avoid putting too many point estimates in the abstract. Use 2–3 memorable numb
 
 Candidate abstract numbers:
 - Parakeet 2.06% clean / 2.88% hard point estimates;
-- `large-v3` insertion count 101–184 with substitutions fixed at 87;
+- dedicated `large-v3` four-repeat probe: insertion count 101–144 with substitutions fixed at 87; the earlier 184-insertion/7.69% matrix run is shown separately as the trigger observation;
 - AMI old-vs-new clustering mean DER 75.21% → 26.71%.
 
 ### 2. Introduction
