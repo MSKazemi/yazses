@@ -471,6 +471,29 @@ Every text issue should name:
 - caveats that must appear;
 - reviewer responsible for checking numbers.
 
+### Current executable issue map
+
+Umbrella:
+- **[#510 PAPER2-EPIC](https://github.com/MSKazemi/yazses/issues/510)** — full research/evidence/manuscript/publication programme.
+
+Evidence freeze / reproducibility:
+- **[#495 PAPER2-REPRO-001](https://github.com/MSKazemi/yazses/issues/495)** — freeze and rerun the core ASR engine matrix.
+- **[#496 PAPER2-REPRO-002](https://github.com/MSKazemi/yazses/issues/496)** — replicate the `large-v3` insertion/runaway tail failure on a second corpus and CPU.
+- **[#507 PAPER2-LIT-001](https://github.com/MSKazemi/yazses/issues/507)** — novelty and related-work verification.
+- **[#508 PAPER2-FIG-001](https://github.com/MSKazemi/yazses/issues/508)** — generate tables/figures from committed result artifacts.
+
+External validity / stronger submission:
+- **[#498 PAPER2-HUMAN-001](https://github.com/MSKazemi/yazses/issues/498)** — controlled typing-vs-dictation study.
+- **[#500 PAPER2-DATA-001](https://github.com/MSKazemi/yazses/issues/500)** — spontaneous-microphone robustness evaluation.
+- **[#502 PAPER2-MEETING-001](https://github.com/MSKazemi/yazses/issues/502)** — far-field meeting diarization evaluation.
+- **[#504 PAPER2-PLATFORM-001](https://github.com/MSKazemi/yazses/issues/504)** — end-to-end Windows/macOS validation.
+- **[#506 PAPER2-ENERGY-001](https://github.com/MSKazemi/yazses/issues/506)** — CPU core-seconds and energy/battery measurements.
+
+Publication governance:
+- **[#484](https://github.com/MSKazemi/yazses/issues/484)** — contributor authorship consent, manuscript review, unanimous final approval, and publication operations.
+
+The scientific issues do not replace #484. Evidence readiness and publication approval are separate gates.
+
 ## 11. Pre-submission validation checklist
 
 ### Numbers
