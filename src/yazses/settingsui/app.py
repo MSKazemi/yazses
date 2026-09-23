@@ -258,6 +258,13 @@ class SettingsWindow:
         #: packages it is meant to activate exist.
         self._restart_when_installed: str | None = None
         self._install_worker: Any = None
+        # High-level language application has its own worker because it may install
+        # OpenCC and download a Whisper model before the atomic config commit.
+        self._language_thread: Any = None
+        self._language_worker: Any = None
+        self._install_after_language: dict[str, tuple[str, ...]] | None = None
+        self._restart_base_needed = False
+        self._profile_syncing = False
         apply_btn.clicked.connect(self._on_apply)
         buttons.addWidget(apply_btn)
         outer.addLayout(buttons)
@@ -912,6 +919,169 @@ class SettingsWindow:
             QMessageBox.StandardButton.No,
         )
         return answer == QMessageBox.StandardButton.Yes
+
+    def _selected_language_profile(self) -> str:
+        box = getattr(self, "_profile_box", None)
+        if box is None:
+            return ""
+        value = box.currentData()
+        return str(value or "")
+
+    def _language_profile_transaction_pending(self) -> bool:
+        profile = self._selected_language_profile()
+        return bool(profile and profile != self._profile_baseline)
+
+    def _language_profile_model_override(self) -> str | None:
+        """Only treat a model as explicit when the user diverged from the preview."""
+
+        chosen = self._model_box.currentText().strip() if self._model_box else ""
+        if self._profile_auto_model and chosen == self._profile_auto_model:
+            return None
+        if chosen and chosen != self._model_baseline:
+            return chosen
+        return None
+
+    def _on_language_profile_selection_changed(self, _index: int) -> None:
+        profile = self._selected_language_profile()
+        self._language_box.setEnabled(not bool(profile))
+        if not profile:
+            self._profile_auto_model = None
+            return
+        if profile != self._profile_baseline:
+            self._refresh_language_profile_preview()
+
+    def _on_language_profile_model_changed(self, _text: str) -> None:
+        if self._profile_syncing:
+            return
+        if self._language_profile_transaction_pending():
+            self._refresh_language_profile_preview()
+
+    def _refresh_language_profile_preview(self) -> None:
+        """Project a profile into the existing model/language controls, no I/O."""
+
+        if self._profile_syncing:
+            return
+        profile = self._selected_language_profile()
+        if not profile:
+            return
+        prepared, error = self._controller.preview_language_profile(
+            profile,
+            model=self._language_profile_model_override(),
+        )
+        if error or prepared is None:
+            self._hint.setText(error or "Could not preview the language profile.")
+            return
+
+        self._profile_syncing = True
+        try:
+            candidate = prepared.candidate_stt
+            self._profile_auto_model = candidate.model
+            if self._model_box.currentText().strip() != candidate.model:
+                self._model_box.setCurrentText(candidate.model)
+            language_index = self._language_box.findData(candidate.language)
+            if language_index >= 0:
+                self._language_box.setCurrentIndex(language_index)
+        finally:
+            self._profile_syncing = False
+
+        changes = ", ".join(
+            f"{m.key}: {m.before!r} → {m.after!r}" for m in prepared.plan.mutations
+        ) or "no config-key changes"
+        requirements: list[str] = []
+        req = prepared.requirements
+        if req.missing_imports:
+            requirements.append("install " + " ".join(req.packages))
+        if not req.model_cached:
+            requirements.append(f"download speech model {req.model}")
+        suffix = (
+            "  One-time preparation: " + "; ".join(requirements) + "."
+            if requirements
+            else ""
+        )
+        self._hint.setText(
+            f"Language profile {prepared.plan.canonical_profile} staged — {changes}."
+            f"{suffix} Nothing changes until Apply."
+        )
+
+    def _confirm_language_requirements(self, prepared) -> bool:
+        """Confirm network/package work before the worker starts spending bandwidth."""
+
+        req = prepared.requirements
+        if not req.missing_imports and req.model_cached:
+            return True
+        from PySide6.QtWidgets import QMessageBox
+
+        jobs: list[str] = []
+        if req.missing_imports:
+            jobs.append("install " + " ".join(req.packages))
+        if not req.model_cached:
+            jobs.append(f"download the speech model {req.model}")
+        answer = QMessageBox.question(
+            self._win,
+            "Prepare language profile?",
+            f"Switching to {prepared.plan.canonical_profile} needs a one-time "
+            + " and ".join(jobs)
+            + ".\n\nThe existing config will not be changed unless all prerequisites "
+            "are ready. Continue?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        return answer == QMessageBox.StandardButton.Yes
+
+    def _start_language_profile_apply(self) -> tuple[bool, str | None]:
+        """Preview once more, then start the shared transaction on a QThread."""
+
+        if not self._language_profile_transaction_pending():
+            return False, None
+        if self._language_thread is not None:
+            return False, "A language change is already running."
+
+        profile = self._selected_language_profile()
+        model_override = self._language_profile_model_override()
+        prepared, error = self._controller.preview_language_profile(
+            profile,
+            model=model_override,
+        )
+        if error or prepared is None:
+            return False, error or "Could not preview the language profile."
+        if prepared.requirements.blocked_reason:
+            return False, prepared.requirements.blocked_reason
+        if prepared.requirements.missing_imports and not self._auto_install:
+            return False, (
+                "The Chinese script dependency is missing and automatic installs "
+                "are disabled."
+            )
+        if not self._confirm_language_requirements(prepared):
+            return False, "Language profile was not applied."
+
+        self._start_language_worker(profile, model_override)
+        return True, None
+
+    def _start_language_worker(self, profile: str, model: str | None) -> None:
+        from PySide6.QtCore import QThread
+
+        from yazses.settingsui.worker import LanguageWorker
+
+        self._apply_button.setEnabled(False)
+        self._hint.setText(f"Preparing language profile {profile}…")
+        thread = QThread(self._win)
+        worker = LanguageWorker(
+            profile,
+            self._controller.apply_language_profile,
+            model=model,
+        )
+        worker.moveToThread(thread)
+        thread.started.connect(worker.run)
+        worker.progress.connect(self._on_language_progress)
+        worker.finished.connect(self._on_language_finished)
+        worker.finished.connect(thread.quit)
+        thread.finished.connect(worker.deleteLater)
+        thread.finished.connect(thread.deleteLater)
+        self._language_thread, self._language_worker = thread, worker
+        thread.start()
+
+    def _on_language_progress(self, line: str) -> None:
+        self._hint.setText(line)
 
     def _on_apply(self) -> None:
         report = self._controller.apply(self._pending)
