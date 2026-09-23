@@ -1,0 +1,59 @@
+\section{Discussion}
+
+\subsection{Average WER hides interactive tail risk}
+
+Corpus-average \wer{} is necessary but insufficient for an interactive text-entry system. The
+\texttt{large-v3} experiments illustrate why. A rare runaway continuation may affect only a
+small number of utterances and therefore move the mean modestly, yet a single event can insert a
+large block of unspoken text into the active document.
+
+This suggests that interactive ASR evaluation should report error decomposition, repeated-run
+behavior, and explicit catastrophic-event counts alongside mean \wer{}. The relevant engineering
+question is not only how many reference words are wrong, but how the failure appears in the
+editing surface a user must repair.
+
+\subsection{Larger recognizers are not monotonically safer}
+
+The measured checkpoint ladder resists a simple larger-is-better rule. Larger checkpoints reduce
+some recognition errors, but the \texttt{large-v3} condition introduces a continuation failure
+that is not observed in the same way on the smaller measured checkpoints. Likewise,
+previous-text conditioning changes from beneficial, to neutral, to associated with a harmful
+tail mode across the tested ladder.
+
+Model choice in an interactive system therefore needs a broader objective than average accuracy.
+Latency, memory, repetition behavior, and correction cost can matter as much as another fraction
+of a WER point.
+
+\subsection{Configuration is model-specific}
+
+Beam width and previous-text conditioning both show that decoder guidance should be tied to a
+specific model and workload. The campaign does not support globally disabling context or globally
+maximizing beam width. Product defaults should remain evidence-linked to the checkpoint they are
+intended to serve.
+
+\subsection{Cross-platform has multiple layers}
+
+Cross-platform claims should distinguish dependency resolution, numerical decode behavior,
+activation/capture support, text injection, and recovery behavior. The present work strengthens
+the decode and installability layers but does not collapse them into full end-to-end
+certification. That stronger validation remains a separate experiment.
+
+\subsection{Negative results improve the system}
+
+The onset-padding, streaming, and centroid-merge experiments share a useful pattern. Each tested
+an intuitive mechanism that could easily have been defended from first principles alone.
+Measurement either narrowed the claim or rejected the mechanism.
+
+This is especially valuable in a user-facing system because an apparently harmless feature can
+consume CPU, complicate privacy guarantees, or create new failure modes. Reporting negative
+results makes the relationship between the product and its evidence more auditable.
+
+\subsection{Provenance is part of the experimental method}
+
+The \texttt{large-v3} investigation began because a repeated benchmark disagreed with the
+existing result and the repository preserved both artifacts. If a conventional latest-result
+workflow had silently replaced the first run, the disagreement might have been interpreted as
+ordinary benchmark drift rather than a reproducibility question.
+
+For this project, provenance is therefore not only documentation. It changes which scientific
+questions become visible.
