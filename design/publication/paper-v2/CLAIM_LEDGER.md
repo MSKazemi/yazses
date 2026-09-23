@@ -23,7 +23,8 @@ Use the status labels literally:
 **Claim:** On the measured 200-utterance LibriSpeech `test-clean` subset on the Azure Xeon CPU, Parakeet TDT 0.6B v2 had the lowest WER point estimate (2.06%), while Moonshine/tiny had the lowest RTF (0.016).
 
 **Evidence:**
-- `paper/results/wer.json`
+- `paper/results/probes/wer-vm-clean.json` (current uncontended eight-engine clean matrix; promote/freeze under #495 before submission)
+- `paper/results/wer.json` is the older v1 three-checkpoint laptop result and is not the source of this claim
 
 **Required qualification:**
 - Parakeet's interval overlaps `large-v3` and `small.en`; do not convert the point estimate into universal statistical superiority.
