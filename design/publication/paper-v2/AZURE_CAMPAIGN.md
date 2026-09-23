@@ -58,7 +58,7 @@ It is a robustness stressor, not spontaneous microphone speech.
 
 ### AMI test split
 
-- 16 real four-person meeting recordings
+- 16 real meeting recordings: 15 with four reference speakers and one with three
 - 543.7 minutes of recordings
 - 30,714 s / 8.5 h of scored reference speech in the archived aggregate
 - human RTTM annotations from the pyannote AMI diarization setup
@@ -158,7 +158,7 @@ The campaign then tested assumptions that had been encoded as defaults/documenta
 - pre-speech padding,
 - streaming,
 - diarization clustering threshold,
-- supplied speaker count,
+- a `max_speakers=4` clustering cap,
 - plausibility guards,
 - centroid-based repair.
 
@@ -225,7 +225,7 @@ A probe may become a central paper result if all of the following hold:
 | Does WER move across OS/ISA? | `platforms/*/wer.json` |
 | Do optional installs resolve by platform? | `platform-resolution.json` |
 | Does Meeting Mode work on real annotated meetings? | `diarization-ami16_corpus-der.json` |
-| Does exact speaker count improve DER at the current threshold? | `diarization-ami16_corpus-maxspk4*.json` + significance |
+| Does a four-speaker clustering cap improve DER at the current threshold? | `diarization-ami16_corpus-maxspk4*.json` + significance |
 | Does one clustering threshold transfer across domains? | AMI/Vox/synthetic probe + plausibility artifacts |
 | Can centroid similarity safely repair split speakers? | `centroid-merge-ami16_corpus-{meeting,recimport}.json` |
 
@@ -276,7 +276,7 @@ The campaign supports these broad statements:
 4. **A decoder setting can help one checkpoint and hurt another.**
 5. **Cross-platform numerical variation is model-dependent.**
 6. **Real-meeting diarization required a very different clustering operating point from the original default.**
-7. **Known speaker count and better diarization are not the same objective.**
+7. **Speaker-count constraints and better diarization are not the same objective.**
 8. **Several intuitive latency/robustness features fail when measured under the actual CPU budget.**
 9. **Keeping contradictory reruns and full provenance materially changed the conclusions.**
 
@@ -291,7 +291,7 @@ Do not claim:
 - that disabling conditioning universally lowers WER;
 - that beam 5 is uniquely optimal;
 - that 300 ms of silence “recovers” a clipped first word;
-- that exact speaker count improves DER at the new threshold;
+- that the four-speaker cap improves DER at the new threshold;
 - that 26–27% AMI DER is state-of-the-art or “good”;
 - that cross-platform decode artifacts prove all end-to-end interaction paths;
 - a productivity, accessibility, or usability advantage over typing without a user study.
