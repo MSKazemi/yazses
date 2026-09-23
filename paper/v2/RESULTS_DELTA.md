@@ -68,7 +68,7 @@ Same harness, same Azure host, 200 LibriSpeech `test-other` utterances, 33 speak
 
 **New evidence:** `paper/results/probes/largev3-instability-test-other.json`, the `decode-determinism-*.json` family, and `decode-mechanism-*.json`.
 
-Repeated identical runs moved for `tiny.en` and `large-v3`, while `base.en`, `small.en`, `medium.en`, Parakeet, and both Moonshine rows were stable in the measured matrices.
+The August full-matrix reruns showed movement in `large-v3` and small shifts in `tiny.en`, while `base.en`, `small.en`, `medium.en`, Parakeet, and both Moonshine rows were stable in those matrices. A later September follow-up narrows that interpretation: `paper/results/probes/decode-determinism-tiny.en-test-clean-baseline.json` decoded the same 60 `test-clean` utterances five times with `tiny.en` and obtained byte-identical hypotheses and 3.67% WER on every run. Therefore paper v2 should treat `large-v3` as the reproducible corpus-level instability finding; `tiny.en` has evidence of rare clip-level fallback instability, but not a general repeated-corpus instability under every sampled condition.
 
 For `large-v3` on `test-other`, five observed WERs include:
 
