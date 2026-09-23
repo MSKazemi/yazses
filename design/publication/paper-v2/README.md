@@ -4,15 +4,16 @@
 **Baseline paper:** *YazSes: An Offline, Privacy-First, Cross-Platform Hold-to-Talk Voice-Dictation System*, arXiv:2607.28878 v1 (2026-07-30)  
 **Evidence window synthesised here:** primarily the 2026-08-23–2026-08-26 measurement campaign, including the rented Azure CPU runs and the follow-up analyses already archived under `paper/results/`.
 
-This directory is the **public planning and evidence-synthesis package** for a second manuscript/revision. The unpublished manuscript itself remains in the repository's private manuscript tier under `paper/`. This package does not replace the benchmark archive. The JSON artifacts remain the evidence; these files say what can be concluded from them, what changed relative to the first paper, what should be written next, and what must not be claimed.
+This directory is the **public planning, evidence-synthesis, and manuscript package** for a second manuscript/revision. The working LaTeX draft is intentionally public under **[manuscript/](manuscript/)**. Private reference material and any non-public scratch manuscript work remain under the ignored `paper/` tier. This package does not replace the benchmark archive. The JSON artifacts remain the evidence; these files say what can be concluded from them, what changed relative to the first paper, what should be written next, and what must not be claimed.
 
 ## Read this package in this order
 
-1. **[STATUS.md](STATUS.md)** — current paper direction, strongest results, September follow-up, open work packages, and evidence/publication readiness gates.
-2. **[RESULTS_DELTA.md](RESULTS_DELTA.md)** — what is genuinely new relative to arXiv v1, with the key numbers and explicit supported/qualified/refuted status.
-3. **[AZURE_CAMPAIGN.md](AZURE_CAMPAIGN.md)** — reconstruction of the August measurement campaign: machines, corpora, experiment sequence, evidence hierarchy, and provenance rules.
-4. **[CLAIM_LEDGER.md](CLAIM_LEDGER.md)** — candidate manuscript claims mapped to exact result artifacts and their current evidentiary strength.
-5. **[MANUSCRIPT_PLAN.md](MANUSCRIPT_PLAN.md)** — paper thesis, research questions, contribution framing, section plan, tables/figures, statistical rules, future work, and submission gates.
+1. **[manuscript/](manuscript/)** — the public working LaTeX manuscript (`main.tex`, section files, and bibliography).
+2. **[STATUS.md](STATUS.md)** — current paper direction, strongest results, September follow-up, open work packages, and evidence/publication readiness gates.
+3. **[RESULTS_DELTA.md](RESULTS_DELTA.md)** — what is genuinely new relative to arXiv v1, with the key numbers and explicit supported/qualified/refuted status.
+4. **[AZURE_CAMPAIGN.md](AZURE_CAMPAIGN.md)** — reconstruction of the August measurement campaign: machines, corpora, experiment sequence, evidence hierarchy, and provenance rules.
+5. **[CLAIM_LEDGER.md](CLAIM_LEDGER.md)** — candidate manuscript claims mapped to exact result artifacts and their current evidentiary strength.
+6. **[MANUSCRIPT_PLAN.md](MANUSCRIPT_PLAN.md)** — paper thesis, research questions, contribution framing, section plan, tables/figures, statistical rules, future work, and submission gates.
 
 ## Work tracking
 
