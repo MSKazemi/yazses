@@ -28,15 +28,17 @@ Checkpoint & Linux x86 & Linux arm64 & macOS arm64 & Windows x86 & Spread \\
 
 The result is model-dependent rather than a single platform-wide effect. The measured
 \texttt{small.en} hypotheses produce the same aggregate WER on all four runners, whereas
-\texttt{tiny.en} shows a 0.49-point spread. This is sufficient to reject the assumption that the
-third decimal place of a WER measured on one CPU should automatically be transported to another,
-but it is not evidence that every checkpoint is meaningfully sensitive to platform.
+\texttt{tiny.en} shows a 0.49-point spread. The experiment therefore shows that small aggregate
+WER differences need not reproduce identically across OS/ISA environments. It does not establish
+that every checkpoint is meaningfully platform-sensitive, nor does it identify which numerical
+kernel difference causes the observed spread.
 
 \subsection{Installability is a different portability layer}
 
-The companion dependency-resolution experiment covers 92 installation target combinations, of
-which 84 resolve in the archived result. Resolution failures expose platform/package constraints
-that are distinct from recognition accuracy.
+The companion dependency-resolution experiment simulates 92 target-platform/package-extra
+combinations through the resolver, of which 84 resolve in the archived result. These are
+dependency-resolution checks rather than 92 physical installations; failures expose packaging
+constraints that are distinct from recognition accuracy.
 
 These two experiments deliberately stop short of a stronger claim. A successful decoder run does
 not exercise the entire interactive path: global activation, microphone permission, capture,
