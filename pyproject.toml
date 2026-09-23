@@ -475,7 +475,7 @@ known-first-party = ["_common"]
 # Re-exports: package __init__ files intentionally import names they do not use.
 "__init__.py" = ["F401"]
 
-# CLAUDE.md names `uv run mypy src` as a quality gate, but the gate had no config, so it
+# AGENTS.md names `uv run mypy src` as a quality gate, but the gate had no config, so it
 # ran with bare defaults and buried its real findings under ~35 unfixable import errors:
 # yazses loads every heavy backend lazily behind an optional extra (ADR-011), so on a base
 # install those imports are *correctly* absent and no contributor can "fix" them.
