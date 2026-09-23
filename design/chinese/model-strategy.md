@@ -3,6 +3,41 @@
 **Status:** Proposed decision framework, current as of 2026-09-20  
 **P1 decision:** Keep the existing faster-whisper runtime and use multilingual `small` as the supported baseline candidate. Benchmark alternatives behind `SttEngine`; do not add a second mandatory runtime before it wins on measured product criteria.
 
+## 0. Model-license gate
+
+For this programme, "free/open-source model" is not enough by itself. A model that becomes a
+recommended YazSes profile must have an auditable model-weight license that is acceptable for
+redistribution and normal downstream use.
+
+**Default policy for production profiles:** prefer permissive weight licenses such as MIT,
+Apache-2.0 or BSD. Record the exact model repository, immutable revision/commit and license
+source in benchmark metadata. A toolkit's code license does **not** prove that its model weights
+carry the same license.
+
+Current verified examples:
+
+- OpenAI Whisper states that its **code and model weights are MIT-licensed**:
+  https://github.com/openai/whisper#license
+- Qwen3-ASR-0.6B's official Hugging Face model card declares **Apache-2.0**:
+  https://huggingface.co/Qwen/Qwen3-ASR-0.6B
+- The current `funasr/paraformer-zh` model card declares **Apache-2.0**; the streaming
+  repository also publishes an immutable `apache-2.0-20260804` tag that explicitly covers
+  its weights and accompanying files:
+  https://huggingface.co/funasr/paraformer-zh
+  https://huggingface.co/funasr/paraformer-zh-streaming/tree/apache-2.0-20260804
+- SenseVoiceSmall currently declares a custom **FunASR Model Open Source License**, not
+  MIT/Apache/BSD:
+  https://huggingface.co/FunAudioLLM/SenseVoiceSmall
+  https://github.com/modelscope/FunASR/blob/main/MODEL_LICENSE
+
+SenseVoiceSmall may still be benchmarked as research evidence, but under the project's
+permissive-license preference it must not become a bundled/recommended production model without
+an explicit maintainer/legal review of that exact weight revision. The current custom agreement
+contains attribution requirements, conduct-based termination language, and automatic acceptance
+of future revisions, so treating it as interchangeable with Apache-2.0 would be incorrect.
+
+---
+
 ## 1. Why model choice is an architecture decision
 
 A Chinese recognizer is not just an accuracy number. In YazSes it affects:
@@ -110,7 +145,7 @@ Integration concerns:
 - model-weight license must be reviewed separately from FunASR toolkit licensing;
 - packaging impact must be measured.
 
-**Priority:** first non-Whisper CPU candidate to prototype.
+**Priority:** research-only benchmark candidate under the current custom model-weight license. Do not bundle or recommend it under the permissive-license policy without explicit approval of the exact revision.
 
 ### 4.2 Paraformer-zh / Paraformer-zh-streaming
 
@@ -130,9 +165,9 @@ Integration concerns:
 - offline and streaming checkpoints may not be interchangeable;
 - a single YazSes `SttEngine` instance must satisfy batch and `decode_window` behavior coherently;
 - new FunASR/PyTorch dependency surface;
-- model license and redistribution policy.
+- pin the exact Hugging Face revision whose weights are explicitly Apache-2.0; do not infer a checkpoint license from the FunASR toolkit license.
 
-**Priority:** prototype if the project wants a Chinese-optimized streaming path.
+**Priority:** permissively licensed Chinese-optimized streaming candidate, after exact-revision pinning and product measurements.
 
 ### 4.3 Qwen3-ASR-0.6B
 
@@ -153,7 +188,7 @@ Integration concerns:
 - dependency isolation may be advisable upstream itself;
 - CPU interactive latency must be measured, not inferred from high-concurrency throughput claims.
 
-**Priority:** quality/dialect research candidate; do not make it a base dependency without a CPU/product benchmark.
+**Priority:** permissively licensed quality/dialect candidate (official model card: Apache-2.0); do not make it a base dependency without a CPU/product benchmark.
 
 ### 4.4 Qwen3-ASR-1.7B
 
