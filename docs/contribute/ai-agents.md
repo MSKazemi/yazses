@@ -49,7 +49,7 @@ into the tracked adapters.
 
 1. **Fork the repository** to your GitHub account and clone your fork. A normal contribution
    does not require write access to the upstream YazSes repository.
-2. From the repository root, read **[AGENTS.md](../../AGENTS.md)** and the task or issue you
+2. From the repository root, read **[AGENTS.md](https://github.com/MSKazemi/yazses/blob/main/AGENTS.md)** and the task or issue you
    are working on.
 3. Decide which billing mode you intend to use: an included subscription/plan allowance, or
    an API/pay-as-you-go account. Do not let that choice happen accidentally.
@@ -70,7 +70,7 @@ For **Google Jules**, start with the dedicated
 available today and separately documents the still-gated owner/upstream setup.
 
 For provider-neutral worker rules, use the fork-first flow in
-[`campaign/agent-workers.md`](../../campaign/agent-workers.md). It explains how task claims,
+[`campaign/agent-workers.md`](https://github.com/MSKazemi/yazses/blob/main/campaign/agent-workers.md). It explains how task claims,
 `cloud_agent_ready`, allowed paths, provider-specific execution triggers such as Jules, and
 human review fit together. The key distinction is that **agent readiness is project metadata;
 provider execution is contributor-owned**. A normal contributor does not need upstream write
@@ -256,7 +256,7 @@ before spending money.
 
 ## Before you open the pull request
 
-Run the repository checks from [AGENTS.md](../../AGENTS.md), inspect `git diff`, and make sure
+Run the repository checks from [AGENTS.md](https://github.com/MSKazemi/yazses/blob/main/AGENTS.md), inspect `git diff`, and make sure
 you can explain every changed line. In the pull-request template, say which AI tool you used
 and what you verified personally.
 

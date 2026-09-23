@@ -106,26 +106,42 @@ def test_no_open_task_is_advertised_as_architecture_work(tasks):
     assert not [t["id"] for t in tasks if t["state"] == "open" and t["risk"] == "L3"]
 
 
-def test_feature_wiring_tasks_track_the_live_registry():
-    """A wiring task for an already-wired capability sends someone to do nothing.
+def test_feature_wiring_tasks_exactly_track_the_live_registry():
+    """Every unwired capability has one task, and every wiring task is still needed.
 
-    The registry is the truth; this catches the inventory going stale behind it, which
-    is guaranteed to happen as capabilities get wired.
+    The registry is the implementation truth. The campaign is the contributor-facing
+    work queue. Checking only for stale tasks is not enough: a newly added or accidentally
+    unpublished _UNWIRED capability would otherwise disappear from the queue while all
+    tests stayed green.
     """
     from yazses.system.features import _UNWIRED
 
     campaign_mod = _load("campaign")
-    stale = []
-    for t in campaign_mod.load_tasks():
-        if t["family"] != "feature-wiring":
-            continue
-        slug = t["id"].removeprefix("WIRE-").removesuffix("-001").lower().replace("-", "_")
-        if slug not in _UNWIRED:
-            stale.append(f"{t['id']} (slug {slug!r} is no longer unwired)")
+    task_slugs = [
+        t["id"].removeprefix("WIRE-").removesuffix("-001").lower().replace("-", "_")
+        for t in campaign_mod.load_tasks()
+        if t["family"] == "feature-wiring"
+    ]
+
+    duplicates = sorted({slug for slug in task_slugs if task_slugs.count(slug) > 1})
+    assert not duplicates, (
+        "more than one feature-wiring task maps to the same capability:\n  "
+        + "\n  ".join(duplicates)
+    )
+
+    advertised = set(task_slugs)
+    stale = sorted(advertised - _UNWIRED)
+    missing = sorted(_UNWIRED - advertised)
+
     assert not stale, (
         "feature-wiring tasks exist for capabilities that are already wired:\n  "
         + "\n  ".join(stale)
         + "\nRemove them from campaign/tasks.json and regenerate."
+    )
+    assert not missing, (
+        "unwired capabilities have no contributor-facing feature-wiring task:\n  "
+        + "\n  ".join(missing)
+        + "\nAdd one WIRE-<SLUG>-001 task per capability and regenerate."
     )
 
 

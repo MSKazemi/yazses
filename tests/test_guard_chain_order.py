@@ -1,6 +1,6 @@
 """The three guards between a transcript and the injector must run in order.
 
-`CLAUDE.md` states it as an invariant: *"Three guards sit between a finished transcript
+`AGENTS.md` states it as an invariant: *"Three guards sit between a finished transcript
 and the injector, in this order, and the order is load-bearing… Both run **before**
 `staged`, which would otherwise swallow the confirm utterance as ordinary text."*
 

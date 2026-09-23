@@ -11,7 +11,7 @@ The instance this was written for: the `pyannote` diarization adapter shipped in
 went on telling users it was "not shipped in this build" — the `--min-speakers`
 option help, the runtime note that fires when you pass it, `system/depsize.py` (which
 cited `system/backends.py` as its authority while `system/backends.py` said the
-opposite), the transcribe tutorial, and `CLAUDE.md`. The consequence is specific: a
+opposite), the transcribe tutorial, and `AGENTS.md`. The consequence is specific: a
 user who needs a lower speaker bound is told no backend provides one, so they never
 install the extra that does.
 

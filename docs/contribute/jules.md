@@ -469,7 +469,7 @@ Jules Settings when no longer needed.
 Before using Jules, read:
 
 - [Using AI coding agents safely](ai-agents.md)
-- [Third-party AI tools](../../THIRD_PARTY_AI_TOOLS.md)
+- [Third-party AI tools](https://github.com/MSKazemi/yazses/blob/main/THIRD_PARTY_AI_TOOLS.md)
 
 In particular:
 
@@ -479,7 +479,7 @@ In particular:
   beforehand.
 - Do not put provider/API/GitHub secrets in prompts, issues, source files or logs.
 - Do not send user audio/transcripts, private repository material, research-participant data or
-  undeidentified tester data to a cloud coding agent.
+  non-deidentified tester data to a cloud coding agent.
 - A task being `agent-ready` or `cloud_agent_ready` is not authority to spend money.
 
 ---
@@ -502,9 +502,9 @@ in this page.
 
 ## Related YazSes policy
 
-- [ADR-024 — distributed coding-agent worker model](../../design/adr/adr-024-distributed-coding-agent-worker-model.md)
-- [Cloud coding-agent workers](../../campaign/agent-workers.md)
+- [ADR-024 — distributed coding-agent worker model](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-024-distributed-coding-agent-worker-model.md)
+- [Cloud coding-agent workers](https://github.com/MSKazemi/yazses/blob/main/campaign/agent-workers.md)
 - [Using AI coding agents safely](ai-agents.md)
-- [Third-party AI tools](../../THIRD_PARTY_AI_TOOLS.md)
+- [Third-party AI tools](https://github.com/MSKazemi/yazses/blob/main/THIRD_PARTY_AI_TOOLS.md)
 - [#451 — coding-agent worker epic](https://github.com/MSKazemi/yazses/issues/451)
 - [#447 — gated direct-upstream Jules setup](https://github.com/MSKazemi/yazses/issues/447)
