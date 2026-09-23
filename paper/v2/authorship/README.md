@@ -16,7 +16,7 @@ Goal: establish exactly who must be invited and collect the information needed t
 1. Choose an AUTHORSHIP_CUTOFF_SHA on main. It should be the code/evidence commit that the manuscript describes.
 2. Regenerate the contributor set from both .all-contributorsrc and CONTRIBUTORS.md at that commit.
 3. Reconcile any discrepancy manually before outreach.
-4. Record the total N. The current seed roster contains 28 people as of 2026-09-20; see CANDIDATE_AUTHOR_ROSTER.md.
+4. Record the total N. The current seed roster contains 29 people as of 2026-09-23; see CANDIDATE_AUTHOR_ROSTER.md.
 5. Contact every candidate.
 6. Collect privately:
    - preferred publication name;
@@ -298,7 +298,7 @@ One person may hold several of these roles, but the checks remain separate.
 
 ## 12. Files in this package
 
-- CANDIDATE_AUTHOR_ROSTER.md — current 28-person seed roster derived from public project contributor data.
+- CANDIDATE_AUTHOR_ROSTER.md — current 29-person seed roster derived from public project contributor data.
 - COMMUNICATION_TEMPLATES.md — ready-to-send invitation, consent, review, reminder, final-approval, withdrawal, and publication messages.
 - APPROVAL_PROTOCOL.md — state machine, immutable fingerprint, approval record format, and audit rules.
 - ARCHIVE_ORG_PUBLICATION_CHECKLIST.md — preflight, upload, verification, and post-publication checks.
