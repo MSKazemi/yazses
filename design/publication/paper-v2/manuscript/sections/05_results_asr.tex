@@ -3,7 +3,8 @@
 Table~\ref{tab:clean-asr} compares eight local engine/checkpoint configurations on the
 200-utterance \texttt{test-clean} subset using the shared Azure CPU condition.
 
-% TODO(#508): generate this table from paper/results/wer.json.
+% TODO(#495,#508): replace this provisional table with the frozen stable clean-matrix artifact.
+% Current values come from paper/results/probes/wer-vm-clean.json (uncontended Azure matrix).
 \begin{table}[ht]
 \centering
 \caption{Clean-speech ASR results on the measured 200-utterance LibriSpeech
@@ -37,7 +38,8 @@ substantially more compute. Thus the accuracy and latency rankings are not inter
 The harder \texttt{test-other} condition changes the magnitude of the trade-offs
 (Table~\ref{tab:hard-asr}).
 
-% TODO(#508): generate from paper/results/wer.json and wer-test-other.json.
+% TODO(#495,#508): generate from the frozen clean matrix and paper/results/wer-test-other.json.
+% Current clean values come from paper/results/probes/wer-vm-clean.json.
 \begin{table}[ht]
 \centering
 \caption{Clean-to-hard robustness comparison. The \texttt{large-v3} hard value is shown as the
@@ -54,7 +56,7 @@ Whisper \texttt{small.en} & 2.66 & 5.59 & 2.1$\times$ \\
 Moonshine base & 3.17 & 8.04 & 2.5$\times$ \\
 Whisper \texttt{base.en} & 4.01 & 9.46 & 2.4$\times$ \\
 Moonshine tiny & 4.20 & 10.35 & 2.5$\times$ \\
-Whisper \texttt{tiny.en} & 5.18 & 11.61 & 2.2$\times$ \\
+Whisper \texttt{tiny.en} & 5.18 & 11.77 & 2.3$\times$ \\
 \bottomrule
 \end{tabular}
 \end{table}
