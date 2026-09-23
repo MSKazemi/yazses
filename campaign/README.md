@@ -64,6 +64,13 @@ There is deliberately **no GitHub issue per task**. A hundred bot-filed issues w
 the human ones and read as spam. Tasks live here; the umbrella issues they came from
 (#18, #21, #42, #43, #164) stay the place to talk.
 
+For **feature wiring**, the live registry and this inventory are one contract:
+`tests/test_campaign.py` requires the feature-wiring task slugs to match
+`src/yazses/system/features.py::_UNWIRED` in **both directions**. A wired capability
+cannot leave behind a stale task, and an unwired capability cannot become invisible by
+missing its `WIRE-<SLUG>-001` task. Issue #164 is the discussion/claiming umbrella; the
+campaign row is the bounded unit of work.
+
 ## Risk lanes
 
 `risk` says who reviews a change, not how hard it is.
