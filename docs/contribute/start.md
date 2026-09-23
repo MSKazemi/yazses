@@ -63,6 +63,11 @@ whether we accept it.
     mode and links to the providers' current official documentation. The project-wide legal
     and billing policy is [THIRD_PARTY_AI_TOOLS.md](https://github.com/MSKazemi/yazses/blob/main/THIRD_PARTY_AI_TOOLS.md).
 
+    Using **Google Jules**? The [Jules connection guide](jules.md) walks through the current
+    fork-first setup click by click: GitHub authorization, selected-repository access,
+    **User only** commit authorship, `uv sync` environment setup, AGENTS.md verification,
+    and the normal fork → upstream PR path.
+
 Copy this, replacing the task ID:
 
 ```text
