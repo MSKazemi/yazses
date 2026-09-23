@@ -110,7 +110,7 @@ The governing rule is intentionally strict: every person in the frozen contribut
 
 Supporting documents:
 
-- **[authorship/CANDIDATE_AUTHOR_ROSTER.md](authorship/CANDIDATE_AUTHOR_ROSTER.md)** — 28-person seed roster derived from the project's public contributor records; must be reconciled again at the final authorship cutoff.
+- **[authorship/CANDIDATE_AUTHOR_ROSTER.md](authorship/CANDIDATE_AUTHOR_ROSTER.md)** — 29-person seed roster derived from the project's public contributor records; must be reconciled again at the final authorship cutoff.
 - **[authorship/COMMUNICATION_TEMPLATES.md](authorship/COMMUNICATION_TEMPLATES.md)** — public/private invitation text, metadata form, reminders, draft-review messages, final approval request, withdrawal handling, and publication notice.
 - **[authorship/APPROVAL_PROTOCOL.md](authorship/APPROVAL_PROTOCOL.md)** — per-author state machine, immutable source/PDF fingerprint, approval evidence rules, invalidation and reapproval triggers, withdrawal handling, and audit summary.
 - **[authorship/ARCHIVE_ORG_PUBLICATION_CHECKLIST.md](authorship/ARCHIVE_ORG_PUBLICATION_CHECKLIST.md)** — pre-upload, Internet Archive metadata/file checks, post-upload verification, and corrected-version procedure.
