@@ -198,3 +198,21 @@ Community/test contributions should still be acknowledged/credited through the p
 and publication-credit processes where appropriate, but participation, data consent and authorship
 must remain separate decisions.
 
+
+
+## Public GitHub forms are always community QA
+
+The repository's eye/camera issue forms are deliberately one-way:
+
+- a public no-code/hardware form produces `community_qa`;
+- it requires a linked READY validation/measurement issue;
+- it may ask whether the tester is willing to be contacted separately about future research;
+- it never turns the submitted issue itself into `research` data.
+
+If someone is already enrolled under a research protocol, their participant/session measurements use
+that protocol's approved private/de-identified collection path. A public GitHub issue may separately
+summarize a non-sensitive engineering finding only when appropriate, but that summary is still
+`community_qa`.
+
+This avoids a dangerous ambiguity where a public issue could contain both an identifiable GitHub
+account and what appears to be a participant research record.
