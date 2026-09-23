@@ -375,6 +375,30 @@ class SettingsWindow:
         box = QGroupBox("Speech")
         form = QFormLayout(box)
 
+        profile_box = QComboBox()
+        for label, value in (
+            ("Custom / advanced", ""),
+            ("English", "en"),
+            ("Mandarin — Simplified Chinese", "zh-CN"),
+            ("Mandarin — Traditional Chinese", "zh-TW"),
+        ):
+            profile_box.addItem(label, value)
+        profile_index = profile_box.findData(model.language_profile)
+        if profile_index >= 0:
+            profile_box.setCurrentIndex(profile_index)
+        profile_box.setAccessibleName("Language profile")
+        profile_box.setToolTip(
+            "One coherent switch for English or Mandarin. Mandarin profiles set "
+            "speech language and Simplified/Traditional output together, repair an "
+            "English-only model when needed, prepare missing local artifacts, then "
+            "commit the config atomically. Choose Custom / advanced for other "
+            "languages or manual model/language combinations."
+        )
+        self._profile_box = profile_box
+        self._profile_baseline = model.language_profile
+        self._profile_auto_model: str | None = None
+        form.addRow(QLabel("Language profile:"), profile_box)
+
         models = model_choices(WHISPER_MODELS, current=model.stt_model)
         model_box = QComboBox()
         model_box.addItems(models)
@@ -411,6 +435,16 @@ class SettingsWindow:
         self._language_box = language_box
         self._language_baseline = model.language
         form.addRow(QLabel("Language:"), language_box)
+
+        profile_box.currentIndexChanged.connect(
+            self._on_language_profile_selection_changed
+        )
+        model_box.currentTextChanged.connect(
+            self._on_language_profile_model_changed
+        )
+        # An exact profile owns the speech-language field. Custom/advanced mode
+        # exposes the low-level language picker instead.
+        language_box.setEnabled(not bool(model.language_profile))
 
         computes = compute_type_choices(model.stt_device, current=model.compute_type)
         compute_box = QComboBox()
