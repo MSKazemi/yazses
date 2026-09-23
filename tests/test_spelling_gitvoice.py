@@ -134,7 +134,7 @@ def test_a_spoken_slash_makes_the_branch_name_it_sounds_like():
 def test_words_after_the_ref_refuse_rather_than_truncate_it():
     """Anchored at both ends, which is this project's rule for spoken grammars.
 
-    CLAUDE.md: "Spoken-command grammars are anchored at both ends (`^...$`) …  a
+    AGENTS.md: "Spoken-command grammars are anchored at both ends (`^...$`) …  a
     suffix match swallows 'click undo' instead of typing it." These were anchored
     at one end, so anything the grammar did not model was dropped and a command
     was emitted anyway. Refusing prints the hint listing what it does understand;

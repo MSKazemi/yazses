@@ -126,6 +126,44 @@ def test_canonical_agent_file_and_thin_adapters_are_shipped():
         )
 
 
+def test_tool_adapter_names_do_not_become_policy_authority():
+    """Only adapter-design docs may name tool-specific instruction filenames."""
+    tracked = _tracked()
+    if not tracked:
+        return
+
+    allowed = {
+        CANONICAL,
+        *TOOL_ADAPTERS,
+        "CHANGELOG.md",  # historical record: do not rewrite old release/project history
+        "docs/contribute/ai-agents.md",
+        "design/adr/adr-023-agent-first-contribution-pipeline.md",
+        "tests/test_agent_instructions.py",
+    }
+    text_suffixes = {".md", ".py", ".toml", ".yml", ".yaml"}
+    offenders: list[str] = []
+
+    for name in sorted(tracked - allowed):
+        # Release notes are historical records. They may truthfully say that a past
+        # version used a tool-specific file; current policy/config/test surfaces may not.
+        if name.startswith("docs/releases/"):
+            continue
+        path = ROOT / name
+        if path.suffix not in text_suffixes:
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        if any(adapter in text for adapter in TOOL_ADAPTERS):
+            offenders.append(name)
+
+    assert not offenders, (
+        "tool-specific adapter names are being cited outside the adapter-design surfaces: "
+        f"{offenders}. Cite AGENTS.md as the project authority instead."
+    )
+
+
 def test_ai_review_disclosure_is_not_ai_authorship():
     """The agent rules must permit review transparency without crediting a tool as author."""
     text = _read(CANONICAL)

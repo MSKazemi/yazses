@@ -222,7 +222,7 @@ jobs:
         # only the skip check below would ever fail.
         #
         # `python -m pytest`, not `uv run pytest`: it puts the project on
-        # sys.path the way AGENTS.md/CLAUDE.md specify for this repo.
+        # sys.path the way AGENTS.md specifies for this repo.
         shell: bash
         run: |
           set -o pipefail
