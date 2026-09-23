@@ -17,6 +17,7 @@ buckets it is in, and states what would move it.
     - [The problem space](https://github.com/MSKazemi/yazses/blob/main/design/research/2026-08-15-problem-space.md) — the problems these answer, stated without features
     - [Ten open questions](agenda.md) — the research agenda, stated as measurable claims
     - [The science of post-keyboard input](index.md) — what the measurements say today
+    - [Grounded Interaction Kernel](interaction-kernel.md) — the proposed common contract for uncertainty, authority, action and outcome verification
 
 ## How an idea gets here
 
@@ -96,8 +97,11 @@ only as independent input tricks. The stronger composition is **target → groun
 → plan → confirm → act**: gaze/head/mouse chooses a coarse target, accessibility/app
 semantics resolve the exact entity, voice supplies the intent, and the existing safety
 layer governs execution. See
-[Grounded multimodal interaction](grounded-multimodal-interaction.md). This is a research
-direction, not yet an accepted ADR.
+[Grounded multimodal interaction](grounded-multimodal-interaction.md). The proposed
+[Grounded Interaction Kernel](interaction-kernel.md) turns that research direction into
+a reviewable architecture: observation → grounded target → intent hypotheses → authority
+→ action proposal → outcome verification. It remains **Proposed** in ADR-025 and does not
+authorize A2A, autonomous agents, spatial runtimes or robot control.
 
 ### 3. Composition, not transcription
 
