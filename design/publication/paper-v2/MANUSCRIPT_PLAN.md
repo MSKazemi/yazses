@@ -489,6 +489,9 @@ External validity / stronger submission:
 - **[#504 PAPER2-PLATFORM-001](https://github.com/MSKazemi/yazses/issues/504)** — end-to-end Windows/macOS validation.
 - **[#506 PAPER2-ENERGY-001](https://github.com/MSKazemi/yazses/issues/506)** — CPU core-seconds and energy/battery measurements.
 
+Manuscript drafting:
+- **[#532 PAPER2-TEXT-001](https://github.com/MSKazemi/yazses/issues/532)** — draft the private manuscript against the claim ledger and frozen evidence.
+
 Publication governance:
 - **[#484](https://github.com/MSKazemi/yazses/issues/484)** — contributor authorship consent, manuscript review, unanimous final approval, and publication operations.
 
