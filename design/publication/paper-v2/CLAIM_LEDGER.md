@@ -65,8 +65,8 @@ Use the status labels literally:
 - substitutions = 87 across the compared repeats
 - deletions = 15
 - hits = 3619
-- insertions = 101–184
-- repeated WER range represented in the archive includes 5.46–7.69%
+- dedicated four-repeat probe: insertions = 101–144 and WER = 5.46–6.61%
+- the earlier matrix run that triggered the probe reached 184 insertions and 7.69% WER; report it separately from the controlled repeat range
 
 **Required qualification:** this is a finding for the measured software/model/corpus conditions. It is not yet a claim about every Whisper `large-v3` implementation.
 
@@ -238,7 +238,7 @@ Use the status labels literally:
 
 ---
 
-### C-DER-02 — known speaker count improves DER at the current threshold
+### C-DER-02 — a four-speaker clustering cap improves DER at the current threshold
 
 **Status:** NOT ESTABLISHED
 
@@ -250,7 +250,7 @@ Use the status labels literally:
 - sign test p=1.0
 - mean ΔDER +2.71, CI [-1.64, +7.60]
 
-**Supported replacement claim:** known speaker count makes the count itself reliable (16/16 exact) but the sample does not resolve a DER benefit.
+**Supported replacement claim:** `max_speakers=4` is a clustering ceiling, not an exact-count oracle. It makes the estimated count exact on 15/16 recordings instead of 2/16; the one remaining recording has three reference speakers and is over-counted by one. The sample does not resolve a DER benefit.
 
 ---
 
@@ -327,7 +327,7 @@ These are the strongest claims currently ready to anchor the abstract/results:
 3. **Previous-text conditioning is checkpoint-dependent and can trade a small average benefit on smaller models for rare catastrophic repetition on a larger checkpoint.**
 4. **Cross-platform numeric variation exists but is checkpoint-dependent, so third-decimal WER claims should not be transported blindly across hardware.**
 5. **The original meeting clustering default failed catastrophically on real annotated meetings, and real-data measurement changed the shipped operating point.**
-6. **Known speaker count reliably fixes count, not necessarily diarization error.**
+6. **A four-speaker clustering cap greatly improves count correctness, but does not establish a diarization-error benefit.**
 7. **Several intuitive interventions—synthetic onset silence, generic CPU streaming, and simple centroid merge—do not survive direct measurement.**
 8. **Preserving contradictory reruns and full provenance changed the scientific interpretation and should be treated as part of the evaluation method.**
 
