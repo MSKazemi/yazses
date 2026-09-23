@@ -230,3 +230,29 @@ def test_longest_repeat_run_ignores_scattered_repetition():
 def test_tokenize_normalises_unicode_forms():
     """Composed and decomposed forms are one word, so distinctness is not inflated."""
     assert q.tokenize("café") == q.tokenize("café")
+
+
+def test_tokenize_splits_unsegmented_han_into_quality_units():
+    assert q.tokenize("你好世界") == ["你", "好", "世", "界"]
+    assert q.tokenize("YazSes中文") == ["yazses", "中", "文"]
+
+
+def test_healthy_unsegmented_han_is_not_misclassified_as_thin():
+    # 300 distinct Han quality units over 10 minutes = 30 units/min. Before the
+    # fix this entire string was one regex token and therefore 0.1 words/min.
+    text = "".join(chr(0x4E00 + i) for i in range(300))
+    res = q.assess(text, duration_s=600.0)
+
+    assert res.words == 300
+    assert res.words_per_minute == 30.0
+    assert res.verdict == q.QUALITY_OK
+    assert not res.suspect
+
+
+def test_repeated_han_phrase_still_trips_the_collapse_guard():
+    res = q.assess("你好世界" * 100, duration_s=600.0)
+
+    assert res.verdict == q.QUALITY_DEGENERATE
+    assert res.suspect
+    assert res.top_ngram_share >= q.MAX_TOP_NGRAM_SHARE
+    assert res.distinct_ngram_ratio <= q.MIN_DISTINCT_NGRAM_RATIO
