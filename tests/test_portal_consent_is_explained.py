@@ -14,9 +14,17 @@ advice a confined snap cannot follow, and no toast when no dialog is coming.
 
 from __future__ import annotations
 
+import os
 import types
 
 import pytest
+
+#: `preflight_hints` returns [] outright when `os.name != "posix"`, and ydotoold is a
+#: Linux concern that has no Windows counterpart. Asserting on its text there tested a
+#: fiction -- it passed locally and went red on the Windows runners. Skipping is the
+#: honest form: the behaviour genuinely does not exist on that platform, and patching
+#: `os.name` to fake it would assert against something the product never does.
+posix_only = pytest.mark.skipif(os.name != "posix", reason="preflight_hints is POSIX-only")
 
 from yazses.core.daemon import Daemon
 from yazses.inject.portal import consent_explanation
@@ -77,6 +85,7 @@ def _wayland_plan():
     return setup.SetupPlan(setup_ydotoold=True, session="wayland")
 
 
+@posix_only
 def test_start_names_the_consequence_of_skipping_setup(monkeypatch):
     """The advice and the dialog otherwise land in the same second, and the
     modal wins: the user is told to run `yazses setup` by a line they never get
@@ -90,6 +99,7 @@ def test_start_names_the_consequence_of_skipping_setup(monkeypatch):
     assert "no screen capture" in joined
 
 
+@posix_only
 def test_no_portal_consequence_is_claimed_when_ydotoold_is_not_the_gap(monkeypatch):
     """An X11 machine is never asked for this permission -- promising it a
     dialog it will not see is a false statement in the one place people look."""
