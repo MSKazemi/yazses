@@ -84,6 +84,9 @@ class SettingsModel:
     # `[stt] model` — the single biggest lever on both accuracy and latency, and
     # until now editable only by hand-editing TOML.
     stt_model: str = "base.en"
+    # High-level language profile derived from canonical STT config. Empty means
+    # custom/advanced rather than a second stored source of truth.
+    language_profile: str = ""
     # `[stt] language` — "" auto-detects per utterance. Constrained by the model:
     # an `.en` checkpoint cannot decode anything else, so the two are validated
     # together rather than independently.
@@ -119,6 +122,10 @@ def build_settings_model(cfg: Config) -> SettingsModel:
 
     Mirrors ``yazses features``: same categories, same order, same on/off state.
     """
+    from yazses.language import derive_status
+
+    language_profile = derive_status(cfg).profile_match or ""
+
     # Built once, not per row: `default_state()` walks the whole registry, and
     # there are ~200 rows.
     defaults = default_state()
@@ -137,6 +144,7 @@ def build_settings_model(cfg: Config) -> SettingsModel:
         microphone=cfg.audio.device,
         vad_threshold=cfg.accessibility.vad_threshold,
         stt_model=cfg.stt.model,
+        language_profile=language_profile,
         language=cfg.stt.language,
         injection_backend=cfg.injection.backend,
         stt_device=cfg.stt.device,
