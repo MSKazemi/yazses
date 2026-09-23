@@ -11,17 +11,17 @@ That is the honest state and this page will show it until it changes. A dashboar
 
 | Category | Merged | Open | Total |
 |---|---:|---:|---:|
-| compatibility | 0 | 28 | 297 |
+| compatibility | 0 | 32 | 301 |
 | app-profile | 0 | 20 | 154 |
 | localization | 0 | 10 | 184 |
 | contract-vector | 0 | 20 | 60 |
 | feature-wiring | 0 | 45 | 45 |
-| measurement | 0 | 12 | 90 |
+| measurement | 0 | 12 | 94 |
 | docs | 0 | 10 | 40 |
 | packaging | 0 | 9 | 24 |
-| qa-fixture | 0 | 5 | 5 |
+| qa-fixture | 0 | 9 | 9 |
 | security-privacy | 0 | 5 | 8 |
 
-164 tasks are open now of 907 in the inventory. The rest are held back deliberately: releasing more work than can be reviewed leaves people waiting, which costs more than a shorter list does.
+172 tasks are open now of 919 in the inventory. The rest are held back deliberately: releasing more work than can be reviewed leaves people waiting, which costs more than a shorter list does.
 
 Reviewer load, queue age and incident details are deliberately **not** published here — those are about individuals, and aggregate output is what a reader needs.
