@@ -327,9 +327,21 @@ def install_packages(packages: Sequence[str], *, echo=print) -> bool:
         if _persist_uv_tool_extras(receipt, packages):
             echo("Recorded in the uv tool install, so it survives future upgrades.")
             return True
-        echo(
+        message = (
             "Could not update the uv tool install's own record of its dependencies "
             "— installing this session only. It may not survive the next update."
+        )
+        echo(message)
+        # This exact path is how an enabled engine disappears: the install succeeds,
+        # the caller is told it worked, and the next `uv tool upgrade` reconciles the
+        # receipt and drops the package. The loss then surfaces much later as
+        # dictation quietly using a different engine. Printed, it reaches only
+        # someone already watching a terminal.
+        from yazses.system.notify import notify_when_unattended
+
+        notify_when_unattended(
+            "YazSes may lose this feature on the next update",
+            message + " Re-run `yazses features enable` after updating.",
         )
 
     cmd = install_command(packages)
@@ -338,4 +350,10 @@ def install_packages(packages: Sequence[str], *, echo=print) -> bool:
         return True
     except (subprocess.CalledProcessError, FileNotFoundError, OSError) as exc:
         echo(f"Automatic install failed ({exc}). Install manually:\n  {' '.join(cmd)}")
+        from yazses.system.notify import notify_when_unattended
+
+        notify_when_unattended(
+            "YazSes could not install a feature's dependencies",
+            f"The install failed ({exc}). Run this in a terminal:\n  {' '.join(cmd)}",
+        )
         return False

@@ -129,6 +129,49 @@ def write_token(token: str) -> None:
         logger.debug("could not persist portal restore token: %s", exc)
 
 
+def consent_explanation(*, can_avoid: bool = True) -> tuple[str, str]:
+    """What YazSes says *before* the desktop raises its permission dialog.
+
+    The dialog GNOME and KDE raise for this portal is titled **"Remote Desktop"**
+    and confirmed with a button marked **"Share"** -- wording inherited from the
+    interface's original purpose, screen sharing. `RemoteDesktop` is the only
+    Wayland API for synthetic input, so a daemon that types for you has no other
+    door to knock on; it cannot ask for a narrower-sounding permission because
+    none exists.
+
+    Unexplained, the honest reading of that dialog is "the dictation app wants to
+    share my screen", and the rational answer to it is Cancel -- from precisely
+    the privacy-minded user this project is for, about an application whose whole
+    promise is that nothing leaves the machine. Speaking first is the fix: the
+    dialog then arrives as the expected second step rather than an ambush.
+
+    Every claim in the copy is checked against what the client actually requests:
+    `SelectDevices` asks for ``DEVICE_KEYBOARD`` and never ``DEVICE_POINTER``,
+    the ScreenCast portal is never touched, the calls are session-bus D-Bus with
+    no outbound primitive, and ``persist_mode=2`` is what makes "once" true.
+
+    ``can_avoid`` is False where `yazses setup` cannot provision the machine --
+    a strictly confined snap, which has no package manager and cannot install
+    ``ydotoold``. Advice that cannot work there is worse than no advice.
+    """
+    title = 'Approve "Remote Desktop" so YazSes can type'
+    # The reassurance leads. GNOME collapses a long body to its first line or
+    # two until the user expands it, and "no screen capture" is the clause that
+    # answers the fear the dialog's own title creates -- put second, it is the
+    # half that does not get read. The whole body stays under the 256-character
+    # ceiling a Windows balloon silently drops a notification for, so this copy
+    # survives being reused when that backend lands.
+    body = (
+        "YazSes asks for the keyboard alone: no screen capture, no mouse, "
+        'nothing sent anywhere. Your desktop calls it "Remote Desktop": that is '
+        "Wayland's only way to type into another window. Approve once; it is "
+        "remembered."
+    )
+    if can_avoid:
+        body += "\nNo prompt at all: run  yazses setup"
+    return title, body
+
+
 def portal_available() -> bool:
     """True when this session could plausibly use the RemoteDesktop portal.
 
@@ -440,6 +483,7 @@ class PortalInjector:
 __all__ = [
     "PortalInjector",
     "PortalUnavailable",
+    "consent_explanation",
     "key_delay",
     "portal_available",
     "read_token",

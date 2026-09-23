@@ -469,6 +469,8 @@ class Daemon:
                 self._device_monitor.start()
                 log.info("Watching for audio-input device changes.")
             self._start_update_watcher()
+            self._load_shown_notices()
+            self._announce_permissions()
             self._warm_portal_session()
             self._hotkey.run()
         finally:
@@ -634,6 +636,147 @@ class Daemon:
 
     # ---- update watcher ---------------------------------------------------
 
+    def _announce_model_download(self, cfg) -> None:
+        """Say that the first run is fetching a model, before it blocks. Never raises.
+
+        The speech model is several hundred megabytes and it is downloaded on the
+        daemon's startup path. Until now the only record was a `log.info`, so a user
+        who installed from App Center, a `.dmg` or an app-grid icon saw an
+        application that had started and then did nothing, for minutes, with no
+        progress, no estimate and no way to tell a slow download from a hung one.
+        Failure was already handled -- `_await_shutdown_in_error` notifies -- so the
+        gap was only ever the *successful* wait, which is the common case.
+
+        Silent when the model is already on disk, which is every run but the first.
+        """
+        try:
+            from yazses.system.hfcache import offline_requested
+
+            # An offline install is not waiting on a download, and telling it one is
+            # coming would be a false statement about the thing it cares most about.
+            if offline_requested():
+                return
+            model = str(getattr(cfg.stt, "model", "") or "")
+            if not model:
+                return
+            from yazses.stt.download import is_cached
+
+            if is_cached(model):
+                return
+            from yazses.system import notify as notify_mod
+
+            log.info("Speech model %r is not cached; downloading it now.", model)
+            notify_mod.notify(
+                "YazSes is downloading its speech model",
+                f"First run only: fetching {model}, a few hundred MB. Dictation "
+                "starts working as soon as it finishes — you can leave this alone.",
+            )
+        except Exception:  # noqa: BLE001 — never let an announcement block the load
+            log.debug("could not announce the model download", exc_info=True)
+
+    def _announce_permissions(self) -> None:
+        """Say which OS permissions are missing, on the desktop. Never raises.
+
+        Every probe and every remedy string used here already existed; their only
+        consumer was `yazses doctor`, a command you have to know to run. So the
+        daemon would start with keyboard access denied, reach IDLE, paint the tray
+        healthy, and let the user hold the key into a void -- which is, word for
+        word, what the first human to run the macOS build reported on #182.
+
+        Only DENIED is announced. UNKNOWN stays silent because it means "I could
+        not tell": macOS reports a microphone nobody has been asked about yet as
+        `NotDetermined`, and an absent PyObjC reports UNKNOWN too. Reddening a
+        working install on the strength of a probe that did not run is the mistake
+        `system/snap.py` already documents.
+
+        Rate-limited through the same persisted record as `_report_failure`, so a
+        crash loop under ``Restart=on-failure`` cannot turn one missing grant into
+        five identical toasts.
+        """
+        try:
+            from yazses.system import notify as notify_mod
+            from yazses.system import permission_alerts as pa
+            from yazses.system.diagnosis import should_notify
+
+            perms = getattr(self._platform, "permissions", None)
+            if perms is None:
+                return
+
+            def _state(name: str) -> str | None:
+                check = getattr(perms, name, None)
+                if check is None:
+                    return None
+                try:
+                    return str(getattr(check(), "value", "")) or None
+                except Exception:
+                    # A probe that raises is a probe that did not run. Same rule as
+                    # UNKNOWN: it must not become a finding.
+                    return None
+
+            def _advice(name: str) -> str:
+                getter = getattr(perms, name, None)
+                if getter is None:
+                    return ""
+                try:
+                    return str(getter() or "")
+                except Exception:
+                    return ""
+
+            probe = pa.PermissionProbe(
+                keyboard=_state("check_keyboard_capture") or pa.UNKNOWN,
+                microphone=_state("check_microphone") or pa.UNKNOWN,
+                input_monitoring=_state("check_input_monitoring"),
+                keyboard_fix=_advice("how_to_grant"),
+                microphone_fix=_advice("how_to_grant_microphone"),
+                input_monitoring_fix=_advice("how_to_grant_input_monitoring"),
+            )
+
+            for alert in pa.alerts_for(probe):
+                with self._lock:
+                    fresh = should_notify(
+                        f"permission-{alert.key}", time.time(), self._diagnosed_at
+                    )
+                if not fresh:
+                    continue
+                self._persist_shown_notices()
+                log.warning("%s — %s", alert.title, alert.body.replace("\n", " "))
+                # Informational, per `toast_policy`: there is no button to press, so
+                # a `critical` toast would outrank everything on screen and sit there
+                # until dismissed like an alarm. The state stays in the tray and in
+                # `yazses doctor` after this clears itself.
+                urgency, expire_ms = notify_mod.toast_policy(False)
+                notify_mod.notify(
+                    alert.title, alert.body, urgency=urgency, expire_ms=expire_ms
+                )
+        except Exception:  # noqa: BLE001 — startup must survive its own warnings
+            log.debug("could not announce missing permissions", exc_info=True)
+
+    def _shown_notices_path(self):
+        from yazses.system import toast_memory
+
+        return toast_memory.path_for(self._platform.paths.data_dir)
+
+    def _load_shown_notices(self) -> None:
+        """Seed the repeat-silence record from disk. Never raises."""
+        try:
+            from yazses.system import toast_memory
+
+            with self._lock:
+                self._diagnosed_at.update(toast_memory.load(self._shown_notices_path()))
+        except Exception:  # noqa: BLE001
+            log.debug("could not read the shown-notice record", exc_info=True)
+
+    def _persist_shown_notices(self) -> None:
+        """Record what has been shown so a restart does not repeat it. Never raises."""
+        try:
+            from yazses.system import toast_memory
+
+            with self._lock:
+                snapshot = dict(self._diagnosed_at)
+            toast_memory.save(self._shown_notices_path(), snapshot)
+        except Exception:  # noqa: BLE001
+            log.debug("could not persist the shown-notice record", exc_info=True)
+
     def _warm_portal_session(self) -> None:
         """Negotiate the Wayland portal session now, not mid-sentence.
 
@@ -651,6 +794,14 @@ class Daemon:
 
         A refusal is not fatal: `LinuxInjector` falls back to clipboard paste,
         and the hot path uses a short budget so it degrades in seconds.
+
+        YazSes explains itself *before* `warm()` opens that dialog. The desktop's
+        own wording is "Remote Desktop" confirmed by "Share" -- the only Wayland
+        API for synthetic input, but read cold by someone who installed an
+        offline dictation tool it says the opposite of what is happening, and
+        Cancel is the rational answer to it. The explanation is spoken only when
+        a dialog is actually coming: with a restore token already on disk the
+        portal asks nothing, and a toast on every start would be pure noise.
         """
         injector = getattr(self, "_injector", None)
         backend = getattr(injector, "_primary", injector)
@@ -658,8 +809,25 @@ class Daemon:
         if warm is None:
             return
 
+        def _explain() -> None:
+            """Say what the dialog is before it appears. Never raises."""
+            try:
+                from yazses.inject.portal import consent_explanation, read_token
+                from yazses.system.snap import in_strict_snap
+
+                if read_token():
+                    return
+                title, body = consent_explanation(can_avoid=not in_strict_snap())
+                log.info("%s — %s", title, body.replace("\n", " "))
+                from yazses.system.notify import notify
+
+                notify(title, body)
+            except Exception:  # noqa: BLE001 — an explanation must never block the ask
+                log.debug("could not explain the portal consent dialog", exc_info=True)
+
         def _run() -> None:
             try:
+                _explain()
                 if warm():
                     log.info("Wayland portal session established.")
                     return
@@ -768,6 +936,7 @@ class Daemon:
     def _build_pipeline(self) -> None:
         cfg = self._config
         log.info("Loading STT engine %r (model %r)...", cfg.stt.engine, cfg.stt.model)
+        self._announce_model_download(cfg)
         self._engine = build_engine(cfg.stt)
 
         # [injection] backend selects the Linux injector (type | ydotool |
@@ -3538,7 +3707,17 @@ class Daemon:
             }
         injector = self._active_injector()
         injector.inject_backspaces(len(last))
-        injector.inject(corrected)
+        try:
+            injector.inject(corrected)
+        except Exception as exc:
+            # Same erase-then-retype hazard as `_try_spoken_edit`, which documents
+            # itself as reusing this mechanism. Here the exception does reach an IPC
+            # caller, so `yazses punch-in` shows something -- but a correction
+            # triggered by voice or from the tray had no caller to show it to, and
+            # the erased text was gone in silence.
+            self._report_failure(exc, where="inject")
+            return {"ok": False, "applied": False, "reason": "could not type the correction",
+                    "old": last, "new": corrected, "candidates": cand_view}
         self._ledger.replace_last(corrected)
         self._last_dictation_monotonic = time.monotonic()
         log.info("Punch-In: corrected %d chars.", len(last))
@@ -4076,7 +4255,19 @@ class Daemon:
                 return False
             injector = self._active_injector()
             injector.inject_backspaces(len(last))
-            injector.inject(result.text)
+            try:
+                injector.inject(result.text)
+            except Exception as exc:
+                # The erase has already landed. Swallowing here is what made this
+                # path destructive rather than merely broken: the user watches the
+                # sentence they dictated disappear and nothing replace it, and the
+                # only record is a `log.debug` nobody reads. No blind restore --
+                # a failed `inject` may have typed part of the replacement, and
+                # re-typing the original on top of a partial write corrupts it
+                # further. Reporting is the honest move; the text itself stays out
+                # of the notification, because transcripts do not leave the daemon.
+                self._report_failure(exc, where="inject")
+                return False
             self._ledger.replace_last(result.text)
             self._last_dictation_monotonic = time.monotonic()
             event["intent_type"] = "spoken_edit"
@@ -4548,9 +4739,13 @@ class Daemon:
 
             found = diagnose(error, where=where)
             with self._lock:
-                fresh = should_notify(found.slug, time.monotonic(), self._diagnosed_at)
+                # Wall clock, not monotonic: this record is persisted so a crash
+                # loop cannot re-toast one fault five times, and a monotonic
+                # reading from a dead process means nothing in a live one.
+                fresh = should_notify(found.slug, time.time(), self._diagnosed_at)
             if not fresh:
                 return None
+            self._persist_shown_notices()
 
             # ADR-v2-132 asks whether the report offer should wait for a *repeated*
             # fault. The better rule falls out of the diagnosis itself: offer it only
@@ -4558,7 +4753,7 @@ class Daemon:
             # carries the command that fixes it, and an issue about a missing ydotool
             # helps nobody -- least of all the person who now has two things to do.
             actions = None
-            if found.slug.startswith("unknown-"):
+            if found.report_worthy:
                 actions = [notify_mod.NotifyAction("report", "Prepare a bug report")]
 
             # A named function, not a lambda with a default argument: `notify` declares

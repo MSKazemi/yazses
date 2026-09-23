@@ -370,10 +370,22 @@ def preflight_hints(
             missing.append("`input` group membership")
         if plan.setup_ydotoold:
             missing.append("ydotoold (Wayland injection)")
-        hints.append(
+        hint = (
             "Missing prerequisites: " + "; ".join(missing) + ".\n"
             "  Fix everything in one step:  yazses setup"
         )
+        if plan.setup_ydotoold:
+            # Without ydotoold the daemon falls through to the RemoteDesktop
+            # portal, whose dialog the desktop titles "Remote Desktop" and
+            # confirms with "Share". Naming the consequence here is what stops
+            # that arriving unexplained: the advice and the dialog otherwise
+            # land in the same second, and the modal wins the user's attention.
+            hint += (
+                '\n  Skip it and your desktop will ask to allow "Remote Desktop" instead —\n'
+                "  its name for the only Wayland way to type into another window. YazSes\n"
+                "  asks for the keyboard alone: no screen capture, nothing sent anywhere."
+            )
+        hints.append(hint)
     elif pending:
         # Fully provisioned, but this session predates the group change: the
         # daemon will start yet the hotkey won't fire until a real re-login.

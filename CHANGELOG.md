@@ -6,6 +6,152 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — missing permissions now announce themselves on the desktop
+
+Every OS permission probe and every remedy string already existed in
+`platform/*/permissions.py`. They had exactly one consumer: `yazses doctor`, a command
+you have to know to run. **No permission was checked on the daemon's startup path at
+all** — so the daemon would start with keyboard access denied, reach IDLE, paint the
+tray healthy, and let the user hold the key into a void. That is, word for word, what
+the first human to run the macOS build reported on #182: hotkey pressed, "nothing
+happens", no prompt, no explanation.
+
+`system/permission_alerts.py` is a new pure module that decides which denials are worth
+interrupting for, and `Daemon._announce_permissions` says them on the desktop at
+startup, carrying the platform backend's own remedy so there is one source of truth per
+OS. It covers the Linux `input`-group denial and macOS Accessibility, Input Monitoring
+and Microphone.
+
+**Only DENIED speaks.** UNKNOWN stays silent, because macOS reports a microphone nobody
+has been asked about yet as `NotDetermined`, and an absent PyObjC reports UNKNOWN too —
+reddening a working install on the strength of a probe that never ran is the mistake
+`system/snap.py` already documents. A probe that *raises* is treated the same way.
+
+### Added — a first run that downloads a model now says so
+
+The speech model is several hundred megabytes and is fetched on the daemon's startup
+path, announced by a `log.info` and nothing else. A user who installed from App Center,
+a `.dmg` or an app-grid icon saw an application that started and then did nothing, for
+minutes, with no progress and no way to tell a slow download from a hung one — and a
+blocked model download was #310, the first bug ever reported by a real user. Failure was
+already handled; the silent *successful* wait, which is the common case, was not. Silent
+on every subsequent run, and silent in offline mode, where promising a download would be
+a false statement about the thing that install cares most about.
+
+### Fixed — a crash loop turned one problem into five identical toasts
+
+`should_notify`'s repeat-silence lived in a plain in-memory dict, so it could only ever
+damp repeats *within* one process. `contrib/yazses.service` sets `Restart=on-failure`
+with `StartLimitBurst=5` inside 60 seconds: a fault that kills the daemon during startup
+produced five fresh processes, five empty dicts and five identical notifications for one
+problem — exactly the outcome `REPEAT_SILENCE_S` exists to prevent, arriving through the
+one door it could not see.
+
+`system/toast_memory.py` persists the record across restarts, written atomically because
+the daemon is killed at arbitrary moments by that very crash loop. It uses the wall clock
+rather than `time.monotonic()`, whose origin resets with the process and would compare
+two unrelated number lines. A corrupt or unreadable record reads as "nothing shown yet",
+erring toward speaking: a warning shown twice is a nuisance, one swallowed because a JSON
+file had a stray byte is the failure this subsystem exists to prevent.
+
+### Fixed — failures printed to a terminal nobody was watching
+
+`system/notify.py` was imported by exactly one file in the codebase. Everything else
+reported failure with `print`, which is right for someone who typed a command and
+indistinguishable from silence for the App Center / `.dmg` / app-grid population.
+
+`notify.unattended()` and `notify_when_unattended()` add the rule: when no terminal is
+attached, also say it on the desktop. Wired into the two `system/deps.py` failures that
+were invisible — a feature's dependencies failing to install, and the uv-tool receipt
+failing to record them. The second is the mechanism behind an enabled engine silently
+disappearing on the next `uv tool upgrade`: the install succeeds, the caller is told it
+worked, and the loss surfaces much later as dictation quietly using a different engine.
+A stream that cannot answer `isatty` is treated as attended, so an odd environment keeps
+the behaviour it had rather than gaining a surprise toast.
+
+### Changed — the bug-report offer is a decision, not a naming accident
+
+`Diagnosis` carries an explicit `report_worthy` flag. It was previously derived from
+`slug.startswith("unknown-")`, which meant a future recognised-but-unfixable fault would
+inherit "no button" silently because nobody was asked the question when the rule was
+written. The behaviour is unchanged: a recognised fault carries the command that fixes it
+and no button, because handing someone two chores helps nobody.
+
+### Fixed — every permission denial was reported as a microphone problem
+
+`mic-permission`'s marker was the bare word `"permission"`, and `diagnose()` folds the
+exception **class name** into the text it matches. Every `PermissionError` therefore
+matched that rule first — and a `/dev/uinput` denial, a `/dev/input/event*` denial and a
+refused portal consent are all `PermissionError`s. Verified against the real classifier
+before touching it:
+
+| what actually failed | what the user was told |
+|---|---|
+| `/dev/uinput` denied (typing) | "YazSes is not allowed to use the **microphone**" |
+| `/dev/input/event3` denied (hotkey) | "…use the **microphone**" |
+| portal consent refused | "…use the **microphone**" |
+
+So someone who declined the Wayland typing prompt was sent to the *audio* privacy pane to
+fix a *typing* fault — advice that cannot work. `inject-permission` sat below it and was
+unreachable dead code for the errors it was written for.
+
+Seven permission families now name themselves, each with the command that actually fixes
+it: refused portal consent, `/dev/uinput`, `/dev/input/event*`, the snap's `audio-record`
+and `raw-input` interfaces, and macOS Accessibility and Input Monitoring. `mic-permission`
+now requires audio evidence of its own (`mic`/`audio`/`portaudio`) instead of claiming
+every permission failure in the process, and an unrelated `PermissionError` falls to the
+generic diagnosis — whose `unknown-` slug is what earns the **Prepare a bug report**
+button, which is the right answer when YazSes genuinely does not know.
+
+### Fixed — Spoken Edit and Punch-In erased your text and then lost it in silence
+
+Both erase the previous dictation and retype it: `inject_backspaces(len(last))` followed by
+`inject(new)`. Spoken Edit wrapped the pair in a `try` whose handler was `log.debug`, so
+when the retype failed the erase had **already landed** — the user watched their sentence
+disappear, nothing replaced it, and the only record was a debug line. Punch-In had no
+`try` at all; a CLI caller saw the exception, but a correction triggered by voice or from
+the tray lost the text with nobody to tell.
+
+Both now report the failure through the same path that reaches the person holding the key,
+and Spoken Edit no longer records the replacement in the ledger — writing text there that
+was never typed would make "scratch that" delete characters that are not on screen. There
+is deliberately **no automatic restore**: a failed `inject` may have typed part of the
+replacement, and re-typing the original on top of a partial write corrupts it further. The
+transcript stays out of the notification, as everywhere else.
+
+### Fixed — an offline dictation tool asked for "Remote Desktop" and explained nothing
+
+`RemoteDesktop` is the only Wayland API for synthetic input, so the portal backend
+added in v2.37.0 has to use it — but GNOME and KDE title the consent dialog **"Remote
+Desktop"** and confirm it with a button marked **"Share"**. Read cold by someone who
+installed YazSes *because* nothing leaves their machine, that dialog says the opposite
+of what is happening, and Cancel is the rational answer to it.
+
+Two things arrived in the same second and the modal won. `yazses start` printed
+`Missing prerequisites: ydotoold (Wayland injection). Fix everything in one step:
+yazses setup` — sound advice the user never got to act on, because
+`_warm_portal_session` was already opening the dialog on a background thread. Nothing
+YazSes had written was read before the desktop's own wording was.
+
+YazSes now speaks first:
+
+- **Before** `warm()` opens the dialog, a toast and a log line say what is actually
+  being requested — the keyboard alone, no screen capture, no mouse, nothing sent
+  anywhere, approve once and it is remembered. Every clause is checked against the
+  client rather than asserted: `SelectDevices` asks for `DEVICE_KEYBOARD` and never
+  `DEVICE_POINTER`, the ScreenCast portal is never touched, and the calls are
+  session-bus D-Bus with no outbound primitive (which is why this path appears
+  nowhere in the ADR-019 egress inventory).
+- The `yazses start` prerequisite hint now **names the consequence** of skipping
+  setup, so the terminal pre-empts the surprise instead of racing it.
+- Both silences are deliberate. With a restore token already on disk the portal asks
+  nothing, so no toast fires — a warning that appears on every start is one that gets
+  dismissed unread. And a strictly confined snap is never told to run `yazses setup`,
+  which it has no package manager to run.
+
+Selection order is untouched: ydotool still wins where it is ready, and the portal
+remains the only thing that lets a confined snap type on Wayland at all.
+
 ### Fixed — the Unicode injector was never actually used for key sequences
 
 Selecting `[injection] backend = "unicode"` correctly routed plain dictation text through

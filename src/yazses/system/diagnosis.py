@@ -57,6 +57,16 @@ class Diagnosis:
     fix: str
     #: A docs page with more, where one exists.
     doc: str | None = None
+    #: Whether to offer "Prepare a bug report". True only where YazSes could not
+    #: identify the failure: a recognised fault already carries the command that
+    #: fixes it, and an issue about a missing ydotool helps nobody — least of all
+    #: the person who now has two things to do.
+    #:
+    #: An explicit field rather than `slug.startswith("unknown-")`, which is what
+    #: this used to be. That made the offer a consequence of a *naming convention*:
+    #: a future recognised-but-unfixable fault would inherit "no button" silently,
+    #: because nobody thought about the question at the moment of writing the rule.
+    report_worthy: bool = False
 
     @property
     def body(self) -> str:
@@ -203,9 +213,118 @@ _RULES: tuple[tuple[str, tuple[str, ...], str, str, str, str | None], ...] = (
         "`yazses restart`.",
         f"{_DOCS}/known-good-microphones.html",
     ),
+    # ---- permission denials -------------------------------------------------
+    #
+    # These sit above `mic-permission` and the narrowing below exists for one
+    # measured reason: `mic-permission`'s marker used to be the bare word
+    # "permission", and `diagnose` folds the exception *class name* into the
+    # matched text. So every `PermissionError` -- which is how a uinput denial,
+    # an evdev denial and a refused portal consent all actually arrive -- matched
+    # the microphone rule first and sent the user to the audio privacy pane to
+    # fix a *typing* fault. `inject-permission` below was unreachable dead code.
+    # Verified against the real classifier, not reasoned about:
+    #   PermissionError(13, …, '/dev/uinput')      -> "not allowed to use the microphone"
+    #   PermissionError(13, …, '/dev/input/event3')-> "not allowed to use the microphone"
+    #   portal "user cancelled the permission dialog" -> same
+    # Advice that cannot work is worse than the generic fallback, which at least
+    # offers to collect a report.
+    (
+        # The user declined (or never answered) the desktop's consent dialog. Named
+        # here because the wording they saw is "Remote Desktop", and a fix that does
+        # not use their words is a fix they cannot follow.
+        "portal-consent-denied",
+        ("portal",),
+        "YazSes was not allowed to type",
+        'Your desktop asked to allow "Remote Desktop" — its name for the only '
+        "Wayland way to type into another window — and the answer was no.",
+        "Run `yazses restart` and approve it (YazSes asks for the keyboard alone: "
+        "no screen capture, nothing sent anywhere), or run `yazses setup` to install "
+        "ydotoold and type without the prompt.",
+        f"{_DOCS}/troubleshooting.html",
+    ),
+    (
+        "inject-permission",
+        ("uinput",),
+        "YazSes is not allowed to type",
+        "Typing into other windows needs access to the input device, and it was "
+        "refused.",
+        "Run `yazses setup` — it adds you to the `input` group and installs the "
+        "ydotoold service. You must log out and back in afterwards.",
+        f"{_DOCS}/troubleshooting.html",
+    ),
+    (
+        "hotkey-permission",
+        ("/dev/input",),
+        "YazSes cannot see the hold-to-talk key",
+        "Reading the keyboard needs access to the input devices, and it was refused "
+        "— so the hotkey does nothing and dictation never starts.",
+        "Run `yazses setup`, then log out and back in. To test without logging out: "
+        '`sg input -c "yazses restart"`.',
+        f"{_DOCS}/troubleshooting.html",
+    ),
+    (
+        "snap-mic-interface",
+        ("audio-record",),
+        "YazSes cannot hear you inside the snap",
+        "The snap's microphone interface is not connected. A snap cannot connect "
+        "its own, so the daemon starts and simply never opens the microphone.",
+        "Grant it once:  sudo snap connect yazses:audio-record",
+        f"{_DOCS}/troubleshooting.html",
+    ),
+    (
+        "snap-input-interface",
+        ("raw-input",),
+        "YazSes cannot see the hold-to-talk key inside the snap",
+        "The snap's raw-input interface is not connected. Joining the `input` group "
+        "cannot grant this inside confinement — only the interface can.",
+        "Grant it once:  sudo snap connect yazses:raw-input",
+        f"{_DOCS}/troubleshooting.html",
+    ),
+    (
+        "macos-accessibility",
+        ("accessibility",),
+        "YazSes is not allowed to type on this Mac",
+        "macOS gates keystroke delivery behind Accessibility, and it has not been "
+        "granted — so text is transcribed and then goes nowhere.",
+        "System Settings → Privacy & Security → Accessibility → enable YazSes, "
+        "then run `yazses restart`.",
+        f"{_DOCS}/troubleshooting.html",
+    ),
+    (
+        "macos-input-monitoring",
+        ("input monitoring",),
+        "YazSes cannot see the hold-to-talk key on this Mac",
+        "macOS gates reading the keyboard behind Input Monitoring, and it has not "
+        "been granted — so the hotkey does nothing at all.",
+        "System Settings → Privacy & Security → Input Monitoring → enable YazSes, "
+        "then run `yazses restart`.",
+        f"{_DOCS}/troubleshooting.html",
+    ),
+    # Now the microphone rule, which must carry audio evidence of its own rather
+    # than claiming every permission failure in the process. Split across several
+    # rows because markers are AND-ed, and this is the file's established way of
+    # spelling OR (see `mic-busy` and `mic-missing` above).
     (
         "mic-permission",
-        ("permission",),
+        ("permission", "mic"),
+        "YazSes is not allowed to use the microphone",
+        "The operating system refused access to audio input.",
+        "Grant microphone permission to YazSes in your system privacy settings, "
+        "then run `yazses restart`. `yazses doctor` shows what is missing.",
+        f"{_DOCS}/known-good-microphones.html",
+    ),
+    (
+        "mic-permission",
+        ("permission", "audio"),
+        "YazSes is not allowed to use the microphone",
+        "The operating system refused access to audio input.",
+        "Grant microphone permission to YazSes in your system privacy settings, "
+        "then run `yazses restart`. `yazses doctor` shows what is missing.",
+        f"{_DOCS}/known-good-microphones.html",
+    ),
+    (
+        "mic-permission",
+        ("permission", "portaudio"),
         "YazSes is not allowed to use the microphone",
         "The operating system refused access to audio input.",
         "Grant microphone permission to YazSes in your system privacy settings, "
@@ -261,15 +380,6 @@ _RULES: tuple[tuple[str, tuple[str, ...], str, str, str, str | None], ...] = (
         "The tool that types text into other windows is missing.",
         "Install it (`sudo apt install xdotool`) or switch the injection backend "
         "in Settings. `yazses doctor` checks both.",
-        f"{_DOCS}/troubleshooting.html",
-    ),
-    (
-        "inject-permission",
-        ("uinput",),
-        "YazSes is not allowed to type",
-        "Typing into other windows needs access to the input device, and it was "
-        "refused.",
-        "Run `yazses doctor` for the exact permission fix on this machine.",
         f"{_DOCS}/troubleshooting.html",
     ),
     (
@@ -385,7 +495,13 @@ def diagnose(error: BaseException | str, *, where: str = "") -> Diagnosis:
     # The stage travels in the slug so repeats are rate-limited per stage: a failing
     # microphone and a failing injector are two problems, and silencing the second
     # because the first was just reported would hide it completely.
-    return Diagnosis(slug=f"unknown-{where or 'general'}", title=title, what=what, fix=fix)
+    return Diagnosis(
+        slug=f"unknown-{where or 'general'}",
+        title=title,
+        what=what,
+        fix=fix,
+        report_worthy=True,
+    )
 
 
 def should_notify(

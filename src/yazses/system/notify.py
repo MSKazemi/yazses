@@ -136,6 +136,45 @@ def build_notify_argv(
     return argv
 
 
+def unattended(stream=None) -> bool:
+    """True when no terminal is attached, so a printed message reaches nobody.
+
+    Most of this codebase reports failure by printing. That is right for someone who
+    typed a command, and useless for the population v2.37.0 measured: installs from
+    GNOME App Center, the snapcraft web button, a `.dmg` or an app-grid icon, none of
+    which pass through a terminal. For them `print` is indistinguishable from silence.
+
+    Deliberately conservative -- a stream that cannot answer `isatty` is treated as
+    *attended*, so an odd environment gets the printed message it always got rather
+    than a surprise toast. The failure this guards against is a missing message, and
+    the remedy must not become noise for everyone who was already being told.
+    """
+    import sys as _sys
+
+    target = _sys.stdout if stream is None else stream
+    try:
+        return not target.isatty()
+    except Exception:
+        return False
+
+
+def notify_when_unattended(title: str, body: str, *, stream=None, **kwargs) -> bool:
+    """Toast *only* when a printed message would have reached nobody. Never raises.
+
+    Returns whether a notification was sent, which is what makes the rule testable
+    without a desktop. The caller still prints unconditionally: someone watching a
+    terminal should not lose the message just because the toast succeeded.
+    """
+    if not unattended(stream):
+        return False
+    try:
+        notify(title, body, **kwargs)
+        return True
+    except Exception:  # noqa: BLE001 — a courtesy toast must never raise into a caller
+        log.debug("could not send an unattended-mode notification", exc_info=True)
+        return False
+
+
 def parse_action_result(stdout: str | None, actions: list[NotifyAction] | None) -> str | None:
     """Return the clicked action key from ``notify-send --wait`` stdout, or None.
 

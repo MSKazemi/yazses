@@ -51,6 +51,47 @@ Two details worth knowing:
     also lists the failures that are deliberately left for you, so you can tell
     which kind you are looking at.
 
+## My desktop asked to allow "Remote Desktop" — why does a dictation app want that?
+
+Because on Wayland there is no narrower permission to ask for. `RemoteDesktop` is the
+only portal interface that lets one application type into another's window, so every tool
+that types on your behalf — dictation, accessibility software, automation — goes through
+the same door, and inherits the name it was given for its original purpose, screen
+sharing. The confirm button says **Share** for the same reason.
+
+What YazSes actually requests is the keyboard and nothing else:
+
+- it asks the portal for `KEYBOARD` devices only, never the pointer;
+- it never touches the ScreenCast interface, so no screen capture is possible with it;
+- the calls are local D-Bus to your own desktop — no network, consistent with YazSes
+  being offline by design.
+
+**Your top bar will show a screen-sharing indicator the whole time the daemon runs.** That
+is your desktop reporting that a `RemoteDesktop` session is open; it cannot tell that the
+session was granted the keyboard alone, so it shows its generic icon. It is not evidence
+that anything is being captured or sent.
+
+You are asked **once** — the answer is remembered with a restore token stored at
+`~/.local/share/yazses/portal_remote_desktop_token` (mode `0600`). Delete that file to be
+asked again.
+
+### Getting rid of the prompt entirely
+
+The portal is a *fallback*. YazSes prefers `ydotool`, which injects directly and needs no
+permission dialog, and only falls through to the portal when `ydotoold` is not running:
+
+```sh
+yazses setup      # installs and enables ydotoold
+yazses doctor     # the Injection line names the backend actually in use
+```
+
+After that the prompt and the indicator are both gone. The exception is the **strictly
+confined snap**, which has no package manager and cannot install `ydotoold` — there the
+portal is the only way to type on Wayland at all, and `yazses setup` is not offered.
+
+If you declined the dialog, dictation falls back to pasting via the clipboard, which is a
+no-op in terminals. Approve it, or run `yazses setup`, then `yazses restart`.
+
 ## It works, but not after I reboot
 
 YazSes is a daemon, so it should already be running when you sit down:
