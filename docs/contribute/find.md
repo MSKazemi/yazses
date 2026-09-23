@@ -9,6 +9,10 @@ Filter by what you actually have. Nothing is assigned and you need no permission
 say so on the issue it links to, and open the pull request.
 [How to make your first contribution](start.md) if you want the short version.
 
+Coding agents are optional. "Cloud-ready" means the task can run in that environment; it does
+**not** mean YazSes authorizes or reimburses paid usage. Read
+[Using AI coding agents safely](ai-agents.md) before connecting one.
+
 <div class="yz-filters" markdown="0">
   <label>What you have
     <select id="yz-env">

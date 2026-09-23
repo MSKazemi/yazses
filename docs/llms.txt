@@ -101,6 +101,7 @@ GNOME and KDE Wayland and needs no /dev/uinput.
 - Dictation over SSH into a remote server: https://mskazemi.com/yazses/how-to/remote-dictation.html
 - Research — the science of post-keyboard input (overview; measured text-entry rates by modality, glossary, full reference list): https://mskazemi.com/yazses/research/index.html
 - Research — eye control with a webcam (measured gaze accuracy 1-4 degrees, why look-to-window works and look-to-caret does not, gaze deixis, citations): https://mskazemi.com/yazses/research/eye-control.html
+- Research — grounded multimodal interaction (Google Magic Pointer, Apple Siri AI/Visual Intelligence, semantic grounding, and the target → ground → resolve → plan → confirm → act model): https://mskazemi.com/yazses/research/grounded-multimodal-interaction.html
 - Research — local speech recognition state of the art (WER and CPU speed per engine, latency budget, whispered speech as a command channel, citations): https://mskazemi.com/yazses/research/voice-control.html
 - Research — muscle (EMG) vs brain (EEG) computer control, measured (why consumer-EEG switches are really muscle artifacts; sEMG at 20.9 WPM vs speech at ~150; accessibility stakes): https://mskazemi.com/yazses/research/muscle-brain-control.html
 - Research — the HCI canon behind YazSes (48 papers that decide the design: why hold-to-talk beats a toggle, what fifty years of HCI already settled about voice input): https://mskazemi.com/yazses/research/hci-canon.html

@@ -7,7 +7,10 @@ command that decides whether it is done, and an honest estimate of how long it t
 
 Nothing is assigned and you do not need permission. Pick a task, say so on the issue it
 came from so nobody doubles up, and open the pull request. A coding agent is welcome —
-you remain the author, and you are expected to have read every line you send.
+you remain the author, and you are expected to have read every line you send. "Agent-ready"
+or "cloud-ready" describes technical suitability only; it is **not** authorization to buy
+credits, enable overages, or incur cloud costs. See
+[`docs/contribute/ai-agents.md`](../docs/contribute/ai-agents.md) before using a paid service.
 
 ## How this is put together
 
@@ -19,6 +22,7 @@ you remain the author, and you are expected to have read every line you send.
 | `generated/stats.json` | **Generated.** Counts, and the review cost if everything merged. |
 | `generated/dashboard.md` | **Generated.** What contributors have actually built, by category. |
 | `incident-response.md` | Spam, fabricated evidence, plagiarism, leaked data, harassment. |
+| `agent-workers.md` | Fork-first cloud-agent worker model, Jules trigger boundaries, review backpressure, and pilot rules. |
 
 ```sh
 uv run python scripts/check-task.py APP-014    # ← contributors: check your work before pushing
@@ -85,6 +89,11 @@ behaved the way a report claims, or that an architectural change is right. Those
 human, permanently. `cloud_agent_ready` is false for every compatibility, measurement and
 localization task for exactly this reason, and the validator rejects the row if someone
 sets it true.
+
+For distributed cloud coding agents, [`agent-workers.md`](agent-workers.md) defines the
+execution boundary: contributors use their own account and fork; the manifest decides
+eligibility; and provider execution triggers such as the literal `jules` label are kept
+separate from generic readiness metadata.
 
 ## Running a session, or reviewing
 

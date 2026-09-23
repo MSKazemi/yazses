@@ -6,6 +6,12 @@ on:
   pull_request:
     branches: ["main"]
 
+# A rapid PR update should spend runners only on the newest head. Pushes to main are
+# deliberately unique and never cancelled: every merged commit still gets its own run.
+concurrency:
+  group: tests-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
 # Least privilege: this workflow only reads the repo and runs the suite. It never
 # publishes, comments, or writes a check. (The release/publish workflows need more
 # and declare their own — do not copy this block into them blindly.)
