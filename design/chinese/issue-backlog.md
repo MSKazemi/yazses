@@ -36,6 +36,31 @@ After the ADRs are accepted, use a small number of umbrella issues for discussio
 
 Do not create one GitHub issue for each 15–30 minute contributor task. ADR-023 and `campaign/README.md` intentionally keep those in the campaign inventory.
 
+### Current campaign mapping
+
+Draft campaign PR [#533](https://github.com/MSKazemi/yazses/pull/533) materializes the first
+bounded tasks from this backlog.
+
+**Open before ADR approval because they do not choose architecture:**
+
+- `CHN-QA-CJK-CLEANER-001` — model-free CJK cleaner regression vectors.
+- `CHN-QA-HAN-SCRIPT-001` — mixed Han/ASCII/script-normalizer vectors.
+- `CHN-QA-MEETING-CJK-001` — minimal Meeting Mode Han-token counting reproducer.
+- `CHN-QA-CER-HARNESS-001` — common Mandarin CER scorer/harness.
+- `CHN-COMPAT-X11-001`, `CHN-COMPAT-WAYLAND-001`,
+  `CHN-COMPAT-MACOS-001`, `CHN-COMPAT-WINDOWS-001` — real-platform Han injection evidence.
+
+**Registered but held in `verified` until the common CER harness lands:**
+
+- `CHN-MEASURE-WHISPER-SMALL-001`
+- `CHN-MEASURE-WHISPER-TURBO-001`
+- `CHN-MEASURE-WHISPER-LARGE3-001`
+- `CHN-MEASURE-QWEN3-ASR-06B-001`
+
+Architecture-sensitive foundation and command implementation stays in the umbrella issues until
+ADR-v2-135..139 are accepted/superseded; do not advertise those as first-contribution tasks early.
+
+
 ## 3. Work-package register
 
 These IDs are architectural work packages, not automatically campaign task IDs.
