@@ -8,7 +8,6 @@ from typer.testing import CliRunner
 
 from yazses import cli
 
-
 runner = CliRunner()
 
 
