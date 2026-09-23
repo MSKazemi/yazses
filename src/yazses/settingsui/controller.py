@@ -23,6 +23,7 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 
 from yazses.config import Config
+from yazses.language.service import LanguageApplyResult, PreparedLanguageChange
 from yazses.system.deps import install_blocked_reason, missing_modules
 from yazses.system.features import EXPERIMENTAL, find_feature
 
@@ -33,6 +34,8 @@ ConfigLoader = Callable[[], Config]
 DepsProbe = Callable[[Iterable[str]], list[str]]
 # Why this environment can never supply a feature's libraries, or None.
 BlockedProbe = Callable[[Sequence[str]], str | None]
+LanguagePreviewer = Callable[..., PreparedLanguageChange]
+LanguageApplier = Callable[..., LanguageApplyResult]
 
 
 @dataclass(frozen=True)
@@ -152,11 +155,54 @@ class SettingsController:
         writer: ConfigWriter,
         deps_probe: DepsProbe | None = None,
         blocked_probe: BlockedProbe | None = None,
+        language_previewer: LanguagePreviewer | None = None,
+        language_applier: LanguageApplier | None = None,
     ) -> None:
         self._load_config = load_config
         self._writer = writer
         self._deps_probe = deps_probe or missing_modules
         self._blocked_probe = blocked_probe or install_blocked_reason
+        self._language_previewer = language_previewer
+        self._language_applier = language_applier
+
+    def preview_language_profile(
+        self,
+        profile: str,
+        *,
+        model: str | None = None,
+    ) -> tuple[PreparedLanguageChange | None, str | None]:
+        """Resolve a high-level profile without touching files/network."""
+
+        if self._language_previewer is None:
+            return None, "Language profiles are unavailable in this Settings session."
+        try:
+            return self._language_previewer(profile, model=model), None
+        except Exception as exc:  # noqa: BLE001 - surfaced in the window
+            return None, str(exc)
+
+    def apply_language_profile(
+        self,
+        profile: str,
+        *,
+        model: str | None = None,
+        echo: Callable[[str], None] = lambda _line: None,
+    ) -> LanguageApplyResult:
+        """Run the same transactional profile application used by the CLI."""
+
+        if self._language_applier is None:
+            return LanguageApplyResult(
+                ok=False,
+                category="transaction",
+                error="Language profiles are unavailable in this Settings session.",
+            )
+        try:
+            return self._language_applier(profile, model=model, echo=echo)
+        except Exception as exc:  # noqa: BLE001 - a worker result, never a Qt exception
+            return LanguageApplyResult(
+                ok=False,
+                category="transaction",
+                error=f"Could not apply the language profile: {exc}",
+            )
 
     def set_hotkey(self, key: str) -> ToggleResult:
         """Set the hold-to-talk key, refusing anything unbindable *before* writing.
