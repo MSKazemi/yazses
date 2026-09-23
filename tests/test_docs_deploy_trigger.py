@@ -1,18 +1,9 @@
-"""The docs site must rebuild when anything it is built *from* changes.
+"""Docs validation and deployment must cover the same source tree.
 
-`docs.yml` deploys on a `paths:` filter, and a path filter is a hand-written set — the
-failure mode this project keeps meeting. It listed `docs/**` and `mkdocs.yml` and nothing
-else, while `hooks/design_tier.py` injects the entire `design/` tree (269 tracked files:
-ADRs, specifications, research notes) into the built site.
-
-So a new decision record, or a correction to an existing one, deployed **nothing**. The
-live site kept serving the previous text until some unrelated `docs/` commit happened to
-trigger a rebuild. Six of the sixty commits before this test was written were in that
-position, including two ADR corrections and one that changed what an ADR *claims a flag
-does*. Nothing failed, nothing warned: a workflow that does not run leaves no trace.
-
-The expected set is derived from `mkdocs.yml` — `docs_dir` and every entry under `hooks:` —
-so a new hook reading a new tree fails here rather than going quietly stale.
+A strict MkDocs failure discovered only after merge is a CI design failure: the
+information existed on the PR, but the validating workflow did not run there.
+These tests keep the pull-request validation trigger aligned with the main deploy
+trigger and with the trees MkDocs actually reads.
 """
 
 from __future__ import annotations
@@ -26,19 +17,22 @@ WORKFLOW = ROOT / ".github" / "workflows" / "docs.yml"
 MKDOCS = ROOT / "mkdocs.yml"
 
 
-def _trigger_paths() -> list[str]:
-    doc = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
-    # YAML 1.1: the key `on:` parses as the boolean True, not the string "on".
-    triggers = doc.get(True, doc.get("on"))
-    return list((triggers or {}).get("push", {}).get("paths") or [])
+def _workflow() -> dict:
+    return yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+
+
+def _triggers() -> dict:
+    doc = _workflow()
+    # YAML 1.1 parses the key on: as boolean True rather than the string "on".
+    return doc.get(True, doc.get("on")) or {}
+
+
+def _trigger_paths(event: str) -> list[str]:
+    return list((_triggers().get(event) or {}).get("paths") or [])
 
 
 def _mkdocs_sources() -> set[str]:
-    """Trees the site build reads, read out of the build's own configuration.
-
-    `mkdocs.yml` is not valid YAML to a plain loader (it uses `!!python/name:` tags for
-    the Material extensions), so the two keys are pulled out by line rather than parsed.
-    """
+    """Trees the site build reads, read out of the build configuration."""
     sources = {"mkdocs.yml"}
     for line in MKDOCS.read_text(encoding="utf-8").splitlines():
         stripped = line.strip()
@@ -49,31 +43,50 @@ def _mkdocs_sources() -> set[str]:
     return sources
 
 
-def test_the_workflow_declares_a_paths_filter_at_all() -> None:
-    """Without a filter every push deploys, and the assertions below mean nothing."""
-    assert _trigger_paths(), "docs.yml has no push `paths:` filter — this guard is vacuous"
+def test_push_and_pull_request_both_have_path_filters() -> None:
+    for event in ("push", "pull_request"):
+        assert _trigger_paths(event), (
+            f"docs.yml has no {event} paths filter -- the docs contract is vacuous"
+        )
 
 
 def test_the_configuration_actually_yielded_sources() -> None:
-    """If the line parse silently found nothing, the completeness test would pass empty."""
     sources = _mkdocs_sources()
     assert "docs/**" in sources, f"docs_dir was not parsed out of mkdocs.yml: {sources}"
-    assert "hooks/**" in sources, f"no hooks: entries were parsed: {sources}"
+    assert "hooks/**" in sources, f"no hooks entries were parsed: {sources}"
 
 
-def test_every_tree_the_site_is_built_from_triggers_a_deploy() -> None:
-    missing = sorted(_mkdocs_sources() - set(_trigger_paths()))
-    assert not missing, (
-        f"the site is built from {missing} but a change there deploys nothing"
-    )
+def test_every_site_source_triggers_both_validation_and_deploy() -> None:
+    for event in ("push", "pull_request"):
+        missing = sorted(_mkdocs_sources() - set(_trigger_paths(event)))
+        assert not missing, (
+            f"the site is built from {missing} but {event} does not run docs.yml"
+        )
 
 
-def test_the_design_tier_triggers_a_deploy() -> None:
-    """Named separately because it is the one the derivation cannot see.
+def test_design_tier_is_validated_before_merge_and_deployed_after_merge() -> None:
+    for event in ("push", "pull_request"):
+        assert "design/**" in _trigger_paths(event), (
+            f"hooks/design_tier.py publishes design/ but {event} ignores design changes"
+        )
 
-    `design/` reaches the site through `hooks/design_tier.py`, not through `docs_dir`, so
-    only the hook's own source is derivable — the tree it publishes is not.
-    """
-    assert "design/**" in _trigger_paths(), (
-        "hooks/design_tier.py publishes design/ but a design-only commit does not deploy"
-    )
+
+def test_pr_and_push_path_filters_cannot_drift() -> None:
+    assert set(_trigger_paths("pull_request")) == set(_trigger_paths("push"))
+
+
+def test_pull_requests_build_but_cannot_deploy_pages() -> None:
+    doc = _workflow()
+    deploy_if = str(doc["jobs"]["deploy"].get("if", ""))
+    assert "github.event_name" in deploy_if
+    assert "pull_request" in deploy_if
+    assert "!=" in deploy_if
+
+    raw = WORKFLOW.read_text(encoding="utf-8")
+    assert raw.count("if: ${{ github.event_name != 'pull_request' }}") >= 3
+
+
+def test_docs_prs_cancel_obsolete_heads_but_main_deploys_do_not() -> None:
+    raw = WORKFLOW.read_text(encoding="utf-8")
+    assert "group: docs-${{ github.event.pull_request.number || github.ref }}" in raw
+    assert "cancel-in-progress: ${{ github.event_name == 'pull_request' }}" in raw
