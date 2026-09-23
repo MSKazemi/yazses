@@ -31,9 +31,10 @@ inferred from clean speech alone can change substantially under harder condition
 Second, a single aggregate \wer{} can hide an interaction failure that matters disproportionately
 in dictation. Repeated \texttt{large-v3} decodes of the same hard-speech subset produced
 materially different \wer{} values. Yet substitutions, deletions, and correct-word hits were
-unchanged across the repeated runs used in the error decomposition. The movement came from
-insertion count, which ranged from 101 to 184. For an offline benchmark, this appears as movement
-in aggregate \wer{}. For interactive dictation, it is a different class of failure: a fluent
+unchanged across the repeated runs used in the error decomposition. A dedicated four-repeat probe localized the movement to insertion count, which ranged from
+101 to 144 while substitutions, deletions, and hits remained fixed. The earlier engine-matrix run
+that triggered the investigation reached 184 insertions and 7.69\% \wer{}. For an offline
+benchmark, this appears as movement in aggregate \wer{}. For interactive dictation, it is a different class of failure: a fluent
 continuation that the user did not speak can be substantially more disruptive than a visibly
 missing word.
 
@@ -55,10 +56,11 @@ also merging different people.
 
 Finally, the meeting workload shows why task-specific evaluation is necessary. The original
 clustering operating point produced severe over-segmentation on the complete 16-recording AMI
-test split, with 75.21\% mean \der{} and an average speaker-count error of more than 155
-additional clusters in four-person meetings. A meeting-specific threshold reduced mean \der{} to
-26.71\%. Supplying the true number of speakers made the count itself reliable, but did not
-establish an improvement in \der{} at the recalibrated threshold.
+test split, with 75.21\% mean \der{} and a mean signed speaker-count error of +155.19.
+A meeting-specific threshold reduced mean \der{} to 26.71\%. Capping clustering at four
+speakers made the estimated count exact on 15 of 16 recordings---the reference split contains
+fifteen four-speaker recordings and one three-speaker recording---but did not establish an
+improvement in \der{} at the recalibrated threshold.
 
 Together, these findings motivate a broader evaluation principle: \emph{offline interactive
 speech systems should be evaluated as systems, not only as recognizers}. Accuracy remains
