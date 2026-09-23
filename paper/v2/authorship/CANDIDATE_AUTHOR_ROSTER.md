@@ -1,9 +1,9 @@
 # Candidate author roster — YazSes paper v2
 
 **Purpose:** seed the all-contributors authorship invitation process.  
-**Seed date:** 2026-09-20  
-**Seed source:** public contributor metadata in .all-contributorsrc and CONTRIBUTORS.md on main at the paper-v2 branch point, commit 61f3e54825bef4fdf823ae377982a9a31fde4fed.  
-**Seed count:** 28 people.
+**Seed date:** 2026-09-23  
+**Seed source:** public contributor metadata in .all-contributorsrc and CONTRIBUTORS.md on current main, commit 247913a5f7cdf4a48035ac77aa4f179144b89c33.  
+**Seed count:** 29 people.
 
 This is a **candidate roster, not a final byline**. Every person below must explicitly opt in before their name can appear as an author. Preferred publication name, affiliation, ORCID, private contact email, author order, and final approval must be collected directly from the person; do not infer them from GitHub.
 
@@ -39,6 +39,7 @@ Private email addresses and individual consent evidence must not be added to thi
 | 26 | @vortsghost2025 | DeliberateEnsemble | code |
 | 27 | @doeil1614-ops | doeil1614-ops | translation |
 | 28 | @musabustun | Musab Yusuf Üstün | translation |
+| 29 | @sameer8945 | sameer | documentation / Windows showcase |
 
 ## Roster reconciliation procedure
 
@@ -48,7 +49,7 @@ Before sending invitations:
 2. Read .all-contributorsrc at that SHA.
 3. Read CONTRIBUTORS.md at that SHA.
 4. Compare the two sets.
-5. Review merged contributions between 2026-09-20 and the cutoff so a newly added contributor is not accidentally omitted.
+5. Review merged contributions between 2026-09-23 and the cutoff so a newly added contributor is not accidentally omitted.
 6. Resolve aliases/renames by asking the person; do not assume two accounts are the same individual.
 7. Recalculate N and update this file if the frozen roster differs from the seed roster.
 8. Record the final roster digest in the approval manifest.
