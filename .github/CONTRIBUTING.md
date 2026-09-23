@@ -22,14 +22,15 @@ If you have a real Windows, macOS, GNOME Wayland, KDE Wayland, X11, or HiDPI/mul
 computer, the eye-control programme has deliberately small **no-code** validation tasks.
 
 Start with [`design/eye-control/BEGINNER_TESTING.md`](../design/eye-control/BEGINNER_TESTING.md).
-It points you to one 15–20 minute issue for your environment. You run one named test pack,
+It shows the 15–20 minute validation slots for each environment. **Start only a slot that currently
+has the `help wanted` label and a READY banner**; visible PLANNED slots are future coverage, not
+work you should force before the evaluator/runtime exists. When READY, you run one named test pack,
 report **PASS / PARTIAL / FAIL / BLOCKED**, and you are done. A failure is useful evidence.
 
 Those public reports are engineering QA, not automatic enrollment in a research study. The guide
 also says exactly what technical data is useful and what must never be posted publicly.
 
-No camera hardware? #449 is a tiny first contribution: read the beginner instructions and report
-the first confusing step.
+No camera hardware? #449 becomes a tiny first contribution as soon as the eye-control planning docs are merged: read the beginner instructions and report the first confusing step.
 
 ## Getting started
 
