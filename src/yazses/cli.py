@@ -142,13 +142,12 @@ def language_status(
     platform = get_platform()
     cfg = load_config(platform.paths.config_file)
     status = derive_status(cfg)
-    (
-        _feat,
-        missing_imports,
-        _packages,
-        blocked,
-        model_cached,
-    ) = _language_requirement_state(cfg, cfg.stt)
+    from yazses.language.service import inspect_language_requirements
+
+    requirements = inspect_language_requirements(cfg, cfg.stt)
+    missing_imports = requirements.missing_imports
+    blocked = requirements.blocked_reason
+    model_cached = requirements.model_cached
 
     script_dependency_available = not bool(missing_imports)
     dictation_ready = bool(
@@ -224,61 +223,6 @@ def language_status(
 
     if not status.coherent:
         raise typer.Exit(1)
-
-
-def _language_config_snapshot(path):
-    """Load config and its revision without accepting a torn concurrent read."""
-    from yazses.config import load_config
-    from yazses.system.configedit import config_revision
-
-    for _attempt in range(3):
-        before = config_revision(path)
-        cfg = load_config(path)
-        after = config_revision(path)
-        if before == after:
-            return cfg, after
-    raise RuntimeError("Config kept changing while YazSes tried to read it; try again.")
-
-
-def _language_candidate_stt(cfg, plan):
-    """Apply the plan in memory so coherence is proved before any side effect."""
-    from dataclasses import replace
-
-    updates = {
-        mutation.key: mutation.after
-        for mutation in plan.mutations
-        if mutation.section == "stt"
-    }
-    return replace(cfg.stt, **updates)
-
-
-def _language_requirement_state(cfg, candidate_stt):
-    """Read-only model/dependency state for a language candidate."""
-    from yazses.system.deps import install_blocked_reason, missing_modules
-    from yazses.system.features import find_feature
-
-    feat = None
-    missing_imports: tuple[str, ...] = ()
-    packages: tuple[str, ...] = ()
-    blocked = None
-
-    if (candidate_stt.chinese_script or "").strip():
-        feat = find_feature(cfg, "chinese-script")
-        if feat is None:
-            blocked = "the chinese-script capability is missing from this build"
-        else:
-            missing_imports = tuple(missing_modules(feat.check_modules))
-            if missing_imports:
-                packages = tuple(feat.pip_packages)
-                blocked = install_blocked_reason(packages)
-
-    model_cached = True
-    if (candidate_stt.engine or "").strip().lower() == "faster-whisper":
-        from yazses.stt.download import is_cached
-
-        model_cached = is_cached(candidate_stt.model)
-
-    return feat, missing_imports, packages, blocked, model_cached
 
 
 def _echo_language_set_plan(plan, candidate_stt, missing_imports, packages, blocked, model_cached):
@@ -364,112 +308,78 @@ def language_set(
         help="Apply the displayed plan without an interactive confirmation.",
     ),
 ) -> None:
-    """Switch dictation language transactionally, with prerequisites first."""
-    from yazses.language import LanguageProfileError, derive_status, resolve_profile
+    """Switch dictation language through the shared transactional service."""
+    from yazses.language import LanguageProfileError
+    from yazses.language.service import (
+        apply_language_change,
+        prepare_language_change,
+    )
 
     platform = get_platform()
     config_file = platform.paths.config_file
     mode = "recommended" if recommended_model else "preserve"
-    prerequisite_changed = False
 
-    for attempt in range(2):
-        try:
-            cfg, revision = _language_config_snapshot(config_file)
-            plan = resolve_profile(
-                profile,
-                cfg,
-                model=model,
-                engine=engine,
-                mode=mode,
-            )
-        except LanguageProfileError as exc:
-            typer.echo(str(exc), err=True)
-            raise typer.Exit(1)
-        except Exception as exc:
-            typer.echo(f"Could not read/plan the language change: {exc}", err=True)
-            raise typer.Exit(3)
-
-        candidate_stt = _language_candidate_stt(cfg, plan)
-        candidate_status = derive_status(candidate_stt)
-        if (
-            not candidate_status.coherent
-            or candidate_status.profile_match != plan.canonical_profile
-        ):
-            detail = "; ".join(candidate_status.problems) or (
-                f"candidate resolved to {candidate_status.profile_match!r}"
-            )
-            typer.echo(
-                f"Refusing an incoherent language candidate: {detail}",
-                err=True,
-            )
-            raise typer.Exit(1)
-
-        (
-            feat,
-            missing_imports,
-            packages,
-            blocked,
-            model_cached,
-        ) = _language_requirement_state(cfg, candidate_stt)
-
-        _echo_language_set_plan(
-            plan,
-            candidate_stt,
-            missing_imports,
-            packages,
-            blocked,
-            model_cached,
+    try:
+        prepared = prepare_language_change(
+            config_file,
+            profile,
+            model=model,
+            engine=engine,
+            mode=mode,
         )
+    except LanguageProfileError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(1)
+    except Exception as exc:
+        typer.echo(f"Could not read/plan the language change: {exc}", err=True)
+        raise typer.Exit(3)
 
-        if dry_run:
-            typer.echo("No files, packages, models, or daemon state changed (--dry-run).")
-            return
+    req = prepared.requirements
+    _echo_language_set_plan(
+        prepared.plan,
+        prepared.candidate_stt,
+        req.missing_imports,
+        req.packages,
+        req.blocked_reason,
+        req.model_cached,
+    )
 
-        if blocked:
-            typer.echo("No config changes were made.", err=True)
-            raise typer.Exit(2)
+    if dry_run:
+        typer.echo("No files, packages, models, or daemon state changed (--dry-run).")
+        return
 
-        if missing_imports and no_install:
-            typer.echo(
-                "Required Chinese script dependency is missing and --no-install was set. "
-                "No config changes were made.",
-                err=True,
-            )
-            raise typer.Exit(2)
-
-        if not model_cached and no_download:
-            typer.echo(
-                f"Speech model {candidate_stt.model!r} is not cached and --no-download "
-                "was set. No config changes were made.",
-                err=True,
-            )
-            raise typer.Exit(2)
-
-        needs_side_effect = bool(
-            plan.mutations
-            or missing_imports
-            or not model_cached
-            or prerequisite_changed
+    if req.blocked_reason:
+        typer.echo("No config changes were made.", err=True)
+        raise typer.Exit(2)
+    if req.missing_imports and no_install:
+        typer.echo(
+            "Required Chinese script dependency is missing and --no-install was set. "
+            "No config changes were made.",
+            err=True,
         )
-        if not needs_side_effect:
-            # Still prove the file did not change between snapshot and conclusion.
-            from yazses.system.configedit import config_revision
+        raise typer.Exit(2)
+    if not req.model_cached and no_download:
+        typer.echo(
+            f"Speech model {req.model!r} is not cached and --no-download was set. "
+            "No config changes were made.",
+            err=True,
+        )
+        raise typer.Exit(2)
 
-            if config_revision(config_file) != revision:
-                if attempt == 0:
-                    typer.echo("Config changed while the plan was open; re-resolving.")
-                    continue
-                typer.echo("Config changed repeatedly; nothing was written.", err=True)
-                raise typer.Exit(3)
-            typer.echo("Already configured; all prerequisites are ready.")
-            return
+    needs_work = bool(
+        prepared.plan.mutations
+        or req.missing_imports
+        or not req.model_cached
+    )
 
-        # A running meeting finalizer must not be killed after we spend bandwidth and
-        # write config. Preflight that irreversible conflict before any installation.
+    def _restart_guard(current) -> None:
         if (
             not no_restart
             and platform.lifecycle.is_running()
-            and (plan.restart_required or bool(missing_imports))
+            and (
+                current.plan.restart_required
+                or bool(current.requirements.missing_imports)
+            )
         ):
             _refuse_while_finalizing(
                 platform,
@@ -477,136 +387,54 @@ def language_set(
                 False,
             )
 
+    if needs_work:
+        _restart_guard(prepared)
         if not yes:
             typer.confirm("Apply this language plan?", abort=True)
 
-        installed_dependency = False
-        if missing_imports:
-            from yazses.system.deps import install_packages
+    result = apply_language_change(
+        config_file,
+        profile,
+        model=model,
+        engine=engine,
+        mode=mode,
+        allow_install=not no_install,
+        allow_download=not no_download,
+        echo=typer.echo,
+        before_side_effect=_restart_guard,
+    )
 
-            typer.echo(
-                "Installing Chinese script dependency: " + " ".join(packages)
-            )
-            if not install_packages(packages, echo=typer.echo):
-                typer.echo(
-                    "Dependency installation failed. Existing config is unchanged.",
-                    err=True,
-                )
-                raise typer.Exit(2)
+    if not result.ok:
+        typer.echo(result.error, err=True)
+        typer.echo("No config changes were made.", err=True)
+        code = {
+            "invalid": 1,
+            "prerequisite": 2,
+            "transaction": 3,
+        }.get(result.category, 3)
+        raise typer.Exit(code)
 
-            # Do not trust an installer exit code as proof the running interpreter can
-            # import the library; verify the condition that the STT factory actually needs.
-            from yazses.system.deps import missing_modules
-
-            still_missing = missing_modules(feat.check_modules) if feat is not None else ["opencc"]
-            if still_missing:
-                typer.echo(
-                    "Dependency installer returned but these modules are still unavailable: "
-                    + ", ".join(still_missing)
-                    + ". Existing config is unchanged.",
-                    err=True,
-                )
-                raise typer.Exit(2)
-            installed_dependency = True
-            prerequisite_changed = True
-
-        if not model_cached:
-            from yazses.stt.download import download_stt_model
-
-            try:
-                download_stt_model(candidate_stt.model, echo=typer.echo)
-            except Exception as exc:
-                try:
-                    from yazses.stt.errors import model_unavailable_message
-
-                    detail = model_unavailable_message(candidate_stt.model, exc)
-                except Exception:
-                    detail = f"{type(exc).__name__}: {exc}"
-                typer.echo(detail, err=True)
-                typer.echo("Existing config is unchanged.", err=True)
-                raise typer.Exit(2)
-            prerequisite_changed = True
-
-        if plan.mutations:
-            from yazses.system.configedit import (
-                ConfigChange,
-                ConfigEditBusyError,
-                ConfigEditConflictError,
-                set_config_keys_atomic,
-            )
-
-            changes = tuple(
-                ConfigChange(
-                    mutation.section,
-                    mutation.key,
-                    mutation.after,
-                )
-                for mutation in plan.mutations
-            )
-            try:
-                set_config_keys_atomic(
-                    config_file,
-                    changes,
-                    expected_revision=revision,
-                )
-            except ConfigEditConflictError:
-                if attempt == 0:
-                    typer.echo(
-                        "Config changed while prerequisites were prepared; "
-                        "re-reading and re-resolving before any write."
-                    )
-                    continue
-                typer.echo(
-                    "Config changed repeatedly; no stale language plan was committed.",
-                    err=True,
-                )
-                raise typer.Exit(3)
-            except ConfigEditBusyError as exc:
-                typer.echo(str(exc), err=True)
-                typer.echo("No config changes were made.", err=True)
-                raise typer.Exit(3)
-            except Exception as exc:
-                typer.echo(f"Could not commit language config atomically: {exc}", err=True)
-                typer.echo("Existing config was left intact.", err=True)
-                raise typer.Exit(3)
-        else:
-            from yazses.system.configedit import config_revision
-
-            if config_revision(config_file) != revision:
-                if attempt == 0:
-                    typer.echo(
-                        "Config changed while prerequisites were prepared; re-resolving."
-                    )
-                    continue
-                typer.echo("Config changed repeatedly; no stale plan was accepted.", err=True)
-                raise typer.Exit(3)
-
-        restart_needed = bool(
-            plan.mutations or installed_dependency or prerequisite_changed
-        )
-        if not restart_needed:
-            typer.echo("Prerequisites are ready; configuration already matched.")
-            return
-
-        if no_restart:
-            typer.echo("Configuration updated. Apply it with: yazses restart")
-            return
-
-        if not platform.lifecycle.is_running():
-            typer.echo("Configuration updated. YazSes is not running; start it with: yazses start")
-            return
-
-        _restart_daemon(platform)
-        outcome, info = _wait_until_ready(platform)
-        try:
-            _report_start_outcome(platform, outcome, info)
-        except typer.Exit:
-            # The config is valid and committed, but runtime verification failed. Keep
-            # this distinguishable from a transaction failure for scripts.
-            raise typer.Exit(4)
+    if not result.restart_required:
+        typer.echo("Already configured; all prerequisites are ready.")
         return
 
-    raise typer.Exit(3)
+    if no_restart:
+        typer.echo("Configuration updated. Apply it with: yazses restart")
+        return
+
+    if not platform.lifecycle.is_running():
+        typer.echo(
+            "Configuration updated. YazSes is not running; start it with: yazses start"
+        )
+        return
+
+    _restart_daemon(platform)
+    outcome, info = _wait_until_ready(platform)
+    try:
+        _report_start_outcome(platform, outcome, info)
+    except typer.Exit:
+        # Config is valid and committed; only live restart/verification failed.
+        raise typer.Exit(4)
 
 
 corpus_app = typer.Typer(
