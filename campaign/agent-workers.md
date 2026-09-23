@@ -164,6 +164,10 @@ Official Jules documentation:
 
 Connect Jules to **your fork** for the contributor workflow.
 
+For the exact click-by-click GitHub/Jules setup, environment snapshot, verification prompt,
+troubleshooting, and the separate gated upstream-owner procedure, see
+[`docs/contribute/jules.md`](../docs/contribute/jules.md).
+
 The GitHub integration uses the exact case-insensitive issue label named jules as an execution
 trigger when configured. For that reason, YazSes does not use that label as a generic
 agent-friendly marker.
