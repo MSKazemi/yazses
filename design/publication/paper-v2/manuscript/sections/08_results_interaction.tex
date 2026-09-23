@@ -1,0 +1,51 @@
+\section{Results IV: Interaction-Specific Assumptions}
+
+Several experiments directly test assumptions that are plausible at the level of product design
+but are not guaranteed by recognizer accuracy alone.
+
+\subsection{Beam width}
+
+For the default \texttt{base.en} checkpoint, greedy decoding has a measurable accuracy cost.
+On the clean split, beam 1 produces 4.39\% WER compared with 4.01\% at beam 5; the paired
+difference is 0.386 WER points with a 95\% interval of 0.069 to 0.726 and
+$p=0.0192$. On the hard split, beam 1 produces 10.56\% compared with 9.46\% at beam 5;
+the paired difference is 1.102 points with a 95\% interval of 0.305 to 2.196 and
+$p=0.001$.
+
+The evidence does not support the stronger rule that more beam is always better. On the hard
+split, beams 2, 3, 5, and 8 are not shown to differ meaningfully from one another in the paired
+comparisons against beam 2. On \texttt{small.en} clean speech, the beam-1 point estimate is
+slightly better than beam 5, but the paired interval crosses zero. The practical distinction in
+the measured default-model condition is therefore greedy decoding versus a modest beam, not an
+unbounded preference for larger beam widths.
+
+\subsection{Synthetic pre-speech padding}
+
+The onset experiment clips 0, 40, 120, or 240 ms of real speech and prepends 0, 100, 300, 600,
+or 1000 ms of synthetic silence. The primary outcome is first-word correctness on 200
+\texttt{test-clean} utterances.
+
+No tested lead-in comparison survives multiplicity correction as an improvement over no
+synthetic lead-in. When the onset is intact, the shipped 300 ms padding does not establish a
+measurable first-word benefit. Once real speech has been clipped, prepending silence cannot
+reconstruct the missing acoustic evidence. Two replicated uncorrected cells at 120 ms clipping
+move in the harmful direction for very long lead-ins.
+
+This negative result clarifies the privacy/interaction trade-off. Recovering speech that occurred
+before explicit activation would require retaining real pre-activation microphone audio. Synthetic
+silence preserves the stronger hold-to-talk privacy boundary, but cannot provide that recovery.
+
+\subsection{CPU streaming}
+
+Streaming partial decoding is useful only when the rolling recognizer can stay sufficiently far
+ahead of incoming audio. In the documented rerun, \texttt{tiny.en} exposes substantial partial
+text before release, with a median 72\% of final text visible at release, but final
+speech-end-to-text latency increases from 0.92 s in batch mode to 1.22 s with streaming.
+
+For \texttt{base.en}, the trade-off is worse under the measured CPU budget: median visible text
+at release is 0\%, while final speech-end-to-text latency increases from 1.42 s to 2.21 s.
+The partial loop consumes CPU but often fails to deliver a useful preview before the final decode
+is required.
+
+The appropriate conclusion is therefore conditional. Streaming can reduce perceived latency for
+a sufficiently fast checkpoint, but it is not itself a general latency optimization on CPU.
