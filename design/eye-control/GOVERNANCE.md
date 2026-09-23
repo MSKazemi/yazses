@@ -90,7 +90,8 @@ Current programme ADR set:
 - ADR-v2-136 — pointer-output boundary;
 - ADR-v2-137 — face gesture as an intent-bearing switch;
 - ADR-v2-138 — hands-free bundle is composition, not a second pipeline;
-- ADR-v2-139 — gaze calibration coordinate space and invalidation.
+- ADR-v2-139 — gaze calibration coordinate space and invalidation;
+- ADR-v2-140 — community QA and human research are separate evidence classes;
 - ADR-v2-141 — coarse target -> semantic UI entity grounding (proposed).
 
 ## Gate 3 — implementation-ready spec
@@ -198,6 +199,36 @@ Until a dedicated `eye-control` label exists, use:
 - the canonical issue map in `AGENT_TASKS.md`.
 
 That gives three independent ways to find the work without relying on a new repository label.
+
+## Readiness label state machine
+
+Issue readiness is explicit and reversible:
+
+```text
+PLANNED
+  -> READY FOR HUMAN CONTRIBUTOR   (`help wanted`)
+  -> READY FOR BEGINNER            (+ `good first issue`)
+  -> READY FOR CODING AGENT        (+ `agent-ready`)
+  -> EXECUTION TRIGGERED            (provider-specific label such as `jules`, only when intentionally used)
+```
+
+Rules:
+
+- `PLANNED` issues remain open for visibility but carry none of `help wanted`, `good first issue`,
+  or `agent-ready`.
+- `help wanted` means the task can actually be started from `main` now.
+- `good first issue` is a subset of `help wanted`; it must never be placed on a blocked slot.
+- `agent-ready` is a subset of ready code/document work and requires all design dependencies to be
+  merged and available from `main`.
+- Human hardware evidence can be `help wanted` / `good first issue` when READY, but never
+  `agent-ready`.
+- A provider execution label is not a planning label. Never use it merely to mean "agent-friendly".
+
+Issue bodies should begin with a short **Current status** banner while PLANNED so readiness is visible
+without interpreting labels.
+
+When a blocker reopens or a design contract moves back to Proposed/unstable, remove readiness labels
+again.
 
 ## Priority policy
 
