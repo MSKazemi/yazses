@@ -1,0 +1,23 @@
+\section{Conclusion}
+
+Expanding the \YazSes{} evaluation beyond one clean-speech WER changed several engineering
+conclusions.
+
+Harder speech altered the relative robustness of local recognizers. Repeated decoding exposed a
+\texttt{large-v3} failure mode in which insertion count and runaway continuation vary while
+substitution, deletion, and correct-word counts remain stable. Previous-text conditioning
+behaved differently across checkpoints rather than offering one global rule. Cross-platform
+decoding showed model-dependent numerical variation. Synthetic onset padding did not recover
+missed speech, and CPU streaming was beneficial only under a sufficiently fast checkpoint and
+compute budget. In Meeting Mode, real annotated AMI data exposed a catastrophic mismatch in the
+former clustering operating point, while known speaker count proved useful for count correctness
+without establishing a DER improvement.
+
+The broader lesson is methodological. Offline interactive speech systems should not be evaluated
+only by a single average accuracy number. Reproducibility, tail failures, hardware dependence,
+latency under the actual interactive workload, and task-specific metrics can change both the
+scientific interpretation and the product default.
+
+Equally important, contradictory measurements should be preserved rather than overwritten. In
+this campaign, retaining disagreement was not bookkeeping; it created the experiment that
+revealed one of the paper's central findings.
