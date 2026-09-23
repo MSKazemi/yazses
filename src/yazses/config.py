@@ -393,6 +393,8 @@ class TtsConfig:
 class CommandsConfig:
     enabled: bool = True
     profile: str = "auto"
+    # Spoken Tier-1 grammar; explicit language can decouple commands from STT.
+    language: str = "auto"  # auto follows [stt] language; explicit en | zh
     custom: list[dict] = field(default_factory=list)
     # v0.4.0 — Tier 2 SLM intent routing (ADR-v04-001)
     slm_model_path: str = ""          # path to GGUF file; empty = disabled
