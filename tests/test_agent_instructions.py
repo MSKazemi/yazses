@@ -135,6 +135,7 @@ def test_tool_adapter_names_do_not_become_policy_authority():
     allowed = {
         CANONICAL,
         *TOOL_ADAPTERS,
+        "CHANGELOG.md",  # historical record: do not rewrite old release/project history
         "docs/contribute/ai-agents.md",
         "design/adr/adr-023-agent-first-contribution-pipeline.md",
         "tests/test_agent_instructions.py",
@@ -143,6 +144,10 @@ def test_tool_adapter_names_do_not_become_policy_authority():
     offenders: list[str] = []
 
     for name in sorted(tracked - allowed):
+        # Release notes are historical records. They may truthfully say that a past
+        # version used a tool-specific file; current policy/config/test surfaces may not.
+        if name.startswith("docs/releases/"):
+            continue
         path = ROOT / name
         if path.suffix not in text_suffixes:
             continue
