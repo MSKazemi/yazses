@@ -28,11 +28,11 @@ After the ADRs are accepted, use a small number of umbrella issues for discussio
 
 | Umbrella | Purpose | Roadmap packages |
 |---|---|---|
-| Mandarin foundation | safe language selection/configuration and user controls | CHN-10..15 |
-| Mandarin commands | grammar architecture, numerals, phrase review | CHN-20..23 |
-| Mandarin compatibility | postprocessing, file/meeting, desktop injection | CHN-30..32 |
-| Mandarin model evidence | harness, baseline, alternative probes | CHN-40..42 |
-| Mandarin release validation | native review + release gate | CHN-43..50 |
+| [#497](https://github.com/MSKazemi/yazses/issues/497) — Mandarin foundation | safe language selection/configuration and user controls | CHN-10..15 |
+| [#499](https://github.com/MSKazemi/yazses/issues/499) — Mandarin commands | grammar architecture, numerals, phrase review | CHN-20..23 |
+| [#501](https://github.com/MSKazemi/yazses/issues/501) — Mandarin compatibility | postprocessing, file/meeting, desktop injection | CHN-30..32 |
+| [#503](https://github.com/MSKazemi/yazses/issues/503) — Mandarin model evidence | harness, baseline, alternative probes | CHN-40..42 |
+| [#505](https://github.com/MSKazemi/yazses/issues/505) — Mandarin release validation | native review + release gate | CHN-43..50 |
 
 Do not create one GitHub issue for each 15–30 minute contributor task. ADR-023 and `campaign/README.md` intentionally keep those in the campaign inventory.
 
@@ -62,9 +62,9 @@ These IDs are architectural work packages, not automatically campaign task IDs.
 | CHN-32D | Han injection: Windows | — | L0 | real hardware, cloud false |
 | CHN-40 | Reproducible Mandarin benchmark harness | 00 | L2 | experienced A3 code task |
 | CHN-41 | Whisper baseline measurements | 40 | L0 measurement | real model/hardware evidence |
-| CHN-42A | SenseVoiceSmall benchmark probe | 40 | L2 research | optional, no prod dep |
-| CHN-42B | Paraformer benchmark probe | 40 | L2 research | optional, no prod dep |
-| CHN-42C | Qwen3-ASR-0.6B benchmark probe | 40 | L2 research | optional, no prod dep |
+| CHN-42A | SenseVoiceSmall benchmark probe | 40 | L2 research | custom weight license; research-only unless explicitly cleared |
+| CHN-42B | Paraformer benchmark probe | 40 | L2 research | pin an Apache-2.0 weight revision before testing for production |
+| CHN-42C | Qwen3-ASR-0.6B benchmark probe | 40 | L2 research | Apache-2.0 candidate; optional, no base dependency |
 | CHN-43S | Simplified workflow native review | 13,21,41 | L0 | human language evidence |
 | CHN-43T | Traditional workflow native review | 13,21,41 | L0 | human language evidence |
 | CHN-50 | Final support-evidence gate | release blockers | L3 | maintainer/release decision |
