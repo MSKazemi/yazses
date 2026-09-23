@@ -148,10 +148,21 @@ found defects that no amount of reading the code here would have surfaced.
   "how it works" and FAQ sections the original machine draft never had
   ([#351](https://github.com/MSKazemi/yazses/issues/351) →
   [#363](https://github.com/MSKazemi/yazses/pull/363))
+- [@HarshRajSinghania](https://github.com/HarshRajSinghania) (Harsh Raj Singhania) — synced the
+  AI-optional/cost-safety wording from #453 into the already-English contributor blocks on the
+  Hindi and Russian landing pages, without touching the translated prose
+  ([#476](https://github.com/MSKazemi/yazses/issues/476) →
+  [#477](https://github.com/MSKazemi/yazses/pull/477))
 - [@HeaTTap](https://github.com/HeaTTap)
 - [@jackie-cqz](https://github.com/jackie-cqz)
 - [@jayavandhiniMK](https://github.com/jayavandhiniMK) (Jayavandhini M K) — Windows 11
   showcase entry ([#317](https://github.com/MSKazemi/yazses/pull/317))
+- [@laurash96](https://github.com/laurash96) (Laura Saldarriaga Higuita) — native-speaker
+  review of the Spanish page: restored the "by default" qualifier the draft had dropped from
+  the offline/privacy claims, fixed register and regional neutrality, and promoted `es` from
+  a generator-owned draft to a human-owned translation so it can no longer be silently
+  overwritten ([#339](https://github.com/MSKazemi/yazses/issues/339) →
+  [#474](https://github.com/MSKazemi/yazses/pull/474))
 - [@lntutor](https://github.com/lntutor)
 - [@Maqbool61](https://github.com/Maqbool61)
 - [@mercael91](https://github.com/mercael91) — went after the FreeBSD CI job nobody had looked
@@ -176,6 +187,10 @@ found defects that no amount of reading the code here would have surfaced.
   VS Code, PowerShell and the browser while coding
   ([#391](https://github.com/MSKazemi/yazses/pull/391))
 - [@slegarraga](https://github.com/slegarraga) — see **Testing & field reports** above
+- [@Tiyatrotist](https://github.com/Tiyatrotist) — corrected MSIX/store wording that described
+  Face-Gesture as already implemented when no runtime detector or activation adapter exists yet
+  ([#392](https://github.com/MSKazemi/yazses/issues/392) →
+  [#473](https://github.com/MSKazemi/yazses/pull/473))
 - [@visheshbpatel](https://github.com/visheshbpatel) (Vishesh Patel) — Windows 11 showcase entry:
   dictation into PowerShell, VS Code and the browser, on the platform this project has
   the least evidence for ([#327](https://github.com/MSKazemi/yazses/pull/327)); also see
