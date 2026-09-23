@@ -22,6 +22,7 @@ credits, enable overages, or incur cloud costs. See
 | `generated/stats.json` | **Generated.** Counts, and the review cost if everything merged. |
 | `generated/dashboard.md` | **Generated.** What contributors have actually built, by category. |
 | `incident-response.md` | Spam, fabricated evidence, plagiarism, leaked data, harassment. |
+| `agent-workers.md` | Fork-first cloud-agent worker model, Jules trigger boundaries, review backpressure, and pilot rules. |
 
 ```sh
 uv run python scripts/check-task.py APP-014    # ← contributors: check your work before pushing
@@ -88,6 +89,11 @@ behaved the way a report claims, or that an architectural change is right. Those
 human, permanently. `cloud_agent_ready` is false for every compatibility, measurement and
 localization task for exactly this reason, and the validator rejects the row if someone
 sets it true.
+
+For distributed cloud coding agents, [`agent-workers.md`](agent-workers.md) defines the
+execution boundary: contributors use their own account and fork; the manifest decides
+eligibility; and provider execution triggers such as the literal `jules` label are kept
+separate from generic readiness metadata.
 
 ## Running a session, or reviewing
 
