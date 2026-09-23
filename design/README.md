@@ -94,6 +94,29 @@ that arrived by a merge or a `git add -f`. It keeps a short, named exception lis
 sources that genuinely have no landing page, such as a conference presentation hosted by
 its author; that list is a debt, and the test fails if it grows.
 
+## Planning traceability
+
+The design record answers **what was decided**; it is not, by itself, a delivery promise.
+Current planning relationships live in [`traceability.yml`](traceability.yml), which keeps
+**decision status** separate from **delivery status** and names the right-sized tracking
+surface for active work.
+
+A bounded contributor task does not need its own GitHub issue. For example, feature wiring
+uses [issue #164](https://github.com/MSKazemi/yazses/issues/164) as the umbrella and one
+`WIRE-<SLUG>-001` row in `campaign/tasks.json` per capability. Programme coordination
+uses an issue/epic. Research questions may stay research. Deferred or declined decisions
+carry no fake schedule.
+
+The normal validation is offline:
+
+```sh
+uv run python scripts/check-traceability.py
+uv run python -m pytest tests/test_traceability.py -q
+```
+
+Live GitHub facts such as whether an issue is still open or a milestone still exists are
+intentionally checked separately; the ordinary test suite must remain fully offline.
+
 ## Contributing to the design record
 
 - **Changing behaviour that had an ADR?** Update the ADR or supersede it. An ADR is a

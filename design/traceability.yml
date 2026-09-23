@@ -1,0 +1,763 @@
+# Planning traceability manifest — schema version 1
+#
+# This is deliberately NOT a release schedule. It records the relationship between
+# design decisions, delivery state, and the right-sized tracking surface.
+# Live GitHub state is checked separately because the normal test suite stays offline.
+version: 1
+
+entries:
+  - id: "capability:acoustic_profiles"
+    kind: capability
+    title: "Acoustic Context Profiles"
+    source: "design/adr/adr-v2-039-acoustic-profiles.md"
+    decision_status: accepted
+    delivery_status: designed
+    tracking:
+      kind: campaign
+      issues: [164]
+      task: "WIRE-ACOUSTIC-PROFILES-001"
+      milestone: 9
+    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
+  - id: "capability:affect"
+    kind: capability
+    title: "Tone-Aware Formatting"
+    source: "design/adr/adr-v2-017-tone-aware-formatting.md"
+    decision_status: accepted
+    delivery_status: designed
+    tracking:
+      kind: campaign
+      issues: [164]
+      task: "WIRE-AFFECT-001"
+      milestone: 9
+    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
+  - id: "capability:agent"
+    kind: capability
+    title: "Voice-to-Tool (Spoken MCP)"
+    source: "design/adr/adr-v2-006-spoken-mcp.md"
+    decision_status: accepted
+    delivery_status: designed
+    tracking:
+      kind: campaign
+      issues: [164]
+      task: "WIRE-AGENT-001"
+      milestone: 9
+    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
+  - id: "capability:audioguard"
+    kind: capability
+    title: "Ambient Audio-Event Guard"
+    source: "design/adr/adr-v2-061-ambient-audio-event-guard.md"
+    decision_status: accepted
+    delivery_status: designed
+    tracking:
+      kind: campaign
+      issues: [164]
+      task: "WIRE-AUDIOGUARD-001"
+      milestone: 9
+    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
+  - id: "capability:autostop"
+    kind: capability
+    title: "Semantic Auto-Stop"
+    source: "design/adr/adr-v2-029-semantic-autostop.md"
+    decision_status: accepted
+    delivery_status: designed
+    tracking:
+      kind: campaign
+      issues: [164]
+      task: "WIRE-AUTOSTOP-001"
+      milestone: 9
+    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
+  - id: "capability:bookmarks"
+    kind: capability
+    title: "Session Bookmarks & Resume"
+    source: "design/adr/adr-v2-090-session-bookmarks.md"
+    decision_status: accepted
+    delivery_status: designed
+    tracking:
+      kind: campaign
+      issues: [164]
+      task: "WIRE-BOOKMARKS-001"
+      milestone: 9
+    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
+  - id: "capability:breath"
+    kind: capability
+    title: "Breath-Paced Dictation"
+    source: "design/adr/adr-v2-099-breath-paced-dictation.md"
+    decision_status: accepted
+    delivery_status: designed
+    tracking:
+      kind: campaign
+      issues: [164]
+      task: "WIRE-BREATH-001"
+      milestone: 9
+    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
+  - id: "capability:bridge"
+    kind: capability
+    title: "Glasses↔Desktop Bridge"
+    source: "design/adr/adr-v2-013-glasses-desktop-bridge.md"
+    decision_status: accepted
+    delivery_status: designed
+    tracking:
+      kind: campaign
+      issues: [164]
+      task: "WIRE-BRIDGE-001"
+      milestone: 9
+    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
+  - id: "capability:cmdspotter"
+    kind: capability
+    title: "Few-Shot Personal Command Spotter"
+    source: "design/adr/adr-v2-064-few-shot-command-spotter.md"
+    decision_status: accepted
+    delivery_status: designed
+    tracking:
+      kind: campaign
+      issues: [164]
+      task: "WIRE-CMDSPOTTER-001"
+      milestone: 9
+    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
+  - id: "capability:codec"
+    kind: capability
+    title: "Codec Streaming"
+    source: "design/adr/adr-v2-022-codec-streaming.md"
+    decision_status: accepted
+    delivery_status: designed
+    tracking:
+      kind: campaign
+      issues: [164]
+      task: "WIRE-CODEC-001"
+      milestone: 9
+    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
+  - id: "capability:compose"
+    kind: capability
+    title: "Compose-in-Target-Language"
+    source: "design/adr/adr-v2-049-compose-target-language.md"
+    decision_status: accepted
+    delivery_status: designed
+    tracking:
+      kind: campaign
+      issues: [164]
+      task: "WIRE-COMPOSE-001"
+      milestone: 9
+    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
+  - id: "capability:contour"
+    kind: capability
+    title: "Pitch-Contour Gestures"
+    source: "design/adr/adr-v2-103-pitch-contour-gestures.md"
+    decision_status: accepted
+    delivery_status: designed
+    tracking:
+      kind: campaign
+      issues: [164]
+      task: "WIRE-CONTOUR-001"
+      milestone: 9
+    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
+  - id: "capability:crowdproof"
+    kind: capability
+    title: "Crowd-Proof Dictation"
+    source: "design/adr/adr-v2-084-crowd-proof-dictation.md"
+    decision_status: accepted
+    delivery_status: designed
+    tracking:
+      kind: campaign
+      issues: [164]
+      task: "WIRE-CROWDPROOF-001"
+      milestone: 9
+    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
+  - id: "capability:gesture"
+    kind: capability
+    title: "Gesture Chords"
+    source: "design/adr/adr-v2-043-gesture-chords.md"
+    decision_status: accepted
+    delivery_status: designed
+    tracking:
+      kind: campaign
+      issues: [164]
+      task: "WIRE-GESTURE-001"
+      milestone: 9
+    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
+  - id: "capability:hatselect"
+    kind: capability
+    title: "HatSelect"
+    source: "design/adr/adr-v2-115-hatselect.md"
+    decision_status: accepted
+    delivery_status: designed
+    tracking:
+      kind: campaign
+      issues: [164]
+      task: "WIRE-HATSELECT-001"
+      milestone: 9
+    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
+  - id: "capability:headpointer"
+    kind: capability
+    title: "Head-Pointer"
+    source: "design/adr/adr-v2-052-head-pointer.md"
+    decision_status: accepted
+    delivery_status: designed
+    tracking:
+      kind: campaign
+      issues: [164]
+      task: "WIRE-HEADPOINTER-001"
+      milestone: 9
+    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
+  - id: "capability:hesitation"
+    kind: capability
+    title: "Hesitation-Hold Endpointing"
+    source: "design/adr/adr-v2-101-hesitation-hold-endpointing.md"
+    decision_status: accepted
+    delivery_status: designed
+    tracking:
+      kind: campaign
+      issues: [164]
+      task: "WIRE-HESITATION-001"
+      milestone: 9
+    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
+  - id: "capability:hotwords"
+    kind: capability
+    title: "Hard Contextual Biasing"
+    source: "design/adr/adr-v2-069-hard-contextual-biasing.md"
+    decision_status: accepted
+    delivery_status: designed
+    tracking:
+      kind: campaign
+      issues: [164]
+      task: "WIRE-HOTWORDS-001"
+      milestone: 9
+    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
+  - id: "capability:interpret"
+    kind: capability
+    title: "Two-Way Interpreter"
+    source: "design/adr/adr-v2-044-two-way-interpreter.md"
+    decision_status: accepted
+    delivery_status: designed
+    tracking:
+      kind: campaign
+      issues: [164]
+      task: "WIRE-INTERPRET-001"
+      milestone: 9
+    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
+  - id: "capability:involuntary"
+    kind: capability
+    title: "Involuntary-Vocalization Excision"
+    source: "design/adr/adr-v2-102-involuntary-vocalization-excision.md"
+    decision_status: accepted
+    delivery_status: designed
+    tracking:
+      kind: campaign
+      issues: [164]
+      task: "WIRE-INVOLUNTARY-001"
+      milestone: 9
+    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
+  - id: "capability:langroute"
+    kind: capability
+    title: "Per-Language Auto Model Switching"
+    source: "design/adr/adr-v2-072-per-language-model-switching.md"
+    decision_status: accepted
+    delivery_status: designed
+    tracking:
+      kind: campaign
+      issues: [164]
+      task: "WIRE-LANGROUTE-001"
+      milestone: 9
+    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
+  - id: "capability:lipread"
+    kind: capability
+    title: "Silent Lip-Reading Input"
+    source: "design/adr/adr-v2-053-silent-lip-reading.md"
+    decision_status: accepted
+    delivery_status: designed
+    tracking:
+      kind: campaign
+      issues: [164]
+      task: "WIRE-LIPREAD-001"
+      milestone: 9
+    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
+  - id: "capability:loadguard"
+    kind: capability
+    title: "LoadGuard"
+    source: "design/adr/adr-v2-121-loadguard.md"
+    decision_status: accepted
+    delivery_status: designed
+    tracking:
+      kind: campaign
+      issues: [164]
+      task: "WIRE-LOADGUARD-001"
+      milestone: 9
+    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
+  - id: "capability:morsevox"
+    kind: capability
+    title: "Vocal Morse"
+    source: "design/adr/adr-v2-105-vocal-morse.md"
+    decision_status: accepted
+    delivery_status: designed
+    tracking:
+      kind: campaign
+      issues: [164]
+      task: "WIRE-MORSEVOX-001"
+      milestone: 9
+    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
+  - id: "capability:mousegrid"
+    kind: capability
+    title: "Voice Mouse Grid"
+    source: "design/adr/adr-v2-030-voice-mouse-grid.md"
+    decision_status: accepted
+    delivery_status: designed
+    tracking:
+      kind: campaign
+      issues: [164]
+      task: "WIRE-MOUSEGRID-001"
+      milestone: 9
+    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
+  - id: "capability:mouthswitch"
+    kind: capability
+    title: "Mouth-Sound Switch Access"
+    source: "design/adr/adr-v2-097-mouth-sound-switch-access.md"
+    decision_status: accepted
+    delivery_status: designed
+    tracking:
+      kind: campaign
+      issues: [164]
+      task: "WIRE-MOUTHSWITCH-001"
+      milestone: 9
+    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
+  - id: "capability:multiprofile"
+    kind: capability
+    title: "Multi-User Voiceprint Profiles"
+    source: "design/adr/adr-v2-028-multiuser-voiceprint-profiles.md"
+    decision_status: accepted
+    delivery_status: designed
+    tracking:
+      kind: campaign
+      issues: [164]
+      task: "WIRE-MULTIPROFILE-001"
+      milestone: 9
+    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
+  - id: "capability:pilot"
+    kind: capability
+    title: "AT-SPI Voice Pilot"
+    source: "design/adr/adr-v2-007-atspi-voice-pilot.md"
+    decision_status: accepted
+    delivery_status: designed
+    tracking:
+      kind: campaign
+      issues: [164]
+      task: "WIRE-PILOT-001"
+      milestone: 9
+    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
+  - id: "capability:predict"
+    kind: capability
+    title: "Predictive Completion"
+    source: "design/adr/adr-v2-016-predictive-completion.md"
+    decision_status: accepted
+    delivery_status: designed
+    tracking:
+      kind: campaign
+      issues: [164]
+      task: "WIRE-PREDICT-001"
+      milestone: 9
+    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
+  - id: "capability:pronunciation"
+    kind: capability
+    title: "Pronunciation Feedback"
+    source: "design/adr/adr-v2-041-pronunciation-feedback.md"
+    decision_status: accepted
+    delivery_status: designed
+    tracking:
+      kind: campaign
+      issues: [164]
+      task: "WIRE-PRONUNCIATION-001"
+      milestone: 9
+    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
+  - id: "capability:proofback"
+    kind: capability
+    title: "Interruptible Read-Back Proofreading"
+    source: "design/adr/adr-v2-108-interruptible-readback-proofreading.md"
+    decision_status: accepted
+    delivery_status: designed
+    tracking:
+      kind: campaign
+      issues: [164]
+      task: "WIRE-PROOFBACK-001"
+      milestone: 9
+    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
+  - id: "capability:prosodypunct"
+    kind: capability
+    title: "Prosodic Auto-Punctuation"
+    source: "design/adr/adr-v2-104-prosodic-auto-punctuation.md"
+    decision_status: accepted
+    delivery_status: designed
+    tracking:
+      kind: campaign
+      issues: [164]
+      task: "WIRE-PROSODYPUNCT-001"
+      milestone: 9
+    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
+  - id: "capability:rag"
+    kind: capability
+    title: "Voice-Grounded RAG"
+    source: "design/adr/adr-v2-020-voice-grounded-rag.md"
+    decision_status: accepted
+    delivery_status: designed
+    tracking:
+      kind: campaign
+      issues: [164]
+      task: "WIRE-RAG-001"
+      milestone: 9
+    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
+  - id: "capability:readback_clone"
+    kind: capability
+    title: "Personal Read-Back Voice"
+    source: "design/adr/adr-v2-042-personal-readback-voice.md"
+    decision_status: accepted
+    delivery_status: designed
+    tracking:
+      kind: campaign
+      issues: [164]
+      task: "WIRE-READBACK-CLONE-001"
+      milestone: 9
+    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
+  - id: "capability:reask"
+    kind: capability
+    title: "Confidence-Gated Re-Ask"
+    source: "design/adr/adr-v2-077-confidence-gated-reask.md"
+    decision_status: accepted
+    delivery_status: designed
+    tracking:
+      kind: campaign
+      issues: [164]
+      task: "WIRE-REASK-001"
+      milestone: 9
+    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
+  - id: "capability:screengrounded"
+    kind: capability
+    title: "Screen-Grounded Dictation"
+    source: "design/adr/adr-v2-051-screen-grounded-dictation.md"
+    decision_status: accepted
+    delivery_status: designed
+    tracking:
+      kind: campaign
+      issues: [164]
+      task: "WIRE-SCREENGROUNDED-001"
+      milestone: 9
+    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
+  - id: "capability:scribe"
+    kind: capability
+    title: "Meeting Scribe"
+    source: "design/adr/adr-v2-019-meeting-scribe.md"
+    decision_status: accepted
+    delivery_status: designed
+    tracking:
+      kind: campaign
+      issues: [164]
+      task: "WIRE-SCRIBE-001"
+      milestone: 9
+    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
+  - id: "capability:scrub"
+    kind: capability
+    title: "Audio-Anchored Scrubbing"
+    source: "design/adr/adr-v2-037-audio-anchored-scrubbing.md"
+    decision_status: accepted
+    delivery_status: designed
+    tracking:
+      kind: campaign
+      issues: [164]
+      task: "WIRE-SCRUB-001"
+      milestone: 9
+    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
+  - id: "capability:sentiment"
+    kind: capability
+    title: "Mood Ledger"
+    source: "design/adr/adr-v2-040-mood-ledger.md"
+    decision_status: accepted
+    delivery_status: designed
+    tracking:
+      kind: campaign
+      issues: [164]
+      task: "WIRE-SENTIMENT-001"
+      milestone: 9
+    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
+  - id: "capability:sign"
+    kind: capability
+    title: "Sign-Language Input"
+    source: "design/adr/adr-v2-054-sign-language-input.md"
+    decision_status: accepted
+    delivery_status: designed
+    tracking:
+      kind: campaign
+      issues: [164]
+      task: "WIRE-SIGN-001"
+      milestone: 9
+    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
+  - id: "capability:spatialvad"
+    kind: capability
+    title: "Beam-Steered Spatial VAD"
+    source: "design/adr/adr-v2-098-spatial-vad.md"
+    decision_status: accepted
+    delivery_status: designed
+    tracking:
+      kind: campaign
+      issues: [164]
+      task: "WIRE-SPATIALVAD-001"
+      milestone: 9
+    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
+  - id: "capability:vocaljoystick"
+    kind: capability
+    title: "Vocal Joystick"
+    source: "design/adr/adr-v2-095-vocal-joystick.md"
+    decision_status: accepted
+    delivery_status: designed
+    tracking:
+      kind: campaign
+      issues: [164]
+      task: "WIRE-VOCALJOYSTICK-001"
+      milestone: 9
+    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
+  - id: "capability:voiceguard"
+    kind: capability
+    title: "Voice-Biometric Guard"
+    source: "design/adr/adr-v2-018-voice-biometric-guard.md"
+    decision_status: accepted
+    delivery_status: designed
+    tracking:
+      kind: campaign
+      issues: [164]
+      task: "WIRE-VOICEGUARD-001"
+      milestone: 9
+    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
+  - id: "capability:voicehealth"
+    kind: capability
+    title: "Vocal-Strain Guard"
+    source: "design/adr/adr-v2-034-vocal-strain-guard.md"
+    decision_status: accepted
+    delivery_status: designed
+    tracking:
+      kind: campaign
+      issues: [164]
+      task: "WIRE-VOICEHEALTH-001"
+      milestone: 9
+    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
+  - id: "capability:wakeword"
+    kind: capability
+    title: "Wake-Word Activation"
+    source: "design/adr/adr-v2-033-wake-word.md"
+    decision_status: accepted
+    delivery_status: designed
+    tracking:
+      kind: campaign
+      issues: [164]
+      task: "WIRE-WAKEWORD-001"
+      milestone: 9
+    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
+  - id: "programme:feature-wiring"
+    kind: programme
+    title: "Feature-wiring contributor programme"
+    source: "campaign/README.md"
+    decision_status: accepted
+    delivery_status: in-progress
+    tracking:
+      kind: issue
+      issues: [164]
+      task: null
+      milestone: 9
+  - id: "programme:android"
+    kind: programme
+    title: "Android programme"
+    source: "docs/mobile/index.md"
+    decision_status: accepted
+    delivery_status: in-progress
+    tracking:
+      kind: issue
+      issues: [81]
+      task: null
+      milestone: 1
+  - id: "programme:hands-free"
+    kind: programme
+    title: "Hands-free / eye-control programme"
+    source: "docs/research/eye-control.md"
+    decision_status: accepted
+    delivery_status: in-progress
+    tracking:
+      kind: issue
+      issues: [102]
+      task: null
+      milestone: 10
+  - id: "programme:agent-contribution"
+    kind: programme
+    title: "Agent-first contributor pipeline"
+    source: "design/adr/adr-023-agent-first-contribution-pipeline.md"
+    decision_status: accepted
+    delivery_status: in-progress
+    tracking:
+      kind: issue
+      issues: [451]
+      task: null
+      milestone: 9
+  - id: "programme:planning-traceability"
+    kind: programme
+    title: "Planning traceability"
+    source: "design/README.md"
+    decision_status: proposed
+    delivery_status: in-progress
+    tracking:
+      kind: issue
+      issues: [377]
+      task: null
+      milestone: 9
+  - id: "research:agenda-01"
+    kind: research
+    title: "Throughput and correction cost"
+    source: "docs/research/agenda.md"
+    delivery_status: research
+    tracking:
+      kind: research
+      issues: [251]
+      task: null
+      milestone: null
+  - id: "research:agenda-02"
+    kind: research
+    title: "False activation across a real working day"
+    source: "docs/research/agenda.md"
+    delivery_status: research
+    tracking:
+      kind: research
+      issues: [140, 106]
+      task: null
+      milestone: null
+  - id: "research:agenda-03"
+    kind: research
+    title: "Activation that carries intent"
+    source: "docs/research/agenda.md"
+    delivery_status: research
+    tracking:
+      kind: research
+      issues: [252]
+      task: null
+      milestone: null
+  - id: "research:agenda-04"
+    kind: research
+    title: "Confirmation proportional to error and consequence"
+    source: "docs/research/agenda.md"
+    delivery_status: research
+    tracking:
+      kind: research
+      issues: [253]
+      task: null
+      milestone: null
+  - id: "research:agenda-05"
+    kind: research
+    title: "Visible recognition uncertainty"
+    source: "docs/research/agenda.md"
+    delivery_status: research
+    tracking:
+      kind: research
+      issues: [254]
+      task: null
+      milestone: null
+  - id: "research:agenda-06"
+    kind: research
+    title: "Dysfluent and dysarthric evaluation"
+    source: "docs/research/agenda.md"
+    delivery_status: research
+    tracking:
+      kind: research
+      issues: [255]
+      task: null
+      milestone: null
+  - id: "research:agenda-07"
+    kind: research
+    title: "Commodity gaze measurement"
+    source: "docs/research/agenda.md"
+    delivery_status: research
+    tracking:
+      kind: research
+      issues: [104]
+      task: null
+      milestone: null
+  - id: "research:agenda-08"
+    kind: research
+    title: "Steerable adaptation"
+    source: "docs/research/agenda.md"
+    delivery_status: research
+    tracking:
+      kind: research
+      issues: [256]
+      task: null
+      milestone: null
+  - id: "research:agenda-09"
+    kind: research
+    title: "Wrong-target slip study"
+    source: "docs/research/agenda.md"
+    delivery_status: research
+    tracking:
+      kind: research
+      issues: [257]
+      task: null
+      milestone: null
+  - id: "research:agenda-10"
+    kind: research
+    title: "Code-switching as an equity question"
+    source: "docs/research/agenda.md"
+    delivery_status: research
+    tracking:
+      kind: research
+      issues: [258]
+      task: null
+      milestone: null
+  - id: "decision:adr-v2-023"
+    kind: decision
+    title: "Silent Speech / sEMG"
+    source: "design/adr/adr-v2-023-silent-speech-semg.md"
+    decision_status: accepted
+    delivery_status: deferred
+    tracking:
+      kind: none
+      issues: []
+      task: null
+      milestone: null
+    gate: "Requires suitable hardware/model evidence before implementation."
+  - id: "decision:adr-v2-024"
+    kind: decision
+    title: "VLM Screen Commanding"
+    source: "design/adr/adr-v2-024-vlm-screen-commanding.md"
+    decision_status: accepted
+    delivery_status: deferred
+    tracking:
+      kind: none
+      issues: []
+      task: null
+      milestone: null
+    gate: "Design-only until platform/model evidence clears the documented gate."
+  - id: "decision:adr-v2-126"
+    kind: decision
+    title: "Cloud Transcription Escalation"
+    source: "design/adr/adr-v2-126-cloud-escalation.md"
+    decision_status: proposed
+    delivery_status: deferred
+    tracking:
+      kind: none
+      issues: []
+      task: null
+      milestone: null
+    gate: "Explicitly design-only; offline remains the only implemented transcription path."
+  - id: "decision:mob-010"
+    kind: decision
+    title: "Apple second wave"
+    source: "docs/mobile/adr/adr-mob-010-apple-second-wave.md"
+    decision_status: accepted
+    delivery_status: deferred
+    tracking:
+      kind: none
+      issues: []
+      task: null
+      milestone: null
+    gate: "Execution follows the Android evidence gate; the product shape is intentionally different."
+  - id: "decision:adr-018-third-party-plugins"
+    kind: decision
+    title: "Third-party plug-ins"
+    source: "design/adr/adr-018-feature-packs-and-the-plugin-question.md"
+    decision_status: accepted
+    delivery_status: not-planned
+    tracking:
+      kind: none
+      issues: []
+      task: null
+      milestone: null
+    gate: "Declined unless a real isolation boundary changes the trust model."
