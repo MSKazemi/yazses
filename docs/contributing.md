@@ -28,7 +28,7 @@ These are genuinely useful and need no Python:
 | ⚙️ **[Share a config](https://github.com/MSKazemi/yazses/issues/43)** | The settings that work for your editor or app. |
 | 🖥️ **[Add your setup](https://github.com/MSKazemi/yazses/issues/42)** | A line in `SHOWCASE.md` — a genuine two-minute pull request. |
 | 🧪 **Run it and report** | On [macOS](https://github.com/MSKazemi/yazses/issues/24), [Windows](https://github.com/MSKazemi/yazses/issues/66), or the [snap](https://github.com/MSKazemi/yazses/issues/142). Telling us what broke is how most bugs here get found. |
-| 👁️ **[Eye/camera no-code validation](https://github.com/MSKazemi/yazses/blob/main/design/eye-control/BEGINNER_TESTING.md)** | Pick one 15–20 minute hardware test for Windows, macOS, Wayland, X11 or HiDPI. PASS, FAIL and BLOCKED reports are all useful. |
+| 👁️ **[Eye/camera no-code validation](https://github.com/MSKazemi/yazses/blob/main/design/eye-control/BEGINNER_TESTING.md)** | Planned and READY hardware slots for Windows, macOS, Wayland, X11 and HiDPI. Claim only issues marked `help wanted`; PASS, FAIL and BLOCKED reports are all useful once the slot is READY. |
 
 Those four at the top hold **many contributors at once** — one entry each, nothing to claim,
 nothing to wait for.
