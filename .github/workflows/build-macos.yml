@@ -14,6 +14,12 @@ on:
       - 'pyproject.toml'
   workflow_dispatch:
 
+# A new PR head makes the previous build obsolete. Tag pushes and manual runs use
+# a unique run ID so release/manual evidence is never collapsed by PR optimization.
+concurrency:
+  group: build-macos-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
 # Least privilege: read-only by default; the build job declares what it needs.
 permissions:
   contents: read

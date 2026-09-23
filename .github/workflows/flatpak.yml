@@ -31,6 +31,12 @@ on:
         required: false
         default: false
 
+# A new PR head makes the previous build obsolete. Tag pushes and manual runs use
+# a unique run ID so release/manual evidence is never collapsed by PR optimization.
+concurrency:
+  group: flatpak-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 

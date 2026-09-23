@@ -61,6 +61,10 @@ uv run ruff check src tests scripts # lint — same targets CI uses
 uv run mypy src                     # types — clean today, advisory, see below
 ```
 
+**CI changes:** before editing `.github/workflows/`, CI scripts, release validation, or
+branch-gate logic, read [`.github/CI_POLICY.md`](.github/CI_POLICY.md). It defines the
+workflow lanes, cancellation contract, permission boundaries, retry policy, and scale roadmap.
+
 **pytest and ruff must be green.** Run them before claiming anything works — do not infer
 success from a change looking correct. The suite is offline and mocks audio and model
 layers, so no microphone, network, or Whisper model download is required.
