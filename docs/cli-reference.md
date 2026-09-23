@@ -967,6 +967,34 @@ no error (every clip is discarded as silence). Two things fix this:
 If dictation goes quiet after changing your audio setup, run `yazses audio status` (or
 `yazses status`) to see the live capture device and whether clips are being discarded.
 
+### `yazses language` — dictation language profiles
+
+| Command | Description |
+|---|---|
+| `yazses language list` | List the high-level language profiles YazSes can resolve coherently. |
+| `yazses language status` | Show the effective speech language, Han script, model, and profile coherence. |
+| `yazses language status --json` | Same, as a machine-readable object. |
+
+```bash
+yazses language list
+# en      English  (speech=en, script=none, recommended=faster-whisper/base.en)
+# zh-CN   Mandarin (Simplified Chinese)  (speech=zh, script=simplified, recommended=faster-whisper/small)  aliases: zh-hans
+# zh-TW   Mandarin (Traditional Chinese)  (speech=zh, script=traditional, recommended=faster-whisper/small)  aliases: zh-hant
+
+yazses language status
+# Speech:        en
+# Script:        model/default
+# STT:           faster-whisper / base.en
+# Profile match: en
+# Status:        coherent
+```
+
+A profile is a named, coherent combination of speech language, output script, and
+recommended engine/model — not a second source of truth. `status` derives the current
+profile match from your actual `[stt]` config rather than storing an active-profile flag,
+so it never disagrees with what dictation is really doing. `--json` gives the same
+information for scripts and dashboards.
+
 ### `yazses gaze` — Glance-Type (webcam gaze targeting)
 
 | Command | Description |

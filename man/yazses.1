@@ -245,6 +245,19 @@ Arguments: \fItext\fR
 Jump to a symbol or line in the active editor.
 .br
 Arguments: \fItarget\fR
+.SS "yazses language"
+Inspect dictation-language profiles and effective STT language state.
+.TP
+\fByazses language list\fR
+List the high-level language profiles YazSes can resolve coherently.
+.TP
+\fByazses language status\fR
+Show the effective speech language, Han script, model, and profile coherence.
+.RS
+.TP
+\fB\-\-json\fR
+Emit a machine-readable status object.
+.RE
 .SS "yazses logs"
 Show the daemon's diagnostic log (metadata only unless log_level is DEBUG).
 .RS

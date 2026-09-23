@@ -267,6 +267,20 @@ Jump to a symbol or line in the active editor.
 
 - **Arguments:** `target`
 
+## `yazses language`
+
+Inspect dictation-language profiles and effective STT language state.
+
+### `yazses language list`
+
+List the high-level language profiles YazSes can resolve coherently.
+
+### `yazses language status`
+
+Show the effective speech language, Han script, model, and profile coherence.
+
+- `--json` — Emit a machine-readable status object.
+
 ## `yazses logs`
 
 Show the daemon's diagnostic log (metadata only unless log_level is DEBUG).
