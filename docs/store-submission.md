@@ -85,15 +85,18 @@ does and where to check it:
 | `runFullTrust` | above |
 | `microphone` | recording while the hotkey is held |
 
-**`webcam` is deliberately not declared.** The gaze (Glance-Type) and Face-Gesture
-adapters *are* part of YazSes and work on a normal install — `yazses features enable gaze`
-installs the `gaze` extra (`mediapipe`, `opencv-python`) and they run.
+**`webcam` is deliberately not declared.** The Glance-Type gaze adapter is
+implemented and can use a webcam on a normal install — `yazses features enable gaze`
+installs the `gaze` extra (`mediapipe`, `opencv-python`). The Face-Gesture Switch is
+different: it is a planned/experimental capability, and there is currently no runtime
+face-gesture detector/adapter path in `src/`.
 
-What differs here is the packaging, not the product. The Store package is a frozen
-PyInstaller bundle built without optional extras, and an MSIX has no pip to add them
-afterwards, so those camera code paths are unreachable **in this package specifically**.
-Requesting camera access a user could never benefit from is a certification question with
-no upside. Anyone who wants gaze should install from
+The Store package is a frozen PyInstaller bundle built without optional camera extras,
+and an MSIX has no pip to add them afterwards, so even the implemented gaze camera path
+is unreachable **in this package specifically**. Face-Gesture is not reachable either
+because its runtime implementation does not yet exist. Requesting camera access a user
+could never benefit from is a certification question with no upside. Anyone who wants
+the implemented gaze feature should install from
 [winget, Scoop or the direct installer](windows-install.md), where enabling it works
 normally.
 
