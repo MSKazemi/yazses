@@ -33,9 +33,9 @@ validity studies.
 | Greedy decoding has a measurable cost on the default model | `base.en`: beam 1 vs beam 5 is **4.39% vs 4.01%** on clean speech and **10.56% vs 9.46%** on hard speech; the hard-split paired comparison is significant in the archived analysis. |
 | Cross-platform decode variation is measured | On the 60-utterance common subset, `tiny.en` spans **3.39–3.88%**, `base.en` **3.25–3.39%**, while `small.en` is **2.05% on all four measured runners**. Decode portability is still different from full end-to-end OS validation. |
 | Synthetic onset silence does not recover missed speech | No tested lead-in value establishes a corrected paired benefit over no lead-in. Audio not captured before activation cannot be reconstructed by prepending silence afterward. |
-| Streaming is conditional, not automatically faster | Current documented rerun: `tiny.en` final latency **0.92 → 1.22 s** with streaming while exposing substantial partial text; `base.en` **1.42 → 2.21 s** with **0% median visible at release**. |
+| Streaming is conditional, not automatically faster | Manuscript-grade `paper/results/streaming.json`: `tiny.en` median final latency **1.377 → 2.371 s** with streaming and **59.33%** median text visible at release; `base.en` **4.024 → 7.612 s**, **0%** median visible, and 12/15 with no confirmed partial before release. A later docs rerun must be archived before its numbers enter the paper. |
 | Real-meeting diarization changed the shipped default | Full AMI test split: old threshold 0.5 gives **75.21% mean DER** and extreme over-splitting; current meeting threshold 1.2 gives **26.71% mean DER**, **27.37% time-weighted DER**. |
-| Knowing speaker count is not the same as better DER | At the current threshold, 7 meetings improve, 7 worsen and 2 are unchanged when the exact count is supplied; sign test **p=1.0**. The count itself becomes reliable, but a DER benefit is not established. |
+| A speaker-count cap is not the same as better DER | With `max_speakers=4` at the current threshold, 7 recordings improve, 7 worsen and 2 are unchanged; sign test **p=1.0**. Count correctness improves from 2/16 to 15/16, but a DER benefit is not established. |
 | One diarization threshold does not transfer across domains | Approximate preferred regions differ: synthetic **0.8–0.9**, VoxConverse **~0.9**, AMI **~1.2**. |
 | Simple centroid repair failed | No useful cosine threshold repairs enough split-speaker clusters without unacceptable wrong-person merges. This negative result should remain visible. |
 | Provenance/history changed the science | Retaining displaced contradictory runs, exact commands and corpus identity turned an apparent benchmark disagreement into the `large-v3` reproducibility investigation instead of silently overwriting it. |
@@ -118,7 +118,7 @@ Do not:
 - claim disabling previous-text conditioning generally lowers WER;
 - call streaming universally faster;
 - infer full cross-platform interaction from decode-only artifacts;
-- claim known speaker count improves DER at the current threshold;
+- claim the four-speaker cap improves DER at the current threshold;
 - call the current AMI DER state of the art;
 - use “first” or “novel” until [#507](https://github.com/MSKazemi/yazses/issues/507) verifies the literature.
 
