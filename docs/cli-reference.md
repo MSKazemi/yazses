@@ -974,6 +974,8 @@ If dictation goes quiet after changing your audio setup, run `yazses audio statu
 | `yazses language list` | List the high-level language profiles YazSes can resolve coherently. |
 | `yazses language status` | Show the effective speech language, Han script, model, and profile coherence. |
 | `yazses language status --json` | Same, as a machine-readable object. |
+| `yazses language set <profile>` | Switch dictation language transactionally, with prerequisites first. |
+| `yazses language set <profile> --dry-run` | Show the plan and unmet requirements without changing anything. |
 
 ```bash
 yazses language list
@@ -987,6 +989,20 @@ yazses language status
 # STT:           faster-whisper / base.en
 # Profile match: en
 # Status:        coherent
+
+yazses language set zh-CN --dry-run
+# Language profile: zh-CN — Mandarin (Simplified Chinese)
+# Changes:
+#   [stt] model: 'base.en' -> 'small'
+#     reason: base.en is English-only
+#   [stt] language: 'en' -> 'zh'
+#     reason: speech language for zh-CN
+#   [stt] chinese_script: '' -> 'simplified'
+#     reason: output script for zh-CN
+# Requirements:
+#   model: small (not cached)
+#   Chinese script dependency: missing opencc (install: opencc-python-reimplemented>=0.1.7)
+# No files, packages, models, or daemon state changed (--dry-run).
 ```
 
 A profile is a named, coherent combination of speech language, output script, and
@@ -994,6 +1010,11 @@ recommended engine/model — not a second source of truth. `status` derives the 
 profile match from your actual `[stt]` config rather than storing an active-profile flag,
 so it never disagrees with what dictation is really doing. `--json` gives the same
 information for scripts and dashboards.
+
+`set` writes the config transactionally (all keys land together or none do — see
+`yazses.system.configedit`'s atomic batch writer) and restarts a running daemon by
+default. Drop to `--dry-run` first if you want to see the plan and unmet requirements
+(a missing model download, a missing optional dependency) before committing to anything.
 
 ### `yazses gaze` — Glance-Type (webcam gaze targeting)
 

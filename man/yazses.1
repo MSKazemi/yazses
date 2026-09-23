@@ -251,6 +251,35 @@ Inspect dictation-language profiles and effective STT language state.
 \fByazses language list\fR
 List the high-level language profiles YazSes can resolve coherently.
 .TP
+\fByazses language set\fR \fIPROFILE\fR
+Switch dictation language transactionally, with prerequisites first.
+.RS
+.TP
+\fB\-\-dry\-run\fR
+Show the complete plan and prerequisites without changing anything.
+.TP
+\fB\-\-model\fR
+Explicit faster-whisper model override.
+.TP
+\fB\-\-engine\fR
+Explicit engine override (currently only faster-whisper is accepted).
+.TP
+\fB\-\-recommended\-model\fR
+Select the profile's supported baseline instead of preserving a compatible model.
+.TP
+\fB\-\-no\-download\fR
+Never fetch a missing speech model; refuse before writing config.
+.TP
+\fB\-\-no\-install\fR
+Never install a missing optional Python dependency.
+.TP
+\fB\-\-no\-restart\fR
+Commit a valid config but leave a running daemon unchanged.
+.TP
+\fB\-\-yes, \-y\fR
+Apply the displayed plan without an interactive confirmation.
+.RE
+.TP
 \fByazses language status\fR
 Show the effective speech language, Han script, model, and profile coherence.
 .RS
