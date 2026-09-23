@@ -130,8 +130,8 @@ Hold a key, speak, release — your words are transcribed locally with
 focused app. **No cloud. No API key. No subscription. Nothing leaves your machine.**
 { .yz-hero__tagline }
 
-[Get started :material-rocket-launch:](install-linux.md){ .md-button .md-button--primary }
-[Install from PyPI :simple-pypi:](https://pypi.org/project/yazses/){ .md-button }
+[Get started :material-rocket-launch:](#install){ .md-button .md-button--primary }
+[Platform support :material-monitor-multiple:](platform-support.md){ .md-button }
 [Star on GitHub :material-star:](https://github.com/MSKazemi/yazses){ .md-button }
 
 <div class="yz-chips">
@@ -146,6 +146,19 @@ focused app. **No cloud. No API key. No subscription. Nothing leaves your machin
 [:material-youtube: Watch it with narration and chapters on YouTube](https://www.youtube.com/watch?v=nn8WUKsCvZ4)
 
 ![yazses doctor — all green, fully offline by default](screenshots/yazses-doctor.png)
+
+## Start with your goal
+
+<div class="grid cards" markdown>
+
+- :material-linux: **[Install on Linux](install-linux.md)** — recommended universal installer, plus APT, Snap and pipx alternatives
+- :material-apple: **[Install on macOS](macos-install.md)** — Homebrew on Apple Silicon, native `.dmg` builds, or pipx
+- :material-microsoft-windows: **[Install on Windows](windows-install.md)** — winget, native `.exe`, Scoop, or pipx
+- :material-file-music: **[Transcribe a recording](tutorials/transcribe-recordings.md)** — audio/video to text or subtitles; speaker labels are optional
+- :material-lifebuoy: **[Fix something that is not working](troubleshooting.md)** — start with `yazses doctor`, then jump to the symptom
+- :material-tune: **[Customize YazSes](configuration.md)** — hotkey, models, vocabulary, features and `config.toml`
+
+</div>
 
 ## Why YazSes
 
@@ -220,17 +233,50 @@ focused app. **No cloud. No API key. No subscription. Nothing leaves your machin
 
 ## Install
 
-=== ":material-language-python: Any OS (Python ≥ 3.11)"
+=== ":material-linux: Linux (recommended)"
+
+    ```sh
+    bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install.sh)
+    ```
+
+    The universal installer provisions audio, hotkey and text-injection
+    prerequisites, then runs `yazses doctor`. See the
+    [Linux install guide](install-linux.md) for APT, Snap and pipx alternatives.
+
+=== ":material-apple: macOS"
+
+    On Apple Silicon, Homebrew is the recommended route:
+
+    ```sh
+    brew tap MSKazemi/yazses
+    brew trust MSKazemi/yazses
+    brew install --cask yazses
+    ```
+
+    Apple Silicon and Intel also have native `.dmg` builds. See the
+    [macOS install guide](macos-install.md) for downloads, Gatekeeper and
+    Accessibility/Microphone permissions.
+
+=== ":material-microsoft-windows: Windows"
+
+    ```powershell
+    winget install MSKazemi.YazSes
+    ```
+
+    winget resolves x64 vs ARM64 automatically. See the
+    [Windows install guide](windows-install.md) for the native installer, Scoop,
+    SmartScreen and microphone permissions.
+
+=== ":material-language-python: Python package"
 
     ```sh
     pipx install yazses
     ```
 
-=== ":material-debian: Linux (Debian/Ubuntu)"
-
-    ```sh
-    bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install-apt.sh)
-    ```
+    This installs the Python package on supported platforms. On Linux, run
+    `yazses setup` afterward to provision system dependencies. On macOS and
+    Windows, prefer the platform-specific route above when you want the packaged
+    desktop experience.
 
 !!! note "The snap on Wayland"
     The strictly confined snap dictates on X11, and on **GNOME/KDE Wayland**
@@ -253,19 +299,19 @@ focused app. **No cloud. No API key. No subscription. Nothing leaves your machin
     it can only print the manual permission checklist; the snap already bundles
     its X11 dependencies.
 
-**Non-Snap Linux installs — provision the system in one command** (the `install-apt.sh` / APT path does it automatically):
+**Installed with `pipx` on Linux?** Provision the host in one command. Skip this
+if you used the universal installer or APT path — both already do it:
 
 ```sh
 yazses setup        # installs audio + injection deps, joins the input group, sets up ydotoold
 # then log out and back in (the input-group change needs a fresh login)
 ```
 
-This installs `libportaudio2` (audio), the X11/Wayland injection tools, adds you to the `input` group, and — on **GNOME/KDE Wayland**, where `wtype` is blocked — sets up `ydotoold` (the only way to inject keystrokes there). Re-run it anytime; it only fixes what's missing.
-
 Then:
 
 ```sh
-yazses doctor     # check mic, injection backend, permissions (want [OK] Keyboard capture)
+yazses quickstart # machine-tailored next steps; read-only
+yazses doctor     # check mic, injection backend and permissions
 yazses enroll     # calibrate your microphone (~30 s)
 yazses start      # start the dictation daemon
 ```
@@ -354,9 +400,9 @@ a real [asciinema](https://asciinema.org) recording of `-h` → `about` → `qui
 
 **What GPU do I need?** None. It runs on CPU; 4 GB RAM minimum, 8 GB comfortable.
 
-**Does it work on Wayland?** Yes via the APT or pipx install (uses wtype/ydotool).
-Use one of those, not the snap — strict confinement prevents the Snap from using
-the host injection service, so it cannot type the result into Wayland applications.
+**Does it work on Wayland?** Yes. Unconfined installs use `wtype`/`ydotool`;
+the strictly confined Snap uses the `xdg-desktop-portal` RemoteDesktop API on
+GNOME/KDE Wayland. The universal installer remains the most-tested Linux path.
 
 **Is it a replacement for Talon?** YazSes focuses on offline dictation plus a practical command grammar. Talon has far more advanced scripting. They can coexist.
 

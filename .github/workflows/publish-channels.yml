@@ -66,6 +66,17 @@ on:
         description: "Version to publish, without the leading v (e.g. 2.18.2)"
         required: true
         type: string
+      channel:
+        description: "Channel to (re)publish -- 'all' runs every channel, same as a tag push. Use a single channel to resubmit one package (e.g. after a moderator-requested fix) without moving the others, which may already be ahead of the version given above."
+        required: false
+        type: choice
+        default: all
+        options:
+          - all
+          - winget
+          - chocolatey
+          - homebrew
+          - aur
 
 permissions:
   contents: read
@@ -164,6 +175,7 @@ jobs:
 
   winget:
     needs: wait-for-assets
+    if: github.event.inputs.channel == '' || github.event.inputs.channel == 'all' || github.event.inputs.channel == 'winget'
     runs-on: windows-latest
     env:
       HAVE_SECRET: ${{ secrets.WINGET_TOKEN != '' && 'yes' || 'no' }}
@@ -240,6 +252,7 @@ jobs:
 
   chocolatey:
     needs: wait-for-assets
+    if: github.event.inputs.channel == '' || github.event.inputs.channel == 'all' || github.event.inputs.channel == 'chocolatey'
     runs-on: windows-latest
     env:
       HAVE_SECRET: ${{ secrets.CHOCO_API_KEY != '' && 'yes' || 'no' }}
@@ -292,6 +305,7 @@ jobs:
 
   homebrew:
     needs: wait-for-assets
+    if: github.event.inputs.channel == '' || github.event.inputs.channel == 'all' || github.event.inputs.channel == 'homebrew'
     runs-on: ubuntu-latest
     env:
       HAVE_SECRET: ${{ secrets.TAP_TOKEN != '' && 'yes' || 'no' }}
@@ -334,6 +348,7 @@ jobs:
 
   aur:
     needs: wait-for-assets
+    if: github.event.inputs.channel == '' || github.event.inputs.channel == 'all' || github.event.inputs.channel == 'aur'
     runs-on: ubuntu-latest
     env:
       HAVE_SECRET: ${{ secrets.AUR_SSH_KEY != '' && 'yes' || 'no' }}

@@ -72,6 +72,14 @@ Two conclusions fall straight out of the table:
 
 That is why Glance-Type is deliberately *look-to-pane*, never look-to-caret.
 
+!!! info "From eye tracking to grounded interaction"
+
+    Gaze is only the **target source**. The next architectural problem is grounding
+    that coarse target to a structured UI entity, then combining it with voice and
+    a guarded action. See [Grounded multimodal interaction](grounded-multimodal-interaction.md)
+    for the Google Magic Pointer / Apple Siri AI comparison and the proposed
+    target → ground → resolve → plan → confirm → act model.
+
 ## A licensing trap most projects miss
 
 Nearly every pretrained appearance-based gaze model is **non-commercial by

@@ -1,4 +1,4 @@
-**Read this in other languages:** **English** · [Deutsch](docs/de/index.md) · [Nederlands](docs/nl/index.md) · [Tiếng Việt](docs/vi/index.md) · [Türkçe](docs/tr/index.md) · [bahasa Indonesia](docs/id/index.md) · [español](docs/es/index.md) · [français](docs/fr/index.md) · [italiano](docs/it/index.md) · [polski](docs/pl/index.md) · [português do Brasil](docs/pt-BR/index.md) · [svenska](docs/sv/index.md) · [čeština](docs/cs/index.md) · [ελληνικά](docs/el/index.md) · [Русский](docs/ru/index.md) · [українська](docs/uk/index.md) · [עברית](docs/he/index.md) · [اردو](docs/ur/index.md) · [العربية](docs/ar/index.md) · [فارسی](docs/fa/index.md) · [हिंदी](docs/hi/index.md) · [বাংলা](docs/bn/index.md) · [தமிழ்](docs/ta/index.md) · [తెలుగు](docs/te/index.md) · [ไทย](docs/th/index.md) · [日本語](docs/ja/index.md) · [简体中文](docs/zh-CN/index.md) · [繁體中文](docs/zh-TW/index.md) · [한국어](docs/ko/index.md)
+**Read this in other languages:** **English** · [Deutsch](docs/de/index.md) · [Nederlands](docs/nl/index.md) · [Tiếng Việt](docs/vi/index.md) · [Türkçe](docs/tr/index.md) · [bahasa Indonesia](docs/id/index.md) · [español](docs/es/index.md) · [français](docs/fr/index.md) · [italiano](docs/it/index.md) · [polski](docs/pl/index.md) · [português do Brasil](docs/pt-BR/index.md) · [svenska](docs/sv/index.md) · [čeština](docs/cs/index.md) · [ελληνικά](docs/el/index.md) · [Русский](docs/ru/index.md) · [українська](docs/uk/index.md) · [اردو](docs/ur/index.md) · [العربية](docs/ar/index.md) · [فارسی](docs/fa/index.md) · [हिंदी](docs/hi/index.md) · [বাংলা](docs/bn/index.md) · [தமிழ்](docs/ta/index.md) · [తెలుగు](docs/te/index.md) · [ไทย](docs/th/index.md) · [日本語](docs/ja/index.md) · [简体中文](docs/zh-CN/index.md) · [繁體中文](docs/zh-TW/index.md) · [한국어](docs/ko/index.md)
 
 # YazSes
 
@@ -10,23 +10,29 @@ CPU. Dictation works out of the box; the extras beyond it are opt-in and off by 
 
 ## ⬇️ Install
 
-| Your computer | Install it | Full guide |
+| Your computer | Recommended install | Full guide |
 |---|---|---|
 | 🐧 **Linux** | `bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install.sh)` | **[Linux install →](https://mskazemi.com/yazses/install-linux.html)** |
-| 🍎 **macOS** | `pipx install yazses` | **[macOS install →](https://mskazemi.com/yazses/macos-install.html)** |
+| 🍎 **macOS (Apple Silicon)** | `brew tap MSKazemi/yazses && brew trust MSKazemi/yazses && brew install --cask yazses` | **[macOS install →](https://mskazemi.com/yazses/macos-install.html)** |
+| 🍎 **macOS (Intel)** | Download the `-macos-x86_64.dmg` from [Releases](https://github.com/MSKazemi/yazses/releases/latest) | **[macOS install →](https://mskazemi.com/yazses/macos-install.html)** |
 | 🪟 **Windows** | `winget install MSKazemi.YazSes` | **[Windows install →](https://mskazemi.com/yazses/windows-install.html)** |
 
-Then run these two:
+After installation, run:
 
 ```bash
 yazses quickstart   # 3 steps tailored to your machine — read-only, changes nothing
+yazses doctor       # verify microphone, hotkey and text injection
 yazses start        # now hold your hotkey, speak, release
 ```
 
-*On Apple Silicon, a Raspberry Pi, or anything not x86_64?* The
-**[platform support matrix](https://mskazemi.com/yazses/platform-support.html)** lists every
-OS and CPU with the channel that works there today — `pipx install yazses` works everywhere
-that is supported at all, because the published wheel is architecture-independent.
+On a native macOS or Windows desktop install, the app can also be launched from
+the normal application menu; the CLI remains available for diagnostics and advanced setup.
+
+*On Apple Silicon, Intel macOS, ARM64 Windows, a Raspberry Pi, or another less common CPU?*
+The **[platform support matrix](https://mskazemi.com/yazses/platform-support.html)** lists the
+tested install channel for each OS/architecture combination. `pipx install yazses` remains a
+portable fallback on supported Python/platform combinations, but the native package is the
+better desktop experience when one is available.
 
 **How it works:** you hold a key → YazSes records → [faster-whisper](https://github.com/SYSTRAN/faster-whisper)
 transcribes it on your CPU → the text is typed into whatever window has focus. There is no
@@ -52,7 +58,7 @@ Not sure yet? **[Try it without installing](https://mskazemi.com/yazses/try-with
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21856271.svg)](https://doi.org/10.5281/zenodo.21856271)
 [![Documentation](https://img.shields.io/badge/docs-mskazemi.com%2Fyazses-5e35b1)](https://mskazemi.com/yazses/)
 [![Open Source Helpers](https://www.codetriage.com/mskazemi/yazses/badges/users.svg)](https://www.codetriage.com/mskazemi/yazses)
-[![All Contributors](https://img.shields.io/badge/all_contributors-28-orange.svg?style=flat-square)](#contributors)
+[![All Contributors](https://img.shields.io/badge/all_contributors-29-orange.svg?style=flat-square)](#contributors)
 
 [![Get it from the Snap Store](https://snapcraft.io/en/light/install.svg)](https://snapcraft.io/yazses) **Two `snap connect` lines are required after install — see [§Snap](docs/install-linux.md#3-snap).**
 
@@ -78,7 +84,7 @@ In your own terminal: `asciinema play docs/demo/yazses-cli.cast`.
 > ⭐ **If that looks useful, a star is how other people find it.** There's no company and no
 > ad budget behind this — word of mouth is the entire distribution strategy.
 
-> 🙌 **Want to help?** **[Start here](https://mskazemi.com/yazses/contribute/start.html)** — one page, pick the row matching what you have, finish in 15–45 minutes. No permission needed and nothing is assigned; coding agents are welcome and there's a copy-paste prompt. Several tasks need **no Python at all** — [translate the README](https://github.com/MSKazemi/yazses/issues/18) into your language, [add your microphone](https://github.com/MSKazemi/yazses/issues/21) to the known-good list, or just run it and tell us what happened. [#22](https://github.com/MSKazemi/yazses/issues/22) lists everything open. The test suite is fully offline and takes about 30 seconds, so you need no microphone, model or GPU to contribute.
+> 🙌 **Want to help?** **[Start here](https://mskazemi.com/yazses/contribute/start.html)** — one page, pick the row matching what you have, finish in 15–45 minutes. No permission needed and nothing is assigned; coding agents are welcome and there's a copy-paste prompt. **AI tools are optional; you never need to pay for one to contribute.** If you use one, read the [safe agent guide](docs/contribute/ai-agents.md) first. Several tasks need **no Python at all** — [translate the README](https://github.com/MSKazemi/yazses/issues/18) into your language, [add your microphone](https://github.com/MSKazemi/yazses/issues/21) to the known-good list, or just run it and tell us what happened. [#22](https://github.com/MSKazemi/yazses/issues/22) lists everything open. The test suite is fully offline and takes about 30 seconds, so you need no microphone, model or GPU to contribute.
 
 ---
 
@@ -651,7 +657,7 @@ account beyond GitHub. Opening the pull request is the whole contract — Apache
 already covers the licence grant.
 
 - 🌱 **New here?** Start with a [good first issue](https://github.com/MSKazemi/yazses/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) — each is small and self-contained, and we're happy to help you through your first PR.
-- 🚀 **First time? [Start here](https://mskazemi.com/yazses/contribute/start.html)** — one page, pick the row matching what you have in front of you, finish in 15–45 minutes. No permission needed, nothing is assigned, and coding agents are welcome (there's a copy-paste prompt).
+- 🚀 **First time? [Start here](https://mskazemi.com/yazses/contribute/start.html)** — one page, pick the row matching what you have in front of you, finish in 15–45 minutes. No permission needed, nothing is assigned, and coding agents are welcome (there's a copy-paste prompt). AI tools are optional; [use them safely](docs/contribute/ai-agents.md) and do not assume YazSes authorizes or reimburses their costs.
 - 🎯 **Want the full list?** [**Filter 130 open tasks**](https://mskazemi.com/yazses/contribute/find.html) by what you have, your time, and whether you want to write code
   — each one names the exact files you may touch, the command that says you're done, and an
   honest time estimate. Filter by what you actually have: a browser, a terminal, a specific
@@ -730,6 +736,9 @@ Thanks to these people for helping build YazSes ✨ — every bug report, doc fi
       <td align="center" valign="top" width="14.28%"><a href="https://x.com/WEFramework"><img src="https://avatars.githubusercontent.com/u/248577390?v=4?s=100" width="100px;" alt="DeliberateEnsemble"/><br /><sub><b>DeliberateEnsemble</b></sub></a><br /><a href="https://github.com/MSKazemi/yazses/commits?author=vortsghost2025" title="Code">💻</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/doeil1614-ops"><img src="https://avatars.githubusercontent.com/u/298136347?v=4?s=100" width="100px;" alt="doeil1614-ops"/><br /><sub><b>doeil1614-ops</b></sub></a><br /><a href="#translation-doeil1614-ops" title="Translation">🌍</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/musabustun"><img src="https://avatars.githubusercontent.com/u/59414375?v=4?s=100" width="100px;" alt="Musab Yusuf Üstün"/><br /><sub><b>Musab Yusuf Üstün</b></sub></a><br /><a href="#translation-musabustun" title="Translation">🌍</a></td>
+    </tr>
+    <tr>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/sameer8945"><img src="https://avatars.githubusercontent.com/u/224630461?v=4?s=100" width="100px;" alt="sameer"/><br /><sub><b>sameer</b></sub></a><br /><a href="https://github.com/MSKazemi/yazses/commits?author=sameer8945" title="Documentation">📖</a></td>
     </tr>
   </tbody>
 </table>

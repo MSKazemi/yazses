@@ -5,7 +5,7 @@ alternates:
   en: index.md
 ---
 
-**Read this in other languages:** [English](../index.md) · [Deutsch](../de/index.md) · [Nederlands](../nl/index.md) · [Tiếng Việt](../vi/index.md) · [Türkçe](../tr/index.md) · [bahasa Indonesia](../id/index.md) · [español](../es/index.md) · [français](../fr/index.md) · [italiano](../it/index.md) · [polski](../pl/index.md) · [português do Brasil](../pt-BR/index.md) · [svenska](../sv/index.md) · [čeština](../cs/index.md) · [ελληνικά](../el/index.md) · [Русский](../ru/index.md) · [українська](../uk/index.md) · [עברית](../he/index.md) · [اردو](../ur/index.md) · [العربية](../ar/index.md) · [فارسی](../fa/index.md) · हिंदी · [বাংলা](../bn/index.md) · [தமிழ்](../ta/index.md) · [తెలుగు](../te/index.md) · [ไทย](../th/index.md) · [日本語](../ja/index.md) · [简体中文](../zh-CN/index.md) · [繁體中文](../zh-TW/index.md) · [한국어](../ko/index.md)
+**Read this in other languages:** [English](../index.md) · [Deutsch](../de/index.md) · [Nederlands](../nl/index.md) · [Tiếng Việt](../vi/index.md) · [Türkçe](../tr/index.md) · [bahasa Indonesia](../id/index.md) · [español](../es/index.md) · [français](../fr/index.md) · [italiano](../it/index.md) · [polski](../pl/index.md) · [português do Brasil](../pt-BR/index.md) · [svenska](../sv/index.md) · [čeština](../cs/index.md) · [ελληνικά](../el/index.md) · [Русский](../ru/index.md) · [українська](../uk/index.md) · [اردو](../ur/index.md) · [العربية](../ar/index.md) · [فارسی](../fa/index.md) · हिंदी · [বাংলা](../bn/index.md) · [தமிழ்](../ta/index.md) · [తెలుగు](../te/index.md) · [ไทย](../th/index.md) · [日本語](../ja/index.md) · [简体中文](../zh-CN/index.md) · [繁體中文](../zh-TW/index.md) · [한국어](../ko/index.md)
 <!-- yazses-l10n: locale=hi; source=README.md; source_sha=96711bc; scope=full; status=active; reviewer=@Sushanttmishraa (account deleted) -->
 
 > [README.md](https://github.com/MSKazemi/yazses#readme) का हिंदी अनुवाद। यदि यहाँ दी गई किसी जानकारी और अंग्रेज़ी संस्करण में अंतर हो, तो अंग्रेज़ी संस्करण को सही माना जाएगा।
@@ -609,6 +609,9 @@ Thanks to these people for helping build YazSes ✨ — every bug report, doc fi
       <td align="center" valign="top" width="14.28%"><a href="https://x.com/WEFramework"><img src="https://avatars.githubusercontent.com/u/248577390?v=4?s=100" width="100px;" alt="DeliberateEnsemble"/><br /><sub><b>DeliberateEnsemble</b></sub></a><br /><a href="https://github.com/MSKazemi/yazses/commits?author=vortsghost2025" title="Code">💻</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/doeil1614-ops"><img src="https://avatars.githubusercontent.com/u/298136347?v=4?s=100" width="100px;" alt="doeil1614-ops"/><br /><sub><b>doeil1614-ops</b></sub></a><br /><a href="#translation-doeil1614-ops" title="Translation">🌍</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/musabustun"><img src="https://avatars.githubusercontent.com/u/59414375?v=4?s=100" width="100px;" alt="Musab Yusuf Üstün"/><br /><sub><b>Musab Yusuf Üstün</b></sub></a><br /><a href="#translation-musabustun" title="Translation">🌍</a></td>
+    </tr>
+    <tr>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/sameer8945"><img src="https://avatars.githubusercontent.com/u/224630461?v=4?s=100" width="100px;" alt="sameer"/><br /><sub><b>sameer</b></sub></a><br /><a href="https://github.com/MSKazemi/yazses/commits?author=sameer8945" title="Documentation">📖</a></td>
     </tr>
   </tbody>
 </table>

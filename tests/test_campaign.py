@@ -64,6 +64,15 @@ def test_generated_files_are_in_sync(campaign, tasks):
     )
 
 
+def test_agent_ready_never_implies_authority_to_spend(campaign, tasks):
+    """Generated task surfaces must not turn technical readiness into a billing promise."""
+    open_tasks = campaign.render_open_tasks(tasks)
+    finder = campaign.render_task_finder(tasks)
+
+    assert "authorization to buy credits" in open_tasks
+    assert "authorizes or reimburses paid usage" in finder
+
+
 def test_the_schema_is_derived_from_the_field_spec(campaign):
     """If someone hand-edits the JSON Schema, it stops describing the validator."""
     schema = json.loads((ROOT / "campaign" / "schemas" / "task.schema.json").read_text(encoding="utf-8"))

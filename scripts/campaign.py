@@ -316,6 +316,10 @@ def render_open_tasks(tasks: list[dict[str, Any]]) -> str:
         "issue so nobody doubles up, and open the PR. A coding agent is welcome — you remain",
         "the author, and you are expected to have read every line you send.",
         "",
+        "Agent-ready or cloud-ready describes technical suitability only; it is **not**",
+        "authorization to buy credits, enable overages, or incur paid cloud costs. See the",
+        "[safe AI-agent guide](https://mskazemi.com/yazses/contribute/ai-agents.html).",
+        "",
         "`Risk` is who reviews it, not how hard it is: **L0** schema-only, **L1** bounded",
         "docs/config, **L2** bounded code.",
         "",
@@ -451,6 +455,10 @@ description: Filter {len(openable)} open YazSes contributor tasks by what you ha
 Filter by what you actually have. Nothing is assigned and you need no permission — pick one,
 say so on the issue it links to, and open the pull request.
 [How to make your first contribution](start.md) if you want the short version.
+
+Coding agents are optional. "Cloud-ready" means the task can run in that environment; it does
+**not** mean YazSes authorizes or reimburses paid usage. Read
+[Using AI coding agents safely](ai-agents.md) before connecting one.
 
 <div class="yz-filters" markdown="0">
   <label>What you have

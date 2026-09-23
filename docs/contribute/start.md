@@ -51,6 +51,18 @@ things stay true regardless: you are the author, and you are expected to have re
 wrote. Say in the pull request that you used one; it changes how carefully we read it, never
 whether we accept it.
 
+!!! warning "AI tools are optional; paid usage is your choice"
+
+    You do **not** need to buy an AI subscription, credits, tokens, a rate-limit reset, or
+    cloud compute to contribute. If you choose a third-party AI tool, you are responsible
+    for that provider account and its charges. YazSes does not reimburse those costs unless
+    a maintainer agreed in writing in advance to a specific expense and amount.
+
+    Before you start, read **[Using AI coding agents safely](ai-agents.md)**. It includes
+    Claude Code, Codex, and ChatGPT setup patterns for staying inside your intended billing
+    mode and links to the providers' current official documentation. The project-wide legal
+    and billing policy is [THIRD_PARTY_AI_TOOLS.md](https://github.com/MSKazemi/yazses/blob/main/THIRD_PARTY_AI_TOOLS.md).
+
 Copy this, replacing the task ID:
 
 ```text

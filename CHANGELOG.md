@@ -6,6 +6,20 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the Unicode injector was never actually used for key sequences
+
+Selecting `[injection] backend = "unicode"` correctly routed plain dictation text through
+`UnicodeInjector`, but key sequences (command-mode combos like `ctrl+z`) never did —
+`LinuxInjector.inject_key_sequence` re-implements its own Wayland/X11 tool selection
+independently of whichever primary backend was actually chosen, so an explicit `unicode`
+selection was silently ignored for anything but plain text. `inject_key_sequence` now checks
+for that explicit selection first and routes to the selected primary backend; the automatic
+ydotool/wtype/xdotool path and clipboard behavior are unchanged.
+
+Found and fixed by [@vortsghost2025](https://github.com/vortsghost2025)
+([#390](https://github.com/MSKazemi/yazses/pull/390)), as part of the Linux Injection
+Steward path opened in #386.
+
 ### Fixed — the winget publish job's own fork had fallen behind upstream
 
 v2.37.2's release proved the manifest-generation fix (above) correct — the job reached

@@ -36,7 +36,6 @@ language fixes it.
 | čeština (`cs`) | [docs/cs/index.md](https://mskazemi.com/yazses/cs/index.html) | partial | *needed* | `3baacb8` | draft | needs a native reviewer — [#193](https://github.com/MSKazemi/yazses/issues/193) |
 | ελληνικά (`el`) | [docs/el/index.md](https://mskazemi.com/yazses/el/index.html) | partial | *needed* | `3baacb8` | draft | needs a native reviewer — [#195](https://github.com/MSKazemi/yazses/issues/195) |
 | українська (`uk`) | [docs/uk/index.md](https://mskazemi.com/yazses/uk/index.html) | partial | *needed* | `3baacb8` | draft | needs a native reviewer — [#204](https://github.com/MSKazemi/yazses/issues/204) |
-| עברית (`he`) | [docs/he/index.md](https://mskazemi.com/yazses/he/index.html) | partial | *needed* | `3baacb8` | draft | needs a native reviewer — [#196](https://github.com/MSKazemi/yazses/issues/196) |
 | اردو (`ur`) | [docs/ur/index.md](https://mskazemi.com/yazses/ur/index.html) | partial | *needed* | `3baacb8` | draft | needs a native reviewer — [#232](https://github.com/MSKazemi/yazses/issues/232) |
 | العربية (`ar`) | [docs/ar/index.md](https://mskazemi.com/yazses/ar/index.html) | partial | *needed* | `3baacb8` | draft | needs a native reviewer — [#190](https://github.com/MSKazemi/yazses/issues/190) |
 | فارسی (`fa`) | [docs/fa/index.md](https://mskazemi.com/yazses/fa/index.html) | partial | *needed* | `3baacb8` | draft | needs a native reviewer — [#199](https://github.com/MSKazemi/yazses/issues/199) |
