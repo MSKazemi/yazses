@@ -65,7 +65,11 @@ that.
 
 ### If you want to use a cloud agent on campaign work
 
-Use the fork-first worker flow in
+For **Google Jules**, start with the dedicated
+[step-by-step Jules connection guide](jules.md). It shows the approved fork-first setup that is
+available today and separately documents the still-gated owner/upstream setup.
+
+For provider-neutral worker rules, use the fork-first flow in
 [`campaign/agent-workers.md`](../../campaign/agent-workers.md). It explains how task claims,
 `cloud_agent_ready`, allowed paths, provider-specific execution triggers such as Jules, and
 human review fit together. The key distinction is that **agent readiness is project metadata;
