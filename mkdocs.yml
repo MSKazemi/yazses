@@ -386,6 +386,7 @@ nav:
           - Mobile programme: design/mobile/index.md
           - Packaging runbooks: design/packaging/index.md
           - v2 cognitive layer: design/v2-cognitive-layer/index.md
+          - Mandarin language programme: design/chinese/index.md
           - Architecture (internal): design/architecture.md
           - Threat model: design/threat-model.md
           - EMG protocol: design/emg-protocol.md
