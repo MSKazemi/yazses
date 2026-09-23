@@ -1,8 +1,8 @@
 # Agent-sized task catalogue — eye / camera control
 
 This is the source text for GitHub child issues under #102. Issue numbers are populated after issue
-creation. Each task is intentionally narrow enough to hand to a coding agent **together with the
-linked ADR/roadmap section**.
+creation. Implementation tasks are intentionally narrow enough to hand to a coding agent **after their blockers
+are merged**. Research/hardware/no-code tasks are equally bounded but remain human evidence work.
 
 ## GitHub issue map
 
@@ -67,6 +67,63 @@ All tasks below are attached to milestone **Hands-free — perception & accessib
 | EYE-GROUND-003 | #443 |
 | EYE-GROUND-004 | #444 |
 | EYE-GROUND-005 | #445 |
+
+## Current readiness waves
+
+**Snapshot: 2026-09-23.** This is an operational view, not a replacement for the issue body's blocker
+list.
+
+### Wave 0 — available before #413 merges
+
+- **#392 EYE-DOC-001** — documentation-truth correction. This is the only eye-programme child that
+  does not depend on the new programme documents being present on `main`.
+
+### Root gate
+
+- **#413** — merges the ADR/spec/evaluation/governance programme. Until it merges, downstream issues
+  stay PLANNED and must not carry `help wanted`, `good first issue` or `agent-ready`.
+
+### Wave 1 — candidates immediately after #413
+
+After re-checking each issue body, the following can become contributor-ready because their policy
+contracts will then exist on `main`:
+
+| Issue | Work type | Readiness label after #413 |
+|---|---|---|
+| #393 | pure perception contracts | `help wanted` + `agent-ready` |
+| #400 | PointerSink protocol/fake | `help wanted` + `agent-ready` |
+| #421 | evaluation schema/validator | `help wanted` + `agent-ready` |
+| #441 | grounded-target pure contracts | `help wanted` + `agent-ready` |
+| #414 | permissions/packaging contract | `help wanted`; add `agent-ready` only if no unresolved platform policy remains |
+| #415 | topology/HiDPI foundation | `help wanted`; agent readiness after exact seam check |
+| #417 | pure global safety state/watchdog foundation | `help wanted`; agent readiness after seam check |
+| #425 | research protocol/ethics gate | `help wanted` (human research/design, not agent execution) |
+| #427 | plain-language data-sharing review | `help wanted` + `good first issue` |
+| #449 | first-time-reader beginner-guide review | `help wanted` + `good first issue` |
+| #454 | validation slot registry/validator | `help wanted` + `agent-ready` |
+
+### Wave 2+ — dependency driven
+
+Examples:
+- #394 after #393;
+- #422 after #421;
+- #442 after #441;
+- #455 after #454;
+- #401–#403 after #400;
+- #395 after #394;
+- #406 after #395.
+
+Do not activate a whole phase merely because an earlier phase started. Activate one issue only when
+its exact blockers are closed.
+
+### Human hardware slots
+
+#428–#440 remain **PLANNED** until #423 and the relevant runtime/safety prerequisites are merged.
+When a slot becomes READY, restore:
+- `help wanted`;
+- `good first issue`;
+- keep `measurement-wanted`, `hardware-required`, `size:s`;
+- never add `agent-ready`.
 
 ## How to use a task
 
