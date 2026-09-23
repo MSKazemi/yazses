@@ -3,14 +3,19 @@ description: >-
   A small, guided hardware check for people who do not need to write code.
   Run one scripted test on one computer and report what happened.
 title: "[eye-test]: "
-labels: ["accessibility", "measurement-wanted", "hardware-required", "good first issue"]
+labels: ["accessibility", "measurement-wanted", "hardware-required"]
 body:
   - type: markdown
     attributes:
       value: |
         **You do not need to be a developer.** One computer + one short test is useful.
 
-        This is a **public engineering QA report, not research consent**. Do not upload
+        **Use this form only for a validation slot that is currently marked READY and has the
+        `help wanted` label.** A visible PLANNED slot is not yet runnable; do not invent manual
+        steps or a private data format.
+
+        This public issue is always **community engineering QA (`community_qa`)**, not a research
+        participant submission or research consent. Do not upload
         a face photo/video, raw webcam frame, private dictated text, diagnosis, email,
         device serial number, access token, or sensitive screenshot.
 
@@ -27,14 +32,35 @@ body:
         - label: I can stop the test at any time if the pointer/camera control is uncomfortable
           required: true
 
-  - type: dropdown
-    id: use
+  - type: input
+    id: ready_issue
     attributes:
-      label: Use of this report
+      label: READY validation issue
+      description: >-
+        Enter the issue number for the READY slot/test that asked you to use this form.
+        The issue must currently have the help-wanted label.
+      placeholder: "#428"
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: readiness_ack
+    attributes:
+      label: Readiness acknowledgement
       options:
-        - "Engineering QA only"
-        - "Engineering QA; I am willing to be contacted separately about a future research study"
-        - "This run is under an existing named research protocol"
+        - label: I checked that the linked validation issue is marked READY / help wanted
+          required: true
+
+  - type: dropdown
+    id: research_contact
+    attributes:
+      label: Optional future research contact preference
+      description: >-
+        This does not change this public report from community QA into research data.
+        Any future research participation requires a separate protocol and consent process.
+      options:
+        - "QA only — do not contact me about research through this issue"
+        - "I am willing to be contacted separately about a future research study"
     validations:
       required: true
 
@@ -43,14 +69,14 @@ body:
     attributes:
       label: Which small test are you doing?
       options:
-        - "Camera enable / disable / release"
-        - "Gaze: choose one of four large targets"
-        - "Head-Pointer: move to large targets"
-        - "Face switch: deliberate activation + neutral period"
-        - "Pause / kill / recovery after camera loss"
-        - "Wayland pointer permission / movement"
-        - "Multi-monitor or HiDPI calibration check"
-        - "Hands-free scripted workflow"
+        - "T0 — camera lifecycle / permission / stop / release"
+        - "T1 — coarse four-target gaze"
+        - "T2 — Head-Pointer large-target task"
+        - "T3 — face-switch deliberate / neutral / speaking blocks"
+        - "T4 — pause / kill / tracking-loss / recovery safety"
+        - "T5 — HiDPI / multi-monitor topology"
+        - "T6 — semantic grounding correct / wrong / ambiguous / abstain"
+        - "T7 — hands-free scripted workflow"
     validations:
       required: true
 
