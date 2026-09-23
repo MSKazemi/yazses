@@ -248,6 +248,11 @@ It shows how to work from your fork, keep approval controls on, tell subscriptio
 API billing, and avoid accidentally enabling paid continuation. The canonical project policy
 is **[Third-party AI tools: billing, responsibility, and no reimbursement](../THIRD_PARTY_AI_TOOLS.md)**.
 
+Using **Google Jules** specifically? Follow the
+**[step-by-step Jules connection guide](../docs/contribute/jules.md)**. The approved contributor
+path connects Jules to **your fork**, not directly to `MSKazemi/yazses`; no upstream collaborator
+access is required.
+
 Provider prices, limits, and billing behavior change. Our examples are teaching material, not
 a promise about a provider account. Always check the provider's current official terms,
 pricing, usage page, and billing settings before enabling paid usage.
