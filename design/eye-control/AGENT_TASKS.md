@@ -62,6 +62,7 @@ All tasks below are attached to milestone **Hands-free — perception & accessib
 | EYE-VALOPS-001 | #454 |
 | EYE-VALOPS-002 | #455 |
 | EYE-CONTRIB-001 | #456 |
+| EYE-META-001 | #493 |
 | EYE-GROUND-001 | #441 |
 | EYE-GROUND-002 | #442 |
 | EYE-GROUND-003 | #443 |
@@ -516,3 +517,10 @@ whole eye-control stack.
 
 These are intentionally **not** `agent-ready` while their design/evaluator blockers remain open.
 Human hardware evidence remains `cloud_agent_ready=false` even after the tooling is automated.
+
+
+### Post-merge readiness activation
+
+- #493 — after #413 merges, re-check the Wave-1 candidates and restore only the readiness labels
+  allowed by `GOVERNANCE.md`. This prevents stale `help wanted` / `agent-ready` labels from
+  advertising blocked work.
