@@ -5,7 +5,7 @@ description: A dependency-free interaction model for observations, grounded targ
 
 # Grounded Interaction Kernel
 
-*Research architecture, 2026-09-23. This page is a design and research synthesis, not a claim that the kernel is implemented. The corresponding decision record is [ADR-025](../../design/adr/adr-025-grounded-interaction-kernel.md), currently **Proposed**.*
+*Research architecture, 2026-09-23. This page is a design and research synthesis, not a claim that the kernel is implemented. The corresponding decision record is [ADR-025](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-025-grounded-interaction-kernel.md), currently **Proposed**.*
 
 ## The short version
 
