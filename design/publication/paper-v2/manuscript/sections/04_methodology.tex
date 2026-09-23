@@ -35,9 +35,10 @@ assumed to have used identical input.
 \subsection{Meeting corpora}
 
 Real-meeting diarization is evaluated on the complete 16-recording AMI test split used by the
-campaign. The set contains approximately 543.7 minutes of four-person meeting recordings, with
-30,714 seconds of scored reference speech in the archived aggregate. Human RTTM annotations
-provide the reference speaker labels.
+campaign \citep{carletta2005ami}. The set contains approximately 543.7 minutes of meeting audio
+and 30,714 seconds of scored reference speech in the archived aggregate. Fifteen recordings have
+four reference speakers and one has three. Human RTTM annotations provide the reference speaker
+labels.
 
 The AMI condition used here is more representative of real conversational turn-taking than the
 project's synthetic meeting fixtures, but the evaluated headset mix is still cleaner than a
@@ -68,10 +69,12 @@ make direct absolute performance comparisons across heterogeneous hosts.
 
 Speech-recognition accuracy is measured with word error rate:
 \begin{equation}
-  \wer = \frac{S + D + I}{N},
+  \mathrm{WER} = \frac{S + D + I}{N},
 \end{equation}
 where $S$, $D$, and $I$ are substitution, deletion, and insertion counts and $N$ is the number
-of reference words.
+of reference words. References and hypotheses are normalized with Whisper's
+\texttt{EnglishTextNormalizer}. The headline engine-matrix intervals are 95\% percentile
+bootstrap intervals from 1,000 utterance-level resamples with fixed seed 20260823.
 
 Because the repeated-decode investigation is specifically concerned with catastrophic extra text,
 we retain the individual error components rather than relying on \wer{} alone.
@@ -79,12 +82,20 @@ we retain the individual error components rather than relying on \wer{} alone.
 Decode performance is reported using real-time factor. Lower values correspond to faster
 transcription, but \rtf{} values are hardware-specific.
 
-Paired speech-recognition comparisons use paired analysis when the same utterances are decoded
-under two conditions. The onset experiment uses paired first-word outcomes and a
-multiplicity-aware analysis rather than inferring onset effects from whole-utterance \wer{}.
+Paired beam comparisons use an utterance-paired bootstrap with 10,000 resamples and fixed seed
+20260824. The reported two-sided achieved significance level is the fraction of bootstrap
+replicates whose difference crosses to the opposite side of zero, doubled for a two-sided reading.
+Because the archived beam grid contains several comparisons, we report its p-values as pairwise
+rather than as familywise-confirmatory evidence.
+
+The onset experiment uses exact two-sided McNemar tests on paired first-word outcomes. Sixteen
+distinct lead-in conditions are tested (each measured twice); the multiplicity check uses a
+Bonferroni threshold of $0.05/16 = 0.003125$.
 
 Diarization is reported using \der{}, with both per-recording mean and time-weighted corpus
-aggregates where appropriate. We separately retain speaker-count error because a system can
+aggregates where appropriate. The comparison between unrestricted clustering and
+\texttt{max\_speakers=4} uses a two-sided exact sign test over recordings that changed and a
+10,000-resample paired bootstrap over the 16 recordings, again with fixed seed 20260824. We separately retain speaker-count error because a system can
 produce the right number of clusters while still assigning speech to the wrong people.
 
 Streaming evaluation reports final speech-end-to-text latency, time to first useful partial
