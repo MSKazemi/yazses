@@ -234,3 +234,19 @@ failed validation as evidence.
 
 If a later release changes the relevant subsystem materially, open a new versioned validation cell
 rather than editing history to imply the old result tested the new implementation.
+
+
+## Public report form gate
+
+The issue form is **not** the authority that makes a test READY.
+
+Before a contributor uses either public eye/camera report form:
+1. a parent validation/measurement issue must be READY or explicitly request hardware evidence;
+2. that issue names the test pack/protocol version;
+3. the contributor links the parent issue in the form;
+4. the resulting public report is classified as `community_qa`.
+
+A form must not auto-apply `good first issue`; beginner readiness belongs to the parent slot because
+the same form can serve both mature and complex hardware checks.
+
+Research-participant data never uses the public GitHub form as its canonical collection path.
