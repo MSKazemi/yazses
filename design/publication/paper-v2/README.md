@@ -4,7 +4,7 @@
 **Baseline paper:** *YazSes: An Offline, Privacy-First, Cross-Platform Hold-to-Talk Voice-Dictation System*, arXiv:2607.28878 v1 (2026-07-30)  
 **Evidence window synthesised here:** primarily the 2026-08-23–2026-08-26 measurement campaign, including the rented Azure CPU runs and the follow-up analyses already archived under `paper/results/`.
 
-This directory is the starting point for a second manuscript/revision. It does not replace the benchmark archive. The JSON artifacts remain the evidence; these files say what can be concluded from them, what changed relative to the first paper, what should be written next, and what must not be claimed.
+This directory is the **public planning and evidence-synthesis package** for a second manuscript/revision. The unpublished manuscript itself remains in the repository's private manuscript tier under `paper/`. This package does not replace the benchmark archive. The JSON artifacts remain the evidence; these files say what can be concluded from them, what changed relative to the first paper, what should be written next, and what must not be claimed.
 
 ## Read this package in this order
 
