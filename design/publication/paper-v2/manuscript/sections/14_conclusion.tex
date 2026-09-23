@@ -10,8 +10,8 @@ behaved differently across checkpoints rather than offering one global rule. Cro
 decoding showed model-dependent numerical variation. Synthetic onset padding did not recover
 missed speech, and CPU streaming was beneficial only under a sufficiently fast checkpoint and
 compute budget. In Meeting Mode, real annotated AMI data exposed a catastrophic mismatch in the
-former clustering operating point, while known speaker count proved useful for count correctness
-without establishing a DER improvement.
+former clustering operating point, while a four-speaker clustering cap greatly improved count
+correctness without establishing a DER improvement.
 
 The broader lesson is methodological. Offline interactive speech systems should not be evaluated
 only by a single average accuracy number. Reproducibility, tail failures, hardware dependence,
