@@ -142,16 +142,46 @@ def language_status(
     platform = get_platform()
     cfg = load_config(platform.paths.config_file)
     status = derive_status(cfg)
+    (
+        _feat,
+        missing_imports,
+        _packages,
+        blocked,
+        model_cached,
+    ) = _language_requirement_state(cfg, cfg.stt)
+
+    script_dependency_available = not bool(missing_imports)
+    dictation_ready = bool(
+        status.coherent
+        and model_cached
+        and script_dependency_available
+        and not blocked
+    )
+    commands_enabled = bool(getattr(cfg.commands, "enabled", True))
+    command_language = "en" if commands_enabled else "disabled"
+    command_support = (
+        "english-only"
+        if commands_enabled and status.speech_language == "zh"
+        else ("available" if commands_enabled else "disabled")
+    )
 
     payload = {
         "speech_language": status.speech_language,
         "output_script": status.output_script,
+        "command_language": command_language,
+        "command_support": command_support,
         "engine": status.engine,
         "model": status.model,
         "profile_match": status.profile_match,
         "custom_model": status.custom_model,
         "coherent": status.coherent,
+        "dictation_ready": dictation_ready,
         "problems": list(status.problems),
+        "requirements": {
+            "model_cached": model_cached,
+            "script_dependency_available": script_dependency_available,
+            "blocked_reason": blocked or "",
+        },
     }
 
     if json_output:
@@ -166,9 +196,31 @@ def language_status(
         typer.echo(f"Script:        {script}")
         typer.echo(f"STT:           {status.engine} / {status.model}")
         typer.echo(f"Profile match: {profile}")
+        typer.echo(
+            f"Model cache:   {'ready' if model_cached else 'missing'}"
+        )
+        if status.output_script:
+            typer.echo(
+                "Script dep:    "
+                + ("ready" if script_dependency_available else "missing OpenCC")
+            )
+        if status.speech_language == "zh" and commands_enabled:
+            typer.echo(
+                "Commands:      English Tier-1 only "
+                "(Mandarin command grammar not implemented yet)"
+            )
+        elif not commands_enabled:
+            typer.echo("Commands:      disabled")
+        else:
+            typer.echo("Commands:      English Tier-1")
+        typer.echo(
+            f"Dictation:     {'ready' if dictation_ready else 'NOT READY'}"
+        )
         typer.echo(f"Status:        {'coherent' if status.coherent else 'INVALID'}")
         for problem in status.problems:
             typer.echo(f"  - {problem}", err=True)
+        if blocked:
+            typer.echo(f"  - prerequisite blocker: {blocked}", err=True)
 
     if not status.coherent:
         raise typer.Exit(1)
