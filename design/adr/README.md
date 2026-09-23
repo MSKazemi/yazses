@@ -61,6 +61,7 @@ Binding for v1.0. Supersede with a new ADR; do not edit in place.
 | [adr-022-a-confirmation-a-voice-user-cannot-give](adr-022-a-confirmation-a-voice-user-cannot-give.md) | A confirmation a voice user cannot give | Proposed |
 | [adr-023-agent-first-contribution-pipeline](adr-023-agent-first-contribution-pipeline.md) | Agent-first contribution pipeline: the design behind `campaign/` | Accepted |
 | [adr-024-distributed-coding-agent-worker-model](adr-024-distributed-coding-agent-worker-model.md) | Distributed coding-agent worker model | Proposed |
+| [adr-025-grounded-interaction-kernel](adr-025-grounded-interaction-kernel.md) | Introduce a Grounded Interaction Kernel before new agent, spatial, or robot stacks | Proposed |
 
 ### v0.4 series
 
