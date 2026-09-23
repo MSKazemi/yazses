@@ -22,6 +22,26 @@ several useful **coarse** signals:
 These signals serve different jobs. They must not be collapsed into one magic "camera controls the
 computer" feature.
 
+## Start here
+
+Choose the shortest document for your question:
+
+| Question | Read |
+|---|---|
+| What exists today? What is READY or blocked? | **[STATUS.md](STATUS.md)** |
+| I am reviewing planning PR #413 | **[REVIEW_GUIDE.md](REVIEW_GUIDE.md)** |
+| I want to implement one small task | [AGENT_TASKS.md](AGENT_TASKS.md) |
+| I am a beginner / no-code tester | [BEGINNER_TESTING.md](BEGINNER_TESTING.md) |
+| What is the dependency-ordered roadmap? | [ROADMAP.md](ROADMAP.md) |
+| How do we test across CI / OS / people? | [EVALUATION.md](EVALUATION.md) + [VALIDATION_MATRIX.md](VALIDATION_MATRIX.md) |
+| What data/metrics do we collect? | [METRICS.md](METRICS.md) |
+| What may a public tester share? | [DATA_SHARING.md](DATA_SHARING.md) |
+| What evidence could support a paper? | [PAPER_EVIDENCE.md](PAPER_EVIDENCE.md) |
+| What is the release/safety gate? | [GOVERNANCE.md](GOVERNANCE.md) + [RISK_REGISTER.md](RISK_REGISTER.md) |
+
+**Do not infer issue readiness from this README.** The live issue banner + labels are authoritative.
+An open issue without `help wanted` may be intentionally PLANNED.
+
 ## Product position
 
 YazSes should become a **multimodal hands-free desktop control layer** where each modality does the
