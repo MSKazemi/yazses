@@ -16,7 +16,7 @@ site](https://mskazemi.com/yazses/) instead. This directory answers the other qu
 | [`specs/`](specs/) | Implementation-ready feature specs in ADR house style. |
 | [`research/`](research/) | The scientific layer: the [105-reference HCI corpus](research/2026-08-11-hci-reference-corpus.md), the [research agenda](research/2026-08-11-hci-research-agenda.md), literature sweeps, and [`hci-corpus.bib`](research/hci-corpus.bib). |
 | [`research/studies/`](research/studies/) | State-of-the-art studies: scope, SoA matrix, gap analysis, capability cards. |
-| [`publication/`](publication/) | Public publication planning, evidence synthesis, authorship governance, and release checklists; unpublished manuscript source remains private under `paper/`. |
+| [`publication/`](publication/) | Public publication planning, evidence synthesis, authorship governance, release checklists, and intentionally public manuscript drafts. Paper v2 LaTeX lives under `publication/paper-v2/manuscript/`; other private manuscript material may still remain under `paper/`. |
 | [`architecture.md`](architecture.md) | The as-built architecture reference. |
 | [`white-paper-authoring-standard.md`](white-paper-authoring-standard.md) | Evidence, structure, visual, benchmark, citation, release, and QA standard for future YazSes white papers and one-page briefs. |
 | [`threat-model.md`](threat-model.md) | The privacy and threat model behind the offline-by-construction stance. |
@@ -35,7 +35,7 @@ and a new file's status is never ambiguous.
 | `design/` | **Public** | Engineering and science. The argument for the software is the software's best evidence. |
 | `docs/` | **Public** | User-facing documentation, published to the docs site. |
 | `strategy/` | **Private** | Marketing copy, SEO analysis, vision/idea notes for features that may never ship, distribution status. Tactics lose value when public, and unbuilt ideas read as promises. |
-| `paper/` | **Private** | The manuscript, until the preprint is posted. |
+| `paper/` | **Private** | Private manuscript/reference working material. Paper v2 is an explicit public-draft exception kept outside this tree at `design/publication/paper-v2/manuscript/`. |
 | `paper/benchmark/`, `paper/results/` | **Public** | The exception, and a deliberate one: `docs/benchmarks.md` publishes numbers and tells the reader to reproduce them. While these were private, those instructions 404'd and the page's central promise was false. Harness code and small result JSON only — no audio, no transcripts, no manuscript. |
 | `.claude/` | **Private** | Coding-agent artifacts: plans, memory, project-local skills. |
 
