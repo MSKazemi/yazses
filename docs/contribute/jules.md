@@ -21,6 +21,160 @@ independently of this repository. Before using a paid or metered account, read
 YazSes does not require Jules and does not assume or reimburse a contributor's Jules charges unless
 there is a separate written agreement made before the expense.
 
+## Connect Jules to YazSes — 5-minute owner quick start
+
+Use this section if you are the owner of **`MSKazemi/yazses`** and want Jules to work
+directly on the upstream repository.
+
+> **Repository-side status:** YazSes is prepared for Jules in PR
+> [#446](https://github.com/MSKazemi/yazses/pull/446). The remaining connection itself is
+> an account-level GitHub/Jules action tracked in
+> [#447](https://github.com/MSKazemi/yazses/issues/447).
+>
+> **Do not trigger a real task until #446 is merged.** The first intended smoke task is
+> [#448](https://github.com/MSKazemi/yazses/issues/448).
+
+### A. Connect your GitHub account to Jules
+
+1. Open **[jules.google.com](https://jules.google.com/)**.
+2. Sign in with the Google account you want to use for Jules.
+3. Accept Jules's privacy notice if it is shown.
+4. Click **Connect to GitHub account**.
+5. Complete the GitHub login/authorization flow.
+
+**Expected result:** Jules returns you to its app and shows a repository/codebase selector.
+
+If you are already connected to GitHub, skip to **B**.
+
+### B. Give the Google Labs Jules GitHub App access to YazSes
+
+When GitHub asks where Jules may be installed:
+
+1. Choose your personal GitHub account **`MSKazemi`**.
+2. Choose **Only select repositories**.
+3. Select **`MSKazemi/yazses`**.
+4. Read the permissions GitHub displays.
+5. Click **Install** / **Save** / the equivalent approval button shown by GitHub.
+6. Return to Jules and refresh if the repository does not appear immediately.
+
+**Expected result:** `MSKazemi/yazses` appears in the Jules repository/codebase selector.
+
+If Jules is already installed but YazSes is missing, use either route:
+
+- **GitHub:** Profile photo → **Settings** → **Applications** → **Google Labs Jules** →
+  **Configure** → **Repository access** → add `MSKazemi/yazses` → **Save**.
+- **Jules:** open the repository selector → scroll to **+ Add repository** → GitHub opens →
+  select `MSKazemi/yazses` → save → return to Jules.
+
+For the current personal-account repository, **you do not need to add another developer as a
+GitHub collaborator just to make Jules work**. The repository owner installs the GitHub App.
+GitHub documents that GitHub Apps are installed on the personal/organization account that owns the
+resources and are then granted access to selected repositories.
+
+### C. Make Jules commits comply with YazSes authorship policy
+
+Before the first task:
+
+1. In Jules, open **Settings**.
+2. Open **Commit Authoring**.
+3. Select **User only**.
+4. Leave that setting in place for future YazSes sessions.
+
+**Expected result:** future Jules commits are attributed to your GitHub identity rather than Jules
+or a Jules+user co-author pair.
+
+This is required by YazSes `AGENTS.md`.
+
+### D. Configure the YazSes environment
+
+1. In Jules, click **`MSKazemi/yazses`** under the codebases/repositories area.
+2. Open **Configuration**.
+3. In **Initial Setup**, enter:
+
+```sh
+uv sync
+```
+
+4. Click **Run and Snapshot**.
+5. Confirm the setup finishes successfully.
+
+Jules currently documents an Ubuntu VM with Python, `uv`, pytest, ruff, mypy, Git and common
+build tools already available. `uv sync` installs the repository's own locked dependencies.
+
+**Expected result:** Jules creates an environment snapshot and can reuse it for future YazSes tasks.
+
+If you want an explicit sanity check before snapshotting, temporarily use:
+
+```sh
+uv --version
+python --version
+uv sync
+uv run python -m pytest tests/test_agent_instructions.py -q
+```
+
+Once validated, keeping the setup script to `uv sync` is enough.
+
+### E. Verify Jules is reading the repository rules
+
+Start a **non-destructive planning task** against `main`, for example:
+
+```text
+Read AGENTS.md for MSKazemi/yazses. Do not change any files.
+Summarize the repository's setup commands, offline/network rule,
+feature-default rule, testing requirements, and authorship rule.
+```
+
+Do not create a branch from this verification task.
+
+**Pass condition:** the response identifies at least:
+
+- `uv sync`;
+- pytest + ruff as required validation;
+- no new runtime network/telemetry path without the repository's egress process;
+- new features off by default;
+- heavy dependencies optional/lazy;
+- human-only project authorship / no AI attribution.
+
+If Jules contradicts those rules, fix the repository selection/configuration before giving it an
+implementation task.
+
+### F. Run the first real Jules task
+
+After **#446 is merged** and owner setup **#447** is complete:
+
+1. Open [#448](https://github.com/MSKazemi/yazses/issues/448).
+2. Confirm its blocker (#446) is closed.
+3. Add the **`agent-ready`** label.
+4. Run the maintainer preflight from this guide.
+5. Open the issue's **Labels** control (gear icon in GitHub).
+6. Add the label **`jules`**.
+7. Watch for Jules to comment on the issue.
+8. Follow the Jules task/PR link when it finishes.
+9. Review the plan, diff and CI normally before merge.
+
+Google documents the `jules` label as the GitHub-issue trigger: **adding the label starts the
+task**. Removing/adding labels should therefore be treated as an execution action, not as
+categorization.
+
+**Expected result:** Jules comments on the GitHub issue and, when finished, provides a link to the
+pull request for human review.
+
+### G. Connection-success checklist
+
+The upstream Jules connection is considered healthy only when all of these are true:
+
+- [ ] `MSKazemi/yazses` is visible in Jules.
+- [ ] GitHub shows **Google Labs Jules** with repository access to `MSKazemi/yazses`.
+- [ ] Commit Authoring is **User only**.
+- [ ] `uv sync` succeeds in **Run and Snapshot**.
+- [ ] Jules can read root `AGENTS.md`.
+- [ ] A planning-only test correctly states the core YazSes rules.
+- [ ] The `jules` GitHub label exists before the first triggered task.
+- [ ] Adding `jules` to the approved smoke issue causes Jules to comment/start work.
+- [ ] The resulting PR still goes through normal CI and human review.
+
+If the first five pass but the issue label does nothing, see **Troubleshooting access** below.
+
 ## The access model in one minute
 
 YazSes is currently owned by the personal GitHub account `MSKazemi`.
@@ -41,6 +195,21 @@ already have upstream permissions should use the ordinary fork-and-PR model.
 
 This is the least-privilege setup: nobody receives write access merely because they want
 to use a coding agent.
+
+### Who can connect what?
+
+- **For this upstream personal repository:** the GitHub personal account that owns
+  `MSKazemi/yazses` controls the installation that gives Jules access to it.
+- **For a contributor's fork:** the contributor can install/authorize Jules for their own GitHub
+  account and select their fork.
+- **For a future organization-owned repository:** organization policy may require an owner/admin
+  approval step before the GitHub App can be installed or granted to a repository.
+- **Applying `jules` upstream:** requires enough GitHub issue permission to edit labels; ordinary
+  outside contributors should not need that permission.
+
+So the normal answer to "do contributors need extra access?" is **no**: use a fork. Direct
+upstream Jules execution is a maintainer-controlled workflow.
+
 
 ## Owner setup for `MSKazemi/yazses`
 
@@ -190,6 +359,31 @@ Do **not** ask Jules to certify:
 
 Those tasks can use Jules for implementation support, but the missing evidence remains human.
 
+## Outside contributor quick start — no upstream access required
+
+Use this path if you are **not** the owner/maintainer of `MSKazemi/yazses`.
+
+You do **not** need:
+- upstream collaborator access;
+- permission to install Jules on the owner's GitHub account;
+- permission to apply the upstream `jules` label.
+
+Do this instead:
+
+1. On GitHub, fork **`MSKazemi/yazses`** into your own account.
+2. Open Jules and connect your GitHub account.
+3. Grant **Google Labs Jules** access to **your fork only**.
+4. In Jules Settings, set **Commit Authoring → User only**.
+5. Configure your fork's environment with **Initial Setup = `uv sync`** and **Run and Snapshot**.
+6. Select a YazSes issue that is ready for contribution.
+7. Give Jules the upstream issue number/URL and tell it to read `AGENTS.md`.
+8. Run and review the work in your fork.
+9. Push/create the branch in your fork.
+10. Open a normal GitHub pull request from your fork to **`MSKazemi/yazses:main`**.
+
+Your fork does not give Jules any new permission on the upstream repository. The upstream PR is
+reviewed exactly like any other external contribution.
+
 ## Outside contributors: use a fork
 
 An outside developer does **not** need access to `MSKazemi/yazses` to use Jules.
@@ -257,6 +451,32 @@ If the API is used later:
 Repository automation that mass-applies `jules` should not be added. The whole point of the
 label is that a human deliberately chooses a task after its blockers and design gates are clear.
 
+## How to remove or reduce Jules access later
+
+You can change your mind without changing any YazSes source code.
+
+### Remove only YazSes repository access
+
+On GitHub:
+
+**Profile photo → Settings → Applications → Google Labs Jules → Configure → Repository access**
+
+Remove `MSKazemi/yazses` from the selected repositories and save.
+
+### Stop using Jules entirely for the GitHub account
+
+From the same GitHub App configuration area, use GitHub's option to suspend/uninstall the app if
+you no longer want it to access resources owned by that account.
+
+GitHub recommends periodically reviewing installed GitHub Apps and removing access that is no
+longer needed.
+
+### Remove an API key if you experimented with the Jules API
+
+The normal GitHub App/issue-label workflow does **not** require `JULES_API_KEY`.
+If you created an API key separately, revoke it in Jules Settings and delete it from your local
+secret store/environment.
+
 ## Troubleshooting access
 
 ### `MSKazemi/yazses` is missing from the Jules repository selector
@@ -305,6 +525,12 @@ research / user need
 
 That keeps autonomous coding useful without turning design, accessibility evidence or
 repository permissions into automated guesses.
+
+## Documentation freshness
+
+The connection UI is owned by Google/GitHub and can change. This runbook was checked against the
+official Jules and GitHub documentation on **2026-09-23**. If a button name differs, follow the
+same permission model and confirm against the official references below rather than guessing.
 
 ## Official references
 
