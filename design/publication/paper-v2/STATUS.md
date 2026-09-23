@@ -63,6 +63,12 @@ The detailed wording is already corrected in [RESULTS_DELTA.md](RESULTS_DELTA.md
 - [x] Scientific follow-up work is split into issue-sized work packages.
 - [x] September `tiny.en` follow-up incorporated into the interpretation.
 
+## Manuscript drafting
+
+- [ ] [#532](https://github.com/MSKazemi/yazses/issues/532) — draft the private paper-v2 manuscript against the claim ledger and frozen evidence.
+
+The actual manuscript prose remains in the ignored/private `paper/` working tree. Public Git records only the evidence, plan, status, and review workflow.
+
 ## Required work for the arXiv-v2 evidence freeze
 
 - [ ] [#495](https://github.com/MSKazemi/yazses/issues/495) — freeze and rerun the core ASR engine matrix.
