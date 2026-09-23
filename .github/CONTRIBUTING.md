@@ -53,6 +53,10 @@ uv run ruff check src tests scripts # lint                (must be green)
 uv run mypy src                     # type checking       (advisory — see below)
 ```
 
+**Changing CI/CD?** Read [CI_POLICY.md](CI_POLICY.md) before editing workflows or release
+validation. It explains which checks are blocking, how PR cancellation works, and why
+validation and deployment have different permission boundaries.
+
 **pytest and ruff must pass** — if they are green locally, CI will be green. You do **not**
 need a working microphone, a Whisper model, or the optional extras to contribute: the test
 suite is fully offline and mocks the audio and model layers, and runs in about 30 seconds.
