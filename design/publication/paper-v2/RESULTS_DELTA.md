@@ -158,7 +158,7 @@ This refutes the product rationale that synthetic leading silence can “give ba
 
 ## 9. Streaming is not a general CPU latency improvement
 
-**New evidence:** `paper/results/streaming.json` plus the current benchmark re-runs documented in `docs/benchmarks.md`.
+**Manuscript evidence:** `paper/results/streaming.json`. A later documentation rerun reports lower absolute latencies, but its result JSON is not currently archived under `paper/results/`; those later values should not enter the manuscript until they are archived with provenance.
 
 The archived n=15 real-time-fed experiment shows the same qualitative failure that motivated the current default:
 
@@ -166,7 +166,7 @@ The archived n=15 real-time-fed experiment shows the same qualitative failure th
 - `base.en` often cannot keep its rolling decode ahead of incoming audio;
 - streaming makes final text slower because commit still performs a final decode while the partial loop has consumed CPU.
 
-The currently documented re-run reports speech-end→final text moving from **0.92 s to 1.22 s on `tiny.en`** and from **1.42 s to 2.21 s on `base.en`**, with **72% median text visible at release on `tiny.en` and 0% on `base.en`**.
+The committed `streaming.json` run reports median speech-end→final text moving from **1.377 s to 2.371 s on `tiny.en`** and from **4.024 s to 7.612 s on `base.en`**. Median visible text at release is **59.33% on `tiny.en` and 0% on `base.en`**; 12/15 `base.en` utterances produce no confirmed partial before release.
 
 This is a useful negative result: “streaming” is not automatically “lower perceived latency” on CPU. The claim is checkpoint- and compute-budget-dependent.
 
@@ -177,7 +177,7 @@ This is a useful negative result: “streaming” is not automatically “lower 
 Full AMI test split:
 
 - 16 recordings;
-- 543.7 minutes of real four-person meetings;
+- 543.7 minutes of real meeting audio; 15 recordings have four reference speakers and one has three;
 - 30,714 s (8.5 h) of scored reference speech;
 - human RTTM reference;
 - sherpa-onnx diarization backend.
@@ -185,17 +185,17 @@ Full AMI test split:
 | configuration | DER, per-recording mean | speaker-count error | exact count |
 |---|---:|---:|---:|
 | old threshold 0.5, estimated count | **75.21%** | **+155.19** | 0/16 |
-| old threshold 0.5, exact count supplied | 29.42% | +0.06 | 16/16 |
+| old threshold 0.5, `max_speakers=4` | 29.42% | +0.06 | 15/16 |
 | current meeting threshold 1.2, estimated count | **26.71%** | +2.06 | 2/16 |
-| threshold 1.2, exact count supplied | 29.42% | +0.06 | 16/16 |
+| threshold 1.2, `max_speakers=4` | 29.42% | +0.06 | 15/16 |
 
 The time-weighted DER for the current unpinned run is **27.37%** (20.51% with a 250 ms collar). Use the time-weighted figure when comparing with published diarization papers; use the per-recording mean when discussing the experience of a typical meeting.
 
 The defensible finding is that the old `0.5` clustering threshold was a severe domain mismatch for long meetings, primarily producing speaker confusion through extreme over-splitting.
 
-## 11. “Knowing the number of speakers improves DER” is not established at the new threshold
+## 11. A four-speaker clustering cap does not establish a DER improvement at the new threshold
 
-A previous interpretation compared 26.71% vs. 29.42% and called the supplied count worse. That comparison was invalid because the two runs had also changed the threshold.
+A previous interpretation compared 26.71% vs. 29.42% and called the constrained run worse. That comparison was invalid because the two runs had also changed the threshold.
 
 The properly paired comparison at threshold 1.2 finds:
 
@@ -206,7 +206,7 @@ The properly paired comparison at threshold 1.2 finds:
 
 So the sample cannot resolve a DER effect.
 
-What the supplied count **does** reliably buy is the count itself: 16/16 exact instead of 2/16. That is a product/use-case distinction worth publishing.
+What `max_speakers=4` **does** reliably improve is count correctness: 15/16 exact instead of 2/16. It is a ceiling rather than a supplied exact count; the one three-speaker reference recording is over-counted by one.
 
 ## 12. One clustering threshold does not transfer across domains
 
