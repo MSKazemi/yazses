@@ -1,0 +1,45 @@
+\section{Results III: Hardware and Platform Portability}
+
+The first \YazSes{} evaluation was centered on one Linux laptop. The expanded campaign separates
+two different questions that are often collapsed into the phrase cross-platform: whether the
+same decoder produces similar text across operating-system and processor environments, and
+whether the complete application path can be installed and exercised on those environments.
+
+\subsection{Cross-platform decoding}
+
+A common 60-utterance subset was decoded with CTranslate2 4.8.1 on Linux x86-64, Linux arm64,
+macOS arm64, and Windows x86-64.
+
+% TODO(#508): generate from paper/results/platforms/*/wer.json.
+\begin{table}[ht]
+\centering
+\caption{Cross-platform WER on the common 60-utterance subset.}
+\label{tab:platform}
+\begin{tabular}{lrrrrr}
+\toprule
+Checkpoint & Linux x86 & Linux arm64 & macOS arm64 & Windows x86 & Spread \\
+\midrule
+\texttt{tiny.en}  & 3.39 & 3.60 & 3.74 & 3.88 & 0.49 \\
+\texttt{base.en}  & 3.32 & 3.32 & 3.25 & 3.39 & 0.14 \\
+\texttt{small.en} & 2.05 & 2.05 & 2.05 & 2.05 & 0.00 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The result is model-dependent rather than a single platform-wide effect. The measured
+\texttt{small.en} hypotheses produce the same aggregate WER on all four runners, whereas
+\texttt{tiny.en} shows a 0.49-point spread. This is sufficient to reject the assumption that the
+third decimal place of a WER measured on one CPU should automatically be transported to another,
+but it is not evidence that every checkpoint is meaningfully sensitive to platform.
+
+\subsection{Installability is a different portability layer}
+
+The companion dependency-resolution experiment covers 92 installation target combinations, of
+which 84 resolve in the archived result. Resolution failures expose platform/package constraints
+that are distinct from recognition accuracy.
+
+These two experiments deliberately stop short of a stronger claim. A successful decoder run does
+not exercise the entire interactive path: global activation, microphone permission, capture,
+target focus, text injection, clipboard fallback, tray/daemon lifecycle, and accessibility APIs
+remain separate OS-specific surfaces. End-to-end Windows and macOS validation is therefore
+tracked as a separate experiment rather than inferred from Table~\ref{tab:platform}.
