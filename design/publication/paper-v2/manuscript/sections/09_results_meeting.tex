@@ -4,8 +4,8 @@ Meeting Mode adds a failure dimension that ordinary dictation does not have: the
 accurate while the speaker labels are unusable.
 
 The campaign evaluates the complete 16-recording AMI test split, covering approximately 543.7
-minutes of four-person meetings and 30,714 seconds of scored reference speech. Human RTTM labels
-provide the speaker reference.
+minutes of meeting audio and 30,714 seconds of scored reference speech. Fifteen recordings have
+four reference speakers and one has three. Human RTTM labels provide the speaker reference.
 
 \subsection{The original clustering operating point does not transfer}
 
@@ -13,23 +13,23 @@ provide the speaker reference.
 \begin{table}[ht]
 \centering
 \caption{AMI test-split diarization conditions. DER is the per-recording mean shown in the
-archived comparison; the current unpinned condition additionally has 27.37\% time-weighted DER.}
+archived comparison; the unrestricted threshold-1.2 condition additionally has 27.37\%
+time-weighted DER. Count error is the mean signed hypothesis-minus-reference speaker count.}
 \label{tab:ami}
 \begin{tabular}{lrrr}
 \toprule
 Configuration & Mean DER & Mean count error & Exact count \\
 \midrule
-Threshold 0.5, estimated count & 75.21\% & +155.19 & 0/16 \\
-Threshold 0.5, supplied count & 29.42\% & +0.06 & 16/16 \\
-Threshold 1.2, estimated count & 26.71\% & +2.06 & 2/16 \\
-Threshold 1.2, supplied count & 29.42\% & +0.06 & 16/16 \\
+Threshold 0.5, unrestricted & 75.21\% & +155.19 & 0/16 \\
+Threshold 0.5, \texttt{max\_speakers=4} & 29.42\% & +0.06 & 15/16 \\
+Threshold 1.2, unrestricted & 26.71\% & +2.06 & 2/16 \\
+Threshold 1.2, \texttt{max\_speakers=4} & 29.42\% & +0.06 & 15/16 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The former threshold of 0.5 catastrophically over-splits the AMI meetings. The resulting
-75.21\% mean DER is accompanied by an average speaker-count error of +155.19 in meetings whose
-reference count is four. Raising the Meeting Mode clustering threshold to 1.2 reduces the
+The former threshold of 0.5 severely over-splits the AMI meetings. The resulting
+75.21\% mean DER is accompanied by a mean signed speaker-count error of +155.19. Raising the Meeting Mode clustering threshold to 1.2 reduces the
 per-recording mean DER to 26.71\%. The corresponding time-weighted DER is 27.37\%, or 20.51\%
 with a 250 ms collar.
 
@@ -37,10 +37,12 @@ The result should not be read as a claim that 26--27\% DER is state of the art. 
 here is diagnostic: a default calibrated on shorter or different audio was severely mismatched
 to long real meetings, and real annotated evaluation changed the shipped operating point.
 
-\subsection{Known speaker count fixes count, not necessarily DER}
+\subsection{A four-speaker cap nearly fixes count, not DER}
 
-At threshold 1.2, supplying the known number of speakers makes the count itself reliable:
-16 of 16 meetings have the exact count, compared with 2 of 16 when the system estimates it.
+The intervention tested by the archived artifact is \texttt{max\_speakers=4}: a ceiling on
+clustering, not a supplied exact speaker count. At threshold 1.2 it makes the estimated count
+exact on 15 of 16 recordings, compared with 2 of 16 under unrestricted clustering. The remaining
+recording has three reference speakers and is over-counted by one under the four-speaker cap.
 
 However, the paired DER result does not establish an accuracy benefit. Seven meetings improve,
 seven worsen, and two are unchanged; the exact sign test has $p=1.0$. The mean paired difference
