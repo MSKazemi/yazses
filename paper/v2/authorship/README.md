@@ -302,6 +302,10 @@ One person may hold several of these roles, but the checks remain separate.
 - COMMUNICATION_TEMPLATES.md — ready-to-send invitation, consent, review, reminder, final-approval, withdrawal, and publication messages.
 - APPROVAL_PROTOCOL.md — state machine, immutable fingerprint, approval record format, and audit rules.
 - ARCHIVE_ORG_PUBLICATION_CHECKLIST.md — preflight, upload, verification, and post-publication checks.
+- RUNBOOK.md — step-by-step operating sequence from roster freeze through corrections.
+- PRIVATE_REGISTRY_TEMPLATE.csv — headers for the private registry; copy it outside the repository before adding any real data.
+- FINAL_APPROVAL_MANIFEST.template.yml — publication-safe immutable fingerprint and aggregate approval manifest.
+- PUBLIC_STATUS_TEMPLATE.md — aggregate public progress reporting without exposing individual consent records.
 
 ## 13. Definition of done
 
