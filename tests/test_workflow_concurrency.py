@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
+
+import yaml
 
 ROOT = Path(__file__).resolve().parent.parent
 WORKFLOWS = ROOT / ".github" / "workflows"
@@ -54,7 +55,10 @@ def test_every_pull_request_workflow_declares_a_superseding_policy():
     missing = []
     for path in sorted(WORKFLOWS.glob("*.yml")):
         text = path.read_text(encoding="utf-8")
-        if not PULL_REQUEST_TRIGGER.search(text):
+        doc = yaml.safe_load(text) or {}
+        # YAML 1.1 parses the key on: as boolean True.
+        triggers = doc.get(True, doc.get("on")) or {}
+        if "pull_request" not in triggers:
             continue
         if "\nconcurrency:" not in text or "cancel-in-progress:" not in text:
             missing.append(path.name)
