@@ -20,7 +20,7 @@ That is the comparison point below.
 
 ## 2. New engine matrix: eight configurations under one product path
 
-**New evidence:** `paper/results/wer.json` and `paper/results/wer-test-other.json`.
+**New evidence:** `paper/results/probes/wer-vm-clean.json` for the uncontended eight-engine clean matrix and `paper/results/wer-test-other.json` for the hard matrix. The older `paper/results/wer.json` is the v1 three-Whisper-checkpoint laptop run and must not be cited as the source of the eight-engine clean table. Issue #495 will produce the final frozen stable clean-matrix artifact before submission.
 
 On the Azure `Standard_D16s_v6` measurement host (16-vCPU Xeon Platinum 8573C, Ubuntu 24.04, CPU/int8), the shipping engine factory was used for all rows.
 
@@ -58,7 +58,7 @@ Same harness, same Azure host, 200 LibriSpeech `test-other` utterances, 33 speak
 | Moonshine base | 3.17% | 8.04% | 2.5× |
 | Whisper `base.en` | 4.01% | 9.46% | 2.4× |
 | Moonshine tiny | 4.20% | 10.35% | 2.5× |
-| Whisper `tiny.en` | 5.18% | 11.61% | 2.2× |
+| Whisper `tiny.en` | 5.18% | 11.77% | 2.3× |
 
 **New conclusion:** clean-speech WER is not enough to characterise robustness. Parakeet degrades least in this comparison; several models roughly double their error rate.
 
