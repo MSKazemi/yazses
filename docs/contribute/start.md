@@ -52,7 +52,7 @@ author**, and you are expected to have read and validated the work. Do not add t
 author/co-author or add generated-with attribution; [`AGENTS.md`](../../AGENTS.md) is the
 canonical rule.
 
-Using Google Jules against GitHub? Read [Using Google Jules with YazSes](jules.md) first. The
+Using Google Jules against GitHub? Follow the [5-minute owner/contributor connection guide](jules.md) first. The
 upstream repository uses a one-time GitHub App installation; outside contributors normally
 connect Jules to their own fork and open a standard PR.
 
