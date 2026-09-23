@@ -1084,10 +1084,16 @@ class SettingsWindow:
         self._hint.setText(line)
 
     def _on_apply(self) -> None:
+        profile_transaction = self._language_profile_transaction_pending()
         report = self._controller.apply(self._pending)
         hotkey_changed, hotkey_error = self._apply_hotkey()
         audio_changed, audio_errors = self._apply_audio()
-        speech_changed, speech_errors = self._apply_speech()
+        speech_changed, speech_errors = self._apply_speech(
+            skip_profile_owned=profile_transaction
+        )
+        language_started, language_error = self._start_language_profile_apply()
+        if language_error:
+            speech_errors.append(language_error)
 
         # Re-sync every checkbox with what actually landed: a row that failed
         # keeps its staged position (so Apply can be retried) but must not be
@@ -1100,6 +1106,10 @@ class SettingsWindow:
         summary = self._summarise(report)
         if hotkey_changed:
             summary = f"Hold-to-talk key set to {self._hotkey_baseline}. {summary}".strip()
+        if speech_changed:
+            summary = f"Speech settings saved. {summary}".strip()
+        if language_started:
+            summary = f"Language profile is being prepared. {summary}".strip()
         self._hint.setText(summary)
 
         errors = [
@@ -1111,34 +1121,93 @@ class SettingsWindow:
         if errors:
             self._warn("Some settings were not saved", "\n".join(errors))
 
-        # Install the optional packages the newly-enabled capabilities need (#135).
-        # Off the UI thread: a `mediapipe` or `speechbrain` install takes minutes,
-        # and on the main thread that is indistinguishable from a hang.
-        self._install_missing(report.missing_packages)
+        base_restart_needed = bool(
+            report.applied or hotkey_changed or audio_changed or speech_changed
+        )
+        self._restart_base_needed = base_restart_needed
 
-        # Then close the loop: config is read at startup, so until the daemon is
-        # restarted the window is showing settings that are not in effect (#61).
-        # The hotkey counts: a changed key that has not been rebound is the most
-        # confusing of all — the old key stops being advertised and the new one
-        # does nothing yet.
-        if report.applied or hotkey_changed or audio_changed or speech_changed:
-            # ...but not while `_install_missing` above is still downloading. The
-            # restart exists to make the new config take effect, and a daemon that
-            # restarts before its packages land starts with the capability switched
-            # ON in config and its import still failing -- the user is told it
-            # applied, and it does not work. Worse, `_run_restart` is a synchronous
-            # `subprocess.run(..., timeout=90)` on the UI thread, so accepting the
-            # prompt freezes the window for up to a minute and a half *while pip is
-            # streaming progress into it*; a frozen window is what a desktop offers
-            # to force-close, which is how "applying a feature closes the window"
-            # happens without anything in this code closing anything.
-            if self._install_thread is not None:
+        # Never run two package/network workers at once. A language profile may need
+        # OpenCC/model preparation; capability packages from this same Apply wait
+        # until that transaction finishes.
+        if language_started:
+            self._install_after_language = (
+                dict(report.missing_packages) if report.missing_packages else None
+            )
+        else:
+            self._install_after_language = None
+            self._install_missing(report.missing_packages)
+
+        restart_needed = base_restart_needed or language_started
+        if restart_needed:
+            if self._language_thread is not None or self._install_thread is not None:
                 self._restart_when_installed = summary
                 self._hint.setText(
-                    f"{self._hint.text()} A restart will be offered once it finishes."
+                    f"{self._hint.text()} A restart will be offered once preparation finishes."
                 )
             else:
                 self._offer_restart(summary)
+
+    def _on_language_finished(self, result) -> None:
+        """Settle the profile controls, then continue any deferred feature installs."""
+
+        self._language_thread = self._language_worker = None
+        language_summary = ""
+
+        if result.ok and result.prepared is not None:
+            prepared = result.prepared
+            candidate = prepared.candidate_stt
+            profile = prepared.plan.canonical_profile
+            self._profile_syncing = True
+            try:
+                index = self._profile_box.findData(profile)
+                if index >= 0:
+                    self._profile_box.setCurrentIndex(index)
+                self._model_box.setCurrentText(candidate.model)
+                language_index = self._language_box.findData(candidate.language)
+                if language_index >= 0:
+                    self._language_box.setCurrentIndex(language_index)
+                self._language_box.setEnabled(False)
+            finally:
+                self._profile_syncing = False
+
+            self._profile_baseline = profile
+            self._profile_auto_model = None
+            self._model_baseline = candidate.model
+            self._language_baseline = candidate.language
+            language_summary = f"Language profile set to {profile}."
+            if self._restart_when_installed is not None:
+                self._restart_when_installed = (
+                    f"{language_summary} {self._restart_when_installed}".strip()
+                )
+        else:
+            error = getattr(result, "error", "") or "Language profile change failed."
+            self._warn("Language profile was not applied", error)
+            if not self._restart_base_needed:
+                # The pending restart existed only because the language worker had
+                # started. Its config did not land, so there is nothing to restart.
+                self._restart_when_installed = None
+
+        deferred = self._install_after_language
+        self._install_after_language = None
+        if deferred:
+            self._install_missing(deferred)
+
+        if self._install_thread is not None:
+            # Existing install-finished logic owns the final restart offer.
+            self._restart_base_needed = False
+            return
+
+        self._apply_button.setEnabled(True)
+        pending, self._restart_when_installed = self._restart_when_installed, None
+        should_restart = self._restart_base_needed or bool(
+            result.ok and result.restart_required
+        )
+        self._restart_base_needed = False
+        if pending is not None and should_restart:
+            self._offer_restart(pending)
+        elif language_summary:
+            self._hint.setText(language_summary)
+
 
     def _apply_audio(self) -> tuple[bool, list[str]]:
         """Save the microphone and threshold if they moved. Returns (changed, errors).
@@ -1175,7 +1244,11 @@ class SettingsWindow:
 
         return changed, errors
 
-    def _apply_speech(self) -> tuple[bool, list[str]]:
+    def _apply_speech(
+        self,
+        *,
+        skip_profile_owned: bool = False,
+    ) -> tuple[bool, list[str]]:
         """Save the model, language and injection backend if they moved.
 
         Separate from `_apply_audio` for the same reason the hotkey is: these are
@@ -1270,6 +1343,8 @@ class SettingsWindow:
                 _number,
             ),
         ):
+            if skip_profile_owned and attr in {"_model_box", "_language_box"}:
+                continue
             widget = getattr(self, attr, None)
             if widget is None:  # pragma: no cover - the rows are always built
                 continue
