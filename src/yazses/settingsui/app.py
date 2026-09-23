@@ -106,6 +106,7 @@ def run() -> None:
         _fatal(f"{_MISSING_PYSIDE_MSG}\n\nImport failed: {exc}")
 
     from yazses.config import Config, load_config
+    from yazses.language.service import apply_language_change, prepare_language_change
     from yazses.platform import get_platform
     from yazses.system.configedit import set_config_key
 
@@ -118,7 +119,28 @@ def run() -> None:
     def _write(section: str, key: str, value: object, quote: bool | None) -> None:
         set_config_key(config_file, section, key, value, quote=quote)
 
-    controller = SettingsController(_load, _write)
+    def _preview_language(profile: str, *, model: str | None = None):
+        return prepare_language_change(config_file, profile, model=model)
+
+    def _apply_language(
+        profile: str,
+        *,
+        model: str | None = None,
+        echo=print,
+    ):
+        return apply_language_change(
+            config_file,
+            profile,
+            model=model,
+            echo=echo,
+        )
+
+    controller = SettingsController(
+        _load,
+        _write,
+        language_previewer=_preview_language,
+        language_applier=_apply_language,
+    )
 
     app = QApplication.instance() or QApplication(sys.argv)
     window = SettingsWindow(build_settings_model(_load()), controller)
