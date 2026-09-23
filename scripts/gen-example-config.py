@@ -75,6 +75,7 @@ SECTIONS = [
     }),
     ("commands", CommandsConfig, "Spoken commands rather than text", {
         "enabled": "recognise 'delete the last word', 'new line', …",
+        "language": "auto follows [stt] language; explicit en | zh overrides",
         "voice_punctuation": "'comma' -> ',' — useful for code, noisy for prose",
     }),
 ]

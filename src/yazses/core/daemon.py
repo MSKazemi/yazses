@@ -49,6 +49,7 @@ from yazses.audio.vad_calibrated import is_silent_calibrated
 from yazses.cmdsafety.classify import ConfirmGate
 from yazses.commands.dispatch import dispatch as cmd_dispatch
 from yazses.commands.grammar import CommandIntent, IntentType, classify
+from yazses.commands.grammars.registry import resolve_command_language
 from yazses.commands.macros import MacroContext, build_macro_table
 from yazses.commands.revise import DictationLedger, parse_revise
 from yazses.config import Config, load_config
@@ -212,6 +213,10 @@ class Daemon:
     ) -> None:
         self._config = config or load_config()
         self._platform = platform or get_platform()
+        self._command_language = resolve_command_language(
+            self._config.commands.language,
+            self._config.stt.language,
+        )
         self._state = _DaemonState()
         self._lock = threading.RLock()
         self._hotkey: HotkeyBackend | None = None
@@ -1707,7 +1712,8 @@ class Daemon:
             if command_mode:
                 intent = classify(text, self._config.commands.profile,
                                   slm_router=self._slm_router,
-                                  macro_table=self._macro_table)
+                                  macro_table=self._macro_table,
+                                  language=self._command_language)
                 event["command_mode"] = True
                 event["intent_type"] = intent.intent.value
                 event["intent_action"] = intent.action
@@ -1823,8 +1829,9 @@ class Daemon:
             else:
                 if self._config.commands.enabled:
                     intent = classify(text, self._config.commands.profile,
-                                       slm_router=self._slm_router,
-                                       macro_table=self._macro_table)
+                                      slm_router=self._slm_router,
+                                      macro_table=self._macro_table,
+                                      language=self._command_language)
                     event["intent_type"] = intent.intent.value
                     event["intent_action"] = intent.action
                     # `run <anything>` types the words AND presses Return, so it

@@ -249,6 +249,7 @@ def negative_is_impossible(field) -> bool:
 #: architecture reference (`neovim` | `none`) disagree, so there is no set to enforce.
 #: `tests/test_config_enums_are_complete.py` holds the remainder in view.
 _ENUMS: dict[str, tuple[str, ...]] = {
+    "commands.language": ("auto", "en", "zh"),
     "injection.backend": ("auto", "type", "clipboard", "wtype", "portal", "unicode"),
     "injection.target_guard": ("clipboard", "warn", "off"),
     # Held equal to `recimport.render.VALID_FORMATS` by the test -- that constant is the

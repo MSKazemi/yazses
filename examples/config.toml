@@ -54,4 +54,5 @@ dysfluency_friendly = false # collapse repetitions and prolongations, widen onse
 # Spoken commands rather than text
 [commands]
 enabled = true            # recognise 'delete the last word', 'new line', …
+language = "auto"         # auto follows [stt] language; explicit en | zh overrides
 voice_punctuation = false # 'comma' -> ',' — useful for code, noisy for prose

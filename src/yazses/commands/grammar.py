@@ -16,6 +16,7 @@ from yazses.commands.grammars.en import (
 from yazses.commands.grammars.en import (
     strip_outer_punct as _strip_outer_punct,  # noqa: F401 — compat re-export
 )
+from yazses.commands.grammars.registry import get_grammar
 from yazses.commands.types import CommandIntent, IntentType
 
 log = logging.getLogger(__name__)
@@ -47,16 +48,17 @@ def classify(
     profile: str = "default",
     slm_router: _SlmRouter | None = None,
     macro_table: _MacroTable | None = None,
+    *,
+    language: str = "en",
 ) -> CommandIntent:
-    """Classify transcribed text as an English command or plain dictation.
+    """Classify transcribed text as a localized command or plain dictation.
 
-    This function intentionally keeps the pre-registry signature and behavior.
-    Language selection is wired in a separate change after the English extraction
-    proves parity.
+    Existing positional arguments are unchanged; language is keyword-only.
 
     Tier 0: optional user macro table (whole-utterance exact match), checked first.
-    Tier 1: English regex grammar.
-    Tier 2: optional SLM router called when Tier 1 returns DICTATE.
+    Tier 1: deterministic grammar for the selected language.
+    Tier 2: optional SLM router, English only. Mandarin fuzzy/LLM commands are out
+    of P1 scope so unmatched Chinese prose can never be promoted by the English SLM.
     """
 
     if not text or not text.strip():
@@ -72,15 +74,24 @@ def classify(
                 raw_text=text,
             )
 
-    normalised = ENGLISH_GRAMMAR.normalise(text)
+    try:
+        grammar = get_grammar(language)
+    except KeyError:
+        log.warning(
+            "No Tier 1 command grammar for language %r; treating as dictation.",
+            language,
+        )
+        return CommandIntent(intent=IntentType.DICTATE, action="inject", raw_text=text)
 
-    for rule in ENGLISH_GRAMMAR.rules:
+    normalised = grammar.normalise(text)
+
+    for rule in grammar.rules:
         match = rule.pattern.match(normalised)
         if match:
             args: dict[str, str] = {}
             for i, name in enumerate(rule.arg_names, 1):
                 try:
-                    args[name] = match.group(i).strip()
+                    args[name] = grammar.normalise_arg(name, match.group(i).strip())
                 except IndexError:
                     pass
             return CommandIntent(
@@ -90,7 +101,10 @@ def classify(
                 raw_text=text,
             )
 
-    if slm_router is not None:
+    # Chinese P1 is intentionally deterministic. Running the English-trained/local
+    # Tier-2 router on Chinese prose would broaden command execution beyond the
+    # reviewed anchored grammar and violate the false-positive safety contract.
+    if slm_router is not None and grammar.language == "en":
         try:
             slm_result = slm_router.classify(text, profile)
         except Exception:
