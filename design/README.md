@@ -16,7 +16,9 @@ site](https://mskazemi.com/yazses/) instead. This directory answers the other qu
 | [`specs/`](specs/) | Implementation-ready feature specs in ADR house style. |
 | [`research/`](research/) | The scientific layer: the [105-reference HCI corpus](research/2026-08-11-hci-reference-corpus.md), the [research agenda](research/2026-08-11-hci-research-agenda.md), literature sweeps, and [`hci-corpus.bib`](research/hci-corpus.bib). |
 | [`research/studies/`](research/studies/) | State-of-the-art studies: scope, SoA matrix, gap analysis, capability cards. |
+| [`publication/`](publication/) | Public publication planning, evidence synthesis, authorship governance, and release checklists; unpublished manuscript source remains private under `paper/`. |
 | [`architecture.md`](architecture.md) | The as-built architecture reference. |
+| [`white-paper-authoring-standard.md`](white-paper-authoring-standard.md) | Evidence, structure, visual, benchmark, citation, release, and QA standard for future YazSes white papers and one-page briefs. |
 | [`threat-model.md`](threat-model.md) | The privacy and threat model behind the offline-by-construction stance. |
 | [`emg-protocol.md`](emg-protocol.md) | The YESP serial protocol for the EMG activation source. |
 | [`v2-cognitive-layer/`](v2-cognitive-layer/) | Design notes for the opt-in perceptual/personalization features. |
