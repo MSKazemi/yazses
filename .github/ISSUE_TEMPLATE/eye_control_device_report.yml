@@ -3,7 +3,7 @@ description: >-
   Structured real-hardware evidence for gaze, Head-Pointer, face-switch, pointer
   backends, and the hands-free bundle. No face/video upload is required.
 title: "[eye-hw]: "
-labels: ["accessibility", "research", "measurement-wanted", "hardware-required"]
+labels: ["accessibility", "measurement-wanted", "hardware-required"]
 body:
   - type: markdown
     attributes:
@@ -42,6 +42,14 @@ body:
       placeholder: "#411"
     validations:
       required: true
+
+  - type: checkboxes
+    id: readiness_ack
+    attributes:
+      label: Readiness acknowledgement
+      options:
+        - label: I checked that the linked parent issue is READY / explicitly requests this hardware report
+          required: true
 
   - type: dropdown
     id: research_contact
