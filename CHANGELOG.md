@@ -6,6 +6,49 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — Windows can paste instead of typing, for apps that mangle typed Unicode
+
+Dictated text arrived correctly in a browser and, on the **same machine, from the same
+burst**, as the right *number* of characters with every one of them wrong in some
+editors — rows of `?`, `-` or `.` instead of the words. Windows injection uses
+`SendInput` with `KEYEVENTF_UNICODE`, and Microsoft documents two ways that arrives
+wrong: an **ANSI window** has each character converted to the active ANSI codepage
+(`?` for anything it cannot represent), and a text service that does not unpack the
+synthesised **VK_PACKET** keystroke runs it through the keyboard layout instead, so
+every character becomes the same wrong one. Chromium special-cases VK_PACKET, which is
+why the browser was fine.
+
+`[injection] backend = "clipboard"` now works on Windows: the transcript goes on the
+clipboard as CF_UNICODETEXT and only a real Ctrl+V is keyed, which depends on neither
+condition. The previous clipboard contents are saved and put back. **Off by default** —
+typing stays the default because pasting overwrites the clipboard and is a no-op in
+terminals, the same trade-off `inject/clipboard.py` documents on Linux.
+
+### Fixed — `[injection] backend` was ignored on Windows
+
+The setting was read, validated, and bridged into the environment by
+`apply_injection_config` — and then `platform/windows/__init__.py` named
+`WindowsInjector` unconditionally. So the one platform where the alternative is the
+documented remedy was the one platform that could not choose it. A Linux-only value
+(`ydotool`, `wtype`, `portal`) now logs which backend is actually running instead of
+being substituted in silence.
+
+### Added — `yazses inject --delay` and `--diagnose`
+
+`yazses inject` typed into the terminal you ran it from, which is the one window nobody
+is trying to test. Injection fidelity is a property of the *receiving* application, so
+testing it means typing into that application:
+
+```sh
+yazses inject -d 5 --diagnose "hello world"   # focus the app, then watch what lands
+```
+
+`--diagnose` reports the focused control on Windows — class, `IsWindowUnicode`, and the
+active keyboard layout — immediately before injecting, so the report and the result
+describe the same window. An ANSI window is named as the cause; a Unicode window rules
+that cause out without declaring success. An unreadable control gives no verdict rather
+than a guess.
+
 ## [2.39.1] - 2026-09-24
 
 ### Fixed — a provisioned Wayland machine is no longer told to provision itself

@@ -211,6 +211,16 @@ class InjectionConfig:
     # `auto` already picks it on Wayland when ydotoold is not running, which is
     # the case inside a strictly confined snap; force it when a session has a
     # stale ydotoold socket that wins the probe but cannot actually inject.
+    #
+    # On **Windows** two values apply: "auto" (SendInput + KEYEVENTF_UNICODE, the
+    # default) and "clipboard" (copy + a real Ctrl+V). Use "clipboard" when an
+    # application receives the right *number* of characters and every one of them
+    # is wrong -- rows of "?", "-" or "." instead of the words. Microsoft documents
+    # both causes: an ANSI window has each character converted to the active ANSI
+    # codepage ("?" for anything it cannot represent), and a text service that does
+    # not unpack the synthesised VK_PACKET keystroke runs it through the keyboard
+    # layout instead. Pasting bypasses both. `yazses inject -d 5 --diagnose "test"`
+    # says which window you are actually typing into and whether it is ANSI.
     backend: str = "auto"
     # Whether `auto` may select the RemoteDesktop portal on Wayland.
     # "ask" (default) | "allow" | "deny".

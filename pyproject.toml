@@ -523,9 +523,11 @@ ignore_missing_imports = true
 # mistakes in them still fail the gate.
 [[tool.mypy.overrides]]
 module = [
+    "yazses.platform.windows.clipboard",
     "yazses.platform.windows.hotkey",
     "yazses.platform.windows.injector",
     "yazses.platform.windows.lifecycle",
+    "yazses.platform.windows.winfo",
 ]
 disable_error_code = ["attr-defined"]
 

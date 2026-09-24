@@ -218,6 +218,54 @@ dropped with `Silent audio -- discarding` in `yazses logs`. That is why the auto
 only ever lowers the gate — a mic that hears too little tells you so, and a mic that hears
 too much does not.
 
+## Windows: one app gets `????` or `----` where the words should be
+
+The giveaway is that it is *one application*. The same dictation lands correctly in a
+browser and arrives in an editor or a notes app as the right **number** of characters
+with every one of them wrong — rows of `?`, `-` or `.`.
+
+Nothing is wrong with the transcript. YazSes types on Windows with `SendInput` and the
+`KEYEVENTF_UNICODE` flag, and Microsoft documents two ways an application can receive
+that keystroke incorrectly:
+
+- **An ANSI window.** Windows converts each character to the application's ANSI codepage
+  on the way in and substitutes `?` for anything that codepage cannot represent.
+- **A text service that does not unpack `VK_PACKET`.** `KEYEVENTF_UNICODE` synthesises a
+  *VK_PACKET* keystroke that carries the character as data. A text input service that
+  does not read it out runs the keystroke through your keyboard layout instead, so the
+  whole sentence comes out as the same wrong character repeated.
+
+Chromium handles `VK_PACKET` explicitly, which is why the browser is always fine.
+
+Find out which window you are really typing into:
+
+```sh
+yazses inject -d 5 --diagnose "hello world"
+```
+
+You then have five seconds to click into the application under test. It reports the
+focused control, whether it is a Unicode window, and your active keyboard layout, and
+then types. If the text is mangled there too, the application is the cause. If it is
+clean there but dictation is not, the problem is in the hold-to-talk path, not the
+injector — say so in an issue.
+
+The fix is to paste rather than type, which depends on neither condition:
+
+```toml
+[injection]
+backend = "clipboard"
+```
+
+```sh
+yazses restart
+```
+
+The transcript goes on the clipboard as Unicode text and YazSes sends a real Ctrl+V.
+Your previous clipboard contents are put back afterwards. Two trade-offs come with it,
+and they are why typing remains the default: Ctrl+V is literal in most terminals, so
+dictation into a terminal stops working, and applications that refuse paste (some
+password fields) receive nothing.
+
 ## Dictation stops after connecting a USB-C monitor or headset
 
 Some monitors, docks, and headsets register an audio input and become the operating system's default microphone. When that input is silent or very quiet, YazSes can keep running but stop writing dictated text because each recording is discarded as silence.

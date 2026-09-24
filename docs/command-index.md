@@ -260,6 +260,8 @@ Show the current hold-to-talk key (and command key, if set).
 Type text into the focused window without recording (tests the injector).
 
 - **Arguments:** `text`
+- `--delay`, `-d` — Seconds to wait before injecting, so you can focus the app to test.
+- `--diagnose` — Report the focused window before injecting (Windows only).
 
 ## `yazses inject-backend`
 

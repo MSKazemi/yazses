@@ -4244,10 +4244,33 @@ def logs(
 
 @app.command(
     rich_help_panel=_DICTATION,
-    epilog=_examples('yazses inject "hello world"    type it into the focused window'),
+    epilog=_examples(
+        'yazses inject "hello world"              type it into the focused window',
+        'yazses inject -d 5 "hello world"         wait 5 s so you can focus another app first',
+        'yazses inject -d 5 --diagnose "hello"    also report what that window is (Windows)',
+    ),
 )
-def inject(text: str = typer.Argument(..., help="Text to inject into the focused app.")) -> None:
-    """Type text into the focused window without recording (tests the injector)."""
+def inject(
+    text: str = typer.Argument(..., help="Text to inject into the focused app."),
+    delay: float = typer.Option(
+        0.0, "--delay", "-d", min=0.0, max=60.0,
+        help="Seconds to wait before injecting, so you can focus the app to test.",
+    ),
+    diagnose: bool = typer.Option(
+        False, "--diagnose",
+        help="Report the focused window before injecting (Windows only).",
+    ),
+) -> None:
+    """Type text into the focused window without recording (tests the injector).
+
+    Without --delay the text lands in *this* terminal, which is the one window
+    nobody is trying to test. Injection fidelity is a property of the receiving
+    application -- the same keystrokes arrive correctly in a browser and as rows
+    of "?" in an editor that does not handle them -- so testing it means typing
+    into that application, and that needs a moment to focus it first.
+    """
+    import time as _time
+
     from yazses.config import load_config
     from yazses.inject.auto import apply_injection_config, describe_injector
 
@@ -4259,8 +4282,34 @@ def inject(text: str = typer.Argument(..., help="Text to inject into the focused
     apply_injection_config(load_config(platform.paths.config_file).injection)
     injector = platform.injector_factory()
     typer.echo(f"Backend: {describe_injector(injector)}")
+
+    if delay > 0:
+        typer.echo(f"Focus the window you want to test -- injecting in {delay:g}s...")
+        _time.sleep(delay)
+
+    if diagnose:
+        for line in _focus_report_lines():
+            typer.echo(line)
+
     injector.inject(text)
     typer.echo(f"Injected: {text!r}")
+
+
+def _focus_report_lines() -> list[str]:
+    """The `--diagnose` block, or one line saying why there isn't one.
+
+    Split out so the CLI stays testable off Windows: the probe is the only part
+    that needs the OS, and "not available here" is a real answer rather than a
+    silently empty section.
+    """
+    from yazses.platform.windows import winfo
+
+    if not winfo.available():
+        return ["Focused window: --diagnose reports Windows windows only."]
+    report = winfo.read_focus()
+    if report is None:
+        return ["Focused window: could not be determined (no foreground window)."]
+    return ["Focused window:", *report.lines()]
 
 
 @app.command(
