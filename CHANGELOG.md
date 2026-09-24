@@ -26,6 +26,32 @@ change required. This introduces no new permission requirement: `yazses setup`'s
 rule already grants `/dev/uinput` access to the same `input`-group membership that
 `ydotool` itself needs before `auto` will select it.
 
+### Fixed — the Fedora package was four releases behind, again
+
+`packaging/fedora/yazses.spec` declared `Version: 2.36.0` while the project shipped
+2.40.0. `Version:` is what `%autosetup` and `%{pypi_source yazses}` expand from, so a
+COPR build did not fail on it — it built 2.36.0 and published it as the current package.
+`dnf copr enable mskazemi/yazses` still installs 2.36.0 today; the spec is correct now,
+but the repository serves whatever it last built, so a COPR rebuild is what actually
+moves it.
+
+This is the second time. The spec sat at 2.18.2 for seventeen releases, was fixed by hand
+at 2.36.0 (#370), and drifted straight back — because the hand-fix left nothing that
+would do it next time. `scripts/refresh-package-manifests.py` now rewrites the spec's
+`Version:` and adds its `%changelog` entry, dated from the release so the weekday is
+right, alongside the Homebrew, Scoop, Arch, Chocolatey, winget and Flatpak manifests it
+already refreshed.
+
+The reason nothing caught the drift is the more useful half.
+`tests/test_packaging_manifest_versions.py` compared four manifests named in a literal
+list, and the spec was not one of them, so every test in that module stayed green while
+the file went stale — a list is green forever on whatever it omits. The set is now
+derived: the sweep reads every file under `packaging/`, recognises a declared version in
+any of the formats this project packages in, and fails on one that no rule reaches.
+`packaging/arch/.SRCINFO`, which is the file the AUR actually reads, and
+`packaging/chocolatey/tools/chocolateyinstall.ps1`, which is the URL `choco install`
+fetches, were outside that list too and are covered by the same sweep.
+
 ## [2.40.0] - 2026-09-24
 
 ### Fixed — dictation typed nothing on Debian and Ubuntu Wayland
