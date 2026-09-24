@@ -284,3 +284,47 @@ def test_falling_back_to_the_clipboard_is_logged(caplog):
     assert injector._fallback.got == ["hello"]
     assert "clipboard fallback" in caplog.text
     assert "unrecognised option" in caplog.text
+
+
+# --- the probe defaults in the SAFE direction ---------------------------------
+
+
+@pytest.mark.parametrize(
+    "help_text",
+    [
+        "",  # no answer at all
+        "Usage: ydotool type [OPTION]... [STRINGS]...\n",  # options not listed
+        "some future ydotool 2.x help we have never seen\n",
+    ],
+)
+def test_an_unrecognised_help_text_assumes_v1(monkeypatch, help_text):
+    """Only one of the two wrong guesses can correct itself.
+
+    Guessing v1 on a 0.1.x machine raises `unrecognised option`, which `inject`
+    catches and downgrades. Guessing v0 on a 1.x machine is SILENT -- 1.x's `key`
+    ignores symbolic names and emits nothing -- so v1 must be the default.
+    """
+
+    def fake_run(argv, **kwargs):
+        return SimpleNamespace(returncode=0, stdout=help_text, stderr="")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    assert yd.ydotool_dialect() == yd.DIALECT_V1
+
+
+def test_real_upstream_v1_help_is_recognised(monkeypatch):
+    """Verbatim from upstream v1.0.4 `Client/tool_type.c`."""
+    upstream = (
+        "Usage: ydotool type [OPTION]... [STRINGS]...\n"
+        "  -d, --key-delay=N          Delay N milliseconds between keys "
+        "(the delay between every key down/up pair) (default: 20)\n"
+        "  -H, --key-hold=N           Hold each key for N milliseconds "
+        "(the delay between key down and up) (default: 20)\n"
+        "  -D, --next-delay=N         Delay N milliseconds between command line strings\n"
+    )
+
+    def fake_run(argv, **kwargs):
+        return SimpleNamespace(returncode=0, stdout=upstream, stderr="")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    assert yd.ydotool_dialect() == yd.DIALECT_V1

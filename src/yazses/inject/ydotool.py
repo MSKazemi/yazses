@@ -87,9 +87,17 @@ def _probe_dialect() -> str:
     """Which ydotool is installed, asked once and cached.
 
     `type --help` is the probe because it is the one question both CLIs answer
-    without emitting a keystroke. 1.x documents ``--key-hold``; 0.1.x has no hold
-    time at all. An unreadable answer assumes 1.x -- the modern default -- and the
-    first real injection downgrades itself on the option error.
+    without emitting a keystroke. 1.x documents ``-d, --key-delay`` **and**
+    ``-H, --key-hold`` (verified against upstream v1.0.4 `Client/tool_type.c`);
+    0.1.x documents `--key-delay` and has no hold time at all.
+
+    **Only a positive 0.1.x signature returns v0, and everything else returns v1**
+    -- including an unreadable answer or a future ydotool whose help we do not
+    recognise. The asymmetry is deliberate, because only one of the two mistakes
+    can correct itself: guessing v1 on a 0.1.x machine produces
+    `unrecognised option`, which `inject` catches and downgrades. Guessing v0 on a
+    1.x machine produces *silence* -- 1.x's `key` ignores symbolic names without
+    an error and emits no events -- so there is nothing to catch.
     """
     try:
         proc = subprocess.run(
@@ -98,9 +106,8 @@ def _probe_dialect() -> str:
     except (OSError, subprocess.SubprocessError):  # pragma: no cover - defensive
         return DIALECT_V1
     help_text = f"{proc.stdout}{proc.stderr}".lower()
-    if not help_text.strip():  # pragma: no cover - defensive
-        return DIALECT_V1
-    return DIALECT_V1 if "key-hold" in help_text else DIALECT_V0
+    looks_like_v0 = "key-delay" in help_text and "key-hold" not in help_text
+    return DIALECT_V0 if looks_like_v0 else DIALECT_V1
 
 
 def ydotool_dialect() -> str:
