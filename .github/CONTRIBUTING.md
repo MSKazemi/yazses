@@ -238,8 +238,16 @@ That is fine, and increasingly common — but the PR is yours, so please read an
 every line before you open it, and confirm the tests pass locally rather than assuming.
 [`AGENTS.md`](../AGENTS.md) gives your assistant the project conventions, the gates, and the two
 rules it is most likely to break (**no network calls or telemetry**, and **new features ship
-off by default**). Mention in the PR body if a change was largely AI-generated; it only
-changes how carefully we review, never whether we accept it.
+off by default**).
+
+An assistant is a tool, not a project author or co-author: do not add agent
+`Co-Authored-By` trailers or contributor credit. Tooling disclosure in the PR is different
+and is welcome — say which assistant you used and what you verified personally. The human who
+opens the PR remains responsible for the complete diff.
+
+For cloud coding agents such as Jules, use the fork-first worker model in
+[`campaign/agent-workers.md`](../campaign/agent-workers.md). You do not need upstream write
+access merely to connect your own agent.
 
 **You never need to pay for an AI tool to contribute.** Claude Code, Codex, ChatGPT, Gemini,
 Cursor, Copilot, Jules and similar products are third-party services. If you choose to use
