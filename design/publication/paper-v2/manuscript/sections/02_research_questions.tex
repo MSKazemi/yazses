@@ -1,0 +1,69 @@
+\section{Research Questions and Contributions}
+
+We organize the evaluation around seven research questions.
+
+\paragraph{RQ1 --- Accuracy and robustness.}
+How do local ASR engines and checkpoints compare when the same product pipeline is evaluated on
+both clean and harder speech?
+
+\paragraph{RQ2 --- Reproducibility.}
+When identical audio is decoded repeatedly, are the resulting hypotheses stable? If not, which
+error components change?
+
+\paragraph{RQ3 --- Decoder mechanism.}
+How do beam width, temperature fallback, and previous-text conditioning interact with checkpoint
+size and catastrophic continuation behavior?
+
+\paragraph{RQ4 --- Hardware and platform portability.}
+How much do decoded outputs and installation constraints vary across processor architecture and
+operating system?
+
+\paragraph{RQ5 --- Interactive latency assumptions.}
+Do synthetic onset padding and streaming partial decoding provide their intended benefits under a
+CPU-only interactive workload?
+
+\paragraph{RQ6 --- Meeting diarization.}
+Does the system's diarization configuration transfer to real annotated meetings, and how do
+clustering threshold and a speaker-count ceiling affect different aspects of performance?
+
+\paragraph{RQ7 --- Reproducibility infrastructure.}
+Does retaining commands, corpus identity, provenance, failed rows, and displaced benchmark
+results materially change the conclusions reached from an experimental campaign?
+
+\subsection{Measured contributions}
+
+This work makes the following measured systems contributions.
+
+\begin{enumerate}
+  \item A common-harness CPU comparison of multiple local speech-recognition engines and
+  checkpoints through the same shipping \YazSes{} engine interface, evaluated on both clean and
+  harder LibriSpeech conditions.
+
+  \item A characterization of a repeated-decoding failure observed with \texttt{large-v3}. In
+  the measured hard-speech workload, variation in aggregate \wer{} is localized to insertions and
+  runaway continuation while substitutions, deletions, and correct-word hits remain unchanged
+  across the analyzed repeats.
+
+  \item Evidence that decoder configuration is checkpoint-dependent. In particular, the measured
+  effect of previous-text conditioning changes across the Whisper checkpoint ladder rather than
+  following a single monotonic rule.
+
+  \item Decoding results across Linux x86-64, Linux arm64, macOS arm64, and Windows x86-64 using
+  a common subset, together with a separate dependency-resolution analysis.
+
+  \item A full AMI-test-split Meeting Mode evaluation showing that the previous clustering
+  operating point is severely mismatched to long real meetings, and that speaker-count
+  correctness and diarization error are distinct objectives.
+
+  \item Negative results with direct product implications: synthetic pre-speech silence does not
+  recover clipped speech, generic CPU streaming does not consistently reduce final latency, and
+  simple centroid-based post-hoc cluster merging does not provide a safe repair strategy on the
+  measured AMI data.
+
+  \item An auditable benchmark archive that ties results to command-line arguments, corpus
+  identity, machine/library provenance, and retained displaced reruns.
+\end{enumerate}
+
+We deliberately distinguish these measured contributions from claims of literature priority.
+Priority language remains deferred until the current related-work review in repository
+issue \#507 is complete.

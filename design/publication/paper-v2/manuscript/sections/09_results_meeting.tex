@@ -1,0 +1,71 @@
+\section{Results V: Real Meeting Diarization}
+
+Meeting Mode adds a failure dimension that ordinary dictation does not have: the words may be
+accurate while the speaker labels are unusable.
+
+The campaign evaluates the complete 16-recording AMI test split, covering approximately 543.7
+minutes of meeting audio and 30,714 seconds of scored reference speech. Fifteen recordings have
+four reference speakers and one has three. Human RTTM labels provide the speaker reference.
+
+\subsection{The original clustering operating point does not transfer}
+
+% TODO(#508): generate from the AMI result artifacts.
+\begin{table}[ht]
+\centering
+\caption{AMI test-split diarization conditions. DER is the per-recording mean shown in the
+archived comparison; the unrestricted threshold-1.2 condition additionally has 27.37\%
+time-weighted DER. Count error is the mean signed hypothesis-minus-reference speaker count.}
+\label{tab:ami}
+\begin{tabular}{lrrr}
+\toprule
+Configuration & Mean DER & Mean count error & Exact count \\
+\midrule
+Threshold 0.5, unrestricted & 75.21\% & +155.19 & 0/16 \\
+Threshold 0.5, \texttt{max\_speakers=4} & 29.42\% & +0.06 & 15/16 \\
+Threshold 1.2, unrestricted & 26.71\% & +2.06 & 2/16 \\
+Threshold 1.2, \texttt{max\_speakers=4} & 29.42\% & +0.06 & 15/16 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The former threshold of 0.5 severely over-splits the AMI meetings. The resulting
+75.21\% mean DER is accompanied by a mean signed speaker-count error of +155.19. Raising the Meeting Mode clustering threshold to 1.2 reduces the
+per-recording mean DER to 26.71\%. The corresponding time-weighted DER is 27.37\%, or 20.51\%
+with a 250 ms collar.
+
+The result should not be read as a claim that 26--27\% DER is state of the art. Its importance
+here is diagnostic: a default calibrated on shorter or different audio was severely mismatched
+to long real meetings, and real annotated evaluation changed the shipped operating point.
+
+\subsection{A four-speaker cap nearly fixes count, not DER}
+
+The intervention tested by the archived artifact is \texttt{max\_speakers=4}: a ceiling on
+clustering, not a supplied exact speaker count. At threshold 1.2 it makes the estimated count
+exact on 15 of 16 recordings, compared with 2 of 16 under unrestricted clustering. The remaining
+recording has three reference speakers and is over-counted by one under the four-speaker cap.
+
+However, the paired DER result does not establish an accuracy benefit. Seven meetings improve,
+seven worsen, and two are unchanged; the exact sign test has $p=1.0$. The mean paired difference
+is +2.71 DER points with a 95\% interval of -1.64 to +7.60. Thus the count constraint solves a
+different problem from diarization accuracy.
+
+\subsection{Thresholds are domain-sensitive}
+
+The archived threshold sweeps place the preferred regions at approximately 0.8--0.9 for the
+synthetic meeting fixture, approximately 0.9 for the evaluated VoxConverse condition, and
+approximately 1.2 for AMI. At the AMI-oriented threshold, crowd-scene VoxConverse examples can
+be under-counted badly.
+
+This provides evidence against a single universal clustering threshold. The operating point is a
+property of the embedding/clustering system together with the target domain.
+
+\subsection{Simple centroid repair is not safe}
+
+A follow-up experiment asks whether post-hoc cosine similarity between cluster centroids can merge
+fragments belonging to the same real speaker. On the measured AMI conditions, no threshold
+provides useful repair recall without introducing unacceptable merges between different people.
+A very conservative threshold can achieve high precision only by fixing a small fraction of
+splits; relaxing it quickly produces wrong-person merges.
+
+We retain this as a negative result rather than tuning the heuristic until one aggregate appears
+favorable.
