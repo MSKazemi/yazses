@@ -23,11 +23,12 @@ software itself runs on.
 
 ## Current stable
 
-**[YazSes 2.37.2](v2.37.2.md)** — the update button was quietly downgrading your
-dictation. `uv tool upgrade` — what the tray's own "Install update" runs — rebuilds a
-`uv tool` install from its own recorded manifest, and an optional feature (like the
-Parakeet STT engine) enabled after install was never on it, so every update silently
-deleted it with no visible error. Fixed, and `doctor` now catches it if it happens again.
+**[YazSes 2.38.0](v2.38.0.md)** — the failures that never told anyone. Every permission
+denial was reported as a microphone problem, so declining the Wayland typing prompt sent
+you to the audio settings to fix it; Spoken Edit erased your text and lost it in silence;
+and no permission was checked at startup at all, leaving a denied grant to look like a
+healthy app whose hotkey does nothing. Plus a "Remote Desktop" consent dialog that now
+explains itself before it opens.
 Install it with:
 
 ```sh
@@ -37,6 +38,7 @@ pipx upgrade yazses          # upgrade an existing install
 
 ### Recent stable releases
 
+- [v2.38.0](v2.38.0.md) — the failures that never told anyone: every permission denial was reported as a microphone problem, including a refused typing prompt; Spoken Edit erased text and lost it in silence; no permission was checked at startup at all, which is #182's symptom; the Wayland "Remote Desktop" prompt now explains itself before it opens.
 - [v2.37.2](v2.37.2.md) — the tray's own "Install update" silently deleted an enabled STT engine on every `uv tool` update; `doctor` now catches a configured engine whose dependency has gone missing; winget's publish job now generates its own manifest instead of expecting one that cannot exist yet.
 - [v2.37.1](v2.37.1.md) — `anyio` bumped past three advisories (one critical) opened right after v2.37.0 shipped; the `lightning` alert re-flagged by the same scan was already patched.
 - [v2.37.0](v2.37.0.md) — the confined snap could not type, could not be launched, and could not say why: Wayland keystroke injection now works under strict confinement; no application launcher had ever been exported; Chocolatey checksummed arm64 and downloaded x64; the Fedora COPR served a release seventeen versions old; the Microsoft Store route reopened via MSIX; `lightning` CVE-2026-58659 patched.

@@ -6,6 +6,8 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.38.0] - 2026-09-24
+
 ### Added — missing permissions now announce themselves on the desktop
 
 Every OS permission probe and every remedy string already existed in
