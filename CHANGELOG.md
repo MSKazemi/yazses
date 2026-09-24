@@ -22,6 +22,29 @@ the one non-square tile, which was not covered — and a manifest that declares
 without. This changes nothing for users; it turns a ten-minute Windows job into a
 millisecond assertion for the maintainer who edits the manifest.
 
+### Fixed — the Store documentation said the Face-Gesture Switch did not exist
+
+`docs/store-submission.md`, the MSIX manifest comment and the manifest test all stated
+that the Face-Gesture Switch was "planned/experimental" with "no runtime detector or
+activation adapter". That was written against a tree where it genuinely did not exist,
+and it stopped being true once the switch landed: `src/yazses/facegesture/` holds the
+detector and the webcam backend, `core/daemon.py` builds it as an activation source when
+`[facegesture] enabled`, and `yazses features enable facegesture` installs its packages
+and turns it on. The documentation had been telling users a shipped accessibility feature
+was vapour.
+
+All three now say what is actually true. Glance-Type gaze and the Face-Gesture Switch are
+both implemented, both off by default, and both reachable on a normal install; what makes
+them unreachable in the Store package is that frozen bundle alone, which syncs only the
+`desktop` extra and so carries neither `mediapipe` nor `opencv-python`, with no pip to add
+them afterwards. The reason for not declaring the `webcam` capability is unchanged and the
+package behaves exactly as before — only the description of it was wrong.
+
+A new test pins the rationale to the code instead of to prose, since prose is what drifted:
+it fails if either feature's implementation disappears, and it fails if the frozen build
+ever syncs a camera extra — at which point a camera path becomes reachable inside the MSIX
+and the manifest must declare `webcam` or the feature fails silently on a user's machine.
+
 ### Fixed — Wayland's default injector silently dropped non-ASCII text
 
 On Wayland, `[injection] backend = "auto"` picks `ydotool`, and `YdotoolInjector` handed

@@ -112,15 +112,16 @@
     <!--
       Microphone is the only device capability declared, deliberately.
 
-      Glance-Type gaze targeting is implemented, experimental, and off by default. On a
-      normal install, `yazses features enable gaze` installs the optional `gaze` dependencies.
-      The Face-Gesture Switch is planned/experimental, but no runtime detector or activation
-      adapter exists yet, so it is not currently reachable. This package is a frozen bundle
-      built without optional extras, and an MSIX has no pip to add them afterwards, so the
-      implemented gaze camera path is unreachable in this package specifically. Face-Gesture
-      does not add a reachable camera path either. Declaring `webcam` would ask a user and a
-      reviewer to grant camera access nobody here can benefit from. An unused capability is a
-      review question with no upside.
+      Both webcam-driven features are implemented, experimental, and off by default:
+      Glance-Type gaze targeting (`yazses features enable gaze`) and the Face-Gesture
+      Switch (`yazses features enable facegesture`). Both run on a normal install, and
+      both need the same two optional packages, mediapipe and opencv-python.
+
+      This package is a frozen bundle: scripts/build-windows.ps1 syncs only the `desktop`
+      extra, so neither package is inside it, and an MSIX has no pip to add them
+      afterwards. Both camera paths are unreachable in this package specifically.
+      Declaring `webcam` would ask a user and a reviewer to grant camera access nobody
+      here can benefit from. An unused capability is a review question with no upside.
     -->
     <DeviceCapability Name="microphone" />
   </Capabilities>

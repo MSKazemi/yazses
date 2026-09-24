@@ -93,18 +93,20 @@ does and where to check it:
 | `runFullTrust` | above |
 | `microphone` | recording while the hotkey is held |
 
-**`webcam` is deliberately not declared.** Glance-Type gaze is implemented in YazSes
-and works on a normal install when the optional `gaze` dependencies are enabled with
-`yazses features enable gaze`. The Face-Gesture Switch is planned/experimental, but there
-is no runtime detector or activation adapter yet, so it is not currently reachable.
+**`webcam` is deliberately not declared.** Both camera features are implemented and
+reachable on a normal install, and both are off by default. Glance-Type gaze targeting
+(`yazses features enable gaze`) routes dictation to the pane you look at. The
+Face-Gesture Switch (`yazses features enable facegesture`) opens the mic while you hold
+a facial movement, for someone who can speak but cannot press a key. Either command
+installs the same two optional packages, `mediapipe` and `opencv-python`.
 
-For gaze, what differs here is the packaging. The Store package is a frozen PyInstaller
-bundle built without optional extras, and an MSIX has no pip to add them afterwards, so the
-implemented gaze camera path is unreachable **in this package specifically**. Face-Gesture
-does not add a reachable camera path either because its runtime implementation does not yet
-exist. Requesting camera access a user could never benefit from is a certification question
-with no upside. Anyone who wants gaze should install from
-[winget, Scoop or the direct installer](windows-install.md), where enabling it works
+What differs here is the packaging, not the product. The Store package is a frozen
+PyInstaller bundle — `scripts/build-windows.ps1` syncs only the `desktop` extra, so
+neither camera package is inside it, and an MSIX has no pip to add them afterwards.
+Both camera code paths are therefore unreachable **in this package specifically**.
+Requesting camera access a user could never benefit from is a certification question
+with no upside. Anyone who wants gaze or the face-gesture switch should install from
+[winget, Scoop or the direct installer](windows-install.md), where enabling them works
 normally.
 
 ## Building the package
