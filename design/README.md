@@ -24,6 +24,7 @@ site](https://mskazemi.com/yazses/) instead. This directory answers the other qu
 | [`v2-cognitive-layer/`](v2-cognitive-layer/) | Design notes for the opt-in perceptual/personalization features. |
 | [`meeting-mode/`](meeting-mode/), [`mobile/`](mobile/) | Subsystem design notes. |
 | [`chinese/`](chinese/) | First-class Mandarin support design package: architecture, model policy, validation, risk controls, community task contracts, and release evidence gates. |
+| [`eye-control/`](eye-control/) | Eye/gaze/head/face-camera accessibility programme: as-built audit, roadmap, test gates and agent-sized tasks. |
 | [`packaging/`](packaging/) | Release-engineering runbooks: APT, PPA, Snap, macOS notarisation, Windows signing. Procedures only — they name GitHub Secret *keys*, never values. |
 
 ## The visibility contract
