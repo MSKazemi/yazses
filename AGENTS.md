@@ -184,6 +184,14 @@ fails and your change is reverted anyway.
 | `man/yazses.1` | `uv run python scripts/gen-man.py` |
 | `campaign/generated/**`, `campaign/schemas/**` | `uv run python scripts/campaign.py --generate` |
 | The contributor wall in `README.md` + every `README.<code>.md` | `npx all-contributors-cli generate` |
+| Draft `docs/<locale>/index.md`, the generated rows of `docs/localization/STATUS.md` | `uv run python scripts/gen-readme-translation.py --all` (source: `scripts/translations.py`) |
+
+The last row is the one that has actually bitten. A correct fix to the *pages* survived
+until the next regeneration and no further; the reviewed locales look identical to the
+drafts but are hand-owned, and the generator skips any page whose `yazses-l10n` metadata
+says `status` is not `draft`. If you are changing what a draft page says, change
+`scripts/translations.py` and re-run — `tests/test_l10n_contribute_links.py` fails if the
+two disagree.
 
 **Pure modules — test these directly, no mocks needed.** The house pattern is dependency-free
 logic beside an injected heavy backend: `meeting/segmenter.py` (pure) vs `meeting/silero_vad.py`

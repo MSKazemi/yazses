@@ -51,7 +51,7 @@ YazSes एक मुफ़्त, ओपन-सोर्स, ऑफलाइन 
 `status`) की asciinema recording है — हर byte वास्तविक command output है, कुछ भी हाथ से टाइप नहीं किया गया। इसे
 [asciinema](https://asciinema.org) के साथ चलाएँ: `asciinema play docs/demo/yazses-cli.cast`।
 
-> 🙌 **Want to help?** **[Start here](https://mskazemi.com/yazses/contribute/start.html)** — one page, pick the row matching what you have, finish in 15–45 minutes. No permission needed and nothing is assigned; coding agents are welcome and there's a copy-paste prompt. **AI tools are optional; you never need to pay for one to contribute.** If you use one, read the [safe agent guide](../contribute/ai-agents.md) first. Several tasks need **no Python at all** — [translate the README](https://github.com/MSKazemi/yazses/issues/18) into your language, [add your microphone](https://github.com/MSKazemi/yazses/issues/21) to the known-good list, or just run it and tell us what happened. [#22](https://github.com/MSKazemi/yazses/issues/22) lists everything open. The test suite is fully offline and takes about 30 seconds, so you need no microphone, model or GPU to contribute.
+> 🙌 **Want to help?** **[Start here](https://mskazemi.com/yazses/contribute/start.html)** — one page, pick the row matching what you have, finish in 15–45 minutes. No permission needed and nothing is assigned; coding agents are welcome and there's a copy-paste prompt. **AI tools are optional; you never need to pay for one to contribute.** If you use one, read the [safe agent guide](../contribute/ai-agents.md) first. Several tasks need **no Python at all** — [translate the README](https://github.com/MSKazemi/yazses/issues/18) into your language, [add your microphone](https://github.com/MSKazemi/yazses/blob/main/docs/known-good-microphones.md) to the known-good list, or just run it and tell us what happened. [#22](https://github.com/MSKazemi/yazses/issues/22) lists everything open. The test suite is fully offline and takes about 30 seconds, so you need no microphone, model or GPU to contribute.
 
 ---
 
@@ -541,8 +541,8 @@ Contributions are very welcome — bug reports, docs, packaging, and code.
   several hold many contributors at once — no permission needed, just comment and go:
   [translate the README](https://github.com/MSKazemi/yazses/issues/18) (the lede and Quick
   Start alone is a complete PR),
-  [add your microphone](https://github.com/MSKazemi/yazses/issues/21),
-  [share a config for your app or editor](https://github.com/MSKazemi/yazses/issues/43), or
+  [add your microphone](https://github.com/MSKazemi/yazses/blob/main/docs/known-good-microphones.md),
+  [share a config for your app or editor](https://github.com/MSKazemi/yazses/blob/main/docs/how-to/app-profiles.md), or
   [add your setup to SHOWCASE.md](https://github.com/MSKazemi/yazses/issues/42).
 - 🐞 **Found a bug or have an idea?** Open an [issue](https://github.com/MSKazemi/yazses/issues/new/choose) (the `yazses doctor` output resolves most reports on its own) or ask in [Discussions](https://github.com/MSKazemi/yazses/discussions).
 - 🔧 **Sending a PR?** See [CONTRIBUTING.md](https://github.com/MSKazemi/yazses/blob/main/.github/CONTRIBUTING.md). The gates are quick:

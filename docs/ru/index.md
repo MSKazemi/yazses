@@ -54,7 +54,7 @@ YazSes — бесплатная оффлайн служба голосовой �
 > ⭐ **Если это кажется вам полезным — поставьте звезду. Так проект найдут другие.** За этим проектом нет компании и
 > рекламного бюджета: всё распространение держится на рекомендациях.
 
-> 🙌 **Хотите помочь?** **[Начните здесь](https://mskazemi.com/yazses/contribute/start.html)** — на одной странице выберите строку, которая подходит вам, и завершите задачу за 15–45 минут. Разрешение не требуется, задачи никому не назначаются; AI-помощники для написания кода приветствуются, а готовый prompt можно просто скопировать. Для нескольких задач **Python вообще не нужен** — [переведите README](https://github.com/MSKazemi/yazses/issues/18) на свой язык, [добавьте свой микрофон](https://github.com/MSKazemi/yazses/issues/21) в список проверенных или просто запустите YazSes и расскажите, что получилось. В [#22](https://github.com/MSKazemi/yazses/issues/22) перечислены все открытые задачи. Набор тестов работает полностью локально и занимает около 30 секунд, поэтому для участия не нужны ни микрофон, ни модель, ни GPU.
+> 🙌 **Хотите помочь?** **[Начните здесь](https://mskazemi.com/yazses/contribute/start.html)** — на одной странице выберите строку, которая подходит вам, и завершите задачу за 15–45 минут. Разрешение не требуется, задачи никому не назначаются; AI-помощники для написания кода приветствуются, а готовый prompt можно просто скопировать. Для нескольких задач **Python вообще не нужен** — [переведите README](https://github.com/MSKazemi/yazses/issues/18) на свой язык, [добавьте свой микрофон](https://github.com/MSKazemi/yazses/blob/main/docs/known-good-microphones.md) в список проверенных или просто запустите YazSes и расскажите, что получилось. В [#22](https://github.com/MSKazemi/yazses/issues/22) перечислены все открытые задачи. Набор тестов работает полностью локально и занимает около 30 секунд, поэтому для участия не нужны ни микрофон, ни модель, ни GPU.
 
 ---
 
@@ -566,8 +566,8 @@ already covers the licence grant.
   several hold many contributors at once — no permission needed, just comment and go:
   [translate the README](https://github.com/MSKazemi/yazses/issues/18) (the lede and Quick
   Start alone is a complete PR),
-  [add your microphone](https://github.com/MSKazemi/yazses/issues/21),
-  [share a config for your app or editor](https://github.com/MSKazemi/yazses/issues/43), or
+  [add your microphone](https://github.com/MSKazemi/yazses/blob/main/docs/known-good-microphones.md),
+  [share a config for your app or editor](https://github.com/MSKazemi/yazses/blob/main/docs/how-to/app-profiles.md), or
   [add your setup to SHOWCASE.md](https://github.com/MSKazemi/yazses/issues/42).
 - 🐞 **Found a bug or have an idea?** Open an [issue](https://github.com/MSKazemi/yazses/issues/new/choose) (the `yazses doctor` output resolves most reports on its own) or ask in [Discussions](https://github.com/MSKazemi/yazses/discussions).
 - 🔧 **Sending a PR?** See [CONTRIBUTING.md](https://github.com/MSKazemi/yazses/blob/main/.github/CONTRIBUTING.md). The gates are quick:

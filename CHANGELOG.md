@@ -6,6 +6,70 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the closed-issue links were fixed in the output, not in the generator
+
+[#359](https://github.com/MSKazemi/yazses/pull/359) repointed all 25 draft translation
+pages from their closed `Translate the README into <language>` issue to the open
+`Review the <language> translation` one. It corrected the `docs/<locale>/index.md`
+files, which are generated: `scripts/translations.py` still held the closed issue for
+every locale, so the next `gen-readme-translation.py --all` would have written all 21
+of them straight back, silently and in one run.
+
+The same run had a second cost. `docs/ta/index.md` had since been reviewed by
+[@Guruharishb](https://github.com/Guruharishb) and promoted to `status=active`; the
+generator rewrites every locale in its table unconditionally, so it would have replaced
+that review with the machine draft the review had replaced, "not yet reviewed by a
+native speaker" banner and all. It no longer touches a page whose own metadata says a
+native speaker has taken it over, and a page it cannot parse is not treated as
+protected.
+
+Three things now live in the table rather than only in its output: the review issue,
+under the name `review_issue` so the ambiguous `issue` cannot hold a closed one again;
+[@YuuGR1337](https://github.com/YuuGR1337)'s Portuguese recruiting sentence, which the
+generator was dropping and which is the template the other 24 locales are waiting on
+([#361](https://github.com/MSKazemi/yazses/issues/361)) — it interpolates the issue
+number rather than repeating it; and `source_sha`, now pinned to the English commit the
+table's prose was written from. That last one was read from `git log -1 -- README.md` at
+run time, so regenerating stamped today's SHA onto prose nobody had re-translated and
+told the next translator there was nothing to sync.
+
+`docs/localization/STATUS.md` carried the same closed issues in its `Next action`
+column, which is the page a would-be reviewer reads before picking a language. Its
+generated rows now come from each page's own metadata, so a reviewed locale stops
+advertising for a reviewer. The Spanish row had been hand-added inside the generated
+block and was one regeneration away from disappearing; it has moved up to the
+hand-maintained rows with the other human translations.
+
+### Fixed — the rest of the contribute links pointed at finished work too
+
+The translated pages were not the only place. Sweeping every issue number the
+newcomer-facing pages recruit against, and checking each one's real state, found the
+same defect in five more places — including two that stated openness outright, which
+is worse than a stale link because a reader has no reason to check:
+
+- `.github/CONTRIBUTING.md` said the two M0 Android tasks "are open right now". Both
+  closed as completed in August 2026; M0 shipped as `contract/`. It now points at that
+  directory and at [#512](https://github.com/MSKazemi/yazses/issues/512), which is open.
+- `docs/mobile/index.md` offered #83 as "a good first issue" — also closed. Same fix.
+- `docs/research/get-involved.md` recruited students under a column headed **Open
+  issue** to six projects that had all shipped, and told industry readers a container
+  image was "(coming)" when it has been on GHCR since August. The six are now listed
+  as shipped seams whose issues are the design record, the three genuinely open
+  projects are separated out, and four other claims that had gone stale with them —
+  "eight scoped projects", two "seam open" rows, and "once the harness lands" — now
+  match what is in the tree.
+- The "no Python needed" on-ramps in `README.md`, `docs/contributing.md`,
+  `docs/contribute/start.md` and the Hindi, Russian and Simplified Chinese pages sent
+  readers to #21 (microphones) and #43 (app configs). Both umbrella issues were closed
+  as completed while the contributions themselves stayed welcome, so they now link
+  `docs/known-good-microphones.md` and `docs/how-to/app-profiles.md` — the pages that
+  take the pull request, which cannot be closed out from under a reader.
+- `docs/contribute/start.md` also sent the row for *reviewing* a translation to the
+  *translate* issue, and "report what happened" to the SHOWCASE issue. They now go to
+  the translation matrix and to the open `Test YazSes on …` issues.
+
+No issue was opened, closed or commented on. Only the links moved.
+
 ### Fixed — Wayland's default injector silently dropped non-ASCII text
 
 On Wayland, `[injection] backend = "auto"` picks `ydotool`, and `YdotoolInjector` handed

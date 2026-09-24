@@ -11,10 +11,10 @@ Pick the row that matches what you have in front of you right now.
 
 | What you have | Do this | Time |
 |---|---|---|
-| **A browser, nothing else** | [Review a draft README translation](https://github.com/MSKazemi/yazses/issues/18) in a language you speak — 25 languages have a machine-assisted draft that says so at the top, and correcting the prose is a much smaller job than translating one. Languages with no draft yet are still open to translate. | 20–45 min |
-| **A laptop, any OS** | [Install YazSes and report what happened](https://github.com/MSKazemi/yazses/issues/42) — working *or* broken, both are useful | 20 min |
-| **A microphone you like** | [Add it to the known-good list](https://github.com/MSKazemi/yazses/issues/21) with its measured level | 15 min |
-| **An editor or terminal you use daily** | [Share a config for it](https://github.com/MSKazemi/yazses/issues/43) | 30 min |
+| **A browser, nothing else** | [Review a draft README translation](../localization/STATUS.md) in a language you speak — the matrix names each draft's own review issue, and correcting the prose is a much smaller job than translating one. [Languages with no draft yet](https://github.com/MSKazemi/yazses/issues/18) are still open to translate. | 20–45 min |
+| **A laptop, any OS** | [Install YazSes and report what happened](https://github.com/MSKazemi/yazses/issues?q=is%3Aopen+%22Test+YazSes+on%22+in%3Atitle) — one issue per OS and desktop, working *or* broken; or [add your setup to SHOWCASE.md](https://github.com/MSKazemi/yazses/issues/42) | 20 min |
+| **A microphone you like** | [Add it to the known-good list](../known-good-microphones.md) with its measured level | 15 min |
+| **An editor or terminal you use daily** | [Share a config for it](../how-to/app-profiles.md) | 30 min |
 | **Python, and you want real code** | [Browse the task list](tasks.md) and take any `WIRE-*` or `QA-*` | 60–90 min |
 
 Want to narrow it yourself instead? **[Filter the full list](find.md)** by what you have,

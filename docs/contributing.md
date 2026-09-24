@@ -24,8 +24,8 @@ These are genuinely useful and need no Python:
 | | |
 |---|---|
 | 🌍 **[Translate the README](https://github.com/MSKazemi/yazses/issues/18)** | One language each — 24 listed, any other welcome. No install needed. |
-| 🎙️ **[Add your microphone](https://github.com/MSKazemi/yazses/issues/21)** | Run `yazses mic-level`, add one row to [known-good microphones](known-good-microphones.md). **Bad results are wanted too.** |
-| ⚙️ **[Share a config](https://github.com/MSKazemi/yazses/issues/43)** | The settings that work for your editor or app. |
+| 🎙️ **[Add your microphone](known-good-microphones.md)** | Run `yazses mic-level` and add one row to the table, alphabetically. **Bad results are wanted too.** |
+| ⚙️ **[Share a config](how-to/app-profiles.md)** | The settings that work for your editor or app. |
 | 🖥️ **[Add your setup](https://github.com/MSKazemi/yazses/issues/42)** | A line in `SHOWCASE.md` — a genuine two-minute pull request. |
 | 🧪 **Run it and report** | On [macOS](https://github.com/MSKazemi/yazses/issues/24), [Windows](https://github.com/MSKazemi/yazses/issues/66), or the [snap](https://github.com/MSKazemi/yazses/issues/142). Telling us what broke is how most bugs here get found. |
 
