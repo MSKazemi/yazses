@@ -6624,7 +6624,7 @@ wheels = [
 
 [[package]]
 name = "yazses"
-version = "2.39.1"
+version = "2.40.0"
 source = { editable = "." }
 dependencies = [
     { name = "cryptography" },

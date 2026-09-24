@@ -6,6 +6,8 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.40.0] - 2026-09-24
+
 ### Fixed — dictation typed nothing on Debian and Ubuntu Wayland
 
 Speech was recognised, logged as `Injecting 21 chars, 2 words.`, and then went nowhere.
