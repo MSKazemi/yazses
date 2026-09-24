@@ -144,19 +144,109 @@ def test_unmapped_character_fails_loudly_instead_of_dropping_text(monkeypatch):
         UnicodeInjector().inject("a🙂")
 
 
-def test_current_ydotool_boundary_drops_non_ascii():
-    """The old command accepts the string while its keyboard path loses å."""
+class _FakeXkbMap:
+    """Fake XKB session backed by an explicit character -> keycode map, no modifiers."""
+
+    def __init__(self, mapping: dict[str, int]):
+        self._reverse = {code: char for char, code in mapping.items()}
+
+    def update(self, keycode: int, direction: int) -> None:
+        pass
+
+    def key_text(self, keycode: int) -> str:
+        return self._reverse.get(keycode, "")
+
+    def close(self) -> None:
+        pass
+
+
+class _RecordingKeyboard:
+    """Fake uinput keyboard that records the character each tap would produce."""
+
+    def __init__(self, reverse_map: dict[int, str]):
+        self._reverse_map = reverse_map
+        self.produced: list[str] = []
+
+    def tap(self, keycode: int, modifiers=()) -> None:
+        self.produced.append(self._reverse_map.get(keycode, "?"))
+
+    def close(self) -> None:
+        pass
+
+
+def test_ascii_only_text_still_uses_a_single_ydotool_type_call(monkeypatch):
+    """#329 must not change existing ASCII behaviour: same single `type` call."""
+    calls: list[list[str]] = []
+
+    def fake_run(argv, **_kwargs):
+        if argv[1] == "type":
+            calls.append(argv)
+        return SimpleNamespace(returncode=0)
+
+    with patch("yazses.inject.ydotool.subprocess.run", side_effect=fake_run):
+        YdotoolInjector().inject("hello world")
+
+    assert len(calls) == 1
+    assert calls[0][-1] == "hello world"
+
+
+def test_ydotool_inject_no_longer_drops_non_ascii_runs(monkeypatch):
+    """Regression test for #329.
+
+    Before the fix, `YdotoolInjector.inject` handed the whole string to one
+    `ydotool type` call. `fake_run` below models what the *real* ydotool binary
+    does when a character has no keycode on the active XKB layout: it presses
+    nothing for that character and still exits 0 (see the issue — "nothing
+    errors"). Against the unfixed code this test fails, because the whole mixed
+    string reached `ydotool type` and the mock silently stripped the "Å".
+
+    After the fix, only the ASCII runs ("A", "B") reach `ydotool type` — so the
+    real binary would have nothing to drop — and "Å" is produced through the
+    Unicode injector's XKB/uinput boundary (mocked here exactly as elsewhere in
+    this file) instead of being discarded.
+    """
+    import yazses.inject.unicode as unicode_mod
+
     typed: list[str] = []
 
     def fake_run(argv, **_kwargs):
         if argv[1] == "type":
-            # This models ydotool's current keycode encoder: ASCII survives,
-            # characters with no keycode on the active layout are discarded.
             typed.append("".join(char for char in argv[-1] if char.isascii()))
         return SimpleNamespace(returncode=0)
 
-    with patch("yazses.inject.ydotool.subprocess.run", side_effect=fake_run):
-        YdotoolInjector().inject("AåB")
+    xkb = _FakeXkb()
+    keyboard = _FakeKeyboard()
+    monkeypatch.setattr(unicode_mod._XkbSession, "create", lambda: xkb)
+    monkeypatch.setattr(unicode_mod._UinputKeyboard, "create", lambda path: keyboard)
 
-    assert typed == ["AB"]
-    assert typed[0] != "AåB"
+    with patch("yazses.inject.ydotool.subprocess.run", side_effect=fake_run):
+        YdotoolInjector().inject("AÅB")
+
+    assert typed == ["A", "B"]            # ASCII runs: unchanged ydotool-type path
+    assert (31, (42,)) in keyboard.taps   # Å: produced via uinput, not dropped
+
+
+@pytest.mark.parametrize("text", ["åäö", "éèê", "öüß"])
+def test_ydotool_inject_preserves_the_329_acceptance_strings(monkeypatch, text):
+    """Acceptance criteria from #329: dictating åäö / éèê / öüß on Wayland via the
+    ydotool path must produce those exact characters."""
+    import yazses.inject.unicode as unicode_mod
+
+    mapping = {char: 40 + i for i, char in enumerate(dict.fromkeys(text))}
+    xkb = _FakeXkbMap(mapping)
+    keyboard = _RecordingKeyboard({code: char for char, code in mapping.items()})
+    monkeypatch.setattr(unicode_mod._XkbSession, "create", lambda: xkb)
+    monkeypatch.setattr(unicode_mod._UinputKeyboard, "create", lambda path: keyboard)
+
+    type_calls: list[list[str]] = []
+
+    def fake_run(argv, **_kwargs):
+        if argv[1] == "type":
+            type_calls.append(argv)
+        return SimpleNamespace(returncode=0)
+
+    with patch("yazses.inject.ydotool.subprocess.run", side_effect=fake_run):
+        YdotoolInjector().inject(text)
+
+    assert "".join(keyboard.produced) == text
+    assert type_calls == []  # nothing ASCII in these strings; ydotool type unused

@@ -1,3 +1,4 @@
+import itertools
 import subprocess
 
 from yazses.inject.keycodes import KEYCODES
@@ -83,6 +84,23 @@ _RELEASE_ALL_TYPED_KEYS = [f"{code}:0" for code in range(2, 58)] + [
 ]
 
 
+def _ascii_runs(text: str) -> list[tuple[bool, str]]:
+    """Split *text* into consecutive ASCII / non-ASCII runs, in order.
+
+    ``ydotool type`` presses keycodes against the active XKB layout, so a
+    character that layout has no keycode for produces nothing — see issue #329
+    (Wayland dictation of Swedish/French/German/etc. text silently loses every
+    accented or non-Latin character, with no error). Splitting into runs lets
+    the caller keep sending the ASCII stretches through ``ydotool type``
+    unchanged and route only the non-ASCII stretches through a layout-independent
+    path.
+    """
+    return [
+        (is_ascii, "".join(chars))
+        for is_ascii, chars in itertools.groupby(text, key=str.isascii)
+    ]
+
+
 class YdotoolInjector:
     # ~12 ms/char (6 ms between events + 6 ms hold): faster than ydotool's 20/20
     # default so long dictations don't crawl, but slow enough that the compositor
@@ -90,26 +108,74 @@ class YdotoolInjector:
     _KEY_DELAY_MS = 6
     _KEY_HOLD_MS = 6
 
-    def inject(self, text: str) -> None:
-        if not text:
-            return
+    def _type_ascii_run(self, run: str) -> None:
         # Scale the timeout with length so a long dictation never times out. A
         # timeout looks like a failure to LinuxInjector and triggers the clipboard
         # fallback, which re-injects the WHOLE text — the "typed twice" bug. Budget
         # 30 ms/char (~2.5x the real ~12 ms) plus a base.
-        timeout = 10.0 + len(text) * 0.03
+        timeout = 10.0 + len(run) * 0.03
         subprocess.run(
             ["ydotool", "type", "-d", str(self._KEY_DELAY_MS),
-             "-H", str(self._KEY_HOLD_MS), "--", text],
+             "-H", str(self._KEY_HOLD_MS), "--", run],
             check=True,
             timeout=timeout,
         )
+
+    def inject(self, text: str) -> None:
+        if not text:
+            return
+        if text.isascii():
+            # The overwhelmingly common case (and everything this backend could
+            # handle before #329): one `ydotool type` call, exactly as before.
+            self._type_ascii_run(text)
+        else:
+            self._inject_mixed(text)
         # Flood guard — release any key the compositor failed to release.
         subprocess.run(
             ["ydotool", "key"] + _RELEASE_ALL_TYPED_KEYS,
             check=False,
             timeout=5,
         )
+
+    def _inject_mixed(self, text: str) -> None:
+        """Type ASCII runs via ``ydotool type``; route non-ASCII runs around it.
+
+        The layout-independent replacement already exists: `inject/unicode.py`'s
+        `UnicodeInjector` resolves a character through ``libxkbcommon`` and presses
+        it via a private ``/dev/uinput`` keyboard, so it does not depend on the
+        active layout having a keycode for it. It shipped opt-in (#364) behind
+        ``[injection] backend = "unicode"`` because it was not yet known to be safe
+        as everyone's default. It is safe as *this* backend's fallback: any machine
+        where `YdotoolInjector` is even selected already has a working ydotoold
+        talking to `/dev/uinput`, and `yazses setup`'s udev rule
+        (``GROUP="input", MODE="0660"``) grants that same access to the invoking
+        user's own process — the same `input`-group membership
+        `own_ydotoold_can_reach_uinput` already requires before `auto` will pick
+        ydotool at all. So this introduces no new permission the user didn't
+        already need, and it keeps the fix scoped to *this* backend's own honesty
+        about what it can type, rather than adding a new user-facing config value.
+
+        A single `UnicodeInjector` is reused across every non-ASCII run in this
+        call so it opens `/dev/uinput` and builds the XKB keymap at most once, and
+        it is always closed — success or failure — instead of leaking the uinput
+        device.
+        """
+        from yazses.inject.unicode import UnicodeInjector
+
+        unicode_injector: UnicodeInjector | None = None
+        try:
+            for is_ascii, run in _ascii_runs(text):
+                if not run:
+                    continue
+                if is_ascii:
+                    self._type_ascii_run(run)
+                else:
+                    if unicode_injector is None:
+                        unicode_injector = UnicodeInjector()
+                    unicode_injector.inject(run)
+        finally:
+            if unicode_injector is not None:
+                unicode_injector.close()
 
     def inject_backspaces(self, count: int) -> None:
         if count <= 0:
