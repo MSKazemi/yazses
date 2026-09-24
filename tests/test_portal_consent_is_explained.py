@@ -91,7 +91,13 @@ def test_start_names_the_consequence_of_skipping_setup(monkeypatch):
     modal wins: the user is told to run `yazses setup` by a line they never get
     to act on before the scary prompt arrives."""
     monkeypatch.setattr(setup, "input_group_pending_relogin", lambda: False)
-    hints = setup.preflight_hints({}, plan=_wayland_plan(), pending_relogin=False)
+    # Pin the readiness probe: this test is about what a machine that still NEEDS
+    # ydotoold is told. Left to the default it asks the host, so it passed or failed
+    # on whether the developer's own desktop happened to have a live ydotoold -- and
+    # it is the provisioned host that produces no hint at all.
+    hints = setup.preflight_hints(
+        {}, plan=_wayland_plan(), pending_relogin=False, ydotool_ready=lambda: False
+    )
 
     joined = "\n".join(hints)
     assert "ydotoold" in joined
@@ -105,7 +111,9 @@ def test_no_portal_consequence_is_claimed_when_ydotoold_is_not_the_gap(monkeypat
     dialog it will not see is a false statement in the one place people look."""
     monkeypatch.setattr(setup, "input_group_pending_relogin", lambda: False)
     plan = setup.SetupPlan(apt_packages=["xdotool"], session="x11")
-    hints = setup.preflight_hints({}, plan=plan, pending_relogin=False)
+    hints = setup.preflight_hints(
+        {}, plan=plan, pending_relogin=False, ydotool_ready=lambda: False
+    )
 
     assert "Remote Desktop" not in "\n".join(hints)
 

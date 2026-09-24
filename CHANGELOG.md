@@ -6,6 +6,24 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — a provisioned Wayland machine is no longer told to provision itself
+
+`yazses start` printed **ACTION NEEDED — Missing prerequisites: ydotoold (Wayland
+injection)** on every start of a fully set-up Wayland desktop, and nothing could clear
+it: running the `yazses setup` it recommended changed no input the check looked at.
+`build_plan().setup_ydotoold` answers "will setup write the unit?", which on Wayland is
+unconditionally true because writing it is idempotent — the preflight read it as
+"ydotoold is missing". It now asks `ydotool_ready()`, the one readiness function
+`doctor` and the injector already share, so the warning can never name a backend
+different from the one the daemon picks. It still fires, unchanged, when ydotoold is
+genuinely absent or its socket is dead.
+
+### Fixed — `yazses doctor` names the socket ydotoold actually listens on
+
+ydotoold 0.1.8 ignores `--socket-path` and binds `/tmp/.ydotool_socket`. Doctor printed
+the *requested* path, so on exactly the machines the fallback exists for it reported
+`running (/run/user/1000/.ydotool_socket)` — a file that is not there.
+
 ## [2.39.0] - 2026-09-24
 
 ### Added — the desktop portal is offered, never taken

@@ -394,6 +394,7 @@ def preflight_hints(
     *,
     plan: SetupPlan | None = None,
     pending_relogin=None,
+    ydotool_ready=None,
 ) -> list[str]:
     """Actionable one-line warnings about unmet runtime prerequisites.
 
@@ -407,6 +408,30 @@ def preflight_hints(
     plan = build_plan(env) if plan is None else plan
     pending = input_group_pending_relogin() if pending_relogin is None else pending_relogin
     hints: list[str] = []
+
+    # `plan.setup_ydotoold` is not a deficiency -- it is "`yazses setup` will write the
+    # unit", and on Wayland that is unconditionally true because writing it is idempotent.
+    # Reading it as "ydotoold is missing" made this warning fire on EVERY `yazses start`
+    # of a fully provisioned Wayland machine, with no way to ever clear it: running the
+    # very command it recommends changed nothing it looked at. Measured on a machine with
+    # ydotoold installed, its user unit enabled+active and accepting clients, the udev
+    # rule byte-identical to the shipped one, and `input` membership in effect -- the
+    # daemon chose YdotoolInjector and the warning still claimed the portal would be used.
+    # A guard that cannot stop firing is ADR-021's dismissed guard (rule 9).
+    #
+    # Ask the ONE readiness function `doctor` and `get_injector` already share, so the
+    # warning cannot name a backend different from the one the daemon will pick.
+    if ydotool_ready is None:
+        try:
+            from yazses.inject.auto import ydotool_ready as _ready
+        except Exception:  # pragma: no cover - a diagnostic must never block startup
+            def _ready() -> bool:
+                return False
+        ydotool_ready = _ready
+    try:
+        ydotoold_unmet = plan.setup_ydotoold and not ydotool_ready()
+    except Exception:  # pragma: no cover - same rule: never block startup
+        ydotoold_unmet = plan.setup_ydotoold
 
     # Snap-only: both interfaces must be connected once after install. Neither is
     # auto-connected, and between them they cover the two ways a fresh snap
@@ -422,19 +447,19 @@ def preflight_hints(
             "  Grant it once:  sudo snap connect yazses:raw-input"
         )
 
-    if plan.apt_packages or plan.add_to_input_group or plan.setup_ydotoold:
+    if plan.apt_packages or plan.add_to_input_group or ydotoold_unmet:
         missing = []
         if plan.apt_packages:
             missing.append(f"packages ({', '.join(plan.apt_packages)})")
         if plan.add_to_input_group:
             missing.append("`input` group membership")
-        if plan.setup_ydotoold:
+        if ydotoold_unmet:
             missing.append("ydotoold (Wayland injection)")
         hint = (
             "Missing prerequisites: " + "; ".join(missing) + ".\n"
             "  Fix everything in one step:  yazses setup"
         )
-        if plan.setup_ydotoold:
+        if ydotoold_unmet:
             # Without ydotoold the daemon falls through to the RemoteDesktop
             # portal, whose dialog the desktop titles "Remote Desktop" and
             # confirms with "Share". Naming the consequence here is what stops

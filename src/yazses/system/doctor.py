@@ -87,7 +87,11 @@ def _injection_readiness(
     a second ``Injection`` one, so exactly one line names the backend actually in use and
     `tests/test_doctor_names_the_injector_in_use.py` can hold the two derivations equal.
     """
-    from yazses.inject.auto import ydotool_ready, ydotool_socket_path
+    from yazses.inject.auto import (
+        find_ydotool_socket,
+        ydotool_ready,
+        ydotool_socket_path,
+    )
     from yazses.inject.portal import portal_available
 
     configured = (configured or "auto").strip().lower()
@@ -157,7 +161,12 @@ def _injection_readiness(
         # it certifies a path that is not taken.
         portal_ok = portal_available()
         if ydotool_ready():
-            out.append(("ydotoold", "OK", f"running ({sock})"))
+            # The path it is ACTUALLY listening on, not the one we asked for.
+            # ydotoold 0.1.8 ignores `--socket-path` and binds /tmp/.ydotool_socket
+            # (see `ydotool_socket_candidates`), so printing the requested path named
+            # a file that does not exist on exactly the machines the fallback exists
+            # for -- a doctor line the user cannot verify by looking.
+            out.append(("ydotoold", "OK", f"running ({find_ydotool_socket() or sock})"))
             out.append(("Injection", "OK", "ydotool — works on any Wayland compositor"))
         elif portal_ok:
             if shutil.which("ydotool"):
