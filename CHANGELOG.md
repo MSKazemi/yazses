@@ -6,6 +6,26 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — Wayland's default injector silently dropped non-ASCII text
+
+On Wayland, `[injection] backend = "auto"` picks `ydotool`, and `YdotoolInjector` handed
+text straight to `ydotool type -- <text>`. That command presses keycodes against the
+active XKB layout, so a character the layout has no keycode for — `å`, `ä`, `ö`, French
+and German accents, any non-Latin script — pressed nothing. Nothing errored: the command
+exited 0, the daemon reported success, and the only symptom was the wrong words on
+screen (#329).
+
+An opt-in `unicode` backend already existed for this (#364, `[injection] backend =
+"unicode"`): it resolves a character through `libxkbcommon` and presses it via a private
+`/dev/uinput` keyboard, independent of the active layout. It shipped opt-in because it
+was not yet known to be safe as everyone's default. `YdotoolInjector.inject` now splits
+the text into ASCII and non-ASCII runs, keeps sending ASCII runs through `ydotool type`
+exactly as before, and routes non-ASCII runs through that same Unicode injector — so
+dictating in your own language "just works" on the default `auto` path, with no config
+change required. This introduces no new permission requirement: `yazses setup`'s udev
+rule already grants `/dev/uinput` access to the same `input`-group membership that
+`ydotool` itself needs before `auto` will select it.
+
 ## [2.40.0] - 2026-09-24
 
 ### Fixed — dictation typed nothing on Debian and Ubuntu Wayland

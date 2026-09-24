@@ -328,3 +328,56 @@ def test_real_upstream_v1_help_is_recognised(monkeypatch):
 
     monkeypatch.setattr(subprocess, "run", fake_run)
     assert yd.ydotool_dialect() == yd.DIALECT_V1
+
+
+# --- the two fixes compose -----------------------------------------------------
+
+
+def test_mixed_text_on_an_0_1_x_machine_uses_both_paths(monkeypatch):
+    """#329's Unicode routing and the 0.1.x dialect are independent, and must compose.
+
+    On Debian/Ubuntu (0.1.x) dictating "hej å då" has to do BOTH things at once: the
+    ASCII runs need 0.1.x's `--key-delay` command line, and the non-ASCII run must
+    bypass ydotool entirely. Either fix alone leaves that sentence wrong.
+    """
+    import yazses.inject.unicode as unicode_mod
+
+    yd.set_ydotool_dialect(yd.DIALECT_V0)
+    typed: list[str] = []
+
+    class _RecordingUnicodeInjector:
+        closed = False
+
+        def inject(self, text):
+            typed.append(("unicode", text))
+
+        def close(self):
+            type(self).closed = True
+
+    monkeypatch.setattr(unicode_mod, "UnicodeInjector", _RecordingUnicodeInjector)
+
+    run = _Recorder([])
+    original = run.__call__
+
+    def recording(argv, **kwargs):
+        if argv[1] == "type":
+            typed.append(("ydotool", argv[-1]))
+        return original(argv, **kwargs)
+
+    monkeypatch.setattr(subprocess, "run", recording)
+
+    yd.YdotoolInjector().inject("hej å då")
+
+    assert typed == [
+        ("ydotool", "hej "),
+        ("unicode", "å"),
+        ("ydotool", " d"),
+        ("unicode", "å"),
+    ]
+    # every ASCII run went out in the 0.1.x dialect, never with -d/-H
+    type_calls = [c for c in run.calls if c[1] == "type"]
+    assert type_calls and all("--key-delay" in c and "-d" not in c for c in type_calls)
+    # and the uinput device was closed rather than leaked
+    assert _RecordingUnicodeInjector.closed
+    # 0.1.x cannot express a bare key-up, so no flood guard was attempted
+    assert not any(c[1] == "key" for c in run.calls)
