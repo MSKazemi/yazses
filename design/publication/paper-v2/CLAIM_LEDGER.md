@@ -174,9 +174,13 @@ Use the status labels literally:
 **Claim:** Retaining displaced benchmark files and recording exact commands/corpus identity exposed contradictions that would otherwise have been overwritten, notably the `large-v3` 4.86% vs 7.69% hard-split disagreement.
 
 **Evidence:**
-- `paper/results/history/`
+- `paper/results/probes/logs/x86b-other_wer.log` — matrix run 1, at 4.86%. This is the whole of run 1: the JSON was overwritten before the retention mechanism existed, so the disagreement is evidenced by a console log, not by `history/`.
+- `paper/results/wer-test-other.json` — matrix run 2, at 7.69%
+- `paper/results/history/` — the retention mechanism that postdates this loss, carrying six later displaced runs
 - `paper/results/MANIFEST.md`
 - benchmark provenance implementation
+
+**Caveat when writing this up:** the claim is that the *record* of the disagreement survived, not that the mechanism saved it. It did not — it was written because this one nearly was not.
 
 **Writing angle:** reproducibility infrastructure is not administrative metadata; it materially altered the interpretation.
 

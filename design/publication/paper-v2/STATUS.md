@@ -1,6 +1,6 @@
 # Paper v2 status — results, gaps, and execution map
 
-**Updated:** 2026-09-23  
+**Updated:** 2026-09-25  
 **Programme issue:** [#510](https://github.com/MSKazemi/yazses/issues/510)  
 **Authorship/publication operations:** [#484](https://github.com/MSKazemi/yazses/issues/484)
 
@@ -28,7 +28,7 @@ validity studies.
 |---|---|
 | Shared local-ASR comparison | Eight engine/checkpoint configurations measured through the shipping product seam. On the Azure clean-speech matrix, Parakeet TDT 0.6B v2 has the lowest point-estimate WER at **2.06%**; Moonshine/tiny has the lowest measured RTF at **0.016**. Intervals and host-specific timing caveats still apply. |
 | Harder speech changes the picture | Parakeet moves **2.06% → 2.88%** from `test-clean` to `test-other`; `base.en` moves **4.01% → 9.46%**; Moonshine/base **3.17% → 8.04%**. Clean speech alone does not characterise robustness. |
-| `large-v3` repeated-decode failure | In repeated hard-split runs, substitutions stay at **87**, deletions at **15**, hits at **3619**, while insertions move **101 → 184**. The measured WER movement is a continuation/insertion tail failure, not changing recognition substitutions. |
+| `large-v3` repeated-decode failure | Across the four controlled hard-split repeats, substitutions stay at **87**, deletions at **15**, hits at **3619**, while insertions move **101 → 144**; the archived matrix run reaches **184** and is reported beside that range, not folded into it. The measured WER movement is a continuation/insertion tail failure, not changing recognition substitutions. |
 | Previous-text conditioning is checkpoint-dependent | On the measured ladder it helps `base.en`, helps `small.en` slightly, is byte-identical at `medium.en`, and disabling it removes the observed `large-v3` runaway mode. This is not evidence that disabling context universally improves WER. |
 | Greedy decoding has a measurable cost on the default model | `base.en`: beam 1 vs beam 5 is **4.39% vs 4.01%** on clean speech and **10.56% vs 9.46%** on hard speech; the hard-split paired comparison is significant in the archived analysis. |
 | Cross-platform decode variation is measured | On the 60-utterance common subset, `tiny.en` spans **3.39–3.88%**, `base.en` **3.25–3.39%**, while `small.en` is **2.05% on all four measured runners**. Decode portability is still different from full end-to-end OS validation. |
@@ -38,7 +38,7 @@ validity studies.
 | A speaker-count cap is not the same as better DER | With `max_speakers=4` at the current threshold, 7 recordings improve, 7 worsen and 2 are unchanged; sign test **p=1.0**. Count correctness improves from 2/16 to 15/16, but a DER benefit is not established. |
 | One diarization threshold does not transfer across domains | Approximate preferred regions differ: synthetic **0.8–0.9**, VoxConverse **~0.9**, AMI **~1.2**. |
 | Simple centroid repair failed | No useful cosine threshold repairs enough split-speaker clusters without unacceptable wrong-person merges. This negative result should remain visible. |
-| Provenance/history changed the science | Retaining displaced contradictory runs, exact commands and corpus identity turned an apparent benchmark disagreement into the `large-v3` reproducibility investigation instead of silently overwriting it. |
+| Provenance changed the science | An apparent benchmark disagreement became the `large-v3` reproducibility investigation because the contradicting run was still readable. Say it precisely: run 1 of the `test-other` matrix (4.86%) *was* overwritten and survives only as `probes/logs/x86b-other_wer.log`; the `history/` retention mechanism was written because of that near-loss, not in time to prevent it. |
 
 ## September follow-up that narrows an August interpretation
 

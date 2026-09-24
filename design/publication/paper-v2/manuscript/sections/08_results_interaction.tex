@@ -42,9 +42,12 @@ silence preserves the stronger hold-to-talk privacy boundary, but cannot provide
 Streaming partial decoding is useful only when the rolling recognizer can stay sufficiently far
 ahead of incoming audio. We report the committed manuscript-grade artifact
 \texttt{paper/results/streaming.json}: 15 real-time-fed utterances, 100 ms audio chunks, and a
-300 ms partial-decode interval. For \texttt{tiny.en}, median final speech-end-to-text latency
-increases from 1.377 s in batch mode to 2.371 s with streaming, while a median 59.33\% of final
-text is visible at release.
+300 ms partial-decode interval. Unlike the engine matrix, this artifact was produced on the
+reference laptop (20-thread Intel Core i7-1370P) rather than the Azure host, so its absolute
+latencies belong to that machine; the batch-versus-streaming contrast within it is paired on the
+same machine and the same utterances. For \texttt{tiny.en}, median final speech-end-to-text
+latency increases from 1.377 s in batch mode to 2.371 s with streaming, while a median 59.33\%
+of final text is visible at release.
 
 For \texttt{base.en}, median final speech-end-to-text latency increases from 4.024 s to 7.612 s.
 Median visible text at release is 0\%, and 12 of 15 utterances produce no confirmed partial

@@ -6,6 +6,25 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — the second paper is being written in the open
+
+The evidence package behind the next YazSes paper is now public, under
+`design/publication/paper-v2/`, and the docs site carries it as a new **Publication
+planning** section plus an entry on the research index. It holds the working LaTeX
+manuscript, the v1-to-v2 results delta, a claim ledger that marks each claim supported,
+qualified, open or withdrawn, the reconstruction of the August measurement campaign, and
+the authorship/consent protocol that governs the byline.
+
+Every number in the manuscript resolves to a committed artifact under `paper/results/`,
+so a reader can check the paper against the same files CI checks. `docs/benchmarks.md`
+already published those numbers; what is new is the argument built on them, open to
+review before submission rather than after.
+
+`tests/test_citation_hygiene.py` now also reads the manuscript's `.tex` and `.bib`
+sources. The design tier publishes every file under `design/`, not only the Markdown, so
+the bibliography is a published citation surface — and a BibTeX `url = {…}` is invisible
+to the Markdown-link pattern that guarded the rest of the site.
+
 ### Fixed — Wayland's default injector silently dropped non-ASCII text
 
 On Wayland, `[injection] backend = "auto"` picks `ydotool`, and `YdotoolInjector` handed

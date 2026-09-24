@@ -5,6 +5,17 @@
 **Seed source:** public contributor metadata in .all-contributorsrc and CONTRIBUTORS.md on current main, commit 247913a5f7cdf4a48035ac77aa4f179144b89c33.  
 **Seed count:** 29 people.
 
+The seed is pinned to a commit so its staleness is checkable rather than assumed. Re-derive the
+current count with:
+
+```sh
+python -c "import json; print(len(json.load(open('.all-contributorsrc'))['contributors']))"
+```
+
+If that prints more than the seed count above, people have been added since the seed and the
+roster must be re-seeded before invitations go out — an omitted contributor is the one failure
+this process cannot correct after publication.
+
 This is a **candidate roster, not a final byline**. Every person below must explicitly opt in before their name can appear as an author. Preferred publication name, affiliation, ORCID, private contact email, author order, and final approval must be collected directly from the person; do not infer them from GitHub.
 
 Private email addresses and individual consent evidence must not be added to this public file.

@@ -35,15 +35,29 @@ The speed comparison shows a different ordering. Moonshine/tiny and Moonshine/ba
 fastest measured configurations on this host, while the larger Whisper checkpoints require
 substantially more compute. Thus the accuracy and latency rankings are not interchangeable.
 
+The archive contains two runs of this matrix, taken 46 minutes apart on the same host, and
+Table~\ref{tab:clean-asr} reports the second. The first recorded roughly double the \rtf{} of
+every configuration (\texttt{small.en} 0.200 against 0.092) at a one-minute load average above
+the host's logical-CPU count, which is the signature of a contended machine and makes its timing
+column uninterpretable. Six of the eight \wer{} values are identical between the two runs;
+\texttt{tiny.en} reads 4.95\% against 5.18\% and \texttt{large-v3} 3.41\% against 3.23\%. We
+report the uncontended run and record the disagreement rather than presenting the choice as
+free: it is the same repeated-run behavior analysed in Section~\ref{sec:repro}, and it is why
+this clean matrix is treated as provisional until the evidence freeze.
+
 The harder \texttt{test-other} condition changes the magnitude of the trade-offs
 (Table~\ref{tab:hard-asr}).
 
 % TODO(#495,#508): generate from the frozen clean matrix and paper/results/wer-test-other.json.
 % Current clean values come from paper/results/probes/wer-vm-clean.json.
+% The large-v3 hard cell spans the matrix's two runs: run 1 at 4.86 (surviving only as
+%   paper/results/probes/logs/x86b-other_wer.log) and run 2 at 7.69 (wer-test-other.json).
 \begin{table}[ht]
 \centering
-\caption{Clean-to-hard robustness comparison. The \texttt{large-v3} hard value is shown as the
-range represented by archived repeated measurements rather than as one silently selected run.}
+\caption{Clean-to-hard robustness comparison. Every other row is one archived run; the
+\texttt{large-v3} hard cell spans the two runs of this matrix, which disagreed by 2.83
+\wer{} points (Section~\ref{sec:repro}). Reporting either as \emph{the} value would hide the
+disagreement that Section~\ref{sec:repro} then analyses.}
 \label{tab:hard-asr}
 \begin{tabular}{lrrr}
 \toprule

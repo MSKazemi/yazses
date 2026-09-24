@@ -32,9 +32,11 @@ Second, a single aggregate \wer{} can hide an interaction failure that matters d
 in dictation. Repeated \texttt{large-v3} decodes of the same hard-speech subset produced
 materially different \wer{} values. Yet substitutions, deletions, and correct-word hits were
 unchanged across the repeated runs used in the error decomposition. A dedicated four-repeat probe localized the movement to insertion count, which ranged from
-101 to 144 while substitutions, deletions, and hits remained fixed. The earlier engine-matrix run
-that triggered the investigation reached 184 insertions and 7.69\% \wer{}. For an offline
-benchmark, this appears as movement in aggregate \wer{}. For interactive dictation, it is a different class of failure: a fluent
+101 to 144 while substitutions, deletions, and hits remained fixed. The engine-matrix run that
+triggered the investigation reached 184 insertions and 7.69\% \wer{}, and disagreed with its own
+repeat on the same instance by 2.83 \wer{} points. For an offline benchmark, this appears as
+movement in aggregate \wer{}. For interactive dictation, it is a different class of failure: a
+fluent
 continuation that the user did not speak can be substantially more disruptive than a visibly
 missing word.
 

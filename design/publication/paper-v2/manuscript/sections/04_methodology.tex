@@ -1,4 +1,5 @@
 \section{Experimental Methodology}
+\label{sec:method}
 
 \subsection{Evaluation philosophy}
 
@@ -88,9 +89,13 @@ replicates whose difference crosses to the opposite side of zero, doubled for a 
 Because the archived beam grid contains several comparisons, we report its p-values as pairwise
 rather than as familywise-confirmatory evidence.
 
-The onset experiment uses exact two-sided McNemar tests on paired first-word outcomes. Sixteen
-distinct lead-in conditions are tested (each measured twice); the multiplicity check uses a
-Bonferroni threshold of $0.05/16 = 0.003125$.
+The onset experiment uses exact two-sided McNemar tests on paired first-word outcomes. Each
+non-zero lead-in is compared against the zero-lead-in cell of its own clipping arm, which gives
+sixteen distinct comparisons. The whole grid was run end to end twice over the same utterances
+by a decoder that is deterministic on identical input, so the second pass supplies replicates
+rather than sixteen further hypotheses: the multiplicity family is the sixteen comparisons
+asked, and the Bonferroni threshold is $0.05/16 = 0.003125$. Replication is reported separately,
+as whether a comparison held in both passes.
 
 Diarization is reported using \der{}, with both per-recording mean and time-weighted corpus
 aggregates where appropriate. The comparison between unrestricted clustering and

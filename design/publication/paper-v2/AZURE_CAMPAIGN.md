@@ -112,7 +112,7 @@ The hard split immediately showed that:
 
 ### Phase C — repeat the disagreement instead of choosing a convenient run
 
-Rather than replacing the 7.69% `large-v3` result with the earlier 4.86% result, both were kept and the benchmark archive was changed so displaced runs survive under `paper/results/history/`.
+The disagreement was very nearly lost, and that is the point. The `test-other` matrix ran twice on the same instance; run 2 overwrote `wer-test-other.json` in place, so run 1 — the 4.86% `large-v3` measurement — survives **only** as the console log `paper/results/probes/logs/x86b-other_wer.log`. `_common.write_result` was then changed to copy a displaced result into `paper/results/history/` precisely so this cannot recur. The mechanism postdates the loss: cite the log for run 1, not `history/`, which holds no `wer-test-other` entry.
 
 This is a core methodological contribution of the campaign: **a contradictory rerun became the research question**.
 

@@ -52,7 +52,7 @@ Same harness, same Azure host, 200 LibriSpeech `test-other` utterances, 33 speak
 | engine / checkpoint | clean WER | hard WER | hard/clean |
 |---|---:|---:|---:|
 | Parakeet TDT 0.6B v2 | 2.06% | **2.88%** | **1.4×** |
-| Whisper `large-v3` | 3.23% | 4.86% / **7.69%** | 1.5× / 2.4× |
+| Whisper `large-v3` | 3.23% | 4.86% / **7.69%** (the matrix's two runs) | 1.5× / 2.4× |
 | Whisper `medium.en` | 3.28% | 5.51% | 1.7× |
 | Whisper `small.en` | 2.66% | 5.59% | 2.1× |
 | Moonshine base | 3.17% | 8.04% | 2.5× |
@@ -70,20 +70,26 @@ Same harness, same Azure host, 200 LibriSpeech `test-other` utterances, 33 speak
 
 The August full-matrix reruns showed movement in `large-v3` and small shifts in `tiny.en`, while `base.en`, `small.en`, `medium.en`, Parakeet, and both Moonshine rows were stable in those matrices. A later September follow-up narrows that interpretation: `paper/results/probes/decode-determinism-tiny.en-test-clean-baseline.json` decoded the same 60 `test-clean` utterances five times with `tiny.en` and obtained byte-identical hypotheses and 3.67% WER on every run. Therefore paper v2 should treat `large-v3` as the reproducible corpus-level instability finding; `tiny.en` has evidence of rare clip-level fallback instability, but not a general repeated-corpus instability under every sampled condition.
 
-For `large-v3` on `test-other`, five observed WERs include:
+For `large-v3` on `test-other` the archive holds eight decodes of one nominally fixed
+configuration, in three contexts that must not be pooled into one distribution:
 
-- 5.46%
-- 6.07%
-- 6.53%
-- 6.61%
-- 7.69%
+| WER | context | evidence |
+|---:|---|---|
+| 4.86% | engine matrix, run 1 | `probes/logs/x86b-other_wer.log` — the JSON was overwritten |
+| 7.69% | engine matrix, run 2 | `wer-test-other.json` |
+| 6.53% / 6.07% / 5.46% / 6.61% | dedicated four-repeat probe | `probes/largev3-instability-test-other.json` |
+| 6.07% / 4.78% / 4.86% | decoder-arms baseline arm | `probes/decode-arms-per-utterance-large-v3-test-other.json` |
 
-Across those repeated decodes:
+The four-repeat probe is the one that held everything else fixed, so it is the one the error
+decomposition uses. Across its four repeats:
 
 - substitutions stayed at **87**;
 - deletions stayed at **15**;
 - hits stayed at **3619**;
-- insertions moved from **101 to 184**.
+- insertions moved from **101 to 144**.
+
+The overwritten matrix run 2 sits in the same family at **184** insertions, and is reported
+alongside rather than folded into that range.
 
 Therefore the measured WER spread is not a change in which spoken words are recognised. It is variation in **extra emitted text**. The evidence supports the narrower statement:
 
