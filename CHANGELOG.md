@@ -6,6 +6,16 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the Windows Store notes said the Face-Gesture Switch did not exist
+
+`docs/store-submission.md` and the MSIX manifest explained the absent `webcam`
+capability by saying the Face-Gesture Switch "has no runtime detector or activation
+adapter". It has had both since v2.40.0 (`yazses.facegesture`, ADR-v2-135): a held facial
+movement opens the mic on any normal install. The reason `webcam` stays undeclared is the
+packaging one — the Store package is a frozen bundle with no optional extras and no pip to
+add them, so neither Glance-Type nor the Face-Gesture Switch can reach a camera *in that
+package*. The capability decision is unchanged; only the explanation was wrong.
+
 ### Fixed — Wayland's default injector silently dropped non-ASCII text
 
 On Wayland, `[injection] backend = "auto"` picks `ydotool`, and `YdotoolInjector` handed

@@ -82,17 +82,18 @@ def test_run_full_trust_capability_is_declared(manifest: ET.Element) -> None:
 def test_microphone_is_declared_and_webcam_is_not(manifest: ET.Element) -> None:
     """Microphone is required. Webcam is deliberately absent.
 
-    Glance-Type gaze is implemented and works on a normal install when its optional
-    dependencies are enabled. Face-Gesture is planned/experimental and does not yet have
-    a runtime detector or activation adapter. This frozen package carries no optional gaze
-    dependencies, so neither feature provides a reachable camera path here.
+    Glance-Type gaze and the Face-Gesture Switch are both implemented and both work on a
+    normal install once their optional dependencies are enabled -- they share one extra
+    (opencv + mediapipe). What is absent here is the packaging, not the code: this frozen
+    bundle carries no optional extras and an MSIX has no pip to add them, so neither
+    feature has a reachable camera path in this package specifically.
     """
     devices = [c.get("Name") for c in manifest.findall("d:Capabilities/d:DeviceCapability", NS)]
     assert "microphone" in devices, f"microphone capability missing; got {devices}"
     assert "webcam" not in devices, (
-        "webcam is declared, but this frozen bundle carries no optional gaze dependencies "
-        "and Face-Gesture has no reachable runtime implementation, so no camera path is "
-        "available here; an unused capability is a certification question with no upside"
+        "webcam is declared, but this frozen bundle carries no optional gaze/mediapipe "
+        "dependencies, so neither Glance-Type nor the Face-Gesture Switch has a reachable "
+        "camera path here; an unused capability is a certification question with no upside"
     )
 
 
