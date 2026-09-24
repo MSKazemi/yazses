@@ -163,7 +163,7 @@ def test_language_set_dependency_install_failure_keeps_config_byte_exact(tmp_pat
 
     assert result.exit_code == 2
     assert p.read_bytes() == before
-    assert "Existing config is unchanged" in result.output
+    assert "No config changes were made" in result.output
 
 
 def test_language_set_model_download_failure_keeps_config_byte_exact(tmp_path):
@@ -184,7 +184,7 @@ def test_language_set_model_download_failure_keeps_config_byte_exact(tmp_path):
 
     assert result.exit_code == 2
     assert p.read_bytes() == before
-    assert "unchanged" in result.output.lower()
+    assert "No config changes were made" in result.output
 
 
 def test_language_set_success_installs_downloads_then_commits_coherently(tmp_path):
@@ -195,11 +195,14 @@ def test_language_set_success_installs_downloads_then_commits_coherently(tmp_pat
         patch("yazses.cli.get_platform", return_value=_platform(p)),
         patch(
             "yazses.system.deps.missing_modules",
-            side_effect=[["opencc"], []],
+            side_effect=[["opencc"], ["opencc"], []],
         ),
         patch("yazses.system.deps.install_blocked_reason", return_value=None),
         patch("yazses.system.deps.install_packages", return_value=True) as install,
-        patch("yazses.stt.download.is_cached", return_value=False),
+        patch(
+            "yazses.stt.download.is_cached",
+            side_effect=[False, False, True],
+        ),
         patch(
             "yazses.stt.download.download_stt_model",
             return_value=tmp_path / "small",

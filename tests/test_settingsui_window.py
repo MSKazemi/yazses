@@ -558,8 +558,9 @@ def test_an_idle_daemon_is_not_reported_as_a_quiet_microphone(qapp):
 # language it expects, and how the text is delivered. These build the real widgets
 # and drive the real apply path, because the pure controller tests cannot show
 # that the boxes are wired to it.
-def test_the_speech_group_exposes_model_language_and_backend(qapp):
+def test_the_speech_group_exposes_profile_model_language_and_backend(qapp):
     win = _window(qapp, _Recorder())
+    assert win._profile_box.count() == 4
     assert win._model_box.count() > 5, "the model list should come from the registry"
     assert win._language_box.count() > 5
     assert win._backend_box.count() >= 4
@@ -569,8 +570,10 @@ def test_the_boxes_open_on_what_is_configured(qapp):
     """A picker that opens on a default writes it the moment anything else moves."""
     win = _window(qapp, _Recorder())
     cfg = Config()
+    assert win._profile_box.currentData() == "en"
     assert win._model_box.currentText() == cfg.stt.model
     assert win._language_box.currentData() == cfg.stt.language
+    assert win._language_box.isEnabled() is False
     assert win._backend_box.currentText() == cfg.injection.backend
 
 
@@ -586,6 +589,8 @@ def test_changing_the_language_writes_the_code_not_the_label(qapp):
     """The dropdown shows "German"; `[stt] language` must receive "de"."""
     rec = _Recorder()
     win = _window(qapp, rec)
+    win._profile_box.setCurrentIndex(win._profile_box.findData(""))
+    assert win._language_box.isEnabled()
     win._model_box.setCurrentText("small")  # multilingual, so the pair is legal
     index = win._language_box.findData("de")
     assert index >= 0
@@ -598,6 +603,8 @@ def test_an_impossible_model_language_pair_is_refused_at_the_window(qapp):
     """base.en cannot decode German; the user must be told, not silently misheard."""
     rec = _Recorder()
     win = _window(qapp, rec)
+    win._profile_box.setCurrentIndex(win._profile_box.findData(""))
+    assert win._language_box.isEnabled()
     index = win._language_box.findData("de")
     win._language_box.setCurrentIndex(index)
     changed, errors = win._apply_speech()
@@ -609,6 +616,8 @@ def test_widening_the_model_and_switching_language_together_succeeds(qapp):
     """Order matters: judging the new language against the old model would refuse."""
     rec = _Recorder()
     win = _window(qapp, rec)
+    win._profile_box.setCurrentIndex(win._profile_box.findData(""))
+    assert win._language_box.isEnabled()
     win._model_box.setCurrentText("small")
     win._language_box.setCurrentIndex(win._language_box.findData("de"))
     changed, errors = win._apply_speech()

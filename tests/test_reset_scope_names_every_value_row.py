@@ -58,6 +58,7 @@ ROW_WORDS = {
     "mic": ("microphone",),
     "model": ("speech model", "model"),
     "language": ("language",),
+    "profile": ("language profile",),
     "compute": ("compute type", "compute"),
     "prompt": ("initial prompt", "prompt"),
     "backend": ("injection backend", "backend"),

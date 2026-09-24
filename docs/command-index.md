@@ -287,7 +287,7 @@ List the high-level language profiles YazSes can resolve coherently.
 
 ### `yazses language set`
 
-Switch dictation language transactionally, with prerequisites first.
+Switch dictation language through the shared transactional service.
 
 - **Arguments:** `profile`
 - `--dry-run` — Show the complete plan and prerequisites without changing anything.
