@@ -261,6 +261,14 @@ Type text into the focused window without recording (tests the injector).
 
 - **Arguments:** `text`
 
+## `yazses inject-backend`
+
+Show or pin the keystroke-injection backend.
+
+- **Arguments:** `name`
+- `--allow-portal` — Let `auto` use the desktop portal on Wayland.
+- `--deny-portal` — Never use the desktop portal.
+
 ## `yazses jump`
 
 Jump to a symbol or line in the active editor.

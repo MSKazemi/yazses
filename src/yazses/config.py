@@ -212,6 +212,28 @@ class InjectionConfig:
     # the case inside a strictly confined snap; force it when a session has a
     # stale ydotoold socket that wins the probe but cannot actually inject.
     backend: str = "auto"
+    # Whether `auto` may select the RemoteDesktop portal on Wayland.
+    # "ask" (default) | "allow" | "deny".
+    #
+    # OFF by default, deliberately: the portal makes the desktop show a
+    # screen-sharing indicator for as long as the session is open, and switching
+    # that on for somebody -- in an application whose whole promise is that nothing
+    # leaves the machine -- is not a default to take on their behalf. With "ask",
+    # dictation uses the clipboard fallback and YazSes offers the choice instead.
+    #
+    # Three things already count as consent and are NOT affected by this key, so no
+    # working install is regressed: naming `backend = "portal"`, an existing restore
+    # token on disk (you answered the dialog before), and a strictly confined snap,
+    # for which the portal is the only way to type on Wayland at all.
+    portal_consent: str = "ask"
+    # Seconds of idle before the portal session is closed; 0 keeps it open forever.
+    #
+    # The one place this file deliberately ships a feature "on": defaulting to 0
+    # would ship the indicator sitting in the top bar for the daemon's whole life,
+    # which is the complaint this key exists to answer. Re-opening replays the
+    # restore token, so it costs a round trip on the first burst after idle and no
+    # new dialog. Set 0 if you prefer the session pinned open.
+    portal_idle_release_s: int = 60
     fallback_to_clipboard: bool = True
     # Successive hold-to-talk bursts within this window are treated as one
     # continuous dictation: a separating space is prepended to the next burst

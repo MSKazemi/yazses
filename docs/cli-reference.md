@@ -1091,6 +1091,43 @@ Until v2.30 it — along with `yazses test` and `yazses verify --type` — alway
 to test the injector, so all three could pass on a backend the daemon would not use.
 `yazses status` names the same thing, and the two can now be compared.
 
+### `yazses inject-backend`
+
+Show which injection backend will be used and why the alternatives were passed over,
+or pin one. Renders the same evaluation the daemon and `doctor` use, so all three
+cannot disagree.
+
+```bash
+yazses inject-backend                 # what will be used here, and why
+yazses inject-backend ydotool         # pin direct typing
+yazses inject-backend auto            # go back to choosing automatically
+yazses inject-backend --allow-portal  # permit the desktop portal on Wayland
+```
+
+```console
+$ yazses inject-backend
+Session: wayland    configured: 'auto'
+Using:   portal
+         asks once for permission and shows a screen-sharing indicator while active
+
+  ydotool    ydotoold is running as you but cannot open /dev/uinput
+             Run `yazses setup` to install the udev rule, then log out and back in.
+  xdotool    wrong-session
+```
+
+Before this existed nothing in the CLI could write `[injection] backend`, so a
+headless or SSH user had no supported way to change it and every remedy string had to
+say "edit config.toml".
+
+**On the portal and the sharing indicator.** `auto` never selects the desktop portal
+unless you have allowed it, because while a portal session is open your desktop shows
+a screen-sharing indicator — not something to switch on for somebody in an application
+that is offline by design. Until you choose, dictation pastes via the clipboard.
+Three things already count as allowing it and are not affected by the setting: naming
+`backend = "portal"`, having answered the dialog before (a restore token on disk), and
+running the strictly confined snap, for which the portal is the only way to type on
+Wayland at all.
+
 ### Choosing the injection backend
 
 On Wayland the default (`auto`) **types** via ydotool, which works in every app —

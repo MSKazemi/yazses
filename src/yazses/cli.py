@@ -4264,6 +4264,96 @@ def inject(text: str = typer.Argument(..., help="Text to inject into the focused
 
 
 @app.command(
+    "inject-backend",
+    rich_help_panel=_DICTATION,
+    epilog=_examples(
+        "yazses inject-backend                 show every backend and why it was or wasn't picked",
+        "yazses inject-backend ydotool         type directly (needs `yazses setup` + a re-login)",
+        "yazses inject-backend auto            go back to choosing automatically",
+        "yazses inject-backend --allow-portal  permit the desktop portal (shows a sharing icon)",
+    ),
+)
+def inject_backend(
+    name: str = typer.Argument(
+        "", help="Backend to pin, or omit to list what is available here."
+    ),
+    allow_portal: bool = typer.Option(
+        False, "--allow-portal", help="Let `auto` use the desktop portal on Wayland."
+    ),
+    deny_portal: bool = typer.Option(
+        False, "--deny-portal", help="Never use the desktop portal."
+    ),
+) -> None:
+    """Show or pin the keystroke-injection backend.
+
+    With no argument this reports what `auto` would choose on this machine and why
+    each alternative was passed over — the same evaluation the daemon and `doctor`
+    render, so all three cannot disagree.
+
+    Until now nothing in the CLI could write `[injection] backend`, so a headless or
+    SSH user had no supported way to change it and every remedy string had to say
+    "edit config.toml".
+    """
+    from yazses.inject import registry
+    from yazses.system.configedit import set_config_key
+
+    platform = get_platform()
+    config_file = platform.paths.config_file
+
+    if allow_portal and deny_portal:
+        typer.echo("Pick one of --allow-portal or --deny-portal.")
+        raise typer.Exit(2)
+    if allow_portal or deny_portal:
+        value = "allow" if allow_portal else "deny"
+        set_config_key(config_file, "injection", "portal_consent", value, quote=True)
+        typer.echo(f"[injection] portal_consent = {value!r}")
+        typer.echo("Apply it:  yazses restart")
+        if not name.strip():
+            return
+
+    if name.strip():
+        wanted = name.strip().lower()
+        legal = ("auto", *registry.config_values())
+        if wanted not in legal:
+            typer.echo(f"Unknown backend {wanted!r}. Choose one of: {', '.join(legal)}")
+            raise typer.Exit(2)
+        set_config_key(config_file, "injection", "backend", wanted, quote=True)
+        typer.echo(f"[injection] backend = {wanted!r}")
+        typer.echo("Apply it:  yazses restart")
+        return
+
+    from yazses.config import load_config
+
+    cfg = load_config(config_file)
+    env = registry.Env.detect(
+        cfg.injection.backend or "auto",
+        consent=getattr(cfg.injection, "portal_consent", "ask"),
+    )
+    selection = registry.select(env)
+    typer.echo(f"Session: {env.session}    configured: {cfg.injection.backend!r}")
+    typer.secho(f"Using:   {selection.chosen.name}", bold=True)
+    if selection.chosen.cost:
+        typer.echo(f"         {selection.chosen.cost}")
+    typer.echo("")
+    for item in selection.considered:
+        if item.backend.name == selection.chosen.name:
+            continue
+        detail = item.capability.reason or item.eligibility.value
+        line = f"  {item.backend.name:<10} {detail}"
+        if item.capability.remedy:
+            line += f"\n             {item.capability.remedy}"
+        typer.echo(line)
+    for item in selection.needs_consent:
+        typer.echo("")
+        typer.secho(
+            f"  {item.backend.name} is available but needs your permission: "
+            f"{item.backend.cost}",
+            fg=typer.colors.YELLOW,
+        )
+        typer.echo("  Allow it:  yazses inject-backend --allow-portal")
+
+
+@app.command(
     rich_help_panel=_DICTATION,
     epilog=_examples('yazses say "hello there"    speak text aloud via offline TTS'),
 )
@@ -4856,6 +4946,11 @@ def setup(
         typer.echo("  • add you to the `input` group (sudo)")
     if plan.setup_ydotoold:
         typer.echo("  • set up + enable the ydotoold user service (Wayland injection)")
+    if plan.install_udev_rule:
+        typer.echo(
+            f"  • install the /dev/uinput udev rule at {_setup.UDEV_RULE_PATH} (sudo)"
+            " — without it ydotoold cannot open the device even in the `input` group"
+        )
     if mic_pending:
         # The snap can't self-connect interfaces; this is the one manual step and
         # must be run outside confinement, so we print it rather than auto-apply.

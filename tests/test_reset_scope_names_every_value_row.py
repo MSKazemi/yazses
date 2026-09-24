@@ -61,6 +61,7 @@ ROW_WORDS = {
     "compute": ("compute type", "compute"),
     "prompt": ("initial prompt", "prompt"),
     "backend": ("injection backend", "backend"),
+    "consent": ("desktop portal permission", "desktop portal"),
     "guard": ("text-target guard", "target guard"),
     "padding": ("onset padding", "padding"),
 }

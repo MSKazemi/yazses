@@ -124,8 +124,8 @@ def accessible_description(row) -> str:
 RESET_SCOPE = (
     "This restores the capability switches only — the settings above them (hotkey, "
     "microphone, speech model, language, compute type, initial prompt, injection "
-    "backend, text-target guard, onset padding) and your vocabulary keep their "
-    "current values."
+    "backend, desktop portal permission, text-target guard, onset padding) and your "
+    "vocabulary keep their current values."
 )
 
 

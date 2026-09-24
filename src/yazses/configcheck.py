@@ -248,9 +248,32 @@ def negative_is_impossible(field) -> bool:
 #: nothing in `src/` consumes it, and its comment (`auto | neovim | vscode`) and the
 #: architecture reference (`neovim` | `none`) disagree, so there is no set to enforce.
 #: `tests/test_config_enums_are_complete.py` holds the remainder in view.
+def _injection_backend_values() -> tuple[str, ...]:
+    """Legal `[injection] backend` values, from the backend table itself.
+
+    Imported lazily and defensively: `configcheck` is on the startup path and must
+    never be the reason a daemon fails to load a config. If the registry cannot be
+    imported, fall back to the historical set rather than validating against an
+    empty one, which would reject every value the user has.
+    """
+    try:
+        from yazses.inject.registry import config_values
+
+        return config_values()
+    except Exception:  # pragma: no cover - a broken import must not gate config
+        return ("type", "ydotool", "clipboard", "wtype", "portal", "unicode")
+
+
 _ENUMS: dict[str, tuple[str, ...]] = {
     "commands.language": ("auto", "en", "zh"),
-    "injection.backend": ("auto", "type", "clipboard", "wtype", "portal", "unicode"),
+    # DERIVED from `inject/registry.BACKENDS`, not hand-written. The hand-written
+    # version is what silently reverted a documented `backend = "ydotool"` to
+    # `auto`: the value existed in the docs and in `get_injector`, and only this
+    # list disagreed. Deriving it means a backend cannot exist and be
+    # un-configurable, and the settings combo -- which reads `enum_values` -- gets
+    # the same set for free.
+    "injection.backend": ("auto", *_injection_backend_values()),
+    "injection.portal_consent": ("ask", "allow", "deny"),
     "injection.target_guard": ("clipboard", "warn", "off"),
     # Held equal to `recimport.render.VALID_FORMATS` by the test -- that constant is the
     # authority, and this is the pair whose consumer raises.

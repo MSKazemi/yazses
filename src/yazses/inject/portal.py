@@ -163,12 +163,15 @@ def consent_explanation(*, can_avoid: bool = True) -> tuple[str, str]:
     # survives being reused when that backend lands.
     body = (
         "YazSes asks for the keyboard alone: no screen capture, no mouse, "
-        'nothing sent anywhere. Your desktop calls it "Remote Desktop": that is '
-        "Wayland's only way to type into another window. Approve once; it is "
-        "remembered."
+        'nothing sent anywhere. Your desktop calls it "Remote Desktop": Wayland\'s '
+        "only way to type into another window. Approve once; it is remembered."
     )
     if can_avoid:
-        body += "\nNo prompt at all: run  yazses setup"
+        # "then log out" is load-bearing, not politeness: `yazses setup` installs
+        # ydotoold and a udev rule, and the rule only reaches your session after a
+        # re-login. Promising "no prompt" without it was advice that cannot work --
+        # the user re-runs setup, nothing changes, and the prompt returns.
+        body += "\nAvoid it: run  yazses setup  then log out"
     return title, body
 
 
@@ -235,6 +238,9 @@ class _PortalSession:
         self._conn: Any = None
         self._session_handle = ""
         self._lock = threading.Lock()
+        #: Monotonic stamp of the last keystroke, for idle release. `None` means the
+        #: session has never been used since it was opened.
+        self._last_used: float | None = None
 
     # -- plumbing ---------------------------------------------------------
 
@@ -369,6 +375,7 @@ class _PortalSession:
         """Drop the session. Never raises -- called from shutdown paths."""
         with self._lock:
             self._session_handle = ""
+            self._last_used = None
             conn, self._conn = self._conn, None
         if conn is not None:
             try:
@@ -377,6 +384,35 @@ class _PortalSession:
                 pass
 
     # -- input ------------------------------------------------------------
+
+    def touch(self) -> None:
+        """Record use, so the idle reaper can tell a working session from a parked one."""
+        self._last_used = time.monotonic()
+
+    def release_if_idle(self, timeout_s: float, *, now: float | None = None) -> bool:
+        """Close the session after *timeout_s* of no typing. Returns whether it closed.
+
+        This is what stops the desktop's screen-sharing indicator being a permanent
+        fixture: it is shown while a RemoteDesktop session is open, and nothing about
+        dictation needs that session open between bursts.
+
+        Held open when there is **no restore token**, whatever the timeout says. In
+        that state re-opening would raise the consent dialog again, and doing so
+        mid-sentence -- the one moment the user is watching the text field rather
+        than hunting for a permission window -- is worse than the indicator.
+        """
+        if timeout_s <= 0:
+            return False
+        with self._lock:
+            if not self._session_handle or self._last_used is None:
+                return False
+            if not read_token():
+                return False
+            elapsed = (time.monotonic() if now is None else now) - self._last_used
+            if elapsed < timeout_s:
+                return False
+        self.close()
+        return True
 
     def notify_keysym(self, keysym: int, state: int) -> None:
         from jeepney import DBusAddress, new_method_call
@@ -420,7 +456,16 @@ class PortalInjector:
     def _ready(self) -> _PortalSession:
         """The hot path. Never waits on a human."""
         self._session.ensure_started(HOT_PATH_TIMEOUT_S)
+        self._session.touch()
         return self._session
+
+    def release_if_idle(self, timeout_s: float) -> bool:
+        """Drop the portal session after *timeout_s* idle. Never raises."""
+        try:
+            return self._session.release_if_idle(timeout_s)
+        except Exception:  # noqa: BLE001 - housekeeping must not break dictation
+            logger.debug("portal idle release failed", exc_info=True)
+            return False
 
     def warm(self) -> bool:
         """Negotiate the session ahead of time. Never raises.

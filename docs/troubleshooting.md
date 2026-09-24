@@ -78,16 +78,31 @@ asked again.
 ### Getting rid of the prompt entirely
 
 The portal is a *fallback*. YazSes prefers `ydotool`, which injects directly and needs no
-permission dialog, and only falls through to the portal when `ydotoold` is not running:
+permission dialog, and only falls through to the portal when `ydotoold` is not running.
+
+Two things have to be true for `ydotool` to work, and on a stock Ubuntu **neither is by
+default** — which is why most Wayland users land on the portal:
+
+1. the **`ydotoold` daemon** must be installed. On Debian/Ubuntu it is a *separate package*
+   from the `ydotool` client, so installing `ydotool` alone leaves the service pointing at
+   a binary that does not exist;
+2. `/dev/uinput` must be openable by your user. It ships `0600 root:root`, so belonging to
+   the `input` group grants nothing without a udev rule.
+
+`yazses setup` now does both:
 
 ```sh
-yazses setup      # installs and enables ydotoold
+yazses setup      # installs ydotoold + the /dev/uinput udev rule, joins `input`
+# log out and back in — the group and the rule only apply to a new session
 yazses doctor     # the Injection line names the backend actually in use
 ```
 
-After that the prompt and the indicator are both gone. The exception is the **strictly
-confined snap**, which has no package manager and cannot install `ydotoold` — there the
-portal is the only way to type on Wayland at all, and `yazses setup` is not offered.
+**The log-out is not optional.** Until you start a new session the rule has not reached it,
+`ydotoold` still cannot open the device, and YazSes will keep using the portal.
+
+The exception is the **strictly confined snap**, which has no package manager and cannot
+install a udev rule — there the portal is genuinely the only way to type on Wayland, and
+`yazses setup` is not offered.
 
 If you declined the dialog, dictation falls back to pasting via the clipboard, which is a
 no-op in terminals. Approve it, or run `yazses setup`, then `yazses restart`.

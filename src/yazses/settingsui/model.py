@@ -90,6 +90,7 @@ class SettingsModel:
     language: str = ""
     # `[injection] backend` — how the finished text reaches the focused window.
     injection_backend: str = "auto"
+    portal_consent: str = "ask"
     # `[stt] device`, needed only to ask ctranslate2 which quantisations are
     # available *here*. Not itself editable in the window: changing cpu→cuda without
     # a CUDA build is a config that cannot start, and the window has no way to check.
@@ -139,6 +140,7 @@ def build_settings_model(cfg: Config) -> SettingsModel:
         stt_model=cfg.stt.model,
         language=cfg.stt.language,
         injection_backend=cfg.injection.backend,
+        portal_consent=getattr(cfg.injection, "portal_consent", "ask"),
         stt_device=cfg.stt.device,
         compute_type=cfg.stt.compute_type,
         initial_prompt=cfg.stt.initial_prompt,

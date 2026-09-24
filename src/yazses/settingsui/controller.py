@@ -348,6 +348,29 @@ class SettingsController:
             return ToggleResult(ok=False, error=f"Could not save the injection backend: {exc}")
         return ToggleResult(ok=True)
 
+    def set_portal_consent(self, value: str) -> ToggleResult:
+        """Decide whether `auto` may use the desktop portal on Wayland.
+
+        Refused rather than clamped, for the same reason as the backend above: a
+        value that silently reads back as something else is worse than an error.
+        """
+        from yazses.settingsui.controls import PORTAL_CONSENT_VALUES
+
+        cleaned = (value or "").strip().lower()
+        if cleaned not in PORTAL_CONSENT_VALUES:
+            return ToggleResult(
+                ok=False,
+                error=(
+                    f"{value!r} is not a portal permission. Choose one of: "
+                    f"{', '.join(PORTAL_CONSENT_VALUES)}."
+                ),
+            )
+        try:
+            self._writer("injection", "portal_consent", cleaned, True)
+        except Exception as exc:  # noqa: BLE001 - surfaced, never raised at Qt
+            return ToggleResult(ok=False, error=f"Could not save the portal permission: {exc}")
+        return ToggleResult(ok=True)
+
     def set_compute_type(self, name: str, device: str | None = None) -> ToggleResult:
         """Choose the quantisation, refusing one this machine cannot run.
 

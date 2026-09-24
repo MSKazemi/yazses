@@ -241,6 +241,18 @@ Show the current hold-to-talk key (and command key, if set).
 Type text into the focused window without recording (tests the injector).
 .br
 Arguments: \fItext\fR
+.SS "yazses inject-backend"
+Show or pin the keystroke-injection backend.
+.br
+Arguments: \fIname\fR
+.RS
+.TP
+\fB\-\-allow\-portal\fR
+Let `auto` use the desktop portal on Wayland.
+.TP
+\fB\-\-deny\-portal\fR
+Never use the desktop portal.
+.RE
 .SS "yazses jump"
 Jump to a symbol or line in the active editor.
 .br

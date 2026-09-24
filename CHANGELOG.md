@@ -6,6 +6,113 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — the desktop portal is offered, never taken
+
+`auto` no longer selects the RemoteDesktop portal on its own. While a portal session
+is open the desktop shows a **screen-sharing indicator**, and switching that on for
+somebody — in an application whose whole promise is that nothing leaves the machine —
+is not a default to take on their behalf. Unconsented, dictation falls through to the
+clipboard (which delivers the words) and YazSes offers the choice instead.
+
+**Nothing working is regressed.** Three things already count as consent and need no
+migration: naming `backend = "portal"`, an existing restore token on disk (you
+answered the dialog before), and the strictly confined snap, for which the portal is
+the only way to type on Wayland at all. New key `[injection] portal_consent`
+(`ask` | `allow` | `deny`), settable in Settings → **Desktop portal**, via
+`yazses inject-backend --allow-portal`, or in `config.toml`. An explicit `deny` is
+obeyed even in the snap: quietly doing the thing a user forbade, because we know
+better, is the same paternalism as taking the portal unasked.
+
+### Added — the sharing indicator now clears between dictations
+
+The portal session was held open for the daemon's whole life, so the indicator was a
+permanent fixture. It is now released after `[injection] portal_idle_release_s`
+seconds of idle (default 60) and re-opened on demand — the restore token is replayed,
+so no dialog reappears. Held open regardless when there is **no** token: re-opening
+would raise the consent dialog, and doing that mid-sentence is worse than the icon.
+`0` restores the old always-open behaviour.
+
+### Added — `yazses inject-backend`, and one ladder behind every surface
+
+`src/yazses/inject/registry.py` is now the single source of truth for which backends
+exist, their order, what each costs, and whether it needs consent. `get_injector`,
+`doctor`, the config validator and the Settings combo all render the same `select()`
+result, so they cannot disagree — the drift that let the validator reject a
+`backend = "ydotool"` that the docs advertised and the selector honoured. Adding a
+backend, or a platform, is one row.
+
+`yazses inject-backend` shows what will be used and why every alternative was passed
+over, and pins one. Nothing in the CLI could write `[injection] backend` before, so a
+headless or SSH user had no supported way to change it.
+
+### Fixed — wtype could be chosen on desktops that silently ignore it
+
+`wtype` needs `virtual-keyboard-manager-v1`, which GNOME's Mutter and KDE's KWin
+deliberately do not implement: it exits cleanly having typed nothing. It was ranked
+below the portal, which was enough only while the portal was taken automatically —
+once the portal waits for consent, an unconsented GNOME user fell straight onto a
+backend that drops every burst. It is now reported **unavailable** on those
+compositors, with the reason, so the fallback is the clipboard, which at least
+delivers the words.
+
+### Fixed — `yazses setup` could never deliver the Wayland path it promised
+
+On Debian/Ubuntu the ydotool path needs three things. `yazses setup` provided one of
+them, then told the user it had fixed the problem. All three verified on a real
+Ubuntu 24.04 machine, not reasoned about:
+
+1. **The daemon was never installed.** `APT_PACKAGES` listed `ydotool`; `ydotoold` is a
+   *separate package* (`dpkg -L ydotool` ships one binary). So setup wrote a systemd unit
+   with `ExecStart=/usr/bin/ydotoold` pointing at nothing.
+2. **No udev rule existed anywhere in the repo.** `/dev/uinput` ships `0600 root:root`,
+   so `input`-group membership — which setup does arrange, and which the unit's own
+   comment credited for device access — grants precisely nothing. Installing the daemon
+   without the rule produces a **crash loop**: observed at 726 restarts, each one
+   binding the socket, printing "listening", then aborting on
+   `failed to open uinput device`.
+3. **Nothing verified the daemon could open the device.** A ydotoold that cannot
+   reach `/dev/uinput` binds its socket, prints "listening", *then* aborts — so the
+   socket file passes every cheap check while nothing behind it can type. Readiness
+   now also requires that our own ydotoold could open the device, and only for a
+   user-owned socket: one owned by root belongs to a system unit whose privileges we
+   neither have nor need.
+4. **The socket was looked for in the wrong place.** Ubuntu ships ydotool **0.1.8**,
+   which predates `--socket-path` and ignores it silently — the unit passes
+   `--socket-path=%t/.ydotool_socket` and 0.1.8 listens on `/tmp/.ydotool_socket`
+   anyway. `ydotool_ready()` probed only `$XDG_RUNTIME_DIR`, so it answered "not ready"
+   on a machine where ydotoold was installed, enabled and running.
+
+Together these made the RemoteDesktop portal the de-facto default on Ubuntu Wayland —
+which is why an offline-by-design dictation app shows a permanent screen-sharing
+indicator. `setup` now installs `ydotoold` and
+`/etc/udev/rules.d/60-yazses-uinput.rules`, reloads and triggers udev, and reports the
+rule in `--dry-run`; selection discovers the socket across all the places ydotoold
+actually uses and pins the client to the one it found.
+
+**The v2.38.0 advice is corrected in the same change.** The consent toast, the
+`yazses start` hint, the `inject-permission` / `portal-consent-denied` diagnoses and
+`docs/troubleshooting.md` all said "run `yazses setup`" to escape the prompt. Because of
+the above, that was false on the most common distro. They now say what setup actually
+does and that **a log-out is required** — the group and the rule only reach a new
+session, and without saying so the user re-runs setup and sees nothing change.
+
+### Fixed — a documented config value was silently reverted
+
+`[injection] backend = "ydotool"` is documented in `config.py`'s own comment and honoured
+by `get_injector`, but was missing from the validator's enum — so the loader answered
+*"is not one of auto, type, clipboard, wtype, portal, unicode"* and quietly replaced the
+user's choice with `auto`. The Settings combo reads the same table, so it inherits the
+fix rather than needing one.
+
+### Fixed — `contrib/` had already drifted from what setup writes
+
+`setup.py` claimed in a comment that `contrib/ydotoold.service` was "kept in sync". It
+was not: the shipped copy carried two comment lines the constant did not, and both
+credited `input`-group membership alone for `/dev/uinput` access — the false premise
+above, shipped in a file a distro packager might install. A comment asserting a property
+is not a test of it; `tests/test_contrib_files_match_setup.py` now asserts byte-equality
+for the service and the new udev rule.
+
 ## [2.38.0] - 2026-09-24
 
 ### Added — missing permissions now announce themselves on the desktop

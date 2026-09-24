@@ -113,12 +113,19 @@ class FakeSession:
         self.closed = 0
         self.budgets: list[float] = []
         self.fail = fail
+        #: Mirrors `_PortalSession.touch()`. A double that lacks a method the real
+        #: object has stops being a stand-in and starts being a different object —
+        #: it passes while production raises AttributeError.
+        self.touched = 0
 
     def ensure_started(self, start_timeout: float = portal.START_TIMEOUT_S) -> None:
         self.started += 1
         self.budgets.append(start_timeout)
         if self.fail:
             raise portal.PortalUnavailable("nope")
+
+    def touch(self) -> None:
+        self.touched += 1
 
     def notify_keysym(self, keysym: int, state: int) -> None:
         self.events.append((keysym, state))
@@ -259,9 +266,19 @@ def test_key_delay_falls_back_on_nonsense(monkeypatch, bad: str) -> None:
 
 
 @pytest.fixture
-def wayland(monkeypatch):
+def wayland(monkeypatch, tmp_path):
+    """A Wayland session with NO prior portal consent.
+
+    `YAZSES_DATA_DIR` is redirected because `Env.detect` reads the restore token from
+    disk to decide whether the user has already agreed to the portal. Without this
+    the developer's own token leaks in and every consent assertion below passes for
+    the wrong reason — verified: these tests went green on a machine with a token and
+    red under a clean data dir, which is what CI would have been.
+    """
     monkeypatch.setenv("WAYLAND_DISPLAY", "wayland-0")
     monkeypatch.delenv("YAZSES_INJECTOR", raising=False)
+    monkeypatch.delenv("YAZSES_PORTAL_CONSENT", raising=False)
+    monkeypatch.setenv("YAZSES_DATA_DIR", str(tmp_path))
     return monkeypatch
 
 
@@ -272,15 +289,49 @@ def test_wayland_prefers_ydotool_over_the_portal(wayland) -> None:
     assert auto.describe_injector(auto.get_injector("auto")) != "portal"
 
 
-def test_wayland_uses_the_portal_when_ydotool_is_absent(wayland) -> None:
-    """This is the snap: no ydotoold can run inside strict confinement."""
+def test_the_portal_is_never_taken_without_consent(wayland) -> None:
+    """The indicator is not something to switch on for somebody.
+
+    Previously `auto` took the portal the moment ydotool was unavailable, so every
+    Wayland user with no ydotoold -- which, before the setup fix, was all of them on
+    Ubuntu -- got a permanent screen-sharing indicator they never agreed to.
+    """
+    wayland.setattr(auto, "ydotool_ready", lambda: False)
+    wayland.setattr(auto, "portal_available", lambda: True)
+    wayland.setattr(auto.shutil, "which", lambda name: f"/usr/bin/{name}")
+    assert auto.describe_injector(auto.get_injector("auto")) != "portal"
+
+
+def test_consent_in_config_selects_the_portal(wayland) -> None:
+    wayland.setenv("YAZSES_PORTAL_CONSENT", "allow")
     wayland.setattr(auto, "ydotool_ready", lambda: False)
     wayland.setattr(auto, "portal_available", lambda: True)
     assert auto.describe_injector(auto.get_injector("auto")) == "portal"
 
 
-def test_the_portal_is_preferred_over_wtype(wayland) -> None:
+def test_an_existing_restore_token_counts_as_consent(wayland, tmp_path) -> None:
+    """Grandfathering, with no migration step: anyone who already answered the
+    dialog keeps working and is never asked again."""
+    (tmp_path / portal.TOKEN_FILENAME).write_text("a-saved-token", encoding="utf-8")
+    wayland.setattr(auto, "ydotool_ready", lambda: False)
+    wayland.setattr(auto, "portal_available", lambda: True)
+    assert auto.describe_injector(auto.get_injector("auto")) == "portal"
+
+
+def test_a_confined_snap_gets_the_portal_without_being_asked(wayland) -> None:
+    """A strict snap cannot apt-install ydotoold or ship a udev rule, so the portal
+    is its only way to type on Wayland. Asking it to consent to its sole option
+    would be a dialog with one answer."""
+    wayland.setenv("SNAP", "/snap/yazses/1")
+    wayland.setenv("SNAP_NAME", "yazses")
+    wayland.setattr(auto, "ydotool_ready", lambda: False)
+    wayland.setattr(auto, "portal_available", lambda: True)
+    assert auto.describe_injector(auto.get_injector("auto")) == "portal"
+
+
+def test_the_portal_is_preferred_over_wtype_once_consented(wayland) -> None:
     """wtype needs virtual-keyboard-manager-v1, which GNOME and KDE refuse."""
+    wayland.setenv("YAZSES_PORTAL_CONSENT", "allow")
     wayland.setattr(auto, "ydotool_ready", lambda: False)
     wayland.setattr(auto, "portal_available", lambda: True)
     wayland.setattr(auto.shutil, "which", lambda name: f"/usr/bin/{name}")
@@ -288,6 +339,9 @@ def test_the_portal_is_preferred_over_wtype(wayland) -> None:
 
 
 def test_wayland_falls_back_to_wtype_when_the_portal_is_missing(wayland) -> None:
+    # wtype only works on wlroots; naming the compositor keeps this case meaningful
+    # on a GNOME developer machine, where wtype is correctly unavailable.
+    wayland.setenv("XDG_CURRENT_DESKTOP", "sway")
     wayland.setattr(auto, "ydotool_ready", lambda: False)
     wayland.setattr(auto, "portal_available", lambda: False)
     wayland.setattr(auto.shutil, "which", lambda name: "/usr/bin/wtype" if name == "wtype" else None)

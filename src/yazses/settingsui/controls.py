@@ -43,6 +43,24 @@ VAD_SLIDER_STEPS = 1000
 #: accepts.
 INJECTION_BACKENDS: tuple[str, ...] = enum_values("injection", "backend") or ()
 
+#: Same table the loader validates against, for the same reason the line above reads
+#: it: two hand-kept lists disagree the first time one is extended.
+PORTAL_CONSENT_VALUES: tuple[str, ...] = enum_values("injection", "portal_consent") or ("ask",)
+
+
+def portal_consent_choices(current: str = "ask") -> list[tuple[str, str]]:
+    """(label, value) for the portal-permission control.
+
+    Labelled by consequence rather than by the bare enum word: "ask" tells a reader
+    nothing, while naming what happens to their dictation meanwhile does.
+    """
+    labels = {
+        "ask": "Ask me — use the clipboard until I choose",
+        "allow": "Allow — direct typing, shows a sharing indicator",
+        "deny": "Never use the desktop portal",
+    }
+    return [(labels.get(value, value), value) for value in PORTAL_CONSENT_VALUES]
+
 #: `[injection] target_guard` — what happens when you dictate with no editable
 #: field focused. Label → value, because "clipboard" does not say what it does.
 #: Labels are the window's own; the *values* come from the same table the loader

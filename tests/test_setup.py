@@ -20,7 +20,11 @@ def _which(available):
     return lambda cmd: f"/usr/bin/{cmd}" if cmd in available else None
 
 
-ALL_TOOLS = ["xdotool", "ydotool", "wtype", "xclip", "wl-copy"]
+# `ydotoold` is a SEPARATE Debian/Ubuntu package from `ydotool`, and its absence is
+# what left the ydotoold unit pointing at a binary nothing had installed. A fixture
+# meaning "this machine has everything" has to include it, or every provisioned-machine
+# case here silently asserts against a machine that is still missing the daemon.
+ALL_TOOLS = ["xdotool", "ydotool", "ydotoold", "wtype", "xclip", "wl-copy"]
 
 
 def test_detect_session():
@@ -75,7 +79,8 @@ def test_portaudio_detected_via_loader_not_binary():
 def test_wl_clipboard_package_maps_from_wl_copy_binary():
     plan = setup.build_plan(
         {"WAYLAND_DISPLAY": "wayland-0"},
-        which=_which(["xdotool", "ydotool", "wtype", "xclip"]),  # wl-copy missing
+        # wl-copy missing; everything else present, so the assertion isolates it
+        which=_which(["xdotool", "ydotool", "ydotoold", "wtype", "xclip"]),
         portaudio_present=lambda: True,
         user="u",
         user_in_input_group=lambda u: True,

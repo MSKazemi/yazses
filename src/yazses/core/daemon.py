@@ -472,6 +472,7 @@ class Daemon:
             self._load_shown_notices()
             self._announce_permissions()
             self._warm_portal_session()
+            self._start_portal_idle_reaper()
             self._hotkey.run()
         finally:
             self._shutdown()
@@ -825,8 +826,52 @@ class Daemon:
             except Exception:  # noqa: BLE001 — an explanation must never block the ask
                 log.debug("could not explain the portal consent dialog", exc_info=True)
 
+        def _offer_instead() -> bool:
+            """True when the portal is available but unconsented — offer, don't take.
+
+            Taking it silently is what put a screen-sharing indicator in the top bar
+            of every Wayland user who had no ydotoold, for the life of the daemon,
+            without anyone agreeing to it. Dictation still works meanwhile: selection
+            has already fallen through to the clipboard backend.
+            """
+            try:
+                from yazses.inject import registry
+                from yazses.system import notify as notify_mod
+                from yazses.system.diagnosis import should_notify
+
+                env = registry.Env.detect(
+                    (self._config.injection.backend or "auto"),
+                    consent=getattr(self._config.injection, "portal_consent", "ask"),
+                )
+                pending = registry.select(env).needs_consent
+                if not pending:
+                    return False
+
+                with self._lock:
+                    fresh = should_notify(
+                        "portal-offer", time.time(), self._diagnosed_at
+                    )
+                if fresh:
+                    self._persist_shown_notices()
+                    title = "YazSes is typing through the clipboard"
+                    body = (
+                        "Typing directly needs either ydotoold (run `yazses setup`, "
+                        "then log out) or permission for the desktop portal, which "
+                        "shows a sharing indicator while active. Choose one in "
+                        "Settings → Text injection."
+                    )
+                    log.warning("%s — %s", title, body)
+                    urgency, expire_ms = notify_mod.toast_policy(False)
+                    notify_mod.notify(title, body, urgency=urgency, expire_ms=expire_ms)
+                return True
+            except Exception:  # noqa: BLE001 — never block startup on an offer
+                log.debug("could not evaluate the portal consent offer", exc_info=True)
+                return False
+
         def _run() -> None:
             try:
+                if _offer_instead():
+                    return
                 _explain()
                 if warm():
                     log.info("Wayland portal session established.")
@@ -851,6 +896,45 @@ class Daemon:
                 log.debug("portal warm-up failed", exc_info=True)
 
         threading.Thread(target=_run, name="portal-warm", daemon=True).start()
+
+    def _start_portal_idle_reaper(self) -> None:
+        """Close the portal session while nobody is dictating. Never raises.
+
+        The desktop shows its screen-sharing indicator for as long as a
+        RemoteDesktop session is open, and nothing about dictation needs one open
+        between bursts -- so held for the daemon's life, the indicator becomes a
+        permanent fixture on an application that is offline by design. Dropping it
+        when idle costs one portal round trip on the next burst, and no dialog,
+        because the restore token is replayed.
+
+        Dormant unless a portal session can exist and `portal_idle_release_s` is
+        positive; `0` keeps the old always-open behaviour.
+        """
+        timeout_s = getattr(self._config.injection, "portal_idle_release_s", 0) or 0
+        if timeout_s <= 0:
+            return
+        injector = getattr(self, "_injector", None)
+        backend = getattr(injector, "_primary", injector)
+        release = getattr(backend, "release_if_idle", None)
+        if release is None:
+            return
+
+        def _reap() -> None:
+            # Checked several times per timeout so the indicator clears promptly
+            # after the last burst rather than up to a full period later.
+            tick = max(1.0, timeout_s / 4)
+            while not self._stop_event.wait(tick):
+                try:
+                    if release(timeout_s):
+                        log.info(
+                            "Portal session released after %ss idle; the desktop's "
+                            "sharing indicator clears until the next dictation.",
+                            timeout_s,
+                        )
+                except Exception:  # noqa: BLE001 — housekeeping outlives its errors
+                    log.debug("portal idle reaper iteration failed", exc_info=True)
+
+        threading.Thread(target=_reap, name="portal-idle-reaper", daemon=True).start()
 
     def _start_update_watcher(self) -> None:
         """Start the opt-in "a newer YazSes is out" watcher.

@@ -238,8 +238,9 @@ _RULES: tuple[tuple[str, tuple[str, ...], str, str, str, str | None], ...] = (
         'Your desktop asked to allow "Remote Desktop" — its name for the only '
         "Wayland way to type into another window — and the answer was no.",
         "Run `yazses restart` and approve it (YazSes asks for the keyboard alone: "
-        "no screen capture, nothing sent anywhere), or run `yazses setup` to install "
-        "ydotoold and type without the prompt.",
+        "no screen capture, nothing sent anywhere). To stop being asked at all, run "
+        "`yazses setup` — it installs ydotoold and the /dev/uinput rule — then log "
+        "out and back in.",
         f"{_DOCS}/troubleshooting.html",
     ),
     (
@@ -248,8 +249,9 @@ _RULES: tuple[tuple[str, tuple[str, ...], str, str, str, str | None], ...] = (
         "YazSes is not allowed to type",
         "Typing into other windows needs access to the input device, and it was "
         "refused.",
-        "Run `yazses setup` — it adds you to the `input` group and installs the "
-        "ydotoold service. You must log out and back in afterwards.",
+        "Run `yazses setup` — it installs ydotoold, adds you to the `input` group "
+        "and writes the /dev/uinput udev rule. All three need a log out and back "
+        "in before the device is readable.",
         f"{_DOCS}/troubleshooting.html",
     ),
     (

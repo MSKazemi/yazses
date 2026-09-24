@@ -368,6 +368,7 @@ class SettingsWindow:
             compute_type_choices,
             language_choices,
             model_choices,
+            portal_consent_choices,
             target_guard_choices,
         )
         from yazses.stt.download import WHISPER_MODELS
@@ -459,6 +460,23 @@ class SettingsWindow:
         self._backend_box = backend_box
         self._backend_baseline = model.injection_backend
         form.addRow(QLabel("Text injection:"), backend_box)
+
+        consent_box = QComboBox()
+        for label, value in portal_consent_choices(model.portal_consent):
+            consent_box.addItem(label, value)
+            if value == model.portal_consent:
+                consent_box.setCurrentIndex(consent_box.count() - 1)
+        consent_box.setAccessibleName("Desktop portal permission")
+        consent_box.setToolTip(
+            "On Wayland, typing into another window needs either ydotoold "
+            "(`yazses setup`, then log out) or the desktop portal.\n"
+            "The portal asks once and then shows a screen-sharing indicator while "
+            "it is active — it only ever sends keystrokes, never your screen.\n"
+            "Until you choose, dictation pastes via the clipboard instead."
+        )
+        self._consent_box = consent_box
+        self._consent_baseline = model.portal_consent
+        form.addRow(QLabel("Desktop portal:"), consent_box)
 
         guards = target_guard_choices(current=model.target_guard)
         guard_box = QComboBox()
@@ -1050,6 +1068,13 @@ class SettingsWindow:
                 self._controller.set_injection_backend,
                 "text injection backend",
                 _text,
+            ),
+            (
+                "_consent_box",
+                "_consent_baseline",
+                self._controller.set_portal_consent,
+                "desktop portal permission",
+                _data,
             ),
             (
                 "_guard_box",

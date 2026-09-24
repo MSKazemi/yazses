@@ -96,7 +96,31 @@ def _imported_names() -> set[str]:
                 # `from yazses.pkg import mod` names the module in the alias.
                 for alias in node.names:
                     found.add(f"{module}.{alias.name}" if module else alias.name)
+        found |= _dotted_factory_targets(tree)
     return found
+
+
+def _dotted_factory_targets(tree: ast.AST) -> set[str]:
+    """Modules named by a `"yazses.pkg.mod:Class"` factory string.
+
+    `inject/registry.py` refers to each backend by a dotted path imported at
+    selection time, so that importing the table does not pull in jeepney, evdev and
+    every other backend's dependencies. An import scanner sees no `import` for them
+    and calls live code dead -- it reported `inject.wtype` and `inject.xdotool` as
+    orphans while both were reachable from the very next line of the table.
+
+    Recording them here rather than in KNOWN_ORPHANS on purpose: that ledger is for
+    debt that has been looked at, and an entry claiming these are unwired would be a
+    false line in it.
+    """
+    out: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            text = node.value
+            if ":" in text and text.startswith("yazses."):
+                module = text.split(":", 1)[0]
+                out.add(module[_PREFIX:])
+    return out
 
 
 def orphan_modules() -> set[str]:
@@ -120,6 +144,11 @@ def test_the_scan_finds_the_package_at_all() -> None:
     'yazses.' instead of 7 and called 267 live modules dead.)"""
     assert len(list(SRC.rglob("*.py"))) > 100
     assert "system.doctor" in _imported_names(), "a plainly-imported module reads as dead"
+    # Guard the guard's new half too: a backend reached only through the registry's
+    # dotted factory string must read as live, or this scan re-reports live code.
+    assert "inject.xdotool" in _imported_names(), (
+        "a backend named by a registry factory string reads as dead"
+    )
 
 
 def test_no_new_orphan_module_appears() -> None:
