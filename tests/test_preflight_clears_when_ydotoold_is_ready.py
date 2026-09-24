@@ -22,7 +22,23 @@ That is ADR-021's dismissed guard (rule 9: a guard is judged on how rarely it fi
 that fires on 100% of a platform's starts trains the user to skip the whole block, including
 the days it is telling the truth.
 """
+import os
+
+import pytest
+
 from yazses.system.setup import SetupPlan, preflight_hints
+
+#: `preflight_hints` returns [] outright when `os.name != "posix"`, so on Windows every
+#: assertion below about its *text* is asserting against a fiction: the list is empty for
+#: a reason that has nothing to do with ydotoold. `test_portal_consent_is_explained.py`
+#: already learned this and wrote it down -- "it passed locally and went red on the
+#: Windows runners" -- and this file repeated the mistake anyway, going red on both
+#: Windows legs of v2.39.1.
+#:
+#: Skipping is the honest form. Patching `os.name` to fake a POSIX host would assert
+#: against a code path the product never takes on Windows, which is how a green test
+#: comes to certify behaviour that does not exist.
+posix_only = pytest.mark.skipif(os.name != "posix", reason="preflight_hints is POSIX-only")
 
 
 def _wayland_plan(**kw) -> SetupPlan:
@@ -33,6 +49,7 @@ def _wayland_plan(**kw) -> SetupPlan:
     return plan
 
 
+@posix_only
 def test_no_hint_when_ydotoold_is_actually_ready():
     """The regression: fully provisioned Wayland, nothing left to say."""
     hints = preflight_hints(
@@ -41,6 +58,7 @@ def test_no_hint_when_ydotoold_is_actually_ready():
     assert hints == [], f"warned a fully provisioned machine: {hints!r}"
 
 
+@posix_only
 def test_hint_still_fires_when_ydotoold_is_not_ready():
     """The permissive direction is half the relationship -- prove it still warns."""
     hints = preflight_hints(
@@ -52,6 +70,7 @@ def test_hint_still_fires_when_ydotoold_is_not_ready():
     assert "Remote Desktop" in hints[0]
 
 
+@posix_only
 def test_other_prerequisites_are_unaffected_by_a_ready_ydotoold():
     """A ready ydotoold must not silence a genuinely missing package or group."""
     plan = _wayland_plan(apt_packages=["wl-clipboard"], add_to_input_group=True)
@@ -66,6 +85,7 @@ def test_other_prerequisites_are_unaffected_by_a_ready_ydotoold():
     assert "Remote Desktop" not in hints[0]
 
 
+@posix_only
 def test_a_readiness_probe_that_raises_does_not_block_startup():
     """`preflight_hints` runs on the `yazses start` path; it may never raise."""
     def boom() -> bool:

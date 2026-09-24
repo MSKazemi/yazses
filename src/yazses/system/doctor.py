@@ -385,11 +385,18 @@ def _daemon_install_prefix(pid) -> str | None:
     """
     try:
         with open(f"/proc/{int(pid)}/cmdline", "rb") as fh:
-            argv = fh.read().split(b"\0")
-        exe = (argv[0] if argv else b"").decode("utf-8", "replace").strip()
-        if not exe:
+            argv = [a.decode("utf-8", "replace") for a in fh.read().split(b"\0") if a]
+        if not argv:
             return None
-        bindir = os.path.dirname(exe)
+        # The pid must actually BE our daemon. A pid alone is not identity: a stale pid
+        # file, or a recycled pid, points at an unrelated process, and reading its prefix
+        # would report a "split install" that does not exist. Measured on a CI runner,
+        # where `_daemon_check` was handed a stubbed pid 1234 that happened to be a live
+        # unrelated process -- doctor flipped from OK to WARN on a machine with no split
+        # at all. ADR-021 again: a guard that fires on a coincidence is worse than none.
+        if not any(os.path.basename(a).lower().startswith("yazses") for a in argv):
+            return None
+        bindir = os.path.dirname(argv[0])
         if os.path.basename(bindir) not in ("bin", "Scripts"):
             return None
         return os.path.dirname(bindir) or None
