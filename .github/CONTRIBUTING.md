@@ -232,7 +232,7 @@ forever. The one part that may **not** drift is the contributor wall — it is g
 identical in every language, and a stale copy quietly drops a real person from the surface
 people actually look at. A test enforces that, so copy that block across verbatim.
 
-## Using an AI coding assistant
+## Using a coding agent
 
 That is fine, and increasingly common — but the PR is yours, so please read and understand
 every line before you open it, and confirm the tests pass locally rather than assuming.
