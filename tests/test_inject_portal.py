@@ -351,6 +351,10 @@ def test_wayland_falls_back_to_wtype_when_the_portal_is_missing(wayland) -> None
 def test_x11_is_untouched_by_the_portal(monkeypatch) -> None:
     """The portal must never displace xdotool on an X11 session."""
     monkeypatch.delenv("WAYLAND_DISPLAY", raising=False)
+    # Set, not merely inherited: a developer box has DISPLAY from XWayland, a CI
+    # runner has none, and without it this asserts about a headless session that
+    # has no xdotool to pick.
+    monkeypatch.setenv("DISPLAY", ":0")
     monkeypatch.delenv("YAZSES_INJECTOR", raising=False)
     monkeypatch.setattr(auto, "portal_available", lambda: True)
     monkeypatch.setattr(auto.shutil, "which", lambda name: f"/usr/bin/{name}")

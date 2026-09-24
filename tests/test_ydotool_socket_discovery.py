@@ -13,6 +13,7 @@ for a reason that had nothing to do with the portal.
 from __future__ import annotations
 
 import os
+import pathlib
 import socket
 import threading
 
@@ -20,13 +21,43 @@ import pytest
 
 from yazses.inject import auto
 
+#: ydotool, ydotoold and /dev/uinput are a Linux mechanism end to end, and every case
+#: here either binds an AF_UNIX socket or asserts on a POSIX path. Windows has no
+#: `socket.AF_UNIX` at all, and `os.path.join` there yields backslashes, so running
+#: these would assert about a feature that platform does not have.
+pytestmark = pytest.mark.skipif(
+    os.name != "posix", reason="ydotool and AF_UNIX are POSIX-only"
+)
+
 _REAL_CANDIDATES = auto.ydotool_socket_candidates
 
 
 @pytest.fixture
-def live_socket(tmp_path):
+def short_dir():
+    """A temp dir with a SHORT path, for binding unix sockets.
+
+    An AF_UNIX path is capped near 104 bytes, and pytest's `tmp_path` on a CI runner
+    is long enough to blow past it — `OSError: AF_UNIX path too long` on every macOS
+    and Linux job, while passing on a developer box whose paths are shorter.
+    """
+    import shutil as _shutil
+    import tempfile
+
+    path = tempfile.mkdtemp(prefix="yz")
+    # macOS puts TMPDIR under /var/folders/<long>/T, so "short" is worth asserting
+    # rather than assuming. Failing here names the cause; failing at bind() gives
+    # only "OSError: AF_UNIX path too long" from inside a fixture.
+    assert len(path) + len("/l.sock") < 100, f"socket dir is already too long: {path}"
+    try:
+        yield pathlib.Path(path)
+    finally:
+        _shutil.rmtree(path, ignore_errors=True)
+
+
+@pytest.fixture
+def live_socket(short_dir):
     """A unix socket with a real acceptor behind it."""
-    path = str(tmp_path / "live.sock")
+    path = str(short_dir / "l.sock")
     server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     server.bind(path)
     server.listen(1)
@@ -66,9 +97,9 @@ def _only_the_test_paths(monkeypatch):
 
 
 @pytest.fixture
-def stale_socket(tmp_path):
+def stale_socket(short_dir):
     """A socket FILE with nothing behind it — what a dead ydotoold leaves."""
-    path = str(tmp_path / "stale.sock")
+    path = str(short_dir / "s.sock")
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     sock.bind(path)
     sock.close()  # the file survives; the listener does not
