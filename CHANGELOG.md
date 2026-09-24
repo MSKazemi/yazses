@@ -52,6 +52,39 @@ any of the formats this project packages in, and fails on one that no rule reach
 `packaging/chocolatey/tools/chocolateyinstall.ps1`, which is the URL `choco install`
 fetches, were outside that list too and are covered by the same sweep.
 
+### Added — the Microsoft Store listing artwork is drawn by a script
+
+`packaging/store/boxart-1080.png` was still the **retired blue speech-bubble logo**. The
+mark was corrected in the Snap tree on 2026-08-18; the Store asset had been written four
+days earlier by a cairosvg snippet pasted into `packaging/store/README.md`, and a recipe
+a human runs is a recipe nobody re-runs, so the correction stopped one directory short
+and the listing was ready to ship a logo that appears nowhere else in the product.
+
+`scripts/gen-store-art.py` (`make store-art`) now redraws it from
+`yazses.brandmark.render_mark` — the one renderer behind the tray badge, `yazses.ico` and
+`yazses.icns` — and also produces the 2:3 poster art the Store recommends and the listing
+did not have. No SVG renderer is involved, so it runs on the build hosts. This changes
+nothing for people running YazSes; it changes what the Store page will show.
+
+### Fixed — the artwork drift guards compared pixels exactly, which is not portable
+
+Every guard that binds a committed image to its generator — the `.ico` frames, the `.deb`
+and Snap icons, the tray-badge images in the docs, and now the Store art — compared
+decoded pixels with `==`. That is one step better than comparing PNG bytes, which had
+already turned the Windows and macOS release legs red on correct assets, and it is still
+wrong: `render_mark` supersamples and downsamples in floating point, and `ubuntu-24.04-arm`
+does not always round the way x86_64 does. The arm64 test leg is `continue-on-error` today,
+which is the only reason these had not fired.
+
+The comparison now lives in one place, `scripts/imagediff.py`, and is a measured
+tolerance rather than an exact match: a mean bound that catches a small change everywhere,
+and a cap on the share of pixels moving further than a quantisation step, which catches a
+large change in one place. Loosening a guard is the easy way to delete it, so
+`tests/test_image_drift_tolerance.py` asserts both directions — ±2 on every pixel is
+accepted, while an older `render_mark`, a downscaled frame, a one-pixel shift, missing
+wave bars and the retired blue logo are all still rejected. A file the guard cannot parse
+counts as drift, never as compliance.
+
 ## [2.40.0] - 2026-09-24
 
 ### Fixed — dictation typed nothing on Debian and Ubuntu Wayland
