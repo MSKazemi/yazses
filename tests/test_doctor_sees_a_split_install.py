@@ -22,8 +22,6 @@ The trap inside the trap: `yazses restart` does not fix it, because the daemon c
 from whichever install owns `yazses-daemon` on PATH. Restarting reproduces the split,
 which is why the check has to say so rather than offering the usual advice.
 """
-import os
-
 import pytest
 
 from yazses.system.doctor import _daemon_install_prefix, divergent_build_note
@@ -104,8 +102,38 @@ def test_the_probe_never_raises_on_a_dead_or_alien_pid():
     assert _daemon_install_prefix(None) is None
 
 
-@pytest.mark.skipif(not os.path.isdir("/proc/self"), reason="needs Linux /proc")
-def test_the_probe_agrees_with_this_very_process():
-    """Ground it in a process whose prefix is knowable independently."""
-    import sys
-    assert _daemon_install_prefix(os.getpid()) == os.path.normpath(sys.prefix)
+def _fake_proc(tmp_path, monkeypatch, pid, *argv):
+    """A /proc/<pid>/cmdline containing *argv*, without reading the real host."""
+    proc = tmp_path / "proc" / str(pid)
+    proc.mkdir(parents=True)
+    proc.joinpath("cmdline").write_bytes(("\0".join(argv) + "\0").encode())
+    real_open = open
+
+    def fake_open(path, *a, **kw):
+        if str(path) == f"/proc/{pid}/cmdline":
+            return real_open(proc / "cmdline", *a, **kw)
+        return real_open(path, *a, **kw)
+
+    monkeypatch.setattr("builtins.open", fake_open)
+
+
+def test_an_unrelated_process_at_that_pid_is_not_our_daemon(tmp_path, monkeypatch):
+    """A pid is not an identity, and treating it as one shipped a false warning.
+
+    `_daemon_check` was handed a stubbed pid (1234) by `test_doctor_improvements`. On a CI
+    runner that pid was a live, unrelated process, so the probe happily read ITS prefix,
+    found it different from the CLI's, and doctor flipped `Daemon: OK` -> `WARN` on a
+    machine with no split install at all. The same thing happens in production to anyone
+    with a stale pid file whose pid has been recycled.
+
+    ADR-021: a guard that fires on a coincidence is worse than no guard. The process must
+    actually be a yazses one before its prefix means anything.
+    """
+    _fake_proc(tmp_path, monkeypatch, 1234, "/usr/bin/python3", "/usr/bin/some-other-tool")
+    assert _daemon_install_prefix(1234) is None
+
+
+def test_a_yazses_daemon_is_recognised(tmp_path, monkeypatch):
+    _fake_proc(tmp_path, monkeypatch, 4243,
+               f"{UV_TOOL}/bin/python", f"{UV_TOOL}/bin/yazses-daemon")
+    assert _daemon_install_prefix(4243) == UV_TOOL
