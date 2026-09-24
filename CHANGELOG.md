@@ -6,6 +6,8 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.39.1] - 2026-09-24
+
 ### Fixed — a provisioned Wayland machine is no longer told to provision itself
 
 `yazses start` printed **ACTION NEEDED — Missing prerequisites: ydotoold (Wayland
@@ -37,6 +39,18 @@ and identical silence. It now names the rule at INFO, the text at DEBUG (same ga
 `Injecting text`, ADR-011), and plays the error earcon the empty-transcription branch
 beside it always played — the user held the key and spoke, and is owed the one bit of
 feedback that says heard, dropped.
+
+### Fixed — `doctor` now sees a split install, where a matching version hid one
+
+`doctor` asked whether the daemon *reports* the version you have installed, and stopped
+there. Two installs routinely report the same version and run entirely different code —
+a checkout and an installed copy both say `2.39.0`, and only one carries today's fix.
+`yazses` on PATH can resolve to one while `yazses-daemon` resolves to the other, so the
+CLI you type into and the process handling your dictation are different builds, and
+every version check agrees they are fine. `doctor` now compares where each is actually
+running from and says so, including the part that makes it a trap: `yazses restart` does
+**not** fix it, because the daemon comes back from whichever install owns
+`yazses-daemon` on PATH.
 
 ### Fixed — `yazses doctor` names the socket ydotoold actually listens on
 

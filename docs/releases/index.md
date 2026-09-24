@@ -23,12 +23,13 @@ software itself runs on.
 
 ## Current stable
 
-**[YazSes 2.39.0](v2.39.0.md)** — the sharing icon you never agreed to. On Wayland the
-desktop portal had quietly become the default, because `yazses setup` could not deliver
-the alternative it recommended: it installed the ydotool client but not the daemon, shipped
-no udev rule for `/dev/uinput`, and looked for the socket where Ubuntu's ydotool does not
-put it. The portal is now offered rather than taken, its sharing indicator clears between
-dictations, and one backend table replaces five copies that had already drifted.
+**[YazSes 2.39.1](v2.39.1.md)** — the guard that ate your dictation. Two checks were firing
+on machines where nothing was wrong. The hallucination guard deleted ordinary emphatic
+repetition — "no no no", "okay okay okay" — silently, with no sound and no reason logged;
+a one-word unit now needs four repeats, and every discard names its rule and plays the
+error earcon. Every Wayland start demanded you install `ydotoold` on machines where it was
+already installed, enabled and running. And `doctor` now catches a split install, where a
+CLI and a daemon report the same version while running entirely different code.
 Install it with:
 
 ```sh
@@ -38,6 +39,7 @@ pipx upgrade yazses          # upgrade an existing install
 
 ### Recent stable releases
 
+- [v2.39.1](v2.39.1.md) — the guard that ate your dictation: the hallucination guard deleted ordinary emphatic repetition ("no no no", "okay okay okay") because its loop rule flagged a single word repeated three times, and said nothing at all when it did — five of seven consecutive dictations lost at twenty times the VAD threshold; every Wayland start demanded a `ydotoold` that was already installed and running; and a matching version string hid a CLI and a daemon running different code entirely.
 - [v2.39.0](v2.39.0.md) — the sharing icon you never agreed to: `yazses setup` could not deliver the ydotool path it recommended (missing `ydotoold` package, no udev rule, wrong socket path — a 726-restart crash loop), so the desktop portal became the Wayland default unasked; it is now offered rather than taken, releases its session when idle, and one backend registry replaces five drifting copies.
 - [v2.38.0](v2.38.0.md) — the failures that never told anyone: every permission denial was reported as a microphone problem, including a refused typing prompt; Spoken Edit erased text and lost it in silence; no permission was checked at startup at all, which is #182's symptom; the Wayland "Remote Desktop" prompt now explains itself before it opens.
 - [v2.37.2](v2.37.2.md) — the tray's own "Install update" silently deleted an enabled STT engine on every `uv tool` update; `doctor` now catches a configured engine whose dependency has gone missing; winget's publish job now generates its own manifest instead of expecting one that cannot exist yet.
