@@ -225,7 +225,16 @@ def _version_key(name: str) -> tuple:
 
 
 def render_nuspec(version: str, previous: str) -> str:
-    """Rewrite the declared version **and** the release-notes link.
+    """Rewrite the declared version, the release-notes link **and** the icon URL.
+
+    Three URLs a release must move, not two. The `<iconUrl>` is pinned to a tag
+    (`…/gh/MSKazemi/yazses@vX.Y.Z/snap/gui/yazses.png`) because Chocolatey's
+    moderators rejected an unpinned one, and it was added *after* this function was
+    written -- so every release since has silently left it at the previous tag and
+    needed a hand-fix afterwards (`fix(chocolatey): re-pin nuspec iconUrl to the
+    version it declares`). A manifest that names a version it is not is exactly what
+    `tests/test_packaging_manifest_versions.py` fails the build over, and the fix
+    belongs in the generator rather than in a commit someone has to remember.
 
     Only `<version>` was rewritten, so `<releaseNotes>` stayed at whatever release it
     was last edited by hand — v2.19.0 by the time v2.29.0 shipped, ten versions of
@@ -241,9 +250,17 @@ def render_nuspec(version: str, previous: str) -> str:
     out = re.sub(
         r"(?s)(<version>).*?(</version>)", rf"\g<1>{version}\g<2>", previous, count=1
     )
-    return re.sub(
+    out = re.sub(
         r"(?s)(<releaseNotes>).*?(</releaseNotes>)",
         rf"\g<1>{RELEASE_TAG_URL.format(version=version)}\g<2>",
+        out,
+        count=1,
+    )
+    # Only the `@vX.Y.Z` tag segment moves; the host and path are left exactly as
+    # they are, so a future change of CDN or icon path is not silently reverted here.
+    return re.sub(
+        r"(?s)(<iconUrl>.*?@v)\d+\.\d+\.\d+(.*?</iconUrl>)",
+        rf"\g<1>{version}\g<2>",
         out,
         count=1,
     )
