@@ -337,6 +337,66 @@ def _stale_daemon_note(daemon_version: str) -> str:
     return ""
 
 
+def divergent_build_note(cli_prefix: str, daemon_prefix: str | None) -> str:
+    """Same version string, different code on disk. Pure.
+
+    `_stale_daemon_note` compares **version strings**, which is only half the question.
+    Two installs routinely report the same version and run entirely different code: a
+    repository checkout and an installed copy both say "2.39.0" while one carries a fix
+    the other has never seen. `yazses` on PATH can resolve to one of them and
+    `yazses-daemon` to the other, so the CLI you type into and the process handling your
+    dictation are different builds and every version check agrees they are fine.
+
+    Measured on a real machine: a fix was written, tested, and confirmed working through
+    `.venv/bin/yazses`, while the daemon doing the dictation was
+    `~/.local/share/uv/tools/yazses/bin/yazses-daemon` -- an installed 2.39.0 that did
+    not contain it. Doctor reported the daemon healthy, `yazses restart` restarted the
+    *other* install, and the bug went on happening with no line anywhere naming the
+    cause.
+
+    `yazses restart` cannot fix this and saying so is the point: the daemon comes back
+    from whichever install owns `yazses-daemon`, so restarting reproduces the split.
+
+    An unknown prefix returns "" rather than a warning -- the probe is Linux-only and a
+    guard that fires wherever it cannot see is ADR-021's dismissed guard.
+    """
+    if not daemon_prefix or not cli_prefix:
+        return ""
+    if os.path.normpath(daemon_prefix) == os.path.normpath(cli_prefix):
+        return ""
+    return (
+        f"the daemon runs from {daemon_prefix}, this CLI from {cli_prefix} — same "
+        "version, different code. `yazses restart` will not fix it: the daemon comes "
+        "back from whichever install owns `yazses-daemon` on PATH"
+    )
+
+
+def _daemon_install_prefix(pid) -> str | None:
+    """The Python prefix the running daemon was launched from, or None. Never raises.
+
+    Reads `argv[0]` from `/proc`, deliberately **not** `/proc/<pid>/exe`: a uv-managed
+    interpreter is shared between environments, so the resolved binary is byte-identical
+    for two installs carrying different code, and comparing it would answer "same build"
+    exactly when the answer is "different build". `argv[0]` is the environment's own
+    `bin/python`, which is what distinguishes them.
+
+    Linux-only by construction. Elsewhere there is no `/proc`, the open fails, and the
+    caller treats an unknown prefix as nothing to report.
+    """
+    try:
+        with open(f"/proc/{int(pid)}/cmdline", "rb") as fh:
+            argv = fh.read().split(b"\0")
+        exe = (argv[0] if argv else b"").decode("utf-8", "replace").strip()
+        if not exe:
+            return None
+        bindir = os.path.dirname(exe)
+        if os.path.basename(bindir) not in ("bin", "Scripts"):
+            return None
+        return os.path.dirname(bindir) or None
+    except Exception:  # pragma: no cover - a diagnostic may never raise
+        return None
+
+
 # The verdict line decides "is it already running?" from the daemon check's own
 # detail rather than re-asking the OS, so the bottom line can never contradict the
 # lines printed above it. Both sides go through this constant so they cannot drift.
@@ -394,6 +454,10 @@ def _daemon_check(platform) -> tuple[_Check, dict]:
         stale = _stale_daemon_note(str(info.get("version") or ""))
         if stale:
             return ("Daemon", "WARN", f"{_RUNNING_PREFIX} (PID {pid}{suffix}) — {stale}"), info
+        # A matching version is not a matching build -- see `divergent_build_note`.
+        split = divergent_build_note(sys.prefix, _daemon_install_prefix(pid))
+        if split:
+            return ("Daemon", "WARN", f"{_RUNNING_PREFIX} (PID {pid}{suffix}) — {split}"), info
         return ("Daemon", "OK", f"{_RUNNING_PREFIX} (PID {pid}{suffix})"), info
     except Exception:
         # Running but IPC not yet ready (still loading the model) or unreachable.
