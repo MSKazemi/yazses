@@ -93,6 +93,10 @@ def _injection_readiness(
         ydotool_socket_path,
     )
     from yazses.inject.portal import portal_available
+    from yazses.inject.ydotool import (
+        DIALECT_V0,
+        ydotool_dialect,
+    )
 
     configured = (configured or "auto").strip().lower()
     out: list[_Check] = []
@@ -167,7 +171,18 @@ def _injection_readiness(
             # a file that does not exist on exactly the machines the fallback exists
             # for -- a doctor line the user cannot verify by looking.
             out.append(("ydotoold", "OK", f"running ({find_ydotool_socket() or sock})"))
-            out.append(("Injection", "OK", "ydotool — works on any Wayland compositor"))
+            # Which ydotool, not just whether one is on PATH. 1.x and 0.1.x take
+            # incompatible command lines, and 0.1.x exits 0 when it refuses one --
+            # so "ydotool: found" was reported as a working backend on every
+            # Debian/Ubuntu machine while nothing it was asked to type arrived.
+            if ydotool_dialect() == DIALECT_V0:
+                out.append(("Injection", "OK",
+                            "ydotool 0.1.x — works on any Wayland compositor "
+                            "(Debian/Ubuntu's older CLI: typed with --key-delay and "
+                            "symbolic key names; the key-up flood guard 1.x offers "
+                            "is not expressible here)"))
+            else:
+                out.append(("Injection", "OK", "ydotool 1.x — works on any Wayland compositor"))
         elif portal_ok:
             if shutil.which("ydotool"):
                 out.append(("ydotoold", "WARN",

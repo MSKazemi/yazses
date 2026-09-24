@@ -58,8 +58,12 @@ class _StandaloneInjector:
         if self._tool == "xdotool":
             subprocess.run(["xdotool", "key", "--repeat", str(count), "BackSpace"], check=True, timeout=10)
         elif self._tool == "ydotool":
-            for _ in range(count):
-                subprocess.run(["ydotool", "key", "KEY_BACKSPACE"], check=True, timeout=5)
+            # `ydotool key KEY_BACKSPACE` is understood by NEITHER ydotool: 1.x wants
+            # numeric keycodes, and 0.1.x types the letter k. run_ydotool_keys knows
+            # which is installed -- and that 0.1.x exits 0 when it refuses a command.
+            from yazses.inject.ydotool import run_ydotool_keys
+
+            run_ydotool_keys(["KEY_BACKSPACE"] * count, timeout=5)
 
     def inject_key_sequence(self, keys: list[str]) -> None:
         pass  # Not needed for remote agent

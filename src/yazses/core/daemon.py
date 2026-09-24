@@ -1677,9 +1677,9 @@ class Daemon:
 
             if not ydotool_ready():
                 return
-            import subprocess
-            args = ["ydotool", "key"] + [f"{c}:0" for c in sorted(codes)]
-            subprocess.run(args, check=False, timeout=3)
+            from yazses.inject.ydotool import release_keycodes
+
+            release_keycodes(codes, timeout=3)
         except Exception:  # pragma: no cover - best-effort, environment dependent
             log.debug("hotkey-modifier release (best-effort) failed", exc_info=True)
 

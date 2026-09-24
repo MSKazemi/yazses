@@ -6,6 +6,46 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — dictation typed nothing on Debian and Ubuntu Wayland
+
+Speech was recognised, logged as `Injecting 21 chars, 2 words.`, and then went nowhere.
+ydotool 1.x and ydotool **0.1.x** are different command-line tools wearing the same
+name, and Debian and Ubuntu ship 0.1.8 (Ubuntu 24.04 through 26.04). YazSes spoke only
+1.x:
+
+```
+$ ydotool type -d 6 -H 6 -- hello
+ydotool: type: error: unrecognised option '-d'
+$ echo $?
+0
+```
+
+That exit code is why this was silent rather than merely broken. `check=True` never
+raised, so `LinuxInjector`'s clipboard fallback never fired, nothing reached the log,
+and `yazses doctor` printed `[OK] Injection: ydotool` and `▲ Good to go`.
+
+It was reachable only from **v2.39.0**, which taught socket discovery about the
+`/tmp/.ydotool_socket` that 0.1.8's daemon binds. That fix is right in itself — but it
+made ydotool selectable on Debian and Ubuntu for the first time, and ydotool is first
+in the backend order, so it displaced a path that worked.
+
+Three separate command lines were wrong, all of them silently:
+
+- `ydotool type -d 6 -H 6` — refused outright. 0.1.x spells it `--key-delay` and has no
+  hold time.
+- `ydotool key 29:1 47:1 47:0 29:0` (Ctrl+V for the clipboard fallback, and every voice
+  command that presses a key) — 0.1.x wants **symbolic** names, and has no error path:
+  handed a token it does not know it types that token's first character. Measured:
+  `Return` → `r`, `Escape` → `e`, `space` → `s`, `KEY_BACKSPACE` → `k`, `29:1` → `2`.
+  `Return` is what "new line" sends.
+- `ydotool key 97:0` — the stuck-modifier guard the daemon runs on **every** hold-end,
+  which on 0.1.x typed the digit `9` into the document.
+
+YazSes now detects which ydotool is installed, speaks its dialect, and treats an error
+on stderr as a failure whatever the exit code says — so a refused command line reaches
+the clipboard fallback instead of being lost. A key 0.1.x cannot express raises rather
+than typing a wrong character, and `yazses doctor` names the dialect it found.
+
 ### Added — Windows can paste instead of typing, for apps that mangle typed Unicode
 
 Dictated text arrived correctly in a browser and, on the **same machine, from the same

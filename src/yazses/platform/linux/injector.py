@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import shutil
 import subprocess
@@ -9,7 +10,9 @@ import subprocess
 from yazses.inject.auto import get_injector
 from yazses.inject.base import BaseInjector
 from yazses.inject.clipboard import ClipboardInjector
-from yazses.inject.ydotool import ydotool_key_args
+from yazses.inject.ydotool import run_ydotool_keys
+
+log = logging.getLogger(__name__)
 
 
 def _xdotool_key_str(combo: str) -> str:
@@ -53,12 +56,27 @@ class LinuxInjector:
             self._fallback = ClipboardInjector()
         self._is_wayland = bool(os.environ.get("WAYLAND_DISPLAY"))
 
+    def _fell_back(self, what: str, exc: Exception) -> None:
+        """Say so in the log, at WARNING.
+
+        Falling back is not a neutral event: the clipboard path overwrites the
+        clipboard and is a no-op in terminals, so a user whose primary backend
+        fails every time should be able to find out from the log rather than by
+        noticing that dictation only works in some windows. This was silent while
+        ydotool 0.1.8 refused every command line it was handed and exited 0.
+        """
+        log.warning(
+            "%s backend failed (%s: %s) — using the clipboard fallback",
+            type(self._primary).__name__, type(exc).__name__, exc,
+        )
+
     def inject(self, text: str) -> None:
         try:
             self._primary.inject(text)
-        except Exception:
+        except Exception as exc:
             if self._fallback is None:
                 raise
+            self._fell_back("injection", exc)
             self._fallback.inject(text)
 
     def inject_backspaces(self, count: int) -> None:
@@ -66,9 +84,10 @@ class LinuxInjector:
             return
         try:
             self._primary.inject_backspaces(count)
-        except Exception:
+        except Exception as exc:
             if self._fallback is None:
                 raise
+            self._fell_back("backspace", exc)
             self._fallback.inject_backspaces(count)
 
     def inject_key_sequence(self, keys: list[str]) -> None:
@@ -80,13 +99,10 @@ class LinuxInjector:
             return
         if self._is_wayland:
             if shutil.which("ydotool"):
+                # Dialect-aware: 1.x wants numeric keycodes, 0.1.x symbolic names,
+                # and 0.1.x exits 0 whichever it is handed. See inject/ydotool.py.
                 for combo in keys:
-                    # ydotool's `key` ignores symbolic names; use numeric keycodes.
-                    subprocess.run(
-                        ["ydotool", "key"] + ydotool_key_args(combo),
-                        check=True,
-                        timeout=5,
-                    )
+                    run_ydotool_keys([combo], timeout=5)
                 return
             if shutil.which("wtype"):
                 for combo in keys:

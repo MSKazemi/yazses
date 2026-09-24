@@ -1,4 +1,5 @@
 import subprocess
+from collections.abc import Iterable, Sequence
 
 from yazses.inject.keycodes import KEYCODES
 
@@ -21,17 +22,105 @@ def _keycode_from_evdev(name: str) -> int | None:
     return code if isinstance(code, int) else None
 
 
-def ydotool_key_args(combo: str) -> list[str]:
-    """Convert a key combo into ydotool 1.x ``key`` tokens.
+# --- Two incompatible ydotool CLIs --------------------------------------------
+#
+# ydotool 1.x and ydotool 0.1.x are different command-line tools wearing the same
+# name, and Debian/Ubuntu ship the old one (0.1.8 on Ubuntu 24.04 through 26.04).
+# Everything below existed for 1.x and was silently a no-op on 0.1.8:
+#
+#   ydotool type -d 6 -H 6 -- text   ->  "type: error: unrecognised option '-d'"
+#   ydotool key 29:1 47:1 47:0 29:0  ->  types "2", not Ctrl+V
+#
+# and -- the reason this could be lost rather than reported -- **0.1.8 exits 0 on a
+# parse error**. `check=True` never raised, so LinuxInjector's clipboard fallback
+# never fired, nothing reached the log, and `doctor` said the backend was fine while
+# every dictation went nowhere. So: detect the dialect, and never trust the exit code.
+DIALECT_V1 = "v1"
+DIALECT_V0 = "v0"
 
-    ydotool's ``key`` command takes **numeric** ``<keycode>:<state>`` tokens and
-    *silently ignores* symbolic names — ``ydotool key ctrl+v`` and even
-    ``ydotool key KEY_LEFTCTRL+KEY_V`` emit no events at all (verified against
-    ydotoold's virtual input device). Only ``29:1 47:1 47:0 29:0`` works.
+_dialect_cache: str | None = None
 
-    Given a combo like ``"ctrl+v"``, ``"shift+Left"`` or ``"KEY_BACKSPACE"``,
-    return the press-in-order / release-in-reverse keycode tokens, e.g.
-    ``["29:1", "47:1", "47:0", "29:0"]`` for Ctrl+V.
+
+class YdotoolCliError(RuntimeError):
+    """ydotool did not do what it was asked -- whatever its exit code says."""
+
+
+class YdotoolOptionError(YdotoolCliError):
+    """ydotool refused the command line itself, so it typed nothing.
+
+    Separate from the base class on purpose: this is the only failure after which
+    re-running the command in the other dialect cannot double-type, because a
+    refused command line emitted no events at all.
+    """
+
+
+_OPTION_ERROR_MARKERS = ("unrecognised option", "unrecognized option", "invalid option")
+
+
+def _classify(stderr: str, returncode: int) -> type[YdotoolCliError] | None:
+    """The exception for this result, or None when it succeeded.
+
+    0.1.8 writes ordinary progress to stderr ("notice: Using ydotoold backend",
+    "Key delay was set to 6 milliseconds."), so only an explicit error is an error.
+    """
+    low = stderr.lower()
+    if any(marker in low for marker in _OPTION_ERROR_MARKERS):
+        return YdotoolOptionError
+    if ": error:" in low or returncode != 0:
+        return YdotoolCliError
+    return None
+
+
+def run_ydotool(args: Sequence[str], timeout: float, check: bool = True) -> None:
+    """Run ydotool and raise on failure, including the failures it exits 0 for."""
+    argv = list(args)
+    try:
+        proc = subprocess.run(argv, capture_output=True, text=True, timeout=timeout)
+    except FileNotFoundError as exc:  # pragma: no cover - `which` gates selection
+        raise YdotoolCliError("ydotool is not installed") from exc
+    failure = _classify(proc.stderr or "", proc.returncode)
+    if failure is not None and check:
+        raise failure(f"{' '.join(argv)} -> exit {proc.returncode}: {(proc.stderr or '').strip()}")
+
+
+def _probe_dialect() -> str:
+    """Which ydotool is installed, asked once and cached.
+
+    `type --help` is the probe because it is the one question both CLIs answer
+    without emitting a keystroke. 1.x documents ``--key-hold``; 0.1.x has no hold
+    time at all. An unreadable answer assumes 1.x -- the modern default -- and the
+    first real injection downgrades itself on the option error.
+    """
+    try:
+        proc = subprocess.run(
+            ["ydotool", "type", "--help"], capture_output=True, text=True, timeout=5
+        )
+    except (OSError, subprocess.SubprocessError):  # pragma: no cover - defensive
+        return DIALECT_V1
+    help_text = f"{proc.stdout}{proc.stderr}".lower()
+    if not help_text.strip():  # pragma: no cover - defensive
+        return DIALECT_V1
+    return DIALECT_V1 if "key-hold" in help_text else DIALECT_V0
+
+
+def ydotool_dialect() -> str:
+    """``DIALECT_V1`` or ``DIALECT_V0`` for the installed ydotool."""
+    global _dialect_cache
+    if _dialect_cache is None:
+        _dialect_cache = _probe_dialect()
+    return _dialect_cache
+
+
+def set_ydotool_dialect(dialect: str | None) -> None:
+    """Pin the dialect (``None`` re-probes). Used by the downgrade path and tests."""
+    global _dialect_cache
+    _dialect_cache = dialect
+
+
+def ydotool_key_names(combo: str) -> list[str]:
+    """Canonical evdev ``KEY_*`` names for *combo*, in press order.
+
+    ``"ctrl+shift+v"`` -> ``["KEY_LEFTCTRL", "KEY_LEFTSHIFT", "KEY_V"]``.
     """
     aliases = {
         "ctrl": "KEY_LEFTCTRL", "control": "KEY_LEFTCTRL",
@@ -44,22 +133,139 @@ def ydotool_key_args(combo: str) -> list[str]:
         "page_up": "KEY_PAGEUP", "page_down": "KEY_PAGEDOWN",
         "delete": "KEY_DELETE", "del": "KEY_DELETE", "space": "KEY_SPACE",
     }
-    codes: list[int] = []
+    names: list[str] = []
     for part in (p for p in combo.split("+") if p):
         low = part.lower()
         if low in aliases:
-            name = aliases[low]
+            names.append(aliases[low])
         elif part.upper().startswith("KEY_"):
-            name = part.upper()
+            names.append(part.upper())
         else:
-            name = f"KEY_{part.upper()}"
+            names.append(f"KEY_{part.upper()}")
+    return names
+
+
+def ydotool_key_args(combo: str) -> list[str]:
+    """Convert a key combo into ydotool 1.x ``key`` tokens.
+
+    ydotool 1.x's ``key`` command takes **numeric** ``<keycode>:<state>`` tokens and
+    *silently ignores* symbolic names -- ``ydotool key ctrl+v`` and even
+    ``ydotool key KEY_LEFTCTRL+KEY_V`` emit no events at all (verified against
+    ydotoold's virtual input device). Only ``29:1 47:1 47:0 29:0`` works.
+
+    0.1.x is the exact opposite and wants the symbolic form; see
+    `ydotool_key_args_v0`.
+
+    Given a combo like ``"ctrl+v"``, ``"shift+Left"`` or ``"KEY_BACKSPACE"``,
+    return the press-in-order / release-in-reverse keycode tokens, e.g.
+    ``["29:1", "47:1", "47:0", "29:0"]`` for Ctrl+V.
+    """
+    codes: list[int] = []
+    for name in ydotool_key_names(combo):
         code = KEYCODES.get(name)
         if code is None:
             code = _keycode_from_evdev(name)
         if code is None:
-            raise ValueError(f"ydotool: unknown key {part!r} (resolved to {name})")
+            raise ValueError(f"ydotool: unknown key (resolved to {name})")
         codes.append(code)
     return [f"{c}:1" for c in codes] + [f"{c}:0" for c in reversed(codes)]
+
+
+# Every key 0.1.8's `key` actually resolves, measured on Ubuntu by grabbing the
+# ydotoold virtual device and reading the events it emitted (EVIOCGRAB, so the
+# probe typed into nothing). The table matters more than it looks: 0.1.8 has **no
+# error path** for a name it does not know -- it types that name's first letter and
+# exits 0. Measured: `Return` -> `r`, `Escape` -> `e`, `space` -> `s`,
+# `Page_Up` -> `p`, `KEY_BACKSPACE` -> `k`, `rightctrl` -> `r`, `zzznotakey` -> `z`.
+# `Return` is what commands/dispatch.py sends for "new line", so on an unmapped
+# pass-through, saying "new line" typed the letter r.
+#
+# Anything absent here raises, which routes the keystroke to the clipboard fallback
+# instead of quietly typing a wrong character. Names are matched case-insensitively
+# by 0.1.8; they are written lowercase here.
+_V0_KEY_TOKENS: dict[str, str] = {
+    **{
+        "KEY_ENTER": "enter",
+        "KEY_ESC": "esc",
+        "KEY_TAB": "tab",
+        "KEY_BACKSPACE": "backspace",
+        "KEY_DELETE": "delete",
+        "KEY_INSERT": "insert",
+        "KEY_HOME": "home",
+        "KEY_END": "end",
+        "KEY_PAGEUP": "pageup",
+        "KEY_PAGEDOWN": "pagedown",
+        "KEY_UP": "up",
+        "KEY_DOWN": "down",
+        "KEY_LEFT": "left",
+        "KEY_RIGHT": "right",
+        "KEY_CAPSLOCK": "capslock",
+        "KEY_NUMLOCK": "numlock",
+        "KEY_SYSRQ": "sysrq",
+        "KEY_LEFTCTRL": "ctrl",
+        "KEY_LEFTSHIFT": "shift",
+        "KEY_LEFTALT": "alt",
+        "KEY_LEFTMETA": "super",
+    },
+    **{f"KEY_F{n}": f"f{n}" for n in range(1, 13)},
+    **{f"KEY_{c}": c.lower() for c in "ABCDEFGHIJKLMNOPQRSTUVWXYZ"},
+    **{f"KEY_{d}": d for d in "0123456789"},
+}
+
+
+def ydotool_key_args_v0(combo: str) -> list[str]:
+    """Convert a key combo into a ydotool 0.1.x ``key`` token, e.g. ``["ctrl+v"]``."""
+    tokens: list[str] = []
+    for name in ydotool_key_names(combo):
+        token = _V0_KEY_TOKENS.get(name)
+        if token is None:
+            raise ValueError(
+                f"ydotool 0.1.x cannot express {name}: its `key` has no error path and "
+                f"would type the first letter of the name instead"
+            )
+        tokens.append(token)
+    return ["+".join(tokens)]
+
+
+def ydotool_key_argv(
+    combos: Sequence[str],
+    dialect: str | None = None,
+    key_delay_ms: int | None = None,
+) -> list[str]:
+    """Full argv for `ydotool key` covering *combos*, in the installed dialect."""
+    dialect = dialect or ydotool_dialect()
+    argv = ["ydotool", "key"]
+    if key_delay_ms is not None:
+        # 0.1.x spells it --key-delay and rejects -d (for `key` as well as `type`).
+        argv += (
+            ["--key-delay", str(key_delay_ms)]
+            if dialect == DIALECT_V0
+            else ["-d", str(key_delay_ms)]
+        )
+    for combo in combos:
+        argv += (
+            ydotool_key_args_v0(combo) if dialect == DIALECT_V0 else ydotool_key_args(combo)
+        )
+    return argv
+
+
+def run_ydotool_keys(
+    combos: Sequence[str],
+    timeout: float = 10.0,
+    key_delay_ms: int | None = None,
+    check: bool = True,
+) -> None:
+    """Send *combos*, downgrading to the 0.1.x dialect if 1.x's is refused."""
+    dialect = ydotool_dialect()
+    try:
+        run_ydotool(ydotool_key_argv(combos, dialect, key_delay_ms), timeout=timeout, check=check)
+    except YdotoolOptionError:
+        if dialect != DIALECT_V1:
+            raise
+        set_ydotool_dialect(DIALECT_V0)
+        run_ydotool(
+            ydotool_key_argv(combos, DIALECT_V0, key_delay_ms), timeout=timeout, check=check
+        )
 
 
 # Every keycode `ydotool type` can press: the number row through space, plus both
@@ -77,10 +283,37 @@ def ydotool_key_args(combo: str) -> list[str]:
 # first item is "Take Screenshot") and mangles typed letters via the AltGr layer.
 # Injection only runs after hold-end (the key is physically released), so releasing
 # it here is safe. See the stuck-right_alt report.
+#
+# 1.x only: the guard is a list of bare key-*ups*, which the 0.1.x `key` grammar
+# (press-and-release sequences of names) cannot express at all. Skipping it there
+# costs nothing that machine had -- 0.1.8 predates the compositor behaviour it
+# guards against, and every 0.1.x keystroke is a matched press/release by
+# construction.
 _HOTKEY_MODIFIER_KEYCODES = (97, 100, 125, 126)
 _RELEASE_ALL_TYPED_KEYS = [f"{code}:0" for code in range(2, 58)] + [
     f"{code}:0" for code in _HOTKEY_MODIFIER_KEYCODES
 ]
+
+
+def release_keycodes(codes: Iterable[int], timeout: float = 3.0) -> None:
+    """Send a bare key-up for each keycode. A no-op on 0.1.x, which has no such thing.
+
+    0.1.x's `key` grammar is press-and-release sequences of *names*, and it has no
+    error path: handed the 1.x token ``97:0`` it types the digit **9** (measured --
+    it falls back to the first character of a token it does not recognise). The
+    daemon runs this on every hold-end, so on Debian and Ubuntu the stuck-modifier
+    guard was itself typing a stray digit into the user's document.
+    """
+    codes = sorted(codes)
+    if not codes:
+        return
+    if ydotool_dialect() == DIALECT_V0:
+        return
+    run_ydotool(
+        ["ydotool", "key", *[f"{code}:0" for code in codes]],
+        timeout=timeout,
+        check=False,
+    )
 
 
 class YdotoolInjector:
@@ -90,6 +323,15 @@ class YdotoolInjector:
     _KEY_DELAY_MS = 6
     _KEY_HOLD_MS = 6
 
+    def _type_argv(self, text: str, dialect: str) -> list[str]:
+        if dialect == DIALECT_V0:
+            # 0.1.x has --key-delay and no hold time; -d and -H are both refused.
+            return ["ydotool", "type", "--key-delay", str(self._KEY_DELAY_MS), "--", text]
+        return [
+            "ydotool", "type", "-d", str(self._KEY_DELAY_MS),
+            "-H", str(self._KEY_HOLD_MS), "--", text,
+        ]
+
     def inject(self, text: str) -> None:
         if not text:
             return
@@ -98,32 +340,26 @@ class YdotoolInjector:
         # fallback, which re-injects the WHOLE text — the "typed twice" bug. Budget
         # 30 ms/char (~2.5x the real ~12 ms) plus a base.
         timeout = 10.0 + len(text) * 0.03
-        subprocess.run(
-            ["ydotool", "type", "-d", str(self._KEY_DELAY_MS),
-             "-H", str(self._KEY_HOLD_MS), "--", text],
-            check=True,
-            timeout=timeout,
-        )
-        # Flood guard — release any key the compositor failed to release.
-        subprocess.run(
-            ["ydotool", "key"] + _RELEASE_ALL_TYPED_KEYS,
-            check=False,
-            timeout=5,
-        )
+        dialect = ydotool_dialect()
+        try:
+            run_ydotool(self._type_argv(text, dialect), timeout=timeout)
+        except YdotoolOptionError:
+            # A refused command line typed nothing, so retrying cannot double-type.
+            if dialect != DIALECT_V1:
+                raise
+            set_ydotool_dialect(DIALECT_V0)
+            dialect = DIALECT_V0
+            run_ydotool(self._type_argv(text, dialect), timeout=timeout)
+        if dialect == DIALECT_V1:
+            # Flood guard — release any key the compositor failed to release.
+            run_ydotool(["ydotool", "key", *_RELEASE_ALL_TYPED_KEYS], timeout=5, check=False)
 
     def inject_backspaces(self, count: int) -> None:
         if count <= 0:
             return
-        subprocess.run(
-            ["ydotool", "key"] + ydotool_key_args("KEY_BACKSPACE") * count,
-            check=True,
-            timeout=10,
-        )
+        run_ydotool_keys(["KEY_BACKSPACE"] * count, timeout=10)
 
     def inject_key_sequence(self, keys: list[str]) -> None:
         if not keys:
             return
-        args: list[str] = []
-        for combo in keys:
-            args += ydotool_key_args(combo)
-        subprocess.run(["ydotool", "key"] + args, check=True, timeout=10)
+        run_ydotool_keys(keys, timeout=10)

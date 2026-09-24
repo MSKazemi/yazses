@@ -583,3 +583,23 @@ def cli_help_restored(_pristine_cli_help):
             setattr(obj, attr, value)
         except (AttributeError, TypeError):
             pass
+
+
+@pytest.fixture(autouse=True)
+def _pinned_ydotool_dialect():
+    """Pin the ydotool CLI dialect so the suite does not depend on the host's.
+
+    `inject/ydotool.py` probes `ydotool type --help` once per process to tell
+    ydotool 1.x from the 0.1.x that Debian and Ubuntu ship, because their command
+    lines are incompatible. Left unpinned, a test that exercises injection asserts
+    one argv on a developer's Ubuntu laptop and a different one on a runner with no
+    ydotool installed -- which is exactly how this was first noticed.
+
+    1.x is the pin because it is what the assertions were written against;
+    `tests/test_ydotool_dialect.py` clears it and drives both dialects explicitly.
+    """
+    from yazses.inject import ydotool
+
+    ydotool.set_ydotool_dialect(ydotool.DIALECT_V1)
+    yield
+    ydotool.set_ydotool_dialect(None)

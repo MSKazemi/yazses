@@ -153,7 +153,7 @@ def test_current_ydotool_boundary_drops_non_ascii():
             # This models ydotool's current keycode encoder: ASCII survives,
             # characters with no keycode on the active layout are discarded.
             typed.append("".join(char for char in argv[-1] if char.isascii()))
-        return SimpleNamespace(returncode=0)
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
 
     with patch("yazses.inject.ydotool.subprocess.run", side_effect=fake_run):
         YdotoolInjector().inject("AåB")
