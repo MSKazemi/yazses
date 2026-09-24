@@ -263,17 +263,32 @@ Note that settings do not carry over: the snap keeps config and models under
 
 ### 3f. Arch Linux and derivatives (AUR)
 
+> **Not on the AUR yet — `yay -S yazses` will not find it.** The recipe below is
+> written, current and verified, but the package has never been published:
+> `aur.archlinux.org` returns no `yazses` (checked 2026-09-25), so `yay -S yazses`
+> and `paru -S yazses` stop with *target not found*. That is the AUR missing the
+> package, not a broken helper. Publication is blocked upstream — AUR account
+> registration was paused on 2026-09-19 with no announced ETA. Until it lands, use
+> the universal installer (§1) or `pipx` (§3d), or build the package yourself from
+> the recipe, which is what the rest of this section covers. Progress:
+> [#67](https://github.com/MSKazemi/yazses/issues/67).
+
+Build it from the recipe in the repository:
+
 ```bash
-yay -S yazses        # or: paru -S yazses
+git clone https://github.com/MSKazemi/yazses.git
+cd yazses/packaging/arch
+makepkg -si
 yazses doctor
 ```
 
-**Use an AUR helper, not `makepkg` alone.** Two runtime dependencies live in the
-AUR (`python-faster-whisper`, `python-sounddevice`), and faster-whisper pulls a
-further AUR chain of its own — `python-ctranslate2`, `python-tokenizers`,
-`python-onnxruntime`, `python-av`. `makepkg` never fetches AUR dependencies by
-design; only a helper resolves them recursively. A bare `makepkg -si` therefore
-stops with *target not found*, which looks like a broken PKGBUILD and is not one.
+**Install the two AUR dependencies with a helper first.** `python-faster-whisper`
+and `python-sounddevice` are AUR packages, and faster-whisper pulls a further chain
+of its own — `python-ctranslate2` and `python-tokenizers` from the AUR,
+`python-av` and an `onnxruntime` provider from `extra`. `makepkg` never fetches AUR
+dependencies by design; only a helper resolves them recursively. So run
+`yay -S python-faster-whisper python-sounddevice` before `makepkg -si`, or the build
+stops with *target not found* — which looks like a broken PKGBUILD and is not one.
 
 The [`PKGBUILD`](https://github.com/MSKazemi/yazses/blob/main/packaging/arch/PKGBUILD)
 is built from the PyPI sdist — the artifact the release actually publishes, with a
@@ -324,7 +339,14 @@ yazses doctor
 
 The repository is **live** at
 [copr.fedorainfracloud.org/coprs/mskazemi/yazses](https://copr.fedorainfracloud.org/coprs/mskazemi/yazses/),
-serving **2.36.0** for Fedora 43 and 44 (x86_64 and aarch64) and EPEL 10 (x86_64).
+serving **2.36.0** for Fedora 43 and 44 (x86_64 and aarch64) and EPEL 10 (x86_64)
+(repository metadata checked 2026-09-25).
+
+> **COPR trails the newest release.** Each version is pushed to COPR by hand, so
+> `dnf install yazses` gives you 2.36.0 rather than the current tag. Check
+> `yazses --version` against the
+> [latest release](https://github.com/MSKazemi/yazses/releases/latest); if you need the
+> newest build, use the universal installer (§1) or `pipx` (§3d).
 
 **EPEL 9 is not offered**, and that is a limitation rather than an oversight: it ships
 Python 3.9, so `python3-devel >= 3.11` cannot be satisfied there. RHEL 9 users need

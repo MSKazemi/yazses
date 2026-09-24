@@ -26,6 +26,34 @@ change required. This introduces no new permission requirement: `yazses setup`'s
 rule already grants `/dev/uinput` access to the same `input`-group membership that
 `ydotool` itself needs before `auto` will select it.
 
+### Fixed — install instructions named channels that do not serve what they claimed
+
+Every package-channel claim in the install docs was re-checked against the registry's own
+API on 2026-09-25, against v2.40.0. Four were wrong, and the Arch one sent users to a
+command that cannot work.
+
+`docs/install-linux.md` opened the Arch section with `yay -S yazses`. YazSes has never been
+published to the AUR — `aur.archlinux.org/rpc` returns `resultcount: 0` — so that command
+stops with *target not found*, which reads as a broken recipe rather than a missing package.
+The section now says so first, explains that publication is blocked upstream (AUR account
+registration was paused on 2026-09-19), and documents building from the in-repo `PKGBUILD`
+instead. The dependency note was corrected too: `python-av` and the `onnxruntime` provider
+come from `extra`, not the AUR.
+
+`docs/windows-install.md` told readers to "install the latest with `winget install
+MSKazemi.YazSes`" and described the catalogue as trailing "by a few days". winget is live,
+but `microsoft/winget-pkgs` holds only 2.35.0 and 2.36.0, so it installs a build tagged
+2026-08-30 — seven releases behind. The page now states that the lag is weeks rather than
+hours and shows how to check with `winget show` before choosing that route. The Fedora
+section gained the same note: COPR serves 2.36.0, not the current tag.
+
+`packaging/README.md`'s channel table carried two false rows. Chocolatey was marked *never
+published, 19 releases running, `CHOCO_API_KEY` never set* while 2.37.1 and 2.39.0 were
+already approved and serving; the real state is that 2.39.1 and 2.40.0 sit at
+`PackageStatus: Submitted`, awaiting moderation. Docker was marked *one tag only, no
+`latest`* when GHCR serves `latest`, `2.40` and 2.40.0 across 73 tags. The winget, Scoop,
+Homebrew and Snap rows quoted versions up to twenty-two releases stale.
+
 ## [2.40.0] - 2026-09-24
 
 ### Fixed — dictation typed nothing on Debian and Ubuntu Wayland
