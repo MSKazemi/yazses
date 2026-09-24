@@ -1,0 +1,74 @@
+\section{Results II: Repeated Decoding and the \texttt{large-v3} Continuation Failure}
+\label{sec:repro}
+
+The most consequential unexpected result in the campaign arose when the
+\texttt{large-v3} hard-speech benchmark was repeated.
+
+The engine matrix exposed the disagreement. It was run twice on the same instance over the same
+200 \texttt{test-other} utterances, and the two runs put \texttt{large-v3} 2.83 \wer{} points
+apart: 4.86\% and 7.69\%, the latter with 184 insertions. At that time a repeated benchmark
+overwrote its own output file, so the first run survives only as the console log
+\texttt{paper/results/probes/logs/x86b-other\_wer.log} while the second is the committed
+artifact. Every other engine in the matrix agreed between the two runs to within 0.16 points.
+The near-loss of the contradicting run is what motivated the non-destructive result
+replacement described in Section~\ref{sec:method}, and it is why this one number is cited to a
+log rather than to an artifact.
+
+We then ran a dedicated four-repeat probe over the same utterances. Those controlled repeats
+produced 6.53\%, 6.07\%, 5.46\%, and 6.61\% \wer{}.
+
+Error decomposition identifies what changed in that dedicated probe. Substitutions remained 87,
+deletions remained 15, and correct-word hits remained 3,619 in every repeat, while insertions
+ranged from 101 to 144. Thus the controlled repeated runs did not disagree about which spoken
+words should be substituted or deleted. They disagreed about how much additional text to emit.
+The 7.69\% matrix run extends the campaign-wide observed insertion count to 184, but we keep it
+separate from the controlled four-repeat range rather than silently pooling the two experimental
+contexts.
+
+A third context adds three further default-configuration decodes of the same subset: the
+baseline arm of the decoder-intervention probe below, at 6.07\%, 4.78\%, and 4.86\%. Across all
+three contexts the archive holds eight decodes of one nominally fixed
+configuration on one subset, spanning 4.78\% to 7.69\%. They were taken on different days under
+different \YazSes{} and NumPy versions, so we do not pool them into one distribution; we use
+only the four-repeat probe, which held everything else fixed, for the error decomposition above.
+
+This distinction matters for interactive dictation. An omitted or substituted word is typically
+visible near the point at which it was spoken. A fluent inserted continuation can instead
+introduce text that has no acoustic source and may extend beyond the intended utterance. Average
+\wer{} treats all errors through the same aggregate numerator, but the user-facing failure is
+qualitatively different.
+
+\subsection{Decoder intervention}
+
+Follow-up decoder experiments examined faster-whisper's temperature fallback and previous-text
+conditioning. Simply forcing \texttt{temperature=0.0} did not provide a safe repair. In the
+measured \texttt{large-v3} hard condition it could remove the fallback rescue path and produce
+substantially worse output, including a 15.26\% \wer{} condition in the 2$\times$2 experiment.
+
+Disabling \texttt{condition\_on\_previous\_text} produced a different result. In the measured
+\texttt{large-v3} condition, it removed the observed runaway repetition and produced one
+repeatable hypothesis set at 3.82\% \wer{} across the corresponding repetitions. However, the
+paired corpus-average gain is not a statistically established general \wer{} improvement: the
+estimated difference is approximately 1.05 \wer{} points with a 95\% interval spanning zero,
+more utterances worsen than improve, and 95.7\% of the aggregate gain is concentrated in three
+clips.
+
+The appropriate interpretation is therefore \emph{tail-risk mitigation}, not average-accuracy
+optimization.
+
+The same intervention also behaves differently on smaller checkpoints. On
+\texttt{test-other}, conditioning ON versus OFF produces 9.46\% versus 9.81\% for
+\texttt{base.en}, 5.59\% versus 5.70\% for \texttt{small.en}, and byte-identical 5.51\%
+output for \texttt{medium.en}. The direction therefore shrinks toward zero and then reverses at
+\texttt{large-v3} in the measured ladder.
+
+A later September follow-up also narrows an earlier interpretation of \texttt{tiny.en}. Five
+complete decodes of the same 60-utterance \texttt{test-clean} subset produced byte-identical
+hypotheses and 3.67\% \wer{} in all five runs. We therefore do not classify \texttt{tiny.en} as
+generally corpus-level unstable. The strong repeated-corpus instability result in the present
+evidence is specific to the measured \texttt{large-v3} condition.
+
+These experiments illustrate why repeated decoding should be part of evaluation when a recognizer
+contains fallback or sampling paths. A system may appear deterministic from a single benchmark
+run while still exposing rare continuation behavior that is disproportionately costly in an
+interactive setting.

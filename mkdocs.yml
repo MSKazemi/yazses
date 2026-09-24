@@ -382,6 +382,7 @@ nav:
           - Decision records: design/adr/index.md
           - Specifications: design/specs/index.md
           - Research notes: design/research/index.md
+          - Publication planning: design/publication/index.md
           - Meeting Mode design: design/meeting-mode/index.md
           - Mobile programme: design/mobile/index.md
           - Packaging runbooks: design/packaging/index.md

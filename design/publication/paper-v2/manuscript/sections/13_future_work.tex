@@ -1,0 +1,23 @@
+\section{Future Work}
+
+The strongest next experiment is a controlled within-subject comparison of keyboard entry and
+\YazSes{} dictation using final corrected text as the endpoint. Such a study should measure
+corrected words per minute, correction time, residual error, workload, and learning effects rather
+than inferring productivity from raw speech rate.
+
+A second priority is spontaneous microphone speech across realistic rooms, microphone classes,
+accents, and technical vocabulary. This would provide external-validity evidence that the
+LibriSpeech clean/hard comparison cannot supply.
+
+The \texttt{large-v3} continuation finding should be replicated on an independent public corpus,
+a second CPU, and a frozen dependency stack. The goal is not to force the finding to generalize,
+but to establish whether it is a broader decoder/model interaction or a workload-specific
+failure.
+
+Meeting Mode should be evaluated on a far-field condition in addition to the current AMI headset
+mix. The paper should also add full end-to-end Windows and macOS validation covering activation,
+permissions, microphone capture, decode, injection, fallback, and recovery.
+
+Finally, energy and core-seconds should be measured alongside wall-clock latency. A decode path
+can be fast while still consuming substantially more CPU work, which matters for laptop heat and
+battery life.

@@ -1,0 +1,27 @@
+\begin{abstract}
+Offline speech recognition is now practical on commodity CPUs, but an interactive dictation
+system cannot be characterized by one word-error-rate measurement on clean speech. We present an
+expanded empirical evaluation of \YazSes, a privacy-first offline voice-input system, across
+eight local engine/checkpoint configurations, clean and harder speech, repeated decoding,
+multiple OS/ISA environments, interaction-specific latency mechanisms, and real annotated
+meetings.
+
+On a controlled Azure CPU host, Parakeet TDT 0.6B v2 produced the lowest clean-speech \wer{}
+point estimate in the measured 200-utterance matrix at 2.06\%, while Moonshine/tiny produced the
+lowest measured \rtf{} at 0.016. Moving to LibriSpeech \texttt{test-other} increased every
+measured engine's \wer{}, but by materially different factors.
+
+Repeated decoding exposed a distinct \texttt{large-v3} failure mode. In a dedicated four-repeat
+probe on the same 200 hard-speech utterances, \wer{} ranged from 5.46\% to 6.61\%;
+substitutions remained 87, deletions 15, and correct-word hits 3,619, while insertions varied
+from 101 to 144. Follow-up experiments show that previous-text conditioning is
+checkpoint-dependent and that disabling it removes the observed \texttt{large-v3} runaway
+continuation mode in this workload, without establishing a universal average-\wer{} improvement.
+
+The broader evaluation also changes system-level conclusions: synthetic onset padding does not
+demonstrate recovery of missed speech; CPU streaming can increase final latency; and the former
+diarization clustering threshold produced 75.21\% mean \der{} on the 16-recording AMI test split.
+A meeting-specific threshold reduced mean \der{} to 26.71\%. These results argue that offline
+interactive speech systems should report reproducibility, tail failures, hardware dependence,
+and task-specific metrics alongside conventional aggregate \wer{}.
+\end{abstract}
