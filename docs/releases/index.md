@@ -23,12 +23,12 @@ software itself runs on.
 
 ## Current stable
 
-**[YazSes 2.38.0](v2.38.0.md)** — the failures that never told anyone. Every permission
-denial was reported as a microphone problem, so declining the Wayland typing prompt sent
-you to the audio settings to fix it; Spoken Edit erased your text and lost it in silence;
-and no permission was checked at startup at all, leaving a denied grant to look like a
-healthy app whose hotkey does nothing. Plus a "Remote Desktop" consent dialog that now
-explains itself before it opens.
+**[YazSes 2.39.0](v2.39.0.md)** — the sharing icon you never agreed to. On Wayland the
+desktop portal had quietly become the default, because `yazses setup` could not deliver
+the alternative it recommended: it installed the ydotool client but not the daemon, shipped
+no udev rule for `/dev/uinput`, and looked for the socket where Ubuntu's ydotool does not
+put it. The portal is now offered rather than taken, its sharing indicator clears between
+dictations, and one backend table replaces five copies that had already drifted.
 Install it with:
 
 ```sh
@@ -38,6 +38,7 @@ pipx upgrade yazses          # upgrade an existing install
 
 ### Recent stable releases
 
+- [v2.39.0](v2.39.0.md) — the sharing icon you never agreed to: `yazses setup` could not deliver the ydotool path it recommended (missing `ydotoold` package, no udev rule, wrong socket path — a 726-restart crash loop), so the desktop portal became the Wayland default unasked; it is now offered rather than taken, releases its session when idle, and one backend registry replaces five drifting copies.
 - [v2.38.0](v2.38.0.md) — the failures that never told anyone: every permission denial was reported as a microphone problem, including a refused typing prompt; Spoken Edit erased text and lost it in silence; no permission was checked at startup at all, which is #182's symptom; the Wayland "Remote Desktop" prompt now explains itself before it opens.
 - [v2.37.2](v2.37.2.md) — the tray's own "Install update" silently deleted an enabled STT engine on every `uv tool` update; `doctor` now catches a configured engine whose dependency has gone missing; winget's publish job now generates its own manifest instead of expecting one that cannot exist yet.
 - [v2.37.1](v2.37.1.md) — `anyio` bumped past three advisories (one critical) opened right after v2.37.0 shipped; the `lightning` alert re-flagged by the same scan was already patched.

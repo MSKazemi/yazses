@@ -6,6 +6,8 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.39.0] - 2026-09-24
+
 ### Added — the desktop portal is offered, never taken
 
 `auto` no longer selects the RemoteDesktop portal on its own. While a portal session
