@@ -18,6 +18,26 @@ unconditionally true because writing it is idempotent — the preflight read it 
 different from the one the daemon picks. It still fires, unchanged, when ydotoold is
 genuinely absent or its socket is dead.
 
+### Fixed — emphatic repetition is no longer deleted as a hallucination
+
+With `[hallucination] enabled = true`, "no no no", "okay okay okay", "wait wait wait"
+and "yeah yeah yeah" were discarded before injection: the loop rule flagged any unit
+repeated three times, including a single word. At three, a one-word repeat stops
+describing a decoder fault and starts describing English — and it is *more* likely from
+the dysfluent speakers ADR-v2-025 cites as worst affected, since repeating a word is
+the dysfluency. The guard also runs before the disfluency filter built to tidy exactly
+that. A one-word unit now needs four repeats; repeated *phrases* still go at three, and
+every degenerate loop the suite pins is still caught.
+
+### Fixed — a discarded transcript now says why, and is audible
+
+The hallucination guard logged one bland line that named neither the rule nor the text,
+so a guard eating real dictation and a guard working correctly produced identical logs
+and identical silence. It now names the rule at INFO, the text at DEBUG (same gate as
+`Injecting text`, ADR-011), and plays the error earcon the empty-transcription branch
+beside it always played — the user held the key and spoke, and is owed the one bit of
+feedback that says heard, dropped.
+
 ### Fixed — `yazses doctor` names the socket ydotoold actually listens on
 
 ydotoold 0.1.8 ignores `--socket-path` and binds `/tmp/.ydotool_socket`. Doctor printed

@@ -1925,10 +1925,23 @@ class Daemon:
             # Hallucination Guard (ADR-v2-025): drop Whisper's fabricated ghost text
             # (silence outros, repetition loops) before injection. Off by default.
             if self._config.hallucination.enabled:
-                from yazses.postprocess.hallucination import should_drop
-                if should_drop(text, self._config.hallucination):
+                from yazses.postprocess.hallucination import drop_reason
+                rule = drop_reason(text, self._config.hallucination)
+                if rule is not None:
                     event["discard_reason"] = "hallucination"
-                    log.info("Hallucination guard -- discarding fabricated transcript.")
+                    # Name the RULE at INFO and the text at DEBUG (ADR-011: the text is
+                    # content, so it stays behind the same DEBUG gate as "Injecting text").
+                    # Without the rule a misfire on ordinary speech and a correct catch
+                    # produce byte-identical logs, which is how a guard eating real
+                    # dictation went unnoticed: nothing typed, no error, one bland line.
+                    log.info("Hallucination guard (%s) -- discarding transcript "
+                             "of %d chars.", rule, len(text))
+                    log.debug("Hallucination guard discarded: %r", text)
+                    # Same reasoning as the empty-transcription branch above: nothing
+                    # will be typed, and a silent discard is indistinguishable from a
+                    # slow decode or a dead hotkey. The user held the key and spoke;
+                    # they are owed the one bit of feedback that says "heard, dropped".
+                    self._earcon.play("error")
                     if stream_injector is not None:
                         stream_injector.cancel()
                     return

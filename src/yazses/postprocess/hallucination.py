@@ -61,10 +61,25 @@ def is_repetition_loop(text: str, min_repeats: int = 3) -> bool:
         return False
     for unit in range(1, n // min_repeats + 1):
         block = words[:unit]
+        # A ONE-word unit needs more repeats than a phrase does, because at three it
+        # stops describing a decoder fault and starts describing English. "no no no",
+        # "okay okay okay", "wait wait wait", "yeah yeah yeah" are ordinary emphatic
+        # speech, and they are *more* likely from the dysfluent speakers ADR-v2-025
+        # cites as worst affected -- repeating a word is the dysfluency. The guard ran
+        # BEFORE the disfluency filter that exists to clean exactly that, so a stutter
+        # was deleted by the guard before the filter could tidy it.
+        #
+        # This is the ADR's own stated consequence ("avoids dropping legitimate short
+        # utterances") applied to the loop rule, which never got the conservatism the
+        # ghost-phrase rule did. Four keeps every degenerate loop the suite pins --
+        # "the the the the", "no no no no" -- and Whisper's real single-word loops run
+        # far longer than four. ADR-021: a silently deleted sentence costs far more
+        # than a ghost phrase the user can see and delete.
+        need = max(min_repeats, 4) if unit == 1 else min_repeats
         reps = 0
         while words[reps * unit:(reps + 1) * unit] == block:
             reps += 1
-        if reps < min_repeats:
+        if reps < need:
             continue
         tail = words[reps * unit:]
         # An exact tiling (no tail) or a repeat interrupted mid-phrase both count. A tail
@@ -92,15 +107,27 @@ def segment_is_hallucination(no_speech_prob, avg_logprob, compression_ratio, con
     return False
 
 
+def drop_reason(text, config) -> str | None:
+    """Which rule would discard *text*, or None. Pure.
+
+    Exists so a discard can say WHY. The daemon used to log a bare "Hallucination guard
+    -- discarding fabricated transcript.", which named neither the rule nor the text, so
+    a guard misfiring on ordinary speech was indistinguishable from one working: the user
+    sees nothing typed, the log says "fabricated", and the evidence needed to tell those
+    apart was never written down.
+    """
+    if not getattr(config, "enabled", False):
+        return None
+    if getattr(config, "drop_ghost_phrases", True) and is_ghost_phrase(text):
+        return "ghost_phrase"
+    if getattr(config, "drop_loops", True) and is_repetition_loop(text):
+        return "repetition_loop"
+    return None
+
+
 def should_drop(text, config) -> bool:
     """Text-level decision (ghost phrase or repetition loop) honouring config toggles. Pure."""
-    if not getattr(config, "enabled", False):
-        return False
-    if getattr(config, "drop_ghost_phrases", True) and is_ghost_phrase(text):
-        return True
-    if getattr(config, "drop_loops", True) and is_repetition_loop(text):
-        return True
-    return False
+    return drop_reason(text, config) is not None
 
 
 def ghost_words() -> frozenset[str]:
