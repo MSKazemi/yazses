@@ -3,6 +3,15 @@
 # AUR package for YazSes — local, offline voice dictation.
 # Source: https://github.com/MSKazemi/yazses
 #
+# SOURCE OF TRUTH. This file is the original; the AUR repo at
+# ssh://aur@aur.archlinux.org/yazses.git holds a published COPY. Edit this file and
+# let the release copy it over, never the other way round: publish-channels.yml does
+# `cp packaging/arch/PKGBUILD packaging/arch/.SRCINFO aur/`, a whole-file overwrite,
+# so a patch applied in the AUR repo is discarded by the next release without a
+# conflict, a warning, or any trace. That is not hypothetical -- it is exactly what
+# happened to a contributor's one-line fix on the Homebrew tap, which sat merged
+# nowhere while two releases shipped over it.
+#
 # Built from the PyPI sdist rather than a GitHub tag tarball: it is the artifact the
 # release actually publishes, its checksum is stable and quotable, and it contains
 # everything installed below (man page, systemd unit, example config, LICENSE).

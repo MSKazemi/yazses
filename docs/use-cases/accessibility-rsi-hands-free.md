@@ -75,6 +75,14 @@ resolves the majority of "it doesn't hear me" reports.
 If holding a key is difficult or impossible, the trigger is replaceable — the rest
 of the pipeline is unchanged:
 
+- **Face-gesture switch.** `yazses features enable facegesture --force` makes a held
+  facial movement the hotkey: open your jaw (or raise your brows) to start dictating,
+  relax to stop. It needs only the webcam already in your laptop — no armband, no key —
+  and runs entirely on your machine, frames in RAM and never stored (ADR-011). Pick the
+  movement with `[facegesture] gesture` (`jaw_open`, `brow_raise`, `mouth_pucker`,
+  `smile`, `eyes_closed`); if it fires while you talk or laugh, raise `hold_threshold` or
+  `min_hold_frames`. Experimental: it has been built and unit-tested, but the thresholds
+  that suit *your* face have not been measured, so please report what worked.
 - **EMG muscle sensor.** A USB muscle sensor over serial can act as the
   hold-to-talk trigger, so a small muscle contraction starts and stops dictation.
   Configure it under `[emg]` with the serial device path.

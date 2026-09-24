@@ -137,18 +137,34 @@ def test_spec_minimum_system_version_matches_cask(
 
     The cask already carried a comment asking a human to keep these in step;
     this is that comment made enforceable.
+
+    Both spellings of the floor are accepted, because Homebrew changed which one
+    is current: the string comparison `">= :big_sur"` was deprecated in 5.1.15
+    (it warns on every brew call), and the symbol `:big_sur` -- which the
+    cookbook defines as the *minimum* compatible release -- replaced it. They
+    state the same requirement, so this test must read the requirement, not one
+    spelling of it. A parser that recognises only the retired form turns a
+    correct cask into a failure and says nothing about the invariant it exists
+    to guard. `test_cask_macos_dependency_form.py` is what pins the spelling.
     """
     spec_min = re.search(r'"LSMinimumSystemVersion":\s*"([\d.]+)"', spec_text)
     assert spec_min is not None
-    cask_min = re.search(r"depends_on\s+macos:\s*\">=\s*:(\w+)\"", cask_text)
-    assert cask_min is not None
+    cask_min = re.search(
+        r"depends_on\s+macos:\s*(?:\">=\s*:(\w+)\"|:(\w+))", cask_text
+    )
+    assert cask_min is not None, (
+        "could not read `depends_on macos:` from the cask in either the symbol "
+        "or the string-comparison form -- teach this test the new spelling "
+        "rather than deleting the assertion"
+    )
+    cask_floor = cask_min.group(1) or cask_min.group(2)
 
     macos_names = {"11.0": "big_sur", "12.0": "monterey", "13.0": "ventura"}
     expected = macos_names.get(spec_min.group(1))
     assert expected is not None, (
         f"unmapped LSMinimumSystemVersion {spec_min.group(1)!r}; extend macos_names"
     )
-    assert cask_min.group(1) == expected
+    assert cask_floor == expected
 
 
 # --------------------------------------------------------------------------

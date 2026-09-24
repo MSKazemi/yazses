@@ -46,6 +46,7 @@ from yazses.system.report import _FREE_TEXT_KEYS, _REDACT_KEYS, redact_config
 _SETTING_KEYS = frozenset({
     "accent", "backend", "chinese_script", "clone_backend", "compute_type", "confirm",
     "delimiter", "device", "embed_model", "engine", "evdev_device", "flavor", "format",
+    "gesture",
     "language", "lid", "light_model", "llm_model", "log_level",
     "lora_base_model", "lsp_editor",
     "mode", "model", "notes_model", "output_format", "pair", "partial_marker",

@@ -310,7 +310,7 @@ def test_a_model_is_priced_even_when_the_feature_has_no_pip_deps():
 
 def test_the_download_note_names_the_model_and_when_it_arrives():
     note = depsize.download_note("read-back", None)
-    assert "~12 MB (7 packages)" in note
+    assert "~12 MB (8 packages)" in note
     assert "~340 MB of model files on first use" in note
 
 

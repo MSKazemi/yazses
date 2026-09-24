@@ -451,6 +451,32 @@ runs in its own background thread beside the keyboard hook and is stopped at
 shutdown; the same seam is where future non-keyboard triggers (wake word,
 switch access) plug in.
 
+**The webcam face-gesture switch is the third source through that seam** (`facegesture/`,
+v2.37). MediaPipe's FaceLandmarker — the model Glance-Type already downloads — reports 52
+blendshape activations per frame, and one of them becomes the key you hold: the mic opens
+while your jaw is open (or your brows are raised) and closes when it relaxes.
+`facegesture/detector.py` is the whole activation policy and is pure, so it is tested
+frame by frame with no camera; `facegesture/backend.py` is the capture loop and duck-types
+`HotkeyBackend` like the two EMG transports, taking the same two callbacks and the same
+`mode` decision.
+
+Two parameters carry it. **Hysteresis:** a blendshape score is continuous and noisy, so a
+gesture held at a single threshold crosses it several times a second and each crossing
+would be a separate recording — the mic opens at `hold_threshold` and closes only below
+`release_threshold`. **A frame-count debounce:** talking, laughing and yawning all spike
+`jawOpen` briefly, so `min_hold_frames` is what separates a held gesture from the
+Midas-touch problem, and its latency is affordable here *because* the audio path already
+prepends `[accessibility] pre_speech_padding_ms` of buffered audio — the words spoken
+during the debounce are still in the recording. A frame with no reading (no face, a
+dropped frame) counts toward *release*, never toward hold: the alternative to releasing
+when the user leaves the camera is a microphone that stays open until they come back.
+
+It matters most for the users who cannot use the other two: it needs no hardware beyond
+the webcam already in the lid, where EMG needs an armband and the keyboard hook needs a
+key you can press. eViacam has been unmaintained since ~2019 and Google's Project
+Gameface was archived in 2025, so this class of Linux switch access currently has no
+maintained free implementation (#102).
+
 **Bluetooth is the second transport through the same seam.** `platform/emg/ble_backend.py`
 (`BLEEMGBackend`) speaks the same YESP protocol over the Nordic UART Service and
 duck-types the same `HotkeyBackend` with the same two callbacks, so `[emg] ble_address`

@@ -13,7 +13,7 @@ Prefer `yazses features enable/disable <toggle>` over hand-editing — it writes
 
 **Match the Type column exactly.** In TOML only `str` values take quotes; `int`, `float` and `bool` must be bare. Writing `vad_threshold = "0.004"` instead of `vad_threshold = 0.004` loads without complaint and then fails at runtime, because the value stays a string where a number is expected. See [Troubleshooting](troubleshooting.md#dictation-stopped-working-right-after-i-edited-configtoml).
 
-**74 of these 455 keys are inert**, and they are marked ⚠️ inert in the Status column. The loader accepts them, `configcheck` validates them and they have a documented default — but nothing acts on them, so setting one loads without complaint and changes nothing. Most belong to capabilities that are registered but not yet wired; see [`yazses features`](cli-reference.md) for what is actually switchable. Both numbers here are counted at generation time, and the list of inert keys is the same one the test suite gates on, so neither can quietly fall out of date.
+**74 of these 465 keys are inert**, and they are marked ⚠️ inert in the Status column. The loader accepts them, `configcheck` validates them and they have a documented default — but nothing acts on them, so setting one loads without complaint and changes nothing. Most belong to capabilities that are registered but not yet wired; see [`yazses features`](cli-reference.md) for what is actually switchable. Both numbers here are counted at generation time, and the list of inert keys is the same one the test suite gates on, so neither can quietly fall out of date.
 
 This has bitten before: `[injection] fallback_to_clipboard` was documented in seventeen places and defaulted to `true` while nothing read it, so anyone who turned it off was silently overruled.
 
@@ -284,6 +284,21 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 | `route_dictation` | bool | `false` |  | v2.0.0 Wave C — Gaze-Routed Dictation (ADR-v2-010): route the next dictation to the looked-at window (else the focused window), and confirm destructive gaze-routed actions since coarse gaze can misroute. Off by default. |
 | `confirm_destructive` | bool | `true` |  |  |
 | `deixis` | bool | `true` |  | Gaze deixis (2026-08): in command mode, "close this" / "focus that" / "minimize this" act on the window the gaze snapshot says you are looking at. Sub-flag of the (opt-in) gaze feature; destructive actions honour confirm_destructive above via an actionable confirm toast. |
+
+## `[facegesture]`
+
+| Key | Type | Default | Status | Notes |
+|---|---|---|---|---|
+| `enabled` | bool | `false` |  |  |
+| `gesture` | str | `"jaw_open"` |  | jaw_open \| brow_raise \| mouth_pucker \| smile \| eyes_closed |
+| `mode` | str | `"full_text"` |  | full_text (dictate) \| command (force command mode) |
+| `camera_index` | int | `0` |  |  |
+| `model_path` | str | `""` |  | override the FaceLandmarker asset; "" = auto-download |
+| `hold_threshold` | float | `0.5` |  | open the mic at/above this blendshape score |
+| `release_threshold` | float | `0.35` |  | close it below this one (must be lower — hysteresis) |
+| `min_hold_frames` | int | `3` |  | frames above hold_threshold before the mic opens |
+| `min_release_frames` | int | `2` |  | frames below release_threshold before it closes |
+| `fps` | int | `15` |  | camera sampling rate (1..60) |
 
 ## `[cocktail]`
 

@@ -1314,15 +1314,18 @@ class Daemon:
         return roles
 
     def _build_activation_sources(self, cfg) -> list:
-        """Build the non-keyboard activation sources ([emg] squeeze-to-talk).
+        """Build the non-keyboard activation sources ([emg] squeeze, [facegesture] face).
 
-        Constructed only when ``[emg] device_port`` is set. ``mode = "command"``
-        (the default) drives the command-key callbacks — a squeeze speaks a
-        command; ``full_text`` drives plain hold-to-talk dictation. A missing
-        pyserial makes the backend's run() a logged no-op, and any init failure
-        is caught, so this can never break startup.
+        The EMG backends are constructed only when ``[emg] device_port`` (or
+        ``ble_address``) is set. ``mode = "command"`` (the default there) drives the
+        command-key callbacks — a squeeze speaks a command; ``full_text`` drives
+        plain hold-to-talk dictation. A missing pyserial makes the backend's run()
+        a logged no-op, and any init failure is caught, so this can never break
+        startup. The webcam face-gesture switch joins the same list through
+        :meth:`_build_face_gesture_source`, so every non-keyboard source is started
+        and stopped by one caller rather than each growing its own.
         """
-        sources: list = []
+        sources: list = self._build_face_gesture_source(cfg)
         port = (cfg.emg.device_port or "").strip()
         address = (cfg.emg.ble_address or "").strip()
         if not port and not address:
@@ -1391,6 +1394,46 @@ class Daemon:
             log.warning("Both [emg] device_port and ble_address are set — running "
                         "BOTH activation sources. Clear one if that is not intended.")
         return sources
+
+    def _build_face_gesture_source(self, cfg) -> list:
+        """The webcam face-gesture switch, or an empty list (#102).
+
+        The third activation source through the ADR-v2-129 seam, after the command
+        key and EMG, and the only one that needs no hardware the laptop does not
+        already have. `[facegesture] mode` picks which pair of callbacks a held
+        gesture drives, exactly as `[emg] mode` does — `full_text` is the default
+        here rather than `command`, because a face gesture is the *replacement* for
+        the hotkey for someone who cannot press one, where a squeeze is usually a
+        second input alongside a keyboard.
+
+        Built only when `[facegesture] enabled`; a missing opencv/mediapipe makes
+        the backend's run() a logged no-op, and any init failure is caught, so this
+        can never break startup.
+        """
+        if not getattr(cfg, "facegesture", None) or not cfg.facegesture.enabled:
+            return []
+
+        mode = (cfg.facegesture.mode or "").strip().lower()
+        if mode not in ("command", "full_text"):
+            log.warning("[facegesture] mode = %r is not a mode; using 'full_text'. "
+                        "Valid values: command | full_text.", mode)
+            mode = "full_text"
+        if mode == "command":
+            start, end = self._on_command_hold_start, self._on_command_hold_end
+        else:
+            start, end = self._on_hold_start, self._on_hold_end
+
+        try:
+            from yazses.facegesture.backend import FaceGestureBackend
+
+            source = FaceGestureBackend(cfg.facegesture, start, end)
+        except Exception:
+            log.warning("Face-gesture activation source init failed; continuing "
+                        "without.", exc_info=True)
+            return []
+        log.info("Face-gesture activation source enabled (%s, %s mode).",
+                 cfg.facegesture.gesture, mode)
+        return [source]
 
     def _build_slm_router(self, cfg):
         """Tier 2 SLM intent router, or None (#164).

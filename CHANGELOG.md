@@ -49,6 +49,85 @@ describe the same window. An ANSI window is named as the cause; a Unicode window
 that cause out without declaring success. An unreadable control gives no verdict rather
 than a guess.
 
+### Fixed — a contributor's one-line cask fix could only ever have been reverted
+
+Every `brew` call touching the tap printed a deprecation warning naming this
+project: `depends_on macos: ">= :big_sur"` uses the string comparison format
+Homebrew retired in 5.1.15. Two separate field reports on
+[#182](https://github.com/MSKazemi/yazses/issues/182) pasted it back at us, which
+makes it the first thing a new macOS user sees rather than a lint nit.
+
+The fix is one line — the symbol form `depends_on macos: :big_sur`, which
+Homebrew's own warning names as the replacement and which the Cask Cookbook
+defines as the *minimum* compatible release, so the requirement is unchanged.
+[@slegarraga](https://github.com/slegarraga) wrote it on 2026-08-21 as
+[homebrew-yazses#1](https://github.com/MSKazemi/homebrew-yazses/pull/1).
+
+It landed nowhere, and merging it would not have helped. The publish job does
+`cp packaging/homebrew/yazses.rb tap/Casks/yazses.rb` — a whole-file overwrite —
+so a cask edit made in the tap is discarded by the next release. Two releases
+have shipped since. The fix therefore had to land in
+`packaging/homebrew/yazses.rb`, and now has.
+
+The same shape is in the AUR job — `cp packaging/arch/PKGBUILD
+packaging/arch/.SRCINFO aur/` — where a downstream patch is *more* likely, since the
+AUR package repo is where co-maintainers push. Nothing has been lost there only
+because the package has never published. `packaging/arch/PKGBUILD` and
+`yazses.install` now carry the same source-of-truth header the cask always had, and
+`tests/test_downstream_copies_declare_source_of_truth.py` derives the list of
+downstream-copied files from the workflows rather than naming the channels, so a
+third channel of this shape is guarded the day it is added. It fails rather than
+passes if the publish jobs change shape enough that it can no longer find them.
+
+`tests/test_cask_macos_dependency_form.py` pins the spelling by scanning every
+`.rb` under `packaging/` rather than naming the cask, and refuses to pass on an
+empty scan. `test_spec_minimum_system_version_matches_cask` read the floor with a
+regex that recognised only the retired spelling; it now reads both, because a
+parser that knows one spelling turns a correct cask into a failure while proving
+nothing about the invariant it exists to guard.
+
+### Added — a face you hold instead of a key you press
+
+`yazses features enable facegesture --force` makes a held facial movement the
+hotkey: open your jaw (or raise your brows) and the mic opens; relax and it
+closes. It is the third activation source through the seam ADR-v2-129 built for
+exactly this, so the transcript, the guards and the injector are reached
+unchanged — only the trigger is different (#102).
+
+It costs nothing new to install. Glance-Type already downloads MediaPipe's
+FaceLandmarker, and that model already reports 52 blendshape activations per
+frame beside the landmarks gaze uses; nothing read them. Same extra, same model
+asset, same camera — enabling this after gaze fetches nothing at all, which
+`yazses features info facegesture` now prices correctly for both.
+
+The reason it exists is the users the other two triggers exclude: EMG needs an
+armband you can buy and wear, the keyboard hook needs a key you can press, and
+someone who can speak and move their face may have neither. The free Linux stack
+for that is a graveyard — eViacam unmaintained since ~2019, Google's Project
+Gameface archived in 2025 — while commercial eye-gaze AAC devices are
+$10,000–20,000 and Windows/iPad-locked.
+
+Two parameters carry the whole thing, and both are decisions rather than tuning.
+**Hysteresis:** a blendshape score is continuous and noisy, so a gesture held at
+a single threshold crosses it several times a second and each crossing would be
+a separate recording — a burst of one-word transcripts instead of one sentence.
+The mic opens at `hold_threshold`, and closes only below `release_threshold`.
+**A frame-count debounce:** talking, laughing and yawning all spike `jawOpen`
+briefly, so `min_hold_frames` is what separates a held gesture from the
+Midas-touch problem — and the latency it costs is affordable *here* because the
+audio path already prepends `[accessibility] pre_speech_padding_ms` of buffered
+audio, so the words spoken during the debounce are still in the recording. A
+frame with no reading counts toward release, never toward hold: the alternative
+to letting go when you leave the camera is a microphone that stays open until
+you come back.
+
+The activation policy is pure (`facegesture/detector.py`) and tested frame by
+frame with no camera, no model and no mediapipe; the capture loop
+(`facegesture/backend.py`) duck-types `HotkeyBackend` like both EMG transports.
+Off by default, experimental, and honestly so: the thresholds are reasoned, not
+measured on real faces. Frames are processed in RAM and never stored or sent
+(ADR-011). ADR-v2-135.
+
 ## [2.39.1] - 2026-09-24
 
 ### Fixed — a provisioned Wayland machine is no longer told to provision itself

@@ -52,7 +52,7 @@ jobs:
         run: uv sync
 
       - name: Lint (ruff)
-        run: uv run ruff check src tests scripts
+        run: uv run ruff check src tests scripts paper/benchmark
 
       - name: Dependency budget
         env:

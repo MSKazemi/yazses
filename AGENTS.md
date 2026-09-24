@@ -57,7 +57,7 @@ managed with `uv`.
 ```sh
 uv sync
 uv run python -m pytest tests/ -v   # tests  (note: python -m pytest, not `uv run pytest`)
-uv run ruff check src tests scripts # lint — same targets CI uses
+uv run ruff check src tests scripts paper/benchmark # lint — same targets CI uses
 uv run mypy src                     # types — clean today, advisory, see below
 ```
 

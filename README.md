@@ -677,7 +677,7 @@ already covers the licence grant.
 
 ```bash
 uv run python -m pytest tests/   # tests — must be green
-uv run ruff check src tests scripts   # lint — must be green
+uv run ruff check src tests scripts paper/benchmark   # lint — must be green
 uv run mypy src                  # types — advisory (currently clean; don't add errors)
 ```
 

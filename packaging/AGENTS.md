@@ -35,6 +35,25 @@ the whole repository and fix every occurrence in the same change.
 
 Old versions under `winget/manifests/**` are history and stay — do not tidy them away.
 
+## Two channels publish by overwriting a repository you can also edit
+
+The `homebrew` and `aur` jobs in `.github/workflows/publish-channels.yml` clone a
+repository this project does not develop in, copy files from here over whatever is
+there, and push. `cp packaging/homebrew/yazses.rb tap/Casks/yazses.rb` is a whole-file
+overwrite, and so is the AUR one.
+
+So **a fix applied downstream does not survive**. Patch the tap's `Casks/yazses.rb`,
+or the AUR repo's `PKGBUILD`, and the next release replaces it — no conflict, no
+warning, nothing in any log. It is not theoretical: a contributor's one-line cask fix
+([homebrew-yazses#1](https://github.com/MSKazemi/homebrew-yazses/pull/1)) sat unmerged
+while two releases shipped over the file it targeted, and merging it would not have
+helped either.
+
+Fixes for those channels belong in `packaging/`. Every file copied downstream says so
+in its own header, and `tests/test_downstream_copies_declare_source_of_truth.py`
+derives that list from the workflows, so a third channel with this shape is covered on
+the day it is added rather than the day someone remembers.
+
 ## Adding a channel
 
 New packaging channels are a maintainer decision, not a contribution someone can land
