@@ -16,7 +16,7 @@ LOG_FILE := $(HOME)/.local/state/yazses/log/daemon.log
 # `campaign` and `hygiene` must be listed: `campaign/` is also a directory, so without
 # this make sees an up-to-date file target and silently does nothing.
 .PHONY: all install check test lint lint-fix types docs docs-serve man inbox \
-        feature-sizes research-watch adr-index icons tray-states store-check \
+        feature-sizes research-watch adr-index icons store-art tray-states store-check \
         start stop restart status logs doctor overlay build clean help \
         hygiene campaign campaign-generate campaign-stats campaign-queue campaign-validate
 
@@ -141,6 +141,11 @@ icons:
 	@echo "▶  Redrawing every shipped icon from the brand mark…"
 	uv run python scripts/gen-icons.py
 
+# Redraw the Microsoft Store listing artwork (1:1 box art, 2:3 poster) from the same
+# brand mark. It is here for the same reason `icons` is: the box art was produced by a
+# cairosvg snippet pasted into packaging/store/README.md, so when the mark was corrected
+# the listing kept the retired logo for a month. `--check` reports drift without writing;
+# a test fails on it.
 store-art:
 	@echo "▶  Redrawing the Microsoft Store artwork from the brand mark…"
 	uv run python scripts/gen-store-art.py
@@ -253,6 +258,7 @@ help:
 	@echo "    make man         regenerate man/yazses.1 from the CLI"
 	@echo "    make adr-index   regenerate design/adr/README.md from the ADR files"
 	@echo "    make icons       redraw every shipped icon from the brand mark"
+	@echo "    make store-art   redraw the Microsoft Store listing artwork from the mark"
 	@echo "    make tray-states redraw the tray badge states shown in the docs"
 	@echo ""
 	@echo "  Maintainer"

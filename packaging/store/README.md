@@ -47,6 +47,12 @@ PNG **bytes** are not reproducible across platforms, decoded **pixels** are not 
 (CI proved the text-free box art differs on `ubuntu-24.04-arm` from the same generator on
 x86, since `render_mark` supersamples in floating point), and the poster's wordmark uses a
 **system font** that differs in version or is absent between platforms — so only the mark
-above the text is compared. The tolerance was measured against the regression it exists to
-catch: identical images differ by 0.0, an aggressively resampled copy by 0.15, and the
-retired blue logo by **73.4**.
+above the text is compared.
+
+The tolerance itself is `scripts/imagediff.py`, shared with the icon guards so the two
+cannot disagree about what "the same artwork" means. It is two criteria, not one, because
+a mean alone cannot tell the two apart: an older `render_mark` moves 1.7 % of pixels a
+long way for a *mean* of 0.28, which is lower than the 0.96 that ±1 of architecture jitter
+on every pixel produces. So a difference fails on either a mean above 2.0 or more than
+0.1 % of pixels moving further than 4/255. `tests/test_image_drift_tolerance.py` holds the
+measurements and fails if the margin between jitter and drift closes from either side.
