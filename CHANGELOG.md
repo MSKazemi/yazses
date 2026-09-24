@@ -6,6 +6,22 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed — the Store page says plainly that YazSes is not on the Store
+
+`docs/store-submission.md` described how the MSIX is built and what a reviewer is told,
+but never said where the submission had got to, so a reader could finish the page
+believing YazSes was already listed. It is not: the manifest, the tiles and the build
+script exist and `make msix` produces a package, but nothing has been submitted, and
+Windows users should still install from winget, Scoop or the direct installer. The page
+now leads with that, and the build examples name the current version rather than 2.36.0.
+
+Two packaging rules that previously only failed on a Windows runner are now checked
+anywhere the test suite runs: every tile must be the size its filename claims — including
+the one non-square tile, which was not covered — and a manifest that declares
+`Square310x310Logo` must declare `Wide310x150Logo` too, which `makeappx` refuses to pack
+without. This changes nothing for users; it turns a ten-minute Windows job into a
+millisecond assertion for the maintainer who edits the manifest.
+
 ### Fixed — Wayland's default injector silently dropped non-ASCII text
 
 On Wayland, `[injection] backend = "auto"` picks `ydotool`, and `YdotoolInjector` handed
