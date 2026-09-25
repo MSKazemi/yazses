@@ -69,6 +69,33 @@ and treats an empty registry as an error, because a check that returns nothing o
 it could not parse reads exactly like a check that passed.
 
 This is developer-facing only; nothing about running YazSes changes.
+||||||| a19a8f79
+### Added — one pointer-output boundary, before any backend exists
+
+Head-Pointer maps head pose to a cursor delta, the voice mouse grid resolves a click
+point, and a future gaze-assisted warp will do something similar; none of them should
+know whether an X server, a Wayland portal, `CGEvent` or `SendInput` is on the other
+side. `src/yazses/pointer/` is that seam: a `PointerSink` protocol with relative motion,
+optional absolute motion, left/right click, scroll, a capability record and `close()`,
+plus explicit `PointerUnsupportedError` / `PointerBackendError` failures. It imports
+nothing but the standard library, holds no camera, gaze or head-pose concept, and runs no
+command — the first backend lands in a separate change (ADR-v2-146).
+
+Unsupported is a word here, not a silence. Every implementation defines every method,
+including `move_absolute`, which many backends cannot offer; one that cannot perform an
+operation raises and says so in advance through `capabilities()`. A silent no-op would
+leave someone who cannot use their hands staring at a pointer that will not move with no
+way to find out why.
+
+`tests/pointer_fake.py` holds a sink that records what it was asked to do instead of
+doing it, so feature tests stay hermetic — no display server, no permission prompt, no
+pointer skidding across a developer's screen. It lives in the test tree rather than in
+`src/`, because a sink that accepts everything and moves nothing is the silent no-op the
+ADR forbids and should not be shippable. `tests/pointer_contract.py` is the suite each
+real backend will inherit rather than re-describe. It is run here against a fully capable
+fake and two deliberately partial ones, because half its assertions are about what a
+backend that *cannot* do something must do, and a suite exercised only against a complete
+backend would pass those branches by never reaching them.
 
 ## [2.40.1] - 2026-09-25
 
