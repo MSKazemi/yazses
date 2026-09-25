@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
 from yazses.cameraperm.contract import CameraPermission
+from yazses.pointer.base import PointerSink
 
 #: The value each bundle puts in `Platform.name`. These are `sys.platform`
 #: strings, not friendly words, and anything that branches on `Platform.name`
@@ -300,6 +301,16 @@ IpcServerFactory = Callable[[Path], IpcServer]
 IpcClientFactory = Callable[[Path], IpcClient]
 TrayFactory = Callable[[], TrayBackend]
 
+PointerSinkFactory = Callable[[], PointerSink]
+"""Builds this platform's pointer output — ADR-v2-146, `design/specs/eye-pointer-output.md`.
+
+A factory rather than an instance, and optional, for two reasons. Pointer permission is
+requested only when a pointer consumer is enabled, so nothing may be constructed while
+`get_platform()` merely runs; and not every platform has a backend yet, so `None` here is
+the honest answer for one that does not rather than a sink that accepts everything and
+moves nothing.
+"""
+
 
 @dataclass(frozen=True)
 class Platform:
@@ -316,4 +327,8 @@ class Platform:
     ipc_client_factory: IpcClientFactory
     tray_factory: TrayFactory | None = None
     tray_default_enabled: bool = False
+    # None where this OS has no pointer backend yet. A consumer must check, not assume:
+    # ADR-v2-146 would rather a feature say "no pointer output here" than hand a user a
+    # cursor that never moves.
+    pointer_factory: PointerSinkFactory | None = None
     extras: dict[str, Any] = field(default_factory=dict)
