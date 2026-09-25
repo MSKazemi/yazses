@@ -6,6 +6,16 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the Korean review was credited everywhere except this file
+
+[@doeil1614-ops](https://github.com/doeil1614-ops) read `docs/ko/index.md` as a native
+speaker and corrected it ([#346](https://github.com/MSKazemi/yazses/issues/346), applied in
+[#365](https://github.com/MSKazemi/yazses/pull/365)). That review is recorded in
+`CONTRIBUTORS.md`, the contributor wall, the all-contributors registry and
+`docs/localization/STATUS.md` — but never here, while every other reviewer of a draft
+translation is named in this file. Recorded now rather than left as a gap: a contributor
+whose work ships should be findable in the changelog that describes the release carrying it.
+
 ### Added — gaze can now be refined to an exact UI element, and nothing changes until it is
 
 `src/yazses/gaze/grounded.py` is phase P2 of ADR-v2-151: the seam between the coarse
