@@ -5146,6 +5146,237 @@ def gaze_status() -> None:
         )
 
 
+#: Which `[section]` of the config describes each evaluation feature, so a result records
+#: the settings that were actually in force. Only these three sections are read -- METRICS.md
+#: is explicit that a result must not dump the whole config -- and `runner.safe_settings`
+#: then drops anything that is not a flag, a number or an enum-shaped word, which is what
+#: keeps `model_path` (an absolute path under the user's home directory) out of the file.
+_EYE_EVAL_SECTIONS = {
+    "gaze": "gaze",
+    "head_pointer": "headpointer",
+    "face_switch": "facegesture",
+}
+
+#: The task identifiers, spelled for `--help`. Hardcoded because `yazses.eyeeval` must not
+#: be imported at CLI module scope (every `yazses status` and every Tab completion would
+#: pay for it), and a help string cannot be lazy. `tests/test_cli_eye_eval.py` asserts this
+#: matches `tasks.TASK_IDS` exactly, because a hand-written set beside a generated one is
+#: the defect, not the documentation.
+_EYE_EVAL_TASKS = "gaze_routing_4_pane | head_pointer_generated_targets | face_switch_blocks"
+
+
+@app.command(
+    "eye-eval",
+    rich_help_panel=_SETUP,
+    epilog=_examples(
+        "yazses eye-eval gaze_routing_4_pane --synthetic",
+        "    no-camera dry run — proves the pipeline works, measures nothing",
+        "yazses eye-eval gaze_routing_4_pane --outcomes trials.json --study-mode community_qa --camera-class integrated",
+        "    turn a real run's trial outcomes into a shareable result",
+        "yazses eye-eval face_switch_blocks --blocked permission_denied --study-mode community_qa",
+        "    a test you could not run is a valid result — record why",
+        "yazses eye-eval gaze_routing_4_pane --synthetic -o /tmp/result.json",
+        "    choose where the file goes",
+    ),
+)
+def eye_eval(
+    task: str = typer.Argument(..., metavar="TASK", help=f"Which task to run: {_EYE_EVAL_TASKS}."),
+    out: Optional[Path] = typer.Option(None, "--out", "-o", help="Where to write the result JSON."),
+    synthetic: bool = typer.Option(
+        False, "--synthetic", help="No-camera dry run: generate the outcomes instead of measuring them."
+    ),
+    outcomes: Optional[Path] = typer.Option(
+        None, "--outcomes", help="A JSON list of per-trial outcomes you recorded during a real run."
+    ),
+    blocked: Optional[str] = typer.Option(
+        None, "--blocked", help="Record a BLOCKED result. One of: not_supported, not_measured, permission_denied, tracking_unavailable, participant_stopped, technical_invalidation."
+    ),
+    study_mode: Optional[str] = typer.Option(
+        None, "--study-mode", help="ci | synthetic | community_qa | research. Never inferred."
+    ),
+    protocol_id: Optional[str] = typer.Option(
+        None, "--protocol-id", help="The named, versioned research protocol. Required by --study-mode research."
+    ),
+    camera_class: Optional[str] = typer.Option(
+        None, "--camera-class", help="integrated | external | virtual | none. Required with --outcomes."
+    ),
+    perception_backend: str = typer.Option(
+        "none", "--perception-backend", help="Which camera perception backend ran, e.g. mediapipe."
+    ),
+    verdict: Optional[str] = typer.Option(
+        None, "--verdict", help="Your own PASS/PARTIAL/FAIL/BLOCKED, overriding the computed one."
+    ),
+    seed: Optional[int] = typer.Option(
+        None, "--seed", help="Task seed. Default: the seed the task fixture records."
+    ),
+) -> None:
+    """Run an eye-control evaluation task and save a privacy-safe result you can inspect.
+
+    Writes one JSON file to your own disk and nothing else. No upload, no network call,
+    nothing sent anywhere — read it first, then attach it to an issue if you want to.
+
+    The file carries safe provenance (YazSes and Python version, OS, kernel, CPU model,
+    display geometry) and derived counts only. It has no field for your hostname, login
+    name, home directory, serial number, window titles or anything a camera saw, and the
+    result is validated and swept for those identifiers before it is written — a run that
+    would leak produces no file at all.
+
+    `--synthetic` needs no camera and is what CI runs. `--study-mode` is never guessed: a
+    public hardware test is `community_qa`, and `research` needs a real protocol ID,
+    because relabelling an artifact afterwards is not consent (ADR-v2-150).
+    """
+    import dataclasses
+    import json
+    from datetime import datetime, timezone
+    from typing import Any, NoReturn
+
+    from yazses.eyeeval import (
+        CAMERA_CLASSES,
+        MISSING_REASONS,
+        STUDY_MODES,
+        TASK_FEATURES,
+        TASK_IDS,
+        VERDICTS,
+        EyeEvalRunError,
+        build_result,
+        check_records,
+        check_task,
+        collect_provenance,
+        generate_task,
+        local_identifiers,
+        summarize,
+        synthetic_records,
+        write_result,
+    )
+    from yazses.eyeeval.runner import describe_missing_reasons
+
+    def fail(message: str) -> NoReturn:
+        typer.secho(message, fg=typer.colors.RED, err=True)
+        raise typer.Exit(1)
+
+    if task not in TASK_IDS:
+        fail(f"Unknown task {task!r}. Available tasks:\n  " + "\n  ".join(TASK_IDS))
+
+    chosen = [name for name, on in (("--synthetic", synthetic), ("--outcomes", outcomes is not None),
+                                    ("--blocked", blocked is not None)) if on]
+    if len(chosen) != 1:
+        fail(
+            "Choose exactly one of --synthetic, --outcomes or --blocked "
+            f"(got {chosen or 'none'}). Each says something different about how the "
+            "numbers were produced, and a result has to say which."
+        )
+
+    if blocked is not None and blocked not in MISSING_REASONS:
+        fail(f"--blocked {blocked!r} is not a recognised reason. Use one of: {describe_missing_reasons()}.")
+
+    mode = study_mode or ("synthetic" if synthetic else "")
+    if not mode:
+        fail(
+            "--study-mode is required and is never inferred. A public hardware test is "
+            "`community_qa`; `research` additionally needs --protocol-id (ADR-v2-150)."
+        )
+    if mode not in STUDY_MODES:
+        fail(f"--study-mode {mode!r} is not one of {', '.join(STUDY_MODES)}.")
+    if synthetic and mode in ("community_qa", "research"):
+        fail(
+            f"--synthetic cannot be {mode!r}: no person performed the task and no camera "
+            "was opened. Use `ci` or `synthetic`."
+        )
+    if outcomes is not None and mode in ("ci", "synthetic"):
+        fail(
+            f"--outcomes cannot be {mode!r}: a person ran those trials on real hardware. "
+            "Use `community_qa`, or `research` with --protocol-id."
+        )
+    if mode == "research" and not protocol_id:
+        fail(
+            "--study-mode research requires --protocol-id: a named, versioned protocol the "
+            "data was collected under. Changing the label afterwards is not consent "
+            "(ADR-v2-150 Rule 2)."
+        )
+    if verdict is not None and verdict.upper() not in VERDICTS:
+        fail(f"--verdict {verdict!r} is not one of {', '.join(VERDICTS)}.")
+
+    if outcomes is not None:
+        camera = camera_class or ""
+        if camera not in CAMERA_CLASSES:
+            fail(
+                "--camera-class is required with --outcomes and must be one of "
+                f"{', '.join(CAMERA_CLASSES)}. Guessing it would put a wrong row in the "
+                "platform matrix."
+            )
+        capture = "live"
+    else:
+        camera = camera_class or "none"
+        if camera not in CAMERA_CLASSES:
+            fail(f"--camera-class {camera!r} is not one of {', '.join(CAMERA_CLASSES)}.")
+        capture = "synthetic_replay" if synthetic else "none"
+
+    task_doc = generate_task(task, seed)
+    check_task(task_doc)
+
+    records: list[dict[str, Any]] = []
+    if synthetic:
+        records = synthetic_records(task_doc)
+        source = "synthetic"
+    elif outcomes is not None:
+        try:
+            parsed = json.loads(Path(outcomes).read_text(encoding="utf-8"))
+        except (OSError, ValueError) as exc:
+            fail(f"Could not read {outcomes}: {exc}")
+        problems = check_records(task_doc, parsed)
+        if problems:
+            fail(f"{len(problems)} problem(s) in {outcomes}:\n  - " + "\n  - ".join(problems))
+        records = parsed
+        source = "recorded"
+    else:
+        source = "none"
+
+    platform = get_platform()
+    settings: dict[str, Any] = {}
+    try:
+        from yazses.config import load_config
+
+        cfg = load_config(platform.paths.config_file)
+        section_name = _EYE_EVAL_SECTIONS[TASK_FEATURES[task]]
+        section = getattr(cfg, section_name)
+        settings = {
+            f"{section_name}.{field.name}": getattr(section, field.name)
+            for field in dataclasses.fields(section)
+        }
+    except Exception as exc:  # noqa: BLE001 — an unreadable config is recorded, not fatal
+        typer.secho(f"Note: could not read the config ({exc}); settings recorded as empty.", err=True)
+
+    doc = build_result(
+        task=task_doc,
+        records=records,
+        provenance=collect_provenance(),
+        study_mode=mode,
+        timestamp=datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
+        camera_class=camera,
+        capture_mode=capture,
+        records_source=source,
+        perception_backend=perception_backend,
+        settings=settings,
+        protocol_id=protocol_id,
+        blocked_reason=blocked,
+        verdict=verdict.upper() if verdict else None,
+    )
+
+    target = Path(out) if out else platform.paths.data_dir / f"eye-eval-{task}.json"
+    try:
+        written = write_result(doc, target, identifiers=local_identifiers())
+    except EyeEvalRunError as exc:
+        typer.secho(f"\n{exc}\n", fg=typer.colors.RED, err=True)
+        typer.secho("Nothing was written.", fg=typer.colors.RED, err=True)
+        raise typer.Exit(2) from None
+
+    typer.echo(summarize(doc))
+    typer.echo(f"  written      : {written}")
+    typer.echo(
+        "\nNothing was sent anywhere. Read the file, then attach it to an issue yourself "
+        "if you want to."
+    )
+
 @model_app.command(
     "list",
     epilog=_examples("yazses model list    show speech + intent-router models, and which are present"),

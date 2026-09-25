@@ -123,6 +123,21 @@ Minimum checks:
 9. disable -> camera released;
 10. save privacy-safe result JSON/report.
 
+Step 10 is a command rather than an instruction:
+
+```bash
+yazses eye-eval gaze_routing_4_pane --outcomes trials.json \
+    --study-mode community_qa --camera-class integrated -o result.json
+```
+
+It generates the task from `yazses.eyeeval.tasks`, stamps the safe provenance
+[METRICS.md](METRICS.md) asks for, validates the document against `yazses.eyeeval.schema`
+and sweeps it for hostname/login/home-path/email **before** writing it, and prints
+PASS/PARTIAL/FAIL/BLOCKED with the counts. `--synthetic` runs the same pipeline with no
+camera, which is the E0/E1 leg. Nothing is uploaded and no flag would upload it; the tester
+reads the file and attaches it themselves. A test that could not run is recorded with
+`--blocked <reason>`, which reports every metric as explicitly missing rather than as zero.
+
 ### E4 — cross-computer replication
 
 **Question:** does the same OS/software work on different physical machines/cameras?

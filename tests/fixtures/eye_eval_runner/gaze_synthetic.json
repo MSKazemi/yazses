@@ -1,0 +1,94 @@
+{
+  "schema_version": "1.0",
+  "study_mode": "synthetic",
+  "timestamp": "2026-09-25T00:00:00+00:00",
+  "software": {
+    "yazses_version": "9.9.9",
+    "git_commit": "0123456789ab",
+    "python_version": "3.13.0",
+    "packages": {
+      "yazses": "9.9.9"
+    },
+    "perception_backend": {
+      "name": "none",
+      "asset_version": null
+    },
+    "generator": "yazses.eyeeval.runner/1.0"
+  },
+  "machine": {
+    "os_name": "ExampleOS",
+    "os_version": "1.2",
+    "kernel": "0.0.0-test",
+    "arch": "x86_64",
+    "cpu_model": "Example CPU 1000",
+    "logical_cpus": 8,
+    "ram_gb": 16.0
+  },
+  "os_session": {
+    "session_type": "headless"
+  },
+  "display": {
+    "display_count": 1,
+    "displays": [
+      {
+        "index": 0,
+        "x": 0,
+        "y": 0,
+        "width": 1920,
+        "height": 1080,
+        "scale": 1.0,
+        "primary": true
+      }
+    ],
+    "topology_fingerprint": "sha256:20e9249285239eec"
+  },
+  "camera": {
+    "camera_class": "none",
+    "capture_mode": "synthetic_replay"
+  },
+  "feature": {
+    "name": "gaze"
+  },
+  "config": {
+    "config_hash": "sha256:44136fa355b3678a",
+    "settings": {}
+  },
+  "protocol": {
+    "task": "gaze_routing_4_pane",
+    "task_version": "1.0",
+    "task_seed": 2026092501,
+    "protocol_id": null
+  },
+  "run": {
+    "verdict": "PASS",
+    "completeness_verdict": "PASS",
+    "verdict_source": "computed",
+    "verdict_definition": "PASS means every scored trial the task asks for was recorded and none was invalid. It describes the protocol running to completion, not how accurately the feature performed; no rate threshold is applied anywhere.",
+    "records_source": "synthetic",
+    "scored_trials_expected": 40,
+    "scored_trials_recorded": 40,
+    "blocked_reason": null
+  },
+  "metrics": {
+    "trials": 40,
+    "correct_target": 40,
+    "wrong_target": 0,
+    "fallback_no_route": 0,
+    "invalid_tracking": 0,
+    "correct_target_rate": 1.0,
+    "trial_time_ms_p50": {
+      "value": null,
+      "reason": "not_measured"
+    },
+    "calibration_age_s_p50": {
+      "value": null,
+      "reason": "not_measured"
+    }
+  },
+  "privacy": {
+    "data_class": "A",
+    "raw_media_retained": false,
+    "contains_personal_identifiers": false,
+    "aggregates_only": true
+  }
+}
