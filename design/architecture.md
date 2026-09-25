@@ -280,10 +280,10 @@ The sibling of `inject/` for the *pointer* rather than the keyboard, and for the
 reason: Head-Pointer, the voice mouse grid and future gaze-assisted control all produce
 pointer intent, and none of them may contain a platform command. Pure and
 dependency-free — standard library only, no camera/gaze/head-pose concept, no
-subprocess. Platform backends land beside it one at a time (X11, the existing XDG
-RemoteDesktop portal session, macOS, Windows) and are selected through the platform
-factory. The sink is deliberately dumb: dwell, confirmation and global pause all live
-above it.
+subprocess. Platform backends arrive one at a time (X11, the existing XDG RemoteDesktop
+portal session, macOS, Windows), each living with its own OS code and reached through the
+platform layer. The sink is deliberately dumb: dwell, confirmation and global pause all
+live above it.
 
 | File | Role |
 |---|---|
@@ -294,15 +294,41 @@ Unsupported is explicit, never a silent no-op: every implementation defines ever
 (including `move_absolute`, which many backends cannot offer) and raises
 `PointerUnsupportedError` for what `capabilities()` already said it cannot do.
 
-A backend cannot live in this package, because the boundary is pure: `inject/portal.py`
-holds the Wayland one (`PortalPointerSink`, `open_pointer_sink`) for the stronger reason
-that ADR-v2-146 rule 6 requires **one** RemoteDesktop session — the pointer extends the
-session dictation already typed through, `PortalInjector.pointer_sink()` is the wiring,
-`POINTER` joins the single `SelectDevices` call only while a sink is open, and a pointer
-consumer therefore raises no second consent dialog. Capability is read from the `Start`
-response's granted-device mask rather than from having asked; absolute motion is refused
-because `NotifyPointerMotionAbsolute` addresses a position inside a ScreenCast stream,
-which this session deliberately does not have.
+**The backends live with their platform, not in this package.** `src/yazses/pointer/` is
+held to an import-purity test (`tests/test_pointer_contract.py`): standard library only,
+and no `subprocess` or `ctypes`. A backend needs exactly those things, so each one sits
+beside the rest of its OS's code and is reached through the platform layer:
+
+| Backend | Where | Mechanism |
+|---|---|---|
+| X11 | `platform/linux/pointer_x11.py`, opened by `platform/linux/build_pointer_sink()` | XTEST via python-xlib (already a Linux/BSD base dependency, already used by `hotkey_xgrab.py`) — no subprocess per motion, which `xdotool` would cost once per camera frame |
+| Wayland | `inject/portal.py`, opened by `PortalInjector.pointer_sink()` | XDG RemoteDesktop `NotifyPointer*` on the **existing** session |
+| macOS | `platform/macos/pointer.py` | CoreGraphics `CGEvent*` via PyObjC |
+| Windows | `platform/windows/pointer.py` | `SendInput` mouse events via ctypes |
+
+Wayland sits in `inject/` for a stronger reason than purity: ADR-v2-146 rule 6 requires
+**one** RemoteDesktop session, so the pointer extends the session dictation already types
+through. `POINTER` joins the single `SelectDevices` call only while a sink is open, and a
+pointer consumer therefore raises no second consent dialog. Capability is read from the
+`Start` response's granted-device mask rather than from having asked; absolute motion is
+refused because `NotifyPointerMotionAbsolute` addresses a position inside a ScreenCast
+stream, which this session deliberately does not have.
+
+The X11 backend injects its display connection (`X11PointerConnection`), so the shared
+contract suite runs in CI with no display server, and it keeps the X11 dialect where it
+can be asserted on: button 1/2/3 for left/middle/right, buttons 4-7 for one wheel notch
+each (`+dy` down is button 5, so the sign never flips at the boundary), integer device
+coordinates rounded half away from zero at the Xlib call with no remainder carried, and a
+flush after every operation — including a failed one, so a queued press cannot ride out
+on the next action a user asks for.
+
+⚠ **The backends disagree about sub-unit motion, and whoever wires Head-Pointer (#404)
+must reconcile it.** macOS and Windows carry the remainder through `SubPixelAccumulator`;
+X11 rounds half away from zero and carries nothing, so a head movement producing under
+half a device unit per frame moves an X11 pointer not at all while it moves a Windows one.
+Both choices are defensible at the backend — accumulating inside a sink adds hidden state
+to something ADR-v2-146 keeps deliberately dumb — but the consumer must accumulate, or the
+same head motion behaves differently per platform.
 
 No fake ships in `src/`. `tests/pointer_fake.py` holds `FakePointerSink`, which records
 `PointerAction` values instead of moving anything — a click records a press **and** a

@@ -397,6 +397,45 @@ missing facial-transform matrix costs head pose and leaves gaze alone.
 Nothing is wired to it yet and no behaviour changes: this is the contract the camera
 owner (#394) and the gaze migration (#396) are written against. #393
 
+### Added — the X11 pointer backend behind the PointerSink boundary
+
+ADR-v2-146 made pointer output a platform boundary so that Head-Pointer, the voice mouse
+grid and any future gaze-assisted warp contain no platform commands. #400 wrote the
+protocol; this is the first real backend behind it, for X11.
+
+`yazses.platform.linux.pointer_x11` implements all six operations — relative motion,
+absolute motion, click, scroll, capabilities, close — over the X server's XTEST
+extension, using python-xlib, which is already a base dependency on Linux and the BSDs
+and already how the snap-confined global hotkey works. It is deliberately not
+`xdotool mousemove_relative`: Head-Pointer emits a delta per camera frame, and forking a
+process for each one would put tens of milliseconds and a PID on the latency path a user
+feels most directly.
+
+Three things it is careful about, because a pointer a person cannot stop is worse than no
+pointer at all:
+
+- **Unavailable says which kind of unavailable.** No python-xlib, no `DISPLAY`, or an X
+  server without XTEST is `PointerUnsupportedError` — permanent here, so try another
+  backend. A display that exists and refused the connection is `PointerBackendError` —
+  worth retrying, and worth telling the user. Neither is ever a silent no-op.
+- **An operation is not done until it is flushed.** XTEST requests sit in python-xlib's
+  output buffer, so every operation syncs, and a failed one syncs too: a button press
+  left in the buffer would otherwise be delivered attached to whatever the user asked for
+  next, which is exactly the stale command ADR-v2-146 rule 4 forbids.
+- **The wheel's signs do not flip at the boundary.** `+dy` scrolls down and `+dx` right,
+  as the protocol fixes them; X11 spells the wheel as buttons 4-7 instead of an axis, so
+  that negation happens inside the backend where it belongs.
+
+The X server API is injected, so the shared contract suite in `tests/pointer_contract.py`
+runs against this backend in CI with no display server, no `DISPLAY` and no pointer
+moving on anybody's screen — and the one class that does touch python-xlib is tested
+against a fake display, down to the shape of the `xtest_fake_input` call.
+
+Nothing is wired to it yet and no behaviour changes for any existing install: the sink is
+built only when a pointer consumer asks for one (ADR-v2-146 rule 7), and no consumer is
+shipped. macOS, Windows and the Wayland RemoteDesktop portal are separate backends behind
+the same protocol. #401
+
 ## [2.40.1] - 2026-09-25
 
 ### Changed — the Store page says plainly that YazSes is not on the Store
