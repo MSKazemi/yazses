@@ -6,6 +6,8 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.40.1] - 2026-09-25
+
 ### Changed — the Store page says plainly that YazSes is not on the Store
 
 `docs/store-submission.md` described how the MSIX is built and what a reviewer is told,
