@@ -218,6 +218,34 @@ contributor could act on — and `tests/test_agent_instructions.py` now fails if
 back. Dated `CHANGELOG` and release-note entries still quote counts on purpose: a record of
 what a run measured cannot go stale the way a claim about today does.
 
+### Fixed — every install path still told a new user to hold the wrong key
+
+The first line the APT and pipx installers print, before anything else, was:
+
+```
+  Hold Space → speak → release → text appears anywhere
+```
+
+Holding Space does nothing. `[hotkey] key` defaults to `auto`, which resolves to
+`platform.default_hotkey` — `right_alt` on Linux — and first-run seeding never writes a
+hotkey, so `auto` is what a fresh install runs with. A modifier was picked deliberately,
+"so it never collides with normal typing the way the space bar would". This is the first
+thing a new user does, and following the instruction produces silence with no error to
+explain it; the reasonable conclusion is that YazSes does not work.
+
+The `.deb` said it too, in the `Description:` field that apt and every software centre
+show before you install (`debian/control` and `scripts/build-deb.sh`), as did the Linux
+section of the GitHub release notes and the Russian and Hindi home pages, whose
+"hold this key" tables still read `Space` in the Linux row after the English ones were
+corrected.
+
+The README and the docs home page were fixed in v2.27.0. That entry says the correction
+covered "four places" — a list written by hand, which is why it missed nine more. The
+list is now a test: `tests/test_hotkey_naming_truth.py` reads each platform's
+`default_hotkey` out of the source and scans every user-facing file, failing the build
+if one tells a reader to hold a key no platform defaults to, or pairs an OS with
+another OS's key.
+
 ## [2.40.0] - 2026-09-24
 
 ### Fixed — dictation typed nothing on Debian and Ubuntu Wayland

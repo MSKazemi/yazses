@@ -13,7 +13,7 @@ error()   { echo -e "${RED}[x]${NC} $*"; exit 1; }
 
 echo ""
 echo "  YazSes Installer"
-echo "  Hold Space → speak → release → text appears anywhere"
+echo "  Hold Right Alt → speak → release → text appears anywhere"
 echo ""
 
 # 1. Bootstrap dependency: pipx (the rest are provisioned by `yazses setup` below,
@@ -88,12 +88,12 @@ if [ "${NEEDS_RELOGIN:-0}" = "1" ]; then
     warn "The 'input' group change requires a new login session."
     echo ""
     echo "  After re-login, YazSes starts automatically on each login."
-    echo "  Hold Space anywhere to dictate."
+    echo "  Hold Right Alt anywhere to dictate."
 else
     info "Starting YazSes now..."
     systemctl --user start yazses.service
     echo ""
-    echo "  YazSes is running. Hold Space anywhere to dictate."
+    echo "  YazSes is running. Hold Right Alt anywhere to dictate."
 fi
 echo ""
 echo "  Commands:"

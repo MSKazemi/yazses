@@ -157,7 +157,7 @@ yazses verify               # speak once and prove the whole pipeline works
 
 | ОС | Удерживайте эту клавишу | Скажите… |
 |---|---|---|
-| Linux | `Space` | *"the quick brown fox"* (текст вводится) · *"go to line 42"* · *"run the tests"* |
+| Linux | `Right Alt` | *"the quick brown fox"* (текст вводится) · *"go to line 42"* · *"run the tests"* |
 | macOS | `Right Option` | *"delete the last word"* · *"save file"* · *"new function parse config"* |
 | Windows | `Right Ctrl` | *"undo that"* · *"select all"* · *"comment this line"* |
 
