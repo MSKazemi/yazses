@@ -214,6 +214,31 @@ cannot read an answer off a resolution that refused to choose one. The layer imp
 stdlib modules and nothing else: no accessibility library, no screen capture, no camera
 frame, no network, not even a clock. Tests enforce that by scanning the module's imports
 and every field annotation.
+||||||| a19a8f79
+### Added — one shared vocabulary for what the webcam can tell us
+
+Glance-Type gaze, the Head-Pointer and the Face-Gesture Switch all want the same
+MediaPipe FaceLandmarker result, and two of them already open their own camera and
+their own model to get it — which is how a laptop ends up reporting "device already
+busy" to whichever accessibility feature happened to start second. ADR-v2-145 puts one
+source behind all three. `src/yazses/perception/signals.py` is the first piece of it:
+the value types that source will emit, and nothing else.
+
+They are frozen dataclasses of derived numbers — a gaze feature, a head pose in
+radians, blendshape activations — each carrying a monotonic timestamp and an explicit
+confidence. Nothing in the module imports OpenCV or MediaPipe, opens a camera or starts
+a thread, so a consumer can be written and unit-tested on a machine with no camera extra
+installed. No field can hold a frame, a face mesh or a landmark, which is what keeps
+ADR-011's "frames stay in RAM" auditable at a boundary rather than by inspection.
+
+The rule the rest of the programme is built on is that **absent is never zero**: a
+channel that produced nothing is `None`, not a `0.0` that reads like "looking straight
+ahead" or "jaw shut", and a blendshape the model did not report comes back `None` rather
+than as a released key. One channel can fail without taking the others with it — a
+missing facial-transform matrix costs head pose and leaves gaze alone.
+
+Nothing is wired to it yet and no behaviour changes: this is the contract the camera
+owner (#394) and the gaze migration (#396) are written against. #393
 
 ## [2.40.1] - 2026-09-25
 
