@@ -572,6 +572,28 @@ class FacegestureConfig:
 
 
 @dataclass
+class PerceptionConfig:
+    """Shared camera perception — one webcam owner for every camera feature (ADR-v2-145).
+
+    Glance-Type gaze and the Face-Gesture Switch each open their own camera and
+    their own FaceLandmarker today, and nothing arbitrates between them: enable
+    both and whichever starts second meets "device already busy". This section
+    switches on the single owner that replaces that (src/yazses/perception/), where
+    the first feature to ask opens the camera once, every other feature shares that
+    same observation, and the last one to let go closes it.
+
+    OFF by default, and enabling it alone opens nothing: the lifecycle is driven by
+    consumers, so zero consumers means zero camera opens. Until a camera backend is
+    wired to the shared owner it stays dormant and every feature keeps the path it
+    has today, so an existing install is unchanged either way. Frames are processed
+    in-RAM inside the source and never reach a signal, a log or a file (ADR-011).
+    """
+    enabled: bool = False
+    camera_index: int = 0             # which camera the one owner opens
+    fps: int = 15                     # shared sampling rate, clamped to 1..60
+
+
+@dataclass
 class CocktailConfig:
     """v2 — Cocktail Filter (spec-cocktail-filter), P1 personal-VAD gate (§3.2).
 
@@ -1916,6 +1938,7 @@ class Config:
     voiceprint: VoiceprintConfig = field(default_factory=VoiceprintConfig)
     gaze: GazeConfig = field(default_factory=GazeConfig)
     facegesture: FacegestureConfig = field(default_factory=FacegestureConfig)
+    perception: PerceptionConfig = field(default_factory=PerceptionConfig)
     cocktail: CocktailConfig = field(default_factory=CocktailConfig)
     personalize: PersonalizeConfig = field(default_factory=PersonalizeConfig)
     polyglot: PolyglotConfig = field(default_factory=PolyglotConfig)

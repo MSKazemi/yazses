@@ -267,12 +267,25 @@ def test_something_without_the_methods_is_not_a_source() -> None:
 # --------------------------------------------------------------------------- #
 # Dependency-free by construction
 # --------------------------------------------------------------------------- #
+#: The pure boundary: the value types and the package door that re-exports them.
+#: The scan below is scoped to these rather than to the whole package, because the
+#: camera owner beside them (`source.py`, EYE-CAM-001) legitimately imports
+#: `threading` — owning the capture loop is its job, and ADR-v2-145 puts it in this
+#: package on purpose. Keeping the strict rule pointed at the values is what it was
+#: always for: a *consumer* must be testable with numbers, and a consumer imports
+#: these two files. The package-wide rule that still applies to every file — no
+#: camera dependency at module level, and none at all in the lifecycle — is asserted
+#: in `tests/test_perception_source.py`.
+BOUNDARY = ("signals.py", "__init__.py")
+
+
 def _imported_modules() -> set[str]:
-    """Every module name imported anywhere in `yazses/perception/`, at any depth —
+    """Every module name imported anywhere in the pure boundary, at any depth —
     module level or inside a function."""
     names: set[str] = set()
-    files = sorted(PACKAGE.rglob("*.py"))
-    assert files, f"no source found under {PACKAGE} — this scan proves nothing"
+    files = [PACKAGE / name for name in BOUNDARY]
+    missing = [path.name for path in files if not path.exists()]
+    assert not missing, f"{missing} is gone from {PACKAGE} — this scan proves nothing"
     for path in files:
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
         for node in ast.walk(tree):
@@ -293,11 +306,22 @@ def test_the_scan_sees_the_imports_at_all() -> None:
     "forbidden",
     ["cv2", "mediapipe", "numpy", "torch", "threading", "yazses.config"],
 )
-def test_the_package_imports_nothing_heavy(forbidden: str) -> None:
+def test_the_boundary_imports_nothing_heavy(forbidden: str) -> None:
     """A camera, a model, a thread or a config object on this side of the boundary
-    would make every consumer test need one too."""
-    offenders = {name for name in _imported_modules() if name.split(".")[0] == forbidden}
-    assert not offenders, f"{PACKAGE.name} imports {sorted(offenders)}"
+    would make every consumer test need one too.
+
+    Matched on the dotted prefix. `name.split(".")[0] == forbidden` — what this
+    compared before — can never be true for `yazses.config`, whose first component
+    is `yazses`: the one case in the list that names a module rather than a package
+    was silently vacuous, and a boundary importing the config object would have
+    passed.
+    """
+    offenders = {
+        name
+        for name in _imported_modules()
+        if name == forbidden or name.startswith(f"{forbidden}.")
+    }
+    assert not offenders, f"the perception boundary imports {sorted(offenders)}"
 
 
 def test_no_signal_field_can_carry_a_frame() -> None:

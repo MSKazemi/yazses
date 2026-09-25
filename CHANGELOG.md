@@ -6,6 +6,43 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — one camera owner, so two accessibility features can be on at once
+
+Glance-Type gaze and the Face-Gesture Switch each open their own webcam and their own
+FaceLandmarker, and nothing arbitrates between them: enable both and whichever starts
+second is told the device is busy. Which one that is depends on initialisation order,
+which is not a thing a user can debug. The Head-Pointer would have been a third.
+
+`src/yazses/perception/source.py` is the owner that replaces them (ADR-v2-145). Features
+hold a **lease** on it rather than a camera: the first lease opens the device and the
+model once, every other consumer shares that same observation, and the last release
+closes both. Start and stop are idempotent per consumer, because a feature that starts
+twice and stops once would pin the webcam on with no symptom but the light. `status()`
+reports state, backend, consumer names, last-sample age, the channels the newest
+observation carried and — the number ADR-v2-145 states its hard gate in — how many times
+the camera has been opened.
+
+A camera failure is contained where it happens. A device that will not open, a read that
+raises, a model that will not load, a thread that cannot start: each stops the sensing,
+records a reason naming the real cause, and returns. Nothing propagates to the feature
+that asked and nothing reaches dictation, which is never in this path. A dropped frame is
+*not* a failure, "no face" never republishes the previous sample as fresh, and one missing
+channel costs only that channel — a missing facial transform takes head pose and leaves
+gaze alone.
+
+Frames stay where they are derived: a frame is a local variable inside one observation,
+never stored on the source, never attached to a signal, never logged (ADR-011). The test
+for that is a weak reference rather than a reading of the code, so it fails if anyone ever
+keeps one. Both heavy halves — the camera and the model — are injected, so the lifecycle
+and all 58 of its tests run with no webcam, no MediaPipe and no `gaze` extra installed.
+
+New `[perception]` section (`enabled`, `camera_index`, `fps`), **off by default**. The
+daemon owns the source and closes it on shutdown, whatever the lease bookkeeping says, so
+no consumer that forgot to release can leave the webcam on. Enabling the section alone
+opens nothing, because the lifecycle is driven by consumers and there are none yet: the
+MediaPipe adapter that fills these samples is the next step, and until then every camera
+feature keeps exactly the path it has today. An existing install is unchanged.
+
 ### Added — one versioned envelope for every eye-control evaluation result
 
 Eye/camera evaluation results will arrive from CI, from replayed synthetic traces, from
