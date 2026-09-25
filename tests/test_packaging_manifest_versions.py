@@ -277,12 +277,24 @@ def test_no_url_in_a_manifest_names_a_version_the_manifest_is_not(name: str) -> 
     Only URL-bearing lines are read. A version in prose can legitimately name an older
     release — `packaging/arch/PKGBUILD` explains that Qt moved out of the base install
     in v2.18.0, and that sentence stays true forever.
+
+    An RPM `%changelog` is the same kind of exception, for a stronger reason: it is a
+    historical record, one entry per release, and each entry links the release notes of
+    the version it describes. Every entry below the newest is *supposed* to name an
+    older version, so reading them is reading history and calling it drift. The sweep
+    stops at `%changelog`; everything above it — `Version:`, `Source0:`, `URL:` — is a
+    claim about the package being built now, and is still checked.
     """
     path = PKG / name
     declared = _SINGLE_FILE_MANIFESTS[name]()
+    lines = path.read_text(encoding="utf-8").splitlines()
+    for cut, line in enumerate(lines):
+        if line.strip().lower() == "%changelog":
+            lines = lines[:cut]
+            break
     stale = [
         f"line {i}: {found} in {line.strip()[:100]}"
-        for i, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1)
+        for i, line in enumerate(lines, 1)
         if "http" in line
         for found in _SEMVER_IN_TEXT.findall(line)
         if found != declared
