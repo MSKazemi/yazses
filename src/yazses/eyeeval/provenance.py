@@ -256,27 +256,70 @@ def _package_versions() -> dict[str, str]:
     return out
 
 
-def _git_commit() -> str | None:
+def _resolve_git_ref(git_dir: Path, ref: str) -> str | None:
+    """A ref name to its SHA, the two places git keeps one.
+
+    A loose file under `refs/` is the obvious case and the only one the first version of
+    this handled, which meant it answered None in the two situations that are most common
+    in practice. A **linked worktree** keeps its own `HEAD` but shares `refs/` with the
+    main checkout, reached through the `commondir` file beside that HEAD. And any
+    repository that has been packed -- every `git gc`, and a fresh clone's remote refs --
+    keeps the ref in `packed-refs` and no loose file at all.
+
+    `ref` comes out of a file, so it is checked before being joined onto a path: a ref
+    that is not under `refs/`, or that tries to climb out of the repository, is refused
+    rather than followed.
+    """
+    if not ref.startswith("refs/") or ".." in ref.split("/"):
+        return None
+    bases = [git_dir]
+    common = git_dir / "commondir"
+    try:
+        if common.is_file():
+            bases.append((git_dir / common.read_text(encoding="utf-8").strip()).resolve())
+    except OSError:  # pragma: no cover - an unreadable commondir means "no common dir"
+        pass
+    for base in bases:
+        loose = base / ref
+        if loose.is_file():
+            return loose.read_text(encoding="utf-8").strip()
+        packed = base / "packed-refs"
+        if packed.is_file():
+            for line in packed.read_text(encoding="utf-8").splitlines():
+                if line.startswith(("#", "^")):
+                    continue
+                sha, _, name = line.partition(" ")
+                if name.strip() == ref:
+                    return sha.strip()
+    return None
+
+
+def _git_commit(root: Path | None = None) -> str | None:
     """The checkout's commit SHA when this is a source tree, else None.
 
     Hex only, and never the branch name. A branch is free text a contributor chose and can
     carry a name, a ticket or an employer; the SHA carries nothing. `METRICS.md` asks for
     the commit "when available", and for an installed wheel it simply is not -- None, not
-    a guess.
+    a guess. *root* is a parameter so the resolution can be tested against a constructed
+    repository layout instead of against whatever tree happened to run the suite.
     """
     try:
-        import yazses
+        if root is None:
+            import yazses
 
-        root = Path(yazses.__file__).resolve().parents[2]
+            root = Path(yazses.__file__).resolve().parents[2]
         dot_git = root / ".git"
-        if dot_git.is_file():  # a worktree or submodule: `.git` points elsewhere
+        if dot_git.is_file():  # a linked worktree or a submodule: `.git` points elsewhere
             pointer = dot_git.read_text(encoding="utf-8").strip()
             if not pointer.startswith("gitdir:"):
                 return None
             dot_git = Path(pointer.split(":", 1)[1].strip())
         head = (dot_git / "HEAD").read_text(encoding="utf-8").strip()
         if head.startswith("ref:"):
-            head = (dot_git / head.split(":", 1)[1].strip()).read_text(encoding="utf-8").strip()
+            resolved = _resolve_git_ref(dot_git, head.split(":", 1)[1].strip())
+            if resolved is None:
+                return None
+            head = resolved
         if len(head) == 40 and all(c in "0123456789abcdef" for c in head):
             return head[:12]
     except Exception:  # noqa: BLE001 - provenance is best effort, never a failure

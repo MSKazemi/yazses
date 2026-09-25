@@ -44,6 +44,12 @@ Three rules the design documents asked for and this implements:
   any rate — a threshold would be a promotion gate, and those come from cross-person
   evidence. A tester can state their own verdict; both are recorded.
 
+The commit SHA is recorded when the install is a source checkout, resolved through
+`commondir` and `packed-refs` as well as a loose ref — so it works in a linked worktree and
+after a `git gc`, the two layouts where a loose-ref-only lookup silently answers "unknown".
+The branch name is never recorded: a branch is free text a contributor chose and can carry
+a person or a client; a SHA carries nothing.
+
 Nothing in the daemon imports any of it, and no config section was added, so an existing
 install is unchanged.
 
