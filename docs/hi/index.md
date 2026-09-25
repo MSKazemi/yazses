@@ -138,7 +138,7 @@ yazses verify               # speak once and prove the whole pipeline works
 
 | OS | यह key दबाकर रखें | बोलें… |
 |---|---|---|
-| Linux | `Space` | *"the quick brown fox"* (इसे टाइप करता है) · *"go to line 42"* · *"run the tests"* |
+| Linux | `Right Alt` | *"the quick brown fox"* (इसे टाइप करता है) · *"go to line 42"* · *"run the tests"* |
 | macOS | `Right Option` | *"delete the last word"* · *"save file"* · *"new function parse config"* |
 | Windows | `Right Ctrl` | *"undo that"* · *"select all"* · *"comment this line"* |
 
