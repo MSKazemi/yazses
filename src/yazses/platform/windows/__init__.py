@@ -65,6 +65,7 @@ def build_platform() -> Platform:
     )
     from yazses.platform.windows.lifecycle import WindowsLifecycle
     from yazses.platform.windows.permissions import WindowsPermissions
+    from yazses.platform.windows.pointer import WindowsPointerSink
     from yazses.platform.windows.tray import WindowsTray
 
     paths = build_paths()
@@ -85,6 +86,7 @@ def build_platform() -> Platform:
         ipc_client_factory=lambda socket_path: NamedPipeIpcClient(socket_path),
         tray_factory=WindowsTray,
         tray_default_enabled=True,
+        pointer_factory=WindowsPointerSink,
     )
 
 

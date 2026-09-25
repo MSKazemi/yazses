@@ -234,13 +234,13 @@ a guard that silently stops protecting on a whole display server is worse than n
 
 | File | Role |
 |---|---|
-| `base.py` | Protocol interfaces: `HotkeyBackend`, `InjectorBackend`, `LifecycleBackend`, `IpcServer`, `IpcClient`, `PermissionsBackend`, `TrayBackend` |
+| `base.py` | Protocol interfaces: `HotkeyBackend`, `InjectorBackend`, `LifecycleBackend`, `IpcServer`, `IpcClient`, `PermissionsBackend`, `TrayBackend`. Also `Platform.pointer_factory` — the optional `PointerSinkFactory` a bundle registers, `None` on an OS with no pointer backend yet (a factory, so nothing is constructed and no permission asked until a pointer consumer is enabled) |
 | `factory.py` | `get_platform()` — detects `sys.platform`, returns `Platform` dataclass |
 | `*/permissions.py` | Keyboard capture, microphone and (ADR-v2-145 / #414) **camera**. `check_camera()` returns a `CameraPermission`, never a bare boolean, and returns `NOT_DETERMINED` — never `GRANTED` — when it cannot answer |
 | `emg/backend.py` | `EMGBackend` — `HotkeyBackend` over USB CDC serial YESP protocol (v0.4.0); requires `pyserial` optional dep |
 | `linux/` | evdev hotkey, LinuxInjector (xdotool/ydotool/wtype/clipboard), systemd lifecycle, Unix socket IPC |
-| `macos/` | CGEventTap hotkey, MacosInjector (CGEvent Unicode), launchd lifecycle, rumps tray |
-| `windows/` | WH_KEYBOARD_LL hotkey, WindowsInjector (SendInput UTF-16), named-pipe IPC, pystray tray |
+| `macos/` | CGEventTap hotkey, MacosInjector (CGEvent Unicode), launchd lifecycle, rumps tray, `pointer.py` (`MacosPointerSink` over CoreGraphics) |
+| `windows/` | WH_KEYBOARD_LL hotkey, WindowsInjector (SendInput UTF-16), named-pipe IPC, pystray tray, `pointer.py` (`WindowsPointerSink` over SendInput mouse events) |
 
 ### `src/yazses/cameraperm/` (EYE-PERM-001, #414 — camera permission + packaging contract)
 
@@ -287,6 +287,7 @@ above it.
 | File | Role |
 |---|---|
 | `base.py` | `PointerSink` protocol (`capabilities`, `move_relative`, `move_absolute`, `click`, `scroll`, `close`), `PointerButton`, `PointerCapabilities`, `PointerError`/`PointerUnsupportedError`/`PointerBackendError`, and the `check_finite`/`require_*` guards every backend validates with |
+| `subpixel.py` | `SubPixelAccumulator` — pure, carries the remainder when a native API only takes whole steps (Windows' `LONG` pixel delta, CoreGraphics' `int32` line count), so a head-driven fraction of a pixel per frame is accumulated rather than rounded away. A taken step is spent, which is ADR-v2-146 rule 4 in arithmetic: a motion whose platform call fails is lost, never folded into the next one |
 
 Unsupported is explicit, never a silent no-op: every implementation defines every method
 (including `move_absolute`, which many backends cannot offer) and raises
@@ -298,6 +299,26 @@ release, and `fail_with()` models a dead backend — and `tests/pointer_contract
 shared behaviour suite: each backend subclasses `PointerSinkContract`, supplies four
 hooks (`make_sink`, `recorded`, `induce_failure`, `clear_failure`), and inherits the whole
 contract rather than re-describing it.
+
+**Platform backends (EYE-PTR-003, #402).** Each is two layers: a sink holding the whole
+contract and knowing nothing about the OS, over an injected native-API object holding
+nothing but the platform calls. That seam is why the shared contract suite runs on Linux CI
+against the real sink classes, and why the native layer can be driven by a fake Quartz
+module or a fake `SendInput` — the ctypes struct packing is genuinely exercised, since
+ctypes works everywhere.
+
+| Backend | Capabilities reported | Notes |
+|---|---|---|
+| `platform/macos/pointer.py` (`quartz`) | relative + **absolute** motion, three buttons, vertical scroll | No relative mouse event exists, so motion is read-cursor-then-post-absolute. Vertical scroll is negated (Apple's axis 1 is up-positive). **Horizontal scroll is reported absent on purpose**: Apple documents no sign for axis 2 and no Mac is available to settle it, and an inverted horizontal scroll makes a head-driven pointer fight its user |
+| `platform/windows/pointer.py` (`sendinput`) | relative motion, three buttons, vertical + horizontal scroll | **Absolute motion is reported absent on purpose**: `MOUSEEVENTF_ABSOLUTE` takes 0-65535 normalised coordinates over a multi-DPI virtual desktop, which ADR-v2-146 names as the case absolute coordinates get wrong. Vertical scroll is negated, horizontal is not — both signs are documented by Microsoft |
+
+**Neither backend has ever run on its own OS.** No Mac and no Windows machine exists in
+this project's CI or on the maintainer's desk, so every native call in both is written from
+vendor documentation and verified only against a fake. `SendInput` in particular returns the
+count of events it *inserted*, which UIPI can discard afterwards, so a full return count is
+treated as "Windows accepted this" and never as "the pointer moved". Both module docstrings
+say so, and the live-smoke evidence `design/specs/eye-pointer-output.md` asks for is still
+outstanding for both.
 
 ### `src/yazses/stt/`
 

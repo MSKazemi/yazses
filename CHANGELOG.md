@@ -6,6 +6,54 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — macOS and Windows pointer output, with the capabilities each can honestly claim
+
+The `PointerSink` boundary (ADR-v2-146) now has its macOS and Windows backends:
+`platform/macos/pointer.py` posts CoreGraphics `CGEvent` mouse events, and
+`platform/windows/pointer.py` sends Win32 `SendInput` mouse events, reusing the `INPUT`
+structures and `user32` loader the keyboard injector already declared rather than keeping a
+second copy that can drift. Each platform bundle registers its sink as
+`Platform.pointer_factory` — a factory, not an instance, so nothing is constructed and no
+permission is asked until a pointer consumer is enabled. Nothing imports either yet; an
+existing install is unchanged.
+
+Both are two layers: a sink holding the whole contract and knowing nothing about the OS,
+over an injected native-API object holding nothing but the platform calls. So the shared
+contract suite in `tests/pointer_contract.py` runs against the real sink classes on Linux
+CI, and the native layers are driven by a fake Quartz module and a fake `SendInput` — where
+the ctypes struct packing, the flags and the two's-complement wheel delta are genuinely
+exercised, because ctypes works on every OS.
+
+Two capabilities are reported **absent on purpose**, which is the difference between an
+honest backend and one that guesses:
+
+- **macOS horizontal scroll.** Apple documents no sign for scroll axis 2, third-party
+  implementations disagree about whether a positive value scrolls left or right, and some
+  tie it to the user's "natural scrolling" preference. An inverted horizontal scroll makes a
+  head-driven pointer fight its user, so the axis raises `PointerUnsupportedError` until
+  somebody with a Mac verifies the sign.
+- **Windows absolute motion.** `MOUSEEVENTF_ABSOLUTE` takes coordinates normalised to
+  0-65535 over a virtual desktop whose monitors can each have their own DPI — exactly the
+  case ADR-v2-146 names as easy to get wrong. Relative motion, which Head-Pointer needs, is
+  unaffected.
+
+The scroll signs that *are* supported cross the boundary unchanged (`+dy` scrolls down,
+`+dx` scrolls right) and each backend negates inside itself where its native axis runs the
+other way, with a test asserting the negation reaches the native call. Sub-pixel deltas go
+through a new pure `pointer/subpixel.py`: a head pose produces fractions of a pixel per
+frame, and rounding each call on its own would move the pointer for a fast turn and not at
+all for a slow, deliberate one. A taken step is spent, so a motion whose platform call fails
+is lost rather than folded into the next one — ADR-v2-146's "never repeat a stale command",
+in arithmetic.
+
+**Neither backend has ever run on its own operating system.** Every native call in both is
+written from vendor documentation and verified only against a fake; no Mac and no Windows
+machine exists in this project's CI. `SendInput` makes that worse than usual by reporting
+the number of events it *inserted into the input stream*, which UIPI can silently discard
+afterwards — so a full return count is treated as "Windows accepted this", never as "the
+pointer moved". Both module docstrings say so, and the live-smoke evidence
+`design/specs/eye-pointer-output.md` asks for is still outstanding for both. (#402)
+
 ### Added — one versioned envelope for every eye-control evaluation result
 
 Eye/camera evaluation results will arrive from CI, from replayed synthetic traces, from
