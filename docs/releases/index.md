@@ -23,12 +23,12 @@ software itself runs on.
 
 ## Current stable
 
-**[YazSes 2.40.0](v2.40.0.md)** — the tool that said yes and did nothing. On Debian and
-Ubuntu Wayland, dictation was recognised and then typed nothing at all: ydotool 1.x and
-ydotool 0.1.x are different command-line tools wearing the same name, Debian and Ubuntu
-ship 0.1.x, and it **exits 0 when it refuses a command** — so the failure never raised,
-never fell back to the clipboard, and never reached a log. Also: Windows can now paste
-instead of typing for applications that mangle synthesised Unicode.
+**[YazSes 2.40.1](v2.40.1.md)** — hold the key we actually listen for. The first line
+every installer printed, and the `Description:` field of every published `.deb`, told a
+new user to hold **Space**. Holding Space does nothing: `[hotkey] key` defaults to
+`auto`, which is **Right Alt** on Linux, so the first thing anyone did after installing
+produced silence with no error to explain it. Also: Wayland's default injector no longer
+silently drops accented and non-Latin characters.
 Install it with:
 
 ```sh
@@ -38,6 +38,7 @@ pipx upgrade yazses          # upgrade an existing install
 
 ### Recent stable releases
 
+- [v2.40.1](v2.40.1.md) — hold the key we actually listen for: the APT and pipx installers, the `.deb` description apt shows before you install, the GitHub release body and the Russian and Hindi home pages all opened by telling a new user to hold `Space`, which does nothing — the default is `auto`, and `auto` is Right Alt on Linux; a test now derives each platform's default from the source and scans every user-facing file. Plus: Wayland's default `ydotool` injector silently dropped every accented and non-Latin character (#329), and a batch of packaging and documentation corrections — the Fedora spec four releases behind, install pages naming channels that serve something else, and two installers the support page denied had shipped.
 - [v2.40.0](v2.40.0.md) — the tool that said yes and did nothing: on Debian and Ubuntu Wayland every dictation was transcribed and then typed nothing, because ydotool 0.1.x is a different CLI from the 1.x we spoke and exits 0 when it refuses a command — so `check=True` never raised, the clipboard fallback never fired, and `doctor` said "Good to go"; reachable only since v2.39.0, whose correct socket fix made ydotool selectable there for the first time. Plus a Windows clipboard injection backend, and `[injection] backend` finally honoured on Windows.
 - [v2.39.1](v2.39.1.md) — the guard that ate your dictation: the hallucination guard deleted ordinary emphatic repetition ("no no no", "okay okay okay") because its loop rule flagged a single word repeated three times, and said nothing at all when it did — five of seven consecutive dictations lost at twenty times the VAD threshold; every Wayland start demanded a `ydotoold` that was already installed, enabled and running, a warning that fired 100% of the time and could never clear.
 - [v2.39.0](v2.39.0.md) — the sharing icon you never agreed to: `yazses setup` could not deliver the ydotool path it recommended (missing `ydotoold` package, no udev rule, wrong socket path — a 726-restart crash loop), so the desktop portal became the Wayland default unasked; it is now offered rather than taken, releases its session when idle, and one backend registry replaces five drifting copies.
