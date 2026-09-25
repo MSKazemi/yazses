@@ -23,6 +23,16 @@ reason the token is written to disk here.
 
 Everything heavy is imported lazily and every failure is contained: this sits on
 the dictation hot path, and an injector that raises loses the user's words.
+
+**The pointer lives here too, in the same session (ADR-v2-146, rule 6).** The
+`RemoteDesktop` interface that types is also the one that moves the pointer, and a
+pointer-only client would mean a second consent dialog, a second restore token and two
+sessions competing for the same compositor grant. So `PortalPointerSink` at the bottom of
+this file is a `yazses.pointer.base.PointerSink` over the very session object the injector
+already holds — `PortalInjector.pointer_sink()` is the whole wiring — and POINTER is added
+to the *one* `SelectDevices` call, only when a pointer consumer has asked for it. The
+sink is here rather than under `src/yazses/pointer/` because that package is a pure,
+dependency-free boundary: it may not import this module, D-Bus, or anything else.
 """
 
 from __future__ import annotations
@@ -32,10 +42,24 @@ import os
 import threading
 import time
 import uuid
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
 from yazses.inject.keysyms import char_to_keysym, name_to_keysym, parse_combo
+from yazses.pointer.base import (
+    PointerBackendError,
+    PointerButton,
+    PointerCapabilities,
+    PointerError,
+    PointerUnsupportedError,
+    check_finite,
+    require_absolute,
+    require_button,
+    require_relative,
+    require_scroll,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -45,10 +69,58 @@ REMOTE_DESKTOP_IFACE = "org.freedesktop.portal.RemoteDesktop"
 REQUEST_IFACE = "org.freedesktop.portal.Request"
 
 DEVICE_KEYBOARD = 1
+DEVICE_POINTER = 2
 PERSIST_UNTIL_REVOKED = 2
 
 KEY_RELEASED = 0
 KEY_PRESSED = 1
+
+BUTTON_RELEASED = 0
+BUTTON_PRESSED = 1
+
+# `NotifyPointerButton` takes a **Linux evdev button code**, not an X11 button number:
+# the portal spec says so outright, and the two disagree on everything but left. X11
+# numbers middle 2 and right 3; evdev has BTN_LEFT/RIGHT/MIDDLE adjacent from 0x110, so
+# sending the X11 numbering would land a right-click on the middle button and a middle
+# click on something no toolkit listens to.
+BTN_LEFT = 0x110
+BTN_RIGHT = 0x111
+BTN_MIDDLE = 0x112
+
+#: The evdev code each :class:`PointerButton` becomes on the wire.
+POINTER_BUTTON_CODES = {
+    PointerButton.LEFT: BTN_LEFT,
+    PointerButton.RIGHT: BTN_RIGHT,
+    PointerButton.MIDDLE: BTN_MIDDLE,
+}
+
+#: What the portal pointer path can do, and the one thing it cannot.
+#:
+#: Relative motion, all three buttons and both axes come with the POINTER device: the
+#: interface defines `NotifyPointerMotion`, `NotifyPointerButton` and `NotifyPointerAxis`
+#: unconditionally, and the compositor grants or refuses the device as a whole rather than
+#: per method. Whether it granted it at all is *discovered*, not assumed — see
+#: `_PortalSession.pointer_granted`, which reads the device mask out of the `Start`
+#: response, and `open_pointer_sink`, which refuses to build a sink without it.
+#:
+#: Absolute motion is structurally absent. `NotifyPointerMotionAbsolute` takes a
+#: ScreenCast **stream** node id as well as x/y, so it can only address a screen this
+#: session is already capturing; YazSes never touches the ScreenCast portal, and asking
+#: for a stream to do arithmetic on would turn a keyboard grant into real screen capture
+#: and make the consent copy a lie. So it is an honest `PointerUnsupportedError`, which is
+#: exactly the case ADR-v2-146 made `capabilities()` optional-aware for.
+#:
+#: Scroll axis signs need no conversion: the portal inherits Wayland's convention, where a
+#: positive vertical value scrolls **down** and a positive horizontal one **right**. That
+#: is already the boundary's convention, so the sign passes through untouched.
+PORTAL_POINTER_CAPABILITIES = PointerCapabilities(
+    backend="portal",
+    relative_motion=True,
+    absolute_motion=False,
+    buttons=frozenset(POINTER_BUTTON_CODES),
+    scroll_vertical=True,
+    scroll_horizontal=True,
+)
 
 TOKEN_FILENAME = "portal_remote_desktop_token"
 
@@ -129,7 +201,9 @@ def write_token(token: str) -> None:
         logger.debug("could not persist portal restore token: %s", exc)
 
 
-def consent_explanation(*, can_avoid: bool = True) -> tuple[str, str]:
+def consent_explanation(
+    *, can_avoid: bool = True, wants_pointer: bool = False
+) -> tuple[str, str]:
     """What YazSes says *before* the desktop raises its permission dialog.
 
     The dialog GNOME and KDE raise for this portal is titled **"Remote Desktop"**
@@ -146,14 +220,35 @@ def consent_explanation(*, can_avoid: bool = True) -> tuple[str, str]:
     dialog then arrives as the expected second step rather than an ambush.
 
     Every claim in the copy is checked against what the client actually requests:
-    `SelectDevices` asks for ``DEVICE_KEYBOARD`` and never ``DEVICE_POINTER``,
-    the ScreenCast portal is never touched, the calls are session-bus D-Bus with
-    no outbound primitive, and ``persist_mode=2`` is what makes "once" true.
+    `SelectDevices` asks for ``DEVICE_KEYBOARD`` -- and ``DEVICE_POINTER`` too, but
+    only when a pointer consumer asked for it, which is what ``wants_pointer``
+    selects the honest wording for -- the ScreenCast portal is never touched, the
+    calls are session-bus D-Bus with no outbound primitive, and ``persist_mode=2``
+    is what makes "once" true.
+
+    ``wants_pointer`` must follow the request, not the feature's intentions: telling a
+    privacy-minded user "no mouse" while the same `SelectDevices` asks for the pointer
+    is the one mistake this whole function exists to prevent, and it would be found by
+    nobody, because the dialog looks identical either way.
 
     ``can_avoid`` is False where `yazses setup` cannot provision the machine --
     a strictly confined snap, which has no package manager and cannot install
     ``ydotoold``. Advice that cannot work there is worse than no advice.
     """
+    if wants_pointer:
+        # Same shape as the keyboard-only copy: reassurance first (GNOME collapses the
+        # rest), the dialog's own wording explained second, and under the 256 characters
+        # a Windows balloon silently drops a notification for. `yazses setup` is not
+        # offered here -- ydotoold would remove the *typing* prompt, and a pointer
+        # consumer needs this session anyway, so the advice would not work.
+        title = 'Approve "Remote Desktop" so YazSes can type and move the pointer'
+        body = (
+            "YazSes asks for the keyboard and the pointer: no screen capture, "
+            'nothing sent anywhere. Your desktop calls it "Remote Desktop": Wayland\'s '
+            "only way to type and move the pointer. Approve once; it is remembered."
+        )
+        return title, body
+
     title = 'Approve "Remote Desktop" so YazSes can type'
     # The reassurance leads. GNOME collapses a long body to its first line or
     # two until the user expands it, and "no screen capture" is the clause that
@@ -241,8 +336,39 @@ class _PortalSession:
         #: Monotonic stamp of the last keystroke, for idle release. `None` means the
         #: session has never been used since it was opened.
         self._last_used: float | None = None
+        #: How many live pointer sinks want POINTER in this session. Zero is the whole
+        #: of ADR-v2-146 rule 7: with no consumer, `SelectDevices` asks for the keyboard
+        #: alone and a dictation-only install is byte-identical to before.
+        self._pointer_consumers = 0
+        #: Whether the compositor actually granted POINTER, read from `Start`. Never
+        #: inferred from having asked.
+        self._pointer_granted = False
+        #: Bumped on every close, so a pointer sink can tell "the session I was granted
+        #: on" from "a session that has since been re-negotiated behind my back".
+        self._generation = 0
 
     # -- plumbing ---------------------------------------------------------
+
+    @property
+    def generation(self) -> int:
+        """Increments each time the session is closed. Identifies one grant."""
+        return self._generation
+
+    @property
+    def pointer_granted(self) -> bool:
+        """True only if a started session's `Start` response listed a pointer device."""
+        return self._pointer_granted
+
+    def _open_connection(self) -> Any:
+        """Open the session bus. The single seam a test replaces the D-Bus layer at."""
+        try:
+            from jeepney.io.blocking import open_dbus_connection
+        except Exception as exc:
+            raise PortalUnavailable(
+                "the `jeepney` D-Bus library is not installed, so the "
+                "RemoteDesktop portal cannot be reached"
+            ) from exc
+        return open_dbus_connection(bus="SESSION")
 
     def _sender_token(self) -> str:
         """The bus-name fragment the portal builds Request object paths from."""
@@ -323,15 +449,31 @@ class _PortalSession:
             self._lock.release()
 
     def _start_locked(self, start_timeout: float = START_TIMEOUT_S) -> None:
-        try:
-            from jeepney.io.blocking import open_dbus_connection
-        except Exception as exc:
-            raise PortalUnavailable(
-                "the `jeepney` D-Bus library is not installed, so the "
-                "RemoteDesktop portal cannot be reached"
-            ) from exc
+        """Negotiate, or leave nothing behind. Runs with the lock already held.
 
-        self._conn = open_dbus_connection(bus="SESSION")
+        The rollback is not tidiness. `CreateSession` succeeds before the consent dialog
+        is ever raised, so a user who clicks Cancel used to leave `_session_handle` set on
+        a session that was never started -- and `ensure_started` returns early on a
+        non-empty handle, so every later keystroke was notified at a session the
+        compositor had not authorised. Nothing raised, nothing was typed: precisely the
+        failure shape that hid a dead Wayland injection path here for a year. A
+        negotiation that did not finish must look exactly like one that never began.
+        """
+        try:
+            self._negotiate_locked(start_timeout)
+        except Exception:
+            self._session_handle = ""
+            self._pointer_granted = False
+            conn, self._conn = self._conn, None
+            if conn is not None:
+                try:
+                    conn.close()
+                except Exception:  # noqa: BLE001 - the failure being handled is the news
+                    pass
+            raise
+
+    def _negotiate_locked(self, start_timeout: float) -> None:
+        self._conn = self._open_connection()
 
         session_token = f"yazses{uuid.uuid4().hex[:16]}"
         results = self._call_with_response(
@@ -347,8 +489,15 @@ class _PortalSession:
             raise PortalUnavailable("the portal created no session handle")
         self._session_handle = str(session_handle)
 
+        # One SelectDevices for both capabilities. POINTER joins the mask only while a
+        # sink is asking for it, so nothing changes for a dictation-only install -- and
+        # when it is asking, it rides the *same* request, the same dialog and the same
+        # restore token rather than a second negotiation (ADR-v2-146, rule 6).
+        types = DEVICE_KEYBOARD
+        if self._pointer_consumers:
+            types |= DEVICE_POINTER
         select: dict = {
-            "types": ("u", DEVICE_KEYBOARD),
+            "types": ("u", types),
             "persist_mode": ("u", PERSIST_UNTIL_REVOKED),
         }
         saved = read_token()
@@ -371,11 +520,62 @@ class _PortalSession:
         if token_value:
             write_token(str(token_value))
 
+        # What was *granted*, not what was asked for. The compositor answers with the
+        # device mask it actually gave, and the portals differ: a build with no pointer
+        # support, or a user who narrowed the grant, returns keyboard alone. Having asked
+        # proves nothing -- a method call that succeeds while nothing moves is the exact
+        # shape of failure that hid a broken injection path here for a year -- so the
+        # pointer is considered available only on the compositor's own say-so, and an
+        # answer that omits the key is read as "not granted" rather than as consent.
+        devices = started.get("devices")
+        devices_value = devices[1] if isinstance(devices, tuple) else devices
+        self._pointer_granted = bool(
+            self._pointer_consumers
+            and isinstance(devices_value, int)
+            and int(devices_value) & DEVICE_POINTER
+        )
+
+    def request_pointer(self) -> None:
+        """Register a pointer consumer, so the next negotiation asks for POINTER too.
+
+        Must be called **before** the session is negotiated. Raises
+        :class:`PortalUnavailable` when the session is already running on a
+        keyboard-only grant: the portal has no way to widen a started session, and the
+        alternatives are both worse than saying so. Tearing the session down to ask
+        again would raise a second consent dialog -- mid-sentence, for a user who may be
+        dictating -- and re-prompting is what ADR-v2-146 rejected "one session per
+        capability" to avoid; continuing without the device would be the silent no-op the
+        pointer boundary forbids. So the caller is told, and a daemon restart with the
+        pointer consumer already enabled gets one dialog and one session.
+        """
+        with self._lock:
+            if self._session_handle and not self._pointer_granted:
+                raise PortalUnavailable(
+                    "the RemoteDesktop session is already running for the keyboard "
+                    "alone, and the portal cannot add the pointer to a started "
+                    "session; restart YazSes with the pointer feature enabled so the "
+                    "one permission dialog covers both"
+                )
+            self._pointer_consumers += 1
+
+    def release_pointer(self) -> None:
+        """Drop one pointer consumer. Never raises; the count floors at zero.
+
+        The grant on the *running* session is left alone -- revoking it would mean
+        re-negotiating, i.e. another dialog -- but once the count is back to zero any
+        later negotiation asks for the keyboard alone again.
+        """
+        with self._lock:
+            if self._pointer_consumers > 0:
+                self._pointer_consumers -= 1
+
     def close(self) -> None:
         """Drop the session. Never raises -- called from shutdown paths."""
         with self._lock:
             self._session_handle = ""
             self._last_used = None
+            self._pointer_granted = False
+            self._generation += 1
             conn, self._conn = self._conn, None
         if conn is not None:
             try:
@@ -414,19 +614,55 @@ class _PortalSession:
         self.close()
         return True
 
-    def notify_keysym(self, keysym: int, state: int) -> None:
+    def _send_notify(self, member: str, signature: str, body: tuple) -> None:
+        """Fire one `Notify*` method at the portal. No reply is asked for or waited on.
+
+        Every input event -- key, motion, button, axis -- leaves through here, which is
+        also the seam the tests replace: a fake records `(member, signature, body)` and
+        CI needs no bus, no compositor and no consent dialog.
+
+        Worth naming what this cannot tell you: the portal's `Notify*` methods are
+        fire-and-forget, so a send that raises nothing is **not** evidence that anything
+        moved. A compositor that dropped the event and a compositor that acted on it look
+        identical from this line.
+        """
         from jeepney import DBusAddress, new_method_call
 
         addr = DBusAddress(
             PORTAL_PATH, bus_name=PORTAL_BUS, interface=REMOTE_DESKTOP_IFACE
         )
-        msg = new_method_call(
-            addr,
+        self._conn.send(new_method_call(addr, member, signature, body))
+
+    def notify_keysym(self, keysym: int, state: int) -> None:
+        self._send_notify(
             "NotifyKeyboardKeysym",
             "oa{sv}iu",
             (self._session_handle, {}, int(keysym), int(state)),
         )
-        self._conn.send(msg)
+
+    def notify_pointer_motion(self, dx: float, dy: float) -> None:
+        """Move the pointer by a delta. ``+dx`` is right, ``+dy`` is down."""
+        self._send_notify(
+            "NotifyPointerMotion",
+            "oa{sv}dd",
+            (self._session_handle, {}, float(dx), float(dy)),
+        )
+
+    def notify_pointer_button(self, button_code: int, state: int) -> None:
+        """Press (``BUTTON_PRESSED``) or release an **evdev** button code."""
+        self._send_notify(
+            "NotifyPointerButton",
+            "oa{sv}iu",
+            (self._session_handle, {}, int(button_code), int(state)),
+        )
+
+    def notify_pointer_axis(self, dx: float, dy: float) -> None:
+        """Scroll by a delta, in the portal's own axis signs: ``+dy`` is down."""
+        self._send_notify(
+            "NotifyPointerAxis",
+            "oa{sv}dd",
+            (self._session_handle, {}, float(dx), float(dy)),
+        )
 
     def tap(self, keysym: int, delay: float) -> None:
         """Press and release one keysym."""
@@ -521,15 +757,202 @@ class PortalInjector:
             for mod in reversed(mods):
                 session.notify_keysym(mod, KEY_RELEASED)
 
+    def pointer_sink(
+        self, *, start_timeout: float = START_TIMEOUT_S
+    ) -> PortalPointerSink:
+        """A `PointerSink` on **this injector's own session** -- never a second one.
+
+        The one call a pointer consumer makes on Wayland. It hands
+        `open_pointer_sink` the `_PortalSession` this injector already types through, so
+        the pointer rides the session, the dialog and the restore token that dictation
+        negotiated instead of opening a rival client on the same bus.
+        """
+        return open_pointer_sink(self._session, start_timeout=start_timeout)
+
     def close(self) -> None:
         self._session.close()
 
 
+@contextmanager
+def _as_pointer_error(what: str) -> Iterator[None]:
+    """Translate a D-Bus failure into the pointer boundary's vocabulary.
+
+    A dead bus, a closed connection, a serialisation refusal -- all of them mean "the
+    platform failed this operation", which is :class:`PointerBackendError` and not
+    :class:`PointerUnsupportedError`: the caller may retry, and the status surface should
+    say the compositor went away rather than that this desktop has no pointer.
+    """
+    try:
+        yield
+    except PointerError:
+        raise
+    except Exception as exc:  # noqa: BLE001 - jeepney raises bare Exceptions
+        raise PointerBackendError(f"the portal failed to {what}: {exc}") from exc
+
+
+class PortalPointerSink:
+    """``PointerSink`` over the RemoteDesktop session that already types.
+
+    Constructed only by `open_pointer_sink`, which is what guarantees the two things a
+    caller cannot check for itself: the session is *started* (so no event is ever sent
+    before the user has answered the dialog) and the compositor actually *granted* the
+    pointer device (so an ungranted desktop gets an error at open time rather than a
+    pointer that never moves).
+
+    It does not own the session. `close()` gives the pointer capability back and leaves
+    dictation typing -- the session belongs to the injector, and a sink that tore it down
+    would end the user's ability to type in order to tidy up after itself.
+    """
+
+    backend_name = "portal"
+
+    def __init__(self, session: _PortalSession) -> None:
+        self._session = session
+        self._generation = session.generation
+        self._closed = False
+
+    # -- the protocol ------------------------------------------------------
+
+    def capabilities(self) -> PointerCapabilities:
+        return PORTAL_POINTER_CAPABILITIES
+
+    def move_relative(self, dx: float, dy: float) -> None:
+        check_finite(dx=dx, dy=dy)
+        require_relative(PORTAL_POINTER_CAPABILITIES)
+        session = self._live()
+        with _as_pointer_error("move the pointer"):
+            session.notify_pointer_motion(dx, dy)
+
+    def move_absolute(self, x: float, y: float) -> None:
+        """Always :class:`PointerUnsupportedError` on this backend.
+
+        `NotifyPointerMotionAbsolute` addresses a position *within a ScreenCast stream*,
+        and this session captures no screen. See `PORTAL_POINTER_CAPABILITIES` for why
+        acquiring one to move a pointer would be the wrong trade.
+        """
+        require_absolute(PORTAL_POINTER_CAPABILITIES)
+
+    def click(self, button: PointerButton = PointerButton.LEFT) -> None:
+        require_button(PORTAL_POINTER_CAPABILITIES, button)
+        code = POINTER_BUTTON_CODES[button]
+        session = self._live()
+        pressed = False
+        with _as_pointer_error(f"click the {button.value} button"):
+            try:
+                session.notify_pointer_button(code, BUTTON_PRESSED)
+                pressed = True
+                session.notify_pointer_button(code, BUTTON_RELEASED)
+                pressed = False
+            finally:
+                if pressed:
+                    # A button held down because the release failed is the worst
+                    # outcome available here: the desktop is now dragging, and the user
+                    # this feature exists for may have no other pointer to stop it with.
+                    # One best-effort release, and the original failure still surfaces.
+                    try:
+                        session.notify_pointer_button(code, BUTTON_RELEASED)
+                    except Exception:  # noqa: BLE001 - nothing better is available
+                        logger.warning(
+                            "portal pointer: %s button may be left pressed -- the "
+                            "release could not be sent",
+                            button.value,
+                        )
+
+    def scroll(self, dx: float, dy: float) -> None:
+        """Scroll by ``(dx, dy)``; signs reach the portal unchanged (``+dy`` is down)."""
+        check_finite(dx=dx, dy=dy)
+        require_scroll(PORTAL_POINTER_CAPABILITIES, dx, dy)
+        session = self._live()
+        with _as_pointer_error("scroll"):
+            session.notify_pointer_axis(dx, dy)
+
+    def close(self) -> None:
+        """Give the pointer capability back. Idempotent; the session stays open."""
+        if self._closed:
+            return
+        self._closed = True
+        try:
+            self._session.release_pointer()
+        except Exception:  # noqa: BLE001 - cleanup must not raise on top of a failure
+            logger.debug("portal pointer: releasing the capability failed", exc_info=True)
+
+    # -- internals ---------------------------------------------------------
+
+    def _live(self) -> _PortalSession:
+        """The session this sink was granted on, or an explicit error.
+
+        Checked before every operation because a grant does not outlive the session it
+        was made on: the idle reaper closes the session after a quiet spell, and
+        `PortalInjector.close()` closes it at shutdown. Silently re-negotiating would raise a consent dialog in the middle of
+        a gesture, so a sink whose grant is gone says so and the caller opens a new one.
+        """
+        if self._closed:
+            raise PointerBackendError("this portal pointer sink is closed")
+        session = self._session
+        if session.generation != self._generation or not session.pointer_granted:
+            raise PointerBackendError(
+                "the RemoteDesktop session this pointer sink was granted on has been "
+                "closed (idle release, or shutdown); open a new sink rather than "
+                "re-prompting for consent mid-gesture"
+            )
+        # Pointer use is use: without this the idle reaper would close the session out
+        # from under a user who is moving the pointer but not dictating.
+        session.touch()
+        return session
+
+
+def open_pointer_sink(
+    session: _PortalSession, *, start_timeout: float = START_TIMEOUT_S
+) -> PortalPointerSink:
+    """Add the pointer to an existing RemoteDesktop *session* and return a sink.
+
+    The order is the contract. `request_pointer` first, so POINTER is in the very
+    `SelectDevices` the session negotiates with; `ensure_started` second, so the dialog
+    is answered before any event could be sent; the granted-device check third, so a
+    compositor that gave only the keyboard produces an error instead of a sink that
+    sends into the void.
+
+    The budget defaults to the generous `START_TIMEOUT_S` rather than the dictation hot
+    path's five seconds: enabling a pointer feature is a deliberate act, and the dialog
+    it raises has to be found and clicked by a human.
+
+    Raises :class:`~yazses.pointer.base.PointerUnsupportedError` when this desktop has no
+    portal pointer to give, and :class:`~yazses.pointer.base.PointerBackendError` when it
+    has one but this attempt failed -- a cancelled dialog, a session already running
+    keyboard-only, a bus that is not there.
+    """
+    try:
+        session.request_pointer()
+    except PortalUnavailable as exc:
+        raise PointerBackendError(str(exc)) from exc
+
+    try:
+        session.ensure_started(start_timeout)
+    except Exception as exc:  # noqa: BLE001 - every failure means "no pointer today"
+        session.release_pointer()
+        raise PointerBackendError(
+            f"the RemoteDesktop portal session could not be started: {exc}"
+        ) from exc
+
+    if not session.pointer_granted:
+        session.release_pointer()
+        raise PointerUnsupportedError(
+            "the RemoteDesktop portal did not grant a pointer device for this session, "
+            "so this compositor offers no portal pointer output (dictation is "
+            "unaffected)"
+        )
+    return PortalPointerSink(session)
+
+
 __all__ = [
+    "PORTAL_POINTER_CAPABILITIES",
+    "POINTER_BUTTON_CODES",
     "PortalInjector",
+    "PortalPointerSink",
     "PortalUnavailable",
     "consent_explanation",
     "key_delay",
+    "open_pointer_sink",
     "portal_available",
     "read_token",
     "token_path",

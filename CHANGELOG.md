@@ -6,6 +6,48 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — the Wayland pointer rides the RemoteDesktop session that already types
+
+`PortalPointerSink` in `src/yazses/inject/portal.py` is the `PointerSink` (ADR-v2-146)
+for Wayland, and the whole point is where it lives: the session it moves the pointer
+through is the *same* `_PortalSession` object dictation types through.
+`PortalInjector.pointer_sink()` hands it that session, `POINTER` joins the one
+`SelectDevices` call the session already makes, and a pointer consumer therefore costs
+no second consent dialog, no second restore token and no second grant to compete with
+the first. A dictation-only install is byte-identical to before: `POINTER` is in the
+mask only while a sink is open.
+
+What it can do is discovered, not assumed. The `Start` response's device mask says
+whether the compositor really granted a pointer, and `open_pointer_sink` refuses to
+build a sink without it — a keyboard-only grant, or a portal that does not report the
+mask, raises `PointerUnsupportedError` rather than returning a sink whose events go
+nowhere. Relative motion, left/right/middle (evdev button codes, not X11 numbering) and
+both scroll axes work, with scroll signs passed through unchanged because the portal
+already uses Wayland's "+dy is down". Absolute motion is an explicit
+`PointerUnsupportedError`: `NotifyPointerMotionAbsolute` addresses a position inside a
+ScreenCast stream, and acquiring a screen-capture stream in order to move a pointer
+would make this module's own consent copy untrue.
+
+Two honesty notes, because the alternative is discovering them on a user's desktop.
+`consent_explanation(wants_pointer=True)` exists so the dialog is never preceded by
+"no mouse" while `SelectDevices` asks for the pointer. And the portal's `Notify*`
+methods are fire-and-forget: the tests prove the right method with the right signature
+and values, at the right moment and never before consent, but no test — and no return
+value — can prove the pointer moved. This path has **not** run against a real
+compositor; the live smoke report `design/eye-control/TEST_PLAN.md` asks for is still
+outstanding.
+
+### Fixed — a cancelled portal dialog left a session that reported itself started
+
+`CreateSession` completes before the permission dialog is raised, so a user who clicked
+Cancel left `_session_handle` set on a session the compositor never started — and
+`ensure_started` returns early on a non-empty handle, so from then on every keystroke
+was notified at an unauthorised session. Nothing raised and nothing was typed, which is
+the same failure shape as the `ydotool 0.1.8` dialect that printed an error and exited
+0. A negotiation that does not finish now leaves nothing behind: the handle is cleared
+and the connection closed, so the next attempt really negotiates. Found while adding
+the pointer capability; it affected the keyboard path.
+
 ### Added — one versioned envelope for every eye-control evaluation result
 
 Eye/camera evaluation results will arrive from CI, from replayed synthetic traces, from
