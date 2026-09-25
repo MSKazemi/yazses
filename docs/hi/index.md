@@ -51,7 +51,7 @@ YazSes एक मुफ़्त, ओपन-सोर्स, ऑफलाइन 
 `status`) की asciinema recording है — हर byte वास्तविक command output है, कुछ भी हाथ से टाइप नहीं किया गया। इसे
 [asciinema](https://asciinema.org) के साथ चलाएँ: `asciinema play docs/demo/yazses-cli.cast`।
 
-> 🙌 **Want to help?** **[Start here](https://mskazemi.com/yazses/contribute/start.html)** — one page, pick the row matching what you have, finish in 15–45 minutes. No permission needed and nothing is assigned; coding agents are welcome and there's a copy-paste prompt. **AI tools are optional; you never need to pay for one to contribute.** If you use one, read the [safe agent guide](../contribute/ai-agents.md) first. Several tasks need **no Python at all** — [translate the README](https://github.com/MSKazemi/yazses/issues/18) into your language, [add your microphone](https://github.com/MSKazemi/yazses/issues/21) to the known-good list, or just run it and tell us what happened. [#22](https://github.com/MSKazemi/yazses/issues/22) lists everything open. The test suite is fully offline and takes about 30 seconds, so you need no microphone, model or GPU to contribute.
+> 🙌 **Want to help?** **[Start here](https://mskazemi.com/yazses/contribute/start.html)** — one page, pick the row matching what you have, finish in 15–45 minutes. No permission needed and nothing is assigned; coding agents are welcome and there's a copy-paste prompt. **AI tools are optional; you never need to pay for one to contribute.** If you use one, read the [safe agent guide](../contribute/ai-agents.md) first. Several tasks need **no Python at all** — [translate the README](https://github.com/MSKazemi/yazses/issues/18) into your language, [add your microphone](https://github.com/MSKazemi/yazses/issues/21) to the known-good list, or just run it and tell us what happened. [#22](https://github.com/MSKazemi/yazses/issues/22) lists everything open. The test suite is fully offline, so you need no microphone, model or GPU to contribute — a full run takes minutes rather than seconds, and you can run just the file you touched while you work.
 
 ---
 
@@ -553,8 +553,11 @@ uv run ruff check src tests scripts paper/benchmark   # lint — must be green
 uv run mypy src                  # types — advisory (currently clean; don't add errors)
 ```
 
-Or just `make check`. Tests run fully offline in about 15 seconds — no microphone, model
-download, or optional extras needed.
+Or just `make check`, which runs the same tests plus lint and the hygiene check. Everything
+is fully offline — no microphone, model download, or optional extras needed. It is a large
+suite, so a full run takes minutes rather than seconds; that is normal, not a hang. While
+you work, narrow it to what you changed with `uv run python -m pytest tests/test_foo.py` or
+`-k pattern`.
 
 **No local setup?** The repo ships a [Dev Container](https://github.com/MSKazemi/yazses/blob/main/.devcontainer/devcontainer.json), so
 [opening it in GitHub Codespaces](https://codespaces.new/MSKazemi/yazses) gives you a ready

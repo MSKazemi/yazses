@@ -54,7 +54,7 @@ YazSes — бесплатная оффлайн служба голосовой �
 > ⭐ **Если это кажется вам полезным — поставьте звезду. Так проект найдут другие.** За этим проектом нет компании и
 > рекламного бюджета: всё распространение держится на рекомендациях.
 
-> 🙌 **Хотите помочь?** **[Начните здесь](https://mskazemi.com/yazses/contribute/start.html)** — на одной странице выберите строку, которая подходит вам, и завершите задачу за 15–45 минут. Разрешение не требуется, задачи никому не назначаются; AI-помощники для написания кода приветствуются, а готовый prompt можно просто скопировать. Для нескольких задач **Python вообще не нужен** — [переведите README](https://github.com/MSKazemi/yazses/issues/18) на свой язык, [добавьте свой микрофон](https://github.com/MSKazemi/yazses/issues/21) в список проверенных или просто запустите YazSes и расскажите, что получилось. В [#22](https://github.com/MSKazemi/yazses/issues/22) перечислены все открытые задачи. Набор тестов работает полностью локально и занимает около 30 секунд, поэтому для участия не нужны ни микрофон, ни модель, ни GPU.
+> 🙌 **Хотите помочь?** **[Начните здесь](https://mskazemi.com/yazses/contribute/start.html)** — на одной странице выберите строку, которая подходит вам, и завершите задачу за 15–45 минут. Разрешение не требуется, задачи никому не назначаются; AI-помощники для написания кода приветствуются, а готовый prompt можно просто скопировать. Для нескольких задач **Python вообще не нужен** — [переведите README](https://github.com/MSKazemi/yazses/issues/18) на свой язык, [добавьте свой микрофон](https://github.com/MSKazemi/yazses/issues/21) в список проверенных или просто запустите YazSes и расскажите, что получилось. В [#22](https://github.com/MSKazemi/yazses/issues/22) перечислены все открытые задачи. Набор тестов работает полностью локально, поэтому для участия не нужны ни микрофон, ни модель, ни GPU — полный прогон занимает минуты, а не секунды, и во время работы можно запускать только тот файл, который вы изменили.
 
 ---
 
@@ -578,8 +578,11 @@ uv run ruff check src tests scripts paper/benchmark   # lint — must be green
 uv run mypy src                  # types — advisory (currently clean; don't add errors)
 ```
 
-Or just `make check`. Tests run fully offline in about 30 seconds — no microphone, model
-download, or optional extras needed.
+Or just `make check`, which runs the same tests plus lint and the hygiene check. Everything
+is fully offline — no microphone, model download, or optional extras needed. It is a large
+suite, so a full run takes minutes rather than seconds; that is normal, not a hang. While
+you work, narrow it to what you changed with `uv run python -m pytest tests/test_foo.py` or
+`-k pattern`.
 
 **No local setup?** The repo ships a [Dev Container](https://github.com/MSKazemi/yazses/blob/main/.devcontainer/devcontainer.json), so
 [opening it in GitHub Codespaces](https://codespaces.new/MSKazemi/yazses) gives you a ready

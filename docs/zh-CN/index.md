@@ -214,7 +214,7 @@ yazses verify               # 说一句话，验证整条流水线确实可用
 
 ## 参与贡献
 
-> 🙌 **想帮忙？** **[从这里开始](https://mskazemi.com/yazses/contribute/start.html)** —— 只有一页，找到与你条件匹配的那一行，15–45 分钟即可完成。无需申请许可，也没有任何任务被指派；欢迎使用编程 AI 助手，页面里有可直接复制的提示词。有几项任务**完全不需要 Python** —— [把 README 翻译成你的语言](https://github.com/MSKazemi/yazses/issues/18)、[把你的麦克风](https://github.com/MSKazemi/yazses/issues/21)加入已验证列表，或者只是跑一跑然后告诉我们结果。[#22](https://github.com/MSKazemi/yazses/issues/22) 列出了所有待办事项。测试套件完全离线，约 30 秒跑完，所以你不需要麦克风、模型或 GPU 就能参与贡献。
+> 🙌 **想帮忙？** **[从这里开始](https://mskazemi.com/yazses/contribute/start.html)** —— 只有一页，找到与你条件匹配的那一行，15–45 分钟即可完成。无需申请许可，也没有任何任务被指派；欢迎使用编程 AI 助手，页面里有可直接复制的提示词。有几项任务**完全不需要 Python** —— [把 README 翻译成你的语言](https://github.com/MSKazemi/yazses/issues/18)、[把你的麦克风](https://github.com/MSKazemi/yazses/issues/21)加入已验证列表，或者只是跑一跑然后告诉我们结果。[#22](https://github.com/MSKazemi/yazses/issues/22) 列出了所有待办事项。测试套件完全离线，所以你不需要麦克风、模型或 GPU 就能参与贡献 —— 完整跑一遍需要几分钟而不是几秒，平时只跑你改动的那个文件即可。
 
 **中文相关的改进尤其欢迎** —— 无论是这份翻译的措辞、中文识别的实测数据，还是词汇表与标点处理。
 

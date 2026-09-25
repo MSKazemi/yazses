@@ -55,8 +55,11 @@ uv run python -m pytest tests/ -v
 
     **macOS and Windows need none of this** — every dependency there ships a prebuilt wheel.
 
-**You do not need a microphone, a Whisper model, or a GPU.** The test suite is fully offline,
-mocks the audio and model layers, and runs in about 30 seconds.
+**You do not need a microphone, a Whisper model, or a GPU.** The test suite is fully offline
+and mocks the audio and model layers. It is large, so a full run takes minutes rather than
+seconds — that is expected, not a hang. While you work, run just the file you changed
+(`uv run python -m pytest tests/test_foo.py`) or narrow with `-k pattern`, and leave the full
+run for before you push.
 
 `ruff` and `pytest` are the gates that must be green; `mypy` is advisory. If you changed a CLI
 command, flag or config key, run `uv run python scripts/gen-docs.py` or the doc-sync test will

@@ -54,8 +54,10 @@ jobs:
             If you ever fancy sending a change, there is **nothing to sign** — no CLA, no
             sign-off line. Opening the pull request is the whole contract. The
             [`browser-only`](https://github.com/MSKazemi/yazses/issues?q=is%3Aopen+label%3Abrowser-only)
-            tasks need no clone and no Python at all, and the test suite is fully offline
-            and runs in about 30 seconds.
+            tasks need no clone and no Python at all, and the test suite is fully offline —
+            no microphone, model or GPU needed. A full run takes minutes rather than
+            seconds, so it is not hung; while you work you can run just the file you
+            touched.
           pr_message: >
             🎉 Thanks for your first pull request to YazSes — that is a real contribution
             and it is appreciated.

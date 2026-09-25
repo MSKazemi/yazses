@@ -59,7 +59,10 @@ validation and deployment have different permission boundaries.
 
 **pytest and ruff must pass** — if they are green locally, CI will be green. You do **not**
 need a working microphone, a Whisper model, or the optional extras to contribute: the test
-suite is fully offline and mocks the audio and model layers, and runs in about 30 seconds.
+suite is fully offline and mocks the audio and model layers. It is large, so a full run takes
+minutes rather than seconds — that is expected, not a hang. While you work, narrow it to the
+file you changed (`uv run python -m pytest tests/test_foo.py`, or `-k pattern`) and leave the
+full run for before you push.
 
 **mypy is clean and advisory.** `uv run mypy src` currently reports **no issues across 433
 source files**, so if you see an error, you almost certainly just introduced it. It is not
