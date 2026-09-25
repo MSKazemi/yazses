@@ -3551,6 +3551,7 @@ def status(
     """Show daemon status. Queries the daemon over IPC when reachable."""
     import json as _json
 
+    from yazses.handsfree.observability import render_status_lines as render_handsfree_lines
     from yazses.stt.latency import render_status_lines
 
     platform = get_platform()
@@ -3613,6 +3614,13 @@ def status(
     # mean something, and absent on an older daemon that does not send the field.
     for outcome_line in describe_outcomes(info.get("outcomes")):
         typer.echo(outcome_line)
+    # Hands-free health (#416) — camera perception, head tracking, the face switch, the
+    # pointer backend and the one active/paused/faulted state. Absent on an install with
+    # no camera capability enabled, and absent on a daemon too old to send the field:
+    # a `status` that errors against a running daemon is worse than a missing line.
+    # Names, states, ages and counts only; no sample value can reach here.
+    for handsfree_line in render_handsfree_lines(info.get("handsfree")):
+        typer.echo(handsfree_line)
     if info.get("silent_streak"):
         typer.echo(
             f"  ⚠ mic:    {info['silent_streak']} silent clips in a row — "

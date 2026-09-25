@@ -5121,7 +5121,78 @@ class Daemon:
                 "notifications": (
                     self._drain_notifications() if consume else self._peek_notifications()
                 ),
+                # Hands-free health (#416) — `None` for anybody who has not enabled a
+                # camera capability, which is the shipped default, and every reader treats
+                # it as "nothing to report".
+                #
+                # A literal key with a null value rather than a key added conditionally
+                # afterwards, and the difference is not cosmetic:
+                # `tests/test_report_redacts_the_daemon_block.py` walks this function's
+                # AST for the dict it *returns* and classifies every literal key in it as
+                # machine fact or user prose. Assembling the payload into a local and
+                # returning that found six keys instead of thirty-seven and quietly
+                # switched a privacy guard off.
+                "handsfree": self._handsfree_payload(),
             }
+
+    def _handsfree_payload(self) -> dict[str, object] | None:
+        """Privacy-safe hands-free health for `yazses status`. Caller holds ``self._lock``.
+
+        Names, states, ages and counts — never a gaze coordinate, head angle, blendshape
+        score or landmark. `handsfree/observability.py` is where that is enforced: its facts
+        record has nowhere to put one.
+
+        Two things this must not do, because `status` is polled continuously by the tray and
+        the overlay: no disk read and no subprocess. That is why the calibration check and
+        the camera-permission probe are `doctor`'s job and are reported as *not determined*
+        here rather than guessed at — the alternative is a monitor query on every poll.
+
+        What the daemon uniquely knows is whether a runtime path for each capability was
+        actually built, which is the difference between "your face switch is broken" and
+        "your face switch was never constructed because the webcam deps are missing".
+        """
+        try:
+            from yazses.handsfree.observability import (
+                PERCEPTION_RUNNING,
+                PERCEPTION_STOPPED,
+                as_payload,
+            )
+            from yazses.handsfree.probe import facts_from_config
+
+            facts = facts_from_config(self._config)
+            if not facts.features_requested and not facts.safety_configured:
+                return None
+            gaze_running = getattr(self, "_gaze_targeter", None) is not None
+            # By module rather than by class name or `isinstance`: the name is a string
+            # two files can agree on by accident, and importing the backend to compare
+            # types would pull a camera module into a status poll.
+            face_running = any(
+                type(source).__module__.startswith("yazses.facegesture")
+                for source in getattr(self, "_extra_activations", ()) or ()
+            )
+            running = gaze_running or face_running
+            facts = dataclasses.replace(
+                facts,
+                perception_state=PERCEPTION_RUNNING if running else PERCEPTION_STOPPED,
+                perception_consumers=int(gaze_running) + int(face_running),
+                perception_reason=(
+                    "each camera consumer opens its own capture today, so no shared "
+                    "per-channel freshness is reported"
+                    if running else
+                    "no camera consumer was built at start-up — `yazses doctor` says why"
+                ),
+                # A consumer that was never constructed is not a wired consumer *here*,
+                # whatever the registry says about the build. Reporting the registry's
+                # answer for a source this process does not hold would be the "printed OK
+                # for something that cannot act" failure the row exists to end.
+                face_wired=(
+                    face_running if "facegesture" in facts.features_requested else None
+                ),
+            )
+            return as_payload(facts)
+        except Exception:  # pragma: no cover - defensive
+            log.debug("hands-free status payload failed", exc_info=True)
+            return None
 
     def _handle_shutdown(self, _request: Request) -> dict[str, bool]:
         threading.Thread(target=self.shutdown, name="ipc-shutdown", daemon=True).start()

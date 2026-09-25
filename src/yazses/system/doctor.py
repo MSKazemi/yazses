@@ -12,6 +12,7 @@ import os
 import platform as platform_module  # `platform` is a local in run_doctor (the Platform bundle)
 import shutil
 import sys
+from dataclasses import replace
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as _pkg_version
 from pathlib import Path
@@ -1200,6 +1201,68 @@ def _camera_check(
     return ("Camera", "WARN" if gate.blocker in soft else "FAIL", detail)
 
 
+def _camera_ready(camera_row: _Check | None) -> bool | None:
+    """Re-read :func:`_camera_check`'s verdict as a tri-state. Pure.
+
+    Deliberately reading the row rather than calling ``cameraperm.resolve`` a second time.
+    On macOS the camera probe is what raises the permission dialog, and asking twice in one
+    `doctor` run to answer one question is how a diagnostic ends up prompting a user twice.
+
+    The mapping is the row's own vocabulary: OK means the gate allowed it, FAIL means a
+    blocker the user can act on, and WARN is the soft set — permission unknown, not probed,
+    unsupported platform — which is *not determined*, not *unavailable*. ``None`` there is
+    the whole point: the hands-free rows must not read a "we did not ask" as a yes.
+    """
+    if camera_row is None:
+        return None
+    status = camera_row[1]
+    if status == "OK":
+        return True
+    if status == "FAIL":
+        return False
+    return None
+
+
+def _handsfree_checks(
+    cfg,
+    platform,
+    camera_row: _Check | None,
+    *,
+    unwired: frozenset[str] | None = None,
+    read_context=None,
+) -> list[_Check]:
+    """Hands-free health rows — camera perception, head, face switch, pointer, safety.
+
+    EYE-OBS-001 (#416). Empty on an ordinary install, and that is the feature rather than a
+    gap: every camera capability ships ``enabled = False``, so these rows appear only for
+    somebody who asked for one. The same reasoning `_camera_check` gives above, and the
+    same acceptance criterion — with camera features off, nothing here reaches the OS.
+
+    What it reports is names, states, ages, counts and capability flags. No gaze
+    coordinate, head angle, blendshape score, landmark or window title can reach it,
+    because `handsfree/observability.py` has nowhere to put one; that module decides what
+    every state means and `handsfree/probe.py` gathers the facts. Both are testable with no
+    camera, which is why the two seams below exist — ``unwired`` fixes what this build
+    drives, and ``read_context`` the display topology the calibration is judged against.
+    """
+    from yazses.handsfree.observability import doctor_rows
+    from yazses.handsfree.probe import calibration_facts, facts_from_config, pointer_facts
+
+    facts = facts_from_config(cfg, unwired=unwired)
+    if not facts.features_requested and not facts.safety_configured:
+        return []
+    facts = replace(facts, camera_ready=_camera_ready(camera_row))
+    facts = pointer_facts(facts, platform)
+    if "gaze" in facts.features_requested:
+        validity, reason = calibration_facts(
+            platform.paths.data_dir,
+            str(getattr(getattr(cfg, "gaze", None), "camera_index", 0)),
+            read_context=read_context,
+        )
+        facts = replace(facts, calibration_validity=validity, calibration_reason=reason)
+    return list(doctor_rows(facts))
+
+
 def _window_focus_check(is_wayland: bool, is_x11: bool, cfg=None) -> _Check | None:
     """Report whether "focus the browser" can work on this session (#39).
 
@@ -1711,6 +1774,18 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
     camera = _camera_check(perms, cfg)
     if camera is not None:
         checks.append(camera)
+
+    # Hands-free health, directly below the camera row that decides whether any of it can
+    # run at all (#416). Nothing on an ordinary install; for somebody who enabled a camera
+    # capability, this is where "nothing happens and no surface says why" stops being the
+    # failure mode. Defensive because it is a diagnostic: a health probe that turns `doctor`
+    # into a traceback removes the one command that was going to explain the problem.
+    try:
+        checks.extend(_handsfree_checks(cfg, platform, camera))
+    except Exception:  # pragma: no cover - defensive
+        checks.append(("Hands-free health", "SKIP",
+                       "unknown — the hands-free health probe itself failed; please report "
+                       "this with the rest of this output"))
 
     # Linux-specific injection tools
     if sys.platform == "linux":

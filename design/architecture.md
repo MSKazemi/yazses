@@ -261,6 +261,28 @@ feature declares no camera capability (R-21), and one that can must declare it b
 feature is claimed to work. (3) A probe that cannot determine the state reports
 `NOT_DETERMINED`; nothing but `GRANTED` opens a camera.
 
+### `src/yazses/handsfree/` (hands-free composition, ADR-v2-148)
+
+What the camera-driven inputs must *share* rather than each reinvent: one suppression
+state, and one privacy-safe way to report their health. Pure and dependency-free — no
+camera, no clock, no config import, no thread of its own.
+
+| File | Role |
+|---|---|
+| `safety.py` | The global stop + stale-signal watchdog (#417): `HandsFreeSafety`, one ACTIVE/PAUSED/FAULTED `SafetyStatus` with per-source `SourceHealth`, and `gate_from_config()` returning `None` until the user opts into `[handsfree_safety]` |
+| `observability.py` | EYE-OBS-001 (#416). `HandsFreeFacts` → `HealthRow`s, rendered once and consumed twice: `doctor_rows()` for `yazses doctor` and `render_status_lines()` for `yazses status`, so the two surfaces cannot describe one machine differently. `as_payload()`/`facts_from_payload()` are the IPC wire, a whitelist rather than `asdict` |
+| `probe.py` | The impure gatherer: config → requested features, the feature registry → whether a runtime path drives each one, an optional platform seam → the pointer backend's name and capabilities, and the stored gaze calibration's validity. Opens no camera and starts no pointer session |
+
+**Invariants.** (1) With every camera feature off — the shipped default — `health_rows()`
+is empty, no `doctor` row is printed, and the `handsfree` status field is `null`. (2) Only
+names, states, ages, counts and capability flags reach the output: `HandsFreeFacts` has no
+field able to hold a gaze coordinate, head angle, blendshape score, landmark, frame or
+window title, which is how R-09 is kept by construction rather than by review. (3) A probe
+that cannot determine a state reports `unknown` — never a default that reads as OK — and
+does so as a `SKIP` so it cannot become a permanent warning on a working install
+(ADR-021). (4) A cause is reported once: a blocked camera produces one failure, and the
+perception row points at the Camera row rather than restating it.
+
 ### `src/yazses/inject/` (Linux sub-backends)
 
 | File | Role |

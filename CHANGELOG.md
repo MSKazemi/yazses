@@ -6,6 +6,35 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — every hands-free sensor failure is now readable in `doctor` and `status`
+
+A camera handed to a video call, a MediaPipe model that never downloaded, a face switch
+whose signal died four seconds ago, a calibration fitted on a monitor since unplugged:
+each of them ended the same way, as *nothing happens*, with no surface saying which one it
+was. For someone whose only input is the camera, that silence is the whole failure
+(R-08 and R-19 in `design/eye-control/RISK_REGISTER.md`).
+
+`yazses doctor` now carries up to six rows — **Hands-free safety** (the one
+active/paused/faulted state, with per-source armed/stale/faulted and ages),
+**Hands-free perception** (which features asked for the camera, whether a session is open,
+sample age, consumer count), **Head tracking**, **Face switch**, **Pointer output** (backend
+name and capability flags) and **Gaze calibration** (valid / unverified / stale / missing,
+with what changed). `yazses status` reports the same rows for the running daemon, which is
+the only place the live state exists.
+
+Three properties, each deliberate:
+
+- **Nothing appears on an ordinary install.** Every camera capability ships off, so no
+  row is printed and the new `status` field is `null` rather than a paragraph about
+  nothing — the same contract the existing Camera row keeps.
+- **Names, states, ages, counts and capability flags only.** No gaze coordinate, head
+  angle, blendshape score, landmark, frame or window title can reach the output, because
+  the facts record has nowhere to put one; `doctor` output is what people paste into public
+  issues, and ADR-019 puts face data in the category that may never leave the machine.
+- **A probe that cannot decide says `unknown`.** It never prints a default that reads as
+  OK, and it does not turn the verdict yellow either — a permanent warning in front of
+  every user with nothing wrong is the guard ADR-021 rules out.
+
 ### Added — one versioned envelope for every eye-control evaluation result
 
 Eye/camera evaluation results will arrive from CI, from replayed synthetic traces, from
