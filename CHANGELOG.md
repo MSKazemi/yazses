@@ -6,6 +6,25 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — the vocabulary for grounding a coarse target onto an exact UI element
+
+`src/yazses/grounding/contracts.py` is the first phase of ADR-v2-151. Webcam gaze can
+already answer "which window were you looking at?", which is enough for Glance-Type and
+for "close this", and nowhere near enough for "click this" — a window holds dozens of
+controls. The decision is to separate *where the user referred* from *what structured
+entities are there* from *what that resolved to*, and this change adds only the immutable
+values for those three: `TargetSnapshot`, `SemanticCandidate`, `GroundingResult`, plus the
+read-only `SemanticSource` protocol that a Linux AT-SPI, macOS Accessibility or Windows
+UI Automation adapter will implement later.
+
+Nothing is wired to anything yet and no user-visible behaviour changes. The result type
+is deliberately tri-state — grounded, ambiguous, unresolved — and the invariants make an
+abstention structurally unable to carry a candidate or a confidence number, so a caller
+cannot read an answer off a resolution that refused to choose one. The layer imports six
+stdlib modules and nothing else: no accessibility library, no screen capture, no camera
+frame, no network, not even a clock. Tests enforce that by scanning the module's imports
+and every field annotation.
+
 ## [2.40.1] - 2026-09-25
 
 ### Changed — the Store page says plainly that YazSes is not on the Store
