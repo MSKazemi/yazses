@@ -21,11 +21,25 @@ log = logging.getLogger(__name__)
 class GazeTargeter:
     """Focus the window the user is looking at, for the next dictation."""
 
-    def __init__(self, backend, calibration, desktop, confidence_min: float = 0.5) -> None:
+    def __init__(
+        self,
+        backend,
+        calibration,
+        desktop,
+        confidence_min: float = 0.5,
+        topology_guard=None,
+    ) -> None:
         self._backend = backend
         self._calibration = calibration
         self._desktop = desktop
         self._confidence_min = confidence_min
+        #: Optional :class:`~yazses.gaze.topology.SessionTopologyGuard`. When the
+        #: desktop is rearranged mid-session the calibration file does not change,
+        #: so the startup check cannot see it; ADR-v2-149 requires routing to stop
+        #: rather than reuse coefficients (and window rectangles) from the old
+        #: layout. None keeps the pre-ADR behaviour for callers that do not wire it.
+        self._topology_guard = topology_guard
+        self._suspension_logged = False
         #: The decision from the most recent retarget() — the burst's gaze
         #: snapshot that deixis commands ("close this") resolve against.
         self.last_decision: RouteDecision | None = None
@@ -55,8 +69,26 @@ class GazeTargeter:
         ``activate=False`` snapshots the decision without focusing — used when
         only deixis is enabled (``[gaze] route_dictation`` off), so "close this"
         still knows the looked-at window but dictation stays put.
+
+        A suspended topology guard short-circuits all of that: no camera sample is
+        taken and the focused window is kept, because a calibration made on the
+        previous monitor arrangement would answer confidently and wrongly.
         """
         focused = self._desktop.focused_window()
+        if self._topology_guard is not None and self._topology_guard.suspended():
+            if not self._suspension_logged:
+                # Once per suspension, not once per hold: the state is sticky until a
+                # recalibration clears it, and a line per dictation would bury it.
+                self._suspension_logged = True
+                check = getattr(self._topology_guard, "last_check", None)
+                log.warning(
+                    "Gaze routing suspended — %s. Run `yazses gaze calibrate`.",
+                    check.reason if check is not None else "the display layout changed",
+                )
+            decision = route_target(None, 0.0, focused, confidence_min=self._confidence_min)
+            self.last_decision = decision
+            return decision
+        self._suspension_logged = False
         gaze, confidence = self._sample()
         if gaze is None:
             decision = route_target(None, 0.0, focused, confidence_min=self._confidence_min)

@@ -4989,6 +4989,7 @@ def gaze_calibrate(
         fit_calibration,
     )
     from yazses.gaze.desktop import build_desktop
+    from yazses.gaze.display import current_context
     from yazses.gaze.factory import build_gaze
     from yazses.gaze.store import save_calibration
     from yazses.system.features import find_feature
@@ -5052,7 +5053,11 @@ def gaze_calibrate(
         raise typer.Exit(1)
 
     cal = fit_calibration(samples)
-    path = save_calibration(cal, platform.paths.data_dir)
+    # Bind the map to the desktop it was measured on (ADR-v2-149). Without this the
+    # coefficients cannot be told apart from ones fitted on a different monitor
+    # arrangement, which is the failure that misroutes dictation silently.
+    context = current_context(camera_id=str(cfg.gaze.camera_index))
+    path = save_calibration(cal, platform.paths.data_dir, context)
     typer.echo(
         f"\n✓ Calibrated on {len(samples)}/{len(targets)} points → {path}\n"
         "Enable routing with `yazses features enable gaze` (already on if you set "
@@ -5068,8 +5073,10 @@ def gaze_status() -> None:
     """Show whether look-to-pane is ready: deps, desktop backend, calibration."""
     from yazses.config import load_config
     from yazses.gaze.desktop import build_desktop
+    from yazses.gaze.display import current_context
     from yazses.gaze.factory import build_gaze
-    from yazses.gaze.store import calibration_path, load_calibration
+    from yazses.gaze.store import calibration_path, calibration_state
+    from yazses.gaze.topology import Validity
 
     platform = get_platform()
     cfg = load_config(platform.paths.config_file)
@@ -5086,7 +5093,8 @@ def gaze_status() -> None:
     if backend is not None:
         backend.close()
     desktop = build_desktop()
-    cal = load_calibration(platform.paths.data_dir)
+    context = current_context(camera_id=str(cfg.gaze.camera_index))
+    cal, check = calibration_state(platform.paths.data_dir, context)
 
     typer.echo("Glance-Type (look-to-pane) status:")
     typer.echo(f"  {mark(enabled)} [gaze] enabled = {enabled}")
@@ -5094,7 +5102,19 @@ def gaze_status() -> None:
     typer.echo(f"  {mark(backend is not None)} gaze backend/deps ({cfg.gaze.backend})")
     typer.echo(f"  {mark(desktop is not None)} X11 desktop backend (xdotool)")
     typer.echo(f"  {mark(cal is not None)} calibration ({calibration_path(platform.paths.data_dir)})")
-    ready = all((enabled, cfg.gaze.route_dictation, backend is not None, desktop is not None, cal is not None))
+    if cal is not None:
+        # ADR-v2-149: a map fitted on another monitor arrangement still answers, it
+        # just answers wrongly. Say which of the three states this one is in, and why.
+        typer.echo(f"  {mark(not check.stale)} calibration matches this desktop "
+                   f"[{check.validity.value}] — {check.reason}")
+    ready = all((
+        enabled,
+        cfg.gaze.route_dictation,
+        backend is not None,
+        desktop is not None,
+        cal is not None,
+        check.validity is not Validity.STALE,
+    ))
     if ready:
         typer.echo("\nReady — dictation will land in the window you look at.")
     elif not enabled:
@@ -5111,6 +5131,11 @@ def gaze_status() -> None:
         )
     elif cal is None and desktop is not None:
         typer.echo("\nNext: run `yazses gaze calibrate`.")
+    elif check.stale:
+        typer.echo(
+            "\nGaze routing is off because the calibration no longer matches this desktop.\n"
+            "  Next: run `yazses gaze calibrate` again."
+        )
 
 
 @model_app.command(
