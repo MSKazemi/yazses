@@ -49,7 +49,7 @@ surprised by a red check on your first pull request.
 **This is welcome and normal.** Claude Code, Codex, Cursor, Copilot, Gemini and
 remote agents such as Jules are all fine. Two things stay true regardless: **you are the
 author**, and you are expected to have read and validated the work. Do not add the tool as an
-author/co-author or add generated-with attribution; [`AGENTS.md`](../../AGENTS.md) is the
+author/co-author or add generated-with attribution; [`AGENTS.md`](https://github.com/MSKazemi/yazses/blob/main/AGENTS.md) is the
 canonical rule.
 
 Using Google Jules against GitHub? Follow the [5-minute owner/contributor connection guide](jules.md) first. The
@@ -58,7 +58,7 @@ connect Jules to their own fork and open a standard PR.
 
 Using any paid or metered coding service is optional. Your provider account, plan, usage limits and
 charges remain your responsibility; YazSes does not require or reimburse them unless separately
-agreed in writing. Read [the third-party coding-tool notice](third-party-coding-tools.md) before
+agreed in writing. Read [the third-party AI tools notice](https://github.com/MSKazemi/yazses/blob/main/THIRD_PARTY_AI_TOOLS.md) before
 turning on metered/overage usage.
 
 !!! warning "AI tools are optional; paid usage is your choice"

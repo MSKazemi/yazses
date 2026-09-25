@@ -70,6 +70,20 @@ is worse than a stale link because a reader has no reason to check:
 
 No issue was opened, closed or commented on. Only the links moved.
 
+### Fixed — two dead links on the "first contribution" page failed the docs build
+
+`docs/contribute/start.md` linked `../../AGENTS.md` and
+`third-party-coding-tools.md`. The first resolves outside the `docs/` tree, which
+MkDocs cannot follow; the second names a file that is not in the tree at all — the
+canonical notice is the repo-root `THIRD_PARTY_AI_TOOLS.md`. So the one document
+`AGENTS.md` tells a contributor to read before turning on metered AI usage was a 404
+from the page most likely to send them there.
+
+Both now use the absolute repository URL that the same file already uses two
+paragraphs further down, and that `docs/contribute/ai-agents.md` uses throughout, so
+a root document is linked one way across the site. `mkdocs build --strict` was
+aborting on exactly these two warnings and now completes.
+
 ### Fixed — Wayland's default injector silently dropped non-ASCII text
 
 On Wayland, `[injection] backend = "auto"` picks `ydotool`, and `YdotoolInjector` handed
