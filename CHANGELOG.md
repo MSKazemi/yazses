@@ -6,6 +6,41 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — a generated eye-validation coverage page, so nobody reads 16 issues to find the gaps
+
+`design/eye-control/VALIDATION_OPERATIONS.md` asks the project to be able to say which
+validation cells exist, which are runnable, what blocks the rest and where there is no cell at
+all — without opening every issue. `scripts/gen-eye-validation-dashboard.py` now answers that
+from the one committed input, the slot registry, and writes
+`design/eye-control/generated/validation-coverage.md`: a summary, a pack × environment grid, one
+row per registered cell with its issue link and blockers, the blockers grouped by prerequisite,
+and the combinations the registry covers with nothing.
+
+It consumes the registry's validator rather than re-parsing the prose matrix, and refuses to
+write a page from a registry that does not validate. It is offline, clock-free and byte-stable,
+so the committed copy is reviewable in a diff and a test fails when it drifts. Never hand-edit
+it; edit the registry and regenerate (`make docs` now does too).
+
+Four things it will not say, because each is a way a coverage page misleads:
+
+- **A FAIL or BLOCKED report is evidence, not missing evidence.** Such a cell counts as
+  reported and never appears among the cells awaiting a first report — a useful failure report
+  is a completed contribution.
+- **Three sessions by one person are not three people.** Independent hosts and repeat sessions
+  are separate fields, rendered in different words, and never added together.
+- **It reports the registry, not GitHub.** Every value is a function of the committed file.
+  Live readiness, labels and claims are still read from the issues, which is why this directory
+  still carries no status snapshot; and beginner-safety is labelled as intrinsic difficulty
+  rather than a label a cell currently holds.
+- **A combination with no cell is a gap in the plan, not an overdue test.** The programme opens
+  a cell when the capability is reachable on that platform.
+
+The tests cover the three ways this repository has shipped a green guard that proved nothing: an
+unreadable or unparseable input exits 2 and writes no file, a registry with zero cells is an
+error rather than a blank page, and — because a regenerate-and-compare test can only prove the
+file matches its generator — completeness is asserted against the registry by cell id and by row
+count, with the dropped-cell case simulated so the assertion is known to fire.
+
 ### Added — one versioned envelope for every eye-control evaluation result
 
 Eye/camera evaluation results will arrive from CI, from replayed synthetic traces, from

@@ -98,6 +98,8 @@ docs:
 	uv run python scripts/gen-arch-figures.py
 	@echo "▶  Regenerating man/yazses.1…"
 	uv run python scripts/gen-man.py
+	@echo "▶  Regenerating the eye validation coverage dashboard…"
+	uv run python scripts/gen-eye-validation-dashboard.py
 
 docs-serve:
 	@echo "▶  Serving the docs site at http://127.0.0.1:8000 …"
