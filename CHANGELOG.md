@@ -6,6 +6,42 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — one MediaPipe result now answers gaze, head pose and the face switch
+
+The shared camera source (ADR-v2-145) has its first real backend. `perception/derive.py`
+turns a single FaceLandmarker result into the three channels the eye-control features want —
+the normalised iris offset for Glance-Type, yaw/pitch/roll in radians from the facial
+transformation matrix for the Head-Pointer, and the ARKit-style blendshape activations for the
+Face-Gesture Switch — and `perception/mediapipe_backend.py` holds the **one** landmarker that
+produces it, over the **one** `cv2.VideoCapture` in `perception/camera.py`. One frame, one
+inference, one timestamp shared by all three channels, which is the alignment two features
+running their own camera and their own model could never have.
+
+Nothing imports it yet. `[perception]` still ships off, `build_perception_source()` still
+returns `None` unless a caller passes the two factories, and the shipped gaze and face-switch
+backends still own their own cameras until #396 moves them across — so an existing install is
+unchanged. The derivation is pure and dependency-free; `cv2` and `mediapipe` are imported
+inside the call that opens a camera, so a base install with no extras imports and runs.
+
+Two decisions worth naming, because both are places a backend can quietly lie:
+
+- **A degenerate transformation matrix is a missing channel, not a centred pose.** A matrix of
+  zeros decomposes into yaw/pitch/roll of exactly `0, 0, 0` — a confident "looking straight
+  ahead" made out of nothing, and the reading a dwell click would act on. The 3x3 block is
+  checked for being a proper rotation before any pose is believed.
+- **The head-pose and face channels report the detector's threshold as their confidence, not
+  `1.0`.** MediaPipe's result carries no per-face score, so a floor is all that is honestly
+  known: the number reported is the same one the landmarker was told to require. Gaze does
+  better — its confidence is the real per-frame eye agreement the default gaze backend already
+  uses. A graded quality signal for the other two needs measurement, not an invented number.
+
+Each channel is derived in its own guarded step, so ADR-v2-145 invariant 6 holds by
+construction: a transform MediaPipe did not send costs head pose and leaves gaze and the face
+switch intact, an unreadable blendshape score costs that one category, and a 468-landmark
+model with no irises costs gaze alone. Every one of those cases is a separate test against a
+faked MediaPipe result, next to the counts that hold "one FaceLandmarker, one camera open" to
+a number rather than to a promise. (#395)
+
 ### Added — macOS and Windows pointer output, with the capabilities each can honestly claim
 
 The `PointerSink` boundary (ADR-v2-146) now has its macOS and Windows backends:
