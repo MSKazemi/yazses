@@ -1,0 +1,258 @@
+{
+  "fixture_schema_version": "1.0",
+  "task_id": "gaze_routing_4_pane",
+  "task_version": "1.0",
+  "feature": "gaze",
+  "description": "Four large numbered panes. Each trial prompts one pane by its number, the tester triggers the ordinary gaze-routing moment, and the run records the intended pane and the resolved outcome -- nothing about what the panes contain, because they contain only a number.",
+  "generator": "yazses.eyeeval.tasks/1.0",
+  "seed": 2026092501,
+  "geometry_units": "permille",
+  "canvas_permille": {
+    "width": 1000,
+    "height": 1000
+  },
+  "records": [
+    "trial_index",
+    "intended_target_id",
+    "outcome",
+    "confidence_bucket",
+    "calibration_age_s",
+    "trial_time_ms"
+  ],
+  "outcomes": [
+    "correct",
+    "wrong_target",
+    "fallback_no_route",
+    "invalid_tracking"
+  ],
+  "targets": [
+    {
+      "target_id": 1,
+      "label": "1",
+      "center_x": 255,
+      "center_y": 255,
+      "width": 470,
+      "height": 470
+    },
+    {
+      "target_id": 2,
+      "label": "2",
+      "center_x": 745,
+      "center_y": 255,
+      "width": 470,
+      "height": 470
+    },
+    {
+      "target_id": 3,
+      "label": "3",
+      "center_x": 255,
+      "center_y": 745,
+      "width": 470,
+      "height": 470
+    },
+    {
+      "target_id": 4,
+      "label": "4",
+      "center_x": 745,
+      "center_y": 745,
+      "width": 470,
+      "height": 470
+    }
+  ],
+  "blocks": [
+    {
+      "block_id": "practice",
+      "kind": "practice",
+      "trials": [
+        {
+          "trial_index": 0,
+          "intended_target_id": 1
+        },
+        {
+          "trial_index": 1,
+          "intended_target_id": 2
+        },
+        {
+          "trial_index": 2,
+          "intended_target_id": 3
+        },
+        {
+          "trial_index": 3,
+          "intended_target_id": 4
+        }
+      ]
+    },
+    {
+      "block_id": "scored",
+      "kind": "scored",
+      "trials": [
+        {
+          "trial_index": 0,
+          "intended_target_id": 4
+        },
+        {
+          "trial_index": 1,
+          "intended_target_id": 1
+        },
+        {
+          "trial_index": 2,
+          "intended_target_id": 3
+        },
+        {
+          "trial_index": 3,
+          "intended_target_id": 2
+        },
+        {
+          "trial_index": 4,
+          "intended_target_id": 3
+        },
+        {
+          "trial_index": 5,
+          "intended_target_id": 4
+        },
+        {
+          "trial_index": 6,
+          "intended_target_id": 2
+        },
+        {
+          "trial_index": 7,
+          "intended_target_id": 1
+        },
+        {
+          "trial_index": 8,
+          "intended_target_id": 2
+        },
+        {
+          "trial_index": 9,
+          "intended_target_id": 1
+        },
+        {
+          "trial_index": 10,
+          "intended_target_id": 4
+        },
+        {
+          "trial_index": 11,
+          "intended_target_id": 3
+        },
+        {
+          "trial_index": 12,
+          "intended_target_id": 1
+        },
+        {
+          "trial_index": 13,
+          "intended_target_id": 3
+        },
+        {
+          "trial_index": 14,
+          "intended_target_id": 2
+        },
+        {
+          "trial_index": 15,
+          "intended_target_id": 4
+        },
+        {
+          "trial_index": 16,
+          "intended_target_id": 3
+        },
+        {
+          "trial_index": 17,
+          "intended_target_id": 1
+        },
+        {
+          "trial_index": 18,
+          "intended_target_id": 2
+        },
+        {
+          "trial_index": 19,
+          "intended_target_id": 4
+        },
+        {
+          "trial_index": 20,
+          "intended_target_id": 1
+        },
+        {
+          "trial_index": 21,
+          "intended_target_id": 4
+        },
+        {
+          "trial_index": 22,
+          "intended_target_id": 3
+        },
+        {
+          "trial_index": 23,
+          "intended_target_id": 2
+        },
+        {
+          "trial_index": 24,
+          "intended_target_id": 4
+        },
+        {
+          "trial_index": 25,
+          "intended_target_id": 2
+        },
+        {
+          "trial_index": 26,
+          "intended_target_id": 3
+        },
+        {
+          "trial_index": 27,
+          "intended_target_id": 1
+        },
+        {
+          "trial_index": 28,
+          "intended_target_id": 4
+        },
+        {
+          "trial_index": 29,
+          "intended_target_id": 1
+        },
+        {
+          "trial_index": 30,
+          "intended_target_id": 3
+        },
+        {
+          "trial_index": 31,
+          "intended_target_id": 2
+        },
+        {
+          "trial_index": 32,
+          "intended_target_id": 1
+        },
+        {
+          "trial_index": 33,
+          "intended_target_id": 3
+        },
+        {
+          "trial_index": 34,
+          "intended_target_id": 4
+        },
+        {
+          "trial_index": 35,
+          "intended_target_id": 2
+        },
+        {
+          "trial_index": 36,
+          "intended_target_id": 1
+        },
+        {
+          "trial_index": 37,
+          "intended_target_id": 2
+        },
+        {
+          "trial_index": 38,
+          "intended_target_id": 4
+        },
+        {
+          "trial_index": 39,
+          "intended_target_id": 3
+        }
+      ]
+    }
+  ],
+  "scored_trials": 40,
+  "privacy": {
+    "content_source": "generated",
+    "raw_media_retained": false,
+    "contains_personal_identifiers": false
+  }
+}

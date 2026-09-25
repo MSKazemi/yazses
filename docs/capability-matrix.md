@@ -83,6 +83,42 @@ yazses doctor               # reports the same, plus the injector it will use
   Manager or an elevated PowerShell silently does nothing unless YazSes is
   elevated too; `yazses doctor` reports which case you are in.
 
+## Camera permission and packaging
+
+The camera features — [Glance-Type](features.md) gaze routing, the Face-Gesture
+Switch and the Head-Pointer — are experimental and **off by default**. With all of
+them off, YazSes never asks your operating system about the camera, so it can never
+raise a camera permission prompt.
+
+Turning one on raises a second question that has nothing to do with permissions:
+**can the copy of YazSes you installed run a camera feature at all?** Frozen and
+confined packages cannot. The `.dmg`, the Windows `.exe`, the MSIX, the snap and the
+flatpak are all built without `mediapipe` and `opencv-python`, and none of them can
+install a Python package afterwards.
+
+That is why none of them asks for camera access. A camera capability a package cannot
+use is a permission request with no upside — you would be asked to trust something no
+code in that download could do.
+
+| Install format | Camera features | OS declaration it would need | Declared today |
+|---|---|---|---|
+| a source / PyPI install (pip, uv, pipx) | ✅ with the extra | — | ❌ no |
+| a distribution or third-party channel package (AUR, Fedora, Nix, Homebrew, Chocolatey, Scoop, WinGet) | ✅ with the extra | — | ❌ no |
+| the macOS .app bundle (.dmg / Homebrew cask) | ❌ no | NSCameraUsageDescription | ❌ no |
+| the Windows installer (.exe) | ❌ no | — | ❌ no |
+| the Windows MSIX package | ❌ no | DeviceCapability webcam | ❌ no |
+| the snap | ❌ no | camera plug | ❌ no |
+| the flatpak | ❌ no | --device=all | ❌ no |
+
+**If you need the camera features, install from PyPI** — `pipx install 'yazses[gaze]'`
+— and then `yazses features enable gaze`.
+
+`yazses doctor` grows a **Camera** row as soon as a camera feature is enabled, and it
+tells the four causes apart: a package that cannot run one, a missing `mediapipe` /
+`opencv-python`, no camera device, and a refused or not-yet-granted OS permission. It
+never reports access it could not confirm — an undetermined permission is reported as
+undetermined, not as granted.
+
 ## Adding a platform
 
 Implement the Protocol interfaces in `src/yazses/platform/<os>/` and register the

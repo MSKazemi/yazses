@@ -6,6 +6,712 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — gaze can now be refined to an exact UI element, and nothing changes until it is
+
+`src/yazses/gaze/grounded.py` is phase P2 of ADR-v2-151: the seam between the coarse
+question Glance-Type already answers — *which window was the user looking at?* — and the
+exact one a command like "click this" needs. `GazeGrounder` turns one confident,
+gaze-routed sample into a `TargetSnapshot`, asks an **injected** `SemanticSource` what is
+under it, and returns the pure resolver's tri-state answer. `refine()` collapses that into
+`RefinedTarget`, and the shape of that value is the promise: `window_id` is copied from
+the routing decision and can never be influenced by the semantic source, while `entity_id`
+is filled for a `GROUNDED` result and for nothing else.
+
+**The interesting part is what does not happen.** The seam is a constructor keyword,
+`GazeTargeter(grounder=...)`, defaulting to `None`, and no platform accessibility adapter
+ships here — ADR-v2-151 asks for the coverage study (spec phase P3) before anyone writes
+one, so `None` is the answer on every install and the gaze path is byte-for-byte what it
+was. There is no new config key either: a toggle whose only possible provider does not
+exist would advertise a capability nobody can turn on. The new suite proves the absence
+case by running the same backend, calibration, desktop and gaze sample twice — once with
+a grounder and once without — and asserting the two `RouteDecision`s are equal, for a
+grounded, an ambiguous and an unresolved outcome alike. The 426 existing gaze/deixis tests
+are unmodified.
+
+Three things the seam deliberately refuses:
+
+- **It never asks about a window the router rejected.** A sample below
+  `[gaze] confidence_min`, a point outside every window, no face at all, or a suspended
+  topology guard — none of them reaches the semantic source. Grounding inside the
+  *focused* window on the strength of a gaze point the router just refused would invent a
+  target out of a rejection, and a low-confidence sample cannot gain confidence from
+  semantics: a grounded result's confidence is the weaker of the two observations.
+- **An abstention is never an element.** Ambiguous and unresolved results carry no
+  `entity_id`, and nothing here reads an ambiguous result's candidate list — picking one
+  is exactly the guess the ADR forbids. Window-level deixis keeps its existing semantics:
+  "close this" on a gaze-routed target still asks first, because an exact element id is a
+  better answer, not a reason to lower a guard that exists because the sensor is coarse.
+- **A failing source is not an outage.** A platform adapter that raises, or a backend
+  reporting an impossible confidence, costs one warning *per failure streak* rather than
+  one per hold (ADR-021: a line per dictation buries the line that matters) and returns
+  `None` — the same state as "no source configured". The targeter catches a second time,
+  for a grounder object that is itself broken, so nothing in this path can put an
+  exception between the hold and the dictation.
+
+No screen capture, no network, no new dependency: a test asserts the module's imports are
+the standard library and `yazses`, and names the four platform bindings that must stay
+behind the Protocol. The clock is read twice on purpose — once to date the sample, once to
+judge it — so a source slower than the freshness budget makes its own answer stale instead
+of grounding against a screen that has had time to scroll. (#443)
+### Added — one MediaPipe result now answers gaze, head pose and the face switch
+
+The shared camera source (ADR-v2-145) has its first real backend. `perception/derive.py`
+turns a single FaceLandmarker result into the three channels the eye-control features want —
+the normalised iris offset for Glance-Type, yaw/pitch/roll in radians from the facial
+transformation matrix for the Head-Pointer, and the ARKit-style blendshape activations for the
+Face-Gesture Switch — and `perception/mediapipe_backend.py` holds the **one** landmarker that
+produces it, over the **one** `cv2.VideoCapture` in `perception/camera.py`. One frame, one
+inference, one timestamp shared by all three channels, which is the alignment two features
+running their own camera and their own model could never have.
+
+Nothing imports it yet. `[perception]` still ships off, `build_perception_source()` still
+returns `None` unless a caller passes the two factories, and the shipped gaze and face-switch
+backends still own their own cameras until #396 moves them across — so an existing install is
+unchanged. The derivation is pure and dependency-free; `cv2` and `mediapipe` are imported
+inside the call that opens a camera, so a base install with no extras imports and runs.
+
+Two decisions worth naming, because both are places a backend can quietly lie:
+
+- **A degenerate transformation matrix is a missing channel, not a centred pose.** A matrix of
+  zeros decomposes into yaw/pitch/roll of exactly `0, 0, 0` — a confident "looking straight
+  ahead" made out of nothing, and the reading a dwell click would act on. The 3x3 block is
+  checked for being a proper rotation before any pose is believed.
+- **The head-pose and face channels report the detector's threshold as their confidence, not
+  `1.0`.** MediaPipe's result carries no per-face score, so a floor is all that is honestly
+  known: the number reported is the same one the landmarker was told to require. Gaze does
+  better — its confidence is the real per-frame eye agreement the default gaze backend already
+  uses. A graded quality signal for the other two needs measurement, not an invented number.
+
+Each channel is derived in its own guarded step, so ADR-v2-145 invariant 6 holds by
+construction: a transform MediaPipe did not send costs head pose and leaves gaze and the face
+switch intact, an unreadable blendshape score costs that one category, and a 468-landmark
+model with no irises costs gaze alone. Every one of those cases is a separate test against a
+faked MediaPipe result, next to the counts that hold "one FaceLandmarker, one camera open" to
+a number rather than to a promise. (#395)
+### Added — a wrong-target, ambiguity and abstention harness for grounded targets
+
+Phase P4 of `design/specs/eye-grounded-targets.md` (ADR-v2-151): `src/yazses/grounding/trace.py`
+is a versioned, privacy-safe trace document plus a pure validator, and
+`src/yazses/grounding/replay.py` replays every recorded case through the *real*
+`TargetResolver` and reports grounded-correct, grounded-wrong, ambiguous, unresolved and total
+trials, the wrong-target and abstention rates, the target-source / semantic-source split of
+every abstention, and the candidate-count distribution before and after an intent hint.
+`scripts/replay_grounding_trace.py` is the front end; `tests/fixtures/grounding_replay_report.json`
+is the committed, byte-stable report a reviewer reads in a diff. Nothing in the daemon imports
+any of it, and `yazses.grounding`'s own `__init__` deliberately does not re-export it, so the
+runtime import graph is unchanged.
+
+It can compare **window-only** against **semantic grounding** on the same trace, and both
+columns come out of one resolver with one policy — the only difference is what each strategy is
+allowed to see, which is the only difference the product has. A hand-written baseline would have
+measured its own bugs. On the five golden fixtures (11 trials): semantic grounding is 3 correct,
+**0 wrong**, 3 ambiguous, 5 unresolved; window-only is 0 correct, 7 wrong, 0 ambiguous, 4
+unresolved, and every one of its wrongs is a `window`-source ground rather than a misclick on a
+sibling control — which is why the report breaks wrong targets down by source kind instead of
+leaving one number to be misread.
+
+Three failure shapes the repository has shipped before are closed by construction rather than by
+review. **An empty trace is refused**, by the schema and again by `replay`, because a
+wrong-target rate of `0.0` over zero trials is character-identical to a flawless run. **Input it
+cannot parse fails loudly** — exit `0` valid, `1` rule violation, `2` unreadable, the same
+contract `scripts/check_eye_validation_slots.py` uses — instead of degrading into an empty
+document that reads as compliance. And because an "is it in sync?" test on a generated artifact
+cannot notice an *omission*, the committed report is additionally checked for completeness by
+count and by case id; dropping a fixture leaves the sync check green and fails the completeness
+check, which `tests/test_grounding_replay.py` proves by doing it.
+
+A derived rate whose own denominator is zero is reported as `{"value": null, "reason": ...}`,
+never as `0.0` — `METRICS.md`'s "missing is never zero", reusing the marker
+`src/yazses/eyeeval/schema.py` already enforces. No label, window title or free text can reach a
+report: every string in it is an enum member, a synthetic id or one of two fixed notices, and a
+test asserts that closure. **No product threshold, default or acceptance criterion follows from
+any of these numbers** — the fixtures are invented, the report says so in a field, and RQ-G4
+measures the real curve on real desktops. (#445)
+### Added — `yazses eye-eval`: one local command that turns an eye-control test into a shareable number
+
+A contributor can now run a scripted eye-control evaluation task and get back a validated,
+privacy-safe JSON result they read *before* deciding to share it:
+
+```bash
+yazses eye-eval gaze_routing_4_pane --synthetic -o result.json
+```
+
+Three tasks (`gaze_routing_4_pane`, `head_pointer_generated_targets`, `face_switch_blocks`)
+come from the deterministic generator in `yazses.eyeeval.tasks`, so nothing has to ship a
+data file, and the result goes into the versioned envelope `yazses.eyeeval.schema` defines.
+`--synthetic` needs no camera, no model and no network, which is the leg CI can run.
+
+**Nothing is uploaded, and there is no flag that would.** The command writes one file to the
+tester's own disk and prints a summary. Safe provenance is stamped automatically — YazSes
+and Python version, OS, kernel, architecture, CPU model, logical CPUs, RAM, session type,
+display geometry — and the envelope has no field for a hostname, login name, home directory,
+serial number, window title or anything a camera saw. That is checked rather than trusted:
+`yazses.eyeeval.runner.write_result` runs the schema validator **and** an identifier sweep
+*before* the file exists, so a run that would leak produces no file at all. Only aggregates
+are written; a per-trial record supplied by a tester is counted and dropped.
+
+Three rules the design documents asked for and this implements:
+
+- **A count nothing measured is never zero.** Every metric is either a real count or
+  `{"value": null, "reason": "..."}`. A `--blocked` run therefore reports no numbers at all
+  rather than a page of zeros — and `EVALUATION.md` is explicit that a reproducible
+  BLOCKED result is a valid contribution.
+- **`study_mode` is never inferred** (ADR-v2-150). A public hardware test must say
+  `--study-mode community_qa`; `research` additionally requires `--protocol-id`, because
+  relabelling an artifact after collection is not consent. A synthetic run cannot call
+  itself `community_qa`, and a human-operated one cannot call itself `ci`.
+- **The verdict is about the protocol, not the person.** `PASS` / `PARTIAL` / `FAIL` /
+  `BLOCKED` is computed from how much of the task actually ran and applies no threshold to
+  any rate — a threshold would be a promotion gate, and those come from cross-person
+  evidence. A tester can state their own verdict; both are recorded.
+
+The commit SHA is recorded when the install is a source checkout, resolved through
+`commondir` and `packed-refs` as well as a loose ref — so it works in a linked worktree and
+after a `git gc`, the two layouts where a loose-ref-only lookup silently answers "unknown".
+The branch name is never recorded: a branch is free text a contributor chose and can carry
+a person or a client; a SHA carries nothing.
+
+Nothing in the daemon imports any of it, and no config section was added, so an existing
+install is unchanged.
+
+### Added — macOS and Windows pointer output, with the capabilities each can honestly claim
+
+The `PointerSink` boundary (ADR-v2-146) now has its macOS and Windows backends:
+`platform/macos/pointer.py` posts CoreGraphics `CGEvent` mouse events, and
+`platform/windows/pointer.py` sends Win32 `SendInput` mouse events, reusing the `INPUT`
+structures and `user32` loader the keyboard injector already declared rather than keeping a
+second copy that can drift. Each platform bundle registers its sink as
+`Platform.pointer_factory` — a factory, not an instance, so nothing is constructed and no
+permission is asked until a pointer consumer is enabled. Nothing imports either yet; an
+existing install is unchanged.
+
+Both are two layers: a sink holding the whole contract and knowing nothing about the OS,
+over an injected native-API object holding nothing but the platform calls. So the shared
+contract suite in `tests/pointer_contract.py` runs against the real sink classes on Linux
+CI, and the native layers are driven by a fake Quartz module and a fake `SendInput` — where
+the ctypes struct packing, the flags and the two's-complement wheel delta are genuinely
+exercised, because ctypes works on every OS.
+
+Two capabilities are reported **absent on purpose**, which is the difference between an
+honest backend and one that guesses:
+
+- **macOS horizontal scroll.** Apple documents no sign for scroll axis 2, third-party
+  implementations disagree about whether a positive value scrolls left or right, and some
+  tie it to the user's "natural scrolling" preference. An inverted horizontal scroll makes a
+  head-driven pointer fight its user, so the axis raises `PointerUnsupportedError` until
+  somebody with a Mac verifies the sign.
+- **Windows absolute motion.** `MOUSEEVENTF_ABSOLUTE` takes coordinates normalised to
+  0-65535 over a virtual desktop whose monitors can each have their own DPI — exactly the
+  case ADR-v2-146 names as easy to get wrong. Relative motion, which Head-Pointer needs, is
+  unaffected.
+
+The scroll signs that *are* supported cross the boundary unchanged (`+dy` scrolls down,
+`+dx` scrolls right) and each backend negates inside itself where its native axis runs the
+other way, with a test asserting the negation reaches the native call. Sub-pixel deltas go
+through a new pure `pointer/subpixel.py`: a head pose produces fractions of a pixel per
+frame, and rounding each call on its own would move the pointer for a fast turn and not at
+all for a slow, deliberate one. A taken step is spent, so a motion whose platform call fails
+is lost rather than folded into the next one — ADR-v2-146's "never repeat a stale command",
+in arithmetic.
+
+**Neither backend has ever run on its own operating system.** Every native call in both is
+written from vendor documentation and verified only against a fake; no Mac and no Windows
+machine exists in this project's CI. `SendInput` makes that worse than usual by reporting
+the number of events it *inserted into the input stream*, which UIPI can silently discard
+afterwards — so a full return count is treated as "Windows accepted this", never as "the
+pointer moved". Both module docstrings say so, and the live-smoke evidence
+`design/specs/eye-pointer-output.md` asks for is still outstanding for both. (#402)
+### Added — the Wayland pointer rides the RemoteDesktop session that already types
+
+`PortalPointerSink` in `src/yazses/inject/portal.py` is the `PointerSink` (ADR-v2-146)
+for Wayland, and the whole point is where it lives: the session it moves the pointer
+through is the *same* `_PortalSession` object dictation types through.
+`PortalInjector.pointer_sink()` hands it that session, `POINTER` joins the one
+`SelectDevices` call the session already makes, and a pointer consumer therefore costs
+no second consent dialog, no second restore token and no second grant to compete with
+the first. A dictation-only install is byte-identical to before: `POINTER` is in the
+mask only while a sink is open.
+
+What it can do is discovered, not assumed. The `Start` response's device mask says
+whether the compositor really granted a pointer, and `open_pointer_sink` refuses to
+build a sink without it — a keyboard-only grant, or a portal that does not report the
+mask, raises `PointerUnsupportedError` rather than returning a sink whose events go
+nowhere. Relative motion, left/right/middle (evdev button codes, not X11 numbering) and
+both scroll axes work, with scroll signs passed through unchanged because the portal
+already uses Wayland's "+dy is down". Absolute motion is an explicit
+`PointerUnsupportedError`: `NotifyPointerMotionAbsolute` addresses a position inside a
+ScreenCast stream, and acquiring a screen-capture stream in order to move a pointer
+would make this module's own consent copy untrue.
+
+Two honesty notes, because the alternative is discovering them on a user's desktop.
+`consent_explanation(wants_pointer=True)` exists so the dialog is never preceded by
+"no mouse" while `SelectDevices` asks for the pointer. And the portal's `Notify*`
+methods are fire-and-forget: the tests prove the right method with the right signature
+and values, at the right moment and never before consent, but no test — and no return
+value — can prove the pointer moved. This path has **not** run against a real
+compositor; the live smoke report `design/eye-control/TEST_PLAN.md` asks for is still
+outstanding.
+
+### Fixed — a cancelled portal dialog left a session that reported itself started
+
+`CreateSession` completes before the permission dialog is raised, so a user who clicked
+Cancel left `_session_handle` set on a session the compositor never started — and
+`ensure_started` returns early on a non-empty handle, so from then on every keystroke
+was notified at an unauthorised session. Nothing raised and nothing was typed, which is
+the same failure shape as the `ydotool 0.1.8` dialect that printed an error and exited
+0. A negotiation that does not finish now leaves nothing behind: the handle is cleared
+and the connection closed, so the next attempt really negotiates. Found while adding
+the pointer capability; it affected the keyboard path.
+### Added — one camera owner, so two accessibility features can be on at once
+
+Glance-Type gaze and the Face-Gesture Switch each open their own webcam and their own
+FaceLandmarker, and nothing arbitrates between them: enable both and whichever starts
+second is told the device is busy. Which one that is depends on initialisation order,
+which is not a thing a user can debug. The Head-Pointer would have been a third.
+
+`src/yazses/perception/source.py` is the owner that replaces them (ADR-v2-145). Features
+hold a **lease** on it rather than a camera: the first lease opens the device and the
+model once, every other consumer shares that same observation, and the last release
+closes both. Start and stop are idempotent per consumer, because a feature that starts
+twice and stops once would pin the webcam on with no symptom but the light. `status()`
+reports state, backend, consumer names, last-sample age, the channels the newest
+observation carried and — the number ADR-v2-145 states its hard gate in — how many times
+the camera has been opened.
+
+A camera failure is contained where it happens. A device that will not open, a read that
+raises, a model that will not load, a thread that cannot start: each stops the sensing,
+records a reason naming the real cause, and returns. Nothing propagates to the feature
+that asked and nothing reaches dictation, which is never in this path. A dropped frame is
+*not* a failure, "no face" never republishes the previous sample as fresh, and one missing
+channel costs only that channel — a missing facial transform takes head pose and leaves
+gaze alone.
+
+Frames stay where they are derived: a frame is a local variable inside one observation,
+never stored on the source, never attached to a signal, never logged (ADR-011). The test
+for that is a weak reference rather than a reading of the code, so it fails if anyone ever
+keeps one. Both heavy halves — the camera and the model — are injected, so the lifecycle
+and all 58 of its tests run with no webcam, no MediaPipe and no `gaze` extra installed.
+
+New `[perception]` section (`enabled`, `camera_index`, `fps`), **off by default**. The
+daemon owns the source and closes it on shutdown, whatever the lease bookkeeping says, so
+no consumer that forgot to release can leave the webcam on. Enabling the section alone
+opens nothing, because the lifecycle is driven by consumers and there are none yet: the
+MediaPipe adapter that fills these samples is the next step, and until then every camera
+feature keeps exactly the path it has today. An existing install is unchanged.
+### Added — three eye-control task fixtures a second machine can replay exactly
+
+The eye-control result envelope says what a number *is*. It could not say what was
+*asked*, so "35 of 40 correct" on one laptop and "35 of 40" on another were two numbers
+about two different experiments. `yazses.eyeeval.tasks` is the other half: the gaze
+four-pane routing task, the Head-Pointer generated-target task and the face-switch
+block task, each generated deterministically and each frozen under
+`tests/fixtures/eye_eval_tasks/` in the exact form the generator writes. A runner calls
+`generate_task("gaze_routing_4_pane")` and needs no data files installed; CI compares the
+call against the frozen bytes.
+
+Determinism here is bought rather than hoped for. Geometry is integer thousandths of the
+logical display, so a pane means the same thing on a 1366x768 laptop and a 4K panel at
+200% scale — and no float, and therefore no `cos` or `sqrt`, ever reaches the file, so
+the bytes cannot depend on one platform's maths library. Sequence order comes from a
+SplitMix64 mixer written out in the module rather than from the standard library's
+shuffle, which is an interpreter implementation detail. Each fixture carries two versions:
+the envelope's, and the task's own — so changing a trial count or a target size has to
+bump a number and show up in a diff instead of quietly changing what a published rate
+means.
+
+The tasks are designed so that the *shape* of the data is right before anyone runs one:
+the gaze sequence is balanced by construction, ten trials per pane, and never asks for
+the same pane twice in a row; the Head-Pointer ring is visited in an alternating order so
+every movement crosses the centre and its amplitude is known in advance; the face-switch
+blocks keep rest, cued activation and ordinary speech separate, because a switch that
+fires while someone talks is a different defect from one that fires at rest. `validate_task`
+refuses a target that would hang off the screen, overlapping panes with no unambiguous
+correct answer, an unbalanced sequence, a cue outside its block, and a tester's own
+sentence where a fixed public one belongs.
+
+Nothing in these fixtures may be read as a threshold or a recommended default. A generated
+task can say a tester was asked to hit a target 120 thousandths wide; it says nothing
+whatever about how wide a control YazSes should ship, and the face-switch fixture records
+in the file itself that its block order is not counterbalanced. Every target is generated,
+so no screenshot, window title or private text can enter a task, and no recorded field
+could hold one.
+
+Developer-facing only. Nothing in the daemon imports it and no install changes.
+### Added — a generated eye-validation coverage page, so nobody reads 16 issues to find the gaps
+
+`design/eye-control/VALIDATION_OPERATIONS.md` asks the project to be able to say which
+validation cells exist, which are runnable, what blocks the rest and where there is no cell at
+all — without opening every issue. `scripts/gen-eye-validation-dashboard.py` now answers that
+from the one committed input, the slot registry, and writes
+`design/eye-control/generated/validation-coverage.md`: a summary, a pack × environment grid, one
+row per registered cell with its issue link and blockers, the blockers grouped by prerequisite,
+and the combinations the registry covers with nothing.
+
+It consumes the registry's validator rather than re-parsing the prose matrix, and refuses to
+write a page from a registry that does not validate. It is offline, clock-free and byte-stable,
+so the committed copy is reviewable in a diff and a test fails when it drifts. Never hand-edit
+it; edit the registry and regenerate (`make docs` now does too).
+
+Four things it will not say, because each is a way a coverage page misleads:
+
+- **A FAIL or BLOCKED report is evidence, not missing evidence.** Such a cell counts as
+  reported and never appears among the cells awaiting a first report — a useful failure report
+  is a completed contribution.
+- **Three sessions by one person are not three people.** Independent hosts and repeat sessions
+  are separate fields, rendered in different words, and never added together.
+- **It reports the registry, not GitHub.** Every value is a function of the committed file.
+  Live readiness, labels and claims are still read from the issues, which is why this directory
+  still carries no status snapshot; and beginner-safety is labelled as intrinsic difficulty
+  rather than a label a cell currently holds.
+- **A combination with no cell is a gap in the plan, not an overdue test.** The programme opens
+  a cell when the capability is reachable on that platform.
+
+The tests cover the three ways this repository has shipped a green guard that proved nothing: an
+unreadable or unparseable input exits 2 and writes no file, a registry with zero cells is an
+error rather than a blank page, and — because a regenerate-and-compare test can only prove the
+file matches its generator — completeness is asserted against the registry by cell id and by row
+count, with the dropped-cell case simulated so the assertion is known to fire.
+### Added — a grounded-target resolver that would rather say "several" than guess
+
+`src/yazses/grounding/resolver.py` is phase P1 of ADR-v2-151, and it is the layer that
+lets webcam gaze stay honestly coarse while still reaching an exact control. Given one
+coarse target, whatever structured candidates a semantic source reported, and optionally
+the role and label the user actually said, it returns **grounded**, **ambiguous** or
+**unresolved** — and the last two are successes, not errors.
+
+It is pure: no accessibility library, no screenshot, no OCR, no model, no clock (the
+caller passes the current time in), no randomness, and no dependence on the order a
+platform's tree walker happened to visit nodes in. Nothing in the daemon imports it yet;
+the gaze/deixis seam is a separate change, and an existing install is unchanged.
+
+Three decisions worth knowing about:
+
+- **A label match cannot import a control from somewhere else.** The spatial envelope is
+  enforced first, and only then does a hint *filter* what survived. "Click Save" can reach
+  the `Save` you were looking at and can never reach the one in the other pane — and if
+  nothing under the pointer matches what you named, the answer is "unresolved" rather than
+  the nearest thing, because grounding a text field for "click Save" is the expensive kind
+  of confident wrong answer (ADR-021).
+- **There is no weighted score to tune, so there is no coefficient anyone guessed.**
+  Ranking is a lexicographic comparison — focused selection, then source reliability, then
+  containment, then geometry — and `CandidateScore` exposes every component, so a test or
+  a debug log can name the one comparison that decided a result.
+- **Abstention rests on an exact signal, not a margin.** The resolver abstains when
+  *nothing in the ranking separates* the winner from a runner-up: two same-sized
+  overlapping controls, or eight identically-labelled list rows. Candidate confidence
+  orders the list and is explicitly not allowed to break such a tie, because grounding one
+  of two identical controls because one source said `0.9` and the other `0.7` is acting on
+  exactly the opaque number the ADR forbids.
+
+Measured on a synthetic 30-element settings window (21 leaf controls), with the shipped
+default policy: a precise point grounds all 21 correctly; a 120 px gaze region — the size
+webcam gaze actually is — grounds 28.6% and abstains on 71.4%; the same region plus a
+spoken role and label grounds 61.9%. **Wrong-target was 0% in every case.** Those numbers
+describe one invented layout and are evidence for nothing else: every threshold is a named
+field on `ResolutionPolicy` with a conservative, *unmeasured* default, and the research
+plan measures the real curve on real desktops.
+
+`UnresolvedReason` joins the vocabulary so an abstention can say whether the *target* or
+the *semantic source* failed — two different problems with two different owners, and the
+evaluation plan counts them separately. `IntentHint` joins it too, as the three checkable
+fields the existing command grammar can hand over. Both are closed enums or plain values
+with no free text, so a log or an aggregate report still cannot carry a window title.
+
+### Added — every hands-free sensor failure is now readable in `doctor` and `status`
+
+A camera handed to a video call, a MediaPipe model that never downloaded, a face switch
+whose signal died four seconds ago, a calibration fitted on a monitor since unplugged:
+each of them ended the same way, as *nothing happens*, with no surface saying which one it
+was. For someone whose only input is the camera, that silence is the whole failure
+(R-08 and R-19 in `design/eye-control/RISK_REGISTER.md`).
+
+`yazses doctor` now carries up to six rows — **Hands-free safety** (the one
+active/paused/faulted state, with per-source armed/stale/faulted and ages),
+**Hands-free perception** (which features asked for the camera, whether a session is open,
+sample age, consumer count), **Head tracking**, **Face switch**, **Pointer output** (backend
+name and capability flags) and **Gaze calibration** (valid / unverified / stale / missing,
+with what changed). `yazses status` reports the same rows for the running daemon, which is
+the only place the live state exists.
+
+Three properties, each deliberate:
+
+- **Nothing appears on an ordinary install.** Every camera capability ships off, so no
+  row is printed and the new `status` field is `null` rather than a paragraph about
+  nothing — the same contract the existing Camera row keeps.
+- **Names, states, ages, counts and capability flags only.** No gaze coordinate, head
+  angle, blendshape score, landmark, frame or window title can reach the output, because
+  the facts record has nowhere to put one; `doctor` output is what people paste into public
+  issues, and ADR-019 puts face data in the category that may never leave the machine.
+- **A probe that cannot decide says `unknown`.** It never prints a default that reads as
+  OK, and it does not turn the verdict yellow either — a permanent warning in front of
+  every user with nothing wrong is the guard ADR-021 rules out.
+
+### Added — one versioned envelope for every eye-control evaluation result
+
+Eye/camera evaluation results will arrive from CI, from replayed synthetic traces, from
+contributors on their own hardware, and eventually from a research protocol. Four sources,
+three operating systems, and until now nothing saying what a result *is* — so "35 of 40
+correct" could have meant a different thing in each file, and only prose stopped a public
+QA report being read later as participant data.
+
+`yazses.eyeeval.schema` is that envelope, written down and checked: the sections
+`design/eye-control/METRICS.md` names (software, machine, OS/session, display topology,
+camera class and capture mode, feature, config hash, protocol and task version, metrics,
+privacy declaration) plus the `study_mode` that ADR-v2-150 requires. `validate_result`
+takes a parsed document and returns a list of problems, each naming its path and what to
+do about it; `check_result` raises with all of them at once. It is pure stdlib, imports
+nothing heavy, touches no camera, file, clock or network, and nothing in the daemon
+imports it — an existing install is unchanged.
+
+Three things it refuses, because each has a cost that only shows up later:
+
+- **A silently-zero metric.** A metric that could not be measured is
+  `{"value": null, "reason": ...}` with a reason from the documented list. A bare `null`
+  fails, and so does a reason that is not in the list. "No false activations" and "false
+  activations were not counted" are not the same claim.
+- **A field that should not exist.** No key at any depth may contain `hostname`,
+  `username`, `email`, `serial`, `mac_address`, `raw_frame`, `landmark`, `transcript`,
+  `window_title` or the rest of the list. Privacy is enforced by the absence of a place to
+  put the data, not by review.
+- **Relabelled evidence.** `study_mode` fixes the data class, so community QA cannot
+  declare itself research-grade, and `research` requires a named protocol identifier
+  (ADR-v2-150 Rules 2 and 6).
+
+Forward compatibility is a written rule rather than a habit: `schema_version` is
+`MAJOR.MINOR`, unknown fields within the same major version are ignored and preserved so a
+later minor release can add one, and a different major version is refused outright rather
+than half-read. Example results for gaze, Head-Pointer and face-switch ship in
+`tests/fixtures/eye_eval/`.
+
+### Added — the eye/camera validation matrix is now machine-readable
+
+`design/eye-control/VALIDATION_MATRIX.md` is the authority on what hardware test runs
+where, but only a human could read it, so nothing could answer "which cells are READY?"
+or "which issue represents T0 on KDE Wayland?" without someone re-reading the table and
+thirteen issue bodies. `design/eye-control/validation-slots.json` now holds the same
+matrix as one versioned entry per cell — test pack, environment/session, A/B/repeat,
+PLANNED/READY, prerequisite issues, target issue where one exists, time estimate,
+hardware requirement, beginner-safety and evidence class — and
+`scripts/check_eye_validation_slots.py` validates it offline, with nothing beyond the
+standard library and no GitHub call. Issues #428–#440 are recorded exactly as they stand
+today (all PLANNED, all blocked on #423); future T1–T7 cells live in the same file with
+no issue number, which is how the matrix can grow without filling the tracker with work
+nobody can run yet.
+
+The validator enforces the rules the programme documents rather than just the shape of
+the file: duplicate cell IDs are rejected, a cell cannot claim READY while a prerequisite
+is unresolved or a required field is missing, a slot needing real hardware can never be
+marked cloud-agent-ready — a human has to observe the result — and public slots are
+`community_qa` under ADR-v2-150, with `research` refused outright so participant data
+never lands in a public file. It also fails loudly, exit 2, on a registry it cannot read,
+and treats an empty registry as an error, because a check that returns nothing on input
+it could not parse reads exactly like a check that passed.
+
+This is developer-facing only; nothing about running YazSes changes.
+### Added — one pointer-output boundary, before any backend exists
+
+Head-Pointer maps head pose to a cursor delta, the voice mouse grid resolves a click
+point, and a future gaze-assisted warp will do something similar; none of them should
+know whether an X server, a Wayland portal, `CGEvent` or `SendInput` is on the other
+side. `src/yazses/pointer/` is that seam: a `PointerSink` protocol with relative motion,
+optional absolute motion, left/right click, scroll, a capability record and `close()`,
+plus explicit `PointerUnsupportedError` / `PointerBackendError` failures. It imports
+nothing but the standard library, holds no camera, gaze or head-pose concept, and runs no
+command — the first backend lands in a separate change (ADR-v2-146).
+
+Unsupported is a word here, not a silence. Every implementation defines every method,
+including `move_absolute`, which many backends cannot offer; one that cannot perform an
+operation raises and says so in advance through `capabilities()`. A silent no-op would
+leave someone who cannot use their hands staring at a pointer that will not move with no
+way to find out why.
+
+`tests/pointer_fake.py` holds a sink that records what it was asked to do instead of
+doing it, so feature tests stay hermetic — no display server, no permission prompt, no
+pointer skidding across a developer's screen. It lives in the test tree rather than in
+`src/`, because a sink that accepts everything and moves nothing is the silent no-op the
+ADR forbids and should not be shippable. `tests/pointer_contract.py` is the suite each
+real backend will inherit rather than re-describe. It is run here against a fully capable
+fake and two deliberately partial ones, because half its assertions are about what a
+backend that *cannot* do something must do, and a suite exercised only against a complete
+backend would pass those branches by never reaching them.
+### Added — a gaze calibration now knows which screens it was made on
+
+Glance-Type's calibration is an affine map from where your eyes point to a desktop
+coordinate, and nothing in those six numbers recorded which desktop they were measured
+against. Dock the laptop to a second monitor, change a resolution, switch a panel to
+200% scale or make the other screen primary, and the map keeps returning perfectly
+plausible coordinates — for the desktop that no longer exists. Dictation then lands in
+the wrong window, with no error anywhere to explain it.
+
+The calibration file now carries the display topology it was fitted on — each monitor's
+identifier, position (negative origins included, for a screen placed left of or above
+the primary one), logical size, HiDPI scale and primary flag — plus which camera index
+produced the samples. Before the daemon routes anything it compares that against the
+live layout. Unchanged, the map is used as before. Materially changed, look-to-pane
+goes dormant and says which monitor moved, rather than rescaling the coefficients into
+a guess: `yazses gaze status` prints the reason and the daemon logs it. If the desktop
+is rearranged *while* the daemon is running, routing suspends until you recalibrate,
+because the cached window rectangles belong to the old layout too.
+
+**Existing calibrations keep working.** A file written before this release carries no
+topology, which reads as *unverified* rather than stale — it is still used, and the
+status line says the binding could not be checked. Throwing away a working calibration
+to prove a schema point would be the worst of the available answers. Recalibrating once
+binds it.
+
+One canonical coordinate space is now named and documented (`desktop-logical-px`:
+logical pixels in the virtual-desktop system, origin at the primary display's top-left),
+and physical/logical conversion happens in exactly one place, so a HiDPI mix-up has one
+site to check instead of being smeared across the routing code. Implements ADR-v2-149;
+no new configuration, nothing to turn on, and no biometric or frame data is persisted.
+### Added — one stop for every camera-driven input, and a watchdog for a signal that dies
+
+Continuous head, face and gaze control has a failure mode ordinary dictation does not: the
+person it is built for may not be able to reach a keyboard, so a pointer that runs away or an
+activation that sticks has no way out. `src/yazses/handsfree/safety.py` adds the single
+ACTIVE/PAUSED/FAULTED state ADR-v2-148 requires — one `pause()` that every camera-driven source
+consults before it moves a cursor or commits a click, callable from whichever thread the stop
+arrives on (tray, hotkey, voice command), and idempotent so a second stop is not a second
+interruption.
+
+The watchdog is the other half. A source whose newest sample has aged past
+`[handsfree_safety] stale_after_ms` is denied and disarmed, so the last known head pose is never
+re-used as if it were a pose; and because it is *disarmed*, a camera that flickers back cannot
+silently resume driving the cursor — recovery takes an explicit re-arm, which is refused for a
+source whose signal has not actually returned. Arming is per source, so a stale face switch stops
+the face switch and leaves the pointer and speech alone. Every decision carries a one-shot
+`clear_pending` flag that tells the consumer to drop a half-accumulated dwell or half-detected
+gesture, so recovery cannot complete an activation that began before the interruption; the
+Head-Pointer's dwell clicker grew the `reset()` that flag asks for.
+
+The module is pure — no camera, no thread, a caller-supplied clock — and is unit-tested on
+fabricated timelines. It ships **off** (`[handsfree_safety] enabled = false`) and nothing in the
+daemon consults it yet: the runtime consumers land with the head-pointer and face-switch runtime
+work, and `doctor`/status will report the state the module already exposes. `stale_after_ms`
+defaults to 500 ms, which is a deliberately generous placeholder and **not a measured value** —
+no frame-interval or tracking-loss distribution exists for this programme yet, and a guard is
+judged on how rarely it fires.
+### Added — one camera permission contract, and a packaging matrix that is checked
+
+Three camera features exist — Glance-Type gaze routing, the Face-Gesture Switch and the
+Head-Pointer — and until now none of them could answer "may this install open the camera?"
+before trying. Each opened a `cv2.VideoCapture` and found out by failing, which is
+indistinguishable, from the user's chair, from the feature being broken.
+
+`yazses.cameraperm` is now the single answer. It reports one of five states — granted,
+denied, not-determined, unavailable, unsupported-platform — behind a new
+`PermissionsBackend.check_camera()` in the platform seam, with real implementations for
+Linux (`/dev/video*` presence and openability), macOS (the Camera TCC service via
+AVFoundation) and Windows (the three ConsentStore values behind the Camera privacy page).
+**A probe that cannot determine the state reports not-determined, never granted**, and
+nothing but granted opens a camera.
+
+Two honest limits, stated here rather than discovered later. The macOS and Windows probes
+have never run on real hardware — no Mac and no Windows machine is available to this
+project, and a hosted runner would not settle macOS either, because TCC on a runner is
+permissive, so an `[OK]` there is the runner and not the contract. And Microsoft documents
+no way for an *unpackaged* desktop app to ask about camera access (`AppCapability` is for
+packaged apps; the documented Win32 route is to open the device and handle
+`E_ACCESSDENIED`), so the Windows probe reads an undocumented registry location and, for
+that reason, reports "undetermined" for anything it cannot read outright.
+
+`yazses doctor` grows a **Camera** row — but only once a camera feature is enabled, which
+on an ordinary install is never. It tells four causes apart that used to look identical: a
+package that cannot run a camera feature at all, a missing `mediapipe`/`opencv-python`, no
+camera device, and a refused or not-yet-granted OS permission.
+
+The packaging half is the checked-in matrix in `cameraperm/matrix.py`, and the tests hold
+every row against the real manifest. The `.dmg`, the Windows `.exe`, the MSIX, the snap and
+the flatpak are all built without the camera runtime and cannot add one, so none of them
+declares a camera capability — an unused capability is a permission request with no upside.
+If a build script ever starts shipping the camera extra, the suite fails and names the
+declaration that has become mandatory, rather than the bundle shipping a feature the OS
+refuses without ever prompting.
+
+Nothing about this changes an existing install: every camera feature still ships off, no
+manifest changed, and ordinary dictation is never in the camera path.
+### Added — the vocabulary for grounding a coarse target onto an exact UI element
+
+`src/yazses/grounding/contracts.py` is the first phase of ADR-v2-151. Webcam gaze can
+already answer "which window were you looking at?", which is enough for Glance-Type and
+for "close this", and nowhere near enough for "click this" — a window holds dozens of
+controls. The decision is to separate *where the user referred* from *what structured
+entities are there* from *what that resolved to*, and this change adds only the immutable
+values for those three: `TargetSnapshot`, `SemanticCandidate`, `GroundingResult`, plus the
+read-only `SemanticSource` protocol that a Linux AT-SPI, macOS Accessibility or Windows
+UI Automation adapter will implement later.
+
+Nothing is wired to anything yet and no user-visible behaviour changes. The result type
+is deliberately tri-state — grounded, ambiguous, unresolved — and the invariants make an
+abstention structurally unable to carry a candidate or a confidence number, so a caller
+cannot read an answer off a resolution that refused to choose one. The layer imports six
+stdlib modules and nothing else: no accessibility library, no screen capture, no camera
+frame, no network, not even a clock. Tests enforce that by scanning the module's imports
+and every field annotation.
+### Added — one shared vocabulary for what the webcam can tell us
+
+Glance-Type gaze, the Head-Pointer and the Face-Gesture Switch all want the same
+MediaPipe FaceLandmarker result, and two of them already open their own camera and
+their own model to get it — which is how a laptop ends up reporting "device already
+busy" to whichever accessibility feature happened to start second. ADR-v2-145 puts one
+source behind all three. `src/yazses/perception/signals.py` is the first piece of it:
+the value types that source will emit, and nothing else.
+
+They are frozen dataclasses of derived numbers — a gaze feature, a head pose in
+radians, blendshape activations — each carrying a monotonic timestamp and an explicit
+confidence. Nothing in the module imports OpenCV or MediaPipe, opens a camera or starts
+a thread, so a consumer can be written and unit-tested on a machine with no camera extra
+installed. No field can hold a frame, a face mesh or a landmark, which is what keeps
+ADR-011's "frames stay in RAM" auditable at a boundary rather than by inspection.
+
+The rule the rest of the programme is built on is that **absent is never zero**: a
+channel that produced nothing is `None`, not a `0.0` that reads like "looking straight
+ahead" or "jaw shut", and a blendshape the model did not report comes back `None` rather
+than as a released key. One channel can fail without taking the others with it — a
+missing facial-transform matrix costs head pose and leaves gaze alone.
+
+Nothing is wired to it yet and no behaviour changes: this is the contract the camera
+owner (#394) and the gaze migration (#396) are written against. #393
+
+### Added — the X11 pointer backend behind the PointerSink boundary
+
+ADR-v2-146 made pointer output a platform boundary so that Head-Pointer, the voice mouse
+grid and any future gaze-assisted warp contain no platform commands. #400 wrote the
+protocol; this is the first real backend behind it, for X11.
+
+`yazses.platform.linux.pointer_x11` implements all six operations — relative motion,
+absolute motion, click, scroll, capabilities, close — over the X server's XTEST
+extension, using python-xlib, which is already a base dependency on Linux and the BSDs
+and already how the snap-confined global hotkey works. It is deliberately not
+`xdotool mousemove_relative`: Head-Pointer emits a delta per camera frame, and forking a
+process for each one would put tens of milliseconds and a PID on the latency path a user
+feels most directly.
+
+Three things it is careful about, because a pointer a person cannot stop is worse than no
+pointer at all:
+
+- **Unavailable says which kind of unavailable.** No python-xlib, no `DISPLAY`, or an X
+  server without XTEST is `PointerUnsupportedError` — permanent here, so try another
+  backend. A display that exists and refused the connection is `PointerBackendError` —
+  worth retrying, and worth telling the user. Neither is ever a silent no-op.
+- **An operation is not done until it is flushed.** XTEST requests sit in python-xlib's
+  output buffer, so every operation syncs, and a failed one syncs too: a button press
+  left in the buffer would otherwise be delivered attached to whatever the user asked for
+  next, which is exactly the stale command ADR-v2-146 rule 4 forbids.
+- **The wheel's signs do not flip at the boundary.** `+dy` scrolls down and `+dx` right,
+  as the protocol fixes them; X11 spells the wheel as buttons 4-7 instead of an axis, so
+  that negation happens inside the backend where it belongs.
+
+The X server API is injected, so the shared contract suite in `tests/pointer_contract.py`
+runs against this backend in CI with no display server, no `DISPLAY` and no pointer
+moving on anybody's screen — and the one class that does touch python-xlib is tested
+against a fake display, down to the shape of the `xtest_fake_input` call.
+
+Nothing is wired to it yet and no behaviour changes for any existing install: the sink is
+built only when a pointer consumer asks for one (ADR-v2-146 rule 7), and no consumer is
+shipped. macOS, Windows and the Wayland RemoteDesktop portal are separate backends behind
+the same protocol. #401
+
 ## [2.40.1] - 2026-09-25
 
 ### Changed — the Store page says plainly that YazSes is not on the Store

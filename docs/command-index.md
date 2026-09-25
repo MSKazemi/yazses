@@ -162,6 +162,22 @@ Run the accessibility enrollment wizard to calibrate VAD thresholds.
 
 Record a short voiceprint so YazSes can recognise your voice.
 
+## `yazses eye-eval`
+
+Run an eye-control evaluation task and save a privacy-safe result you can inspect.
+
+- **Arguments:** `task`
+- `--out`, `-o` — Where to write the result JSON.
+- `--synthetic` — No-camera dry run: generate the outcomes instead of measuring them.
+- `--outcomes` — A JSON list of per-trial outcomes you recorded during a real run.
+- `--blocked` — Record a BLOCKED result. One of: not_supported, not_measured, permission_denied, tracking_unavailable, participant_stopped, technical_invalidation.
+- `--study-mode` — ci | synthetic | community_qa | research. Never inferred.
+- `--protocol-id` — The named, versioned research protocol. Required by --study-mode research.
+- `--camera-class` — integrated | external | virtual | none. Required with --outcomes.
+- `--perception-backend` — Which camera perception backend ran, e.g. mediapipe.
+- `--verdict` — Your own PASS/PARTIAL/FAIL/BLOCKED, overriding the computed one.
+- `--seed` — Task seed. Default: the seed the task fixture records.
+
 ## `yazses features`
 
 See capabilities and turn them on/off (no config-editing needed).

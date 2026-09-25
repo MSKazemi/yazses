@@ -33,6 +33,7 @@ if TYPE_CHECKING:
     from yazses.latency.pool import EnginePool
     from yazses.learning.edit_watch import EditWatcher
     from yazses.meeting.controller import MeetingController
+    from yazses.perception import SharedPerceptionSource
     from yazses.polyglot.router import PolyglotRouter
     from yazses.system.single_instance import SingleInstanceLock
     from yazses.timeline.history import InjectionTimeline
@@ -252,6 +253,11 @@ class Daemon:
         # Glance-Type look-to-pane targeter (None unless [gaze] enabled + routing
         # + calibration + an X11 desktop backend all present — otherwise dormant).
         self._gaze_targeter: GazeTargeter | None = None
+        # The one shared camera owner (ADR-v2-145). Declared here rather than only in
+        # `_build_pipeline`, which runs under `run()`: `shutdown` closes it, and an
+        # attribute that exists only after a successful startup would make that
+        # release silently skip on any path that never got there.
+        self._perception: SharedPerceptionSource | None = None
         # Ghost Ahead endpoint anticipator (None when [endpoint] disabled — dormant).
         self._endpoint: EndpointAnticipator | None = (
             EndpointAnticipator(
@@ -1123,6 +1129,14 @@ class Daemon:
         # whether gaze *actually* came up, rather than whether it was requested.
         self._gaze_targeter = self._build_gaze_targeter(cfg)
 
+        # ADR-v2-145: one camera owner per daemon, so gaze, the Head-Pointer and the
+        # face switch cannot each open the webcam and meet "device already busy".
+        # None on every install today — `[perception]` ships off and no camera
+        # backend is wired to the owner yet (#395) — so nothing about the camera
+        # features above changes. This is the seam that stops there being a second
+        # one later, and `shutdown` closes it.
+        self._perception = self._build_perception_source(cfg)
+
         # ADR-v2-011 role arbitration. Must precede the activation sources, because
         # it decides what role EMG plays among them.
         self._modality_roles = self._resolve_modality_roles(cfg)
@@ -1497,31 +1511,86 @@ class Daemon:
         Requires ``[gaze] enabled`` + (``route_dictation`` or ``deixis``), a
         saved calibration, an X11 desktop backend (xdotool), and the gaze deps.
         Any absent → None, so dictation simply stays on the focused window.
+
+        Also requires the calibration to still *apply here* (ADR-v2-149). A map
+        fitted on a different monitor arrangement still returns plausible screen
+        coordinates, so it would misroute silently; a stale one is refused by name
+        instead. A calibration written before contexts existed cannot be checked
+        and keeps working — refusing it would delete a working setup.
         """
         if not (cfg.gaze.enabled and (cfg.gaze.route_dictation or cfg.gaze.deixis)):
             return None
         try:
             from yazses.gaze.desktop import build_desktop
+            from yazses.gaze.display import build_topology_provider, current_context
             from yazses.gaze.factory import build_gaze
-            from yazses.gaze.store import load_calibration
+            from yazses.gaze.store import calibration_state
             from yazses.gaze.targeter import GazeTargeter
+            from yazses.gaze.topology import SessionTopologyGuard, Validity
 
             desktop = build_desktop()
             if desktop is None:
                 log.warning("Gaze routing enabled but no X11 desktop backend; dormant.")
                 return None
-            calibration = load_calibration(self._platform.paths.data_dir)
+            provider = build_topology_provider()
+            context = current_context(
+                camera_id=str(cfg.gaze.camera_index), provider=provider
+            )
+            calibration, check = calibration_state(self._platform.paths.data_dir, context)
             if calibration is None:
                 log.warning("Gaze routing enabled but not calibrated; run `yazses gaze calibrate`.")
                 return None
+            if check.validity is Validity.STALE:
+                log.warning(
+                    "Gaze calibration is stale — %s. Look-to-pane dormant until "
+                    "`yazses gaze calibrate` runs again.",
+                    check.reason,
+                )
+                return None
+            if check.validity is Validity.UNVERIFIED:
+                log.info("Gaze calibration could not be verified — %s.", check.reason)
             backend = build_gaze(cfg.gaze)
             if backend is None:
                 log.warning("Gaze routing enabled but gaze deps unavailable; dormant.")
                 return None
+            guard = None
+            if provider is not None:
+                guard = SessionTopologyGuard(
+                    context,
+                    lambda: current_context(
+                        camera_id=str(cfg.gaze.camera_index), provider=provider
+                    ),
+                )
             log.info("Glance-Type look-to-pane routing active.")
-            return GazeTargeter(backend, calibration, desktop, cfg.gaze.confidence_min)
+            return GazeTargeter(
+                backend, calibration, desktop, cfg.gaze.confidence_min, topology_guard=guard
+            )
         except Exception:
             log.debug("Gaze targeter init failed; skipping", exc_info=True)
+            return None
+
+    def _build_perception_source(self, cfg):
+        """The daemon's single shared camera owner, or None when it is dormant.
+
+        ADR-v2-145 puts one source behind every camera feature and this is where it
+        is owned, because "one owner per daemon" has to be true of an object with a
+        daemon-long lifetime rather than of a convention. Consumers do not get it
+        directly: each takes a lease, the first lease opens the camera once and the
+        last release closes it (src/yazses/perception/source.py).
+
+        None is the answer on every install today, and it is not a failure: the
+        factory returns None while `[perception]` is off, and also while no camera
+        backend has been wired to the owner — the MediaPipe adapter is #395 and the
+        gaze migration that asks for the first lease is #396. Until then every camera
+        feature keeps the path it has now. Wrapped because a source that cannot be
+        built must cost a log line, never a daemon that will not start.
+        """
+        try:
+            from yazses.perception import build_perception_source
+
+            return build_perception_source(cfg.perception)
+        except Exception:
+            log.debug("Shared camera perception init failed; skipping", exc_info=True)
             return None
 
     def _on_command_hold_start(self, leaked: int) -> None:
@@ -5090,7 +5159,78 @@ class Daemon:
                 "notifications": (
                     self._drain_notifications() if consume else self._peek_notifications()
                 ),
+                # Hands-free health (#416) — `None` for anybody who has not enabled a
+                # camera capability, which is the shipped default, and every reader treats
+                # it as "nothing to report".
+                #
+                # A literal key with a null value rather than a key added conditionally
+                # afterwards, and the difference is not cosmetic:
+                # `tests/test_report_redacts_the_daemon_block.py` walks this function's
+                # AST for the dict it *returns* and classifies every literal key in it as
+                # machine fact or user prose. Assembling the payload into a local and
+                # returning that found six keys instead of thirty-seven and quietly
+                # switched a privacy guard off.
+                "handsfree": self._handsfree_payload(),
             }
+
+    def _handsfree_payload(self) -> dict[str, object] | None:
+        """Privacy-safe hands-free health for `yazses status`. Caller holds ``self._lock``.
+
+        Names, states, ages and counts — never a gaze coordinate, head angle, blendshape
+        score or landmark. `handsfree/observability.py` is where that is enforced: its facts
+        record has nowhere to put one.
+
+        Two things this must not do, because `status` is polled continuously by the tray and
+        the overlay: no disk read and no subprocess. That is why the calibration check and
+        the camera-permission probe are `doctor`'s job and are reported as *not determined*
+        here rather than guessed at — the alternative is a monitor query on every poll.
+
+        What the daemon uniquely knows is whether a runtime path for each capability was
+        actually built, which is the difference between "your face switch is broken" and
+        "your face switch was never constructed because the webcam deps are missing".
+        """
+        try:
+            from yazses.handsfree.observability import (
+                PERCEPTION_RUNNING,
+                PERCEPTION_STOPPED,
+                as_payload,
+            )
+            from yazses.handsfree.probe import facts_from_config
+
+            facts = facts_from_config(self._config)
+            if not facts.features_requested and not facts.safety_configured:
+                return None
+            gaze_running = getattr(self, "_gaze_targeter", None) is not None
+            # By module rather than by class name or `isinstance`: the name is a string
+            # two files can agree on by accident, and importing the backend to compare
+            # types would pull a camera module into a status poll.
+            face_running = any(
+                type(source).__module__.startswith("yazses.facegesture")
+                for source in getattr(self, "_extra_activations", ()) or ()
+            )
+            running = gaze_running or face_running
+            facts = dataclasses.replace(
+                facts,
+                perception_state=PERCEPTION_RUNNING if running else PERCEPTION_STOPPED,
+                perception_consumers=int(gaze_running) + int(face_running),
+                perception_reason=(
+                    "each camera consumer opens its own capture today, so no shared "
+                    "per-channel freshness is reported"
+                    if running else
+                    "no camera consumer was built at start-up — `yazses doctor` says why"
+                ),
+                # A consumer that was never constructed is not a wired consumer *here*,
+                # whatever the registry says about the build. Reporting the registry's
+                # answer for a source this process does not hold would be the "printed OK
+                # for something that cannot act" failure the row exists to end.
+                face_wired=(
+                    face_running if "facegesture" in facts.features_requested else None
+                ),
+            )
+            return as_payload(facts)
+        except Exception:  # pragma: no cover - defensive
+            log.debug("hands-free status payload failed", exc_info=True)
+            return None
 
     def _handle_shutdown(self, _request: Request) -> dict[str, bool]:
         threading.Thread(target=self.shutdown, name="ipc-shutdown", daemon=True).start()
@@ -5463,6 +5603,13 @@ class Daemon:
                 self._gaze_targeter.close()  # release the camera
             except Exception:
                 log.exception("Gaze targeter close raised")
+        if self._perception is not None:
+            try:
+                # Whatever the lease bookkeeping says: a consumer that forgot to
+                # release must not leave the webcam open or its loop alive.
+                self._perception.close()
+            except Exception:
+                log.exception("Shared camera source close raised")
         if self._meeting_recorder is not None:
             try:
                 self._meeting_recorder.stop()

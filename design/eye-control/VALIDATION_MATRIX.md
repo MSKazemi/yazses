@@ -48,6 +48,29 @@ A/B issues exist so contributors do not need to coordinate a large matrix themse
 
 These public reports are `community_qa`, not automatic research participants.
 
+## Machine-readable form
+
+[`validation-slots.json`](validation-slots.json) carries this matrix as one versioned entry per
+cell — pack, environment/session, A/B/repeat, PLANNED/READY, prerequisite issues, target issue
+where one exists, time estimate, hardware requirement, beginner-safety and evidence class. It
+holds no participant identity, contact detail or raw result.
+
+This prose file stays authoritative for *why* a cell exists; the JSON exists so tooling does not
+have to parse the tables above.
+
+```sh
+uv run python scripts/check_eye_validation_slots.py
+```
+
+The validator is offline, deterministic and stdlib-only. It exits `0` when valid, `1` on a rule
+violation, and `2` when the registry cannot be read or parsed at all — a registry it could not
+read is never reported as compliant. An empty registry fails for the same reason.
+
+The same file also generates the coverage view of this matrix —
+[`generated/validation-coverage.md`](generated/validation-coverage.md) — showing which cells
+exist, what blocks each of them, and which pack/environment combinations have no cell at all.
+See the coverage-dashboard section of [VALIDATION_OPERATIONS.md](VALIDATION_OPERATIONS.md).
+
 ## Test packs
 
 Each test pack is intentionally small. A contributor should run **one pack** unless an issue says

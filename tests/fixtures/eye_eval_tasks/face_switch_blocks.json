@@ -1,0 +1,98 @@
+{
+  "fixture_schema_version": "1.0",
+  "task_id": "face_switch_blocks",
+  "task_version": "1.0",
+  "feature": "face_switch",
+  "description": "Three five-minute blocks: rest, cued deliberate activations, and reading fixed public sentences aloud. The gesture under test is whichever one is configured -- the task is gesture-agnostic and the result records which it was. Keeping the blocks separate is what makes a false activation attributable to rest or to ordinary speech instead of averaging the two into one unusable rate.",
+  "generator": "yazses.eyeeval.tasks/1.0",
+  "seed": 2026092503,
+  "records": [
+    "block_id",
+    "block_type",
+    "cue_index",
+    "outcome",
+    "activation_latency_ms",
+    "detection_count",
+    "miss_count",
+    "false_activation_count"
+  ],
+  "outcomes": [
+    "detected",
+    "missed",
+    "false_activation"
+  ],
+  "blocks": [
+    {
+      "block_id": "neutral",
+      "kind": "scored",
+      "block_type": "neutral",
+      "duration_s": 300,
+      "cue_times_ms": [],
+      "prompts": []
+    },
+    {
+      "block_id": "deliberate",
+      "kind": "scored",
+      "block_type": "deliberate",
+      "duration_s": 300,
+      "cue_times_ms": [
+        4179,
+        16924,
+        25499,
+        35231,
+        44972,
+        56753,
+        64432,
+        73062,
+        84424,
+        95009,
+        106512,
+        115577,
+        125661,
+        133077,
+        144290,
+        153628,
+        165009,
+        174768,
+        183428,
+        194360,
+        203714,
+        213170,
+        225377,
+        236798,
+        245630,
+        254737,
+        266474,
+        276054,
+        283451,
+        296040
+      ],
+      "prompts": []
+    },
+    {
+      "block_id": "speaking",
+      "kind": "scored",
+      "block_type": "speaking",
+      "duration_s": 300,
+      "cue_times_ms": [],
+      "prompts": [
+        "The quick brown fox jumps over the lazy dog.",
+        "Sphinx of black quartz, judge my vow.",
+        "How vexingly quick daft zebras jump.",
+        "The five boxing wizards jump quickly.",
+        "Jackdaws love my big sphinx of quartz.",
+        "Bright vixens jump; dozy fowl quack."
+      ]
+    }
+  ],
+  "scored_trials": 30,
+  "privacy": {
+    "content_source": "generated",
+    "raw_media_retained": false,
+    "contains_personal_identifiers": false
+  },
+  "limitations": [
+    "Block order is fixed, not counterbalanced. Order effects are a study-protocol decision (#425), not something a fixture may quietly randomise away.",
+    "Nothing here is a threshold. Cue spacing and block length shape what can be measured; they say nothing about what any setting should default to."
+  ]
+}

@@ -1,0 +1,99 @@
+{
+  "schema_version": "1.0",
+  "trace_id": "off-region-label-match",
+  "study_mode": "synthetic",
+  "description": "The criterion the whole layer exists for: a label the user named exists on screen, but not where they were looking. The hint must not reach it. The second case is the control that proves the first failed for the region, not because the hint is broken.",
+  "space": {"name": "screen", "version": 1},
+  "cases": [
+    {
+      "case_id": "off-region-label-match/hint-cannot-reach-across-the-screen",
+      "description": "\"Click Save\" while looking at the Amount field. The only Save is 400 px away and was never in the plausible set, so the honest answer is abstention rather than the nearest thing.",
+      "now_s": 1000.0,
+      "target": {
+        "source": "mouse",
+        "timestamp_s": 1000.0,
+        "confidence": 0.9,
+        "point": {"x": 360.0, "y": 316.0},
+        "window_id": "win-form"
+      },
+      "candidates": [
+        {
+          "source": "window",
+          "entity_id": "win-form",
+          "role": "window",
+          "captured_at_s": 1000.0,
+          "confidence": 0.9,
+          "bounds": {"x": 0.0, "y": 0.0, "width": 1000.0, "height": 700.0},
+          "label": "Invoice"
+        },
+        {
+          "source": "accessibility",
+          "entity_id": "amount-field",
+          "role": "entry",
+          "captured_at_s": 1000.0,
+          "confidence": 0.9,
+          "bounds": {"x": 200.0, "y": 300.0, "width": 320.0, "height": 32.0},
+          "label": "Amount",
+          "actions": ["activate"]
+        },
+        {
+          "source": "accessibility",
+          "entity_id": "save-button",
+          "role": "button",
+          "captured_at_s": 1000.0,
+          "confidence": 0.9,
+          "bounds": {"x": 760.0, "y": 600.0, "width": 90.0, "height": 32.0},
+          "label": "Save",
+          "actions": ["press"]
+        }
+      ],
+      "hint": {"verb": "click", "role": "button", "label_tokens": ["save"]},
+      "expected_entity_id": null
+    },
+    {
+      "case_id": "off-region-label-match/the-same-hint-inside-the-region-grounds",
+      "description": "Identical layout and identical hint, with the point on the Save button. It grounds — so the case above abstained because of where the user was looking, not because the hint never matches.",
+      "now_s": 1000.0,
+      "target": {
+        "source": "mouse",
+        "timestamp_s": 1000.0,
+        "confidence": 0.9,
+        "point": {"x": 805.0, "y": 616.0},
+        "window_id": "win-form"
+      },
+      "candidates": [
+        {
+          "source": "window",
+          "entity_id": "win-form",
+          "role": "window",
+          "captured_at_s": 1000.0,
+          "confidence": 0.9,
+          "bounds": {"x": 0.0, "y": 0.0, "width": 1000.0, "height": 700.0},
+          "label": "Invoice"
+        },
+        {
+          "source": "accessibility",
+          "entity_id": "amount-field",
+          "role": "entry",
+          "captured_at_s": 1000.0,
+          "confidence": 0.9,
+          "bounds": {"x": 200.0, "y": 300.0, "width": 320.0, "height": 32.0},
+          "label": "Amount",
+          "actions": ["activate"]
+        },
+        {
+          "source": "accessibility",
+          "entity_id": "save-button",
+          "role": "button",
+          "captured_at_s": 1000.0,
+          "confidence": 0.9,
+          "bounds": {"x": 760.0, "y": 600.0, "width": 90.0, "height": 32.0},
+          "label": "Save",
+          "actions": ["press"]
+        }
+      ],
+      "hint": {"verb": "click", "role": "button", "label_tokens": ["save"]},
+      "expected_entity_id": "save-button"
+    }
+  ]
+}

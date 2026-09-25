@@ -414,6 +414,7 @@ debugging. This is the entry point `yazses start` supervises in the background.
 | `yazses hotkey` | Show or change the key you hold to talk. |
 | `yazses audio` | See and pin the input microphone (fixes a mic that silently switches). |
 | `yazses gaze` | Aim dictation with your gaze — type into whichever pane you look at. |
+| `yazses eye-eval` | Run a scripted eye-control evaluation task and save a privacy-safe result JSON. |
 
 ### `yazses quickstart`
 
@@ -1034,6 +1035,62 @@ hold only — never stored or sent.
 yazses gaze calibrate    # fit the webcam gaze → screen-zone mapping
 yazses gaze status       # deps, X11/xdotool, and whether a calibration exists
 ```
+
+### `yazses eye-eval` — scripted eye-control evaluation
+
+| Command | Description |
+|---|---|
+| `yazses eye-eval <task>` | Run one evaluation task and write a privacy-safe result JSON. |
+
+Three tasks, generated on the spot so no data file has to ship:
+`gaze_routing_4_pane`, `head_pointer_generated_targets`, `face_switch_blocks`.
+
+**Nothing is uploaded.** The command writes one JSON file to your own disk, prints a
+summary, and stops. There is no upload flag, no network call and no "share" step: you read
+the file, then attach it to an issue yourself if you want to.
+
+The file carries safe provenance — YazSes and Python version, OS, kernel, architecture, CPU
+model, logical CPUs, RAM, session type, display geometry — plus derived counts. It has no
+field for your hostname, login name, home directory, serial number, window titles, or
+anything a camera saw, and the result is validated against the schema **and** swept for
+those identifiers *before* the file is created. A run that would leak writes nothing.
+
+```bash
+# The no-camera dry run. This is what CI runs; it needs no webcam and no model.
+yazses eye-eval gaze_routing_4_pane --synthetic -o result.json
+
+# A real hardware test: you performed the task and recorded each trial's outcome.
+yazses eye-eval gaze_routing_4_pane \
+    --outcomes trials.json --study-mode community_qa \
+    --camera-class integrated --perception-backend mediapipe -o result.json
+
+# A test you could not run is still a valid result. Say why.
+yazses eye-eval face_switch_blocks --blocked permission_denied \
+    --study-mode community_qa -o result.json
+```
+
+`--outcomes` takes a JSON list of per-trial records. Only the fields the task declares are
+accepted — an unknown one is refused rather than ignored, so a misspelled count cannot
+become a silent zero — and only the aggregates reach the result, never a record itself:
+
+```json
+[
+  {"trial_index": 0, "intended_target_id": 3, "outcome": "correct", "trial_time_ms": 940},
+  {"trial_index": 1, "intended_target_id": 1, "outcome": "wrong_target", "trial_time_ms": 1520},
+  {"trial_index": 2, "intended_target_id": 4, "outcome": "fallback_no_route"}
+]
+```
+
+`--study-mode` is never guessed. A public hardware test is `community_qa`; `research`
+additionally requires `--protocol-id`, because relabelling an artifact after collection is
+not consent. A `--synthetic` run cannot call itself `community_qa` (nobody performed it),
+and a human-operated run cannot call itself `ci`.
+
+The printed verdict is `PASS` / `PARTIAL` / `FAIL` / `BLOCKED` and describes **the protocol
+running to completion**, not how accurately the feature performed — no rate threshold is
+applied anywhere. Pass `--verdict` to state your own; both yours and the computed one are
+recorded. A metric nothing measured is written `{"value": null, "reason": "..."}`, never
+zero.
 
 ---
 

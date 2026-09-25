@@ -12,6 +12,7 @@ import os
 import platform as platform_module  # `platform` is a local in run_doctor (the Platform bundle)
 import shutil
 import sys
+from dataclasses import replace
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as _pkg_version
 from pathlib import Path
@@ -1124,6 +1125,144 @@ def _input_monitoring_check(perms, platform_name: str) -> _Check | None:
     return ("Input monitoring", "FAIL", detail)
 
 
+def _camera_check(
+    perms, cfg, *, profile=None, find_module=None, model_present=None
+) -> _Check | None:
+    """The camera row — present only when a camera feature is actually on.
+
+    Returns ``None`` on an ordinary install, and that is the feature, not a gap.
+    Every camera feature ships ``enabled = False``, so a row here on a machine
+    that has never enabled one would be a line about nothing on every `doctor`
+    run ever printed — and ADR-v2-021 is explicit that a signal which fires when
+    nothing is wrong is a signal people learn to skip. It is also the first
+    acceptance criterion of EYE-PERM-001 in its visible form: with camera
+    features off, nothing here reaches the OS, so nothing can raise a camera
+    permission prompt.
+
+    When a feature *is* on, this is the row that has to tell four different
+    failures apart, because they have four different fixes and one of them is
+    "you cannot fix this, reinstall YazSes another way":
+
+    * the install format ships no camera runtime and cannot add one (the .dmg,
+      the .exe, the MSIX, the snap, the flatpak) — R-21;
+    * mediapipe/opencv are simply not installed in a venv that could have them;
+    * the machine exposes no camera device;
+    * the OS refused, or has not been asked.
+
+    All four are decided in :mod:`yazses.cameraperm`; this function only renders.
+    ``UNKNOWN`` states are a WARN and not a FAIL for the reason
+    :func:`_input_monitoring_check` gives: "never asked" and "refused" look
+    identical from a process that has not asked, and a red line in front of a
+    user who has merely not held the key yet is a false alarm.
+
+    The three keyword seams exist so the tests can render every one of those
+    outcomes without reading the developer's installed packages or model cache --
+    a diagnostic test that consults the host machine passes or fails for reasons
+    that have nothing to do with the code, and two tests in this suite have
+    already edited the machine they ran on.
+    """
+    from yazses.cameraperm import CameraBlocker, CameraPermission, resolve
+
+    # `getattr`, because a third-party or older backend may predate `check_camera`
+    # -- and then an explicit "cannot tell", NOT `None`. Handing `resolve` a None
+    # probe means "use the active platform's backend", which for a backend that
+    # merely lacks the method would answer with a *different* object's opinion.
+    # A missing method is not permission, and it is not somebody else's permission
+    # either.
+    probe = getattr(perms, "check_camera", None) or (
+        lambda: CameraPermission.NOT_DETERMINED
+    )
+    remedy = getattr(perms, "how_to_grant_camera", None) or (lambda: "")
+
+    gate = resolve(
+        cfg,
+        probe=probe,
+        remedy=remedy,
+        profile=profile,
+        find_module=find_module,
+        model_present=model_present,
+    )
+    if gate.blocker is CameraBlocker.FEATURE_OFF:
+        return None
+
+    parts = [gate.reason]
+    if gate.remedy:
+        parts.append(gate.remedy)
+    parts.extend(gate.notes)
+    detail = "\n".join(parts)
+
+    if gate.allowed:
+        return ("Camera", "OK", detail)
+    soft = {
+        CameraBlocker.PERMISSION_UNKNOWN,
+        CameraBlocker.UNSUPPORTED,
+        CameraBlocker.NOT_PROBED,
+    }
+    return ("Camera", "WARN" if gate.blocker in soft else "FAIL", detail)
+
+
+def _camera_ready(camera_row: _Check | None) -> bool | None:
+    """Re-read :func:`_camera_check`'s verdict as a tri-state. Pure.
+
+    Deliberately reading the row rather than calling ``cameraperm.resolve`` a second time.
+    On macOS the camera probe is what raises the permission dialog, and asking twice in one
+    `doctor` run to answer one question is how a diagnostic ends up prompting a user twice.
+
+    The mapping is the row's own vocabulary: OK means the gate allowed it, FAIL means a
+    blocker the user can act on, and WARN is the soft set — permission unknown, not probed,
+    unsupported platform — which is *not determined*, not *unavailable*. ``None`` there is
+    the whole point: the hands-free rows must not read a "we did not ask" as a yes.
+    """
+    if camera_row is None:
+        return None
+    status = camera_row[1]
+    if status == "OK":
+        return True
+    if status == "FAIL":
+        return False
+    return None
+
+
+def _handsfree_checks(
+    cfg,
+    platform,
+    camera_row: _Check | None,
+    *,
+    unwired: frozenset[str] | None = None,
+    read_context=None,
+) -> list[_Check]:
+    """Hands-free health rows — camera perception, head, face switch, pointer, safety.
+
+    EYE-OBS-001 (#416). Empty on an ordinary install, and that is the feature rather than a
+    gap: every camera capability ships ``enabled = False``, so these rows appear only for
+    somebody who asked for one. The same reasoning `_camera_check` gives above, and the
+    same acceptance criterion — with camera features off, nothing here reaches the OS.
+
+    What it reports is names, states, ages, counts and capability flags. No gaze
+    coordinate, head angle, blendshape score, landmark or window title can reach it,
+    because `handsfree/observability.py` has nowhere to put one; that module decides what
+    every state means and `handsfree/probe.py` gathers the facts. Both are testable with no
+    camera, which is why the two seams below exist — ``unwired`` fixes what this build
+    drives, and ``read_context`` the display topology the calibration is judged against.
+    """
+    from yazses.handsfree.observability import doctor_rows
+    from yazses.handsfree.probe import calibration_facts, facts_from_config, pointer_facts
+
+    facts = facts_from_config(cfg, unwired=unwired)
+    if not facts.features_requested and not facts.safety_configured:
+        return []
+    facts = replace(facts, camera_ready=_camera_ready(camera_row))
+    facts = pointer_facts(facts, platform)
+    if "gaze" in facts.features_requested:
+        validity, reason = calibration_facts(
+            platform.paths.data_dir,
+            str(getattr(getattr(cfg, "gaze", None), "camera_index", 0)),
+            read_context=read_context,
+        )
+        facts = replace(facts, calibration_validity=validity, calibration_reason=reason)
+    return list(doctor_rows(facts))
+
+
 def _window_focus_check(is_wayland: bool, is_x11: bool, cfg=None) -> _Check | None:
     """Report whether "focus the browser" can work on this session (#39).
 
@@ -1628,6 +1767,25 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
     # Opt-in passive mic-level vs VAD threshold (records a short ambient clip).
     if check_mic and cfg is not None:
         checks.append(_mic_level_check(cfg, mic_seconds))
+
+    # Camera — only when a camera feature is enabled. Placed after the microphone
+    # because the two read as one question ("what input hardware can YazSes
+    # reach?"), and because a camera row is the rarer of the two by design.
+    camera = _camera_check(perms, cfg)
+    if camera is not None:
+        checks.append(camera)
+
+    # Hands-free health, directly below the camera row that decides whether any of it can
+    # run at all (#416). Nothing on an ordinary install; for somebody who enabled a camera
+    # capability, this is where "nothing happens and no surface says why" stops being the
+    # failure mode. Defensive because it is a diagnostic: a health probe that turns `doctor`
+    # into a traceback removes the one command that was going to explain the problem.
+    try:
+        checks.extend(_handsfree_checks(cfg, platform, camera))
+    except Exception:  # pragma: no cover - defensive
+        checks.append(("Hands-free health", "SKIP",
+                       "unknown — the hands-free health probe itself failed; please report "
+                       "this with the rest of this output"))
 
     # Linux-specific injection tools
     if sys.platform == "linux":

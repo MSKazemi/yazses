@@ -267,6 +267,23 @@ Do not put GitHub username, email or real name in the analysis dataset.
 The consent/contact record, if required, is stored separately from measurements with access limited
 to the research team.
 
+## Schema versioning and compatibility
+
+The envelope above is implemented by `yazses.eyeeval.schema`, which validates a parsed
+result document and returns a list of problems. `schema_version` is `"MAJOR.MINOR"`.
+
+- **Same MAJOR — accepted.** Unknown fields, at any depth, are *ignored and preserved*,
+  never an error. A later minor version may add a field and an older reader still works,
+  so a reader must not assume the keys it knows are all the keys present.
+- **Different MAJOR — refused.** A major bump means a required field was removed or its
+  meaning changed; reading it anyway would produce a number that silently means something
+  else.
+
+So: add a field, bump the minor. Change or remove one, bump the major.
+
+Inside `metrics`, an object carrying `value` or `reason` is a missing-data marker (below)
+and never a metric group, so a metric group may not have a member called `value`.
+
 ## Missing data
 
 Use explicit missing/null + reason:

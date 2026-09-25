@@ -572,6 +572,28 @@ class FacegestureConfig:
 
 
 @dataclass
+class PerceptionConfig:
+    """Shared camera perception — one webcam owner for every camera feature (ADR-v2-145).
+
+    Glance-Type gaze and the Face-Gesture Switch each open their own camera and
+    their own FaceLandmarker today, and nothing arbitrates between them: enable
+    both and whichever starts second meets "device already busy". This section
+    switches on the single owner that replaces that (src/yazses/perception/), where
+    the first feature to ask opens the camera once, every other feature shares that
+    same observation, and the last one to let go closes it.
+
+    OFF by default, and enabling it alone opens nothing: the lifecycle is driven by
+    consumers, so zero consumers means zero camera opens. Until a camera backend is
+    wired to the shared owner it stays dormant and every feature keeps the path it
+    has today, so an existing install is unchanged either way. Frames are processed
+    in-RAM inside the source and never reach a signal, a log or a file (ADR-011).
+    """
+    enabled: bool = False
+    camera_index: int = 0             # which camera the one owner opens
+    fps: int = 15                     # shared sampling rate, clamped to 1..60
+
+
+@dataclass
 class CocktailConfig:
     """v2 — Cocktail Filter (spec-cocktail-filter), P1 personal-VAD gate (§3.2).
 
@@ -1207,6 +1229,25 @@ class ScreengroundedConfig:
 class HeadpointerConfig:
     """v2.3 Wave G — Head-Pointer hands-free cursor (ADR-v2-052). OFF by default."""
     enabled: bool = False
+
+
+@dataclass
+class HandsfreeSafetyConfig:
+    """Hands-free global stop + stale-signal watchdog (ADR-v2-148). OFF by default.
+
+    One ACTIVE/PAUSED/FAULTED state every camera-driven input consults before it moves a cursor
+    or commits a click, so a runaway pointer can be stopped by a path that does not require
+    pointing, and a camera that goes quiet stops the pointer instead of replaying the last pose.
+
+    `stale_after_ms` is the age at which a source's newest sample stops being allowed to act.
+    **It is not a measured value** — no frame-interval or tracking-loss distribution exists for
+    this programme yet, and `design/eye-control/GOVERNANCE.md` requires measurement before a
+    threshold becomes a recommended default. 500 ms is a deliberately generous placeholder: a
+    guard is judged on how rarely it fires (ADR-021), and a false trip costs a hands-free user
+    their input method until they re-arm.
+    """
+    enabled: bool = False  # off until the hands-free preset and its consumers are wired
+    stale_after_ms: int = 500  # a signal older than this cannot act; unmeasured placeholder
 
 
 @dataclass
@@ -1897,6 +1938,7 @@ class Config:
     voiceprint: VoiceprintConfig = field(default_factory=VoiceprintConfig)
     gaze: GazeConfig = field(default_factory=GazeConfig)
     facegesture: FacegestureConfig = field(default_factory=FacegestureConfig)
+    perception: PerceptionConfig = field(default_factory=PerceptionConfig)
     cocktail: CocktailConfig = field(default_factory=CocktailConfig)
     personalize: PersonalizeConfig = field(default_factory=PersonalizeConfig)
     polyglot: PolyglotConfig = field(default_factory=PolyglotConfig)
@@ -1944,6 +1986,7 @@ class Config:
     gec: GecConfig = field(default_factory=GecConfig)
     screengrounded: ScreengroundedConfig = field(default_factory=ScreengroundedConfig)
     headpointer: HeadpointerConfig = field(default_factory=HeadpointerConfig)
+    handsfree_safety: HandsfreeSafetyConfig = field(default_factory=HandsfreeSafetyConfig)
     lipread: LipreadConfig = field(default_factory=LipreadConfig)
     sign: SignConfig = field(default_factory=SignConfig)
     convert: ConvertConfig = field(default_factory=ConvertConfig)

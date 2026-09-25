@@ -17,6 +17,7 @@ from __future__ import annotations
 import logging
 import sys
 
+from yazses.cameraperm.contract import CameraPermission
 from yazses.platform.base import PermissionState
 
 log = logging.getLogger(__name__)
@@ -129,6 +130,80 @@ class MacosPermissions:
         if status == _AV_DENIED or status == _AV_RESTRICTED:
             return PermissionState.DENIED
         return PermissionState.UNKNOWN  # NotDetermined → user hasn't been asked yet
+
+    def check_camera(self) -> CameraPermission:
+        """The Camera TCC service — a fourth grant, read the same way as the mic.
+
+        ``AVCaptureDevice.authorizationStatusForMediaType_(AVMediaTypeVideo)`` is
+        the camera twin of :meth:`check_microphone`, and the mapping is the one
+        place a camera probe can quietly lie, so each arm is spelled out:
+
+        * ``Authorized`` -> ``GRANTED``;
+        * ``Denied`` / ``Restricted`` -> ``DENIED``. Restricted (an MDM or
+          Screen Time policy) is not the user's to change, but it is still a
+          refusal and still fails closed;
+        * ``NotDetermined`` -> ``NOT_DETERMINED``. macOS shows its one-time
+          prompt when something first opens the camera; nothing has yet, so this
+          is "you will be asked", not "you were refused";
+        * **PyObjC absent -> ``NOT_DETERMINED``, never ``GRANTED``.** A base
+          install carries no AVFoundation binding, and a probe that cannot run
+          has learned nothing. The temptation to return the permissive value so
+          the row looks clean is exactly the defect.
+
+        ⚠ Untested on real hardware. There is no Mac on this project, and a CI
+        runner does not settle it either: TCC on a runner is permissive, so an
+        ``[OK]`` there is the runner, not a proof that the contract holds on a
+        real desktop. What the suite pins is the mapping above.
+        """
+        try:
+            from AVFoundation import (  # type: ignore[import-not-found]
+                AVCaptureDevice,
+                AVMediaTypeVideo,
+            )
+        except ImportError:
+            log.warning("PyObjC AVFoundation not available; camera access is unknown")
+            return CameraPermission.NOT_DETERMINED
+
+        status = AVCaptureDevice.authorizationStatusForMediaType_(AVMediaTypeVideo)
+        if status == _AV_AUTHORIZED:
+            return CameraPermission.GRANTED
+        if status in (_AV_DENIED, _AV_RESTRICTED):
+            return CameraPermission.DENIED
+        return CameraPermission.NOT_DETERMINED
+
+    def how_to_grant_camera(self) -> str:
+        """The Camera pane, plus the two macOS facts that make it confusing.
+
+        Both are already documented here for the microphone and both apply
+        unchanged: an app that has never *asked* does not appear in the pane at
+        all, and an unsigned build is a new code identity every time its hash
+        changes, so a stale grant still renders as an enabled toggle.
+
+        The third sentence is specific to the camera and is the one a .dmg user
+        needs first: the shipped bundle contains no camera runtime, so on that
+        install there is nothing to grant the permission *to*. See
+        ``yazses.cameraperm.matrix``.
+        """
+        return (
+            "Allow the camera in System Settings:\n"
+            "  System Settings -> Privacy & Security -> Camera -> enable YazSes.\n"
+            "Or open the pane directly:\n"
+            "  open 'x-apple.systempreferences:com.apple.preference.security?Privacy_Camera'\n"
+            "Never seen a camera prompt? macOS only asks the first time an app\n"
+            "actually opens the camera, and an app that has never asked is not\n"
+            "listed in that pane at all.\n"
+            "Installed from the .dmg or the Homebrew cask? That bundle ships no\n"
+            "camera runtime and cannot add one, so no grant will make the camera\n"
+            "features work there -- use `pipx install 'yazses[gaze]'` instead.\n"
+            "Listed and enabled but still refused? These builds are unsigned, so\n"
+            "macOS sees a new identity whenever the binary changes and the old\n"
+            "approval stops applying. Reset just this app's camera decision:\n"
+            f"  tccutil reset Camera {_BUNDLE_ID}\n"
+            "(the bundle id matters -- drop it and that command clears the camera\n"
+            "grant for every app on the Mac, not only this one)\n"
+            "This is the Camera service, not Microphone or Accessibility -- they\n"
+            "are granted separately and one being on says nothing about another."
+        )
 
     def check_input_monitoring(self) -> PermissionState:
         """Report the **Input Monitoring** grant — the one that was never checked.

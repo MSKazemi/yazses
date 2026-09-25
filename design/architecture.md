@@ -234,12 +234,54 @@ a guard that silently stops protecting on a whole display server is worse than n
 
 | File | Role |
 |---|---|
-| `base.py` | Protocol interfaces: `HotkeyBackend`, `InjectorBackend`, `LifecycleBackend`, `IpcServer`, `IpcClient`, `PermissionsBackend`, `TrayBackend` |
+| `base.py` | Protocol interfaces: `HotkeyBackend`, `InjectorBackend`, `LifecycleBackend`, `IpcServer`, `IpcClient`, `PermissionsBackend`, `TrayBackend`. Also `Platform.pointer_factory` — the optional `PointerSinkFactory` a bundle registers, `None` on an OS with no pointer backend yet (a factory, so nothing is constructed and no permission asked until a pointer consumer is enabled) |
 | `factory.py` | `get_platform()` — detects `sys.platform`, returns `Platform` dataclass |
+| `*/permissions.py` | Keyboard capture, microphone and (ADR-v2-145 / #414) **camera**. `check_camera()` returns a `CameraPermission`, never a bare boolean, and returns `NOT_DETERMINED` — never `GRANTED` — when it cannot answer |
 | `emg/backend.py` | `EMGBackend` — `HotkeyBackend` over USB CDC serial YESP protocol (v0.4.0); requires `pyserial` optional dep |
 | `linux/` | evdev hotkey, LinuxInjector (xdotool/ydotool/wtype/clipboard), systemd lifecycle, Unix socket IPC |
-| `macos/` | CGEventTap hotkey, MacosInjector (CGEvent Unicode), launchd lifecycle, rumps tray |
-| `windows/` | WH_KEYBOARD_LL hotkey, WindowsInjector (SendInput UTF-16), named-pipe IPC, pystray tray |
+| `macos/` | CGEventTap hotkey, MacosInjector (CGEvent Unicode), launchd lifecycle, rumps tray, `pointer.py` (`MacosPointerSink` over CoreGraphics) |
+| `windows/` | WH_KEYBOARD_LL hotkey, WindowsInjector (SendInput UTF-16), named-pipe IPC, pystray tray, `pointer.py` (`WindowsPointerSink` over SendInput mouse events) |
+
+### `src/yazses/cameraperm/` (EYE-PERM-001, #414 — camera permission + packaging contract)
+
+One answer to "may this install open the camera, and if not, why?", shared by every
+camera feature so that gaze, the face-gesture switch and the head pointer cannot each
+invent their own. Pure and dependency-free; the OS probe is injected from the platform
+seam and the heavy camera libraries are never imported here.
+
+| File | Role |
+|---|---|
+| `contract.py` | `CameraPermission` (granted / denied / not-determined / unavailable / unsupported-platform), `CameraBlocker`, `CameraFacts`, `CameraGate`, `evaluate()`, `needs_permission_probe()` |
+| `matrix.py` | The checked-in packaging matrix: which install format can run a camera feature, and what it must declare (`NSCameraUsageDescription`, MSIX `webcam`, snap `camera`, flatpak `--device=all`). Cross-checked against the real manifests by `tests/test_camera_packaging_matrix.py` |
+| `probe.py` | `resolve()` — gathers config, installed runtime and install format, and asks the OS **only** after the first two allow it |
+
+**Invariants.** (1) With every camera feature off — the shipped default — the OS is never
+asked, so no camera permission prompt can occur. (2) A format that cannot run a camera
+feature declares no camera capability (R-21), and one that can must declare it before the
+feature is claimed to work. (3) A probe that cannot determine the state reports
+`NOT_DETERMINED`; nothing but `GRANTED` opens a camera.
+
+### `src/yazses/handsfree/` (hands-free composition, ADR-v2-148)
+
+What the camera-driven inputs must *share* rather than each reinvent: one suppression
+state, and one privacy-safe way to report their health. Pure and dependency-free — no
+camera, no clock, no config import, no thread of its own.
+
+| File | Role |
+|---|---|
+| `safety.py` | The global stop + stale-signal watchdog (#417): `HandsFreeSafety`, one ACTIVE/PAUSED/FAULTED `SafetyStatus` with per-source `SourceHealth`, and `gate_from_config()` returning `None` until the user opts into `[handsfree_safety]` |
+| `observability.py` | EYE-OBS-001 (#416). `HandsFreeFacts` → `HealthRow`s, rendered once and consumed twice: `doctor_rows()` for `yazses doctor` and `render_status_lines()` for `yazses status`, so the two surfaces cannot describe one machine differently. `as_payload()`/`facts_from_payload()` are the IPC wire, a whitelist rather than `asdict` |
+| `probe.py` | The impure gatherer: config → requested features, the feature registry → whether a runtime path drives each one, an optional platform seam → the pointer backend's name and capabilities, and the stored gaze calibration's validity. Opens no camera and starts no pointer session |
+
+**Invariants.** (1) With every camera feature off — the shipped default — `health_rows()`
+is empty, no `doctor` row is printed, and the `handsfree` status field is `null`. (2) Only
+names, states, ages, counts and capability flags reach the output: `HandsFreeFacts` has no
+field able to hold a gaze coordinate, head angle, blendshape score, landmark, frame or
+window title, which is how R-09 is kept by construction rather than by review. (3) A probe
+that cannot determine a state reports `unknown` — never a default that reads as OK — and
+does so as a `SKIP` so it cannot become a permanent warning on a working install
+(ADR-021). (4) A cause is reported once: a blocked camera produces one failure, and the
+perception row points at the Camera row rather than restating it.
 
 ### `src/yazses/inject/` (Linux sub-backends)
 
@@ -250,8 +292,92 @@ a guard that silently stops protecting on a whole display server is worse than n
 | `xdotool.py` | X11 via `xdotool type` / `xdotool key` |
 | `ydotool.py` | Wayland via `ydotool` |
 | `wtype.py` | Wayland via `wtype` |
+| `portal.py` | Wayland via the XDG RemoteDesktop portal (`PortalInjector`), the only path a strictly confined snap can type on. Holds the one `_PortalSession` — consent copy, restore token, idle release — and, per ADR-v2-146 rule 6, the pointer backend `PortalPointerSink` that extends that same session |
 | `clipboard.py` | Universal fallback via clipboard + Ctrl+V |
 | `streaming.py` | `StreamingInjector` — tracks partial char count, correction-on-commit via Shift+Left |
+
+### `src/yazses/pointer/` (pointer output boundary, ADR-v2-146)
+
+The sibling of `inject/` for the *pointer* rather than the keyboard, and for the same
+reason: Head-Pointer, the voice mouse grid and future gaze-assisted control all produce
+pointer intent, and none of them may contain a platform command. Pure and
+dependency-free — standard library only, no camera/gaze/head-pose concept, no
+subprocess. Platform backends arrive one at a time (X11, the existing XDG RemoteDesktop
+portal session, macOS, Windows), each living with its own OS code and reached through the
+platform layer. The sink is deliberately dumb: dwell, confirmation and global pause all
+live above it.
+
+| File | Role |
+|---|---|
+| `base.py` | `PointerSink` protocol (`capabilities`, `move_relative`, `move_absolute`, `click`, `scroll`, `close`), `PointerButton`, `PointerCapabilities`, `PointerError`/`PointerUnsupportedError`/`PointerBackendError`, and the `check_finite`/`require_*` guards every backend validates with |
+| `subpixel.py` | `SubPixelAccumulator` — pure, carries the remainder when a native API only takes whole steps (Windows' `LONG` pixel delta, CoreGraphics' `int32` line count), so a head-driven fraction of a pixel per frame is accumulated rather than rounded away. A taken step is spent, which is ADR-v2-146 rule 4 in arithmetic: a motion whose platform call fails is lost, never folded into the next one |
+
+Unsupported is explicit, never a silent no-op: every implementation defines every method
+(including `move_absolute`, which many backends cannot offer) and raises
+`PointerUnsupportedError` for what `capabilities()` already said it cannot do.
+
+**The backends live with their platform, not in this package.** `src/yazses/pointer/` is
+held to an import-purity test (`tests/test_pointer_contract.py`): standard library only,
+and no `subprocess` or `ctypes`. A backend needs exactly those things, so each one sits
+beside the rest of its OS's code and is reached through the platform layer:
+
+| Backend | Where | Mechanism |
+|---|---|---|
+| X11 | `platform/linux/pointer_x11.py`, opened by `platform/linux/build_pointer_sink()` | XTEST via python-xlib (already a Linux/BSD base dependency, already used by `hotkey_xgrab.py`) — no subprocess per motion, which `xdotool` would cost once per camera frame |
+| Wayland | `inject/portal.py`, opened by `PortalInjector.pointer_sink()` | XDG RemoteDesktop `NotifyPointer*` on the **existing** session |
+| macOS | `platform/macos/pointer.py` | CoreGraphics `CGEvent*` via PyObjC |
+| Windows | `platform/windows/pointer.py` | `SendInput` mouse events via ctypes |
+
+Wayland sits in `inject/` for a stronger reason than purity: ADR-v2-146 rule 6 requires
+**one** RemoteDesktop session, so the pointer extends the session dictation already types
+through. `POINTER` joins the single `SelectDevices` call only while a sink is open, and a
+pointer consumer therefore raises no second consent dialog. Capability is read from the
+`Start` response's granted-device mask rather than from having asked; absolute motion is
+refused because `NotifyPointerMotionAbsolute` addresses a position inside a ScreenCast
+stream, which this session deliberately does not have.
+
+The X11 backend injects its display connection (`X11PointerConnection`), so the shared
+contract suite runs in CI with no display server, and it keeps the X11 dialect where it
+can be asserted on: button 1/2/3 for left/middle/right, buttons 4-7 for one wheel notch
+each (`+dy` down is button 5, so the sign never flips at the boundary), integer device
+coordinates rounded half away from zero at the Xlib call with no remainder carried, and a
+flush after every operation — including a failed one, so a queued press cannot ride out
+on the next action a user asks for.
+
+⚠ **The backends disagree about sub-unit motion, and whoever wires Head-Pointer (#404)
+must reconcile it.** macOS and Windows carry the remainder through `SubPixelAccumulator`;
+X11 rounds half away from zero and carries nothing, so a head movement producing under
+half a device unit per frame moves an X11 pointer not at all while it moves a Windows one.
+Both choices are defensible at the backend — accumulating inside a sink adds hidden state
+to something ADR-v2-146 keeps deliberately dumb — but the consumer must accumulate, or the
+same head motion behaves differently per platform.
+
+No fake ships in `src/`. `tests/pointer_fake.py` holds `FakePointerSink`, which records
+`PointerAction` values instead of moving anything — a click records a press **and** a
+release, and `fail_with()` models a dead backend — and `tests/pointer_contract.py` is the
+shared behaviour suite: each backend subclasses `PointerSinkContract`, supplies four
+hooks (`make_sink`, `recorded`, `induce_failure`, `clear_failure`), and inherits the whole
+contract rather than re-describing it.
+
+**Platform backends (EYE-PTR-003, #402).** Each is two layers: a sink holding the whole
+contract and knowing nothing about the OS, over an injected native-API object holding
+nothing but the platform calls. That seam is why the shared contract suite runs on Linux CI
+against the real sink classes, and why the native layer can be driven by a fake Quartz
+module or a fake `SendInput` — the ctypes struct packing is genuinely exercised, since
+ctypes works everywhere.
+
+| Backend | Capabilities reported | Notes |
+|---|---|---|
+| `platform/macos/pointer.py` (`quartz`) | relative + **absolute** motion, three buttons, vertical scroll | No relative mouse event exists, so motion is read-cursor-then-post-absolute. Vertical scroll is negated (Apple's axis 1 is up-positive). **Horizontal scroll is reported absent on purpose**: Apple documents no sign for axis 2 and no Mac is available to settle it, and an inverted horizontal scroll makes a head-driven pointer fight its user |
+| `platform/windows/pointer.py` (`sendinput`) | relative motion, three buttons, vertical + horizontal scroll | **Absolute motion is reported absent on purpose**: `MOUSEEVENTF_ABSOLUTE` takes 0-65535 normalised coordinates over a multi-DPI virtual desktop, which ADR-v2-146 names as the case absolute coordinates get wrong. Vertical scroll is negated, horizontal is not — both signs are documented by Microsoft |
+
+**Neither backend has ever run on its own OS.** No Mac and no Windows machine exists in
+this project's CI or on the maintainer's desk, so every native call in both is written from
+vendor documentation and verified only against a fake. `SendInput` in particular returns the
+count of events it *inserted*, which UIPI can discard afterwards, so a full return count is
+treated as "Windows accepted this" and never as "the pointer moved". Both module docstrings
+say so, and the live-smoke evidence `design/specs/eye-pointer-output.md` asks for is still
+outstanding for both.
 
 ### `src/yazses/stt/`
 
@@ -390,10 +516,12 @@ Four advanced features. Each follows the optional-extra + dormant-factory patter
 | `src/yazses/voiceprint/` | **Shared** speaker enrollment. `embedding.py` (cosine + `is_target_frame`), `base.py` (`SpeakerEmbedder` Protocol), `ecapa.py` (speechbrain ECAPA, `voiceprint` extra), `factory.py` (`build_embedder` dormant→None), `enroll.py` (`yazses enroll-voice`), `store.py` (encrypted save/load, ADR-012). |
 | `src/yazses/personalize/` | **Voiceprint Mind** (spec-voiceprint-mind). `prompt_builder.py` — `mine_terms` + `build_prompt` compose a biased `initial_prompt`. P1 wired via `daemon._effective_initial_prompt` (`[personalize]`, `YAZSES_VOCABULARY`). P2 LoRA pipeline gated. |
 | `src/yazses/audio/personal_vad.py` | **Cocktail Filter** (spec-cocktail-filter). `gate()` drops non-target-speaker frames; wired via `daemon._maybe_cocktail_gate` before STT (`[cocktail]`, needs an enrolled voiceprint). |
-| `src/yazses/gaze/` | **Glance-Type** (spec-glance-type) look-to-pane. `calibrate.py` (least-squares gaze→screen), `zones.py` (`grid_zone`/`window_at_point`/`resolve_window`), `l2cs.py` (L2CS-Net backend, manual-install), `factory.py`. `yazses gaze calibrate`. Hold-start routing pending. |
+| `src/yazses/gaze/` | **Glance-Type** (spec-glance-type) look-to-pane. `calibrate.py` (least-squares gaze→screen), `zones.py` (`grid_zone`/`window_at_point`/`resolve_window`), `l2cs.py` (L2CS-Net backend, manual-install), `factory.py`. `yazses gaze calibrate`. Hold-start routing pending. `grounded.py` — the optional semantic-grounding seam (ADR-v2-151 P2): `GazeGrounder` turns one confident, gaze-routed sample into a `TargetSnapshot`, asks an **injected** `SemanticSource` what is under it and hands the resolver's tri-state answer back; `refine()` collapses that to `RefinedTarget`, whose `window_id` is always the route decision's and whose `entity_id` is filled only for a `GROUNDED` result. `GazeTargeter(grounder=...)` is the whole injection point and defaults to `None`, so with no grounder — every install today — the routing path is unchanged; a source that raises costs one warning per failure streak and the window-level target. |
+| `src/yazses/perception/` | **Shared camera perception** (ADR-v2-145, spec-eye-shared-perception). `signals.py` — frozen value types (`GazeSignal`, `HeadPoseSignal`, `FaceSignal`, `PerceptionSample`) plus the `FacePerceptionSource` Protocol, so gaze, head pose and face switches consume one webcam's derived numbers instead of each opening their own. Pure and dependency-free: no cv2/mediapipe, no thread, no frame-shaped field; a missing channel is `None`, never a zero. `source.py` — `SharedPerceptionSource` is the one camera owner: consumers take a `PerceptionLease`, the first lease opens the camera and the model once, the last release closes both, `status()` reports state/backend/consumers/open-count for `doctor`, and a camera failure is contained rather than raised at the feature. Capture and processor are injected seams (`FrameCapture`, `FrameProcessor`), so the lifecycle and its tests need no webcam; the capture loop runs on a daemon thread by default and the driver is injectable too. `factory.py` — `build_perception_source` returns `None` when `[perception]` is off, which is the shipped state. Frames live only inside one observation (ADR-011). The MediaPipe adapter that fills the samples is #395. |
+| `src/yazses/grounding/` | **Grounded target resolution** (ADR-v2-151, spec-eye-grounded-targets). `contracts.py` — frozen vocabulary (`TargetSnapshot`, `SemanticCandidate`, `IntentHint`, tri-state `GroundingResult`, the `SemanticSource` Protocol) with no thresholds in it; `resolver.py` — the deterministic `TargetResolver` that enforces the spatial envelope, lets an intent hint *filter* what survived it, ranks lexicographically (focus > source > containment > geometry) and abstains when nothing separates the winner from a runner-up. Pure: no pyatspi/AX/UIA, no screen capture, no clock, no randomness; every number is a field on `ResolutionPolicy` and none of the defaults is measured. Turns a coarse pointing region into one exact control so webcam gaze does not have to pretend to be pixel-precise. `trace.py` — a versioned, privacy-safe trace document (target + candidates + intent hint + ground-truth entity id, and structurally nowhere to put a screenshot or a window title) with a pure validator; `replay.py` — the P4 evaluation harness that replays those cases through the same resolver under a `window_only` and a `semantic_grounding` strategy and reports grounded-correct/wrong, ambiguity, abstention, the target-source vs semantic-source split and the candidate-count distribution around an intent hint. An empty trace is refused rather than reported on, a zero denominator is a missing marker rather than `0.0`, and no product threshold may be read off a synthetic fixture. Run it with `scripts/replay_grounding_trace.py`; the committed report is `tests/fixtures/grounding_replay_report.json`. Wired from `gaze/grounded.py` (#443) as an optional, absent-by-default seam — nothing in the daemon constructs a grounder, and no platform adapter exists yet, so the spec's coverage study (P3) comes first. The package's `__init__` deliberately does not re-export the harness. |
 | `src/yazses/polyglot/` | **Polyglot Switch** (spec-polyglot-switch). `lid.py` — `parse_pair`/`dominant_language`/`is_code_switched` routing scaffolding (`[polyglot]`); the per-pair CS adapter is trained out-of-band and gated. |
 
-New config sections: `[voiceprint]`, `[cocktail]`, `[personalize]`, `[gaze]`, `[polyglot]` (all off by default). New extras: `voiceprint` (speechbrain); `gaze` deps are manual-install (l2cs pins an old torch). `doctor` reports each enabled extra's importability.
+New config sections: `[voiceprint]`, `[cocktail]`, `[personalize]`, `[gaze]`, `[perception]`, `[polyglot]` (all off by default). New extras: `voiceprint` (speechbrain); `gaze` deps are manual-install (l2cs pins an old torch). `doctor` reports each enabled extra's importability.
 
 ### `src/yazses/overlay/` (voice-activity overlay, `yazses-overlay`)
 

@@ -12,6 +12,9 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
+from yazses.cameraperm.contract import CameraPermission
+from yazses.pointer.base import PointerSink
+
 #: The value each bundle puts in `Platform.name`. These are `sys.platform`
 #: strings, not friendly words, and anything that branches on `Platform.name`
 #: must compare against one of them -- a comparison written against `"windows"`
@@ -242,6 +245,33 @@ class PermissionsBackend(Protocol):
         to Accessibility for a microphone problem is sent to the wrong place.
         """
 
+    def check_camera(self) -> CameraPermission:
+        """The camera, for the gaze / face-switch / head-pointer features.
+
+        A fourth grant and a fifth state, and neither is a copy of the microphone
+        row. :class:`~yazses.cameraperm.contract.CameraPermission` splits apart
+        three things `PermissionState` folds into ``UNKNOWN`` -- "the OS has not
+        been asked yet", "there is no camera device", and "this probe could not
+        answer" -- because the camera features are opt-in and experimental, so a
+        user who turns one on and gets nothing needs to know *which* of those
+        three happened before they can do anything about it.
+
+        **An implementation that cannot determine the state returns
+        ``NOT_DETERMINED``, never ``GRANTED``.** Camera access is the one grant
+        where an optimistic default is indistinguishable from a working feature
+        right up until the device is opened, and by then the caller has usually
+        already told the user it is on.
+        """
+
+    def how_to_grant_camera(self) -> str:
+        """How to grant, or why there is nothing to grant, on this OS.
+
+        A separate remedy for the same reason ``how_to_grant_microphone`` is one:
+        macOS gates the camera behind its own TCC service and its own pane,
+        Windows behind its own privacy page, and Linux behind no per-app gate at
+        all -- so one shared sentence would be wrong on at least two of the three.
+        """
+
 
 @runtime_checkable
 class TrayBackend(Protocol):
@@ -271,6 +301,16 @@ IpcServerFactory = Callable[[Path], IpcServer]
 IpcClientFactory = Callable[[Path], IpcClient]
 TrayFactory = Callable[[], TrayBackend]
 
+PointerSinkFactory = Callable[[], PointerSink]
+"""Builds this platform's pointer output — ADR-v2-146, `design/specs/eye-pointer-output.md`.
+
+A factory rather than an instance, and optional, for two reasons. Pointer permission is
+requested only when a pointer consumer is enabled, so nothing may be constructed while
+`get_platform()` merely runs; and not every platform has a backend yet, so `None` here is
+the honest answer for one that does not rather than a sink that accepts everything and
+moves nothing.
+"""
+
 
 @dataclass(frozen=True)
 class Platform:
@@ -287,4 +327,8 @@ class Platform:
     ipc_client_factory: IpcClientFactory
     tray_factory: TrayFactory | None = None
     tray_default_enabled: bool = False
+    # None where this OS has no pointer backend yet. A consumer must check, not assume:
+    # ADR-v2-146 would rather a feature say "no pointer output here" than hand a user a
+    # cursor that never moves.
+    pointer_factory: PointerSinkFactory | None = None
     extras: dict[str, Any] = field(default_factory=dict)
