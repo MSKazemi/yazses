@@ -6,6 +6,46 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — three eye-control task fixtures a second machine can replay exactly
+
+The eye-control result envelope says what a number *is*. It could not say what was
+*asked*, so "35 of 40 correct" on one laptop and "35 of 40" on another were two numbers
+about two different experiments. `yazses.eyeeval.tasks` is the other half: the gaze
+four-pane routing task, the Head-Pointer generated-target task and the face-switch
+block task, each generated deterministically and each frozen under
+`tests/fixtures/eye_eval_tasks/` in the exact form the generator writes. A runner calls
+`generate_task("gaze_routing_4_pane")` and needs no data files installed; CI compares the
+call against the frozen bytes.
+
+Determinism here is bought rather than hoped for. Geometry is integer thousandths of the
+logical display, so a pane means the same thing on a 1366x768 laptop and a 4K panel at
+200% scale — and no float, and therefore no `cos` or `sqrt`, ever reaches the file, so
+the bytes cannot depend on one platform's maths library. Sequence order comes from a
+SplitMix64 mixer written out in the module rather than from the standard library's
+shuffle, which is an interpreter implementation detail. Each fixture carries two versions:
+the envelope's, and the task's own — so changing a trial count or a target size has to
+bump a number and show up in a diff instead of quietly changing what a published rate
+means.
+
+The tasks are designed so that the *shape* of the data is right before anyone runs one:
+the gaze sequence is balanced by construction, ten trials per pane, and never asks for
+the same pane twice in a row; the Head-Pointer ring is visited in an alternating order so
+every movement crosses the centre and its amplitude is known in advance; the face-switch
+blocks keep rest, cued activation and ordinary speech separate, because a switch that
+fires while someone talks is a different defect from one that fires at rest. `validate_task`
+refuses a target that would hang off the screen, overlapping panes with no unambiguous
+correct answer, an unbalanced sequence, a cue outside its block, and a tester's own
+sentence where a fixed public one belongs.
+
+Nothing in these fixtures may be read as a threshold or a recommended default. A generated
+task can say a tester was asked to hit a target 120 thousandths wide; it says nothing
+whatever about how wide a control YazSes should ship, and the face-switch fixture records
+in the file itself that its block order is not counterbalanced. Every target is generated,
+so no screenshot, window title or private text can enter a task, and no recorded field
+could hold one.
+
+Developer-facing only. Nothing in the daemon imports it and no install changes.
+
 ### Added — one versioned envelope for every eye-control evaluation result
 
 Eye/camera evaluation results will arrive from CI, from replayed synthetic traces, from

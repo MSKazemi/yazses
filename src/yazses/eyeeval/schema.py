@@ -140,6 +140,17 @@ def _forbidden_keys(node: Any, path: str) -> list[str]:
     return out
 
 
+def forbidden_field_problems(doc: Any, path: str = "") -> list[str]:
+    """Every key, at any depth, whose name contains a `FORBIDDEN_FIELD_TOKENS` entry.
+
+    The same rule applies to anything the programme checks in, not only to a result
+    document: a task fixture, an aggregate table or an exported row may not grow a place
+    to put a hostname either. Exposed so `yazses.eyeeval.tasks` can reuse this one list
+    instead of keeping a second copy that would drift from it.
+    """
+    return _forbidden_keys(doc, path)
+
+
 def _check_metric(name: str, value: Any, path: str) -> list[str]:
     """A metric is a scalar, a nested group, a list, or an explicit missing marker."""
     if isinstance(value, dict):
