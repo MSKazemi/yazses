@@ -236,10 +236,30 @@ a guard that silently stops protecting on a whole display server is worse than n
 |---|---|
 | `base.py` | Protocol interfaces: `HotkeyBackend`, `InjectorBackend`, `LifecycleBackend`, `IpcServer`, `IpcClient`, `PermissionsBackend`, `TrayBackend` |
 | `factory.py` | `get_platform()` — detects `sys.platform`, returns `Platform` dataclass |
+| `*/permissions.py` | Keyboard capture, microphone and (ADR-v2-145 / #414) **camera**. `check_camera()` returns a `CameraPermission`, never a bare boolean, and returns `NOT_DETERMINED` — never `GRANTED` — when it cannot answer |
 | `emg/backend.py` | `EMGBackend` — `HotkeyBackend` over USB CDC serial YESP protocol (v0.4.0); requires `pyserial` optional dep |
 | `linux/` | evdev hotkey, LinuxInjector (xdotool/ydotool/wtype/clipboard), systemd lifecycle, Unix socket IPC |
 | `macos/` | CGEventTap hotkey, MacosInjector (CGEvent Unicode), launchd lifecycle, rumps tray |
 | `windows/` | WH_KEYBOARD_LL hotkey, WindowsInjector (SendInput UTF-16), named-pipe IPC, pystray tray |
+
+### `src/yazses/cameraperm/` (EYE-PERM-001, #414 — camera permission + packaging contract)
+
+One answer to "may this install open the camera, and if not, why?", shared by every
+camera feature so that gaze, the face-gesture switch and the head pointer cannot each
+invent their own. Pure and dependency-free; the OS probe is injected from the platform
+seam and the heavy camera libraries are never imported here.
+
+| File | Role |
+|---|---|
+| `contract.py` | `CameraPermission` (granted / denied / not-determined / unavailable / unsupported-platform), `CameraBlocker`, `CameraFacts`, `CameraGate`, `evaluate()`, `needs_permission_probe()` |
+| `matrix.py` | The checked-in packaging matrix: which install format can run a camera feature, and what it must declare (`NSCameraUsageDescription`, MSIX `webcam`, snap `camera`, flatpak `--device=all`). Cross-checked against the real manifests by `tests/test_camera_packaging_matrix.py` |
+| `probe.py` | `resolve()` — gathers config, installed runtime and install format, and asks the OS **only** after the first two allow it |
+
+**Invariants.** (1) With every camera feature off — the shipped default — the OS is never
+asked, so no camera permission prompt can occur. (2) A format that cannot run a camera
+feature declares no camera capability (R-21), and one that can must declare it before the
+feature is claimed to work. (3) A probe that cannot determine the state reports
+`NOT_DETERMINED`; nothing but `GRANTED` opens a camera.
 
 ### `src/yazses/inject/` (Linux sub-backends)
 

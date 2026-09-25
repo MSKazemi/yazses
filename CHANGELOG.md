@@ -155,6 +155,46 @@ work, and `doctor`/status will report the state the module already exposes. `sta
 defaults to 500 ms, which is a deliberately generous placeholder and **not a measured value** —
 no frame-interval or tracking-loss distribution exists for this programme yet, and a guard is
 judged on how rarely it fires.
+||||||| a19a8f79
+### Added — one camera permission contract, and a packaging matrix that is checked
+
+Three camera features exist — Glance-Type gaze routing, the Face-Gesture Switch and the
+Head-Pointer — and until now none of them could answer "may this install open the camera?"
+before trying. Each opened a `cv2.VideoCapture` and found out by failing, which is
+indistinguishable, from the user's chair, from the feature being broken.
+
+`yazses.cameraperm` is now the single answer. It reports one of five states — granted,
+denied, not-determined, unavailable, unsupported-platform — behind a new
+`PermissionsBackend.check_camera()` in the platform seam, with real implementations for
+Linux (`/dev/video*` presence and openability), macOS (the Camera TCC service via
+AVFoundation) and Windows (the three ConsentStore values behind the Camera privacy page).
+**A probe that cannot determine the state reports not-determined, never granted**, and
+nothing but granted opens a camera.
+
+Two honest limits, stated here rather than discovered later. The macOS and Windows probes
+have never run on real hardware — no Mac and no Windows machine is available to this
+project, and a hosted runner would not settle macOS either, because TCC on a runner is
+permissive, so an `[OK]` there is the runner and not the contract. And Microsoft documents
+no way for an *unpackaged* desktop app to ask about camera access (`AppCapability` is for
+packaged apps; the documented Win32 route is to open the device and handle
+`E_ACCESSDENIED`), so the Windows probe reads an undocumented registry location and, for
+that reason, reports "undetermined" for anything it cannot read outright.
+
+`yazses doctor` grows a **Camera** row — but only once a camera feature is enabled, which
+on an ordinary install is never. It tells four causes apart that used to look identical: a
+package that cannot run a camera feature at all, a missing `mediapipe`/`opencv-python`, no
+camera device, and a refused or not-yet-granted OS permission.
+
+The packaging half is the checked-in matrix in `cameraperm/matrix.py`, and the tests hold
+every row against the real manifest. The `.dmg`, the Windows `.exe`, the MSIX, the snap and
+the flatpak are all built without the camera runtime and cannot add one, so none of them
+declares a camera capability — an unused capability is a permission request with no upside.
+If a build script ever starts shipping the camera extra, the suite fails and names the
+declaration that has become mandatory, rather than the bundle shipping a feature the OS
+refuses without ever prompting.
+
+Nothing about this changes an existing install: every camera feature still ships off, no
+manifest changed, and ordinary dictation is never in the camera path.
 
 ## [2.40.1] - 2026-09-25
 
