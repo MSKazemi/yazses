@@ -136,6 +136,42 @@ Also record a short ambient clip and compare its level to the VAD threshold.
 Run the accessibility enrollment wizard to calibrate VAD thresholds.
 .SS "yazses enroll-voice"
 Record a short voiceprint so YazSes can recognise your voice.
+.SS "yazses eye-eval"
+Run an eye-control evaluation task and save a privacy-safe result you can inspect.
+.br
+Arguments: \fItask\fR
+.RS
+.TP
+\fB\-\-out, \-o\fR
+Where to write the result JSON.
+.TP
+\fB\-\-synthetic\fR
+No-camera dry run: generate the outcomes instead of measuring them.
+.TP
+\fB\-\-outcomes\fR
+A JSON list of per-trial outcomes you recorded during a real run.
+.TP
+\fB\-\-blocked\fR
+Record a BLOCKED result. One of: not_supported, not_measured, permission_denied, tracking_unavailable, participant_stopped, technical_invalidation.
+.TP
+\fB\-\-study\-mode\fR
+ci | synthetic | community_qa | research. Never inferred.
+.TP
+\fB\-\-protocol\-id\fR
+The named, versioned research protocol. Required by --study-mode research.
+.TP
+\fB\-\-camera\-class\fR
+integrated | external | virtual | none. Required with --outcomes.
+.TP
+\fB\-\-perception\-backend\fR
+Which camera perception backend ran, e.g. mediapipe.
+.TP
+\fB\-\-verdict\fR
+Your own PASS/PARTIAL/FAIL/BLOCKED, overriding the computed one.
+.TP
+\fB\-\-seed\fR
+Task seed. Default: the seed the task fixture records.
+.RE
 .SS "yazses features"
 See capabilities and turn them on/off (no config-editing needed).
 .RS

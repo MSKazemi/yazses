@@ -6,6 +6,47 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — `yazses eye-eval`: one local command that turns an eye-control test into a shareable number
+
+A contributor can now run a scripted eye-control evaluation task and get back a validated,
+privacy-safe JSON result they read *before* deciding to share it:
+
+```bash
+yazses eye-eval gaze_routing_4_pane --synthetic -o result.json
+```
+
+Three tasks (`gaze_routing_4_pane`, `head_pointer_generated_targets`, `face_switch_blocks`)
+come from the deterministic generator in `yazses.eyeeval.tasks`, so nothing has to ship a
+data file, and the result goes into the versioned envelope `yazses.eyeeval.schema` defines.
+`--synthetic` needs no camera, no model and no network, which is the leg CI can run.
+
+**Nothing is uploaded, and there is no flag that would.** The command writes one file to the
+tester's own disk and prints a summary. Safe provenance is stamped automatically — YazSes
+and Python version, OS, kernel, architecture, CPU model, logical CPUs, RAM, session type,
+display geometry — and the envelope has no field for a hostname, login name, home directory,
+serial number, window title or anything a camera saw. That is checked rather than trusted:
+`yazses.eyeeval.runner.write_result` runs the schema validator **and** an identifier sweep
+*before* the file exists, so a run that would leak produces no file at all. Only aggregates
+are written; a per-trial record supplied by a tester is counted and dropped.
+
+Three rules the design documents asked for and this implements:
+
+- **A count nothing measured is never zero.** Every metric is either a real count or
+  `{"value": null, "reason": "..."}`. A `--blocked` run therefore reports no numbers at all
+  rather than a page of zeros — and `EVALUATION.md` is explicit that a reproducible
+  BLOCKED result is a valid contribution.
+- **`study_mode` is never inferred** (ADR-v2-150). A public hardware test must say
+  `--study-mode community_qa`; `research` additionally requires `--protocol-id`, because
+  relabelling an artifact after collection is not consent. A synthetic run cannot call
+  itself `community_qa`, and a human-operated one cannot call itself `ci`.
+- **The verdict is about the protocol, not the person.** `PASS` / `PARTIAL` / `FAIL` /
+  `BLOCKED` is computed from how much of the task actually ran and applies no threshold to
+  any rate — a threshold would be a promotion gate, and those come from cross-person
+  evidence. A tester can state their own verdict; both are recorded.
+
+Nothing in the daemon imports any of it, and no config section was added, so an existing
+install is unchanged.
+
 ### Added — macOS and Windows pointer output, with the capabilities each can honestly claim
 
 The `PointerSink` boundary (ADR-v2-146) now has its macOS and Windows backends:
