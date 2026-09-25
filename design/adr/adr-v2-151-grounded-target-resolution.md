@@ -7,7 +7,7 @@
 [[adr-025-grounded-interaction-kernel]] (the wider proposal this one must not outrun)
 
 **Research:** [Grounded multimodal interaction](../../docs/research/grounded-multimodal-interaction.md)  
-**Programme:** [Eye / camera control](../eye-control/README.md)
+**Programme:** [Eye / camera control](../eye-control/index.md)
 
 ## Context
 

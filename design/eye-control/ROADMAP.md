@@ -1,6 +1,6 @@
 # Eye / camera control roadmap
 
-**Programme:** [README](README.md)  
+**Programme:** [the programme index](index.md)  
 **Milestone:** `Hands-free — perception & accessibility` (#10)  
 **Parent epic:** [#102](https://github.com/MSKazemi/yazses/issues/102)
 

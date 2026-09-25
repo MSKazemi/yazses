@@ -7,7 +7,7 @@ description: "Install YazSes on Windows for offline speech-to-text: winget insta
 
 > **Version:** Applies to the current YazSes release (v2.x). `winget install MSKazemi.YazSes`
 > is the shortest install, but the winget catalogue trails the newest tag — see
-> [which version winget gives you](#the-one-line-way-winget-recommended) before you pick a route.
+> [which version winget gives you](#the-one-line-way--winget-recommended) before you pick a route.
 
 > **Developer preview.** Windows builds are **unsigned**. Windows SmartScreen
 > warns on first launch; the steps below show how to bypass it safely. Code

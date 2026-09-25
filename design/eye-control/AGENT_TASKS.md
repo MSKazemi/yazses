@@ -131,7 +131,7 @@ When a slot becomes READY, restore:
 
 A contributor or coding agent should:
 
-1. read [README.md](README.md) and the task's prerequisite files;
+1. read [the programme index](index.md) and the task's prerequisite files;
 2. inspect the named existing tests before editing;
 3. change only the allowed-path area unless the issue explains why expansion is necessary;
 4. add a failing test first for the contract being introduced/fixed;
