@@ -4,40 +4,40 @@ Hash: SHA512
 Architectures: amd64 arm64 all
 Codename: stable
 Components: main
-Date: Thu, 24 Sep 2026 21:04:25 +0000
+Date: Fri, 25 Sep 2026 00:57:21 +0000
 Description: YazSes APT Repository
 Label: YazSes
 Origin: YazSes
 Suite: stable
 MD5Sum:
- 0d62961e18c924fa0e65a87ab3b3c747              877 Packages
- a1ab24da410260d75b822f34024f01c3              621 Packages.gz
- 1fb733d17803ef03b48e2581bc58760e              181 Release
+ 62215e23cc8c13157a36427de52775d9              878 Packages
+ 2de4eb840967e35baf6d0c7c1475c5c9              625 Packages.gz
+ e9b4ecd9355cfc820664b26bc1a2de0e              181 Release
 SHA1:
- 048ecae53a7486253fc250efdd787592edd11209              877 Packages
- 73804500c68e741fd36ea71b33aefce7dbcded9b              621 Packages.gz
- ed8a5b99aba3dcdb91876204cba4817b617b6fd2              181 Release
+ f0b857823833a18734555d8a3b412cc064a137bd              878 Packages
+ 6dfd1d08e45a282bcc716e8b4c8f1a59e7e62656              625 Packages.gz
+ b1c111bc43310a22cbbb63695454ec8eee8d1381              181 Release
 SHA256:
- d5806028a1149da1afc8785be24898692bf19b20e7e99ac23b06822c51876a77              877 Packages
- 5506cc806f0a00c9ba2cfab7bcb7ef85b714fdfa6e242cd8bdad5c0ff0977d38              621 Packages.gz
- de3d523a52b9b81a7587347ff998f3ffd25e629b7ff1504e942936e8ecb6fcf7              181 Release
+ 93a24c80fa48cbd18f9808a0746a4c8894e76a6ee76e56f52d3c70a02286a156              878 Packages
+ e485a8cc89e1f526aa1385e67154ac1486e7e74ce7401ec38d53ef2a069f2242              625 Packages.gz
+ 735a1ce9fb7eed467f00b93c0ee476ed0ff2fb8f3a0de5c94f0294f9d681da2b              181 Release
 SHA512:
- f7f26cfc7d381422ca4bc6b8645d12dcdce41372c7ef29780450dda2b19d0cfae68b8737a25ff28c1b0729a231d2cfe2dcc5e1930c43be2af49b85d833f32160              877 Packages
- 959278c1b0f43c8bbce393c0d47dc5694a2e7014fe740f10d837472ddde7f746d3d92940b60120d35f4987d3b7f54ecade039a263ac123d4064d73387617baac              621 Packages.gz
- 0be867b5d91d7d88b5708502471ea6c2f578445e61a6513af420a124e93b00924b91d1febab40e87259b2447f6e6c9d7884722eb47fee6ce9793a8a1fbee278b              181 Release
+ 9708ff355901d8c8b6bac09f020eb824064e86178fdeb904ca8790e9fd221ca7ea7078b36e4e12be5b99562b3e9fc86d13af5ad470b697fc2f78764427936750              878 Packages
+ d44f60421ccbc2dfa96c6e359339dc9758e587abcb2d227f3f9f04a611ecdfb1ab2f13b5132df76bb3c04ee5bec99a2c486a6e7f09d0ba2907426fe467b71a9a              625 Packages.gz
+ 2d1d857f3d8ee7e12d9de4df25e3bb1592d29b962822c9ee5416fbc8f53524b67c0fca0cba88f6bf72b56ac064ef6f30ba79a9c6532d18e809531eb3c6ebcc0c              181 Release
 -----BEGIN PGP SIGNATURE-----
 
-iQIzBAEBCgAdFiEEVGMOx1wtoyXIPL9LOkiOuq4lgKQFAmq1kFkACgkQOkiOuq4l
-gKQuiBAArHGim6uN1dEE1zpOHgLAdRvSbxTA03GgJEwW+A5zpV4+uO1JAQms+e7i
-XZd+C3mvNeelme9WChkmRcKIgkkngSU9W4I+pyjG/6e+AMn1uzzAKhuK6fpZZdM9
-AijOIUp6ZDPTejmBgi/WoK/y7WhZUU88sdIQPcYhwnGxyGqiyO/rkH25CCf+K6oA
-I4Z4o5XJ6u8+154moW18/GAsJvdIvxn8lGDRtP9cK0MPzA/xeLoDMPRT5hX4DMFx
-Z+u8z2KUGt/dnswqA0I0Y5VSSRIiKmUaVq+C/ZUa6YKQemNd09xk7YxuvMAuXSOp
-5t6ocx70i2tRT4WFwyT1cHZsAB1YWTCTPIPbBHHnsMDIH+ddK29v0bZrGR/hqQ4V
-9CwJsvBEd8sDfd+7jRwreUpkkq1DW72McyRaa/w0svORGVI/biZVu/NowNeCVDBW
-+PlOV1BBmSX9ZipBlC7+OOTNJ4a4BvQOnW9W4HRpCZr7f5cTr0dUj1NlwXiAMig3
-0PPNSO4pK7sXl5XmWUrPR7qyyspK73G5ADZF4PrWr7tNc2TO0VwRHOmXryQlTNFP
-s6p9n+ixKgRegUz3fnxROarWtM2jkXnZR2CZqH2WdSVqgxprtizOBp/byw3Z/wmJ
-QlDTRHz4BIpwJNHUveP8Tmo4TgK6qNRPPQhugyU1m7nVO8PYPbA=
-=mQtt
+iQIzBAEBCgAdFiEEVGMOx1wtoyXIPL9LOkiOuq4lgKQFAmq1xvEACgkQOkiOuq4l
+gKQtBA//eOYNa8ebBedOujQx3ZA6jqGhHNdICxe52u9Y2dGGur2K4ZSiYTCXfKFE
+8XMZB+ahslX4voHLUCTbUIzDTAgu86AylxlUNV/9l+WJYkjbQGZt7Hz1FtJzdIAp
+38Q0vFpClNxcwgEpFJTNyy6gOBvcgSVojkfRq3ewMTXxpEHG+8gNXu6z2lDCddgf
+EBurQ71FLlO4cgnuojTrUNvxd4cd8TfugOzmL3u+E9BckEMkHEX8IrtOrvtoIwr/
+4zX3oKsuMcluwJnsakYH5995xaizsuwWCTaJelhFt+XhX08PuSJk4hj84FXIa9ih
+fkHAk/Yri00Qz4PyqO3lIeh8fFOsiCW5M+wpF4GAacAu4BSbeclJYaUGd8/5NND0
+sMpivNwq07ZgHjQY5hQVnWMJzXA/lv/uxLzYMvrf1IxkC6ycqiav5uPcDwofnctt
+imQhPYt/k8+4BQ/GOXF7r5SXEVKwe8cdIBtMtGyfIq1CEGBxrD4FZG4Z8kX+n1y0
+yLIybNba770PEEN6b3FP563sQWMv1/9ezXfsVaUlNtaA3iDSNj8M3DzDnu0X1cDa
+AGP06IZqHqVI5nHtNO7h/KZ5isWtqxWQ3p8XMyK2f3NlA4J5j6VmJXv860BMwjBk
+/FncKM+tocaOM+ES65XcE3HbeuVc8qoPvGjG955emT5ZUucoCls=
+=ed40
 -----END PGP SIGNATURE-----
