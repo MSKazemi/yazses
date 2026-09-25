@@ -181,6 +181,43 @@ already approved and serving; the real state is that 2.39.1 and 2.40.0 sit at
 `latest`* when GHCR serves `latest`, `2.40` and 2.40.0 across 73 tags. The winget, Scoop,
 Homebrew and Snap rows quoted versions up to twenty-two releases stale.
 
+### Fixed — the documented setup did not actually produce the clean mypy run it promised
+
+`AGENTS.md` and `CONTRIBUTING.md` both tell a new contributor to run `uv sync`, then say
+`uv run mypy src` reports no issues, so an error "almost certainly" means you just
+introduced it. On a correct fresh checkout it reported **12 `import-not-found` errors**
+that nobody had introduced and nobody could fix:
+
+```
+src/yazses/overlay/widget.py:13: error: Cannot find implementation or library stub
+for module named "PySide6.QtCore"  [import-not-found]
+...
+Found 12 errors in 5 files (checked 532 source files)
+```
+
+`PySide6` moved out of the base install into the `desktop` extra (#259, 648 MB of Qt), but
+it was never added to the `[tool.mypy]` overrides that already silence every other optional
+backend a base install omits — so it alone reported its own absence, in `overlay/`,
+`settingsui/` and `platform/linux/tray.py`. `settingsui/app.py` had been commented for
+months as though the override existed ("mypy already ignores its imports repo-wide"). Two
+contributors lost a session to it on the same day.
+
+`PySide6.*` now carries that override, so the documented setup is genuinely clean. It is
+listed apart from the others because it is the one entry that switches itself off: PySide6
+ships inline stubs, so installing the extra makes the override inert and mypy checks every
+Qt call site for real. Verified both ways — with `--extra desktop` a deliberate
+`Qt.ThisAttributeDoesNotExist` and a bad `QColor`/`int` assignment are both still caught.
+Anyone working on the overlay, tray or settings window should therefore run
+`uv sync --extra desktop`, which both files now say.
+
+Both files also quoted how many source files mypy had checked. That number had been
+corrected to the count of the day three times (433, 435, 505) and rotted every time, until
+the two of them asserted two different wrong numbers for the same command against a tree
+that checks 532. The count is gone rather than re-corrected — it was never something a
+contributor could act on — and `tests/test_agent_instructions.py` now fails if one comes
+back. Dated `CHANGELOG` and release-note entries still quote counts on purpose: a record of
+what a run measured cannot go stale the way a claim about today does.
+
 ## [2.40.0] - 2026-09-24
 
 ### Fixed — dictation typed nothing on Debian and Ubuntu Wayland

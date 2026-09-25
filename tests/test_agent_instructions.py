@@ -6,9 +6,16 @@ adapters that import it, while `CONTRIBUTING.md`, `README.md` (plus its translat
 and the `Makefile` expose selected human-facing commands. These surfaces had drifted in the
 worst possible direction: `AGENTS.md` told agents the codebase carried "~135 known type
 errors across 50 files" and that "a clean run is not the bar", while `CONTRIBUTING.md`
-said mypy reports no issues at all. `mypy src` actually reports `Success: no issues found
-in 433 source files`. An agent reading the stale file would have shipped type errors and
-called them pre-existing — and been following the instructions when it did.
+said mypy reports no issues at all. `mypy src` actually reported `Success: no issues
+found`. An agent reading the stale file would have shipped type errors and called them
+pre-existing — and been following the instructions when it did.
+
+The follow-up bug was subtler and is why these surfaces no longer quote a file count.
+Each was corrected with the number of files checked *at the time* — 433, then 435, then
+505 — and every one of them rotted, so two live instruction files ended up asserting two
+different wrong counts for the same command. A number that nothing re-measures is a
+liability in a file that is read as instructions; it belongs in a dated `CHANGELOG`
+entry, which is a record rather than a claim about today.
 
 Historically, `AGENTS.md` sent contributors to a root `CLAUDE.md` that was gitignored and
 present only in the maintainer's checkout. The public design now avoids that failure in a
@@ -260,6 +267,41 @@ def test_no_surface_claims_type_errors_are_expected():
         f"known: {lying}. `uv run mypy src` reports no issues across the source tree — "
         "an agent that believes otherwise will ship type errors and report them as "
         "someone else's. CONTRIBUTING.md holds the correct wording."
+    )
+
+
+#: "…no issues across 505 source files", including across a line wrap. Only a *counted*
+#: mention matches: prose about "source files" in general is not a measurement claim.
+_FILE_COUNT = re.compile(r"\b\d[\d,]*\s+source files", re.I)
+
+
+def test_no_live_instruction_surface_quotes_a_mypy_file_count():
+    """A file count in an instruction file is a claim that nothing re-measures.
+
+    This has now rotted three times — `AGENTS.md` and `CONTRIBUTING.md` were each
+    "corrected" to the count of the day (433, 435, 505) and each went stale, until the two
+    files asserted two different wrong numbers for the same command against a tree that
+    checks 532. Two agents burned a session on it in one day.
+
+    The durable claim is "no issues", which `test_no_surface_claims_type_errors_are_expected`
+    already holds these surfaces to. The count adds nothing a contributor can act on and
+    silently becomes false, so it is banned here rather than re-corrected.
+
+    Deliberately scoped to the live surfaces: `CHANGELOG.md` and `docs/releases/*.md` quote
+    counts on purpose. A dated entry records what a run measured at that moment; it does not
+    claim anything about today, so it cannot go stale in the way this test is about.
+    """
+    quoting = {
+        name: _FILE_COUNT.search(" ".join(_read(name).split()))[0]  # type: ignore[index]
+        for name in MYPY_SURFACES
+        if _FILE_COUNT.search(" ".join(_read(name).split()))
+    }
+    assert not quoting, (
+        f"these instruction surfaces quote how many files mypy checked: {quoting}. That "
+        "number changes every time a module is added and nothing re-measures it here, so "
+        "it is false within a release or two — and a contributor who reads a wrong number "
+        "in a setup guide stops trusting the rest of it. Say 'no issues' and leave the "
+        "count to the CHANGELOG entry that actually measured it."
     )
 
 

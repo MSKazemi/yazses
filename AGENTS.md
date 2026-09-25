@@ -58,7 +58,7 @@ managed with `uv`.
 uv sync
 uv run python -m pytest tests/ -v   # tests  (note: python -m pytest, not `uv run pytest`)
 uv run ruff check src tests scripts paper/benchmark # lint — same targets CI uses
-uv run mypy src                     # types — clean today, advisory, see below
+uv run mypy src                     # types — clean, advisory, see below
 ```
 
 **CI changes:** before editing `.github/workflows/`, CI scripts, release validation, or
@@ -69,13 +69,25 @@ workflow lanes, cancellation contract, permission boundaries, retry policy, and 
 success from a change looking correct. The suite is offline and mocks audio and model
 layers, so no microphone, network, or Whisper model download is required.
 
-**mypy is clean and advisory.** `uv run mypy src` currently reports **no issues across 505
-source files**, so if it reports an error, you almost certainly just introduced it — fix it
-rather than reporting it as pre-existing. It is not a CI gate (only `ruff` and `pytest`
-are), but do not leave the count above zero.
+**mypy is clean and advisory.** `uv run mypy src` reports **no issues** on the plain
+`uv sync` above — no backlog, no accepted errors, nothing you have to install first. So if
+it reports an error, you almost certainly just introduced it — fix it rather than reporting
+it as pre-existing. It is not a CI gate (only `ruff` and `pytest` are), but do not leave the
+count above zero. Do not write the number of files checked into this file: it has read 433,
+then 435, then 505, against a tree that now checks 532, and each figure outlived the run
+that produced it. A count belongs in a dated `CHANGELOG` entry, which records a measurement;
+here it would assert a present fact that nothing re-measures.
 
 The `[tool.mypy]` section in `pyproject.toml` silences the imports of optional backends a
-base install deliberately omits. Those are absent by design, not bugs — do not "fix" them.
+base install deliberately omits. Those are absent by design, not bugs — do not "fix" them,
+and never install an extra merely to quiet them.
+
+`PySide6` sits in that list for a different reason from the rest, and the difference is
+worth knowing: it ships its own stubs, so the override silences only its *absence*. Install
+the `desktop` extra and the override goes inert and mypy type-checks every Qt call site for
+real. If you are touching the overlay, the tray or the settings window, run
+`uv sync --extra desktop` first — otherwise those modules resolve to `Any` and mypy will
+wave through a mistake it would otherwise catch.
 
 If you change any CLI command, flag, or config key, regenerate the reference docs or the
 sync test will fail:

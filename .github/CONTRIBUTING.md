@@ -79,14 +79,19 @@ validation and deployment have different permission boundaries.
 need a working microphone, a Whisper model, or the optional extras to contribute: the test
 suite is fully offline and mocks the audio and model layers, and runs in about 30 seconds.
 
-**mypy is clean and advisory.** `uv run mypy src` currently reports **no issues across 433
-source files**, so if you see an error, you almost certainly just introduced it. It is not
-a CI gate — only `ruff` and `pytest` are — so nobody will block your PR on it, but please
-run it once before pushing and don't leave the count above zero.
+**mypy is clean and advisory.** `uv run mypy src` reports **no issues** on the plain
+`uv sync` above — you do not need to install anything else first. So if you see an error,
+you almost certainly just introduced it. It is not a CI gate — only `ruff` and `pytest`
+are — so nobody will block your PR on it, but please run it once before pushing and don't
+leave the count above zero. (This paragraph deliberately no longer quotes how many files
+were checked: that number moves every release, and it was wrong here for months.)
 
 The `[tool.mypy]` section in `pyproject.toml` silences the imports of optional backends
 that a base install deliberately omits — those are absent by design, not bugs, and no PR
-should try to "fix" them.
+should try to "fix" them. `PySide6` is the one entry that unsilences itself: it ships
+stubs, so `uv sync --extra desktop` turns the type checking back on for the overlay, the
+tray and the settings window. Install it if you are working on those; you do not need it
+otherwise.
 
 Changed a CLI command, flag, or config key? Regenerate the reference docs, or the doc-sync
 test will fail:
