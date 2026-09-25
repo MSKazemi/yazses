@@ -270,6 +270,7 @@ feature is claimed to work. (3) A probe that cannot determine the state reports
 | `xdotool.py` | X11 via `xdotool type` / `xdotool key` |
 | `ydotool.py` | Wayland via `ydotool` |
 | `wtype.py` | Wayland via `wtype` |
+| `portal.py` | Wayland via the XDG RemoteDesktop portal (`PortalInjector`), the only path a strictly confined snap can type on. Holds the one `_PortalSession` — consent copy, restore token, idle release — and, per ADR-v2-146 rule 6, the pointer backend `PortalPointerSink` that extends that same session |
 | `clipboard.py` | Universal fallback via clipboard + Ctrl+V |
 | `streaming.py` | `StreamingInjector` — tracks partial char count, correction-on-commit via Shift+Left |
 
@@ -292,6 +293,16 @@ above it.
 Unsupported is explicit, never a silent no-op: every implementation defines every method
 (including `move_absolute`, which many backends cannot offer) and raises
 `PointerUnsupportedError` for what `capabilities()` already said it cannot do.
+
+A backend cannot live in this package, because the boundary is pure: `inject/portal.py`
+holds the Wayland one (`PortalPointerSink`, `open_pointer_sink`) for the stronger reason
+that ADR-v2-146 rule 6 requires **one** RemoteDesktop session — the pointer extends the
+session dictation already typed through, `PortalInjector.pointer_sink()` is the wiring,
+`POINTER` joins the single `SelectDevices` call only while a sink is open, and a pointer
+consumer therefore raises no second consent dialog. Capability is read from the `Start`
+response's granted-device mask rather than from having asked; absolute motion is refused
+because `NotifyPointerMotionAbsolute` addresses a position inside a ScreenCast stream,
+which this session deliberately does not have.
 
 No fake ships in `src/`. `tests/pointer_fake.py` holds `FakePointerSink`, which records
 `PointerAction` values instead of moving anything — a click records a press **and** a
