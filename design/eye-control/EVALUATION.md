@@ -81,9 +81,26 @@ Trace families:
 - talking-like mouth movement;
 - face commit + simultaneous head-motion coupling;
 - stale timestamps;
-- topology change mid-session.
+- topology change mid-session;
+- grounded-target traces: target + semantic candidates + intent hint, replayed for
+  grounded-correct, wrong target, ambiguity and abstention.
 
 Primary purpose: make failures reproducible.
+
+The grounded-target family has a harness (ADR-v2-151 P4, #445):
+
+```sh
+uv run python scripts/replay_grounding_trace.py            # print the report
+uv run python scripts/replay_grounding_trace.py --check     # CI drift gate
+```
+
+It reads the traces in `tests/fixtures/grounding_traces/`, replays each case through the real
+resolver under a window-only and a semantic-grounding strategy, and prints one deterministic
+document; the committed copy is `tests/fixtures/grounding_replay_report.json`. Exit `0` valid,
+`1` rule violation or drift, `2` unreadable. A trace with no cases is refused, because a
+wrong-target rate computed over zero trials reads exactly like a perfect run. **The fixtures are
+invented and no product threshold follows from their numbers** — that is RQ-G4's job, on real
+desktops.
 
 ### E3 — one-machine hardware smoke
 
