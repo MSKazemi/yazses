@@ -33,6 +33,7 @@ if TYPE_CHECKING:
     from yazses.latency.pool import EnginePool
     from yazses.learning.edit_watch import EditWatcher
     from yazses.meeting.controller import MeetingController
+    from yazses.perception import SharedPerceptionSource
     from yazses.polyglot.router import PolyglotRouter
     from yazses.system.single_instance import SingleInstanceLock
     from yazses.timeline.history import InjectionTimeline
@@ -252,6 +253,11 @@ class Daemon:
         # Glance-Type look-to-pane targeter (None unless [gaze] enabled + routing
         # + calibration + an X11 desktop backend all present — otherwise dormant).
         self._gaze_targeter: GazeTargeter | None = None
+        # The one shared camera owner (ADR-v2-145). Declared here rather than only in
+        # `_build_pipeline`, which runs under `run()`: `shutdown` closes it, and an
+        # attribute that exists only after a successful startup would make that
+        # release silently skip on any path that never got there.
+        self._perception: SharedPerceptionSource | None = None
         # Ghost Ahead endpoint anticipator (None when [endpoint] disabled — dormant).
         self._endpoint: EndpointAnticipator | None = (
             EndpointAnticipator(
@@ -1123,6 +1129,14 @@ class Daemon:
         # whether gaze *actually* came up, rather than whether it was requested.
         self._gaze_targeter = self._build_gaze_targeter(cfg)
 
+        # ADR-v2-145: one camera owner per daemon, so gaze, the Head-Pointer and the
+        # face switch cannot each open the webcam and meet "device already busy".
+        # None on every install today — `[perception]` ships off and no camera
+        # backend is wired to the owner yet (#395) — so nothing about the camera
+        # features above changes. This is the seam that stops there being a second
+        # one later, and `shutdown` closes it.
+        self._perception = self._build_perception_source(cfg)
+
         # ADR-v2-011 role arbitration. Must precede the activation sources, because
         # it decides what role EMG plays among them.
         self._modality_roles = self._resolve_modality_roles(cfg)
@@ -1553,6 +1567,30 @@ class Daemon:
             )
         except Exception:
             log.debug("Gaze targeter init failed; skipping", exc_info=True)
+            return None
+
+    def _build_perception_source(self, cfg):
+        """The daemon's single shared camera owner, or None when it is dormant.
+
+        ADR-v2-145 puts one source behind every camera feature and this is where it
+        is owned, because "one owner per daemon" has to be true of an object with a
+        daemon-long lifetime rather than of a convention. Consumers do not get it
+        directly: each takes a lease, the first lease opens the camera once and the
+        last release closes it (src/yazses/perception/source.py).
+
+        None is the answer on every install today, and it is not a failure: the
+        factory returns None while `[perception]` is off, and also while no camera
+        backend has been wired to the owner — the MediaPipe adapter is #395 and the
+        gaze migration that asks for the first lease is #396. Until then every camera
+        feature keeps the path it has now. Wrapped because a source that cannot be
+        built must cost a log line, never a daemon that will not start.
+        """
+        try:
+            from yazses.perception import build_perception_source
+
+            return build_perception_source(cfg.perception)
+        except Exception:
+            log.debug("Shared camera perception init failed; skipping", exc_info=True)
             return None
 
     def _on_command_hold_start(self, leaked: int) -> None:
@@ -5494,6 +5532,13 @@ class Daemon:
                 self._gaze_targeter.close()  # release the camera
             except Exception:
                 log.exception("Gaze targeter close raised")
+        if self._perception is not None:
+            try:
+                # Whatever the lease bookkeeping says: a consumer that forgot to
+                # release must not leave the webcam open or its loop alive.
+                self._perception.close()
+            except Exception:
+                log.exception("Shared camera source close raised")
         if self._meeting_recorder is not None:
             try:
                 self._meeting_recorder.stop()
