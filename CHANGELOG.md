@@ -6,6 +6,54 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — gaze can now be refined to an exact UI element, and nothing changes until it is
+
+`src/yazses/gaze/grounded.py` is phase P2 of ADR-v2-151: the seam between the coarse
+question Glance-Type already answers — *which window was the user looking at?* — and the
+exact one a command like "click this" needs. `GazeGrounder` turns one confident,
+gaze-routed sample into a `TargetSnapshot`, asks an **injected** `SemanticSource` what is
+under it, and returns the pure resolver's tri-state answer. `refine()` collapses that into
+`RefinedTarget`, and the shape of that value is the promise: `window_id` is copied from
+the routing decision and can never be influenced by the semantic source, while `entity_id`
+is filled for a `GROUNDED` result and for nothing else.
+
+**The interesting part is what does not happen.** The seam is a constructor keyword,
+`GazeTargeter(grounder=...)`, defaulting to `None`, and no platform accessibility adapter
+ships here — ADR-v2-151 asks for the coverage study (spec phase P3) before anyone writes
+one, so `None` is the answer on every install and the gaze path is byte-for-byte what it
+was. There is no new config key either: a toggle whose only possible provider does not
+exist would advertise a capability nobody can turn on. The new suite proves the absence
+case by running the same backend, calibration, desktop and gaze sample twice — once with
+a grounder and once without — and asserting the two `RouteDecision`s are equal, for a
+grounded, an ambiguous and an unresolved outcome alike. The 426 existing gaze/deixis tests
+are unmodified.
+
+Three things the seam deliberately refuses:
+
+- **It never asks about a window the router rejected.** A sample below
+  `[gaze] confidence_min`, a point outside every window, no face at all, or a suspended
+  topology guard — none of them reaches the semantic source. Grounding inside the
+  *focused* window on the strength of a gaze point the router just refused would invent a
+  target out of a rejection, and a low-confidence sample cannot gain confidence from
+  semantics: a grounded result's confidence is the weaker of the two observations.
+- **An abstention is never an element.** Ambiguous and unresolved results carry no
+  `entity_id`, and nothing here reads an ambiguous result's candidate list — picking one
+  is exactly the guess the ADR forbids. Window-level deixis keeps its existing semantics:
+  "close this" on a gaze-routed target still asks first, because an exact element id is a
+  better answer, not a reason to lower a guard that exists because the sensor is coarse.
+- **A failing source is not an outage.** A platform adapter that raises, or a backend
+  reporting an impossible confidence, costs one warning *per failure streak* rather than
+  one per hold (ADR-021: a line per dictation buries the line that matters) and returns
+  `None` — the same state as "no source configured". The targeter catches a second time,
+  for a grounder object that is itself broken, so nothing in this path can put an
+  exception between the hold and the dictation.
+
+No screen capture, no network, no new dependency: a test asserts the module's imports are
+the standard library and `yazses`, and names the four platform bindings that must stay
+behind the Protocol. The clock is read twice on purpose — once to date the sample, once to
+judge it — so a source slower than the freshness budget makes its own answer stale instead
+of grounding against a screen that has had time to scroll. (#443)
+
 ### Added — macOS and Windows pointer output, with the capabilities each can honestly claim
 
 The `PointerSink` boundary (ADR-v2-146) now has its macOS and Windows backends:

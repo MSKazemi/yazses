@@ -7,13 +7,21 @@ route to the looked-at window only when gaze is confident and lands on a window,
 else leave the focused window untouched so uncertain gaze never misroutes.
 
 Frames live only inside ``backend.estimate()`` (in-RAM, never stored — ADR-011).
+
+An optional semantic-grounding seam (ADR-v2-151 phase P2) sits beside that policy: when
+a grounder is injected, a *confident, gaze-routed* burst also asks it what the user was
+looking at inside the window. It is additive in the strict sense — the route decision is
+computed first and is never revisited, so with no grounder (every install today) this
+file behaves exactly as it did before, and with one the worst case is an abstention.
 """
 from __future__ import annotations
 
 import logging
 
+from yazses.gaze.grounded import RefinedTarget, refine
 from yazses.gaze.route import RouteDecision, route_target
 from yazses.gaze.zones import resolve_window
+from yazses.grounding import GroundingResult
 
 log = logging.getLogger(__name__)
 
@@ -28,6 +36,7 @@ class GazeTargeter:
         desktop,
         confidence_min: float = 0.5,
         topology_guard=None,
+        grounder=None,
     ) -> None:
         self._backend = backend
         self._calibration = calibration
@@ -40,9 +49,19 @@ class GazeTargeter:
         #: layout. None keeps the pre-ADR behaviour for callers that do not wire it.
         self._topology_guard = topology_guard
         self._suspension_logged = False
+        #: Optional :class:`~yazses.gaze.grounded.GazeGrounder`. None on every install
+        #: today — ADR-v2-151 ships no platform semantic source until its coverage
+        #: study lands — and None is what keeps the window-level path untouched, so
+        #: the absent case is the default rather than a configuration.
+        self._grounder = grounder
         #: The decision from the most recent retarget() — the burst's gaze
         #: snapshot that deixis commands ("close this") resolve against.
         self.last_decision: RouteDecision | None = None
+        #: The grounding answer for that same burst, or None when grounding did not
+        #: run (no grounder, no confident gaze route) or could not answer. Cleared at
+        #: the top of every retarget() so a previous burst's entity can never be read
+        #: as this one's — a stale exact target is worse than no exact target.
+        self.last_grounding: GroundingResult | None = None
 
     def _sample(self) -> tuple[tuple[float, float] | None, float]:
         """One gaze sample as ``(point, confidence)``.
@@ -73,8 +92,14 @@ class GazeTargeter:
         A suspended topology guard short-circuits all of that: no camera sample is
         taken and the focused window is kept, because a calibration made on the
         previous monitor arrangement would answer confidently and wrongly.
+
+        When a semantic grounder is injected *and* the decision came from confident
+        gaze, the same sample is then grounded (ADR-v2-151). That runs strictly after
+        the routing decision is final and cannot change it: an exact element is an
+        addition to the answer, never a correction of it.
         """
         focused = self._desktop.focused_window()
+        self.last_grounding = None
         if self._topology_guard is not None and self._topology_guard.suspended():
             if not self._suspension_logged:
                 # Once per suspension, not once per hold: the state is sticky until a
@@ -113,8 +138,48 @@ class GazeTargeter:
             except Exception as exc:  # focus is best-effort; never break dictation
                 log.warning("Gaze re-focus failed (%s); using focused window.", exc)
                 decision = route_target(None, 0.0, focused, confidence_min=self._confidence_min)
+        if self._grounder is not None and decision.used_gaze and decision.target is not None:
+            self.last_grounding = self._ground(decision.target, yaw, pitch, confidence)
         self.last_decision = decision
         return decision
+
+    def _ground(self, window_id, yaw: float, pitch: float, confidence: float):
+        """Ask the injected grounder about this sample; never raise. Best-effort.
+
+        Only reached for a confident, gaze-routed decision, which is the precondition
+        the whole seam rests on: a low-confidence sample and a gaze point that landed
+        outside every window both fall back to the focused window, and refining *into*
+        a window the user was not looking at would be the wrong-target error ADR-v2-151
+        is written to avoid. So the low-confidence path does not merely ignore the
+        answer — it never asks, and no semantic source is touched.
+
+        The screen point is predicted again rather than threaded out of the routing
+        path above: ``predict`` is pure, so the second call returns the same pair, and
+        the existing code stays character-for-character what it was.
+
+        :class:`~yazses.gaze.grounded.GazeGrounder` already isolates a failing semantic
+        source. This second catch is for the grounder *object* — a future caller can
+        pass anything, and a duck-typed seam that can raise into ``retarget`` would put
+        a crash between the hold and the dictation.
+        """
+        try:
+            x, y = self._calibration.predict(yaw, pitch)
+            return self._grounder.ground(
+                window_id=window_id, point=(float(x), float(y)), confidence=confidence
+            )
+        except Exception:
+            log.debug("Gaze grounding seam failed; window-level target kept.", exc_info=True)
+            return None
+
+    def refined_target(self) -> RefinedTarget:
+        """The burst's target as a consumer should read it: window, plus entity if earned.
+
+        One call so that no consumer has to reimplement the rule. The window is always
+        the routing decision's, unchanged; ``is_exact`` is True only for a grounded
+        result, so a deixis action, a confirm gate or a planner that asks this question
+        gets today's window-level answer in every other case.
+        """
+        return refine(self.last_decision, self.last_grounding)
 
     def window_action(self, action: str, window_id) -> bool:
         """Perform a deixis window action ("focus"/"close"/"minimize") on the desktop.
