@@ -40,6 +40,17 @@ class DwellClicker:
         self._anchor: tuple[float, float] | None = None
         self._count = 0
 
+    def reset(self) -> None:
+        """Drop any dwell in progress, so the next frame starts a fresh one.
+
+        The hands-free safety gate (``handsfree/safety.py``, ADR-v2-148) requires that entering
+        PAUSED or FAULTED clears pending activation state: without this, a dwell that was two
+        frames from firing when the camera dropped out would complete on the first frame after
+        recovery, as a click the user never asked for. Pure; no I/O.
+        """
+        self._anchor = None
+        self._count = 0
+
     def update(self, x: float, y: float) -> bool:
         """Advance one frame at pointer ``(x, y)``; return True iff a click fires. Pure state."""
         if self._anchor is None:
