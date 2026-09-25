@@ -7,6 +7,7 @@ import os
 
 from yazses.platform.base import LINUX_PLATFORM_NAME, Platform
 from yazses.platform.linux.paths import build_paths
+from yazses.pointer.base import PointerSink
 
 log = logging.getLogger(__name__)
 
@@ -43,6 +44,29 @@ def _make_tray():
     return LinuxTray()
 
 
+def build_pointer_sink() -> PointerSink:
+    """Open this Linux session's pointer output (ADR-v2-146), or say why there is none.
+
+    Separate from :func:`build_platform` on purpose. `Platform` is built once at start-up
+    for every user, and a pointer sink must be opened only when a pointer consumer is
+    actually enabled — ADR-v2-146 rule 7, which matters most on Wayland where opening one
+    means asking the user for consent. Folding it into the bundle would take a display
+    connection for everybody who only ever dictates.
+
+    X11 only, for now, and that is a narrower claim than "Linux": XTEST is an X-server
+    extension, so this reaches a real X session, and on a Wayland session it reaches
+    whatever XWayland exposes — which is not the native Wayland pointer. A session with no
+    X server at all gets ``PointerUnsupportedError`` rather than something that accepts
+    every request and moves nothing. The Wayland path is to extend the RemoteDesktop
+    portal session in `src/yazses/inject/portal.py`, which is a separate backend; until it
+    exists this function is the only pointer output Linux has, and the choice between them
+    is not made here.
+    """
+    from yazses.platform.linux.pointer_x11 import build_x11_pointer_sink
+
+    return build_x11_pointer_sink()
+
+
 def build_platform() -> Platform:
     from yazses.platform.linux.injector import LinuxInjector
     from yazses.platform.linux.ipc import UnixSocketIpcClient, UnixSocketIpcServer
@@ -65,4 +89,4 @@ def build_platform() -> Platform:
     )
 
 
-__all__ = ["build_platform"]
+__all__ = ["build_platform", "build_pointer_sink"]
