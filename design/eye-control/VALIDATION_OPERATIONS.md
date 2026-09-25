@@ -221,6 +221,27 @@ The project should be able to answer, without reading every issue manually:
 
 That dashboard is operational engineering metadata, not a paper analysis.
 
+The registry-derived part of it is generated and committed as
+[`generated/validation-coverage.md`](generated/validation-coverage.md):
+
+```sh
+uv run python scripts/gen-eye-validation-dashboard.py
+```
+
+It is offline, clock-free and byte-stable — the same registry renders the same page on any
+machine, so the committed copy is reviewable in a diff and a test fails when it drifts. Never
+hand-edit it; edit [`validation-slots.json`](validation-slots.json) and regenerate.
+
+Two boundaries are deliberate. It reports the **registry's** recorded PLANNED/READY state and
+never live GitHub readiness, labels or claims — those are still read from the issues, for the
+reason [README.md](README.md) gives for keeping no status snapshot in this directory. And a
+FAIL or BLOCKED report is counted there as *reported evidence*, never as missing evidence,
+while independent hosts and repeated sessions are counted in separate columns so three
+sessions by one person never read as three people.
+
+Reported outcomes are a second, optional input (`--outcomes`). None is committed yet, so every
+cell currently shows as awaiting its first report.
+
 ## Closing rules
 
 Close a no-code slot when:
