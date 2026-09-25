@@ -1,0 +1,225 @@
+name: 👁️ Eye / camera hardware report
+description: >-
+  Structured real-hardware evidence for gaze, Head-Pointer, face-switch, pointer
+  backends, and the hands-free bundle. No face/video upload is required.
+title: "[eye-hw]: "
+labels: ["accessibility", "measurement-wanted", "hardware-required"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for testing the hands-free stack on real hardware.
+
+        **Use this form only when a READY eye-control validation/measurement issue asks for a
+        public hardware report.** If the parent issue is still PLANNED, do not collect or post
+        replacement data on your own.
+
+        **Privacy:** please do not attach a face photo/video, raw face landmarks,
+        diagnosis/disability details, private transcript text, or screenshots of
+        sensitive applications. Derived measurements and environment descriptions
+        are enough.
+
+        See `design/eye-control/TEST_PLAN.md` for the measurement definitions.
+
+  - type: markdown
+    attributes:
+      value: |
+        **This GitHub issue is public community engineering QA (`community_qa`), not research
+        consent or a research-participant submission.** Your GitHub username and anything you type
+        here will be publicly visible and may be indexed or mirrored. Do not post sensitive data.
+        See `design/eye-control/DATA_SHARING.md`.
+
+        If you are enrolled in a research study, submit research measurements through that study's
+        approved private/de-identified process. Do not use this public form as the research dataset.
+
+  - type: input
+    id: ready_issue
+    attributes:
+      label: READY parent validation / measurement issue
+      description: >-
+        Enter the issue number that requested this public engineering report. It must currently be
+        marked READY / help wanted, or otherwise explicitly request a hardware report.
+      placeholder: "#411"
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: readiness_ack
+    attributes:
+      label: Readiness acknowledgement
+      options:
+        - label: I checked that the linked parent issue is READY / explicitly requests this hardware report
+          required: true
+
+  - type: dropdown
+    id: research_contact
+    attributes:
+      label: Optional future research contact preference
+      description: >-
+        This choice does not make this QA report research data. Research enrollment and consent
+        happen separately.
+      options:
+        - "QA only — do not contact me about research through this issue"
+        - "I am willing to be contacted separately about a future research study"
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: public_ack
+    attributes:
+      label: Public-report acknowledgement
+      options:
+        - label: I understand this GitHub issue is public and I will not post face/video, private text, diagnosis, contact details, serial numbers, or secrets
+          required: true
+
+  - type: dropdown
+    id: capability
+    attributes:
+      label: Capability tested
+      options:
+        - "Glance-Type / gaze routing"
+        - "Implicit gaze calibration"
+        - "Head-Pointer"
+        - "Face-Gesture Switch"
+        - "Pointer backend"
+        - "Hands-free bundle"
+        - "Dedicated eye tracker research"
+        - "Other eye/camera control"
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: YazSes version / commit
+      placeholder: "v2.x.y or commit SHA"
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: OS and desktop/session
+      placeholder: "Ubuntu 26.04 GNOME Wayland; Windows 11; macOS 27"
+    validations:
+      required: true
+
+  - type: input
+    id: camera
+    attributes:
+      label: Camera / eye tracker
+      placeholder: "Built-in 1080p webcam; Logitech C920; Tobii ..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: display
+    attributes:
+      label: Display topology
+      description: Include monitor count, resolution/scaling, and rough arrangement if relevant.
+      placeholder: |
+        Laptop 2560x1600 @ 150%, internal display only.
+        OR: laptop + external 4K monitor to the right at 200%.
+    validations:
+      required: true
+
+  - type: input
+    id: distance
+    attributes:
+      label: Approximate viewing distance
+      placeholder: "~60 cm"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: glasses
+    attributes:
+      label: Glasses
+      options:
+        - "No"
+        - "Yes"
+        - "Prefer not to say"
+        - "Not relevant / no camera"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: lighting
+    attributes:
+      label: Lighting
+      options:
+        - "Front-lit / even"
+        - "Side-lit"
+        - "Bright window / light behind me"
+        - "Low light"
+        - "Mixed / changed during session"
+        - "Not relevant"
+    validations:
+      required: false
+
+  - type: input
+    id: duration
+    attributes:
+      label: Test duration
+      placeholder: "25 minutes"
+    validations:
+      required: true
+
+  - type: textarea
+    id: config
+    attributes:
+      label: Relevant configuration
+      description: Paste only the eye/head/face/pointer settings that matter.
+      render: toml
+    validations:
+      required: false
+
+  - type: textarea
+    id: task
+    attributes:
+      label: What task did you perform?
+      placeholder: |
+        50 gaze-routed dictation starts across four panes.
+        OR: moved to 20 large buttons and selected them with dwell.
+    validations:
+      required: true
+
+  - type: textarea
+    id: metrics
+    attributes:
+      label: Measurements
+      description: >-
+        Use the relevant metrics: wrong-window/fallback rate, calibration error,
+        false activations/hour, misses, accidental clicks, acquisition time, CPU/FPS,
+        dropped tracking, etc.
+      placeholder: |
+        Attempts: 50
+        Correct target: 44
+        Fallback/no-route: 4
+        Wrong target: 2
+    validations:
+      required: true
+
+  - type: textarea
+    id: failures
+    attributes:
+      label: Failures and recovery
+      description: What went wrong, and could you recover without the mouse/keyboard?
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy / safety check
+      options:
+        - label: I did not observe camera frames being written to disk
+        - label: I did not observe unexpected network activity caused by camera inference
+        - label: I could pause/stop the continuous control when I needed to
+        - label: A sensor failure did not cause a repeated/stale pointer or switch action
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything else
+      description: Negative results are useful. Please describe them plainly.

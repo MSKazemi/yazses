@@ -505,6 +505,18 @@ module = [
 ]
 ignore_missing_imports = true
 
+# PySide6 is listed apart from the block above because it is the one entry whose
+# suppression switches itself off. It ships inline stubs, so the moment the `desktop`
+# (or `overlay`) extra is installed mypy resolves the real package and checks every Qt
+# call site normally -- this override then does nothing. It only silences the *absence*
+# of 648 MB of Qt on a base `uv sync`, which used to leave a correct fresh checkout
+# reporting 12 `import-not-found` errors in overlay/, settingsui/ and linux/tray.py that
+# no contributor had caused and none could fix. Anyone actually working on Qt code has
+# the extra and is still fully type-checked.
+[[tool.mypy.overrides]]
+module = ["PySide6.*"]
+ignore_missing_imports = true
+
 # In-tree adapters that are referenced by a `backend = ...` config option but were never
 # shipped in this build. The factories import them lazily inside try/except and degrade
 # honestly (see yazses/system/backends.py), so their absence is by design, not drift.

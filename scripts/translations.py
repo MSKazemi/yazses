@@ -9,17 +9,48 @@ from the English README by the generator, because a translated command is a
 command that does not exist, and `scripts/check-translations.py` fails the build
 if one appears.
 
-Every locale here is `status=draft`: machine-assisted and not yet reviewed by a
-native speaker. That is stated in the file itself, in the reader's language, so
-nobody mistakes it for reviewed work — and reviewing one is a much smaller task
-than translating 400 lines from scratch, which is the point.
+Every locale here starts at `status=draft`: machine-assisted and not yet reviewed
+by a native speaker. That is stated in the file itself, in the reader's language,
+so nobody mistakes it for reviewed work — and reviewing one is a much smaller task
+than translating 400 lines from scratch, which is the point. A locale whose page
+has since been promoted to `status=active` stays in this table but is no longer
+regenerated; see `gen-readme-translation.py`.
+
+`review_issue` is the **open** `Review the <language> translation` issue, and
+nothing else. It is the only outward link on a draft page — the one sentence whose
+whole job is to recruit a reviewer — so it has to point at work someone can still
+do. It held the `Translate the README into <language>` issue until #359, and every
+one of those had been closed the day its translation landed, which sent every
+reader who clicked to finished, locked work. The key is named for the kind of issue
+it must hold rather than just `issue`, because that ambiguity is what let a closed
+one sit here.
 """
 
 from __future__ import annotations
 
+#: The English README commit this table's prose was written from. It is stamped into
+#: every generated page's `source_sha`, which answers "which English commit was this
+#: translated from?" for the next translator.
+#:
+#: **Pinned on purpose.** The generator used to read `git log -1 -- README.md` at run
+#: time, so regenerating stamped today's SHA on prose nobody had re-translated — the
+#: drift it exists to expose, erased by the act of writing the file. Bump it in the
+#: same commit that brings this table back in line with English, never on its own.
+TABLE_SOURCE_SHA = "3baacb8"
+
 _EN = {
     "draft_title": "Draft translation",
     "draft_body": "Machine-assisted and not yet reviewed by a native speaker.",
+    # The recruiting call, in the reader's own language, written by a native speaker
+    # and rendered directly under the localized banner. `{issue}` and `{issue_url}`
+    # are filled from `review_issue`, so the number lives in exactly one place.
+    #
+    # **Empty by default, and that is the design.** The English sentence below the
+    # banner already says this in English; a machine-written translation of it would
+    # be one more unreviewed sentence on a page whose whole complaint is unreviewed
+    # sentences. Filling this in is #361 — one line per locale, from someone who
+    # speaks it.
+    "draft_call": "",
     "pitch": (
         "YazSes is a free, open-source, offline voice dictation daemon for Linux, "
         "macOS and Windows. Hold a key, speak, release — the text appears in "
@@ -63,9 +94,12 @@ def _t(**overrides) -> dict:
 
 
 LOCALES: dict[str, dict] = {
-    "pt-BR": {"name": "português do Brasil", "issue": 174, "strings": _t(
+    "pt-BR": {"name": "português do Brasil", "review_issue": 349, "strings": _t(
         draft_title="Tradução preliminar",
         draft_body="Assistida por máquina e ainda não revisada por um falante nativo.",
+        # @YuuGR1337's sentence, verbatim. The template for the other 24 (#361).
+        draft_call=("Leia, corrija o que soar estranho e abra um PR. "
+                    "Veja a [issue #{issue}]({issue_url})."),
         pitch=(
             "O YazSes é um daemon de ditado por voz livre, de código aberto e offline, "
             "para Linux, macOS e Windows. Segure uma tecla, fale e solte: o texto aparece "
@@ -89,7 +123,7 @@ LOCALES: dict[str, dict] = {
         link_docs="Documentação", link_readme="README completo em inglês",
         link_issues="Problemas e dúvidas")},
 
-    "fr": {"name": "français", "issue": 175, "strings": _t(
+    "fr": {"name": "français", "review_issue": 341, "strings": _t(
         draft_title="Traduction provisoire",
         draft_body="Assistée par machine et pas encore relue par un locuteur natif.",
         pitch=(
@@ -116,7 +150,7 @@ LOCALES: dict[str, dict] = {
         link_docs="Documentation", link_readme="Le README complet en anglais",
         link_issues="Problèmes et questions")},
 
-    "de": {"name": "Deutsch", "issue": 176, "strings": _t(
+    "de": {"name": "Deutsch", "review_issue": 337, "strings": _t(
         draft_title="Vorläufige Übersetzung",
         draft_body="Maschinell unterstützt und noch nicht von einem Muttersprachler geprüft.",
         pitch=(
@@ -142,7 +176,7 @@ LOCALES: dict[str, dict] = {
         link_docs="Dokumentation", link_readme="Die vollständige englische README",
         link_issues="Probleme und Fragen")},
 
-    "it": {"name": "italiano", "issue": 197, "strings": _t(
+    "it": {"name": "italiano", "review_issue": 344, "strings": _t(
         draft_title="Traduzione preliminare",
         draft_body="Assistita da macchina e non ancora revisionata da un madrelingua.",
         pitch=(
@@ -168,7 +202,7 @@ LOCALES: dict[str, dict] = {
         link_docs="Documentazione", link_readme="Il README completo in inglese",
         link_issues="Segnalazioni e domande")},
 
-    "nl": {"name": "Nederlands", "issue": 194, "strings": _t(
+    "nl": {"name": "Nederlands", "review_issue": 347, "strings": _t(
         draft_title="Voorlopige vertaling",
         draft_body="Machinaal ondersteund en nog niet nagekeken door een moedertaalspreker.",
         pitch=(
@@ -194,7 +228,7 @@ LOCALES: dict[str, dict] = {
         link_docs="Documentatie", link_readme="De volledige Engelse README",
         link_issues="Problemen en vragen")},
 
-    "pl": {"name": "polski", "issue": 200, "strings": _t(
+    "pl": {"name": "polski", "review_issue": 348, "strings": _t(
         draft_title="Tłumaczenie robocze",
         draft_body="Wspomagane maszynowo i jeszcze nieprzejrzane przez native speakera.",
         pitch=(
@@ -220,7 +254,7 @@ LOCALES: dict[str, dict] = {
         link_docs="Dokumentacja", link_readme="Pełny README po angielsku",
         link_issues="Zgłoszenia i pytania")},
 
-    "cs": {"name": "čeština", "issue": 193, "strings": _t(
+    "cs": {"name": "čeština", "review_issue": 336, "strings": _t(
         draft_title="Pracovní překlad",
         draft_body="Strojově podpořený a zatím nezkontrolovaný rodilým mluvčím.",
         pitch=(
@@ -246,7 +280,7 @@ LOCALES: dict[str, dict] = {
         link_docs="Dokumentace", link_readme="Úplný anglický README",
         link_issues="Hlášení a dotazy")},
 
-    "sv": {"name": "svenska", "issue": 201, "strings": _t(
+    "sv": {"name": "svenska", "review_issue": 350, "strings": _t(
         draft_title="Preliminär översättning",
         draft_body="Maskinstödd och ännu inte granskad av någon med språket som modersmål.",
         pitch=(
@@ -272,7 +306,7 @@ LOCALES: dict[str, dict] = {
         link_docs="Dokumentation", link_readme="Den fullständiga engelska README-filen",
         link_issues="Ärenden och frågor")},
 
-    "el": {"name": "ελληνικά", "issue": 195, "strings": _t(
+    "el": {"name": "ελληνικά", "review_issue": 338, "strings": _t(
         draft_title="Προσωρινή μετάφραση",
         draft_body="Με μηχανική υποβοήθηση και χωρίς έλεγχο από φυσικό ομιλητή.",
         pitch=(
@@ -299,7 +333,7 @@ LOCALES: dict[str, dict] = {
         link_docs="Τεκμηρίωση", link_readme="Το πλήρες αγγλικό README",
         link_issues="Ζητήματα και ερωτήσεις")},
 
-    "uk": {"name": "українська", "issue": 204, "strings": _t(
+    "uk": {"name": "українська", "review_issue": 355, "strings": _t(
         draft_title="Чернетковий переклад",
         draft_body="Створено за допомогою машини й ще не перевірено носієм мови.",
         pitch=(
@@ -325,7 +359,7 @@ LOCALES: dict[str, dict] = {
         link_docs="Документація", link_readme="Повний README англійською",
         link_issues="Питання та звіти")},
 
-    "ja": {"name": "日本語", "issue": 177, "strings": _t(
+    "ja": {"name": "日本語", "review_issue": 345, "strings": _t(
         draft_title="下書き翻訳",
         draft_body="機械支援による翻訳で、母語話者のレビューはまだ受けていません。",
         pitch=(
@@ -351,7 +385,7 @@ LOCALES: dict[str, dict] = {
         link_docs="ドキュメント", link_readme="英語版の完全な README",
         link_issues="課題と質問")},
 
-    "id": {"name": "bahasa Indonesia", "issue": 179, "strings": _t(
+    "id": {"name": "bahasa Indonesia", "review_issue": 343, "strings": _t(
         draft_title="Terjemahan draf",
         draft_body="Dibantu mesin dan belum ditinjau oleh penutur asli.",
         pitch=(
@@ -377,7 +411,7 @@ LOCALES: dict[str, dict] = {
         link_docs="Dokumentasi", link_readme="README lengkap dalam bahasa Inggris",
         link_issues="Isu dan pertanyaan")},
 
-    "vi": {"name": "Tiếng Việt", "issue": 205, "strings": _t(
+    "vi": {"name": "Tiếng Việt", "review_issue": 357, "strings": _t(
         draft_title="Bản dịch nháp",
         draft_body="Được máy hỗ trợ và chưa qua rà soát của người bản ngữ.",
         pitch=(
@@ -403,7 +437,7 @@ LOCALES: dict[str, dict] = {
         link_docs="Tài liệu", link_readme="README đầy đủ bằng tiếng Anh",
         link_issues="Vấn đề và câu hỏi")},
 
-    "th": {"name": "ไทย", "issue": 231, "strings": _t(
+    "th": {"name": "ไทย", "review_issue": 353, "strings": _t(
         draft_title="ฉบับร่างของคำแปล",
         draft_body="แปลโดยมีเครื่องช่วย และยังไม่ได้ตรวจทานโดยเจ้าของภาษา",
         pitch=(
@@ -429,7 +463,7 @@ LOCALES: dict[str, dict] = {
         link_docs="เอกสาร", link_readme="README ฉบับเต็มภาษาอังกฤษ",
         link_issues="ปัญหาและคำถาม")},
 
-    "zh-TW": {"name": "繁體中文", "issue": 192, "strings": _t(
+    "zh-TW": {"name": "繁體中文", "review_issue": 358, "strings": _t(
         draft_title="翻譯草稿",
         draft_body="由機器協助翻譯，尚未經母語人士校閱。",
         pitch=(
@@ -452,7 +486,7 @@ LOCALES: dict[str, dict] = {
         link_docs="說明文件", link_readme="完整的英文 README",
         link_issues="問題與提問")},
 
-    "bn": {"name": "বাংলা", "issue": 191, "strings": _t(
+    "bn": {"name": "বাংলা", "review_issue": 335, "strings": _t(
         draft_title="খসড়া অনুবাদ",
         draft_body="যন্ত্রসহায়তায় তৈরি, এখনও কোনো মাতৃভাষীর দ্বারা পর্যালোচিত নয়।",
         pitch=(
@@ -478,7 +512,7 @@ LOCALES: dict[str, dict] = {
         link_docs="নথিপত্র", link_readme="সম্পূর্ণ ইংরেজি README",
         link_issues="সমস্যা ও প্রশ্ন")},
 
-    "ta": {"name": "தமிழ்", "issue": 202, "strings": _t(
+    "ta": {"name": "தமிழ்", "review_issue": 351, "strings": _t(
         draft_title="வரைவு மொழிபெயர்ப்பு",
         draft_body="இயந்திர உதவியுடன் செய்யப்பட்டது; தாய்மொழி பேசுபவரால் இன்னும் சரிபார்க்கப்படவில்லை.",
         pitch=(
@@ -504,7 +538,7 @@ LOCALES: dict[str, dict] = {
         link_docs="ஆவணங்கள்", link_readme="முழு ஆங்கில README",
         link_issues="சிக்கல்களும் கேள்விகளும்")},
 
-    "te": {"name": "తెలుగు", "issue": 230, "strings": _t(
+    "te": {"name": "తెలుగు", "review_issue": 352, "strings": _t(
         draft_title="ముసాయిదా అనువాదం",
         draft_body="యంత్ర సహాయంతో చేసినది; ఇంకా మాతృభాషీయుల సమీక్షకు నోచుకోలేదు.",
         pitch=(
@@ -530,7 +564,7 @@ LOCALES: dict[str, dict] = {
         link_docs="పత్రాలు", link_readme="పూర్తి ఇంగ్లీష్ README",
         link_issues="సమస్యలు మరియు ప్రశ్నలు")},
 
-    "ar": {"name": "العربية", "issue": 190, "rtl": True, "strings": _t(
+    "ar": {"name": "العربية", "review_issue": 334, "rtl": True, "strings": _t(
         draft_title="ترجمة أولية",
         draft_body="أُنجزت بمساعدة آلية ولم يراجعها بعدُ ناطق أصلي باللغة.",
         pitch=(
@@ -556,7 +590,7 @@ LOCALES: dict[str, dict] = {
         link_docs="التوثيق", link_readme="ملف README الإنجليزي الكامل",
         link_issues="المشكلات والأسئلة")},
 
-    "fa": {"name": "فارسی", "issue": 199, "rtl": True, "strings": _t(
+    "fa": {"name": "فارسی", "review_issue": 340, "rtl": True, "strings": _t(
         draft_title="ترجمهٔ پیش‌نویس",
         draft_body="با کمک ماشین انجام شده و هنوز یک فارسی‌زبان بومی آن را بازبینی نکرده است.",
         pitch=(
@@ -582,7 +616,7 @@ LOCALES: dict[str, dict] = {
         link_docs="مستندات", link_readme="‏README کامل انگلیسی",
         link_issues="مسائل و پرسش‌ها")},
 
-    "ur": {"name": "اردو", "issue": 232, "rtl": True, "strings": _t(
+    "ur": {"name": "اردو", "review_issue": 356, "rtl": True, "strings": _t(
         draft_title="مسودۂ ترجمہ",
         draft_body="مشین کی مدد سے کیا گیا ہے اور ابھی کسی مادری بولنے والے نے اس پر نظرثانی نہیں کی۔",
         pitch=(
@@ -608,7 +642,7 @@ LOCALES: dict[str, dict] = {
         link_docs="دستاویزات", link_readme="مکمل انگریزی README",
         link_issues="مسائل اور سوالات")},
 
-    "ru-note": {"name": "", "issue": 0, "strings": _EN},  # placeholder, removed below
+    "ru-note": {"name": "", "review_issue": 0, "strings": _EN},  # placeholder, removed below
 }
 
 LOCALES.pop("ru-note", None)

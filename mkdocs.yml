@@ -381,7 +381,9 @@ nav:
           - What is published, and why: design/README.md
           - Decision records: design/adr/index.md
           - Specifications: design/specs/index.md
+          - Eye / camera control programme: design/eye-control/index.md
           - Research notes: design/research/index.md
+          - Publication planning: design/publication/index.md
           - Meeting Mode design: design/meeting-mode/index.md
           - Mobile programme: design/mobile/index.md
           - Packaging runbooks: design/packaging/index.md

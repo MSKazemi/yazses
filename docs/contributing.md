@@ -24,10 +24,11 @@ These are genuinely useful and need no Python:
 | | |
 |---|---|
 | 🌍 **[Translate the README](https://github.com/MSKazemi/yazses/issues/18)** | One language each — 24 listed, any other welcome. No install needed. |
-| 🎙️ **[Add your microphone](https://github.com/MSKazemi/yazses/issues/21)** | Run `yazses mic-level`, add one row to [known-good microphones](known-good-microphones.md). **Bad results are wanted too.** |
-| ⚙️ **[Share a config](https://github.com/MSKazemi/yazses/issues/43)** | The settings that work for your editor or app. |
+| 🎙️ **[Add your microphone](known-good-microphones.md)** | Run `yazses mic-level` and add one row to the table, alphabetically. **Bad results are wanted too.** |
+| ⚙️ **[Share a config](how-to/app-profiles.md)** | The settings that work for your editor or app. |
 | 🖥️ **[Add your setup](https://github.com/MSKazemi/yazses/issues/42)** | A line in `SHOWCASE.md` — a genuine two-minute pull request. |
 | 🧪 **Run it and report** | On [macOS](https://github.com/MSKazemi/yazses/issues/24), [Windows](https://github.com/MSKazemi/yazses/issues/66), or the [snap](https://github.com/MSKazemi/yazses/issues/142). Telling us what broke is how most bugs here get found. |
+| 👁️ **[Eye/camera no-code validation](https://github.com/MSKazemi/yazses/blob/main/design/eye-control/BEGINNER_TESTING.md)** | Small hardware test packs for Windows, macOS, Wayland, X11 and HiDPI. The slots open one at a time as the code they test lands, so take one **only** if its issue carries `help wanted`; if none does yet, none is open. PASS, FAIL and BLOCKED are all useful answers. |
 
 Those four at the top hold **many contributors at once** — one entry each, nothing to claim,
 nothing to wait for.
@@ -55,8 +56,11 @@ uv run python -m pytest tests/ -v
 
     **macOS and Windows need none of this** — every dependency there ships a prebuilt wheel.
 
-**You do not need a microphone, a Whisper model, or a GPU.** The test suite is fully offline,
-mocks the audio and model layers, and runs in about 30 seconds.
+**You do not need a microphone, a Whisper model, or a GPU.** The test suite is fully offline
+and mocks the audio and model layers. It is large, so a full run takes minutes rather than
+seconds — that is expected, not a hang. While you work, run just the file you changed
+(`uv run python -m pytest tests/test_foo.py`) or narrow with `-k pattern`, and leave the full
+run for before you push.
 
 `ruff` and `pytest` are the gates that must be green; `mypy` is advisory. If you changed a CLI
 command, flag or config key, run `uv run python scripts/gen-docs.py` or the doc-sync test will

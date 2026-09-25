@@ -58,7 +58,7 @@ managed with `uv`.
 uv sync
 uv run python -m pytest tests/ -v   # tests  (note: python -m pytest, not `uv run pytest`)
 uv run ruff check src tests scripts paper/benchmark # lint — same targets CI uses
-uv run mypy src                     # types — clean today, advisory, see below
+uv run mypy src                     # types — clean, advisory, see below
 ```
 
 **CI changes:** before editing `.github/workflows/`, CI scripts, release validation, or
@@ -69,13 +69,25 @@ workflow lanes, cancellation contract, permission boundaries, retry policy, and 
 success from a change looking correct. The suite is offline and mocks audio and model
 layers, so no microphone, network, or Whisper model download is required.
 
-**mypy is clean and advisory.** `uv run mypy src` currently reports **no issues across 505
-source files**, so if it reports an error, you almost certainly just introduced it — fix it
-rather than reporting it as pre-existing. It is not a CI gate (only `ruff` and `pytest`
-are), but do not leave the count above zero.
+**mypy is clean and advisory.** `uv run mypy src` reports **no issues** on the plain
+`uv sync` above — no backlog, no accepted errors, nothing you have to install first. So if
+it reports an error, you almost certainly just introduced it — fix it rather than reporting
+it as pre-existing. It is not a CI gate (only `ruff` and `pytest` are), but do not leave the
+count above zero. Do not write the number of files checked into this file: it has read 433,
+then 435, then 505, against a tree that now checks 532, and each figure outlived the run
+that produced it. A count belongs in a dated `CHANGELOG` entry, which records a measurement;
+here it would assert a present fact that nothing re-measures.
 
 The `[tool.mypy]` section in `pyproject.toml` silences the imports of optional backends a
-base install deliberately omits. Those are absent by design, not bugs — do not "fix" them.
+base install deliberately omits. Those are absent by design, not bugs — do not "fix" them,
+and never install an extra merely to quiet them.
+
+`PySide6` sits in that list for a different reason from the rest, and the difference is
+worth knowing: it ships its own stubs, so the override silences only its *absence*. Install
+the `desktop` extra and the override goes inert and mypy type-checks every Qt call site for
+real. If you are touching the overlay, the tray or the settings window, run
+`uv sync --extra desktop` first — otherwise those modules resolve to `Any` and mypy will
+wave through a mistake it would otherwise catch.
 
 If you change any CLI command, flag, or config key, regenerate the reference docs or the
 sync test will fail:
@@ -184,6 +196,14 @@ fails and your change is reverted anyway.
 | `man/yazses.1` | `uv run python scripts/gen-man.py` |
 | `campaign/generated/**`, `campaign/schemas/**` | `uv run python scripts/campaign.py --generate` |
 | The contributor wall in `README.md` + every `README.<code>.md` | `npx all-contributors-cli generate` |
+| Draft `docs/<locale>/index.md`, the generated rows of `docs/localization/STATUS.md` | `uv run python scripts/gen-readme-translation.py --all` (source: `scripts/translations.py`) |
+
+The last row is the one that has actually bitten. A correct fix to the *pages* survived
+until the next regeneration and no further; the reviewed locales look identical to the
+drafts but are hand-owned, and the generator skips any page whose `yazses-l10n` metadata
+says `status` is not `draft`. If you are changing what a draft page says, change
+`scripts/translations.py` and re-run — `tests/test_l10n_contribute_links.py` fails if the
+two disagree.
 
 **Pure modules — test these directly, no mocks needed.** The house pattern is dependency-free
 logic beside an injected heavy backend: `meeting/segmenter.py` (pure) vs `meeting/silero_vad.py`

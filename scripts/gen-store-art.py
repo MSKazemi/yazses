@@ -42,10 +42,9 @@ is deterministic. Three separate things make an exact comparison wrong here:
   absent entirely between platforms. So the text region is not compared at all; only the
   mark above it is.
 
-The tolerance was measured rather than guessed, against the regression it exists to catch:
-identical images differ by 0.0, an aggressively resampled copy by **0.15**, and the retired
-blue speech-bubble logo by **73.4**. ``MEAN_TOLERANCE`` sits at 2.0 -- an order of magnitude
-above the noise and well below the signal.
+The tolerance itself -- what counts as jitter, what counts as drift, and the measurements
+behind both numbers -- lives in ``scripts/imagediff.py``, shared with the icon guards so
+the two cannot disagree about what "the same artwork" means.
 """
 
 from __future__ import annotations
@@ -55,10 +54,13 @@ import io
 import sys
 from pathlib import Path
 
-from PIL import Image, ImageChops, ImageDraw, ImageFont, ImageStat
+from PIL import Image, ImageDraw, ImageFont
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
+sys.path.insert(0, str(ROOT / "scripts"))
+
+from imagediff import explain  # noqa: E402  (needs the sys.path above)
 
 from yazses.branding import BRAND_BOTTOM  # noqa: E402
 from yazses.brandmark import render_mark  # noqa: E402
@@ -71,10 +73,6 @@ POSTER = OUT_DIR / "poster-720x1080.png"
 # anything that is not exactly the declared aspect.
 BOXART_SIZE = (1080, 1080)
 POSTER_SIZE = (720, 1080)
-
-# Mean absolute per-channel difference tolerated between a committed asset and a fresh
-# render. See the module docstring for the measurements behind this number.
-MEAN_TOLERANCE = 2.0
 
 # The poster region that is pure geometry. The wordmark and subtitle start below this,
 # and they are font-dependent, so they are deliberately outside the comparison.
@@ -143,11 +141,6 @@ def build_poster() -> Image.Image:
     return img
 
 
-def mean_difference(a: Image.Image, b: Image.Image) -> float:
-    """Largest per-channel mean absolute difference between two same-size images."""
-    return max(ImageStat.Stat(ImageChops.difference(a.convert("RGB"), b.convert("RGB"))).mean)
-
-
 # (path, builder, exact size, region compared by --check or None for the whole image)
 TARGETS = (
     (BOXART, build_boxart, BOXART_SIZE, None),
@@ -155,33 +148,52 @@ TARGETS = (
 )
 
 
+def check_asset(
+    path: Path,
+    expected: Image.Image,
+    size: tuple[int, int],
+    region: tuple[int, int, int, int] | None,
+) -> str | None:
+    """`None` when the committed file is this generator's output; else why it is not.
+
+    Every failure mode reports drift. A file that is missing, the wrong shape, truncated
+    or no longer an image at all is *not* evidence that the artwork is current -- a check
+    that cannot parse its input must fail rather than report compliance.
+    """
+    if not path.exists():
+        return "missing"
+    try:
+        with Image.open(path) as committed:
+            committed.load()
+            if committed.size != size:
+                return f"is {committed.size}, want {size}"
+            if region is None:
+                return explain(committed, expected)
+            return explain(committed.crop(region), expected.crop(region))
+    except (OSError, ValueError) as exc:
+        return f"unreadable ({type(exc).__name__}: {exc}) -- regenerate it"
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--check", action="store_true", help="verify only; write nothing")
     args = ap.parse_args(argv)
+
+    # A generator with nothing to draw must not report that everything is up to date:
+    # every loop below is green over an empty tuple.
+    assert TARGETS, "no store assets are declared"
 
     drift = []
     for path, build, size, region in TARGETS:
         img = build()
         assert img.size == size, f"{path.name}: built {img.size}, want {size}"
         if args.check:
-            if not path.exists():
-                drift.append(f"{path.relative_to(ROOT)}: missing")
-                continue
-            committed = Image.open(path)
-            if committed.size != size:
-                drift.append(f"{path.relative_to(ROOT)}: is {committed.size}, want {size}")
-                continue
-            a, b = (committed, img) if region is None else (committed.crop(region), img.crop(region))
-            delta = mean_difference(a, b)
             scope = "" if region is None else " (mark region)"
-            if delta > MEAN_TOLERANCE:
-                drift.append(
-                    f"{path.relative_to(ROOT)}: differs from the generator{scope} by "
-                    f"{delta:.2f}, tolerance {MEAN_TOLERANCE}"
-                )
+            reason = check_asset(path, img, size, region)
+            if reason is None:
+                print(f"{path.relative_to(ROOT)}  ok{scope}")
             else:
-                print(f"{path.relative_to(ROOT)}  ok{scope}  (delta {delta:.3f})")
+                drift.append(f"{path.relative_to(ROOT)}{scope}: {reason}")
             continue
         buf = io.BytesIO()
         img.save(buf, "PNG", optimize=True)

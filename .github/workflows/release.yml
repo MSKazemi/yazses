@@ -275,5 +275,5 @@ jobs:
             systemctl --user enable --now yazses.service
             ```
 
-            Default hotkey on Linux: **Space** (configurable). Default config lives
+            Default hotkey on Linux: **Right Alt** (configurable). Default config lives
             at `~/.config/yazses/config.toml`.

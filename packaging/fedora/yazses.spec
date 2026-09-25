@@ -47,7 +47,7 @@
 %global debug_package %{nil}
 
 Name:           %{appname}
-Version:        2.36.0
+Version:        2.40.0
 Release:        1%{?dist}
 Summary:        Offline hold-to-talk voice dictation and speech-to-text
 
@@ -131,6 +131,12 @@ install -Dm644 contrib/icons/yazses.svg \
 %{_datadir}/icons/hicolor/scalable/apps/yazses.svg
 
 %changelog
+* Thu Sep 24 2026 Mohsen Seyedkazemi Ardebili <mohsen.seyedkazemi@gmail.com> - 2.40.0-1
+- Update to 2.40.0. Release notes: https://github.com/MSKazemi/yazses/releases/tag/v2.40.0
+- The spec had drifted back to 2.36.0 across four releases. Nothing rewrote it at
+  release time and no test compared it with the other manifests, so it is now written
+  by scripts/refresh-package-manifests.py and checked by
+  tests/test_packaging_manifest_versions.py like every other packaging manifest.
 * Sun Sep 13 2026 Mohsen Seyedkazemi Ardebili <mohsen.seyedkazemi@gmail.com> - 2.36.0-1
 - Track the current release. The spec had been pinned at 2.18.2 since it was written,
   so a COPR built from it would have shipped a version seventeen releases old.

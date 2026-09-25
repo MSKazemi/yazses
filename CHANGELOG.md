@@ -6,6 +6,202 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed — the Store page says plainly that YazSes is not on the Store
+
+`docs/store-submission.md` described how the MSIX is built and what a reviewer is told,
+but never said where the submission had got to, so a reader could finish the page
+believing YazSes was already listed. It is not: the manifest, the tiles and the build
+script exist and `make msix` produces a package, but nothing has been submitted, and
+Windows users should still install from winget, Scoop or the direct installer. The page
+now leads with that, and the build examples name the current version rather than 2.36.0.
+
+Two packaging rules that previously only failed on a Windows runner are now checked
+anywhere the test suite runs: every tile must be the size its filename claims — including
+the one non-square tile, which was not covered — and a manifest that declares
+`Square310x310Logo` must declare `Wide310x150Logo` too, which `makeappx` refuses to pack
+without. This changes nothing for users; it turns a ten-minute Windows job into a
+millisecond assertion for the maintainer who edits the manifest.
+
+### Fixed — the Store documentation said the Face-Gesture Switch did not exist
+
+`docs/store-submission.md`, the MSIX manifest comment and the manifest test all stated
+that the Face-Gesture Switch was "planned/experimental" with "no runtime detector or
+activation adapter". That was written against a tree where it genuinely did not exist,
+and it stopped being true once the switch landed: `src/yazses/facegesture/` holds the
+detector and the webcam backend, `core/daemon.py` builds it as an activation source when
+`[facegesture] enabled`, and `yazses features enable facegesture` installs its packages
+and turns it on. The documentation had been telling users a shipped accessibility feature
+was vapour.
+
+All three now say what is actually true. Glance-Type gaze and the Face-Gesture Switch are
+both implemented, both off by default, and both reachable on a normal install; what makes
+them unreachable in the Store package is that frozen bundle alone, which syncs only the
+`desktop` extra and so carries neither `mediapipe` nor `opencv-python`, with no pip to add
+them afterwards. The reason for not declaring the `webcam` capability is unchanged and the
+package behaves exactly as before — only the description of it was wrong.
+
+A new test pins the rationale to the code instead of to prose, since prose is what drifted:
+it fails if either feature's implementation disappears, and it fails if the frozen build
+ever syncs a camera extra — at which point a camera path becomes reachable inside the MSIX
+and the manifest must declare `webcam` or the feature fails silently on a user's machine.
+
+### Added — the second paper is being written in the open
+
+The evidence package behind the next YazSes paper is now public, under
+`design/publication/paper-v2/`, and the docs site carries it as a new **Publication
+planning** section plus an entry on the research index. It holds the working LaTeX
+manuscript, the v1-to-v2 results delta, a claim ledger that marks each claim supported,
+qualified, open or withdrawn, the reconstruction of the August measurement campaign, and
+the authorship/consent protocol that governs the byline.
+
+Every number in the manuscript resolves to a committed artifact under `paper/results/`,
+so a reader can check the paper against the same files CI checks. `docs/benchmarks.md`
+already published those numbers; what is new is the argument built on them, open to
+review before submission rather than after.
+
+`tests/test_citation_hygiene.py` now also reads the manuscript's `.tex` and `.bib`
+sources. The design tier publishes every file under `design/`, not only the Markdown, so
+the bibliography is a published citation surface — and a BibTeX `url = {…}` is invisible
+to the Markdown-link pattern that guarded the rest of the site.
+
+### Fixed — the Windows Store notes said the Face-Gesture Switch did not exist
+
+`docs/store-submission.md` and the MSIX manifest explained the absent `webcam`
+capability by saying the Face-Gesture Switch "has no runtime detector or activation
+adapter". It has had both since v2.40.0 (`yazses.facegesture`, ADR-v2-135): a held facial
+movement opens the mic on any normal install. The reason `webcam` stays undeclared is the
+packaging one — the Store package is a frozen bundle with no optional extras and no pip to
+add them, so neither Glance-Type nor the Face-Gesture Switch can reach a camera *in that
+package*. The capability decision is unchanged; only the explanation was wrong.
+
+### Fixed — the closed-issue links were fixed in the output, not in the generator
+
+[#359](https://github.com/MSKazemi/yazses/pull/359) repointed all 25 draft translation
+pages from their closed `Translate the README into <language>` issue to the open
+`Review the <language> translation` one. It corrected the `docs/<locale>/index.md`
+files, which are generated: `scripts/translations.py` still held the closed issue for
+every locale, so the next `gen-readme-translation.py --all` would have written all 21
+of them straight back, silently and in one run.
+
+The same run had a second cost. `docs/ta/index.md` had since been reviewed by
+[@Guruharishb](https://github.com/Guruharishb) and promoted to `status=active`; the
+generator rewrites every locale in its table unconditionally, so it would have replaced
+that review with the machine draft the review had replaced, "not yet reviewed by a
+native speaker" banner and all. It no longer touches a page whose own metadata says a
+native speaker has taken it over, and a page it cannot parse is not treated as
+protected.
+
+Three things now live in the table rather than only in its output: the review issue,
+under the name `review_issue` so the ambiguous `issue` cannot hold a closed one again;
+[@YuuGR1337](https://github.com/YuuGR1337)'s Portuguese recruiting sentence, which the
+generator was dropping and which is the template the other 24 locales are waiting on
+([#361](https://github.com/MSKazemi/yazses/issues/361)) — it interpolates the issue
+number rather than repeating it; and `source_sha`, now pinned to the English commit the
+table's prose was written from. That last one was read from `git log -1 -- README.md` at
+run time, so regenerating stamped today's SHA onto prose nobody had re-translated and
+told the next translator there was nothing to sync.
+
+`docs/localization/STATUS.md` carried the same closed issues in its `Next action`
+column, which is the page a would-be reviewer reads before picking a language. Its
+generated rows now come from each page's own metadata, so a reviewed locale stops
+advertising for a reviewer. The Spanish row had been hand-added inside the generated
+block and was one regeneration away from disappearing; it has moved up to the
+hand-maintained rows with the other human translations.
+
+### Fixed — the rest of the contribute links pointed at finished work too
+
+The translated pages were not the only place. Sweeping every issue number the
+newcomer-facing pages recruit against, and checking each one's real state, found the
+same defect in five more places — including two that stated openness outright, which
+is worse than a stale link because a reader has no reason to check:
+
+- `.github/CONTRIBUTING.md` said the two M0 Android tasks "are open right now". Both
+  closed as completed in August 2026; M0 shipped as `contract/`. It now points at that
+  directory and at [#512](https://github.com/MSKazemi/yazses/issues/512), which is open.
+- `docs/mobile/index.md` offered #83 as "a good first issue" — also closed. Same fix.
+- `docs/research/get-involved.md` recruited students under a column headed **Open
+  issue** to six projects that had all shipped, and told industry readers a container
+  image was "(coming)" when it has been on GHCR since August. The six are now listed
+  as shipped seams whose issues are the design record, the three genuinely open
+  projects are separated out, and four other claims that had gone stale with them —
+  "eight scoped projects", two "seam open" rows, and "once the harness lands" — now
+  match what is in the tree.
+- The "no Python needed" on-ramps in `README.md`, `docs/contributing.md`,
+  `docs/contribute/start.md` and the Hindi, Russian and Simplified Chinese pages sent
+  readers to #21 (microphones) and #43 (app configs). Both umbrella issues were closed
+  as completed while the contributions themselves stayed welcome, so they now link
+  `docs/known-good-microphones.md` and `docs/how-to/app-profiles.md` — the pages that
+  take the pull request, which cannot be closed out from under a reader.
+- `docs/contribute/start.md` also sent the row for *reviewing* a translation to the
+  *translate* issue, and "report what happened" to the SHOWCASE issue. They now go to
+  the translation matrix and to the open `Test YazSes on …` issues.
+
+No issue was opened, closed or commented on. Only the links moved.
+
+### Fixed — two dead links on the "first contribution" page failed the docs build
+
+`docs/contribute/start.md` linked `../../AGENTS.md` and
+`third-party-coding-tools.md`. The first resolves outside the `docs/` tree, which
+MkDocs cannot follow; the second names a file that is not in the tree at all — the
+canonical notice is the repo-root `THIRD_PARTY_AI_TOOLS.md`. So the one document
+`AGENTS.md` tells a contributor to read before turning on metered AI usage was a 404
+from the page most likely to send them there.
+
+Both now use the absolute repository URL that the same file already uses two
+paragraphs further down, and that `docs/contribute/ai-agents.md` uses throughout, so
+a root document is linked one way across the site. `mkdocs build --strict` was
+aborting on exactly these two warnings and now completes.
+### Fixed — the support page denied two installers that had shipped for 23 releases
+
+`docs/platform-support.md` told Intel Mac users and Windows-on-ARM users that their
+native installer was "built by CI but not yet published — lands at the next tagged
+release". Both had landed. `YazSes-<version>-macos-x86_64.dmg` and
+`YazSes-<version>-windows-arm64.exe` have been attached to every release since
+**v2.22.0** (2026-08-16), twenty-three of them up to v2.40.0. Anyone who read the page
+first went to `pipx`, or to the x64 `.exe` running under emulation, for a file that was
+on the release page all along. The same page marked the snap "X11 dictation only", which
+stopped being true in v2.37.0 when the RemoteDesktop portal backend shipped — the row
+now says X11 + Wayland, matching the README, `docs/index.md` and `docs/install-linux.md`.
+`packaging/README.md` and `docs/llms.txt` carried the same two claims and are corrected
+too.
+
+The test guarding the page is why it stayed wrong. It derived "is this bundle
+available?" from the `experimental:` flag on the build leg in `build-macos.yml` and
+`build-windows.yml` — and `continue-on-error` means a failure would not be *noticed*,
+not that the build did not *happen*. So the guard required the page to keep saying
+"unpublished" for as long as the leg stayed advisory, and a maintainer correcting the
+page would have been told by a red suite that the truth was a regression.
+`tests/test_platform_support_claims.py` now compares each mark against
+`packaging/released-assets.json`, a generated record of the files the last release
+actually attached to its tag, written by `scripts/refresh-package-manifests.py` from the
+same `gh release view` call that produces every packaging checksum — so the suite stays
+offline. It fails in **both** directions: a ✅ with no file behind it, and a ⏳ on a file
+that shipped.
+
+### Fixed — every contributor page promised a test suite that runs in seconds
+
+Eleven places told a prospective contributor the suite takes "about 30 seconds" — the
+Hindi page said 15. It does not. A full `uv run python -m pytest tests/ -q` on a 13th-gen
+Core i7 laptop measured **15713 passed, 324 skipped in 293.21s** (4m53s), and that run had
+other work on the machine; on a busier or more modest one the same suite has taken over
+half an hour. So the number was wrong by at least ten times and at worst sixty, in the one
+sentence someone reads while deciding whether to try — and a first run that looks like it
+has hung is exactly what it bought them.
+
+The pages now describe the scale instead of quoting a figure: a full run takes minutes
+rather than seconds, that is normal and not a hang, and while you work you can narrow it
+to the file you changed. No new wall-clock number was substituted deliberately. It would
+be stale by the next release, it varies by an order of magnitude with machine and load,
+and `pytest-xdist` is not a dependency, so there is no `-n auto` to make it uniform.
+
+Corrected in `README.md` (twice), `docs/contributing.md`,
+`docs/try-without-installing.md`, `.github/CONTRIBUTING.md`, the `first-interaction`
+workflow that greets every first-time contributor, and the Hindi, Russian and Chinese
+translations. `tests/test_suite_runtime_claims.py` now globs those surfaces so a new
+translation inherits the check rather than re-importing the claim; it was what found the
+Hindi page's separate "15 seconds". The `~30 seconds` beside `yazses enroll` is untouched
+and remains accurate — `voiceprint.enroll_seconds` is 25.0.
+
 ### Fixed — Wayland's default injector silently dropped non-ASCII text
 
 On Wayland, `[injection] backend = "auto"` picks `ydotool`, and `YdotoolInjector` handed
@@ -25,6 +221,158 @@ dictating in your own language "just works" on the default `auto` path, with no 
 change required. This introduces no new permission requirement: `yazses setup`'s udev
 rule already grants `/dev/uinput` access to the same `input`-group membership that
 `ydotool` itself needs before `auto` will select it.
+
+### Fixed — the Fedora package was four releases behind, again
+
+`packaging/fedora/yazses.spec` declared `Version: 2.36.0` while the project shipped
+2.40.0. `Version:` is what `%autosetup` and `%{pypi_source yazses}` expand from, so a
+COPR build did not fail on it — it built 2.36.0 and published it as the current package.
+`dnf copr enable mskazemi/yazses` still installs 2.36.0 today; the spec is correct now,
+but the repository serves whatever it last built, so a COPR rebuild is what actually
+moves it.
+
+This is the second time. The spec sat at 2.18.2 for seventeen releases, was fixed by hand
+at 2.36.0 (#370), and drifted straight back — because the hand-fix left nothing that
+would do it next time. `scripts/refresh-package-manifests.py` now rewrites the spec's
+`Version:` and adds its `%changelog` entry, dated from the release so the weekday is
+right, alongside the Homebrew, Scoop, Arch, Chocolatey, winget and Flatpak manifests it
+already refreshed.
+
+The reason nothing caught the drift is the more useful half.
+`tests/test_packaging_manifest_versions.py` compared four manifests named in a literal
+list, and the spec was not one of them, so every test in that module stayed green while
+the file went stale — a list is green forever on whatever it omits. The set is now
+derived: the sweep reads every file under `packaging/`, recognises a declared version in
+any of the formats this project packages in, and fails on one that no rule reaches.
+`packaging/arch/.SRCINFO`, which is the file the AUR actually reads, and
+`packaging/chocolatey/tools/chocolateyinstall.ps1`, which is the URL `choco install`
+fetches, were outside that list too and are covered by the same sweep.
+
+### Added — the Microsoft Store listing artwork is drawn by a script
+
+`packaging/store/boxart-1080.png` was still the **retired blue speech-bubble logo**. The
+mark was corrected in the Snap tree on 2026-08-18; the Store asset had been written four
+days earlier by a cairosvg snippet pasted into `packaging/store/README.md`, and a recipe
+a human runs is a recipe nobody re-runs, so the correction stopped one directory short
+and the listing was ready to ship a logo that appears nowhere else in the product.
+
+`scripts/gen-store-art.py` (`make store-art`) now redraws it from
+`yazses.brandmark.render_mark` — the one renderer behind the tray badge, `yazses.ico` and
+`yazses.icns` — and also produces the 2:3 poster art the Store recommends and the listing
+did not have. No SVG renderer is involved, so it runs on the build hosts. This changes
+nothing for people running YazSes; it changes what the Store page will show.
+
+### Fixed — the artwork drift guards compared pixels exactly, which is not portable
+
+Every guard that binds a committed image to its generator — the `.ico` frames, the `.deb`
+and Snap icons, the tray-badge images in the docs, and now the Store art — compared
+decoded pixels with `==`. That is one step better than comparing PNG bytes, which had
+already turned the Windows and macOS release legs red on correct assets, and it is still
+wrong: `render_mark` supersamples and downsamples in floating point, and `ubuntu-24.04-arm`
+does not always round the way x86_64 does. The arm64 test leg is `continue-on-error` today,
+which is the only reason these had not fired.
+
+The comparison now lives in one place, `scripts/imagediff.py`, and is a measured
+tolerance rather than an exact match: a mean bound that catches a small change everywhere,
+and a cap on the share of pixels moving further than a quantisation step, which catches a
+large change in one place. Loosening a guard is the easy way to delete it, so
+`tests/test_image_drift_tolerance.py` asserts both directions — ±2 on every pixel is
+accepted, while an older `render_mark`, a downscaled frame, a one-pixel shift, missing
+wave bars and the retired blue logo are all still rejected. A file the guard cannot parse
+counts as drift, never as compliance.
+
+### Fixed — install instructions named channels that do not serve what they claimed
+
+Every package-channel claim in the install docs was re-checked against the registry's own
+API on 2026-09-25, against v2.40.0. Four were wrong, and the Arch one sent users to a
+command that cannot work.
+
+`docs/install-linux.md` opened the Arch section with `yay -S yazses`. YazSes has never been
+published to the AUR — `aur.archlinux.org/rpc` returns `resultcount: 0` — so that command
+stops with *target not found*, which reads as a broken recipe rather than a missing package.
+The section now says so first, explains that publication is blocked upstream (AUR account
+registration was paused on 2026-09-19), and documents building from the in-repo `PKGBUILD`
+instead. The dependency note was corrected too: `python-av` and the `onnxruntime` provider
+come from `extra`, not the AUR.
+
+`docs/windows-install.md` told readers to "install the latest with `winget install
+MSKazemi.YazSes`" and described the catalogue as trailing "by a few days". winget is live,
+but `microsoft/winget-pkgs` holds only 2.35.0 and 2.36.0, so it installs a build tagged
+2026-08-30 — seven releases behind. The page now states that the lag is weeks rather than
+hours and shows how to check with `winget show` before choosing that route. The Fedora
+section gained the same note: COPR serves 2.36.0, not the current tag.
+
+`packaging/README.md`'s channel table carried two false rows. Chocolatey was marked *never
+published, 19 releases running, `CHOCO_API_KEY` never set* while 2.37.1 and 2.39.0 were
+already approved and serving; the real state is that 2.39.1 and 2.40.0 sit at
+`PackageStatus: Submitted`, awaiting moderation. Docker was marked *one tag only, no
+`latest`* when GHCR serves `latest`, `2.40` and 2.40.0 across 73 tags. The winget, Scoop,
+Homebrew and Snap rows quoted versions up to twenty-two releases stale.
+
+### Fixed — the documented setup did not actually produce the clean mypy run it promised
+
+`AGENTS.md` and `CONTRIBUTING.md` both tell a new contributor to run `uv sync`, then say
+`uv run mypy src` reports no issues, so an error "almost certainly" means you just
+introduced it. On a correct fresh checkout it reported **12 `import-not-found` errors**
+that nobody had introduced and nobody could fix:
+
+```
+src/yazses/overlay/widget.py:13: error: Cannot find implementation or library stub
+for module named "PySide6.QtCore"  [import-not-found]
+...
+Found 12 errors in 5 files (checked 532 source files)
+```
+
+`PySide6` moved out of the base install into the `desktop` extra (#259, 648 MB of Qt), but
+it was never added to the `[tool.mypy]` overrides that already silence every other optional
+backend a base install omits — so it alone reported its own absence, in `overlay/`,
+`settingsui/` and `platform/linux/tray.py`. `settingsui/app.py` had been commented for
+months as though the override existed ("mypy already ignores its imports repo-wide"). Two
+contributors lost a session to it on the same day.
+
+`PySide6.*` now carries that override, so the documented setup is genuinely clean. It is
+listed apart from the others because it is the one entry that switches itself off: PySide6
+ships inline stubs, so installing the extra makes the override inert and mypy checks every
+Qt call site for real. Verified both ways — with `--extra desktop` a deliberate
+`Qt.ThisAttributeDoesNotExist` and a bad `QColor`/`int` assignment are both still caught.
+Anyone working on the overlay, tray or settings window should therefore run
+`uv sync --extra desktop`, which both files now say.
+
+Both files also quoted how many source files mypy had checked. That number had been
+corrected to the count of the day three times (433, 435, 505) and rotted every time, until
+the two of them asserted two different wrong numbers for the same command against a tree
+that checks 532. The count is gone rather than re-corrected — it was never something a
+contributor could act on — and `tests/test_agent_instructions.py` now fails if one comes
+back. Dated `CHANGELOG` and release-note entries still quote counts on purpose: a record of
+what a run measured cannot go stale the way a claim about today does.
+
+### Fixed — every install path still told a new user to hold the wrong key
+
+The first line the APT and pipx installers print, before anything else, was:
+
+```
+  Hold Space → speak → release → text appears anywhere
+```
+
+Holding Space does nothing. `[hotkey] key` defaults to `auto`, which resolves to
+`platform.default_hotkey` — `right_alt` on Linux — and first-run seeding never writes a
+hotkey, so `auto` is what a fresh install runs with. A modifier was picked deliberately,
+"so it never collides with normal typing the way the space bar would". This is the first
+thing a new user does, and following the instruction produces silence with no error to
+explain it; the reasonable conclusion is that YazSes does not work.
+
+The `.deb` said it too, in the `Description:` field that apt and every software centre
+show before you install (`debian/control` and `scripts/build-deb.sh`), as did the Linux
+section of the GitHub release notes and the Russian and Hindi home pages, whose
+"hold this key" tables still read `Space` in the Linux row after the English ones were
+corrected.
+
+The README and the docs home page were fixed in v2.27.0. That entry says the correction
+covered "four places" — a list written by hand, which is why it missed nine more. The
+list is now a test: `tests/test_hotkey_naming_truth.py` reads each platform's
+`default_hotkey` out of the source and scans every user-facing file, failing the build
+if one tells a reader to hold a key no platform defaults to, or pairs an OS with
+another OS's key.
 
 ## [2.40.0] - 2026-09-24
 

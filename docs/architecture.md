@@ -743,12 +743,16 @@ states — Meeting Mode among them — fell through to idle blue. A second imple
 policy is a second policy.
 
 **One renderer draws the mark everywhere.** `brandmark.py` redraws `contrib/icons/yazses.svg`
-in Pillow, and both the live tray badge and the packaged `.ico`/`.icns`
-(`scripts/gen-icons.py`) come out of it, so the shortcut icon and the tray glyph cannot
-diverge. The build now *fails* when the icon file is absent. It used to fall back to
-`icon=None`, which is why every Windows release shipped PyInstaller's default artwork on the
-desktop shortcut: the asset had never existed, and a silent fallback meant no build, test, or
-CI run ever mentioned it.
+in Pillow, and the live tray badge, the packaged `.ico`/`.icns` (`scripts/gen-icons.py`) and
+the Microsoft Store listing artwork (`scripts/gen-store-art.py`) all come out of it, so the
+shortcut icon, the tray glyph and the store page cannot diverge. Each committed image is
+bound back to its generator by a test, comparing decoded pixels within a measured tolerance
+(`scripts/imagediff.py`) rather than exactly — the renderer supersamples in floating point,
+so an exact comparison answers "was this file produced on this architecture", which is not
+the question the guard is asking. The build now *fails* when the icon file is absent. It used
+to fall back to `icon=None`, which is why every Windows release shipped PyInstaller's default
+artwork on the desktop shortcut: the asset had never existed, and a silent fallback meant no
+build, test, or CI run ever mentioned it.
 
 Two commands expose the result: `yazses verify` runs the real chain and names the first
 broken link, and `yazses report` writes a redacted diagnostic bundle locally — never

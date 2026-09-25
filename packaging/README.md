@@ -4,30 +4,37 @@ Per-channel packaging artefacts. **Read this when you want to publish to a
 new distribution channel** — the build scripts in `../scripts/` use the
 files here as inputs.
 
-## ⚠ Channel status — read this first (audited 2026-08-11; live re-check of every channel 2026-08-13)
+## ⚠ Channel status — read this first (audited 2026-08-11; live re-check of every channel 2026-09-25)
 
 **A manifest living in this directory installs nobody.** It has to be published to the
 registry.
 
-Every channel below was re-checked against its own API on **2026-08-13, after v2.18.2**.
-Do not trust a row without doing that — this pass found the Snap row overclaiming, and
-three rows describing a world two releases old. What held up: PyPI serves **2.18.2**, and
-the APT repo serves **2.18.2**, signed, `InRelease` 200.
+Every channel below was re-checked against its own API on **2026-09-25, after v2.40.0**,
+with `scripts/check-release-channels.py --version 2.40.0`. Do not trust a row without doing
+that — this pass found the **Chocolatey row claiming the package had never published while
+two versions were already approved and serving**, the Docker row denying a `latest` tag that
+exists, and four rows quoting versions several releases old. What held up: PyPI, the APT repo,
+Snap, the Homebrew tap, the Scoop bucket and GHCR all serve **2.40.0**.
+
+⚠ **A version in this directory is not a version in the registry.** Six channels publish on
+their own clock, and three of them (winget, Chocolatey, AUR) are gated on a human — so the
+in-repo manifests being at 2.40.0 says nothing about what a user gets today.
 
 | Channel | Published? | In-repo artefact | State |
 |---|---|---|---|
 | PyPI | ✅ live | — | `pipx install yazses` |
-| Snap Store | ✅ live on amd64 + arm64 | `../snap/` | stable **2.29.0** on both architectures (checked 2026-08-26); dictation is X11-only under strict confinement — see below |
+| Snap Store | ✅ live on amd64 + arm64 | `../snap/` | stable **2.40.0** on both architectures (rev 431 amd64 / 430 arm64, checked 2026-09-25); dictation works on X11 **and on GNOME/KDE Wayland** via the RemoteDesktop portal since v2.37.0 — see below |
 | APT repo | ✅ live | `../scripts/update-apt-repo.sh` | signed |
 | GitHub Releases | ✅ live | — | `.dmg`, `.exe`, `.deb` |
-| **Homebrew** | ✅ live | `homebrew/yazses.rb` | tap at [MSKazemi/homebrew-yazses](https://github.com/MSKazemi/homebrew-yazses), synced to **2.18.2 (real sha)**, **arm64 only** — see the macOS section ([#6](https://github.com/MSKazemi/yazses/issues/6)) |
-| **winget** | ✅ **LIVE at 2.35.0** | `winget/…/2.36.0/` | [#416963](https://github.com/microsoft/winget-pkgs/pull/416963) was moderator-approved and **merged 2026-09-10**, so `winget install MSKazemi.YazSes` works. ⚠ `WINGET_TOKEN` is **not set**, so `publish-channels.yml` skips winget on every tag and the store stays pinned at whatever was last pushed by hand — 2.36.0 is [#433910](https://github.com/microsoft/winget-pkgs/pull/433910), opened manually. Set the secret and this stops needing a human ([#78](https://github.com/MSKazemi/yazses/issues/78)) |
-| **AUR** | ❌ **404 — but the recipe is READY** | `arch/PKGBUILD` | ⭐ This row was itself stale until 2026-08-14: the PKGBUILD is **not** at `0.4.0`/`SKIP`, it is at **`pkgver=2.18.2` with a real `sha256sums`** matching `.SRCINFO`, and `arch/README.md` records a 2026-08-13 clean-container verification (`namcap` clean, full `makepkg --nodeps` build, checksum match). **Nothing remains but `git push` to `ssh://aur@aur.archlinux.org/yazses.git`**, which needs the maintainer's AUR SSH key. Highest value-per-minute item in `packaging/` ([#67](https://github.com/MSKazemi/yazses/issues/67)) |
+| **Homebrew** | ✅ live | `homebrew/yazses.rb` | tap at [MSKazemi/homebrew-yazses](https://github.com/MSKazemi/homebrew-yazses), cask serves **2.40.0** (checked 2026-09-25), still **arm64 only** (`depends_on arch: :arm64`; Intel Macs take the `.dmg` or PyPI) — see the macOS section ([#6](https://github.com/MSKazemi/yazses/issues/6)) |
+| **winget** | ✅ live, but **serving 2.36.0 — 7 releases behind** | `winget/…/2.40.0/` | `winget install MSKazemi.YazSes` resolves — [#416963](https://github.com/microsoft/winget-pkgs/pull/416963) was merged 2026-09-10. ⚠ upstream `manifests/m/MSKazemi/YazSes` holds **only 2.35.0 and 2.36.0** (GitHub contents API, 2026-09-25), so a user installing today gets **2.36.0** (tagged 2026-08-30) while the current release is 2.40.0. `WINGET_TOKEN` is **not set**, so `publish-channels.yml` skips winget on every tag and each bump needs a hand-opened PR. Set the secret and this stops needing a human ([#78](https://github.com/MSKazemi/yazses/issues/78)) |
+| **AUR** | ❌ **not published — blocked upstream, not on the recipe** | `arch/PKGBUILD` | `aur.archlinux.org/rpc/v5/info?arg[]=yazses` returns `resultcount: 0` (checked 2026-09-25). The recipe is ready and current (`pkgver=2.40.0`, real `sha256sums` matching `.SRCINFO`; `arch/README.md` records a clean-container verification — `namcap` clean, full `makepkg --nodeps` build, checksum match). ⛔ The old **"nothing remains but `git push`"** framing is misleading and cost time twice: per the maintainer's notes, **AUR account registration itself was paused upstream on 2026-09-19** (anti-automation measures, no ETA) and no account exists yet. This is not a five-minute task — check `aur-general` before retrying ([#67](https://github.com/MSKazemi/yazses/issues/67)) |
+| **Fedora / COPR** | ✅ live, but **hand-rebuilt** | `fedora/yazses.spec` | [copr.fedorainfracloud.org/coprs/mskazemi/yazses](https://copr.fedorainfracloud.org/coprs/mskazemi/yazses) serves **2.36.0** (recorded in `../docs/install-linux.md` when the repo was created, 2026-09-13). ⚠ **No workflow touches this channel** — `grep -i copr .github/workflows/` finds nothing — so a tag does not rebuild it and the spec being current does not move what `dnf` installs; that needs `copr-cli build yazses <srpm>` by hand. The spec's `Version:` is no longer the thing that lags: `../scripts/refresh-package-manifests.py` rewrites it at release time and `tests/test_packaging_manifest_versions.py` compares it with every other manifest. It had been pinned at 2.18.2 for seventeen releases, was fixed by hand at 2.36.0 ([#370](https://github.com/MSKazemi/yazses/pull/370)), and had drifted four releases again before either of those existed. ⚠ COPR needs `--enable-net on` for this package |
 | **Flathub** | ❌ not published | `../packaging/flatpak/` | manifest **builds green**; the submission ([flathub#9765](https://github.com/flathub/flathub/pull/9765)) was auto-closed for an incomplete checklist and a maintainer declined to reopen. The one unchecked item is **a video of the app running from the Flatpak** — that is the whole remaining blocker ([#45](https://github.com/MSKazemi/yazses/issues/45)) |
 | **Nix** | ❌ 0 hits | `../flake.nix` | authored; **every nixpkgs attribute verified to exist**, but ⚠ **never evaluated** (no Nix here) ([#68](https://github.com/MSKazemi/yazses/issues/68)) |
-| **Docker/GHCR** | ⚠ **one tag only, no `latest`** | `docker/Dockerfile` | `ghcr.io/mskazemi/yazses:2.18.2` is public and pullable, but **`:latest` 404s**, so a bare `docker pull ghcr.io/mskazemi/yazses` fails. ⛔ The claim "now published on every tag" was **false** — corrected 2026-08-14. `docker.yml` carried a `paths:` filter alongside `tags: ["v*"]`; a push filter set applies to tag pushes too, a tag push changes no files, so **every tag build was silently suppressed** — 7 runs ever, all on `main`, zero on a tag, across five releases (v2.16.0→v2.18.2). Trigger fixed; `latest` and `2.18` will appear on the next release. ⚠ the earlier "404" scare was a separate **measurement error**: GHCR rejects unauthenticated reads, so a bare `curl` returns 401/404 for images that exist — verify with a pull token, see below ([#76](https://github.com/MSKazemi/yazses/issues/76)) |
-| **Scoop** | ✅ live | `../bucket/yazses.json` | bucket served from this repo — `scoop bucket add yazses https://github.com/MSKazemi/yazses`; manifest at **2.36.0** — current with the latest release, verified on `main` 2026-09-13, raw URL 200 ([#79](https://github.com/MSKazemi/yazses/issues/79)) |
-| **Chocolatey** | ❌ **never published, 19 releases running** | `chocolatey/` | nuspec is at **2.36.0** with the checksum verified against the real asset; the only blocker is `CHOCO_API_KEY`, which has **never been set** — the publish job prints `HAVE_SECRET: no` and exits 0, so it is invisible on a green dashboard. nuspec + checksum verified; `.ps1` scripts **parse cleanly** (checked in `mcr.microsoft.com/powershell`), and the publish job re-parses them on a Windows runner before every push |
+| **Docker/GHCR** | ✅ **live, `latest` included** | `docker/Dockerfile` | `ghcr.io/mskazemi/yazses` serves **2.40.0**, `2.40` and **`latest`** among 73 tags (verified 2026-09-25 with an anonymous pull token), so a bare `docker pull ghcr.io/mskazemi/yazses` now works. ⛔ This row read **"one tag only, no `latest`"** until 2026-09-25 — that was true when `docker.yml` carried a `paths:` filter alongside `tags: ["v*"]` (a push filter set applies to tag pushes too, and a tag push changes no files, so every tag build was silently suppressed). The trigger was fixed and `latest` has published since. ⚠ GHCR rejects unauthenticated reads, so a bare `curl` returning 401/404 is **not** evidence of absence — get a pull token first, see below ([#76](https://github.com/MSKazemi/yazses/issues/76)) |
+| **Scoop** | ✅ live **and current** | `../bucket/yazses.json` | bucket served from this repo — `scoop bucket add yazses https://github.com/MSKazemi/yazses`; manifest at **2.40.0**, verified 2026-09-25, raw URL 200. Because the bucket *is* this repo, Scoop is the one Windows channel with no third-party gate — it is current the moment a release lands ([#79](https://github.com/MSKazemi/yazses/issues/79)) |
+| **Chocolatey** | ✅ **live, serving 2.39.0** | `chocolatey/` | ⛔ This row read **"never published, 19 releases running, `CHOCO_API_KEY` never set"** until 2026-09-25 — **false**. The community feed lists **2.37.1** (approved 2026-09-21) and **2.39.0** (approved 2026-09-24), so `choco install yazses` works. ⚠ **2.39.1 and 2.40.0 sit at `PackageStatus: Submitted`, not approved** — Chocolatey moderates every version, so the feed trails the newest tag by however long review takes. Query it with `Packages()?$filter=Id eq 'yazses'`, which returns **only approved** versions; the per-version endpoint answers 200 for a submitted one, so a bare status code reads as published when it is not. `.ps1` scripts **parse cleanly** (checked in `mcr.microsoft.com/powershell`), and the publish job re-parses them on a Windows runner before every push |
 
 > **Verification gotcha:** `curl -o /dev/null -w '%{http_code}'` **lies** about Flathub,
 > `search.nixos.org` and AlternativeTo — they are single-page apps that return **HTTP 200
@@ -56,23 +63,36 @@ Rust binary** distribution. The releases they point at (`v1.0.0`, `v1.0.0-dev.1`
 checksums are still `PLACEHOLDER_…`. They are marked at the top of each file. **The
 canonical cask is `homebrew/yazses.rb`.**
 
-### Snap: both architectures are live, but dictation is X11-only
+### Snap: both architectures are live, and dictation is no longer X11-only
 
-Measured 2026-08-26 from `api.snapcraft.io`:
+Measured 2026-09-25 from `api.snapcraft.io`:
 
 | Track/risk | Arch | Revision | Version |
 |---|---|---|---|
-| `latest/stable` | amd64 | 348 | 2.29.0 |
-| `latest/stable` | arm64 | 347 | 2.29.0 |
-| `latest/edge` | amd64 | 385 | 2.30.0 |
-| `latest/edge` | arm64 | 387 | 2.30.0 |
+| `latest/stable` | amd64 | 431 | 2.40.0 |
+| `latest/stable` | arm64 | 430 | 2.40.0 |
+| `latest/edge` | amd64 | 431 | 2.40.0 |
+| `latest/edge` | arm64 | 430 | 2.40.0 |
 
 Architecture availability does not mean full desktop compatibility. The package uses
 strict confinement: with `audio-record` and `raw-input` connected manually, hold-to-talk
-dictation works on **X11**. Wayland keystroke injection requires host access that the snap
-does not have, and `yazses setup` cannot acquire it from inside confinement. Public install
-instructions must direct Wayland users to the universal installer, APT, or `pipx`, and must
-never present `yazses setup` as a host-provisioning step for Snap users.
+dictation works on **X11** — and, since **v2.37.0**, on **GNOME/KDE Wayland** as well.
+
+⚠ The paragraph that stood here said Wayland injection "requires host access that the snap
+does not have" and told Wayland users to install something else. That was true of the two
+mechanisms it had in mind — `ydotool` needs a udev rule a strict snap cannot install, and
+`wtype` needs a protocol neither GNOME nor KDE implements — and it was wrong about the
+conclusion. `src/yazses/inject/portal.py` types through
+`org.freedesktop.portal.RemoteDesktop`, which rides on the `desktop` plug the snap already
+has, and `src/yazses/inject/registry.py` marks the portal
+`consent_implied_by_confinement=("strict",)` precisely because it is a strict snap's only
+route. The user approves one desktop permission prompt at first dictation; a restore token
+makes later runs silent. Store metrics are why this mattered: of 59 installs on 2026-09-10,
+at least 39 were on a Wayland-by-default desktop, i.e. the install instructions were
+sending most of the user base away.
+
+`yazses setup` still cannot provision the host from inside confinement, and must never be
+presented as a step for Snap users.
 
 Query the live channel map without a browser:
 
@@ -147,10 +167,19 @@ install on macOS and the authoring machine is Linux, so the end-to-end run is ow
 whoever first has a Mac in hand. What is proven is that every input Homebrew reads is
 present, well-formed and correctly hashed.
 
-### macOS: the .dmg is Apple Silicon only
+### macOS: the .dmg was Apple Silicon only (fixed in v2.22.0)
 
-Audited 2026-08-13, and this is the single most important fact about the macOS
-channel because the docs previously promised the opposite.
+Audited 2026-08-13, and this was the single most important fact about the macOS
+channel because the docs promised the opposite.
+
+⚠ **Superseded for the release assets, not for the cask.** Since **v2.22.0**
+(2026-08-16) every release has carried `YazSes-<version>-macos-x86_64.dmg` alongside the
+arm64 one, built on a `macos-15-intel` runner (ADR-017); `packaging/released-assets.json`
+records what the last release actually attached. What remains true is the **cask**:
+`refresh-package-manifests.py` hashes the arm64 `.dmg` only, so `homebrew/yazses.rb`
+still keeps `depends_on arch: :arm64`. Everything below is the record of how the
+arm64-only gap was found, and the `inspect-dmg.py` recipe still applies to either
+artefact.
 
 `build-macos.yml` runs on `macos-latest`. That label is an **arm64** image — the
 v2.18.0 build resolved its Python to `aarch64-apple-darwin`, confirmed from the job
@@ -296,9 +325,24 @@ uv run python scripts/refresh-package-manifests.py --version 2.17.0 --check   # 
 uv run python scripts/refresh-package-manifests.py --version 2.18.0           # write
 ```
 
+`fedora/yazses.spec` is rewritten by the same run even though it carries no checksum:
+its `Version:` is what `%{pypi_source yazses}` expands into a download, so a spec left
+behind does not fail — it builds the *previous* release and COPR publishes it as the
+current package. The `%changelog` entry comes with it, dated from the release so the
+weekday matches (`rpmbuild` warns `bogus date in %changelog`, and a warning is not a
+failure, which is why both hand-written entries were wrong).
+The same run writes `released-assets.json`: the plain list of files that release
+attached to its tag. Nothing installs from it — it exists so an **offline** test can
+answer "does this binary exist?" without asking GitHub.
+`docs/platform-support.md` marks a desktop bundle ✅ or ⏳ on that basis, and
+`tests/test_platform_support_claims.py` fails in both directions. It is generated:
+do not hand-edit it, and do not leave it behind at release time, or the page starts
+describing the release before last.
+
 ```
 packaging/
 ├── homebrew/        Homebrew Cask formula (macOS)
+├── released-assets.json   what the last release published (generated)
 ├── macos/           PyInstaller spec + entitlements (macOS .dmg build)
 ├── windows/         PyInstaller spec + Inno Setup script (Windows .exe build)
 └── winget/          winget-pkgs manifests (Windows)

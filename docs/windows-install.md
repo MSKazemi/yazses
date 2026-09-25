@@ -1,11 +1,13 @@
 ---
 title: Install offline voice dictation on Windows — YazSes setup guide
-description: "Install YazSes on Windows for offline speech-to-text: pipx install, microphone permissions, hold-to-talk hotkey, and first-run calibration. A local alternative to Windows Speech Recognition."
+description: "Install YazSes on Windows for offline speech-to-text: winget install, microphone permissions, hold-to-talk hotkey, and first-run calibration. A local alternative to Windows Speech Recognition."
 ---
 
 # YazSes on Windows — install & first-run guide
 
-> **Version:** Applies to the current YazSes release (v2.x). Install the latest with `winget install MSKazemi.YazSes`.
+> **Version:** Applies to the current YazSes release (v2.x). `winget install MSKazemi.YazSes`
+> is the shortest install, but the winget catalogue trails the newest tag — see
+> [which version winget gives you](#the-one-line-way--winget-recommended) before you pick a route.
 
 > **Developer preview.** Windows builds are **unsigned**. Windows SmartScreen
 > warns on first launch; the steps below show how to bypass it safely. Code
@@ -34,11 +36,13 @@ rights. `winget upgrade MSKazemi.YazSes` moves you to a new release later.
 
 !!! note "Which version winget gives you"
 
-    The winget catalogue is updated per release rather than continuously, so it can
-    trail the newest tag by a few days while Microsoft's moderators merge the
-    version bump. `winget install` always gives you a working, checksum-verified
-    build; if you need the very newest one the same day it ships, use the installer
-    below or Scoop.
+    Every version bump is submitted to Microsoft's catalogue by hand and has to clear a
+    community moderator, so winget can trail the newest tag by **weeks and several
+    releases** — not hours. Run `winget show MSKazemi.YazSes` and compare what it offers
+    with the [latest release](https://github.com/MSKazemi/yazses/releases/latest) before
+    you commit to this route. Whatever winget gives you is a working, checksum-verified
+    build, but if you want the newest one the day it ships, use the installer below or
+    Scoop — both track every release.
 
 ### Manual installer
 

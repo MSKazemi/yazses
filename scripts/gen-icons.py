@@ -35,8 +35,11 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "src"))
+sys.path.insert(0, str(REPO / "scripts"))
 
-from yazses.brandmark import render_mark  # noqa: E402  (needs the sys.path above)
+from imagediff import explain  # noqa: E402  (needs the sys.path above)
+
+from yazses.brandmark import render_mark  # noqa: E402
 
 ICO_PATH = REPO / "assets" / "yazses.ico"
 ICNS_PATH = REPO / "assets" / "yazses.icns"
@@ -175,7 +178,7 @@ def wanted_assets() -> dict[Path, bytes]:
 
 
 def _frames(blob: bytes) -> dict:
-    """Every frame in *blob*, decoded to raw RGBA, keyed by size.
+    """Every frame in *blob*, decoded, keyed by size.
 
     Compared as pixels and never as bytes, for the reason `tests/test_icon_assets.py`
     already had to learn: **PNG output is not reproducible across platforms.** The
@@ -184,8 +187,12 @@ def _frames(blob: bytes) -> dict:
     which is not the question. It passed locally and turned the Windows and macOS CI
     legs red on assets that were perfectly correct.
 
-    `--check` is a maintainer command today, so bytes would have worked by accident.
-    Decoding removes the landmine for whoever wires it into CI later.
+    Decoded pixels are not reproducible either — `render_mark` supersamples in floating
+    point and arm64 does not always round the way x86_64 does — so the comparison in
+    `_drifted` is a measured tolerance, not `==`. See `scripts/imagediff.py`.
+
+    `--check` is a maintainer command today, so either mistake would have worked by
+    accident here. Both are removed for whoever wires it into CI later.
     """
     import io
 
@@ -194,16 +201,19 @@ def _frames(blob: bytes) -> dict:
     out = {}
     with Image.open(io.BytesIO(blob)) as im:
         for frame in ImageSequence.Iterator(im):
-            out[frame.size] = frame.convert("RGBA").tobytes()
+            out[frame.size] = frame.convert("RGBA")
     return out
 
 
 def _drifted(path: Path, expected: bytes) -> bool:
-    """True when the committed file is missing, unreadable, or pixel-different."""
+    """True when the committed file is missing, unreadable, or no longer the mark."""
     if not path.exists():
         return True
     try:
-        return _frames(path.read_bytes()) != _frames(expected)
+        committed, wanted = _frames(path.read_bytes()), _frames(expected)
+        if set(committed) != set(wanted) or not wanted:
+            return True
+        return any(explain(committed[size], wanted[size]) is not None for size in wanted)
     except Exception:
         return True  # unreadable or not an image any more — regenerate it
 

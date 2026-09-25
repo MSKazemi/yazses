@@ -1,0 +1,79 @@
+\section{Introduction}
+
+Modern automatic speech recognition has made fully local voice input practical on hardware that
+users already own. This changes the design space for desktop speech interfaces. A dictation
+system no longer needs to send microphone audio to a remote service in order to achieve useful
+accuracy, and local processing can provide a strong privacy boundary: microphone audio can be
+captured, decoded, and discarded entirely on the user's machine.
+
+\YazSes{} was developed around this premise. The first version of our evaluation
+\citep{yazses2026v1} demonstrated an offline hold-to-talk voice-input architecture on a commodity
+Linux laptop and measured three Whisper checkpoints on a deterministic subset of LibriSpeech
+\texttt{test-clean} \citep{panayotov2015librispeech}. That study established the feasibility of
+local CPU dictation, but it also left several important questions unresolved. The evaluation used
+one primary machine and operating system, focused on clean read English, treated streaming as
+exploratory, and did not evaluate real meeting diarization or controlled human productivity.
+
+The larger question is whether conclusions obtained from a single clean-speech benchmark remain
+valid when an interactive system is exposed to harder audio, different recognizers, repeated
+inference, different processor architectures, and longer task-specific workloads.
+
+Our expanded measurements show that several apparently straightforward conclusions do not survive
+this broader evaluation.
+
+First, clean-speech accuracy does not fully describe robustness. In a common CPU harness,
+Parakeet TDT 0.6B v2 produced a 2.06\% \wer{} point estimate on the measured clean subset and
+2.88\% on the harder subset, a relatively small degradation. By comparison, Whisper
+\texttt{base.en} moved from 4.01\% to 9.46\%, and Moonshine/base from 3.17\% to 8.04\%.
+These data do not establish a universal model ranking, but they demonstrate that model trade-offs
+inferred from clean speech alone can change substantially under harder conditions.
+
+Second, a single aggregate \wer{} can hide an interaction failure that matters disproportionately
+in dictation. Repeated \texttt{large-v3} decodes of the same hard-speech subset produced
+materially different \wer{} values. Yet substitutions, deletions, and correct-word hits were
+unchanged across the repeated runs used in the error decomposition. A dedicated four-repeat probe localized the movement to insertion count, which ranged from
+101 to 144 while substitutions, deletions, and hits remained fixed. The engine-matrix run that
+triggered the investigation reached 184 insertions and 7.69\% \wer{}, and disagreed with its own
+repeat on the same instance by 2.83 \wer{} points. For an offline benchmark, this appears as
+movement in aggregate \wer{}. For interactive dictation, it is a different class of failure: a
+fluent
+continuation that the user did not speak can be substantially more disruptive than a visibly
+missing word.
+
+Third, decoder configuration does not transfer monotonically across model sizes. Disabling
+previous-text conditioning slightly worsened the measured results for \texttt{base.en}, had a
+smaller negative effect for \texttt{small.en}, produced byte-identical output for
+\texttt{medium.en}, and removed the observed runaway repetition mode for \texttt{large-v3}. The
+average \texttt{large-v3} \wer{} difference is not, by itself, a statistically established
+corpus-wide improvement: most of the aggregate gain is concentrated in a small number of
+utterances. The engineering value of the configuration change is therefore better understood as
+tail-risk control than as an average-accuracy optimization.
+
+Fourth, system-level intuitions also fail when measured directly. Prepending synthetic silence
+after activation cannot reconstruct speech that was never captured. Streaming partial decoding
+can reveal text before release when the selected model is fast enough, but can also compete with
+final decoding for CPU time and increase end-to-final latency. A simple centroid-similarity
+heuristic for merging diarization clusters cannot safely repair enough split speakers without
+also merging different people.
+
+Finally, the meeting workload shows why task-specific evaluation is necessary. The original
+clustering operating point produced severe over-segmentation on the complete 16-recording AMI
+test split, with 75.21\% mean \der{} and a mean signed speaker-count error of +155.19.
+A meeting-specific threshold reduced mean \der{} to 26.71\%. Capping clustering at four
+speakers made the estimated count exact on 15 of 16 recordings---the reference split contains
+fifteen four-speaker recordings and one three-speaker recording---but did not establish an
+improvement in \der{} at the recalibrated threshold.
+
+Together, these findings motivate a broader evaluation principle: \emph{offline interactive
+speech systems should be evaluated as systems, not only as recognizers}. Accuracy remains
+important, but deployment decisions can also depend on repeatability, catastrophic tail
+behavior, latency under competing workloads, platform-specific numerical variation,
+diarization calibration, and the ability of the benchmark infrastructure itself to preserve
+contradictory results.
+
+This paper therefore extends the \YazSes{} evaluation along five dimensions: alternative local
+speech-recognition engines, harder speech, repeated decoding and decoder intervention,
+cross-platform execution, and real meeting diarization. It also treats negative results as
+first-class evidence. Several experiments were initiated to justify existing defaults and
+instead showed that the underlying rationale was incomplete or wrong. Those findings changed the
+system and are reported rather than discarded.

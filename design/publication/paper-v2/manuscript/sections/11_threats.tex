@@ -1,0 +1,35 @@
+\section{Threats to Validity}
+
+\paragraph{Construct validity.}
+WER does not directly measure correction burden, command errors, editing disruption, or the
+subjective cost of catastrophic inserted text. LibriSpeech is read audiobook speech rather than
+spontaneous desktop dictation. Hosted-runner latency should not be treated as a portable measure
+of interactive responsiveness. Synthetic TTS meeting fixtures are useful regression tests but
+are not evidence of real-meeting diarization quality.
+
+\paragraph{Internal validity.}
+Several mechanism probes were designed after anomalies were observed, so they are explanatory
+follow-ups rather than preregistered primary endpoints. Dependency versions differ across parts
+of the campaign. Host load may interact with decode timing and fallback behavior, although the
+available repeated runs do not establish host load as the cause of the \texttt{large-v3}
+instability. Some experiments, particularly streaming, use small sample sizes.
+
+\paragraph{External validity.}
+The principal ASR evaluation is English-centric. The campaign does not yet provide a
+representative spontaneous-speech study across accents, microphones, rooms, and noise levels.
+The AMI headset mix is cleaner than a typical far-field laptop/table microphone. The study is
+CPU-focused and does not characterize GPU execution or battery/energy cost.
+
+\paragraph{Statistical validity.}
+The campaign contains exploratory comparisons in addition to planned benchmark cells. We
+therefore avoid inferring superiority from overlapping point estimates, use paired analyses when
+conditions share utterances, and keep multiplicity corrections explicit in the onset analysis.
+The diarization paired comparison contains only 16 meetings, limiting power to resolve modest
+DER effects. The \texttt{large-v3} aggregate conditioning effect is concentrated in a few
+utterances, so the paper reports both the mean result and that concentration.
+
+\paragraph{Human factors.}
+No controlled typing-versus-\YazSes{} study has yet measured final corrected entry rate,
+correction time, or workload. The present work therefore makes no productivity claim relative to
+typing. Likewise, technical dysfluency-filter results are not treated as evidence of benefit for
+people who stutter or have dysarthria without a participant study.

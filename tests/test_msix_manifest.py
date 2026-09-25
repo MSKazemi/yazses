@@ -45,6 +45,11 @@ NS = {
     "rescap": "http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities",
 }
 
+# Store tile names carry the dimensions the tile must have: Square150x150Logo, and the
+# one non-square tile, Wide310x150Logo. Derived from the name rather than listed here,
+# so a tile added later is covered without anyone remembering to add it.
+SIZED_LOGO = re.compile(r"(?:Square|Wide)(\d+)x(\d+)Logo\.png$")
+
 
 @pytest.fixture(scope="module")
 def manifest() -> ET.Element:
@@ -82,17 +87,56 @@ def test_run_full_trust_capability_is_declared(manifest: ET.Element) -> None:
 def test_microphone_is_declared_and_webcam_is_not(manifest: ET.Element) -> None:
     """Microphone is required. Webcam is deliberately absent.
 
-    Glance-Type gaze is implemented and works on a normal install when its optional
-    dependencies are enabled. Face-Gesture is planned/experimental and does not yet have
-    a runtime detector or activation adapter. This frozen package carries no optional gaze
-    dependencies, so neither feature provides a reachable camera path here.
+    Both camera features are implemented and reachable on a normal install: Glance-Type
+    gaze and the Face-Gesture Switch (`yazses features enable gaze` / `... facegesture`).
+    What makes the webcam capability wrong is the packaging, not the product — this frozen
+    bundle syncs only the `desktop` extra, so mediapipe and opencv-python are not inside
+    it and an MSIX cannot add them afterwards. Neither camera path can run here.
     """
     devices = [c.get("Name") for c in manifest.findall("d:Capabilities/d:DeviceCapability", NS)]
     assert "microphone" in devices, f"microphone capability missing; got {devices}"
     assert "webcam" not in devices, (
-        "webcam is declared, but this frozen bundle carries no optional gaze dependencies "
-        "and Face-Gesture has no reachable runtime implementation, so no camera path is "
-        "available here; an unused capability is a certification question with no upside"
+        "webcam is declared, but this frozen bundle carries neither mediapipe nor "
+        "opencv-python and an MSIX cannot install them, so no camera path can run "
+        "here; an unused capability is a certification question with no upside"
+    )
+
+
+def test_the_webcam_rationale_is_packaging_not_a_missing_feature() -> None:
+    """`webcam` is omitted because of the bundle, not because the code is missing.
+
+    Both camera features have a runtime implementation and a user-visible way in:
+    Glance-Type gaze (`src/yazses/gaze/`) and the Face-Gesture Switch
+    (`src/yazses/facegesture/`, wired as an activation source in `core/daemon.py`).
+    A doc that says either one "does not exist yet" is a false statement about the
+    product, and one was shipped in this manifest before, so the claim is pinned here
+    rather than left to prose.
+
+    The load-bearing line is the frozen build's extras. `build-windows.ps1` syncs only
+    `desktop`, so mediapipe and opencv-python are absent from the bundle and neither
+    camera path can run. If that ever grows a camera extra, a camera path becomes
+    reachable inside the package and the manifest must declare `webcam` or the feature
+    fails silently on a user's machine -- so this fails and asks for that decision.
+    """
+    src = ROOT / "src" / "yazses"
+    for feature, module in (("gaze", "gaze/mediapipe_backend.py"),
+                            ("facegesture", "facegesture/backend.py")):
+        assert (src / module).is_file(), (
+            f"{module} is gone, so the manifest comment calling {feature} implemented is "
+            f"now false; correct the comment and docs/store-submission.md together"
+        )
+
+    build = (ROOT / "scripts" / "build-windows.ps1").read_text(encoding="utf-8")
+    # Only real `uv sync` commands -- the surrounding comments mention `--extra` too.
+    syncs = [ln for ln in build.splitlines()
+             if "uv sync" in ln and not ln.lstrip().startswith("#")]
+    assert syncs, "build-windows.ps1 no longer runs `uv sync`; re-check what the bundle carries"
+    extras = sorted({e for ln in syncs for e in re.findall(r"--extra\s+([\w.-]+)", ln)})
+    assert extras == ["desktop"], (
+        f"build-windows.ps1 now syncs extras {extras}, not just ['desktop']. If a camera "
+        f"extra (mediapipe/opencv-python) is now inside the frozen bundle, the camera "
+        f"features ARE reachable in the MSIX and it must declare the webcam capability, "
+        f"or they will fail silently under the package's restrictions"
     )
 
 
@@ -135,20 +179,60 @@ def test_the_icon_generator_owns_every_logo() -> None:
         )
 
 
-def test_logos_are_square_and_the_size_their_name_claims() -> None:
-    """A Square150x150Logo that is not 150x150 fails certification.
+def test_the_wide_tile_is_declared_whenever_the_large_tile_is(manifest: ET.Element) -> None:
+    """makeappx refuses the pair Square310x310Logo-without-Wide310x150Logo.
 
-    PNG dimensions are read with stdlib struct so this runs where Pillow is absent.
+    Its words: "The DefaultTile element must specify the Wide310x150Logo attribute if
+    the Square310x310Logo attribute is specified." Declaring the large tile obliges the
+    wide one. That is a packaging-time error, so it cost a Windows CI run to find — but
+    it is a relationship between two attributes of this file, and once known it is
+    checkable here in milliseconds on any OS. The msix-validate job stays the authority
+    on what makeappx accepts; this only stops a rule it already taught us from being
+    unlearned off Windows.
     """
-    for path in sorted(ASSETS.glob("Square*.png")):
-        m = re.match(r"Square(\d+)x(\d+)Logo\.png$", path.name)
-        assert m, f"unexpected asset name {path.name}"
+    tile = manifest.find(
+        "d:Applications/d:Application/uap:VisualElements/uap:DefaultTile", NS
+    )
+    assert tile is not None, "no uap:DefaultTile element"
+    assert tile.get("Square310x310Logo"), (
+        "DefaultTile no longer declares Square310x310Logo. Dropping the large tile is a "
+        "legitimate choice, but it also makes the rule below unexercised — remove this "
+        "test with it rather than leaving a guard that cannot fail."
+    )
+    assert tile.get("Wide310x150Logo"), (
+        "DefaultTile declares Square310x310Logo but not Wide310x150Logo. makeappx "
+        "refuses to pack that combination, and only the Windows job would say so."
+    )
+
+
+def test_logos_are_the_size_their_name_claims() -> None:
+    """A Square150x150Logo that is not 150x150 fails certification, and so does a
+    Wide310x150Logo that is square.
+
+    The names checked are the union of what sits in `Assets/` and what the manifest
+    names, so neither a tile the generator has not started drawing nor one the manifest
+    has not started naming can slip through the gap between the two.
+
+    Dimensions are read from the IHDR header with stdlib struct — never by comparing
+    bytes. Pillow is absent on the FreeBSD leg, and PNG bytes are not reproducible
+    across platforms anyway; `scripts/gen-icons.py` learned that when a byte comparison
+    turned the Windows and macOS legs red on assets that were pixel-perfect.
+    """
+    raw = MANIFEST.read_text(encoding="utf-8")
+    names = {p.name for p in ASSETS.glob("*.png")}
+    names |= set(re.findall(r"Assets\\([A-Za-z0-9]+\.png)", raw))
+    sized = [(n, m) for n in sorted(names) if (m := SIZED_LOGO.match(n))]
+    assert sized, f"no logo name in {sorted(names)} encodes the size it must be"
+
+    for name, m in sized:
+        path = ASSETS / name
+        assert path.is_file(), f"{name} is named but missing from Assets/. Run `make icons`."
         head = path.read_bytes()[:24]
-        assert head[:8] == b"\x89PNG\r\n\x1a\n", f"{path.name} is not a PNG"
-        assert head[12:16] == b"IHDR", f"{path.name}: first chunk is not IHDR"
+        assert head[:8] == b"\x89PNG\r\n\x1a\n", f"{name} is not a PNG"
+        assert head[12:16] == b"IHDR", f"{name}: first chunk is not IHDR"
         width, height = struct.unpack(">II", head[16:24])
         assert (width, height) == (int(m.group(1)), int(m.group(2))), (
-            f"{path.name} is {width}x{height}, but its name claims "
+            f"{name} is {width}x{height}, but its name claims "
             f"{m.group(1)}x{m.group(2)}"
         )
 
