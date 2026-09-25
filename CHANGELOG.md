@@ -178,6 +178,30 @@ same `gh release view` call that produces every packaging checksum — so the su
 offline. It fails in **both** directions: a ✅ with no file behind it, and a ⏳ on a file
 that shipped.
 
+### Fixed — every contributor page promised a test suite that runs in seconds
+
+Eleven places told a prospective contributor the suite takes "about 30 seconds" — the
+Hindi page said 15. It does not. A full `uv run python -m pytest tests/ -q` on a 13th-gen
+Core i7 laptop measured **15713 passed, 324 skipped in 293.21s** (4m53s), and that run had
+other work on the machine; on a busier or more modest one the same suite has taken over
+half an hour. So the number was wrong by at least ten times and at worst sixty, in the one
+sentence someone reads while deciding whether to try — and a first run that looks like it
+has hung is exactly what it bought them.
+
+The pages now describe the scale instead of quoting a figure: a full run takes minutes
+rather than seconds, that is normal and not a hang, and while you work you can narrow it
+to the file you changed. No new wall-clock number was substituted deliberately. It would
+be stale by the next release, it varies by an order of magnitude with machine and load,
+and `pytest-xdist` is not a dependency, so there is no `-n auto` to make it uniform.
+
+Corrected in `README.md` (twice), `docs/contributing.md`,
+`docs/try-without-installing.md`, `.github/CONTRIBUTING.md`, the `first-interaction`
+workflow that greets every first-time contributor, and the Hindi, Russian and Chinese
+translations. `tests/test_suite_runtime_claims.py` now globs those surfaces so a new
+translation inherits the check rather than re-importing the claim; it was what found the
+Hindi page's separate "15 seconds". The `~30 seconds` beside `yazses enroll` is untouched
+and remains accurate — `voiceprint.enroll_seconds` is 25.0.
+
 ### Fixed — Wayland's default injector silently dropped non-ASCII text
 
 On Wayland, `[injection] backend = "auto"` picks `ydotool`, and `YdotoolInjector` handed
