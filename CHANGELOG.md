@@ -43,7 +43,6 @@ later minor release can add one, and a different major version is refused outrig
 than half-read. Example results for gaze, Head-Pointer and face-switch ship in
 `tests/fixtures/eye_eval/`.
 
-||||||| a19a8f79
 ### Added — the eye/camera validation matrix is now machine-readable
 
 `design/eye-control/VALIDATION_MATRIX.md` is the authority on what hardware test runs
@@ -69,7 +68,6 @@ and treats an empty registry as an error, because a check that returns nothing o
 it could not parse reads exactly like a check that passed.
 
 This is developer-facing only; nothing about running YazSes changes.
-||||||| a19a8f79
 ### Added — one pointer-output boundary, before any backend exists
 
 Head-Pointer maps head pose to a cursor delta, the voice mouse grid resolves a click
@@ -96,7 +94,6 @@ real backend will inherit rather than re-describe. It is run here against a full
 fake and two deliberately partial ones, because half its assertions are about what a
 backend that *cannot* do something must do, and a suite exercised only against a complete
 backend would pass those branches by never reaching them.
-||||||| a19a8f79
 ### Added — a gaze calibration now knows which screens it was made on
 
 Glance-Type's calibration is an affine map from where your eyes point to a desktop
@@ -127,7 +124,6 @@ logical pixels in the virtual-desktop system, origin at the primary display's to
 and physical/logical conversion happens in exactly one place, so a HiDPI mix-up has one
 site to check instead of being smeared across the routing code. Implements ADR-v2-149;
 no new configuration, nothing to turn on, and no biometric or frame data is persisted.
-||||||| a19a8f79
 ### Added — one stop for every camera-driven input, and a watchdog for a signal that dies
 
 Continuous head, face and gaze control has a failure mode ordinary dictation does not: the
@@ -155,7 +151,6 @@ work, and `doctor`/status will report the state the module already exposes. `sta
 defaults to 500 ms, which is a deliberately generous placeholder and **not a measured value** —
 no frame-interval or tracking-loss distribution exists for this programme yet, and a guard is
 judged on how rarely it fires.
-||||||| a19a8f79
 ### Added — one camera permission contract, and a packaging matrix that is checked
 
 Three camera features exist — Glance-Type gaze routing, the Face-Gesture Switch and the
@@ -195,7 +190,6 @@ refuses without ever prompting.
 
 Nothing about this changes an existing install: every camera feature still ships off, no
 manifest changed, and ordinary dictation is never in the camera path.
-||||||| a19a8f79
 ### Added — the vocabulary for grounding a coarse target onto an exact UI element
 
 `src/yazses/grounding/contracts.py` is the first phase of ADR-v2-151. Webcam gaze can
@@ -214,7 +208,6 @@ cannot read an answer off a resolution that refused to choose one. The layer imp
 stdlib modules and nothing else: no accessibility library, no screen capture, no camera
 frame, no network, not even a clock. Tests enforce that by scanning the module's imports
 and every field annotation.
-||||||| a19a8f79
 ### Added — one shared vocabulary for what the webcam can tell us
 
 Glance-Type gaze, the Head-Pointer and the Face-Gesture Switch all want the same
