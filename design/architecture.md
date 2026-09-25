@@ -253,6 +253,32 @@ a guard that silently stops protecting on a whole display server is worse than n
 | `clipboard.py` | Universal fallback via clipboard + Ctrl+V |
 | `streaming.py` | `StreamingInjector` — tracks partial char count, correction-on-commit via Shift+Left |
 
+### `src/yazses/pointer/` (pointer output boundary, ADR-v2-146)
+
+The sibling of `inject/` for the *pointer* rather than the keyboard, and for the same
+reason: Head-Pointer, the voice mouse grid and future gaze-assisted control all produce
+pointer intent, and none of them may contain a platform command. Pure and
+dependency-free — standard library only, no camera/gaze/head-pose concept, no
+subprocess. Platform backends land beside it one at a time (X11, the existing XDG
+RemoteDesktop portal session, macOS, Windows) and are selected through the platform
+factory. The sink is deliberately dumb: dwell, confirmation and global pause all live
+above it.
+
+| File | Role |
+|---|---|
+| `base.py` | `PointerSink` protocol (`capabilities`, `move_relative`, `move_absolute`, `click`, `scroll`, `close`), `PointerButton`, `PointerCapabilities`, `PointerError`/`PointerUnsupportedError`/`PointerBackendError`, and the `check_finite`/`require_*` guards every backend validates with |
+
+Unsupported is explicit, never a silent no-op: every implementation defines every method
+(including `move_absolute`, which many backends cannot offer) and raises
+`PointerUnsupportedError` for what `capabilities()` already said it cannot do.
+
+No fake ships in `src/`. `tests/pointer_fake.py` holds `FakePointerSink`, which records
+`PointerAction` values instead of moving anything — a click records a press **and** a
+release, and `fail_with()` models a dead backend — and `tests/pointer_contract.py` is the
+shared behaviour suite: each backend subclasses `PointerSinkContract`, supplies four
+hooks (`make_sink`, `recorded`, `induce_failure`, `clear_failure`), and inherits the whole
+contract rather than re-describing it.
+
 ### `src/yazses/stt/`
 
 | File | Role |
