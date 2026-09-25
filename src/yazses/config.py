@@ -1210,6 +1210,25 @@ class HeadpointerConfig:
 
 
 @dataclass
+class HandsfreeSafetyConfig:
+    """Hands-free global stop + stale-signal watchdog (ADR-v2-148). OFF by default.
+
+    One ACTIVE/PAUSED/FAULTED state every camera-driven input consults before it moves a cursor
+    or commits a click, so a runaway pointer can be stopped by a path that does not require
+    pointing, and a camera that goes quiet stops the pointer instead of replaying the last pose.
+
+    `stale_after_ms` is the age at which a source's newest sample stops being allowed to act.
+    **It is not a measured value** — no frame-interval or tracking-loss distribution exists for
+    this programme yet, and `design/eye-control/GOVERNANCE.md` requires measurement before a
+    threshold becomes a recommended default. 500 ms is a deliberately generous placeholder: a
+    guard is judged on how rarely it fires (ADR-021), and a false trip costs a hands-free user
+    their input method until they re-arm.
+    """
+    enabled: bool = False  # off until the hands-free preset and its consumers are wired
+    stale_after_ms: int = 500  # a signal older than this cannot act; unmeasured placeholder
+
+
+@dataclass
 class LipreadConfig:
     """v2.3 Wave G — Silent Lip-Reading Input / VSR (ADR-v2-053). OFF by default."""
     enabled: bool = False
@@ -1944,6 +1963,7 @@ class Config:
     gec: GecConfig = field(default_factory=GecConfig)
     screengrounded: ScreengroundedConfig = field(default_factory=ScreengroundedConfig)
     headpointer: HeadpointerConfig = field(default_factory=HeadpointerConfig)
+    handsfree_safety: HandsfreeSafetyConfig = field(default_factory=HandsfreeSafetyConfig)
     lipread: LipreadConfig = field(default_factory=LipreadConfig)
     sign: SignConfig = field(default_factory=SignConfig)
     convert: ConvertConfig = field(default_factory=ConvertConfig)

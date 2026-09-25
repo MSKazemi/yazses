@@ -127,6 +127,34 @@ logical pixels in the virtual-desktop system, origin at the primary display's to
 and physical/logical conversion happens in exactly one place, so a HiDPI mix-up has one
 site to check instead of being smeared across the routing code. Implements ADR-v2-149;
 no new configuration, nothing to turn on, and no biometric or frame data is persisted.
+||||||| a19a8f79
+### Added — one stop for every camera-driven input, and a watchdog for a signal that dies
+
+Continuous head, face and gaze control has a failure mode ordinary dictation does not: the
+person it is built for may not be able to reach a keyboard, so a pointer that runs away or an
+activation that sticks has no way out. `src/yazses/handsfree/safety.py` adds the single
+ACTIVE/PAUSED/FAULTED state ADR-v2-148 requires — one `pause()` that every camera-driven source
+consults before it moves a cursor or commits a click, callable from whichever thread the stop
+arrives on (tray, hotkey, voice command), and idempotent so a second stop is not a second
+interruption.
+
+The watchdog is the other half. A source whose newest sample has aged past
+`[handsfree_safety] stale_after_ms` is denied and disarmed, so the last known head pose is never
+re-used as if it were a pose; and because it is *disarmed*, a camera that flickers back cannot
+silently resume driving the cursor — recovery takes an explicit re-arm, which is refused for a
+source whose signal has not actually returned. Arming is per source, so a stale face switch stops
+the face switch and leaves the pointer and speech alone. Every decision carries a one-shot
+`clear_pending` flag that tells the consumer to drop a half-accumulated dwell or half-detected
+gesture, so recovery cannot complete an activation that began before the interruption; the
+Head-Pointer's dwell clicker grew the `reset()` that flag asks for.
+
+The module is pure — no camera, no thread, a caller-supplied clock — and is unit-tested on
+fabricated timelines. It ships **off** (`[handsfree_safety] enabled = false`) and nothing in the
+daemon consults it yet: the runtime consumers land with the head-pointer and face-switch runtime
+work, and `doctor`/status will report the state the module already exposes. `stale_after_ms`
+defaults to 500 ms, which is a deliberately generous placeholder and **not a measured value** —
+no frame-interval or tracking-loss distribution exists for this programme yet, and a guard is
+judged on how rarely it fires.
 
 ## [2.40.1] - 2026-09-25
 
