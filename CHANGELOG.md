@@ -6,6 +6,37 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — a gaze calibration now knows which screens it was made on
+
+Glance-Type's calibration is an affine map from where your eyes point to a desktop
+coordinate, and nothing in those six numbers recorded which desktop they were measured
+against. Dock the laptop to a second monitor, change a resolution, switch a panel to
+200% scale or make the other screen primary, and the map keeps returning perfectly
+plausible coordinates — for the desktop that no longer exists. Dictation then lands in
+the wrong window, with no error anywhere to explain it.
+
+The calibration file now carries the display topology it was fitted on — each monitor's
+identifier, position (negative origins included, for a screen placed left of or above
+the primary one), logical size, HiDPI scale and primary flag — plus which camera index
+produced the samples. Before the daemon routes anything it compares that against the
+live layout. Unchanged, the map is used as before. Materially changed, look-to-pane
+goes dormant and says which monitor moved, rather than rescaling the coefficients into
+a guess: `yazses gaze status` prints the reason and the daemon logs it. If the desktop
+is rearranged *while* the daemon is running, routing suspends until you recalibrate,
+because the cached window rectangles belong to the old layout too.
+
+**Existing calibrations keep working.** A file written before this release carries no
+topology, which reads as *unverified* rather than stale — it is still used, and the
+status line says the binding could not be checked. Throwing away a working calibration
+to prove a schema point would be the worst of the available answers. Recalibrating once
+binds it.
+
+One canonical coordinate space is now named and documented (`desktop-logical-px`:
+logical pixels in the virtual-desktop system, origin at the primary display's top-left),
+and physical/logical conversion happens in exactly one place, so a HiDPI mix-up has one
+site to check instead of being smeared across the routing code. Implements ADR-v2-149;
+no new configuration, nothing to turn on, and no biometric or frame data is persisted.
+
 ## [2.40.1] - 2026-09-25
 
 ### Changed — the Store page says plainly that YazSes is not on the Store

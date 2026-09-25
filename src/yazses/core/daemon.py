@@ -1497,29 +1497,60 @@ class Daemon:
         Requires ``[gaze] enabled`` + (``route_dictation`` or ``deixis``), a
         saved calibration, an X11 desktop backend (xdotool), and the gaze deps.
         Any absent → None, so dictation simply stays on the focused window.
+
+        Also requires the calibration to still *apply here* (ADR-v2-149). A map
+        fitted on a different monitor arrangement still returns plausible screen
+        coordinates, so it would misroute silently; a stale one is refused by name
+        instead. A calibration written before contexts existed cannot be checked
+        and keeps working — refusing it would delete a working setup.
         """
         if not (cfg.gaze.enabled and (cfg.gaze.route_dictation or cfg.gaze.deixis)):
             return None
         try:
             from yazses.gaze.desktop import build_desktop
+            from yazses.gaze.display import build_topology_provider, current_context
             from yazses.gaze.factory import build_gaze
-            from yazses.gaze.store import load_calibration
+            from yazses.gaze.store import calibration_state
             from yazses.gaze.targeter import GazeTargeter
+            from yazses.gaze.topology import SessionTopologyGuard, Validity
 
             desktop = build_desktop()
             if desktop is None:
                 log.warning("Gaze routing enabled but no X11 desktop backend; dormant.")
                 return None
-            calibration = load_calibration(self._platform.paths.data_dir)
+            provider = build_topology_provider()
+            context = current_context(
+                camera_id=str(cfg.gaze.camera_index), provider=provider
+            )
+            calibration, check = calibration_state(self._platform.paths.data_dir, context)
             if calibration is None:
                 log.warning("Gaze routing enabled but not calibrated; run `yazses gaze calibrate`.")
                 return None
+            if check.validity is Validity.STALE:
+                log.warning(
+                    "Gaze calibration is stale — %s. Look-to-pane dormant until "
+                    "`yazses gaze calibrate` runs again.",
+                    check.reason,
+                )
+                return None
+            if check.validity is Validity.UNVERIFIED:
+                log.info("Gaze calibration could not be verified — %s.", check.reason)
             backend = build_gaze(cfg.gaze)
             if backend is None:
                 log.warning("Gaze routing enabled but gaze deps unavailable; dormant.")
                 return None
+            guard = None
+            if provider is not None:
+                guard = SessionTopologyGuard(
+                    context,
+                    lambda: current_context(
+                        camera_id=str(cfg.gaze.camera_index), provider=provider
+                    ),
+                )
             log.info("Glance-Type look-to-pane routing active.")
-            return GazeTargeter(backend, calibration, desktop, cfg.gaze.confidence_min)
+            return GazeTargeter(
+                backend, calibration, desktop, cfg.gaze.confidence_min, topology_guard=guard
+            )
         except Exception:
             log.debug("Gaze targeter init failed; skipping", exc_info=True)
             return None
