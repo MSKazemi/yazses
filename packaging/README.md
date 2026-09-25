@@ -17,7 +17,7 @@ the APT repo serves **2.18.2**, signed, `InRelease` 200.
 | Channel | Published? | In-repo artefact | State |
 |---|---|---|---|
 | PyPI | ✅ live | — | `pipx install yazses` |
-| Snap Store | ✅ live on amd64 + arm64 | `../snap/` | stable **2.29.0** on both architectures (checked 2026-08-26); dictation is X11-only under strict confinement — see below |
+| Snap Store | ✅ live on amd64 + arm64 | `../snap/` | stable **2.29.0** on both architectures (checked 2026-08-26); dictation works on X11 **and on GNOME/KDE Wayland** since v2.37.0 — see below |
 | APT repo | ✅ live | `../scripts/update-apt-repo.sh` | signed |
 | GitHub Releases | ✅ live | — | `.dmg`, `.exe`, `.deb` |
 | **Homebrew** | ✅ live | `homebrew/yazses.rb` | tap at [MSKazemi/homebrew-yazses](https://github.com/MSKazemi/homebrew-yazses), synced to **2.18.2 (real sha)**, **arm64 only** — see the macOS section ([#6](https://github.com/MSKazemi/yazses/issues/6)) |
@@ -56,7 +56,7 @@ Rust binary** distribution. The releases they point at (`v1.0.0`, `v1.0.0-dev.1`
 checksums are still `PLACEHOLDER_…`. They are marked at the top of each file. **The
 canonical cask is `homebrew/yazses.rb`.**
 
-### Snap: both architectures are live, but dictation is X11-only
+### Snap: both architectures are live, and dictation is no longer X11-only
 
 Measured 2026-08-26 from `api.snapcraft.io`:
 
@@ -69,10 +69,23 @@ Measured 2026-08-26 from `api.snapcraft.io`:
 
 Architecture availability does not mean full desktop compatibility. The package uses
 strict confinement: with `audio-record` and `raw-input` connected manually, hold-to-talk
-dictation works on **X11**. Wayland keystroke injection requires host access that the snap
-does not have, and `yazses setup` cannot acquire it from inside confinement. Public install
-instructions must direct Wayland users to the universal installer, APT, or `pipx`, and must
-never present `yazses setup` as a host-provisioning step for Snap users.
+dictation works on **X11** — and, since **v2.37.0**, on **GNOME/KDE Wayland** as well.
+
+⚠ The paragraph that stood here said Wayland injection "requires host access that the snap
+does not have" and told Wayland users to install something else. That was true of the two
+mechanisms it had in mind — `ydotool` needs a udev rule a strict snap cannot install, and
+`wtype` needs a protocol neither GNOME nor KDE implements — and it was wrong about the
+conclusion. `src/yazses/inject/portal.py` types through
+`org.freedesktop.portal.RemoteDesktop`, which rides on the `desktop` plug the snap already
+has, and `src/yazses/inject/registry.py` marks the portal
+`consent_implied_by_confinement=("strict",)` precisely because it is a strict snap's only
+route. The user approves one desktop permission prompt at first dictation; a restore token
+makes later runs silent. Store metrics are why this mattered: of 59 installs on 2026-09-10,
+at least 39 were on a Wayland-by-default desktop, i.e. the install instructions were
+sending most of the user base away.
+
+`yazses setup` still cannot provision the host from inside confinement, and must never be
+presented as a step for Snap users.
 
 Query the live channel map without a browser:
 
@@ -147,10 +160,19 @@ install on macOS and the authoring machine is Linux, so the end-to-end run is ow
 whoever first has a Mac in hand. What is proven is that every input Homebrew reads is
 present, well-formed and correctly hashed.
 
-### macOS: the .dmg is Apple Silicon only
+### macOS: the .dmg was Apple Silicon only (fixed in v2.22.0)
 
-Audited 2026-08-13, and this is the single most important fact about the macOS
-channel because the docs previously promised the opposite.
+Audited 2026-08-13, and this was the single most important fact about the macOS
+channel because the docs promised the opposite.
+
+⚠ **Superseded for the release assets, not for the cask.** Since **v2.22.0**
+(2026-08-16) every release has carried `YazSes-<version>-macos-x86_64.dmg` alongside the
+arm64 one, built on a `macos-15-intel` runner (ADR-017); `packaging/released-assets.json`
+records what the last release actually attached. What remains true is the **cask**:
+`refresh-package-manifests.py` hashes the arm64 `.dmg` only, so `homebrew/yazses.rb`
+still keeps `depends_on arch: :arm64`. Everything below is the record of how the
+arm64-only gap was found, and the `inspect-dmg.py` recipe still applies to either
+artefact.
 
 `build-macos.yml` runs on `macos-latest`. That label is an **arm64** image — the
 v2.18.0 build resolved its Python to `aarch64-apple-darwin`, confirmed from the job
@@ -296,9 +318,18 @@ uv run python scripts/refresh-package-manifests.py --version 2.17.0 --check   # 
 uv run python scripts/refresh-package-manifests.py --version 2.18.0           # write
 ```
 
+The same run writes `released-assets.json`: the plain list of files that release
+attached to its tag. Nothing installs from it — it exists so an **offline** test can
+answer "does this binary exist?" without asking GitHub.
+`docs/platform-support.md` marks a desktop bundle ✅ or ⏳ on that basis, and
+`tests/test_platform_support_claims.py` fails in both directions. It is generated:
+do not hand-edit it, and do not leave it behind at release time, or the page starts
+describing the release before last.
+
 ```
 packaging/
 ├── homebrew/        Homebrew Cask formula (macOS)
+├── released-assets.json   what the last release published (generated)
 ├── macos/           PyInstaller spec + entitlements (macOS .dmg build)
 ├── windows/         PyInstaller spec + Inno Setup script (Windows .exe build)
 └── winget/          winget-pkgs manifests (Windows)

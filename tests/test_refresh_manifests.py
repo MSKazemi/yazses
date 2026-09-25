@@ -11,6 +11,7 @@ remembered. These cover the renderers directly (no network, no released assets).
 from __future__ import annotations
 
 import importlib.util
+import json
 import sys
 from pathlib import Path
 
@@ -150,8 +151,46 @@ def test_every_versioned_manifest_has_a_renderer():
     for path in (
         refresh.CASK, refresh.SCOOP, refresh.SCOOP_REVIEWED, refresh.PKGBUILD,
         refresh.SRCINFO, refresh.NUSPEC, refresh.CHOCO_INSTALL, refresh.METAINFO,
+        refresh.RELEASED_ASSETS,
     ):
         assert path.exists(), f"{path} is referenced by the refresher but absent"
+
+
+# ---- the released-asset record -----------------------------------------
+
+
+def test_the_released_asset_record_names_every_file_the_tag_carried():
+    """It is the whole asset list, deliberately, and sorted so a diff is readable.
+
+    `docs/platform-support.md` answers "does this installer exist?" from this file,
+    and `tests/test_platform_support_claims.py` fails the build in both directions
+    on the answer -- so a renderer that quietly dropped or filtered a name would
+    make the page wrong without making anything red.
+    """
+    out = json.loads(
+        refresh.render_released_assets(
+            "9.9.9",
+            "2026-01-02",
+            ["b.exe", "a.dmg", "SHA256SUMS.txt"],
+        )
+    )
+    assert out == {
+        "version": "9.9.9",
+        "published": "2026-01-02",
+        "assets": ["SHA256SUMS.txt", "a.dmg", "b.exe"],
+    }
+
+
+def test_the_committed_record_matches_the_renderer():
+    """The file in the tree must be regenerable, not hand-maintained."""
+    committed = refresh.RELEASED_ASSETS.read_text(encoding="utf-8")
+    data = json.loads(committed)
+    assert committed == refresh.render_released_assets(
+        data["version"], data["published"], data["assets"]
+    ), (
+        "packaging/released-assets.json was edited by hand. Regenerate it with "
+        "scripts/refresh-package-manifests.py --version <the last release>."
+    )
 
 
 # ---- scoop, and the architecture it never listed -----------------------

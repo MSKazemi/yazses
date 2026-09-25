@@ -6,6 +6,33 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the support page denied two installers that had shipped for 23 releases
+
+`docs/platform-support.md` told Intel Mac users and Windows-on-ARM users that their
+native installer was "built by CI but not yet published — lands at the next tagged
+release". Both had landed. `YazSes-<version>-macos-x86_64.dmg` and
+`YazSes-<version>-windows-arm64.exe` have been attached to every release since
+**v2.22.0** (2026-08-16), twenty-three of them up to v2.40.0. Anyone who read the page
+first went to `pipx`, or to the x64 `.exe` running under emulation, for a file that was
+on the release page all along. The same page marked the snap "X11 dictation only", which
+stopped being true in v2.37.0 when the RemoteDesktop portal backend shipped — the row
+now says X11 + Wayland, matching the README, `docs/index.md` and `docs/install-linux.md`.
+`packaging/README.md` and `docs/llms.txt` carried the same two claims and are corrected
+too.
+
+The test guarding the page is why it stayed wrong. It derived "is this bundle
+available?" from the `experimental:` flag on the build leg in `build-macos.yml` and
+`build-windows.yml` — and `continue-on-error` means a failure would not be *noticed*,
+not that the build did not *happen*. So the guard required the page to keep saying
+"unpublished" for as long as the leg stayed advisory, and a maintainer correcting the
+page would have been told by a red suite that the truth was a regression.
+`tests/test_platform_support_claims.py` now compares each mark against
+`packaging/released-assets.json`, a generated record of the files the last release
+actually attached to its tag, written by `scripts/refresh-package-manifests.py` from the
+same `gh release view` call that produces every packaging checksum — so the suite stays
+offline. It fails in **both** directions: a ✅ with no file behind it, and a ⏳ on a file
+that shipped.
+
 ### Fixed — Wayland's default injector silently dropped non-ASCII text
 
 On Wayland, `[injection] backend = "auto"` picks `ydotool`, and `YdotoolInjector` handed
