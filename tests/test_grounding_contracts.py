@@ -485,6 +485,11 @@ ALLOWED_ANNOTATION_NAMES = {
     "CoordinateSpace", "Point", "Rect", "TargetSource", "TargetSnapshot",
     "SemanticSourceKind", "SemanticCandidate", "GroundingEvidence", "GroundingOutcome",
     "GroundingResult",
+    # EYE-GROUND-002 added the abstention cause an UNRESOLVED result carries. It is a
+    # closed enum of reason codes with no free text, so it cannot become a leak — the
+    # property this list exists to protect. `test_grounding_resolver.py` holds its own
+    # invariants, including that every member is reachable from the resolver.
+    "UnresolvedReason",
 }
 
 

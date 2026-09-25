@@ -6,6 +6,53 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — a grounded-target resolver that would rather say "several" than guess
+
+`src/yazses/grounding/resolver.py` is phase P1 of ADR-v2-151, and it is the layer that
+lets webcam gaze stay honestly coarse while still reaching an exact control. Given one
+coarse target, whatever structured candidates a semantic source reported, and optionally
+the role and label the user actually said, it returns **grounded**, **ambiguous** or
+**unresolved** — and the last two are successes, not errors.
+
+It is pure: no accessibility library, no screenshot, no OCR, no model, no clock (the
+caller passes the current time in), no randomness, and no dependence on the order a
+platform's tree walker happened to visit nodes in. Nothing in the daemon imports it yet;
+the gaze/deixis seam is a separate change, and an existing install is unchanged.
+
+Three decisions worth knowing about:
+
+- **A label match cannot import a control from somewhere else.** The spatial envelope is
+  enforced first, and only then does a hint *filter* what survived. "Click Save" can reach
+  the `Save` you were looking at and can never reach the one in the other pane — and if
+  nothing under the pointer matches what you named, the answer is "unresolved" rather than
+  the nearest thing, because grounding a text field for "click Save" is the expensive kind
+  of confident wrong answer (ADR-021).
+- **There is no weighted score to tune, so there is no coefficient anyone guessed.**
+  Ranking is a lexicographic comparison — focused selection, then source reliability, then
+  containment, then geometry — and `CandidateScore` exposes every component, so a test or
+  a debug log can name the one comparison that decided a result.
+- **Abstention rests on an exact signal, not a margin.** The resolver abstains when
+  *nothing in the ranking separates* the winner from a runner-up: two same-sized
+  overlapping controls, or eight identically-labelled list rows. Candidate confidence
+  orders the list and is explicitly not allowed to break such a tie, because grounding one
+  of two identical controls because one source said `0.9` and the other `0.7` is acting on
+  exactly the opaque number the ADR forbids.
+
+Measured on a synthetic 30-element settings window (21 leaf controls), with the shipped
+default policy: a precise point grounds all 21 correctly; a 120 px gaze region — the size
+webcam gaze actually is — grounds 28.6% and abstains on 71.4%; the same region plus a
+spoken role and label grounds 61.9%. **Wrong-target was 0% in every case.** Those numbers
+describe one invented layout and are evidence for nothing else: every threshold is a named
+field on `ResolutionPolicy` with a conservative, *unmeasured* default, and the research
+plan measures the real curve on real desktops.
+
+`UnresolvedReason` joins the vocabulary so an abstention can say whether the *target* or
+the *semantic source* failed — two different problems with two different owners, and the
+evaluation plan counts them separately. `IntentHint` joins it too, as the three checkable
+fields the existing command grammar can hand over. Both are closed enums or plain values
+with no free text, so a log or an aggregate report still cannot carry a window title.
+
+
 ### Added — one versioned envelope for every eye-control evaluation result
 
 Eye/camera evaluation results will arrive from CI, from replayed synthetic traces, from

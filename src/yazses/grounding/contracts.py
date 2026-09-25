@@ -12,10 +12,13 @@ this module is the whole of the first phase (P0) of
 * :class:`GroundingResult` — the resolver's answer, which is deliberately **tri-state**:
   grounded, ambiguous or unresolved.
 
-**There is no resolver here.** Ranking, the spatial envelope, intent hints and the
-ambiguity gate are EYE-GROUND-002 (#442); the gaze/deixis seam is #443; the replay
-harness is #445. This file must stay a vocabulary so all three can be written and
-tested against it without importing each other.
+**There is no resolver here.** Ranking, the spatial envelope and the ambiguity gate
+live in :mod:`yazses.grounding.resolver` (EYE-GROUND-002); the gaze/deixis seam is #443
+and the replay harness is #445. This file holds only the vocabulary those three share —
+including :class:`IntentHint`, which is an *input* the command grammar builds and the
+resolver reads, so it belongs to neither of them — and no policy: every threshold,
+weight and preference order is the resolver's, because each one is a product decision
+that has to be injectable and measured rather than frozen into a value type.
 
 **Why abstention is a type and not an exception.** ADR-v2-151 requires the resolver to
 say "several plausible things" or "nothing usable" rather than guess, because a wrong
@@ -334,6 +337,63 @@ class SemanticSource(Protocol):
 
 
 # --------------------------------------------------------------------------- #
+# What the user said about it. Optional, and deliberately tiny.
+# --------------------------------------------------------------------------- #
+@dataclass(frozen=True)
+class IntentHint:
+    """An already-parsed fragment of the spoken command: "click the Save button".
+
+    Produced by the existing command grammar, never by a language model, and it is not
+    a prompt — it is three fields the resolver can *check*. The spec's rule is binding
+    and one-directional: a hint **refines** the set of spatially plausible candidates
+    and can never pull an element in from elsewhere, so a hint is only ever applied
+    after the spatial envelope has already been enforced.
+
+    Every field is optional because most utterances constrain nothing: "click this"
+    carries a verb and no role or label, and the resolver must still work from geometry
+    alone.
+
+    ``role`` and ``label_tokens`` are casefolded at construction. Comparison then needs
+    no locale-dependent step at match time, which is what keeps the same fixture
+    deterministic on every platform. ``verb`` is carried for the planner downstream and
+    is deliberately *not* used by the resolver: what to do with a target is action
+    policy, and grounding does not decide actions (ADR-v2-151).
+    """
+
+    verb: str | None = None
+    role: str | None = None
+    label_tokens: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        for name in ("verb", "role"):
+            value = getattr(self, name)
+            if value is not None:
+                _check_identifier(f"IntentHint.{name}", value)
+                object.__setattr__(self, name, value.casefold())
+        _freeze_sequence(self, "label_tokens")
+        for token in self.label_tokens:
+            _check_identifier("IntentHint.label_tokens entry", token)
+            if token.strip() != token or token.split() != [token]:
+                raise ValueError(
+                    "IntentHint.label_tokens entries are single words: "
+                    f"{token!r} contains whitespace, so it can never match one label token"
+                )
+        object.__setattr__(
+            self, "label_tokens", tuple(token.casefold() for token in self.label_tokens)
+        )
+
+    @property
+    def constrains_anything(self) -> bool:
+        """Whether this hint can narrow a candidate set at all.
+
+        A hint carrying only a verb is inert here by design, and a caller that wants to
+        know whether passing it can change the outcome should ask this rather than
+        testing ``hint is not None``.
+        """
+        return self.role is not None or bool(self.label_tokens)
+
+
+# --------------------------------------------------------------------------- #
 # The answer.
 # --------------------------------------------------------------------------- #
 class GroundingEvidence(Enum):
@@ -350,6 +410,44 @@ class GroundingEvidence(Enum):
     LABEL_HINT_MATCH = "label_hint_match"
     EXACT_ACCESSIBILITY_FOCUS = "exact_accessibility_focus"
     SOURCE_QUALITY = "source_quality"
+
+
+class UnresolvedReason(Enum):
+    """Why nothing grounded — a closed vocabulary, and the only thing an
+    ``UNRESOLVED`` result carries.
+
+    The evaluation plan (``design/specs/eye-grounded-targets.md`` P4) reports
+    **target-source failure** and **semantic-source failure** as separate numbers from
+    each other and from plain "unresolved", and an outcome enum with one ``UNRESOLVED``
+    member cannot tell them apart: "the webcam lost the face" and "this application
+    exposes no accessibility tree" are the same word and different work. One is a
+    sensor/calibration problem, the other is a platform-coverage problem (#444).
+
+    The family is derived from the member *name* rather than a hand-written mapping, so
+    a member cannot be added to the enum and forgotten by the classifier.
+
+    No free text and no counts, for the same reason :class:`GroundingEvidence` has none:
+    a reason code can be logged, aggregated and published without ever carrying a window
+    title or a document fragment.
+    """
+
+    TARGET_CONFIDENCE_BELOW_FLOOR = "target_confidence_below_floor"
+    TARGET_STALE = "target_stale"
+    TARGET_GEOMETRY_MISSING = "target_geometry_missing"
+    SEMANTIC_NO_CANDIDATES = "semantic_no_candidates"
+    SEMANTIC_ALL_STALE = "semantic_all_stale"
+    SEMANTIC_SPACE_MISMATCH = "semantic_space_mismatch"
+    SEMANTIC_NO_PLAUSIBLE_CANDIDATE = "semantic_no_plausible_candidate"
+
+    @property
+    def is_target_source_failure(self) -> bool:
+        """The coarse target itself was unusable: absent, stale or below policy."""
+        return self.name.startswith("TARGET_")
+
+    @property
+    def is_semantic_source_failure(self) -> bool:
+        """The target was fine; no structured candidate could answer it."""
+        return self.name.startswith("SEMANTIC_")
 
 
 class GroundingOutcome(Enum):
@@ -372,8 +470,12 @@ class GroundingResult:
       runners-up a later UX layer might offer.
     * ``AMBIGUOUS`` carries no ``candidate`` and at least two ``alternatives`` — one
       plausible candidate is not an ambiguity, it is an answer.
-    * ``UNRESOLVED`` carries nothing at all, including no evidence: there was no
-      preference to explain.
+    * ``UNRESOLVED`` carries no candidate and no evidence — there was no preference to
+      explain — and may carry an :class:`UnresolvedReason`, which is a *cause*, not a
+      preference. It is the one thing an abstention has to say, because "the sensor gave
+      me nothing" and "this application exposes no structured element" are different
+      failures with different owners, and the evaluation plan reports them separately.
+      It is optional so that a caller with nothing to add can still construct one.
 
     ``resolution_confidence`` is pinned to ``0.0`` unless grounded. A consumer that
     reads the number without checking the outcome then gets the safe answer rather
@@ -391,6 +493,7 @@ class GroundingResult:
     alternatives: tuple[SemanticCandidate, ...] = ()
     resolution_confidence: float = 0.0
     evidence: tuple[GroundingEvidence, ...] = ()
+    unresolved_reason: UnresolvedReason | None = None
 
     def __post_init__(self) -> None:
         _check_unit_interval("GroundingResult.resolution_confidence", self.resolution_confidence)
@@ -399,6 +502,8 @@ class GroundingResult:
         if self.outcome is GroundingOutcome.GROUNDED:
             if self.candidate is None:
                 raise ValueError("a GROUNDED result must name the candidate it grounded to")
+            if self.unresolved_reason is not None:
+                raise ValueError("a GROUNDED result must not carry an UnresolvedReason")
             return
         if self.candidate is not None:
             raise ValueError(f"a {self.outcome.value.upper()} result must not name a candidate")
@@ -412,6 +517,11 @@ class GroundingResult:
                 raise ValueError(
                     "an AMBIGUOUS result must carry at least two plausible candidates; "
                     f"got {len(self.alternatives)}"
+                )
+            if self.unresolved_reason is not None:
+                raise ValueError(
+                    "an AMBIGUOUS result must not carry an UnresolvedReason — the "
+                    "candidates it lists are the explanation"
                 )
         elif self.alternatives or self.evidence:
             raise ValueError("an UNRESOLVED result must carry no candidates and no evidence")
@@ -455,5 +565,11 @@ class GroundingResult:
         )
 
     @classmethod
-    def unresolved(cls, target: TargetSnapshot) -> GroundingResult:
-        return cls(outcome=GroundingOutcome.UNRESOLVED, target=target)
+    def unresolved(
+        cls,
+        target: TargetSnapshot,
+        reason: UnresolvedReason | None = None,
+    ) -> GroundingResult:
+        return cls(
+            outcome=GroundingOutcome.UNRESOLVED, target=target, unresolved_reason=reason
+        )
