@@ -45,8 +45,11 @@ from __future__ import annotations
 
 import ast
 import re
+import subprocess
 from pathlib import Path
 from typing import NamedTuple
+
+import pytest
 
 from yazses.hotkeys.names import SUPPORTED_HOTKEYS, canonical
 
@@ -137,18 +140,37 @@ def _os_key(spelled: str) -> str:
     return ""
 
 
+def _tracked(root: Path) -> list[str]:
+    """The files this project actually ships, asked of git rather than of the disk.
+
+    Walking the tree instead reads whatever the developer happens to have lying
+    around: `.claude/` session notes, a private `strategy/` tree, a built `site/`.
+    Two of those are ignored *because* they are local or private, and one run of
+    this guard flagged a plan file that was quoting the bug in order to describe
+    it -- a guard that fires on the maintainer's own notes is a guard people learn
+    to dismiss. `git ls-files` is also the honest definition of a surface: if it
+    is not committed, no user can read it.
+    """
+    out = subprocess.run(
+        ["git", "ls-files", "-z"],
+        cwd=root, capture_output=True, check=True, text=True,
+    )
+    return [name for name in out.stdout.split("\0") if name]
+
+
 def _surfaces(root: Path) -> list[tuple[str, str]]:
-    """Every user-facing text file under *root*, as `(path, contents)`."""
+    """Every user-facing text file this project ships, as `(path, contents)`."""
     out: list[tuple[str, str]] = []
-    for path in sorted(root.rglob("*")):
-        if not path.is_file():
-            continue
-        rel = path.relative_to(root)
+    for name in sorted(_tracked(root)):
+        rel = Path(name)
         if set(rel.parts) & SKIP_DIRS or str(rel) in SKIP_FILES:
             continue
         if any(rel.parts[: len(prefix)] == prefix for prefix in SKIP_PREFIXES):
             continue
-        if path.suffix.lower() in BINARY_SUFFIXES:
+        if rel.suffix.lower() in BINARY_SUFFIXES:
+            continue
+        path = root / rel
+        if not path.is_file():
             continue
         try:
             out.append((rel.as_posix(), path.read_text(encoding="utf-8")))
@@ -218,11 +240,27 @@ def test_an_empty_tree_yields_no_matches(tmp_path):
 
     `test_the_scan_finds_something_to_check` is only meaningful if the collectors can in
     fact come back empty — which is exactly what they do on a tree with no surfaces in it.
+
+    The tree is a real repository because the collector asks git what is tracked, not
+    the filesystem. Staging the file is enough; `git ls-files` reads the index.
     """
     (tmp_path / "docs").mkdir()
     (tmp_path / "docs" / "nothing.md").write_text("No keys are named here.\n", encoding="utf-8")
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    subprocess.run(["git", "add", "docs/nothing.md"], cwd=tmp_path, check=True)
+    assert _surfaces(tmp_path), "the fixture staged nothing; this would pass for free"
     assert hold_instructions(tmp_path) == []
     assert os_pairings(tmp_path) == []
+
+
+def test_a_tree_git_cannot_read_fails_rather_than_reporting_compliance(tmp_path):
+    """An unreadable input must be an error, never an empty, clean-looking result.
+
+    The collector used to walk the filesystem, so "no repository here" and "nothing
+    to flag" were the same answer. They are not the same fact.
+    """
+    with pytest.raises(subprocess.CalledProcessError):
+        _surfaces(tmp_path)
 
 
 # --------------------------------------------------------------------------- the rules
