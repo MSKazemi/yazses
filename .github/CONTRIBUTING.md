@@ -200,9 +200,9 @@ it at once. That means the ground floor is open.
   that tells you which arguments have already been had.
 - **Find work:** issues labelled [`android`](https://github.com/MSKazemi/yazses/labels/android),
   coordinated by [the Android epic, #81](https://github.com/MSKazemi/yazses/issues/81).
-  Comment to claim one. The two M0 tasks
-  ([#82](https://github.com/MSKazemi/yazses/issues/82),
-  [#83](https://github.com/MSKazemi/yazses/issues/83)) are Python and are open right now.
+  Comment to claim one. M0 has landed — [`contract/`](../contract/README.md) holds the
+  golden vectors it produced — and extending them is still Python work in this repository,
+  for example [#512](https://github.com/MSKazemi/yazses/issues/512).
 
 Two things worth knowing before you decide it is not for you:
 
