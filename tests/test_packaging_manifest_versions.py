@@ -393,6 +393,15 @@ _CHECKED_UNDER_A_DIFFERENT_RULE = {
         "test_the_newest_release_entry_matches_the_project_version in "
         "tests/test_flatpak_metainfo.py"
     ),
+    "released-assets.json": (
+        "the asset list of the release that is actually published, which trails the "
+        "project version between the version bump and the post-tag refresh — the same "
+        "window the Flatpak wheel pin lives in: "
+        "test_the_released_asset_manifest_is_a_real_release and "
+        "test_every_bundle_matrix_maps_onto_a_released_asset_name in "
+        "tests/test_platform_support_claims.py hold its shape and its agreement with "
+        "docs/platform-support.md"
+    ),
     "flatpak/python3-yazses.json": (
         "the wheel a Flathub install actually contains, pinned by URL and hash: "
         "test_the_pinned_wheel_is_the_project_version_or_the_one_before_it in "

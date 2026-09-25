@@ -55,6 +55,14 @@ SRCINFO = ROOT / "packaging" / "arch" / ".SRCINFO"
 # at the previous release after every tag: the nuspec packed a nupkg filename that
 # did not exist, and Flathub advertised the wrong release notes.
 NUSPEC = ROOT / "packaging" / "chocolatey" / "yazses.nuspec"
+#: What the tag actually published, recorded so an offline test can read it.
+#: `docs/platform-support.md` tells people whether a desktop bundle exists, and the
+#: only honest answer to that is the release's own asset list -- which the test suite
+#: cannot go and ask, because nothing in it may touch the network. So the answer is
+#: written down here at the one moment it is known for certain, by the same run that
+#: refreshes every other manifest from the same assets, and
+#: `tests/test_platform_support_claims.py` compares the page against it.
+RELEASED_ASSETS = ROOT / "packaging" / "released-assets.json"
 #: The release page a manifest points a reader at. One spelling, so a manifest that
 #: gains a notes link cannot invent a second form of the same URL.
 RELEASE_TAG_URL = "https://github.com/MSKazemi/yazses/releases/tag/v{version}"
@@ -390,6 +398,25 @@ def render_scoop(version: str, exe: Asset, arm: Asset | None, previous: str) -> 
     return json.dumps(data, indent=4) + "\n"
 
 
+def render_released_assets(version: str, release_date: str, names: list[str]) -> str:
+    """Record every file this release attached to its tag.
+
+    Everything, not a filtered subset. A filter here would be this script deciding
+    which absences are allowed to stay invisible, which is the exact failure the
+    desktop-bundle rows on `docs/platform-support.md` already shipped twice: an
+    advisory build leg fails, the workflow still reports success, and the page goes
+    on describing a file nobody can download. The reader of this file gets the raw
+    fact and does its own asking.
+    """
+    return (
+        json.dumps(
+            {"version": version, "published": release_date, "assets": sorted(names)},
+            indent=4,
+        )
+        + "\n"
+    )
+
+
 def render_pkgbuild(version: str, sdist_sha: str, previous: str) -> str:
     out = re.sub(r"^pkgver=.*$", f"pkgver={version}", previous, count=1, flags=re.M)
     out = re.sub(r"^sha256sums=\(.*\)$", f"sha256sums=('{sdist_sha}')", out, count=1, flags=re.M)
@@ -473,6 +500,7 @@ def main(argv: list[str] | None = None) -> int:
             version, release_date, METAINFO.read_text(encoding="utf-8")
         ),
         SPEC: render_spec(version, release_date, SPEC.read_text(encoding="utf-8")),
+        RELEASED_ASSETS: render_released_assets(version, release_date, list(assets)),
     }
 
     # The defaultLocale manifest is prose, so it is carried forward rather than

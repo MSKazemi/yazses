@@ -57,7 +57,7 @@ pipx install yazses
 # Linux (Debian/Ubuntu)
 bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install-apt.sh)
 
-# Snap (X11 dictation only; use the Linux installer on Wayland)
+# Snap (X11, and Wayland on GNOME/KDE via the desktop portal)
 sudo snap install yazses
 sudo snap connect yazses:audio-record
 sudo snap connect yazses:raw-input
