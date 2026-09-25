@@ -88,6 +88,45 @@ switch intact, an unreadable blendshape score costs that one category, and a 468
 model with no irises costs gaze alone. Every one of those cases is a separate test against a
 faked MediaPipe result, next to the counts that hold "one FaceLandmarker, one camera open" to
 a number rather than to a promise. (#395)
+### Added — a wrong-target, ambiguity and abstention harness for grounded targets
+
+Phase P4 of `design/specs/eye-grounded-targets.md` (ADR-v2-151): `src/yazses/grounding/trace.py`
+is a versioned, privacy-safe trace document plus a pure validator, and
+`src/yazses/grounding/replay.py` replays every recorded case through the *real*
+`TargetResolver` and reports grounded-correct, grounded-wrong, ambiguous, unresolved and total
+trials, the wrong-target and abstention rates, the target-source / semantic-source split of
+every abstention, and the candidate-count distribution before and after an intent hint.
+`scripts/replay_grounding_trace.py` is the front end; `tests/fixtures/grounding_replay_report.json`
+is the committed, byte-stable report a reviewer reads in a diff. Nothing in the daemon imports
+any of it, and `yazses.grounding`'s own `__init__` deliberately does not re-export it, so the
+runtime import graph is unchanged.
+
+It can compare **window-only** against **semantic grounding** on the same trace, and both
+columns come out of one resolver with one policy — the only difference is what each strategy is
+allowed to see, which is the only difference the product has. A hand-written baseline would have
+measured its own bugs. On the five golden fixtures (11 trials): semantic grounding is 3 correct,
+**0 wrong**, 3 ambiguous, 5 unresolved; window-only is 0 correct, 7 wrong, 0 ambiguous, 4
+unresolved, and every one of its wrongs is a `window`-source ground rather than a misclick on a
+sibling control — which is why the report breaks wrong targets down by source kind instead of
+leaving one number to be misread.
+
+Three failure shapes the repository has shipped before are closed by construction rather than by
+review. **An empty trace is refused**, by the schema and again by `replay`, because a
+wrong-target rate of `0.0` over zero trials is character-identical to a flawless run. **Input it
+cannot parse fails loudly** — exit `0` valid, `1` rule violation, `2` unreadable, the same
+contract `scripts/check_eye_validation_slots.py` uses — instead of degrading into an empty
+document that reads as compliance. And because an "is it in sync?" test on a generated artifact
+cannot notice an *omission*, the committed report is additionally checked for completeness by
+count and by case id; dropping a fixture leaves the sync check green and fails the completeness
+check, which `tests/test_grounding_replay.py` proves by doing it.
+
+A derived rate whose own denominator is zero is reported as `{"value": null, "reason": ...}`,
+never as `0.0` — `METRICS.md`'s "missing is never zero", reusing the marker
+`src/yazses/eyeeval/schema.py` already enforces. No label, window title or free text can reach a
+report: every string in it is an enum member, a synthetic id or one of two fixed notices, and a
+test asserts that closure. **No product threshold, default or acceptance criterion follows from
+any of these numbers** — the fixtures are invented, the report says so in a field, and RQ-G4
+measures the real curve on real desktops. (#445)
 
 ### Added — macOS and Windows pointer output, with the capabilities each can honestly claim
 

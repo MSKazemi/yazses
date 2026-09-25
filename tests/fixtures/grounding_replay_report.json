@@ -1,0 +1,514 @@
+{
+  "report_version": "1.0",
+  "no_threshold_notice": "Synthetic fixtures only. No product threshold, default or acceptance criterion follows from these numbers; they describe invented layouts. The real curve between grounded coverage, wrong-target rate and abstention rate is RQ-G4 in design/eye-control/GROUNDED_INTERACTION_RESEARCH.md and has to be measured on real desktops with real accessibility trees.",
+  "zero_denominator_rule": "A trace with no cases is refused, so total_trials >= 1 and wrong_target_rate and abstention_rate are always defined. A derived rate whose own denominator is zero is reported as {\"value\": null, \"reason\": ...}, never as 0.0.",
+  "policy": {
+    "envelope_expansion_px": 0.0,
+    "max_candidate_skew_s": 0.5,
+    "max_target_age_s": 0.5,
+    "min_candidate_confidence": 0.0,
+    "min_target_confidence": 0.5,
+    "tie_area_ratio": 0.8,
+    "tie_distance_px": 4.0
+  },
+  "traces": [
+    {
+      "trace_id": "ambiguous-overlap",
+      "cases": 1
+    },
+    {
+      "trace_id": "no-candidate",
+      "cases": 4
+    },
+    {
+      "trace_id": "off-region-label-match",
+      "cases": 2
+    },
+    {
+      "trace_id": "one-target",
+      "cases": 2
+    },
+    {
+      "trace_id": "repeated-labels",
+      "cases": 2
+    }
+  ],
+  "total_trials": 11,
+  "strategies": {
+    "semantic_grounding": {
+      "counts": {
+        "total_trials": 11,
+        "grounded_correct": 3,
+        "grounded_wrong": 0,
+        "ambiguous": 3,
+        "unresolved": 5,
+        "grounded_wrong_by_source": {},
+        "grounded_wrong_containing_expected": 0
+      },
+      "rates": {
+        "grounded_correct_rate": 0.272727,
+        "wrong_target_rate": 0.0,
+        "ambiguity_rate": 0.272727,
+        "unresolved_rate": 0.454545,
+        "abstention_rate": 0.727273,
+        "grounded_correct_share_of_grounded": 1.0
+      },
+      "abstention_sources": {
+        "target_source_failure": 2,
+        "semantic_source_failure": 3,
+        "by_reason": {
+          "semantic_no_candidates": 1,
+          "semantic_no_plausible_candidate": 1,
+          "semantic_space_mismatch": 1,
+          "target_confidence_below_floor": 1,
+          "target_stale": 1
+        }
+      },
+      "candidate_counts": {
+        "cases_with_hint": 3,
+        "before_hint": {
+          "0": 4,
+          "2": 4,
+          "3": 3
+        },
+        "after_hint": {
+          "0": 1,
+          "1": 1,
+          "2": 1
+        }
+      }
+    },
+    "window_only": {
+      "counts": {
+        "total_trials": 11,
+        "grounded_correct": 0,
+        "grounded_wrong": 7,
+        "ambiguous": 0,
+        "unresolved": 4,
+        "grounded_wrong_by_source": {
+          "window": 7
+        },
+        "grounded_wrong_containing_expected": 5
+      },
+      "rates": {
+        "grounded_correct_rate": 0.0,
+        "wrong_target_rate": 0.636364,
+        "ambiguity_rate": 0.0,
+        "unresolved_rate": 0.363636,
+        "abstention_rate": 0.363636,
+        "grounded_correct_share_of_grounded": 0.0
+      },
+      "abstention_sources": {
+        "target_source_failure": 2,
+        "semantic_source_failure": 2,
+        "by_reason": {
+          "semantic_no_candidates": 2,
+          "target_confidence_below_floor": 1,
+          "target_stale": 1
+        }
+      },
+      "candidate_counts": {
+        "cases_with_hint": 0,
+        "before_hint": {
+          "0": 4,
+          "1": 7
+        },
+        "after_hint": {
+          "value": null,
+          "reason": "not_supported"
+        }
+      }
+    }
+  },
+  "cases": [
+    {
+      "case_id": "ambiguous-overlap/point-in-the-overlap",
+      "trace_id": "ambiguous-overlap",
+      "expected_entity_id": null,
+      "has_hint": false,
+      "candidates": 3,
+      "semantic_grounding": {
+        "outcome": "ambiguous",
+        "classification": "ambiguous",
+        "entity_id": null,
+        "entity_source": null,
+        "unresolved_reason": null,
+        "evidence": [
+          "inside_target_region"
+        ],
+        "alternatives": 2,
+        "plausible_candidates": 3,
+        "plausible_candidates_after_hint": null,
+        "wrong_target_contains_expected": false
+      },
+      "window_only": {
+        "outcome": "grounded",
+        "classification": "grounded_wrong",
+        "entity_id": "win-dialog",
+        "entity_source": "window",
+        "unresolved_reason": null,
+        "evidence": [
+          "inside_target_region",
+          "nearest_to_target_point",
+          "source_quality"
+        ],
+        "alternatives": 0,
+        "plausible_candidates": 1,
+        "plausible_candidates_after_hint": null,
+        "wrong_target_contains_expected": false
+      }
+    },
+    {
+      "case_id": "no-candidate/empty-tree",
+      "trace_id": "no-candidate",
+      "expected_entity_id": null,
+      "has_hint": false,
+      "candidates": 0,
+      "semantic_grounding": {
+        "outcome": "unresolved",
+        "classification": "unresolved",
+        "entity_id": null,
+        "entity_source": null,
+        "unresolved_reason": "semantic_no_candidates",
+        "evidence": [],
+        "alternatives": 0,
+        "plausible_candidates": 0,
+        "plausible_candidates_after_hint": null,
+        "wrong_target_contains_expected": false
+      },
+      "window_only": {
+        "outcome": "unresolved",
+        "classification": "unresolved",
+        "entity_id": null,
+        "entity_source": null,
+        "unresolved_reason": "semantic_no_candidates",
+        "evidence": [],
+        "alternatives": 0,
+        "plausible_candidates": 0,
+        "plausible_candidates_after_hint": null,
+        "wrong_target_contains_expected": false
+      }
+    },
+    {
+      "case_id": "no-candidate/low-confidence-target",
+      "trace_id": "no-candidate",
+      "expected_entity_id": null,
+      "has_hint": false,
+      "candidates": 2,
+      "semantic_grounding": {
+        "outcome": "unresolved",
+        "classification": "unresolved",
+        "entity_id": null,
+        "entity_source": null,
+        "unresolved_reason": "target_confidence_below_floor",
+        "evidence": [],
+        "alternatives": 0,
+        "plausible_candidates": 0,
+        "plausible_candidates_after_hint": null,
+        "wrong_target_contains_expected": false
+      },
+      "window_only": {
+        "outcome": "unresolved",
+        "classification": "unresolved",
+        "entity_id": null,
+        "entity_source": null,
+        "unresolved_reason": "target_confidence_below_floor",
+        "evidence": [],
+        "alternatives": 0,
+        "plausible_candidates": 0,
+        "plausible_candidates_after_hint": null,
+        "wrong_target_contains_expected": false
+      }
+    },
+    {
+      "case_id": "no-candidate/other-coordinate-space",
+      "trace_id": "no-candidate",
+      "expected_entity_id": null,
+      "has_hint": false,
+      "candidates": 1,
+      "semantic_grounding": {
+        "outcome": "unresolved",
+        "classification": "unresolved",
+        "entity_id": null,
+        "entity_source": null,
+        "unresolved_reason": "semantic_space_mismatch",
+        "evidence": [],
+        "alternatives": 0,
+        "plausible_candidates": 0,
+        "plausible_candidates_after_hint": null,
+        "wrong_target_contains_expected": false
+      },
+      "window_only": {
+        "outcome": "unresolved",
+        "classification": "unresolved",
+        "entity_id": null,
+        "entity_source": null,
+        "unresolved_reason": "semantic_no_candidates",
+        "evidence": [],
+        "alternatives": 0,
+        "plausible_candidates": 0,
+        "plausible_candidates_after_hint": null,
+        "wrong_target_contains_expected": false
+      }
+    },
+    {
+      "case_id": "no-candidate/stale-target",
+      "trace_id": "no-candidate",
+      "expected_entity_id": null,
+      "has_hint": false,
+      "candidates": 2,
+      "semantic_grounding": {
+        "outcome": "unresolved",
+        "classification": "unresolved",
+        "entity_id": null,
+        "entity_source": null,
+        "unresolved_reason": "target_stale",
+        "evidence": [],
+        "alternatives": 0,
+        "plausible_candidates": 0,
+        "plausible_candidates_after_hint": null,
+        "wrong_target_contains_expected": false
+      },
+      "window_only": {
+        "outcome": "unresolved",
+        "classification": "unresolved",
+        "entity_id": null,
+        "entity_source": null,
+        "unresolved_reason": "target_stale",
+        "evidence": [],
+        "alternatives": 0,
+        "plausible_candidates": 0,
+        "plausible_candidates_after_hint": null,
+        "wrong_target_contains_expected": false
+      }
+    },
+    {
+      "case_id": "off-region-label-match/hint-cannot-reach-across-the-screen",
+      "trace_id": "off-region-label-match",
+      "expected_entity_id": null,
+      "has_hint": true,
+      "candidates": 3,
+      "semantic_grounding": {
+        "outcome": "unresolved",
+        "classification": "unresolved",
+        "entity_id": null,
+        "entity_source": null,
+        "unresolved_reason": "semantic_no_plausible_candidate",
+        "evidence": [],
+        "alternatives": 0,
+        "plausible_candidates": 2,
+        "plausible_candidates_after_hint": 0,
+        "wrong_target_contains_expected": false
+      },
+      "window_only": {
+        "outcome": "grounded",
+        "classification": "grounded_wrong",
+        "entity_id": "win-form",
+        "entity_source": "window",
+        "unresolved_reason": null,
+        "evidence": [
+          "inside_target_region",
+          "nearest_to_target_point",
+          "source_quality"
+        ],
+        "alternatives": 0,
+        "plausible_candidates": 1,
+        "plausible_candidates_after_hint": null,
+        "wrong_target_contains_expected": false
+      }
+    },
+    {
+      "case_id": "off-region-label-match/the-same-hint-inside-the-region-grounds",
+      "trace_id": "off-region-label-match",
+      "expected_entity_id": "save-button",
+      "has_hint": true,
+      "candidates": 3,
+      "semantic_grounding": {
+        "outcome": "grounded",
+        "classification": "grounded_correct",
+        "entity_id": "save-button",
+        "entity_source": "accessibility",
+        "unresolved_reason": null,
+        "evidence": [
+          "inside_target_region",
+          "nearest_to_target_point",
+          "role_match",
+          "label_hint_match",
+          "source_quality"
+        ],
+        "alternatives": 0,
+        "plausible_candidates": 2,
+        "plausible_candidates_after_hint": 1,
+        "wrong_target_contains_expected": false
+      },
+      "window_only": {
+        "outcome": "grounded",
+        "classification": "grounded_wrong",
+        "entity_id": "win-form",
+        "entity_source": "window",
+        "unresolved_reason": null,
+        "evidence": [
+          "inside_target_region",
+          "nearest_to_target_point",
+          "source_quality"
+        ],
+        "alternatives": 0,
+        "plausible_candidates": 1,
+        "plausible_candidates_after_hint": null,
+        "wrong_target_contains_expected": true
+      }
+    },
+    {
+      "case_id": "one-target/coarse-region",
+      "trace_id": "one-target",
+      "expected_entity_id": "send-button",
+      "has_hint": false,
+      "candidates": 2,
+      "semantic_grounding": {
+        "outcome": "grounded",
+        "classification": "grounded_correct",
+        "entity_id": "send-button",
+        "entity_source": "accessibility",
+        "unresolved_reason": null,
+        "evidence": [
+          "inside_target_region",
+          "source_quality"
+        ],
+        "alternatives": 1,
+        "plausible_candidates": 2,
+        "plausible_candidates_after_hint": null,
+        "wrong_target_contains_expected": false
+      },
+      "window_only": {
+        "outcome": "grounded",
+        "classification": "grounded_wrong",
+        "entity_id": "win-main",
+        "entity_source": "window",
+        "unresolved_reason": null,
+        "evidence": [
+          "inside_target_region",
+          "nearest_to_target_point",
+          "source_quality"
+        ],
+        "alternatives": 0,
+        "plausible_candidates": 1,
+        "plausible_candidates_after_hint": null,
+        "wrong_target_contains_expected": true
+      }
+    },
+    {
+      "case_id": "one-target/precise-point",
+      "trace_id": "one-target",
+      "expected_entity_id": "send-button",
+      "has_hint": false,
+      "candidates": 2,
+      "semantic_grounding": {
+        "outcome": "grounded",
+        "classification": "grounded_correct",
+        "entity_id": "send-button",
+        "entity_source": "accessibility",
+        "unresolved_reason": null,
+        "evidence": [
+          "inside_target_region",
+          "source_quality"
+        ],
+        "alternatives": 1,
+        "plausible_candidates": 2,
+        "plausible_candidates_after_hint": null,
+        "wrong_target_contains_expected": false
+      },
+      "window_only": {
+        "outcome": "grounded",
+        "classification": "grounded_wrong",
+        "entity_id": "win-main",
+        "entity_source": "window",
+        "unresolved_reason": null,
+        "evidence": [
+          "inside_target_region",
+          "nearest_to_target_point",
+          "source_quality"
+        ],
+        "alternatives": 0,
+        "plausible_candidates": 1,
+        "plausible_candidates_after_hint": null,
+        "wrong_target_contains_expected": true
+      }
+    },
+    {
+      "case_id": "repeated-labels/hint-cannot-separate-identical-rows",
+      "trace_id": "repeated-labels",
+      "expected_entity_id": "row-0",
+      "has_hint": true,
+      "candidates": 5,
+      "semantic_grounding": {
+        "outcome": "ambiguous",
+        "classification": "ambiguous",
+        "entity_id": null,
+        "entity_source": null,
+        "unresolved_reason": null,
+        "evidence": [
+          "inside_target_region",
+          "role_match",
+          "label_hint_match"
+        ],
+        "alternatives": 2,
+        "plausible_candidates": 3,
+        "plausible_candidates_after_hint": 2,
+        "wrong_target_contains_expected": false
+      },
+      "window_only": {
+        "outcome": "grounded",
+        "classification": "grounded_wrong",
+        "entity_id": "win-list",
+        "entity_source": "window",
+        "unresolved_reason": null,
+        "evidence": [
+          "inside_target_region",
+          "nearest_to_target_point",
+          "source_quality"
+        ],
+        "alternatives": 0,
+        "plausible_candidates": 1,
+        "plausible_candidates_after_hint": null,
+        "wrong_target_contains_expected": true
+      }
+    },
+    {
+      "case_id": "repeated-labels/region-over-two-rows",
+      "trace_id": "repeated-labels",
+      "expected_entity_id": "row-0",
+      "has_hint": false,
+      "candidates": 5,
+      "semantic_grounding": {
+        "outcome": "ambiguous",
+        "classification": "ambiguous",
+        "entity_id": null,
+        "entity_source": null,
+        "unresolved_reason": null,
+        "evidence": [
+          "inside_target_region"
+        ],
+        "alternatives": 2,
+        "plausible_candidates": 3,
+        "plausible_candidates_after_hint": null,
+        "wrong_target_contains_expected": false
+      },
+      "window_only": {
+        "outcome": "grounded",
+        "classification": "grounded_wrong",
+        "entity_id": "win-list",
+        "entity_source": "window",
+        "unresolved_reason": null,
+        "evidence": [
+          "inside_target_region",
+          "nearest_to_target_point",
+          "source_quality"
+        ],
+        "alternatives": 0,
+        "plausible_candidates": 1,
+        "plausible_candidates_after_hint": null,
+        "wrong_target_contains_expected": true
+      }
+    }
+  ]
+}

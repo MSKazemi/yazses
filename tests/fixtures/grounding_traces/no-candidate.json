@@ -1,0 +1,121 @@
+{
+  "schema_version": "1.0",
+  "trace_id": "no-candidate",
+  "study_mode": "synthetic",
+  "description": "Nothing to ground onto, for four different reasons. The first is the empty semantic tree; the other three sit beside it so the report's target-source / semantic-source split is exercised rather than asserted. Every case expects abstention.",
+  "space": {"name": "screen", "version": 1},
+  "cases": [
+    {
+      "case_id": "no-candidate/empty-tree",
+      "description": "The application exposes no structured element at all: a semantic-source failure, and the one case where window-only and semantic grounding behave identically.",
+      "now_s": 1000.0,
+      "target": {
+        "source": "mouse",
+        "timestamp_s": 1000.0,
+        "confidence": 0.9,
+        "point": {"x": 400.0, "y": 300.0},
+        "window_id": "win-opaque"
+      },
+      "candidates": [],
+      "hint": null,
+      "expected_entity_id": null
+    },
+    {
+      "case_id": "no-candidate/stale-target",
+      "description": "A full tree, but the pointing observation is a second old against now_s. A target-source failure: the layout below it may no longer be there.",
+      "now_s": 1000.0,
+      "target": {
+        "source": "gaze",
+        "timestamp_s": 999.0,
+        "confidence": 0.9,
+        "point": {"x": 120.0, "y": 210.0},
+        "window_id": "win-main"
+      },
+      "candidates": [
+        {
+          "source": "window",
+          "entity_id": "win-main",
+          "role": "window",
+          "captured_at_s": 1000.0,
+          "confidence": 0.9,
+          "bounds": {"x": 0.0, "y": 0.0, "width": 1200.0, "height": 800.0},
+          "label": "Composer"
+        },
+        {
+          "source": "accessibility",
+          "entity_id": "send-button",
+          "role": "button",
+          "captured_at_s": 1000.0,
+          "confidence": 0.9,
+          "bounds": {"x": 100.0, "y": 200.0, "width": 60.0, "height": 30.0},
+          "label": "Send",
+          "actions": ["press"]
+        }
+      ],
+      "hint": null,
+      "expected_entity_id": null
+    },
+    {
+      "case_id": "no-candidate/low-confidence-target",
+      "description": "The webcam barely saw a face. A target-source failure, refused before any candidate is examined, so the existing focused-window fallback keeps the turn.",
+      "now_s": 1000.0,
+      "target": {
+        "source": "gaze",
+        "timestamp_s": 1000.0,
+        "confidence": 0.2,
+        "point": {"x": 120.0, "y": 210.0},
+        "window_id": "win-main"
+      },
+      "candidates": [
+        {
+          "source": "window",
+          "entity_id": "win-main",
+          "role": "window",
+          "captured_at_s": 1000.0,
+          "confidence": 0.9,
+          "bounds": {"x": 0.0, "y": 0.0, "width": 1200.0, "height": 800.0},
+          "label": "Composer"
+        },
+        {
+          "source": "accessibility",
+          "entity_id": "send-button",
+          "role": "button",
+          "captured_at_s": 1000.0,
+          "confidence": 0.9,
+          "bounds": {"x": 100.0, "y": 200.0, "width": 60.0, "height": 30.0},
+          "label": "Send",
+          "actions": ["press"]
+        }
+      ],
+      "hint": null,
+      "expected_entity_id": null
+    },
+    {
+      "case_id": "no-candidate/other-coordinate-space",
+      "description": "The tree was captured against an older display generation, so its geometry is not comparable to the target's. A semantic-source failure that names itself, which is what makes a monitor hotplug countable rather than mysterious.",
+      "now_s": 1000.0,
+      "target": {
+        "source": "mouse",
+        "timestamp_s": 1000.0,
+        "confidence": 0.9,
+        "point": {"x": 120.0, "y": 210.0},
+        "window_id": "win-main"
+      },
+      "candidates": [
+        {
+          "source": "accessibility",
+          "entity_id": "send-button",
+          "role": "button",
+          "captured_at_s": 1000.0,
+          "confidence": 0.9,
+          "space": {"name": "screen", "version": 2},
+          "bounds": {"x": 100.0, "y": 200.0, "width": 60.0, "height": 30.0},
+          "label": "Send",
+          "actions": ["press"]
+        }
+      ],
+      "hint": null,
+      "expected_entity_id": null
+    }
+  ]
+}

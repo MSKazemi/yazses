@@ -38,6 +38,12 @@ _PREFIX = len("yazses.")
 ENTRY_MODULES = {
     "__main__", "main", "cli", "core.daemon",
     "tray.app", "overlay.app", "remote.agent",
+    # The grounded-target replay harness (ADR-v2-151 P4). Its caller is
+    # `scripts/replay_grounding_trace.py`, which CI runs; the daemon must *not* import
+    # it, because it reaches `yazses.eyeeval` for the one forbidden-field list it
+    # refuses to keep a second copy of. An entry in KNOWN_ORPHANS would be a false
+    # line in that ledger — this is not debt, it is an evaluation entry point.
+    "grounding.replay",
 }
 
 #: The known orphans, each with what is missing. An entry here is a debt that has
