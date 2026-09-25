@@ -43,6 +43,32 @@ later minor release can add one, and a different major version is refused outrig
 than half-read. Example results for gaze, Head-Pointer and face-switch ship in
 `tests/fixtures/eye_eval/`.
 
+||||||| a19a8f79
+### Added — the eye/camera validation matrix is now machine-readable
+
+`design/eye-control/VALIDATION_MATRIX.md` is the authority on what hardware test runs
+where, but only a human could read it, so nothing could answer "which cells are READY?"
+or "which issue represents T0 on KDE Wayland?" without someone re-reading the table and
+thirteen issue bodies. `design/eye-control/validation-slots.json` now holds the same
+matrix as one versioned entry per cell — test pack, environment/session, A/B/repeat,
+PLANNED/READY, prerequisite issues, target issue where one exists, time estimate,
+hardware requirement, beginner-safety and evidence class — and
+`scripts/check_eye_validation_slots.py` validates it offline, with nothing beyond the
+standard library and no GitHub call. Issues #428–#440 are recorded exactly as they stand
+today (all PLANNED, all blocked on #423); future T1–T7 cells live in the same file with
+no issue number, which is how the matrix can grow without filling the tracker with work
+nobody can run yet.
+
+The validator enforces the rules the programme documents rather than just the shape of
+the file: duplicate cell IDs are rejected, a cell cannot claim READY while a prerequisite
+is unresolved or a required field is missing, a slot needing real hardware can never be
+marked cloud-agent-ready — a human has to observe the result — and public slots are
+`community_qa` under ADR-v2-150, with `research` refused outright so participant data
+never lands in a public file. It also fails loudly, exit 2, on a registry it cannot read,
+and treats an empty registry as an error, because a check that returns nothing on input
+it could not parse reads exactly like a check that passed.
+
+This is developer-facing only; nothing about running YazSes changes.
 
 ## [2.40.1] - 2026-09-25
 
