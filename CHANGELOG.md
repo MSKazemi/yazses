@@ -6,6 +6,44 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — one versioned envelope for every eye-control evaluation result
+
+Eye/camera evaluation results will arrive from CI, from replayed synthetic traces, from
+contributors on their own hardware, and eventually from a research protocol. Four sources,
+three operating systems, and until now nothing saying what a result *is* — so "35 of 40
+correct" could have meant a different thing in each file, and only prose stopped a public
+QA report being read later as participant data.
+
+`yazses.eyeeval.schema` is that envelope, written down and checked: the sections
+`design/eye-control/METRICS.md` names (software, machine, OS/session, display topology,
+camera class and capture mode, feature, config hash, protocol and task version, metrics,
+privacy declaration) plus the `study_mode` that ADR-v2-150 requires. `validate_result`
+takes a parsed document and returns a list of problems, each naming its path and what to
+do about it; `check_result` raises with all of them at once. It is pure stdlib, imports
+nothing heavy, touches no camera, file, clock or network, and nothing in the daemon
+imports it — an existing install is unchanged.
+
+Three things it refuses, because each has a cost that only shows up later:
+
+- **A silently-zero metric.** A metric that could not be measured is
+  `{"value": null, "reason": ...}` with a reason from the documented list. A bare `null`
+  fails, and so does a reason that is not in the list. "No false activations" and "false
+  activations were not counted" are not the same claim.
+- **A field that should not exist.** No key at any depth may contain `hostname`,
+  `username`, `email`, `serial`, `mac_address`, `raw_frame`, `landmark`, `transcript`,
+  `window_title` or the rest of the list. Privacy is enforced by the absence of a place to
+  put the data, not by review.
+- **Relabelled evidence.** `study_mode` fixes the data class, so community QA cannot
+  declare itself research-grade, and `research` requires a named protocol identifier
+  (ADR-v2-150 Rules 2 and 6).
+
+Forward compatibility is a written rule rather than a habit: `schema_version` is
+`MAJOR.MINOR`, unknown fields within the same major version are ignored and preserved so a
+later minor release can add one, and a different major version is refused outright rather
+than half-read. Example results for gaze, Head-Pointer and face-switch ship in
+`tests/fixtures/eye_eval/`.
+
+
 ## [2.40.1] - 2026-09-25
 
 ### Changed — the Store page says plainly that YazSes is not on the Store
