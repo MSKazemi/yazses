@@ -162,7 +162,7 @@ def test_key_sequence_failure_falls_back_to_clipboard(monkeypatch):
             received.append(keys)
 
     monkeypatch.setattr(
-        "yazses.platform.linux.injector.get_injector", lambda: _KeySequenceBoom()
+        "yazses.platform.linux.injector.get_injector", _KeySequenceBoom
     )
     monkeypatch.setattr("yazses.platform.linux.injector.ClipboardInjector", _ClipboardSpy)
     monkeypatch.delenv("YAZSES_INJECT_FALLBACK", raising=False)
@@ -176,7 +176,7 @@ def test_key_sequence_failure_without_fallback_raises(monkeypatch):
     """With the fallback turned off — the loud-failure remedy this class exists
     to honour — a key-sequence failure must surface, not silently vanish."""
     monkeypatch.setattr(
-        "yazses.platform.linux.injector.get_injector", lambda: _KeySequenceBoom()
+        "yazses.platform.linux.injector.get_injector", _KeySequenceBoom
     )
 
     off = LinuxInjector(fallback_to_clipboard=False)
