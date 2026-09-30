@@ -37,6 +37,17 @@ now delegates to `platform.factory.get_paths().config_file` — the same resolve
 on the Linux CI runner the old literal and the new delegation are the same string and no
 behavioural test could tell them apart.
 
+The collateral of the old seam is cleaned up rather than ignored: first-run seeding wrote
+configs to that POSIX literal on every OS, so a Windows or macOS user who accepted the
+seed has a file the fixed daemon would silently stop reading. On the first start after
+upgrading, the daemon moves a stranded file intact (a rename — comments arrive
+byte-for-byte) from the legacy location to the platform one, before first-run seeding
+can mask it. Deliberate no-ops, each pinned by a test: on Linux the legacy path *is* the
+platform path, so nothing there was ever stranded and nothing is touched; when both
+files exist the platform config already wins and the legacy copy is left in place rather
+than merged or deleted; and there is no second notice — the config the user wrote simply
+keeps working.
+
 ### Fixed — `restart` now replaces a daemon it has watched leave, and `start` opens no window (#330)
 
 The reopened half of [#330](https://github.com/MSKazemi/yazses/issues/330), reported from

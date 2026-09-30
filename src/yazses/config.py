@@ -2111,6 +2111,20 @@ def default_config_path() -> Path:
     return get_paths().config_file
 
 
+def legacy_default_config_path() -> Path:
+    """The path ``default_config_path`` returned before #330 — a historical fact.
+
+    The pre-#330 seam restated ``Path.home() / ".config" / "yazses" /
+    "config.toml"`` on every platform, so that is where first-run seeding
+    stranded configs on Windows and macOS. Named here — the module that owns
+    the live seam — rather than restated by callers: ``system.firstrun.
+    migrate_legacy_config`` moves files at this path to wherever
+    ``default_config_path()`` points today. On Linux the two coincide, which
+    is exactly why nothing on Linux was ever stranded.
+    """
+    return Path.home() / ".config" / "yazses" / "config.toml"
+
+
 @dataclass(frozen=True)
 class LoadedConfig:
     """A config, plus everything that was wrong with the file it came from."""
