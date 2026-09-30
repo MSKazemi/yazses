@@ -141,7 +141,9 @@ def test_a_path_or_an_address_is_caught_without_knowing_the_machine(leaked: str)
 def test_a_leak_is_found_wherever_it_sits() -> None:
     """Nested lists and dicts alike: a display entry is a list member, not a top-level key."""
     doc = _real_result()
-    doc["display"]["displays"][0]["label"] = "/home/evelyn/screen"  # type: ignore[index]
+    # Supply the display rather than assume the host has one: a headless or remote session
+    # reports none, and indexing [0] made this test pass or fail on the developer's desktop.
+    doc["display"]["displays"] = [{"label": "/home/evelyn/screen"}]  # type: ignore[index]
     problems = privacy_problems(doc, _FAKE_IDS)
     assert any("display.displays.0.label" in p for p in problems), problems
 

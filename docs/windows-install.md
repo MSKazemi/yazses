@@ -244,8 +244,8 @@ the speech-to-text engine cannot load. YazSes decodes through CTranslate2, which
 compiled library, and on Windows it needs the **Microsoft Visual C++ Redistributable
 (x64)** — see [CTranslate2's installation
 notes](https://opennmt.net/CTranslate2/installation.html). Most machines already have
-it; a fresh Windows install or a Windows Server image often does not. Install it from
-<https://aka.ms/vs/17/release/vc_redist.x64.exe> and restart the daemon.
+it; a fresh Windows install or a Windows Server image often does not. Run `yazses setup` — it installs the runtime with winget — or download it from
+<https://aka.ms/vs/17/release/vc_redist.x64.exe>, then restart the daemon.
 
 Note the wording: Windows says *"or one of its dependencies"* even when the file it
 names is present, which is why this reads like a missing file when it is a missing

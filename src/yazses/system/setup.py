@@ -455,22 +455,19 @@ def preflight_hints(
             missing.append("`input` group membership")
         if ydotoold_unmet:
             missing.append("ydotoold (Wayland injection)")
-        hint = (
-            "Missing prerequisites: " + "; ".join(missing) + ".\n"
-            "  Fix everything in one step:  yazses setup"
-        )
+        head = "Missing prerequisites: " + "; ".join(missing) + "."
+        # The command sits on its own line: `_echo_action_hint` highlights only lines
+        # that start with `yazses `, so an inline command was never picked out.
+        hint = head + "\n    yazses setup\n  Then log out and back in."
         if ydotoold_unmet:
             # Without ydotoold the daemon falls through to the RemoteDesktop
             # portal, whose dialog the desktop titles "Remote Desktop" and
             # confirms with "Share". Naming the consequence here is what stops
-            # that arriving unexplained: the advice and the dialog otherwise
-            # land in the same second, and the modal wins the user's attention.
+            # that arriving unexplained, kept short so it does not bury the command.
             hint += (
-                '\n  Skip it and your desktop will ask to allow "Remote Desktop" instead —\n'
-                "  its name for the only Wayland way to type into another window. YazSes\n"
-                "  asks for the keyboard alone: no screen capture, nothing sent anywhere.\n"
-                "  `yazses setup` installs ydotoold and a udev rule; log out and back in\n"
-                "  afterwards, or the device stays unreadable and the portal is still used."
+                '\n  Skip it and your desktop will show a "Remote Desktop" prompt instead.'
+                "\n  That prompt is YazSes asking for the keyboard only: no screen capture,"
+                "\n  nothing sent anywhere."
             )
         hints.append(hint)
     elif pending:
