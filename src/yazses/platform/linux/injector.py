@@ -4,22 +4,12 @@ from __future__ import annotations
 
 import logging
 import os
-import shutil
-import subprocess
 
 from yazses.inject.auto import get_injector
 from yazses.inject.base import BaseInjector
 from yazses.inject.clipboard import ClipboardInjector
-from yazses.inject.ydotool import run_ydotool_keys
 
 log = logging.getLogger(__name__)
-
-
-def _xdotool_key_str(combo: str) -> str:
-    """Convert 'ctrl+z' → 'ctrl+z', 'shift+Left' → 'shift+Left' for xdotool."""
-    return combo.replace("meta", "super")
-
-
 
 
 class LinuxInjector:
@@ -54,7 +44,6 @@ class LinuxInjector:
         self._fallback: ClipboardInjector | None = None
         if fallback_to_clipboard and not isinstance(self._primary, ClipboardInjector):
             self._fallback = ClipboardInjector()
-        self._is_wayland = bool(os.environ.get("WAYLAND_DISPLAY"))
 
     def _fell_back(self, what: str, exc: Exception) -> None:
         """Say so in the log, at WARNING.
@@ -91,39 +80,22 @@ class LinuxInjector:
             self._fallback.inject_backspaces(count)
 
     def inject_key_sequence(self, keys: list[str]) -> None:
+        """Delegate to the primary backend, clipboard on failure (#544).
+
+        The backends own their Wayland/X11 tool dispatch — this method used to
+        hand-roll its own, which had no fallback path at all and needed the
+        one-off YAZSES_INJECTOR special case (#390) to keep an explicit
+        unicode selection from losing key combos.
+        """
         if not keys:
             return
-        selected_backend = os.environ.get("YAZSES_INJECTOR", "").strip().lower()
-        if selected_backend == "unicode":
+        try:
             self._primary.inject_key_sequence(keys)
-            return
-        if self._is_wayland:
-            if shutil.which("ydotool"):
-                # Dialect-aware: 1.x wants numeric keycodes, 0.1.x symbolic names,
-                # and 0.1.x exits 0 whichever it is handed. See inject/ydotool.py.
-                for combo in keys:
-                    run_ydotool_keys([combo], timeout=5)
-                return
-            if shutil.which("wtype"):
-                for combo in keys:
-                    parts = combo.split("+")
-                    args: list[str] = ["wtype"]
-                    for p in parts[:-1]:
-                        args += ["-M", p]
-                    args += ["-k", parts[-1]]
-                    for p in parts[:-1]:
-                        args += ["-m", p]
-                    subprocess.run(args, check=True, timeout=5)
-                return
-        else:
-            if shutil.which("xdotool"):
-                subprocess.run(
-                    ["xdotool", "key", "--clearmodifiers"] + [_xdotool_key_str(k) for k in keys],
-                    check=True,
-                    timeout=5,
-                )
-                return
-        # Clipboard fallback has no key-sequence capability; silently skip.
+        except Exception as exc:
+            if self._fallback is None:
+                raise
+            self._fell_back("key sequence", exc)
+            self._fallback.inject_key_sequence(keys)
 
     @property
     def backend_name(self) -> str:
