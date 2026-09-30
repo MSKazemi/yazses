@@ -6,6 +6,36 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — conservative Persian normalisation, off until the profile says otherwise
+
+[FA-02 / #511](https://github.com/MSKazemi/yazses/issues/511) shipped
+`src/yazses/postprocess/persian_text.py`: the pure deterministic normaliser
+`design/specs/persian-text-and-rtl.md` asked for. Whisper decodes Persian speech
+into a mix of Arabic and Persian code points — ي/ی, ك/ک, ى all arrive mid-word —
+and every search, spell-checker and copy-paste downstream treats them as
+different characters. The module canonicalises exactly the three spec'd letters
+(the mapping table is exposed as data, §3), applies NFC only (§4), collapses
+repeated ZWNJ and drops absolute-boundary ZWNJ while preserving meaningful
+word-joiners (§5), strips the bidi embedding/override/isolate controls wherever
+they appear — including inside URLs, because a hidden control in a link is the
+adversarial case the spec names (§6) — and touches nothing else: digits, Persian
+punctuation, half-spaces and morphology all stay untouched (§7/§8), and URLs,
+emails, paths, versions and Latin identifier runs are replayed byte-for-byte
+(§9).
+
+Wiring follows `han_script`: one chokepoint in `stt/factory.py` wrapping the
+engine when `[stt] language` is Persian, covering `transcribe`,
+`transcribe_words` (per-word, so subtitles and Confidence Ink agree with the
+joined text) and `decode_window`. Inactive profiles get the engine object
+untouched — not a pass-through wrapper, the same instance — so English output
+cannot be altered by a module it never enters. FA-01 (#509) replaces the
+gate's language predicate with the profile lookup; the core does not move.
+
+`tests/test_persian_text.py` (61 cases) is built from the spec's §12 minimum
+list plus its required properties: idempotence over a 5,000-character mixed
+corpus, no Latin-run deletion, protected-span immutability, boundary/repeat
+ZWNJ, and command-text wrapped in an RLO arriving as inert plain text.
+
 ### Fixed — the Korean review was credited everywhere except this file
 
 [@doeil1614-ops](https://github.com/doeil1614-ops) read `docs/ko/index.md` as a native

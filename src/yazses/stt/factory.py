@@ -30,7 +30,9 @@ def build_engine(stt: "SttConfig") -> "SttEngine":
     ``getattr`` guards keep this callable with any duck-typed config (tests,
     older configs without the ``engine`` key).
     """
-    return _with_han_script(_build_raw_engine(stt), stt)
+    engine = _build_raw_engine(stt)
+    engine = _with_han_script(engine, stt)
+    return _with_persian_normaliser(engine, stt)
 
 
 def _build_raw_engine(stt: "SttConfig") -> "SttEngine":
@@ -175,6 +177,53 @@ class _HanScriptEngine:
         # Convert each word too: the caller re-renders per-word output (speaker
         # labels, subtitles, Confidence Ink), so converting only the joined text
         # would leave those surfaces in the script the user asked to leave.
+        converted = [
+            dataclasses.replace(w, text=self._normalise(w.text)) for w in words
+        ] if words else words
+        return self._normalise(text), converted
+
+    def decode_window(self, audio) -> str:
+        return self._normalise(self._inner.decode_window(audio))
+
+    def __getattr__(self, name: str):
+        return getattr(self._inner, name)
+
+
+def _with_persian_normaliser(engine: "SttEngine", stt: "SttConfig") -> "SttEngine":
+    """Wrap *engine* so Persian output receives conservative Unicode normalisation.
+
+    Applied at the same single-chokepoint factory level as `_with_han_script`
+    so dictation, `yazses transcribe`, meeting mode and the streaming decoder
+    all get it from one wiring point. Returns *engine* untouched when the
+    feature is off (`[stt] language` is not Persian), preserving the zero-cost
+    zero-wrapper guarantee for English and other languages.
+    """
+    from yazses.postprocess.persian_text import build_persian_normaliser
+
+    normalise = build_persian_normaliser(stt)
+    if normalise is None:
+        return engine
+    return _PersianNormaliserEngine(engine, normalise)
+
+
+class _PersianNormaliserEngine:
+    """Decorator over an :class:`SttEngine` that normalises Persian output."""
+
+    def __init__(self, inner: "SttEngine", normalise) -> None:
+        self._inner = inner
+        self._normalise = normalise
+
+    def transcribe(self, audio, sample_rate: int = 16000, initial_prompt=None,
+                   task=None) -> str:
+        return self._normalise(
+            self._inner.transcribe(audio, sample_rate, initial_prompt, task)
+        )
+
+    def transcribe_words(self, audio, sample_rate: int = 16000,
+                         initial_prompt=None, task=None):
+        text, words = self._inner.transcribe_words(
+            audio, sample_rate, initial_prompt, task
+        )
         converted = [
             dataclasses.replace(w, text=self._normalise(w.text)) for w in words
         ] if words else words
