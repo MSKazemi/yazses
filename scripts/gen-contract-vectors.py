@@ -480,6 +480,61 @@ CASES: dict[str, list[dict[str, Any]]] = {
          "description": "less common ASCII whitespace controls (vertical tab, form feed) "
                         "are still whitespace-only",
          "input": "\v\f  "},
+        # ── FA-03: Persian / RTL vectors (#512) ────────────────────────────
+        # The strip/keep logic is script-agnostic by construction; these cases
+        # make that a checked claim instead of an assumption, because the
+        # Android/iOS ports re-implement it from scratch over UTF-16.
+        {"id": "arabic-kaf-yeh-mix-preserved",
+         "description": "ASR output mixes Arabic Kaf U+0643/Yeh U+064A with the Persian "
+                        "Kaf U+06A9/Yeh U+06CC; clean_text never normalises letters, so all "
+                        "four survive as distinct code points byte-for-byte",
+         "input": "ک ك ی ي"},
+        {"id": "zwnj-word-joiner-preserved",
+         "description": "ZWNJ (U+200C) is meaning-bearing — 'mi-khaham' and 'khaneh-ha' "
+                        "collapse into different words without it — and clean_text must "
+                        "never treat it as strippable",
+         "input": "می\u200cخواهم خانه\u200cها"},
+        {"id": "double-zwnj-preserved",
+         "description": "a stuttered word-joiner (two adjacent ZWNJ) is still invisible "
+                        "non-whitespace and passes through untouched",
+         "input": "می\u200c\u200cخواهم"},
+        {"id": "boundary-zwnj-not-whitespace",
+         "description": "ZWNJ glued to the burst start/end survives strip() — it is "
+                        "format-control, not whitespace; a port that classifies it as "
+                        "blank loses the user's marker",
+         "input": "\u200cسلام دنیا\u200c"},
+        {"id": "leading-persian-comma-kept",
+         "description": "the strip regex is whitespace/dot/ellipsis only, so the Persian "
+                        "comma U+060C leads an RTL burst unchanged, mirroring the ASCII "
+                        "leading-comma pin above",
+         "input": "، سلام"},
+        {"id": "leading-ellipsis-glued-to-persian-stripped",
+         "description": "script-agnostic stripping in the other direction: the ASCII "
+                        "ellipsis run is stripped even when glued directly to RTL text",
+         "input": "…سلام"},
+        {"id": "bidi-controls-preserved",
+         "description": "adversarial input: an RLE/PDF pair around Persian survives "
+                        "byte-for-byte — clean_text neither sanitises nor escapes embedding "
+                        "characters, so a port that 'helpfully' strips them diverges",
+         "input": "\u202bسلام دنیا\u202c"},
+        {"id": "persian-with-english-product-names-preserved",
+         "description": "mixed bidi run of Persian prose around Latin product names must "
+                        "survive as spoken, including the word-joiner in 'mi-konam'",
+         "input": "من با VS Code و YazSes کار می\u200cکنم"},
+        {"id": "email-and-path-inside-persian-preserved",
+         "description": "LTR islands (email, filesystem path) embedded in RTL prose are "
+                        "untouched — no leading-punctuation rule reaches inside them",
+         "input": "ایمیل من user@example.com است؛ مسیر /usr/local/bin/yazses را ببینید"},
+        {"id": "persian-with-emoji-preserved",
+         "description": "astral-plane emoji between RTL words survive exactly, pinning "
+                        "the UTF-16 surrogate-pair trap a Kotlin port must not fall into",
+         "input": "خیلی عالی بود 🚀 دستت درد نکنه 🙏"},
+        {"id": "long-persian-paragraph-trailing-space-stripped",
+         "description": "meeting-length RTL input (~900 code points): only the trailing "
+                        "space is trimmed, every ZWNJ and Persian comma survives the "
+                        "regex — correctness at scale, not just short bursts",
+         "input": ("این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای "
+                   "چندسکویی در نظر گرفته شده است. " * 10)},
     ],
     "audio.vad_gate": [
         {"id": "empty-audio-is-silence",
@@ -922,6 +977,35 @@ CASES: dict[str, list[dict[str, Any]]] = {
          "input": ("um so the quarterly report is you know basically finished. " * 48)
                   + "the the the the final number is forty two. no wait scratch that "
                   + "the final number is forty three."},
+        # ── FA-03: Persian / RTL vectors (#512) ────────────────────────────
+        {"id": "filler-between-persian-words-removed",
+         "description": "filler removal is purely lexical, so an ASCII 'um' is dropped "
+                        "from between two RTL words exactly as from English prose",
+         "input": "سلام um دنیا"},
+        {"id": "filler-removed-around-zwnj-word",
+         "description": "removing 'uh' next to a ZWNJ-bearing word must not disturb the "
+                        "word-joiner — the removal window is the token, not the substring",
+         "input": "كتاب\u200cها uh تمام شدند"},
+        {"id": "persian-homophone-of-filler-untouched",
+         "description": "'oom' (اوم) is a Persian word that romanises to a filler; the "
+                        "filter is code-point-exact ASCII, so RTL look-alikes are never "
+                        "fillers — a port that case-folds or transliterates would eat words",
+         "input": "اوم آخر جمله"},
+        {"id": "url-filler-segment-in-persian-sentence-preserved",
+         "description": "the URL guard (#83) works identically when the surrounding "
+                        "sentence is RTL: 'actually' inside the path segment survives",
+         "input": "به https://example.com/actually مراجعه کنید"},
+        {"id": "english-self-correction-rolls-back-persian-clause",
+         "description": "surprising: an English rollback trigger eats the preceding RTL "
+                        "clause whole — script does not protect text from a 'never mind'; "
+                        "pinned deliberately, the contract mirrors desktop behaviour",
+         "input": "هرگز این\u200cطوری نیست never mind آنجا"},
+        {"id": "long-persian-paragraph-no-word-dropped",
+         "description": "at 900+ code points of pure Persian the filter changes nothing "
+                        "but the trailing space — no rule misfires on repeated RTL "
+                        "sentence structure",
+         "input": ("این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای "
+                   "چندسکویی در نظر گرفته شده است. " * 10)},
     ],
     "postprocess.voice_punctuation": [
         {"id": "empty-string", "description": "empty input is unchanged", "input": ""},
@@ -978,6 +1062,25 @@ CASES: dict[str, list[dict[str, Any]]] = {
         {"id": "code-identifier-untouched",
          "description": "an identifier containing a marker word must survive",
          "input": "call comma_separated_values now"},
+        # ── FA-03: Persian / RTL vectors (#512) ────────────────────────────
+        {"id": "marker-applies-after-persian",
+         "description": "'period' after an RTL word still becomes '.' attached to it — "
+                        "marker substitution is ASCII-lexical and script-agnostic",
+         "input": "سلام دنیا period"},
+        {"id": "marker-in-mixed-run-attaches",
+         "description": "a marker between Latin and Persian words attaches left with no "
+                        "space, and the RTL word on the right keeps its separating space",
+         "input": "سلام world period دنیا"},
+        {"id": "persian-words-for-punctuation-are-not-markers",
+         "description": "'نقطه' (period) and 'ویرگول' (comma) are Persian nouns, not the "
+                        "English marker phrases — only exact ASCII phrases substitute",
+         "input": "نقطه و ویرگول"},
+        {"id": "question-mark-spliced-into-rtl-sentence",
+         "description": "surprising: a spoken 'question mark' inside RTL prose is spliced "
+                        "as '?' hugging the preceding Persian word while a literal '?' "
+                        "(U+061F) elsewhere is untouched — byte-offset substitution must "
+                        "not disturb adjacent code points",
+         "input": "سلام، روز خوبی question mark هست؟"},
     ],
     "postprocess.spacing": [
         {"id": "no-recent-injection", "description": "a fresh burst gets no separator",
@@ -1019,6 +1122,34 @@ CASES: dict[str, list[dict[str, Any]]] = {
         {"id": "rtl-persian-continuing",
          "description": "RTL continuation still gets its separator",
          "input": "سلام", "options": {"had_recent_injection": True}},
+        # ── FA-03: Persian / RTL vectors (#512) ────────────────────────────
+        # The suppression set is ASCII-only TODAY (".,!?;:)]}…%"). These cases
+        # pin that as the contract so the Android port matches the desktop
+        # behaviour, not a well-meaning superset; see the #512 PR for the
+        # proposal to extend it to U+060C/U+061F/U+061B as a MAJOR bump.
+        {"id": "persian-comma-start-gets-space",
+         "description": "a burst opening with the Persian comma U+060C gets the space "
+                        "the ASCII comma would suppress — the suppression set is "
+                        "ASCII-only (pinned behaviour; a candidate change is filed in #512)",
+         "input": "، بعداً", "options": {"had_recent_injection": True}},
+        {"id": "persian-question-mark-start-gets-space",
+         "description": "same ASCII-only suppression gap for U+061F: RTL bursts "
+                        "beginning with the Persian question mark keep their separator",
+         "input": "؟ شاید", "options": {"had_recent_injection": True}},
+        {"id": "closing-guillemet-start-gets-space",
+         "description": "U+00BB mirrors U+00AB: neither Persian quotation mark is in "
+                        "the suppression set, so both openers and closers keep the space",
+         "input": "» بعداً", "options": {"had_recent_injection": True}},
+        {"id": "zwnj-start-gets-space",
+         "description": "the probe looks at text[0] only, and a leading ZWNJ is "
+                        "invisible non-whitespace: the burst gets a space before a "
+                        "character the user cannot see",
+         "input": "\u200cسلام", "options": {"had_recent_injection": True}},
+        {"id": "bidi-control-start-gets-space",
+         "description": "an RLE embedding character at the start behaves like the ZWNJ "
+                        "above: no suppression, plain separator — adversarial input must "
+                        "not make a port invent a special case",
+         "input": "\u202bسلام", "options": {"had_recent_injection": True}},
     ],
     "stt.vocabulary": [
         {"id": "no-parts", "description": "nothing configured still primes the app name",
@@ -1054,6 +1185,19 @@ CASES: dict[str, list[dict[str, Any]]] = {
          "input": ["Kubernetes", "   ", "Grafana"]},
         {"id": "rtl-persian-vocabulary", "description": "non-Latin vocabulary is preserved",
          "input": ["تهران، اصفهان"]},
+        # ── FA-03: Persian / RTL vectors (#512) ────────────────────────────
+        {"id": "persian-with-latin-product-name-vocabulary",
+         "description": "a mixed-script entry keeps both scripts and the app-name "
+                        "preamble still lands last, after RTL text",
+         "input": ["تهران، VS Code"]},
+        {"id": "zwnj-vocabulary-entries-joined",
+         "description": "word-joiners inside vocabulary entries survive the space-merge "
+                        "between parts — the joiner is content, never a separator",
+         "input": ["می\u200cخواهم", "خانه\u200cها"]},
+        {"id": "none-between-persian-parts-skipped",
+         "description": "the None-skipping rule is script-agnostic: RTL parts join with "
+                        "a space around a missing middle part",
+         "input": ["تهران، اصفهان", None, "شیراز"]},
     ],
     "commands.grammar": [
         {"id": "empty-string", "description": "empty input is dictation, never a command",
@@ -1145,6 +1289,35 @@ CASES: dict[str, list[dict[str, Any]]] = {
         {"id": "numbers-in-dictation-stay-dictation",
          "description": "a sentence containing a number is not a go-to-line command",
          "input": "we shipped 42 features this year"},
+        # ── FA-03: Persian / RTL vectors (#512) ────────────────────────────
+        {"id": "go-to-line-persian-digits-argument-verbatim",
+         "description": "the digit pattern is Unicode-aware: Persian digits (U+06F0 "
+                        "block) match, and the arg stays '۴۲' verbatim — a port must "
+                        "NOT ASCII-transliterate the argument before dispatch",
+         "input": "go to line ۴۲"},
+        {"id": "go-to-line-arabic-indic-digits-argument-verbatim",
+         "description": "the other digit block (U+0660) behaves identically; both blocks "
+                        "are pinned because a port could pass one and fail the other",
+         "input": "go to line ٤٢"},
+        {"id": "bidi-wrapped-command-is-dictation",
+         "description": "adversarial: an LRE-control-wrapped 'select all' must NOT "
+                        "execute — whole-utterance anchoring sees the control character "
+                        "and falls back to dictation (typing is recoverable, firing an "
+                        "unintended keystroke is not)",
+         "input": "\u202aselect all\u202c"},
+        {"id": "zwnj-attached-command-is-dictation",
+         "description": "a ZWNJ glued to 'undo' defeats the match for the same reason: "
+                        "invisible script-adjacent characters never fire a command",
+         "input": "\u200cundo\u200c"},
+        {"id": "persian-command-phrasing-is-dictation",
+         "description": "'braw be khat 42' (go to line 42 in Persian) is dictation — "
+                        "Tier-1 grammar is English-only today, RTL phrasing must never "
+                        "execute; it is typed so the user can see it",
+         "input": "برو به خط ۴۲"},
+        {"id": "command-plus-persian-auxiliary-is-dictation",
+         "description": "'undo kon' (undo + Persian auxiliary 'do') is NOT the bare "
+                        "command any more — anchoring holds across the script boundary",
+         "input": "undo کن"},
     ],
 }
 

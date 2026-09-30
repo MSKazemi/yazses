@@ -1,6 +1,6 @@
 {
   "unit": "postprocess.voice_punctuation",
-  "contract_version": "6.8.0",
+  "contract_version": "6.8.1",
   "source": "src/yazses/postprocess/voice_punctuation.py::apply_voice_punctuation",
   "cases": [
     {
@@ -156,6 +156,34 @@
       "options": {},
       "input": "call comma_separated_values now",
       "expected": "call comma_separated_values now"
+    },
+    {
+      "id": "marker-applies-after-persian",
+      "description": "'period' after an RTL word still becomes '.' attached to it — marker substitution is ASCII-lexical and script-agnostic",
+      "options": {},
+      "input": "سلام دنیا period",
+      "expected": "سلام دنیا."
+    },
+    {
+      "id": "marker-in-mixed-run-attaches",
+      "description": "a marker between Latin and Persian words attaches left with no space, and the RTL word on the right keeps its separating space",
+      "options": {},
+      "input": "سلام world period دنیا",
+      "expected": "سلام world. دنیا"
+    },
+    {
+      "id": "persian-words-for-punctuation-are-not-markers",
+      "description": "'نقطه' (period) and 'ویرگول' (comma) are Persian nouns, not the English marker phrases — only exact ASCII phrases substitute",
+      "options": {},
+      "input": "نقطه و ویرگول",
+      "expected": "نقطه و ویرگول"
+    },
+    {
+      "id": "question-mark-spliced-into-rtl-sentence",
+      "description": "surprising: a spoken 'question mark' inside RTL prose is spliced as '?' hugging the preceding Persian word while a literal '?' (U+061F) elsewhere is untouched — byte-offset substitution must not disturb adjacent code points",
+      "options": {},
+      "input": "سلام، روز خوبی question mark هست؟",
+      "expected": "سلام، روز خوبی? هست؟"
     }
   ]
 }

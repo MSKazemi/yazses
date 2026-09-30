@@ -1,6 +1,6 @@
 {
   "unit": "postprocess.clean_text",
-  "contract_version": "6.8.0",
+  "contract_version": "6.8.1",
   "source": "src/yazses/postprocess/cleaner.py::clean_text",
   "cases": [
     {
@@ -352,6 +352,83 @@
       "options": {},
       "input": "\u000b\f  ",
       "expected": ""
+    },
+    {
+      "id": "arabic-kaf-yeh-mix-preserved",
+      "description": "ASR output mixes Arabic Kaf U+0643/Yeh U+064A with the Persian Kaf U+06A9/Yeh U+06CC; clean_text never normalises letters, so all four survive as distinct code points byte-for-byte",
+      "options": {},
+      "input": "ک ك ی ي",
+      "expected": "ک ك ی ي"
+    },
+    {
+      "id": "zwnj-word-joiner-preserved",
+      "description": "ZWNJ (U+200C) is meaning-bearing — 'mi-khaham' and 'khaneh-ha' collapse into different words without it — and clean_text must never treat it as strippable",
+      "options": {},
+      "input": "می‌خواهم خانه‌ها",
+      "expected": "می‌خواهم خانه‌ها"
+    },
+    {
+      "id": "double-zwnj-preserved",
+      "description": "a stuttered word-joiner (two adjacent ZWNJ) is still invisible non-whitespace and passes through untouched",
+      "options": {},
+      "input": "می‌‌خواهم",
+      "expected": "می‌‌خواهم"
+    },
+    {
+      "id": "boundary-zwnj-not-whitespace",
+      "description": "ZWNJ glued to the burst start/end survives strip() — it is format-control, not whitespace; a port that classifies it as blank loses the user's marker",
+      "options": {},
+      "input": "‌سلام دنیا‌",
+      "expected": "‌سلام دنیا‌"
+    },
+    {
+      "id": "leading-persian-comma-kept",
+      "description": "the strip regex is whitespace/dot/ellipsis only, so the Persian comma U+060C leads an RTL burst unchanged, mirroring the ASCII leading-comma pin above",
+      "options": {},
+      "input": "، سلام",
+      "expected": "، سلام"
+    },
+    {
+      "id": "leading-ellipsis-glued-to-persian-stripped",
+      "description": "script-agnostic stripping in the other direction: the ASCII ellipsis run is stripped even when glued directly to RTL text",
+      "options": {},
+      "input": "…سلام",
+      "expected": "سلام"
+    },
+    {
+      "id": "bidi-controls-preserved",
+      "description": "adversarial input: an RLE/PDF pair around Persian survives byte-for-byte — clean_text neither sanitises nor escapes embedding characters, so a port that 'helpfully' strips them diverges",
+      "options": {},
+      "input": "‫سلام دنیا‬",
+      "expected": "‫سلام دنیا‬"
+    },
+    {
+      "id": "persian-with-english-product-names-preserved",
+      "description": "mixed bidi run of Persian prose around Latin product names must survive as spoken, including the word-joiner in 'mi-konam'",
+      "options": {},
+      "input": "من با VS Code و YazSes کار می‌کنم",
+      "expected": "من با VS Code و YazSes کار می‌کنم"
+    },
+    {
+      "id": "email-and-path-inside-persian-preserved",
+      "description": "LTR islands (email, filesystem path) embedded in RTL prose are untouched — no leading-punctuation rule reaches inside them",
+      "options": {},
+      "input": "ایمیل من user@example.com است؛ مسیر /usr/local/bin/yazses را ببینید",
+      "expected": "ایمیل من user@example.com است؛ مسیر /usr/local/bin/yazses را ببینید"
+    },
+    {
+      "id": "persian-with-emoji-preserved",
+      "description": "astral-plane emoji between RTL words survive exactly, pinning the UTF-16 surrogate-pair trap a Kotlin port must not fall into",
+      "options": {},
+      "input": "خیلی عالی بود 🚀 دستت درد نکنه 🙏",
+      "expected": "خیلی عالی بود 🚀 دستت درد نکنه 🙏"
+    },
+    {
+      "id": "long-persian-paragraph-trailing-space-stripped",
+      "description": "meeting-length RTL input (~900 code points): only the trailing space is trimmed, every ZWNJ and Persian comma survives the regex — correctness at scale, not just short bursts",
+      "options": {},
+      "input": "این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. ",
+      "expected": "این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است."
     }
   ]
 }

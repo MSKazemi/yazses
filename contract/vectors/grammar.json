@@ -1,6 +1,6 @@
 {
   "unit": "commands.grammar",
-  "contract_version": "6.8.0",
+  "contract_version": "6.8.1",
   "source": "src/yazses/commands/grammar.py::classify",
   "cases": [
     {
@@ -337,6 +337,82 @@
         "action": "inject",
         "args": {},
         "raw_text": "we shipped 42 features this year"
+      }
+    },
+    {
+      "id": "go-to-line-persian-digits-argument-verbatim",
+      "description": "the digit pattern is Unicode-aware: Persian digits (U+06F0 block) match, and the arg stays '۴۲' verbatim — a port must NOT ASCII-transliterate the argument before dispatch",
+      "options": {},
+      "input": "go to line ۴۲",
+      "expected": {
+        "intent": "navigate",
+        "action": "go_to_line",
+        "args": {
+          "n": "۴۲"
+        },
+        "raw_text": "go to line ۴۲"
+      }
+    },
+    {
+      "id": "go-to-line-arabic-indic-digits-argument-verbatim",
+      "description": "the other digit block (U+0660) behaves identically; both blocks are pinned because a port could pass one and fail the other",
+      "options": {},
+      "input": "go to line ٤٢",
+      "expected": {
+        "intent": "navigate",
+        "action": "go_to_line",
+        "args": {
+          "n": "٤٢"
+        },
+        "raw_text": "go to line ٤٢"
+      }
+    },
+    {
+      "id": "bidi-wrapped-command-is-dictation",
+      "description": "adversarial: an LRE-control-wrapped 'select all' must NOT execute — whole-utterance anchoring sees the control character and falls back to dictation (typing is recoverable, firing an unintended keystroke is not)",
+      "options": {},
+      "input": "‪select all‬",
+      "expected": {
+        "intent": "dictate",
+        "action": "inject",
+        "args": {},
+        "raw_text": "‪select all‬"
+      }
+    },
+    {
+      "id": "zwnj-attached-command-is-dictation",
+      "description": "a ZWNJ glued to 'undo' defeats the match for the same reason: invisible script-adjacent characters never fire a command",
+      "options": {},
+      "input": "‌undo‌",
+      "expected": {
+        "intent": "dictate",
+        "action": "inject",
+        "args": {},
+        "raw_text": "‌undo‌"
+      }
+    },
+    {
+      "id": "persian-command-phrasing-is-dictation",
+      "description": "'braw be khat 42' (go to line 42 in Persian) is dictation — Tier-1 grammar is English-only today, RTL phrasing must never execute; it is typed so the user can see it",
+      "options": {},
+      "input": "برو به خط ۴۲",
+      "expected": {
+        "intent": "dictate",
+        "action": "inject",
+        "args": {},
+        "raw_text": "برو به خط ۴۲"
+      }
+    },
+    {
+      "id": "command-plus-persian-auxiliary-is-dictation",
+      "description": "'undo kon' (undo + Persian auxiliary 'do') is NOT the bare command any more — anchoring holds across the script boundary",
+      "options": {},
+      "input": "undo کن",
+      "expected": {
+        "intent": "dictate",
+        "action": "inject",
+        "args": {},
+        "raw_text": "undo کن"
       }
     }
   ]
