@@ -217,6 +217,48 @@ with no explanation beyond `yazses doctor`. `yazses start` now detects a unit wh
 detached process if that fails); the `.deb` postinst links `/usr/bin/yazses{,-daemon}` to the
 pipx binaries.
 
+### Fixed — the daemon now reads the config file the CLI writes (#330)
+
+`config.default_config_path()` returned `Path.home() / ".config" / "yazses" / "config.toml"`
+on every platform. That **is** the config dir on Linux by coincidence; on Windows the
+product lives in `%LOCALAPPDATA%\yazses` and on macOS in `~/Library/Application Support`.
+The daemon calls `load_config()` with no path — so on those two platforms it read
+dataclass defaults forever while the CLI read and wrote the platform file. The user's
+`hotkey set left_ctrl` updated a file the running daemon would never open, which is why
+the hotkey symptom in [#330](https://github.com/MSKazemi/yazses/issues/330) survived not
+only restarts but the restart *fix*: no restart had ever looked at that file. The seam
+now delegates to `platform.factory.get_paths().config_file` — the same resolver the CLI,
+`doctor` and first-run seeding already use — with a structural regression test, because
+on the Linux CI runner the old literal and the new delegation are the same string and no
+behavioural test could tell them apart.
+
+### Fixed — `restart` now replaces a daemon it has watched leave, and `start` opens no window (#330)
+
+The reopened half of [#330](https://github.com/MSKazemi/yazses/issues/330), reported from
+real Windows 11 with measured PIDs: minutes after a clean-looking `yazses restart`, the
+new daemon still answered `status` with the *old* hotkey, and every `start`/`restart`
+opened a blank console window that stayed open for the daemon's whole life.
+
+`WindowsLifecycle.stop_daemon` returned when the daemon *acknowledged* the `shutdown`
+RPC — not when the process had exited. The real teardown (unload the model, close the
+IPC server, release the hotkey hook) runs afterwards, and the named-pipe transport
+allows several live servers under one pipe name, so the successor daemon could come up
+beside the dying predecessor and `status` could land on either. `stop_daemon` now waits
+— bounded, polling the shared `process_alive` probe — until the acknowledged PID is
+gone before returning, and `_restart_daemon` independently holds the same line for
+every platform: the recorded PID must be observed dead before `_spawn_daemon` runs.
+The wait never sends a signal; it only stops the next step from starting early.
+
+The blank window came from the spawn flags contradicting each other:
+`DETACHED_PROCESS | CREATE_NO_WINDOW` made the *CLI* console-less, and a console-less
+parent launching the pipx/venv redirector makes *that* process start the real
+console-subsystem interpreter with a brand-new visible console — which is the window
+the reporter watched. The daemon's survival never depended on `DETACHED_PROCESS`
+(Windows has no parent/child lifecycle to outlive), so the spawn is now
+`CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW` with stdin/stdout/stderr at `DEVNULL`:
+the daemon gets an invisible console the redirector's child inherits, and nothing
+anywhere has a reason to allocate a window.
+
 ### Fixed — the Korean review was credited everywhere except this file
 
 [@doeil1614-ops](https://github.com/doeil1614-ops) read `docs/ko/index.md` as a native
