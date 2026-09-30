@@ -12,6 +12,16 @@ daemon and no config file exists yet, it writes one that enables the
 recommended-by-default feature set (derived from the capability registry, the
 single source of truth). It never touches an existing config, so a user's own
 choices are always respected.
+
+``migrate_legacy_config`` repairs the collateral of the bug fixed in #330: the
+config seam used to resolve to the POSIX path on every OS, so first-run seeding
+wrote configs there even on Windows and macOS, where the daemon (reading the
+platform location all along via the CLI's resolver) never saw them. The moment
+the daemon *does* start reading the platform file, such a stranded config would
+silently stop applying — so startup carries it over once, before seeding. The
+file is moved intact with a rename (comments arrive byte-for-byte), and on
+Linux the legacy path *is* the platform path, so the migration is a no-op there
+by construction — the configuration that was never broken is never touched.
 """
 from __future__ import annotations
 
@@ -52,4 +62,49 @@ def ensure_recommended_config(path: Path | None = None) -> bool:
     )
     for section, key, value, quote in default_enabled_writes():
         set_config_key(p, section, key, value, quote=quote)
+    return True
+
+
+def migrate_legacy_config(
+    legacy_path: Path | None = None, target_path: Path | None = None
+) -> bool:
+    """Carry a stranded pre-#330 config to the location the daemon now reads.
+
+    Before #330, ``config.default_config_path()`` returned the POSIX path on
+    every OS, so first-run seeding wrote configs there even on Windows and
+    macOS. Once the daemon reads the platform file, such a stranded config
+    would silently stop applying — so the daemon's startup runs this before
+    seeding: if the legacy file exists and the platform file does not, the
+    legacy file is moved intact and the caller reports True.
+
+    The move is a rename (comments arrive byte-for-byte), with a copy fallback
+    for a legacy home on a different volume than the platform dir. Deliberate
+    no-ops, each pinned by a test: on Linux the legacy path *is* the platform
+    path (the resolver agrees with the old literal), so nothing there was ever
+    stranded and nothing is touched; when both files exist the platform config
+    already wins and the legacy copy is left exactly where it is rather than
+    merged or deleted; and no legacy file means nothing to do. Errors raise
+    into the daemon's swallow-and-log startup guard, same as seeding: config
+    housekeeping must never block startup.
+    """
+    from yazses.config import default_config_path, legacy_default_config_path
+
+    legacy = (
+        Path(legacy_path) if legacy_path is not None else legacy_default_config_path()
+    )
+    target = (
+        Path(target_path) if target_path is not None else default_config_path()
+    )
+    if legacy == target or not legacy.is_file():
+        return False
+    if target.exists():
+        return False
+    target.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        legacy.rename(target)
+    except OSError:
+        import shutil
+
+        shutil.copy2(legacy, target)
+        legacy.unlink()
     return True
