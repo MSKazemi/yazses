@@ -4,6 +4,7 @@ from yazses.config import Config
 from yazses.core.daemon import (
     Daemon,
     overlay_dependency_available,
+    overlay_steals_focus,
     should_launch_overlay,
 )
 from yazses.ipc.protocol import Request
@@ -29,10 +30,25 @@ def test_should_launch_overlay_enabled_with_x11():
     assert should_launch_overlay(_cfg(True), {"DISPLAY": ":1"}, platform="linux") is True
 
 
-def test_should_launch_overlay_enabled_with_wayland():
-    assert should_launch_overlay(
-        _cfg(True), {"WAYLAND_DISPLAY": "wayland-0"}, platform="linux"
-    ) is True
+def test_should_not_launch_overlay_on_native_wayland():
+    """It takes focus there, so dictated text would be typed into the overlay."""
+    for env in (
+        {"WAYLAND_DISPLAY": "wayland-0"},
+        {"WAYLAND_DISPLAY": "wayland-0", "DISPLAY": ":0"},  # Wayland + XWayland: Qt still picks wayland
+        {"XDG_SESSION_TYPE": "wayland", "DISPLAY": ":0"},
+    ):
+        assert should_launch_overlay(_cfg(True), env, platform="linux") is False
+
+
+def test_explicit_qt_platform_lifts_the_wayland_block():
+    env = {"WAYLAND_DISPLAY": "wayland-0", "QT_QPA_PLATFORM": "xcb"}
+    assert should_launch_overlay(_cfg(True), env, platform="linux") is True
+
+
+def test_wayland_block_is_linux_only():
+    env = {"WAYLAND_DISPLAY": "wayland-0"}
+    assert overlay_steals_focus(env, platform="win32") is False
+    assert overlay_steals_focus(env, platform="darwin") is False
 
 
 def test_should_launch_overlay_enabled_but_headless():

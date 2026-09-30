@@ -100,6 +100,39 @@ One behaviour the deleted dispatch owned moved with it: `XdotoolInjector.inject_
 now maps the `meta` modifier to `super`, as `LinuxInjector` did before, so a raw `meta+…`
 combo still means the Super key on X11.
 
+### Changed — `yazses setup` now provisions Windows, and the Wayland hint leads with the command
+
+- **Windows:** `yazses setup` (and `--dry-run`) checks the Windows-only Python packages
+  (`pywin32`, `pystray`, `Pillow`) and whether the speech decoder loads, and installs what is
+  missing: `pip` for the packages, `winget` for the Visual C++ Redistributable (x64 or arm64).
+  A frozen installer never plans `pip`. Registered in ADR-019 (`system/winsetup.py`).
+  Unit-tested with injected probes; not yet run on a real Windows host.
+- **Linux:** the `ydotoold` preflight hint puts `yazses setup` on its own line (the
+  highlighter only matched lines starting with `yazses `) and states the re-login step and
+  the "Remote Desktop" consequence in fewer words.
+
+### Fixed — on GNOME Wayland the overlay swallowed the dictated text
+
+With the overlay on (the default) a dictation "worked" in every log and in `yazses status`
+("typed 5 of 5") yet nothing appeared in the focused app. On a native Wayland Qt session the
+compositor gives keyboard focus to every new top-level window, and `WindowDoesNotAcceptFocus`
+/ `WA_ShowWithoutActivating` are X11-only hints — so the overlay appeared when the hotkey
+went down and the text was typed into it. Measured on GNOME 46: with a focused text window
+open, showing `SonarWidget` left the overlay active and the text window not. The daemon no
+longer spawns the overlay on Wayland (`overlay_steals_focus`) and logs why; setting
+`QT_QPA_PLATFORM` explicitly (e.g. `xcb`) lifts the block.
+
+### Fixed — `yazses start` reported success while a broken systemd unit started nothing
+
+On a pipx/curl install alongside the apt package, the packaged unit's
+`ExecStart=/usr/bin/yazses-daemon` did not exist: the `.deb` postinst created that link only
+in its pip fallback branch, never after `pipx install`. `yazses start` ran `systemctl start`,
+systemd failed `203/EXEC` five times and gave up, and `yazses status` said "not running"
+with no explanation beyond `yazses doctor`. `yazses start` now detects a unit whose
+`ExecStart` is missing and rewrites the user unit to the running install (falling back to a
+detached process if that fails); the `.deb` postinst links `/usr/bin/yazses{,-daemon}` to the
+pipx binaries.
+
 ### Fixed — the Korean review was credited everywhere except this file
 
 [@doeil1614-ops](https://github.com/doeil1614-ops) read `docs/ko/index.md` as a native

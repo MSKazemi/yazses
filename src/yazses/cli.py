@@ -1405,9 +1405,33 @@ def _spawn_daemon(platform) -> None:
     it through systemd so it is supervised and self-heals (``Restart=on-failure``);
     otherwise we fall back to a detached process."""
     if _systemd_managed():
+        if _systemd_unit_broken():
+            # A unit whose ExecStart binary is gone (a packaged unit naming
+            # /usr/bin/yazses-daemon on a pipx install) fails 203/EXEC, and after five
+            # tries systemd stops retrying — so `systemctl start` would "succeed" and
+            # nothing would ever run. Rewrite the user unit to this install instead.
+            try:
+                platform.lifecycle.install_autostart()  # writes the unit, enables --now
+                return
+            except Exception:  # noqa: BLE001 — fall through to a plain process
+                platform.lifecycle.start_daemon_detached()
+                return
         __import__("subprocess").run(["systemctl", "--user", "start", "yazses"])
     else:
         platform.lifecycle.start_daemon_detached()
+
+
+def _systemd_unit_broken() -> bool:
+    """True when the yazses user unit's ExecStart names a binary that does not exist."""
+    from pathlib import Path
+
+    from yazses.system import doctor
+
+    try:
+        exec_path = doctor._systemd_execstart()
+    except Exception:  # noqa: BLE001 — an unanswerable question is not a reason to act
+        return False
+    return exec_path is not None and not Path(exec_path).exists()
 
 
 def _wait_until_ready(platform, timeout: float = 20.0):
@@ -4797,8 +4821,32 @@ def setup(
 
     from yazses.system import streams as _streams
 
+    if _sys.platform == "win32":
+        from yazses.system import winsetup as _win
+
+        wplan = _win.build_windows_plan()
+        for note in wplan.notes:
+            typer.secho(f"\n{note}", fg=typer.colors.YELLOW)
+        if dry_run:
+            typer.echo(
+                "Would install: "
+                + (", ".join([*wplan.pip_packages, *(["Visual C++ Redistributable"] if wplan.vc_redist else [])])
+                   or "nothing — all requirements already satisfied")
+            )
+            typer.echo("\n(dry run — no changes made)")
+            return
+        win_ok = _win.apply_windows_plan(wplan, echo=typer.echo)
+        typer.echo("\nVerifying with `yazses doctor`...\n")
+        from yazses.system.doctor import run_doctor
+
+        run_doctor()
+        if not win_ok:
+            typer.echo("\nSome steps need attention — see warnings above.", err=True)
+            raise typer.Exit(1)
+        return
+
     if _sys.platform != "linux":
-        typer.echo("yazses setup currently provisions Linux only; nothing to do.")
+        typer.echo("yazses setup currently provisions Linux and Windows only; nothing to do.")
         return
 
     from yazses.system import setup as _setup

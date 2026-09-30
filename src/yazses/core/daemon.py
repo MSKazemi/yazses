@@ -135,7 +135,29 @@ def should_launch_overlay(
 
     if not config.overlay.enabled:
         return False
+    if overlay_steals_focus(env, platform=platform):
+        return False
     return has_graphical_session(env, platform=platform)
+
+
+def overlay_steals_focus(env: Mapping[str, str], *, platform: str | None = None) -> bool:
+    """True where showing the overlay takes keyboard focus away from the user's app.
+
+    Under a native Wayland Qt session the compositor (Mutter, measured on GNOME 46)
+    focuses every new top-level window. ``WindowDoesNotAcceptFocus`` and
+    ``WA_ShowWithoutActivating`` are X11 hints with no Wayland equivalent, so the
+    overlay appears the moment the hotkey goes down and the dictated text is typed
+    into *it* -- the daemon logs "Injecting N chars", ``status`` reports the burst as
+    typed, and nothing shows up anywhere. An overlay that eats the dictation is worse
+    than none, so it is not spawned there. Setting ``QT_QPA_PLATFORM`` explicitly
+    (e.g. ``xcb``) says the user has chosen where it goes, and lifts the block.
+    """
+    import sys
+
+    platform = sys.platform if platform is None else platform
+    if not platform.startswith("linux") or env.get("QT_QPA_PLATFORM"):
+        return False
+    return bool(env.get("WAYLAND_DISPLAY")) or env.get("XDG_SESSION_TYPE") == "wayland"
 
 
 def overlay_dependency_available() -> bool:
@@ -514,6 +536,11 @@ class Daemon:
     def _maybe_launch_overlay(self) -> None:
         """Spawn the sonar overlay as a detached process when configured."""
         if not should_launch_overlay(self._config, os.environ):
+            if self._config.overlay.enabled and overlay_steals_focus(os.environ):
+                log.info(
+                    "Overlay skipped: on Wayland it takes keyboard focus and your "
+                    "dictation would be typed into it. Set QT_QPA_PLATFORM=xcb to force it."
+                )
             return
         if not overlay_dependency_available():
             log.info(

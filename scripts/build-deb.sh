@@ -106,6 +106,15 @@ if [ "$1" = "configure" ]; then
             # no diagnostic whatsoever, which is the least actionable failure possible.
             su - "$CALLER" -c "pipx install 'yazses[desktop]' || pipx upgrade yazses"
             su - "$CALLER" -c "pipx ensurepath"
+            # The packaged unit's ExecStart is /usr/bin/yazses-daemon, but pipx installs
+            # into the user's ~/.local/bin. Without these links the service crash-loops
+            # (203/EXEC) and `yazses start` silently starts nothing.
+            CALLER_HOME="$(getent passwd "$CALLER" | cut -d: -f6)"
+            for bin in yazses yazses-daemon; do
+                if [ -x "$CALLER_HOME/.local/bin/$bin" ] && [ ! -e "/usr/bin/$bin" ]; then
+                    ln -s "$CALLER_HOME/.local/bin/$bin" "/usr/bin/$bin"
+                fi
+            done
         fi
     else
         pip3 install --quiet yazses

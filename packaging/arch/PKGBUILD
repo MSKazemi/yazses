@@ -83,8 +83,11 @@ package() {
     python -m installer --destdir="${pkgdir}" dist/*.whl
 
     # systemd user unit: `systemctl --user enable --now yazses.service`
-    install -Dm644 contrib/yazses.service \
-        "${pkgdir}/usr/lib/systemd/user/yazses.service"
+    # contrib/yazses.service names %h/.local/bin (a pipx install); pacman puts the
+    # console script in /usr/bin, so rewrite it or the unit crash-loops (203/EXEC).
+    install -d "${pkgdir}/usr/lib/systemd/user"
+    sed 's|%h/.local/bin/yazses-daemon|/usr/bin/yazses-daemon|g' contrib/yazses.service \
+        > "${pkgdir}/usr/lib/systemd/user/yazses.service"
 
     install -Dm644 man/yazses.1 "${pkgdir}/usr/share/man/man1/yazses.1"
     install -Dm644 LICENSE "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"

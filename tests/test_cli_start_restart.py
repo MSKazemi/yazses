@@ -160,6 +160,7 @@ def test_spawn_detached_when_no_systemd(monkeypatch):
 
 def test_spawn_via_systemd_when_managed(monkeypatch):
     monkeypatch.setattr(cli, "_systemd_managed", lambda: True)
+    monkeypatch.setattr(cli, "_systemd_unit_broken", lambda: False)
     calls = []
     import subprocess
 
@@ -169,6 +170,49 @@ def test_spawn_via_systemd_when_managed(monkeypatch):
     cli._spawn_daemon(plat)
     assert lc.detached_spawns == 0  # NOT an unsupervised process
     assert calls and calls[0][:3] == ["systemctl", "--user", "start"]
+
+
+def test_spawn_repairs_unit_whose_execstart_is_missing(monkeypatch):
+    """The curl/pipx + packaged-unit trap: ExecStart=/usr/bin/yazses-daemon is absent."""
+    monkeypatch.setattr(cli, "_systemd_managed", lambda: True)
+    monkeypatch.setattr(cli, "_systemd_unit_broken", lambda: True)
+    import subprocess
+
+    calls = []
+    monkeypatch.setattr(subprocess, "run", lambda *a, **k: calls.append(a[0]))
+    lc = _Lifecycle([])
+    lc.installs = 0
+    lc.install_autostart = lambda: setattr(lc, "installs", lc.installs + 1)
+    cli._spawn_daemon(_Platform(lc, _Client([])))
+    assert lc.installs == 1  # unit rewritten to this install
+    assert calls == []  # no doomed `systemctl start`
+    assert lc.detached_spawns == 0
+
+
+def test_spawn_falls_back_to_detached_when_repair_fails(monkeypatch):
+    monkeypatch.setattr(cli, "_systemd_managed", lambda: True)
+    monkeypatch.setattr(cli, "_systemd_unit_broken", lambda: True)
+    lc = _Lifecycle([])
+
+    def boom():
+        raise RuntimeError("no systemctl")
+
+    lc.install_autostart = boom
+    cli._spawn_daemon(_Platform(lc, _Client([])))
+    assert lc.detached_spawns == 1
+
+
+def test_unit_broken_detection(monkeypatch, tmp_path):
+    from yazses.system import doctor
+
+    monkeypatch.setattr(doctor, "_systemd_execstart", lambda: "/nonexistent/yazses-daemon")
+    assert cli._systemd_unit_broken() is True
+    real = tmp_path / "yazses-daemon"
+    real.write_text("", encoding="utf-8")
+    monkeypatch.setattr(doctor, "_systemd_execstart", lambda: str(real))
+    assert cli._systemd_unit_broken() is False
+    monkeypatch.setattr(doctor, "_systemd_execstart", lambda: None)
+    assert cli._systemd_unit_broken() is False
 
 
 # ---- end-to-end start ------------------------------------------------------
