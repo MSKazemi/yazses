@@ -251,8 +251,12 @@ def _build_checked(engine_name: str, model_name: str, cpu_threads: int):
     The exact hazard ``bench_wer.py`` documents: the factory degrades a missing
     extra to faster-whisper with a warning, which is right for dictation and fatal
     for a benchmark that would publish Whisper's numbers under another engine's
-    name. So the class is checked against what was asked for.
+    name. So the class is checked against what was asked for. ``build_engine``
+    takes an ``SttConfig``, not kwargs — same construction as ``bench_wer._build``,
+    with ``language="fa"`` explicit for the same reason it is explicit there: an
+    auto-detect pass would skew the RTF measurement.
     """
+    from yazses.config import SttConfig  # noqa: PLC0415
     from yazses.stt.factory import build_engine  # noqa: PLC0415
 
     expected = {
@@ -260,12 +264,24 @@ def _build_checked(engine_name: str, model_name: str, cpu_threads: int):
         "parakeet": "ParakeetEngine",
         "moonshine": "MoonshineEngine",
     }
-    engine = build_engine(engine_name, model=model_name, cpu_threads=cpu_threads)
+    engine = build_engine(
+        SttConfig(
+            engine=engine_name,
+            model=model_name,
+            language="fa",
+            compute_type="int8",
+            cpu_threads=cpu_threads,
+        )
+    )
     want = expected.get(engine_name)
     if want and type(engine).__name__ != want:
-        raise SystemExit(
-            f"asked for {engine_name!r} but build_engine returned "
-            f"{type(engine).__name__!r}; refusing to publish a mislabeled result"
+        raise RuntimeError(
+            f"asked for engine {engine_name!r} ({want}) and the factory returned "
+            f"{type(engine).__name__}. build_engine falls back to faster-whisper "
+            f"when an optional dependency is missing, so this run would have "
+            f"published one engine's numbers under another's name. Install the "
+            f"extra and re-run: uv sync --extra "
+            f"{'parakeet' if engine_name == 'parakeet' else 'moonshine'}"
         )
     return engine
 

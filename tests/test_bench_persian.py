@@ -170,6 +170,35 @@ def test_smoke_run_needs_no_audio_or_model(bench_persian):
     assert "build_engine" not in smoke_fn and "load_audio" not in smoke_fn
 
 
+def test_factory_is_called_with_an_stt_config_not_kwargs(bench_persian):
+    """`build_engine(stt)` takes one SttConfig positional argument — and it got that
+    wrong once: CodeQL's 'Wrong name for an argument in a call' caught
+    `build_engine(engine_name, model=..., cpu_threads=...)` on PR #558, a call that
+    would have TypeError'd the first real corpus run while every smoke test stayed
+    green (the smoke path never builds an engine). Pinned on the AST so the
+    structurally-untested path cannot regress back to kwargs."""
+    import ast
+
+    tree = ast.parse((BENCH / "bench_persian.py").read_text(encoding="utf-8"))
+    calls = [
+        node for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "build_engine"
+    ]
+    assert calls, "bench_persian.py no longer calls build_engine at all"
+    for call in calls:
+        assert not call.keywords, (
+            "build_engine was called with keyword arguments; it takes a single "
+            "SttConfig (CodeQL caught this exact shape on #558 — a TypeError on "
+            "the first real manifest run, invisible to the smoke path)"
+        )
+        assert len(call.args) == 1, (
+            f"build_engine got {len(call.args)} positional args; it takes exactly "
+            "one SttConfig"
+        )
+
+
 # ── the CLI contract ─────────────────────────────────────────────────────────
 
 
