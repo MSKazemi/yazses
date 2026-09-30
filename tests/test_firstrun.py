@@ -88,7 +88,7 @@ def test_migrate_is_a_noop_when_paths_coincide(tmp_path):
     assert cfg.read_text(encoding="utf-8") == "[hotkey]\nkey = \"left_ctrl\"\n"
 
 
-def test_platform_config_wins_when_both_exist(tmp_path):
+def test_platform_config_wins_when_both_exist(tmp_path, caplog):
     """Both files present: the platform file already wins; no merge, no delete.
 
     Guessing between two configs risks destroying one; leaving the legacy copy
@@ -99,9 +99,22 @@ def test_platform_config_wins_when_both_exist(tmp_path):
     target = tmp_path / "target.toml"
     target.write_text("[hotkey]\nkey = \"right_ctrl\"\n", encoding="utf-8")
 
-    assert firstrun.migrate_legacy_config(legacy, target) is False
+    with caplog.at_level("WARNING", logger="yazses.system.firstrun"):
+        assert firstrun.migrate_legacy_config(legacy, target) is False
     assert legacy.exists()
     assert load_config(target).hotkey.key == "right_ctrl"
+    # Settings that lived only in the legacy file stop applying: that must be said.
+    assert str(legacy) in caplog.text and str(target) in caplog.text
+
+
+def test_coinciding_paths_stay_silent(tmp_path, caplog):
+    """Linux: the legacy path is the platform path, so there is nothing to warn about."""
+    same = tmp_path / "config.toml"
+    same.write_text("[hotkey]\nkey = \"left_ctrl\"\n", encoding="utf-8")
+
+    with caplog.at_level("WARNING", logger="yazses.system.firstrun"):
+        assert firstrun.migrate_legacy_config(same, same) is False
+    assert caplog.text == ""
 
 
 def test_no_legacy_file_means_nothing_to_do(tmp_path):
