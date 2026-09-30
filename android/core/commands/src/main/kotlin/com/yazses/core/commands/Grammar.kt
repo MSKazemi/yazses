@@ -49,6 +49,12 @@ private data class Rule(
     val argNames: List<String> = emptyList(),
 )
 
+/*
+ * Digits are spelled `\p{Nd}`, not `\d`: Python's `\d` on text is Unicode category Nd
+ * (so "go to line ۴۲" and "go to line ٤٢" match and the argument is kept verbatim), while
+ * the JVM's `\d` is `[0-9]` only. The contract pins the Python behaviour
+ * (`grammar.json`: go-to-line-persian-digits-argument-verbatim and its Arabic-Indic twin).
+ */
 private fun rule(pattern: String, intent: IntentType, action: String, vararg args: String) =
     Rule(Regex(pattern, RegexOption.IGNORE_CASE), intent, action, args.toList())
 
@@ -61,12 +67,12 @@ private fun rule(pattern: String, intent: IntentType, action: String, vararg arg
  */
 private val RULES: List<Rule> = listOf(
     // EDIT
-    rule("""^delete\s+(?:the\s+)?last\s+(\d+)\s+words?$""", IntentType.EDIT, "delete_words", "n"),
+    rule("""^delete\s+(?:the\s+)?last\s+(\p{Nd}+)\s+words?$""", IntentType.EDIT, "delete_words", "n"),
     rule("""^delete\s+(?:the\s+)?last\s+word$""", IntentType.EDIT, "delete_words"),
-    rule("""^delete\s+(?:the\s+)?last\s+(\d+)\s+lines?$""", IntentType.EDIT, "delete_lines", "n"),
+    rule("""^delete\s+(?:the\s+)?last\s+(\p{Nd}+)\s+lines?$""", IntentType.EDIT, "delete_lines", "n"),
     rule("""^delete\s+(?:the\s+)?last\s+line$""", IntentType.EDIT, "delete_lines"),
     rule("""^undo(?:\s+that)?$""", IntentType.EDIT, "undo"),
-    rule("""^undo\s+(\d+)\s+times?$""", IntentType.EDIT, "undo_n", "n"),
+    rule("""^undo\s+(\p{Nd}+)\s+times?$""", IntentType.EDIT, "undo_n", "n"),
     rule("""^save(?:\s+file)?(?:\s+now)?$""", IntentType.EDIT, "save"),
     rule("""^copy(?:\s+(?:that|this|line|selection))?$""", IntentType.EDIT, "copy"),
     rule("""^paste(?:\s+here)?$""", IntentType.EDIT, "paste"),
@@ -78,7 +84,7 @@ private val RULES: List<Rule> = listOf(
         IntentType.EDIT,
         "comment",
     ),
-    rule("""^select\s+(\d+)\s+lines?$""", IntentType.EDIT, "select_lines", "n"),
+    rule("""^select\s+(\p{Nd}+)\s+lines?$""", IntentType.EDIT, "select_lines", "n"),
     rule("""^select\s+(?:to\s+)?end$""", IntentType.EDIT, "select_to_end"),
     rule("""^select\s+all$""", IntentType.EDIT, "select_all"),
     // Keystrokes any command mode is expected to handle.
@@ -89,7 +95,7 @@ private val RULES: List<Rule> = listOf(
     rule("""^(?:press\s+)?backspace$""", IntentType.EDIT, "press_backspace"),
     rule("""^cut(?:\s+(?:that|this|line|selection))?$""", IntentType.EDIT, "cut"),
     // NAVIGATE
-    rule("""^go\s+to\s+line\s+(\d+)$""", IntentType.NAVIGATE, "go_to_line", "n"),
+    rule("""^go\s+to\s+line\s+(\p{Nd}+)$""", IntentType.NAVIGATE, "go_to_line", "n"),
     rule("""^page\s+up$""", IntentType.NAVIGATE, "page_up"),
     rule("""^page\s+down$""", IntentType.NAVIGATE, "page_down"),
     rule("""^(?:go\s+to\s+)?(?:start|beginning)\s+of\s+(?:the\s+)?line$""", IntentType.NAVIGATE, "line_home"),
