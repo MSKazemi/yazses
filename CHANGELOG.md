@@ -30,6 +30,39 @@ behaviour change, not a vector edit.
 Bump is `6.8.0 -> 6.8.1` (patch per the semver policy: new cases, **zero** existing
 expectations changed — the regenerated diff removes nothing but the version line).
 
+### Added — conservative Persian normalisation, off until the profile says otherwise
+
+[FA-02 / #511](https://github.com/MSKazemi/yazses/issues/511) shipped
+`src/yazses/postprocess/persian_text.py`: the pure deterministic normaliser
+`design/specs/persian-text-and-rtl.md` asked for. Whisper decodes Persian speech
+into a mix of Arabic and Persian code points — ي/ی, ك/ک, ى all arrive mid-word —
+and every search, spell-checker and copy-paste downstream treats them as
+different characters. The module canonicalises exactly the three spec'd letters
+(the mapping table is exposed as data, §3), applies NFC only (§4), collapses
+repeated ZWNJ and drops absolute-boundary ZWNJ while preserving meaningful
+word-joiners (§5), strips the bidi embedding/override/isolate controls wherever
+they appear — including inside URLs, because a hidden control in a link is the
+adversarial case the spec names (§6) — and touches nothing else: digits, Persian
+punctuation, half-spaces and morphology all stay untouched (§7/§8), and URLs,
+emails, paths, versions and Latin identifier runs are replayed byte-for-byte
+(§9).
+
+Wiring follows `han_script`: one chokepoint in `stt/factory.py` wrapping the
+engine, covering `transcribe`,
+`transcribe_words` (per-word, so subtitles and Confidence Ink agree with the
+joined text) and `decode_window`. Like `chinese_script`, it is **opt-in**: it acts
+only when `[stt] persian_normalisation = true` *and* `[stt] language` is Persian, so an
+existing `language = "fa"` install keeps exactly the text it gets today until the user
+turns it on, and the key warns once if it is set with a non-Persian language. Everyone
+else gets the engine object untouched — not a pass-through wrapper, the same instance —
+so other languages cannot be altered by a module they never enter. FA-01 (#509) is
+expected to fold this switch into the language-output profile; the core does not move.
+
+`tests/test_persian_text.py` is built from the spec's §12 minimum
+list plus its required properties: idempotence over a 5,000-character mixed
+corpus, no Latin-run deletion, protected-span immutability, boundary/repeat
+ZWNJ, and command-text wrapped in an RLO arriving as inert plain text.
+
 ### Fixed — Linux key-sequence commands now share the dictation path's fallback
 
 `LinuxInjector.inject_key_sequence()` carried its own copy of the Wayland/X11 tool dispatch
