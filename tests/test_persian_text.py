@@ -230,8 +230,11 @@ def test_long_text_idempotent_and_stable():
 
 
 class _Cfg:
-    def __init__(self, language):
+    """A duck-typed `[stt]` section; the switch is on unless a test says otherwise."""
+
+    def __init__(self, language, persian_normalisation=True):
         self.language = language
+        self.persian_normalisation = persian_normalisation
 
 
 @pytest.mark.parametrize("lang", ["fa", "FA", "fas", "fa-ir", "persian"])
@@ -242,6 +245,19 @@ def test_gate_active_for_persian_codes(lang):
 @pytest.mark.parametrize("lang", ["en", "de", "zh", "", None])
 def test_gate_inactive_is_none(lang):
     assert build_persian_normaliser(_Cfg(lang)) is None
+
+
+@pytest.mark.parametrize("lang", ["fa", "fas", "fa-ir", "persian"])
+def test_persian_language_alone_does_not_activate(lang):
+    """Ships off: an existing `language = "fa"` install must keep its text as is."""
+    assert build_persian_normaliser(_Cfg(lang, persian_normalisation=False)) is None
+
+
+def test_a_config_without_the_key_is_off():
+    class _Old:  # a duck-typed config from before the key existed
+        language = "fa"
+
+    assert build_persian_normaliser(_Old()) is None
 
 
 def test_gate_on_english_burst_is_unchanged():
@@ -273,9 +289,27 @@ def test_factory_returns_engine_untouched_for_english_default():
     assert _with_persian_normaliser(engine, SttConfig()) is engine
 
 
+def test_factory_leaves_an_existing_persian_config_untouched():
+    """The default-off guarantee, end to end: `language = "fa"` alone is unchanged."""
+    engine = _Stub()
+    assert _with_persian_normaliser(engine, SttConfig(language="fa")) is engine
+
+
+def test_the_switch_defaults_off():
+    assert SttConfig().persian_normalisation is False
+
+
+def test_switch_without_persian_language_warns_and_noops(caplog):
+    engine = _Stub()
+    cfg = SttConfig(language="en", persian_normalisation=True)
+    with caplog.at_level("WARNING", logger="yazses.stt.factory"):
+        assert _with_persian_normaliser(engine, cfg) is engine
+    assert "persian_normalisation" in caplog.text and "language" in caplog.text
+
+
 def test_factory_wraps_for_fa_and_normalises_all_surfaces():
     stub = _Stub()
-    wrapped = _with_persian_normaliser(stub, SttConfig(language="fa"))
+    wrapped = _with_persian_normaliser(stub, SttConfig(language="fa", persian_normalisation=True))
     assert wrapped is not stub
     assert wrapped.transcribe(None) == "کتاب علی"
     text, words = wrapped.transcribe_words(None)
@@ -285,7 +319,9 @@ def test_factory_wraps_for_fa_and_normalises_all_surfaces():
 
 
 def test_wrapper_delegates_unknown_attributes():
-    assert _with_persian_normaliser(_Stub(), SttConfig(language="fa")).name == "stub"
+    assert _with_persian_normaliser(
+        _Stub(), SttConfig(language="fa", persian_normalisation=True)
+    ).name == "stub"
 
 
 def test_stack_with_han_script_does_not_interfere():
@@ -293,6 +329,6 @@ def test_stack_with_han_script_does_not_interfere():
     # Han wrapper passes Persian text through its own fast path untouched.
     from yazses.stt.factory import _with_han_script
 
-    cfg = SttConfig(language="fa", chinese_script="simplified")
+    cfg = SttConfig(language="fa", chinese_script="simplified", persian_normalisation=True)
     engine = _with_persian_normaliser(_with_han_script(_Stub(), cfg), cfg)
     assert engine.transcribe(None) == "کتاب علی"

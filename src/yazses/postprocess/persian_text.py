@@ -53,6 +53,8 @@ ZWNJ = "\u200C"  # §5 zero-width non-joiner: meaningful orthography
 # URLs: a control hidden in a URL is exactly the adversarial case §6 names,
 # and a stripped control cannot render hidden text. ZWNJ/ZWJ are not here —
 # zero-width is never the test (§6).
+# Whisper's own code plus the spellings a config is likely to carry.
+_PERSIAN_LANGUAGES = frozenset({"fa", "fas", "fa-ir", "persian"})
 _BIDI_CONTROLS_RE = re.compile("[\u202A-\u202E\u2066-\u2069]")
 
 # §9 protected spans: letter canonicalisation and ZWNJ surgery must not reach
@@ -145,17 +147,25 @@ def normalise_persian(text: str) -> str:
     return "".join(out)
 
 
+def is_persian_language(language: object) -> bool:
+    """True for Whisper's Persian code and the spellings a config is likely to carry."""
+    return str(language or "").strip().lower() in _PERSIAN_LANGUAGES
+
+
 def build_persian_normaliser(stt: "SttConfig") -> Callable[[str], str] | None:
     """Return a text→text gate for Persian output, or ``None`` when inactive.
 
     ``None`` means "leave the model's output exactly as it came" and is
     returned for every configuration this normaliser does not own — so English
     (and every other language) is untouched, which is the acceptance criterion
-    the gate exists for. The active set is Whisper's own codes plus the two
-    spellings a config is likely to carry.
+    the gate exists for. It needs **both** the explicit opt-in
+    (``[stt] persian_normalisation``) and a Persian ``language``: the feature
+    ships off, so an existing ``language = "fa"`` install keeps exactly the text
+    it gets today until the user turns it on.
     """
-    language = (getattr(stt, "language", "") or "").strip().lower()
-    if language not in ("fa", "fas", "fa-ir", "persian"):
+    if not getattr(stt, "persian_normalisation", False):
+        return None
+    if not is_persian_language(getattr(stt, "language", "")):
         return None
 
     def normalise(text: str) -> str:

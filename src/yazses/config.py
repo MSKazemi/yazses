@@ -142,6 +142,13 @@ class SttConfig:
     # Empty by default because the right answer is regional, not universal.
     # Needs the `chinese` extra; without it the setting warns once and no-ops.
     chinese_script: str = ""
+    # Conservative Persian Unicode normalisation of the transcript (NFC, Arabic
+    # Yeh/Kaf -> Persian Yeh/Keheh, ZWNJ tidying, bidi-control strip; see
+    # postprocess/persian_text.py and design/specs/persian-text-and-rtl.md).
+    # Off by default: the normaliser changes the text a Persian user already gets,
+    # so an upgrade must not switch it on for them. It only acts when
+    # `language` is also Persian ("fa"); set on its own it warns once and no-ops.
+    persian_normalisation: bool = False
 
 
 @dataclass

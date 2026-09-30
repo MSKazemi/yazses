@@ -24,14 +24,17 @@ emails, paths, versions and Latin identifier runs are replayed byte-for-byte
 (§9).
 
 Wiring follows `han_script`: one chokepoint in `stt/factory.py` wrapping the
-engine when `[stt] language` is Persian, covering `transcribe`,
+engine, covering `transcribe`,
 `transcribe_words` (per-word, so subtitles and Confidence Ink agree with the
-joined text) and `decode_window`. Inactive profiles get the engine object
-untouched — not a pass-through wrapper, the same instance — so English output
-cannot be altered by a module it never enters. FA-01 (#509) replaces the
-gate's language predicate with the profile lookup; the core does not move.
+joined text) and `decode_window`. Like `chinese_script`, it is **opt-in**: it acts
+only when `[stt] persian_normalisation = true` *and* `[stt] language` is Persian, so an
+existing `language = "fa"` install keeps exactly the text it gets today until the user
+turns it on, and the key warns once if it is set with a non-Persian language. Everyone
+else gets the engine object untouched — not a pass-through wrapper, the same instance —
+so other languages cannot be altered by a module they never enter. FA-01 (#509) is
+expected to fold this switch into the language-output profile; the core does not move.
 
-`tests/test_persian_text.py` (61 cases) is built from the spec's §12 minimum
+`tests/test_persian_text.py` is built from the spec's §12 minimum
 list plus its required properties: idempotence over a 5,000-character mixed
 corpus, no Latin-run deletion, protected-span immutability, boundary/repeat
 ZWNJ, and command-text wrapped in an RLO arriving as inert plain text.

@@ -195,13 +195,24 @@ def _with_persian_normaliser(engine: "SttEngine", stt: "SttConfig") -> "SttEngin
     Applied at the same single-chokepoint factory level as `_with_han_script`
     so dictation, `yazses transcribe`, meeting mode and the streaming decoder
     all get it from one wiring point. Returns *engine* untouched when the
-    feature is off (`[stt] language` is not Persian), preserving the zero-cost
-    zero-wrapper guarantee for English and other languages.
+    feature is off (`[stt] persian_normalisation` unset, or `[stt] language` not
+    Persian), preserving the zero-cost zero-wrapper guarantee for everyone who
+    has not opted in — an existing `language = "fa"` install included.
     """
-    from yazses.postprocess.persian_text import build_persian_normaliser
+    from yazses.postprocess.persian_text import build_persian_normaliser, is_persian_language
 
     normalise = build_persian_normaliser(stt)
     if normalise is None:
+        # Set but inert is worth one line: a toggle that reads "on" and does nothing
+        # is the failure `_with_han_script` warns about for an `.en` model.
+        if getattr(stt, "persian_normalisation", False) and not is_persian_language(
+            getattr(stt, "language", "")
+        ):
+            log.warning(
+                "[stt] persian_normalisation is on but [stt] language = %r is not "
+                "Persian, so it has no effect. Fix: set language = \"fa\".",
+                getattr(stt, "language", ""),
+            )
         return engine
     return _PersianNormaliserEngine(engine, normalise)
 
