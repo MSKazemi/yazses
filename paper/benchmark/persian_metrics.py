@@ -12,9 +12,9 @@ benchmark numbers.
 
 Scope of fa-eval-v1 (§6):
 - Unicode NFC normalization.
-- Canonical Persian Yeh/Kaf mapping (Arabic Yeh U+064A -> Persian Yeh U+06CC,
-  Arabic Kaf U+0643 -> Persian Kaf U+06A9, Arabic Yeh with hamza above U+0626 ->
-  U+06CC + U+0654 / U+0626 preserved per NFC).
+- Canonical Persian Yeh/Kaf mapping (Arabic Yeh U+064A and Alef Maksura U+0649 ->
+  Persian Yeh U+06CC, Arabic Kaf U+0643 -> Persian Keheh U+06A9). Yeh with hamza
+  (U+0626) is left exactly as NFC leaves it.
 - Standardized whitespace (collapse runs of spaces/tabs/newlines, strip ends).
 - Digits and punctuation are intentionally NOT altered here because §6 requires
   digit/punct alterations to be separately reported (they materially change WER/CER).
@@ -23,6 +23,7 @@ Scope of fa-eval-v1 (§6):
 from __future__ import annotations
 
 import unicodedata
+from collections import Counter
 from typing import NamedTuple
 
 EVAL_NORMALIZER_VERSION = "fa-eval-v1"
@@ -87,24 +88,44 @@ def count_arabic_variants(text: str) -> tuple[int, int]:
     return yeh, kaf
 
 
+def _zwnj_contexts(text: str) -> Counter:
+    """One ``(previous letter, next letter)`` key per ZWNJ in *text*.
+
+    Letters are canonicalised the same way the evaluation normalizer does, so a
+    joiner between the same two letters matches even when one side spells a letter
+    with the Arabic variant (that is a letter error, and the Yeh/Kaf counts already
+    report it). A ZWNJ at either end of the text keys against ``""``.
+    """
+    contexts: Counter = Counter()
+    for i, ch in enumerate(text):
+        if ch != ZWNJ:
+            continue
+        prev = _CANONICAL_LETTERS.get(text[i - 1], text[i - 1]) if i > 0 else ""
+        nxt = _CANONICAL_LETTERS.get(text[i + 1], text[i + 1]) if i + 1 < len(text) else ""
+        contexts[(prev, nxt)] += 1
+    return contexts
+
+
 def compute_zwnj_metrics(
     references: list[str], hypotheses: list[str]
 ) -> ZwnjMetrics:
     """Compute ZWNJ precision and recall across paired reference/hypothesis utterances.
 
-    A ZWNJ in hypothesis is credited as a match if the corresponding reference
-    also contains a ZWNJ at roughly the same word context (approximated here by
-    per-utterance count alignment: min(ref_zwnj, hyp_zwnj)).
+    A hypothesis ZWNJ is credited only if the reference has a ZWNJ between the same
+    two letters in that utterance (each reference joiner can be claimed once). Counting
+    joiners per utterance without looking at where they sit would report perfect
+    quality for a hypothesis that has the right *number* of joiners in the wrong
+    places, which is exactly the kind of error §5 exists to expose.
     """
     total_ref = 0
     total_hyp = 0
     total_match = 0
     for r, h in zip(references, hypotheses):
-        r_zwnj = r.count(ZWNJ)
-        h_zwnj = h.count(ZWNJ)
-        total_ref += r_zwnj
-        total_hyp += h_zwnj
-        total_match += min(r_zwnj, h_zwnj)
+        ref_ctx = _zwnj_contexts(r)
+        hyp_ctx = _zwnj_contexts(h)
+        total_ref += sum(ref_ctx.values())
+        total_hyp += sum(hyp_ctx.values())
+        total_match += sum((ref_ctx & hyp_ctx).values())
 
     prec = (total_match / total_hyp) if total_hyp > 0 else (1.0 if total_ref == 0 else 0.0)
     rec = (total_match / total_ref) if total_ref > 0 else (1.0 if total_hyp == 0 else 0.0)

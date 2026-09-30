@@ -100,6 +100,24 @@ def test_zwnj_metrics_are_computed_from_both_sides(persian_metrics):
     assert r.precision == 1.0 and r.recall == 0.5
 
 
+def test_a_zwnj_in_the_wrong_place_is_not_a_match(persian_metrics):
+    """Precision/recall must be about *where* the joiner is, not how many there are.
+
+    Same count, different position: the reference joins a|b, the hypothesis joins
+    b|c. A count-only proxy would credit it and report perfect ZWNJ quality.
+    """
+    r = persian_metrics.compute_zwnj_metrics(["a\u200cbc"], ["ab\u200cc"])
+    assert (r.reference_count, r.hypothesis_count, r.matched_count) == (1, 1, 0)
+    assert r.precision == 0.0 and r.recall == 0.0 and r.f1 == 0.0
+
+
+def test_zwnj_context_ignores_arabic_vs_persian_letter_variants(persian_metrics):
+    """The same joiner between the same letters matches even if the letter is spelt
+    with the Arabic variant: that is a letter error the Yeh/Kaf counts already report."""
+    r = persian_metrics.compute_zwnj_metrics(["\u0645\u06cc\u200c\u062e"], ["\u0645\u064a\u200c\u062e"])
+    assert r.matched_count == 1 and r.f1 == 1.0
+
+
 def test_zwnj_metrics_vacuous_case_is_not_a_zero(persian_metrics):
     # No ZWNJ anywhere: perfect by absence, not 0.0 by division guard.
     m = persian_metrics.compute_zwnj_metrics(["abc"], ["abc"])
@@ -134,6 +152,19 @@ def test_score_pairs_skips_empty_references_and_says_so(bench_persian):
         ["abc", "  ", "def"], ["abc", "x", "def"], ["1", "2", "3"]
     )
     assert out["n_pairs"] == 2 and out["n_skipped_empty"] == 1
+
+
+def test_score_pairs_counts_an_empty_hypothesis_as_a_deletion(bench_persian):
+    """An engine that returns nothing on a hard utterance must be *penalised*.
+
+    Dropping the pair would remove the model's worst failure from its own WER and
+    flatter any engine that goes silent; `bench_wer.py` drops only empty
+    references, and jiwer scores an empty hypothesis as 100% deletions.
+    """
+    out = bench_persian.score_pairs(["abc def", "ghi"], ["", "ghi"], ["1", "2"])
+    assert out["n_pairs"] == 2 and out["n_skipped_empty"] == 0
+    assert out["wer_raw"] == 66.67  # 2 of 3 reference words deleted
+    assert out["exact_match_raw"] == 0.5
 
 
 def test_score_pairs_refuses_misaligned_inputs(bench_persian):
@@ -221,3 +252,46 @@ def test_one_command_emits_schema_valid_json(bench_persian):
         "strictly lower than raw, or the two scorers are not doing different work"
     )
     assert m["evaluation_normalizer"] == "fa-eval-v1"
+
+
+# ── the decode path: the smoke set never reaches it, so pin its shape ─────────
+
+
+def test_manifest_mode_builds_the_engine_from_a_persian_stt_section(bench_persian, monkeypatch):
+    """`--manifest` must hand `build_engine` an `SttConfig` with language = fa.
+
+    Passing loose keyword arguments is a TypeError on first real use, and leaving the
+    language at its default would publish a result that says `fa` for a decode that
+    never asked for it. No model is loaded: the factory is replaced by a recorder.
+    """
+    from yazses.config import SttConfig
+
+    seen = []
+
+    class FasterWhisperEngine:  # the name the class check looks for
+        pass
+
+    def fake_build(stt):
+        seen.append(stt)
+        return FasterWhisperEngine()
+
+    monkeypatch.setattr("yazses.stt.factory.build_engine", fake_build)
+    engine = bench_persian._build_checked("faster-whisper", "small", 4)
+
+    assert type(engine).__name__ == "FasterWhisperEngine"
+    (stt,) = seen
+    assert isinstance(stt, SttConfig)
+    assert (stt.engine, stt.model, stt.language, stt.cpu_threads) == (
+        "faster-whisper", "small", "fa", 4,
+    )
+    # Raw model output, never the production normaliser's (the key only exists once FA-02 lands).
+    assert getattr(stt, "persian_normalisation", False) is False
+
+
+def test_manifest_mode_refuses_a_silently_substituted_engine(bench_persian, monkeypatch):
+    class FasterWhisperEngine:
+        pass
+
+    monkeypatch.setattr("yazses.stt.factory.build_engine", lambda stt: FasterWhisperEngine())
+    with pytest.raises(RuntimeError, match="under another"):
+        bench_persian._build_checked("parakeet", "whatever", 0)

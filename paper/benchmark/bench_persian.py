@@ -80,7 +80,7 @@ def score_pairs(
     the result block is unit-testable in isolation. Empty references are skipped
     from WER/CER the same way ``bench_wer.py`` skips them: jiwer scores an empty
     reference as 100% insertions, which is a property of the scorer, not of the
-    model.
+    model. An empty hypothesis is *not* skipped: it is a deletion error.
     """
     if not (len(references) == len(hypotheses) == len(sample_ids)):
         raise ValueError(
@@ -90,11 +90,10 @@ def score_pairs(
     if not references:
         raise ValueError("nothing to score: empty manifest")
 
-    raw_pairs = [
-        (r, h)
-        for r, h in zip(references, hypotheses)
-        if r.strip() and h.strip()
-    ]
+    # Only an empty *reference* is dropped. An empty hypothesis against a real
+    # reference is the engine's failure and must count (jiwer scores it as 100%
+    # deletions): dropping it would remove a model's worst output from its own WER.
+    raw_pairs = [(r, h) for r, h in zip(references, hypotheses) if r.strip()]
     norm_refs = [normalize_fa_eval_v1(r) for r, _ in raw_pairs]
     norm_hyps = [normalize_fa_eval_v1(h) for _, h in raw_pairs]
 

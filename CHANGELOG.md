@@ -16,7 +16,10 @@ latency where a real run provides them), and `persian_metrics.py` carries `fa-ev
 — the §6 evaluation normalizer, versioned apart from production normalization on
 purpose, since a production fix must never silently move a historical benchmark
 number. The §5 quality metrics (Arabic Yeh/Kaf counts, ZWNJ precision/recall) ride
-along. `--smoke` scores a built-in three-utterance set through every code path with
+along; a ZWNJ is credited only when the reference has one between the same two letters,
+so a hypothesis with the right *number* of joiners in the wrong places does not score
+as perfect, and an engine that returns nothing for an utterance is scored as a full
+deletion rather than dropped from the average. `--smoke` scores a built-in three-utterance set through every code path with
 no audio, no model and no network — the acceptance line "CI can run a small smoke
 benchmark" — and the file is wired into the `benchmark-harness` job so the schema,
 the two-scorer difference and the CLI contract execute on every push.
