@@ -6,6 +6,30 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — Persian and RTL join the portable contract (contract 6.8.1)
+
+[FA-03 / #512](https://github.com/MSKazemi/yazses/issues/512) added 35 hand-written
+vectors across the six text-facing units, so the Android and future iOS ports inherit
+the same Persian text-safety expectations as the desktop instead of rediscovering them
+in review: Arabic Kaf/Yeh vs Persian Kaf/Yeh kept distinct, meaningful and stuttered
+ZWNJ never stripped (boundary ZWNJ included — it is format-control, not whitespace),
+embedded emails, paths and URLs and astral-plane emoji inside RTL prose, meeting-length
+Persian paragraphs, spoken English punctuation markers attaching cleanly to RTL words,
+and native Persian `،` `؟` `؛` `»` untouched wherever the shipped code leaves them.
+
+The interesting pins are the ones a port would get wrong while looking right:
+`go to line ۴۲` keeps its Persian digits verbatim in the argument (no transliteration);
+bidi-wrapped and ZWNJ-attached command phrases fall back to **dictation**, so an
+invisible control character can never fire a keystroke; an English self-correction
+trigger eats the preceding RTL clause whole (pinned as shipped, flagged in #512); and
+`continuation_prefix`'s suppression set is ASCII-only — a burst opening with a Persian
+comma or question mark keeps its separator. That last one is pinned as the contract
+*today* with the candidate extension called out in #512: widening the set is a MAJOR
+behaviour change, not a vector edit.
+
+Bump is `6.8.0 -> 6.8.1` (patch per the semver policy: new cases, **zero** existing
+expectations changed — the regenerated diff removes nothing but the version line).
+
 ### Fixed — the Korean review was credited everywhere except this file
 
 [@doeil1614-ops](https://github.com/doeil1614-ops) read `docs/ko/index.md` as a native
