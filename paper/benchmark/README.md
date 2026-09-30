@@ -69,6 +69,8 @@ uv run python paper/benchmark/make_figures.py
 | `analyze_diarization.py` | exact sign test + paired bootstrap over the *recordings*, for two diarization runs of one corpus | reads two `../results/diarization-*.json` |
 | `analyze_centroid.py` | pooled cosine separation between cluster-centroid pairs that share a true speaker and pairs that do not, with a bootstrap interval and a merge-threshold sweep | reads the shards written by `probes/centroid_merge.py` |
 | `bench_meta.py` | dysfluency gate, model on-disk size, test/ADR/SLOC counts | `stt.filters.disfluency`, HF cache scan |
+| `bench_persian.py` | Persian WER/CER raw **and** evaluation-normalized, exact-match rate, ZWNJ + Arabic-variant quality metrics, RTF/latency (FA-04, [#513](https://github.com/MSKazemi/yazses/issues/513)) | `stt.factory.build_engine` (manifest mode), `persian_metrics.py`, jiwer; `--smoke` needs no audio or model |
+| `persian_metrics.py` | library: `fa-eval-v1` evaluation normalizer + §5 Persian text-quality metrics (imported by `bench_persian.py`, not run directly) | deliberately **not** `postprocess.persian_text` — §6 versions evaluation and production normalization separately |
 | `run_all.py` | orchestrates all of the above + provenance + optional coverage | — |
 | `make_features_table.py` | capability-surface table + prose macros for the paper, from the live registry | `system.features` (the registry behind `yazses features`) |
 | `make_results_index.py` | `../results/MANIFEST.md` — what every archived artifact is and which machine it came from | reads `../results/**/*.json` |
