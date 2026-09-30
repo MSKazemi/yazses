@@ -131,7 +131,12 @@ found defects that no amount of reading the code here would have surfaced.
   call that would have returned early. Both defects were Windows-only and both causes were
   plain Python, and the thirteen tests that come with the fix prove them on Linux — including
   the one that asserts the Linux force-kill sequence is unchanged, so a platform fix could not
-  quietly weaken the platform it was not about
+  quietly weaken the platform it was not about. Has since opened the Persian programme's
+  first slices: the conservative Persian normaliser
+  ([#554](https://github.com/MSKazemi/yazses/pull/554)), 35 hand-written Persian and RTL
+  vectors for the portable contract ([#552](https://github.com/MSKazemi/yazses/pull/552))
+  and the reproducible Persian benchmark harness
+  ([#558](https://github.com/MSKazemi/yazses/pull/558))
 - [@doeil1614-ops](https://github.com/doeil1614-ops) — native-speaker review of the Korean
   page, read in full against the English source and `i18n/glossary.yml`, with commands, code,
   the project name and the contributor-wall markup deliberately left untouched

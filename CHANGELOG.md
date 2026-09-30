@@ -29,6 +29,7 @@ behaviour change, not a vector edit.
 
 Bump is `6.8.0 -> 6.8.1` (patch per the semver policy: new cases, **zero** existing
 expectations changed — the regenerated diff removes nothing but the version line).
+Contributed by [@auroraxo](https://github.com/auroraxo) ([#552](https://github.com/MSKazemi/yazses/pull/552)).
 
 ### Added — conservative Persian normalisation, off until the profile says otherwise
 
@@ -62,6 +63,7 @@ expected to fold this switch into the language-output profile; the core does not
 list plus its required properties: idempotence over a 5,000-character mixed
 corpus, no Latin-run deletion, protected-span immutability, boundary/repeat
 ZWNJ, and command-text wrapped in an RLO arriving as inert plain text.
+Contributed by [@auroraxo](https://github.com/auroraxo) ([#554](https://github.com/MSKazemi/yazses/pull/554)).
 
 ### Added — the Persian benchmark harness exists before the Persian numbers do (FA-04, #513)
 
@@ -80,6 +82,7 @@ deletion rather than dropped from the average. `--smoke` scores a built-in three
 no audio, no model and no network — the acceptance line "CI can run a small smoke
 benchmark" — and the file is wired into the `benchmark-harness` job so the schema,
 the two-scorer difference and the CLI contract execute on every push.
+Contributed by [@auroraxo](https://github.com/auroraxo) ([#558](https://github.com/MSKazemi/yazses/pull/558)).
 
 ### Fixed — Linux key-sequence commands now share the dictation path's fallback
 
