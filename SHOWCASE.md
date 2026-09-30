@@ -77,5 +77,13 @@ Any setup is welcome — beginner or power user. 💛
 - **How you use YazSes:**  Mostly for typing while coding and working on GitHub. It’s nice being able to just
   hold the key, say what I want, and have it appear wherever I'm working instead of constantly switching back
   to the keyboard.
+  
+### @AmothissacrajT
+- **OS / desktop:** ubuntu 24.04.5
+- **Mic:** Razer HyerClear Cardioid, laptop built-in microphone
+- **Apps you dictate into:**  VS Code, Bash, Gnome-text-editor
+- **How you use YazSes:**  Tested YazSes voice dictator using external microphone as well as in-built microphone.
+  Used it in bash instead of manually typing commands repetitively. Also tested it across gnome test editor and vs code.
+  The voice level setting helps in changing the voice level according to the surrounding and voice.
     
 <!-- Add your entry above this line's section by appending a new ### block at the end. -->
