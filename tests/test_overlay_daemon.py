@@ -40,6 +40,12 @@ def test_should_not_launch_overlay_on_native_wayland():
         assert should_launch_overlay(_cfg(True), env, platform="linux") is False
 
 
+def test_overlay_is_blocked_inside_a_flatpak_wayland_session():
+    """Flatpak grants --socket=wayland and sets WAYLAND_DISPLAY; same focus behaviour."""
+    env = {"WAYLAND_DISPLAY": "wayland-0", "XDG_RUNTIME_DIR": "/run/user/1000", "container": "flatpak"}
+    assert should_launch_overlay(_cfg(True), env, platform="linux") is False
+
+
 def test_explicit_qt_platform_lifts_the_wayland_block():
     env = {"WAYLAND_DISPLAY": "wayland-0", "QT_QPA_PLATFORM": "xcb"}
     assert should_launch_overlay(_cfg(True), env, platform="linux") is True

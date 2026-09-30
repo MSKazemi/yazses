@@ -100,6 +100,16 @@ One behaviour the deleted dispatch owned moved with it: `XdotoolInjector.inject_
 now maps the `meta` modifier to `super`, as `LinuxInjector` did before, so a raw `meta+…`
 combo still means the Super key on X11.
 
+### Fixed — the Debian source package had the same crash-looping unit, and a test now finds the next one
+
+`debian/rules` installed `contrib/yazses.service` verbatim (`ExecStart=%h/.local/bin/…`) and
+`debian/postinst` ran `pipx install` without linking `/usr/bin/yazses-daemon` — the same
+203/EXEC trap already fixed in `scripts/build-deb.sh` and the Arch PKGBUILD. Both now match.
+`tests/test_packaged_unit_execstart.py` no longer names files: it discovers every script
+under `debian/`, `packaging/`, `scripts/` and `snap/` that installs the unit to a system path
+and requires the rewrite, so a channel added later is covered the day it lands. The
+packaging checklist is in `packaging/AGENTS.md`.
+
 ### Added — `yazses start` and `yazses doctor` explain why the daemon is not running
 
 A daemon that never launched left nothing for `diagnosis.diagnose` to catch, so `yazses

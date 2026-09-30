@@ -7,7 +7,10 @@ override_dh_auto_build:
 override_dh_auto_test:
 
 override_dh_auto_install:
-	install -D -m 644 contrib/yazses.service \
-		debian/yazses/usr/lib/systemd/user/yazses.service
+	# contrib/yazses.service names %h/.local/bin (pipx); the package's console script is
+	# /usr/bin, so rewrite it or the unit fails 203/EXEC and systemd gives up.
+	install -d debian/yazses/usr/lib/systemd/user
+	sed 's|%h/.local/bin/yazses-daemon|/usr/bin/yazses-daemon|g' contrib/yazses.service \
+		> debian/yazses/usr/lib/systemd/user/yazses.service
 	install -D -m 644 examples/config.example.toml \
 		debian/yazses/usr/share/yazses/config.example.toml

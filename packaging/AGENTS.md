@@ -54,6 +54,27 @@ in its own header, and `tests/test_downstream_copies_declare_source_of_truth.py`
 derives that list from the workflows, so a third channel with this shape is covered on
 the day it is added rather than the day someone remembers.
 
+## Every channel must get these four things right
+
+Each one was a real failure on a real install, and each now has a test that discovers new
+channels on its own (`tests/test_packaged_unit_execstart.py`, `tests/test_overlay_daemon.py`).
+
+1. **A packaged systemd unit must name the binary the package installs.**
+   `contrib/yazses.service` says `%h/.local/bin/yazses-daemon` (a pipx install). A package
+   that puts the console script in `/usr/bin` must rewrite it (`sed
+   's|%h/.local/bin/yazses-daemon|/usr/bin/yazses-daemon|g'`). Left alone, the unit fails
+   `203/EXEC` five times and systemd gives up while `yazses start` reports success. A
+   channel that installs **no** unit (Fedora, Flatpak, Homebrew, Snap) is fine: `yazses
+   start` writes a correct user unit itself.
+2. **A maintainer script that `pipx install`s must also link `/usr/bin/yazses{,-daemon}`**
+   to the user's `~/.local/bin`, because the packaged unit points at `/usr/bin`.
+3. **Do not launch a Qt window on native Wayland.** GNOME's compositor focuses every new
+   window, so the overlay swallows the dictated text. The gate lives in
+   `core/daemon.py::overlay_steals_focus`, so a sandboxed channel (Flatpak, Snap) is
+   covered without its own code; do not add a second launch path that bypasses it.
+4. **Say what you did not build.** Packaging cannot be tested offline — "manifest updated,
+   not built" is the honest report.
+
 ## Adding a channel
 
 New packaging channels are a maintainer decision, not a contribution someone can land
