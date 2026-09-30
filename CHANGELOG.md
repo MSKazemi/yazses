@@ -30,6 +30,27 @@ reverted and returned once the contributor supplied it.
 [@Adharsh75r](https://github.com/Adharsh75r) added a setup to `SHOWCASE.md`
 ([#547](https://github.com/MSKazemi/yazses/pull/547)) and is on the contributor wall.
 
+### Changed — continuation spacing is script-aware (contract 7.0.0)
+
+[#551](https://github.com/MSKazemi/yazses/issues/551): `continuation_prefix`'s
+closing-punctuation suppression set was ASCII-only, so a Persian burst opening
+with ، (U+060C), ؟ (U+061F), ؛ (U+061B) or » (U+00BB) collected a stray visible
+space at the burst join — "کلمه ، بعداً" where every Latin script user got
+"word, later". The set now covers those four marks, and the probe skips
+invisible format characters (Unicode `Cf`: ZWNJ, ZWJ, bidi controls, BOM)
+before deciding, so a leading ZWNJ can no longer mask a following comma — nor
+can it trigger suppression in front of an ordinary word. Joining across a
+boundary ZWNJ stays a normalisation decision (`postprocess.persian_text`
+strips boundary ZWNJ), not a spacing one.
+
+Version bump is `6.8.1 -> 7.0.0` (**major** per the semver policy in
+`docs/mobile/contract.md` §5: five expectations pinned by #552 deliberately
+flipped, two renamed with their behaviour kept and four new cases added —
+19 → 22 spacing vectors). Ports on 6.8.1 still match the 6.8.1 vectors; every
+implementation must move to 7.0.0 or record explicitly that it satisfies the
+older version. The Python desktop regenerates and re-runs the vectors in CI;
+`scripts/gen-contract-vectors.py --check` is clean.
+
 ### Added — Persian and RTL join the portable contract (contract 6.8.1)
 
 [FA-03 / #512](https://github.com/MSKazemi/yazses/issues/512) added 35 hand-written
