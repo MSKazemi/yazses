@@ -71,7 +71,7 @@ def test_every_system_install_of_the_unit_rewrites_execstart():
             # install (~/.config/systemd/user) legitimately keeps %h/.local/bin.
             window = " ".join(lines[i : i + 3])
             if any(t in window for t in _SYSTEM_TARGETS) and REWRITE not in text:
-                offenders.append(str(path.relative_to(ROOT)))
+                offenders.append(path.relative_to(ROOT).as_posix())
                 break
     assert not offenders, (
         "installs contrib/yazses.service under a system path without rewriting "
@@ -86,7 +86,7 @@ def test_every_postinst_that_pipx_installs_links_usr_bin():
         text = _text(path)
         if "pipx install" in text and "configure" in text and "usr/lib/systemd" not in text:
             if "/usr/bin/$bin" not in text and "/usr/bin/yazses-daemon" not in text:
-                offenders.append(str(path.relative_to(ROOT)))
+                offenders.append(path.relative_to(ROOT).as_posix())
     assert not offenders, f"pipx-installing maintainer script without /usr/bin links: {offenders}"
 
 
