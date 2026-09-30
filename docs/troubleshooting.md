@@ -107,6 +107,28 @@ install a udev rule — there the portal is genuinely the only way to type on Wa
 If you declined the dialog, dictation falls back to pasting via the clipboard, which is a
 no-op in terminals. Approve it, or run `yazses setup`, then `yazses restart`.
 
+## `yazses start` says it started, but `yazses status` says "not running"
+
+YazSes now tells you why instead of printing a hopeful "still loading". If no daemon
+process appears, `yazses start` reads the systemd unit and its journal and prints the cause
+with the exact commands to copy — for example a unit whose program does not exist (a
+packaged unit next to a pipx install), a crash loop systemd gave up on, a missing system
+library (with the package name for your distribution), or an unreadable `/dev/input`.
+`yazses doctor` shows the same thing under **Service health**.
+
+The two fixes behind most cases:
+
+```sh
+yazses autostart enable                          # rewrite the unit to the install you run
+systemctl --user reset-failed yazses.service     # clear "start request repeated too quickly"
+```
+
+## Dictation is heard and "typed", but nothing appears (GNOME Wayland)
+
+Older builds showed a small overlay that, on native Wayland, took keyboard focus — so the
+text was typed into the overlay. The overlay is no longer started on Wayland. On an older
+build, turn it off: `yazses features disable overlay` then `yazses restart`.
+
 ## It works, but not after I reboot
 
 YazSes is a daemon, so it should already be running when you sit down:

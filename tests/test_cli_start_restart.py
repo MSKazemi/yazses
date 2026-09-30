@@ -253,3 +253,30 @@ def test_start_reports_failure_when_daemon_crashes(monkeypatch):
     result = runner.invoke(cli.app, ["start"])
     assert result.exit_code == 1
     assert "failed to start" in result.output.lower()
+
+
+# ---- a daemon that never appeared is not "still loading" ---------------------
+
+
+def test_no_pid_ever_is_never_started_not_loading(monkeypatch):
+    lc = _Lifecycle([False] * 50)
+    plat = _Platform(lc, _Client([]))
+    outcome, _ = cli._wait_until_ready(plat, timeout=0.3)
+    assert outcome == "never-started"
+
+
+def test_never_started_prints_the_diagnosis_and_exits_nonzero(monkeypatch, capsys):
+    import pytest
+    import typer
+
+    monkeypatch.setattr(cli, "_resolved_hotkey", lambda _p: "right_alt")
+    monkeypatch.setattr(cli, "_explain_start_failure", lambda _p, _e: "  ✗ The service failed\n    fix:\n      yazses autostart enable")
+    with pytest.raises(typer.Exit):
+        cli._report_start_outcome(_Platform(_Lifecycle([]), _Client([])), "never-started", None)
+    err = capsys.readouterr().err
+    assert "no daemon process appeared" in err and "yazses autostart enable" in err
+
+
+def test_explain_start_failure_never_raises(monkeypatch):
+    monkeypatch.setattr(cli, "_systemd_managed", lambda: (_ for _ in ()).throw(RuntimeError("boom")))
+    assert cli._explain_start_failure(_Platform(_Lifecycle([]), _Client([])), None) == ""

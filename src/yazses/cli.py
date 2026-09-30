@@ -1445,6 +1445,8 @@ def _wait_until_ready(platform, timeout: float = 20.0):
     - ``"died"``    — the process exited during startup (crash / bad config).
     - ``"loading"`` — still alive but not ready before ``timeout`` (slow first-run
       model load); not an error, just informational.
+    - ``"never-started"`` — no daemon process ever appeared (broken unit, missing
+      binary, crash before the PID was written).
 
     Second element is the last IPC ``status`` dict seen (or ``None``).
     """
@@ -1472,6 +1474,10 @@ def _wait_until_ready(platform, timeout: float = 20.0):
         except IpcUnreachableError:
             pass  # IPC socket not up yet (or already gone) — keep polling
         time.sleep(0.25)
+    if not saw_pid:
+        # The PID is written before the model loads, so a slow first run always shows one.
+        # No PID at all means nothing launched — a failed unit, not a slow download.
+        return "never-started", last_info
     return "loading", last_info
 
 
@@ -1523,16 +1529,45 @@ def _report_start_outcome(platform, outcome: str, info) -> None:
             "check with `yazses status`."
         )
         return
-    # died
-    typer.echo("YazSes failed to start — the daemon exited during startup.", err=True)
+    # died / never-started
+    if outcome == "never-started":
+        typer.echo("YazSes did not start — no daemon process appeared.", err=True)
+    else:
+        typer.echo("YazSes failed to start — the daemon exited during startup.", err=True)
     last_error = (info or {}).get("last_error") if isinstance(info, dict) else None
     if last_error:
         typer.echo(f"  reason: {last_error}", err=True)
+    explanation = _explain_start_failure(platform, last_error)
+    if explanation:
+        typer.echo("\n" + explanation + "\n", err=True)
     typer.echo(
         "  Run `yazses doctor` to check prerequisites and `yazses logs` for details.",
         err=True,
     )
     raise typer.Exit(1)
+
+
+def _explain_start_failure(platform, last_error: str | None) -> str:
+    """Cause, commands and packages for a daemon that would not start. Never raises.
+
+    Asks the service manager first (a missing ExecStart or a crash loop leaves no daemon
+    log at all), then falls back to the daemon's own log tail, then to its `last_error`.
+    """
+    try:
+        from yazses.system import servicehealth
+
+        text = servicehealth.explain_service_failure() if _systemd_managed() else ""
+        if text:
+            return text
+        family = servicehealth.read_distro_family()
+        chunks = [last_error or ""]
+        log_file = platform.paths.log_dir / "daemon.log"
+        if log_file.exists():
+            chunks.append("\n".join(log_file.read_text(encoding="utf-8", errors="replace").splitlines()[-40:]))
+        finding = servicehealth.classify_log("\n".join(chunks), family)
+        return servicehealth.render([finding]) if finding else ""
+    except Exception:  # noqa: BLE001 — an explanation must never mask the failure it explains
+        return ""
 
 
 @app.command(

@@ -1438,6 +1438,35 @@ def _systemd_execstart() -> str | None:
     return m.group(1) if m else None
 
 
+def _service_health_checks() -> list[_Check]:
+    """Report a failed or crash-looping systemd unit, with the cause and the commands.
+
+    "Starts at login: yes" only says the unit is *enabled*; a unit that systemd has given
+    up on is still enabled. This reads the live state and the journal tail, so the row says
+    why it is down and what to type — not just that it is. Silent when healthy, when there
+    is no systemd user manager, or when the only finding is the missing-ExecStart case
+    that `_install_consistency_checks` already reports.
+    """
+    if sys.platform != "linux":
+        return []
+    try:
+        from yazses.system import servicehealth
+
+        state = servicehealth.collect_service_state()
+        if state is None:
+            return []
+        findings = [
+            f for f in servicehealth.classify_service(state, servicehealth.read_distro_family())
+            if f.slug not in ("exec-missing", "not-started")
+        ]
+    except Exception:  # noqa: BLE001 — a probe must never break doctor
+        return []
+    if not findings:
+        return []
+    detail = servicehealth.render(findings).replace("  ✗ ", "", 1).lstrip()
+    return [("Service health", "FAIL", detail)]
+
+
 def _install_consistency_checks() -> list[_Check]:
     """Catch the deployment traps that make a daemon silently run wrong/old code:
     multiple installs on PATH, and a systemd ExecStart that points at a missing
@@ -1704,6 +1733,7 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
     # Install/lifecycle sanity: duplicate installs + a systemd ExecStart that
     # points at a missing/different binary (the silent "restart starts nothing").
     checks.extend(_install_consistency_checks())
+    checks.extend(_service_health_checks())
 
     # Snap interface connections. Before keyboard capture on purpose: a
     # disconnected `raw-input` is the *cause* of the capture failure reported

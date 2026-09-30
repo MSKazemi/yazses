@@ -100,6 +100,17 @@ One behaviour the deleted dispatch owned moved with it: `XdotoolInjector.inject_
 now maps the `meta` modifier to `super`, as `LinuxInjector` did before, so a raw `meta+…`
 combo still means the Super key on X11.
 
+### Added — `yazses start` and `yazses doctor` explain why the daemon is not running
+
+A daemon that never launched left nothing for `diagnosis.diagnose` to catch, so `yazses
+start` printed "still loading" and `yazses status` said "not running". New
+`system/servicehealth.py` reads the systemd unit state and journal tail and returns the
+cause, the exact commands, and the distro-correct package (`apt`/`dnf`/`pacman`/`zypper`)
+for: a missing `ExecStart` (203/EXEC), `start-limit-hit`, a crash loop, an unreadable
+`/dev/input`, a missing Qt `libxcb-cursor`, PortAudio, ydotoold, ffmpeg, a missing Python
+module and an invalid config. `_wait_until_ready` now returns `never-started` when no PID ever
+appears, instead of reporting `loading`; `yazses doctor` gains a **Service health** row.
+
 ### Changed — `yazses setup` now provisions Windows, and the Wayland hint leads with the command
 
 - **Windows:** `yazses setup` (and `--dry-run`) checks the Windows-only Python packages
