@@ -565,4 +565,5 @@ jobs:
             tests/test_bench_provenance.py \
             tests/test_bench_wer_split.py \
             tests/test_bench_diarization_scoring.py \
-            tests/test_bench_persian.py
+            tests/test_bench_persian.py \
+            tests/test_fa_manifest.py
