@@ -39,6 +39,22 @@ list plus its required properties: idempotence over a 5,000-character mixed
 corpus, no Latin-run deletion, protected-span immutability, boundary/repeat
 ZWNJ, and command-text wrapped in an RLO arriving as inert plain text.
 
+### Fixed — Linux key-sequence commands now share the dictation path's fallback
+
+`LinuxInjector.inject_key_sequence()` carried its own copy of the Wayland/X11 tool dispatch
+(`ydotool`, `wtype`, `xdotool`) and its own `YAZSES_INJECTOR` special case (#390). It had no
+clipboard fallback, so a failing backend raised straight through a voice command, while
+`inject()` and `inject_backspaces()` degraded gracefully. It now delegates to the selected
+primary backend and falls back exactly as they do; with `fallback_to_clipboard` off, a
+failure still surfaces instead of vanishing. Fixed by
+[@vortsghost2025](https://github.com/vortsghost2025)
+([#544](https://github.com/MSKazemi/yazses/issues/544),
+[#545](https://github.com/MSKazemi/yazses/pull/545)).
+
+One behaviour the deleted dispatch owned moved with it: `XdotoolInjector.inject_key_sequence`
+now maps the `meta` modifier to `super`, as `LinuxInjector` did before, so a raw `meta+…`
+combo still means the Super key on X11.
+
 ### Fixed — the Korean review was credited everywhere except this file
 
 [@doeil1614-ops](https://github.com/doeil1614-ops) read `docs/ko/index.md` as a native

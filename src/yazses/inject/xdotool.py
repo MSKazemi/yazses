@@ -24,6 +24,16 @@ def _timeout_for(keystrokes: int) -> float:
     return 10.0 + max(keystrokes, 0) * _SECONDS_PER_KEYSTROKE
 
 
+def _xdotool_combo(combo: str) -> str:
+    """``meta+k`` → ``super+k``: xdotool's ``meta`` is Meta_L, not the Windows/Super key.
+
+    Token-wise, so a key *named* like a modifier is never rewritten. ``LinuxInjector``
+    used to do this for every combo before it delegated here (#544); the mapping now
+    lives with the backend that needs it.
+    """
+    return "+".join("super" if part == "meta" else part for part in combo.split("+"))
+
+
 class XdotoolInjector:
     def inject(self, text: str) -> None:
         subprocess.run(
@@ -44,6 +54,7 @@ class XdotoolInjector:
     def inject_key_sequence(self, keys: list[str]) -> None:
         if not keys:
             return
+        keys = [_xdotool_combo(k) for k in keys]
         # A run of one repeated key — which is exactly what the streaming commit
         # sends, `["shift+Left"] * len(partial)` — goes as a single `--repeat`
         # spec rather than N argv entries. Same keystrokes, but it keeps a
