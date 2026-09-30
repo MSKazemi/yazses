@@ -240,8 +240,9 @@ byte-for-byte) from the legacy location to the platform one, before first-run se
 can mask it. Deliberate no-ops, each pinned by a test: on Linux the legacy path *is* the
 platform path, so nothing there was ever stranded and nothing is touched; when both
 files exist the platform config already wins and the legacy copy is left in place rather
-than merged or deleted; and there is no second notice — the config the user wrote simply
-keeps working.
+than merged or deleted, with one WARNING naming both files so settings that lived only in
+the legacy copy do not stop applying unannounced; and there is no notice in the common case
+— the config the user wrote simply keeps working.
 
 ### Fixed — `restart` now replaces a daemon it has watched leave, and `start` opens no window (#330)
 

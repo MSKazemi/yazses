@@ -25,7 +25,10 @@ by construction — the configuration that was never broken is never touched.
 """
 from __future__ import annotations
 
+import logging
 from pathlib import Path
+
+log = logging.getLogger(__name__)
 
 
 def default_config_path() -> Path:
@@ -98,6 +101,15 @@ def migrate_legacy_config(
     if legacy == target or not legacy.is_file():
         return False
     if target.exists():
+        # Both exist, so the daemon reads the platform file and the legacy one is no
+        # longer read. Before #330 it was the one the daemon *did* read, so anything
+        # the user kept only there stops applying — say so once per start rather than
+        # letting those settings vanish without a trace.
+        log.warning(
+            "A config also exists at %s, which YazSes no longer reads; using %s. "
+            "Copy any settings you still want from the old file into the new one.",
+            legacy, target,
+        )
         return False
     target.parent.mkdir(parents=True, exist_ok=True)
     try:
