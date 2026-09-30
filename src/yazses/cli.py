@@ -1373,6 +1373,35 @@ def _systemd_managed() -> bool:
         return False
 
 
+def _wait_for_daemon_exit(pid: int, grace_s: float = 10.0, poll_s: float = 0.1) -> bool:
+    """Poll until *pid* is gone or *grace_s* elapses; True on exit.
+
+    `restart` used to spawn the successor one fixed second after asking the
+    predecessor to stop — and on Windows `stop_daemon` returned at the *ack* of
+    the shutdown RPC, not at process exit, so both daemons held a live IPC
+    server on the same pipe and `status` answered with the old hotkey (#330,
+    reported with measured PIDs). The wait belongs here as well as in the
+    platform lifecycle: this is the step that decides whether the new daemon is
+    allowed to start, and it must hold for every platform's stop path, however
+    that path chooses to stop.
+
+    Never signals — the caller has already SIGTERMed and force-killed; this only
+    stops asking "may I spawn yet" early. Bounded so a PID that outlives grace
+    cannot wedge `restart` forever; the PID-file/recycled-PID guards downstream
+    (is_running, the instance lock) remain the safety net.
+    """
+    import time
+
+    from yazses.system.proc import process_alive
+
+    deadline = time.monotonic() + grace_s
+    while time.monotonic() < deadline:
+        if not process_alive(pid):
+            return True
+        time.sleep(poll_s)
+    return not process_alive(pid)
+
+
 def _restart_daemon(platform) -> None:
     """Stop ALL daemons (no duplicates) and start exactly one."""
     import signal
@@ -1392,6 +1421,10 @@ def _restart_daemon(platform) -> None:
     _kill_yazses_daemons(signal.SIGTERM)
     time.sleep(1)
     _kill_yazses_daemons(_force_kill_signal())  # force any survivor (no-op where unavailable)
+    if pid:
+        # The old process must be *gone*, not merely asked, before the new one
+        # exists. #330: two live daemons on one pipe answered `status` in turn.
+        _wait_for_daemon_exit(pid)
     try:
         (platform.paths.data_dir / "daemon.lock").unlink(missing_ok=True)
     except Exception:
