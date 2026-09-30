@@ -1,6 +1,6 @@
 {
   "unit": "stt.vocabulary",
-  "contract_version": "6.8.0",
+  "contract_version": "6.8.1",
   "source": "src/yazses/stt/vocabulary.py::merge_initial_prompt",
   "cases": [
     {
@@ -106,6 +106,36 @@
         "تهران، اصفهان"
       ],
       "expected": "تهران، اصفهان The app is called YazSes."
+    },
+    {
+      "id": "persian-with-latin-product-name-vocabulary",
+      "description": "a mixed-script entry keeps both scripts and the app-name preamble still lands last, after RTL text",
+      "options": {},
+      "input": [
+        "تهران، VS Code"
+      ],
+      "expected": "تهران، VS Code The app is called YazSes."
+    },
+    {
+      "id": "zwnj-vocabulary-entries-joined",
+      "description": "word-joiners inside vocabulary entries survive the space-merge between parts — the joiner is content, never a separator",
+      "options": {},
+      "input": [
+        "می‌خواهم",
+        "خانه‌ها"
+      ],
+      "expected": "می‌خواهم خانه‌ها The app is called YazSes."
+    },
+    {
+      "id": "none-between-persian-parts-skipped",
+      "description": "the None-skipping rule is script-agnostic: RTL parts join with a space around a missing middle part",
+      "options": {},
+      "input": [
+        "تهران، اصفهان",
+        null,
+        "شیراز"
+      ],
+      "expected": "تهران، اصفهان شیراز The app is called YazSes."
     }
   ]
 }

@@ -1,6 +1,6 @@
 {
   "unit": "filters.disfluency",
-  "contract_version": "6.8.0",
+  "contract_version": "6.8.1",
   "source": "src/yazses/stt/filters/disfluency.py::filter_transcript (.text)",
   "cases": [
     {
@@ -676,6 +676,48 @@
       "options": {},
       "input": "um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. um so the quarterly report is you know basically finished. the the the the final number is forty two. no wait scratch that the final number is forty three.",
       "expected": "so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. so the quarterly report is basically finished. the the final number is forty two. the final number is forty three."
+    },
+    {
+      "id": "filler-between-persian-words-removed",
+      "description": "filler removal is purely lexical, so an ASCII 'um' is dropped from between two RTL words exactly as from English prose",
+      "options": {},
+      "input": "سلام um دنیا",
+      "expected": "سلام دنیا"
+    },
+    {
+      "id": "filler-removed-around-zwnj-word",
+      "description": "removing 'uh' next to a ZWNJ-bearing word must not disturb the word-joiner — the removal window is the token, not the substring",
+      "options": {},
+      "input": "كتاب‌ها uh تمام شدند",
+      "expected": "كتاب‌ها تمام شدند"
+    },
+    {
+      "id": "persian-homophone-of-filler-untouched",
+      "description": "'oom' (اوم) is a Persian word that romanises to a filler; the filter is code-point-exact ASCII, so RTL look-alikes are never fillers — a port that case-folds or transliterates would eat words",
+      "options": {},
+      "input": "اوم آخر جمله",
+      "expected": "اوم آخر جمله"
+    },
+    {
+      "id": "url-filler-segment-in-persian-sentence-preserved",
+      "description": "the URL guard (#83) works identically when the surrounding sentence is RTL: 'actually' inside the path segment survives",
+      "options": {},
+      "input": "به https://example.com/actually مراجعه کنید",
+      "expected": "به https://example.com/actually مراجعه کنید"
+    },
+    {
+      "id": "english-self-correction-rolls-back-persian-clause",
+      "description": "surprising: an English rollback trigger eats the preceding RTL clause whole — script does not protect text from a 'never mind'; pinned deliberately, the contract mirrors desktop behaviour",
+      "options": {},
+      "input": "هرگز این‌طوری نیست never mind آنجا",
+      "expected": "آنجا"
+    },
+    {
+      "id": "long-persian-paragraph-no-word-dropped",
+      "description": "at 900+ code points of pure Persian the filter changes nothing but the trailing space — no rule misfires on repeated RTL sentence structure",
+      "options": {},
+      "input": "این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. ",
+      "expected": "این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است."
     }
   ]
 }

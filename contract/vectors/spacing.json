@@ -1,6 +1,6 @@
 {
   "unit": "postprocess.spacing",
-  "contract_version": "6.8.0",
+  "contract_version": "6.8.1",
   "source": "src/yazses/postprocess/spacing.py::continuation_prefix",
   "cases": [
     {
@@ -127,6 +127,51 @@
         "had_recent_injection": true
       },
       "input": "سلام",
+      "expected": " "
+    },
+    {
+      "id": "persian-comma-start-gets-space",
+      "description": "a burst opening with the Persian comma U+060C gets the space the ASCII comma would suppress — the suppression set is ASCII-only (pinned behaviour; a candidate change is filed in #512)",
+      "options": {
+        "had_recent_injection": true
+      },
+      "input": "، بعداً",
+      "expected": " "
+    },
+    {
+      "id": "persian-question-mark-start-gets-space",
+      "description": "same ASCII-only suppression gap for U+061F: RTL bursts beginning with the Persian question mark keep their separator",
+      "options": {
+        "had_recent_injection": true
+      },
+      "input": "؟ شاید",
+      "expected": " "
+    },
+    {
+      "id": "closing-guillemet-start-gets-space",
+      "description": "U+00BB mirrors U+00AB: neither Persian quotation mark is in the suppression set, so both openers and closers keep the space",
+      "options": {
+        "had_recent_injection": true
+      },
+      "input": "» بعداً",
+      "expected": " "
+    },
+    {
+      "id": "zwnj-start-gets-space",
+      "description": "the probe looks at text[0] only, and a leading ZWNJ is invisible non-whitespace: the burst gets a space before a character the user cannot see",
+      "options": {
+        "had_recent_injection": true
+      },
+      "input": "‌سلام",
+      "expected": " "
+    },
+    {
+      "id": "bidi-control-start-gets-space",
+      "description": "an RLE embedding character at the start behaves like the ZWNJ above: no suppression, plain separator — adversarial input must not make a port invent a special case",
+      "options": {
+        "had_recent_injection": true
+      },
+      "input": "‫سلام",
       "expected": " "
     }
   ]
