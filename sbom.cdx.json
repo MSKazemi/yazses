@@ -2359,14 +2359,14 @@
     {
       "type": "library",
       "name": "pyjwt",
-      "version": "2.13.0",
-      "purl": "pkg:pypi/pyjwt@2.13.0",
-      "bom-ref": "pkg:pypi/pyjwt@2.13.0",
+      "version": "2.15.0",
+      "purl": "pkg:pypi/pyjwt@2.15.0",
+      "bom-ref": "pkg:pypi/pyjwt@2.15.0",
       "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "41571c89ca91598c79e8ef18a2d07367d4810fbbd6f637794879baf1b7703423"
+          "content": "b11c5f9791d7bf51c2b39a81ed669f6b2dbbd669df2942f6c60167e9e3d1abe4"
         }
       ]
     },
