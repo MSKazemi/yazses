@@ -63,6 +63,24 @@ list plus its required properties: idempotence over a 5,000-character mixed
 corpus, no Latin-run deletion, protected-span immutability, boundary/repeat
 ZWNJ, and command-text wrapped in an RLO arriving as inert plain text.
 
+### Added — the Persian benchmark harness exists before the Persian numbers do (FA-04, #513)
+
+`paper/benchmark/bench_persian.py` implements the instrument specified in
+`design/specs/persian-benchmark-and-validation.md` so FA-05's model matrix has
+something to run on: it scores paired reference/hypothesis texts into the §7 result
+schema (raw **and** evaluation-normalized WER/CER, exact-match both ways, RTF and
+latency where a real run provides them), and `persian_metrics.py` carries `fa-eval-v1`
+— the §6 evaluation normalizer, versioned apart from production normalization on
+purpose, since a production fix must never silently move a historical benchmark
+number. The §5 quality metrics (Arabic Yeh/Kaf counts, ZWNJ precision/recall) ride
+along; a ZWNJ is credited only when the reference has one between the same two letters,
+so a hypothesis with the right *number* of joiners in the wrong places does not score
+as perfect, and an engine that returns nothing for an utterance is scored as a full
+deletion rather than dropped from the average. `--smoke` scores a built-in three-utterance set through every code path with
+no audio, no model and no network — the acceptance line "CI can run a small smoke
+benchmark" — and the file is wired into the `benchmark-harness` job so the schema,
+the two-scorer difference and the CLI contract execute on every push.
+
 ### Fixed — Linux key-sequence commands now share the dictation path's fallback
 
 `LinuxInjector.inject_key_sequence()` carried its own copy of the Wayland/X11 tool dispatch

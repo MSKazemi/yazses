@@ -53,6 +53,13 @@ NO_ARCHIVED_RESULT = {
         "is run, and a synthetic stand-in would be the guess the instrument exists to "
         "avoid."
     ),
+    "bench_persian.py": (
+        "FA-04 slice 1 (#513) built the instrument before the corpora exist: a real "
+        "Persian result needs the Common Voice / FLEURS adapters (slice 2) and a "
+        "model-matrix run (slice 3). What --smoke emits is a synthetic set that "
+        "exercises every code path on CI, and archiving it would put a number that "
+        "measures nothing into the record this archive exists to keep honest."
+    ),
 }
 
 #: The provenance keys that make a result a measurement rather than a number.
