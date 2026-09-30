@@ -1,6 +1,6 @@
 {
   "unit": "postprocess.spacing",
-  "contract_version": "6.8.1",
+  "contract_version": "7.0.0",
   "source": "src/yazses/postprocess/spacing.py::continuation_prefix",
   "cases": [
     {
@@ -130,35 +130,44 @@
       "expected": " "
     },
     {
-      "id": "persian-comma-start-gets-space",
-      "description": "a burst opening with the Persian comma U+060C gets the space the ASCII comma would suppress — the suppression set is ASCII-only (pinned behaviour; a candidate change is filed in #512)",
+      "id": "persian-comma-start-suppressed",
+      "description": "a burst opening with the Persian comma U+060C hugs the previous burst exactly like an ASCII comma — the pre-7.0.0 contract leaked a stray visible space here",
       "options": {
         "had_recent_injection": true
       },
       "input": "، بعداً",
-      "expected": " "
+      "expected": ""
     },
     {
-      "id": "persian-question-mark-start-gets-space",
-      "description": "same ASCII-only suppression gap for U+061F: RTL bursts beginning with the Persian question mark keep their separator",
+      "id": "persian-question-mark-start-suppressed",
+      "description": "U+061F suppresses the separator like its ASCII cousin",
       "options": {
         "had_recent_injection": true
       },
       "input": "؟ شاید",
-      "expected": " "
+      "expected": ""
     },
     {
-      "id": "closing-guillemet-start-gets-space",
-      "description": "U+00BB mirrors U+00AB: neither Persian quotation mark is in the suppression set, so both openers and closers keep the space",
+      "id": "persian-semicolon-start-suppressed",
+      "description": "U+061B suppresses the separator like its ASCII cousin",
+      "options": {
+        "had_recent_injection": true
+      },
+      "input": "؛ سپس",
+      "expected": ""
+    },
+    {
+      "id": "closing-guillemet-start-suppressed",
+      "description": "U+00BB closes; it suppresses like ) ] } while U+00AB still counts as an opening delimiter",
       "options": {
         "had_recent_injection": true
       },
       "input": "» بعداً",
-      "expected": " "
+      "expected": ""
     },
     {
-      "id": "zwnj-start-gets-space",
-      "description": "the probe looks at text[0] only, and a leading ZWNJ is invisible non-whitespace: the burst gets a space before a character the user cannot see",
+      "id": "zwnj-start-word-still-gets-space",
+      "description": "the probe skips invisible format characters, but a leading ZWNJ in front of a word still gets the separator: joining across a boundary ZWNJ is a normalisation decision (postprocess.persian_text strips boundary ZWNJ), not a spacing one",
       "options": {
         "had_recent_injection": true
       },
@@ -166,13 +175,31 @@
       "expected": " "
     },
     {
-      "id": "bidi-control-start-gets-space",
-      "description": "an RLE embedding character at the start behaves like the ZWNJ above: no suppression, plain separator — adversarial input must not make a port invent a special case",
+      "id": "bidi-control-start-word-still-gets-space",
+      "description": "an RLE embedding character before a word behaves like the ZWNJ case: invisible, so it neither suppresses nor hides the separator — adversarial input must not make a port invent a special case",
       "options": {
         "had_recent_injection": true
       },
       "input": "‫سلام",
       "expected": " "
+    },
+    {
+      "id": "zwnj-then-persian-comma-suppressed",
+      "description": "the probe looks past the leading ZWNJ and finds the Persian comma: suppression still applies even though text[0] is invisible — the pre-7.0.0 probe saw only text[0] and leaked the space",
+      "options": {
+        "had_recent_injection": true
+      },
+      "input": "‌، بعداً",
+      "expected": ""
+    },
+    {
+      "id": "bidi-control-then-comma-suppressed",
+      "description": "an RLE control before an ASCII comma: the first visible character decides, so the separator is suppressed",
+      "options": {
+        "had_recent_injection": true
+      },
+      "input": "‫, done",
+      "expected": ""
     }
   ]
 }
