@@ -26,6 +26,25 @@ class PostprocessTest {
     }
 
     @Test
+    fun `Persian closing punctuation hugs the word, and an opening guillemet does not`() {
+        // U+060C, U+061F, U+061B, U+00BB close; U+00AB opens (contract 7.0.0, #551).
+        for (closer in listOf("\u060C", "\u061F", "\u061B", "\u00BB")) {
+            assertEquals("", continuationPrefix("$closer next", hadRecentInjection = true), closer)
+        }
+        assertEquals(" ", continuationPrefix("\u00AB next", hadRecentInjection = true))
+    }
+
+    @Test
+    fun `an invisible format character neither hides closing punctuation nor masks a word`() {
+        // U+200C ZWNJ then a Persian comma: the comma is what the user sees.
+        assertEquals("", continuationPrefix("\u200C\u060C next", hadRecentInjection = true))
+        // U+200C then a letter: a boundary ZWNJ is not a reason to glue the burst on.
+        assertEquals(" ", continuationPrefix("\u200C\u0633", hadRecentInjection = true))
+        // Nothing visible at all keeps the default separator.
+        assertEquals(" ", continuationPrefix("\u200C", hadRecentInjection = true))
+    }
+
+    @Test
     fun `spoken punctuation hugs the preceding word`() {
         assertEquals("hello, world.", applyVoicePunctuation("hello comma world period"))
     }
