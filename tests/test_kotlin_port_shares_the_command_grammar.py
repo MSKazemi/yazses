@@ -51,6 +51,14 @@ _RULE_CALL = re.compile(
 )
 
 
+#: The one dialect difference the ports are *meant* to have. A Python `str` pattern's `\d`
+#: is Unicode category Nd, so "go to line ۴۲" matches; on the JVM `\d` is only `[0-9]`, so
+#: the Kotlin port spells the same class `\p{Nd}` (52d785c, pinned by the contract vectors).
+#: Folding that single spelling keeps this guard strict about every other textual difference.
+_JVM_UNICODE_DIGIT = r"\p{Nd}"
+_PY_UNICODE_DIGIT = r"\d"
+
+
 def _kotlin_rules() -> list[tuple[str, str, str, tuple[str, ...]]]:
     source = KOTLIN.read_text(encoding="utf-8")
     body = source[source.index("private val RULES"):]
@@ -58,7 +66,12 @@ def _kotlin_rules() -> list[tuple[str, str, str, tuple[str, ...]]]:
     for match in _RULE_CALL.finditer(body):
         args = tuple(re.findall(r'"(\w+)"', match.group("args")))
         out.append(
-            (match.group("pattern"), match.group("intent"), match.group("action"), args)
+            (
+                match.group("pattern").replace(_JVM_UNICODE_DIGIT, _PY_UNICODE_DIGIT),
+                match.group("intent"),
+                match.group("action"),
+                args,
+            )
         )
     return out
 
