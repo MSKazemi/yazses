@@ -371,3 +371,45 @@ def test_the_page_says_which_aggregate_to_compare_with_the_literature() -> None:
     text = _doc()
     assert "time-weighted" in text
     assert "md-eval" in text.lower(), "the page must name the reference scorer"
+
+
+# --------------------------------------------------------------------------------
+# The Persian section traces to the archived FA-04 slice-3 artifacts.
+# --------------------------------------------------------------------------------
+#
+# The FLEURS runs are the project's first measured Persian numbers, so they get the
+# same treatment as the WER table: every figure on the page must be readable out of a
+# committed result file, and every archived Persian cell must appear on the page --
+# in both directions, because a cell measured and then dropped from the table is the
+# quiet half of the drift the rest of this module exists to catch.
+
+def _persian_rows() -> list[tuple[str, dict]]:
+    rows = []
+    for path in sorted(RESULTS.glob("persian-fleurs-*.json")):
+        data = json.loads(path.read_text(encoding="utf-8"))
+        rows.append((path.name, data))
+    return rows
+
+
+def test_the_persian_section_exists_and_names_its_split() -> None:
+    """Guard the guard: an absent section makes every parametrized case below vacuous."""
+    text = _doc()
+    assert "Persian" in text, "the page no longer documents the Persian matrix"
+    assert _persian_rows(), (
+        "docs/benchmarks.md publishes Persian numbers and paper/results/ holds no "
+        "persian-fleurs-*.json to check them against"
+    )
+
+
+@pytest.mark.parametrize("source,data", _persian_rows(), ids=lambda x: x if isinstance(x, str) else None)
+def test_every_persian_cell_is_published(source: str, data: dict) -> None:
+    metrics = data["metrics"]
+    text = _doc()
+    n = data["corpus"]["samples"]
+    model = data["model"]["name"]
+    for value in (metrics["wer_raw"], metrics["wer_normalized"], metrics["rtf"]):
+        formatted = f"{value:.2f} %" if isinstance(value, float) and value > 1 and value < 100 else f"{value}"
+        assert formatted in text or f"{value} %" in text or f"{value}" in text, (
+            f"{source} measured {value} ({model}, n={n}) and docs/benchmarks.md does "
+            "not quote it"
+        )
