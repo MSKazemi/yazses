@@ -281,9 +281,9 @@
     {
       "type": "library",
       "name": "brainflow",
-      "version": "5.22.2",
-      "purl": "pkg:pypi/brainflow@5.22.2",
-      "bom-ref": "pkg:pypi/brainflow@5.22.2",
+      "version": "5.23.0",
+      "purl": "pkg:pypi/brainflow@5.23.0",
+      "bom-ref": "pkg:pypi/brainflow@5.23.0",
       "scope": "optional"
     },
     {
@@ -969,14 +969,14 @@
     {
       "type": "library",
       "name": "hypothesis",
-      "version": "6.165.10",
-      "purl": "pkg:pypi/hypothesis@6.165.10",
-      "bom-ref": "pkg:pypi/hypothesis@6.165.10",
+      "version": "6.168.3",
+      "purl": "pkg:pypi/hypothesis@6.168.3",
+      "bom-ref": "pkg:pypi/hypothesis@6.168.3",
       "scope": "excluded",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "68b45e09834cd80523cb1eb274463073c7a9af4e4ef7cff34d9615f355572d32"
+          "content": "a43388f9067678fef6e13bdff325b6cfa6961a590498bb37f7ff31589c83bc75"
         }
       ]
     },
@@ -1333,42 +1333,42 @@
     {
       "type": "library",
       "name": "matplotlib",
-      "version": "3.11.1",
-      "purl": "pkg:pypi/matplotlib@3.11.1",
-      "bom-ref": "pkg:pypi/matplotlib@3.11.1",
+      "version": "3.11.2",
+      "purl": "pkg:pypi/matplotlib@3.11.2",
+      "bom-ref": "pkg:pypi/matplotlib@3.11.2",
       "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "69647db5746941c793d6e445a4cd349323ffb87d9cc958c2ad84a659b4832d30"
+          "content": "cec596316640f2b394b8f0daa0ea61a8eae82d017b620b9f202befb972a59ea4"
         }
       ]
     },
     {
       "type": "library",
       "name": "mcp",
-      "version": "2.1.1",
-      "purl": "pkg:pypi/mcp@2.1.1",
-      "bom-ref": "pkg:pypi/mcp@2.1.1",
+      "version": "2.2.0",
+      "purl": "pkg:pypi/mcp@2.2.0",
+      "bom-ref": "pkg:pypi/mcp@2.2.0",
       "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "50b7ba1ebbe117008ea7bdd288234043e69c20b403d6851d19661e6d431a75ef"
+          "content": "2dc37ecb1974becdcebdbf7561e7c15a07dbbf20ba21ba16c3593b3038b3afbd"
         }
       ]
     },
     {
       "type": "library",
       "name": "mcp-types",
-      "version": "2.1.1",
-      "purl": "pkg:pypi/mcp-types@2.1.1",
-      "bom-ref": "pkg:pypi/mcp-types@2.1.1",
+      "version": "2.2.0",
+      "purl": "pkg:pypi/mcp-types@2.2.0",
+      "bom-ref": "pkg:pypi/mcp-types@2.2.0",
       "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "77dcbe48fba73cca71a673f2646a5f037a017b7a0a07ac89cec1113028890eda"
+          "content": "d3ed53703ddd10d9c6399f29d322bb66f3f67ab41348ac8556ba23e07fedefad"
         }
       ]
     },
@@ -1439,14 +1439,14 @@
     {
       "type": "library",
       "name": "mkdocs-git-revision-date-localized-plugin",
-      "version": "1.5.4",
-      "purl": "pkg:pypi/mkdocs-git-revision-date-localized-plugin@1.5.4",
-      "bom-ref": "pkg:pypi/mkdocs-git-revision-date-localized-plugin@1.5.4",
+      "version": "1.6.0",
+      "purl": "pkg:pypi/mkdocs-git-revision-date-localized-plugin@1.6.0",
+      "bom-ref": "pkg:pypi/mkdocs-git-revision-date-localized-plugin@1.6.0",
       "scope": "excluded",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "07a785522008e881ff4c307e3259ad3ce00931b2d2147a22cdfbb532ff25e4ab"
+          "content": "469af4b344a4d493a6402aa92eec87a6138e1dac444e9551c1af06991453954b"
         }
       ]
     },
@@ -2079,14 +2079,14 @@
     {
       "type": "library",
       "name": "platformdirs",
-      "version": "4.11.5",
-      "purl": "pkg:pypi/platformdirs@4.11.5",
-      "bom-ref": "pkg:pypi/platformdirs@4.11.5",
+      "version": "4.12.1",
+      "purl": "pkg:pypi/platformdirs@4.12.1",
+      "bom-ref": "pkg:pypi/platformdirs@4.12.1",
       "scope": "required",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "e8b31f4f8bcbbedef91a6b57a706255e4f148d2a4e01648382a0a47342539173"
+          "content": "38da801a4af303033cbffccb39030db22bf0473e6414309b02acebeee7ca8bf1"
         }
       ]
     },
@@ -2629,14 +2629,14 @@
     {
       "type": "library",
       "name": "pytest-mock",
-      "version": "3.15.1",
-      "purl": "pkg:pypi/pytest-mock@3.15.1",
-      "bom-ref": "pkg:pypi/pytest-mock@3.15.1",
+      "version": "3.16.0",
+      "purl": "pkg:pypi/pytest-mock@3.16.0",
+      "bom-ref": "pkg:pypi/pytest-mock@3.16.0",
       "scope": "excluded",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "1849a238f6f396da19762269de72cb1814ab44416fa73a8686deac10b0d87a0f"
+          "content": "5a8395528b8f498205f3718f575228d0edaed7425fff638f87d1a6c3e0383636"
         }
       ]
     },
@@ -2875,14 +2875,14 @@
     {
       "type": "library",
       "name": "ruff",
-      "version": "0.16.5",
-      "purl": "pkg:pypi/ruff@0.16.5",
-      "bom-ref": "pkg:pypi/ruff@0.16.5",
+      "version": "0.16.9",
+      "purl": "pkg:pypi/ruff@0.16.9",
+      "bom-ref": "pkg:pypi/ruff@0.16.9",
       "scope": "excluded",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "1b88500f9ffbcab3dedb0082c9f9492e91ec3d618aac1236a3e0189938f7040b"
+          "content": "12b625c6cfba78d285d9f48eda5f053374f1e53cb10ef17342a383750db99161"
         }
       ]
     },
@@ -3015,23 +3015,23 @@
     {
       "type": "library",
       "name": "sherpa-onnx",
-      "version": "1.13.6",
-      "purl": "pkg:pypi/sherpa-onnx@1.13.6",
-      "bom-ref": "pkg:pypi/sherpa-onnx@1.13.6",
+      "version": "1.13.8",
+      "purl": "pkg:pypi/sherpa-onnx@1.13.8",
+      "bom-ref": "pkg:pypi/sherpa-onnx@1.13.8",
       "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "d55a0e769efd9b014c2d3aaa54754288dc39c7261e9334c575d54ba22214ca27"
+          "content": "68e638f745df120a7fae268b7bae0eaab2362b5ad76fe3389bece1d3cd63272c"
         }
       ]
     },
     {
       "type": "library",
       "name": "sherpa-onnx-core",
-      "version": "1.13.6",
-      "purl": "pkg:pypi/sherpa-onnx-core@1.13.6",
-      "bom-ref": "pkg:pypi/sherpa-onnx-core@1.13.6",
+      "version": "1.13.8",
+      "purl": "pkg:pypi/sherpa-onnx-core@1.13.8",
+      "bom-ref": "pkg:pypi/sherpa-onnx-core@1.13.8",
       "scope": "optional"
     },
     {
@@ -3045,14 +3045,14 @@
     {
       "type": "library",
       "name": "silero-vad",
-      "version": "6.2.1",
-      "purl": "pkg:pypi/silero-vad@6.2.1",
-      "bom-ref": "pkg:pypi/silero-vad@6.2.1",
+      "version": "6.2.3",
+      "purl": "pkg:pypi/silero-vad@6.2.3",
+      "bom-ref": "pkg:pypi/silero-vad@6.2.3",
       "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "b23062b0e39fad17b1266fc23c1e7b4290219dbe82ce08510889e32f681f4b3b"
+          "content": "d7a23b09202be4953915cb9173089bb307eed0418a9bd4794d9ec5af07fa1996"
         }
       ]
     },
