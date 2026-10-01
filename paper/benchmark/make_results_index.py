@@ -65,6 +65,10 @@ MEASURES = {
     "latency": "decode P50/P95, cold start, RSS, per-stage timings",
     "meta": "dysfluency gate, model footprint, engineering scale",
     "onset": "first-word accuracy against the silence lead-in",
+    "persian-fleurs": (
+        "Persian WER/CER (raw and evaluation-normalized), ZWNJ recall and RTF on the "
+        "pinned FLEURS fa_ir test split -- FA-04 slice 3 (#513)"
+    ),
     "platform": "which install targets resolve, per OS and instruction set",
     "plausibility": "how often the implausible-attribution warning fires",
     "streaming": "partial-hypothesis latency and rewrite rate",

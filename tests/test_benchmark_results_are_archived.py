@@ -53,15 +53,6 @@ NO_ARCHIVED_RESULT = {
         "is run, and a synthetic stand-in would be the guess the instrument exists to "
         "avoid."
     ),
-    "bench_persian.py": (
-        "FA-04 (#513): the instrument exists and the corpus adapters landed in "
-        "slice 2 (make_fa_manifest.py, pinned FLEURS fa_ir + Common Voice fa), so "
-        "the only remaining blocker is the decode itself: a real result needs a "
-        "model-matrix run on downloaded audio (slice 3, hours of CPU). What --smoke "
-        "emits is a synthetic set that exercises every code path on CI, and "
-        "archiving it would put a number that measures nothing into the record "
-        "this archive exists to keep honest."
-    ),
 }
 
 #: The provenance keys that make a result a measurement rather than a number.

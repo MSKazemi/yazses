@@ -1,0 +1,23 @@
+2026-10-01T01:49:23Z driver start
+2026-10-01T01:52:23Z small50 done
+2026-10-01T01:52:23Z start base
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+wrote $HOME/fa_matrix/result_base50.json (83.86% wer_raw)
+2026-10-01T02:00:33Z done base
+2026-10-01T02:00:38Z start medium
+2026-10-01T02:54:13Z start medium (MemAvailable=5071MB, need=3500MB)
+wrote $HOME/fa_matrix/result_medium50.json (41.8% wer_raw)
+2026-10-01T03:33:56Z done medium
+2026-10-01T03:34:06Z SKIP large-v3 (MemAvailable=5206MB < 6000MB) - §9 memory-compat evidence
+2026-10-01T03:34:06Z recovery driver finished
+2026-10-01T03:38:13Z start full-base (MemAvailable=5144MB, need=1500MB)
+wrote $HOME/fa_matrix/result_base_full871.json (89.14% wer_raw)
+2026-10-01T06:20:54Z done full-base
+2026-10-01T06:21:04Z start full-small (MemAvailable=5155MB, need=2500MB)
+wrote $HOME/fa_matrix/result_small_full871.json (59.43% wer_raw)
+2026-10-01T12:07:53Z done full-small
+2026-10-01T12:07:53Z full-split driver finished
+2026-10-01T13:27:11Z start small50_repeat (MemAvailable=5043MB, load=0.15)
+wrote $HOME/fa_matrix/result_small50_repeat.json (55.79% wer_raw)
+2026-10-01T13:43:53Z done small50_repeat
+2026-10-01T13:44:03Z start small_full871_idle (MemAvailable=4964MB, load=2.52)
