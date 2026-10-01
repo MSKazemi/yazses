@@ -86,4 +86,14 @@ Any setup is welcome — beginner or power user. 💛
   Used it in bash instead of manually typing commands repetitively. Also tested it across gnome test editor and vs code.
   The voice level setting helps in changing the voice level according to the surrounding and voice.
     
+
+### @Adharsh75r
+- **OS / desktop:** Windows 11
+- **Mic:** Razer HyperClear Cardioid
+- **Apps you dictate into:** terminal, VS Code, email, web browsers
+- **How you use YazSes:** I use YazSes now as a quick way to turn my thoughts into text while
+  working. It's especially useful when I'm debugging code, writing documentation, preparing
+  GitHub contributions, or entering longer text where typing everything out would slow me
+  down and cause mistakes I don't notice while working.
+
 <!-- Add your entry above this line's section by appending a new ### block at the end. -->
