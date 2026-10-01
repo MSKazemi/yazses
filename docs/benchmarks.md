@@ -860,12 +860,13 @@ moved RTF 1.289 → 1.341. Every RTF figure in this section was taken on a conte
 4-vCPU VM (per-result load average 2.97–3.55, recorded in each provenance block). An
 idle-host re-measure of the full-split `small` cell is running on the same machine
 and will join this archive on the same branch; the numbers above do not depend on it,
-and the load figure quoted beside each cell is what makes them comparable.
+and the per-result load average recorded in each provenance block is what makes them comparable.
 
 **ZWNJ: zero of 1,435 reference half-spaces survive any model on the full split**
-(0 of 71 on the sample, every size). Whisper does not emit U+200C at all — a
-population-wide finding, and the measured justification for the conservative
-production normalizer.
+(0 of 71 on the sample, at every size measured). None of the three Whisper sizes
+tested emitted U+200C on this corpus — a measurement of those models on FLEURS, not
+a claim about every Whisper model or every speaker, and the measured justification for
+the conservative production normalizer.
 
 ## Community results
 
