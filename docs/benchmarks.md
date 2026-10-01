@@ -825,8 +825,8 @@ indicative rather than precise.
 Persian is benchmarked on the pinned Google FLEURS `fa_ir` test split through the same
 shipping engine, scored raw and after the versioned evaluation normalizer
 (`fa-eval-v1`), with the text-quality block the
-[Persian benchmark spec](design/specs/persian-benchmark-and-validation.md) requires.
-Full method and commands: [`paper/benchmark/README.md`](../paper/benchmark/README.md).
+[Persian benchmark spec](https://github.com/MSKazemi/yazses/blob/main/design/specs/persian-benchmark-and-validation.md) requires.
+Full method and commands: [`paper/benchmark/README.md`](https://github.com/MSKazemi/yazses/blob/main/paper/benchmark/README.md).
 These runs are FA-04 slice 3 ([#513](https://github.com/MSKazemi/yazses/issues/513));
 machine: AMD EPYC, 4 vCPU, 8.3 GB RAM, int8, 4 threads, Ubuntu 24.04.4.
 
