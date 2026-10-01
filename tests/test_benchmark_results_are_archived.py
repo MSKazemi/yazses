@@ -54,11 +54,13 @@ NO_ARCHIVED_RESULT = {
         "avoid."
     ),
     "bench_persian.py": (
-        "FA-04 slice 1 (#513) built the instrument before the corpora exist: a real "
-        "Persian result needs the Common Voice / FLEURS adapters (slice 2) and a "
-        "model-matrix run (slice 3). What --smoke emits is a synthetic set that "
-        "exercises every code path on CI, and archiving it would put a number that "
-        "measures nothing into the record this archive exists to keep honest."
+        "FA-04 (#513): the instrument exists and the corpus adapters landed in "
+        "slice 2 (make_fa_manifest.py, pinned FLEURS fa_ir + Common Voice fa), so "
+        "the only remaining blocker is the decode itself: a real result needs a "
+        "model-matrix run on downloaded audio (slice 3, hours of CPU). What --smoke "
+        "emits is a synthetic set that exercises every code path on CI, and "
+        "archiving it would put a number that measures nothing into the record "
+        "this archive exists to keep honest."
     ),
 }
 

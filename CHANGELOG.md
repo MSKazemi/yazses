@@ -96,6 +96,23 @@ benchmark" — and the file is wired into the `benchmark-harness` job so the sch
 the two-scorer difference and the CLI contract execute on every push.
 Contributed by [@auroraxo](https://github.com/auroraxo) ([#558](https://github.com/MSKazemi/yazses/pull/558)).
 
+`paper/benchmark/make_fa_manifest.py` (FA-04 slice 2, same issue) builds the manifest that
+harness scores from the pinned public corpora: Google FLEURS `fa_ir` and Mozilla Common
+Voice `fa`, each pinned to an exact dataset-repo revision recorded in the script and
+stamped into a `.meta.json` sidecar beside every emitted JSONL. Sampling follows §8 —
+`--limit/--seed` selects rows with a seeded PRNG before any decode, the selection rule and
+seed travel with the manifest, and no flag means the full split. The FLEURS reader carries
+the corpus' **raw** transcription column (punctuation intact) so the raw-vs-normalized
+contrast the instrument exists to show has headroom, and refuses a downloaded audio archive
+whose SHA-256 differs from the pin (a metadata-only manifest is allowed but says it is
+unverified in its sidecar). Both TSV readers treat `"` as text, as the corpora's files are
+unquoted, so a sentence that starts with one cannot swallow the rows after it. Both adapters
+are stdlib-only — no
+`datasets`/`pyarrow` dependency, so manifest production adds no supply-chain surface. No
+audio enters git; the contract tests (schema, determinism, seed divergence, empty-reference
+skipping, pin shape, archive verification, quoting, and a structural no-audio-in-tree guard)
+run in the `benchmark-harness` job.
+
 ### Fixed — Linux key-sequence commands now share the dictation path's fallback
 
 `LinuxInjector.inject_key_sequence()` carried its own copy of the Wayland/X11 tool dispatch
