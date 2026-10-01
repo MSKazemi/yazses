@@ -112,6 +112,9 @@ found defects that no amount of reading the code here would have surfaced.
   same bug seen from the opposite side, and neither report alone would have shown that.
 
 ## Contributors
+- [@Adharsh75r](https://github.com/Adharsh75r) (Adharsh Narayan) — Windows 11 showcase entry:
+  dictation into the terminal, VS Code, email and the browser while debugging and writing
+  documentation ([#547](https://github.com/MSKazemi/yazses/pull/547))
 - [@Akgithub2028](https://github.com/Akgithub2028) (Aayaann Kausar) — the **first real entry**
   on the known-good microphone list, which had been asking for one since it was created: the
   Dell Inspiron 15 3520 built-in on Ubuntu 24.04 / GNOME Wayland, measured rather than guessed
