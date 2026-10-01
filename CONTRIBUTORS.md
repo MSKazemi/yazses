@@ -120,6 +120,10 @@ found defects that no amount of reading the code here would have surfaced.
   "works fine"
 - [@4nmus](https://github.com/4nmus) — Russian README translation, the project's first in
   Cyrillic script
+- [@AmothissacrajT](https://github.com/AmothissacrajT) (Amoth issac raj) — Ubuntu 24.04 (X11) showcase
+  entry: dictation into bash, VS Code and GNOME Text Editor with both an external and the
+  built-in microphone, and a note on the voice-level setting
+  ([#546](https://github.com/MSKazemi/yazses/pull/546))
 - [@AshSgDe29071999](https://github.com/AshSgDe29071999)
 - [@auroraxo](https://github.com/auroraxo) (Aurora) — found that **two different classes
   called `IpcUnreachableError`** existed with no relationship between them, so the fourteen

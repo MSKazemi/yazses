@@ -79,7 +79,7 @@ Any setup is welcome — beginner or power user. 💛
   to the keyboard.
   
 ### @AmothissacrajT
-- **OS / desktop:** ubuntu 24.04.5
+- **OS / desktop:** ubuntu 24.04.5 (X11)
 - **Mic:** Razer HyerClear Cardioid, laptop built-in microphone
 - **Apps you dictate into:**  VS Code, Bash, Gnome-text-editor
 - **How you use YazSes:**  Tested YazSes voice dictator using external microphone as well as in-built microphone.

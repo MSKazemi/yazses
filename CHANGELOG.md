@@ -6,6 +6,13 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — showcase entry: Ubuntu 24.04 (X11), external and built-in microphone
+
+[@AmothissacrajT](https://github.com/AmothissacrajT) added a setup to `SHOWCASE.md`
+([#546](https://github.com/MSKazemi/yazses/pull/546)) and is on the contributor wall. The
+entry first landed without its session type, which the showcase linter requires, so it was
+reverted and returned once the contributor supplied it.
+
 ### Added — Persian and RTL join the portable contract (contract 6.8.1)
 
 [FA-03 / #512](https://github.com/MSKazemi/yazses/issues/512) added 35 hand-written
