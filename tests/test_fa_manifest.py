@@ -12,6 +12,7 @@ requiring network access, large downloads, or git-tracked audio blobs.
 from __future__ import annotations
 
 import csv
+import hashlib
 import json
 from pathlib import Path
 
@@ -26,8 +27,11 @@ from tests.benchmark_deps import load
 make_fa_manifest = load("make_fa_manifest", "make_fa_manifest.py")
 
 
+DUMMY_TAR = b"dummy-tar-bytes"
+
+
 @pytest.fixture
-def fake_fleurs_tree(tmp_path: Path) -> Path:
+def fake_fleurs_tree(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """A minimal FLEURS directory structure with a tiny test.tsv and dummy tar."""
     root = tmp_path / "fleurs"
     tsv_dir = root / "data" / "fa_ir"
@@ -54,7 +58,13 @@ def fake_fleurs_tree(tmp_path: Path) -> Path:
 
     # Empty dummy tar archive
     dummy_tar = audio_dir / "test.tar.gz"
-    dummy_tar.write_bytes(b"dummy-tar-bytes")
+    dummy_tar.write_bytes(DUMMY_TAR)
+    # The reader now verifies the archive against PINS; this synthetic tree stands in
+    # for the pinned corpus, so its pin is the digest of the stand-in.
+    monkeypatch.setitem(
+        make_fa_manifest.PINS["fleurs"], "audio_archive_sha256",
+        hashlib.sha256(DUMMY_TAR).hexdigest(),
+    )
 
     return root
 
@@ -178,3 +188,75 @@ def test_no_real_audio_committed_in_git():
         for p in search_dir.rglob("*"):
             if p.is_file() and p.suffix in forbidden_exts:
                 raise AssertionError(f"Forbidden audio/archive file committed in repository: {p}")
+
+
+# ── provenance: the pinned archive is verified, not merely recorded ───────────
+
+
+def test_fleurs_refuses_an_archive_that_does_not_match_the_pin(fake_fleurs_tree: Path, tmp_path: Path):
+    """A drifted corpus must stop the run before a decode is spent on it."""
+    (fake_fleurs_tree / "data" / "fa_ir" / "audio" / "test.tar.gz").write_bytes(b"a different archive")
+    out = tmp_path / "x.jsonl"
+    with pytest.raises(SystemExit, match="sha256"):
+        make_fa_manifest.main(["fleurs", str(fake_fleurs_tree), str(out)])
+    assert not out.exists(), "nothing may be written for an unverified corpus"
+
+
+def test_fleurs_sidecar_records_that_the_archive_was_verified(fake_fleurs_tree: Path, tmp_path: Path):
+    out = tmp_path / "x.jsonl"
+    assert make_fa_manifest.main(["fleurs", str(fake_fleurs_tree), str(out)]) == 0
+    meta = json.loads(out.with_suffix(".jsonl.meta.json").read_text(encoding="utf-8"))
+    assert meta["audio_archive_verified"] is True
+    assert meta["audio_archive_sha256"] == hashlib.sha256(DUMMY_TAR).hexdigest()
+
+
+def test_fleurs_without_the_archive_says_it_is_unverified(fake_fleurs_tree: Path, tmp_path: Path):
+    """Metadata-only is allowed, but the manifest must not look verified."""
+    (fake_fleurs_tree / "data" / "fa_ir" / "audio" / "test.tar.gz").unlink()
+    out = tmp_path / "x.jsonl"
+    assert make_fa_manifest.main(["fleurs", str(fake_fleurs_tree), str(out)]) == 0
+    meta = json.loads(out.with_suffix(".jsonl.meta.json").read_text(encoding="utf-8"))
+    assert meta["audio_archive_verified"] is False
+
+
+def test_the_real_pin_is_a_sha256():
+    pin = make_fa_manifest.PINS["fleurs"]["audio_archive_sha256"]
+    assert len(pin) == 64 and set(pin) <= set("0123456789abcdef")
+
+
+# ── the TSVs are not quoted: a leading or embedded double quote is text ───────
+
+
+def _write_raw_tsv(path: Path, lines: list[str]) -> None:
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8", newline="")
+
+
+def test_common_voice_sentences_with_double_quotes_are_kept_whole(tmp_path: Path):
+    """Common Voice TSVs are unquoted; the default csv dialect would let a sentence
+    that *starts* with a double quote swallow the tabs and rows that follow it."""
+    root = tmp_path / "cv"
+    (root / "clips").mkdir(parents=True)
+    _write_raw_tsv(root / "test.tsv", [
+        "client_id\tpath\tsentence\tup_votes",
+        'c1\tclip_1.mp3\t"سلام" گفت و رفت\t2',
+        'c2\tclip_2.mp3\tاو گفت "نه" و رفت\t2',
+        "c3\tclip_3.mp3\tجمله سوم\t2",
+    ])
+    out = tmp_path / "cv.jsonl"
+    assert make_fa_manifest.main(["common-voice", str(root), str(out)]) == 0
+    rows = [json.loads(l) for l in out.read_text(encoding="utf-8").splitlines()]
+    assert [r["id"] for r in rows] == ["cv-fa-test-clip_1", "cv-fa-test-clip_2", "cv-fa-test-clip_3"]
+    assert rows[0]["reference"] == '"سلام" گفت و رفت'
+    assert rows[1]["reference"] == 'او گفت "نه" و رفت'
+
+
+def test_fleurs_transcriptions_with_double_quotes_are_kept_whole(fake_fleurs_tree: Path, tmp_path: Path):
+    tsv = fake_fleurs_tree / "data" / "fa_ir" / "test.tsv"
+    _write_raw_tsv(tsv, [
+        '1\t1.wav\t"سلام" گفت\tسلام گفت\tx\t10\tMALE',
+        "2\t2.wav\tجمله دوم\tجمله دوم\tx\t10\tFEMALE",
+    ])
+    out = tmp_path / "f.jsonl"
+    assert make_fa_manifest.main(["fleurs", str(fake_fleurs_tree), str(out)]) == 0
+    rows = [json.loads(l) for l in out.read_text(encoding="utf-8").splitlines()]
+    assert len(rows) == 2 and rows[0]["reference"] == '"سلام" گفت'

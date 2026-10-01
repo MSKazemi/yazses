@@ -91,12 +91,15 @@ stamped into a `.meta.json` sidecar beside every emitted JSONL. Sampling follows
 `--limit/--seed` selects rows with a seeded PRNG before any decode, the selection rule and
 seed travel with the manifest, and no flag means the full split. The FLEURS reader carries
 the corpus' **raw** transcription column (punctuation intact) so the raw-vs-normalized
-contrast the instrument exists to show has headroom, verifies the downloaded audio archive
-against a SHA-256 before a run is spent on it, and both adapters are stdlib-only — no
+contrast the instrument exists to show has headroom, and refuses a downloaded audio archive
+whose SHA-256 differs from the pin (a metadata-only manifest is allowed but says it is
+unverified in its sidecar). Both TSV readers treat `"` as text, as the corpora's files are
+unquoted, so a sentence that starts with one cannot swallow the rows after it. Both adapters
+are stdlib-only — no
 `datasets`/`pyarrow` dependency, so manifest production adds no supply-chain surface. No
-audio enters git; six contract tests (schema, determinism, seed divergence, empty-reference
-skipping, pin shape, and a structural no-audio-in-tree guard) run in the `benchmark-harness`
-job.
+audio enters git; the contract tests (schema, determinism, seed divergence, empty-reference
+skipping, pin shape, archive verification, quoting, and a structural no-audio-in-tree guard)
+run in the `benchmark-harness` job.
 
 ### Fixed — Linux key-sequence commands now share the dictation path's fallback
 

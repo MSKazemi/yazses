@@ -17,10 +17,10 @@ Pinning, per §2 and §8:
   recorded (rule, seed, limit) beside the rows it produced. No flag means the full
   split; there is no implicit subsampling to discover later.
 
-**No audio is committed.** The manifest names audio paths on the local disk; the
-fixtures under ``tests/fixtures/fa_manifest/`` are synthetic 3-row examples. The
-no-audio-in-git property is enforced structurally by ``tests/test_fa_manifest.py``
-grepping every committed manifest-like file for the corpora's directory markers.
+**No audio is committed.** The manifest names audio paths on the local disk; the tests
+build tiny synthetic corpus trees in a temporary directory. The no-audio-in-git
+property is enforced structurally by ``tests/test_fa_manifest.py``, which walks the
+repository for committed audio files and archives.
 
 Both corpora are read with the standard library alone. FLEURS publishes per-language
 TSV metadata plus a tar of WAVs; Common Voice publishes TSV metadata next to a clip
@@ -35,6 +35,7 @@ import csv
 import hashlib
 import json
 import random
+import sys
 import unicodedata
 from pathlib import Path
 
@@ -51,6 +52,9 @@ PINS = {
         "split": "test",
         "metadata": "data/fa_ir/test.tsv",
         "audio_archive": "data/fa_ir/audio/test.tar.gz",
+        # SHA-256 of that archive (657,317,725 bytes), as the Hub's LFS metadata
+        # records it at the pinned revision. `main` refuses a different file.
+        "audio_archive_sha256": "f787ae225da693ed28c734c18aac1932c0f271473c3fb49a98db5e9b222fa11d",
         "license": "CC-BY-4.0",
         "n_examples": 871,
     },
@@ -93,10 +97,11 @@ def _clean_reference(text: str) -> str:
 def _select(rows: list[dict], limit: int | None, seed: int | None) -> tuple[list[dict], dict]:
     """§8 sampling: the rule is fixed before any model output exists.
 
-    ``seed=None`` keeps manifest order (the corpus' own order, itself deterministic
-    at a pinned revision). A seed selects without replacement so no utterance is
-    scored twice under one manifest — duplicates would weight those rows in the
-    average without anything but the seed recording that they were.
+    Without ``limit`` the whole split is kept in the corpus' own order (itself
+    deterministic at a pinned revision). With ``limit``, rows are selected without
+    replacement so no utterance is scored twice under one manifest — duplicates would
+    weight those rows in the average — and a missing ``seed`` means seed 0, which is
+    recorded as such rather than left implicit.
     """
     if limit is None or limit >= len(rows):
         return rows, {"rule": "all rows in corpus order", "limit": None, "seed": None}
@@ -152,8 +157,11 @@ def build_fleurs_rows(corpus_root: Path, limit: int | None, seed: int | None):
             "layout: data/fa_ir/test.tsv beside data/fa_ir/audio/test.tar.gz."
         )
     rows: list[dict] = []
-    with tsv.open(encoding="utf-8") as fh:
-        for fields in csv.reader(fh, delimiter="\t"):
+    # The TSVs are not quoted: `"` is ordinary text. The default dialect would let a
+    # field that starts with one swallow the tabs and rows after it, which is exactly
+    # how a benchmark silently loses or merges utterances.
+    with tsv.open(encoding="utf-8", newline="") as fh:
+        for fields in csv.reader(fh, delimiter="\t", quoting=csv.QUOTE_NONE):
             if len(fields) < len(_FLEURS_COLUMNS):
                 raise SystemExit(
                     f"{tsv}: expected {len(_FLEURS_COLUMNS)} tab-separated columns, "
@@ -204,7 +212,8 @@ def build_cv_rows(corpus_root: Path, limit: int | None, seed: int | None):
         )
     rows: list[dict] = []
     with tsv.open(encoding="utf-8", newline="") as fh:
-        for rec in csv.DictReader(fh, delimiter="\t"):
+        # Unquoted TSV, as above: sentences can start with or contain a `"`.
+        for rec in csv.DictReader(fh, delimiter="\t", quoting=csv.QUOTE_NONE):
             sentence = (rec.get("sentence") or "").strip()
             if not sentence:
                 # An empty reference is unscoreable (bench_persian drops the pair);
@@ -281,11 +290,31 @@ def main(argv: list[str] | None = None) -> int:
     for row in rows:
         row["audio"] = str(root / row["audio"])
 
-    if args.corpus == "fleurs" and tar_path is not None and tar_path.is_file():
+    if args.corpus == "fleurs":
         # Prove the pinned archive is the one these rows name before anyone spends
-        # GPU-hours on it: a hash mismatch here is a corpus drift the pins were
-        # supposed to prevent, discovered at decode time instead of before it.
-        meta["audio_archive_sha256"] = _sha256_file(tar_path)
+        # GPU-hours on it: a mismatch is the corpus drift the pins exist to prevent,
+        # and it must stop the run, not be discovered at decode time. Without the
+        # archive on disk the manifest can still be written (metadata only), but it
+        # says so rather than looking verified.
+        if tar_path is not None and tar_path.is_file():
+            observed = _sha256_file(tar_path)
+            pinned = PINS["fleurs"]["audio_archive_sha256"]
+            if observed != pinned:
+                raise SystemExit(
+                    f"{tar_path}: sha256 {observed} does not match the pinned "
+                    f"{pinned}. This is not the archive at the pinned revision; "
+                    "re-download it, or update PINS (and issue a new manifest) if the "
+                    "corpus was deliberately re-pinned."
+                )
+            meta["audio_archive_sha256"] = observed
+            meta["audio_archive_verified"] = True
+        else:
+            meta["audio_archive_verified"] = False
+            print(
+                "warning: FLEURS audio archive not found; manifest is metadata-only "
+                "and its audio is NOT verified against the pin.",
+                file=sys.stderr,
+            )
     meta["n_rows"] = len(rows)
 
     write_manifest(args.out, rows, meta)
