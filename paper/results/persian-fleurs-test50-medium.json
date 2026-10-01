@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "yazses_commit": "279d25127000f7cf56ee8dcbb41ca888e2b2df15",
+  "timestamp_utc": "2026-10-01T03:33:55Z",
+  "corpus": {
+    "name": "fleurs_test50",
+    "language": "fa",
+    "version": "130e0d71c257c50b",
+    "split": "test",
+    "samples": 50
+  },
+  "selection": {
+    "rows_sha256": "f5b83238b0cc5cb81de2b6b90c49f15f96868a097200f933b07e7a1d9dab1483",
+    "rule": "all rows in manifest order; no subsampling"
+  },
+  "model": {
+    "engine": "faster-whisper",
+    "name": "medium",
+    "revision": null,
+    "compute_type": null
+  },
+  "decoder": {
+    "language": "fa",
+    "beam_size": null,
+    "condition_on_previous_text": null
+  },
+  "machine": {
+    "os": "Ubuntu 24.04.4 LTS",
+    "cpu": "AMD EPYC Processor (with IBPB)",
+    "ram_gb": 8.3
+  },
+  "metrics": {
+    "wer_raw": 41.8,
+    "cer_raw": 11.17,
+    "wer_normalized": 41.72,
+    "cer_normalized": 11.15,
+    "exact_match_raw": 0.0,
+    "exact_match_normalized": 0.0,
+    "rtf": 3.25,
+    "latency_p50_ms": 48182.6,
+    "latency_p95_ms": 66980.9,
+    "persian_quality": {
+      "arabic_yeh_count": 1,
+      "arabic_kaf_count": 0,
+      "zwnj": {
+        "reference_count": 71,
+        "hypothesis_count": 0,
+        "matched_count": 0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0
+      }
+    },
+    "evaluation_normalizer": "fa-eval-v1"
+  },
+  "provenance": {
+    "timestamp": "2026-10-01T03:33:55Z",
+    "cpu_model": "AMD EPYC Processor (with IBPB)",
+    "logical_cpus": 4,
+    "ram_gb": 8.3,
+    "os": "Ubuntu 24.04.4 LTS",
+    "kernel": "6.8.0-139-generic",
+    "python": "3.12.3",
+    "faster_whisper": "1.2.1",
+    "yazses": "2.40.1",
+    "numpy": "2.4.6",
+    "ctranslate2": "4.8.1",
+    "omp_num_threads": "unset",
+    "load_average_1m": 3.07,
+    "compute_type": "int8",
+    "device": "cpu",
+    "argv": "paper/benchmark/bench_persian.py --manifest $HOME/fa_matrix/fleurs_test50.jsonl --model faster-whisper:medium --threads 4 --out $HOME/fa_matrix/result_medium50.json",
+    "corpus": null
+  }
+}

@@ -108,6 +108,7 @@ Four rules for using these files, each learned the expensive way:
 | `meta.json` | dysfluency gate, model footprint, engineering scale | `bench_meta.py` |
 | `index.json` | the provenance + summary of one `run_all.py` sweep | `run_all.py` |
 | `platform-resolution.json` | which extras resolve on which OS/arch, and what blocks the rest | `bench_platform_resolution.py` |
+| `persian-fleurs-*.json` | Persian WER/CER (raw and eval-normalized), ZWNJ recall, RTF on the pinned FLEURS `fa_ir` test split — full 871-row runs, the seed-42 sample sweep, and the run-to-run repeat (FA-04 slice 3, #513) | `bench_persian.py` (manifest mode over `make_fa_manifest.py` output) |
 
 ### The pinned-count pair, and the one thing it proves outright
 

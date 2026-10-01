@@ -820,6 +820,54 @@ The false-collapse rate is the safety-critical one: the feature must never mangl
 fluent speech. The sample is small — 61 clips — so treat the recall figure as
 indicative rather than precise.
 
+## Persian (fa) — first measured numbers
+
+Persian is benchmarked on the pinned Google FLEURS `fa_ir` test split through the same
+shipping engine, scored raw and after the versioned evaluation normalizer
+(`fa-eval-v1`), with the text-quality block the
+[Persian benchmark spec](https://github.com/MSKazemi/yazses/blob/main/design/specs/persian-benchmark-and-validation.md) requires.
+Full method and commands: [`paper/benchmark/README.md`](https://github.com/MSKazemi/yazses/blob/main/paper/benchmark/README.md).
+These runs are FA-04 slice 3 ([#513](https://github.com/MSKazemi/yazses/issues/513));
+machine: AMD EPYC, 4 vCPU, 8.3 GB RAM, int8, 4 threads, Ubuntu 24.04.4.
+
+**The full test split — 871 utterances, no subsampling — is the published number:**
+
+| Model | WER raw | WER norm | CER norm | RTF | p50 | p95 |
+|---|---|---|---|---|---|---|
+| `base` | 89.14 % | 89.10 % | 33.69 % | 0.626 | 9.1 s | 16.7 s |
+| `small` | 59.43 % | 59.29 % | 18.68 % | 1.444 | 20.6 s | 34.9 s |
+
+**A 50-utterance seed-42 sample extends the sweep** (sample, not the number — it ran
+3.6–5.3 points easier than the full split, which is exactly why §8 says to publish the
+full run):
+
+| Model | WER raw | WER norm | CER norm | RTF | p50 |
+|---|---|---|---|---|---|
+| `base` | 83.86 % | 83.86 % | 31.88 % | 0.609 | 9.3 s |
+| `small` | 55.79 % | 55.71 % | 18.09 % | 1.289 | 19.1 s |
+| `medium` | 41.80 % | 41.72 % | 11.15 % | 3.250 | 48.2 s |
+| `large-v3` | — | — | — | skipped: 5.2 GB free < 6.0 GB needed | — |
+
+**No default recommendation follows from this table yet**, by the spec's own §9 rule:
+the only model faster than real time (`base`) is unusable at 89 % WER, and every model
+accurate enough for dictation is slower than real time on this machine class, with
+`large-v3` not fitting 8 GB at all. That is a measured statement about 4-vCPU CPU
+boxes, not about the models.
+
+**Run-to-run stability** (§9's third criterion): repeating the 50-row `small` cell
+reproduced WER bit-for-bit — 55.79 raw / 55.71 norm, every CER digit identical — and
+moved RTF 1.289 → 1.341. Every RTF figure in this section was taken on a contended
+4-vCPU VM (per-result load average 2.97–3.55, recorded in each provenance block). An
+idle-host re-measure of the full-split `small` cell is running on the same machine
+and will join this archive on the same branch; the numbers above do not depend on it,
+and the per-result load average recorded in each provenance block is what makes them comparable.
+
+**ZWNJ: zero of 1,435 reference half-spaces survive any model on the full split**
+(0 of 71 on the sample, at every size measured). None of the three Whisper sizes
+tested emitted U+200C on this corpus — a measurement of those models on FLEURS, not
+a claim about every Whisper model or every speaker, and the measured justification for
+the conservative production normalizer.
+
 ## Community results
 
 This table tracks performance across different machines and engines, measured with the
