@@ -70,8 +70,30 @@ def _python_rules() -> list[tuple[str, str, str, tuple[str, ...]]]:
     ]
 
 
-KOTLIN_RULES = _kotlin_rules()
-PYTHON_RULES = _python_rules()
+def _canon(pairs: list[tuple[str, str, str, tuple[str, ...]]]) -> list[tuple[str, str, str, tuple[str, ...]]]:
+    """Spell the Unicode digit class the same way on both sides before comparing.
+
+    Python and the JVM give `\\d` different meanings: on Python `str` patterns it is
+    Unicode category Nd (so `go to line ۴۲` matches, which `grammar.json` pins), on
+    the JVM it is `[0-9]` only — which is why `52d785c1` had to spell `\\p{Nd}` in
+    the Kotlin. The desktop side keeps the idiomatic `\\d` because that is *how*
+    the Python behaviour is written, not a different behaviour: `re.fullmatch(r"\\d", "۴")`
+    matches. Comparing pattern text verbatim turned a same-language-class two-spelling
+    situation into six failures on `main` (`test_each_rule_matches_its_counterpart_exactly`
+    on `delete_words`/`delete_lines`/`undo_n`/`select_lines`/`go_to_line`, plus the
+    set comparison) — text here is a proxy for semantics, and the proxy was the
+    defect. Canonicalising both spellings to `\\p{Nd}` keeps the proxy honest while
+    still catching real drift: any change in what a rule *matches* — pattern text
+    beyond the digit class, order, intent, action, args — still fails.
+    """
+    return [
+        (pattern.replace("\\d", "\\p{Nd}"), intent, action, args)
+        for pattern, intent, action, args in pairs
+    ]
+
+
+KOTLIN_RULES = _canon(_kotlin_rules())
+PYTHON_RULES = _canon(_python_rules())
 
 
 def test_the_parser_found_the_kotlin_table() -> None:
