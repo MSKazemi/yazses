@@ -165,6 +165,10 @@ def test_constructing_the_sink_imports_no_pyobjc(monkeypatch: pytest.MonkeyPatch
         raise AssertionError("constructing a pointer sink must not import PyObjC")
 
     monkeypatch.setattr(backend, "_load_quartz", _explode)
+    # On a real Mac an earlier test (or the platform itself) may already have imported
+    # Quartz; the claim is that *construction* does not, so start from a clean slate
+    # rather than assuming the host is not macOS. Restored on teardown.
+    monkeypatch.delitem(sys.modules, "Quartz", raising=False)
     MacosPointerSink()
     QuartzMouseApi()
     assert "Quartz" not in sys.modules

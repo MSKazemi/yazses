@@ -235,6 +235,11 @@ def test_a_negative_delay_is_refused(monkeypatch, tmp_path):
 
 
 def test_diagnose_off_windows_says_so_instead_of_printing_nothing(monkeypatch, tmp_path):
+    from yazses.platform.windows import winfo
+
+    # Pin "off Windows" rather than inherit it: on a Windows host the probe is real and
+    # prints the focused window instead, which is a different (correct) behaviour.
+    monkeypatch.setattr(winfo, "available", lambda: False)
     result, injected = _invoke_inject(
         monkeypatch, tmp_path, ["inject", "--diagnose", "hello"]
     )

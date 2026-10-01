@@ -297,9 +297,13 @@ def test_the_windows_consent_values_map_without_an_optimistic_default(
     assert camera_consent_state(values) is expected
 
 
-def test_the_windows_probe_off_windows_is_undetermined() -> None:
+def test_the_windows_probe_off_windows_is_undetermined(monkeypatch) -> None:
     """There is no `winreg` here, so the probe learns nothing -- and nothing is
-    not access. (This is also what a locked or missing hive produces.)"""
+    not access. (This is also what a locked or missing hive produces.)
+
+    `None` in `sys.modules` makes `import winreg` raise ImportError, so this holds on a
+    real Windows host too instead of assuming the test never runs on one."""
+    monkeypatch.setitem(_sys.modules, "winreg", None)
     assert WindowsPermissions().check_camera() is CameraPermission.NOT_DETERMINED
 
 
