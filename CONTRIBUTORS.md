@@ -141,9 +141,10 @@ found defects that no amount of reading the code here would have surfaced.
   quietly weaken the platform it was not about. Has since opened the Persian programme's
   first slices: the conservative Persian normaliser
   ([#554](https://github.com/MSKazemi/yazses/pull/554)), 35 hand-written Persian and RTL
-  vectors for the portable contract ([#552](https://github.com/MSKazemi/yazses/pull/552))
-  and the reproducible Persian benchmark harness
-  ([#558](https://github.com/MSKazemi/yazses/pull/558))
+  vectors for the portable contract ([#552](https://github.com/MSKazemi/yazses/pull/552)),
+  the reproducible Persian benchmark harness
+  ([#558](https://github.com/MSKazemi/yazses/pull/558)) and its pinned FLEURS and Common
+  Voice corpus adapters ([#559](https://github.com/MSKazemi/yazses/pull/559))
 - [@doeil1614-ops](https://github.com/doeil1614-ops) — native-speaker review of the Korean
   page, read in full against the English source and `i18n/glossary.yml`, with commands, code,
   the project name and the contributor-wall markup deliberately left untouched

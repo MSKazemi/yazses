@@ -112,6 +112,7 @@ are stdlib-only — no
 audio enters git; the contract tests (schema, determinism, seed divergence, empty-reference
 skipping, pin shape, archive verification, quoting, and a structural no-audio-in-tree guard)
 run in the `benchmark-harness` job.
+Contributed by [@auroraxo](https://github.com/auroraxo) ([#559](https://github.com/MSKazemi/yazses/pull/559)).
 
 ### Fixed — Linux key-sequence commands now share the dictation path's fallback
 
