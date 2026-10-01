@@ -206,3 +206,27 @@ def test_a_short_identifier_is_not_matched() -> None:
     fire on a CPU model, and a dismissed guard catches nothing (ADR-021)."""
     doc = _real_result()
     assert privacy_problems(doc, LocalIdentifiers(hostname="ab", usernames=("pc",))) == []
+
+
+# --- the tool's own constant is not a leak -------------------------------------------------
+
+
+def test_the_generator_constant_is_not_flagged_for_a_login_named_runner() -> None:
+    """GitHub-hosted CI logs in as `runner`, and GENERATOR is `yazses.eyeeval.runner/1.0`.
+    Every result written there was refused, which is a guard firing on a correct document."""
+    doc = _real_result()
+    ids = LocalIdentifiers(hostname="build-host-01", usernames=("runner",))
+    assert not [p for p in privacy_problems(doc, ids) if p.startswith("software.generator")]
+
+
+def test_the_exemption_is_exactly_the_constant_and_nothing_wider() -> None:
+    """An altered generator value, or the same word anywhere else, is still a finding."""
+    ids = LocalIdentifiers(hostname="build-host-01", usernames=("runner",))
+
+    doc = _real_result()
+    doc["software"]["generator"] = "yazses.eyeeval.runner/1.0 on runner"  # type: ignore[index]
+    assert any(p.startswith("software.generator") for p in privacy_problems(doc, ids))
+
+    doc = _real_result()
+    doc["config"]["settings"]["gaze.note"] = "yazses.eyeeval.runner/1.0"  # type: ignore[index]
+    assert any(p.startswith("config.settings") for p in privacy_problems(doc, ids))

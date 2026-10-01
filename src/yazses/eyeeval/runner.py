@@ -542,6 +542,13 @@ def privacy_problems(doc: Any, identifiers: LocalIdentifiers | None = None) -> l
                     f"`design/eye-control/DATA_SHARING.md` lists it under 'never required "
                     f"in a public issue'; remove the value, do not rename the field."
                 )
+        # The one string this module itself writes. `yazses.eyeeval.runner/1.0` contains
+        # the word `runner`, which is the login name of every GitHub-hosted CI job, so the
+        # substring match refused every result there -- a guard firing on a correct
+        # document (ADR-021). Exempting the *exact constant* costs nothing: a leak planted
+        # anywhere else, or in an altered generator value, still matches below.
+        if path == "software.generator" and text == GENERATOR:
+            continue
         for needle, label in needles:
             if needle in text:
                 problems.append(
