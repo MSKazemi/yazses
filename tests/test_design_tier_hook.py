@@ -243,6 +243,49 @@ def test_a_markdown_link_escaping_the_published_set_also_goes_to_the_repository(
     assert "https://github.com/MSKazemi/yazses/blob/main/.github/CONTRIBUTING.md" in out, out
 
 
+def test_a_section_readme_link_goes_to_the_repository(hook):
+    """`on_files` replaces each section README with a generated index, so the README
+    is not published -- and a link written for GitHub resolves to nothing on the site.
+
+    Two pages under `design/eye-control/` did exactly that and failed `mkdocs build
+    --strict` on main: the warning text says the target `is not found among
+    documentation files` because there is no `design/eye-control/README.md` page for
+    it to find. The prose those links promise ("the reason README.md gives for keeping
+    no status snapshot") lives only in the repository, so that is where the link must
+    point. A top-level README is not a section README and is published, so it must
+    stay a site path.
+    """
+    out = _rewrite(hook, "design/eye-control/VALIDATION_OPERATIONS.md",
+                   "the reason [README.md](README.md) gives")
+    assert (
+        "https://github.com/MSKazemi/yazses/blob/main/design/eye-control/README.md"
+        in out
+    ), out
+
+    out = _rewrite(hook, "design/eye-control/generated/validation-coverage.md",
+                   "see the note in [README.md](../README.md)")
+    assert (
+        "https://github.com/MSKazemi/yazses/blob/main/design/eye-control/README.md"
+        in out
+    ), out
+
+
+def test_a_top_level_readme_link_stays_a_site_path(hook):
+    """The exception must not widen past section READMEs: the tier's own README *is*
+    published, so a link to it has a site target to resolve against."""
+    out = _rewrite(hook, "design/architecture.md", "tiers: [README](README.md)")
+    assert out == "tiers: [README](README.md)", out
+
+
+def test_a_readme_below_a_section_root_is_left_alone(hook):
+    """Only the immediate section README is replaced by an index. `design/publication/
+    paper-v2/README.md` is published as itself, and its link to `authorship/README.md`
+    resolves on the site -- rewriting that one would be the defect."""
+    out = _rewrite(hook, "design/publication/paper-v2/README.md",
+                   "start with [authorship/README.md](authorship/README.md)")
+    assert out == "start with [authorship/README.md](authorship/README.md)", out
+
+
 def test_absolute_and_anchor_links_are_untouched(hook):
     source = "[x](https://example.com/a) [y](#section) [z](mailto:a@b.c)"
     assert _rewrite(hook, "design/adr/a.md", source) == source
