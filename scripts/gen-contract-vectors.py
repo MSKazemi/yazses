@@ -1122,34 +1122,50 @@ CASES: dict[str, list[dict[str, Any]]] = {
         {"id": "rtl-persian-continuing",
          "description": "RTL continuation still gets its separator",
          "input": "سلام", "options": {"had_recent_injection": True}},
-        # ── FA-03: Persian / RTL vectors (#512) ────────────────────────────
-        # The suppression set is ASCII-only TODAY (".,!?;:)]}…%"). These cases
-        # pin that as the contract so the Android port matches the desktop
-        # behaviour, not a well-meaning superset; see the #512 PR for the
-        # proposal to extend it to U+060C/U+061F/U+061B as a MAJOR bump.
-        {"id": "persian-comma-start-gets-space",
-         "description": "a burst opening with the Persian comma U+060C gets the space "
-                        "the ASCII comma would suppress — the suppression set is "
-                        "ASCII-only (pinned behaviour; a candidate change is filed in #512)",
+        # ── FA-03 / #551: Persian / RTL vectors ──────────────────────────
+        # Contract 7.0.0 (MAJOR): the suppression set now covers the Persian
+        # closing marks ، ؟ ؛ and the closing guillemet », and the probe
+        # skips leading invisible format characters (ZWNJ, bidi controls)
+        # before deciding. #552 pinned the old ASCII-only behaviour so the
+        # flip here is deliberate and visible; #551 is the change ticket.
+        {"id": "persian-comma-start-suppressed",
+         "description": "a burst opening with the Persian comma U+060C hugs the "
+                        "previous burst exactly like an ASCII comma — the "
+                        "pre-7.0.0 contract leaked a stray visible space here",
          "input": "، بعداً", "options": {"had_recent_injection": True}},
-        {"id": "persian-question-mark-start-gets-space",
-         "description": "same ASCII-only suppression gap for U+061F: RTL bursts "
-                        "beginning with the Persian question mark keep their separator",
+        {"id": "persian-question-mark-start-suppressed",
+         "description": "U+061F suppresses the separator like its ASCII cousin",
          "input": "؟ شاید", "options": {"had_recent_injection": True}},
-        {"id": "closing-guillemet-start-gets-space",
-         "description": "U+00BB mirrors U+00AB: neither Persian quotation mark is in "
-                        "the suppression set, so both openers and closers keep the space",
+        {"id": "persian-semicolon-start-suppressed",
+         "description": "U+061B suppresses the separator like its ASCII cousin",
+         "input": "؛ سپس", "options": {"had_recent_injection": True}},
+        {"id": "closing-guillemet-start-suppressed",
+         "description": "U+00BB closes; it suppresses like ) ] } while U+00AB "
+                        "still counts as an opening delimiter",
          "input": "» بعداً", "options": {"had_recent_injection": True}},
-        {"id": "zwnj-start-gets-space",
-         "description": "the probe looks at text[0] only, and a leading ZWNJ is "
-                        "invisible non-whitespace: the burst gets a space before a "
-                        "character the user cannot see",
+        {"id": "zwnj-start-word-still-gets-space",
+         "description": "the probe skips invisible format characters, but a "
+                        "leading ZWNJ in front of a word still gets the "
+                        "separator: joining across a boundary ZWNJ is a "
+                        "normalisation decision (postprocess.persian_text strips "
+                        "boundary ZWNJ), not a spacing one",
          "input": "\u200cسلام", "options": {"had_recent_injection": True}},
-        {"id": "bidi-control-start-gets-space",
-         "description": "an RLE embedding character at the start behaves like the ZWNJ "
-                        "above: no suppression, plain separator — adversarial input must "
-                        "not make a port invent a special case",
+        {"id": "bidi-control-start-word-still-gets-space",
+         "description": "an RLE embedding character before a word behaves like "
+                        "the ZWNJ case: invisible, so it neither suppresses nor "
+                        "hides the separator — adversarial input must not make a "
+                        "port invent a special case",
          "input": "\u202bسلام", "options": {"had_recent_injection": True}},
+        {"id": "zwnj-then-persian-comma-suppressed",
+         "description": "the probe looks past the leading ZWNJ and finds the "
+                        "Persian comma: suppression still applies even though "
+                        "text[0] is invisible — the pre-7.0.0 probe saw only "
+                        "text[0] and leaked the space",
+         "input": "\u200c، بعداً", "options": {"had_recent_injection": True}},
+        {"id": "bidi-control-then-comma-suppressed",
+         "description": "an RLE control before an ASCII comma: the first visible "
+                        "character decides, so the separator is suppressed",
+         "input": "\u202b, done", "options": {"had_recent_injection": True}},
     ],
     "stt.vocabulary": [
         {"id": "no-parts", "description": "nothing configured still primes the app name",

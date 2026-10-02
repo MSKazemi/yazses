@@ -5668,11 +5668,12 @@ class Daemon:
 def run() -> None:
     """Entry point used by `yazses-daemon` and `python -m yazses.main`."""
     try:
-        # First run: seed a config that enables the recommended feature set so a
-        # fresh install (snap/pipx/apt) gets the good experience out of the box.
-        # No-op once a config exists — never overrides the user's choices.
-        from yazses.system.firstrun import ensure_recommended_config
+        # First run: carry any stranded pre-#330 config over before seeding, then
+        # seed the recommended feature set if no config exists. Both no-op once a
+        # valid config is in place — never override user choices.
+        from yazses.system.firstrun import ensure_recommended_config, migrate_legacy_config
 
+        migrate_legacy_config()
         ensure_recommended_config()
     except Exception:  # noqa: BLE001 — config seeding must never block startup
         pass

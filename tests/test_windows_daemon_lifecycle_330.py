@@ -331,3 +331,249 @@ def test_no_platform_transport_shadows_a_shared_ipc_name():
             *offenders,
         ]
     )
+
+
+# ---- The reopened half of #330: `restart` replaced a daemon it had not ----
+# seen leave, and `start` opened a blank console window.
+#
+# Both live in `WindowsLifecycle`, and both are testable here because their
+# causes are plain control flow: a method that returns at an *acknowledgement*
+# instead of at an *exit*, and a creation-flag set where one flag contradicted
+# the other. The reporter's evidence was real-Windows PIDs and a window that
+# stayed open; the assertions below are what would have caught either from
+# Linux, so the suite keeps guarding them on every run rather than on the next
+# Windows machine someone borrows.
+
+from yazses.platform import windows as _windows_pkg
+from yazses.platform.base import Paths as _Paths
+from yazses.platform.windows import lifecycle as _win_lifecycle
+
+
+class _Probe:
+    """A liveness probe with a scripted answer; raises once the script runs out."""
+
+    def __init__(self, answers):
+        self._answers = list(answers)
+        self.asked = 0
+
+    def __call__(self, _pid):
+        self.asked += 1
+        if not self._answers:
+            raise AssertionError("stop_daemon kept probing after its script ended")
+        return self._answers.pop(0)
+
+
+class _RecordingPipeClient:
+    """Stand-in for NamedPipeIpcClient: scripted result, recorded calls."""
+
+    instances: list = []
+
+    def __init__(self, socket, timeout_s=None):
+        self.socket = socket
+        self.timeout_s = timeout_s
+        self.calls: list = []
+        type(self).instances.append(self)
+
+    def call(self, method, **_params):
+        self.calls.append(method)
+        return {"ok": True}
+
+
+class _UnreachablePipeClient(_RecordingPipeClient):
+    def call(self, method, **_params):
+        self.calls.append(method)
+        from yazses.ipc.client import IpcUnreachableError
+
+        raise IpcUnreachableError(r"\\.\pipe\yazses-dead-daemon")
+
+
+def _windows_lifecycle(tmp_path, probe, monkeypatch, client_cls=_RecordingPipeClient):
+    paths = _Paths(
+        config_dir=tmp_path,
+        state_dir=tmp_path,
+        cache_dir=tmp_path,
+        log_dir=tmp_path,
+        data_dir=tmp_path,
+    )
+    monkeypatch.setattr(_windows_pkg.ipc, "NamedPipeIpcClient", client_cls)
+    return _win_lifecycle.WindowsLifecycle(paths, alive_probe=probe)
+
+
+def _record_kills(monkeypatch):
+    kills = []
+    monkeypatch.setattr(_win_lifecycle.os, "kill", lambda pid, sig: kills.append((pid, sig)))
+    return kills
+
+
+def _fast_waits(monkeypatch, grace=0.2, poll=0.01):
+    """Shrink the #330 wait windows so the suite feels them, not their length."""
+    monkeypatch.setattr(_win_lifecycle, "_SHUTDOWN_GRACE_S", grace)
+    monkeypatch.setattr(_win_lifecycle, "_FORCE_GRACE_S", grace)
+    monkeypatch.setattr(_win_lifecycle, "_SHUTDOWN_POLL_S", poll)
+
+
+def test_stop_daemon_waits_for_the_acknowledged_process_to_exit(tmp_path, monkeypatch):
+    """The ack is not an exit: `stop_daemon` must watch the PID die before returning.
+
+    The reopened finding behind #330: `WindowsLifecycle.stop_daemon` returned at
+    the RPC *acknowledgement*, so `restart` spawned the successor while the old
+    daemon still held a live IPC server on the same pipe (8 may coexist), and
+    `status` answered with the old daemon's hotkey. The fix's substance is this
+    ordering: acknowledged -> *observed gone* -> return, with no signal at all
+    on the graceful path.
+    """
+    probe = _Probe([True, True, False])  # alive across two polls, then gone
+    kills = _record_kills(monkeypatch)
+    _fast_waits(monkeypatch)
+    _RecordingPipeClient.instances.clear()
+    lc = _windows_lifecycle(tmp_path, probe, monkeypatch)
+
+    lc.stop_daemon(4242)
+
+    assert _RecordingPipeClient.instances[-1].calls == ["shutdown"], "the graceful path is attempted first"
+    assert kills == [], "an acknowledged shutdown that completes must never escalate to a signal"
+    assert probe.asked == 3, "returned only after observing the exit it was promised"
+
+
+def test_stop_daemon_terminates_when_the_acknowledged_process_never_leaves(tmp_path, monkeypatch):
+    """Acknowledged but not exiting: bounded patience, then SIGTERM.
+
+    The grace constants are module-level so this test can shrink them instead
+    of the suite sleeping through the real 10 seconds.
+    """
+    probe = _Probe([True] * 10_000)  # never exits on its own
+    kills = _record_kills(monkeypatch)
+    _fast_waits(monkeypatch, grace=0.05, poll=0.005)
+    lc = _windows_lifecycle(tmp_path, probe, monkeypatch)
+
+    lc.stop_daemon(4242)  # must return, not hang
+
+    assert kills == [(4242, signal.SIGTERM)], "a survivor of the graceful window is terminated"
+
+
+def test_stop_daemon_terminates_immediately_when_the_pipe_is_unreachable(tmp_path, monkeypatch):
+    """Unreachable pipe: no graceful wait to sit through; signal, then wait for the exit."""
+    probe = _Probe([True, False])
+    kills = _record_kills(monkeypatch)
+    _fast_waits(monkeypatch)
+    lc = _windows_lifecycle(tmp_path, probe, monkeypatch, client_cls=_UnreachablePipeClient)
+
+    lc.stop_daemon(4242)
+
+    assert _UnreachablePipeClient.instances[-1].calls == ["shutdown"]
+    assert kills == [(4242, signal.SIGTERM)]
+    assert probe.asked == 2, "after signalling, the method still waits for the exit it caused"
+
+
+def test_stop_daemon_stops_asking_once_the_pid_is_gone(tmp_path, monkeypatch):
+    """A dead PID is not probed again — `_Probe` raises if the wait keeps polling."""
+    probe = _Probe([False])  # gone on the first question
+    kills = _record_kills(monkeypatch)
+    _fast_waits(monkeypatch)
+    lc = _windows_lifecycle(tmp_path, probe, monkeypatch)
+
+    lc.stop_daemon(4242)
+
+    assert probe.asked == 1
+    assert kills == []
+
+
+def test_start_daemon_detached_has_no_visible_console_and_no_contradiction(monkeypatch, tmp_path):
+    """The spawn flags say exactly one thing about consoles: make it invisible.
+
+    The blank window in #330 came from `DETACHED_PROCESS | CREATE_NO_WINDOW`:
+    a parent with *no* console handing the pipx/venv redirector the job of
+    starting a console-subsystem interpreter, which then allocates a brand-new
+    *visible* console of its own. Dropping DETACHED_PROCESS leaves the daemon
+    an invisible console (CREATE_NO_WINDOW) that the redirector's child
+    inherits — nothing for anyone to draw. stdin joins stdout/stderr at
+    DEVNULL so nothing ever reads the terminal the CLI came from.
+    """
+    captured = {}
+
+    def _fake_popen(argv, **kwargs):
+        captured.update(argv=argv, **kwargs)
+        return object()
+
+    monkeypatch.setattr(_win_lifecycle.subprocess, "Popen", _fake_popen)
+    paths = _Paths(
+        config_dir=tmp_path,
+        state_dir=tmp_path,
+        cache_dir=tmp_path,
+        log_dir=tmp_path,
+        data_dir=tmp_path,
+    )
+    _win_lifecycle.WindowsLifecycle(paths, alive_probe=_Probe([False])).start_daemon_detached()
+
+    flags = captured["creationflags"]
+    assert flags & _win_lifecycle._DETACHED_PROCESS == 0, (
+        "DETACHED_PROCESS gives the redirector a console-less parent and the "
+        "interpreter a visible console of its own — the #330 blank window"
+    )
+    assert flags & _win_lifecycle._CREATE_NO_WINDOW, "the daemon's console must be invisible"
+    assert flags & _win_lifecycle._CREATE_NEW_PROCESS_GROUP, "graceful CTRL_BREAK stop depends on this"
+    assert captured["stdin"] is _win_lifecycle.subprocess.DEVNULL
+    assert captured["stdout"] is _win_lifecycle.subprocess.DEVNULL
+    assert captured["stderr"] is _win_lifecycle.subprocess.DEVNULL
+    assert captured["argv"][1:] == ["-m", "yazses.main"], "the non-frozen spawn still runs the module"
+
+
+def test_restart_waits_for_the_old_daemon_to_exit_before_spawning(tmp_path, monkeypatch):
+    """cli-level ordering: observe the recorded PID gone, *then* spawn exactly one.
+
+    The lifecycle wait is one half of the fix; this asserts `_restart_daemon`
+    actually consults it. The previous code slept one fixed second and spawned
+    into whatever state that left behind, which is precisely what the reporter
+    measured with two simultaneous `yazses.main` processes.
+    """
+    import time as _time
+
+    order = []
+    monkeypatch.setattr(cli, "_systemd_managed", lambda: False)
+    monkeypatch.setattr(cli, "_kill_yazses_daemons", lambda _sig: 0)
+    monkeypatch.setattr(_time, "sleep", lambda _s: None)
+    monkeypatch.setattr(cli, "_wait_for_daemon_exit", lambda pid, **_kw: order.append(("wait", pid)) or True)
+    monkeypatch.setattr(cli, "_spawn_daemon", lambda _plat: order.append(("spawn", None)))
+
+    class _Lifecycle:
+        def read_pid(self):
+            return 4242
+
+        def stop_daemon(self, pid):
+            order.append(("stop", pid))
+
+        def clear_pid(self):
+            order.append(("clear", None))
+
+    class _Platform:
+        lifecycle = _Lifecycle()
+        paths = type("P", (), {"data_dir": tmp_path})()
+
+    cli._restart_daemon(_Platform())
+
+    assert order == [
+        ("stop", 4242),
+        ("wait", 4242),
+        ("clear", None),
+        ("spawn", None),
+    ], "the successor must not exist before the predecessor is observed gone"
+
+
+def test_wait_for_daemon_exit_is_true_for_a_pid_already_gone(monkeypatch):
+    """A dead PID answers on the first probe — no sleeps, no grace spent."""
+    import yazses.system.proc as _proc
+
+    monkeypatch.setattr(_proc, "process_alive", lambda _pid: False)
+    assert cli._wait_for_daemon_exit(4242, grace_s=5.0, poll_s=0.0) is True
+
+
+def test_wait_for_daemon_exit_gives_up_bounded_rather_than_hanging(monkeypatch):
+    """Bounded by clock, not by hope: a PID that never dies fails the wait.
+
+    Downstream guards (is_running, the instance lock) own what happens next;
+    this function's contract is only to stop asking in time.
+    """
+    import yazses.system.proc as _proc
+
+    monkeypatch.setattr(_proc, "process_alive", lambda _pid: True)
+    assert cli._wait_for_daemon_exit(4242, grace_s=0.0, poll_s=0.0) is False

@@ -15,6 +15,10 @@ from yazses.platform.macos.lifecycle import render_launch_agent
 from yazses.system.relaunch import Mode, command_for
 
 _APP = Path("/Applications/YazSes.app/Contents/MacOS/YazSes")
+# `str(Path)` is backslashed on Windows, and so is what command_for returns; compare
+# through the same conversion rather than a POSIX literal.
+_PY = Path("/opt/py/bin/python")
+_OUT, _ERR = Path("/o"), Path("/e")
 
 
 def _args(argv: list[str]) -> list[str]:
@@ -34,12 +38,12 @@ def test_pip_install_still_runs_the_module() -> None:
     argv = command_for(
         Mode.DAEMON,
         frozen=False,
-        executable=Path("/opt/py/bin/python"),
+        executable=_PY,
         windows=False,
         which=lambda _name: None,
         exists=lambda _p: False,
     )
-    assert _args(argv) == ["/opt/py/bin/python", "-m", "yazses.main"]
+    assert _args(argv) == [str(_PY), "-m", "yazses.main"]
 
 
 def test_a_path_with_xml_metacharacters_survives_the_round_trip() -> None:
@@ -48,9 +52,9 @@ def test_a_path_with_xml_metacharacters_survives_the_round_trip() -> None:
 
 
 def test_plist_keeps_its_keys() -> None:
-    xml = render_launch_agent([str(_APP), "--daemon"], stdout=Path("/o"), stderr=Path("/e"))
+    xml = render_launch_agent([str(_APP), "--daemon"], stdout=_OUT, stderr=_ERR)
     data = plistlib.loads(xml.encode("utf-8"))
     assert data["Label"] == "com.yazses.daemon"
     assert data["RunAtLoad"] is True
-    assert data["StandardOutPath"] == "/o"
-    assert data["StandardErrorPath"] == "/e"
+    assert data["StandardOutPath"] == str(_OUT)
+    assert data["StandardErrorPath"] == str(_ERR)

@@ -2096,6 +2096,38 @@ def default_config_path() -> Path:
     daemon reading a file nothing writes. And the whole test suite calls
     ``load_config(None)`` meaning *the defaults*, which silently meant *whatever is on
     the developer's machine* until a fixture could point this somewhere empty.
+
+    It also resolves through the platform layer rather than restating a POSIX path:
+    ``Path.home() / ".config"`` **is** the config dir on Linux by coincidence, but it
+    is a directory nothing writes to on Windows (the product uses
+    ``%LOCALAPPDATA%\\yazses``) or macOS (``~/Library/Application Support``). The
+    daemon loaded ``load_config()`` with no path, so on those two it read defaults
+    forever while the CLI read and wrote the platform file: ``yazses hotkey set
+    left_ctrl`` updated the file, ``yazses status`` kept reporting ``right_ctrl`` —
+    the platform default — and no restart could ever help, because no restart had
+    ever looked at that file. Recorded as #330.
+
+    The factory import is function-local on purpose: ``platform.factory`` must never
+    need ``yazses.config`` at module level, and this is the one edge where config
+    reaches for a path. ``get_paths()`` resolves platformdirs directly even where no
+    OS backend exists, so the OS-independent half of the product gets the same answer
+    as the half with a backend.
+    """
+    from yazses.platform.factory import get_paths
+
+    return get_paths().config_file
+
+
+def legacy_default_config_path() -> Path:
+    """The path ``default_config_path`` returned before #330 — a historical fact.
+
+    The pre-#330 seam restated ``Path.home() / ".config" / "yazses" /
+    "config.toml"`` on every platform, so that is where first-run seeding
+    stranded configs on Windows and macOS. Named here — the module that owns
+    the live seam — rather than restated by callers: ``system.firstrun.
+    migrate_legacy_config`` moves files at this path to wherever
+    ``default_config_path()`` points today. On Linux the two coincide, which
+    is exactly why nothing on Linux was ever stranded.
     """
     return Path.home() / ".config" / "yazses" / "config.toml"
 

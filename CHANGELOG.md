@@ -30,6 +30,27 @@ reverted and returned once the contributor supplied it.
 [@Adharsh75r](https://github.com/Adharsh75r) added a setup to `SHOWCASE.md`
 ([#547](https://github.com/MSKazemi/yazses/pull/547)) and is on the contributor wall.
 
+### Changed — continuation spacing is script-aware (contract 7.0.0)
+
+[#551](https://github.com/MSKazemi/yazses/issues/551): `continuation_prefix`'s
+closing-punctuation suppression set was ASCII-only, so a Persian burst opening
+with ، (U+060C), ؟ (U+061F), ؛ (U+061B) or » (U+00BB) collected a stray visible
+space at the burst join — "کلمه ، بعداً" where every Latin script user got
+"word, later". The set now covers those four marks, and the probe skips
+invisible format characters (Unicode `Cf`: ZWNJ, ZWJ, bidi controls, BOM)
+before deciding, so a leading ZWNJ can no longer mask a following comma — nor
+can it trigger suppression in front of an ordinary word. Joining across a
+boundary ZWNJ stays a normalisation decision (`postprocess.persian_text`
+strips boundary ZWNJ), not a spacing one.
+
+Version bump is `6.8.1 -> 7.0.0` (**major** per the semver policy in
+`docs/mobile/contract.md` §5: five expectations pinned by #552 deliberately
+flipped, two renamed with their behaviour kept and four new cases added —
+19 → 22 spacing vectors). Ports on 6.8.1 still match the 6.8.1 vectors; every
+implementation must move to 7.0.0 or record explicitly that it satisfies the
+older version. The Python desktop regenerates and re-runs the vectors in CI;
+`scripts/gen-contract-vectors.py --check` is clean.
+
 ### Added — Persian and RTL join the portable contract (contract 6.8.1)
 
 [FA-03 / #512](https://github.com/MSKazemi/yazses/issues/512) added 35 hand-written
@@ -195,6 +216,60 @@ with no explanation beyond `yazses doctor`. `yazses start` now detects a unit wh
 `ExecStart` is missing and rewrites the user unit to the running install (falling back to a
 detached process if that fails); the `.deb` postinst links `/usr/bin/yazses{,-daemon}` to the
 pipx binaries.
+
+### Fixed — the daemon now reads the config file the CLI writes (#330)
+
+`config.default_config_path()` returned `Path.home() / ".config" / "yazses" / "config.toml"`
+on every platform. That **is** the config dir on Linux by coincidence; on Windows the
+product lives in `%LOCALAPPDATA%\yazses` and on macOS in `~/Library/Application Support`.
+The daemon calls `load_config()` with no path — so on those two platforms it read
+dataclass defaults forever while the CLI read and wrote the platform file. The user's
+`hotkey set left_ctrl` updated a file the running daemon would never open, which is why
+the hotkey symptom in [#330](https://github.com/MSKazemi/yazses/issues/330) survived not
+only restarts but the restart *fix*: no restart had ever looked at that file. The seam
+now delegates to `platform.factory.get_paths().config_file` — the same resolver the CLI,
+`doctor` and first-run seeding already use — with a structural regression test, because
+on the Linux CI runner the old literal and the new delegation are the same string and no
+behavioural test could tell them apart.
+
+The collateral of the old seam is cleaned up rather than ignored: first-run seeding wrote
+configs to that POSIX literal on every OS, so a Windows or macOS user who accepted the
+seed has a file the fixed daemon would silently stop reading. On the first start after
+upgrading, the daemon moves a stranded file intact (a rename — comments arrive
+byte-for-byte) from the legacy location to the platform one, before first-run seeding
+can mask it. Deliberate no-ops, each pinned by a test: on Linux the legacy path *is* the
+platform path, so nothing there was ever stranded and nothing is touched; when both
+files exist the platform config already wins and the legacy copy is left in place rather
+than merged or deleted, with one WARNING naming both files so settings that lived only in
+the legacy copy do not stop applying unannounced; and there is no notice in the common case
+— the config the user wrote simply keeps working.
+
+### Fixed — `restart` now replaces a daemon it has watched leave, and `start` opens no window (#330)
+
+The reopened half of [#330](https://github.com/MSKazemi/yazses/issues/330), reported from
+real Windows 11 with measured PIDs: minutes after a clean-looking `yazses restart`, the
+new daemon still answered `status` with the *old* hotkey, and every `start`/`restart`
+opened a blank console window that stayed open for the daemon's whole life.
+
+`WindowsLifecycle.stop_daemon` returned when the daemon *acknowledged* the `shutdown`
+RPC — not when the process had exited. The real teardown (unload the model, close the
+IPC server, release the hotkey hook) runs afterwards, and the named-pipe transport
+allows several live servers under one pipe name, so the successor daemon could come up
+beside the dying predecessor and `status` could land on either. `stop_daemon` now waits
+— bounded, polling the shared `process_alive` probe — until the acknowledged PID is
+gone before returning, and `_restart_daemon` independently holds the same line for
+every platform: the recorded PID must be observed dead before `_spawn_daemon` runs.
+The wait never sends a signal; it only stops the next step from starting early.
+
+The blank window came from the spawn flags contradicting each other:
+`DETACHED_PROCESS | CREATE_NO_WINDOW` made the *CLI* console-less, and a console-less
+parent launching the pipx/venv redirector makes *that* process start the real
+console-subsystem interpreter with a brand-new visible console — which is the window
+the reporter watched. The daemon's survival never depended on `DETACHED_PROCESS`
+(Windows has no parent/child lifecycle to outlive), so the spawn is now
+`CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW` with stdin/stdout/stderr at `DEVNULL`:
+the daemon gets an invisible console the redirector's child inherits, and nothing
+anywhere has a reason to allocate a window.
 
 ### Fixed — the Korean review was credited everywhere except this file
 
