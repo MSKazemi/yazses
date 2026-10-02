@@ -88,6 +88,16 @@ ROOT_FILE_PATTERNS = (
 _SHARD_RE = re.compile(r"model-\d{5}-of-\d{5}\.safetensors\Z")
 
 
+_FULL_SHA_RE = re.compile(r"[0-9a-f]{40}\Z")
+
+#: Files faster-whisper reads from the model directory. ctranslate2's converter does
+#: not write them: without `tokenizer.json` faster-whisper falls back to downloading
+#: the `openai/whisper-tiny` tokenizer (a network call, and the wrong vocabulary for a
+#: fine-tune that changed it); without `preprocessor_config.json` it uses default
+#: feature settings. Copied only when the source repo actually has them at its root.
+COPY_FILES = ("tokenizer.json", "preprocessor_config.json")
+
+
 def root_files(names) -> list[str]:
     """The repository-root files a conversion needs, from a listing of paths.
 
@@ -190,6 +200,12 @@ def convert(
             "different passes in one directory cannot be told apart."
         )
 
+    if not _FULL_SHA_RE.match(revision):
+        raise SystemExit(
+            f"--revision must be a full 40-hex commit SHA, got {revision!r}: a branch "
+            "or tag moves, and the sidecar would then name a model nobody can re-fetch."
+        )
+
     listing = _remote_listing(repo, revision, python)
     fetched = root_files(listing)
     missing = [f for f in ("config.json",) if f not in fetched]
@@ -207,6 +223,9 @@ def convert(
         "--output_dir", str(out_dir),
         "--quantization", quantization,
     ]
+    copy_files = [f for f in COPY_FILES if f in fetched]
+    if copy_files:
+        cmd += ["--copy_files", *copy_files]
     # The converter CLI's real entry point is the console script; -m is the
     # same module invoked by path so the exact argv can be recorded verbatim.
     r = subprocess.run(cmd, capture_output=True, text=True)
@@ -222,6 +241,7 @@ def convert(
         "quantization": quantization,
         "root_files_fetched": fetched,
         "tools": _tool_versions(python),
+        "copy_files": copy_files,
         "command": " ".join(cmd),
         "seconds": round(time.time() - started, 1),
     }

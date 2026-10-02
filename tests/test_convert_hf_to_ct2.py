@@ -240,3 +240,62 @@ def test_failed_conversion_raises_and_leaves_no_sidecar(conv, tmp_path, monkeypa
     with pytest.raises(SystemExit, match="conversion failed"):
         conv.convert("r/x", "0" * 40, out, python=sys.executable)
     assert not (out / "conversion.json").exists()
+
+
+# ── what the CT2 directory needs to be loadable offline ───────────────────────
+
+
+def _run_capturing_cmd(conv, tmp_path, monkeypatch, listing, revision="0" * 40):
+    out = tmp_path / "ct2"
+    out.mkdir()
+    seen = {}
+
+    def fake_run(cmd, capture_output, text):
+        seen["cmd"] = cmd
+        (out / "model.bin").write_bytes(b"w")
+
+        class R:
+            returncode = 0
+            stdout = ""
+            stderr = ""
+
+        return R()
+
+    monkeypatch.setattr(conv, "_remote_listing", lambda *a, **k: listing)
+    monkeypatch.setattr(conv.subprocess, "run", fake_run)
+    monkeypatch.setattr(conv, "_tool_versions", lambda p: {})
+    sidecar = conv.convert("a/b", revision, out, python=sys.executable)
+    return seen["cmd"], sidecar
+
+
+def test_tokenizer_and_preprocessor_are_copied_into_the_ct2_directory(
+    conv, tmp_path, monkeypatch
+):
+    """Without these faster-whisper fetches openai/whisper-tiny's tokenizer."""
+    cmd, sidecar = _run_capturing_cmd(
+        conv, tmp_path, monkeypatch,
+        ["config.json", "tokenizer.json", "preprocessor_config.json", "vocab.json"],
+    )
+    i = cmd.index("--copy_files")
+    assert cmd[i + 1:] == ["tokenizer.json", "preprocessor_config.json"]
+    assert sidecar["copy_files"] == ["tokenizer.json", "preprocessor_config.json"]
+
+
+def test_a_file_the_repo_lacks_is_not_requested(conv, tmp_path, monkeypatch):
+    cmd, sidecar = _run_capturing_cmd(
+        conv, tmp_path, monkeypatch, ["config.json", "tokenizer.json"]
+    )
+    assert cmd[cmd.index("--copy_files") + 1:] == ["tokenizer.json"]
+    assert sidecar["copy_files"] == ["tokenizer.json"]
+
+
+def test_no_copy_flag_when_the_repo_has_neither(conv, tmp_path, monkeypatch):
+    cmd, sidecar = _run_capturing_cmd(conv, tmp_path, monkeypatch, ["config.json"])
+    assert "--copy_files" not in cmd
+    assert sidecar["copy_files"] == []
+
+
+@pytest.mark.parametrize("rev", ["main", "v1.0", "8c600b6b", "G" * 40])
+def test_a_revision_that_is_not_a_full_sha_is_refused(conv, tmp_path, rev):
+    with pytest.raises(SystemExit, match="40-hex"):
+        conv.convert("a/b", rev, tmp_path / "ct2", python=sys.executable)
