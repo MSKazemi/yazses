@@ -1439,14 +1439,14 @@
     {
       "type": "library",
       "name": "mkdocs-git-revision-date-localized-plugin",
-      "version": "1.6.0",
-      "purl": "pkg:pypi/mkdocs-git-revision-date-localized-plugin@1.6.0",
-      "bom-ref": "pkg:pypi/mkdocs-git-revision-date-localized-plugin@1.6.0",
+      "version": "1.5.4",
+      "purl": "pkg:pypi/mkdocs-git-revision-date-localized-plugin@1.5.4",
+      "bom-ref": "pkg:pypi/mkdocs-git-revision-date-localized-plugin@1.5.4",
       "scope": "excluded",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "469af4b344a4d493a6402aa92eec87a6138e1dac444e9551c1af06991453954b"
+          "content": "07a785522008e881ff4c307e3259ad3ce00931b2d2147a22cdfbb532ff25e4ab"
         }
       ]
     },
