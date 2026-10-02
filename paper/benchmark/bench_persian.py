@@ -171,8 +171,8 @@ def run_smoke() -> dict:
     )
 
 
-def _peak_rss_mb(proc) -> float:
-    """Process high-water mark in MB: Linux VmHWM, falling back to current RSS.
+def _peak_rss_mb(proc) -> tuple[float, str]:
+    """Process high-water mark in MB and where it came from: ``(mb, source)``.
 
     VmHWM is monotonic for the process lifetime, so it catches the model weights
     plus whatever the allocator kept from the decode — the number a "will this
@@ -180,6 +180,12 @@ def _peak_rss_mb(proc) -> float:
     CI runners get the current RSS instead, which understates the peak; the
     field name says peak, so a reader on those platforms is told the caveat
     in the docstring rather than being handed a number dressed up as one.
+
+    The source string rides along because a JSON reader has no docstring: on
+    macOS and Windows the number is current RSS, not a high-water mark, and
+    only ``peak_rss_source`` in the artifact can say so (the #569 review's
+    request). "VmHWM" is the /proc/self/status high-water mark; "rss" is
+    psutil's current value.
     """
     try:
         with open("/proc/self/status", encoding="ascii") as fh:
@@ -190,10 +196,10 @@ def _peak_rss_mb(proc) -> float:
                     # bench_latency). Dividing by 1024 instead would report MiB
                     # against MB baselines and let the peak read *below* the
                     # before-load number — the unit test catches exactly that.
-                    return round(int(line.split()[1]) * 1024 / 1e6, 1)
+                    return round(int(line.split()[1]) * 1024 / 1e6, 1), "VmHWM"
     except OSError:
         pass
-    return round(proc.memory_info().rss / 1e6, 1)
+    return round(proc.memory_info().rss / 1e6, 1), "rss"
 
 
 def _resolve_cached_revision(model_name: str) -> str | None:
@@ -312,10 +318,12 @@ def run_manifest(manifest: Path, model_spec: str, cpu_threads: int = 0) -> dict:
     sorted_rtfs = sorted(decode_times)
     p50 = sorted_rtfs[len(sorted_rtfs) // 2] * 1000
     p95 = sorted_rtfs[min(len(sorted_rtfs) - 1, int(len(sorted_rtfs) * 0.95))] * 1000
+    peak_mb, peak_source = _peak_rss_mb(proc)
     runtime = {
         "model_load_s": round(model_load_s, 2),
         "rss_before_load_mb": round(rss_before_mb, 1),
-        "peak_rss_mb": _peak_rss_mb(proc),
+        "peak_rss_mb": peak_mb,
+        "peak_rss_source": peak_source,
     }
 
     model_block, decoder_block = _decode_settings(engine_name, model_name, engine)
@@ -551,7 +559,11 @@ def validate_result(doc: dict) -> list[str]:
         )
 
     # Optional block (present since FA-05): validate the shape when it exists,
-    # never pretend it is required when the archive says otherwise.
+    # never pretend it is required when the archive says otherwise. The
+    # archived turbo cell was written before peak_rss_source existed, so the
+    # field is optional — but when a newer artifact carries it, it must say
+    # which reading it is: "VmHWM" (the monotonic /proc high-water mark) or
+    # "rss" (current RSS, which understates the peak on macOS/Windows).
     if "runtime" in doc:
         rt = doc["runtime"]
         if not isinstance(rt, dict):
@@ -559,6 +571,12 @@ def validate_result(doc: dict) -> list[str]:
         else:
             for key in ("model_load_s", "rss_before_load_mb", "peak_rss_mb"):
                 _need(rt, key, "runtime", (int, float))
+            source = rt.get("peak_rss_source")
+            if source is not None and source not in ("VmHWM", "rss"):
+                problems.append(
+                    f"runtime.peak_rss_source is {source!r}, expected "
+                    "'VmHWM' or 'rss'"
+                )
     return problems
 
 

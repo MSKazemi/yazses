@@ -343,6 +343,15 @@ def test_manifest_mode_records_load_time_and_peak_rss(bench_persian, tmp_path, m
     assert rt["rss_before_load_mb"] > 0
     # The peak is the high-water mark, never below the reading taken before load.
     assert rt["peak_rss_mb"] >= rt["rss_before_load_mb"]
+    # Which reading it is travels in the artifact itself (#569 review): a JSON
+    # reader has no docstring, and on macOS/Windows the value is current RSS.
+    assert rt["peak_rss_source"] in ("VmHWM", "rss")
+    import sys
+
+    if sys.platform.startswith("linux"):
+        assert rt["peak_rss_source"] == "VmHWM", (
+            "on Linux the peak must come from /proc/self/status, not the fallback"
+        )
 
 
 def test_smoke_has_no_runtime_block_instead_of_invented_numbers(bench_persian):
@@ -374,6 +383,24 @@ def test_validator_checks_the_runtime_shape_when_the_block_exists(bench_persian)
 
     doc["runtime"] = "not a dict"
     assert any(p.startswith("runtime has type") for p in v(doc))
+
+    # peak_rss_source is optional (the archived turbo cell predates it) but
+    # never a free-form string: a reader must be able to trust which measurement
+    # the peak is, or the field is worse than its absence.
+    doc["runtime"] = {
+        "model_load_s": 1.2,
+        "rss_before_load_mb": 100.0,
+        "peak_rss_mb": 900.0,
+        "peak_rss_source": "VmHWM",
+    }
+    assert v(doc) == [], "the field validates when it names a real source"
+    doc["runtime"]["peak_rss_source"] = "approx"
+    assert any("peak_rss_source" in p for p in v(doc)), (
+        "an unrecognised peak_rss_source must not pass — the whole point of the "
+        "field is that it says which measurement the peak is"
+    )
+    doc["runtime"].pop("peak_rss_source")
+    assert v(doc) == [], "the field stays optional so pre-existing artifacts validate"
 
 
 def test_archived_results_without_the_runtime_block_still_validate(bench_persian):
