@@ -127,7 +127,7 @@ def test_sidecar_records_source_tools_command_and_digests(conv, tmp_path, monkey
 
     def fake_run(cmd, capture_output, text):
         (out / "model.bin").write_bytes(b"weights")
-        (out / "config.json").write_text("{}")
+        (out / "config.json").write_text("{}", encoding="utf-8")
 
         class R:
             returncode = 0
