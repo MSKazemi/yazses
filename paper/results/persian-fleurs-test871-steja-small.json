@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "yazses_commit": "006172ee383a68c93f1f009f22c11d59969ee2fc",
+  "timestamp_utc": "2026-10-02T18:40:24Z",
+  "corpus": {
+    "name": "fleurs_full871",
+    "language": "fa",
+    "version": "41fc461425c88bd2",
+    "split": "test",
+    "samples": 871
+  },
+  "selection": {
+    "rows_sha256": "37cf001bea3763b55ba8e590dd9ad982636eef3e484f2810b81b46d59c7c29c1",
+    "rule": "all rows in manifest order; no subsampling"
+  },
+  "model": {
+    "engine": "faster-whisper",
+    "name": "steja/whisper-small-persian (CT2 int8, local conversion)",
+    "revision": null,
+    "compute_type": "int8_float32"
+  },
+  "decoder": {
+    "language": "fa",
+    "beam_size": 5,
+    "condition_on_previous_text": true
+  },
+  "machine": {
+    "os": "Ubuntu 24.04.4 LTS",
+    "cpu": "AMD EPYC Processor (with IBPB)",
+    "ram_gb": 8.3
+  },
+  "metrics": {
+    "wer_raw": 37.34,
+    "cer_raw": 10.99,
+    "wer_normalized": 37.28,
+    "cer_normalized": 10.98,
+    "exact_match_raw": 0.0057,
+    "exact_match_normalized": 0.0057,
+    "rtf": 1.334,
+    "latency_p50_ms": 18946.8,
+    "latency_p95_ms": 31686.8,
+    "persian_quality": {
+      "arabic_yeh_count": 6,
+      "arabic_kaf_count": 0,
+      "zwnj": {
+        "reference_count": 1435,
+        "hypothesis_count": 0,
+        "matched_count": 0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0
+      }
+    },
+    "evaluation_normalizer": "fa-eval-v1"
+  },
+  "provenance": {
+    "timestamp": "2026-10-02T18:40:24Z",
+    "cpu_model": "AMD EPYC Processor (with IBPB)",
+    "logical_cpus": 4,
+    "ram_gb": 8.3,
+    "os": "Ubuntu 24.04.4 LTS",
+    "kernel": "6.8.0-139-generic",
+    "python": "3.12.3",
+    "faster_whisper": "1.2.1",
+    "yazses": "2.40.1",
+    "numpy": "2.4.6",
+    "ctranslate2": "4.8.1",
+    "omp_num_threads": "unset",
+    "load_average_1m": 3.39,
+    "compute_type": "int8",
+    "device": "cpu",
+    "argv": "paper/benchmark/bench_persian.py --manifest $HOME/fa_matrix/fleurs_full871.jsonl --model faster-whisper:$HOME/fa_matrix/ct2_steja_small_persian --threads 4 --out $HOME/fa_matrix/result_steja_full871.json",
+    "corpus": null
+  },
+  "runtime": {
+    "model_load_s": 1.48,
+    "rss_before_load_mb": 38.6,
+    "peak_rss_mb": 1174.4
+  }
+}
