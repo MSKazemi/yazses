@@ -55,6 +55,42 @@ def test_root_files_deduplicates_and_sorts(conv):
 def test_safetensors_checkpoints_are_recognized_too(conv):
     assert "model.safetensors" in conv.root_files(["model.safetensors"])
     assert "weights.bin" in conv.root_files(["weights.bin"])
+    # Sharded safetensors layout: five digits, -of-, total, .safetensors
+    shards = ["model-00001-of-00002.safetensors", "model-00002-of-00002.safetensors"]
+    assert conv.root_files(shards) == shards
+
+
+def test_the_real_nezamisafa_listing_yields_the_twelve_files(conv):
+    """Pinned against the actual tree listing of the second FA-05 candidate.
+
+    nezamisafa/whisper-persian-v4 is a sharded safetensors large-v3 fine-tune.
+    The two model-0000X shards and the index must match, while training runs/
+    and training_args.bin stay excluded.
+    """
+    listing = [
+        ".gitattributes", "README.md", "added_tokens.json", "config.json",
+        "generation_config.json", "merges.txt",
+        "model-00001-of-00002.safetensors", "model-00002-of-00002.safetensors",
+        "model.safetensors.index.json", "normalizer.json",
+        "preprocessor_config.json", "special_tokens_map.json",
+        "tokenizer_config.json", "training_args.bin", "vocab.json",
+        "runs/Mar01_12-00-00/events.out.tfevents.1",
+        "checkpoint-2500/pytorch_model.bin",
+    ]
+    assert conv.root_files(listing) == [
+        "added_tokens.json",
+        "config.json",
+        "generation_config.json",
+        "merges.txt",
+        "model-00001-of-00002.safetensors",
+        "model-00002-of-00002.safetensors",
+        "model.safetensors.index.json",
+        "normalizer.json",
+        "preprocessor_config.json",
+        "special_tokens_map.json",
+        "tokenizer_config.json",
+        "vocab.json",
+    ]
 
 
 def test_the_real_steja_listing_yields_the_nine_files(conv):

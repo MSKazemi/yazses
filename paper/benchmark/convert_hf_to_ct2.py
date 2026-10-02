@@ -40,6 +40,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import subprocess
 import sys
 import time
@@ -54,6 +55,13 @@ CONVERSION_SCHEMA_VERSION = 1
 #: `.safetensors` is the modern equivalent and `weights.bin` what some repos use.
 #: Anything matched here is fetched by exact name — never by pattern, never from
 #: a `checkpoint-*/` subdirectory. See the module docstring for why.
+#: The one apparent exception is `_SHARD_RE` below: a repo whose weights exceed
+#: safetensors' 5 GB single-file ceiling ships `model-00001-of-00002.safetensors`
+#: shards plus an index. That naming is a format contract (five digits, `-of-`,
+#: total), not a glob — it still cannot spell `checkpoint-2500/…`, and the index
+#: pins which shards belong to the model. Confirmed against the real tree of
+#: nezamisafa/whisper-persian-v4 (15 root files, two shards) which the previous
+#: allowlist silently excluded, breaking conversion of any large-v3 fine-tune.
 ROOT_FILE_PATTERNS = (
     "config.json",
     "generation_config.json",
@@ -73,6 +81,13 @@ ROOT_FILE_PATTERNS = (
 )
 
 
+#: Weight shards from the safetensors multi-file layout: five digits, ``-of-``,
+#: total, then the extension. Anchored both ends so it cannot match anything
+#: outside the naming convention — `checkpoint-2500.safetensors` is not spelled
+#: this way, and a subdir path never reaches this matcher at all.
+_SHARD_RE = re.compile(r"model-\d{5}-of-\d{5}\.safetensors\Z")
+
+
 def root_files(names) -> list[str]:
     """The repository-root files a conversion needs, from a listing of paths.
 
@@ -89,7 +104,7 @@ def root_files(names) -> list[str]:
         name = str(name).replace("\\", "/")
         if "/" in name or name.startswith("."):
             continue
-        if name in ROOT_FILE_PATTERNS:
+        if name in ROOT_FILE_PATTERNS or _SHARD_RE.match(name):
             out.append(name)
     return sorted(set(out))
 
