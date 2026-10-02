@@ -377,26 +377,46 @@ def test_validator_checks_the_runtime_shape_when_the_block_exists(bench_persian)
 
 
 def test_archived_results_without_the_runtime_block_still_validate(bench_persian):
-    """The seven FA-04 artifacts predate the field; optional must stay optional.
+    """Both archive generations validate under the current schema.
 
-    Requiring the block would make every archived result — the ones the page
-    numbers trace to — schema-invalid the moment anything revalidates them,
-    which is the 'a guard assuming an environment instead of reading it' failure
-    the archive guards were written to avoid.
+    The seven FA-04 artifacts predate the runtime block; requiring it would
+    make the results the page numbers trace to schema-invalid the moment
+    anything revalidates them — the 'a guard assuming an environment instead
+    of reading it' failure the archive guards were written to avoid. The
+    FA-05 turbo cell (persian-fleurs-test871-large-v3-turbo.json) is the
+    first artifact produced *with* the instrument, so the archive now holds
+    both shapes by design and this test checks each against its own rule:
+    no-runtime artifacts validate with runtime problems ignored, and any
+    artifact that does carry the block must validate it fully, caveats and
+    all — not silently inherit the old exemption.
     """
     import glob
 
     archived = glob.glob(str(BENCH.parent / "results" / "persian-fleurs-*.json"))
     assert archived, "no archived Persian results to revalidate"
+    with_runtime = 0
+    without_runtime = 0
     for path in archived:
         doc = json.loads(Path(path).read_text(encoding="utf-8"))
-        assert "runtime" not in doc, f"{path} unexpectedly has a runtime block"
+        has_runtime = "runtime" in doc
+        if has_runtime:
+            with_runtime += 1
+        else:
+            without_runtime += 1
         # The archived docs are v1 artifacts of the pre-instrument harness; the
         # shape contract they must keep satisfying is "no runtime key, valid".
         doc.pop("schema_version", None)
         doc["schema_version"] = bench_persian.RESULT_SCHEMA_VERSION
-        problems = [p for p in bench_persian.validate_result(doc) if not p.startswith("runtime")]
+        problems = [
+            p for p in bench_persian.validate_result(doc)
+            if not p.startswith("runtime") or has_runtime
+        ]
         assert problems == [], f"{path}: {problems}"
+    assert without_runtime, "the pre-instrument FA-04 artifacts are gone"
+    assert with_runtime, (
+        "no archived result carries the runtime block — the instrument from "
+        "#569 is not reaching the archive"
+    )
 
 
 # ── the decode settings are read off the engine, not guessed ─────────────────
