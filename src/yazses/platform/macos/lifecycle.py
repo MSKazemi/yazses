@@ -5,8 +5,8 @@ from __future__ import annotations
 import os
 import signal
 import subprocess
-import sys
 from pathlib import Path
+from xml.sax.saxutils import escape
 
 from yazses.platform.base import Paths
 from yazses.system.relaunch import Mode, command_for
@@ -79,12 +79,10 @@ class MacosLifecycle:
 
     def install_autostart(self) -> None:
         self._plist_path.parent.mkdir(parents=True, exist_ok=True)
-        executable = sys.executable
         log_dir = self._paths.log_dir
         log_dir.mkdir(parents=True, exist_ok=True)
-        plist = _PLIST_TEMPLATE.format(
-            label=_LABEL,
-            executable=executable,
+        plist = render_launch_agent(
+            command_for(Mode.DAEMON),
             stdout=log_dir / "stdout.log",
             stderr=log_dir / "stderr.log",
         )
@@ -116,6 +114,25 @@ class MacosLifecycle:
         return result.returncode == 0
 
 
+def render_launch_agent(argv: list[str], *, stdout: Path, stderr: Path) -> str:
+    """The launchd plist that runs *argv* at login. Pure, so it tests without a Mac.
+
+    ``argv`` comes from :func:`~yazses.system.relaunch.command_for`, not from
+    ``[sys.executable, "-m", "yazses.main"]``. In the .app / .dmg bundle
+    ``sys.executable`` is the bundle itself, which is not an interpreter: it read
+    ``-m`` as a CLI option and exited 2 with "No such option: -m", so the login
+    agent ``doctor`` reported as loaded never started a daemon. Every other
+    platform's autostart already goes through ``command_for``.
+    """
+    arguments = "\n".join(f"        <string>{escape(a)}</string>" for a in argv)
+    return _PLIST_TEMPLATE.format(
+        label=_LABEL,
+        arguments=arguments,
+        stdout=escape(str(stdout)),
+        stderr=escape(str(stderr)),
+    )
+
+
 _PLIST_TEMPLATE = """\
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -124,9 +141,7 @@ _PLIST_TEMPLATE = """\
     <key>Label</key><string>{label}</string>
     <key>ProgramArguments</key>
     <array>
-        <string>{executable}</string>
-        <string>-m</string>
-        <string>yazses.main</string>
+{arguments}
     </array>
     <key>RunAtLoad</key><true/>
     <key>KeepAlive</key>

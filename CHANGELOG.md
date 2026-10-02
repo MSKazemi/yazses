@@ -6,6 +6,18 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — macOS: the login agent never started the daemon from the .app
+
+`install_autostart()` wrote `[sys.executable, "-m", "yazses.main"]` into the launchd plist.
+In the `.dmg` / `.app` bundle `sys.executable` is the bundle itself, which has no `-m`: it
+exited 2 with "No such option: -m", so the agent `yazses doctor` reports as "loaded" never
+started a daemon at login. The plist now takes its argv from `command_for(Mode.DAEMON)`, the
+same resolver Linux and Windows already use (`YazSes --daemon` in a bundle, the module under
+pip). Found while triaging [#562](https://github.com/MSKazemi/yazses/issues/562); that
+report's *hotkey does nothing* symptom is a separate, still-unconfirmed permission problem and
+this change is not claimed to fix it. Not hardware-verified: the plist is rendered by a pure
+function pinned by `tests/test_macos_launch_agent.py`, with no Mac involved.
+
 ### Added — showcase entry: Ubuntu 24.04 (X11), external and built-in microphone
 
 [@AmothissacrajT](https://github.com/AmothissacrajT) added a setup to `SHOWCASE.md`
