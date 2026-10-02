@@ -171,6 +171,31 @@ def run_smoke() -> dict:
     )
 
 
+def _peak_rss_mb(proc) -> float:
+    """Process high-water mark in MB: Linux VmHWM, falling back to current RSS.
+
+    VmHWM is monotonic for the process lifetime, so it catches the model weights
+    plus whatever the allocator kept from the decode — the number a "will this
+    fit in 8 GB" decision needs — regardless of when it is read. Non-Linux
+    CI runners get the current RSS instead, which understates the peak; the
+    field name says peak, so a reader on those platforms is told the caveat
+    in the docstring rather than being handed a number dressed up as one.
+    """
+    try:
+        with open("/proc/self/status", encoding="ascii") as fh:
+            for line in fh:
+                if line.startswith("VmHWM:"):
+                    # kB -> bytes -> decimal MB, the same scale psutil's
+                    # `rss / 1e6` uses everywhere else in this harness (and in
+                    # bench_latency). Dividing by 1024 instead would report MiB
+                    # against MB baselines and let the peak read *below* the
+                    # before-load number — the unit test catches exactly that.
+                    return round(int(line.split()[1]) * 1024 / 1e6, 1)
+    except OSError:
+        pass
+    return round(proc.memory_info().rss / 1e6, 1)
+
+
 def _resolve_cached_revision(model_name: str) -> str | None:
     """The Hugging Face commit hash of the model snapshot actually loaded, or ``None``.
 
@@ -253,9 +278,22 @@ def run_manifest(manifest: Path, model_spec: str, cpu_threads: int = 0) -> dict:
         model_name = engine_name
         engine_name = "faster-whisper"
 
+    # FA-05's report list (issue #514) names model load time and peak RSS, which the
+    # FA-04 instrument did not record. Measured here, around the shipping factory's
+    # own build — the load time therefore includes the cache-first lookup
+    # `faster_whisper.py` does, which is the load a user actually experiences.
+    # Peak RSS is the process high-water mark (VmHWM): it catches the model weights
+    # plus whatever the allocator kept from the decode, which is the number a
+    # "will this fit in 8 GB" decision needs.
+    import psutil  # noqa: PLC0415 — benchmark-group dependency
+
     from _common import load_audio  # noqa: PLC0415 — optional heavy dep at call time
 
+    proc = psutil.Process()
+    rss_before_mb = proc.memory_info().rss / 1e6
+    load_t0 = time.monotonic()
     engine = _build_checked(engine_name, model_name, cpu_threads)
+    model_load_s = time.monotonic() - load_t0
     references: list[str] = []
     hypotheses: list[str] = []
     decode_times: list[float] = []
@@ -274,6 +312,11 @@ def run_manifest(manifest: Path, model_spec: str, cpu_threads: int = 0) -> dict:
     sorted_rtfs = sorted(decode_times)
     p50 = sorted_rtfs[len(sorted_rtfs) // 2] * 1000
     p95 = sorted_rtfs[min(len(sorted_rtfs) - 1, int(len(sorted_rtfs) * 0.95))] * 1000
+    runtime = {
+        "model_load_s": round(model_load_s, 2),
+        "rss_before_load_mb": round(rss_before_mb, 1),
+        "peak_rss_mb": _peak_rss_mb(proc),
+    }
 
     model_block, decoder_block = _decode_settings(engine_name, model_name, engine)
     return _assemble(
@@ -294,6 +337,7 @@ def run_manifest(manifest: Path, model_spec: str, cpu_threads: int = 0) -> dict:
         rtf=round(sorted(rtfs)[len(rtfs) // 2], 3),
         latency_p50_ms=round(p50, 1),
         latency_p95_ms=round(p95, 1),
+        runtime=runtime,
     )
 
 
@@ -349,6 +393,7 @@ def _assemble(
     rtf: float | None,
     latency_p50_ms: float | None,
     latency_p95_ms: float | None,
+    runtime: dict | None = None,
 ) -> dict:
     """Build the §7 result document: schema, corpus, model, decoder, machine, metrics."""
     from _common import provenance  # noqa: PLC0415 — psutil is a benchmark-group dep
@@ -394,6 +439,13 @@ def _assemble(
         },
         "provenance": prov,
     }
+    # `runtime` is present only where it was measured: the manifest path records
+    # model load time and peak RSS (FA-05's report list, issue #514), the smoke
+    # path builds no engine and has nothing to report. Optional rather than
+    # schema-bumped so the seven archived FA-04 results keep validating as the
+    # artifacts they are — measured before the fields existed.
+    if runtime is not None:
+        doc["runtime"] = runtime
     problems = validate_result(doc)
     if problems:
         raise SystemExit(
@@ -497,6 +549,16 @@ def validate_result(doc: dict) -> list[str]:
             "metrics.evaluation_normalizer missing or not "
             f"{EVAL_NORMALIZER_VERSION!r}"
         )
+
+    # Optional block (present since FA-05): validate the shape when it exists,
+    # never pretend it is required when the archive says otherwise.
+    if "runtime" in doc:
+        rt = doc["runtime"]
+        if not isinstance(rt, dict):
+            problems.append(f"runtime has type {type(rt).__name__}, expected dict")
+        else:
+            for key in ("model_load_s", "rss_before_load_mb", "peak_rss_mb"):
+                _need(rt, key, "runtime", (int, float))
     return problems
 
 
