@@ -295,3 +295,105 @@ def test_manifest_mode_refuses_a_silently_substituted_engine(bench_persian, monk
     monkeypatch.setattr("yazses.stt.factory.build_engine", lambda stt: FasterWhisperEngine())
     with pytest.raises(RuntimeError, match="under another"):
         bench_persian._build_checked("parakeet", "whatever", 0)
+
+
+# ── the runtime block: FA-05's report list, recorded not asserted (#514) ──────
+#
+# The issue names model load time and peak RSS because a "will it fit / will it
+# keep up" decision needs both, and FA-04's artifacts have neither. These tests
+# pin three things: the manifest path measures them, the smoke path honestly
+# omits the block instead of inventing numbers, and the validator checks the
+# shape when the block exists — while the seven archived results, written
+# before the field existed, keep validating as the artifacts they are.
+
+
+def _fake_manifest(tmp_path):
+    manifest = tmp_path / "tiny.jsonl"
+    manifest.write_text(
+        json.dumps({"id": "t-1", "audio": "t.wav", "reference": "سلام دنیا"}) + "\n",
+        encoding="utf-8",
+    )
+    return manifest
+
+
+def test_manifest_mode_records_load_time_and_peak_rss(bench_persian, tmp_path, monkeypatch):
+    """The runtime block is measured around the real build, not guessed.
+
+    Both collaborators are replaced: the factory (a 40 MB model is not CI's
+    business) and `load_audio` (no audio file is committed). The engine that
+    comes back must still be class-checked and its `transcribe` called, so the
+    block's numbers bracket the same code path a real run brackets.
+    """
+    import numpy as np  # noqa: PLC0415 — benchmark-group dependency
+
+    class FasterWhisperEngine:
+        def transcribe(self, audio):
+            return "سلام دنیا"
+
+    monkeypatch.setattr("yazses.stt.factory.build_engine", lambda stt: FasterWhisperEngine())
+    monkeypatch.setattr(
+        "_common.load_audio", lambda p: np.zeros(16000, dtype=np.float32)
+    )
+    doc = bench_persian.run_manifest(_fake_manifest(tmp_path), "faster-whisper:small", 4)
+
+    assert bench_persian.validate_result(doc) == []
+    rt = doc["runtime"]
+    assert rt["model_load_s"] >= 0, "load time was measured, not defaulted"
+    assert rt["peak_rss_mb"] > 0, "peak RSS must be a real process reading"
+    assert rt["rss_before_load_mb"] > 0
+    # The peak is the high-water mark, never below the reading taken before load.
+    assert rt["peak_rss_mb"] >= rt["rss_before_load_mb"]
+
+
+def test_smoke_has_no_runtime_block_instead_of_invented_numbers(bench_persian):
+    """The smoke path builds no engine: the block must be absent, not zero-filled.
+
+    A `0.0` load time would read as "this model loads instantly" in whatever
+    table FA-05 builds from the artifacts — the exact fabrication the null-field
+    rule in #565 exists to prevent.
+    """
+    doc = bench_persian.run_smoke()
+    assert "runtime" not in doc
+    assert bench_persian.validate_result(doc) == []
+
+
+def test_validator_checks_the_runtime_shape_when_the_block_exists(bench_persian):
+    v = bench_persian.validate_result
+    doc = bench_persian.run_smoke()
+    doc["runtime"] = {"model_load_s": 1.2, "rss_before_load_mb": 100.0, "peak_rss_mb": 900.0}
+    assert v(doc) == [], "a complete runtime block must validate"
+
+    doc["runtime"] = {"model_load_s": 1.2, "peak_rss_mb": 900.0}
+    assert any("rss_before_load_mb" in p for p in v(doc)), (
+        "a runtime block missing a field must not pass — the block's whole job "
+        "is that all three numbers are there"
+    )
+
+    doc["runtime"] = {"model_load_s": "fast", "rss_before_load_mb": 1.0, "peak_rss_mb": 2.0}
+    assert any("model_load_s" in p for p in v(doc))
+
+    doc["runtime"] = "not a dict"
+    assert any(p.startswith("runtime has type") for p in v(doc))
+
+
+def test_archived_results_without_the_runtime_block_still_validate(bench_persian):
+    """The seven FA-04 artifacts predate the field; optional must stay optional.
+
+    Requiring the block would make every archived result — the ones the page
+    numbers trace to — schema-invalid the moment anything revalidates them,
+    which is the 'a guard assuming an environment instead of reading it' failure
+    the archive guards were written to avoid.
+    """
+    import glob
+
+    archived = glob.glob(str(BENCH.parent / "results" / "persian-fleurs-*.json"))
+    assert archived, "no archived Persian results to revalidate"
+    for path in archived:
+        doc = json.loads(Path(path).read_text(encoding="utf-8"))
+        assert "runtime" not in doc, f"{path} unexpectedly has a runtime block"
+        # The archived docs are v1 artifacts of the pre-instrument harness; the
+        # shape contract they must keep satisfying is "no runtime key, valid".
+        doc.pop("schema_version", None)
+        doc["schema_version"] = bench_persian.RESULT_SCHEMA_VERSION
+        problems = [p for p in bench_persian.validate_result(doc) if not p.startswith("runtime")]
+        assert problems == [], f"{path}: {problems}"
