@@ -21,3 +21,6 @@ wrote $HOME/fa_matrix/result_small_full871.json (59.43% wer_raw)
 wrote $HOME/fa_matrix/result_small50_repeat.json (55.79% wer_raw)
 2026-10-01T13:43:53Z done small50_repeat
 2026-10-01T13:44:03Z start small_full871_idle (MemAvailable=4964MB, load=2.52)
+2026-10-01T19:26:21Z start small_full871_idle2 (MemAvailable=5839MB, load=0.35)
+wrote $HOME/fa_matrix/result_small_full871_idle.json (59.25% wer_raw)
+2026-10-02T00:33:01Z done small_full871_idle2
