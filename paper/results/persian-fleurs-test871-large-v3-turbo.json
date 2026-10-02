@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "yazses_commit": "f1ec15b5abda7ee61c755f13f9e14b9e9d64c19a",
+  "timestamp_utc": "2026-10-02T12:39:22Z",
+  "corpus": {
+    "name": "fleurs_full871",
+    "language": "fa",
+    "version": "41fc461425c88bd2",
+    "split": "test",
+    "samples": 871
+  },
+  "selection": {
+    "rows_sha256": "37cf001bea3763b55ba8e590dd9ad982636eef3e484f2810b81b46d59c7c29c1",
+    "rule": "all rows in manifest order; no subsampling"
+  },
+  "model": {
+    "engine": "faster-whisper",
+    "name": "large-v3-turbo",
+    "revision": null,
+    "compute_type": null
+  },
+  "decoder": {
+    "language": "fa",
+    "beam_size": null,
+    "condition_on_previous_text": null
+  },
+  "machine": {
+    "os": "Ubuntu 24.04.4 LTS",
+    "cpu": "AMD EPYC Processor (with IBPB)",
+    "ram_gb": 8.3
+  },
+  "metrics": {
+    "wer_raw": 36.16,
+    "cer_raw": 8.94,
+    "wer_normalized": 36.13,
+    "cer_normalized": 8.92,
+    "exact_match_raw": 0.0034,
+    "exact_match_normalized": 0.0034,
+    "rtf": 1.716,
+    "latency_p50_ms": 24768.7,
+    "latency_p95_ms": 34602.7,
+    "persian_quality": {
+      "arabic_yeh_count": 0,
+      "arabic_kaf_count": 0,
+      "zwnj": {
+        "reference_count": 1435,
+        "hypothesis_count": 0,
+        "matched_count": 0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0
+      }
+    },
+    "evaluation_normalizer": "fa-eval-v1"
+  },
+  "provenance": {
+    "timestamp": "2026-10-02T12:39:22Z",
+    "cpu_model": "AMD EPYC Processor (with IBPB)",
+    "logical_cpus": 4,
+    "ram_gb": 8.3,
+    "os": "Ubuntu 24.04.4 LTS",
+    "kernel": "6.8.0-139-generic",
+    "python": "3.12.3",
+    "faster_whisper": "1.2.1",
+    "yazses": "2.40.1",
+    "numpy": "2.4.6",
+    "ctranslate2": "4.8.1",
+    "omp_num_threads": "unset",
+    "load_average_1m": 3.31,
+    "compute_type": "int8",
+    "device": "cpu",
+    "argv": "paper/benchmark/bench_persian.py --manifest $HOME/fa_matrix/fleurs_full871.jsonl --model faster-whisper:large-v3-turbo --threads 4 --out $HOME/fa_matrix/result_turbo_full871.json",
+    "corpus": null
+  },
+  "runtime": {
+    "model_load_s": 5.95,
+    "rss_before_load_mb": 38.6,
+    "peak_rss_mb": 1738.5
+  }
+}

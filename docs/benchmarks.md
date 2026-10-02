@@ -837,6 +837,7 @@ machine: AMD EPYC, 4 vCPU, 8.3 GB RAM, int8, 4 threads, Ubuntu 24.04.4.
 | `base` | 89.14 % | 89.10 % | 33.69 % | 0.626 | 9.1 s | 16.7 s |
 | `small` | 59.43 % | 59.29 % | 18.68 % | 1.444 | 20.6 s | 34.9 s |
 | `small` (idle-host re-measure) | 59.25 % | 59.11 % | 18.51 % | 1.27 | 18.2 s | 31.0 s |
+| `large-v3-turbo` | 36.16 % | 36.13 % | 8.92 % | 1.716 | 24.8 s | 34.6 s |
 
 **A 50-utterance seed-42 sample extends the sweep** (sample, not the number — it ran
 3.6–5.3 points easier than the full split, which is exactly why §8 says to publish the
@@ -854,6 +855,17 @@ the only model faster than real time (`base`) is unusable at 89 % WER, and every
 accurate enough for dictation is slower than real time on this machine class, with
 `large-v3` not fitting 8 GB at all. That is a measured statement about 4-vCPU CPU
 boxes, not about the models.
+
+`large-v3-turbo` (FA-05, [#514](https://github.com/MSKazemi/yazses/issues/514)) fits
+and is measured: 1.6 GB int8, 1.74 GB peak RSS (the runtime block recorded
+`model_load_s` 5.95, `rss_before_load_mb` 38.6, `peak_rss_mb` 1738.5). It answers the
+accuracy half of §9 decisively — 36.16 % raw is 23 points under `small` — but it is
+still slower than real time (RTF 1.716 at provenance load average 3.31, peak p50
+latency 24.8 s). So the §9 statement sharpens rather than flips: no Whisper-family
+checkpoint measured on this 4-vCPU/8 GB class is simultaneously accurate enough for
+dictation and faster than real time, and turbo is the closest approach — 61 % of
+`small`'s error at 1.19× its RTF. Whether a distilled/fine-tuned Persian checkpoint
+can close that gap is exactly what the FA-05 fine-tune cells measure next.
 
 **Run-to-run stability** (§9's third criterion): repeating the 50-row `small` cell
 reproduced WER bit-for-bit — 55.79 raw / 55.71 norm, every CER digit identical — and
