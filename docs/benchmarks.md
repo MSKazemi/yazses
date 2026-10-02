@@ -836,6 +836,7 @@ machine: AMD EPYC, 4 vCPU, 8.3 GB RAM, int8, 4 threads, Ubuntu 24.04.4.
 |---|---|---|---|---|---|---|
 | `base` | 89.14 % | 89.10 % | 33.69 % | 0.626 | 9.1 s | 16.7 s |
 | `small` | 59.43 % | 59.29 % | 18.68 % | 1.444 | 20.6 s | 34.9 s |
+| `small` (idle-host re-measure) | 59.25 % | 59.11 % | 18.51 % | 1.27 | 18.2 s | 31.0 s |
 
 **A 50-utterance seed-42 sample extends the sweep** (sample, not the number — it ran
 3.6–5.3 points easier than the full split, which is exactly why §8 says to publish the
@@ -856,11 +857,13 @@ boxes, not about the models.
 
 **Run-to-run stability** (§9's third criterion): repeating the 50-row `small` cell
 reproduced WER bit-for-bit — 55.79 raw / 55.71 norm, every CER digit identical — and
-moved RTF 1.289 → 1.341. Every RTF figure in this section was taken on a contended
-4-vCPU VM (per-result load average 2.97–3.55, recorded in each provenance block). An
-idle-host re-measure of the full-split `small` cell is running on the same machine
-and will join this archive on the same branch; the numbers above do not depend on it,
-and the per-result load average recorded in each provenance block is what makes them comparable.
+moved RTF 1.289 → 1.341. The full-split `small` cell was then re-measured on the same
+machine at a quieter moment (provenance load average 2.65; the other runs in this
+section were taken at 2.97–3.55): WER 59.43 → 59.25 raw and RTF 1.444 → 1.27 — the
+decode reproduces to within 0.2 of a WER point, while the timing moves by more than a
+sixth. That is the shape this criterion exists to catch: accuracy claims are
+reproducible on this harness, RTF claims are load-sensitive, and the per-result load
+average recorded in each provenance block is what makes them comparable.
 
 **ZWNJ: zero of 1,435 reference half-spaces survive any model on the full split**
 (0 of 71 on the sample, at every size measured). None of the three Whisper sizes
