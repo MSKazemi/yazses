@@ -196,6 +196,67 @@ def _peak_rss_mb(proc) -> float:
     return round(proc.memory_info().rss / 1e6, 1)
 
 
+def _resolve_cached_revision(model_name: str) -> str | None:
+    """The Hugging Face commit hash of the model snapshot actually loaded, or ``None``.
+
+    faster-whisper resolves a size name ("small") through the HF cache, so asking
+    the same resolver with ``local_files_only=True`` returns the path it used
+    without touching the network — the snapshot directory *is* named by the
+    revision hash. A model given as a local path, or an engine that never went
+    through HF at all, resolves to nothing: ``None`` is the honest answer, not a
+    guess.
+    """
+    try:
+        from faster_whisper import utils as fw_utils  # noqa: PLC0415
+
+        return Path(fw_utils.download_model(model_name, local_files_only=True)).name
+    except Exception:  # noqa: BLE001 - any resolution failure means "cannot say"
+        return None
+
+
+def _library_default(cls: type, method: str, param: str):
+    """The default of ``cls.method``'s *param* on the installed version, or ``None``."""
+    import inspect  # noqa: PLC0415
+
+    try:
+        return inspect.signature(getattr(cls, method)).parameters[param].default
+    except (AttributeError, KeyError, TypeError, ValueError):
+        return None
+
+
+def _decode_settings(engine_name: str, model_name: str, engine) -> tuple[dict, dict]:
+    """The ``model`` and ``decoder`` blocks read off the *live* engine.
+
+    The #563 review caught that a manifest result recorded ``model.revision``,
+    ``model.compute_type`` and ``decoder.beam_size`` as null — the document did
+    not describe its own decode, and the settings that do exist lived under
+    ``provenance`` where the schema does not look. They are read from the built
+    engine, not restated from the CLI: ctranslate2 reports the *resolved* kernel
+    (``int8`` arrives as ``int8_float32``), and an engine that sent no beam size
+    (0 = "say nothing", per the engine's own comment) decodes at the installed
+    library's default — resolving that default from the signature records the
+    number actually used without freezing it here, which is exactly the bug the
+    engine comment describes (pinning 5 would hold it against faster-whisper's
+    right to change it).
+
+    An engine without faster-whisper's internals (a test double, a different
+    engine family) gets nulls, same as before — the block says what it knows.
+    """
+    model = {"engine": engine_name, "name": model_name, "revision": None,
+             "compute_type": None}
+    decoder = {"language": "fa", "beam_size": None, "condition_on_previous_text": None}
+    fw_model = getattr(engine, "_model", None)
+    if fw_model is None:
+        return model, decoder
+    model["compute_type"] = getattr(getattr(fw_model, "model", None), "compute_type", None)
+    model["revision"] = _resolve_cached_revision(model_name)
+    passed = int(getattr(engine, "_beam_size", 0) or 0)
+    decoder["beam_size"] = passed if passed > 0 else _library_default(type(fw_model), "transcribe", "beam_size")
+    decoder["condition_on_previous_text"] = bool(getattr(engine, "_condition_on_previous_text", True))
+    decoder["language"] = getattr(engine, "_language", "fa") or "fa"
+    return model, decoder
+
+
 def run_manifest(manifest: Path, model_spec: str, cpu_threads: int = 0) -> dict:
     """Transcribe a JSONL manifest through the shipping engine and score it."""
     rows: list[dict] = []
@@ -257,6 +318,7 @@ def run_manifest(manifest: Path, model_spec: str, cpu_threads: int = 0) -> dict:
         "peak_rss_mb": _peak_rss_mb(proc),
     }
 
+    model_block, decoder_block = _decode_settings(engine_name, model_name, engine)
     return _assemble(
         corpus={
             "name": manifest.stem,
@@ -267,17 +329,8 @@ def run_manifest(manifest: Path, model_spec: str, cpu_threads: int = 0) -> dict:
             "version": hashlib.sha256(manifest.read_bytes()).hexdigest()[:16],
             "split": "test",
         },
-        model={
-            "engine": engine_name,
-            "name": model_name,
-            "revision": None,
-            "compute_type": None,
-        },
-        decoder={
-            "language": "fa",
-            "beam_size": getattr(engine, "beam_size", None),
-            "condition_on_previous_text": None,
-        },
+        model=model_block,
+        decoder=decoder_block,
         rows=rows,
         references=references,
         hypotheses=hypotheses,

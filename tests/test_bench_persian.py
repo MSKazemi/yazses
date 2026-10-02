@@ -397,3 +397,76 @@ def test_archived_results_without_the_runtime_block_still_validate(bench_persian
         doc["schema_version"] = bench_persian.RESULT_SCHEMA_VERSION
         problems = [p for p in bench_persian.validate_result(doc) if not p.startswith("runtime")]
         assert problems == [], f"{path}: {problems}"
+
+
+# ── the decode settings are read off the engine, not guessed ─────────────────
+#
+# The #563 review caught `model.revision`, `model.compute_type` and
+# `decoder.beam_size` sitting null in a real archived result: the document did
+# not describe its own decode. `_decode_settings` is the fix, and these three
+# tests pin the contract — resolved values when the engine has them, nulls when
+# it does not (never a guess), and the "no beam size sent" rule that keeps this
+# file from freezing faster-whisper's default into the archive.
+
+
+class _FakeCT2:
+    compute_type = "int8_float32"
+
+
+class _FakeWhisperModel:
+    """The two attributes `_decode_settings` reads: the ctranslate2 model, and the
+    `transcribe` signature whose default is the effective beam size."""
+    model = _FakeCT2()
+
+    def transcribe(self, audio, beam_size=5, **kwargs):
+        raise NotImplementedError
+
+
+class _FakeEngine:
+    _model = _FakeWhisperModel()
+    _beam_size = 0
+    _condition_on_previous_text = True
+    _language = "fa"
+
+
+def test_decode_settings_read_the_values_the_engine_used(bench_persian, monkeypatch):
+    monkeypatch.setattr(
+        bench_persian, "_resolve_cached_revision", lambda name: "f" * 40
+    )
+    model, decoder = bench_persian._decode_settings("faster-whisper", "small", _FakeEngine())
+
+    assert model == {
+        "engine": "faster-whisper",
+        "name": "small",
+        "revision": "f" * 40,
+        # The *resolved* kernel, not the requested name: ctranslate2 reports what it
+        # actually dispatched (bench asks for `int8`, the engine records `int8_float32`).
+        "compute_type": "int8_float32",
+    }
+    # `_beam_size = 0` means "said nothing", so the library's default is what decoded.
+    # Resolved from the installed signature — the archive records what ran, and does
+    # not restate faster-whisper's default as if this file owned it.
+    assert decoder["beam_size"] == 5
+    assert decoder["language"] == "fa"
+    assert decoder["condition_on_previous_text"] is True
+
+
+def test_an_explicit_beam_size_wins_over_the_library_default(bench_persian, monkeypatch):
+    monkeypatch.setattr(bench_persian, "_resolve_cached_revision", lambda name: None)
+    engine = _FakeEngine()
+    engine._beam_size = 3
+    _, decoder = bench_persian._decode_settings("faster-whisper", "small", engine)
+
+    assert decoder["beam_size"] == 3
+
+
+def test_an_engine_without_internals_gets_nulls_not_guesses(bench_persian):
+    """A test double (or another engine family) has no `_model`: the block must say
+    what it knows and mark the rest null — a fabricated revision or beam size would
+    be worse than the missing value the #563 review objected to."""
+    model, decoder = bench_persian._decode_settings("parakeet", "nvidia/whatever", object())
+
+    assert model["revision"] is None
+    assert model["compute_type"] is None
+    assert decoder["beam_size"] is None
+    assert decoder["language"] == "fa"
