@@ -838,6 +838,7 @@ machine: AMD EPYC, 4 vCPU, 8.3 GB RAM, int8, 4 threads, Ubuntu 24.04.4.
 | `small` | 59.43 % | 59.29 % | 18.68 % | 1.444 | 20.6 s | 34.9 s |
 | `small` (idle-host re-measure) | 59.25 % | 59.11 % | 18.51 % | 1.27 | 18.2 s | 31.0 s |
 | `large-v3-turbo` | 36.16 % | 36.13 % | 8.92 % | 1.716 | 24.8 s | 34.6 s |
+| `steja/whisper-small-persian` (CT2 int8) | 37.34 % | 37.28 % | 10.98 % | 1.334 | 18.9 s | 31.7 s |
 
 **A 50-utterance seed-42 sample extends the sweep** (sample, not the number — it ran
 3.6–5.3 points easier than the full split, which is exactly why §8 says to publish the
@@ -866,6 +867,19 @@ checkpoint measured on this 4-vCPU/8 GB class is simultaneously accurate enough 
 dictation and faster than real time, and turbo is the closest approach — 61 % of
 `small`'s error at 1.19× its RTF. Whether a distilled/fine-tuned Persian checkpoint
 can close that gap is exactly what the FA-05 fine-tune cells measure next.
+
+The first fine-tune cell has landed, and it nearly closes it: **`steja/whisper-small-persian`**
+(Apache-2.0, `small` architecture, converted to CT2 int8 locally with
+`convert_hf_to_ct2.py` and measured offline — [FA-05, #514](https://github.com/MSKazemi/yazses/issues/514))
+scores **37.34 % raw / 37.28 % normalized WER on the same 871-row split** — 22.1 points
+under stock `small` and within 1.2 points of `large-v3-turbo` — at **RTF 1.334** (0.78×
+turbo's) and **1174.4 MB peak RSS** (68 % of turbo's, `model_load_s` 1.48). The runtime
+block is present since #569; on this Linux run the peak is the `/proc` high-water mark.
+It is still not faster than real time, so §9 does not flip — but it now has a second
+measured close approach from the *small* class, and the accuracy that took an 809 M-parameter
+model (`large-v3-turbo`) to reach is reachable from a 244 M fine-tune of `small` on
+this class of hardware. ZWNJ stays at 0/1435 like every other cell: the fine-tune does not
+emit the zero-width joiner, so the §7 normalization caveat still applies to its numbers.
 
 **Run-to-run stability** (§9's third criterion): repeating the 50-row `small` cell
 reproduced WER bit-for-bit — 55.79 raw / 55.71 norm, every CER digit identical — and

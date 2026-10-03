@@ -69,6 +69,17 @@ MEASURES = {
         "Persian WER/CER (raw and evaluation-normalized), ZWNJ recall and RTF on the "
         "pinned FLEURS fa_ir test split -- FA-04 slice 3 (#513)"
     ),
+    # Longest-first matching means this specific stem beats the generic
+    # `persian-fleurs` key above. The fine-tune cell is a measurement plus a
+    # conversion: the MANIFEST row can only carry the bench argv (the artifact's
+    # own provenance), so the description is where the conversion step stays
+    # discoverable -- converter, pinned revision, offline decode (#514).
+    "persian-fleurs-test871-steja-small": (
+        "Persian WER/CER (raw and evaluation-normalized), ZWNJ recall and RTF on the "
+        "pinned FLEURS fa_ir test split -- FA-05 fine-tune A/B: steja/whisper-small-persian "
+        "(Apache-2.0, rev 8c600b6b) converted to CT2 int8 with convert_hf_to_ct2.py, "
+        "decoded offline (#514)"
+    ),
     "platform": "which install targets resolve, per OS and instruction set",
     "plausibility": "how often the implausible-attribution warning fires",
     "streaming": "partial-hypothesis latency and rewrite rate",
