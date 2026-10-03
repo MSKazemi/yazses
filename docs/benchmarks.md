@@ -876,9 +876,9 @@ under stock `small` and within 1.2 points of `large-v3-turbo` — at **RTF 1.334
 turbo's) and **1174.4 MB peak RSS** (68 % of turbo's, `model_load_s` 1.48). The runtime
 block is present since #569; on this Linux run the peak is the `/proc` high-water mark.
 It is still not faster than real time, so §9 does not flip — but it now has a second
-measured close approach from the *small* class, and the accuracy that took a 620 M
-distilled model to reach is reachable from a 244 M fine-tune of `small` on this
-class of hardware. ZWNJ stays at 0/1435 like every other cell: the fine-tune does not
+measured close approach from the *small* class, and the accuracy that took an 809 M-parameter
+model (`large-v3-turbo`) to reach is reachable from a 244 M fine-tune of `small` on
+this class of hardware. ZWNJ stays at 0/1435 like every other cell: the fine-tune does not
 emit the zero-width joiner, so the §7 normalization caveat still applies to its numbers.
 
 **Run-to-run stability** (§9's third criterion): repeating the 50-row `small` cell
