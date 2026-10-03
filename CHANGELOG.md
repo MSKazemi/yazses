@@ -6,6 +6,16 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — Persian benchmark: the FA-05 fine-tune A/B cell
+
+`steja/whisper-small-persian` (Apache-2.0, pinned rev `8c600b6b`, converted to CT2 int8) decoded
+offline on the pinned 871-row FLEURS `fa_ir` split: 37.34 % raw / 37.28 % normalized WER at
+RTF 1.334 and 1174.4 MB peak RSS, within 1.2 points of `large-v3-turbo` (36.16 %) at 0.78x its
+RTF. Still not faster than real time, so the benchmarks §9 statement stands. The MANIFEST row is
+generated, with the conversion step carried in its description. Measured and contributed by
+[@auroraxo](https://github.com/auroraxo) ([#573](https://github.com/MSKazemi/yazses/pull/573),
+[#514](https://github.com/MSKazemi/yazses/issues/514)).
+
 ### Fixed — macOS: the login agent never started the daemon from the .app
 
 `install_autostart()` wrote `[sys.executable, "-m", "yazses.main"]` into the launchd plist.
