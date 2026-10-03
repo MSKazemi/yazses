@@ -6,6 +6,15 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — Persian benchmark: confidence intervals and ZWNJ attribution
+
+`bench_persian.py --hyps-out` now also writes the per-utterance transcripts (the result JSON is
+unchanged), and the new pure module `paper/benchmark/persian_stats.py` turns them into a 95 %
+bootstrap interval per cell, a *paired* bootstrap for two cells decoded on the same rows, and
+the WER points that come from a dropped U+200C. The FA-05 cells so far report point estimates
+only; this is what lets a 1.2-point gap be called a gap or noise
+([#514](https://github.com/MSKazemi/yazses/issues/514)).
+
 ### Added — Persian benchmark: the FA-05 fine-tune A/B cell
 
 `steja/whisper-small-persian` (Apache-2.0, pinned rev `8c600b6b`, converted to CT2 int8) decoded

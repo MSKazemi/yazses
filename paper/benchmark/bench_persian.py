@@ -263,8 +263,18 @@ def _decode_settings(engine_name: str, model_name: str, engine) -> tuple[dict, d
     return model, decoder
 
 
-def run_manifest(manifest: Path, model_spec: str, cpu_threads: int = 0) -> dict:
-    """Transcribe a JSONL manifest through the shipping engine and score it."""
+def run_manifest(
+    manifest: Path,
+    model_spec: str,
+    cpu_threads: int = 0,
+    hyps_out: Path | None = None,
+) -> dict:
+    """Transcribe a JSONL manifest through the shipping engine and score it.
+
+    ``hyps_out`` additionally writes one ``{id, reference, hypothesis}`` JSON line per
+    row, which ``persian_stats.py`` needs for confidence intervals and ZWNJ
+    attribution. The result document is identical with or without it.
+    """
     rows: list[dict] = []
     with manifest.open(encoding="utf-8") as fh:
         for line in fh:
@@ -313,6 +323,18 @@ def run_manifest(manifest: Path, model_spec: str, cpu_threads: int = 0) -> dict:
         durations.append(duration)
         references.append(row["reference"])
         hypotheses.append(hyp)
+
+    if hyps_out is not None:
+        hyps_out.parent.mkdir(parents=True, exist_ok=True)
+        with hyps_out.open("w", encoding="utf-8") as fh:
+            for row, ref, hyp in zip(rows, references, hypotheses):
+                fh.write(
+                    json.dumps(
+                        {"id": row["id"], "reference": ref, "hypothesis": hyp},
+                        ensure_ascii=False,
+                    )
+                    + "\n"
+                )
 
     rtfs = [dt / dur if dur > 0 else 0.0 for dt, dur in zip(decode_times, durations)]
     sorted_rtfs = sorted(decode_times)
@@ -592,12 +614,19 @@ def main() -> None:
     parser.add_argument("--model", default="small", help="engine:model for --manifest")
     parser.add_argument("--out", type=Path, help="write result JSON here")
     parser.add_argument("--threads", type=int, default=0)
+    parser.add_argument(
+        "--hyps-out",
+        type=Path,
+        help="also write per-utterance transcripts (JSONL) for persian_stats.py",
+    )
     args = parser.parse_args()
+    if args.hyps_out and not args.manifest:
+        parser.error("--hyps-out needs --manifest")
 
     if args.smoke:
         doc = run_smoke()
     else:
-        doc = run_manifest(args.manifest, args.model, args.threads)
+        doc = run_manifest(args.manifest, args.model, args.threads, args.hyps_out)
 
     blob = json.dumps(doc, indent=2, ensure_ascii=False)
     if args.out:
