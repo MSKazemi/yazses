@@ -25,6 +25,19 @@ generated, with the conversion step carried in its description. Measured and con
 [@auroraxo](https://github.com/auroraxo) ([#573](https://github.com/MSKazemi/yazses/pull/573),
 [#514](https://github.com/MSKazemi/yazses/issues/514)).
 
+### Changed — the voice-activity overlay is now optional (off by default)
+
+`[overlay] enabled` now defaults to `false` and the feature's tier moves from "recommended (on
+by default)" to "optional". On native Wayland (Ubuntu's default GNOME session) the compositor
+gives every new window keyboard focus, so the overlay that appears when you press the hotkey
+can take focus and the dictated text is typed into it: dictation is heard, `yazses doctor` is
+green, `yazses status` says "typed", and nothing appears anywhere. This was observed on an
+Ubuntu laptop running 2.40.1, which predates the Wayland guard (`overlay_steals_focus`) that
+is on `main`. Opt in with `yazses features enable overlay`. **Upgrade note:** an install whose
+`config.toml` has no `[overlay]` section will no longer show the rings after upgrading; add
+`[overlay] enabled = true` (or run the command above) to keep them. `docs/troubleshooting.md`
+and the FAQ now explain the symptom, the cause and the fix.
+
 ### Fixed — macOS: the login agent never started the daemon from the .app
 
 `install_autostart()` wrote `[sys.executable, "-m", "yazses.main"]` into the launchd plist.

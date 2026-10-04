@@ -229,7 +229,7 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 
 | Key | Type | Default | Status | Notes |
 |---|---|---|---|---|
-| `enabled` | bool | `true` |  | auto-launch the overlay with the daemon |
+| `enabled` | bool | `false` |  | auto-launch the overlay with the daemon |
 | `style` | str | `"sonar"` |  | reserved for future styles |
 | `position` | str | `"cursor"` |  | cursor \| bottom_center \| top_center \| corner |
 | `react_to_voice` | bool | `true` |  | amplitude-driven vs state-only self-animation |

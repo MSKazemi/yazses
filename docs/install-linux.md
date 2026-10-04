@@ -518,15 +518,18 @@ speech is below the VAD gate — see [§6](#6-tune-the-silence-threshold).
 ## 9. Voice-activity overlay
 
 The overlay draws neon "sonar" rings near the cursor that pulse with your voice
-while you dictate. It is **on by default** and works out of the box: PySide6 is
-part of the base install (and bundled in the snap), so there is no extra step.
+while you dictate. It is **optional and off by default** (turn it on with
+`yazses features enable overlay`): PySide6 is part of the base install (and bundled
+in the snap), so there is no extra step. On Ubuntu/GNOME Wayland an overlay can take
+keyboard focus and swallow the dictated text — see
+[Troubleshooting](troubleshooting.md#dictation-is-heard-and-typed-but-nothing-appears-gnome-wayland).
 The PySide6 wheels need glibc ≥ 2.28 (Ubuntu 20.04+); on older distros the
 daemon logs a one-line hint and keeps dictating.
 
-The daemon then auto-launches `yazses-overlay` on start when a display is present
+Once enabled, the daemon auto-launches `yazses-overlay` on start when a display is present
 and terminates it on shutdown. If PySide6 isn't installed the daemon logs a
-one-line hint and keeps dictating — nothing breaks. To turn the overlay off, set
-`[overlay] enabled = false` in `~/.config/yazses/config.toml`. Run `yazses
+one-line hint and keeps dictating — nothing breaks. To turn the overlay off again, run
+`yazses features disable overlay` or set `[overlay] enabled = false` in `~/.config/yazses/config.toml`. Run `yazses
 overlay` yourself to preview it.
 
 **Transparency note (X11):** the see-through glow needs a compositing window

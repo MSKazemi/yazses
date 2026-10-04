@@ -764,7 +764,10 @@ class OverlayConfig:
     Python or the Rust daemon can drive it. Requires the ``overlay`` extra
     (``pip install yazses[overlay]`` / ``uv sync --extra overlay``) for PySide6.
     """
-    enabled: bool = True             # auto-launch the overlay with the daemon
+    # Optional, off by default: on native Wayland (Ubuntu/GNOME) the compositor gives a new
+    # window keyboard focus, so the overlay can swallow the dictated text. See
+    # docs/troubleshooting.md. Opt in with `yazses features enable overlay`.
+    enabled: bool = False            # auto-launch the overlay with the daemon
     # (on by default; soft no-op when the `overlay` extra / PySide6 is absent)
     style: str = "sonar"             # reserved for future styles
     position: str = "cursor"         # cursor | bottom_center | top_center | corner

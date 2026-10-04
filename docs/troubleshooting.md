@@ -125,9 +125,38 @@ systemctl --user reset-failed yazses.service     # clear "start request repeated
 
 ## Dictation is heard and "typed", but nothing appears (GNOME Wayland)
 
-Older builds showed a small overlay that, on native Wayland, took keyboard focus — so the
-text was typed into the overlay. The overlay is no longer started on Wayland. On an older
-build, turn it off: `yazses features disable overlay` then `yazses restart`.
+**Symptom.** You hold the hotkey, speak, release — and nothing appears. Yet `yazses doctor`
+says everything is fine, `yazses status` reports the burst as "typed", and the log shows
+`Injecting N chars`.
+
+**Cause.** The voice-activity overlay is a separate window that appears the moment you press
+the hotkey. On native Wayland (Ubuntu's default GNOME session) the compositor gives every new
+window keyboard focus, and an application cannot opt out of that. Focus moves from your text
+field to the overlay, and the dictated text is typed into the overlay instead of your app.
+`yazses status` counts injections, not text that arrived, so it cannot see this.
+
+**Fix.** Turn the overlay off, then restart:
+
+```sh
+yazses features disable overlay
+yazses restart
+```
+
+Or set it in `~/.config/yazses/config.toml` and restart:
+
+```toml
+[overlay]
+enabled = false
+```
+
+The overlay is **optional and off by default** in current releases, and a build that includes
+the Wayland guard never starts it on a native Wayland session unless you set
+`QT_QPA_PLATFORM` yourself. Builds up to and including 2.40.1 do not have that guard and
+started the overlay by default, so they are affected. After the restart, confirm with
+`pgrep -af yazses-overlay` — it should print nothing.
+
+Still nothing typed with the overlay off? Check that the ydotool daemon is running
+(`yazses doctor`) and try `yazses inject "hello"` with a text field focused.
 
 ## It works, but not after I reboot
 

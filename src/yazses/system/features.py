@@ -329,8 +329,9 @@ def _registry() -> list[_Def]:
         _Def("undo", "Mid-Thought Undo", "[revise] — say 'scratch that'", DEFAULT_ON,
              "Say 'scratch that' to drop the last phrase. Keep on.",
              lambda c: c.revise.enabled, r_on, r_off),
-        _Def("overlay", "Voice-activity overlay", "[overlay] — sonar rings", DEFAULT_ON,
-             "Sonar rings near the cursor while you talk. Visual only; safe.",
+        _Def("overlay", "Voice-activity overlay", "[overlay] — sonar rings", OPTIONAL,
+             "Sonar rings near the cursor while you talk. Visual only. Off by default: on "
+             "Wayland a new window can take keyboard focus and swallow the dictated text.",
              lambda c: c.overlay.enabled, o_on, o_off),
         _Def("tray", "System-tray icon", "[tray] — top-bar menu", DEFAULT_ON,
              "A microphone icon in the top bar; click it to pick/pin your mic, "
