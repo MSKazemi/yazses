@@ -23,7 +23,7 @@
 # guidelines tell you not to do.
 
 pkgname=yazses
-pkgver=2.41.0
+pkgver=2.42.0
 pkgrel=1
 pkgdesc='Offline hold-to-talk voice dictation that types into the focused app - local faster-whisper, no cloud'
 arch=('any')
@@ -70,7 +70,7 @@ makedepends=(
 )
 
 source=("https://files.pythonhosted.org/packages/source/y/${pkgname}/${pkgname}-${pkgver}.tar.gz")
-sha256sums=('60a877c6da9d2733a57c56a0151cdbf85f0e7d5c8e532a43565771185c27db74')
+sha256sums=('522f6645443e400cc22b0afbc67896610dc9098bf7068d562cf7d6fba0054a3d')
 
 build() {
     cd "${pkgname}-${pkgver}"

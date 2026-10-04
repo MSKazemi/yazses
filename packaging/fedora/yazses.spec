@@ -47,7 +47,7 @@
 %global debug_package %{nil}
 
 Name:           %{appname}
-Version:        2.41.0
+Version:        2.42.0
 Release:        1%{?dist}
 Summary:        Offline hold-to-talk voice dictation and speech-to-text
 
@@ -131,6 +131,8 @@ install -Dm644 contrib/icons/yazses.svg \
 %{_datadir}/icons/hicolor/scalable/apps/yazses.svg
 
 %changelog
+* Sun Oct 04 2026 Mohsen Seyedkazemi Ardebili <mohsen.seyedkazemi@gmail.com> - 2.42.0-1
+- Update to 2.42.0. Release notes: https://github.com/MSKazemi/yazses/releases/tag/v2.42.0
 * Sun Oct 04 2026 Mohsen Seyedkazemi Ardebili <mohsen.seyedkazemi@gmail.com> - 2.41.0-1
 - Update to 2.41.0. Release notes: https://github.com/MSKazemi/yazses/releases/tag/v2.41.0
 * Fri Sep 25 2026 Mohsen Seyedkazemi Ardebili <mohsen.seyedkazemi@gmail.com> - 2.40.1-1
