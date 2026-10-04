@@ -6,6 +6,8 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.41.0] - 2026-10-04
+
 ### Added — Persian benchmark: confidence intervals and ZWNJ attribution
 
 `bench_persian.py --hyps-out` now also writes the per-utterance transcripts (the result JSON is
