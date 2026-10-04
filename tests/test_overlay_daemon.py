@@ -17,9 +17,10 @@ def _cfg(enabled: bool) -> Config:
     return cfg
 
 
-def test_overlay_enabled_by_default():
-    # On by default; the daemon still gates on a display + PySide6 at launch.
-    assert Config().overlay.enabled is True
+def test_overlay_is_optional_and_off_by_default():
+    # Opt-in: on native Wayland a new window takes keyboard focus and swallows the
+    # dictated text (docs/troubleshooting.md). Enabling it is a deliberate choice.
+    assert Config().overlay.enabled is False
 
 
 def test_should_launch_overlay_disabled():

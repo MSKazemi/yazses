@@ -104,6 +104,13 @@ leaves your laptop.
 Yes. A fast regex command grammar maps spoken phrases like *"undo that"*, *"save file"*, or
 *"go to line 42"* to real key sequences in your editor or terminal.
 
+## Dictation is heard but nothing is typed on Ubuntu — what do I do?
+
+Turn off the voice-activity overlay: `yazses features disable overlay`, then `yazses restart`.
+On Wayland the overlay window can take keyboard focus and the text is typed into it instead of
+your app. It is optional and off by default in current releases. The full explanation is in
+[Troubleshooting](troubleshooting.md#dictation-is-heard-and-typed-but-nothing-appears-gnome-wayland).
+
 ## Does it support accessibility / hands-free use?
 
 Yes. YazSes includes VAD calibration, mic-level tuning, a **dysfluency-friendly

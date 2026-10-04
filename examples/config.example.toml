@@ -24,6 +24,6 @@ fallback_to_clipboard = true
 log_level = "INFO"
 
 [overlay]
-enabled = true             # on by default; sonar rings near the cursor when you speak (needs the `overlay` extra / PySide6)
+enabled = false            # optional, off by default; sonar rings near the cursor when you speak. On Wayland it can take keyboard focus and swallow the text (docs/troubleshooting.md)
 style = "sonar"            # sonar | dot
 position = "cursor"        # cursor | fixed

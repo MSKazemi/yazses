@@ -61,8 +61,8 @@ YazSes ships **148 capabilities**. All but the core are **off by default** — t
 
 ### Voice-activity overlay
 
-- **Toggle:** `overlay`  ·  **Tier:** recommended (on by default)  ·  **Config:** `[overlay] — sonar rings`
-- **What it does:** Sonar rings near the cursor while you talk. Visual only; safe.
+- **Toggle:** `overlay`  ·  **Tier:** optional  ·  **Config:** `[overlay] — sonar rings`
+- **What it does:** Sonar rings near the cursor while you talk. Visual only. Off by default: on Wayland a new window can take keyboard focus and swallow the dictated text.
 - **Use when:** When you want a glanceable visual cue that the mic is live and hearing you.
 - **Example:** Watch the sonar rings near the cursor while you talk.
 - **Download:** ~256 MB

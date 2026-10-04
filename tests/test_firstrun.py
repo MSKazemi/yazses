@@ -44,10 +44,10 @@ def test_recommended_writes_derived_from_registry():
     assert all(isinstance(w, tuple) and len(w) == 4 for w in writes)
 
 
-def test_overlay_is_on_by_default_after_seed(tmp_path):
+def test_overlay_stays_off_after_seed(tmp_path):
     cfg_path = tmp_path / "config.toml"
     firstrun.ensure_recommended_config(cfg_path)
-    assert load_config(cfg_path).overlay.enabled is True
+    assert load_config(cfg_path).overlay.enabled is False
 
 
 # ── #330: the stranded pre-fix config is carried over, not ignored ────────────
