@@ -93,6 +93,46 @@ def find_ydotool_socket() -> str | None:
     return None
 
 
+def restart_ydotoold_service(*, timeout: float = 6.0) -> str | None:
+    """Restart the ``ydotoold`` systemd *user* unit and wait for its socket to return.
+
+    The one repair YazSes can make to its own keystroke path without a password: the unit
+    ``yazses setup`` writes is the user's own. Returns a one-line description of what was
+    done, or ``None`` when there was nothing to act on (no systemctl, no such unit) — the
+    caller must read ``None`` as "no heal available", not as "healed". A restart that
+    does not bring the socket back raises, so a failed repair cannot report success.
+    """
+    import subprocess
+    import time
+
+    systemctl = shutil.which("systemctl")
+    if not systemctl:
+        return None
+    try:
+        known = subprocess.run(
+            [systemctl, "--user", "cat", "ydotoold.service"],
+            capture_output=True, timeout=5, check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if known.returncode != 0:
+        return None
+    done = subprocess.run(
+        [systemctl, "--user", "restart", "ydotoold.service"],
+        capture_output=True, text=True, timeout=15, check=False,
+    )
+    if done.returncode != 0:
+        raise RuntimeError(
+            f"systemctl --user restart ydotoold failed: {(done.stderr or '').strip()[:120]}"
+        )
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if find_ydotool_socket():
+            return "restarted the ydotoold user service"
+        time.sleep(0.2)
+    raise RuntimeError("ydotoold was restarted but its socket did not come back")
+
+
 def ydotool_ready() -> bool:
     """True only when ydotool is installed AND ydotoold's socket is present.
 
