@@ -6,6 +6,28 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.42.0] - 2026-10-04
+
+### Added — `yazses verify --type` now proves typed text arrives, and repairs the sender once if it does not
+
+Every signal YazSes had about injection described the *sender*: `ydotoold` accepted the client,
+the command exited 0, the kernel saw the key events, `status` counted the burst as typed. On
+2026-10-04 all of them were green while dictation went into a window that was not the user's
+(the overlay, see v2.41.0) and nothing appeared. `verify --type` printed "typed the transcript
+into the focused window" whenever `inject()` did not raise — it never looked.
+
+It now types into a small window it opens and reports what **arrived** (`Delivery`): delivered,
+not delivered, garbled, or not proven (the window never got focus — a failure, never a pass).
+Only *not delivered* triggers a repair: one restart of the `ydotoold` user service, then one
+retry, with the outcome stated either way; a layout mismatch is not "fixed" by a restart. With no
+PySide6 or no display it says so and falls back to the old behaviour with arrival unchecked.
+The orchestration is pure (`system/typing_canary.py`); the window is a child process
+(`system/typing_probe.py`); `verify --type` no longer types into the terminal you ran it from
+when a probe window is available. Deliberately **not** a background check: a probe window that
+appears while you type would steal focus, which is the bug this exists to catch. Exercised on a
+real Wayland session against the real injector, including a typer that types nothing and a
+`ydotoold` restart (PID changed). No new config key and no new command.
+
 ## [2.41.0] - 2026-10-04
 
 ### Added — Persian benchmark: confidence intervals and ZWNJ attribution

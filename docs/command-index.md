@@ -655,7 +655,7 @@ Check for a newer YazSes and update it (snap / uv / pipx / pip / Windows).
 Record, transcribe, and prove dictation works end to end on this machine.
 
 - `--seconds`, `-s` — How long to record.
-- `--type` — Also type the transcript into the focused window.
+- `--type` — Also type the transcript — into a small window YazSes opens, and check it arrived (into the focused window when no such window can open).
 
 ## `yazses vocab`
 

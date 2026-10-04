@@ -3077,7 +3077,9 @@ def srs_review(
 def verify(
     seconds: float = typer.Option(3.0, "--seconds", "-s", help="How long to record."),
     do_type: bool = typer.Option(
-        False, "--type", help="Also type the transcript into the focused window."
+        False, "--type",
+        help="Also type the transcript — into a small window YazSes opens, and check it "
+        "arrived (into the focused window when no such window can open).",
     ),
 ) -> None:
     """Record, transcribe, and prove dictation works end to end on this machine.
@@ -3136,10 +3138,20 @@ def verify(
     from yazses.inject.auto import apply_injection_config
 
     apply_injection_config(cfg.injection)
-    injector = platform.injector_factory().inject if do_type else None
+    injector_obj = platform.injector_factory() if do_type else None
+    deliver = _delivery_check(injector_obj) if injector_obj is not None else None
+    if injector_obj is not None and deliver is None:
+        from yazses.system.typing_probe import probe_available
+
+        typer.echo(
+            f"  note: no probe window can open here ({probe_available()}), so the text "
+            "goes to the focused window and its arrival is NOT checked."
+        )
     result = run_verify(
         record=_record, level_of=_level, threshold=threshold,
-        transcribe=_transcribe, inject=injector, holds_no_speech=_holds_no_speech,
+        transcribe=_transcribe,
+        inject=injector_obj.inject if injector_obj is not None and deliver is None else None,
+        holds_no_speech=_holds_no_speech, deliver=deliver,
     )
 
     for step in result.steps:
@@ -3152,8 +3164,9 @@ def verify(
         # a confident invented word back, so an unqualified tick certified a mic that
         # was never hearing anyone.
         heard = next((s for s in result.steps if s.name == "Transcription"), None)
+        proven = any(s.name == "Delivery" for s in result.steps)
         typer.echo("✓ The whole chain ran: captured, heard, cleaned"
-                   + (", typed." if do_type else "."))
+                   + (", typed and received." if proven else ", typed." if do_type else "."))
         if heard is not None:
             typer.echo(f"  It {heard.detail} — if that is not what you said, the mic is "
                        "the problem, not the pipeline:")
@@ -3164,6 +3177,33 @@ def verify(
     name = failure.name if failure is not None else "Something"
     typer.echo(f"✗ {name} is what's broken — fix that first.", err=True)
     raise typer.Exit(1)
+
+
+def _delivery_check(injector: object):
+    """A ``deliver(text) -> Delivery`` that PROVES typed text arrives, or ``None``.
+
+    ``None`` means no probe window can open on this machine (no desktop extra, no display),
+    and the caller must say so rather than imply the arrival was checked. When the backend
+    is ydotool, a ``not_delivered`` verdict triggers one restart of its user service and a
+    second try (``typing_canary.prove_with_heal``).
+    """
+    from yazses.inject.auto import describe_injector, restart_ydotoold_service
+    from yazses.system import typing_canary, typing_probe
+
+    if typing_probe.probe_available() is not None:
+        return None
+    heal = restart_ydotoold_service if "ydotool" in describe_injector(injector).lower() else None
+    type_text = injector.inject  # type: ignore[attr-defined]
+
+    def deliver(text: str) -> typing_canary.Delivery:
+        return typing_canary.prove_with_heal(
+            lambda: typing_canary.prove_delivery(
+                text, open_probe=typing_probe.open_probe, type_text=type_text
+            ),
+            heal,
+        )
+
+    return deliver
 
 
 @app.command(

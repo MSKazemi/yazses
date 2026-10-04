@@ -28,6 +28,7 @@ from yazses.postprocess.cleaner import clean_text
 # `_MIN_THRESHOLD` is the floor the *setter* refuses to go below. Imported rather than
 # repeated: the recommender and the setter disagreeing is the bug this branch fixes.
 from yazses.system.miclevel import _MIN_THRESHOLD
+from yazses.system.typing_canary import INCONCLUSIVE, Delivery
 
 
 @dataclass(frozen=True)
@@ -127,6 +128,7 @@ def verify(
     transcribe: Callable[[object], str],
     inject: Callable[[str], None] | None = None,
     holds_no_speech: Callable[[object], bool | None] | None = None,
+    deliver: Callable[[str], Delivery] | None = None,
 ) -> VerifyResult:
     """Run capture → gate → transcribe → inject, stopping at the first broken link.
 
@@ -282,6 +284,18 @@ def verify(
     detail = f'heard "{shown}"' + (f" ({n} words)" if n > 8 else "")
     result.add("Transcription", True, detail)
 
+    if deliver is not None:
+        # Observed, not inferred. `inject` returning without raising says only that the
+        # sender did not complain; on 2026-10-04 it returned cleanly while every word went
+        # into a window that was not the user's. `deliver` types into a window we own and
+        # reports what ARRIVED, so a green line here is evidence, and "inconclusive" (the
+        # probe never got focus) is a FAIL rather than a pass: it could not look.
+        delivery = deliver(text)
+        detail = delivery.detail
+        if delivery.verdict == INCONCLUSIVE:
+            detail = f"not proven — {detail}"
+        result.add("Delivery", delivery.ok, detail)
+        return result
     if inject is None:
         result.add("Injection", True, "skipped (not requested)")
         return result

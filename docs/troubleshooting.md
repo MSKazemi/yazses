@@ -155,8 +155,26 @@ the Wayland guard never starts it on a native Wayland session unless you set
 started the overlay by default, so they are affected. After the restart, confirm with
 `pgrep -af yazses-overlay` — it should print nothing.
 
-Still nothing typed with the overlay off? Check that the ydotool daemon is running
-(`yazses doctor`) and try `yazses inject "hello"` with a text field focused.
+Still nothing typed with the overlay off? Ask YazSes to **prove** that typing arrives, not
+merely that it was sent:
+
+```sh
+yazses verify --type
+```
+
+It records a few seconds, transcribes, then types the result into a small window it opens and
+checks the text arrived there. The `Delivery` line is evidence, where `doctor` and `status`
+only describe the sender:
+
+| Result | What it means |
+|---|---|
+| `[OK] Delivery: typed N characters and they arrived` | Typing reaches a focused window on this machine. If your own app still gets nothing, the cause is that app or something taking focus from it. |
+| `[FAIL] Delivery: … nothing arrived` | The keystrokes leave YazSes and are not delivered. On Linux with ydotool, YazSes restarts the `ydotoold` user service once and tries again, and says if that helped. |
+| `[FAIL] Delivery: … received "…"` | Something arrived but not what was typed: a keyboard-layout mismatch or dropped keys. Restarting does not fix that, so none is attempted. |
+| `[FAIL] Delivery: not proven — …` | The check window never got keyboard focus, so nothing was typed and nothing can be said. It is never reported as a pass. |
+
+Without the desktop extra (PySide6) or a graphical session there is no check window; the command
+says so and falls back to typing into the focused window, with arrival **not** checked.
 
 ## It works, but not after I reboot
 

@@ -23,11 +23,10 @@ software itself runs on.
 
 ## Current stable
 
-**[YazSes 2.41.0](v2.41.0.md)** — dictation that was heard and typed into nothing. On
-Ubuntu's Wayland session the voice-activity overlay took keyboard focus and the dictated
-text was typed into it, while `doctor` and `status` stayed green. The overlay is now
-optional and off by default. Also: `yazses start` and `doctor` say why the daemon is not
-running, and Windows and macOS now read the config file the CLI writes.
+**[YazSes 2.42.0](v2.42.0.md)** — prove that typing arrives. `yazses verify --type` now types
+into a window it opens and checks the text arrived, and restarts the `ydotoold` user service once
+if it did not. Until now every check described the sender and none observed the result, which is
+how dictation could be heard, "typed" and invisible with every signal green.
 
 Install it with:
 
@@ -38,6 +37,7 @@ pipx upgrade yazses          # upgrade an existing install
 
 ### Recent stable releases
 
+- [v2.42.0](v2.42.0.md) — prove that typing arrives: `yazses verify --type` types into a window it opens and checks the text arrived, with one `ydotoold` restart and retry when it did not
 - [v2.41.0](v2.41.0.md) — dictation that was heard and typed into nothing: on Ubuntu's Wayland session the voice-activity overlay took keyboard focus and the text was typed into it; the overlay is now optional and off by default; `yazses start` and `doctor` say why the daemon is not running; Windows and macOS read the config the CLI writes
 - [v2.40.1](v2.40.1.md) — hold the key we actually listen for: the APT and pipx installers, the `.deb` description apt shows before you install, the GitHub release body and the Russian and Hindi home pages all opened by telling a new user to hold `Space`, which does nothing — the default is `auto`, and `auto` is Right Alt on Linux; a test now derives each platform's default from the source and scans every user-facing file. Plus: Wayland's default `ydotool` injector silently dropped every accented and non-Latin character (#329), and a batch of packaging and documentation corrections — the Fedora spec four releases behind, install pages naming channels that serve something else, and two installers the support page denied had shipped.
 - [v2.40.0](v2.40.0.md) — the tool that said yes and did nothing: on Debian and Ubuntu Wayland every dictation was transcribed and then typed nothing, because ydotool 0.1.x is a different CLI from the 1.x we spoke and exits 0 when it refuses a command — so `check=True` never raised, the clipboard fallback never fired, and `doctor` said "Good to go"; reachable only since v2.39.0, whose correct socket fix made ydotool selectable there for the first time. Plus a Windows clipboard injection backend, and `[injection] backend` finally honoured on Windows.
