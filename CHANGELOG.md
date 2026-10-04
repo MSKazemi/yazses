@@ -6,6 +6,8 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.42.0] - 2026-10-04
+
 ### Added — `yazses verify --type` now proves typed text arrives, and repairs the sender once if it does not
 
 Every signal YazSes had about injection described the *sender*: `ydotoold` accepted the client,
