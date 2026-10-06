@@ -141,6 +141,26 @@ def test_ydotool_type_timeout_scales_with_length():
     assert timeouts[len(long)] > timeouts[len(short)]
     assert timeouts[len(long)] >= 10 + 2000 * 0.03
 
+def test_xdotool_type_timeout_scales_with_length():
+    # Long text must get a proportionally longer timeout so xdotool
+    # cannot time out after partially typing it and trigger clipboard fallback.
+    from unittest.mock import MagicMock
+
+    short, long = "hi", "x" * 2000
+    timeouts = {}
+
+    def fake_run(cmd, *a, **kw):
+        if cmd[:2] == ["xdotool", "type"]:
+            timeouts[len(cmd[-1])] = kw.get("timeout")
+        return MagicMock(returncode=0)
+
+    with patch("yazses.inject.xdotool.subprocess.run", side_effect=fake_run):
+        XdotoolInjector().inject(short)
+        XdotoolInjector().inject(long)
+
+    assert timeouts[len(long)] > timeouts[len(short)]
+    assert timeouts[len(long)] >= 10 + 2000 * 0.03
+
 
 def test_ydotool_type_uses_speed_flags():
     from unittest.mock import MagicMock
