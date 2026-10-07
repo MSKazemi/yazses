@@ -59,15 +59,17 @@ PINS = {
         "n_examples": 871,
     },
     "common-voice": {
-        # Common Voice moved behind Mozilla Data Collective in Oct 2025; the
-        # mozilla-foundation HF repo remains the pinned mirror for this revision.
-        # Gated repo: downloading it needs an HF account, which is fine — the pin
-        # is what makes results comparable, not the download being anonymous.
-        "dataset": "mozilla-foundation/common_voice_17_0",
-        "revision": "11dc88355e899d1bf2df74f01b904a8544a17b33",
+        # Common Voice moved behind Mozilla Data Collective in Oct 2025. The
+        # mozilla-foundation HF repo serves only .gitattributes+README anonymously
+        # (gated), so the read path is pinned to the verified ungated community
+        # mirror fsicoli/common_voice_17_0: LFS sha256-verified archive, CC0-1.0.
+        "dataset": "fsicoli/common_voice_17_0",
+        "revision": "8262c16bf297c87a9cd88c51997c4758ed7a8ba2",
         "config": "fa",
         "split": "test",
-        "metadata": "test.tsv",
+        "metadata": "transcript/fa/test.tsv",
+        "audio_archive": "audio/fa/test/fa_test_0.tar",
+        "audio_archive_sha256": "50ae3fd4c2c1d4835a57b6295a87af69d91c7e4bc3c65fe2c6347f876d7d639b",
         "license": "CC0-1.0",
     },
 }
@@ -197,11 +199,21 @@ def build_fleurs_rows(corpus_root: Path, limit: int | None, seed: int | None):
 def build_cv_rows(corpus_root: Path, limit: int | None, seed: int | None):
     """Rows from an extracted Common Voice ``fa`` tree (pinned release).
 
-    Layout at the pinned version: ``test.tsv`` — columns include ``path`` (clip
+    Layout at the pinned revision: ``test.tsv`` — columns include ``path`` (clip
     file name), ``sentence`` (the validated reference) — beside ``clips/`` holding
-    the mp3s. Only rows of the official test split are read: no re-splitting, so
-    numbers stay comparable across contributors (§2's "fixed split" is Mozilla's,
-    not ours).
+    the clips transcoded to 16 kHz mono WAV. Common Voice publishes 48 kHz mp3;
+    the decode path (`_common.load_audio`) asserts 16 kHz like every other cell,
+    so the transcode is corpus prep, recorded here rather than hidden in one
+    contributor's shell history::
+
+        ffmpeg -i clips_src/X.mp3 -ac 1 -ar 16000 clips/X.wav
+
+    The transcode changes only container and sample rate (the decoder would
+    downsample to 16 kHz mono anyway), and the pinned archive's sha256 still proves
+    which source bytes the tree came from.
+    Only rows of the official test split are read: no re-splitting, so numbers
+    stay comparable across contributors (§2's "fixed split" is Mozilla's, not
+    ours).
     """
     tsv = corpus_root / "test.tsv"
     if not tsv.is_file():
@@ -223,7 +235,7 @@ def build_cv_rows(corpus_root: Path, limit: int | None, seed: int | None):
             rows.append(
                 {
                     "id": f"cv-fa-test-{Path(rec['path']).stem}",
-                    "audio": f"clips/{rec['path']}",
+                    "audio": f"clips/{Path(rec['path']).stem}.wav",
                     "reference": _clean_reference(sentence),
                 }
             )
@@ -235,7 +247,7 @@ def build_cv_rows(corpus_root: Path, limit: int | None, seed: int | None):
         "generated_by": "paper/benchmark/make_fa_manifest.py",
         "n_rows": len(rows),
     }
-    return rows, meta, None
+    return rows, meta, corpus_root / Path(PINS["common-voice"]["audio_archive"]).name
 
 
 # ── emission ──────────────────────────────────────────────────────────────────
@@ -290,31 +302,30 @@ def main(argv: list[str] | None = None) -> int:
     for row in rows:
         row["audio"] = str(root / row["audio"])
 
-    if args.corpus == "fleurs":
-        # Prove the pinned archive is the one these rows name before anyone spends
-        # GPU-hours on it: a mismatch is the corpus drift the pins exist to prevent,
-        # and it must stop the run, not be discovered at decode time. Without the
-        # archive on disk the manifest can still be written (metadata only), but it
-        # says so rather than looking verified.
-        if tar_path is not None and tar_path.is_file():
-            observed = _sha256_file(tar_path)
-            pinned = PINS["fleurs"]["audio_archive_sha256"]
-            if observed != pinned:
-                raise SystemExit(
-                    f"{tar_path}: sha256 {observed} does not match the pinned "
-                    f"{pinned}. This is not the archive at the pinned revision; "
-                    "re-download it, or update PINS (and issue a new manifest) if the "
-                    "corpus was deliberately re-pinned."
-                )
-            meta["audio_archive_sha256"] = observed
-            meta["audio_archive_verified"] = True
-        else:
-            meta["audio_archive_verified"] = False
-            print(
-                "warning: FLEURS audio archive not found; manifest is metadata-only "
-                "and its audio is NOT verified against the pin.",
-                file=sys.stderr,
+    # Prove the pinned archive is the one these rows name before anyone spends
+    # CPU-hours on it: a mismatch is the corpus drift the pins exist to prevent,
+    # and it must stop the run, not be discovered at decode time. Without the
+    # archive on disk the manifest can still be written (metadata only), but it
+    # says so rather than looking verified.
+    if tar_path is not None and tar_path.is_file():
+        observed = _sha256_file(tar_path)
+        pinned = PINS[meta["corpus"]]["audio_archive_sha256"]
+        if observed != pinned:
+            raise SystemExit(
+                f"{tar_path}: sha256 {observed} does not match the pinned "
+                f"{pinned}. This is not the archive at the pinned revision; "
+                "re-download it, or update PINS (and issue a new manifest) if the "
+                "corpus was deliberately re-pinned."
             )
+        meta["audio_archive_sha256"] = observed
+        meta["audio_archive_verified"] = True
+    else:
+        meta["audio_archive_verified"] = False
+        print(
+            "warning: corpus audio archive not found; manifest is metadata-only "
+            "and its audio is NOT verified against the pin.",
+            file=sys.stderr,
+        )
     meta["n_rows"] = len(rows)
 
     write_manifest(args.out, rows, meta)
