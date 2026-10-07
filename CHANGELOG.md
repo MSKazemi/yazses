@@ -6,6 +6,17 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — Persian benchmark: the FA-05 Common Voice cells
+
+Full Common Voice `fa` test split (10,559 utterances): `steja/whisper-small-persian` 46.04 % raw WER
+and stock `small` 75.89 %, same 4-vCPU host, neither faster than real time. Common Voice is the
+fine-tune's own training domain (model card: `common_voice_11_0` `fa`), so it is in-domain for
+`steja` and zero-shot for `small`; the docs say so. The corpus read path is re-pinned to a
+sha256-verified anonymous mirror because the original repo went behind a login. Measured and
+contributed by [@auroraxo](https://github.com/auroraxo)
+([#574](https://github.com/MSKazemi/yazses/pull/574), [#576](https://github.com/MSKazemi/yazses/pull/576),
+[#514](https://github.com/MSKazemi/yazses/issues/514)).
+
 ## [2.42.0] - 2026-10-04
 
 ### Added — `yazses verify --type` now proves typed text arrives, and repairs the sender once if it does not
