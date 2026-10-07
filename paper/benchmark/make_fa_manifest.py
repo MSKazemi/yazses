@@ -208,8 +208,9 @@ def build_cv_rows(corpus_root: Path, limit: int | None, seed: int | None):
 
         ffmpeg -i clips_src/X.mp3 -ac 1 -ar 16000 clips/X.wav
 
-    The transcode is loss-free for scoring: WER reads the decoded text, and the
-    pinned archive's sha256 still proves which source bytes the tree came from.
+    The transcode changes only container and sample rate (the decoder would
+    downsample to 16 kHz mono anyway), and the pinned archive's sha256 still proves
+    which source bytes the tree came from.
     Only rows of the official test split are read: no re-splitting, so numbers
     stay comparable across contributors (§2's "fixed split" is Mozilla's, not
     ours).
