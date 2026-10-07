@@ -17,6 +17,29 @@ contributed by [@auroraxo](https://github.com/auroraxo)
 ([#574](https://github.com/MSKazemi/yazses/pull/574), [#576](https://github.com/MSKazemi/yazses/pull/576),
 [#514](https://github.com/MSKazemi/yazses/issues/514)).
 
+### Fixed — macOS: `doctor` said the daemon was not running when it was, and other findings from the first real Apple-silicon bug report (#562)
+
+Read from the reporter's logs and screenshots (M2 Mac mini, macOS 26.6.2, the 2.40.0 DMG):
+
+- **`doctor` reported "Daemon: not running" for every daemon the `.app` started.** The
+  recycled-PID guard tested `"yazses" in <ps command>`, but the bundle's executable is
+  `.../MacOS/YazSes`, so the match failed on case. The check is now case-insensitive; a
+  genuinely unrelated PID is still rejected. Test: `tests/test_macos_562_evidence.py`.
+- **The duplicate-daemon log line told a Mac user to run `systemctl --user restart yazses`.**
+  It now says `yazses restart` and names systemctl only as the Linux alternative.
+- **The hotkey log said `CGEventTap enabled` while Input Monitoring was not granted.** It now
+  logs a WARNING that says key presses may never arrive, and what to do.
+- **`doctor` run from a terminal now carries a hedged note** that macOS may judge the
+  terminal's permission rather than YazSes.app's. The reporter's Privacy & Security panes showed
+  YazSes on and Terminal off while `doctor` answered denied; this is one report, so the note says
+  "may" and points at `~/Library/Logs/yazses/daemon.log`.
+- `docs/macos-install.md` troubleshooting covers all three symptoms.
+
+Not changed, and not claimed fixed: whether the hotkey works on that Mac again (only the reporter
+can confirm), why a daemon from an earlier session survived "Quit", and `mic-level --set` choosing
+a different threshold on each run. Reported by [@happytester-funbugs](https://github.com/happytester-funbugs)
+([#562](https://github.com/MSKazemi/yazses/issues/562), [#182](https://github.com/MSKazemi/yazses/issues/182)).
+
 ## [2.42.0] - 2026-10-04
 
 ### Added — `yazses verify --type` now proves typed text arrives, and repairs the sender once if it does not

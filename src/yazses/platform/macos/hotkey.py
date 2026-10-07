@@ -87,6 +87,30 @@ def _request_input_monitoring() -> bool:
         return False
 
 
+def tap_started_message(
+    *, input_monitoring_granted: bool, key_id: str, kind: str
+) -> tuple[int, str]:
+    """The log line for a tap that was created, as ``(level, message)``.
+
+    Pure, so the wording is testable without a Mac.
+
+    ``CGEventTapCreate`` returning a tap is not proof that key events will arrive.
+    #562's daemon log shows ``CGEventTap enabled`` four milliseconds after two
+    warnings that the keyboard had been refused, and the hotkey did nothing. Saying
+    only "enabled" there reads as a working hotkey in the one file the user is
+    asked to paste. When Input Monitoring is not granted the line says so, at
+    WARNING, and names the one remedy that is not "toggle it again".
+    """
+    if input_monitoring_granted:
+        return logging.INFO, f"CGEventTap enabled for key_id={key_id} ({kind})"
+    return logging.WARNING, (
+        f"CGEventTap created for key_id={key_id} ({kind}), but macOS has not granted "
+        "Input Monitoring to this process, so key presses may never reach YazSes. "
+        "Allow it in System Settings -> Privacy & Security -> Input Monitoring, then "
+        "run `yazses restart` (or quit YazSes from the menu bar and open it again)."
+    )
+
+
 def tap_failure_message(*, input_monitoring_granted: bool) -> str:
     """Explain a NULL ``CGEventTapCreate`` in terms of the grant that is missing.
 
@@ -195,7 +219,10 @@ class MacosHotkey:
         self._runloop = CFRunLoopGetCurrent()
         CFRunLoopAddSource(self._runloop, self._loop_source, kCFRunLoopCommonModes)
         CGEventTapEnable(self._tap, True)
-        log.info("CGEventTap enabled for key_id=%s (%s)", self._key_id, self._kind)
+        level, message = tap_started_message(
+            input_monitoring_granted=granted, key_id=self._key_id, kind=self._kind
+        )
+        log.log(level, "%s", message)
         try:
             CFRunLoopRun()
         finally:

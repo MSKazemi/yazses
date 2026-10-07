@@ -14,6 +14,19 @@ from yazses.system.relaunch import Mode, command_for
 _LABEL = "com.yazses.daemon"
 
 
+def command_is_yazses(command: str) -> bool:
+    """Whether a ``ps`` command line belongs to a YazSes process.
+
+    Case-insensitive, and that is the whole point. The bundled app's executable is
+    ``/Applications/YazSes.app/Contents/MacOS/YazSes`` -- capital Y and S -- so the
+    earlier ``"yazses" in command`` test was False for every daemon the ``.app``
+    ever started. ``doctor`` then answered "Daemon: not running" about a daemon that
+    was running, which is what #562's log and report showed side by side. The check
+    exists to reject a *recycled* PID (some unrelated process), not the real daemon.
+    """
+    return "yazses" in command.lower()
+
+
 class MacosLifecycle:
     """LifecycleBackend for macOS."""
 
@@ -56,7 +69,7 @@ class MacosLifecycle:
             )
         except (OSError, subprocess.TimeoutExpired):
             return True
-        return "yazses" in result.stdout
+        return command_is_yazses(result.stdout)
 
     # ---- Process spawn / stop ---------------------------------------------
 

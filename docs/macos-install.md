@@ -264,6 +264,34 @@ tccutil reset Accessibility com.yazses.app
 Keep the bundle id. Without it, `tccutil` clears the Accessibility grant for
 **every** application on the Mac, not just this one.
 
+**"`doctor` says denied, but YazSes is switched on in Settings."** If you ran
+`doctor` in Terminal (or iTerm, or the VS Code terminal), macOS may judge the
+permission of **that terminal app** rather than YazSes.app. One report showed
+exactly this: Terminal switched off, YazSes switched on, and `doctor` answering
+*denied* for both Accessibility and Input Monitoring. This is a hypothesis from
+that one report, not a confirmed mechanism. The answer that cannot be mixed up is
+what the running app logged about itself:
+
+```sh
+tail -n 60 ~/Library/Logs/yazses/daemon.log
+```
+
+**"`doctor` says the daemon is not running, but the menu-bar icon is there."**
+Releases up to 2.42.0 compared the process name case-sensitively, so a daemon
+started from the `.app` (`.../MacOS/YazSes`) was reported as not running. Update
+to the next release. Until then, look for it yourself:
+
+```sh
+ps aux | grep -i yazses
+```
+
+**A permission was fixed, but the hotkey still does nothing.** The grant is read
+when the keyboard tap is created at daemon start. If an older daemon is still
+running (opening the app again exits with *"Another YazSes daemon is already
+running"* in the log), it keeps the old answer. Run `yazses restart`, or quit
+YazSes from the menu bar, check that `ps aux | grep -i yazses` shows nothing, and
+open it again.
+
 **Which YazSes is being asked about?** The Accessibility answer is about the
 program that is running, not about every copy on the disk — so a grant given to
 `/Applications/YazSes.app` is not automatically the thing being checked when you

@@ -425,8 +425,8 @@ class Daemon:
         if not self._instance_lock.acquire():
             log.error(
                 "Another YazSes daemon is already running — exiting. "
-                "Manage the daemon with: systemctl --user restart yazses "
-                "(avoid `yazses start`, which detaches a second one)."
+                "To restart it, run: yazses restart "
+                "(on Linux with systemd: systemctl --user restart yazses)."
             )
             return False
         return True
