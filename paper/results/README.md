@@ -109,6 +109,7 @@ Four rules for using these files, each learned the expensive way:
 | `index.json` | the provenance + summary of one `run_all.py` sweep | `run_all.py` |
 | `platform-resolution.json` | which extras resolve on which OS/arch, and what blocks the rest | `bench_platform_resolution.py` |
 | `persian-fleurs-*.json` | Persian WER/CER (raw and eval-normalized), ZWNJ recall, RTF on the pinned FLEURS `fa_ir` test split — full 871-row runs, the seed-42 sample sweep, and the run-to-run repeat (FA-04 slice 3, #513) | `bench_persian.py` (manifest mode over `make_fa_manifest.py` output) |
+| `persian-cvfa-*.json` | Persian WER/CER (raw and eval-normalized), ZWNJ recall, RTF on the pinned Common Voice `fa` test split — the full 10,559-row domain-shift A/B: stock `small` and the steja CT2 int8 fine-tune (FA-05, #514) | `bench_persian.py` (manifest mode over `make_fa_manifest.py common-voice` output) |
 
 ### The pinned-count pair, and the one thing it proves outright
 

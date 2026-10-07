@@ -897,6 +897,34 @@ tested emitted U+200C on this corpus — a measurement of those models on FLEURS
 a claim about every Whisper model or every speaker, and the measured justification for
 the conservative production normalizer.
 
+### Common Voice `fa` — the domain-shift check
+
+FLEURS is read speech; §9's report asks for Common Voice Persian too, and the two
+are not the same measurement. Both FA-05 cells now run the **full Common Voice `fa`
+test split — 10,559 utterances, no subsampling** (manifest rows SHA-256 pinned,
+corpus `b16a30c622e4aa86`, anonymous-mirror read path from [#514](https://github.com/MSKazemi/yazses/issues/514)),
+on the same 4-vCPU AMD EPYC machine and harness:
+
+| Model | WER raw | WER norm | CER norm | RTF | p50 | p95 |
+|---|---|---|---|---|---|---|
+| `small` | 75.89 % | 75.58 % | 27.52 % | 2.369 | 11.2 s | 19.7 s |
+| `steja/whisper-small-persian` (CT2 int8) | 46.04 % | 45.59 % | 13.76 % | 2.202 | 10.3 s | 17.1 s |
+
+The domain shift costs every model, and it costs stock `small` more: **+16.5 WER
+points** (59.43 → 75.89) against the fine-tune's **+8.7** (37.34 → 46.04). The
+fine-tune's lead therefore *widens* from 22.1 points on FLEURS to **29.9 points** on
+Common Voice — the A/B's strongest result so far, because spontaneous crowdsourced
+speech is where a Persian-adapted acoustic+language fine-tune should matter most.
+Exact-match confirms it from the other side: 11.8 % of Common Voice utterances are
+perfect under `steja` versus 1.3 % under stock `small` (FLEURS: 0.6 % vs 0.6 % at
+full-split scale). Peak RSS 1205.4 MB (`steja`) and 1266.6 MB (`small`) — both fit
+the 8 GB box, `model_load_s` 1.79 vs 5.57. The §9 speed statement is unchanged:
+neither cell is faster than real time (RTF 2.20 / 2.37), and both ran at provenance
+load average 4.2–4.6, so these RTFs are conservative against the idle-host FLEURS
+figures rather than comparable to them. Caveat carried over: the ZWNJ references in
+this split contain zero U+200C to begin with, so this corpus cannot re-test the §7
+normalizer question — `steja` emitted none, `small` emitted 5 unmatched.
+
 ## Community results
 
 This table tracks performance across different machines and engines, measured with the
