@@ -47,6 +47,12 @@ Not sure yet? **[Try it without installing](https://mskazemi.com/yazses/try-with
 (runs in Docker or your browser), or read
 [what installing actually costs](https://mskazemi.com/yazses/install-cost.html) first.
 
+**🌱 New to open source? Make your first contribution here.** No speech or AI background needed.
+Pick a [good first issue](https://github.com/MSKazemi/yazses/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22):
+review a translation in your own language, test YazSes on your OS and report what happened, or
+write a small tested config. We'll help you through your first PR — see
+[CONTRIBUTING](.github/CONTRIBUTING.md).
+
 ---
 
 [![Tests](https://github.com/MSKazemi/yazses/actions/workflows/test.yml/badge.svg)](https://github.com/MSKazemi/yazses/actions/workflows/test.yml)
