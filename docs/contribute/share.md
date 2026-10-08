@@ -27,6 +27,16 @@ All are 9:16 portrait, sized for reels, stories and shorts. Right-click and save
 The QR codes ([card QR](../assets/share/reel2-qr.png), [download QR](../assets/share/reel1-download-qr.png))
 open the [latest release](https://github.com/MSKazemi/yazses/releases/latest).
 
+## Videos
+
+Two short vertical reels, ready to upload from your phone or computer (right-click, save as):
+
+- [Reel 1](https://github.com/MSKazemi/yazses/releases/download/media-kit/yazses-reel-1.mp4) — about 41 MB
+- [Reel 2](https://github.com/MSKazemi/yazses/releases/download/media-kit/yazses-reel-2.mp4) — about 122 MB
+
+They live on a [separate pre-release](https://github.com/MSKazemi/yazses/releases/tag/media-kit),
+not on the software releases, so they never get in the way of an installer download.
+
 ## A caption you can adapt
 
 > I contribute to YazSes, a free, fully offline, open-source voice-dictation tool for Windows,
