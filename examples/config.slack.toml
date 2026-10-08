@@ -1,0 +1,14 @@
+# Tested YazSes configuration for Slack on Linux X11.
+# Changed the default trigger hotkey to avoid conflicts with Slack thread and search shortcuts.
+# Adjusted injection backend to xdotool for reliable text insertion in Electron apps.
+
+[audio]
+model = "tiny"
+language = "en"
+
+[hotkey]
+combination = "ctrl+shift+space"
+
+[injection]
+backend = "xdotool"
+delay_ms = 50
