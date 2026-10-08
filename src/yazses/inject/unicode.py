@@ -44,6 +44,10 @@ _UI_SET_KEYBIT = 0x40045565
 _UI_DEV_CREATE = 0x5501
 _UI_DEV_DESTROY = 0x5502
 
+# Give compositors time to propagate uinput modifier state before subsequent key events.
+_MODIFIER_SETTLE_SECONDS = 0.020
+_INTER_CHARACTER_GAP_SECONDS = 0.020
+
 
 class UnicodeInjectorError(RuntimeError):
     """The Unicode injector cannot be used on this machine or for this text."""
@@ -293,6 +297,8 @@ class _UinputKeyboard:
         modifiers = tuple(modifiers)
         for modifier in modifiers:
             self.key(modifier, _KEY_PRESS)
+        if modifiers:
+            time.sleep(_MODIFIER_SETTLE_SECONDS)
         self.key(keycode, _KEY_PRESS)
         self.key(keycode, _KEY_RELEASE)
         for modifier in reversed(modifiers):
@@ -409,7 +415,7 @@ class UnicodeInjector:
         if not text:
             return
         xkb, keyboard = self._ready()
-        for character in text:
+        for index, character in enumerate(text):
             result = _find_key_for_character(xkb, character)
             if result is None:
                 raise UnicodeInjectorError(
@@ -418,6 +424,8 @@ class UnicodeInjector:
                 )
             keycode, modifiers = result
             keyboard.tap(keycode, modifiers)
+            if index < len(text) - 1:
+                time.sleep(_INTER_CHARACTER_GAP_SECONDS)
 
     def inject_backspaces(self, count: int) -> None:
         if count <= 0:
