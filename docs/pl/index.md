@@ -103,6 +103,7 @@ Reszta dokumentacji jest na razie po angielsku.
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/Tiyatrotist"><img src="https://avatars.githubusercontent.com/u/179411334?v=4?s=100" width="100px;" alt="Tiyatrotist"/><br /><sub><b>Tiyatrotist</b></sub></a><br /><a href="https://github.com/MSKazemi/yazses/commits?author=Tiyatrotist" title="Documentation">📖</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/AmothissacrajT"><img src="https://avatars.githubusercontent.com/u/202615530?v=4?s=100" width="100px;" alt="Amoth issac raj"/><br /><sub><b>Amoth issac raj</b></sub></a><br /><a href="https://github.com/MSKazemi/yazses/commits?author=AmothissacrajT" title="Documentation">📖</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/Adharsh75r"><img src="https://avatars.githubusercontent.com/u/202615849?v=4?s=100" width="100px;" alt="Adharsh Narayan"/><br /><sub><b>Adharsh Narayan</b></sub></a><br /><a href="https://github.com/MSKazemi/yazses/commits?author=Adharsh75r" title="Documentation">📖</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/LE-VAI"><img src="https://avatars.githubusercontent.com/u/281449961?v=4?s=100" width="100px;" alt="LE-VAI"/><br /><sub><b>LE-VAI</b></sub></a><br /><a href="#ideas-LE-VAI" title="Ideas, Planning, & Feedback">🤔</a> <a href="#research-LE-VAI" title="Research">🔬</a></td>
     </tr>
   </tbody>
 </table>

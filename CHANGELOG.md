@@ -6,6 +6,14 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — optional share kit for contributors, and @LE-VAI joins the wall
+
+`docs/contribute/share.md` offers contributors free-to-use reel covers, a poster and a contact/download
+card (QR codes verified to open the latest release) plus a caption to adapt — entirely optional.
+[@LE-VAI](https://github.com/LE-VAI) is credited under design review & research for the independent
+EMG-pipeline convergence and the false-activation measurement design
+([#140](https://github.com/MSKazemi/yazses/issues/140)).
+
 ### Added — Persian benchmark: the FA-05 Common Voice cells
 
 Full Common Voice `fa` test split (10,559 utterances): `steja/whisper-small-persian` 46.04 % raw WER

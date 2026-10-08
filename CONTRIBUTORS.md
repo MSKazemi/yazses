@@ -44,6 +44,12 @@ argument, and the record of it is the decision it altered.
   and offered to dual-license it. The demonstration is what turned "we should replace the
   injector" from an aspiration into a decided fix direction.
 
+- [@LE-VAI](https://github.com/LE-VAI) — independently built the same EMG activation pipeline
+  (envelope → TKEO → dual thresholds → calibrated levels) in `access-input`, recorded the
+  convergence, and showed that the daemon's two channels — threshold-crossing episodes and the
+  audio window as a witness of intent — make a false-activation rate measurable
+  ([#140](https://github.com/MSKazemi/yazses/issues/140)).
+
 ## Testing & field reports
 
 Running an unproven build on your own machine and writing down exactly what happened.

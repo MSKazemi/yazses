@@ -414,6 +414,7 @@ nav:
           - Find a task that fits you: contribute/find.md
           - All open tasks: contribute/tasks.md
           - What contributors built: contribute/built.md
+          - Share your contribution: contribute/share.md
           - Translation status: localization/STATUS.md
   # The README in 28 languages. These pages carry `alternates:` front matter,
   # which hooks/hreflang.py turns into reciprocal hreflang tags — the signal a
