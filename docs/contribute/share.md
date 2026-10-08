@@ -21,7 +21,6 @@ All are 9:16 portrait, sized for reels, stories and shorts. Right-click and save
 |---|---|
 | [![Poster: Stop typing. Start speaking.](../assets/share/poster-720x1280.jpg){ width=160 }](../assets/share/poster-720x1280.jpg) | Poster — "Stop typing. Start speaking." |
 | [![Reel 1 cover](../assets/share/reel1-cover.png){ width=160 }](../assets/share/reel1-cover.png) | Cover for the first reel |
-| [![Reel 1 person](../assets/share/reel1-person.jpg){ width=160 }](../assets/share/reel1-person.jpg) | Portrait still from the first reel |
 | [![Reel 2 cover](../assets/share/reel2-cover.png){ width=160 }](../assets/share/reel2-cover.png) | Cover for the second reel |
 | [![Contact and download card](../assets/share/reel2-info.png){ width=160 }](../assets/share/reel2-info.png) | Contact and download card with a QR code |
 
