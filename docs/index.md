@@ -1,8 +1,10 @@
 ---
 title: YazSes — offline voice dictation for Linux, macOS & Windows
 description: Hold a key, speak, release — your words are transcribed on-device with faster-whisper and typed into any focused app. No cloud, no API key, no subscription.
+template: home.html
 hide:
   - navigation
+  - toc
 ---
 
 <script type="application/ld+json">
@@ -120,25 +122,7 @@ hide:
 }
 </script>
 
-<div class="yz-hero" markdown>
-
-# YazSes
-
-Offline, on-device voice dictation for **Linux, macOS & Windows**.
-Hold a key, speak, release — your words are transcribed locally with
-[faster-whisper](https://github.com/SYSTRAN/faster-whisper) and typed into any
-focused app. **No cloud. No API key. No subscription. Nothing leaves your machine.**
-{ .yz-hero__tagline }
-
-[Get started :material-rocket-launch:](#install){ .md-button .md-button--primary }
-[Platform support :material-monitor-multiple:](platform-support.md){ .md-button }
-[Star on GitHub :material-star:](https://github.com/MSKazemi/yazses){ .md-button }
-
-<div class="yz-chips">
-  <span>hold</span><span>→ speak</span><span>→ release</span><span>→ text appears</span>
-</div>
-
-</div>
+## See it run
 
 ![YazSes — hold a key, speak, release; the text is typed into the focused app](screenshots/yazses-reel.gif)
 

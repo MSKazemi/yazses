@@ -6,6 +6,26 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — a new landing page for the docs site
+
+The home page (`mskazemi.com/yazses/`) is now a full-width landing built from
+`overrides/home.html`: an animated hold → speak → release demo in the tray's own state
+colours, an install box that pre-selects the visitor's OS, the nine-stage pipeline with
+each stage's measured cost, the stack and the daemon's dictation loop, the four roadmap
+eras with what is shipped, in progress and ahead, the decisions deliberately *not* built,
+the contributor milestones, and a documentation hub. Every figure on it is one already
+published on the architecture or benchmarks page. It is first-party only — no
+third-party script, font or image — honours `prefers-reduced-motion`, works in light and
+dark, and fits a phone without horizontal scrolling. The Markdown body, its JSON-LD and
+its FAQ are unchanged underneath, so nothing already indexed is lost.
+
+### Fixed — a change to `overrides/` alone never rebuilt the docs site
+
+The docs workflow's path filter listed every tree the build reads except the theme's
+`custom_dir`, so a template-only change built and deployed nothing.
+`tests/test_docs_deploy_trigger.py` now derives `custom_dir` from `mkdocs.yml`, as it
+already did `docs_dir` and the hooks, and fails without the new `overrides/**` entry.
+
 ### Added — optional share kit for contributors, and @LE-VAI joins the wall
 
 `docs/contribute/share.md` offers contributors free-to-use reel covers, a poster and a contact/download

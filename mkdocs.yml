@@ -120,6 +120,12 @@ extra:
 
 extra_css:
   - assets/extra.css
+  # The landing page (overrides/home.html). Scoped to .yz-landing, so it is inert
+  # on every other page; first-party only, like everything else on the site.
+  - assets/landing.css
+
+extra_javascript:
+  - assets/landing.js
 
 # Build-time hooks. `faq_schema` derives schema.org FAQPage JSON-LD from the
 # FAQ page's own markdown, so the structured data cannot drift out of sync with

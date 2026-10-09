@@ -38,6 +38,10 @@ def _mkdocs_sources() -> set[str]:
         stripped = line.strip()
         if stripped.startswith("docs_dir:"):
             sources.add(f"{stripped.split(':', 1)[1].strip()}/**")
+        elif stripped.startswith("custom_dir:"):
+            # Theme overrides (overrides/home.html is the landing page). Missing
+            # from the filter, a template-only change built and deployed nothing.
+            sources.add(f"{stripped.split(':', 1)[1].strip()}/**")
         elif stripped.startswith("- hooks/"):
             sources.add(f"{stripped.removeprefix('- ').split('/')[0]}/**")
     return sources
@@ -54,6 +58,7 @@ def test_the_configuration_actually_yielded_sources() -> None:
     sources = _mkdocs_sources()
     assert "docs/**" in sources, f"docs_dir was not parsed out of mkdocs.yml: {sources}"
     assert "hooks/**" in sources, f"no hooks entries were parsed: {sources}"
+    assert "overrides/**" in sources, f"theme.custom_dir was not parsed: {sources}"
 
 
 def test_every_site_source_triggers_both_validation_and_deploy() -> None:
