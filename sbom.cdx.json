@@ -1277,14 +1277,14 @@
     {
       "type": "library",
       "name": "mako",
-      "version": "1.4.1",
-      "purl": "pkg:pypi/mako@1.4.1",
-      "bom-ref": "pkg:pypi/mako@1.4.1",
+      "version": "1.4.2",
+      "purl": "pkg:pypi/mako@1.4.2",
+      "bom-ref": "pkg:pypi/mako@1.4.2",
       "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "d7904710b662996425a21627710c4777c45053146942cf8a7aebf757c92b8c27"
+          "content": "7227a060ee3af55a493af61d73d6beef13044b81dba9586736c13945f09464ce"
         }
       ]
     },
