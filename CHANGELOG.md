@@ -19,6 +19,12 @@ third-party script, font or image — honours `prefers-reduced-motion`, works in
 dark, and fits a phone without horizontal scrolling. The Markdown body, its JSON-LD and
 its FAQ are unchanged underneath, so nothing already indexed is lost.
 
+### Changed — a contact address instead of an author credit
+
+`yazses --help` now ends with `Contact: mohsen.seyedkazemi@gmail.com` instead of
+`Made by …`, and the landing page's closing line asks for questions or feedback at the
+same address. `yazses about` still lists the author, links and where to report issues.
+
 ### Fixed — a change to `overrides/` alone never rebuilt the docs site
 
 The docs workflow's path filter listed every tree the build reads except the theme's

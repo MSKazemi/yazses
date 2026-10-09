@@ -28,7 +28,10 @@ def test_top_level_help_advertises_contact():
     r = runner.invoke(cli.app, ["-h"], env=WIDE)
     assert r.exit_code == 0
     assert "about" in r.output
-    assert branding.AUTHOR in r.output
+    # The help ends with a contact address, not an author credit; `yazses about`
+    # still carries the author.
+    assert branding.EMAIL in r.output
+    assert "Made by" not in r.output
 
 
 def test_contact_lines_are_well_formed():
