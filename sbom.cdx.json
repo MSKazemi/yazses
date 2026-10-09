@@ -1565,14 +1565,14 @@
     {
       "type": "library",
       "name": "multidict",
-      "version": "6.7.1",
-      "purl": "pkg:pypi/multidict@6.7.1",
-      "bom-ref": "pkg:pypi/multidict@6.7.1",
+      "version": "6.9.1",
+      "purl": "pkg:pypi/multidict@6.9.1",
+      "bom-ref": "pkg:pypi/multidict@6.9.1",
       "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "ec6652a1bee61c53a3e5776b6049172c53b6aaba34f18c9ad04f82712bac623d"
+          "content": "0f06e60fa190aa7abd0914c2a766736fdc8e9f34878c4346338534b73d1b20e2"
         }
       ]
     },
