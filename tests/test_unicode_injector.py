@@ -250,3 +250,66 @@ def test_ydotool_inject_preserves_the_329_acceptance_strings(monkeypatch, text):
 
     assert "".join(keyboard.produced) == text
     assert type_calls == []  # nothing ASCII in these strings; ydotool type unused
+
+def test_uinput_tap_settles_modifiers_before_the_main_key(monkeypatch):
+    import yazses.inject.unicode as unicode_mod
+
+    events = []
+    keyboard = object.__new__(unicode_mod._UinputKeyboard)
+    monkeypatch.setattr(
+        keyboard,
+        "key",
+        lambda keycode, value: events.append(("key", keycode, value)),
+    )
+    monkeypatch.setattr(
+        unicode_mod.time,
+        "sleep",
+        lambda seconds: events.append(("sleep", seconds)),
+    )
+
+    keyboard.tap(35, (42,))
+    assert events == [
+        ("key", 42, unicode_mod._KEY_PRESS),
+        ("sleep", 0.020),
+        ("key", 35, unicode_mod._KEY_PRESS),
+        ("key", 35, unicode_mod._KEY_RELEASE),
+        ("key", 42, unicode_mod._KEY_RELEASE),
+    ]
+
+    events.clear()
+    keyboard.tap(30)
+    assert events == [
+        ("key", 30, unicode_mod._KEY_PRESS),
+        ("key", 30, unicode_mod._KEY_RELEASE),
+    ]
+
+
+def test_unicode_injector_gaps_only_between_characters(monkeypatch):
+    import yazses.inject.unicode as unicode_mod
+
+    xkb = _FakeXkb()
+    keyboard = _FakeKeyboard()
+    events = []
+    keyboard.tap = lambda keycode, modifiers=(): (
+        keyboard.taps.append((keycode, tuple(modifiers))),
+        events.append(("tap", keycode, tuple(modifiers))),
+    )
+    monkeypatch.setattr(unicode_mod._XkbSession, "create", lambda: xkb)
+    monkeypatch.setattr(unicode_mod._UinputKeyboard, "create", lambda path: keyboard)
+    monkeypatch.setattr(
+        unicode_mod.time,
+        "sleep",
+        lambda seconds: events.append(("sleep", seconds)),
+    )
+
+    injector = UnicodeInjector()
+    injector.inject("aaa")
+
+    assert keyboard.taps == [(30, ()), (30, ()), (30, ())]
+    assert events == [
+        ("tap", 30, ()),
+        ("sleep", 0.020),
+        ("tap", 30, ()),
+        ("sleep", 0.020),
+        ("tap", 30, ()),
+    ]
