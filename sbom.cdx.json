@@ -317,14 +317,14 @@
     {
       "type": "library",
       "name": "cairosvg",
-      "version": "2.9.0",
-      "purl": "pkg:pypi/cairosvg@2.9.0",
-      "bom-ref": "pkg:pypi/cairosvg@2.9.0",
+      "version": "2.9.1",
+      "purl": "pkg:pypi/cairosvg@2.9.1",
+      "bom-ref": "pkg:pypi/cairosvg@2.9.1",
       "scope": "excluded",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "1debb00cd2da11350d8b6f5ceb739f1b539196d71d5cf5eb7363dbd1bfbc8dc5"
+          "content": "861bc28ad97ce4f537d50eb3d6ee97a7afcccec9c61ac25c4e7d073fe409aec7"
         }
       ]
     },
