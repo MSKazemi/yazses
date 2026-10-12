@@ -581,6 +581,11 @@ class FacegestureConfig:
     use_baseline: bool = False        # normalise the score against `yazses facegesture calibrate`
     confidence_floor: float = 0.0     # 0..1; frames below it never count toward a hold (0 = off)
     refractory_frames: int = 0        # frames after a release before a new hold may begin
+    # Switch mappings (EYE-FACE-002). `gesture` + `mode` above stay the one hold-to-talk
+    # binding; each entry here ADDS another, as `[[facegesture.switches]]` tables with
+    # `gesture` (a gesture name) and `intent` (hold_to_talk | hold_to_command | select |
+    # confirm | cancel | pause_pointer | none). Empty = the single-gesture install, unchanged.
+    switches: list[dict] = field(default_factory=list)
 
 
 @dataclass
