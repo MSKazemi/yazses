@@ -272,6 +272,62 @@ Calibrate the webcam so your gaze maps to screen zones.
 Don't auto-install the gaze deps (mediapipe, opencv).
 .RE
 .TP
+\fByazses gaze measure\fR
+Measure how well your saved gaze calibration works, and write a report to share.
+.RS
+.TP
+\fB\-\-camera\-class\fR
+integrated | external | virtual. Never guessed.
+.TP
+\fB\-\-out, \-o\fR
+Where to write the report JSON (default: ./yazses-gaze-report.json).
+.TP
+\fB\-\-rounds\fR
+How many validation passes to run.
+.TP
+\fB\-\-interval\-s\fR
+Seconds to wait between passes (to see drift over time).
+.TP
+\fB\-\-per\-point\fR
+Gaze samples averaged per target.
+.TP
+\fB\-\-block\-s\fR
+Drift bucket length in seconds.
+.TP
+\fB\-\-study\-mode\fR
+community_qa | research. Never inferred.
+.TP
+\fB\-\-protocol\-id\fR
+The named, versioned protocol. Required by --study-mode research.
+.TP
+\fB\-\-camera\-label\fR
+A short model name of your choosing, e.g. 'Integrated 720p'. No serial numbers.
+.TP
+\fB\-\-glasses\fR
+none | glasses | contacts | not_stated.
+.TP
+\fB\-\-lighting\fR
+dim | normal | bright | backlit | not_stated.
+.TP
+\fB\-\-viewing\-distance\-cm\fR
+Eyes to screen, in centimetres.
+.TP
+\fB\-\-screen\-diagonal\-in\fR
+Screen diagonal in inches. With --viewing-distance-cm, errors are also given in degrees.
+.TP
+\fB\-\-routing\-attempts\fR
+Dictations you tried to aim with gaze (your own count).
+.TP
+\fB\-\-routing\-fallbacks\fR
+Of those, how many fell back to the focused window.
+.TP
+\fB\-\-wrong\-target\fR
+Of those, how many you had to correct (landed in the wrong window).
+.RE
+.TP
+\fByazses gaze rollback\fR
+Undo the last implicit refinement and restore the calibration it replaced.
+.TP
 \fByazses gaze status\fR
 Show whether look-to-pane is ready: deps, desktop backend, calibration.
 .SS "yazses gitvoice"

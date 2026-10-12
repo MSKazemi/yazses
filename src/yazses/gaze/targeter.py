@@ -63,6 +63,20 @@ class GazeTargeter:
         #: as this one's — a stale exact target is worse than no exact target.
         self.last_grounding: GroundingResult | None = None
 
+    @property
+    def calibration(self):
+        """The calibration map routing is using right now."""
+        return self._calibration
+
+    def set_calibration(self, calibration) -> None:
+        """Switch to a new calibration map (a verified implicit refinement, #398).
+
+        A plain attribute assignment on purpose: ``retarget`` reads ``self._calibration``
+        once per call, so a swap lands between two holds and never inside one, and there
+        is nothing to lock. The caller persists the map *before* calling this.
+        """
+        self._calibration = calibration
+
     def _sample(self) -> tuple[tuple[float, float] | None, float]:
         """One gaze sample as ``(point, confidence)``.
 

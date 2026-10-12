@@ -553,6 +553,40 @@ class GazeConfig:
 
 
 @dataclass
+class GazeRefineConfig:
+    """Implicit gaze calibration from ordinary mouse clicks (#101, #397, #398).
+
+    Pairs each desktop click with the gaze sample from just before it, refines the
+    gaze-to-screen map from those pairs, and promotes the refinement only if it beats the
+    explicit calibration on held-out clicks. Never worse than the wizard: a loss, a tie,
+    too little data, a changed monitor layout or a failed write all leave the saved
+    calibration byte-for-byte as it was, and `yazses gaze rollback` restores the previous
+    one exactly after a promotion.
+
+    OFF by default, and doubly opt-in: it holds the camera open (through the shared
+    `[perception]` source) and listens for clicks while on. It needs `[perception]`
+    enabled, gaze on the same camera, a verified calibration for this desktop, and a
+    platform click observer (none ships yet, so on every install today it explains why it
+    is dormant). Only coordinates, timestamps and gaze numbers are used: no screenshot,
+    window title, typed text or frame, and nothing is kept past the session but the
+    promoted map.
+
+    **Every number below is an unmeasured starting value**, not a finding. The aim latency
+    and look-back in particular are what the field evidence for #104 is meant to set.
+    """
+    enabled: bool = False
+    click_latency_ms: int = 100       # gaze sample aimed at this long before the click
+    lookback_ms: int = 500            # oldest gaze sample a click may be paired with
+    min_confidence: float = 0.5       # eye-agreement floor for a pair (and a held-out pair)
+    min_train_samples: int = 30       # accepted training pairs before a comparison
+    min_holdout_samples: int = 10     # held-out pairs before a comparison
+    holdout_every: int = 4            # every Nth pair is held out of training (2 or more)
+    min_improvement_px: float = 1.0   # held-out error the candidate must save to promote
+    evaluate_every: int = 10          # compare after this many new accepted pairs
+    max_holdout_samples: int = 200    # bound on retained held-out pairs
+
+
+@dataclass
 class FacegestureConfig:
     """Face-gesture switch access — a held facial movement as the hotkey (#102).
 
@@ -600,10 +634,13 @@ class PerceptionConfig:
     same observation, and the last one to let go closes it.
 
     OFF by default, and enabling it alone opens nothing: the lifecycle is driven by
-    consumers, so zero consumers means zero camera opens. Until a camera backend is
-    wired to the shared owner it stays dormant and every feature keeps the path it
-    has today, so an existing install is unchanged either way. Frames are processed
-    in-RAM inside the source and never reach a signal, a log or a file (ADR-011).
+    consumers, so zero consumers means zero camera opens. Glance-Type gaze is the
+    first consumer (#396): with this on, a MediaPipe gaze backend whose
+    ``[gaze] camera_index`` matches ``camera_index`` here takes a lease instead of
+    opening a camera of its own, and the camera opens on its first gaze sample, as
+    before. With it off, gaze and the face switch keep the path they have always had,
+    so an existing install is unchanged. Frames are processed in-RAM inside the
+    source and never reach a signal, a log or a file (ADR-011).
     """
     enabled: bool = False
     camera_index: int = 0             # which camera the one owner opens
@@ -1977,6 +2014,7 @@ class Config:
     gaze: GazeConfig = field(default_factory=GazeConfig)
     facegesture: FacegestureConfig = field(default_factory=FacegestureConfig)
     perception: PerceptionConfig = field(default_factory=PerceptionConfig)
+    gaze_refine: GazeRefineConfig = field(default_factory=GazeRefineConfig)
     cocktail: CocktailConfig = field(default_factory=CocktailConfig)
     personalize: PersonalizeConfig = field(default_factory=PersonalizeConfig)
     polyglot: PolyglotConfig = field(default_factory=PolyglotConfig)

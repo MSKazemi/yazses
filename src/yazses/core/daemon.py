@@ -17,7 +17,7 @@ import subprocess
 import sys
 import threading
 import time
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from types import FrameType
 from typing import TYPE_CHECKING
@@ -28,6 +28,7 @@ if TYPE_CHECKING:
     # All imported lazily at runtime (in _build_gaze_targeter and the other builders
     # below) so the optional/heavy dependencies stay dormant; the names exist here only
     # so the `X | None` attribute annotations resolve for the type checker.
+    from yazses.gaze.refine_runtime import RefinementRuntime
     from yazses.gaze.targeter import GazeTargeter
     from yazses.inject.target import TargetDetector
     from yazses.latency.pool import EnginePool
@@ -284,6 +285,18 @@ class Daemon:
         # attribute that exists only after a successful startup would make that
         # release silently skip on any path that never got there.
         self._perception: SharedPerceptionSource | None = None
+        # Whether Glance-Type gaze holds a lease on that source (#396) rather than
+        # owning a camera of its own. Only `_build_gaze_targeter` sets it; `status`
+        # reads it so a payload never claims shared state for a consumer that is not.
+        self._gaze_on_shared_source = False
+        # What `_build_gaze_refinement` needs to know about the calibration that was
+        # loaded: (verified against this desktop, its source, a live context check).
+        self._gaze_calibration_facts: tuple[bool, str, Callable[[], bool] | None] = (
+            False, "explicit", None
+        )
+        # Implicit gaze calibration (#398): None unless [gaze_refine] is on and every
+        # precondition held. `shutdown` stops it before the camera is released.
+        self._gaze_refinement: RefinementRuntime | None = None
         # Ghost Ahead endpoint anticipator (None when [endpoint] disabled — dormant).
         self._endpoint: EndpointAnticipator | None = (
             EndpointAnticipator(
@@ -1154,6 +1167,14 @@ class Daemon:
         # mode while held. Ignored if unset or the same as the dictation key.
         self._command_hotkey = self._make_command_hotkey(cfg, key_id)
 
+        # ADR-v2-145: one camera owner per daemon, so gaze, the Head-Pointer and the
+        # face switch cannot each open the webcam and meet "device already busy".
+        # None while `[perception]` is off (the shipped default), and then every
+        # camera feature keeps the path it has always had. Built *before* the gaze
+        # targeter because gaze is the first consumer to take a lease (#396); building
+        # it opens nothing, the first lease does. `shutdown` closes it.
+        self._perception = self._build_perception_source(cfg)
+
         # Glance-Type look-to-pane (design/v2-cognitive-layer §3.3). Dormant unless
         # [gaze] enabled + route_dictation, with a calibration + X11 desktop + deps.
         #
@@ -1161,13 +1182,10 @@ class Daemon:
         # whether gaze *actually* came up, rather than whether it was requested.
         self._gaze_targeter = self._build_gaze_targeter(cfg)
 
-        # ADR-v2-145: one camera owner per daemon, so gaze, the Head-Pointer and the
-        # face switch cannot each open the webcam and meet "device already busy".
-        # None on a default install — `[perception]` ships off and the Head-Pointer,
-        # the one consumer that implies it, ships off too — so nothing about the camera
-        # features above changes. This is the seam that stops there being a second
-        # one later, and `shutdown` closes it.
-        self._perception = self._build_perception_source(cfg)
+        # Implicit refinement of that calibration from clicks (#398). Opt-in twice over
+        # (it holds the camera and listens for clicks) and dormant, with a logged
+        # reason, on every install today: no platform ships a click observer yet.
+        self._gaze_refinement = self._build_gaze_refinement(cfg)
 
         # Head-Pointer (ADR-v2-052): a lease on the camera above, a pointer sink from the
         # platform, and the global stop state. Dormant -- no lease, no sink, no thread --
@@ -1596,6 +1614,7 @@ class Daemon:
             from yazses.gaze.desktop import build_desktop
             from yazses.gaze.display import build_topology_provider, current_context
             from yazses.gaze.factory import build_gaze
+            from yazses.gaze.shared import shared_source_for_gaze
             from yazses.gaze.store import calibration_state
             from yazses.gaze.targeter import GazeTargeter
             from yazses.gaze.topology import SessionTopologyGuard, Validity
@@ -1621,10 +1640,16 @@ class Daemon:
                 return None
             if check.validity is Validity.UNVERIFIED:
                 log.info("Gaze calibration could not be verified — %s.", check.reason)
-            backend = build_gaze(cfg.gaze)
+            # Share the camera only when sharing is correct (same device, MediaPipe
+            # backend, a source exists); otherwise exactly the pre-#396 backend.
+            choice = shared_source_for_gaze(cfg.gaze, cfg.perception, self._perception)
+            if self._perception is not None and choice.source is None:
+                log.info("Gaze keeps its own camera — %s.", choice.reason)
+            backend = build_gaze(cfg.gaze, perception=choice.source)
             if backend is None:
                 log.warning("Gaze routing enabled but gaze deps unavailable; dormant.")
                 return None
+            self._gaze_on_shared_source = choice.source is not None
             guard = None
             if provider is not None:
                 guard = SessionTopologyGuard(
@@ -1634,12 +1659,58 @@ class Daemon:
                     ),
                 )
             log.info("Glance-Type look-to-pane routing active.")
+            from yazses.gaze.store import load_calibration_record
+
+            record = load_calibration_record(self._platform.paths.data_dir)
+            # Refinement may only improve a calibration that is verified against this
+            # desktop (ADR-v2-149): UNVERIFIED is "cannot tell", not "fine".
+            self._gaze_calibration_facts = (
+                check.validity is Validity.VALID and guard is not None,
+                record.source if record is not None else "explicit",
+                (lambda: not guard.suspended()) if guard is not None else None,
+            )
             return GazeTargeter(
                 backend, calibration, desktop, cfg.gaze.confidence_min, topology_guard=guard
             )
         except Exception:
             log.debug("Gaze targeter init failed; skipping", exc_info=True)
             return None
+
+    def _build_gaze_refinement(self, cfg):
+        """Start implicit gaze calibration, or None with the reason logged (#398).
+
+        Dormant is the shipped state and is silent. *Enabled but unable to run* is the
+        case worth a line: nothing else would ever tell the user that the feature they
+        turned on is doing nothing, or why. Every precondition lives in
+        :func:`yazses.gaze.refine_runtime.build_refinement_runtime`, which opens nothing
+        until all of them hold.
+        """
+        if not cfg.gaze_refine.enabled:
+            return None
+        try:
+            from yazses.gaze.refine_runtime import build_refinement_runtime
+
+            verified, source, context_valid = self._gaze_calibration_facts
+            runtime, reason = build_refinement_runtime(
+                cfg.gaze_refine,
+                targeter=self._gaze_targeter,
+                perception=self._perception,
+                gaze_on_shared_source=self._gaze_on_shared_source,
+                observer_factory=getattr(self._platform, "click_observer_factory", None),
+                data_dir=self._platform.paths.data_dir,
+                calibration_verified=verified,
+                context_valid=context_valid,
+                source=source,
+                fps=cfg.perception.fps,
+            )
+        except Exception:
+            log.debug("Implicit gaze calibration init failed; skipping", exc_info=True)
+            return None
+        if runtime is None:
+            log.warning("Implicit gaze calibration is enabled but dormant: %s.", reason)
+        else:
+            log.info("Implicit gaze calibration active (opt-in; clicks refine the map).")
+        return runtime
 
     def _build_perception_source(self, cfg):
         """The daemon's single shared camera owner, or None when it is dormant.
@@ -1652,10 +1723,13 @@ class Daemon:
 
         None is the answer on a default install, and it is not a failure: the factory
         returns None while neither `[perception]` nor a feature that only ever uses
-        the shared source (the Head-Pointer) is on. The MediaPipe/OpenCV backends are
-        wired here, lazily, so building the source still touches no device; the gaze
-        migration that asks for a lease is #396. Wrapped because a source that cannot
-        be built must cost a log line, never a daemon that will not start.
+        the shared source (the Head-Pointer) is on, which leaves every camera feature
+        on the path it has always had. With it on, the OpenCV capture and the
+        MediaPipe processor are handed over as *factories*: building the source opens
+        nothing and imports neither library, and the first lease -- Glance-Type gaze,
+        on its first sample (#396), or the Head-Pointer (#404) -- is what opens the
+        camera, once. Wrapped because a source that cannot be built must cost a log
+        line, never a daemon that will not start.
         """
         try:
             from yazses.perception import (
@@ -1673,12 +1747,14 @@ class Daemon:
                 section = dataclasses.replace(section, enabled=True)
 
             # Both factories are lazy: building the source imports no OpenCV and no
-            # MediaPipe and opens no device -- the first consumer's lease does (#404).
+            # MediaPipe and opens no device -- the first consumer's lease does.
             return build_perception_source(
                 section,
                 capture_factory=opencv_capture_factory,
+                # One model asset, one override: the gaze section's `model_path` was
+                # the setting before the source existed, the face-switch one is next.
                 processor_factory=mediapipe_processor_factory(
-                    model_path=getattr(cfg.gaze, "model_path", "") or ""
+                    model_path=cfg.gaze.model_path or cfg.facegesture.model_path
                 ),
             )
         except Exception:
@@ -5390,13 +5466,42 @@ class Daemon:
             )
             head_running = bool(getattr(getattr(self, "_headpointer", None), "active", False))
             running = gaze_running or face_running or head_running
+            # What the shared source can say about itself, but only for a consumer that
+            # really leases it: Glance-Type gaze, once #396 moved it across. The source
+            # is lazy, so "dormant" is the honest state before the first hold and is
+            # *not* reported as a stopped camera. Channels and age are read only while
+            # it is running — a dormant source's empty channel tuple would otherwise
+            # print as "no face in view" for a camera nobody has opened yet.
+            shared = None
+            if gaze_running and getattr(self, "_gaze_on_shared_source", False):
+                perception = getattr(self, "_perception", None)
+                if perception is not None:
+                    shared = perception.status()
+            channels: tuple[str, ...] | None = None
+            age_ms: float | None = None
+            if shared is None:
+                reason = (
+                    "each camera consumer opens its own capture today, so no shared "
+                    "per-channel freshness is reported"
+                )
+            else:
+                if shared.state.value == "running":
+                    channels = shared.channels
+                    if shared.last_sample_age_s is not None:
+                        age_ms = shared.last_sample_age_s * 1000.0
+                reason = (
+                    f"shared camera source {shared.state.value}"
+                    + (f" ({shared.failure_reason})" if shared.failure_reason else "")
+                    + "; the camera opens on the first gaze sample"
+                )
             facts = dataclasses.replace(
                 facts,
                 perception_state=PERCEPTION_RUNNING if running else PERCEPTION_STOPPED,
                 perception_consumers=int(gaze_running) + int(face_running) + int(head_running),
+                perception_channels=channels,
+                perception_age_ms=age_ms,
                 perception_reason=(
-                    "each camera consumer opens its own capture today, so no shared "
-                    "per-channel freshness is reported"
+                    reason
                     if running else
                     "no camera consumer was built at start-up — `yazses doctor` says why"
                 ),
@@ -5779,6 +5884,11 @@ class Daemon:
                 self._edit_watcher.cancel()
             except Exception:
                 log.exception("Edit watcher cancel raised")
+        if self._gaze_refinement is not None:
+            try:
+                self._gaze_refinement.stop()  # click hook off, camera lease back
+            except Exception:
+                log.exception("Gaze refinement stop raised")
         # ADR-v2-148 shutdown order: suppress actions first, release backends afterwards,
         # so nothing can fire into a half-closed pointer sink -- and before the camera
         # source below is closed under the Head-Pointer's lease.
