@@ -251,6 +251,38 @@ Turn a spoken git command into a git command — fully offline.
 - `--run` — Run the command instead of only printing it.
 - `--yes` — Confirm a destructive command so --run will run it.
 
+## `yazses headpointer`
+
+Control the Head-Pointer: recenter, pause or resume it, hold a clutch, toggle dwell-click.
+
+### `yazses headpointer clutch`
+
+Hold the pointer still without turning the feature off (e.g. while you pull a face).
+
+- `--off` — Release the clutch instead of holding it.
+
+### `yazses headpointer dwell`
+
+Turn dwell-click on or off without touching pointer motion.
+
+- **Arguments:** `state`
+
+### `yazses headpointer pause`
+
+Stop the pointer: no motion, no dwell progress, no click.
+
+### `yazses headpointer recenter`
+
+Make your current head position the neutral one. No motion and no click while it happens.
+
+### `yazses headpointer resume`
+
+Resume after a pause or a fault. The first frame afterwards never moves or clicks.
+
+### `yazses headpointer status`
+
+Show whether the Head-Pointer is running, and if not, why not.
+
 ## `yazses hotkey`
 
 Change the key you hold to talk.

@@ -262,6 +262,31 @@ Run the command instead of only printing it.
 \fB\-\-yes\fR
 Confirm a destructive command so --run will run it.
 .RE
+.SS "yazses headpointer"
+Control the Head-Pointer: recenter, pause or resume it, hold a clutch, toggle dwell-click.
+.TP
+\fByazses headpointer clutch\fR
+Hold the pointer still without turning the feature off (e.g. while you pull a face).
+.RS
+.TP
+\fB\-\-off\fR
+Release the clutch instead of holding it.
+.RE
+.TP
+\fByazses headpointer dwell\fR \fISTATE\fR
+Turn dwell-click on or off without touching pointer motion.
+.TP
+\fByazses headpointer pause\fR
+Stop the pointer: no motion, no dwell progress, no click.
+.TP
+\fByazses headpointer recenter\fR
+Make your current head position the neutral one. No motion and no click while it happens.
+.TP
+\fByazses headpointer resume\fR
+Resume after a pause or a fault. The first frame afterwards never moves or clicks.
+.TP
+\fByazses headpointer status\fR
+Show whether the Head-Pointer is running, and if not, why not.
 .SS "yazses hotkey"
 Change the key you hold to talk.
 .TP

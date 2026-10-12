@@ -35,6 +35,7 @@ class SonarWidget(QWidget):
             self._accent = QColor(OverlayConfig().accent)
         self._ripples: list[Ripple] = []
         self._core_intensity = 0.0
+        self._dwell = 0.0
 
         self.setFixedSize(size_px, size_px)
         # Frameless, floating tool window that never takes focus and always
@@ -56,6 +57,14 @@ class SonarWidget(QWidget):
         self._ripples = ripples
         self._core_intensity = min(1.0, max(0.0, core_intensity))
         self.update()
+
+    def set_dwell(self, progress: float) -> None:
+        """How far a dwell-click is from firing (0..1); 0 hides the ring. Repaints on change."""
+        progress = progress if progress == progress else 0.0  # NaN draws nothing
+        progress = min(1.0, max(0.0, progress))
+        if progress != self._dwell:
+            self._dwell = progress
+            self.update()
 
     def move_to(self, top_left: tuple[int, int]) -> None:
         self.move(top_left[0], top_left[1])
@@ -88,6 +97,9 @@ class SonarWidget(QWidget):
             painter.setBrush(Qt.BrushStyle.NoBrush)
             painter.drawEllipse(QRectF(cx - radius, cy - radius, radius * 2, radius * 2))
 
+        if self._dwell > 0.0:
+            self._paint_dwell(painter, cx, cy, max_radius * 0.45)
+
         # Pulsing glow core at the centre — radial gradient that brightens with voice.
         core_r = half * (0.10 + 0.10 * self._core_intensity)
         if core_r > 0.5:
@@ -101,3 +113,23 @@ class SonarWidget(QWidget):
             painter.setPen(Qt.PenStyle.NoPen)
             painter.setBrush(gradient)
             painter.drawEllipse(QRectF(cx - core_r, cy - core_r, core_r * 2, core_r * 2))
+
+    def _paint_dwell(self, painter: QPainter, cx: float, cy: float, radius: float) -> None:
+        """A ring that fills clockwise from twelve o'clock as the click gets closer."""
+        track = QColor(self._accent)
+        track.setAlpha(70)
+        pen = QPen(track)
+        pen.setWidthF(4.0)
+        painter.setPen(pen)
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        rect = QRectF(cx - radius, cy - radius, radius * 2, radius * 2)
+        painter.drawEllipse(rect)
+
+        arc = QColor(self._accent)
+        arc.setAlpha(240)
+        pen = QPen(arc)
+        pen.setWidthF(5.0)
+        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+        painter.setPen(pen)
+        # Qt measures arcs in 1/16 degree, counter-clockwise from three o'clock.
+        painter.drawArc(rect, 90 * 16, -int(self._dwell * 360 * 16))
