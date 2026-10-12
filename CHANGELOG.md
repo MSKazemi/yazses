@@ -6,6 +6,16 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — Unicode (uinput) backend lost Shift on GNOME Wayland
+
+The opt-in `unicode` injector now waits 20 ms after a modifier goes down and leaves 20 ms between characters
+(none after the last), so Mutter sees the modifier before the key. Measured by
+[@vortsghost2025](https://github.com/vortsghost2025) on Ubuntu 22.04 / GNOME 42 Wayland, US layout: 160 of 160
+visible results correct, against 18/20 at 10 ms. It costs about 20 ms per character, so a long string takes
+proportionally longer. Non-US layouts (`åäö`, `éèê`, `öüß`) are still unchecked, so
+[#329](https://github.com/MSKazemi/yazses/issues/329) stays open
+([#580](https://github.com/MSKazemi/yazses/pull/580)).
+
 ### Added — Persian benchmark: the FA-05 Common Voice cells
 
 Full Common Voice `fa` test split (10,559 utterances): `steja/whisper-small-persian` 46.04 % raw WER

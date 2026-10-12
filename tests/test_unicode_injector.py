@@ -251,6 +251,7 @@ def test_ydotool_inject_preserves_the_329_acceptance_strings(monkeypatch, text):
     assert "".join(keyboard.produced) == text
     assert type_calls == []  # nothing ASCII in these strings; ydotool type unused
 
+
 def test_uinput_tap_settles_modifiers_before_the_main_key(monkeypatch):
     import yazses.inject.unicode as unicode_mod
 
