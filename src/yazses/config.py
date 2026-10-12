@@ -590,10 +590,13 @@ class PerceptionConfig:
     same observation, and the last one to let go closes it.
 
     OFF by default, and enabling it alone opens nothing: the lifecycle is driven by
-    consumers, so zero consumers means zero camera opens. Until a camera backend is
-    wired to the shared owner it stays dormant and every feature keeps the path it
-    has today, so an existing install is unchanged either way. Frames are processed
-    in-RAM inside the source and never reach a signal, a log or a file (ADR-011).
+    consumers, so zero consumers means zero camera opens. Glance-Type gaze is the
+    first consumer (#396): with this on, a MediaPipe gaze backend whose
+    ``[gaze] camera_index`` matches ``camera_index`` here takes a lease instead of
+    opening a camera of its own, and the camera opens on its first gaze sample, as
+    before. With it off, gaze and the face switch keep the path they have always had,
+    so an existing install is unchanged. Frames are processed in-RAM inside the
+    source and never reach a signal, a log or a file (ADR-011).
     """
     enabled: bool = False
     camera_index: int = 0             # which camera the one owner opens

@@ -42,8 +42,16 @@ _BACKENDS: dict[str, tuple[str, str, str | None]] = {
 }
 
 
-def build_gaze(config) -> GazeBackend | None:
-    """Return a gaze backend for *config*, or None when dormant/unavailable."""
+def build_gaze(config, perception=None) -> GazeBackend | None:
+    """Return a gaze backend for *config*, or None when dormant/unavailable.
+
+    *perception* is the daemon's shared camera source (ADR-v2-145), passed only when
+    :func:`yazses.gaze.shared.shared_source_for_gaze` said gaze may use it. With it
+    the MediaPipe backend is a lease on that source instead of a camera of its own;
+    without it (every caller but the daemon, and every install with ``[perception]``
+    off) this returns exactly what it always did. The dependency probe above runs
+    either way, so a missing extra is still named by the same message.
+    """
     if not getattr(config, "enabled", False):
         return None
 
@@ -69,6 +77,13 @@ def build_gaze(config) -> GazeBackend | None:
 
     try:
         if backend == "mediapipe":
+            if perception is not None:
+                from yazses.gaze.shared import SharedGazeBackend
+
+                return SharedGazeBackend(
+                    perception.consumer("gaze"),
+                    failure_reason=lambda: perception.status().failure_reason,
+                )
             from yazses.gaze.mediapipe_backend import MediapipeGazeBackend
 
             return MediapipeGazeBackend(config)

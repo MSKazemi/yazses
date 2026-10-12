@@ -10,10 +10,12 @@ stored or transmitted (ADR-011).
 """
 from __future__ import annotations
 
-# MediaPipe iris (478-landmark) indices: iris centre + the two eye corners used to
-# normalise the offset (so it is scale/distance-invariant).
-_LEFT = (468, 33, 133)    # iris, outer corner, inner corner
-_RIGHT = (473, 362, 263)
+# The iris-offset arithmetic (landmark indices, eye-width normalisation, left/right
+# agreement) lives in ``yazses.perception.derive`` -- the shared camera source derives
+# its gaze channel with the same functions, so there is one copy instead of two that
+# drift (#396). This backend is the *own-camera* path: still used by the calibration
+# CLI, by installs with ``[perception]`` off, and wherever the shared source is not
+# allowed to serve gaze.
 
 
 class MediapipeGazeBackend:
@@ -48,14 +50,6 @@ class MediapipeGazeBackend:
             self._cap = self._cv2.VideoCapture(self._camera_index)
         return self._cap
 
-    @staticmethod
-    def _offset(lm, iris: int, c1: int, c2: int) -> tuple[float, float]:
-        """Iris centre offset from the eye midpoint, normalised by eye width."""
-        cx = (lm[c1].x + lm[c2].x) / 2.0
-        cy = (lm[c1].y + lm[c2].y) / 2.0
-        width = abs(lm[c2].x - lm[c1].x) or 1e-6
-        return (lm[iris].x - cx) / width, (lm[iris].y - cy) / width
-
     def estimate(self) -> tuple[float, float] | None:
         sample = self.estimate_sample()
         return None if sample is None else sample.point
@@ -68,7 +62,8 @@ class MediapipeGazeBackend:
         quality signal (blur, extreme pose, occlusion). This is what makes
         ``[gaze] confidence_min`` effective for the default backend.
         """
-        from yazses.gaze.confidence import GazeSample, eye_agreement_confidence
+        from yazses.gaze.confidence import GazeSample
+        from yazses.perception.derive import derive_gaze
 
         cap = self._ensure_camera()
         ok, frame = cap.read()
@@ -82,14 +77,11 @@ class MediapipeGazeBackend:
             return None
         if not getattr(result, "face_landmarks", None):
             return None
-        lm = result.face_landmarks[0]
-        try:
-            lx, ly = self._offset(lm, *_LEFT)
-            rx, ry = self._offset(lm, *_RIGHT)
-        except (IndexError, AttributeError):
+        # Timestamp 0.0: a GazeSample carries none, and derive_gaze only validates it.
+        signal = derive_gaze(result.face_landmarks[0], 0.0)
+        if signal is None:
             return None
-        confidence = eye_agreement_confidence((lx, ly), (rx, ry))
-        return GazeSample((lx + rx) / 2.0, (ly + ry) / 2.0, confidence)
+        return GazeSample(signal.raw_x, signal.raw_y, signal.confidence)
 
     def close(self) -> None:
         if self._cap is not None:
