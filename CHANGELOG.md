@@ -6,6 +6,16 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — Unicode (uinput) backend lost Shift on GNOME Wayland
+
+The opt-in `unicode` injector now waits 20 ms after a modifier goes down and leaves 20 ms between characters
+(none after the last), so Mutter sees the modifier before the key. Measured by
+[@vortsghost2025](https://github.com/vortsghost2025) on Ubuntu 22.04 / GNOME 42 Wayland, US layout: 160 of 160
+visible results correct, against 18/20 at 10 ms. It costs about 20 ms per character, so a long string takes
+proportionally longer. Non-US layouts (`åäö`, `éèê`, `öüß`) are still unchecked, so
+[#329](https://github.com/MSKazemi/yazses/issues/329) stays open
+([#580](https://github.com/MSKazemi/yazses/pull/580)).
+
 ### Added — `examples/config.slack.toml`, a Linux X11 profile for Slack
 
 A hold-to-talk setup for the Slack desktop app on X11 (`right_ctrl`, `xdotool` injection), contributed by
