@@ -1467,7 +1467,13 @@ class Daemon:
         try:
             from yazses.facegesture.backend import FaceGestureBackend
 
-            source = FaceGestureBackend(cfg.facegesture, start, end)
+            baselines = None
+            if cfg.facegesture.use_baseline:
+                # Read only when asked for: an install that never opted in touches no file.
+                from yazses.facegesture.calibration import baseline_path, load_baselines
+
+                baselines = load_baselines(baseline_path(self._platform.paths.data_dir))
+            source = FaceGestureBackend(cfg.facegesture, start, end, baselines=baselines)
         except Exception:
             log.warning("Face-gesture activation source init failed; continuing "
                         "without.", exc_info=True)

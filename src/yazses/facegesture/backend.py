@@ -16,8 +16,9 @@ from __future__ import annotations
 import logging
 import threading
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 
+from yazses.facegesture.calibration import Baseline, Reading
 from yazses.facegesture.detector import (
     DEFAULT_GESTURE,
     GESTURES,
@@ -25,6 +26,7 @@ from yazses.facegesture.detector import (
     blendshape_scores,
     gesture_score,
 )
+from yazses.perception.mediapipe_backend import DEFAULT_PRESENCE_CONFIDENCE
 
 log = logging.getLogger(__name__)
 
@@ -40,6 +42,8 @@ class FaceGestureBackend:
         config,
         on_hold_start: Callable[[int], None] = lambda n: None,
         on_hold_end: Callable[[], None] = lambda: None,
+        *,
+        baselines: Mapping[str, Baseline] | None = None,
     ) -> None:
         self._cfg = config
         self._on_hold_start = on_hold_start
@@ -59,12 +63,31 @@ class FaceGestureBackend:
             )
             gesture = DEFAULT_GESTURE
         self._gesture = gesture
+        baseline = self._resolve_baseline(config, baselines)
+        floor = getattr(config, "confidence_floor", 0.0)
         self._switch = GestureSwitch(
             hold_threshold=getattr(config, "hold_threshold", 0.5),
             release_threshold=getattr(config, "release_threshold", 0.35),
             min_hold_frames=getattr(config, "min_hold_frames", 3),
             min_release_frames=getattr(config, "min_release_frames", 2),
+            baseline=None if baseline is None else baseline.level,
+            confidence_floor=floor,
+            refractory_frames=getattr(config, "refractory_frames", 0),
         )
+        self._baseline = baseline
+        try:
+            too_strict = float(floor) > DEFAULT_PRESENCE_CONFIDENCE
+        except (TypeError, ValueError):
+            too_strict = False
+        if too_strict:
+            # This camera path's landmarker reports no per-frame confidence, only that
+            # the face cleared its presence threshold; so a floor above that bound
+            # blocks every frame. Say it once, rather than leave a dead switch silent.
+            log.warning(
+                "[facegesture] confidence_floor = %.2f is above the %.2f this camera path "
+                "can report, so no frame will pass and the switch will never fire.",
+                float(floor), DEFAULT_PRESENCE_CONFIDENCE,
+            )
         if self._switch.repaired_release:
             hold, release = self._switch.thresholds
             log.warning(
@@ -73,6 +96,37 @@ class FaceGestureBackend:
             )
         fps = int(getattr(config, "fps", 15) or 15)
         self._interval = 1.0 / max(1, min(60, fps))
+
+    def _resolve_baseline(self, config, baselines) -> Baseline | None:
+        """This gesture's baseline when ``[facegesture] use_baseline`` asks for one.
+
+        Every way of not having a usable one falls back to the absolute thresholds and
+        says so once: the alternative to a missing file is a switch that does not work.
+        """
+        if not getattr(config, "use_baseline", False):
+            return None
+        found = (baselines or {}).get(self._gesture)
+        if found is None:
+            log.warning(
+                "[facegesture] use_baseline is on but there is no baseline for %r; using "
+                "the absolute thresholds. Run: yazses facegesture calibrate", self._gesture,
+            )
+            return None
+        if not found.usable:
+            log.warning(
+                "[facegesture] the %r baseline (%.2f) leaves too little headroom to "
+                "normalise against; the switch will not fire. Run: yazses facegesture "
+                "calibrate with a relaxed face.", self._gesture, found.level,
+            )
+            return found
+        hold = float(getattr(config, "hold_threshold", 0.5))
+        if not found.separable_from(hold):
+            log.warning(
+                "[facegesture] the %r baseline is too noisy for hold_threshold = %.2f: "
+                "your relaxed face alone can reach it. Re-run calibration, or raise the "
+                "threshold.", self._gesture, hold,
+            )
+        return found
 
     # ------------------------------------------------------------------
     # HotkeyBackend protocol
@@ -185,7 +239,7 @@ class FaceGestureBackend:
             started = time.monotonic()
             event = None
             try:
-                event = self._switch.update(self._score(landmarker, cap, cv2, mp))
+                event = self._switch.update(*self._reading(landmarker, cap, cv2, mp))
             except Exception:
                 # One bad frame must not end the user's only input method. The
                 # switch state is untouched, so a held gesture stays held.
@@ -196,17 +250,53 @@ class FaceGestureBackend:
             # rather than after a full interval of an unrelated sleep.
             self._stop_event.wait(max(0.0, self._interval - (time.monotonic() - started)))
 
-    def _score(self, landmarker, cap, cv2, mp) -> float | None:
+    def _reading(self, landmarker, cap, cv2, mp) -> Reading:
+        """One frame as ``(gesture score, confidence)`` -- two inputs, never one number.
+
+        The landmarker's Python result carries no per-face confidence, only the fact that
+        a face cleared its presence threshold, so a frame with a face reports that bound
+        (:data:`DEFAULT_PRESENCE_CONFIDENCE`, a documented lower bound and not a
+        measurement) and a frame without one reports None. A graded confidence needs a
+        source that has one; the shared perception layer is where that will arrive.
+        """
         ok, frame = cap.read()
         if not ok or frame is None:
-            return None
+            return Reading(None, None)
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
         result = landmarker.detect(image)
         shapes = getattr(result, "face_blendshapes", None)
         if not shapes:
-            return None
-        return gesture_score(blendshape_scores(shapes[0]), self._gesture)
+            return Reading(None, None)
+        score = gesture_score(blendshape_scores(shapes[0]), self._gesture)
+        if score is None:
+            return Reading(None, None)
+        return Reading(score, DEFAULT_PRESENCE_CONFIDENCE)
+
+    def _score(self, landmarker, cap, cv2, mp) -> float | None:
+        """The score half of :meth:`_reading` (kept for callers that want only that)."""
+        return self._reading(landmarker, cap, cv2, mp).score
+
+    def collect_readings(
+        self, landmarker, cap, cv2, mp, seconds: float,
+        sleep: Callable[[float], None] = time.sleep,
+    ) -> list[Reading]:
+        """Sample ``seconds`` of frames for calibration; one bad frame is no reading.
+
+        The same frame path the switch runs on, so a baseline is measured on exactly what
+        the switch will later see. Frames are consumed and dropped; only the numbers are
+        returned (ADR-011).
+        """
+        frames = max(1, int(float(seconds) / self._interval))
+        out: list[Reading] = []
+        for _ in range(frames):
+            try:
+                out.append(self._reading(landmarker, cap, cv2, mp))
+            except Exception:
+                log.debug("face-gesture: calibration frame failed", exc_info=True)
+                out.append(Reading(None, None))
+            sleep(self._interval)
+        return out
 
     def _fire(self, event: str) -> None:
         """Call a daemon callback without letting it kill the capture thread."""
