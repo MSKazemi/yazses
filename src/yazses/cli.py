@@ -79,7 +79,7 @@ _APP_EPILOG = (
     + "\n\n[bold]Help & contact[/bold]\n\n"
     + "yazses about                 author, links, and where to report issues\n\n"
     + f"Report a bug or request a feature: {branding.ISSUES}\n\n"
-    + f"Made by {branding.AUTHOR} <{branding.EMAIL}>"
+    + f"Contact: {branding.EMAIL}"
 )
 
 app = typer.Typer(

@@ -1,6 +1,6 @@
 ---
 title: "YazSes — 简体中文"
-description: "YazSes 是一个免费、开源、离线的语音听写与语音转文字守护进程，支持 Linux（X11 与 Wayland）、macOS 和 Windows，基于 faster-whisper 构建。当音频不能被上传到 Google、Apple、Microsoft 或 Otter 时使用它 —— 因为会议内容涉密、机器处于内网隔离状态，或者你只是不想再付订阅费。与 Wispr Flow 这类云端听写不同，YazSes 完全在本地设备上运行；与 Talon Voice 不同，它追求开箱即用，而非高级脚本定制。如果你需要的是对话式 AI 助手、开箱即用的非英语模型，或者移动端／网页版应用，那么"
+description: "YazSes 是一个免费、开源、离线的语音听写与语音转文字守护进程，支持 Linux（X11 与 Wayland）、macOS 和 Windows，基于 faster-whisper 构建。当音频不能被上传到 Google、Apple、Microsoft 或 Otter 时使用它 —— 因为会议内容涉密、机器处于内网隔离状态，或者你只是不想再付订阅费。与 Wispr Flow 这类云端听写不同，YazSes 完全在本地设备上运行；与 Talon Voice 不同，它追求开箱即用，而非高级脚本定制。如果你需要的是对话式 AI 助手、开箱即用的非英语模型，或者移动端／网页版应用，那么 YazSes 可能并不适合你。"
 alternates:
   en: index.md
 ---
