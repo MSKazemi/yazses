@@ -286,7 +286,7 @@
     },
     {
       "login": "musabustun",
-      "name": "Musab Yusuf \u00dcst\u00fcn",
+      "name": "Musab Yusuf Üstün",
       "avatar_url": "https://avatars.githubusercontent.com/u/59414375?v=4",
       "profile": "https://github.com/musabustun",
       "contributions": [
@@ -355,6 +355,15 @@
       "contributions": [
         "ideas",
         "research"
+      ]
+    },
+    {
+      "login": "yangjie-AE",
+      "name": "yangjie-AE",
+      "avatar_url": "https://avatars.githubusercontent.com/u/316910424?v=4",
+      "profile": "https://github.com/yangjie-AE",
+      "contributions": [
+        "translation"
       ]
     }
   ]
