@@ -239,6 +239,27 @@ Calibrate the webcam so your gaze maps to screen zones.
 
 - `--no-install` — Don't auto-install the gaze deps (mediapipe, opencv).
 
+### `yazses gaze measure`
+
+Measure how well your saved gaze calibration works, and write a report to share.
+
+- `--camera-class` — integrated | external | virtual. Never guessed.
+- `--out`, `-o` — Where to write the report JSON (default: ./yazses-gaze-report.json).
+- `--rounds` — How many validation passes to run.
+- `--interval-s` — Seconds to wait between passes (to see drift over time).
+- `--per-point` — Gaze samples averaged per target.
+- `--block-s` — Drift bucket length in seconds.
+- `--study-mode` — community_qa | research. Never inferred.
+- `--protocol-id` — The named, versioned protocol. Required by --study-mode research.
+- `--camera-label` — A short model name of your choosing, e.g. 'Integrated 720p'. No serial numbers.
+- `--glasses` — none | glasses | contacts | not_stated.
+- `--lighting` — dim | normal | bright | backlit | not_stated.
+- `--viewing-distance-cm` — Eyes to screen, in centimetres.
+- `--screen-diagonal-in` — Screen diagonal in inches. With --viewing-distance-cm, errors are also given in degrees.
+- `--routing-attempts` — Dictations you tried to aim with gaze (your own count).
+- `--routing-fallbacks` — Of those, how many fell back to the focused window.
+- `--wrong-target` — Of those, how many you had to correct (landed in the wrong window).
+
 ### `yazses gaze rollback`
 
 Undo the last implicit refinement and restore the calibration it replaced.

@@ -5357,6 +5357,247 @@ def gaze_rollback() -> None:
     )
 
 
+@gaze_app.command(
+    "measure",
+    epilog=_examples(
+        "yazses gaze measure --camera-class integrated",
+        "    check your saved calibration at each target and write a shareable report",
+        "yazses gaze measure --camera-class external --glasses glasses --lighting dim --rounds 3 --interval-s 120",
+        "    three passes two minutes apart, to see drift; context you choose to volunteer",
+        "yazses gaze measure --camera-class integrated --screen-diagonal-in 15.6 --viewing-distance-cm 60",
+        "    add the screen size and distance so errors are also reported in degrees",
+    ),
+)
+def gaze_measure(
+    camera_class: str = typer.Option(
+        ..., "--camera-class", help="integrated | external | virtual. Never guessed."
+    ),
+    out: Optional[Path] = typer.Option(
+        None, "--out", "-o", help="Where to write the report JSON (default: ./yazses-gaze-report.json)."
+    ),
+    rounds: int = typer.Option(1, "--rounds", min=1, max=20, help="How many validation passes to run."),
+    interval_s: float = typer.Option(
+        0.0, "--interval-s", min=0.0, help="Seconds to wait between passes (to see drift over time)."
+    ),
+    per_point: int = typer.Option(8, "--per-point", min=1, max=60, help="Gaze samples averaged per target."),
+    block_s: float = typer.Option(300.0, "--block-s", min=1.0, help="Drift bucket length in seconds."),
+    study_mode: str = typer.Option(
+        "community_qa", "--study-mode", help="community_qa | research. Never inferred."
+    ),
+    protocol_id: Optional[str] = typer.Option(
+        None, "--protocol-id", help="The named, versioned protocol. Required by --study-mode research."
+    ),
+    camera_label: Optional[str] = typer.Option(
+        None, "--camera-label",
+        help="A short model name of your choosing, e.g. 'Integrated 720p'. No serial numbers.",
+    ),
+    glasses: str = typer.Option("not_stated", "--glasses", help="none | glasses | contacts | not_stated."),
+    lighting: str = typer.Option(
+        "not_stated", "--lighting", help="dim | normal | bright | backlit | not_stated."
+    ),
+    viewing_distance_cm: Optional[float] = typer.Option(
+        None, "--viewing-distance-cm", min=1.0, help="Eyes to screen, in centimetres."
+    ),
+    screen_diagonal_in: Optional[float] = typer.Option(
+        None, "--screen-diagonal-in", min=1.0,
+        help="Screen diagonal in inches. With --viewing-distance-cm, errors are also given in degrees.",
+    ),
+    routing_attempts: Optional[int] = typer.Option(
+        None, "--routing-attempts", min=0, help="Dictations you tried to aim with gaze (your own count)."
+    ),
+    routing_fallbacks: Optional[int] = typer.Option(
+        None, "--routing-fallbacks", min=0, help="Of those, how many fell back to the focused window."
+    ),
+    wrong_target: Optional[int] = typer.Option(
+        None, "--wrong-target", min=0, help="Of those, how many you had to correct (landed in the wrong window)."
+    ),
+) -> None:
+    """Measure how well your saved gaze calibration works, and write a report to share.
+
+    You look at each on-screen target in turn, exactly as in `yazses gaze calibrate`, but
+    nothing is re-fitted: the saved calibration is checked and the error at each target is
+    recorded. Run it again later (or use --rounds) to see how it drifts.
+
+    The report is for issue #104 and holds derived numbers only: error in pixels (and in
+    degrees if you give the screen size and distance), the spread of gaze confidence,
+    routing counts if you tallied them, error per time block, and context you chose to
+    state. It has no field for a frame, a face mesh, a screenshot, anything you typed or
+    dictated, a window title or who you are. Nothing is uploaded: it is one JSON file on your
+    disk, validated and swept for identifiers *before* it is written. Read it, then attach
+    it if you want to.
+
+    Needs the same things as calibration: `[gaze] enabled`, an X11 session with `xdotool`, a
+    saved calibration that still matches this desktop, and the daemon not holding the webcam.
+    """
+    import time
+    from datetime import datetime, timezone
+    from typing import NoReturn
+
+    from yazses.config import load_config
+    from yazses.eyeeval import (
+        EyeEvalRunError,
+        collect_provenance,
+        local_identifiers,
+        write_result,
+    )
+    from yazses.eyeeval.gaze_field import (
+        CalibrationFacts,
+        Environment,
+        Geometry,
+        MeasurementSession,
+        RoutingCounts,
+        build_report,
+        collect_validation,
+        render_markdown,
+        report_problems,
+    )
+    from yazses.gaze.calibrate import calibration_blocker, default_targets
+    from yazses.gaze.desktop import build_desktop
+    from yazses.gaze.display import current_context
+    from yazses.gaze.factory import build_gaze
+    from yazses.gaze.store import calibration_state, load_calibration_record
+
+    def fail(message: str) -> NoReturn:
+        typer.secho(message, fg=typer.colors.RED, err=True)
+        raise typer.Exit(1)
+
+    if study_mode not in ("community_qa", "research"):
+        fail(f"--study-mode {study_mode!r} must be community_qa or research: a person ran this.")
+    if study_mode == "research" and not protocol_id:
+        fail(
+            "--study-mode research requires --protocol-id: a named, versioned protocol the "
+            "data was collected under. Changing the label afterwards is not consent (ADR-v2-150)."
+        )
+    if camera_class not in ("integrated", "external", "virtual"):
+        fail(f"--camera-class {camera_class!r} must be integrated, external or virtual.")
+    if screen_diagonal_in is not None and viewing_distance_cm is None:
+        fail("--screen-diagonal-in needs --viewing-distance-cm too: degrees depend on both.")
+
+    try:
+        environment = Environment(
+            glasses=glasses, lighting=lighting, viewing_distance_cm=viewing_distance_cm,
+            camera_label=camera_label,
+        )
+        routing = RoutingCounts(
+            attempts=routing_attempts, fallback_no_route=routing_fallbacks,
+            wrong_target_corrections=wrong_target,
+        )
+    except ValueError as exc:
+        fail(str(exc))
+
+    platform = get_platform()
+    cfg = load_config(platform.paths.config_file)
+    desktop = build_desktop()
+    blocked = calibration_blocker(enabled=cfg.gaze.enabled, desktop_ok=desktop is not None)
+    if blocked is not None:
+        typer.echo(blocked, err=True)
+        raise typer.Exit(1)
+    assert desktop is not None  # calibration_blocker refused a None desktop above
+
+    context = current_context(camera_id=str(cfg.gaze.camera_index))
+    calibration, check = calibration_state(platform.paths.data_dir, context)
+    if calibration is None:
+        fail("There is no saved calibration to measure. Run `yazses gaze calibrate` first.")
+    if check.stale:
+        fail(
+            "The saved calibration no longer matches this desktop, so measuring it would "
+            f"measure the wrong thing ({check.reason}). Run `yazses gaze calibrate` again."
+        )
+    record = load_calibration_record(platform.paths.data_dir)
+
+    backend = build_gaze(cfg.gaze)
+    if backend is None:
+        fail(
+            "The webcam gaze deps are unavailable.\n"
+            "  Try:  yazses features enable gaze --force"
+        )
+
+    width, height = desktop.screen_size()
+    geometry = None
+    if screen_diagonal_in is not None and viewing_distance_cm is not None:
+        geometry = Geometry(
+            screen_diagonal_in=screen_diagonal_in, screen_width_px=width, screen_height_px=height,
+            viewing_distance_cm=viewing_distance_cm,
+        )
+
+    targets = default_targets(width, height, cfg.gaze.calibration_points)
+    session = MeasurementSession(confidence_min=cfg.gaze.confidence_min)
+    typer.echo(
+        f"Measuring your saved calibration at {len(targets)} points, {rounds} pass(es).\n"
+        "Look at each point and press Enter (hold your gaze steady). Nothing is re-fitted.\n"
+    )
+
+    def before_point(label: str, xy: tuple[int, int]) -> None:
+        typer.prompt(
+            f"  Look at the {label} of your screen {xy}, then press Enter",
+            default="", show_default=False,
+        )
+
+    started = time.monotonic()
+    try:
+        for index in range(rounds):
+            if index and interval_s > 0:
+                typer.echo(f"\nPass {index + 1} of {rounds} in {interval_s:g} s ...")
+                time.sleep(interval_s)
+            collect_validation(
+                backend, calibration, targets, before_point, session, time.monotonic,
+                per_point=per_point, started_at=started,
+            )
+    finally:
+        backend.close()
+    session.set_duration(time.monotonic() - started)
+
+    saved_at = None
+    if record is not None and record.saved_at:
+        try:
+            saved_at = datetime.fromisoformat(record.saved_at)
+        except ValueError:
+            saved_at = None
+    age_s = None if saved_at is None else max(0.0, (datetime.now(timezone.utc) - saved_at).total_seconds())
+    refinement = None if record is None else record.refinement
+    facts = CalibrationFacts(
+        source="explicit" if record is None else record.source,
+        age_s=age_s,
+        topology_validity=check.validity.value,
+        implicit_candidate_delta_px=(
+            None if refinement is None else refinement.baseline_error_px - refinement.candidate_error_px
+        ),
+    )
+
+    import dataclasses
+
+    settings = {
+        key: value
+        for key, value in dataclasses.asdict(cfg.gaze).items()
+        if key in ("backend", "calibration_points", "confidence_min", "route_dictation", "deixis")
+    }
+    doc = build_report(
+        provenance=collect_provenance(),
+        timestamp=datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
+        session=session,
+        calibration=facts,
+        study_mode=study_mode,
+        camera_class=camera_class,
+        backend_name=cfg.gaze.backend,
+        settings=settings,
+        routing=routing,
+        geometry=geometry,
+        environment=environment,
+        block_s=block_s,
+    )
+    if study_mode == "research":
+        doc["protocol"]["protocol_id"] = protocol_id
+    problems = report_problems(doc)
+    if problems:
+        fail("The report is not valid, so nothing was written:\n  - " + "\n  - ".join(problems))
+    target = out or Path("yazses-gaze-report.json")
+    try:
+        write_result(doc, target, identifiers=local_identifiers())
+    except EyeEvalRunError as exc:
+        fail(str(exc))
+    typer.echo(f"\n{render_markdown(doc)}\nWrote {target} — read it before you share it.")
+
+
 #: Which `[section]` of the config describes each evaluation feature, so a result records
 #: the settings that were actually in force. Only these three sections are read -- METRICS.md
 #: is explicit that a result must not dump the whole config -- and `runner.safe_settings`
