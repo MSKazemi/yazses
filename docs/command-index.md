@@ -239,6 +239,10 @@ Calibrate the webcam so your gaze maps to screen zones.
 
 - `--no-install` — Don't auto-install the gaze deps (mediapipe, opencv).
 
+### `yazses gaze rollback`
+
+Undo the last implicit refinement and restore the calibration it replaced.
+
 ### `yazses gaze status`
 
 Show whether look-to-pane is ready: deps, desktop backend, calibration.

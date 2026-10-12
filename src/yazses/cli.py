@@ -5239,7 +5239,12 @@ def gaze_status() -> None:
     from yazses.gaze.desktop import build_desktop
     from yazses.gaze.display import current_context
     from yazses.gaze.factory import build_gaze
-    from yazses.gaze.store import calibration_path, calibration_state
+    from yazses.gaze.store import (
+        calibration_path,
+        calibration_state,
+        load_calibration_record,
+        rollback_available,
+    )
     from yazses.gaze.topology import Validity
 
     platform = get_platform()
@@ -5271,6 +5276,26 @@ def gaze_status() -> None:
         # just answers wrongly. Say which of the three states this one is in, and why.
         typer.echo(f"  {mark(not check.stale)} calibration matches this desktop "
                    f"[{check.validity.value}] — {check.reason}")
+        record = load_calibration_record(platform.paths.data_dir)
+        if record is not None:
+            if record.source == "implicit":
+                evidence = record.refinement
+                detail = (
+                    f"; held-out error {evidence.baseline_error_px:.1f} px → "
+                    f"{evidence.candidate_error_px:.1f} px over "
+                    f"{evidence.train_samples}+{evidence.holdout_samples} click pairs"
+                    if evidence is not None else ""
+                )
+                typer.echo(
+                    f"  ✓ active map: implicitly refined from clicks (saved {record.saved_at}{detail})"
+                )
+            else:
+                typer.echo("  ✓ active map: explicit calibration (the wizard)")
+            if rollback_available(platform.paths.data_dir):
+                typer.echo(
+                    "  ✓ the previous calibration is kept — `yazses gaze rollback` restores it exactly"
+                )
+        typer.echo(f"  {mark(cfg.gaze_refine.enabled)} [gaze_refine] enabled = {cfg.gaze_refine.enabled}")
     ready = all((
         enabled,
         cfg.gaze.route_dictation,
@@ -5300,6 +5325,36 @@ def gaze_status() -> None:
             "\nGaze routing is off because the calibration no longer matches this desktop.\n"
             "  Next: run `yazses gaze calibrate` again."
         )
+
+
+@gaze_app.command(
+    "rollback",
+    epilog=_examples(
+        "yazses gaze rollback    undo the last implicit refinement; restore the previous calibration exactly"
+    ),
+)
+def gaze_rollback() -> None:
+    """Undo the last implicit refinement and restore the calibration it replaced.
+
+    The previous calibration file is put back byte for byte (it is kept for exactly this,
+    and removed by the next `yazses gaze calibrate`). Restart the daemon afterwards so the
+    running process loads it: `yazses restart`.
+    """
+    from yazses.gaze.store import CalibrationWriteError, rollback_calibration
+
+    platform = get_platform()
+    try:
+        record = rollback_calibration(platform.paths.data_dir)
+    except CalibrationWriteError as exc:
+        typer.echo(f"Could not roll back: {exc}", err=True)
+        raise typer.Exit(1) from exc
+    if record is None:
+        typer.echo("Nothing to roll back: no implicit refinement has replaced your calibration.")
+        return
+    typer.echo(
+        "✓ Restored the previous calibration (it was an "
+        f"{record.source} one). Run `yazses restart` so the daemon loads it."
+    )
 
 
 #: Which `[section]` of the config describes each evaluation feature, so a result records

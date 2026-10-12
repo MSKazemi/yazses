@@ -71,7 +71,7 @@ class ClickGazeCapture:
 
     def __init__(
         self,
-        sink: Callable[[Association], None],
+        sink: Callable[[Association], object],
         policy: AssociationPolicy | None = None,
         history: GazeHistory | None = None,
     ) -> None:

@@ -17,7 +17,7 @@ import subprocess
 import sys
 import threading
 import time
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from types import FrameType
 from typing import TYPE_CHECKING
@@ -28,6 +28,7 @@ if TYPE_CHECKING:
     # All imported lazily at runtime (in _build_gaze_targeter and the other builders
     # below) so the optional/heavy dependencies stay dormant; the names exist here only
     # so the `X | None` attribute annotations resolve for the type checker.
+    from yazses.gaze.refine_runtime import RefinementRuntime
     from yazses.gaze.targeter import GazeTargeter
     from yazses.inject.target import TargetDetector
     from yazses.latency.pool import EnginePool
@@ -284,6 +285,14 @@ class Daemon:
         # owning a camera of its own. Only `_build_gaze_targeter` sets it; `status`
         # reads it so a payload never claims shared state for a consumer that is not.
         self._gaze_on_shared_source = False
+        # What `_build_gaze_refinement` needs to know about the calibration that was
+        # loaded: (verified against this desktop, its source, a live context check).
+        self._gaze_calibration_facts: tuple[bool, str, Callable[[], bool] | None] = (
+            False, "explicit", None
+        )
+        # Implicit gaze calibration (#398): None unless [gaze_refine] is on and every
+        # precondition held. `shutdown` stops it before the camera is released.
+        self._gaze_refinement: RefinementRuntime | None = None
         # Ghost Ahead endpoint anticipator (None when [endpoint] disabled — dormant).
         self._endpoint: EndpointAnticipator | None = (
             EndpointAnticipator(
@@ -1168,6 +1177,11 @@ class Daemon:
         # whether gaze *actually* came up, rather than whether it was requested.
         self._gaze_targeter = self._build_gaze_targeter(cfg)
 
+        # Implicit refinement of that calibration from clicks (#398). Opt-in twice over
+        # (it holds the camera and listens for clicks) and dormant, with a logged
+        # reason, on every install today: no platform ships a click observer yet.
+        self._gaze_refinement = self._build_gaze_refinement(cfg)
+
         # ADR-v2-011 role arbitration. Must precede the activation sources, because
         # it decides what role EMG plays among them.
         self._modality_roles = self._resolve_modality_roles(cfg)
@@ -1600,12 +1614,58 @@ class Daemon:
                     ),
                 )
             log.info("Glance-Type look-to-pane routing active.")
+            from yazses.gaze.store import load_calibration_record
+
+            record = load_calibration_record(self._platform.paths.data_dir)
+            # Refinement may only improve a calibration that is verified against this
+            # desktop (ADR-v2-149): UNVERIFIED is "cannot tell", not "fine".
+            self._gaze_calibration_facts = (
+                check.validity is Validity.VALID and guard is not None,
+                record.source if record is not None else "explicit",
+                (lambda: not guard.suspended()) if guard is not None else None,
+            )
             return GazeTargeter(
                 backend, calibration, desktop, cfg.gaze.confidence_min, topology_guard=guard
             )
         except Exception:
             log.debug("Gaze targeter init failed; skipping", exc_info=True)
             return None
+
+    def _build_gaze_refinement(self, cfg):
+        """Start implicit gaze calibration, or None with the reason logged (#398).
+
+        Dormant is the shipped state and is silent. *Enabled but unable to run* is the
+        case worth a line: nothing else would ever tell the user that the feature they
+        turned on is doing nothing, or why. Every precondition lives in
+        :func:`yazses.gaze.refine_runtime.build_refinement_runtime`, which opens nothing
+        until all of them hold.
+        """
+        if not cfg.gaze_refine.enabled:
+            return None
+        try:
+            from yazses.gaze.refine_runtime import build_refinement_runtime
+
+            verified, source, context_valid = self._gaze_calibration_facts
+            runtime, reason = build_refinement_runtime(
+                cfg.gaze_refine,
+                targeter=self._gaze_targeter,
+                perception=self._perception,
+                gaze_on_shared_source=self._gaze_on_shared_source,
+                observer_factory=getattr(self._platform, "click_observer_factory", None),
+                data_dir=self._platform.paths.data_dir,
+                calibration_verified=verified,
+                context_valid=context_valid,
+                source=source,
+                fps=cfg.perception.fps,
+            )
+        except Exception:
+            log.debug("Implicit gaze calibration init failed; skipping", exc_info=True)
+            return None
+        if runtime is None:
+            log.warning("Implicit gaze calibration is enabled but dormant: %s.", reason)
+        else:
+            log.info("Implicit gaze calibration active (opt-in; clicks refine the map).")
+        return runtime
 
     def _build_perception_source(self, cfg):
         """The daemon's single shared camera owner, or None when it is dormant.
@@ -5679,6 +5739,11 @@ class Daemon:
                 self._edit_watcher.cancel()
             except Exception:
                 log.exception("Edit watcher cancel raised")
+        if self._gaze_refinement is not None:
+            try:
+                self._gaze_refinement.stop()  # click hook off, camera lease back
+            except Exception:
+                log.exception("Gaze refinement stop raised")
         if self._gaze_targeter is not None:
             try:
                 self._gaze_targeter.close()  # release the camera

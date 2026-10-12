@@ -1023,6 +1023,7 @@ default. Drop to `--dry-run` first if you want to see the plan and unmet require
 |---|---|
 | `yazses gaze calibrate` | Calibrate the webcam so your gaze maps to screen zones. |
 | `yazses gaze status` | Show whether look-to-pane is ready: deps, desktop backend, calibration. |
+| `yazses gaze rollback` | Undo the last implicit refinement and restore the calibration it replaced. |
 
 Requires `[gaze] enabled = true`, an X11 session with `xdotool`, and a webcam. The
 webcam gaze deps (mediapipe + opencv) are installed automatically on first run
@@ -1034,6 +1035,7 @@ hold only — never stored or sent.
 ```bash
 yazses gaze calibrate    # fit the webcam gaze → screen-zone mapping
 yazses gaze status       # deps, X11/xdotool, and whether a calibration exists
+yazses gaze rollback     # undo an implicit refinement, restoring the previous calibration exactly
 ```
 
 ### `yazses eye-eval` — scripted eye-control evaluation
