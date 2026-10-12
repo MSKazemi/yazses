@@ -40,6 +40,24 @@ class DwellClicker:
         self._anchor: tuple[float, float] | None = None
         self._count = 0
 
+    @property
+    def progress(self) -> float:
+        """How far the dwell in progress has got, ``0.0`` (none) towards ``1.0``.
+
+        Read-only and pure, so a caller can show the user that a click is coming *before* it
+        fires (ADR-v2-052 / #405). The frame that would complete it is the one on which
+        :meth:`update` fires and re-arms, so for any ``hold_frames`` above 1 the value read
+        between frames stays below ``1.0``.
+        """
+        if self._anchor is None or self._hold <= 0:
+            return 0.0
+        return min(self._count / self._hold, 1.0)
+
+    @property
+    def radius(self) -> float:
+        """The dwell radius in pixels."""
+        return self._radius2 ** 0.5
+
     def reset(self) -> None:
         """Drop any dwell in progress, so the next frame starts a fresh one.
 

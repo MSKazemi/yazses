@@ -228,6 +228,10 @@ class Daemon:
     #: an instance-only attribute. A missing router must degrade to Tier 1, and an
     #: AttributeError raised mid-burst does the opposite: it loses the words.
     _slm_router = None
+    #: Same reason: `_shutdown` and the IPC handler read these on paths that a partial
+    #: daemon (a test, a startup that failed early) never assigned them on.
+    _headpointer = None
+    _handsfree_safety = None
 
     def __init__(
         self,
@@ -501,6 +505,7 @@ class Daemon:
             self._announce_permissions()
             self._warm_portal_session()
             self._start_portal_idle_reaper()
+            self._start_headpointer()
             self._hotkey.run()
         finally:
             self._shutdown()
@@ -1158,11 +1163,17 @@ class Daemon:
 
         # ADR-v2-145: one camera owner per daemon, so gaze, the Head-Pointer and the
         # face switch cannot each open the webcam and meet "device already busy".
-        # None on every install today — `[perception]` ships off and no camera
-        # backend is wired to the owner yet (#395) — so nothing about the camera
+        # None on a default install — `[perception]` ships off and the Head-Pointer,
+        # the one consumer that implies it, ships off too — so nothing about the camera
         # features above changes. This is the seam that stops there being a second
         # one later, and `shutdown` closes it.
         self._perception = self._build_perception_source(cfg)
+
+        # Head-Pointer (ADR-v2-052): a lease on the camera above, a pointer sink from the
+        # platform, and the global stop state. Dormant -- no lease, no sink, no thread --
+        # unless `[headpointer] enabled` *and* the shared source and a pointer backend exist.
+        self._handsfree_safety = self._build_handsfree_safety(cfg)
+        self._headpointer = self._build_headpointer(cfg)
 
         # ADR-v2-011 role arbitration. Must precede the activation sources, because
         # it decides what role EMG plays among them.
@@ -1303,6 +1314,7 @@ class Daemon:
         server.register("pin_mic", self._handle_pin_mic)
         server.register("recalibrate_mic", self._handle_recalibrate_mic)
         server.register("ask_human", self._handle_ask_human)
+        server.register("headpointer", self._handle_headpointer)
         server.serve_in_thread()
         self._ipc_server = server
 
@@ -1638,20 +1650,111 @@ class Daemon:
         directly: each takes a lease, the first lease opens the camera once and the
         last release closes it (src/yazses/perception/source.py).
 
-        None is the answer on every install today, and it is not a failure: the
-        factory returns None while `[perception]` is off, and also while no camera
-        backend has been wired to the owner — the MediaPipe adapter is #395 and the
-        gaze migration that asks for the first lease is #396. Until then every camera
-        feature keeps the path it has now. Wrapped because a source that cannot be
-        built must cost a log line, never a daemon that will not start.
+        None is the answer on a default install, and it is not a failure: the factory
+        returns None while neither `[perception]` nor a feature that only ever uses
+        the shared source (the Head-Pointer) is on. The MediaPipe/OpenCV backends are
+        wired here, lazily, so building the source still touches no device; the gaze
+        migration that asks for a lease is #396. Wrapped because a source that cannot
+        be built must cost a log line, never a daemon that will not start.
         """
         try:
-            from yazses.perception import build_perception_source
+            from yazses.perception import (
+                build_perception_source,
+                mediapipe_processor_factory,
+                opencv_capture_factory,
+            )
 
-            return build_perception_source(cfg.perception)
+            # The Head-Pointer has no camera path of its own -- it only ever leases this
+            # source -- so enabling it implies the source. Reading that here, instead of
+            # having `features enable` write a second key, keeps one switch for the user
+            # and lets `disable` undo `enable` exactly.
+            section = cfg.perception
+            if cfg.headpointer.enabled and not section.enabled:
+                section = dataclasses.replace(section, enabled=True)
+
+            # Both factories are lazy: building the source imports no OpenCV and no
+            # MediaPipe and opens no device -- the first consumer's lease does (#404).
+            return build_perception_source(
+                section,
+                capture_factory=opencv_capture_factory,
+                processor_factory=mediapipe_processor_factory(
+                    model_path=getattr(cfg.gaze, "model_path", "") or ""
+                ),
+            )
         except Exception:
             log.debug("Shared camera perception init failed; skipping", exc_info=True)
             return None
+
+    def _build_handsfree_safety(self, cfg):
+        """The global ACTIVE/PAUSED/FAULTED gate, or None while `[handsfree_safety]` is off.
+
+        None is the shipped answer and means the hands-free state is not in play at all, so
+        a camera feature behaves exactly as it did before the section existed.
+        """
+        try:
+            from yazses.handsfree.safety import gate_from_config
+            from yazses.headpointer.controller import SOURCE_NAME
+
+            return gate_from_config(cfg, (SOURCE_NAME,))
+        except Exception:
+            log.debug("Hands-free safety gate init failed; skipping", exc_info=True)
+            return None
+
+    def _build_headpointer(self, cfg):
+        """The Head-Pointer runtime (ADR-v2-052, #404). Never raises; never opens a camera.
+
+        Always returns a runtime so `yazses headpointer status` can say *why* the pointer
+        is not moving: off, no shared camera source, or no pointer backend. Only an enabled
+        feature with both present has a runner, and even then the camera is leased by
+        `_start_headpointer`, not here.
+        """
+        from yazses.headpointer.runtime import HeadPointerRuntime
+
+        if not cfg.headpointer.enabled:
+            return HeadPointerRuntime()
+        try:
+            from yazses.headpointer.runtime import build_headpointer
+
+            return build_headpointer(
+                cfg.headpointer,
+                perception=self._perception,
+                pointer_factory=self._platform.pointer_factory,
+                safety=self._handsfree_safety,
+                fps=cfg.perception.fps,
+                # A click must never arrive unannounced: dwell-click is only allowed when
+                # the overlay that draws the progress ring will actually be on screen.
+                dwell_feedback_available=(
+                    should_launch_overlay(cfg, os.environ) and overlay_dependency_available()
+                ),
+            )
+        except Exception as exc:
+            log.warning("Head-Pointer init failed; it stays off", exc_info=True)
+            return HeadPointerRuntime(reason=f"init failed: {type(exc).__name__}")
+
+    def _start_headpointer(self) -> None:
+        """Take the camera lease and start polling, if there is anything to start."""
+        runtime = self._headpointer
+        if runtime is None or not runtime.active:
+            if runtime is not None and runtime.reason:
+                log.warning("Head-Pointer is enabled but not running: %s", runtime.reason)
+            return
+        try:
+            runtime.start()
+            log.info("Head-Pointer running (move your head to move the pointer).")
+        except Exception:
+            log.exception("Head-Pointer start raised")
+
+    def _handle_headpointer(self, request: Request) -> dict[str, object]:
+        """IPC: `status | recenter | pause | resume | clutch | dwell` for the Head-Pointer."""
+        runtime = self._headpointer
+        action = str(request.params.get("action", "status"))
+        if runtime is None:
+            return {"ok": False, "reason": "Head-Pointer is not available in this daemon"}
+        try:
+            return runtime.command(action, dict(request.params))
+        except Exception as exc:
+            log.exception("Head-Pointer command %r raised", action)
+            return {"ok": False, "reason": f"failed: {type(exc).__name__}"}
 
     def _on_command_hold_start(self, leaked: int) -> None:
         """Hold-start for the dedicated command key — arm force-command mode."""
@@ -5231,7 +5334,24 @@ class Daemon:
                 # returning that found six keys instead of thirty-seven and quietly
                 # switched a privacy guard off.
                 "handsfree": self._handsfree_payload(),
+                # The overlay reads the dwell progress out of this to draw a ring before a
+                # click fires. States, flags and a 0..1 fraction -- never a pose or position.
+                "headpointer": self._headpointer_payload(),
             }
+
+    def _headpointer_payload(self) -> dict[str, object] | None:
+        """The Head-Pointer's privacy-safe state for `status`, or None when it is not running.
+
+        None for every install that has not turned it on, so the reply is unchanged for them.
+        """
+        runtime = getattr(self, "_headpointer", None)
+        if runtime is None or not runtime.active:
+            return None
+        try:
+            return runtime.command("status")
+        except Exception:  # pragma: no cover - defensive
+            log.debug("head-pointer status payload failed", exc_info=True)
+            return None
 
     def _handsfree_payload(self) -> dict[str, object] | None:
         """Privacy-safe hands-free health for `yazses status`. Caller holds ``self._lock``.
@@ -5268,11 +5388,12 @@ class Daemon:
                 type(source).__module__.startswith("yazses.facegesture")
                 for source in getattr(self, "_extra_activations", ()) or ()
             )
-            running = gaze_running or face_running
+            head_running = bool(getattr(getattr(self, "_headpointer", None), "active", False))
+            running = gaze_running or face_running or head_running
             facts = dataclasses.replace(
                 facts,
                 perception_state=PERCEPTION_RUNNING if running else PERCEPTION_STOPPED,
-                perception_consumers=int(gaze_running) + int(face_running),
+                perception_consumers=int(gaze_running) + int(face_running) + int(head_running),
                 perception_reason=(
                     "each camera consumer opens its own capture today, so no shared "
                     "per-channel freshness is reported"
@@ -5658,6 +5779,19 @@ class Daemon:
                 self._edit_watcher.cancel()
             except Exception:
                 log.exception("Edit watcher cancel raised")
+        # ADR-v2-148 shutdown order: suppress actions first, release backends afterwards,
+        # so nothing can fire into a half-closed pointer sink -- and before the camera
+        # source below is closed under the Head-Pointer's lease.
+        if self._handsfree_safety is not None:
+            try:
+                self._handsfree_safety.shutdown("daemon shutting down")
+            except Exception:
+                log.exception("Hands-free safety shutdown raised")
+        if self._headpointer is not None:
+            try:
+                self._headpointer.stop()
+            except Exception:
+                log.exception("Head-Pointer stop raised")
         if self._gaze_targeter is not None:
             try:
                 self._gaze_targeter.close()  # release the camera

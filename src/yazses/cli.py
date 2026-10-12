@@ -5951,6 +5951,130 @@ def punch_in(
     raise typer.Exit(1)
 
 
+headpointer_app = typer.Typer(
+    name="headpointer",
+    help="Control the Head-Pointer: recenter, pause or resume it, hold a clutch, toggle dwell-click.",
+    context_settings=CONTEXT_SETTINGS,
+    no_args_is_help=True,
+)
+app.add_typer(headpointer_app, rich_help_panel=_SETUP)
+
+
+def _headpointer_call(action: str, **params: object) -> dict:
+    """Send one Head-Pointer command to the daemon, or exit with the reason it cannot."""
+    platform = get_platform()
+    client = platform.ipc_client_factory(platform.paths.ipc_socket)
+    try:
+        result = client.call("headpointer", action=action, **params)
+    except IpcUnreachableError:
+        typer.echo("Daemon is not running. Start it with: yazses start", err=True)
+        raise typer.Exit(1)
+    return result if isinstance(result, dict) else {"ok": False, "reason": "bad reply"}
+
+
+def _headpointer_do(action: str, done: str, **params: object) -> None:
+    result = _headpointer_call(action, **params)
+    if result.get("ok"):
+        typer.echo(done)
+        return
+    typer.echo(f"Head-Pointer: {result.get('reason') or 'failed'}", err=True)
+    raise typer.Exit(1)
+
+
+@headpointer_app.command(
+    "status",
+    epilog=_examples("yazses headpointer status    is it tracking, paused, or waiting, and why"),
+)
+def headpointer_status() -> None:
+    """Show whether the Head-Pointer is running, and if not, why not.
+
+    Prints states, flags and ages only -- never an angle, a position or a frame.
+    """
+    result = _headpointer_call("status")
+    if not result.get("ok"):
+        typer.echo(f"Head-Pointer: {result.get('reason') or 'failed'}", err=True)
+        raise typer.Exit(1)
+    if not result.get("active"):
+        typer.echo(f"Head-Pointer is not running: {result.get('reason') or 'turned off'}")
+        typer.echo("Turn it on with:  yazses features enable headpointer")
+        return
+    typer.echo(f"state:    {result['state']}" + (f" ({result['reason']})" if result.get("reason") else ""))
+    typer.echo(f"backend:  {result.get('backend') or 'unknown'}")
+    if result.get("notice"):
+        typer.echo(f"note:     {result['notice']}")
+    typer.echo(f"centred:  {'yes' if result.get('calibrated') else 'not yet'}")
+    typer.echo(f"paused:   {'yes' if result.get('paused') else 'no'}")
+    typer.echo(f"clutch:   {'held' if result.get('clutched') else 'released'}")
+    if result.get("dwell_enabled"):
+        typer.echo(f"dwell:    on, {round(float(result.get('dwell_progress') or 0.0) * 100)}% to a click")
+    else:
+        typer.echo("dwell:    off (moves the pointer only; it will never click)")
+    if result.get("fault"):
+        typer.echo(f"fault:    {result['fault']}  (clear it with: yazses headpointer resume)")
+
+
+@headpointer_app.command(
+    "recenter",
+    epilog=_examples("yazses headpointer recenter    treat the way you are sitting now as straight ahead"),
+)
+def headpointer_recenter() -> None:
+    """Make your current head position the neutral one. No motion and no click while it happens."""
+    _headpointer_do("recenter", "Recentering on the next camera frame.")
+
+
+@headpointer_app.command(
+    "pause",
+    epilog=_examples("yazses headpointer pause    stop all motion and clicks until you resume"),
+)
+def headpointer_pause() -> None:
+    """Stop the pointer: no motion, no dwell progress, no click."""
+    _headpointer_do("pause", "Head-Pointer paused.")
+
+
+@headpointer_app.command(
+    "resume",
+    epilog=_examples("yazses headpointer resume    start moving again (also clears a pointer fault)"),
+)
+def headpointer_resume() -> None:
+    """Resume after a pause or a fault. The first frame afterwards never moves or clicks."""
+    _headpointer_do("resume", "Head-Pointer resumed.")
+
+
+@headpointer_app.command(
+    "clutch",
+    epilog=_examples(
+        "yazses headpointer clutch         freeze the pointer where it is",
+        "yazses headpointer clutch --off   let go of the clutch",
+    ),
+)
+def headpointer_clutch(
+    off: bool = typer.Option(False, "--off", help="Release the clutch instead of holding it."),
+) -> None:
+    """Hold the pointer still without turning the feature off (e.g. while you pull a face)."""
+    _headpointer_do(
+        "clutch", "Clutch released." if off else "Clutch held: the pointer is frozen.",
+        source="cli", active=not off,
+    )
+
+
+@headpointer_app.command(
+    "dwell",
+    epilog=_examples(
+        "yazses headpointer dwell on     click by holding still",
+        "yazses headpointer dwell off    move only; never click",
+    ),
+)
+def headpointer_dwell(
+    state: str = typer.Argument(..., help="'on' or 'off'."),
+) -> None:
+    """Turn dwell-click on or off without touching pointer motion."""
+    choice = state.strip().lower()
+    if choice not in ("on", "off"):
+        typer.echo("Say 'on' or 'off'.", err=True)
+        raise typer.Exit(2)
+    _headpointer_do("dwell", f"Dwell-click {choice}.", enabled=choice == "on")
+
+
 @app.command(
     rich_help_panel=_LEARNING,
     epilog=_examples(

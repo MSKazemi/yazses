@@ -1247,8 +1247,26 @@ class ScreengroundedConfig:
 
 @dataclass
 class HeadpointerConfig:
-    """v2.3 Wave G — Head-Pointer hands-free cursor (ADR-v2-052). OFF by default."""
+    """v2.3 Wave G — Head-Pointer hands-free cursor (ADR-v2-052). OFF by default.
+
+    Needs `[perception] enabled` (the one shared camera owner, ADR-v2-145) and a pointer
+    backend; with either missing the feature stays dormant and `yazses headpointer status`
+    says which. **None of the numbers below is a measured recommendation.** The gains,
+    dead zone, dwell radius and hold length are the pure core's own values
+    (`headpointer/pointer.py`); `freshness_ms` and `min_confidence` are placeholders until
+    hardware evidence exists (design/eye-control/GOVERNANCE.md). Which screen direction a
+    positive yaw moves the pointer is not decided either: it needs a real camera, so a
+    negative gain flips an axis.
+    """
     enabled: bool = False
+    x_gain: float = 800.0         # pointer units per frame per radian of yaw; negative flips
+    y_gain: float = 600.0         # pointer units per frame per radian of pitch; negative flips
+    deadzone: float = 0.02        # radians around the neutral pose that produce no motion
+    freshness_ms: int = 500       # a head pose older than this is "no signal"; unmeasured
+    min_confidence: float = 0.5   # samples below this presence confidence are "no signal"
+    dwell_enabled: bool = False   # click by holding still; off so motion never clicks unasked
+    dwell_radius_px: float = 15.0  # stay within this many pointer units to count as holding still
+    dwell_hold_frames: int = 20   # samples of holding still before the click (not a time)
 
 
 @dataclass

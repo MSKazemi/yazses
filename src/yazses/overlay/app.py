@@ -29,7 +29,7 @@ from yazses.overlay.motion import (
     steady_ripples,
 )
 from yazses.overlay.poller import StatusPoller, StatusSnapshot
-from yazses.overlay.position import place_fixed, place_near_cursor
+from yazses.overlay.position import place_centered, place_fixed, place_near_cursor
 
 log = logging.getLogger(__name__)
 
@@ -50,6 +50,8 @@ class Frame:
     intensity: float
     visible: bool
     top_left: tuple[int, int] | None
+    #: 0..1 fraction of a Head-Pointer dwell-click that has elapsed; 0 draws no ring.
+    dwell_progress: float = 0.0
 
 
 def compute_frame(
@@ -94,15 +96,24 @@ def compute_frame(
     else:
         ripples = model.tick(now, intensity)
 
-    # Nothing to show: not recording and the last rings have faded.
-    if not recording and not ripples:
+    dwell = snap.dwell_progress if snap.dwell_progress > 0.0 else 0.0
+
+    # Nothing to show: not recording, the last rings have faded, no click is coming.
+    if not recording and not ripples and dwell == 0.0:
         return Frame(ripples=[], intensity=intensity, visible=False, top_left=None)
 
-    if cfg.position == "cursor":
+    if dwell > 0.0:
+        # The warning belongs around the pointer it is about to click with, wherever the
+        # voice rings are configured to sit.
+        top_left = place_centered(cursor, cfg.size_px, screen)
+    elif cfg.position == "cursor":
         top_left = place_near_cursor(cursor, cfg.size_px, screen, cfg.cursor_offset_px)
     else:
         top_left = place_fixed(cfg.position, cfg.size_px, screen)
-    return Frame(ripples=ripples, intensity=intensity, visible=True, top_left=top_left)
+    return Frame(
+        ripples=ripples, intensity=intensity, visible=True, top_left=top_left,
+        dwell_progress=dwell,
+    )
 
 
 def run() -> None:  # pragma: no cover - thin Qt shell around compute_frame
@@ -161,6 +172,7 @@ def run() -> None:  # pragma: no cover - thin Qt shell around compute_frame
                 widget.hide()
             return
         widget.set_ripples(frame.ripples, frame.intensity)
+        widget.set_dwell(frame.dwell_progress)
         if frame.top_left is not None:
             widget.move_to(frame.top_left)
         if not widget.isVisible():
