@@ -6,6 +6,14 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — `examples/config.slack.toml`, a Linux X11 profile for Slack
+
+A hold-to-talk setup for the Slack desktop app on X11 (`right_ctrl`, `xdotool` injection), contributed by
+[@VatsalRaina01](https://github.com/VatsalRaina01) ([#582](https://github.com/MSKazemi/yazses/pull/582),
+closes [#227](https://github.com/MSKazemi/yazses/issues/227)). The submitted keys were not ones the loader
+reads, so they are corrected to real ones; `scripts/check-app-profile.py` now passes for all 19 profiles.
+The speech half and Wayland are unverified, and the file says so.
+
 ### Added — a new landing page for the docs site
 
 The home page (`mskazemi.com/yazses/`) is now a full-width landing built from
