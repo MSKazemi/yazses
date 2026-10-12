@@ -175,6 +175,12 @@ No frames, face landmarks, screenshots, or typed text belong in the report.
 **Phase 2 exit gate:** #104 can collect reproducible measurements and implicit calibration can never
 replace a better baseline in tests.
 
+**Delivered 2026-10-12 (#396–#399), with one gap.** Glance-Type leases the shared source; click+gaze capture, the
+held-out gate, atomic apply and `yazses gaze rollback` exist, and `yazses gaze measure` emits the
+privacy-safe report. **Not met:** no OS ships a click observer, so the runtime cannot yet collect a
+real sample outside tests. The exit gate is therefore satisfied for the guard (a refinement can never
+replace a better baseline, mutation-checked) and open for collection.
+
 ## Phase 3 — pointer-output substrate
 
 Head pointer cannot ship by directly shelling out from its feature module. Define one pointer-action
@@ -246,6 +252,13 @@ A continuous pointer needs an escape hatch:
 **Phase 4 exit gate:** a user can operate pointer + click without a hand on at least one desktop
 backend, and the fake trace tests prove no phantom click on jitter/signal loss.
 
+**Delivered 2026-10-12 (#404, #405) for X11, macOS and Windows.** `[headpointer]` is off by default,
+leases the shared source, honours the global pause/kill state, accumulates sub-unit motion itself
+(the X11 sink carries no remainder), freezes on signal loss, never clicks on startup, and dwell is
+refused unless the overlay can show its progress ring. **Not met:** the exit gate's "without a hand
+on a desktop" claim has no hardware evidence yet, and native Wayland has no head pointer until the
+portal sink is selected.
+
 ## Phase 5 — deliberate face-gesture switches
 
 ### P5.1 — pure detector — **already shipped (ADR-v2-135, 2026-09-04)**
@@ -312,6 +325,14 @@ The shipping question is not only classifier accuracy; it is **phantom actions o
 
 **Phase 5 exit gate:** no facial switch becomes "recommended" until false-activation evidence exists.
 Experimental/off remains acceptable before that.
+
+**Delivered 2026-10-12 (#406, #407).** P5.1's *Done when* is met: `GestureSwitch` takes a per-user
+neutral baseline (`yazses facegesture calibrate`) and a landmarker-confidence floor that is a distinct
+input. P5.2's is met for the mapping layer: the backend emits switch intents, hold-to-talk is one
+binding among several, and an unmapped gesture reaches no daemon action. **Open:** `select`,
+`confirm` and `cancel` have no daemon entry point (valid in config, inert, warned once); the
+landmarker reports no per-frame confidence, so a floor above 0.5 blocks every frame on the backend's
+own camera path; P5.3 chords and P5.4 the false-activation study (#408, #409) are not started.
 
 ## Phase 6 — compose a usable hands-free mode
 

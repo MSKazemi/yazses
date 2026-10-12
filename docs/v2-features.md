@@ -33,7 +33,7 @@ It stays listed so contributors can pick it up; see the matching design/adr/ ent
 ```
 
 They stay listed because that is where a contributor picks one up — each has a matching
-`design/adr/` entry. **44 of the 122 rows below are ◌ today.** Rows without the mark are
+`design/adr/` entry. **43 of the 122 rows below are ◌ today.** Rows without the mark are
 wired and can be turned on.
 
 ### "Hold the command key" — what that means
@@ -176,7 +176,7 @@ All OFF by default. Pure logic ships now; heavy models load only when you enable
 | ◌ **Compose-in-Target-Language** | `compose` | Speak your strongest language, inject in a target language. |
 | **Grammar Repair** | `gec` | Minimal-edit article/agreement fixes for non-native dictation. |
 | ◌ **Screen-Grounded Dictation** | `screengrounded` | Primes STT with names visible on screen so they transcribe right. |
-| ◌ **Head-Pointer** | `headpointer` | Move + click the cursor by head pose; fully hands-free with voice. |
+| **Head-Pointer** | `headpointer` | Move + click the cursor by head pose; fully hands-free with voice. |
 | ◌ **Silent Lip-Reading** | `lipread` | Dictate with no audible voice; a webcam reads your lips. |
 | ◌ **Sign-Language Input** | `sign` | Deaf/HoH signers sign to the webcam; ASL is recognized and typed. |
 

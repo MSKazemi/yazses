@@ -6,6 +6,48 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — Head-Pointer now runs: move and click the pointer by head pose (opt-in)
+
+`[headpointer]` (off by default) leases the shared camera source and drives a `PointerSink`:
+`yazses features enable headpointer`. New `yazses headpointer status|recenter|pause|resume|clutch|dwell`
+commands; dwell (click by holding still) is a separate switch and is refused unless the overlay can
+show its progress ring. It never clicks on startup or after signal loss, freezes rather than replaying
+the last movement when the face is lost, accumulates sub-pixel motion itself (the X11 backend carries
+none), and obeys the global hands-free pause/kill state. X11, macOS and Windows only: native Wayland
+has no head pointer until the portal pointer backend is selected. Nothing has been run against a real
+camera yet, and the yaw direction and gains are unverified, so no default is recommended
+([#404](https://github.com/MSKazemi/yazses/issues/404), [#405](https://github.com/MSKazemi/yazses/issues/405)).
+
+### Added — face switch: per-user baseline, a confidence floor, and switch intents
+
+`yazses facegesture calibrate|reset` captures your resting expression so a face that never fully relaxes
+no longer sits near the threshold. `[facegesture]` gains `use_baseline`, `confidence_floor` and
+`refractory_frames` (all off by default) and `[[facegesture.switches]]` mappings from a gesture to an
+intent. The backend now emits intents only, and hold-to-talk is one mapping among several; an unmapped
+gesture reaches no action, and an existing single-gesture install behaves as before. `select`, `confirm`
+and `cancel` are accepted but do nothing yet. The landmarker reports no per-frame confidence, so a floor
+above 0.5 currently blocks every frame (the backend warns once).
+([#406](https://github.com/MSKazemi/yazses/issues/406), [#407](https://github.com/MSKazemi/yazses/issues/407)).
+
+### Added — gaze: shared camera, implicit calibration guard, and a field-measurement report
+
+With `[perception]` on, Glance-Type leases the shared camera instead of opening its own
+([#396](https://github.com/MSKazemi/yazses/issues/396)). `[gaze_refine]` (off by default) can refine the
+saved calibration from your clicks, but only when held-out error beats the explicit calibration;
+`yazses gaze rollback` restores the previous map exactly
+([#397](https://github.com/MSKazemi/yazses/issues/397), [#398](https://github.com/MSKazemi/yazses/issues/398)).
+`yazses gaze measure` writes a derived-numbers-only report for the
+[#104](https://github.com/MSKazemi/yazses/issues/104) field study
+([#399](https://github.com/MSKazemi/yazses/issues/399)). No OS ships a click observer yet, so implicit
+refinement stays dormant and logs why.
+
+### Fixed — eye-control robustness found while building the above
+
+Saving a gaze calibration is now atomic. A non-finite face-switch score used to count toward neither side
+of the hysteresis, so a held gesture, and the open microphone with it, could stay on; it now counts as a
+release. A NaN landmark from Glance-Type now yields no sample instead of NaN coordinates reported at
+confidence 1.0, so routing falls back to the focused window.
+
 ### Fixed — Unicode (uinput) backend lost Shift on GNOME Wayland
 
 The opt-in `unicode` injector now waits 20 ms after a modifier goes down and leaves 20 ms between characters

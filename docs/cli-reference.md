@@ -1388,6 +1388,29 @@ yazses punch-in --dry-run    # list candidate spans without editing
 yazses punch-in --choose 1   # apply the 2nd-ranked candidate
 ```
 
+### `yazses headpointer`
+
+Control the Head-Pointer while it runs (`yazses features enable headpointer`): see why it is or is not moving, set your current head position as straight ahead, stop it, or hold it still. Every subcommand is a single call to the daemon and takes no coordinate, so none of them needs the pointer that may be misbehaving.
+
+| Command | What it does |
+|---|---|
+| `yazses headpointer status` | State, backend and whether it is calibrated, paused or clutched; says why it is not running when it is not. Never prints an angle or a position. |
+| `yazses headpointer recenter` | Make your current head position the neutral one. No motion and no click while it happens. |
+| `yazses headpointer pause` | Stop all motion and clicks until you resume. |
+| `yazses headpointer resume` | Resume after a pause or a fault. The first camera frame afterwards never moves or clicks. |
+| `yazses headpointer clutch` | Freeze the pointer where it is without turning the feature off; `--off` lets go. |
+| `yazses headpointer dwell on` / `off` | Turn click-by-holding-still on or off without touching motion. It is only available while the overlay can show its progress ring. |
+
+```bash
+yazses headpointer status        # tracking, paused, or waiting, and why
+yazses headpointer recenter      # treat the way you are sitting now as straight ahead
+yazses headpointer pause         # stop everything
+yazses headpointer resume        # carry on (also clears a pointer fault)
+yazses headpointer clutch        # freeze the pointer where it is
+yazses headpointer clutch --off  # let go
+yazses headpointer dwell off     # move only; never click
+```
+
 ### `yazses transcribe`
 
 Transcribe an existing audio file **offline** and write a sidecar text file next

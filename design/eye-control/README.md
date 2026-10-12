@@ -263,22 +263,24 @@ Status vocabulary in this programme:
 | Eye-agreement confidence | **LIVE** | `gaze/confidence.py`, MediaPipe tests | validate proxy against ground truth |
 | Look-to-window routing | **LIVE (X11)** | `gaze/targeter.py`, `gaze/desktop.py`, daemon | Wayland target semantics; field error rate |
 | Gaze + speech deixis | **LIVE** | `gaze/deixis.py`, daemon, confirmation tests | hardware validation |
-| Implicit calibration estimator | **CORE** | `gaze/implicit.py`, `test_gaze_implicit.py` | runtime click capture + apply/persist path |
-| Head pose → cursor math | **CORE** | `headpointer/pointer.py` | camera pose source + pointer sink + runtime loop |
-| Dwell click state machine | **CORE** | `headpointer/pointer.py` | runtime feedback, pause/clutch, pointer sink |
+| Implicit calibration (click capture, held-out gate, atomic apply + rollback) | **CORE** | `gaze/implicit.py`, `gaze/clicks.py`, `gaze/refine.py`, `gaze/refine_runtime.py`, `[gaze_refine]`, `yazses gaze rollback` (#397, #398) | a real OS click observer: `Platform.click_observer_factory` is `None` on every OS, so the runtime stays dormant and logs why |
+| Gaze field-measurement report | **LIVE (CLI)** | `yazses gaze measure`, golden-file test (#399) | tester reports on real hardware (#104) |
+| Head pose → cursor runtime | **LIVE (X11, macOS, Windows; opt-in)** | `headpointer/controller.py`, `headpointer/runtime.py`, `[headpointer]`, `yazses headpointer ...` (#404) | native Wayland (nothing selects the portal sink yet); real-hardware validation; yaw sign and gains are unverified without a camera |
+| Dwell click, recenter, pause, clutch, progress ring | **LIVE (opt-in)** | `headpointer/controller.py`, overlay dwell ring (#405) | accessibility co-design and fatigue study (#419) before any default is recommended |
 | Gesture chord resolver | **CORE** | `gesture/chords.py` | sensor tokens + runtime wiring |
-| Face-gesture switch | **LIVE** | `facegesture/detector.py`, `facegesture/backend.py`, `daemon._build_activation_sources`, `test_facegesture_activation.py`, ADR-v2-135 | shared-camera refactor; switch-intent boundary (ADR-v2-147); calibration UX; hardware breadth |
-| Shared camera/perception source | **DESIGNED by this programme** | proposed ADR-v2-145 | protocol + lifecycle + refactor |
-| Wayland pointer injection | **PARTIAL** | keyboard portal exists | request POINTER, emit motion/buttons, tests |
+| Face-gesture switch | **LIVE** | `facegesture/detector.py`, `facegesture/calibration.py`, `facegesture/switches.py`, `facegesture/backend.py`, `yazses facegesture calibrate`, ADR-v2-135, ADR-v2-147 (#406, #407) | shared-camera migration of the backend; daemon entry points for `select`/`confirm`/`cancel`; false-activation study (#409); hardware breadth |
+| Shared camera/perception source | **LIVE (opt-in)** | ADR-v2-145, `perception/`; leased by Glance-Type gaze (#396) and the Head-Pointer (#404) | the face switch still opens its own capture (so it can still contend for the device with the others) |
+| Wayland pointer injection | **PARTIAL** | portal `PointerSink` exists (#403) | select it in the Linux pointer factory; consent flow on a real compositor |
 | Dedicated eye tracker backend | **RESEARCH** | eye-control research | provider protocol + licensing/device study |
 | Grounded semantic target resolution | **DESIGNED / proposed** | ADR-v2-151 + `eye-grounded-targets.md` | #441–#445; structured semantic source evidence |
 | Hands-free bundle/profile | **DESIGNED** | #102 + research directions | compose features into one usable mode |
 
 ### Important planning corrections
 
-1. **Issue #101 is closed, but only the pure implicit-calibration estimator is present.**
-   The issue body described click capture and runtime refinement too. New child work must cover that
-   remaining wiring instead of treating implicit calibration as fully delivered.
+1. **Issue #101 was closed with only the pure implicit-calibration estimator present.**
+   Click capture and the guarded apply/rollback path now exist (#397, #398), but no platform ships a
+   click observer yet, so implicit calibration is still dormant everywhere. Do not describe it as
+   delivered until an OS backend and a field measurement exist.
 2. **`headpointer` and `gesture` already have generic campaign tasks**
    (`WIRE-HEADPOINTER-001`, `WIRE-GESTURE-001`) under #164. New issues should refine those tasks
    and satisfy them, not create a second competing implementation.
