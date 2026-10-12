@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
 from yazses.cameraperm.contract import CameraPermission
+from yazses.gaze.clicks import ClickObserver
 from yazses.pointer.base import PointerSink
 
 #: The value each bundle puts in `Platform.name`. These are `sys.platform`
@@ -312,6 +313,16 @@ moves nothing.
 """
 
 
+ClickObserverFactory = Callable[[], ClickObserver]
+"""Builds this platform's desktop click observer for implicit gaze calibration (#397).
+
+A factory, and optional, for the pointer's reasons: a click hook is an input-monitoring
+permission, so nothing may be constructed while `get_platform()` merely runs, and no
+platform ships one yet. `None` is the honest answer for "not here" -- the daemon says so
+and implicit refinement stays dormant, rather than a no-op observer that never delivers a click.
+"""
+
+
 @dataclass(frozen=True)
 class Platform:
     """Bundle of concrete backends for the current OS."""
@@ -331,4 +342,7 @@ class Platform:
     # ADR-v2-146 would rather a feature say "no pointer output here" than hand a user a
     # cursor that never moves.
     pointer_factory: PointerSinkFactory | None = None
+    # None everywhere today: no OS backend observes clicks yet (#397 shipped the seam and
+    # the CI fake; a real backend needs a real desktop to verify against).
+    click_observer_factory: ClickObserverFactory | None = None
     extras: dict[str, Any] = field(default_factory=dict)

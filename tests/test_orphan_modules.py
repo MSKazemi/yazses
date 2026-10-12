@@ -56,8 +56,9 @@ KNOWN_ORPHANS = {
     "activation.pipeline":
         "Its own docstring says the daemon wires the real classify/dispatch/confirm "
         "into it. The daemon does not.",
-    "gaze.implicit":
-        "gaze is wired through targeter/route/zones; this module is not on that path.",
+    "gaze.capture":
+        "The click+gaze capture seam (#397). The refinement runtime that assembles it "
+        "and the daemon call that starts it arrive with #398.",
     "personalize.adapter_gate":
         "personalize is wired through prompt_builder; the P2 LoRA gate is not.",
     "platform.emg.brainflow_source":
