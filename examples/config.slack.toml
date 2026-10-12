@@ -1,0 +1,40 @@
+# examples/config.slack.toml
+# A YazSes setup for dictating into Slack (the Electron desktop app) on Linux X11.
+#
+# Contributed by @VatsalRaina01 (#582), who ran it on an X11 desktop:
+# the hold-to-talk key was changed so it cannot clash with Slack's own
+# shortcuts, and text goes in through xdotool. The keys below were then
+# corrected to the names the config loader really reads (`scripts/check-app-
+# profile.py` checks every key against src/yazses/config.py) -- an unknown key
+# is dropped silently, so the original draft would have changed nothing.
+#
+# Not measured here: the speech half. Whether Slack's message box accepts the
+# injected text on Wayland is also unverified -- this profile is X11 only.
+#
+# Why a lone right_ctrl: the contributor's clash was with Slack's Ctrl+Shift
+# and Ctrl+K style shortcuts, and a hold-to-talk key that is a single modifier
+# does not form any of them. A chord such as ctrl+shift+space is not a valid
+# value -- the hotkey is one key, held.
+#
+# Copy to ~/.config/yazses/config.toml and edit as needed.
+
+[stt]
+model = "base.en"          # use "tiny.en" on a slow CPU; chat messages are short
+language = "en"
+device = "cpu"
+compute_type = "int8"
+
+[hotkey]
+key = "right_ctrl"         # a lone modifier: none of Slack's shortcuts uses it
+hold_threshold_ms = 400
+
+[audio]
+sample_rate = 16000
+max_record_seconds = 60
+
+[injection]
+backend = "xdotool"        # X11 only; types straight into the focused Electron window
+fallback_to_clipboard = true
+
+[general]
+log_level = "INFO"

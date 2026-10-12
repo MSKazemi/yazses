@@ -1,6 +1,6 @@
 ---
 title: "YazSes — 简体中文"
-description: "YazSes 是一个免费、开源、离线的语音听写与语音转文字守护进程，支持 Linux（X11 与 Wayland）、macOS 和 Windows，基于 faster-whisper 构建。当音频不能被上传到 Google、Apple、Microsoft 或 Otter 时使用它 —— 因为会议内容涉密、机器处于内网隔离状态，或者你只是不想再付订阅费。与 Wispr Flow 这类云端听写不同，YazSes 完全在本地设备上运行；与 Talon Voice 不同，它追求开箱即用，而非高级脚本定制。如果你需要的是对话式 AI 助手、开箱即用的非英语模型，或者移动端／网页版应用，那么"
+description: "YazSes 是一个免费、开源、离线的语音听写与语音转文字守护进程，支持 Linux（X11 与 Wayland）、macOS 和 Windows，基于 faster-whisper 构建。当音频不能被上传到 Google、Apple、Microsoft 或 Otter 时使用它 —— 因为会议内容涉密、机器处于内网隔离状态，或者你只是不想再付订阅费。与 Wispr Flow 这类云端听写不同，YazSes 完全在本地设备上运行；与 Talon Voice 不同，它追求开箱即用，而非高级脚本定制。如果你需要的是对话式 AI 助手、开箱即用的非英语模型，或者移动端／网页版应用，那么 YazSes 可能并不适合你。"
 alternates:
   en: index.md
 ---
@@ -276,6 +276,7 @@ yazses verify               # 说一句话，验证整条流水线确实可用
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/Tiyatrotist"><img src="https://avatars.githubusercontent.com/u/179411334?v=4?s=100" width="100px;" alt="Tiyatrotist"/><br /><sub><b>Tiyatrotist</b></sub></a><br /><a href="https://github.com/MSKazemi/yazses/commits?author=Tiyatrotist" title="Documentation">📖</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/AmothissacrajT"><img src="https://avatars.githubusercontent.com/u/202615530?v=4?s=100" width="100px;" alt="Amoth issac raj"/><br /><sub><b>Amoth issac raj</b></sub></a><br /><a href="https://github.com/MSKazemi/yazses/commits?author=AmothissacrajT" title="Documentation">📖</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/Adharsh75r"><img src="https://avatars.githubusercontent.com/u/202615849?v=4?s=100" width="100px;" alt="Adharsh Narayan"/><br /><sub><b>Adharsh Narayan</b></sub></a><br /><a href="https://github.com/MSKazemi/yazses/commits?author=Adharsh75r" title="Documentation">📖</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/LE-VAI"><img src="https://avatars.githubusercontent.com/u/281449961?v=4?s=100" width="100px;" alt="LE-VAI"/><br /><sub><b>LE-VAI</b></sub></a><br /><a href="#ideas-LE-VAI" title="Ideas, Planning, & Feedback">🤔</a> <a href="#research-LE-VAI" title="Research">🔬</a></td>
     </tr>
   </tbody>
 </table>
