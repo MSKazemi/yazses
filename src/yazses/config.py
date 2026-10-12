@@ -576,6 +576,16 @@ class FacegestureConfig:
     min_hold_frames: int = 3          # frames above hold_threshold before the mic opens
     min_release_frames: int = 2       # frames below release_threshold before it closes
     fps: int = 15                     # camera sampling rate (1..60)
+    # Calibration and confidence (EYE-FACE-001). All three are dormant defaults: an install
+    # that sets none of them runs exactly the absolute-threshold switch it always did.
+    use_baseline: bool = False        # normalise the score against `yazses facegesture calibrate`
+    confidence_floor: float = 0.0     # 0..1; frames below it never count toward a hold (0 = off)
+    refractory_frames: int = 0        # frames after a release before a new hold may begin
+    # Switch mappings (EYE-FACE-002). `gesture` + `mode` above stay the one hold-to-talk
+    # binding; each entry here ADDS another, as `[[facegesture.switches]]` tables with
+    # `gesture` (a gesture name) and `intent` (hold_to_talk | hold_to_command | select |
+    # confirm | cancel | pause_pointer | none). Empty = the single-gesture install, unchanged.
+    switches: list[dict] = field(default_factory=list)
 
 
 @dataclass

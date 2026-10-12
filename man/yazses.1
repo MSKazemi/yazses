@@ -172,6 +172,30 @@ Your own PASS/PARTIAL/FAIL/BLOCKED, overriding the computed one.
 \fB\-\-seed\fR
 Task seed. Default: the seed the task fixture records.
 .RE
+.SS "yazses facegesture"
+Face-gesture switch \(em capture your relaxed face so the gesture is judged against it.
+.TP
+\fByazses facegesture calibrate\fR
+Capture your neutral (relaxed) face as the baseline for a face gesture.
+.RS
+.TP
+\fB\-\-gesture\fR
+Gesture to calibrate (default: [facegesture] gesture).
+.TP
+\fB\-\-seconds\fR
+How long to watch your relaxed face.
+.TP
+\fB\-\-yes, \-y\fR
+Start without waiting for Enter.
+.RE
+.TP
+\fByazses facegesture reset\fR
+Forget the stored neutral baseline(s); the switch goes back to absolute thresholds.
+.RS
+.TP
+\fB\-\-gesture\fR
+Forget only this gesture's baseline.
+.RE
 .SS "yazses features"
 See capabilities and turn them on/off (no config-editing needed).
 .RS

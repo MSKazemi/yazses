@@ -1036,6 +1036,24 @@ yazses gaze calibrate    # fit the webcam gaze → screen-zone mapping
 yazses gaze status       # deps, X11/xdotool, and whether a calibration exists
 ```
 
+### `yazses facegesture` — face-gesture switch calibration
+
+| Command | Description |
+|---|---|
+| `yazses facegesture calibrate` | Capture your neutral (relaxed) face as the baseline for a face gesture. |
+| `yazses facegesture reset` | Forget the stored neutral baseline(s); the switch goes back to absolute thresholds. |
+
+`calibrate` watches the webcam for a few seconds while your face is relaxed and stores only
+the derived resting level and its spread — never a frame. Turn it on with
+`[facegesture] use_baseline = true`, then `yazses restart`. It recommends no threshold; it only
+changes what the existing ones are measured against.
+
+```bash
+yazses facegesture calibrate                          # the configured gesture
+yazses facegesture calibrate --gesture brow_raise --seconds 6
+yazses facegesture reset                              # back to absolute thresholds
+```
+
 ### `yazses eye-eval` — scripted eye-control evaluation
 
 | Command | Description |

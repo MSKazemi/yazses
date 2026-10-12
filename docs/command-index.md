@@ -178,6 +178,24 @@ Run an eye-control evaluation task and save a privacy-safe result you can inspec
 - `--verdict` — Your own PASS/PARTIAL/FAIL/BLOCKED, overriding the computed one.
 - `--seed` — Task seed. Default: the seed the task fixture records.
 
+## `yazses facegesture`
+
+Face-gesture switch — capture your relaxed face so the gesture is judged against it.
+
+### `yazses facegesture calibrate`
+
+Capture your neutral (relaxed) face as the baseline for a face gesture.
+
+- `--gesture` — Gesture to calibrate (default: [facegesture] gesture).
+- `--seconds` — How long to watch your relaxed face.
+- `--yes`, `-y` — Start without waiting for Enter.
+
+### `yazses facegesture reset`
+
+Forget the stored neutral baseline(s); the switch goes back to absolute thresholds.
+
+- `--gesture` — Forget only this gesture's baseline.
+
 ## `yazses features`
 
 See capabilities and turn them on/off (no config-editing needed).

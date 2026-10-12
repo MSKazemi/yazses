@@ -1466,8 +1466,41 @@ class Daemon:
 
         try:
             from yazses.facegesture.backend import FaceGestureBackend
+            from yazses.facegesture.switches import SwitchAction
 
-            source = FaceGestureBackend(cfg.facegesture, start, end)
+            baselines = None
+            if cfg.facegesture.use_baseline:
+                # Read only when asked for: an install that never opted in touches no file.
+                from yazses.facegesture.calibration import baseline_path, load_baselines
+
+                baselines = load_baselines(baseline_path(self._platform.paths.data_dir))
+            # The abstract actions this daemon actually implements, for the switch mapper
+            # (ADR-v2-147). `start`/`end` above are the legacy single-gesture binding; both
+            # hold flavours are offered so `[[facegesture.switches]]` can use either whatever
+            # `mode` says. confirm / cancel / select have no daemon entry point yet, so they
+            # are left out on purpose: the backend reports them as unwired and they do nothing.
+            actions = {
+                "hold_to_talk": SwitchAction(
+                    press=lambda: self._on_hold_start(0), release=lambda: self._on_hold_end()
+                ),
+                "hold_to_command": SwitchAction(
+                    press=lambda: self._on_command_hold_start(0),
+                    release=lambda: self._on_command_hold_end(),
+                ),
+            }
+            # The global hands-free pause/kill state (ADR-v2-148), when something has built
+            # one. Nothing in the daemon owns it yet, so absent means "no gate", never "a
+            # gate that is closed": a face switch must not be disabled by a state that does
+            # not exist. When present, a gesture can pause it, and is suppressed by it.
+            safety = getattr(self, "_handsfree_safety", None)
+            if safety is not None:
+                actions["pause_pointer"] = SwitchAction(
+                    press=lambda: safety.pause("face switch")
+                )
+            source = FaceGestureBackend(
+                cfg.facegesture, start, end,
+                baselines=baselines, actions=actions, safety=safety,
+            )
         except Exception:
             log.warning("Face-gesture activation source init failed; continuing "
                         "without.", exc_info=True)

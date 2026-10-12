@@ -5121,6 +5121,134 @@ def enroll_voice() -> None:
     typer.echo("  systemctl --user restart yazses")
 
 
+facegesture_app = typer.Typer(
+    name="facegesture",
+    help="Face-gesture switch — capture your relaxed face so the gesture is judged against it.",
+)
+app.add_typer(facegesture_app, rich_help_panel=_SETUP)
+
+
+@facegesture_app.command(
+    "calibrate",
+    epilog=_examples(
+        "yazses facegesture calibrate    capture your relaxed face for the configured gesture",
+        "yazses facegesture calibrate --gesture brow_raise --seconds 6",
+    ),
+)
+def facegesture_calibrate(
+    gesture: str = typer.Option(
+        "", "--gesture", help="Gesture to calibrate (default: [facegesture] gesture)."
+    ),
+    seconds: float = typer.Option(
+        4.0, "--seconds", min=1.0, max=60.0, help="How long to watch your relaxed face."
+    ),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Start without waiting for Enter."),
+) -> None:
+    """Capture your neutral (relaxed) face as the baseline for a face gesture.
+
+    Watches the webcam for a few seconds while you keep your face relaxed, and stores
+    only the derived resting level and its spread — never a frame (ADR-011). Turn the
+    baseline on with `[facegesture] use_baseline = true`, then `yazses restart`. Re-run to
+    recalibrate; `yazses facegesture reset` forgets it. This recommends no threshold: it
+    only changes what the existing thresholds are measured against.
+    """
+    from dataclasses import replace
+
+    from yazses.config import load_config
+    from yazses.facegesture.backend import FaceGestureBackend
+    from yazses.facegesture.calibration import baseline_path, calibrate, save_baseline
+    from yazses.facegesture.detector import gesture_names
+
+    platform = get_platform()
+    cfg = load_config(platform.paths.config_file)
+    face_cfg = cfg.facegesture
+    if gesture:
+        wanted = gesture.strip().lower()
+        if wanted not in gesture_names():
+            typer.echo(f"Unknown gesture {gesture!r}. Valid: {', '.join(gesture_names())}.", err=True)
+            raise typer.Exit(1)
+        face_cfg = replace(face_cfg, gesture=wanted)
+
+    backend = FaceGestureBackend(face_cfg)
+    landmarker = backend._build_landmarker()
+    if landmarker is None:
+        typer.echo(
+            "The face model is unavailable (mediapipe missing or the model could not load).\n"
+            "  Try:  yazses features enable facegesture",
+            err=True,
+        )
+        raise typer.Exit(1)
+    cap, cv2 = backend._open_camera()
+    if cap is None:
+        if hasattr(landmarker, "close"):
+            landmarker.close()
+        typer.echo("Could not open the camera (in use, or no permission).", err=True)
+        raise typer.Exit(1)
+
+    try:
+        try:
+            import mediapipe as mp  # noqa: PLC0415 - optional dependency
+        except ImportError:  # the landmarker above only exists when this imports
+            mp = None
+        if not yes:
+            typer.prompt(
+                f"Relax your face and look at the screen, then press Enter ({seconds:.0f}s capture)",
+                default="", show_default=False,
+            )
+        readings = backend.collect_readings(landmarker, cap, cv2, mp, seconds)
+    finally:
+        cap.release()
+        if hasattr(landmarker, "close"):
+            landmarker.close()
+
+    result = calibrate(
+        backend._gesture, readings, confidence_floor=getattr(face_cfg, "confidence_floor", 0.0)
+    )
+    if result.baseline is None:
+        why = {
+            "too_few_samples": (
+                f"only {result.kept} usable frame(s) "
+                f"({result.dropped_no_reading} without a face, "
+                f"{result.dropped_low_confidence} below the confidence floor) — "
+                "improve lighting / framing, or capture for longer"
+            ),
+            "no_headroom": (
+                "your relaxed face already scores near the top of the range for this "
+                "gesture, so there is no room to detect a deliberate one — try another gesture"
+            ),
+        }.get(result.reason, result.reason)
+        typer.echo(f"Calibration failed: {why}.", err=True)
+        raise typer.Exit(1)
+
+    path = save_baseline(baseline_path(platform.paths.data_dir), result.baseline)
+    typer.echo(
+        f"Baseline for {result.baseline.gesture}: resting level {result.baseline.level:.2f} "
+        f"(spread {result.baseline.spread:.3f}, {result.kept} frames) -> {path}"
+    )
+    if not result.baseline.separable_from(face_cfg.hold_threshold):
+        typer.echo(
+            f"  Warning: your relaxed face wobbles enough to reach hold_threshold = "
+            f"{face_cfg.hold_threshold}; raise it or recalibrate.",
+            err=True,
+        )
+    typer.echo("Enable it with `[facegesture] use_baseline = true`, then `yazses restart`.")
+
+
+@facegesture_app.command(
+    "reset",
+    epilog=_examples("yazses facegesture reset    forget every stored baseline"),
+)
+def facegesture_reset(
+    gesture: str = typer.Option("", "--gesture", help="Forget only this gesture's baseline."),
+) -> None:
+    """Forget the stored neutral baseline(s); the switch goes back to absolute thresholds."""
+    from yazses.facegesture.calibration import baseline_path, reset_baseline
+
+    platform = get_platform()
+    removed = reset_baseline(baseline_path(platform.paths.data_dir), gesture.strip().lower() or None)
+    typer.echo("Baseline forgotten." if removed else "No stored baseline to forget.")
+
+
 gaze_app = typer.Typer(name="gaze", help="Aim dictation with your gaze — type into whichever pane you look at.")
 app.add_typer(gaze_app, rich_help_panel=_SETUP)
 
