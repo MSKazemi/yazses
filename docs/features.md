@@ -1055,11 +1055,12 @@ YazSes ships **148 capabilities**. All but the core are **off by default** — t
 
 ### Head-Pointer
 
-- **Toggle:** `headpointer`  ·  **Tier:** planned — designed, not yet wired  ·  **Config:** `[headpointer] — cursor by head pose`
-- **What it does:** Move and click the mouse by tilting your head; pair with voice for a fully hands-free desktop. Needs a webcam (headpointer extra). Off by default.
+- **Toggle:** `headpointer`  ·  **Tier:** optional  ·  **Config:** `[headpointer] — cursor by head pose`
+- **What it does:** Move and click the mouse by tilting your head; pair with voice for a fully hands-free desktop. Needs a webcam (OpenCV + MediaPipe, shared with Glance-Type) and a pointer backend. Off by default.
 - **Use when:** When your hands are unavailable and you need mouse cursor control from head movement.
 - **Example:** Tilt your head to move the cursor; dwell to click.
-- **Activate:** not possible yet — designed but not wired into this build (`yazses features enable` refuses it; contributions welcome)
+- **Download:** ~220 MB
+- **Activate:** `yazses features enable headpointer` then `yazses restart`
 
 ### Personal Read-Back Voice
 

@@ -831,7 +831,8 @@ _Def("chords", "Chorded Shortcut Synthesis", "[chords] — any keyboard shortcut
              lambda c: c.screengrounded.enabled, sg_on, sg_off),
         _Def("headpointer", "Head-Pointer", "[headpointer] — cursor by head pose", OPTIONAL,
              "Move and click the mouse by tilting your head; pair with voice for a fully "
-             "hands-free desktop. Needs a webcam (headpointer extra). Off by default.",
+             "hands-free desktop. Needs a webcam (OpenCV + MediaPipe, shared with Glance-Type) "
+             "and a pointer backend. Off by default.",
              lambda c: c.headpointer.enabled, hp_on, hp_off),
         _Def("compose", "Compose-in-Target-Language", "[compose] — speak L1, type L2", OPTIONAL,
              "Speak your strongest language and inject the text in a target language you write "
@@ -1038,6 +1039,7 @@ _FEATURE_DEPS: dict[str, tuple[tuple[str, ...], tuple[str, ...]]] = {
     # face-gesture switch reads blendshapes off the model gaze already downloads,
     # so enabling it after gaze installs nothing.
     "facegesture": (("cv2", "mediapipe"), ("mediapipe>=0.10.35", "opencv-python>=5.0")),
+    "headpointer": (("cv2", "mediapipe"), ("mediapipe>=0.10.35", "opencv-python>=5.0")),
     "overlay": (("PySide6",), ("PySide6>=6.11.1",)),
     # Same Qt dependency as the overlay. Registered separately because PySide6 is
     # no longer a base dependency (it is the `desktop` extra), so enabling the tray
@@ -1170,7 +1172,7 @@ def feature_packages(slug: str) -> tuple[str, ...]:
 _UNWIRED: frozenset[str] = frozenset({
     "acoustic_profiles", "affect", "agent", "audioguard", "autostop", "bookmarks", "breath",
     "bridge", "cmdspotter", "codec", "compose", "contour", "crowdproof", "gesture",
-    "hatselect", "headpointer", "hesitation", "hotwords", "interpret", "involuntary",
+    "hatselect", "hesitation", "hotwords", "interpret", "involuntary",
     "langroute", "lipread", "loadguard", "morsevox", "mousegrid", "mouthswitch",
     "multiprofile", "pilot", "predict", "pronunciation", "proofback", "prosodypunct", "rag",
     "readback_clone", "reask", "screengrounded", "scribe", "scrub", "sentiment", "sign",

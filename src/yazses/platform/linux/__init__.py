@@ -7,7 +7,7 @@ import os
 
 from yazses.platform.base import LINUX_PLATFORM_NAME, Platform
 from yazses.platform.linux.paths import build_paths
-from yazses.pointer.base import PointerSink
+from yazses.pointer.base import PointerSink, PointerUnsupportedError
 
 log = logging.getLogger(__name__)
 
@@ -67,6 +67,24 @@ def build_pointer_sink() -> PointerSink:
     return build_x11_pointer_sink()
 
 
+def _pointer_factory() -> PointerSink:
+    """The lazy ``Platform.pointer_factory`` for Linux: X11 where X11 is the real session.
+
+    Refuses a native Wayland session instead of opening XTEST there. XTEST reaches only
+    XWayland, so a sink built on a Wayland desktop would accept every request and move a
+    pointer no Wayland client can see -- the silent no-op ADR-v2-146 forbids. The Wayland
+    route is the RemoteDesktop portal sink in `inject/portal.py`, which is not selected
+    here; until it is, saying so is the honest answer.
+    """
+    session = os.environ.get("XDG_SESSION_TYPE", "").strip().lower()
+    if session == "wayland":
+        raise PointerUnsupportedError(
+            "native Wayland session: the X11 pointer backend only reaches XWayland, and the "
+            "portal pointer backend is not selected for this platform yet"
+        )
+    return build_pointer_sink()
+
+
 def build_platform() -> Platform:
     from yazses.platform.linux.injector import LinuxInjector
     from yazses.platform.linux.ipc import UnixSocketIpcClient, UnixSocketIpcServer
@@ -86,6 +104,9 @@ def build_platform() -> Platform:
         ipc_client_factory=lambda socket_path: UnixSocketIpcClient(socket_path),
         tray_factory=_make_tray,
         tray_default_enabled=True,
+        # A factory, so nothing is opened here (ADR-v2-146 rule 7): a pointer consumer
+        # calls it, and dictation alone never takes a display connection.
+        pointer_factory=_pointer_factory,
     )
 
 
