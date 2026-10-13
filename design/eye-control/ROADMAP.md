@@ -256,7 +256,7 @@ backend, and the fake trace tests prove no phantom click on jitter/signal loss.
 leases the shared source, honours the global pause/kill state, accumulates sub-unit motion itself
 (the X11 sink carries no remainder), freezes on signal loss, never clicks on startup, and dwell is
 refused unless the overlay can show its progress ring. **Not met:** the exit gate's "without a hand
-on a desktop" claim has no hardware evidence yet, and native Wayland has no head pointer until the
+on a desktop" claim has only partial hardware evidence (2026-10-13, one laptop webcam: the signals respond, see the CHANGELOG; no real pointer was driven), and native Wayland has no head pointer until the
 portal sink is selected.
 
 ## Phase 5 — deliberate face-gesture switches

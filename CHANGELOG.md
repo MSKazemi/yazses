@@ -15,7 +15,11 @@ show its progress ring. It never clicks on startup or after signal loss, freezes
 the last movement when the face is lost, accumulates sub-pixel motion itself (the X11 backend carries
 none), and obeys the global hands-free pause/kill state. X11, macOS and Windows only: native Wayland
 has no head pointer until the portal pointer backend is selected. Nothing has been run against a real
-camera yet, and the yaw direction and gains are unverified, so no default is recommended
+pointer yet. The shared camera source and the derived signals were observed on one laptop's webcam
+(face found in every frame; a large head turn moved yaw by about 0.6 rad, and pitch separated chin-up
+from chin-down), but only one turn direction was exercised, the yaw sign convention is not settled, and
+webcam eye-only left/right movement was not distinguishable by gaze or by MediaPipe's own eye-look
+scores, so no default is recommended
 ([#404](https://github.com/MSKazemi/yazses/issues/404), [#405](https://github.com/MSKazemi/yazses/issues/405)).
 
 ### Added — face switch: per-user baseline, a confidence floor, and switch intents
