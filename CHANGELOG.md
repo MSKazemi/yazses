@@ -15,11 +15,13 @@ show its progress ring. It never clicks on startup or after signal loss, freezes
 the last movement when the face is lost, accumulates sub-pixel motion itself (the X11 backend carries
 none), and obeys the global hands-free pause/kill state. X11, macOS and Windows only: native Wayland
 has no head pointer until the portal pointer backend is selected. Nothing has been run against a real
-pointer yet. The shared camera source and the derived signals were observed on one laptop's webcam
-(face found in every frame; a large head turn moved yaw by about 0.6 rad, and pitch separated chin-up
-from chin-down), but only one turn direction was exercised, the yaw sign convention is not settled, and
-webcam eye-only left/right movement was not distinguishable by gaze or by MediaPipe's own eye-look
-scores, so no default is recommended
+pointer yet. The shared camera source, the runtime and a recording pointer sink were exercised on one
+laptop's webcam: the face was found in every frame, the pointer followed chin-up/down, no click ever
+fired, and the horizontal axis turned out to be **inverted** (a left turn is positive yaw), so `x_gain`
+now defaults to a negative value; confirmed after the fix on the same webcam. The gain magnitudes are
+still unmeasured and far too fast there (a held turn moved the pointer thousands of units in a few
+seconds), and webcam eye-only left/right movement was not distinguishable by gaze or by MediaPipe's
+own eye-look scores, so no default is recommended
 ([#404](https://github.com/MSKazemi/yazses/issues/404), [#405](https://github.com/MSKazemi/yazses/issues/405)).
 
 ### Added — face switch: per-user baseline, a confidence floor, and switch intents
@@ -31,6 +33,10 @@ intent. The backend now emits intents only, and hold-to-talk is one mapping amon
 gesture reaches no action, and an existing single-gesture install behaves as before. `select`, `confirm`
 and `cancel` are accepted but do nothing yet. The landmarker reports no per-frame confidence, so a floor
 above 0.5 currently blocks every frame (the backend warns once).
+On one tester's webcam a deliberate, held jaw-open peaked at 0.46 (median 0.29), so the shipped
+`hold_threshold = 0.5` never fired for them, while normal speech peaked at 0.26 and fired nothing at
+0.25, 0.35 or 0.5; the calibration captures the resting level only, not how far a person can open, so it
+does not close that gap. One person, one session: no default is changed.
 ([#406](https://github.com/MSKazemi/yazses/issues/406), [#407](https://github.com/MSKazemi/yazses/issues/407)).
 
 ### Added — gaze: shared camera, implicit calibration guard, and a field-measurement report

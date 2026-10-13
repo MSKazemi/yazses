@@ -688,7 +688,7 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 | Key | Type | Default | Status | Notes |
 |---|---|---|---|---|
 | `enabled` | bool | `false` |  |  |
-| `x_gain` | float | `800.0` |  | pointer units per frame per radian of yaw; negative flips |
+| `x_gain` | float | `-800.0` |  | pointer units per frame per radian of yaw; negative: left turn -> pointer left |
 | `y_gain` | float | `600.0` |  | pointer units per frame per radian of pitch; negative flips |
 | `deadzone` | float | `0.02` |  | radians around the neutral pose that produce no motion |
 | `freshness_ms` | int | `500` |  | a head pose older than this is "no signal"; unmeasured |

@@ -263,7 +263,8 @@ def test_head_pose_from_the_shared_source_moves_the_pointer_through_the_sink():
     rig.frame(0.0)  # becomes the neutral pose
     assert rig.moves == []
     rig.frame(0.05)
-    assert len(rig.moves) == 1 and rig.moves[0].x > 0
+    # +yaw is a turn to the user's left; the default x gain is negative, so the pointer goes left.
+    assert len(rig.moves) == 1 and rig.moves[0].x < 0
     rig.runtime.stop()
 
 
@@ -416,9 +417,14 @@ def test_the_status_command_carries_no_pose_or_position():
 # --------------------------------------------------------------------------- #
 def test_the_defaults_are_the_pure_cores_own_and_dwell_is_off():
     settings = settings_from_config(Config().headpointer)
+    import dataclasses
+
     from yazses.headpointer.pointer import DwellClicker, PointerCalib
 
-    assert settings.calib == PointerCalib()
+    # The pure core's own numbers, except the sign of x: a left turn is positive yaw on a real
+    # webcam, so the shipped config negates it (see the geometry test below).
+    core = PointerCalib()
+    assert settings.calib == dataclasses.replace(core, x_gain=-core.x_gain)
     assert settings.dwell_enabled is False
     clicker = DwellClicker()
     assert settings.dwell_radius_px == clicker.radius
@@ -499,3 +505,24 @@ def test_every_config_key_is_read_by_the_settings_builder(key):
     """A key nothing reads is a toggle that lies (the registry's own honesty rule)."""
     source = (PACKAGE / "runtime.py").read_text(encoding="utf-8")
     assert f'"{key}"' in source
+
+
+def test_the_default_config_moves_the_pointer_the_way_the_head_turns():
+    """Observed on a real webcam (2026-10-13), through this runtime, with a recording sink.
+
+    A turn to the user's left reads as *positive* yaw and a chin-up as *negative* pitch. With the
+    gains the config used to ship (+800 on x) a left turn moved the pointer right: the horizontal
+    axis was inverted while the vertical one was correct. The sign is geometry, so it is pinned
+    here; the magnitudes are not (they are unmeasured and were far too fast).
+    """
+    from yazses.config import HeadpointerConfig
+    from yazses.headpointer.pointer import pose_to_cursor
+    from yazses.headpointer.runtime import settings_from_config
+
+    calib = settings_from_config(HeadpointerConfig()).calib
+    dx_left, _ = pose_to_cursor(+0.3, 0.0, calib)   # head to the user's left
+    dx_right, _ = pose_to_cursor(-0.3, 0.0, calib)  # head to the user's right
+    _, dy_up = pose_to_cursor(0.0, -0.3, calib)     # chin up
+    _, dy_down = pose_to_cursor(0.0, +0.3, calib)   # chin down
+    assert dx_left < 0 < dx_right   # pointer follows the head: left turn -> pointer left
+    assert dy_up < 0 < dy_down      # y grows downward: chin up -> pointer up

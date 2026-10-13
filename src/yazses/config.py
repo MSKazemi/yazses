@@ -1291,12 +1291,15 @@ class HeadpointerConfig:
     says which. **None of the numbers below is a measured recommendation.** The gains,
     dead zone, dwell radius and hold length are the pure core's own values
     (`headpointer/pointer.py`); `freshness_ms` and `min_confidence` are placeholders until
-    hardware evidence exists (design/eye-control/GOVERNANCE.md). Which screen direction a
-    positive yaw moves the pointer is not decided either: it needs a real camera, so a
-    negative gain flips an axis.
+    hardware evidence exists (design/eye-control/GOVERNANCE.md). The one exception is the
+    **sign** of `x_gain`, which is geometry and not tuning: on a real webcam (2026-10-13) turning
+    the head to the user's left reads as *positive* yaw, so `x_gain` is negative by default to
+    make the pointer follow the head. `y_gain` needs no flip: chin-up is negative pitch and
+    moves the pointer up. The magnitudes are still unmeasured and far too fast on that machine
+    (a held 0.3 rad turn moved the pointer thousands of units in seconds).
     """
     enabled: bool = False
-    x_gain: float = 800.0         # pointer units per frame per radian of yaw; negative flips
+    x_gain: float = -800.0        # pointer units per frame per radian of yaw; negative: left turn -> pointer left
     y_gain: float = 600.0         # pointer units per frame per radian of pitch; negative flips
     deadzone: float = 0.02        # radians around the neutral pose that produce no motion
     freshness_ms: int = 500       # a head pose older than this is "no signal"; unmeasured
