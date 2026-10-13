@@ -50,7 +50,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable, Iterable
-from typing import TypeVar
+from typing import Any, TypeVar
 
 from yazses.perception.derive import derive_face, derive_gaze, derive_head_pose
 from yazses.perception.signals import PerceptionSample
@@ -207,7 +207,11 @@ class MediapipeFaceProcessor:
         narrowest thing a camera can be.
         """
         try:
-            rgb = self._cv2.cvtColor(frame, self._cv2.COLOR_BGR2RGB)
+            # The seam types a frame as `object` so a capture stays the narrowest thing a
+            # camera can be; OpenCV is where it must be an array, and a wrong one lands in
+            # the except below rather than here.
+            array: Any = frame
+            rgb = self._cv2.cvtColor(array, self._cv2.COLOR_BGR2RGB)
             return self._mp.Image(image_format=self._mp.ImageFormat.SRGB, data=rgb)
         except Exception as exc:
             log.debug("perception: %s converting a frame; frame skipped", type(exc).__name__)

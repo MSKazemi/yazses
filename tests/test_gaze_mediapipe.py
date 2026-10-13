@@ -200,13 +200,30 @@ def test_ensure_face_landmarker_downloads_when_absent(tmp_path, monkeypatch):
 
     model = tmp_path / "sub" / "face_landmarker.task"
     calls = []
+    body = b"m" * (download.MIN_MODEL_BYTES + 1)
 
-    def fake_retrieve(url, dest):
-        calls.append((url, dest))
-        with open(dest, "wb") as fh:
-            fh.write(b"model")
+    class _Resp:
+        headers = {"Content-Length": str(len(body))}
 
-    monkeypatch.setattr(download.urllib.request, "urlretrieve", fake_retrieve)
+        def __init__(self):
+            self._left = body
+
+        def read(self, n):
+            chunk, self._left = self._left[:n], self._left[n:]
+            return chunk
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return None
+
+    def fake_open(url):
+        calls.append(url)
+        return _Resp()
+
+    # The fetch goes through download._open (timeout + IPv4-first), not urlretrieve.
+    monkeypatch.setattr(download, "_open", fake_open)
     out = download.ensure_face_landmarker(model)
     assert out == model and model.exists()
-    assert calls[0][0] == download.FACE_LANDMARKER_URL
+    assert calls[0] == download.FACE_LANDMARKER_URL

@@ -41,6 +41,16 @@ saved calibration from your clicks, but only when held-out error beats the expli
 ([#399](https://github.com/MSKazemi/yazses/issues/399)). No OS ships a click observer yet, so implicit
 refinement stays dormant and logs why.
 
+### Fixed — the gaze model download hung on networks with a dead IPv6 route
+
+The first run of gaze (and of the shared camera source) fetches a 3.7 MB model. The fetch had no timeout
+and tried IPv6 addresses first, so on a network whose IPv6 route silently drops packets it appeared frozen
+for minutes while `curl` finished in about a second. It now times out per address, tries IPv4 first, and
+only caches a download that arrived whole (a truncated file or an error page is discarded, never kept as
+the model). Measured on the laptop that exposed it: 0.8 s, byte-identical to the curl copy, against no
+result in over 30 s before. The host and what is fetched are unchanged
+([ADR-019](design/adr/adr-019-egress-inventory-and-escalation.md)).
+
 ### Fixed — eye-control robustness found while building the above
 
 Saving a gaze calibration is now atomic. A non-finite face-switch score used to count toward neither side
