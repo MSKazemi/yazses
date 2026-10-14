@@ -499,7 +499,8 @@ def test_a_dwell_feedback_sink_counts_as_a_way_to_show_progress():
     assert runtime.command("status")["dwell_enabled"] is True
 
 
-@pytest.mark.parametrize("key", ["x_gain", "y_gain", "deadzone", "freshness_ms", "min_confidence",
+@pytest.mark.parametrize("key", ["x_gain", "y_gain", "max_speed_x", "max_speed_y", "max_speed_overall", "deadzone",
+                                 "freshness_ms", "min_confidence",
                                  "dwell_enabled", "dwell_radius_px", "dwell_hold_frames"])
 def test_every_config_key_is_read_by_the_settings_builder(key):
     """A key nothing reads is a toggle that lies (the registry's own honesty rule)."""

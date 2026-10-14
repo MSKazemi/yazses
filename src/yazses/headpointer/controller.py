@@ -9,7 +9,7 @@ injected, so a whole session -- including the failures -- is a list of numbers i
 The pipeline is the one in ``design/specs/eye-head-pointer-runtime.md``::
 
     sample -> freshness/quality -> global gate -> pause/clutch -> neutral transform
-           -> pose_to_cursor -> sub-unit accumulator -> PointerSink.move_relative
+           -> pose_to_cursor -> speed caps -> x dt -> sub-unit accumulator -> PointerSink.move_relative
     pointer position -> DwellClicker -> progress feedback -> PointerSink.click
 
 **The failure this module exists to prevent is a pointer that moves or clicks when the user did
@@ -47,11 +47,24 @@ pointer" -- so the dwell detector watches the running sum of the whole units thi
 has itself sent. That is the pointer's displacement, not its screen coordinate: a pointer pinned
 at a screen edge keeps accumulating, which makes dwell *less* likely to fire there, never more.
 
-**No defaults are declared from synthetic data.** The gains, dead zone, dwell radius and hold
-length are the existing ``PointerCalib`` / ``DwellClicker`` values; the freshness window and
-confidence floor are placeholders to be replaced by measurement (``GOVERNANCE.md``). Which
-screen direction a positive yaw should move the pointer is likewise not decided -- it needs a
-real camera -- so a negative gain flips an axis.
+**The motion model is rate control in real time, independent of the camera's frame rate.** The
+head's offset from neutral sets a *velocity* (``PointerCalib`` gains are pointer units per
+**second** per radian), that velocity is capped per axis and overall (units per second), and a
+sample moves the pointer by ``velocity x dt``, where ``dt`` is the real time since the previous
+accepted sample, clamped to ``max_dt_s``. So the same head motion moves the pointer the same
+distance on a 15, 30 or 60 fps camera, a long gap (a stalled thread, a camera hiccup) becomes
+at most one bounded step rather than a leap, and no pose however extreme can exceed the cap.
+A zero, negative or non-finite ``dt`` is no motion. The sub-unit remainder is carried across
+samples exactly as before.
+
+**No defaults are declared from synthetic data.** The gains, speed caps, dead zone, dwell
+radius and hold length are provisional first-principles values; the freshness window and
+confidence floor are placeholders to be replaced by measurement (``GOVERNANCE.md``). The
+*sign* of the horizontal gain is geometry, observed on a real camera (2026-10-13): a negative
+gain flips an axis.
+
+**Still frame-based, deliberately untouched here:** the dwell hold is counted in samples
+(``dwell_hold_frames``), so *how long* a dwell takes still depends on the camera's rate.
 """
 from __future__ import annotations
 
@@ -63,13 +76,21 @@ from enum import Enum
 from typing import Protocol
 
 from yazses.handsfree.safety import HandsFreeSafety
-from yazses.headpointer.pointer import DwellClicker, PointerCalib, pose_to_cursor
+from yazses.headpointer.pointer import (
+    DEFAULT_MAX_DT_S,
+    DwellClicker,
+    PointerCalib,
+    elapsed_s,
+    limit_velocity,
+    pose_to_cursor,
+)
 from yazses.perception.signals import HeadPoseSignal
 from yazses.pointer.base import PointerButton, PointerSink
 from yazses.pointer.subpixel import SubPixelAccumulator
 
 __all__ = [
     "DEFAULT_FRESHNESS_S",
+    "DEFAULT_MAX_DT_S",
     "DEFAULT_MIN_CONFIDENCE",
     "SOURCE_NAME",
     "DwellFeedback",
@@ -144,6 +165,9 @@ class HeadPointerSettings:
     #: Samples older than this (seconds) are treated as no signal.
     freshness_s: float = DEFAULT_FRESHNESS_S
     min_confidence: float = DEFAULT_MIN_CONFIDENCE
+    #: Longest time step (seconds) one sample may move the pointer over; a longer gap is
+    #: clamped to this, so a stall yields one bounded step. A safety bound, not a measurement.
+    max_dt_s: float = DEFAULT_MAX_DT_S
     #: Dwell-click is its own switch: motion alone is a complete, useful feature.
     dwell_enabled: bool = False
     dwell_radius_px: float = 15.0
@@ -190,6 +214,18 @@ def _finite_or(value: float, default: float) -> float:
     return value if isinstance(value, (int, float)) and math.isfinite(value) else default
 
 
+def _positive_or(value: float, default: float, name: str) -> float:
+    """A speed cap or time bound must be finite and above zero; anything else is the default.
+
+    A cap cannot be switched off by a bad or zero value -- the safe reading of "no usable cap"
+    is "the shipped cap", never "unlimited".
+    """
+    if isinstance(value, (int, float)) and math.isfinite(value) and value > 0.0:
+        return float(value)
+    log.warning("head-pointer: %s=%r is not a positive number; using %s", name, value, default)
+    return default
+
+
 class HeadPointerController:
     """Pose in, pointer intent out. Thread-safe: ``update`` runs on the runner thread while
     ``recenter``/``pause``/``resume``/``set_clutch`` arrive from IPC or a switch.
@@ -222,7 +258,11 @@ class HeadPointerController:
             x_gain=_finite_or(calib.x_gain, PointerCalib.x_gain),
             y_gain=_finite_or(calib.y_gain, PointerCalib.y_gain),
             deadzone=max(0.0, _finite_or(calib.deadzone, PointerCalib.deadzone)),
+            max_speed_x=_positive_or(calib.max_speed_x, PointerCalib.max_speed_x, "max_speed_x"),
+            max_speed_y=_positive_or(calib.max_speed_y, PointerCalib.max_speed_y, "max_speed_y"),
+            max_speed_overall=_positive_or(calib.max_speed_overall, PointerCalib.max_speed_overall, "max_speed_overall"),
         )
+        self._max_dt = _positive_or(self._s.max_dt_s, DEFAULT_MAX_DT_S, "max_dt_s")
         self._freshness_s = max(0.0, _finite_or(self._s.freshness_s, DEFAULT_FRESHNESS_S))
         self._min_conf = _finite_or(self._s.min_confidence, DEFAULT_MIN_CONFIDENCE)
         self._radius = max(1.0, _finite_or(self._s.dwell_radius_px, 15.0))
@@ -281,6 +321,7 @@ class HeadPointerController:
             if not new:
                 # The same observation again: nothing new happened, so nothing is done.
                 return Step(self._state, reason=self._reason)
+            prev_ts = self._last_ts
             self._last_ts = sample.timestamp_s
             self._tracking = True
 
@@ -302,7 +343,7 @@ class HeadPointerController:
             if self._settle:
                 self._settle = False
                 return self._set(State.TRACKING, "settling")
-            return self._follow(sample)
+            return self._follow(sample, elapsed_s(prev_ts, sample.timestamp_s, self._max_dt))
 
     # ------------------------------------------------------------------ controls
 
@@ -450,11 +491,16 @@ class HeadPointerController:
             self._settle = True
         self._sync_feedback()
 
-    def _follow(self, sample: HeadPoseSignal) -> Step:
+    def _follow(self, sample: HeadPoseSignal, dt: float) -> Step:
+        """Move by the capped velocity for the offset from neutral, over ``dt`` seconds."""
         assert self._neutral is not None
-        dx, dy = pose_to_cursor(
-            sample.yaw - self._neutral[0], sample.pitch - self._neutral[1], self._calib
+        vx, vy = limit_velocity(
+            *pose_to_cursor(
+                sample.yaw - self._neutral[0], sample.pitch - self._neutral[1], self._calib
+            ),
+            self._calib,
         )
+        dx, dy = vx * dt, vy * dt
         try:
             ix, iy = self._acc.take(dx, dy)
         except ValueError:
