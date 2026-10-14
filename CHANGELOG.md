@@ -6,6 +6,23 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — a hands-free preset: `[handsfree] enabled = true`
+
+One switch that expands, before any section is built, into the ordinary settings a person could have written
+by hand: the global stop and command safety, the shared camera, Glance-Type gaze with deixis and
+confirmed-destructive actions, the Head-Pointer with dwell, the face switch with your baseline and a
+confidence floor, and Gesture Chords (brow-raise + nod recentres, brow-raise + shake stops). Component
+switches (`gaze`, `pointer`, `dwell`, `switch`, `chords`) default on. A key you wrote always wins and
+`yazses handsfree explain` shows the resolved config and which keys are yours; weakening the safety floor
+refuses the preset and names the key. `yazses handsfree enable` (needs `--force`, it turns on experimental
+features) / `disable` (pauses at once; `yazses restart` releases the camera). New `[gaze]
+refuse_destructive_fallback` (off by default, on under the preset): "close this" with no gaze target is
+refused with a notification instead of closing the focused window. Also fixes the daemon registering a
+Head-Pointer gate source even when the pointer was off, which left the summary PAUSED and made every
+`handsfree resume` refuse. Every value the preset invents is provisional; there is no voice stop word; the
+only commit gesture wired is dwell-click (which needs the overlay); the T7 one-person workflow has not been
+done ([#410](https://github.com/MSKazemi/yazses/issues/410)).
+
 ### Added — Head-Pointer on native Wayland, through the Remote Desktop portal
 
 On a native Wayland session the Linux pointer factory used to refuse ("the portal pointer backend is not

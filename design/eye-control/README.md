@@ -275,7 +275,7 @@ Status vocabulary in this programme:
 | Grounded semantic target resolution | **DESIGNED / proposed** | ADR-v2-151 + `eye-grounded-targets.md` | #441–#445; structured semantic source evidence |
 | Hands-free controls window + `yazses handsfree` | **LIVE** | `handsfree/{panel,panel_io}.py`, `settingsui/handsfree_panel.py` (#420) | visual / screen-reader verification on a real screen; a spoken-command binding and a tray Pause item |
 | False-activation replay harness | **LIVE (offline)** | `eyeeval/switch_replay.py`, `scripts/replay_face_switch_trace.py` (#409) | real volunteer traces; no threshold may be read off the synthetic fixtures |
-| Hands-free bundle/profile | **DESIGNED** | #102, #410 | compose features into one usable mode (in progress) |
+| Hands-free bundle/profile | **LIVE (opt-in preset)** | `[handsfree] enabled`, `handsfree/{preset,recovery}.py`, `yazses handsfree enable|disable|explain` (#410) | the T7 one-person workflow (human validation, not done); a voice stop word; the voice mouse grid is config-only; `select`/`confirm`/`cancel` have no daemon handler, so the only commit is dwell-click, which needs the overlay; every value the preset invents is provisional |
 
 ### Important planning corrections
 

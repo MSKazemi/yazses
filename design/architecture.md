@@ -272,6 +272,9 @@ camera, no clock, no config import, no thread of its own.
 |---|---|
 | `safety.py` | The global stop + stale-signal watchdog (#417): `HandsFreeSafety`, one ACTIVE/PAUSED/FAULTED `SafetyStatus` with per-source `SourceHealth`, and `gate_from_config()` returning `None` until the user opts into `[handsfree_safety]` |
 | `observability.py` | EYE-OBS-001 (#416). `HandsFreeFacts` → `HealthRow`s, rendered once and consumed twice: `doctor_rows()` for `yazses doctor` and `render_status_lines()` for `yazses status`, so the two surfaces cannot describe one machine differently. `as_payload()`/`facts_from_payload()` are the IPC wire, a whitelist rather than `asdict` |
+| `preset.py` | The `[handsfree]` preset (#410). A pure expander (stdlib + config schema only) that rewrites the raw config before any section is built, so the result is ordinary per-feature config; a user-written key always wins and weakening the safety floor refuses the preset naming the key. `config.py` is its only caller and an AST test asserts nothing reads `cfg.handsfree` at run time |
+| `recovery.py` | The recovery hierarchy as a pure rule: a destructive action never falls back to an inferred stand-in such as the focused window; every degraded result carries feedback |
+| `panel.py`, `panel_io.py` | The accessible controls view-model (banner, Pause/Resume/Recover/Recenter, health rows, face-switch mappings — every state a word, no action takes a pointer position) and its gather/perform layer, which reuses existing probes and never opens the camera. The Qt shell is `settingsui/handsfree_panel.py` |
 | `probe.py` | The impure gatherer: config → requested features, the feature registry → whether a runtime path drives each one, an optional platform seam → the pointer backend's name and capabilities, and the stored gaze calibration's validity. Opens no camera and starts no pointer session |
 
 **Invariants.** (1) With every camera feature off — the shipped default — `health_rows()`

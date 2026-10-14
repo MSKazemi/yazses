@@ -379,8 +379,17 @@ stop path of ADR-v2-148 verified from the FAULTED state. No second daemon path m
 asserts the preset adds no code path that a per-feature config does not already reach.
 
 **Status 2026-10-14.** The accessible controls window and `yazses handsfree status|pause|resume` exist
-(#420); the `[handsfree]` preset (#410) is in progress. The T7 one-person workflow is a human validation and
-has not been done.
+(#420), and the `[handsfree]` preset exists (#410): `enabled = true` is rewritten by a pure expander
+(`handsfree/preset.py`, stdlib + config schema only) into ordinary per-feature config *before* any section is
+built, a test compares the resolved config with a literal hand-written equivalent, and an AST test asserts
+nothing reads `cfg.handsfree` at run time (no second daemon path). A key the user wrote always wins, and
+weakening the safety floor (global stop, `[cmdsafety]`, `confirm_destructive`, `refuse_destructive_fallback`)
+refuses the preset with the key named. Recovery is a pure rule (`handsfree/recovery.py`): a destructive
+action never falls back to an inferred stand-in such as the focused window. The stop works from FAULTED
+(IPC pause, face-switch pause action, stop chord — tested with a fabricated fault). **Not met:** the exit
+gate's T7 one-person workflow is a human validation and has not been done; there is no voice stop word; the
+voice mouse grid is config-only; the preset's only invented values (`confidence_floor = 0.5` and two chord
+bindings) are unmeasured.
 
 ## Phase 7 — dedicated eye tracker seam (after webcam programme is stable) — **research, not a delivery phase**
 
