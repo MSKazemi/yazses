@@ -36,6 +36,23 @@ from yazses.pointer.base import PointerBackendError, PointerButton
 FRAME = 1.0 / 30.0
 
 
+def per_frame_calib(x: float, y: float, deadzone: float = 0.02) -> PointerCalib:
+    """A calibration that moves ``x``/``y`` units per radian per *frame* at the rig's 30 fps.
+
+    The state-machine tests below were written when the gains were per-sample. The motion model
+    is now per-second (see ``tests/test_headpointer_motion.py`` for that contract), so these
+    tests state their intent -- "this much motion per frame" -- through this helper and keep
+    asserting what they always asserted. The speed caps are lifted so they never interfere.
+    """
+    return PointerCalib(
+        x_gain=x / FRAME, y_gain=y / FRAME, deadzone=deadzone,
+        max_speed_x=1e9, max_speed_y=1e9, max_speed_overall=1e9,
+    )
+
+
+LEGACY = per_frame_calib(800.0, 600.0)
+
+
 class Rig:
     """A controller, a recording sink and a clock the test moves by hand."""
 
@@ -53,7 +70,7 @@ class Rig:
         self.t = 100.0
         self.sink = sink or FakePointerSink()
         self.settings = HeadPointerSettings(
-            calib=calib or PointerCalib(),
+            calib=calib or LEGACY,
             freshness_s=freshness_s,
             dwell_enabled=dwell,
             dwell_hold_frames=hold,
@@ -113,7 +130,7 @@ def test_deviation_from_neutral_moves_by_the_existing_pure_mapping():
     rig = Rig()
     rig.centre()
     rig.feed(0.05, 0.03)
-    expected = pose_to_cursor(0.05, 0.03)
+    expected = tuple(v * FRAME for v in pose_to_cursor(0.05, 0.03, LEGACY))
     assert rig.moves == [PointerAction.move_relative(round(expected[0]), round(expected[1]))]
 
 
@@ -121,7 +138,7 @@ def test_the_mapping_is_relative_to_the_neutral_not_to_zero():
     rig = Rig()
     rig.feed(0.3, 0.3)  # neutral is (0.3, 0.3)
     rig.feed(0.35, 0.3)
-    expected_dx = round(pose_to_cursor(0.05, 0.0)[0])
+    expected_dx = round(pose_to_cursor(0.05, 0.0, LEGACY)[0] * FRAME)
     assert rig.moves == [PointerAction.move_relative(expected_dx, 0)]
 
 
@@ -135,7 +152,7 @@ def test_a_pose_inside_the_deadzone_never_moves_the_pointer():
 
 
 def test_the_sink_only_ever_receives_whole_units():
-    rig = Rig(calib=PointerCalib(x_gain=10.0, y_gain=10.0, deadzone=0.02))
+    rig = Rig(calib=per_frame_calib(10.0, 10.0))
     rig.centre()
     for _ in range(40):
         rig.feed(0.033, 0.027)
@@ -160,8 +177,8 @@ class RoundingSink(FakePointerSink):
 
 def test_slow_motion_under_half_a_unit_per_frame_still_moves_a_rounding_backend():
     """0.3 units per frame is *nothing* to X11 unless the consumer carries the remainder."""
-    calib = PointerCalib(x_gain=10.0, y_gain=10.0, deadzone=0.02)
-    per_frame = pose_to_cursor(0.03, 0.0, calib)[0]
+    calib = per_frame_calib(10.0, 10.0)
+    per_frame = pose_to_cursor(0.03, 0.0, calib)[0] * FRAME
     assert 0.0 < per_frame < 0.5  # the premise: each frame alone would round to zero
 
     rig = Rig(calib=calib, sink=RoundingSink())
@@ -176,7 +193,7 @@ def test_slow_motion_under_half_a_unit_per_frame_still_moves_a_rounding_backend(
 
 
 def test_the_same_slow_head_motion_gives_the_same_total_on_every_backend():
-    calib = PointerCalib(x_gain=10.0, y_gain=10.0, deadzone=0.02)
+    calib = per_frame_calib(10.0, 10.0)
     exact, rounding = Rig(calib=calib), Rig(calib=calib, sink=RoundingSink())
     for rig in (exact, rounding):
         rig.centre()
@@ -187,7 +204,7 @@ def test_the_same_slow_head_motion_gives_the_same_total_on_every_backend():
 
 def test_a_remainder_does_not_survive_an_interruption():
     """A fraction of the last session's motion must not leak into the next burst."""
-    calib = PointerCalib(x_gain=10.0, y_gain=10.0, deadzone=0.02)
+    calib = per_frame_calib(10.0, 10.0)
     rig = Rig(calib=calib)
     rig.centre()
     rig.feed(0.03, 0.0)  # 0.3 owed, nothing emitted
@@ -525,7 +542,7 @@ def test_recenter_makes_the_current_pose_zero_with_no_motion_and_no_click():
     assert len(rig.sink.actions) == sent
     assert rig.clicks == 0
     rig.feed(0.45, 0.3)  # and motion is now measured from it
-    assert rig.moves[-1] == PointerAction.move_relative(round(pose_to_cursor(0.05, 0.0)[0]), 0)
+    assert rig.moves[-1] == PointerAction.move_relative(round(pose_to_cursor(0.05, 0.0, LEGACY)[0] * FRAME), 0)
 
 
 def test_recenter_with_no_signal_waits_for_the_next_valid_pose():

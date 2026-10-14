@@ -1295,12 +1295,23 @@ class HeadpointerConfig:
     **sign** of `x_gain`, which is geometry and not tuning: on a real webcam (2026-10-13) turning
     the head to the user's left reads as *positive* yaw, so `x_gain` is negative by default to
     make the pointer follow the head. `y_gain` needs no flip: chin-up is negative pitch and
-    moves the pointer up. The magnitudes are still unmeasured and far too fast on that machine
-    (a held 0.3 rad turn moved the pointer thousands of units in seconds).
+    moves the pointer up.
+
+    **Speed is in real time, not per camera frame.** The head's offset from neutral sets the
+    pointer's *velocity*: `x_gain`/`y_gain` are pointer units per **second** per radian, a
+    sample moves the pointer by that velocity times the real time since the previous sample, and
+    `max_speed_x`/`max_speed_y`/`max_speed_overall` cap it (units per second, cannot be disabled; a value
+    of 0 or less falls back to the default). The same head motion therefore moves the pointer
+    the same distance on a 15, 30 or 60 fps camera. These gains used to mean "per frame": an
+    old value reads as a far slower pointer now, never a faster one. **All the magnitudes and
+    caps are provisional first-principles values, not measurements.**
     """
     enabled: bool = False
-    x_gain: float = -800.0        # pointer units per frame per radian of yaw; negative: left turn -> pointer left
-    y_gain: float = 600.0         # pointer units per frame per radian of pitch; negative flips
+    x_gain: float = -1200.0       # pointer units per second per radian of yaw; negative: left turn -> pointer left
+    y_gain: float = 900.0         # pointer units per second per radian of pitch; negative flips
+    max_speed_x: float = 800.0    # fastest horizontal pointer speed, units per second; provisional safety cap
+    max_speed_y: float = 600.0    # fastest vertical pointer speed, units per second; provisional safety cap
+    max_speed_overall: float = 800.0  # fastest combined pointer speed, units per second; provisional safety cap
     deadzone: float = 0.02        # radians around the neutral pose that produce no motion
     freshness_ms: int = 500       # a head pose older than this is "no signal"; unmeasured
     min_confidence: float = 0.5   # samples below this presence confidence are "no signal"

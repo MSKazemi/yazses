@@ -16,10 +16,10 @@ is a word, not a silence).
 
 **The loop polls faster than the camera delivers and acts once per observation.** The controller
 dedupes by sample timestamp, so a 30 Hz poll over a 15 fps camera moves the pointer 15 times a
-second, not 30. Note what that means for the numbers: ``x_gain`` is "pointer units per *sample*
-per radian", exactly as ``pose_to_cursor`` has always defined it, so the same head angle moves
-the pointer twice as fast on a 30 fps camera. Making it time-based is a design question, not
-something to decide here.
+second, not 30. The motion model is in real time: ``x_gain``/``y_gain`` are pointer units per
+*second* per radian and each accepted sample moves the pointer by velocity x the real time since
+the previous one (capped; see ``HeadPointerController``), so neither the camera's frame rate nor
+this poll rate changes how fast the pointer goes.
 
 **A crash in this loop must not take dictation with it.** Anything the loop raises faults the
 controller (motion stops, the gate is told) and is logged once; the thread then keeps polling so
@@ -82,6 +82,9 @@ def settings_from_config(section: Any) -> HeadPointerSettings:
         x_gain=_num(getattr(section, "x_gain", None), defaults.calib.x_gain),
         y_gain=_num(getattr(section, "y_gain", None), defaults.calib.y_gain),
         deadzone=_num(getattr(section, "deadzone", None), defaults.calib.deadzone),
+        max_speed_x=_num(getattr(section, "max_speed_x", None), defaults.calib.max_speed_x),
+        max_speed_y=_num(getattr(section, "max_speed_y", None), defaults.calib.max_speed_y),
+        max_speed_overall=_num(getattr(section, "max_speed_overall", None), defaults.calib.max_speed_overall),
     )
     return HeadPointerSettings(
         calib=calib,
