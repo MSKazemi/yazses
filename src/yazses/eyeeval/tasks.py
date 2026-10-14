@@ -73,7 +73,7 @@ from __future__ import annotations
 import json
 from typing import Any, TypeGuard
 
-from yazses.eyeeval.schema import FEATURES, forbidden_field_problems
+from yazses.eyeeval.schema import FEATURES, forbidden_field_problems, parse_schema_version
 
 #: The task-fixture *envelope* version. Add a field, bump the minor; change or remove one,
 #: bump the major. Same rule, and the same reason, as the result schema.
@@ -898,13 +898,13 @@ def validate_task(doc: Any) -> list[str]:
         return [f"<root>: expected a JSON object, got {type(doc).__name__}."]
 
     version = doc.get("fixture_schema_version")
-    parts = version.split(".") if isinstance(version, str) else []
-    if len(parts) != 2 or not all(part.isdigit() for part in parts):
+    parsed = parse_schema_version(version)
+    if parsed is None:
         return [
             f"fixture_schema_version: missing or malformed (got {version!r}); expected "
             f'"MAJOR.MINOR" with both parts numeric, e.g. "{FIXTURE_SCHEMA_VERSION}".'
         ]
-    major = int(parts[0])
+    major = parsed[0]
     if major != SUPPORTED_FIXTURE_MAJOR:
         return [
             f"fixture_schema_version: {version!r} has major version {major}; this reader "
