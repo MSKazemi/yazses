@@ -6,6 +6,79 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — Head-Pointer on native Wayland, through the Remote Desktop portal
+
+On a native Wayland session the Linux pointer factory used to refuse ("the portal pointer backend is not
+selected"). It now asks the daemon's live portal injector for a pointer on the *same* Remote Desktop
+session dictation already types through, so there is one consent dialog, one restore token and no second
+session implementation. The sink is deferred: building it sends nothing, and the daemon's existing warm-up
+raises the dialog once for keyboard and pointer together. A Cancel leaves nothing half-open, and the idle
+reaper no longer closes a session a pointer consumer holds (it would have done so after 60 s). X11 is
+unchanged. Tested with portal fakes only; **not yet exercised against a real GNOME consent dialog**. If the
+first head movement arrives before the dialog is answered the pointer faults with a clear reason and
+`yazses headpointer resume` continues ([#403](https://github.com/MSKazemi/yazses/issues/403),
+[#404](https://github.com/MSKazemi/yazses/issues/404)).
+
+### Changed — Head-Pointer speed is per second, not per camera frame
+
+`[headpointer] x_gain` and `y_gain` now mean pointer units **per second** per radian, integrated over the
+real time between camera samples (a stall becomes one bounded step), so the same head movement moves the
+pointer the same distance at 15, 30 or 60 fps; before, a 30 fps camera was twice as fast. New
+`max_speed_x`, `max_speed_y` and `max_speed_overall` caps (units per second) cannot be switched off — a
+zero, negative or non-finite value falls back to the shipped one with a warning. An old per-frame value now
+reads as a *slower* pointer, never a faster one. All defaults are provisional and unmeasured: on one
+webcam the previous per-frame values moved the pointer thousands of units per second. Dwell timing is still
+counted in frames.
+
+### Added — Gesture Chords from face and head tokens
+
+`[gesture]` gains a `[gesture.chords]` table that binds a chord of face-gesture and head-gesture tokens
+(nod, shake, tilt, jaw open, smile, …) to `pause_pointer`, `recenter` or `command:<phrase>`. It is off by
+default and binds nothing until you add a chord; an unmapped token reaches no action, a global pause
+suppresses every chord action, and anything not reversible is refused because no confirmation prompt is
+wired for chords. While a facial expression disturbs the head pose, the Head-Pointer is held still through
+its public clutch (and for 300 ms after); the first disturbed frame can still move the pointer by one
+step. `yazses gesture status|pause|resume`. A "hold" token is not built
+([#408](https://github.com/MSKazemi/yazses/issues/408)).
+
+### Added — face switch: calibrate your active range, and share the camera
+
+`yazses facegesture calibrate --active [--talk]` also records how far *you* can open (and, optionally, your
+speech peak) and `[facegesture] use_active_levels` (off by default) derives hold and release thresholds
+between your resting and active levels, refusing with a specific reason when they are not separable or
+would fall into the speech range. The face switch now takes a lease on the shared camera when
+`[perception]` is on and the camera indexes match, so it no longer collides with gaze or the Head-Pointer;
+otherwise its own capture is unchanged. Releasing when the face leaves the frame takes about 0.6 s.
+`active_hold_fraction` (0.5) and `active_release_fraction` (0.25) are starting values, not measurements.
+
+### Added — a replay harness for face-switch false activations
+
+`scripts/replay_face_switch_trace.py` replays numeric traces (no frames) through a switch configuration and
+reports phantom actions per hour of non-deliberate time with an exact upper bound, recall, latency and
+chatter, optionally across a threshold sweep. An empty trace is refused and a zero denominator is reported
+as missing, never as 0. It states that no product threshold may be read off synthetic fixtures
+([#409](https://github.com/MSKazemi/yazses/issues/409)). It also shows a hazard: an absolute-threshold
+switch whose resting score sits above its release threshold fires once and never lets go.
+
+### Added — a hands-free controls window and `yazses handsfree`
+
+Settings gains a "Hands-free controls…" window (large targets, keyboard-ordered, every state a word, no
+colour-only signals) showing camera, gaze, head pose, face-switch and pointer health from the existing
+probes without opening the camera, with Pause, Resume, Recover and Recenter. `yazses handsfree
+status|pause|resume` is the same thing from a shell. This also fixes two bugs: the daemon's hands-free
+status never filled in the live gate (every surface read "unknown"), and `headpointer pause` paused only the
+Head-Pointer, so nothing could pause the face switch. Layout and screen-reader behaviour are tested
+offscreen only, not on a real screen ([#420](https://github.com/MSKazemi/yazses/issues/420)).
+
+### Fixed — eye-control hygiene
+
+`[handsfree_safety] stale_after_ms` now reports the value the gate applies (a non-positive or absurd value
+was shown as written and applied as 500 ms; 60000 ms is the ceiling). The eval `schema_version` minor is
+validated. `scripts/check-traceability.py` fails on an unreadable or empty manifest instead of reporting
+compliance. A new guard test fails on committed merge-conflict markers (0 false alarms on 2879 files).
+The camera-permission and eval-provenance code describe the host through the platform seam instead of
+reading `sys.platform` themselves.
+
 ### Added — Head-Pointer now runs: move and click the pointer by head pose (opt-in)
 
 `[headpointer]` (off by default) leases the shared camera source and drives a `PointerSink`:
@@ -13,8 +86,8 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 commands; dwell (click by holding still) is a separate switch and is refused unless the overlay can
 show its progress ring. It never clicks on startup or after signal loss, freezes rather than replaying
 the last movement when the face is lost, accumulates sub-pixel motion itself (the X11 backend carries
-none), and obeys the global hands-free pause/kill state. X11, macOS and Windows only: native Wayland
-has no head pointer until the portal pointer backend is selected. Nothing has been run against a real
+none), and obeys the global hands-free pause/kill state. X11, macOS and Windows, and now native Wayland
+through the Remote Desktop portal (next entry). Nothing has been run against a real
 pointer yet. The shared camera source, the runtime and a recording pointer sink were exercised on one
 laptop's webcam: the face was found in every frame, the pointer followed chin-up/down, no click ever
 fired, and the horizontal axis turned out to be **inverted** (a left turn is positive yaw), so `x_gain`

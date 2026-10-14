@@ -265,15 +265,17 @@ Status vocabulary in this programme:
 | Gaze + speech deixis | **LIVE** | `gaze/deixis.py`, daemon, confirmation tests | hardware validation |
 | Implicit calibration (click capture, held-out gate, atomic apply + rollback) | **CORE** | `gaze/implicit.py`, `gaze/clicks.py`, `gaze/refine.py`, `gaze/refine_runtime.py`, `[gaze_refine]`, `yazses gaze rollback` (#397, #398) | a real OS click observer: `Platform.click_observer_factory` is `None` on every OS, so the runtime stays dormant and logs why |
 | Gaze field-measurement report | **LIVE (CLI)** | `yazses gaze measure`, golden-file test (#399) | tester reports on real hardware (#104) |
-| Head pose → cursor runtime | **LIVE (X11, macOS, Windows; opt-in)** | `headpointer/controller.py`, `headpointer/runtime.py`, `[headpointer]`, `yazses headpointer ...` (#404) | native Wayland (nothing selects the portal sink yet); real-hardware validation of a driven pointer; the x sign is fixed (2026-10-13, one webcam: left turn = +yaw, so `x_gain` is negative) but the gain magnitudes are unmeasured and ~100x too fast there |
+| Head pose → cursor runtime | **LIVE (X11, macOS, Windows; Wayland via portal, untested live; opt-in)** | `headpointer/controller.py`, `headpointer/runtime.py`, `[headpointer]`, `yazses headpointer ...` (#404) | real-hardware validation of a *driven* pointer, including the first real GNOME consent dialog; the x sign is fixed (2026-10-13, one webcam: left turn = +yaw, so `x_gain` is negative); gains are now per second with speed caps (`max_speed_*`) but every magnitude is provisional and unmeasured; dwell timing is still counted in frames |
 | Dwell click, recenter, pause, clutch, progress ring | **LIVE (opt-in)** | `headpointer/controller.py`, overlay dwell ring (#405) | accessibility co-design and fatigue study (#419) before any default is recommended |
-| Gesture chord resolver | **CORE** | `gesture/chords.py` | sensor tokens + runtime wiring |
-| Face-gesture switch | **LIVE** | `facegesture/detector.py`, `facegesture/calibration.py`, `facegesture/switches.py`, `facegesture/backend.py`, `yazses facegesture calibrate`, ADR-v2-135, ADR-v2-147 (#406, #407) | shared-camera migration of the backend; daemon entry points for `select`/`confirm`/`cancel`; false-activation study (#409); hardware breadth |
-| Shared camera/perception source | **LIVE (opt-in)** | ADR-v2-145, `perception/`; leased by Glance-Type gaze (#396) and the Head-Pointer (#404) | the face switch still opens its own capture (so it can still contend for the device with the others) |
-| Wayland pointer injection | **PARTIAL** | portal `PointerSink` exists (#403) | select it in the Linux pointer factory; consent flow on a real compositor |
+| Gesture chords from face + head tokens | **LIVE (opt-in)** | `gesture/{chords,headmotion,sensors,engine,runtime}.py`, `[gesture.chords]`, `yazses gesture ...` (#408) | a 'hold' token; confirmation prompt for non-reversible chord actions (they are refused today); real-hardware false-activation evidence |
+| Face-gesture switch | **LIVE** | `facegesture/{detector,calibration,levels,switches,backend}.py`, `yazses facegesture calibrate [--active --talk]`, ADR-v2-135, ADR-v2-147 (#406, #407); leases the shared camera when `[perception]` is on | `select`/`confirm`/`cancel` have no daemon entry point; derived thresholds' fractions are starting values; false-activation evidence beyond one person (harness: #409) |
+| Shared camera/perception source | **LIVE (opt-in)** | ADR-v2-145, `perception/`; leased by Glance-Type gaze (#396), the Head-Pointer (#404), the face switch and the chords runtime | all consumers lease it when `[perception]` is on and the camera indexes match; otherwise gaze and the face switch keep their own capture |
+| Wayland pointer injection | **LIVE (opt-in), untested on a real compositor** | portal `PointerSink` (#403) on the keyboard injector's own session via a deferred sink | consent flow on real GNOME/KDE; a 'pending' state so the first head movement does not fault before the dialog is answered |
 | Dedicated eye tracker backend | **RESEARCH** | eye-control research | provider protocol + licensing/device study |
 | Grounded semantic target resolution | **DESIGNED / proposed** | ADR-v2-151 + `eye-grounded-targets.md` | #441–#445; structured semantic source evidence |
-| Hands-free bundle/profile | **DESIGNED** | #102 + research directions | compose features into one usable mode |
+| Hands-free controls window + `yazses handsfree` | **LIVE** | `handsfree/{panel,panel_io}.py`, `settingsui/handsfree_panel.py` (#420) | visual / screen-reader verification on a real screen; a spoken-command binding and a tray Pause item |
+| False-activation replay harness | **LIVE (offline)** | `eyeeval/switch_replay.py`, `scripts/replay_face_switch_trace.py` (#409) | real volunteer traces; no threshold may be read off the synthetic fixtures |
+| Hands-free bundle/profile | **DESIGNED** | #102, #410 | compose features into one usable mode (in progress) |
 
 ### Important planning corrections
 
@@ -291,11 +293,11 @@ Status vocabulary in this programme:
    document said no detector or activation adapter existed; that claim was already false
    when it was written down, and it was copied onward into the Windows packaging rationale
    before anyone re-ran the search. What remains open for this programme is not building
-   the detector but subordinating it: it opens its own `cv2.VideoCapture` rather than
-   consuming the shared source of ADR-v2-145, and it drives the activation callbacks
-   directly rather than emitting the switch intent of ADR-v2-147.
-4. **Wayland is less blank than #102 suggests.** Keyboard RemoteDesktop portal code is already
-   substantial; pointer support should extend that session.
+   the detector but subordinating it. That is now done: it leases the shared source of
+   ADR-v2-145 (when `[perception]` is on) and emits the switch intents of ADR-v2-147.
+4. **Wayland is less blank than #102 suggests.** Keyboard RemoteDesktop portal code was already
+   substantial, and the pointer now extends that same session (a deferred sink, one consent dialog).
+   It has not yet met a real compositor's dialog.
 
 ## Existing ADRs that remain authoritative
 

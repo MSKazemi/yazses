@@ -256,8 +256,8 @@ backend, and the fake trace tests prove no phantom click on jitter/signal loss.
 leases the shared source, honours the global pause/kill state, accumulates sub-unit motion itself
 (the X11 sink carries no remainder), freezes on signal loss, never clicks on startup, and dwell is
 refused unless the overlay can show its progress ring. **Not met:** the exit gate's "without a hand
-on a desktop" claim has only partial hardware evidence (2026-10-13, one laptop webcam: the signals respond, see the CHANGELOG; no real pointer was driven), and native Wayland has no head pointer until the
-portal sink is selected.
+on a desktop" claim has only partial hardware evidence (2026-10-13, one laptop webcam: the signals respond, see the CHANGELOG; no real pointer was driven), and native Wayland used to have no head pointer; the portal sink is now selected (2026-10-14, fakes only, not yet
+against a real consent dialog).
 
 ## Phase 5 — deliberate face-gesture switches
 
@@ -334,6 +334,16 @@ binding among several, and an unmapped gesture reaches no daemon action. **Open:
 landmarker reports no per-frame confidence, so a floor above 0.5 blocks every frame on the backend's
 own camera path; P5.3 chords and P5.4 the false-activation study (#408, #409) are not started.
 
+**Wave 2, 2026-10-14.** P5.1's per-user calibration now also covers the *active* range
+(`yazses facegesture calibrate --active --talk`, opt-in `use_active_levels`): on one webcam a held jaw-open
+peaked at 0.46 against the shipped hold threshold 0.5, so rest-only calibration could not help. The backend
+leases the shared camera (the earlier 'still opens its own capture' gap is closed). P5.3 chords (#408) are
+wired as `[gesture.chords]` with a pointer freeze during a disturbing expression. P5.4's harness (#409)
+exists as an offline replay (`scripts/replay_face_switch_trace.py`); **the study itself has not been run**,
+and no switch is 'recommended'. Still open: a 'hold' chord token, `select`/`confirm`/`cancel` daemon entry
+points, and a stuck-open guard (an absolute-threshold switch whose resting score is above its release
+threshold never lets go).
+
 ## Phase 6 — compose a usable hands-free mode
 
 Individual controls are not the product. Add a `handsfree` preset/bundle that composes already
@@ -365,6 +375,10 @@ workflow pack in `VALIDATION_MATRIX.md` on one desktop without touching a keyboa
 with the independent
 stop path of ADR-v2-148 verified from the FAULTED state. No second daemon path may exist: a test
 asserts the preset adds no code path that a per-feature config does not already reach.
+
+**Status 2026-10-14.** The accessible controls window and `yazses handsfree status|pause|resume` exist
+(#420); the `[handsfree]` preset (#410) is in progress. The T7 one-person workflow is a human validation and
+has not been done.
 
 ## Phase 7 — dedicated eye tracker seam (after webcam programme is stable) — **research, not a delivery phase**
 
