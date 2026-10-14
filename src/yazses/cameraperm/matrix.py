@@ -245,23 +245,19 @@ def detect_profile_key(env: dict[str, str] | None = None) -> str:
     # variables: a hand-written copy of an existing predicate is this project's
     # most-repeated defect, and the two would answer differently the first time
     # snapd set only one of them.
+    from yazses.platform.factory import describe_host
     from yazses.system.snap import in_snap
 
-    frozen = bool(getattr(sys, "frozen", False))
-    appx = False
-    if frozen and sys.platform == "win32":
-        from pathlib import Path
-
-        try:
-            appx = (Path(sys.executable).resolve().parent / "AppxManifest.xml").is_file()
-        except OSError:  # pragma: no cover - defensive
-            appx = False
+    # The OS-specific facts -- which `sys.platform` this is, and whether the executable
+    # carries an MSIX identity -- come through the platform seam, not from reading
+    # `sys.platform` here (AGENTS.md rule 6).
+    host = describe_host()
     return profile_key_for(
-        platform_name=sys.platform,
-        frozen=frozen,
+        platform_name=host.platform_name,
+        frozen=bool(getattr(sys, "frozen", False)),
         in_snap=in_snap(environ),
         in_flatpak=bool(environ.get("FLATPAK_ID")) or os.path.isfile("/.flatpak-info"),
-        appx_manifest_present=appx,
+        appx_manifest_present=host.msix_packaged,
     )
 
 

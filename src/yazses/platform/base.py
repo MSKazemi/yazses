@@ -294,6 +294,43 @@ class TrayBackend(Protocol):
         """
 
 
+@dataclass(frozen=True)
+class HostInfo:
+    """What a caller outside the platform layer may know about the OS it is running on.
+
+    Facts, not behaviour: the point is that modules which only need to *describe* the host
+    (the eye-control provenance collector, the camera packaging detector) do not read
+    ``sys.platform`` themselves -- that is the branch AGENTS.md rule 6 keeps behind this
+    layer. Every field is something an OS backend answers differently, and every one is safe
+    to print: none identifies a person or a machine (no hostname, no user, no serial).
+    """
+
+    #: The OS's ``sys.platform`` string ("linux", "darwin", "win32", "freebsd14", ...), i.e.
+    #: the same vocabulary as ``Platform.name`` and the ``*_PLATFORM_NAME`` constants above.
+    platform_name: str
+    #: A distribution/OS name and version, split so a table can group hosts by name.
+    os_name: str
+    os_version: str
+    #: Installed RAM in GB, or ``None`` where this OS will not say. Never ``0.0``: a machine
+    #: with no RAM does not exist, so a zero could only be a failed measurement.
+    ram_gb: float | None = None
+    #: A desktop-session bucket when the *OS itself* fixes it ("windows", "macos"), else
+    #: ``None`` because it depends on the environment (X11 vs Wayland on Linux).
+    fixed_session_type: str | None = None
+    #: True when the running executable carries an MSIX package identity. Windows only.
+    msix_packaged: bool = False
+
+
+@runtime_checkable
+class HostBackend(Protocol):
+    """Describes the machine this process runs on. One implementation per OS family."""
+
+    def describe(self) -> HostInfo:
+        """Read the host now. May touch ``/etc``, ``/proc`` or the Win32 API; never the
+        network, a subprocess, a camera or a microphone, and never an identifier."""
+        ...
+
+
 HotkeyFactory = Callable[[str, int, Callable[[int], None], Callable[[], None]], HotkeyBackend]
 """Args: key_id, threshold_ms, on_hold_start(leaked_count), on_hold_end."""
 

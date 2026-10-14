@@ -42,10 +42,12 @@ import hashlib
 import json
 import os
 import platform
-import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:  # annotations only: keep the platform layer out of this module's imports
+    from yazses.platform.base import HostInfo
 
 #: A session type from `schema.SESSION_TYPES`, chosen from the environment.
 _WAYLAND_DESKTOPS = (("gnome", "wayland_gnome"), ("kde", "wayland_kde"), ("plasma", "wayland_kde"))
@@ -93,19 +95,20 @@ class LocalIdentifiers:
     home_paths: tuple[str, ...] = ()
 
 
-def _os_release_field(name: str) -> str:
-    """One `KEY=value` from `/etc/os-release`, unquoted, or "" where there is no such file."""
-    try:
-        for line in Path("/etc/os-release").read_text(encoding="utf-8").splitlines():
-            key, sep, value = line.partition("=")
-            if sep and key == name:
-                return value.strip().strip('"')
-    except OSError:
-        pass
-    return ""
+def _host(host: HostInfo | None = None) -> HostInfo:
+    """This machine's OS facts, read through the platform seam.
+
+    The OS-specific reads (`/etc/os-release`, the Win32 memory call, the MSIX test) live in
+    `yazses.platform.<os>.host`; nothing in this module branches on `sys.platform`.
+    """
+    if host is not None:
+        return host
+    from yazses.platform.factory import describe_host
+
+    return describe_host()
 
 
-def _os_name_version() -> tuple[str, str]:
+def _os_name_version(host: HostInfo | None = None) -> tuple[str, str]:
     """A distribution/OS name and its version, split so a table can group by name.
 
     `platform.platform()` would answer both at once and is what the benchmark harness
@@ -113,15 +116,8 @@ def _os_name_version() -> tuple[str, str]:
     no reader can group two hosts by. The split matters here because the platform
     validation matrix in `design/eye-control/EVALUATION.md` is written per OS bucket.
     """
-    if sys.platform == "win32":
-        return "Windows", platform.version() or platform.release()
-    if sys.platform == "darwin":
-        return "macOS", platform.mac_ver()[0] or platform.release()
-    name = _os_release_field("NAME")
-    version = _os_release_field("VERSION_ID") or _os_release_field("VERSION")
-    if name:
-        return name, version or "unknown"
-    return platform.system() or "unknown", platform.release() or "unknown"
+    info = _host(host)
+    return info.os_name, info.os_version
 
 
 def _cpu_model() -> str:
@@ -143,45 +139,14 @@ def _cpu_model() -> str:
     return platform.processor() or platform.machine() or "unknown"
 
 
-def _ram_gb() -> float | None:
+def _ram_gb(host: HostInfo | None = None) -> float | None:
     """Installed RAM in GB, or None where this OS will not say without a dependency.
 
     None rather than 0.0 on purpose, and for the same reason `METRICS.md` forbids
     encoding a missing metric as zero: a machine with no RAM does not exist, so a zero
     here could only ever be a failure to measure wearing the costume of a measurement.
     """
-    try:
-        pages = os.sysconf("SC_PHYS_PAGES")
-        page_size = os.sysconf("SC_PAGE_SIZE")
-        if pages > 0 and page_size > 0:
-            return round(pages * page_size / 1e9, 1)
-    except (AttributeError, ValueError, OSError):
-        pass
-    if sys.platform == "win32":  # pragma: no cover - exercised only on Windows
-        try:
-            import ctypes
-
-            class _MemoryStatus(ctypes.Structure):
-                _fields_ = [
-                    ("dwLength", ctypes.c_ulong),
-                    ("dwMemoryLoad", ctypes.c_ulong),
-                    ("ullTotalPhys", ctypes.c_ulonglong),
-                    ("ullAvailPhys", ctypes.c_ulonglong),
-                    ("ullTotalPageFile", ctypes.c_ulonglong),
-                    ("ullAvailPageFile", ctypes.c_ulonglong),
-                    ("ullTotalVirtual", ctypes.c_ulonglong),
-                    ("ullAvailVirtual", ctypes.c_ulonglong),
-                    ("ullExtendedVirtual", ctypes.c_ulonglong),
-                ]
-
-            status = _MemoryStatus()
-            status.dwLength = ctypes.sizeof(_MemoryStatus)
-            kernel32 = getattr(ctypes, "windll").kernel32
-            if kernel32.GlobalMemoryStatusEx(ctypes.byref(status)):
-                return round(status.ullTotalPhys / 1e9, 1)
-        except Exception:  # noqa: BLE001 - provenance must never fail a run
-            pass
-    return None
+    return _host(host).ram_gb
 
 
 def session_type(environ: dict[str, str] | None = None) -> str:
@@ -192,11 +157,11 @@ def session_type(environ: dict[str, str] | None = None) -> str:
     and for a session type this does not recognise: guessing "x11" there would put a
     wrong bucket on an `EVALUATION.md` platform-matrix row.
     """
+    if environ is None:
+        fixed = _host().fixed_session_type
+        if fixed:
+            return fixed
     env = os.environ if environ is None else environ
-    if sys.platform == "win32" and environ is None:
-        return "windows"
-    if sys.platform == "darwin" and environ is None:
-        return "macos"
     kind = env.get("XDG_SESSION_TYPE", "").strip().lower()
     if kind == "x11":
         return "x11"
@@ -331,7 +296,8 @@ def collect() -> Provenance:
     """Read this machine's safe provenance. The only function here that touches the host."""
     from yazses import branding
 
-    os_name, os_version = _os_name_version()
+    host = _host()
+    os_name, os_version = _os_name_version(host)
     return Provenance(
         yazses_version=branding.version(),
         git_commit=_git_commit(),
@@ -342,7 +308,7 @@ def collect() -> Provenance:
         arch=platform.machine() or "unknown",
         cpu_model=_cpu_model(),
         logical_cpus=os.cpu_count() or 0,
-        ram_gb=_ram_gb(),
+        ram_gb=_ram_gb(host),
         session_type=session_type(),
         displays=_displays(),
         packages=_package_versions(),
