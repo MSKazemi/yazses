@@ -341,8 +341,10 @@ leases the shared camera (the earlier 'still opens its own capture' gap is close
 wired as `[gesture.chords]` with a pointer freeze during a disturbing expression. P5.4's harness (#409)
 exists as an offline replay (`scripts/replay_face_switch_trace.py`); **the study itself has not been run**,
 and no switch is 'recommended'. Still open: a 'hold' chord token, `select`/`confirm`/`cancel` daemon entry
-points, and a stuck-open guard (an absolute-threshold switch whose resting score is above its release
-threshold never lets go).
+points. The stuck-open hazard (an absolute-threshold switch whose resting score is above its release
+threshold never lets go) now has a checkable refusal (`facegesture/restcheck.py`, shown by `calibrate`,
+the backend, `yazses doctor` and the controls window) and an opt-in `[facegesture] max_hold_s`; the replay
+report flags it as `stuck_open`.
 
 ## Phase 6 — compose a usable hands-free mode
 

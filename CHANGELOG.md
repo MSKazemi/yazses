@@ -51,6 +51,18 @@ would fall into the speech range. The face switch now takes a lease on the share
 otherwise its own capture is unchanged. Releasing when the face leaves the frame takes about 0.6 s.
 `active_hold_fraction` (0.5) and `active_release_fraction` (0.25) are starting values, not measurements.
 
+### Added — a guard against a face switch that never lets go (stuck-open microphone)
+
+An absolute-threshold switch whose resting score sits at or above its release threshold fires once and then
+never releases, which for hold-to-talk leaves the microphone open. `yazses facegesture calibrate`, the
+backend at start, `yazses doctor` and the hands-free controls window now say so, with your own numbers,
+whenever a saved resting level is at or above the hold or release threshold (nothing is said when no
+baseline is known). New `[facegesture] max_hold_s` (off by default, because a long dictation is a
+legitimate long hold and there is no data on how long people really hold) ends a hold that lasts that long
+once and re-arms it only after a real reading below the release threshold. A NaN `release_threshold` no
+longer pins a hold open. The replay report names the case `stuck_open`. The recorder's `max_record_seconds`
+only drops audio past its cap; it does not close the microphone.
+
 ### Added — a replay harness for face-switch false activations
 
 `scripts/replay_face_switch_trace.py` replays numeric traces (no frames) through a switch configuration and
