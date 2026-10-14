@@ -5356,6 +5356,27 @@ def facegesture_calibrate(
         if hasattr(landmarker, "close"):
             landmarker.close()
 
+    if rest is not None:
+        # A relaxed face that scores at or above the release threshold fires once and never lets
+        # go -- an open microphone. Said now, with the numbers, while the person is still here.
+        from yazses.facegesture.restcheck import assess_release, format_findings
+
+        for line in format_findings(assess_release(
+            rest.gesture,
+            face_cfg.hold_threshold,
+            face_cfg.release_threshold,
+            rest=rest,
+            use_baseline=face_cfg.use_baseline,
+            levels=(
+                load_levels(levels_path(platform.paths.data_dir)).get(rest.gesture)
+                if face_cfg.use_active_levels else None
+            ),
+            use_active_levels=face_cfg.use_active_levels,
+            hold_fraction=face_cfg.active_hold_fraction,
+            release_fraction=face_cfg.active_release_fraction,
+        )):
+            typer.echo(f"  Warning: {line}", err=True)
+
     if not guided:
         typer.echo("Enable it with `[facegesture] use_baseline = true`, then `yazses restart`.")
         return

@@ -1,5 +1,5 @@
 {
-  "report_version": "1.0",
+  "report_version": "1.1",
   "no_threshold_notice": "No product threshold, default or 'recommended' status follows from these numbers. Checked-in traces are synthetic and a threshold sweep only shows the phantom/recall trade-off on the trace it ran on. A facial switch is not recommended until false-activation evidence exists from real volunteer sessions across people (design/eye-control/ROADMAP.md P5.4, ADR-v2-150).",
   "zero_denominator_rule": "An empty trace is refused. A rate whose own denominator is zero is reported as {\"value\": null, \"reason\": ...}, never as 0.0: no non-deliberate time -> not_measured; no deliberate gestures -> not_measured; non-deliberate time with no usable reading -> tracking_unavailable.",
   "metric_definitions": {
@@ -7,7 +7,10 @@
     "false_activations_per_hour": "false_activations / (non-deliberate seconds / 3600); non-deliberate time is every sample outside a deliberate window, tracked or not",
     "recall": "deliberate intervals with at least one start in their window / deliberate intervals",
     "activation_latency_ms": "first start sample minus the deliberate interval's first sample, debounce included",
-    "chatter": "more than one start inside one deliberate window"
+    "chatter": "more than one start inside one deliberate window",
+    "stuck_open_holds": "holds still open at the first sample of a deliberate interval they did not begin in, or spanning a whole non-deliberate labelled segment: a switch that never let go",
+    "longest_hold_s": "the longest single hold, from its start to its end (or to the end of the trace if it never ended), in seconds",
+    "failures": "named failures present in this block; 'stuck_open' when stuck_open_holds > 0"
   },
   "upper_bound_caveat": "Exact one-sided 95% Poisson upper bound on the rate, assuming independent events in a single session; real phantoms cluster (a long conversation, a bad lighting spell), so treat it as a floor on the uncertainty, not a guarantee.",
   "evidence_class": "synthetic",
@@ -20,7 +23,8 @@
     "refractory_frames": 0,
     "use_trace_baseline": false,
     "action": "hold_to_talk",
-    "match_grace_samples": 0
+    "match_grace_samples": 0,
+    "max_hold_s": 0.0
   },
   "total_traces": 8,
   "traces": [
@@ -56,6 +60,11 @@
         "extra_starts": 0
       },
       "intervals_held_at_start": 3,
+      "stuck_open_holds": 1,
+      "longest_hold_s": 30.0,
+      "failures": [
+        "stuck_open"
+      ],
       "by_context": {
         "rest": {
           "duration_s": 32.0,
@@ -106,6 +115,9 @@
         "extra_starts": 5
       },
       "intervals_held_at_start": 0,
+      "stuck_open_holds": 0,
+      "longest_hold_s": 1.7,
+      "failures": [],
       "by_context": {
         "rest": {
           "duration_s": 15.0,
@@ -156,6 +168,9 @@
         "extra_starts": 0
       },
       "intervals_held_at_start": 0,
+      "stuck_open_holds": 0,
+      "longest_hold_s": 1.7,
+      "failures": [],
       "by_context": {
         "rest": {
           "duration_s": 35.0,
@@ -206,6 +221,9 @@
         "extra_starts": 0
       },
       "intervals_held_at_start": 0,
+      "stuck_open_holds": 0,
+      "longest_hold_s": 1.7,
+      "failures": [],
       "by_context": {
         "rest": {
           "duration_s": 20.0,
@@ -256,6 +274,9 @@
         "extra_starts": 1
       },
       "intervals_held_at_start": 0,
+      "stuck_open_holds": 0,
+      "longest_hold_s": 1.7,
+      "failures": [],
       "by_context": {
         "rest": {
           "duration_s": 20.0,
@@ -323,6 +344,9 @@
         }
       },
       "intervals_held_at_start": 0,
+      "stuck_open_holds": 0,
+      "longest_hold_s": 0.0,
+      "failures": [],
       "by_context": {
         "rest": {
           "duration_s": 60.0,
@@ -390,6 +414,9 @@
         }
       },
       "intervals_held_at_start": 0,
+      "stuck_open_holds": 0,
+      "longest_hold_s": 0.0,
+      "failures": [],
       "by_context": {
         "rest": {
           "duration_s": 20.0,
@@ -457,6 +484,9 @@
         "extra_starts": 0
       },
       "intervals_held_at_start": 0,
+      "stuck_open_holds": 0,
+      "longest_hold_s": 0.0,
+      "failures": [],
       "by_context": {
         "rest": {
           "duration_s": 17.0,
@@ -509,6 +539,11 @@
         "extra_starts": 6
       },
       "intervals_held_at_start": 3,
+      "stuck_open_holds": 1,
+      "longest_hold_s": 30.0,
+      "failures": [
+        "stuck_open"
+      ],
       "by_context": {
         "rest": {
           "duration_s": 219.0,
@@ -574,6 +609,11 @@
             "extra_starts": 1
           },
           "intervals_held_at_start": 3,
+          "stuck_open_holds": 1,
+          "longest_hold_s": 36.0,
+          "failures": [
+            "stuck_open"
+          ],
           "by_context": {
             "rest": {
               "duration_s": 219.0,
@@ -639,6 +679,11 @@
             "extra_starts": 1
           },
           "intervals_held_at_start": 3,
+          "stuck_open_holds": 1,
+          "longest_hold_s": 36.0,
+          "failures": [
+            "stuck_open"
+          ],
           "by_context": {
             "rest": {
               "duration_s": 219.0,
@@ -704,6 +749,11 @@
             "extra_starts": 1
           },
           "intervals_held_at_start": 3,
+          "stuck_open_holds": 1,
+          "longest_hold_s": 36.0,
+          "failures": [
+            "stuck_open"
+          ],
           "by_context": {
             "rest": {
               "duration_s": 219.0,
@@ -769,6 +819,11 @@
             "extra_starts": 1
           },
           "intervals_held_at_start": 3,
+          "stuck_open_holds": 1,
+          "longest_hold_s": 36.0,
+          "failures": [
+            "stuck_open"
+          ],
           "by_context": {
             "rest": {
               "duration_s": 219.0,
@@ -834,6 +889,11 @@
             "extra_starts": 6
           },
           "intervals_held_at_start": 3,
+          "stuck_open_holds": 1,
+          "longest_hold_s": 35.9,
+          "failures": [
+            "stuck_open"
+          ],
           "by_context": {
             "rest": {
               "duration_s": 219.0,
@@ -899,6 +959,11 @@
             "extra_starts": 6
           },
           "intervals_held_at_start": 3,
+          "stuck_open_holds": 1,
+          "longest_hold_s": 30.0,
+          "failures": [
+            "stuck_open"
+          ],
           "by_context": {
             "rest": {
               "duration_s": 219.0,
@@ -964,6 +1029,11 @@
             "extra_starts": 6
           },
           "intervals_held_at_start": 3,
+          "stuck_open_holds": 1,
+          "longest_hold_s": 30.0,
+          "failures": [
+            "stuck_open"
+          ],
           "by_context": {
             "rest": {
               "duration_s": 219.0,
@@ -1029,6 +1099,11 @@
             "extra_starts": 6
           },
           "intervals_held_at_start": 2,
+          "stuck_open_holds": 1,
+          "longest_hold_s": 15.9,
+          "failures": [
+            "stuck_open"
+          ],
           "by_context": {
             "rest": {
               "duration_s": 219.0,

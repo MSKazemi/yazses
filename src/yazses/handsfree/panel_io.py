@@ -153,8 +153,17 @@ def gather_panel_inputs(
     face = getattr(cfg, "facegesture", None)
     primary = str(getattr(face, "gesture", "jaw_open") or "jaw_open")
     baseline = ""
+    release_issues: tuple[tuple[str, str], ...] = ()
     if face is not None and any(f.slug == "facegesture" and f.enabled for f in features):
         baseline = _baseline(platform, primary)
+        try:
+            from yazses.handsfree.probe import face_release_findings
+
+            release_issues = tuple(
+                (f.message, f.remedy) for f in face_release_findings(cfg, platform.paths.data_dir)
+            )
+        except Exception:
+            release_issues = ()
     return PanelInputs(
         daemon_reachable=reachable,
         features=features,
@@ -171,6 +180,7 @@ def gather_panel_inputs(
         mode=str(getattr(face, "mode", "full_text") or "full_text"),
         use_baseline=bool(getattr(face, "use_baseline", False)),
         baseline=baseline,
+        release_issues=release_issues,
     )
 
 

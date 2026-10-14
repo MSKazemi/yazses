@@ -28,7 +28,7 @@ from typing import Any
 
 from yazses.handsfree.observability import HandsFreeFacts
 
-__all__ = ["calibration_facts", "facts_from_config", "pointer_facts"]
+__all__ = ["calibration_facts", "face_release_findings", "facts_from_config", "pointer_facts"]
 
 
 def facts_from_config(cfg: Any, *, unwired: frozenset[str] | None = None) -> HandsFreeFacts:
@@ -100,6 +100,54 @@ def calibration_facts(
     if calibration is None:
         return ("missing", "nothing has been calibrated on this machine yet")
     return (check.validity.value, check.reason)
+
+
+def face_release_findings(cfg: Any, data_dir: Path) -> tuple[Any, ...]:
+    """Why the face switch, as configured, could not let go -- the stuck-open microphone.
+
+    Empty unless ``[facegesture] enabled``. Reads the saved baseline (and, when asked for, the
+    saved levels) from ``data_dir`` -- a diagnostic command may read its own small calibration
+    files; the daemon's start-up path may not, and does not. Only gestures bound to a *hold*
+    action are judged: a gesture that selects or confirms has no microphone to leave open.
+    Total: any failure is "nothing found", because a probe that raises removes the command
+    that was going to explain the problem. See :mod:`yazses.facegesture.restcheck`.
+    """
+    try:
+        face = getattr(cfg, "facegesture", None)
+        if face is None or not getattr(face, "enabled", False):
+            return ()
+        from yazses.facegesture.calibration import baseline_path, load_baselines
+        from yazses.facegesture.detector import DEFAULT_GESTURE, GESTURES
+        from yazses.facegesture.levels import levels_path, load_levels
+        from yazses.facegesture.restcheck import assess_release
+        from yazses.facegesture.switches import HOLD_ACTIONS, parse_bindings
+
+        primary = (getattr(face, "gesture", "") or DEFAULT_GESTURE).strip().lower()
+        if primary not in GESTURES:
+            primary = DEFAULT_GESTURE
+        bindings, _problems = parse_bindings(
+            getattr(face, "switches", None), primary, getattr(face, "mode", "full_text")
+        )
+        baselines = load_baselines(baseline_path(data_dir))
+        levels = load_levels(levels_path(data_dir)) if getattr(face, "use_active_levels", False) else {}
+        found: list[Any] = []
+        for gesture, action in bindings.items():
+            if action not in HOLD_ACTIONS:
+                continue
+            found.extend(assess_release(
+                gesture,
+                face.hold_threshold,
+                face.release_threshold,
+                rest=baselines.get(gesture),
+                use_baseline=bool(getattr(face, "use_baseline", False)),
+                levels=levels.get(gesture),
+                use_active_levels=bool(getattr(face, "use_active_levels", False)),
+                hold_fraction=face.active_hold_fraction,
+                release_fraction=face.active_release_fraction,
+            ))
+        return tuple(found)
+    except Exception:
+        return ()
 
 
 def pointer_facts(facts: HandsFreeFacts, platform: Any) -> HandsFreeFacts:

@@ -187,6 +187,10 @@ class PanelInputs:
     use_baseline: bool = False
     #: ``"stored"`` / ``"missing"`` / ``""`` (not asked) for the primary gesture's baseline.
     baseline: str = ""
+    #: ``(message, remedy)`` pairs for a face switch that could not let go (a stuck-open
+    #: microphone): a saved resting level at or above the effective release threshold, or an
+    #: unreachable release threshold. Empty = none found. See ``facegesture/restcheck.py``.
+    release_issues: tuple[tuple[str, str], ...] = ()
 
 
 # ----------------------------------------------------------------------------- the outputs
@@ -786,6 +790,8 @@ def _health(inputs: PanelInputs) -> tuple[Row, ...]:
     base = _baseline_row(inputs)
     if base is not None:
         rows.append(base)
+    for message, remedy in inputs.release_issues:
+        rows.append(Row("Face switch release", "problem", message[:1].upper() + message[1:], remedy))
     return tuple(rows)
 
 

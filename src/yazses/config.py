@@ -599,6 +599,15 @@ class FacegestureConfig:
 
     OFF by default; needs a webcam + the ``gaze`` extra (opencv + mediapipe). Frames
     are processed in-RAM and never stored or transmitted (ADR-011).
+
+    **Stuck-open guard.** A face whose resting score is at or above ``release_threshold`` fires
+    once and never lets go: a microphone open indefinitely. ``max_hold_s`` (0 = off, the shipped
+    state) releases a hold that has lasted that many seconds, once, with a logged reason; the
+    switch re-arms only after it has read a score BELOW ``release_threshold``. It is off by
+    default because a face-only user's long dictation is a legitimate long hold; ``[audio]
+    max_record_seconds`` already drops audio past its cap, so setting this to that value loses
+    nothing the recorder would have kept. ``yazses doctor`` and ``yazses facegesture calibrate``
+    name the underlying cause whenever a saved resting level sits at or above the release.
     """
     enabled: bool = False
     gesture: str = "jaw_open"         # jaw_open | brow_raise | mouth_pucker | smile | eyes_closed
@@ -615,6 +624,7 @@ class FacegestureConfig:
     use_baseline: bool = False        # normalise the score against `yazses facegesture calibrate`
     confidence_floor: float = 0.0     # 0..1; frames below it never count toward a hold (0 = off)
     refractory_frames: int = 0        # frames after a release before a new hold may begin
+    max_hold_s: float = 0.0           # seconds: release a hold open this long, once (stuck-open guard; 0 = off)
     # Active-level calibration (EYE-FACE-004), dormant: `yazses facegesture calibrate --active`
     # (and `--talk`) store your own levels; with `use_active_levels` the hold/release thresholds
     # are derived between them per gesture, or left as written (reason logged) when rest, active
