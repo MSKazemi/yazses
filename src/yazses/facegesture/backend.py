@@ -29,6 +29,7 @@ count toward release, and the gaze and head-pose channels of the same sample are
 from __future__ import annotations
 
 import logging
+import math
 import threading
 import time
 from collections.abc import Callable, Mapping
@@ -49,8 +50,10 @@ from yazses.facegesture.levels import (
     GestureLevels,
     derive_thresholds,
 )
+from yazses.facegesture.restcheck import assess_release, format_findings
 from yazses.facegesture.shared import MAX_SAMPLE_AGE_S, NO_BLENDSHAPE_WARN_AFTER
 from yazses.facegesture.switches import (
+    HOLD_ACTIONS,
     SwitchAction,
     SwitchIntent,
     SwitchMapper,
@@ -146,6 +149,7 @@ class FaceGestureBackend:
         # One detector per watched gesture: every bound one, plus the primary (whose
         # detector is `self._switch`, kept for the single-gesture callers and tests).
         floor = getattr(config, "confidence_floor", 0.0)
+        max_hold_s = self._resolve_max_hold(config)
         self._switches: dict[str, GestureSwitch] = {}
         self._baselines: dict[str, Baseline | None] = {}
         self._derived: dict[str, Derivation] = {}
@@ -170,7 +174,10 @@ class FaceGestureBackend:
                 baseline=None if baseline is None else baseline.level,
                 confidence_floor=floor,
                 refractory_frames=getattr(config, "refractory_frames", 0),
+                max_hold_s=max_hold_s,
             )
+            if bindings.get(watched) in HOLD_ACTIONS:  # only a hold has a microphone to leave open
+                self._warn_if_cannot_release(config, baselines, levels, watched, hold_t, release_t)
         self._switch = self._switches[gesture]
         self._baseline = self._baselines[gesture]
         try:
@@ -194,6 +201,54 @@ class FaceGestureBackend:
             )
         fps = int(getattr(config, "fps", 15) or 15)
         self._interval = 1.0 / max(1, min(60, fps))
+
+    @staticmethod
+    def _resolve_max_hold(config) -> float:
+        """``[facegesture] max_hold_s`` as seconds, 0.0 (off) when unset or unreadable.
+
+        An unreadable value (a string, NaN, negative) is treated as off and said so once: the
+        alternative to a refused number is a guard that silently does something else.
+        """
+        raw = getattr(config, "max_hold_s", 0.0)
+        if raw in (0, 0.0, None):
+            return 0.0
+        try:
+            value = float(raw)
+        except (TypeError, ValueError):
+            value = float("nan")
+        if isinstance(raw, bool) or not math.isfinite(value) or value < 0.0:
+            log.warning(
+                "[facegesture] max_hold_s = %r is not a number of seconds >= 0; the "
+                "stuck-open limit stays off.", raw,
+            )
+            return 0.0
+        return value
+
+    def _warn_if_cannot_release(self, config, baselines, levels, gesture, hold_t, release_t) -> None:
+        """One warning, with the numbers, when this switch could not let go (stuck-open mic).
+
+        Only on a checkable fact (see :mod:`yazses.facegesture.restcheck`): an unreachable
+        release threshold, or a saved resting level at or above the effective release. The
+        daemon hands over baselines only when the user opted into them, so an install that
+        never calibrated is judged on its thresholds alone and nothing is read from disk here.
+        """
+        try:
+            findings = assess_release(
+                gesture,
+                getattr(config, "hold_threshold", hold_t),
+                getattr(config, "release_threshold", release_t),
+                rest=(baselines or {}).get(gesture),
+                use_baseline=bool(getattr(config, "use_baseline", False)),
+                levels=(levels or {}).get(gesture),
+                use_active_levels=bool(getattr(config, "use_active_levels", False)),
+                hold_fraction=getattr(config, "active_hold_fraction", DEFAULT_HOLD_FRACTION),
+                release_fraction=getattr(config, "active_release_fraction", DEFAULT_RELEASE_FRACTION),
+            )
+        except Exception:  # a diagnostic must never stop the switch from being built
+            log.debug("face-gesture: release check failed", exc_info=True)
+            return
+        for line in format_findings(findings):
+            log.warning("[facegesture] %s", line)
 
     def _resolve_derived(self, config, baselines, levels, gesture: str) -> Derivation | None:
         """``gesture``'s thresholds derived from its own levels, or None.
@@ -388,8 +443,9 @@ class FaceGestureBackend:
         self._mapper.frame(has_signal=face is not None)
         for name, switch in self._switches.items():
             reading = gesture_reading(face, name, now_s=now, max_age_s=self._max_age_s)
-            event = switch.update(reading.score, reading.confidence)
+            event = switch.update(reading.score, reading.confidence, now_s=now)
             if event is not None:
+                self._note_end(name, switch, event)
                 self._emit(name, event, reading.confidence)
 
     def _note_face_channel(self, face) -> None:
@@ -499,10 +555,12 @@ class FaceGestureBackend:
         # Liveness and suppression first: a gate that has closed releases open holds
         # before this frame can start a new one.
         self._mapper.frame(has_signal=shapes is not None)
+        now = self._clock()
         for name, switch in self._switches.items():
             reading = self._reading_for(shapes, name)
-            event = switch.update(reading.score, reading.confidence)
+            event = switch.update(reading.score, reading.confidence, now_s=now)
             if event is not None:
+                self._note_end(name, switch, event)
                 self._emit(name, event, reading.confidence)
 
     def _blendshapes(self, landmarker, cap, cv2, mp) -> dict[str, float] | None:
@@ -567,6 +625,17 @@ class FaceGestureBackend:
                 out.append(Reading(None, None))
             sleep(self._interval)
         return out
+
+    def _note_end(self, gesture: str, switch: GestureSwitch, event: str) -> None:
+        """Say, with the limit and the threshold, that the stuck-open guard ended a hold."""
+        if event != "end" or switch.last_end_reason != "max_hold":
+            return
+        log.warning(
+            "[facegesture] %r was held for %g s (max_hold_s) and was released. It re-arms "
+            "once your face scores below release_threshold %.2f. If that is your relaxed "
+            "face, it cannot let go: run `yazses doctor` or `yazses facegesture calibrate`.",
+            gesture, switch.max_hold_s, switch.thresholds[1],
+        )
 
     def _emit(self, gesture: str, event: str, confidence: float | None) -> None:
         """Hand one intent to the sink without letting it kill the capture thread.

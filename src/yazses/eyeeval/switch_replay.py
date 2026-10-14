@@ -31,6 +31,14 @@ what makes a committed report reviewable in a diff.
 * **Latency** is the first start's sample minus the interval's first sample, in milliseconds.
   It includes the debounce (``min_hold_frames``), which is the point.
 
+A hold is **stuck open** when the switch stays held across a stretch in which the person was
+labelled as not gesturing: it is still held at the first sample of a deliberate interval it did
+not begin in (``held_at_start``), or it spans a whole labelled non-deliberate segment, or it is
+still open when the trace ends in a non-deliberate segment (only the shutdown drain closed it). That is a
+named failure of its own (``stuck_open``), not a phantom: a phantom is a count of actions, a stuck
+hold is one action that never ended -- for hold-to-talk, a microphone open indefinitely. The
+``longest_hold_s`` next to it is the longest single hold in the trace.
+
 The **exposure** the phantom rate is divided by is every sample outside a deliberate window,
 in wall-clock seconds, whether or not the face was tracked; ``non_deliberate_usable_fraction``
 says how much of it carried a trustworthy reading. A stretch with no tracking contributes
@@ -87,7 +95,10 @@ from yazses.facegesture.detector import GestureSwitch
 from yazses.facegesture.switches import ACTIONS, SwitchAction, SwitchMapper, make_intent
 
 #: The report envelope version. ``MAJOR.MINOR``.
-REPORT_VERSION = "1.0"
+REPORT_VERSION = "1.1"
+
+#: The one named failure the report carries beyond the counts: a hold that never let go.
+STUCK_OPEN = "stuck_open"
 
 #: Repeated verbatim into every report so a reader of the JSON alone is told.
 NO_THRESHOLD_NOTICE = (
@@ -121,6 +132,11 @@ METRIC_DEFINITIONS = {
     "activation_latency_ms": "first start sample minus the deliberate interval's first sample, "
     "debounce included",
     "chatter": "more than one start inside one deliberate window",
+    "stuck_open_holds": "holds still open at the first sample of a deliberate interval they did not "
+    "begin in, or spanning a whole non-deliberate labelled segment: a switch that never let go",
+    "longest_hold_s": "the longest single hold, from its start to its end (or to the end of the trace "
+    "if it never ended), in seconds",
+    "failures": "named failures present in this block; 'stuck_open' when stuck_open_holds > 0",
 }
 
 
@@ -161,6 +177,7 @@ class SwitchConfig:
     use_trace_baseline: bool = False
     action: str = "hold_to_talk"
     match_grace_samples: int = 0
+    max_hold_s: float = 0.0
 
     def problems(self) -> list[str]:
         out: list[str] = []
@@ -175,6 +192,9 @@ class SwitchConfig:
                 out.append(f"{name}: expected an integer >= {low}, got {value!r}.")
         if self.action not in ACTIONS:
             out.append(f"action: {self.action!r} is not one of {ACTIONS}.")
+        mh = self.max_hold_s
+        if isinstance(mh, bool) or not isinstance(mh, (int, float)) or not math.isfinite(mh) or mh < 0.0:
+            out.append(f"max_hold_s: expected a finite number of seconds >= 0 (0 = off), got {mh!r}.")
         return out
 
     def check(self) -> None:
@@ -193,6 +213,7 @@ class SwitchConfig:
             "use_trace_baseline": self.use_trace_baseline,
             "action": self.action,
             "match_grace_samples": self.match_grace_samples,
+            "max_hold_s": self.max_hold_s,
         }
 
 
@@ -230,6 +251,8 @@ class TraceResult:
     release_repaired: bool
     baseline_applied: float | None
     intervals: tuple[IntervalOutcome, ...]
+    stuck_open_holds: int                          # holds that never let go (see the module docstring)
+    longest_hold_samples: int                      # longest single hold, in samples
     phantom_samples: tuple[int, ...]               # sample index of every phantom start
     phantom_contexts: tuple[str, ...]              # context each phantom began in
     exposure_samples: dict[str, int]               # non-deliberate samples per context
@@ -281,6 +304,7 @@ def replay_trace(trace: SwitchTrace, config: SwitchConfig | None = None) -> Trac
         baseline=baseline,
         confidence_floor=config.confidence_floor,
         refractory_frames=config.refractory_frames,
+        max_hold_s=config.max_hold_s,
     )
     cursor_frame = 0
     presses: list[int] = []
@@ -294,14 +318,23 @@ def replay_trace(trace: SwitchTrace, config: SwitchConfig | None = None) -> Trac
 
     status = bytearray(n)  # 1 = a trustworthy reading
     sample_status: Counter[str] = Counter()
+    spans: list[tuple[int, int]] = []  # (sample of a hold's start, sample of its end or n)
+    open_at: int | None = None
     for i in range(n):
         cursor_frame = i
         held_at[i] = switch.held
-        event = switch.update(trace.scores[i], trace.confidences[i])
+        event = switch.update(trace.scores[i], trace.confidences[i], now_s=i / rate)
         sample_status[switch.last_frame] += 1
         status[i] = 1 if switch.last_frame == "reading" else 0
+        if event == "start":
+            open_at = i
+        elif event == "end" and open_at is not None:
+            spans.append((open_at, i))
+            open_at = None
         if event is not None:
             mapper.handle(make_intent(trace.gesture, event, trace.confidences[i], now_s=i / rate))
+    if open_at is not None:
+        spans.append((open_at, n))  # never ended: only the shutdown drain below closes it
     end_event = switch.reset()
     if end_event is not None:
         mapper.handle(make_intent(trace.gesture, end_event, None, now_s=n / rate))
@@ -323,6 +356,7 @@ def replay_trace(trace: SwitchTrace, config: SwitchConfig | None = None) -> Trac
         IntervalOutcome(start=start, end=end, starts=tuple(per_window[k]), held_at_start=held_at[start])
         for k, (start, end) in enumerate(deliberate)
     )
+    stuck = _stuck_open_holds(spans, deliberate, trace, n)
 
     exposure: Counter[str] = Counter()
     usable: Counter[str] = Counter()
@@ -348,6 +382,8 @@ def replay_trace(trace: SwitchTrace, config: SwitchConfig | None = None) -> Trac
         release_repaired=switch.repaired_release,
         baseline_applied=baseline,
         intervals=intervals,
+        stuck_open_holds=stuck,
+        longest_hold_samples=max((e - b for b, e in spans), default=0),
         phantom_samples=tuple(phantom_samples),
         phantom_contexts=tuple(phantom_contexts),
         exposure_samples=dict(exposure),
@@ -356,6 +392,40 @@ def replay_trace(trace: SwitchTrace, config: SwitchConfig | None = None) -> Trac
         deliberate_usable=deliberate_usable,
         sample_status=dict(sample_status),
     )
+
+
+def _stuck_open_holds(
+    spans: Sequence[tuple[int, int]],
+    deliberate: Sequence[tuple[int, int]],
+    trace: SwitchTrace,
+    n: int,
+) -> int:
+    """How many holds never let go across a stretch labelled as not gesturing.
+
+    A hold started at sample ``b`` and ended at ``e`` (``n`` when it never did) is on for the
+    samples ``b+1 .. e`` as the switch saw them. It is stuck open when that covers the first
+    sample of a deliberate interval it did not begin in, or every sample of a non-deliberate
+    labelled segment, or when it never ended and the trace's last segment is non-deliberate (it
+    was still open after the person had been labelled at rest right up to the end). All are plain
+    index comparisons: the harness decides nothing about scores.
+    """
+    quiet: list[tuple[int, int]] = []
+    cursor = 0
+    for segment in trace.segments:
+        if segment.context != DELIBERATE:
+            quiet.append((cursor, cursor + segment.samples))
+        cursor += segment.samples
+    ends_quiet = bool(trace.segments) and trace.segments[-1].context != DELIBERATE
+    count = 0
+    for b, e in spans:
+        last_on = min(e, n - 1)
+        if (
+            any(b < d <= last_on for d, _ in deliberate)
+            or any(b < a and last_on >= z - 1 for a, z in quiet)
+            or (e >= n and ends_quiet)
+        ):
+            count += 1
+    return count
 
 
 # --------------------------------------------------------------------------- #
@@ -454,6 +524,7 @@ def aggregate(results: Sequence[TraceResult]) -> dict[str, Any]:
     for r in results:
         statuses.update(r.sample_status)
     total_samples = sum(r.samples for r in results)
+    stuck_open = sum(r.stuck_open_holds for r in results)
 
     first = results[0]
     chatter: dict[str, Any]
@@ -501,6 +572,9 @@ def aggregate(results: Sequence[TraceResult]) -> dict[str, Any]:
         ),
         "chatter": chatter,
         "intervals_held_at_start": sum(1 for iv in intervals if iv.held_at_start),
+        "stuck_open_holds": stuck_open,
+        "longest_hold_s": round(max(r.longest_hold_samples / r.sample_rate_hz for r in results), 6),
+        "failures": [STUCK_OPEN] if stuck_open else [],
         "by_context": by_context,
         "sample_status": {
             name: statuses.get(name, 0)
@@ -620,6 +694,7 @@ __all__ = [
     "CONTEXTS",
     "NO_THRESHOLD_NOTICE",
     "REPORT_VERSION",
+    "STUCK_OPEN",
     "ZERO_DENOMINATOR_RULE",
     "IntervalOutcome",
     "SwitchConfig",

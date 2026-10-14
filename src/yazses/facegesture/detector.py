@@ -144,6 +144,17 @@ class GestureSwitch:
     **Refractory.** ``refractory_frames`` frames after an ``"end"`` no score counts toward a
     new hold, so a gesture that bounces on release does not re-fire. Zero (the default) is
     the behaviour before this existed.
+
+    **Maximum hold.** ``max_hold_s`` (seconds, default 0 = off) bounds how long one hold may
+    stay open. It exists for one specific, checkable failure: a face whose *resting* score
+    sits at or above ``release_threshold`` fires once and can never let go, which for
+    hold-to-talk is a microphone open indefinitely. When a hold has lasted ``max_hold_s`` the
+    switch emits one ordinary ``"end"`` (``last_end_reason == "max_hold"``) and **latches**:
+    it counts no new hold until it has observed a real reading *below* ``release_threshold``,
+    so a stuck switch cannot immediately re-fire. A frame with no reading never clears the
+    latch (a camera dropout is not evidence the face relaxed). The clock is the caller's
+    ``now_s`` -- this class reads none -- and without a finite ``now_s`` the limit is not
+    enforced. It only ever *ends* a hold; nothing about it gates a release.
     """
 
     def __init__(
@@ -156,6 +167,7 @@ class GestureSwitch:
         baseline: float | None = None,
         confidence_floor: float = 0.0,
         refractory_frames: int = 0,
+        max_hold_s: float = 0.0,
     ) -> None:
         hold = _clamp01(hold_threshold)
         release = _clamp01(release_threshold)
@@ -177,10 +189,14 @@ class GestureSwitch:
         self._floor = _floor(confidence_floor)
         self._refractory = max(0, int(refractory_frames))
         self._cooldown = 0
+        self._max_hold_s = _max_hold(max_hold_s)
+        self._held_since: float | None = None
+        self._latched = False
         self._held = False
         self._above = 0
         self._below = 0
         self._last_frame = "no_reading"
+        self._last_end = ""
 
     @property
     def held(self) -> bool:
@@ -199,7 +215,30 @@ class GestureSwitch:
         non-reading values are all treated as release candidates, never as a hold."""
         return self._last_frame
 
-    def update(self, score: float | None, confidence: float | None = None) -> str | None:
+    @property
+    def max_hold_s(self) -> float:
+        """The effective maximum hold in seconds; 0.0 means the limit is off."""
+        return self._max_hold_s
+
+    @property
+    def latched(self) -> bool:
+        """True after a max-hold release, until a reading below ``release_threshold``."""
+        return self._latched
+
+    @property
+    def last_end_reason(self) -> str:
+        """Why the latest ``"end"`` happened: ``"release"``, ``"max_hold"`` or ``"reset"``.
+
+        Empty before the first end. Read it right after :meth:`update` returned ``"end"``.
+        """
+        return self._last_end
+
+    def update(
+        self,
+        score: float | None,
+        confidence: float | None = None,
+        now_s: float | None = None,
+    ) -> str | None:
         """Advance one frame; return ``"start"``, ``"end"`` or None. Pure state.
 
         ``score`` is None when the frame produced no reading — no face in view,
@@ -211,17 +250,27 @@ class GestureSwitch:
         """
         value = self._frame_value(score, confidence)
 
+        if self._latched:
+            # Tripped by the maximum hold. Only a genuine reading below release re-arms: a
+            # sentinel (no face, low confidence, unusable baseline) is not evidence that the
+            # face relaxed, and the stuck state is exactly a score that never falls.
+            if self._last_frame == "reading" and value < self._release_threshold:
+                self._latched = False
+            else:
+                self._above = 0
+                return None
+
         if self._held:
             if value < self._release_threshold:
                 self._below += 1
                 self._above = 0
                 if self._below >= self._min_release:
-                    self._held = False
-                    self._below = 0
-                    self._cooldown = self._refractory
-                    return "end"
+                    return self._end("release")
             else:
                 self._below = 0
+            if self._over_max_hold(now_s):
+                self._latched = True
+                return self._end("max_hold")
             return None
 
         if self._cooldown > 0:
@@ -234,11 +283,33 @@ class GestureSwitch:
             self._below = 0
             if self._above >= self._min_hold:
                 self._held = True
+                self._held_since = _finite_time(now_s)
                 self._above = 0
                 return "start"
         else:
             self._above = 0
         return None
+
+    def _end(self, reason: str) -> str:
+        self._held = False
+        self._held_since = None
+        self._below = 0
+        self._above = 0
+        self._cooldown = self._refractory
+        self._last_end = reason
+        return "end"
+
+    def _over_max_hold(self, now_s: float | None) -> bool:
+        """Has the open hold lasted ``max_hold_s``? False when off, untimed or the clock jumped back."""
+        if self._max_hold_s <= 0.0:
+            return False
+        now = _finite_time(now_s)
+        if now is None:
+            return False
+        if self._held_since is None:
+            self._held_since = now  # the hold began on an untimed frame: start counting here
+            return False
+        return (now - self._held_since) >= self._max_hold_s
 
     def reset(self) -> str | None:
         """Drop any in-flight hold; return ``"end"`` if one was open. Pure state.
@@ -248,8 +319,11 @@ class GestureSwitch:
         """
         self._above = self._below = 0
         self._cooldown = 0
+        self._latched = False
+        self._held_since = None
         if self._held:
             self._held = False
+            self._last_end = "reset"
             return "end"
         return None
 
@@ -285,6 +359,17 @@ def _finite(value: object) -> bool:
         return False
 
 
+def _finite_time(value: object) -> float | None:
+    return float(value) if value is not None and _finite(value) else None  # type: ignore[arg-type]
+
+
+def _max_hold(value: object) -> float:
+    """A maximum hold in seconds; anything unreadable, negative or non-finite is 0.0 (off)."""
+    if value is None or isinstance(value, bool) or not _finite(value):
+        return 0.0
+    return max(0.0, float(value))  # type: ignore[arg-type]
+
+
 def _floor(value: object) -> float:
     """A confidence floor in 0..1; anything unreadable is 0.0 (gate off), not a lockout."""
     if not _finite(value):
@@ -296,5 +381,10 @@ def _clamp01(value: float) -> float:
     try:
         v = float(value)
     except (TypeError, ValueError):
+        return 0.5
+    if math.isnan(v):
+        # NaN compares false against everything, so a NaN release threshold could never be
+        # crossed and the hold it belongs to could never end. A non-number already falls back
+        # to the default above; NaN does the same. (+-inf clamp to the ends, as before.)
         return 0.5
     return 0.0 if v < 0.0 else (1.0 if v > 1.0 else v)

@@ -1260,7 +1260,19 @@ def _handsfree_checks(
             read_context=read_context,
         )
         facts = replace(facts, calibration_validity=validity, calibration_reason=reason)
-    return list(doctor_rows(facts))
+    rows = list(doctor_rows(facts))
+    # A face switch that cannot let go holds the microphone open. Its own row, WARN, with the
+    # numbers: this is a comparison of two saved numbers, so it is as certain as `doctor` gets.
+    from yazses.handsfree.probe import face_release_findings
+
+    stuck = [
+        ("Face switch release", "WARN", f"{f.message}\n{f.remedy}")
+        for f in face_release_findings(cfg, platform.paths.data_dir)
+    ]
+    if stuck:
+        at = next((i + 1 for i, r in enumerate(rows) if r[0] == "Face switch"), len(rows))
+        rows[at:at] = stuck
+    return rows
 
 
 def _window_focus_check(is_wayland: bool, is_x11: bool, cfg=None) -> _Check | None:
