@@ -372,7 +372,24 @@ Run the command instead of only printing it.
 Confirm a destructive command so --run will run it.
 .RE
 .SS "yazses handsfree"
-Stop, re-arm and inspect every camera-driven hands-free input at once.
+Turn on the hands-free preset; stop, re-arm and inspect every camera-driven input at once.
+.TP
+\fByazses handsfree disable\fR
+Turn the hands-free preset OFF: stops the pointer and switch now, frees the camera on restart.
+.TP
+\fByazses handsfree enable\fR
+Turn the hands-free preset ON: one switch that sets the ordinary feature configs.
+.RS
+.TP
+\fB\-\-force\fR
+Allow the experimental camera features the preset turns on.
+.TP
+\fB\-\-no\-install\fR
+Don't auto-install the camera features' optional deps.
+.RE
+.TP
+\fByazses handsfree explain\fR
+Print the ordinary feature settings the hands-free preset sets, without applying anything.
 .TP
 \fByazses handsfree pause\fR
 Stop all hands-free input: no pointer motion, no click, no face-switch key press.

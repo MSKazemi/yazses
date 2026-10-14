@@ -550,6 +550,11 @@ class GazeConfig:
     # at. Sub-flag of the (opt-in) gaze feature; destructive actions honour
     # confirm_destructive above via an actionable confirm toast.
     deixis: bool = True
+    # Recovery hierarchy (ADR-v2-148): when gaze could not choose a window and the target is
+    # only the focused one, a destructive deixis action ("close this") is REFUSED, with
+    # feedback, instead of closing the focused window. Off keeps ADR-v2-010's behaviour (run on
+    # the focused window). The hands-free preset turns it on; so can you, by hand.
+    refuse_destructive_fallback: bool = False
 
 
 @dataclass
@@ -1352,6 +1357,28 @@ class HandsfreeSafetyConfig:
 
 
 @dataclass
+class HandsfreeConfig:
+    """Hands-free preset -- a composition of ordinary feature configs (ADR-v2-148). OFF by default.
+
+    ``enabled = true`` makes the loader fill in the same keys you could have written by hand
+    (`yazses handsfree explain` prints them, with where each came from); nothing reads this
+    section at runtime, so the preset adds no code path of its own. A key you set yourself
+    always wins over the preset, except the safety floor (global stop, destructive-command
+    confirmation, no destructive fallback), where a contrary value makes the preset refuse
+    and say which key. The other keys choose which roles to compose; all default to on.
+
+    **Every value the preset supplies is a provisional, unmeasured starting value**
+    (design/eye-control/GOVERNANCE.md): no field evidence exists to tune them from.
+    """
+    enabled: bool = False
+    gaze: bool = True      # Glance-Type: look at a window to target dictation and "close this"
+    pointer: bool = True   # Head-Pointer: the head moves the cursor
+    dwell: bool = True     # commit a click by holding the pointer still (needs [overlay] shown)
+    switch: bool = True    # face switch: hold a jaw-open to dictate, no key
+    chords: bool = True    # Gesture Chords: brow-raise + nod recenters, brow-raise + shake stops
+
+
+@dataclass
 class LipreadConfig:
     """v2.3 Wave G — Silent Lip-Reading Input / VSR (ADR-v2-053). OFF by default."""
     enabled: bool = False
@@ -2117,6 +2144,7 @@ class Config:
     screengrounded: ScreengroundedConfig = field(default_factory=ScreengroundedConfig)
     headpointer: HeadpointerConfig = field(default_factory=HeadpointerConfig)
     handsfree_safety: HandsfreeSafetyConfig = field(default_factory=HandsfreeSafetyConfig)
+    handsfree: HandsfreeConfig = field(default_factory=HandsfreeConfig)
     lipread: LipreadConfig = field(default_factory=LipreadConfig)
     sign: SignConfig = field(default_factory=SignConfig)
     convert: ConvertConfig = field(default_factory=ConvertConfig)
@@ -2290,6 +2318,15 @@ def load_config_checked(path: Path | None = None) -> LoadedConfig:
             ConfigProblem("", "", f"could not be read ({exc}); using defaults throughout", False)
         )
         return LoadedConfig(Config(), problems, path)
+
+    # The hands-free preset (ADR-v2-148) is a rewrite of the *raw file* into the ordinary keys a
+    # user could have written, done before any section is built, so everything downstream reads
+    # an ordinary config. It is the only thing that ever reads `[handsfree]`.
+    from yazses.handsfree.preset import resolve_raw
+
+    data, preset = resolve_raw(data)
+    if preset.refusal:
+        problems.append(ConfigProblem("handsfree", "enabled", f"preset not applied: {preset.refusal}", False))
 
     hints = typing.get_type_hints(Config)
     fields = {f.name for f in dataclasses.fields(Config)}

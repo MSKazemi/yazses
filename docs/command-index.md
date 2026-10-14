@@ -318,7 +318,22 @@ Turn a spoken git command into a git command — fully offline.
 
 ## `yazses handsfree`
 
-Stop, re-arm and inspect every camera-driven hands-free input at once.
+Turn on the hands-free preset; stop, re-arm and inspect every camera-driven input at once.
+
+### `yazses handsfree disable`
+
+Turn the hands-free preset OFF: stops the pointer and switch now, frees the camera on restart.
+
+### `yazses handsfree enable`
+
+Turn the hands-free preset ON: one switch that sets the ordinary feature configs.
+
+- `--force` — Allow the experimental camera features the preset turns on.
+- `--no-install` — Don't auto-install the camera features' optional deps.
+
+### `yazses handsfree explain`
+
+Print the ordinary feature settings the hands-free preset sets, without applying anything.
 
 ### `yazses handsfree pause`
 

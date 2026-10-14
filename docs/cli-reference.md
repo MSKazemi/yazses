@@ -1420,11 +1420,19 @@ Stop, re-arm and inspect every camera-driven hands-free input at once (the same 
 | `yazses handsfree status` | State (active, paused or faulted), health of the camera, pointer, calibration and face switch, and what to do next. States, flags and ages only. |
 | `yazses handsfree pause` | Stop all hands-free input. With `[handsfree_safety]` off it stops the Head-Pointer only, and says so. |
 | `yazses handsfree resume` | Explicit re-arm after a pause or a fault. Refused, with the reason, while a source is stale or faulted. |
+| `yazses handsfree enable` | Turn the hands-free preset on: writes only `[handsfree] enabled = true`; the per-feature settings are filled in when the config loads. Needs `--force` (it turns on experimental camera features); refused, naming the key, if your config weakens the safety floor. |
+| `yazses handsfree explain` | Print the exact per-feature settings the preset sets, and which are yours, without applying anything. Works whether or not the preset is on. |
+| `yazses handsfree disable` | Turn the preset off: stops hands-free input now and says what `yazses restart` releases (the camera). Your calibration and your own settings are kept. |
 
 ```bash
 yazses handsfree status   # is it active, paused or faulted, and why
 yazses handsfree pause    # stop everything
 yazses handsfree resume   # re-arm once the signal is back
+yazses handsfree explain  # what the preset sets, and what is yours
+yazses handsfree enable --force   # compose gaze + head pointer + face switch + chords
+yazses handsfree disable  # stop it; yazses restart releases the camera
+```
+
 ### `yazses gesture`
 
 Control Gesture Chords while they run (`yazses features enable gesture`, then bind chords under `[gesture.chords]`): see what is bound and why nothing fires, or stop them acting. Every subcommand is a single call to the daemon and takes no coordinate.

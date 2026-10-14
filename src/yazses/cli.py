@@ -6534,7 +6534,7 @@ def headpointer_dwell(
 
 handsfree_app = typer.Typer(
     name="handsfree",
-    help="Stop, re-arm and inspect every camera-driven hands-free input at once.",
+    help="Turn on the hands-free preset; stop, re-arm and inspect every camera-driven input at once.",
     context_settings=CONTEXT_SETTINGS,
     no_args_is_help=True,
 )
@@ -6611,6 +6611,129 @@ def handsfree_resume() -> None:
             typer.echo(f"Re-armed so far: {scope}.", err=True)
         raise typer.Exit(1)
     typer.echo(f"Resumed: {scope or 'hands-free input'}.")
+
+
+def _handsfree_raw_config(config_file) -> dict:
+    """The user's config file as parsed, or ``{}`` when it is missing or unreadable."""
+    from pathlib import Path
+
+    from yazses import tomlio
+
+    try:
+        path = Path(config_file)
+        return tomlio.read(path) if path.exists() else {}
+    except Exception:  # an unparseable file: the loader already reports it; explain on defaults
+        return {}
+
+
+@handsfree_app.command(
+    "explain",
+    epilog=_examples("yazses handsfree explain    the exact per-feature config the preset sets, and why"),
+)
+def handsfree_explain() -> None:
+    """Print the ordinary feature settings the hands-free preset sets, without applying anything.
+
+    Works whether or not the preset is on: off, it shows what `enable` would set. Each line says
+    whether the value is the preset's or yours (a key you wrote yourself always wins, except the
+    safety floor). Prints names and values only -- it never opens the camera.
+    """
+    from yazses.handsfree.preset import expand, render
+
+    platform = get_platform()
+    raw = _handsfree_raw_config(platform.paths.config_file)
+    expansion = expand(raw, assume_enabled=True)
+    on = expand(raw).requested
+    for line in render(expansion, enabled_in_file=on):
+        typer.echo(line)
+
+
+@handsfree_app.command(
+    "enable",
+    epilog=_examples(
+        "yazses handsfree enable    compose gaze + head pointer + face switch + chords",
+        "yazses handsfree explain   see exactly what that sets",
+        "yazses restart            apply the change",
+    ),
+)
+def handsfree_enable(
+    force: bool = typer.Option(
+        False, "--force", help="Allow the experimental camera features the preset turns on."
+    ),
+    no_install: bool = typer.Option(
+        False, "--no-install", help="Don't auto-install the camera features' optional deps."
+    ),
+) -> None:
+    """Turn the hands-free preset ON: one switch that sets the ordinary feature configs.
+
+    Writes only `[handsfree] enabled = true`; the per-feature settings are filled in when the
+    config is loaded, so `yazses handsfree explain` shows them and a value you set yourself wins.
+    Refuses, naming the key, if your config weakens the safety floor.
+    """
+    from yazses.handsfree.preset import expand
+    from yazses.system.configedit import set_config_key
+    from yazses.system.features import EXPERIMENTAL, find_feature
+
+    platform = get_platform()
+    raw = _handsfree_raw_config(platform.paths.config_file)
+    expansion = expand(raw, assume_enabled=True)
+    if expansion.refusal:
+        typer.echo(f"Hands-free preset not enabled. {expansion.refusal}", err=True)
+        raise typer.Exit(1)
+
+    from yazses.config import load_config
+
+    cfg = load_config(platform.paths.config_file)
+    feats = [f for f in (find_feature(cfg, slug) for slug in expansion.features) if f is not None]
+    experimental = [f for f in feats if f.tier == EXPERIMENTAL]
+    if experimental and not force:
+        names = ", ".join(f.name for f in experimental)
+        typer.echo(f"The hands-free preset turns on experimental features ({names}).", err=True)
+        typer.echo("Enable anyway with: yazses handsfree enable --force", err=True)
+        raise typer.Exit(1)
+    for feat in feats:
+        blocked = _feature_deps_blocked(feat)
+        if blocked is not None:
+            typer.echo(f"Can't enable the hands-free preset: {feat.name}: {blocked}", err=True)
+            raise typer.Exit(1)
+    set_config_key(platform.paths.config_file, "handsfree", "enabled", True)
+    typer.echo("Enabled the hands-free preset. Its values are provisional starting points.")
+    for feat in feats:
+        _install_feature_deps(feat, skip=no_install)
+    typer.echo("See what it sets:  yazses handsfree explain")
+    typer.echo("Stop any time:     yazses handsfree pause")
+    typer.echo("Apply it:          yazses restart")
+
+
+@handsfree_app.command(
+    "disable",
+    epilog=_examples(
+        "yazses handsfree disable    stop pointer, switch and camera consumers",
+        "yazses restart              release the camera",
+    ),
+)
+def handsfree_disable() -> None:
+    """Turn the hands-free preset OFF: stops the pointer and switch now, frees the camera on restart.
+
+    Writes `[handsfree] enabled = false` and, if the daemon is running, pauses every hands-free
+    input at once so nothing keeps moving the pointer until the restart releases the camera.
+    Your calibration and any value you set yourself are kept.
+    """
+    from yazses.system.configedit import set_config_key
+
+    platform = get_platform()
+    set_config_key(platform.paths.config_file, "handsfree", "enabled", False)
+    typer.echo("Disabled the hands-free preset.")
+    try:
+        client = platform.ipc_client_factory(platform.paths.ipc_socket)
+        result = client.call("handsfree", action="pause")
+    except Exception:  # no daemon running: nothing to stop
+        result = None
+    if isinstance(result, dict) and result.get("ok"):
+        scope = ", ".join(str(x) for x in result.get("scope") or []) or "hands-free input"
+        typer.echo(f"Paused now: {scope}.")
+    typer.echo("Apply it (releases the camera):  yazses restart")
+
+
 gesture_app = typer.Typer(
     name="gesture",
     help="Control Gesture Chords: see what is bound and why nothing fires, pause or resume them.",

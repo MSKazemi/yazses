@@ -96,6 +96,10 @@ def test_a_default_daemon_asks_for_no_camera_and_registers_no_gate_source():
     assert _daemon(cfg)._build_perception_source(cfg) is None
     cfg.handsfree_safety.enabled = True
     gate = _daemon(cfg)._build_handsfree_safety(cfg)
+    # No Head-Pointer, no source: one that never samples would hold the state at PAUSED for ever.
+    assert [s.name for s in gate.status().sources] == []
+    cfg.headpointer.enabled = True
+    gate = _daemon(cfg)._build_handsfree_safety(cfg)
     assert [s.name for s in gate.status().sources] == ["headpointer"]
 
 
@@ -152,8 +156,11 @@ def test_the_gate_registers_the_gesture_source_only_when_chords_can_run():
     cfg.handsfree_safety.enabled = True
     cfg.gesture.enabled = True                 # but no chord: nothing would ever sample it
     names = [s.name for s in _daemon(cfg)._build_handsfree_safety(cfg).status().sources]
-    assert names == ["headpointer"]
+    assert names == []
     cfg.gesture.chords = {"nod": "recenter"}
+    names = [s.name for s in _daemon(cfg)._build_handsfree_safety(cfg).status().sources]
+    assert names == ["gesture"]
+    cfg.headpointer.enabled = True
     names = [s.name for s in _daemon(cfg)._build_handsfree_safety(cfg).status().sources]
     assert names == ["gesture", "headpointer"]
 
