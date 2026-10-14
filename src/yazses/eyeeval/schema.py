@@ -32,7 +32,8 @@ produced it is not a measurement; this reuses the lesson instead of relearning i
 
 ## Versioning and compatibility rule
 
-`schema_version` is `"MAJOR.MINOR"`.
+`schema_version` is `"MAJOR.MINOR"`, both parts plain decimal numbers (`parse_schema_version`);
+`"1.x"` is malformed, `"1.999"` is a later 1.x.
 
 * **Same MAJOR — accepted.** Unknown fields, at any depth, are *ignored and preserved*,
   never an error. A later minor version may therefore add a field and older readers still
@@ -50,6 +51,7 @@ therefore not have a member called `value`.
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 #: The schema version this module implements and writes.
@@ -115,6 +117,29 @@ FORBIDDEN_FIELD_TOKENS = (
     "raw_frame", "raw_video", "frame_bytes", "face_image", "screenshot", "landmark",
     "transcript", "dictated", "window_title", "home_path", "github",
 )
+
+
+# ASCII digits only and no leading zero: `str.isdigit()` is true for Arabic-Indic and
+# superscript digits (some of which `int()` accepts and some of which it raises on), and
+# "1.01" would otherwise be a second spelling of "1.1". The length caps keep `int()` far
+# from its integer-string limit; no real schema will reach a four-digit major.
+_VERSION = re.compile(r"(0|[1-9][0-9]{0,3})\.(0|[1-9][0-9]{0,5})")
+
+
+def parse_schema_version(value: Any) -> tuple[int, int] | None:
+    """``"MAJOR.MINOR"`` as two integers, or ``None`` if it is not exactly that. Pure.
+
+    Both halves are checked. The minor is *not* otherwise constrained: by the compatibility
+    rule above any minor within a supported major is readable, so ``"1.999"`` parses and
+    ``"1.x"`` does not. Shared with ``yazses.eyeeval.tasks`` so the result schema and the
+    task fixtures cannot grow two version grammars.
+    """
+    if not isinstance(value, str):
+        return None
+    match = _VERSION.fullmatch(value)
+    if match is None:
+        return None
+    return int(match.group(1)), int(match.group(2))
 
 
 class EyeEvalSchemaError(ValueError):
@@ -187,12 +212,13 @@ def validate_result(doc: Any) -> list[str]:
         return [f"<root>: expected a JSON object, got {type(doc).__name__}."]
 
     version = doc.get("schema_version")
-    if not isinstance(version, str) or version.count(".") != 1 or not version.split(".")[0].isdigit():
+    parsed = parse_schema_version(version)
+    if parsed is None:
         return [
             f"schema_version: missing or malformed (got {version!r}); expected "
-            f'"MAJOR.MINOR", e.g. "{SCHEMA_VERSION}".'
+            f'"MAJOR.MINOR" with both parts plain decimal numbers, e.g. "{SCHEMA_VERSION}".'
         ]
-    major = int(version.split(".")[0])
+    major = parsed[0]
     if major != SUPPORTED_MAJOR:
         return [
             f"schema_version: {version!r} has major version {major}; this reader implements "

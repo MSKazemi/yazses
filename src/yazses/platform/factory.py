@@ -5,7 +5,7 @@ from __future__ import annotations
 import sys
 from functools import lru_cache
 
-from yazses.platform.base import Paths, Platform, UnsupportedPlatformError
+from yazses.platform.base import HostInfo, Paths, Platform, UnsupportedPlatformError
 
 # What still works when there is no OS backend at all. Roughly half of YazSes
 # never touches the platform layer: transcribing a file, and the text commands,
@@ -52,6 +52,34 @@ def get_platform() -> Platform:
         from yazses.platform.bsd import build_platform  # noqa: F811
         return build_platform()
     raise _unsupported(sys.platform)
+
+
+def describe_host() -> HostInfo:
+    """Facts about this machine's OS, resolvable on **any** OS and never cached.
+
+    The seam for code that only needs to *describe* the host -- the camera packaging
+    detector and the eye-control provenance collector -- so it does not branch on
+    ``sys.platform`` itself. It is deliberately not `get_platform().host`: building a
+    `Platform` imports the hotkey, injector and IPC stacks and raises on an OS with no
+    backend, while a description is wanted precisely on the odd machines (a BSD, a CI
+    runner, an unsupported OS) where a bug report must still say what it ran on. Each
+    backend module imported here is light and import-safe; the heavy ones stay behind
+    `build_platform`.
+
+    Not cached because the answer is read from process state (`sys.platform`, files in
+    `/etc`) that tests legitimately swap, and callers call it a handful of times per run.
+    """
+    if sys.platform == "darwin":
+        from yazses.platform.macos.host import MacosHost
+        return MacosHost().describe()
+    if sys.platform == "win32":
+        from yazses.platform.windows.host import WindowsHost
+        return WindowsHost().describe()
+    # Linux, the BSDs (which reuse the Linux backend wholesale) and any OS with no backend:
+    # the Linux reader degrades to `platform.system()`/`release()` where /etc/os-release is
+    # absent, and every one of its reads is optional.
+    from yazses.platform.linux.host import LinuxHost
+    return LinuxHost().describe()
 
 
 @lru_cache(maxsize=1)

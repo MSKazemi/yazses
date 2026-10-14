@@ -1,4 +1,6 @@
 from yazses.platform.base import (
+    HostBackend,
+    HostInfo,
     HotkeyBackend,
     InjectorBackend,
     IpcClient,
@@ -13,9 +15,12 @@ from yazses.platform.base import (
     TrayState,
     UnsupportedPlatformError,
 )
-from yazses.platform.factory import get_paths, get_platform
+from yazses.platform.factory import describe_host, get_paths, get_platform
 
 __all__ = [
+    "describe_host",
+    "HostBackend",
+    "HostInfo",
     "get_paths",
     "get_platform",
     "HotkeyBackend",
