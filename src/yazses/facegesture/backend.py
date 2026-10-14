@@ -42,6 +42,13 @@ from yazses.facegesture.detector import (
     gesture_reading,
     gesture_score,
 )
+from yazses.facegesture.levels import (
+    DEFAULT_HOLD_FRACTION,
+    DEFAULT_RELEASE_FRACTION,
+    Derivation,
+    GestureLevels,
+    derive_thresholds,
+)
 from yazses.facegesture.shared import MAX_SAMPLE_AGE_S, NO_BLENDSHAPE_WARN_AFTER
 from yazses.facegesture.switches import (
     SwitchAction,
@@ -70,6 +77,7 @@ class FaceGestureBackend:
         on_hold_end: Callable[[], None] = lambda: None,
         *,
         baselines: Mapping[str, Baseline] | None = None,
+        levels: Mapping[str, GestureLevels] | None = None,
         on_intent: Callable[[SwitchIntent], object] | None = None,
         actions: Mapping[str, SwitchAction] | None = None,
         safety=None,
@@ -140,12 +148,23 @@ class FaceGestureBackend:
         floor = getattr(config, "confidence_floor", 0.0)
         self._switches: dict[str, GestureSwitch] = {}
         self._baselines: dict[str, Baseline | None] = {}
+        self._derived: dict[str, Derivation] = {}
         for watched in (gesture, *(g for g in bindings if g != gesture)):
-            baseline = self._resolve_baseline(config, baselines, watched)
+            hold_t = getattr(config, "hold_threshold", 0.5)
+            release_t = getattr(config, "release_threshold", 0.35)
+            derived = self._resolve_derived(config, baselines, levels, watched)
+            if derived is not None and derived.hold is not None and derived.release is not None:
+                # Thresholds already sit between this user's own levels, in raw score units,
+                # so the resting baseline is not also divided out of the score.
+                self._derived[watched] = derived
+                hold_t, release_t = derived.hold, derived.release
+                baseline = None
+            else:
+                baseline = self._resolve_baseline(config, baselines, watched)
             self._baselines[watched] = baseline
             self._switches[watched] = GestureSwitch(
-                hold_threshold=getattr(config, "hold_threshold", 0.5),
-                release_threshold=getattr(config, "release_threshold", 0.35),
+                hold_threshold=hold_t,
+                release_threshold=release_t,
                 min_hold_frames=getattr(config, "min_hold_frames", 3),
                 min_release_frames=getattr(config, "min_release_frames", 2),
                 baseline=None if baseline is None else baseline.level,
@@ -175,6 +194,38 @@ class FaceGestureBackend:
             )
         fps = int(getattr(config, "fps", 15) or 15)
         self._interval = 1.0 / max(1, min(60, fps))
+
+    def _resolve_derived(self, config, baselines, levels, gesture: str) -> Derivation | None:
+        """``gesture``'s thresholds derived from its own levels, or None.
+
+        None when ``[facegesture] use_active_levels`` is off (the shipped state: nothing is
+        read, nothing is logged) and, with a specific reason logged once, whenever the stored
+        rest/active/talk levels cannot be separated by a margin -- then the configured
+        thresholds stand, because the alternative to a refused derivation is a guess.
+        """
+        if not getattr(config, "use_active_levels", False):
+            return None
+        stored = (levels or {}).get(gesture)
+        result = derive_thresholds(
+            (baselines or {}).get(gesture),
+            None if stored is None else stored.active,
+            None if stored is None else stored.talk,
+            hold_fraction=getattr(config, "active_hold_fraction", DEFAULT_HOLD_FRACTION),
+            release_fraction=getattr(config, "active_release_fraction", DEFAULT_RELEASE_FRACTION),
+        )
+        if not result.ok:
+            log.warning(
+                "[facegesture] use_active_levels is on but no thresholds could be derived for "
+                "%r (%s): %s. Using the configured thresholds. Run: yazses facegesture "
+                "calibrate --active", gesture, result.reason, result.detail,
+            )
+            return None
+        log.info("[facegesture] %r thresholds derived from your calibration: %s.",
+                 gesture, result.detail)
+        if getattr(config, "use_baseline", False):
+            log.info("[facegesture] use_baseline is not applied to %r: its thresholds are "
+                     "already placed between your own levels.", gesture)
+        return result
 
     def _resolve_baseline(self, config, baselines, gesture: str) -> Baseline | None:
         """``gesture``'s baseline when ``[facegesture] use_baseline`` asks for one.

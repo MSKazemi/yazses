@@ -189,10 +189,16 @@ Capture your neutral (relaxed) face as the baseline for a face gesture.
 - `--gesture` — Gesture to calibrate (default: [facegesture] gesture).
 - `--seconds` — How long to watch your relaxed face.
 - `--yes`, `-y` — Start without waiting for Enter.
+- `--active` — Also capture your ACTIVE level: a few deliberate holds of the gesture. Needed when your resting level is near zero and the default thresholds never fire.
+- `--talk` — Also capture your TALK level: speak normally so the derived hold threshold stays above it. Needs an active level (from this run or stored).
+- `--skip-rest` — Reuse the stored resting baseline; capture only --active and/or --talk.
+- `--holds` — Deliberate holds for --active.
+- `--hold-seconds` — Seconds each --active hold is measured.
+- `--talk-seconds` — Seconds of speech for --talk.
 
 ### `yazses facegesture reset`
 
-Forget the stored neutral baseline(s); the switch goes back to absolute thresholds.
+Forget the stored neutral baseline(s) and active/talk levels; back to configured thresholds.
 
 - `--gesture` — Forget only this gesture's baseline.
 

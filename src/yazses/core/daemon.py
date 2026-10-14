@@ -1502,11 +1502,16 @@ class Daemon:
             from yazses.facegesture.switches import SwitchAction
 
             baselines = None
-            if cfg.facegesture.use_baseline:
+            levels = None
+            if cfg.facegesture.use_baseline or cfg.facegesture.use_active_levels:
                 # Read only when asked for: an install that never opted in touches no file.
                 from yazses.facegesture.calibration import baseline_path, load_baselines
 
                 baselines = load_baselines(baseline_path(self._platform.paths.data_dir))
+            if cfg.facegesture.use_active_levels:
+                from yazses.facegesture.levels import levels_path, load_levels
+
+                levels = load_levels(levels_path(self._platform.paths.data_dir))
             # The abstract actions this daemon actually implements, for the switch mapper
             # (ADR-v2-147). `start`/`end` above are the legacy single-gesture binding; both
             # hold flavours are offered so `[[facegesture.switches]]` can use either whatever
@@ -1548,7 +1553,7 @@ class Daemon:
                 failure_reason = lambda: shared.status().failure_reason  # noqa: E731
             source = FaceGestureBackend(
                 cfg.facegesture, start, end,
-                baselines=baselines, actions=actions, safety=safety,
+                baselines=baselines, levels=levels, actions=actions, safety=safety,
                 perception=lease, failure_reason=failure_reason,
             )
             self._face_on_shared_source = lease is not None
