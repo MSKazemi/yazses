@@ -5133,6 +5133,9 @@ app.add_typer(facegesture_app, rich_help_panel=_SETUP)
     epilog=_examples(
         "yazses facegesture calibrate    capture your relaxed face for the configured gesture",
         "yazses facegesture calibrate --gesture brow_raise --seconds 6",
+        "yazses facegesture calibrate --active    also capture your deliberate gesture",
+        "yazses facegesture calibrate --active --talk    ...and keep the threshold above your speech",
+        "yazses facegesture calibrate --skip-rest --talk    add a speech capture to stored levels",
     ),
 )
 def facegesture_calibrate(
@@ -5143,21 +5146,65 @@ def facegesture_calibrate(
         4.0, "--seconds", min=1.0, max=60.0, help="How long to watch your relaxed face."
     ),
     yes: bool = typer.Option(False, "--yes", "-y", help="Start without waiting for Enter."),
+    active: bool = typer.Option(
+        False, "--active",
+        help="Also capture your ACTIVE level: a few deliberate holds of the gesture. "
+        "Needed when your resting level is near zero and the default thresholds never fire.",
+    ),
+    talk: bool = typer.Option(
+        False, "--talk",
+        help="Also capture your TALK level: speak normally so the derived hold threshold "
+        "stays above it. Needs an active level (from this run or stored).",
+    ),
+    skip_rest: bool = typer.Option(
+        False, "--skip-rest",
+        help="Reuse the stored resting baseline; capture only --active and/or --talk.",
+    ),
+    holds: int = typer.Option(3, "--holds", min=1, max=10, help="Deliberate holds for --active."),
+    hold_seconds: float = typer.Option(
+        2.0, "--hold-seconds", min=0.5, max=10.0, help="Seconds each --active hold is measured."
+    ),
+    talk_seconds: float = typer.Option(
+        8.0, "--talk-seconds", min=2.0, max=60.0, help="Seconds of speech for --talk."
+    ),
 ) -> None:
     """Capture your neutral (relaxed) face as the baseline for a face gesture.
 
     Watches the webcam for a few seconds while you keep your face relaxed, and stores
-    only the derived resting level and its spread — never a frame (ADR-011). Turn the
+    only the derived resting level and its spread -- never a frame (ADR-011). Turn the
     baseline on with `[facegesture] use_baseline = true`, then `yazses restart`. Re-run to
-    recalibrate; `yazses facegesture reset` forgets it. This recommends no threshold: it
-    only changes what the existing thresholds are measured against.
+    recalibrate; `yazses facegesture reset` forgets it. With no extra flag this recommends
+    no threshold: it only changes what the existing thresholds are measured against.
+
+    Add `--active` for a guided second step: hold the gesture on purpose a few times and
+    your own ACTIVE level is stored beside the baseline (`--talk` adds a speech capture).
+    The hold/release thresholds are then derived BETWEEN your rest and active levels --
+    and above your speech -- when `[facegesture] use_active_levels = true`. If rest and
+    active (or speech) cannot be separated by a margin, nothing is derived and the
+    reason is printed; no threshold is ever guessed.
     """
     from dataclasses import replace
 
     from yazses.config import load_config
     from yazses.facegesture.backend import FaceGestureBackend
-    from yazses.facegesture.calibration import baseline_path, calibrate, save_baseline
+    from yazses.facegesture.calibration import (
+        baseline_path,
+        calibrate,
+        load_baselines,
+        save_baseline,
+    )
     from yazses.facegesture.detector import gesture_names
+    from yazses.facegesture.levels import (
+        ACTIVE,
+        LEAD_IN_S,
+        TALK,
+        GestureLevels,
+        derive_thresholds,
+        levels_path,
+        load_levels,
+        save_level,
+        summarise_level,
+    )
 
     platform = get_platform()
     cfg = load_config(platform.paths.config_file)
@@ -5168,6 +5215,29 @@ def facegesture_calibrate(
             typer.echo(f"Unknown gesture {gesture!r}. Valid: {', '.join(gesture_names())}.", err=True)
             raise typer.Exit(1)
         face_cfg = replace(face_cfg, gesture=wanted)
+
+    guided = active or talk
+    stored_rest = None
+    stored = GestureLevels()
+    if guided or skip_rest:
+        name = (face_cfg.gesture or "").strip().lower()
+        stored_rest = load_baselines(baseline_path(platform.paths.data_dir)).get(name)
+        stored = load_levels(levels_path(platform.paths.data_dir)).get(name, GestureLevels())
+        if skip_rest and not guided:
+            typer.echo("--skip-rest needs --active and/or --talk (there is nothing else to capture).", err=True)
+            raise typer.Exit(1)
+        if skip_rest and stored_rest is None:
+            typer.echo(
+                f"--skip-rest needs a stored resting baseline for {name}; run "
+                "`yazses facegesture calibrate` first.", err=True,
+            )
+            raise typer.Exit(1)
+        if talk and not active and stored.active is None:
+            typer.echo(
+                f"--talk needs an active level for {name} to keep the threshold below; "
+                "add --active.", err=True,
+            )
+            raise typer.Exit(1)
 
     backend = FaceGestureBackend(face_cfg)
     landmarker = backend._build_landmarker()
@@ -5185,68 +5255,159 @@ def facegesture_calibrate(
         typer.echo("Could not open the camera (in use, or no permission).", err=True)
         raise typer.Exit(1)
 
+    floor = getattr(face_cfg, "confidence_floor", 0.0)
+    level_why = {
+        "no_frames": "no frames were captured",
+        "no_reading": "no frame had a face with a readable score -- improve lighting / framing",
+        "low_confidence": "every frame was below [facegesture] confidence_floor",
+        "too_few_samples": "too few usable frames -- improve lighting / framing, or capture for longer",
+    }
+    fresh_active = fresh_talk = None
+    rest = stored_rest
     try:
         try:
             import mediapipe as mp  # noqa: PLC0415 - optional dependency
         except ImportError:  # the landmarker above only exists when this imports
             mp = None
-        if not yes:
-            typer.prompt(
-                f"Relax your face and look at the screen, then press Enter ({seconds:.0f}s capture)",
-                default="", show_default=False,
+
+        if not skip_rest:
+            if not yes:
+                typer.prompt(
+                    f"Relax your face and look at the screen, then press Enter ({seconds:.0f}s capture)",
+                    default="", show_default=False,
+                )
+            readings = backend.collect_readings(landmarker, cap, cv2, mp, seconds)
+            result = calibrate(backend._gesture, readings, confidence_floor=floor)
+            if result.baseline is None:
+                why = {
+                    "too_few_samples": (
+                        f"only {result.kept} usable frame(s) "
+                        f"({result.dropped_no_reading} without a face, "
+                        f"{result.dropped_low_confidence} below the confidence floor) — "
+                        "improve lighting / framing, or capture for longer"
+                    ),
+                    "no_headroom": (
+                        "your relaxed face already scores near the top of the range for this "
+                        "gesture, so there is no room to detect a deliberate one — try another gesture"
+                    ),
+                }.get(result.reason, result.reason)
+                typer.echo(f"Calibration failed: {why}.", err=True)
+                raise typer.Exit(1)
+            rest = result.baseline
+            path = save_baseline(baseline_path(platform.paths.data_dir), rest)
+            typer.echo(
+                f"Baseline for {rest.gesture}: resting level {rest.level:.2f} "
+                f"(spread {rest.spread:.3f}, {result.kept} frames) -> {path}"
             )
-        readings = backend.collect_readings(landmarker, cap, cv2, mp, seconds)
+            if not rest.separable_from(face_cfg.hold_threshold):
+                typer.echo(
+                    f"  Warning: your relaxed face wobbles enough to reach hold_threshold = "
+                    f"{face_cfg.hold_threshold}; raise it or recalibrate.",
+                    err=True,
+                )
+
+        if active:
+            held: list = []
+            for i in range(1, holds + 1):
+                if not yes:
+                    typer.prompt(
+                        f"Hold {i}/{holds}: press Enter, then make the gesture ON PURPOSE and "
+                        "keep holding it until told to relax",
+                        default="", show_default=False,
+                    )
+                typer.echo("  Make the gesture now and hold it ...")
+                backend.collect_readings(landmarker, cap, cv2, mp, LEAD_IN_S)  # ramp-up, discarded
+                held += backend.collect_readings(landmarker, cap, cv2, mp, hold_seconds)
+                typer.echo("  Relax.")
+            summary = summarise_level(backend._gesture, ACTIVE, held, confidence_floor=floor)
+            if summary.capture is None:
+                typer.echo(
+                    f"Active capture failed: {level_why.get(summary.reason, summary.reason)} "
+                    f"({summary.kept} usable of {summary.total} frames).", err=True,
+                )
+                raise typer.Exit(1)
+            fresh_active = summary.capture
+            typer.echo(
+                f"Active level for {backend._gesture}: {fresh_active.level:.2f} "
+                f"(peak {fresh_active.peak:.2f}, {summary.kept} frames)"
+            )
+
+        if talk:
+            if not yes:
+                typer.prompt(
+                    f"Speak normally (read something aloud), then press Enter ({talk_seconds:.0f}s capture)",
+                    default="", show_default=False,
+                )
+            spoken = backend.collect_readings(landmarker, cap, cv2, mp, talk_seconds)
+            summary = summarise_level(backend._gesture, TALK, spoken, confidence_floor=floor)
+            if summary.capture is None:
+                typer.echo(
+                    f"Talk capture failed: {level_why.get(summary.reason, summary.reason)} "
+                    f"({summary.kept} usable of {summary.total} frames).", err=True,
+                )
+                raise typer.Exit(1)
+            fresh_talk = summary.capture
+            typer.echo(
+                f"Talk level for {backend._gesture}: highest {fresh_talk.level:.2f} "
+                f"({summary.kept} frames)"
+            )
     finally:
         cap.release()
         if hasattr(landmarker, "close"):
             landmarker.close()
 
-    result = calibrate(
-        backend._gesture, readings, confidence_floor=getattr(face_cfg, "confidence_floor", 0.0)
-    )
-    if result.baseline is None:
-        why = {
-            "too_few_samples": (
-                f"only {result.kept} usable frame(s) "
-                f"({result.dropped_no_reading} without a face, "
-                f"{result.dropped_low_confidence} below the confidence floor) — "
-                "improve lighting / framing, or capture for longer"
-            ),
-            "no_headroom": (
-                "your relaxed face already scores near the top of the range for this "
-                "gesture, so there is no room to detect a deliberate one — try another gesture"
-            ),
-        }.get(result.reason, result.reason)
-        typer.echo(f"Calibration failed: {why}.", err=True)
-        raise typer.Exit(1)
+    if not guided:
+        typer.echo("Enable it with `[facegesture] use_baseline = true`, then `yazses restart`.")
+        return
 
-    path = save_baseline(baseline_path(platform.paths.data_dir), result.baseline)
-    typer.echo(
-        f"Baseline for {result.baseline.gesture}: resting level {result.baseline.level:.2f} "
-        f"(spread {result.baseline.spread:.3f}, {result.kept} frames) -> {path}"
+    derivation = derive_thresholds(
+        rest,
+        fresh_active or stored.active,
+        fresh_talk or stored.talk,
+        hold_fraction=face_cfg.active_hold_fraction,
+        release_fraction=face_cfg.active_release_fraction,
     )
-    if not result.baseline.separable_from(face_cfg.hold_threshold):
+    if not derivation.ok:
+        typer.echo(f"Cannot derive thresholds: {derivation.detail}.", err=True)
         typer.echo(
-            f"  Warning: your relaxed face wobbles enough to reach hold_threshold = "
-            f"{face_cfg.hold_threshold}; raise it or recalibrate.",
+            "  The resting baseline was kept; the active/talk levels from this run were NOT saved.",
             err=True,
         )
-    typer.echo("Enable it with `[facegesture] use_baseline = true`, then `yazses restart`.")
+        raise typer.Exit(1)
+    lpath = levels_path(platform.paths.data_dir)
+    for fresh in (fresh_active, fresh_talk):
+        if fresh is not None:
+            save_level(lpath, fresh)
+    typer.echo(f"Derived: {derivation.detail}.")
+    typer.echo(
+        "Enable it with `[facegesture] use_active_levels = true`, then `yazses restart`. "
+        "This derives thresholds from your own captures; it does not recommend any."
+    )
 
 
 @facegesture_app.command(
     "reset",
-    epilog=_examples("yazses facegesture reset    forget every stored baseline"),
+    epilog=_examples("yazses facegesture reset    forget every stored baseline and level"),
 )
 def facegesture_reset(
     gesture: str = typer.Option("", "--gesture", help="Forget only this gesture's baseline."),
 ) -> None:
-    """Forget the stored neutral baseline(s); the switch goes back to absolute thresholds."""
+    """Forget the stored neutral baseline(s) and active/talk levels; back to configured thresholds."""
     from yazses.facegesture.calibration import baseline_path, reset_baseline
+    from yazses.facegesture.levels import levels_path, reset_levels
 
     platform = get_platform()
-    removed = reset_baseline(baseline_path(platform.paths.data_dir), gesture.strip().lower() or None)
-    typer.echo("Baseline forgotten." if removed else "No stored baseline to forget.")
+    which = gesture.strip().lower() or None
+    removed = reset_baseline(baseline_path(platform.paths.data_dir), which)
+    removed_levels = reset_levels(levels_path(platform.paths.data_dir), which)
+    if removed and removed_levels:
+        typer.echo("Baseline and active/talk levels forgotten.")
+    elif removed:
+        typer.echo("Baseline forgotten.")
+    elif removed_levels:
+        typer.echo("Active/talk levels forgotten.")
+    else:
+        typer.echo("No stored baseline to forget.")
 
 
 gaze_app = typer.Typer(name="gaze", help="Aim dictation with your gaze — type into whichever pane you look at.")

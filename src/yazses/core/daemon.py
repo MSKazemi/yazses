@@ -289,6 +289,9 @@ class Daemon:
         # owning a camera of its own. Only `_build_gaze_targeter` sets it; `status`
         # reads it so a payload never claims shared state for a consumer that is not.
         self._gaze_on_shared_source = False
+        # The same fact for the face switch: True only when `_build_face_gesture_source`
+        # handed the backend a lease instead of letting it open a camera of its own.
+        self._face_on_shared_source = False
         # What `_build_gaze_refinement` needs to know about the calibration that was
         # loaded: (verified against this desktop, its source, a live context check).
         self._gaze_calibration_facts: tuple[bool, str, Callable[[], bool] | None] = (
@@ -1505,11 +1508,16 @@ class Daemon:
             from yazses.facegesture.switches import SwitchAction
 
             baselines = None
-            if cfg.facegesture.use_baseline:
+            levels = None
+            if cfg.facegesture.use_baseline or cfg.facegesture.use_active_levels:
                 # Read only when asked for: an install that never opted in touches no file.
                 from yazses.facegesture.calibration import baseline_path, load_baselines
 
                 baselines = load_baselines(baseline_path(self._platform.paths.data_dir))
+            if cfg.facegesture.use_active_levels:
+                from yazses.facegesture.levels import levels_path, load_levels
+
+                levels = load_levels(levels_path(self._platform.paths.data_dir))
             # The abstract actions this daemon actually implements, for the switch mapper
             # (ADR-v2-147). `start`/`end` above are the legacy single-gesture binding; both
             # hold flavours are offered so `[[facegesture.switches]]` can use either whatever
@@ -1533,10 +1541,28 @@ class Daemon:
                 actions["pause_pointer"] = SwitchAction(
                     press=lambda: safety.pause("face switch")
                 )
+            # ADR-v2-145: lease the shared camera when sharing is correct (a source exists
+            # and both sections name the same device); otherwise exactly the own-capture
+            # path the backend has always run. Taking the lease opens nothing -- the
+            # backend's run() starts it, so a built-but-never-started source stays dark.
+            from yazses.facegesture.shared import shared_source_for_facegesture
+
+            perception = getattr(self, "_perception", None)
+            choice = shared_source_for_facegesture(cfg.facegesture, cfg.perception, perception)
+            if perception is not None and choice.source is None:
+                log.info("Face-gesture switch keeps its own camera -- %s.", choice.reason)
+            lease = None
+            failure_reason = None
+            if choice.source is not None and perception is not None:
+                shared = perception
+                lease = shared.consumer("facegesture")
+                failure_reason = lambda: shared.status().failure_reason  # noqa: E731
             source = FaceGestureBackend(
                 cfg.facegesture, start, end,
-                baselines=baselines, actions=actions, safety=safety,
+                baselines=baselines, levels=levels, actions=actions, safety=safety,
+                perception=lease, failure_reason=failure_reason,
             )
+            self._face_on_shared_source = lease is not None
         except Exception:
             log.warning("Face-gesture activation source init failed; continuing "
                         "without.", exc_info=True)
@@ -5479,7 +5505,9 @@ class Daemon:
             # it is running — a dormant source's empty channel tuple would otherwise
             # print as "no face in view" for a camera nobody has opened yet.
             shared = None
-            if gaze_running and getattr(self, "_gaze_on_shared_source", False):
+            gaze_shared = gaze_running and getattr(self, "_gaze_on_shared_source", False)
+            face_shared = face_running and getattr(self, "_face_on_shared_source", False)
+            if gaze_shared or face_shared:
                 perception = getattr(self, "_perception", None)
                 if perception is not None:
                     shared = perception.status()
@@ -5498,7 +5526,11 @@ class Daemon:
                 reason = (
                     f"shared camera source {shared.state.value}"
                     + (f" ({shared.failure_reason})" if shared.failure_reason else "")
-                    + "; the camera opens on the first gaze sample"
+                    + (
+                        "; the camera opens on the first gaze sample"
+                        if not face_shared
+                        else "; the face switch holds its lease from start-up"
+                    )
                 )
             facts = dataclasses.replace(
                 facts,

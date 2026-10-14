@@ -15,6 +15,16 @@ opencv and mediapipe are optional (the ``gaze`` extra — the same two packages,
 the same ~3.7 MB model, that Glance-Type already uses). Missing either makes
 :meth:`run` a logged no-op rather than a startup failure, exactly like the EMG
 backend. Frames are processed in-RAM and never stored or transmitted (ADR-011).
+
+**Two camera paths, one decision.** Given a ``perception`` lease on the shared camera source
+(ADR-v2-145; the daemon passes one only when ``[perception]`` is on and the camera index
+matches, see :mod:`yazses.facegesture.shared`), the backend opens no camera and loads no model
+of its own: it reads ``PerceptionSample.face`` through
+:func:`~yazses.facegesture.detector.gesture_reading` and feeds the very same detectors and
+mapper. Without a lease the own-capture path below runs exactly as it always has
+(``tests/test_facegesture_own_capture_path.py`` pins it). A shared source that carries no
+blendshape channel costs only this switch: every frame reads as "no reading", which can only
+count toward release, and the gaze and head-pose channels of the same sample are untouched.
 """
 from __future__ import annotations
 
@@ -29,8 +39,17 @@ from yazses.facegesture.detector import (
     GESTURES,
     GestureSwitch,
     blendshape_scores,
+    gesture_reading,
     gesture_score,
 )
+from yazses.facegesture.levels import (
+    DEFAULT_HOLD_FRACTION,
+    DEFAULT_RELEASE_FRACTION,
+    Derivation,
+    GestureLevels,
+    derive_thresholds,
+)
+from yazses.facegesture.shared import MAX_SAMPLE_AGE_S, NO_BLENDSHAPE_WARN_AFTER
 from yazses.facegesture.switches import (
     SwitchAction,
     SwitchIntent,
@@ -40,6 +59,7 @@ from yazses.facegesture.switches import (
     parse_bindings,
 )
 from yazses.perception.mediapipe_backend import DEFAULT_PRESENCE_CONFIDENCE
+from yazses.perception.signals import FacePerceptionSource
 
 log = logging.getLogger(__name__)
 
@@ -57,15 +77,33 @@ class FaceGestureBackend:
         on_hold_end: Callable[[], None] = lambda: None,
         *,
         baselines: Mapping[str, Baseline] | None = None,
+        levels: Mapping[str, GestureLevels] | None = None,
         on_intent: Callable[[SwitchIntent], object] | None = None,
         actions: Mapping[str, SwitchAction] | None = None,
         safety=None,
+        perception: FacePerceptionSource | None = None,
+        max_age_s: float = MAX_SAMPLE_AGE_S,
+        clock: Callable[[], float] = time.monotonic,
+        failure_reason: Callable[[], str] | None = None,
     ) -> None:
         # `on_hold_start` / `on_hold_end` are the handlers for the one legacy binding
         # (`gesture` + `mode`). `actions` supplies handlers for every other abstract
         # action the daemon implements, `safety` is the optional hands-free gate, and
         # `on_intent` replaces the whole default mapping with a caller's own sink.
+        # `perception` is a lease on the shared camera source (None = own capture);
+        # `clock` must be the clock the source stamps samples with, since age is a
+        # difference, and `failure_reason` returns why the source stopped, or "".
         self._cfg = config
+        self._lease = perception
+        self._max_age_s = max(0.0, float(max_age_s))
+        self._clock = clock
+        self._failure_reason = failure_reason
+        self._last_ts: float | None = None
+        self._idle_due = 0.0
+        self._saw_blendshapes = False
+        self._blind_samples = 0
+        self._warned_blind = False
+        self._explained = False
         self._on_hold_start = on_hold_start
         self._on_hold_end = on_hold_end
         self._stop_event = threading.Event()
@@ -110,12 +148,23 @@ class FaceGestureBackend:
         floor = getattr(config, "confidence_floor", 0.0)
         self._switches: dict[str, GestureSwitch] = {}
         self._baselines: dict[str, Baseline | None] = {}
+        self._derived: dict[str, Derivation] = {}
         for watched in (gesture, *(g for g in bindings if g != gesture)):
-            baseline = self._resolve_baseline(config, baselines, watched)
+            hold_t = getattr(config, "hold_threshold", 0.5)
+            release_t = getattr(config, "release_threshold", 0.35)
+            derived = self._resolve_derived(config, baselines, levels, watched)
+            if derived is not None and derived.hold is not None and derived.release is not None:
+                # Thresholds already sit between this user's own levels, in raw score units,
+                # so the resting baseline is not also divided out of the score.
+                self._derived[watched] = derived
+                hold_t, release_t = derived.hold, derived.release
+                baseline = None
+            else:
+                baseline = self._resolve_baseline(config, baselines, watched)
             self._baselines[watched] = baseline
             self._switches[watched] = GestureSwitch(
-                hold_threshold=getattr(config, "hold_threshold", 0.5),
-                release_threshold=getattr(config, "release_threshold", 0.35),
+                hold_threshold=hold_t,
+                release_threshold=release_t,
                 min_hold_frames=getattr(config, "min_hold_frames", 3),
                 min_release_frames=getattr(config, "min_release_frames", 2),
                 baseline=None if baseline is None else baseline.level,
@@ -145,6 +194,38 @@ class FaceGestureBackend:
             )
         fps = int(getattr(config, "fps", 15) or 15)
         self._interval = 1.0 / max(1, min(60, fps))
+
+    def _resolve_derived(self, config, baselines, levels, gesture: str) -> Derivation | None:
+        """``gesture``'s thresholds derived from its own levels, or None.
+
+        None when ``[facegesture] use_active_levels`` is off (the shipped state: nothing is
+        read, nothing is logged) and, with a specific reason logged once, whenever the stored
+        rest/active/talk levels cannot be separated by a margin -- then the configured
+        thresholds stand, because the alternative to a refused derivation is a guess.
+        """
+        if not getattr(config, "use_active_levels", False):
+            return None
+        stored = (levels or {}).get(gesture)
+        result = derive_thresholds(
+            (baselines or {}).get(gesture),
+            None if stored is None else stored.active,
+            None if stored is None else stored.talk,
+            hold_fraction=getattr(config, "active_hold_fraction", DEFAULT_HOLD_FRACTION),
+            release_fraction=getattr(config, "active_release_fraction", DEFAULT_RELEASE_FRACTION),
+        )
+        if not result.ok:
+            log.warning(
+                "[facegesture] use_active_levels is on but no thresholds could be derived for "
+                "%r (%s): %s. Using the configured thresholds. Run: yazses facegesture "
+                "calibrate --active", gesture, result.reason, result.detail,
+            )
+            return None
+        log.info("[facegesture] %r thresholds derived from your calibration: %s.",
+                 gesture, result.detail)
+        if getattr(config, "use_baseline", False):
+            log.info("[facegesture] use_baseline is not applied to %r: its thresholds are "
+                     "already placed between your own levels.", gesture)
+        return result
 
     def _resolve_baseline(self, config, baselines, gesture: str) -> Baseline | None:
         """``gesture``'s baseline when ``[facegesture] use_baseline`` asks for one.
@@ -183,6 +264,9 @@ class FaceGestureBackend:
 
     def run(self) -> None:
         """Watch the camera and drive the hold callbacks until stop() is called."""
+        if self._lease is not None:
+            self._run_shared()
+            return
         landmarker = self._build_landmarker()
         if landmarker is None:
             return
@@ -210,10 +294,7 @@ class FaceGestureBackend:
         finally:
             # A hold open at shutdown would leave the daemon RECORDING with no key
             # to release, so every switch is drained before the camera goes away.
-            for name, switch in self._switches.items():
-                if switch.reset() == "end":
-                    self._emit(name, "end", None)
-            self._mapper.release_all()
+            self._drain()
             try:
                 cap.release()
             except Exception:
@@ -228,6 +309,120 @@ class FaceGestureBackend:
     def stop(self) -> None:
         """Signal run() to exit at the next frame."""
         self._stop_event.set()
+
+    def _drain(self) -> None:
+        """Close every open hold; shared by both camera paths' shutdown."""
+        for name, switch in self._switches.items():
+            if switch.reset() == "end":
+                self._emit(name, "end", None)
+        self._mapper.release_all()
+
+    # ------------------------------------------------------------------
+    # Shared-camera path (ADR-v2-145)
+    # ------------------------------------------------------------------
+
+    def _run_shared(self) -> None:
+        """Lease the shared camera, read its face channel, drive the same detectors."""
+        lease = self._lease
+        assert lease is not None
+        try:
+            lease.start()
+        except Exception:
+            log.warning("Face-gesture switch could not lease the shared camera; "
+                        "continuing without it.", exc_info=True)
+            return
+        log.info(
+            "Face-gesture switch watching %r on the shared camera (hold %.2f / release %.2f).",
+            self._gesture, *self._switch.thresholds,
+        )
+        try:
+            # Poll at twice the sampling rate and count each observation once (by its
+            # timestamp), the Head-Pointer's pattern: polling at the camera's own rate would
+            # alias against it and drop or repeat frames.
+            poll = min(0.1, max(1.0 / 120.0, self._interval / 2.0))
+            while not self._stop_event.is_set():
+                started = time.monotonic()
+                try:
+                    self._shared_step()
+                except Exception:
+                    # One bad frame must not end the user's only input method.
+                    log.debug("face-gesture: shared frame failed", exc_info=True)
+                self._stop_event.wait(max(0.0, poll - (time.monotonic() - started)))
+        finally:
+            self._drain()
+            try:
+                lease.stop()
+            except Exception:
+                log.debug("face-gesture: lease release failed", exc_info=True)
+            log.info("Face-gesture switch stopped.")
+
+    def _shared_step(self) -> None:
+        """One poll of the lease: a fresh observation is one frame, silence is one per interval.
+
+        A new fresh sample is counted once. No sample, or one older than ``max_age_s``, is the
+        camera being blind: it feeds a "no reading" frame at the switch's own frame cadence, so
+        the release debounce takes the same number of frames it does on the own-capture path
+        and a stalled camera closes the microphone rather than holding it on the last value.
+        """
+        sample = self._lease.latest() if self._lease is not None else None
+        now = self._clock()
+        if sample is not None:
+            age = now - sample.timestamp_s
+            if 0.0 <= age <= self._max_age_s:
+                if sample.timestamp_s == self._last_ts:
+                    return  # already counted
+                self._last_ts = sample.timestamp_s
+                face = sample.face
+                self._note_face_channel(face)
+                self._feed_face(face, now)
+                self._idle_due = now + self._interval
+                return
+        if now >= self._idle_due:
+            self._idle_due = now + self._interval
+            if sample is None:
+                self._explain_if_failed()
+            self._feed_face(None, now)
+
+    def _feed_face(self, face, now: float) -> None:
+        """One shared-camera frame through every watched gesture's detector."""
+        self._mapper.frame(has_signal=face is not None)
+        for name, switch in self._switches.items():
+            reading = gesture_reading(face, name, now_s=now, max_age_s=self._max_age_s)
+            event = switch.update(reading.score, reading.confidence)
+            if event is not None:
+                self._emit(name, event, reading.confidence)
+
+    def _note_face_channel(self, face) -> None:
+        """Say once, with the real cause, that this switch has nothing to read."""
+        if face is not None and face.blendshapes:
+            self._saw_blendshapes = True
+            self._blind_samples = 0
+            return
+        if self._saw_blendshapes or self._warned_blind:
+            return
+        self._blind_samples += 1
+        if self._blind_samples >= NO_BLENDSHAPE_WARN_AFTER:
+            self._warned_blind = True
+            log.warning(
+                "[facegesture] the shared camera is delivering frames with no blendshape "
+                "channel, so the face switch has nothing to read and will not fire. Gaze and "
+                "head pose are unaffected."
+            )
+
+    def _explain_if_failed(self) -> None:
+        """Say once, with the source's own reason, why there are no samples at all."""
+        if self._explained or self._failure_reason is None:
+            return
+        try:
+            reason = self._failure_reason()
+        except Exception:
+            return
+        if reason:
+            self._explained = True
+            log.warning(
+                "[facegesture] the shared camera is not running: %s. The face switch "
+                "will not fire until it is.", reason,
+            )
 
     # ------------------------------------------------------------------
     # Internals

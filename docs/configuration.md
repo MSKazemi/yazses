@@ -303,6 +303,9 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 | `use_baseline` | bool | `false` |  | normalise the score against `yazses facegesture calibrate` |
 | `confidence_floor` | float | `0.0` |  | 0..1; frames below it never count toward a hold (0 = off) |
 | `refractory_frames` | int | `0` |  | frames after a release before a new hold may begin |
+| `use_active_levels` | bool | `false` |  | derive hold/release from your rest + active (+ talk) levels |
+| `active_hold_fraction` | float | `0.5` |  | how far up the rest-to-active span hold sits (<= 0.8) |
+| `active_release_fraction` | float | `0.25` |  | how far up it release sits (must be below hold) |
 | `switches` | list | `[]` |  | Switch mappings (EYE-FACE-002). `gesture` + `mode` above stay the one hold-to-talk binding; each entry here ADDS another, as `[[facegesture.switches]]` tables with `gesture` (a gesture name) and `intent` (hold_to_talk \| hold_to_command \| select \| confirm \| cancel \| pause_pointer \| none). Empty = the single-gesture install, unchanged. |
 
 ## `[perception]`
