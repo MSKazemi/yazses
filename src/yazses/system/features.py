@@ -860,8 +860,10 @@ _Def("chords", "Chorded Shortcut Synthesis", "[chords] — any keyboard shortcut
              "Off by default.",
              lambda c: c.itn.enabled, itn_on, itn_off),
         _Def("gesture", "Gesture Chords", "[gesture] — multi-input chords", OPTIONAL,
-             "Bind chords (held key + nod / second key / sEMG squeeze) to actions like send or "
-             "switch profile. Sensors need their own extras. Off by default.",
+             "Bind chords of face and head gestures (jaw open, brow raise, nod, shake, tilt) to "
+             "abstract actions like pause or recenter the pointer. Needs a webcam (OpenCV + "
+             "MediaPipe, shared with Glance-Type) and binds nothing until you add a chord. "
+             "Off by default.",
              lambda c: c.gesture.enabled, ge_on, ge_off),
         _Def("interpret", "Two-Way Interpreter", "[interpret] — face-to-face translate", OPTIONAL,
              "Face-to-face mode: two speakers alternate and each turn is translated into the "
@@ -1040,6 +1042,8 @@ _FEATURE_DEPS: dict[str, tuple[tuple[str, ...], tuple[str, ...]]] = {
     # so enabling it after gaze installs nothing.
     "facegesture": (("cv2", "mediapipe"), ("mediapipe>=0.10.35", "opencv-python>=5.0")),
     "headpointer": (("cv2", "mediapipe"), ("mediapipe>=0.10.35", "opencv-python>=5.0")),
+    # Chords read face and head tokens off the same shared camera source.
+    "gesture": (("cv2", "mediapipe"), ("mediapipe>=0.10.35", "opencv-python>=5.0")),
     "overlay": (("PySide6",), ("PySide6>=6.11.1",)),
     # Same Qt dependency as the overlay. Registered separately because PySide6 is
     # no longer a base dependency (it is the `desktop` extra), so enabling the tray
@@ -1171,7 +1175,7 @@ def feature_packages(slug: str) -> tuple[str, ...]:
 # without wiring it fails CI.
 _UNWIRED: frozenset[str] = frozenset({
     "acoustic_profiles", "affect", "agent", "audioguard", "autostop", "bookmarks", "breath",
-    "bridge", "cmdspotter", "codec", "compose", "contour", "crowdproof", "gesture",
+    "bridge", "cmdspotter", "codec", "compose", "contour", "crowdproof",
     "hatselect", "hesitation", "hotwords", "interpret", "involuntary",
     "langroute", "lipread", "loadguard", "morsevox", "mousegrid", "mouthswitch",
     "multiprofile", "pilot", "predict", "pronunciation", "proofback", "prosodypunct", "rag",
@@ -1309,7 +1313,7 @@ _EXAMPLES: dict[str, str] = {
     "corpus_scrub": "Stored learning clips are pitch-shifted to hide your voice identity.",
     "redaction": "Speak a card number and it's typed as [CARD], not the digits.",
     "fieldaware": "Focus a number field and 'forty two' is typed as 42.",
-    "gesture": "Hold the hotkey and nod to send (bind chords in [gesture]).",
+    "gesture": "Raise your brows and nod to recenter the pointer (bind chords in [gesture.chords]).",
     "interpret": "Set [interpret] pair='en-es'; each speaker's turn is translated.",
     "pronunciation": "Practice mode: dictate a phrase, see per-phoneme good/fair/poor.",
     "readback_clone": "Enroll once; read-back then uses a clone of your own voice.",
@@ -1473,7 +1477,7 @@ _USE_CASES: dict[str, str] = {
     "gec": "When you're a non-native speaker and want article/agreement slips fixed with minimal edits.",
     "redaction": "When dictating near secrets (card numbers, SSNs) that must never be typed into another app.",
     "fieldaware": "When dictating into forms where each field needs different formatting (digits, no period).",
-    "gesture": "When your hands are busy and you want to fire send or switch profiles with a nod, not a word.",
+    "gesture": "When your hands are busy and you want to pause or recenter the pointer with a face-and-head gesture, not a word.",
     "interpret": "When you're in a face-to-face conversation with someone whose language you don't share.",
     "pronunciation": "When you're learning a language and want per-phoneme feedback on how close your accent is.",
     "sentiment": "When you want a private journal that tracks how your mood shifts across your dictations.",

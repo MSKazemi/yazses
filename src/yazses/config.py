@@ -1980,8 +1980,36 @@ class ProfilesConfig:
 
 @dataclass
 class GestureConfig:
-    """v2.2 Wave F — Gesture Chords (ADR-v2-043). OFF by default."""
+    """v2.2 Wave F — Gesture Chords (ADR-v2-043, ADR-v2-147). OFF by default.
+
+    A chord is a set of abstract tokens made together -- a face gesture (`jaw_open`,
+    `brow_raise`, `mouth_pucker`, `smile`, `eyes_closed`) and/or a head gesture (`nod`,
+    `shake`, `tilt`) -- bound to an abstract action in `[gesture.chords]`::
+
+        [gesture.chords]
+        "brow_raise+nod" = "recenter"
+        "jaw_open+shake" = "pause_pointer"
+
+    **The mapping is empty by default, so enabling the feature does nothing until you bind
+    a chord.** An unknown token, an unknown action, and two spellings of one chord are each
+    refused (logged, and listed by `yazses gesture status`) rather than guessed at. Face tokens use the thresholds of
+    `[facegesture]` (so one calibration serves both); needs `[perception]` and a webcam only
+    when a chord uses a sensor token. **None of the numbers below is a measured
+    recommendation** -- no false-activation study exists yet (design/eye-control/ROADMAP.md
+    P5.4), which is why the head-gesture defaults ask for a deliberate double nod or shake.
+    """
     enabled: bool = False
+    chords: dict[str, str] = field(default_factory=dict)  # "token+token" -> action; empty = nothing bound
+    chord_window_ms: int = 400    # tokens made within this window of the first count as one chord
+    refractory_ms: int = 1000     # after a chord, nothing fires until every token is released and this passes
+    freshness_ms: int = 500       # a sample older than this is "no signal"; unmeasured placeholder
+    min_confidence: float = 0.5   # samples below this presence confidence are "no signal"
+    freeze_tail_ms: int = 300     # keep the pointer frozen this long after a chord token lets go
+    head_amplitude_deg: float = 10.0  # each leg of a nod/shake must swing at least this far
+    head_swings: int = 4          # legs per nod/shake: 4 is a double nod, 2 a single down-up
+    head_window_ms: int = 1500    # a nod/shake must complete within this long
+    tilt_deg: float = 20.0        # roll beyond this, either way, is a tilt
+    tilt_hold_ms: int = 400       # ...held this long
 
 
 @dataclass

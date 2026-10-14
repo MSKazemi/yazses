@@ -591,6 +591,7 @@ from the tree, so a method added to the daemon, or a caller added or removed, fa
 | `recalibrate_mic` | tray | Re-run mic-level calibration |
 | `ask_human` | MCP server | Ask the person out loud and return what they say (`[mcp] ask_human`) |
 | `headpointer` | CLI | Head-Pointer controls, chosen by an `action` param: `status`, `recenter`, `pause`, `resume`, `clutch`, `dwell` (`yazses headpointer ...`) |
+| `gesture` | CLI | Gesture Chords controls, chosen by an `action` param: `status`, `pause`, `resume` (`yazses gesture ...`) |
 | `remote_status` | nothing | Is the tunnel connected? Redundant: `status` already carries `remote_connected`, and `yazses status` prints it |
 | `streaming_enable` | nothing | Turn streaming transcription on at runtime, building the `StreamingEngine` if it is absent |
 | `streaming_disable` | nothing | Turn it off again |

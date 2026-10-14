@@ -233,6 +233,7 @@ class Daemon:
     #: daemon (a test, a startup that failed early) never assigned them on.
     _headpointer = None
     _handsfree_safety = None
+    _gesture = None
 
     def __init__(
         self,
@@ -519,6 +520,7 @@ class Daemon:
             self._warm_portal_session()
             self._start_portal_idle_reaper()
             self._start_headpointer()
+            self._start_gesture()
             self._hotkey.run()
         finally:
             self._shutdown()
@@ -1192,6 +1194,9 @@ class Daemon:
         # unless `[headpointer] enabled` *and* the shared source and a pointer backend exist.
         self._handsfree_safety = self._build_handsfree_safety(cfg)
         self._headpointer = self._build_headpointer(cfg)
+        # Gesture Chords (ADR-v2-043): face/head tokens from the same shared camera, resolved
+        # by gesture/chords.py. Dormant unless `[gesture] enabled` *and* a chord is bound.
+        self._gesture = self._build_gesture(cfg)
 
         # ADR-v2-011 role arbitration. Must precede the activation sources, because
         # it decides what role EMG plays among them.
@@ -1333,6 +1338,7 @@ class Daemon:
         server.register("recalibrate_mic", self._handle_recalibrate_mic)
         server.register("ask_human", self._handle_ask_human)
         server.register("headpointer", self._handle_headpointer)
+        server.register("gesture", self._handle_gesture)
         server.serve_in_thread()
         self._ipc_server = server
 
@@ -1743,7 +1749,7 @@ class Daemon:
             # having `features enable` write a second key, keeps one switch for the user
             # and lets `disable` undo `enable` exactly.
             section = cfg.perception
-            if cfg.headpointer.enabled and not section.enabled:
+            if (cfg.headpointer.enabled or cfg.gesture.enabled) and not section.enabled:
                 section = dataclasses.replace(section, enabled=True)
 
             # Both factories are lazy: building the source imports no OpenCV and no
@@ -1771,7 +1777,14 @@ class Daemon:
             from yazses.handsfree.safety import gate_from_config
             from yazses.headpointer.controller import SOURCE_NAME
 
-            return gate_from_config(cfg, (SOURCE_NAME,))
+            sources = [SOURCE_NAME]
+            if cfg.gesture.enabled and cfg.gesture.chords:
+                # Registered only when chords can actually run: a registered source that
+                # never samples would hold the global state at PAUSED for ever.
+                from yazses.gesture.runtime import SOURCE_NAME as GESTURE_SOURCE
+
+                sources.append(GESTURE_SOURCE)
+            return gate_from_config(cfg, sources)
         except Exception:
             log.debug("Hands-free safety gate init failed; skipping", exc_info=True)
             return None
@@ -1830,6 +1843,73 @@ class Daemon:
             return runtime.command(action, dict(request.params))
         except Exception as exc:
             log.exception("Head-Pointer command %r raised", action)
+            return {"ok": False, "reason": f"failed: {type(exc).__name__}"}
+
+    def _build_gesture(self, cfg):
+        """The Gesture Chords runtime (ADR-v2-043, #408). Never raises; never opens a camera.
+
+        Always returns a runtime so `yazses gesture status` can say *why* nothing happens:
+        off, no chord bound, or no shared camera source. Only an enabled feature with a
+        chord and the source has a runner, and the camera is leased by `_start_gesture`.
+        """
+        from yazses.gesture.runtime import GestureRuntime
+
+        if not cfg.gesture.enabled:
+            return GestureRuntime()
+        try:
+            from yazses.gesture.runtime import build_gesture, command_runner
+
+            return build_gesture(
+                cfg.gesture,
+                facegesture=cfg.facegesture,
+                perception=self._perception,
+                headpointer=self._headpointer,
+                safety=self._handsfree_safety,
+                # A command a chord asks for goes through the activation policy: reversible
+                # ones run, the rest need a confirmation prompt, and none is wired for
+                # chords, so they are refused (fail closed).
+                run_command=command_runner(self._gesture_classify, self._gesture_dispatch),
+                fps=cfg.perception.fps,
+            )
+        except Exception as exc:
+            log.warning("Gesture Chords init failed; they stay off", exc_info=True)
+            return GestureRuntime(reason=f"init failed: {type(exc).__name__}")
+
+    def _gesture_classify(self, phrase: str):
+        """A chord's command phrase through the ordinary grammar (no macros, no SLM)."""
+        return classify(phrase, self._config.commands.profile,
+                        language=self._command_language)
+
+    def _gesture_dispatch(self, intent) -> None:
+        from yazses.gesture.runtime import no_echo_injector
+
+        # A failing command must not fall back to typing its own name (see no_echo_injector).
+        cmd_dispatch(intent, no_echo_injector(self._active_injector(), intent.raw_text))
+
+    def _start_gesture(self) -> None:
+        """Take the camera lease and start polling, if there is anything to start."""
+        runtime = self._gesture
+        if runtime is None or not runtime.active:
+            if runtime is not None and runtime.reason:
+                log.warning("Gesture Chords is enabled but not running: %s", runtime.reason)
+            return
+        try:
+            runtime.start()
+            log.info("Gesture Chords running (%d chord(s) bound).",
+                     len(runtime.runner.engine.bindings))
+        except Exception:
+            log.exception("Gesture Chords start raised")
+
+    def _handle_gesture(self, request: Request) -> dict[str, object]:
+        """IPC: `status | pause | resume` for Gesture Chords."""
+        runtime = self._gesture
+        action = str(request.params.get("action", "status"))
+        if runtime is None:
+            return {"ok": False, "reason": "Gesture Chords is not available in this daemon"}
+        try:
+            return runtime.command(action, dict(request.params))
+        except Exception as exc:
+            log.exception("Gesture Chords command %r raised", action)
             return {"ok": False, "reason": f"failed: {type(exc).__name__}"}
 
     def _on_command_hold_start(self, leaked: int) -> None:
@@ -5897,6 +5977,11 @@ class Daemon:
                 self._handsfree_safety.shutdown("daemon shutting down")
             except Exception:
                 log.exception("Hands-free safety shutdown raised")
+        if self._gesture is not None:
+            try:
+                self._gesture.stop()  # tokens released, freeze dropped, camera lease back
+            except Exception:
+                log.exception("Gesture Chords stop raised")
         if self._headpointer is not None:
             try:
                 self._headpointer.stop()

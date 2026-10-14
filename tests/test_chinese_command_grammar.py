@@ -206,5 +206,7 @@ def test_daemon_passes_resolved_language_to_both_classifier_paths():
         / "daemon.py"
     ).read_text(encoding="utf-8")
 
-    assert daemon.count("language=self._command_language") == 2
+    # The two spoken-command paths in the burst pipeline, plus the Gesture Chords phrase
+    # classifier (`_gesture_classify`), which must resolve the language the same way.
+    assert daemon.count("language=self._command_language") == 3
     assert "resolve_command_language(" in daemon

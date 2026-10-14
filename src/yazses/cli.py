@@ -6371,6 +6371,80 @@ def headpointer_dwell(
     _headpointer_do("dwell", f"Dwell-click {choice}.", enabled=choice == "on")
 
 
+gesture_app = typer.Typer(
+    name="gesture",
+    help="Control Gesture Chords: see what is bound and why nothing fires, pause or resume them.",
+    context_settings=CONTEXT_SETTINGS,
+    no_args_is_help=True,
+)
+app.add_typer(gesture_app, rich_help_panel=_SETUP)
+
+
+def _gesture_call(action: str) -> dict:
+    """Send one Gesture Chords command to the daemon, or exit with the reason it cannot."""
+    platform = get_platform()
+    client = platform.ipc_client_factory(platform.paths.ipc_socket)
+    try:
+        result = client.call("gesture", action=action)
+    except IpcUnreachableError:
+        typer.echo("Daemon is not running. Start it with: yazses start", err=True)
+        raise typer.Exit(1)
+    return result if isinstance(result, dict) else {"ok": False, "reason": "bad reply"}
+
+
+@gesture_app.command(
+    "status",
+    epilog=_examples("yazses gesture status    are chords running, and what is bound"),
+)
+def gesture_status() -> None:
+    """Show whether Gesture Chords are running, and if not, why not.
+
+    Prints names, counts and flags only -- never an angle, a score or a frame.
+    """
+    result = _gesture_call("status")
+    if not result.get("ok"):
+        typer.echo(f"Gesture Chords: {result.get('reason') or 'failed'}", err=True)
+        raise typer.Exit(1)
+    for problem in result.get("problems") or []:
+        typer.echo(f"ignored:  {problem}")
+    if not result.get("active"):
+        typer.echo(f"Gesture Chords are not running: {result.get('reason') or 'turned off'}")
+        typer.echo("Turn them on with:  yazses features enable gesture")
+        return
+    typer.echo(f"chords:   {result.get('chords')} bound")
+    typer.echo(f"watching: {', '.join(result.get('watching') or []) or 'nothing'}")
+    typer.echo(f"paused:   {'yes' if result.get('paused') else 'no'}")
+    typer.echo(f"pointer:  {'held still for a gesture' if result.get('pointer_frozen') else 'free'}")
+    if result.get("unwired"):
+        typer.echo(f"inert:    {', '.join(result['unwired'])} (nothing implements them in this build)")
+
+
+@gesture_app.command(
+    "pause",
+    epilog=_examples("yazses gesture pause    stop chords from acting until you resume"),
+)
+def gesture_pause() -> None:
+    """Stop chords from acting. The pause chord itself still works."""
+    result = _gesture_call("pause")
+    if not result.get("ok"):
+        typer.echo(f"Gesture Chords: {result.get('reason') or 'failed'}", err=True)
+        raise typer.Exit(1)
+    typer.echo("Gesture Chords paused.")
+
+
+@gesture_app.command(
+    "resume",
+    epilog=_examples("yazses gesture resume    let chords act again (also re-arms the hands-free gate)"),
+)
+def gesture_resume() -> None:
+    """Resume after a pause, a fault or a stale camera. Chords never fire from before it."""
+    result = _gesture_call("resume")
+    if not result.get("ok"):
+        typer.echo(f"Gesture Chords: {result.get('reason') or 'failed'}", err=True)
+        raise typer.Exit(1)
+    typer.echo("Gesture Chords resumed.")
+
+
 @app.command(
     rich_help_panel=_LEARNING,
     epilog=_examples(

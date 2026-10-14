@@ -286,6 +286,22 @@ Undo the last implicit refinement and restore the calibration it replaced.
 
 Show whether look-to-pane is ready: deps, desktop backend, calibration.
 
+## `yazses gesture`
+
+Control Gesture Chords: see what is bound and why nothing fires, pause or resume them.
+
+### `yazses gesture pause`
+
+Stop chords from acting. The pause chord itself still works.
+
+### `yazses gesture resume`
+
+Resume after a pause, a fault or a stale camera. Chords never fire from before it.
+
+### `yazses gesture status`
+
+Show whether Gesture Chords are running, and if not, why not.
+
 ## `yazses gitvoice`
 
 Turn a spoken git command into a git command — fully offline.
