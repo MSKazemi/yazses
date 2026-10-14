@@ -96,4 +96,14 @@ Any setup is welcome — beginner or power user. 💛
   GitHub contributions, or entering longer text where typing everything out would slow me
   down and cause mistakes I don't notice while working.
 
+### @AGI-Zarodysh
+- **OS / desktop:** Ubuntu 24.04 (GNOME, Wayland)
+- **Mic:** laptop built-in microphone
+- **Apps you dictate into:** terminal, VS Code, GitHub
+- **How you use YazSes:** hold-to-talk for PR descriptions, commit messages and issue replies,
+  which is where most of my typing time went. Tip: pin your mic once with `yazses audio use` so
+  a plugged-in monitor can't hijack the input mid-sentence.
+
+---
+
 <!-- Add your entry above this line's section by appending a new ### block at the end. -->
