@@ -6532,6 +6532,87 @@ def headpointer_dwell(
     _headpointer_do("dwell", f"Dwell-click {choice}.", enabled=choice == "on")
 
 
+handsfree_app = typer.Typer(
+    name="handsfree",
+    help="Stop, re-arm and inspect every camera-driven hands-free input at once.",
+    context_settings=CONTEXT_SETTINGS,
+    no_args_is_help=True,
+)
+app.add_typer(handsfree_app, rich_help_panel=_SETUP)
+
+
+def _handsfree_call(action: str) -> dict:
+    """Send one global hands-free command to the daemon, or exit with the reason it cannot."""
+    platform = get_platform()
+    client = platform.ipc_client_factory(platform.paths.ipc_socket)
+    try:
+        result = client.call("handsfree", action=action)
+    except IpcUnreachableError:
+        typer.echo("Daemon is not running. Start it with: yazses start", err=True)
+        raise typer.Exit(1)
+    except Exception as exc:  # an older daemon has no such method
+        typer.echo(f"Hands-free: the running YazSes did not accept that ({exc}). "
+                   "Try `yazses restart`.", err=True)
+        raise typer.Exit(1)
+    return result if isinstance(result, dict) else {"ok": False, "reason": "bad reply"}
+
+
+@handsfree_app.command(
+    "status",
+    epilog=_examples("yazses handsfree status    is hands-free input active, paused or faulted, and why"),
+)
+def handsfree_status() -> None:
+    """Show the same panel the settings window shows: state, health and what to do next.
+
+    Prints states, flags and ages only -- never an angle, a position or a frame, and it never
+    opens the camera.
+    """
+    from yazses.config import load_config
+    from yazses.handsfree.panel import build_panel, render_text
+    from yazses.handsfree.panel_io import gather_panel_inputs
+
+    platform = get_platform()
+    cfg = load_config(platform.paths.config_file)
+    client = platform.ipc_client_factory(platform.paths.ipc_socket)
+
+    def _ipc(method: str, params: dict) -> object:
+        return client.call(method, **params)
+
+    inputs = gather_panel_inputs(cfg, platform, _ipc)
+    for line in render_text(build_panel(inputs)):
+        typer.echo(line)
+
+
+@handsfree_app.command(
+    "pause",
+    epilog=_examples("yazses handsfree pause    stop every hands-free input; nothing needs pointing"),
+)
+def handsfree_pause() -> None:
+    """Stop all hands-free input: no pointer motion, no click, no face-switch key press."""
+    result = _handsfree_call("pause")
+    if not result.get("ok"):
+        typer.echo(f"Hands-free: {result.get('reason') or 'failed'}", err=True)
+        raise typer.Exit(1)
+    scope = ", ".join(str(x) for x in result.get("scope") or []) or "hands-free input"
+    typer.echo(f"Paused: {scope}.")
+
+
+@handsfree_app.command(
+    "resume",
+    epilog=_examples("yazses handsfree resume    re-arm after a pause or a fault"),
+)
+def handsfree_resume() -> None:
+    """Re-arm hands-free input after a pause or a fault. The first frame afterwards never acts."""
+    result = _handsfree_call("resume")
+    scope = ", ".join(str(x) for x in result.get("scope") or [])
+    if not result.get("ok"):
+        typer.echo(f"Hands-free: {result.get('reason') or 'failed'}", err=True)
+        if scope:
+            typer.echo(f"Re-armed so far: {scope}.", err=True)
+        raise typer.Exit(1)
+    typer.echo(f"Resumed: {scope or 'hands-free input'}.")
+
+
 @app.command(
     rich_help_panel=_LEARNING,
     epilog=_examples(

@@ -218,6 +218,18 @@ _TONE_INSTRUCTIONS: dict[str, str] = {
 }
 
 
+
+def _gate_status(gate):
+    """The global hands-free gate's snapshot, or None when there is no gate or it cannot answer."""
+    if gate is None:
+        return None
+    try:
+        return gate.status()
+    except Exception:  # pragma: no cover - defensive
+        log.debug("hands-free safety status failed", exc_info=True)
+        return None
+
+
 class Daemon:
     """The dictation daemon. Holds a hotkey listener and an IPC server."""
 
@@ -1342,6 +1354,7 @@ class Daemon:
         server.register("recalibrate_mic", self._handle_recalibrate_mic)
         server.register("ask_human", self._handle_ask_human)
         server.register("headpointer", self._handle_headpointer)
+        server.register("handsfree", self._handle_handsfree)
         server.serve_in_thread()
         self._ipc_server = server
 
@@ -5550,11 +5563,79 @@ class Daemon:
                 face_wired=(
                     face_running if "facegesture" in facts.features_requested else None
                 ),
+                # The live ACTIVE/PAUSED/FAULTED snapshot, when the global gate exists. The
+                # facts record has always had a slot for it ("None outside the daemon"), but
+                # nothing in the daemon filled it, so `status` and the settings panel could
+                # only ever say the state was unknown. Names, flags and ages only.
+                safety=_gate_status(getattr(self, "_handsfree_safety", None)),
             )
             return as_payload(facts)
         except Exception:  # pragma: no cover - defensive
             log.debug("hands-free status payload failed", exc_info=True)
             return None
+
+    def _handle_handsfree(self, request: Request) -> dict[str, object]:
+        """IPC: `pause | resume` for every hands-free input at once (ADR-v2-148, #420).
+
+        The emergency stop and the explicit re-arm behind the settings panel, the CLI and any
+        voice/switch/tray path. Neither takes a pointer position: a user who cannot aim must
+        be able to stop the pointer. Pause does the most it can in every configuration: with
+        the global gate on it pauses every source; with it off it still pauses the
+        Head-Pointer, and the reply names the scope so nobody believes the face switch was
+        stopped when it was not.
+        """
+        action = str(request.params.get("action", ""))
+        if action not in ("pause", "resume"):
+            return {"ok": False, "reason": f"unknown action {action!r}"}
+        gate = getattr(self, "_handsfree_safety", None)
+        candidate = getattr(self, "_headpointer", None)
+        runtime = candidate if candidate is not None and getattr(candidate, "active", False) else None
+        scope: list[str] = []
+        reasons: list[str] = []
+        try:
+            if action == "pause":
+                if gate is not None:
+                    gate.pause("paused by the user")
+                    scope.append("all hands-free input")
+                if runtime is not None:
+                    runtime.command("pause")
+                    if gate is None:
+                        scope.append("Head-Pointer only")
+                if not scope:
+                    return {
+                        "ok": False,
+                        "reason": "nothing hands-free is running, and the global stop is off "
+                        "(`[handsfree_safety] enabled = false`)",
+                    }
+                return {"ok": True, "scope": scope}
+            # resume: clear the Head-Pointer's own fault and re-arm it first (that is what
+            # tells the gate it may arm), then re-arm every other source the gate knows.
+            ok = True
+            if runtime is not None:
+                result = runtime.command("resume")
+                if result.get("ok"):
+                    scope.append("Head-Pointer")
+                else:
+                    ok = False
+                    reasons.append(str(result.get("reason") or "Head-Pointer would not re-arm"))
+            if gate is not None:
+                rearm = gate.resume()
+                scope.extend(n for n in rearm.armed if n not in scope)
+                if rearm.refused:
+                    ok = False
+                    reasons.append(
+                        "not ready to re-arm: " + ", ".join(rearm.refused)
+                        + (f" ({rearm.reason})" if rearm.reason else "")
+                    )
+            if not scope and not reasons:
+                return {"ok": False, "reason": "nothing hands-free is running"}
+            reply: dict[str, object] = {"ok": ok and bool(scope), "scope": scope}
+            if reasons:
+                reply["reason"] = "; ".join(reasons)
+            return reply
+        except Exception as exc:
+            log.exception("hands-free %s raised", action)
+            return {"ok": False, "reason": f"failed: {type(exc).__name__}"}
 
     def _handle_shutdown(self, _request: Request) -> dict[str, bool]:
         threading.Thread(target=self.shutdown, name="ipc-shutdown", daemon=True).start()

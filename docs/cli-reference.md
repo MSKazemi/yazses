@@ -1411,6 +1411,22 @@ yazses headpointer clutch --off  # let go
 yazses headpointer dwell off     # move only; never click
 ```
 
+### `yazses handsfree`
+
+Stop, re-arm and inspect every camera-driven hands-free input at once (the same panel the settings window's "Hands-free controls…" button opens). Each subcommand takes no coordinate, so none needs the pointer that may be misbehaving. `status` never opens the camera.
+
+| Command | What it does |
+|---|---|
+| `yazses handsfree status` | State (active, paused or faulted), health of the camera, pointer, calibration and face switch, and what to do next. States, flags and ages only. |
+| `yazses handsfree pause` | Stop all hands-free input. With `[handsfree_safety]` off it stops the Head-Pointer only, and says so. |
+| `yazses handsfree resume` | Explicit re-arm after a pause or a fault. Refused, with the reason, while a source is stale or faulted. |
+
+```bash
+yazses handsfree status   # is it active, paused or faulted, and why
+yazses handsfree pause    # stop everything
+yazses handsfree resume   # re-arm once the signal is back
+```
+
 ### `yazses transcribe`
 
 Transcribe an existing audio file **offline** and write a sidecar text file next

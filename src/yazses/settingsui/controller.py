@@ -165,6 +165,14 @@ class SettingsController:
         self._language_previewer = language_previewer
         self._language_applier = language_applier
 
+    def load_config(self) -> Config:
+        """The current config, via the injected loader (used by the hands-free panel)."""
+        return self._load_config()
+
+    def write_key(self, section: str, key: str, value: object, quote: bool | None = None) -> None:
+        """Write one config key via the injected writer (used by the hands-free panel)."""
+        self._writer(section, key, value, quote)
+
     def preview_language_profile(
         self,
         profile: str,
