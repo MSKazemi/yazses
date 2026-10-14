@@ -1822,7 +1822,12 @@ class Daemon:
             from yazses.handsfree.safety import gate_from_config
             from yazses.headpointer.controller import SOURCE_NAME
 
-            sources = [SOURCE_NAME]
+            sources: list[str] = []
+            if cfg.headpointer.enabled:
+                # Registered only when the pointer can actually run, for the reason given for
+                # chords below: a source that never samples holds the global state at PAUSED
+                # for ever and makes every `handsfree resume` report it as "not ready".
+                sources.append(SOURCE_NAME)
             if cfg.gesture.enabled and cfg.gesture.chords:
                 # Registered only when chords can actually run: a registered source that
                 # never samples would hold the global state at PAUSED for ever.
@@ -4740,10 +4745,28 @@ class Daemon:
         event["intent_type"] = "deixis"
         event["intent_action"] = intent.action
         decision = getattr(targeter, "last_decision", None)
+        refuse_fallback = bool(getattr(self._config.gaze, "refuse_destructive_fallback", False))
         if decision is None or decision.target is None:
             event["discard_reason"] = "deixis_no_target"
             log.info("Deixis %r: no window target from gaze; ignoring.", intent.action)
+            if intent.destructive and refuse_fallback:
+                self._deixis_cannot_act(intent, None)
             return True
+        if intent.destructive and refuse_fallback:
+            # Recovery hierarchy (ADR-v2-148): gaze did not pick this window, the focused one
+            # was only the stand-in, and a destructive action never recovers onto a stand-in.
+            from yazses.activation.confirm import Consequence
+            from yazses.handsfree.recovery import Signal, recover
+
+            verdict = recover(
+                Consequence.IRREVERSIBLE,
+                Signal("gaze", decision.target, usable=bool(decision.used_gaze)),
+                focused=decision.target,
+            )
+            if not verdict.acts:
+                event["discard_reason"] = "deixis_gaze_unavailable"
+                self._deixis_cannot_act(intent, verdict.feedback)
+                return True
         if requires_confirm(intent, decision, self._config.gaze.confirm_destructive):
             self._confirm_deixis(intent, decision)
             return True
@@ -4760,6 +4783,19 @@ class Daemon:
             log.info("Deixis %r unsupported by the desktop backend; ignored.",
                      intent.action)
         return True
+
+    def _deixis_cannot_act(self, intent, feedback: str | None) -> None:
+        """Say out loud that a destructive deixis command did nothing, and why.
+
+        The recovery hierarchy's last rung is an explicit "cannot act", not a silent drop.
+        """
+        from yazses.system.notify import notify
+
+        body = feedback or (
+            "Gaze could not tell which window you meant, so nothing was done. "
+            "Look at the window and try again."
+        )
+        notify(f"Did not {intent.action} anything", body)
 
     def _confirm_deixis(self, intent, decision) -> None:
         """Confirm a destructive gaze-routed action via an actionable toast.
