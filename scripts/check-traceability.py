@@ -35,9 +35,30 @@ TRACKED_DELIVERY = {"scheduled", "in-progress"}
 NO_MILESTONE_DELIVERY = {"deferred", "not-planned"}
 
 
+class ManifestError(Exception):
+    """The manifest could not be read as a mapping at all. Never swallowed into ``{}``."""
+
+
 def load_manifest(path: Path = MANIFEST) -> dict[str, Any]:
-    data = yaml.safe_load(path.read_text(encoding="utf-8"))
-    return data if isinstance(data, dict) else {}
+    """Parse the manifest, or raise :class:`ManifestError` saying why it could not be.
+
+    A non-mapping document used to come back as ``{}``, which turned "I could not read this"
+    into "this has no entries" and left the verdict to whatever the validator happened to say
+    about an empty dict. An unreadable manifest is a failure with its own message, not a
+    degenerate valid-looking input.
+    """
+    try:
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as exc:
+        raise ManifestError(f"cannot read {path}: {exc}") from exc
+    try:
+        data = yaml.safe_load(text)
+    except yaml.YAMLError as exc:
+        raise ManifestError(f"{path} is not valid YAML: {exc}") from exc
+    if not isinstance(data, dict):
+        found = "empty" if data is None else type(data).__name__
+        raise ManifestError(f"{path} must be a YAML mapping with version and entries, got {found}")
+    return data
 
 
 def validate_manifest(data: dict[str, Any], root: Path = ROOT) -> list[str]:
@@ -48,6 +69,10 @@ def validate_manifest(data: dict[str, Any], root: Path = ROOT) -> list[str]:
     entries = data.get("entries")
     if not isinstance(entries, list):
         return errors + ["top-level entries must be a list"]
+    if not entries:
+        # `entries: []` is a well-formed list and would pass every per-entry check below by
+        # having nothing to check. A manifest that traces nothing is not a compliant one.
+        return errors + ["top-level entries is empty; a manifest that traces nothing proves nothing"]
 
     seen: set[str] = set()
     for index, entry in enumerate(entries):
@@ -130,8 +155,14 @@ def validate_manifest(data: dict[str, Any], root: Path = ROOT) -> list[str]:
     return errors
 
 
-def main() -> int:
-    errors = validate_manifest(load_manifest())
+def main(argv: list[str] | None = None) -> int:
+    args = sys.argv[1:] if argv is None else argv
+    path = Path(args[0]) if args else MANIFEST
+    try:
+        errors = validate_manifest(load_manifest(path))
+    except ManifestError as exc:
+        print(f"Planning traceability errors:\n  - {exc}", file=sys.stderr)
+        return 1
     if errors:
         print("Planning traceability errors:", file=sys.stderr)
         for error in errors:
