@@ -208,6 +208,7 @@ class SettingsWindow:
         intro.setStyleSheet(muted_style_for(intro))
         outer.addWidget(intro)
 
+        outer.addWidget(self._build_handsfree_button())
         outer.addLayout(self._build_hotkey_row(model.hotkey))
         outer.addWidget(self._build_speech_rows(model))
         outer.addWidget(self._build_audio_rows(model))
@@ -317,6 +318,74 @@ class SettingsWindow:
             "border-radius: 6px; font-weight: 600; }"
         )
         outer.addWidget(banner)
+
+    def _build_handsfree_button(self):
+        """The entry to the hands-free controls window (#420). First thing after the intro,
+        because the person who needs it most is the one who cannot scroll to find it."""
+        from PySide6.QtWidgets import QPushButton
+
+        btn = QPushButton("&Hands-free controls…")
+        btn.setMinimumHeight(48)
+        btn.setAccessibleDescription(
+            "Pause, resume and recover the camera-driven hands-free inputs, and see whether "
+            "they are healthy. Opening it does not open the camera."
+        )
+        btn.setToolTip(
+            "Pause, resume, recenter and recover the camera-driven hands-free inputs, and "
+            "check their health. Opening it does not open the camera."
+        )
+        btn.clicked.connect(self._open_handsfree_panel)
+        self._handsfree_button = btn
+        self._handsfree_panel: Any = None
+        #: ``{slug: desired}`` for what is staged, replaced (never mutated) so the panel's
+        #: worker thread can read it without a lock.
+        self._staged_snapshot: dict[str, bool] = {}
+        return btn
+
+    def _open_handsfree_panel(self) -> None:
+        """Open (or re-show) the hands-free window. It reads, it never opens the camera."""
+        from yazses.handsfree.panel_io import gather_panel_inputs, perform_action
+        from yazses.settingsui.handsfree_panel import HandsFreePanel
+
+        if self._handsfree_panel is not None:
+            self._handsfree_panel.show()
+            return
+
+        def _ipc(method: str, params: dict) -> Any:
+            from yazses.platform import get_platform
+
+            platform = get_platform()
+            return platform.ipc_client_factory(platform.paths.ipc_socket).call(method, **params)
+
+        def _gather():
+            from yazses.platform import get_platform
+
+            return gather_panel_inputs(
+                self._controller.load_config(), get_platform(), _ipc,
+                staged=self._staged_snapshot,
+            )
+
+        def _write_table(name: str, entries) -> None:
+            from yazses.platform import get_platform
+            from yazses.system.configedit import set_config_table_array
+
+            set_config_table_array(get_platform().paths.config_file, name, entries)
+
+        def _perform(spec):
+            return perform_action(
+                spec, ipc=_ipc, write_key=self._controller.write_key, write_table=_write_table
+            )
+
+        def _toggle(slug: str, desired: bool) -> None:
+            box = self._checkboxes.get(slug)
+            if box is not None and box.isEnabled():
+                box.setChecked(desired)
+
+        self._handsfree_panel = HandsFreePanel(
+            _gather, _perform, toggle_feature=_toggle, apply_staged=self._on_apply,
+            parent=self._win,
+        )
+        self._handsfree_panel.show()
 
     def _build_hotkey_row(self, current: str):
         """The hold-to-talk key picker — the one setting everybody changes.
@@ -905,6 +974,7 @@ class SettingsWindow:
         cb.blockSignals(False)
 
     def _show_staged(self) -> None:
+        self._staged_snapshot = dict(self._pending.items())
         count = len(self._pending)
         self._hint.setText(
             f"{count} change(s) staged — click Apply, then restart the daemon."

@@ -294,6 +294,22 @@ Turn a spoken git command into a git command — fully offline.
 - `--run` — Run the command instead of only printing it.
 - `--yes` — Confirm a destructive command so --run will run it.
 
+## `yazses handsfree`
+
+Stop, re-arm and inspect every camera-driven hands-free input at once.
+
+### `yazses handsfree pause`
+
+Stop all hands-free input: no pointer motion, no click, no face-switch key press.
+
+### `yazses handsfree resume`
+
+Re-arm hands-free input after a pause or a fault. The first frame afterwards never acts.
+
+### `yazses handsfree status`
+
+Show the same panel the settings window shows: state, health and what to do next.
+
 ## `yazses headpointer`
 
 Control the Head-Pointer: recenter, pause or resume it, hold a clutch, toggle dwell-click.

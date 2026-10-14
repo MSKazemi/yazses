@@ -292,3 +292,85 @@ def set_config_keys_atomic(
             except OSError:
                 pass
         lock.release()
+
+
+def _replace_table_array(text: str, name: str, entries: Iterable[Iterable[tuple[str, str]]]) -> str:
+    """``text`` with every ``[[name]]`` table removed and ``entries`` appended. Pure.
+
+    A block is its ``[[name]]`` header and the key lines under it, so a comment above the
+    *following* section is left where it was. Entries go at the end: an array of tables is a
+    sub-table of its parent, and TOML allows it to be defined after unrelated sections.
+    """
+    if text and not text.endswith("\n"):
+        text += "\n"
+    header = re.escape(name)
+    # A block is its header plus every key line that follows, with any blank or comment lines
+    # *between* key lines (they belong to the entry). Trailing blank and comment lines are
+    # not consumed: they sit above whatever comes next and are not ours to delete.
+    key_line = r"[ \t]*[A-Za-z0-9_\-\"'.]+[ \t]*=[^\n]*\n"
+    filler = r"(?:[ \t]*(?:#[^\n]*)?\n)*?"
+    block = re.compile(
+        rf"(?m)^[ \t]*\[\[{header}\]\][ \t]*(?:#[^\n]*)?\n(?:{filler}{key_line})*"
+    )
+    kept = block.sub("", text)
+    kept = kept.rstrip("\n")
+    rendered = []
+    for entry in entries:
+        lines = [f"[[{name}]]"]
+        for key, value in entry:
+            lines.append(f"{key} = {quote_toml_string(value)}")
+        rendered.append("\n".join(lines))
+    if not rendered:
+        return kept + "\n" if kept else ""
+    prefix = kept + "\n\n" if kept else ""
+    return prefix + "\n\n".join(rendered) + "\n"
+
+
+def set_config_table_array(path, name: str, entries: Iterable[Iterable[tuple[str, str]]]) -> str:
+    """Replace every ``[[name]]`` table in *path* with *entries* (string values only).
+
+    The one array-of-tables edit the settings panel needs (``[[facegesture.switches]]``). Same
+    contract as :func:`set_config_keys_atomic`: the config lock is held, the candidate is
+    written beside the target and **parsed before it becomes visible**, and any failure leaves
+    the original untouched. A file that declares the same array inline
+    (``switches = [{...}]``) parses as a conflict once a ``[[...]]`` table is added; that is
+    refused with ``ValueError`` rather than rewritten, because guessing which spelling the user
+    meant is how a hand-written config gets mangled.
+    """
+    planned = [tuple(entry) for entry in entries]
+    p = Path(path)
+    lock = _lock_config(p)
+    temp_path: Path | None = None
+    try:
+        p.parent.mkdir(parents=True, exist_ok=True)
+        original = p.read_text(encoding="utf-8-sig") if p.exists() else ""
+        candidate = _replace_table_array(original, name, planned)
+        try:
+            tomllib.loads(candidate)
+        except tomllib.TOMLDecodeError as exc:
+            raise ValueError(
+                f"[[{name}]] could not be written without breaking the config ({exc}); "
+                "edit it by hand"
+            ) from exc
+        fd, tmp = tempfile.mkstemp(prefix=f".{p.name}.", suffix=".tmp", dir=str(p.parent))
+        temp_path = Path(tmp)
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(candidate)
+            fh.flush()
+            os.fsync(fh.fileno())
+        if p.exists():
+            try:
+                os.chmod(temp_path, p.stat().st_mode & 0o777)
+            except OSError:
+                pass
+        os.replace(temp_path, p)
+        temp_path = None
+        _fsync_parent(p.parent)
+        return f"set {len(planned)} [[{name}]] table(s)"
+    finally:
+        if temp_path is not None:
+            try:
+                temp_path.unlink()
+            except OSError:
+                pass
+        lock.release()

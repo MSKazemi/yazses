@@ -342,6 +342,17 @@ Run the command instead of only printing it.
 \fB\-\-yes\fR
 Confirm a destructive command so --run will run it.
 .RE
+.SS "yazses handsfree"
+Stop, re-arm and inspect every camera-driven hands-free input at once.
+.TP
+\fByazses handsfree pause\fR
+Stop all hands-free input: no pointer motion, no click, no face-switch key press.
+.TP
+\fByazses handsfree resume\fR
+Re-arm hands-free input after a pause or a fault. The first frame afterwards never acts.
+.TP
+\fByazses handsfree status\fR
+Show the same panel the settings window shows: state, health and what to do next.
 .SS "yazses headpointer"
 Control the Head-Pointer: recenter, pause or resume it, hold a clutch, toggle dwell-click.
 .TP
