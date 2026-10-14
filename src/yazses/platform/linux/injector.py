@@ -8,6 +8,7 @@ import os
 from yazses.inject.auto import get_injector
 from yazses.inject.base import BaseInjector
 from yazses.inject.clipboard import ClipboardInjector
+from yazses.pointer.base import PointerSink, PointerUnsupportedError
 
 log = logging.getLogger(__name__)
 
@@ -96,6 +97,27 @@ class LinuxInjector:
                 raise
             self._fell_back("key sequence", exc)
             self._fallback.inject_key_sequence(keys)
+
+    def pointer_sink(self) -> PointerSink:
+        """A pointer output that extends **this injector's** RemoteDesktop session.
+
+        ADR-v2-146 rule 6: on Wayland the pointer rides the session dictation types
+        through, so there is one dialog, one restore token and one grant. That session
+        exists only when the portal is the backend actually chosen to type, which is why
+        this is answered here -- by the object that knows what it chose -- and not by the
+        platform bundle guessing from the environment.
+
+        Any other backend is an honest ``PointerUnsupportedError`` that names what is in
+        use and the one setting that changes it, rather than a second, rival portal
+        client opened on the side.
+        """
+        open_sink = getattr(self._primary, "deferred_pointer_sink", None)
+        if open_sink is None:
+            raise PointerUnsupportedError(
+                f"the Wayland pointer needs the Remote Desktop portal, but typing uses "
+                f"{self.backend_name}; set [injection] backend = \"portal\" and restart"
+            )
+        return open_sink()
 
     @property
     def backend_name(self) -> str:

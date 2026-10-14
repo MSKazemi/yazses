@@ -346,6 +346,11 @@ class _PortalSession:
         #: Bumped on every close, so a pointer sink can tell "the session I was granted
         #: on" from "a session that has since been re-negotiated behind my back".
         self._generation = 0
+        #: Why the most recent negotiation failed ("" after a success or before any
+        #: attempt). A pointer sink that is waiting on a session someone else is
+        #: negotiating -- `warm()` on its own thread -- has no other way to tell "the
+        #: dialog is still open" from "the user pressed Cancel".
+        self._last_error = ""
 
     # -- plumbing ---------------------------------------------------------
 
@@ -353,6 +358,21 @@ class _PortalSession:
     def generation(self) -> int:
         """Increments each time the session is closed. Identifies one grant."""
         return self._generation
+
+    @property
+    def started(self) -> bool:
+        """True while a negotiated session is held. Never blocks, never negotiates."""
+        return bool(self._session_handle)
+
+    @property
+    def wants_pointer(self) -> bool:
+        """True while a pointer consumer is registered, i.e. the next dialog asks for it."""
+        return self._pointer_consumers > 0
+
+    @property
+    def last_error(self) -> str:
+        """Why the last negotiation failed, or ``""``."""
+        return self._last_error
 
     @property
     def pointer_granted(self) -> bool:
@@ -461,7 +481,9 @@ class _PortalSession:
         """
         try:
             self._negotiate_locked(start_timeout)
-        except Exception:
+            self._last_error = ""
+        except Exception as exc:
+            self._last_error = str(exc) or type(exc).__name__
             self._session_handle = ""
             self._pointer_granted = False
             conn, self._conn = self._conn, None
@@ -605,6 +627,12 @@ class _PortalSession:
             return False
         with self._lock:
             if not self._session_handle or self._last_used is None:
+                return False
+            # A registered pointer consumer holds the session open. A head pointer that
+            # sits still for a minute is not idle -- it is waiting for the next
+            # movement -- and the grant cannot be re-made without another dialog, so
+            # reaping here would end the pointer for good with nothing to say why.
+            if self._pointer_consumers:
                 return False
             if not read_token():
                 return False
@@ -757,6 +785,26 @@ class PortalInjector:
             for mod in reversed(mods):
                 session.notify_keysym(mod, KEY_RELEASED)
 
+    @property
+    def wants_pointer(self) -> bool:
+        """True while a pointer consumer is registered on this injector's session.
+
+        The daemon reads it before `warm()` so the consent explanation describes the
+        request that is actually about to be made (see `consent_explanation`).
+        """
+        return self._session.wants_pointer
+
+    def deferred_pointer_sink(self) -> DeferredPortalPointerSink:
+        """A `PointerSink` that rides this session without negotiating it, or waiting.
+
+        `pointer_sink` blocks until the user answers the dialog, which is right for a
+        caller that is allowed to wait and wrong for a daemon constructing its features:
+        the hotkey must be live while the dialog is open. This registers the pointer
+        consumer **now** -- so the dialog `warm()` raises on its own thread asks for the
+        keyboard and the pointer together, once -- and defers everything else to first use.
+        """
+        return DeferredPortalPointerSink(self._session)
+
     def pointer_sink(
         self, *, start_timeout: float = START_TIMEOUT_S
     ) -> PortalPointerSink:
@@ -901,6 +949,101 @@ class PortalPointerSink:
         return session
 
 
+class DeferredPortalPointerSink:
+    """``PointerSink`` that joins the injector's session now and opens on first use.
+
+    The blocking `open_pointer_sink` is the wrong shape for a daemon that builds its
+    features at start-up: it would hold the whole process until a human answered a
+    compositor dialog. This registers the pointer consumer immediately (cheap, and
+    refused at once if the session already started keyboard-only), then leaves the dialog
+    to whoever negotiates the session -- the daemon's `warm()` thread, with its consent
+    explanation -- and reads the outcome when the first event is sent.
+
+    **Until the session exists it fails loudly rather than waiting or dropping events**:
+    a pointer that silently swallows motion is what ADR-v2-146 forbids. The message says
+    which of "dialog still open" and "dialog refused" it is, from the session's own
+    record, so the Head-Pointer's fault line tells the user what to do. Nothing is ever
+    sent before the compositor granted the pointer device, and nothing here negotiates,
+    so this class cannot raise a consent dialog by itself.
+    """
+
+    backend_name = "portal"
+
+    def __init__(self, session: _PortalSession) -> None:
+        try:
+            session.request_pointer()
+        except PortalUnavailable as exc:
+            raise PointerBackendError(str(exc)) from exc
+        self._session = session
+        self._inner: PortalPointerSink | None = None
+        self._generation = -1
+        self._closed = False
+
+    def capabilities(self) -> PointerCapabilities:
+        return PORTAL_POINTER_CAPABILITIES
+
+    def move_relative(self, dx: float, dy: float) -> None:
+        check_finite(dx=dx, dy=dy)
+        require_relative(PORTAL_POINTER_CAPABILITIES)
+        self._ready().move_relative(dx, dy)
+
+    def move_absolute(self, x: float, y: float) -> None:
+        require_absolute(PORTAL_POINTER_CAPABILITIES)
+
+    def click(self, button: PointerButton = PointerButton.LEFT) -> None:
+        require_button(PORTAL_POINTER_CAPABILITIES, button)
+        self._ready().click(button)
+
+    def scroll(self, dx: float, dy: float) -> None:
+        check_finite(dx=dx, dy=dy)
+        require_scroll(PORTAL_POINTER_CAPABILITIES, dx, dy)
+        self._ready().scroll(dx, dy)
+
+    def close(self) -> None:
+        """Hand the pointer consumer back exactly once. The session stays open."""
+        if self._closed:
+            return
+        self._closed = True
+        inner, self._inner = self._inner, None
+        if inner is not None:
+            inner.close()  # releases the registration this object made
+            return
+        try:
+            self._session.release_pointer()
+        except Exception:  # noqa: BLE001 - cleanup must not raise on top of a failure
+            logger.debug("portal pointer: releasing the capability failed", exc_info=True)
+
+    def _ready(self) -> PortalPointerSink:
+        if self._closed:
+            raise PointerBackendError("this portal pointer sink is closed")
+        session = self._session
+        inner = self._inner
+        if inner is not None and session.generation == self._generation:
+            return inner
+        # No grant on a live session: either never opened, or the session closed and
+        # was re-negotiated (the consumer count kept POINTER in that mask). Re-derive.
+        self._inner = None
+        if not session.started:
+            if session.last_error:
+                raise PointerBackendError(
+                    "the RemoteDesktop permission was not given "
+                    f"({session.last_error[:80]}); restart YazSes and approve the dialog"
+                )
+            raise PointerBackendError(
+                "waiting for the desktop's Remote Desktop permission dialog; approve "
+                "it, then run `yazses headpointer resume`"
+            )
+        if not session.pointer_granted:
+            raise PointerUnsupportedError(
+                "the RemoteDesktop portal did not grant a pointer device for this "
+                "session, so this compositor offers no portal pointer output "
+                "(dictation is unaffected)"
+            )
+        self._generation = session.generation
+        self._inner = PortalPointerSink(session)
+        return self._inner
+
+
 def open_pointer_sink(
     session: _PortalSession, *, start_timeout: float = START_TIMEOUT_S
 ) -> PortalPointerSink:
@@ -946,6 +1089,7 @@ def open_pointer_sink(
 
 __all__ = [
     "PORTAL_POINTER_CAPABILITIES",
+    "DeferredPortalPointerSink",
     "POINTER_BUTTON_CODES",
     "PortalInjector",
     "PortalPointerSink",

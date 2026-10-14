@@ -869,7 +869,13 @@ class Daemon:
 
                 if read_token():
                     return
-                title, body = consent_explanation(can_avoid=not in_strict_snap())
+                # Follow the request, not the feature list: a pointer consumer registered
+                # on the session (Head-Pointer on Wayland) puts POINTER in the very
+                # SelectDevices this dialog answers, and the copy must say so.
+                title, body = consent_explanation(
+                    can_avoid=not in_strict_snap(),
+                    wants_pointer=bool(getattr(backend, "wants_pointer", False)),
+                )
                 log.info("%s — %s", title, body.replace("\n", " "))
                 from yazses.system.notify import notify
 
