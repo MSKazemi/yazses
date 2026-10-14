@@ -1323,9 +1323,14 @@ class HandsfreeSafetyConfig:
     threshold becomes a recommended default. 500 ms is a deliberately generous placeholder: a
     guard is judged on how rarely it fires (ADR-021), and a false trip costs a hands-free user
     their input method until they re-arm.
+
+    The field's bounds (`min_exclusive`, `max` in its metadata) are enforced by
+    `configcheck.build_section`: zero cannot express a freshness judgement
+    (`SafetyLimits.window_ms()` would apply 500 while `Config` reported 0), and a window past a
+    minute means "never stale", the guard silently off.
     """
     enabled: bool = False  # off until the hands-free preset and its consumers are wired
-    stale_after_ms: int = 500  # a signal older than this cannot act; unmeasured placeholder
+    stale_after_ms: int = field(default=500, metadata={"min_exclusive": 0, "max": 60_000})  # a signal older than this cannot act; unmeasured placeholder
 
 
 @dataclass

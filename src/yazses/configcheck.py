@@ -186,6 +186,26 @@ def negative_is_impossible(field) -> bool:
     return default >= 0
 
 
+def out_of_bounds(field, value) -> str | None:
+    """Why ``value`` is outside the bounds the field declares, or None. Pure.
+
+    Bounds live in the dataclass field's ``metadata`` -- ``min_exclusive`` and ``max`` -- beside
+    the default they constrain, not in a list here. ``negative_is_impossible`` cannot say "zero is
+    impossible" because for most magnitudes zero is a real value; a field that needs the stricter
+    rule says so itself, and a new such field cannot be forgotten by this module.
+    """
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    meta = field.metadata
+    low = meta.get("min_exclusive")
+    if low is not None and not value > low:
+        return f"must be greater than {low} (got {value})"
+    high = meta.get("max")
+    if high is not None and value > high:
+        return f"is too large (got {value}; the most it can be is {high})"
+    return None
+
+
 #: The face-gesture switch's supported gestures, read from their definition rather
 #: than restated, so this file cannot fall behind it.
 _FACE_GESTURES: tuple[str, ...] = _gesture_names()
@@ -407,6 +427,8 @@ def build_section(cls, raw, section: str, problems: list[ConfigProblem]):
             and negative_is_impossible(fields[key])
         ):
             ok, note = False, f"cannot be negative (got {coerced})"
+        if ok and (bound := out_of_bounds(fields[key], coerced)):
+            ok, note = False, bound
         if ok and (bad := invalid_regexes(section, key, coerced)):
             problems.append(
                 ConfigProblem(
