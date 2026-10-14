@@ -1425,6 +1425,20 @@ Stop, re-arm and inspect every camera-driven hands-free input at once (the same 
 yazses handsfree status   # is it active, paused or faulted, and why
 yazses handsfree pause    # stop everything
 yazses handsfree resume   # re-arm once the signal is back
+### `yazses gesture`
+
+Control Gesture Chords while they run (`yazses features enable gesture`, then bind chords under `[gesture.chords]`): see what is bound and why nothing fires, or stop them acting. Every subcommand is a single call to the daemon and takes no coordinate.
+
+| Command | What it does |
+|---|---|
+| `yazses gesture status` | Whether chords are running, how many are bound, which tokens are being watched, and any `[gesture.chords]` line that was refused and why. Never prints an angle or a score. |
+| `yazses gesture pause` | Stop chords from acting. The `pause_pointer` chord still works, because stopping is never gated. |
+| `yazses gesture resume` | Let chords act again, and re-arm the hands-free gate for them if `[handsfree_safety]` is on. Nothing from before the pause is replayed. |
+
+```bash
+yazses gesture status    # are chords running, what is bound, and what was ignored
+yazses gesture pause     # stop chords from acting
+yazses gesture resume    # carry on
 ```
 
 ### `yazses transcribe`

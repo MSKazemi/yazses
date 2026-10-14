@@ -33,7 +33,7 @@ It stays listed so contributors can pick it up; see the matching design/adr/ ent
 ```
 
 They stay listed because that is where a contributor picks one up — each has a matching
-`design/adr/` entry. **43 of the 122 rows below are ◌ today.** Rows without the mark are
+`design/adr/` entry. **42 of the 122 rows below are ◌ today.** Rows without the mark are
 wired and can be turned on.
 
 ### "Hold the command key" — what that means
@@ -160,7 +160,7 @@ Toggle with `yazses features enable <name>`.
 | ◌ **Mood Ledger** | `sentiment` | Private speech-sentiment journal; labels stay in the encrypted corpus. |
 | ◌ **Pronunciation Feedback** | `pronunciation` | Per-phoneme good/fair/poor practice scoring for accent/L2 training. |
 | ◌ **Personal Read-Back Voice** | `readback_clone` | Read the transcript back in a clone of your own voice (permissive OpenVoice V2). |
-| ◌ **Gesture Chords** | `gesture` | Bind multi-input chords (held key + nod / key / sEMG squeeze) to actions. |
+| **Gesture Chords** | `gesture` | Bind multi-input chords (held key + nod / key / sEMG squeeze) to actions. |
 | ◌ **Two-Way Live Interpreter** | `interpret` | Face-to-face mode: each turn is detected and translated into the other language. |
 
 ## Wave G — normalization, privacy & new modalities (v2.3)

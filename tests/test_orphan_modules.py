@@ -57,9 +57,6 @@ KNOWN_ORPHANS = {
         "Per-editor grammar config. commands/dispatch.py has a comment pointing at "
         "this module and still never imports it; load_profiles would return an "
         "empty registry anyway.",
-    "activation.pipeline":
-        "Its own docstring says the daemon wires the real classify/dispatch/confirm "
-        "into it. The daemon does not.",
     "personalize.adapter_gate":
         "personalize is wired through prompt_builder; the P2 LoRA gate is not.",
     "platform.emg.brainflow_source":

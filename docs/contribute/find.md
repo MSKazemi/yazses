@@ -1,6 +1,6 @@
 ---
 title: Find a task that fits you
-description: Filter 171 open YazSes contributor tasks by what you have — a browser, a laptop, specific hardware — how much time, and whether you want to write code.
+description: Filter 170 open YazSes contributor tasks by what you have — a browser, a laptop, specific hardware — how much time, and whether you want to write code.
 ---
 
 # Find a task that fits you
@@ -38,7 +38,7 @@ Coding agents are optional. "Cloud-ready" means the task can run in that environ
   </label>
 </div>
 
-<p id="yz-count"><strong>171</strong> tasks shown.</p>
+<p id="yz-count"><strong>170</strong> tasks shown.</p>
 
 <table class="yz-table">
 <thead><tr><th>Task</th><th>You need</th><th>Skills</th></tr></thead>
@@ -182,7 +182,6 @@ Coding agents are optional. "Cloud-ready" means the task can run in that environ
 <tr class="yz-row" data-env="cloud" data-family="feature-wiring" data-minutes="90" data-skills="python" data-text="wire the `compose` capability so it is reachable from the daemon or cli a browser or container"><td><strong>Wire the `compose` capability so it is reachable from the daemon or CLI</strong><br><code>WIRE-COMPOSE-001</code> · L2 · 90 min</td><td>a browser or container</td><td>python</td></tr>
 <tr class="yz-row" data-env="cloud" data-family="feature-wiring" data-minutes="90" data-skills="python" data-text="wire the `contour` capability so it is reachable from the daemon or cli a browser or container"><td><strong>Wire the `contour` capability so it is reachable from the daemon or CLI</strong><br><code>WIRE-CONTOUR-001</code> · L2 · 90 min</td><td>a browser or container</td><td>python</td></tr>
 <tr class="yz-row" data-env="cloud" data-family="feature-wiring" data-minutes="90" data-skills="python" data-text="wire the `crowdproof` capability so it is reachable from the daemon or cli a browser or container"><td><strong>Wire the `crowdproof` capability so it is reachable from the daemon or CLI</strong><br><code>WIRE-CROWDPROOF-001</code> · L2 · 90 min</td><td>a browser or container</td><td>python</td></tr>
-<tr class="yz-row" data-env="cloud" data-family="feature-wiring" data-minutes="90" data-skills="python" data-text="wire the `gesture` capability so it is reachable from the daemon or cli a browser or container"><td><strong>Wire the `gesture` capability so it is reachable from the daemon or CLI</strong><br><code>WIRE-GESTURE-001</code> · L2 · 90 min</td><td>a browser or container</td><td>python</td></tr>
 <tr class="yz-row" data-env="cloud" data-family="feature-wiring" data-minutes="90" data-skills="python" data-text="wire the `hatselect` capability so it is reachable from the daemon or cli a browser or container"><td><strong>Wire the `hatselect` capability so it is reachable from the daemon or CLI</strong><br><code>WIRE-HATSELECT-001</code> · L2 · 90 min</td><td>a browser or container</td><td>python</td></tr>
 <tr class="yz-row" data-env="cloud" data-family="feature-wiring" data-minutes="90" data-skills="python" data-text="wire the `hesitation` capability so it is reachable from the daemon or cli a browser or container"><td><strong>Wire the `hesitation` capability so it is reachable from the daemon or CLI</strong><br><code>WIRE-HESITATION-001</code> · L2 · 90 min</td><td>a browser or container</td><td>python</td></tr>
 <tr class="yz-row" data-env="cloud" data-family="feature-wiring" data-minutes="90" data-skills="python" data-text="wire the `hotwords` capability so it is reachable from the daemon or cli a browser or container"><td><strong>Wire the `hotwords` capability so it is reachable from the daemon or CLI</strong><br><code>WIRE-HOTWORDS-001</code> · L2 · 90 min</td><td>a browser or container</td><td>python</td></tr>

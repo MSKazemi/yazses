@@ -592,6 +592,7 @@ from the tree, so a method added to the daemon, or a caller added or removed, fa
 | `ask_human` | MCP server | Ask the person out loud and return what they say (`[mcp] ask_human`) |
 | `headpointer` | CLI | Head-Pointer controls, chosen by an `action` param: `status`, `recenter`, `pause`, `resume`, `clutch`, `dwell` (`yazses headpointer ...`) |
 | `handsfree` | settings window, CLI | Global hands-free stop, chosen by an `action` param: `pause` (every source at once; Head-Pointer only when `[handsfree_safety]` is off) or `resume` (explicit re-arm; refuses while a source is stale or faulted). Takes no pointer position (`yazses handsfree ...`) |
+| `gesture` | CLI | Gesture Chords controls, chosen by an `action` param: `status`, `pause`, `resume` (`yazses gesture ...`) |
 | `remote_status` | nothing | Is the tunnel connected? Redundant: `status` already carries `remote_connected`, and `yazses status` prints it |
 | `streaming_enable` | nothing | Turn streaming transcription on at runtime, building the `StreamingEngine` if it is absent |
 | `streaming_disable` | nothing | Turn it off again |

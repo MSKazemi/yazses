@@ -829,11 +829,12 @@ YazSes ships **148 capabilities**. All but the core are **off by default** — t
 
 ### Gesture Chords
 
-- **Toggle:** `gesture`  ·  **Tier:** planned — designed, not yet wired  ·  **Config:** `[gesture] — multi-input chords`
-- **What it does:** Bind chords (held key + nod / second key / sEMG squeeze) to actions like send or switch profile. Sensors need their own extras. Off by default.
-- **Use when:** When your hands are busy and you want to fire send or switch profiles with a nod, not a word.
-- **Example:** Hold the hotkey and nod to send (bind chords in [gesture]).
-- **Activate:** not possible yet — designed but not wired into this build (`yazses features enable` refuses it; contributions welcome)
+- **Toggle:** `gesture`  ·  **Tier:** optional  ·  **Config:** `[gesture] — multi-input chords`
+- **What it does:** Bind chords of face and head gestures (jaw open, brow raise, nod, shake, tilt) to abstract actions like pause or recenter the pointer. Needs a webcam (OpenCV + MediaPipe, shared with Glance-Type) and binds nothing until you add a chord. Off by default.
+- **Use when:** When your hands are busy and you want to pause or recenter the pointer with a face-and-head gesture, not a word.
+- **Example:** Raise your brows and nod to recenter the pointer (bind chords in [gesture.chords]).
+- **Download:** ~220 MB
+- **Activate:** `yazses features enable gesture` then `yazses restart`
 
 ### Voice Snippets
 
