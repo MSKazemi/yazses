@@ -13,6 +13,15 @@ Releases, Snap, and the APT repository.
 This page is two things at once: an honest status report, and a statement of
 where we are going. If you only read one thing, read the pictures.
 
+**Where the current plan lives.** This page is the narrative. The authoritative,
+always-current sources are the [GitHub milestones](https://github.com/MSKazemi/yazses/milestones)
+(work you can pick up), the [`[Unreleased]` section of the changelog](https://github.com/MSKazemi/yazses/blob/main/CHANGELOG.md)
+(what is on `main` but not yet tagged) and [`ROADMAP.md`](https://github.com/MSKazemi/yazses/blob/main/ROADMAP.md)
+(the contributor-facing detail). Which issues must carry a milestone is being settled
+under the traceability epic [#377](https://github.com/MSKazemi/yazses/issues/377)
+([#480](https://github.com/MSKazemi/yazses/issues/480)); until that lands, do not read the
+absence of a milestone as the absence of a plan.
+
 ## The destination
 
 The keyboard is a 150-year-old constraint, not a law of nature. YazSes exists
@@ -86,8 +95,8 @@ flowchart LR
 
 ## Working milestones — where you can join
 
-Every open issue belongs to exactly one milestone, and every milestone is an
-outcome, not a bucket. Pick the one that sounds like you:
+Every milestone is an outcome, not a bucket. Not every open issue carries one yet (see
+the note at the top of this page). Pick the one that sounds like you:
 
 | Milestone | The promise | Flavour |
 |---|---|---|
@@ -96,6 +105,8 @@ outcome, not a bucket. Pick the one that sounds like you:
 | [Hear better — speech intelligence](https://github.com/MSKazemi/yazses/milestone/7) | Accuracy measured, not asserted: benchmarks, denoising, new engines | Speech / ML |
 | [Voice control — beyond dictation](https://github.com/MSKazemi/yazses/milestone/8) | Git, files, windows, and symbols — commanded, not typed | Systems / HCI |
 | [Welcome mat](https://github.com/MSKazemi/yazses/milestone/9) | The first hour is easy, the first contribution is likely | Docs / testing / no-code |
+| [Hands-free — perception & accessibility](https://github.com/MSKazemi/yazses/milestone/10) | Eye, muscle and whisper input maturing into a complete hands-free stack on Linux | Perception / accessibility |
+| [Silent input — EMG commands](https://github.com/MSKazemi/yazses/milestone/11) | EMG as a first-class command channel, with no cost to anyone who never enables it | Hardware / signal processing |
 | [M0–M3 — Android](https://github.com/MSKazemi/yazses/milestones) | An offline dictation keyboard in your pocket, designed in the open | Mobile / Kotlin |
 
 Start at the [pinned contributor guide](https://github.com/MSKazemi/yazses/issues/22),
@@ -148,9 +159,19 @@ or — for research-shaped work — at
 | **v2.20.0** | 2026-08-14 | The Windows release that actually works, driven by live user reports: a firewall-blocked model download killed the daemon with a raw traceback (#310), every CLI command was unreachable because `YazSes.exe` shadowed its own `.cmd` shim through `PATHEXT`, and `assets/yazses.ico` had never existed — so every build shipped PyInstaller's default artwork behind a silent `else None`. Plus `yazses model download` for speech models, and Windows tray colours that finally match Linux. |
 | **v2.21.0** | 2026-08-15 | Sixty-nine commits of things that were reported as working and were not: a CI job that could only ever be red, eleven tests skipped in every job, three packaging guards that passed by iterating an empty list, a CLI-reference guard that checked 58 names and ignored 50, a crashed daemon that stayed dead on Windows and macOS while the tray watched, and "Update installed" for upgrades that never happened. Plus a `DOWNLOAD` column in `yazses features`, the Command Safety Gate wired, check-digit validation on dictated numbers, a mic-level ring in the tray, and an Intel macOS build. **Current stable release.** |
 
-## In `[Unreleased]` — since v2.24.0
+This table was last extended at v2.21.0. Every release since then, up to the
+current stable release, has its own note on the [release notes](releases/index.md)
+page and its full entry in the
+[changelog](https://github.com/MSKazemi/yazses/blob/main/CHANGELOG.md).
 
-Not yet in a tagged release, but on `main`:
+## Carried over from the earlier `[Unreleased]` list
+
+This list was written when v2.24.0 was the newest tag and described these items as
+not yet released. They have since shipped: `cmdsafety`, `checkdigit` and `earcon` are
+already in the v2.21.0 source tree, and the Engineering tier of this site is in the
+v2.42.0 `mkdocs.yml`. It is kept as a record of what the project was proud of at the
+time; for what is genuinely unreleased now, read the `[Unreleased]` section of the
+changelog.
 
 - **Three guards that stop a confident mistake reaching its destination.** A dictated
   `rm -rf` waits for a spoken *confirm* (`cmdsafety`); a dictated card number that fails

@@ -221,6 +221,20 @@ requires a reason and a justifying issue per item, and reports expired or unused
 is pure and tested against recorded-style fixtures (`tests/test_traceability_live.py`); the ordinary suite
 stays offline. The workflow has not yet run on GitHub.
 
+### Fixed — stale status snapshots reconciled against `main` (#481)
+
+Documentation only. The hand-drawn architecture diagrams (`docs/diagrams/index.md` and the `.mmd`, `.html`
+and `.txt` renderings) still said **140 capabilities (73 wired)** and **57 / 44 commands**, the same drift
+that had already been fixed once in the generated figures; the registry holds 148 / 110 and the CLI 66
+top-level commands (126 counting subcommands). They now agree, and
+`tests/test_gen_arch_figures.py::test_hand_drawn_diagrams_carry_the_live_counts` derives the numbers from the
+registry and `docs/command-index.md` so they cannot drift quietly again. `docs/roadmap.md` no longer calls
+items shipped by v2.21.0 "not yet in a tagged release", points at the current planning sources and the
+milestone policy still being settled in #480, and lists the Hands-free and Silent-input milestones it was
+missing. `design/v2-cognitive-layer/ROADMAP.md` gains a dated delivery-status block (shipped, deferred,
+blocked, not planned) per feature and phase; the plan text below it is unchanged. The use-case page no longer
+quotes a capability count that the command never printed.
+
 ### Fixed — wiring tasks no longer claim to be cloud-completable (#531)
 
 All 38 remaining `feature-wiring` tasks said `cloud_agent_ready: true` while their own evidence is "the

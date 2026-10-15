@@ -22,7 +22,7 @@ For the narrative explanation of each subsystem, see the
 ```mermaid
 flowchart TB
   subgraph UI["User-facing control"]
-    CLI["yazses CLI (57 commands, 91 with subcommands)"]
+    CLI["yazses CLI (66 commands, 126 with subcommands)"]
     TRAY["yazses-tray (macOS/Windows)"]
   end
   UI -->|"JSON-RPC 2.0 · Unix socket / named pipe"| IPC[["IPC server (ipc/)"]]
@@ -40,7 +40,7 @@ flowchart TB
   end
 
   CFG[("config.toml · config.py")]
-  FEAT[("features.py — 140 capabilities (73 wired)")]
+  FEAT[("features.py — 148 capabilities (110 wired)")]
   CFG -. reads .-> DAEMON
   FEAT -. drives .-> CLI
 

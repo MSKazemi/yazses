@@ -109,7 +109,7 @@ that"*, *"save file"*, *"go to line 42"* — mapped to real key sequences by a f
 regex grammar. Browse everything available with:
 
 ```sh
-yazses features            # 139 capabilities, what's on, what's recommended
+yazses features            # every capability, what's on, what's recommended
 yazses features info code  # what one capability does, with an example
 ```
 
