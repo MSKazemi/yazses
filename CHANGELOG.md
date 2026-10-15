@@ -86,6 +86,15 @@ is unknown. `tests/test_involuntary_audio.py` checks speech-shaped fixtures (pit
 vibrato, fricative tails, a plosive after a closure, one-word islands) for the negative direction and the daemon
 hand-off; the default-start import test now also guards `yazses.involuntary`.
 
+### Fixed — four more cross-OS test defects, found once the CI log could be read
+
+With the oversized test id fixed, the macOS and Windows runs reached the end of the suite and showed four
+remaining failures, all Linux assumptions in tests (no product code changed): the hands-free preset doctor test
+expected an unknown pointer backend, which is only true on Linux (macOS and Windows know theirs); two host-facts
+tests faked `/etc/os-release` by comparing `str(Path)`, which has backslashes on Windows; and the checked-in
+eye-eval fixtures were checked out with CRLF by Git for Windows, so `.gitattributes` now pins the byte-exact
+fixtures and traces to LF.
+
 ### Fixed — the first CI run of the eye and hands-free work (every OS red, FreeBSD record unwritable)
 
 The merge to `main` went red on every hosted runner. The cause was one test: a parametrised case passed a

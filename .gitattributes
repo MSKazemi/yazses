@@ -1,0 +1,12 @@
+# Byte-exact fixtures and traces: the determinism tests hash these files, and Git for Windows
+# defaults to checking text out with CRLF, which made `test_the_checked_in_fixtures_use_unix_newlines_and_ascii`
+# fail on the Windows runner. Pin them to LF on every OS.
+tests/fixtures/eye_eval/** text eol=lf
+tests/fixtures/eye_eval_runner/** text eol=lf
+tests/fixtures/eye_eval_tasks/** text eol=lf
+tests/fixtures/face_switch_traces/** text eol=lf
+tests/fixtures/grounding_traces/** text eol=lf
+tests/fixtures/face_switch_replay_report.json text eol=lf
+tests/fixtures/grounding_replay_report.json text eol=lf
+design/eye-control/validation-slots.json text eol=lf
+design/eye-control/generated/** text eol=lf
