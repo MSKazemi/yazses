@@ -643,15 +643,15 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 | `chords` | dict | `{}` |  | "token+token" -> action; empty = nothing bound |
 | `chord_window_ms` | int | `400` |  | tokens made within this window of the first count as one chord |
 | `refractory_ms` | int | `1000` |  | after a chord, nothing fires until every token is released and this passes |
-| `freshness_ms` | int | `500` |  | a sample older than this is "no signal"; unmeasured placeholder |
+| `freshness_ms` | int | `500` |  | A sample older than this is "no signal"; unmeasured placeholder. Bounded like `[headpointer] freshness_ms` and `[handsfree_safety] stale_after_ms`: 0 would call every real sample stale (chords silently dead while Config reports a valid 0), and a huge value means "never stale". Outside (0, 60000] the loader repairs it to 500 and says so. |
 | `min_confidence` | float | `0.5` |  | samples below this presence confidence are "no signal" |
 | `freeze_tail_ms` | int | `300` |  | keep the pointer frozen this long after a chord token lets go |
 | `onset_rewind_ms` | int | `150` |  | when the freeze lands a frame late, take back up to this much pointer motion since the expression began; 0 = never. Provisional |
 | `hold_ms` | int | `800` |  | the `hold` token: tokens held unchanged this long. Provisional |
-| `head_amplitude_deg` | float | `10.0` |  | each leg of a nod/shake must swing at least this far |
+| `head_amplitude_deg` | float | `10.0` |  | Each leg of a nod/shake must swing at least this far. Bounded (0, 90]: 0 is "no gesture can ever be seen" and the detector would be silently dead. Provisional sanity bound, not measured. |
 | `head_swings` | int | `4` |  | legs per nod/shake: 4 is a double nod, 2 a single down-up |
 | `head_window_ms` | int | `1500` |  | a nod/shake must complete within this long |
-| `tilt_deg` | float | `20.0` |  | roll beyond this, either way, is a tilt |
+| `tilt_deg` | float | `20.0` |  | Roll beyond this, either way, is a tilt. Bounded (0, 90]: at 0 a perfectly level head is "tilted" and the `tilt` token is held for ever (any chord using it fires with no movement at all); past 90 no head can reach it. Provisional sanity bound, not measured. |
 | `tilt_hold_ms` | int | `400` |  | ...held this long |
 
 ## `[interpret]`
