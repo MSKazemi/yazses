@@ -6,6 +6,24 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed — the no-code eye-control tester guide read as a first-time volunteer (#449), and a dedicated eye-tracker study (#412)
+
+`design/eye-control/BEGINNER_TESTING.md` was read as someone who has never seen the project would read it. Its
+slot numbers (`#428` to `#440`) were plain text, which GitHub does not turn into links inside a repository file, so
+a volunteer could not click the one thing the page exists to point at; they are links now. The guide also assumed a
+GitHub account, never said how to find the YazSes version (`yazses --version`), the macOS chip, the Windows scale or
+the Linux session type, never defined PASS / PARTIAL / FAIL / BLOCKED, never named the report form, and gave no
+way to find another task when no slot is READY. All are answered in the guide; the QA-versus-research and
+public-data warnings are unchanged. `tests/test_eye_beginner_guide.py` now fails if a link, an anchor, a slot
+issue, a `yazses` command or a repo path named in the guide stops existing, and reports an empty guide instead of
+passing it.
+
+`design/eye-control/DEDICATED_TRACKER_STUDY.md` records what a dedicated eye tracker (Tobii, Gazepoint, EyeTech,
+Pupil Labs, and the Windows, macOS and Linux OS-level options) would need from a future `GazeSampleProvider`,
+separates documented fact from inference from unverified claim, and proposes a minimal vendor-free contract. It adds
+no code, dependency or config key; the proprietary SDK terms could not be verified from public pages, so none is
+adopted.
+
 ### Fixed — four more cross-OS test defects, found once the CI log could be read
 
 With the oversized test id fixed, the macOS and Windows runs reached the end of the suite and showed four
