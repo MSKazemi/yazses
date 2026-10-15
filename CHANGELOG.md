@@ -6,6 +6,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — language output profiles: one registry keyed by the STT language (FA-01, #509)
+
+A small `postprocess/output_profile.py` boundary replaces "another hard-coded branch per language" in the STT factory: `profile_for([stt] language)` returns a pass-through profile for every language except Persian (`fa`, `fas`, `fa-IR`, `persian`), which gets a profile that hands off to the existing, still opt-in `[stt] persian_normalisation` gate. Selection reads the speech language only, never the UI locale. No behaviour changes: no new config key, English and every other language build no wrapper, and `language = "fa"` alone still changes no text. Chinese script normalisation is not moved yet; the interface is shaped to take it later. Design: draft PR #483.
+
 ### Tests — the PointerSink contract now covers bounds and permanence ([#400](https://github.com/MSKazemi/yazses/issues/400))
 
 This change touches only the shared pointer contract (`tests/pointer_contract.py`). No backend changed, and every one
