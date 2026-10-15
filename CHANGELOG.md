@@ -6,6 +6,22 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — Confidence-Gated Re-Ask is now reachable: `yazses features enable reask` (#164)
+
+`reask` had a tested core (`reask/confidence.py`) and no caller, so `features enable` refused it. It is
+wired into dictation, off by default and opt-in tier. When `[reask] enabled = true` and Whisper is unsure
+about exactly one word from a curated confusable set (their/there/they're, to/too/two, its/it's ...), that
+one burst waits and a notification lists the options; saying "first", "second", "third" or the word itself
+patches just that word. A reply is accepted only if the *whole* utterance is a pick (so "I want one coffee"
+is never mistaken for one); any other reply releases the held text unchanged and types the reply as normal
+dictation, and a hold nobody answers goes to the clipboard after ten seconds rather than being typed into
+whatever has focus by then. It never fires on a burst with two uncertain confusable words, on a repeated
+word, or when the backend reports no per-word probabilities. `[reask] threshold` (a log-probability,
+default -1.0) is unchanged. With the feature off, nothing is imported, no timer exists, and the decode path
+is the one it always was; with it on, the burst uses the word-timestamp decode that Confidence Ink and
+Prosody already share. Logic lives in `reask/gate.py`; the daemon adds one gate call. Nothing leaves the
+machine. `tests/test_reask_gate.py`.
+
 ### Changed — a default start no longer imports opt-in feature code
 
 Measured against `main` with the eye and hands-free work merged: importing the CLI and the daemon loaded the

@@ -33,7 +33,7 @@ It stays listed so contributors can pick it up; see the matching design/adr/ ent
 ```
 
 They stay listed because that is where a contributor picks one up — each has a matching
-`design/adr/` entry. **42 of the 122 rows below are ◌ today.** Rows without the mark are
+`design/adr/` entry. **41 of the 122 rows below are ◌ today.** Rows without the mark are
 wired and can be turned on.
 
 ### "Hold the command key" — what that means
@@ -222,7 +222,7 @@ All OFF by default. Pure logic ships now; heavy models load only when you enable
 |---|---|---|
 | **Phonetic Spelling Mode** | `spelling` | NATO words → exact characters for passwords/codes ("capital alpha bravo double lima" → `Abll`). Hold the command key. |
 | **Voice Git Choreographer** | `gitvoice` | Safe git by voice: destructive ops wait for a spoken confirm; the undo is always spoken. |
-| ◌ **Confidence-Gated Re-Ask** | `reask` | Holds an uncertain word and asks you to pick/repeat it instead of guessing (flagship). |
+| **Confidence-Gated Re-Ask** | `reask` | Holds a burst whose one uncertain their/there-style word Whisper could not settle, and lets you say "second" (or the word) to patch just that word. Opt-in. |
 | **Verbatim / Autoformat Toggle** | `verbatim` | "dictate verbatim" freezes all formatting mid-burst; "resume formatting" restores it. |
 | **Self-Learning Correction Dictionary** | `corrdict` | Auto-fixes the ASR errors you keep correcting, learned from your own edits. Needs `[learning] enabled`. |
 | **Voice Fuzzy File Open** | `fileopen` | "open the mortgage notes" → fuzzy-matches and opens a local file. |

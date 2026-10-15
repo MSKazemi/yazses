@@ -689,9 +689,13 @@ _Def("chords", "Chorded Shortcut Synthesis", "[chords] — any keyboard shortcut
              "before launching unless you pass --yes. `[fileopen] threshold` sets how close a "
              "match has to be. Mouse-free. Off by default.",
              lambda c: c.fileopen.enabled, fo_on, fo_off),
-        _Def("reask", "Confidence-Gated Re-Ask", "[reask] — resolve uncertain words", RECOMMENDED,
-             "Instead of injecting a low-confidence guess, holds just the uncertain word and asks "
-             "you to pick or repeat it — closing the correction loop. Off by default.",
+        _Def("reask", "Confidence-Gated Re-Ask", "[reask] — resolve uncertain words", OPTIONAL,
+             "When Whisper is unsure which of their/there, to/too/two, its/it's... you said, "
+             "the burst waits and a notification lists the options. Say 'first', 'second', "
+             "'third' or the word itself to patch just that word; anything else releases the "
+             "text unchanged, and an unanswered hold goes to the clipboard after ten seconds. "
+             "Fires only on one uncertain word at a time. `[reask] threshold` is the "
+             "log-probability below which a word counts as unsure. Off by default.",
              lambda c: c.reask.enabled, rk_on, rk_off),
         _Def("verbatim", "Verbatim / Autoformat Toggle", "[verbatim] — freeze formatting on command", RECOMMENDED,
              "Say 'dictate verbatim' to freeze all formatting (ITN, punctuation, reflow) for exact "
@@ -1179,7 +1183,7 @@ _UNWIRED: frozenset[str] = frozenset({
     "hatselect", "hesitation", "hotwords", "interpret", "involuntary",
     "langroute", "lipread", "loadguard", "morsevox", "mousegrid", "mouthswitch",
     "multiprofile", "pilot", "predict", "pronunciation", "proofback", "prosodypunct", "rag",
-    "readback_clone", "reask", "screengrounded", "scribe", "scrub", "sentiment", "sign",
+    "readback_clone", "screengrounded", "scribe", "scrub", "sentiment", "sign",
     "spatialvad", "vocaljoystick", "voiceguard", "voicehealth", "wakeword",
 })
 

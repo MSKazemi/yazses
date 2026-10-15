@@ -36,6 +36,7 @@ if TYPE_CHECKING:
     from yazses.meeting.controller import MeetingController
     from yazses.perception import SharedPerceptionSource
     from yazses.polyglot.router import PolyglotRouter
+    from yazses.reask.gate import ReaskGate
     from yazses.system.single_instance import SingleInstanceLock
     from yazses.timeline.history import InjectionTimeline
     from yazses.tts.base import TtsBackend
@@ -401,6 +402,8 @@ class Daemon:
         # Confidence Ink (ADR-v2-001): low-confidence word count from the last
         # burst, surfaced in `yazses status` (metadata only, never the words).
         self._last_low_confidence_words: int = 0
+        # Confidence-Gated Re-Ask (ADR-v2-077): built on first use, only when [reask] is on.
+        self._reask: ReaskGate | None = None
         # Recent decode times per model, for the p50/p95 in `yazses status`
         # (#296). Bounded and in-memory: a diagnostic must not depend on the
         # opt-in learning corpus, and it must not write anything to disk.
@@ -2484,7 +2487,9 @@ class Daemon:
             # Joining this OR rather than decoding twice is the whole cost of the
             # feature — a user with prosody or Confidence Ink already on pays nothing.
             want_echo = self._config.echo.enabled and not use_streaming
-            want_words = want_prosody or want_confidence or want_echo
+            # Re-Ask (ADR-v2-077) reads the same per-word probabilities.
+            want_reask = self._config.reask.enabled and not use_streaming
+            want_words = want_prosody or want_confidence or want_echo or want_reask
             # Speech translation (ADR-v2-014): X→English via Whisper's translate task
             # when [translate] is enabled (whisper backend, target en). None → normal.
             try:
@@ -3166,6 +3171,15 @@ class Daemon:
                     if checked is None:
                         return
                     text = checked
+                    event["final_text"] = text
+
+                # Confidence-Gated Re-Ask (ADR-v2-077): one uncertain their/there-style
+                # word waits for a spoken pick instead of being guessed. Opt-in.
+                if self._config.reask.enabled:
+                    asked = self._reask_gate(text, prosody_words, event)
+                    if asked is None:
+                        return
+                    text = asked
                     event["final_text"] = text
 
                 # Spoken answer to the mic guard's toast (ADR-022): the daemon may
@@ -3923,6 +3937,57 @@ class Daemon:
         log.warning("Check digit: holding a number that fails %s.", result.scheme)
         self._notify_cmdsafety(describe(result))
         return None
+
+    def _reask_gate(self, text: str, words: list[Word], event: dict) -> str | None:
+        """Confidence-Gated Re-Ask (ADR-v2-077). The text to type, or None when it waits.
+
+        The logic lives in `yazses.reask.gate`; this only wires it. A hold that nobody
+        answers goes to the clipboard rather than being typed ten seconds later into
+        whatever has focus by then. A pending command-safety hold keeps first claim on
+        the utterance, so this steps aside while one exists.
+        """
+        if self._cmdsafety.pending is not None:
+            return text
+        if self._reask is None:
+            from yazses.reask.gate import ReaskGate
+
+            self._reask = ReaskGate(self._reask_expired)
+        try:
+            verdict = self._reask.handle(
+                text, [(w.text, w.probability) for w in words], self._config.reask.threshold
+            )
+        except Exception:  # a guard must never be the reason dictation stops
+            log.exception("Re-ask gate failed; typing the text as heard.")
+            return text
+        if verdict.action:
+            event["reask_action"] = verdict.action
+            log.info("Re-ask: %s.", verdict.action)
+        if verdict.prompt:
+            try:
+                from yazses.system.notify import notify
+
+                notify("YazSes \u2014 re-ask", verdict.prompt)
+            except Exception:  # pragma: no cover - notification is never load-bearing
+                log.debug("Re-ask notification failed", exc_info=True)
+        return verdict.text
+
+    def _reask_expired(self, text: str) -> None:
+        """Timer thread: nobody answered, so keep the user's words on the clipboard."""
+        from yazses.system.clipboard import set_clipboard
+
+        copied = set_clipboard(text)
+        log.info("Re-ask: no answer; text %s the clipboard.",
+                 "copied to" if copied else "could NOT be copied to")
+        try:
+            from yazses.system.notify import notify
+
+            notify(
+                "YazSes \u2014 re-ask timed out",
+                "Your dictation is on the clipboard \u2014 paste it (Ctrl+V)." if copied
+                else "Your dictation could not be copied; dictate it again.",
+            )
+        except Exception:  # pragma: no cover - notification is never load-bearing
+            log.debug("Re-ask expiry notification failed", exc_info=True)
 
     def _notify_cmdsafety(self, message: str) -> None:
         """Say what the gate did. Best-effort; never raises into dictation."""
