@@ -2505,6 +2505,22 @@ class Daemon:
                 and stream_injector is not None
             )
 
+            # Involuntary-vocalization excision (ADR-v2-102): silence an isolated cough /
+            # sneeze / throat-clear in the burst so Whisper never turns it into a ghost word.
+            # Off by default, imported only when on; with nothing flagged `padded` is returned
+            # unchanged. Guarded: detection failure means the original audio, never a crash.
+            if self._config.involuntary.enabled and not use_streaming:
+                try:
+                    from yazses.involuntary.audio import excise_involuntary_audio
+
+                    padded, iv_spans = excise_involuntary_audio(padded, sample_rate)
+                    if iv_spans:
+                        event["involuntary_excised"] = len(iv_spans)
+                        log.info("Involuntary excision: silenced %d span(s).", len(iv_spans))
+                except Exception:
+                    log.debug("Involuntary excision failed; using original audio.",
+                              exc_info=True)
+
             bias_prompt = self._effective_initial_prompt()
 
             # Prepend a short silence lead-in so faster-whisper doesn't drop the

@@ -142,7 +142,6 @@ docs/config, **L2** bounded code.
 | Wire the `hesitation` capability so it is reachable from the daemon or CLI | `WIRE-HESITATION-001` | L2 | 90 min | python | `uv run python -m pytest tests/test_features_write_targets.py -q` |
 | Wire the `hotwords` capability so it is reachable from the daemon or CLI | `WIRE-HOTWORDS-001` | L2 | 90 min | python | `uv run python -m pytest tests/test_features_write_targets.py -q` |
 | Wire the `interpret` capability so it is reachable from the daemon or CLI | `WIRE-INTERPRET-001` | L2 | 90 min | python | `uv run python -m pytest tests/test_features_write_targets.py -q` |
-| Wire the `involuntary` capability so it is reachable from the daemon or CLI | `WIRE-INVOLUNTARY-001` | L2 | 90 min | python | `uv run python -m pytest tests/test_features_write_targets.py -q` |
 | Wire the `langroute` capability so it is reachable from the daemon or CLI | `WIRE-LANGROUTE-001` | L2 | 90 min | python | `uv run python -m pytest tests/test_features_write_targets.py -q` |
 | Wire the `lipread` capability so it is reachable from the daemon or CLI | `WIRE-LIPREAD-001` | L2 | 90 min | python | `uv run python -m pytest tests/test_features_write_targets.py -q` |
 | Wire the `loadguard` capability so it is reachable from the daemon or CLI | `WIRE-LOADGUARD-001` | L2 | 90 min | python | `uv run python -m pytest tests/test_features_write_targets.py -q` |

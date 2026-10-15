@@ -62,6 +62,22 @@ compose. Off by default and listed as `optional`, so a fresh install does not tu
 none of its code (`tests/test_default_start_stays_light.py` now guards the package). Pitch cues and therefore
 question marks are not wired yet: nothing writes a `?`.
 
+### Added — Involuntary-Vocalization Excision is now reachable (`yazses features enable involuntary`, ADR-v2-102)
+
+A cough, sneeze or throat-clear in the middle of a dictation hold is silenced before the audio reaches
+Whisper, so it stops turning into a ghost word ("Thank you.", a stray syllable). Off by default
+(`[involuntary] enabled = false`); `yazses features enable involuntary` turns it on. The burst keeps its length
+and every other sample is untouched, and with the feature off the decoder is handed the recorded array
+unchanged. It is built to miss a cough rather than cut a word: a sound is only a candidate if it is separated
+from the speech by at least 150 ms of quiet, is 80-800 ms long, shows no pitch in more than 15 % of its frames,
+and the existing classifier names it; nothing is cut unless at least 200 ms of pitched speech remains and the cut
+is under a third of the burst. A cough glued to a word, a cough-only burst, a whispered burst and streaming
+mode are left as they were. Nothing leaves the machine and nothing is stored. The thresholds are the pure
+classifier's own plus labelled engineering guards; none was measured on recorded coughs, so the detection rate
+is unknown. `tests/test_involuntary_audio.py` checks speech-shaped fixtures (pitched vowels with formants and
+vibrato, fricative tails, a plosive after a closure, one-word islands) for the negative direction and the daemon
+hand-off; the default-start import test now also guards `yazses.involuntary`.
+
 ### Changed — a default start no longer imports opt-in feature code
 
 Measured against `main` with the eye and hands-free work merged: importing the CLI and the daemon loaded the
