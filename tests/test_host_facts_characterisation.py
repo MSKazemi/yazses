@@ -206,4 +206,9 @@ def test_ram_is_none_not_zero_when_nothing_can_say(fake_os, monkeypatch):
             raise ValueError("no sysconf here")
 
         monkeypatch.setattr(os, "sysconf", refuse, raising=False)
+        # On a real Windows host the win32 case falls through to the Win32 memory call, which
+        # sysconf does not cover: stub it too, or this reads the CI runner's real RAM (17.2 GB).
+        from yazses.platform.windows import host as windows_host
+
+        monkeypatch.setattr(windows_host, "_windows_ram_gb", lambda: None)
         assert provenance._ram_gb() is None, name

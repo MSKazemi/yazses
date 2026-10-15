@@ -417,3 +417,25 @@ def test_the_workflow_triggers_cover_the_files_it_runs(workflow: dict[str, Any])
     assert "scripts/eye_eval_ci.py" in paths
     assert ".github/workflows/eye-eval-ci.yml" in paths
     assert "src/yazses/eyeeval/**" in paths
+
+
+# ----------------------------------------------------------------- any named OS is a valid leg
+
+
+@pytest.mark.parametrize("system", ["FreeBSD", "Linux", "Darwin", "Windows"])
+def test_a_record_from_any_named_system_is_valid(system: str) -> None:
+    # The hosted matrix only expects three, but a correct run on a fourth (the advisory FreeBSD leg)
+    # must be writable: refusing it here made the record vanish exactly where it was most wanted.
+    assert ci.validate_record(_good_record(system)) == []
+
+
+@pytest.mark.parametrize("system", ["", "   ", "unknown", None, 7])
+def test_a_record_that_cannot_name_its_system_is_invalid(system) -> None:
+    problems = ci.validate_record(_good_record(system))
+    assert any("platform_system is missing" in p for p in problems), problems
+
+
+def test_the_matrix_still_fails_when_an_expected_system_is_missing(tmp_path: Path) -> None:
+    _put(tmp_path, "freebsd", _good_record("FreeBSD"))
+    code, lines = ci.collect_matrix(tmp_path, require_commit=True)
+    assert code != 0 and any(line.startswith("MISSING") for line in lines), lines

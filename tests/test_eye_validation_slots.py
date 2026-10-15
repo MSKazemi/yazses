@@ -498,11 +498,15 @@ def test_the_invalid_corpus_does_not_shrink():
 @pytest.mark.parametrize(
     "payload",
     [
-        b"\xff\xfe{}",  # not UTF-8
-        b"[" * 200_000,  # deeper than the JSON parser allows
-        b'{"schema_version": NaN, "slots": []}',  # non-finite number
-        b'{"schema_version": 1, "slots": [], "slots": []}',  # repeated key
-        b'{"schema_version": 1, "state": "ready", "state": "planned"}',
+        # Explicit ids: pytest otherwise prints the payload as the test id, and a 200,000-character
+        # id is a 200 KB log line that took down `pytest -v` on every CI runner.
+        pytest.param(b"\xff\xfe{}", id="not-utf8"),
+        pytest.param(b"[" * 200_000, id="nested-deeper-than-the-parser-allows"),
+        pytest.param(b'{"schema_version": NaN, "slots": []}', id="non-finite-number"),
+        pytest.param(b'{"schema_version": 1, "slots": [], "slots": []}', id="repeated-key"),
+        pytest.param(
+            b'{"schema_version": 1, "state": "ready", "state": "planned"}', id="repeated-state-key"
+        ),
     ],
 )
 def test_bytes_the_parser_cannot_trust_exit_two_without_a_traceback(tmp_path, payload):
