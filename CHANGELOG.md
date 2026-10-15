@@ -6,6 +6,17 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — Session Bookmarks can now be turned on (`yazses features enable bookmarks`)
+
+The bookmark store, its phrase grammar and the AT-SPI caret backend were designed and tested but nothing
+called them, so `features enable bookmarks` refused. They now answer to two spoken phrases, **while the
+command key is held**: "bookmark here [as intro]" records where the caret is, and "jump to [my last] bookmark
+[intro]" puts it back in one positioning call. Off by default and nothing is imported until the first phrase.
+A bookmark is a position the toolkit reports (never a count of typed characters), is scoped to the document it
+was set in, and refuses with a spoken-notification reason when there is no caret backend, no such name or a
+different document is focused. It types nothing. "go to my last bookmark" is deliberately not accepted because
+the window-focus grammar claims every "go to ..." phrase first. Tests in `tests/test_bookmarks_wiring.py`.
+
 ### Changed — a default start no longer imports opt-in feature code
 
 Measured against `main` with the eye and hands-free work merged: importing the CLI and the daemon loaded the

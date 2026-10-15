@@ -697,11 +697,11 @@ YazSes ships **148 capabilities**. All but the core are **off by default** — t
 
 ### Session Bookmarks
 
-- **Toggle:** `bookmarks`  ·  **Tier:** planned — designed, not yet wired  ·  **Config:** `[bookmarks] — checkpoints in a long session`
+- **Toggle:** `bookmarks`  ·  **Tier:** optional  ·  **Config:** `[bookmarks] — checkpoints in a long session`
 - **What it does:** Drop named anchors in a long dictation ('bookmark here as intro') and jump back ('jump to my last bookmark') after a break. Off by default.
 - **Use when:** When you're in a long dictation session and want named checkpoints to jump back to after a break.
 - **Example:** Say 'bookmark here', then 'jump to my last bookmark' after a break.
-- **Activate:** not possible yet — designed but not wired into this build (`yazses features enable` refuses it; contributions welcome)
+- **Activate:** `yazses features enable bookmarks` then `yazses restart`
 
 ### Voice Jump-to-Symbol
 
