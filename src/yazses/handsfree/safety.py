@@ -49,6 +49,7 @@ placeholder to be replaced by measurement, not a recommendation.
 """
 from __future__ import annotations
 
+import math
 import threading
 import time
 from collections.abc import Callable, Iterable
@@ -83,7 +84,9 @@ class SafetyLimits:
     def window_ms(self) -> float:
         """The staleness window actually applied. Pure."""
         value = float(self.stale_after_ms)
-        if not value > 0.0:
+        if not (value > 0.0 and math.isfinite(value)):
+            # NaN and +inf are as meaningless as zero: an infinite window would be a guard
+            # that can never fire, which is the one failure this module exists to prevent.
             return DEFAULT_STALE_AFTER_MS
         return value
 
@@ -229,10 +232,27 @@ class HandsFreeSafety:
         An unknown name registers itself rather than raising: this is called from a capture loop,
         and a gate that throws there is a worse failure than a gate that learns a name. A source
         that has never sampled is suppressed anyway, so registration cannot open a hole.
+
+        **A sample is also a watchdog tick.** If the source was armed and its previous sample is
+        older than the window as of this one, it went stale in the gap and is disarmed *before*
+        the new sample is recorded, so the watchdog's verdict does not depend on whether any
+        consumer happened to call :meth:`gate` or :meth:`poll` during the silence.
         """
         now = self._clock() if at_ms is None else at_ms
         with self._lock:
             entry = self._sources.setdefault(source, _Source(source))
+            if not math.isfinite(now):
+                # A timestamp that is not a number is not evidence of life. Recording it would
+                # make every later age NaN, and NaN compares False against any window: a dead
+                # camera would read as fresh for ever. Ignoring it lets the source age out.
+                return
+            if entry.armed and self._is_stale(entry, now):
+                # The signal was gone for longer than the window *before* this sample arrived.
+                # Nobody may have asked the gate in the meantime (the face switch only asks on
+                # a press; a suspended laptop asks nothing), so the lapse has to be judged
+                # here, against the moment the new sample was taken. Recording the sample
+                # first would erase the gap and let a returning camera silently resume.
+                self._suppress(entry)
             entry.last_sample_ms = now
 
     def fault(self, source: str, reason: str) -> None:
@@ -378,15 +398,38 @@ class HandsFreeSafety:
             self._epoch += 1
 
     def _is_stale(self, entry: _Source, now: float) -> bool:
-        """Has ``entry``'s newest sample aged past the window, or never arrived? Pure."""
+        """Has ``entry``'s newest sample aged past the window, or never arrived? Pure.
+
+        Fails *closed* on anything that is not a plain, plausible age. A non-finite clock
+        reading, or a sample that appears to come from further in the future than the window
+        (the clock went backwards, or the sample was stamped on a different clock), cannot be
+        shown to be fresh, so it is treated as stale. Comparing such an age with ``>`` alone
+        is the failure: NaN is never greater than anything, and a large negative age is never
+        greater than the window, so a dead camera would look alive until the clock caught up.
+        A small negative age (a frame stamped a moment after this thread read the clock) is
+        ordinary scheduling and stays fresh.
+        """
         if entry.last_sample_ms is None:
             return True
-        return (now - entry.last_sample_ms) > self._limits.window_ms()
+        age = now - entry.last_sample_ms
+        if not math.isfinite(age):
+            return True
+        window = self._limits.window_ms()
+        return age > window or age < -window
 
     def _age_ms(self, entry: _Source, now: float) -> float | None:
         if entry.last_sample_ms is None:
             return None
-        return now - entry.last_sample_ms
+        age = now - entry.last_sample_ms
+        return age if math.isfinite(age) else None
+
+    def _stale_text(self, entry: _Source, now: float) -> str:
+        """Why ``entry`` is stale, in words. An age that is not a plain positive one is a
+        clock problem, and says so rather than printing a negative or missing age."""
+        age = self._age_ms(entry, now)
+        if age is None or age < 0.0:
+            return "signal is stale (clock inconsistent)"
+        return f"signal is stale ({age:.0f} ms old)"
 
     def _evaluate_locked(self, now: float) -> None:
         """The watchdog: disarm every source whose signal has gone quiet.
@@ -413,8 +456,7 @@ class HandsFreeSafety:
         if entry.last_sample_ms is None:
             return f"{entry.name}: no signal yet"
         if self._is_stale(entry, now):
-            age = self._age_ms(entry, now) or 0.0
-            return f"{entry.name}: signal is stale ({age:.0f} ms old)"
+            return f"{entry.name}: {self._stale_text(entry, now)}"
         return f"{entry.name}: awaiting re-arm"
 
     def _state_locked(self, now: float | None = None) -> tuple[SafetyState, str]:
@@ -429,8 +471,7 @@ class HandsFreeSafety:
                 return SafetyState.FAULTED, f"{entry.name}: {entry.fault}"
         for entry in self._sources.values():
             if entry.last_sample_ms is not None and self._is_stale(entry, moment):
-                age = self._age_ms(entry, moment) or 0.0
-                return SafetyState.FAULTED, f"{entry.name}: signal is stale ({age:.0f} ms old)"
+                return SafetyState.FAULTED, f"{entry.name}: {self._stale_text(entry, moment)}"
         for entry in self._sources.values():
             if entry.last_sample_ms is None:
                 return SafetyState.PAUSED, f"{entry.name}: no signal yet"
