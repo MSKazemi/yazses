@@ -128,6 +128,25 @@ wrong-target rate computed over zero trials reads exactly like a perfect run. **
 invented and no product threshold follows from their numbers** — that is RQ-G4's job, on real
 desktops.
 
+The face-switch family has one too (EYE-BENCH-001, #409):
+
+```sh
+uv run python scripts/replay_face_switch_trace.py            # print the report
+uv run python scripts/replay_face_switch_trace.py --check     # CI drift gate
+```
+
+A trace is one numeric gesture score per sample plus a run-length label of what the person was doing
+(`rest`, `speech`, ...); it has **no clock**, sample *i* is at *i / sample_rate_hz*, and a document
+that brings timestamps is refused, because a gap or time running backwards would otherwise be replayed
+as even sampling. An unknown major `schema_version` is refused; a later minor is read and its new
+fields are never copied to a report. The report counts phantom actions per hour of non-deliberate time,
+and **no per-hour figure travels alone**: it carries the exact one-sided 95% Poisson lower and upper
+limits, and `per_hour_extrapolated` says when it was scaled up from under an hour. A rate whose
+denominator is zero is `{"value": null, "reason": ...}`, never `0.0`. The same traces give byte-identical
+output on every OS (LF endings, pinned by `.gitattributes`). **The fixtures are invented; a threshold
+sweep shows a trade-off on one trace and recommends nothing.** Recommending a face switch needs
+false-activation evidence from real volunteer sessions across people (ROADMAP P5.4).
+
 ### E3 — one-machine hardware smoke
 
 **Who:** contributor/tester.  

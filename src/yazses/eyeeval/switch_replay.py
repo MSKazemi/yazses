@@ -56,10 +56,14 @@ usable, and publishes the usable fraction otherwise so a reader can discount it.
    latency and chatter ``not_measured``. Exposure with no usable reading -> phantom rate
    ``tracking_unavailable``.
 3. **A count of zero over a short trace is not zero per hour.** ``false_activations_per_hour``
-   is the observed rate; next to it ``false_activations_per_hour_upper_95`` is the exact
-   one-sided 95% Poisson upper bound, so 0 phantoms in 5 minutes reads as "no more than
-   about 36 an hour", not as 0. It assumes independent events in one session, which a real
-   workday does not, and says so in :data:`UPPER_BOUND_CAVEAT`.
+   is the observed rate; next to it ``false_activations_per_hour_upper_95`` and
+   ``false_activations_per_hour_lower_95`` are the exact one-sided 95% Poisson limits (together
+   a two-sided 90% interval), so 0 phantoms in 5 minutes reads as "no more than about 36 an
+   hour", not as 0. They assume independent events in one session, which a real workday does
+   not, and say so in :data:`UPPER_BOUND_CAVEAT`. The limits appear on *every* rate -- the
+   per-context ones too, where an exposure of twenty seconds is the norm -- and
+   ``per_hour_extrapolated`` is ``true`` whenever the exposure behind a per-hour figure is under
+   an hour, so no per-hour number travels without the number of seconds it was scaled up from.
 
 ## No product threshold follows from any of this
 
@@ -95,7 +99,7 @@ from yazses.facegesture.detector import GestureSwitch
 from yazses.facegesture.switches import ACTIONS, SwitchAction, SwitchMapper, make_intent
 
 #: The report envelope version. ``MAJOR.MINOR``.
-REPORT_VERSION = "1.1"
+REPORT_VERSION = "1.2"
 
 #: The one named failure the report carries beyond the counts: a hold that never let go.
 STUCK_OPEN = "stuck_open"
@@ -118,9 +122,9 @@ ZERO_DENOMINATOR_RULE = (
 )
 
 UPPER_BOUND_CAVEAT = (
-    "Exact one-sided 95% Poisson upper bound on the rate, assuming independent events in a "
-    "single session; real phantoms cluster (a long conversation, a bad lighting spell), so "
-    "treat it as a floor on the uncertainty, not a guarantee."
+    "Exact one-sided 95% Poisson lower and upper limits on the rate, assuming independent "
+    "events in a single session; real phantoms cluster (a long conversation, a bad lighting "
+    "spell), so treat them as a floor on the uncertainty, not a guarantee."
 )
 
 #: What each headline number means, so a reader of the JSON alone does not have to guess.
@@ -128,6 +132,11 @@ METRIC_DEFINITIONS = {
     "false_activations": "switch starts outside every deliberate window (one per action, not per frame)",
     "false_activations_per_hour": "false_activations / (non-deliberate seconds / 3600); "
     "non-deliberate time is every sample outside a deliberate window, tracked or not",
+    "false_activations_per_hour_lower_95": "exact one-sided 95% Poisson lower limit of the same rate "
+    "(0 when no phantom was seen); with the upper limit, a two-sided 90% interval",
+    "false_activations_per_hour_upper_95": "exact one-sided 95% Poisson upper limit of the same rate",
+    "per_hour_extrapolated": "true when the exposure behind a per-hour figure is under one hour: the "
+    "figure is scaled up from a shorter observation, and only the limits say how far to trust it",
     "recall": "deliberate intervals with at least one start in their window / deliberate intervals",
     "activation_latency_ms": "first start sample minus the deliberate interval's first sample, "
     "debounce included",
@@ -458,22 +467,60 @@ def poisson_upper_95(events: int) -> float:
     return (low + high) / 2.0
 
 
-def _rate_per_hour(count: int, exposure_s: float, usable: int, *, with_bound: bool) -> dict[str, Any]:
-    """The phantom-rate fields for one exposure, each missing rather than 0.0 when undefined."""
+def poisson_lower_95(events: int) -> float:
+    """Exact one-sided 95% lower confidence limit for a Poisson mean given ``events``. Pure.
+
+    The ``lambda`` for which ``P(X >= events | lambda) = 0.05``; ``0.0`` for 0 events, because
+    nothing seen cannot support a rate above zero. Bisection, like :func:`poisson_upper_95`.
+    """
+    if events < 0:
+        raise ValueError("events must be >= 0")
+    if events == 0:
+        return 0.0
+
+    def survival(lam: float) -> float:  # P(X >= events)
+        below = 0.0
+        for k in range(events):
+            below += math.exp(k * math.log(lam) - lam - math.lgamma(k + 1))
+        return 1.0 - below
+
+    low, high = 1e-9, float(events) + 1.0
+    for _ in range(200):
+        mid = (low + high) / 2.0
+        if survival(mid) < 0.05:
+            low = mid
+        else:
+            high = mid
+    return (low + high) / 2.0
+
+
+def _rate_per_hour(count: int, exposure_s: float, usable: int) -> dict[str, Any]:
+    """The phantom-rate fields for one exposure, each missing rather than 0.0 when undefined.
+
+    The rate never travels alone: both limits and the extrapolation flag are on every one.
+    """
     if exposure_s <= 0.0:
         value: Any = _missing("not_measured")
-        bound: Any = _missing("not_measured")
+        upper: Any = _missing("not_measured")
+        lower: Any = _missing("not_measured")
+        extrapolated: Any = _missing("not_measured")
     elif usable == 0:
         value = _missing("tracking_unavailable")
-        bound = _missing("tracking_unavailable")
+        upper = _missing("tracking_unavailable")
+        lower = _missing("tracking_unavailable")
+        extrapolated = _missing("tracking_unavailable")
     else:
         hours = exposure_s / 3600.0
         value = round(count / hours, 3)
-        bound = round(poisson_upper_95(count) / hours, 3)
-    out: dict[str, Any] = {"false_activations_per_hour": value}
-    if with_bound:
-        out["false_activations_per_hour_upper_95"] = bound
-    return out
+        upper = round(poisson_upper_95(count) / hours, 3)
+        lower = round(poisson_lower_95(count) / hours, 3)
+        extrapolated = exposure_s < 3600.0
+    return {
+        "false_activations_per_hour": value,
+        "false_activations_per_hour_lower_95": lower,
+        "false_activations_per_hour_upper_95": upper,
+        "per_hour_extrapolated": extrapolated,
+    }
 
 
 def aggregate(results: Sequence[TraceResult]) -> dict[str, Any]:
@@ -517,7 +564,7 @@ def aggregate(results: Sequence[TraceResult]) -> dict[str, Any]:
         by_context[context] = {
             "duration_s": round(seconds, 6),
             "false_activations": count,
-            **_rate_per_hour(count, seconds, context_usable, with_bound=False),
+            **_rate_per_hour(count, seconds, context_usable),
         }
 
     statuses: Counter[str] = Counter()
@@ -560,7 +607,7 @@ def aggregate(results: Sequence[TraceResult]) -> dict[str, Any]:
         "deliberate_usable_fraction": (
             round(deliberate_usable_n / deliberate_n, 6) if deliberate_n else _missing("not_measured")
         ),
-        **_rate_per_hour(phantoms, exposure_s, usable_n, with_bound=True),
+        **_rate_per_hour(phantoms, exposure_s, usable_n),
         "activation_latency_ms": (
             {
                 "count": len(latencies),
@@ -701,6 +748,7 @@ __all__ = [
     "SwitchReplayError",
     "TraceResult",
     "aggregate",
+    "poisson_lower_95",
     "poisson_upper_95",
     "replay_trace",
     "replay_traces",

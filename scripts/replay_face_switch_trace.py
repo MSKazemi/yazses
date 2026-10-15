@@ -105,6 +105,20 @@ def render(document: Any) -> str:
     return json.dumps(document, indent=2, sort_keys=False, ensure_ascii=False) + "\n"
 
 
+def write_report(path: Path, text: str) -> None:
+    """Write ``text`` as UTF-8 with LF endings on every OS.
+
+    ``Path.write_text`` translates ``\\n`` to ``\\r\\n`` on Windows, which would make the same
+    trace produce a different file there and fail ``--check`` against the committed report.
+    """
+    Path(path).write_bytes(text.encode("utf-8"))
+
+
+def read_report(path: Path) -> str:
+    """The report exactly as stored: no newline translation, so a CRLF checkout is a real drift."""
+    return Path(path).read_bytes().decode("utf-8")
+
+
 def parse_sweep(text: str) -> list[float]:
     """``"0.3,0.35"`` -> ``[0.3, 0.35]``. An empty or unparseable list is refused, not ignored."""
     parts = [p.strip() for p in text.split(",")]
@@ -181,11 +195,14 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.check is not None:
         try:
-            current = Path(args.check).read_text(encoding="utf-8")
-        except OSError as exc:
+            current = read_report(args.check)
+        except (OSError, UnicodeDecodeError) as exc:
             print(f"Report could not be read: {exc}", file=sys.stderr)
             return 2
         if current != text:
+            if current.replace("\r\n", "\n") == text:
+                print(f"{args.check} differs only in line endings (CRLF). The fixtures are pinned to "
+                      f"LF by .gitattributes; re-check out the file or regenerate it.", file=sys.stderr)
             print(f"{args.check} is out of date. Regenerate it with:\n"
                   f"  uv run python scripts/replay_face_switch_trace.py --write", file=sys.stderr)
             return 1
@@ -193,10 +210,17 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.write is not None:
-        Path(args.write).write_text(text, encoding="utf-8")
+        write_report(args.write, text)
         print(f"Wrote {args.write} {summary}.")
         return 0
 
+    # Stdout too: a Windows text stream would turn each LF into CRLF and a redirect would differ.
+    reconfigure = getattr(sys.stdout, "reconfigure", None)
+    if callable(reconfigure):
+        try:
+            reconfigure(newline="\n", encoding="utf-8")
+        except (ValueError, OSError):  # a stream that has already been read from cannot change
+            pass
     sys.stdout.write(text)
     return 0
 

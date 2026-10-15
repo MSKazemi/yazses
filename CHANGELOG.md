@@ -6,6 +6,20 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed - the face-switch false-activation harness read some traces it should have refused, and printed a rate without its limits
+
+(#409.) Auditing the replay harness against the ways it could read as success while being wrong: a
+`schema_version` such as `1.\u00b2` crashed the reader with a traceback instead of a problem list (`str.isdigit`
+accepts it, `int` does not); a `trace_id` ending in a newline passed the slug check; a `timestamps` column was
+silently ignored, so a gap or time running backwards was replayed as even sampling and the duration (and the
+per-hour rate) was wrong, so such a trace is now refused with the fix named; a `sample_rate_hz` of `1e308` gave a
+zero duration and an infinite rate, so the rate is bounded to 0.1 to 1000 Hz. Report version 1.2: every per-hour
+figure, the per-context ones included (they were a bare `0.0` from twenty seconds of speech), now carries the exact
+one-sided 95% lower and upper Poisson limits and `per_hour_extrapolated`. The script now writes and compares the
+report as bytes, so Windows can no longer produce CRLF and fail its own `--check`. A mutant detector test proves
+an over-sensitive switch turns both the replay and the committed-report check red. Synthetic traces still justify
+no default.
+
 ### Fixed — four more cross-OS test defects, found once the CI log could be read
 
 With the oversized test id fixed, the macOS and Windows runs reached the end of the suite and showed four
