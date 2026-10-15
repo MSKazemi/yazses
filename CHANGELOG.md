@@ -6,6 +6,22 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — Hands-Free Auto-Stop: tap once, speak, and recording ends when you stop (ADR-v2-029)
+
+`yazses features enable autostop` (then restart the daemon) now does something. With `[autostop] enabled`, a
+press of the dictation hotkey shorter than `[hotkey] hold_threshold_ms` is a *tap*: the recording stays open
+and ends on trailing silence (`silence_timeout_ms`, counted only after you have spoken), on the
+`max_duration_ms` cap, or on a second tap. A longer press is still ordinary hold-to-talk, and a latched turn
+that hears no speech at all gives up after five seconds rather than running to the cap. `silence_timeout_ms` is
+floored at 300 ms so a mistyped `0` cannot cut a sentence after one word. It needs a modifier hotkey (the
+default): a tap on a character key never reaches the daemon. `mode = "semantic"` falls back to the silence
+timeout, because the Smart Turn model is not shipped. Off by default; when off the daemon builds nothing and
+imports nothing from `yazses.endpoint` (`tests/test_default_start_stays_light.py` now guards that package), and
+the two hold handlers run exactly as before. The decision logic is the pure `endpoint/autostop.py`
+(`tests/test_autostop_turn.py` drives the tap/hold/silence/second-tap/race transitions with explicit
+timestamps). Not verified on a real microphone and keyboard. `autostop` leaves `_UNWIRED`, and its campaign
+task and traceability entry are removed.
+
 ### Changed — a default start no longer imports opt-in feature code
 
 Measured against `main` with the eye and hands-free work merged: importing the CLI and the daemon loaded the

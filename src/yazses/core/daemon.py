@@ -28,6 +28,7 @@ if TYPE_CHECKING:
     # All imported lazily at runtime (in _build_gaze_targeter and the other builders
     # below) so the optional/heavy dependencies stay dormant; the names exist here only
     # so the `X | None` attribute annotations resolve for the type checker.
+    from yazses.endpoint.autostop import AutoStopTurn
     from yazses.gaze.refine_runtime import RefinementRuntime
     from yazses.gaze.targeter import GazeTargeter
     from yazses.inject.target import TargetDetector
@@ -305,6 +306,10 @@ class Daemon:
     _switch_bound: frozenset[str] = frozenset()
     _switch_select_limiter = None
     _gesture = None
+    #: Hands-free auto-stop (ADR-v2-029): the tap-to-latch turn, or None -- the default.
+    #: Class-level for the same partial-daemon reason as the attributes above; while it is
+    #: None the two hold handlers behave exactly as they always have.
+    _autostop: AutoStopTurn | None = None
 
     def __init__(
         self,
@@ -1248,6 +1253,7 @@ class Daemon:
         # Optional dedicated command key: a second listener that forces command
         # mode while held. Ignored if unset or the same as the dictation key.
         self._command_hotkey = self._make_command_hotkey(cfg, key_id)
+        self._autostop = self._build_autostop(cfg)
 
         # ADR-v2-145: one camera owner per daemon, so gaze, the Head-Pointer and the
         # face switch cannot each open the webcam and meet "device already busy".
@@ -2148,6 +2154,50 @@ class Daemon:
             log.exception("Gesture Chords command %r raised", action)
             return {"ok": False, "reason": f"failed: {type(exc).__name__}"}
 
+    def _build_autostop(self, cfg):
+        """The tap-to-latch turn for ``[autostop]``, or None while the feature is off.
+
+        The import sits behind the ``enabled`` check on purpose: a default start loads
+        nothing from ``yazses.endpoint`` (tests/test_default_start_stays_light.py).
+        """
+        if not cfg.autostop.enabled:
+            return None
+        from yazses.endpoint.autostop import AutoStopTurn
+
+        if cfg.autostop.mode != "silence":
+            log.info("[autostop] mode = %r: the semantic end-of-turn model is not shipped; "
+                     "using the silence timeout.", cfg.autostop.mode)
+        log.info("Hands-free auto-stop enabled: tap the hotkey once, then speak.")
+        return AutoStopTurn(cfg.autostop, tap_ms=cfg.hotkey.hold_threshold_ms)
+
+    def _autostop_defer_end(self) -> bool:
+        """True when this key release was a tap that latched the turn open (nothing ends)."""
+        turn = self._autostop
+        if turn is None or not turn.release(time.monotonic()):
+            return False
+        threading.Thread(
+            target=self._autostop_watch, daemon=True, name="autostop-watch"
+        ).start()
+        return True
+
+    def _autostop_watch(self) -> None:
+        """Poll the live mic level until the latched turn ends, then end it like a release."""
+        turn = self._autostop
+        if turn is None:
+            return
+        threshold = self._config.accessibility.vad_threshold
+        while turn.latched:
+            time.sleep(0.05)
+            with self._lock:
+                recording = self._state.state == TrayState.RECORDING
+                level = self._state.audio_level
+            if not recording:
+                turn.cancel()  # the recording ended another way (mic lost, paused, shutdown)
+                return
+            if turn.tick(time.monotonic(), level >= threshold):
+                self._on_hold_end()
+                return
+
     def _on_command_hold_start(self, leaked: int) -> None:
         """Hold-start for the dedicated command key — arm force-command mode."""
         self._command_mode = True
@@ -2158,6 +2208,8 @@ class Daemon:
         self._on_hold_end()
 
     def _on_hold_start(self, leaked: int) -> None:
+        if self._autostop is not None and self._autostop.press(time.monotonic()):
+            return  # a second tap while latched: its release ends the turn
         # Barge-in: a new hold during read-back cancels TTS playback immediately
         # so the user's speech is never recorded over the spoken transcript. The
         # sequence is bumped first and under the lock, so a read-back that has been
@@ -2308,6 +2360,8 @@ class Daemon:
             log.debug("hotkey-modifier release (best-effort) failed", exc_info=True)
 
     def _on_hold_end(self) -> None:
+        if self._autostop is not None and self._autostop_defer_end():
+            return  # a tap: keep recording until the speaker stops
         self._earcon.play("recording_stop")
         log.info("Recording stopped, transcribing...")
 

@@ -920,8 +920,10 @@ _Def("chords", "Chorded Shortcut Synthesis", "[chords] — any keyboard shortcut
              "Needs [hotkey] command_key bound. Off by default.",
              lambda c: c.math.enabled, ma_on, ma_off),
         _Def("autostop", "Hands-Free Auto-Stop", "[autostop] — tap & speak", OPTIONAL,
-             "Tap once and speak; recording auto-stops when you finish (silence timeout + "
-             "duration cap). Semantic end-of-turn needs the turn extra. Off by default.",
+             "Tap the hotkey once and speak; recording auto-stops when you finish (silence "
+             "timeout + duration cap). A longer hold is still plain hold-to-talk. Needs a "
+             "modifier hotkey (the default), since a tap on a character key is invisible. "
+             "Restart the daemon after enabling. Off by default.",
              lambda c: c.autostop.enabled, as_on, as_off),
         _Def("mousegrid", "Voice Mouse Grid", "[mousegrid] — click by voice", OPTIONAL,
              "Drive the cursor and click by voice via a numbered grid ('three, seven, click') "
@@ -1144,13 +1146,13 @@ _SLUG_PACKAGES: dict[str, tuple[str, ...]] = {
     "hallucination": ("postprocess",),  # postprocess/hallucination.py
     "corpus_scrub": ("voiceprivacy",),  # voiceprivacy/anonymize.py via learning/capture.py
     "cocktail": ("audio", "voiceprint"),  # audio/personal_vad.py
+    "autostop": ("endpoint",),       # endpoint/autostop.py via core/daemon.py
     # --- designed-but-unwired: the package that WOULD implement it ---
     "readback_clone": ("readback",),  # readback/clone.py — never reached at runtime
     "multiprofile": ("multiprofile",),  # no implementation package exists yet
     "sentiment": ("mood",),          # mood/ledger.py — never reached at runtime
     "acoustic_profiles": ("acoustic",),  # acoustic/profiles.py — never reached
     "hotwords": ("biasing",),        # biasing/trie.py — never reached at runtime
-    "autostop": ("endpoint",),       # endpoint/ (autostop module) — never reached
 }
 
 
@@ -1174,7 +1176,7 @@ def feature_packages(slug: str) -> tuple[str, ...]:
 # feature later forces removing it here, and adding a stub registry entry
 # without wiring it fails CI.
 _UNWIRED: frozenset[str] = frozenset({
-    "acoustic_profiles", "affect", "agent", "audioguard", "autostop", "bookmarks", "breath",
+    "acoustic_profiles", "affect", "agent", "audioguard", "bookmarks", "breath",
     "bridge", "cmdspotter", "codec", "compose", "contour", "crowdproof",
     "hatselect", "hesitation", "hotwords", "interpret", "involuntary",
     "langroute", "lipread", "loadguard", "morsevox", "mousegrid", "mouthswitch",

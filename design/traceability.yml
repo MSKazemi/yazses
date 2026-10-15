@@ -54,18 +54,6 @@ entries:
       task: "WIRE-AUDIOGUARD-001"
       milestone: 9
     remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
-  - id: "capability:autostop"
-    kind: capability
-    title: "Semantic Auto-Stop"
-    source: "design/adr/adr-v2-029-semantic-autostop.md"
-    decision_status: accepted
-    delivery_status: designed
-    tracking:
-      kind: campaign
-      issues: [164]
-      task: "WIRE-AUTOSTOP-001"
-      milestone: 9
-    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
   - id: "capability:bookmarks"
     kind: capability
     title: "Session Bookmarks & Resume"
