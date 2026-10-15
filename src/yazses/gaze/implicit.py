@@ -40,6 +40,7 @@ ADR-011/012.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -155,6 +156,16 @@ def refined_if_better(
     """
     base_error = mean_error_px(baseline, holdout)
     new_error = mean_error_px(candidate, holdout)
-    if not holdout or new_error > base_error - min_improvement_px:
+    # Three ways to lose that a bare ``new_error > base_error - margin`` gets wrong:
+    # a NaN on either side compares False against everything and would *win*; and with a
+    # margin of 0 an exact tie (a copy of the baseline, or a candidate that learned
+    # nothing) would be promoted. "Equal" is not "better" (#398), so the candidate must
+    # be finite *and* strictly lower, and then clear the margin.
+    if (
+        not holdout
+        or not (math.isfinite(base_error) and math.isfinite(new_error))
+        or new_error >= base_error
+        or new_error > base_error - min_improvement_px
+    ):
         return baseline, base_error, new_error
     return candidate, base_error, new_error

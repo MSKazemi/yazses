@@ -40,7 +40,7 @@ from yazses.gaze.refine import ImplicitRefiner, RefinementPolicy, RefinementResu
 from yazses.gaze.store import RefinementInfo, promote_refinement
 from yazses.perception.signals import FacePerceptionSource
 
-__all__ = ["RefinementRuntime", "build_refinement_runtime", "policies_from_config"]
+__all__ = ["GuardedContext", "RefinementRuntime", "build_refinement_runtime", "policies_from_config"]
 
 log = logging.getLogger(__name__)
 
@@ -70,6 +70,30 @@ class RefinementRuntime:
             join = getattr(self.worker, "join", None)
             if join is not None:
                 join(timeout=2.0)
+
+
+class GuardedContext:
+    """Adapts a ``SessionTopologyGuard`` to what the refiner asks of a display context.
+
+    Called, it is the cheap check (``True`` = the layout still applies) and inherits the
+    guard's rate limit, which is right for the per-click intake. :meth:`confirm` is the
+    unthrottled read the refiner makes immediately before it writes a calibration to disk:
+    ``SessionTopologyGuard.suspended`` answers ``False`` for up to five seconds after the
+    last poll no matter what happened to the monitors, so without this a layout change
+    could be promoted into the stored calibration (#398). Only a *confirmed unchanged*
+    layout passes: a layout that could not be read just now is not "fine".
+    """
+
+    def __init__(self, guard) -> None:
+        self._guard = guard
+
+    def __call__(self) -> bool:
+        return not self._guard.suspended()
+
+    def confirm(self) -> bool:
+        from yazses.gaze.topology import Validity
+
+        return bool(self._guard.verify_now().validity is Validity.VALID)
 
 
 def policies_from_config(section) -> tuple[AssociationPolicy, RefinementPolicy]:
@@ -134,15 +158,22 @@ def build_refinement_runtime(
         return None, f"[gaze_refine] has an unusable value ({exc})"
 
     def persist(candidate: CalibrationMap, result: RefinementResult) -> None:
+        # Never turn a missing figure into 0.0 (METRICS.md): an "improvement" recorded
+        # against an error of zero would read as the best map ever made.
+        if result.baseline_error_px is None or result.candidate_error_px is None:
+            raise ValueError("a promotion needs both held-out errors")
         promote_refinement(
             data_dir,
             candidate,
             RefinementInfo(
                 train_samples=result.train_samples,
                 holdout_samples=result.holdout_samples,
-                baseline_error_px=float(result.baseline_error_px or 0.0),
-                candidate_error_px=float(result.candidate_error_px or 0.0),
+                baseline_error_px=float(result.baseline_error_px),
+                candidate_error_px=float(result.candidate_error_px),
             ),
+            # `refiner` is bound just below; at call time its baseline is still the map
+            # the candidate was measured against (it only moves after this returns).
+            expected_baseline=refiner.baseline,
         )
 
     refiner = ImplicitRefiner(

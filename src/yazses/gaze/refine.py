@@ -99,8 +99,9 @@ class RefinementPolicy:
     min_holdout_samples: int = 10
     #: Every Nth routed pair is held out instead of trained on (2 = half, 4 = a quarter).
     holdout_every: int = 4
-    #: Held-out mean-error improvement (px) the candidate must show. ``refined_if_better``'s
-    #: own default; "merely different" is a regression waiting to be blamed on something else.
+    #: Held-out mean-error improvement (px) the candidate must show, and strictly > 0.
+    #: ``refined_if_better``'s own default; "merely different" is a regression waiting to be
+    #: blamed on something else.
     min_improvement_px: float = 1.0
     #: Bound on retained held-out pairs: recent evidence, and never an unbounded log.
     max_holdout_samples: int = 200
@@ -124,8 +125,10 @@ class RefinementPolicy:
         for name in ("min_improvement_px", "forgetting", "max_residual_px", "min_confidence"):
             if not math.isfinite(float(getattr(self, name))):
                 raise ValueError(f"{name} must be finite")
-        if self.min_improvement_px < 0:
-            raise ValueError("min_improvement_px must be >= 0")
+        if self.min_improvement_px <= 0:
+            # 0 would promote a tie, or a float-noise "win" of 1e-12 px: a candidate must
+            # have to save *something* to replace the user's own calibration.
+            raise ValueError("min_improvement_px must be > 0")
         if not 0.0 < self.forgetting <= 1.0:
             raise ValueError("forgetting must be within (0, 1]")
         if self.max_residual_px <= 0:
@@ -196,6 +199,21 @@ class ImplicitRefiner:
         """Whether the display/camera context still applies. A check that raises says no."""
         try:
             return bool(self._context_check())
+        except Exception:
+            return False
+
+    def _confirm_context(self) -> bool:
+        """An unthrottled "the layout is unchanged *right now*", where one exists.
+
+        The context callable may carry a ``confirm`` method (``refine_runtime.GuardedContext``
+        does); without one there is no stronger check than the cheap one already made, so
+        this is ``True``. A confirmation that raises, like a check that raises, says no.
+        """
+        confirm = getattr(self._context_check, "confirm", None)
+        if confirm is None:
+            return True
+        try:
+            return bool(confirm())
         except Exception:
             return False
 
@@ -351,6 +369,22 @@ class ImplicitRefiner:
             candidate_error_px=candidate_error,
             reason="the candidate beat the baseline on held-out samples",
         )
+        # The cheap context check above may be rate-limited (the daemon's guard polls the
+        # display server at most every few seconds), so a layout change in the last few
+        # seconds is invisible to it -- and this write is the one thing here that outlives
+        # the process. Ask a check that cannot be stale, if the context offers one.
+        if not self._confirm_context():
+            if not self._context_valid():
+                self._reset_estimation()  # the confirmation found a real change
+            return RefinementResult(
+                RefinementOutcome.STALE_CONTEXT,
+                train_samples=train,
+                holdout_samples=len(holdout),
+                reason=(
+                    "the display layout could not be confirmed unchanged immediately before "
+                    "saving; nothing was applied"
+                ),
+            )
         try:
             self._persist(candidate, won)
         except Exception as exc:

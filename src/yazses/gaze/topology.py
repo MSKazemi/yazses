@@ -536,6 +536,30 @@ class SessionTopologyGuard:
         self._check = None
         self._last_poll = None
 
+    def verify_now(self) -> ContextCheck:
+        """Read the live layout *now*, ignoring the rate limit, and return the verdict.
+
+        :meth:`suspended` is rate-limited because routing asks once per dictation hold; that
+        also means a layout change is invisible for up to ``min_interval`` seconds. Anything
+        that is about to make something *permanent* (a calibration written to disk, #398)
+        must not accept that window, so it asks here instead. Same stickiness as
+        :meth:`suspended` (a stale verdict stays until :meth:`accept`), and the same rule
+        that a failed read is not evidence of a change -- but the verdict then is
+        ``UNVERIFIED`` rather than a guess, so a caller that needs a *confirmed* layout can
+        tell "unchanged" from "could not tell".
+        """
+        if self._check is not None and self._check.stale:
+            return self._check
+        try:
+            current = self._read()
+        except Exception:
+            return ContextCheck(
+                Validity.UNVERIFIED, "the current display layout could not be read just now"
+            )
+        self._last_poll = self._clock()
+        self._check = check_context(self._accepted, current)
+        return self._check
+
     def suspended(self) -> bool:
         """True when routing must stop. Polls at most every ``min_interval`` seconds."""
         if self._check is not None and self._check.stale:

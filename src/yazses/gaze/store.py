@@ -213,7 +213,11 @@ def save_calibration(
 
 
 def promote_refinement(
-    data_dir: Path, candidate: CalibrationMap, info: RefinementInfo
+    data_dir: Path,
+    candidate: CalibrationMap,
+    info: RefinementInfo,
+    *,
+    expected_baseline: CalibrationMap | None = None,
 ) -> CalibrationRecord:
     """Make *candidate* the stored calibration, keeping the one it replaces for rollback.
 
@@ -222,6 +226,14 @@ def promote_refinement(
     untouched (and an unreadable or missing baseline refuses the promotion outright —
     there is nothing to refine). The display/camera context is carried over unchanged:
     a refinement is valid only for the context it was collected under, never a new one.
+
+    *expected_baseline* is the map the candidate was **measured against** (the running
+    process's live one). When given, the stored map must be that map: the file can change
+    under a running daemon -- `yazses gaze rollback`, a recalibration -- and a candidate
+    that beat the in-memory map says nothing about the one now on disk. Promoting it would
+    silently undo the rollback the user just asked for, and keep as "previous" a file the
+    refinement never touched. Compared by value (the JSON round-trip of a float64 is
+    exact), never by "a file exists".
 
     Raises :class:`CalibrationWriteError`.
     """
@@ -233,6 +245,14 @@ def promote_refinement(
     record = _parse(current_bytes)
     if record is None:
         raise CalibrationWriteError("the stored calibration is unreadable; refusing to replace it")
+    if expected_baseline is not None and not np.allclose(
+        record.calibration.A, expected_baseline.A, rtol=1e-9, atol=1e-9
+    ):
+        raise CalibrationWriteError(
+            "the stored calibration is no longer the map this refinement was measured "
+            "against (it was rolled back or recalibrated while the daemon ran); not "
+            "replacing it. Restart the daemon to pick up the stored calibration"
+        )
     try:
         _atomic_write_bytes(previous_calibration_path(data_dir), current_bytes)
         _atomic_write_bytes(
