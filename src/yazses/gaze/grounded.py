@@ -36,6 +36,7 @@ What it does not do, on purpose:
 from __future__ import annotations
 
 import logging
+import math
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -47,7 +48,9 @@ from yazses.grounding import (
     GroundingResult,
     IntentHint,
     Point,
+    Rect,
     SemanticSource,
+    SemanticSourceKind,
     TargetResolver,
     TargetSnapshot,
     TargetSource,
@@ -88,6 +91,10 @@ class RefinedTarget:
     entity_id: str | None = None
     role: str | None = None
     outcome: GroundingOutcome | None = None
+    #: Provenance of the entity, kept because ADR-v2-151 forbids collapsing it: a
+    #: consumer that sees an ``entity_id`` must still be able to tell an accessibility
+    #: node from a selection. ``None`` whenever ``entity_id`` is.
+    source: SemanticSourceKind | None = None
 
     @property
     def is_exact(self) -> bool:
@@ -116,11 +123,23 @@ def refine(decision: RouteDecision | None, result: GroundingResult | None) -> Re
         return RefinedTarget(window_id=window_id)
     if result.candidate is None or not result.is_grounded:
         return RefinedTarget(window_id=window_id, outcome=result.outcome)
+    if result.candidate.source is SemanticSourceKind.WINDOW:
+        # ADR-v2-151's "geometry-only fallback": the resolver grounded the window's own
+        # rectangle because nothing finer was under the point. That is the window the
+        # route decision already named, not an element, so no entity is earned and
+        # ``is_exact`` stays False. Reporting its id as an exact entity would let a
+        # planner "click" the middle of a window on the strength of empty canvas.
+        return RefinedTarget(
+            window_id=window_id,
+            outcome=GroundingOutcome.GROUNDED,
+            source=SemanticSourceKind.WINDOW,
+        )
     return RefinedTarget(
         window_id=window_id,
         entity_id=result.candidate.entity_id,
         role=result.candidate.role,
         outcome=GroundingOutcome.GROUNDED,
+        source=result.candidate.source,
     )
 
 
@@ -139,11 +158,22 @@ class GazeGrounder:
         resolver: TargetResolver | None = None,
         space: CoordinateSpace = SCREEN_SPACE,
         clock: Callable[[], float] = time.monotonic,
+        region_px: float | None = None,
     ) -> None:
         self._source = source
         self._resolver = resolver if resolver is not None else TargetResolver()
         self._space = space
         self._clock = clock
+        #: Side of the square the gaze sample is widened to, in ``space`` pixels. ``None``
+        #: (the default) hands the resolver a bare point, which asserts the sample is
+        #: precise; webcam gaze is documented as 3-5 cm coarse, so a caller that knows its
+        #: sensor error should state it here and let the resolver abstain between controls
+        #: that fit inside it. **No default is chosen**: the right size is a measurement
+        #: (RQ-G4), and a value picked from a synthetic fixture would be a product default
+        #: with no evidence behind it.
+        if region_px is not None and not (math.isfinite(region_px) and region_px > 0.0):
+            raise ValueError(f"region_px must be a finite value > 0, got {region_px!r}")
+        self._region_px = region_px
         self._failure_logged = False
         #: How many grounding attempts ended in an exception. Public because "the
         #: semantic source is failing" and "the semantic source has nothing to say"
@@ -177,12 +207,19 @@ class GazeGrounder:
         """
         try:
             sampled_at = self._clock()
+            centre = Point(float(point[0]), float(point[1]))
+            half = (self._region_px or 0.0) / 2.0
             target = TargetSnapshot(
                 source=TargetSource.GAZE,
                 timestamp_s=sampled_at,
                 confidence=confidence,
                 space=self._space,
-                point=Point(float(point[0]), float(point[1])),
+                # A region states the sensor's uncertainty; a point claims there is none.
+                point=centre if self._region_px is None else None,
+                bounds=(
+                    None if self._region_px is None
+                    else Rect(centre.x - half, centre.y - half, self._region_px, self._region_px)
+                ),
                 window_id=self._window_key(window_id),
             )
             candidates = list(self._source.snapshot(window_id=target.window_id, region=None))

@@ -6,6 +6,29 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — grounded-target resolver: a coarse gaze region could ground the wrong neighbour, and four smaller gaps (#442)
+
+Audit of EYE-GROUND-001/002 against the code (nothing here is wired into the daemon yet; every install still
+routes at window level). Measured on invented geometry with an honest error model (the user looks at a true point,
+the sensor reports a centre displaced by up to half the stated region): with the old rules a 200 px gaze region over
+a row of six 90x40 buttons grounded the **wrong** button 29.6% of the time and a 120 px region 2.1%; a 400 px entry
+field with 16 px neighbours was wrong 22-36% at 120-200 px. Cause: for a region target, "wholly inside the region"
+outranked "overlaps it" and a smaller area counted as "more specific" even when not nested, so whichever control the
+region's edge did not cut won. Both now require what they claim: containment does not separate a pure *region*, and
+specificity separates only a candidate wholly nested in the other. Wrong-target is 0% in every row after; the price
+is more abstention (that 200 px row: 90.9% ambiguous). These numbers describe synthetic layouts and are not a
+product threshold (RQ-G4 measures the real curve); the existing realistic-layout table is unchanged.
+
+Also fixed: a NaN `now_s` read as perfectly fresh (`abs(nan - t) > budget` is False) and now abstains with
+`target_stale`; labels in decomposed Unicode or in scripts whose vowels are combining marks (Devanagari, Tamil,
+Thai) could never match a spoken hint, and a hint token with punctuation never matched - matching is now NFC
+and case-folded, with combining marks inside words; one control reported twice with a different timestamp or
+confidence was called ambiguous with itself; a `SemanticCandidate` with a list in `actions` was accepted and
+then crashed the resolver; and `refine()` reported the window's own rectangle (a geometry-only fallback) as an
+exact entity with `is_exact` true. `RefinedTarget` now carries the candidate's `source`, and a window-geometry
+ground yields no entity. New and opt-in: `GazeGrounder(region_px=...)` states the gaze sensor's error as a
+region instead of asserting a precise point; no default is chosen.
+
 ### Fixed — an unanswered Wayland permission dialog was reported as "keyboard only"
 
 Found by running the daemon on a real GNOME Wayland session (2026-10-15). The portal answers `CreateSession`
