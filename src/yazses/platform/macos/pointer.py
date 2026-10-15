@@ -50,6 +50,7 @@ import logging
 from typing import Any, Protocol
 
 from yazses.pointer.base import (
+    MotionUnit,
     PointerBackendError,
     PointerButton,
     PointerCapabilities,
@@ -73,6 +74,7 @@ MACOS_POINTER_CAPABILITIES = PointerCapabilities(
     buttons=frozenset(PointerButton),
     scroll_vertical=True,
     scroll_horizontal=False,
+    motion_unit=MotionUnit.LOGICAL_POINT,
 )
 
 #: ``PointerButton`` -> the Quartz attribute names for its down event, up event and

@@ -20,8 +20,13 @@ makes a failure report a real Win32 error code instead of zero.
 
 **What this backend reports, and why it is not everything.**
 
-* Relative motion — `MOUSEEVENTF_MOVE` takes a signed pixel delta, which is exactly the
-  boundary's unit. Sub-pixel deltas accumulate (see `src/yazses/pointer/subpixel.py`)
+* Relative motion — `MOUSEEVENTF_MOVE` takes a signed delta, which this backend sends as
+  whole units (`MotionUnit.DEVICE_COUNT`). That is **not** a screen pixel: Microsoft
+  documents relative mouse motion as "subject to the effects of the mouse speed and the
+  two-mouse threshold values", so the pointer-speed slider and "enhance pointer precision"
+  scale it, and per-monitor DPI does not. How far one unit travels on screen is therefore
+  a property of the user's Windows settings that this backend cannot read; no Windows
+  machine was available to measure it. Sub-pixel deltas accumulate (see `src/yazses/pointer/subpixel.py`)
   rather than rounding to nothing.
 * Absolute motion — **reported as unavailable, deliberately.** `MOUSEEVENTF_ABSOLUTE`
   does not take pixels; it takes coordinates normalised to 0-65535, over the primary
@@ -62,6 +67,7 @@ from yazses.platform.windows.injector import (
     _load_user32,
 )
 from yazses.pointer.base import (
+    MotionUnit,
     PointerBackendError,
     PointerButton,
     PointerCapabilities,
@@ -111,6 +117,7 @@ WINDOWS_POINTER_CAPABILITIES = PointerCapabilities(
     buttons=frozenset(PointerButton),
     scroll_vertical=True,
     scroll_horizontal=True,
+    motion_unit=MotionUnit.DEVICE_COUNT,
 )
 
 

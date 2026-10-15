@@ -49,6 +49,7 @@ from typing import Any
 
 from yazses.inject.keysyms import char_to_keysym, name_to_keysym, parse_combo
 from yazses.pointer.base import (
+    MotionUnit,
     PointerBackendError,
     PointerButton,
     PointerCapabilities,
@@ -121,6 +122,11 @@ PORTAL_POINTER_CAPABILITIES = PointerCapabilities(
     buttons=frozenset(POINTER_BUTTON_CODES),
     scroll_vertical=True,
     scroll_horizontal=True,
+    # The RemoteDesktop portal specification describes motion in the logical coordinate
+    # space; how a given compositor scales a relative delta on a fractionally scaled
+    # output has not been measured here, so this names the specification's claim, not an
+    # observation. Treat travel distances on a scaled Wayland session as unverified.
+    motion_unit=MotionUnit.COMPOSITOR_LOGICAL,
 )
 
 TOKEN_FILENAME = "portal_remote_desktop_token"

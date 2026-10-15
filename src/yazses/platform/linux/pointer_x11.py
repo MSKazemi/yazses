@@ -60,6 +60,7 @@ from collections.abc import Callable
 from typing import Any, Protocol, runtime_checkable
 
 from yazses.pointer.base import (
+    MotionUnit,
     PointerBackendError,
     PointerButton,
     PointerCapabilities,
@@ -96,9 +97,12 @@ SCROLL_LEFT_BUTTON = 6
 SCROLL_RIGHT_BUTTON = 7
 
 #: What XTEST can do, which is all six operations. Absolute motion is included because
-#: X11 root-window coordinates *are* the canonical desktop space — one root window spans
-#: every monitor of a screen, already in logical pixels — so no conversion is needed and
-#: nothing has to be guessed. A sink answers this identically for its whole lifetime.
+#: X11 root-window coordinates *are* the space `yazses.gaze.topology` and `xdotool` window
+#: rectangles use — one root window spans every monitor of a screen, with its origin at the
+#: framebuffer's top-left (so never negative) — so no conversion is needed and nothing has to
+#: be guessed. They are framebuffer pixels, though, not HiDPI-"logical" ones: X11 coordinates
+#: carry no scale factor, so on a 2x panel one unit is half a logical pixel
+#: (`MotionUnit.FRAMEBUFFER_PIXEL`). A sink answers this identically for its whole lifetime.
 X11_CAPABILITIES = PointerCapabilities(
     backend=X11_BACKEND_NAME,
     relative_motion=True,
@@ -106,6 +110,7 @@ X11_CAPABILITIES = PointerCapabilities(
     buttons=frozenset(BUTTON_CODES),
     scroll_vertical=True,
     scroll_horizontal=True,
+    motion_unit=MotionUnit.FRAMEBUFFER_PIXEL,
 )
 
 
