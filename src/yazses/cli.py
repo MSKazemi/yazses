@@ -3767,6 +3767,17 @@ def status(
     # Names, states, ages and counts only; no sample value can reach here.
     for handsfree_line in render_handsfree_lines(info.get("handsfree")):
         typer.echo(handsfree_line)
+    # Acoustic Context Profiles: the room as the last burst found it and the gate in force.
+    # Absent while the feature is off, before the first burst, and on an older daemon.
+    room = info.get("acoustic")
+    if isinstance(room, dict) and room.get("scene"):
+        line = f"  room:     {room['scene']}"
+        if room.get("floor") is not None:
+            line += f" (floor {room['floor']}, gate {room['gate']}"
+            if room.get("gate") != room.get("base_gate"):
+                line += f", raised from {room['base_gate']}"
+            line += ")"
+        typer.echo(line)
     if info.get("silent_streak"):
         typer.echo(
             f"  ⚠ mic:    {info['silent_streak']} silent clips in a row — "

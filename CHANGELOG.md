@@ -516,6 +516,29 @@ apart, and prints `insufficient data` instead of a rate below a provisional mini
 a separate links file, since the result envelope has none. Output is deterministic and labelled provisional; no inferential
 test is chosen (that waits for #425), and no threshold comes from the synthetic test records.
 
+### Added — Acoustic Context Profiles is now reachable (`yazses features enable acoustic_profiles`, ADR-v2-039)
+
+In a room whose background noise sits close to your silence gate, a hold that picks up nothing but that noise is no
+longer sent to Whisper (where it tends to come back as a stray "Thank you."). Off by default
+(`[acoustic_profiles] enabled = false`); with it off nothing changes and the module is not imported. The room is judged
+quiet or noisy from the quietest fifth of the recording's own 20 ms frames, relative to **your** `vad_threshold`: the
+room is noisy when that floor reaches half the gate, and the scene only changes after `min_stable` (default 3) bursts in
+a row. In a noisy room a *flat* recording (loud frames under 2.5 x its floor) is held to a gate of 1.5 x its floor,
+clamped to between your threshold and 1.5 x your threshold and never above 2 x the floor; a recording with speech-like
+dynamics keeps your gate exactly. The adjustment lives in memory only: `config.toml` and your `vad_threshold` are never
+written, a flat-noise discard does not count toward the silent-clip warning or the auto-retune, and `yazses status`
+shows a `room:` line with the scene, the floor and the gate in force. It stands down while Whisper Mode has lowered the
+gate.
+
+The original ADR table (absolute gates of 0.010-0.035 for quiet, cafe, car, meeting) is retired: it sits 6-10x above the
+real level of a laptop microphone (mean |x| of 0.003-0.005 at full gain) and would have discarded every utterance. The
+scene set shrinks to quiet and noisy; the amendment to ADR-v2-039 is **proposed** and awaits the owner's review. No
+scene tagger, no denoise switching and no `acoustic` extra are involved. The 1.5 x, 2 x and 2.5 x constants are
+engineering clamps chosen so the gate cannot take speech away; they were not tuned on recorded rooms, so how often the
+noisy scene fires in real use is unknown. `tests/test_acoustic_scene.py` sweeps the owner's microphone range (speech
+0.003-0.005 against gates 0.0005-0.0024 and rooms 0.0001-0.002) to show the profile never drops a burst the configured
+gate keeps; `tests/test_acoustic_gate.py` covers the daemon off and on.
+
 ### Fixed — the hands-free window now corrects itself when it turns out too narrow (Windows run, round two)
 
 The first fix estimated the window's width from the content and a scroll bar's size hint; the hosted Windows run still

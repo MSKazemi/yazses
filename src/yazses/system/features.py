@@ -885,8 +885,11 @@ _Def("chords", "Chorded Shortcut Synthesis", "[chords] — any keyboard shortcut
              "tts extra and downloads a voice-clone model on first use. Off by default.",
              lambda c: c.tts.clone_voice, rbc_on, rbc_off),
         _Def("acoustic_profiles", "Acoustic Profiles", "[acoustic_profiles] — scene-adaptive", OPTIONAL,
-             "Detects your environment (quiet/café/car/meeting) and auto-tunes the mic gate + "
-             "noise suppression. Needs the acoustic extra (scene tagger). Off by default.",
+             "Judges whether the room is quiet or noisy from the quietest moments of each "
+             "recording and, in a noisy room, holds flat background noise to a slightly higher "
+             "silence gate so it is not sent to Whisper. The gate is relative to your own "
+             "vad_threshold, never above 1.5x it, in memory only, and speech is never held to "
+             "it. No extra needed. Off by default.",
              lambda c: c.acoustic_profiles.enabled, ap_on, ap_off),
         _Def("sentiment", "Mood Ledger", "[sentiment] — private mood journal", OPTIONAL,
              "Tags each dictation with an emotion and builds a private mood-over-time view. "
@@ -1153,11 +1156,11 @@ _SLUG_PACKAGES: dict[str, tuple[str, ...]] = {
     "corpus_scrub": ("voiceprivacy",),  # voiceprivacy/anonymize.py via learning/capture.py
     "cocktail": ("audio", "voiceprint"),  # audio/personal_vad.py
     "autostop": ("endpoint",),       # endpoint/autostop.py via core/daemon.py
+    "acoustic_profiles": ("acoustic",),  # acoustic/gate.py via core/daemon.py
     # --- designed-but-unwired: the package that WOULD implement it ---
     "readback_clone": ("readback",),  # readback/clone.py — never reached at runtime
     "multiprofile": ("multiprofile",),  # no implementation package exists yet
     "sentiment": ("mood",),          # mood/ledger.py — never reached at runtime
-    "acoustic_profiles": ("acoustic",),  # acoustic/profiles.py — never reached
     "hotwords": ("biasing",),        # biasing/trie.py — never reached at runtime
 }
 
@@ -1182,7 +1185,7 @@ def feature_packages(slug: str) -> tuple[str, ...]:
 # feature later forces removing it here, and adding a stub registry entry
 # without wiring it fails CI.
 _UNWIRED: frozenset[str] = frozenset({
-    "acoustic_profiles", "affect", "agent", "audioguard", "breath", "bridge", "cmdspotter",
+    "affect", "agent", "audioguard", "breath", "bridge", "cmdspotter",
     "codec", "compose", "contour", "crowdproof", "hatselect", "hesitation", "hotwords",
     "interpret", "langroute", "lipread", "loadguard", "morsevox", "mousegrid", "mouthswitch",
     "multiprofile", "pilot", "predict", "pronunciation", "proofback", "rag", "readback_clone",
@@ -1324,7 +1327,7 @@ _EXAMPLES: dict[str, str] = {
     "interpret": "Set [interpret] pair='en-es'; each speaker's turn is translated.",
     "pronunciation": "Practice mode: dictate a phrase, see per-phoneme good/fair/poor.",
     "readback_clone": "Enroll once; read-back then uses a clone of your own voice.",
-    "acoustic_profiles": "Move to a café — the mic gate + denoise auto-adapt.",
+    "acoustic_profiles": "Work somewhere with a steady hum — a held key over just room noise types nothing.",
     "sentiment": "yazses features enable sentiment — builds a private mood-over-time view.",
     "reflow": "Ramble, then say 'structure this' → a bulleted outline.",
     "smartpaste": "Dictate into markdown vs a terminal — syntax adapts to the app.",
@@ -1526,7 +1529,7 @@ _USE_CASES: dict[str, str] = {
     "self_repair": "When you catch a slip mid-sentence and naturally say 'no I mean X' instead of editing.",
     "corpus_scrub": "When you enable the learning corpus but want stored audio stripped of your voice identity.",
     "readback_clone": "When you want read-back spoken in a clone of your own voice, not a generic TTS voice.",
-    "acoustic_profiles": "When you dictate in different environments and want the mic gate and denoise to adapt.",
+    "acoustic_profiles": "When a fan or traffic hum keeps getting transcribed as stray words on a key press with no speech.",
 }
 
 

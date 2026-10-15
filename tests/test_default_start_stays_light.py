@@ -42,6 +42,7 @@ OPT_IN_PACKAGES = (
     "yazses.endpoint",
     "yazses.prosodypunct",
     "yazses.involuntary",
+    "yazses.acoustic",
 )
 
 _PROBE = """

@@ -6,18 +6,6 @@
 version: 1
 
 entries:
-  - id: "capability:acoustic_profiles"
-    kind: capability
-    title: "Acoustic Context Profiles"
-    source: "design/adr/adr-v2-039-acoustic-profiles.md"
-    decision_status: accepted
-    delivery_status: designed
-    tracking:
-      kind: campaign
-      issues: [164]
-      task: "WIRE-ACOUSTIC-PROFILES-001"
-      milestone: 9
-    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
   - id: "capability:affect"
     kind: capability
     title: "Tone-Aware Formatting"

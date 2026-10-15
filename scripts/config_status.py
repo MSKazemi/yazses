@@ -41,7 +41,6 @@ ROOT = Path(__file__).resolve().parent.parent
 KNOWN_UNREAD = {
     "AccessibilityConfig.confirm_timeout_s",
     "AccessibilityConfig.vad_source",
-    "AcousticProfilesConfig.min_stable",
     "ActivationConfig.confirm_threshold",
     "ActivationConfig.reject_floor",
     "AgentConfig.allowlist",

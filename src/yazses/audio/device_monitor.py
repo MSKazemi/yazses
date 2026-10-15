@@ -108,6 +108,7 @@ CAPTURE_DOUBTING_DISCARDS = frozenset({
     "no_speech",        # loud enough, but a speech detector found none; dropped before decode
     "hallucination",    # words fabricated from non-speech — evidence *against* the audio
     "post_filter",      # the transcript was disfluency only; same doubt as above
+    "acoustic_floor",   # flat room noise under the profile gate; no transcript, no proof
 })
 
 

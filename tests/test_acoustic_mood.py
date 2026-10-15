@@ -7,23 +7,25 @@ from yazses.mood.ledger import aggregate, dominant_mood, mood_shift
 # ---- acoustic profiles -----------------------------------------------------
 
 def test_policy_for_known_scenes():
-    assert policy_for("cafe").denoise is True
-    assert policy_for("quiet").denoise is False
-    assert policy_for("car").vad_threshold >= policy_for("quiet").vad_threshold
+    # ADR-v2-039 amendment: two scenes, and a policy that is a ratio, never an absolute level.
+    assert policy_for("noisy").floor_multiple > policy_for("quiet").floor_multiple == 0.0
+    assert policy_for("noisy").max_raise <= 1.5
+    assert policy_for("quiet").max_raise == 1.0
 
 
 def test_policy_for_unknown_defaults_quiet():
     assert policy_for("spaceship").scene == "quiet"
+    assert policy_for("cafe").scene == "quiet"      # retired scene label
     assert policy_for("").scene == "quiet"
 
 
 def test_should_switch_hysteresis():
-    assert should_switch("cafe", "quiet", stable_count=3, min_stable=3) is True
-    assert should_switch("cafe", "quiet", stable_count=2, min_stable=3) is False
+    assert should_switch("noisy", "quiet", stable_count=3, min_stable=3) is True
+    assert should_switch("noisy", "quiet", stable_count=2, min_stable=3) is False
 
 
 def test_should_switch_same_scene_never():
-    assert should_switch("cafe", "cafe", stable_count=99) is False
+    assert should_switch("noisy", "noisy", stable_count=99) is False
 
 
 # ---- mood ledger -----------------------------------------------------------

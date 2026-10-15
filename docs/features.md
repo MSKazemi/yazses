@@ -341,11 +341,11 @@ YazSes ships **148 capabilities**. All but the core are **off by default** — t
 
 ### Acoustic Profiles
 
-- **Toggle:** `acoustic_profiles`  ·  **Tier:** planned — designed, not yet wired  ·  **Config:** `[acoustic_profiles] — scene-adaptive`
-- **What it does:** Detects your environment (quiet/café/car/meeting) and auto-tunes the mic gate + noise suppression. Needs the acoustic extra (scene tagger). Off by default.
-- **Use when:** When you dictate in different environments and want the mic gate and denoise to adapt.
-- **Example:** Move to a café — the mic gate + denoise auto-adapt.
-- **Activate:** not possible yet — designed but not wired into this build (`yazses features enable` refuses it; contributions welcome)
+- **Toggle:** `acoustic_profiles`  ·  **Tier:** optional  ·  **Config:** `[acoustic_profiles] — scene-adaptive`
+- **What it does:** Judges whether the room is quiet or noisy from the quietest moments of each recording and, in a noisy room, holds flat background noise to a slightly higher silence gate so it is not sent to Whisper. The gate is relative to your own vad_threshold, never above 1.5x it, in memory only, and speech is never held to it. No extra needed. Off by default.
+- **Use when:** When a fan or traffic hum keeps getting transcribed as stray words on a key press with no speech.
+- **Example:** Work somewhere with a steady hum — a held key over just room noise types nothing.
+- **Activate:** `yazses features enable acoustic_profiles` then `yazses restart`
 
 ### Audio-Anchored Scrubbing
 

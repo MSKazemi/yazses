@@ -33,7 +33,7 @@ It stays listed so contributors can pick it up; see the matching design/adr/ ent
 ```
 
 They stay listed because that is where a contributor picks one up — each has a matching
-`design/adr/` entry. **37 of the 122 rows below are ◌ today.** Rows without the mark are
+`design/adr/` entry. **36 of the 122 rows below are ◌ today.** Rows without the mark are
 wired and can be turned on.
 
 ### "Hold the command key" — what that means
@@ -156,7 +156,7 @@ Toggle with `yazses features enable <name>`.
 | **Smart-Paste** | `smartpaste` | Markdown bullets and autolinked URLs in a notes app; terminals, editors and mail left exactly as dictated. Needs the focused-window probe. |
 | ◌ **Audio-Anchored Scrubbing** | `scrub` | Keeps word timestamps so you can replay what you said or re-dictate one word. |
 | **Dictation Reflow** | `reflow` | Say "structure this" to rewrite a ramble into bullets + action items. |
-| ◌ **Acoustic Context Profiles** | `acoustic_profiles` | Detects your environment (quiet/café/car/meeting) and auto-tunes the mic gate + denoise. |
+| **Acoustic Context Profiles** | `acoustic_profiles` | Judges the room quiet or noisy from the quietest moments of each recording and, in a noisy room, holds flat background noise to a slightly higher silence gate (relative to your own threshold, in memory only). |
 | ◌ **Mood Ledger** | `sentiment` | Private speech-sentiment journal; labels stay in the encrypted corpus. |
 | ◌ **Pronunciation Feedback** | `pronunciation` | Per-phoneme good/fair/poor practice scoring for accent/L2 training. |
 | ◌ **Personal Read-Back Voice** | `readback_clone` | Read the transcript back in a clone of your own voice (permissive OpenVoice V2). |

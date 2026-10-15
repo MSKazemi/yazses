@@ -28,6 +28,7 @@ if TYPE_CHECKING:
     # All imported lazily at runtime (in _build_gaze_targeter and the other builders
     # below) so the optional/heavy dependencies stay dormant; the names exist here only
     # so the `X | None` attribute annotations resolve for the type checker.
+    from yazses.acoustic.gate import AcousticGate
     from yazses.bookmarks.service import BookmarkService
     from yazses.endpoint.autostop import AutoStopTurn
     from yazses.gaze.refine_runtime import RefinementRuntime
@@ -523,6 +524,8 @@ class Daemon:
         # Learns the silence gate from outcomes, so a threshold that no longer fits this
         # mic stops being a silent "I speak and nothing happens".
         self._adaptive_vad = AdaptiveThreshold()
+        # Acoustic Context Profiles (ADR-v2-039): built on the first burst, only when on.
+        self._acoustic: AcousticGate | None = None
         self._device_monitor: DeviceMonitor | None = None
         # "No text target" guard: detects whether the focused element accepts text so a
         # burst with no field focused is warned (yellow tray) + saved to the clipboard
@@ -2592,9 +2595,52 @@ class Daemon:
                     acc = replace(acc, vad_threshold=eff)
             except Exception:
                 acc = self._config.accessibility
+            # Acoustic Context Profiles (ADR-v2-039): in a room whose floor sits close to the
+            # gate, hold a flat-noise burst to a slightly higher gate. In-memory only (the
+            # configured threshold and config.toml are untouched); the gate stays within
+            # [configured, 1.5 x configured] and 2 x the burst's own floor; a burst with
+            # speech-like dynamics keeps the configured gate. Off by default, imported only
+            # when on. Skipped when Whisper Mode has lowered the gate: that user asked for
+            # quiet speech to pass, and the two must not fight. A failure means the gate
+            # the user configured, never a crash.
+            configured_gate = acc.vad_threshold
+            if (
+                self._config.acoustic_profiles.enabled
+                and configured_gate == self._config.accessibility.vad_threshold
+            ):
+                try:
+                    from dataclasses import replace
+
+                    if self._acoustic is None:
+                        from yazses.acoustic.gate import AcousticGate
+
+                        self._acoustic = AcousticGate(self._config.acoustic_profiles.min_stable)
+                    verdict = self._acoustic.decide(padded, sample_rate, configured_gate)
+                    event["acoustic_scene"] = verdict.scene
+                    if verdict.gate != configured_gate:
+                        acc = replace(acc, vad_threshold=verdict.gate)
+                except Exception:
+                    log.debug("Acoustic profile failed; using the configured gate.",
+                              exc_info=True)
+                    acc = self._config.accessibility
             if is_silent_calibrated(padded, acc):
-                event["discard_reason"] = "silent"
                 level = float(np.abs(padded).mean()) if padded.size else 0.0
+                if level >= configured_gate:
+                    # Only the profile's higher gate refused this burst: it is flat noise at
+                    # the room floor, not a quiet or dead microphone. So it must not feed the
+                    # silent-streak notice or the auto-retune (which would lower and PERSIST
+                    # the threshold), and it plays no more than the usual "nothing typed" cue.
+                    event["discard_reason"] = "acoustic_floor"
+                    log.info(
+                        "Flat room noise -- discarding (level %.4f under the room-adjusted "
+                        "gate %.4f; your configured vad_threshold is %.4f).",
+                        level, acc.vad_threshold, configured_gate,
+                    )
+                    self._earcon.play("error")
+                    if stream_injector is not None:
+                        stream_injector.cancel()
+                    return
+                event["discard_reason"] = "silent"
                 log.info(
                     "Silent audio -- discarding (level %.4f < vad_threshold %.4f; "
                     "run 'yazses mic-level --set' to retune).",
@@ -6198,6 +6244,9 @@ class Daemon:
                 # The overlay reads the dwell progress out of this to draw a ring before a
                 # click fires. States, flags and a 0..1 fraction -- never a pose or position.
                 "headpointer": self._headpointer_payload(),
+                # Acoustic Context Profiles: the room scene and the gate in force, or None
+                # while the feature is off or has judged no burst. Numbers and a label only.
+                "acoustic": self._acoustic.status() if self._acoustic is not None else None,
             }
 
     def _headpointer_payload(self) -> dict[str, object] | None:
