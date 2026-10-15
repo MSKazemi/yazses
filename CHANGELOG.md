@@ -6,6 +6,22 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — face-switch `select`, `confirm` and `cancel` now do something
+
+A gesture bound with `[[facegesture.switches]]` to `select`, `confirm` or `cancel` used to be accepted and
+inert. `select` now sends **one left click at the current pointer position** through the Head-Pointer's own
+pointer sink (X11, or the Wayland portal session dictation already uses), and only when the Head-Pointer is
+running and tracking, not paused, not clutched by anything else, and the hands-free gate is open; otherwise it
+does nothing and says why. It is rate-limited to one click per second (**provisional, unmeasured**), so a held or
+flickering expression cannot click repeatedly, and the face switch holds the pointer still while a commit
+gesture is down so the click lands where you aimed. `confirm` / `cancel` answer the command or number the
+daemon is holding for confirmation (the same hold the spoken "confirm" answers); with nothing pending they are a
+harmless no-op. New `yazses facegesture status` (and a "Face switch actions" line in the hands-free state)
+shows each bound action's last outcome: done, refused with the reason, or nothing to do. The settings panel now
+offers these three actions. Decision logic is pure (`facegesture/actions.py`); the daemon handlers are glue.
+Not verified on real hardware: a real click, a real held-command dialog. A pending gaze-deixis toast is not
+answerable by `confirm` / `cancel`.
+
 ### Added — a hands-free preset: `[handsfree] enabled = true`
 
 One switch that expands, before any section is built, into the ordinary settings a person could have written
@@ -20,7 +36,7 @@ refuse_destructive_fallback` (off by default, on under the preset): "close this"
 refused with a notification instead of closing the focused window. Also fixes the daemon registering a
 Head-Pointer gate source even when the pointer was off, which left the summary PAUSED and made every
 `handsfree resume` refuse. Every value the preset invents is provisional; there is no voice stop word; the
-only commit gesture wired is dwell-click (which needs the overlay); the T7 one-person workflow has not been
+only commit gesture the preset wires is dwell-click (which needs the overlay; a face-switch `select` can be added by hand); the T7 one-person workflow has not been
 done ([#410](https://github.com/MSKazemi/yazses/issues/410)).
 
 ### Added — Head-Pointer on native Wayland, through the Remote Desktop portal

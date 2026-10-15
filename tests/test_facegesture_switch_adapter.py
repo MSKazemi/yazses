@@ -708,10 +708,14 @@ def test_both_hold_actions_are_available_whatever_the_legacy_mode():
     assert s2._mapper.unwired() == []
 
 
-def test_actions_the_daemon_does_not_implement_yet_stay_unwired_not_invented():
-    d = _daemon(switches=[{"gesture": "brow_raise", "intent": "confirm"}])
+def test_select_confirm_and_cancel_are_wired_by_the_daemon():
+    d = _daemon(switches=[
+        {"gesture": "brow_raise", "intent": "confirm"},
+        {"gesture": "smile", "intent": "select"},
+        {"gesture": "mouth_pucker", "intent": "cancel"},
+    ])
     source = d._build_face_gesture_source(d._config)[0]
-    assert source._mapper.unwired() == ["confirm"]
+    assert source._mapper.unwired() == []
 
 
 def test_a_daemon_with_a_safety_gate_gives_the_face_switch_the_pause_action_and_the_gate():

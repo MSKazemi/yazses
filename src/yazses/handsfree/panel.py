@@ -128,7 +128,12 @@ ACTION_LABELS: dict[str, str] = {
 #: `core/daemon.py::_build_face_gesture_source`; `tests/test_handsfree_panel.py` builds the
 #: real thing for every action and fails if this and the daemon disagree, so the panel cannot
 #: offer an action that does nothing.
-WIRED_SWITCH_ACTIONS: tuple[str, ...] = ("hold_to_talk", "hold_to_command")
+#: `select` needs the Head-Pointer running to have anything to click and `confirm` / `cancel`
+#: need something pending to answer; each says so in `yazses facegesture status` instead of
+#: staying silent, which is why they count as wired.
+WIRED_SWITCH_ACTIONS: tuple[str, ...] = (
+    "hold_to_talk", "hold_to_command", "select", "confirm", "cancel",
+)
 
 
 def wired_switch_actions(safety_configured: bool) -> tuple[str, ...]:

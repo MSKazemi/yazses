@@ -1046,6 +1046,7 @@ yazses gaze measure --camera-class integrated   # derived-numbers-only field rep
 |---|---|
 | `yazses facegesture calibrate` | Capture your neutral (relaxed) face as the baseline for a face gesture. |
 | `yazses facegesture reset` | Forget the stored neutral baseline(s); the switch goes back to absolute thresholds. |
+| `yazses facegesture status` | What the face switch's `select`, `confirm` and `cancel` gestures last did: done, refused with the reason, or nothing to do. Words, counts and ages only. |
 
 `calibrate` watches the webcam for a few seconds while your face is relaxed and stores only
 the derived resting level and its spread — never a frame. Turn it on with
@@ -1056,7 +1057,15 @@ changes what the existing ones are measured against.
 yazses facegesture calibrate                          # the configured gesture
 yazses facegesture calibrate --gesture brow_raise --seconds 6
 yazses facegesture reset                              # back to absolute thresholds
+yazses facegesture status                             # why did my select / confirm do nothing?
 ```
+
+Bind a gesture to `select` (one left click where the Head-Pointer already is), `confirm` or `cancel`
+with a `[[facegesture.switches]]` entry. `select` acts only while the Head-Pointer is running and
+tracking, not paused, not clutched, and the hands-free gate is open, and at most once per second;
+otherwise it does nothing and `status` says why. `confirm` / `cancel` answer a command the daemon is
+holding for confirmation (the same hold the spoken "confirm" answers) and do nothing when none is
+waiting.
 
 ### `yazses eye-eval` — scripted eye-control evaluation
 

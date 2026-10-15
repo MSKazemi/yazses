@@ -330,7 +330,7 @@ Experimental/off remains acceptable before that.
 neutral baseline (`yazses facegesture calibrate`) and a landmarker-confidence floor that is a distinct
 input. P5.2's is met for the mapping layer: the backend emits switch intents, hold-to-talk is one
 binding among several, and an unmapped gesture reaches no daemon action. **Open:** `select`,
-`confirm` and `cancel` have no daemon entry point (valid in config, inert, warned once); the
+`confirm` and `cancel` had no daemon entry point at that date (since wired, 2026-10-15: see below); the
 landmarker reports no per-frame confidence, so a floor above 0.5 blocks every frame on the backend's
 own camera path; P5.3 chords and P5.4 the false-activation study (#408, #409) are not started.
 
@@ -340,11 +340,19 @@ peaked at 0.46 against the shipped hold threshold 0.5, so rest-only calibration 
 leases the shared camera (the earlier 'still opens its own capture' gap is closed). P5.3 chords (#408) are
 wired as `[gesture.chords]` with a pointer freeze during a disturbing expression. P5.4's harness (#409)
 exists as an offline replay (`scripts/replay_face_switch_trace.py`); **the study itself has not been run**,
-and no switch is 'recommended'. Still open: a 'hold' chord token, `select`/`confirm`/`cancel` daemon entry
-points. The stuck-open hazard (an absolute-threshold switch whose resting score is above its release
+and no switch is 'recommended'. Still open: a 'hold' chord token. The stuck-open hazard (an absolute-threshold switch whose resting score is above its release
 threshold never lets go) now has a checkable refusal (`facegesture/restcheck.py`, shown by `calibrate`,
 the backend, `yazses doctor` and the controls window) and an opt-in `[facegesture] max_hold_s`; the replay
 report flags it as `stuck_open`.
+
+**2026-10-15.** `select` / `confirm` / `cancel` have daemon handlers (`facegesture/actions.py`). `select` is one
+left click through the Head-Pointer's own pointer sink, refused with a stated reason unless the pointer is running,
+tracking, unpaused, unclutched and the hands-free gate is open, and limited to one click per second (provisional,
+unmeasured); the face switch also holds the pointer still while a commit gesture is down. `confirm` / `cancel`
+answer the `ConfirmGate` hold that a spoken "confirm" answers and are a no-op with nothing pending. Each outcome
+shows in `yazses facegesture status` and the hands-free state. **Not verified:** a real click on a real desktop
+(X11 or the Wayland portal), a real held-command dialog, any false-activation rate. **Not covered:** the
+gaze-deixis toast has no pending slot to answer.
 
 ## Phase 6 — compose a usable hands-free mode
 

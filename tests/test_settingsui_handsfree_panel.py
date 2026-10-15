@@ -314,9 +314,11 @@ def test_mapping_choices_that_do_nothing_are_disabled_and_explained(qapp):
     combo = rig.panel._map_widgets["smile"][1]
     items = {combo.itemData(i): combo.model().item(i) for i in range(combo.count())}
     assert items["hold_to_command"].isEnabled()
-    for key in ("select", "confirm", "cancel", "pause_pointer"):
-        assert not items[key].isEnabled(), key
-        assert items[key].toolTip()
+    # select / confirm / cancel are wired now; pause_pointer still needs the global stop.
+    for key in ("select", "confirm", "cancel"):
+        assert items[key].isEnabled(), key
+    assert not items["pause_pointer"].isEnabled()
+    assert items["pause_pointer"].toolTip()
 
 
 def test_saving_a_valid_mapping_writes_a_table_and_an_invalid_one_writes_nothing(qapp):
@@ -328,8 +330,9 @@ def test_saving_a_valid_mapping_writes_a_table_and_an_invalid_one_writes_nothing
     assert isinstance(spec.config[0], ConfigTableArray)
     assert spec.config[0].entries == ((("gesture", "smile"), ("intent", "hold_to_command")),)
 
-    rig.performed.clear()
-    combo.setCurrentIndex(combo.findData("confirm"))  # programmatic: a disabled item
+    rig = _Rig(qapp, _inputs(face_on=True, safety_cfg=False))
+    combo = rig.panel._map_widgets["smile"][1]
+    combo.setCurrentIndex(combo.findData("pause_pointer"))  # programmatic: a disabled item
     rig.button("map_smile").click()
     assert rig.performed == []
     assert rig.panel._result.text().startswith("Not saved:")
