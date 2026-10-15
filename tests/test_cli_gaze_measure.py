@@ -83,6 +83,11 @@ def _wire(monkeypatch, tmp_path: Path, *, enabled=True, desktop=True, backend="o
     )
     monkeypatch.setattr("yazses.config.load_config", lambda _p: _config(enabled=enabled))
     monkeypatch.setattr("yazses.gaze.desktop.build_desktop", lambda: FakeDesktop() if desktop else None)
+    # The refusal sentence comes from the host-dependent planner ("needs an X11 desktop" on Linux,
+    # "no window backend on macos" on a Mac); pin it so this test means the same on every OS.
+    monkeypatch.setattr(
+        "yazses.gaze.desktop.unavailable_reason", lambda: "look-to-pane needs an X11 desktop"
+    )
     fake = FakeBackend()
     monkeypatch.setattr("yazses.gaze.factory.build_gaze", lambda _c: fake if backend == "ok" else None)
     monkeypatch.setattr(

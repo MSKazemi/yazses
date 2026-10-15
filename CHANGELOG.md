@@ -78,6 +78,18 @@ is unknown. `tests/test_involuntary_audio.py` checks speech-shaped fixtures (pit
 vibrato, fricative tails, a plosive after a closure, one-word islands) for the negative direction and the daemon
 hand-off; the default-start import test now also guards `yazses.involuntary`.
 
+### Fixed — the first CI run of the eye and hands-free work (every OS red, FreeBSD record unwritable)
+
+The merge to `main` went red on every hosted runner. The cause was one test: a parametrised case passed a
+200,000-character payload, pytest used it as the test id, and `pytest -v` printed that as a single 200 KB log line
+that ended the CI step with no summary and no failure to read (a quiet local run never prints ids, so it passed).
+It now has explicit ids, and `tests/conftest.py` fails collection if any test id exceeds 2,000 characters. Behind
+it were four real cross-OS defects, none visible on Linux: the macOS gaze-measure refusal test expected the Linux
+wording; a Windows host-facts test read the runner's real RAM; the FreeBSD help test failed on escape codes; and
+the CI evaluation record was rejected on FreeBSD because only Linux, macOS and Windows were accepted as a
+`platform_system` (the matrix already fails a missing leg, so the per-record check now only requires a name).
+Product code is unchanged apart from that script.
+
 ### Changed — a default start no longer imports opt-in feature code
 
 Measured against `main` with the eye and hands-free work merged: importing the CLI and the daemon loaded the

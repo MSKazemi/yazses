@@ -618,3 +618,26 @@ def _pinned_ydotool_dialect():
     ydotool.set_ydotool_dialect(ydotool.DIALECT_V1)
     yield
     ydotool.set_ydotool_dialect(None)
+
+
+#: The longest test id a CI log can be trusted to carry. The longest legitimate id in the suite is a
+#: little over 500 characters; this leaves a wide margin and still catches a payload used as its own id.
+MAX_TEST_ID_CHARS = 2000
+
+
+def pytest_collection_modifyitems(config, items):
+    """Fail collection when a parametrised case uses its payload as its test id.
+
+    `pytest.mark.parametrize` builds an id from the value when none is given, so passing a
+    200,000-character byte string produced a 200 KB node id. `pytest -v` prints it, and on every
+    hosted CI runner that single log line ended the step with no summary and no failure to read
+    -- while the same suite, run quietly on a laptop, passed. Give such cases `pytest.param(...,
+    id="...")`.
+    """
+    too_long = [item.nodeid for item in items if len(item.nodeid) > MAX_TEST_ID_CHARS]
+    if too_long:
+        shown = "\n".join(f"  {len(n)} chars: {n[:100]}..." for n in too_long[:5])
+        raise pytest.UsageError(
+            f"{len(too_long)} test id(s) exceed {MAX_TEST_ID_CHARS} characters, which breaks "
+            f"`pytest -v` on CI runners. Pass an explicit id=...:\n{shown}"
+        )

@@ -391,6 +391,16 @@ def test_reset_of_one_gesture_leaves_the_others_levels(sandbox):
 
 
 def test_the_help_documents_the_guided_steps():
-    out = runner.invoke(cli.app, ["facegesture", "calibrate", "--help"]).output
+    # Help is rendered with colour and a width taken from the terminal. On the FreeBSD CI leg the
+    # option names arrived wrapped in escape codes, so a bare substring check failed there while
+    # passing on Linux: ask for plain, wide output and normalise what is left.
+    import re
+
+    result = runner.invoke(
+        cli.app,
+        ["facegesture", "calibrate", "--help"],
+        env={"NO_COLOR": "1", "TERM": "dumb", "COLUMNS": "200"},
+    )
+    out = " ".join(re.sub(r"\x1b\[[0-9;]*[A-Za-z]", "", result.output).split())
     for needle in ("--active", "--talk", "--skip-rest", "--holds", "use_active_levels"):
-        assert needle in out
+        assert needle in out, (needle, out[:300])

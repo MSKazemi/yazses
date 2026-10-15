@@ -366,8 +366,12 @@ def validate_record(doc: Any, *, require_commit: bool = False) -> list[str]:
         problems.append(f"record_version {version!r} is not a {RECORD_VERSION.split('.')[0]}.x record")
     if doc.get("study_mode") != "ci":
         problems.append(f"study_mode is {doc.get('study_mode')!r}; this record is always 'ci'")
-    if doc.get("platform_system") not in EXPECTED_SYSTEMS:
-        problems.append(f"platform_system {doc.get('platform_system')!r} is not one of {EXPECTED_SYSTEMS}")
+    # Any named system is a valid record. Which systems the matrix EXPECTS is `collect_matrix`'s job
+    # (a missing leg fails there); refusing an unlisted one here made a correct run on FreeBSD
+    # unwritable -- the record was rejected before it could say it had passed.
+    system = doc.get("platform_system")
+    if not isinstance(system, str) or not system.strip() or system == "unknown":
+        problems.append("platform_system is missing: the record cannot name its OS")
     arch = (doc.get("machine") or {}).get("arch") if isinstance(doc.get("machine"), dict) else None
     if not arch or arch == "unknown":
         problems.append("machine.arch is missing: the record cannot name its runner")
