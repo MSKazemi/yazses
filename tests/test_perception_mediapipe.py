@@ -742,3 +742,42 @@ def test_blendshape_activations_drop_only_what_they_cannot_use() -> None:
 
 def test_no_categories_at_all_is_no_face_channel() -> None:
     assert derive_face(None, 1.0, 0.5) is None
+
+
+# --------------------------------------------------------------------------- #
+# The shape the real library returns (a fake that returns lists of lists hides it)
+# --------------------------------------------------------------------------- #
+def test_a_numpy_transformation_matrix_is_read_like_a_list_one(world) -> None:
+    """MediaPipe hands back each face's matrix as a numpy array, not a list of lists."""
+    np = pytest.importorskip("numpy")
+    processor = build(world)
+    result = FakeResult(angles=(0.3, -0.45, 0.15))
+    result.facial_transformation_matrixes = [np.array(rotation(0.3, -0.45, 0.15))]
+    world.landmarker.result = result
+
+    sample = processor.process(Frame(), 1.0)
+
+    assert sample.channels == ("gaze", "head_pose", "face")
+    assert sample.head_pose.yaw == pytest.approx(0.3)
+    assert sample.head_pose.pitch == pytest.approx(-0.45)
+    assert sample.head_pose.roll == pytest.approx(0.15)
+
+
+def test_a_per_output_array_has_no_truth_value_and_must_not_end_the_source(world) -> None:
+    """`if items` on a numpy array of several elements raises ValueError.
+
+    It would escape `process` (outside the per-channel guard) and the source would read
+    it as a dead camera -- so a library that returned arrays instead of lists would take
+    gaze and the face switch down with the head pose.
+    """
+    np = pytest.importorskip("numpy")
+    processor = build(world)
+    result = FakeResult()
+    result.facial_transformation_matrixes = np.array([rotation(0.1, 0.2, 0.3)])
+    world.landmarker.result = result
+
+    sample = processor.process(Frame(), 1.0)
+
+    assert sample is not None
+    assert sample.gaze is not None and sample.face is not None
+    assert sample.head_pose.yaw == pytest.approx(0.1)

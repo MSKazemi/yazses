@@ -371,6 +371,11 @@ SOURCE_CASES = (
     # A lazy source nobody has opened yet stays "running" with the reason saying so: that is
     # the contract tests/test_gaze_shared_source.py holds, and "OFF" would read as disabled.
     (SourceState.DORMANT, "", OK),
+    # Opening is in progress (a permission dialog, a USB camera waking, a first-run model
+    # fetch): not a failure and not disabled, so every surface reads it as the lazy-but-fine
+    # state it is. `status` and `doctor` must answer during it -- see
+    # tests/test_perception_source_concurrency.py.
+    (SourceState.STARTING, "", OK),
     (SourceState.FAILED, "the camera could not be opened (device busy)", FLT),
 )
 

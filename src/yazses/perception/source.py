@@ -51,11 +51,24 @@ exception message, which is why the seam's contract below forbids it.
 No callback or subscription API: consumers pull with :meth:`latest`, so "a
 consumer exception must not crash the source loop" is structural rather than
 guarded — the source never calls a consumer at all. And of the six states the spec
-sketches, three are materialised: a ``STARTING``/``STOPPING`` that only exists
-while a lock is held is a state no reader can ever observe, and ``DEGRADED`` would
-need to know which channels *this* install expects, which is knowledge that
-arrives with the MediaPipe adapter (#395). Per-channel degradation is visible
-today where it is actually decided — on the sample, as ``channels``.
+sketches, four are materialised. ``STARTING`` is, because opening a camera is *not*
+instant (a permission dialog, a USB camera waking, a first-run model fetch) and the
+bookkeeping lock is not held across it, so a reader really can observe it.
+``STOPPING`` is not: it is only the moment the devices are being set aside, a state
+no reader can see. ``DEGRADED`` would need to know which channels *this* install
+expects; per-channel degradation is visible where it is actually decided — on the
+sample, as ``channels``.
+
+## Ordering the fakes cannot show
+
+The lifecycle is exercised with blocking fakes in
+``tests/test_perception_source_concurrency.py``, because these are the orderings a
+real camera produces and an instant fake hides: a status request during a slow open;
+the last consumer leaving mid-open (the opened device is closed, never installed); a
+stop-then-start while the first open still hangs (the second waits, so two handles on
+one webcam never exist); a capture loop that outlives its session (its failure and its
+reads are discarded); and the loop being joined *before* the device it reads is
+released.
 """
 from __future__ import annotations
 
@@ -172,10 +185,14 @@ Spawn = Callable[[Callable[[], None], str], Worker]
 
 
 class SourceState(str, Enum):
-    """What the source is doing, in the three states a reader can actually observe."""
+    """What the source is doing, in the four states a reader can actually observe."""
 
     #: Nothing is open. The shipped state, and the state after the last release.
     DORMANT = "dormant"
+    #: The first consumer has asked and the camera is being opened -- a USB camera
+    #: waking, a permission dialog, a first-run model fetch. Consumers hold leases and
+    #: get no samples yet; this is what keeps ``status()`` answering instead of waiting.
+    STARTING = "starting"
     #: Camera and model are open and the loop is observing.
     RUNNING = "running"
     #: Sensing stopped on a contained failure; :attr:`PerceptionStatus.failure_reason`
@@ -304,10 +321,17 @@ class SharedPerceptionSource:
         self._clock = clock
         self._spawn: Spawn = spawn if spawn is not None else _spawn_thread
         self._join_timeout_s = max(0.0, float(join_timeout_s))
-        # Guards the lease set, the state and the open/close transitions. It is
-        # deliberately NOT held across a camera read (see `observe`), so a slow
-        # frame cannot block a consumer that is only asking what is going on.
+        # Guards the lease set, the state and the installed devices. It is held for field
+        # updates only -- never across a camera read (see `observe`) or a camera open --
+        # so a slow frame or a pending permission dialog cannot block a consumer that is
+        # only asking what is going on.
         self._lock = threading.RLock()
+        # Serialises the slow transitions: opening devices, and closing the ones a
+        # finished session left behind. Reentrant because a failure inside an open drains
+        # too. See the note above `_acquire`.
+        self._lifecycle = threading.RLock()
+        self._loop = threading.local()
+        self._retired: list[tuple[Worker | None, FrameCapture | None, FrameProcessor | None]] = []
         self._leases: set[PerceptionLease] = set()
         self._capture: FrameCapture | None = None
         self._processor: FrameProcessor | None = None
@@ -367,17 +391,26 @@ class SharedPerceptionSource:
         happen *outside* the lock: holding it there would mean a consumer asking
         for status, or a shutdown, waits on a webcam.
         """
+        # The capture loop publishes the session it was started for in a thread-local, so
+        # that this stays the one entry point the loop and a hand-driven caller share. A
+        # loop that outlived its session -- a slow thread start, a read still in flight at
+        # release -- must not adopt the next session's devices, or the "one reader" the
+        # source promises becomes two. A caller that drives the source itself has no
+        # session of its own and observes whichever is open.
+        only_epoch: int | None = getattr(self._loop, "epoch", None)
         with self._lock:
             capture = self._capture
             processor = self._processor
             epoch = self._epoch
             if capture is None or processor is None or self._state is not SourceState.RUNNING:
                 return False
+            if only_epoch is not None and epoch != only_epoch:
+                return False
 
         try:
             frame = capture.read()
         except Exception as exc:
-            self._fail(f"reading from the camera failed ({_reason(exc)})")
+            self._fail(f"reading from the camera failed ({_reason(exc)})", epoch)
             return False
         if frame is None:
             # A dropped frame is not a failure, and nothing is restamped for it.
@@ -385,7 +418,7 @@ class SharedPerceptionSource:
         try:
             sample = processor.process(frame, self._clock())
         except Exception as exc:
-            self._fail(f"deriving signals from the camera failed ({_reason(exc)})")
+            self._fail(f"deriving signals from the camera failed ({_reason(exc)})", epoch)
             return False
         finally:
             # The frame's only reference leaves scope here, always (ADR-011).
@@ -399,6 +432,13 @@ class SharedPerceptionSource:
                 # device that is no longer open, so it is dropped rather than
                 # published into a dormant source.
                 return False
+            current = self._sample
+            if current is not None and sample.timestamp_s < current.timestamp_s:
+                # Time does not run backwards for a consumer: an observation that
+                # finished late (a second driver, a slow derivation) must not replace a
+                # newer one, or "latest" would age *down* and a stale face would read
+                # as fresher than it is.
+                return False
             self._sample = sample
         return True
 
@@ -409,17 +449,30 @@ class SharedPerceptionSource:
 
         The process-shutdown path: a consumer that forgot to stop must not be able
         to leave a camera open or a thread alive. Idempotent, and the source is
-        reusable afterwards — it returns to :data:`SourceState.DORMANT` rather than
+        reusable afterwards -- it returns to :data:`SourceState.DORMANT` rather than
         becoming poisoned, so a feature switched off and on again works.
+
+        Never waits on a camera that is still *opening*: an open that is blocked on a
+        permission dialog is cancelled, and the device it eventually returns is closed
+        by the opener, not installed.
         """
         with self._lock:
             for lease in tuple(self._leases):
                 lease._held = False
             self._leases.clear()
-            worker = self._begin_stop_locked()
-        self._join(worker)
+            self._retire_locked()
+        self._drain()
 
     # -- internals ---------------------------------------------------------- #
+    #
+    # Two locks, deliberately. ``_lock`` guards the bookkeeping (leases, state, the
+    # installed devices, the epoch) and is held only for field updates, never across
+    # anything that can block on hardware or the network -- ``status()`` is called by
+    # the daemon's status request and by ``doctor``, and must answer while a camera is
+    # mid-open. ``_lifecycle`` serialises the slow part: building and opening devices,
+    # and joining and closing the ones a finished session left behind. Draining the
+    # left-behind devices *before* any new open is what keeps a quick stop-then-start
+    # from ever having two handles on one webcam.
 
     def _acquire(self, lease: PerceptionLease) -> None:
         """Take *lease*, opening the camera on the transition from zero to one."""
@@ -428,16 +481,15 @@ class SharedPerceptionSource:
                 return
             lease._held = True
             self._leases.add(lease)
-            if len(self._leases) > 1:
-                # Already open (or already failed): sharing one observation is the
-                # entire point, so there is nothing to do.
+            if len(self._leases) > 1 or self._state is not SourceState.DORMANT:
+                # Already open, opening, or failed: sharing one observation is the
+                # entire point, and a retry loop against a camera that just refused is
+                # worse than no camera, so failure is never cleared by a new consumer.
                 return
-            if self._state is SourceState.FAILED:
-                # Unreachable while releasing to zero resets the state, and kept
-                # anyway: a retry loop against a camera that just refused is worse
-                # than no camera, so failure is never cleared by a new consumer.
-                return
-            self._open_locked()
+            self._epoch += 1
+            token = self._epoch
+            self._state = SourceState.STARTING
+        self._open(token)
 
     def _release(self, lease: PerceptionLease) -> None:
         """Release *lease*, closing the camera when it was the last one."""
@@ -448,92 +500,173 @@ class SharedPerceptionSource:
             self._leases.discard(lease)
             if self._leases:
                 return
-            worker = self._begin_stop_locked()
+            self._retire_locked()
         # Outside the lock: the worker may be inside `observe`, which needs it to
         # publish, and joining while holding it would deadlock the pair.
-        self._join(worker)
+        self._drain()
 
-    def _open_locked(self) -> None:
-        """Build and open the camera and the model. The one place that does."""
-        capture: FrameCapture | None = None
-        processor: FrameProcessor | None = None
-        try:
-            capture = self._capture_factory()
-            capture.open()
-            processor = self._processor_factory()
-            backend = processor.name
-        except Exception as exc:
-            _close_quietly(capture)
-            _close_quietly(processor)
-            self._state = SourceState.FAILED
-            self._failure = f"the camera could not be opened ({_reason(exc)})"
-            log.warning(
-                "Shared camera perception is enabled but %s. The feature that asked "
-                "stays dormant; dictation is unaffected.",
-                self._failure,
-            )
-            return
+    def _open(self, token: int) -> None:
+        """Build and open the camera and the model. The one place that does.
 
-        self._capture = capture
-        self._processor = processor
-        self._backend = backend
-        self._opens += 1
+        *token* is the epoch this open was started for. If it is no longer current when
+        a step finishes, the last consumer left (or the process is closing) while the
+        device was opening: whatever was built is closed and nothing is installed.
+        """
+        with self._lifecycle:
+            self._drain_locked()
+            if not self._current(token):
+                return
+            capture: FrameCapture | None = None
+            processor: FrameProcessor | None = None
+            backend = ""
+            failure = ""
+            try:
+                capture = self._capture_factory()
+                capture.open()
+                if self._current(token):
+                    processor = self._processor_factory()
+                    backend = processor.name
+            except Exception as exc:
+                failure = f"the camera could not be opened ({_reason(exc)})"
+
+            stopping = threading.Event()
+            installed = False
+            with self._lock:
+                if token != self._epoch:
+                    failure = ""  # nobody is left to be told
+                elif not failure and capture is not None and processor is not None:
+                    self._capture = capture
+                    self._processor = processor
+                    self._backend = backend
+                    self._opens += 1
+                    self._sample = None
+                    self._failure = ""
+                    self._state = SourceState.RUNNING
+                    # A fresh event per open: reusing one that has already been set
+                    # would make the new loop exit immediately, and it would look like
+                    # a dead camera.
+                    self._stopping = stopping
+                    installed = True
+                else:
+                    self._state = SourceState.FAILED
+                    self._failure = failure
+            if not installed:
+                # Failed, or cancelled while opening: close what was built, install nothing.
+                _close_quietly(capture)
+                _close_quietly(processor)
+                if failure:
+                    log.warning(
+                        "Shared camera perception is enabled but %s. The feature that "
+                        "asked stays dormant; dictation is unaffected.",
+                        failure,
+                    )
+                return
+
+            try:
+                # Bound to this open's epoch and event at spawn time, not looked up when
+                # the thread gets going: a loop that starts after its session ended must
+                # not pick up the next session's.
+                worker = self._spawn(lambda: self._pump(token, stopping), "yazses-perception")
+            except Exception as exc:
+                self._fail(f"the camera loop could not be started ({_reason(exc)})", token)
+                return
+            with self._lock:
+                if token == self._epoch:
+                    self._worker = worker
+                    return
+            # Cancelled between the install and the spawn: nobody owns this worker.
+            stopping.set()
+            self._join(worker)
+
+    def _current(self, token: int) -> bool:
+        with self._lock:
+            return token == self._epoch
+
+    def _retire_locked(self) -> None:
+        """End the session: cancel anything in flight and set the devices aside to close.
+
+        Cheap and non-blocking -- it only moves references. Joining the loop and closing
+        the devices happens in :meth:`_drain`, outside the lock.
+        """
+        self._stopping.set()
+        # Any observation or open in flight belongs to the epoch that just ended, and the
+        # sample already published belongs to a camera that is now shut: a consumer
+        # must not be able to act on a face seen before the device closed.
         self._epoch += 1
         self._sample = None
-        self._failure = ""
-        self._state = SourceState.RUNNING
-        # A fresh event per open: reusing one that has already been set would make
-        # the new loop exit immediately, and it would look like a dead camera.
-        self._stopping = threading.Event()
-        try:
-            self._worker = self._spawn(self._pump, "yazses-perception")
-        except Exception as exc:
-            self._worker = None
-            self._fail(f"the camera loop could not be started ({_reason(exc)})")
-
-    def _begin_stop_locked(self) -> Worker | None:
-        """Stop sensing and close the devices; return the worker left to join."""
-        worker, self._worker = self._worker, None
-        self._stopping.set()
-        self._teardown_devices_locked()
+        retired = (self._worker, self._capture, self._processor)
+        self._worker = None
+        self._capture = None
+        self._processor = None
+        if any(item is not None for item in retired):
+            self._retired.append(retired)
         self._state = SourceState.DORMANT
         # Dormant means nothing is wrong and nothing is running. Keeping the last
         # reason here would let `doctor` report a failure that is over as a live one.
         self._failure = ""
         self._backend = ""
-        return worker
 
-    def _teardown_devices_locked(self) -> None:
-        capture, processor = self._capture, self._processor
-        self._capture = None
-        self._processor = None
-        # Any observation in flight belongs to the epoch that just ended, and the
-        # sample already published belongs to a camera that is now shut: a consumer
-        # must not be able to act on a face seen before the device closed.
-        self._epoch += 1
-        self._sample = None
-        _close_quietly(capture)
-        _close_quietly(processor)
+    def _drain(self) -> None:
+        """Join and close what finished sessions left behind, without waiting on an open.
 
-    def _fail(self, reason: str) -> None:
+        If another thread is mid-open the devices stay queued: that thread drains them
+        before it opens anything, and a shutdown must not wait on a permission dialog.
+        """
+        with self._lock:
+            if not self._retired:
+                return
+        if not self._lifecycle.acquire(timeout=self._join_timeout_s):
+            log.warning(
+                "A camera is still being opened; the devices of the previous session "
+                "will be closed as soon as that returns."
+            )
+            return
+        try:
+            self._drain_locked()
+        finally:
+            self._lifecycle.release()
+
+    def _drain_locked(self) -> None:
+        """The body of :meth:`_drain`; the caller holds ``_lifecycle``."""
+        while True:
+            with self._lock:
+                if not self._retired:
+                    return
+                worker, capture, processor = self._retired.pop(0)
+            # The loop first, then the devices it reads: releasing a capture under a
+            # thread that is mid-read is undefined in the camera libraries.
+            self._join(worker)
+            _close_quietly(capture)
+            _close_quietly(processor)
+
+    def _fail(self, reason: str, epoch: int) -> None:
         """Contain a failure: stop sensing, remember why, leave the daemon alone.
 
-        Never joins the worker — it is usually the worker itself calling this, and
+        *epoch* is the session that observed it. A failure from a session that has
+        already ended -- a read that raised because its own release closed the device
+        under it -- says nothing about the session that replaced it, and is dropped.
+
+        Never joins the worker -- it is usually the worker itself calling this, and
         a thread cannot wait for itself. The loop sees the state change and ends;
         the join belongs to whoever releases the last lease.
         """
         with self._lock:
-            if self._state is not SourceState.RUNNING:
+            if epoch != self._epoch or self._state is not SourceState.RUNNING:
                 return
             self._state = SourceState.FAILED
             self._failure = reason
             self._stopping.set()
-            self._teardown_devices_locked()
+            self._epoch += 1
+            self._sample = None
+            self._retired.append((None, self._capture, self._processor))
+            self._capture = None
+            self._processor = None
         log.warning(
             "Shared camera perception stopped: %s. Camera features that were using "
             "it get no further samples; dictation is unaffected.",
             reason,
         )
+        self._drain()
 
     def _join(self, worker: Worker | None) -> None:
         if worker is None:
@@ -546,15 +679,14 @@ class SharedPerceptionSource:
                 self._join_timeout_s,
             )
 
-    def _pump(self) -> None:
+    def _pump(self, epoch: int, stopping: threading.Event) -> None:
         """The capture loop: observe, pace, repeat, until stopped or failed."""
-        # Bound to this open's event on purpose: a later re-open installs a new one,
-        # and a loop watching that would never notice its own shutdown.
-        stopping = self._stopping
+        self._loop.epoch = epoch
         while not stopping.is_set():
             self.observe()
-            if self._state is not SourceState.RUNNING:
-                return
+            with self._lock:
+                if self._state is not SourceState.RUNNING or self._epoch != epoch:
+                    return
             stopping.wait(self._interval_s)
 
 
