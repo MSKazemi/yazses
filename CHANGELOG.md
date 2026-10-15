@@ -14,8 +14,20 @@ permission is settled". So while the dialog was still open, `yazses headpointer 
 the desktop answered but granted no pointer device (keyboard only)*, instead of `pending_consent`. The session
 now counts as started only once `Start` has returned, and the state resets on failure and on close. The earlier
 fake-portal tests answered every call instantly and could not see this; the new test holds `Start` open the way
-the real dialog does. Not changed: `ensure_started` still returns early on a bare handle (the dictation path);
-whether a keystroke sent while the dialog is open can reach an unauthorised session is unverified.
+the real dialog does.
+
+### Fixed — dictation and the pointer could send input on a Wayland session nobody had authorised
+
+The same fake-portal gap, one layer out. `ensure_started` returned early on any session handle, and the real
+portal hands one out before the dialog is even raised, so a dictation burst that arrived while the permission
+dialog was open was sent straight to a session the desktop had not yet allowed - nothing raised, and what the compositor
+did with it is unverified. It now treats the session as running only once `Start` has returned, and otherwise fails fast to the
+clipboard exactly as documented (an answer that lands inside the 5-second budget is still a normal start). Two
+smaller things in the same window: registering the Head-Pointer no longer waits for the dialog (when the warm-up
+thread won the start-up race it froze the daemon, hotkey included, until you answered; it now says at once that the
+session was asked for the keyboard alone), and the idle reaper no longer blocks behind an open dialog. Once the
+negotiation has completed nothing changes, and a dictation-only install still sends the identical keyboard-only
+request. The two portal-dialog test files also no longer write a fake `fresh-token` into your real YazSes data directory.
 
 ### Added — the Head-Pointer says it is waiting for your permission, and `doctor` names the pointer backend
 

@@ -334,6 +334,12 @@ class _PortalSession:
         self._conn: Any = None
         self._session_handle = ""
         self._lock = threading.Lock()
+        #: Guards `_pointer_consumers` and `_asked_pointer` only, and is held for a few
+        #: instructions at a time. `_lock` is held for the whole negotiation -- up to
+        #: START_TIMEOUT_S, the length of the consent dialog -- so anything that merely
+        #: books a consumer must not queue on it: the daemon's start-up would sit behind
+        #: a dialog, hotkey included.
+        self._state_lock = threading.Lock()
         #: Monotonic stamp of the last keystroke, for idle release. `None` means the
         #: session has never been used since it was opened.
         self._last_used: float | None = None
@@ -344,6 +350,11 @@ class _PortalSession:
         #: Whether the compositor actually granted POINTER, read from `Start`. Never
         #: inferred from having asked.
         self._pointer_granted = False
+        #: What the in-flight or finished negotiation put in its `SelectDevices` mask:
+        #: ``None`` before the mask is sent, then whether POINTER was in it. Once it is
+        #: ``False`` the mask cannot be widened -- that is the point at which a late
+        #: consumer must be told "keyboard only" instead of being queued.
+        self._asked_pointer: bool | None = None
         #: True only once `Start` has returned, i.e. the user has answered the dialog and the
         #: grant is known. `_session_handle` is set far earlier -- `CreateSession` succeeds
         #: before the dialog is raised -- so a handle says "a negotiation is in flight", not
@@ -456,12 +467,19 @@ class _PortalSession:
     def ensure_started(self, start_timeout: float = START_TIMEOUT_S) -> None:
         """Negotiate the session if it is not already running. Idempotent.
 
+        "Running" means *negotiated* -- `Start` returned -- and never merely "has a
+        handle". `CreateSession` answers at once and `Start` is held open for the consent
+        dialog, so a handle exists for the whole time the user is deciding; reading it
+        as readiness let a dictation burst, or a pointer's first event, go out on a
+        session the compositor had not authorised (found auditing #403).
+
         The lock is acquired with the *same* budget as the negotiation, so a
         dictation arriving while `warm()` is still waiting on the consent dialog
         fails fast to the clipboard instead of queueing behind it. Blocking
-        would be the worst of both: the user sees no dialog answer and no text.
+        would be the worst of both: the user sees no dialog answer and no text. An
+        answer that lands inside that budget is simply a normal start.
         """
-        if self._session_handle:
+        if self.started:
             return
         if not self._lock.acquire(timeout=start_timeout):
             raise PortalUnavailable(
@@ -469,7 +487,7 @@ class _PortalSession:
                 "(the permission dialog is probably still waiting for an answer)"
             )
         try:
-            if self._session_handle:
+            if self.started:
                 return
             self._start_locked(start_timeout)
         finally:
@@ -494,6 +512,8 @@ class _PortalSession:
             self._session_handle = ""
             self._pointer_granted = False
             self._negotiated = False
+            with self._state_lock:
+                self._asked_pointer = None
             conn, self._conn = self._conn, None
             if conn is not None:
                 try:
@@ -524,7 +544,12 @@ class _PortalSession:
         # when it is asking, it rides the *same* request, the same dialog and the same
         # restore token rather than a second negotiation (ADR-v2-146, rule 6).
         types = DEVICE_KEYBOARD
-        if self._pointer_consumers:
+        with self._state_lock:
+            # Read and recorded together: a consumer that registers after this point is
+            # told what the mask already says, rather than being promised a device the
+            # request never asked for.
+            self._asked_pointer = self._pointer_consumers > 0
+        if self._asked_pointer:
             types |= DEVICE_POINTER
         select: dict = {
             "types": ("u", types),
@@ -579,8 +604,14 @@ class _PortalSession:
         pointer boundary forbids. So the caller is told, and a daemon restart with the
         pointer consumer already enabled gets one dialog and one session.
         """
-        with self._lock:
-            if self._session_handle and not self._pointer_granted:
+        with self._state_lock:
+            # Never `_lock`: it is held for the length of the dialog, and registering a
+            # consumer must answer at once (see `_state_lock`). Two cases cannot be
+            # widened: a negotiated session that did not grant the pointer, and one
+            # whose `SelectDevices` mask already went out without it.
+            if (self._negotiated and not self._pointer_granted) or (
+                not self._negotiated and self._asked_pointer is False
+            ):
                 raise PortalUnavailable(
                     "the RemoteDesktop session is already running for the keyboard "
                     "alone, and the portal cannot add the pointer to a started "
@@ -596,7 +627,7 @@ class _PortalSession:
         re-negotiating, i.e. another dialog -- but once the count is back to zero any
         later negotiation asks for the keyboard alone again.
         """
-        with self._lock:
+        with self._state_lock:
             if self._pointer_consumers > 0:
                 self._pointer_consumers -= 1
 
@@ -607,6 +638,8 @@ class _PortalSession:
             self._last_used = None
             self._pointer_granted = False
             self._negotiated = False
+            with self._state_lock:
+                self._asked_pointer = None
             self._generation += 1
             conn, self._conn = self._conn, None
         if conn is not None:
@@ -635,8 +668,13 @@ class _PortalSession:
         """
         if timeout_s <= 0:
             return False
-        with self._lock:
-            if not self._session_handle or self._last_used is None:
+        # Never queue behind a negotiation: a session whose dialog is still open is not
+        # idle, it is undecided, and the reaper is a daemon thread that would otherwise
+        # wait out the dialog for nothing.
+        if not self._lock.acquire(blocking=False):
+            return False
+        try:
+            if not self.started or self._last_used is None:
                 return False
             # A registered pointer consumer holds the session open. A head pointer that
             # sits still for a minute is not idle -- it is waiting for the next
@@ -649,6 +687,8 @@ class _PortalSession:
             elapsed = (time.monotonic() if now is None else now) - self._last_used
             if elapsed < timeout_s:
                 return False
+        finally:
+            self._lock.release()
         self.close()
         return True
 
