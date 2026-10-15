@@ -47,6 +47,30 @@ reads as a *slower* pointer, never a faster one. All defaults are provisional an
 webcam the previous per-frame values moved the pointer thousands of units per second. Dwell timing is still
 counted in frames.
 
+### Added — a "hold" chord token, and a take-back for the pointer's first disturbed frame
+
+`[gesture.chords]` gains a `hold` token: the face or tilt tokens now held have stayed held, unchanged,
+for `[gesture] hold_ms` (800, **provisional**) of the injected clock, so `"jaw_open+hold" = "recenter"`
+is expressible. It is time-based, so it takes the same wall time at 15 and at 60 fps; a third token
+joining, or one letting go, restarts the count. The grammar is unchanged for every existing chord.
+`hold` needs a token that can be held (a face gesture or `tilt`); `hold`, `nod+hold` and `shake+hold` are
+refused, and a chord bound both plainly and with `+hold` binds neither, each with a reason. Bad chords
+are now reported when the config is **loaded** (`yazses doctor`, the log), not only when the daemon
+starts.
+
+The one-frame pointer leak is closed for face tokens. The pointer runner and the gesture runner poll the
+same camera frame on separate threads, so the pointer could follow the first disturbed frame before the
+clutch landed. The chord engine now names the camera frame that began a freeze, and the clutch
+(`headpointer` IPC `clutch` takes optional `since_s` and `max_rewind_s`) sends one opposite
+`move_relative` for the whole units the controller itself sent from that frame on, no further back than
+`[gesture] onset_rewind_ms` (150, **provisional**; 0 = off) and never past a fixed 0.5 s. There is no new
+trigger: it rides the onset that already froze the pointer, and a test counts the clutches on a synthetic
+minute of ordinary head movement (0, with the rewind on or off) and on a synthetic minute of jaw movement
+(41 either way, so a jaw token is still a poor choice for someone who talks while using the pointer).
+Limits, stated: the pointer still twitches one step forward and back; the sink is write-only, so a step
+taken at a screen edge is undone by the unclamped amount; head tokens (`nod`, `shake`) are not helped,
+because the gesture is not known until it is over. Nothing here has run against a real webcam.
+
 ### Added — Gesture Chords from face and head tokens
 
 `[gesture]` gains a `[gesture.chords]` table that binds a chord of face-gesture and head-gesture tokens
@@ -54,8 +78,8 @@ counted in frames.
 default and binds nothing until you add a chord; an unmapped token reaches no action, a global pause
 suppresses every chord action, and anything not reversible is refused because no confirmation prompt is
 wired for chords. While a facial expression disturbs the head pose, the Head-Pointer is held still through
-its public clutch (and for 300 ms after); the first disturbed frame can still move the pointer by one
-step. `yazses gesture status|pause|resume`. A "hold" token is not built
+its public clutch (and for 300 ms after); the first disturbed frame could still move the pointer by one
+step (taken back above). `yazses gesture status|pause|resume`. The "hold" token is added above
 ([#408](https://github.com/MSKazemi/yazses/issues/408)).
 
 ### Added — face switch: calibrate your active range, and share the camera

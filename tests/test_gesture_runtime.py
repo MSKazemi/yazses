@@ -439,17 +439,132 @@ def test_an_expression_that_disturbs_the_head_does_not_move_the_pointer():
     assert CLUTCH_SOURCE in rig.headpointer.runner.controller._clutches  # noqa: SLF001
 
 
-def test_the_two_runners_poll_independently_so_at_most_the_first_frame_can_leak():
-    """The honest bound. The freeze starts on the first frame the expression is *seen*; the
-    pointer may have consumed that same frame first. Every later frame is held. A synchronous
-    clutch probe inside the controller's ``update`` would close the gap (see the report)."""
+DISTURBED = (0.05, 0.12, 0.2, 0.3, 0.3, 0.3)
+
+
+def net(rig):
+    return (sum(a.x for a in rig.moves), sum(a.y for a in rig.moves))
+
+
+def test_a_freeze_that_lands_a_frame_late_takes_the_first_frame_step_back():
+    """The two runners poll on their own threads, so the pointer can follow the first disturbed
+    frame before the clutch lands. The clutch names that frame and the controller sends the
+    opposite step: the pointer ends where it was. (The recording still shows the step and its
+    undo -- a twitch of one frame, not a drift.)"""
     rig = Rig({"jaw_open+nod": "recenter"}, pointer=True, gesture_first=False)
     rig.start()
     settle(rig)
     rig.sink.clear()
-    for yaw in (0.05, 0.12, 0.2, 0.3, 0.3, 0.3):
+    for yaw in DISTURBED:
         rig.frame(jaw=0.9, yaw=yaw)
-    assert len(rig.moves) <= 1
+    assert rig.moves, "the control: the pointer did follow that first frame"
+    assert net(rig) == (0.0, 0.0)
+
+
+def test_with_the_rewind_off_the_first_frame_still_leaks():
+    """The mutation check for the test above, and the shipped behaviour of 2.42.0."""
+    rig = Rig({"jaw_open+nod": "recenter"}, pointer=True, gesture_first=False, onset_rewind_ms=0)
+    rig.start()
+    settle(rig)
+    rig.sink.clear()
+    for yaw in DISTURBED:
+        rig.frame(jaw=0.9, yaw=yaw)
+    assert net(rig) != (0.0, 0.0)
+
+
+def test_the_rewind_takes_back_the_onset_frame_and_nothing_earlier():
+    rig = Rig({"jaw_open+nod": "recenter"}, pointer=True, gesture_first=False)
+    rig.start()
+    settle(rig)
+    rig.sink.clear()
+    for _ in range(3):
+        rig.frame(yaw=0.3)                              # ordinary head movement, no expression
+    before = net(rig)
+    assert before != (0.0, 0.0)
+    for _ in range(4):
+        rig.frame(jaw=0.9, yaw=0.3)
+    assert net(rig) == before
+
+
+def test_when_the_gesture_runner_polls_first_there_is_nothing_to_take_back():
+    rig = Rig({"jaw_open+nod": "recenter"}, pointer=True, gesture_first=True)
+    rig.start()
+    settle(rig)
+    rig.sink.clear()
+    for yaw in DISTURBED:
+        rig.frame(jaw=0.9, yaw=yaw)
+    assert rig.moves == []
+
+
+# --------------------------------------------------------------------------- #
+# Rule 9: the early clutch is judged on how rarely it fires
+# --------------------------------------------------------------------------- #
+def _count_clutches(rig):
+    """Count the calls that *hold* the pointer, by spying on the controller's clutch."""
+    controller = rig.headpointer.runner.controller
+    original = controller.set_clutch
+    held = []
+
+    def spy(source, active, **kwargs):
+        if active:
+            held.append(kwargs)
+        return original(source, active, **kwargs)
+
+    controller.set_clutch = spy
+    return held
+
+
+def _ordinary_motion(rig, frames):
+    """Head wandering and glancing about, a face that never reaches the release threshold."""
+    for n in range(frames):
+        t = n / 15.0
+        rig.frame(
+            yaw=0.25 * math.sin(2 * math.pi * t / 4.1) + 0.1 * math.sin(2 * math.pi * t / 1.3),
+            pitch=0.15 * math.sin(2 * math.pi * t / 5.7),
+            jaw=0.05 + 0.1 * abs(math.sin(2 * math.pi * t / 0.9)),
+        )
+
+
+def _talking(rig, frames):
+    """A jaw that opens past the release threshold for three frames every 22 (about 1.5 s)."""
+    for n in range(frames):
+        spike = (n % 22) < 3
+        rig.frame(jaw=0.6 if spike else 0.05, yaw=0.02 if spike else 0.0)
+
+
+def _run_sequence(sequence, rewind_ms, frames=900):
+    rig = Rig({"jaw_open+nod": "recenter"}, pointer=True, gesture_first=False,
+              onset_rewind_ms=rewind_ms)
+    rig.start()
+    settle(rig)
+    held = _count_clutches(rig)
+    rig.sink.clear()
+    sequence(rig, frames)
+    return rig, held
+
+
+def test_ordinary_head_movement_never_clutches_the_pointer():
+    """900 frames (one minute at the rig's 15 fps) of a head wandering and glancing: no clutch
+    is held and no motion is taken back, with the rewind on or off. Synthetic -- it says the
+    early path has no trigger of its own, not what a person's day looks like. No threshold was
+    tuned from it (measured 2026-10-15: 0 clutches per minute, 0 rewinds)."""
+    on, held_on = _run_sequence(_ordinary_motion, 150)
+    off, held_off = _run_sequence(_ordinary_motion, 0)
+    assert held_on == [] and held_off == []
+    assert on.sink.actions == off.sink.actions and on.moves
+
+
+def test_the_rewind_adds_no_clutch_to_speech_like_jaw_movement():
+    """The existing hazard, measured and not widened: a jaw opening past the release threshold
+    engages the freeze, as it always did. The rewind rides the same trigger, so the number of
+    clutches is identical with it on or off (measured 2026-10-15 on 41 synthetic jaw
+    movements in one minute: 41 clutches either way. A real talker's rate is unmeasured, which is
+    why `jaw_open` is a poor chord token for someone who talks while using the pointer)."""
+    _, held_on = _run_sequence(_talking, 150)
+    _, held_off = _run_sequence(_talking, 0)
+    assert len(held_on) == len(held_off) == 41
+    assert all(kwargs.get("since_s") is not None for kwargs in held_on)
+    assert all(kwargs.get("since_s") is None for kwargs in held_off)
 
 
 def test_without_the_freeze_the_same_disturbance_does_move_the_pointer():
@@ -639,3 +754,44 @@ def test_a_command_that_raises_does_not_end_up_typed_into_the_focused_window():
     assert inner.typed == []               # without the wrapper this would be ["undo"]
     dispatch(intent, inner)
     assert inner.typed == ["undo"]         # the control: the plain path does type it
+
+
+# --------------------------------------------------------------------------- #
+# The "hold" token, end to end on the injected clock
+# --------------------------------------------------------------------------- #
+def test_hold_is_a_duration_of_the_clock_not_a_count_of_frames():
+    called = []
+    rig = Rig({"jaw_open+hold": "command:undo"}, run_command=called.append)
+    rig.start()
+    for _ in range(10):                  # 10 frames at 15 fps = 0.67 s: shorter than hold_ms
+        rig.frame(jaw=0.9)
+    assert called == []
+    for _ in range(8):                   # past 0.8 s of the held token
+        rig.frame(jaw=0.9)
+    assert called == ["undo"]
+    for _ in range(40):                  # however long it stays held, once
+        rig.frame(jaw=0.9)
+    assert called == ["undo"]
+
+
+def test_a_jaw_that_lets_go_before_hold_ms_does_nothing():
+    called = []
+    rig = Rig({"jaw_open+hold": "command:undo"}, run_command=called.append)
+    rig.start()
+    for _ in range(8):
+        rig.frame(jaw=0.9)
+    for _ in range(30):
+        rig.frame(jaw=0.0)
+    assert called == []
+
+
+def test_hold_ms_is_the_configured_duration():
+    called = []
+    rig = Rig({"jaw_open+hold": "command:undo"}, run_command=called.append, hold_ms=2000)
+    rig.start()
+    for _ in range(20):                  # 1.33 s: past the 0.8 s default, short of 2 s
+        rig.frame(jaw=0.9)
+    assert called == []
+    for _ in range(14):
+        rig.frame(jaw=0.9)
+    assert called == ["undo"]

@@ -63,6 +63,15 @@ confidence floor are placeholders to be replaced by measurement (``GOVERNANCE.md
 *sign* of the horizontal gain is geometry, observed on a real camera (2026-10-13): a negative
 gain flips an axis.
 
+**A clutch can take back the step that raced it.** A facial expression that disturbs the head is
+seen by a *different* runner than the one that moves the pointer, so the pointer can follow the
+first disturbed frame before the clutch lands. ``set_clutch(..., since_s=t)`` therefore also sends
+one opposite ``move_relative`` for whole units *this controller* sent for samples at or after
+``t`` (and no further back than ``REWIND_LIMIT_S``). ``PointerSink`` is write-only, so this is
+arithmetic on its own record, not a read of the screen: a pointer pinned at a screen edge during
+that step is moved back by the unclamped amount. It does nothing when the controller is paused,
+faulted, closed or has not moved, and it never clicks.
+
 **Still frame-based, deliberately untouched here:** the dwell hold is counted in samples
 (``dwell_hold_frames``), so *how long* a dwell takes still depends on the camera's rate.
 """
@@ -71,6 +80,7 @@ from __future__ import annotations
 import logging
 import math
 import threading
+from collections import deque
 from dataclasses import dataclass
 from enum import Enum
 from typing import Protocol
@@ -92,6 +102,7 @@ __all__ = [
     "DEFAULT_FRESHNESS_S",
     "DEFAULT_MAX_DT_S",
     "DEFAULT_MIN_CONFIDENCE",
+    "REWIND_LIMIT_S",
     "SOURCE_NAME",
     "DwellFeedback",
     "HeadPointerController",
@@ -118,6 +129,11 @@ DEFAULT_FRESHNESS_S = 0.5
 #: (``perception.mediapipe_backend.DEFAULT_PRESENCE_CONFIDENCE``); a graded quality signal does
 #: not exist yet.
 DEFAULT_MIN_CONFIDENCE = 0.5
+
+#: The furthest back (seconds before the newest accepted sample) a clutch may ask this controller
+#: to undo its own motion. A safety bound, not a measurement: it is what keeps "undo the step the
+#: gesture caused" from ever becoming "undo what the user was doing a second ago".
+REWIND_LIMIT_S = 0.5
 
 
 class State(str, Enum):
@@ -283,6 +299,9 @@ class HeadPointerController:
         self._last_ts = -math.inf
         self._tracking = False
         self._pos = (0, 0)
+        #: (sample timestamp, whole units x, y) of recent moves, newest last -- what a
+        #: clutch with ``since_s`` may take back. Cleared by every quiesce.
+        self._trail: deque[tuple[float, int, int]] = deque()
         self._dwell_armed = False
         self._dwell_origin = (0, 0)
         self._shown: float | None = None  # last progress pushed to feedback
@@ -386,15 +405,30 @@ class HeadPointerController:
                 return ResumeResult(True)
             return ResumeResult(False, result.reason or f"{self._source}: not ready to arm")
 
-    def set_clutch(self, source: str, active: bool) -> None:
+    def set_clutch(
+        self,
+        source: str,
+        active: bool,
+        *,
+        since_s: float | None = None,
+        max_rewind_s: float | None = None,
+    ) -> None:
         """Hold (``active``) or release one named clutch. Motion is frozen while any is held.
 
         Several callers can clutch independently -- a face gesture, a switch, a key -- and the
         pointer stays frozen until every one of them has let go. Head-Pointer sees only that
         generic state, never why (spec: "consumes only a generic clutch state").
+
+        ``since_s`` (a sample timestamp on the controller's clock) is the first frame the caller
+        knows to have been disturbed: motion this controller sent for samples at or after it is
+        taken back first, so a clutch that landed one frame late leaves the pointer where it
+        was. ``max_rewind_s`` narrows that further (never past :data:`REWIND_LIMIT_S`); zero
+        disables it. Releasing a clutch ignores both.
         """
         with self._lock:
             if active:
+                if since_s is not None:
+                    self._rewind(since_s, max_rewind_s)
                 self._clutches.add(str(source))
                 self._quiesce()
             else:
@@ -485,6 +519,7 @@ class HeadPointerController:
         """
         self._acc.reset()
         self._clicker.reset()
+        self._trail.clear()
         self._dwell_armed = False
         self._dwell_origin = self._pos
         if settle:
@@ -511,6 +546,10 @@ class HeadPointerController:
             except Exception as exc:
                 return self._fail(_describe(exc))
             self._pos = (self._pos[0] + ix, self._pos[1] + iy)
+            self._trail.append((sample.timestamp_s, ix, iy))
+            horizon = sample.timestamp_s - REWIND_LIMIT_S
+            while self._trail and self._trail[0][0] < horizon:
+                self._trail.popleft()
         clicked = False
         if self._dwell_enabled:
             clicked_or_fail = self._dwell()
@@ -519,6 +558,38 @@ class HeadPointerController:
             clicked = clicked_or_fail
         self._sync_feedback()
         return self._set(State.TRACKING, "", dx=ix, dy=iy, clicked=clicked)
+
+    def _rewind(self, since_s: float, max_rewind_s: float | None) -> None:
+        """Send the opposite of the whole units moved for samples at or after ``since_s``.
+
+        Bounded three ways: by ``since_s``, by ``max_rewind_s`` and by :data:`REWIND_LIMIT_S`
+        (each measured back from the newest moved sample). Nothing is sent when there is
+        nothing to take back, when the feature is paused, faulted or closed, or when the
+        arguments are not finite numbers -- doubt is no rewind.
+        """
+        if self._closed or self._fault or self._paused or not self._trail:
+            return
+        if not (isinstance(since_s, (int, float)) and math.isfinite(since_s)):
+            return
+        reach = REWIND_LIMIT_S
+        if max_rewind_s is not None:
+            if not (isinstance(max_rewind_s, (int, float)) and math.isfinite(max_rewind_s)):
+                return
+            if max_rewind_s <= 0.0:
+                return
+            reach = min(reach, float(max_rewind_s))
+        floor = max(float(since_s), self._trail[-1][0] - reach)
+        back_x = sum(x for t, x, _ in self._trail if t >= floor)
+        back_y = sum(y for t, _, y in self._trail if t >= floor)
+        self._trail.clear()
+        if not (back_x or back_y):
+            return
+        try:
+            self._sink.move_relative(float(-back_x), float(-back_y))
+        except Exception as exc:
+            self._fail(_describe(exc))
+            return
+        self._pos = (self._pos[0] - back_x, self._pos[1] - back_y)
 
     def _dwell(self) -> bool | Step:
         """Advance dwell for the current position. ``True`` iff a click was sent."""

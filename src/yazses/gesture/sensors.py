@@ -26,7 +26,8 @@ across the gap and nothing is replayed after it.
 **The pointer onset.** A face gesture moves the head before a detector has seen enough frames
 to call it a token, so a face token is also reported to the engine as *engaged* from the first
 frame at or above the switch's release threshold -- the engine uses that for the pointer freeze
-and for nothing else.
+and for nothing else. The camera frame's own timestamp travels with it (``at_s``), so the freeze
+can name the frame that began it and take back what the pointer did for that frame.
 """
 from __future__ import annotations
 
@@ -156,11 +157,12 @@ class SensorTokens:
             return  # the same observation again
         if live:
             self._last_face_ts = face.timestamp_s  # type: ignore[attr-defined]
+        frame_s: float | None = self._last_face_ts if live else None
         for name, switch in self._faces.items():
             reading: Reading = gesture_reading(face, name, now_s=now_s, max_age_s=fresh)  # type: ignore[arg-type]
             event = switch.update(reading.score, reading.confidence)
             if event == "start":
-                self._engine.press(name, now_s)
+                self._engine.press(name, now_s, frame_s)
             elif event == "end":
                 self._engine.release(name, now_s)
             elif not switch.held:
@@ -169,7 +171,7 @@ class SensorTokens:
                     and switch.last_frame == "reading"
                     and reading.score >= switch.thresholds[1]
                 )
-                self._engine.onset(name, engaged, now_s)
+                self._engine.onset(name, engaged, now_s, frame_s)
 
     def _apply_head(self, events: list[tuple[str, str]], now_s: float) -> None:
         for token, phase in events:

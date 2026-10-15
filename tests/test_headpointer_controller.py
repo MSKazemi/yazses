@@ -767,3 +767,131 @@ def test_status_reports_states_and_flags_but_no_pose_or_position():
     fields = set(status.__dataclass_fields__)
     assert fields.isdisjoint({"yaw", "pitch", "roll", "x", "y", "position", "neutral", "pose"})
     assert not any("0.3" in str(v) for v in vars(status).values())
+
+
+# --------------------------------------------------------------------------- #
+# A clutch can take back the step that raced it (``since_s``)
+# --------------------------------------------------------------------------- #
+def _three_moves(rig):
+    """Centre, then three moving samples; returns their timestamps and per-sample moves."""
+    rig.centre()
+    stamps = []
+    for _ in range(3):
+        rig.feed(0.05, 0.03)
+        stamps.append(rig.t)
+    return stamps, [(a.x, a.y) for a in rig.moves]
+
+
+def test_a_clutch_with_since_takes_back_the_steps_from_that_sample_on():
+    rig = Rig()
+    (_, second, _), moves = _three_moves(rig)
+    assert len(moves) == 3
+    rig.ctl.set_clutch("gesture", True, since_s=second)
+    last = rig.sink.actions[-1]
+    assert (last.x, last.y) == (-(moves[1][0] + moves[2][0]), -(moves[1][1] + moves[2][1]))
+    assert rig.total() == moves[0]                    # the first sample's step is the user's own
+    rig.feed(0.05, 0.03)
+    assert rig.ctl.status().clutched and rig.total() == moves[0]
+
+
+def test_a_clutch_without_since_takes_nothing_back():
+    rig = Rig()
+    _three_moves(rig)
+    count = len(rig.sink.actions)
+    rig.ctl.set_clutch("gesture", True)
+    assert len(rig.sink.actions) == count
+
+
+def test_max_rewind_narrows_what_is_taken_back():
+    rig = Rig()
+    stamps, moves = _three_moves(rig)
+    rig.ctl.set_clutch("gesture", True, since_s=stamps[0], max_rewind_s=FRAME / 2)
+    assert rig.total() == (moves[0][0] + moves[1][0], moves[0][1] + moves[1][1])
+
+
+def test_a_zero_or_unreadable_limit_takes_nothing_back():
+    for limit in (0.0, -1.0, math.nan, math.inf):
+        rig = Rig()
+        stamps, _ = _three_moves(rig)
+        count = len(rig.sink.actions)
+        rig.ctl.set_clutch("gesture", True, since_s=stamps[0], max_rewind_s=limit)
+        assert len(rig.sink.actions) == count, limit
+
+
+def test_an_unreadable_since_takes_nothing_back():
+    for since in (math.nan, math.inf, -math.inf):
+        rig = Rig()
+        _three_moves(rig)
+        count = len(rig.sink.actions)
+        rig.ctl.set_clutch("gesture", True, since_s=since)
+        assert len(rig.sink.actions) == count, since
+
+
+def test_a_since_after_the_newest_sample_takes_nothing_back():
+    rig = Rig()
+    _three_moves(rig)
+    count = len(rig.sink.actions)
+    rig.ctl.set_clutch("gesture", True, since_s=rig.t + 1.0)
+    assert len(rig.sink.actions) == count
+
+
+def test_the_rewind_never_reaches_further_back_than_its_hard_limit():
+    from yazses.headpointer.controller import REWIND_LIMIT_S
+
+    rig = Rig()
+    rig.centre()
+    start = rig.t
+    for _ in range(int(2.0 / FRAME)):
+        rig.feed(0.05, 0.03)
+    per_frame = rig.moves[-1].x
+    rig.ctl.set_clutch("gesture", True, since_s=start)            # "since the beginning"
+    undone = -rig.sink.actions[-1].x
+    assert 0 < undone <= per_frame * (REWIND_LIMIT_S / FRAME + 1.5)
+    assert rig.total()[0] > 0                                      # earlier motion stays
+
+
+def test_nothing_is_taken_back_while_paused_or_after_a_pause():
+    rig = Rig()
+    stamps, _ = _three_moves(rig)
+    rig.ctl.pause()
+    count = len(rig.sink.actions)
+    rig.ctl.set_clutch("gesture", True, since_s=stamps[0])
+    assert len(rig.sink.actions) == count
+
+
+def test_a_failed_rewind_faults_the_controller_and_does_not_retry():
+    rig = Rig()
+    stamps, _ = _three_moves(rig)
+    rig.sink.fail_with(PointerBackendError("gone"))
+    rig.ctl.set_clutch("gesture", True, since_s=stamps[1])
+    assert rig.ctl.status().state is State.FAULTED
+    rig.sink.clear_failure()
+    rig.ctl.set_clutch("gesture", False)
+    assert rig.sink.actions[-1].kind is PointerActionKind.MOVE_RELATIVE
+    count = len(rig.sink.actions)
+    rig.feed(0.05, 0.03)
+    assert len(rig.sink.actions) == count                # faulted: nothing until resume
+
+
+def test_a_rewind_never_clicks_and_leaves_dwell_disarmed():
+    rig = Rig(dwell=True, hold=3)
+    rig.centre()
+    for _ in range(4):
+        rig.feed(0.2, 0.0)
+    stamp = rig.t
+    rig.ctl.set_clutch("gesture", True, since_s=stamp)
+    assert rig.clicks == 0
+    assert rig.ctl.status().dwell_armed is False
+    rig.ctl.set_clutch("gesture", False)
+    for _ in range(8):
+        rig.feed(0.2, 0.0)
+    assert rig.clicks == 0                             # the pointer must travel again first
+
+
+def test_releasing_a_clutch_ignores_since():
+    rig = Rig()
+    stamps, _ = _three_moves(rig)
+    rig.ctl.set_clutch("gesture", True)
+    count = len(rig.sink.actions)
+    rig.ctl.set_clutch("gesture", False, since_s=stamps[0])
+    assert len(rig.sink.actions) == count

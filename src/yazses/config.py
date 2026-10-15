@@ -2049,6 +2049,11 @@ class GestureConfig:
         [gesture.chords]
         "brow_raise+nod" = "recenter"
         "jaw_open+shake" = "pause_pointer"
+        "jaw_open+hold" = "recenter"        # keep the jaw open for `hold_ms`
+
+    `hold` is a sixth kind of token: "the face or tilt tokens now held have stayed held for
+    `hold_ms`". It needs at least one holdable token beside it (a face gesture or `tilt`, not
+    `nod`/`shake`), and a chord cannot be bound both with and without it.
 
     **The mapping is empty by default, so enabling the feature does nothing until you bind
     a chord.** An unknown token, an unknown action, and two spellings of one chord are each
@@ -2065,6 +2070,8 @@ class GestureConfig:
     freshness_ms: int = 500       # a sample older than this is "no signal"; unmeasured placeholder
     min_confidence: float = 0.5   # samples below this presence confidence are "no signal"
     freeze_tail_ms: int = 300     # keep the pointer frozen this long after a chord token lets go
+    onset_rewind_ms: int = 150    # when the freeze lands a frame late, take back up to this much pointer motion since the expression began; 0 = never. Provisional
+    hold_ms: int = field(default=800, metadata={"min_exclusive": 0, "max": 60_000})  # the `hold` token: tokens held unchanged this long. Provisional
     head_amplitude_deg: float = 10.0  # each leg of a nod/shake must swing at least this far
     head_swings: int = 4          # legs per nod/shake: 4 is a double nod, 2 a single down-up
     head_window_ms: int = 1500    # a nod/shake must complete within this long
@@ -2351,7 +2358,28 @@ def load_config_checked(path: Path | None = None) -> LoadedConfig:
         for name in fields
         if name in data
     }
-    return LoadedConfig(_apply_presets(Config(**sections)), problems, path)
+    config = Config(**sections)
+    problems.extend(_chord_problems(config))
+    return LoadedConfig(_apply_presets(config), problems, path)
+
+
+def _chord_problems(config: Config) -> list[ConfigProblem]:
+    """Why any ``[gesture.chords]`` entry will not be used, found at load rather than at start.
+
+    ``gesture.engine.parse_chords`` is the one place a chord is understood and it already skips
+    what it cannot honour; this only asks it early so ``doctor`` and the log name the line. Never
+    raises, and costs nothing for the shipped empty table.
+    """
+    chords = config.gesture.chords
+    if not chords:
+        return []
+    try:
+        from yazses.gesture.engine import parse_chords
+
+        _, refused = parse_chords(chords)
+    except Exception:  # a chord check must never be what stops the daemon starting
+        return []
+    return [ConfigProblem("gesture.chords", "", reason, False) for reason in refused]
 
 
 def load_config(path: Path | None = None) -> Config:
