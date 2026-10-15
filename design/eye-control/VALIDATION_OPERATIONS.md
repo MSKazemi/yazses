@@ -204,8 +204,13 @@ that the campaign task can name:
 
 Until then, the dedicated no-code issues + BEGINNER_TESTING guide are the source of truth.
 
-A follow-up implementation task should integrate READY eye-validation slots into the campaign finder
-without weakening the campaign schema or pretending hardware evidence is cloud-agent-ready.
+READY eye-validation slots are held to that by `scripts/check_eye_validation_slots.py`, which reads
+`campaign/tasks.json` without changing the campaign schema or validator: each READY slot needs exactly one open
+`measurement` task whose `source` names it (`eye-validation slot <ID>`), with `cloud_agent_ready=false`, a `minutes`
+estimate of at least `sessions x max`, a `requires` block naming the OS/session and camera, stated `evidence`, and
+this validator as a `validation` command. A PLANNED slot may not be advertised at all. No slot is READY today, so
+the finder carries no eye-validation task; adding one is the act of flipping a slot to READY, and the checker
+fails until both halves exist.
 
 ## Coverage dashboard
 

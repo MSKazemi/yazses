@@ -6,6 +6,33 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the eye-validation registry validator was green on documents it should have refused
+
+Audit of #454/#456 on 2026-10-15, running a 67-document invalid-input corpus through
+`scripts/check_eye_validation_slots.py`. Eight kinds were accepted with exit `0`: `"schema_version": true` or
+`1.0` (equal to `1` in Python), a slot blocked by its own issue or listing the same issue twice, an A or B slot
+claiming five sessions, a per-session estimate of 99999 minutes, an absolute or `..` `generated_from` path (valid
+on one machine and not another), and a repeated JSON key (`"state": "ready", "state": "planned"` parsed as the
+last one, so the file checked was not the file written). Eight more ended in a traceback (exit 1, but no reported error):
+a list or object in `pack`, `environment`, `slot`, `state` or `evidence_mode` (unhashable), non-UTF-8 bytes and
+absurdly deep nesting. All now fail cleanly: exit `1` for a rule violation, `2` for bytes it cannot trust.
+
+`#423` (the local eye-eval runner) is closed, so the 13 hardware cells no longer list it as an unmet prerequisite;
+the T1 cells keep `#422`. They stay PLANNED and still name the runtime condition they wait for. No slot is READY
+and no outcome file is committed: nothing has been validated by a human, including the one-person hands-free
+workflow (T7), which has no cell at all.
+
+### Added — READY eye-validation slots are checked against the contributor task finder (#456)
+
+`scripts/check_eye_validation_slots.py` now also reads `campaign/tasks.json` and fails when a READY slot has no
+single open `measurement` task naming it (`source: "eye-validation slot <ID>"`), when that task is
+`cloud_agent_ready`, understates the slot's `sessions x max` estimate, hides its environment (`requires`) or its
+evidence, or does not run the registry validator; and when a PLANNED slot is advertised at all. No slot is READY
+today, so the finder lists no eye task, and a test proves the check fires on the real inventory by flipping one
+slot. The campaign schema and validator are untouched. The coverage dashboard's completeness check now needs the
+cell id to open a row of the per-cell table instead of appearing anywhere on the page, and a reported outcome
+needs an evidence pointer (a host or a repeat session), at most one host per cell, and a READY cell.
+
 ### Fixed — an unanswered Wayland permission dialog was reported as "keyboard only"
 
 Found by running the daemon on a real GNOME Wayland session (2026-10-15). The portal answers `CreateSession`

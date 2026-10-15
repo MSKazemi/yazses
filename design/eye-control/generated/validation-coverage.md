@@ -53,29 +53,28 @@ One row per registered cell, in pack then environment then slot order. The issue
 
 | Cell | Session | Slot | State | Runnable today? | Issue | Reported evidence | Sessions planned | Blocked by |
 |---|---|---|---|---|---|---|---:|---|
-| `T0-WIN-A` | Windows 11 | A | PLANNED | no | [#428](https://github.com/MSKazemi/yazses/issues/428) | awaiting first report | 1 | [#423](https://github.com/MSKazemi/yazses/issues/423) + a condition below |
-| `T0-WIN-B` | Windows 11 | B | PLANNED | no | [#429](https://github.com/MSKazemi/yazses/issues/429) | awaiting first report | 1 | [#423](https://github.com/MSKazemi/yazses/issues/423) + a condition below |
-| `T0-MAC-A` | macOS Apple Silicon | A | PLANNED | no | [#430](https://github.com/MSKazemi/yazses/issues/430) | awaiting first report | 1 | [#423](https://github.com/MSKazemi/yazses/issues/423) + a condition below |
-| `T0-MAC-B` | macOS Apple Silicon | B | PLANNED | no | [#431](https://github.com/MSKazemi/yazses/issues/431) | awaiting first report | 1 | [#423](https://github.com/MSKazemi/yazses/issues/423) + a condition below |
-| `T0-GNOME-A` | Ubuntu/GNOME Wayland | A | PLANNED | no | [#432](https://github.com/MSKazemi/yazses/issues/432) | awaiting first report | 1 | [#423](https://github.com/MSKazemi/yazses/issues/423) + a condition below |
-| `T0-GNOME-B` | Ubuntu/GNOME Wayland | B | PLANNED | no | [#433](https://github.com/MSKazemi/yazses/issues/433) | awaiting first report | 1 | [#423](https://github.com/MSKazemi/yazses/issues/423) + a condition below |
-| `T0-KDE-A` | KDE Plasma Wayland | A | PLANNED | no | [#434](https://github.com/MSKazemi/yazses/issues/434) | awaiting first report | 1 | [#423](https://github.com/MSKazemi/yazses/issues/423) + a condition below |
-| `T0-KDE-B` | KDE Plasma Wayland | B | PLANNED | no | [#438](https://github.com/MSKazemi/yazses/issues/438) | awaiting first report | 1 | [#423](https://github.com/MSKazemi/yazses/issues/423) + a condition below |
-| `T0-X11-A` | Linux X11 | A | PLANNED | no | [#435](https://github.com/MSKazemi/yazses/issues/435) | awaiting first report | 1 | [#423](https://github.com/MSKazemi/yazses/issues/423) + a condition below |
-| `T0-X11-B` | Linux X11 | B | PLANNED | no | [#439](https://github.com/MSKazemi/yazses/issues/439) | awaiting first report | 1 | [#423](https://github.com/MSKazemi/yazses/issues/423) + a condition below |
-| `T1-X11-A` | Linux X11 | A | PLANNED | no | none yet | awaiting first report | 1 | [#422](https://github.com/MSKazemi/yazses/issues/422), [#423](https://github.com/MSKazemi/yazses/issues/423) + a condition below |
-| `T1-X11-B` | Linux X11 | B | PLANNED | no | none yet | awaiting first report | 1 | [#422](https://github.com/MSKazemi/yazses/issues/422), [#423](https://github.com/MSKazemi/yazses/issues/423) + a condition below |
-| `T1-HIDPI-A` | HiDPI / multi-monitor | A | PLANNED | no | none yet | awaiting first report | 1 | [#422](https://github.com/MSKazemi/yazses/issues/422), [#423](https://github.com/MSKazemi/yazses/issues/423) + a condition below |
-| `T1-ANY-REPEAT` | any platform where T1 is actually supported | repeat | PLANNED | no | [#437](https://github.com/MSKazemi/yazses/issues/437) | awaiting first report | 3 | [#423](https://github.com/MSKazemi/yazses/issues/423) + a condition below |
-| `T5-HIDPI-A` | HiDPI / multi-monitor | A | PLANNED | no | [#436](https://github.com/MSKazemi/yazses/issues/436) | awaiting first report | 1 | [#423](https://github.com/MSKazemi/yazses/issues/423) + a condition below |
-| `T5-HIDPI-B` | HiDPI / multi-monitor | B | PLANNED | no | [#440](https://github.com/MSKazemi/yazses/issues/440) | awaiting first report | 1 | [#423](https://github.com/MSKazemi/yazses/issues/423) + a condition below |
+| `T0-WIN-A` | Windows 11 | A | PLANNED | no | [#428](https://github.com/MSKazemi/yazses/issues/428) | awaiting first report | 1 | — + a condition below |
+| `T0-WIN-B` | Windows 11 | B | PLANNED | no | [#429](https://github.com/MSKazemi/yazses/issues/429) | awaiting first report | 1 | — + a condition below |
+| `T0-MAC-A` | macOS Apple Silicon | A | PLANNED | no | [#430](https://github.com/MSKazemi/yazses/issues/430) | awaiting first report | 1 | — + a condition below |
+| `T0-MAC-B` | macOS Apple Silicon | B | PLANNED | no | [#431](https://github.com/MSKazemi/yazses/issues/431) | awaiting first report | 1 | — + a condition below |
+| `T0-GNOME-A` | Ubuntu/GNOME Wayland | A | PLANNED | no | [#432](https://github.com/MSKazemi/yazses/issues/432) | awaiting first report | 1 | — + a condition below |
+| `T0-GNOME-B` | Ubuntu/GNOME Wayland | B | PLANNED | no | [#433](https://github.com/MSKazemi/yazses/issues/433) | awaiting first report | 1 | — + a condition below |
+| `T0-KDE-A` | KDE Plasma Wayland | A | PLANNED | no | [#434](https://github.com/MSKazemi/yazses/issues/434) | awaiting first report | 1 | — + a condition below |
+| `T0-KDE-B` | KDE Plasma Wayland | B | PLANNED | no | [#438](https://github.com/MSKazemi/yazses/issues/438) | awaiting first report | 1 | — + a condition below |
+| `T0-X11-A` | Linux X11 | A | PLANNED | no | [#435](https://github.com/MSKazemi/yazses/issues/435) | awaiting first report | 1 | — + a condition below |
+| `T0-X11-B` | Linux X11 | B | PLANNED | no | [#439](https://github.com/MSKazemi/yazses/issues/439) | awaiting first report | 1 | — + a condition below |
+| `T1-X11-A` | Linux X11 | A | PLANNED | no | none yet | awaiting first report | 1 | [#422](https://github.com/MSKazemi/yazses/issues/422) + a condition below |
+| `T1-X11-B` | Linux X11 | B | PLANNED | no | none yet | awaiting first report | 1 | [#422](https://github.com/MSKazemi/yazses/issues/422) + a condition below |
+| `T1-HIDPI-A` | HiDPI / multi-monitor | A | PLANNED | no | none yet | awaiting first report | 1 | [#422](https://github.com/MSKazemi/yazses/issues/422) + a condition below |
+| `T1-ANY-REPEAT` | any platform where T1 is actually supported | repeat | PLANNED | no | [#437](https://github.com/MSKazemi/yazses/issues/437) | awaiting first report | 3 | — + a condition below |
+| `T5-HIDPI-A` | HiDPI / multi-monitor | A | PLANNED | no | [#436](https://github.com/MSKazemi/yazses/issues/436) | awaiting first report | 1 | — + a condition below |
+| `T5-HIDPI-B` | HiDPI / multi-monitor | B | PLANNED | no | [#440](https://github.com/MSKazemi/yazses/issues/440) | awaiting first report | 1 | — + a condition below |
 
 ## Unmet blockers
 
 | Prerequisite | Cells blocked | Cells |
 |---|---:|---|
 | [#422](https://github.com/MSKazemi/yazses/issues/422) | 3 | `T1-X11-A`, `T1-X11-B`, `T1-HIDPI-A` |
-| [#423](https://github.com/MSKazemi/yazses/issues/423) | 16 | `T0-WIN-A`, `T0-WIN-B`, `T0-MAC-A`, `T0-MAC-B`, `T0-GNOME-A`, `T0-GNOME-B`, `T0-KDE-A`, `T0-KDE-B`, `T0-X11-A`, `T0-X11-B`, `T1-X11-A`, `T1-X11-B`, `T1-HIDPI-A`, `T1-ANY-REPEAT`, `T5-HIDPI-A`, `T5-HIDPI-B` |
 
 ### Conditions beyond a prerequisite issue
 

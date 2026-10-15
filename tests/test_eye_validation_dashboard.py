@@ -454,15 +454,19 @@ def test_the_page_says_it_reports_the_registry_rather_than_github():
 
 
 def test_unmet_blockers_are_grouped_by_prerequisite_issue():
+    """Derived from the registry: whichever issues it names as prerequisites, no more."""
     page = _page()
-    blocked_by_423 = [
-        slot["id"] for slot in _registry()["slots"] if 423 in slot.get("blocked_by", [])
-    ]
-    assert blocked_by_423, "the fixture assumes #423 blocks something"
-    line = [ln for ln in page.splitlines() if ln.startswith("| [#423](")][0]
-    assert f"| {len(blocked_by_423)} |" in line
-    for cell_id in blocked_by_423:
-        assert f"`{cell_id}`" in line
+    prerequisites = sorted({n for slot in _registry()["slots"] for n in slot.get("blocked_by", [])})
+    assert prerequisites, "the fixture assumes the registry names at least one prerequisite"
+    for issue in prerequisites:
+        blocked = [s["id"] for s in _registry()["slots"] if issue in s.get("blocked_by", [])]
+        line = [ln for ln in page.splitlines() if ln.startswith(f"| [#{issue}](")][0]
+        assert f"| {len(blocked)} |" in line
+        for cell_id in blocked:
+            assert f"`{cell_id}`" in line
+    blocker_rows = _section(page, "## Unmet blockers")
+    in_table = {int(m) for ln in blocker_rows for m in re.findall(r"^\| \[#(\d+)\]\(", ln)}
+    assert in_table == set(prerequisites), "the page names a blocker the registry does not"
 
 
 def test_every_free_text_blocker_in_the_registry_reaches_the_page():
@@ -530,7 +534,11 @@ def test_an_unknown_outcome_class_is_rejected(outcome):
 def test_every_documented_outcome_class_is_accepted(outcome):
     assert (
         gen.validate_outcomes(
-            {"schema_version": 1, "cells": {"T0-WIN-A": {"outcome": outcome}}}, {"T0-WIN-A"}
+            {
+                "schema_version": 1,
+                "cells": {"T0-WIN-A": {"outcome": outcome, "independent_hosts": 1}},
+            },
+            {"T0-WIN-A"},
         )
         == []
     )
@@ -669,3 +677,88 @@ def test_the_documentation_points_at_the_generated_page():
 def test_the_page_ends_with_exactly_one_newline():
     text = _page()
     assert text.endswith("\n") and not text.endswith("\n\n")
+
+
+# ------------------------------- a reported outcome must point at evidence, on a READY cell
+
+
+def _outcome_errors(record: dict[str, Any], ready: set[str] | None = None) -> list[str]:
+    return gen.validate_outcomes(
+        {"schema_version": 1, "cells": {"T0-WIN-A": record}}, {"T0-WIN-A"}, ready
+    )
+
+
+@pytest.mark.parametrize("outcome", list(gen.OUTCOME_ORDER))
+def test_an_outcome_with_no_host_and_no_session_is_a_claim_without_evidence(outcome):
+    errors = _outcome_errors({"outcome": outcome})
+    assert any("evidence pointer" in e for e in errors)
+    errors = _outcome_errors({"outcome": outcome, "independent_hosts": 0, "repeat_sessions": 0})
+    assert any("evidence pointer" in e for e in errors)
+
+
+def test_a_repeat_session_alone_is_an_evidence_pointer():
+    assert _outcome_errors({"outcome": "pass", "repeat_sessions": 2}) == []
+
+
+def test_a_cell_is_one_physical_environment_so_two_hosts_in_it_is_rejected():
+    errors = _outcome_errors({"outcome": "pass", "independent_hosts": 2})
+    assert any("cannot exceed 1" in e for e in errors)
+
+
+def test_a_cell_that_is_not_ready_cannot_carry_an_outcome():
+    record = {"outcome": "pass", "independent_hosts": 1}
+    assert any("not READY" in e for e in _outcome_errors(record, ready=set()))
+    assert _outcome_errors(record, ready={"T0-WIN-A"}) == []
+
+
+def test_generate_refuses_an_outcome_reported_against_a_planned_cell(tmp_path):
+    registry = _write(tmp_path, _doc(_slot()))
+    outcomes = _write(
+        tmp_path,
+        {"schema_version": 1, "cells": {"T0-WIN-A": {"outcome": "pass", "independent_hosts": 1}}},
+        "outcomes.json",
+    )
+    with pytest.raises(gen.DashboardError) as excinfo:
+        gen.generate(registry, outcomes)
+    assert "not READY" in str(excinfo.value)
+    assert gen.main(["--registry", str(registry), "--outcomes", str(outcomes),
+                     "--output", str(tmp_path / "out.md")]) == 1
+
+
+# ------------------------------------ completeness means a row in the table, not a mention
+
+
+def test_an_id_mentioned_only_outside_the_per_cell_table_does_not_count_as_covered():
+    registry = _doc(_slot())
+    page = "## Unmet blockers\n\n| [#423](x) | 1 | `T0-WIN-A` |\n\n## Every registered cell\n\n"
+    assert gen.missing_cells(page, registry) == ["T0-WIN-A"]
+    with_row = page + "| `T0-WIN-A` | Windows 11 |\n"
+    assert gen.missing_cells(with_row, registry) == []
+
+
+def test_a_page_with_no_per_cell_section_reports_every_cell_missing():
+    registry = _registry()
+    page = "\n".join(f"`{s['id']}`" for s in registry["slots"])
+    assert len(gen.missing_cells(page, registry)) == len(registry["slots"])
+
+
+def test_the_page_detail_heading_is_the_one_the_completeness_check_reads():
+    assert gen._DETAIL_HEADING in _page().splitlines()
+
+
+# ----------------------- the committed page does not claim any validation has happened
+
+
+def test_the_committed_page_reports_zero_validated_cells_and_zero_hosts():
+    page = _page()
+    total = len(_registry()["slots"])
+    assert "| READY — a contributor could run it today | 0 |" in page
+    assert "| Cells with a report of any outcome | 0 |" in page
+    assert f"| Cells awaiting a first report | {total} |" in page
+    assert "| Independent physical hosts represented | 0 |" in page
+    assert "| — PASS / PARTIAL / FAIL / BLOCKED | 0 / 0 / 0 / 0 |" in page
+
+
+def test_the_committed_page_shows_the_hands_free_workflow_pack_as_having_no_cell():
+    row = [ln for ln in _page().splitlines() if ln.startswith("| T7 |")][0]
+    assert set(row.strip("| ").replace(" ", "").split("|")[1:]) == {"—"}

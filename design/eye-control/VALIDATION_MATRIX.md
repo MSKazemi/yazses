@@ -64,7 +64,11 @@ uv run python scripts/check_eye_validation_slots.py
 
 The validator is offline, deterministic and stdlib-only. It exits `0` when valid, `1` on a rule
 violation, and `2` when the registry cannot be read or parsed at all — a registry it could not
-read is never reported as compliant. An empty registry fails for the same reason.
+read is never reported as compliant. An empty registry fails for the same reason, and so do
+non-UTF-8 bytes, a repeated JSON key and a non-finite number. It also cross-checks `campaign/tasks.json`
+(see [VALIDATION_OPERATIONS.md](VALIDATION_OPERATIONS.md)): a READY cell must be advertised there and a
+PLANNED one must not. No cell is READY and no outcome has been reported, so nothing in the registry or the
+coverage page claims that any slot, including T7, has been validated.
 
 The same file also generates the coverage view of this matrix —
 [`generated/validation-coverage.md`](generated/validation-coverage.md) — showing which cells
