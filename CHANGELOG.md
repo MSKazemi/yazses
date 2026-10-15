@@ -47,6 +47,31 @@ without it); nothing shipped declares it, because nothing shipped can use a came
 entitlements file, derive each channel's format from its manifest, check the container image installs no camera
 extra, and show the matrix checker rejecting a wrong matrix and an empty one.
 
+### Fixed — macOS and Windows pointer sinks: silent permission failure, a wrong error diagnosis, unguarded overflow
+
+Audit of #402 (EYE-PTR-003), from Apple's and Microsoft's own API pages; nothing here has run on a Mac or a
+Windows PC, so each item is a defect read from the documentation, not a hardware result.
+
+- **macOS: an unapproved process now fails loudly.** `CGEventPost` returns nothing, and Apple's developer
+  support says posting events needs the user's approval in Privacy & Security, so a Head-Pointer without it
+  posted events that went nowhere with no log line. The sink now asks `CGPreflightPostEventAccess` first and
+  raises a `PointerBackendError` naming the Accessibility pane (and the restart forum reports say is needed).
+- **macOS: a large scroll is posted as several events of at most 10 lines.** Apple documents wheel values as
+  "typically -10 to +10" and large ones as having "unexpected results". The total distance is unchanged.
+- **Windows: a short `SendInput` count no longer claims to be a UIPI problem.** Microsoft states that neither the
+  return value nor `GetLastError` identifies a UIPI block, and that zero means "already blocked by another
+  thread". The message now says that instead of "Error 5 ... elevated window".
+- **Windows: a warning when the user's pointer settings scale relative motion.** Microsoft's `MOUSEINPUT`
+  Remarks say relative motion is subject to Pointer Speed and the threshold values and can be multiplied up to
+  four times; "Enhance pointer precision" is on by default. The backend still sends relative moves (it cannot
+  undo a curve Windows does not document) but now logs one warning, once, naming the settings.
+- **Windows: a delta or wheel value that does not fit a 32-bit field is refused** instead of wrapping to a small
+  or negative number (ctypes does not range-check structure fields), and `user32` is loaded once instead of per
+  frame.
+- Unverified on real hardware, and listed for the macOS and Windows testers (#66, #389): the vertical scroll sign
+  and the effect of "Natural scrolling" on macOS, click-state handling, DPI behaviour of relative moves on
+  Windows, and whether an elevated window receives anything.
+
 ### Fixed — an unanswered Wayland permission dialog was reported as "keyboard only"
 
 Found by running the daemon on a real GNOME Wayland session (2026-10-15). The portal answers `CreateSession`

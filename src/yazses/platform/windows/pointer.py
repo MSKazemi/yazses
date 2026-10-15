@@ -20,9 +20,21 @@ makes a failure report a real Win32 error code instead of zero.
 
 **What this backend reports, and why it is not everything.**
 
-* Relative motion — `MOUSEEVENTF_MOVE` takes a signed pixel delta, which is exactly the
-  boundary's unit. Sub-pixel deltas accumulate (see `src/yazses/pointer/subpixel.py`)
-  rather than rounding to nothing.
+* Relative motion — `MOUSEEVENTF_MOVE` takes a signed integer delta, and Microsoft's
+  `MOUSEINPUT` page calls it "the number of pixels moved". **It is not 1:1 on a real
+  desktop:** the same page's Remarks say relative motion "is subject to the effects of the
+  mouse speed and the two-mouse threshold values" and can be multiplied "up to four
+  times" (https://learn.microsoft.com/en-us/windows/win32/api/winuser/ns-winuser-mouseinput).
+  Those are the user's Pointer Speed / "Enhance pointer precision" settings, so the same
+  head movement can travel a different distance on two PCs. That page describes the
+  legacy threshold rule only; the curve Windows applies when "Enhance pointer precision"
+  is on is not documented there, so this backend does not try to undo it. Instead
+  :class:`SendInputMouseApi` reads the settings once (`SystemParametersInfo`,
+  https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-systemparametersinfow)
+  and logs a warning when they are not neutral, so the cause is visible. The honest fix
+  (an absolute `SetCursorPos` path, which ballistics do not touch) needs a Windows machine
+  to validate and is deliberately not guessed at here. Sub-pixel deltas accumulate (see
+  `src/yazses/pointer/subpixel.py`) rather than rounding to nothing.
 * Absolute motion — **reported as unavailable, deliberately.** `MOUSEEVENTF_ABSOLUTE`
   does not take pixels; it takes coordinates normalised to 0-65535, over the primary
   monitor unless `MOUSEEVENTF_VIRTUALDESK` is also set, on a desktop whose monitors can
@@ -45,13 +57,18 @@ has already shipped a Unicode injection bug where one application typed perfectl
 another received rows of `?` with nothing in any log. So a full return count is treated
 here as "Windows accepted the events", never as "the pointer moved". A short count raises;
 a dropped-after-acceptance event is undetectable from this side and only hardware testing
-can find it.
+can find it. Microsoft says so itself: `SendInput` "fails when it is blocked by UIPI. Note
+that neither GetLastError nor the return value will indicate the failure was caused by UIPI
+blocking" (https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-sendinput),
+and a zero return means "the input was already blocked by another thread". So a short count
+is *not* a UIPI diagnosis, and the error message no longer claims it is.
 """
 
 from __future__ import annotations
 
 import ctypes
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Protocol
 
@@ -95,6 +112,14 @@ MOUSEEVENTF_HWHEEL = 0x1000
 #: one click, so the conversion is a multiplication by this and nothing more.
 WHEEL_DELTA = 120
 
+#: `SystemParametersInfo` actions that read the pointer-ballistics settings (winuser.h).
+SPI_GETMOUSE = 0x0003
+SPI_GETMOUSESPEED = 0x0070
+
+#: `MOUSEINPUT.dx` / `.dy` are `LONG`, a signed 32-bit integer on every Windows ABI.
+_INT32_MIN = -(2**31)
+_INT32_MAX = 2**31 - 1
+
 #: ``PointerButton`` -> (down flag, up flag).
 _BUTTON_FLAGS: dict[PointerButton, tuple[int, int]] = {
     PointerButton.LEFT: (MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP),
@@ -130,6 +155,20 @@ class MouseEvent:
     mouse_data: int = 0
 
 
+def _require_int32(**values: int) -> None:
+    """Refuse a value a 32-bit `LONG`/`DWORD` field cannot hold.
+
+    ctypes does not range-check an integer assigned to a structure field: on Windows a
+    `c_long` simply wraps, so a finite but enormous delta would reach `SendInput` as a
+    small or *negative* one and send the pointer the opposite way. `check_finite` at the
+    sink edge cannot catch it — the value is finite — so the builders, which own the
+    field values, refuse it. The caller sees a :class:`PointerBackendError`.
+    """
+    for name, value in values.items():
+        if not _INT32_MIN <= value <= _INT32_MAX:
+            raise ValueError(f"{name} {value} does not fit a 32-bit Win32 field")
+
+
 def move_events(steps_x: int, steps_y: int) -> list[MouseEvent]:
     """Relative motion, in pixels. ``+x`` right and ``+y`` down, as Win32 already is.
 
@@ -139,6 +178,7 @@ def move_events(steps_x: int, steps_y: int) -> list[MouseEvent]:
     """
     if not steps_x and not steps_y:
         return []
+    _require_int32(dx=steps_x, dy=steps_y)
     return [MouseEvent(flags=MOUSEEVENTF_MOVE, dx=steps_x, dy=steps_y)]
 
 
@@ -156,6 +196,7 @@ def scroll_events(notches_x: int, notches_y: int) -> list[MouseEvent]:
     right. Both axes in one call produce two events, sent together.
     """
     events: list[MouseEvent] = []
+    _require_int32(wheel=notches_y * WHEEL_DELTA, hwheel=notches_x * WHEEL_DELTA)
     if notches_y:
         events.append(
             MouseEvent(flags=MOUSEEVENTF_WHEEL, mouse_data=-notches_y * WHEEL_DELTA)
@@ -200,6 +241,54 @@ def pack_inputs(events: list[MouseEvent]) -> Any:
     return array
 
 
+@dataclass(frozen=True)
+class MouseBallistics:
+    """The user's pointer-speed settings, as `SystemParametersInfo` reports them.
+
+    ``threshold1``, ``threshold2`` and ``acceleration`` are the three integers of
+    `SPI_GETMOUSE`; ``speed`` is `SPI_GETMOUSESPEED` (1-20, 10 the documented default).
+    """
+
+    threshold1: int
+    threshold2: int
+    acceleration: int
+    speed: int
+
+    def scales_relative_motion(self) -> bool:
+        """True when a relative `MOUSEEVENTF_MOVE` may not travel its nominal distance.
+
+        Conservative on purpose: anything but "no acceleration, default speed" counts.
+        Microsoft documents that acceleration multiplies relative motion; whether speed 10
+        with acceleration off is exactly 1:1 is an inference, which is why the consumer of
+        this is a log warning and not a correction.
+        """
+        return self.acceleration != 0 or self.speed != 10
+
+
+def read_mouse_ballistics(user32: Any) -> MouseBallistics | None:
+    """Read the pointer settings from *user32*, or ``None`` if either query fails."""
+    params = (ctypes.c_int * 3)()
+    speed = ctypes.c_int()
+    if not user32.SystemParametersInfoW(SPI_GETMOUSE, 0, params, 0):
+        return None
+    if not user32.SystemParametersInfoW(SPI_GETMOUSESPEED, 0, ctypes.byref(speed), 0):
+        return None
+    return MouseBallistics(params[0], params[1], params[2], speed.value)
+
+
+def ballistics_warning(b: MouseBallistics) -> str:
+    """The one-line warning for settings that scale relative motion, else ``""``."""
+    if not b.scales_relative_motion():
+        return ""
+    return (
+        "Windows pointer: relative mouse motion is scaled by the user's pointer settings "
+        f"(thresholds {b.threshold1}/{b.threshold2}, acceleration {b.acceleration}, "
+        f"speed {b.speed}/20), so Head-Pointer may move the cursor a different distance "
+        "than intended. Turn off 'Enhance pointer precision' and set the pointer speed to "
+        "6/11 (Settings > Bluetooth & devices > Mouse) to remove the distortion."
+    )
+
+
 class WindowsMouseApi(Protocol):
     """The Win32 operations :class:`WindowsPointerSink` needs, and no others.
 
@@ -232,13 +321,27 @@ class SendInputMouseApi:
     failure path.
     """
 
-    def __init__(self, send_input: Any | None = None) -> None:
+    def __init__(
+        self,
+        send_input: Any | None = None,
+        ballistics: Callable[[], MouseBallistics | None] | None = None,
+    ) -> None:
         self._send_input = send_input
+        self._user32: Any = None
+        # With an injected `send_input` the process is a test: do not reach for user32
+        # to read settings unless the test supplied a reader too.
+        self._ballistics = ballistics if ballistics is not None else (
+            self._read_real_ballistics if send_input is None else None
+        )
+        self._ballistics_checked = False
         self._motion = SubPixelAccumulator()
         self._notches = SubPixelAccumulator()
 
     def move_relative(self, dx: float, dy: float) -> None:
-        self._send(move_events(*self._motion.take(dx, dy)))
+        steps = self._motion.take(dx, dy)
+        if steps != (0, 0):
+            self._warn_once_about_ballistics()
+        self._send(move_events(*steps))
 
     def press(self, button: PointerButton) -> None:
         self._send(button_events(button, down=True))
@@ -257,24 +360,53 @@ class SendInputMouseApi:
 
     # -- internals --------------------------------------------------------- #
 
+    def _get_user32(self) -> Any:
+        """`user32`, loaded on first use and then kept — not rebuilt for every frame."""
+        if self._user32 is None:
+            self._user32 = _load_user32()
+        return self._user32
+
+    def _read_real_ballistics(self) -> MouseBallistics | None:
+        return read_mouse_ballistics(self._get_user32())
+
+    def _warn_once_about_ballistics(self) -> None:
+        """Log, once, if the user's pointer settings will distort relative motion.
+
+        Reading settings must never be the reason the pointer fails, so any error here is
+        swallowed at debug level.
+        """
+        if self._ballistics_checked or self._ballistics is None:
+            return
+        self._ballistics_checked = True
+        try:
+            found = self._ballistics()
+            message = ballistics_warning(found) if found is not None else ""
+        except Exception:  # deliberately broad -- see the docstring
+            log.debug("Windows pointer: could not read pointer settings", exc_info=True)
+            return
+        if message:
+            log.warning(message)
+
     def _send(self, events: list[MouseEvent]) -> None:
         """Send *events* in one `SendInput` call, or raise.
 
-        A short return count is the only failure this side can see, and the usual cause
-        is UIPI: the focused window runs elevated and refuses input from an ordinary
-        process. The full count is not proof of anything beyond acceptance — see the
-        module docstring.
+        A short return count is the only failure this side can see. Its cause is *not*
+        reliably UIPI — Microsoft says neither the return value nor `GetLastError`
+        identifies a UIPI block — and the full count is not proof of anything beyond
+        acceptance. See the module docstring.
         """
         if not events:
             return
         array = pack_inputs(events)
-        send = self._send_input if self._send_input is not None else _load_user32().SendInput
+        send = self._send_input if self._send_input is not None else self._get_user32().SendInput
         inserted = send(len(array), array, ctypes.sizeof(_INPUT))
         if inserted != len(array):
             raise PointerBackendError(
                 f"SendInput inserted {inserted}/{len(array)} mouse events "
-                f"(lastError={_last_error()}). Error 5 (ACCESS_DENIED) means the "
-                "focused window runs elevated and UIPI blocks input from this process."
+                f"(lastError={_last_error()}). Windows documents a zero return as input "
+                "already blocked by another thread (for example BlockInput or a secure "
+                "desktop). It does not report UIPI blocking at all, so an elevated "
+                "window can still drop events that were counted as inserted."
             )
 
 
