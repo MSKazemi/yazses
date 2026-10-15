@@ -24,6 +24,21 @@ def silent_audio_1s():
 
 
 @pytest.fixture(autouse=True)
+def _no_test_may_write_the_real_portal_token(monkeypatch, tmp_path_factory):
+    """Point the portal restore token at a throwaway directory for every test.
+
+    `inject.portal.token_path()` falls back to the developer's real data directory, and
+    four test files that negotiate a (fake) portal session wrote their fake token
+    `fresh-token` into `~/.local/share/yazses/portal_remote_desktop_token` on a real
+    machine. That file is the *consent* record: a bogus one counts as "already approved"
+    to the auto-select logic, and it may have replaced a genuine one. Setting the override
+    for the whole suite means a file that forgets to sandbox is safe by default; a test
+    that wants its own directory still overrides it with `monkeypatch.setenv`.
+    """
+    monkeypatch.setenv("YAZSES_DATA_DIR", str(tmp_path_factory.mktemp("yazses_data")))
+
+
+@pytest.fixture(autouse=True)
 def _no_test_may_pop_a_toast_on_the_users_desktop(monkeypatch):
     """A test must not reach the real `notify-send`.
 

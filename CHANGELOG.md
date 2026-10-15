@@ -6,6 +6,15 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — tests no longer write a fake Wayland permission token into your real data directory
+
+Four test files that negotiate a fake portal session wrote their fake restore token (`fresh-token`) to
+`~/.local/share/yazses/portal_remote_desktop_token` on the machine running the suite. That file is the
+record that you already approved the Remote Desktop permission, so a fake one counted as consent to the
+auto-select logic and could have replaced a real one. Every test now gets a throwaway `YAZSES_DATA_DIR`
+by default (`tests/conftest.py`), and `tests/test_portal_token_is_sandboxed.py` fails if a test resolves
+the token into the real directory. Product code is unchanged.
+
 ### Added — a command-line check for a saved eye-control result file (#421)
 
 `uv run python scripts/check_eye_eval_result.py result.json` validates a result someone else produced against
