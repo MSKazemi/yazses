@@ -38,6 +38,7 @@ Choose the shortest document for your question:
 | What may a public tester share? | [DATA_SHARING.md](DATA_SHARING.md) |
 | What evidence could support a paper? | [PAPER_EVIDENCE.md](PAPER_EVIDENCE.md) |
 | What is the release/safety gate? | [GOVERNANCE.md](GOVERNANCE.md) + [RISK_REGISTER.md](RISK_REGISTER.md) |
+| Could a dedicated eye tracker plug in? | [DEDICATED_TRACKER_STUDY.md](DEDICATED_TRACKER_STUDY.md) |
 
 **Do not infer issue readiness from this README.** The live issue banner + labels are authoritative.
 An open issue without `help wanted` may be intentionally PLANNED.
