@@ -186,6 +186,25 @@ A maintainer checking a file someone attached runs
 `uv run python scripts/check_eye_eval_result.py result.json` (non-zero exit if invalid; see
 [METRICS.md](METRICS.md) "Schema versioning and compatibility").
 
+### Analysing de-identified results (#426)
+
+Schema-valid results are summarised, descriptively and reproducibly, by
+`uv run python scripts/analyze_eye_eval.py --unit participant --links links.json results/`
+(logic in `yazses.eyeeval.analysis`; `--unit run|session|participant` is required, never assumed).
+It refuses rather than repairs: a schema-invalid or identifier-carrying result, a repeated file,
+counts that do not add up, and any mix of study modes -- a `community_qa` row never enters a
+`research` analysis. Participant, session and pilot status are not in the result envelope, so a
+separate **links file** (`{"links_version": "1.0", "rows": [{"result", "participant_id",
+"session_id", "pilot", "host_id"?, "exclusion"?}]}`, pseudonymous IDs only, closed key set) supplies
+them, and a research analysis requires it. Output: outcome shares with Wilson intervals (wrong
+target, fallback and lost tracking stay separate), false activations per hour over the scored
+exposure, per-unit tables, the min / median / max of unit rates, a within-participant session
+spread, per-host latency (never pooled), the exclusions with category, reason and whether the rule
+was predefined, separate participant / session / run / trial / host counts, and a claim-to-source
+manifest. A rate below the **provisional** minimum prints `insufficient data`. There is no
+inferential test until the analysis plan is frozen (#425), and tests use synthetic records that
+prove the code, not the product. Real participant data stays outside this repository.
+
 ### E4 — cross-computer replication
 
 **Question:** does the same OS/software work on different physical machines/cameras?
