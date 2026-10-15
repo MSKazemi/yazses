@@ -1,6 +1,6 @@
 {
   "total": 912,
-  "open": 165,
+  "open": 160,
   "by_family": {
     "app-profile": 154,
     "compatibility": 301,
@@ -19,12 +19,12 @@
     "L2": 51
   },
   "by_state": {
-    "draft": 2,
-    "open": 165,
+    "draft": 7,
+    "open": 160,
     "verified": 745
   },
   "no_setup_needed": 93,
   "cloud_agent_ready": 34,
   "hardware_required": 73,
-  "review_minutes_if_all_merged": 1328
+  "review_minutes_if_all_merged": 1253
 }
