@@ -5622,7 +5622,7 @@ def gaze_status() -> None:
     from yazses.config import load_config
     from yazses.gaze.desktop import build_desktop
     from yazses.gaze.display import current_context
-    from yazses.gaze.factory import build_gaze
+    from yazses.gaze.factory import gaze_backend_available
     from yazses.gaze.store import (
         calibration_path,
         calibration_state,
@@ -5638,14 +5638,11 @@ def gaze_status() -> None:
     def mark(ok: bool) -> str:
         return "✓" if ok else "✗"
 
-    import dataclasses
-
     enabled = cfg.gaze.enabled
-    # Probe deps regardless of the enabled flag so the row means "deps present",
-    # not "feature on" (the factory returns None when disabled).
-    backend = build_gaze(dataclasses.replace(cfg.gaze, enabled=True))
-    if backend is not None:
-        backend.close()
+    # Probe deps regardless of the enabled flag so the row means "deps present", not
+    # "feature on". Probe, don't build: building the backend loads the landmarker and
+    # downloads its model on a cold cache, which a read-only status command must not do.
+    deps_ok, _deps_why = gaze_backend_available(cfg.gaze)
     desktop = build_desktop()
     context = current_context(camera_id=str(cfg.gaze.camera_index))
     cal, check = calibration_state(platform.paths.data_dir, context)
@@ -5653,7 +5650,7 @@ def gaze_status() -> None:
     typer.echo("Glance-Type (look-to-pane) status:")
     typer.echo(f"  {mark(enabled)} [gaze] enabled = {enabled}")
     typer.echo(f"  {mark(cfg.gaze.route_dictation)} route_dictation = {cfg.gaze.route_dictation}")
-    typer.echo(f"  {mark(backend is not None)} gaze backend/deps ({cfg.gaze.backend})")
+    typer.echo(f"  {mark(deps_ok)} gaze backend/deps ({cfg.gaze.backend})")
     typer.echo(f"  {mark(desktop is not None)} X11 desktop backend (xdotool)")
     # #418: say what a gaze target is on THIS session. On Wayland the answer is "none" and
     # the line carries the reason, so the ✗ above is not a missing package to go and fetch.
@@ -5691,7 +5688,7 @@ def gaze_status() -> None:
     ready = all((
         enabled,
         cfg.gaze.route_dictation,
-        backend is not None,
+        deps_ok,
         desktop is not None,
         cal is not None,
         check.validity is not Validity.STALE,
@@ -5712,7 +5709,7 @@ def gaze_status() -> None:
             "\nNext: turn it on — `yazses features enable gaze --force` "
             "(this installs the webcam deps too), then `yazses gaze calibrate`."
         )
-    elif backend is None:
+    elif not deps_ok:
         typer.echo(
             "\nNext: install the webcam deps — `yazses features enable gaze --force` "
             "(or run `yazses gaze calibrate`, which auto-installs them)."
@@ -6599,7 +6596,12 @@ def headpointer_status() -> None:
         raise typer.Exit(1)
     if not result.get("active"):
         typer.echo(f"Head-Pointer is not running: {result.get('reason') or 'turned off'}")
-        typer.echo("Turn it on with:  yazses features enable headpointer")
+        # Only when it IS off. A reason means it is on and could not be built (no pointer
+        # backend, no shared camera); "turn it on" then sends the user in a circle.
+        if not result.get("reason"):
+            typer.echo("Turn it on with:  yazses features enable headpointer")
+        else:
+            typer.echo("It is switched on; `yazses doctor` names what is missing.")
         return
     typer.echo(f"state:    {result['state']}" + (f" ({result['reason']})" if result.get("reason") else ""))
     typer.echo(f"backend:  {result.get('backend') or 'unknown'}")
@@ -6921,7 +6923,8 @@ def gesture_status() -> None:
         typer.echo(f"ignored:  {problem}")
     if not result.get("active"):
         typer.echo(f"Gesture Chords are not running: {result.get('reason') or 'turned off'}")
-        typer.echo("Turn them on with:  yazses features enable gesture")
+        if not result.get("reason"):
+            typer.echo("Turn them on with:  yazses features enable gesture")
         return
     typer.echo(f"chords:   {result.get('chords')} bound")
     typer.echo(f"watching: {', '.join(result.get('watching') or []) or 'nothing'}")

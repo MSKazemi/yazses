@@ -210,6 +210,44 @@ exact entity with `is_exact` true. `RefinedTarget` now carries the candidate's `
 ground yields no entity. New and opt-in: `GazeGrounder(region_px=...)` states the gaze sensor's error as a
 region instead of asserting a precise point; no default is chosen.
 
+### Fixed — `doctor`, `yazses status` and the controls window described one machine three ways
+
+Audit of #416 (2026-10-15). Each surface was tested alone against fabricated facts, so none of the tests
+could see that the *gathering* differed. Found by driving one fabricated machine through each surface's real
+path (`tests/test_handsfree_surfaces_agree.py`):
+
+- `yazses status` said **unknown** for a Head-Pointer that was waiting on the desktop's permission dialog (the
+  daemon's reply never carried the pointer's state, backend or permission), while `yazses headpointer status`
+  said PENDING. The reply now carries the Head-Pointer's state word, its newest-sample age and the pointer
+  backend with its permission state; the Head-tracking and Pointer-output rows read them.
+- A shared camera source that had **failed** (camera taken, model missing) printed as `running`, healthy: a
+  consumer existing was read as the camera being open. It is now `failed`, with the reason, and a failure.
+- A face switch the daemon did not build because a dependency was missing read "no runtime path in this build
+  ... nothing to fix locally" - the wrong cause and the wrong advice. The status reply keeps `face_wired` as the
+  registry's answer and adds `face_built`/`gaze_built`/`head_built`; the row now says the daemon did not
+  construct it and sends you to `yazses doctor`. Glance-Type gets a `Gaze routing` row (running / not built).
+- The Head-Pointer was not counted as a shared-camera consumer on a head-only install, so `status` claimed "each
+  consumer opens its own capture" and reported no per-channel freshness.
+- `yazses status` printed `unknown` for the camera whenever it had not probed the permission gate, even while
+  the daemon's own consumers were running; a state the daemon measured is no longer overridden by a probe the
+  poll deliberately does not make.
+- `doctor` printed `unknown` for every state only the running daemon holds (head tracking, the shared camera,
+  the global gate, the pointer's permission). It now reads the same `status` reply the window does - one local
+  call, `consume_notifications=False`, no camera, pointer or portal - and falls back to `unknown` when no daemon
+  answers.
+- A denied pointer permission was a **PROBLEM** in the controls window and a **WARN** in `doctor`; a Head-Pointer
+  that had not yet seen a face was OK in the window and unknown elsewhere. The window now takes both from the
+  single `HEAD_STATES` table. **Decision for the owner:** denied is `NEEDS ATTENTION`/WARN everywhere (the user's
+  own answer, not a malfunction; the remedy is to restart and approve), not a failure.
+- The window's Pointer-output row was a bare `UNKNOWN` when the daemon was down; it now names the session's
+  predicted backend exactly as `doctor` does.
+- `yazses headpointer status`, `yazses gesture status` and `yazses facegesture status` told a user whose
+  feature was **already on** (and had failed to build) to "turn it on with `yazses features enable ...`". They
+  now say it is switched on and point at `yazses doctor`; the enable hint appears only when it is off.
+- `yazses gaze status` answered "are the gaze dependencies present?" by constructing the MediaPipe backend, which
+  loads the landmarker and downloads its model on a cold cache - a read-only status command reaching the network.
+  It now probes the dependencies and stops there.
+
 ### Fixed — an unanswered Wayland permission dialog was reported as "keyboard only"
 
 Found by running the daemon on a real GNOME Wayland session (2026-10-15). The portal answers `CreateSession`

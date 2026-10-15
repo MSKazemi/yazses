@@ -20,7 +20,7 @@ import time
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from types import FrameType
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -228,6 +228,48 @@ def _gate_status(gate):
     except Exception:  # pragma: no cover - defensive
         log.debug("hands-free safety status failed", exc_info=True)
         return None
+
+
+def _head_facts(runtime) -> dict[str, Any]:
+    """The Head-Pointer's state and its pointer, for the hands-free status payload.
+
+    Names, flags and a sample age only -- ``HeadPointerRuntime.command("status")`` is the
+    same value-free dict ``yazses headpointer status`` prints. ``{}`` when the runtime
+    cannot answer, which the renderers read as "not determined", never as healthy. Bounded
+    free text: the controller's reason and the pointer backend's own consent detail are
+    sentences about the desktop, and the report bundle redacts every string in this block.
+    """
+    if runtime is None or not getattr(runtime, "active", False):
+        reason = str(getattr(runtime, "reason", "") or "")[:200]
+        return {
+            "head_built": False,
+            "head_state": "not_running",
+            "head_state_reason": reason,
+            "pointer_available": False,
+            "pointer_reason": reason or "the Head-Pointer was not built at start-up",
+        }
+    try:
+        status = runtime.command("status")
+    except Exception:  # pragma: no cover - defensive
+        log.debug("head-pointer status for the hands-free payload failed", exc_info=True)
+        return {}
+    if not isinstance(status, dict) or not status.get("ok"):
+        return {}
+    out: dict[str, Any] = {
+        "head_built": True,
+        "head_state": str(status.get("state") or ""),
+        "head_state_reason": str(status.get("reason") or "")[:200],
+    }
+    age = status.get("sample_age_s")
+    if isinstance(age, (int, float)) and not isinstance(age, bool):
+        out["head_age_ms"] = float(age) * 1000.0
+    backend = str(status.get("backend") or "")
+    if backend:
+        out["pointer_backend"] = backend
+        out["pointer_available"] = True
+        out["pointer_consent"] = str(status.get("consent") or "")
+        out["pointer_consent_reason"] = str(status.get("consent_reason") or "")[:200]
+    return out
 
 
 def _switch_action_lines(daemon) -> tuple[str, ...]:
@@ -1716,10 +1758,18 @@ class Daemon:
             log.exception("facegesture status raised")
             return {"ok": False, "reason": f"failed: {type(exc).__name__}"}
         if payload is None:
-            return {
-                "ok": True, "active": False,
-                "reason": "the face switch is not running (`yazses features enable facegesture`)",
-            }
+            config = getattr(self, "_config", None)
+            if bool(getattr(getattr(config, "facegesture", None), "enabled", False)):
+                # Enabled and not built is a different fact from off: telling a user whose
+                # switch is already on to enable it sent them in a circle. The daemon built
+                # nothing -- a missing dependency or no camera -- and `doctor` names which.
+                reason = (
+                    "`[facegesture]` is on, but the daemon did not construct the face switch "
+                    "at start-up (a missing dependency or no camera) -- run `yazses doctor`"
+                )
+            else:
+                reason = "the face switch is not running (`yazses features enable facegesture`)"
+            return {"ok": True, "active": False, "reason": reason}
         return {"ok": True, "active": True, **payload}
 
     def _build_slm_router(self, cfg):
@@ -5803,6 +5853,7 @@ class Daemon:
         """
         try:
             from yazses.handsfree.observability import (
+                PERCEPTION_FAILED,
                 PERCEPTION_RUNNING,
                 PERCEPTION_STOPPED,
                 as_payload,
@@ -5823,7 +5874,8 @@ class Daemon:
                 type(source).__module__.startswith("yazses.facegesture")
                 for source in getattr(self, "_extra_activations", ()) or ()
             )
-            head_running = bool(getattr(getattr(self, "_headpointer", None), "active", False))
+            head_runtime = getattr(self, "_headpointer", None)
+            head_running = bool(getattr(head_runtime, "active", False))
             running = gaze_running or face_running or head_running
             # What the shared source can say about itself, but only for a consumer that
             # really leases it: Glance-Type gaze, once #396 moved it across. The source
@@ -5834,7 +5886,12 @@ class Daemon:
             shared = None
             gaze_shared = gaze_running and getattr(self, "_gaze_on_shared_source", False)
             face_shared = face_running and getattr(self, "_face_on_shared_source", False)
-            if gaze_shared or face_shared:
+            # The Head-Pointer has no own-capture path: `build_headpointer` takes the shared
+            # source, so a running Head-Pointer *is* a shared consumer. Leaving it out made
+            # a head-only install report "each consumer opens its own capture" -- false --
+            # and no per-channel freshness at all.
+            head_shared = head_running
+            if gaze_shared or face_shared or head_shared:
                 perception = getattr(self, "_perception", None)
                 if perception is not None:
                     shared = perception.status()
@@ -5854,14 +5911,27 @@ class Daemon:
                     f"shared camera source {shared.state.value}"
                     + (f" ({shared.failure_reason})" if shared.failure_reason else "")
                     + (
-                        "; the camera opens on the first gaze sample"
-                        if not face_shared
-                        else "; the face switch holds its lease from start-up"
+                        ""
+                        if face_shared or head_shared
+                        else "; the camera opens on the first gaze sample"
                     )
                 )
+            # A source that FAILED (camera taken, model missing) used to print as healthy
+            # because a consumer existing was taken to mean the camera was open. A *dormant*
+            # source stays "running" on purpose: Glance-Type is lazy, so it is the honest
+            # pre-first-hold state, and the reason text says the camera has not opened.
+            perception_state = PERCEPTION_RUNNING if running else PERCEPTION_STOPPED
+            if running and shared is not None:
+                if shared.state.value == "failed":
+                    perception_state = PERCEPTION_FAILED
+            # The Head-Pointer's own state and the pointer it would move -- the daemon is
+            # the only process that holds them, and `status` printed "unknown" for both.
+            head_facts: dict[str, Any] = {}
+            if "headpointer" in facts.features_requested:
+                head_facts = _head_facts(head_runtime)
             facts = dataclasses.replace(
                 facts,
-                perception_state=PERCEPTION_RUNNING if running else PERCEPTION_STOPPED,
+                perception_state=perception_state,
                 perception_consumers=int(gaze_running) + int(face_running) + int(head_running),
                 perception_channels=channels,
                 perception_age_ms=age_ms,
@@ -5874,9 +5944,17 @@ class Daemon:
                 # whatever the registry says about the build. Reporting the registry's
                 # answer for a source this process does not hold would be the "printed OK
                 # for something that cannot act" failure the row exists to end.
-                face_wired=(
+                # `*_wired` stays the registry's answer ("a runtime path exists in this
+                # build"); whether this daemon *constructed* it is `*_built`. Overwriting
+                # the first with the second told a user whose face switch simply lacked a
+                # dependency that "nothing will happen ... nothing to fix locally".
+                face_built=(
                     face_running if "facegesture" in facts.features_requested else None
                 ),
+                gaze_built=(
+                    gaze_running if "gaze" in facts.features_requested else None
+                ),
+                **head_facts,
                 # The live ACTIVE/PAUSED/FAULTED snapshot, when the global gate exists. The
                 # facts record has always had a slot for it ("None outside the daemon"), but
                 # nothing in the daemon filled it, so `status` and the settings panel could

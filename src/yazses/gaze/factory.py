@@ -42,6 +42,26 @@ _BACKENDS: dict[str, tuple[str, str, str | None]] = {
 }
 
 
+def gaze_backend_available(config) -> tuple[bool, str]:
+    """``(available, why_not)`` for the chosen backend, **without constructing it**.
+
+    `yazses gaze status` used to answer "are the gaze dependencies present?" by calling
+    :func:`build_gaze` and closing the result. Building the MediaPipe backend loads the
+    landmarker and, on a machine that does not have it cached, *downloads the ~3.7 MB model
+    from the network* -- so a read-only status command could reach out, and took seconds. This
+    asks the same dependency question (:func:`probe_backend` is what ``build_gaze`` asks first)
+    and stops there: no model, no camera, no socket. What it cannot say is whether a model
+    download would succeed, which is the one thing a status command should not try.
+    """
+    backend = str(getattr(config, "backend", "mediapipe") or "mediapipe")
+    spec = _BACKENDS.get(backend)
+    if spec is None:
+        return False, f"unknown gaze backend {backend!r} (expected mediapipe or l2cs)"
+    adapter, requires, extra = spec
+    status = probe_backend(backend, adapter=adapter, requires=(requires,), extra=extra)
+    return (True, "") if status.available else (False, status.message)
+
+
 def build_gaze(config, perception=None) -> GazeBackend | None:
     """Return a gaze backend for *config*, or None when dormant/unavailable.
 

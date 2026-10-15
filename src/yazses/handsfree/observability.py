@@ -56,6 +56,8 @@ from yazses.handsfree.safety import SafetyState, SafetyStatus, SourceHealth
 __all__ = [
     "CONTINUOUS_FEATURES",
     "PAYLOAD_KEYS",
+    "HEAD_STATES",
+    "PERCEPTION_FAILED",
     "PERCEPTION_RUNNING",
     "PERCEPTION_STOPPED",
     "PERCEPTION_UNKNOWN",
@@ -80,6 +82,8 @@ CONTINUOUS_FEATURES: tuple[str, ...] = ("headpointer", "facegesture")
 PERCEPTION_RUNNING = "running"
 PERCEPTION_STOPPED = "stopped"
 PERCEPTION_UNKNOWN = "unknown"
+#: The shared source opened and then stopped on a contained failure; the reason says why.
+PERCEPTION_FAILED = "failed"
 
 
 class Health(Enum):
@@ -172,6 +176,20 @@ class HandsFreeFacts:
     #: switch. ``None`` = the question was not asked; only meaningful when requested.
     head_wired: bool | None = None
     face_wired: bool | None = None
+    #: Whether *this daemon* constructed the consumer at start-up. Distinct from ``*_wired``
+    #: (a runtime path exists in the build): a wired consumer the daemon could not build --
+    #: missing dependency, no device -- is not "not in this build", and telling the user
+    #: "nothing to fix locally" about it was the defect. ``None`` = not asked / not a daemon.
+    head_built: bool | None = None
+    face_built: bool | None = None
+    gaze_built: bool | None = None
+    #: The Head-Pointer controller's own state, from ``headpointer/controller.py``'s ``State``
+    #: values plus ``not_running`` (no runner was built). ``""`` = not known (outside the
+    #: daemon, or an older daemon). A state word, never a pose.
+    head_state: str = ""
+    head_state_reason: str = ""
+    #: Age of the Head-Pointer's newest sample in ms; ``None`` = none / not known.
+    head_age_ms: float | None = None
     #: Pointer backend identifier (``"x11"``, ``"portal"``, ...); ``""`` = not known.
     pointer_backend: str = ""
     pointer_relative: bool | None = None
@@ -235,6 +253,8 @@ def health_rows(facts: HandsFreeFacts) -> tuple[HealthRow, ...]:
             feature="headpointer",
             wired=facts.head_wired,
             channel="head_pose",
+            built=facts.head_built,
+            state=facts.head_state,
         ),
         _consumer_row(
             facts,
@@ -242,7 +262,9 @@ def health_rows(facts: HandsFreeFacts) -> tuple[HealthRow, ...]:
             feature="facegesture",
             wired=facts.face_wired,
             channel="face",
+            built=facts.face_built,
         ),
+        _gaze_row(facts),
         _switch_actions_row(facts),
         _pointer_row(facts),
         _gaze_target_row(facts),
@@ -345,7 +367,14 @@ def _perception_row(facts: HandsFreeFacts) -> HealthRow | None:
             f"dormant — {wanted}, and the camera is unavailable",
             "see the Camera row above for the reason and the fix",
         )
-    if facts.camera_ready is None:
+    # A state the daemon *measured* (it holds the consumers and the shared source) is not
+    # "unknown" just because this surface did not probe the camera gate: a status poll
+    # deliberately pays for no disk read, so `camera_ready` is blank there by design and
+    # reading that blank as "cannot tell" printed UNKNOWN for a camera that was running.
+    measured = facts.perception_state in (
+        PERCEPTION_RUNNING, PERCEPTION_FAILED, PERCEPTION_STOPPED
+    )
+    if facts.camera_ready is None and not measured:
         return HealthRow(
             label,
             Health.UNKNOWN,
@@ -367,7 +396,18 @@ def _perception_row(facts: HandsFreeFacts) -> HealthRow | None:
             detail.append(f"{facts.perception_consumers} consumer(s)")
         if facts.perception_reason:
             detail.append(facts.perception_reason)
+        if facts.camera_ready is None:
+            detail.append("the camera permission is checked by `yazses doctor`, not on a poll")
         return HealthRow(label, Health.OK, "; ".join(detail))
+    if facts.perception_state == PERCEPTION_FAILED:
+        return HealthRow(
+            label,
+            Health.FAULT,
+            f"failed — {wanted}, and the shared camera source stopped"
+            + (f": {facts.perception_reason}" if facts.perception_reason else ""),
+            "free the camera or fix the cause named above, then run `yazses restart`; "
+            "a failed source never retries by itself",
+        )
     if facts.perception_state == PERCEPTION_STOPPED:
         return HealthRow(
             label,
@@ -386,6 +426,33 @@ def _perception_row(facts: HandsFreeFacts) -> HealthRow | None:
     )
 
 
+def _gaze_row(facts: HandsFreeFacts) -> HealthRow | None:
+    """Glance-Type routing: did the daemon build it? ``None`` outside the daemon.
+
+    Only the build question is asked here -- the calibration has its own row, and the camera
+    its own. ``built is False`` has several causes the daemon logs but does not keep (routing
+    switched off, no X11 desktop, no calibration, a stale one, missing dependencies), and
+    `yazses gaze status` already tells those apart without opening a camera, so the remedy
+    points at it rather than guessing.
+    """
+    if "gaze" not in facts.features_requested or facts.gaze_built is None:
+        return None
+    label = "Gaze routing"
+    if facts.gaze_built:
+        return HealthRow(
+            label, Health.OK,
+            "running — dictation follows the window you look at; the camera opens on first use",
+        )
+    return HealthRow(
+        label,
+        Health.DEGRADED,
+        "not running — `[gaze]` is on, and the daemon built no look-to-pane router at "
+        "start-up (routing off, no X11 desktop, no calibration, a stale one, or missing "
+        "dependencies)",
+        "run `yazses gaze status`, which names which one",
+    )
+
+
 def _switch_actions_row(facts: HandsFreeFacts) -> HealthRow | None:
     """What the face switch's select / confirm / cancel last did, or ``None`` if none is bound.
 
@@ -398,8 +465,110 @@ def _switch_actions_row(facts: HandsFreeFacts) -> HealthRow | None:
     return HealthRow("Face switch actions", Health.OK, "; ".join(facts.switch_actions))
 
 
+#: The Head-Pointer controller's states (``headpointer/controller.py``'s ``State``) plus
+#: ``not_running``, as ``(health, what it means, what to do)``. One table, read by every
+#: surface -- `doctor`, `yazses status` and the controls window -- so a state cannot be a
+#: warning in one and a failure in another. ``tests/test_handsfree_surfaces_agree.py`` holds
+#: this table total over the enum, so a new controller state fails the build until somebody
+#: decides what it is.
+HEAD_STATES: dict[str, tuple[Health, str, str]] = {
+    "tracking": (Health.OK, "tracking valid — following the head", ""),
+    "clutched": (
+        Health.OK,
+        "tracking valid — the clutch is holding the pointer still on purpose",
+        "",
+    ),
+    "waiting": (
+        Health.DEGRADED,
+        "waiting — running, and no usable head sample has arrived yet",
+        "look at the camera; check the lighting and that your face is in frame",
+    ),
+    "lost": (
+        Health.DEGRADED,
+        "tracking invalid — the head signal is missing, stale or untrusted, so the "
+        "pointer is held still",
+        "look back at the camera, then re-centre with `yazses headpointer recenter`",
+    ),
+    "paused": (
+        Health.DEGRADED,
+        "paused — no motion, dwell or click until it is resumed",
+        "run `yazses headpointer resume` when you are ready",
+    ),
+    "suppressed": (
+        Health.DEGRADED,
+        "suppressed — the global hands-free state is not ACTIVE",
+        "see the Hands-free safety row; re-arm with `yazses handsfree resume`",
+    ),
+    "faulted": (
+        Health.FAULT,
+        "faulted — the pointer backend failed",
+        "fix the cause, then `yazses headpointer resume` — a fault never clears itself "
+        "back into motion",
+    ),
+    "pending_consent": (
+        Health.DEGRADED,
+        "permission pending — the desktop is waiting for your answer",
+        "answer the desktop's permission dialog; the pointer starts by itself",
+    ),
+    "denied": (
+        Health.DEGRADED,
+        "permission was not given, so there is no pointer this session",
+        "run `yazses restart` and approve the dialog",
+    ),
+    "unavailable": (
+        Health.DEGRADED,
+        "the desktop offers no pointer on this session",
+        "no local fix; dictation is unaffected",
+    ),
+    "closed": (
+        Health.DEGRADED,
+        "closed — it was stopped for good",
+        "run `yazses restart`",
+    ),
+    "not_running": (
+        Health.DEGRADED,
+        "not running — the daemon built no Head-Pointer",
+        "run `yazses doctor`, which names the missing piece",
+    ),
+}
+
+#: States whose reason is a sentence about the machine worth printing. For the others the
+#: controller's reason is a bookkeeping word ("centred", "settling") that adds nothing.
+_HEAD_REASON_STATES = frozenset(
+    {"lost", "suppressed", "faulted", "pending_consent", "denied", "unavailable", "not_running"}
+)
+
+
+def head_state_row(label: str, state: str, reason: str, age_ms: float | None) -> HealthRow:
+    """The one row for a Head-Pointer controller *state*. Pure; total over any string.
+
+    An unrecognised state -- a newer daemon -- is ``UNKNOWN`` and names the word, never OK.
+    """
+    entry = HEAD_STATES.get(state)
+    if entry is None:
+        return HealthRow(
+            label, Health.UNKNOWN,
+            f"unknown — the Head-Pointer reported a state this build does not know ({state!r})",
+            "run `yazses headpointer status`",
+        )
+    health, text, remedy = entry
+    detail = text
+    if reason and state in _HEAD_REASON_STATES and reason not in text:
+        detail += f": {reason}"
+    if age_ms is not None and state in ("tracking", "clutched", "lost"):
+        detail += f", newest sample {age_ms:.0f} ms old"
+    return HealthRow(label, health, detail, remedy)
+
+
 def _consumer_row(
-    facts: HandsFreeFacts, *, label: str, feature: str, wired: bool | None, channel: str
+    facts: HandsFreeFacts,
+    *,
+    label: str,
+    feature: str,
+    wired: bool | None,
+    channel: str,
+    built: bool | None = None,
+    state: str = "",
 ) -> HealthRow | None:
     """Head tracking / face switch: requested, reachable, and receiving a signal?"""
     if feature not in facts.features_requested:
@@ -412,13 +581,26 @@ def _consumer_row(
             "yet, so nothing will happen however well the camera works",
             "nothing to fix locally; the wiring is tracked in the eye-control programme",
         )
-    if wired is None:
+    if wired is None and built is None and not state:
         return HealthRow(
             label,
             Health.UNKNOWN,
             f"unknown — `[{feature}]` is on and whether a runtime path drives it was not "
             "determined here",
             "run `yazses features` to see whether it is wired in this build",
+        )
+    if state:
+        # The consumer's own state, read from the daemon that holds it: knowable, so it is
+        # never reported as "unknown". It wins over the gate's per-source view because it
+        # also covers the states the gate cannot see (a permission dialog, a missing pointer).
+        return head_state_row(label, state, facts.head_state_reason, facts.head_age_ms)
+    if built is False:
+        return HealthRow(
+            label,
+            Health.DEGRADED,
+            f"not running — `[{feature}]` is on and this build can drive it, but the daemon "
+            "did not construct it at start-up (a missing dependency or no camera)",
+            "run `yazses doctor`, which names the missing piece, then `yazses restart`",
         )
     health = facts.safety.source(feature) if facts.safety is not None else None
     if health is not None:
@@ -639,11 +821,20 @@ PAYLOAD_KEYS: tuple[str, ...] = (
     "perception_reason",
     "head_wired",
     "face_wired",
+    "head_built",
+    "face_built",
+    "gaze_built",
+    "head_state",
+    "head_state_reason",
+    "head_age_ms",
     "pointer_backend",
     "pointer_relative",
     "pointer_absolute",
     "pointer_buttons",
     "pointer_reason",
+    "pointer_available",
+    "pointer_consent",
+    "pointer_consent_reason",
     "calibration_validity",
     "calibration_reason",
     "gaze_target_available",
@@ -766,11 +957,20 @@ def facts_from_payload(payload: Mapping[str, object] | None) -> HandsFreeFacts |
         perception_reason=_text(payload.get("perception_reason"), ""),
         head_wired=_flag(payload.get("head_wired")),
         face_wired=_flag(payload.get("face_wired")),
+        head_built=_flag(payload.get("head_built")),
+        face_built=_flag(payload.get("face_built")),
+        gaze_built=_flag(payload.get("gaze_built")),
+        head_state=_text(payload.get("head_state"), ""),
+        head_state_reason=_text(payload.get("head_state_reason"), ""),
+        head_age_ms=_number(payload.get("head_age_ms")),
         pointer_backend=_text(payload.get("pointer_backend"), ""),
         pointer_relative=_flag(payload.get("pointer_relative")),
         pointer_absolute=_flag(payload.get("pointer_absolute")),
         pointer_buttons=_count(payload.get("pointer_buttons")),
         pointer_reason=_text(payload.get("pointer_reason"), ""),
+        pointer_available=_flag(payload.get("pointer_available")),
+        pointer_consent=_text(payload.get("pointer_consent"), ""),
+        pointer_consent_reason=_text(payload.get("pointer_consent_reason"), ""),
         calibration_validity=_text(payload.get("calibration_validity"), ""),
         calibration_reason=_text(payload.get("calibration_reason"), ""),
         gaze_target_available=_flag(payload.get("gaze_target_available")),

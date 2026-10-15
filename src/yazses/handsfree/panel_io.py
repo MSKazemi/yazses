@@ -98,6 +98,7 @@ def gather_panel_inputs(
     camera_gate: Any | None = None,
     read_context: Callable[[], Any] | None = None,
     unwired: frozenset[str] | None = None,
+    pointer_env: Any | None = None,
 ) -> PanelInputs:
     """Everything the panel needs, without opening the camera. Never raises."""
     staged = staged or {}
@@ -136,6 +137,18 @@ def gather_panel_inputs(
 
         static = facts_from_config(cfg, unwired=unwired)
         static = pointer_facts(static, platform)
+        if "headpointer" in static.features_requested and not static.pointer_backend:
+            # The same prediction `doctor` makes, from the same function, so the two cannot
+            # name different backends -- and, when the daemon is not running, the window can
+            # say "x11, permission: daemon not running" instead of a bare UNKNOWN.
+            from yazses.handsfree.probe import pointer_route_facts, read_pointer_environment
+
+            static = pointer_route_facts(
+                static,
+                pointer_env if pointer_env is not None else read_pointer_environment(cfg),
+                daemon_running=reachable,
+                live=headpointer,
+            )
         if "gaze" in static.features_requested:
             validity, reason = calibration_facts(
                 platform.paths.data_dir,

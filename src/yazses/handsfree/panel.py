@@ -54,6 +54,7 @@ from yazses.facegesture.switches import (
     parse_bindings,
 )
 from yazses.handsfree.observability import (
+    HEAD_STATES,
     HandsFreeFacts,
     Health,
     HealthRow,
@@ -377,6 +378,24 @@ def merge_facts(static: HandsFreeFacts, live: HandsFreeFacts | None) -> HandsFre
         perception_reason=live.perception_reason or static.perception_reason,
         head_wired=live.head_wired if live.head_wired is not None else static.head_wired,
         face_wired=live.face_wired if live.face_wired is not None else static.face_wired,
+        head_built=live.head_built if live.head_built is not None else static.head_built,
+        face_built=live.face_built if live.face_built is not None else static.face_built,
+        gaze_built=live.gaze_built if live.gaze_built is not None else static.gaze_built,
+        head_state=live.head_state or static.head_state,
+        head_state_reason=live.head_state_reason or static.head_state_reason,
+        head_age_ms=live.head_age_ms if live.head_age_ms is not None else static.head_age_ms,
+        # The daemon names the backend it is actually using and the permission state only it
+        # holds; both beat a prediction made from the session type. `pointer_available` and
+        # the consent pair travel together, so one never overrides without the others.
+        pointer_available=(
+            live.pointer_available if live.pointer_available is not None
+            else static.pointer_available
+        ),
+        pointer_consent=live.pointer_consent or static.pointer_consent,
+        pointer_consent_reason=(
+            live.pointer_consent_reason if live.pointer_consent
+            else static.pointer_consent_reason
+        ),
         pointer_backend=live.pointer_backend or static.pointer_backend,
         pointer_relative=(
             live.pointer_relative if live.pointer_relative is not None else static.pointer_relative
@@ -698,13 +717,10 @@ def _head_pointer_rows(inputs: PanelInputs) -> list[Row]:
         return []
     hp = inputs.headpointer
     if not inputs.daemon_reachable or hp is None:
+        # Only the Head-Pointer's own row: the Pointer output row comes from the shared
+        # health rows, which carry the same session-type prediction `doctor` prints.
         return [
             Row("Head-Pointer", "unknown", "YazSes is not running, so its state is not known."),
-            Row(
-                "Pointer output", "unknown",
-                "Which backend would move the pointer is decided by the running program.",
-                "Start YazSes, then reopen this panel.",
-            ),
         ]
     if not hp.get("ok"):
         return [Row(
@@ -726,20 +742,25 @@ def _head_pointer_rows(inputs: PanelInputs) -> list[Row]:
         "clutch held" if hp.get("clutched") else "clutch released",
         "dwell-click on" if hp.get("dwell_enabled") else "dwell-click off",
     ]
-    status = "ok"
-    remedy = ""
+    # The word comes from `observability.HEAD_STATES`, the one table `doctor` and `yazses
+    # status` also read, so a state cannot be a warning here and a failure there. This
+    # branch used to carry its own opinion: `denied` was a PROBLEM in the window and a WARN in
+    # `doctor`, and `waiting` (no usable sample yet) was OK. Only the remedy wording is the
+    # window's own, because it names this window's buttons.
+    entry = HEAD_STATES.get(state)
+    status = _HEALTH_TO_WORD[entry[0]] if entry is not None else "unknown"
+    remedy = entry[2] if entry is not None else "Run `yazses headpointer status`."
     if hp.get("fault"):
         status, remedy = "problem", "Fix the cause, then press Recover."
         pieces.append(f"fault: {hp['fault']}")
     elif state == "pending_consent":
-        status = "attention"
         remedy = "Answer the desktop's permission dialog; the pointer starts by itself."
     elif state == "denied":
-        status, remedy = "problem", "Restart YazSes and approve the permission dialog."
+        remedy = "Restart YazSes and approve the permission dialog."
     elif state == "unavailable":
         status, remedy = "unavailable", "Nothing to fix in settings; dictation is unaffected."
     elif state in ("lost", "suppressed"):
-        status, remedy = "attention", "Look at the camera; if it stays like this press Recover."
+        remedy = "Look at the camera; if it stays like this press Recover."
     elif state == "paused" or hp.get("paused"):
         status, remedy = "attention", "Press Resume when you are ready."
     rows = [Row("Head-Pointer", status, "; ".join(pieces), remedy)]
@@ -754,7 +775,7 @@ def _head_pointer_rows(inputs: PanelInputs) -> list[Row]:
         ))
     elif backend and consent == "denied":
         rows.append(Row(
-            "Pointer output", "problem",
+            "Pointer output", "attention",
             f"{backend} — permission was not given" + (f": {why}" if why else "."),
             "Restart YazSes and approve the permission dialog.",
         ))
