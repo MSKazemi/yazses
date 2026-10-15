@@ -26,6 +26,21 @@ It stays read-only: it opens no pointer, no portal session and no camera, and ma
 when the Head-Pointer is enabled. `uinput` and `xdotool` are not pointer backends in this build and are never
 named. Fakes only: the real GNOME consent dialog has still not been answered against this code.
 
+### Added — a voice stop word for hands-free input
+
+Say `pause hands free` and the hands-free gate pauses, the same as `yazses handsfree pause`: the pointer,
+the gesture chords and the face switch all stop, without touching a key or aiming anything. The match is on
+the **whole utterance** only (case, edge punctuation and hyphen/space variants such as "pause hands-free" are
+ignored; nothing else), so dictating a sentence that merely contains the words types the sentence and
+pauses nothing. The words are consumed, never typed; you get a notification (and the stop tone) saying what
+was paused and how to resume. It can only pause: **there is no resume phrase** — resume is `yazses handsfree
+resume`, the tray or the controls window. New `[handsfree_safety] stop_phrase` (default `""` = off; 2 to 6
+words, validated at load, a bad value reports a problem and leaves it off) and `[handsfree] voice_stop`
+(default on) — under `[handsfree] enabled = true` the preset sets the phrase to "pause hands free", and a
+key you wrote wins. Pure matching in `handsfree/stopword.py`; the daemon glue is `_try_voice_stop`, checked
+before any other handler. The default phrase is provisional: whether speech recognition reliably transcribes
+it across accents and rooms is unmeasured. See [Stop hands-free input by voice](docs/how-to/hands-free-voice-stop.md).
+
 ### Added — a hands-free preset: `[handsfree] enabled = true`
 
 One switch that expands, before any section is built, into the ordinary settings a person could have written
@@ -39,7 +54,7 @@ features) / `disable` (pauses at once; `yazses restart` releases the camera). Ne
 refuse_destructive_fallback` (off by default, on under the preset): "close this" with no gaze target is
 refused with a notification instead of closing the focused window. Also fixes the daemon registering a
 Head-Pointer gate source even when the pointer was off, which left the summary PAUSED and made every
-`handsfree resume` refuse. Every value the preset invents is provisional; there is no voice stop word; the
+`handsfree resume` refuse. Every value the preset invents is provisional; the
 only commit gesture wired is dwell-click (which needs the overlay); the T7 one-person workflow has not been
 done ([#410](https://github.com/MSKazemi/yazses/issues/410)).
 

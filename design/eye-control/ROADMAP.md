@@ -391,7 +391,7 @@ weakening the safety floor (global stop, `[cmdsafety]`, `confirm_destructive`, `
 refuses the preset with the key named. Recovery is a pure rule (`handsfree/recovery.py`): a destructive
 action never falls back to an inferred stand-in such as the focused window. The stop works from FAULTED
 (IPC pause, face-switch pause action, stop chord — tested with a fabricated fault). **Not met:** the exit
-gate's T7 one-person workflow is a human validation and has not been done; there is no voice stop word; the
+gate's T7 one-person workflow is a human validation and has not been done; the voice stop word is built but its recognition rate on real speech is unmeasured (no resume phrase, by design); the
 voice mouse grid is config-only; the preset's only invented values (`confidence_floor = 0.5` and two chord
 bindings) are unmeasured.
 

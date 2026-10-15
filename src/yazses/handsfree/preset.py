@@ -41,6 +41,7 @@ from typing import Any
 
 from yazses.config import HandsfreeConfig
 from yazses.configcheck import build_section
+from yazses.handsfree.stopword import DEFAULT_STOP_PHRASE
 
 __all__ = [
     "Expansion",
@@ -60,6 +61,7 @@ ROLE_POINTER = "head pointer: movement"
 ROLE_DWELL = "dwell: commit"
 ROLE_SWITCH = "face switch: hold to talk"
 ROLE_CHORDS = "chords: recenter and stop"
+ROLE_VOICE = "voice: stop word"
 
 #: Which feature (the toggle name `yazses features` uses) a section's ``enabled`` key is.
 FEATURE_OF_SECTION: dict[str, str] = {
@@ -90,6 +92,12 @@ def stop_paths(components: HandsfreeConfig) -> tuple[str, ...]:
         "`yazses handsfree pause` from any terminal or script (no pointer, no camera)",
         "the Pause button of the hands-free panel in the settings window (keyboard mnemonic P)",
     ]
+    if components.voice_stop:
+        out.append(
+            f'say the stop phrase ([handsfree_safety] stop_phrase, "{DEFAULT_STOP_PHRASE}" unless you '
+            "set it) as a whole utterance in a dictation burst; it only pauses -- resume is "
+            "`yazses handsfree resume`, the tray or the controls window"
+        )
     if components.chords:
         out.append(
             f"the chord {CHORDS_STOP.replace('+', ' + ')} (needs the camera, so it cannot help once "
@@ -228,6 +236,12 @@ def settings_for(components: HandsfreeConfig) -> tuple[Setting, ...]:
             Setting("gesture", "chords", chords, ROLE_CHORDS,
                     "provisional bindings: a deliberate brow-raise plus a nod (recenter) or shake (stop)"),
         ]
+    if components.voice_stop:
+        out.append(Setting(
+            "handsfree_safety", "stop_phrase", DEFAULT_STOP_PHRASE, ROLE_VOICE,
+            "provisional: saying exactly this phrase as a whole utterance pauses every hands-free "
+            "input and is not typed; it can only pause, never resume",
+        ))
     return tuple(out)
 
 
@@ -365,7 +379,7 @@ def render(expansion: Expansion, *, enabled_in_file: bool) -> list[str]:
         lines.append(f"REFUSED -- nothing below is applied. {expansion.refusal}")
     components = expansion.components
     chosen = ", ".join(
-        name for name in ("gaze", "pointer", "dwell", "switch", "chords") if getattr(components, name)
+        name for name in ("gaze", "pointer", "dwell", "switch", "chords", "voice_stop") if getattr(components, name)
     )
     lines.append(f"Roles composed: {chosen or 'none'}  (switch any off under [handsfree])")
     lines.append("")

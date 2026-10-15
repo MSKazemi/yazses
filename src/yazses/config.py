@@ -1377,6 +1377,12 @@ class HandsfreeSafetyConfig:
     """
     enabled: bool = False  # off until the hands-free preset and its consumers are wired
     stale_after_ms: int = field(default=500, metadata={"min_exclusive": 0, "max": 60_000})  # a signal older than this cannot act; unmeasured placeholder
+    # Voice stop word: saying exactly this phrase (the WHOLE utterance, never a substring of
+    # dictation) pauses every hands-free input, like `yazses handsfree pause`. "" = off. It can
+    # only pause; there is no resume phrase (`yazses handsfree resume`, tray or controls window).
+    # 2-6 words, validated at load (handsfree/stopword.py). `[handsfree] enabled` supplies
+    # "pause hands free" -- a PROVISIONAL, unmeasured default -- unless you set this yourself.
+    stop_phrase: str = ""
 
 
 @dataclass
@@ -1399,6 +1405,7 @@ class HandsfreeConfig:
     dwell: bool = True     # commit a click by holding the pointer still (needs [overlay] shown)
     switch: bool = True    # face switch: hold a jaw-open to dictate, no key
     chords: bool = True    # Gesture Chords: brow-raise + nod recenters, brow-raise + shake stops
+    voice_stop: bool = True  # say "pause hands free" (the whole utterance) to pause every hands-free input
 
 
 @dataclass
