@@ -76,6 +76,17 @@ class RejectReason(str, Enum):
     STALE = "stale"
     #: The nearest observation is below the confidence floor (the eyes disagreed).
     LOW_CONFIDENCE = "low_confidence"
+    #: The click's timestamp is not on the perception clock at all (a wall-clock reading
+    #: from an input stack, a boot-time clock that includes suspend). Decided by the
+    #: capture, not by :func:`associate`, because only the capture knows "now". Without a
+    #: name of its own this reads as ``STALE`` -- "the face left the frame" -- and sends
+    #: the user to a camera that is fine.
+    CLOCK_MISMATCH = "clock_mismatch"
+    #: The gaze observation this click would use already backed an earlier click. One eye
+    #: observation is one piece of evidence: a double-click or a burst must not count it
+    #: twice, and the copy that lands in the held-out set would be graded against the
+    #: copy it trained on. Decided by the capture, which remembers what it used.
+    SAMPLE_REUSED = "sample_reused"
 
 
 @dataclass(frozen=True)
@@ -112,6 +123,10 @@ class Association:
     confidence: float
     #: Seconds from the chosen gaze sample to the click (>= 0).
     lag_s: float
+    #: The chosen sample's own timestamp (the perception clock). A derived number, kept so
+    #: the capture can tell that two clicks drew on the same observation; ``None`` only for
+    #: a pair built by hand.
+    gaze_timestamp_s: float | None = None
 
 
 @dataclass(frozen=True)
@@ -204,5 +219,6 @@ def associate(
             click=(click.x, click.y),
             confidence=best.confidence,
             lag_s=click.timestamp_s - best.timestamp_s,
+            gaze_timestamp_s=best.timestamp_s,
         )
     )

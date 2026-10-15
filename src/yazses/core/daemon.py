@@ -1939,6 +1939,7 @@ class Daemon:
                 context_valid=context_valid,
                 source=source,
                 fps=cfg.perception.fps,
+                clock=time.monotonic,  # the clock the shared source stamps samples with
             )
         except Exception:
             log.debug("Implicit gaze calibration init failed; skipping", exc_info=True)
