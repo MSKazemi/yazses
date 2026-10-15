@@ -32,6 +32,20 @@ _AMBIENT_MARGIN = 1.5
 #: either margin moves this with it, which is why it is not a third constant.
 MIN_SEPARATION = _AMBIENT_MARGIN / _HEADROOM
 
+#: Where inside the band the gate is aimed, as a multiple of the measured ROOM level.
+#: PROVISIONAL (not fitted to data): twice the room leaves room for the drift
+#: `_AMBIENT_MARGIN` guards against, and is the *same* number however loudly the person
+#: spoke. It must stay anchored to the room, never to the voice: anchored to the voice,
+#: one loud 4 s sample (0.0441, issue #579) set a gate (0.022) that discarded the same
+#: person's normal speech (0.0208) a minute later.
+_ROOM_TARGET = 2.0
+
+#: Shortest recordings whose mean is worth trusting. PROVISIONAL. The room is stationary
+#: so it needs less; a speech average only covers a few words and the gaps between them
+#: after a couple of seconds. The CLI defaults (4 s speech, 2 s room) clear both.
+MIN_SPEECH_SECONDS = 2.0
+MIN_AMBIENT_SECONDS = 1.0
+
 
 @dataclass
 class LevelStats:
@@ -135,6 +149,9 @@ class Calibration:
     separation: float = 0.0
     #: The band the gate had to land in: ``(lo, hi)``. ``hi < lo`` is the refusal.
     band: tuple[float, float] = (0.0, 0.0)
+    #: True when it refused because a recording was too short to trust, not because of
+    #: the levels. The remedy differs ("record longer", not "speak up").
+    too_short: bool = False
 
 
 def calibrate(ambient: LevelStats, speech: LevelStats) -> Calibration:
@@ -161,8 +178,14 @@ def calibrate(ambient: LevelStats, speech: LevelStats) -> Calibration:
     tuned for it, which is why an empty room cannot produce a recommendation however
     the constants move.
 
-    Within the band it takes the geometric mean of the two levels: equidistant from
-    room and voice in dB, which is the scale hearing and this metric both work on.
+    Within the band the gate is aimed at ``_ROOM_TARGET`` x the ROOM, and the voice can
+    only pull it DOWN (via the ``hi`` cap), never up. This used to be the geometric mean
+    of room and voice, which rises with the loudness of the one speech sample: three runs
+    by one person on one microphone measured 0.0041 / 0.0103 / 0.0441 and recommended
+    0.0021 / 0.0051 / 0.022 (issue #579), and `verify` then found normal speech at 0.0208
+    below the 0.0220 gate. Anchored to the room, the same three runs give one gate, and
+    it never exceeds ``max(_MIN_THRESHOLD, _ROOM_TARGET x room)`` however loud the sample.
+    The two bounds are what the gate must satisfy; the target is only where in them it sits.
 
     Measured against the 1646-event corpus on the author's machine, for scale: clips
     that produced text have ``mean(|audio|)`` median 0.0394 (p05 0.0138), and clips
@@ -175,7 +198,7 @@ def calibrate(ambient: LevelStats, speech: LevelStats) -> Calibration:
     lo = round(max(_MIN_THRESHOLD, a * _AMBIENT_MARGIN), 4)
     hi = round(s * _HEADROOM, 4)
 
-    def refuse(reason: str) -> Calibration:
+    def refuse(reason: str, *, too_short: bool = False) -> Calibration:
         return Calibration(
             ambient=ambient,
             speech=speech,
@@ -184,8 +207,19 @@ def calibrate(ambient: LevelStats, speech: LevelStats) -> Calibration:
             reason=reason,
             separation=separation,
             band=(lo, hi),
+            too_short=too_short,
         )
 
+    # A mean over under two seconds of speech is a handful of syllables, so it can be
+    # several times off the person's normal level in either direction. Refuse rather
+    # than write a gate from it. (Zero duration = an unmeasured stat; also refused.)
+    if speech.duration_s < MIN_SPEECH_SECONDS or ambient.duration_s < MIN_AMBIENT_SECONDS:
+        return refuse(
+            f"a recording was too short to trust (need at least "
+            f"{MIN_AMBIENT_SECONDS:.0f}s of room and {MIN_SPEECH_SECONDS:.0f}s of speech, "
+            f"got {ambient.duration_s:.1f}s and {speech.duration_s:.1f}s)",
+            too_short=True,
+        )
     if speech.is_silent:
         return refuse(
             "the second recording is silent, so there is no voice to calibrate against"
@@ -199,11 +233,11 @@ def calibrate(ambient: LevelStats, speech: LevelStats) -> Calibration:
             f"{MIN_SEPARATION:.1f}x, so no gate fits above the room and below the voice"
         )
 
-    midpoint = round(math.sqrt(a * s), 4)
+    target = round(a * _ROOM_TARGET, 4)
     return Calibration(
         ambient=ambient,
         speech=speech,
-        recommended_threshold=min(max(midpoint, lo), hi),
+        recommended_threshold=min(max(target, lo), hi),
         ok=True,
         separation=separation,
         band=(lo, hi),

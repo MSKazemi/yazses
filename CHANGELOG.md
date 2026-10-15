@@ -6,6 +6,18 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — calibration no longer sets the gate from how loudly the sample was spoken ([#579](https://github.com/MSKazemi/yazses/issues/579))
+
+v2.43.1 made the tray's Re-calibrate use the same room-then-voice `calibrate` rule as `mic-level --set`, but that
+rule placed the gate at the geometric mean of room and voice, which still rises with the loudness of the one speech
+sample. With the speech levels of #579's consecutive runs (0.0103 and 0.0441) and an ordinary room (0.0036-0.0050), a
+calibration spoken at 0.0441 set a gate of 0.0126-0.0148, above the same person's 0.0103 speech. The gate is now aimed
+at twice the measured room level (a provisional factor) and the voice can only lower it, via the existing "at most half
+the voice" cap, so a louder sample can never raise it and it never exceeds `max(0.002, 2 x room)`. This applies to both
+`mic-level --set` and Re-calibrate. A recording shorter than 1 s of room or 2 s of speech (provisional) is refused:
+`--set` writes nothing and the command exits 1 with an explanation (Re-calibrate records 2 s and 4 s, so it clears
+both). No config key changed. `tests/test_miclevel_threshold_follows_the_room.py` fails on the previous rule.
+
 ### Added — language output profiles: one registry keyed by the STT language (FA-01, #509)
 
 A small `postprocess/output_profile.py` boundary replaces "another hard-coded branch per language" in the STT factory: `profile_for([stt] language)` returns a pass-through profile for every language except Persian (`fa`, `fas`, `fa-IR`, `persian`), which gets a profile that hands off to the existing, still opt-in `[stt] persian_normalisation` gate. Selection reads the speech language only, never the UI locale. No behaviour changes: no new config key, English and every other language build no wrapper, and `language = "fa"` alone still changes no text. Chinese script normalisation is not moved yet; the interface is shaped to take it later. Design: draft PR #483.

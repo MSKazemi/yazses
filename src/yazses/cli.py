@@ -4104,7 +4104,12 @@ def _calibrate_mic(*, seconds: float = 4.0, set_threshold: bool = False) -> bool
         # where room tone clears it, reaches the decoder, and returns an invented word.
         typer.secho(f"  cannot calibrate: {result.reason}.",
                     fg=typer.colors.YELLOW)
-        if speech.is_silent:
+        if result.too_short:
+            typer.echo(
+                "Nothing was written. Re-run with a longer speaking time, e.g.  "
+                "yazses mic-level -s 4"
+            )
+        elif speech.is_silent:
             typer.echo(
                 "Nothing was captured in the second recording — check the microphone:  "
                 "yazses audio status"
@@ -4179,6 +4184,9 @@ def mic_level(
     the command cannot tell speech from room tone, and recording a quiet room used to
     yield a confident threshold BELOW that room's own noise. When the two recordings
     are too close together, it now says so instead of recommending a number.
+
+    The threshold follows your ROOM (about twice its level, provisional), so speaking
+    louder in step 2 cannot raise it. A recording too short to trust is refused.
     """
     if not _calibrate_mic(seconds=seconds, set_threshold=set_threshold):
         raise typer.Exit(code=1)
