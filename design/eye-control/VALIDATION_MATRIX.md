@@ -257,7 +257,8 @@ Every relevant PR should run, as applicable:
 - stale signal/recovery tests;
 - output determinism.
 
-#424 owns the cross-OS CI matrix.
+#424 owns the cross-OS CI matrix: `scripts/eye_eval_ci.py`, run by `.github/workflows/eye-eval-ci.yml`
+on ubuntu, macOS and Windows (see [EVALUATION.md](EVALUATION.md) E1). Its artifacts are CI evidence only.
 
 ## Paper-quality replication is different
 

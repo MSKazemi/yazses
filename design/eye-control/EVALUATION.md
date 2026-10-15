@@ -66,6 +66,32 @@ Measure/record:
 
 Do **not** claim real camera/pointer usability from E1.
 
+E1 has one command, the same on every OS, and one workflow that calls it
+(`.github/workflows/eye-eval-ci.yml`, #424):
+
+```sh
+uv run python scripts/eye_eval_ci.py --out-dir eye-eval-ci --require-commit --with-pytest
+uv run python scripts/eye_eval_ci.py --collect downloaded-legs     # the matrix verdict
+```
+
+It needs only the base install (no cv2, mediapipe or PySide6), no camera, no network and no
+display, and it exits `0` only when every check passed. Each leg leaves `eye-eval-ci.json` — a
+small versioned record naming the runner OS and architecture, the Python and YazSes versions and
+the commit, one `PASS`/`FAIL` per check, and a `does_not_prove` list — plus the three
+schema-validated synthetic task results under `results/`. The record is written even when a
+check fails. `--collect` counts the legs it expected: a leg that never uploaded is reported
+`MISSING` and fails the run, because an absent artifact looks exactly like a leg nobody asked for.
+
+**What the record is evidence of:** the package installs and imports on that OS, the result
+schema, task fixtures and privacy sweep hold, synthetic results build and serialise
+byte-identically, and the committed synthetic trace reports still match the code.
+**What it is not evidence of:** real webcam accuracy, the real pointer permission or UI, human
+usability, or false activations during natural behaviour — a hosted runner has no representative
+hardware, and the record says so in its own `does_not_prove` field. Nothing is committed or
+published by the workflow; its token is read-only. The workflow has never run on a hosted
+runner at the time of writing: until a dispatched run has produced three green legs, the
+matrix is *designed and unit-tested*, not *observed*.
+
 ### E2 — deterministic synthetic trace replay
 
 **Who:** automated.  
