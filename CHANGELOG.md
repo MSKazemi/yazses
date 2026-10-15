@@ -6,6 +6,27 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — Head-Pointer: a typo could mirror the X axis, and a garbled pose could poison the neutral pose
+
+On a real webcam a left turn is positive yaw, so the shipped `[headpointer] x_gain` is negative. Two fallbacks
+did not know that: an unreadable `x_gain` (and a controller built without settings) fell back to the pure
+core's own positive number, which mirrors the horizontal axis. They now fall back to the shipped sign
+(`WEBCAM_X_GAIN`; the magnitude stays provisional). Separately, a head-pose sample with a non-finite angle,
+timestamp or confidence — which `HeadPoseSignal` refuses to build, but a duck-typed source can still hand over —
+used to become the neutral pose when it arrived first (every later good sample then faulted the feature) or fault
+the feature until an explicit resume when it arrived mid-stream; it is now treated as a missing sample (the pointer
+freezes and recovers by itself). New tests drive these, out-of-order poses, a sink that breaks mid-gesture and
+shutdown while a move is in flight (`tests/test_headpointer_hostile_inputs.py`).
+
+### Changed — the PointerSink contract suite is proven to fail wrong backends, and no longer needs the test tree
+
+`tests/pointer_contract.py` now checks every operation (not only motion) for loud failure, no recording of a
+failed call, no catch-up burst on recovery, errors after `close()`, a `close()` that never raises and reaches the
+platform once, and cross-kind ordering. `tests/test_pointer_contract_mutants.py` runs the whole suite against 27
+deliberately wrong sinks and requires a named test to fail for each. The recorded-action vocabulary moved to
+`yazses.pointer.actions` (stdlib only, data, no sink) so an out-of-tree backend can reuse the suite by copying one
+file. No runtime behaviour changes.
+
 ### Fixed — four more cross-OS test defects, found once the CI log could be read
 
 With the oversized test id fixed, the macOS and Windows runs reached the end of the suite and showed four

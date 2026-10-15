@@ -17,6 +17,14 @@ from dataclasses import dataclass
 #: a measured value.
 DEFAULT_MAX_DT_S = 0.25
 
+#: The horizontal gain the product ships, **sign included**. On a real webcam (2026-10-13) a turn
+#: to the user's left reads as *positive* yaw, so the gain that makes the pointer follow the head
+#: is negative; ``[headpointer] x_gain`` ships exactly this. The sign is geometry, not tuning, so
+#: it is what every *fallback* for an unreadable ``x_gain`` must use -- falling back to
+#: :attr:`PointerCalib.x_gain` (positive, the pure core's own number) would turn a typo into an
+#: inverted X axis. The magnitude is **provisional**, as every default here is.
+WEBCAM_X_GAIN = -1200.0
+
 
 @dataclass(frozen=True)
 class PointerCalib:

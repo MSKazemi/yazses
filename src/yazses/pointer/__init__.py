@@ -14,7 +14,9 @@ No fake ships here. The deterministic recording sink that keeps feature tests he
 lives in the test tree, as ``tests/pointer_fake.py``: a sink that accepts every
 operation and moves no pointer is exactly the silent no-op this ADR forbids, and one in
 the wheel could be selected by accident. Every implementation, fake or real, is held to
-the same shared contract suite in ``tests/pointer_contract.py``.
+the same shared contract suite in ``tests/pointer_contract.py``. The one thing that *does*
+ship for it is the vocabulary a recorder speaks, :mod:`yazses.pointer.actions`, so a
+backend outside this repository can use the suite without importing the test tree.
 """
 
 from yazses.pointer.base import (

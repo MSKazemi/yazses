@@ -45,7 +45,7 @@ from yazses.headpointer.controller import (
     HeadPointerSettings,
     HeadPointerStatus,
 )
-from yazses.headpointer.pointer import PointerCalib
+from yazses.headpointer.pointer import WEBCAM_X_GAIN, PointerCalib
 from yazses.perception.signals import FacePerceptionSource
 from yazses.pointer.base import PointerButton, PointerSink
 
@@ -81,7 +81,9 @@ def settings_from_config(section: Any) -> HeadPointerSettings:
     """
     defaults = HeadPointerSettings()
     calib = PointerCalib(
-        x_gain=_num(getattr(section, "x_gain", None), defaults.calib.x_gain),
+        # An unreadable x_gain keeps the shipped sign: falling back to the pure core's +1200
+        # would mirror the horizontal axis (``WEBCAM_X_GAIN``).
+        x_gain=_num(getattr(section, "x_gain", None), WEBCAM_X_GAIN),
         y_gain=_num(getattr(section, "y_gain", None), defaults.calib.y_gain),
         deadzone=_num(getattr(section, "deadzone", None), defaults.calib.deadzone),
         max_speed_x=_num(getattr(section, "max_speed_x", None), defaults.calib.max_speed_x),
