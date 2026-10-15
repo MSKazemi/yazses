@@ -6,6 +6,24 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — an eye-eval run of forty copies of one trial reported PASS (#422)
+
+Found auditing the task fixtures against the code (2026-10-15). `yazses eye-eval --outcomes` decided a run
+was complete by comparing the number of records with the number of trials the task asks for, so any list of
+the right length passed: forty copies of one gaze trial, or thirty "detected" cues for a block the task does
+not have, were a `PASS` with `correct_target: 40`. Records are now matched one-to-one against the trials the
+task scheduled (derived from the task document): a repeated trial, a trial the task does not have, an outcome
+with no `trial_index` (or `block_id` + `cue_index`) and an `intended_target_id` that contradicts the task are
+refused by `check_records` and keep a run from completing. A face-switch `false_activation` answers no cue, so
+it no longer makes a complete run `PARTIAL`. Also: the written result file is now the same bytes on Windows as
+on Linux and macOS (it was `\r\n` there), and the CLI reference's outcomes example now names the targets the
+default seed really asks for. New tests replay each task family through the real code it evaluates (gaze zones,
+head-pointer mapping and dwell, the face-switch replay) with answers derived from the task and a mutant per
+family, compare task, result and replay bytes across separate processes under different `PYTHONHASHSEED`
+values, and pin the PRNG to a published SplitMix64 vector. Not changed: `tally` still counts every record that
+carries an outcome; only the verdict and `check_records` look at identity, so a caller that skips
+`check_records` still gets inflated counts next to a `PARTIAL`.
+
 ### Fixed — an unanswered Wayland permission dialog was reported as "keyboard only"
 
 Found by running the daemon on a real GNOME Wayland session (2026-10-15). The portal answers `CreateSession`

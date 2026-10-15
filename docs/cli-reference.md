@@ -1102,13 +1102,18 @@ yazses eye-eval face_switch_blocks --blocked permission_denied \
 
 `--outcomes` takes a JSON list of per-trial records. Only the fields the task declares are
 accepted — an unknown one is refused rather than ignored, so a misspelled count cannot
-become a silent zero — and only the aggregates reach the result, never a record itself:
+become a silent zero — and only the aggregates reach the result, never a record itself.
+Each record must also name a trial the task actually scheduled, once: `trial_index` (and, for
+the face-switch task, `block_id` plus `cue_index`) is checked against the task, and a repeated
+trial, a trial the task does not have, or an `intended_target_id` that contradicts the task is
+refused instead of counted. Records are for the scored trials only; leave the practice block
+out. The example is the first three scored trials of `gaze_routing_4_pane` at its default seed:
 
 ```json
 [
-  {"trial_index": 0, "intended_target_id": 3, "outcome": "correct", "trial_time_ms": 940},
+  {"trial_index": 0, "intended_target_id": 4, "outcome": "correct", "trial_time_ms": 940},
   {"trial_index": 1, "intended_target_id": 1, "outcome": "wrong_target", "trial_time_ms": 1520},
-  {"trial_index": 2, "intended_target_id": 4, "outcome": "fallback_no_route"}
+  {"trial_index": 2, "intended_target_id": 3, "outcome": "fallback_no_route"}
 ]
 ```
 
