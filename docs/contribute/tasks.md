@@ -128,7 +128,6 @@ docs/config, **L2** bounded code.
 | Wire the `affect` capability so it is reachable from the daemon or CLI | `WIRE-AFFECT-001` | L2 | 90 min | python | `uv run python -m pytest tests/test_features_write_targets.py -q` |
 | Wire the `agent` capability so it is reachable from the daemon or CLI | `WIRE-AGENT-001` | L2 | 90 min | python | `uv run python -m pytest tests/test_features_write_targets.py -q` |
 | Wire the `audioguard` capability so it is reachable from the daemon or CLI | `WIRE-AUDIOGUARD-001` | L2 | 90 min | python | `uv run python -m pytest tests/test_features_write_targets.py -q` |
-| Wire the `autostop` capability so it is reachable from the daemon or CLI | `WIRE-AUTOSTOP-001` | L2 | 90 min | python | `uv run python -m pytest tests/test_features_write_targets.py -q` |
 | Wire the `bookmarks` capability so it is reachable from the daemon or CLI | `WIRE-BOOKMARKS-001` | L2 | 90 min | python | `uv run python -m pytest tests/test_features_write_targets.py -q` |
 | Wire the `breath` capability so it is reachable from the daemon or CLI | `WIRE-BREATH-001` | L2 | 90 min | python | `uv run python -m pytest tests/test_features_write_targets.py -q` |
 | Wire the `bridge` capability so it is reachable from the daemon or CLI | `WIRE-BRIDGE-001` | L2 | 90 min | python | `uv run python -m pytest tests/test_features_write_targets.py -q` |

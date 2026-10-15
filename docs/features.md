@@ -201,11 +201,11 @@ YazSes ships **148 capabilities**. All but the core are **off by default** — t
 
 ### Hands-Free Auto-Stop
 
-- **Toggle:** `autostop`  ·  **Tier:** planned — designed, not yet wired  ·  **Config:** `[autostop] — tap & speak`
-- **What it does:** Tap once and speak; recording auto-stops when you finish (silence timeout + duration cap). Semantic end-of-turn needs the turn extra. Off by default.
+- **Toggle:** `autostop`  ·  **Tier:** optional  ·  **Config:** `[autostop] — tap & speak`
+- **What it does:** Tap the hotkey once and speak; recording auto-stops when you finish (silence timeout + duration cap). A longer hold is still plain hold-to-talk. Needs a modifier hotkey (the default), since a tap on a character key is invisible. Restart the daemon after enabling. Off by default.
 - **Use when:** When holding the hotkey the whole time is tiring and you'd rather tap once and let it stop itself.
 - **Example:** Tap once and speak; recording stops when you finish.
-- **Activate:** not possible yet — designed but not wired into this build (`yazses features enable` refuses it; contributions welcome)
+- **Activate:** `yazses features enable autostop` then `yazses restart`
 
 ### Codec Streaming (low latency)
 
