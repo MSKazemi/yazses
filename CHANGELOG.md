@@ -157,6 +157,31 @@ tests, which delivered tokens in one call:
 
 Tests: `tests/test_gesture_chords_real_world.py`, `tests/test_headpointer_dwell_feedback.py`.
 
+### Fixed — hands-free stop: a gap is judged when the signal returns, and bad clocks fail closed (#417)
+
+Opt-in (`[handsfree_safety] enabled`). The watchdog only disarmed a source when something happened to ask the
+gate during the silence; the face switch asks only on a press, so a face that left the frame and came back kept
+acting with no re-arm. A sample now also checks the gap before it, so a returning camera (or a laptop that
+slept) is disarmed until the explicit `yazses handsfree resume`. A sample timestamp that is not a number, a
+clock that reads NaN, and a clock that steps back by more than the window (a negative age used to compare as
+fresh) now read as stale instead of letting a dead camera look alive. Consequence to know about: a face-only
+user whose face is out of frame for longer than `stale_after_ms` (500 ms, an unmeasured placeholder) now has to
+re-arm from the keyboard, the controls window, the tray or `yazses handsfree resume`; nothing a face can do
+resumes. Nothing arms the face switch or chord sources except that explicit resume, and `resume` arms only the
+sources that have already reported a frame; both are open decisions and are pinned, not changed, by
+`tests/test_handsfree_safety_semantics.py`.
+
+### Fixed — hands-free controls window, seen through the Qt accessibility API and at a larger font (#420)
+
+Checked offscreen (accessibility interfaces, the real focus chain, key events, and rendered images at 11 and
+24 pt); never on a real screen reader. Fixed: the three emergency buttons were cut to fragments at 24 pt (they
+are now stacked) and the window scrolled sideways at 32 pt (its width follows the font); a pixel-sized system
+font was replaced by a fixed 13 pt; every label had a short accessible name that replaced its text, so a screen
+reader would announce "Hands-free state" and never the state; each gesture's choice box now has its gesture as
+its label (on Linux its name is the current choice); the health report could not be reached with Tab; Enter on
+text or a choice box pressed Pause (the dialog's default button), it now refreshes; and Pause did nothing but
+say "press Refresh" until the first read finished, it now works at once while every other control waits.
+
 ### Fixed — four more cross-OS test defects, found once the CI log could be read
 
 With the oversized test id fixed, the macOS and Windows runs reached the end of the suite and showed four

@@ -12,7 +12,20 @@ fails first.
   and nothing a high-contrast theme can erase.
 * *Large targets.* Every action button is at least :data:`MIN_TARGET_PX` tall and wide
   enough for its label, and the three that matter in an emergency — Pause, Resume/Recover,
-  Recenter — are the first three things in the tab order.
+  Recenter — are the first three things in the tab order. They are stacked, not set side by
+  side: three long labels in a row overflow the window the moment the system font is enlarged
+  (seen at 24 pt, where "Pause hands-free input" was cut to "se hands-free in"), and a
+  stacked button always has the window's full width.
+* *Text follows the system font.* Sizes are derived from the font the platform hands the
+  application, in whichever unit it uses (points or pixels), never set to a fixed number.
+* *A screen reader hears the sentence, not a caption.* A label's accessible name is its own
+  text. Giving a label a short name ("Hands-free state") replaces the text in what a screen
+  reader is told, so the state itself would never be announced; no label is given one.
+* *Enter never does something you did not aim at.* The window's default button is Refresh,
+  which is harmless, so Enter on text or a combo box refreshes instead of pausing.
+* *The Pause button works before anything has been read.* The window appears at once and
+  reads the daemon on a worker thread; until that answer arrives every other control is
+  disabled and Pause makes its ordinary call.
 * *No action needs a pointer position.* Each button is a keyboard mnemonic (Alt+P, Alt+R,
   Alt+C) and Enter on the focused button; the same actions exist as `yazses handsfree pause` /
   `resume` and `yazses headpointer recenter`, so a voice command, a switch or a script reaches
@@ -47,6 +60,7 @@ from yazses.handsfree.panel import (
     PanelModel,
     build_panel,
     plan_mapping,
+    stop_without_state,
 )
 from yazses.handsfree.panel_io import ActionResult
 
@@ -79,6 +93,21 @@ def mnemonic(label: str, letter: str) -> str:
 
 def _plain(label: str) -> str:
     return label.replace("&", "")
+
+
+def enlarged(font: Any, extra_pt: float, floor_pt: float = 11.0) -> Any:
+    """``font`` made larger, in the unit the platform gave it. Mutates and returns it.
+
+    A point-sized font grows by ``extra_pt`` from at least ``floor_pt``; a pixel-sized one (a
+    desktop that scales by pixels, where ``pointSize()`` is ``-1``) grows by the same ratio.
+    Setting a point size on a pixel-sized font would replace the user's scale with a constant.
+    """
+    points = font.pointSizeF()
+    if points > 0.0:
+        font.setPointSizeF(max(points, floor_pt) + extra_pt)
+    elif font.pixelSize() > 0:
+        font.setPixelSize(max(1, round(font.pixelSize() * (1.0 + extra_pt / floor_pt))))
+    return font
 
 
 def health_text(model: PanelModel) -> str:
@@ -139,15 +168,15 @@ class HandsFreePanel:
 
         self._dialog = QDialog(parent)
         self._dialog.setWindowTitle("YazSes — Hands-free controls")
-        self._dialog.resize(720, 820)
+        # Wide enough for the widest row (gesture name, choice, Set) at the user's font size:
+        # a fixed 720 px was already too narrow at 32 pt, where the window scrolled sideways.
+        self._dialog.resize(max(720, 44 * self._dialog.fontMetrics().averageCharWidth()), 820)
 
         def big_button(text: str, ident: str) -> Any:
             btn = QPushButton(text)
             btn.setMinimumHeight(MIN_TARGET_PX)
             btn.setMinimumWidth(MIN_TARGET_PX)
-            font = btn.font()
-            font.setPointSize(max(font.pointSize(), 11) + 2)
-            btn.setFont(font)
+            btn.setFont(enlarged(btn.font(), 2.0))
             btn.setObjectName(ident)
             self._buttons[ident] = btn
             return btn
@@ -160,11 +189,9 @@ class HandsFreePanel:
             self._buttons[ident] = btn
             return btn
 
-        def wrapped(text: str = "", name: str = "") -> Any:
+        def wrapped(text: str = "") -> Any:
             label = QLabel(text)
             label.setWordWrap(True)
-            if name:
-                label.setAccessibleName(name)
             return label
 
         outer = QVBoxLayout(self._dialog)
@@ -176,17 +203,15 @@ class HandsFreePanel:
         outer.addWidget(scroll)
 
         # ---- 1. the state, read first, in words --------------------------------
-        self._headline = wrapped("Checking hands-free state…", "Hands-free state")
-        hfont = self._headline.font()
-        hfont.setPointSize(max(hfont.pointSize(), 11) + 5)
+        self._headline = wrapped("Checking hands-free state…")
+        hfont = enlarged(self._headline.font(), 5.0)
         hfont.setBold(True)
         self._headline.setFont(hfont)
-        self._detail = wrapped("", "Hands-free state detail")
+        self._detail = wrapped("")
         col.addWidget(self._headline)
         col.addWidget(self._detail)
 
         # ---- 2. the emergency actions: first in the tab order ------------------
-        row = QHBoxLayout()
         for ident, text in (
             ("pause", "Pause hands-free input"),
             ("resume", "Resume hands-free input"),
@@ -194,18 +219,17 @@ class HandsFreePanel:
         ):
             btn = big_button(mnemonic(text, _MNEMONICS[ident]), ident)
             btn.clicked.connect(lambda _=False, i=ident: self._press(i))
-            row.addWidget(btn)
-        col.addLayout(row)
-        self._why_box = wrapped("", "Why some actions are unavailable")
+            col.addWidget(btn)
+        self._why_box = wrapped("")
         col.addWidget(self._why_box)
-        self._result = wrapped("", "Result of the last action")
+        self._result = wrapped("")
         col.addWidget(self._result)
 
         # ---- 3. camera controls (the existing staged-toggle path) --------------
         box = QGroupBox("Camera controls")
         grid = QGridLayout(box)
         for index, ident in enumerate(("headpointer", "facegesture", "gaze")):
-            text_label = wrapped("", ident)
+            text_label = wrapped("")
             btn = small_button("", f"feature_{ident}")
             btn.clicked.connect(lambda _=False, s=ident: self._press_feature(s))
             grid.addWidget(text_label, index, 0)
@@ -225,13 +249,13 @@ class HandsFreePanel:
 
         # ---- 4. dwell, independently of motion ---------------------------------
         dbox = QGroupBox("Dwell-click (clicks when you hold still)")
-        dlay = QHBoxLayout(dbox)
+        dlay = QVBoxLayout(dbox)  # stacked: side by side they clip once the font is large
         for ident in ("dwell_off", "dwell_on"):
             btn = small_button(ident, ident)
             btn.clicked.connect(lambda _=False, i=ident: self._press(i))
             dlay.addWidget(btn)
         col.addWidget(dbox)
-        self._dwell_why = wrapped("", "Why dwell-click cannot change")
+        self._dwell_why = wrapped("")
         col.addWidget(self._dwell_why)
 
         # ---- 5. the global stop -------------------------------------------------
@@ -239,7 +263,7 @@ class HandsFreePanel:
         slay = QVBoxLayout(sbox)
         self._safety_btn = small_button("", "safety_toggle")
         self._safety_btn.clicked.connect(lambda _=False: self._press_safety())
-        self._safety_help = wrapped("", "What the global stop does")
+        self._safety_help = wrapped("")
         slay.addWidget(self._safety_btn)
         slay.addWidget(self._safety_help)
         col.addWidget(sbox)
@@ -247,13 +271,16 @@ class HandsFreePanel:
         # ---- 6. health ----------------------------------------------------------
         hbox = QGroupBox("Health")
         hlay = QVBoxLayout(hbox)
-        self._health = wrapped("Checking…", "Hands-free health")
+        self._health = wrapped("Checking…")
         from PySide6.QtCore import Qt
 
         self._health.setTextInteractionFlags(
             Qt.TextInteractionFlag.TextSelectableByMouse
             | Qt.TextInteractionFlag.TextSelectableByKeyboard
         )
+        # Qt gives a selectable label click-focus only, so Tab skipped it: the one place the
+        # health report can be read and copied was unreachable without a pointer.
+        self._health.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         hlay.addWidget(self._health)
         col.addWidget(hbox)
 
@@ -263,10 +290,14 @@ class HandsFreePanel:
         from yazses.facegesture.detector import GESTURES
 
         for index, gesture in enumerate(GESTURES):
-            name = wrapped(gesture.replace("_", " ").capitalize(), f"Gesture {gesture}")
+            name = wrapped(gesture.replace("_", " ").capitalize())
             combo = QComboBox()
             combo.setMinimumHeight(MIN_TARGET_PX)
             combo.setAccessibleName(f"Action for {gesture.replace('_', ' ')}")
+            # On Linux a combo box's accessible *name* is its current choice and the question it
+            # answers comes from a "labelled by" relation, which Qt derives from a buddy. Without
+            # one a screen reader says "Hold to dictate, combo box" and never which gesture.
+            name.setBuddy(combo)
             setb = small_button("Set", f"map_{gesture}")
             setb.setAccessibleName(f"Save mapping for {gesture.replace('_', ' ')}")
             setb.clicked.connect(lambda _=False, g=gesture: self._press_map(g))
@@ -275,17 +306,21 @@ class HandsFreePanel:
             mgrid.addWidget(setb, index, 2)
             self._map_widgets[gesture] = (name, combo, setb)
         mgrid.setColumnStretch(0, 1)
-        self._map_note = wrapped("", "Face switch mapping notes")
+        self._map_note = wrapped("")
         mgrid.addWidget(self._map_note, len(GESTURES), 0, 1, 3)
         col.addWidget(mbox)
 
-        self._notes = wrapped("", "Notes")
+        self._notes = wrapped("")
         col.addWidget(self._notes)
         col.addStretch(1)
 
         bottom = QHBoxLayout()
         refresh = small_button("Refresh", "refresh")
         refresh.clicked.connect(self.refresh)
+        # The default button is what Enter does when focus is on something that does not use
+        # Enter (the health text, the dialog itself). Qt would otherwise pick the first
+        # button in the window -- Pause. Refresh is harmless to press by accident.
+        refresh.setDefault(True)
         close = small_button("Close", "close")
         close.clicked.connect(self._dialog.close)
         bottom.addWidget(refresh)
@@ -294,12 +329,35 @@ class HandsFreePanel:
         outer.addLayout(bottom)
 
         self._set_tab_order()
+        self._placeholders()
         self._dialog.finished.connect(lambda _=0: self.stop())
         self._timer: Any = None
         if poll_ms > 0:
             self._timer = QTimer(self._dialog)
             self._timer.timeout.connect(self.refresh)
             self._poll_ms = poll_ms
+
+    # ---------------------------------------------------------------- before the first read
+
+    #: Which controls stay usable until the daemon has answered once.
+    _AWAITING = frozenset({"pause", "refresh", "close"})
+
+    def _placeholders(self) -> None:
+        """Words (not identifiers) on every control, and only the safe ones enabled, until the
+        first state has been read. A screen reader landing on a button must never be told
+        ``dwell_off``; a button that cannot know what it would do must not be pressable."""
+        names = {"dwell_off": "Turn dwell-click off", "dwell_on": "Turn dwell-click on",
+                 "safety_toggle": "Global stop", "apply": "Apply staged changes"}
+        for ident, btn in self._buttons.items():
+            if ident in names:
+                btn.setText(names[ident])
+            elif ident.startswith("feature_"):
+                btn.setText("Checking…")
+            if ident not in self._AWAITING:
+                btn.setEnabled(False)
+        for _name, _combo, setb in self._map_widgets.values():
+            setb.setEnabled(False)
+        self._first_read = False
 
     # ---------------------------------------------------------------- focus order
 
@@ -409,7 +467,9 @@ class HandsFreePanel:
 
         sp = model.safety_toggle
         self._set_text(self._safety_btn, sp.label)
+        self._set_enabled(self._safety_btn, sp.enabled)
         self._safety_btn.setAccessibleDescription(sp.help)
+        self._set_enabled(self._buttons["apply"], self._apply_staged is not None)
         self._set_text(self._safety_help, sp.help)
 
         for feat in model.features:
@@ -421,6 +481,21 @@ class HandsFreePanel:
         self._set_text(self._notes, "\n".join(model.notes))
 
         self._restore_focus(focused, model)
+        if not self._first_read:
+            self._first_read = True
+            self._focus_first_action(focused, model)
+
+    def _focus_first_action(self, focused: Any, model: PanelModel) -> None:
+        """On the first read, put focus on the action the state calls for (Recover when
+        faulted, Pause when running) unless the user has already moved somewhere else."""
+        if focused is not None and focused is not self._buttons["pause"]:
+            return
+        primary = model.primary
+        target = self._buttons.get(primary.id) if primary is not None else None
+        if target is None or not target.isEnabled():
+            target = self._buttons["pause"]
+        if target.isEnabled():
+            target.setFocus()
 
     def _render_feature(self, feat: FeatureRow) -> None:
         pair = self._feature_widgets.get(feat.slug)
@@ -428,7 +503,6 @@ class HandsFreePanel:
             return
         label, btn = pair
         self._set_text(label, f"[{feat.word}] {feat.label} — {feat.summary}. {feat.text}")
-        label.setAccessibleName(f"{feat.label}: {feat.word}")
         can = feat.desired is not None and self._toggle_feature is not None
         self._set_text(btn, feat.button or "Unavailable")
         self._set_enabled(btn, can)
@@ -485,7 +559,13 @@ class HandsFreePanel:
 
     def _press(self, ident: str) -> None:
         if self._model is None:
-            self._show("The state has not been read yet — press Refresh.")
+            if ident != "pause":
+                self._show("The state has not been read yet — press Refresh.")
+                return
+            # A stop is never made to wait for the state to be read.
+            result = self._perform(stop_without_state())
+            self._show(("Done: " if result.ok else "Did not work: ") + result.message)
+            self.refresh()
             return
         spec = self._model.action(ident)
         if spec is None:
@@ -542,6 +622,8 @@ class HandsFreePanel:
     def show(self) -> None:
         """Show the window and start polling. Reading the facts opens no camera."""
         self._dialog.show()
+        if not self._first_read and self._buttons["pause"].isEnabled():
+            self._buttons["pause"].setFocus()  # until the state is read, Pause is the one stop
         self.refresh()
         if self._timer is not None:
             self._timer.start(self._poll_ms)

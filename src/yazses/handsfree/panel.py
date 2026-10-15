@@ -85,6 +85,7 @@ __all__ = [
     "merge_facts",
     "plan_mapping",
     "render_text",
+    "stop_without_state",
     "wired_switch_actions",
 ]
 
@@ -515,6 +516,31 @@ def overall_state(inputs: PanelInputs) -> StateBanner:
     )
 
 
+#: The one call every Pause button makes, shared so the pre-read fallback cannot drift from it.
+_PAUSE_IPC = IpcCall("handsfree", (("action", "pause"),))
+_PAUSE_CLI = "yazses handsfree pause"
+
+
+def stop_without_state() -> ActionSpec:
+    """Pause, for the moment before the window has read anything (pure).
+
+    The window appears at once and reads the daemon on a worker thread, which can take seconds
+    on a real desktop. A person who opens it *because* the pointer is running away must not be
+    told "the state has not been read yet" by the one button they came for. This is the same
+    call the model's Pause makes, enabled unconditionally: the daemon says what it stopped (or
+    that nothing hands-free was running), and a stop that is not needed is harmless.
+    """
+    return ActionSpec(
+        id="pause",
+        label="Pause hands-free input",
+        kind="stop",
+        enabled=True,
+        help="Stops every hands-free input it can reach. Takes no pointer position.",
+        ipc=_PAUSE_IPC,
+        cli=_PAUSE_CLI,
+    )
+
+
 def _actions(inputs: PanelInputs, banner: StateBanner) -> tuple[ActionSpec, ...]:
     reachable = inputs.daemon_reachable
     hp_on = _hp_active(inputs.headpointer)
@@ -544,8 +570,8 @@ def _actions(inputs: PanelInputs, banner: StateBanner) -> tuple[ActionSpec, ...]
             else "Stops the Head-Pointer from moving or clicking. The global stop is off, so "
             "this does not reach the face switch."
         ),
-        ipc=IpcCall("handsfree", (("action", "pause"),)),
-        cli="yazses handsfree pause",
+        ipc=_PAUSE_IPC,
+        cli=_PAUSE_CLI,
     )
 
     if not running:
