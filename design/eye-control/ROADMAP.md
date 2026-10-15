@@ -348,8 +348,10 @@ clutch, `onset_rewind_ms`); head tokens are not helped and the pointer still twi
 defaults are provisional; no real-camera run exists. The stuck-open hazard (an absolute-threshold switch whose resting score is above its release
 threshold never lets go) now has a checkable refusal (`facegesture/restcheck.py`, shown by `calibrate`,
 the backend, `yazses doctor` and the controls window) and an opt-in `[facegesture] max_hold_s`; the replay
-report flags it as `stuck_open`.
-
+report flags it as `stuck_open`. Audit 2026-10-15: the same refusal now also judges a gesture bound to a *commit*
+action (`select`/`confirm`), whose freeze would otherwise hold the Head-Pointer still for ever; `max_hold_s` stays
+off by default. A mapping typo in `[[facegesture.switches]]` is now reported at config load (and by `doctor`), not
+only in the daemon log.
 **2026-10-15.** `select` / `confirm` / `cancel` have daemon handlers (`facegesture/actions.py`). `select` is one
 left click through the Head-Pointer's own pointer sink, refused with a stated reason unless the pointer is running,
 tracking, unpaused, unclutched and the hands-free gate is open, and limited to one click per second (provisional,

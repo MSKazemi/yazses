@@ -53,13 +53,13 @@ from yazses.facegesture.levels import (
 from yazses.facegesture.restcheck import assess_release, format_findings
 from yazses.facegesture.shared import MAX_SAMPLE_AGE_S, NO_BLENDSHAPE_WARN_AFTER
 from yazses.facegesture.switches import (
-    HOLD_ACTIONS,
     SwitchAction,
     SwitchIntent,
     SwitchMapper,
     legacy_action,
     make_intent,
     parse_bindings,
+    stuck_consequence,
 )
 from yazses.perception.mediapipe_backend import DEFAULT_PRESENCE_CONFIDENCE
 from yazses.perception.signals import FacePerceptionSource
@@ -179,8 +179,11 @@ class FaceGestureBackend:
                 refractory_frames=getattr(config, "refractory_frames", 0),
                 max_hold_s=max_hold_s,
             )
-            if bindings.get(watched) in HOLD_ACTIONS:  # only a hold has a microphone to leave open
-                self._warn_if_cannot_release(config, baselines, levels, watched, hold_t, release_t)
+            stuck = stuck_consequence(bindings.get(watched))
+            if stuck is not None:  # a hold leaves a microphone open, a commit leaves the pointer frozen
+                self._warn_if_cannot_release(
+                    config, baselines, levels, watched, hold_t, release_t, stuck
+                )
         self._switch = self._switches[gesture]
         self._baseline = self._baselines[gesture]
         try:
@@ -227,7 +230,9 @@ class FaceGestureBackend:
             return 0.0
         return value
 
-    def _warn_if_cannot_release(self, config, baselines, levels, gesture, hold_t, release_t) -> None:
+    def _warn_if_cannot_release(
+        self, config, baselines, levels, gesture, hold_t, release_t, consequence: str = "microphone"
+    ) -> None:
         """One warning, with the numbers, when this switch could not let go (stuck-open mic).
 
         Only on a checkable fact (see :mod:`yazses.facegesture.restcheck`): an unreachable
@@ -246,6 +251,7 @@ class FaceGestureBackend:
                 use_active_levels=bool(getattr(config, "use_active_levels", False)),
                 hold_fraction=getattr(config, "active_hold_fraction", DEFAULT_HOLD_FRACTION),
                 release_fraction=getattr(config, "active_release_fraction", DEFAULT_RELEASE_FRACTION),
+                consequence=consequence,
             )
         except Exception:  # a diagnostic must never stop the switch from being built
             log.debug("face-gesture: release check failed", exc_info=True)
