@@ -1,0 +1,23 @@
+# Explicit exceptions to the LIVE traceability audit (scripts/check-traceability-live.py).
+#
+# EMPTY BY DEFAULT, on purpose. The milestone policy for active vs evergreen issues is being
+# decided in #480; until it is, the live audit enforces only the checks listed in #487 and
+# invents no exemption classes. When #480 decides, encode its exceptions here, one item each.
+#
+# Every item must say WHY and which issue justifies it, so an exception can be reviewed and
+# retired rather than left to rot. An item that matches nothing is reported by the audit, and
+# an item past its `expires` date stops applying (and is reported).
+#
+# Rules: ISSUE_MISSING, ISSUE_IS_PULL_REQUEST, NO_OPEN_TRACKER, MILESTONE_MISSING,
+#        MILESTONE_MISMATCH.
+#
+# Example (do not uncomment without a real reason):
+#
+#   - rule: MILESTONE_MISMATCH
+#     entry: "programme:android"      # an `id` from design/traceability.yml
+#     issue: 81                       # optional; omit to cover every issue of the entry
+#     reason: "Epic intentionally spans several milestones."
+#     tracker: 480                    # the issue that justifies the exception
+#     expires: 2027-01-31             # optional YYYY-MM-DD
+version: 1
+exceptions: []
