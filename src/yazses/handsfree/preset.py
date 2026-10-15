@@ -279,7 +279,7 @@ def expand(raw: Mapping[str, Any], *, assume_enabled: bool = False) -> Expansion
             resolved.append(Resolved(setting, "yours", theirs))
             if setting.protected and theirs != setting.value:
                 refusals.append(
-                    f"[{setting.section}] {setting.key} = {_toml(theirs)} in your config weakens the "
+                    f"[{setting.section}] {setting.key} = {_shown(theirs, setting.value)} in your config weakens the "
                     f"hands-free safety floor ({setting.why}). Set it to {_toml(setting.value)} or "
                     f"remove it, or set [handsfree] enabled = false."
                 )
@@ -364,6 +364,26 @@ def _toml(value: Any) -> str:
     return str(value)
 
 
+def _shown(value: Any, public: Any) -> str:
+    """How ``explain`` prints a value that may have come from the user's own file.
+
+    `explain` output is what people paste into a public issue. A value equal to the preset's own
+    is public by construction and prints as itself, and a boolean or a number is a setting and not
+    a secret. Anything else -- a stop phrase someone chose, a path, a table they wrote -- is
+    described by its kind and size and never echoed, so a pasted `explain` cannot carry text from
+    the user's machine. (`yazses handsfree explain` still says *that* the value is theirs.)
+    """
+    if value == public or isinstance(value, (bool, int, float)):
+        return _toml(value)
+    if isinstance(value, str):
+        return f"<your text, {len(value)} characters>"
+    if isinstance(value, Mapping):
+        return f"<your table, {len(value)} entries>"
+    if isinstance(value, (list, tuple)):
+        return f"<your list, {len(value)} items>"
+    return "<your value>"
+
+
 def render(expansion: Expansion, *, enabled_in_file: bool) -> list[str]:
     """The resolved per-feature config as plain lines, with where each value came from. Pure.
 
@@ -397,7 +417,7 @@ def render(expansion: Expansion, *, enabled_in_file: bool) -> list[str]:
         else:
             tag = "yours (same as preset)"
         mark = "  [safety floor]" if s.protected else ""
-        lines.append(f"[{s.section}] {s.key} = {_toml(item.effective)}    <- {tag}{mark}")
+        lines.append(f"[{s.section}] {s.key} = {_shown(item.effective, s.value)}    <- {tag}{mark}")
         lines.append(f"    {s.why}")
     lines.append("")
     lines.append("Ways to stop (none needs you to aim the pointer):")

@@ -20,6 +20,17 @@ report as bytes, so Windows can no longer produce CRLF and fail its own `--check
 an over-sensitive switch turns both the replay and the committed-report check red. Synthetic traces still justify
 no default.
 
+### Changed - `yazses handsfree explain` no longer prints text you wrote, and there is a setup guide
+
+(#410.) `explain` output is what people paste into issues, so a stop phrase, path or table in your own
+`config.toml` is now described by kind and size (`<your text, 22 characters>`) and never echoed; booleans,
+numbers and values equal to the preset's own still print. New guide
+[Set up hands-free input](docs/how-to/hands-free-setup.md): the one-switch setup with no undocumented terminal
+step, what the preset does not compose, every way to stop, and the recovery ladder. New tests pin idempotence
+across all 64 role subsets, that enable then disable returns your file (comments included) and resolved config, that
+a default install resolves with no preset key, and that a missing camera or pointer, or no overlay, leaves a stated
+reason and a pointer that never moved or clicked.
+
 ### Fixed — four more cross-OS test defects, found once the CI log could be read
 
 With the oversized test id fixed, the macOS and Windows runs reached the end of the suite and showed four
