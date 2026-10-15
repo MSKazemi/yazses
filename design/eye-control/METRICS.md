@@ -281,8 +281,24 @@ result document and returns a list of problems. `schema_version` is `"MAJOR.MINO
 
 So: add a field, bump the minor. Change or remove one, bump the major.
 
+A later minor is accepted **with a note**, not silently: `compatibility_note` says fields
+added since the reader's version were not checked, and the checker prints it.
+
+Check a result file — yours or an attachment from someone else — with:
+
+```bash
+uv run python scripts/check_eye_eval_result.py result.json
+```
+
+Exit `0` if every file is valid, `1` if any is invalid, `2` if no file was named. A missing,
+empty, non-UTF-8, non-JSON or `NaN`-carrying file, or one that repeats a key, is reported as
+invalid rather than read as an empty document.
+
 Inside `metrics`, an object carrying `value` or `reason` is a missing-data marker (below)
-and never a metric group, so a metric group may not have a member called `value`.
+and never a metric group, so a metric group may not have a member called `value`. A marker
+is either measured (`value`, no `reason`) or missing (`value: null` plus a `reason`), never
+both; an empty metric group, a bare `null` inside a list, and a non-finite number (`NaN`,
+infinity) are refused for the same reason a bare `null` is.
 
 ## Missing data
 

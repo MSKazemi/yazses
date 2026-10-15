@@ -6,6 +6,21 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — a command-line check for a saved eye-control result file (#421)
+
+`uv run python scripts/check_eye_eval_result.py result.json` validates a result someone else produced against
+the versioned `yazses.eyeeval.schema` envelope and exits non-zero if it is invalid: `1` for a bad file, `2` if
+you named none. A file that is missing, empty, not UTF-8, not JSON, nested absurdly deep, carrying a `NaN` or
+repeating a key is reported as invalid; before, the only entry point was the producer's own pre-write check, so
+nothing could vet an attachment. A later minor version of the same major is accepted with a printed note
+(`compatibility_note`) rather than silently. The validator also became stricter about what "missing is never
+zero" means: a non-finite number, an empty metric group, a `null` inside a list, a metric carrying both a value
+and a missing-data reason, a malformed `timestamp`, and a `display_count` that disagrees with the `displays`
+list are now refused. All three shipped example documents and both producers (`yazses eye-eval`, the gaze
+field report) still validate; `dump_result` now also writes with `allow_nan=False`. No JSON Schema file is
+generated: the envelope's privacy and cross-field rules cannot be expressed in one, and a second, weaker copy
+of the contract would only drift.
+
 ### Fixed — an unanswered Wayland permission dialog was reported as "keyboard only"
 
 Found by running the daemon on a real GNOME Wayland session (2026-10-15). The portal answers `CreateSession`

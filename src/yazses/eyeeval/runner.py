@@ -564,7 +564,9 @@ def privacy_problems(doc: Any, identifiers: LocalIdentifiers | None = None) -> l
 
 def dump_result(doc: dict[str, Any]) -> str:
     """The canonical on-disk form: 2-space JSON, ASCII, one trailing newline."""
-    return json.dumps(doc, indent=2, ensure_ascii=True) + "\n"
+    # allow_nan=False: `validate_result` already refuses a non-finite metric, and this makes
+    # the writer refuse it too, so a NaN can never reach disk as the non-JSON token `NaN`.
+    return json.dumps(doc, indent=2, ensure_ascii=True, allow_nan=False) + "\n"
 
 
 def write_result(doc: dict[str, Any], path: Path, *, identifiers: LocalIdentifiers | None = None) -> Path:

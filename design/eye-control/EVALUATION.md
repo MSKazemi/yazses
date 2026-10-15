@@ -137,6 +137,9 @@ PASS/PARTIAL/FAIL/BLOCKED with the counts. `--synthetic` runs the same pipeline 
 camera, which is the E0/E1 leg. Nothing is uploaded and no flag would upload it; the tester
 reads the file and attaches it themselves. A test that could not run is recorded with
 `--blocked <reason>`, which reports every metric as explicitly missing rather than as zero.
+A maintainer checking a file someone attached runs
+`uv run python scripts/check_eye_eval_result.py result.json` (non-zero exit if invalid; see
+[METRICS.md](METRICS.md) "Schema versioning and compatibility").
 
 ### E4 — cross-computer replication
 

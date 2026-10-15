@@ -56,8 +56,11 @@ from yazses.eyeeval.schema import (
     SUPPORTED_MAJOR,
     EyeEvalSchemaError,
     check_result,
+    compatibility_note,
     forbidden_field_problems,
     validate_result,
+    validate_result_file,
+    validate_result_text,
 )
 from yazses.eyeeval.tasks import (
     BLOCK_KINDS,
@@ -131,6 +134,7 @@ __all__ = [
     "check_result",
     "check_task",
     "collect_provenance",
+    "compatibility_note",
     "completeness_verdict",
     "dump_result",
     "dump_task",
@@ -144,6 +148,8 @@ __all__ = [
     "synthetic_records",
     "tally",
     "validate_result",
+    "validate_result_file",
+    "validate_result_text",
     "validate_task",
     "write_result",
 ]

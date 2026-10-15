@@ -44,6 +44,12 @@ produced it is not a measurement; this reuses the lesson instead of relearning i
 
 So: add a field, bump the minor. Change or remove one, bump the major.
 
+**Accepted with a note.** A later minor is not an error, but it is not silent either:
+`compatibility_note` returns a sentence saying the document was written by a newer minor and
+that any field this reader does not know was not checked, and `validate_result_text` /
+`scripts/check_eye_eval_result.py` print it. Reading a newer document as though it were the
+one you know is how a reader ends up trusting a check it never ran.
+
 One reserved name follows from that: inside `metrics`, an object carrying `value` or
 `reason` is read as a missing-data marker, never as a metric group. A metric group may
 therefore not have a member called `value`.
@@ -51,7 +57,11 @@ therefore not have a member called `value`.
 
 from __future__ import annotations
 
+import json
+import math
 import re
+from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 #: The schema version this module implements and writes.
@@ -142,6 +152,24 @@ def parse_schema_version(value: Any) -> tuple[int, int] | None:
     return int(match.group(1)), int(match.group(2))
 
 
+def compatibility_note(doc: Any) -> str | None:
+    """A sentence when *doc* was written by a later minor of this reader's major, else None.
+
+    Pure and advisory: it never makes a document invalid. ``None`` also covers a document
+    whose version is unreadable or of another major -- `validate_result` already refuses
+    those, and a note would be a second, weaker message about the same fault.
+    """
+    parsed = parse_schema_version(doc.get("schema_version")) if isinstance(doc, dict) else None
+    ours = parse_schema_version(SCHEMA_VERSION)
+    if parsed is None or ours is None or parsed[0] != SUPPORTED_MAJOR or parsed[1] <= ours[1]:
+        return None
+    return (
+        f"schema_version {doc['schema_version']!r} is a later minor than this reader's "
+        f"{SCHEMA_VERSION!r}: it is accepted, but any field added since {SCHEMA_VERSION} was "
+        f"not checked (see 'Versioning and compatibility rule' in yazses.eyeeval.schema)."
+    )
+
+
 class EyeEvalSchemaError(ValueError):
     """One or more schema violations, listed one per line."""
 
@@ -181,12 +209,23 @@ def _check_metric(name: str, value: Any, path: str) -> list[str]:
     if isinstance(value, dict):
         if "value" in value or "reason" in value:
             reason = value.get("reason")
-            if value.get("value") is None and reason not in MISSING_REASONS:
+            inner = value.get("value")
+            if inner is None and reason not in MISSING_REASONS:
                 return [
                     f"{path}{name}: a missing metric needs a reason; set 'reason' to one of "
                     f"{MISSING_REASONS}. Missing is never zero (METRICS.md 'Missing data')."
                 ]
-            return []
+            if inner is not None and reason is not None:
+                return [
+                    f"{path}{name}: carries both a value and a missing-data reason; a metric "
+                    f"is either measured or missing, never both."
+                ]
+            return _check_metric("value", inner, f"{path}{name}.") if inner is not None else []
+        if not value:
+            return [
+                f"{path}{name}: an empty metric group says nothing; omit it, or write each "
+                f"metric it would hold as a value or a missing-data marker."
+            ]
         out: list[str] = []
         for key, sub in value.items():
             out += _check_metric(str(key), sub, f"{path}{name}.")
@@ -197,7 +236,17 @@ def _check_metric(name: str, value: Any, path: str) -> list[str]:
             f'{{"value": null, "reason": <one of {MISSING_REASONS}>}} so a reader can tell '
             f"'not measured' from zero."
         ]
-    if isinstance(value, (bool, int, float, str, list)):
+    if isinstance(value, float) and not math.isfinite(value):
+        return [
+            f"{path}{name}: {value!r} is not a measurement, and NaN/Infinity are not valid "
+            f"JSON; a metric that could not be computed is a missing-data marker."
+        ]
+    if isinstance(value, list):
+        out = []
+        for index, item in enumerate(value):
+            out += _check_metric(str(index), item, f"{path}{name}.")
+        return out
+    if isinstance(value, (bool, int, float, str)):
         return []
     return [f"{path}{name}: unsupported metric type {type(value).__name__}."]
 
@@ -245,6 +294,29 @@ def validate_result(doc: Any) -> list[str]:
     mode = doc.get("study_mode")
     if "study_mode" in doc and mode not in STUDY_MODES:
         problems.append(f"study_mode: {mode!r} is not one of {STUDY_MODES} (ADR-v2-150).")
+
+    if "timestamp" in doc:
+        stamp = doc["timestamp"]
+        try:
+            if not isinstance(stamp, str):
+                raise ValueError(stamp)
+            datetime.fromisoformat(stamp)
+        except ValueError:
+            problems.append(
+                f"timestamp: expected an ISO-8601 string such as "
+                f'"2026-09-25T10:14:02+00:00", got {stamp!r}.'
+            )
+
+    display = doc.get("display")
+    if isinstance(display, dict) and "displays" in display and "display_count" in display:
+        shown, count = display["displays"], display["display_count"]
+        if not isinstance(shown, list):
+            problems.append("display.displays: expected a list of displays.")
+        elif isinstance(count, bool) or count != len(shown):
+            problems.append(
+                f"display.display_count: {count!r} does not match the {len(shown)} display(s) "
+                f"listed; a topology that disagrees with itself cannot be compared across machines."
+            )
 
     feature = doc.get("feature")
     if isinstance(feature, dict) and "name" in feature and feature["name"] not in FEATURES:
@@ -306,3 +378,71 @@ def check_result(doc: Any) -> None:
             f"{len(problems)} eye-control evaluation schema problem(s):\n  - "
             + "\n  - ".join(problems)
         )
+
+
+# --- reading a result from disk -------------------------------------------------------
+#
+# `validate_result` takes a parsed document, which is the right unit for a test. A checker
+# pointed at a *file* has a failure the parsed document never sees: the file may be missing,
+# empty, not UTF-8, not JSON, or JSON that Python parses more kindly than any other reader
+# (`NaN`, a repeated key whose last copy silently wins). Each of those must be a reported
+# problem. None may become `{}` or `None` and fall through to a check that passes.
+
+
+class _UnreadableResult(ValueError):
+    """Internal: the text is not a JSON document this schema could be applied to."""
+
+
+def _reject_repeated_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    seen: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in seen:
+            raise _UnreadableResult(
+                f"the key {key!r} appears twice in one object; the last copy would silently "
+                f"win and the first would never be checked."
+            )
+        seen[key] = value
+    return seen
+
+
+def _reject_constant(name: str) -> Any:
+    raise _UnreadableResult(
+        f"{name} is not valid JSON; a metric that could not be computed is a "
+        f'{{"value": null, "reason": ...}} marker.'
+    )
+
+
+def validate_result_text(text: str) -> list[str]:
+    """Problems with one result document given as JSON text. Empty list means valid.
+
+    Total: it returns a list for any string, including an empty or garbled one.
+    """
+    if not text.strip():
+        return ["<file>: empty; a result document must be a JSON object."]
+    try:
+        doc = json.loads(
+            text, object_pairs_hook=_reject_repeated_keys, parse_constant=_reject_constant
+        )
+    except _UnreadableResult as exc:
+        return [f"<file>: {exc}"]
+    except RecursionError:
+        return ["<file>: nested too deeply to be a result document."]
+    except ValueError as exc:  # JSONDecodeError, or an integer past the interpreter's limit
+        return [f"<file>: not valid JSON ({exc})."]
+    try:
+        return validate_result(doc)
+    except RecursionError:
+        return ["<file>: nested too deeply to be a result document."]
+
+
+def validate_result_file(path: str | Path) -> list[str]:
+    """Problems with the result document at *path*; an unreadable file is a problem."""
+    try:
+        raw = Path(path).read_bytes()
+    except OSError as exc:
+        return [f"<file>: cannot be read ({exc.strerror or exc})."]
+    try:
+        text = raw.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        return ["<file>: not UTF-8 text."]
+    return validate_result_text(text)
