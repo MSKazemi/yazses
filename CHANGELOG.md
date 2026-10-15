@@ -6,6 +6,19 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added: paper-v2 tables and figure data are generated from the archived results (#508)
+
+`scripts/gen-paper-v2-tables.py` reads only `paper/results/` and writes LaTeX tables and CSV figure data to
+`design/publication/paper-v2/manuscript/generated/` (also run by `make docs`; `--check` fails on drift). Each
+output records its source artifacts and their sha256, and is byte-identical on a re-run. Covered: the clean and
+hard engine matrices, the clean-versus-hard robustness data, the `large-v3` repeat decodes, previous-text
+conditioning by checkpoint, cross-platform WER, the onset-padding heatmap with its multiplicity flags, batch versus
+streaming, the AMI diarization conditions with the paired cap comparison, and the clustering-threshold-by-corpus
+data. Disagreeing runs are all shown (the two clean matrices, the two `test-other` runs, four contexts of `large-v3`
+repeats), never reduced to one, and each table carries its artifact's caveats. Not yet covered because the archive
+cannot support it: a frozen clean matrix (#495) and an independent `large-v3` replication (#496). The manuscript
+sections still hold their inline tables; swapping in `\input` of the generated files is a follow-up.
+
 ### Changed — macOS install guide: the Open Anyway route first, and how to find a leftover daemon ([#562](https://github.com/MSKazemi/yazses/issues/562))
 
 macOS 15 (Sequoia) and later, including macOS 26, no longer offer *Open* on a right-click for an unsigned app, so
