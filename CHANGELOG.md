@@ -118,6 +118,29 @@ every native Wayland window; `xrandr` likewise returned one synthetic screen. Bo
 `WAYLAND_DISPLAY` as well. Not verified: the issue's research questions (AT-SPI window geometry and a supported
 focus path on real GNOME and KDE sessions) were not investigated on hardware, so #418 stays open for them.
 
+### Added — one command for the non-hardware eye-control evaluation, and a workflow that runs it on all three OSes (#424)
+
+`scripts/eye_eval_ci.py` runs the camera-free slice of the eye-control evidence ladder
+(`design/eye-control/EVALUATION.md` E0-E2) from a base install: the lazy-import check, the task
+fixtures, a schema-validated and privacy-swept synthetic result for each task, a byte-for-byte
+determinism check, the two committed trace-replay drift gates, and (with `--with-pytest`) every
+test file that imports `yazses.eyeeval`. It leaves `eye-eval-ci.json` — runner OS and architecture,
+Python and YazSes versions, commit, one PASS/FAIL per check, and an explicit `does_not_prove` list —
+even when a check fails, and exits non-zero. `--collect` judges a directory of downloaded legs and
+fails on a leg that is missing, malformed, failed, duplicated or on a different commit.
+`.github/workflows/eye-eval-ci.yml` calls both on ubuntu, macOS and Windows with a read-only token,
+`fail-fast: false` and an upload that survives a failed leg; it commits and publishes nothing.
+**Not yet observed:** the workflow has not run on a hosted runner. What was checked locally is the
+script, the judge, the YAML and the workflow contract, a run with `cv2`, `mediapipe` and `PySide6`
+made unimportable, and Windows path/line-ending handling by unit test.
+
+### Fixed — an eye-eval result written on Windows had CRLF line endings
+
+`yazses.eyeeval.runner.write_result` used `Path.write_text`, which on Windows turns every newline
+into CRLF, so the same result was a different file on each OS. It now writes the bytes it
+serialised. Found while making the result comparable across a CI matrix; no existing test could see
+it because the suite runs it on Linux.
+
 ### Fixed — an unanswered Wayland permission dialog was reported as "keyboard only"
 
 Found by running the daemon on a real GNOME Wayland session (2026-10-15). The portal answers `CreateSession`

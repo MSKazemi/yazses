@@ -582,7 +582,10 @@ def write_result(doc: dict[str, Any], path: Path, *, identifiers: LocalIdentifie
             + "\n  - ".join(problems)
         )
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(dump_result(doc), encoding="utf-8")
+    # Bytes, not `write_text`: in text mode Windows turns every "\n" into "\r\n", so the
+    # same result would be a different file on each leg of the CI matrix (and `dump_result`
+    # promises "one trailing newline", not "whatever this OS calls one").
+    path.write_bytes(dump_result(doc).encode("utf-8"))
     return path
 
 
