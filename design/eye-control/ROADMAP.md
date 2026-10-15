@@ -340,8 +340,11 @@ peaked at 0.46 against the shipped hold threshold 0.5, so rest-only calibration 
 leases the shared camera (the earlier 'still opens its own capture' gap is closed). P5.3 chords (#408) are
 wired as `[gesture.chords]` with a pointer freeze during a disturbing expression. P5.4's harness (#409)
 exists as an offline replay (`scripts/replay_face_switch_trace.py`); **the study itself has not been run**,
-and no switch is 'recommended'. Still open: a 'hold' chord token, `select`/`confirm`/`cancel` daemon entry
-points. The stuck-open hazard (an absolute-threshold switch whose resting score is above its release
+and no switch is 'recommended'. Still open: `select`/`confirm`/`cancel` daemon entry points.
+**Chords wave 2, 2026-10-15:** the 'hold' chord token is built (engine-made, time-based, `hold_ms`), and the
+one-frame pointer leak is closed for face tokens by a take-back (`since_s`/`max_rewind_s` on the Head-Pointer
+clutch, `onset_rewind_ms`); head tokens are not helped and the pointer still twitches one frame. Both
+defaults are provisional; no real-camera run exists. The stuck-open hazard (an absolute-threshold switch whose resting score is above its release
 threshold never lets go) now has a checkable refusal (`facegesture/restcheck.py`, shown by `calibrate`,
 the backend, `yazses doctor` and the controls window) and an opt-in `[facegesture] max_hold_s`; the replay
 report flags it as `stuck_open`.

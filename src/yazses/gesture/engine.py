@@ -34,6 +34,16 @@ system toward stopped, so it runs when the global hands-free gate is closed. Eve
 action is suppressed under pause, fault or staleness, and what was pending is dropped, not
 replayed on resume.
 
+**``hold`` is a token the engine makes itself.** A sensor cannot report "held long enough": it
+reports presses and releases, and the engine already owns the clock. ``hold`` becomes true when the
+tokens now held (at least one, and it must be one that *can* be held: a face gesture or ``tilt``)
+have been held **unchanged** for ``hold_s`` seconds of the clock the caller passes in, so
+``jaw_open+hold`` is "keep the jaw open for ``hold_s``", ``jaw_open+smile+hold`` is "both, together,
+for ``hold_s``", and a third token joining or one letting go starts the count again. It is measured
+in time, never in frames, so it takes the same wall time at 15 and at 60 fps (to within one runner
+tick). It is released the moment any held token is. A chord and the same chord with ``+hold`` can
+not both be bound -- the plain one would fire first -- so ``parse_chords`` refuses both.
+
 **Consequences are not decided here.** The handlers are injected abstract actions. The daemon
 routes any that could do harm through the existing confirmation policy
 (``activation/confirm.py``); this module performs nothing.
@@ -43,6 +53,13 @@ failure observed in Project Gameface). While any token of a bound chord is engag
 onset has been reported with :meth:`ChordEngine.onset` -- and for ``freeze_tail_s`` after, the
 engine asks for a pointer freeze through ``on_freeze``. It is a request to a clutch source,
 not an action: nothing here touches a pointer.
+
+When the caller says which camera frame began the engagement (``at_s``), the engine remembers it
+as :attr:`ChordEngine.freeze_started_s` for the duration of the ``on_freeze(True)`` call. That is
+the "chord may be starting" signal: it lets the clutch take back the one step a pointer runner
+polling on its own thread may already have made for that frame. The engine adds no earlier
+trigger of its own -- the frame is the first one a detector already calls an onset -- so it can
+fire no more often than the freeze already did.
 """
 from __future__ import annotations
 
@@ -54,11 +71,14 @@ from typing import Protocol
 from yazses.facegesture.detector import GESTURES
 from yazses.facegesture.switches import SAFE_ACTIONS
 from yazses.gesture.chords import normalize_chord, resolve_chord
-from yazses.gesture.headmotion import HEAD_TOKENS
+from yazses.gesture.headmotion import HEAD_TOKENS, TILT
 
 __all__ = [
     "ACTIONS",
     "COMMAND_PREFIX",
+    "DEFAULT_HOLD_S",
+    "HOLD",
+    "HOLDABLE",
     "SAFETY_SOURCE",
     "TOKENS",
     "ChordEngine",
@@ -70,9 +90,23 @@ log = logging.getLogger(__name__)
 #: The name this feature uses for itself towards the hands-free safety gate.
 SAFETY_SOURCE = "gesture"
 
+#: The one token no sensor reports: "the tokens now held have stayed held" (see the module
+#: docstring). The engine makes it from its own clock.
+HOLD = "hold"
+
+#: Default for how long a state must be held to count as ``hold``. **Provisional:** nothing has
+#: measured how long people can hold a face gesture on purpose, nor how long they hold one by
+#: accident; it only has to be clearly longer than the 0.4 s chord window, so a hold is never the
+#: same thing as a quick press.
+DEFAULT_HOLD_S = 0.8
+
 #: Every token a chord may use: the face gestures ``facegesture/detector.py`` already names,
-#: and the head gestures of ``gesture/headmotion.py``.
-TOKENS: tuple[str, ...] = (*GESTURES, *HEAD_TOKENS)
+#: the head gestures of ``gesture/headmotion.py``, and ``hold``.
+TOKENS: tuple[str, ...] = (*GESTURES, *HEAD_TOKENS, HOLD)
+
+#: The tokens that stay engaged until released, i.e. the ones ``hold`` can be a duration *of*.
+#: ``nod`` and ``shake`` are over as they are recognised, so "nod+hold" has no meaning.
+HOLDABLE: frozenset[str] = frozenset((*GESTURES, TILT))
 
 #: Spelled in config for an action that routes a spoken command phrase through the existing
 #: confirmation policy: ``"command:undo"``. Everything after the colon is the phrase.
@@ -139,12 +173,29 @@ def parse_chords(raw: object) -> tuple[dict[str, str], list[str]]:
             )
             continue
         chord = normalize_chord(tokens)
+        if HOLD in tokens and not HOLDABLE.intersection(tokens):
+            problems.append(
+                f"{where}: 'hold' needs a token that can be held to be a duration of "
+                f"({', '.join(sorted(HOLDABLE))}); nod and shake are momentary. Ignored"
+            )
+            continue
         if chord in bound or chord in collided:
             problems.append(f"{where}: the chord {chord!r} is bound twice; neither binding is used")
             bound.pop(chord, None)
             collided.add(chord)
             continue
         bound[chord] = action
+    # "jaw_open" and "jaw_open+hold" together: the plain chord fires when its window closes, long
+    # before the hold can complete, so the hold variant could never run. Refuse both rather
+    # than silently run the one the user may not have meant.
+    for chord in sorted(c for c in bound if HOLD in c.split("+")):
+        plain = normalize_chord(t for t in chord.split("+") if t != HOLD)
+        if chord in bound and plain in bound:
+            problems.append(
+                f"chords: {plain!r} and {chord!r} are both bound; the plain chord would always fire "
+                f"first, so neither binding is used"
+            )
+            del bound[chord], bound[plain]
     return bound, problems
 
 
@@ -159,6 +210,7 @@ class ChordEngine:
         window_s: float = 0.4,
         refractory_s: float = 1.0,
         freeze_tail_s: float = 0.3,
+        hold_s: float = DEFAULT_HOLD_S,
         gate: _Gate | None = None,
         on_freeze: Callable[[bool], None] | None = None,
         source: str = SAFETY_SOURCE,
@@ -168,6 +220,7 @@ class ChordEngine:
         self._window = _nonneg(window_s, 0.4)
         self._refractory = _nonneg(refractory_s, 1.0)
         self._tail = _nonneg(freeze_tail_s, 0.3)
+        self._hold_s = _nonneg(hold_s, DEFAULT_HOLD_S)
         self._gate = gate
         self._on_freeze = on_freeze
         self._source = source
@@ -182,6 +235,10 @@ class ChordEngine:
         self._cooldown_until = -math.inf
         self._freeze_until = -math.inf
         self._freeze = False
+        self._since_hint: float | None = None
+        self._freeze_since: float | None = None
+        self._set_since: float | None = None  # when the tokens now held last changed
+        self._hold_on = False
         self._paused = False
         self._warned: set[str] = set()
 
@@ -203,6 +260,15 @@ class ChordEngine:
         return self._freeze
 
     @property
+    def freeze_started_s(self) -> float | None:
+        """The camera-frame time that began the current pointer freeze, if the caller gave one.
+
+        Meaningful inside the ``on_freeze(True)`` callback (and while the freeze lasts); ``None``
+        when the freeze began from something with no frame of its own (a head pulse, a tail).
+        """
+        return self._freeze_since
+
+    @property
     def paused(self) -> bool:
         return self._paused
 
@@ -212,28 +278,37 @@ class ChordEngine:
 
     # ------------------------------------------------------------------ token input
 
-    def press(self, token: str, now_s: float) -> None:
-        """A held token became held (a face gesture, a tilt)."""
-        if token not in self._vocab:
+    def press(self, token: str, now_s: float, at_s: float | None = None) -> None:
+        """A held token became held (a face gesture, a tilt).
+
+        ``at_s`` is the camera frame that made it so, when the caller has one (see
+        :attr:`freeze_started_s`).
+        """
+        if token not in self._vocab or token == HOLD:
             return
         self._settle(now_s)
-        self._held.add(token)
+        if token not in self._held:
+            self._held.add(token)
+            self._held_changed(now_s)
         self._seen.add(token)
         self._onset.discard(token)
         self._open(now_s)
+        self._since_hint = at_s
         self._step(now_s)
 
     def release(self, token: str, now_s: float) -> None:
         """A held token let go. Never gated: a release only ever makes things quieter."""
         if token in self._held or token in self._onset:
             self._freeze_until = now_s + self._tail   # the effort fades after the detector says so
-        self._held.discard(token)
+        if token in self._held:
+            self._held.discard(token)
+            self._held_changed(now_s)
         self._onset.discard(token)
         self._step(now_s)
 
     def pulse(self, token: str, now_s: float) -> None:
         """A momentary token (a nod, a shake) just happened."""
-        if token not in self._vocab:
+        if token not in self._vocab or token == HOLD:
             return
         self._settle(now_s)
         self._seen.add(token)
@@ -241,16 +316,18 @@ class ChordEngine:
         self._open(now_s)
         self._step(now_s)
 
-    def onset(self, token: str, engaged: bool, now_s: float) -> None:
+    def onset(self, token: str, engaged: bool, now_s: float, at_s: float | None = None) -> None:
         """The expression behind ``token`` has begun but is not yet a token.
 
         Only the pointer freeze reads this: a facial effort moves the head *before* a
-        detector has seen enough frames to call it a gesture.
+        detector has seen enough frames to call it a gesture. ``at_s`` is the camera frame
+        that showed it (see :attr:`freeze_started_s`).
         """
-        if token not in self._vocab:
+        if token not in self._vocab or token == HOLD:
             return
         if engaged and token not in self._held:
             self._onset.add(token)
+            self._since_hint = at_s
         elif token in self._onset:
             self._onset.discard(token)
             self._freeze_until = now_s + self._tail
@@ -288,6 +365,8 @@ class ChordEngine:
         self._held.clear()
         self._onset.clear()
         self._seen.clear()
+        self._set_since = None
+        self._hold_on = False
         self._state = "idle"
         self._freeze_until = -math.inf
         self._set_freeze(False)
@@ -305,10 +384,34 @@ class ChordEngine:
             self._seen.clear()
             self._state = "idle"
 
+    def _held_changed(self, now_s: float) -> None:
+        """The set of held tokens just changed: a ``hold`` in progress starts over."""
+        if self._hold_on:
+            self._hold_on = False
+            self._seen.discard(HOLD)
+        self._set_since = now_s if self._held else None
+
+    def _advance_hold(self, now_s: float) -> None:
+        """Make ``hold`` true once the held tokens have been held unchanged for ``hold_s``."""
+        if (
+            HOLD in self._vocab
+            and not self._hold_on
+            and self._held
+            and self._set_since is not None
+            and now_s - self._set_since >= self._hold_s
+            # a holdable token let go of earlier in this engagement was not held *with* the rest
+            and (self._seen & HOLDABLE) <= self._held
+        ):
+            self._hold_on = True
+            if self._state == "gather":  # a spent engagement stays spent
+                self._seen.add(HOLD)
+
     def _step(self, now_s: float) -> None:
+        self._advance_hold(now_s)
+        hint, self._since_hint = self._since_hint, None
         if self._held or self._onset:
             self._freeze_until = now_s + self._tail
-        self._set_freeze(bool(self._held or self._onset) or now_s < self._freeze_until)
+        self._set_freeze(bool(self._held or self._onset) or now_s < self._freeze_until, hint)
         if self._state == "gather" and (
             now_s - self._opened_s >= self._window or not self._could_grow()
         ) and not self._waiting_for_a_pulse():
@@ -367,10 +470,11 @@ class ChordEngine:
         decision = self._gate.gate(self._source)
         return bool(getattr(decision, "allowed", False))
 
-    def _set_freeze(self, now: bool) -> None:
+    def _set_freeze(self, now: bool, since_s: float | None = None) -> None:
         if now == self._freeze:
             return
         self._freeze = now
+        self._freeze_since = since_s if now else None
         callback = self._on_freeze
         if callback is not None:
             try:

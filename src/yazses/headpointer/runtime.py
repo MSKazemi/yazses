@@ -230,7 +230,12 @@ class HeadPointerRuntime:
             result = ctl.resume()
             return {"ok": result.ok, "reason": result.reason}
         if action == "clutch":
-            ctl.set_clutch(str(params.get("source", "user")) or "user", bool(params.get("active")))
+            ctl.set_clutch(
+                str(params.get("source", "user")) or "user",
+                bool(params.get("active")),
+                since_s=_optional_float(params.get("since_s")),
+                max_rewind_s=_optional_float(params.get("max_rewind_s")),
+            )
             return {"ok": True}
         if action == "dwell":
             enabled = bool(params.get("enabled"))
@@ -239,6 +244,13 @@ class HeadPointerRuntime:
             ctl.set_dwell_enabled(enabled)
             return {"ok": True}
         return {"ok": False, "reason": f"unknown action {action!r}"}
+
+
+def _optional_float(value: object) -> float | None:
+    """``value`` as a float, or ``None`` when it is absent or not a number (never raises)."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return float(value)
 
 
 def status_dict(status: HeadPointerStatus) -> dict[str, object]:

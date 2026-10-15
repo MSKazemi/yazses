@@ -468,3 +468,188 @@ def test_a_freeze_callback_that_raises_does_not_break_the_engine():
     engine, calls = make({"nod": "recenter"}, freeze=boom)
     engine.pulse("nod", 1.0)
     assert calls.log == ["recenter"]
+
+
+# --------------------------------------------------------------------------- #
+# Which frame began the freeze (the "chord may be starting" signal)
+# --------------------------------------------------------------------------- #
+def test_the_freeze_names_the_frame_that_began_it_while_the_callback_runs():
+    seen = []
+    holder = {}
+
+    def freeze(frozen):
+        seen.append((frozen, holder["engine"].freeze_started_s))
+
+    engine, _ = make({"jaw_open+nod": "recenter"}, freeze=freeze)
+    holder["engine"] = engine
+    engine.onset("jaw_open", True, 1.0, at_s=0.97)
+    assert seen == [(True, 0.97)]
+    engine.onset("jaw_open", True, 1.07, at_s=1.04)       # already frozen: no second signal
+    assert seen == [(True, 0.97)] and engine.freeze_started_s == 0.97
+    engine.reset(2.0)
+    assert seen[-1] == (False, None) and engine.freeze_started_s is None
+
+
+def test_a_press_with_no_earlier_onset_also_names_its_frame():
+    seen = []
+    holder = {}
+    engine, _ = make(
+        {"jaw_open+nod": "recenter"},
+        freeze=lambda frozen: seen.append(holder["engine"].freeze_started_s),
+    )
+    holder["engine"] = engine
+    engine.press("jaw_open", 1.0, at_s=0.95)
+    assert seen == [0.95]
+
+
+def test_a_freeze_with_no_frame_of_its_own_names_none():
+    seen = []
+    holder = {}
+    engine, _ = make(
+        {"nod": "recenter"}, freeze=lambda frozen: seen.append(holder["engine"].freeze_started_s)
+    )
+    holder["engine"] = engine
+    engine.pulse("nod", 1.0)
+    assert seen == [None]
+
+
+# --------------------------------------------------------------------------- #
+# The "hold" token
+# --------------------------------------------------------------------------- #
+HOLD_S = 0.8
+
+
+def make_hold(bindings, *, hold_s=HOLD_S):
+    calls = Calls()
+    engine = ChordEngine(
+        bindings, {a: calls.handler(a) for a in set(bindings.values())},
+        window_s=WINDOW, refractory_s=REFRACTORY, freeze_tail_s=TAIL, hold_s=hold_s,
+    )
+    return engine, calls
+
+
+def run_ticks(engine, start, stop, step):
+    """Tick the engine every ``step`` seconds from ``start``, yielding each time as it goes."""
+    t = start
+    while t <= stop + 1e-9:
+        engine.tick(t)
+        yield t
+        t += step
+
+
+def test_hold_is_a_token_and_is_listed():
+    assert "hold" in TOKENS
+
+
+def test_a_held_token_plus_hold_fires_once_the_duration_has_passed():
+    engine, calls = make_hold({"jaw_open+hold": "recenter"})
+    engine.press("jaw_open", 1.0)
+    engine.tick(1.0 + HOLD_S - 0.01)
+    assert calls.log == []
+    engine.tick(1.0 + HOLD_S)
+    assert calls.log == ["recenter"]
+    engine.tick(30.0)
+    assert calls.log == ["recenter"]                       # once per engagement
+
+
+def test_a_token_released_before_the_duration_is_not_a_hold():
+    engine, calls = make_hold({"jaw_open+hold": "recenter"})
+    engine.press("jaw_open", 1.0)
+    engine.release("jaw_open", 1.5)
+    engine.tick(9.0)
+    assert calls.log == []
+
+
+@pytest.mark.parametrize("step", [1 / 15, 1 / 30, 1 / 60])
+def test_hold_takes_the_same_wall_time_at_any_frame_rate(step):
+    engine, calls = make_hold({"jaw_open+hold": "recenter"})
+    engine.press("jaw_open", 1.0)
+    fired_at = None
+    for t in run_ticks(engine, 1.0 + step, 3.0, step):
+        if calls.log and fired_at is None:
+            fired_at = t
+    assert fired_at is not None
+    assert HOLD_S <= fired_at - 1.0 < HOLD_S + step + 1e-6
+
+
+def test_a_change_in_what_is_held_restarts_the_count():
+    engine, calls = make_hold({"jaw_open+smile+hold": "recenter"})
+    engine.press("jaw_open", 1.0)
+    engine.tick(1.7)
+    engine.press("smile", 1.8)                             # joins late: both held from 1.8
+    engine.tick(2.5)                                       # 1.5 s after the jaw, 0.7 s of both
+    assert calls.log == []
+    engine.tick(1.8 + HOLD_S)
+    assert calls.log == ["recenter"]
+
+
+def test_a_token_letting_go_takes_the_hold_with_it():
+    engine, calls = make_hold({"jaw_open+smile+hold": "recenter"})
+    engine.press("jaw_open", 1.0)
+    engine.press("smile", 1.05)
+    engine.release("smile", 1.5)                           # before the hold completes
+    engine.tick(5.0)
+    assert calls.log == []
+
+
+def test_hold_with_a_pulse_in_the_same_chord():
+    engine, calls = make_hold({"jaw_open+nod+hold": "recenter"})
+    engine.press("jaw_open", 1.0)
+    engine.pulse("nod", 1.2)
+    assert calls.log == []
+    engine.tick(1.0 + HOLD_S)
+    assert calls.log == ["recenter"]
+
+
+def test_a_sensor_cannot_press_hold_itself():
+    engine, calls = make_hold({"jaw_open+hold": "recenter"})
+    engine.press("hold", 1.0)
+    engine.pulse("hold", 1.0)
+    engine.tick(5.0)
+    assert calls.log == []
+
+
+def test_hold_is_suppressed_by_the_gate_like_any_other_action():
+    gate = HandsFreeSafety(["gesture"])                    # never armed
+    calls = Calls()
+    engine = ChordEngine(
+        {"jaw_open+hold": "command:undo"}, {"command:undo": calls.handler("undo")},
+        window_s=WINDOW, refractory_s=REFRACTORY, hold_s=HOLD_S, gate=gate,
+    )
+    engine.press("jaw_open", 1.0)
+    engine.tick(5.0)
+    assert calls.log == []
+
+
+def test_hold_after_a_spent_engagement_does_not_fire_a_second_time():
+    engine, calls = make_hold({"jaw_open+hold": "recenter", "smile": "pause_pointer"})
+    engine.press("smile", 1.0)                             # fires "smile" at once
+    engine.press("jaw_open", 1.1)                          # joins a spent engagement
+    engine.tick(1.1 + HOLD_S + 0.5)
+    assert calls.log == ["pause_pointer"]
+
+
+@pytest.mark.parametrize("key", ["hold", "nod+hold", "shake+hold", "hold+hold", "nod+shake+hold"])
+def test_hold_alone_or_with_only_momentary_tokens_is_refused_with_a_reason(key):
+    bound, problems = parse_chords({key: "recenter"})
+    assert bound == {} and len(problems) == 1
+    assert "hold" in problems[0] and "momentary" in problems[0]
+
+
+@pytest.mark.parametrize("key", ["jaw_open+hold", "Hold+SMILE", "tilt+hold", "jaw_open+nod+hold"])
+def test_hold_beside_a_holdable_token_is_accepted(key):
+    bound, problems = parse_chords({key: "recenter"})
+    assert problems == [] and len(bound) == 1
+
+
+def test_a_chord_and_the_same_chord_with_hold_bind_neither():
+    bound, problems = parse_chords(
+        {"jaw_open": "recenter", "jaw_open+hold": "pause_pointer", "smile": "recenter"}
+    )
+    assert bound == {"smile": "recenter"}
+    assert len(problems) == 1 and "'jaw_open'" in problems[0] and "'hold+jaw_open'" in problems[0]
+
+
+def test_the_backwards_compatible_grammar_is_unchanged():
+    bound, problems = parse_chords({"jaw_open+nod": "recenter", "tilt": "pause_pointer"})
+    assert problems == [] and set(bound) == {"jaw_open+nod", "tilt"}

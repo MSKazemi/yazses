@@ -83,6 +83,38 @@ of the pipeline is unchanged:
   `smile`, `eyes_closed`); if it fires while you talk or laugh, raise `hold_threshold` or
   `min_hold_frames`. Experimental: it has been built and unit-tested, but the thresholds
   that suit *your* face have not been measured, so please report what worked.
+- **Face and head chords.** `yazses features enable gesture` lets a *combination* of
+  face and head movements trigger an action, with the same webcam and the same
+  on-device rule (nothing leaves your machine). It binds nothing until you add a
+  chord under `[gesture.chords]`, for example:
+
+  ```toml
+  [gesture]
+  enabled = true
+
+  [gesture.chords]
+  "brow_raise+nod" = "recenter"      # raise your brows and nod: make this head pose neutral
+  "jaw_open+hold"  = "pause_pointer" # keep your jaw open for 0.8 s: stop the pointer
+  ```
+
+  The tokens are the five face movements above plus `nod`, `shake`, `tilt` and `hold`.
+  `hold` means "what you are holding has stayed held" for `[gesture] hold_ms`
+  (800 ms by default, a starting value nobody has measured). It is measured in time,
+  not frames, so it takes the same time on a slow camera as a fast one. It needs a
+  token you can hold -- a face movement or `tilt`; `nod` and `shake` are over as soon as
+  they happen, so `nod+hold` is refused. A chord and the same chord with `+hold` cannot
+  both be bound, because the plain one would always fire first; YazSes tells you which
+  line it ignored (it appears in `yazses doctor` and `yazses gesture status`).
+
+  While a facial expression moves your head, the Head-Pointer is held still. The pointer
+  runner and the gesture runner look at the same camera frame independently, so the pointer
+  can follow the first frame before the hold lands; YazSes then moves it back by exactly
+  that step (`[gesture] onset_rewind_ms`, 150 by default, 0 turns it off). You may see
+  the pointer twitch for one frame; it does not drift. Head tokens (`nod`, `shake`) are
+  different: the pointer follows the head while the nod is being made, because nothing
+  knows a nod has started until it is finished. Chord actions are limited to pausing or
+  recentering the pointer and reversible spoken commands (`command:undo`); anything else
+  is refused. Every number here is provisional: no false-activation study exists yet.
 - **EMG muscle sensor.** A USB muscle sensor over serial can act as the
   hold-to-talk trigger, so a small muscle contraction starts and stops dictation.
   Configure it under `[emg]` with the serial device path.

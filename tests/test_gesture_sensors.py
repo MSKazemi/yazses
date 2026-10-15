@@ -272,3 +272,12 @@ def test_reset_releases_everything():
     rig.sensors.reset(rig.t)
     assert not rig.engine.freeze_pointer
     rig.sensors.reset(rig.t)              # idempotent
+
+
+def test_the_freeze_names_the_camera_frame_that_showed_the_expression():
+    rig = Rig({"jaw_open+nod": "recenter"})
+    rig.frame(jaw=0.05)
+    assert rig.engine.freeze_started_s is None
+    rig.frame(jaw=0.9)                    # first frame at or above the release threshold
+    assert rig.engine.freeze_pointer
+    assert rig.engine.freeze_started_s == rig.t

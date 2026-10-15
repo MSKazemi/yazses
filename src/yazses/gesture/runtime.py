@@ -37,6 +37,7 @@ from typing import Any
 
 from yazses.gesture.engine import (
     COMMAND_PREFIX,
+    DEFAULT_HOLD_S,
     SAFETY_SOURCE,
     ChordEngine,
     parse_chords,
@@ -54,6 +55,8 @@ __all__ = [
     "build_gesture",
     "command_runner",
     "engine_params",
+    "hold_param",
+    "rewind_param",
     "no_echo_injector",
     "sensor_settings",
 ]
@@ -115,6 +118,21 @@ def engine_params(section: Any) -> tuple[float, float, float]:
         _num(section.refractory_ms, 1000.0) / 1000.0,
         _num(section.freeze_tail_ms, 300.0) / 1000.0,
     )
+
+
+def hold_param(section: Any) -> float:
+    """``[gesture] hold_ms`` as seconds: the ``hold`` token's duration. Unreadable = default."""
+    seconds = _num(section.hold_ms, DEFAULT_HOLD_S * 1000.0) / 1000.0
+    return seconds if seconds > 0.0 else DEFAULT_HOLD_S
+
+
+def rewind_param(section: Any) -> float:
+    """``[gesture] onset_rewind_ms`` as seconds: how much pointer motion a late freeze may undo.
+
+    Zero (or anything unreadable or negative) is *none*: doubt must not move the pointer.
+    """
+    seconds = _num(section.onset_rewind_ms, 0.0) / 1000.0
+    return seconds if seconds > 0.0 else 0.0
 
 
 class GestureRunner:
@@ -310,15 +328,24 @@ def build_gesture(
                 phrase = action[len(COMMAND_PREFIX):].strip()
                 handlers[action] = functools.partial(run_command, phrase)
 
+    rewind_s = rewind_param(config)
+
     def _freeze(frozen: bool) -> None:
-        _pointer("clutch", {"source": CLUTCH_SOURCE, "active": frozen})
+        params: dict[str, Any] = {"source": CLUTCH_SOURCE, "active": frozen}
+        since = engine.freeze_started_s if frozen else None
+        if since is not None and rewind_s > 0.0:
+            # The pointer runner polls on its own thread and may already have followed the
+            # first disturbed frame; ask the clutch to take that step back (and no more).
+            params["since_s"] = since
+            params["max_rewind_s"] = rewind_s
+        _pointer("clutch", params)
 
     on_freeze = _freeze if pointer_live else None
 
     window_s, refractory_s, freeze_tail_s = engine_params(config)
     engine = ChordEngine(
         bindings, handlers, window_s=window_s, refractory_s=refractory_s,
-        freeze_tail_s=freeze_tail_s, gate=safety, on_freeze=on_freeze,
+        freeze_tail_s=freeze_tail_s, hold_s=hold_param(config), gate=safety, on_freeze=on_freeze,
     )
     sensors = SensorTokens(engine, sensor_settings(config, facegesture))
     for action in engine.unwired():
@@ -328,7 +355,8 @@ def build_gesture(
         log.warning(
             "[gesture] head tokens (%s) and the Head-Pointer share one body channel: the "
             "pointer follows the same motion that makes the gesture. It is frozen once the "
-            "gesture is recognised, not before; face tokens do not have this problem.",
+            "gesture is recognised, not before (nothing takes that motion back); face tokens "
+            "freeze it from the first frame they are seen.",
             ", ".join(t for t in HEAD_TOKENS if t in engine.vocabulary),
         )
     if getattr(facegesture, "use_baseline", False):
