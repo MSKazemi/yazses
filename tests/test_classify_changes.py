@@ -114,17 +114,21 @@ UNCLAIMED = [
     "a-tree-that-does-not-exist-yet/main.py",
 ]
 
-#: The scope each path-filtered `pull_request` workflow will be routed by. The classifier
-#: promises its rules cover at least each workflow's own `paths:` filter, so routing the
-#: workflow by this scope instead can never run it on fewer changes than it runs on today.
+#: The scopes each path-filtered `pull_request` workflow will be routed by: it runs when
+#: any of them is set. The classifier promises its rules cover at least each workflow's own
+#: `paths:` filter, so routing the workflow by these scopes instead can never run it on
+#: fewer changes than it runs on today.
 LANES = {
-    "android-test.yml": "android",
-    "build-macos.yml": "macos",
-    "build-windows.yml": "windows",
-    "docs.yml": "docs_design",
-    "flatpak.yml": "packaging",
-    "macos-smoke.yml": "macos",
-    "msix-validate.yml": "windows",
+    "android-test.yml": {"android"},
+    "build-macos.yml": {"macos"},
+    "build-windows.yml": {"windows"},
+    "docs.yml": {"docs_design"},
+    # Its filter spans the eye-evaluation code, its tests and fixtures, and scripts that
+    # no rule claims; there is no eye-tracking scope, so it rides on the two it touches.
+    "eye-eval-ci.yml": {"python_core", "tests"},
+    "flatpak.yml": {"packaging"},
+    "macos-smoke.yml": {"macos"},
+    "msix-validate.yml": {"windows"},
 }
 
 
@@ -290,7 +294,7 @@ def test_every_rule_still_matches_a_tracked_path(tracked: list[str]) -> None:
 
 
 def test_every_path_filtered_workflow_has_a_lane() -> None:
-    """A new path-filtered workflow needs a scope in LANES before the test below can
+    """A new path-filtered workflow needs its scopes in LANES before the test below can
     check that the classifier covers its filter."""
     filtered = sorted(
         path.name for path in WORKFLOWS.glob("*.yml") if _pull_request_paths(path) is not None
@@ -298,28 +302,28 @@ def test_every_path_filtered_workflow_has_a_lane() -> None:
     assert filtered == sorted(LANES)
 
 
-@pytest.mark.parametrize(("workflow", "scope"), sorted(LANES.items()))
-def test_a_lane_scope_covers_its_workflow_paths_filter(workflow: str, scope: str) -> None:
-    """Every pattern in the workflow's `paths:` must classify into its lane's scope, or
-    routing by the classifier would run that lane on fewer changes than today."""
+@pytest.mark.parametrize("workflow", sorted(LANES))
+def test_a_lane_scope_covers_its_workflow_paths_filter(workflow: str) -> None:
+    """Every pattern in the workflow's `paths:` must classify into one of its lane's
+    scopes, or routing by the classifier would run that lane on fewer changes than today.
+    `unknown` counts as covered: it requests the full gate, which runs every lane."""
+    scopes = LANES[workflow]
     patterns = _pull_request_paths(WORKFLOWS / workflow)
     assert patterns, f"{workflow} has no pull_request paths filter"
     uncovered = []
     for pattern in patterns:
-        if pattern.endswith("/**"):
-            sample = pattern[:-2] + "any/file"
-        else:
-            # Only `dir/**` and exact paths are expanded; fail on any other glob form
-            # rather than check a sample that does not represent it.
-            assert not any(ch in pattern for ch in "*?[!"), (
-                f"{workflow}: {pattern!r} is a glob form this test does not expand"
-            )
-            sample = pattern
-        if scope not in classifier.classify_path(sample):
+        # `**` becomes two path segments and `*` one character, which gives a concrete
+        # path inside the pattern. Fail on any other glob form rather than check a
+        # sample that does not represent it.
+        assert not any(ch in pattern for ch in "?[!"), (
+            f"{workflow}: {pattern!r} is a glob form this test does not expand"
+        )
+        sample = pattern.replace("**", "any/file").replace("*", "x")
+        if not classifier.classify_path(sample) & (scopes | {"unknown"}):
             uncovered.append(pattern)
     assert not uncovered, (
-        f"{workflow} runs on {uncovered}, but the classifier does not put them in "
-        f"{scope!r}. Add rules for them in scripts/classify_changes.py."
+        f"{workflow} runs on {uncovered}, but the classifier puts them in none of "
+        f"{sorted(scopes)}. Add rules for them in scripts/classify_changes.py."
     )
 
 

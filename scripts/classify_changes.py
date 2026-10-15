@@ -141,6 +141,7 @@ RULES: tuple[tuple[str, tuple[str, ...]], ...] = (
     # already lists itself in its own `paths:`, and labeler.yml labels the publishing
     # ones `packaging`
     (".github/workflows/docs.yml", (DOCS_DESIGN,)),
+    (".github/workflows/eye-eval-ci.yml", (PYTHON_CORE, TESTS)),
     (".github/workflows/android-test.yml", (ANDROID,)),
     (".github/workflows/gradle-wrapper.yml", (ANDROID,)),
     (".github/workflows/build-macos.yml", (MACOS,)),
