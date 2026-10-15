@@ -427,6 +427,36 @@ def test_no_sideways_scrolling_in_the_narrowest_and_the_widest_installed_font(
         )
 
 
+@pytest.mark.parametrize("points", [pytest.param(9, id="9pt"), pytest.param(14, id="14pt"),
+                                    pytest.param(24, id="24pt")])
+def test_a_window_that_turns_out_too_narrow_widens_itself_instead_of_scrolling_sideways(
+    qapp, font_restored, points
+):
+    """The hosted Windows run scrolled sideways by exactly 25 px at 14 pt while Linux, with the same
+    code, did not: a vertical scroll bar that appears only at some sizes is wider once shown than
+    its size hint says, so any width ESTIMATED beforehand can be short. Model that by making the
+    window too narrow after it was built -- something no estimate can see -- and require it to
+    correct itself from the overflow it actually has."""
+    font = QFont(qapp.font())
+    font.setPointSize(points)
+    qapp.setFont(font)
+    rig = _Rig(qapp, _faulted_with_everything_on())
+    dialog = rig.panel.dialog
+    dialog.setMinimumWidth(0)
+    dialog.resize(260, 820)
+    _shown(rig, qapp)
+    for area in dialog.findChildren(QScrollArea):
+        assert area.horizontalScrollBar().maximum() == 0, (
+            f"still scrolls sideways by {area.horizontalScrollBar().maximum()}px at {points}pt"
+        )
+    assert dialog.width() > 260, "the window did not widen at all"
+    # ... and it keeps that width as a floor, so a later resize cannot bring the overflow back.
+    dialog.resize(260, 820)
+    qapp.processEvents()
+    for area in dialog.findChildren(QScrollArea):
+        assert area.horizontalScrollBar().maximum() == 0
+
+
 def test_the_emergency_buttons_and_headline_grow_with_the_system_font(qapp, font_restored):
     sizes = {}
     for points in (10, 20):

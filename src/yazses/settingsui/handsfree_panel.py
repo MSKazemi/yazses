@@ -328,21 +328,25 @@ class HandsFreePanel:
         bottom.addWidget(close)
         outer.addLayout(bottom)
 
-        # Width from the content, not from a guess. The scroll area scrolls sideways exactly when
-        # its viewport is narrower than the body's minimum width, and the target sizes, margins,
-        # combo arrows and scroll bar are fixed pixels that do not scale with the font -- so a width
-        # worked out from the average glyph width (above) is too small in a narrow font, which is
-        # what the hosted Windows run showed: 25 px of sideways scrolling at 14 pt. The guess stays
-        # as the starting size; this only ever widens it.
-        margins = outer.contentsMargins()
-        needed = (
-            body.minimumSizeHint().width()
-            + 2 * scroll.frameWidth()
-            + scroll.verticalScrollBar().sizeHint().width()
-            + margins.left()
-            + margins.right()
-        )
-        self._dialog.resize(max(self._dialog.width(), needed), self._dialog.height())
+        # Width from what the layout actually needs, not from a guess. The scroll area scrolls sideways
+        # exactly when its viewport is narrower than the body's minimum width, and the target sizes,
+        # margins, combo arrows and scroll bar are fixed pixels that do not scale with the font -- so a
+        # width worked out from the average glyph width is too small in a narrow font. Estimating the
+        # rest was not enough either: on Windows a vertical scroll bar that appears only at some sizes
+        # (14 pt here) is 25 px wide once shown, and its `sizeHint()` before it is shown says
+        # otherwise, so the hosted run kept scrolling sideways by exactly 25 px. So react to the
+        # overflow itself: whenever the horizontal range becomes non-zero, make the dialog that much
+        # wider and keep it from shrinking below it again. It only ever widens, so it settles.
+        hbar = scroll.horizontalScrollBar()
+
+        def _widen_to_remove_sideways_scrolling(_low: int, high: int) -> None:
+            if high <= 0:
+                return
+            wanted = self._dialog.width() + high
+            self._dialog.setMinimumWidth(max(self._dialog.minimumWidth(), wanted))
+            self._dialog.resize(wanted, self._dialog.height())
+
+        hbar.rangeChanged.connect(_widen_to_remove_sideways_scrolling)
 
         self._set_tab_order()
         self._placeholders()

@@ -6,6 +6,15 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the hands-free window now corrects itself when it turns out too narrow (Windows run, round two)
+
+The first fix estimated the window's width from the content and a scroll bar's size hint; the hosted Windows run still
+scrolled sideways by exactly 25 px at 14 pt, because a vertical scroll bar that only appears at some sizes is wider once
+shown than its hint says. The window now reacts to the overflow it actually has: whenever the horizontal scroll range
+becomes non-zero it widens by that amount and keeps it as its minimum width. A new test makes the window too narrow after
+it was built and requires it to repair itself, and it fails without the fix. Confirmed only on Linux so far; the hosted
+Windows run is the real check.
+
 ### Fixed — the hands-free window scrolled sideways in a narrow font (found by the first Windows run)
 
 The controls window's width was worked out from the average glyph width, but its buttons, margins, combo arrows and scroll bar are fixed
