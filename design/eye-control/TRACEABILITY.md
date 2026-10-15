@@ -14,7 +14,7 @@ This is the one-page map from **decision -> spec -> issue -> verification**.
 | Gesture composition | ADR-v2-043 + ADR-v2-147 | `design/specs/eye-face-switch.md` | #408 | chord resolver tests |
 | Hands-free is composition | ADR-v2-148 | `design/specs/eye-handsfree-bundle.md` | #410 + #416 + #417 | end-to-end scenario |
 | Calibration topology | ADR-v2-149 | `design/specs/eye-implicit-calibration.md` | #397–#398 + #415 | invalidation/rollback tests |
-| Dedicated tracker seam | future ADR only if study warrants | future spec | #412 | API/licensing study |
+| Dedicated tracker seam | future ADR only if study warrants | [DEDICATED_TRACKER_STUDY.md](DEDICATED_TRACKER_STUDY.md) (research note, no implementation) | #412 | API/licensing study |
 | Grounded semantic targets | ADR-v2-151 (Proposed) | `design/specs/eye-grounded-targets.md` | #441–#445 | pure resolver + semantic coverage + wrong-target/abstention |
 
 ## Cross-cutting implementation gaps

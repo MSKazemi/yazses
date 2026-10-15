@@ -31,7 +31,7 @@ Scales:
 | R-19 | Camera indicator/active state is not visible | M | Medium | status/tray/doctor observability | #416 |
 | R-20 | Optional camera deps break base install | H | Low/Medium | lazy imports/extras, default-install CI | #393–#396 |
 | R-21 | Packaging declares camera permission when feature is unreachable | M | Existing on some bundles | permission capability matches shipped extras | #392 + #414 |
-| R-22 | Dedicated tracker SDK imposes incompatible license/runtime | H | Unknown | licensing/API study before dependency | #412 |
+| R-22 | Dedicated tracker SDK imposes incompatible license/runtime | H | Unknown | licensing/API study before dependency; study written ([DEDICATED_TRACKER_STUDY.md](DEDICATED_TRACKER_STUDY.md)) and found the proprietary SDK terms unverifiable, so no dependency is added | #412 |
 | R-23 | User's face characteristics/lighting materially change detector reliability | H | High | per-user neutral calibration + heterogeneous field evidence | #406, #411 |
 | R-24 | Error recovery itself triggers an action | H | Low/Medium | recovery returns to paused/neutral state; explicit re-arm | #417 |
 | R-25 | Correct window but wrong semantic control is grounded | H | Medium | ambiguity/abstention policy; wrong-target harness | #442, #445 |
