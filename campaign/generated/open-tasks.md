@@ -150,7 +150,6 @@ docs/config, **L2** bounded code.
 | Wire the `predict` capability so it is reachable from the daemon or CLI | `WIRE-PREDICT-001` | L2 | 90 min | python | `uv run python -m pytest tests/test_features_write_targets.py -q` |
 | Wire the `pronunciation` capability so it is reachable from the daemon or CLI | `WIRE-PRONUNCIATION-001` | L2 | 90 min | python | `uv run python -m pytest tests/test_features_write_targets.py -q` |
 | Wire the `proofback` capability so it is reachable from the daemon or CLI | `WIRE-PROOFBACK-001` | L2 | 90 min | python | `uv run python -m pytest tests/test_features_write_targets.py -q` |
-| Wire the `prosodypunct` capability so it is reachable from the daemon or CLI | `WIRE-PROSODYPUNCT-001` | L2 | 90 min | python | `uv run python -m pytest tests/test_features_write_targets.py -q` |
 | Wire the `rag` capability so it is reachable from the daemon or CLI | `WIRE-RAG-001` | L2 | 90 min | python | `uv run python -m pytest tests/test_features_write_targets.py -q` |
 | Wire the `readback_clone` capability so it is reachable from the daemon or CLI | `WIRE-READBACK-CLONE-001` | L2 | 90 min | python | `uv run python -m pytest tests/test_features_write_targets.py -q` |
 | Wire the `screengrounded` capability so it is reachable from the daemon or CLI | `WIRE-SCREENGROUNDED-001` | L2 | 90 min | python | `uv run python -m pytest tests/test_features_write_targets.py -q` |

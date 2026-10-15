@@ -49,6 +49,19 @@ was set in, and refuses with a spoken-notification reason when there is no caret
 different document is focused. It types nothing. "go to my last bookmark" is deliberately not accepted because
 the window-focus grammar claims every "go to ..." phrase first. Tests in `tests/test_bookmarks_wiring.py`.
 
+### Added — Prosodic Auto-Punctuation is now reachable: `yazses features enable prosodypunct`
+
+The designed `prosodypunct` core (ADR-v2-104) had no caller, so `features enable` refused it. It now runs on
+batch dictation: a pause between two words of at least `sentence_pause_ms` (default 700) ends the sentence with a
+period and capitalises the next word, and one of at least `comma_pause_ms` (default 250) adds a comma, driven by
+the recognizer's word timestamps. It only fills gaps: a word the recognizer already punctuated is left alone,
+line breaks and spacing are kept, a non-letter token never takes a mark, and when the number of words in the text
+and in the timings differ (for example after "twenty five" became "25") the text is left unchanged rather than
+punctuated in the wrong place. It runs before Prosody Ink, which skips an already-punctuated word, so the two
+compose. Off by default and listed as `optional`, so a fresh install does not turn it on; a default start imports
+none of its code (`tests/test_default_start_stays_light.py` now guards the package). Pitch cues and therefore
+question marks are not wired yet: nothing writes a `?`.
+
 ### Changed — a default start no longer imports opt-in feature code
 
 Measured against `main` with the eye and hands-free work merged: importing the CLI and the daemon loaded the

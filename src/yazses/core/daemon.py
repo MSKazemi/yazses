@@ -2547,6 +2547,10 @@ class Daemon:
             # Re-Ask (ADR-v2-077) reads the same per-word probabilities.
             want_reask = self._config.reask.enabled and not use_streaming
             want_words = want_prosody or want_confidence or want_echo or want_reask
+
+            # Prosodic Auto-Punctuation (ADR-v2-104) reads the same word gaps.
+            want_prosodypunct = self._config.prosodypunct.enabled and not use_streaming
+            want_words = want_prosody or want_confidence or want_echo or want_prosodypunct
             # Speech translation (ADR-v2-014): X→English via Whisper's translate task
             # when [translate] is enabled (whisper backend, target en). None → normal.
             try:
@@ -3138,6 +3142,21 @@ class Daemon:
 
                     text = balance_delimiters(text)
                     event["final_text"] = text
+                # Prosodic Auto-Punctuation (ADR-v2-104): . , from the pauses between words.
+                # Runs before Prosody Ink, whose period step skips an already-punctuated
+                # word, so the two compose. Opt-in; no-op when timings and text disagree.
+                if want_prosodypunct and prosody_words:
+                    from yazses.prosodypunct.apply import punctuate_text
+
+                    _pp = punctuate_text(
+                        text, [(w.start, w.end) for w in prosody_words],
+                        sentence_pause_ms=self._config.prosodypunct.sentence_pause_ms,
+                        comma_pause_ms=self._config.prosodypunct.comma_pause_ms,
+                    )
+                    if _pp.text != text:
+                        text = _pp.text
+                        event["prosodypunct_marks"] = _pp.sentences + _pp.commas
+                        event["final_text"] = text
                 # Prosody Ink: map vocal prosody (inter-word pause, emphasis) onto
                 # text formatting. Batch + dictation only; word timings drive the
                 # spacing/emphasis, content stays the cleaned text. Off by default.

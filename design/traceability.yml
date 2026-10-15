@@ -342,18 +342,6 @@ entries:
       task: "WIRE-PROOFBACK-001"
       milestone: 9
     remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
-  - id: "capability:prosodypunct"
-    kind: capability
-    title: "Prosodic Auto-Punctuation"
-    source: "design/adr/adr-v2-104-prosodic-auto-punctuation.md"
-    decision_status: accepted
-    delivery_status: designed
-    tracking:
-      kind: campaign
-      issues: [164]
-      task: "WIRE-PROSODYPUNCT-001"
-      milestone: 9
-    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
   - id: "capability:rag"
     kind: capability
     title: "Voice-Grounded RAG"
