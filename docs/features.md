@@ -830,7 +830,7 @@ YazSes ships **148 capabilities**. All but the core are **off by default** — t
 ### Gesture Chords
 
 - **Toggle:** `gesture`  ·  **Tier:** optional  ·  **Config:** `[gesture] — multi-input chords`
-- **What it does:** Bind chords of face and head gestures (jaw open, brow raise, nod, shake, tilt) to abstract actions like pause or recenter the pointer. Needs a webcam (OpenCV + MediaPipe, shared with Glance-Type) and binds nothing until you add a chord. Off by default.
+- **What it does:** Bind chords of face and head gestures (jaw open, brow raise, nod, shake, tilt) to abstract actions like pause or recenter the pointer. Needs a webcam (OpenCV + MediaPipe, shared with Glance-Type) and binds nothing until you add a chord. Experimental: no false-activation study exists yet. Off by default.
 - **Use when:** When your hands are busy and you want to pause or recenter the pointer with a face-and-head gesture, not a word.
 - **Example:** Raise your brows and nod to recenter the pointer (bind chords in [gesture.chords]).
 - **Download:** ~220 MB
@@ -1057,7 +1057,7 @@ YazSes ships **148 capabilities**. All but the core are **off by default** — t
 ### Head-Pointer
 
 - **Toggle:** `headpointer`  ·  **Tier:** optional  ·  **Config:** `[headpointer] — cursor by head pose`
-- **What it does:** Move and click the mouse by tilting your head; pair with voice for a fully hands-free desktop. Needs a webcam (OpenCV + MediaPipe, shared with Glance-Type) and a pointer backend. Off by default.
+- **What it does:** Move and click the mouse by tilting your head, and pair it with voice for a hands-free desktop. Experimental: it has not been validated with users, and its speed caps and dwell time are provisional. Needs a webcam (OpenCV + MediaPipe, shared with Glance-Type) and a pointer backend. Off by default.
 - **Use when:** When your hands are unavailable and you need mouse cursor control from head movement.
 - **Example:** Tilt your head to move the cursor; dwell to click.
 - **Download:** ~220 MB

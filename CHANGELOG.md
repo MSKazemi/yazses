@@ -182,6 +182,29 @@ its label (on Linux its name is the current choice); the health report could not
 text or a choice box pressed Pause (the dialog's default button), it now refreshes; and Pause did nothing but
 say "press Refresh" until the first read finished, it now works at once while every other control waits.
 
+### Fixed — the Head-Pointer and Gesture Chords no longer read as validated
+
+`yazses features info headpointer` (and `docs/features.md`, `docs/v2-features.md`, the accessibility use-case page) described
+the Head-Pointer as a way to a "fully hands-free desktop" with no mention that it is experimental, while the other
+camera features already said so and `docs/capability-matrix.md` calls all of them experimental. Nothing about it has
+been validated with users: the speed caps and dwell time are provisional and no accidental-click or fatigue
+measurement exists. The registry text for the Head-Pointer and Gesture Chords now says that, the use-case page says it
+for both camera pointer features, and the `[handsfree]` row of the configuration reference says the preset's values are
+provisional. No behaviour changes and no default changes: every camera feature, and the preset, stay off by default. The
+Head-Pointer's registry tier is still `optional` rather than `experimental` (enabling it does not ask for `--force`); that
+is a maintainer decision, not changed here.
+
+### Changed — the eye / hands-free acceptance documents are now checked against each other
+
+Work toward #411 (cross-hardware matrix) and #419 (co-design and fatigue protocol), both of which still need people and
+hardware. `design/eye-control/METRICS.md` now lists every key the code can write (derived from the runner, the result
+envelope and the grounding replay report), the keys the validation packs ask for that nothing emits yet, and a row for
+every item in `VALIDATION_MATRIX.md`; `CODESIGN_PROTOCOL_REQUIREMENTS.md` records which elements a fatigue protocol needs
+and which of them exist nowhere yet (rest rules, adverse-event handling, alternative formats, a before/after comfort
+rating); `TRACEABILITY.md` links each acceptance item to its issue, slot and test.
+`tests/test_eye_acceptance_consistency.py` fails when any of these drifts from the code or the registry. It asserts no
+slot, metric or default is validated, and writes no protocol id or ethics reference.
+
 ### Fixed — four more cross-OS test defects, found once the CI log could be read
 
 With the oversized test id fixed, the macOS and Windows runs reached the end of the suite and showed four

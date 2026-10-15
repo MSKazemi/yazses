@@ -146,10 +146,12 @@ move and click by voice. **Planned — designed and tested, not yet wired**, so
 yazses features enable mousegrid
 ```
 
-Say a grid number to move the cursor, then *"click"*. There is also a Head-Pointer
-capability, and an experimental camera-based Glance-Type mode that focuses the
-window you look at (X11 only — Wayland does not allow an application to focus
-another window).
+Say a grid number to move the cursor, then *"click"*. There is also an experimental
+Head-Pointer (`yazses features enable headpointer`), which moves and clicks by head pose,
+and an experimental camera-based Glance-Type mode that focuses the window you look at
+(X11 only — Wayland does not allow an application to focus another window). Both are
+off by default, neither has been validated with users yet, and every speed and dwell
+setting is a provisional starting value — please report what works for you.
 
 ## Honest limits
 

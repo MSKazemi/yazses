@@ -731,7 +731,7 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 
 | Key | Type | Default | Status | Notes |
 |---|---|---|---|---|
-| `enabled` | bool | `false` |  |  |
+| `enabled` | bool | `false` |  | experimental preset: every value it sets is provisional, none validated with users |
 | `gaze` | bool | `true` |  | Glance-Type: look at a window to target dictation and "close this" |
 | `pointer` | bool | `true` |  | Head-Pointer: the head moves the cursor |
 | `dwell` | bool | `true` |  | commit a click by holding the pointer still (needs [overlay] shown) |

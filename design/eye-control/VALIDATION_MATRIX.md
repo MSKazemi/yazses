@@ -50,10 +50,19 @@ These public reports are `community_qa`, not automatic research participants.
 
 ## Machine-readable form
 
-[`validation-slots.json`](validation-slots.json) carries this matrix as one versioned entry per
+[`validation-slots.json`](validation-slots.json) carries the **A/B table above** (every issue in
+it is exactly one cell) plus the PLANNED T1 cells that wait on #422, as one versioned entry per
 cell — pack, environment/session, A/B/repeat, PLANNED/READY, prerequisite issues, target issue
 where one exists, time estimate, hardware requirement, beginner-safety and evidence class. It
 holds no participant identity, contact detail or raw result.
+
+It does **not** carry every cell the "Which test must run where?" table below names. T2, T3, T4,
+T6 and T7 have no registered cell, because a cell is registered when its capability is reachable
+on that platform (see [VALIDATION_OPERATIONS.md](VALIDATION_OPERATIONS.md) "Do not create the full
+Cartesian product up front"). The combinations with no cell are listed, derived from the registry,
+in [`generated/validation-coverage.md`](generated/validation-coverage.md); a test derives the same
+set from the table below and checks that page lists it, so the gap is stated rather than implied
+away.
 
 This prose file stays authoritative for *why* a cell exists; the JSON exists so tooling does not
 have to parse the tables above.

@@ -176,7 +176,7 @@ All OFF by default. Pure logic ships now; heavy models load only when you enable
 | ◌ **Compose-in-Target-Language** | `compose` | Speak your strongest language, inject in a target language. |
 | **Grammar Repair** | `gec` | Minimal-edit article/agreement fixes for non-native dictation. |
 | ◌ **Screen-Grounded Dictation** | `screengrounded` | Primes STT with names visible on screen so they transcribe right. |
-| **Head-Pointer** | `headpointer` | Move + click the cursor by head pose; fully hands-free with voice. |
+| **Head-Pointer** | `headpointer` | Move + click the cursor by head pose; pairs with voice. Experimental: not yet validated with users. |
 | ◌ **Silent Lip-Reading** | `lipread` | Dictate with no audible voice; a webcam reads your lips. |
 | ◌ **Sign-Language Input** | `sign` | Deaf/HoH signers sign to the webcam; ASL is recognized and typed. |
 

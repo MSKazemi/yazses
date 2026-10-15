@@ -830,9 +830,10 @@ _Def("chords", "Chorded Shortcut Synthesis", "[chords] — any keyboard shortcut
              "time — works in any app. Accessibility/clipboard now; OCR via extra. Off by default.",
              lambda c: c.screengrounded.enabled, sg_on, sg_off),
         _Def("headpointer", "Head-Pointer", "[headpointer] — cursor by head pose", OPTIONAL,
-             "Move and click the mouse by tilting your head; pair with voice for a fully "
-             "hands-free desktop. Needs a webcam (OpenCV + MediaPipe, shared with Glance-Type) "
-             "and a pointer backend. Off by default.",
+             "Move and click the mouse by tilting your head, and pair it with voice for a "
+             "hands-free desktop. Experimental: it has not been validated with users, and its "
+             "speed caps and dwell time are provisional. Needs a webcam (OpenCV + "
+             "MediaPipe, shared with Glance-Type) and a pointer backend. Off by default.",
              lambda c: c.headpointer.enabled, hp_on, hp_off),
         _Def("compose", "Compose-in-Target-Language", "[compose] — speak L1, type L2", OPTIONAL,
              "Speak your strongest language and inject the text in a target language you write "
@@ -863,7 +864,7 @@ _Def("chords", "Chorded Shortcut Synthesis", "[chords] — any keyboard shortcut
              "Bind chords of face and head gestures (jaw open, brow raise, nod, shake, tilt) to "
              "abstract actions like pause or recenter the pointer. Needs a webcam (OpenCV + "
              "MediaPipe, shared with Glance-Type) and binds nothing until you add a chord. "
-             "Off by default.",
+             "Experimental: no false-activation study exists yet. Off by default.",
              lambda c: c.gesture.enabled, ge_on, ge_off),
         _Def("interpret", "Two-Way Interpreter", "[interpret] — face-to-face translate", OPTIONAL,
              "Face-to-face mode: two speakers alternate and each turn is translated into the "

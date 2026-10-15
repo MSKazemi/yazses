@@ -1399,7 +1399,7 @@ class HandsfreeConfig:
     **Every value the preset supplies is a provisional, unmeasured starting value**
     (design/eye-control/GOVERNANCE.md): no field evidence exists to tune them from.
     """
-    enabled: bool = False
+    enabled: bool = False  # experimental preset: every value it sets is provisional, none validated with users
     gaze: bool = True      # Glance-Type: look at a window to target dictation and "close this"
     pointer: bool = True   # Head-Pointer: the head moves the cursor
     dwell: bool = True     # commit a click by holding the pointer still (needs [overlay] shown)
