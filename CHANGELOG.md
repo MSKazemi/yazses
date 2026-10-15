@@ -6,6 +6,14 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — wiring tasks no longer claim to be cloud-completable (#531)
+
+All 38 remaining `feature-wiring` tasks said `cloud_agent_ready: true` while their own evidence is "the
+feature enabled and observed doing something on your machine", which a clean cloud VM cannot produce. They
+are now `false`, `scripts/campaign.py` rejects the combination (any `cloud_agent_ready` task whose evidence is
+observed "on your machine"), and `tests/test_campaign.py` pins both the rule and the inventory. Generated
+contributor pages are regenerated from `campaign/tasks.json`. No evidence was weakened to achieve this.
+
 ### Added — Confidence-Gated Re-Ask is now reachable: `yazses features enable reask` (#164)
 
 `reask` had a tested core (`reask/confidence.py`) and no caller, so `features enable` refused it. It is

@@ -9,7 +9,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -35,7 +35,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -61,7 +61,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -87,7 +87,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -113,7 +113,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -139,7 +139,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -165,7 +165,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -191,7 +191,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -217,7 +217,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -243,7 +243,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -269,7 +269,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -295,7 +295,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -321,7 +321,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -347,7 +347,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -373,7 +373,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -399,7 +399,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -425,7 +425,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -451,7 +451,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -477,7 +477,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -503,7 +503,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -529,7 +529,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -555,7 +555,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -581,7 +581,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -607,7 +607,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -633,7 +633,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -659,7 +659,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -685,7 +685,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -711,7 +711,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -737,7 +737,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -763,7 +763,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -789,7 +789,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -815,7 +815,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -841,7 +841,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -867,7 +867,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -893,7 +893,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -919,7 +919,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -945,7 +945,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -971,7 +971,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
