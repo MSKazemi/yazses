@@ -382,6 +382,22 @@ def invalid_regexes(section: str, key: str, value) -> list[str]:
     return bad
 
 
+#: Settings whose value is a spoken stop phrase and must pass `handsfree.stopword.problem`.
+#: A one-word phrase would pause the user's input whenever they dictated that word on its own,
+#: and a guard that false-fires is a guard people turn off (ADR-021); an unusable phrase falls
+#: back to the default, which for this key is OFF, so a bad value can never become a loose one.
+_STOP_PHRASES: frozenset[str] = frozenset({"handsfree_safety.stop_phrase"})
+
+
+def invalid_stop_phrase(section: str, key: str, value) -> str | None:
+    """Why ``value`` is not a usable spoken stop phrase for ``section.key``, or None. Pure."""
+    if f"{section}.{key}" not in _STOP_PHRASES:
+        return None
+    from yazses.handsfree.stopword import problem
+
+    return problem(value)
+
+
 def enum_values(section: str, key: str) -> tuple[str, ...] | None:
     """The closed set of values for ``section.key``, or None if it is not closed.
 
@@ -438,6 +454,8 @@ def build_section(cls, raw, section: str, problems: list[ConfigProblem]):
                     False,
                 )
             )
+        if ok and (why := invalid_stop_phrase(section, key, coerced)):
+            ok, note = False, why
         allowed = enum_values(section, key)
         if ok and allowed and isinstance(coerced, str):
             if coerced.strip().lower() not in allowed:

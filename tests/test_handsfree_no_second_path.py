@@ -32,7 +32,7 @@ SRC = Path(yazses.__file__).resolve().parent
 #: What the pure modules may import. `yazses.config` is the schema (dataclasses); `configcheck`
 #: is the validator the loader itself uses; `activation.confirm` is the pure consequence policy.
 PURE_ALLOWED = {
-    "yazses.config", "yazses.configcheck", "yazses.activation.confirm",
+    "yazses.config", "yazses.configcheck", "yazses.activation.confirm", "yazses.handsfree.stopword",
 }
 
 
@@ -100,6 +100,7 @@ BY_HAND = textwrap.dedent(
     """
     [handsfree_safety]
     enabled = true
+    stop_phrase = "pause hands free"
     [cmdsafety]
     enabled = true
     [perception]

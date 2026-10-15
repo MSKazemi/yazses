@@ -13,7 +13,7 @@ Prefer `yazses features enable/disable <toggle>` over hand-editing — it writes
 
 **Match the Type column exactly.** In TOML only `str` values take quotes; `int`, `float` and `bool` must be bare. Writing `vad_threshold = "0.004"` instead of `vad_threshold = 0.004` loads without complaint and then fails at runtime, because the value stays a string where a number is expected. See [Troubleshooting](troubleshooting.md#dictation-stopped-working-right-after-i-edited-configtoml).
 
-**74 of these 518 keys are inert**, and they are marked ⚠️ inert in the Status column. The loader accepts them, `configcheck` validates them and they have a documented default — but nothing acts on them, so setting one loads without complaint and changes nothing. Most belong to capabilities that are registered but not yet wired; see [`yazses features`](cli-reference.md) for what is actually switchable. Both numbers here are counted at generation time, and the list of inert keys is the same one the test suite gates on, so neither can quietly fall out of date.
+**74 of these 520 keys are inert**, and they are marked ⚠️ inert in the Status column. The loader accepts them, `configcheck` validates them and they have a documented default — but nothing acts on them, so setting one loads without complaint and changes nothing. Most belong to capabilities that are registered but not yet wired; see [`yazses features`](cli-reference.md) for what is actually switchable. Both numbers here are counted at generation time, and the list of inert keys is the same one the test suite gates on, so neither can quietly fall out of date.
 
 This has bitten before: `[injection] fallback_to_clipboard` was documented in seventeen places and defaulted to `true` while nothing read it, so anyone who turned it off was silently overruled.
 
@@ -722,6 +722,7 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 |---|---|---|---|---|
 | `enabled` | bool | `false` |  | off until the hands-free preset and its consumers are wired |
 | `stale_after_ms` | int | `500` |  | a signal older than this cannot act; unmeasured placeholder |
+| `stop_phrase` | str | `""` |  | Voice stop word: saying exactly this phrase (the WHOLE utterance, never a substring of dictation) pauses every hands-free input, like `yazses handsfree pause`. "" = off. It can only pause; there is no resume phrase (`yazses handsfree resume`, tray or controls window). 2-6 words, validated at load (handsfree/stopword.py). `[handsfree] enabled` supplies "pause hands free" -- a PROVISIONAL, unmeasured default -- unless you set this yourself. |
 
 ## `[handsfree]`
 
@@ -733,6 +734,7 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 | `dwell` | bool | `true` |  | commit a click by holding the pointer still (needs [overlay] shown) |
 | `switch` | bool | `true` |  | face switch: hold a jaw-open to dictate, no key |
 | `chords` | bool | `true` |  | Gesture Chords: brow-raise + nod recenters, brow-raise + shake stops |
+| `voice_stop` | bool | `true` |  | say "pause hands free" (the whole utterance) to pause every hands-free input |
 
 ## `[lipread]`
 

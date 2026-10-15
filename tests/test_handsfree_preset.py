@@ -24,6 +24,7 @@ from yazses.handsfree import preset
 HAND_WRITTEN = """
 [handsfree_safety]
 enabled = true
+stop_phrase = "pause hands free"
 
 [cmdsafety]
 enabled = true

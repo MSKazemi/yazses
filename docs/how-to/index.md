@@ -18,6 +18,7 @@ self-contained — pick the one that matches what you want to do.
 | [Change the hold-to-talk key](change-hotkey.md) | Pick a hotkey (and a dedicated command key) that never clashes with typing. |
 | [Dictate into a remote SSH host](remote-dictation.md) | Type with your voice into a shell or editor on another machine. |
 | [Aim dictation with your gaze](gaze-look-to-pane.md) | Glance at a window and hold-to-talk — the text lands in the pane you looked at (X11). |
+| [Stop hands-free input by voice](hands-free-voice-stop.md) | Say a short phrase and the pointer, chords and face switch pause, with no key and no pointer. |
 | [Transcribe recordings to text](../tutorials/transcribe-recordings.md) | Turn an existing audio/video file into text — offline, with speaker labels. |
 | [Tune for speed and accuracy](performance-tuning.md) | Choose the STT model, set the VAD threshold, and manage CPU load. |
 | [The update said it worked but the version did not change](update-did-nothing.md) | A package manager can exit 0 without upgrading anything — the reinstall command per install method. |

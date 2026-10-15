@@ -2403,6 +2403,14 @@ class Daemon:
                     stream_injector.cancel()
                 return
 
+            # Voice stop word (ADR-v2-148): the whole utterance equals the configured
+            # phrase -> pause every hands-free input and type nothing. Ahead of every
+            # handler below on purpose: nothing may type, hold or reinterpret a stop.
+            if self._try_voice_stop(text, event):
+                if stream_injector is not None:
+                    stream_injector.cancel()
+                return
+
             # Hallucination Guard (ADR-v2-025): drop Whisper's fabricated ghost text
             # (silence outros, repetition loops) before injection. Off by default.
             if self._config.hallucination.enabled:
@@ -4722,6 +4730,57 @@ class Daemon:
             log.info("windowctl: %s could not be carried out.", action)
             return False
         log.info("windowctl: performed %s.", action)
+        return True
+
+    def _try_voice_stop(self, text: str, event: dict) -> bool:
+        """Pause hands-free input when the WHOLE utterance is the stop phrase. True = consumed.
+
+        The decision is `handsfree/stopword.matches` (equality on the entire transcript, never a
+        substring); this only acts on it. It reuses the `handsfree` IPC handler, so a spoken
+        stop and `yazses handsfree pause` cannot drift apart, and it can only ever *pause*:
+        there is no resume phrase. Consumed whether or not the pause took effect -- a
+        deliberate control phrase must never be typed into the user's document -- and the
+        notification says honestly which it was. Never raises into dictation.
+        """
+        phrase = getattr(getattr(self._config, "handsfree_safety", None), "stop_phrase", "")
+        if not phrase:
+            return False
+        try:
+            from yazses.handsfree.stopword import matches
+
+            if not matches(text, phrase):
+                return False
+        except Exception:
+            log.debug("Voice stop word check failed; treating as dictation.", exc_info=True)
+            return False
+        event["intent_type"] = "handsfree_stop"
+        event["intent_action"] = "pause"
+        # An instruction, not dictation: counted with the command bursts so a stop that types
+        # nothing by design neither flatters nor drags the "typed" rate (outcomes.py).
+        event["command_mode"] = True
+        try:
+            reply = self._handle_handsfree(Request("handsfree", {"action": "pause"}))
+        except Exception:
+            log.exception("Voice stop word: pause raised")
+            reply = {"ok": False, "reason": "the pause failed; see the daemon log"}
+        ok = bool(reply.get("ok"))
+        scoped = reply.get("scope")
+        scope = ", ".join(str(s) for s in scoped) if isinstance(scoped, list) else ""
+        if ok:
+            body = (
+                f"Paused by voice: {scope}. Resume with `yazses handsfree resume`, the tray "
+                "or the controls window."
+            )
+        else:
+            body = f"Heard the stop phrase but did not pause: {reply.get('reason', 'unknown reason')}."
+        log.info("Voice stop word: %s", "paused (%s)" % scope if ok else "not paused")
+        try:
+            self._earcon.play("recording_stop")
+            from yazses.system.notify import notify
+
+            notify("YazSes — hands-free", body)
+        except Exception:  # pragma: no cover - feedback is never load-bearing
+            log.debug("Voice stop word feedback failed", exc_info=True)
         return True
 
     def _try_deixis(self, phrase: str, event: dict) -> bool:
