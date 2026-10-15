@@ -307,13 +307,13 @@ YazSes ships **148 capabilities**. All but the core are **off by default** — t
 - **Example:** Say 'capital alpha bravo double lima' to type 'Abll' exactly.
 - **Activate:** `yazses features enable spelling` then `yazses restart`
 
-### Hard Contextual Biasing
+### Hotwords
 
-- **Toggle:** `hotwords`  ·  **Tier:** planned — designed, not yet wired  ·  **Config:** `[hotwords] — names/jargon actually win`
-- **What it does:** Biases recognition toward your vocabulary with a hotword trie (not just a soft prompt), so rare names and jargon are transcribed right. Off by default.
+- **Toggle:** `hotwords`  ·  **Tier:** optional  ·  **Config:** `[hotwords] — fix mis-heard names/jargon`
+- **What it does:** Repairs names and jargon from your vocabulary (`yazses vocab`, plus [hotwords] terms) that the recogniser mis-heard, after decoding, with any engine. A word is only changed when it sounds the same and is spelled almost the same, and each change is logged. It does not bias the decoder itself. Off by default.
 - **Use when:** When rare names or jargon keep getting mis-transcribed despite a vocabulary prompt.
 - **Example:** Add 'Kubernetes' to vocab and it stops being mis-heard.
-- **Activate:** not possible yet — designed but not wired into this build (`yazses features enable` refuses it; contributions welcome)
+- **Activate:** `yazses features enable hotwords` then `yazses restart`
 
 ### Mid-Utterance Self-Repair
 

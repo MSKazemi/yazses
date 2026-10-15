@@ -1530,9 +1530,20 @@ class FindreplaceConfig:
 
 @dataclass
 class HotwordsConfig:
-    """v2.5 Wave I — Hard Contextual Biasing (ADR-v2-069). OFF by default."""
+    """v2.5 Wave I — Hotwords (ADR-v2-069, folded into vocab_correct #73). OFF by default.
+
+    Turns on the guarded post-decode vocabulary correction (`postprocess/vocab_correct.py`)
+    for your `yazses vocab` dictionary, the same switch as `[stt] vocab_correction`. It does
+    not touch decoding: the original N-best rescorer had no producer, because faster-whisper
+    exposes no N-best list.
+    """
     enabled: bool = False
+    # Retired with the N-best rescorer (biasing/trie.py), which had no producer. Read by
+    # nothing; kept so an existing config that sets it still loads.
     boost: float = 2.0
+    # Extra terms to correct toward, on top of the `yazses vocab` dictionary. Only read
+    # while `enabled` is true. Words under four characters are never corrected.
+    terms: list[str] = field(default_factory=list)
 
 
 @dataclass

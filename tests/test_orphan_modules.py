@@ -65,6 +65,10 @@ KNOWN_ORPHANS = {
         "personalize is wired through prompt_builder; the P2 LoRA gate is not.",
     "platform.emg.brainflow_source":
         "A second EMG source, tested but never constructed by the factory.",
+    "biasing.trie":
+        "Retired with the `hotwords` N-best rescorer (ADR-v2-069, Wiring): faster-whisper "
+        "exposes no N-best list, so rescore_nbest has no producer. `hotwords` now switches on "
+        "vocab_correct instead. Kept as a tested reference for an in-decoder biasing tier.",
 }
 
 

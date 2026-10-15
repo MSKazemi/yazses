@@ -84,20 +84,30 @@ For stubborn terms, two stronger, related mechanisms exist:
   source. If you never correct a dictation, expect no vocabulary proposal; add the
   term here instead.
 
-- **The `hotwords` feature** (`[hotwords]`, off by default) goes further than a
-  soft prompt: it biases recognition toward your vocabulary with a hotword trie,
-  so rare names and jargon actually *win* the decode rather than just being
-  hinted. **Planned — not yet wired**, so `features enable` refuses it for now;
-  when it lands, turn it on where a soft prompt isn't enough:
+- **The `hotwords` feature** (`[hotwords]`, off by default) repairs your vocabulary
+  *after* decoding, with any engine, instead of hinting it before. When a transcript
+  contains a word that sounds the same as one of your terms and is spelled almost the
+  same ("cooper netties" for Kubernetes), it is replaced, and every replacement is
+  logged. It does not bias the decoder itself, so it cannot add a word the recogniser
+  never produced a near-miss for. It is the same switch as `[stt] vocab_correction`.
 
   ```bash
   yazses features enable hotwords
   yazses restart
   ```
 
-  `hotwords` reads the same personal dictionary you build with `yazses vocab`, so
-  there is nothing extra to configure — enable it and your existing words get the
-  stronger biasing.
+  It reads the same personal dictionary you build with `yazses vocab`. To correct
+  toward a few extra words without adding them to the dictionary, list them in the
+  config; they are read only while `hotwords` is on:
+
+  ```toml
+  [hotwords]
+  enabled = true
+  terms = ["Kubernetes", "Grafana"]
+  ```
+
+  Words under four letters are never corrected, and a word you spoke correctly is
+  left alone, so a correct transcript comes back unchanged.
 
 ## See also
 

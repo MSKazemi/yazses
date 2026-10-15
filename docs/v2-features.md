@@ -33,7 +33,7 @@ It stays listed so contributors can pick it up; see the matching design/adr/ ent
 ```
 
 They stay listed because that is where a contributor picks one up — each has a matching
-`design/adr/` entry. **36 of the 122 rows below are ◌ today.** Rows without the mark are
+`design/adr/` entry. **35 of the 122 rows below are ◌ today.** Rows without the mark are
 wired and can be turned on.
 
 ### "Hold the command key" — what that means
@@ -207,7 +207,7 @@ All OFF by default. Pure logic ships now; heavy models load only when you enable
 | **Spoken Regex Builder** | `spokenregex` | Build search patterns by voice ("four digits dash two digits" → `\d{4}-\d{2}`). Hold the command key. |
 | **Structured-Markup Dictation** | `markup` | Speak lists/tables → Markdown/org ("bullet list: apples; oranges"). |
 | **Document Find-and-Replace** | `findreplace` | Edit the whole document by voice ("replace every utilise with use"). |
-| ◌ **Hard Contextual Biasing** | `hotwords` | Biases recognition toward your vocabulary with a hotword trie so rare names win. |
+| **Hotwords** | `hotwords` | Repairs your vocabulary words the recogniser mis-heard, after decoding, with any engine (guarded; logs each change). Does not bias the decoder. |
 | **Voice Window Control** | `windowctl` | Raise a window by name ("focus the browser"), or arrange it ("move window left half", "workspace 3"). X11 only. |
 | **Citation-by-Voice** | `cite` | "cite Vaswani 2017" → a formatted citation from your local .bib, offline. |
 | ◌ **Per-Language Auto Switching** | `langroute` | Detects the language you speak and hot-swaps to its model + ITN. |

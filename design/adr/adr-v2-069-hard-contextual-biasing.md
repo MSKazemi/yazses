@@ -29,3 +29,26 @@ hook (sherpa-onnx / WFST) is deferred behind a `biasing` extra. OFF by default.
 - Privacy (ADR-011): trie built locally from the user's own words; nothing transmitted.
 - Caveat: the pure rescorer is token-level (single-word terms); multi-word phrase biasing is the
   deferred decoder tier. Off by default.
+
+## Wiring (2026-10-15) — folded into vocab_correct, N-best rescorer retired
+
+The N-best design has no producer: faster-whisper 1.2.1 exposes no N-best list, so
+`rescore_nbest` can never receive input, and a second decode path (CTranslate2
+`generate(num_hypotheses=k)`) would put the default decode path at risk for one opt-in feature.
+The user-facing promise (a name or term from your vocabulary stops being mis-heard) is already
+kept by `postprocess/vocab_correct.py` (#73), which repairs mis-heard vocabulary words after
+decoding behind four guards: identical phonetic key, a small edit distance, no token under four
+characters, and a word that is already correct is a fixed point. Decisions:
+
+- **`hotwords` keeps its slug and becomes a second switch for that one corrector** (`[hotwords]
+  enabled`, same effect as `[stt] vocab_correction`), plus `[hotwords] terms` as extra terms read
+  only while it is on. One corrector means one guard to tune and one false-alarm profile; no new
+  rewriting rule was added, so ADR-021 (guards fire rarely) is met by the existing four.
+- **Tier is optional**, not recommended: it rewrites transcribed text, so first-run seeding must not
+  turn it on. Disabled, the daemon imports nothing new.
+- **Honest naming.** It does not bias the decoder, so the registry name is "Hotwords", not "Hard
+  Contextual Biasing", and the description says so.
+- **Retired:** the N-best rescorer and `[hotwords] boost` (read by nothing, kept only so an existing
+  config still loads). `biasing/trie.py` stays as a tested pure reference, reachable from no entry
+  point. In-decoder biasing (sherpa-onnx / WFST) is still deferred and would replace the mechanism,
+  not the vocabulary source.

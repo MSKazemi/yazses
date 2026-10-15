@@ -731,9 +731,11 @@ _Def("chords", "Chorded Shortcut Synthesis", "[chords] — any keyboard shortcut
              "Detects the language you speak and hot-swaps to its specialized model + punctuation, "
              "no manual toggle. Needs the per-language model files. Off by default.",
              lambda c: c.langroute.enabled, lrt_on, lrt_off),
-        _Def("hotwords", "Hard Contextual Biasing", "[hotwords] — names/jargon actually win", RECOMMENDED,
-             "Biases recognition toward your vocabulary with a hotword trie (not just a soft "
-             "prompt), so rare names and jargon are transcribed right. Off by default.",
+        _Def("hotwords", "Hotwords", "[hotwords] — fix mis-heard names/jargon", OPTIONAL,
+             "Repairs names and jargon from your vocabulary (`yazses vocab`, plus [hotwords] "
+             "terms) that the recogniser mis-heard, after decoding, with any engine. A word is "
+             "only changed when it sounds the same and is spelled almost the same, and each "
+             "change is logged. It does not bias the decoder itself. Off by default.",
              lambda c: c.hotwords.enabled, hw_on, hw_off),
         _Def("rewrite", "Offline Command Mode (rewrite selection)", "[commands] rewrite",
              OPTIONAL,
@@ -1157,11 +1159,13 @@ _SLUG_PACKAGES: dict[str, tuple[str, ...]] = {
     "cocktail": ("audio", "voiceprint"),  # audio/personal_vad.py
     "autostop": ("endpoint",),       # endpoint/autostop.py via core/daemon.py
     "acoustic_profiles": ("acoustic",),  # acoustic/gate.py via core/daemon.py
+    # hotwords: the N-best design (biasing/trie.py) had no producer and was retired; the
+    # slug now switches on vocab_correct (#73) and feeds it `[hotwords] terms`.
+    "hotwords": ("postprocess",),    # postprocess/hotwords.py + vocab_correct.py via core/daemon.py
     # --- designed-but-unwired: the package that WOULD implement it ---
     "readback_clone": ("readback",),  # readback/clone.py — never reached at runtime
     "multiprofile": ("multiprofile",),  # no implementation package exists yet
     "sentiment": ("mood",),          # mood/ledger.py — never reached at runtime
-    "hotwords": ("biasing",),        # biasing/trie.py — never reached at runtime
 }
 
 
@@ -1186,7 +1190,7 @@ def feature_packages(slug: str) -> tuple[str, ...]:
 # without wiring it fails CI.
 _UNWIRED: frozenset[str] = frozenset({
     "affect", "agent", "audioguard", "breath", "bridge", "cmdspotter",
-    "codec", "compose", "contour", "crowdproof", "hatselect", "hesitation", "hotwords",
+    "codec", "compose", "contour", "crowdproof", "hatselect", "hesitation",
     "interpret", "langroute", "lipread", "loadguard", "morsevox", "mousegrid", "mouthswitch",
     "multiprofile", "pilot", "predict", "pronunciation", "proofback", "rag", "readback_clone",
     "screengrounded", "scribe", "scrub", "sentiment", "sign", "spatialvad", "vocaljoystick",

@@ -541,6 +541,19 @@ gate keeps; `tests/test_acoustic_gate.py` covers the daemon off and on. A gate t
 Mode by the speech-presence check (#598), so a flat burst loud enough to clear the raised gate is still checked for
 speech.
 
+### Added -- `hotwords` is wired: it switches on guarded vocabulary correction (opt-in, [#164](https://github.com/MSKazemi/yazses/issues/164))
+
+`hotwords` was designed as a hotword trie plus an N-best rescorer, and nothing could feed the rescorer: faster-whisper
+exposes no N-best list, and a second decode path would have put the default one at risk. Rather than invent a producer,
+the feature now does the job its description promised through `postprocess/vocab_correct.py` (#73), which already repairs
+mis-heard vocabulary words after decoding behind four guards (identical phonetic key, small edit distance, nothing under
+four characters, a correct word is left alone). `[hotwords] enabled = true` is a second switch for that corrector, and
+the new `[hotwords] terms = [...]` lists extra words to correct toward, read only while it is on; a replacement is logged.
+No decoding is touched. It is an optional-tier feature (first-run seeding does not enable it), and with it off the daemon
+imports nothing new and an existing install behaves byte-for-byte as before. Renamed "Hotwords" in the registry because it
+does not bias the decoder. `[hotwords] boost` and the N-best rescorer (`biasing/trie.py`) are retired: nothing reads them,
+and the module is kept only as a tested reference. Tests: `tests/test_hotwords_wiring.py`. See ADR-v2-069, "Wiring".
+
 ### Fixed — the hands-free window now corrects itself when it turns out too narrow (Windows run, round two)
 
 The first fix estimated the window's width from the content and a scroll bar's size hint; the hosted Windows run still

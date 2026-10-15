@@ -35,7 +35,8 @@ decoder rather than after it.
 vocabulary. YazSes uses it for the personal dictionary and for the app name itself.
 
 **Hotword / contextual biasing** — the same goal at decode time rather than as a prompt.
-Stronger, and engine-specific; the reason `hotwords` is still unwired.
+Stronger, and engine-specific. YazSes does not do this: `hotwords` repairs mis-heard
+vocabulary after decoding instead, because the decoder it uses exposes no N-best list to re-rank.
 
 ## Capture
 
