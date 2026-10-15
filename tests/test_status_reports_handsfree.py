@@ -204,7 +204,7 @@ def test_the_daemon_reports_a_camera_consumer_it_actually_built() -> None:
     assert payload is not None
     assert payload["perception_state"] == "running"
     assert payload["perception_consumers"] == 1
-    assert payload["face_wired"] is True
+    assert payload["face_built"] is True
 
 
 def test_a_feature_that_is_on_and_was_never_constructed_is_not_reported_as_wired() -> None:
@@ -216,7 +216,11 @@ def test_a_feature_that_is_on_and_was_never_constructed_is_not_reported_as_wired
     payload = Daemon._handsfree_payload(_fake_daemon(cfg, face=False))
     assert payload is not None
     assert payload["perception_state"] == "stopped"
-    assert payload["face_wired"] is False
+    # `face_wired` is the registry's answer (a path exists in this build) and must NOT be
+    # overwritten with "was it constructed": that conflation told a user whose face switch
+    # merely lacked a dependency "nothing to fix locally". `face_built` carries the daemon's.
+    assert payload["face_wired"] is True
+    assert payload["face_built"] is False
     assert "yazses doctor" in str(payload["perception_reason"])
 
 

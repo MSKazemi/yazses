@@ -44,11 +44,16 @@ def test_pending_is_not_reported_as_connected_or_as_a_problem():
     assert "connected" not in out.text
 
 
-def test_a_refusal_is_a_problem_with_the_way_to_be_asked_again():
+def test_a_refusal_needs_attention_with_the_way_to_be_asked_again():
+    """NEEDS ATTENTION, not PROBLEM: `doctor` has always tagged a denied permission WARN
+    (tests/test_doctor_pointer_output.py) and the window said PROBLEM for the same state --
+    the contradiction tests/test_handsfree_surfaces_agree.py now forbids. The user's own
+    answer to a dialog is not a malfunction, but it does need them to act, and the remedy
+    below says how."""
     rows = _rows(state="denied", consent="denied", consent_reason="Start was refused")
 
-    assert rows["Head-Pointer"].status == "problem"
-    assert rows["Pointer output"].status == "problem"
+    assert rows["Head-Pointer"].status == "attention"
+    assert rows["Pointer output"].status == "attention"
     assert "permission was not given" in rows["Pointer output"].text
     assert "Restart" in rows["Pointer output"].remedy
 

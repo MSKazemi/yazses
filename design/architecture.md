@@ -271,7 +271,7 @@ camera, no clock, no config import, no thread of its own.
 | File | Role |
 |---|---|
 | `safety.py` | The global stop + stale-signal watchdog (#417): `HandsFreeSafety`, one ACTIVE/PAUSED/FAULTED `SafetyStatus` with per-source `SourceHealth`, and `gate_from_config()` returning `None` until the user opts into `[handsfree_safety]` |
-| `observability.py` | EYE-OBS-001 (#416). `HandsFreeFacts` → `HealthRow`s, rendered once and consumed twice: `doctor_rows()` for `yazses doctor` and `render_status_lines()` for `yazses status`, so the two surfaces cannot describe one machine differently. `as_payload()`/`facts_from_payload()` are the IPC wire, a whitelist rather than `asdict` |
+| `observability.py` | EYE-OBS-001 (#416). `HandsFreeFacts` → `HealthRow`s, rendered once and consumed three times: `doctor_rows()` for `yazses doctor`, `render_status_lines()` for `yazses status` and the controls window's health rows. The Head-Pointer's controller states live in one table (`HEAD_STATES`) all three read, and `tests/test_handsfree_surfaces_agree.py` drives one fabricated machine through each surface's *real* gathering path and fails if they disagree. `as_payload()`/`facts_from_payload()` are the IPC wire, a whitelist rather than `asdict` |
 | `preset.py` | The `[handsfree]` preset (#410). A pure expander (stdlib + config schema only) that rewrites the raw config before any section is built, so the result is ordinary per-feature config; a user-written key always wins and weakening the safety floor refuses the preset naming the key. `config.py` is its only caller and an AST test asserts nothing reads `cfg.handsfree` at run time |
 | `recovery.py` | The recovery hierarchy as a pure rule: a destructive action never falls back to an inferred stand-in such as the focused window; every degraded result carries feedback |
 | `stopword.py` | The voice stop word, pure and stdlib-only: `matches(utterance, phrase)` is an equality test on the WHOLE normalised transcript (case, edge punctuation and hyphen/space variants only; never a substring), `problem()` validates a configured phrase (2-6 words; checked at load by `configcheck`). It decides only; `Daemon._try_voice_stop` acts, by asking the `handsfree` IPC handler to *pause* (there is no resume phrase), before any other handler sees the utterance, and types nothing |
@@ -286,7 +286,10 @@ window title, which is how R-09 is kept by construction rather than by review. (
 that cannot determine a state reports `unknown` — never a default that reads as OK — and
 does so as a `SKIP` so it cannot become a permanent warning on a working install
 (ADR-021). (4) A cause is reported once: a blocked camera produces one failure, and the
-perception row points at the Camera row rather than restating it.
+perception row points at the Camera row rather than restating it. (5) A state the running
+daemon holds is never reported as `unknown` by a surface that could have asked: `doctor` and the
+window read the daemon's `status`, and a shared camera source that *failed* is a failure, not
+"running".
 
 ### `src/yazses/inject/` (Linux sub-backends)
 

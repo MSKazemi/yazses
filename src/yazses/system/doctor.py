@@ -1244,6 +1244,30 @@ def _headpointer_daemon_view(platform) -> tuple[bool, dict | None]:
         return True, None
 
 
+def _handsfree_live_facts(platform):
+    """The running daemon's own hands-free health block, or ``None``. Read-only, one local call.
+
+    `doctor` is a separate process, so on its own it cannot know whether the head tracker is
+    waiting, lost or paused, whether the shared camera failed, or what the global gate says --
+    it printed "unknown" for all of it while the controls window (which asks the daemon) and
+    `yazses status` printed the answer. This is the same `status` call the window makes, with
+    ``consume_notifications=False`` so it does not take a toast off the tray's queue. It reads
+    state the daemon already holds: no camera, no pointer, no portal dialog.
+    """
+    try:
+        if not platform.lifecycle.is_running():
+            return None
+        client = platform.ipc_client_factory(platform.paths.ipc_socket)
+        reply = client.call("status", consume_notifications=False)
+        if not isinstance(reply, dict):
+            return None
+        from yazses.handsfree.observability import facts_from_payload
+
+        return facts_from_payload(reply.get("handsfree"))
+    except Exception:  # noqa: BLE001 - no answer is "not determined", never a doctor failure
+        return None
+
+
 def _handsfree_checks(
     cfg,
     platform,
@@ -1253,6 +1277,7 @@ def _handsfree_checks(
     read_context=None,
     pointer_env=None,
     daemon_view=None,
+    live_facts=None,
 ) -> list[_Check]:
     """Hands-free health rows — camera perception, head, face switch, pointer, safety.
 
@@ -1299,6 +1324,13 @@ def _handsfree_checks(
             read_context=read_context,
         )
         facts = replace(facts, calibration_validity=validity, calibration_reason=reason)
+    # What only the running daemon can see (consumer states, the shared camera, the gate, the
+    # pointer's permission). `live_facts` is the test seam: ``False`` = ask nobody.
+    live = _handsfree_live_facts(platform) if live_facts is None else (live_facts or None)
+    if live is not None:
+        from yazses.handsfree.panel import merge_facts
+
+        facts = merge_facts(facts, live)
     rows = list(doctor_rows(facts))
     # A face switch that cannot let go holds the microphone open. Its own row, WARN, with the
     # numbers: this is a comparison of two saved numbers, so it is as certain as `doctor` gets.
