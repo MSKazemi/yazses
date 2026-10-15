@@ -46,7 +46,7 @@ from yazses.eyeeval import (
     validate_result,
     write_result,
 )
-from yazses.eyeeval.runner import GENERATOR, UNUSABLE_OUTCOMES
+from yazses.eyeeval.runner import GENERATOR, MAX_IDENTITY_PROBLEMS, UNUSABLE_OUTCOMES
 
 GOLDEN = Path(__file__).resolve().parent / "fixtures" / "eye_eval_runner" / "gaze_synthetic.json"
 
@@ -384,3 +384,137 @@ def test_the_summary_names_the_verdict_and_the_counts() -> None:
     assert "correct_target=40" in text
     assert "not measured" in text
     assert "not that the feature was accurate" in text
+
+
+# --- a record is a trial only if the task scheduled it ---------------------------------
+#
+# Counting records is not counting trials. Before `identity_problems`, forty copies of one
+# gaze trial, or thirty "detected" cues for a block that does not exist, were a PASS: the
+# verdict compared `len(records)` to a number, so every wrong list of the right length
+# looked complete. Each case below is expressed against the task the records claim to answer,
+# not against a hand-copied number, so it follows the task if the task changes.
+
+
+def _scored_trial_keys(task: dict[str, Any]) -> list[dict[str, Any]]:
+    return [r for r in synthetic_records(task) if "outcome" in r]
+
+
+@pytest.mark.parametrize("task_id", TASK_IDS)
+def test_forty_copies_of_one_trial_are_not_a_complete_run(task_id: str) -> None:
+    task = generate_task(task_id)
+    one = _scored_trial_keys(task)[0]
+    n = len(_scored_trial_keys(task))
+    records = [dict(one) for _ in range(n)]
+    assert len(records) == n, "same length as a genuine run, which is the whole trap"
+    assert check_records(task, records), "repeats of one trial must be reported"
+    assert completeness_verdict(task, records) == "PARTIAL"
+
+
+def test_an_outcome_for_a_block_or_cue_the_task_does_not_have_is_refused() -> None:
+    task = generate_task(FACE_SWITCH_TASK)
+    records = [
+        {"block_id": "nonexistent", "block_type": "neutral", "cue_index": i, "outcome": "detected"}
+        for i in range(len(_scored_trial_keys(task)))
+    ]
+    assert any("not a scored trial" in p for p in check_records(task, records))
+    assert completeness_verdict(task, records) == "PARTIAL"
+    past_the_end = [dict(r) for r in _scored_trial_keys(task)]
+    past_the_end[-1]["cue_index"] += 1
+    assert any("not a scored trial" in p for p in check_records(task, past_the_end))
+
+
+@pytest.mark.parametrize("task_id", [GAZE_TASK, HEAD_POINTER_TASK])
+def test_an_intended_target_that_contradicts_the_task_is_refused(task_id: str) -> None:
+    """The target a trial asked for is part of the task. A record may not rewrite it."""
+    task = generate_task(task_id)
+    records = _scored_trial_keys(task)
+    key = "intended_target_id" if task_id == GAZE_TASK else "target_id"
+    wrong = records[0][key]
+    records[0][key] = (wrong % 4) + 1 if task_id == GAZE_TASK else (wrong + 1) % 8
+    problems = check_records(task, records)
+    assert any("does not match the task" in p for p in problems), problems
+
+
+@pytest.mark.parametrize("task_id", TASK_IDS)
+def test_an_outcome_that_names_no_trial_cannot_complete_a_run(task_id: str) -> None:
+    task = generate_task(task_id)
+    records = _scored_trial_keys(task)
+    for name in ("trial_index", "cue_index"):
+        records[0].pop(name, None)
+    assert check_records(task, records), "an outcome with no identity must be reported"
+    assert completeness_verdict(task, records) == "PARTIAL"
+
+
+@pytest.mark.parametrize("task_id", TASK_IDS)
+def test_a_genuine_run_in_any_order_is_still_complete(task_id: str) -> None:
+    """The guard's permissive direction: identity is not order, and a real run is not refused."""
+    task = generate_task(task_id)
+    records = list(reversed(synthetic_records(task)))
+    assert check_records(task, records) == []
+    assert completeness_verdict(task, records) == "PASS"
+
+
+def test_a_face_switch_false_activation_does_not_make_a_complete_run_partial() -> None:
+    """A false activation answers no cue, so it is not a missing or an extra trial."""
+    task = generate_task(FACE_SWITCH_TASK)
+    records = synthetic_records(task) + [
+        {"block_id": "neutral", "block_type": "neutral", "outcome": "false_activation"}
+    ]
+    assert check_records(task, records) == []
+    assert completeness_verdict(task, records) == "PASS"
+
+
+def test_a_repeated_pointer_position_is_allowed_exactly_once_per_scored_block() -> None:
+    """Pointer records carry no block id, so one trial index is shared by every scored block."""
+    task = generate_task(HEAD_POINTER_TASK)
+    blocks = sum(1 for b in task["blocks"] if b["kind"] == "scored")
+    assert blocks > 1, "otherwise this test proves nothing about shared slots"
+    records = synthetic_records(task)
+    assert check_records(task, records) == []
+    extra = dict(records[0])
+    assert any("recorded" in p for p in check_records(task, [*records, extra]))
+
+
+def test_identity_complaints_are_capped_so_one_mistake_reads_as_one() -> None:
+    task = generate_task(GAZE_TASK)
+    one = _scored_trial_keys(task)[0]
+    problems = check_records(task, [dict(one) for _ in range(40)])
+    assert len(problems) <= MAX_IDENTITY_PROBLEMS + 1
+    assert "more records" in problems[-1]
+
+
+def test_the_written_result_is_the_same_bytes_on_every_platform(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`Path.write_text` translates newlines on Windows, so the file differs by OS.
+
+    Linux cannot reproduce that translation, so this installs the Windows behaviour on
+    `write_text` and checks the writer does not go through it. It is a simulation of the
+    platform, not the platform; the implementation under test is `write_result`.
+    """
+
+    def windows_write_text(self: Path, data: str, encoding: str | None = None, **_: Any) -> int:
+        return self.write_bytes(data.replace("\n", "\r\n").encode(encoding or "utf-8"))
+
+    monkeypatch.setattr(Path, "write_text", windows_write_text)
+    doc = _result()
+    target = tmp_path / "r.json"
+    write_result(doc, target)
+    assert target.read_bytes() == dump_result(doc).encode("utf-8")
+    assert b"\r" not in target.read_bytes()
+
+
+def test_the_documented_outcomes_example_is_accepted_by_the_checker() -> None:
+    """The CLI reference shows a records file; it must be one the CLI accepts.
+
+    The example once named targets the default seed never asks for, and nothing noticed
+    because no test read the documentation.
+    """
+    text = (Path(__file__).resolve().parent.parent / "docs" / "cli-reference.md").read_text(
+        encoding="utf-8"
+    )
+    after = text.split("`--outcomes` takes a JSON list", 1)[1]
+    block = after.split("```json", 1)[1].split("```", 1)[0]
+    records = json.loads(block)
+    assert len(records) >= 2, "an empty example would pass this test and teach nothing"
+    assert check_records(generate_task(GAZE_TASK), records) == []

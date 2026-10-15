@@ -51,6 +51,7 @@ from __future__ import annotations
 import json
 import re
 import statistics
+from collections import Counter
 from pathlib import Path
 from typing import Any
 
@@ -177,6 +178,122 @@ def _outcome_counts(task_id: str, records: list[dict[str, Any]]) -> dict[str, in
     return {name: sum(1 for r in scored if r.get("outcome") == name) for name in TASK_OUTCOMES[task_id]}
 
 
+def _is_whole(value: Any) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
+def trial_slots(task: dict[str, Any]) -> dict[tuple[Any, ...], tuple[int, frozenset[int]]]:
+    """Every scored trial the task asks for: slot key -> (how many records may fill it, target ids).
+
+    Derived from the task document, never hand-listed, so a task whose trial count changes
+    changes its slots with it. A gaze trial is `(trial_index,)`. A head-pointer trial is also
+    `(trial_index,)`, but the record carries no block id, so one slot is shared by every
+    scored block (capacity = the number of scored blocks) and every block visits the same ring
+    position at the same index. A face-switch trial is `(block_id, cue_index)`: only a cued
+    block has any, and a `false_activation` record is deliberately not a slot -- there is no
+    cue for it to answer.
+    """
+    task_id = str(task.get("task_id"))
+    slots: dict[tuple[Any, ...], tuple[int, frozenset[int]]] = {}
+    for block in task.get("blocks", []):
+        if not isinstance(block, dict) or block.get("kind") != "scored":
+            continue
+        if task_id == FACE_SWITCH_TASK:
+            for index in range(len(block.get("cue_times_ms", []))):
+                slots[(block.get("block_id"), index)] = (1, frozenset())
+            continue
+        for trial in block.get("trials", []):
+            key = (trial.get("trial_index"),)
+            target = trial.get("intended_target_id", trial.get("target_id"))
+            capacity, targets = slots.get(key, (0, frozenset()))
+            slots[key] = (capacity + 1, targets | ({target} if _is_whole(target) else set()))
+    return slots
+
+
+def _record_slot(task_id: str, record: dict[str, Any]) -> tuple[Any, ...] | None:
+    """The slot a record claims to fill, or None when it names none."""
+    if task_id == FACE_SWITCH_TASK:
+        if _is_whole(record.get("cue_index")) and isinstance(record.get("block_id"), str):
+            return (record["block_id"], record["cue_index"])
+        return None
+    return (record["trial_index"],) if _is_whole(record.get("trial_index")) else None
+
+
+def _claims_a_slot(task_id: str, record: dict[str, Any]) -> bool:
+    """False for an outcome that answers no scheduled trial (a face-switch false activation)."""
+    return not (task_id == FACE_SWITCH_TASK and record.get("outcome") == "false_activation")
+
+
+def _identity_problems(task: dict[str, Any], records: list[dict[str, Any]]) -> list[str]:
+    """Records that do not map one-to-one onto the trials the task scheduled.
+
+    Counting records is not counting trials. Forty copies of one gaze trial is forty records
+    and one trial, and a run that "recorded" thirty cues for a block that does not exist has
+    thirty records and no trial at all; both used to read as a complete run. The slots come
+    from the task itself (`trial_slots`), so this cannot drift from the fixture it checks.
+    """
+    task_id = str(task.get("task_id"))
+    slots = trial_slots(task)
+    used: Counter[tuple[Any, ...]] = Counter()
+    problems: list[str] = []
+    for index, record in enumerate(records):
+        if not isinstance(record, dict) or "outcome" not in record or not _claims_a_slot(task_id, record):
+            continue
+        key = _record_slot(task_id, record)
+        where = f"records.{index}"
+        if key is None:
+            need = "block_id and cue_index" if task_id == FACE_SWITCH_TASK else "trial_index"
+            problems.append(
+                f"{where}: an outcome with no {need} cannot be matched to a trial of this task, "
+                f"so it cannot count towards a complete run."
+            )
+            continue
+        if key not in slots:
+            problems.append(f"{where}: {key} is not a scored trial of this task.")
+            continue
+        used[key] += 1
+        if used[key] > slots[key][0]:
+            problems.append(
+                f"{where}: {key} is recorded {used[key]} times but the task schedules it "
+                f"{slots[key][0]}. A repeated trial is not another trial."
+            )
+        target = record.get("intended_target_id", record.get("target_id"))
+        if _is_whole(target) and slots[key][1] and target not in slots[key][1]:
+            problems.append(
+                f"{where}: target {target} does not match the task, which asks for "
+                f"{sorted(slots[key][1])} at {key}."
+            )
+    return problems
+
+
+#: A hand-edited outcomes file can be wrong in forty places at once; the first few say what
+#: kind of wrong, and the rest is noise that buries the line that matters.
+MAX_IDENTITY_PROBLEMS = 10
+
+
+def identity_problems(task: dict[str, Any], records: list[dict[str, Any]]) -> list[str]:
+    """`_identity_problems`, capped so one repeated mistake reads as one mistake."""
+    found = _identity_problems(task, records)
+    if len(found) <= MAX_IDENTITY_PROBLEMS:
+        return found
+    return found[:MAX_IDENTITY_PROBLEMS] + [
+        f"... and {len(found) - MAX_IDENTITY_PROBLEMS} more records that do not match the task."
+    ]
+
+
+def _is_complete(task: dict[str, Any], records: list[dict[str, Any]]) -> bool:
+    """Every scheduled trial recorded, and nothing recorded that is not one."""
+    if _identity_problems(task, records):
+        return False
+    task_id = str(task.get("task_id"))
+    have = Counter(
+        _record_slot(task_id, r)
+        for r in records
+        if isinstance(r, dict) and "outcome" in r and _claims_a_slot(task_id, r)
+    )
+    return all(have[key] == capacity for key, (capacity, _targets) in trial_slots(task).items())
+
+
 def expected_scored_trials(task: dict[str, Any]) -> int:
     """How many scored trials the task asks for, straight out of the fixture."""
     value = task.get("scored_trials")
@@ -280,7 +397,7 @@ def check_records(task: dict[str, Any], records: Any) -> list[str]:
                 continue
             if not isinstance(value, (int, float)) or isinstance(value, bool):
                 problems.append(f"records.{index}.{key}: expected a number, got {value!r}.")
-    return problems
+    return problems + identity_problems(task, records)
 
 
 # --- metrics ------------------------------------------------------------------------
@@ -383,7 +500,7 @@ def completeness_verdict(
     unusable = sum(1 for r in scored if r.get("outcome") in UNUSABLE_OUTCOMES[task_id])
     if unusable == len(scored):
         return "FAIL"
-    if unusable or len(scored) != expected_scored_trials(task):
+    if unusable or not _is_complete(task, records):
         return "PARTIAL"
     return "PASS"
 
