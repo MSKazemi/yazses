@@ -6,6 +6,15 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `yazses start` keeps waiting through a transient IPC error, and says which endpoint stayed silent (#330)
+
+While the freshly spawned daemon is coming up, `yazses start`/`restart` now keep polling through any IPC call error or a
+reply cut off before it was sent (a `ValueError` from an empty line), not only "unreachable" — a bounded wait must not
+traceback on a half-open socket or pipe. If the daemon process is alive but its IPC endpoint never answered inside the
+wait, the "still loading" message now also names the socket or named pipe that stayed silent. Windows pipe behaviour is
+UNVERIFIED here (tests use fakes). Separately, `design/adr/README.md` now records that `adr-v2-136..139` were never
+allocated (#524, renumbering artefact).
+
 ### Added — benchmark harness can record CPU core-seconds and optional energy (#506)
 
 `paper/benchmark/cost_meter.py` (stdlib only, benchmark-only, off unless a benchmark is run) adds CPU core-seconds per decoded

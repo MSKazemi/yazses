@@ -12,7 +12,7 @@ import typer
 
 from yazses import branding
 from yazses.hotkeys.names import SETTABLE_HOTKEYS, SUPPORTED_HOTKEYS, canonical
-from yazses.ipc.client import IpcUnreachableError
+from yazses.ipc.client import IpcCallError, IpcUnreachableError
 from yazses.platform import get_paths, get_platform
 from yazses.system.logtail import tail_records
 from yazses.system.outcomes import describe_outcomes
@@ -1504,8 +1504,11 @@ def _wait_until_ready(platform, timeout: float = 20.0):
                 return "ready", info
             if state == "error":
                 return "died", info
-        except IpcUnreachableError:
-            pass  # IPC socket not up yet (or already gone) — keep polling
+        except (IpcCallError, ValueError):
+            # Not up yet (IpcUnreachableError), a daemon answering mid-start with an
+            # RPC error, or a socket/pipe that closed before replying (empty line ->
+            # json ValueError): all transient inside a bounded wait. #330.
+            pass
         time.sleep(0.25)
     if not saw_pid:
         # The PID is written before the model loads, so a slow first run always shows one.
@@ -1561,6 +1564,17 @@ def _report_start_outcome(platform, outcome: str, info) -> None:
             "(first run can take 10–30s). It'll be ready shortly; "
             "check with `yazses status`."
         )
+        if info is None:
+            # The process is alive but its IPC endpoint never answered inside the wait:
+            # name it, so "still loading" is not the only thing a stuck start can say.
+            try:
+                platform.ipc_client_factory(platform.paths.ipc_socket).call(
+                    "status", consume_notifications=False
+                )
+            except IpcUnreachableError as exc:
+                typer.echo(f"  The daemon's IPC endpoint has not answered yet: {exc}")
+            except Exception:  # noqa: BLE001 — a diagnostic line must never fail the start
+                pass
         return
     # died / never-started
     if outcome == "never-started":
