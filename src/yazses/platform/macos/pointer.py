@@ -26,8 +26,16 @@ separately against a fake Quartz module.
   well-defined space in points, origin at the top-left of the main display, already
   scaled for HiDPI. That is the "logical desktop pointer units" the protocol asks for.
 * Left, right and middle buttons — all three exist as `CGEvent` types.
-* Vertical scroll — supported, **negated here.** Apple's scroll-wheel axis 1 is
-  up-positive; the boundary is down-positive, so ``scroll(0, +1)`` posts ``-1``.
+* Vertical scroll — supported, **negated here, on community knowledge and not on Apple's
+  word.** Apple's `CGEventCreateScrollWheelEvent` page says only that `wheel1` "reflects the
+  movement of the primary scrolling device" and gives no sign
+  (https://developer.apple.com/documentation/coregraphics/cgeventcreatescrollwheelevent).
+  The widely used convention is that a positive line count scrolls *up*; the boundary is
+  down-positive, so ``scroll(0, +1)`` posts ``-1``. Unverified on a Mac, and whether the
+  user's "Natural scrolling" preference flips a *synthetic* event is not documented
+  either. The same page says wheel values are "typically in a range from -10 to +10" and
+  that "large values may have unexpected results", so a large owed count is posted as
+  several events of at most :data:`MAX_SCROLL_LINES_PER_EVENT` lines.
 * Horizontal scroll — **reported as unavailable, deliberately.** Apple documents neither
   sign for scroll axis 2, third-party implementations disagree about whether a positive
   value scrolls left or right, and some tie it to the user's "natural scrolling"
@@ -35,6 +43,16 @@ separately against a fake Quartz module.
   inverted makes a head-controlled pointer fight its user, and ADR-v2-146 is explicit
   that an honest "unsupported" beats a guess: the axis stays off until somebody with a
   Mac verifies the sign, at which point this is a one-line change plus its test.
+
+**Permission is explicit, not silent.** Apple's Developer Technical Support states that
+posting `CGEvent`s "does not require any specific entitlements. It does, however, require
+user approval in System Settings > Privacy & Security", and names `CGPreflightPostEventAccess`
+for checking it (https://developer.apple.com/forums/thread/724603). `CGEventPost` returns
+nothing, so without that check an unapproved process posts events that go nowhere and no
+log says why — the silent no-op ADR-v2-146 forbids. :class:`QuartzMouseApi` therefore asks
+first and raises :class:`PointerBackendError` naming the pane. Forum reports (not Apple
+documentation) say the preflight answer reflects the access the process had when it
+*launched*, so a grant given while YazSes runs needs a restart to be seen.
 
 **Never executed on macOS.** Everything in :class:`QuartzMouseApi` is written from
 Apple's API documentation and checked against a fake Quartz module on Linux. No line of
@@ -63,6 +81,10 @@ from yazses.pointer.base import (
 from yazses.pointer.subpixel import SubPixelAccumulator
 
 log = logging.getLogger(__name__)
+
+#: Apple: scroll values are "typically in a range from -10 to +10"; larger ones "may have
+#: unexpected results, depending on the application". One event never exceeds this.
+MAX_SCROLL_LINES_PER_EVENT = 10
 
 #: What this backend honestly offers. See the module docstring for why horizontal scroll
 #: is absent; `backend` is the short stable identifier the protocol asks for.
@@ -144,11 +166,35 @@ class QuartzMouseApi:
     def __init__(self, quartz: Any | None = None) -> None:
         self._quartz = quartz
         self._scroll_steps = SubPixelAccumulator()
+        self._post_access_confirmed = False
 
     def _q(self) -> Any:
         if self._quartz is None:
             self._quartz = _load_quartz()
         return self._quartz
+
+    # -- permission -------------------------------------------------------- #
+
+    def _require_post_access(self, quartz: Any) -> None:
+        """Raise unless macOS lets this process post synthetic events.
+
+        A positive answer is remembered; a negative one is asked again on the next call,
+        so a grant followed by a restart is noticed without any other state. A PyObjC
+        that does not expose ``CGPreflightPostEventAccess`` leaves the question open —
+        the post is attempted, exactly as before this check existed.
+        """
+        if self._post_access_confirmed:
+            return
+        preflight = getattr(quartz, "CGPreflightPostEventAccess", None)
+        if preflight is not None and not preflight():
+            raise PointerBackendError(
+                "macOS has not allowed YazSes to post mouse events, so the pointer would "
+                "not move and nothing would say why. Enable YazSes in System Settings > "
+                "Privacy & Security > Accessibility (the same grant the dictation key "
+                "uses), then quit and reopen YazSes: the answer is read when the "
+                "process starts."
+            )
+        self._post_access_confirmed = True
 
     # -- position ---------------------------------------------------------- #
 
@@ -185,20 +231,25 @@ class QuartzMouseApi:
     def scroll(self, dx: float, dy: float) -> None:
         """Post a line-unit scroll event. ``dx`` is never non-zero — see capabilities.
 
-        The vertical sign is flipped here: Apple's axis 1 is up-positive and this
-        boundary is down-positive. A whole-line count of zero posts nothing and keeps the
+        The vertical sign is flipped here: the usual convention is that axis 1 is
+        up-positive (Apple documents no sign) and this boundary is down-positive. A whole-line count of zero posts nothing and keeps the
         fraction, so a slow head-driven scroll accumulates instead of vanishing.
         """
         _, lines_down = self._scroll_steps.take(dx, dy)
         if not lines_down:
             return
         quartz = self._q()
-        event = quartz.CGEventCreateScrollWheelEvent(
-            None, quartz.kCGScrollEventUnitLine, 1, -lines_down
-        )
-        if event is None:
-            raise PointerBackendError("CGEventCreateScrollWheelEvent returned NULL")
-        quartz.CGEventPost(quartz.kCGHIDEventTap, event)
+        self._require_post_access(quartz)
+        remaining = lines_down
+        while remaining:
+            chunk = max(-MAX_SCROLL_LINES_PER_EVENT, min(MAX_SCROLL_LINES_PER_EVENT, remaining))
+            event = quartz.CGEventCreateScrollWheelEvent(
+                None, quartz.kCGScrollEventUnitLine, 1, -chunk
+            )
+            if event is None:
+                raise PointerBackendError("CGEventCreateScrollWheelEvent returned NULL")
+            quartz.CGEventPost(quartz.kCGHIDEventTap, event)
+            remaining -= chunk
 
     def close(self) -> None:
         """Nothing to release: a posted `CGEvent` owns no session or connection."""
@@ -215,6 +266,7 @@ class QuartzMouseApi:
 
     def _post_mouse(self, event_type: Any, x: float, y: float, cg_button: Any) -> None:
         quartz = self._q()
+        self._require_post_access(quartz)
         event = quartz.CGEventCreateMouseEvent(None, event_type, (x, y), cg_button)
         if event is None:
             # The injector logs and returns here; a pointer sink must not, because a

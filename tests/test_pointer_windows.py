@@ -43,14 +43,19 @@ from yazses.platform.windows.pointer import (
     MOUSEEVENTF_RIGHTDOWN,
     MOUSEEVENTF_RIGHTUP,
     MOUSEEVENTF_WHEEL,
+    SPI_GETMOUSE,
+    SPI_GETMOUSESPEED,
     WHEEL_DELTA,
     WINDOWS_POINTER_CAPABILITIES,
+    MouseBallistics,
     MouseEvent,
     SendInputMouseApi,
     WindowsPointerSink,
+    ballistics_warning,
     button_events,
     move_events,
     pack_inputs,
+    read_mouse_ballistics,
     scroll_events,
 )
 from yazses.pointer.base import (
@@ -351,14 +356,238 @@ def test_both_scroll_axes_go_out_in_one_call() -> None:
     ]
 
 
-def test_a_short_insert_count_raises_and_names_the_likely_cause() -> None:
-    """The only failure this side can see. A full count still proves nothing landed."""
+def test_a_short_insert_count_raises_and_states_only_what_microsoft_documents() -> None:
+    """The only failure this side can see. A full count still proves nothing landed.
+
+    Microsoft's `SendInput` page: a zero return means "the input was already blocked by
+    another thread", and "neither GetLastError nor the return value will indicate the
+    failure was caused by UIPI blocking". The message must not tell the user a short count
+    is a UIPI/elevation problem — that sends them to the wrong fix.
+    """
     send = _FakeSendInput(inserted=0)
     with pytest.raises(PointerBackendError) as caught:
         SendInputMouseApi(send_input=send).move_relative(5.0, 5.0)
     message = str(caught.value)
     assert "0/1" in message
-    assert "ACCESS_DENIED" in message
+    assert "blocked by another thread" in message
+    assert "ACCESS_DENIED" not in message
+    assert "means the focused window runs elevated" not in message
+
+
+def test_a_partial_insert_count_names_how_many_went_in() -> None:
+    """Two scroll axes go out in one call; 1 of 2 inserted is a failure, not a success."""
+    send = _FakeSendInput(inserted=1)
+    with pytest.raises(PointerBackendError) as caught:
+        SendInputMouseApi(send_input=send).scroll(1.0, 1.0)
+    assert "1/2" in str(caught.value)
+
+
+# --------------------------------------------------------------------------- #
+# Struct layout: what Linux ctypes cannot tell us
+# --------------------------------------------------------------------------- #
+
+
+def _llp64_size_align(ctype: Any, pointer_bytes: int) -> tuple[int, int]:
+    """Size and alignment of a field type under Windows' LLP64 model.
+
+    On Windows `long` and `DWORD` are 4 bytes and a pointer is 4 (x86) or 8 (x64). On this
+    Linux box `c_long` is 8, which is why ``ctypes.sizeof(_INPUT)`` is 56 here and 40 there:
+    the tests above pack the right *fields* but a layout assertion against the host's
+    ``sizeof`` would be vacuous. This recomputes the layout from the declared field types.
+    """
+    if ctype is ctypes.c_void_p:
+        return pointer_bytes, pointer_bytes
+    if ctype in (ctypes.c_long, ctypes.c_ulong):  # LONG, DWORD
+        return 4, 4
+    if ctype in (ctypes.c_ushort,):  # WORD
+        return 2, 2
+    raise AssertionError(f"unmodelled field type {ctype!r}")
+
+
+def _llp64_struct(fields: list[tuple[str, Any]], pointer_bytes: int) -> tuple[int, int]:
+    offset = max_align = 0
+    for _name, ctype in fields:
+        size, align = _llp64_size_align(ctype, pointer_bytes)
+        offset = -(-offset // align) * align + size
+        max_align = max(max_align, align)
+    return -(-offset // max_align) * max_align, max_align
+
+
+@pytest.mark.parametrize(("pointer_bytes", "mouseinput", "input_size"), [(8, 32, 40), (4, 24, 28)])
+def test_mouseinput_field_order_and_types_give_the_documented_win32_sizes(
+    pointer_bytes: int, mouseinput: int, input_size: int
+) -> None:
+    """`MOUSEINPUT` is LONG, LONG, DWORD, DWORD, DWORD, ULONG_PTR; `INPUT` is 40 bytes on
+    x64 and 28 on x86 (the `cbSize` `SendInput` insists on). Microsoft's field list:
+    https://learn.microsoft.com/en-us/windows/win32/api/winuser/ns-winuser-mouseinput
+    """
+    from yazses.platform.windows.injector import _KEYBDINPUT, _MOUSEINPUT
+
+    assert [n for n, _ in _MOUSEINPUT._fields_] == [
+        "dx", "dy", "mouseData", "dwFlags", "time", "dwExtraInfo",
+    ]
+    assert _llp64_struct(list(_MOUSEINPUT._fields_), pointer_bytes) == (
+        mouseinput, pointer_bytes,
+    )
+    # The union is as big as its largest member, which is the mouse one on both ABIs.
+    keyboard, _ = _llp64_struct(list(_KEYBDINPUT._fields_), pointer_bytes)
+    assert keyboard <= mouseinput
+    union_align = pointer_bytes
+    header = -(-4 // union_align) * union_align  # DWORD type, padded up to the union
+    assert header + mouseinput == input_size
+
+
+# --------------------------------------------------------------------------- #
+# Range of the 32-bit fields (ctypes does not check it)
+# --------------------------------------------------------------------------- #
+
+
+def test_a_motion_delta_that_does_not_fit_a_long_is_refused_not_wrapped() -> None:
+    """ctypes wraps an out-of-range `c_long` on Windows: +3e9 would arrive as about -1.29e9."""
+    with pytest.raises(ValueError, match="32-bit"):
+        move_events(3_000_000_000, 0)
+    with pytest.raises(ValueError, match="32-bit"):
+        move_events(0, -3_000_000_000)
+
+
+def test_the_largest_legal_delta_is_still_sent() -> None:
+    assert move_events(2**31 - 1, -(2**31)) == [
+        MouseEvent(flags=MOUSEEVENTF_MOVE, dx=2**31 - 1, dy=-(2**31))
+    ]
+
+
+def test_a_scroll_whose_wheel_delta_overflows_is_refused_not_wrapped() -> None:
+    # 20_000_000 notches * 120 = 2.4e9 > 2**31 - 1
+    with pytest.raises(ValueError, match="32-bit"):
+        scroll_events(0, 20_000_000)
+    with pytest.raises(ValueError, match="32-bit"):
+        scroll_events(20_000_000, 0)
+
+
+def test_an_overflowing_motion_through_the_sink_is_a_backend_error_and_sends_nothing() -> None:
+    send = _FakeSendInput()
+    sink = WindowsPointerSink(api=SendInputMouseApi(send_input=send))
+    with pytest.raises(PointerBackendError):
+        sink.move_relative(3.0e9, 0.0)
+    assert send.calls == []
+
+
+# --------------------------------------------------------------------------- #
+# Pointer ballistics: relative motion is NOT guaranteed 1:1
+# --------------------------------------------------------------------------- #
+
+
+def test_neutral_pointer_settings_do_not_warn() -> None:
+    assert ballistics_warning(MouseBallistics(0, 0, 0, 10)) == ""
+
+
+@pytest.mark.parametrize(
+    "settings",
+    [MouseBallistics(6, 10, 1, 10), MouseBallistics(0, 0, 0, 14), MouseBallistics(0, 0, 0, 3)],
+)
+def test_acceleration_or_a_non_default_speed_warns(settings: MouseBallistics) -> None:
+    assert "scaled by the user's pointer settings" in ballistics_warning(settings)
+
+
+def test_the_first_real_move_warns_once_when_pointer_settings_distort_it(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    calls: list[int] = []
+
+    def reader() -> MouseBallistics:
+        calls.append(1)
+        return MouseBallistics(6, 10, 1, 10)
+
+    api = SendInputMouseApi(send_input=_FakeSendInput(), ballistics=reader)
+    with caplog.at_level("WARNING", logger="yazses.platform.windows.pointer"):
+        api.move_relative(3.0, 0.0)
+        api.move_relative(3.0, 0.0)
+    warnings = [r for r in caplog.records if "pointer settings" in r.getMessage()]
+    assert len(warnings) == 1
+    assert calls == [1], "the settings are read once, not once per frame"
+
+
+def test_a_sub_pixel_move_that_sends_nothing_does_not_trigger_the_probe() -> None:
+    calls: list[int] = []
+    api = SendInputMouseApi(
+        send_input=_FakeSendInput(), ballistics=lambda: calls.append(1)  # type: ignore[arg-type,return-value]
+    )
+    api.move_relative(0.2, 0.0)
+    assert calls == []
+
+
+def test_a_reader_that_raises_never_fails_the_move() -> None:
+    def reader() -> MouseBallistics:
+        raise OSError("SystemParametersInfo unavailable")
+
+    send = _FakeSendInput()
+    SendInputMouseApi(send_input=send, ballistics=reader).move_relative(2.0, 0.0)
+    assert send.calls == [[(MOUSEEVENTF_MOVE, 2, 0, 0)]]
+
+
+def test_a_test_double_for_send_input_never_reaches_for_user32(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import yazses.platform.windows.pointer as backend
+
+    def _explode() -> Any:
+        raise AssertionError("an injected SendInput must not load user32")
+
+    monkeypatch.setattr(backend, "_load_user32", _explode)
+    SendInputMouseApi(send_input=_FakeSendInput()).move_relative(2.0, 0.0)
+
+
+class _FakeUser32:
+    """Just `SystemParametersInfoW`, writing what Windows would."""
+
+    def __init__(self, params: tuple[int, int, int], speed: int, ok: bool = True) -> None:
+        self.params, self.speed, self.ok = params, speed, ok
+        self.actions: list[int] = []
+
+    def SystemParametersInfoW(  # noqa: N802 - Win32's spelling
+        self, action: int, ui_param: int, pv_param: Any, win_ini: int
+    ) -> int:
+        self.actions.append(action)
+        if not self.ok:
+            return 0
+        if action == SPI_GETMOUSE:
+            for i, v in enumerate(self.params):
+                pv_param[i] = v
+        elif action == SPI_GETMOUSESPEED:
+            pv_param._obj.value = self.speed
+        return 1
+
+
+def test_the_settings_reader_uses_the_documented_actions_and_buffers() -> None:
+    assert (SPI_GETMOUSE, SPI_GETMOUSESPEED) == (0x0003, 0x0070)
+    user32 = _FakeUser32((6, 10, 1), 12)
+    assert read_mouse_ballistics(user32) == MouseBallistics(6, 10, 1, 12)
+    assert user32.actions == [0x0003, 0x0070]
+
+
+def test_a_failed_settings_query_is_none_not_a_guess() -> None:
+    assert read_mouse_ballistics(_FakeUser32((0, 0, 0), 10, ok=False)) is None
+
+
+def test_user32_is_loaded_once_and_kept(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The keyboard injector reloads per call; at 30 Hz the pointer must not."""
+    import yazses.platform.windows.pointer as backend
+
+    loads: list[int] = []
+
+    class _U32:
+        def SendInput(self, count: int, array: Any, size: int) -> int:  # noqa: N802
+            return count
+
+    def _load() -> Any:
+        loads.append(1)
+        return _U32()
+
+    monkeypatch.setattr(backend, "_load_user32", _load)
+    api = SendInputMouseApi(ballistics=lambda: None)
+    for _ in range(5):
+        api.move_relative(1.0, 0.0)
+    assert len(loads) == 1
 
 
 def test_a_failed_motion_is_not_folded_into_the_next_one() -> None:

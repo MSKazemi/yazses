@@ -30,6 +30,7 @@ from tests.pointer_contract import PointerSinkContract
 from tests.pointer_fake import PointerAction
 from yazses.platform.macos.pointer import (
     MACOS_POINTER_CAPABILITIES,
+    MAX_SCROLL_LINES_PER_EVENT,
     MacosPointerSink,
     QuartzMouseApi,
 )
@@ -362,3 +363,105 @@ def test_the_sink_over_the_real_api_still_satisfies_the_protocol() -> None:
     from yazses.pointer.base import PointerSink
 
     assert isinstance(MacosPointerSink(), PointerSink)
+
+
+# --------------------------------------------------------------------------- #
+# Post-event permission: CGEventPost returns void, so ask first
+# --------------------------------------------------------------------------- #
+
+
+class _PermissiveQuartz(_FakeQuartz):
+    """A fake whose `CGPreflightPostEventAccess` answers whatever the test says."""
+
+    def __init__(self, allowed: bool = True, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self.allowed = allowed
+        self.preflight_calls = 0
+
+    def CGPreflightPostEventAccess(self) -> bool:  # noqa: N802 - Apple's spelling
+        self.preflight_calls += 1
+        return self.allowed
+
+
+def _gated(allowed: bool) -> tuple[QuartzMouseApi, _PermissiveQuartz]:
+    quartz = _PermissiveQuartz(allowed=allowed)
+    return QuartzMouseApi(quartz=quartz), quartz
+
+
+@pytest.mark.parametrize("operation", ["move", "absolute", "press", "release", "scroll"])
+def test_a_process_macos_has_not_approved_posts_nothing_and_says_why(operation: str) -> None:
+    """Apple DTS: posting events "require[s] user approval in System Settings > Privacy &
+    Security" (https://developer.apple.com/forums/thread/724603). `CGEventPost` returns
+    nothing, so without the preflight this is a silent no-op, forbidden by ADR-v2-146.
+    """
+    api, quartz = _gated(allowed=False)
+    action = {
+        "move": lambda: api.move_relative(1.0, 1.0),
+        "absolute": lambda: api.move_absolute(5.0, 5.0),
+        "press": lambda: api.press(PointerButton.LEFT),
+        "release": lambda: api.release(PointerButton.LEFT),
+        "scroll": lambda: api.scroll(0.0, 2.0),
+    }[operation]
+    with pytest.raises(PointerBackendError) as caught:
+        action()
+    assert "Accessibility" in str(caught.value)
+    assert quartz.posted == [], "an unapproved process must not post anything"
+
+
+def test_the_denial_survives_the_sink_as_a_backend_error_with_the_pane_named() -> None:
+    api, _ = _gated(allowed=False)
+    sink = MacosPointerSink(api=api)
+    with pytest.raises(PointerBackendError) as caught:
+        sink.click(PointerButton.LEFT)
+    assert "System Settings" in str(caught.value)
+
+
+def test_an_approved_process_posts_and_is_asked_only_until_it_is_approved() -> None:
+    api, quartz = _gated(allowed=True)
+    api.move_absolute(1.0, 1.0)
+    api.move_absolute(2.0, 2.0)
+    assert len(quartz.posted) == 2
+    assert quartz.preflight_calls == 1, "a confirmed grant is not re-asked on every frame"
+
+
+def test_a_denial_is_asked_again_so_a_later_grant_is_noticed() -> None:
+    api, quartz = _gated(allowed=False)
+    with pytest.raises(PointerBackendError):
+        api.move_absolute(1.0, 1.0)
+    quartz.allowed = True
+    api.move_absolute(1.0, 1.0)
+    assert len(quartz.posted) == 1
+
+
+def test_a_bridge_without_the_preflight_symbol_still_posts() -> None:
+    """Unknown is not denied: the plain fake has no `CGPreflightPostEventAccess`."""
+    api, quartz = _api()
+    assert not hasattr(quartz, "CGPreflightPostEventAccess")
+    api.move_absolute(1.0, 1.0)
+    assert len(quartz.posted) == 1
+
+
+# --------------------------------------------------------------------------- #
+# Scroll magnitude: Apple says wheel values are "typically -10 to +10"
+# --------------------------------------------------------------------------- #
+
+
+def test_a_large_scroll_is_split_into_events_no_bigger_than_ten_lines() -> None:
+    api, quartz = _api()
+    api.scroll(0.0, 25.0)
+    wheels = [event[3][0] for _tap, event in quartz.posted]
+    assert wheels == [-10, -10, -5]
+    assert all(abs(w) <= MAX_SCROLL_LINES_PER_EVENT for w in wheels)
+    assert sum(wheels) == -25, "splitting must not change the total distance"
+
+
+def test_a_large_upward_scroll_is_split_the_same_way_with_the_opposite_sign() -> None:
+    api, quartz = _api()
+    api.scroll(0.0, -23.0)
+    assert [event[3][0] for _tap, event in quartz.posted] == [10, 10, 3]
+
+
+def test_a_scroll_of_exactly_ten_lines_is_one_event() -> None:
+    api, quartz = _api()
+    api.scroll(0.0, 10.0)
+    assert len(quartz.posted) == 1
