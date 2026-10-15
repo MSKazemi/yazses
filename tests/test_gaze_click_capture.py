@@ -213,7 +213,11 @@ def test_ties_resolve_the_same_way_whatever_order_the_samples_arrive_in() -> Non
 def test_the_pair_carries_the_gaze_the_click_the_confidence_and_the_lag() -> None:
     result = associate(CLICK, [gaze(99.9, x=0.3, y=-0.2, confidence=0.8)], POLICY)
     assert result.association == Association(
-        gaze=(0.3, -0.2), click=(640.0, 360.0), confidence=0.8, lag_s=pytest.approx(0.1)
+        gaze=(0.3, -0.2),
+        click=(640.0, 360.0),
+        confidence=0.8,
+        lag_s=pytest.approx(0.1),
+        gaze_timestamp_s=99.9,
     )
     assert result.reason is None
 

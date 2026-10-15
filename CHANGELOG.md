@@ -6,6 +6,21 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — implicit-calibration capture: four ways a real click stream differs from the test one
+
+Audit of [#397](https://github.com/MSKazemi/yazses/issues/397) against the shapes a real desktop and camera
+produce. Still opt-in and still dormant on every OS (no platform ships a click observer yet), so nothing changes
+for an existing install. (1) A click stamped on another clock (a wall-clock reading, or a boot clock that counted
+through suspend) used to be counted as "stale", blaming a camera that was fine; it is now refused as
+`clock_mismatch` and explained once in the log (`MAX_CLICK_CLOCK_SKEW_S`, provisional, unmeasured). (2) One
+camera observation could back several clicks, so a double-click or click burst over-weighted it and put a copy in
+the held-out set that had trained the candidate; each observation now backs at most one click
+(`sample_reused`). (3) A click now reads the shared source itself, because at a low frame rate the ring could lag
+the source by more than the look-back window. (4) A camera that died after opening left the service "running"
+with every click `no_gaze` and no explanation; the source's reason is now logged once. A new end-to-end test also
+runs the same landmarks down the legacy Glance-Type path and the shared-source path and compares routing for
+([#396](https://github.com/MSKazemi/yazses/issues/396)).
+
 ### Fixed — four more cross-OS test defects, found once the CI log could be read
 
 With the oversized test id fixed, the macOS and Windows runs reached the end of the suite and showed four

@@ -108,8 +108,14 @@ def build_refinement_runtime(
     source: str = "explicit",
     fps: int = _DEFAULT_FPS,
     spawn: Spawn | None = None,
+    clock: Callable[[], float] | None = None,
 ) -> tuple[RefinementRuntime | None, str]:
-    """Start implicit refinement, or return ``(None, why not)``. See the module docstring."""
+    """Start implicit refinement, or return ``(None, why not)``. See the module docstring.
+
+    *clock* is the clock the shared source stamps samples with (the daemon passes
+    ``time.monotonic``, the source's default). Given, a click stamped on a different clock
+    is refused by name instead of being counted as stale gaze.
+    """
     if not getattr(section, "enabled", False):
         return None, ""
     if targeter is None:
@@ -153,7 +159,7 @@ def build_refinement_runtime(
         context_valid=context_valid,
         source=source,
     )
-    capture = ClickGazeCapture(refiner.observe, association)
+    capture = ClickGazeCapture(refiner.observe, association, clock=clock)
     clamped = min(_MAX_FPS, max(_MIN_FPS, int(fps)))
     try:
         observer = observer_factory()
@@ -164,6 +170,7 @@ def build_refinement_runtime(
         observer=observer,
         lease=_named_lease(perception, "gaze-refine"),
         interval_s=1.0 / clamped,
+        failure_reason=_failure_reason_of(perception),
     )
     try:
         service.start()
@@ -180,6 +187,14 @@ def build_refinement_runtime(
         runtime.stop()
         return None, f"the refinement loop could not start ({type(exc).__name__})"
     return runtime, ""
+
+
+def _failure_reason_of(perception) -> Callable[[], str] | None:
+    """Why the shared source stopped, as a callable, or ``None`` if it cannot say."""
+    status = getattr(perception, "status", None)
+    if status is None:
+        return None
+    return lambda: str(status().failure_reason)
 
 
 def _named_lease(perception, name: str) -> FacePerceptionSource:
