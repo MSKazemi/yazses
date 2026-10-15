@@ -634,3 +634,71 @@ def test_doctor_asks_the_daemon_without_taking_the_trays_notifications(tmp_path)
     status_calls = [kw for method, kw in calls if method == "status"]
     assert status_calls == [{"consume_notifications": False}]
     assert {method for method, _ in calls} <= {"status", "headpointer"}
+
+
+def test_facegesture_status_does_not_tell_an_enabled_switch_to_enable_itself() -> None:
+    """`yazses facegesture status` for a switch that is on and was never built used to say
+    "not running (`yazses features enable facegesture`)" -- advice to do what was done."""
+    from yazses.ipc.protocol import Request
+
+    def reply(enabled: bool) -> dict:
+        cfg = Config()
+        cfg.facegesture.enabled = enabled
+        daemon = types.SimpleNamespace(_config=cfg, _facegesture_payload=lambda: None)
+        return Daemon._handle_facegesture(daemon, Request("facegesture", {"action": "status"}))
+
+    on, off = reply(True), reply(False)
+    assert on["active"] is False and off["active"] is False
+    assert "features enable" not in str(on["reason"]) and "doctor" in str(on["reason"])
+    assert "features enable facegesture" in str(off["reason"])
+
+
+@pytest.mark.parametrize(("command", "enable_hint"), [
+    (["headpointer", "status"], "features enable headpointer"),
+    (["gesture", "status"], "features enable gesture"),
+])
+def test_a_status_command_only_says_to_turn_it_on_when_it_is_off(monkeypatch, command, enable_hint) -> None:
+    """`headpointer status` printed "Turn it on with: yazses features enable headpointer" even
+    when the pointer was on and had failed to build ("no pointer backend"). A reason means it is
+    on; no reason means it is off."""
+    from typer.testing import CliRunner
+
+    from yazses import cli
+
+    def run(reply: dict) -> str:
+        client = types.SimpleNamespace(call=lambda _m, **_k: reply)
+        platform = types.SimpleNamespace(
+            paths=types.SimpleNamespace(ipc_socket="x"), ipc_client_factory=lambda _s: client)
+        monkeypatch.setattr(cli, "get_platform", lambda: platform)
+        result = CliRunner().invoke(cli.app, command)
+        assert result.exit_code == 0, result.output
+        return result.output
+
+    assert enable_hint in run({"ok": True, "active": False, "reason": ""})
+    assert enable_hint not in run({"ok": True, "active": False, "reason": "no pointer backend"})
+
+
+def test_gaze_status_never_builds_the_backend_or_downloads_the_model(monkeypatch, tmp_path) -> None:
+    """`yazses gaze status` answered "are the deps present?" by constructing the MediaPipe backend,
+    which loads the landmarker and downloads its model on a cold cache. A status command is
+    read-only: building (and the network it can reach) must not happen."""
+    from typer.testing import CliRunner
+
+    from yazses import cli
+
+    def boom(*_a, **_k):
+        raise AssertionError("`gaze status` built the backend / fetched the model")
+
+    cfg = Config()
+    cfg.gaze.enabled = True
+    platform = types.SimpleNamespace(
+        paths=types.SimpleNamespace(config_file=tmp_path / "c.toml", data_dir=tmp_path))
+    monkeypatch.setattr(cli, "get_platform", lambda: platform)
+    monkeypatch.setattr("yazses.config.load_config", lambda _p: cfg)
+    monkeypatch.setattr("yazses.gaze.factory.build_gaze", boom)
+    monkeypatch.setattr("yazses.gaze.download.ensure_face_landmarker", boom)
+    monkeypatch.setattr("yazses.gaze.mediapipe_backend.MediapipeGazeBackend.__init__", boom)
+    monkeypatch.setattr("yazses.gaze.desktop.build_desktop", lambda: object())
+    result = CliRunner().invoke(cli.app, ["gaze", "status"])
+    assert result.exit_code == 0, result.output
+    assert "gaze backend/deps" in result.output

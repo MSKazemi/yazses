@@ -1758,10 +1758,18 @@ class Daemon:
             log.exception("facegesture status raised")
             return {"ok": False, "reason": f"failed: {type(exc).__name__}"}
         if payload is None:
-            return {
-                "ok": True, "active": False,
-                "reason": "the face switch is not running (`yazses features enable facegesture`)",
-            }
+            config = getattr(self, "_config", None)
+            if bool(getattr(getattr(config, "facegesture", None), "enabled", False)):
+                # Enabled and not built is a different fact from off: telling a user whose
+                # switch is already on to enable it sent them in a circle. The daemon built
+                # nothing -- a missing dependency or no camera -- and `doctor` names which.
+                reason = (
+                    "`[facegesture]` is on, but the daemon did not construct the face switch "
+                    "at start-up (a missing dependency or no camera) -- run `yazses doctor`"
+                )
+            else:
+                reason = "the face switch is not running (`yazses features enable facegesture`)"
+            return {"ok": True, "active": False, "reason": reason}
         return {"ok": True, "active": True, **payload}
 
     def _build_slm_router(self, cfg):

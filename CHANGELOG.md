@@ -37,6 +37,12 @@ path (`tests/test_handsfree_surfaces_agree.py`):
   own answer, not a malfunction; the remedy is to restart and approve), not a failure.
 - The window's Pointer-output row was a bare `UNKNOWN` when the daemon was down; it now names the session's
   predicted backend exactly as `doctor` does.
+- `yazses headpointer status`, `yazses gesture status` and `yazses facegesture status` told a user whose
+  feature was **already on** (and had failed to build) to "turn it on with `yazses features enable ...`". They
+  now say it is switched on and point at `yazses doctor`; the enable hint appears only when it is off.
+- `yazses gaze status` answered "are the gaze dependencies present?" by constructing the MediaPipe backend, which
+  loads the landmarker and downloads its model on a cold cache - a read-only status command reaching the network.
+  It now probes the dependencies and stops there.
 
 ### Fixed — an unanswered Wayland permission dialog was reported as "keyboard only"
 
