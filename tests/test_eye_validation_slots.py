@@ -17,8 +17,11 @@ ADR-v2-150: human hardware evidence is never cloud-agent-ready, public slots are
 from __future__ import annotations
 
 import ast
+import copy
 import importlib.util
 import json
+import re
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -27,6 +30,9 @@ import pytest
 ROOT = Path(__file__).resolve().parent.parent
 REGISTRY_PATH = ROOT / "design" / "eye-control" / "validation-slots.json"
 SCRIPT = ROOT / "scripts" / "check_eye_validation_slots.py"
+MATRIX_PATH = ROOT / "design" / "eye-control" / "VALIDATION_MATRIX.md"
+CAMPAIGN_PATH = ROOT / "campaign" / "tasks.json"
+CAMPAIGN_SCRIPT = ROOT / "scripts" / "campaign.py"
 
 #: Every no-code hardware slot that already exists as a GitHub issue, and the cell it
 #: represents. Taken from the VALIDATION_MATRIX.md A/B table and the AGENT_TASKS.md
@@ -325,12 +331,14 @@ def test_every_existing_no_code_slot_is_planned_hardware_and_human_only():
     for slot in _registry()["slots"]:
         if slot.get("issue") not in HISTORICAL_SLOTS:
             continue
-        assert slot["state"] == "planned", f"{slot['id']} must stay PLANNED (#423 is open)"
+        assert slot["state"] == "planned", f"{slot['id']} must stay PLANNED (nothing is validated)"
         assert slot["hardware_required"] is True
         assert slot["cloud_agent_ready"] is False
         assert slot["beginner_safe"] is True
         assert slot["evidence_mode"] == "community_qa"
-        assert slot["blocked_by"], f"{slot['id']} must name its prerequisite issue"
+        assert slot["blocked_by"] or slot["additional_blockers"], (
+            f"{slot['id']} is PLANNED, so it must say what it is waiting for"
+        )
 
 
 def test_future_cells_may_stay_planned_without_an_open_issue():
@@ -373,3 +381,358 @@ def test_validation_is_deterministic():
     first = checker.validate_registry(data, root=ROOT)
     second = checker.validate_registry(json.loads(json.dumps(data)), root=ROOT)
     assert first == second == []
+
+
+# ------------------------------------------------ the invalid-input corpus, every kind
+
+
+def _mutated(fn) -> dict[str, Any]:
+    data = copy.deepcopy(_registry())
+    fn(data)
+    return data
+
+
+def _first(data: dict[str, Any], **changes: Any) -> None:
+    data["slots"][0].update(changes)
+
+
+#: One entry per *kind* of invalid registry, each derived from the committed registry so
+#: it stays a one-fault mutation of a document known to be valid. The control below
+#: proves the unmutated document passes, so a failure here is the mutation's doing.
+INVALID_KINDS: dict[str, Any] = {
+    "empty slots": lambda d: d.update(slots=[]),
+    "slots null": lambda d: d.update(slots=None),
+    "slots object": lambda d: d.update(slots={}),
+    "slot is null": lambda d: d["slots"].append(None),
+    "slot is string": lambda d: d["slots"].append("x"),
+    "no slots key": lambda d: d.pop("slots"),
+    "empty object": lambda d: d.clear(),
+    "schema_version true": lambda d: d.update(schema_version=True),
+    "schema_version 1.0": lambda d: d.update(schema_version=1.0),
+    "schema_version string": lambda d: d.update(schema_version="1"),
+    "schema_version 2": lambda d: d.update(schema_version=2),
+    "duplicate id": lambda d: d["slots"].append(copy.deepcopy(d["slots"][0])),
+    "duplicate issue": lambda d: d["slots"][1].update(issue=428),
+    "state done": lambda d: _first(d, state="done"),
+    "state validated": lambda d: _first(d, state="validated"),
+    "state is a list": lambda d: _first(d, state=["ready"]),
+    "pack is a list": lambda d: _first(d, pack=[]),
+    "pack is an object": lambda d: _first(d, pack={}),
+    "environment is a list": lambda d: _first(d, environment=[]),
+    "slot is a list": lambda d: _first(d, slot=[]),
+    "evidence_mode is a list": lambda d: _first(d, evidence_mode=[]),
+    "evidence_mode research": lambda d: _first(d, evidence_mode="research"),
+    "ready with open prerequisite": lambda d: _first(
+        d, state="ready", blocked_by=[999], additional_blockers=None
+    ),
+    "ready with free-text blocker": lambda d: _first(d, state="ready", blocked_by=[]),
+    "ready without an issue": lambda d: _first(
+        d, state="ready", blocked_by=[], additional_blockers=None, issue=None
+    ),
+    "ready without an estimate": lambda d: _first(
+        d, state="ready", blocked_by=[], additional_blockers=None, time_estimate_minutes=None
+    ),
+    "hardware cloud_agent_ready": lambda d: _first(d, cloud_agent_ready=True),
+    "community_qa cloud_agent_ready": lambda d: _first(
+        d, cloud_agent_ready=True, hardware_required=False
+    ),
+    "email in a value": lambda d: _first(d, requirement="tester a@b.co"),
+    "email key": lambda d: _first(d, email="a@b.co"),
+    "participant key": lambda d: _first(d, participant_id="P1"),
+    "email in the description": lambda d: d.update(description="by a@b.co"),
+    "handle in a value": lambda d: _first(d, session="run by @bob"),
+    "phone in a value": lambda d: _first(d, additional_blockers="call +49 151 2345678"),
+    "unknown slot key": lambda d: _first(d, foo=1),
+    "unknown top-level key": lambda d: d.update(foo=1),
+    "id disagrees with its fields": lambda d: _first(d, id="T0-WIN-B"),
+    "empty id": lambda d: _first(d, id=""),
+    "integer id": lambda d: _first(d, id=5),
+    "issue is a bool": lambda d: _first(d, issue=True),
+    "issue is a string": lambda d: _first(d, issue="428"),
+    "issue is zero": lambda d: _first(d, issue=0),
+    "blocked by itself": lambda d: _first(d, blocked_by=[428]),
+    "blocked_by repeats an issue": lambda d: _first(d, blocked_by=[423, 423]),
+    "blocked_by is a string": lambda d: _first(d, blocked_by="423"),
+    "A slot with several sessions": lambda d: _first(d, sessions=5),
+    "zero sessions": lambda d: _first(d, sessions=0),
+    "repeat slot with one session": lambda d: next(
+        s for s in d["slots"] if s["slot"] == "repeat"
+    ).update(sessions=1),
+    "negative estimate": lambda d: _first(d, time_estimate_minutes={"min": -1, "max": 5}),
+    "inverted estimate": lambda d: _first(d, time_estimate_minutes={"min": 30, "max": 5}),
+    "estimate longer than a sitting": lambda d: _first(
+        d, time_estimate_minutes={"min": 15, "max": 99999}
+    ),
+    "estimate is a bare int": lambda d: _first(d, time_estimate_minutes=15),
+    "generated_from missing file": lambda d: d.update(generated_from=["nope.md"]),
+    "generated_from absolute": lambda d: d.update(generated_from=["/etc/passwd"]),
+    "generated_from escapes the repo": lambda d: d.update(
+        generated_from=["design/eye-control/../../../../../../etc/passwd"]
+    ),
+    "generated_from empty": lambda d: d.update(generated_from=[]),
+    "generated_from absent": lambda d: d.pop("generated_from"),
+    "flag is a string": lambda d: _first(d, beginner_safe="yes"),
+    "required field absent": lambda d: d["slots"][0].pop("hardware_required"),
+}
+
+
+def test_the_corpus_control_is_valid_so_each_mutation_is_the_only_fault():
+    assert checker.validate_registry(_registry(), root=ROOT) == []
+
+
+@pytest.mark.parametrize("kind", sorted(INVALID_KINDS))
+def test_every_kind_of_invalid_registry_is_reported_not_crashed(kind, tmp_path):
+    data = _mutated(INVALID_KINDS[kind])
+    errors = checker.validate_registry(data, root=ROOT)  # must not raise
+    assert errors, f"{kind!r} validated clean"
+
+    path = tmp_path / "validation-slots.json"
+    path.write_text(json.dumps(data), encoding="utf-8")
+    assert checker.main(["--registry", str(path), "--campaign", str(CAMPAIGN_PATH)]) == 1
+
+
+def test_the_invalid_corpus_does_not_shrink():
+    assert len(INVALID_KINDS) >= 50
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        b"\xff\xfe{}",  # not UTF-8
+        b"[" * 200_000,  # deeper than the JSON parser allows
+        b'{"schema_version": NaN, "slots": []}',  # non-finite number
+        b'{"schema_version": 1, "slots": [], "slots": []}',  # repeated key
+        b'{"schema_version": 1, "state": "ready", "state": "planned"}',
+    ],
+)
+def test_bytes_the_parser_cannot_trust_exit_two_without_a_traceback(tmp_path, payload):
+    path = tmp_path / "validation-slots.json"
+    path.write_bytes(payload)
+    assert checker.main(["--registry", str(path)]) == 2
+
+
+def test_a_repeated_json_key_cannot_hide_a_state_change(tmp_path):
+    """`json` keeps the last of two equal keys, so the file the author wrote is not the
+    file that was checked. The second `state` here is the one a plain loader would see."""
+    text = REGISTRY_PATH.read_text(encoding="utf-8").replace(
+        '"state": "planned",', '"state": "planned", "state": "ready",', 1
+    )
+    path = tmp_path / "validation-slots.json"
+    path.write_text(text, encoding="utf-8")
+    assert json.loads(text)["slots"][0]["state"] == "ready"  # the silent override
+    assert checker.main(["--registry", str(path)]) == 2
+
+
+# ----------------------------------------------- the prose matrix and the registry agree
+
+
+def _matrix_ab_table() -> list[tuple[str, int, int | None]]:
+    """(environment label, A issue, B issue) rows of the prose A/B table."""
+    rows = []
+    for line in MATRIX_PATH.read_text(encoding="utf-8").splitlines():
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if len(cells) == 4 and re.fullmatch(r"#\d+", cells[1]):
+            b = int(cells[2][1:]) if re.fullmatch(r"#\d+", cells[2]) else None
+            rows.append((cells[0], int(cells[1][1:]), b))
+    return rows
+
+
+def test_the_matrix_table_was_actually_parsed():
+    assert len(_matrix_ab_table()) == 7, "the A/B table moved; the cross-check below is blind"
+
+
+def test_the_registry_agrees_with_the_prose_matrix_issue_for_issue():
+    """Derived from VALIDATION_MATRIX.md, not from a second hand-written list."""
+    by_issue = {s["issue"]: s for s in _registry()["slots"] if s.get("issue") is not None}
+    table = _matrix_ab_table()
+    matrix_issues = {n for _, a, b in table for n in (a, b) if n is not None}
+    assert set(by_issue) == matrix_issues, "an issue is in one of matrix/registry and not the other"
+    for _label, a, b in table:
+        if b is None:  # the same-person row: one repeat slot, no B
+            assert by_issue[a]["slot"] == "repeat"
+            continue
+        assert by_issue[a]["slot"] == "A"
+        assert by_issue[b]["slot"] == "B"
+        assert by_issue[a]["environment"] == by_issue[b]["environment"]
+        assert by_issue[a]["pack"] == by_issue[b]["pack"]
+
+
+# ------------------------------------------------- the registry tells the truth: nothing done
+
+
+def test_no_slot_is_ready_because_no_slot_has_been_validated_by_a_human():
+    """Every cell is PLANNED. The day one becomes READY this fails on purpose: that is
+    a claim about a platform, and it needs a human to flip it and this test to be
+    rewritten with the evidence, not a quiet edit."""
+    slots = _registry()["slots"]
+    assert slots, "an empty registry would satisfy 'none are ready' vacuously"
+    assert {s["state"] for s in slots} == {"planned"}
+
+
+def test_the_registry_has_no_field_that_could_carry_a_result():
+    allowed = checker.SLOT_KEYS
+    for slot in _registry()["slots"]:
+        assert set(slot) <= allowed
+    assert not {"outcome", "result", "results", "passed", "validated", "evidence"} & allowed
+
+
+def test_no_reported_outcome_file_is_committed():
+    """The dashboard says no outcome exists. Committing one must be a deliberate act that
+    also rewrites that statement, so this fails first."""
+    found = [
+        p
+        for p in (ROOT / "design" / "eye-control").rglob("*")
+        if p.is_file() and "outcome" in p.name.lower()
+    ]
+    assert found == []
+
+
+def test_the_one_person_hands_free_workflow_has_no_cell_and_no_claim():
+    assert "T7" not in {s["pack"] for s in _registry()["slots"]}
+
+
+# ---------------------------------------- READY slots reach the contributor task finder
+
+
+def _load_campaign():
+    name = "campaign_for_eye_tests"
+    spec = importlib.util.spec_from_file_location(name, CAMPAIGN_SCRIPT)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+campaign = _load_campaign()
+
+
+def _ready_registry(**overrides: Any) -> dict[str, Any]:
+    return _doc(_slot(state="ready", blocked_by=[], additional_blockers=None, **overrides))
+
+
+def _eye_task(**overrides: Any) -> dict[str, Any]:
+    task: dict[str, Any] = {
+        "id": "MEASURE-EYE-T0-WIN-A-001",
+        "family": "measurement",
+        "title": "T0 Windows 11 camera lifecycle - 20 min - no coding",
+        "value": "One independent Windows host for the camera lifecycle check.",
+        "risk": "L1",
+        "minutes": 20,
+        "skills": [],
+        "requires": {"os": "Windows 11", "hardware": "a webcam"},
+        "cloud_agent_ready": False,
+        "allowed_paths": ["design/eye-control/**"],
+        "validation": ["uv run python scripts/check_eye_validation_slots.py"],
+        "evidence": ["PASS / PARTIAL / FAIL / BLOCKED plus the privacy-safe result JSON"],
+        "state": "open",
+        "source": "eye-validation slot T0-WIN-A (issue #428)",
+    }
+    task.update(overrides)
+    return task
+
+
+def test_the_real_task_finder_advertises_no_eye_slot_because_none_is_ready():
+    tasks = json.loads(CAMPAIGN_PATH.read_text(encoding="utf-8"))
+    assert checker.validate_campaign_exposure(_registry(), tasks) == []
+    assert not [t for t in tasks if "eye-validation slot" in str(t.get("source", ""))]
+
+
+def test_the_exposure_check_is_not_vacuous_on_the_real_inventory():
+    """Make one real slot READY and the real inventory must be reported as missing it."""
+    tasks = json.loads(CAMPAIGN_PATH.read_text(encoding="utf-8"))
+    data = _mutated(lambda d: _first(d, state="ready", blocked_by=[], additional_blockers=None))
+    errors = checker.validate_campaign_exposure(data, tasks)
+    assert any("exactly one advertised campaign task" in e for e in errors)
+
+
+def test_a_ready_slot_with_a_proper_task_passes_and_the_task_is_a_valid_campaign_task():
+    task = _eye_task()
+    assert checker.validate_campaign_exposure(_ready_registry(), [task]) == []
+    assert campaign.validate_task(task) == []
+
+
+def test_a_ready_slot_with_no_task_fails():
+    assert checker.validate_campaign_exposure(_ready_registry(), [])
+
+
+def test_a_ready_slot_with_two_tasks_fails():
+    errors = checker.validate_campaign_exposure(
+        _ready_registry(), [_eye_task(), _eye_task(id="MEASURE-EYE-T0-WIN-A-002")]
+    )
+    assert any("exactly one" in e for e in errors)
+
+
+def test_a_planned_slot_must_not_be_advertised():
+    errors = checker.validate_campaign_exposure(_doc(_slot()), [_eye_task()])
+    assert any("PLANNED" in e for e in errors)
+
+
+def test_a_planned_slot_may_have_an_internal_draft_task():
+    assert checker.validate_campaign_exposure(_doc(_slot()), [_eye_task(state="draft")]) == []
+
+
+def test_a_task_naming_an_unregistered_slot_is_an_error_not_a_typo_that_vanishes():
+    stray = _eye_task(id="MEASURE-EYE-X-001", source="eye-validation slot T9-ZZZ-A")
+    errors = checker.validate_campaign_exposure(_ready_registry(), [_eye_task(), stray])
+    assert any("not registered" in e for e in errors)
+
+
+@pytest.mark.parametrize(
+    "change,needle",
+    [
+        ({"family": "docs"}, "'measurement'"),
+        ({"minutes": 5}, "understates"),
+        ({"requires": {}}, "requires"),
+        ({"evidence": []}, "evidence"),
+        ({"validation": ["uv run python scripts/campaign.py --check"]}, "check_eye_validation"),
+    ],
+)
+def test_a_ready_slots_task_must_be_honest_visible_and_checkable(change, needle):
+    errors = checker.validate_campaign_exposure(_ready_registry(), [_eye_task(**change)])
+    assert any(needle in e for e in errors), errors
+
+
+def test_a_hardware_task_claiming_cloud_agent_ready_is_refused_by_both_validators():
+    task = _eye_task(cloud_agent_ready=True)
+    assert any(
+        "cloud_agent_ready" in e
+        for e in checker.validate_campaign_exposure(_ready_registry(), [task])
+    )
+    assert any("cloud_agent_ready" in e for e in campaign.validate_task(task))
+
+
+def test_a_repeat_slots_task_covers_every_session():
+    registry = _doc(
+        _slot(
+            id="T1-ANY-REPEAT",
+            pack="T1",
+            environment="ANY",
+            slot="repeat",
+            sessions=3,
+            state="ready",
+            blocked_by=[],
+            additional_blockers=None,
+            issue=437,
+        )
+    )
+    source = "eye-validation slot T1-ANY-REPEAT"
+    short = checker.validate_campaign_exposure(registry, [_eye_task(source=source, minutes=20)])
+    assert any("understates" in e for e in short)
+    assert checker.validate_campaign_exposure(registry, [_eye_task(source=source, minutes=60)]) == []
+
+
+def test_the_cli_exits_two_when_the_campaign_inventory_cannot_be_read(tmp_path):
+    tasks = tmp_path / "tasks.json"
+    assert checker.main(["--campaign", str(tasks)]) == 2  # absent
+    tasks.write_text("{", encoding="utf-8")
+    assert checker.main(["--campaign", str(tasks)]) == 2  # unparseable
+
+
+def test_the_cli_exits_one_when_a_ready_slot_is_not_advertised(tmp_path):
+    ready = _mutated(lambda d: _first(d, state="ready", blocked_by=[], additional_blockers=None))
+    registry = tmp_path / "validation-slots.json"
+    registry.write_text(json.dumps(ready), encoding="utf-8")
+    tasks = tmp_path / "tasks.json"
+    tasks.write_text("[]", encoding="utf-8")
+    assert checker.main(["--registry", str(registry), "--campaign", str(tasks)]) == 1

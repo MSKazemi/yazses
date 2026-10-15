@@ -25,11 +25,18 @@ empty document that then passes every per-slot check. For the same reason an emp
 ``slots`` list is an error, not a vacuous pass: a guard that only iterates is green on a
 collection with nothing in it, which is the failure mode this file is written against.
 
+**It checks that READY work is actually advertised, and PLANNED work is not.** The
+contributor task finder is generated from ``campaign/tasks.json``. Every READY slot must
+have exactly one open measurement task there that names it, and no PLANNED slot may have
+an open one (``validate_campaign_exposure``). Today no slot is READY, so the finder
+carries no eye-validation task -- and the check proves that on the real inventory rather
+than assuming it.
+
 Exit codes:
 
 * ``0`` -- registry is structurally and policy valid;
 * ``1`` -- registry parsed but violates one or more rules;
-* ``2`` -- registry could not be read or parsed at all.
+* ``2`` -- registry (or the campaign inventory) could not be read or parsed at all.
 """
 
 from __future__ import annotations
@@ -43,8 +50,15 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parent.parent
 REGISTRY = ROOT / "design" / "eye-control" / "validation-slots.json"
+CAMPAIGN_TASKS = ROOT / "campaign" / "tasks.json"
 
 SCHEMA_VERSION = 1
+
+#: One sitting. The campaign contract (scripts/campaign.py) bounds a whole task at 480
+#: minutes; a single hardware session must be far shorter than that, because the slot
+#: is advertised to a newcomer as a short no-code task (VALIDATION_OPERATIONS.md:
+#: ``size:s`` is "roughly one short session"). A repeat slot is checked per session.
+MAX_SESSION_MINUTES = 120
 
 TOP_LEVEL_KEYS = {"schema_version", "description", "generated_from", "slots"}
 TOP_LEVEL_REQUIRED = {"schema_version", "generated_from", "slots"}
@@ -133,16 +147,49 @@ class RegistryError(Exception):
     """
 
 
+def _reject_constant(name: str) -> Any:
+    raise ValueError(f"non-finite number {name} is not valid in a registry")
+
+
+def _no_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    """``json`` keeps the *last* of two equal keys silently; a registry may not.
+
+    Without this, ``"state": "ready", "state": "planned"`` parses as planned and the
+    validator checks a document nobody wrote -- the same blindness as an id that
+    appears twice, one level down.
+    """
+    out: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in out:
+            raise ValueError(f"duplicate JSON key {key!r}")
+        out[key] = value
+    return out
+
+
 def load_registry(path: Path = REGISTRY) -> dict[str, Any]:
-    """Read and parse the registry, or raise :class:`RegistryError`."""
+    """Read and parse the registry, or raise :class:`RegistryError`.
+
+    Every way the bytes can be unusable maps to :class:`RegistryError` -- unreadable,
+    not UTF-8, not JSON, nested past the parser's limit, non-finite numbers, repeated
+    keys, or not an object -- so none of them can surface as a traceback or as an empty
+    document.
+    """
     try:
         text = path.read_text(encoding="utf-8")
     except OSError as exc:
         raise RegistryError(f"cannot read registry {path}: {exc}") from exc
+    except UnicodeDecodeError as exc:
+        raise RegistryError(f"registry {path} is not valid UTF-8: {exc}") from exc
     try:
-        data = json.loads(text)
+        data = json.loads(
+            text, object_pairs_hook=_no_duplicate_keys, parse_constant=_reject_constant
+        )
     except json.JSONDecodeError as exc:
         raise RegistryError(f"registry {path} is not valid JSON: {exc}") from exc
+    except ValueError as exc:
+        raise RegistryError(f"registry {path} is not a valid registry document: {exc}") from exc
+    except RecursionError as exc:
+        raise RegistryError(f"registry {path} is nested too deeply to parse") from exc
     if not isinstance(data, dict):
         raise RegistryError(
             f"registry {path} must be a JSON object, got {type(data).__name__}"
@@ -176,6 +223,11 @@ def _scan_identity(node: Any, where: str, errors: list[str]) -> None:
             errors.append(f"{where}: value looks like an @handle; identity data is forbidden")
 
 
+def _in(value: Any, allowed: set[str]) -> bool:
+    """Membership that is simply False for an unhashable value instead of raising."""
+    return isinstance(value, str) and value in allowed
+
+
 def _check_time_estimate(value: Any, where: str, errors: list[str]) -> None:
     if not isinstance(value, dict):
         errors.append(f"{where}: time_estimate_minutes must be a mapping with min and max")
@@ -190,6 +242,11 @@ def _check_time_estimate(value: Any, where: str, errors: list[str]) -> None:
             return
     if isinstance(low, int) and isinstance(high, int) and low > high:
         errors.append(f"{where}: time_estimate_minutes.min must not exceed max")
+    elif isinstance(high, int) and high > MAX_SESSION_MINUTES:
+        errors.append(
+            f"{where}: time_estimate_minutes.max={high} is more than one sitting "
+            f"(limit {MAX_SESSION_MINUTES}); split the slot"
+        )
 
 
 def _check_slot(slot: Any, where: str, errors: list[str]) -> str | None:
@@ -213,19 +270,29 @@ def _check_slot(slot: Any, where: str, errors: list[str]) -> str | None:
     if missing:
         errors.append(f"{where}: missing required field(s) {missing}")
 
+    # `_in` rather than a bare `in`: a list or object in an enum field is unhashable, and
+    # `[] in {...}` raises TypeError -- a crash with a traceback, not a reported error.
     pack = slot.get("pack")
-    if pack not in PACKS:
+    if not _in(pack, PACKS):
         errors.append(f"{where}: pack must be one of {sorted(PACKS)}, got {pack!r}")
     environment = slot.get("environment")
-    if environment not in ENVIRONMENTS:
+    if not _in(environment, ENVIRONMENTS):
         errors.append(
             f"{where}: environment must be one of {sorted(ENVIRONMENTS)}, got {environment!r}"
         )
     ab = slot.get("slot")
-    if ab not in SLOTS:
+    if not _in(ab, SLOTS):
         errors.append(f"{where}: slot must be one of {sorted(SLOTS)}, got {ab!r}")
 
-    if isinstance(slot_id, str) and pack in PACKS and environment in ENVIRONMENTS and ab in SLOTS:
+    if (
+        isinstance(slot_id, str)
+        and isinstance(pack, str)
+        and isinstance(environment, str)
+        and isinstance(ab, str)
+        and pack in PACKS
+        and environment in ENVIRONMENTS
+        and ab in SLOTS
+    ):
         expected = f"{pack}-{environment}-{ab.upper()}"
         if slot_id != expected:
             errors.append(f"{where}: id should be {expected!r} for this pack/environment/slot")
@@ -239,7 +306,7 @@ def _check_slot(slot: Any, where: str, errors: list[str]) -> str | None:
         errors.append(f"{where}: requirement must be a non-empty string")
 
     state = slot.get("state")
-    if state not in STATES:
+    if not _in(state, STATES):
         errors.append(f"{where}: state must be one of {sorted(STATES)}, got {state!r}")
 
     for flag in ("hardware_required", "beginner_safe", "cloud_agent_ready", "public"):
@@ -257,6 +324,11 @@ def _check_slot(slot: Any, where: str, errors: list[str]) -> str | None:
     ):
         errors.append(f"{where}: blocked_by must be a list of positive integers")
         blocked_by = []
+    else:
+        if len(set(blocked_by)) != len(blocked_by):
+            errors.append(f"{where}: blocked_by lists the same issue more than once")
+        if isinstance(issue, int) and not isinstance(issue, bool) and issue in blocked_by:
+            errors.append(f"{where}: a slot cannot be blocked by its own issue #{issue}")
 
     extra_blockers = slot.get("additional_blockers")
     if extra_blockers is not None and not isinstance(extra_blockers, str):
@@ -267,6 +339,10 @@ def _check_slot(slot: Any, where: str, errors: list[str]) -> str | None:
         errors.append(f"{where}: sessions must be a positive integer")
     elif ab == "repeat" and sessions < 2:
         errors.append(f"{where}: a repeat slot must record more than one session")
+    elif ab in ("A", "B") and sessions != 1:
+        # A and B are one independent physical environment each; several sessions are
+        # what the `repeat` slot is for, and counting them here would blur the two units.
+        errors.append(f"{where}: an {ab} slot is exactly one session, got {sessions}")
 
     estimate = slot.get("time_estimate_minutes")
     if estimate is not None:
@@ -276,12 +352,12 @@ def _check_slot(slot: Any, where: str, errors: list[str]) -> str | None:
     # collected under a protocol on a private path -- never from this registry.
     evidence = slot.get("evidence_mode", PUBLIC_EVIDENCE_MODE)
     public = slot.get("public", True)
-    if evidence in FORBIDDEN_EVIDENCE_MODES:
+    if _in(evidence, FORBIDDEN_EVIDENCE_MODES):
         errors.append(
             f"{where}: evidence_mode {evidence!r} is forbidden -- research participant data "
             "is collected under its own protocol, never through this registry"
         )
-    elif evidence not in EVIDENCE_MODES:
+    elif not _in(evidence, EVIDENCE_MODES):
         errors.append(f"{where}: evidence_mode must be one of {sorted(EVIDENCE_MODES)}")
     elif public is not False and evidence != PUBLIC_EVIDENCE_MODE:
         errors.append(
@@ -329,8 +405,10 @@ def validate_registry(data: dict[str, Any], root: Path = ROOT) -> list[str]:
     if missing:
         errors.append(f"missing top-level key(s) {missing}")
 
-    if data.get("schema_version") != SCHEMA_VERSION:
-        errors.append(f"schema_version must be {SCHEMA_VERSION}")
+    version = data.get("schema_version")
+    # `True == 1` and `1.0 == 1` in Python; neither is the integer the contract names.
+    if not isinstance(version, int) or isinstance(version, bool) or version != SCHEMA_VERSION:
+        errors.append(f"schema_version must be the integer {SCHEMA_VERSION}")
 
     sources = data.get("generated_from")
     if not isinstance(sources, list) or not sources:
@@ -339,6 +417,13 @@ def validate_registry(data: dict[str, Any], root: Path = ROOT) -> list[str]:
         for index, source in enumerate(sources):
             if not isinstance(source, str) or not source:
                 errors.append(f"generated_from[{index}] must be a repo-relative path")
+            elif Path(source).is_absolute() or ".." in Path(source).parts:
+                # An absolute or escaping path exists on one machine and not another, which
+                # would make "valid" depend on where the check ran -- not deterministic.
+                errors.append(
+                    f"generated_from[{index}]: must be a repo-relative path inside the "
+                    f"repository, got {source!r}"
+                )
             elif not (root / source).exists():
                 errors.append(f"generated_from[{index}]: path does not exist: {source}")
 
@@ -377,6 +462,110 @@ def validate_registry(data: dict[str, Any], root: Path = ROOT) -> list[str]:
     return errors
 
 
+#: How a campaign task says which registry slot it advertises. Matched in ``source``, the
+#: free-text provenance field the campaign schema already has, so no campaign field is
+#: added and the campaign validator stays exactly as strict as it was.
+_SLOT_REF = re.compile(r"eye-validation slot ([A-Za-z0-9-]+)")
+_ADVERTISED_STATES = {"open", "claimed", "pr-open", "needs-work"}
+
+
+def validate_campaign_exposure(registry: dict[str, Any], tasks: Any) -> list[str]:
+    """Check the contributor task finder against the registry; return every violation.
+
+    VALIDATION_OPERATIONS.md: eye validation appears in the campaign finder only for
+    READY slots, and a hardware slot is never cloud-agent-ready. So:
+
+    * every READY slot has exactly one advertised task naming it, and that task is a
+      ``measurement`` task with ``cloud_agent_ready`` false, an honest time estimate, a
+      visible environment requirement, stated evidence and this validator as a command;
+    * no PLANNED slot has an advertised task -- PLANNED work is not available work;
+    * a task naming a slot that is not in the registry is an error, not an ignored typo.
+
+    Assumes ``registry`` has already passed :func:`validate_registry`; it still tolerates
+    malformed rows rather than raising.
+    """
+    errors: list[str] = []
+    if not isinstance(tasks, list):
+        return [f"campaign inventory must be a list of tasks, got {type(tasks).__name__}"]
+
+    slots_by_id: dict[str, dict[str, Any]] = {}
+    for slot in registry.get("slots") or []:
+        if isinstance(slot, dict) and isinstance(slot.get("id"), str):
+            slots_by_id[slot["id"]] = slot
+
+    referencing: dict[str, list[dict[str, Any]]] = {}
+    for task in tasks:
+        if not isinstance(task, dict):
+            continue
+        source = task.get("source")
+        match = _SLOT_REF.search(source) if isinstance(source, str) else None
+        if match is None:
+            continue
+        slot_id = match.group(1)
+        label = f"task {task.get('id')!r}"
+        if slot_id not in slots_by_id:
+            errors.append(f"{label}: names eye-validation slot {slot_id!r}, which is not registered")
+            continue
+        referencing.setdefault(slot_id, []).append(task)
+
+    for slot_id, slot in slots_by_id.items():
+        matched = referencing.get(slot_id, [])
+        advertised = [t for t in matched if t.get("state") in _ADVERTISED_STATES]
+        if slot.get("state") != "ready":
+            for task in advertised:
+                errors.append(
+                    f"task {task.get('id')!r}: advertises PLANNED slot {slot_id} -- PLANNED "
+                    "work must not appear as available work"
+                )
+            continue
+        if len(advertised) != 1:
+            errors.append(
+                f"{slot_id}: READY slot must have exactly one advertised campaign task, "
+                f"found {len(advertised)}"
+            )
+            continue
+        task = advertised[0]
+        label = f"task {task.get('id')!r} ({slot_id})"
+        if task.get("family") != "measurement":
+            errors.append(f"{label}: must be a 'measurement' task, got {task.get('family')!r}")
+        if task.get("cloud_agent_ready") is not False:
+            errors.append(f"{label}: hardware evidence must have cloud_agent_ready=false")
+        sessions = slot.get("sessions") if isinstance(slot.get("sessions"), int) else 1
+        estimate = slot.get("time_estimate_minutes")
+        high = estimate.get("max") if isinstance(estimate, dict) else None
+        minutes = task.get("minutes")
+        if isinstance(high, int) and isinstance(minutes, int) and minutes < high * sessions:
+            errors.append(
+                f"{label}: minutes={minutes} understates the slot's "
+                f"{sessions} x {high} minute estimate"
+            )
+        requires = task.get("requires")
+        if not isinstance(requires, dict) or not requires:
+            errors.append(f"{label}: requires must name the OS/session and camera before claiming")
+        if not task.get("evidence"):
+            errors.append(f"{label}: evidence must say what the contributor reports")
+        validation = task.get("validation")
+        if not isinstance(validation, list) or not any(
+            isinstance(c, str) and "check_eye_validation_slots.py" in c for c in validation
+        ):
+            errors.append(f"{label}: validation must run scripts/check_eye_validation_slots.py")
+    return errors
+
+
+def load_campaign_tasks(path: Path = CAMPAIGN_TASKS) -> Any:
+    """Read the campaign inventory with the same loud-on-unreadable contract."""
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise RegistryError(f"cannot read campaign inventory {path}: {exc}") from exc
+    except UnicodeDecodeError as exc:
+        raise RegistryError(f"campaign inventory {path} is not valid UTF-8: {exc}") from exc
+    try:
+        return json.loads(text)
+    except (ValueError, RecursionError) as exc:
+        raise RegistryError(f"campaign inventory {path} is not valid JSON: {exc}") from exc
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument(
@@ -384,6 +573,12 @@ def main(argv: list[str] | None = None) -> int:
         type=Path,
         default=REGISTRY,
         help="path to the validation slot registry (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--campaign",
+        type=Path,
+        default=CAMPAIGN_TASKS,
+        help="path to the contributor-campaign task inventory (default: %(default)s)",
     )
     parser.add_argument(
         "--json",
@@ -403,6 +598,15 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     errors = validate_registry(data)
+    if not errors:
+        try:
+            errors = validate_campaign_exposure(data, load_campaign_tasks(args.campaign))
+        except RegistryError as exc:
+            if args.as_json:
+                print(json.dumps({"ok": False, "unreadable": True, "errors": [str(exc)]}))
+            else:
+                print(f"Eye validation registry could not be checked: {exc}", file=sys.stderr)
+            return 2
     if args.as_json:
         print(json.dumps({"ok": not errors, "unreadable": False, "errors": errors}))
         return 1 if errors else 0

@@ -242,7 +242,11 @@ def _cell_rank(cell: Cell) -> tuple[int, int, tuple[int, str], str]:
     )
 
 
-def validate_outcomes(data: dict[str, Any], known_ids: set[str]) -> list[str]:
+def validate_outcomes(
+    data: dict[str, Any],
+    known_ids: set[str],
+    ready_ids: set[str] | None = None,
+) -> list[str]:
     """Return every rule violation in a reported-outcome document.
 
     Shape -- deliberately minimal, and the only thing a later result format must adapt:
@@ -258,6 +262,12 @@ def validate_outcomes(data: dict[str, Any], known_ids: set[str]) -> list[str]:
     separated runs on the same computer by the same person. They are separate fields
     because the matrix's first rule is that one is not the other. Participant identity and
     contact data are rejected outright, for the same reason the registry rejects them.
+
+    An outcome is a claim that a human ran the cell, so it must point at something: at
+    least one independent host or one repeat session, and never more than one host (a
+    cell is one physical environment). When ``ready_ids`` is given, a cell that is not
+    READY cannot carry an outcome -- PLANNED means nobody can run it yet, so a "PASS" on
+    it is a contradiction, not evidence.
     """
     errors: list[str] = []
     unknown = set(data) - {"schema_version", "description", "cells"}
@@ -290,10 +300,29 @@ def validate_outcomes(data: dict[str, Any], known_ids: set[str]) -> list[str]:
         outcome = record.get("outcome")
         if outcome not in OUTCOME_ORDER:
             errors.append(f"{cell_id}: outcome must be one of {list(OUTCOME_ORDER)}, got {outcome!r}")
+        counts_ok = True
         for field in ("independent_hosts", "repeat_sessions"):
             value = record.get(field, 0)
             if not isinstance(value, int) or isinstance(value, bool) or value < 0:
                 errors.append(f"{cell_id}: {field} must be a non-negative integer")
+                counts_ok = False
+        if counts_ok:
+            hosts = record.get("independent_hosts", 0)
+            if hosts + record.get("repeat_sessions", 0) < 1:
+                errors.append(
+                    f"{cell_id}: an outcome needs an evidence pointer -- at least one "
+                    "independent host or repeat session"
+                )
+            if hosts > 1:
+                errors.append(
+                    f"{cell_id}: a cell is one physical environment, so independent_hosts "
+                    f"cannot exceed 1 (got {hosts}); report each host against its own cell"
+                )
+        if ready_ids is not None and cell_id in known_ids and cell_id not in ready_ids:
+            errors.append(
+                f"{cell_id}: cannot carry an outcome while the cell is not READY -- "
+                "nobody could have run it"
+            )
     return errors
 
 
@@ -354,21 +383,43 @@ def build_coverage(
     )
 
 
+_DETAIL_HEADING = "## Every registered cell"
+
+
+def _detail_section(page: str) -> str:
+    """The text under the one-row-per-cell heading, up to the next top-level heading."""
+    lines = page.splitlines()
+    if _DETAIL_HEADING not in lines:
+        return ""
+    out: list[str] = []
+    for line in lines[lines.index(_DETAIL_HEADING) + 1 :]:
+        if line.startswith("## "):
+            break
+        out.append(line)
+    return "\n".join(out)
+
+
 def missing_cells(page: str, registry: dict[str, Any]) -> list[str]:
-    """Registry cell ids that do not appear in ``page``.
+    """Registry cell ids that have no row in ``page``'s per-cell table.
 
     This is the check a regenerate-and-compare drift test cannot make. That test compares
     the file to its generator, so a generator which silently drops a cell agrees with its
     own output and the test stays green. Completeness has to be asserted against the
     *registry*, by id, which is what this does.
+
+    The id must open a row of the per-cell table (``| `ID` |``). A bare substring match
+    was not enough: an id mentioned only in a blocker list or a sentence is not coverage.
     """
     slots = registry.get("slots")
     if not isinstance(slots, list):
         raise DashboardError("registry has no slots list to check completeness against")
+    detail = _detail_section(page)
     return [
         slot["id"]
         for slot in slots
-        if isinstance(slot, dict) and isinstance(slot.get("id"), str) and slot["id"] not in page
+        if isinstance(slot, dict)
+        and isinstance(slot.get("id"), str)
+        and f"| `{slot['id']}` |" not in detail
     ]
 
 
@@ -613,7 +664,12 @@ def generate(registry_path: Path, outcomes_path: Path | None = None) -> str:
             for slot in registry["slots"]
             if isinstance(slot, dict) and isinstance(slot.get("id"), str)
         }
-        outcome_errors = validate_outcomes(document, known)
+        ready = {
+            slot["id"]
+            for slot in registry["slots"]
+            if isinstance(slot, dict) and slot.get("state") == "ready"
+        }
+        outcome_errors = validate_outcomes(document, known, ready)
         if outcome_errors:
             raise DashboardError(
                 "reported outcomes are invalid, so no coverage page was generated:\n  - "
