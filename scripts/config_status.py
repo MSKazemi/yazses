@@ -137,7 +137,6 @@ KNOWN_UNREAD = {
 AMBIGUOUS_UNREAD = {
     # `.mode` is read for `[emg]`, `[redaction]` and `[cocktail]` only.
     "AffectConfig.mode",
-    "AutoStopConfig.mode",
     # `.min_confidence` belongs to two unrelated dataclasses -- `gaze.implicit`'s own
     # field and `langroute.route.LangRegistry`, which nothing in `src/` constructs.
     "AffectConfig.min_confidence",
