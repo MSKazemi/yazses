@@ -622,6 +622,11 @@ Thanks to these people for helping build YazSes ✨ — every bug report, doc fi
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/Adharsh75r"><img src="https://avatars.githubusercontent.com/u/202615849?v=4?s=100" width="100px;" alt="Adharsh Narayan"/><br /><sub><b>Adharsh Narayan</b></sub></a><br /><a href="https://github.com/MSKazemi/yazses/commits?author=Adharsh75r" title="Documentation">📖</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/LE-VAI"><img src="https://avatars.githubusercontent.com/u/281449961?v=4?s=100" width="100px;" alt="LE-VAI"/><br /><sub><b>LE-VAI</b></sub></a><br /><a href="#ideas-LE-VAI" title="Ideas, Planning, & Feedback">🤔</a> <a href="#research-LE-VAI" title="Research">🔬</a></td>
     </tr>
+    <tr>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/yangjie-AE"><img src="https://avatars.githubusercontent.com/u/316910424?v=4?s=100" width="100px;" alt="yangjie-AE"/><br /><sub><b>yangjie-AE</b></sub></a><br /><a href="#translation-yangjie-AE" title="Translation">🌍</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/VatsalRaina01"><img src="https://avatars.githubusercontent.com/u/154910553?v=4?s=100" width="100px;" alt="Vatsal Raina"/><br /><sub><b>Vatsal Raina</b></sub></a><br /><a href="#example-VatsalRaina01" title="Examples">💡</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/sahanaekin7-crypto"><img src="https://avatars.githubusercontent.com/u/256977437?v=4?s=100" width="100px;" alt="sahanaekin7-crypto"/><br /><sub><b>sahanaekin7-crypto</b></sub></a><br /><a href="#translation-sahanaekin7-crypto" title="Translation">🌍</a></td>
+    </tr>
   </tbody>
 </table>
 

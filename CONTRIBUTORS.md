@@ -202,6 +202,9 @@ found defects that no amount of reading the code here would have surfaced.
 - [@Parinitha-26](https://github.com/Parinitha-26)
 - [@Prithvi4904](https://github.com/Prithvi4904) — first README translation (Hindi), and the
   language switcher that makes every later translation reachable
+- [@sahanaekin7-crypto](https://github.com/sahanaekin7-crypto) — reviewed the Tamil page
+  (`docs/ta/index.md`) and improved its wording and grammar for clarity and consistency,
+  then took the draft marker off ([#549](https://github.com/MSKazemi/yazses/pull/549))
 - [@sameer8945](https://github.com/sameer8945) — Windows 11 showcase entry: dictation into
   VS Code, PowerShell and the browser while coding
   ([#391](https://github.com/MSKazemi/yazses/pull/391))
@@ -210,6 +213,10 @@ found defects that no amount of reading the code here would have surfaced.
   Face-Gesture as already implemented when no runtime detector or activation adapter exists yet
   ([#392](https://github.com/MSKazemi/yazses/issues/392) →
   [#473](https://github.com/MSKazemi/yazses/pull/473))
+- [@VatsalRaina01](https://github.com/VatsalRaina01) (Vatsal Raina) — the Slack app profile,
+  `examples/config.slack.toml`, written from the terminal example to avoid shortcut clashes
+  ([#582](https://github.com/MSKazemi/yazses/pull/582), closes
+  [#227](https://github.com/MSKazemi/yazses/issues/227))
 - [@visheshbpatel](https://github.com/visheshbpatel) (Vishesh Patel) — Windows 11 showcase entry:
   dictation into PowerShell, VS Code and the browser, on the platform this project has
   the least evidence for ([#327](https://github.com/MSKazemi/yazses/pull/327)); also see
@@ -222,6 +229,9 @@ found defects that no amount of reading the code here would have surfaced.
   ([#329](https://github.com/MSKazemi/yazses/issues/329) →
   [#364](https://github.com/MSKazemi/yazses/pull/364))
 - [@waterlemonnn](https://github.com/MSKazemi/yazses/commits?author=waterlemonnn)
+- [@yangjie-AE](https://github.com/yangjie-AE) — completed the sentence that stopped at
+  "那么" ("then") in the Chinese page's description, checking the wording against the English
+  "When not to use it" section ([#589](https://github.com/MSKazemi/yazses/pull/589))
 - [@YuuGR1337](https://github.com/YuuGR1337) (Elkero) — found that the "improving this
   translation is a welcome first contribution" link on **every** draft translation page pointed
   at that locale's *closed* `Translate the README` issue, so the one line whose whole job is to
