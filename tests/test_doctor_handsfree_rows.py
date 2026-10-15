@@ -51,6 +51,23 @@ class _Platform:
         data_dir = Path("/nonexistent/yazses-data")
 
 
+@pytest.fixture(autouse=True)
+def _hermetic_pointer_probe(monkeypatch):
+    """The Pointer output row is a prediction from this machine's session and daemon.
+
+    Every test in this file means "a platform with no session and no daemon" unless it says
+    otherwise, so the two readers are pinned: a developer's Wayland desktop or a running
+    daemon must not change what a row-shape test sees. The pointer-specific cases live in
+    ``tests/test_doctor_pointer_output.py`` and pass their environment explicitly.
+    """
+    from yazses.handsfree import probe as probe_mod
+    from yazses.system import doctor as doctor_mod
+
+    headless = probe_mod.PointerEnvironment("headless", None, None, False)
+    monkeypatch.setattr(probe_mod, "read_pointer_environment", lambda cfg, **kw: headless)
+    monkeypatch.setattr(doctor_mod, "_headpointer_daemon_view", lambda platform: (False, None))
+
+
 def _labels(rows) -> set[str]:
     return {label for label, _status, _detail in rows}
 
@@ -146,14 +163,16 @@ def test_an_unreadable_calibration_is_reported_as_unknown() -> None:
     assert "unknown" in detail
 
 
-def test_a_platform_that_cannot_name_its_pointer_backend_says_unknown() -> None:
+def test_a_session_with_no_pointer_backend_says_none_and_why() -> None:
+    """Headless: no desktop, so no pointer. A WARN with the reason, never a bare "unknown"."""
     cfg = Config()
     cfg.headpointer.enabled = True
     rows = _handsfree_checks(cfg, _Platform(), ("Camera", "OK", "ready"),
                              unwired=frozenset({"headpointer"}))
     status, detail = _by_label(rows)["Pointer output"]
-    assert status == "SKIP"
-    assert "unknown" in detail
+    assert status == "WARN"
+    assert detail.startswith("none")
+    assert "graphical session" in detail
 
 
 def test_a_platform_that_can_name_it_is_reported() -> None:
@@ -188,8 +207,8 @@ def test_a_pointer_report_that_raises_does_not_take_doctor_down() -> None:
     rows = _handsfree_checks(cfg, _AngryPointer(), ("Camera", "OK", "ready"),
                              unwired=frozenset({"headpointer"}))
     status, detail = _by_label(rows)["Pointer output"]
-    assert status == "SKIP"
-    assert "could not report" in detail
+    assert status == "WARN"  # headless in this file: no backend would drive the pointer
+    assert "could not report" in detail, "the platform's own reason was erased"
 
 
 @pytest.mark.parametrize("feature", ["gaze", "facegesture", "headpointer", "lipread", "sign"])

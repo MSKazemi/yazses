@@ -32,6 +32,12 @@ rule is removed:
 * *The global hands-free state wins.* When a ``HandsFreeSafety`` gate is supplied, a denied
   decision zeroes motion and clicks, and its one-shot ``clear_pending`` latch drops the
   half-built dwell and the sub-unit remainder (ADR-v2-148, R-05/R-06/R-24).
+* *An unanswered permission dialog is not a fault.* A sink with a consent step (the Wayland
+  RemoteDesktop portal) reports where it stands (``pointer/consent.py``). While the user has
+  not answered, the controller does not try to move: it rests in ``pending_consent`` -- no
+  fault, nothing told to the global gate -- and starts by itself, through a settling frame,
+  the moment the desktop grants the pointer. A refusal is ``denied`` and a compositor with no
+  pointer to give is ``unavailable``; both are words, not a silence and not a generic fault.
 * *A failed sink stops the feature, not the daemon.* A ``PointerSink`` that raises faults the
   controller and reports it to the gate; nothing is retried, and the failed step's motion is
   spent rather than replayed (ADR-v2-146 rule 4). Only an explicit :meth:`resume` clears it.
@@ -86,6 +92,7 @@ from yazses.headpointer.pointer import (
 )
 from yazses.perception.signals import HeadPoseSignal
 from yazses.pointer.base import PointerButton, PointerSink
+from yazses.pointer.consent import ConsentReport, PointerConsent, consent_of
 from yazses.pointer.subpixel import SubPixelAccumulator
 
 __all__ = [
@@ -137,6 +144,13 @@ class State(str, Enum):
     SUPPRESSED = "suppressed"
     #: The pointer backend failed; cleared only by an explicit resume.
     FAULTED = "faulted"
+    #: The desktop is asking the user for permission to move the pointer and they have not
+    #: answered. Not a fault: nothing is wrong, and it clears itself on approval.
+    PENDING_CONSENT = "pending_consent"
+    #: The user declined the desktop's permission. Distinct from a backend that broke.
+    DENIED = "denied"
+    #: The desktop answered and has no pointer to give. Distinct from a refusal.
+    UNAVAILABLE = "unavailable"
     #: Closed for good.
     CLOSED = "closed"
 
@@ -200,6 +214,11 @@ class HeadPointerStatus:
     dwell_progress: float
     fault: str
     backend: str
+    #: The sink's permission state (``PointerConsent`` value), or ``""`` for a sink that has
+    #: no such concept. ``not_required`` is a sink saying nobody needs to be asked.
+    consent: str = ""
+    #: One sentence about it, e.g. what the user has to do. Never a position or an angle.
+    consent_detail: str = ""
 
 
 @dataclass(frozen=True)
@@ -314,6 +333,14 @@ class HeadPointerController:
                 decision = self._safety.gate(self._source, at_ms=now_s * 1000.0)
                 if decision.clear_pending:
                     self._quiesce()
+
+            # Permission comes before signal quality: with the dialog unanswered the pointer
+            # cannot move whatever the camera sees, and that -- not "no sample" -- is what a
+            # user needs to be told.
+            blocked = self._consent_block()
+            if blocked is not None:
+                self._tracking = False
+                return self._rest(*blocked)
 
             if not valid:
                 return self._lost(sample)
@@ -437,6 +464,7 @@ class HeadPointerController:
     def status(self) -> HeadPointerStatus:
         """Privacy-safe health for ``yazses headpointer status`` and the daemon."""
         with self._lock:
+            consent = consent_of(self._sink)
             return HeadPointerStatus(
                 state=self._state,
                 reason=self._reason,
@@ -449,6 +477,8 @@ class HeadPointerController:
                 dwell_progress=self._progress(),
                 fault=self._fault,
                 backend=self._backend,
+                consent="" if consent is None else consent.state.value,
+                consent_detail="" if consent is None else consent.detail,
             )
 
     # ------------------------------------------------------------------ internals
@@ -461,6 +491,24 @@ class HeadPointerController:
         if age < 0.0 or age > self._freshness_s:
             return False  # a sample from the future is a clock fault, not a fresh pose
         return sample.confidence >= self._min_conf
+
+    def _consent_block(self) -> tuple[State, str] | None:
+        """The state to rest in while the platform has not allowed the pointer, or ``None``.
+
+        ``None`` for a sink with no consent step, for one that says nobody needs asking, for
+        a granted one -- and for ``UNKNOWN``, which must not be read as a refusal: the sink
+        is then tried, and a real failure still faults it honestly.
+        """
+        report: ConsentReport | None = consent_of(self._sink)
+        if report is None:
+            return None
+        if report.state is PointerConsent.PENDING:
+            return State.PENDING_CONSENT, report.detail or "waiting for the desktop's permission"
+        if report.state is PointerConsent.DENIED:
+            return State.DENIED, report.detail or "the desktop's permission was not given"
+        if report.state is PointerConsent.UNAVAILABLE:
+            return State.UNAVAILABLE, report.detail or "the desktop offers no pointer"
+        return None
 
     def _lost(self, sample: HeadPoseSignal | None) -> Step:
         """No usable signal: freeze, forget, and require a settling frame on return."""

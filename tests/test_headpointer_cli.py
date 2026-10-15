@@ -109,3 +109,48 @@ def test_status_points_at_the_command_that_clears_a_fault(daemon):
     daemon.reply = {"ok": True, "active": True, "state": "faulted", "fault": "backend died"}
     result = runner.invoke(cli.app, ["headpointer", "status"])
     assert "backend died" in result.output and "yazses headpointer resume" in result.output
+
+
+def test_status_says_the_pointer_is_waiting_for_the_users_permission(daemon):
+    daemon.reply = {
+        "ok": True, "active": True, "state": "pending_consent",
+        "reason": "waiting for you to answer the desktop's Remote Desktop permission dialog",
+        "backend": "portal", "consent": "pending_consent", "fault": "",
+    }
+    result = runner.invoke(cli.app, ["headpointer", "status"])
+    assert result.exit_code == 0
+    assert "state:    pending_consent" in result.output
+    assert "consent:  PENDING" in result.output
+    assert "starts by itself" in result.output
+    # It is not a fault, so it must not send the user to the command that clears one.
+    assert "headpointer resume" not in result.output
+
+
+def test_status_says_a_refusal_is_denied_and_how_to_be_asked_again(daemon):
+    daemon.reply = {
+        "ok": True, "active": True, "state": "denied", "backend": "portal",
+        "consent": "denied", "fault": "",
+    }
+    result = runner.invoke(cli.app, ["headpointer", "status"])
+    assert "consent:  DENIED" in result.output
+    assert "yazses restart" in result.output
+
+
+@pytest.mark.parametrize(
+    ("consent", "needle"),
+    [
+        ("granted", "granted for this session"),
+        ("not_required", "not needed on this backend"),
+        ("unavailable", "offers no pointer"),
+    ],
+)
+def test_status_words_each_other_consent_state(daemon, consent, needle):
+    daemon.reply = {"ok": True, "active": True, "state": "tracking", "backend": "x", "consent": consent}
+    result = runner.invoke(cli.app, ["headpointer", "status"])
+    assert needle in result.output
+
+
+def test_status_of_a_backend_with_no_consent_concept_prints_no_consent_line(daemon):
+    daemon.reply = {"ok": True, "active": True, "state": "tracking", "backend": "x11", "consent": ""}
+    result = runner.invoke(cli.app, ["headpointer", "status"])
+    assert "consent:" not in result.output

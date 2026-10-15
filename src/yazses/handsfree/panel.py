@@ -719,13 +719,41 @@ def _head_pointer_rows(inputs: PanelInputs) -> list[Row]:
     if hp.get("fault"):
         status, remedy = "problem", "Fix the cause, then press Recover."
         pieces.append(f"fault: {hp['fault']}")
+    elif state == "pending_consent":
+        status = "attention"
+        remedy = "Answer the desktop's permission dialog; the pointer starts by itself."
+    elif state == "denied":
+        status, remedy = "problem", "Restart YazSes and approve the permission dialog."
+    elif state == "unavailable":
+        status, remedy = "unavailable", "Nothing to fix in settings; dictation is unaffected."
     elif state in ("lost", "suppressed"):
         status, remedy = "attention", "Look at the camera; if it stays like this press Recover."
     elif state == "paused" or hp.get("paused"):
         status, remedy = "attention", "Press Resume when you are ready."
     rows = [Row("Head-Pointer", status, "; ".join(pieces), remedy)]
     backend = str(hp.get("backend") or "")
-    if backend:
+    consent = str(hp.get("consent") or "")
+    why = str(hp.get("consent_reason") or "")
+    if backend and consent == "pending_consent":
+        rows.append(Row(
+            "Pointer output", "attention",
+            f"{backend} — waiting for your permission" + (f": {why}" if why else "."),
+            "Answer the desktop's permission dialog; the pointer starts by itself.",
+        ))
+    elif backend and consent == "denied":
+        rows.append(Row(
+            "Pointer output", "problem",
+            f"{backend} — permission was not given" + (f": {why}" if why else "."),
+            "Restart YazSes and approve the permission dialog.",
+        ))
+    elif backend and consent == "unavailable":
+        rows.append(Row(
+            "Pointer output", "unavailable",
+            f"{backend} — the desktop offers no pointer" + (f": {why}" if why else "."),
+        ))
+    elif backend and consent == "granted":
+        rows.append(Row("Pointer output", "ok", f"{backend} — permission granted."))
+    elif backend:
         rows.append(Row("Pointer output", "ok", f"{backend} — connected."))
     else:
         rows.append(Row("Pointer output", "unknown", "Running, but the backend did not name itself."))
