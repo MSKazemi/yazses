@@ -286,7 +286,10 @@ def _first(items: object) -> object | None:
     was not requested is an empty list rather than a missing attribute. ``None`` here
     is what makes that "this channel is absent" one step later.
     """
+    # No truthiness test on `items`: a numpy array of more than one element has no truth
+    # value and raises ValueError, which would escape `process` and be read by the source as
+    # a dead camera. Indexing alone answers "is there a first face" for a list and an array.
     try:
-        return items[0] if items else None  # type: ignore[index]
+        return items[0]  # type: ignore[index]
     except (IndexError, KeyError, TypeError):
         return None

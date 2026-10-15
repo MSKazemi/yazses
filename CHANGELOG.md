@@ -95,6 +95,21 @@ across all 64 role subsets, that enable then disable returns your file (comments
 a default install resolves with no preset key, and that a missing camera or pointer, or no overlay, leaves a stated
 reason and a pointer that never moved or clicked.
 
+### Fixed — the shared camera owner under real ordering (EYE-CAM-001, EYE-CAM-002 audit)
+
+Auditing the shared camera source against a camera that does not answer at once found four orderings that the
+instant fakes in the existing tests could not show. (1) Opening the camera and loading the model happened with
+the source's one lock held, so `status()` (the daemon status request and `doctor`), a second consumer and process
+shutdown all waited on a permission dialog or a first-run model fetch; the open now runs outside it and shows as
+a new `starting` state, and a consumer that leaves while the camera is opening cancels the open (the device that
+eventually opens is closed, never installed). (2) A stop followed at once by a start could have two handles on one
+webcam; the second open now waits for the first to be discarded. (3) A capture loop that outlived its session (a
+read in flight at release, or a slow thread start) could fail the *next* session or become a second reader of its
+camera; each loop is now bound to the session it was started for. (4) The loop is joined before the device it reads
+is released, and an observation that finishes late can no longer replace a newer sample. Also hardened: a result
+output that arrives as a numpy array no longer escapes the per-channel guard and ends the source. Behaviour with
+instant fakes and one consumer is unchanged; no config key or CLI change.
+
 ### Fixed — four more cross-OS test defects, found once the CI log could be read
 
 With the oversized test id fixed, the macOS and Windows runs reached the end of the suite and showed four
