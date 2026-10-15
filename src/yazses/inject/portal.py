@@ -344,6 +344,12 @@ class _PortalSession:
         #: Whether the compositor actually granted POINTER, read from `Start`. Never
         #: inferred from having asked.
         self._pointer_granted = False
+        #: True only once `Start` has returned, i.e. the user has answered the dialog and the
+        #: grant is known. `_session_handle` is set far earlier -- `CreateSession` succeeds
+        #: before the dialog is raised -- so a handle says "a negotiation is in flight", not
+        #: "a grant exists". Reading the handle as the grant made an unanswered dialog look
+        #: like a keyboard-only refusal (found live, 2026-10-15).
+        self._negotiated = False
         #: Bumped on every close, so a pointer sink can tell "the session I was granted
         #: on" from "a session that has since been re-negotiated behind my back".
         self._generation = 0
@@ -363,7 +369,7 @@ class _PortalSession:
     @property
     def started(self) -> bool:
         """True while a negotiated session is held. Never blocks, never negotiates."""
-        return bool(self._session_handle)
+        return self._negotiated and bool(self._session_handle)
 
     @property
     def wants_pointer(self) -> bool:
@@ -487,6 +493,7 @@ class _PortalSession:
             self._last_error = str(exc) or type(exc).__name__
             self._session_handle = ""
             self._pointer_granted = False
+            self._negotiated = False
             conn, self._conn = self._conn, None
             if conn is not None:
                 try:
@@ -557,6 +564,7 @@ class _PortalSession:
             and isinstance(devices_value, int)
             and int(devices_value) & DEVICE_POINTER
         )
+        self._negotiated = True
 
     def request_pointer(self) -> None:
         """Register a pointer consumer, so the next negotiation asks for POINTER too.
@@ -598,6 +606,7 @@ class _PortalSession:
             self._session_handle = ""
             self._last_used = None
             self._pointer_granted = False
+            self._negotiated = False
             self._generation += 1
             conn, self._conn = self._conn, None
         if conn is not None:

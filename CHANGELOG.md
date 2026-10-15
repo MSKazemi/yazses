@@ -6,6 +6,17 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — an unanswered Wayland permission dialog was reported as "keyboard only"
+
+Found by running the daemon on a real GNOME Wayland session (2026-10-15). The portal answers `CreateSession`
+at once and holds `Start` open until you answer the dialog, but the session read "has a handle" as "the
+permission is settled". So while the dialog was still open, `yazses headpointer status` said *unavailable —
+the desktop answered but granted no pointer device (keyboard only)*, instead of `pending_consent`. The session
+now counts as started only once `Start` has returned, and the state resets on failure and on close. The earlier
+fake-portal tests answered every call instantly and could not see this; the new test holds `Start` open the way
+the real dialog does. Not changed: `ensure_started` still returns early on a bare handle (the dictation path);
+whether a keystroke sent while the dialog is open can reach an unauthorised session is unverified.
+
 ### Added — the Head-Pointer says it is waiting for your permission, and `doctor` names the pointer backend
 
 On native Wayland the pointer needs the desktop's Remote Desktop permission, asked once in a dialog the
