@@ -1901,10 +1901,12 @@ class Daemon:
             record = load_calibration_record(self._platform.paths.data_dir)
             # Refinement may only improve a calibration that is verified against this
             # desktop (ADR-v2-149): UNVERIFIED is "cannot tell", not "fine".
+            from yazses.gaze.refine_runtime import GuardedContext
+
             self._gaze_calibration_facts = (
                 check.validity is Validity.VALID and guard is not None,
                 record.source if record is not None else "explicit",
-                (lambda: not guard.suspended()) if guard is not None else None,
+                GuardedContext(guard) if guard is not None else None,
             )
             return GazeTargeter(
                 backend, calibration, desktop, cfg.gaze.confidence_min, topology_guard=guard

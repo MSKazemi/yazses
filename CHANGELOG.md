@@ -55,6 +55,21 @@ the new time. New tests pin the exact-threshold, NaN/inf/missing-reading, lost-f
 (import-blocked) cases. The minimum hold is counted in frames, not seconds, so a source that runs faster than
 `[facegesture] fps` shortens it; that is reported, not changed.
 
+### Fixed — implicit gaze calibration could be promoted across a monitor change, over a rollback, or on a tie; and `gaze measure` crashed on L2CS
+
+An audit of [#398](https://github.com/MSKazemi/yazses/issues/398) and [#399](https://github.com/MSKazemi/yazses/issues/399)
+against real orderings that the fakes hid. Implicit refinement (off by default, and dormant while no OS ships a
+click observer) now asks an unthrottled read of the display layout immediately before it writes a calibration: the
+guard it used is rate-limited to five seconds, so a monitor plugged in just before a win could be promoted into the
+stored map. It also refuses to overwrite a stored map that is no longer the one the candidate was measured against
+(a `yazses gaze rollback` run while the daemon was up would have been silently undone by the next win), and a tie or
+a NaN error is never a win (`min_improvement_px` must now be above 0). `yazses gaze measure` crashed with an
+`AttributeError` on the L2CS backend (it has no per-sample confidence) after the tester had looked at every target;
+it now records no confidence for such a backend and says *not supported*, skips a non-finite frame instead of
+aborting, writes no report if the screen layout changed during the pass, and carries a `sufficiency` block that
+says in plain words when there is too little data to mean anything (`protocol.task_version` 1.1; the floors are
+provisional reporting floors, not measurements).
+
 ### Fixed — four more cross-OS test defects, found once the CI log could be read
 
 With the oversized test id fixed, the macOS and Windows runs reached the end of the suite and showed four

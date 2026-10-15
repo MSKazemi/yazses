@@ -5835,8 +5835,9 @@ def gaze_measure(
 
     The report is for issue #104 and holds derived numbers only: error in pixels (and in
     degrees if you give the screen size and distance), the spread of gaze confidence,
-    routing counts if you tallied them, error per time block, and context you chose to
-    state. It has no field for a frame, a face mesh, a screenshot, anything you typed or
+    routing counts if you tallied them, error per time block, context you chose to
+    state, and a plain statement wherever there is too little data to mean anything. If the
+    screen layout changes while you measure, no report is written. It has no field for a frame, a face mesh, a screenshot, anything you typed or
     dictated, a window title or who you are. Nothing is uploaded: it is one JSON file on your
     disk, validated and swept for identifiers *before* it is written. Read it, then attach
     it if you want to.
@@ -5966,6 +5967,21 @@ def gaze_measure(
         backend.close()
     session.set_duration(time.monotonic() - started)
 
+    # The layout was read once, at the start. A pass can take minutes (--rounds with
+    # --interval-s is meant to), and a monitor plugged in halfway would otherwise be
+    # reported as "valid" for numbers measured on two different desktops -- the same
+    # mistake the calibration wizard had to stop making (settle_context).
+    from yazses.gaze.topology import Validity, settle_context
+
+    _, settled = settle_context(context, current_context(camera_id=str(cfg.gaze.camera_index)))
+    if settled.stale:
+        fail(
+            "The screen layout changed while you were measuring, so these numbers describe "
+            f"two different desktops and no report was written ({settled.reason}). "
+            "Run `yazses gaze measure` again."
+        )
+    topology_validity = check.validity if settled.validity is Validity.VALID else Validity.UNVERIFIED
+
     saved_at = None
     if record is not None and record.saved_at:
         try:
@@ -5977,7 +5993,7 @@ def gaze_measure(
     facts = CalibrationFacts(
         source="explicit" if record is None else record.source,
         age_s=age_s,
-        topology_validity=check.validity.value,
+        topology_validity=topology_validity.value,
         implicit_candidate_delta_px=(
             None if refinement is None else refinement.baseline_error_px - refinement.candidate_error_px
         ),
