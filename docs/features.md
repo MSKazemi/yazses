@@ -201,11 +201,11 @@ YazSes ships **148 capabilities**. All but the core are **off by default** — t
 
 ### Hands-Free Auto-Stop
 
-- **Toggle:** `autostop`  ·  **Tier:** planned — designed, not yet wired  ·  **Config:** `[autostop] — tap & speak`
-- **What it does:** Tap once and speak; recording auto-stops when you finish (silence timeout + duration cap). Semantic end-of-turn needs the turn extra. Off by default.
+- **Toggle:** `autostop`  ·  **Tier:** optional  ·  **Config:** `[autostop] — tap & speak`
+- **What it does:** Tap the hotkey once and speak; recording auto-stops when you finish (silence timeout + duration cap). A longer hold is still plain hold-to-talk. Needs a modifier hotkey (the default), since a tap on a character key is invisible. Restart the daemon after enabling. Off by default.
 - **Use when:** When holding the hotkey the whole time is tiring and you'd rather tap once and let it stop itself.
 - **Example:** Tap once and speak; recording stops when you finish.
-- **Activate:** not possible yet — designed but not wired into this build (`yazses features enable` refuses it; contributions welcome)
+- **Activate:** `yazses features enable autostop` then `yazses restart`
 
 ### Codec Streaming (low latency)
 
@@ -277,11 +277,11 @@ YazSes ships **148 capabilities**. All but the core are **off by default** — t
 
 ### Involuntary-Vocalization Excision
 
-- **Toggle:** `involuntary`  ·  **Tier:** planned — designed, not yet wired  ·  **Config:** `[involuntary] — drop coughs & sneezes`
+- **Toggle:** `involuntary`  ·  **Tier:** optional  ·  **Config:** `[involuntary] — drop coughs & sneezes`
 - **What it does:** Detects and deletes involuntary sounds (cough, throat-clear, sneeze) from the stream so they never become garbage tokens or spurious commands. Off by default.
 - **Use when:** When a cough, throat-clear, or sneeze keeps turning into garbage tokens in your dictation.
 - **Example:** Cough mid-sentence and it's dropped before it reaches the text.
-- **Activate:** not possible yet — designed but not wired into this build (`yazses features enable` refuses it; contributions welcome)
+- **Activate:** `yazses features enable involuntary` then `yazses restart`
 
 ### Self-Learning Correction Dictionary
 
@@ -293,11 +293,11 @@ YazSes ships **148 capabilities**. All but the core are **off by default** — t
 
 ### Confidence-Gated Re-Ask
 
-- **Toggle:** `reask`  ·  **Tier:** planned — designed, not yet wired  ·  **Config:** `[reask] — resolve uncertain words`
-- **What it does:** Instead of injecting a low-confidence guess, holds just the uncertain word and asks you to pick or repeat it — closing the correction loop. Off by default.
+- **Toggle:** `reask`  ·  **Tier:** optional  ·  **Config:** `[reask] — resolve uncertain words`
+- **What it does:** When Whisper is unsure which of their/there, to/too/two, its/it's... you said, the burst waits and a notification lists the options. Say 'first', 'second', 'third' or the word itself to patch just that word; anything else releases the text unchanged, and an unanswered hold goes to the clipboard after ten seconds. Fires only on one uncertain word at a time. `[reask] threshold` is the log-probability below which a word counts as unsure. Off by default.
 - **Use when:** When one word is often guessed wrong and you'd rather confirm it than retype the whole line.
 - **Example:** An unsure 'their/there' pops a quick pick instead of guessing wrong.
-- **Activate:** not possible yet — designed but not wired into this build (`yazses features enable` refuses it; contributions welcome)
+- **Activate:** `yazses features enable reask` then `yazses restart`
 
 ### Phonetic Spelling Mode
 
@@ -477,11 +477,11 @@ YazSes ships **148 capabilities**. All but the core are **off by default** — t
 
 ### Prosodic Auto-Punctuation
 
-- **Toggle:** `prosodypunct`  ·  **Tier:** planned — designed, not yet wired  ·  **Config:** `[prosodypunct] — punctuation from prosody`
-- **What it does:** Inserts periods, commas, and question marks from how you speak (pauses, pitch) — no need to say 'comma' or 'period'. Off by default.
+- **Toggle:** `prosodypunct`  ·  **Tier:** optional  ·  **Config:** `[prosodypunct] — punctuation from prosody`
+- **What it does:** Inserts periods and commas from the pauses in how you speak — no need to say 'comma' or 'period'. Fills gaps only: punctuation the recognizer already wrote is kept. Batch dictation only. Off by default.
 - **Use when:** When you want natural punctuation from how you speak instead of saying 'comma' and 'period'.
 - **Example:** Speak naturally and the periods and commas appear on their own.
-- **Activate:** not possible yet — designed but not wired into this build (`yazses features enable` refuses it; contributions welcome)
+- **Activate:** `yazses features enable prosodypunct` then `yazses restart`
 
 ### Spoken Table Entry
 
@@ -697,11 +697,11 @@ YazSes ships **148 capabilities**. All but the core are **off by default** — t
 
 ### Session Bookmarks
 
-- **Toggle:** `bookmarks`  ·  **Tier:** planned — designed, not yet wired  ·  **Config:** `[bookmarks] — checkpoints in a long session`
+- **Toggle:** `bookmarks`  ·  **Tier:** optional  ·  **Config:** `[bookmarks] — checkpoints in a long session`
 - **What it does:** Drop named anchors in a long dictation ('bookmark here as intro') and jump back ('jump to my last bookmark') after a break. Off by default.
 - **Use when:** When you're in a long dictation session and want named checkpoints to jump back to after a break.
 - **Example:** Say 'bookmark here', then 'jump to my last bookmark' after a break.
-- **Activate:** not possible yet — designed but not wired into this build (`yazses features enable` refuses it; contributions welcome)
+- **Activate:** `yazses features enable bookmarks` then `yazses restart`
 
 ### Voice Jump-to-Symbol
 

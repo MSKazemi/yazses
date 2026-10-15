@@ -88,8 +88,6 @@ KNOWN_UNREAD = {
     "PolyglotConfig.lid",  # see the note beside GazeConfig.zones
     "PronunciationConfig.good_threshold",
     "ProsodyConfig.experimental_pitch_question",
-    "ProsodypunctConfig.comma_pause_ms",
-    "ProsodypunctConfig.sentence_pause_ms",
     "RagConfig.embed_model",
     "RagConfig.store_path",
     "RagConfig.top_k",
@@ -139,7 +137,6 @@ KNOWN_UNREAD = {
 AMBIGUOUS_UNREAD = {
     # `.mode` is read for `[emg]`, `[redaction]` and `[cocktail]` only.
     "AffectConfig.mode",
-    "AutoStopConfig.mode",
     # `.min_confidence` belongs to two unrelated dataclasses -- `gaze.implicit`'s own
     # field and `langroute.route.LangRegistry`, which nothing in `src/` constructs.
     "AffectConfig.min_confidence",

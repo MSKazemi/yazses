@@ -191,6 +191,36 @@ def _spreadsheet() -> SpokenHandler:
     return SpokenHandler(slug="spreadsheet", match=match)
 
 
+def _bookmarks() -> SpokenHandler:
+    """"bookmark here as intro" / "jump to my last bookmark" -> a caret action (ADR-v2-090).
+
+    Types nothing, so it carries an *action* the daemon performs against a real caret
+    position (`bookmarks/caret.py`) instead of text.
+
+    The grammar is `parse_bookmark_command`, anchored at both ends, and it is run on
+    the tidied phrase so the full stop Whisper adds does not defeat the anchor. One
+    narrowing is made here rather than in the core: a "go to ..." form is declined
+    whenever `windowctl` would claim it. `_try_window_focus` runs earlier in command
+    mode and its grammar accepts "go to <anything>", so "go to my last bookmark" is a
+    request to focus a window titled that on X11 and would be unclaimed on Wayland.
+    Declining it everywhere keeps one phrase meaning one thing on every platform;
+    "jump to ..." has no such rival.
+    """
+    from yazses.bookmarks.store import parse_bookmark_command
+    from yazses.windowctl.focus import parse_focus_command
+
+    def match(text: str) -> SpokenResult | None:
+        if parse_focus_command(text) is not None:
+            return None
+        parsed = parse_bookmark_command(tidy(text))
+        if parsed is None:
+            return None
+        kind, name = parsed
+        return SpokenResult(slug="bookmarks", action=(f"bookmark_{kind}", name))
+
+    return SpokenHandler(slug="bookmarks", match=match, types=False)
+
+
 def _echo() -> SpokenHandler:
     """"play that back" / "play the word 'report'" replays your own captured audio.
 
@@ -270,6 +300,7 @@ def _specs(config):
          lambda: _diagramvox(str(config.diagramvox.flavor or "mermaid").lower())),
         ("spreadsheet", config.spreadsheet.enabled, _spreadsheet),
         ("echo", config.echo.enabled, _echo),
+        ("bookmarks", config.bookmarks.enabled, _bookmarks),
     )
 
 

@@ -28,6 +28,8 @@ if TYPE_CHECKING:
     # All imported lazily at runtime (in _build_gaze_targeter and the other builders
     # below) so the optional/heavy dependencies stay dormant; the names exist here only
     # so the `X | None` attribute annotations resolve for the type checker.
+    from yazses.bookmarks.service import BookmarkService
+    from yazses.endpoint.autostop import AutoStopTurn
     from yazses.gaze.refine_runtime import RefinementRuntime
     from yazses.gaze.targeter import GazeTargeter
     from yazses.inject.target import TargetDetector
@@ -36,6 +38,7 @@ if TYPE_CHECKING:
     from yazses.meeting.controller import MeetingController
     from yazses.perception import SharedPerceptionSource
     from yazses.polyglot.router import PolyglotRouter
+    from yazses.reask.gate import ReaskGate
     from yazses.system.single_instance import SingleInstanceLock
     from yazses.timeline.history import InjectionTimeline
     from yazses.tts.base import TtsBackend
@@ -305,6 +308,10 @@ class Daemon:
     _switch_bound: frozenset[str] = frozenset()
     _switch_select_limiter = None
     _gesture = None
+    #: Hands-free auto-stop (ADR-v2-029): the tap-to-latch turn, or None -- the default.
+    #: Class-level for the same partial-daemon reason as the attributes above; while it is
+    #: None the two hold handlers behave exactly as they always have.
+    _autostop: AutoStopTurn | None = None
 
     def __init__(
         self,
@@ -401,6 +408,8 @@ class Daemon:
         # Confidence Ink (ADR-v2-001): low-confidence word count from the last
         # burst, surfaced in `yazses status` (metadata only, never the words).
         self._last_low_confidence_words: int = 0
+        # Confidence-Gated Re-Ask (ADR-v2-077): built on first use, only when [reask] is on.
+        self._reask: ReaskGate | None = None
         # Recent decode times per model, for the p50/p95 in `yazses status`
         # (#296). Bounded and in-memory: a diagnostic must not depend on the
         # opt-in learning corpus, and it must not write anything to disk.
@@ -437,6 +446,7 @@ class Daemon:
         # Constructed only when a timer is actually set — it owns a thread, and a
         # daemon whose user never says "set a timer" should not have one.
         self._timers: TimerService | None = None
+        self._bookmarks: BookmarkService | None = None  # built on first "bookmark" phrase
         self._edit_watcher: EditWatcher | None = None
         self._cleaner: LlmCleaner | None = None
         # Read-Back Loop TTS backend (None when [tts] disabled — dormant).
@@ -1248,6 +1258,7 @@ class Daemon:
         # Optional dedicated command key: a second listener that forces command
         # mode while held. Ignored if unset or the same as the dictation key.
         self._command_hotkey = self._make_command_hotkey(cfg, key_id)
+        self._autostop = self._build_autostop(cfg)
 
         # ADR-v2-145: one camera owner per daemon, so gaze, the Head-Pointer and the
         # face switch cannot each open the webcam and meet "device already busy".
@@ -2151,6 +2162,50 @@ class Daemon:
             log.exception("Gesture Chords command %r raised", action)
             return {"ok": False, "reason": f"failed: {type(exc).__name__}"}
 
+    def _build_autostop(self, cfg):
+        """The tap-to-latch turn for ``[autostop]``, or None while the feature is off.
+
+        The import sits behind the ``enabled`` check on purpose: a default start loads
+        nothing from ``yazses.endpoint`` (tests/test_default_start_stays_light.py).
+        """
+        if not cfg.autostop.enabled:
+            return None
+        from yazses.endpoint.autostop import AutoStopTurn
+
+        if cfg.autostop.mode != "silence":
+            log.info("[autostop] mode = %r: the semantic end-of-turn model is not shipped; "
+                     "using the silence timeout.", cfg.autostop.mode)
+        log.info("Hands-free auto-stop enabled: tap the hotkey once, then speak.")
+        return AutoStopTurn(cfg.autostop, tap_ms=cfg.hotkey.hold_threshold_ms)
+
+    def _autostop_defer_end(self) -> bool:
+        """True when this key release was a tap that latched the turn open (nothing ends)."""
+        turn = self._autostop
+        if turn is None or not turn.release(time.monotonic()):
+            return False
+        threading.Thread(
+            target=self._autostop_watch, daemon=True, name="autostop-watch"
+        ).start()
+        return True
+
+    def _autostop_watch(self) -> None:
+        """Poll the live mic level until the latched turn ends, then end it like a release."""
+        turn = self._autostop
+        if turn is None:
+            return
+        threshold = self._config.accessibility.vad_threshold
+        while turn.latched:
+            time.sleep(0.05)
+            with self._lock:
+                recording = self._state.state == TrayState.RECORDING
+                level = self._state.audio_level
+            if not recording:
+                turn.cancel()  # the recording ended another way (mic lost, paused, shutdown)
+                return
+            if turn.tick(time.monotonic(), level >= threshold):
+                self._on_hold_end()
+                return
+
     def _on_command_hold_start(self, leaked: int) -> None:
         """Hold-start for the dedicated command key — arm force-command mode."""
         self._command_mode = True
@@ -2161,6 +2216,8 @@ class Daemon:
         self._on_hold_end()
 
     def _on_hold_start(self, leaked: int) -> None:
+        if self._autostop is not None and self._autostop.press(time.monotonic()):
+            return  # a second tap while latched: its release ends the turn
         # Barge-in: a new hold during read-back cancels TTS playback immediately
         # so the user's speech is never recorded over the spoken transcript. The
         # sequence is bumped first and under the lock, so a read-back that has been
@@ -2311,6 +2368,8 @@ class Daemon:
             log.debug("hotkey-modifier release (best-effort) failed", exc_info=True)
 
     def _on_hold_end(self) -> None:
+        if self._autostop is not None and self._autostop_defer_end():
+            return  # a tap: keep recording until the speaker stops
         self._earcon.play("recording_stop")
         log.info("Recording stopped, transcribing...")
 
@@ -2448,6 +2507,22 @@ class Daemon:
                 and stream_injector is not None
             )
 
+            # Involuntary-vocalization excision (ADR-v2-102): silence an isolated cough /
+            # sneeze / throat-clear in the burst so Whisper never turns it into a ghost word.
+            # Off by default, imported only when on; with nothing flagged `padded` is returned
+            # unchanged. Guarded: detection failure means the original audio, never a crash.
+            if self._config.involuntary.enabled and not use_streaming:
+                try:
+                    from yazses.involuntary.audio import excise_involuntary_audio
+
+                    padded, iv_spans = excise_involuntary_audio(padded, sample_rate)
+                    if iv_spans:
+                        event["involuntary_excised"] = len(iv_spans)
+                        log.info("Involuntary excision: silenced %d span(s).", len(iv_spans))
+                except Exception:
+                    log.debug("Involuntary excision failed; using original audio.",
+                              exc_info=True)
+
             bias_prompt = self._effective_initial_prompt()
 
             # Prepend a short silence lead-in so faster-whisper doesn't drop the
@@ -2487,7 +2562,12 @@ class Daemon:
             # Joining this OR rather than decoding twice is the whole cost of the
             # feature — a user with prosody or Confidence Ink already on pays nothing.
             want_echo = self._config.echo.enabled and not use_streaming
-            want_words = want_prosody or want_confidence or want_echo
+            # Re-Ask (ADR-v2-077) reads the same per-word probabilities.
+            want_reask = self._config.reask.enabled and not use_streaming
+            # Prosodic Auto-Punctuation (ADR-v2-104) reads the same word gaps.
+            want_prosodypunct = self._config.prosodypunct.enabled and not use_streaming
+            want_words = (want_prosody or want_confidence or want_echo or want_reask
+                          or want_prosodypunct)
             # Speech translation (ADR-v2-014): X→English via Whisper's translate task
             # when [translate] is enabled (whisper backend, target en). None → normal.
             try:
@@ -3079,6 +3159,21 @@ class Daemon:
 
                     text = balance_delimiters(text)
                     event["final_text"] = text
+                # Prosodic Auto-Punctuation (ADR-v2-104): . , from the pauses between words.
+                # Runs before Prosody Ink, whose period step skips an already-punctuated
+                # word, so the two compose. Opt-in; no-op when timings and text disagree.
+                if want_prosodypunct and prosody_words:
+                    from yazses.prosodypunct.apply import punctuate_text
+
+                    _pp = punctuate_text(
+                        text, [(w.start, w.end) for w in prosody_words],
+                        sentence_pause_ms=self._config.prosodypunct.sentence_pause_ms,
+                        comma_pause_ms=self._config.prosodypunct.comma_pause_ms,
+                    )
+                    if _pp.text != text:
+                        text = _pp.text
+                        event["prosodypunct_marks"] = _pp.sentences + _pp.commas
+                        event["final_text"] = text
                 # Prosody Ink: map vocal prosody (inter-word pause, emphasis) onto
                 # text formatting. Batch + dictation only; word timings drive the
                 # spacing/emphasis, content stays the cleaned text. Off by default.
@@ -3169,6 +3264,15 @@ class Daemon:
                     if checked is None:
                         return
                     text = checked
+                    event["final_text"] = text
+
+                # Confidence-Gated Re-Ask (ADR-v2-077): one uncertain their/there-style
+                # word waits for a spoken pick instead of being guessed. Opt-in.
+                if self._config.reask.enabled:
+                    asked = self._reask_gate(text, prosody_words, event)
+                    if asked is None:
+                        return
+                    text = asked
                     event["final_text"] = text
 
                 # Spoken answer to the mic guard's toast (ADR-022): the daemon may
@@ -3927,6 +4031,57 @@ class Daemon:
         self._notify_cmdsafety(describe(result))
         return None
 
+    def _reask_gate(self, text: str, words: list[Word], event: dict) -> str | None:
+        """Confidence-Gated Re-Ask (ADR-v2-077). The text to type, or None when it waits.
+
+        The logic lives in `yazses.reask.gate`; this only wires it. A hold that nobody
+        answers goes to the clipboard rather than being typed ten seconds later into
+        whatever has focus by then. A pending command-safety hold keeps first claim on
+        the utterance, so this steps aside while one exists.
+        """
+        if self._cmdsafety.pending is not None:
+            return text
+        if self._reask is None:
+            from yazses.reask.gate import ReaskGate
+
+            self._reask = ReaskGate(self._reask_expired)
+        try:
+            verdict = self._reask.handle(
+                text, [(w.text, w.probability) for w in words], self._config.reask.threshold
+            )
+        except Exception:  # a guard must never be the reason dictation stops
+            log.exception("Re-ask gate failed; typing the text as heard.")
+            return text
+        if verdict.action:
+            event["reask_action"] = verdict.action
+            log.info("Re-ask: %s.", verdict.action)
+        if verdict.prompt:
+            try:
+                from yazses.system.notify import notify
+
+                notify("YazSes \u2014 re-ask", verdict.prompt)
+            except Exception:  # pragma: no cover - notification is never load-bearing
+                log.debug("Re-ask notification failed", exc_info=True)
+        return verdict.text
+
+    def _reask_expired(self, text: str) -> None:
+        """Timer thread: nobody answered, so keep the user's words on the clipboard."""
+        from yazses.system.clipboard import set_clipboard
+
+        copied = set_clipboard(text)
+        log.info("Re-ask: no answer; text %s the clipboard.",
+                 "copied to" if copied else "could NOT be copied to")
+        try:
+            from yazses.system.notify import notify
+
+            notify(
+                "YazSes \u2014 re-ask timed out",
+                "Your dictation is on the clipboard \u2014 paste it (Ctrl+V)." if copied
+                else "Your dictation could not be copied; dictate it again.",
+            )
+        except Exception:  # pragma: no cover - notification is never load-bearing
+            log.debug("Re-ask expiry notification failed", exc_info=True)
+
     def _notify_cmdsafety(self, message: str) -> None:
         """Say what the gate did. Best-effort; never raises into dictation."""
         log.info("Command safety: %s", message)
@@ -4680,6 +4835,15 @@ class Daemon:
                     self._timers.cancel()
             elif name == "echo_play":
                 self._echo_play(str(argument or ""), event)
+            elif name in ("bookmark_add", "bookmark_goto"):
+                # Session Bookmarks (ADR-v2-090): reaches a caret position, never a keypress count.
+                if self._bookmarks is None:
+                    from yazses.bookmarks.service import BookmarkService
+
+                    self._bookmarks = BookmarkService()
+                label = str(argument) if argument else None
+                self._notify_spoken(self._bookmarks.add(label) if name == "bookmark_add"
+                                    else self._bookmarks.goto(label))
             elif name == "keys":
                 # Spoken grid movement (`spreadsheet`). This is the one action that
                 # reaches the focused window rather than reporting, so it goes through

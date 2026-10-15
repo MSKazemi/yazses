@@ -52,7 +52,7 @@ Related capabilities worth knowing about:
 | Hesitation-Hold Endpointing | `yazses features enable hesitation` *(planned — not yet wired)* | Not being cut off mid-sentence when you pause |
 | Breath-Paced Dictation | `yazses features enable breath` *(planned — not yet wired)* | Pacing around breath, not clock timeouts |
 | Whisper-Aware Mode | `yazses features enable whispermode` | Speaking quietly, or with limited volume |
-| Involuntary-Vocalization Excision | `yazses features enable involuntary` *(planned — not yet wired)* | Filtering involuntary sounds |
+| Involuntary-Vocalization Excision | `yazses features enable involuntary` | Filtering involuntary sounds |
 | Vocal-Strain Guard | `yazses features enable voicehealth` *(planned — not yet wired)* | Warning before you overuse your voice |
 
 ## Calibrating to your voice
@@ -118,8 +118,10 @@ of the pipeline is unchanged:
 - **EMG muscle sensor.** A USB muscle sensor over serial can act as the
   hold-to-talk trigger, so a small muscle contraction starts and stops dictation.
   Configure it under `[emg]` with the serial device path.
-- **Hands-Free Auto-Stop** (`yazses features enable autostop` *(planned — not yet wired)*) ends the burst on
-  silence rather than on key release.
+- **Hands-Free Auto-Stop** (`yazses features enable autostop`, then restart) lets you tap the hotkey once
+  instead of holding it: the burst ends on silence (or a second tap) rather than on key release. A tap is a
+  press shorter than `[hotkey] hold_threshold_ms`; a longer hold is still ordinary hold-to-talk. It needs a
+  modifier hotkey, which is the default.
 - **Wake-word activation** exists but is marked experimental and is not
   recommended yet — it is listed honestly as such in `yazses features`.
 

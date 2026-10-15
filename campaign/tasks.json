@@ -9,7 +9,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -22,7 +22,7 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "open",
+    "state": "draft",
     "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
@@ -35,7 +35,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -61,7 +61,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -87,7 +87,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -100,59 +100,7 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "open",
-    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
-  },
-  {
-    "id": "WIRE-AUTOSTOP-001",
-    "family": "feature-wiring",
-    "title": "Wire the `autostop` capability so it is reachable from the daemon or CLI",
-    "value": "`autostop` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
-    "risk": "L2",
-    "minutes": 90,
-    "skills": [
-      "python"
-    ],
-    "cloud_agent_ready": true,
-    "allowed_paths": [
-      "src/yazses/**",
-      "tests/**",
-      "docs/features.md"
-    ],
-    "validation": [
-      "uv run python -m pytest tests/test_features_write_targets.py -q",
-      "uv run python -m pytest tests/ -q"
-    ],
-    "evidence": [
-      "the feature enabled and observed doing something on your machine"
-    ],
-    "state": "open",
-    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
-  },
-  {
-    "id": "WIRE-BOOKMARKS-001",
-    "family": "feature-wiring",
-    "title": "Wire the `bookmarks` capability so it is reachable from the daemon or CLI",
-    "value": "`bookmarks` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
-    "risk": "L2",
-    "minutes": 90,
-    "skills": [
-      "python"
-    ],
-    "cloud_agent_ready": true,
-    "allowed_paths": [
-      "src/yazses/**",
-      "tests/**",
-      "docs/features.md"
-    ],
-    "validation": [
-      "uv run python -m pytest tests/test_features_write_targets.py -q",
-      "uv run python -m pytest tests/ -q"
-    ],
-    "evidence": [
-      "the feature enabled and observed doing something on your machine"
-    ],
-    "state": "open",
+    "state": "draft",
     "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
@@ -165,7 +113,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -178,7 +126,7 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "open",
+    "state": "draft",
     "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
@@ -191,7 +139,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -217,7 +165,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -243,7 +191,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -269,7 +217,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -295,7 +243,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -321,7 +269,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -347,7 +295,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -373,7 +321,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -386,7 +334,7 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "open",
+    "state": "draft",
     "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
@@ -399,7 +347,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -412,7 +360,7 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "open",
+    "state": "draft",
     "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
@@ -425,33 +373,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
-    "allowed_paths": [
-      "src/yazses/**",
-      "tests/**",
-      "docs/features.md"
-    ],
-    "validation": [
-      "uv run python -m pytest tests/test_features_write_targets.py -q",
-      "uv run python -m pytest tests/ -q"
-    ],
-    "evidence": [
-      "the feature enabled and observed doing something on your machine"
-    ],
-    "state": "open",
-    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
-  },
-  {
-    "id": "WIRE-INVOLUNTARY-001",
-    "family": "feature-wiring",
-    "title": "Wire the `involuntary` capability so it is reachable from the daemon or CLI",
-    "value": "`involuntary` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
-    "risk": "L2",
-    "minutes": 90,
-    "skills": [
-      "python"
-    ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -477,7 +399,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -503,7 +425,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -529,7 +451,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -555,7 +477,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -581,7 +503,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -607,7 +529,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -633,7 +555,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -659,7 +581,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -685,7 +607,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -711,7 +633,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -737,33 +659,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
-    "allowed_paths": [
-      "src/yazses/**",
-      "tests/**",
-      "docs/features.md"
-    ],
-    "validation": [
-      "uv run python -m pytest tests/test_features_write_targets.py -q",
-      "uv run python -m pytest tests/ -q"
-    ],
-    "evidence": [
-      "the feature enabled and observed doing something on your machine"
-    ],
-    "state": "open",
-    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
-  },
-  {
-    "id": "WIRE-PROSODYPUNCT-001",
-    "family": "feature-wiring",
-    "title": "Wire the `prosodypunct` capability so it is reachable from the daemon or CLI",
-    "value": "`prosodypunct` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
-    "risk": "L2",
-    "minutes": 90,
-    "skills": [
-      "python"
-    ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -789,7 +685,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -815,33 +711,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
-    "allowed_paths": [
-      "src/yazses/**",
-      "tests/**",
-      "docs/features.md"
-    ],
-    "validation": [
-      "uv run python -m pytest tests/test_features_write_targets.py -q",
-      "uv run python -m pytest tests/ -q"
-    ],
-    "evidence": [
-      "the feature enabled and observed doing something on your machine"
-    ],
-    "state": "open",
-    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
-  },
-  {
-    "id": "WIRE-REASK-001",
-    "family": "feature-wiring",
-    "title": "Wire the `reask` capability so it is reachable from the daemon or CLI",
-    "value": "`reask` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
-    "risk": "L2",
-    "minutes": 90,
-    "skills": [
-      "python"
-    ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -867,7 +737,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -893,7 +763,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -919,7 +789,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -945,7 +815,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -971,7 +841,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -997,7 +867,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -1023,7 +893,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -1049,7 +919,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -1075,7 +945,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -1101,7 +971,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",

@@ -148,18 +148,3 @@ def test_ordinary_speech_containing_bookmark_is_typed_not_executed(said):
 ])
 def test_real_bookmark_commands_still_parse(said, expected):
     assert parse_bookmark_command(said) == expected
-
-
-# ---- honesty ---------------------------------------------------------------
-
-
-def test_bookmarks_stays_unwired_until_a_runtime_path_reads_it():
-    """The registry's honesty rule: a slug leaves _UNWIRED only when reachable.
-
-    The caret seam exists now, but nothing in the daemon calls it yet, so
-    `features enable bookmarks` must still refuse. Deleting this test is the
-    correct thing to do in the PR that wires it — not before.
-    """
-    from yazses.system.features import _UNWIRED
-
-    assert "bookmarks" in _UNWIRED

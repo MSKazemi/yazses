@@ -234,6 +234,16 @@ def validate_task(task: Any, *, index: int | None = None) -> list[str]:
             f"{where}: family {task['family']!r} needs evidence observed on a real machine, "
             "so cloud_agent_ready must be false"
         )
+    # ADR-024 / #531: a wiring task's evidence is "the feature enabled and observed doing
+    # something on your machine", which a clean cloud VM cannot produce. The tasks must not
+    # advertise cloud completeness while their own evidence says otherwise.
+    if task["cloud_agent_ready"] and any(
+        "on your machine" in e for e in task["evidence"]
+    ):
+        errors.append(
+            f"{where}: evidence says the result is observed on the contributor's own machine, "
+            "so cloud_agent_ready must be false"
+        )
     if task["cloud_agent_ready"] and task["family"] == "localization":
         errors.append(
             f"{where}: localization needs a native speaker's judgement, "

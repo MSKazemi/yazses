@@ -26,14 +26,14 @@ capability that has a design and a place in the registry but **no runtime code i
 build**, so `yazses features enable <name>` refuses it outright:
 
 ```
-$ yazses features enable bookmarks
-Session Bookmarks is designed but not yet wired into this build — enabling it would
+$ yazses features enable bridge
+Glasses↔Desktop Bridge is designed but not yet wired into this build — enabling it would
 change nothing (no runtime code reads its config yet).
 It stays listed so contributors can pick it up; see the matching design/adr/ entry.
 ```
 
 They stay listed because that is where a contributor picks one up — each has a matching
-`design/adr/` entry. **42 of the 122 rows below are ◌ today.** Rows without the mark are
+`design/adr/` entry. **37 of the 122 rows below are ◌ today.** Rows without the mark are
 wired and can be turned on.
 
 ### "Hold the command key" — what that means
@@ -135,7 +135,7 @@ accessibility tree. See `design/adr/adr-v2-023/024` (internal).
 | **Voice Snippets** | `snippets` | Say a trigger ("insert my signature") to type a stored template. Hold the command key. |
 | **Phonetic Corrector** | `phonetic` | Fixes mis-heard proper nouns by sound ("Cuber Netties" → "Kubernetes"). |
 | **Multi-User Profiles** | `voiceprint` `multi_profile` | Loads each enrolled speaker's own vocab/hotkey/cleanup from their voiceprint. |
-| ◌ **Hands-Free Auto-Stop** | `autostop` | Tap once and speak; recording auto-stops when you finish. |
+| **Hands-Free Auto-Stop** | `autostop` | Tap once and speak; recording auto-stops when you finish. A longer hold is still hold-to-talk. |
 | ◌ **Voice Mouse Grid** | `mousegrid` | Drive the cursor and click by voice via a numbered grid, on any pixels. |
 | **Spoken Code Mode** | `code` | Dictate code: spoken symbols → punctuation, word-groups → cased identifiers. Hold the command key. |
 | **Spoken Math (LaTeX)** | `math` | Dictate equations → LaTeX ("x squared plus y squared" → `x^{2} + y^{2}`). Hold the command key. |
@@ -222,7 +222,7 @@ All OFF by default. Pure logic ships now; heavy models load only when you enable
 |---|---|---|
 | **Phonetic Spelling Mode** | `spelling` | NATO words → exact characters for passwords/codes ("capital alpha bravo double lima" → `Abll`). Hold the command key. |
 | **Voice Git Choreographer** | `gitvoice` | Safe git by voice: destructive ops wait for a spoken confirm; the undo is always spoken. |
-| ◌ **Confidence-Gated Re-Ask** | `reask` | Holds an uncertain word and asks you to pick/repeat it instead of guessing (flagship). |
+| **Confidence-Gated Re-Ask** | `reask` | Holds a burst whose one uncertain their/there-style word Whisper could not settle, and lets you say "second" (or the word) to patch just that word. Opt-in. |
 | **Verbatim / Autoformat Toggle** | `verbatim` | "dictate verbatim" freezes all formatting mid-burst; "resume formatting" restores it. |
 | **Self-Learning Correction Dictionary** | `corrdict` | Auto-fixes the ASR errors you keep correcting, learned from your own edits. Needs `[learning] enabled`. |
 | **Voice Fuzzy File Open** | `fileopen` | "open the mortgage notes" → fuzzy-matches and opens a local file. |
@@ -242,7 +242,7 @@ All OFF by default. Pure logic ships now; heavy models load only when you enable
 | **Voice Case Transform** | `casetransform` | Recase the selection ("make this snake_case", "camelCase", "SHOUT"). |
 | **Auto-Pairing & Wrap** | `autopair` | Balances brackets/quotes in dictated code; "wrap this in parens". |
 | **Voice Undo/Redo Timeline** | `timeline` | Undo/redo YazSes output across bursts by voice, even where Ctrl+Z is unreliable. |
-| ◌ **Session Bookmarks** | `bookmarks` | "bookmark here as intro" + "jump to my last bookmark" for long sessions. |
+| **Session Bookmarks** | `bookmarks` | "bookmark here as intro" + "jump to my last bookmark" for long sessions; the caret position comes from the accessibility layer, never a keypress count. Hold the command key. |
 | **Spoken Table Entry** | `tablecsv` | "row: Ada, 1815, London" → tab/comma cells, "next row" advances. |
 | **Word-Count & Goal Tracker** | `wordgoal` | Count dictated words, set a goal, ask "how many words so far?" |
 | **Local Voice Timer** | `voicetimer` | "set a timer for 25 minutes" — offline; announced by a desktop notification. Hold the command key. |
@@ -261,13 +261,13 @@ phonate but not articulate discrete words, and for word-free eyes-free control.
 | ◌ **Vocal Joystick** | `vocaljoystick` | Continuous analog cursor control by sustaining vowels ("eee"→up, louder=faster, pitch-jump=click). Experimental. |
 | **Earcon Feedback** | `earcon` | Non-speech state tones (rising motif = recording, buzz = low confidence) — eyes-free, faster than read-back. |
 | ◌ **Beam-Steered Spatial VAD** | `spatialvad` | With 2 mics, gates out sound not from your seat by its arrival direction (pure-numpy GCC-PHAT). |
-| ◌ **Prosodic Auto-Punctuation** | `prosodypunct` | Inserts periods/commas/question marks from how you speak — no need to say "comma". |
+| **Prosodic Auto-Punctuation** | `prosodypunct` | Inserts periods and commas from the pauses in how you speak — no need to say "comma". Fills gaps only; punctuation the recognizer already wrote is kept. |
 | ◌ **Hesitation-Hold Endpointing** | `hesitation` | Holds the turn open on filled pauses ("uhh…") instead of cutting you off. |
 | ◌ **Pitch-Contour Gestures** | `contour` | Hum a shape — rise=confirm, fall=cancel, rise-fall=undo. Word-free. Experimental. |
 | ◌ **Breath-Paced Dictation** | `breath` | Segments dictation by your natural breath groups, not silence. |
 | **Whisper-Aware Mode** | `whispermode` | Detects whispered speech (no fundamental frequency — pure DSP, no model). With `command_channel` (default on): *whisper* a phrase and it runs as a command, speak normally and it types — a hands-free, socially-silent mode switch on a plain microphone. |
 | ◌ **Mouth-Sound Switch Access** | `mouthswitch` | Non-verbal mouth sounds drive a scan-and-select selector (AAC switch access). Experimental. |
-| ◌ **Involuntary-Vocalization Excision** | `involuntary` | Drops cough/throat-clear/sneeze before they corrupt the transcript. |
+| **Involuntary-Vocalization Excision** | `involuntary` | Drops cough/throat-clear/sneeze before they corrupt the transcript. |
 
 Wave L is complete — all ten features (see Wave L) are shipped,
 pure, 100%-covered, and off by default.

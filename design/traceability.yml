@@ -54,30 +54,6 @@ entries:
       task: "WIRE-AUDIOGUARD-001"
       milestone: 9
     remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
-  - id: "capability:autostop"
-    kind: capability
-    title: "Semantic Auto-Stop"
-    source: "design/adr/adr-v2-029-semantic-autostop.md"
-    decision_status: accepted
-    delivery_status: designed
-    tracking:
-      kind: campaign
-      issues: [164]
-      task: "WIRE-AUTOSTOP-001"
-      milestone: 9
-    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
-  - id: "capability:bookmarks"
-    kind: capability
-    title: "Session Bookmarks & Resume"
-    source: "design/adr/adr-v2-090-session-bookmarks.md"
-    decision_status: accepted
-    delivery_status: designed
-    tracking:
-      kind: campaign
-      issues: [164]
-      task: "WIRE-BOOKMARKS-001"
-      milestone: 9
-    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
   - id: "capability:breath"
     kind: capability
     title: "Breath-Paced Dictation"
@@ -208,18 +184,6 @@ entries:
       kind: campaign
       issues: [164]
       task: "WIRE-INTERPRET-001"
-      milestone: 9
-    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
-  - id: "capability:involuntary"
-    kind: capability
-    title: "Involuntary-Vocalization Excision"
-    source: "design/adr/adr-v2-102-involuntary-vocalization-excision.md"
-    decision_status: accepted
-    delivery_status: designed
-    tracking:
-      kind: campaign
-      issues: [164]
-      task: "WIRE-INVOLUNTARY-001"
       milestone: 9
     remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
   - id: "capability:langroute"
@@ -354,18 +318,6 @@ entries:
       task: "WIRE-PROOFBACK-001"
       milestone: 9
     remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
-  - id: "capability:prosodypunct"
-    kind: capability
-    title: "Prosodic Auto-Punctuation"
-    source: "design/adr/adr-v2-104-prosodic-auto-punctuation.md"
-    decision_status: accepted
-    delivery_status: designed
-    tracking:
-      kind: campaign
-      issues: [164]
-      task: "WIRE-PROSODYPUNCT-001"
-      milestone: 9
-    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
   - id: "capability:rag"
     kind: capability
     title: "Voice-Grounded RAG"
@@ -388,18 +340,6 @@ entries:
       kind: campaign
       issues: [164]
       task: "WIRE-READBACK-CLONE-001"
-      milestone: 9
-    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
-  - id: "capability:reask"
-    kind: capability
-    title: "Confidence-Gated Re-Ask"
-    source: "design/adr/adr-v2-077-confidence-gated-reask.md"
-    decision_status: accepted
-    delivery_status: designed
-    tracking:
-      kind: campaign
-      issues: [164]
-      task: "WIRE-REASK-001"
       milestone: 9
     remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
   - id: "capability:screengrounded"

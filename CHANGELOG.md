@@ -205,6 +205,86 @@ rating); `TRACEABILITY.md` links each acceptance item to its issue, slot and tes
 `tests/test_eye_acceptance_consistency.py` fails when any of these drifts from the code or the registry. It asserts no
 slot, metric or default is validated, and writes no protocol id or ethics reference.
 
+### Fixed — wiring tasks no longer claim to be cloud-completable (#531)
+
+All 38 remaining `feature-wiring` tasks said `cloud_agent_ready: true` while their own evidence is "the
+feature enabled and observed doing something on your machine", which a clean cloud VM cannot produce. They
+are now `false`, `scripts/campaign.py` rejects the combination (any `cloud_agent_ready` task whose evidence is
+observed "on your machine"), and `tests/test_campaign.py` pins both the rule and the inventory. Generated
+contributor pages are regenerated from `campaign/tasks.json`. No evidence was weakened to achieve this.
+
+### Added — Confidence-Gated Re-Ask is now reachable: `yazses features enable reask` (#164)
+
+`reask` had a tested core (`reask/confidence.py`) and no caller, so `features enable` refused it. It is
+wired into dictation, off by default and opt-in tier. When `[reask] enabled = true` and Whisper is unsure
+about exactly one word from a curated confusable set (their/there/they're, to/too/two, its/it's ...), that
+one burst waits and a notification lists the options; saying "first", "second", "third" or the word itself
+patches just that word. A reply is accepted only if the *whole* utterance is a pick (so "I want one coffee"
+is never mistaken for one); any other reply releases the held text unchanged and types the reply as normal
+dictation, and a hold nobody answers goes to the clipboard after ten seconds rather than being typed into
+whatever has focus by then. It never fires on a burst with two uncertain confusable words, on a repeated
+word, or when the backend reports no per-word probabilities. `[reask] threshold` (a log-probability,
+default -1.0) is unchanged. With the feature off, nothing is imported, no timer exists, and the decode path
+is the one it always was; with it on, the burst uses the word-timestamp decode that Confidence Ink and
+Prosody already share. Logic lives in `reask/gate.py`; the daemon adds one gate call. Nothing leaves the
+machine. `tests/test_reask_gate.py`.
+
+### Added — Hands-Free Auto-Stop: tap once, speak, and recording ends when you stop (ADR-v2-029)
+
+`yazses features enable autostop` (then restart the daemon) now does something. With `[autostop] enabled`, a
+press of the dictation hotkey shorter than `[hotkey] hold_threshold_ms` is a *tap*: the recording stays open
+and ends on trailing silence (`silence_timeout_ms`, counted only after you have spoken), on the
+`max_duration_ms` cap, or on a second tap. A longer press is still ordinary hold-to-talk, and a latched turn
+that hears no speech at all gives up after five seconds rather than running to the cap. `silence_timeout_ms` is
+floored at 300 ms so a mistyped `0` cannot cut a sentence after one word. It needs a modifier hotkey (the
+default): a tap on a character key never reaches the daemon. `mode = "semantic"` falls back to the silence
+timeout, because the Smart Turn model is not shipped. Off by default; when off the daemon builds nothing and
+imports nothing from `yazses.endpoint` (`tests/test_default_start_stays_light.py` now guards that package), and
+the two hold handlers run exactly as before. The decision logic is the pure `endpoint/autostop.py`
+(`tests/test_autostop_turn.py` drives the tap/hold/silence/second-tap/race transitions with explicit
+timestamps). Not verified on a real microphone and keyboard. `autostop` leaves `_UNWIRED`, and its campaign
+task and traceability entry are removed.
+
+### Added — Session Bookmarks can now be turned on (`yazses features enable bookmarks`)
+
+The bookmark store, its phrase grammar and the AT-SPI caret backend were designed and tested but nothing
+called them, so `features enable bookmarks` refused. They now answer to two spoken phrases, **while the
+command key is held**: "bookmark here [as intro]" records where the caret is, and "jump to [my last] bookmark
+[intro]" puts it back in one positioning call. Off by default and nothing is imported until the first phrase.
+A bookmark is a position the toolkit reports (never a count of typed characters), is scoped to the document it
+was set in, and refuses with a spoken-notification reason when there is no caret backend, no such name or a
+different document is focused. It types nothing. "go to my last bookmark" is deliberately not accepted because
+the window-focus grammar claims every "go to ..." phrase first. Tests in `tests/test_bookmarks_wiring.py`.
+
+### Added — Prosodic Auto-Punctuation is now reachable: `yazses features enable prosodypunct`
+
+The designed `prosodypunct` core (ADR-v2-104) had no caller, so `features enable` refused it. It now runs on
+batch dictation: a pause between two words of at least `sentence_pause_ms` (default 700) ends the sentence with a
+period and capitalises the next word, and one of at least `comma_pause_ms` (default 250) adds a comma, driven by
+the recognizer's word timestamps. It only fills gaps: a word the recognizer already punctuated is left alone,
+line breaks and spacing are kept, a non-letter token never takes a mark, and when the number of words in the text
+and in the timings differ (for example after "twenty five" became "25") the text is left unchanged rather than
+punctuated in the wrong place. It runs before Prosody Ink, which skips an already-punctuated word, so the two
+compose. Off by default and listed as `optional`, so a fresh install does not turn it on; a default start imports
+none of its code (`tests/test_default_start_stays_light.py` now guards the package). Pitch cues and therefore
+question marks are not wired yet: nothing writes a `?`.
+
+### Added — Involuntary-Vocalization Excision is now reachable (`yazses features enable involuntary`, ADR-v2-102)
+
+A cough, sneeze or throat-clear in the middle of a dictation hold is silenced before the audio reaches
+Whisper, so it stops turning into a ghost word ("Thank you.", a stray syllable). Off by default
+(`[involuntary] enabled = false`); `yazses features enable involuntary` turns it on. The burst keeps its length
+and every other sample is untouched, and with the feature off the decoder is handed the recorded array
+unchanged. It is built to miss a cough rather than cut a word: a sound is only a candidate if it is separated
+from the speech by at least 150 ms of quiet, is 80-800 ms long, shows no pitch in more than 15 % of its frames,
+and the existing classifier names it; nothing is cut unless at least 200 ms of pitched speech remains and the cut
+is under a third of the burst. A cough glued to a word, a cough-only burst, a whispered burst and streaming
+mode are left as they were. Nothing leaves the machine and nothing is stored. The thresholds are the pure
+classifier's own plus labelled engineering guards; none was measured on recorded coughs, so the detection rate
+is unknown. `tests/test_involuntary_audio.py` checks speech-shaped fixtures (pitched vowels with formants and
+vibrato, fricative tails, a plosive after a closure, one-word islands) for the negative direction and the daemon
+hand-off; the default-start import test now also guards `yazses.involuntary`.
+
 ### Fixed — four more cross-OS test defects, found once the CI log could be read
 
 With the oversized test id fixed, the macOS and Windows runs reached the end of the suite and showed four

@@ -917,3 +917,24 @@ def test_the_login_is_url_encoded_into_the_query(stats, monkeypatch):
     monkeypatch.setattr(stats, "_get", lambda path: seen.append(path) or [])
     stats.github_attributes_commits("a b")
     assert "author=a%20b" in seen[0]
+
+
+def test_a_task_cannot_be_cloud_ready_while_its_evidence_is_on_the_contributors_machine(
+    campaign, tasks
+):
+    """#531: 45 wiring tasks said cloud_agent_ready while requiring "observed ... on your machine"."""
+    base = next(t for t in tasks if t["family"] == "feature-wiring")
+    assert "on your machine" in " ".join(base["evidence"]), "the real wiring evidence changed"
+
+    contradictory = {**base, "cloud_agent_ready": True}
+    errors = campaign.validate_task(contradictory)
+    assert any("on the contributor's own machine" in e for e in errors), errors
+
+    honest = {**base, "cloud_agent_ready": False}
+    assert not any("own machine" in e for e in campaign.validate_task(honest))
+
+
+def test_no_open_wiring_task_advertises_cloud_completeness(tasks):
+    offenders = [t["id"] for t in tasks
+                 if t["family"] == "feature-wiring" and t["cloud_agent_ready"]]
+    assert not offenders, offenders

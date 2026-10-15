@@ -39,6 +39,9 @@ OPT_IN_PACKAGES = (
     "yazses.eyeeval",
     "yazses.grounding",
     "yazses.settingsui",
+    "yazses.endpoint",
+    "yazses.prosodypunct",
+    "yazses.involuntary",
 )
 
 _PROBE = """

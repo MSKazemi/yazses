@@ -590,9 +590,10 @@ def _registry() -> list[_Def]:
              "Off by default.",
              lambda c: c.spatialvad.enabled, sv_on, sv_off),
         _Def("prosodypunct", "Prosodic Auto-Punctuation", "[prosodypunct] — punctuation from prosody",
-             RECOMMENDED,
-             "Inserts periods, commas, and question marks from how you speak (pauses, pitch) — no "
-             "need to say 'comma' or 'period'. Off by default.",
+             OPTIONAL,
+             "Inserts periods and commas from the pauses in how you speak — no need to say 'comma' "
+             "or 'period'. Fills gaps only: punctuation the recognizer already wrote is kept. "
+             "Batch dictation only. Off by default.",
              lambda c: c.prosodypunct.enabled, pp_on, pp_off),
         _Def("vocaljoystick", "Vocal Joystick", "[vocaljoystick] — analog cursor control by voice",
              EXPERIMENTAL,
@@ -689,9 +690,13 @@ _Def("chords", "Chorded Shortcut Synthesis", "[chords] — any keyboard shortcut
              "before launching unless you pass --yes. `[fileopen] threshold` sets how close a "
              "match has to be. Mouse-free. Off by default.",
              lambda c: c.fileopen.enabled, fo_on, fo_off),
-        _Def("reask", "Confidence-Gated Re-Ask", "[reask] — resolve uncertain words", RECOMMENDED,
-             "Instead of injecting a low-confidence guess, holds just the uncertain word and asks "
-             "you to pick or repeat it — closing the correction loop. Off by default.",
+        _Def("reask", "Confidence-Gated Re-Ask", "[reask] — resolve uncertain words", OPTIONAL,
+             "When Whisper is unsure which of their/there, to/too/two, its/it's... you said, "
+             "the burst waits and a notification lists the options. Say 'first', 'second', "
+             "'third' or the word itself to patch just that word; anything else releases the "
+             "text unchanged, and an unanswered hold goes to the clipboard after ten seconds. "
+             "Fires only on one uncertain word at a time. `[reask] threshold` is the "
+             "log-probability below which a word counts as unsure. Off by default.",
              lambda c: c.reask.enabled, rk_on, rk_off),
         _Def("verbatim", "Verbatim / Autoformat Toggle", "[verbatim] — freeze formatting on command", RECOMMENDED,
              "Say 'dictate verbatim' to freeze all formatting (ITN, punctuation, reflow) for exact "
@@ -921,8 +926,10 @@ _Def("chords", "Chorded Shortcut Synthesis", "[chords] — any keyboard shortcut
              "Needs [hotkey] command_key bound. Off by default.",
              lambda c: c.math.enabled, ma_on, ma_off),
         _Def("autostop", "Hands-Free Auto-Stop", "[autostop] — tap & speak", OPTIONAL,
-             "Tap once and speak; recording auto-stops when you finish (silence timeout + "
-             "duration cap). Semantic end-of-turn needs the turn extra. Off by default.",
+             "Tap the hotkey once and speak; recording auto-stops when you finish (silence "
+             "timeout + duration cap). A longer hold is still plain hold-to-talk. Needs a "
+             "modifier hotkey (the default), since a tap on a character key is invisible. "
+             "Restart the daemon after enabling. Off by default.",
              lambda c: c.autostop.enabled, as_on, as_off),
         _Def("mousegrid", "Voice Mouse Grid", "[mousegrid] — click by voice", OPTIONAL,
              "Drive the cursor and click by voice via a numbered grid ('three, seven, click') "
@@ -1145,13 +1152,13 @@ _SLUG_PACKAGES: dict[str, tuple[str, ...]] = {
     "hallucination": ("postprocess",),  # postprocess/hallucination.py
     "corpus_scrub": ("voiceprivacy",),  # voiceprivacy/anonymize.py via learning/capture.py
     "cocktail": ("audio", "voiceprint"),  # audio/personal_vad.py
+    "autostop": ("endpoint",),       # endpoint/autostop.py via core/daemon.py
     # --- designed-but-unwired: the package that WOULD implement it ---
     "readback_clone": ("readback",),  # readback/clone.py — never reached at runtime
     "multiprofile": ("multiprofile",),  # no implementation package exists yet
     "sentiment": ("mood",),          # mood/ledger.py — never reached at runtime
     "acoustic_profiles": ("acoustic",),  # acoustic/profiles.py — never reached
     "hotwords": ("biasing",),        # biasing/trie.py — never reached at runtime
-    "autostop": ("endpoint",),       # endpoint/ (autostop module) — never reached
 }
 
 
@@ -1175,13 +1182,12 @@ def feature_packages(slug: str) -> tuple[str, ...]:
 # feature later forces removing it here, and adding a stub registry entry
 # without wiring it fails CI.
 _UNWIRED: frozenset[str] = frozenset({
-    "acoustic_profiles", "affect", "agent", "audioguard", "autostop", "bookmarks", "breath",
-    "bridge", "cmdspotter", "codec", "compose", "contour", "crowdproof",
-    "hatselect", "hesitation", "hotwords", "interpret", "involuntary",
-    "langroute", "lipread", "loadguard", "morsevox", "mousegrid", "mouthswitch",
-    "multiprofile", "pilot", "predict", "pronunciation", "proofback", "prosodypunct", "rag",
-    "readback_clone", "reask", "screengrounded", "scribe", "scrub", "sentiment", "sign",
-    "spatialvad", "vocaljoystick", "voiceguard", "voicehealth", "wakeword",
+    "acoustic_profiles", "affect", "agent", "audioguard", "breath", "bridge", "cmdspotter",
+    "codec", "compose", "contour", "crowdproof", "hatselect", "hesitation", "hotwords",
+    "interpret", "langroute", "lipread", "loadguard", "morsevox", "mousegrid", "mouthswitch",
+    "multiprofile", "pilot", "predict", "pronunciation", "proofback", "rag", "readback_clone",
+    "screengrounded", "scribe", "scrub", "sentiment", "sign", "spatialvad", "vocaljoystick",
+    "voiceguard", "voicehealth", "wakeword",
 })
 
 
@@ -1190,7 +1196,7 @@ _UNWIRED: frozenset[str] = frozenset({
 #: once here rather than repeated in the CLI, the caveat and the tests.
 SPOKEN_COMMAND_SLUGS: frozenset[str] = frozenset({
     "spelling", "code", "math", "spokenregex", "snippets", "voicetimer",
-    "condense", "diagramvox", "spreadsheet", "echo",
+    "condense", "diagramvox", "spreadsheet", "echo", "bookmarks",
 })
 
 
