@@ -7,17 +7,20 @@ a window (so the next dictation types into it). On X11 all three come from
 ``xdotool``; ``build_desktop`` returns ``None`` off X11 or when xdotool is absent,
 so the daemon degrades to focus-only and never crashes (ADR-011 dormancy).
 
-Wayland compositors forbid an external process from focusing arbitrary windows,
-so this backend is X11-only by design — the documented OS limitation for gaze.
+Wayland compositors forbid an external process from focusing arbitrary windows or reading
+their geometry, so this backend is X11-only by design — the documented OS limitation for
+gaze. What a gaze target *is* instead (nothing: look-to-pane abstains with a reason) is
+defined in :mod:`yazses.gaze.target_semantics`.
 """
 from __future__ import annotations
 
 import logging
-import os
 import re
 import shutil
 import subprocess
 from typing import Callable, Protocol, runtime_checkable
+
+from yazses.gaze.target_semantics import describe_gaze_target
 
 log = logging.getLogger(__name__)
 
@@ -129,14 +132,28 @@ class XdotoolDesktop:
 def build_desktop() -> DesktopBackend | None:
     """Return an X11 desktop backend, or ``None`` when unavailable/unsupported.
 
-    None when not an X11 session or ``xdotool`` is not installed — callers then
-    skip gaze routing and dictation stays on the focused window.
+    None when this is not an X11 session or ``xdotool`` is not installed -- callers then
+    skip gaze routing and dictation stays on the focused window. The session is classified
+    by :func:`yazses.gaze.target_semantics.describe_gaze_target`, which treats a missing
+    ``XDG_SESSION_TYPE`` next to a ``WAYLAND_DISPLAY`` as Wayland: ``xdotool`` would
+    otherwise "work" through XWayland and return a window list that omits every native
+    Wayland window (#418). The reason is :func:`unavailable_reason`, so a caller that has
+    to tell the user why can.
     """
-    session = os.environ.get("XDG_SESSION_TYPE", "").lower()
-    if session and session != "x11":
-        log.info("Gaze routing needs X11 (session=%r); look-to-pane dormant.", session)
-        return None
-    if shutil.which("xdotool") is None:
-        log.info("Gaze routing needs xdotool; not found. Look-to-pane dormant.")
+    plan = describe_gaze_target(xdotool_available=lambda: shutil.which("xdotool") is not None)
+    if not plan.available:
+        log.info("Gaze routing unavailable (%s): %s. Look-to-pane dormant.", plan.session, plan.reason)
         return None
     return XdotoolDesktop()
+
+
+def unavailable_reason() -> str:
+    """Why :func:`build_desktop` would return ``None`` here, or ``""`` if it would not.
+
+    Answers from the same planner, so the sentence a user reads cannot drift from the
+    decision the daemon took.
+    """
+    plan = describe_gaze_target(xdotool_available=lambda: shutil.which("xdotool") is not None)
+    if plan.available:
+        return ""
+    return plan.reason + (f" -- {plan.remedy}" if plan.remedy else "")

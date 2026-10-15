@@ -1794,7 +1794,7 @@ class Daemon:
         if not (cfg.gaze.enabled and (cfg.gaze.route_dictation or cfg.gaze.deixis)):
             return None
         try:
-            from yazses.gaze.desktop import build_desktop
+            from yazses.gaze.desktop import build_desktop, unavailable_reason
             from yazses.gaze.display import build_topology_provider, current_context
             from yazses.gaze.factory import build_gaze
             from yazses.gaze.shared import shared_source_for_gaze
@@ -1804,7 +1804,11 @@ class Daemon:
 
             desktop = build_desktop()
             if desktop is None:
-                log.warning("Gaze routing enabled but no X11 desktop backend; dormant.")
+                # The planner's sentence, not a generic "no backend": on Wayland the reason is
+                # a property of the session (#418), and a user told only "no X11 backend"
+                # goes looking for a package that does not exist.
+                log.warning("Gaze routing enabled but cannot run here: %s; dormant.",
+                            unavailable_reason())
                 return None
             provider = build_topology_provider()
             context = current_context(
@@ -5803,11 +5807,14 @@ class Daemon:
                 PERCEPTION_STOPPED,
                 as_payload,
             )
-            from yazses.handsfree.probe import facts_from_config
+            from yazses.handsfree.probe import facts_from_config, gaze_target_facts
 
             facts = facts_from_config(self._config)
             if not facts.features_requested and not facts.safety_configured:
                 return None
+            # What a gaze target can be on this session (#418): a pure environment
+            # classification, so unlike the calibration verdict it is safe on a status poll.
+            facts = gaze_target_facts(facts)
             gaze_running = getattr(self, "_gaze_targeter", None) is not None
             # By module rather than by class name or `isinstance`: the name is a string
             # two files can agree on by accident, and importing the backend to compare

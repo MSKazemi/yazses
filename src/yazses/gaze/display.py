@@ -28,12 +28,12 @@ than with anything the user changed.
 from __future__ import annotations
 
 import logging
-import os
 import re
 import shutil
 import subprocess
 from typing import Callable, Protocol, runtime_checkable
 
+from yazses.gaze.target_semantics import describe_gaze_target
 from yazses.gaze.topology import (
     CALIBRATION_MODEL,
     CANONICAL_SPACE,
@@ -116,11 +116,14 @@ def build_topology_provider() -> DisplayTopologyProvider | None:
     """Return an X11 topology provider, or ``None`` when unavailable.
 
     None off X11 or without ``xrandr``. Callers treat that as *unknown*, not as a
-    changed layout -- see :func:`yazses.gaze.topology.check_context`.
+    changed layout -- see :func:`yazses.gaze.topology.check_context`. A Wayland session is
+    recognised the same way :func:`yazses.gaze.desktop.build_desktop` recognises it, so a
+    missing ``XDG_SESSION_TYPE`` cannot send ``xrandr`` to XWayland, which reports one
+    synthetic screen at scale 1 and would bind a calibration to a layout that is not real.
     """
-    session = os.environ.get("XDG_SESSION_TYPE", "").lower()
-    if session and session != "x11":
-        log.debug("Display topology needs X11 (session=%r); calibration unverified.", session)
+    plan = describe_gaze_target(xdotool_available=lambda: True)  # xrandr is checked below
+    if not plan.available:
+        log.debug("Display topology needs X11 (session=%r); calibration unverified.", plan.session)
         return None
     if shutil.which("xrandr") is None:
         log.debug("Display topology needs xrandr; not found. Calibration unverified.")

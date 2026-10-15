@@ -127,7 +127,12 @@ def gather_panel_inputs(
     static = HandsFreeFacts()
     camera_reason = camera_remedy = ""
     try:
-        from yazses.handsfree.probe import calibration_facts, facts_from_config, pointer_facts
+        from yazses.handsfree.probe import (
+            calibration_facts,
+            facts_from_config,
+            gaze_target_facts,
+            pointer_facts,
+        )
 
         static = facts_from_config(cfg, unwired=unwired)
         static = pointer_facts(static, platform)
@@ -138,6 +143,7 @@ def gather_panel_inputs(
                 read_context=read_context,
             )
             static = replace(static, calibration_validity=validity, calibration_reason=reason)
+            static = gaze_target_facts(static)
         if static.features_requested:
             gate = camera_gate if camera_gate is not None else _camera_gate(cfg, platform)
             if gate is not None:

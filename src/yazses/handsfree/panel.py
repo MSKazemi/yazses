@@ -391,6 +391,13 @@ def merge_facts(static: HandsFreeFacts, live: HandsFreeFacts | None) -> HandsFre
         camera_ready=live.camera_ready if live.camera_ready is not None else static.camera_ready,
         calibration_validity=live.calibration_validity or static.calibration_validity,
         calibration_reason=live.calibration_reason or static.calibration_reason,
+        gaze_target_available=(
+            live.gaze_target_available
+            if live.gaze_target_available is not None
+            else static.gaze_target_available
+        ),
+        gaze_target_reason=live.gaze_target_reason or static.gaze_target_reason,
+        gaze_target_remedy=live.gaze_target_remedy or static.gaze_target_remedy,
         safety_configured=live.safety_configured or static.safety_configured,
         safety_window_ms=(
             live.safety_window_ms if live.safety_window_ms is not None else static.safety_window_ms

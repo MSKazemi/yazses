@@ -5510,7 +5510,7 @@ def gaze_calibrate(
         default_targets,
         fit_calibration,
     )
-    from yazses.gaze.desktop import build_desktop
+    from yazses.gaze.desktop import build_desktop, unavailable_reason
     from yazses.gaze.display import current_context
     from yazses.gaze.factory import build_gaze
     from yazses.gaze.store import save_calibration
@@ -5524,7 +5524,11 @@ def gaze_calibrate(
     # install is how this command came to download ~219 MB on a default install and then
     # refuse, and to download the same 219 MB on Wayland, where nothing can make it work.
     desktop = build_desktop()
-    blocked = calibration_blocker(enabled=cfg.gaze.enabled, desktop_ok=desktop is not None)
+    blocked = calibration_blocker(
+        enabled=cfg.gaze.enabled,
+        desktop_ok=desktop is not None,
+        desktop_reason=unavailable_reason() if desktop is None else "",
+    )
     if blocked is not None:
         typer.echo(blocked, err=True)
         raise typer.Exit(1)
@@ -5603,6 +5607,7 @@ def gaze_status() -> None:
         load_calibration_record,
         rollback_available,
     )
+    from yazses.gaze.target_semantics import describe_gaze_target
     from yazses.gaze.topology import Validity
 
     platform = get_platform()
@@ -5628,6 +5633,13 @@ def gaze_status() -> None:
     typer.echo(f"  {mark(cfg.gaze.route_dictation)} route_dictation = {cfg.gaze.route_dictation}")
     typer.echo(f"  {mark(backend is not None)} gaze backend/deps ({cfg.gaze.backend})")
     typer.echo(f"  {mark(desktop is not None)} X11 desktop backend (xdotool)")
+    # #418: say what a gaze target is on THIS session. On Wayland the answer is "none" and
+    # the line carries the reason, so the ✗ above is not a missing package to go and fetch.
+    target = describe_gaze_target()
+    if target.available:
+        typer.echo(f"  ✓ gaze target: {target.reason}")
+    else:
+        typer.echo(f"  ✗ gaze target: none -- {target.reason}")
     typer.echo(f"  {mark(cal is not None)} calibration ({calibration_path(platform.paths.data_dir)})")
     if cal is not None:
         # ADR-v2-149: a map fitted on another monitor arrangement still answers, it
@@ -5664,6 +5676,13 @@ def gaze_status() -> None:
     ))
     if ready:
         typer.echo("\nReady — dictation will land in the window you look at.")
+    elif desktop is None:
+        # Before every other "Next:": nothing else on this list can make look-to-pane work
+        # here, and each of them sends the user to a command that goes on to refuse.
+        typer.echo(
+            "\nLook-to-pane is dormant on this session; dictation stays in the focused window."
+            + (f"\n  Next: {target.remedy}." if not target.available and target.remedy else "")
+        )
     elif not enabled:
         # `gaze calibrate` refuses while the feature is off, so naming it here as the
         # alternative would send the user to a command that cannot run yet.
@@ -5810,7 +5829,7 @@ def gaze_measure(
         report_problems,
     )
     from yazses.gaze.calibrate import calibration_blocker, default_targets
-    from yazses.gaze.desktop import build_desktop
+    from yazses.gaze.desktop import build_desktop, unavailable_reason
     from yazses.gaze.display import current_context
     from yazses.gaze.factory import build_gaze
     from yazses.gaze.store import calibration_state, load_calibration_record
@@ -5846,7 +5865,11 @@ def gaze_measure(
     platform = get_platform()
     cfg = load_config(platform.paths.config_file)
     desktop = build_desktop()
-    blocked = calibration_blocker(enabled=cfg.gaze.enabled, desktop_ok=desktop is not None)
+    blocked = calibration_blocker(
+        enabled=cfg.gaze.enabled,
+        desktop_ok=desktop is not None,
+        desktop_reason=unavailable_reason() if desktop is None else "",
+    )
     if blocked is not None:
         typer.echo(blocked, err=True)
         raise typer.Exit(1)
