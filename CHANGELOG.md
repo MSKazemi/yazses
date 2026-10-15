@@ -6,6 +6,18 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — release validation standard, platform validation matrix and macOS campaign (docs only)
+
+Three contributor pages for [#387](https://github.com/MSKazemi/yazses/issues/387), [#388](https://github.com/MSKazemi/yazses/issues/388)
+and [#389](https://github.com/MSKazemi/yazses/issues/389). `docs/contribute/validation.md` defines what "verified on hardware" means
+(evidence record, six-word vocabulary, privacy rules: no audio, no transcripts) and the per-release checklist.
+`docs/validation-matrix.md` is a platform-by-feature table in which every cell cites an evidence row from public issues, merged
+PRs or CI runs, or says UNVERIFIED; it records, among other things, that no Mac has yet typed a character and that Windows 10 and
+Intel Macs have no human report. `docs/contribute/macos-validation.md` audits the open Mac issues (read on 2026-10-16), names the
+ones that mislead new contributors (#216, #264), lists five volunteer tests and a read-only reporter script. A new test,
+`tests/test_validation_matrix.py`, refuses a matrix cell with no evidence behind it. No code, config or CLI change; the
+checklist and staleness rule are provisional.
+
 ### Added: paper-v2 tables and figure data are generated from the archived results (#508)
 
 `scripts/gen-paper-v2-tables.py` reads only `paper/results/` and writes LaTeX tables and CSV figure data to
