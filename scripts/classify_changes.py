@@ -16,13 +16,15 @@ changed" is more likely a broken diff step than a real PR.
 A path may land in several scopes: `src/yazses/platform/macos/hotkey.py` is both
 `python_core` and `macos`.
 
-    git diff --name-only origin/main...HEAD | python scripts/classify_changes.py
+    git diff --name-only --no-renames origin/main...HEAD | python scripts/classify_changes.py
     python scripts/classify_changes.py docs/index.md src/yazses/cli.py
-    git diff --name-only "$BASE"...HEAD \
+    git diff --name-only --no-renames "$BASE"...HEAD \
         | python scripts/classify_changes.py --github-output >> "$GITHUB_OUTPUT"
 
-For a rename, pass both the old and the new path: removing a file from `src/` is a
-runtime change even though only the new name appears in `git diff --name-only`.
+Always pass `--no-renames`. Without it, `git diff --name-only` lists only the new name of
+a renamed file, so moving `src/x.py` to `docs/x.py` would classify as `docs_design` alone
+and skip the runtime lanes. With it, the rename is listed as a deletion plus an addition,
+and both paths are classified.
 """
 
 from __future__ import annotations
