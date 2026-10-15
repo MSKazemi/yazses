@@ -524,6 +524,11 @@ Use structured field reports before recommending defaults.
 
 **Gate:** multiple environments/people, error/recovery metrics and fatigue/usability observations.
 
+**Delivered 2026-10-15 (requirements only, no evidence):** [CODESIGN_PROTOCOL_REQUIREMENTS.md](CODESIGN_PROTOCOL_REQUIREMENTS.md)
+lists the elements a fatigue/usability protocol must contain and which of them exist nowhere yet. **Not met:** the
+protocol itself (it has no ID and no ethics determination, and is #425's to write), every session, every participant,
+and every number; the register in that file says which protocol elements are still undefined.
+
 ### X7 — Settings/control surface (#420)
 
 Expose frequent recovery/config actions in the existing settings system after the underlying
