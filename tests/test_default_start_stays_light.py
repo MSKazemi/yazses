@@ -40,9 +40,7 @@ OPT_IN_PACKAGES = (
     "yazses.grounding",
     "yazses.settingsui",
     "yazses.endpoint",
-
     "yazses.prosodypunct",
-
     "yazses.involuntary",
 )
 

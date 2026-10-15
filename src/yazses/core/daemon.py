@@ -28,9 +28,8 @@ if TYPE_CHECKING:
     # All imported lazily at runtime (in _build_gaze_targeter and the other builders
     # below) so the optional/heavy dependencies stay dormant; the names exist here only
     # so the `X | None` attribute annotations resolve for the type checker.
-    from yazses.endpoint.autostop import AutoStopTurn
-
     from yazses.bookmarks.service import BookmarkService
+    from yazses.endpoint.autostop import AutoStopTurn
     from yazses.gaze.refine_runtime import RefinementRuntime
     from yazses.gaze.targeter import GazeTargeter
     from yazses.inject.target import TargetDetector
@@ -2562,11 +2561,10 @@ class Daemon:
             want_echo = self._config.echo.enabled and not use_streaming
             # Re-Ask (ADR-v2-077) reads the same per-word probabilities.
             want_reask = self._config.reask.enabled and not use_streaming
-            want_words = want_prosody or want_confidence or want_echo or want_reask
-
             # Prosodic Auto-Punctuation (ADR-v2-104) reads the same word gaps.
             want_prosodypunct = self._config.prosodypunct.enabled and not use_streaming
-            want_words = want_prosody or want_confidence or want_echo or want_prosodypunct
+            want_words = (want_prosody or want_confidence or want_echo or want_reask
+                          or want_prosodypunct)
             # Speech translation (ADR-v2-014): X→English via Whisper's translate task
             # when [translate] is enabled (whisper backend, target en). None → normal.
             try:

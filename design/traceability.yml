@@ -54,18 +54,6 @@ entries:
       task: "WIRE-AUDIOGUARD-001"
       milestone: 9
     remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
-  - id: "capability:bookmarks"
-    kind: capability
-    title: "Session Bookmarks & Resume"
-    source: "design/adr/adr-v2-090-session-bookmarks.md"
-    decision_status: accepted
-    delivery_status: designed
-    tracking:
-      kind: campaign
-      issues: [164]
-      task: "WIRE-BOOKMARKS-001"
-      milestone: 9
-    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
   - id: "capability:breath"
     kind: capability
     title: "Breath-Paced Dictation"
@@ -352,18 +340,6 @@ entries:
       kind: campaign
       issues: [164]
       task: "WIRE-READBACK-CLONE-001"
-      milestone: 9
-    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
-  - id: "capability:reask"
-    kind: capability
-    title: "Confidence-Gated Re-Ask"
-    source: "design/adr/adr-v2-077-confidence-gated-reask.md"
-    decision_status: accepted
-    delivery_status: designed
-    tracking:
-      kind: campaign
-      issues: [164]
-      task: "WIRE-REASK-001"
       milestone: 9
     remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
   - id: "capability:screengrounded"

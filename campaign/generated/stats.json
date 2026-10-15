@@ -1,12 +1,12 @@
 {
-  "total": 916,
-  "open": 169,
+  "total": 912,
+  "open": 165,
   "by_family": {
     "app-profile": 154,
     "compatibility": 301,
     "contract-vector": 60,
     "docs": 40,
-    "feature-wiring": 42,
+    "feature-wiring": 38,
     "localization": 184,
     "measurement": 94,
     "packaging": 24,
@@ -16,15 +16,15 @@
   "by_risk": {
     "L0": 478,
     "L1": 383,
-    "L2": 55
+    "L2": 51
   },
   "by_state": {
     "draft": 2,
-    "open": 169,
+    "open": 165,
     "verified": 745
   },
   "no_setup_needed": 93,
-  "cloud_agent_ready": 76,
+  "cloud_agent_ready": 72,
   "hardware_required": 73,
-  "review_minutes_if_all_merged": 1388
+  "review_minutes_if_all_merged": 1328
 }

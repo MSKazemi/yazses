@@ -1,6 +1,6 @@
 ---
 title: Find a task that fits you
-description: Filter 169 open YazSes contributor tasks by what you have — a browser, a laptop, specific hardware — how much time, and whether you want to write code.
+description: Filter 165 open YazSes contributor tasks by what you have — a browser, a laptop, specific hardware — how much time, and whether you want to write code.
 ---
 
 # Find a task that fits you
@@ -38,7 +38,7 @@ Coding agents are optional. "Cloud-ready" means the task can run in that environ
   </label>
 </div>
 
-<p id="yz-count"><strong>169</strong> tasks shown.</p>
+<p id="yz-count"><strong>165</strong> tasks shown.</p>
 
 <table class="yz-table">
 <thead><tr><th>Task</th><th>You need</th><th>Skills</th></tr></thead>
@@ -173,9 +173,6 @@ Coding agents are optional. "Cloud-ready" means the task can run in that environ
 <tr class="yz-row" data-env="cloud" data-family="feature-wiring" data-minutes="90" data-skills="python" data-text="wire the `affect` capability so it is reachable from the daemon or cli a browser or container"><td><strong>Wire the `affect` capability so it is reachable from the daemon or CLI</strong><br><code>WIRE-AFFECT-001</code> · L2 · 90 min</td><td>a browser or container</td><td>python</td></tr>
 <tr class="yz-row" data-env="cloud" data-family="feature-wiring" data-minutes="90" data-skills="python" data-text="wire the `agent` capability so it is reachable from the daemon or cli a browser or container"><td><strong>Wire the `agent` capability so it is reachable from the daemon or CLI</strong><br><code>WIRE-AGENT-001</code> · L2 · 90 min</td><td>a browser or container</td><td>python</td></tr>
 <tr class="yz-row" data-env="cloud" data-family="feature-wiring" data-minutes="90" data-skills="python" data-text="wire the `audioguard` capability so it is reachable from the daemon or cli a browser or container"><td><strong>Wire the `audioguard` capability so it is reachable from the daemon or CLI</strong><br><code>WIRE-AUDIOGUARD-001</code> · L2 · 90 min</td><td>a browser or container</td><td>python</td></tr>
-<tr class="yz-row" data-env="cloud" data-family="feature-wiring" data-minutes="90" data-skills="python" data-text="wire the `bookmarks` capability so it is reachable from the daemon or cli a browser or container"><td><strong>Wire the `bookmarks` capability so it is reachable from the daemon or CLI</strong><br><code>WIRE-BOOKMARKS-001</code> · L2 · 90 min</td><td>a browser or container</td><td>python</td></tr>
-
-<tr class="yz-row" data-env="cloud" data-family="feature-wiring" data-minutes="90" data-skills="python" data-text="wire the `autostop` capability so it is reachable from the daemon or cli a browser or container"><td><strong>Wire the `autostop` capability so it is reachable from the daemon or CLI</strong><br><code>WIRE-AUTOSTOP-001</code> · L2 · 90 min</td><td>a browser or container</td><td>python</td></tr>
 <tr class="yz-row" data-env="cloud" data-family="feature-wiring" data-minutes="90" data-skills="python" data-text="wire the `breath` capability so it is reachable from the daemon or cli a browser or container"><td><strong>Wire the `breath` capability so it is reachable from the daemon or CLI</strong><br><code>WIRE-BREATH-001</code> · L2 · 90 min</td><td>a browser or container</td><td>python</td></tr>
 <tr class="yz-row" data-env="cloud" data-family="feature-wiring" data-minutes="90" data-skills="python" data-text="wire the `bridge` capability so it is reachable from the daemon or cli a browser or container"><td><strong>Wire the `bridge` capability so it is reachable from the daemon or CLI</strong><br><code>WIRE-BRIDGE-001</code> · L2 · 90 min</td><td>a browser or container</td><td>python</td></tr>
 <tr class="yz-row" data-env="cloud" data-family="feature-wiring" data-minutes="90" data-skills="python" data-text="wire the `cmdspotter` capability so it is reachable from the daemon or cli a browser or container"><td><strong>Wire the `cmdspotter` capability so it is reachable from the daemon or CLI</strong><br><code>WIRE-CMDSPOTTER-001</code> · L2 · 90 min</td><td>a browser or container</td><td>python</td></tr>

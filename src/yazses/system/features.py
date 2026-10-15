@@ -1181,18 +1181,12 @@ def feature_packages(slug: str) -> tuple[str, ...]:
 # feature later forces removing it here, and adding a stub registry entry
 # without wiring it fails CI.
 _UNWIRED: frozenset[str] = frozenset({
-    "acoustic_profiles", "affect", "agent", "audioguard", "bookmarks", "breath",
-
-    "acoustic_profiles", "affect", "agent", "audioguard", "autostop", "breath",
-    "bridge", "cmdspotter", "codec", "compose", "contour", "crowdproof",
-    "hatselect", "hesitation", "hotwords", "interpret",
-    "langroute", "lipread", "loadguard", "morsevox", "mousegrid", "mouthswitch",
-    "multiprofile", "pilot", "predict", "pronunciation", "proofback", "prosodypunct", "rag",
-    "readback_clone", "screengrounded", "scribe", "scrub", "sentiment", "sign",
-
-    "multiprofile", "pilot", "predict", "pronunciation", "proofback", "rag",
-    "readback_clone", "reask", "screengrounded", "scribe", "scrub", "sentiment", "sign",
-    "spatialvad", "vocaljoystick", "voiceguard", "voicehealth", "wakeword",
+    "acoustic_profiles", "affect", "agent", "audioguard", "breath", "bridge", "cmdspotter",
+    "codec", "compose", "contour", "crowdproof", "hatselect", "hesitation", "hotwords",
+    "interpret", "langroute", "lipread", "loadguard", "morsevox", "mousegrid", "mouthswitch",
+    "multiprofile", "pilot", "predict", "pronunciation", "proofback", "rag", "readback_clone",
+    "screengrounded", "scribe", "scrub", "sentiment", "sign", "spatialvad", "vocaljoystick",
+    "voiceguard", "voicehealth", "wakeword",
 })
 
 
