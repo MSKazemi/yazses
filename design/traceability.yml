@@ -210,18 +210,6 @@ entries:
       task: "WIRE-INTERPRET-001"
       milestone: 9
     remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
-  - id: "capability:involuntary"
-    kind: capability
-    title: "Involuntary-Vocalization Excision"
-    source: "design/adr/adr-v2-102-involuntary-vocalization-excision.md"
-    decision_status: accepted
-    delivery_status: designed
-    tracking:
-      kind: campaign
-      issues: [164]
-      task: "WIRE-INVOLUNTARY-001"
-      milestone: 9
-    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
   - id: "capability:langroute"
     kind: capability
     title: "Per-Language Auto Model Switching"

@@ -277,11 +277,11 @@ YazSes ships **148 capabilities**. All but the core are **off by default** — t
 
 ### Involuntary-Vocalization Excision
 
-- **Toggle:** `involuntary`  ·  **Tier:** planned — designed, not yet wired  ·  **Config:** `[involuntary] — drop coughs & sneezes`
+- **Toggle:** `involuntary`  ·  **Tier:** optional  ·  **Config:** `[involuntary] — drop coughs & sneezes`
 - **What it does:** Detects and deletes involuntary sounds (cough, throat-clear, sneeze) from the stream so they never become garbage tokens or spurious commands. Off by default.
 - **Use when:** When a cough, throat-clear, or sneeze keeps turning into garbage tokens in your dictation.
 - **Example:** Cough mid-sentence and it's dropped before it reaches the text.
-- **Activate:** not possible yet — designed but not wired into this build (`yazses features enable` refuses it; contributions welcome)
+- **Activate:** `yazses features enable involuntary` then `yazses restart`
 
 ### Self-Learning Correction Dictionary
 

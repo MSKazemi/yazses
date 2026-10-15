@@ -1176,7 +1176,7 @@ def feature_packages(slug: str) -> tuple[str, ...]:
 _UNWIRED: frozenset[str] = frozenset({
     "acoustic_profiles", "affect", "agent", "audioguard", "autostop", "bookmarks", "breath",
     "bridge", "cmdspotter", "codec", "compose", "contour", "crowdproof",
-    "hatselect", "hesitation", "hotwords", "interpret", "involuntary",
+    "hatselect", "hesitation", "hotwords", "interpret",
     "langroute", "lipread", "loadguard", "morsevox", "mousegrid", "mouthswitch",
     "multiprofile", "pilot", "predict", "pronunciation", "proofback", "prosodypunct", "rag",
     "readback_clone", "reask", "screengrounded", "scribe", "scrub", "sentiment", "sign",
