@@ -100,6 +100,7 @@ from typing import Protocol
 from yazses.handsfree.safety import HandsFreeSafety
 from yazses.headpointer.pointer import (
     DEFAULT_MAX_DT_S,
+    WEBCAM_X_GAIN,
     DwellClicker,
     PointerCalib,
     elapsed_s,
@@ -229,7 +230,9 @@ class DwellFeedback(Protocol):
 class HeadPointerSettings:
     """Everything tunable, as plain numbers. Built from ``[headpointer]`` by the factory."""
 
-    calib: PointerCalib = PointerCalib()
+    #: The shipped calibration, including the real-webcam sign of ``x_gain`` -- so a controller
+    #: built without settings follows the head instead of mirroring it.
+    calib: PointerCalib = PointerCalib(x_gain=WEBCAM_X_GAIN)
     #: Samples older than this (seconds) are treated as no signal. Anything outside
     #: ``(0, MAX_FRESHNESS_S]`` is repaired to the default (:func:`effective_freshness_s`).
     freshness_s: float = DEFAULT_FRESHNESS_S
@@ -409,7 +412,9 @@ class HeadPointerController:
 
         calib = self._s.calib
         self._calib = PointerCalib(
-            x_gain=_finite_or(calib.x_gain, PointerCalib.x_gain),
+            # The fallback keeps the shipped *sign*: the pure core's own +1200 is the inverted
+            # direction on a real webcam (see ``WEBCAM_X_GAIN``).
+            x_gain=_finite_or(calib.x_gain, WEBCAM_X_GAIN),
             y_gain=_finite_or(calib.y_gain, PointerCalib.y_gain),
             deadzone=max(0.0, _finite_or(calib.deadzone, PointerCalib.deadzone)),
             max_speed_x=_positive_or(calib.max_speed_x, PointerCalib.max_speed_x, "max_speed_x"),
@@ -464,7 +469,8 @@ class HeadPointerController:
                 return Step(State.CLOSED)
             valid = self._is_valid(sample, now_s)
             new = valid and sample is not None and sample.timestamp_s > self._last_ts
-            self._age_s = None if sample is None else now_s - sample.timestamp_s
+            age = None if sample is None else now_s - sample.timestamp_s
+            self._age_s = age if age is not None and math.isfinite(age) else None
 
             decision = None
             if self._safety is not None:
@@ -694,8 +700,23 @@ class HeadPointerController:
     # ------------------------------------------------------------------ internals
 
     def _is_valid(self, sample: HeadPoseSignal | None, now_s: float) -> bool:
-        """Fresh, confident, and on a sane clock. Anything doubtful is *no signal*."""
+        """Fresh, confident, finite, and on a sane clock. Anything doubtful is *no signal*.
+
+        ``HeadPoseSignal`` refuses non-finite fields at construction, so a real source cannot
+        hand one over -- but a duck-typed double, a future source or a mutated object can, and
+        the cost of trusting it is not a skipped frame. A NaN pose that arrives as the capture
+        frame becomes the neutral pose and turns every later *good* sample into a "non-finite
+        pointer delta" fault; one that arrives mid-stream faults the feature until an explicit
+        resume; a NaN timestamp compares false against everything and would leave the state
+        reading ``tracking``. Each is a garbled signal, so each is the same thing as a missing
+        one: freeze, and recover by itself when a real sample returns.
+        """
         if sample is None or not math.isfinite(now_s):
+            return False
+        if not all(
+            math.isfinite(v)
+            for v in (sample.timestamp_s, sample.yaw, sample.pitch, sample.confidence)
+        ):
             return False
         age = now_s - sample.timestamp_s
         if age < 0.0 or age > self._freshness_s:

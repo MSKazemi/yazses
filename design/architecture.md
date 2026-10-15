@@ -367,7 +367,15 @@ No fake ships in `src/`. `tests/pointer_fake.py` holds `FakePointerSink`, which 
 release, and `fail_with()` models a dead backend — and `tests/pointer_contract.py` is the
 shared behaviour suite: each backend subclasses `PointerSinkContract`, supplies four
 hooks (`make_sink`, `recorded`, `induce_failure`, `clear_failure`), and inherits the whole
-contract rather than re-describing it.
+contract rather than re-describing it. The recorded-action vocabulary itself
+(`PointerAction`, in `yazses.pointer.actions`) is data and does ship, so the suite imports
+nothing from `tests/`: an out-of-tree backend copies that one file next to its own tests.
+`tests/test_pointer_contract_mutants.py` keeps the suite honest by running it against
+deliberately wrong sinks (swallowed errors, reordered or dropped releases, success after
+`close()`, replayed or queued commands, silent no-ops, a flipped scroll sign) and requiring
+a named test to go red for each. One thing the contract does **not** pin: whether a click
+whose release fails after its press makes a best-effort release. The portal sink does; the
+X11, macOS and Windows sinks leave the button down and say so — a maintainer decision.
 
 **Platform backends (EYE-PTR-003, #402).** Each is two layers: a sink holding the whole
 contract and knowing nothing about the OS, over an injected native-API object holding

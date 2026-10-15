@@ -35,6 +35,14 @@ values; translating is the backend's job because only it knows that its native
 ``clear_failure`` exist because "a stale command is never repeated after backend
 failure" is a promise in the ADR, and a promise nothing can make fail is not tested.
 
+**Out-of-tree backends.** This module imports nothing from ``tests/``: the recorded-action
+vocabulary is :mod:`yazses.pointer.actions`, which ships in the package. A backend written
+outside this repository copies this one file next to its own tests (it needs ``pytest`` and
+``yazses`` and nothing else) and writes the four hooks. ``tests/test_pointer_contract.py``
+asserts the "imports nothing from tests/" property so it cannot quietly rot, and
+``tests/test_pointer_contract_mutants.py`` proves the suite *fails* a backend that is wrong
+in each of a dozen specific ways, rather than assuming a green run means a strong suite.
+
 Tests here branch on ``capabilities()`` rather than assuming a full backend, and both
 branches assert something: a backend that supports absolute motion is checked for exact
 coordinates, one that does not is checked for an explicit
@@ -46,10 +54,11 @@ can quietly rot into a no-op.
 from __future__ import annotations
 
 import math
+from collections.abc import Callable
 
 import pytest
 
-from tests.pointer_fake import PointerAction
+from yazses.pointer.actions import PointerAction, PointerActionKind
 from yazses.pointer.base import (
     REQUIRED_BUTTONS,
     PointerButton,
@@ -274,3 +283,136 @@ class PointerSinkContract:
         assert recovered[len(after_failure):] == [PointerAction.move_relative(7.0, 8.0)], (
             "recovery must emit the new action only — no catch-up, no replay"
         )
+
+    # ------------------------------------------------- every operation, not just motion
+    def _operations(self, sink: PointerSink) -> list[tuple[str, Callable[[], None]]]:
+        """One callable per operation this backend claims, so a rule is checked on all of them.
+
+        A failure test that only drives ``move_relative`` cannot see a backend that swallows
+        errors in ``click`` or ``scroll`` alone -- a real shape, because each of those is its
+        own code path with its own ``try``.
+        """
+        caps = sink.capabilities()
+        ops: list[tuple[str, Callable[[], None]]] = []
+        if caps.relative_motion:
+            ops.append(("move_relative", lambda: sink.move_relative(2.0, 3.0)))
+        if caps.absolute_motion:
+            ops.append(("move_absolute", lambda: sink.move_absolute(10.0, 20.0)))
+        if caps.supports_button(PointerButton.LEFT):
+            ops.append(("click", lambda: sink.click(PointerButton.LEFT)))
+        if caps.scroll_vertical:
+            ops.append(("scroll", lambda: sink.scroll(0.0, 2.0)))
+        assert ops, "a backend with no operation at all is not a pointer sink"
+        return ops
+
+    def test_every_operation_fails_loudly_and_records_nothing_when_the_backend_fails(self) -> None:
+        names = [name for name, _ in self._operations(self.make_sink())]
+        for index, name in enumerate(names):
+            sink = self.make_sink()
+            op = self._operations(sink)[index][1]
+            before = self.recorded(sink)
+            self.induce_failure(sink)
+            with pytest.raises(PointerError):
+                op()
+            assert self.recorded(sink) == before, (
+                f"{name}: a failed operation must not be recorded as having happened"
+            )
+
+    def test_every_operation_recovers_without_a_catch_up_burst(self) -> None:
+        names = [name for name, _ in self._operations(self.make_sink())]
+        for index, name in enumerate(names):
+            sink = self.make_sink()
+            ops = self._operations(sink)
+            self.induce_failure(sink)
+            for _ in range(3):
+                with pytest.raises(PointerError):
+                    ops[index][1]()
+            self.clear_failure(sink)
+            ops[index][1]()
+            performed = self.recorded(sink)
+            # One successful call, however many failed before it: a backend that queued the
+            # failed calls and flushed them on recovery would emit four times that.
+            fresh = self.make_sink()
+            self._operations(fresh)[index][1]()
+            assert performed == self.recorded(fresh), (
+                f"{name}: recovery emitted {len(performed)} actions where one call emits "
+                f"{len(self.recorded(fresh))} -- failed calls were queued and replayed"
+            )
+
+    def test_every_operation_after_close_is_an_explicit_error(self) -> None:
+        names = [name for name, _ in self._operations(self.make_sink())]
+        for index, name in enumerate(names):
+            sink = self.make_sink()
+            ops = self._operations(sink)
+            sink.close()
+            before = self.recorded(sink)
+            with pytest.raises(PointerError):
+                ops[index][1]()
+            assert self.recorded(sink) == before, (
+                f"{name}: a closed sink returned success and kept emitting"
+            )
+
+    def test_close_never_raises_even_while_the_backend_is_failing(self) -> None:
+        """Cleanup runs because something broke; a second error on top of it buries the first."""
+        sink = self.make_sink()
+        self.induce_failure(sink)
+        sink.close()
+        sink.close()
+
+    def test_close_reaches_the_platform_at_most_once(self) -> None:
+        sink = self.make_sink()
+        sink.move_relative(1.0, 1.0)
+        sink.close()
+        sink.close()
+        sink.close()
+        closes = [a for a in self.recorded(sink) if a.kind is PointerActionKind.CLOSE]
+        assert len(closes) <= 1, "close() released the platform handle more than once"
+
+    def test_close_leaves_no_button_pressed(self) -> None:
+        """A click is atomic in this protocol, so nothing may be held at any point we can see."""
+        sink = self.make_sink()
+        sink.click()
+        sink.close()
+        held: dict[PointerButton, int] = {}
+        for action in self.recorded(sink):
+            if action.button is None:
+                continue
+            if action.kind is PointerActionKind.BUTTON_PRESS:
+                held[action.button] = held.get(action.button, 0) + 1
+            elif action.kind is PointerActionKind.BUTTON_RELEASE:
+                held[action.button] = held.get(action.button, 0) - 1
+        assert all(count == 0 for count in held.values()), f"buttons still held: {held}"
+
+    def test_capabilities_are_still_answerable_after_close(self) -> None:
+        sink = self.make_sink()
+        caps = sink.capabilities()
+        sink.close()
+        assert sink.capabilities() == caps
+
+    def test_operations_of_different_kinds_arrive_in_the_order_they_were_called(self) -> None:
+        """No batching or reordering across kinds: the click lands where the move left it."""
+        caps = self.make_sink().capabilities()
+        sink = self.make_sink()
+        expected: list[PointerAction] = []
+        sink.move_relative(5.0, 0.0)
+        expected.append(PointerAction.move_relative(5.0, 0.0))
+        sink.click(PointerButton.LEFT)
+        expected += [PointerAction.press(PointerButton.LEFT), PointerAction.release(PointerButton.LEFT)]
+        if caps.scroll_vertical:
+            sink.scroll(0.0, 1.0)
+            expected.append(PointerAction.scroll(0.0, 1.0))
+        sink.move_relative(0.0, -5.0)
+        expected.append(PointerAction.move_relative(0.0, -5.0))
+        assert self.recorded(sink) == expected
+
+    def test_a_refused_call_does_not_disturb_the_ones_around_it(self) -> None:
+        """An unsupported or invalid call between two good ones changes nothing recorded."""
+        sink = self.make_sink()
+        sink.move_relative(1.0, 1.0)
+        with pytest.raises(ValueError):
+            sink.move_relative(math.nan, 0.0)
+        sink.move_relative(2.0, 2.0)
+        assert self.recorded(sink) == [
+            PointerAction.move_relative(1.0, 1.0),
+            PointerAction.move_relative(2.0, 2.0),
+        ]
