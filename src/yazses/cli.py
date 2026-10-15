@@ -7285,7 +7285,9 @@ def transcribe(
     from yazses.recimport.pipeline import _build_engine
 
     typer.echo(f"Loading model '{eff.model or cfg.stt.model}'…", err=True)
-    engine = _build_engine(dataclasses.replace(eff, model=eff.model or cfg.stt.model))
+    engine = _build_engine(
+        dataclasses.replace(eff, model=eff.model or cfg.stt.model), stt=cfg.stt
+    )
 
     # Speaker naming: parse explicit maps; load the enrolled voiceprint (→ "You").
     name_list = [n.strip() for n in names.split(",")] if names else None

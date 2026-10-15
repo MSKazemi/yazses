@@ -40,6 +40,7 @@ The P1 implementation therefore uses the existing faster-whisper backend and a m
 | [Agent-ready task contracts](agent-ready-task-contracts.md) | ADR-023/A2/A3 rules, risk lanes, allowed paths, validation commands, negative tests, and sample campaign tasks. |
 | [Risk register](risk-register.md) | Cross-cutting failure modes, severity, detection, mitigation, ownership, and release-blocker status. |
 | [Surface support matrix](surface-support-matrix.md) | Per-surface Mandarin scope: live, streaming, file, meeting, commands, postprocessing, injection, platform, and deferred capabilities. |
+| [Postprocessor compatibility audit](postprocess-compatibility.md) | CHN-30 / #501 COMP-01: every default-on text transform classified CJK-safe / ASCII-dependent / language-specific, with `file:line` evidence, probed results and open findings. |
 | [Human validation and data protocol](human-validation-data-protocol.md) | Privacy-minimized community QA, native review, audio-consent boundaries, and separation between product testing and research/publication data. |
 | [Chinese language support spec](../specs/chinese-language-support.md) | Implementation contract: CLI, config behavior, APIs, profile resolution, diagnostics, compatibility, acceptance criteria. |
 

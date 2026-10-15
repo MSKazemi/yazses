@@ -6,6 +6,18 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — Mandarin: `yazses transcribe` ignored `[stt] chinese_script`, and the opt-in Hallucination Guard could drop a Han sentence
+
+Audit of [#501](https://github.com/MSKazemi/yazses/issues/501) (COMP-01..03); the classification of every default-on
+text transform is in `design/chinese/postprocess-compatibility.md`. (1) File transcription built its engine without
+the factory, so the Simplified/Traditional setting never reached `yazses transcribe`; it now does (the setting is
+unset by default, so nothing changes until chosen). (2) With `[hallucination]` on, the guard erased Han characters
+before matching, so `我们 thanks for watching 然后` was discarded as a ghost phrase; Han-bearing text is no longer
+judged by its Latin remainder (the guard is off by default and English input is judged exactly as before). New
+`tests/test_cjk_pipeline_vectors.py` runs 23 synthetic Mandarin vectors through the real default pipeline and pins six
+open defects as strict xfails (a space between consecutive Han bursts, full-width closers, segment join, three
+disfluency edges). The pytest/ruff/mypy gates were run; real Mandarin audio and OS injection were not.
+
 ### Added — Persian benchmark: the manifest gate, recorded selection seed, and stated scoring rules (FA-04, #513)
 
 `bench_persian.py --manifest` now refuses to run (before any model is built) unless every row has a licence and a consent
