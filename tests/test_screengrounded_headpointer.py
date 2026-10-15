@@ -48,21 +48,21 @@ def test_pose_to_cursor_scales():
 
 
 def test_dwell_clicker_fires_after_hold():
-    c = DwellClicker(radius=5.0, hold_frames=3)
-    assert c.update(100, 100) is False    # frame 1 (anchor)
-    assert c.update(101, 100) is False    # frame 2 (within radius)
-    assert c.update(102, 101) is True     # frame 3 → click
+    c = DwellClicker(radius=5.0, hold_s=0.15)
+    assert c.update(100, 100, 0.00) is False    # the anchor sample
+    assert c.update(101, 100, 0.10) is False    # 0.1 s inside the radius
+    assert c.update(102, 101, 0.20) is True     # 0.2 s → click
     # re-arms after firing
-    assert c.update(102, 101) is False
+    assert c.update(102, 101, 0.30) is False
 
 
 def test_dwell_clicker_resets_on_move_away():
-    c = DwellClicker(radius=5.0, hold_frames=3)
-    c.update(100, 100)
-    c.update(101, 100)
-    assert c.update(200, 200) is False    # jumped away → anchor resets
-    assert c.update(201, 200) is False
-    assert c.update(202, 201) is True     # dwell at the new spot
+    c = DwellClicker(radius=5.0, hold_s=0.15)
+    c.update(100, 100, 0.00)
+    c.update(101, 100, 0.10)
+    assert c.update(200, 200, 0.20) is False    # jumped away → anchor resets
+    assert c.update(201, 200, 0.30) is False
+    assert c.update(202, 201, 0.40) is True     # dwell at the new spot
 
 
 def test_features_registered_off_by_default():

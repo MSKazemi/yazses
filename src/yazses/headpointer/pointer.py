@@ -102,61 +102,90 @@ def elapsed_s(previous_ts: float, ts: float, max_dt: float = DEFAULT_MAX_DT_S) -
 
 
 class DwellClicker:
-    """Fire a click when the pointer stays within ``radius`` px for ``hold_frames`` frames.
+    """Fire a click when the pointer stays within ``radius`` px for ``hold_s`` seconds.
 
-    Pure state machine (no I/O): call :meth:`update` once per frame; it returns True on the frame
-    the dwell completes, then re-arms.
+    Pure state machine (no I/O, no clock of its own): call :meth:`update` once per accepted
+    sample with that sample's timestamp; it returns True on the sample the dwell completes,
+    then re-arms. **Time, not frames**: the hold is the sum of the real gaps between samples
+    that stayed inside the radius, so it lasts the same on a 15 and a 30 fps camera.
+
+    Stillness has to be *observed* to count. A gap longer than ``max_dt_s`` between two samples
+    (a stalled thread, a camera hiccup that never went stale) is time during which nobody saw
+    the pointer, so it restarts the dwell at the new sample instead of being credited -- a stall
+    can never complete a dwell by itself. A gap that is zero, negative or not a number (a clock
+    fault) restarts it too.
     """
 
-    def __init__(self, radius: float = 15.0, hold_frames: int = 20) -> None:
+    def __init__(
+        self, radius: float = 15.0, hold_s: float = 0.7, max_dt_s: float = DEFAULT_MAX_DT_S
+    ) -> None:
         self._radius2 = radius * radius
-        self._hold = hold_frames
+        self._hold = hold_s
+        self._max_dt = max_dt_s
         self._anchor: tuple[float, float] | None = None
-        self._count = 0
+        self._last_ts = 0.0
+        self._elapsed = 0.0
 
     @property
     def progress(self) -> float:
         """How far the dwell in progress has got, ``0.0`` (none) towards ``1.0``.
 
         Read-only and pure, so a caller can show the user that a click is coming *before* it
-        fires (ADR-v2-052 / #405). The frame that would complete it is the one on which
-        :meth:`update` fires and re-arms, so for any ``hold_frames`` above 1 the value read
-        between frames stays below ``1.0``.
+        fires (ADR-v2-052 / #405). The sample that would complete it is the one on which
+        :meth:`update` fires and re-arms, so the value read between samples stays below ``1.0``.
         """
-        if self._anchor is None or self._hold <= 0:
+        if self._anchor is None or not self._hold > 0.0:
             return 0.0
-        return min(self._count / self._hold, 1.0)
+        return min(self._elapsed / self._hold, 1.0)
 
     @property
     def radius(self) -> float:
         """The dwell radius in pixels."""
         return self._radius2 ** 0.5
 
+    @property
+    def hold_s(self) -> float:
+        """The hold time in seconds."""
+        return self._hold
+
     def reset(self) -> None:
-        """Drop any dwell in progress, so the next frame starts a fresh one.
+        """Drop any dwell in progress, so the next sample starts a fresh one.
 
         The hands-free safety gate (``handsfree/safety.py``, ADR-v2-148) requires that entering
-        PAUSED or FAULTED clears pending activation state: without this, a dwell that was two
-        frames from firing when the camera dropped out would complete on the first frame after
+        PAUSED or FAULTED clears pending activation state: without this, a dwell that was
+        nearly complete when the camera dropped out would finish on the first sample after
         recovery, as a click the user never asked for. Pure; no I/O.
         """
         self._anchor = None
-        self._count = 0
+        self._elapsed = 0.0
 
-    def update(self, x: float, y: float) -> bool:
-        """Advance one frame at pointer ``(x, y)``; return True iff a click fires. Pure state."""
+    def _restart(self, x: float, y: float, ts: float) -> None:
+        self._anchor = (x, y)
+        self._last_ts = ts
+        self._elapsed = 0.0
+
+    def update(self, x: float, y: float, ts: float) -> bool:
+        """Advance to the sample at ``ts`` (seconds, monotonic) with the pointer at ``(x, y)``.
+
+        Returns True iff a click fires. Pure state.
+        """
+        if not math.isfinite(ts):
+            self.reset()
+            return False
         if self._anchor is None:
-            self._anchor = (x, y)
-            self._count = 1
+            self._restart(x, y, ts)
+            return False
+        dt = ts - self._last_ts
+        if not (0.0 < dt <= self._max_dt):
+            self._restart(x, y, ts)
             return False
         ax, ay = self._anchor
-        if (x - ax) ** 2 + (y - ay) ** 2 <= self._radius2:
-            self._count += 1
-            if self._count >= self._hold:
-                self._anchor = None
-                self._count = 0
-                return True
-        else:
-            self._anchor = (x, y)
-            self._count = 1
+        if (x - ax) ** 2 + (y - ay) ** 2 > self._radius2:
+            self._restart(x, y, ts)
+            return False
+        self._last_ts = ts
+        self._elapsed += dt
+        if self._elapsed >= self._hold:
+            self.reset()
+            return True
         return False

@@ -73,7 +73,10 @@ class Rig:
             calib=calib or LEGACY,
             freshness_s=freshness_s,
             dwell_enabled=dwell,
-            dwell_hold_frames=hold,
+            # `hold` is still said in frames, as these tests always did: the dwell fires on the
+            # frame that is `hold - 1` intervals after the anchor. Half an interval of slack
+            # keeps the boundary clear of float rounding; the floor is the controller's own.
+            dwell_hold_s=max(0.06, (hold - 1.5) * FRAME),
         )
         self.ctl = HeadPointerController(
             self.sink, self.settings, safety=safety, feedback=feedback

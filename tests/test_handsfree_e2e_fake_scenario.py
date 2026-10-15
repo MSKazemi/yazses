@@ -103,7 +103,7 @@ def test_the_hands_free_workflow_end_to_end_on_fakes(tmp_path, mocker):
     for _ in range(3):
         tick(0.2)
     assert _moved(sink)
-    for _ in range(cfg.headpointer.dwell_hold_frames + 5):
+    for _ in range(cfg.headpointer.dwell_ms // 33 + 5):  # the ticks are 33 ms apart
         tick(0.0)  # the head back at neutral: the pointer rests, and resting is the commit
     assert _clicks(sink) == 1, "dwell is the commit the preset wires"
 
