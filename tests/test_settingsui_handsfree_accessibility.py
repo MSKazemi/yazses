@@ -386,6 +386,47 @@ def test_no_button_or_combo_is_cut_short_and_nothing_forces_sideways_scrolling(
         assert area.horizontalScrollBar().maximum() == 0, f"sideways scrolling at {points}pt"
 
 
+def _narrowest_and_widest_families(qapp) -> list[str]:
+    """The installed font families with the smallest and the largest average glyph width.
+
+    The window's fixed-pixel parts (target sizes, margins, the combo arrow, the scroll bar) do not
+    scale with the font, so a NARROW font is where a width worked out from the average glyph width
+    comes up short. That is the Windows case: its default font is narrower than the Linux one the
+    layout was first tuned on, and the hosted Windows run scrolled sideways by 25 px at 14 pt.
+    """
+    from PySide6.QtGui import QFontDatabase, QFontMetrics
+
+    widths = {}
+    for family in QFontDatabase.families():
+        font = QFont(family)
+        font.setPointSize(14)
+        if QFontMetrics(font).averageCharWidth() > 0:
+            widths[family] = QFontMetrics(font).averageCharWidth()
+    if len(widths) < 2:
+        return []
+    return [min(widths, key=widths.get), max(widths, key=widths.get)]
+
+
+@pytest.mark.parametrize("points", [pytest.param(9, id="9pt"), pytest.param(14, id="14pt"),
+                                    pytest.param(24, id="24pt")])
+@pytest.mark.parametrize("which", [pytest.param(0, id="narrowest-font"), pytest.param(1, id="widest-font")])
+def test_no_sideways_scrolling_in_the_narrowest_and_the_widest_installed_font(
+    qapp, font_restored, which, points
+):
+    families = _narrowest_and_widest_families(qapp)
+    if not families:
+        pytest.skip("fewer than two font families are installed")
+    font = QFont(families[which])
+    font.setPointSize(points)
+    qapp.setFont(font)
+    rig = _Rig(qapp, _faulted_with_everything_on())
+    _shown(rig, qapp)
+    for area in rig.panel.dialog.findChildren(QScrollArea):
+        assert area.horizontalScrollBar().maximum() == 0, (
+            f"sideways scrolling by {area.horizontalScrollBar().maximum()}px at {points}pt in {families[which]!r}"
+        )
+
+
 def test_the_emergency_buttons_and_headline_grow_with_the_system_font(qapp, font_restored):
     sizes = {}
     for points in (10, 20):

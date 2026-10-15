@@ -6,6 +6,14 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the hands-free window scrolled sideways in a narrow font (found by the first Windows run)
+
+The controls window's width was worked out from the average glyph width, but its buttons, margins, combo arrows and scroll bar are fixed
+pixels, so in a narrower font (Windows' default is narrower than the Linux one it was first tuned on) the content was wider than the
+guess and the window scrolled sideways by 25 px at 14 pt. It is now widened to what the content actually needs. A new test runs the
+window in the narrowest and the widest font installed, at three sizes, and fails on any sideways scrolling; it reproduced the
+defect on Linux before the fix.
+
 ### Fixed — implicit-calibration capture: four ways a real click stream differs from the test one
 
 Audit of [#397](https://github.com/MSKazemi/yazses/issues/397) against the shapes a real desktop and camera

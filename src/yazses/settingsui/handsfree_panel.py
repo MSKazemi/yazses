@@ -328,6 +328,22 @@ class HandsFreePanel:
         bottom.addWidget(close)
         outer.addLayout(bottom)
 
+        # Width from the content, not from a guess. The scroll area scrolls sideways exactly when
+        # its viewport is narrower than the body's minimum width, and the target sizes, margins,
+        # combo arrows and scroll bar are fixed pixels that do not scale with the font -- so a width
+        # worked out from the average glyph width (above) is too small in a narrow font, which is
+        # what the hosted Windows run showed: 25 px of sideways scrolling at 14 pt. The guess stays
+        # as the starting size; this only ever widens it.
+        margins = outer.contentsMargins()
+        needed = (
+            body.minimumSizeHint().width()
+            + 2 * scroll.frameWidth()
+            + scroll.verticalScrollBar().sizeHint().width()
+            + margins.left()
+            + margins.right()
+        )
+        self._dialog.resize(max(self._dialog.width(), needed), self._dialog.height())
+
         self._set_tab_order()
         self._placeholders()
         self._dialog.finished.connect(lambda _=0: self.stop())
