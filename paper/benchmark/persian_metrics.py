@@ -18,6 +18,35 @@ Scope of fa-eval-v1 (§6):
 - Standardized whitespace (collapse runs of spaces/tabs/newlines, strip ends).
 - Digits and punctuation are intentionally NOT altered here because §6 requires
   digit/punct alterations to be separately reported (they materially change WER/CER).
+
+Rule-by-rule decisions (each one is pinned by a test in tests/test_bench_persian_manifest.py).
+This normalizer is for METRICS only: it is never applied to what a user receives.
+
+- Arabic Yeh U+064A and Alef Maksura U+0649 -> Persian Yeh U+06CC; Arabic Kaf U+0643 ->
+  Keheh U+06A9. Folded, because a model and a corpus often disagree on these without
+  either being wrong; the raw column and ``arabic_yeh_count`` keep the difference visible.
+- Yeh with hamza U+0626: untouched. It is a different letter, not a variant.
+- ZWNJ U+200C: KEPT. Its presence changes the written word (می‌خواهم vs میخواهم), so a
+  missing or misplaced one is a real error under both scorers and is reported on its own
+  by `compute_zwnj_metrics`. It is not whitespace and does not split a word.
+- Persian digits ۰-۹ and Arabic-Indic ٠-٩ versus Latin 0-9: NOT folded. Which digit
+  family a transcript uses is a model behaviour worth seeing, and folding would be a
+  digit normalization that §6 says must be reported separately. A "digits folded"
+  column, if ever wanted, is a new, separately named metric, not an edit to this version.
+- Presentation forms (U+FB50-U+FDFF, U+FE70-U+FEFF): NOT folded. NFC does not map them
+  (only NFKC would), and an engine that emits them is producing text that does not match
+  the Persian reference's code points; that is an error to surface, not to hide.
+- Diacritics (tashkeel), tatweel U+0640, bidi marks (U+200E/F, U+202A-E, U+2066-9):
+  NOT stripped, for the same reason. Any of them in a hypothesis or reference counts.
+- Whitespace: any run of Unicode whitespace (``str.split()``, which includes NBSP) becomes
+  one ASCII space; ends are stripped.
+
+Tokenisation for the metrics (``TOKENISATION`` below, stamped into every result):
+WER tokens are the whitespace-separated words of the normalized text, so a ZWNJ-joined
+compound is ONE token and dropping its ZWNJ is a one-token error. CER is over Unicode
+code points, spaces and ZWNJ included, so a dropped ZWNJ is one edit. Both are
+case-sensitive (jiwer's defaults; no case folding), which only matters for embedded Latin.
+Changing any rule above or this tokenisation means a new ``EVAL_NORMALIZER_VERSION``.
 """
 
 from __future__ import annotations
@@ -27,6 +56,13 @@ from collections import Counter
 from typing import NamedTuple
 
 EVAL_NORMALIZER_VERSION = "fa-eval-v1"
+
+#: What "a word" and "a character" mean for the WER/CER in a result; see the module
+#: docstring. A string rather than an enum: it is read by people comparing artifacts.
+TOKENISATION = (
+    "wer: whitespace-separated words, ZWNJ inside a word; "
+    "cer: unicode code points incl. spaces and ZWNJ; case-sensitive"
+)
 
 ZWNJ = "\u200c"
 ARABIC_YEH = "\u064a"

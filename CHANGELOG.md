@@ -6,6 +6,19 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — Persian benchmark: the manifest gate, recorded selection seed, and stated scoring rules (FA-04, #513)
+
+`bench_persian.py --manifest` now refuses to run (before any model is built) unless every row has a licence and a consent
+value, optional `speaker`/`session` fields are opaque pseudonyms, and every audio path stays inside the manifest's
+directory or an explicit `--audio-root` (symlinks and `..` included). The gate is the new stdlib-only
+`paper/benchmark/persian_manifest.py`; `make_fa_manifest.py` sidecars now carry `consent`. Manifests made before this need
+`--audio-root <corpus dir>` (their audio paths are absolute) and a `consent` entry in the sidecar. The result JSON now carries
+the selection's seed/limit/rule from the sidecar, the manifest hash and corpus pins, the licences and consents, and the
+stated tokenisation, and is written with sorted keys; `run_manifest` accepts an injected transcriber, audio loader and
+timestamp so tests need no model. `fa-eval-v1` itself is unchanged (so archived numbers stay comparable); the module now
+documents, and tests pin, each rule: Yeh/Kaf folded, ZWNJ kept, digit families and presentation forms not folded.
+Scoring normalisation touches metrics only. No model was run and no corpus was fetched.
+
 ### Fixed — `yazses start` keeps waiting through a transient IPC error, and says which endpoint stayed silent (#330)
 
 While the freshly spawned daemon is coming up, `yazses start`/`restart` now keep polling through any IPC call error or a

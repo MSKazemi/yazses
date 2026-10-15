@@ -313,6 +313,12 @@ def _fake_manifest(tmp_path):
         json.dumps({"id": "t-1", "audio": "t.wav", "reference": "سلام دنیا"}) + "\n",
         encoding="utf-8",
     )
+    (tmp_path / "t.wav").write_bytes(b"")  # never decoded: load_audio is replaced
+    # Since the manifest gate (#513) a run needs licence + consent from the sidecar.
+    (tmp_path / "tiny.jsonl.meta.json").write_text(
+        json.dumps({"license": "CC0-1.0", "consent": "public-corpus-licence"}),
+        encoding="utf-8",
+    )
     return manifest
 
 
