@@ -27,7 +27,7 @@ paths, e-mail addresses and this machine's own hostname and login before anythin
 written. Confidence is kept as a ten-bin histogram plus a running mean, not as a time
 series, so there is no per-moment trace to leak either.
 
-## Schema (``schema_version`` "1.0", envelope shared with ``yazses.eyeeval.schema``)
+## Schema (``protocol.task_version`` "1.1"; ``schema_version`` is the envelope's, shared with ``yazses.eyeeval.schema``)
 
 ``feature.name = "gaze"``, ``protocol.task = "gaze_field_measurement"``, ``study_mode`` is
 the tester's declaration (``community_qa`` for a public report). ``metrics``:
@@ -49,6 +49,16 @@ the tester's declaration (``community_qa`` for a public report). ``metrics``:
 ``environment``
     ``glasses``, ``lighting``, ``viewing_distance_cm``, ``camera_label`` — volunteered,
     each ``"not_stated"`` when omitted.
+``sufficiency``
+    Whether there is enough data for the figures above to mean anything, said in the
+    document itself so a one-point report cannot travel as a finding: ``provisional``
+    (always true), then ``validation_points`` / ``confidence_samples`` /
+    ``routing_attempts`` / ``drift_blocks``, each ``{n, minimum, enough}`` (``n`` is a
+    missing marker when the tester did not count), and ``statements`` — plain sentences,
+    one per shortfall. The minimums are **provisional reporting floors**, not statistical
+    power: they exist to stop a single point reading as a result, and nothing was fitted to
+    synthetic data to choose them. How many people and sessions a *claim* needs is
+    ``EVALUATION.md``'s question.
 
 ``METRICS.md`` is explicit that "gaze accuracy" is three different things — coordinate error,
 correct-window rate, tracker availability — and must never be one number. This report keeps
@@ -76,6 +86,10 @@ __all__ = [
     "GENERATOR",
     "GLASSES",
     "LIGHTING",
+    "MIN_CONFIDENCE_SAMPLES",
+    "MIN_DRIFT_BLOCKS",
+    "MIN_ROUTING_ATTEMPTS",
+    "MIN_VALIDATION_POINTS",
     "REQUIRED_METRICS",
     "TASK",
     "TASK_VERSION",
@@ -94,9 +108,9 @@ __all__ = [
 
 #: Stamped into ``software.generator`` and ``protocol.task_version``; bump when the shape
 #: of what this writes changes.
-GENERATOR = "yazses.eyeeval.gaze_field/1.0"
+GENERATOR = "yazses.eyeeval.gaze_field/1.1"
 TASK = "gaze_field_measurement"
-TASK_VERSION = "1.0"
+TASK_VERSION = "1.1"
 
 #: Confidence is binned, not recorded as a series. Ten bins of width 0.1 over 0..1.
 CONFIDENCE_BINS = 10
@@ -111,6 +125,16 @@ _LABEL_CHARS = frozenset("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ01
 _LABEL_MAX = 48
 
 _MISSING_DEFAULT = "not_measured"
+
+#: PROVISIONAL reporting floors (see the module docstring, ``sufficiency``). Not measured
+#: from anything and not a power calculation: a default 9-point pass clears the first two,
+#: and a one-point or three-attempt report clears none. Change them with field evidence
+#: (#104), and bump ``TASK_VERSION`` when you do.
+MIN_VALIDATION_POINTS = 5
+MIN_CONFIDENCE_SAMPLES = 30
+MIN_ROUTING_ATTEMPTS = 20
+#: Drift is a *change* between time blocks, so one block cannot show it.
+MIN_DRIFT_BLOCKS = 2
 
 
 def _missing(reason: str = _MISSING_DEFAULT) -> dict[str, Any]:
@@ -248,6 +272,19 @@ class MeasurementSession:
         self._below = 0
         self._points: list[PointError] = []
         self._duration_s = 0.0
+        self._confidence_unavailable = False
+
+    def mark_confidence_unavailable(self) -> None:
+        """The backend gives no per-sample confidence (L2CS returns a bare angle pair).
+
+        Recorded so the report says *not supported* instead of printing an empty histogram
+        that reads as "confidence was always zero", and never as a confidence of 1.0.
+        """
+        self._confidence_unavailable = True
+
+    @property
+    def confidence_samples(self) -> int:
+        return self._n
 
     @property
     def confidence_min(self) -> float:
@@ -288,12 +325,13 @@ class MeasurementSession:
 
     def confidence_block(self) -> dict[str, Any]:
         if self._n == 0:
+            why = "not_supported" if self._confidence_unavailable else _MISSING_DEFAULT
             return {
                 "samples": 0,
-                "mean": _missing(),
-                "min": _missing(),
-                "max": _missing(),
-                "below_threshold_fraction": _missing(),
+                "mean": _missing(why),
+                "min": _missing(why),
+                "max": _missing(why),
+                "below_threshold_fraction": _missing(why),
                 "threshold": self._confidence_min,
                 "histogram": [0] * CONFIDENCE_BINS,
             }
@@ -347,6 +385,63 @@ class MeasurementSession:
         ]
 
 
+    def sufficiency_block(self, routing: RoutingCounts, block_s: float) -> dict[str, Any]:
+        """Whether there is enough data for the figures to mean anything. See the docstring."""
+        points = len(self._points)
+        blocks = len(self.drift_blocks(block_s))
+        attempts = routing.attempts
+        statements: list[str] = []
+
+        def floor(n: int | None, minimum: int) -> dict[str, Any]:
+            return {
+                "n": _missing() if n is None else n,
+                "minimum": minimum,
+                "enough": n is not None and n >= minimum,
+            }
+
+        if points == 0:
+            statements.append(
+                "No validation point was measured, so there is no calibration error to report."
+            )
+        elif points < MIN_VALIDATION_POINTS:
+            statements.append(
+                f"Only {points} validation point(s) (at least {MIN_VALIDATION_POINTS} wanted): "
+                "treat the error figures as indicative only."
+            )
+        if self._n == 0:
+            statements.append(
+                "This backend reports no per-sample confidence, so no confidence "
+                "distribution exists."
+                if self._confidence_unavailable
+                else "No gaze sample was received, so there is no confidence distribution."
+            )
+        elif self._n < MIN_CONFIDENCE_SAMPLES:
+            statements.append(
+                f"Only {self._n} confidence sample(s) (at least {MIN_CONFIDENCE_SAMPLES} "
+                "wanted): the confidence summary is indicative only."
+            )
+        if attempts is None:
+            statements.append("Routing was not counted, so no routing rate is reported.")
+        elif attempts < MIN_ROUTING_ATTEMPTS:
+            statements.append(
+                f"Only {attempts} routing attempt(s) (at least {MIN_ROUTING_ATTEMPTS} wanted): "
+                "the routing rates are indicative only."
+            )
+        if blocks < MIN_DRIFT_BLOCKS:
+            statements.append(
+                f"{blocks} time block(s) with data (at least {MIN_DRIFT_BLOCKS} needed): "
+                "drift cannot be assessed from this session."
+            )
+        return {
+            "provisional": True,
+            "validation_points": floor(points, MIN_VALIDATION_POINTS),
+            "confidence_samples": floor(self._n, MIN_CONFIDENCE_SAMPLES),
+            "routing_attempts": floor(attempts, MIN_ROUTING_ATTEMPTS),
+            "drift_blocks": floor(blocks, MIN_DRIFT_BLOCKS),
+            "statements": statements,
+        }
+
+
 # --------------------------------------------------------------------------- #
 # Collecting a validation pass (I/O-agnostic, like gaze.calibrate.collect_samples)
 # --------------------------------------------------------------------------- #
@@ -370,30 +465,70 @@ def collect_validation(
     calibration to a screen point whose distance from the target is the error. A target with
     no usable sample contributes nothing — no point, not a zero-error point.
 
-    *backend* needs ``estimate_sample()`` returning an object with ``x``/``y``/``confidence``
-    (or ``None``); *calibration* needs ``predict(x, y)``. Both are duck-typed so the pass runs
-    against fakes.
+    *backend* is read through ``estimate_sample()`` (an object with ``x``/``y``/``confidence``)
+    when it has one -- the MediaPipe backend does -- and through the ``GazeBackend`` protocol's
+    plain ``estimate()`` (a bare ``(yaw, pitch)``) when it does not -- the L2CS backend
+    does not, and calling ``estimate_sample`` on it would end a tester's session with an
+    ``AttributeError`` after every target was already looked at. Such a backend reports no
+    confidence, and the session says so (a *not supported* marker); a confidence is never
+    invented for it. *calibration* needs ``predict(x, y)``. Both are duck-typed so the pass
+    runs against fakes.
+
+    A sample whose numbers are not finite, or whose confidence is outside 0..1, is a backend
+    fault and is skipped like a no-face read: one such frame must not abort the pass, and
+    must not become a NaN error figure either.
     """
+    sampler = getattr(backend, "estimate_sample", None)
+    if sampler is None:
+        session.mark_confidence_unavailable()
     produced = 0
     for label, xy in targets:
         before_point(label, xy)
         xs: list[float] = []
         ys: list[float] = []
         for _ in range(per_point):
-            sample = backend.estimate_sample()
-            if sample is None:
+            read = _read_sample(backend, sampler)
+            if read is None:
                 continue
-            session.record_confidence(sample.confidence)
-            xs.append(sample.x)
-            ys.append(sample.y)
+            x, y, confidence = read
+            if confidence is not None:
+                session.record_confidence(confidence)
+            xs.append(x)
+            ys.append(y)
         if not xs:
             continue
         px, py = calibration.predict(sum(xs) / len(xs), sum(ys) / len(ys))
-        session.record_point(
-            PointError(t_s=clock() - started_at, error_px=math.hypot(px - xy[0], py - xy[1]))
-        )
+        error = math.hypot(px - xy[0], py - xy[1])
+        if not math.isfinite(error):
+            continue  # a calibration that predicts NaN measured nothing: no point, not a zero
+        session.record_point(PointError(t_s=clock() - started_at, error_px=error))
         produced += 1
     return produced
+
+
+def _read_sample(backend: Any, sampler: Any) -> tuple[float, float, float | None] | None:
+    """One usable ``(x, y, confidence-or-None)`` from *backend*, or ``None``."""
+    if sampler is not None:
+        sample = sampler()
+        if sample is None:
+            return None
+        x, y, confidence = sample.x, sample.y, sample.confidence
+    else:
+        point = backend.estimate()
+        if point is None:
+            return None
+        x, y = point
+        confidence = None
+    try:
+        x, y = float(x), float(y)
+        conf = None if confidence is None else float(confidence)
+    except (TypeError, ValueError):
+        return None
+    if not (math.isfinite(x) and math.isfinite(y)):
+        return None
+    if conf is not None and not (math.isfinite(conf) and 0.0 <= conf <= 1.0):
+        return None
+    return x, y, conf
 
 
 # --------------------------------------------------------------------------- #
@@ -486,6 +621,7 @@ def build_report(
                 "block_s": block_s,
                 "drift_blocks": session.drift_blocks(block_s),
             },
+            "sufficiency": session.sufficiency_block(counts, block_s),
             "environment": {
                 "glasses": env.glasses,
                 "lighting": env.lighting,
@@ -521,6 +657,10 @@ REQUIRED_METRICS: dict[str, tuple[str, ...]] = {
     ),
     "session": ("duration_s", "block_s", "drift_blocks"),
     "environment": ("glasses", "lighting", "viewing_distance_cm", "camera_label"),
+    "sufficiency": (
+        "provisional", "validation_points", "confidence_samples", "routing_attempts",
+        "drift_blocks", "statements",
+    ),
 }
 
 
@@ -547,6 +687,7 @@ def report_problems(doc: Any) -> list[str]:
         histogram = confidence.get("histogram")
         if not (isinstance(histogram, list) and len(histogram) == CONFIDENCE_BINS):
             problems.append(f"metrics.confidence.histogram: expected {CONFIDENCE_BINS} bins.")
+    problems += _sufficiency_problems(metrics)
     environment = metrics.get("environment")
     if isinstance(environment, dict):
         if environment.get("glasses") not in GLASSES:
@@ -554,6 +695,52 @@ def report_problems(doc: Any) -> list[str]:
         if environment.get("lighting") not in LIGHTING:
             problems.append(f"metrics.environment.lighting: expected one of {LIGHTING}.")
     return problems
+
+
+def _sufficiency_problems(metrics: dict[str, Any]) -> list[str]:
+    """``enough`` must follow from ``n`` and ``minimum``, and ``n`` from the metrics beside it.
+
+    A report that says it has enough data while its own numbers show otherwise is the exact
+    thing this block exists to prevent, so the validator checks the claim rather than the
+    shape.
+    """
+    block = metrics.get("sufficiency")
+    if not isinstance(block, dict):
+        return []
+    out: list[str] = []
+    def group(name: str) -> dict[str, Any]:
+        found = metrics.get(name)
+        return found if isinstance(found, dict) else {}
+
+    cal, conf, routing, session = (
+        group("calibration"), group("confidence"), group("routing"), group("session")
+    )
+    expected = {
+        "validation_points": cal.get("validation_points"),
+        "confidence_samples": conf.get("samples"),
+        "routing_attempts": routing.get("attempts"),
+        "drift_blocks": (
+            len(session["drift_blocks"]) if isinstance(session.get("drift_blocks"), list) else None
+        ),
+    }
+    for key, observed in expected.items():
+        entry = block.get(key)
+        if not isinstance(entry, dict):
+            continue  # already reported as a missing field
+        n, minimum, enough = entry.get("n"), entry.get("minimum"), entry.get("enough")
+        count = n if isinstance(n, int) and not isinstance(n, bool) else None
+        if isinstance(observed, dict):
+            observed = None  # a missing marker in the metric is a missing n here
+        if count != observed:
+            out.append(f"metrics.sufficiency.{key}.n: does not match the figure it summarises.")
+        want = count is not None and isinstance(minimum, int) and count >= minimum
+        if enough is not want:
+            out.append(f"metrics.sufficiency.{key}.enough: contradicts n and minimum.")
+    if not isinstance(block.get("statements"), list) or not all(
+        isinstance(x, str) for x in block.get("statements", [])
+    ):
+        out.append("metrics.sufficiency.statements: expected a list of sentences.")
+    return out
 
 
 def render_markdown(doc: dict[str, Any]) -> str:
@@ -564,6 +751,7 @@ def render_markdown(doc: dict[str, Any]) -> str:
     routing = metrics.get("routing", {})
     session = metrics.get("session", {})
     env = metrics.get("environment", {})
+    sufficiency = metrics.get("sufficiency", {})
 
     def show(value: Any, unit: str = "") -> str:
         if isinstance(value, dict) and "reason" in value:
@@ -599,6 +787,15 @@ def render_markdown(doc: dict[str, Any]) -> str:
         f"- Context: glasses {env.get('glasses')}, lighting {env.get('lighting')}, "
         f"distance {show(env.get('viewing_distance_cm'), ' cm')}, camera {show(env.get('camera_label'))}"
     )
+    statements = sufficiency.get("statements", [])
+    if statements:
+        lines.append("- **Not enough data for a finding** (provisional floors, not statistics):")
+        lines += [f"  - {sentence}" for sentence in statements]
+    else:
+        lines.append(
+            "- Sample size: above the provisional reporting floors "
+            "(a floor is not a statistical power claim)"
+        )
     lines += [
         "",
         "Derived numbers only: no frames, landmarks, screenshots, text or window titles.",

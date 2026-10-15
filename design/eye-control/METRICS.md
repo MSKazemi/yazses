@@ -155,6 +155,26 @@ Session:
 Never report one generic "gaze accuracy %" without defining whether it means coordinate error,
 correct-window rate, or tracker availability.
 
+### Gaze field-measurement report (`yazses gaze measure`, #399)
+
+The report a tester attaches to #104. Envelope as above; `feature.name = "gaze"`,
+`protocol.task = "gaze_field_measurement"`, `protocol.task_version = "1.1"`. The authoritative
+list is `REQUIRED_METRICS` in `src/yazses/eyeeval/gaze_field.py`, which the validator enforces; a
+golden file (`tests/fixtures/gaze_field_report/full_session.json`) pins the whole document.
+
+| Group | Keys | Notes |
+|---|---|---|
+| `calibration` | `source`, `age_s`, `topology_validity`, `validation_points`, `error_px_rmse`, `error_px_mean`, `error_px_max`, `error_deg_mean`, `implicit_candidate_delta_px` | Coordinate error. Degrees only with screen size and viewing distance. `topology_validity` is `unverified` when the layout could not be re-read after the pass; a layout that changed during the pass writes no report. |
+| `confidence` | `samples`, `mean`, `min`, `max`, `below_threshold_fraction`, `threshold`, `histogram` | Availability/quality signal; a ten-bin histogram, never a time series. A backend that reports no per-sample confidence (L2CS) gives `reason: not_supported`, not a value. |
+| `routing` | `attempts`, `gaze_routed`, `fallback_no_route`, `wrong_target_corrections`, `wrong_target_rate`, `fallback_rate` | Window-level outcome, tester-counted; missing when not counted. |
+| `session` | `duration_s`, `block_s`, `drift_blocks` | Mean error per time block; blocks with no point are omitted, not zero. |
+| `environment` | `glasses`, `lighting`, `viewing_distance_cm`, `camera_label` | Volunteered; `not_stated` when omitted. |
+| `sufficiency` | `provisional`, `validation_points`, `confidence_samples`, `routing_attempts`, `drift_blocks` (each `{n, minimum, enough}`), `statements` | Says in the document when there is too little data to mean anything. The minimums are **provisional reporting floors** (5 points, 30 confidence samples, 20 routing attempts, 2 time blocks): they stop a one-point report reading as a finding and are not a power calculation. Unmeasured, to be revised with field evidence (#104). |
+
+Never exported: frames, face meshes or landmarks, screenshots, dictated or typed text, window
+titles, identity. There is no field for any of them, and the document is swept for home paths,
+e-mail addresses and the machine's own hostname and login before it is written.
+
 ## Head-Pointer metrics
 
 Per target/trial:
