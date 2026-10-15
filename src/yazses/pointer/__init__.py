@@ -19,6 +19,7 @@ ship for it is the vocabulary a recorder speaks, :mod:`yazses.pointer.actions`, 
 backend outside this repository can use the suite without importing the test tree.
 """
 
+from yazses.pointer.actions import PointerAction, PointerActionKind
 from yazses.pointer.base import (
     REQUIRED_BUTTONS,
     PointerBackendError,
@@ -31,6 +32,8 @@ from yazses.pointer.base import (
 
 __all__ = [
     "REQUIRED_BUTTONS",
+    "PointerAction",
+    "PointerActionKind",
     "PointerBackendError",
     "PointerButton",
     "PointerCapabilities",
