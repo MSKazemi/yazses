@@ -17,6 +17,11 @@ Two pieces, and the split is deliberate:
 when the tool is absent, and the caller then reports an *unverified* calibration rather
 than a stale one -- not being able to read the layout is not evidence that it changed.
 
+**Origin.** ``xrandr`` positions are framebuffer coordinates -- the same space ``xdotool``
+window rectangles are in -- so they are never negative on a real X server and the primary
+need not sit at ``+0+0``. This provider reports them as they are; see
+:mod:`yazses.gaze.topology` for why they are not shifted to a primary-relative origin.
+
 **Known limitation, stated rather than faked.** X11's framebuffer coordinates already are
 the logical space applications see, and ``xrandr`` exposes no per-output HiDPI factor that
 means what Wayland/macOS/Windows mean by "scale". So this provider reports ``scale=1.0``
@@ -24,6 +29,12 @@ for every output. The *model* carries scale, the fixtures exercise non-1.0 value
 Wayland/macOS/Windows provider can fill it in; inventing a number here from the physical
 millimetre size would produce a fingerprint that flickers with a monitor's EDID rather
 than with anything the user changed.
+
+**Not verified, and not claimed.** A ``xrandr --scale``/``--transform`` (the usual X11 HiDPI
+workaround) changes how a panel's pixels map into the framebuffer without changing the mode
+``--query`` prints. This module has not been run against a multi-output server with such a
+transform, so whether that change moves the fingerprint is unknown; do not read a VALID
+verdict as covering it.
 """
 from __future__ import annotations
 
@@ -49,6 +60,9 @@ log = logging.getLogger(__name__)
 _OUTPUT_RE = re.compile(
     r"^(?P<name>\S+)\s+connected\s+(?P<primary>primary\s+)?"
     r"(?P<w>\d+)x(?P<h>\d+)(?P<x>[+-]\d+)(?P<y>[+-]\d+)"
+    # The current rotation is printed bare right after the geometry; the parenthesised
+    # list that follows it names what the output *supports*, which is not what it is doing.
+    r"(?:\s+(?P<rot>normal|left|inverted|right)\b)?"
 )
 
 
@@ -84,6 +98,10 @@ def parse_xrandr(text: str) -> DisplayTopology:
                     height=int(m.group("h")),
                     scale=1.0,
                     primary=bool(m.group("primary")),
+                    # xrandr already prints the *rotated* width and height, so the
+                    # geometry is in the space applications see; the word is kept only
+                    # because left/right and normal/inverted are the same rectangle.
+                    rotation=m.group("rot") or "normal",
                 )
             )
         except ValueError:

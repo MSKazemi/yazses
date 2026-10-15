@@ -16,13 +16,33 @@ the calibration *stale* rather than rescaling it into a guess.
 One space, named :data:`CANONICAL_SPACE`, is used for calibration targets, gaze points and
 window rectangles alike:
 
-    **Logical (device-independent) pixels in the virtual-desktop coordinate system,
-    with the origin at the top-left of the primary display.**
+    **The platform's own virtual-desktop coordinate system, in the units applications and
+    the window manager report geometry in -- never converted, never re-origined.**
 
-Two consequences, both of which the fixtures exercise:
+Which is a different thing on each platform, and the difference is the part that bites:
 
-* a monitor placed to the left of or above the primary one has a **negative** origin, and
-  every comparison here is written to allow it -- `min()` over origins, never `abs()`;
+* **X11 (the only platform gaze routing runs on today):** the X root window. Its origin is
+  the top-left of the *framebuffer*, so it is **not** the primary display and no coordinate
+  is ever negative -- a monitor to the left of the primary one has the *smaller* x (often
+  ``+0``) and the primary sits at ``+1920+0``. ``xrandr`` and ``xdotool`` both speak this
+  space, which is exactly why a topology from one can be compared with window rectangles
+  from the other. X11 has no HiDPI factor in its coordinates (``GDK_SCALE``/``Xft.dpi``
+  change what applications draw, not what the server reports), so one unit is one
+  framebuffer pixel and ``scale`` is 1.0 here.
+* **macOS / Windows (no topology provider yet):** the main display's top-left is the
+  origin, a monitor to its left or above has a negative origin, and the unit is the
+  logical point / DPI-virtualised pixel the OS reports.
+
+Inventing one primary-origin space and shifting X11 into it would make ``xrandr`` disagree
+with every ``xdotool`` window rectangle, so it is deliberately not done. The space is
+*named* so that a future change of meaning is a detectable change; do not rename it
+without a migration -- the name is part of every stored fingerprint.
+
+Consequences, all of which the fixtures exercise:
+
+* where the OS origin is the main display, a monitor placed to the left of or above it has
+  a **negative** origin, and every comparison here is written to allow it -- `min()` over
+  origins, never `abs()`;
 * **HiDPI is explicit.** A display carries a ``scale`` (1.0, 1.25, 2.0 ...). Canonical
   coordinates are logical, so a 2.0-scale 3840x2160 panel occupies a 1920x1080 canonical
   rectangle. :meth:`Display.to_physical` and :meth:`Display.from_physical` are the only
@@ -95,6 +115,12 @@ class Display:
     height: int
     scale: float = 1.0
     primary: bool = False
+    #: ``normal`` | ``left`` | ``right`` | ``inverted``. Geometry cannot tell ``left`` from
+    #: ``right`` (same width and height) or ``normal`` from ``inverted`` (same rectangle),
+    #: yet each puts the physical screen somewhere else relative to the camera, so a
+    #: calibration made in one is wrong in the other. The default is what a file that
+    #: predates the field read as, so such a file keeps its fingerprint.
+    rotation: str = "normal"
 
     def __post_init__(self) -> None:
         if self.width <= 0 or self.height <= 0:
@@ -139,6 +165,7 @@ class Display:
             "h": self.height,
             "scale": round(float(self.scale), 6),
             "primary": bool(self.primary),
+            "rotation": self.rotation,
         }
 
     @classmethod
@@ -154,12 +181,14 @@ class Display:
             height=int(raw["h"]),
             scale=float(raw.get("scale", 1.0)),
             primary=bool(raw.get("primary", False)),
+            rotation=str(raw.get("rotation", "normal")),
         )
 
     def describe(self) -> str:
         """One-line human description, e.g. ``HDMI-1 1920x1080+0+0 @2.0x``."""
         scale = "" if self.scale == 1.0 else f" @{self.scale:g}x"
-        return f"{self.identifier} {self.width}x{self.height}{self.x:+d}{self.y:+d}{scale}"
+        turned = "" if self.rotation == "normal" else f" rotated {self.rotation}"
+        return f"{self.identifier} {self.width}x{self.height}{self.x:+d}{self.y:+d}{scale}{turned}"
 
 
 @dataclass(frozen=True)
@@ -339,8 +368,12 @@ def describe_changes(stored: CalibrationContext, current: CalibrationContext) ->
             changes.append(
                 f"monitor {ident} moved {old.x:+d}{old.y:+d} -> {new.x:+d}{new.y:+d}"
             )
-        if old.scale != new.scale:
+        # Rounded exactly as as_dict() rounds it, so a change this reports is one the
+        # fingerprint saw, and a difference the fingerprint cannot see is never reported.
+        if round(float(old.scale), 6) != round(float(new.scale), 6):
             changes.append(f"monitor {ident} changed scale {old.scale:g}x -> {new.scale:g}x")
+        if old.rotation != new.rotation:
+            changes.append(f"monitor {ident} was rotated {old.rotation} -> {new.rotation}")
 
     old_primary = stored.topology.primary
     new_primary = current.topology.primary
@@ -394,10 +427,18 @@ def check_context(
             "so it cannot be checked against this desktop; recalibrate to bind it",
         )
     if current is None or not current.topology.known:
+        # "Unknown layout" is a state, not a guess: no monitor was invented or removed to
+        # fill the gap. Which of the two reasons applies matters to the reader -- a map
+        # bound to a known layout that can no longer be read is the one worth a second look.
+        bound = (
+            "this calibration is bound to a known layout but "
+            if stored.topology.known
+            else ""
+        )
         return ContextCheck(
             Validity.UNVERIFIED,
-            "the current display layout could not be read, so the calibration could not be "
-            "checked against it",
+            f"the current display layout is unknown (it could not be read on this system), "
+            f"so {bound}the calibration could not be checked against it",
         )
     if not stored.topology.known:
         return ContextCheck(
@@ -406,7 +447,16 @@ def check_context(
             "this desktop; recalibrate to bind it",
         )
     if stored.fingerprint() == current.fingerprint():
-        return ContextCheck(Validity.VALID, "the screen layout and camera are unchanged")
+        if stored.camera_width and stored.camera_height:
+            return ContextCheck(Validity.VALID, "the screen layout and camera are unchanged")
+        # Said plainly rather than implied: a capture size of 0x0 means nobody recorded
+        # one, so "the camera is unchanged" would claim a comparison that never happened.
+        return ContextCheck(
+            Validity.VALID,
+            "the screen layout is unchanged (the camera is identified by index only; "
+            "its capture size was not recorded, so a swapped device on the same index "
+            "is not detected)",
+        )
 
     changes = describe_changes(stored, current)
     if not changes:
@@ -418,6 +468,34 @@ def check_context(
         "the calibration was made on a different setup: " + "; ".join(changes),
         changes,
     )
+
+
+def settle_context(
+    started: CalibrationContext | None,
+    finished: CalibrationContext | None,
+) -> tuple[CalibrationContext | None, ContextCheck]:
+    """Pick the context a freshly measured calibration may be bound to. Pure.
+
+    A calibration wizard takes minutes. The desktop is read at its start and again at its
+    end, because stamping the *end* state on samples taken during the *start* state (what
+    reading only once, afterwards, does) turns a monitor plugged in mid-wizard into a
+    perfectly VALID-looking map of a layout it never measured -- the one outcome the whole
+    context exists to prevent, produced by the code that creates the context.
+
+    Returns ``(context to store, verdict on the run)``:
+
+    * the two reads agree -> the start context, VALID;
+    * the two reads are both known and differ -> the start context and a STALE verdict;
+      the caller must **not** save, because no single layout produced those samples;
+    * either read is unknown -> UNVERIFIED, and the context is whichever read exists,
+      preferring the start one (it is the layout the first samples were taken on).
+    """
+    check = check_context(started, finished)
+    if check.stale:
+        return started, check
+    if started is not None and started.topology.known:
+        return started, check
+    return (finished if finished is not None else started), check
 
 
 class SessionTopologyGuard:

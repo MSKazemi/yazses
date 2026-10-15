@@ -5509,11 +5509,13 @@ def gaze_calibrate(
         collect_samples,
         default_targets,
         fit_calibration,
+        targets_on_displays,
     )
     from yazses.gaze.desktop import build_desktop, unavailable_reason
-    from yazses.gaze.display import current_context
+    from yazses.gaze.display import build_topology_provider, current_context
     from yazses.gaze.factory import build_gaze
     from yazses.gaze.store import save_calibration
+    from yazses.gaze.topology import settle_context
     from yazses.system.features import find_feature
 
     platform = get_platform()
@@ -5553,7 +5555,17 @@ def gaze_calibrate(
     assert desktop is not None  # calibration_blocker refused a None desktop above
 
     width, height = desktop.screen_size()
-    targets = default_targets(width, height, cfg.gaze.calibration_points)
+    # Read the layout NOW, before any sample is taken (ADR-v2-149): the wizard runs for
+    # minutes, and the context stored with the map must be the one the samples were
+    # measured on, not whatever the desktop looks like when the last prompt is answered.
+    provider = build_topology_provider()
+    started = current_context(camera_id=str(cfg.gaze.camera_index), provider=provider)
+    # Targets must be on a screen. With a known layout they are placed on the real
+    # displays (a union of unequal monitors has corners with no pixels in them); with an
+    # unknown one the desktop's reported size is all there is, exactly as before.
+    targets = targets_on_displays(started.topology, cfg.gaze.calibration_points) or default_targets(
+        width, height, cfg.gaze.calibration_points
+    )
     typer.echo(
         f"Gaze backend '{backend.name}' ready — {len(targets)} points on a "
         f"{width}x{height} screen.\nLook at each point and press Enter (hold your gaze steady).\n"
@@ -5582,7 +5594,17 @@ def gaze_calibrate(
     # Bind the map to the desktop it was measured on (ADR-v2-149). Without this the
     # coefficients cannot be told apart from ones fitted on a different monitor
     # arrangement, which is the failure that misroutes dictation silently.
-    context = current_context(camera_id=str(cfg.gaze.camera_index))
+    finished = current_context(camera_id=str(cfg.gaze.camera_index), provider=provider)
+    context, run_check = settle_context(started, finished)
+    if run_check.stale:
+        # No single layout produced these samples, so no context can honestly be stored
+        # with the map. Refuse to save rather than bind it to either layout.
+        typer.echo(
+            "The screen layout changed while you were calibrating, so nothing was saved: "
+            f"{run_check.reason}.\n  Run `yazses gaze calibrate` again once the layout is settled.",
+            err=True,
+        )
+        raise typer.Exit(1)
     path = save_calibration(cal, platform.paths.data_dir, context)
     typer.echo(
         f"\n✓ Calibrated on {len(samples)}/{len(targets)} points → {path}\n"
@@ -5717,6 +5739,7 @@ def gaze_rollback() -> None:
     and removed by the next `yazses gaze calibrate`). Restart the daemon afterwards so the
     running process loads it: `yazses restart`.
     """
+    from yazses.config import load_config
     from yazses.gaze.store import CalibrationWriteError, rollback_calibration
 
     platform = get_platform()
@@ -5732,6 +5755,24 @@ def gaze_rollback() -> None:
         "✓ Restored the previous calibration (it was an "
         f"{record.source} one). Run `yazses restart` so the daemon loads it."
     )
+    # A restored file is judged exactly like any other on the next start (ADR-v2-149), but
+    # saying "restored" and nothing else lets the user restart into a calibration that is
+    # refused, and wonder why. Tell them now, with the reason the daemon will log.
+    from yazses.gaze.display import current_context
+    from yazses.gaze.topology import Validity, check_context
+
+    cfg = load_config(platform.paths.config_file)
+    verdict = check_context(
+        record.context, current_context(camera_id=str(cfg.gaze.camera_index))
+    )
+    if verdict.validity is Validity.STALE:
+        typer.echo(
+            f"  But it will not be used: {verdict.reason}.\n"
+            "  Run `yazses gaze calibrate` to measure this setup.",
+            err=True,
+        )
+    elif verdict.validity is Validity.UNVERIFIED:
+        typer.echo(f"  Note: it could not be checked against this desktop — {verdict.reason}.")
 
 
 @gaze_app.command(

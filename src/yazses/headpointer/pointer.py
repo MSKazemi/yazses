@@ -34,6 +34,13 @@ class PointerCalib:
     second and cannot be switched off -- a head that is turned far, or a pose estimate that
     glitches, can never ask for more than the cap.
 
+    **"Pointer units" are a backend's units, not pixels.** One unit is a framebuffer pixel on
+    X11, a logical point on macOS, a mouse count (subject to the user's pointer-speed setting)
+    on Windows and a compositor-defined logical pixel on the Wayland portal -- see
+    ``PointerCapabilities.motion_unit``. So "cross a 1920-unit screen" below is a statement
+    about a 1920-wide desktop, not about every display; on a 3840-wide X11 desktop the same
+    caps take twice as long.
+
     **Every default here is provisional and unmeasured.** The caps are first-principles safety
     limits (cross a 1920-unit screen in a few seconds, a 1080-unit one in under two); the gains
     are chosen so a 0.3 rad turn, a comfortable one, runs at about half the cap. None comes

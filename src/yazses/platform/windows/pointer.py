@@ -20,9 +20,10 @@ makes a failure report a real Win32 error code instead of zero.
 
 **What this backend reports, and why it is not everything.**
 
-* Relative motion — `MOUSEEVENTF_MOVE` takes a signed integer delta, and Microsoft's
-  `MOUSEINPUT` page calls it "the number of pixels moved". **It is not 1:1 on a real
-  desktop:** the same page's Remarks say relative motion "is subject to the effects of the
+* Relative motion — `MOUSEEVENTF_MOVE` takes a signed integer delta, which this backend
+  sends as whole units and declares as `MotionUnit.DEVICE_COUNT`, not a screen pixel; per-monitor
+  DPI does not scale it. Microsoft's `MOUSEINPUT` page calls it "the number of pixels moved".
+  **It is not 1:1 on a real desktop:** the same page's Remarks say relative motion "is subject to the effects of the
   mouse speed and the two-mouse threshold values" and can be multiplied "up to four
   times" (https://learn.microsoft.com/en-us/windows/win32/api/winuser/ns-winuser-mouseinput).
   Those are the user's Pointer Speed / "Enhance pointer precision" settings, so the same
@@ -79,6 +80,7 @@ from yazses.platform.windows.injector import (
     _load_user32,
 )
 from yazses.pointer.base import (
+    MotionUnit,
     PointerBackendError,
     PointerButton,
     PointerCapabilities,
@@ -136,6 +138,7 @@ WINDOWS_POINTER_CAPABILITIES = PointerCapabilities(
     buttons=frozenset(PointerButton),
     scroll_vertical=True,
     scroll_horizontal=True,
+    motion_unit=MotionUnit.DEVICE_COUNT,
 )
 
 

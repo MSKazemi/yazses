@@ -51,6 +51,7 @@ from yazses.gaze.topology import (
     CANONICAL_SPACE,
     CalibrationContext,
     ContextCheck,
+    Validity,
     check_context,
 )
 
@@ -113,6 +114,11 @@ class CalibrationRecord:
     saved_at: str = ""
     #: The evidence the map was promoted on; ``None`` for an explicit calibration.
     refinement: RefinementInfo | None = None
+    #: True when the file *has* a ``context`` entry that could not be read. Distinct from
+    #: ``context is None`` on a legacy file, which never had one: telling the user "saved
+    #: before YazSes recorded which screens it was made on" about a file that did record
+    #: them would be false, and would hide that something damaged the binding.
+    context_unreadable: bool = False
 
 
 def calibration_path(data_dir: Path) -> Path:
@@ -311,12 +317,14 @@ def _parse(data: bytes) -> CalibrationRecord | None:
     if A.shape != (2, 3):
         return None
     context = None
+    context_unreadable = False
     stored = raw.get("context") if isinstance(raw, dict) else None
     if stored is not None:
         try:
             context = CalibrationContext.from_dict(stored)
         except (ValueError, KeyError, TypeError):
             context = None
+            context_unreadable = True
     source = raw.get("source") if isinstance(raw, dict) else None
     saved_at = raw.get("saved_at") if isinstance(raw, dict) else None
     refinement = None
@@ -333,6 +341,7 @@ def _parse(data: bytes) -> CalibrationRecord | None:
         source=SOURCE_IMPLICIT if source == SOURCE_IMPLICIT else SOURCE_EXPLICIT,
         saved_at=saved_at if isinstance(saved_at, str) else "",
         refinement=refinement,
+        context_unreadable=context_unreadable,
     )
 
 
@@ -349,4 +358,12 @@ def calibration_state(
     record = load_calibration_record(data_dir)
     stored = record.context if record is not None else None
     check = check_context(stored, current)
+    if record is not None and record.context_unreadable:
+        # Still UNVERIFIED (losing the binding is a smaller harm than losing the map), but
+        # the reason must be the true one: the binding existed and is damaged.
+        check = ContextCheck(
+            Validity.UNVERIFIED,
+            "the screen layout recorded with this calibration is damaged or unreadable, so "
+            "it cannot be checked against this desktop; recalibrate to bind it",
+        )
     return (record.calibration if record is not None else None), check

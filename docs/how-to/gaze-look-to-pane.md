@@ -71,6 +71,12 @@ press Enter.** Keep your head fairly still and your face well-lit and centred in
 the webcam. YazSes needs a face on **at least 3 of the 9** points; it saves the
 result to `~/.local/share/yazses/gaze_calibration.json`.
 
+> **Plug in, unplug or rotate nothing while it runs.** The calibration is saved together
+> with the screen layout it was measured on (positions, sizes, rotation and which camera).
+> If the layout changes while you are calibrating, nothing is saved and the command says
+> what moved; run it again once the desk is settled. The nine points are placed on your
+> real screens, so with two monitors of different sizes none lands in empty space.
+
 > **Important — one webcam at a time.** Stop the daemon before calibrating.
 > If the daemon (or any other app, like a video call) is using the camera, you
 > will see `can't open camera by index` and `0 point(s) captured a face`. Close
@@ -98,6 +104,15 @@ Glance-Type (look-to-pane) status:
 
 Ready — dictation will land in the window you look at.
 ```
+
+If you later dock, undock, rotate or re-arrange a monitor, change its resolution, or switch
+camera, the status line `calibration matches this desktop` turns to `[stale]` and names what
+changed; routing stays off (dictation stays in the focused window) until you run
+`yazses gaze calibrate` again. `[unverified]` means the layout could not be read (or the
+calibration is older than this check): routing keeps working, and nothing was compared.
+`yazses gaze rollback` tells you the same about the calibration it restores. The camera is
+identified by its index only, so swapping a different webcam onto the same index is not
+detected.
 
 Every line must be a `✓`. If one is `✗`, the message tells you the next step.
 

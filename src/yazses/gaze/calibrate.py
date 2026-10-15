@@ -11,6 +11,8 @@ from typing import Callable
 
 import numpy as np
 
+from yazses.gaze.topology import DisplayTopology
+
 
 def calibration_blocker(*, enabled: bool, desktop_ok: bool, desktop_reason: str = "") -> str | None:
     """Why calibration cannot work here, or ``None`` if it can. Pure.
@@ -98,6 +100,58 @@ def default_targets(width: int, height: int, points: int) -> list[tuple[str, tup
     if points == 4:
         return [grid[0], grid[2], grid[6], grid[8]]
     return [grid[0], grid[2], grid[4], grid[6], grid[8]]  # corners + centre
+
+
+def targets_on_displays(
+    topology: DisplayTopology, points: int
+) -> list[tuple[str, tuple[int, int]]]:
+    """Calibration points that are all *on a screen*, given the real layout. Pure.
+
+    :func:`default_targets` lays a grid over a ``width x height`` rectangle at the origin.
+    That is the whole desktop on one monitor and wrong on several: the union of two
+    monitors of different heights has dead corners with no pixels in them, and a
+    coordinate space whose origin is not ``(0, 0)`` puts every point in the wrong place.
+    Asking someone to "look at the bottom-left of your screen" at a coordinate no panel
+    covers records a sample for a target they could not look at, and the least-squares fit
+    then bends the whole map to honour it.
+
+    So the grid is laid over the union rectangle **at its real origin**, and any point that
+    lands on no display is pulled to the nearest point of the nearest display (the label
+    keeps its meaning: it is still the closest the layout offers). Duplicates created by
+    that are dropped, order kept. An unknown topology returns ``[]`` -- the caller falls
+    back to :func:`default_targets` on the size the desktop reported, rather than this
+    function inventing a rectangle.
+    """
+    bounds = topology.bounds()
+    if bounds is None:
+        return []
+    left, top, width, height = bounds
+    placed: list[tuple[str, tuple[int, int]]] = []
+    seen: set[tuple[int, int]] = set()
+    for label, (gx, gy) in default_targets(width, height, points):
+        x, y = _nearest_on_display(topology, left + gx, top + gy)
+        if (x, y) in seen:
+            continue
+        seen.add((x, y))
+        placed.append((label, (x, y)))
+    return placed
+
+
+def _nearest_on_display(topology: DisplayTopology, x: int, y: int) -> tuple[int, int]:
+    """``(x, y)`` if some display contains it, else the closest point that one does."""
+    if topology.display_at(x, y) is not None:
+        return (x, y)
+    best: tuple[int, int] | None = None
+    best_d2 = -1
+    for d in topology.displays:
+        # `right`/`bottom` are exclusive, so the last pixel is one short of them.
+        cx = min(max(x, d.x), d.right - 1)
+        cy = min(max(y, d.y), d.bottom - 1)
+        d2 = (cx - x) ** 2 + (cy - y) ** 2
+        if best is None or d2 < best_d2:
+            best, best_d2 = (cx, cy), d2
+    assert best is not None  # bounds() was not None, so there is at least one display
+    return best
 
 
 def collect_samples(

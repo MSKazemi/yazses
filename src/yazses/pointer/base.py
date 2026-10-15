@@ -24,14 +24,42 @@ out why, so it is a contract violation here, not an implementation choice.
 Units and signs, because a pointer boundary that leaves them implicit is a boundary that
 every backend interprets differently:
 
-* ``move_relative(dx, dy)`` — a delta in **logical desktop pointer units** (the
-  coordinate space the platform backend itself uses, already scaled for HiDPI by the
-  compositor/server). Feature code does not convert DPI. ``+dx`` is toward the right
-  edge of the desktop, ``+dy`` toward the bottom, which is the sign convention of every
-  desktop coordinate space YazSes targets.
-* ``move_absolute(x, y)`` — a position in the canonical desktop coordinate space, same
-  axes. Optional: capabilities say whether it is safe to use, because multi-monitor and
-  HiDPI make absolute coordinates easy to get wrong.
+* ``move_relative(dx, dy)`` — a delta in **pointer units**, and *what one unit is depends on
+  the backend*. Feature code does not convert DPI, but it must not assume the unit is the
+  same length on the screen everywhere either; each backend states its own in
+  :attr:`PointerCapabilities.motion_unit`:
+
+  ================  ==============================  =====================================
+  backend           one unit is                     what it means on a scaled display
+  ================  ==============================  =====================================
+  ``x11``           one X framebuffer pixel         **not** divided by any HiDPI factor:
+                                                    X11 coordinates have none, so on a
+                                                    2x panel a unit is half a "logical"
+                                                    pixel. (:data:`MotionUnit.FRAMEBUFFER_PIXEL`)
+  ``quartz``        one CoreGraphics point          logical: a unit is 2 physical pixels
+                                                    on a Retina display.
+                                                    (:data:`MotionUnit.LOGICAL_POINT`)
+  ``sendinput``     one mouse "count" (mickey)      neither: Windows runs a relative move
+                                                    through the pointer-speed setting and
+                                                    "enhance pointer precision", and does
+                                                    not apply per-monitor DPI.
+                                                    (:data:`MotionUnit.DEVICE_COUNT`)
+  ``portal``        a compositor logical pixel      whatever the compositor makes of it;
+                                                    the portal specification calls it
+                                                    logical, **unverified** on a real
+                                                    scaled session.
+                                                    (:data:`MotionUnit.COMPOSITOR_LOGICAL`)
+  ================  ==============================  =====================================
+
+  A caller that needs a travel distance in screen terms (Head-Pointer's "cross the screen in
+  N seconds") must therefore scale by the declared unit, not assume it. ``+dx`` is toward
+  the right edge of the desktop, ``+dy`` toward the bottom, which is the sign convention
+  of every desktop coordinate space YazSes targets.
+* ``move_absolute(x, y)`` — a position in the platform's own virtual-desktop space (see
+  :mod:`yazses.gaze.topology` for what that is per platform: X11's origin is the
+  framebuffer's, macOS's and Windows's the main display's). Optional: capabilities say
+  whether it is safe to use, because multi-monitor and HiDPI make absolute coordinates
+  easy to get wrong.
 * ``scroll(dx, dy)`` — a scroll delta in the backend's notch/pixel units, **same signs
   as motion**: ``+dy`` scrolls toward the bottom of the document (what a user calls
   "scrolling down"), ``+dx`` toward its right. Backends whose native axis runs the other
@@ -98,6 +126,21 @@ class PointerBackendError(PointerError):
     """
 
 
+class MotionUnit(str, Enum):
+    """What one unit of ``move_relative`` is on a backend. See the table in the module doc.
+
+    ``UNSPECIFIED`` is the default so a backend (or a test double) that has not declared one
+    is visibly undeclared rather than silently assumed to be logical pixels. Every shipped
+    backend declares a real one; ``tests/test_pointer_units.py`` fails if one stops.
+    """
+
+    UNSPECIFIED = "unspecified"
+    FRAMEBUFFER_PIXEL = "framebuffer-pixel"
+    LOGICAL_POINT = "logical-point"
+    DEVICE_COUNT = "device-count"
+    COMPOSITOR_LOGICAL = "compositor-logical"
+
+
 @dataclass(frozen=True)
 class PointerCapabilities:
     """What one backend can actually do, asked before it is asked to do it.
@@ -114,6 +157,9 @@ class PointerCapabilities:
     buttons: frozenset[PointerButton] = field(default_factory=frozenset)
     scroll_vertical: bool = False
     scroll_horizontal: bool = False
+    #: The length of one ``move_relative`` unit. Defaulted so existing constructions keep
+    #: working; see :class:`MotionUnit`.
+    motion_unit: MotionUnit = MotionUnit.UNSPECIFIED
 
     def supports_button(self, button: PointerButton) -> bool:
         """True if this backend can press and release *button*."""

@@ -40,6 +40,12 @@ Optional:
 Relative movement is expressed in **logical desktop pointer units** as defined by the chosen platform
 backend. Feature code treats values as deltas and does not convert DPI itself.
 
+What a unit *is* differs per backend and is declared in `PointerCapabilities.motion_unit`
+(`src/yazses/pointer/base.py` holds the table): a framebuffer pixel on X11 (no HiDPI factor),
+a logical point on macOS, a mouse count subject to the pointer-speed setting on Windows, and
+a compositor-defined logical pixel on the Wayland portal (specification's claim; unverified
+on a real scaled session).
+
 Absolute coordinates, when supported, use the canonical desktop coordinate space from ADR-v2-149 /
 platform geometry helpers.
 

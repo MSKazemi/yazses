@@ -159,6 +159,25 @@ values, and pin the PRNG to a published SplitMix64 vector. Not changed: `tally` 
 carries an outcome; only the verdict and `check_records` look at identity, so a caller that skips
 `check_records` still gets inflated counts next to a `PARTIAL`.
 
+### Fixed — a calibration could be stamped with a screen layout it was never measured on (#415)
+
+`yazses gaze calibrate` read the screen layout once, *after* the last point, and saved it with the map. The
+wizard takes minutes, so a monitor plugged in halfway through produced a map that looked perfectly valid for a
+layout it had not measured. The layout is now read before the first point and after the last; if they differ
+nothing is saved and the command names what moved. The nine targets are also placed on the real displays
+(two monitors of different heights used to get targets in empty space).
+
+Also in this change, all in the calibration context (ADR-v2-149): a monitor's **rotation** is recorded
+(left/right and normal/inverted are the same rectangle, so size alone could not see them; calibrations saved
+before this keep working on an unrotated desktop); a damaged layout record is reported as damaged instead of
+"saved before YazSes recorded screens"; "unknown layout" is said as such; `yazses gaze rollback` says whether the
+map it restored will be used on this desktop; and `PointerCapabilities.motion_unit` states what one pointer unit
+is per backend (X11 framebuffer pixel, macOS point, Windows mouse count, portal compositor-logical) - the old
+"already scaled for HiDPI" sentence was true of macOS only. Not measured: no multi-monitor, scaled-Wayland, Mac
+or Windows machine was available, so the portal and Windows units are the documentation's claim, not an
+observation, and an `xrandr --scale` change is not known to move the fingerprint. The camera is still identified
+by index only; its capture size is never recorded.
+
 ### Fixed — an unanswered Wayland permission dialog was reported as "keyboard only"
 
 Found by running the daemon on a real GNOME Wayland session (2026-10-15). The portal answers `CreateSession`
