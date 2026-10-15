@@ -192,7 +192,7 @@ def test_a_calibration_saved_before_rotation_existed_is_still_valid_on_an_unrota
         "A": IDENT.A.tolist(),
         "context": modern,
     }
-    calibration_path(tmp_path).write_text(json.dumps(legacy_file))
+    calibration_path(tmp_path).write_text(json.dumps(legacy_file), encoding="utf-8")
     _cal, check = calibration_state(tmp_path, current)
     assert check.validity is Validity.VALID, check.reason
 
@@ -203,7 +203,7 @@ def test_the_same_legacy_file_is_stale_on_a_desktop_that_is_now_rotated(tmp_path
     for entry in modern["topology"]["displays"]:
         entry.pop("rotation")
     calibration_path(tmp_path).write_text(
-        json.dumps({"version": 3, "A": IDENT.A.tolist(), "context": modern})
+        json.dumps({"version": 3, "A": IDENT.A.tolist(), "context": modern}), encoding="utf-8"
     )
     _cal, check = calibration_state(tmp_path, ctx_from(LEFT_UPSIDE_DOWN))
     assert check.stale
@@ -324,7 +324,7 @@ def test_an_unreadable_context_in_the_file_is_reported_as_damaged_not_as_legacy(
     good = ctx_from(LAPTOP_ONLY).as_dict()
     good["topology"]["displays"][0].pop("w")  # a record that WAS written, then damaged
     calibration_path(tmp_path).write_text(
-        json.dumps({"version": 3, "A": IDENT.A.tolist(), "context": good})
+        json.dumps({"version": 3, "A": IDENT.A.tolist(), "context": good}), encoding="utf-8"
     )
     record = load_calibration_record(tmp_path)
     assert record is not None and record.context is None and record.context_unreadable
@@ -336,7 +336,9 @@ def test_an_unreadable_context_in_the_file_is_reported_as_damaged_not_as_legacy(
 
 
 def test_a_genuinely_legacy_file_still_gets_the_legacy_reason(tmp_path: Path) -> None:
-    calibration_path(tmp_path).write_text(json.dumps({"version": 1, "A": IDENT.A.tolist()}))
+    calibration_path(tmp_path).write_text(
+        json.dumps({"version": 1, "A": IDENT.A.tolist()}), encoding="utf-8"
+    )
     record = load_calibration_record(tmp_path)
     assert record is not None and not record.context_unreadable
     _cal, check = calibration_state(tmp_path, ctx_from(LAPTOP_ONLY))

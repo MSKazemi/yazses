@@ -586,17 +586,26 @@ def test_an_older_daemon_without_the_new_fields_still_reads_unknown_not_ok() -> 
     assert by_label["Face switch"].health is Health.UNKNOWN
 
 
-def test_the_report_bundle_redacts_the_new_free_text_keys(tmp_path) -> None:
+def test_the_report_bundle_redacts_the_new_free_text_keys(tmp_path, monkeypatch) -> None:
     """The reason strings are sentences from the desktop and the camera stack, and exception
     text is mostly paths. The whole `handsfree` block goes through `redact_text`."""
     import getpass
 
-    from yazses.system.report import redact_status
-
     # `redact_text` removes THIS machine's home directory and account name, so the fixture
     # has to carry the real ones -- an invented name would pass without proving anything.
-    home = str(Path.home())
-    user = getpass.getuser()
+    import re
+
+    from yazses.system import report as report_mod
+    from yazses.system.report import redact_status
+
+    # A fixed, non-generic identity. The redactor compiles both patterns at import and
+    # deliberately leaves generic CI account names such as `runner` alone, so reading the real
+    # ones would make this test mean something else on CI. Rebuild them for a fake identity.
+    home = "/home/ada"
+    user = "ada"
+    monkeypatch.setattr(getpass, "getuser", lambda: user)
+    monkeypatch.setattr(report_mod, "_ACCOUNT", report_mod._account_pattern())
+    monkeypatch.setattr(report_mod, "_HOME", re.compile(re.escape(home)))
 
     class _Rt(_HeadRuntime):
         def command(self, action, params=None):

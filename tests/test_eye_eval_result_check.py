@@ -293,7 +293,7 @@ def _producer_modules() -> set[str]:
     """Source files that build the result envelope: they stamp `"schema_version": SCHEMA_VERSION`."""
     pattern = re.compile(r'"schema_version":\s*SCHEMA_VERSION')
     return {
-        str(p.relative_to(ROOT / "src" / "yazses"))
+        p.relative_to(ROOT / "src" / "yazses").as_posix()
         for p in (ROOT / "src" / "yazses").rglob("*.py")
         if pattern.search(p.read_text(encoding="utf-8"))
     }
