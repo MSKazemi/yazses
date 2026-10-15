@@ -75,6 +75,21 @@ HOLD_ACTIONS: frozenset[str] = frozenset({"hold_to_talk", "hold_to_command"})
 #: target. A hold-to-talk is not a commit.
 COMMIT_ACTIONS: frozenset[str] = frozenset({"select", "confirm"})
 
+
+def stuck_consequence(action: object) -> str | None:
+    """What a gesture bound to ``action`` leaves stuck if it can never let go, or None.
+
+    ``"microphone"`` for a hold (the mic stays open), ``"pointer"`` for a commit action (the
+    pointer stays frozen for as long as the gesture lasts, and the gesture cannot fire again),
+    None for an action that holds nothing open (``cancel``, ``pause_pointer``). Pure.
+    """
+    if action in HOLD_ACTIONS:
+        return "microphone"
+    if action in COMMIT_ACTIONS:
+        return "pointer"
+    return None
+
+
 #: Actions that may run while the safety gate is closed, because they can only make the
 #: system *more* stopped. Everything else is suppressed under pause, fault or staleness.
 SAFE_ACTIONS: frozenset[str] = frozenset({"pause_pointer"})

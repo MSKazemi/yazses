@@ -388,7 +388,22 @@ def test_start_up_warns_about_an_unreachable_release_threshold_without_any_calib
     assert any("release threshold for jaw_open is 0.00" in m for m in _warnings(caplog))
 
 
-def test_a_gesture_with_no_hold_action_is_not_judged_it_has_no_microphone(caplog):
+def test_a_gesture_that_holds_nothing_open_is_not_judged(caplog):
+    # `cancel` neither opens a microphone nor freezes the pointer, so a resting level above
+    # its release threshold leaves nothing stuck and there is nothing to warn about.
+    caplog.set_level(logging.WARNING)
+    cfg = replace(
+        FacegestureConfig(enabled=True),
+        use_active_levels=True,
+        switches=[{"gesture": "jaw_open", "intent": "none"}, {"gesture": "brow_raise", "intent": "cancel"}],
+    )
+    _bk(cfg, baselines={"brow_raise": _rest(0.40, gesture="brow_raise")}, levels={})
+    assert [m for m in _warnings(caplog) if "let go" in m] == []
+
+
+def test_a_commit_gesture_that_cannot_let_go_is_judged_by_what_it_leaves_frozen(caplog):
+    # `select` freezes the Head-Pointer for as long as the gesture lasts (ADR-v2-147), so a
+    # face that rests above the release threshold leaves the POINTER stuck -- not a microphone.
     caplog.set_level(logging.WARNING)
     cfg = replace(
         FacegestureConfig(enabled=True),
@@ -396,7 +411,9 @@ def test_a_gesture_with_no_hold_action_is_not_judged_it_has_no_microphone(caplog
         switches=[{"gesture": "jaw_open", "intent": "none"}, {"gesture": "brow_raise", "intent": "select"}],
     )
     _bk(cfg, baselines={"brow_raise": _rest(0.40, gesture="brow_raise")}, levels={})
-    assert [m for m in _warnings(caplog) if "let go" in m] == []
+    stuck = [m for m in _warnings(caplog) if "let go" in m]
+    assert len(stuck) == 1
+    assert "pointer stays frozen" in stuck[0] and "microphone" not in stuck[0]
 
 
 @pytest.mark.parametrize("bad", ["abc", -1, float("nan"), True])
@@ -724,7 +741,18 @@ def test_doctor_is_silent_with_no_baseline_a_low_baseline_or_the_baseline_applie
     assert "Face switch release" not in labels()          # normalised away
 
 
-def test_doctor_does_not_judge_a_gesture_that_only_selects(tmp_path):
+def test_doctor_does_not_judge_a_gesture_that_only_cancels(tmp_path):
+    from yazses.system.doctor import _handsfree_checks
+
+    _stored(tmp_path, 0.40)
+    cfg = Config()
+    cfg.facegesture.enabled = True
+    cfg.facegesture.switches = [{"gesture": "jaw_open", "intent": "cancel"}]
+    rows = _handsfree_checks(cfg, _DoctorPlatform(tmp_path), ("Camera", "OK", "ready"), unwired=frozenset())
+    assert "Face switch release" not in [r[0] for r in rows]
+
+
+def test_doctor_judges_a_select_gesture_by_the_frozen_pointer_it_would_leave(tmp_path):
     from yazses.system.doctor import _handsfree_checks
 
     _stored(tmp_path, 0.40)
@@ -732,7 +760,9 @@ def test_doctor_does_not_judge_a_gesture_that_only_selects(tmp_path):
     cfg.facegesture.enabled = True
     cfg.facegesture.switches = [{"gesture": "jaw_open", "intent": "select"}]
     rows = _handsfree_checks(cfg, _DoctorPlatform(tmp_path), ("Camera", "OK", "ready"), unwired=frozenset())
-    assert "Face switch release" not in [r[0] for r in rows]
+    release = [r for r in rows if r[0] == "Face switch release"]
+    assert len(release) == 1 and release[0][1] == "WARN"
+    assert "pointer stays frozen" in release[0][2] and "microphone" not in release[0][2]
 
 
 def test_the_panel_shows_the_same_finding_as_a_problem_row(tmp_path):

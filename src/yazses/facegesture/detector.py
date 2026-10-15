@@ -154,7 +154,8 @@ class GestureSwitch:
     so a stuck switch cannot immediately re-fire. A frame with no reading never clears the
     latch (a camera dropout is not evidence the face relaxed). The clock is the caller's
     ``now_s`` -- this class reads none -- and without a finite ``now_s`` the limit is not
-    enforced. It only ever *ends* a hold; nothing about it gates a release.
+    enforced. A ``now_s`` that goes backwards restarts the count from the new time. It only
+    ever *ends* a hold; nothing about it gates a release.
     """
 
     def __init__(
@@ -300,14 +301,20 @@ class GestureSwitch:
         return "end"
 
     def _over_max_hold(self, now_s: float | None) -> bool:
-        """Has the open hold lasted ``max_hold_s``? False when off, untimed or the clock jumped back."""
+        """Has the open hold lasted ``max_hold_s``? False when off or untimed.
+
+        A clock that jumps *back* restarts the count from the new time instead of disarming the
+        limit: a negative elapsed time compared as "not yet" for as long as the jump was long,
+        and a stuck-open hold is exactly the state this limit exists to end. Time then counts
+        forward from there, so the hold still ends ``max_hold_s`` after the clock settles.
+        """
         if self._max_hold_s <= 0.0:
             return False
         now = _finite_time(now_s)
         if now is None:
             return False
-        if self._held_since is None:
-            self._held_since = now  # the hold began on an untimed frame: start counting here
+        if self._held_since is None or now < self._held_since:
+            self._held_since = now  # untimed start, or the clock went backwards: count from here
             return False
         return (now - self._held_since) >= self._max_hold_s
 

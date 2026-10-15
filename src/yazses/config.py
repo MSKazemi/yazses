@@ -2380,7 +2380,34 @@ def load_config_checked(path: Path | None = None) -> LoadedConfig:
     }
     config = Config(**sections)
     problems.extend(_chord_problems(config))
+    problems.extend(_switch_problems(config))
     return LoadedConfig(_apply_presets(config), problems, path)
+
+
+def _switch_problems(config: Config) -> list[ConfigProblem]:
+    """Why any ``[[facegesture.switches]]`` entry will not be used, found at load, not at fire time.
+
+    ``facegesture.switches.parse_bindings`` is the one place a mapping is understood, and it
+    already skips (never coerces) what it cannot honour. Before this, only the camera backend
+    asked it, so a typo in ``intent`` loaded clean, ``doctor`` reported nothing wrong, and the
+    reason surfaced only as a log line when the daemon built the switch -- or never, for a user
+    who does not read the log. Asking here puts the line, and the valid names, in front of
+    ``doctor`` and the config log. Never raises; costs nothing for the shipped empty list.
+    """
+    face = config.facegesture
+    if not face.switches:
+        return []
+    try:
+        from yazses.facegesture.detector import DEFAULT_GESTURE, GESTURES
+        from yazses.facegesture.switches import parse_bindings
+
+        primary = (face.gesture or DEFAULT_GESTURE).strip().lower()
+        if primary not in GESTURES:
+            primary = DEFAULT_GESTURE  # the key's own problem is reported by its enum check
+        _, refused = parse_bindings(face.switches, primary, face.mode)
+    except Exception:  # a mapping check must never be what stops the daemon starting
+        return []
+    return [ConfigProblem("facegesture", "switches", reason, False) for reason in refused]
 
 
 def _chord_problems(config: Config) -> list[ConfigProblem]:

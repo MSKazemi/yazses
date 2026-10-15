@@ -56,6 +56,15 @@ __all__ = [
     "format_findings",
 ]
 
+#: ``consequence`` -> (conditional, present) wording for what a switch that cannot let go leaves stuck.
+_CONSEQUENCES: dict[str, tuple[str, str]] = {
+    "microphone": ("the microphone would stay open", "the microphone stays open"),
+    "pointer": (
+        "the pointer would stay frozen",
+        "the pointer stays frozen and the gesture cannot fire again",
+    ),
+}
+
 RELEASE_UNREACHABLE = "release_unreachable"
 REST_AT_OR_ABOVE_HOLD = "rest_at_or_above_hold"
 REST_AT_OR_ABOVE_RELEASE = "rest_at_or_above_release"
@@ -81,8 +90,15 @@ def assess_release(
     use_active_levels: bool = False,
     hold_fraction: float = DEFAULT_HOLD_FRACTION,
     release_fraction: float = DEFAULT_RELEASE_FRACTION,
+    consequence: str = "microphone",
 ) -> tuple[RestFinding, ...]:
     """The reasons the switch configured this way could not let go. Empty means none found. Pure.
+
+    ``consequence`` names what a switch that cannot let go leaves stuck: ``"microphone"`` (a
+    hold action, the default) or ``"pointer"`` (a commit action such as ``select``, whose
+    gesture holds the Head-Pointer still while it lasts -- ADR-v2-147). The check itself is
+    the same two-number comparison; only the sentence differs. An unknown value reads as the
+    microphone wording, the one a reader of an older log already knows.
 
     ``rest`` is the saved resting baseline for ``gesture`` (None = never measured, so only the
     threshold pair can be judged). ``use_baseline`` / ``use_active_levels`` and the thresholds
@@ -90,6 +106,7 @@ def assess_release(
     the backend works them out. Total: unreadable numbers cannot raise, and cannot produce a
     finding about a level that was never read.
     """
+    would_stay, stays = _CONSEQUENCES.get(consequence, _CONSEQUENCES["microphone"])
     hold, release, normalised, mode = _effective(
         hold_threshold, release_threshold, rest, use_baseline, levels, use_active_levels,
         hold_fraction, release_fraction,
@@ -100,7 +117,7 @@ def assess_release(
             RELEASE_UNREACHABLE,
             f"the release threshold for {gesture} is {release:.2f}, and a score is never below "
             "zero, so the only thing that can close a hold is the face leaving the camera; "
-            "the microphone would stay open until then",
+            f"{would_stay} until then",
             "set [facegesture] release_threshold above 0 and below hold_threshold",
         ),)
 
@@ -118,14 +135,14 @@ def assess_release(
             REST_AT_OR_ABOVE_HOLD,
             f"{where}, at or above the hold threshold {hold:.2f} ({mode}): the switch fires "
             "without you moving, and since that is also above the release threshold "
-            f"{release:.2f} it can never let go, so the microphone stays open",
+            f"{release:.2f} it can never let go, so {stays}",
             _remedy(use_baseline),
         ),)
     if level >= release:
         return (RestFinding(
             REST_AT_OR_ABOVE_RELEASE,
             f"{where}, at or above the release threshold {release:.2f} ({mode}): once the "
-            "switch fires it cannot let go, so the microphone stays open",
+            f"switch fires it cannot let go, so {stays}",
             _remedy(use_baseline),
         ),)
     return ()

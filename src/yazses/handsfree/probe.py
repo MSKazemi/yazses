@@ -153,8 +153,9 @@ def face_release_findings(cfg: Any, data_dir: Path) -> tuple[Any, ...]:
 
     Empty unless ``[facegesture] enabled``. Reads the saved baseline (and, when asked for, the
     saved levels) from ``data_dir`` -- a diagnostic command may read its own small calibration
-    files; the daemon's start-up path may not, and does not. Only gestures bound to a *hold*
-    action are judged: a gesture that selects or confirms has no microphone to leave open.
+    files; the daemon's start-up path may not, and does not. Only gestures bound to an action that
+    holds something open are judged: a hold (the microphone) or a commit such as select (the
+    pointer stays frozen); a cancel or a pause leaves nothing stuck.
     Total: any failure is "nothing found", because a probe that raises removes the command
     that was going to explain the problem. See :mod:`yazses.facegesture.restcheck`.
     """
@@ -166,7 +167,7 @@ def face_release_findings(cfg: Any, data_dir: Path) -> tuple[Any, ...]:
         from yazses.facegesture.detector import DEFAULT_GESTURE, GESTURES
         from yazses.facegesture.levels import levels_path, load_levels
         from yazses.facegesture.restcheck import assess_release
-        from yazses.facegesture.switches import HOLD_ACTIONS, parse_bindings
+        from yazses.facegesture.switches import parse_bindings, stuck_consequence
 
         primary = (getattr(face, "gesture", "") or DEFAULT_GESTURE).strip().lower()
         if primary not in GESTURES:
@@ -178,8 +179,9 @@ def face_release_findings(cfg: Any, data_dir: Path) -> tuple[Any, ...]:
         levels = load_levels(levels_path(data_dir)) if getattr(face, "use_active_levels", False) else {}
         found: list[Any] = []
         for gesture, action in bindings.items():
-            if action not in HOLD_ACTIONS:
-                continue
+            stuck = stuck_consequence(action)
+            if stuck is None:
+                continue  # nothing is held open by a cancel or a pause
             found.extend(assess_release(
                 gesture,
                 face.hold_threshold,
@@ -190,6 +192,7 @@ def face_release_findings(cfg: Any, data_dir: Path) -> tuple[Any, ...]:
                 use_active_levels=bool(getattr(face, "use_active_levels", False)),
                 hold_fraction=face.active_hold_fraction,
                 release_fraction=face.active_release_fraction,
+                consequence=stuck,
             ))
         return tuple(found)
     except Exception:

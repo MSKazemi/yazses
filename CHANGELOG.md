@@ -42,6 +42,19 @@ deliberately wrong sinks and requires a named test to fail for each. The recorde
 `yazses.pointer.actions` (stdlib only, data, no sink) so an out-of-tree backend can reuse the suite by copying one
 file. No runtime behaviour changes.
 
+### Fixed — audit of the face-switch detector and its mapping (#406, #407)
+
+Two gaps found by driving the shipped switch with the orderings a clean trace never has, both fixed without a new
+setting or a changed default. A typo in `[[facegesture.switches]]` (`intent = "selct"`) loaded clean and `yazses
+doctor` called every setting usable; the mapping is now checked when the config is loaded, with the valid names, as
+`[facegesture] switches`. The stuck-open refusal (`facegesture/restcheck.py`, shown by `calibrate`, the backend and
+`doctor`) judged only gestures bound to a *hold*, but a `select` or `confirm` gesture that cannot let go freezes the
+Head-Pointer for as long as it lasts, so those are now judged too, in terms of the frozen pointer. Also: a clock that
+stepped backwards no longer disarms the opt-in `max_hold_s` limit for the length of the step; the count restarts from
+the new time. New tests pin the exact-threshold, NaN/inf/missing-reading, lost-face, backwards-clock and no-camera
+(import-blocked) cases. The minimum hold is counted in frames, not seconds, so a source that runs faster than
+`[facegesture] fps` shortens it; that is reported, not changed.
+
 ### Fixed — four more cross-OS test defects, found once the CI log could be read
 
 With the oversized test id fixed, the macOS and Windows runs reached the end of the suite and showed four
