@@ -202,6 +202,10 @@ Forget the stored neutral baseline(s) and active/talk levels; back to configured
 
 - `--gesture` — Forget only this gesture's baseline.
 
+### `yazses facegesture status`
+
+Show what the face switch's select, confirm and cancel gestures last did.
+
 ## `yazses features`
 
 See capabilities and turn them on/off (no config-editing needed).

@@ -230,6 +230,18 @@ def _gate_status(gate):
         return None
 
 
+def _switch_action_lines(daemon) -> tuple[str, ...]:
+    """One line per bound face-switch action saying what it last did; ``()`` if none exists.
+
+    A free function over ``getattr`` so the status payload keeps working against the partial
+    daemon stand-ins the IPC tests use, and against a daemon that never built a face switch.
+    """
+    outcomes = getattr(daemon, "_switch_outcomes", None)
+    if outcomes is None:
+        return ()
+    return outcomes.lines(getattr(daemon, "_switch_bound", frozenset()))
+
+
 class Daemon:
     """The dictation daemon. Holds a hotkey listener and an IPC server."""
 
@@ -245,6 +257,11 @@ class Daemon:
     #: daemon (a test, a startup that failed early) never assigned them on.
     _headpointer = None
     _handsfree_safety = None
+    # The face switch's select/confirm/cancel outcome log and the actions bound to it
+    # (facegesture/actions.py). None / empty until a face switch is built.
+    _switch_outcomes = None
+    _switch_bound: frozenset[str] = frozenset()
+    _switch_select_limiter = None
     _gesture = None
 
     def __init__(
@@ -1360,6 +1377,7 @@ class Daemon:
         server.register("ask_human", self._handle_ask_human)
         server.register("headpointer", self._handle_headpointer)
         server.register("handsfree", self._handle_handsfree)
+        server.register("facegesture", self._handle_facegesture)
         server.register("gesture", self._handle_gesture)
         server.serve_in_thread()
         self._ipc_server = server
@@ -1540,8 +1558,11 @@ class Daemon:
             # The abstract actions this daemon actually implements, for the switch mapper
             # (ADR-v2-147). `start`/`end` above are the legacy single-gesture binding; both
             # hold flavours are offered so `[[facegesture.switches]]` can use either whatever
-            # `mode` says. confirm / cancel / select have no daemon entry point yet, so they
-            # are left out on purpose: the backend reports them as unwired and they do nothing.
+            # `mode` says. select / confirm / cancel are wired below to the Head-Pointer's
+            # click and to the pending-confirmation slot (facegesture/actions.py).
+            from yazses.facegesture.actions import SwitchOutcomeLog
+
+            self._switch_outcomes = SwitchOutcomeLog()
             actions = {
                 "hold_to_talk": SwitchAction(
                     press=lambda: self._on_hold_start(0), release=lambda: self._on_hold_end()
@@ -1551,6 +1572,9 @@ class Daemon:
                     release=lambda: self._on_command_hold_end(),
                 ),
             }
+            actions["select"] = SwitchAction(press=self._switch_select)
+            actions["confirm"] = SwitchAction(press=self._switch_confirm)
+            actions["cancel"] = SwitchAction(press=self._switch_cancel)
             # The global hands-free pause/kill state (ADR-v2-148), when something has built
             # one. Nothing in the daemon owns it yet, so absent means "no gate", never "a
             # gate that is closed": a face switch must not be disabled by a state that does
@@ -1579,8 +1603,10 @@ class Daemon:
             source = FaceGestureBackend(
                 cfg.facegesture, start, end,
                 baselines=baselines, levels=levels, actions=actions, safety=safety,
+                on_freeze=self._switch_freeze,
                 perception=lease, failure_reason=failure_reason,
             )
+            self._switch_bound = frozenset(source.bound_actions)
             self._face_on_shared_source = lease is not None
         except Exception:
             log.warning("Face-gesture activation source init failed; continuing "
@@ -1589,6 +1615,112 @@ class Daemon:
         log.info("Face-gesture activation source enabled (%s, %s mode).",
                  cfg.facegesture.gesture, mode)
         return [source]
+
+    # ---- Face-switch select / confirm / cancel (facegesture/actions.py) --------------
+    #
+    # Thin glue only: the decisions (may it click? is anything pending? is it too soon?) are
+    # in the pure module and tested there. These supply the two effects it is handed -- the
+    # Head-Pointer's click and the pending-confirmation slot -- and record what happened so
+    # `yazses facegesture status` can say why a gesture did nothing. They run on the camera
+    # thread and must never raise into it.
+
+    def _record_switch_outcome(self, outcome) -> None:
+        log.info("Face switch %s", outcome.line)
+        outcomes = self._switch_outcomes
+        if outcomes is not None:
+            outcomes.record(outcome)
+
+    def _switch_select(self) -> None:
+        """``select``: one left click at the current pointer, if the Head-Pointer allows it."""
+        from yazses.facegesture.actions import SWITCH_CLUTCH_SOURCE, perform_select
+
+        runtime = self._headpointer
+        limiter = self._switch_limiter()
+
+        def commit_click(policy):
+            if runtime is None:
+                from yazses.headpointer.controller import ClickResult
+
+                return ClickResult(False, "the Head-Pointer is not available")
+            return runtime.commit_click(policy, own_clutches=(SWITCH_CLUTCH_SOURCE,))
+
+        self._record_switch_outcome(perform_select(commit_click, limiter))
+
+    def _switch_limiter(self):
+        limiter = getattr(self, "_switch_select_limiter", None)
+        if limiter is None:
+            from yazses.facegesture.actions import SelectLimiter
+
+            limiter = self._switch_select_limiter = SelectLimiter()
+        return limiter
+
+    def _switch_freeze(self, frozen: bool) -> None:
+        """Hold the Head-Pointer still while a commit gesture is down (ADR-v2-147)."""
+        from yazses.facegesture.actions import SWITCH_CLUTCH_SOURCE
+
+        runtime = self._headpointer
+        if runtime is not None and runtime.active:
+            runtime.command("clutch", {"source": SWITCH_CLUTCH_SOURCE, "active": bool(frozen)})
+
+    def _switch_confirm(self) -> None:
+        from yazses.facegesture.actions import resolve_confirmation
+
+        self._record_switch_outcome(
+            resolve_confirmation("confirm", self._cmdsafety, self._switch_release_held)
+        )
+
+    def _switch_cancel(self) -> None:
+        from yazses.facegesture.actions import resolve_confirmation
+
+        def dropped() -> None:
+            self._cmdsafety_intent = None
+            self._notify_cmdsafety("Cancelled \u2014 the command was not run.")
+
+        self._record_switch_outcome(
+            resolve_confirmation(
+                "cancel", self._cmdsafety, lambda _held: None, on_cancel=dropped
+            )
+        )
+
+    def _switch_release_held(self, held: object) -> None:
+        """Do with a switch-confirmed held item what the spoken "confirm" does with it."""
+        self._notify_cmdsafety("Confirmed \u2014 running the held command.")
+        if self._cmdsafety_dispatch_held():
+            return  # a held COMMAND: re-dispatched with its Return
+        text = str(held)
+        with self._lock:
+            target_ok = self._state.target_ok
+        if (
+            self._config.injection.target_guard != "off"
+            and target_ok is False
+            and self._handle_no_target(text)
+        ):
+            return
+        self._active_injector().inject(text)
+
+    def _facegesture_payload(self) -> dict[str, object] | None:
+        """`facegesture` IPC status: which switch actions are bound and what each last did."""
+        outcomes = self._switch_outcomes
+        if outcomes is None:
+            return None
+        return {"actions": outcomes.snapshot(self._switch_bound)}
+
+    def _handle_facegesture(self, request: Request) -> dict[str, object]:
+        """IPC: `status` for the face switch's select / confirm / cancel outcomes."""
+        action = str(request.params.get("action", "status"))
+        if action != "status":
+            return {"ok": False, "reason": f"unknown action {action!r}"}
+        try:
+            payload = self._facegesture_payload()
+        except Exception as exc:  # pragma: no cover - defensive
+            log.exception("facegesture status raised")
+            return {"ok": False, "reason": f"failed: {type(exc).__name__}"}
+        if payload is None:
+            return {
+                "ok": True, "active": False,
+                "reason": "the face switch is not running (`yazses features enable facegesture`)",
+            }
+        return {"ok": True, "active": True, **payload}
 
     def _build_slm_router(self, cfg):
         """Tier 2 SLM intent router, or None (#164).
@@ -5743,6 +5875,8 @@ class Daemon:
                 # nothing in the daemon filled it, so `status` and the settings panel could
                 # only ever say the state was unknown. Names, flags and ages only.
                 safety=_gate_status(getattr(self, "_handsfree_safety", None)),
+                # What the face switch's select / confirm / cancel last did, one line each.
+                switch_actions=_switch_action_lines(self),
             )
             return as_payload(facts)
         except Exception:  # pragma: no cover - defensive

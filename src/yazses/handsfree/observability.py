@@ -201,6 +201,11 @@ class HandsFreeFacts:
     safety_window_ms: float | None = None
     #: The live gate snapshot, when one was reachable. ``None`` outside the daemon.
     safety: SafetyStatus | None = None
+    #: One line per face-switch action the daemon wired and the user bound -- ``select``,
+    #: ``confirm``, ``cancel`` -- saying what it last did (``select: last refused (the
+    #: Head-Pointer is paused)``). Words from `facegesture/actions.py`'s fixed vocabulary
+    #: only. Empty outside the daemon and when none is bound, and then there is no row.
+    switch_actions: tuple[str, ...] = ()
 
 
 # --------------------------------------------------------------------------- rendering
@@ -231,6 +236,7 @@ def health_rows(facts: HandsFreeFacts) -> tuple[HealthRow, ...]:
             wired=facts.face_wired,
             channel="face",
         ),
+        _switch_actions_row(facts),
         _pointer_row(facts),
         _calibration_row(facts),
     )
@@ -370,6 +376,18 @@ def _perception_row(facts: HandsFreeFacts) -> HealthRow | None:
         + (f"; {facts.perception_reason}" if facts.perception_reason else ""),
         "run `yazses status` while YazSes is running",
     )
+
+
+def _switch_actions_row(facts: HandsFreeFacts) -> HealthRow | None:
+    """What the face switch's select / confirm / cancel last did, or ``None`` if none is bound.
+
+    Only ever ``OK``: a refusal ("the Head-Pointer is paused") is the guard working, not a
+    fault, and colouring it would teach people to dismiss the row (ADR-021). The *reason* is
+    the point -- it is the answer to "why did my gesture do nothing?".
+    """
+    if not facts.switch_actions:
+        return None
+    return HealthRow("Face switch actions", Health.OK, "; ".join(facts.switch_actions))
 
 
 def _consumer_row(
@@ -603,6 +621,7 @@ PAYLOAD_KEYS: tuple[str, ...] = (
     "safety_configured",
     "safety_window_ms",
     "safety",
+    "switch_actions",
 )
 
 
@@ -726,6 +745,7 @@ def facts_from_payload(payload: Mapping[str, object] | None) -> HandsFreeFacts |
         safety_configured=bool(payload.get("safety_configured", False)),
         safety_window_ms=_number(payload.get("safety_window_ms")),
         safety=_safety_from_payload(payload.get("safety")),
+        switch_actions=_names(payload.get("switch_actions")) or (),
     )
 
 

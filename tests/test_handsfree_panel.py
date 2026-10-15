@@ -418,14 +418,14 @@ def test_a_staged_change_is_visible_before_it_is_applied():
 def test_the_mapping_shows_every_gesture_and_marks_actions_that_do_nothing():
     inputs = replace(
         _inputs(facegesture=True, safety_cfg=False),
-        switches=({"gesture": "smile", "intent": "confirm"},),
+        switches=({"gesture": "smile", "intent": "pause_pointer"},),
     )
     mapping = build_panel(inputs).mapping
     assert [r.gesture for r in mapping.rows] == list(GESTURES)
     jaw = next(r for r in mapping.rows if r.gesture == "jaw_open")
     assert jaw.action == "hold_to_talk" and jaw.note == ""
     smile = next(r for r in mapping.rows if r.gesture == "smile")
-    assert smile.action == "confirm" and "does nothing" in smile.note.lower()
+    assert smile.action == "pause_pointer" and "does nothing" in smile.note.lower()
     brow = next(r for r in mapping.rows if r.gesture == "brow_raise")
     assert brow.action_label == "Not mapped"
 
@@ -434,8 +434,10 @@ def test_choices_mark_unwired_actions_with_the_reason():
     off = build_panel(_inputs(facegesture=True, safety_cfg=False)).mapping.choices
     choices = {k: (ok, why) for k, _label, ok, why in off}
     assert choices["hold_to_talk"] == (True, "") and choices["none"] == (True, "")
+    # select / confirm / cancel are wired (facegesture/actions.py): they are offered, and
+    # when they cannot act they say why in `yazses facegesture status`, not by being hidden.
     for action in ("select", "confirm", "cancel"):
-        assert choices[action][0] is False and "Not connected" in choices[action][1]
+        assert choices[action] == (True, "")
     assert choices["pause_pointer"][0] is False and "global stop" in choices["pause_pointer"][1]
     on = build_panel(_inputs(facegesture=True, safety_cfg=True)).mapping.choices
     assert {k: ok for k, _l, ok, _w in on}["pause_pointer"] is True
@@ -446,7 +448,6 @@ def test_invalid_mappings_are_rejected_with_a_reason_and_never_coerced():
     for gesture, action, fragment in [
         ("wink", "hold_to_talk", "not a gesture"),
         ("smile", "launch_missiles", "not an action"),
-        ("smile", "confirm", "Not connected"),
         ("smile", "pause_pointer", "global stop"),
     ]:
         plan = plan_mapping(inputs, gesture, action)
@@ -481,9 +482,6 @@ def test_every_mapping_round_trips_through_the_daemons_own_parser(mode, primary)
         current, _ = parse_bindings(list(start), primary, mode)
         for gesture, action in itertools.product(GESTURES, (*ACTIONS, "none")):
             plan = plan_mapping(inputs, gesture, action)
-            if action in ("select", "confirm", "cancel"):
-                assert not plan.ok
-                continue
             assert plan.ok, (gesture, action, plan.reason)
             (write,) = plan.action.config
             entries = [dict(e) for e in write.entries]

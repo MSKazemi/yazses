@@ -31,13 +31,15 @@ import dataclasses
 import logging
 import threading
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from typing import Any
 
 from yazses.handsfree.safety import HandsFreeSafety
 from yazses.headpointer.controller import (
     SOURCE_NAME,
+    ClickContext,
+    ClickResult,
     DwellFeedback,
     HeadPointerController,
     HeadPointerSettings,
@@ -204,6 +206,14 @@ class HeadPointerRuntime:
     def stop(self) -> None:
         if self.runner is not None:
             self.runner.stop()
+
+    def commit_click(
+        self, policy: Callable[[ClickContext], str], *, own_clutches: Iterable[str] = ()
+    ) -> ClickResult:
+        """One policy-checked left click at the current pointer, or the reason there is none."""
+        if self.runner is None:
+            return ClickResult(False, self.reason or "the Head-Pointer is not running")
+        return self.runner.controller.commit_click(policy, own_clutches=own_clutches)
 
     def command(self, action: str, params: dict[str, Any] | None = None) -> dict[str, object]:
         """The IPC/CLI surface: ``status | recenter | pause | resume | clutch | dwell``.

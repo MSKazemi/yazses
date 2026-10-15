@@ -84,6 +84,7 @@ class FaceGestureBackend:
         on_intent: Callable[[SwitchIntent], object] | None = None,
         actions: Mapping[str, SwitchAction] | None = None,
         safety=None,
+        on_freeze: Callable[[bool], None] | None = None,
         perception: FacePerceptionSource | None = None,
         max_age_s: float = MAX_SAMPLE_AGE_S,
         clock: Callable[[], float] = time.monotonic,
@@ -93,6 +94,8 @@ class FaceGestureBackend:
         # (`gesture` + `mode`). `actions` supplies handlers for every other abstract
         # action the daemon implements, `safety` is the optional hands-free gate, and
         # `on_intent` replaces the whole default mapping with a caller's own sink.
+        # `on_freeze(True/False)` is the composition layer's hook for "a commit gesture is
+        # held: keep the pointer still" (ADR-v2-147); None = nothing is frozen.
         # `perception` is a lease on the shared camera source (None = own capture);
         # `clock` must be the clock the source stamps samples with, since age is a
         # difference, and `failure_reason` returns why the source stopped, or "".
@@ -138,7 +141,7 @@ class FaceGestureBackend:
             press=lambda: self._on_hold_start(0),
             release=lambda: self._on_hold_end(),
         )
-        self._mapper = SwitchMapper(bindings, handlers, gate=safety)
+        self._mapper = SwitchMapper(bindings, handlers, gate=safety, on_freeze=on_freeze)
         self._sink: Callable[[SwitchIntent], object] = on_intent or self._mapper.handle
         for action in self._mapper.unwired():
             log.warning(
@@ -360,6 +363,11 @@ class FaceGestureBackend:
                 except Exception:
                     log.debug("face-gesture: landmarker close failed", exc_info=True)
             log.info("Face-gesture switch stopped.")
+
+    @property
+    def bound_actions(self) -> frozenset[str]:
+        """The abstract actions some gesture is bound to (``hold_to_talk``, ``select``, ...)."""
+        return frozenset(self._mapper.bindings.values())
 
     def stop(self) -> None:
         """Signal run() to exit at the next frame."""

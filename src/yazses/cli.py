@@ -5431,6 +5431,54 @@ def facegesture_reset(
         typer.echo("No stored baseline to forget.")
 
 
+@facegesture_app.command(
+    "status",
+    epilog=_examples(
+        "yazses facegesture status    what select / confirm / cancel last did, and why not"
+    ),
+)
+def facegesture_status() -> None:
+    """Show what the face switch's select, confirm and cancel gestures last did.
+
+    Each bound action reports its newest outcome: done, refused with the reason (for example the
+    Head-Pointer is paused), or a no-op because nothing was waiting for a confirmation. Words,
+    counts and ages only -- never a score or a frame. Reads the running daemon.
+    """
+    from yazses.facegesture.actions import line_from_row
+
+    platform = get_platform()
+    client = platform.ipc_client_factory(platform.paths.ipc_socket)
+    try:
+        result = client.call("facegesture", action="status")
+    except IpcUnreachableError:
+        typer.echo("Daemon is not running. Start it with: yazses start", err=True)
+        raise typer.Exit(1)
+    if not isinstance(result, dict) or not result.get("ok"):
+        reason = result.get("reason") if isinstance(result, dict) else None
+        typer.echo(f"Face switch: {reason or 'failed'}", err=True)
+        raise typer.Exit(1)
+    if not result.get("active"):
+        typer.echo(f"Face switch is not running: {result.get('reason') or 'turned off'}")
+        return
+    rows = result.get("actions")
+    rows = rows if isinstance(rows, list) else []
+    if not rows:
+        typer.echo("No select, confirm or cancel gesture is bound.")
+        typer.echo("Bind one with a [[facegesture.switches]] entry (see docs/configuration.md).")
+        return
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        typer.echo(line_from_row(row))
+        counts = (
+            f"done {row.get('done', 0)}, refused {row.get('refused', 0)}, "
+            f"nothing to do {row.get('noop', 0)}"
+        )
+        age = row.get("age_s")
+        suffix = f", last {age:g} s ago" if isinstance(age, (int, float)) else ""
+        typer.echo(f"    {counts}{suffix}")
+
+
 gaze_app = typer.Typer(name="gaze", help="Aim dictation with your gaze — type into whichever pane you look at.")
 app.add_typer(gaze_app, rich_help_panel=_SETUP)
 

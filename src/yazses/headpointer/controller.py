@@ -92,6 +92,7 @@ import logging
 import math
 import threading
 from collections import deque
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from enum import Enum
 from typing import Protocol
@@ -120,6 +121,8 @@ __all__ = [
     "MAX_FRESHNESS_S",
     "MIN_DWELL_S",
     "SOURCE_NAME",
+    "ClickContext",
+    "ClickResult",
     "DwellFeedback",
     "HeadPointerController",
     "HeadPointerSettings",
@@ -275,6 +278,32 @@ class HeadPointerStatus:
     consent: str = ""
     #: One sentence about it, e.g. what the user has to do. Never a position or an angle.
     consent_detail: str = ""
+
+
+@dataclass(frozen=True)
+class ClickContext:
+    """What a commit click is judged on: flags and words, never a pose or a position.
+
+    ``clutched`` already leaves out any clutch the caller named as its own, and
+    ``gate_allowed`` is ``None`` when no hands-free gate exists (which is not a closed gate).
+    ``state`` is the controller's last state word (``tracking``, ``lost``, ...). Satisfies
+    :class:`yazses.facegesture.actions.ClickView` structurally; this package does not import it.
+    """
+
+    state: str
+    paused: bool
+    clutched: bool
+    faulted: bool
+    closed: bool
+    gate_allowed: bool | None
+
+
+@dataclass(frozen=True)
+class ClickResult:
+    """The outcome of :meth:`HeadPointerController.commit_click`."""
+
+    ok: bool
+    reason: str = ""
 
 
 @dataclass(frozen=True)
@@ -566,6 +595,59 @@ class HeadPointerController:
         with self._lock:
             if not self._closed:
                 self._fail(reason[:200])
+
+    def commit_click(
+        self,
+        policy: Callable[[ClickContext], str],
+        *,
+        own_clutches: Iterable[str] = (),
+    ) -> ClickResult:
+        """One left click where the pointer already is, if ``policy`` allows it. Never raises.
+
+        The entry point for a *commit* from outside the dwell path (a face switch's ``select``).
+        The context is built and ``policy`` is asked under the same lock the pose updates and
+        ``pause`` take, so a pause cannot land between "allowed" and "clicked". A non-empty
+        ``policy`` return is a refusal and nothing is sent. ``own_clutches`` names clutches the
+        caller itself holds (the face switch freezes the pointer while its gesture is down) so
+        they do not count against it; every other clutch does.
+
+        The click goes through the same sink the pointer moves with, once, and is never
+        retried: a sink failure faults the controller exactly as a failed dwell click does
+        (only an explicit ``resume`` clears it). A successful click disarms dwell, so the two
+        click paths cannot fire on one pause of the head.
+        """
+        own = {str(c) for c in own_clutches}
+        with self._lock:
+            gate_allowed: bool | None = None
+            if self._safety is not None:
+                try:
+                    gate_allowed = bool(self._safety.gate(self._source).allowed)
+                except Exception:
+                    gate_allowed = False  # a gate that cannot answer does not say yes
+            context = ClickContext(
+                state=self._state.value,
+                paused=self._paused,
+                clutched=bool(self._clutches - own),
+                faulted=bool(self._fault),
+                closed=self._closed,
+                gate_allowed=gate_allowed,
+            )
+            try:
+                reason = policy(context)
+            except Exception as exc:
+                return ClickResult(False, f"could not decide ({type(exc).__name__})")
+            if reason:
+                return ClickResult(False, reason)
+            # Disarm before the call, as the dwell path does: a failing sink is not retried.
+            self._clicker.reset()
+            self._dwell_armed = False
+            self._dwell_origin = self._pos
+            try:
+                self._sink.click(PointerButton.LEFT)
+            except Exception as exc:
+                self._fail(_describe(exc))
+                return ClickResult(False, "the pointer backend failed the click")
+            return ClickResult(True)
 
     def set_dwell_enabled(self, enabled: bool) -> None:
         """Turn dwell-click on or off at runtime, independently of motion."""
