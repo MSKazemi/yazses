@@ -205,6 +205,22 @@ rating); `TRACEABILITY.md` links each acceptance item to its issue, slot and tes
 `tests/test_eye_acceptance_consistency.py` fails when any of these drifts from the code or the registry. It asserts no
 slot, metric or default is validated, and writes no protocol id or ethics reference.
 
+### Added — scheduled live audit of issue/milestone traceability (#487)
+
+`scripts/check-traceability-live.py` and `.github/workflows/traceability.yml` check the facts the offline
+manifest check cannot know: every issue `design/traceability.yml` names exists and is an issue, not a pull
+request; no non-terminal entry is left with only closed trackers; every declared milestone exists; and each
+open tracking issue carries the milestone the entry declares. It is read-only (GET only), costs two paginated
+list requests (all issues, all milestones) however many entries there are, and the workflow runs daily and on
+`workflow_dispatch` with `contents: read` + `issues: read`, the standard `GITHUB_TOKEN` and no secrets. A
+transient GitHub failure (outage, 429, rate limit, truncated listing) exits 2 and says it is not a violation;
+a real violation exits 1 naming the entry (with its line in the manifest), issue or milestone; an unusable
+configuration (bad manifest or exceptions file, rejected token, unknown repository) exits 3. Policy
+exceptions from #480 are honoured through `design/traceability-exceptions.yml`, which is empty by default,
+requires a reason and a justifying issue per item, and reports expired or unused items. The decision logic
+is pure and tested against recorded-style fixtures (`tests/test_traceability_live.py`); the ordinary suite
+stays offline. The workflow has not yet run on GitHub.
+
 ### Fixed — wiring tasks no longer claim to be cloud-completable (#531)
 
 All 38 remaining `feature-wiring` tasks said `cloud_agent_ready: true` while their own evidence is "the

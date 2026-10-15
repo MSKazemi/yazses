@@ -118,7 +118,12 @@ uv run python -m pytest tests/test_traceability.py -q
 ```
 
 Live GitHub facts such as whether an issue is still open or a milestone still exists are
-intentionally checked separately; the ordinary test suite must remain fully offline.
+intentionally checked separately; the ordinary test suite must remain fully offline. The
+scheduled `.github/workflows/traceability.yml` workflow runs
+`scripts/check-traceability-live.py` (read-only; exit 1 = violation, 2 = GitHub unreadable,
+3 = misconfigured). Deliberate exceptions go in
+[`traceability-exceptions.yml`](traceability-exceptions.yml), empty until the milestone
+policy in #480 is decided.
 
 ## Contributing to the design record
 
