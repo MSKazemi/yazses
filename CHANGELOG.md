@@ -70,6 +70,31 @@ aborting, writes no report if the screen layout changed during the pass, and car
 says in plain words when there is too little data to mean anything (`protocol.task_version` 1.1; the floors are
 provisional reporting floors, not measurements).
 
+### Fixed - the face-switch false-activation harness read some traces it should have refused, and printed a rate without its limits
+
+(#409.) Auditing the replay harness against the ways it could read as success while being wrong: a
+`schema_version` such as `1.\u00b2` crashed the reader with a traceback instead of a problem list (`str.isdigit`
+accepts it, `int` does not); a `trace_id` ending in a newline passed the slug check; a `timestamps` column was
+silently ignored, so a gap or time running backwards was replayed as even sampling and the duration (and the
+per-hour rate) was wrong, so such a trace is now refused with the fix named; a `sample_rate_hz` of `1e308` gave a
+zero duration and an infinite rate, so the rate is bounded to 0.1 to 1000 Hz. Report version 1.2: every per-hour
+figure, the per-context ones included (they were a bare `0.0` from twenty seconds of speech), now carries the exact
+one-sided 95% lower and upper Poisson limits and `per_hour_extrapolated`. The script now writes and compares the
+report as bytes, so Windows can no longer produce CRLF and fail its own `--check`. A mutant detector test proves
+an over-sensitive switch turns both the replay and the committed-report check red. Synthetic traces still justify
+no default.
+
+### Changed - `yazses handsfree explain` no longer prints text you wrote, and there is a setup guide
+
+(#410.) `explain` output is what people paste into issues, so a stop phrase, path or table in your own
+`config.toml` is now described by kind and size (`<your text, 22 characters>`) and never echoed; booleans,
+numbers and values equal to the preset's own still print. New guide
+[Set up hands-free input](docs/how-to/hands-free-setup.md): the one-switch setup with no undocumented terminal
+step, what the preset does not compose, every way to stop, and the recovery ladder. New tests pin idempotence
+across all 64 role subsets, that enable then disable returns your file (comments included) and resolved config, that
+a default install resolves with no preset key, and that a missing camera or pointer, or no overlay, leaves a stated
+reason and a pointer that never moved or clicked.
+
 ### Fixed — four more cross-OS test defects, found once the CI log could be read
 
 With the oversized test id fixed, the macOS and Windows runs reached the end of the suite and showed four

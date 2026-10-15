@@ -90,8 +90,24 @@ REQUIRED_TOP_LEVEL = (
     "schema_version", "trace_id", "study_mode", "gesture", "sample_rate_hz", "segments", "scores",
 )
 
-_TRACE_ID = re.compile(r"^[a-z0-9][a-z0-9._-]{0,79}$")
+_TRACE_ID = re.compile(r"[a-z0-9][a-z0-9._-]{0,79}")
+#: ``MAJOR.MINOR`` in ASCII digits only. ``str.isdigit`` accepts "\u00b2" and Arabic-Indic digits, and
+#: ``int("\u00b2")`` then raises -- a traceback where a problem list belongs.
+_VERSION = re.compile(r"[0-9]{1,6}\.[0-9]{1,6}")
 MAX_DESCRIPTION = 280
+
+#: A trace's rate must be one a camera or a down-sampler could plausibly have produced. Not a
+#: product number: it only keeps ``duration = samples / rate`` and a per-hour rate finite and
+#: meaningful (a 1e308 Hz trace is a duration of zero and a rate of infinity).
+MIN_SAMPLE_RATE_HZ = 0.1
+MAX_SAMPLE_RATE_HZ = 1000.0
+
+#: Top-level key names that mean "this trace carries its own clock". Time is the sample index
+#: here, so a document with timestamps cannot be honoured -- and silently ignoring them would
+#: replay a trace with gaps, jitter or time running backwards as if it were evenly sampled and
+#: report a duration (and so a per-hour rate) that is wrong. Refuse, and say how to fix it.
+TIME_KEY_TOKENS = ("timestamp", "time_s", "time_ms", "times", "elapsed")
+TIME_KEY_NAMES = ("t", "time", "dt", "ts")
 
 
 class SwitchTraceError(ValueError):
@@ -158,6 +174,20 @@ def _extra_forbidden(node: Any, path: str = "") -> list[str]:
     elif isinstance(node, list):
         for i, value in enumerate(node):
             out += _extra_forbidden(value, f"{path}{i}.")
+    return out
+
+
+def _time_key_problems(doc: dict[str, Any]) -> list[str]:
+    out: list[str] = []
+    for key in doc:
+        low = str(key).lower()
+        if low in TIME_KEY_NAMES or any(token in low for token in TIME_KEY_TOKENS):
+            out.append(
+                f"{key}: a trace carries no clock -- sample i is at i / sample_rate_hz seconds, so "
+                f"a timestamp column would be silently ignored and a gap, jitter or time running "
+                f"backwards would be replayed as an evenly sampled trace. Resample onto a uniform "
+                f"grid first and write each dropped frame as a null reading."
+            )
     return out
 
 
@@ -250,9 +280,7 @@ def _parse(doc: Any) -> tuple[SwitchTrace | None, list[str]]:
         return None, [f"<root>: expected a JSON object, got {type(doc).__name__}."]
 
     version = doc.get("schema_version")
-    if not isinstance(version, str) or version.count(".") != 1 or not all(
-        part.isdigit() for part in version.split(".")
-    ):
+    if not isinstance(version, str) or _VERSION.fullmatch(version) is None:
         return None, [
             f"schema_version: missing or malformed (got {version!r}); expected "
             f'"MAJOR.MINOR", e.g. "{TRACE_SCHEMA_VERSION}".'
@@ -265,13 +293,13 @@ def _parse(doc: Any) -> tuple[SwitchTrace | None, list[str]]:
             f"document cannot be read safely."
         ]
 
-    problems = forbidden_field_problems(doc) + _extra_forbidden(doc)
+    problems = forbidden_field_problems(doc) + _extra_forbidden(doc) + _time_key_problems(doc)
     for name in REQUIRED_TOP_LEVEL:
         if name not in doc:
             problems.append(f"{name}: missing required field.")
 
     trace_id = doc.get("trace_id")
-    if "trace_id" in doc and not (isinstance(trace_id, str) and _TRACE_ID.match(trace_id)):
+    if "trace_id" in doc and not (isinstance(trace_id, str) and _TRACE_ID.fullmatch(trace_id)):
         problems.append(
             f"trace_id: expected a short lowercase slug ([a-z0-9._-], up to 80 characters), got {trace_id!r}."
         )
@@ -287,9 +315,13 @@ def _parse(doc: Any) -> tuple[SwitchTrace | None, list[str]]:
     rate = doc.get("sample_rate_hz")
     if "sample_rate_hz" in doc and (
         isinstance(rate, bool) or not isinstance(rate, (int, float))
-        or not math.isfinite(float(rate)) or float(rate) <= 0.0
+        or not math.isfinite(float(rate))
+        or not MIN_SAMPLE_RATE_HZ <= float(rate) <= MAX_SAMPLE_RATE_HZ
     ):
-        problems.append(f"sample_rate_hz: expected a positive finite number, got {rate!r}.")
+        problems.append(
+            f"sample_rate_hz: expected a finite number from {MIN_SAMPLE_RATE_HZ} to "
+            f"{MAX_SAMPLE_RATE_HZ} Hz, got {rate!r}."
+        )
     description = doc.get("description", "")
     if not isinstance(description, str) or len(description) > MAX_DESCRIPTION:
         problems.append(f"description: expected a string of at most {MAX_DESCRIPTION} characters.")

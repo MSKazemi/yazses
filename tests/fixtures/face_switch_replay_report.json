@@ -1,10 +1,13 @@
 {
-  "report_version": "1.1",
+  "report_version": "1.2",
   "no_threshold_notice": "No product threshold, default or 'recommended' status follows from these numbers. Checked-in traces are synthetic and a threshold sweep only shows the phantom/recall trade-off on the trace it ran on. A facial switch is not recommended until false-activation evidence exists from real volunteer sessions across people (design/eye-control/ROADMAP.md P5.4, ADR-v2-150).",
   "zero_denominator_rule": "An empty trace is refused. A rate whose own denominator is zero is reported as {\"value\": null, \"reason\": ...}, never as 0.0: no non-deliberate time -> not_measured; no deliberate gestures -> not_measured; non-deliberate time with no usable reading -> tracking_unavailable.",
   "metric_definitions": {
     "false_activations": "switch starts outside every deliberate window (one per action, not per frame)",
     "false_activations_per_hour": "false_activations / (non-deliberate seconds / 3600); non-deliberate time is every sample outside a deliberate window, tracked or not",
+    "false_activations_per_hour_lower_95": "exact one-sided 95% Poisson lower limit of the same rate (0 when no phantom was seen); with the upper limit, a two-sided 90% interval",
+    "false_activations_per_hour_upper_95": "exact one-sided 95% Poisson upper limit of the same rate",
+    "per_hour_extrapolated": "true when the exposure behind a per-hour figure is under one hour: the figure is scaled up from a shorter observation, and only the limits say how far to trust it",
     "recall": "deliberate intervals with at least one start in their window / deliberate intervals",
     "activation_latency_ms": "first start sample minus the deliberate interval's first sample, debounce included",
     "chatter": "more than one start inside one deliberate window",
@@ -12,7 +15,7 @@
     "longest_hold_s": "the longest single hold, from its start to its end (or to the end of the trace if it never ended), in seconds",
     "failures": "named failures present in this block; 'stuck_open' when stuck_open_holds > 0"
   },
-  "upper_bound_caveat": "Exact one-sided 95% Poisson upper bound on the rate, assuming independent events in a single session; real phantoms cluster (a long conversation, a bad lighting spell), so treat it as a floor on the uncertainty, not a guarantee.",
+  "upper_bound_caveat": "Exact one-sided 95% Poisson lower and upper limits on the rate, assuming independent events in a single session; real phantoms cluster (a long conversation, a bad lighting spell), so treat them as a floor on the uncertainty, not a guarantee.",
   "evidence_class": "synthetic",
   "config": {
     "hold_threshold": 0.5,
@@ -45,7 +48,9 @@
       "non_deliberate_usable_fraction": 1.0,
       "deliberate_usable_fraction": 1.0,
       "false_activations_per_hour": 112.5,
+      "false_activations_per_hour_lower_95": 5.77,
       "false_activations_per_hour_upper_95": 533.685,
+      "per_hour_extrapolated": true,
       "activation_latency_ms": {
         "value": null,
         "reason": "not_measured"
@@ -69,7 +74,10 @@
         "rest": {
           "duration_s": 32.0,
           "false_activations": 1,
-          "false_activations_per_hour": 112.5
+          "false_activations_per_hour": 112.5,
+          "false_activations_per_hour_lower_95": 5.77,
+          "false_activations_per_hour_upper_95": 533.685,
+          "per_hour_extrapolated": true
         }
       },
       "sample_status": {
@@ -102,7 +110,9 @@
       "non_deliberate_usable_fraction": 1.0,
       "deliberate_usable_fraction": 1.0,
       "false_activations_per_hour": 0.0,
+      "false_activations_per_hour_lower_95": 0.0,
       "false_activations_per_hour_upper_95": 718.976,
+      "per_hour_extrapolated": true,
       "activation_latency_ms": {
         "count": 2,
         "median": 250.0,
@@ -122,7 +132,10 @@
         "rest": {
           "duration_s": 15.0,
           "false_activations": 0,
-          "false_activations_per_hour": 0.0
+          "false_activations_per_hour": 0.0,
+          "false_activations_per_hour_lower_95": 0.0,
+          "false_activations_per_hour_upper_95": 718.976,
+          "per_hour_extrapolated": true
         }
       },
       "sample_status": {
@@ -155,7 +168,9 @@
       "non_deliberate_usable_fraction": 1.0,
       "deliberate_usable_fraction": 1.0,
       "false_activations_per_hour": 0.0,
+      "false_activations_per_hour_lower_95": 0.0,
       "false_activations_per_hour_upper_95": 308.132,
+      "per_hour_extrapolated": true,
       "activation_latency_ms": {
         "count": 3,
         "median": 300.0,
@@ -175,7 +190,10 @@
         "rest": {
           "duration_s": 35.0,
           "false_activations": 0,
-          "false_activations_per_hour": 0.0
+          "false_activations_per_hour": 0.0,
+          "false_activations_per_hour_lower_95": 0.0,
+          "false_activations_per_hour_upper_95": 308.132,
+          "per_hour_extrapolated": true
         }
       },
       "sample_status": {
@@ -208,7 +226,9 @@
       "non_deliberate_usable_fraction": 1.0,
       "deliberate_usable_fraction": 1.0,
       "false_activations_per_hour": 540.0,
+      "false_activations_per_hour_lower_95": 147.184,
       "false_activations_per_hour_upper_95": 1395.658,
+      "per_hour_extrapolated": true,
       "activation_latency_ms": {
         "count": 1,
         "median": 300.0,
@@ -228,7 +248,10 @@
         "rest": {
           "duration_s": 20.0,
           "false_activations": 3,
-          "false_activations_per_hour": 540.0
+          "false_activations_per_hour": 540.0,
+          "false_activations_per_hour_lower_95": 147.184,
+          "false_activations_per_hour_upper_95": 1395.658,
+          "per_hour_extrapolated": true
         }
       },
       "sample_status": {
@@ -261,7 +284,9 @@
       "non_deliberate_usable_fraction": 0.89,
       "deliberate_usable_fraction": 0.880952,
       "false_activations_per_hour": 0.0,
+      "false_activations_per_hour_lower_95": 0.0,
       "false_activations_per_hour_upper_95": 539.232,
+      "per_hour_extrapolated": true,
       "activation_latency_ms": {
         "count": 2,
         "median": 300.0,
@@ -281,7 +306,10 @@
         "rest": {
           "duration_s": 20.0,
           "false_activations": 0,
-          "false_activations_per_hour": 0.0
+          "false_activations_per_hour": 0.0,
+          "false_activations_per_hour_lower_95": 0.0,
+          "false_activations_per_hour_upper_95": 539.232,
+          "per_hour_extrapolated": true
         }
       },
       "sample_status": {
@@ -320,7 +348,9 @@
         "reason": "not_measured"
       },
       "false_activations_per_hour": 0.0,
+      "false_activations_per_hour_lower_95": 0.0,
       "false_activations_per_hour_upper_95": 179.744,
+      "per_hour_extrapolated": true,
       "activation_latency_ms": {
         "value": null,
         "reason": "not_measured"
@@ -351,7 +381,10 @@
         "rest": {
           "duration_s": 60.0,
           "false_activations": 0,
-          "false_activations_per_hour": 0.0
+          "false_activations_per_hour": 0.0,
+          "false_activations_per_hour_lower_95": 0.0,
+          "false_activations_per_hour_upper_95": 179.744,
+          "per_hour_extrapolated": true
         }
       },
       "sample_status": {
@@ -390,7 +423,9 @@
         "reason": "not_measured"
       },
       "false_activations_per_hour": 0.0,
+      "false_activations_per_hour_lower_95": 0.0,
       "false_activations_per_hour_upper_95": 179.744,
+      "per_hour_extrapolated": true,
       "activation_latency_ms": {
         "value": null,
         "reason": "not_measured"
@@ -421,22 +456,34 @@
         "rest": {
           "duration_s": 20.0,
           "false_activations": 0,
-          "false_activations_per_hour": 0.0
+          "false_activations_per_hour": 0.0,
+          "false_activations_per_hour_lower_95": 0.0,
+          "false_activations_per_hour_upper_95": 539.232,
+          "per_hour_extrapolated": true
         },
         "speech": {
           "duration_s": 20.0,
           "false_activations": 0,
-          "false_activations_per_hour": 0.0
+          "false_activations_per_hour": 0.0,
+          "false_activations_per_hour_lower_95": 0.0,
+          "false_activations_per_hour_upper_95": 539.232,
+          "per_hour_extrapolated": true
         },
         "head_movement": {
           "duration_s": 10.0,
           "false_activations": 0,
-          "false_activations_per_hour": 0.0
+          "false_activations_per_hour": 0.0,
+          "false_activations_per_hour_lower_95": 0.0,
+          "false_activations_per_hour_upper_95": 1078.464,
+          "per_hour_extrapolated": true
         },
         "smile": {
           "duration_s": 10.0,
           "false_activations": 0,
-          "false_activations_per_hour": 0.0
+          "false_activations_per_hour": 0.0,
+          "false_activations_per_hour_lower_95": 0.0,
+          "false_activations_per_hour_upper_95": 1078.464,
+          "per_hour_extrapolated": true
         }
       },
       "sample_status": {
@@ -469,7 +516,9 @@
       "non_deliberate_usable_fraction": 1.0,
       "deliberate_usable_fraction": 1.0,
       "false_activations_per_hour": 0.0,
+      "false_activations_per_hour_lower_95": 0.0,
       "false_activations_per_hour_upper_95": 291.477,
+      "per_hour_extrapolated": true,
       "activation_latency_ms": {
         "value": null,
         "reason": "not_measured"
@@ -491,12 +540,18 @@
         "rest": {
           "duration_s": 17.0,
           "false_activations": 0,
-          "false_activations_per_hour": 0.0
+          "false_activations_per_hour": 0.0,
+          "false_activations_per_hour_lower_95": 0.0,
+          "false_activations_per_hour_upper_95": 634.39,
+          "per_hour_extrapolated": true
         },
         "speech": {
           "duration_s": 20.0,
           "false_activations": 0,
-          "false_activations_per_hour": 0.0
+          "false_activations_per_hour": 0.0,
+          "false_activations_per_hour_lower_95": 0.0,
+          "false_activations_per_hour_upper_95": 539.232,
+          "per_hour_extrapolated": true
         }
       },
       "sample_status": {
@@ -526,7 +581,9 @@
       "non_deliberate_usable_fraction": 0.992115,
       "deliberate_usable_fraction": 0.982079,
       "false_activations_per_hour": 51.613,
+      "false_activations_per_hour_lower_95": 17.63,
       "false_activations_per_hour_upper_95": 118.11,
+      "per_hour_extrapolated": true,
       "activation_latency_ms": {
         "count": 8,
         "median": 300.0,
@@ -548,22 +605,34 @@
         "rest": {
           "duration_s": 219.0,
           "false_activations": 4,
-          "false_activations_per_hour": 65.753
+          "false_activations_per_hour": 65.753,
+          "false_activations_per_hour_lower_95": 22.46,
+          "false_activations_per_hour_upper_95": 150.469,
+          "per_hour_extrapolated": true
         },
         "speech": {
           "duration_s": 40.0,
           "false_activations": 0,
-          "false_activations_per_hour": 0.0
+          "false_activations_per_hour": 0.0,
+          "false_activations_per_hour_lower_95": 0.0,
+          "false_activations_per_hour_upper_95": 269.616,
+          "per_hour_extrapolated": true
         },
         "head_movement": {
           "duration_s": 10.0,
           "false_activations": 0,
-          "false_activations_per_hour": 0.0
+          "false_activations_per_hour": 0.0,
+          "false_activations_per_hour_lower_95": 0.0,
+          "false_activations_per_hour_upper_95": 1078.464,
+          "per_hour_extrapolated": true
         },
         "smile": {
           "duration_s": 10.0,
           "false_activations": 0,
-          "false_activations_per_hour": 0.0
+          "false_activations_per_hour": 0.0,
+          "false_activations_per_hour_lower_95": 0.0,
+          "false_activations_per_hour_upper_95": 1078.464,
+          "per_hour_extrapolated": true
         }
       },
       "sample_status": {
@@ -596,7 +665,9 @@
           "non_deliberate_usable_fraction": 0.992115,
           "deliberate_usable_fraction": 0.982079,
           "false_activations_per_hour": 374.194,
+          "false_activations_per_hour_lower_95": 267.69,
           "false_activations_per_hour_upper_95": 510.206,
+          "per_hour_extrapolated": true,
           "activation_latency_ms": {
             "count": 11,
             "median": 200.0,
@@ -618,22 +689,34 @@
             "rest": {
               "duration_s": 219.0,
               "false_activations": 4,
-              "false_activations_per_hour": 65.753
+              "false_activations_per_hour": 65.753,
+              "false_activations_per_hour_lower_95": 22.46,
+              "false_activations_per_hour_upper_95": 150.469,
+              "per_hour_extrapolated": true
             },
             "speech": {
               "duration_s": 40.0,
               "false_activations": 25,
-              "false_activations_per_hour": 2250.0
+              "false_activations_per_hour": 2250.0,
+              "false_activations_per_hour_lower_95": 1564.391,
+              "false_activations_per_hour_upper_95": 3142.447,
+              "per_hour_extrapolated": true
             },
             "head_movement": {
               "duration_s": 10.0,
               "false_activations": 0,
-              "false_activations_per_hour": 0.0
+              "false_activations_per_hour": 0.0,
+              "false_activations_per_hour_lower_95": 0.0,
+              "false_activations_per_hour_upper_95": 1078.464,
+              "per_hour_extrapolated": true
             },
             "smile": {
               "duration_s": 10.0,
               "false_activations": 0,
-              "false_activations_per_hour": 0.0
+              "false_activations_per_hour": 0.0,
+              "false_activations_per_hour_lower_95": 0.0,
+              "false_activations_per_hour_upper_95": 1078.464,
+              "per_hour_extrapolated": true
             }
           },
           "sample_status": {
@@ -666,7 +749,9 @@
           "non_deliberate_usable_fraction": 0.992115,
           "deliberate_usable_fraction": 0.982079,
           "false_activations_per_hour": 51.613,
+          "false_activations_per_hour_lower_95": 17.63,
           "false_activations_per_hour_upper_95": 118.11,
+          "per_hour_extrapolated": true,
           "activation_latency_ms": {
             "count": 11,
             "median": 200.0,
@@ -688,22 +773,34 @@
             "rest": {
               "duration_s": 219.0,
               "false_activations": 4,
-              "false_activations_per_hour": 65.753
+              "false_activations_per_hour": 65.753,
+              "false_activations_per_hour_lower_95": 22.46,
+              "false_activations_per_hour_upper_95": 150.469,
+              "per_hour_extrapolated": true
             },
             "speech": {
               "duration_s": 40.0,
               "false_activations": 0,
-              "false_activations_per_hour": 0.0
+              "false_activations_per_hour": 0.0,
+              "false_activations_per_hour_lower_95": 0.0,
+              "false_activations_per_hour_upper_95": 269.616,
+              "per_hour_extrapolated": true
             },
             "head_movement": {
               "duration_s": 10.0,
               "false_activations": 0,
-              "false_activations_per_hour": 0.0
+              "false_activations_per_hour": 0.0,
+              "false_activations_per_hour_lower_95": 0.0,
+              "false_activations_per_hour_upper_95": 1078.464,
+              "per_hour_extrapolated": true
             },
             "smile": {
               "duration_s": 10.0,
               "false_activations": 0,
-              "false_activations_per_hour": 0.0
+              "false_activations_per_hour": 0.0,
+              "false_activations_per_hour_lower_95": 0.0,
+              "false_activations_per_hour_upper_95": 1078.464,
+              "per_hour_extrapolated": true
             }
           },
           "sample_status": {
@@ -736,7 +833,9 @@
           "non_deliberate_usable_fraction": 0.992115,
           "deliberate_usable_fraction": 0.982079,
           "false_activations_per_hour": 51.613,
+          "false_activations_per_hour_lower_95": 17.63,
           "false_activations_per_hour_upper_95": 118.11,
+          "per_hour_extrapolated": true,
           "activation_latency_ms": {
             "count": 11,
             "median": 200.0,
@@ -758,22 +857,34 @@
             "rest": {
               "duration_s": 219.0,
               "false_activations": 4,
-              "false_activations_per_hour": 65.753
+              "false_activations_per_hour": 65.753,
+              "false_activations_per_hour_lower_95": 22.46,
+              "false_activations_per_hour_upper_95": 150.469,
+              "per_hour_extrapolated": true
             },
             "speech": {
               "duration_s": 40.0,
               "false_activations": 0,
-              "false_activations_per_hour": 0.0
+              "false_activations_per_hour": 0.0,
+              "false_activations_per_hour_lower_95": 0.0,
+              "false_activations_per_hour_upper_95": 269.616,
+              "per_hour_extrapolated": true
             },
             "head_movement": {
               "duration_s": 10.0,
               "false_activations": 0,
-              "false_activations_per_hour": 0.0
+              "false_activations_per_hour": 0.0,
+              "false_activations_per_hour_lower_95": 0.0,
+              "false_activations_per_hour_upper_95": 1078.464,
+              "per_hour_extrapolated": true
             },
             "smile": {
               "duration_s": 10.0,
               "false_activations": 0,
-              "false_activations_per_hour": 0.0
+              "false_activations_per_hour": 0.0,
+              "false_activations_per_hour_lower_95": 0.0,
+              "false_activations_per_hour_upper_95": 1078.464,
+              "per_hour_extrapolated": true
             }
           },
           "sample_status": {
@@ -806,7 +917,9 @@
           "non_deliberate_usable_fraction": 0.992115,
           "deliberate_usable_fraction": 0.982079,
           "false_activations_per_hour": 51.613,
+          "false_activations_per_hour_lower_95": 17.63,
           "false_activations_per_hour_upper_95": 118.11,
+          "per_hour_extrapolated": true,
           "activation_latency_ms": {
             "count": 11,
             "median": 300.0,
@@ -828,22 +941,34 @@
             "rest": {
               "duration_s": 219.0,
               "false_activations": 4,
-              "false_activations_per_hour": 65.753
+              "false_activations_per_hour": 65.753,
+              "false_activations_per_hour_lower_95": 22.46,
+              "false_activations_per_hour_upper_95": 150.469,
+              "per_hour_extrapolated": true
             },
             "speech": {
               "duration_s": 40.0,
               "false_activations": 0,
-              "false_activations_per_hour": 0.0
+              "false_activations_per_hour": 0.0,
+              "false_activations_per_hour_lower_95": 0.0,
+              "false_activations_per_hour_upper_95": 269.616,
+              "per_hour_extrapolated": true
             },
             "head_movement": {
               "duration_s": 10.0,
               "false_activations": 0,
-              "false_activations_per_hour": 0.0
+              "false_activations_per_hour": 0.0,
+              "false_activations_per_hour_lower_95": 0.0,
+              "false_activations_per_hour_upper_95": 1078.464,
+              "per_hour_extrapolated": true
             },
             "smile": {
               "duration_s": 10.0,
               "false_activations": 0,
-              "false_activations_per_hour": 0.0
+              "false_activations_per_hour": 0.0,
+              "false_activations_per_hour_lower_95": 0.0,
+              "false_activations_per_hour_upper_95": 1078.464,
+              "per_hour_extrapolated": true
             }
           },
           "sample_status": {
@@ -876,7 +1001,9 @@
           "non_deliberate_usable_fraction": 0.992115,
           "deliberate_usable_fraction": 0.982079,
           "false_activations_per_hour": 51.613,
+          "false_activations_per_hour_lower_95": 17.63,
           "false_activations_per_hour_upper_95": 118.11,
+          "per_hour_extrapolated": true,
           "activation_latency_ms": {
             "count": 11,
             "median": 300.0,
@@ -898,22 +1025,34 @@
             "rest": {
               "duration_s": 219.0,
               "false_activations": 4,
-              "false_activations_per_hour": 65.753
+              "false_activations_per_hour": 65.753,
+              "false_activations_per_hour_lower_95": 22.46,
+              "false_activations_per_hour_upper_95": 150.469,
+              "per_hour_extrapolated": true
             },
             "speech": {
               "duration_s": 40.0,
               "false_activations": 0,
-              "false_activations_per_hour": 0.0
+              "false_activations_per_hour": 0.0,
+              "false_activations_per_hour_lower_95": 0.0,
+              "false_activations_per_hour_upper_95": 269.616,
+              "per_hour_extrapolated": true
             },
             "head_movement": {
               "duration_s": 10.0,
               "false_activations": 0,
-              "false_activations_per_hour": 0.0
+              "false_activations_per_hour": 0.0,
+              "false_activations_per_hour_lower_95": 0.0,
+              "false_activations_per_hour_upper_95": 1078.464,
+              "per_hour_extrapolated": true
             },
             "smile": {
               "duration_s": 10.0,
               "false_activations": 0,
-              "false_activations_per_hour": 0.0
+              "false_activations_per_hour": 0.0,
+              "false_activations_per_hour_lower_95": 0.0,
+              "false_activations_per_hour_upper_95": 1078.464,
+              "per_hour_extrapolated": true
             }
           },
           "sample_status": {
@@ -946,7 +1085,9 @@
           "non_deliberate_usable_fraction": 0.992115,
           "deliberate_usable_fraction": 0.982079,
           "false_activations_per_hour": 51.613,
+          "false_activations_per_hour_lower_95": 17.63,
           "false_activations_per_hour_upper_95": 118.11,
+          "per_hour_extrapolated": true,
           "activation_latency_ms": {
             "count": 8,
             "median": 300.0,
@@ -968,22 +1109,34 @@
             "rest": {
               "duration_s": 219.0,
               "false_activations": 4,
-              "false_activations_per_hour": 65.753
+              "false_activations_per_hour": 65.753,
+              "false_activations_per_hour_lower_95": 22.46,
+              "false_activations_per_hour_upper_95": 150.469,
+              "per_hour_extrapolated": true
             },
             "speech": {
               "duration_s": 40.0,
               "false_activations": 0,
-              "false_activations_per_hour": 0.0
+              "false_activations_per_hour": 0.0,
+              "false_activations_per_hour_lower_95": 0.0,
+              "false_activations_per_hour_upper_95": 269.616,
+              "per_hour_extrapolated": true
             },
             "head_movement": {
               "duration_s": 10.0,
               "false_activations": 0,
-              "false_activations_per_hour": 0.0
+              "false_activations_per_hour": 0.0,
+              "false_activations_per_hour_lower_95": 0.0,
+              "false_activations_per_hour_upper_95": 1078.464,
+              "per_hour_extrapolated": true
             },
             "smile": {
               "duration_s": 10.0,
               "false_activations": 0,
-              "false_activations_per_hour": 0.0
+              "false_activations_per_hour": 0.0,
+              "false_activations_per_hour_lower_95": 0.0,
+              "false_activations_per_hour_upper_95": 1078.464,
+              "per_hour_extrapolated": true
             }
           },
           "sample_status": {
@@ -1016,7 +1169,9 @@
           "non_deliberate_usable_fraction": 0.992115,
           "deliberate_usable_fraction": 0.982079,
           "false_activations_per_hour": 51.613,
+          "false_activations_per_hour_lower_95": 17.63,
           "false_activations_per_hour_upper_95": 118.11,
+          "per_hour_extrapolated": true,
           "activation_latency_ms": {
             "count": 8,
             "median": 300.0,
@@ -1038,22 +1193,34 @@
             "rest": {
               "duration_s": 219.0,
               "false_activations": 4,
-              "false_activations_per_hour": 65.753
+              "false_activations_per_hour": 65.753,
+              "false_activations_per_hour_lower_95": 22.46,
+              "false_activations_per_hour_upper_95": 150.469,
+              "per_hour_extrapolated": true
             },
             "speech": {
               "duration_s": 40.0,
               "false_activations": 0,
-              "false_activations_per_hour": 0.0
+              "false_activations_per_hour": 0.0,
+              "false_activations_per_hour_lower_95": 0.0,
+              "false_activations_per_hour_upper_95": 269.616,
+              "per_hour_extrapolated": true
             },
             "head_movement": {
               "duration_s": 10.0,
               "false_activations": 0,
-              "false_activations_per_hour": 0.0
+              "false_activations_per_hour": 0.0,
+              "false_activations_per_hour_lower_95": 0.0,
+              "false_activations_per_hour_upper_95": 1078.464,
+              "per_hour_extrapolated": true
             },
             "smile": {
               "duration_s": 10.0,
               "false_activations": 0,
-              "false_activations_per_hour": 0.0
+              "false_activations_per_hour": 0.0,
+              "false_activations_per_hour_lower_95": 0.0,
+              "false_activations_per_hour_upper_95": 1078.464,
+              "per_hour_extrapolated": true
             }
           },
           "sample_status": {
@@ -1086,7 +1253,9 @@
           "non_deliberate_usable_fraction": 0.992115,
           "deliberate_usable_fraction": 0.982079,
           "false_activations_per_hour": 38.71,
+          "false_activations_per_hour_lower_95": 10.551,
           "false_activations_per_hour_upper_95": 100.047,
+          "per_hour_extrapolated": true,
           "activation_latency_ms": {
             "count": 9,
             "median": 300.0,
@@ -1108,22 +1277,34 @@
             "rest": {
               "duration_s": 219.0,
               "false_activations": 3,
-              "false_activations_per_hour": 49.315
+              "false_activations_per_hour": 49.315,
+              "false_activations_per_hour_lower_95": 13.442,
+              "false_activations_per_hour_upper_95": 127.457,
+              "per_hour_extrapolated": true
             },
             "speech": {
               "duration_s": 40.0,
               "false_activations": 0,
-              "false_activations_per_hour": 0.0
+              "false_activations_per_hour": 0.0,
+              "false_activations_per_hour_lower_95": 0.0,
+              "false_activations_per_hour_upper_95": 269.616,
+              "per_hour_extrapolated": true
             },
             "head_movement": {
               "duration_s": 10.0,
               "false_activations": 0,
-              "false_activations_per_hour": 0.0
+              "false_activations_per_hour": 0.0,
+              "false_activations_per_hour_lower_95": 0.0,
+              "false_activations_per_hour_upper_95": 1078.464,
+              "per_hour_extrapolated": true
             },
             "smile": {
               "duration_s": 10.0,
               "false_activations": 0,
-              "false_activations_per_hour": 0.0
+              "false_activations_per_hour": 0.0,
+              "false_activations_per_hour_lower_95": 0.0,
+              "false_activations_per_hour_upper_95": 1078.464,
+              "per_hour_extrapolated": true
             }
           },
           "sample_status": {
