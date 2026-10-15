@@ -75,7 +75,9 @@ def test_window_builds_a_checkbox_for_every_feature_row(qapp):
 def test_core_and_unwired_rows_are_shown_but_not_clickable(qapp):
     win = _window(qapp, _Recorder())
     assert win._checkboxes["dictation"].isEnabled() is False  # core
-    assert win._checkboxes["reask"].isEnabled() is False  # designed, not wired
+    from yazses.system.features import unwired_slugs
+    unwired = sorted(unwired_slugs())[0]
+    assert win._checkboxes[unwired].isEnabled() is False  # designed, not wired
     assert win._checkboxes["streaming"].isEnabled() is True
 
 
@@ -190,7 +192,9 @@ def test_a_disabled_row_still_explains_why_it_cannot_be_switched(qapp):
     """The greyed rows are exactly the ones people need explained."""
     win = _window(qapp, _Recorder())
     assert "not a switch" in win._checkboxes["dictation"].toolTip()
-    assert "not wired into this build" in win._checkboxes["reask"].toolTip()
+    from yazses.system.features import unwired_slugs
+    unwired = sorted(unwired_slugs())[0]
+    assert "not wired into this build" in win._checkboxes[unwired].toolTip()
 
 
 def test_rows_expose_help_to_a_screen_reader_not_only_on_hover(qapp):

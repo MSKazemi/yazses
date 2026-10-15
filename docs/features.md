@@ -293,11 +293,11 @@ YazSes ships **148 capabilities**. All but the core are **off by default** — t
 
 ### Confidence-Gated Re-Ask
 
-- **Toggle:** `reask`  ·  **Tier:** planned — designed, not yet wired  ·  **Config:** `[reask] — resolve uncertain words`
-- **What it does:** Instead of injecting a low-confidence guess, holds just the uncertain word and asks you to pick or repeat it — closing the correction loop. Off by default.
+- **Toggle:** `reask`  ·  **Tier:** optional  ·  **Config:** `[reask] — resolve uncertain words`
+- **What it does:** When Whisper is unsure which of their/there, to/too/two, its/it's... you said, the burst waits and a notification lists the options. Say 'first', 'second', 'third' or the word itself to patch just that word; anything else releases the text unchanged, and an unanswered hold goes to the clipboard after ten seconds. Fires only on one uncertain word at a time. `[reask] threshold` is the log-probability below which a word counts as unsure. Off by default.
 - **Use when:** When one word is often guessed wrong and you'd rather confirm it than retype the whole line.
 - **Example:** An unsure 'their/there' pops a quick pick instead of guessing wrong.
-- **Activate:** not possible yet — designed but not wired into this build (`yazses features enable` refuses it; contributions welcome)
+- **Activate:** `yazses features enable reask` then `yazses restart`
 
 ### Phonetic Spelling Mode
 

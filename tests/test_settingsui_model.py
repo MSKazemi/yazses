@@ -36,10 +36,12 @@ def test_core_feature_is_not_toggleable():
 
 def test_unwired_feature_is_not_toggleable_even_though_it_has_writes():
     rows = {r.slug: r for r in _rows()}
-    # "reask" is designed (has on_writes) but listed in features._UNWIRED — a
-    # settings toggle for it would silently write a key nothing reads.
-    reask = rows["reask"]
-    assert reask.toggleable is False
+    # An _UNWIRED slug is designed (has on_writes) but nothing reads it — a settings
+    # toggle for it would silently write a key nothing reads. Derived, not named: the
+    # example used to be "reask", which stopped being unwired the day it was wired.
+    from yazses.system.features import unwired_slugs
+    slug = sorted(unwired_slugs())[0]
+    assert rows[slug].toggleable is False
 
 
 def test_experimental_flag_matches_tier():
@@ -83,7 +85,8 @@ def test_rows_know_their_shipped_default():
     assert rows["commands"].default_enabled is True     # ships on
     assert rows["streaming"].default_enabled is False   # opt-in
     assert rows["dictation"].default_enabled is None    # not a switch at all
-    assert rows["reask"].default_enabled is None        # designed, not wired
+    from yazses.system.features import unwired_slugs
+    assert rows[sorted(unwired_slugs())[0]].default_enabled is None  # designed, not wired
 
 
 def test_the_model_carries_the_defaults_a_reset_targets():

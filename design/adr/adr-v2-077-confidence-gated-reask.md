@@ -30,3 +30,21 @@ head is deferred. OFF by default.
 - Privacy (ADR-011): all local; nothing transmitted.
 - Caveat: the pure layer uses raw log-probs + a curated confusion table → a learned estimator is
   the deferred quality tier; off by default.
+
+## Wiring (2026-10-15)
+
+Wired by `reask/gate.py` and one gate call in `core/daemon.py` (`_reask_gate`), tier `optional`.
+Decisions made while wiring, because the pure cores alone do not say what the interaction is:
+
+- **Hold granularity is the burst, not the span.** The daemon types a burst as one string, so the
+  gate holds the whole burst and patches the one word on resolution.
+- **Fire only on a specific signal** (ADR-021): exactly one uncertain word, in the confusion table,
+  appearing exactly once in the text. Unreported per-word probability (`0.0`) reads as certain.
+- **The reply is an anchored grammar**, not `parse_choice`'s search: the next dictation is arbitrary
+  prose, and a search would pick "one" out of "I want one coffee". A bare number word is not an
+  ordinal because `two` is itself an option.
+- **Nothing is lost.** A non-pick reply releases the held text and then types the reply; an
+  unanswered hold expires after ten seconds to the **clipboard**, never to the keyboard, because
+  typing later lands in whatever has focus by then.
+- Replies are recognised in dictation mode only; a reply spoken on the command key is not a pick,
+  and the hold then expires to the clipboard.
