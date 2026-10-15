@@ -6,6 +6,26 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — the Head-Pointer says it is waiting for your permission, and `doctor` names the pointer backend
+
+On native Wayland the pointer needs the desktop's Remote Desktop permission, asked once in a dialog the
+daemon cannot answer. Until you did, the first head movement used to fault the pointer ("waiting for the
+desktop's ... dialog; approve it, then run `yazses headpointer resume`") and report that fault to the global
+stop. It is now a state of its own, `pending_consent`: nothing tries to move, nothing is faulted, and the
+pointer starts by itself - through a settling frame, so approving can never jump or click it - the moment you
+approve. A refusal is `denied` and a compositor that grants no pointer is `unavailable`; neither is a generic
+fault. `yazses headpointer status` prints a `consent:` line (and what to do), the hands-free controls window
+shows the Head-Pointer and its Pointer output as needing attention, and the status reply carries `consent` and
+`consent_reason`. X11, macOS and Windows have no permission step and are unchanged.
+
+`yazses doctor`'s **Pointer output** row used to say `unknown` on every machine, because it asked the platform
+for a capability report no platform implements. It now says which backend would drive the pointer on this
+session (`portal`, `x11`, `sendinput`, `quartz`, or `none` with the reason and the fix) and, on Wayland, whether
+the permission has been granted this daemon session - read from the running daemon, or "daemon not running".
+It stays read-only: it opens no pointer, no portal session and no camera, and makes one local status call only
+when the Head-Pointer is enabled. `uinput` and `xdotool` are not pointer backends in this build and are never
+named. Fakes only: the real GNOME consent dialog has still not been answered against this code.
+
 ### Added — a hands-free preset: `[handsfree] enabled = true`
 
 One switch that expands, before any section is built, into the ordinary settings a person could have written
@@ -31,9 +51,9 @@ session dictation already types through, so there is one consent dialog, one res
 session implementation. The sink is deferred: building it sends nothing, and the daemon's existing warm-up
 raises the dialog once for keyboard and pointer together. A Cancel leaves nothing half-open, and the idle
 reaper no longer closes a session a pointer consumer holds (it would have done so after 60 s). X11 is
-unchanged. Tested with portal fakes only; **not yet exercised against a real GNOME consent dialog**. If the
-first head movement arrives before the dialog is answered the pointer faults with a clear reason and
-`yazses headpointer resume` continues ([#403](https://github.com/MSKazemi/yazses/issues/403),
+unchanged. Tested with portal fakes only; **not yet exercised against a real GNOME consent dialog**. A head
+movement that arrives before the dialog is answered no longer faults the pointer: see the `pending_consent`
+state above ([#403](https://github.com/MSKazemi/yazses/issues/403),
 [#404](https://github.com/MSKazemi/yazses/issues/404)).
 
 ### Changed — Head-Pointer speed is per second, not per camera frame

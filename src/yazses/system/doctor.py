@@ -1223,6 +1223,27 @@ def _camera_ready(camera_row: _Check | None) -> bool | None:
     return None
 
 
+def _headpointer_daemon_view(platform) -> tuple[bool, dict | None]:
+    """Is the daemon running, and what does its Head-Pointer say? Read-only, one local call.
+
+    ``(False, None)`` when it is not running -- the honest basis for "daemon not running" in
+    the Pointer output row. ``(True, None)`` when it runs and did not answer. The call is the
+    same `headpointer status` the CLI makes: it reads state the daemon already holds and
+    cannot open a pointer, a camera or a portal dialog.
+    """
+    try:
+        if not platform.lifecycle.is_running():
+            return False, None
+    except Exception:  # noqa: BLE001 - a lifecycle that cannot answer is "not running"
+        return False, None
+    try:
+        client = platform.ipc_client_factory(platform.paths.ipc_socket)
+        reply = client.call("headpointer", action="status")
+        return True, reply if isinstance(reply, dict) else None
+    except Exception:  # noqa: BLE001 - IPC not ready yet is "no answer", not a failure
+        return True, None
+
+
 def _handsfree_checks(
     cfg,
     platform,
@@ -1230,6 +1251,8 @@ def _handsfree_checks(
     *,
     unwired: frozenset[str] | None = None,
     read_context=None,
+    pointer_env=None,
+    daemon_view=None,
 ) -> list[_Check]:
     """Hands-free health rows — camera perception, head, face switch, pointer, safety.
 
@@ -1246,13 +1269,29 @@ def _handsfree_checks(
     drives, and ``read_context`` the display topology the calibration is judged against.
     """
     from yazses.handsfree.observability import doctor_rows
-    from yazses.handsfree.probe import calibration_facts, facts_from_config, pointer_facts
+    from yazses.handsfree.probe import (
+        calibration_facts,
+        facts_from_config,
+        pointer_facts,
+        pointer_route_facts,
+        read_pointer_environment,
+    )
 
     facts = facts_from_config(cfg, unwired=unwired)
     if not facts.features_requested and not facts.safety_configured:
         return []
     facts = replace(facts, camera_ready=_camera_ready(camera_row))
     facts = pointer_facts(facts, platform)
+    if "headpointer" in facts.features_requested and not facts.pointer_backend:
+        # `pointer_env` / `daemon_view` are the test seams; in a real run both are read here.
+        # `daemon_view` is ``(running, headpointer_status_reply_or_None)``.
+        running, live = daemon_view if daemon_view is not None else _headpointer_daemon_view(platform)
+        facts = pointer_route_facts(
+            facts,
+            pointer_env if pointer_env is not None else read_pointer_environment(cfg),
+            daemon_running=running,
+            live=live,
+        )
     if "gaze" in facts.features_requested:
         validity, reason = calibration_facts(
             platform.paths.data_dir,

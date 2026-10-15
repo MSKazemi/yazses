@@ -6438,6 +6438,19 @@ headpointer_app = typer.Typer(
 app.add_typer(headpointer_app, rich_help_panel=_SETUP)
 
 
+#: How `yazses headpointer status` words each pointer-consent state. Plain statements of what
+#: is true, and for the two the user can act on, the one thing to do.
+_HEADPOINTER_CONSENT_WORDS = {
+    "not_required": "not needed on this backend",
+    "pending_consent": "PENDING -- answer the desktop's Remote Desktop permission dialog; "
+    "the pointer starts by itself once you approve",
+    "granted": "granted for this session",
+    "denied": "DENIED -- no pointer this session; restart YazSes (`yazses restart`) to be asked again",
+    "unavailable": "the desktop offers no pointer on this session (dictation is unaffected)",
+    "unknown": "could not be read",
+}
+
+
 def _headpointer_call(action: str, **params: object) -> dict:
     """Send one Head-Pointer command to the daemon, or exit with the reason it cannot."""
     platform = get_platform()
@@ -6461,7 +6474,7 @@ def _headpointer_do(action: str, done: str, **params: object) -> None:
 
 @headpointer_app.command(
     "status",
-    epilog=_examples("yazses headpointer status    is it tracking, paused, or waiting, and why"),
+    epilog=_examples("yazses headpointer status    is it tracking, paused, or waiting for your permission, and why"),
 )
 def headpointer_status() -> None:
     """Show whether the Head-Pointer is running, and if not, why not.
@@ -6478,6 +6491,9 @@ def headpointer_status() -> None:
         return
     typer.echo(f"state:    {result['state']}" + (f" ({result['reason']})" if result.get("reason") else ""))
     typer.echo(f"backend:  {result.get('backend') or 'unknown'}")
+    consent = str(result.get("consent") or "")
+    if consent:
+        typer.echo(f"consent:  {_HEADPOINTER_CONSENT_WORDS.get(consent, consent)}")
     if result.get("notice"):
         typer.echo(f"note:     {result['notice']}")
     typer.echo(f"centred:  {'yes' if result.get('calibrated') else 'not yet'}")

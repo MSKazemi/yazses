@@ -60,6 +60,7 @@ from yazses.pointer.base import (
     require_relative,
     require_scroll,
 )
+from yazses.pointer.consent import ConsentReport, classify_portal_session
 
 logger = logging.getLogger(__name__)
 
@@ -982,6 +983,24 @@ class DeferredPortalPointerSink:
     def capabilities(self) -> PointerCapabilities:
         return PORTAL_POINTER_CAPABILITIES
 
+    def pointer_consent(self) -> ConsentReport:
+        """Where the desktop's permission stands, read from the session's own record.
+
+        The optional :class:`~yazses.pointer.consent.ConsentReporting` seam: the
+        Head-Pointer asks this *before* it tries to move, so a dialog the user has not yet
+        answered is reported as pending rather than discovered as a fault on the first head
+        movement. Non-blocking and negotiation-free -- it reads three properties and calls
+        the pure classifier, so it cannot raise a dialog.
+        """
+        session = self._session
+        return classify_portal_session(
+            closed=self._closed,
+            started=session.started,
+            pointer_granted=session.pointer_granted,
+            last_error=session.last_error,
+            had_grant=self._generation >= 0,
+        )
+
     def move_relative(self, dx: float, dy: float) -> None:
         check_finite(dx=dx, dy=dy)
         require_relative(PORTAL_POINTER_CAPABILITIES)
@@ -1031,7 +1050,7 @@ class DeferredPortalPointerSink:
                 )
             raise PointerBackendError(
                 "waiting for the desktop's Remote Desktop permission dialog; approve "
-                "it, then run `yazses headpointer resume`"
+                "it and the pointer starts by itself"
             )
         if not session.pointer_granted:
             raise PointerUnsupportedError(

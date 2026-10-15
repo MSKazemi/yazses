@@ -255,6 +255,8 @@ def status_dict(status: HeadPointerStatus) -> dict[str, object]:
         "dwell_progress": round(status.dwell_progress, 3),
         "fault": status.fault,
         "backend": status.backend,
+        "consent": status.consent,
+        "consent_reason": status.consent_detail,
     }
 
 

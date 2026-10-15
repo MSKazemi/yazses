@@ -179,6 +179,18 @@ class HandsFreeFacts:
     #: How many buttons the backend can press — a count, not a mapping.
     pointer_buttons: int | None = None
     pointer_reason: str = ""
+    #: ``None`` = nobody asked which backend would drive the pointer; ``False`` = asked, and
+    #: none would (``pointer_reason`` says why); ``True`` = one would (``pointer_backend``).
+    pointer_available: bool | None = None
+    #: What would change a "none" or "pending" answer. Empty when nothing local can.
+    pointer_remedy: str = ""
+    #: False when ``pointer_backend`` is a prediction that depends on something unseen.
+    pointer_certain: bool = True
+    #: The platform's permission state for the pointer this daemon session: one of the
+    #: ``yazses.pointer.consent.PointerConsent`` values, or ``daemon_not_running`` /
+    #: ``daemon_no_pointer`` when there is no live answer to read. ``""`` = not asked.
+    pointer_consent: str = ""
+    pointer_consent_reason: str = ""
     #: Gaze calibration verdict: ``""`` (not asked), ``"missing"``, or one of
     #: `gaze/topology.py`'s ``valid`` / ``unverified`` / ``stale``.
     calibration_validity: str = ""
@@ -442,10 +454,17 @@ def _consumer_row(
 
 
 def _pointer_row(facts: HandsFreeFacts) -> HealthRow | None:
-    """Which pointer backend would move the cursor, and what it can do."""
+    """Which pointer backend would move the cursor, what it can do, and whether it may."""
     if "headpointer" not in facts.features_requested:
         return None
     label = "Pointer output"
+    if facts.pointer_available is False:
+        return HealthRow(
+            label,
+            Health.DEGRADED,
+            f"none — {facts.pointer_reason or 'no pointer backend would drive the cursor'}",
+            facts.pointer_remedy or "no local fix on this session",
+        )
     if not facts.pointer_backend:
         return HealthRow(
             label,
@@ -472,7 +491,62 @@ def _pointer_row(facts: HandsFreeFacts) -> HealthRow | None:
             f"{detail} — a backend that cannot move the pointer cannot drive Head-Pointer",
             "no local fix; the backend has to grow motion support",
         )
-    return HealthRow(label, Health.OK, detail)
+    row = _with_consent(label, detail, facts)
+    if not facts.pointer_certain and row.health is Health.OK:
+        # A prediction that depends on something unseen is not a clean bill of health.
+        return HealthRow(
+            label, Health.UNKNOWN, row.reason, facts.pointer_remedy or row.remedy
+        )
+    return row
+
+
+def _with_consent(label: str, detail: str, facts: HandsFreeFacts) -> HealthRow:
+    """Append the permission state to a backend that is otherwise fine."""
+    consent = facts.pointer_consent
+    why = facts.pointer_consent_reason
+    if not consent:
+        return HealthRow(label, Health.OK, detail)
+    if consent == "not_required":
+        return HealthRow(label, Health.OK, f"{detail} — no permission step")
+    if consent == "granted":
+        return HealthRow(label, Health.OK, f"{detail} — permission granted this daemon session")
+    if consent == "pending_consent":
+        return HealthRow(
+            label, Health.DEGRADED,
+            f"{detail} — permission pending: " + (why or "the desktop is waiting for your answer"),
+            "answer the desktop's Remote Desktop permission dialog; the pointer starts by "
+            "itself, no restart needed",
+        )
+    if consent == "denied":
+        return HealthRow(
+            label, Health.DEGRADED,
+            f"{detail} — permission was not given" + (f": {why}" if why else ""),
+            "run `yazses restart` and approve the dialog",
+        )
+    if consent == "unavailable":
+        return HealthRow(
+            label, Health.DEGRADED,
+            f"{detail} — the desktop offers no pointer" + (f": {why}" if why else ""),
+            facts.pointer_remedy or "no local fix; dictation is unaffected",
+        )
+    if consent == "daemon_not_running":
+        return HealthRow(
+            label, Health.UNKNOWN,
+            f"{detail} — permission: daemon not running, so nothing has asked the desktop yet",
+            "start it with `yazses start`; the desktop asks once, in a dialog",
+        )
+    if consent == "daemon_no_pointer":
+        return HealthRow(
+            label, Health.UNKNOWN,
+            f"{detail} — permission: the daemon is running but its Head-Pointer is not"
+            + (f" ({why})" if why else ""),
+            "see `yazses headpointer status`",
+        )
+    return HealthRow(
+        label, Health.UNKNOWN,
+        f"{detail} — permission: " + (why or "could not be read"),
+        "run `yazses headpointer status`",
+    )
 
 
 def _calibration_row(facts: HandsFreeFacts) -> HealthRow | None:
