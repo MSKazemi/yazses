@@ -253,7 +253,7 @@ seam and the heavy camera libraries are never imported here.
 | File | Role |
 |---|---|
 | `contract.py` | `CameraPermission` (granted / denied / not-determined / unavailable / unsupported-platform), `CameraBlocker`, `CameraFacts`, `CameraGate`, `evaluate()`, `needs_permission_probe()` |
-| `matrix.py` | The checked-in packaging matrix: which install format can run a camera feature, and what it must declare (`NSCameraUsageDescription`, MSIX `webcam`, snap `camera`, flatpak `--device=all`). Cross-checked against the real manifests by `tests/test_camera_packaging_matrix.py` |
+| `matrix.py` | The checked-in packaging matrix: which install format can run a camera feature, and what it must declare (`NSCameraUsageDescription` + the `com.apple.security.device.camera` entitlement, MSIX `webcam`, snap `camera`, flatpak `--device=all`). Cross-checked against the real manifests by `tests/test_camera_packaging_matrix.py` |
 | `probe.py` | `resolve()` — gathers config, installed runtime and install format, and asks the OS **only** after the first two allow it |
 
 **Invariants.** (1) With every camera feature off — the shipped default — the OS is never

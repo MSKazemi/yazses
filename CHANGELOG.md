@@ -6,6 +6,32 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — a camera that failed to open, or died after opening, gave the same non-answer (#414)
+
+Audit of the camera permission and packaging contract against what a real camera does, not what a fake answers.
+OpenCV reports a refused permission, a busy device, an unplugged one and a macOS prompt still waiting for an
+answer identically (`isOpened()` is false), and the feature was told "it may be in use by another application,
+or the OS may not have granted camera permission". The capture now asks the OS probe **after** the open has
+failed (never before, so it cannot stand between the user and macOS's one-time prompt) and says which: refused,
+no device, permission not granted yet, or access granted so something else holds it. A missing `opencv` is an
+actionable error rather than a bare `ModuleNotFoundError`. A camera that opens and then goes silent (cable pulled,
+or - on Linux, where V4L2 lets a second process open the node - another program holding it) used to read as
+dropped frames for ever, leaving the shared source `RUNNING` and mute; it now fails with a reason after 5 s
+without a frame (provisional, not measured), or at once when the handle reports closed. The permission probes
+are asked afresh on every call, now pinned by tests. Not changed: a failed open still latches the shared source
+until the feature is restarted, so the reason tells you to restart YazSes after granting access.
+
+### Fixed — the camera packaging matrix filed three channels under the wrong row (#414)
+
+Chocolatey, Scoop and WinGet were listed as "distribution packages" that can add the camera runtime. All three
+install the frozen Inno Setup `.exe`, which cannot, so the published table promised a camera feature that
+`yazses doctor` then refused. They now sit under the Windows installer row, and Homebrew under the `.dmg` cask
+row (the formula files are an abandoned v1.0). The macOS row now names the second declaration a camera-capable
+signed build needs, `com.apple.security.device.camera` (the hardened runtime refuses the camera with no prompt
+without it); nothing shipped declares it, because nothing shipped can use a camera. New guard tests read the
+entitlements file, derive each channel's format from its manifest, check the container image installs no camera
+extra, and show the matrix checker rejecting a wrong matrix and an empty one.
+
 ### Fixed — an unanswered Wayland permission dialog was reported as "keyboard only"
 
 Found by running the daemon on a real GNOME Wayland session (2026-10-15). The portal answers `CreateSession`

@@ -32,6 +32,7 @@ from dataclasses import dataclass
 
 __all__ = [
     "PACKAGE_PROFILES",
+    "contract_violations",
     "PackageProfile",
     "current_profile",
     "detect_profile_key",
@@ -95,8 +96,7 @@ PACKAGE_PROFILES: tuple[PackageProfile, ...] = (
     ),
     PackageProfile(
         key="distro",
-        label="a distribution or third-party channel package "
-              "(AUR, Fedora, Nix, Homebrew, Chocolatey, Scoop, WinGet)",
+        label="a distribution package (AUR, Fedora, Nix)",
         can_run_camera=True,
         can_add_runtime=True,
         declaration=None,
@@ -108,7 +108,11 @@ PACKAGE_PROFILES: tuple[PackageProfile, ...] = (
         why=(
             "These wrap the Python package rather than freezing it, so the camera "
             "runtime is installable -- but by the channel's own package manager, which "
-            "is why the remedy is not a bare pip command."
+            "is why the remedy is not a bare pip command. Chocolatey, Scoop and WinGet "
+            "are NOT in this row: every one of them installs the frozen Inno Setup .exe "
+            "(chocolateyinstall.ps1 fileType 'exe', Scoop 'innosetup', WinGet "
+            "InstallerType inno), so they are the windows-exe row. Homebrew is the same "
+            "for macOS: the only published artefact is the .dmg cask."
         ),
     ),
     PackageProfile(
@@ -116,19 +120,23 @@ PACKAGE_PROFILES: tuple[PackageProfile, ...] = (
         label="the macOS .app bundle (.dmg / Homebrew cask)",
         can_run_camera=False,
         can_add_runtime=False,
-        declaration="NSCameraUsageDescription",
+        declaration="NSCameraUsageDescription + com.apple.security.device.camera",
         declares_camera=False,
         remedy="pipx install 'yazses[gaze]'   # the camera features need a real Python",
         why=(
             "scripts/build-macos.sh syncs only `--extra desktop`, so neither mediapipe "
             "nor opencv-python is inside the bundle, and a frozen .app has no pip to "
             "add them. Declaring NSCameraUsageDescription would put YazSes in the "
-            "Camera pane for a capability the bundle cannot use."
+            "Camera pane for a capability the bundle cannot use. The signed build runs "
+            "under the hardened runtime (build-macos.yml passes --options runtime with "
+            "packaging/macos/entitlements.plist), where the usage string alone is not "
+            "enough: com.apple.security.device.camera is also required, and without it "
+            "the camera is refused with no prompt. Both or neither."
         ),
     ),
     PackageProfile(
         key="windows-exe",
-        label="the Windows installer (.exe)",
+        label="the Windows installer (.exe, also via Chocolatey, Scoop and WinGet)",
         can_run_camera=False,
         can_add_runtime=False,
         declaration=None,
@@ -186,6 +194,44 @@ PACKAGE_PROFILES: tuple[PackageProfile, ...] = (
 )
 
 _BY_KEY = {p.key: p for p in PACKAGE_PROFILES}
+
+
+def contract_violations(profiles: tuple[PackageProfile, ...] = PACKAGE_PROFILES) -> list[str]:
+    """Every way a matrix breaks R-21, as sentences. Empty means the matrix is coherent.
+
+    Pure, and a function of its argument rather than of the module table so a test can
+    hand it a deliberately wrong matrix and watch it object -- a guard that has only ever
+    been shown the correct input has not been shown to guard anything. An **empty**
+    matrix is itself a violation: a loop over no rows is green, and "the matrix lost
+    every row" must not read as "the matrix is fine".
+
+    The rules, both directions of R-21 plus the two that make them checkable:
+
+    * a format that cannot run a camera feature must not declare a camera capability;
+    * a format that *can* run one **and has a manifest to declare it in** must declare it
+      -- this is the acceptance criterion "a camera-capable package carries the OS
+      declaration before experimental support is claimed";
+    * a format that cannot add a runtime cannot run a feature without having bundled one,
+      so ``can_run_camera`` with ``can_add_runtime`` false means "bundled", and bundled
+      needs the declaration just the same;
+    * every refusal names a remedy and a reason.
+    """
+    if not profiles:
+        return ["the packaging matrix has no rows, so nothing is being checked"]
+    problems: list[str] = []
+    for p in profiles:
+        if p.declares_camera and not p.can_run_camera:
+            problems.append(
+                f"{p.key}: declares a camera capability but no camera code can run there"
+            )
+        if p.can_run_camera and p.declaration is not None and not p.declares_camera:
+            problems.append(
+                f"{p.key}: a camera feature can run there but {p.declaration} is not "
+                "declared -- the OS would refuse it without prompting"
+            )
+        if not p.can_run_camera and not (p.remedy and p.why):
+            problems.append(f"{p.key}: refuses the camera without a remedy and a reason")
+    return problems
 
 
 def profile_for(key: str) -> PackageProfile:
