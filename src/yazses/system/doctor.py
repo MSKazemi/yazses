@@ -1272,6 +1272,7 @@ def _handsfree_checks(
     from yazses.handsfree.probe import (
         calibration_facts,
         facts_from_config,
+        gaze_target_facts,
         pointer_facts,
         pointer_route_facts,
         read_pointer_environment,
@@ -1299,6 +1300,7 @@ def _handsfree_checks(
             read_context=read_context,
         )
         facts = replace(facts, calibration_validity=validity, calibration_reason=reason)
+        facts = gaze_target_facts(facts)
     rows = list(doctor_rows(facts))
     # A face switch that cannot let go holds the microphone open. Its own row, WARN, with the
     # numbers: this is a comparison of two saved numbers, so it is as certain as `doctor` gets.

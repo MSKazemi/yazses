@@ -38,6 +38,7 @@ __all__ = [
     "calibration_facts",
     "face_release_findings",
     "facts_from_config",
+    "gaze_target_facts",
     "pointer_facts",
     "pointer_route_facts",
     "read_pointer_environment",
@@ -113,6 +114,38 @@ def calibration_facts(
     if calibration is None:
         return ("missing", "nothing has been calibrated on this machine yet")
     return (check.validity.value, check.reason)
+
+
+def gaze_target_facts(
+    facts: HandsFreeFacts,
+    *,
+    environ: Mapping[str, str] | None = None,
+    fixed_session: Callable[[], str | None] | None = None,
+    xdotool_available: Callable[[], bool] | None = None,
+) -> HandsFreeFacts:
+    """Record what a gaze target can be on this session (#418). Only when gaze is requested.
+
+    Pure given its probes, read-only, no subprocess and no camera: it classifies the
+    session through ``describe_host()`` and the environment, the same planner the daemon
+    and ``yazses gaze status`` use, so the three cannot disagree. Total -- an unreadable
+    host leaves the fields at "not asked", which the row does not print as good news.
+    """
+    if "gaze" not in facts.features_requested:
+        return facts
+    try:
+        from yazses.gaze.target_semantics import describe_gaze_target
+
+        plan = describe_gaze_target(
+            environ, fixed_session=fixed_session, xdotool_available=xdotool_available
+        )
+    except Exception:  # noqa: BLE001 - a diagnostic must not be the thing that raises
+        return facts
+    return replace(
+        facts,
+        gaze_target_available=plan.available,
+        gaze_target_reason=plan.reason,
+        gaze_target_remedy=plan.remedy,
+    )
 
 
 def face_release_findings(cfg: Any, data_dir: Path) -> tuple[Any, ...]:

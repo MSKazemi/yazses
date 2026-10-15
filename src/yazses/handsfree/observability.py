@@ -195,6 +195,13 @@ class HandsFreeFacts:
     #: `gaze/topology.py`'s ``valid`` / ``unverified`` / ``stale``.
     calibration_validity: str = ""
     calibration_reason: str = ""
+    #: Whether a gaze estimate can be resolved to a window on this session at all
+    #: (`gaze/target_semantics.py`, #418): ``None`` = not asked, ``False`` = it cannot
+    #: (``gaze_target_reason`` says why -- on Wayland, no absolute position, no window
+    #: geometry, no focus), ``True`` = X11 window routing. A session fact, not a sample.
+    gaze_target_available: bool | None = None
+    gaze_target_reason: str = ""
+    gaze_target_remedy: str = ""
     #: Whether the user opted into the global stop + stale-signal watchdog.
     safety_configured: bool = False
     #: The staleness window in force, in milliseconds; ``None`` = not known.
@@ -238,6 +245,7 @@ def health_rows(facts: HandsFreeFacts) -> tuple[HealthRow, ...]:
         ),
         _switch_actions_row(facts),
         _pointer_row(facts),
+        _gaze_target_row(facts),
         _calibration_row(facts),
     )
     return tuple(row for row in candidates if row is not None)
@@ -567,9 +575,29 @@ def _with_consent(label: str, detail: str, facts: HandsFreeFacts) -> HealthRow:
     )
 
 
+def _gaze_target_row(facts: HandsFreeFacts) -> HealthRow | None:
+    """What a gaze target can be on this session -- the Wayland answer, in words (#418)."""
+    if "gaze" not in facts.features_requested or facts.gaze_target_available is None:
+        return None
+    label = "Gaze target"
+    if facts.gaze_target_available:
+        return HealthRow(label, Health.OK, facts.gaze_target_reason or "window under the gaze point")
+    return HealthRow(
+        label,
+        Health.DEGRADED,
+        "none — " + (facts.gaze_target_reason or "this session cannot resolve gaze to a window"),
+        facts.gaze_target_remedy or "no local fix on this session",
+    )
+
+
 def _calibration_row(facts: HandsFreeFacts) -> HealthRow | None:
     """Whether the stored gaze map still applies to the screens actually attached."""
     if "gaze" not in facts.features_requested or not facts.calibration_validity:
+        return None
+    if facts.gaze_target_available is False:
+        # A map nothing can consume is not a thing to calibrate: `gaze_target` already says
+        # why, and "run `yazses gaze calibrate`" would send the user to a command that
+        # refuses on this session.
         return None
     label = "Gaze calibration"
     validity = facts.calibration_validity
@@ -618,6 +646,9 @@ PAYLOAD_KEYS: tuple[str, ...] = (
     "pointer_reason",
     "calibration_validity",
     "calibration_reason",
+    "gaze_target_available",
+    "gaze_target_reason",
+    "gaze_target_remedy",
     "safety_configured",
     "safety_window_ms",
     "safety",
@@ -742,6 +773,9 @@ def facts_from_payload(payload: Mapping[str, object] | None) -> HandsFreeFacts |
         pointer_reason=_text(payload.get("pointer_reason"), ""),
         calibration_validity=_text(payload.get("calibration_validity"), ""),
         calibration_reason=_text(payload.get("calibration_reason"), ""),
+        gaze_target_available=_flag(payload.get("gaze_target_available")),
+        gaze_target_reason=_text(payload.get("gaze_target_reason"), ""),
+        gaze_target_remedy=_text(payload.get("gaze_target_remedy"), ""),
         safety_configured=bool(payload.get("safety_configured", False)),
         safety_window_ms=_number(payload.get("safety_window_ms")),
         safety=_safety_from_payload(payload.get("safety")),

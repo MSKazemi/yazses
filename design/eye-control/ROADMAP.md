@@ -511,6 +511,13 @@ gaze-selected dictation target?"
 
 **Gate:** GNOME/KDE behavior is documented from supported APIs and fallback is explicit.
 
+**Delivered 2026-10-15 (partial, fakes only):** the explicit fallback. `gaze/target_semantics.py` defines a Wayland
+gaze target as *none* (no absolute position, no foreign-window geometry, no focus): look-to-pane abstains with a
+reason, and `gaze status`, `doctor`, `status` and the settings panel print it. A missing `XDG_SESSION_TYPE` next to
+`WAYLAND_DISPLAY` no longer lets `xdotool`/`xrandr` answer through XWayland. **Not met:** the research half -- what
+AT-SPI exposes on real GNOME and KDE Wayland sessions, and whether a supported focus path exists -- is not
+investigated, so no supported target path and no platform matrix from measurements exist yet.
+
 ### X6 — Accessibility co-design and fatigue (#419)
 
 Use structured field reports before recommending defaults.

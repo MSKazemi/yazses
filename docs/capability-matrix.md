@@ -61,6 +61,20 @@ does nothing. Layout commands your compositor binds itself are unaffected.
 Everything else on Wayland — dictation, commands, the tray, the overlay,
 transcription — works normally.
 
+### What Glance-Type does on Wayland
+
+Look-to-pane needs three separate things from the desktop: an absolute screen position
+for your gaze, the position and size of *other* applications' windows, and permission to
+focus one. X11 provides all three. A Wayland application is given none of them, and the
+Remote Desktop permission that lets YazSes move the pointer (Head-Pointer) does not
+change that: pointer control and "which window should get this dictation" are separate
+capabilities.
+
+So on Wayland there is no gaze target. Look-to-pane stays off, your dictation goes to
+the window you already have focused, and nothing is guessed. `yazses gaze status` and
+`yazses doctor` say so, with the reason, instead of showing a feature that silently does
+nothing. To use look-to-pane, log in to an X11 session (on GNOME, "GNOME on Xorg").
+
 ## Linux: which session am I in?
 
 ```bash

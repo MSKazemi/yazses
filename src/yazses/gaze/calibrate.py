@@ -12,7 +12,7 @@ from typing import Callable
 import numpy as np
 
 
-def calibration_blocker(*, enabled: bool, desktop_ok: bool) -> str | None:
+def calibration_blocker(*, enabled: bool, desktop_ok: bool, desktop_reason: str = "") -> str | None:
     """Why calibration cannot work here, or ``None`` if it can. Pure.
 
     Both answers are free -- one is a config flag, the other a ``xdotool`` probe -- and
@@ -35,9 +35,14 @@ def calibration_blocker(*, enabled: bool, desktop_ok: bool) -> str | None:
             "    yazses features enable gaze --force"
         )
     if not desktop_ok:
-        return (
+        # `desktop_reason` is the planner's sentence (`gaze/target_semantics.py`): it names
+        # the session actually in use instead of listing every way the answer could be no.
+        what = desktop_reason or (
             "Gaze routing needs an X11 session with `xdotool` installed "
-            "(Wayland forbids external window focus).\n"
+            "(Wayland forbids external window focus)."
+        )
+        return (
+            f"{what}\n"
             "  Nothing to install here -- the webcam deps cannot make this work."
         )
     return None

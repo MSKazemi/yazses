@@ -31,7 +31,7 @@ from yazses.system.doctor import _camera_ready, _handsfree_checks
 
 HANDSFREE_LABELS = {
     "Hands-free safety", "Hands-free perception", "Head tracking", "Face switch",
-    "Pointer output", "Gaze calibration",
+    "Pointer output", "Gaze target", "Gaze calibration",
 }
 
 
@@ -66,6 +66,21 @@ def _hermetic_pointer_probe(monkeypatch):
     headless = probe_mod.PointerEnvironment("headless", None, None, False)
     monkeypatch.setattr(probe_mod, "read_pointer_environment", lambda cfg, **kw: headless)
     monkeypatch.setattr(doctor_mod, "_headpointer_daemon_view", lambda platform: (False, None))
+
+    # The Gaze target row is the same kind of prediction (#418): on a developer's Wayland
+    # desktop it would say "none" and, by design, withdraw the calibration row these tests
+    # read. Pinned to an X11 session; the Wayland rows are in test_gaze_target_semantics.py.
+    real = probe_mod.gaze_target_facts
+    monkeypatch.setattr(
+        probe_mod,
+        "gaze_target_facts",
+        lambda facts, **kw: real(
+            facts,
+            environ={"XDG_SESSION_TYPE": "x11"},
+            fixed_session=lambda: None,
+            xdotool_available=lambda: True,
+        ),
+    )
 
 
 def _labels(rows) -> set[str]:

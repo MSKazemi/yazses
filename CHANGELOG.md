@@ -99,6 +99,25 @@ slot. The campaign schema and validator are untouched. The coverage dashboard's 
 cell id to open a row of the per-cell table instead of appearing anywhere on the page, and a reported outcome
 needs an evidence pointer (a host or a repeat session), at most one host per cell, and a READY cell.
 
+### Added — a gaze target on Wayland is defined as "none", and every surface says so (#418, partial)
+
+Look-to-pane needs an absolute desktop pixel, other applications' window rectangles and the right to focus
+one. X11 has all three; a Wayland client has none, and the Remote Desktop pointer permission reveals none
+of them either. That is now one pure definition (`gaze/target_semantics.py`): on Wayland a gaze target is
+*nothing*, look-to-pane abstains with a stated reason, and dictation stays in the focused window. It is
+deliberately not a coarse screen zone, because nothing on Wayland could turn a zone into a window or an action.
+`yazses gaze status` prints a `gaze target` line and the remedy instead of only a bare "no X11 desktop backend"
+and a "Next:" step that pointed at commands which refuse; `yazses doctor`, the hands-free controls window and
+`yazses status` gain a `Gaze target` row, and the `Gaze calibration` row no longer tells a Wayland user to run
+`yazses gaze calibrate`; `gaze calibrate`/`measure` and the daemon's start-up warning name the session.
+
+Fixed with it: the check was `XDG_SESSION_TYPE` set and not `x11`, so a daemon whose environment carried
+`WAYLAND_DISPLAY` but not `XDG_SESSION_TYPE` (a service or launcher that did not import it) fell through to
+`xdotool`, which on a Wayland desktop succeeds through XWayland and returns a plausible window list that omits
+every native Wayland window; `xrandr` likewise returned one synthetic screen. Both now recognise Wayland from
+`WAYLAND_DISPLAY` as well. Not verified: the issue's research questions (AT-SPI window geometry and a supported
+focus path on real GNOME and KDE sessions) were not investigated on hardware, so #418 stays open for them.
+
 ### Fixed — an unanswered Wayland permission dialog was reported as "keyboard only"
 
 Found by running the daemon on a real GNOME Wayland session (2026-10-15). The portal answers `CreateSession`
