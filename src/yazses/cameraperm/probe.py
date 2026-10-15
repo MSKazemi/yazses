@@ -24,6 +24,7 @@ from typing import Any
 
 from yazses.cameraperm.contract import (
     CAMERA_FEATURES,
+    CameraBlocker,
     CameraFacts,
     CameraGate,
     CameraPermission,
@@ -37,7 +38,12 @@ from yazses.cameraperm.matrix import (
     current_profile,
 )
 
-__all__ = ["enabled_camera_features", "missing_camera_modules", "resolve"]
+__all__ = [
+    "enabled_camera_features",
+    "explain_open_failure",
+    "missing_camera_modules",
+    "resolve",
+]
 
 
 def enabled_camera_features(cfg: Any) -> tuple[str, ...]:
@@ -149,15 +155,7 @@ def resolve(
     if probe is None or remedy is None:
         probe, remedy = _platform_camera_probe(probe, remedy)
 
-    try:
-        state = probe()
-    except Exception:  # pragma: no cover - defensive
-        # A probe that raised told us nothing, and "nothing" is never "granted".
-        state = CameraPermission.NOT_DETERMINED
-    try:
-        advice = remedy()
-    except Exception:  # pragma: no cover - defensive
-        advice = ""
+    state, advice = _ask(probe, remedy)
 
     return evaluate(
         CameraFacts(
@@ -173,6 +171,101 @@ def resolve(
             notes=facts.notes,
         )
     )
+
+
+def _ask(
+    probe: Callable[[], CameraPermission],
+    remedy: Callable[[], str],
+) -> tuple[CameraPermission, str]:
+    """Run the OS probe and its remedy, once each, never raising.
+
+    No caching, on purpose: macOS TCC and the Windows ConsentStore change while this
+    process runs (the user flips a switch in Settings), and an answer remembered from
+    the first call would keep reporting a refusal after the grant. Every call asks again.
+    """
+    try:
+        state = probe()
+    except Exception:  # pragma: no cover - defensive
+        # A probe that raised told us nothing, and "nothing" is never "granted".
+        state = CameraPermission.NOT_DETERMINED
+    try:
+        advice = remedy()
+    except Exception:  # pragma: no cover - defensive
+        advice = ""
+    return state, advice
+
+
+#: One short sentence per blocker, for the places that have room for a sentence and not
+#: a paragraph -- the shared source truncates a failure reason to 200 characters, and the
+#: full remedy (a macOS one runs to ten lines) belongs to `yazses doctor`.
+_OPEN_FAILURE_TEXT: dict[CameraBlocker, str] = {
+    CameraBlocker.RUNTIME_MISSING: "{missing} is not installed (see `yazses doctor`)",
+    CameraBlocker.PACKAGING: (
+        "{label} ships no camera runtime and cannot add one (see `yazses doctor`)"
+    ),
+    CameraBlocker.PERMISSION_DENIED: (
+        "the OS has refused camera access; grant it (`yazses doctor` shows how), "
+        "then restart YazSes"
+    ),
+    CameraBlocker.PERMISSION_UNKNOWN: (
+        "camera permission is not granted yet; answer the OS prompt or see "
+        "`yazses doctor`, then restart YazSes"
+    ),
+    CameraBlocker.NO_DEVICE: "no camera device is visible to this machine",
+    CameraBlocker.UNSUPPORTED: "this OS has no camera-permission backend",
+    CameraBlocker.NONE: (
+        "the OS reports camera access is granted, so another application probably "
+        "holds the camera"
+    ),
+}
+
+
+def explain_open_failure(
+    *,
+    probe: Callable[[], CameraPermission] | None = None,
+    remedy: Callable[[], str] | None = None,
+    profile: PackageProfile | None = None,
+    find_module: Callable[[str], bool] | None = None,
+) -> str:
+    """Why a camera that was *just attempted* would not open -- one short sentence.
+
+    :func:`resolve` answers "may we try?" and runs before anything is attempted. This is
+    the other direction: the attempt has already failed, and the only evidence is that
+    OpenCV returned a closed handle -- which it does identically for a refused permission,
+    a busy device, an unplugged one and a macOS prompt still waiting for an answer. The
+    OS probe is what tells those apart, so it is asked *now*, after the failure, and
+    never before: asking first would be a gate, and a gate on macOS must not stand between
+    the user and the one-time prompt that only an actual open can raise.
+
+    Never raises -- it runs inside an error path, and an exception here would replace the
+    failure being explained -- and returns ``""`` when it learned nothing, so the caller
+    keeps its own generic wording.
+    """
+    try:
+        profile = profile or current_profile()
+        missing = missing_camera_modules(find_module)
+        facts = CameraFacts(
+            features_enabled=("camera",),
+            package_label=profile.label,
+            package_can_run_camera=profile.can_run_camera,
+            runtime_missing=missing,
+        )
+        if needs_permission_probe(facts):
+            if probe is None or remedy is None:
+                probe, remedy = _platform_camera_probe(probe, remedy)
+            state, _ = _ask(probe, remedy)
+            facts = CameraFacts(
+                features_enabled=facts.features_enabled,
+                package_label=facts.package_label,
+                package_can_run_camera=facts.package_can_run_camera,
+                runtime_missing=facts.runtime_missing,
+                permission=state,
+            )
+        gate = evaluate(facts)
+        template = _OPEN_FAILURE_TEXT.get(gate.blocker, "")
+        return template.format(missing=", ".join(missing), label=profile.label)
+    except Exception:  # pragma: no cover - defensive
+        return ""
 
 
 def _platform_camera_probe(

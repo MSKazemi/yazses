@@ -16,6 +16,7 @@ Public API::
         evaluate,           # pure: CameraFacts -> CameraGate
         needs_permission_probe,  # pure: may the OS be asked at all?
         resolve,            # gather the facts from this machine, then evaluate
+        explain_open_failure,  # after a failed open: why, in one short sentence
         current_profile,    # which install format this is
         PACKAGE_PROFILES,   # the checked-in packaging matrix
     )
@@ -43,6 +44,7 @@ from yazses.cameraperm.matrix import (
     CAMERA_PACKAGES,
     PACKAGE_PROFILES,
     PackageProfile,
+    contract_violations,
     current_profile,
     detect_profile_key,
     profile_for,
@@ -50,6 +52,7 @@ from yazses.cameraperm.matrix import (
 )
 from yazses.cameraperm.probe import (
     enabled_camera_features,
+    explain_open_failure,
     missing_camera_modules,
     resolve,
 )
@@ -64,10 +67,12 @@ __all__ = [
     "CameraGate",
     "CameraPermission",
     "PackageProfile",
+    "contract_violations",
     "current_profile",
     "detect_profile_key",
     "enabled_camera_features",
     "evaluate",
+    "explain_open_failure",
     "missing_camera_modules",
     "needs_permission_probe",
     "profile_for",

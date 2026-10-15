@@ -103,9 +103,9 @@ code in that download could do.
 | Install format | Camera features | OS declaration it would need | Declared today |
 |---|---|---|---|
 | a source / PyPI install (pip, uv, pipx) | ✅ with the extra | — | ❌ no |
-| a distribution or third-party channel package (AUR, Fedora, Nix, Homebrew, Chocolatey, Scoop, WinGet) | ✅ with the extra | — | ❌ no |
-| the macOS .app bundle (.dmg / Homebrew cask) | ❌ no | NSCameraUsageDescription | ❌ no |
-| the Windows installer (.exe) | ❌ no | — | ❌ no |
+| a distribution package (AUR, Fedora, Nix) | ✅ with the extra | — | ❌ no |
+| the macOS .app bundle (.dmg / Homebrew cask) | ❌ no | NSCameraUsageDescription + com.apple.security.device.camera | ❌ no |
+| the Windows installer (.exe, also via Chocolatey, Scoop and WinGet) | ❌ no | — | ❌ no |
 | the Windows MSIX package | ❌ no | DeviceCapability webcam | ❌ no |
 | the snap | ❌ no | camera plug | ❌ no |
 | the flatpak | ❌ no | --device=all | ❌ no |
