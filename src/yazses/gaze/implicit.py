@@ -46,7 +46,13 @@ import numpy as np
 
 from yazses.gaze.calibrate import CalibrationMap
 
-# Defaults; all overridable.
+# Defaults; all overridable. **Provisional and unmeasured on people.** Every "px" below is a
+# unit of the canonical desktop space (``yazses.gaze.topology``) -- a framebuffer pixel on X11
+# -- so the same number is a different *physical* distance on a 1080p and a 4K panel (and a
+# different angular one at a different viewing distance). Nothing here rescales it with the
+# display; a calibration is only ever refined on the layout it was measured on, which is what
+# keeps one number honest per setup. ``DEFAULT_MAX_RESIDUAL_PX`` is a mis-click gate chosen
+# by reasoning, not fitted to data.
 DEFAULT_FORGETTING = 0.995      # ~200-click memory: follows a lid angle, ignores noise
 DEFAULT_MAX_RESIDUAL_PX = 400.0  # beyond this a click is not a calibration error
 DEFAULT_MIN_CONFIDENCE = 0.5
