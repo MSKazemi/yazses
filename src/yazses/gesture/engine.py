@@ -32,7 +32,12 @@ however long the nod takes. Letting go ends it.
 **The stop path is outside the gate; nothing else is.** ``pause_pointer`` can only move the
 system toward stopped, so it runs when the global hands-free gate is closed. Every other
 action is suppressed under pause, fault or staleness, and what was pending is dropped, not
-replayed on resume.
+replayed on resume. "Dropped" means *tainted*, not *forgotten*: an engagement in flight when the
+gate (or the local pause) closes keeps gathering tokens so a stop chord that takes more than one
+tick -- ``brow_raise+shake``, ``jaw_open+hold`` -- can still complete, but it may then run only
+the stop path, even if the gate reopens before it does. (Discarding it outright, as an earlier
+version did, made every stop chord but a one-token one dead exactly when the pointer might be
+running away: a gesture source that is un-armed while the Head-Pointer is armed alone.)
 
 **``hold`` is a token the engine makes itself.** A sensor cannot report "held long enough": it
 reports presses and releases, and the engine already owns the clock. ``hold`` becomes true when the
@@ -83,6 +88,8 @@ __all__ = [
     "TOKENS",
     "ChordEngine",
     "parse_chords",
+    "shadowed_chords",
+    "switch_collisions",
 ]
 
 log = logging.getLogger(__name__)
@@ -199,6 +206,59 @@ def parse_chords(raw: object) -> tuple[dict[str, str], list[str]]:
     return bound, problems
 
 
+#: Tokens that are not there until some time after the first token of a chord: a head gesture is
+#: recognised when it *finishes* (a double nod takes the better part of a second), a tilt after
+#: ``tilt_hold_ms``, and ``hold`` after ``hold_ms``. A face gesture is a token within a few frames.
+_SLOW_TOKENS: frozenset[str] = frozenset((*HEAD_TOKENS, HOLD))
+
+
+def shadowed_chords(bound: Mapping[str, str]) -> list[str]:
+    """Bound chords that a shorter bound chord will usually pre-empt, with the reason. Pure.
+
+    ``{"jaw_open": a, "jaw_open+nod": b}`` is not an error -- the engine fires the longest chord
+    whose tokens arrive inside ``chord_window_ms`` -- but the shorter one fires when that window
+    *closes*, and the extra token here (a nod, a shake, a tilt, a ``hold``) is recognised only
+    after it does. So the user who makes the long chord gets the short one's action, once, and the
+    long one's never; when the long one is the stop chord that is a hazard worth saying out loud.
+    Neither binding is dropped (a window set wide enough makes it work), so this only reports.
+    ``bound`` is ``parse_chords``' first result.
+    """
+    chords = {chord: frozenset(chord.split("+")) for chord in bound}
+    out: list[str] = []
+    for long_id in sorted(chords):
+        for short_id in sorted(c for c in chords if chords[c] < chords[long_id]):
+            slow = (chords[long_id] - chords[short_id]) & _SLOW_TOKENS
+            if not slow:
+                continue
+            out.append(
+                f"chords: {long_id!r} ({bound[long_id]}) is shadowed by {short_id!r} "
+                f"({bound[short_id]}): that one fires when [gesture] chord_window_ms closes, and "
+                f"{', '.join(sorted(slow))} is recognised only after it, so {short_id!r}'s "
+                f"action usually runs instead. Both stay bound; use a different chord, or "
+                f"widen the window"
+            )
+    return out
+
+
+def switch_collisions(bound: Mapping[str, str], switches: Mapping[str, str]) -> list[str]:
+    """Chord tokens that are also a face-switch gesture, with the reason. Pure.
+
+    ``switches`` is ``{gesture: action}`` as ``facegesture.switches.parse_bindings`` resolves it.
+    The chord engine and the switch mapper read the same expression independently, so a jaw that
+    opens for the chord also starts whatever the switch does with a jaw -- with the default
+    ``[facegesture]`` that is the microphone. Both stay active; this only says so.
+    """
+    out: list[str] = []
+    for chord_id in sorted(bound):
+        for token in sorted(t for t in chord_id.split("+") if t in switches):
+            out.append(
+                f"chords: {chord_id!r} uses {token!r}, which [facegesture] already binds to "
+                f"{switches[token]!r}: making the chord also does that. Both stay active; use a "
+                f"different gesture for one of them"
+            )
+    return out
+
+
 class ChordEngine:
     """Turns token presses, pulses and releases into at most one action per engagement."""
 
@@ -240,6 +300,9 @@ class ChordEngine:
         self._set_since: float | None = None  # when the tokens now held last changed
         self._hold_on = False
         self._paused = False
+        #: The engagement in flight began, or was in flight when the gate or the local pause
+        #: closed: only the stop path may run from it (see the module docstring).
+        self._tainted = False
         self._warned: set[str] = set()
 
     # ------------------------------------------------------------------ introspection
@@ -342,13 +405,16 @@ class ChordEngine:
 
         Samples the gate only when the tick carried a signal, so a camera that goes blind
         ages the source out (ADR-v2-148) instead of looking healthy. When the gate is closed
-        the engagement in flight is *discarded*: tokens still physically held must be let go
-        of before another chord can fire, so nothing is replayed on resume.
+        the engagement in flight is *tainted*: it may still complete a stop chord, but nothing
+        else it gathers can run -- not now, and not after the gate reopens -- so nothing is
+        replayed on resume.
         """
         try:
             if self._gate is not None and has_signal:
                 self._gate.sample(self._source)
-            if self._state != "idle" and (self._paused or not self._allowed()):
+            if self._state == "gather" and (self._paused or not self._allowed()):
+                self._tainted = True
+            elif self._state == "spent" and (self._paused or not self._allowed()):
                 self._spend()
         except Exception:
             log.debug("gesture: gate poll failed", exc_info=True)
@@ -357,7 +423,9 @@ class ChordEngine:
     def set_paused(self, paused: bool) -> None:
         """Pause or resume chord actions locally (the ``yazses gesture`` command)."""
         self._paused = bool(paused)
-        if self._paused and self._state != "idle":
+        if self._paused and self._state == "gather":
+            self._tainted = True
+        elif self._paused and self._state != "idle":
             self._spend()
 
     def reset(self, now_s: float = 0.0) -> None:
@@ -368,6 +436,7 @@ class ChordEngine:
         self._set_since = None
         self._hold_on = False
         self._state = "idle"
+        self._tainted = False
         self._freeze_until = -math.inf
         self._set_freeze(False)
 
@@ -377,6 +446,7 @@ class ChordEngine:
         if self._state == "idle":
             self._state = "gather"
             self._opened_s = now_s
+            self._tainted = False
 
     def _settle(self, now_s: float) -> None:
         """Leave ``spent`` once every token is released and the refractory has passed."""
@@ -452,7 +522,7 @@ class ChordEngine:
                     "the chord does nothing.", normalize_chord(chord), action,
                 )
             return
-        if action not in _SAFE and (self._paused or not self._allowed()):
+        if action not in _SAFE and (self._tainted or self._paused or not self._allowed()):
             return
         try:
             handler()

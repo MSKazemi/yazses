@@ -128,6 +128,35 @@ separates documented fact from inference from unverified claim, and proposes a m
 no code, dependency or config key; the proprietary SDK terms could not be verified from public pages, so none is
 adopted.
 
+### Fixed — a stop chord that takes more than one tick could not run when the gate was closed (#408), and a dwell could click unannounced (#405)
+
+Audited #405 and #408 against fake-clock traces shaped like a real camera (a nod finishing a second in, a 15 fps
+frame longer than the shortest dwell, the gate closing mid-chord). Four defects, none visible to the existing
+tests, which delivered tokens in one call:
+
+- **Stop chords (#408).** The module promised "the stop path is outside the gate", but `ChordEngine.frame()`
+  discarded the engagement in flight whenever the gate or `yazses gesture pause` was closed, so only a one-token
+  stop chord could still fire. The hands-free preset's own stop chord `brow_raise+shake`, and `jaw_open+hold`,
+  were dead exactly when the gesture source was un-armed while the Head-Pointer was armed alone (after
+  `yazses headpointer resume`). The engagement is now *tainted* rather than discarded: it may still finish a stop
+  chord, and nothing else it gathers can run, even if the gate reopens first (nothing is replayed on resume).
+- **Config bounds (#408).** `[gesture] freshness_ms` had the unbounded shape `stale_after_ms` and
+  `[headpointer] freshness_ms` had: 0 was accepted and applied literally (every sample stale, chords silently dead,
+  `Config` showing a valid 0) and a huge value meant "never stale". `tilt_deg = 0` made a perfectly level head a
+  held `tilt` for ever, so any chord using it fired with no movement, and `head_amplitude_deg = 0` made nods
+  undetectable. All three are now bounded (provisional sanity bounds, not measurements), repaired to the default
+  and reported by the loader, and applied by the same rule where they are used.
+- **Shadowed and colliding chords (#408).** `jaw_open` and `jaw_open+nod` bound together: the short chord fires
+  when `chord_window_ms` closes and a double nod finishes later, so the long one (perhaps the stop chord) never
+  ran. A chord sharing a gesture with a face switch both fires and starts the switch's action. Both are now
+  reported at load (`yazses doctor` WARN) and in `yazses gesture status` (`note:`); neither binding is dropped.
+- **Dwell feedback (#405).** A dwell whose hold was no longer than the gap between two camera frames (the config
+  floor is 50 ms; a 15 fps frame is 66 ms) clicked on the very sample that began to show progress, so the user was
+  never shown it. The click now waits one sample at the brink. The overlay also polled `status` at the slow rate
+  until progress was already above zero; it now polls fast while a dwell can start.
+
+Tests: `tests/test_gesture_chords_real_world.py`, `tests/test_headpointer_dwell_feedback.py`.
+
 ### Fixed — four more cross-OS test defects, found once the CI log could be read
 
 With the oversized test id fixed, the macOS and Windows runs reached the end of the suite and showed four

@@ -85,6 +85,14 @@ sample's timestamp), so a 15 and a 30 fps camera click after the same wait. A ga
 rather than counting towards it. ``dwell_hold_frames`` is the legacy spelling: when set it is
 read as that many frames at a nominal 30 fps (:func:`effective_dwell_s`). The 700 ms default
 is provisional -- roughly the old 20-frame default at 30 fps, not a measurement.
+
+**A click is never the first the user hears of a dwell.** Progress is published on the first
+sample at which it is above zero (``DwellFeedback.show`` and ``status().dwell_progress``), and a
+dwell that completes before any progress was published waits at the brink for one more sample
+(``DwellClicker.update(..., may_fire=False)``), so a hold shorter than the gap between two
+frames cannot click unannounced. Whether the user *sees* it then depends on the reader of that
+progress -- the overlay polls ``status`` and speeds up while a dwell can be building
+(``overlay/poller.py``).
 """
 from __future__ import annotations
 
@@ -849,7 +857,12 @@ class HeadPointerController:
                 self._dwell_armed = True
             else:
                 return False
-        if not self._clicker.update(float(self._pos[0]), float(self._pos[1]), ts):
+        # A click is allowed only if an earlier sample already published progress above zero
+        # (``_shown``): the user must have been *shown* the dwell before it can fire. At the
+        # shipped hold this is always so; it matters for a hold at or below one camera frame.
+        if not self._clicker.update(
+            float(self._pos[0]), float(self._pos[1]), ts, may_fire=self._shown is not None
+        ):
             return False
         # Disarm *before* the call: if the sink fails the click is not retried, and if it
         # succeeds the user has to move before another can come.

@@ -35,12 +35,15 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
+from yazses.facegesture.switches import parse_bindings
 from yazses.gesture.engine import (
     COMMAND_PREFIX,
     DEFAULT_HOLD_S,
     SAFETY_SOURCE,
     ChordEngine,
     parse_chords,
+    shadowed_chords,
+    switch_collisions,
 )
 from yazses.gesture.headmotion import HEAD_TOKENS, HeadMotionSettings
 from yazses.gesture.sensors import FaceSwitchSettings, SensorSettings, SensorTokens
@@ -54,6 +57,7 @@ __all__ = [
     "GestureRuntime",
     "build_gesture",
     "command_runner",
+    "effective_freshness_s",
     "engine_params",
     "hold_param",
     "rewind_param",
@@ -76,9 +80,40 @@ _MAX_INTERVAL_S = 1.0 / 10.0
 def _num(value: object, default: float) -> float:
     try:
         number = float(value)  # type: ignore[arg-type]
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):  # OverflowError: an int too large for a float
         return default
     return number if math.isfinite(number) else default
+
+
+#: The longest freshness window that still means anything: the bound ``[gesture] freshness_ms``
+#: declares in ``config.py`` (past a minute a sample is "fresh" for so long the stale-signal guard is
+#: off). A sanity bound, not a measured value.
+MAX_FRESHNESS_S = 60.0
+
+#: The shipped values the second line of defence repairs to -- the loader's own defaults.
+DEFAULT_FRESHNESS_S = 0.5
+DEFAULT_TILT_DEG = 20.0
+DEFAULT_AMPLITUDE_DEG = 10.0
+_MAX_ANGLE_DEG = 90.0
+
+
+def _in(value: object, default: float, *, above: float, at_most: float) -> float:
+    """``value`` when it is a finite number in ``(above, at_most]``, else ``default``. Pure.
+
+    The loader already repairs and reports these (``configcheck.out_of_bounds``); this is the same
+    rule applied where the setting is *used*, so a hand-built ``Config`` -- or a value the loader
+    never saw -- cannot make the detectors apply what ``Config`` would never have reported.
+    """
+    if isinstance(value, bool):  # float(True) is 1.0: a switch is not a duration
+        return default
+    number = _num(value, default)
+    return number if above < number <= at_most else default
+
+
+def effective_freshness_s(value_ms: object) -> float:
+    """``[gesture] freshness_ms`` as the seconds actually applied; out of bounds = the default."""
+    ms = _in(value_ms, DEFAULT_FRESHNESS_S * 1000.0, above=0.0, at_most=MAX_FRESHNESS_S * 1000.0)
+    return ms / 1000.0
 
 
 def sensor_settings(section: Any, facegesture: Any) -> SensorSettings:
@@ -89,7 +124,7 @@ def sensor_settings(section: Any, facegesture: Any) -> SensorSettings:
     d = HeadMotionSettings()
     face = FaceSwitchSettings()
     return SensorSettings(
-        freshness_s=_num(section.freshness_ms, 500.0) / 1000.0,
+        freshness_s=effective_freshness_s(section.freshness_ms),
         face=FaceSwitchSettings(
             hold_threshold=_num(facegesture.hold_threshold, face.hold_threshold),
             release_threshold=_num(facegesture.release_threshold, face.release_threshold),
@@ -99,13 +134,17 @@ def sensor_settings(section: Any, facegesture: Any) -> SensorSettings:
             refractory_frames=int(_num(facegesture.refractory_frames, face.refractory_frames)),
         ),
         head=HeadMotionSettings(
-            amplitude_rad=math.radians(_num(section.head_amplitude_deg, 10.0)),
+            amplitude_rad=math.radians(
+                _in(section.head_amplitude_deg, DEFAULT_AMPLITUDE_DEG, above=0.0, at_most=_MAX_ANGLE_DEG)
+            ),
             swings=int(_num(section.head_swings, d.swings)),
             window_s=_num(section.head_window_ms, d.window_s * 1000.0) / 1000.0,
-            tilt_rad=math.radians(_num(section.tilt_deg, 20.0)),
+            tilt_rad=math.radians(
+                _in(section.tilt_deg, DEFAULT_TILT_DEG, above=0.0, at_most=_MAX_ANGLE_DEG)
+            ),
             tilt_hold_s=_num(section.tilt_hold_ms, d.tilt_hold_s * 1000.0) / 1000.0,
             refractory_s=_num(section.refractory_ms, d.refractory_s * 1000.0) / 1000.0,
-            freshness_s=_num(section.freshness_ms, 500.0) / 1000.0,
+            freshness_s=effective_freshness_s(section.freshness_ms),
             min_confidence=_num(section.min_confidence, d.min_confidence),
         ),
     )
@@ -225,6 +264,9 @@ class GestureRuntime:
     reason: str = ""
     #: Rules that were refused while reading ``[gesture.chords]``.
     problems: list[str] = field(default_factory=list)
+    #: Chords that stay bound but will not behave as written: shadowed by a shorter chord, or
+    #: sharing a gesture with the face switch. Kept, not refused -- hence not in ``problems``.
+    notes: list[str] = field(default_factory=list)
     safety: HandsFreeSafety | None = None
 
     @property
@@ -239,12 +281,16 @@ class GestureRuntime:
         if self.runner is not None:
             self.runner.stop()
 
+    def _notes_key(self) -> dict[str, object]:
+        """``{"notes": [...]}`` only when there are some, so a plain install's reply is unchanged."""
+        return {"notes": list(self.notes)} if self.notes else {}
+
     def command(self, action: str, params: dict[str, Any] | None = None) -> dict[str, object]:
         """The IPC/CLI surface: ``status | pause | resume``."""
         if self.runner is None:
             if action == "status":
                 return {"ok": True, "active": False, "reason": self.reason,
-                        "problems": list(self.problems)}
+                        "problems": list(self.problems), **self._notes_key()}
             return {"ok": False, "reason": self.reason or "Gesture Chords is not running"}
         engine = self.runner.engine
         if action == "status":
@@ -258,6 +304,7 @@ class GestureRuntime:
                 "pointer_frozen": engine.freeze_pointer,
                 "unwired": engine.unwired(),
                 "problems": list(self.problems),
+                **self._notes_key(),
             }
         if action == "pause":
             engine.set_paused(True)
@@ -297,17 +344,28 @@ def build_gesture(
     bindings, problems = parse_chords(config.chords)
     for problem in problems:
         log.warning("[gesture] %s", problem)
+    # Chords that stay bound but will not behave as written (the loader says the same at load).
+    notes = shadowed_chords(bindings)
+    if getattr(facegesture, "enabled", False):
+        switches, _ = parse_bindings(
+            getattr(facegesture, "switches", None),
+            getattr(facegesture, "gesture", "jaw_open"),
+            getattr(facegesture, "mode", "full_text"),
+        )
+        notes.extend(switch_collisions(bindings, switches))
+    for note in notes:
+        log.warning("[gesture] %s", note)
     if not bindings:
         return GestureRuntime(
             reason="no chords are bound -- add some under [gesture.chords] "
             "(see `yazses features info gesture`)",
-            problems=problems,
+            problems=problems, notes=notes,
         )
     if perception is None:
         return GestureRuntime(
             reason="no shared camera source -- `[perception]` could not be built "
             "(is the `gaze` extra installed? see `yazses doctor`)",
-            problems=problems,
+            problems=problems, notes=notes,
         )
 
     pointer_live = bool(headpointer is not None and headpointer.active)
@@ -367,7 +425,7 @@ def build_gesture(
         engine, sensors, perception.consumer(SOURCE_NAME),
         interval_s=interval, clock=clock, thread=thread,
     )
-    return GestureRuntime(runner=runner, problems=problems, safety=safety)
+    return GestureRuntime(runner=runner, problems=problems, notes=notes, safety=safety)
 
 
 class _NoEcho:

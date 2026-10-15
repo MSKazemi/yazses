@@ -6937,8 +6937,10 @@ def gesture_status() -> None:
         raise typer.Exit(1)
     for problem in result.get("problems") or []:
         typer.echo(f"ignored:  {problem}")
+    for note in result.get("notes") or []:
+        typer.echo(f"note:     {note}")
     if not result.get("active"):
-        typer.echo(f"Gesture Chords are not running: {result.get('reason') or 'turned off'}")
+        typer.echo(f"Gesture Chords are not running:{result.get('reason') or 'turned off'}")
         if not result.get("reason"):
             typer.echo("Turn them on with:  yazses features enable gesture")
         return

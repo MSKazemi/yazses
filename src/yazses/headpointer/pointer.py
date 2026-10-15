@@ -147,7 +147,8 @@ class DwellClicker:
 
         Read-only and pure, so a caller can show the user that a click is coming *before* it
         fires (ADR-v2-052 / #405). The sample that would complete it is the one on which
-        :meth:`update` fires and re-arms, so the value read between samples stays below ``1.0``.
+        :meth:`update` fires and re-arms, so the value read between samples stays below ``1.0`` -- except
+        at the brink (``update(..., may_fire=False)``), where it reads ``1.0`` until the next sample.
         """
         if self._anchor is None or not self._hold > 0.0:
             return 0.0
@@ -179,10 +180,16 @@ class DwellClicker:
         self._last_ts = ts
         self._elapsed = 0.0
 
-    def update(self, x: float, y: float, ts: float) -> bool:
+    def update(self, x: float, y: float, ts: float, *, may_fire: bool = True) -> bool:
         """Advance to the sample at ``ts`` (seconds, monotonic) with the pointer at ``(x, y)``.
 
         Returns True iff a click fires. Pure state.
+
+        ``may_fire=False`` is the caller saying "the user has not been shown this dwell yet":
+        a dwell that completes on such a sample is **held at the brink** (``progress`` reads
+        ``1.0``, nothing fires) and fires on the next sample that stays inside the radius. Without
+        it, a hold no longer than the gap between two camera frames would click on the very
+        sample that began to show it -- a click with no warning, the Midas-touch failure.
         """
         if not math.isfinite(ts):
             self.reset()
@@ -201,6 +208,9 @@ class DwellClicker:
         self._last_ts = ts
         self._elapsed += dt
         if self._elapsed >= self._hold:
+            if not may_fire:
+                self._elapsed = self._hold
+                return False
             self.reset()
             return True
         return False

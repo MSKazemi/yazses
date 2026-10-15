@@ -28,15 +28,23 @@ class StatusSnapshot:
     reachable: bool = True
     #: How far a Head-Pointer dwell-click is from firing, 0..1; 0 means none in progress.
     dwell_progress: float = 0.0
+    #: True while a dwell-click can start building: dwell is on and the pointer has travelled
+    #: since the last click. The ring is not on screen yet, but it may be within one frame.
+    dwell_armed: bool = False
 
 
-def next_interval(state: str, dwell_progress: float = 0.0) -> float:
+def next_interval(
+    state: str, dwell_progress: float = 0.0, dwell_armed: bool = False
+) -> float:
     """Seconds to wait before the next poll, given the current daemon state.
 
     Fast while a dwell is building as well as while recording: the ring that warns of a
-    click is only useful if it advances smoothly *before* the click.
+    click is only useful if it advances smoothly *before* the click. And fast while one *can*
+    start building (``dwell_armed``): polling at the slow rate until progress was already above
+    zero meant the ring could be first seen up to a slow interval after it began -- for a short
+    dwell, after the click it was meant to announce.
     """
-    if state == "recording" or dwell_progress > 0.0:
+    if state == "recording" or dwell_progress > 0.0 or dwell_armed:
         return _FAST_INTERVAL_S
     return _SLOW_INTERVAL_S
 
@@ -55,6 +63,12 @@ def _dwell_progress(info: dict) -> float:
     return min(1.0, value)
 
 
+def _dwell_armed(info: dict) -> bool:
+    """Whether the Head-Pointer says a dwell can start building. Strictly ``True`` only."""
+    block = info.get("headpointer")
+    return isinstance(block, dict) and block.get("dwell_armed") is True
+
+
 def parse_status(info: dict) -> StatusSnapshot:
     """Convert a ``status`` reply dict into a :class:`StatusSnapshot` (defensive)."""
     def _f(key: str, default: float) -> float:
@@ -70,6 +84,7 @@ def parse_status(info: dict) -> StatusSnapshot:
         vad_threshold=_f("vad_threshold", 0.01),
         reachable=True,
         dwell_progress=_dwell_progress(info),
+        dwell_armed=_dwell_armed(info),
     )
 
 
@@ -113,7 +128,7 @@ class StatusPoller:
                 snap = parse_status(info if isinstance(info, dict) else {})
                 self._set(snap)
                 booted = True
-                interval = next_interval(snap.state, snap.dwell_progress)
+                interval = next_interval(snap.state, snap.dwell_progress, snap.dwell_armed)
             except Exception:
                 # Daemon not up yet (or a transient error). Keep trying until the
                 # boot window closes, then mark unreachable and slow-poll forever.

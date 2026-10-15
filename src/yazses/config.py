@@ -2087,15 +2087,24 @@ class GestureConfig:
     chords: dict[str, str] = field(default_factory=dict)  # "token+token" -> action; empty = nothing bound
     chord_window_ms: int = 400    # tokens made within this window of the first count as one chord
     refractory_ms: int = 1000     # after a chord, nothing fires until every token is released and this passes
-    freshness_ms: int = 500       # a sample older than this is "no signal"; unmeasured placeholder
+    # A sample older than this is "no signal"; unmeasured placeholder. Bounded like
+    # `[headpointer] freshness_ms` and `[handsfree_safety] stale_after_ms`: 0 would call every real
+    # sample stale (chords silently dead while Config reports a valid 0), and a huge value means
+    # "never stale". Outside (0, 60000] the loader repairs it to 500 and says so.
+    freshness_ms: int = field(default=500, metadata={"min_exclusive": 0, "max": 60_000})
     min_confidence: float = 0.5   # samples below this presence confidence are "no signal"
     freeze_tail_ms: int = 300     # keep the pointer frozen this long after a chord token lets go
     onset_rewind_ms: int = 150    # when the freeze lands a frame late, take back up to this much pointer motion since the expression began; 0 = never. Provisional
     hold_ms: int = field(default=800, metadata={"min_exclusive": 0, "max": 60_000})  # the `hold` token: tokens held unchanged this long. Provisional
-    head_amplitude_deg: float = 10.0  # each leg of a nod/shake must swing at least this far
+    # Each leg of a nod/shake must swing at least this far. Bounded (0, 90]: 0 is "no gesture can
+    # ever be seen" and the detector would be silently dead. Provisional sanity bound, not measured.
+    head_amplitude_deg: float = field(default=10.0, metadata={"min_exclusive": 0, "max": 90})
     head_swings: int = 4          # legs per nod/shake: 4 is a double nod, 2 a single down-up
     head_window_ms: int = 1500    # a nod/shake must complete within this long
-    tilt_deg: float = 20.0        # roll beyond this, either way, is a tilt
+    # Roll beyond this, either way, is a tilt. Bounded (0, 90]: at 0 a perfectly level head is "tilted"
+    # and the `tilt` token is held for ever (any chord using it fires with no movement at all); past 90
+    # no head can reach it. Provisional sanity bound, not measured.
+    tilt_deg: float = field(default=20.0, metadata={"min_exclusive": 0, "max": 90})
     tilt_hold_ms: int = 400       # ...held this long
 
 
@@ -2421,12 +2430,24 @@ def _chord_problems(config: Config) -> list[ConfigProblem]:
     if not chords:
         return []
     try:
-        from yazses.gesture.engine import parse_chords
+        from yazses.gesture.engine import parse_chords, shadowed_chords, switch_collisions
 
-        _, refused = parse_chords(chords)
+        bound, refused = parse_chords(chords)
+        # Chords that stay bound but will not behave as written. `repaired=True` because nothing
+        # was dropped (doctor shows a WARN, not a "using default" FAIL).
+        notes = shadowed_chords(bound)
+        if config.gesture.enabled and config.facegesture.enabled:
+            from yazses.facegesture.switches import parse_bindings
+
+            switches, _ = parse_bindings(
+                config.facegesture.switches, config.facegesture.gesture, config.facegesture.mode
+            )
+            notes.extend(switch_collisions(bound, switches))
     except Exception:  # a chord check must never be what stops the daemon starting
         return []
-    return [ConfigProblem("gesture.chords", "", reason, False) for reason in refused]
+    return [ConfigProblem("gesture.chords", "", reason, False) for reason in refused] + [
+        ConfigProblem("gesture.chords", "", note, True) for note in notes
+    ]
 
 
 def load_config(path: Path | None = None) -> Config:
