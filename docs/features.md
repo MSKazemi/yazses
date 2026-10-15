@@ -477,11 +477,11 @@ YazSes ships **148 capabilities**. All but the core are **off by default** — t
 
 ### Prosodic Auto-Punctuation
 
-- **Toggle:** `prosodypunct`  ·  **Tier:** planned — designed, not yet wired  ·  **Config:** `[prosodypunct] — punctuation from prosody`
-- **What it does:** Inserts periods, commas, and question marks from how you speak (pauses, pitch) — no need to say 'comma' or 'period'. Off by default.
+- **Toggle:** `prosodypunct`  ·  **Tier:** optional  ·  **Config:** `[prosodypunct] — punctuation from prosody`
+- **What it does:** Inserts periods and commas from the pauses in how you speak — no need to say 'comma' or 'period'. Fills gaps only: punctuation the recognizer already wrote is kept. Batch dictation only. Off by default.
 - **Use when:** When you want natural punctuation from how you speak instead of saying 'comma' and 'period'.
 - **Example:** Speak naturally and the periods and commas appear on their own.
-- **Activate:** not possible yet — designed but not wired into this build (`yazses features enable` refuses it; contributions welcome)
+- **Activate:** `yazses features enable prosodypunct` then `yazses restart`
 
 ### Spoken Table Entry
 

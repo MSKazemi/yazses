@@ -1,6 +1,6 @@
 ---
 title: Find a task that fits you
-description: Filter 170 open YazSes contributor tasks by what you have — a browser, a laptop, specific hardware — how much time, and whether you want to write code.
+description: Filter 169 open YazSes contributor tasks by what you have — a browser, a laptop, specific hardware — how much time, and whether you want to write code.
 ---
 
 # Find a task that fits you
@@ -38,7 +38,7 @@ Coding agents are optional. "Cloud-ready" means the task can run in that environ
   </label>
 </div>
 
-<p id="yz-count"><strong>170</strong> tasks shown.</p>
+<p id="yz-count"><strong>169</strong> tasks shown.</p>
 
 <table class="yz-table">
 <thead><tr><th>Task</th><th>You need</th><th>Skills</th></tr></thead>
@@ -198,7 +198,6 @@ Coding agents are optional. "Cloud-ready" means the task can run in that environ
 <tr class="yz-row" data-env="cloud" data-family="feature-wiring" data-minutes="90" data-skills="python" data-text="wire the `predict` capability so it is reachable from the daemon or cli a browser or container"><td><strong>Wire the `predict` capability so it is reachable from the daemon or CLI</strong><br><code>WIRE-PREDICT-001</code> · L2 · 90 min</td><td>a browser or container</td><td>python</td></tr>
 <tr class="yz-row" data-env="cloud" data-family="feature-wiring" data-minutes="90" data-skills="python" data-text="wire the `pronunciation` capability so it is reachable from the daemon or cli a browser or container"><td><strong>Wire the `pronunciation` capability so it is reachable from the daemon or CLI</strong><br><code>WIRE-PRONUNCIATION-001</code> · L2 · 90 min</td><td>a browser or container</td><td>python</td></tr>
 <tr class="yz-row" data-env="cloud" data-family="feature-wiring" data-minutes="90" data-skills="python" data-text="wire the `proofback` capability so it is reachable from the daemon or cli a browser or container"><td><strong>Wire the `proofback` capability so it is reachable from the daemon or CLI</strong><br><code>WIRE-PROOFBACK-001</code> · L2 · 90 min</td><td>a browser or container</td><td>python</td></tr>
-<tr class="yz-row" data-env="cloud" data-family="feature-wiring" data-minutes="90" data-skills="python" data-text="wire the `prosodypunct` capability so it is reachable from the daemon or cli a browser or container"><td><strong>Wire the `prosodypunct` capability so it is reachable from the daemon or CLI</strong><br><code>WIRE-PROSODYPUNCT-001</code> · L2 · 90 min</td><td>a browser or container</td><td>python</td></tr>
 <tr class="yz-row" data-env="cloud" data-family="feature-wiring" data-minutes="90" data-skills="python" data-text="wire the `rag` capability so it is reachable from the daemon or cli a browser or container"><td><strong>Wire the `rag` capability so it is reachable from the daemon or CLI</strong><br><code>WIRE-RAG-001</code> · L2 · 90 min</td><td>a browser or container</td><td>python</td></tr>
 <tr class="yz-row" data-env="cloud" data-family="feature-wiring" data-minutes="90" data-skills="python" data-text="wire the `readback_clone` capability so it is reachable from the daemon or cli a browser or container"><td><strong>Wire the `readback_clone` capability so it is reachable from the daemon or CLI</strong><br><code>WIRE-READBACK-CLONE-001</code> · L2 · 90 min</td><td>a browser or container</td><td>python</td></tr>
 <tr class="yz-row" data-env="cloud" data-family="feature-wiring" data-minutes="90" data-skills="python" data-text="wire the `reask` capability so it is reachable from the daemon or cli a browser or container"><td><strong>Wire the `reask` capability so it is reachable from the daemon or CLI</strong><br><code>WIRE-REASK-001</code> · L2 · 90 min</td><td>a browser or container</td><td>python</td></tr>

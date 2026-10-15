@@ -33,7 +33,7 @@ It stays listed so contributors can pick it up; see the matching design/adr/ ent
 ```
 
 They stay listed because that is where a contributor picks one up — each has a matching
-`design/adr/` entry. **42 of the 122 rows below are ◌ today.** Rows without the mark are
+`design/adr/` entry. **41 of the 122 rows below are ◌ today.** Rows without the mark are
 wired and can be turned on.
 
 ### "Hold the command key" — what that means
@@ -261,7 +261,7 @@ phonate but not articulate discrete words, and for word-free eyes-free control.
 | ◌ **Vocal Joystick** | `vocaljoystick` | Continuous analog cursor control by sustaining vowels ("eee"→up, louder=faster, pitch-jump=click). Experimental. |
 | **Earcon Feedback** | `earcon` | Non-speech state tones (rising motif = recording, buzz = low confidence) — eyes-free, faster than read-back. |
 | ◌ **Beam-Steered Spatial VAD** | `spatialvad` | With 2 mics, gates out sound not from your seat by its arrival direction (pure-numpy GCC-PHAT). |
-| ◌ **Prosodic Auto-Punctuation** | `prosodypunct` | Inserts periods/commas/question marks from how you speak — no need to say "comma". |
+| **Prosodic Auto-Punctuation** | `prosodypunct` | Inserts periods and commas from the pauses in how you speak — no need to say "comma". Fills gaps only; punctuation the recognizer already wrote is kept. |
 | ◌ **Hesitation-Hold Endpointing** | `hesitation` | Holds the turn open on filled pauses ("uhh…") instead of cutting you off. |
 | ◌ **Pitch-Contour Gestures** | `contour` | Hum a shape — rise=confirm, fall=cancel, rise-fall=undo. Word-free. Experimental. |
 | ◌ **Breath-Paced Dictation** | `breath` | Segments dictation by your natural breath groups, not silence. |

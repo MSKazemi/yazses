@@ -590,9 +590,10 @@ def _registry() -> list[_Def]:
              "Off by default.",
              lambda c: c.spatialvad.enabled, sv_on, sv_off),
         _Def("prosodypunct", "Prosodic Auto-Punctuation", "[prosodypunct] — punctuation from prosody",
-             RECOMMENDED,
-             "Inserts periods, commas, and question marks from how you speak (pauses, pitch) — no "
-             "need to say 'comma' or 'period'. Off by default.",
+             OPTIONAL,
+             "Inserts periods and commas from the pauses in how you speak — no need to say 'comma' "
+             "or 'period'. Fills gaps only: punctuation the recognizer already wrote is kept. "
+             "Batch dictation only. Off by default.",
              lambda c: c.prosodypunct.enabled, pp_on, pp_off),
         _Def("vocaljoystick", "Vocal Joystick", "[vocaljoystick] — analog cursor control by voice",
              EXPERIMENTAL,
@@ -1178,7 +1179,7 @@ _UNWIRED: frozenset[str] = frozenset({
     "bridge", "cmdspotter", "codec", "compose", "contour", "crowdproof",
     "hatselect", "hesitation", "hotwords", "interpret", "involuntary",
     "langroute", "lipread", "loadguard", "morsevox", "mousegrid", "mouthswitch",
-    "multiprofile", "pilot", "predict", "pronunciation", "proofback", "prosodypunct", "rag",
+    "multiprofile", "pilot", "predict", "pronunciation", "proofback", "rag",
     "readback_clone", "reask", "screengrounded", "scribe", "scrub", "sentiment", "sign",
     "spatialvad", "vocaljoystick", "voiceguard", "voicehealth", "wakeword",
 })

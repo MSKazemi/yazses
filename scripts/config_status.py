@@ -88,8 +88,6 @@ KNOWN_UNREAD = {
     "PolyglotConfig.lid",  # see the note beside GazeConfig.zones
     "PronunciationConfig.good_threshold",
     "ProsodyConfig.experimental_pitch_question",
-    "ProsodypunctConfig.comma_pause_ms",
-    "ProsodypunctConfig.sentence_pause_ms",
     "RagConfig.embed_model",
     "RagConfig.store_path",
     "RagConfig.top_k",
