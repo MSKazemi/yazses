@@ -6,6 +6,16 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed — a default start no longer imports opt-in feature code
+
+Measured against `main` with the eye and hands-free work merged: importing the CLI and the daemon loaded the
+whole `gaze` package (plus `statistics`, `decimal` and `fractions`), because `platform/base.py` imported a
+type from it at module level and the facegesture calibration imported `statistics` eagerly. Both are now
+lazy, so a default start loads one extra small module (`facegesture.calibration`, via the config's gesture-name
+list) instead of eight. `tests/test_default_start_stays_light.py` fails if the CLI or daemon import ever loads
+cv2, mediapipe, Qt, torch, onnxruntime or any of the gaze, perception, head-pointer, gesture, hands-free,
+eye-eval, grounding or settings-UI packages. No behaviour changes.
+
 ### Fixed — tests no longer write a fake Wayland permission token into your real data directory
 
 Four test files that negotiate a fake portal session wrote their fake restore token (`fresh-token`) to

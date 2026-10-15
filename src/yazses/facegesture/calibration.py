@@ -27,7 +27,6 @@ from __future__ import annotations
 
 import json
 import math
-import statistics
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -185,6 +184,10 @@ def calibrate(
 
     if len(kept) < max(1, int(min_samples)):
         return fail("too_few_samples")
+    # Lazy: this module is imported by every config load (via the gesture-name list), and
+    # `statistics` drags in `decimal` and `fractions`, which a default start never needs.
+    import statistics
+
     level = statistics.median(kept)
     spread = _MAD_TO_SIGMA * statistics.median(abs(x - level) for x in kept)
     baseline = Baseline(gesture=gesture, level=level, spread=spread, samples=len(kept))

@@ -10,11 +10,15 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from yazses.cameraperm.contract import CameraPermission
-from yazses.gaze.clicks import ClickObserver
 from yazses.pointer.base import PointerSink
+
+if TYPE_CHECKING:
+    # Type-only: importing it at module level made every CLI start load the whole `gaze`
+    # package (and, through it, `statistics`/`decimal`/`fractions`) for the sake of an annotation.
+    from yazses.gaze.clicks import ClickObserver
 
 #: The value each bundle puts in `Platform.name`. These are `sys.platform`
 #: strings, not friendly words, and anything that branches on `Platform.name`
@@ -350,7 +354,7 @@ moves nothing.
 """
 
 
-ClickObserverFactory = Callable[[], ClickObserver]
+ClickObserverFactory = Callable[[], "ClickObserver"]
 """Builds this platform's desktop click observer for implicit gaze calibration (#397).
 
 A factory, and optional, for the pointer's reasons: a click hook is an input-monitoring
