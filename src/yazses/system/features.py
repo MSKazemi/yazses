@@ -1181,6 +1181,8 @@ def feature_packages(slug: str) -> tuple[str, ...]:
 # without wiring it fails CI.
 _UNWIRED: frozenset[str] = frozenset({
     "acoustic_profiles", "affect", "agent", "audioguard", "bookmarks", "breath",
+
+    "acoustic_profiles", "affect", "agent", "audioguard", "autostop", "breath",
     "bridge", "cmdspotter", "codec", "compose", "contour", "crowdproof",
     "hatselect", "hesitation", "hotwords", "interpret", "involuntary",
     "langroute", "lipread", "loadguard", "morsevox", "mousegrid", "mouthswitch",
@@ -1195,7 +1197,7 @@ _UNWIRED: frozenset[str] = frozenset({
 #: once here rather than repeated in the CLI, the caveat and the tests.
 SPOKEN_COMMAND_SLUGS: frozenset[str] = frozenset({
     "spelling", "code", "math", "spokenregex", "snippets", "voicetimer",
-    "condense", "diagramvox", "spreadsheet", "echo",
+    "condense", "diagramvox", "spreadsheet", "echo", "bookmarks",
 })
 
 

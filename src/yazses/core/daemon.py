@@ -29,6 +29,8 @@ if TYPE_CHECKING:
     # below) so the optional/heavy dependencies stay dormant; the names exist here only
     # so the `X | None` attribute annotations resolve for the type checker.
     from yazses.endpoint.autostop import AutoStopTurn
+
+    from yazses.bookmarks.service import BookmarkService
     from yazses.gaze.refine_runtime import RefinementRuntime
     from yazses.gaze.targeter import GazeTargeter
     from yazses.inject.target import TargetDetector
@@ -445,6 +447,7 @@ class Daemon:
         # Constructed only when a timer is actually set — it owns a thread, and a
         # daemon whose user never says "set a timer" should not have one.
         self._timers: TimerService | None = None
+        self._bookmarks: BookmarkService | None = None  # built on first "bookmark" phrase
         self._edit_watcher: EditWatcher | None = None
         self._cleaner: LlmCleaner | None = None
         # Read-Back Loop TTS backend (None when [tts] disabled — dormant).
@@ -4796,6 +4799,15 @@ class Daemon:
                     self._timers.cancel()
             elif name == "echo_play":
                 self._echo_play(str(argument or ""), event)
+            elif name in ("bookmark_add", "bookmark_goto"):
+                # Session Bookmarks (ADR-v2-090): reaches a caret position, never a keypress count.
+                if self._bookmarks is None:
+                    from yazses.bookmarks.service import BookmarkService
+
+                    self._bookmarks = BookmarkService()
+                label = str(argument) if argument else None
+                self._notify_spoken(self._bookmarks.add(label) if name == "bookmark_add"
+                                    else self._bookmarks.goto(label))
             elif name == "keys":
                 # Spoken grid movement (`spreadsheet`). This is the one action that
                 # reaches the focused window rather than reporting, so it goes through

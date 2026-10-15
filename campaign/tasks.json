@@ -108,6 +108,11 @@
     "family": "feature-wiring",
     "title": "Wire the `bookmarks` capability so it is reachable from the daemon or CLI",
     "value": "`bookmarks` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
+
+    "id": "WIRE-AUTOSTOP-001",
+    "family": "feature-wiring",
+    "title": "Wire the `autostop` capability so it is reachable from the daemon or CLI",
+    "value": "`autostop` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
     "risk": "L2",
     "minutes": 90,
     "skills": [
