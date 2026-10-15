@@ -257,7 +257,8 @@ leases the shared source, honours the global pause/kill state, accumulates sub-u
 (the X11 sink carries no remainder), freezes on signal loss, never clicks on startup, and dwell is
 refused unless the overlay can show its progress ring. **Not met:** the exit gate's "without a hand
 on a desktop" claim has only partial hardware evidence (2026-10-13, one laptop webcam: the signals respond, see the CHANGELOG; no real pointer was driven), and native Wayland used to have no head pointer; the portal sink is now selected (2026-10-14, fakes only, not yet
-against a real consent dialog). An unanswered dialog is a `pending_consent` state, not a fault, and `yazses doctor`'s Pointer output row names the backend and the permission state (2026-10-15, fakes only).
+against a real consent dialog). An unanswered dialog is a `pending_consent` state, not a fault, and `yazses doctor`'s Pointer output row names the backend and the permission state (2026-10-15, fakes only). Since 2026-10-15 the dwell hold is real time (`dwell_ms`, a provisional
+700 ms; a camera stall restarts it) rather than a frame count, so it no longer depends on the camera's fps.
 
 ## Phase 5 — deliberate face-gesture switches
 

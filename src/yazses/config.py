@@ -1327,6 +1327,18 @@ class HeadpointerConfig:
     the same distance on a 15, 30 or 60 fps camera. These gains used to mean "per frame": an
     old value reads as a far slower pointer now, never a faster one. **All the magnitudes and
     caps are provisional first-principles values, not measurements.**
+
+    **Dwell is in real time too.** `dwell_ms` is how long the pointer must hold still before the
+    click, measured on the camera samples' own timestamps, so a 15 and a 30 fps camera click
+    after the same wait; a gap longer than a quarter of a second between samples (a stall) is not
+    counted as stillness and restarts the dwell. It replaces `dwell_hold_frames`, which counted
+    samples and so lasted whatever the camera made it. An old `dwell_hold_frames` still works:
+    when set above 0 it wins, read as that many frames at a nominal 30 fps (the old default of 20
+    is ~667 ms) -- delete it to use `dwell_ms`. **The 700 ms default is provisional, about the
+    old default at 30 fps, not a measurement.** `dwell_ms` and `freshness_ms` declare their bounds
+    in their field metadata, enforced by `configcheck.build_section`: a `freshness_ms` of 0 would
+    have called every real sample stale (the pointer silently never moved) and one past a minute
+    means "never stale", so a value outside the bounds is repaired to the default and reported.
     """
     enabled: bool = False
     x_gain: float = -1200.0       # pointer units per second per radian of yaw; negative: left turn -> pointer left
@@ -1335,11 +1347,12 @@ class HeadpointerConfig:
     max_speed_y: float = 600.0    # fastest vertical pointer speed, units per second; provisional safety cap
     max_speed_overall: float = 800.0  # fastest combined pointer speed, units per second; provisional safety cap
     deadzone: float = 0.02        # radians around the neutral pose that produce no motion
-    freshness_ms: int = 500       # a head pose older than this is "no signal"; unmeasured
+    freshness_ms: int = field(default=500, metadata={"min_exclusive": 0, "max": 60_000})  # a head pose older than this is "no signal"; unmeasured
     min_confidence: float = 0.5   # samples below this presence confidence are "no signal"
     dwell_enabled: bool = False   # click by holding still; off so motion never clicks unasked
     dwell_radius_px: float = 15.0  # stay within this many pointer units to count as holding still
-    dwell_hold_frames: int = 20   # samples of holding still before the click (not a time)
+    dwell_ms: int = field(default=700, metadata={"min": 50, "max": 10_000})  # how long to hold still before the click, real time; provisional, unmeasured
+    dwell_hold_frames: int = 0    # legacy, replaced by dwell_ms: when above 0, that many frames at a nominal 30 fps
 
 
 @dataclass

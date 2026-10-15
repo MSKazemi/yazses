@@ -359,15 +359,17 @@ def test_a_dwell_in_progress_does_not_complete_across_a_pause():
     """
     clock = Clock()
     gate = armed(clock)
-    dwell = DwellClicker(radius=5.0, hold_frames=3)
+    dwell = DwellClicker(radius=5.0, hold_s=0.15, max_dt_s=0.25)  # two 0.1 s steps; slack for float sums
     clicks = 0
+    now = 0.0
 
     def frame(x: float, y: float) -> None:
-        nonlocal clicks
+        nonlocal clicks, now
+        now += 0.1
         decision = gate.gate(POINTER)
         if decision.clear_pending:
             dwell.reset()
-        if decision.allowed and dwell.update(x, y):
+        if decision.allowed and dwell.update(x, y, now):
             clicks += 1
 
     frame(10.0, 10.0)

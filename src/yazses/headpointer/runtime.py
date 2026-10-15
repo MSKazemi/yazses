@@ -65,7 +65,7 @@ _DEFAULT_INTERVAL_S = 1.0 / 30.0
 def _num(value: object, default: float) -> float:
     try:
         number = float(value)  # type: ignore[arg-type]
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):  # OverflowError: an int too large for a float
         return default
     return number if number == number and abs(number) != float("inf") else default
 
@@ -93,6 +93,7 @@ def settings_from_config(section: Any) -> HeadPointerSettings:
         min_confidence=_num(getattr(section, "min_confidence", None), defaults.min_confidence),
         dwell_enabled=bool(getattr(section, "dwell_enabled", False)),
         dwell_radius_px=_num(getattr(section, "dwell_radius_px", None), defaults.dwell_radius_px),
+        dwell_hold_s=_num(getattr(section, "dwell_ms", None), defaults.dwell_hold_s * 1000.0) / 1000.0,
         dwell_hold_frames=int(
             _num(getattr(section, "dwell_hold_frames", None), defaults.dwell_hold_frames)
         ),

@@ -428,16 +428,18 @@ def test_the_defaults_are_the_pure_cores_own_and_dwell_is_off():
     assert settings.dwell_enabled is False
     clicker = DwellClicker()
     assert settings.dwell_radius_px == clicker.radius
-    assert settings.dwell_hold_frames == 20
+    assert settings.dwell_hold_s == HeadPointerSettings().dwell_hold_s == 0.7
+    assert settings.dwell_hold_frames == 0  # the legacy key is unset by default
 
 
 def test_config_values_reach_the_settings_and_junk_falls_back():
     cfg = Config().headpointer
     cfg.x_gain, cfg.deadzone, cfg.freshness_ms = -300.0, 0.05, 250
-    cfg.dwell_enabled, cfg.dwell_hold_frames = True, 7
+    cfg.dwell_enabled, cfg.dwell_ms, cfg.dwell_hold_frames = True, 900, 7
     settings = settings_from_config(cfg)
     assert (settings.calib.x_gain, settings.calib.deadzone) == (-300.0, 0.05)
     assert settings.freshness_s == 0.25 and settings.dwell_enabled and settings.dwell_hold_frames == 7
+    assert settings.dwell_hold_s == 0.9
 
     cfg.y_gain = "banana"  # type: ignore[assignment]
     cfg.freshness_ms = float("nan")  # type: ignore[assignment]
@@ -501,7 +503,7 @@ def test_a_dwell_feedback_sink_counts_as_a_way_to_show_progress():
 
 @pytest.mark.parametrize("key", ["x_gain", "y_gain", "max_speed_x", "max_speed_y", "max_speed_overall", "deadzone",
                                  "freshness_ms", "min_confidence",
-                                 "dwell_enabled", "dwell_radius_px", "dwell_hold_frames"])
+                                 "dwell_enabled", "dwell_radius_px", "dwell_ms", "dwell_hold_frames"])
 def test_every_config_key_is_read_by_the_settings_builder(key):
     """A key nothing reads is a toggle that lies (the registry's own honesty rule)."""
     source = (PACKAGE / "runtime.py").read_text(encoding="utf-8")

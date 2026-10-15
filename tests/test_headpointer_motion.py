@@ -482,7 +482,7 @@ def test_a_global_pause_stops_all_motion_under_the_time_based_model():
 
 
 def test_no_click_on_startup_or_after_signal_loss_with_dwell_on():
-    rig = Rig(dwell_enabled=True, dwell_hold_frames=3)
+    rig = Rig(dwell_enabled=True, dwell_hold_s=0.1)
     dt = 1 / 30
     for _ in range(40):  # sitting perfectly still after enabling
         rig.feed(0.0, 0.0, dt=dt)

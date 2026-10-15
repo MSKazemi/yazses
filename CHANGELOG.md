@@ -64,8 +64,38 @@ pointer the same distance at 15, 30 or 60 fps; before, a 30 fps camera was twice
 `max_speed_x`, `max_speed_y` and `max_speed_overall` caps (units per second) cannot be switched off — a
 zero, negative or non-finite value falls back to the shipped one with a warning. An old per-frame value now
 reads as a *slower* pointer, never a faster one. All defaults are provisional and unmeasured: on one
-webcam the previous per-frame values moved the pointer thousands of units per second. Dwell timing is still
-counted in frames.
+webcam the previous per-frame values moved the pointer thousands of units per second. (Dwell timing was still
+counted in frames at this point; the entry below moves it to real time too.)
+
+### Changed — Head-Pointer dwell-click is timed in milliseconds, not camera frames
+
+The dwell hold was counted in camera samples (`dwell_hold_frames = 20`), so it lasted ~0.67 s on a 30 fps
+webcam and ~1.33 s at 15 fps in low light. New `[headpointer] dwell_ms` (default **700**) is how long the
+pointer must stay inside the dwell radius, summed from the real gaps between the camera samples' own
+timestamps, so a 15, 30 and 60 fps camera click after the same wait (to within one frame). Stillness has to be
+*seen* to count: a gap of more than 0.25 s between two samples (a stalled thread, a camera hiccup that never
+went stale) restarts the dwell instead of being credited to it, and so does a backwards or non-finite
+timestamp, so a stall can never complete a dwell on its own. Pause, clutch, recenter, signal loss and a
+global-gate suppression still drop a half-built dwell, a click still needs real travel past the radius first,
+and dwell stays off unless `dwell_enabled` is set. **What an old config means now:** `dwell_hold_frames` is
+kept, but its default is now `0` (= unset) and when you set it above 0 it still wins and is read as that many
+frames at a *nominal 30 fps* (20 frames = 667 ms), on every camera — the same wait it gave on a 30 fps webcam,
+no longer stretched by a slower one; delete it to use `dwell_ms`. The 700 ms default is **provisional**: it is
+the old 20-frame default at 30 fps, rounded, not a measurement of how long a person can hold their head still.
+`dwell_ms` is bounded to 50–10000 ms, and a value outside that is repaired to the default and reported, like
+every other bounded key.
+
+### Fixed — `[headpointer] freshness_ms = 0` silently left the pointer dead
+
+The same shape as the `[handsfree_safety] stale_after_ms` fix: the loader accepted `freshness_ms = 0` and the
+controller applied it literally, so every real camera sample (which always has a positive age) was "stale",
+the state sat at LOST and the pointer never moved while `Config` showed a valid 0; a value past a minute
+meant "never stale" and an integer too large for a float (`10**400`) raised `OverflowError` while the
+settings were built. `freshness_ms` now declares its bounds (greater than 0, at most 60000) in its field
+metadata, the loader repairs anything outside them to 500 and reports it, and the controller applies the same
+rule through `effective_freshness_s`, so the value `Config` shows is the value that runs. The 500 ms default
+is unchanged and still an unmeasured placeholder. The `[gesture.chords] freshness_ms` key has the same
+unbounded shape and is not changed here.
 
 ### Added — a "hold" chord token, and a take-back for the pointer's first disturbed frame
 

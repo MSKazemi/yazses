@@ -24,11 +24,11 @@ rule is removed:
   global-gate suppression or a signal loss, the very next sample is consumed as a settling
   frame (no motion), and the dwell detector stays **disarmed** until the pointer has actually
   travelled beyond the dwell radius. Without that last rule a user who merely sits still after
-  enabling the feature would be clicked at: the dwell detector counts frames of stillness, and a
+  enabling the feature would be clicked at: the dwell detector times stillness, and a
   freshly started pointer is perfectly still.
 * *One click, then the user must move.* The same rule is why a click is followed by a disarmed
   detector rather than an instantly re-armed one: resting the head would otherwise click every
-  ``hold_frames`` frames for as long as the user stayed put.
+  ``dwell_hold_s`` for as long as the user stayed put.
 * *The global hands-free state wins.* When a ``HandsFreeSafety`` gate is supplied, a denied
   decision zeroes motion and clicks, and its one-shot ``clear_pending`` latch drops the
   half-built dwell and the sub-unit remainder (ADR-v2-148, R-05/R-06/R-24).
@@ -78,8 +78,13 @@ arithmetic on its own record, not a read of the screen: a pointer pinned at a sc
 that step is moved back by the unclamped amount. It does nothing when the controller is paused,
 faulted, closed or has not moved, and it never clicks.
 
-**Still frame-based, deliberately untouched here:** the dwell hold is counted in samples
-(``dwell_hold_frames``), so *how long* a dwell takes still depends on the camera's rate.
+**Dwell is in real time too.** The hold is ``dwell_hold_s`` seconds: the sum of the real gaps
+between accepted samples that stayed inside the dwell radius (``DwellClicker`` takes each
+sample's timestamp), so a 15 and a 30 fps camera click after the same wait. A gap longer than
+``max_dt_s`` (a stall that never went stale) is unobserved stillness and restarts the dwell
+rather than counting towards it. ``dwell_hold_frames`` is the legacy spelling: when set it is
+read as that many frames at a nominal 30 fps (:func:`effective_dwell_s`). The 700 ms default
+is provisional -- roughly the old 20-frame default at 30 fps, not a measurement.
 """
 from __future__ import annotations
 
@@ -106,10 +111,14 @@ from yazses.pointer.consent import ConsentReport, PointerConsent, consent_of
 from yazses.pointer.subpixel import SubPixelAccumulator
 
 __all__ = [
+    "DEFAULT_DWELL_S",
     "DEFAULT_FRESHNESS_S",
     "DEFAULT_MAX_DT_S",
     "DEFAULT_MIN_CONFIDENCE",
     "REWIND_LIMIT_S",
+    "MAX_DWELL_S",
+    "MAX_FRESHNESS_S",
+    "MIN_DWELL_S",
     "SOURCE_NAME",
     "DwellFeedback",
     "HeadPointerController",
@@ -118,6 +127,8 @@ __all__ = [
     "ResumeResult",
     "State",
     "Step",
+    "effective_dwell_s",
+    "effective_freshness_s",
 ]
 
 log = logging.getLogger(__name__)
@@ -130,6 +141,30 @@ SOURCE_NAME = "headpointer"
 #: tracking-loss distribution exists for this programme). It errs long on purpose: a false trip
 #: costs a hands-free user their input method until they recover.
 DEFAULT_FRESHNESS_S = 0.5
+
+#: Longest freshness window that still means anything. Past a minute a head pose is "fresh"
+#: for so long that the stale-signal guard is effectively off (and ``float(10**400)`` is an
+#: ``OverflowError``). **Provisional:** a sanity bound, not a measured value. It is the same
+#: bound ``[headpointer] freshness_ms`` declares in ``config.py``, which is what keeps the
+#: value ``Config`` reports equal to the value this controller applies.
+MAX_FRESHNESS_S = 60.0
+
+#: How long the pointer must hold still before a dwell-click. **Provisional, unmeasured:**
+#: about the old default of 20 frames at a 30 fps camera (667 ms), rounded. No study of how
+#: long a person can comfortably hold their head still exists for this programme yet
+#: (``design/eye-control/GOVERNANCE.md``).
+DEFAULT_DWELL_S = 0.7
+
+#: Shortest and longest dwell the controller will apply. The floor is a safety bound (a dwell
+#: that short clicks on a head merely resting); both are provisional, and both are the bounds
+#: ``[headpointer] dwell_ms`` declares in ``config.py``.
+MIN_DWELL_S = 0.05
+MAX_DWELL_S = 10.0
+
+#: The camera rate a legacy ``dwell_hold_frames`` value is read at. Those values were counted
+#: in samples, so their duration was whatever the camera made it; 30 fps is the nominal rate
+#: the dev webcam ran at (26-30 fps measured informally), not a property of any camera.
+LEGACY_FRAME_S = 1.0 / 30.0
 
 #: Lowest sample confidence that may move the pointer. ``HeadPoseSignal.confidence`` is the
 #: MediaPipe presence score and 0.5 is that backend's own default floor
@@ -192,7 +227,8 @@ class HeadPointerSettings:
     """Everything tunable, as plain numbers. Built from ``[headpointer]`` by the factory."""
 
     calib: PointerCalib = PointerCalib()
-    #: Samples older than this (seconds) are treated as no signal.
+    #: Samples older than this (seconds) are treated as no signal. Anything outside
+    #: ``(0, MAX_FRESHNESS_S]`` is repaired to the default (:func:`effective_freshness_s`).
     freshness_s: float = DEFAULT_FRESHNESS_S
     min_confidence: float = DEFAULT_MIN_CONFIDENCE
     #: Longest time step (seconds) one sample may move the pointer over; a longer gap is
@@ -201,7 +237,11 @@ class HeadPointerSettings:
     #: Dwell-click is its own switch: motion alone is a complete, useful feature.
     dwell_enabled: bool = False
     dwell_radius_px: float = 15.0
-    dwell_hold_frames: int = 20
+    #: Seconds the pointer must hold still before the click, on the samples' own clock.
+    dwell_hold_s: float = DEFAULT_DWELL_S
+    #: Legacy spelling of the hold, in samples. ``0`` = unset; when above zero it wins and is
+    #: read as that many frames at a nominal 30 fps (:func:`effective_dwell_s`).
+    dwell_hold_frames: int = 0
 
 
 @dataclass(frozen=True)
@@ -243,6 +283,56 @@ class ResumeResult:
 
     ok: bool
     reason: str = ""
+
+
+def effective_freshness_s(value: object) -> float:
+    """The freshness window actually applied, in seconds. Pure.
+
+    Zero or negative cannot express "how old is too old" -- applied literally, a window of 0
+    calls every real sample stale, so the pointer never moves and nothing says why -- and a
+    window past :data:`MAX_FRESHNESS_S` is "never stale". Either, like a non-number, is
+    repaired to :data:`DEFAULT_FRESHNESS_S`: the same posture as the loader, which reports
+    the repair (``configcheck.build_section``), so what ``Config`` shows is what runs.
+    """
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return DEFAULT_FRESHNESS_S
+    try:
+        seconds = float(value)
+    except OverflowError:
+        return DEFAULT_FRESHNESS_S
+    if math.isfinite(seconds) and 0.0 < seconds <= MAX_FRESHNESS_S:
+        return seconds
+    return DEFAULT_FRESHNESS_S
+
+
+def effective_dwell_s(dwell_hold_s: object, legacy_hold_frames: object = 0) -> float:
+    """The dwell hold actually applied, in seconds. Pure.
+
+    A positive ``legacy_hold_frames`` (the old ``dwell_hold_frames`` key) wins and means that
+    many frames at a nominal 30 fps -- so an old config keeps roughly the wait it had on the
+    camera it was written for, and is no longer stretched or squeezed by the camera's rate.
+    Otherwise ``dwell_hold_s`` is used. Anything outside ``[MIN_DWELL_S, MAX_DWELL_S]`` or not a
+    finite number is repaired to :data:`DEFAULT_DWELL_S`, as the loader repairs it.
+    """
+    value: object = dwell_hold_s
+    if (
+        not isinstance(legacy_hold_frames, bool)
+        and isinstance(legacy_hold_frames, (int, float))
+        and legacy_hold_frames > 0
+    ):
+        value = legacy_hold_frames
+        scale = LEGACY_FRAME_S
+    else:
+        scale = 1.0
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return DEFAULT_DWELL_S
+    try:
+        seconds = float(value) * scale
+    except OverflowError:  # an int too large for a float
+        return DEFAULT_DWELL_S
+    if math.isfinite(seconds) and MIN_DWELL_S <= seconds <= MAX_DWELL_S:
+        return seconds
+    return DEFAULT_DWELL_S
 
 
 def _finite_or(value: float, default: float) -> float:
@@ -298,13 +388,15 @@ class HeadPointerController:
             max_speed_overall=_positive_or(calib.max_speed_overall, PointerCalib.max_speed_overall, "max_speed_overall"),
         )
         self._max_dt = _positive_or(self._s.max_dt_s, DEFAULT_MAX_DT_S, "max_dt_s")
-        self._freshness_s = max(0.0, _finite_or(self._s.freshness_s, DEFAULT_FRESHNESS_S))
+        self._freshness_s = effective_freshness_s(self._s.freshness_s)
         self._min_conf = _finite_or(self._s.min_confidence, DEFAULT_MIN_CONFIDENCE)
         self._radius = max(1.0, _finite_or(self._s.dwell_radius_px, 15.0))
-        self._hold = max(2, int(self._s.dwell_hold_frames))
+        self._hold_s = effective_dwell_s(self._s.dwell_hold_s, self._s.dwell_hold_frames)
 
         self._acc = SubPixelAccumulator()
-        self._clicker = DwellClicker(radius=self._radius, hold_frames=self._hold)
+        self._clicker = DwellClicker(
+            radius=self._radius, hold_s=self._hold_s, max_dt_s=self._max_dt
+        )
         self._dwell_enabled = bool(self._s.dwell_enabled)
 
         self._neutral: tuple[float, float] | None = None
@@ -389,7 +481,9 @@ class HeadPointerController:
             if self._settle:
                 self._settle = False
                 return self._set(State.TRACKING, "settling")
-            return self._follow(sample, elapsed_s(prev_ts, sample.timestamp_s, self._max_dt))
+            return self._follow(
+                sample, elapsed_s(prev_ts, sample.timestamp_s, self._max_dt), sample.timestamp_s
+            )
 
     # ------------------------------------------------------------------ controls
 
@@ -574,8 +668,11 @@ class HeadPointerController:
             self._settle = True
         self._sync_feedback()
 
-    def _follow(self, sample: HeadPoseSignal, dt: float) -> Step:
-        """Move by the capped velocity for the offset from neutral, over ``dt`` seconds."""
+    def _follow(self, sample: HeadPoseSignal, dt: float, ts: float) -> Step:
+        """Move by the capped velocity for the offset from neutral, over ``dt`` seconds.
+
+        ``ts`` is the sample's own timestamp, which is what the dwell is timed on.
+        """
         assert self._neutral is not None
         vx, vy = limit_velocity(
             *pose_to_cursor(
@@ -600,7 +697,7 @@ class HeadPointerController:
                 self._trail.popleft()
         clicked = False
         if self._dwell_enabled:
-            clicked_or_fail = self._dwell()
+            clicked_or_fail = self._dwell(ts)
             if isinstance(clicked_or_fail, Step):
                 return clicked_or_fail
             clicked = clicked_or_fail
@@ -639,8 +736,8 @@ class HeadPointerController:
             return
         self._pos = (self._pos[0] - back_x, self._pos[1] - back_y)
 
-    def _dwell(self) -> bool | Step:
-        """Advance dwell for the current position. ``True`` iff a click was sent."""
+    def _dwell(self, ts: float) -> bool | Step:
+        """Advance dwell for the current position at time ``ts``. ``True`` iff a click was sent."""
         if not self._dwell_armed:
             # Armed only by real travel past the radius from where the last interruption (or
             # click) left the pointer -- never by stillness alone.
@@ -649,7 +746,7 @@ class HeadPointerController:
                 self._dwell_armed = True
             else:
                 return False
-        if not self._clicker.update(float(self._pos[0]), float(self._pos[1])):
+        if not self._clicker.update(float(self._pos[0]), float(self._pos[1]), ts):
             return False
         # Disarm *before* the call: if the sink fails the click is not retried, and if it
         # succeeds the user has to move before another can come.

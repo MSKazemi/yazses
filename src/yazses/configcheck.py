@@ -189,7 +189,7 @@ def negative_is_impossible(field) -> bool:
 def out_of_bounds(field, value) -> str | None:
     """Why ``value`` is outside the bounds the field declares, or None. Pure.
 
-    Bounds live in the dataclass field's ``metadata`` -- ``min_exclusive`` and ``max`` -- beside
+    Bounds live in the dataclass field's ``metadata`` -- ``min_exclusive``, ``min`` and ``max`` -- beside
     the default they constrain, not in a list here. ``negative_is_impossible`` cannot say "zero is
     impossible" because for most magnitudes zero is a real value; a field that needs the stricter
     rule says so itself, and a new such field cannot be forgotten by this module.
@@ -200,6 +200,9 @@ def out_of_bounds(field, value) -> str | None:
     low = meta.get("min_exclusive")
     if low is not None and not value > low:
         return f"must be greater than {low} (got {value})"
+    floor = meta.get("min")
+    if floor is not None and value < floor:
+        return f"is too small (got {value}; the least it can be is {floor})"
     high = meta.get("max")
     if high is not None and value > high:
         return f"is too large (got {value}; the most it can be is {high})"
