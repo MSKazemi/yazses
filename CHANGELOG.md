@@ -6,6 +6,15 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — benchmark harness can record CPU core-seconds and optional energy (#506)
+
+`paper/benchmark/cost_meter.py` (stdlib only, benchmark-only, off unless a benchmark is run) adds CPU core-seconds per decoded
+audio-second, with an explicit `method` field, and optional Linux RAPL package energy and battery discharge behind a small
+Protocol. `bench_latency.py` now writes `load_cost` and `decode_cost` per model, so model load is separate from steady decode.
+An unreadable counter (no RAPL, root-only, battery charging, macOS/Windows) is recorded as `null` with a reason, never `0`.
+The method and its limits are in `paper/benchmark/README.md`. No measurements are archived or claimed; comparing engines and
+repeating runs for variation remain to be done. The daemon is untouched.
+
 ### Fixed — calibration no longer sets the gate from how loudly the sample was spoken ([#579](https://github.com/MSKazemi/yazses/issues/579))
 
 v2.43.1 made the tray's Re-calibrate use the same room-then-voice `calibrate` rule as `mic-level --set`, but that

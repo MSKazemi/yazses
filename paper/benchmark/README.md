@@ -54,7 +54,7 @@ uv run python paper/benchmark/make_figures.py
 | Script | Metric | Reuses |
 |---|---|---|
 | `bench_wer.py` | WER (%) + RTF across engines and checkpoints | `stt.factory.build_engine` (so faster-whisper, Parakeet and Moonshine all decode through the shipping path), whisper-normalizer, jiwer |
-| `bench_latency.py` | decode P50/P95, cold-start, RSS, pure-stage timings | STT engine, `audio.vad_calibrated`, `postprocess.cleaner`, `stt.filters.disfluency`, `commands.grammar` |
+| `bench_latency.py` | decode P50/P95, cold-start, RSS, pure-stage timings, CPU core-seconds (and energy where readable) for load and decode separately | STT engine, `audio.vad_calibrated`, `postprocess.cleaner`, `stt.filters.disfluency`, `commands.grammar` |
 | `bench_commands.py` | grammar action-accuracy, false-positive rate, per-call ms | `commands.grammar.classify` + existing fixtures |
 | `bench_vad.py` | speech-detection / silence-rejection at the default threshold | `audio.vad_calibrated.is_silent_calibrated` |
 | `bench_diarization.py` | diarization DER / miss / false-alarm / confusion + speaker-count error | `recimport.diarizer.SherpaDiarizer`, a corpus from `scripts/gen-meeting-corpus.py` |
@@ -74,6 +74,7 @@ uv run python paper/benchmark/make_figures.py
 | `make_fa_manifest.py` | builds the `id/audio/reference` JSONL manifest `bench_persian.py --manifest` scores, from pinned FLEURS `fa_ir` / Common Voice `fa` releases — §8 seeded sampling, sidecar pins, no audio in git (FA-04 slice 2, [#513](https://github.com/MSKazemi/yazses/issues/513)) | stdlib only: `csv`/`tarfile`/`hashlib`; pins in `PINS`, audio stays local via `--audio-root` |
 | `persian_metrics.py` | library: `fa-eval-v1` evaluation normalizer + §5 Persian text-quality metrics (imported by `bench_persian.py`, not run directly) | deliberately **not** `postprocess.persian_text` — §6 versions evaluation and production normalization separately |
 | `persian_stats.py` | 95 % bootstrap confidence intervals over utterances, a *paired* bootstrap for two cells on the same rows, and the WER points attributable to a missing ZWNJ — reads the JSONL `bench_persian.py --hyps-out` writes (FA-05, [#514](https://github.com/MSKazemi/yazses/issues/514)) | an interval describes sampling noise on this corpus and machine only, not another host or decoder setting; pure Python, no benchmark deps |
+| `cost_meter.py` | library: CPU core-seconds (`os.times()`) and optional Linux RAPL / battery energy for a phase, behind an `EnergyProbe` Protocol; imported by `bench_latency.py`, not run directly (PAPER2-ENERGY-001, [#506](https://github.com/MSKazemi/yazses/issues/506)) | stdlib only; see "CPU core-seconds and energy" below |
 | `run_all.py` | orchestrates all of the above + provenance + optional coverage | — |
 | `make_features_table.py` | capability-surface table + prose macros for the paper, from the live registry | `system.features` (the registry behind `yazses features`) |
 | `make_results_index.py` | `../results/MANIFEST.md` — what every archived artifact is and which machine it came from | reads `../results/**/*.json` |
@@ -122,6 +123,42 @@ that fails to load, or dies part-way through the subset, is now recorded in
 complete** — and note that a partly-decoded engine is deliberately given no WER at all,
 because a score over the utterances it survived is a number for an engine that does not
 work.
+
+## CPU core-seconds and energy
+
+`bench_latency.py` records, per model, a `load_cost` and a `decode_cost` block next to its
+latency fields (method and arithmetic in `cost_meter.py`). Nothing runs unless the benchmark
+is invoked; the daemon never imports it. This is the *instrument*: no result from it is
+archived or quoted in the paper yet, and a number taken on one laptop is a measurement of
+that laptop.
+
+**Core-seconds.** `os.times()` user + system CPU time of the benchmark process, summed over
+the spans that wrap `engine.transcribe` (so reading the FLAC is not billed to the decoder).
+`cpu_core_seconds_per_audio_s` divides by the decoded audio's duration (`null` for the load
+phase, which decodes none) and `mean_cores_busy` by the wall time inside the spans. Every
+block carries an explicit `method` string. Limits:
+
+- Threads **are** included (CTranslate2 and ONNX Runtime pools live in this process).
+  Child processes are **not**; an engine that shelled out would be under-counted.
+- It is CPU *time*, not work: no normalisation for clock frequency, turbo or SMT, so
+  core-seconds from two hosts cannot be compared without calibration.
+
+**Energy** is optional and appears under `energy.<probe>` with `energy_joules` and
+`reason`. When a counter cannot be read, `energy_joules` is `null` and `reason` says why --
+it is never `0`, which would read as "free".
+
+| Probe | Source | What it is | What it is not |
+|---|---|---|---|
+| `rapl` | Linux `/sys/class/powercap/intel-rapl:N/energy_uj` (package domains only) | CPU package energy from a hardware counter; wraparound at `max_energy_range_uj` is corrected once | Not wall power (no display, SSD, fans, PSU loss); not per-process, so it also counts everything else on the package -- measure an idle baseline; often readable by root only, in which case the record is `null` with a permission reason and the harness does not escalate. A run long enough to wrap twice cannot be detected |
+| `battery` | Linux `/sys/class/power_supply/BAT*/energy_now` | Whole-system discharge between two readings, valid only while the status is `Discharging` at both ends | **Coarse**: the fuel gauge moves in steps much larger than one short decode, so short phases usually record `null` ("did not drop"); needs `energy_now` (a `charge_now`-only gauge is not converted) |
+| `energy` (macOS, Windows) | none | `unavailable` | No reader is implemented, because none could be tested here |
+
+Energy probes cannot be paused, so they cover the whole bracket around the decode loop
+(including FLAC reads); `bracket_wall_s` is recorded beside `span_wall_s` so the gap is
+visible. Single-host numbers are not generalisable, and absolute energy must not be compared
+across machines. Repeats (to report variation), the `tiny`/`base`/`small`/Parakeet/Moonshine
+comparison and the batch-versus-streaming comparison from #506 are runs of this
+instrument, not part of it, and have not been done.
 
 ## Notes
 
