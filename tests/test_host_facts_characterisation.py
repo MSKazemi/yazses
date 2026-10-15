@@ -49,7 +49,8 @@ def os_release(monkeypatch):
 
     def _install(content: str | None) -> None:
         def fake(self, *args, **kwargs):
-            if str(self) == OS_RELEASE:
+            # as_posix(): on Windows str(Path('/etc/os-release')) is '\\etc\\os-release' and never matched
+            if self.as_posix() == OS_RELEASE:
                 if content is None:
                     raise FileNotFoundError(OS_RELEASE)
                 return content

@@ -271,9 +271,18 @@ def test_explain_prints_no_sample_values():
 # --------------------------------------------------------------------------- doctor
 
 
-def test_doctor_explains_the_preset_prerequisites_with_no_camera_and_no_pointer(tmp_path):
+def test_doctor_explains_the_preset_prerequisites_with_no_camera_and_no_pointer(tmp_path, monkeypatch):
     """The preset resolves to ordinary config, so the existing doctor rows already see it."""
+    from yazses.handsfree import probe as probe_mod
+    from yazses.system import doctor as doctor_mod
     from yazses.system.doctor import _handsfree_checks
+
+    # "No pointer" is a property of this machine's session, not of the config: on macOS and Windows
+    # the backend is known, so the row is rightly OK there. Pin a session with no pointer backend,
+    # as test_doctor_handsfree_rows.py does, so the test means the same on every OS.
+    headless = probe_mod.PointerEnvironment("headless", None, None, False)
+    monkeypatch.setattr(probe_mod, "read_pointer_environment", lambda cfg, **kw: headless)
+    monkeypatch.setattr(doctor_mod, "_headpointer_daemon_view", lambda platform: (False, None))
 
     class _Platform:
         name = "linux"
