@@ -41,7 +41,9 @@ spec-given ordering, or an exact geometric measurement:
    (accessibility > application > selection > window) — the spec's order, read off the
    enum rather than re-encoded as numbers here;
 3. **containment** — a candidate whose bounds contain the target beats one that merely
-   overlaps it;
+   overlaps it. For a pure *region* target (no point) this orders the list but does not
+   separate a pair in the ambiguity gate: the region is the sensor's uncertainty, so which
+   neighbour its edge happens to cut says nothing about intent;
 4. **geometry** — see :meth:`CandidateScore.geometry_key`;
 5. **candidate confidence, then freshness** — ordering only. These can never *justify*
    grounding; see the ambiguity gate.
@@ -71,8 +73,10 @@ rather than nudging a score. Consequences, both deliberate:
   signal (ADR-021), and grounding a text field for "click Save" would be a confident
   wrong answer — the expensive kind.
 
-Matching is exact, casefolded string equality on the role and whole-token containment on
-the label. No stemming, no substring matching, no synonym table: a synonym map between
+Matching is exact, case-folded and NFC-normalised string equality on the role and
+whole-token containment on the label (combining marks are part of a word, so a decomposed
+"cafe\u0301" and a Devanagari word are each one token; a hint token with punctuation is split
+the way a label is). No stemming, no substring matching, no synonym table: a synonym map between
 our grammar's "button" and a platform's "push button" is real work that needs the role
 vocabularies #444 is going to measure, and inventing one here would be inventing product
 policy. Until then a hint that does not match is honestly reported as not matching.
@@ -85,6 +89,9 @@ score. It asks a checkable question: **is there a second candidate that nothing 
 ranking separates from the winner?** Two controls in the same tier whose geometry is
 indistinguishable really are indistinguishable, and that is the overlapping-controls case
 the ADR requires abstention for.
+
+Specificity (a smaller area) separates only a candidate wholly *nested* inside the other:
+the button in the panel, not a popup that partly overlaps a toolbar.
 
 Candidate confidence and freshness are explicitly *not* separators. Grounding one of two
 geometrically identical controls because its source reported ``0.9`` instead of ``0.7`` is
@@ -114,6 +121,7 @@ that the point is precise.
 from __future__ import annotations
 
 import math
+import unicodedata
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from enum import Enum
@@ -338,6 +346,15 @@ def _identity_key(candidate: SemanticCandidate) -> tuple[object, ...]:
     )
 
 
+def _reading_rank(target: TargetSnapshot, candidate: SemanticCandidate) -> tuple[float, float, float]:
+    """Bigger is the reading to keep when one entity was reported more than once."""
+    return (
+        -abs(candidate.captured_at_s - target.timestamp_s),
+        candidate.confidence,
+        candidate.captured_at_s,
+    )
+
+
 def _point_to_rect_distance(point: Point, rect: Rect) -> float:
     """Euclidean distance from a point to the nearest edge of a rectangle; 0 when inside."""
     dx = max(rect.x - point.x, 0.0, point.x - (rect.x + rect.width))
@@ -360,8 +377,30 @@ def _rect_inside(inner: Rect, outer: Rect) -> bool:
     )
 
 
+def _fold(text: str) -> str:
+    """Casefold, then compose: the one spelling both sides of a comparison are put in.
+
+    NFC after the fold as well as before it, because case-folding can itself decompose
+    (``"\u0130".casefold()`` is two code points). macOS Accessibility commonly reports
+    decomposed text and a speech recogniser emits composed text; without this, "cafe" +
+    U+0301 and "caf\u00e9" are different strings to a user who sees one word.
+    """
+    return unicodedata.normalize("NFC", unicodedata.normalize("NFC", text).casefold())
+
+
+def _is_word_char(char: str) -> bool:
+    """Letters and digits, plus the characters that are *inside* a word in many scripts.
+
+    ``str.isalnum`` is False for combining marks (category ``M*``), which are not
+    decoration in Devanagari, Tamil, Thai or Arabic-with-vowels: they carry the vowels.
+    Splitting on them cut a word into fragments no one-word hint could ever equal. The
+    zero-width (non-)joiner is likewise inside Persian and Indic words.
+    """
+    return char.isalnum() or unicodedata.category(char)[0] == "M" or char in "\u200c\u200d"
+
+
 def _label_tokens(label: str | None) -> frozenset[str]:
-    """Casefolded word tokens of a visible label, split on anything not alphanumeric.
+    """Folded word tokens of a visible label, split on anything that is not a word char.
 
     Whole tokens, never substrings: matching the hint token ``save`` against the label
     ``Savings account`` would be a guard firing on a coincidence, and ADR-021 says a
@@ -372,14 +411,14 @@ def _label_tokens(label: str | None) -> frozenset[str]:
     tokens: list[str] = []
     current: list[str] = []
     for char in label:
-        if char.isalnum():
+        if _is_word_char(char):
             current.append(char)
         elif current:
             tokens.append("".join(current))
             current = []
     if current:
         tokens.append("".join(current))
-    return frozenset(token.casefold() for token in tokens)
+    return frozenset(_fold(token) for token in tokens)
 
 
 @dataclass(frozen=True)
@@ -469,7 +508,10 @@ class TargetResolver:
         when a target fails more than one check."""
         if target.confidence < self.policy.min_target_confidence:
             return UnresolvedReason.TARGET_CONFIDENCE_BELOW_FLOOR
-        if abs(now_s - target.timestamp_s) > self.policy.max_target_age_s:
+        # ``not isfinite`` first: ``abs(nan - t) > budget`` is False, so a NaN clock
+        # reading would otherwise read as "perfectly fresh" and ground against a layout
+        # of unknown age. A clock that cannot be read is a clock that cannot vouch.
+        if not math.isfinite(now_s) or abs(now_s - target.timestamp_s) > self.policy.max_target_age_s:
             return UnresolvedReason.TARGET_STALE
         if not target.has_geometry:
             return UnresolvedReason.TARGET_GEOMETRY_MISSING
@@ -515,6 +557,7 @@ class TargetResolver:
                 rejections.append(cause)
         if not kept:
             return (), tuple(rejections)
+        kept = self._one_per_entity(target, kept)
 
         scored = [self._score_one(target, candidate, hint=hint) for candidate in kept]
         best_source_rank = max(score.source_rank for score in scored)
@@ -536,6 +579,32 @@ class TargetResolver:
         finished.sort(key=lambda score: _identity_key(score.candidate))
         finished.sort(key=lambda score: score.preference, reverse=True)
         return tuple(finished), tuple(rejections)
+
+    @staticmethod
+    def _one_per_entity(
+        target: TargetSnapshot, kept: list[SemanticCandidate]
+    ) -> list[SemanticCandidate]:
+        """Collapse re-reports of one entity that differ only in when/how sure.
+
+        A source polled twice, or two snapshots merged, can hand over the same control
+        with a new ``captured_at_s`` or ``confidence``. Those are two *readings* of one
+        control, not two controls, and "ambiguous between ``save`` and ``save``" is a
+        refusal no user can act on. Everything that identifies the control (source, id,
+        role, space, bounds, label, actions) must be identical to collapse: the same id
+        at *different* bounds is a source defect and stays visible as an ambiguity.
+        The reading closest in time to the target survives, then the more confident,
+        then the later one, which is a total order, so input order cannot choose.
+        """
+        best: dict[tuple[object, ...], SemanticCandidate] = {}
+        for candidate in kept:
+            key = (
+                candidate.source, candidate.entity_id, candidate.role, candidate.space,
+                candidate.bounds, candidate.label, candidate.actions,
+            )
+            held = best.get(key)
+            if held is None or _reading_rank(target, candidate) > _reading_rank(target, held):
+                best[key] = candidate
+        return list(best.values())
 
     def _reject(
         self,
@@ -600,10 +669,19 @@ class TargetResolver:
         return _rect_to_rect_distance(target.bounds, bounds)
 
     def _hint_allows(self, candidate: SemanticCandidate, hint: IntentHint) -> bool:
-        if hint.role is not None and hint.role != candidate.role.casefold():
+        if hint.role is not None and _fold(hint.role) != _fold(candidate.role):
             return False
-        if hint.label_tokens and not set(hint.label_tokens) <= _label_tokens(candidate.label):
-            return False
+        if hint.label_tokens:
+            wanted: set[str] = set()
+            for raw in hint.label_tokens:
+                pieces = _label_tokens(raw)
+                if not pieces:
+                    # A token with no word characters in it ("&") can never be found in
+                    # a label, so it must not be read as "no constraint" either.
+                    return False
+                wanted |= pieces
+            if not wanted <= _label_tokens(candidate.label):
+                return False
         return True
 
     def _score_one(
@@ -692,7 +770,17 @@ class TargetResolver:
         source said ``0.9`` and the other ``0.7`` would be acting on exactly the opaque
         number ADR-v2-151 forbids.
         """
-        if best.separable_tier != other.separable_tier:
+        tier_best: tuple[int, ...] = best.separable_tier
+        tier_other: tuple[int, ...] = other.separable_tier
+        if target.point is None:
+            # A pure region is the sensor's uncertainty, not an assertion about intent:
+            # which candidate the region's edge happens to cut is as arbitrary as which
+            # one sits nearer its centre (see ``_distance_separates``). Wholly-inside
+            # versus overlapping is therefore not "a nameable reason" for a region, and
+            # only the point-contains-candidate distinction is. Focus and source quality
+            # are properties of the candidates, so they still separate.
+            tier_best, tier_other = tier_best[:2], tier_other[:2]
+        if tier_best != tier_other:
             return False
         if self._area_separates(best, other):
             return False
@@ -704,9 +792,17 @@ class TargetResolver:
         """Whether *best* is specific enough, and enough smaller, to win on nesting.
 
         A button inside a panel is a large ratio apart; two same-sized siblings a pixel
-        apart are not, and separating them would be a guard firing on rounding.
+        apart are not, and separating them would be a guard firing on rounding. Only a
+        candidate wholly inside the other can be "more specific" than it.
         """
         if other.area <= 0.0 or best.area >= other.area:
+            return False
+        best_bounds, other_bounds = best.candidate.bounds, other.candidate.bounds
+        if best_bounds is None or other_bounds is None or not _rect_inside(best_bounds, other_bounds):
+            # Specificity is a statement about *nesting*: the button inside the panel is
+            # what the user meant because the panel is made of it. Two partly-overlapping
+            # siblings of different sizes have no such relation (and the contract carries
+            # no z-order), so the smaller one is not evidence of anything.
             return False
         return best.area / other.area <= self.policy.tie_area_ratio
 

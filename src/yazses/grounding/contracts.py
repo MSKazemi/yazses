@@ -306,6 +306,14 @@ class SemanticCandidate:
         _check_timestamp("SemanticCandidate.captured_at_s", self.captured_at_s)
         _check_unit_interval("SemanticCandidate.confidence", self.confidence)
         _freeze_sequence(self, "actions")
+        # Strings only. A list or dict smuggled into ``actions`` is accepted by the tuple
+        # freeze above and then makes the value unhashable, so the resolver's de-dupe
+        # raised on a value the contract had let through; the adapter that built it is
+        # where that should fail.
+        if any(not isinstance(action, str) for action in self.actions):
+            raise ValueError("SemanticCandidate.actions entries must be strings")
+        if self.label is not None and not isinstance(self.label, str):
+            raise ValueError("SemanticCandidate.label must be a string or None")
         if self.bounds is not None and self.space is None:
             raise ValueError(
                 "SemanticCandidate.space is required when bounds is present — "

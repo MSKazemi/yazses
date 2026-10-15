@@ -917,7 +917,9 @@ RESOLVER_PATH = Path(resolver_module.__file__)
 
 #: stdlib only, and not much of it. No `time` (the caller passes `now_s`, which is what
 #: makes a fixture reproduce), no `random`, no `os`, no `pathlib`.
-ALLOWED_IMPORTS = {"__future__", "collections", "dataclasses", "enum", "math", "typing", "yazses"}
+ALLOWED_IMPORTS = {
+    "__future__", "collections", "dataclasses", "enum", "math", "typing", "unicodedata", "yazses",
+}
 
 FORBIDDEN_IMPORTS = {
     "time", "random", "os", "socket", "http", "urllib", "requests", "pathlib",
