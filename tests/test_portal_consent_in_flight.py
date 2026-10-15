@@ -16,9 +16,20 @@ from __future__ import annotations
 
 import threading
 
+import pytest
+
 from tests.test_pointer_portal import KEYBOARD_AND_POINTER, _FakePortalSession
 from yazses.inject import portal
 from yazses.pointer.consent import PointerConsent
+
+
+@pytest.fixture(autouse=True)
+def sandboxed_token(tmp_path, monkeypatch):
+    """The fake really calls `write_token`; without this it wrote `fresh-token` to the
+    developer's own data directory (found auditing #403). Importing `_FakePortalSession`
+    does not import the autouse sandbox that lives in `test_pointer_portal.py`."""
+    monkeypatch.setenv("YAZSES_DATA_DIR", str(tmp_path))
+    return tmp_path
 
 
 class _DialogOpenSession(_FakePortalSession):
