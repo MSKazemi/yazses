@@ -1,22 +1,16 @@
 ---
 title: "YazSes — italiano"
-description: "YazSes è un daemon di dettatura vocale libero, open source e offline per Linux, macOS e Windows. Tieni premuto un tasto, parla, rilascia: il testo compare dove stai scrivendo. Tutto gira sulla tua macchina: niente cloud, nessun account, nessun abbonamento."
+description: "YazSes è un programma di dettatura vocale gratuito, open source e offline per Linux, macOS e Windows. Tieni premuto un tasto, parla e rilascia: il testo compare nel punto in cui stai scrivendo. Tutto funziona sul tuo computer: niente cloud, niente account, niente abbonamenti."
 alternates:
   en: index.md
 ---
 
 **Read this in other languages:** [English](../index.md) · [Deutsch](../de/index.md) · [Nederlands](../nl/index.md) · [Tiếng Việt](../vi/index.md) · [Türkçe](../tr/index.md) · [bahasa Indonesia](../id/index.md) · [español](../es/index.md) · [français](../fr/index.md) · italiano · [polski](../pl/index.md) · [português do Brasil](../pt-BR/index.md) · [svenska](../sv/index.md) · [čeština](../cs/index.md) · [ελληνικά](../el/index.md) · [Русский](../ru/index.md) · [українська](../uk/index.md) · [اردو](../ur/index.md) · [العربية](../ar/index.md) · [فارسی](../fa/index.md) · [हिंदी](../hi/index.md) · [বাংলা](../bn/index.md) · [தமிழ்](../ta/index.md) · [తెలుగు](../te/index.md) · [ไทย](../th/index.md) · [日本語](../ja/index.md) · [简体中文](../zh-CN/index.md) · [繁體中文](../zh-TW/index.md) · [한국어](../ko/index.md)
-<!-- yazses-l10n: locale=it; source=README.md; source_sha=3baacb8; scope=partial; status=draft -->
-
-> ⚠️ **Traduzione preliminare** — Assistita da macchina e non ancora revisionata da un madrelingua.
->
-> *This is a machine-assisted **draft** translation, not yet reviewed by a native
-> speaker. English is authoritative: [README.md](https://github.com/MSKazemi/yazses#readme). Improving it is a
-> welcome first contribution — see [issue #344](https://github.com/MSKazemi/yazses/issues/344).*
+<!-- yazses-l10n: locale=it; source=README.md; source_sha=3baacb8; scope=partial; status=active; reviewer=@mrCabez -->
 
 # YazSes
 
-YazSes è un daemon di dettatura vocale libero, open source e offline per Linux, macOS e Windows. Tieni premuto un tasto, parla, rilascia: il testo compare dove stai scrivendo. Tutto gira sulla tua macchina: niente cloud, nessun account, nessun abbonamento.
+YazSes è un programma di dettatura vocale gratuito, open source e offline per Linux, macOS e Windows. Tieni premuto un tasto, parla e rilascia: il testo compare nel punto in cui stai scrivendo. Tutto funziona sul tuo computer: niente cloud, niente account, niente abbonamenti.
 
 ## Installazione
 
@@ -24,28 +18,28 @@ YazSes è un daemon di dettatura vocale libero, open source e offline per Linux,
 |---|---|
 | **Linux** | `bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install.sh)` |
 | **Linux** (Debian/Ubuntu, APT) | `bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install-apt.sh)` |
-| **Qualsiasi sistema** (Python ≥ 3.11) | `pipx install yazses` |
+| **Qualsiasi sistema operativo** (Python ≥ 3.11) | `pipx install yazses` |
 
 ```bash
 yazses quickstart
 yazses start
 ```
 
-Il primo avvio scarica una volta sola un modello vocale (circa 148 MB). Dopodiché non serve alcuna rete.
+Al primo avvio viene scaricato, una volta sola, un modello vocale (circa 148 MB). Dopo non serve più alcuna connessione.
 
 ## Cosa fa
 
-- **Dettatura** — Tieni premuto il tasto, parla, rilascia. Il testo viene scritto nella finestra attiva.
-- **Comandi vocali** — Di' «salva il file» o «vai alla riga 40» e agisce, invece di scrivere le parole.
-- **Riunioni e registrazioni** — Trascrivi un file audio, o registra un'intera riunione con l'indicazione di chi ha parlato — tutto offline.
+- **Dettatura** — Tieni premuto il tasto, parla e rilascia: il testo viene digitato nella finestra attiva.
+- **Comandi vocali** — Di' «salva il file» o «vai alla riga 40» e YazSes esegue il comando invece di scrivere le parole.
+- **Riunioni e registrazioni** — Trascrivi un file audio o registra un'intera riunione distinguendo chi parla, tutto offline.
 
 ## Privacy
 
-L'audio viene trascritto sulla tua macchina e non è mai inviato da nessuna parte. Nessuna telemetria e nessun percorso verso il cloud.
+L'audio viene trascritto sul tuo computer e non viene mai inviato altrove. Niente telemetria, nessuna comunicazione con il cloud.
 
 ## Altro
 
-Il resto della documentazione è per ora in inglese.
+Il resto della documentazione, per ora, è disponibile solo in inglese.
 
 - [Documentazione](https://mskazemi.com/yazses/)
 - [Il README completo in inglese](https://github.com/MSKazemi/yazses#readme)
