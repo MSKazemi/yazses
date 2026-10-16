@@ -1,58 +1,83 @@
-"""Regression tests for the paper-v2 public manuscript (PAPER2-TEXT-001).
+"""The paper-v2 manuscript must still resolve as a document (PAPER2-TEXT-001, #532).
 
-Guards against destructive rewrites: the main entry point must keep all of its
-section includes and its structural skeleton intact.
+The draft is edited section by section by several people, and a LaTeX source that no longer
+builds gives no warning in this repository: nothing here runs LaTeX. These checks read the
+files and catch the three breakages that cost a rebuild to find, without a hand-written list
+of section names: that list would go stale the first time a section is added, renamed or
+merged, and fail on a legitimate edit.
+
+- every `\\input` in `main.tex` points at a file that exists;
+- every file under `sections/` is pulled in by `main.tex`, so none is silently left out;
+- every citation key used in the manuscript is defined in the `.bib` file it loads.
 """
 
+from __future__ import annotations
+
+import re
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-MAIN_TEX = REPO_ROOT / "design" / "publication" / "paper-v2" / "manuscript" / "main.tex"
+ROOT = Path(__file__).resolve().parents[1]
+MANUSCRIPT = ROOT / "design" / "publication" / "paper-v2" / "manuscript"
+MAIN_TEX = MANUSCRIPT / "main.tex"
 
-REQUIRED_SECTIONS = [
-    "sections/00_abstract",
-    "sections/01_introduction",
-    "sections/02_research_questions",
-    "sections/03_system",
-    "sections/04_methodology",
-    "sections/05_results_asr",
-    "sections/06_results_reproducibility",
-    "sections/07_results_platform",
-    "sections/08_results_interaction",
-    "sections/09_results_meeting",
-    "sections/10_discussion",
-    "sections/11_threats",
-    "sections/12_related_work",
-    "sections/13_future_work",
-    "sections/14_conclusion",
-]
+_INPUT = re.compile(r"\\input\{([^}]+)\}")
+_BIBLIOGRAPHY = re.compile(r"\\bibliography\{([^}]+)\}")
+_CITE = re.compile(r"\\[A-Za-z]*cite[A-Za-z]*\*?(?:\[[^\]]*\])*\{([^}]+)\}")
+_BIB_KEY = re.compile(r"@\w+\s*\{\s*([^,\s]+)\s*,")
 
-REQUIRED_PREAMBLE = [
-    "\\documentclass[10pt]{article}",
-    "\\input{macros}",
-    "\\bibliographystyle{plainnat}",
-    "\\bibliography{references}",
-    "\\end{document}",
-]
+
+def _source(path: Path) -> str:
+    """A `.tex` file's text with `%` comments removed (an escaped `\\%` is kept)."""
+    text = path.read_text(encoding="utf-8")
+    return "\n".join(re.sub(r"(?<!\\)%.*", "", line) for line in text.splitlines())
+
+
+def _tex_path(name: str) -> Path:
+    return MANUSCRIPT / (name if name.endswith(".tex") else f"{name}.tex")
+
+
+def _inputs() -> list[str]:
+    return _INPUT.findall(_source(MAIN_TEX))
 
 
 def test_main_tex_exists():
     assert MAIN_TEX.is_file(), "paper-v2 manuscript entry point is missing"
 
 
-def test_main_tex_includes_all_claim_ledger_sections():
-    content = MAIN_TEX.read_text(encoding="utf-8")
-    for section in REQUIRED_SECTIONS:
-        assert "\\input{%s}" % section in content, "missing section include: %s" % section
+def test_every_input_in_main_tex_exists():
+    inputs = _inputs()
+    # Guard the guard: a regex that matched nothing would make the loop below vacuous.
+    assert inputs, "main.tex has no \\input lines; the entry point was emptied or the pattern broke"
+    missing = [name for name in inputs if not _tex_path(name).is_file()]
+    assert not missing, f"main.tex includes files that do not exist: {missing}"
 
 
-def test_main_tex_keeps_preamble_and_ending():
-    content = MAIN_TEX.read_text(encoding="utf-8")
-    for token in REQUIRED_PREAMBLE:
-        assert token in content, "missing manuscript token: %s" % token
+def test_every_section_file_is_included_by_main_tex():
+    sections = sorted(p.relative_to(MANUSCRIPT).with_suffix("").as_posix()
+                      for p in (MANUSCRIPT / "sections").glob("*.tex"))
+    assert sections, "no section files found under the manuscript's sections/ directory"
+    included = {name.removesuffix(".tex") for name in _inputs()}
+    orphans = [name for name in sections if name not in included]
+    assert not orphans, f"section files that main.tex never includes: {orphans}"
 
 
-def test_main_tex_is_not_gutted():
-    lines = MAIN_TEX.read_text(encoding="utf-8").splitlines()
-    non_empty = [line for line in lines if line.strip()]
-    assert len(non_empty) >= 45, "manuscript was rewritten destructively"
+def test_every_citation_key_is_defined_in_the_bibliography():
+    main = _source(MAIN_TEX)
+    stems = [stem for group in _BIBLIOGRAPHY.findall(main) for stem in group.split(",")]
+    assert stems, "main.tex loads no bibliography"
+    defined: set[str] = set()
+    for stem in stems:
+        bib = MANUSCRIPT / f"{stem.strip()}.bib"
+        assert bib.is_file(), f"main.tex loads a bibliography that does not exist: {bib.name}"
+        defined |= set(_BIB_KEY.findall(bib.read_text(encoding="utf-8")))
+
+    sources = [MAIN_TEX, *(_tex_path(name) for name in _inputs() if _tex_path(name).is_file())]
+    cited = {
+        key.strip()
+        for path in sources
+        for group in _CITE.findall(_source(path))
+        for key in group.split(",")
+    }
+    assert cited, "no citation found in the manuscript; the pattern is wrong or the text is gone"
+    undefined = sorted(cited - defined)
+    assert not undefined, f"cited but not defined in the .bib file: {undefined}"
