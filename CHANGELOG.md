@@ -6,6 +6,28 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — a tested CI change classifier, so the next CI change can route lanes by what a PR touched
+
+`scripts/classify_changes.py` maps a pull request's changed paths to the CI scopes in `.github/CI_POLICY.md` section 4
+(docs/design, Python core, tests, Android, macOS, Windows, packaging, workflow/security, release) and answers `unknown`,
+which requests the full gate, for anything it cannot place. `tests/test_classify_changes.py` pins the mapping and fails when a
+top-level tree or a path-filtered workflow has no classification decision. Nothing reads its output yet; wiring it into the
+workflows is CI-SCALE-002. Written by [@MarekMnahoncak](https://github.com/MarekMnahoncak)
+([#534](https://github.com/MSKazemi/yazses/issues/534), [#594](https://github.com/MSKazemi/yazses/pull/594)).
+
+### Changed — the Italian and Telugu pages were read by native speakers
+
+Both machine drafts are now reviewed pages (`status=active`): the Italian page by
+[@mrCabez](https://github.com/mrCabez) ([#344](https://github.com/MSKazemi/yazses/issues/344), [#595](https://github.com/MSKazemi/yazses/pull/595)) and the Telugu page by
+[@shashiharanramvanam-crypto](https://github.com/shashiharanramvanam-crypto) ([#352](https://github.com/MSKazemi/yazses/issues/352), [#592](https://github.com/MSKazemi/yazses/pull/592)).
+The Italian privacy sentence now says audio stays on the machine *by default*, as `i18n/glossary.yml` requires.
+
+### Added — a test that the paper-v2 manuscript still resolves as a document
+
+`tests/test_paper_v2_manuscript.py` checks that every `\input` in `main.tex` exists, that no file under `sections/` is left out,
+and that every citation key is defined in the bibliography, without a hand-kept list of section names. Proposed by
+[@mercael](https://github.com/mercael) ([#532](https://github.com/MSKazemi/yazses/issues/532), [#591](https://github.com/MSKazemi/yazses/pull/591)).
+
 ### Fixed — the hands-free window now corrects itself when it turns out too narrow (Windows run, round two)
 
 The first fix estimated the window's width from the content and a scroll bar's size hint; the hosted Windows run still

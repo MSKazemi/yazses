@@ -148,7 +148,8 @@
       "profile": "https://github.com/mercael91",
       "contributions": [
         "infra",
-        "doc"
+        "doc",
+        "test"
       ]
     },
     {
@@ -380,6 +381,35 @@
       "name": "sahanaekin7-crypto",
       "avatar_url": "https://avatars.githubusercontent.com/u/256977437?v=4",
       "profile": "https://github.com/sahanaekin7-crypto",
+      "contributions": [
+        "translation"
+      ]
+    },
+    {
+      "login": "MarekMnahoncak",
+      "name": "MarekMnahoncak",
+      "avatar_url": "https://avatars.githubusercontent.com/u/195477076?v=4",
+      "profile": "https://github.com/MarekMnahoncak",
+      "contributions": [
+        "code",
+        "test",
+        "infra"
+      ]
+    },
+    {
+      "login": "mrCabez",
+      "name": "mrCabez",
+      "avatar_url": "https://avatars.githubusercontent.com/u/110625817?v=4",
+      "profile": "https://github.com/mrCabez",
+      "contributions": [
+        "translation"
+      ]
+    },
+    {
+      "login": "shashiharanramvanam-crypto",
+      "name": "Vanam Shashi Haran Ram",
+      "avatar_url": "https://avatars.githubusercontent.com/u/226146568?v=4",
+      "profile": "https://github.com/shashiharanramvanam-crypto",
       "contributions": [
         "translation"
       ]

@@ -21,7 +21,7 @@ language fixes it.
 | Русский (`ru`) | [docs/ru/index.md](https://mskazemi.com/yazses/ru/index.html) | full | [@4nmus](https://github.com/4nmus) | `96711bc` (2026-08-13) | active | re-check against English when the README changes materially |
 | Türkçe (`tr`) | [docs/tr/index.md](https://mskazemi.com/yazses/tr/index.html) | partial | [@musabustun](https://github.com/musabustun) | `119a9c4` (2026-09-13) | active | covers the hero, install and quickstart, "what it does" and privacy only; re-check against English when the README changes materially |
 | español (`es`) | [docs/es/index.md](https://mskazemi.com/yazses/es/index.html) | partial | [@laurash96](https://github.com/laurash96) | `5b5fd29` (2026-09-20) | active | covers the hero, install and quickstart, "what it does" and privacy only; re-check against English when the README changes materially |
-| తెలుగు (`te`) | [docs/te/index.md](https://mskazemi.com/yazses/te/index.html) | partial | [@shashiharanramvanam-crypto](https://github.com/shashiharanramvanam-crypto) | `0ad7cbb4` (2026-10-15) | active | covers the hero, install and quickstart, "what it does" and privacy only; re-check against English when the README changes materially |
+| తెలుగు (`te`) | [docs/te/index.md](https://mskazemi.com/yazses/te/index.html) | partial | [@shashiharanramvanam-crypto](https://github.com/shashiharanramvanam-crypto) | `3baacb8` (2026-10-14) | active | covers the hero, install and quickstart, "what it does" and privacy only; re-check against English when the README changes materially |
 
 
 <!-- generated-drafts:start -->
@@ -30,7 +30,7 @@ language fixes it.
 | Tiếng Việt (`vi`) | [docs/vi/index.md](https://mskazemi.com/yazses/vi/index.html) | partial | *needed* | `3baacb8` | draft | needs a native reviewer — [#357](https://github.com/MSKazemi/yazses/issues/357) |
 | bahasa Indonesia (`id`) | [docs/id/index.md](https://mskazemi.com/yazses/id/index.html) | partial | *needed* | `3baacb8` | draft | needs a native reviewer — [#343](https://github.com/MSKazemi/yazses/issues/343) |
 | français (`fr`) | [docs/fr/index.md](https://mskazemi.com/yazses/fr/index.html) | partial | *needed* | `3baacb8` | draft | needs a native reviewer — [#341](https://github.com/MSKazemi/yazses/issues/341) |
-| italiano (`it`) | [docs/it/index.md](https://mskazemi.com/yazses/it/index.html) | partial | *needed* | `3baacb8` | draft | needs a native reviewer — [#344](https://github.com/MSKazemi/yazses/issues/344) |
+| italiano (`it`) | [docs/it/index.md](https://mskazemi.com/yazses/it/index.html) | partial | [@mrCabez](https://github.com/mrCabez) | `3baacb8` | active | re-check against English when the README changes materially |
 | polski (`pl`) | [docs/pl/index.md](https://mskazemi.com/yazses/pl/index.html) | partial | *needed* | `3baacb8` | draft | needs a native reviewer — [#348](https://github.com/MSKazemi/yazses/issues/348) |
 | português do Brasil (`pt-BR`) | [docs/pt-BR/index.md](https://mskazemi.com/yazses/pt-BR/index.html) | partial | *needed* | `3baacb8` | draft | needs a native reviewer — [#349](https://github.com/MSKazemi/yazses/issues/349) |
 | svenska (`sv`) | [docs/sv/index.md](https://mskazemi.com/yazses/sv/index.html) | partial | *needed* | `3baacb8` | draft | needs a native reviewer — [#350](https://github.com/MSKazemi/yazses/issues/350) |

@@ -184,14 +184,28 @@ found defects that no amount of reading the code here would have surfaced.
   [#474](https://github.com/MSKazemi/yazses/pull/474))
 - [@lntutor](https://github.com/lntutor)
 - [@Maqbool61](https://github.com/Maqbool61)
+- [@MarekMnahoncak](https://github.com/MarekMnahoncak) — the CI change classifier: a
+  standard-library script that maps a pull request's changed paths to CI scopes and fails safe
+  toward *more* validation, with guards that fail when a new top-level tree or a new
+  path-filtered workflow has no classification decision
+  ([#534](https://github.com/MSKazemi/yazses/issues/534) → [#594](https://github.com/MSKazemi/yazses/pull/594))
 - [@mercael91](https://github.com/mercael91) — went after the FreeBSD CI job nobody had looked
   at, which is how we learned the BSD backend had never once been executed
   ([#306](https://github.com/MSKazemi/yazses/issues/306)); and brought the Logseq app
   profile, the one that made the probe harness reach AppImage apps
-  ([#309](https://github.com/MSKazemi/yazses/pull/309))
+  ([#309](https://github.com/MSKazemi/yazses/pull/309)); and proposed pinning the structure of the paper-v2 manuscript with a test
+  so a destructive rewrite of its entry point is caught — the merged guard checks that every
+  include resolves, no section file is left out and every citation key is defined
+  ([#532](https://github.com/MSKazemi/yazses/issues/532) → [#591](https://github.com/MSKazemi/yazses/pull/591), opened from the
+  `mercael` account)
 - [@Mr-Neutr0n](https://github.com/Mr-Neutr0n) — the VS Code app profile
   ([#43](https://github.com/MSKazemi/yazses/issues/43)), the project's first Electron editor
   and the one most people asked for
+- [@mrCabez](https://github.com/mrCabez) — native-speaker review of the Italian page:
+  replaced the draft's calques ("nessun percorso verso il cloud", "la tua macchina") with
+  natural phrasing, kept dictation distinct from voice commands as the glossary asks, and
+  pointed out that Tier-1 voice-command grammars exist only for English and Mandarin
+  ([#344](https://github.com/MSKazemi/yazses/issues/344) → [#595](https://github.com/MSKazemi/yazses/pull/595))
 - [@musabustun](https://github.com/musabustun) (Musab Yusuf Üstün) — native-speaker review of
   the Turkish page, and the one that caught a real mistranslation rather than only phrasing:
   the hero line described YazSes as a *sesli yazdırma servisi*, which a Turkish reader parses
@@ -208,6 +222,11 @@ found defects that no amount of reading the code here would have surfaced.
 - [@sameer8945](https://github.com/sameer8945) — Windows 11 showcase entry: dictation into
   VS Code, PowerShell and the browser while coding
   ([#391](https://github.com/MSKazemi/yazses/pull/391))
+- [@shashiharanramvanam-crypto](https://github.com/shashiharanramvanam-crypto) (Vanam Shashi
+  Haran Ram) — native-speaker review of the Telugu page: corrected the draft's renderings of
+  "subscription" and "documents", replaced a literal calque of "no cloud path", and wrote the
+  privacy claim as offline *by default* as the glossary requires
+  ([#352](https://github.com/MSKazemi/yazses/issues/352) → [#592](https://github.com/MSKazemi/yazses/pull/592))
 - [@slegarraga](https://github.com/slegarraga) — see **Testing & field reports** above
 - [@Tiyatrotist](https://github.com/Tiyatrotist) — corrected MSIX/store wording that described
   Face-Gesture as already implemented when no runtime detector or activation adapter exists yet
