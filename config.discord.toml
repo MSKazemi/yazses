@@ -1,0 +1,52 @@
+# examples/config.discord.toml
+# A YazSes setup for dictating messages into Discord.
+#
+# Copy to ~/.config/yazses/config.toml and edit as needed.
+
+# ---------------------------------------------------------------------------
+# Measured on Windows 11 (build 26200) with Discord 1.0.9260:
+# the real WindowsInjector sent this string into a Discord text input -
+#
+#     sent:     Hello Discord, this is a dictation test.
+#     arrived:  Hello Discord, this is a dictation test.
+#
+# The same sentence also transcribed correctly with base.en from a local
+# speech WAV. The machine's speaker-to-microphone loopback measured RMS 0, so
+# the live microphone half was not observable here; the Discord injection
+# half was.
+#
+# Discord binds Ctrl+Shift+M (mute), Ctrl+Shift+D (deafen) and similar
+# combinations. Holding bare right_ctrl while recording did not trigger one.
+#
+# The terminal profile uses backend = "type" for ydotool on Linux. On Windows
+# "auto" resolves to SendInput + KEYEVENTF_UNICODE, which arrived exact in
+# Discord; no clipboard fallback was needed.
+# ---------------------------------------------------------------------------
+
+[stt]
+model = "base.en"
+device = "cpu"
+compute_type = "int8"
+
+[hotkey]
+key = "right_ctrl"
+hold_threshold_ms = 400
+
+[audio]
+sample_rate = 16000
+max_record_seconds = 60
+
+[injection]
+backend = "auto"
+fallback_to_clipboard = true
+
+[commands]
+voice_punctuation = true
+
+[general]
+log_level = "INFO"
+
+[overlay]
+enabled = true
+style = "sonar"
+position = "cursor"
