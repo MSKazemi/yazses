@@ -196,8 +196,7 @@ found defects that no amount of reading the code here would have surfaced.
   ([#309](https://github.com/MSKazemi/yazses/pull/309)); and proposed pinning the structure of the paper-v2 manuscript with a test
   so a destructive rewrite of its entry point is caught — the merged guard checks that every
   include resolves, no section file is left out and every citation key is defined
-  ([#532](https://github.com/MSKazemi/yazses/issues/532) → [#591](https://github.com/MSKazemi/yazses/pull/591), opened from the
-  `mercael` account)
+  ([#532](https://github.com/MSKazemi/yazses/issues/532) → [#591](https://github.com/MSKazemi/yazses/pull/591))
 - [@Mr-Neutr0n](https://github.com/Mr-Neutr0n) — the VS Code app profile
   ([#43](https://github.com/MSKazemi/yazses/issues/43)), the project's first Electron editor
   and the one most people asked for

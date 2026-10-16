@@ -26,7 +26,7 @@ The Italian privacy sentence now says audio stays on the machine *by default*, a
 
 `tests/test_paper_v2_manuscript.py` checks that every `\input` in `main.tex` exists, that no file under `sections/` is left out,
 and that every citation key is defined in the bibliography, without a hand-kept list of section names. Proposed by
-[@mercael](https://github.com/mercael) ([#532](https://github.com/MSKazemi/yazses/issues/532), [#591](https://github.com/MSKazemi/yazses/pull/591)).
+[@mercael91](https://github.com/mercael91) ([#532](https://github.com/MSKazemi/yazses/issues/532), [#591](https://github.com/MSKazemi/yazses/pull/591)).
 
 ### Fixed — the hands-free window now corrects itself when it turns out too narrow (Windows run, round two)
 
