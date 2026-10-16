@@ -42,7 +42,7 @@ A primeira execução baixa um modelo de fala uma única vez (cerca de 148 MB). 
 
 ## Privacidade
 
-O áudio é transcrito na sua máquina e nunca é enviado a lugar nenhum. Não há telemetria nem caminho para a nuvem.
+Por padrão, o áudio é transcrito na sua máquina e não é enviado a lugar nenhum. Não há telemetria nem caminho para a nuvem.
 
 ## Mais
 
