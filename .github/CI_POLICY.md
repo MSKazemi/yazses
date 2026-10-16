@@ -76,9 +76,13 @@ publishable shape before the event that has permission to publish it.
 
 ## 4. Change classification and fail-safe routing
 
-The repository is moving toward a tested change classifier in #534.
+The classifier is `scripts/classify_changes.py` (#534): a standard-library script that maps the
+changed paths of a pull request to the classes below, pinned by `tests/test_classify_changes.py`.
+It only classifies. No workflow reads its output yet; routing lanes by it is CI-SCALE-002.
+Callers must list changed files with `git diff --name-only --no-renames`, or a file moved out of
+`src/` would show only its new name and lose its runtime scope.
 
-The intended classes are:
+The classes are:
 
 - docs/design;
 - Python runtime/core;
