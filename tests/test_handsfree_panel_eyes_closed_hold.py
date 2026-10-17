@@ -122,3 +122,71 @@ def test_the_gui_path_produces_a_config_the_daemon_reads_back(tmp_path):
     assert face.min_hold_frames == 12
     bindings, problems = parse_bindings(face.switches, face.gesture, face.mode)
     assert problems == [] and bindings == {"eyes_closed": "hold_to_talk"}
+
+
+def test_with_the_written_config_a_blink_does_not_dictate_and_a_held_closure_does(tmp_path):
+    """The end of the GUI path: the config the two Sets wrote, through the real face-switch backend
+    and the real global stop. A blink-length closure must not open the microphone; a held one must,
+    and opening the eyes must close it. Scores are a synthetic fixture (0.85 shut, 0.08 open), not
+    evidence about a real face."""
+    from yazses.config import load_config
+    from yazses.facegesture.backend import FaceGestureBackend
+    from yazses.handsfree.panel_io import perform_action
+    from yazses.handsfree.safety import HandsFreeSafety
+    from yazses.perception import FaceSignal, PerceptionSample
+    from yazses.system.configedit import set_config_key, set_config_table_array
+
+    path = tmp_path / "config.toml"
+    path.write_text("[facegesture]\nenabled = true\n[handsfree_safety]\nenabled = true\n", encoding="utf-8")
+    for gesture, action in (("eyes_closed", "hold_to_talk"), ("jaw_open", "none")):
+        face = load_config(path).facegesture
+        inputs = _inputs(switches=tuple(dict(s) for s in face.switches),
+                         min_hold_frames=face.min_hold_frames, fps=face.fps)
+        perform_action(plan_mapping(inputs, gesture, action).action, ipc=None,
+                       write_key=lambda s, k, v, q: set_config_key(path, s, k, v, quote=q),
+                       write_table=lambda n, e: set_config_table_array(path, n, e))
+    face = load_config(path).facegesture
+
+    class Lease:
+        name = "scripted"
+        sample = None
+
+        def start(self): ...
+
+        def stop(self): ...
+
+        def latest(self):
+            return self.sample
+
+    def run(face_cfg, closed_spans):
+        clock = [100.0]
+        events = []
+        gate = HandsFreeSafety(("facegesture",), clock=lambda: clock[0] * 1000.0)
+        lease = Lease()
+        backend = FaceGestureBackend(face_cfg, lambda n: events.append(("open", clock[0] - 100)),
+                                     lambda: events.append(("close", clock[0] - 100)),
+                                     safety=gate, perception=lease, clock=lambda: clock[0])
+        for i in range(int(6 * face_cfg.fps)):
+            t = i / face_cfg.fps
+            clock[0] = 100.0 + t
+            s = 0.85 if any(a <= t < b for a, b in closed_spans) else 0.08
+            lease.sample = PerceptionSample(clock[0], face=FaceSignal(
+                clock[0], 0.95, {"eyeBlinkLeft": s, "eyeBlinkRight": s, "jawOpen": 0.9 if t > 5 else 0.0}))
+            gate.sample("facegesture")
+            if i == 1:
+                assert gate.resume().ok
+            backend._shared_step()
+        return [e for e, _t in events if e == "open"], events
+
+    blink = [(1.0, 1.2), (2.0, 2.33)]                  # 0.2 s and 0.33 s
+    opens, _ = run(face, blink)
+    assert opens == [], "a blink opened the microphone under the config the panel wrote"
+    opens, events = run(face, [(1.0, 3.0)])            # held 2 s, then opened
+    assert opens == ["open"]
+    (_, t_open), = [e for e in events if e[0] == "open"]
+    assert 1.0 + 0.7 <= t_open <= 1.0 + 0.9            # ~0.8 s after closing
+    assert any(e == "close" and 3.0 <= t <= 3.3 for e, t in events)
+    # jaw open was unmapped by the second Set: opening the mouth at t > 5 s did nothing above
+    # The same blinks under the shipped 3-frame hold do open it -- the defect this guards.
+    opens, _ = run(replace(face, min_hold_frames=3), blink)
+    assert len(opens) == 2
