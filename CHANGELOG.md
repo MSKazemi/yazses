@@ -6,6 +6,20 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — macOS: "Quit" in the menu bar did not stop the daemon (#578)
+
+The macOS tray sent the daemon its `shutdown` after `App.run()` returned. rumps' stock Quit item calls
+`NSApplication.terminate:`, which ends the process from inside the event loop, so `run()` never returned and that line
+never ran. The daemon outlived Quit (launchd restarts only a crash), kept the permission it had read when its keyboard tap
+was created, and opening the app again exited as a duplicate. This is the mechanism behind #562's log: a daemon started
+on 10-02 right after `tccutil reset` was still the one answering on 10-05. The shutdown is now also sent from rumps'
+`before_quit` event, with a guard so a loop that does return does not ask twice, and `docs/macos-install.md` no longer
+tells people that quitting and reopening picks up a fixed permission on earlier releases.
+`tests/test_macos_tray_quit_stops_the_daemon.py` fakes the one property of rumps the bug turns on (Quit does not return
+from `run()`); its first test fails on the previous code. **Not run on a Mac:** it rests on the rumps 0.4.0 source and
+Apple's documented `terminate:` behaviour, so the reporter's before/after `ps aux | grep -i yazses` on the next release is
+still the confirmation.
+
 ### Fixed — the tray's Re-calibrate wrote a threshold from one unlabelled clip (#579)
 
 `yazses mic-level --set` has measured the room and then the voice since v2.36.0, but the daemon's own **Re-calibrate**

@@ -288,9 +288,19 @@ ps aux | grep -i yazses
 **A permission was fixed, but the hotkey still does nothing.** The grant is read
 when the keyboard tap is created at daemon start. If an older daemon is still
 running (opening the app again exits with *"Another YazSes daemon is already
-running"* in the log), it keeps the old answer. Run `yazses restart`, or quit
-YazSes from the menu bar, check that `ps aux | grep -i yazses` shows nothing, and
-open it again.
+running"* in the log), it keeps the old answer. Run `yazses restart` (from the app:
+`/Applications/YazSes.app/Contents/MacOS/YazSes --cli restart`), check that
+`ps aux | grep -i yazses` shows one daemon with a recent start time, and try the
+hotkey again.
+
+Releases up to 2.43.0 have a second way into this state: **Quit in the menu bar
+did not stop the daemon.** The menu's Quit ends the tray process from inside its
+event loop, so the tray never got to ask the daemon to shut down, and the daemon
+carried on, holding whatever permission it had read at its start, for days
+([#578](https://github.com/MSKazemi/yazses/issues/578)). From the next release Quit
+stops it. Until you are on that release, do not rely on Quit plus reopening to pick
+up a permission you have just fixed; use `yazses restart` as above. This was found by
+reading the library and the log, not by reproducing it on a Mac.
 
 **Which YazSes is being asked about?** The Accessibility answer is about the
 program that is running, not about every copy on the disk — so a grant given to
