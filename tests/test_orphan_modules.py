@@ -48,6 +48,10 @@ ENTRY_MODULES = {
     # `scripts/replay_face_switch_trace.py`; the daemon must not import it (it reaches
     # `facegesture`, never the reverse). An evaluation entry point, not debt.
     "eyeeval.switch_replay",
+    # OneVoice has only a manual, synthetic two-editor demo. It is invoked with
+    # `python -m yazses.onevoice.demo`, not from the dictation daemon, so it is an
+    # actual entry point rather than untracked dead code.
+    "onevoice.demo",
 }
 
 #: The known orphans, each with what is missing. An entry here is a debt that has
