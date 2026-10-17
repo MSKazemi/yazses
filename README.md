@@ -800,3 +800,9 @@ See [CITATION.cff](CITATION.cff) for machine-readable metadata (CFF 1.2.0).
 Apache 2.0 — see [LICENSE](LICENSE).
 
 If YazSes is useful to you, a ⭐ on GitHub and a mention in your project, blog, or talk is the best way to support continued development.
+
+<!-- legal-notice: start -->
+### Legal notice and responsible use
+
+The materials in this repository are made available without warranties to the extent permitted by applicable law. **Please read the [Disclaimer and Responsible-Use Notice](DISCLAIMER.md)** before relying on or deploying them. This notice does not change any existing software license or limit rights that cannot legally be waived.
+<!-- legal-notice: end -->
