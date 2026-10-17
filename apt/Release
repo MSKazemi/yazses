@@ -1,24 +1,24 @@
 Architectures: amd64 arm64 all
 Codename: stable
 Components: main
-Date: Sun, 04 Oct 2026 21:53:54 +0000
+Date: Sat, 17 Oct 2026 15:19:38 +0000
 Description: YazSes APT Repository
 Label: YazSes
 Origin: YazSes
 Suite: stable
 MD5Sum:
- 00153cd278818a826b4dc4370f26b1df              878 Packages
- e2a4fb4f15a30859a09369190f9e48d1              626 Packages.gz
- f9f41b9342e00bdc14c2afd6ea36a474              181 Release
+ bc86651bbaddf61ee570fe8d88d76b9e              878 Packages
+ 7c744e329d699d6e8e0d7e8008a53757              623 Packages.gz
+ ff8a2cac231792883a7c55e354ac4d30              181 Release
 SHA1:
- 93d972c8120210aaa54749347151f2ffb4a61aa7              878 Packages
- a768e1a713b8c32aa2f7e97a9c45e7a8ccf989c0              626 Packages.gz
- 6f3f86f07a090e6e12e3ba52c03aaae979611782              181 Release
+ 0549177a927582277d1cdd0cd01fb22314929722              878 Packages
+ 1cbe89e7fb45c3f7ae4305dc849dfebb3d4b2d5b              623 Packages.gz
+ 172fce6a28102dc1261287831025fe0623b00ca0              181 Release
 SHA256:
- c9f874417cf69dd51860536ebf77b45b580e67a0945cbe05a0e5d774e0afd835              878 Packages
- 18ddc1f85cdd7d23521776525563cb9e000c860734e8e0ba305b48409217470c              626 Packages.gz
- b83c7f85128d0d80a8049c486a82a4fc34ab2d7b9bbf34ccdb50d4bb6e82eb9f              181 Release
+ 8783b7a45bb6f6bdc4aa35a3b05139383e532f7b18269b10d0e71af149935fcc              878 Packages
+ fc890498beb717f6fa7a2cae4bd6efd48bf4f366719d9cb773d98eccfdd4b647              623 Packages.gz
+ 68bec6b2d507183fbfdc87aedd97f733124b10136ad597b96c83bd0f88cea6d3              181 Release
 SHA512:
- 75b8ae00aef3fd510c665ebf0db1d54ac5508eaf6e7410c92627334db128b4cc894d290a614167c66d0bbc9e858527fa7f5206b8d565fc9f9f32ce7efb64f905              878 Packages
- 0c2a03c72e31ef7d34118a9250c7103aa95dbfef40bad7b2eeee86b7436b2bac5e92d76c50704f2ca80e8ee43d8d8b919aa39b0f0e45f13d2959ea44358bd8fb              626 Packages.gz
- b9b8dbbe3f02e89f9db11da9781d889dd20b8a2623f9283e523b57ac95a621015c56552391763a82f2d64dada49313265c3284e6ac714851bb3ebe00bffaecbd              181 Release
+ 32b1ab37730d56d0976907be7ec77054429beeaaed1b23444676423a68e12f2c441d8cb5bc61a1c3de0723bcbb8737236e8d70beaccd3532b10024c3156277f6              878 Packages
+ 5fdddab7bcf53cb0158ec7b4bddb5c163a6c377fd10e2bfbe6d537115874ab8a899f4692ca22a2851410486eea874c3911019cd9fb922643ca8246d91a9e01e1              623 Packages.gz
+ a601c32a2c9086953ca0633f1d3c0af1b841ecaef5e25ca1a3f8ac1112a307315820b7c2c5a274cef599d25ae6787ec67714b51e1150ca6a00ebb0199dce83c5              181 Release
