@@ -109,6 +109,7 @@ No production implementation, public release claim, or `agent-ready` implementat
 
 ## Documents
 
+- [Universal Interaction Interface — human UX and internal adapter contract](UNIVERSAL_INTERFACE.md)
 - [Router contract and safety specification](ROUTER_SPEC.md)
 - [Evaluation protocol and contributor-sized work packages](VALIDATION_AND_TASKS.md)
 
