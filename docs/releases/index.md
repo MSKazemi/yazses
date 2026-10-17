@@ -23,10 +23,9 @@ software itself runs on.
 
 ## Current stable
 
-**[YazSes 2.43.0](v2.43.0.md)** — a second keyboard works. A keyboard plugged in after YazSes
-started now works for hold-to-talk on Linux, and unplugging one no longer stops the daemon. Five
-designed features (auto-stop, re-ask, bookmarks, auto-punctuation, cough excision) can now be
-switched on with `yazses features enable`, all off by default.
+**[YazSes 2.43.1](v2.43.1.md)** — fixes from the first macOS reports. A newly started YazSes now
+replaces an older running one after an upgrade, macOS Quit stops the daemon, and the tray's Re-calibrate
+measures your room and your voice. Windows on ARM uses the x64 installer: the "arm64" file was an x64 build.
 
 Install it with:
 
@@ -37,6 +36,8 @@ pipx upgrade yazses          # upgrade an existing install
 
 ### Recent stable releases
 
+- [v2.43.1](v2.43.1.md) — fixes from the first macOS reports: a newer daemon replaces an older one after an upgrade, macOS Quit stops the daemon, the tray's Re-calibrate measures room and voice, and Windows on ARM uses the x64 installer.
+- [v2.43.0](v2.43.0.md) — a second keyboard works: a keyboard plugged in after YazSes started now works for hold-to-talk on Linux, and five designed features can be switched on with `yazses features enable`.
 - [v2.42.0](v2.42.0.md) — prove that typing arrives: `yazses verify --type` types into a window it opens and checks the text arrived, with one `ydotoold` restart and retry when it did not
 - [v2.41.0](v2.41.0.md) — dictation that was heard and typed into nothing: on Ubuntu's Wayland session the voice-activity overlay took keyboard focus and the text was typed into it; the overlay is now optional and off by default; `yazses start` and `doctor` say why the daemon is not running; Windows and macOS read the config the CLI writes
 - [v2.40.1](v2.40.1.md) — hold the key we actually listen for: the APT and pipx installers, the `.deb` description apt shows before you install, the GitHub release body and the Russian and Hindi home pages all opened by telling a new user to hold `Space`, which does nothing — the default is `auto`, and `auto` is Right Alt on Linux; a test now derives each platform's default from the source and scans every user-facing file. Plus: Wayland's default `ydotool` injector silently dropped every accented and non-Latin character (#329), and a batch of packaging and documentation corrections — the Fedora spec four releases behind, install pages naming channels that serve something else, and two installers the support page denied had shipped.

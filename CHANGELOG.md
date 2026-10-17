@@ -6,6 +6,8 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.43.1] - 2026-10-17
+
 ### Changed — no Windows arm64 installer: the x64 one is what ARM PCs run, and the "arm64" file was one (v2.43.0)
 
 v2.43.0 shipped without `YazSes-2.43.0-windows-arm64.exe`: the arm64 build leg failed with `ctranslate2==4.8.1 ... doesn't
