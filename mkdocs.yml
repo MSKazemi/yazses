@@ -390,6 +390,7 @@ nav:
           - Decision records: design/adr/index.md
           - Specifications: design/specs/index.md
           - Eye / camera control programme: design/eye-control/index.md
+          - OneVoice universal interface (proposal): design/voice-routing/index.md
           - Research notes: design/research/index.md
           - Publication planning: design/publication/index.md
           - Meeting Mode design: design/meeting-mode/index.md
