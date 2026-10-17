@@ -398,6 +398,7 @@ nav:
           - v2 cognitive layer: design/v2-cognitive-layer/index.md
           - Mandarin language programme: design/chinese/index.md
           - Architecture (internal): design/architecture.md
+          - OneVoice offline prototype: design/onevoice-offline-prototype.md
           - Threat model: design/threat-model.md
           - EMG protocol: design/emg-protocol.md
           - Accessibility & throughput: design/accessibility-and-throughput-spec.md
