@@ -71,7 +71,11 @@ def test_the_duplicate_daemon_message_does_not_point_a_mac_at_systemctl(
             return False
 
     monkeypatch.setattr("yazses.system.single_instance.SingleInstanceLock", _Held)
-    fake = SimpleNamespace(_platform=SimpleNamespace(paths=SimpleNamespace(data_dir=tmp_path)))
+    fake = SimpleNamespace(
+        _platform=SimpleNamespace(paths=SimpleNamespace(data_dir=tmp_path)),
+        # An equal-version holder: nothing to replace, so the duplicate is reported.
+        _replace_older_daemon=lambda _lock: False,
+    )
     with caplog.at_level(logging.ERROR, logger="yazses.core.daemon"):
         assert Daemon._acquire_instance_lock(fake) is False
     text = caplog.text

@@ -302,6 +302,11 @@ stops it. Until you are on that release, do not rely on Quit plus reopening to p
 up a permission you have just fixed; use `yazses restart` as above. This was found by
 reading the library and the log, not by reproducing it on a Mac.
 
+From the next release, opening a newer YazSes while an **older** one is still running
+asks the old daemon to stop and takes its place, instead of exiting as a duplicate. The
+old daemon has to be a release that reports its version over `status`; if the log says
+*"Another YazSes daemon is already running"* anyway, use `yazses restart` once.
+
 **Which YazSes is being asked about?** The Accessibility answer is about the
 program that is running, not about every copy on the disk — so a grant given to
 `/Applications/YazSes.app` is not automatically the thing being checked when you

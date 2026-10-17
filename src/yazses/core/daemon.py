@@ -221,6 +221,10 @@ _RECAL_ROOM_S = 2.0
 _RECAL_SPEECH_S = 4.0
 _RECAL_LEAD_S = 1.5
 
+# How long a newly started daemon waits for an older one it asked to stop to give up the
+# lock. Its shutdown joins the audio and STT threads, so a few seconds is normal.
+_TAKEOVER_WAIT_S = 10.0
+
 _TONE_INSTRUCTIONS: dict[str, str] = {
     "casual": "Use a casual, conversational tone.",
     "formal": "Use a formal, professional tone.",
@@ -531,6 +535,8 @@ class Daemon:
             self._platform.paths.data_dir / "daemon.lock"
         )
         if not self._instance_lock.acquire():
+            if self._replace_older_daemon(self._instance_lock):
+                return True
             log.error(
                 "Another YazSes daemon is already running — exiting. "
                 "To restart it, run: yazses restart "
@@ -538,6 +544,47 @@ class Daemon:
             )
             return False
         return True
+
+    def _replace_older_daemon(self, lock: SingleInstanceLock) -> bool:
+        """Ask a strictly older daemon to stop and take its place. False if not applicable.
+
+        After an upgrade the previous daemon keeps running with what it read at its own
+        start -- on macOS the keyboard permission, before it was granted -- while the new
+        app exits as a duplicate (#562, #578). Only an *older* version is replaced
+        (`core/takeover.py`); an equal or newer one, or one that will not say, is left
+        alone and the caller reports the duplicate as before.
+        """
+        from yazses.core.takeover import is_older
+
+        platform = self._platform
+        try:
+            client = platform.ipc_client_factory(platform.paths.ipc_socket)
+            # Not consuming: this reader displays nothing, and the holder's one-shot toast
+            # queue is the only notification channel on Windows and macOS.
+            status = client.call("status", consume_notifications=False)
+            theirs = status.get("version") if isinstance(status, dict) else None
+            mine = _running_version()
+            if not is_older(theirs, mine):
+                return False
+            log.warning(
+                "YazSes %s is still running from before the upgrade; asking it to stop "
+                "so %s can take over.", theirs, mine,
+            )
+            client.call("shutdown")
+        except Exception:
+            log.debug("Could not ask the running daemon to stop", exc_info=True)
+            return False
+        deadline = time.monotonic() + _TAKEOVER_WAIT_S
+        while time.monotonic() < deadline:
+            if lock.acquire():
+                log.info("The previous daemon stopped; this one has taken over.")
+                return True
+            time.sleep(0.25)
+        log.error(
+            "The older daemon was asked to stop and still holds the lock after %.0f s. "
+            "Run: yazses restart", _TAKEOVER_WAIT_S,
+        )
+        return False
 
     def run(self) -> None:
         self._configure_logging()

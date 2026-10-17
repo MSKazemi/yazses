@@ -6,6 +6,19 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — after an upgrade the new daemon replaces the old one instead of exiting as a duplicate (#562, #578)
+
+A daemon reads its permissions, config and code once, when it starts. After an upgrade the previous daemon kept running,
+the new app found the lock held and exited with *"Another YazSes daemon is already running"*, and the user kept the old
+answer — on macOS the keyboard permission read before it was granted, which is what #562's log shows (a daemon from
+10-02 still answering on 10-05). A starting daemon that finds the lock held now asks the holder for its version over the
+existing `status` call; if the holder is **strictly older** it asks it to `shutdown`, waits up to 10 s for the lock, and takes
+over. Equal versions (a duplicate start), newer versions, a holder that reports no version, and one that does not answer
+are all left alone and reported exactly as before. The rule is a pure function (`core/takeover.py`). Covered by
+`tests/test_daemon_replaces_an_older_daemon.py` (18, including one with the real file lock changing hands); four fail on the
+previous code. The question is asked without consuming the holder's one-shot toast queue. It needs the old daemon to report its version over
+`status`, which every release since v2.24.0 does, so it covers the reporter's 2.40.0; an older holder still needs `yazses restart`.
+
 ### Fixed — macOS: "Quit" in the menu bar did not stop the daemon (#578)
 
 The macOS tray sent the daemon its `shutdown` after `App.run()` returned. rumps' stock Quit item calls
