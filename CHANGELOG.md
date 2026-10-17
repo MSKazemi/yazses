@@ -28,6 +28,19 @@ The Italian privacy sentence now says audio stays on the machine *by default*, a
 and that every citation key is defined in the bibliography, without a hand-kept list of section names. Proposed by
 [@mercael91](https://github.com/mercael91) ([#532](https://github.com/MSKazemi/yazses/issues/532), [#591](https://github.com/MSKazemi/yazses/pull/591)).
 
+### Fixed — a keyboard plugged in after the daemon started now works for hold-to-talk (Linux)
+
+The Linux hotkey listener read `/dev/input` once, at startup. A USB keyboard docked to a laptop afterwards was never
+opened, so holding its Right Ctrl did nothing until the daemon was restarted. The listener now rescans about once a
+second and starts listening on any new keyboard, using the same rules as at startup: a real keyboard that has the
+hotkey, never the virtual ydotool/wtype device. A device it has already refused is not reopened unless a new device
+node takes its name. Unplugging a keyboard used to be worse: reading it raised `ENODEV`, which escaped the listener and
+shut the daemon down. The keyboard is now dropped and the daemon keeps running. If it was unplugged while the hotkey was
+held, the recording ends instead of running on with no release to wait for. `tests/test_evdev_hotplug.py` covers
+plugging, unplugging, mid-hold removal, node-name reuse and late udev permissions; its loop tests fail on the previous
+code. Checked live with a uinput keyboard created after the listener started: it was picked up and its Right Ctrl
+started and ended a recording.
+
 ### Fixed — the hands-free window now corrects itself when it turns out too narrow (Windows run, round two)
 
 The first fix estimated the window's width from the content and a scroll bar's size hint; the hosted Windows run still
