@@ -82,8 +82,11 @@ that most often go wrong — the wrong microphone, and a daemon that needs a res
 
   ![The Microphone submenu expanded, listing each input device with the active one marked](screenshots/tray-mic-picker.png)
 
-- **Re-calibrate** — re-measures the room and writes a fitting silence threshold, for when
-  dictation starts getting discarded as silence.
+- **Re-calibrate** — measures your room (stay quiet for 2 seconds), then your voice (speak
+  normally for 4), and writes a silence threshold between the two, for when dictation starts
+  getting discarded as silence. If the two recordings are too close together, for example
+  because nobody spoke, it says so and changes nothing. The same measurement as
+  `yazses mic-level --set`.
 - **Start meeting** / **Stop meeting** — begin and end a
   [Meeting Mode](meeting-notes-offline.md) recording without a terminal. Meeting Mode is the one thing YazSes does that has no key to
   hold: it runs hands-free for the whole meeting, so the icon is the only place to start it

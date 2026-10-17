@@ -6,6 +6,18 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the tray's Re-calibrate wrote a threshold from one unlabelled clip (#579)
+
+`yazses mic-level --set` has measured the room and then the voice since v2.36.0, but the daemon's own **Re-calibrate**
+action (the tray menu, the mic-guard toast, and saying "re-calibrate") still recorded one 3-second clip, assumed it was
+speech, and wrote half its level. A loud sentence therefore set a gate above the same person's quieter speech (the report:
+a gate of 0.0220 from a 0.0441 sample, after which `verify` rejected 0.0208 speech), and a clip of an empty room set a gate
+below its own noise (4.1 ms room, `0.002` written). It now does what the command does: it asks for the room, then the voice,
+puts the gate between them with the same `calibrate`, and when the two recordings are too close it writes nothing and
+says why. The CLI rule is unchanged; a test now pins it on the report's numbers too (a loud calibration sentence leaves the
+gate under the quieter speech). `tests/test_recalibrate_measures_room_and_voice.py`; its first four tests fail on the
+previous code.
+
 ## [2.43.0] - 2026-10-17
 
 ### Added — a tested CI change classifier, so the next CI change can route lanes by what a PR touched

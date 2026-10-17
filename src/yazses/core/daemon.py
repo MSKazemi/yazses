@@ -215,6 +215,12 @@ class _DaemonState:
 # daemon accumulate them for the rest of the session.
 _MAX_PENDING_NOTIFICATIONS = 10
 
+# The tray's [Re-calibrate] measures the room, then the voice. The lead gives the toast
+# that asks for each a moment to be read before the recording it describes starts.
+_RECAL_ROOM_S = 2.0
+_RECAL_SPEECH_S = 4.0
+_RECAL_LEAD_S = 1.5
+
 _TONE_INSTRUCTIONS: dict[str, str] = {
     "casual": "Use a casual, conversational tone.",
     "formal": "Use a formal, professional tone.",
@@ -3637,29 +3643,69 @@ class Daemon:
             log.exception("Adaptive threshold retune failed")
 
     def _recalibrate_mic(self) -> None:
-        """[Re-calibrate] action: measure the active mic and write vad_threshold."""
+        """[Re-calibrate] action: measure the room, then the voice, and write the gate.
+
+        This used to record ONE 3 s clip, assume it was speech, and write half its
+        level. That is the rule `yazses mic-level` dropped in v2.36.0: a clip does not
+        say whether it was speech, so an empty room was recommended a gate below its
+        own noise, and a loud sentence a gate above the same person's quieter speech
+        (issue #579: a gate of 0.0220 set from a 0.0441 sample then rejected 0.0208
+        speech). Both ends are measured now and `miclevel.calibrate` places the gate
+        between them -- or refuses, in which case nothing is written.
+        """
         try:
+            from dataclasses import replace
+
             from yazses.system import miclevel
 
             sr = self._config.audio.sample_rate
-            audio = miclevel.record(3.0, sr, device=self._config.audio.device or None)
-            stats = miclevel.analyze(audio, sr)
-            path = self._platform.paths.config_file
-            miclevel.update_threshold_in_config(path, stats.recommended_threshold)
-            with self._lock:
-                from dataclasses import replace
+            device = self._config.audio.device or None
 
+            self._notify_mic(
+                "🎤 Re-calibrating — stay quiet",
+                f"Measuring the room for {_RECAL_ROOM_S:.0f} seconds.",
+                actions=False,
+            )
+            time.sleep(_RECAL_LEAD_S)
+            ambient = miclevel.analyze(miclevel.record(_RECAL_ROOM_S, sr, device=device), sr)
+
+            self._notify_mic(
+                "🎤 Now speak normally",
+                f"Say a sentence at your usual dictation volume ({_RECAL_SPEECH_S:.0f} seconds).",
+                actions=False,
+            )
+            time.sleep(_RECAL_LEAD_S)
+            speech = miclevel.analyze(miclevel.record(_RECAL_SPEECH_S, sr, device=device), sr)
+
+            result = miclevel.calibrate(ambient, speech)
+            if not result.ok:
+                log.info("Re-calibrate refused, vad_threshold unchanged: %s", result.reason)
+                self._notify_mic(
+                    "Mic not changed",
+                    f"{result.reason[:1].upper()}{result.reason[1:]}. Nothing was changed. "
+                    "Try again, speaking at your normal volume, or run "
+                    "`yazses mic-level --set`.",
+                    actions=False,
+                )
+                return
+
+            threshold = result.recommended_threshold
+            miclevel.update_threshold_in_config(self._platform.paths.config_file, threshold)
+            with self._lock:
                 self._config = replace(
                     self._config,
                     accessibility=replace(
-                        self._config.accessibility,
-                        vad_threshold=stats.recommended_threshold,
+                        self._config.accessibility, vad_threshold=threshold
                     ),
                 )
-            log.info("Re-calibrated vad_threshold -> %.4f", stats.recommended_threshold)
+            log.info(
+                "Re-calibrated vad_threshold -> %.4f (room %.4f, voice %.4f)",
+                threshold, ambient.mean_abs, speech.mean_abs,
+            )
             self._notify_mic(
                 "✅ Mic re-calibrated",
-                f"vad_threshold set to {stats.recommended_threshold:.4f}. "
+                f"vad_threshold set to {threshold:.4f}, between your room "
+                f"({ambient.mean_abs:.4f}) and your voice ({speech.mean_abs:.4f}). "
                 "Try dictating again.",
                 actions=False,
             )
