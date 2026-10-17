@@ -6,6 +6,8 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.43.0] - 2026-10-17
+
 ### Added — a tested CI change classifier, so the next CI change can route lanes by what a PR touched
 
 `scripts/classify_changes.py` maps a pull request's changed paths to the CI scopes in `.github/CI_POLICY.md` section 4
