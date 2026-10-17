@@ -48,15 +48,15 @@ rights. `winget upgrade MSKazemi.YazSes` moves you to a new release later.
 
 1. Download the installer for your machine from the
    [Releases](https://github.com/MSKazemi/yazses/releases) page:
-   `YazSes-<version>-windows-x64.exe` for an Intel or AMD PC, or
-   `YazSes-<version>-windows-arm64.exe` for an ARM one (Snapdragon, Surface Pro X).
+   `YazSes-<version>-windows-x64.exe`. It is the installer for an Intel or AMD PC and,
+   through Windows' emulation, for an ARM one (Snapdragon, Surface Pro X): there is no
+   native ARM build because the speech engine has no ARM Windows wheel yet.
 
-    !!! tip "Not sure which?"
+    !!! tip "On an ARM PC?"
 
-        **Settings → System → About → System type.** The x64 installer also runs on
-        ARM under Windows' emulation, so it is the safe choice if you are unsure —
-        the native ARM build is simply faster. See
-        [platform support](platform-support.md#windows) for what is proven on each.
+        **Settings → System → About → System type** says which you have. Use the same
+        x64 installer either way. See [platform support](platform-support.md#windows)
+        for what is proven on each.
 2. Double-click the installer.
 3. **SmartScreen warning:** Windows shows
    *"Microsoft Defender SmartScreen prevented an unrecognized app from starting."*

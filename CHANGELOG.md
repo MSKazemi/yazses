@@ -6,6 +6,22 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed — no Windows arm64 installer: the x64 one is what ARM PCs run, and the "arm64" file was one (v2.43.0)
+
+v2.43.0 shipped without `YazSes-2.43.0-windows-arm64.exe`: the arm64 build leg failed with `ctranslate2==4.8.1 ... doesn't
+have a source distribution or wheel for the current platform`. Nothing in the repository had changed. The workflow installs
+`uv` at `latest`; v2.42.0 ran on uv 0.12.23, which gave the ARM runner an emulated x64 Python and installed the
+`win_amd64` wheel (the log shows the 18.3 MiB download), and v2.43.0 ran on uv 0.13.1, which picks a native arm64 Python.
+`ctranslate2` publishes no `win_arm64` wheel in any release (4.7.1, 4.8.0, 4.8.1 list `win_amd64` only), so a native
+arm64 build cannot carry the speech engine. The arm64 installers of v2.22.0 through v2.42.0 were therefore, in all
+likelihood, x64 builds under an arm64 name (inferred from the dependency and the logs; the shipped binaries were not
+inspected). The leg is removed rather than pinned to an x64 interpreter, because shipping x64 as arm64 is what
+`tests/test_windows_build_architectures.py` already calls worse than not building it. ARM PCs use
+`YazSes-<version>-windows-x64.exe` under Windows' emulation, as before. `docs/platform-support.md`,
+`docs/windows-install.md` and the release-notes template say so; the Scoop and winget refresh already drops an absent
+arm64 entry, and the bucket test now follows the release's assets instead of demanding one. Re-add the leg when
+ctranslate2 ships a `win_arm64` wheel.
+
 ### Fixed — after an upgrade the new daemon replaces the old one instead of exiting as a duplicate (#562, #578)
 
 A daemon reads its permissions, config and code once, when it starts. After an upgrade the previous daemon kept running,

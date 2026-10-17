@@ -226,52 +226,27 @@ Windows 10 (21H2) or newer.
 | CPU | `pipx` (PyPI) | `.exe` installer |
 |---|---|---|
 | **x64** | ✅ | ✅ (unsigned) |
-| **arm64** | ⚠️ untested | ✅ (unsigned) |
+| **arm64** | ⚠️ untested | ✅ the x64 installer, under emulation (unsigned) |
 
-**On Windows arm64, download `YazSes-<version>-windows-arm64.exe`** from the
-[latest release](https://github.com/MSKazemi/yazses/releases/latest). The x64 `.exe`
-also works — Inno Setup marks it `x64compatible`, which includes ARM, so it installs
-and runs under Windows' x86 emulation — and `pipx install yazses` works as it does
-everywhere. The native installer is the one that does not pay the emulation cost.
+**On Windows arm64, use the x64 installer, `YazSes-<version>-windows-x64.exe`** from the
+[latest release](https://github.com/MSKazemi/yazses/releases/latest). Inno Setup marks it
+`x64compatible`, which includes ARM, so it installs and runs under Windows' x86
+emulation, and `pipx install yazses` works as it does everywhere.
 
-**The native arm64 installer ships, and has since v2.22.0.** On every tag before
-2026-08-16 the leg failed before compiling anything:
+**There is no native arm64 installer, and there cannot be one yet.** The speech engine,
+`ctranslate2`, publishes no `win_arm64` wheel in any release, so a native build cannot
+include it. YazSes shipped a file named `YazSes-<version>-windows-arm64.exe` up to
+v2.42.0; the build logs show it installed the `win_amd64` wheel of `ctranslate2`, which
+means it contained an emulated x64 Python and was an x64 build under an arm64 name. It
+stopped being produced when `uv` changed which Python it hands an ARM runner, and v2.43.0
+was the first release without it. If you installed that file, nothing needs fixing: it is
+the same program the x64 installer installs. `winget` and Scoop on ARM install the x64
+build.
 
-```
-error: No download found for request: cpython-3.12-windows-aarch64-none
-```
-
-The leg asked `uv` for a Python and `uv` had none for that architecture — it was
-pinned to a version predating Windows ARM64 interpreter builds. With that pin lifted
-the leg produced a 160 MB `YazSes-2.21.0-windows-arm64.exe` on its first run — a **CI
-artefact**, from the v2.21.0 tree. The v2.21.0 *release* carries no arm64 `.exe`;
-v2.22.0 is the first that does.
-
-This is worth saying plainly because the failure was invisible. The leg is
-`continue-on-error` — correct, so a new cross-architecture build cannot fail a
-release the x64 build completed fine — and the consequence is that the workflow
-reports **success** while shipping nothing for that architecture. Two releases went
-out that way, and the leg is still advisory, so a future one could too.
-
-The invisibility cuts the other way as well, and that is the mistake this row
-actually shipped. The check written to catch it compared the page against the build
-workflow's `experimental:` flags, so it read "advisory leg" as "nothing published"
-and held this cell at ⏳ through twenty-three releases that each carried a
-`YazSes-<version>-windows-arm64.exe`. A page that tells a Windows-on-ARM user their
-installer does not exist yet is not the cautious answer; it is the wrong one, and it
-sends them to emulation for a native build that is already there. The check now
-reads `packaging/released-assets.json`, the asset list of the last release, and
-fails in both directions: a ✅ with no file behind it, and a ⏳ on a file that
-shipped.
-
-**The `pipx` column stays ⚠️ untested, and the `.exe` column does not.** Nothing
-exercises a `pipx install` on ARM. The installer is a different matter: the
-`windows-11-arm` leg installs it silently, runs `yazses-cli --version` and
-`yazses doctor` out of the installed tree, then uninstalls and asserts the user
-`PATH` was restored — and the step that attaches the file to the release runs only
-after all of that, so an `.exe` on the release page is itself evidence the smoke test
-passed on ARM. What still has not happened is anyone *dictating* on a Windows ARM
-machine: a runner has no microphone and no hold-to-talk key.
+The same limit means nobody has *dictated* on a Windows ARM machine with a native build,
+and the emulated build has been checked only by a runner (it installs, runs
+`yazses-cli --version` and `yazses doctor` out of the installed tree, and uninstalls) —
+which has no microphone and no hold-to-talk key. Tell us how it goes on real hardware.
 
 The installer is unsigned, so SmartScreen will warn: **More info → Run anyway**.
 Code signing is tracked on the

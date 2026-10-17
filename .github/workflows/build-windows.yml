@@ -38,18 +38,19 @@ jobs:
       # SignPath; listing it twice is a duplicate key, which YAML parsers accept
       # silently and GitHub Actions rejects outright.
       attestations: write
-    # One installer per architecture. Windows on ARM is a real desktop target
-    # now, and until this matrix existed the only .exe was x64 -- an ARM user
-    # could run it under emulation but never got a native build.
+    # One installer, x64. Windows on ARM runs it under Windows' own x86 emulation
+    # (Inno Setup marks it `x64compatible`, which includes ARM).
     #
-    # PyInstaller does not cross-compile, so the runner label IS the target
-    # architecture; build-windows.ps1 derives the name from the host rather than
-    # taking a flag, which keeps the two from disagreeing.
-    #
-    # arm64 is `continue-on-error` on purpose: GitHub's windows-11-arm runners
-    # and PyInstaller-on-ARM have never run in this repo, and a brand-new
-    # cross-arch job must not be able to fail a release that x64 completed fine.
-    # Promote it once it has been green a few times.
+    # There is deliberately no arm64 leg. A native build cannot include the speech
+    # engine: `ctranslate2` publishes no `win_arm64` wheel in any release (4.7.1,
+    # 4.8.0 and 4.8.1 list `win_amd64` only). The leg that shipped as
+    # `YazSes-<v>-windows-arm64.exe` through v2.42.0 passed only because uv 0.12.23
+    # gave the ARM runner an emulated x64 Python and installed the `win_amd64` wheel;
+    # uv 0.13.1 picks the native one and the leg fails ("doesn't have a source
+    # distribution or wheel for the current platform", v2.43.0). So that file was an
+    # x64 build under an arm64 name -- the case tests/test_windows_build_architectures.py
+    # calls worse than not building it. Re-add the leg when ctranslate2 ships a
+    # win_arm64 wheel; build-windows.ps1 and the manifest tooling already handle it.
     strategy:
       fail-fast: false
       matrix:
@@ -57,9 +58,6 @@ jobs:
           - arch: x64
             runner: windows-latest
             experimental: false
-          - arch: arm64
-            runner: windows-11-arm
-            experimental: true
     name: build (windows-${{ matrix.arch }})
     runs-on: ${{ matrix.runner }}
     continue-on-error: ${{ matrix.experimental }}

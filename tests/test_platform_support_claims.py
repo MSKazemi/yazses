@@ -302,7 +302,7 @@ def test_every_bundle_matrix_maps_onto_a_released_asset_name():
     version, released = _released()
     for relpath in BUNDLE_WORKFLOWS:
         arches = _matrix_arches(relpath)
-        assert len(arches) >= 2, f"{relpath} has no cross-architecture matrix"
+        assert arches, f"{relpath} builds no architecture at all"
         expected = {arch: _expected_asset(relpath, arch) for arch in arches}
         assert any(name in released for name in expected.values()), (
             f"{relpath}: not one of {sorted(expected.values())} is among the assets "
