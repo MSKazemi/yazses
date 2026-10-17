@@ -23,10 +23,10 @@ software itself runs on.
 
 ## Current stable
 
-**[YazSes 2.42.0](v2.42.0.md)** — prove that typing arrives. `yazses verify --type` now types
-into a window it opens and checks the text arrived, and restarts the `ydotoold` user service once
-if it did not. Until now every check described the sender and none observed the result, which is
-how dictation could be heard, "typed" and invisible with every signal green.
+**[YazSes 2.43.0](v2.43.0.md)** — a second keyboard works. A keyboard plugged in after YazSes
+started now works for hold-to-talk on Linux, and unplugging one no longer stops the daemon. Five
+designed features (auto-stop, re-ask, bookmarks, auto-punctuation, cough excision) can now be
+switched on with `yazses features enable`, all off by default.
 
 Install it with:
 
