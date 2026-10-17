@@ -5214,8 +5214,8 @@ class Daemon:
         scope = ", ".join(str(s) for s in scoped) if isinstance(scoped, list) else ""
         if ok:
             body = (
-                f"Paused by voice: {scope}. Resume with `yazses handsfree resume`, the tray "
-                "or the controls window."
+                f"Paused by voice: {scope}. Resume with `yazses handsfree resume` or "
+                "Settings → Hands-free controls."
             )
         else:
             body = f"Heard the stop phrase but did not pause: {reply.get('reason', 'unknown reason')}."

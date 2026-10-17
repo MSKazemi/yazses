@@ -198,6 +198,8 @@ def gather_panel_inputs(
         primary_gesture=primary,
         mode=str(getattr(face, "mode", "full_text") or "full_text"),
         use_baseline=bool(getattr(face, "use_baseline", False)),
+        min_hold_frames=_int_or(getattr(face, "min_hold_frames", 3), 3),
+        fps=_int_or(getattr(face, "fps", 15), 15),
         baseline=baseline,
         release_issues=release_issues,
     )
@@ -238,6 +240,13 @@ def _baseline(platform: Any, gesture: str) -> str:
 
 
 # ------------------------------------------------------------------------------ doing
+
+
+def _int_or(value: object, default: int) -> int:
+    try:
+        return int(value)  # type: ignore[call-overload]
+    except (TypeError, ValueError):
+        return default
 
 
 def perform_action(

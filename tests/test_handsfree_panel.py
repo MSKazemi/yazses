@@ -25,6 +25,7 @@ from yazses.facegesture.switches import ACTIONS, parse_bindings
 from yazses.handsfree.observability import HandsFreeFacts
 from yazses.handsfree.panel import (
     STATUS_WORDS,
+    ConfigTableArray,
     FeatureFact,
     Overall,
     PanelInputs,
@@ -483,7 +484,8 @@ def test_every_mapping_round_trips_through_the_daemons_own_parser(mode, primary)
         for gesture, action in itertools.product(GESTURES, (*ACTIONS, "none")):
             plan = plan_mapping(inputs, gesture, action)
             assert plan.ok, (gesture, action, plan.reason)
-            (write,) = plan.action.config
+            # An eyes-closed binding may also raise the hold (test_handsfree_panel_eyes_closed_hold).
+            (write,) = [c for c in plan.action.config if isinstance(c, ConfigTableArray)]
             entries = [dict(e) for e in write.entries]
             got, problems = parse_bindings(entries, primary, mode)
             expected = dict(current)

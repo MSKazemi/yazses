@@ -399,3 +399,32 @@ def test_the_settings_window_has_a_large_labelled_entry_point_and_stages_through
     captured["toggle_feature"]("headpointer", True)
     assert win._staged_snapshot == {"headpointer": True}
     assert writes == [], "staging writes nothing until Apply"
+
+
+def test_mapping_combos_grow_to_their_longest_choice(qapp):
+    """The items arrive after the first gather, so a box sized on first show was empty and cut
+    every choice to "Not map..." -- seen in a real render of 2.43.0."""
+    rig = _Rig(qapp, _inputs(face_on=True))
+    for gesture, (_name, combo, _set) in rig.panel._map_widgets.items():
+        assert combo.sizeAdjustPolicy() == QComboBox.SizeAdjustPolicy.AdjustToContents, gesture
+        widest = max(combo.fontMetrics().horizontalAdvance(combo.itemText(i))
+                     for i in range(combo.count()))
+        assert combo.sizeHint().width() > widest, gesture
+
+
+def test_saving_eyes_closed_says_the_hold_was_raised(qapp):
+    rig = _Rig(qapp, _inputs(face_on=True))
+    combo = rig.panel._map_widgets["eyes_closed"][1]
+    combo.setCurrentIndex(combo.findData("hold_to_talk"))
+    rig.button("map_eyes_closed").click()
+    assert any(getattr(c, "key", "") == "min_hold_frames" for c in rig.performed[-1].config)
+    assert "blink" in rig.panel._result.text()
+
+
+def test_a_saved_mapping_says_saved_once(qapp):
+    rig = _Rig(qapp, _inputs(face_on=True))
+    rig.result = ActionResult(True, "Saved. It applies after `yazses restart`.")
+    combo = rig.panel._map_widgets["smile"][1]
+    combo.setCurrentIndex(combo.findData("hold_to_command"))
+    rig.button("map_smile").click()
+    assert rig.panel._result.text() == "Saved. It applies after `yazses restart`."

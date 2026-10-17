@@ -293,6 +293,10 @@ class HandsFreePanel:
             name = wrapped(gesture.replace("_", " ").capitalize())
             combo = QComboBox()
             combo.setMinimumHeight(MIN_TARGET_PX)
+            # The items arrive with the first gather, after the window is shown; the default
+            # AdjustToContentsOnFirstShow sized the box while it was still empty, so every
+            # choice was cut to "Not map..." / "Hold to c...".
+            combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
             combo.setAccessibleName(f"Action for {gesture.replace('_', ' ')}")
             # On Linux a combo box's accessible *name* is its current choice and the question it
             # answers comes from a "labelled by" relation, which Qt derives from a buddy. Without
@@ -630,7 +634,10 @@ class HandsFreePanel:
             self._show(f"Not saved: {plan.reason}")
             return
         result = self._perform(plan.action)
-        self._show(("Saved: " if result.ok else "Not saved: ") + result.message)
+        if result.ok:  # the message already says "Saved." -- no "Saved: Saved."
+            self._show(result.message + (f" {plan.note}" if plan.note else ""))
+        else:
+            self._show(f"Not saved: {result.message}")
         self.refresh()
 
     # ---------------------------------------------------------------- showing

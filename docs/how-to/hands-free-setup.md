@@ -109,6 +109,31 @@ chords = false
 The roles are `gaze`, `pointer`, `dwell`, `switch`, `chords` and `voice_stop`. A role you turn off is not
 set, and the pieces that depended on it are not left waiting for it.
 
+## Eyes closed instead of jaw-open, from the tray (no terminal)
+
+The preset's dictation switch is jaw-open. To use a deliberate eye closure instead, without editing any file:
+
+1. Tray icon → **Settings…** → **Hands-free controls…**
+2. **Turn Face switch on**, answer **Yes** to the experimental warning, then **Apply staged changes**. On a Python
+   install (pip, pipx, uv) that lacks the camera libraries, Apply installs them (mediapipe and OpenCV) first, as
+   `yazses features enable` does; the app bundles from winget and Homebrew cannot add them — use
+   `pipx install "yazses[gaze,desktop]"` for camera features.
+3. **Turn the global stop on**, so **Pause hands-free input** reaches the face switch.
+4. Under **Face switch mapping**: *Eyes closed* → **Hold to dictate** → **Set**, then *Jaw open* → **Not mapped** →
+   **Set**. Mapping eyes closed also raises the hold before any face switch counts to 0.8 s, longer than a blink,
+   and the panel says so.
+5. Tray icon → **Restart daemon**.
+6. Tray icon → **Settings…** → **Hands-free controls…** → **Resume hands-free input**. With the global stop on,
+   every camera input starts paused after each start of YazSes and only an explicit Resume arms it — once the
+   camera has delivered its first frame. The tray menu has no hands-free item; `yazses handsfree resume` does the
+   same from a terminal.
+
+Then click into a text box, close your eyes for about a second, speak, and open them: the words are typed when
+your eyes open. **Pause hands-free input** in the same window (or `yazses handsfree pause`) stops it. Test it
+with ordinary blinking first; `[facegesture] min_hold_frames` lengthens the hold further.
+The switch compares against a fixed threshold until you run `yazses facegesture calibrate` and set
+`[facegesture] use_baseline = true` (this step still needs a terminal).
+
 ## Dwell-click needs the overlay
 
 Dwell-click only clicks while the overlay that draws its progress ring is on screen: a click you were

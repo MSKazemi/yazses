@@ -223,7 +223,8 @@ class SettingsWindow:
         # needs to hide a row and, when a whole category empties, its heading too.
         self._group_widgets: list[tuple[Any, str, list[tuple[str, Any]]]] = []
         for group in model.groups:
-            box = QGroupBox(group.category)
+            # "Commands & automation": a bare & is a Qt mnemonic marker and rendered as "_a".
+            box = QGroupBox(group.category.replace("&", "&&"))
             box_layout = QVBoxLayout(box)
             if group.blurb:
                 blurb = QLabel(group.blurb)

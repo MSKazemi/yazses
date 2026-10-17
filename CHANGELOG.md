@@ -6,6 +6,34 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — binding "eyes closed" in the Hands-free panel no longer dictates on every blink
+
+The face switch counts a gesture after `[facegesture] min_hold_frames` frames, 3 by default: 0.2 s at the default
+15 fps, which an ordinary blink lasts. `facegesture/detector.py` already said eyes-closed "needs a long
+`min_hold_frames`", but a person mapping *Eyes closed → Hold to dictate* in **Settings → Hands-free controls** never
+sees that key. The mapping now raises it in the same write to 0.8 s worth of frames (12 at 15 fps) and says so
+("The hold before any face switch counts was raised from 0.2 s to 0.8 s, so an ordinary blink does not start it");
+it never lowers a longer value. The mapping row warns before Set is pressed when an existing eyes-closed binding has
+a shorter hold. 0.8 s is provisional and unmeasured in YazSes, chosen to sit above a spontaneous blink (commonly
+reported at roughly 0.1–0.4 s). Found while writing the eyes-closed tutorial: the GUI-only path produced
+`[facegesture] min_hold_frames = 3` with eyes closed bound.
+
+### Fixed — three small things in the settings windows
+
+- The face-switch mapping boxes in the Hands-free panel were cut to "Not map…" / "Hold to c…": their items arrive
+  after the window is first shown, and the box had been sized while empty. They now size to their longest choice.
+- Settings category titles containing `&` were drawn as "Commands _automation" / "Accessibility _input
+  modalities", because Qt read the `&` as a keyboard-mnemonic marker. They are now shown as written.
+- Saving a face-switch mapping said "Saved: Saved. It applies after `yazses restart`." It now says it once.
+
+### Fixed — "resume from the tray" pointed at a menu item that does not exist
+
+`yazses handsfree explain`, the voice-stop notification ("Paused by voice … Resume with … the tray …") and the
+`stop_phrase` reference all named the tray as a way to resume hands-free input. No tray (Linux, macOS or Windows)
+has a hands-free item. They now name what exists: `yazses handsfree resume`, or **Settings → Hands-free controls →
+Resume hands-free input**. The hands-free how-to gains a tray-first, no-terminal walkthrough for using a deliberate
+eye closure as the dictation switch, including the Resume that the global stop requires after every start.
+
 ## [2.43.1] - 2026-10-17
 
 ### Changed — no Windows arm64 installer: the x64 one is what ARM PCs run, and the "arm64" file was one (v2.43.0)

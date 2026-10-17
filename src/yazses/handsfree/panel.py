@@ -39,6 +39,7 @@ fails hardest:
 """
 from __future__ import annotations
 
+import math
 from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
 from enum import Enum
@@ -137,6 +138,27 @@ WIRED_SWITCH_ACTIONS: tuple[str, ...] = (
     "hold_to_talk", "hold_to_command", "select", "confirm", "cancel",
 )
 
+#: How long the eyes must stay shut before an eyes-closed switch counts. `facegesture/detector.py`
+#: already says this gesture "needs a long `min_hold_frames`" to tell a deliberate closure from
+#: the ~15 involuntary blinks a minute, but the shipped `min_hold_frames = 3` is 0.2 s at 15 fps
+#: -- inside a blink. A config-file user can read that comment; a person binding the gesture
+#: from this panel never sees the key, so the mapping itself raises it. PROVISIONAL and
+#: unmeasured in YazSes: chosen to sit well above a spontaneous blink, which the literature
+#: commonly puts at roughly 0.1-0.4 s.
+EYES_CLOSED_MIN_HOLD_S = 0.8
+
+
+def eyes_closed_min_hold_frames(fps: int) -> int:
+    """The smallest ``min_hold_frames`` that holds an eyes-closed switch for
+    :data:`EYES_CLOSED_MIN_HOLD_S` at ``fps`` (clamped to the config's 1..60). Pure."""
+    fps = min(60, max(1, int(fps)))
+    # The epsilon keeps 0.8 * 15 (= 12.000000000000002 in floating point) at 12, not 13.
+    return max(1, math.ceil(EYES_CLOSED_MIN_HOLD_S * fps - 1e-9))
+
+
+def _seconds(frames: int, fps: int) -> str:
+    return f"{frames / min(60, max(1, int(fps))):.1f} s"
+
 
 def wired_switch_actions(safety_configured: bool) -> tuple[str, ...]:
     """The switch actions that actually do something, given the global-stop setting. Pure.
@@ -192,6 +214,10 @@ class PanelInputs:
     primary_gesture: str = "jaw_open"
     mode: str = "full_text"
     use_baseline: bool = False
+    #: ``[facegesture] min_hold_frames`` and ``fps`` as saved: an eyes-closed binding needs a
+    #: hold longer than a blink (:data:`EYES_CLOSED_MIN_HOLD_S`).
+    min_hold_frames: int = 3
+    fps: int = 15
     #: ``"stored"`` / ``"missing"`` / ``""`` (not asked) for the primary gesture's baseline.
     baseline: str = ""
     #: ``(message, remedy)`` pairs for a face switch that could not let go (a stuck-open
@@ -910,6 +936,14 @@ def _mapping(inputs: PanelInputs) -> MappingModel:
                 if action != "pause_pointer"
                 else "Does nothing while the global stop is off."
             )
+        elif action and gesture == "eyes_closed":
+            floor = eyes_closed_min_hold_frames(inputs.fps)
+            if inputs.min_hold_frames < floor:
+                note = (
+                    f"Counts after only {_seconds(inputs.min_hold_frames, inputs.fps)} -- an "
+                    f"ordinary blink can trigger it. Press Set to raise the hold to "
+                    f"{_seconds(floor, inputs.fps)}."
+                )
         rows.append(MappingRow(
             gesture, _gesture_label(gesture), action,
             ACTION_LABELS.get(action, "Not mapped") if action else "Not mapped", note,
@@ -939,6 +973,8 @@ class MappingPlan:
     reason: str = ""
     #: The full replacement for ``[[facegesture.switches]]`` when ``ok``.
     action: ActionSpec | None = None
+    #: Anything the write changes beyond the table, in one sentence for the person ("" = none).
+    note: str = ""
 
 
 def plan_mapping(inputs: PanelInputs, gesture: str, action: str) -> MappingPlan:
@@ -985,16 +1021,30 @@ def plan_mapping(inputs: PanelInputs, gesture: str, action: str) -> MappingPlan:
     )
     if problems or again != wanted:  # pragma: no cover - guarded by the tests
         return MappingPlan(False, "That combination could not be written safely.")
+    config: tuple[ConfigSet | ConfigTableArray, ...] = (
+        ConfigTableArray("facegesture.switches", tuple(entries)),
+    )
+    note = ""
+    # An eyes-closed binding with a blink-length hold would dictate on every blink. Raise the
+    # shared hold in the same write -- never lower it: a longer value was somebody's choice.
+    floor = eyes_closed_min_hold_frames(inputs.fps)
+    if "eyes_closed" in wanted and inputs.min_hold_frames < floor:
+        config += (ConfigSet("facegesture", "min_hold_frames", floor),)
+        note = (
+            f"The hold before any face switch counts was raised from "
+            f"{_seconds(inputs.min_hold_frames, inputs.fps)} to {_seconds(floor, inputs.fps)}, "
+            "so an ordinary blink does not start it."
+        )
     spec = ActionSpec(
         id=f"map_{gesture}",
         label=f"Map {_gesture_label(gesture)} to {ACTION_LABELS[action]}",
         kind="adjust",
         enabled=True,
         help="Saved now; applies after `yazses restart`.",
-        config=(ConfigTableArray("facegesture.switches", tuple(entries)),),
+        config=config,
         needs_restart=True,
     )
-    return MappingPlan(True, "", spec)
+    return MappingPlan(True, "", spec, note)
 
 
 # ------------------------------------------------------------------------------ the model

@@ -25,7 +25,8 @@ filler -- because every tolerance widens the set of sentences that pause the use
 
 **It can only pause.** There is no resume phrase and no function here that could build one.
 Resuming by voice would be a second, separate risk (a stray phrase re-arming a pointer the user
-just stopped); resume is `yazses handsfree resume`, the tray, or the controls window.
+just stopped); resume is `yazses handsfree resume` or the Hands-free controls window (Settings -> Hands-free
+controls); the tray menu has no hands-free item.
 
 **The default is provisional.** No recognition-accuracy data exists for any phrase in any accent
 or room (``design/eye-control/GOVERNANCE.md``). "pause hands free" is chosen because it is

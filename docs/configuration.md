@@ -725,7 +725,7 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 |---|---|---|---|---|
 | `enabled` | bool | `false` |  | off until the hands-free preset and its consumers are wired |
 | `stale_after_ms` | int | `500` |  | a signal older than this cannot act; unmeasured placeholder |
-| `stop_phrase` | str | `""` |  | Voice stop word: saying exactly this phrase (the WHOLE utterance, never a substring of dictation) pauses every hands-free input, like `yazses handsfree pause`. "" = off. It can only pause; there is no resume phrase (`yazses handsfree resume`, tray or controls window). 2-6 words, validated at load (handsfree/stopword.py). `[handsfree] enabled` supplies "pause hands free" -- a PROVISIONAL, unmeasured default -- unless you set this yourself. |
+| `stop_phrase` | str | `""` |  | Voice stop word: saying exactly this phrase (the WHOLE utterance, never a substring of dictation) pauses every hands-free input, like `yazses handsfree pause`. "" = off. It can only pause; there is no resume phrase (`yazses handsfree resume`, or Settings → Hands-free controls). 2-6 words, validated at load (handsfree/stopword.py). `[handsfree] enabled` supplies "pause hands free" -- a PROVISIONAL, unmeasured default -- unless you set this yourself. |
 
 ## `[handsfree]`
 

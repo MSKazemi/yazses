@@ -633,3 +633,15 @@ def test_an_unchanged_box_writes_nothing(qapp):
     win = _window(qapp, rec)
     win._apply_speech()
     assert not any(w[:2] in {("stt", "model"), ("stt", "language")} for w in rec.writes)
+
+
+def test_a_category_with_an_ampersand_is_titled_as_written(qapp):
+    """`Commands & automation` rendered as "Commands _automation": a bare & is a Qt mnemonic."""
+    from PySide6.QtWidgets import QGroupBox
+
+    win = _window(qapp, _Recorder())
+    titles = [b.title() for b in win._win.findChildren(QGroupBox)]
+    with_amp = [t for t in titles if "&" in t]
+    assert with_amp, "no category has an & any more -- this test guards nothing"
+    for title in with_amp:
+        assert "&&" in title and "& " not in title.replace("&&", ""), title
