@@ -177,6 +177,11 @@ class AudioRecorder:
         if self._on_chunk is not None:
             self._on_chunk(chunk)
 
+    @property
+    def has_clip(self) -> bool:
+        """True while recording, or while a clip is held that ``stop()`` has not handed over."""
+        return self._stream is not None or bool(self._chunks)
+
     def stop(self) -> np.ndarray:
         if self._stream is not None:
             try:
@@ -188,5 +193,9 @@ class AudioRecorder:
         if not self._chunks:
             return np.array([], dtype="float32")
         audio = np.concatenate(self._chunks)
+        # Hand the clip over once. A second stop() with no start() between them must not
+        # return the previous dictation: a stray hold-release once had it typed again.
+        self._chunks = []
+        self._n_samples = 0
         log.debug("Audio captured: %.2f seconds", len(audio) / self._sample_rate)
         return audio

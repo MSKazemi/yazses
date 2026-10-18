@@ -15,6 +15,18 @@ line now ends "(tray.lock: missing | free | held by pid N | held, holder unknown
 "the previous tray said:". No behaviour changed. `LevelStats.recommended_threshold` is documented as the discredited
 single-clip number, not a calibration.
 
+### Fixed — a stray hold-release typed the previous dictation again
+
+Found in the first live eyes-closed run: one deliberate closure was dictated and typed, then two further
+"Recording stopped" lines with no "Recording started" re-typed the same 9.9 s clip twice more. The face switch
+delivers a release whose press the global stop refused (on purpose: losing a release that matters is the worse
+failure), and two things made that harmful. `AudioRecorder.stop()` kept its buffer, so a second `stop()` returned
+the previous clip, and `_on_hold_end` transcribed whatever it got. `stop()` now hands its clip over once, and a
+hold-release with no recording in progress and nothing captured ends without transcribing, typing, or being
+counted as a silent clip (which would also have fed the adaptive microphone threshold a zero). The hot-path
+cleanup that unsticks a held modifier key still runs. Any hold-to-talk source can send such a release; the face
+switch is where it was seen.
+
 ### Fixed — binding "eyes closed" in the Hands-free panel no longer dictates on every blink
 
 The face switch counts a gesture after `[facegesture] min_hold_frames` frames, 3 by default: 0.2 s at the default

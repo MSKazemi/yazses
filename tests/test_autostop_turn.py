@@ -213,6 +213,11 @@ def test_an_enabled_daemon_builds_a_turn_from_the_hotkey_threshold():
 def test_with_autostop_off_the_end_handler_runs_its_old_body():
     daemon = _daemon(Config())
     daemon._earcon = _Earcon()
+    # A release ends a recording; with none open it is a stray and makes no stop sound
+    # (test_stray_hold_release_types_nothing.py).
+    from yazses.platform.base import TrayState
+
+    daemon._state.state = TrayState.RECORDING
     daemon._on_hold_end()
     assert daemon._earcon.played == ["recording_stop"]  # its first act, unchanged
 

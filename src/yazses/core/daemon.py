@@ -2425,8 +2425,18 @@ class Daemon:
     def _on_hold_end(self) -> None:
         if self._autostop is not None and self._autostop_defer_end():
             return  # a tap: keep recording until the speaker stops
-        self._earcon.play("recording_stop")
-        log.info("Recording stopped, transcribing...")
+        # A release can arrive with no burst in progress: a hands-free switch delivers it even
+        # when the safety gate refused the press (facegesture/switches.py), and a microphone
+        # that failed to open leaves the state IDLE. The hot-path cleanup below still runs --
+        # it releases a held modifier -- but transcription must not: the recorder once handed
+        # back the previous clip and the last dictation was typed again, three times in a row.
+        with self._lock:
+            in_burst = self._state.state == TrayState.RECORDING
+        if in_burst:
+            self._earcon.play("recording_stop")
+            log.info("Recording stopped, transcribing...")
+        else:
+            log.info("Hold released with no recording in progress; nothing to transcribe.")
 
         # Force the compositor to release the hold-to-talk key NOW, before the
         # (slow) transcription, and regardless of whether this burst ends in an
@@ -2461,6 +2471,11 @@ class Daemon:
             self._stream_engine.request_stop()
 
         if self._recorder is None or self._engine is None or self._injector is None:
+            return
+        if not in_burst and not getattr(self._recorder, "has_clip", True):
+            # The unpaired release: no burst, nothing captured. Not a silent clip either --
+            # counting it as one would feed the adaptive VAD a 0.0 and the silent streak a
+            # miss. (A recorder that cannot say whether it holds a clip is treated as before.)
             return
         with self._lock:
             self._state.state = TrayState.TRANSCRIBING
