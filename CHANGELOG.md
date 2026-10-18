@@ -6,6 +6,16 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the gaze grounding resolver grounded a candidate with no extent (property-test counterexample)
+
+`TargetResolver` already rejected a candidate whose width or height is `<= 0`, because a rectangle with no extent is not a
+control anyone can look at. A height of `7.6e-65` passes that check, but `1.0 + 7.6e-65` is `1.0` in floating point, so
+the sliver's far edge equals its near edge; the closed "inside the target region" test then accepted it as sitting on the
+target's bottom edge and it was GROUNDED. It is now rejected the same way. Found by Hypothesis in
+`tests/test_grounding_resolver_audit.py::test_never_raises_and_every_outcome_is_well_formed`, which failed intermittently
+on `main`; a deterministic regression test sits in `tests/test_grounding_resolver.py`. Unrelated to #598, found while
+verifying it.
+
 ### Fixed — a loud burst with no speech in it no longer types "The app is called YazSes." (#598)
 
 Given a burst of fan noise, Whisper does not return nothing: it returns the words it was primed with. Reproduced with the

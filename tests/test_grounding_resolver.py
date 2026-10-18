@@ -1066,3 +1066,15 @@ def test_only_an_unresolved_result_may_carry_a_reason() -> None:
         )
     # And the reason-less UNRESOLVED the vocabulary shipped with still constructs.
     assert GroundingResult.unresolved(target).unresolved_reason is None
+
+
+def test_a_sliver_whose_far_edge_rounds_onto_its_near_edge_is_not_plausible() -> None:
+    """A height of 7.6e-65 is positive, but ``1.0 + 7.6e-65 == 1.0``: it has no extent, and the
+    closed 'inside the target region' test accepted it as a candidate sitting on the target's
+    bottom edge. Counterexample found by the property test in
+    tests/test_grounding_resolver_audit.py."""
+    sliver = a_candidate(entity_id="sliver", bounds=Rect(0.0, 1.0, 1.0, 7.613159389438093e-65))
+    assert sliver.bounds.y + sliver.bounds.height == sliver.bounds.y  # the premise
+    target = a_target(point=None, bounds=Rect(0.0, 0.0, 1.0, 1.0))
+    assert R.score(target, [sliver], now_s=T0) == ()
+    assert R.resolve(target, [sliver], now_s=T0).outcome is GroundingOutcome.UNRESOLVED

@@ -618,7 +618,17 @@ class TargetResolver:
             # Without geometry the envelope cannot be enforced, and the envelope is the
             # one thing a hint is never allowed to substitute for.
             return _RejectionCause.NO_BOUNDS
-        if candidate.bounds.width <= 0.0 or candidate.bounds.height <= 0.0:
+        bounds = candidate.bounds
+        if (
+            bounds.width <= 0.0
+            or bounds.height <= 0.0
+            # A positive size can still be no extent at all: 1.0 + 7.6e-65 is 1.0, so the
+            # far edge equals the near one, and the closed `_rect_inside` test below would
+            # accept the sliver on the target's edge. Found by the property test in
+            # tests/test_grounding_resolver_audit.py (Hypothesis, 2026-10-18).
+            or bounds.x + bounds.width <= bounds.x
+            or bounds.y + bounds.height <= bounds.y
+        ):
             # A degenerate rectangle is not a control the user can look at. ``Rect`` is
             # half-open, so it cannot contain a point or intersect a region — but a policy
             # with an expansion measures *distance*, which is zero for a point sitting on
