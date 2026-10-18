@@ -23,9 +23,10 @@ software itself runs on.
 
 ## Current stable
 
-**[YazSes 2.43.1](v2.43.1.md)** — fixes from the first macOS reports. A newly started YazSes now
-replaces an older running one after an upgrade, macOS Quit stops the daemon, and the tray's Re-calibrate
-measures your room and your voice. Windows on ARM uses the x64 installer: the "arm64" file was an x64 build.
+**[YazSes 2.43.2](v2.43.2.md)** — speech models no longer type words nobody said. A burst of fan or
+keyboard noise that clears the volume gate used to come back as the vocabulary prompt, "The app is called
+YazSes."; the daemon now checks that a burst holds speech before it decodes it. Eyes-closed dictation also
+stops re-typing the previous sentence on a stray release, and re-arms after a glance away.
 
 Install it with:
 
@@ -36,6 +37,7 @@ pipx upgrade yazses          # upgrade an existing install
 
 ### Recent stable releases
 
+- [v2.43.2](v2.43.2.md) — a loud burst with no speech in it is no longer decoded into the vocabulary prompt (`[accessibility] speech_presence_check`), a stray hold-release no longer re-types the previous dictation, eyes-closed dictation re-arms after a glance away and no longer fires on a blink, and a gaze-grounding edge case is fixed.
 - [v2.43.1](v2.43.1.md) — fixes from the first macOS reports: a newer daemon replaces an older one after an upgrade, macOS Quit stops the daemon, the tray's Re-calibrate measures room and voice, and Windows on ARM uses the x64 installer.
 - [v2.43.0](v2.43.0.md) — a second keyboard works: a keyboard plugged in after YazSes started now works for hold-to-talk on Linux, and five designed features can be switched on with `yazses features enable`.
 - [v2.42.0](v2.42.0.md) — prove that typing arrives: `yazses verify --type` types into a window it opens and checks the text arrived, with one `ydotoold` restart and retry when it did not
