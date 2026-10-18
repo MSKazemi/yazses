@@ -34,6 +34,14 @@ has a hands-free item. They now name what exists: `yazses handsfree resume`, or 
 Resume hands-free input**. The hands-free how-to gains a tray-first, no-terminal walkthrough for using a deliberate
 eye closure as the dictation switch, including the Resume that the global stop requires after every start.
 
+### Fixed — the release-completeness check demoted v2.43.1 for having one Windows installer
+
+`scripts/check-release-channels.py` still required a pair of `.exe` assets, so the check that runs after every tag push
+marked v2.43.1 a pre-release (GitHub's "Latest" stayed at v2.42.0) because `YazSes-2.43.1-windows-x64.exe` is the only
+Windows installer since the arm64 leg was removed. The Windows row is now satisfied by the x64 installer; an arm64-only
+`.exe` still fails it, and `.deb` / `.dmg` still need both architectures. `tests/test_release_channels.py` covers both
+directions.
+
 ## [2.43.1] - 2026-10-17
 
 ### Changed — no Windows arm64 installer: the x64 one is what ARM PCs run, and the "arm64" file was one (v2.43.0)

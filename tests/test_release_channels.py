@@ -267,8 +267,7 @@ def test_core_only_returns_exactly_the_channels_ci_builds(crc, responses):
                             {"name": "a2.deb"},
                             {"name": "b1.dmg"},
                             {"name": "b2.dmg"},
-                            {"name": "c1.exe"},
-                            {"name": "c2.exe"},
+                            {"name": "YazSes-2.18.2-windows-x64.exe"},
                         ]
                     }
                 ),
@@ -450,12 +449,27 @@ def test_one_architecture_of_a_pair_is_not_a_published_platform(crc, responses):
     )
     got = crc.check_release_assets("2.25.0")
     assert got["deb"][0] is True, "both .deb architectures are attached"
-    assert got["exe"][0] is True, "both .exe architectures are attached"
+    assert got["exe"][0] is True, "the x64 .exe is attached"
     assert got["dmg"][0] is False, (
         "only the arm64 .dmg is attached — Intel users have no download, and this "
         f"reported the macOS platform as published: {got['dmg']}"
     )
     assert "arm64" in got["dmg"][1], "the detail must name what was actually found"
+
+
+def test_windows_is_published_by_its_x64_installer_alone(crc, responses):
+    """v2.43.1 dropped the Windows arm64 asset (it was an x64 build). Requiring a
+    pair of .exe files demoted that release to a pre-release as soon as it was
+    tagged; an arm64-only .exe, though, is still not a Windows platform."""
+    body = lambda *names: {"api.github.com": (200, _body({"assets": [{"name": n} for n in names]}))}  # noqa: E731
+    responses(body("YazSes-2.43.1-windows-x64.exe"))
+    got = crc.check_release_assets("2.43.1")
+    assert got["exe"][0] is True, got["exe"]
+
+    responses(body("YazSes-2.43.1-windows-arm64.exe"))
+    got = crc.check_release_assets("2.43.1")
+    assert got["exe"][0] is False, got["exe"]
+    assert "x64" in got["exe"][1]
 
 
 def test_ci_only_covers_the_container_image_and_core_only_does_not(crc, responses):
