@@ -52,6 +52,9 @@ ENTRY_MODULES = {
     # `python -m yazses.onevoice.demo`, not from the dictation daemon, so it is an
     # actual entry point rather than untracked dead code.
     "onevoice.demo",
+    # Standalone, read-only X11 feasibility probe: `python -m yazses.onevoice.x11_probe`.
+    # No daemon imports this optional diagnostic and it cannot type into a window.
+    "onevoice.x11_probe",
 }
 
 #: The known orphans, each with what is missing. An entry here is a debt that has
