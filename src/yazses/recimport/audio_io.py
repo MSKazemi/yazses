@@ -114,7 +114,9 @@ def carries_no_signal(audio, floor: float = SIGNAL_FLOOR) -> bool:
     return float(np.abs(audio).max()) < floor
 
 
-def holds_no_speech(audio, sample_rate: int = 16000) -> bool | None:
+def holds_no_speech(
+    audio, sample_rate: int = 16000, *, threshold: float | None = None
+) -> bool | None:
     """True when a speech detector finds no speech anywhere. None when unavailable.
 
     The companion to :func:`carries_no_signal`, and the case that one deliberately
@@ -136,6 +138,10 @@ def holds_no_speech(audio, sample_rate: int = 16000) -> bool | None:
     worse ("There were the only persons" -> "that were the only persons"). Real
     speech must decode exactly as it does today; only the *warning* changes.
 
+    ``threshold`` is Silero's speech-probability cut; ``None`` keeps the library default
+    (0.5), which is what file transcription and ``verify`` have always used. A lower
+    value finds speech more readily (see :mod:`yazses.audio.speech_presence`).
+
     Returns ``None`` when the detector cannot run, so the caller keeps today's
     behaviour rather than inventing a verdict. Costs ~0.06 s on a 19 s file and
     ~14 s on an hour -- a rounding error against decoding the same hour.
@@ -150,6 +156,7 @@ def holds_no_speech(audio, sample_rate: int = 16000) -> bool | None:
     try:
         from faster_whisper.vad import VadOptions, get_speech_timestamps
 
-        return not get_speech_timestamps(audio, VadOptions())
+        options = VadOptions() if threshold is None else VadOptions(threshold=threshold)
+        return not get_speech_timestamps(audio, options)
     except Exception:  # pragma: no cover - depends on the installed faster-whisper
         return None

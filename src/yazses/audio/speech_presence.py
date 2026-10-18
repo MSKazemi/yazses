@@ -32,10 +32,29 @@ from typing import Any
 Detector = Callable[[Any, int], "bool | None"]
 
 
+#: Silero's speech-probability cut for this gate. The library default is 0.5; this is lower
+#: on purpose, because here a false "no speech" costs words someone said while a false
+#: "speech" costs only today's behaviour. Measured 2026-10-18 on the public-domain JFK
+#: sample cut into 22 single-word bursts (0.15 s either side, as a press and release
+#: leaves them) and on 27 seeded noise bursts (white, brown, hum; 0.5-3 s; level 0.012-0.08):
+#:
+#:     threshold   voiced words dropped   whisper-proxy words dropped   noise passed as speech
+#:               (normal / 10% volume)        (normal volume)
+#:     0.5            0 / 2 of 22                  9 of 22                    0 of 27
+#:     0.3            0 / 0 of 22                  3 of 22                    0 of 27
+#:     0.2            0 / 0 of 22                  2 of 22                    1 of 27
+#:     0.1            0 / 0 of 22                  0 of 22                    5 of 27
+#:
+#: 0.3 is the knee: nothing voiced is lost and no noise gets through. The "whisper proxy" is
+#: the same sample resynthesised with random phase (voicing destroyed, envelope kept): a
+#: crude stand-in, not whispered speech, and it is why whisper users are exempt by mode.
+SPEECH_THRESHOLD = 0.3
+
+
 def _default_detector(audio: Any, sample_rate: int) -> bool | None:
     from yazses.recimport.audio_io import holds_no_speech
 
-    return holds_no_speech(audio, sample_rate)
+    return holds_no_speech(audio, sample_rate, threshold=SPEECH_THRESHOLD)
 
 
 def speech_check_applies(

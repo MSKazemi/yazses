@@ -16,12 +16,16 @@ model's own `no_speech_prob` for those segments ran 0.43 to 0.97 against 0.02 to
 too close to cut on. The energy gate cannot tell: those levels clear it. The daemon now asks the speech detector that
 `yazses verify` and file transcription already use (Silero, bundled with faster-whisper) before decoding, and discards a
 burst it positively finds no speech in (`discard_reason = "no_speech"`; the log line carries the length and level, never
-audio or text). On the same noise it found speech in 1 of 48 bursts; on the speech sample it found it in every case
-tried, down to 2% volume and a 0.3 s snippet. The rule is about the audio, not the sentence, so saying the sentence still
-types it. It fails open (a detector that cannot run decodes as before) and is skipped in Whisper / Low-Effort mode,
-Dysfluency-Friendly mode and the sotto-voce command channel. New key `[accessibility] speech_presence_check`, default
-`true`. Not measured: real quiet, whispered, accented or dysarthric speech, which is why the key exists. Streaming
-partials are not covered by this check.
+audio or text). Silero is asked at a threshold of 0.3 rather than its default 0.5, because here a false "no speech" costs
+words someone said. Measured on the public-domain JFK sample cut into 22 single-word bursts with a press-and-release margin,
+and on 27 seeded noise bursts: no voiced word was dropped, at normal or one-tenth volume, and no noise got through (at 0.5
+two quiet words were lost). A crude whisper stand-in (the same sample resynthesised with random phase) lost 3 of 22 words at
+normal volume and about half at one-tenth volume, so whispering is the weak spot. The rule is about the audio, not the
+sentence, so saying the sentence still types it. It fails open (a detector that cannot run decodes as before) and is skipped
+in Whisper / Low-Effort mode, Dysfluency-Friendly mode and the sotto-voce command channel. New key
+`[accessibility] speech_presence_check`, default `true`: set it to `false` if quiet or whispered speech is being discarded.
+Streaming mode never carries the prompt (its decodes are promptless), so it cannot echo it; a no-speech burst there takes back
+any partial already typed. Not measured: real whispered, accented or dysarthric speech.
 
 ### Fixed — the tray supervisor's log line now says what the tray lock looked like
 

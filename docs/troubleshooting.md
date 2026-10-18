@@ -290,7 +290,8 @@ the model answers such a burst with the words it was primed with: the built-in n
 vocabulary came back as the sentence **"The app is called YazSes."** in every no-speech
 test run with the real model. The log line carries numbers only, never audio or text. The
 check is skipped in Whisper / Low-Effort mode, Dysfluency-Friendly mode and the sotto-voce
-command channel, and does nothing when the detector cannot run. If quiet speech is being
+command channel, and does nothing when the detector cannot run. Whispering is the weak spot: in a test with a crude whisper stand-in about one word in seven
+was judged to hold no speech at normal volume. If quiet or whispered speech is being
 discarded as "no speech", set `[accessibility] speech_presence_check = false`.
 
 Raising the gate too far has the opposite failure and it is the visible one: quiet speech is

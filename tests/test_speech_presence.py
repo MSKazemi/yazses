@@ -241,3 +241,144 @@ def test_the_real_detector_keeps_speech_even_when_it_is_quiet(monkeypatch, gain)
 def test_the_real_detector_keeps_a_short_snippet_of_speech(monkeypatch) -> None:
     monkeypatch.setattr(speech_presence, "_default_detector", _REAL_DETECTOR)
     assert holds_no_speech(_jfk()[16000 : int(1.8 * 16000)], 16000) is False
+
+
+# ---- every activation shares the one gate (#598) --------------------------------------
+
+
+def _daemon_methods() -> dict:
+    import ast
+    import inspect
+
+    import yazses.core.daemon as mod
+
+    tree = ast.parse(inspect.getsource(mod))
+    cls = next(n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == "Daemon")
+    return {fn.name: fn for fn in cls.body if isinstance(fn, ast.FunctionDef)}
+
+
+def _decoder_calls(fn) -> list[int]:
+    import ast
+
+    return sorted(
+        n.lineno
+        for n in ast.walk(fn)
+        if isinstance(n, ast.Call)
+        and isinstance(n.func, ast.Attribute)
+        and n.func.attr in {"transcribe", "transcribe_words", "commit"}
+        and "engine" in ast.dump(n.func.value)
+    )
+
+
+def test_the_gate_runs_before_the_first_decode_in_on_hold_end() -> None:
+    import ast
+
+    fn = _daemon_methods()["_on_hold_end"]
+    gate = [
+        n.lineno for n in ast.walk(fn)
+        if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == "holds_no_speech"
+    ]
+    assert gate, "_on_hold_end never asks whether the burst holds speech"
+    assert gate[0] < _decoder_calls(fn)[0], "the speech check must precede the decoder"
+
+
+def test_no_other_burst_reaches_the_decoder_around_the_gate() -> None:
+    """Hotkey, face gesture and the command key all end in ``_on_hold_end``, so one gate
+    covers them. A new method that decodes a recorded burst would bypass it: judge it."""
+    deciders = {name for name, fn in _daemon_methods().items() if _decoder_calls(fn)}
+    assert deciders == {"_on_hold_end", "_record_respeak", "_ask_human_listener"}, (
+        f"{sorted(deciders)}: a Daemon method that decodes audio is not behind the "
+        "speech-presence gate. Route it through _on_hold_end or apply the gate there "
+        "(the other two are the re-speak flow and the ask-a-human listener)."
+    )
+
+
+def test_a_no_speech_burst_in_streaming_mode_removes_the_partials_already_typed(
+    monkeypatch,
+) -> None:
+    """Streaming partials carry no prompt (``decode_window`` passes none), so they cannot
+    echo it, but they are typed live during the hold. The discard must take them back."""
+
+    class _StreamInjector:
+        def __init__(self):
+            self.cancelled = 0
+            self.committed = []
+
+        def cancel(self):
+            self.cancelled += 1
+
+        def commit(self, text):
+            self.committed.append(text)
+
+    class _StreamEngine:
+        def request_stop(self):
+            pass
+
+        def commit(self):
+            raise AssertionError("a no-speech burst must not be decoded")
+
+    d = _daemon(
+        monkeypatch, verdict=True,
+        configure=lambda cfg: setattr(cfg.streaming, "enabled", True),
+    )
+    d._stream_engine = _StreamEngine()
+    inj = _StreamInjector()
+    d._stream_injector = inj
+    d._on_hold_end()
+    assert inj.cancelled == 1 and inj.committed == []
+    assert d._injector.calls == []
+
+
+# ---- the real model, when one is already on this machine ------------------------------
+
+
+def _local_engine(monkeypatch):
+    """A real tiny.en engine from the local cache, or skip. Never downloads."""
+    pytest.importorskip("faster_whisper")
+    monkeypatch.setenv("HF_HUB_OFFLINE", "1")
+    from yazses.stt.faster_whisper import FasterWhisperEngine
+
+    try:
+        return FasterWhisperEngine("tiny.en")
+    except Exception as exc:  # noqa: BLE001 - no cached model on this machine
+        pytest.skip(f"tiny.en is not in the local cache: {type(exc).__name__}")
+
+
+@needs_faster_whisper
+def test_with_the_real_model_noise_types_nothing_and_speech_still_types(monkeypatch) -> None:
+    """The #598 acceptance case on a real decoder (skipped where no model is cached; the
+    suite never downloads one).
+
+    The ungated decode is checked first: if this machine's model does not echo the prompt
+    on this noise, there is nothing for the gate to prove and the test says so by skipping
+    rather than passing vacuously.
+    """
+    engine = _local_engine(monkeypatch)
+    noise = _noise("white", 3.0, 0.03, seed=5)
+    if "YazS" not in engine.transcribe(noise, 16000, initial_prompt=BUILTIN_PROMPT):
+        pytest.skip("this model did not echo the prompt on this noise; nothing to prove")
+
+    d = _daemon(monkeypatch, verdict="real", audio=noise)
+    d._engine = engine
+    d._on_hold_end()
+    assert d._injector.calls == []
+
+    d = _daemon(monkeypatch, verdict="real", audio=_jfk()[: 8 * 16000])
+    d._engine = engine
+    d._on_hold_end()
+    assert d._injector.calls and "Americans" in d._injector.calls[0]
+
+
+@needs_faster_whisper
+def test_a_quiet_one_word_burst_is_not_discarded_at_the_gates_threshold(monkeypatch) -> None:
+    """The threshold is lower than Silero's default so a short, quiet word is kept. The
+    word "my" of the JFK sample (0.15 s of lead either side, as a press and release
+    leaves it) at one tenth volume is judged to hold no speech by the library default
+    (0.5) and to hold speech at the gate's threshold; the first assertion is what makes
+    the second one mean something."""
+    from yazses.recimport.audio_io import holds_no_speech as library_default
+
+    word = _jfk()[int(0.71 * 16000) : int(1.35 * 16000)] * 0.1
+    assert library_default(word, 16000) is True, "the library default no longer drops it"
+    monkeypatch.setattr(speech_presence, "_default_detector", _REAL_DETECTOR)
+    assert holds_no_speech(word, 16000) is False
