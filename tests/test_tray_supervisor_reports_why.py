@@ -111,7 +111,7 @@ def test_the_captured_stderr_reaches_the_log_line(tmp_path) -> None:
     handle.close()
 
     reported = daemon._last_tray_error()
-    assert "it said:" in reported
+    assert "the previous tray said:" in reported
     assert "xcb" in reported
     # Indented under the log line rather than flush left, so a multi-line Qt failure
     # does not read as several separate daemon events.
@@ -146,3 +146,56 @@ def test_an_unwritable_location_falls_back_to_devnull(tmp_path) -> None:
     daemon = _Daemon(blocked / "sub")
     assert daemon._open_tray_stderr() is subprocess.DEVNULL
     assert daemon._last_tray_error() == ""
+
+
+# ---- what the lock looked like when the supervisor decided (#578) ----------
+
+
+def test_lock_state_names_each_case() -> None:
+    from yazses.tray.supervisor import lock_state
+
+    assert lock_state(False, None) == "missing"
+    assert lock_state(True, None) == "free"
+    assert lock_state(True, 4242) == "held by pid 4242"
+    assert lock_state(True, -1) == "held, holder unknown"
+
+
+def test_the_relaunch_line_states_the_lock_not_just_the_stale_stderr(
+    tmp_path, caplog, monkeypatch
+) -> None:
+    """Drive the real loop once with no tray.lock: the line must say so."""
+    import logging
+
+    import yazses.core.daemon as mod
+    from yazses.core.daemon import Daemon
+
+    class _OneTick:
+        """Let one interval pass, then stop the loop."""
+
+        def __init__(self) -> None:
+            self.ticks = 0
+
+        def wait(self, _timeout) -> bool:
+            self.ticks += 1
+            return self.ticks > 1
+
+    daemon = _Daemon(tmp_path)
+    daemon._stop_event = _OneTick()
+    # The previous tray's stderr, as in the report.
+    handle = daemon._open_tray_stderr()
+    handle.write("A YazSes tray is already running; exiting.\n")
+    handle.close()
+
+    launched = []
+    monkeypatch.setattr(
+        mod.subprocess, "Popen",
+        lambda *a, **k: launched.append(a) or type("Proc", (), {"pid": 7})(),
+    )
+
+    with caplog.at_level(logging.INFO, logger="yazses.core.daemon"):
+        Daemon._supervise_tray(daemon)  # type: ignore[arg-type]
+
+    line = next(r.getMessage() for r in caplog.records if "tray is not running" in r.getMessage())
+    assert "(tray.lock: missing)" in line
+    assert "the previous tray said:" in line
+    assert launched, "the tray should still have been relaunched"

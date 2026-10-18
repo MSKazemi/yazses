@@ -6,6 +6,15 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the tray supervisor's log line now says what the tray lock looked like
+
+"Tray supervisor: tray is not running — relaunching" was printed beside the *previous* tray's saved stderr, introduced
+as "it said:". A macOS report (#578) read the stderr from three days earlier ("A YazSes tray is already running; exiting")
+as the reason for the new decision and could not tell whether the supervisor had called a held lock "not running". The
+line now ends "(tray.lock: missing | free | held by pid N | held, holder unknown)" and the stderr is introduced as
+"the previous tray said:". No behaviour changed. `LevelStats.recommended_threshold` is documented as the discredited
+single-clip number, not a calibration.
+
 ### Fixed — binding "eyes closed" in the Hands-free panel no longer dictates on every blink
 
 The face switch counts a gesture after `[facegesture] min_hold_frames` frames, 3 by default: 0.2 s at the default

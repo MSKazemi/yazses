@@ -787,19 +787,18 @@ class Daemon:
         if not summary:
             return ""
         indented = summary.replace("\n", "\n    ")
-        return f"\n  it said:\n    {indented}"
+        return f"\n  the previous tray said:\n    {indented}"
 
     def _supervise_tray(self) -> None:
         from yazses.system.single_instance import holder_pid
-        from yazses.tray.supervisor import DEFAULT_INTERVAL_S, decide
+        from yazses.tray.supervisor import DEFAULT_INTERVAL_S, decide, lock_state
 
         lock = self._platform.paths.data_dir / "tray.lock"
         relaunches = 0
         while not self._stop_event.wait(DEFAULT_INTERVAL_S):
             try:
-                decision = decide(
-                    alive=holder_pid(lock) is not None, relaunches_so_far=relaunches
-                )
+                holder = holder_pid(lock)
+                decision = decide(alive=holder is not None, relaunches_so_far=relaunches)
                 if decision.give_up:
                     # Say why, not just that. The reason text tells the user to run
                     # `yazses tray` to see the error -- advice that only ever existed
@@ -811,7 +810,10 @@ class Daemon:
                 if not decision.relaunch:
                     continue
                 log.info(
-                    "Tray supervisor: %s%s", decision.reason, self._last_tray_error()
+                    "Tray supervisor: %s (tray.lock: %s)%s",
+                    decision.reason,
+                    lock_state(lock.exists(), holder),
+                    self._last_tray_error(),
                 )
                 proc = subprocess.Popen(
                     command_for(Mode.TRAY),
