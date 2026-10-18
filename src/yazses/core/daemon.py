@@ -50,6 +50,7 @@ from yazses.audio.device_monitor import DeviceMonitor, SilentStreakTracker, capt
 from yazses.audio.mic_prompt import MicPrompt
 from yazses.audio.padding import PreSpeechRingBuffer
 from yazses.audio.recorder import AudioRecorder
+from yazses.audio.speech_presence import holds_no_speech, speech_check_applies
 from yazses.audio.vad_calibrated import is_silent_calibrated
 from yazses.cmdsafety.classify import ConfirmGate
 from yazses.commands.dispatch import dispatch as cmd_dispatch
@@ -2557,6 +2558,30 @@ class Daemon:
             if padded.size == 0:
                 event["discard_reason"] = "cocktail_gated"
                 log.info("Cocktail Filter gated out all audio (no target speaker).")
+                if stream_injector is not None:
+                    stream_injector.cancel()
+                return
+
+            # Speech-presence check (#598). Cleared the energy gate, but is any of it speech?
+            # Whisper answers a burst of fan noise with the words it was primed with, and
+            # those would be typed. Fails open; exempt in the modes built for voices a
+            # general detector under-hears. Metrics only in the log, never audio or text.
+            wm_cfg = self._config.whispermode
+            if speech_check_applies(
+                enabled=acc.speech_presence_check,
+                whisper_mode=acc.vad_threshold != self._config.accessibility.vad_threshold,
+                dysfluency_friendly=acc.dysfluency_friendly,
+                sotto_voce=wm_cfg.enabled and wm_cfg.command_channel,
+            ) and holds_no_speech(padded, sample_rate):
+                event["discard_reason"] = "no_speech"
+                log.info(
+                    "No speech in a %.1fs burst (level %.4f cleared vad_threshold %.4f, "
+                    "but the speech detector found none) -- discarding.",
+                    padded.size / sample_rate,
+                    float(np.abs(padded).mean()),
+                    acc.vad_threshold,
+                )
+                self._earcon.play("error")
                 if stream_injector is not None:
                     stream_injector.cancel()
                 return

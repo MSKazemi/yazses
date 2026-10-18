@@ -105,6 +105,7 @@ CAPTURE_DOUBTING_DISCARDS = frozenset({
     "silent",           # mean(|audio|) below the gate — nothing usable arrived
     "empty",            # audio decoded to no words at all
     "cocktail_gated",   # dropped before any decode; there is no transcript to trust
+    "no_speech",        # loud enough, but a speech detector found none; dropped before decode
     "hallucination",    # words fabricated from non-speech — evidence *against* the audio
     "post_filter",      # the transcript was disfluency only; same doubt as above
 })

@@ -282,6 +282,17 @@ only reliable way to stop it inventing. `Speech` is the one that fires when room
 clears the gate: it runs a speech detector on what was actually recorded, so a quiet room
 is named as a quiet room rather than transcribed into a confident word.
 
+After v2.43.1 the daemon also asks a speech detector about every burst that clears the gate,
+before it is decoded. A burst that is loud but holds no speech (a fan, a chair, the hotkey
+itself) is discarded with a line like `No speech in a 1.2s burst (level 0.0300 cleared
+vad_threshold 0.0100, but the speech detector found none) -- discarding.` Without that,
+the model answers such a burst with the words it was primed with: the built-in name
+vocabulary came back as the sentence **"The app is called YazSes."** in every no-speech
+test run with the real model. The log line carries numbers only, never audio or text. The
+check is skipped in Whisper / Low-Effort mode, Dysfluency-Friendly mode and the sotto-voce
+command channel, and does nothing when the detector cannot run. If quiet speech is being
+discarded as "no speech", set `[accessibility] speech_presence_check = false`.
+
 Raising the gate too far has the opposite failure and it is the visible one: quiet speech is
 dropped with `Silent audio -- discarding` in `yazses logs`. That is why the automatic tuner
 only ever lowers the gate — a mic that hears too little tells you so, and a mic that hears

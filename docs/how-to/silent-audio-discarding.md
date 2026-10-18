@@ -197,6 +197,30 @@ capture again without telling you.
     silent discards, so a microphone that heard you but yielded nothing was invisible
     to the thing built to notice.
 
+## Step 6 — "No speech in a … burst", a third kind of discard
+
+```
+No speech in a 1.2s burst (level 0.0300 cleared vad_threshold 0.0100, but the speech detector found none) -- discarding.
+```
+
+This one is the opposite of "Silent audio": the burst was loud enough to clear the gate, and
+a speech detector (Silero, bundled with the transcription engine; nothing is downloaded)
+found no speech in it. It is a fan, a chair, a bump of the desk, or the hotkey itself. The
+burst is dropped before transcription, because a speech model given such a burst does not
+return nothing: it returns the words it was primed with, and those are typed (#598). The
+log records the length and level only, never audio or text.
+
+Nothing to fix if you were not speaking. If you *were*, and quiet speech is being dropped
+this way, switch the check off and tell us which microphone it was:
+
+```toml
+[accessibility]
+speech_presence_check = false
+```
+
+It is already skipped in Whisper / Low-Effort mode, Dysfluency-Friendly mode and the
+sotto-voce command channel, and it does nothing when the detector cannot run.
+
 ## What "fixed" looks like
 
 ```bash

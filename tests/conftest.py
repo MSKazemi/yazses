@@ -39,6 +39,31 @@ def _no_test_may_write_the_real_portal_token(monkeypatch, tmp_path_factory):
 
 
 @pytest.fixture(autouse=True)
+def _fake_audio_is_not_judged_for_speech():
+    """Tests that push synthetic audio through `_on_hold_end` are not about speech.
+
+    The speech-presence gate (`audio/speech_presence.py`, #598) asks a real detector
+    whether a burst holds speech, and a constant 0.5 or a seeded ramp is not speech, so
+    some fifty pipeline tests -- written to test what happens *after* a burst is
+    accepted -- would be discarded before reaching the code they exist for. Making the
+    default detector decline ("cannot tell") is exactly the production fail-open path.
+    The gate's own tests (`test_speech_presence*.py`) inject a detector or restore the
+    real one explicitly, so it is still tested; it just is not a hidden precondition of
+    every other file.
+
+    Deliberately not built on the ``monkeypatch`` fixture: requesting it here would
+    instantiate it before `_no_test_may_leak_the_injector_env`, so its teardown would run
+    *after* that guard's and the guard would see every test's own ``setenv`` as a leak.
+    """
+    from yazses.audio import speech_presence
+
+    original = speech_presence._default_detector
+    speech_presence._default_detector = lambda _audio, _sr: None
+    yield
+    speech_presence._default_detector = original
+
+
+@pytest.fixture(autouse=True)
 def _no_test_may_pop_a_toast_on_the_users_desktop(monkeypatch):
     """A test must not reach the real `notify-send`.
 

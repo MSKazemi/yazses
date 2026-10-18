@@ -6,6 +6,23 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — a loud burst with no speech in it no longer types "The app is called YazSes." (#598)
+
+Given a burst of fan noise, Whisper does not return nothing: it returns the words it was primed with. Reproduced with the
+real `small` model on synthetic audio only (seeded white, brown and low-frequency noise and clicks, 0.5 to 3 s, mean level
+0.01 to 0.03): the built-in vocabulary prompt came back as the transcript, whole or in fragments ("The app is called
+YazS."), and so did a personal vocabulary ("Ydotool, ydotool, Mohsen, Wayland."), on `small`, `base.en` and `tiny.en`. The
+model's own `no_speech_prob` for those segments ran 0.43 to 0.97 against 0.02 to 0.27 for a public-domain speech sample,
+too close to cut on. The energy gate cannot tell: those levels clear it. The daemon now asks the speech detector that
+`yazses verify` and file transcription already use (Silero, bundled with faster-whisper) before decoding, and discards a
+burst it positively finds no speech in (`discard_reason = "no_speech"`; the log line carries the length and level, never
+audio or text). On the same noise it found speech in 1 of 48 bursts; on the speech sample it found it in every case
+tried, down to 2% volume and a 0.3 s snippet. The rule is about the audio, not the sentence, so saying the sentence still
+types it. It fails open (a detector that cannot run decodes as before) and is skipped in Whisper / Low-Effort mode,
+Dysfluency-Friendly mode and the sotto-voce command channel. New key `[accessibility] speech_presence_check`, default
+`true`. Not measured: real quiet, whispered, accented or dysarthric speech, which is why the key exists. Streaming
+partials are not covered by this check.
+
 ### Fixed — the tray supervisor's log line now says what the tray lock looked like
 
 "Tray supervisor: tray is not running — relaunching" was printed beside the *previous* tray's saved stderr, introduced

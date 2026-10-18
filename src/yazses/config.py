@@ -395,6 +395,14 @@ class AccessibilityConfig:
     pre_speech_padding_ms: int = 300
     vad_source: str = "default"
     vad_threshold: float = 0.01
+    # Before decoding a burst that cleared `vad_threshold`, ask a speech detector (Silero,
+    # bundled with faster-whisper) whether there is any speech in it, and discard the burst
+    # if there is none. Loudness cannot tell a talker from a fan, and Whisper answers a
+    # burst of fan with the words it was primed with (#598: "The app is called YazSes.").
+    # Fails open: a detector that cannot run decodes as before. Skipped in Whisper /
+    # Low-Effort mode, Dysfluency-Friendly mode and the sotto-voce command channel. Set
+    # false if quiet speech is being discarded as "no speech".
+    speech_presence_check: bool = True
     # v0.8.0 — Dysfluency-Friendly Mode master preset (ADR-015): enables the
     # disfluency collapse pass and widens onset padding. Off by default.
     dysfluency_friendly: bool = False
