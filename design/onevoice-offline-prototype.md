@@ -86,3 +86,43 @@ The parser intentionally does not interpret a command that appears inside the pa
 6. **Human accessibility and evaluation study:** voice-only cancel/confirm, false routing, target correctness, time/interaction effort, wrong-target side effects and cost-weighted errors measured against baseline.
 
 **Release gate:** production wiring requires maintainer-reviewed architecture and platform-specific tests. Do not merge this experiment expecting a working universal voice interface, and do not mark it `agent-ready` for automatic execution.
+
+
+## Experimental X11 read-only feasibility probe (stacked follow-up)
+
+**Status:** separate experiment on top of the fake-editor prototype. It is not the live two-editor insertion milestone, and **does not resolve** ADR-025 / ADR-022 or #600.
+
+The follow-up module \`src/yazses/onevoice/x11_probe.py\` reads basic **X11 window identity only** for two window IDs the participant explicitly selects. It never enumerates an app's documents, reads field contents, changes focus, types, presses Enter, records audio, connects to a network, or launches a coding agent. The capability is deliberately limited:
+
+| Signal | What the probe can conclude |
+|---|---|
+| Explicit X11 window ID | A known numeric window identifier was requested |
+| X11-reported PID and WM_CLASS | The window reports consistent metadata at probe time |
+| Repeat PID check | Some changes during observation can be detected |
+| Optional repeat inspection | A prior window-ID/PID/class tuple still matches or is stale |
+| Editable field, document, browser tab, account | **Unknown — not inspected; insertion forbidden** |
+
+Window ID + PID + WM_CLASS does **not** reliably identify or authorize a text field. X11 metadata can be absent, stale or spoofed; even an unchanged window can have a different active editor. This experiment therefore always returns \`field_verified=False\` and has no action/execution method. It does not bridge the earlier \`FakeEditor\` router to real windows.
+
+### Local human feasibility check (only on a Linux X11 session)
+
+1. Open two unrelated editors with synthetic, non-sensitive documents.
+2. Obtain each editor's numeric X11 window ID using the system's own window-inspection tool (for example \`xwininfo\` with an explicit manual selection; do not paste actual document text or window titles into an issue).
+3. If \`xdotool\` is installed, run the **read-only** probe:
+
+\`\`\`sh
+uv run python -m yazses.onevoice.x11_probe --window-a 0x00123456 --window-b 0x00234567
+uv run python -m pytest tests/test_onevoice_x11_probe.py -q
+\`\`\`
+
+The hexadecimal IDs above are **placeholders**; substitute two different IDs you selected. The commands have no network requirement. If either window cannot be identified, or when invoked on Wayland, they report an unavailable/unsupported status rather than guessing. A successful probe prints \`window_observed_field_unverified\` for A and B, followed by \`routing_and_insertion_not_authorized\`. Success only means two **window records** were observed, not that text could be delivered.
+
+For privacy, the CLI intentionally prints neither window titles, process IDs, WM_CLASS strings, document contents, nor transcripts. Collect just each result state and locally observed platform/app class for the planned #600 human study. Do not upload screenshots, usernames, real IDs from private windows, or raw process listings. The prototype remains inert when not invoked.
+
+### Verification and next unanswered question
+
+- The follow-up probe has **35 local unit-test cases passing** using a synthetic command runner. Local bytecode compilation passed. Full upstream GitHub CI and real X11/AT-SPI field targeting are separate gates.
+- Tests refuse unknown sessions, duplicate/invalid window IDs, absent \`xdotool\`, failures, PID changes, stale metadata and incomplete windows. They also assert that only property-read \`xdotool\` commands are issued.
+- The next task is **semantic-field binding**, not pressing keys: inspect permissioned accessibility metadata and prove the exact editable role/field identity survives app focus changes. Reuse the existing \`grounding/contracts.py\` and related ADR-v2-151 work; do not invent another target vocabulary. Human platform measurements are required under #444 and #600.
+
+**Shipping prohibition:** Never promote this window-only probe into a \`draft_insert\` adapter: it cannot verify an exact editor field, so it is insufficient to prevent wrong-target insertion.
