@@ -33,14 +33,25 @@ class WindowIdentity:
     process_id: int
     wm_class: str
 
+    def __post_init__(self) -> None:
+        if not (0 < self.window_id <= 0xFFFFFFFF):
+            raise ValueError("invalid X11 window ID")
+        if self.process_id <= 0 or not self.wm_class.strip():
+            raise ValueError("incomplete window identity")
+
 
 @dataclass(frozen=True)
 class ProbeResult:
     status: ProbeStatus
     identity: WindowIdentity | None = None
-    # Intentionally ALWAYS false until a separately reviewed semantic-field probe
-    # can prove exact editor identity; an observed X11 window is not an editor.
-    field_verified: bool = False
+    def __post_init__(self) -> None:
+        if (self.status is ProbeStatus.OBSERVED) != (self.identity is not None):
+            raise ValueError("observed result requires identity; refusals have none")
+
+    @property
+    def field_verified(self) -> bool:
+        """Hard-coded to false: X11 window metadata proves no editable field."""
+        return False
 
 
 def parse_window_id(raw: str) -> int | None:
@@ -66,7 +77,7 @@ def parse_window_id(raw: str) -> int | None:
 def _read(
     command: list[str],
     *,
-    runner: Callable[..., subprocess.CompletedProcess[str]],
+    runner: Callable[..., subprocess.CompletedProcess],
 ) -> str | None:
     """Read an xdotool property and drop stderr to avoid leaking UI contents."""
     try:
@@ -84,7 +95,7 @@ def probe_window(
     *,
     env: Mapping[str, str] | None = None,
     which: Callable[[str], str | None] = shutil.which,
-    runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
+    runner: Callable[..., subprocess.CompletedProcess] = subprocess.run,
 ) -> ProbeResult:
     """Read only one *explicit* X11 window ID; don't enumerate/activate windows.
 
@@ -125,7 +136,7 @@ def revalidate_pin(
     *,
     env: Mapping[str, str] | None = None,
     which: Callable[[str], str | None] = shutil.which,
-    runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
+    runner: Callable[..., subprocess.CompletedProcess] = subprocess.run,
 ) -> ProbeResult:
     """Return stale if observable identity changed; NEVER certify an editor field."""
     observed = probe_window(
