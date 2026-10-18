@@ -121,7 +121,7 @@ For privacy, the CLI intentionally prints neither window titles, process IDs, WM
 
 ### Verification and next unanswered question
 
-- The follow-up probe has **35 local unit-test cases passing** using a synthetic command runner. Local bytecode compilation passed. Full upstream GitHub CI and real X11/AT-SPI field targeting are separate gates.
+- The follow-up probe has **43 local unit-test cases passing** using a synthetic command runner. Local bytecode compilation passed. Full upstream GitHub CI and real X11/AT-SPI field targeting are separate gates.
 - Tests refuse unknown sessions, duplicate/invalid window IDs, absent `xdotool`, failures, PID changes, stale metadata and incomplete windows. They also assert that only property-read `xdotool` commands are issued.
 - The next task is **semantic-field binding**, not pressing keys: inspect permissioned accessibility metadata and prove the exact editable role/field identity survives app focus changes. Reuse the existing `grounding/contracts.py` and related ADR-v2-151 work; do not invent another target vocabulary. Human platform measurements are required under #444 and #600.
 
