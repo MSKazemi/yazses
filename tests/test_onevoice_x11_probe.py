@@ -161,7 +161,8 @@ def test_cli_invalid_or_duplicate_id_abstains(capsys):
 
 def test_cli_does_not_print_private_pid_or_wm_class(monkeypatch, capsys):
     def stub(wid):
-        return p.ProbeResult(p.ProbeStatus.OBSERVED, p.WindowIdentity(int(wid), 9001, "PrivateEditor"))
+        identity = p.WindowIdentity(int(wid), 9001, "PrivateEditor")
+        return p.ProbeResult(p.ProbeStatus.OBSERVED, identity)
 
     monkeypatch.setattr(p, "probe_window", stub)
     assert p.main(["--window-a", "41", "--window-b", "42"]) == 0
@@ -182,3 +183,31 @@ def test_cli_failure_status_stays_accurate(monkeypatch, capsys):
     out = capsys.readouterr().out
     assert "window_identity_unavailable" in out
     assert "two_windows_observed" not in out
+
+def test_no_caller_can_mark_x11_window_as_verified_field():
+    identity = p.WindowIdentity(41, 9001, "Editor")
+    result = p.ProbeResult(p.ProbeStatus.OBSERVED, identity)
+    assert result.field_verified is False
+    with pytest.raises((AttributeError, TypeError)):
+        result.field_verified = True
+    with pytest.raises(TypeError):
+        p.ProbeResult(p.ProbeStatus.OBSERVED, identity, True)
+
+
+@pytest.mark.parametrize("status", [p.ProbeStatus.UNAVAILABLE, p.ProbeStatus.STALE_PIN])
+def test_refusal_cannot_carry_stale_identity(status):
+    with pytest.raises(ValueError):
+        p.ProbeResult(status, p.WindowIdentity(41, 9001, "Editor"))
+
+
+def test_observed_result_requires_actual_window_metadata():
+    with pytest.raises(ValueError):
+        p.ProbeResult(p.ProbeStatus.OBSERVED)
+
+
+@pytest.mark.parametrize("window_id,pid,wm_class", [
+    (0, 100, "App"), (41, 0, "App"), (41, 10, ""), (41, 10, "  "),
+])
+def test_invalid_window_identity_cannot_be_constructed(window_id, pid, wm_class):
+    with pytest.raises(ValueError):
+        p.WindowIdentity(window_id, pid, wm_class)
