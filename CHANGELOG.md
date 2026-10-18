@@ -15,6 +15,15 @@ line now ends "(tray.lock: missing | free | held by pid N | held, holder unknown
 "the previous tray said:". No behaviour changed. `LevelStats.recommended_threshold` is documented as the discredited
 single-clip number, not a calibration.
 
+### Changed — looking away no longer leaves eyes-closed dictation switched off
+
+With `[handsfree_safety]` on, the face switch was disarmed every time the face left the camera for more
+than half a second (a glance at the keyboard) and stayed off until **Resume**; in the first live run that
+happened eight times in three minutes. A face switch whose every binding is a hold (hold to dictate / to
+command) now re-arms itself once the face has been back, unbroken, for one second. Pause, a camera fault,
+shutdown and the first start after launch still need an explicit Resume, and a face switch bound to
+select, confirm, cancel or pause keeps the old rule. ADR-v2-148 is amended accordingly.
+
 ### Fixed — a stray hold-release typed the previous dictation again
 
 Found in the first live eyes-closed run: one deliberate closure was dictated and typed, then two further

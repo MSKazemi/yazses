@@ -126,7 +126,8 @@ The preset's dictation switch is jaw-open. To use a deliberate eye closure inste
 6. Tray icon → **Settings…** → **Hands-free controls…** → **Resume hands-free input**. With the global stop on,
    every camera input starts paused after each start of YazSes and only an explicit Resume arms it — once the
    camera has delivered its first frame. The tray menu has no hands-free item; `yazses handsfree resume` does the
-   same from a terminal.
+   same from a terminal. After that, looking away is fine: a switch bound only to dictation re-arms by itself
+   about a second after your face is back in view. **Pause** stays paused until you press Resume.
 
 Then click into a text box, close your eyes for about a second, speak, and open them: the words are typed when
 your eyes open. **Pause hands-free input** in the same window (or `yazses handsfree pause`) stops it. Test it

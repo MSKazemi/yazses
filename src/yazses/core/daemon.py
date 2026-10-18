@@ -1714,6 +1714,17 @@ class Daemon:
                 on_freeze=self._switch_freeze,
                 perception=lease, failure_reason=failure_reason,
             )
+            if safety is not None:
+                from yazses.facegesture.switches import (
+                    REARM_AFTER_MS,
+                    SAFETY_SOURCE,
+                    rearms_on_face_return,
+                )
+
+                if rearms_on_face_return(source.bound_actions):
+                    # Hold-only: looking away and back must not leave dictation disarmed
+                    # (ADR-v2-148 amendment, handsfree/safety.py). Pause still needs Resume.
+                    safety.allow_auto_rearm(SAFETY_SOURCE, REARM_AFTER_MS)
             self._switch_bound = frozenset(source.bound_actions)
             self._face_on_shared_source = lease is not None
         except Exception:

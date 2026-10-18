@@ -70,6 +70,22 @@ ACTIONS: tuple[str, ...] = (
 #: Actions that stay open while the gesture does: a press starts them, a release ends them.
 HOLD_ACTIONS: frozenset[str] = frozenset({"hold_to_talk", "hold_to_command"})
 
+#: How long the face must be back, unbroken, before a hold-only face switch re-arms itself after
+#: the global stop disarmed it for a stale signal (looking away). PROVISIONAL and unmeasured:
+#: long enough that a face flickering in and out of view does not re-arm, short enough that
+#: looking back at the screen and closing the eyes works without pressing Resume.
+REARM_AFTER_MS = 1000.0
+
+
+def rearms_on_face_return(actions: frozenset[str] | set[str]) -> bool:
+    """May a face switch bound to ``actions`` re-arm itself when the face comes back? Pure.
+
+    Only if every binding is a hold: the worst a hold can do is open the microphone while the
+    gesture is held, and a lost face already forces it closed. A click, confirm or pause
+    binding acts on the world in one frame, so it keeps the explicit-Resume rule.
+    """
+    return bool(actions) and set(actions) <= HOLD_ACTIONS
+
 #: Actions whose expression the pointer should hold still for (ADR-v2-147, "Interaction with
 #: Head-Pointer"): the facial effort of a commit gesture can move the head, and with it the
 #: target. A hold-to-talk is not a commit.

@@ -24,6 +24,15 @@ ever replayed (R-06, R-24). And it never recovers silently: a source that falls 
 disarmed, and only an explicit :meth:`resume` re-arms it, so a camera that flickers back cannot
 resume driving a cursor without the user asking for it.
 
+**One opt-in exception, per source** (:meth:`allow_auto_rearm`, ADR-v2-148 amendment of
+2026-10-18). A face switch whose every binding is a *hold* (hold to dictate / to command) loses
+the face each time its user looks at the keyboard, and was left disarmed after every glance --
+eyes-closed dictation stopped working within minutes of the first live run. Such a source may
+re-arm itself after a continuous run of fresh samples, *only* from a staleness disarm: a user
+:meth:`pause`, a reported :meth:`fault` and :meth:`shutdown` all still wait for :meth:`resume`.
+It cannot replay anything (a hold still needs the gesture made anew, and the re-arm bumps the
+epoch), and a lost face already forces the hold closed. Pointer and click sources never opt in.
+
 **Containment.** Arming is per source. A stale face switch stops the face switch; it does not
 stop the Head-Pointer, and neither stops speech. That is ADR-v2-148's recovery hierarchy —
 "losing face tracking should not disable speech" — and it is why :class:`SafetyStatus` reports a
@@ -174,6 +183,11 @@ class _Source:
     fault: str = ""
     epoch: int = 0
     seen_epoch: int = -1
+    #: Disarmed by the watchdog alone (no pause, fault or shutdown since): the only kind of
+    #: disarm :meth:`HandsFreeSafety.allow_auto_rearm` may undo.
+    stale_disarmed: bool = False
+    #: Start of the current unbroken run of fresh samples while ``stale_disarmed``.
+    fresh_since_ms: float | None = None
 
 
 def monotonic_ms() -> float:
@@ -221,6 +235,7 @@ class HandsFreeSafety:
         self._pause_reason = ""
         self._terminal = False
         self._epoch = 0
+        self._auto_rearm: dict[str, float] = {}
         for name in sources:
             self._sources.setdefault(name, _Source(name))
 
@@ -246,14 +261,41 @@ class HandsFreeSafety:
                 # make every later age NaN, and NaN compares False against any window: a dead
                 # camera would read as fresh for ever. Ignoring it lets the source age out.
                 return
-            if entry.armed and self._is_stale(entry, now):
+            gap = self._is_stale(entry, now)
+            if entry.armed and gap:
                 # The signal was gone for longer than the window *before* this sample arrived.
                 # Nobody may have asked the gate in the meantime (the face switch only asks on
                 # a press; a suspended laptop asks nothing), so the lapse has to be judged
                 # here, against the moment the new sample was taken. Recording the sample
                 # first would erase the gap and let a returning camera silently resume.
-                self._suppress(entry)
+                self._suppress(entry, stale=True)
             entry.last_sample_ms = now
+            self._maybe_rearm_locked(entry, now, gap)
+
+    def allow_auto_rearm(self, source: str, after_ms: float) -> None:
+        """Let ``source`` re-arm itself after ``after_ms`` of unbroken fresh signal following a
+        *staleness* disarm. Opt-in per source; see the module docstring for who may use it."""
+        with self._lock:
+            self._sources.setdefault(source, _Source(source))
+            self._auto_rearm[source] = max(0.0, float(after_ms))
+
+    def _maybe_rearm_locked(self, entry: _Source, now: float, gap: bool) -> None:
+        after = self._auto_rearm.get(entry.name)
+        if after is None or entry.armed or not entry.stale_disarmed:
+            return
+        if self._globally_suppressed() or entry.fault:
+            entry.stale_disarmed = False  # a pause or fault took over: recovery is explicit again
+            entry.fresh_since_ms = None
+            return
+        if gap or entry.fresh_since_ms is None:
+            entry.fresh_since_ms = now  # the run of fresh samples (re)starts here
+            return
+        if now - entry.fresh_since_ms >= after:
+            entry.armed = True
+            entry.stale_disarmed = False
+            entry.fresh_since_ms = None
+            entry.epoch += 1
+            self._epoch += 1
 
     def fault(self, source: str, reason: str) -> None:
         """Report a source/backend fault (permission denied, backend closed, model missing).
@@ -333,6 +375,8 @@ class HandsFreeSafety:
                     refused.append(name)
                     continue
                 entry.armed = True
+                entry.stale_disarmed = False
+                entry.fresh_since_ms = None
                 entry.epoch += 1
                 self._epoch += 1
                 armed.append(name)
@@ -386,12 +430,20 @@ class HandsFreeSafety:
 
     # ---------------------------------------------------------------- internals
 
-    def _suppress(self, entry: _Source) -> None:
+    def _suppress(self, entry: _Source, *, stale: bool = False) -> None:
         """Disarm ``entry`` and bump its epoch iff this is an *entry* into suppression.
 
         The guard on ``armed`` is what makes :meth:`pause` idempotent all the way down: a second
-        stop does not tell a consumer to clear state it cleared on the first.
+        stop does not tell a consumer to clear state it cleared on the first. ``stale`` marks a
+        watchdog disarm; any other suppression (pause, fault, shutdown) revokes auto re-arm.
         """
+        if stale:
+            if entry.armed:
+                entry.stale_disarmed = True
+                entry.fresh_since_ms = None
+        else:
+            entry.stale_disarmed = False
+            entry.fresh_since_ms = None
         if entry.armed:
             entry.armed = False
             entry.epoch += 1
@@ -440,7 +492,7 @@ class HandsFreeSafety:
         """
         for entry in self._sources.values():
             if entry.armed and self._is_stale(entry, now):
-                self._suppress(entry)
+                self._suppress(entry, stale=True)
 
     def _globally_suppressed(self) -> bool:
         return self._terminal or self._user_paused

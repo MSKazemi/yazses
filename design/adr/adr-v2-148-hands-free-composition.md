@@ -78,6 +78,22 @@ When a preferred modality fails:
 
 Never replay the last pose, last switch event or last gaze target.
 
+### Amendment (2026-10-18) — a hold-only face switch re-arms when the face returns
+
+Observed in the first live eyes-closed run: with the global stop on, the face switch went stale each
+time its user looked at the keyboard or phone for more than the staleness window (eight times in three
+minutes) and stayed FAULTED/PAUSED until an explicit Resume. Eyes-closed dictation stopped working
+within minutes, and each refused press still delivered its release.
+
+Rule 5 asks for explicit re-arm *where recovery could otherwise fire immediately*. A switch whose every
+binding is a hold (`hold_to_talk`, `hold_to_command`) cannot: after re-arm the gesture must be made anew
+for `min_hold_frames`, the re-arm bumps the epoch so no half-detected gesture survives, and a lost face
+already forces an open hold closed. So such a source may opt in (`HandsFreeSafety.allow_auto_rearm`) to
+re-arm after an unbroken run of fresh samples (`REARM_AFTER_MS`, 1 s, provisional and unmeasured),
+**only** after a staleness disarm. A user pause, a reported fault, shutdown and the startup order are
+unchanged and still require an explicit Resume. Pointer, dwell, click, confirm and pause bindings never
+opt in. Tests: `tests/test_handsfree_safety_auto_rearm.py`.
+
 ## Preset semantics
 
 The preset may provide recommended **experimental** starting values, but the actual source-of-truth
