@@ -184,6 +184,7 @@ def test_cli_failure_status_stays_accurate(monkeypatch, capsys):
     assert "window_identity_unavailable" in out
     assert "two_windows_observed" not in out
 
+
 def test_no_caller_can_mark_x11_window_as_verified_field():
     identity = p.WindowIdentity(41, 9001, "Editor")
     result = p.ProbeResult(p.ProbeStatus.OBSERVED, identity)
