@@ -111,6 +111,7 @@ No production implementation, public release claim, or `agent-ready` implementat
 
 - [Universal Interaction Interface — human UX and internal adapter contract](UNIVERSAL_INTERFACE.md)
 - [Design considerations, risk register and decision gates](CONSIDERATIONS_AND_DECISIONS.md)
+- [Python routing threat model and security gates](THREAT_MODEL.md)
 - [Router contract and safety specification](ROUTER_SPEC.md)
 - [Evaluation protocol and contributor-sized work packages](VALIDATION_AND_TASKS.md)
 
