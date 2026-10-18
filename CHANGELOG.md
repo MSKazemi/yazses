@@ -6,6 +6,8 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.43.2] - 2026-10-18
+
 ### Fixed — the gaze grounding resolver grounded a candidate with no extent (property-test counterexample)
 
 `TargetResolver` already rejected a candidate whose width or height is `<= 0`, because a rectangle with no extent is not a
