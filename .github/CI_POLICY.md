@@ -78,7 +78,7 @@ publishable shape before the event that has permission to publish it.
 
 The classifier is `scripts/classify_changes.py` (#534): a standard-library script that maps the
 changed paths of a pull request to the classes below, pinned by `tests/test_classify_changes.py`.
-It only classifies. No workflow reads its output yet; routing lanes by it is CI-SCALE-002.
+`test.yml` reads its one routing decision, `full`, to choose the lane (section 5, #535).
 Callers must list changed files with `git diff --name-only --no-renames`, or a file moved out of
 `src/` would show only its new name and lose its runtime scope.
 
@@ -144,6 +144,43 @@ Full validation is required when:
 
 Optimization must preserve evidence, not redefine green.
 
+### How `test.yml` implements it (#535)
+
+| Job | Lane | Runs when |
+|---|---|---|
+| `changes` | fast | every run; decides `full` |
+| `repo-hygiene` (size, translations, ruff, dependency budget, CI contract and generated-file drift tests) | fast | every run |
+| `test-linux`: the whole suite on ubuntu-latest / 3.12 | Linux baseline | every run |
+| `test` (the rest of the OS/interpreter matrix), `gui`, `extras`, `benchmark-harness` | full | `full` is not `false` |
+| `freebsd` (advisory) | full | `full` is not `false` |
+| `ci-gate` | aggregate | always; see section 6 |
+
+`full` is `false` only when every changed path classifies as `docs_design` or `android`
+(`BASELINE_ONLY` in `scripts/classify_changes.py`). Everything else takes the full lane:
+`unknown`, runtime, tests, workflows, packaging, release. So does a push to main, a
+manual `workflow_dispatch` run (the escape hatch), and a PR labelled `ci:full`. The label
+is read from the event, so after adding it, push a commit or close and reopen the PR.
+A change that skips the full lane loses no test: the Linux baseline still runs the whole
+suite, including every test that reads `docs/`, `design/` or `android/`.
+
+The fixtures below are pinned by `tests/test_ci_lanes.py`. Every row also runs the fast
+lane, the Linux baseline and `ci-gate`, plus the workflows that have no path filter
+(CodeQL, dependency review, the labeler, campaign preflight).
+
+| Fixture | Scopes | Full lane | Path-filtered workflows | Why |
+|---|---|---|---|---|
+| Typo-only docs PR | `docs_design` | no | `docs.yml` | the strict site build and the Linux suite cover it |
+| New ADR / design page | `docs_design` | no | `docs.yml` | same |
+| Python runtime change | `python_core` | yes | — | runtime behaviour differs by OS and interpreter |
+| Test-only change | `tests` | yes | — | a changed test can change what the matrix proves |
+| Windows packaging change | `windows`, `packaging` | yes | `build-windows.yml`, `msix-validate.yml` | packaging is not baseline-only |
+| Android change | `android` | no | `android-test.yml` | no Python behaviour changes; Gradle tests run |
+| Workflow/security change | `workflow_security` | yes | — | CI policy changes get full validation |
+| Previously unseen top-level path | `unknown` | yes | — | unknown means more validation |
+
+A root file such as `README.md` is `unknown` (#534), so a docs PR that also touches one
+takes the full lane.
+
 ---
 
 ## 6. Stable branch-protection surface
@@ -151,7 +188,8 @@ Optimization must preserve evidence, not redefine green.
 Do not require dozens of matrix-generated job names individually in repository rules.
 
 The target is one stable aggregate status, tracked in #462, whose result reflects all
-blocking jobs selected for that change.
+blocking jobs selected for that change. For `test.yml` that status is `ci-gate`
+(`scripts/ci_gate.py`, #535). Making it required in the live ruleset is #462's Part B.
 
 That aggregate gate must:
 

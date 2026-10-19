@@ -5,7 +5,11 @@ on:
     branches: ["main"]
   pull_request:
     branches: ["main"]
+  # The manual escape hatch: a dispatched run always takes the full lane.
+  workflow_dispatch:
 
+# Fast and full lanes, and the `ci-gate` status: see .github/CI_POLICY.md section 5.
+#
 # A rapid PR update should spend runners only on the newest head. Pushes to main are
 # deliberately unique and never cancelled: every merged commit still gets its own run.
 concurrency:
@@ -24,6 +28,53 @@ env:
   QT_QPA_PLATFORM: offscreen
 
 jobs:
+  changes:
+    # Decides the lane. Standard library only, so no `uv sync` stands between a PR and
+    # the decision. Any doubt resolves to the full lane, never the fast one: a non-PR
+    # event, the `ci:full` label, a diff that cannot be listed, an empty diff, or a path
+    # the classifier does not know.
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      full: ${{ steps.lanes.outputs.full }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          # A PR is checked out as its merge commit. Depth 2 brings its first parent,
+          # the base branch tip it merges into, so HEAD^1..HEAD is exactly what the
+          # PR would change on main today, not what changed since it forked.
+          fetch-depth: 2
+
+      - name: Choose the lanes
+        id: lanes
+        # Explicit, for pipefail: GitHub's default shell has none, and a classifier
+        # that crashed behind `tee` would otherwise end this step green.
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          FULL_LABEL: ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'ci:full') }}
+        run: |
+          if [ "$EVENT_NAME" != "pull_request" ]; then
+            echo "::notice::$EVENT_NAME run: taking the full lane"
+            echo "full=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ "$FULL_LABEL" = "true" ]; then
+            echo "::notice::labelled ci:full: taking the full lane"
+            echo "full=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # --no-renames: a file moved out of src/ must count as a src/ change too.
+          if ! changed=$(git diff --name-only --no-renames HEAD^1 HEAD); then
+            echo "::warning::could not list the changed files: taking the full lane"
+            echo "full=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          printf '%s\n' "$changed"
+          printf '%s\n' "$changed" \
+            | python3 scripts/classify_changes.py --github-output \
+            | tee -a "$GITHUB_OUTPUT"
+
   repo-hygiene:
     # Cheap and Linux-only: a large file costs every future clone permanently, and the
     # only inexpensive moment to catch one is before the commit lands.
@@ -73,7 +124,62 @@ jobs:
           fi
           uv run python scripts/check_dependency_budget.py
 
+      - name: CI contract and generated-file drift
+        # The fast lane's share of the suite: the tests that pin the classifier, the
+        # gate and the workflows, and the generators whose drift once turned every
+        # matrix leg red at once. Seconds, not minutes. The full suite still runs them.
+        run: |
+          uv run python -m pytest -q \
+            tests/test_classify_changes.py \
+            tests/test_ci_lanes.py \
+            tests/test_workflow_concurrency.py \
+            tests/test_gen_docs.py \
+            tests/test_gen_man.py \
+            tests/test_adr_index_is_current.py
+
+  # The matrix's ubuntu/3.12 leg, moved out so the whole suite runs on every PR, even
+  # when the full lane is skipped. tests/test_ci_lanes.py keeps its steps equal to `test`'s.
+  test-linux:
+    name: test (${{ matrix.os }}, ${{ matrix.python-version }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        python-version: ["3.12"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          filter: blob:none
+
+      - name: Install system dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libportaudio2 \
+            libegl1 libgl1 libxkbcommon0 libdbus-1-3 libfontconfig1 \
+            libxcb-cursor0 libxcb-xinerama0 libxcb-icccm4 libxcb-image0 \
+            libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-shape0 \
+            desktop-file-utils \
+            xdotool
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version: "latest"
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Run tests
+        run: uv run pytest tests/ -v
+
   test:
+    # Full lane: the rest of the OS/interpreter matrix.
+    needs: changes
+    if: needs.changes.outputs.full != 'false'
     runs-on: ${{ matrix.os }}
     # Legs without `experimental` are blocking; only a leg that explicitly opts
     # out is allowed to fail. Written this way round so that adding a new leg
@@ -91,6 +197,10 @@ jobs:
         # only: the failure mode being caught is interpreter behaviour, not OS
         # behaviour, and a full 3x5 matrix buys nothing for the runtime it costs.
         python-version: ["3.11", "3.12"]
+        # Runs as `test-linux` above, on every PR, so it is not repeated here.
+        exclude:
+          - os: ubuntu-latest
+            python-version: "3.12"
         include:
           - os: ubuntu-latest
             python-version: "3.13"
@@ -183,6 +293,8 @@ jobs:
     # the run fails if PySide6 is missing, because a silent skip here would
     # restore exactly the hole this job closes.
     name: GUI (Qt) — ${{ matrix.os }}
+    needs: changes
+    if: needs.changes.outputs.full != 'false'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     strategy:
@@ -283,6 +395,8 @@ jobs:
     # Linux only: these extras are pure Python or platform-independent, and the
     # OS matrix in the main job already covers the code around them.
     name: Optional extras
+    needs: changes
+    if: needs.changes.outputs.full != 'false'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -330,6 +444,10 @@ jobs:
     # not be able to turn `main` red on its first PR. Promote it to blocking —
     # and upgrade the ⚗️ row in docs/platform-support.md to ✅ — once it is
     # reliably passing.
+    #
+    # Advisory, so it is not one of ci-gate's dependencies.
+    needs: changes
+    if: needs.changes.outputs.full != 'false'
     runs-on: ubuntu-latest
     continue-on-error: true
     timeout-minutes: 45
@@ -541,6 +659,8 @@ jobs:
   # so the tests that guard the harness actually execute on every push.
   benchmark-harness:
     name: Benchmark harness tests
+    needs: changes
+    if: needs.changes.outputs.full != 'false'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -567,3 +687,26 @@ jobs:
             tests/test_bench_diarization_scoring.py \
             tests/test_bench_persian.py \
             tests/test_fa_manifest.py
+
+  # The one stable status for a branch ruleset to require (#462): green only when every
+  # blocking job selected for this change succeeded. `always()` so it reports even when
+  # a dependency failed or was skipped; scripts/ci_gate.py says which results pass.
+  # Every job above except the advisory `freebsd` must be listed in `needs`, which
+  # tests/test_ci_lanes.py enforces.
+  ci-gate:
+    name: ci-gate
+    if: always()
+    needs: [changes, repo-hygiene, test-linux, test, gui, extras, benchmark-harness]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          sparse-checkout: scripts/ci_gate.py
+          sparse-checkout-cone-mode: false
+
+      - name: Every blocking job selected for this change passed
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+          FULL: ${{ needs.changes.outputs.full }}
+        run: python3 scripts/ci_gate.py

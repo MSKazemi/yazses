@@ -2,8 +2,10 @@
 """Map a pull request's changed paths to the CI scopes they need (#534).
 
 This is the single, reviewable source of truth for "which change classes require which
-CI lanes" that `.github/CI_POLICY.md` section 4 asks for. It only *classifies*; deciding
-which jobs a scope turns on is the workflow's business (CI-SCALE-002), not this file's.
+CI lanes" that `.github/CI_POLICY.md` section 4 asks for. It classifies, and it makes the
+one routing decision `test.yml` reads (#535): whether a change needs the full
+cross-platform lane, or whether the always-on fast lane and Linux baseline are enough.
+Which jobs make up each lane is the workflow's business, not this file's.
 
 The rules are a fixed table of directory prefixes and paths, matched case-sensitively.
 Nothing here runs git or opens a connection, so the same list of paths gives the same
@@ -51,6 +53,13 @@ SCOPES = (
     DOCS_DESIGN, PYTHON_CORE, TESTS, ANDROID, MACOS, WINDOWS,
     PACKAGING, WORKFLOW_SECURITY, RELEASE, UNKNOWN,
 )
+
+#: Scopes that do not need the full cross-platform lane. A change touching only these is
+#: still validated by the fast lane and the whole suite on the Linux baseline leg, plus its
+#: own path-filtered workflow (docs.yml's strict build, android-test.yml). Everything else,
+#: and `unknown` above all, requests the full lane. Adding a scope here is a reviewed
+#: decision to run *less* CI for it; `tests/test_ci_lanes.py` pins this set.
+BASELINE_ONLY = frozenset({DOCS_DESIGN, ANDROID})
 
 #: (pattern, scopes). A pattern ending in "/" matches everything under that directory;
 #: any other pattern is an exact path or an `fnmatch` glob. Every matching rule
@@ -212,14 +221,22 @@ def classify(paths: Iterable[str]) -> set[str]:
     return scopes if seen_any else {UNKNOWN}
 
 
+def needs_full_lane(scopes: set[str]) -> bool:
+    """True unless every scope is in BASELINE_ONLY. No scopes at all is a broken input,
+    not a small change, so it requests the full lane too."""
+    return not scopes or not scopes <= BASELINE_ONLY
+
+
 def ordered(scopes: set[str]) -> list[str]:
     """Return `scopes` in the fixed SCOPES order, so output never depends on set order."""
     return [scope for scope in SCOPES if scope in scopes]
 
 
 def github_output(scopes: set[str]) -> str:
-    """Render `key=value` lines for `$GITHUB_OUTPUT`: one boolean per scope, plus a list."""
+    """Render `key=value` lines for `$GITHUB_OUTPUT`: one boolean per scope, the full-lane
+    decision, and the list."""
     lines = [f"{scope}={'true' if scope in scopes else 'false'}" for scope in SCOPES]
+    lines.append(f"full={'true' if needs_full_lane(scopes) else 'false'}")
     lines.append(f"scopes={json.dumps(ordered(scopes))}")
     return "\n".join(lines) + "\n"
 
@@ -241,7 +258,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.github_output:
         sys.stdout.write(github_output(scopes))
     else:
-        print(json.dumps({"scopes": ordered(scopes)}))
+        print(json.dumps({"scopes": ordered(scopes), "full": needs_full_lane(scopes)}))
     return 0
 
 
