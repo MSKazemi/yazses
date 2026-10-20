@@ -134,6 +134,31 @@ keyboard message, byte for byte, with and without a pointer consumer on the sess
 built independently of the code. The two concurrency tests and the grant test fail on the previous code. This
 is a hermetic fix. No live GNOME/KDE report has been made yet, and #403 asks for one.
 
+### Fixed — implicit gaze calibration: the promotion verdict is a pure function, and the schema version is read ([#398](https://github.com/MSKazemi/yazses/issues/398))
+
+The promote/keep decision now lives in one pure function, `gaze.refine.decide_promotion`. It takes the baseline, the
+candidate, the held-out pairs, the training count and the policy. It does no I/O, reads no clock, keeps no state and
+modifies none of its arguments. `ImplicitRefiner` calls it and adds only the side effects: the context confirmation, the
+atomic write and the live switch. The stated gate is unchanged. Both held-out mean errors must be finite, the
+candidate's must be strictly lower, and the improvement must be at least `min_improvement_px`, which must be > 0. The
+train/held-out split is now the pure `gaze.refine.routes_to_holdout(index, holdout_every)`.
+
+Writing the function found a latent hole in the gate's reading. Passed the same map object as baseline and candidate,
+`refined_if_better` returns the baseline, which `is` the candidate, so the old identity check counted it as a win. The
+refiner always passes a fresh copy as the candidate, so a running daemon could not reach this. It is now a keep.
+
+`gaze_calibration.json` has always stored an integer `version`, but nothing read it. Now a `version` that is present
+but not a positive integer (`"3"`, `true`, `0`, `3.0`, `null`) makes the file damaged, and it is reported as stale,
+as in #415. A file without a version reads as schema 1. A file written by a newer YazSes still routes; its map and
+coordinate space are checked independently. But `promote_refinement` refuses to rewrite it, because re-encoding it
+would drop the fields this build cannot read. Rollback still restores such a file byte for byte.
+
+`tests/test_gaze_calibration_promotion_contract.py` pins all of this: purity, the margin at its exact float boundary
+(accepted at the margin, refused one ulp short), a refiner that agrees with the pure verdict, the version rules, and a
+golden key set for the stored artifact and its evidence. A raw sample, click or screen coordinate cannot be added to
+the file without that test failing. No config key, CLI flag or dependency changed. `[gaze_refine]` stays off by
+default.
+
 ### Fixed — the eye-control CI matrix lost its macOS leg to a new Homebrew Python ([#424](https://github.com/MSKazemi/yazses/issues/424))
 
 From 2026-10-17, every macOS leg of `eye-eval-ci.yml` failed in `uv sync`, before the evaluation ran. The step

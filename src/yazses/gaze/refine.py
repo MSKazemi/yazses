@@ -43,7 +43,7 @@ import logging
 import math
 import threading
 from collections import deque
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from enum import Enum
 
@@ -63,6 +63,8 @@ __all__ = [
     "RefinementPolicy",
     "RefinementResult",
     "RefinerStatus",
+    "decide_promotion",
+    "routes_to_holdout",
 ]
 
 log = logging.getLogger(__name__)
@@ -161,6 +163,97 @@ class RefinerStatus:
     evaluations: int
     applied: int
     last_result: RefinementResult | None
+
+
+# --------------------------------------------------------------------------- #
+# The decision, as pure functions
+# --------------------------------------------------------------------------- #
+
+
+def routes_to_holdout(index: int, holdout_every: int) -> bool:
+    """Whether the *index*-th routed pair (0-based) is held out rather than trained on.
+
+    Pure, and a function of position only: the split is fixed before a pair's values are
+    seen, so no click can steer itself into (or out of) the evidence that judges the
+    candidate, and the same stream always splits the same way. With ``holdout_every = 4``
+    pairs 3, 7, 11, ... are held out -- a quarter of them.
+    """
+    if holdout_every < 2:
+        raise ValueError("holdout_every must be >= 2 (1 would leave nothing to train on)")
+    if index < 0:
+        raise ValueError("index must be >= 0")
+    return index % holdout_every == holdout_every - 1
+
+
+def decide_promotion(
+    baseline: CalibrationMap,
+    candidate: CalibrationMap,
+    holdout: Sequence[tuple[tuple[float, float], tuple[float, float]]],
+    *,
+    train_samples: int,
+    policy: RefinementPolicy,
+) -> RefinementResult:
+    """The fit/evaluate/accept verdict for one comparison. **Pure**: no I/O, no clock, no state.
+
+    Same arguments, same answer; neither map nor *holdout* is modified. The three verdicts:
+
+    * :attr:`RefinementOutcome.INSUFFICIENT_DATA` -- fewer than
+      ``policy.min_train_samples`` training pairs or ``policy.min_holdout_samples``
+      held-out pairs. Never a comparison on too little, never a win by default.
+    * :attr:`RefinementOutcome.KEPT_BASELINE` -- the candidate did not clear the gate.
+    * :attr:`RefinementOutcome.APPLIED` -- the candidate **may** be applied. It is the
+      verdict, not the deed: :class:`ImplicitRefiner` still has to confirm the display
+      context and write the file, and reports ``STALE_CONTEXT`` or ``PERSIST_FAILED``
+      instead when either fails.
+
+    The gate is the one :func:`~yazses.gaze.implicit.refined_if_better` defines, stated
+    exactly: on the held-out pairs, both mean errors are finite, the candidate's is
+    **strictly lower** than the baseline's, and the improvement
+    ``baseline_error - candidate_error`` is **at least** ``policy.min_improvement_px``
+    (which the policy already requires to be > 0). A tie never wins; a NaN never wins.
+    This function adds no second opinion to that gate -- it only asks it.
+
+    *holdout* must be pairs that did not train *candidate*; :func:`routes_to_holdout` is
+    how the refiner guarantees that.
+    """
+    held = list(holdout)
+    if train_samples < policy.min_train_samples or len(held) < policy.min_holdout_samples:
+        return RefinementResult(
+            RefinementOutcome.INSUFFICIENT_DATA,
+            train_samples=train_samples,
+            holdout_samples=len(held),
+            reason=(
+                f"needs {policy.min_train_samples} training and "
+                f"{policy.min_holdout_samples} held-out pairs"
+            ),
+        )
+    chosen, baseline_error, candidate_error = refined_if_better(
+        baseline, candidate, held, min_improvement_px=policy.min_improvement_px
+    )
+    # `chosen is candidate` rather than a comparison of the two errors: the gate has one
+    # author (`refined_if_better`). But identity alone is fooled when the two arguments are
+    # the *same object* -- the gate then returns the baseline, which `is` the candidate, and
+    # a map compared with itself would read as a win. Nothing new can be promoted from
+    # that, so it is a keep. The finiteness check is belt and braces: a non-finite error is
+    # never a win, whatever any future edit of the gate says.
+    won = (
+        chosen is candidate
+        and candidate is not baseline
+        and math.isfinite(baseline_error)
+        and math.isfinite(candidate_error)
+    )
+    return RefinementResult(
+        RefinementOutcome.APPLIED if won else RefinementOutcome.KEPT_BASELINE,
+        train_samples=train_samples,
+        holdout_samples=len(held),
+        baseline_error_px=baseline_error,
+        candidate_error_px=candidate_error,
+        reason=(
+            "the candidate beat the baseline on held-out samples"
+            if won
+            else "the candidate did not beat the baseline on held-out samples"
+        ),
+    )
 
 
 class ImplicitRefiner:
@@ -270,7 +363,7 @@ class ImplicitRefiner:
                 return False
 
             policy = self._policy
-            to_holdout = (self._routed % policy.holdout_every) == policy.holdout_every - 1
+            to_holdout = routes_to_holdout(self._routed, policy.holdout_every)
             self._routed += 1
 
             if to_holdout:
@@ -330,45 +423,14 @@ class ImplicitRefiner:
                 RefinementOutcome.STALE_CONTEXT,
                 reason="the display layout or camera changed; refinement discarded",
             )
-        if train < policy.min_train_samples or len(holdout) < policy.min_holdout_samples:
-            return RefinementResult(
-                RefinementOutcome.INSUFFICIENT_DATA,
-                train_samples=train,
-                holdout_samples=len(holdout),
-                reason=(
-                    f"needs {policy.min_train_samples} training and "
-                    f"{policy.min_holdout_samples} held-out pairs"
-                ),
-            )
-
         candidate = self._calibrator.candidate
-        chosen, baseline_error, candidate_error = refined_if_better(
-            self._baseline, candidate, holdout, min_improvement_px=policy.min_improvement_px
+        verdict = decide_promotion(
+            self._baseline, candidate, holdout, train_samples=train, policy=policy
         )
-        base = RefinementResult(
-            RefinementOutcome.KEPT_BASELINE,
-            train_samples=train,
-            holdout_samples=len(holdout),
-            baseline_error_px=baseline_error,
-            candidate_error_px=candidate_error,
-            reason="the candidate did not beat the baseline on held-out samples",
-        )
-        # `chosen is candidate` rather than a comparison of the two errors: the gate has
-        # one author (`refined_if_better`) and this must not grow a second opinion that
-        # could disagree with it. A non-finite error is never a win.
-        if chosen is not candidate or not (
-            math.isfinite(baseline_error) and math.isfinite(candidate_error)
-        ):
-            return base
+        if verdict.outcome is not RefinementOutcome.APPLIED:
+            return verdict
+        won = verdict
 
-        won = RefinementResult(
-            RefinementOutcome.APPLIED,
-            train_samples=train,
-            holdout_samples=len(holdout),
-            baseline_error_px=baseline_error,
-            candidate_error_px=candidate_error,
-            reason="the candidate beat the baseline on held-out samples",
-        )
         # The cheap context check above may be rate-limited (the daemon's guard polls the
         # display server at most every few seconds), so a layout change in the last few
         # seconds is invisible to it -- and this write is the one thing here that outlives
@@ -396,8 +458,8 @@ class ImplicitRefiner:
                 RefinementOutcome.PERSIST_FAILED,
                 train_samples=train,
                 holdout_samples=len(holdout),
-                baseline_error_px=baseline_error,
-                candidate_error_px=candidate_error,
+                baseline_error_px=won.baseline_error_px,
+                candidate_error_px=won.candidate_error_px,
                 reason=f"saving failed ({type(exc).__name__}); the previous calibration is intact",
             )
 
