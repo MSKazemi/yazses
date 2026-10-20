@@ -112,6 +112,10 @@ def calibration_facts(
     except Exception:
         return ("unknown", "the stored calibration could not be read")
     if calibration is None:
+        if check.stale:
+            # A calibration file that exists and is damaged (#415). "Nothing has been
+            # calibrated" would be false; the store's reason names the file.
+            return (check.validity.value, check.reason)
         return ("missing", "nothing has been calibrated on this machine yet")
     return (check.validity.value, check.reason)
 

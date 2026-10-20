@@ -6,6 +6,27 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — a damaged gaze calibration file could still read as valid (#415, ADR-v2-149)
+
+`gaze_calibration.json` is loaded strictly now; before this, several kinds of damage got through. A map holding `NaN`
+or `Infinity` (both legal to Python's `json`), quoted numbers or `true` loaded and was reported VALID, so every gaze
+sample would have routed to a NaN or coerced coordinate. A stored context that no longer hashed to its own
+`context_fingerprint` was never checked, so an edited binding that happened to match the current desktop read as VALID.
+A file nested past the recursion limit, or holding an infinite display width, raised out of the loader. All of these
+now end in either no map or a binding reported as damaged (UNVERIFIED, with that reason), and never in VALID or a crash.
+The fingerprint is checked against the context *as stored*, so a file written before `rotation` existed still verifies.
+A file that exists but cannot be read now says so (`yazses gaze status`, the daemon log and the hands-free health row
+report a damaged file as stale) instead of "nothing has been calibrated". A map whose top-level `space` names another
+coordinate space is stale. Display records refuse a non-finite scale, an unknown rotation, a non-integer coordinate and
+a repeated identifier instead of truncating or coercing them.
+
+`DisplayTopology` also gains topology-level conversions between the canonical desktop space, one panel's physical pixels
+(`to_physical`/`from_physical`) and offsets from the virtual desktop's possibly negative origin
+(`origin`, `to_desktop_relative`). A point between monitors converts to `None` and is not snapped to the nearest panel.
+Pure, with fixtures over a 1.0/1.25/2.0 layout that has a monitor above and to the left of the main one, in
+`tests/test_gaze_display_space.py`. No config key, no new dependency. Runtime use of these conversions by implicit
+calibration (#397/#398) and a non-X11 topology provider are still to come.
+
 ### Added — `examples/config.discord.toml`, a Windows 11 profile for Discord
 
 A hold-to-talk setup for Discord (`right_ctrl`, `auto` injection, which is SendInput on Windows), contributed by
