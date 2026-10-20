@@ -101,15 +101,20 @@ def transcribe_file(
     audio=None,
     sample_rate: int = 16000,
     progress=None,
+    stt=None,
 ) -> TranscriptResult:
-    """Transcribe (and optionally diarize) an audio file into a ``TranscriptResult``."""
+    """Transcribe (and optionally diarize) an audio file into a ``TranscriptResult``.
+
+    ``stt`` is the ``[stt]`` section, used only when no ``engine`` is passed: it lets
+    the engine built here apply ``[stt] chinese_script`` like every other path (#501).
+    """
     if audio is None:
         from yazses.recimport.audio_io import load_audio
 
         audio, sample_rate = load_audio(path)
 
     if engine is None:
-        engine = _build_engine(config)
+        engine = _build_engine(config, stt=stt)
     task = "translate" if getattr(config, "language", "en") == "translate" else None
     # Measured before decoding, on the audio itself. Whisper answers silence with a
     # confident hallucination rather than nothing, so this cannot be inferred from the

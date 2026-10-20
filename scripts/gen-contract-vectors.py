@@ -80,7 +80,13 @@ def _run_voice_punctuation(text: str, options: dict[str, Any]) -> str:
 
 
 def _run_spacing(text: str, options: dict[str, Any]) -> str:
-    return continuation_prefix(text, had_recent_injection=options["had_recent_injection"])
+    # `previous_tail` (contract 7.1.0, #501) is optional: absent means "unknown", which
+    # is exactly the pre-7.1.0 behaviour, so every older case keeps its meaning.
+    return continuation_prefix(
+        text,
+        had_recent_injection=options["had_recent_injection"],
+        previous_tail=options.get("previous_tail", ""),
+    )
 
 
 def _run_vad_gate(samples: list[float], options: dict[str, Any]) -> bool:
@@ -535,6 +541,30 @@ CASES: dict[str, list[dict[str, Any]]] = {
                         "regex — correctness at scale, not just short bursts",
          "input": ("این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای "
                    "چندسکویی در نظر گرفته شده است. " * 10)},
+        # ── #501: Mandarin / mixed Han-Latin vectors ───────────────────────
+        # Existing behaviour, pinned: clean_text is CJK-safe. Synthetic text only.
+        {"id": "mandarin-mixed-sentence-preserved",
+         "description": "Simplified Mandarin with a Latin product name and digits: "
+                        "nothing between the Han clauses is touched, the authored "
+                        "spaces around the Latin run survive",
+         "input": "你好，世界。今天测试 YazSes 123。"},
+        {"id": "mandarin-traditional-sentence-preserved",
+         "description": "the same sentence in Traditional characters is identical "
+                        "apart from the script — no unit may treat 測試 differently",
+         "input": "你好，世界。今天測試 YazSes 123。"},
+        {"id": "mandarin-version-and-filename-preserved",
+         "description": "a version number, a file name and a number inside full-width "
+                        "punctuation: the ASCII dots are not sentence ends",
+         "input": "版本 v2.0，文件 test.py，编号 12345。"},
+        {"id": "mandarin-leading-fullwidth-stop-kept",
+         "description": "a leading 。 is NOT stripped (only ASCII '.' and U+2026 are "
+                        "Whisper artefacts) — removing real punctuation is not this "
+                        "unit's job",
+         "input": "。然后我们继续"},
+        {"id": "mandarin-astral-han-preserved",
+         "description": "an extension-B ideograph (U+20BB7, outside the BMP) in a "
+                        "name: a UTF-16 port must keep the surrogate pair whole",
+         "input": "\U00020bb7野家的牛肉饭很好吃。"},
     ],
     "audio.vad_gate": [
         {"id": "empty-audio-is-silence",
@@ -1006,6 +1036,50 @@ CASES: dict[str, list[dict[str, Any]]] = {
                         "sentence structure",
          "input": ("این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای "
                    "چندسکویی در نظر گرفته شده است. " * 10)},
+        # ── #501: Mandarin / mixed Han-Latin vectors (contract 7.1.0) ──────
+        # Mandarin has no filler list of its own here: 嗯/呃 survive by design (no
+        # destructive default without a measured list). What is pinned is that an
+        # *English* filler or trigger inside Mandarin text leaves the full-width
+        # punctuation around it intact, and that Han text is otherwise untouched.
+        {"id": "mandarin-sentence-untouched",
+         "description": "realistic Mandarin prose with numbers and a Latin name: no "
+                        "rule fires, no space is inserted or removed",
+         "input": "我们下午三点开会，讨论 YazSes 的版本 v2.0 发布计划。"},
+        {"id": "mandarin-own-fillers-survive",
+         "description": "the Mandarin hesitation characters 嗯 and 呃 are not in the "
+                        "English filler list and are kept — removing them is a "
+                        "language-specific decision nobody has measured yet",
+         "input": "嗯，我觉得这个方案可以。呃，我们明天再说。"},
+        {"id": "mandarin-reduplication-not-a-stutter",
+         "description": "unspaced Han is one whitespace token, so the repetition rules "
+                        "cannot see 看看 or 我觉得我觉得 as a stutter — inert, not "
+                        "destructive",
+         "input": "你看看这个文件，我觉得我觉得没问题。"},
+        {"id": "english-filler-before-fullwidth-comma-at-start",
+         "description": "a sentence-initial English filler takes its full-width comma "
+                        "with it, as 'Uh, let's go' takes its ASCII one — before 7.1.0 "
+                        "the ， was left stranded at the start",
+         "input": "Uh，我们开始吧。"},
+        {"id": "english-filler-between-fullwidth-commas",
+         "description": "an English filler between two ， leaves exactly one: the "
+                        "Mandarin clause boundary survives, nothing is doubled",
+         "input": "我觉得，um，这个很好。"},
+        {"id": "english-filler-at-end-after-fullwidth-comma",
+         "description": "a filler closing the utterance does not leave a dangling ，",
+         "input": "这个方案很好，you know"},
+        {"id": "english-trigger-keeps-previous-mandarin-sentence",
+         "description": "。 is a sentence boundary with or without a space after it: "
+                        "the rollback discards only the clause it governs, as '. ' "
+                        "does in English — before 7.1.0 the whole earlier sentence "
+                        "was lost",
+         "input": "我今天很忙。 scratch that 我明天有空。"},
+        {"id": "english-trigger-after-unspaced-fullwidth-stop",
+         "description": "same boundary with no space after 。, the usual Chinese "
+                        "typography; the trigger's own ， is consumed with it",
+         "input": "会议改到周三。scratch that，会议改到周四。"},
+        {"id": "english-trigger-after-fullwidth-question-mark",
+         "description": "？ is a boundary too",
+         "input": "你明天来吗？never mind 我自己去。"},
     ],
     "postprocess.voice_punctuation": [
         {"id": "empty-string", "description": "empty input is unchanged", "input": ""},
@@ -1166,6 +1240,70 @@ CASES: dict[str, list[dict[str, Any]]] = {
          "description": "an RLE control before an ASCII comma: the first visible "
                         "character decides, so the separator is suppressed",
          "input": "\u202b, done", "options": {"had_recent_injection": True}},
+        # ── #501: Mandarin / CJK vectors (contract 7.1.0) ──────────────────
+        # Chinese and Japanese do not put spaces between words, so a space typed at
+        # the seam between two bursts is a visible error. Two additions, both inert
+        # for text with no CJK: full-width punctuation suppresses the separator, and
+        # the optional `previous_tail` (the last character the previous burst typed)
+        # lets the seam be judged from both sides.
+        {"id": "fullwidth-comma-start-suppressed",
+         "description": "a burst opening with ， hugs the previous burst like an ASCII "
+                        "comma — before 7.1.0 it was typed as ' ，'",
+         "input": "，然后我们继续", "options": {"had_recent_injection": True}},
+        {"id": "fullwidth-full-stop-start-suppressed",
+         "description": "。 likewise",
+         "input": "。", "options": {"had_recent_injection": True}},
+        {"id": "fullwidth-question-mark-start-suppressed",
+         "description": "？ likewise",
+         "input": "？好吗", "options": {"had_recent_injection": True}},
+        {"id": "ideographic-enumeration-comma-start-suppressed",
+         "description": "、 (the enumeration comma) likewise",
+         "input": "、香蕉和橙子", "options": {"had_recent_injection": True}},
+        {"id": "fullwidth-opening-bracket-start-suppressed",
+         "description": "unlike an ASCII '(' or a straight quote, a full-width opening "
+                        "mark such as 「 also takes no space: the glyph carries its "
+                        "own spacing",
+         "input": "「引用」", "options": {"had_recent_injection": True}},
+        {"id": "han-after-han-no-space",
+         "description": "two Han clauses: no space at the seam — before 7.1.0 every "
+                        "second burst within the continuation window began with one",
+         "input": "今天测试。",
+         "options": {"had_recent_injection": True, "previous_tail": "界"}},
+        {"id": "han-after-fullwidth-stop-no-space",
+         "description": "a burst after one that ended in 。 takes no space",
+         "input": "今天测试。",
+         "options": {"had_recent_injection": True, "previous_tail": "。"}},
+        {"id": "latin-after-fullwidth-comma-no-space",
+         "description": "full-width punctuation carries its own spacing on both sides, "
+                        "so a Latin burst after ， takes none either",
+         "input": "YazSes 很好用",
+         "options": {"had_recent_injection": True, "previous_tail": "，"}},
+        {"id": "latin-after-han-keeps-space",
+         "description": "a Han-Latin seam keeps its space ('测试 YazSes'), the common "
+                        "convention for mixed text and what the pre-7.1.0 code did",
+         "input": "YazSes",
+         "options": {"had_recent_injection": True, "previous_tail": "试"}},
+        {"id": "han-after-latin-keeps-space",
+         "description": "and the other way round",
+         "input": "今天测试",
+         "options": {"had_recent_injection": True, "previous_tail": "s"}},
+        {"id": "english-unaffected-by-previous-tail",
+         "description": "an English seam is unchanged by knowing the previous tail",
+         "input": "hello",
+         "options": {"had_recent_injection": True, "previous_tail": "d"}},
+        {"id": "previous-tail-ignored-without-recent-injection",
+         "description": "a fresh burst still gets nothing, whatever came before",
+         "input": "今天测试",
+         "options": {"had_recent_injection": False, "previous_tail": "界"}},
+        {"id": "astral-han-after-han-no-space",
+         "description": "an extension-B ideograph (outside the BMP) is Han too: a "
+                        "UTF-16 port must test the code point, not the first char",
+         "input": "\U00020bb7野家",
+         "options": {"had_recent_injection": True, "previous_tail": "去"}},
+        {"id": "kana-after-han-no-space",
+         "description": "Japanese kana is unspaced like Han",
+         "input": "ありがとう",
+         "options": {"had_recent_injection": True, "previous_tail": "日"}},
     ],
     "stt.vocabulary": [
         {"id": "no-parts", "description": "nothing configured still primes the app name",

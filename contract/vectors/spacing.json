@@ -1,6 +1,6 @@
 {
   "unit": "postprocess.spacing",
-  "contract_version": "7.0.0",
+  "contract_version": "7.1.0",
   "source": "src/yazses/postprocess/spacing.py::continuation_prefix",
   "cases": [
     {
@@ -199,6 +199,141 @@
         "had_recent_injection": true
       },
       "input": "‫, done",
+      "expected": ""
+    },
+    {
+      "id": "fullwidth-comma-start-suppressed",
+      "description": "a burst opening with ， hugs the previous burst like an ASCII comma — before 7.1.0 it was typed as ' ，'",
+      "options": {
+        "had_recent_injection": true
+      },
+      "input": "，然后我们继续",
+      "expected": ""
+    },
+    {
+      "id": "fullwidth-full-stop-start-suppressed",
+      "description": "。 likewise",
+      "options": {
+        "had_recent_injection": true
+      },
+      "input": "。",
+      "expected": ""
+    },
+    {
+      "id": "fullwidth-question-mark-start-suppressed",
+      "description": "？ likewise",
+      "options": {
+        "had_recent_injection": true
+      },
+      "input": "？好吗",
+      "expected": ""
+    },
+    {
+      "id": "ideographic-enumeration-comma-start-suppressed",
+      "description": "、 (the enumeration comma) likewise",
+      "options": {
+        "had_recent_injection": true
+      },
+      "input": "、香蕉和橙子",
+      "expected": ""
+    },
+    {
+      "id": "fullwidth-opening-bracket-start-suppressed",
+      "description": "unlike an ASCII '(' or a straight quote, a full-width opening mark such as 「 also takes no space: the glyph carries its own spacing",
+      "options": {
+        "had_recent_injection": true
+      },
+      "input": "「引用」",
+      "expected": ""
+    },
+    {
+      "id": "han-after-han-no-space",
+      "description": "two Han clauses: no space at the seam — before 7.1.0 every second burst within the continuation window began with one",
+      "options": {
+        "had_recent_injection": true,
+        "previous_tail": "界"
+      },
+      "input": "今天测试。",
+      "expected": ""
+    },
+    {
+      "id": "han-after-fullwidth-stop-no-space",
+      "description": "a burst after one that ended in 。 takes no space",
+      "options": {
+        "had_recent_injection": true,
+        "previous_tail": "。"
+      },
+      "input": "今天测试。",
+      "expected": ""
+    },
+    {
+      "id": "latin-after-fullwidth-comma-no-space",
+      "description": "full-width punctuation carries its own spacing on both sides, so a Latin burst after ， takes none either",
+      "options": {
+        "had_recent_injection": true,
+        "previous_tail": "，"
+      },
+      "input": "YazSes 很好用",
+      "expected": ""
+    },
+    {
+      "id": "latin-after-han-keeps-space",
+      "description": "a Han-Latin seam keeps its space ('测试 YazSes'), the common convention for mixed text and what the pre-7.1.0 code did",
+      "options": {
+        "had_recent_injection": true,
+        "previous_tail": "试"
+      },
+      "input": "YazSes",
+      "expected": " "
+    },
+    {
+      "id": "han-after-latin-keeps-space",
+      "description": "and the other way round",
+      "options": {
+        "had_recent_injection": true,
+        "previous_tail": "s"
+      },
+      "input": "今天测试",
+      "expected": " "
+    },
+    {
+      "id": "english-unaffected-by-previous-tail",
+      "description": "an English seam is unchanged by knowing the previous tail",
+      "options": {
+        "had_recent_injection": true,
+        "previous_tail": "d"
+      },
+      "input": "hello",
+      "expected": " "
+    },
+    {
+      "id": "previous-tail-ignored-without-recent-injection",
+      "description": "a fresh burst still gets nothing, whatever came before",
+      "options": {
+        "had_recent_injection": false,
+        "previous_tail": "界"
+      },
+      "input": "今天测试",
+      "expected": ""
+    },
+    {
+      "id": "astral-han-after-han-no-space",
+      "description": "an extension-B ideograph (outside the BMP) is Han too: a UTF-16 port must test the code point, not the first char",
+      "options": {
+        "had_recent_injection": true,
+        "previous_tail": "去"
+      },
+      "input": "𠮷野家",
+      "expected": ""
+    },
+    {
+      "id": "kana-after-han-no-space",
+      "description": "Japanese kana is unspaced like Han",
+      "options": {
+        "had_recent_injection": true,
+        "previous_tail": "日"
+      },
+      "input": "ありがとう",
       "expected": ""
     }
   ]

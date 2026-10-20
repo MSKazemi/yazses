@@ -898,7 +898,7 @@ def meeting_recover(
         typer.echo(reason, err=True)
         raise typer.Exit(1)
     typer.echo(f"Recovering {meeting_id} from {d / 'audio.wav'}… (this can take a while)")
-    info = recover_meeting(d, cfg.meeting)
+    info = recover_meeting(d, cfg.meeting, stt=cfg.stt)
     if archived := info.get("archived_previous"):
         typer.echo(f"Previous outputs archived to {archived} (nothing was deleted).")
     for name, path in info["files"].items():

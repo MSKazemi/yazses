@@ -76,8 +76,13 @@ def recover_meeting(
     profiles=None,
     llm=None,
     progress=None,
+    stt=None,
 ) -> dict:
     """Transcribe the kept recording and write the meeting outputs. Heavy.
+
+    ``stt`` (the ``[stt]`` section) reaches the engine built when none is passed, so a
+    recovered Mandarin meeting gets the ``[stt] chinese_script`` the live one got from
+    the daemon's engine (#501).
 
     Mirrors what ``MeetingController.finalize`` writes, so a recovered meeting is
     indistinguishable from one that finished normally — except for ``recovered: true``,
@@ -103,7 +108,7 @@ def recover_meeting(
     res = finalize_meeting(
         audio, config, sample_rate=sample_rate, engine=engine, diarizer=diarizer,
         embedder=embedder, profiles=profiles, llm=llm, progress=progress,
-        live_words=live_words,
+        live_words=live_words, stt=stt,
     )
     notes_md = render_minutes_md(res.minutes) if res.minutes else None
     written = store.write_outputs(

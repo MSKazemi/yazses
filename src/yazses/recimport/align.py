@@ -10,6 +10,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from yazses.postprocess.cjk import join_pieces
+
 
 @dataclass(frozen=True)
 class Utterance:
@@ -140,7 +142,8 @@ def merge_utterances(assigned, *, max_gap: float = 1.0):
     def flush():
         if cur_words:
             utterances.append(
-                Utterance(cur_spk or "", cur_start, cur_end, " ".join(cur_words))
+                # Script-aware (#501): a Mandarin utterance is not "你 好 ， 世 界".
+                Utterance(cur_spk or "", cur_start, cur_end, join_pieces(cur_words))
             )
 
     for speaker, start, end, text in assigned or ():

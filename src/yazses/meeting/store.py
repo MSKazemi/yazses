@@ -417,11 +417,18 @@ def relabel(meeting_dir: str | Path, *, merges=None, renames=None, fmt: str = "m
 
 
 def live_text(meeting_dir: str | Path) -> str:
-    """All live-transcript lines joined into one string (``""`` when there are none)."""
-    return " ".join(
-        str(r.get("text", "")).strip()
-        for r in read_live_lines(meeting_dir)
-        if str(r.get("text", "")).strip()
+    """All live-transcript lines joined into one string (``""`` when there are none).
+
+    Joined script-aware, so two Mandarin lines do not gain a space between them (#501).
+    """
+    from yazses.postprocess.cjk import join_pieces
+
+    return join_pieces(
+        [
+            str(r.get("text", "")).strip()
+            for r in read_live_lines(meeting_dir)
+            if str(r.get("text", "")).strip()
+        ]
     )
 
 

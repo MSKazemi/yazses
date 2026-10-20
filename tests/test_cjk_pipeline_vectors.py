@@ -119,40 +119,78 @@ def test_han_text_reaches_the_injector_unchanged(language, name, text):
     assert _dictate(language, text) == [text]
 
 
-# --- findings: current behaviour corrupts the text; xfail(strict) until fixed -----------------
+# --- findings F1-F5 of design/chinese/postprocess-compatibility.md, fixed under #501 ---------
+# Each was a strict xfail while the defect stood; each now pins the fix.
 
-_FINDING = "#501 COMP-02 finding — see design/chinese/postprocess-compatibility.md"
 
-
-@pytest.mark.xfail(strict=True, reason=_FINDING + ": F1 continuation spacing between Han bursts")
 def test_second_han_burst_gets_no_inserted_space():
     # `continuation_prefix` prepends " " to any burst that is not closing punctuation. The
     # space is right between two English words and wrong between two Han clauses.
     assert _dictate("zh", "你好，世界。", "今天测试。") == ["你好，世界。", "今天测试。"]
 
 
-@pytest.mark.xfail(strict=True, reason=_FINDING + ": F2 full-width closer not in the no-space set")
 def test_burst_opening_with_a_fullwidth_comma_hugs_the_previous_text():
     # The ASCII comma is in `_NO_LEADING_SPACE_BEFORE`; U+FF0C is not, so it is typed " ，".
     assert _dictate("zh", "你好", "，然后") == ["你好", "，然后"]
 
 
-@pytest.mark.xfail(strict=True, reason=_FINDING + ": F3 ASCII-only comma consumption in Rule A")
 def test_english_filler_before_a_fullwidth_comma_leaves_no_orphan():
     # "Uh, let's go" -> "let's go" in English; the full-width comma is left stranded.
     assert _dictate("zh", "Uh，我们开始吧") == ["我们开始吧"]
 
 
-@pytest.mark.xfail(strict=True, reason=_FINDING + ": F3 ASCII-only comma consumption in Rule A")
 def test_english_filler_between_fullwidth_commas_leaves_one_comma():
     assert _dictate("zh", "我觉得，um，很好") == ["我觉得，很好"]
 
 
-@pytest.mark.xfail(strict=True, reason=_FINDING + ": F4 self-correction boundary is ASCII '. '")
 def test_english_correction_phrase_keeps_the_previous_han_sentence():
     # English: "I am busy. Scratch that I am free" keeps "I am busy." (boundary '. ').
     # The full-width stop '。' is not a boundary, so the whole prior sentence is discarded.
     assert _dictate("zh", "我今天很忙。 scratch that 我很闲") == ["我今天很忙。 我很闲"]
+
+
+# --- a dictation session: several bursts in a row, as a user actually speaks -----------------
+
+#: (id, bursts, what reaches the injector). Every burst lands inside the 30 s
+#: continuation window, so the seam between bursts is decided by continuation spacing.
+_SESSIONS = [
+    (
+        "mandarin-meeting-note",
+        ["我们下午三点开会。", "讨论 YazSes 的发布计划，", "然后确定每个人的分工。"],
+        ["我们下午三点开会。", "讨论 YazSes 的发布计划，", "然后确定每个人的分工。"],
+    ),
+    (
+        "traditional-greeting",
+        ["你好，世界。", "今天測試。"],
+        ["你好，世界。", "今天測試。"],
+    ),
+    (
+        "clause-continued-across-bursts",
+        ["这个版本", "，文件名是 test.py。"],
+        ["这个版本", "，文件名是 test.py。"],
+    ),
+    (
+        "han-then-latin-burst-keeps-space",
+        ["今天测试", "YazSes 很好用。"],
+        ["今天测试", " YazSes 很好用。"],
+    ),
+    (
+        "latin-then-han-burst-keeps-space",
+        ["Release v2.0", "已经发布了。"],
+        ["Release v2.0", " 已经发布了。"],
+    ),
+    (
+        "english-session-unchanged",
+        ["hello there", "general Kenobi", ", you are a bold one."],
+        ["hello there", " general Kenobi", ", you are a bold one."],
+    ),
+]
+
+
+@pytest.mark.parametrize("language", ["zh", "en"])
+@pytest.mark.parametrize("name,bursts,expected", _SESSIONS, ids=[s[0] for s in _SESSIONS])
+def test_a_dictation_session_types_exactly_what_was_said(language, name, bursts, expected):
+    assert _dictate(language, *bursts) == expected
 
 
 # --- opt-in Hallucination Guard (off by default; fixed here) ----------------------------------
@@ -210,7 +248,6 @@ def test_english_segments_are_joined_with_one_space(monkeypatch):
 
 
 @needs_faster_whisper
-@pytest.mark.xfail(strict=True, reason=_FINDING + ": F5 segments joined with ' ' regardless of script")
 def test_han_segments_are_not_joined_with_a_space(monkeypatch):
     eng = _engine(monkeypatch, [_Seg("你好，世界。"), _Seg("今天测试。")])
     assert eng.transcribe(np.ones(10, dtype="float32")) == "你好，世界。今天测试。"

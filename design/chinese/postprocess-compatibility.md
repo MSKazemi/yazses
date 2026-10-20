@@ -1,6 +1,7 @@
 # Postprocessor compatibility audit for Mandarin (CHN-30 / #501 COMP-01)
 
-**Status:** audit of `main` at `6edac14c`, 2026-10-16. Evidence is `file:line` against that commit; every "Chinese result"
+**Status:** audit of `main` at `6edac14c`, 2026-10-16; findings F1–F6 and the transcript/injection
+audit (§5) updated 2026-10-21 on branch `feat/501-cjk-compat`. §3 lists what is fixed and what is open. Evidence is `file:line` against that commit; every "Chinese result"
 cell was produced by running synthetic text through the real pipeline, not inferred from reading
 (`tests/test_cjk_pipeline_vectors.py`). This is the filled-in matrix that
 [surface-support-matrix.md](surface-support-matrix.md) leaves as a template.
@@ -49,18 +50,49 @@ Not a postprocessor but the same assumption, tracked separately: `meeting/qualit
 
 | ID | Where | Defect | State |
 |---|---|---|---|
-| F1 | `postprocess/spacing.py:51-63` | A leading space is inserted between consecutive Han bursts. Only the *previous* burst's last character can say whether the seam is Han–Han, and `continuation_prefix` does not receive it. | **Open.** Fix sketch: optional `previous_tail` argument + `daemon.py` tracking the last injected character; no space when both sides are unspaced-script. English byte-identical. Changes a contract unit ⇒ contract bump (cf. #551). |
-| F2 | `postprocess/spacing.py:32` | Full-width closers `，。！？；：、）」』》”’` are not in `_NO_LEADING_SPACE_BEFORE`. | **Open**, same contract caveat. |
-| F3 | `stt/filters/disfluency.py:233-251`, `:285` | Filler removal consumes only the ASCII comma. Needs an *English filler inside Mandarin text*, which Whisper in `zh` mode rarely emits, so low frequency. | **Open**, contract-adjacent (`contract/vectors/disfluency.json`). |
-| F4 | `stt/filters/disfluency.py:544-546` | Rollback boundary recognises only ASCII `. ` `! ` `? `. Same low frequency as F3. | **Open.** |
-| F5 | `stt/faster_whisper.py:204,240,252` | Segments joined with `" "` regardless of script. Not in the contract. **Unverified against a real model**: each segment is `.strip()`ped and re-joined with one space, so the space is inserted whenever a decode yields two or more segments; how often a real Mandarin hold-to-talk burst does is not shown here (no Whisper weights were run, the vector uses a fake model). | **Open.** Fix sketch: join with `""` when the left ends and the right starts with an unspaced-script character; English byte-identical. |
-| F6 | `recimport/pipeline.py:40` | `yazses transcribe` built a bare `FasterWhisperEngine` and never applied `[stt] chinese_script`, although [README.md](README.md) states that file transcription is covered by the factory wrapper. | **Fixed for `yazses transcribe`** (`_build_engine(config, stt=…)`, `cli.py` passes `cfg.stt`). **Still open** for the other engine-less callers of `transcribe_file` — `mcp/server.py:37` and `meeting/recover.py` (`recover_meeting(d, cfg.meeting)`, `cli.py:903`) — which hold no `[stt]` section; a fix needs either a parameter or a config key (public interface). |
+| F1 | `postprocess/spacing.py` | A leading space is inserted between consecutive Han bursts. Only the *previous* burst's last character can say whether the seam is Han–Han, and `continuation_prefix` did not receive it. | **Fixed.** Optional `previous_tail` argument. `core/daemon.py` records `_last_dictation_tail` wherever it records `_last_dictation_monotonic`. The seam rule is `postprocess/cjk.py::needs_space`. Contract 7.1.0 (`spacing.json`). |
+| F2 | `postprocess/spacing.py` | Full-width closers `，。！？；：、）」』》` were not in `_NO_LEADING_SPACE_BEFORE`. | **Fixed.** Any CJK punctuation mark suppresses the separator, opening marks included, because a full-width glyph carries its own spacing. Contract 7.1.0. |
+| F3 | `stt/filters/disfluency.py` Rule A | Filler removal consumed only the ASCII comma. This needs an *English filler inside Mandarin text*, which Whisper in `zh` mode rarely emits, so it is low frequency. | **Fixed.** A trailing `，` or `、` is consumed with the filler. A leading filler's full-width mark is stripped. A dangling final full-width clause mark is tidied. The `_CJK_*` sets are separate, so the code-identifier guards are untouched. Contract 7.1.0 (`disfluency.json`). |
+| F4 | `stt/filters/disfluency.py` Rule C | The rollback boundary recognised only ASCII `. ` `! ` `? `. | **Fixed.** `。！？` are boundaries with or without a following space. The trigger clause's own full-width mark is consumed. Contract 7.1.0. |
+| F5 | `stt/faster_whisper.py` (`transcribe`, `transcribe_words`, `decode_window`) | Segments were joined with `" "` regardless of script. | **Fixed** (`cjk.join_pieces`). **Not verified against a real model**: no Whisper weights were run, so how often a real Mandarin hold-to-talk burst decodes to two or more segments is not measured. |
+| F6 | `recimport/pipeline.py` | File transcription built a bare `FasterWhisperEngine` and never applied `[stt] chinese_script`. | **Fixed for `yazses transcribe`** (8f0edff1) **and for `yazses meeting recover`**: `stt=` is threaded through `recover_meeting` → `finalize_meeting` → `transcribe_file`. Live meetings already used the daemon's factory-wrapped engine. **Still open: `mcp/server.py`.** It passes the whole `Config` as the recimport section, so the MCP `transcribe` tool decodes with `small.en` in English whatever `[recimport]` and `[stt]` say. The defect is wider than Mandarin and needs an owner decision. |
+| F8 | `recimport/align.py`, `recimport/subtitles.py`, `meeting/notes.py`, `meeting/store.py::live_text` | Per-character Mandarin word tokens were re-joined with `" "` (`你 好 ， 世 界`) in utterances, JSON words and captions. Captions were measured in code points and broken only at spaces. A long Mandarin turn could not be split for the notes window. | **Fixed.** See §5. |
+| F9 | `inject/unicode.py`, `inject/ydotool.py` | The XKB/uinput path raised on the first character the layout lacks, but only *after* typing everything before it. The clipboard fallback then typed the prefix a second time (`YazSes YazSes 版本`). | **Fixed.** The whole burst is resolved before the first keystroke. See §5. |
 | F7 | `postprocess/hallucination.py` | Han text erased by `_norm`, so a real sentence could be dropped as a ghost phrase or loop. | **Fixed** (opt-in guard). |
 
 ## 4. What this audit did not do
 
 - No audio, no Whisper weights, no real transcripts. All text is synthetic.
 - No platform injection (COMP-06..09 need a human on each OS/session).
-- Meeting quality counting (COMP-04) and Meeting renderers (COMP-05) are untouched.
 - `vocab_correct` is deliberately skipped (concurrent edit).
 - The opt-in rows in section 2 are classified from code, not run.
+- No native speaker reviewed the spacing convention (a Han–Latin seam keeps its space) or the
+  disfluency expectations (`我觉得，um，很好` → `我觉得，很好`).
+
+## 5. File transcription, Meeting Mode and injection (2026-10-21)
+
+Every fix uses one rule, `src/yazses/postprocess/cjk.py` (pure, stdlib only). It is built so that
+**text holding no CJK character takes exactly the old code path**, and `tests/test_cjk_text.py`
+checks that property with Hypothesis.
+
+| Surface | Evidence | Before | After | Vector |
+|---|---|---|---|---|
+| Word tokens of a `zh` decode | faster-whisper 1.2.1 `Tokenizer.split_to_word_tokens` splits `zh/ja/th/lo/my/yue` on code points, not spaces | `YazSes` came back as `Yaz`, `Ses`. Once stripped, the no-space signal was lost | `stt/faster_whisper.py::_glued_words` regroups by each raw token's leading whitespace. Han–Han pairs stay separate tokens. It runs only for those decode languages (`info.language`) | `test_cjk_transcripts.py::test_mandarin_word_tokens_come_back_as_written` |
+| Diarized utterances | `recimport/align.py::merge_utterances` | `你 好 ， 世 界` | `join_pieces` | `test_diarized_utterances_join_han_words_without_spaces` |
+| SRT/VTT segments | `recimport/subtitles.py::merge_word_timestamps` | `你 好， 世 界。…`, with the budget counted in code points | `join_pieces`, with the budget counted in display columns (Han = 2) | `test_caption_segment_*` |
+| Caption wrapping | `recimport/subtitles.py::wrap_caption` | A Han caption had no space to break at, so it stayed one 80-column line | Broken between characters (`cjk.break_units`), never before `，` or after `「` | `test_mandarin_caption_is_wrapped_between_characters` |
+| Every renderer | `recimport/render.py` md/txt/srt/vtt/json | Inherited the faults above | Han text intact in all five formats | `test_every_renderer_keeps_the_han_text_intact` |
+| Meeting quality counts (COMP-04) | `meeting/quality.py::tokenize` | Already Han-aware since `6ac8f152` | Unchanged | `test_meeting_quality_counts_han_characters_not_whitespace_runs` |
+| Live transcript join | `meeting/store.py::live_text` | Lines joined with `" "` | `join_pieces` | `test_live_text_joins_mandarin_lines_without_a_space` |
+| Notes window split | `meeting/notes.py::_split_long_text` | A Mandarin turn has no whitespace, so it was returned whole at any length | Split between characters within the budget | `test_notes_window_splits_a_long_mandarin_turn_within_budget` |
+| Portal keysyms | `inject/keysyms.py::char_to_keysym` | Already correct | One keysym per code point (`0x01000000 + cp`), astral planes included; now pinned by a test | `test_cjk_injection.py::test_portal_*` |
+| Windows `SendInput`, macOS Quartz | `platform/windows/injector.py::_utf16_units`, `platform/macos/injector.py::_utf16_chunks` | Already correct | Surrogate pairs are sent whole and never split across a chunk; now pinned for Han | `test_windows_*`, `test_macos_*` |
+| XKB/uinput and the ydotool mixed path | `inject/unicode.py`, `inject/ydotool.py::_inject_mixed` | The prefix was typed, then the injector raised, then the clipboard pasted the whole burst | `UnicodeInjector._plan` and `ensure_producible` resolve every character before typing | `test_linux_fallback_types_a_mixed_han_burst_exactly_once` |
+
+**Not fixed, recorded:**
+
+- `meeting/notes.py` sizes its window as `tokens × CHARS_PER_TOKEN`, an English ratio. Han text
+  costs more tokens per character, so a Mandarin window can still overrun the model context. This
+  was not measured, so it was not changed.
+- `cli.py` `staged commit` counts "words" with `split()`. The effect is cosmetic.
+- The opt-in surfaces (`srpace`, staged dictation, Prosody Ink) were not re-audited.

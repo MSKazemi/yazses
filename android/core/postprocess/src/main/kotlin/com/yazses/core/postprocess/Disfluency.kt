@@ -39,6 +39,15 @@ public data class FilterResult(val text: String, val charsRemoved: Int)
 
 private const val TRAILING_PUNCTUATION = ".,;:!?…"
 
+/**
+ * Full-width (CJK) clause and sentence marks (contract 7.1.0, #501). Separate from
+ * [TRAILING_PUNCTUATION] on purpose: that set also feeds the code-identifier and
+ * hyphen guards. These are only consulted where an English filler or trigger meets a
+ * full-width mark inside Mandarin text, so no English input reaches them.
+ */
+private const val CJK_CLAUSE_PUNCTUATION = "\uFF0C\u3001\uFF1B\uFF1A" // ，、；：
+private const val CJK_SENTENCE_END = "\u3002\uFF01\uFF1F" // 。！？
+
 /** Non-lexical hesitation sounds — never ordinary words, so safe at position 0. */
 private val HESITATION_PARTICLES = setOf("um", "uh", "er", "ah", "hmm")
 
@@ -158,7 +167,7 @@ private fun removeFillers(text: String, fillerWords: List<String>): String {
     // the closing comma left "the tests, are slow" — a comma between subject and
     // verb, typed into the user's document.
     val alternation = fillerWords.sortedByDescending { it.length }.joinToString("|") { Regex.escape(it) }
-    val pattern = Regex("""(?:,\s*)?\b($alternation)\b[,]?\s*""", RegexOption.IGNORE_CASE)
+    val pattern = Regex("""(?:,\s*)?\b($alternation)\b[,\uFF0C\u3001]?\s*""", RegexOption.IGNORE_CASE)
 
     var removedLeading = false
     val result = StringBuilder()
@@ -196,7 +205,11 @@ private fun removeFillers(text: String, fillerWords: List<String>): String {
     result.append(withoutHyphenFillers, last, withoutHyphenFillers.length)
 
     var out = result.toString()
-    if (removedLeading) out = out.trimStart { it in TRAILING_PUNCTUATION || it == ' ' }
+    if (removedLeading) {
+        out = out.trimStart {
+            it in TRAILING_PUNCTUATION || it in CJK_CLAUSE_PUNCTUATION || it in CJK_SENTENCE_END || it == ' '
+        }
+    }
     if (out != withoutHyphenFillers) out = tidyOrphanedPunctuation(out)
     return out
 }
@@ -219,7 +232,7 @@ private fun tidyOrphanedPunctuation(text: String): String =
     text
         .replace(Regex(""",\s*,"""), ",")
         .replace(Regex("""\s+([,;:])"""), "$1")
-        .replace(Regex("""[,;:]\s*$"""), "")
+        .replace(Regex("""[,;:\uFF0C\u3001\uFF1B\uFF1A]\s*$"""), "")
 
 // ---- Rule B: consecutive 2-gram dedup --------------------------------------
 
@@ -339,7 +352,8 @@ private fun triggerIsGoverned(lower: String, idx: Int): Boolean {
  */
 private fun hasTextToRollBack(lower: String, start: Int, end: Int): Boolean {
     if (lower.substring(0, start).isNotBlank()) return true
-    return lower.getOrNull(end) in setOf('.', ',', ';', ':', '!', '?', '…')
+    val next = lower.getOrNull(end) ?: return false
+    return next in ".,;:!?…" || next in CJK_CLAUSE_PUNCTUATION || next in CJK_SENTENCE_END
 }
 
 private fun triggerPositions(lower: String, trigger: String): List<Int> {
@@ -378,15 +392,36 @@ private fun applySelfCorrections(text: String, triggers: List<String>): String {
             current.lastIndexOf("! ", idx - 1),
             current.lastIndexOf("? ", idx - 1),
         )
+        // A full-width sentence end is a boundary with or without a space after it
+        // (#501): Chinese puts none. Searched strictly before the trigger.
+        val cjkBoundary = if (idx > 0) {
+            CJK_SENTENCE_END.maxOf { current.lastIndexOf(it, idx - 1) }
+        } else {
+            -1
+        }
         var end = idx + trigger.length
         // Consume the punctuation belonging to the trigger clause, or "delete
         // that." leaves a bare " . " in the middle of the output.
-        while (end < current.length && current[end] in " ,.!?…") end++
+        while (end < current.length && (
+                current[end] in " ,.!?…" ||
+                    current[end] in CJK_CLAUSE_PUNCTUATION ||
+                    current[end] in CJK_SENTENCE_END
+                )
+        ) {
+            end++
+        }
 
-        current = if (boundary == -1) {
+        current = if (boundary == -1 && cjkBoundary == -1) {
             current.substring(end).trim()
         } else {
-            (current.substring(0, boundary + 2) + current.substring(end)).trim()
+            var keepEnd = if (boundary == -1) -1 else boundary + 2
+            if (cjkBoundary != -1) {
+                // keep the mark and the one space after it, if the text had one
+                var cjkEnd = cjkBoundary + 1
+                if (cjkEnd < idx && current.getOrNull(cjkEnd) == ' ') cjkEnd++
+                keepEnd = maxOf(keepEnd, cjkEnd)
+            }
+            (current.substring(0, keepEnd) + current.substring(end)).trim()
         }
     }
 }

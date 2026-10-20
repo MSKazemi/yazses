@@ -1,6 +1,6 @@
 {
   "unit": "filters.disfluency",
-  "contract_version": "7.0.0",
+  "contract_version": "7.1.0",
   "source": "src/yazses/stt/filters/disfluency.py::filter_transcript (.text)",
   "cases": [
     {
@@ -718,6 +718,69 @@
       "options": {},
       "input": "این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. ",
       "expected": "این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است."
+    },
+    {
+      "id": "mandarin-sentence-untouched",
+      "description": "realistic Mandarin prose with numbers and a Latin name: no rule fires, no space is inserted or removed",
+      "options": {},
+      "input": "我们下午三点开会，讨论 YazSes 的版本 v2.0 发布计划。",
+      "expected": "我们下午三点开会，讨论 YazSes 的版本 v2.0 发布计划。"
+    },
+    {
+      "id": "mandarin-own-fillers-survive",
+      "description": "the Mandarin hesitation characters 嗯 and 呃 are not in the English filler list and are kept — removing them is a language-specific decision nobody has measured yet",
+      "options": {},
+      "input": "嗯，我觉得这个方案可以。呃，我们明天再说。",
+      "expected": "嗯，我觉得这个方案可以。呃，我们明天再说。"
+    },
+    {
+      "id": "mandarin-reduplication-not-a-stutter",
+      "description": "unspaced Han is one whitespace token, so the repetition rules cannot see 看看 or 我觉得我觉得 as a stutter — inert, not destructive",
+      "options": {},
+      "input": "你看看这个文件，我觉得我觉得没问题。",
+      "expected": "你看看这个文件，我觉得我觉得没问题。"
+    },
+    {
+      "id": "english-filler-before-fullwidth-comma-at-start",
+      "description": "a sentence-initial English filler takes its full-width comma with it, as 'Uh, let's go' takes its ASCII one — before 7.1.0 the ， was left stranded at the start",
+      "options": {},
+      "input": "Uh，我们开始吧。",
+      "expected": "我们开始吧。"
+    },
+    {
+      "id": "english-filler-between-fullwidth-commas",
+      "description": "an English filler between two ， leaves exactly one: the Mandarin clause boundary survives, nothing is doubled",
+      "options": {},
+      "input": "我觉得，um，这个很好。",
+      "expected": "我觉得，这个很好。"
+    },
+    {
+      "id": "english-filler-at-end-after-fullwidth-comma",
+      "description": "a filler closing the utterance does not leave a dangling ，",
+      "options": {},
+      "input": "这个方案很好，you know",
+      "expected": "这个方案很好"
+    },
+    {
+      "id": "english-trigger-keeps-previous-mandarin-sentence",
+      "description": "。 is a sentence boundary with or without a space after it: the rollback discards only the clause it governs, as '. ' does in English — before 7.1.0 the whole earlier sentence was lost",
+      "options": {},
+      "input": "我今天很忙。 scratch that 我明天有空。",
+      "expected": "我今天很忙。 我明天有空。"
+    },
+    {
+      "id": "english-trigger-after-unspaced-fullwidth-stop",
+      "description": "same boundary with no space after 。, the usual Chinese typography; the trigger's own ， is consumed with it",
+      "options": {},
+      "input": "会议改到周三。scratch that，会议改到周四。",
+      "expected": "会议改到周三。会议改到周四。"
+    },
+    {
+      "id": "english-trigger-after-fullwidth-question-mark",
+      "description": "？ is a boundary too",
+      "options": {},
+      "input": "你明天来吗？never mind 我自己去。",
+      "expected": "你明天来吗？我自己去。"
     }
   ]
 }

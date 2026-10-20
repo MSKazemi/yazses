@@ -41,11 +41,25 @@ private fun firstVisibleCodePoint(text: String): Int {
  *
  * Returns a single space when this burst continues a recent one, and "" for the
  * first burst, for empty text, or when its first *visible* character is closing
- * punctuation.
+ * punctuation or any CJK punctuation mark (contract 7.1.0, #501: a full-width mark
+ * carries its own spacing, opening ones included).
+ *
+ * [previousTail] is the last character the previous burst typed, or "" when it is
+ * not known. When given, the seam is judged from both sides by [needsSpace]: two Han
+ * clauses take no space between them. "" reproduces the pre-7.1.0 answer exactly.
  */
-public fun continuationPrefix(text: String, hadRecentInjection: Boolean): String {
+public fun continuationPrefix(
+    text: String,
+    hadRecentInjection: Boolean,
+    previousTail: String = "",
+): String {
     if (!hadRecentInjection || text.isEmpty()) return ""
     val first = firstVisibleCodePoint(text)
     if (first in 0..0xFFFF && first.toChar() in NO_LEADING_SPACE_BEFORE) return ""
+    if (first >= 0 && isCjkPunct(first)) return ""
+    if (previousTail.isNotEmpty() && first >= 0) {
+        val tail = previousTail.codePointBefore(previousTail.length)
+        if (!needsSpace(tail, first)) return ""
+    }
     return " "
 }

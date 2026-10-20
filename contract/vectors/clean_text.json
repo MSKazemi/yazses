@@ -1,6 +1,6 @@
 {
   "unit": "postprocess.clean_text",
-  "contract_version": "7.0.0",
+  "contract_version": "7.1.0",
   "source": "src/yazses/postprocess/cleaner.py::clean_text",
   "cases": [
     {
@@ -429,6 +429,41 @@
       "options": {},
       "input": "این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. ",
       "expected": "این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است."
+    },
+    {
+      "id": "mandarin-mixed-sentence-preserved",
+      "description": "Simplified Mandarin with a Latin product name and digits: nothing between the Han clauses is touched, the authored spaces around the Latin run survive",
+      "options": {},
+      "input": "你好，世界。今天测试 YazSes 123。",
+      "expected": "你好，世界。今天测试 YazSes 123。"
+    },
+    {
+      "id": "mandarin-traditional-sentence-preserved",
+      "description": "the same sentence in Traditional characters is identical apart from the script — no unit may treat 測試 differently",
+      "options": {},
+      "input": "你好，世界。今天測試 YazSes 123。",
+      "expected": "你好，世界。今天測試 YazSes 123。"
+    },
+    {
+      "id": "mandarin-version-and-filename-preserved",
+      "description": "a version number, a file name and a number inside full-width punctuation: the ASCII dots are not sentence ends",
+      "options": {},
+      "input": "版本 v2.0，文件 test.py，编号 12345。",
+      "expected": "版本 v2.0，文件 test.py，编号 12345。"
+    },
+    {
+      "id": "mandarin-leading-fullwidth-stop-kept",
+      "description": "a leading 。 is NOT stripped (only ASCII '.' and U+2026 are Whisper artefacts) — removing real punctuation is not this unit's job",
+      "options": {},
+      "input": "。然后我们继续",
+      "expected": "。然后我们继续"
+    },
+    {
+      "id": "mandarin-astral-han-preserved",
+      "description": "an extension-B ideograph (U+20BB7, outside the BMP) in a name: a UTF-16 port must keep the surrogate pair whole",
+      "options": {},
+      "input": "𠮷野家的牛肉饭很好吃。",
+      "expected": "𠮷野家的牛肉饭很好吃。"
     }
   ]
 }

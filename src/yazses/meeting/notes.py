@@ -99,7 +99,27 @@ def window_budget_chars(ctx_tokens: int, max_output_tokens: int) -> int:
 
 
 def _split_long_text(text: str, budget: int) -> list:
-    """Break one over-long turn on whitespace so it can fit a window at all. Pure."""
+    """Break one over-long turn on whitespace so it can fit a window at all. Pure.
+
+    A Mandarin turn has no whitespace to break on, so it used to come back as one piece
+    of any length -- the very overflow this exists to prevent (#501). Text holding CJK
+    is broken between characters instead (see ``cjk.break_units``); text without CJK
+    takes exactly the old path.
+    """
+    from yazses.postprocess.cjk import break_units, contains_cjk, render_units
+
+    if contains_cjk(text):
+        pieces: list[str] = []
+        cur: list[tuple[str, str]] = []
+        for unit in break_units(text):
+            if cur and len(render_units([*cur, unit])) > budget:
+                pieces.append(render_units(cur))
+                cur = [unit]
+            else:
+                cur.append(unit)
+        if cur:
+            pieces.append(render_units(cur))
+        return pieces or [text[:budget]]
     words, out, current = text.split(), [], ""
     for word in words:
         candidate = f"{current} {word}".strip()
