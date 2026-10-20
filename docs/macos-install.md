@@ -130,11 +130,26 @@ Because the app is unsigned, macOS shows
 *"YazSes can’t be opened because Apple cannot check it for malicious software"*
 the first time you double-click the app. To get past this:
 
+**macOS 15 (Sequoia) and later** — including macOS 26 — no longer offer *Open* on a
+right-click for an unsigned app. Use the Settings route instead (this is the flow
+reported on [#562](https://github.com/MSKazemi/yazses/issues/562)):
+
+1. Double-click **YazSes.app** once. macOS says it was *Not Opened*; click **Done**.
+2. Open **System Settings → Privacy & Security** and scroll to the bottom.
+3. Next to *"YazSes" was blocked to protect your Mac*, click **Open Anyway**, then
+   **Open Anyway** again in the dialog, and enter your login password if asked.
+
+**macOS 14 and earlier:**
+
 1. Open Finder → Applications.
 2. **Right-click** (or Control-click) **YazSes.app** → **Open**.
 3. In the dialog that appears, click **Open** again.
 
 You only need to do this once. After that, double-clicking works normally.
+
+Opening the app does not by itself grant any permission. YazSes then asks macOS for
+Accessibility, Input Monitoring and the microphone; if no prompt appears, the sections
+below say where to switch each one on.
 
 > If you prefer, do the same from a terminal:
 > ```sh
@@ -291,7 +306,15 @@ running (opening the app again exits with *"Another YazSes daemon is already
 running"* in the log), it keeps the old answer. Run `yazses restart` (from the app:
 `/Applications/YazSes.app/Contents/MacOS/YazSes --cli restart`), check that
 `ps aux | grep -i yazses` shows one daemon with a recent start time, and try the
-hotkey again.
+hotkey again. `yazses doctor` also says so in the **Daemon** row when it can tell:
+*"started before Input Monitoring was granted"*.
+
+To be sure nothing old is left, look before you relaunch:
+
+```sh
+ps aux | grep -i [y]azses          # every YazSes process; the daemon ends in --daemon
+launchctl list | grep yazses       # the login item, if you enabled it (com.yazses.daemon)
+```
 
 Releases up to 2.43.0 have a second way into this state: **Quit in the menu bar
 did not stop the daemon.** The menu's Quit ends the tray process from inside its

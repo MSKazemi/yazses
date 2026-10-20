@@ -6,6 +6,13 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed — macOS install guide: the Open Anyway route first, and how to find a leftover daemon ([#562](https://github.com/MSKazemi/yazses/issues/562))
+
+macOS 15 (Sequoia) and later, including macOS 26, no longer offer *Open* on a right-click for an unsigned app, so
+`docs/macos-install.md` now leads with System Settings → Privacy & Security → **Open Anyway**, the flow the #562 reporter
+followed, and keeps the right-click route for macOS 14 and earlier. The stale-daemon entry adds the `ps` and
+`launchctl` commands to run before relaunching. Docs only.
+
 ### Fixed — macOS: no Accessibility or microphone prompt was ever raised, and `doctor` names a daemon that predates a grant ([#562](https://github.com/MSKazemi/yazses/issues/562), [#578](https://github.com/MSKazemi/yazses/issues/578))
 
 Found by reading the code against the #562 log; there is no Mac on this project, so every macOS behaviour below is
