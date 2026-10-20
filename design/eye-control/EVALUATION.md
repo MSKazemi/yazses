@@ -154,6 +154,9 @@ denominator is zero is `{"value": null, "reason": ...}`, never `0.0`. The same t
 output on every OS (LF endings, pinned by `.gitattributes`). **The fixtures are invented; a threshold
 sweep shows a trade-off on one trace and recommends nothing.** Recommending a face switch needs
 false-activation evidence from real volunteer sessions across people (ROADMAP P5.4).
+The trace format, the nuisance traces (natural blinks, lively talking, yawns, glances down), how to
+replay a different detector over the same traces, and the report a volunteer could later send are in
+[FACE_SWITCH_TRACES.md](FACE_SWITCH_TRACES.md).
 
 ### E3 — one-machine hardware smoke
 

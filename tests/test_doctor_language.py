@@ -69,7 +69,9 @@ def test_doctor_reports_missing_opencc_as_degraded_not_bricked():
     assert "yazses language set zh-TW" in script[2]
 
 
-def test_doctor_reports_opencc_ready_but_mandarin_commands_not_yet_wired():
+def test_doctor_reports_the_mandarin_grammar_the_daemon_will_select():
+    # The Mandarin Tier-1 grammar is registered and the daemon resolves
+    # [commands] language = "auto" to it; doctor used to say "English-only".
     cfg = _cfg(
         SttConfig(
             model="small",
@@ -82,10 +84,11 @@ def test_doctor_reports_opencc_ready_but_mandarin_commands_not_yet_wired():
         rows = _language_profile_checks(cfg)
 
     script = next(row for row in rows if row[0] == "Chinese script")
-    commands = next(row for row in rows if row[0] == "Mandarin commands")
+    commands = next(row for row in rows if row[0] == "Command grammar")
     assert script[1] == "OK"
-    assert commands[1] == "WARN"
-    assert "English-only" in commands[2]
+    assert commands[1] == "OK"
+    assert commands[2].startswith("zh (auto from speech)")
+    assert not any(row[0] == "Mandarin commands" for row in rows)
 
 
 def test_doctor_does_not_claim_profiles_for_unrelated_manual_languages():
@@ -107,4 +110,4 @@ def test_doctor_omits_command_warning_when_commands_are_disabled():
     with patch("yazses.system.deps.missing_modules", return_value=[]):
         rows = _language_profile_checks(cfg)
 
-    assert not any(row[0] == "Mandarin commands" for row in rows)
+    assert not any(row[0] == "Command grammar" for row in rows)

@@ -69,6 +69,7 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from check_eye_validation_slots import (  # noqa: E402  (sibling script, not a package)
     ENVIRONMENTS,
+    HARDWARE_CLASSES,
     PACKS,
     RegistryError,
     _scan_identity,
@@ -118,6 +119,8 @@ class Cell:
     slot: str
     state: str
     issue: int | None
+    issue_key: str
+    hardware_class: str
     blocked_by: tuple[int, ...]
     additional_blockers: str
     sessions_planned: int
@@ -340,6 +343,15 @@ def build_coverage(
             "registry has no slots -- an empty coverage page would read as full coverage"
         )
     reported = dict(outcomes or {})
+    # The title code of each declared issue. Read from the registry's own declaration, so
+    # the page shows the code the validator checked against the cell, not a second copy.
+    issue_keys = {
+        entry["number"]: entry["key"]
+        for entry in registry.get("issues") or []
+        if isinstance(entry, dict)
+        and isinstance(entry.get("number"), int)
+        and isinstance(entry.get("key"), str)
+    }
 
     cells: list[Cell] = []
     for slot in slots:
@@ -348,6 +360,13 @@ def build_coverage(
         slot_id = slot.get("id")
         if not isinstance(slot_id, str) or not slot_id:
             raise DashboardError(f"registry slot has no usable id: {slot!r}")
+        if slot.get("hardware_class") not in HARDWARE_CLASSES:
+            # Rendered as a raw token, an unknown class would tell a contributor nothing
+            # about what to bring; refuse the page instead of printing it.
+            raise DashboardError(
+                f"registry slot {slot_id} has no known hardware_class: "
+                f"{slot.get('hardware_class')!r}"
+            )
         record = reported.get(slot_id) or {}
         blockers = slot.get("additional_blockers") or ""
         cells.append(
@@ -359,6 +378,8 @@ def build_coverage(
                 slot=str(slot.get("slot")),
                 state=str(slot.get("state")),
                 issue=slot.get("issue"),
+                issue_key=issue_keys.get(slot.get("issue"), "") if slot.get("issue") else "",
+                hardware_class=str(slot.get("hardware_class")),
                 blocked_by=tuple(slot.get("blocked_by") or ()),
                 additional_blockers=str(blockers),
                 sessions_planned=int(slot.get("sessions") or 1),
@@ -428,6 +449,24 @@ def missing_cells(page: str, registry: dict[str, Any]) -> list[str]:
 # --------------------------------------------------------------------------- #
 def _issue_link(issue: int | None) -> str:
     return f"[#{issue}]({ISSUE_URL}/{issue})" if issue else "none yet"
+
+
+def _cell_issue(cell: Cell) -> str:
+    """The cell's issue link followed by its declared title code, when it has one."""
+    link = _issue_link(cell.issue)
+    return f"{link} `{cell.issue_key}`" if cell.issue and cell.issue_key else link
+
+
+#: How each hardware class reads to someone deciding whether they can claim the cell.
+HARDWARE_LABELS = {
+    "none": "none",
+    "camera": "a webcam",
+    "camera_display_topology": "a webcam + non-100% scale or a second monitor",
+}
+
+
+def _hardware(cell: Cell) -> str:
+    return HARDWARE_LABELS.get(cell.hardware_class, cell.hardware_class)
 
 
 def _state_label(cell: Cell) -> str:
@@ -571,21 +610,22 @@ def render(coverage: Coverage) -> str:
     w("")
     w(
         "One row per registered cell, in pack then environment then slot order. The issue link "
-        "is derived from the registry, so it cannot disagree with the cell it represents."
+        "and its title code come from the registry's declared issue list, which the validator "
+        "checks against the cell, so they cannot disagree with the cell they represent."
     )
     w("")
     w(
-        "| Cell | Session | Slot | State | Runnable today? | Issue | Reported evidence | "
-        "Sessions planned | Blocked by |"
+        "| Cell | Session | Slot | State | Runnable today? | Hardware needed | Issue | "
+        "Reported evidence | Sessions planned | Blocked by |"
     )
-    w("|---|---|---|---|---|---|---|---:|---|")
+    w("|---|---|---|---|---|---|---|---|---:|---|")
     for cell in coverage.cells:
         blocked = ", ".join(_issue_link(n) for n in cell.blocked_by) or "—"
         if cell.additional_blockers:
             blocked += " + a condition below"
         w(
             f"| `{cell.id}` | {cell.session} | {cell.slot} | {_state_label(cell)} | "
-            f"{'yes' if cell.testable_now else 'no'} | {_issue_link(cell.issue)} | "
+            f"{'yes' if cell.testable_now else 'no'} | {_hardware(cell)} | {_cell_issue(cell)} | "
             f"{_evidence(cell)} | {cell.sessions_planned} | {blocked} |"
         )
     w("")

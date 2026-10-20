@@ -265,7 +265,14 @@ def test_try_deixis_non_deixis_phrase_not_consumed():
     assert not d._try_deixis("note to self buy milk", {})
 
 
-def test_try_deixis_without_targeter_not_consumed():
+def test_try_deixis_without_targeter_not_consumed(monkeypatch):
+    # Pinned to a session that CAN have a gaze target (X11 + xdotool), where a missing
+    # targeter means "not calibrated yet", not "impossible here". The Wayland case, where
+    # the phrase is consumed and refused, is in tests/test_gaze_target_capabilities.py.
+    from yazses.gaze import target_semantics as sem
+
+    monkeypatch.setattr(sem, "describe_gaze_target",
+                        lambda *a, **k: sem.plan_gaze_target("x11", xdotool_available=True))
     d = _daemon(enabled=True, deixis=True)
     d._gaze_targeter = None
     assert not d._try_deixis("close this", {})

@@ -19,10 +19,30 @@ Two parts, split the way the house pattern splits pure logic from the thing that
 
 ## What is retained
 
-A bounded ring of recent ``GazeSignal`` values (see ``GazeHistory``) and integer counters.
-A click is reduced to its coordinates and dropped. Nothing is written to disk by this
-module, nothing is logged per click, and no pair outlives the sink call. The sink — the
-estimator — keeps its own bounded state in RAM and nothing else (#398).
+A ring of recent ``GazeSignal`` values (see ``GazeHistory``), bounded in count
+(``DEFAULT_CAPACITY``) **and in age** (``DEFAULT_MAX_AGE_S``, widened to the look-back),
+plus integer counters and one context fingerprint string. A click is reduced to its
+coordinates and dropped. Nothing is written to disk by this module -- the spec's
+persistence section stores the map and its context, never samples -- nothing is logged
+per click, and no pair outlives the sink call. The sink — the estimator — keeps its own
+bounded state in RAM and nothing else (#398).
+
+## A changed layout empties the ring
+
+A pair joins a click, in the canonical desktop coordinates of the layout that exists
+*now*, with eye features recorded a moment ago. If the display layout or the camera
+changed in between (ADR-v2-149), the ring may hold eye positions aimed at a desktop that
+no longer exists, and no sample says which side of the change it was taken on. So when an
+injected ``fingerprint`` reads differently from the one the ring was filled under, the
+ring and the reuse memory are dropped and the click that noticed is refused as
+``topology_changed``. Later clicks pair only with gaze recorded after that. An unreadable
+layout (``None``) is not a change: a failed read is never evidence of one.
+
+The fingerprint is read on a click, never per gaze poll -- the real reader runs ``xrandr``
+-- and :class:`ThrottledFingerprint` bounds even that to one read per interval. A change is
+therefore seen up to one interval late; ``ImplicitRefiner``'s own context check and its
+unthrottled confirmation before a write (#398) are what keep such a pair out of the
+stored map.
 
 ## Non-goal
 
@@ -32,13 +52,16 @@ refinement earned promotion is #398 (``gaze/refine.py``).
 from __future__ import annotations
 
 import logging
+import math
 import threading
+import time
 from collections import deque
 from collections.abc import Callable
 from dataclasses import dataclass
 
 from yazses.gaze.association import (
     DEFAULT_CAPACITY,
+    DEFAULT_MAX_AGE_S,
     Association,
     AssociationPolicy,
     AssociationResult,
@@ -49,7 +72,14 @@ from yazses.gaze.association import (
 from yazses.gaze.clicks import ClickEvent, ClickObserver
 from yazses.perception.signals import FacePerceptionSource, GazeSignal
 
-__all__ = ["MAX_CLICK_CLOCK_SKEW_S", "CaptureStats", "ClickGazeCapture", "ImplicitCaptureService"]
+__all__ = [
+    "DEFAULT_FINGERPRINT_INTERVAL_S",
+    "MAX_CLICK_CLOCK_SKEW_S",
+    "CaptureStats",
+    "ClickGazeCapture",
+    "ImplicitCaptureService",
+    "ThrottledFingerprint",
+]
 
 log = logging.getLogger(__name__)
 
@@ -60,6 +90,60 @@ log = logging.getLogger(__name__)
 #: to sit above delivery jitter and below those. **Provisional; not measured on any
 #: platform's input stack**, and the tests pin the mechanism, not this number.
 MAX_CLICK_CLOCK_SKEW_S = 5.0
+
+#: Minimum seconds between two real reads of the context fingerprint. Clicks are seconds
+#: apart, so this rarely delays detection; it exists so a click burst cannot spawn one
+#: ``xrandr`` per click on the input hook's thread. **Provisional; unmeasured.**
+DEFAULT_FINGERPRINT_INTERVAL_S = 1.0
+
+
+class ThrottledFingerprint:
+    """A context-fingerprint reader that reads for real at most once per interval.
+
+    Pure: *read* and *clock* are injected. *read* returns the current fingerprint, or
+    ``None`` when the layout cannot be read. A read that fails or returns ``None`` keeps the
+    last known value -- "could not tell" is not "changed" -- so a flaky display server
+    cannot flush the ring on every click. *seed* is a fingerprint already known to hold
+    right now (the context the calibration was just verified against), which saves the
+    first read and makes it the baseline a change is measured from.
+    """
+
+    def __init__(
+        self,
+        read: Callable[[], str | None],
+        *,
+        min_interval_s: float = DEFAULT_FINGERPRINT_INTERVAL_S,
+        clock: Callable[[], float] | None = None,
+        seed: str | None = None,
+    ) -> None:
+        if not (math.isfinite(float(min_interval_s)) and min_interval_s >= 0):
+            raise ValueError("ThrottledFingerprint.min_interval_s must be finite and >= 0")
+        self._read = read
+        self._min_interval_s = float(min_interval_s)
+        self._clock = clock or time.monotonic
+        self._lock = threading.Lock()
+        self._value: str | None = seed
+        self._last_read: float | None = self._clock() if seed is not None else None
+        #: How many real reads were made (a count, for tests and nothing else).
+        self.reads = 0
+
+    def __call__(self) -> str | None:
+        with self._lock:
+            now = self._clock()
+            if self._last_read is not None and now - self._last_read < self._min_interval_s:
+                return self._value
+            self._last_read = now
+            self.reads += 1
+            try:
+                value = self._read()
+            except Exception as exc:
+                log.debug(
+                    "context fingerprint read raised %s; keeping the last", type(exc).__name__
+                )
+                return self._value
+            if value is not None:
+                self._value = str(value)
+            return self._value
 
 
 @dataclass(frozen=True)
@@ -73,12 +157,13 @@ class CaptureStats:
     low_confidence: int = 0
     clock_mismatch: int = 0
     sample_reused: int = 0
+    topology_changed: int = 0
 
     @property
     def rejected(self) -> int:
         return (
             self.no_gaze + self.stale + self.low_confidence
-            + self.clock_mismatch + self.sample_reused
+            + self.clock_mismatch + self.sample_reused + self.topology_changed
         )
 
 
@@ -91,18 +176,39 @@ class ClickGazeCapture:
         policy: AssociationPolicy | None = None,
         history: GazeHistory | None = None,
         clock: Callable[[], float] | None = None,
+        fingerprint: Callable[[], str | None] | None = None,
     ) -> None:
         """*clock* is the clock gaze samples are stamped with (``time.monotonic`` for the
-        shared source). Given, a click stamped far from it is refused by name; omitted,
-        that check is off and association trusts the timestamps it is handed."""
+        shared source). Given, a click stamped far from it is refused by name and the ring
+        is aged against it even while no face arrives; omitted, that check is off,
+        association trusts the timestamps it is handed, and the ring ages only as new
+        samples arrive.
+
+        *fingerprint* returns the ADR-v2-149 context fingerprint of the current display
+        layout and camera (``None`` = cannot tell). Given, a change between clicks drops
+        the ring; omitted, the capture does not watch the layout (the refiner still does).
+
+        The default ring is bounded in age to ``max(DEFAULT_MAX_AGE_S, lookback)``. An
+        injected ring may have no age bound, but not one shorter than the look-back: that
+        would discard samples the policy says a click may use.
+        """
         self._sink = sink
         self._policy = policy or AssociationPolicy()
-        self._history = history if history is not None else GazeHistory()
+        if history is None:
+            history = GazeHistory(max_age_s=max(DEFAULT_MAX_AGE_S, self._policy.lookback_s))
+        elif history.max_age_s is not None and history.max_age_s < self._policy.lookback_s:
+            raise ValueError(
+                "the gaze ring's max_age_s is shorter than the association look-back; it "
+                "would drop samples a click is allowed to use"
+            )
+        self._history = history
         self._clock = clock
+        self._fingerprint = fingerprint
+        self._seen_fingerprint: str | None = None
         self._lock = threading.Lock()
         self._counts = {
             "clicks": 0, "accepted": 0, "no_gaze": 0, "stale": 0, "low_confidence": 0,
-            "clock_mismatch": 0, "sample_reused": 0,
+            "clock_mismatch": 0, "sample_reused": 0, "topology_changed": 0,
         }
         # Bounded to the gaze ring: an observation older than the ring cannot be chosen
         # again anyway, so remembering more would only be a slow leak.
@@ -114,8 +220,45 @@ class ClickGazeCapture:
         return self._history
 
     def record_gaze(self, gaze: GazeSignal | None) -> bool:
-        """Offer one gaze observation (``None`` = no face this poll). ``True`` if kept."""
-        return self._history.record(gaze)
+        """Offer one gaze observation (``None`` = no face this poll). ``True`` if kept.
+
+        Also ages the ring: against the clock when there is one, otherwise against the
+        observation just offered.
+        """
+        kept = self._history.record(gaze)
+        if self._clock is not None:
+            self._history.prune(self._clock())
+        elif gaze is not None:
+            self._history.prune(gaze.timestamp_s)
+        return kept
+
+    def observe_topology(self) -> bool:
+        """Read the fingerprint; on a change drop the ring and return ``True``.
+
+        The first readable value is adopted as the baseline, not reported as a change.
+        Without a fingerprint, or when it reads ``None`` or raises, nothing changes.
+        """
+        if self._fingerprint is None:
+            return False
+        try:
+            current = self._fingerprint()
+        except Exception as exc:  # runs on the input hook's thread
+            log.debug("context fingerprint raised %s; treated as unknown", type(exc).__name__)
+            return False
+        if current is None:
+            return False
+        with self._lock:
+            previous = self._seen_fingerprint
+            self._seen_fingerprint = current
+            if previous is None or previous == current:
+                return False
+            self._used.clear()
+        self._history.clear()
+        log.info(
+            "Implicit gaze calibration: the display layout or camera changed; recent gaze "
+            "dropped, clicks pair only with gaze seen after the change."
+        )
+        return True
 
     def handle_click(self, click: ClickEvent) -> AssociationResult:
         """Associate *click* with recent gaze; give an accepted pair to the sink.
@@ -139,10 +282,18 @@ class ClickGazeCapture:
         return result
 
     def _decide(self, click: ClickEvent) -> AssociationResult:
-        """Accept or name the rejection. Order: clock, association, then reuse."""
+        """Accept or name the rejection. Order: layout, clock, association, then reuse."""
+        if self.observe_topology():
+            return AssociationResult(reason=RejectReason.TOPOLOGY_CHANGED)
         if self._clock is not None and self._skewed(click):
             return AssociationResult(reason=RejectReason.CLOCK_MISMATCH)
+        if self._clock is not None:
+            self._history.prune(self._clock())
         result = associate(click, self._history.snapshot(), self._policy)
+        if result.reason is RejectReason.NO_GAZE and self._history.aged_out:
+            # The ring is empty because its samples grew old, not because no face was ever
+            # seen: that is the face-left-the-frame case, and it keeps its own name.
+            return AssociationResult(reason=RejectReason.STALE)
         pair = result.association
         if pair is None or pair.gaze_timestamp_s is None:
             return result
@@ -227,6 +378,8 @@ class ImplicitCaptureService:
             except BaseException:
                 self._lease.stop()
                 raise
+            # The layout at start is the baseline a later change is measured from.
+            self._capture.observe_topology()
             self._explained = False
             self._running = True
 

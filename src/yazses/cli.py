@@ -154,13 +154,15 @@ def language_status(
         and script_dependency_available
         and not blocked
     )
-    commands_enabled = bool(getattr(cfg.commands, "enabled", True))
-    command_language = "en" if commands_enabled else "disabled"
-    command_support = (
-        "english-only"
-        if commands_enabled and status.speech_language == "zh"
-        else ("available" if commands_enabled else "disabled")
-    )
+    # Resolved by the grammar registry's own resolver, the one the daemon calls.
+    commands_enabled = status.commands_enabled
+    command_language = status.command_language if commands_enabled else "disabled"
+    if not commands_enabled:
+        command_support = "disabled"
+    elif status.command_grammar_available:
+        command_support = "available"
+    else:
+        command_support = "unavailable"
 
     payload = {
         "speech_language": status.speech_language,
@@ -174,6 +176,7 @@ def language_status(
         "coherent": status.coherent,
         "dictation_ready": dictation_ready,
         "problems": list(status.problems),
+        "warnings": list(status.warnings),
         "requirements": {
             "model_cached": model_cached,
             "script_dependency_available": script_dependency_available,
@@ -201,21 +204,28 @@ def language_status(
                 "Script dep:    "
                 + ("ready" if script_dependency_available else "missing OpenCC")
             )
-        if status.speech_language == "zh" and commands_enabled:
-            typer.echo(
-                "Commands:      English Tier-1 only "
-                "(Mandarin command grammar not implemented yet)"
-            )
-        elif not commands_enabled:
+        if not commands_enabled:
             typer.echo("Commands:      disabled")
+        elif not status.command_grammar_available:
+            typer.echo(
+                f"Commands:      no Tier-1 grammar for {command_language or 'auto'!r}"
+            )
         else:
-            typer.echo("Commands:      English Tier-1")
+            grammar = (
+                "Mandarin Tier-1 (edit/navigation subset)"
+                if command_language == "zh"
+                else "English Tier-1"
+            )
+            origin = "pinned" if status.command_language_pinned else "auto"
+            typer.echo(f"Commands:      {grammar} [{origin}]")
         typer.echo(
             f"Dictation:     {'ready' if dictation_ready else 'NOT READY'}"
         )
         typer.echo(f"Status:        {'coherent' if status.coherent else 'INVALID'}")
         for problem in status.problems:
             typer.echo(f"  - {problem}", err=True)
+        for warning in status.warnings:
+            typer.echo(f"  - warning: {warning}", err=True)
         if blocked:
             typer.echo(f"  - prerequisite blocker: {blocked}", err=True)
 
@@ -240,6 +250,15 @@ def _echo_language_set_plan(plan, candidate_stt, missing_imports, packages, bloc
                 typer.echo(f"    reason: {mutation.reason}")
     else:
         typer.echo("Changes: none")
+    if plan.command_language_after and (
+        plan.command_language_after != plan.command_language_before
+    ):
+        typer.echo(
+            f"Command grammar: {plan.command_language_before or 'none'} -> "
+            f"{plan.command_language_after} (follows [stt] language)"
+        )
+    for warning in plan.warnings:
+        typer.echo(f"Warning: {warning}")
 
     typer.echo("Requirements:")
     if (candidate_stt.engine or "").strip().lower() == "faster-whisper":
@@ -2221,11 +2240,18 @@ def features_enable(
     from yazses.config import load_config
     from yazses.system.features import (
         EXPERIMENTAL,
+        PRESET_SLUG,
         enable_caveat,
         find_feature,
         toggleable_slugs,
     )
 
+    if name.strip().lower() == PRESET_SLUG:
+        # The preset is gated on more than tier and deps: the safety floor, and the tier and
+        # deps of every feature it composes (ADR-v2-148). One implementation, so the two
+        # spellings of "turn it on" refuse the same files with the same words.
+        handsfree_enable(force=force, no_install=no_install)
+        return
     platform = get_platform()
     cfg = load_config(platform.paths.config_file)
     feat = find_feature(cfg, name)
@@ -2750,8 +2776,13 @@ def features_disable(
 ) -> None:
     """Turn a capability OFF (writes your config), then `yazses restart` to apply."""
     from yazses.config import load_config
-    from yazses.system.features import find_feature, toggleable_slugs
+    from yazses.system.features import PRESET_SLUG, find_feature, toggleable_slugs
 
+    if name.strip().lower() == PRESET_SLUG:
+        # Same as `yazses handsfree disable`: it also pauses every hands-free input at once,
+        # so the pointer and switch stop now rather than at the restart.
+        handsfree_disable()
+        return
     platform = get_platform()
     cfg = load_config(platform.paths.config_file)
     feat = find_feature(cfg, name)
@@ -6282,6 +6313,13 @@ def gaze_status() -> None:
         typer.echo(f"  ✓ gaze target: {target.reason}")
     else:
         typer.echo(f"  ✗ gaze target: none -- {target.reason}")
+    if target.capability_summary:
+        # The evidence for the line above, one capability at a time; pointer injection is
+        # printed as separate so a granted portal permission is not read as a target.
+        typer.echo(f"    capabilities: {target.capability_summary}")
+    if not target.available:
+        typer.echo("    a destructive gaze command (\"close this\") is refused here, never "
+                   "sent to the focused window")
     typer.echo(f"  {mark(cal is not None)} calibration ({calibration_path(platform.paths.data_dir)})")
     if cal is None and check.stale:
         # #415: the file is there and damaged -- not the same as never having calibrated.
@@ -6587,7 +6625,7 @@ def gaze_measure(
                 time.sleep(interval_s)
             collect_validation(
                 backend, calibration, targets, before_point, session, time.monotonic,
-                per_point=per_point, started_at=started,
+                per_point=per_point, started_at=started, screen=(width, height),
             )
     finally:
         backend.close()
@@ -6648,12 +6686,13 @@ def gaze_measure(
     )
     if study_mode == "research":
         doc["protocol"]["protocol_id"] = protocol_id
-    problems = report_problems(doc)
+    identifiers = local_identifiers()
+    problems = report_problems(doc, identifiers)
     if problems:
         fail("The report is not valid, so nothing was written:\n  - " + "\n  - ".join(problems))
     target = out or Path("yazses-gaze-report.json")
     try:
-        write_result(doc, target, identifiers=local_identifiers())
+        write_result(doc, target, identifiers=identifiers)
     except EyeEvalRunError as exc:
         fail(str(exc))
     typer.echo(f"\n{render_markdown(doc)}\nWrote {target} — read it before you share it.")
@@ -7460,7 +7499,8 @@ def handsfree_enable(
 
     Writes only `[handsfree] enabled = true`; the per-feature settings are filled in when the
     config is loaded, so `yazses handsfree explain` shows them and a value you set yourself wins.
-    Refuses, naming the key, if your config weakens the safety floor.
+    Refuses, naming the key, if your config weakens the safety floor. Same as
+    `yazses features enable handsfree`.
     """
     from yazses.handsfree.preset import expand
     from yazses.system.configedit import set_config_key

@@ -84,6 +84,7 @@ def _slot(**overrides: Any) -> dict[str, Any]:
         "sessions": 1,
         "time_estimate_minutes": {"min": 15, "max": 20},
         "hardware_required": True,
+        "hardware_class": "camera",
         "beginner_safe": True,
         "cloud_agent_ready": False,
         "public": True,
@@ -94,10 +95,35 @@ def _slot(**overrides: Any) -> dict[str, Any]:
     return slot
 
 
-def _doc(*slots: dict[str, Any]) -> dict[str, Any]:
+def _declare(slots: tuple[dict[str, Any], ...]) -> list[dict[str, Any]]:
+    """A declaration that matches ``slots``, so a test varies the slot and nothing else.
+
+    The first slot to name a number decides its entry; a test about two slots sharing an
+    issue therefore still gets a well-formed declaration, and its own error.
+    """
+    declared: dict[int, dict[str, Any]] = {}
+    for slot in slots:
+        issue = slot.get("issue")
+        if isinstance(issue, int) and not isinstance(issue, bool) and issue > 0:
+            middle = "REPEAT" if slot.get("slot") == "repeat" else slot.get("environment")
+            letter = "A" if slot.get("slot") == "repeat" else slot.get("slot")
+            declared.setdefault(
+                issue, {"number": issue, "key": f"EYE-QA-{middle}-{letter}", "role": "slot"}
+            )
+        blocked_by = slot.get("blocked_by")
+        for number in blocked_by if isinstance(blocked_by, list) else []:
+            if isinstance(number, int) and not isinstance(number, bool) and number > 0:
+                declared.setdefault(
+                    number, {"number": number, "key": f"EYE-EVAL-{number}", "role": "prerequisite"}
+                )
+    return list(declared.values())
+
+
+def _doc(*slots: dict[str, Any], issues: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "generated_from": ["design/eye-control/VALIDATION_MATRIX.md"],
+        "issues": _declare(slots) if issues is None else issues,
         "slots": list(slots),
     }
 
@@ -177,7 +203,7 @@ def test_the_cli_exits_one_on_an_empty_registry(tmp_path):
 
 def test_a_registry_with_no_slots_key_at_all_fails():
     assert checker.validate_registry(
-        {"schema_version": 1, "generated_from": ["design/eye-control/VALIDATION_MATRIX.md"]},
+        {"schema_version": 2, "generated_from": ["design/eye-control/VALIDATION_MATRIX.md"]},
         root=ROOT,
     )
 
@@ -306,6 +332,167 @@ def test_generated_from_must_point_at_files_that_exist():
     assert any("does not exist" in error for error in checker.validate_registry(doc, root=ROOT))
 
 
+# ------------------------------------- every issue number is one the registry declared
+
+
+def test_a_slot_issue_missing_from_the_declaration_fails():
+    errors = checker.validate_registry(
+        _doc(_slot(), issues=[{"number": 423, "key": "EYE-EVAL-003", "role": "prerequisite"}]),
+        root=ROOT,
+    )
+    assert any("issue #428 is not declared" in error for error in errors), errors
+
+
+def test_a_prerequisite_missing_from_the_declaration_fails():
+    errors = checker.validate_registry(
+        _doc(_slot(), issues=[{"number": 428, "key": "EYE-QA-WIN-A", "role": "slot"}]),
+        root=ROOT,
+    )
+    assert any("prerequisite #423 is not declared" in error for error in errors), errors
+
+
+def test_a_declaration_no_slot_refers_to_is_stale_and_fails():
+    slot = _slot()
+    stale = {"number": 999, "key": "EYE-EVAL-999", "role": "prerequisite"}
+    errors = checker.validate_registry(_doc(slot, issues=[*_declare((slot,)), stale]), root=ROOT)
+    assert any("issues[#999]" in error and "stale" in error for error in errors), errors
+
+
+def test_an_empty_issue_declaration_fails_instead_of_passing_vacuously():
+    """No slot here names an issue, so every reference check is trivially satisfied --
+    which is exactly why the empty list itself has to be the error."""
+    errors = checker.validate_registry(
+        _doc(_slot(issue=None, blocked_by=[]), issues=[]), root=ROOT
+    )
+    assert any("issues is empty" in error for error in errors), errors
+
+
+def test_a_registry_with_no_issue_declaration_fails():
+    doc = _doc(_slot())
+    del doc["issues"]
+    errors = checker.validate_registry(doc, root=ROOT)
+    assert any("missing top-level key(s) ['issues']" in error for error in errors), errors
+
+
+def test_issue_roles_are_a_closed_vocabulary():
+    slot = _slot()
+    declared = _declare((slot,))
+    declared[0]["role"] = "epic"
+    errors = checker.validate_registry(_doc(slot, issues=declared), root=ROOT)
+    assert any("role must be one of" in error for error in errors), errors
+
+
+def test_a_slot_issue_declared_as_a_prerequisite_fails_and_vice_versa():
+    slot = _slot()
+    swapped = [
+        {"number": 428, "key": "EYE-QA-WIN-A", "role": "prerequisite"},
+        {"number": 423, "key": "EYE-EVAL-003", "role": "slot"},
+    ]
+    errors = checker.validate_registry(_doc(slot, issues=swapped), root=ROOT)
+    assert any("issue #428 is declared as 'prerequisite'" in error for error in errors), errors
+    assert any("blocked_by #423 is declared as 'slot'" in error for error in errors), errors
+
+
+def test_a_slot_issue_must_carry_the_title_code_of_its_own_cell():
+    """The historical-meaning rule: #428 is the Windows A cell, so a declaration calling it
+    a Mac cell is a change of meaning, not a typo to tolerate."""
+    slot = _slot()
+    declared = _declare((slot,))
+    declared[0]["key"] = "EYE-QA-MAC-A"
+    errors = checker.validate_registry(_doc(slot, issues=declared), root=ROOT)
+    assert any("names a different cell" in error for error in errors), errors
+
+
+def test_a_repeat_cell_issue_carries_the_repeat_code_not_an_environment():
+    repeat = _slot(
+        id="T1-ANY-REPEAT", pack="T1", environment="ANY", slot="repeat", sessions=3, issue=437
+    )
+    good = [
+        {"number": 437, "key": "EYE-QA-REPEAT-A", "role": "slot"},
+        {"number": 423, "key": "EYE-EVAL-003", "role": "prerequisite"},
+    ]
+    assert checker.validate_registry(_doc(repeat, issues=good), root=ROOT) == []
+    bad = [{**good[0], "key": "EYE-QA-ANY-REPEAT"}, good[1]]
+    errors = checker.validate_registry(_doc(repeat, issues=bad), root=ROOT)
+    assert any("names a different cell" in error for error in errors), errors
+
+
+def test_the_reference_check_holds_no_issue_number_of_its_own():
+    """A hand-written set of issue numbers in the validator would be a second list to
+    drift. Derived from the registry: none of its declared numbers is a literal there."""
+    declared = {entry["number"] for entry in _registry()["issues"]}
+    assert declared, "the registry declares no issue, so this scan proves nothing"
+    literals = {
+        node.value
+        for node in ast.walk(ast.parse(SCRIPT.read_text(encoding="utf-8")))
+        if isinstance(node, ast.Constant) and type(node.value) is int
+    }
+    assert literals, "the literal scan found no integer at all, so it proves nothing"
+    assert not declared & literals, sorted(declared & literals)
+
+
+AGENT_TASKS_PATH = ROOT / "design" / "eye-control" / "AGENT_TASKS.md"
+
+
+def _agent_task_issue_map() -> dict[int, str]:
+    """``#number -> code`` from the issue-map table in AGENT_TASKS.md."""
+    found: dict[int, str] = {}
+    for line in AGENT_TASKS_PATH.read_text(encoding="utf-8").splitlines():
+        match = re.fullmatch(r"\|\s*(EYE-[A-Z0-9-]+)\s*\|\s*#(\d+)\s*\|", line.strip())
+        if match:
+            found[int(match.group(2))] = match.group(1)
+    return found
+
+
+def test_every_declared_issue_code_agrees_with_the_agent_tasks_issue_map():
+    """Derived from the prose map, not from a third hand-written list of codes."""
+    issue_map = _agent_task_issue_map()
+    assert len(issue_map) >= 14, "the AGENT_TASKS.md issue map moved; this check is blind"
+    declared = _registry()["issues"]
+    assert declared
+    for entry in declared:
+        assert issue_map.get(entry["number"]) == entry["key"], entry
+
+
+# ------------------------------------------------------------------- hardware class
+
+
+def test_a_slot_with_no_hardware_class_fails():
+    slot = _slot()
+    del slot["hardware_class"]
+    assert any("missing required field" in error for error in _errors(slot))
+
+
+def test_hardware_class_is_a_closed_vocabulary():
+    assert any("hardware_class must be one of" in e for e in _errors(_slot(hardware_class="gpu")))
+
+
+def test_hardware_class_must_agree_with_hardware_required():
+    assert any("contradicts" in e for e in _errors(_slot(hardware_class="none")))
+    no_hardware = _slot(hardware_required=False, hardware_class="camera", public=False,
+                        evidence_mode="synthetic")
+    assert any("contradicts" in e for e in _errors(no_hardware))
+    assert _errors(
+        _slot(hardware_required=False, hardware_class="none", public=False,
+              evidence_mode="synthetic")
+    ) == []
+
+
+@pytest.mark.parametrize(
+    "fields", [{"pack": "T5", "id": "T5-WIN-A"}, {"environment": "HIDPI", "id": "T0-HIDPI-A"}]
+)
+def test_a_display_topology_cell_must_say_it_needs_a_topology(fields):
+    assert any("display topology" in e for e in _errors(_slot(**fields)))
+    assert _errors(_slot(hardware_class="camera_display_topology", **fields)) == []
+
+
+def test_every_committed_hardware_slot_names_what_to_bring():
+    slots = _registry()["slots"]
+    assert slots
+    for slot in slots:
+        assert slot["hardware_class"] in checker.HARDWARE_CLASSES - {"none"}, slot["id"]
+
+
 # ------------------------------------------------- the historical issues, unchanged
 
 
@@ -325,6 +512,11 @@ def test_each_existing_issue_keeps_its_pack_environment_and_slot():
         for issue, slot in by_issue.items()
     }
     assert actual == HISTORICAL_SLOTS
+
+
+def test_each_existing_issue_is_declared_as_a_slot_and_nothing_else_is():
+    roles = {entry["number"]: entry["role"] for entry in _registry()["issues"]}
+    assert {n for n, role in roles.items() if role == "slot"} == set(HISTORICAL_SLOTS)
 
 
 def test_every_existing_no_code_slot_is_planned_hardware_and_human_only():
@@ -409,8 +601,36 @@ INVALID_KINDS: dict[str, Any] = {
     "empty object": lambda d: d.clear(),
     "schema_version true": lambda d: d.update(schema_version=True),
     "schema_version 1.0": lambda d: d.update(schema_version=1.0),
-    "schema_version string": lambda d: d.update(schema_version="1"),
-    "schema_version 2": lambda d: d.update(schema_version=2),
+    "schema_version string": lambda d: d.update(schema_version="2"),
+    "schema_version 1 (no issue declaration in that version)": lambda d: d.update(
+        schema_version=1
+    ),
+    "schema_version 3": lambda d: d.update(schema_version=3),
+    "issues absent": lambda d: d.pop("issues"),
+    "issues empty": lambda d: d.update(issues=[]),
+    "issues is an object": lambda d: d.update(issues={}),
+    "issue declaration is a string": lambda d: d["issues"].append("428"),
+    "issue declared twice": lambda d: d["issues"].append(copy.deepcopy(d["issues"][0])),
+    "issue number is a string": lambda d: d["issues"][0].update(number="428"),
+    "issue role unknown": lambda d: d["issues"][0].update(role="epic"),
+    "issue key lower-case": lambda d: d["issues"][0].update(key="eye-qa-win-a"),
+    "issue key names another cell": lambda d: d["issues"][0].update(key="EYE-QA-MAC-A"),
+    "unknown issue declaration key": lambda d: d["issues"][0].update(title="x"),
+    "slot issue not declared": lambda d: _first(d, issue=9999),
+    "prerequisite not declared": lambda d: _first(d, blocked_by=[9999]),
+    "stale declaration": lambda d: d["issues"].append(
+        {"number": 9999, "key": "EYE-EVAL-999", "role": "prerequisite"}
+    ),
+    "slot issue declared as a prerequisite": lambda d: next(
+        e for e in d["issues"] if e["number"] == 428
+    ).update(role="prerequisite"),
+    "hardware_class unknown": lambda d: _first(d, hardware_class="eye-tracker"),
+    "hardware_class is a list": lambda d: _first(d, hardware_class=[]),
+    "hardware_class absent": lambda d: d["slots"][0].pop("hardware_class"),
+    "hardware_class none on a hardware slot": lambda d: _first(d, hardware_class="none"),
+    "HIDPI cell asks only for a camera": lambda d: next(
+        s for s in d["slots"] if s["environment"] == "HIDPI"
+    ).update(hardware_class="camera"),
     "duplicate id": lambda d: d["slots"].append(copy.deepcopy(d["slots"][0])),
     "duplicate issue": lambda d: d["slots"][1].update(issue=428),
     "state done": lambda d: _first(d, state="done"),

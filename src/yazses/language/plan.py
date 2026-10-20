@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 from yazses.language.profiles import LanguageProfileError, get_profile
+from yazses.language.status import command_language_state
 from yazses.stt.download import is_english_only, language_model_problem
 
 ResolveMode = Literal["preserve", "recommended"]
@@ -37,6 +38,12 @@ class LanguagePlan:
     required_extras: tuple[str, ...]
     warnings: tuple[str, ...]
     restart_required: bool
+    # The Tier-1 command grammar before and after the switch. `[commands] language`
+    # is not a mutation: "auto" follows `[stt] language`, so the grammar changes in
+    # the same atomic write as the speech language; an explicit pin is preserved
+    # (target architecture §4.1) and reported in `warnings` when it disagrees.
+    command_language_before: str = ""
+    command_language_after: str = ""
 
 
 def _stt(current):
@@ -203,12 +210,28 @@ def resolve_profile(
     changed_model = target_model if target_model != current_model else None
     required_extras = ("chinese",) if profile.output_script else ()
 
+    command_before, _pinned, _available, _enabled = command_language_state(
+        current, current_language
+    )
+    command_after, pinned, _available, commands_enabled = command_language_state(
+        current, profile.speech_language
+    )
+    warnings: list[str] = []
+    if commands_enabled and pinned and command_after != profile.command_language:
+        warnings.append(
+            f"[commands] language stays pinned to {command_after!r}; {profile.id} "
+            f"speech will be matched against the {command_after!r} command grammar. "
+            "Set [commands] language = \"auto\" to follow the speech language."
+        )
+
     return LanguagePlan(
         requested=requested,
         canonical_profile=profile.id,
         mutations=tuple(mutations),
         model_download=changed_model,
         required_extras=required_extras,
-        warnings=(),
+        warnings=tuple(warnings),
         restart_required=bool(mutations),
+        command_language_before=command_before,
+        command_language_after=command_after,
     )

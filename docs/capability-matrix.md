@@ -75,6 +75,23 @@ the window you already have focused, and nothing is guessed. `yazses gaze status
 `yazses doctor` say so, with the reason, instead of showing a feature that silently does
 nothing. To use look-to-pane, log in to an X11 session (on GNOME, "GNOME on Xorg").
 
+Exactly what Glance-Type does and does not do on a Wayland session (GNOME, KDE Plasma,
+Sway, Hyprland and the rest):
+
+| | On Wayland |
+|---|---|
+| Send dictation to the window you look at | **No.** Dictation goes to the window that already has focus. |
+| Focus or raise the window you look at | **No.** |
+| "close this" / "minimize this" / "focus that" | **Refused, with a notification.** Nothing is closed, and the command is never sent to the focused window instead. |
+| Gaze calibration (`yazses gaze calibrate`) | **Refused**, because nothing could use the result. |
+| Head-Pointer (moving the pointer with your head) | A separate feature. It uses the Remote Desktop permission, and granting that permission does not create a gaze target. |
+
+`yazses gaze status` prints the row for your session, for example `screen position: no;
+other windows' geometry: compositor-specific only; focus another window: compositor-specific
+only; pointer injection (separate, not a target): with permission`. "Compositor-specific
+only" means a desktop offers the capability only through its own private interface, such
+as KWin scripting or a GNOME Shell extension. YazSes does not depend on any of those.
+
 ## Linux: which session am I in?
 
 ```bash

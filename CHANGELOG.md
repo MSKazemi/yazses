@@ -207,6 +207,206 @@ Not in this change: registering the hook in `packaging/windows/yazses.spec`, the
 Settings surfaces, and the `started-ok` marker the tray writes after a good start (see the
 spec's *Implementation status*). Nothing here has run on Windows yet.
 
+### Added — the live traceability audit now reports issue-tracker drift, advisory only ([#487](https://github.com/MSKazemi/yazses/issues/487))
+
+`scripts/check-traceability-live.py` already checked the issues and milestones that `design/traceability.yml`
+names. It now also reports three kinds of drift, using the same two list requests it already made (no new
+endpoint, no request per issue). First, open issues with no milestone and no exempt class label. Second, open
+issues whose "do not start" blockquote banner waits only on issues or pull requests that are now all closed;
+any unknown or still-open reference keeps the banner quiet. Third, non-terminal manifest entries that still list
+a closed issue beside an open one. Drift appears in the job summary and in a new `traceability-live` JSON
+artifact, which is written for every exit code. It **never changes the exit code**. The 0/1/2/3 meanings and
+the blocking manifest rules are unchanged. The exempt classes go in a new
+`issue_policy.exempt_labels` list in `design/traceability-exceptions.yml`. The list stays empty until the #480
+milestone policy names them, so today every unmilestoned open issue is listed. A listed label that no open
+issue carries is reported. The job keeps `contents: read` + `issues: read`, runs on schedule and
+`workflow_dispatch` only, and writes nothing to any issue. Issue titles are sanitised so they cannot break out
+of the summary's code block. An offline dry run over a read-only export of the tracker (2026-10-20) listed 110
+unmilestoned open issues out of 202 and 13 stale banners, every one waiting on the already-merged #413. Tests
+in `tests/test_traceability_live.py` use fixtures only. The workflow has not yet run on GitHub with these
+changes.
+
+### Changed — the eye-validation registry declares every issue it names, and what hardware each cell needs ([#454](https://github.com/MSKazemi/yazses/issues/454))
+
+`design/eye-control/validation-slots.json` is now schema version 2, with two additions. A top-level `issues`
+list declares each GitHub issue a cell refers to: its number, the code in its title (`EYE-QA-WIN-A`) and its
+role, `slot` or `prerequisite`. Each cell also has a `hardware_class`: `camera`, `camera_display_topology` or
+`none`. Before this change, a mistyped issue number in a cell or in `blocked_by` was accepted as a new issue.
+`scripts/check_eye_validation_slots.py` now rejects four cases: a cell that names an undeclared issue, an
+issue declared in the wrong role, a declaration no cell uses, and a slot issue whose title code names a
+different cell. The last check keeps the meaning of #428–#440 fixed. The checker builds the referenced
+numbers from the cells on each run and contains no issue number itself, and a test proves that. The checker
+also rejects an empty or missing declaration rather than passing it. A `hardware_class` must agree with
+`hardware_required`, and a T5 or HIDPI cell must ask for a display topology. A test checks the declared codes
+against the issue map in `AGENT_TASKS.md`. The coverage dashboard shows each cell's issue code and the
+hardware to bring. It was regenerated with `scripts/gen-eye-validation-dashboard.py`. No cell changed state:
+all 16 are still PLANNED, and none is reported validated.
+
+### Added — the gaze field report now gives error percentiles and zone hit rates, and its validator rejects any report that could leak ([#399](https://github.com/MSKazemi/yazses/issues/399))
+
+`yazses gaze measure` (the report attached to [#104](https://github.com/MSKazemi/yazses/issues/104)) now also
+reports `error_px_p50` and `error_px_p90` (nearest-rank, so each is an observed value) and a zone hit rate:
+`zone_points`, `zone_hits` and `zone_hit_rate`. A hit means the predicted point fell in the same cell of a fixed
+3x3 screen grid as the target, which is the look-to-pane outcome measured against known targets. A prediction off
+the screen counts as a miss rather than being clamped into an edge cell. Each validation point keeps only a
+yes/no for the zone, never the predicted coordinate. `protocol.task_version` is now `1.2`. The envelope
+`schema_version` does not change.
+
+The validator `report_problems` is now a reader for reports other people produce, not only a self-check. It runs the
+privacy sweep, which always looks for home paths and e-mail addresses, and looks for this machine's hostname and
+login when it is given them. It refuses any list or object under `metrics` other than the confidence histogram, the
+drift blocks and the sufficiency statements. Per-sample coordinates can only travel as a series, so this is the rule
+that keeps them out. It also refuses a key named for raw gaze (`x`, `yaw`, `*coordinate*`, `*frame*`, `*mesh*`,
+`*iris*`, ...), a histogram that does not add up to its sample count, and drift blocks that do not add up to the
+validation points. `report_problems_file` and `report_problems_text` fail on a missing, empty, non-UTF-8 or non-JSON
+file. `scripts/check_eye_eval_result.py` now sends every `gaze_field_measurement` file through these rules. The
+parsing is shared with `validate_result_file` (`schema.parse_result_text` / `read_result_file`), so "unreadable"
+has one meaning. No CLI flag changed, and nothing is uploaded: the tester still attaches the file by hand.
+New tests: `tests/test_gaze_field_leak_validator.py`. Every refusal test was checked by disabling the rule it
+covers and confirming the test fails.
+
+### Fixed — implicit gaze calibration kept old eye positions too long, and across a layout change ([#397](https://github.com/MSKazemi/yazses/issues/397))
+
+The click-and-gaze capture for opt-in implicit calibration (`[gaze_refine]`, off by default) kept a ring of
+the 64 most recent gaze observations. That bound is on count only. When the face left the frame, the last
+observations stayed in memory until the service stopped. The ring is now also bounded by age:
+`DEFAULT_MAX_AGE_S` (2 s, an unmeasured starting value), and never less than the look-back window. A ring
+that empties because its samples aged out still reports `stale`, not `no_gaze`.
+
+The ring also did not follow the ADR-v2-149 context fingerprint (display layout and camera). A click in the
+new layout could pair with eye features recorded under the old one. The capture now takes an injected
+fingerprint and records a baseline at start. When the fingerprint changes, it drops the ring and the
+memory of used samples, and refuses that click as `topology_changed`. Only gaze recorded after the change
+can pair. An unreadable layout is not treated as a change. The daemon's watch, `ThrottledFingerprint`,
+reads the real context at most once a second and only on a click, never on a gaze poll. Pairs, the
+`Association` that `ImplicitRefiner.observe` consumes, are unchanged and stay in memory only. No frame,
+landmark, screenshot or typed text is captured. No click observer ships on any platform yet, so this path
+stays dormant with its logged reason. Tests: `tests/test_gaze_capture_bounds_and_topology.py`, using a fake
+clock, fake clicks, fake gaze and a fake fingerprint.
+
+### Added — face-switch false-activation replay: nuisance traces and a swappable detector ([#409](https://github.com/MSKazemi/yazses/issues/409))
+
+The replay harness (`scripts/replay_face_switch_trace.py`) now ships five invented 15 Hz nuisance traces:
+natural blinks, glances down at a keyboard, lively talking, yawns, and blinks watched by a jaw switch. Trace
+schema 1.1 adds the `blink`, `yawn` and `look_down` contexts, so a report says which involuntary movement fired
+the switch. Every 1.0 trace still reads. On these traces the shipped detector (with #406's 0.8 s timed hold for
+`eyes_closed`) fires 0 times on long blinks (the frame rule alone fired 6 in 116 s of exposure), 4 times on glances
+down and once on each of 3 yawns (`jaw_open`). Talking and blinks on a jaw switch give 0, and no deliberate gesture
+is missed.
+
+The harness also takes an injected `Detector`, a name and a factory, and the report records which one ran (report
+1.3). A candidate policy is replayed over the same traces and scored by the same rules. In the tests, the
+pre-#406 frames-only detector is kept as a reference, so the effect of the timed hold stays measured. A detector whose events the harness
+cannot count is refused rather than read as silence. A new test fails when `facegesture/backend.py` builds
+`GestureSwitch` with an argument the harness does not pass, so the committed report keeps measuring the detector
+that ships. [FACE_SWITCH_TRACES.md](design/eye-control/FACE_SWITCH_TRACES.md) documents the format for real
+traces and the report a volunteer could send later. The traces are synthetic: they justify no default.
+
+### Fixed — Mandarin commands: a sentence could become a go-to-file/function/class, and numerals were not bounded where they should be ([#499](https://github.com/MSKazemi/yazses/issues/499))
+
+With `[commands] language` resolving to `zh`, the go-to-file, go-to-function and go-to-class rules took the
+rest of the utterance as the name. Ordinary prose such as "打开文件 config.toml 之后再修改端口" or "查找函数 main
+的定义花了很久" became a navigation command whose argument was half a sentence. On an expanded 84-line negative
+corpus of ordinary Mandarin that contains command words (删除, 发送, 保存, 复制 …), origin/main's grammar
+false-triggered on 5 lines; this branch triggers on 0. A name is now one ASCII identifier/path token. A file may
+also be a Han name, but only after a space and ending in an ASCII extension (開啟檔案 設定.toml).
+
+The command numeral parser is now `parse_command_number`. It is pure and has two explicit ranges: counts stay
+0–99 (undo N times, delete/select the last N) and line numbers reach 0–999 (`百`, `零`/`〇` fillers, `两`/`兩`
+as the hundreds multiplier). It refuses 千/万, a bare 百, the elided 一百一 / 两百五, `两` as a tens or units digit
+(两十, 二十两, which origin/main accepted), mixed Arabic/Han, and over-long ASCII such as `005` for a count. A
+numeral argument the grammar cannot interpret now fails closed to dictation: `normalise_arg` may return `None`
+to reject the rule, where before the raw text was passed to dispatch. English classification is unchanged.
+
+Deletion is declared in `zh.DESTRUCTIVE_ACTIONS`. A test checks that it is reachable only through the literal
+删除最后 / 刪除最後 prefix with a capped count. Every phrase family carries an explicit native-review state in
+`zh.PHRASE_REVIEW`, and the fixtures carry a matching marker. All are `provisional` until the native review in
+#505. New tests: `tests/test_mandarin_command_numerals.py` checks the regex/parser agreement on all 813,615
+strings of up to five numeral characters; `tests/test_mandarin_command_safety.py` covers the negative corpus,
+destructive triggers, punctuation variants, English parity and review state. The targeted pytest/ruff/mypy gates
+were run; no native speaker has reviewed the phrases.
+
+### Fixed — a language switch is proven whole before it lands, and doctor names the real command grammar ([#497](https://github.com/MSKazemi/yazses/issues/497))
+
+`yazses language set` and the Settings language-profile row already wrote every key of a profile in one atomic
+replace. The candidate file was only checked to parse as TOML, which does not show which value the loader keeps.
+The commit now re-reads the candidate through the same loader the daemon uses. It refuses the replace, and leaves
+the original byte-for-byte, unless three things hold: `[stt]` is exactly the plan, no other section changed, and
+the result derives as the requested profile. Two new tests break the editor on purpose, once by dropping
+`chinese_script` and once by also changing `[hotkey]`. Both turn red when the check is removed.
+
+`yazses doctor` and `yazses language status` said Mandarin commands were "English-only… not yet wired". The daemon
+already selects the Mandarin Tier-1 grammar when `[commands] language = "auto"` follows `[stt] language = "zh"`.
+Both now report the grammar the daemon's own resolver picks. `status --json` gives `command_language` as the
+resolved value (`"zh"`), not a hard-coded `"en"`, and gains a `warnings` list. A pinned `[commands] language` that
+contradicts the speech language is kept, as ADR-v2-140 requires, and is now reported by status, `language set`
+previews, doctor and Settings. The default English install is unchanged: no write on `language set en`, no new
+doctor row, no Chinese-only import.
+
+Settings no longer formats the profile row inside Qt slots. The choices, the staged-change hint and the
+download/install question come from a Qt-free view-model, `settingsui/language_view.py`. That module reads the
+profile registry, so Settings offers exactly what `yazses language list` lists.
+
+### Added — the Wayland gaze target is a cited capability model, and "close this" on Wayland is refused out loud ([#418](https://github.com/MSKazemi/yazses/issues/418))
+
+The 2026-10-15 change defined a Wayland gaze target as *none*. This change adds the evidence and turns it into data.
+`gaze/target_capabilities.py` is the platform matrix: for X11, GNOME Wayland, KDE Wayland, other Wayland
+compositors and headless sessions, it records what an ordinary client gets for screen position, other windows'
+geometry and focus. Pointer injection is listed separately. Each answer cites the protocol documentation or
+toolkit source it comes from (`design/specs/eye-wayland-gaze-target.md`). A gaze target needs all three target
+capabilities as plain `yes`. A path that only one compositor offers (KWin scripting, a GNOME Shell extension,
+wlroots IPC) never counts, and a granted Remote Desktop pointer permission is never read, so neither can become a
+default requirement. `yazses gaze status`, `yazses doctor` and `yazses status` now print the session's row next to
+the `Gaze target` line.
+
+Fixed with it: on Wayland, no gaze targeter is ever built. A command-mode "close this" or "focus that" therefore fell
+through every handler and was discarded as unmatched. Nothing was closed, but nothing was said, so it looked like a
+misrecognition. Where the session cannot have a gaze target, the phrase is now consumed, nothing is acted on, and a
+notification says why. This does not depend on `[gaze] refuse_destructive_fallback`, because the focused window is
+never a stand-in for a target that cannot exist. Not verified: the GNOME and KDE findings come from documentation and
+toolkit source. They were not observed on live sessions, and the spec lists the checks still owed.
+
+### Added — the hands-free preset is a `features` capability, and every way on checks its safety floor ([#410](https://github.com/MSKazemi/yazses/issues/410))
+
+`yazses features enable handsfree` answered "Unknown feature", and the settings window had no row for the
+preset, so `yazses handsfree enable` in a terminal was the only way to turn it on. The preset is now a registry
+row, **Hands-Free Preset**, under *Accessibility & input modalities*. It is experimental and off by default, and
+it writes only `[handsfree] enabled`. `yazses features enable handsfree` runs `yazses handsfree enable`, with the
+same tier, dependency and safety-floor checks and the same refusal text. `features disable handsfree` runs
+`handsfree disable`, which also pauses every hands-free input at once. The settings window applies the same
+safety-floor check before it writes, through `features.enable_refusal`. If it cannot read the config file, it
+refuses the preset. When the loader refused the preset, `yazses features` still shows it as on, because the file
+asks for it. `inactive_reason` now says it is not applied and names the key that weakens the floor.
+`docs/how-to/hands-free-setup.md` adds a path with no terminal: tick the row, Apply, Restart daemon, then Resume.
+
+Nothing new runs at run time. `config.handsfree_preset` is the one named reader of `[handsfree]` outside the
+loader, and `tests/test_handsfree_no_second_path.py` limits its callers to the registry. New tests are in
+`tests/test_handsfree_preset_registry.py`. No hardware was used.
+
+### Fixed — the hands-free controls window lists only stop routes that exist, and tells the truth about installs ([#420](https://github.com/MSKazemi/yazses/issues/420))
+
+Before this change, the window's *Active* banner said the same thing on every machine: Pause works through "the
+keyboard shortcut, `yazses handsfree pause`, or a face-switch mapped to pause". That was false wherever no face
+switch was mapped to pause. A new **Ways to stop without pointing** block now builds the list from the saved
+config: Alt+P / Alt+R in the window, `yazses handsfree pause`, the `[handsfree_safety] stop_phrase` (or a line
+saying none is set), each wired face switch mapped to pause, and each `[gesture.chords]` chord bound to
+`pause_pointer` (parsed by the daemon's own parser). When the global stop is off, the block says the pause reaches
+the Head-Pointer only. It is a Tab stop right after Pause, Resume and Recenter. `yazses handsfree status` prints
+the same list.
+
+Camera-feature rows now give the true dependency state. A switched-on feature whose packages cannot be installed
+in this environment (a strict snap, a fixed app bundle, a read-only Python) used to say "Press Apply to install
+them". It now gives the reason the install cannot work. A switched-off feature says which packages turning it on
+would install.
+
+The window's **Apply staged changes** button now follows the settings window. While a package install or a
+language-profile preparation runs on the settings window's worker thread, Apply is disabled and the window shows
+what is running. Pause, Resume and Recenter stay usable. Before this, a second Apply pressed here during an install
+had its own install silently dropped, because the settings window never runs two package workers at once. After
+Apply, the window shows the settings window's own summary instead of a fixed "Applied.".
+
+No new IPC method and no new config key.
+
 ### Added — `ci-gate`, one stable check for branch protection to require ([#462](https://github.com/MSKazemi/yazses/issues/462))
 
 The Tests workflow reports about fifteen matrix check names, and those names change whenever a leg is

@@ -45,6 +45,7 @@ __all__ = [
     "DEFAULT_CAPACITY",
     "DEFAULT_LATENCY_S",
     "DEFAULT_LOOKBACK_S",
+    "DEFAULT_MAX_AGE_S",
     "Association",
     "AssociationPolicy",
     "AssociationResult",
@@ -64,6 +65,13 @@ DEFAULT_LOOKBACK_S = 0.5
 #: Ring size. Bounded so that "keep the recent past" can never become "keep a session".
 #: At the source's maximum 60 fps this still covers a full 0.5 s look-back with margin.
 DEFAULT_CAPACITY = 64
+
+#: Oldest gaze observation the capture keeps at all, in seconds. The count bound above
+#: only ages samples out while new ones keep arriving; when the face leaves the frame the
+#: last 64 would otherwise sit in RAM until the service stops. This bounds *retention*, not
+#: pairing (the look-back window does that), so it is always widened to at least the
+#: look-back. **Unmeasured starting value**: four default look-backs, nothing more.
+DEFAULT_MAX_AGE_S = 2.0
 
 
 class RejectReason(str, Enum):
@@ -87,6 +95,12 @@ class RejectReason(str, Enum):
     #: twice, and the copy that lands in the held-out set would be graded against the
     #: copy it trained on. Decided by the capture, which remembers what it used.
     SAMPLE_REUSED = "sample_reused"
+    #: The display layout or camera fingerprint (ADR-v2-149) changed since the recent gaze
+    #: was recorded. The click is in the new layout's coordinates and the ring may hold
+    #: eye positions aimed at the old one, and nothing says which sample is which -- so
+    #: the ring is dropped and this click is refused. Decided by the capture, which is the
+    #: only part that holds samples across the change.
+    TOPOLOGY_CHANGED = "topology_changed"
 
 
 @dataclass(frozen=True)
@@ -148,13 +162,55 @@ class GazeHistory:
     It stores :class:`~yazses.perception.signals.GazeSignal` values — a timestamp, two
     floats and a confidence — so there is no frame, landmark or image in it to leak, and a
     full ring is a few kilobytes of numbers.
+
+    Bounded in count always, and in age when *max_age_s* is given: :meth:`prune` drops
+    every observation older than ``now - max_age_s``. ``None`` (the default for a ring
+    built directly) keeps the count bound only, which is what this class always did.
     """
 
-    def __init__(self, capacity: int = DEFAULT_CAPACITY) -> None:
+    def __init__(self, capacity: int = DEFAULT_CAPACITY, max_age_s: float | None = None) -> None:
         if capacity < 1:
             raise ValueError("GazeHistory capacity must be >= 1")
+        if max_age_s is not None and not (math.isfinite(float(max_age_s)) and max_age_s > 0):
+            raise ValueError("GazeHistory max_age_s must be a finite number > 0, or None")
         self._items: deque[GazeSignal] = deque(maxlen=int(capacity))
+        self._max_age_s = None if max_age_s is None else float(max_age_s)
+        self._aged_out = False
         self._lock = threading.Lock()
+
+    @property
+    def max_age_s(self) -> float | None:
+        return self._max_age_s
+
+    @property
+    def aged_out(self) -> bool:
+        """Whether :meth:`prune` has dropped an observation since the last :meth:`clear`.
+
+        An empty ring is two different situations: the camera has never produced a face
+        (``NO_GAZE``), or it did and the samples grew too old (``STALE`` -- the face left
+        the frame). Pruning must not turn the second into the first.
+        """
+        with self._lock:
+            return self._aged_out
+
+    def prune(self, now: float) -> int:
+        """Drop observations older than ``now - max_age_s``; return how many went.
+
+        A no-op without an age bound or for a non-finite *now*. The ring is in timestamp
+        order (:meth:`record` refuses anything older than its newest), so the oldest are
+        at the left and the loop stops at the first one young enough.
+        """
+        if self._max_age_s is None or not math.isfinite(now):
+            return 0
+        oldest_kept = now - self._max_age_s
+        dropped = 0
+        with self._lock:
+            while self._items and self._items[0].timestamp_s < oldest_kept:
+                self._items.popleft()
+                dropped += 1
+            if dropped:
+                self._aged_out = True
+        return dropped
 
     def __len__(self) -> int:
         with self._lock:
@@ -184,6 +240,7 @@ class GazeHistory:
     def clear(self) -> None:
         with self._lock:
             self._items.clear()
+            self._aged_out = False
 
 
 def associate(
