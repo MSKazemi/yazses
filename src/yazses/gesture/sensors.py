@@ -35,7 +35,7 @@ import math
 from dataclasses import dataclass, field
 
 from yazses.facegesture.calibration import Reading
-from yazses.facegesture.detector import GESTURES, GestureSwitch, gesture_reading
+from yazses.facegesture.detector import GESTURES, GestureSwitch, gesture_reading, min_hold_s_for
 from yazses.gesture.engine import ChordEngine
 from yazses.gesture.headmotion import (
     HEAD_TOKENS,
@@ -81,6 +81,7 @@ class SensorTokens:
             name: GestureSwitch(
                 f.hold_threshold, f.release_threshold, f.min_hold_frames, f.min_release_frames,
                 confidence_floor=f.confidence_floor, refractory_frames=f.refractory_frames,
+                min_hold_s=min_hold_s_for(name),  # eyes_closed: 0.8 s of time, any frame rate
             )
             for name in GESTURES
             if name in wanted
@@ -160,7 +161,9 @@ class SensorTokens:
         frame_s: float | None = self._last_face_ts if live else None
         for name, switch in self._faces.items():
             reading: Reading = gesture_reading(face, name, now_s=now_s, max_age_s=fresh)  # type: ignore[arg-type]
-            event = switch.update(reading.score, reading.confidence)
+            # now_s is the runner tick; each observation reaches here once (deduplicated by its
+            # timestamp above), so a timed hold measures real elapsed time.
+            event = switch.update(reading.score, reading.confidence, now_s=now_s)
             if event == "start":
                 self._engine.press(name, now_s, frame_s)
             elif event == "end":

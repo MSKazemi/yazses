@@ -93,6 +93,28 @@ Configurable:
 
 All timing uses monotonic source time/fake clock semantics.
 
+**As built (2026-10-20, #406).** `GestureSwitch` counts the minimum hold (`min_hold_frames`) and the
+refractory interval (`refractory_frames`) in samples. It also takes the same two rules in seconds,
+`min_hold_s` and `refractory_s`, measured on the caller's `now_s` sample timestamps. Both default to 0
+(off), and each adds to its frame rule instead of replacing it. The freshness timeout is
+`gesture_reading(max_age_s=...)` and the stuck-open bound is `max_hold_s`. The timed rules fail closed:
+- an untimed sample breaks a hold run and keeps a refractory window open;
+- a gap over `max_gap_s` (provisional 0.25 s) restarts the run;
+- a repeated sample adds no time;
+- a backwards clock step restarts the count.
+
+The timed rules are why frame counts alone do not meet "minimum hold time". A frame count's length is
+whatever the source's rate makes it, and the shared camera's rate (`[perception] fps`) is not the face
+switch's own `fps`. That gap was a live defect for **blink** (#406). The panel's eyes-closed floor of
+12 frames ("0.8 s at 15 fps") lasted 0.4 s on a 30 fps shared camera, inside a long blink. So every live
+eyes-closed detector now carries `min_hold_s = EYES_CLOSED_MIN_HOLD_S` (0.8 s, provisional) through
+`detector.min_hold_s_for`, on top of its frame count. That covers the face-switch backend on both camera
+paths and the chord sensors (`gesture/sensors.py`), and both pass sample time. The 0.8 s is an internal
+safety floor, not a config key. Other gestures' timed rules are not yet exposed as `[facegesture]`
+config keys. That is a
+public-interface change for a follow-up. No duration may be called recommended until it has been
+measured in the field.
+
 ## Event contract
 
 Detector emits a normalized event such as:

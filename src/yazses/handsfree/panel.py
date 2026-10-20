@@ -45,7 +45,7 @@ from dataclasses import dataclass, field, replace
 from enum import Enum
 from typing import Any
 
-from yazses.facegesture.detector import GESTURES
+from yazses.facegesture.detector import EYES_CLOSED_MIN_HOLD_S, GESTURES
 from yazses.facegesture.switches import (
     ACTIONS as SWITCH_ACTIONS,
 )
@@ -138,19 +138,23 @@ WIRED_SWITCH_ACTIONS: tuple[str, ...] = (
     "hold_to_talk", "hold_to_command", "select", "confirm", "cancel",
 )
 
-#: How long the eyes must stay shut before an eyes-closed switch counts. `facegesture/detector.py`
-#: already says this gesture "needs a long `min_hold_frames`" to tell a deliberate closure from
-#: the ~15 involuntary blinks a minute, but the shipped `min_hold_frames = 3` is 0.2 s at 15 fps
-#: -- inside a blink. A config-file user can read that comment; a person binding the gesture
-#: from this panel never sees the key, so the mapping itself raises it. PROVISIONAL and
-#: unmeasured in YazSes: chosen to sit well above a spontaneous blink, which the literature
-#: commonly puts at roughly 0.1-0.4 s.
-EYES_CLOSED_MIN_HOLD_S = 0.8
+# ``EYES_CLOSED_MIN_HOLD_S`` (how long the eyes must stay shut before an eyes-closed switch
+# counts) is imported from ``facegesture/detector.py``, which enforces it in seconds of sample
+# time on every live path; it stays importable from here for the frame floor below.
 
 
 def eyes_closed_min_hold_frames(fps: int) -> int:
     """The smallest ``min_hold_frames`` that holds an eyes-closed switch for
-    :data:`EYES_CLOSED_MIN_HOLD_S` at ``fps`` (clamped to the config's 1..60). Pure."""
+    :data:`EYES_CLOSED_MIN_HOLD_S` at ``fps`` (clamped to the config's 1..60). Pure.
+
+    The shipped ``min_hold_frames = 3`` is 0.2 s at 15 fps -- inside a blink -- and a person
+    binding the gesture from this panel never sees the key, so the mapping raises it. ``fps`` is
+    ``[facegesture] fps``, which is the rate only on the switch's own camera; on the shared
+    camera frames arrive at ``[perception] fps``. That no longer decides safety: the detector
+    itself requires :data:`EYES_CLOSED_MIN_HOLD_S` of sample time for this gesture
+    (``detector.min_hold_s_for``), on top of this frame count, at any rate. When the shared
+    camera runs *slower* than ``[facegesture] fps``, this floor can make the hold longer than
+    0.8 s; it never makes it shorter."""
     fps = min(60, max(1, int(fps)))
     # The epsilon keeps 0.8 * 15 (= 12.000000000000002 in floating point) at 12, not 13.
     return max(1, math.ceil(EYES_CLOSED_MIN_HOLD_S * fps - 1e-9))
