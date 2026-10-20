@@ -272,6 +272,15 @@ A contributor does **not** need to test every bucket. Each small issue should as
 
 ## Capability evaluation scripts
 
+The three tasks below are generated, not hand-drawn: `yazses.eyeeval.tasks` builds each one from a
+recorded seed and task version, and the default-seed copies are checked in under
+`tests/fixtures/eye_eval_tasks/`. A result records `protocol.task`, `task_version` and `task_seed`,
+and `task_from_protocol` rebuilds the exact task from those three. It refuses a result whose
+version this build does not generate, or that carries no seed, because guessing either would replay
+a different run. A per-trial record holds numbers and task-defined identifiers only. Its string
+fields (`outcome`, and the face-switch `block_id` / `block_type`) are limited to the task's own
+vocabulary, so an outcomes file has nowhere to put a window title or a spoken sentence (#422).
+
 ### Gaze routing task
 
 One trial:

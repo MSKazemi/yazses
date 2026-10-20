@@ -576,6 +576,62 @@ def generate_task(task_id: str, seed: int | None = None) -> dict[str, Any]:
     return _GENERATORS[task_id](seed)
 
 
+def task_from_protocol(protocol: Any) -> dict[str, Any]:
+    """Regenerate the exact task a result's `protocol` section says it ran.
+
+    A result records `task`, `task_version` and `task_seed` (`runner.build_result`); those
+    three are enough to rebuild the task byte for byte, which is what "this run can be
+    replayed" means. Refused rather than guessed:
+
+    * a `task_version` this module does not implement -- regenerating today's version under
+      an older result would replay a different experiment under the same name;
+    * a missing or non-integer seed -- defaulting it would silently replay the shipped
+      order for a run that may have used another one.
+    """
+    if not isinstance(protocol, dict):
+        raise EyeEvalTaskError(f"protocol: expected an object, got {type(protocol).__name__}.")
+    task_id = protocol.get("task")
+    if task_id not in TASK_IDS:
+        raise EyeEvalTaskError(f"protocol.task: {task_id!r} is not one of {TASK_IDS}.")
+    version = protocol.get("task_version")
+    if version != TASK_VERSIONS[task_id]:
+        raise EyeEvalTaskError(
+            f"protocol.task_version: the result ran {version!r} of {task_id!r} but this "
+            f"module generates {TASK_VERSIONS[task_id]!r}; it cannot be replayed as that run."
+        )
+    seed = protocol.get("task_seed")
+    if not _is_int(seed) or seed < 0:
+        raise EyeEvalTaskError(
+            f"protocol.task_seed: expected a non-negative whole number, got {seed!r}. "
+            f"Without the seed the trial order is unknown, and assuming the default would "
+            f"replay a run that may never have happened."
+        )
+    return generate_task(task_id, seed)
+
+
+def record_text_vocabulary(task: dict[str, Any]) -> dict[str, tuple[str, ...]]:
+    """The closed set of string values each text-valued record field may take for `task`.
+
+    Every other record field is a number (`runner.check_records`). The string fields are
+    enum members, and their vocabulary is the task's own: an outcome from `TASK_OUTCOMES`,
+    and for the face-switch task a `block_id` / `block_type` the task document defines.
+    Closing them matters for privacy as much as for typos -- an open string field is a place
+    a tester could paste a window title or a sentence they said, which is exactly what
+    `METRICS.md` says a record must never hold.
+    """
+    task_id = task.get("task_id")
+    if task_id not in TASK_IDS:
+        return {}
+    vocabulary: dict[str, tuple[str, ...]] = {"outcome": TASK_OUTCOMES[task_id]}
+    if task_id == FACE_SWITCH_TASK:
+        blocks = [b for b in task.get("blocks", []) if isinstance(b, dict)]
+        vocabulary["block_id"] = tuple(
+            b["block_id"] for b in blocks if isinstance(b.get("block_id"), str)
+        )
+        vocabulary["block_type"] = SWITCH_BLOCK_TYPES
+    return vocabulary
+
+
 def dump_task(doc: dict[str, Any]) -> str:
     """The canonical on-disk form: 2-space JSON, ASCII, one trailing newline.
 
