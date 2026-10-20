@@ -462,6 +462,35 @@ Privacy (ADR-011/012): fully offline; diarization labels are transient; voicepri
 opt-in, consent-gated, on-device, and never auto-enrolls third parties. Cloud escalation is
 designed but deferred (ADR-v2-126).
 
+### `src/yazses/packs/` (ADR-028 — feature add-on packs for frozen installs)
+
+Windows installer build only (Phase 1). A heavy feature's libraries arrive as a `.yazpack`
+built by the same release job as the installer and pinned to that exact base build; the
+index of every pack's SHA-256 is built into the installed app. **Invariant: no stale pack is
+ever loaded** — a pack mounts only into the base whose `base_build_id` it names, never into
+an elevated process, and never with `YAZSES_NO_PACKS=1`. Nothing under `packs/` reads
+`sys.platform`; the OS facts come from `PackRuntime` (`platform/base.py`,
+`platform/windows/packs.py`).
+
+| File | Role |
+|---|---|
+| `manifest.py` | Pure. Parses the index, `pack.json`, `RECORD.json`; `ManifestError` with a user sentence |
+| `abi.py` | Pure. `match()` → `ok` / `stale` (another build) / `refused` (same build, wrong field), one reason per field |
+| `layout.py` | Pure. Paths below `data_dir/packs`, `b-<12hex>` build folders, the `MAX_PATH` budget |
+| `archive.py` | Pure. Member checks before extraction (traversal, UNC, symlink, length, counts, ratio, case duplicates); `check_tree` against `RECORD.json` |
+| `state.py` | Pure. Per-feature state for every surface (*waiting for add-on* never reads `on`); `state.json` |
+| `policy.py` | Pure. Size ceiling, disk space, deadline, capability (`PACK_INSTALL_METHODS`), GC and rollback |
+| `catalog.py` | Pure. `_FEATURE_DEPS` ↔ extras ↔ `packaging/packs/packs.toml` consistency |
+| `context.py` | Reads only: the facts above for this process |
+| `fetch.py` | **Egress (ADR-019 `FETCH_VIA`)**: the two release URLs, through ADR-027's `download_verified` |
+| `install.py` | The transaction: lock → disk → download → extract → match → child-process probe → `os.replace` → `COMPLETE` |
+| `mount.py` | `mount_at_startup()`, called by `packaging/windows/rthook_yazses_packs.py`; appends to `sys.path`, keeps DLL-directory handles, never raises |
+| `probe.py` | `yazses packs probe`: imports `entry_modules`, exit code names the Phase 0 risk that failed |
+| `manage.py` | What the `yazses packs` commands and `features enable` do |
+
+User-initiated only: the daemon, the update watcher and the runtime hook cannot reach
+`fetch.py`, `install.py` or `manage.py` (`tests/test_egress_inventory.py`).
+
 ### `src/yazses/commands/`
 
 | File | Role |

@@ -77,7 +77,8 @@ a = Analysis(
     ],
     hookspath=[],
     hooksconfig={},
-    runtime_hooks=[],
+    # ADR-028: mounts verified add-on packs before main runs (never when elevated).
+    runtime_hooks=[str(Path(SPECPATH) / "rthook_yazses_packs.py")],
     excludes=[
         "evdev",
         "yazses.platform.linux",

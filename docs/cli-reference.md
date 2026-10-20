@@ -698,6 +698,35 @@ yazses model list                # show SLM models + which are downloaded
 yazses model download qwen2.5-0.5b  # download an SLM for intent routing
 ```
 
+### `yazses packs` — add-ons (Windows installer build)
+
+The Windows installer build cannot `pip install` anything, so a heavy feature's
+libraries (Parakeet, speaker diarization) come as an **add-on**: one file published on
+the same GitHub release as your installer, checked against the SHA-256 built into your
+copy of YazSes, installed per user in `%LOCALAPPDATA%\yazses\packs\`, and loaded at the
+next start. `yazses features enable <name>` does all of this for you after showing the
+size and asking; these commands are for looking and tidying. On a PyPI install, the
+macOS app, the MSIX, the snap and the flatpak, `yazses packs` says add-ons are not used
+there. Add-ons are built for one exact build of YazSes, so after an update they are
+downloaded again (one click), and they are never loaded by a YazSes running as
+administrator. `YAZSES_NO_PACKS=1` starts YazSes with every add-on switched off.
+
+| Command | Description |
+|---|---|
+| `yazses packs` | List this build's add-ons: state, download size, size on disk, features. |
+| `yazses packs install <name>` | Download, verify and install one add-on (asks first; `--yes` skips). Writes no config. |
+| `yazses packs verify [name]` | Check every installed file's size and SHA-256; a damaged add-on is set aside in `quarantine\`. |
+| `yazses packs remove <name>` / `--all` | Delete an installed add-on. Features that need it then read *waiting for add-on*. |
+| `yazses packs clean` | Delete set-aside, half-finished and old builds' add-ons, keeping what an update rollback needs. |
+| `yazses packs path` | Print the add-on folder. |
+| `yazses packs probe <name> --staged <dir>` | Test-import an unpacked add-on in this app (used by the install and by the release build). |
+
+```bash
+yazses features enable stt-parakeet   # shows the size, asks, downloads, verifies, enables
+yazses packs                          # what is installed for this build
+yazses packs verify                   # after security software removed a file
+```
+
 ### `yazses vocab` — personal dictionary
 
 Words STT keeps mis-hearing (names, jargon, acronyms) are primed into Whisper's

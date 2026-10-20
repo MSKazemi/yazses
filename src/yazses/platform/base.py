@@ -405,6 +405,46 @@ class UpdateLauncher(Protocol):
         ...
 
 
+#: File name of the pack index CI copies into a frozen bundle's data directory
+#: (``_internal/`` on Windows) before the installer is built (ADR-028 §3).
+PACK_INDEX_NAME = "yazses-packs-index.json"
+
+
+@runtime_checkable
+class PackRuntime(Protocol):
+    """The OS facts the add-on pack loader needs (ADR-028 §2). Nothing under
+    ``yazses/packs/`` branches on ``sys.platform``; it asks this instead.
+
+    Obtained with ``platform.factory.get_pack_runtime()``, which imports only this
+    backend — the runtime hook runs before ``main`` and must not build a ``Platform``.
+    """
+
+    def supported(self) -> bool:
+        """True where this OS has a pack loader at all (Windows, Phase 1)."""
+        ...
+
+    def is_elevated(self) -> bool:
+        """True when this process has administrator rights — **or when that cannot be
+        determined**. Packs are user-writable, so loading them elevated would turn a
+        same-user file write into elevation; an unknown answer must fail closed."""
+        ...
+
+    def add_native_dir(self, path: Path) -> object:
+        """Add ``path`` to the native-library search path and return the handle that
+        keeps it there. The caller keeps the handle alive for the life of the process:
+        closing it removes the directory (``os.add_dll_directory``)."""
+        ...
+
+    def embedded_index_path(self) -> Path | None:
+        """Where the frozen bundle carries its pack index, or ``None`` when not frozen."""
+        ...
+
+    def probe_command(self, name: str, staged: Path) -> list[str] | None:
+        """argv that runs ``yazses packs probe <name> --staged <dir>`` in a child of
+        this same app, or ``None`` when that cannot be built."""
+        ...
+
+
 HotkeyFactory = Callable[[str, int, Callable[[int], None], Callable[[], None]], HotkeyBackend]
 """Args: key_id, threshold_ms, on_hold_start(leaked_count), on_hold_end."""
 

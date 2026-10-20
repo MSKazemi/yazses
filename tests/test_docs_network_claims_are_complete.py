@@ -107,3 +107,14 @@ def test_every_feature_the_page_names_as_a_downloader_really_is_one() -> None:
             f"{module} is named on the privacy page as a feature that downloads a model, "
             f"but it is no longer in the egress inventory"
         )
+
+
+def test_the_addon_download_has_its_own_sentence(page: str) -> None:
+    """ADR-028 added a fetch of code that then runs. The page must name it, say when it
+    happens and what it reveals, and the module must really be in the inventory."""
+    from tests.test_egress_inventory import FETCH_VIA
+
+    assert "packs/fetch.py" in FETCH_VIA
+    assert "downloads that feature's **add-on**" in page
+    assert "never in the background" in page
+    assert "adr-028-feature-addon-packs.md" in page

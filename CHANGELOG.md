@@ -6,6 +6,39 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — add-on packs: the Windows installer build can turn on Parakeet and diarization (ADR-028, runtime side)
+
+In the Windows `.exe` install, `yazses features enable stt-parakeet` (or `diarize`,
+`recimport`, `meeting`) used to end at "install YazSes from PyPI instead". It now shows the
+add-on's download and on-disk size, asks (`--yes` skips the question), downloads the add-on
+from the release of the version you are running, checks it against the SHA-256 in the index
+built into your installer and against the release's `SHA256SUMS.txt`, unpacks it into
+`%LOCALAPPDATA%\yazses\packs\` after checking every archive member, test-imports it in a
+child process, and only then writes your config. Any failure, a "no", `--no-install` or a
+cancel writes nothing and says what to do next. New `yazses packs` commands list, install,
+verify, remove and clean add-ons; `yazses packs probe` is the import test the install and the
+release build both run, and it exits with a code that names the failure (a missing
+standard-library module, missing package metadata, a pruned base submodule, a native library
+that failed to load).
+
+At startup a PyInstaller runtime hook appends each verified add-on to `sys.path` (never in
+front of the app's own files) and keeps the `os.add_dll_directory` handles alive. Nothing is
+loaded when YazSes runs as administrator, when `YAZSES_NO_PACKS=1` is set, when an add-on was
+built for another build of YazSes, or when its install did not finish. Phase 1 covers the Inno
+installer (and winget, which installs the same file); Chocolatey, Scoop, the MSIX and the macOS
+app keep their current answer.
+
+New egress, registered under ADR-019 as Class A: `packs/fetch.py` downloads through ADR-027's
+allow-listed helpers rather than a second downloader, so `tests/test_egress_inventory.py`
+gains a fourth scan (`FETCH_VIA`) for callers of those helpers, a closure test proving the
+daemon, the update watcher and the runtime hook cannot reach the download, and a check that
+ADR-019's Class A count ("seven of the nine") is computed from the inventory.
+`docs/privacy-statement.md` says when the download happens and what it reveals.
+
+Not in this change: registering the hook in `packaging/windows/yazses.spec`, the tray and
+Settings surfaces, and the `started-ok` marker the tray writes after a good start (see the
+spec's *Implementation status*). Nothing here has run on Windows yet.
+
 ### Added — `ci-gate`, one stable check for branch protection to require ([#462](https://github.com/MSKazemi/yazses/issues/462))
 
 The Tests workflow reports about fifteen matrix check names, and those names change whenever a leg is

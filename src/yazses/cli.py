@@ -2187,13 +2187,18 @@ def features_enable(
     no_install: bool = typer.Option(
         False, "--no-install", help="Don't auto-install the feature's optional deps."
     ),
+    yes: bool = typer.Option(
+        False, "--yes", "-y",
+        help="Don't ask before downloading an add-on (Windows installer build only).",
+    ),
 ) -> None:
     """Turn a capability ON (writes your config), then `yazses restart` to apply.
 
     Use the TOGGLE NAME column from `yazses features`. Experimental features
     (e.g. cocktail, gaze) refuse to enable without --force. Any optional Python
     dependencies the feature needs are installed automatically (skip with
-    --no-install).
+    --no-install). In the Windows installer build they come as a verified add-on
+    download, shown with its size and confirmed first (skip the question with --yes).
     """
     from yazses.config import load_config
     from yazses.system.features import (
@@ -2241,6 +2246,8 @@ def features_enable(
         typer.echo("Enable anyway with: yazses features enable "
                    f"{feat.slug} --force", err=True)
         raise typer.Exit(1)
+    if _enable_via_pack(feat, platform.paths.config_file, cfg, yes=yes, no_install=no_install):
+        return
     blocked = _feature_deps_blocked(feat)
     if blocked is not None:
         # Refuse *before* writing config. Enabling a capability whose libraries
@@ -2356,6 +2363,255 @@ def _dormant_remedy(feat) -> str:
     from yazses.system.dormant import enable_command
 
     return enable_command(feat)
+
+
+def _pack_progress(message: str, fraction: float | None) -> None:
+    typer.echo(f"  {message}")
+
+
+def _echo_pack_failure(result) -> None:
+    typer.echo(f"{result.title}: {result.message}", err=True)
+    for step in result.steps:
+        typer.echo(f"  - {step}", err=True)
+
+
+def _enable_via_pack(feat, config_file, cfg, *, yes: bool, no_install: bool) -> bool:
+    """Enable *feat* through an ADR-028 add-on pack, when this is a pack install.
+
+    Returns ``False`` to hand back to the ordinary path (a source install, a format or
+    channel without packs, or a feature with no pack in this build, all of which keep
+    their existing answers). Returns ``True`` once it has enabled the feature, and
+    raises ``typer.Exit(1)`` when it refused or the install failed. Config is written
+    **only after** the pack installed and passed its import probe (ADR-028 §5); a
+    refusal, a "no" at the prompt, ``--no-install``, a cancel or a failure writes nothing.
+    """
+    if not feat.pip_packages or not _missing_feature_deps(feat):
+        return False
+    from yazses.packs.context import load_context
+    from yazses.packs.manage import feature_pack_status, install
+    from yazses.packs.state import OK
+
+    ctx = load_context()
+    if not ctx.frozen or not ctx.runtime.supported():
+        return False
+    if ctx.capability.code == "elevated":
+        typer.echo(f"Can't enable {feat.name}: {ctx.capability.reason}.", err=True)
+        raise typer.Exit(1)
+    if not ctx.capability.ok or ctx.index is None:
+        return False
+    entry = ctx.index.for_feature(feat.slug)
+    if entry is None:
+        return False
+    if ctx.base_problems:
+        typer.echo(
+            f"Can't enable {feat.name}: this copy of YazSes carries an add-on list for "
+            f"a different build ({'; '.join(ctx.base_problems)}). Reinstall YazSes from "
+            "the releases page.",
+            err=True,
+        )
+        raise typer.Exit(1)
+    status = feature_pack_status(ctx, feat.slug, config_on=False)
+    if status.state != OK:
+        typer.echo(status.message)
+        if no_install:
+            typer.echo(
+                f"{feat.name} was not enabled (--no-install): it stays off until its "
+                f"add-on is installed. Run  yazses features enable {feat.slug}  to "
+                "download it.",
+                err=True,
+            )
+            raise typer.Exit(1)
+        if not yes and not typer.confirm(
+            f"Download and install the {entry.name} add-on now?", default=False
+        ):
+            typer.echo("Nothing was changed.", err=True)
+            raise typer.Exit(1)
+        result = install(ctx, entry, progress=_pack_progress)
+        if not result.ok:
+            _echo_pack_failure(result)
+            raise typer.Exit(1)
+        typer.echo(result.message)
+    from yazses.system.features import enable_caveat
+
+    _apply_feature_writes(config_file, feat.on_writes)
+    typer.echo(f"Enabled {feat.name}.  {feat.why}")
+    caveat = enable_caveat(feat.slug, cfg)
+    if caveat:
+        typer.echo(f"\n{caveat}\n")
+    typer.echo("Apply it:  yazses restart")
+    return True
+
+
+packs_app = typer.Typer(
+    name="packs",
+    help="Add-ons: a feature's libraries, downloaded and verified (Windows installer build).",
+    context_settings=CONTEXT_SETTINGS,
+    invoke_without_command=True,
+    no_args_is_help=False,
+)
+app.add_typer(packs_app, rich_help_panel=_SETUP)
+
+
+def _packs_context():
+    from yazses.packs.context import load_context
+
+    return load_context()
+
+
+@packs_app.callback(
+    invoke_without_command=True,
+    epilog=_examples(
+        "yazses packs                     list this build's add-ons and their state",
+        "yazses packs install parakeet    download, verify and install one",
+        "yazses packs verify              check every installed file's SHA-256",
+    ),
+)
+def packs_list(ctx: typer.Context) -> None:
+    """List this build's add-ons: name, features, size, and whether each is installed.
+
+    Add-ons exist only in the Windows installer build (ADR-028). Elsewhere, `yazses
+    features enable <name>` installs a feature's libraries from PyPI instead.
+    """
+    if ctx.invoked_subcommand is not None:
+        return
+    from yazses.packs.manage import rows
+    from yazses.packs.policy import human_bytes
+
+    pctx = _packs_context()
+    if not pctx.capability.ok:
+        typer.echo(f"No add-ons here: {pctx.capability.reason}.")
+        return
+    if pctx.index is None:
+        typer.echo(f"No add-ons: {pctx.index_error}.")
+        return
+    listing = rows(pctx)
+    if not listing:
+        typer.echo("This build publishes no add-ons.")
+        return
+    for row in listing:
+        detail = f"  ({row.detail})" if row.detail else ""
+        typer.echo(
+            f"{row.name:<14} {row.state:<8} {human_bytes(row.size):>8} download, "
+            f"{human_bytes(row.unpacked):>8} on disk   features: "
+            f"{', '.join(row.features)}{detail}"
+        )
+    typer.echo(f"\nFolder: {pctx.layout.root}")
+
+
+@packs_app.command("path", epilog=_examples("yazses packs path    print the add-on folder"))
+def packs_path() -> None:
+    """Print the folder add-ons are installed in."""
+    typer.echo(str(_packs_context().layout.root))
+
+
+@packs_app.command(
+    "install",
+    epilog=_examples("yazses packs install parakeet    download and install one add-on"),
+)
+def packs_install(
+    name: str = typer.Argument(..., help="Add-on name, from `yazses packs`."),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Don't ask before downloading."),
+) -> None:
+    """Download, verify and install one add-on for this build. Writes no config."""
+    from yazses.packs.manage import install
+    from yazses.packs.policy import human_bytes
+
+    pctx = _packs_context()
+    if not pctx.capability.ok:
+        typer.echo(f"Can't install add-ons: {pctx.capability.reason}.", err=True)
+        raise typer.Exit(1)
+    entry = pctx.index.entry(name) if pctx.index is not None else None
+    if entry is None:
+        known = ", ".join(p.name for p in pctx.index.packs) if pctx.index else "none"
+        typer.echo(f"No add-on called {name!r} in this build. Add-ons: {known}.", err=True)
+        raise typer.Exit(1)
+    typer.echo(
+        f"The {name} add-on: {human_bytes(entry.size)} download, "
+        f"{human_bytes(entry.unpacked_bytes)} on disk."
+    )
+    if not yes and not typer.confirm("Download and install it now?", default=False):
+        typer.echo("Nothing was changed.", err=True)
+        raise typer.Exit(1)
+    result = install(pctx, entry, progress=_pack_progress)
+    if not result.ok:
+        _echo_pack_failure(result)
+        raise typer.Exit(1)
+    typer.echo(result.message)
+    typer.echo("Apply it:  yazses restart")
+
+
+@packs_app.command(
+    "verify", epilog=_examples("yazses packs verify    check every installed add-on file")
+)
+def packs_verify(
+    name: str | None = typer.Argument(None, help="One add-on; all when omitted."),
+) -> None:
+    """Check every installed file's size and SHA-256. A damaged add-on is set aside."""
+    from yazses.packs.manage import verify
+
+    pctx = _packs_context()
+    problems = verify(pctx, name)
+    if not problems:
+        typer.echo("Every installed add-on matches its record.")
+        return
+    for pack, problem in problems:
+        typer.echo(
+            f"{pack}: damaged ({problem}). It was set aside in {pctx.layout.quarantine}. "
+            f"Reinstall it: yazses packs install {pack}",
+            err=True,
+        )
+    raise typer.Exit(1)
+
+
+@packs_app.command(
+    "remove", epilog=_examples("yazses packs remove parakeet    delete one add-on")
+)
+def packs_remove(
+    name: str | None = typer.Argument(None, help="Add-on name, from `yazses packs`."),
+    all_: bool = typer.Option(False, "--all", help="Remove every add-on of every build."),
+) -> None:
+    """Delete an installed add-on. Features that need it then read *waiting for add-on*."""
+    from yazses.packs.manage import remove
+
+    if (name is None) == (not all_):
+        typer.echo("Name one add-on, or pass --all.", err=True)
+        raise typer.Exit(2)
+    removed = remove(_packs_context(), None if all_ else name)
+    typer.echo(f"Removed: {', '.join(removed)}." if removed else "Nothing to remove.")
+
+
+@packs_app.command(
+    "clean", epilog=_examples("yazses packs clean    delete leftovers and old builds' add-ons")
+)
+def packs_clean() -> None:
+    """Delete set-aside, half-finished and old builds' add-ons (keeps what rollback needs)."""
+    from yazses.packs.manage import clean
+
+    removed = clean(_packs_context())
+    typer.echo(f"Removed: {', '.join(removed)}." if removed else "Nothing to clean.")
+
+
+@packs_app.command(
+    "probe",
+    epilog=_examples("yazses packs probe parakeet --staged DIR    test-import a pack tree"),
+)
+def packs_probe(
+    name: str = typer.Argument(..., help="Add-on name."),
+    staged: Path = typer.Option(..., "--staged", help="The unpacked add-on folder to test."),
+) -> None:
+    """Mount one unpacked add-on and import its entry modules (used by install and CI).
+
+    Exits 0 on success, otherwise with a code naming the failure: 4 a missing
+    standard-library module, 5 missing package metadata, 6 a pruned submodule of a
+    base package, 7 a native library that failed to load, 8 another import error.
+    """
+    from yazses.packs.probe import run_probe
+    from yazses.platform.factory import get_pack_runtime
+
+    result = run_probe(name, staged, runtime=get_pack_runtime())
+    typer.echo(result.line())
+    if not result.ok:
+        raise typer.Exit(result.exit_code)
 
 
 @features_app.command(
