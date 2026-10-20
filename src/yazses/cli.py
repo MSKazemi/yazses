@@ -6012,7 +6012,7 @@ def gaze_measure(
                 time.sleep(interval_s)
             collect_validation(
                 backend, calibration, targets, before_point, session, time.monotonic,
-                per_point=per_point, started_at=started,
+                per_point=per_point, started_at=started, screen=(width, height),
             )
     finally:
         backend.close()
@@ -6073,12 +6073,13 @@ def gaze_measure(
     )
     if study_mode == "research":
         doc["protocol"]["protocol_id"] = protocol_id
-    problems = report_problems(doc)
+    identifiers = local_identifiers()
+    problems = report_problems(doc, identifiers)
     if problems:
         fail("The report is not valid, so nothing was written:\n  - " + "\n  - ".join(problems))
     target = out or Path("yazses-gaze-report.json")
     try:
-        write_result(doc, target, identifiers=local_identifiers())
+        write_result(doc, target, identifiers=identifiers)
     except EyeEvalRunError as exc:
         fail(str(exc))
     typer.echo(f"\n{render_markdown(doc)}\nWrote {target} — read it before you share it.")
