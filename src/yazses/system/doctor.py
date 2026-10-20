@@ -859,6 +859,24 @@ def _corpus_redaction_check(cfg) -> list[_Check]:
     )]
 
 
+def _hotwords_optin_check(cfg) -> _Check | None:
+    """Why a `[hotwords] enabled = true` this config carries is not active, or ``None``.
+
+    First-run setup in v2.11.0-dev.9 through v2.13.0 seeded that line into every new
+    config while hotwords was unwired. Now that it is wired it runs only with the opt-in
+    `yazses features enable hotwords` writes, so for those configs the file says `true`
+    and the feature is off. SKIP, not WARN: nothing is broken and nothing needs fixing
+    unless the user wants it, so it must not turn the verdict into "optional warnings".
+    Silent for every other config.
+    """
+    from yazses.system.features import inactive_reason
+
+    reason = inactive_reason("hotwords", cfg)
+    if not reason:
+        return None
+    return ("Hotwords", "SKIP", f"{reason} Turn it on:\n    yazses features enable hotwords")
+
+
 def _config_summary(
     cfg, config_file: Path, *, live_hotkey: str = "", platform_default: str = ""
 ) -> list[_Check]:
@@ -2011,6 +2029,9 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
         dysfluency = _dysfluency_check(cfg.accessibility.dysfluency_friendly)
         if dysfluency is not None:
             checks.append(dysfluency)
+        hotwords = _hotwords_optin_check(cfg)
+        if hotwords is not None:
+            checks.append(hotwords)
         # v2 cognitive-layer extras (report only when the feature is enabled).
         for chk in (
             _extra_check("tts extra (kokoro-onnx)", cfg.tts.enabled,

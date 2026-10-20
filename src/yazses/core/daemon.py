@@ -4576,15 +4576,17 @@ class Daemon:
         command word ("cubernetties") gets a chance to become the real one before
         the grammar sees it.
 
-        Off unless `[stt] vocab_correction` or `[hotwords] enabled` -- two switches
-        for one corrector, because `hotwords` (ADR-v2-069) had no N-best producer and
-        was folded into this path. Every substitution is logged and recorded on the
+        Off unless `[stt] vocab_correction` or hotwords is active (`[hotwords]
+        enabled` *and* `opted_in`: older first-run setup seeded `enabled = true` on
+        its own, so that line alone is not an opt-in) -- two switches for one
+        corrector, because `hotwords` (ADR-v2-069) had no N-best producer and was
+        folded into this path. Every substitution is logged and recorded on the
         learning event — silently rewriting what someone said is the thing this must
         never do.
         """
         if not text:
             return text
-        hotwords_on = bool(getattr(getattr(self._config, "hotwords", None), "enabled", False))
+        hotwords_on = bool(getattr(getattr(self._config, "hotwords", None), "active", False))
         if not (getattr(self._config.stt, "vocab_correction", False) or hotwords_on):
             return text
         try:
@@ -4615,7 +4617,7 @@ class Daemon:
         words += load_vocab(vocab_path(self._platform.paths.config_file.parent))
         raw = os.environ.get("YAZSES_VOCABULARY", "")
         words += [w.strip() for w in raw.split(",") if w.strip()]
-        if getattr(self._config.hotwords, "enabled", False):
+        if getattr(self._config.hotwords, "active", False):
             # `[hotwords] terms` extends the dictionary for the corrector only; it never
             # reaches the decoder, so the Whisper decode path is untouched.
             from yazses.postprocess.hotwords import merge_terms

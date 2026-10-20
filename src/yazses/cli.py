@@ -2017,6 +2017,14 @@ def _echo_capabilities(
             " so it does nothing."
             "\n      Clear a stale key with `yazses features disable <name>`."
         )
+    from yazses.system.features import inactive_reason
+
+    for f in all_shown:
+        # A row that reads "○ off" while the config file plainly says `enabled = true`
+        # needs its reason next to it, or the file and the table look like they disagree.
+        reason = inactive_reason(f.slug, cfg)
+        if reason:
+            typer.echo(f"\n  {reason}\n  Turn it on:  yazses features enable {f.slug}")
     typer.echo(
         f"\n  {total} shown.  ●/○ = on/off.  Apply changes with `yazses restart`."
         "\n  DOWNLOAD = what a fresh install fetches in total — packages when you"
@@ -2031,9 +2039,10 @@ def _echo_capabilities(
     )
 
 
-def _echo_feature_card(feat, *, full: bool) -> None:
+def _echo_feature_card(feat, *, full: bool, cfg=None) -> None:
     """Print one capability. `full` adds the enable/disable/apply block (single view);
-    the compact form (used by the catalog) is name + description + example only."""
+    the compact form (used by the catalog) is name + description + example only.
+    *cfg*, when given, lets the full view say why a key the file sets is not active."""
     state = "◌ set" if feat.inert else ("● ON " if feat.on else "○ off")
     slug = feat.slug if feat.toggleable else "core"
     typer.echo(f"{state} {feat.name}  [{slug}]  ({feat.tier_label})")
@@ -2065,6 +2074,12 @@ def _echo_feature_card(feat, *, full: bool) -> None:
             note = _feature_download_note(feat)
             if note:
                 typer.echo(f"\n  Cost:     {note}")
+            if cfg is not None:
+                from yazses.system.features import inactive_reason
+
+                reason = inactive_reason(feat.slug, cfg)
+                if reason:
+                    typer.echo(f"\n  {reason}")
             typer.echo(f"\n  Enable:   yazses features enable {feat.slug}")
             typer.echo(f"  Disable:  yazses features disable {feat.slug}")
             typer.echo("  Apply:    yazses restart")
@@ -2119,7 +2134,7 @@ def features_info(
         known = ", ".join(f.slug for f in feature_status(cfg))
         typer.echo(f"Unknown feature {name!r}. Names: {known}", err=True)
         raise typer.Exit(1)
-    _echo_feature_card(found, full=True)
+    _echo_feature_card(found, full=True, cfg=cfg)
 
 
 def _apply_feature_writes(config_file, writes) -> None:

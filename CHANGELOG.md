@@ -547,12 +547,21 @@ speech.
 exposes no N-best list, and a second decode path would have put the default one at risk. Rather than invent a producer,
 the feature now does the job its description promised through `postprocess/vocab_correct.py` (#73), which already repairs
 mis-heard vocabulary words after decoding behind four guards (identical phonetic key, small edit distance, nothing under
-four characters, a correct word is left alone). `[hotwords] enabled = true` is a second switch for that corrector, and
-the new `[hotwords] terms = [...]` lists extra words to correct toward, read only while it is on; a replacement is logged.
-No decoding is touched. It is an optional-tier feature (first-run seeding does not enable it), and with it off the daemon
-imports nothing new and an existing install behaves byte-for-byte as before. Renamed "Hotwords" in the registry because it
-does not bias the decoder. `[hotwords] boost` and the N-best rescorer (`biasing/trie.py`) are retired: nothing reads them,
-and the module is kept only as a tested reference. Tests: `tests/test_hotwords_wiring.py`. See ADR-v2-069, "Wiring".
+four characters, a correct word is left alone). `yazses features enable hotwords` (or the Settings toggle) is a second
+switch for that corrector, and the new `[hotwords] terms = [...]` lists extra words to correct toward, read only while it
+is on; a replacement is logged. No decoding is touched. It is an optional-tier feature (first-run seeding does not enable
+it), and with it off the daemon imports nothing new. Renamed "Hotwords" in the registry because it does not bias the
+decoder. `[hotwords] boost` and the N-best rescorer (`biasing/trie.py`) are retired: nothing reads them, and the module is
+kept only as a tested reference.
+
+**It needs a fresh, deliberate opt-in, so no existing config switches it on.** A config first created by v2.11.0-dev.9
+through v2.13.0 already says `[hotwords] enabled = true`: first-run setup then wrote every recommended feature into a new
+config, wired or not, and `hotwords` was in that tier. That line still does nothing. Hotwords runs only when the config
+also has the new `[hotwords] opted_in = true`, which `yazses features enable hotwords` and the Settings toggle write
+(disabling clears both). With only the old line, `yazses features` shows Hotwords as off, and `yazses doctor` and
+`yazses features info hotwords` say why and give the one command that turns it on: `yazses features enable hotwords`.
+Fresh installs write neither key, so every existing install behaves exactly as before. Tests:
+`tests/test_hotwords_wiring.py`. See ADR-v2-069, "Wiring" and its 2026-10-20 amendment.
 
 ### Fixed — the hands-free window now corrects itself when it turns out too narrow (Windows run, round two)
 

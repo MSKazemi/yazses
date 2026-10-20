@@ -256,7 +256,12 @@ def _registry() -> list[_Def]:
     srx_on, srx_off = _bool("spokenregex")
     mk_on, mk_off = _bool("markup")
     fr_on, fr_off = _bool("findreplace")
-    hw_on, hw_off = _bool("hotwords")
+    # Hotwords: enabling writes the opt-in next to `enabled`, and the feature runs only
+    # when both are true. First-run setup in v2.11.0-dev.9..v2.13.0 seeded
+    # `[hotwords] enabled = true` into new configs while the slug was unwired, so that
+    # line alone is not a choice; only this toggle (CLI, Settings) records one.
+    hw_on = (("hotwords", "enabled", "true", False), ("hotwords", "opted_in", "true", False))
+    hw_off = (("hotwords", "enabled", "false", False), ("hotwords", "opted_in", "false", False))
     wc_on, wc_off = _bool("windowctl")
     rw_on, rw_off = _bool("commands", "rewrite")
     ci_on, ci_off = _bool("cite")
@@ -736,7 +741,7 @@ _Def("chords", "Chorded Shortcut Synthesis", "[chords] — any keyboard shortcut
              "terms) that the recogniser mis-heard, after decoding, with any engine. A word is "
              "only changed when it sounds the same and is spelled almost the same, and each "
              "change is logged. It does not bias the decoder itself. Off by default.",
-             lambda c: c.hotwords.enabled, hw_on, hw_off),
+             lambda c: c.hotwords.active, hw_on, hw_off),
         _Def("rewrite", "Offline Command Mode (rewrite selection)", "[commands] rewrite",
              OPTIONAL,
              "Select text, hold the command key and say 'make this shorter' or 'fix "
@@ -1655,6 +1660,29 @@ def find_feature(cfg, slug: str) -> Feature | None:
 
 def toggleable_slugs() -> list[str]:
     return [d.slug for d in _registry() if d.on_writes]
+
+
+def inactive_reason(slug: str, cfg) -> str:
+    """Why *cfg* says this capability is on and it is nonetheless off, or ``""``. Pure.
+
+    One case today: `[hotwords] enabled = true` without `opted_in`. First-run setup in
+    v2.11.0-dev.9 through v2.13.0 wrote that line into every new config while hotwords
+    was an unwired recommended slug, so it is not a choice anybody made and must not
+    start rewriting their words now that hotwords is wired. `yazses features`, the
+    feature card and `doctor` all print this text, each followed by the one command
+    that turns it on (`yazses features enable <slug>`), so they cannot disagree.
+    """
+    if (slug or "").strip().lower() != "hotwords":
+        return ""
+    hw = getattr(cfg, "hotwords", None)
+    if hw is None or not getattr(hw, "stale_enabled", False):
+        return ""
+    return (
+        "Your config says [hotwords] enabled = true, but Hotwords is not active: it "
+        "also needs the opt-in that enabling it writes. First-run setup in "
+        "v2.11.0-dev.9 to v2.13.0 put that line into every new config on its own, so "
+        "it is not taken as your choice."
+    )
 
 
 def enable_caveat(slug: str, cfg) -> str | None:

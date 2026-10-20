@@ -52,3 +52,29 @@ characters, and a word that is already correct is a fixed point. Decisions:
   config still loads). `biasing/trie.py` stays as a tested pure reference, reachable from no entry
   point. In-decoder biasing (sherpa-onnx / WFST) is still deferred and would replace the mechanism,
   not the vocabulary source.
+
+## Amendment (2026-10-20) — wiring requires a fresh opt-in
+
+First-run setup in v2.11.0-dev.9 through v2.13.0 wrote every recommended slug into a new
+`config.toml`, wired or not (the unwired exclusion in `default_enabled_writes` arrived in
+79bb05a1, first released in v2.14.0), and `hotwords` was recommended then. Those configs say
+`[hotwords] enabled = true`. The line did nothing while the slug was unwired; wired as above, it
+would silently switch on a feature that rewrites transcribed text. Owner decision: nobody gets
+hotwords silently.
+
+- **Chosen: an explicit opt-in key.** `[hotwords] opted_in` (default `false`) is written next to
+  `enabled = true` by the registry's `on_writes`, so `yazses features enable hotwords` and the
+  Settings toggle (both apply `on_writes`) set it, and `off_writes` clears both. Hotwords runs
+  only when both are true (`HotwordsConfig.active`); the daemon and the feature status read that
+  one predicate. A seeded `enabled = true` alone reads as off everywhere, and `doctor`, `yazses
+  features` and `features info hotwords` say why and name `yazses features enable hotwords`. A
+  fresh install seeds neither key. Precedent: a two-key enable (`[gaze] enabled` +
+  `route_dictation`) and a separate consent key (`[injection] portal_consent`, v2.39.0).
+- **Rejected: moving the switch to a new key and ignoring `enabled`.** Every feature section
+  switches on `enabled`; a section whose `enabled = true` means nothing is the inert-key
+  confusion fixed in afe1c556, and a second key name for the same switch would be a second
+  thing for docs, tests and hand-editors to learn. Keeping `enabled` and adding a marker leaves
+  every existing reader of `[hotwords] enabled` correct.
+- **Rejected: rewriting the stale line on load or at upgrade.** It edits a user's file without
+  being asked, and it cannot tell a seeded line from one the user typed. Ignoring it, and
+  saying so, is reversible; rewriting it is not.
