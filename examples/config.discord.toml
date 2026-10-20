@@ -1,0 +1,51 @@
+# examples/config.discord.toml
+# A YazSes setup for dictating messages into Discord on Windows 11.
+#
+# Contributed by @fall-water-zxc (#590), who ran it end to end on 2026-10-12:
+# YazSes 2.42.0 installed with `winget install MSKazemi.YazSes`, the laptop's
+# built-in microphone, and Discord in a browser (the web app). Dictation into a
+# channel message box and into a DM both arrived intact, waiting in the input
+# box rather than sent.
+#
+# Not measured here: the Discord desktop app, Linux or macOS, and a spoken
+# "new line" (voice_punctuation below). Discord sends a message on Enter, and a
+# dictated line break may act like one -- say it only when you mean to send.
+#
+# Why a lone right_ctrl: Discord binds chords such as Ctrl+Shift+M (mute) and
+# Ctrl+Shift+D (deafen). A hold-to-talk key that is a single modifier forms none
+# of them, and it did not collide with Discord's own Push to Talk or overlay
+# keybinds. If you set Discord's Push to Talk to right Ctrl, pick another key here.
+#
+# Changed from examples/config.terminal.toml: the terminal profile forces
+# backend = "type" for ydotool on Linux; here "auto" resolves to SendInput with
+# KEYEVENTF_UNICODE on Windows, which arrived exact in Discord.
+#
+# Copy to ~/.config/yazses/config.toml and edit as needed.
+
+[stt]
+model = "base.en"
+device = "cpu"
+compute_type = "int8"
+
+[hotkey]
+key = "right_ctrl"
+hold_threshold_ms = 400
+
+[audio]
+sample_rate = 16000
+max_record_seconds = 60
+
+[injection]
+backend = "auto"
+fallback_to_clipboard = true
+
+[commands]
+voice_punctuation = true
+
+[general]
+log_level = "INFO"
+
+[overlay]
+enabled = true
+style = "sonar"
+position = "cursor"
