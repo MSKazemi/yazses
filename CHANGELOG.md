@@ -45,6 +45,29 @@ suite did not reach:
 Each new test was checked against a deliberately broken source: miswiring the transform flag, reading a result
 attribute directly, logging the exception text, or removing the lazy imports. Every one of those mutations failed at
 least one new test.
+||||||| 3b24fd7f
+
+### Fixed — an eye-eval outcomes file could carry free text in a face-switch record ([#422](https://github.com/MSKazemi/yazses/issues/422))
+
+Found while auditing the task fixtures against #422's criteria. Those criteria (three generated tasks,
+recorded seed and version, deterministic replay, no private content, sequence/count/geometry tests) were
+already met on main. One gap remained. `check_records` limited record *keys* to an allowlist, but the
+face-switch `block_id` and `block_type` accepted any string. A `false_activation` row answers no cue, so
+the identity check never looked at it: a pasted window title or sentence passed. No such text reached a
+result, because results hold aggregates only. Both fields are now limited to the task's own vocabulary
+(`yazses.eyeeval.record_text_vocabulary`), and a `block_type` that contradicts its block is refused. The
+refusal gives the value's length, not its text, so a problem list cannot reprint it.
+
+Also new: `yazses.eyeeval.task_from_protocol` rebuilds the exact task a result ran from its
+`protocol.{task, task_version, task_seed}`. It refuses a version this build does not generate, and a
+missing seed, rather than guessing. New tests in `tests/test_eye_eval_task_contract.py`:
+
+- every task stays valid across 261 seeds, including the 32/63/64-bit edges;
+- the seed really counterbalances (all six pointer condition orders occur);
+- SHA-256 digests pin the bytes of nine reseeded tasks on every OS the suite runs on;
+- each task round-trips from a serialised result.
+
+The CLI and config are unchanged.
 
 ### Tests — the PointerSink contract now covers bounds and permanence ([#400](https://github.com/MSKazemi/yazses/issues/400))
 

@@ -22,7 +22,9 @@ is "save privacy-safe result JSON", and the adjective is the whole step.
 counted and dropped; no record, and no field of one, is ever copied into the result. So
 even a hand-edited outcomes file carrying something it should not cannot put it in the
 artifact. The record-key allowlist (`check_records`) refuses an unknown field as well,
-which catches the typo that would otherwise become a silent zero.
+which catches the typo that would otherwise become a silent zero, and the few string
+fields a record has are closed to the task's own vocabulary (`tasks.record_text_vocabulary`),
+so an outcomes file has no free-text field to carry a window title or a spoken sentence.
 
 **A count that was not measured is never zero.** Every metric this module can emit is
 either a real count or `{"value": null, "reason": ...}`. A blocked run therefore has no
@@ -70,6 +72,7 @@ from yazses.eyeeval.tasks import (
     TASK_IDS,
     TASK_OUTCOMES,
     TASK_RECORDS,
+    record_text_vocabulary,
 )
 
 #: Stamped into `software.generator` so a reader knows which tool wrote the file. Bumped
@@ -373,6 +376,12 @@ def check_records(task: dict[str, Any], records: Any) -> list[str]:
         return [f"<records>: expected a JSON list of trial records, got {type(records).__name__}."]
     allowed = set(TASK_RECORDS[task_id])
     outcomes = TASK_OUTCOMES[task_id]
+    vocabulary = record_text_vocabulary(task)
+    block_types = {
+        b.get("block_id"): b.get("block_type")
+        for b in task.get("blocks", [])
+        if isinstance(b, dict) and "block_type" in b
+    }
     problems: list[str] = []
     for index, record in enumerate(records):
         if not isinstance(record, dict):
@@ -388,6 +397,31 @@ def check_records(task: dict[str, Any], records: Any) -> list[str]:
         if "outcome" in record and record["outcome"] not in outcomes:
             problems.append(
                 f"records.{index}.outcome: {record['outcome']!r} is not one of {outcomes}."
+            )
+        for key in ("block_id", "block_type"):
+            if key not in record or key not in allowed:
+                continue
+            value = record[key]
+            if not isinstance(value, str) or value not in vocabulary.get(key, ()):
+                # The value is described, never echoed: a free-text field is exactly where
+                # a pasted window title or sentence would sit, and a problem list is
+                # printed to a terminal and pasted into issues.
+                shape = f"{len(value)} characters" if isinstance(value, str) else type(value).__name__
+                problems.append(
+                    f"records.{index}.{key}: not a value this task defines ({shape}, not "
+                    f"shown). Allowed: {list(vocabulary.get(key, ()))}. A text field in a "
+                    f"record holds an identifier from the task and nothing typed by a person."
+                )
+        block_id, block_type = record.get("block_id"), record.get("block_type")
+        if (
+            isinstance(block_id, str)
+            and block_id in block_types
+            and block_type in vocabulary.get("block_type", ())
+            and block_types[block_id] != block_type
+        ):
+            problems.append(
+                f"records.{index}: block {block_id!r} is a {block_types[block_id]!r} block, "
+                f"not {block_type!r}. A false activation is attributed by block type."
             )
         for key, value in record.items():
             # Only the keys the allowlist accepted: an unknown key has already been
