@@ -2169,11 +2169,18 @@ def features_enable(
     from yazses.config import load_config
     from yazses.system.features import (
         EXPERIMENTAL,
+        PRESET_SLUG,
         enable_caveat,
         find_feature,
         toggleable_slugs,
     )
 
+    if name.strip().lower() == PRESET_SLUG:
+        # The preset is gated on more than tier and deps: the safety floor, and the tier and
+        # deps of every feature it composes (ADR-v2-148). One implementation, so the two
+        # spellings of "turn it on" refuse the same files with the same words.
+        handsfree_enable(force=force, no_install=no_install)
+        return
     platform = get_platform()
     cfg = load_config(platform.paths.config_file)
     feat = find_feature(cfg, name)
@@ -2314,8 +2321,13 @@ def features_disable(
 ) -> None:
     """Turn a capability OFF (writes your config), then `yazses restart` to apply."""
     from yazses.config import load_config
-    from yazses.system.features import find_feature, toggleable_slugs
+    from yazses.system.features import PRESET_SLUG, find_feature, toggleable_slugs
 
+    if name.strip().lower() == PRESET_SLUG:
+        # Same as `yazses handsfree disable`: it also pauses every hands-free input at once,
+        # so the pointer and switch stop now rather than at the restart.
+        handsfree_disable()
+        return
     platform = get_platform()
     cfg = load_config(platform.paths.config_file)
     feat = find_feature(cfg, name)
@@ -6885,7 +6897,8 @@ def handsfree_enable(
 
     Writes only `[handsfree] enabled = true`; the per-feature settings are filled in when the
     config is loaded, so `yazses handsfree explain` shows them and a value you set yourself wins.
-    Refuses, naming the key, if your config weakens the safety floor.
+    Refuses, naming the key, if your config weakens the safety floor. Same as
+    `yazses features enable handsfree`.
     """
     from yazses.handsfree.preset import expand
     from yazses.system.configedit import set_config_key

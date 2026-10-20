@@ -119,6 +119,16 @@ def run() -> None:
     def _write(section: str, key: str, value: object, quote: bool | None) -> None:
         set_config_key(config_file, section, key, value, quote=quote)
 
+    def _raw() -> dict | None:
+        # The file as written, for the hands-free preset's safety-floor gate. A missing file
+        # is an empty config; an unreadable one is None, which that gate refuses.
+        from yazses import tomlio
+
+        try:
+            return tomlio.read(config_file) if config_file.exists() else {}
+        except Exception:  # noqa: BLE001 - surfaced as a refusal, never raised at Qt
+            return None
+
     def _preview_language(profile: str, *, model: str | None = None):
         return prepare_language_change(config_file, profile, model=model)
 
@@ -140,6 +150,7 @@ def run() -> None:
         _write,
         language_previewer=_preview_language,
         language_applier=_apply_language,
+        raw_config_loader=_raw,
     )
 
     app = QApplication.instance() or QApplication(sys.argv)
