@@ -346,6 +346,13 @@ an update, YazSes also downloads the installer and the release's `SHA256SUMS.txt
 the GitHub release. That download happens only after you say yes, never in the
 background, and it sends nothing about you
 ([ADR-027](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-027-one-click-windows-update.md)).
+In the Windows installer build, turning on a feature that needs extra libraries (Parakeet,
+for example) downloads that feature's **add-on** and the same `SHA256SUMS.txt` from the
+release of the version you are running, after showing you its size and asking. That is
+the only time it happens: never in the background, never after an update without your
+click. The request says which add-on and version you downloaded, as a download from the
+releases page would, and nothing about you or anything you said
+([ADR-028](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-028-feature-addon-packs.md)).
 
 All of it is enumerated — module, destination, direction and trigger — in the project's
 [egress inventory](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-019-egress-inventory-and-escalation.md), and a test fails the build when any module gains a

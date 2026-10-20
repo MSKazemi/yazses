@@ -79,6 +79,7 @@ __all__ = [
     "is_trusted_download_url",
     "normalize_arch",
     "Offer",
+    "ReleaseAsset",
     "acquire_update_lock",
     "one_click_offer",
     "one_click_supported",
@@ -198,6 +199,13 @@ class InstallerAsset:
     #: ``sha256:<hex>`` from the release JSON, when GitHub supplies it. A second opinion
     #: only — the published SHA256SUMS.txt is still required.
     digest: str | None = None
+
+
+#: A neutral name for "one file on a GitHub release", so callers that download something
+#: other than the installer (ADR-028 add-on packs) do not depend on a type named
+#: "Installer". An alias for now: :func:`download_verified` reads only ``name``, ``url``
+#: and ``size``. ADR-028 §4a proposes making it the base class in a follow-up refactor.
+ReleaseAsset = InstallerAsset
 
 
 @dataclass

@@ -37,6 +37,7 @@ Every module in `src/yazses/` that contains an outbound network primitive
 | `tts/download.py` | `github.com` releases | ← Kokoro voice model | user enables read-back |
 | `system/updater.py` | `pypi.org`, GitHub API | ↔ a version string | `yazses update`, or the opt-in watcher |
 | `system/installer_update.py` | GitHub API, `github.com` release assets (redirected only to `*.githubusercontent.com`) | ← the release JSON, `SHA256SUMS.txt` and **the installer `.exe`, which then runs** | the user confirms a one-click update — `yazses update` or the Windows tray ([ADR-027](adr-027-one-click-windows-update.md)) |
+| `packs/fetch.py` (via the helpers above; see *Reached by calling the shared release downloader* below) | `github.com/MSKazemi/yazses/releases/download/v<running version>/` (redirected only to `*.githubusercontent.com`) | ← `SHA256SUMS.txt` and **an add-on pack `.yazpack`, whose code then runs** | the user confirms enabling a pack-backed feature or `yazses packs install` in the Windows installer build ([ADR-028](adr-028-feature-addon-packs.md)) |
 | `postprocess/llm_cleanup.py` | `[filters.disfluency] llm_endpoint` | **→ dictated text** | LLM cleanup enabled |
 | `remote/local_proxy.py` | `127.0.0.1` (the tunnel's local end) | **→ dictated text** | `yazses remote <host>` |
 
@@ -118,14 +119,17 @@ review. (These two were found *by* the guard, not by the audit that preceded it.
 
 ### The two classes, which is the useful part
 
-**Class A — fetch.** Six of the eight only pull *in*: model weights, a version number and,
-since ADR-027, the Windows installer. No user content is transmitted. They go to fixed,
+**Class A — fetch.** Seven of the nine only pull *in*: model weights, a version number and,
+since ADR-027, the Windows installer, and since ADR-028 an add-on pack. No user content is transmitted. They go to fixed,
 hard-coded hosts, they run once, and they are triggered by the user turning something on
 or confirming an update. (This said "six of the seven" until 2026-08-20 — the inventory
 table above then had five fetches and two sends. The count was written by hand and never
 recomputed, which is the same failure the enforced inventory exists to prevent, one level
-up. On 2026-10-20 `system/installer_update.py` made it six fetches of eight; the
-authoritative count is `FETCH` and `SEND` in `tests/test_egress_inventory.py`.)
+up. On 2026-10-20 `system/installer_update.py` made it six fetches of eight, and on
+2026-10-21 `packs/fetch.py` made it seven of nine. The authoritative count is `FETCH`,
+`FETCH_VIA` and `SEND` in `tests/test_egress_inventory.py`, and
+`test_the_class_a_count_in_adr_019_is_computed_not_written` now fails when this sentence
+disagrees with them.)
 
 **Class B — send.** **Exactly two code paths in the entire product can transmit
 something the user said**, and both are already constrained:
@@ -171,6 +175,28 @@ paths and identifiers removed, a metadata-only log tail. No dictated text, and t
 learning corpus is reported by size and never opened. The docstring on `issue_url` says
 so in those terms, and `test_the_issue_url_says_when_the_report_actually_travels` fails if
 it goes back to implying the content waits for the submit button.
+
+## Reached by calling the shared release downloader
+
+The fifth mechanism, and the first found before it shipped. ADR-028's add-on packs reuse
+ADR-027's allow-listed helpers in `system/installer_update.py` (`fetch_checksums`,
+`expected_sha256`, `download_verified`) instead of adding a second downloader. That is the
+right design, and it makes the caller invisible: `packs/fetch.py` imports no `urllib`,
+spawns nothing and names no model. So a fourth scan finds every call to
+`download_verified`, `fetch_checksums` or `fetch_release_payload` outside their defining
+module, and the result must equal `FETCH_VIA` in the test, in both directions.
+
+| Module | Through | What crosses the wire | Trigger |
+|---|---|---|---|
+| `packs/fetch.py` | `fetch_checksums`, `download_verified` | → an HTTP GET with the fixed asset headers, no cookie, no token; ← `SHA256SUMS.txt` and the `.yazpack`, **code that then runs** | the user confirms enabling a pack-backed feature, or `yazses packs install` |
+
+Two more assertions go with it. A pack download is user-initiated only: nothing reachable
+from `core/daemon.py`, `system/update_notify.py` or the PyInstaller runtime hook can import
+`packs.fetch`, `packs.install` or `packs.manage`, checked on the static import closure.
+And a `FETCH_VIA` module may not import a network primitive itself, which would make it the
+second downloader ADR-028 refuses. The request reveals what a manual download from the
+releases page reveals: this IP fetched add-on *X* for version *Y*. No API call is made, so
+`api.github.com` is never contacted on this path.
 
 ## Reached by asking a dependency to load a model by name
 

@@ -227,6 +227,7 @@ Turn a capability ON (writes your config), then `yazses restart` to apply.
 - **Arguments:** `name`
 - `--force` — Allow enabling experimental features.
 - `--no-install` — Don't auto-install the feature's optional deps.
+- `--yes`, `-y` — Don't ask before downloading an add-on (Windows installer build only).
 
 ### `yazses features info`
 
@@ -590,6 +591,45 @@ Render the current outline to Markdown or OPML.
 ## `yazses overlay`
 
 Run the sonar voice-activity overlay (needs the `overlay` extra: PySide6).
+
+## `yazses packs`
+
+Add-ons: a feature's libraries, downloaded and verified (Windows installer build).
+
+### `yazses packs clean`
+
+Delete set-aside, half-finished and old builds' add-ons (keeps what rollback needs).
+
+### `yazses packs install`
+
+Download, verify and install one add-on for this build. Writes no config.
+
+- **Arguments:** `name`
+- `--yes`, `-y` — Don't ask before downloading.
+
+### `yazses packs path`
+
+Print the folder add-ons are installed in.
+
+### `yazses packs probe`
+
+Mount one unpacked add-on and import its entry modules (used by install and CI).
+
+- **Arguments:** `name`
+- `--staged` — The unpacked add-on folder to test.
+
+### `yazses packs remove`
+
+Delete an installed add-on. Features that need it then read *waiting for add-on*.
+
+- **Arguments:** `name`
+- `--all` — Remove every add-on of every build.
+
+### `yazses packs verify`
+
+Check every installed file's size and SHA-256. A damaged add-on is set aside.
+
+- **Arguments:** `name`
 
 ## `yazses punch-in`
 

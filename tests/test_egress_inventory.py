@@ -644,6 +644,189 @@ def test_a_dependency_fetch_is_not_counted_as_a_send_path():
     assert len(SEND) == 2
 
 
+#: Reaches the network by CALLING THE SHARED RELEASE DOWNLOADER, not by importing a
+#: network primitive, spawning a program or naming a model. The fifth mechanism, found
+#: before it shipped rather than after: ADR-028 reuses ADR-027's allow-listed helpers in
+#: `system/installer_update.py` instead of writing a second downloader, so the module that
+#: downloads add-on packs imports no `urllib` at all and none of the scans above can see
+#: it. ADR-019 has recorded "a stated limitation is not a guard" three times; this is the
+#: guard, written in the same PR as the caller.
+FETCH_VIA = {
+    "packs/fetch.py": (
+        "add-on pack + SHA256SUMS.txt from the running version's release (ADR-028). Like "
+        "`system/installer_update.py` this fetches CODE THAT THEN RUNS: verified against "
+        "the SHA-256 in the index built into the installed app, and cross-checked against "
+        "the release's SHA256SUMS.txt. Only after the user confirms enabling a feature or "
+        "`yazses packs install`; never from the daemon, the update watcher or the runtime "
+        "hook"
+    ),
+}
+
+#: The shared download entry points, and the one module allowed to define and call them
+#: freely. Any other caller is egress and must be declared in `FETCH_VIA`.
+_RELEASE_DOWNLOADERS = frozenset({"download_verified", "fetch_checksums", "fetch_release_payload"})
+_DOWNLOADER_HOME = "system/installer_update.py"
+
+
+def _modules_calling_the_release_downloader() -> dict[str, list[str]]:
+    """Every `yazses` module, other than the downloader's own, that calls one of
+    `_RELEASE_DOWNLOADERS`. Keyed and spelled like the other scans."""
+    found: dict[str, list[str]] = {}
+    for path in sorted(SRC.rglob("*.py")):
+        if "__pycache__" in path.parts:
+            continue
+        key = path.relative_to(SRC).as_posix()
+        if key == _DOWNLOADER_HOME:
+            continue
+        try:
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+        except SyntaxError:  # pragma: no cover - fails elsewhere, loudly
+            continue
+        hits = set()
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            func = node.func
+            name = (
+                func.attr if isinstance(func, ast.Attribute)
+                else func.id if isinstance(func, ast.Name)
+                else None
+            )
+            if name in _RELEASE_DOWNLOADERS:
+                hits.add(name)
+        if hits:
+            found[key] = sorted(hits)
+    return found
+
+
+def test_the_release_downloader_scan_finds_something():
+    """Guard the guard, fourth detector: `packs/fetch.py` calls `download_verified`, so an
+    empty result means the detector broke, not that nothing downloads."""
+    assert _modules_calling_the_release_downloader(), (
+        "the release-downloader scan found no caller at all, which cannot be right"
+    )
+
+
+def test_the_downloader_vocabulary_still_names_real_functions():
+    """A rename in `installer_update.py` would empty the scan's vocabulary silently."""
+    from yazses.system import installer_update
+
+    for name in _RELEASE_DOWNLOADERS:
+        assert callable(getattr(installer_update, name, None)), (
+            f"{_DOWNLOADER_HOME} no longer defines {name}; update _RELEASE_DOWNLOADERS"
+        )
+
+
+def test_no_undeclared_module_calls_the_release_downloader():
+    found = _modules_calling_the_release_downloader()
+    undeclared = {m: calls for m, calls in found.items() if m not in FETCH_VIA}
+    assert not undeclared, (
+        "these modules download a release asset through the shared helpers and are not "
+        f"in the ADR-019 inventory: {undeclared}\n\nAdd them to FETCH_VIA here and to the "
+        "table in design/adr/adr-019-egress-inventory-and-escalation.md."
+    )
+
+
+def test_the_fetch_via_inventory_has_no_stale_entries():
+    found = set(_modules_calling_the_release_downloader())
+    stale = sorted(set(FETCH_VIA) - found)
+    assert not stale, f"declared in FETCH_VIA but no longer calling the downloader: {stale}"
+
+
+def test_a_fetch_via_module_is_not_a_second_downloader():
+    """The point of FETCH_VIA is that the transport stays in one allow-listed place. A
+    declared caller that grew its own network import would be a second downloader."""
+    found = _modules_with_network_imports()
+    for module in FETCH_VIA:
+        assert module not in found, (
+            f"{module} imports {found.get(module)} itself; ADR-028 reuses ADR-027's "
+            "downloader and adds no second one"
+        )
+
+
+def test_pack_downloads_are_user_initiated_only():
+    """ADR-028 §4: never in the background, from the update watcher, at startup or from
+    the daemon. Proved on the import closure (static, covers lazy imports): nothing
+    reachable from the daemon, the watcher or the PyInstaller runtime hook can import
+    the module that downloads or the transaction that calls it."""
+    from tests.test_feature_wiring_honesty import _all_modules, _internal_imports
+
+    files = _all_modules()
+    forbidden = {"yazses.packs.fetch", "yazses.packs.install", "yazses.packs.manage"}
+
+    def resolve(name: str) -> str | None:
+        while name:
+            if name in files:
+                return name
+            if "." not in name:
+                return None
+            name = name.rsplit(".", 1)[0]
+        return None
+
+    def closure(entries: list[str]) -> set[str]:
+        seen: set[str] = set()
+        stack = list(entries)
+        while stack:
+            mod = stack.pop()
+            if mod in seen:
+                continue
+            seen.add(mod)
+            parts = mod.split(".")
+            for i in range(1, len(parts)):
+                parent = ".".join(parts[:i])
+                if parent in files and parent not in seen:
+                    stack.append(parent)
+            for imp in _internal_imports(files[mod], mod):
+                hit = resolve(imp)
+                if hit is not None and hit not in seen:
+                    stack.append(hit)
+        return seen
+
+    hook = SRC.parent.parent / "packaging/windows/rthook_yazses_packs.py"
+    hook_imports = sorted(
+        {resolve(n) for n in _internal_imports(hook, "rthook") if resolve(n)}  # type: ignore[misc]
+    )
+    assert hook_imports == ["yazses.packs.mount"], (
+        f"the runtime hook should import only yazses.packs.mount, imports {hook_imports}"
+    )
+    entries = {
+        "core/daemon.py": ["yazses.core.daemon"],
+        "system/update_notify.py": ["yazses.system.update_notify"],
+        "the runtime hook": hook_imports,
+    }
+    for label, roots in entries.items():
+        for root in roots:
+            assert root in files, f"entry {root} is gone; update this test"
+        reached = closure(roots)
+        assert len(reached) > 1, f"the closure from {label} is empty; the walker broke"
+        leaked = sorted(reached & forbidden)
+        assert not leaked, (
+            f"{label} can reach {leaked}: a pack download would no longer be "
+            "user-initiated only (ADR-028 §4)"
+        )
+
+
+_NUMBER_WORDS = {
+    "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7,
+    "eight": 8, "nine": 9, "ten": 10, "eleven": 11, "twelve": 12,
+}
+
+
+def test_the_class_a_count_in_adr_019_is_computed_not_written():
+    """ADR-019's "N of the M" sentence has already gone stale once by hand. It is now
+    held to `FETCH`, `FETCH_VIA` and `SEND`: Class A is every fetch module, the total is
+    Class A plus the two senders."""
+    import re
+
+    adr = (SRC.parent.parent / "design/adr/adr-019-egress-inventory-and-escalation.md")
+    text = " ".join(adr.read_text(encoding="utf-8").split())
+    m = re.search(r"\*\*Class A — fetch\.\*\* (\w+) of the (\w+) only pull", text)
+    assert m, "ADR-019 no longer states the Class A count in the expected sentence"
+    fetches, total = (_NUMBER_WORDS[w.lower()] for w in m.groups())
+    assert fetches == len(FETCH) + len(FETCH_VIA)
+    assert total == len(FETCH) + len(FETCH_VIA) + len(SEND)
+
+
 #: Every inventory in this file, so the cross-check below cannot omit one by being
 #: written per-inventory. `SEND`, `HANDOFF` and `DEPENDENCY_FETCH` each had their own
 #: ADR check; `FETCH`, `SHELL_OUT`, `LOCAL_IPC` and `LOCAL_BOUND` had none, so four of
@@ -651,6 +834,7 @@ def test_a_dependency_fetch_is_not_counted_as_a_send_path():
 _INVENTORIES = {
     "FETCH": FETCH, "SEND": SEND, "LOCAL_IPC": LOCAL_IPC, "LOCAL_BOUND": LOCAL_BOUND,
     "HANDOFF": HANDOFF, "SHELL_OUT": SHELL_OUT, "DEPENDENCY_FETCH": DEPENDENCY_FETCH,
+    "FETCH_VIA": FETCH_VIA,
 }
 
 

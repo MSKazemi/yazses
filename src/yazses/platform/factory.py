@@ -5,7 +5,13 @@ from __future__ import annotations
 import sys
 from functools import lru_cache
 
-from yazses.platform.base import HostInfo, Paths, Platform, UnsupportedPlatformError
+from yazses.platform.base import (
+    HostInfo,
+    PackRuntime,
+    Paths,
+    Platform,
+    UnsupportedPlatformError,
+)
 
 # What still works when there is no OS backend at all. Roughly half of YazSes
 # never touches the platform layer: transcribing a file, and the text commands,
@@ -80,6 +86,38 @@ def describe_host() -> HostInfo:
     # absent, and every one of its reads is optional.
     from yazses.platform.linux.host import LinuxHost
     return LinuxHost().describe()
+
+
+def get_pack_runtime() -> PackRuntime:
+    """The add-on pack backend for this OS (ADR-028 §2), resolvable on **any** OS.
+
+    Like `describe_host`, deliberately not part of `get_platform()`: the PyInstaller
+    runtime hook calls this before `main` runs, in every YazSes process, and building a
+    `Platform` would import the hotkey, injector and IPC stacks first. Each module
+    imported here is light. Every OS without a pack loader answers `supported() ->
+    False`, so callers never need to know which those are.
+    """
+    if sys.platform == "win32":
+        from yazses.platform.windows.packs import WindowsPackRuntime
+        return WindowsPackRuntime()
+    if sys.platform == "darwin":
+        from yazses.platform.macos.packs import MacosPackRuntime
+        return MacosPackRuntime()
+    from yazses.platform.linux.packs import UnsupportedPackRuntime
+    return UnsupportedPackRuntime()
+
+
+def get_pack_paths() -> Paths:
+    """Directory layout for the pack loader, without building a `Platform`.
+
+    `get_paths()` goes through `get_platform()` first, which is exactly the heavy import
+    the runtime hook must avoid. On Windows `build_paths` is a `platformdirs` call, so it
+    is used directly; everywhere else (no pack loader) `get_paths()` is fine.
+    """
+    if sys.platform == "win32":
+        from yazses.platform.windows.paths import build_paths
+        return build_paths()
+    return get_paths()
 
 
 @lru_cache(maxsize=1)

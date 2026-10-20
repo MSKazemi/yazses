@@ -412,3 +412,76 @@ pack.
 `traceback`, so PyInstaller collects those four into the spike base, and risk (a) cannot
 report them as missing. The spike builds with `--skip-probe`, which embeds and publishes
 nothing. The shipped spec never contains the spike hook, and a test enforces that.
+
+## Implementation status (runtime side)
+
+### Runtime side, phase 1 (2026-10-21, branch `feat/addon-packs-runtime`)
+
+**Landed.** The pure core `packs/manifest.py`, `abi.py`, `layout.py`, `archive.py`,
+`catalog.py`, `state.py` and `policy.py`; the I/O halves `packs/context.py` (reads only),
+`fetch.py` (the one egress module), `install.py` (the transaction), `mount.py` and
+`probe.py`, plus `packs/manage.py` behind the CLI. `PackRuntime` in `platform/base.py`,
+`platform/windows/packs.py`, `supported() -> False` backends for Linux/BSD and macOS, and
+`platform.factory.get_pack_runtime()` / `get_pack_paths()`, which build no `Platform` so the
+hook stays light. `packaging/windows/rthook_yazses_packs.py`, registered in
+`packaging/windows/yazses.spec` (`runtime_hooks`; the build branch left that line
+untouched). `PackageProfile.can_add_packs` (true for `windows-exe` only) and
+`policy.PACK_INSTALL_METHODS = {"windows-installer"}`. CLI: `features enable --yes`, and
+`yazses packs [list] / install / verify / remove / clean / path / probe`. ADR-019 row, the
+fourth scan `FETCH_VIA`, the closure test, the computed Class A count and the captured
+`Request` test. `ReleaseAsset` is an additive alias in `installer_update.py`; nothing else
+there changed.
+
+**Formats: aligned with the build side's items 1–15.** Checked on 2026-10-21 by building a
+pack with `scripts/build-packs.py`'s own `record_json`, `pack_json`, `pack_fields`,
+`write_deterministic_zip`, `build_index` and `index_bytes` (from `feat/addon-packs-build`)
+and feeding it to `parse_index`, `extract_archive` and `abi.match`: accepted, `ok`.
+`catalog.catalogue_problems` reports nothing for the build branch's `packs.toml`.
+
+- Counts include `pack.json` and `RECORD.json` (item 1); `RECORD.json` lists the rest (2).
+- The per-member ratio cap is 200:1, above the build's 100:1 STORE threshold (3).
+- `path_entries` is optional; mount and probe append `site/`, then `path_entries`, then
+  `stdlib/` (4). `native_dirs` must sit under `site/` or `stdlib/` (5).
+- The probe is `--cli packs probe <name> --staged <pack root>`; exit codes: 0 ok, 3
+  refused tree, 4 stdlib gap, 5 missing metadata, 6 pruned base submodule, 7 native load
+  failure (the `onnxruntime.dll` collision case), 8 other import error, 9 anything else.
+  The last stdout line is `YAZSES-PROBE <kind> <module>: <sentence>` (10).
+- **The probe does not refuse an elevated process**, unlike the mount and the install. It
+  loads only the directory it is given; the install starts it from the user's unelevated
+  process, and the Windows CI runner's account is an administrator.
+
+**Two limits stricter than the build's.**
+
+- Pack names: at most **16** characters (build: 40), so the quarantine path fits
+  `MAX_PATH` with a 66-character `data_dir` (`layout.budget_problems`). A longer name makes
+  `parse_index` refuse the **whole** index. Both phase 1 names fit; the build should cap at
+  16 as well.
+- `data_dir` budget: 66 characters (`C:\Users\<20>.<15-char domain>\AppData\Local\yazses`).
+
+**Conservative choices where an owner question is open.** Q3: the re-download after an
+update waits for the user (`yazses packs install`, or `features enable` again); nothing
+fetches on its own. Q4: `yazses packs remove --all` exists; no per-user cleanup at login.
+Q5: no `--from <file>`; the failure messages name the asset and its URL, not a command that
+does not exist. Q6: the MSIX profile has `can_add_packs = False`. Chocolatey and Scoop are
+outside `PACK_INSTALL_METHODS`, so they keep the "install from PyPI" answer. Choosing
+differently means changing one constant or one profile field.
+
+**Not landed.**
+
+- `deps.fixed_payload_reason` is **unchanged**. Returning `None` there for a pack-capable
+  profile, as the module list says, would let the Settings, hands-free and language paths,
+  which call `install_blocked_reason` and then pip, try to run pip inside the frozen app.
+  The pack branch is in `cli.py` before that check, so only `features enable` routes to
+  packs. The tray and Settings surfaces, and rewording the message for `no-windows-wheel` /
+  `deferred` (the embedded index carries no reasons), are follow-ups.
+- The tray's `started-ok` marker (`state.mark_started_ok` exists, nothing calls it). Until
+  it does, `clean` and the post-install GC always keep the newest previous build.
+- A full `RECORD.json` check triggered by an `ImportError` at a lazy import site. Today
+  `yazses packs verify` runs it and quarantines a damaged tree.
+- `[UninstallDelete]` in `installer.iss`, `docs/addons.md`, `docs/install-cost.md` rows.
+
+**Untested without Windows.** `os.add_dll_directory` handles and DLL resolution; the token
+elevation probe; `sys._MEIPASS` and the `yazses-cli.exe` sibling path; that PyInstaller
+collects `yazses.packs.*` through the hook's import; `CREATE_NO_WINDOW` for the probe child;
+`os.replace` of a tree across `%LOCALAPPDATA%`; Defender or Smart App Control; and every
+item in the manual checklist above.
