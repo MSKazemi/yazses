@@ -6,6 +6,21 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the Wayland keyboard and pointer could write to their shared portal connection at the same time ([#403](https://github.com/MSKazemi/yazses/issues/403))
+
+The Wayland pointer uses the same XDG RemoteDesktop session as dictation (ADR-v2-146 rule 6), so it also uses
+the same D-Bus connection. Dictation types on the daemon's thread and the Head-Pointer moves on the perception
+thread. The connection is a `jeepney.io.blocking` one, and its `send` takes no lock (jeepney provides
+`jeepney.io.threading` for callers on several threads). If two threads write at once, the bytes of two messages
+can interleave. Every `Notify*` message now goes out under a per-message lock in `src/yazses/inject/portal.py`.
+The lock is not held during the key delay, so typing speed does not change. A second fix: a pointer grant was
+lost if the consumer that asked for it closed while the consent dialog was open. The next consumer was then
+told the session was "keyboard only" and asked to restart. The grant now follows the device mask that was
+actually requested. `tests/test_portal_shared_session_wire.py` checks both fixes. It also compares every
+keyboard message, byte for byte, with and without a pointer consumer on the session, and against a message
+built independently of the code. The two concurrency tests and the grant test fail on the previous code. This
+is a hermetic fix. No live GNOME/KDE report has been made yet, and #403 asks for one.
+
 ### Fixed — the eye-control CI matrix lost its macOS leg to a new Homebrew Python ([#424](https://github.com/MSKazemi/yazses/issues/424))
 
 From 2026-10-17, every macOS leg of `eye-eval-ci.yml` failed in `uv sync`, before the evaluation ran. The step
