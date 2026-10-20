@@ -123,7 +123,10 @@ scheduled `.github/workflows/traceability.yml` workflow runs
 `scripts/check-traceability-live.py` (read-only; exit 1 = violation, 2 = GitHub unreadable,
 3 = misconfigured). Deliberate exceptions go in
 [`traceability-exceptions.yml`](traceability-exceptions.yml), empty until the milestone
-policy in #480 is decided.
+policy in #480 is decided. The same run also reports **advisory** tracker drift: open issues
+with no milestone and no exempt class, stale "do not start" banners whose numbered blockers
+have all closed, and closed issues still listed beside an open tracker. This drift appears in
+the job summary and the `traceability-live` artifact and never changes the exit code.
 
 ## Contributing to the design record
 
