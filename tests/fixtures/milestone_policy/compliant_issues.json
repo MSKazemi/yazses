@@ -1,0 +1,12 @@
+[
+  {"number": 1, "title": "Synthetic delivery bug", "labels": [{"name": "bug"}], "milestone": {"number": 2, "title": "Outcome B"}},
+  {"number": 2, "title": "Synthetic epic spanning two outcomes", "labels": [{"name": "epic"}], "milestone": null},
+  {"number": 3, "title": "Child in outcome A", "labels": [], "milestone": {"number": 1, "title": "Outcome A"}, "parent": 2},
+  {"number": 4, "title": "Child in outcome B", "labels": [{"name": "enhancement"}], "milestone": {"number": 2, "title": "Outcome B"}, "parent": {"number": 2}},
+  {"number": 5, "title": "Synthetic single-outcome epic", "labels": [{"name": "epic"}], "milestone": {"number": 1, "title": "Outcome A"}},
+  {"number": 6, "title": "Its child", "labels": [], "milestone": {"number": 1, "title": "Outcome A"}, "parent": 5},
+  {"number": 7, "title": "Evergreen child does not count", "labels": [{"name": "evergreen:field-report"}], "milestone": null, "parent": 5},
+  {"number": 8, "title": "Open research question", "labels": [{"name": "research"}, {"name": "evergreen:research"}], "milestone": null},
+  {"number": 9, "title": "Translation review queue", "labels": [{"name": "evergreen:translation"}], "milestone": null},
+  {"number": 10, "title": "Contributor hub", "labels": [{"name": "evergreen:community"}], "milestone": null}
+]

@@ -121,9 +121,14 @@ Live GitHub facts such as whether an issue is still open or a milestone still ex
 intentionally checked separately; the ordinary test suite must remain fully offline. The
 scheduled `.github/workflows/traceability.yml` workflow runs
 `scripts/check-traceability-live.py` (read-only; exit 1 = violation, 2 = GitHub unreadable,
-3 = misconfigured). Deliberate exceptions go in
-[`traceability-exceptions.yml`](traceability-exceptions.yml), empty until the milestone
-policy in #480 is decided.
+3 = misconfigured). Deliberate exceptions to *that* audit go in
+[`traceability-exceptions.yml`](traceability-exceptions.yml).
+
+Which open issues must carry a milestone is decided by the
+[milestone policy](milestone-policy.md) (#480): delivery issues carry exactly one, epics carry
+the one their sub-issues share, and evergreen issues carry an `evergreen:<class>` label and
+none. `scripts/milestone_policy.py` checks an issue snapshot against it offline, alone or via
+`scripts/check-traceability.py --issues issues.json`.
 
 ## Contributing to the design record
 

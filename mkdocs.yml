@@ -406,6 +406,7 @@ nav:
           - Troubleshooting review: design/troubleshooting-full-review.md
           - macOS quit and first-run permissions: design/macos-quit-and-first-run-permissions.md
           - White paper authoring standard: design/white-paper-authoring-standard.md
+          - Milestone policy: design/milestone-policy.md
       - Mobile (in design):
           - Overview: mobile/index.md
           - Android architecture: mobile/architecture.md

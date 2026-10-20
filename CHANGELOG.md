@@ -26,6 +26,27 @@ one is still reported daily by `channel-drift.yml`. New tests simulate the bump 
 the refreshed tree, a skipped refresh and a drifted manifest, and fail if the reference
 ever shells out to git or reads the Actions ref variables again.
 
+### Added — a written, checkable milestone policy for open issues ([#480](https://github.com/MSKazemi/yazses/issues/480))
+
+`docs/roadmap.md` and the root `ROADMAP.md` said every open issue sat in a milestone. On 2026-10-21,
+110 of 202 open issues had none, and many should not: a "test it on your distro" call, a translation
+review queue or an open research question is never finished by a release. `design/milestone-policy.md`
+now puts every open issue in exactly one class by its labels. **Delivery** is the default and carries
+exactly one open milestone. An **epic** (`epic`) carries the milestone its open sub-issues share, or
+none if they span several. **Evergreen** issues carry one of `evergreen:research`,
+`evergreen:field-report`, `evergreen:translation` or `evergreen:community` and no milestone. Topic
+labels such as `research` never exempt an issue, and an unlabelled issue owes a milestone, so nothing
+falls through. Both roadmaps now describe that rule instead of the false absolute.
+
+`scripts/milestone_policy.py` is the pure, offline checker. It reads a `gh issue list --json` or REST
+snapshot and reports eight named rules. Exit 2 means the snapshot could not be read, and an empty
+snapshot counts as unreadable rather than compliant. `scripts/check-traceability.py --issues` runs it
+alongside the manifest check. Epics whose children are not in the snapshot are listed as unverified,
+not passed. `tests/test_milestone_policy.py` covers every rule on synthetic fixtures and checks every
+label/milestone combination exhaustively. The policy's labels and milestones are not yet applied on
+GitHub: that is an owner action. `programme:android` in `design/traceability.yml` no longer declares
+milestone 1 for epic #81, whose open sub-issues span M0–M3.
+
 ### Added — `ci-gate`, one stable check for branch protection to require ([#462](https://github.com/MSKazemi/yazses/issues/462))
 
 The Tests workflow reports about fifteen matrix check names, and those names change whenever a leg is
