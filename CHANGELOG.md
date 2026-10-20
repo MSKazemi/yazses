@@ -6,6 +6,18 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — macOS: no Accessibility or microphone prompt was ever raised, and `doctor` names a daemon that predates a grant ([#562](https://github.com/MSKazemi/yazses/issues/562), [#578](https://github.com/MSKazemi/yazses/issues/578))
+
+Found by reading the code against the #562 log; there is no Mac on this project, so every macOS behaviour below is
+**unconfirmed** until the reporter tries a build. `request_keyboard_capture` had no caller, so the Accessibility prompt
+`docs/macos-install.md` describes was never raised, and the microphone prompt waited for a first recording that the dead
+hotkey could not start. The daemon now raises both at start when the OS has not decided (a denied Accessibility grant, a
+microphone macOS has not asked about), at most once per five minutes (the existing persisted toast rate limit); a
+refused microphone is not asked again. Also: when Input Monitoring was missing at start and is granted later, the daemon
+reports `stale_permissions` in `status`, and `doctor`'s Daemon row warns that its keyboard hook predates the grant and
+gives the restart command. Quit stopping the daemon is v2.43.1's fix and is unchanged here. Evidence and the list of
+what is unverified: `design/macos-quit-and-first-run-permissions.md`.
+
 ### Fixed — Mandarin: `yazses transcribe` ignored `[stt] chinese_script`, and the opt-in Hallucination Guard could drop a Han sentence
 
 Audit of [#501](https://github.com/MSKazemi/yazses/issues/501) (COMP-01..03); the classification of every default-on

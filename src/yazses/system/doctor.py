@@ -477,6 +477,12 @@ def _daemon_check(platform) -> tuple[_Check, dict]:
         stale = _stale_daemon_note(str(info.get("version") or ""))
         if stale:
             return ("Daemon", "WARN", f"{_RUNNING_PREFIX} (PID {pid}{suffix}) — {stale}"), info
+        from yazses.system.permission_alerts import stale_grant_note
+
+        grants = info.get("stale_permissions")
+        if isinstance(grants, list) and grants:
+            note = stale_grant_note([str(g) for g in grants])
+            return ("Daemon", "WARN", f"{_RUNNING_PREFIX} (PID {pid}{suffix}) — {note}"), info
         # A matching version is not a matching build -- see `divergent_build_note`.
         split = divergent_build_note(sys.prefix, _daemon_install_prefix(pid))
         if split:

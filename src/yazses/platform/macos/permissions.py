@@ -156,6 +156,41 @@ class MacosPermissions:
             return PermissionState.DENIED
         return PermissionState.UNKNOWN  # NotDetermined → user hasn't been asked yet
 
+    def request_microphone(self) -> bool:
+        """Ask macOS for the microphone now, so its one-time prompt is not left to chance.
+
+        Not on the ``PermissionsBackend`` Protocol: only macOS has a per-app microphone
+        prompt, and a new method on a ``runtime_checkable`` Protocol breaks ``isinstance``
+        for every backend that lacks it. The daemon reaches it with ``getattr``.
+
+        Without this the prompt waited for the first recording, and the first recording
+        waits for a hotkey that cannot work until Input Monitoring is granted -- so on a
+        fresh install the prompt never came (#562) and YazSes was never listed in the
+        Microphone pane. Only ``NotDetermined`` shows a prompt; any other status returns
+        False without asking, so a refusal is never nagged.
+
+        Returns whether a request was made. The answer arrives later, on a callback this
+        only logs. UNVERIFIED on a real Mac: the PyObjC block bridge is exercised by
+        fakes here, not by macOS.
+        """
+        try:
+            from AVFoundation import (  # type: ignore[import-not-found]
+                AVCaptureDevice,
+                AVMediaTypeAudio,
+            )
+        except ImportError:
+            return False
+        try:
+            if AVCaptureDevice.authorizationStatusForMediaType_(AVMediaTypeAudio) != _AV_NOT_DETERMINED:
+                return False
+            AVCaptureDevice.requestAccessForMediaType_completionHandler_(
+                AVMediaTypeAudio, lambda granted: log.info("Microphone access answered: %s", bool(granted))
+            )
+        except Exception:  # pragma: no cover - defensive
+            log.exception("Microphone access request raised")
+            return False
+        return True
+
     def check_camera(self) -> CameraPermission:
         """The Camera TCC service — a fourth grant, read the same way as the mic.
 
