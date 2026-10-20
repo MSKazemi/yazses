@@ -392,6 +392,18 @@ plugging, unplugging, mid-hold removal, node-name reuse and late udev permission
 code. Checked live with a uinput keyboard created after the listener started: it was picked up and its Right Ctrl
 started and ended a recording.
 
+### Added -- reproducible analysis of de-identified eye-control results (#426)
+
+`scripts/analyze_eye_eval.py` (logic in the new pure, stdlib-only `yazses.eyeeval.analysis`, imported by nothing at daemon
+start) summarises schema-valid evaluation results descriptively: outcome shares with hand-written Wilson intervals,
+false activations per hour of scored exposure, per-run / session / participant tables, within-participant session spread,
+per-host latency and a claim-to-source manifest. It refuses schema-invalid or identifier-carrying results, repeated files,
+counts that do not add up and any mix of study modes (a `community_qa` row never enters a `research` analysis); it excludes
+pilot rows by default, reports every exclusion with its category and reason, keeps wrong-target, fallback and lost tracking
+apart, and prints `insufficient data` instead of a rate below a provisional minimum. Participant and session IDs come from
+a separate links file, since the result envelope has none. Output is deterministic and labelled provisional; no inferential
+test is chosen (that waits for #425), and no threshold comes from the synthetic test records.
+
 ### Fixed — the hands-free window now corrects itself when it turns out too narrow (Windows run, round two)
 
 The first fix estimated the window's width from the content and a scroll bar's size hint; the hosted Windows run still

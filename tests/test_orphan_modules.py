@@ -48,6 +48,10 @@ ENTRY_MODULES = {
     # `scripts/replay_face_switch_trace.py`; the daemon must not import it (it reaches
     # `facegesture`, never the reverse). An evaluation entry point, not debt.
     "eyeeval.switch_replay",
+    # The descriptive eye-evaluation analysis (#426). Its caller is
+    # `scripts/analyze_eye_eval.py`; it reads result files offline and must not be imported
+    # at daemon start. An evaluation entry point, not debt.
+    "eyeeval.analysis",
 }
 
 #: The known orphans, each with what is missing. An entry here is a debt that has
