@@ -65,7 +65,7 @@ YazSes ships **149 capabilities**. All but the core are **off by default** — t
 - **What it does:** Sonar rings near the cursor while you talk. Visual only. Off by default: on Wayland a new window can take keyboard focus and swallow the dictated text.
 - **Use when:** When you want a glanceable visual cue that the mic is live and hearing you.
 - **Example:** Watch the sonar rings near the cursor while you talk.
-- **Download:** ~256 MB
+- **Download:** ~268 MB
 - **Activate:** `yazses features enable overlay` then `yazses restart`
 
 ### System-tray icon
@@ -74,7 +74,7 @@ YazSes ships **149 capabilities**. All but the core are **off by default** — t
 - **What it does:** A microphone icon in the top bar; click it to pick/pin your mic, re-calibrate, and start/stop the daemon. Needs a system tray (GNOME: AppIndicator extension).
 - **Use when:** When you'd rather click a top-bar icon to switch mics or restart than remember terminal commands.
 - **Example:** Click the top-bar mic icon → pick a microphone or re-calibrate, no terminal.
-- **Download:** ~256 MB
+- **Download:** ~268 MB
 - **Activate:** `yazses features enable tray` then `yazses restart`
 
 ### Text-target guard
@@ -408,7 +408,7 @@ YazSes ships **149 capabilities**. All but the core are **off by default** — t
 - **What it does:** Reformats dictation with a small offline LLM. Needs a model file.
 - **Use when:** When rambly dictation needs polishing into clean prose and you have an offline LLM available.
 - **Example:** yazses features enable llm-cleanup — offline LLM tidies dictation.
-- **Download:** ~75 MB
+- **Download:** ~77 MB
 - **Activate:** `yazses features enable llm-cleanup` then `yazses restart`
 
 ### BrailleOut
@@ -833,7 +833,7 @@ YazSes ships **149 capabilities**. All but the core are **off by default** — t
 - **What it does:** Bind chords of face and head gestures (jaw open, brow raise, nod, shake, tilt) to abstract actions like pause or recenter the pointer. Needs a webcam (OpenCV + MediaPipe, shared with Glance-Type) and binds nothing until you add a chord. Experimental: no false-activation study exists yet. Off by default.
 - **Use when:** When your hands are busy and you want to pause or recenter the pointer with a face-and-head gesture, not a word.
 - **Example:** Raise your brows and nod to recenter the pointer (bind chords in [gesture.chords]).
-- **Download:** ~220 MB
+- **Download:** ~224 MB
 - **Activate:** `yazses features enable gesture` then `yazses restart`
 
 ### Voice Snippets
@@ -1060,7 +1060,7 @@ YazSes ships **149 capabilities**. All but the core are **off by default** — t
 - **What it does:** Move and click the mouse by tilting your head, and pair it with voice for a hands-free desktop. Experimental: it has not been validated with users, and its speed caps and dwell time are provisional. Needs a webcam (OpenCV + MediaPipe, shared with Glance-Type) and a pointer backend. Off by default.
 - **Use when:** When your hands are unavailable and you need mouse cursor control from head movement.
 - **Example:** Tilt your head to move the cursor; dwell to click.
-- **Download:** ~220 MB
+- **Download:** ~224 MB
 - **Activate:** `yazses features enable headpointer` then `yazses restart`
 
 ### Personal Read-Back Voice
@@ -1103,7 +1103,7 @@ YazSes ships **149 capabilities**. All but the core are **off by default** — t
 - **What it does:** Uses the webcam to route dictation to the pane you look at. Experimental; needs a webcam + X11.
 - **Use when:** When you have several panes open and want dictation to land in whichever one you look at.
 - **Example:** Glance at a screen zone to choose where the next dictation lands.
-- **Download:** ~220 MB
+- **Download:** ~224 MB
 - **Activate:** `yazses features enable gaze` then `yazses restart`
 
 ### Face-Gesture Switch (camera)
@@ -1112,7 +1112,7 @@ YazSes ships **149 capabilities**. All but the core are **off by default** — t
 - **What it does:** Opens the mic while you hold a facial movement (jaw open, brows raised) instead of a key — switch access for people who can speak but cannot press one. Needs a webcam; experimental. Off by default.
 - **Use when:** When you cannot hold a key — a facial movement becomes the hotkey, using only the webcam.
 - **Example:** Open your jaw to start dictating, close it to stop — no key at all.
-- **Download:** ~220 MB
+- **Download:** ~224 MB
 - **Activate:** `yazses features enable facegesture` then `yazses restart`
 
 ### Hands-Free Preset
@@ -1121,6 +1121,7 @@ YazSes ships **149 capabilities**. All but the core are **off by default** — t
 - **What it does:** One switch that turns on Glance-Type, Head-Pointer with dwell-click, the face switch, Gesture Chords and a voice stop word together, under one global stop. No new engine: it sets their ordinary keys (`yazses handsfree explain`). Every value is provisional. Needs a webcam. Off by default.
 - **Use when:** When you want voice, gaze, head pointer and a face switch working together, with one stop.
 - **Example:** yazses handsfree explain — read what it sets; yazses features enable handsfree --force, yazses restart, then yazses handsfree resume to arm it.
+- **Download:** ~224 MB
 - **Activate:** `yazses features enable handsfree` then `yazses restart`
 
 ## Learning, memory & analytics

@@ -79,11 +79,11 @@ before it fetches anything.
 | `cocktail`, `multiprofile`, `voiceguard` (speaker voiceprint) | **~3.4 GB** | 39 |
 | `stt-parakeet` | ~604 MB | 1 |
 | `read-back`, `readback_clone` (Kokoro TTS) | ~352 MB | 23 |
-| `overlay`, `tray` (Qt) | ~256 MB | 4 |
-| `gaze`, `facegesture` (mediapipe + OpenCV) | ~224 MB | 12 |
+| `overlay`, `tray` (Qt) | ~268 MB | 6 |
+| `gaze`, `facegesture` (mediapipe + OpenCV) | ~227 MB | 13 |
 | `stt-moonshine` | ~113 MB+ | 18 |
-| `llm-cleanup` (llama.cpp) | ~75 MB | 4 |
-| `diarize`, `meeting`, `recimport` (sherpa-onnx) | ~62 MB | 2 |
+| `llm-cleanup` (llama.cpp) | ~77 MB | 4 |
+| `diarize`, `meeting`, `recimport` (sherpa-onnx) | ~63 MB | 2 |
 | `prosody`, `voicehealth` | ~11 MB | 1 |
 | `agent` (MCP) | ~4.5 MB | 20 |
 | `chinese-script` | ~0.5 MB | 1 |
