@@ -363,7 +363,7 @@ def enable_refusal(raw: Mapping[str, Any]) -> str:
 
 
 def floor_unmet(components: HandsfreeConfig, config: Any) -> tuple[str, ...]:
-    """``[section] key`` of every safety-floor setting a *resolved* config does not hold. Pure.
+    """Every safety-floor setting a *resolved* config does not hold, as section-and-key text. Pure.
 
     Empty when the preset is off. When it is on, an applied preset leaves every protected key at
     the preset's value (set by it, or already the user's), and a refused one applies nothing
