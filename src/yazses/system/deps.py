@@ -189,12 +189,153 @@ def _requirement_name(requirement: str) -> str:
 
 
 def _render_requirement(entry: dict) -> str:
-    """A parsed ``uv-receipt.toml`` requirement dict back into a PEP 508 string."""
+    """A parsed ``uv-receipt.toml`` requirement dict back into a PEP 508 string.
+
+    The environment marker is part of the requirement, not decoration. uv records
+    ``--with "onnxruntime>=1.23.2,<1.24; sys_platform == 'darwin' and
+    platform_machine == 'x86_64'"`` as ``{name, specifier, marker}`` (checked
+    against uv 0.12.21 in an offline ``UV_TOOL_DIR``). Rendering it without the
+    marker turned an Intel-Mac-only ceiling into a ceiling for *every* platform the
+    next time a feature was enabled, beside the ``>=1.27`` the other half of the
+    pair demands: an install that cannot resolve at all.
+    """
     name = entry.get("name", "")
     extras = entry.get("extras") or []
     specifier = entry.get("specifier") or ""
+    marker = entry.get("marker") or ""
     suffix = f"[{','.join(extras)}]" if extras else ""
-    return f"{name}{suffix}{specifier}"
+    rendered = f"{name}{suffix}{specifier}"
+    return f"{rendered}; {marker}" if marker else rendered
+
+
+def _read_receipt(receipt: Path) -> tuple[str, list[str], list[str]] | None:
+    """``(target, target_extras, other requirements)`` from a uv receipt, or None.
+
+    *target* is the rendered ``yazses`` requirement exactly as recorded (a version
+    pin and an extra such as ``[desktop]`` included), so a reinstall built from it
+    neither drops the pin nor the extra. ``None`` for an unreadable or malformed
+    file: every caller treats that as "cannot do better than the plain path".
+    """
+    try:
+        data = tomllib.loads(receipt.read_text(encoding="utf-8"))
+    except (OSError, tomllib.TOMLDecodeError):
+        return None
+    requirements = data.get("tool", {}).get("requirements", [])
+    target = _TOOL_NAME
+    target_extras: list[str] = []
+    withs: list[str] = []
+    for entry in requirements:
+        if not isinstance(entry, dict):
+            continue
+        name = entry.get("name", "")
+        if not name:
+            continue
+        if _requirement_name(name) == _TOOL_NAME:
+            target = _render_requirement(entry)
+            target_extras = [str(e) for e in entry.get("extras") or []]
+        else:
+            withs.append(_render_requirement(entry))
+    return target, target_extras, withs
+
+
+def _merged_install_argv(
+    target: str, withs: Sequence[str], packages: Sequence[str], *, upgrade: bool = False
+) -> list[str]:
+    """``uv tool install [--upgrade] --with … <target>`` keeping every requirement.
+
+    A package named in *packages* replaces **every** recorded requirement of the
+    same distribution, rather than only an identically-spelled one. A feature's
+    requirements arrive as a complete set — ``read-back`` names onnxruntime twice,
+    once per platform marker — so keying on the name alone used to keep only the
+    second of the pair, and keying on the exact string would keep an old floor
+    beside a new one. Replacing the whole group by name is the only rule that is
+    right for both.
+    """
+    new_names = {_requirement_name(p) for p in packages}
+    kept = [w for w in withs if _requirement_name(w) not in new_names]
+    cmd = ["uv", "tool", "install"]
+    if upgrade:
+        cmd.append("--upgrade")
+    for spec in dict.fromkeys([*kept, *packages]):
+        cmd += ["--with", spec]
+    cmd.append(target)
+    return cmd
+
+
+def _extra_requirement_names(extras: Iterable[str]) -> set[str]:
+    """Distributions the installed yazses pulls in through *extras* (canonical).
+
+    A receipt whose target is ``yazses[desktop]`` already keeps PySide6 across an
+    upgrade even though PySide6 is not a ``--with`` of its own, so it must not be
+    reported as "about to be dropped". Read from the installed distribution's own
+    metadata, which is what uv resolves the extra from. Best effort: an unreadable
+    metadata block answers "nothing covered", which can only make the upgrade
+    command longer, never drop a package.
+    """
+    wanted = {str(e) for e in extras}
+    if not wanted:
+        return set()
+    try:
+        from importlib.metadata import requires
+
+        from packaging.requirements import Requirement
+
+        covered: set[str] = set()
+        for raw in requires(_TOOL_NAME) or []:
+            req = Requirement(raw)
+            if req.marker is None:
+                continue
+            if any(req.marker.evaluate({"extra": extra}) for extra in wanted):
+                covered.add(_requirement_name(req.name))
+        return covered
+    except Exception:  # noqa: BLE001 - metadata is a courtesy here, never fatal
+        return set()
+
+
+def uv_tool_upgrade_command(
+    required: Sequence[str],
+    *,
+    receipt: Path | None = None,
+    covered: Iterable[str] | None = None,
+) -> list[str] | None:
+    """An upgrade argv that keeps *required* installed, or ``None`` if none is needed.
+
+    ``uv tool upgrade yazses`` rebuilds the tool's environment from its receipt and
+    **removes** anything the receipt does not list. Reproduced offline against uv
+    0.12.21: ``uv pip install`` a package into the tool venv, run ``uv tool
+    upgrade yazses``, and uv prints ``- extra-a==1.0`` — even on a no-op upgrade of
+    a pinned install. Every package `features enable` installed before
+    :func:`_persist_uv_tool_extras` existed, and every one that reached the
+    fallback path inside :func:`install_packages`, is in exactly that position.
+
+    So when an enabled feature's requirement is missing from the receipt, the
+    upgrade is issued as ``uv tool install --upgrade --with <recorded> --with
+    <missing> <target>`` instead: the same version move (``--upgrade`` with the
+    target unchanged, pins included) and the requirements recorded, so the *next*
+    plain ``uv tool upgrade`` keeps them too. Both properties were checked in the
+    same offline experiment (1.0 → 2.0, extras present afterwards and after a
+    second plain upgrade).
+
+    ``None`` — "the plain command is already right" — when this is not a uv tool
+    install, the receipt cannot be read, or every requirement is already recorded
+    (directly, or through an extra of the target such as ``[desktop]``). *receipt*
+    and *covered* are injectable for tests.
+    """
+    if not required:
+        return None
+    path = receipt if receipt is not None else _uv_tool_receipt()
+    if path is None:
+        return None
+    parsed = _read_receipt(path)
+    if parsed is None:
+        return None
+    target, target_extras, withs = parsed
+    recorded = {_requirement_name(w) for w in withs}
+    recorded |= set(covered) if covered is not None else _extra_requirement_names(target_extras)
+    missing = [r for r in required if _requirement_name(r) not in recorded]
+    if not missing:
+        return None
+    return _merged_install_argv(target, withs, missing, upgrade=True)
 
 
 def _persist_uv_tool_extras(receipt: Path, packages: Sequence[str]) -> bool:
@@ -229,28 +370,11 @@ def _persist_uv_tool_extras(receipt: Path, packages: Sequence[str]) -> bool:
     False so the caller can fall back to the plain install, which still enables
     the feature for *this* session even if it will not survive an upgrade.
     """
-    try:
-        data = tomllib.loads(receipt.read_text(encoding="utf-8"))
-    except (OSError, tomllib.TOMLDecodeError):
+    parsed = _read_receipt(receipt)
+    if parsed is None:
         return False
-    requirements = data.get("tool", {}).get("requirements", [])
-    target = _TOOL_NAME
-    withs: dict[str, str] = {}
-    for entry in requirements:
-        name = entry.get("name", "")
-        if not name:
-            continue
-        rendered = _render_requirement(entry)
-        if _requirement_name(name) == _TOOL_NAME:
-            target = rendered
-        else:
-            withs[_requirement_name(name)] = rendered
-    for pkg in packages:
-        withs[_requirement_name(pkg)] = pkg
-    cmd = ["uv", "tool", "install"]
-    for spec in withs.values():
-        cmd += ["--with", spec]
-    cmd.append(target)
+    target, _extras, withs = parsed
+    cmd = _merged_install_argv(target, withs, packages)
     try:
         subprocess.run(cmd, check=True)
         return True

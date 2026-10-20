@@ -247,6 +247,33 @@ one of them end to end through the real shared source and `GestureRuntime.comman
 the previous source. Four more in `tests/test_gesture_headmotion.py`, one of them a control showing that the
 split fixture is a real nod.
 
+### Fixed — an update could still delete an enabled feature's libraries, and a dead feature looked healthy
+
+- **`yazses update` and the tray's "Install update" keep every working feature's libraries** on a `uv tool`
+  install. `uv tool upgrade` removes any package its receipt does not list. Enables made before the receipt
+  fix, or ones that took its fallback path, were still unlisted, so the next update deleted them. That is
+  how an enabled Parakeet engine disappeared. When an enabled feature's requirement is missing from the
+  receipt, the upgrade now runs `uv tool install --upgrade --with … <target>`. That makes the same version
+  move and records the requirements. It was checked offline against uv 0.12.21 with hand-built wheels.
+  Only features that work are carried; a dormant one is reported, not downloaded during an update.
+- **Receipt round-trips keep environment markers.** Re-rendering a receipt dropped `; sys_platform == …`,
+  so the second feature enabled turned the Intel-Mac-only `onnxruntime<1.24` into a ceiling for every
+  platform. Merging by name also kept only one of `read-back`'s two onnxruntime lines.
+- **An enabled feature with missing libraries is named everywhere, with its fix.** Shared detection lives in
+  `system/dormant.py` and is derived from the feature registry. The daemon logs each such feature at start
+  and shows one rate-limited notification. `yazses doctor` prints one row per feature. `yazses features`
+  draws the row as `◐ ON`, with `yazses features enable <name>` beside it (plus `--force` when the feature
+  is experimental). This covers hand-edited configs, `--no-install`, failed installs and upgrades. `doctor`'s
+  old hand-kept rows told end users to run `uv sync --extra …`, and it probed `l2cs` for gaze.
+- **A failed install is a failed command.** `features enable`, `features reset` and `handsfree enable`
+  printed "Apply it: yazses restart" and exited 0 over the installer's own error. They now exit 1, say the
+  feature is *dormant*, and print the retry command. The config key still stands, as before (see
+  `docs/architecture.md`).
+- **Two new guards.** `tests/test_no_module_imports_an_extra_at_module_scope.py` scans every module, not
+  only the daemon's import graph, for module-scope imports of an extra's packages, transitively.
+  `tests/test_every_extra_has_an_install_path.py` fails when an extra exists that no feature installs
+  and no stated exemption explains.
+
 ### Fixed — the eye-control CI matrix lost its macOS leg to a new Homebrew Python ([#424](https://github.com/MSKazemi/yazses/issues/424))
 
 From 2026-10-17, every macOS leg of `eye-eval-ci.yml` failed in `uv sync`, before the evaluation ran. The step

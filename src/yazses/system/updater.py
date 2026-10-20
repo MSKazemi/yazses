@@ -543,6 +543,73 @@ def pinned_install_hint(method: str, command: list[str] | None) -> str:
     return f"{escape}\nIf that does not move it either:  {RECOVERY_URL}"
 
 
+# ---- keeping enabled features across a uv-tool upgrade ---------------------
+#
+# Kept apart from everything above on purpose: it concerns only the `uv` method,
+# and touches nothing on the Windows/installer paths.
+
+
+def _enabled_requirements() -> tuple[str, ...]:
+    """Requirements of every enabled feature whose libraries are installed now.
+
+    Best effort, like the rest of this module: an unreadable config answers
+    "nothing to keep", which leaves the upgrade exactly as it always was.
+
+    Answers ``()`` at once unless *this interpreter* lives in a uv tool tree — the
+    same path test :func:`detect_install_method` uses — so a caller that merely
+    passes ``method="uv"`` (every test of this module) reads no config and spawns
+    no ``uv tool dir``.
+    """
+    if "/uv/tools/" not in sys.prefix.replace("\\", "/"):
+        return ()
+    try:
+        from yazses.config import load_config
+        from yazses.platform import get_platform
+        from yazses.system.dormant import preserved_requirements
+
+        cfg = load_config(get_platform().paths.config_file)
+        return preserved_requirements(cfg)
+    except Exception:  # noqa: BLE001 - must never break an update
+        return ()
+
+
+def preserve_enabled_features(
+    status: UpdateStatus, *, required=None, command_for=None
+) -> UpdateStatus:
+    """*status* with an upgrade command that keeps every enabled feature's libraries.
+
+    ``uv tool upgrade yazses`` rebuilds the tool environment from its receipt and
+    removes whatever the receipt does not list — which is how the tray's "Install
+    update" silently deleted an enabled Parakeet engine. A `features enable` from
+    this version records its packages in the receipt, but one from an older
+    version (or one that took the fallback path) did not, and nothing repaired
+    that on the next upgrade. This does: when an enabled, working feature's
+    requirement is not on the receipt, the command becomes
+    ``uv tool install --upgrade --with … <target>`` (see
+    :func:`yazses.system.deps.uv_tool_upgrade_command` for the evidence).
+
+    Unchanged for every other method, for an unchanged receipt, and whenever
+    anything here fails. Idempotent: a command it already rewrote is left alone.
+    ``required``/``command_for`` are injectable for tests.
+    """
+    if status.method != "uv" or status.command != upgrade_command("uv"):
+        return status
+    try:
+        packages = tuple(required() if required is not None else _enabled_requirements())
+        if command_for is None:
+            from yazses.system.deps import uv_tool_upgrade_command
+
+            command_for = uv_tool_upgrade_command
+        command = command_for(packages) if packages else None
+    except Exception:  # noqa: BLE001 - must never break an update
+        return status
+    if not command:
+        return status
+    import dataclasses
+
+    return dataclasses.replace(status, command=list(command))
+
+
 def run_upgrade_checked(
     status: UpdateStatus, *, upgrade=None, read_version=None
 ) -> UpgradeOutcome:
@@ -561,6 +628,7 @@ def run_upgrade_checked(
     upgrade = upgrade or run_upgrade
     read_version = read_version or installed_version
 
+    status = preserve_enabled_features(status)
     code = upgrade(status)
     return UpgradeOutcome(
         code=code,

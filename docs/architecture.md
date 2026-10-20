@@ -203,6 +203,17 @@ reconciled the venv back to a receipt that never listed it, and removed it.
 extra in its receipt instead, merged with whatever was already there, so a
 second feature enabled later cannot silently drop the first.
 
+That protects installs made *after* the fix, not the ones made before it. So the
+upgrade side closes the rest: when an enabled feature's libraries are installed but
+missing from the receipt, `yazses update` and the tray's "Install update" issue
+`uv tool install --upgrade --with <recorded> --with <missing> <target>` instead of
+`uv tool upgrade` — the same version move, with the requirements recorded so the
+next plain upgrade keeps them too (`system/deps.py::uv_tool_upgrade_command`).
+Only *working* features are carried; a dormant one is reported, not silently
+downloaded during an update. The receipt round-trip also keeps environment markers,
+which an earlier version dropped — turning the Intel-Mac-only `onnxruntime<1.24`
+into a ceiling for every platform the next time a feature was enabled.
+
 Neither Parakeet nor Moonshine supports `initial_prompt`, so the personal
 dictionary reaches them a different way: `postprocess/vocab_correct.py` (#73)
 recovers mis-heard vocabulary *after* decoding, which is why it was built
@@ -248,6 +259,22 @@ until its packages arrive*, which is a state `yazses doctor` and `yazses
 features` already model and a user can fix by retrying. Enabling records intent;
 satisfying it is a separate, retryable step, and the gap between the two is
 always visible.
+
+"Always visible" is enforced, not assumed. `system/dormant.py` derives, from the
+feature registry, every enabled capability whose libraries cannot be imported — however
+it got that way: a failed install, `--no-install`, a hand-edited `config.toml`, or an
+upgrade that rebuilt the environment without the extra. The daemon logs each at start
+and shows one rate-limited notification with the fix; `yazses doctor` prints a row per
+feature; `yazses features` draws it as `◐ ON` with the command beside it. And a failed
+`features enable`, `features reset` or `handsfree enable` exits non-zero and says
+*dormant*, rather than printing "Apply it: yazses restart" over the installer's error.
+
+Two static guards keep a new feature from making the base install heavy or broken:
+`tests/test_no_module_imports_an_extra_at_module_scope.py` scans every module (not only
+the daemon's import graph) for a module-scope import of any extra's packages, derived
+from `scripts/check_dependency_budget.py::EXTRA_MODULES`, transitively; and
+`tests/test_every_extra_has_an_install_path.py` fails when an extra exists that no
+feature installs and no stated exemption explains.
 
 The four blocks in the bottom band are the ones people most often assume are
 already there. Each is a recorded decision rather than an omission:

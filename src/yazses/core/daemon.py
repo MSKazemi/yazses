@@ -655,6 +655,7 @@ class Daemon:
             self._start_update_watcher()
             self._load_shown_notices()
             self._announce_permissions()
+            self._announce_dormant_features()
             self._warm_portal_session()
             self._start_portal_idle_reaper()
             self._start_headpointer()
@@ -703,7 +704,7 @@ class Daemon:
         if not overlay_dependency_available():
             log.info(
                 "Overlay is enabled but PySide6 is not installed; skipping. "
-                "Install it with: uv sync --extra overlay  (or pip install 'yazses[overlay]')"
+                "Install it with: yazses features enable overlay"
             )
             return
         try:
@@ -726,7 +727,7 @@ class Daemon:
         if not tray_dependency_available():
             log.info(
                 "Tray is enabled but PySide6 is not installed; skipping. "
-                "Install it with: uv sync --extra overlay  (or pip install 'yazses[overlay]')"
+                "Install it with: yazses features enable tray"
             )
             return
         try:
@@ -944,6 +945,43 @@ class Daemon:
                 )
         except Exception:  # noqa: BLE001 — startup must survive its own warnings
             log.debug("could not announce missing permissions", exc_info=True)
+
+    def _announce_dormant_features(self) -> None:
+        """Say which enabled features cannot run because their libraries are missing.
+
+        The routes to that state never pass through `features enable`'s install: a
+        hand-edited config, `--no-install`, a failed install whose key stood, and an
+        upgrade that rebuilt the environment without the extra. Each feature's own
+        factory then logged one line — some naming `uv sync --extra …`, which does
+        nothing outside a source checkout — and the capability was dead from then
+        on. This names every one, from the registry, with the one command that
+        fixes it. It installs nothing: that stays the user's action (ADR-019).
+
+        Rate-limited through the same persisted record as `_announce_permissions`,
+        so a crash loop cannot multiply it, and a desktop-only feature on a
+        headless box is not a finding at all (see `system/dormant.py`).
+        """
+        try:
+            from yazses.system import notify as notify_mod
+            from yazses.system.diagnosis import should_notify
+            from yazses.system.dormant import dormant_features
+
+            for item in dormant_features(self._config):
+                log.warning("%s", item.describe())
+                with self._lock:
+                    fresh = should_notify(
+                        f"dormant-{item.slug}", time.time(), self._diagnosed_at
+                    )
+                if not fresh:
+                    continue
+                self._persist_shown_notices()
+                urgency, expire_ms = notify_mod.toast_policy(False)
+                notify_mod.notify(
+                    f"{item.name} is on but cannot run",
+                    item.describe(), urgency=urgency, expire_ms=expire_ms,
+                )
+        except Exception:  # noqa: BLE001 — startup must survive its own warnings
+            log.debug("could not check enabled features' libraries", exc_info=True)
 
     def _shown_notices_path(self):
         from yazses.system import toast_memory

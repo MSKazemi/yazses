@@ -1910,6 +1910,20 @@ def _catalogue_size(feat) -> str:
         return ""
 
 
+def _dormant_shown(cfg, shown) -> dict:
+    """``slug -> DormantFeature`` for the enabled rows on screen that cannot run.
+
+    Never raises into the catalogue (same rule as `_catalogue_size`): a probe that
+    fails costs the ◐ marker, not the listing.
+    """
+    try:
+        from yazses.system.dormant import dormant_by_slug, dormant_features
+
+        return dict(dormant_by_slug(dormant_features(cfg, features=shown)))
+    except Exception:  # pragma: no cover - a marker must never break the catalogue
+        return {}
+
+
 def _echo_capabilities(
     platform,
     *,
@@ -1968,6 +1982,7 @@ def _echo_capabilities(
     #   NAME is prose and may be clipped; `yazses features info` carries the full text.
     all_shown = [f for _, _, feats in groups for f in feats if _keep(f)]
     slug_w = max([16, *(len(f.slug) for f in all_shown if f.toggleable)])
+    dormant = _dormant_shown(cfg, all_shown)
 
     for cat, blurb, feats in groups:
         shown = [f for f in feats if _keep(f)]
@@ -1982,7 +1997,12 @@ def _echo_capabilities(
             f"{'DOWNLOAD':<{_SIZE_W}} ADVICE"
         )
         for f in shown:
-            mark = "◌ set" if f.inert else ("● ON " if f.on else "○ off")
+            if f.inert:
+                mark = "◌ set"
+            elif f.slug in dormant:
+                mark = "◐ ON "
+            else:
+                mark = "● ON " if f.on else "○ off"
             slug = f.slug if f.toggleable else "—"
             size = _catalogue_size(f)
             typer.echo(
@@ -2003,6 +2023,14 @@ def _echo_capabilities(
             " so it does nothing."
             "\n      Clear a stale key with `yazses features disable <name>`."
         )
+    if dormant:
+        # Same rule as ◌: only when one is on screen, and each with its own remedy,
+        # because "some libraries are missing" with no command is a dead end.
+        typer.echo(
+            "\n  ◐ = switched on, but its libraries are not installed, so it does nothing:"
+        )
+        for d in dormant.values():
+            typer.echo(f"      {d.slug}: {d.remedy}")
     typer.echo(
         f"\n  {total} shown.  ●/○ = on/off.  Apply changes with `yazses restart`."
         "\n  DOWNLOAD = what a fresh install fetches in total — packages when you"
@@ -2195,7 +2223,8 @@ def features_enable(
     caveat = enable_caveat(feat.slug, cfg)
     if caveat:
         typer.echo(f"\n{caveat}\n")
-    _install_feature_deps(feat, skip=no_install)
+    if _install_feature_deps(feat, skip=no_install) is False:
+        raise typer.Exit(1)
     typer.echo("Apply it:  yazses restart")
 
 
@@ -2240,14 +2269,22 @@ def _feature_deps_blocked(feat) -> str | None:
     return install_blocked_reason(feat.pip_packages)
 
 
-def _install_feature_deps(feat, *, skip: bool) -> None:
-    """Install a feature's optional pip deps when any are missing."""
+def _install_feature_deps(feat, *, skip: bool) -> bool:
+    """Install a feature's optional pip deps when any are missing.
+
+    Returns False only when an install was attempted and failed. The config key
+    stands in that case (docs/architecture.md, "When an install fails, the config
+    key stands"), so the caller must say plainly that the capability is on but
+    dormant and exit non-zero — it used to print "Apply it: yazses restart" and
+    exit 0 over the installer's own error, which a script, the hands-free
+    preset and a skimming reader all took as success.
+    """
     if not feat.pip_packages:
-        return
+        return True
     from yazses.system.deps import install_packages
 
     if not _missing_feature_deps(feat):
-        return
+        return True
     # Say what this costs before spending it (ADR-018). Printed even when the
     # install proceeds: a download that turns out to be gigabytes is one the user
     # should have been able to cancel, and knowing mid-download still beats
@@ -2269,8 +2306,26 @@ def _install_feature_deps(feat, *, skip: bool) -> None:
             "Skipping dependency install (--no-install). This feature needs:\n  "
             + " ".join(feat.pip_packages)
         )
-        return
-    install_packages(feat.pip_packages, echo=typer.echo)
+        typer.echo(
+            f"It stays dormant until they are installed:  {_dormant_remedy(feat)}"
+        )
+        return True
+    if install_packages(feat.pip_packages, echo=typer.echo):
+        return True
+    typer.echo(
+        f"\n{feat.name} is switched on, but its libraries did not install, so it "
+        "stays dormant (the daemon and `yazses doctor` will say so).\n"
+        f"Retry once the cause is fixed:  {_dormant_remedy(feat)}",
+        err=True,
+    )
+    return False
+
+
+def _dormant_remedy(feat) -> str:
+    """The one command that installs *feat*'s libraries (``--force`` when needed)."""
+    from yazses.system.dormant import enable_command
+
+    return enable_command(feat)
 
 
 @features_app.command(
@@ -2372,6 +2427,7 @@ def features_reset(
         raise typer.Exit(1)
 
     written = 0
+    failed: list[str] = []
     for feat, desired in drift:
         # A default-on capability whose libraries this environment can never
         # supply (a read-only snap, say) is skipped rather than written: the same
@@ -2384,10 +2440,17 @@ def features_reset(
             platform.paths.config_file, feat.on_writes if desired else feat.off_writes
         )
         written += 1
-        if desired:
-            _install_feature_deps(feat, skip=no_install)
+        if desired and _install_feature_deps(feat, skip=no_install) is False:
+            failed.append(feat.slug)
     typer.echo(f"\nRestored {written} capabilit{'y' if written == 1 else 'ies'} "
                "to their defaults.")
+    if failed:
+        typer.echo(
+            f"Libraries did not install for: {', '.join(failed)} — on but dormant.",
+            err=True,
+        )
+        typer.echo("Apply the rest:  yazses restart")
+        raise typer.Exit(1)
     typer.echo("Apply it:  yazses restart")
 
 
@@ -4013,7 +4076,17 @@ def update(
         if not known:
             raise typer.Exit(1)
         return
-    typer.echo(f"Command: {' '.join(status.command)}")
+    # A uv tool upgrade removes libraries its receipt does not list, which is how
+    # an enabled engine vanished on update. Resolve the command that keeps them
+    # *before* printing it, so what is shown is what runs (it is idempotent, so
+    # `run_upgrade_checked` applying it again changes nothing).
+    from yazses.system.updater import preserve_enabled_features
+
+    plain = status.command
+    status = preserve_enabled_features(status)
+    if status.command != plain:
+        typer.echo("Keeping your enabled features' libraries through the upgrade.")
+    typer.echo(f"Command: {' '.join(status.command or [])}")
 
     if check:
         typer.echo("\n(--check) Not installing. Re-run without --check to update.")
@@ -6867,8 +6940,17 @@ def handsfree_enable(
             raise typer.Exit(1)
     set_config_key(platform.paths.config_file, "handsfree", "enabled", True)
     typer.echo("Enabled the hands-free preset. Its values are provisional starting points.")
-    for feat in feats:
-        _install_feature_deps(feat, skip=no_install)
+    # Installed in turn, and every one attempted even after a failure: the camera
+    # features share mediapipe, so one failure usually means all, but a partial run
+    # must still leave as much working as it can and then say what is not.
+    failed = [f.slug for f in feats if _install_feature_deps(f, skip=no_install) is False]
+    if failed:
+        typer.echo(
+            f"The preset is on, but {', '.join(failed)} stay dormant until their "
+            "libraries install.",
+            err=True,
+        )
+        raise typer.Exit(1)
     typer.echo("See what it sets:  yazses handsfree explain")
     typer.echo("Stop any time:     yazses handsfree pause")
     typer.echo("Apply it:          yazses restart")
