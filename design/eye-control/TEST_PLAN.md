@@ -121,7 +121,9 @@ Already covered in CI:
 - route only above confidence threshold;
 - fallback to focused window;
 - preserve burst gaze snapshot for deixis;
-- destructive confirmation.
+- destructive confirmation;
+- the same model options, camera device, numbers and decisions on the legacy and shared-source paths
+  (#396; the four layers are listed in `design/specs/eye-shared-perception.md`).
 
 Hardware metrics to collect:
 
