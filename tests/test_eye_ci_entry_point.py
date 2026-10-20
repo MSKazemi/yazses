@@ -409,6 +409,20 @@ def test_the_workflow_installs_the_base_install_only(workflow: dict[str, Any]) -
     assert "--extra" not in text and "--all-extras" not in text
 
 
+def test_every_job_pins_the_interpreter_it_installs_with(workflow: dict[str, Any]) -> None:
+    # Unpinned, `uv sync` takes the newest Python on the runner: macos-latest moved to
+    # Homebrew 3.15, onnxruntime had no wheel for it, and the leg died at install.
+    setups = [
+        step
+        for job in workflow["jobs"].values()
+        for step in job["steps"]
+        if "astral-sh/setup-uv" in step.get("uses", "")
+    ]
+    assert len(setups) == len(workflow["jobs"])
+    for step in setups:
+        assert step.get("with", {}).get("python-version") == "3.12", step
+
+
 def test_the_workflow_triggers_cover_the_files_it_runs(workflow: dict[str, Any]) -> None:
     triggers = workflow[True]
     assert triggers["push"]["paths"] == triggers["pull_request"]["paths"]
