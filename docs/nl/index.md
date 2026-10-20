@@ -41,7 +41,7 @@ De eerste keer wordt eenmalig een spraakmodel gedownload (ongeveer 148 MB). Daar
 
 ## Privacy
 
-Audio wordt op je eigen machine getranscribeerd en nooit ergens naartoe gestuurd. Er is geen telemetrie en geen route naar de cloud.
+Standaard wordt audio op je eigen machine getranscribeerd en nergens naartoe gestuurd. Er is geen telemetrie en geen route naar de cloud.
 
 ## Meer
 

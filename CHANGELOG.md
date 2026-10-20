@@ -111,6 +111,15 @@ ages, never a face, gaze or head value. Nothing changes on an install with no ca
 Two keys were added to the `handsfree` block of the daemon's `status` reply: `perception_backend` and
 `perception_failure_kind`. Older clients ignore them, and a reply from an older daemon reads as "not known".
 
+### Docs — the machine-drafted translations say offline "by default", not "never"
+
+The English source sentence and the 18 machine-draft locale pages (`docs/<locale>/index.md`) said audio is "never sent
+anywhere". `i18n/glossary.yml` asks for offline *by default*, never an absolute guarantee, because ADR-019 records two
+paths that can transmit what the user said: one confined to loopback, the other only to a host the user names over
+their own SSH tunnel. The sentence now reads "By default, audio is transcribed on your
+machine and is not sent anywhere." The change is in `scripts/translations.py`, and the pages were regenerated with
+`scripts/gen-readme-translation.py --all`. The reviewed, hand-owned locale pages were not touched.
+
 ### Tests — the PointerSink contract now covers bounds and permanence ([#400](https://github.com/MSKazemi/yazses/issues/400))
 
 This change touches only the shared pointer contract (`tests/pointer_contract.py`). No backend changed, and every one

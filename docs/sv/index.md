@@ -41,7 +41,7 @@ Första körningen hämtar en talmodell en gång (cirka 148 MB). Därefter behö
 
 ## Integritet
 
-Ljudet transkriberas på din dator och skickas aldrig någonstans. Det finns ingen telemetri och ingen väg till molnet.
+Som standard transkriberas ljudet på din dator och skickas inte någonstans. Det finns ingen telemetri och ingen väg till molnet.
 
 ## Mer
 
