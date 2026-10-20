@@ -14,7 +14,10 @@ test that is supposed to notice. Each mutant is a mistake real backend code make
 * repeats the last good action after a failure, or queues failed calls and flushes them later;
 * lets NaN reach the platform, or answers an unsupported operation with a silent no-op;
 * flips a scroll sign, or answers ``click()`` with the wrong default button;
-* changes its capabilities between calls, or moves the pointer while being constructed.
+* changes its capabilities between calls, or moves the pointer while being constructed;
+* clamps an absolute position to zero or to the primary display, or caps or splits a large
+  relative move -- each of which strands a secondary monitor or a deliberate long move;
+* reports a capability it lacks as a passing outage while failing, or as "closed" after close.
 
 ``test_the_unmutated_reference_passes_everything`` is the control: without it, a harness that
 failed every sink would make every mutant look caught.
@@ -328,6 +331,57 @@ class FailureLatchesForever(FakePointerSink):
         return None
 
 
+class ClampsAbsoluteToNonNegative(FakePointerSink):
+    """A display left of or above the primary becomes unreachable: x and y floored at zero."""
+
+    def move_absolute(self, x: float, y: float) -> None:
+        check_finite(x=x, y=y)  # validates first, as a real backend would, then clamps
+        super().move_absolute(max(0.0, x), max(0.0, y))
+
+
+class ClampsAbsoluteToThePrimaryDisplay(FakePointerSink):
+    """The sink 'knows' the screen is 1920x1080 and pins every position inside it."""
+
+    def move_absolute(self, x: float, y: float) -> None:
+        check_finite(x=x, y=y)
+        super().move_absolute(min(x, 1919.0), min(y, 1079.0))
+
+
+class CapsEachRelativeStep(FakePointerSink):
+    """A second speed limit, inside the backend: no step may exceed 2000 units per axis."""
+
+    def move_relative(self, dx: float, dy: float) -> None:
+        check_finite(dx=dx, dy=dy)
+        super().move_relative(max(-2000.0, min(2000.0, dx)), max(-2000.0, min(2000.0, dy)))
+
+
+class SplitsLargeMotionIntoSteps(FakePointerSink):
+    """One long move becomes several short ones: one call, many effects."""
+
+    def move_relative(self, dx: float, dy: float) -> None:
+        check_finite(dx=dx, dy=dy)
+        steps = int(max(abs(dx), abs(dy)) // 1000) + 1
+        self._emit(*[PointerAction.move_relative(dx / steps, dy / steps)] * steps)
+
+
+class UnsupportedLooksLikeAnOutageWhileFailing(FakePointerSink):
+    """Checks "am I up?" before "can I do this at all?": a missing capability reads as transient."""
+
+    def move_absolute(self, x: float, y: float) -> None:
+        if self._failure is not None:
+            raise self._failure
+        super().move_absolute(x, y)
+
+
+class UnsupportedLooksClosedAfterClose(FakePointerSink):
+    """After ``close()`` a capability the backend never had is reported as "closed"."""
+
+    def move_absolute(self, x: float, y: float) -> None:
+        if self._closed:
+            raise PointerBackendError("pointer sink is closed")
+        super().move_absolute(x, y)
+
+
 MUTANTS = [
     pytest.param(SwallowsErrorsInClick, FULL_CAPABILITIES,
                  "test_every_operation_fails_loudly_and_records_nothing_when_the_backend_fails",
@@ -397,6 +451,24 @@ MUTANTS = [
     pytest.param(FailureLatchesForever, FULL_CAPABILITIES,
                  "test_a_backend_failure_does_not_replay_the_previous_action",
                  id="stays-dead-after-recovery"),
+    pytest.param(ClampsAbsoluteToNonNegative, FULL_CAPABILITIES,
+                 "test_absolute_motion_reaches_negative_and_off_primary_coordinates_unchanged",
+                 id="clamps-absolute-to-non-negative"),
+    pytest.param(ClampsAbsoluteToThePrimaryDisplay, FULL_CAPABILITIES,
+                 "test_absolute_motion_reaches_negative_and_off_primary_coordinates_unchanged",
+                 id="clamps-absolute-to-primary-display"),
+    pytest.param(CapsEachRelativeStep, FULL_CAPABILITIES,
+                 "test_large_relative_motion_is_neither_capped_nor_split",
+                 id="caps-each-relative-step"),
+    pytest.param(SplitsLargeMotionIntoSteps, FULL_CAPABILITIES,
+                 "test_large_relative_motion_is_neither_capped_nor_split",
+                 id="splits-large-motion"),
+    pytest.param(UnsupportedLooksLikeAnOutageWhileFailing, PARTIAL_CAPABILITIES,
+                 "test_an_unsupported_operation_stays_unsupported_while_failing_and_after_close",
+                 id="unsupported-looks-transient-while-failing"),
+    pytest.param(UnsupportedLooksClosedAfterClose, PARTIAL_CAPABILITIES,
+                 "test_an_unsupported_operation_stays_unsupported_while_failing_and_after_close",
+                 id="unsupported-looks-closed-after-close"),
 ]
 
 
@@ -423,6 +495,9 @@ def test_every_contract_test_is_the_designated_catcher_of_something_or_a_basic_c
         "test_close_never_raises_even_while_the_backend_is_failing",
         "test_close_reaches_the_platform_at_most_once",
         "test_capabilities_are_still_answerable_after_close",
+        "test_absolute_motion_reaches_negative_and_off_primary_coordinates_unchanged",
+        "test_large_relative_motion_is_neither_capped_nor_split",
+        "test_an_unsupported_operation_stays_unsupported_while_failing_and_after_close",
     ):
         assert new in catchers
 

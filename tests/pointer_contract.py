@@ -411,8 +411,112 @@ class PointerSinkContract:
         sink.move_relative(1.0, 1.0)
         with pytest.raises(ValueError):
             sink.move_relative(math.nan, 0.0)
+        # The docstring promises "unsupported" too, so drive every unsupported operation
+        # this backend has between the same two good calls (none, on a full backend).
+        for _, refused in self._unsupported_operations(sink):
+            with pytest.raises(PointerUnsupportedError):
+                refused()
         sink.move_relative(2.0, 2.0)
         assert self.recorded(sink) == [
             PointerAction.move_relative(1.0, 1.0),
             PointerAction.move_relative(2.0, 2.0),
         ]
+
+    # ------------------------------------- coordinates: no clamping, no re-origin, no cap
+    #: A desktop with a 1920x1080 primary, one display to its left and one 4K display to its
+    #: lower right. On macOS and Windows the primary's top-left is the origin, so the left
+    #: display's x and anything above the primary's y are *negative* -- ADR-v2-149 requires
+    #: those to be reachable "if the OS exposes them". The points are chosen so that every
+    #: plausible guessed bound (zero, the primary's width or height) moves at least one.
+    MULTI_MONITOR_POINTS: tuple[tuple[float, float], ...] = (
+        (-1920.0, 0.0),  # the far left edge of the left-hand display
+        (-640.5, -1080.0),  # above and left of the primary, with a fraction
+        (0.0, -0.5),  # half a unit above the primary's top edge
+        (5759.0, 3239.75),  # inside the 4K display beyond the primary's lower right
+    )
+
+    def test_absolute_motion_reaches_negative_and_off_primary_coordinates_unchanged(self) -> None:
+        """The sink does not clamp, wrap or re-origin a position (spec-eye-pointer-output, Bounds).
+
+        A display left of or above the primary has negative coordinates in the canonical
+        desktop space (ADR-v2-149). A sink that clamped to ``>= 0`` or to the primary display
+        would make every secondary monitor unreachable, and it cannot know the topology: it
+        is deliberately dumb (ADR-v2-146). What lies off every display is the platform's to
+        settle -- the OS keeps the cursor on the desktop -- and choosing a sane target is the
+        caller's job, with :mod:`yazses.gaze.topology`.
+        """
+        sink = self.make_sink()
+        caps = sink.capabilities()
+        if not caps.absolute_motion:
+            for x, y in self.MULTI_MONITOR_POINTS:
+                with pytest.raises(PointerUnsupportedError):
+                    sink.move_absolute(x, y)
+            assert self.recorded(sink) == [], "unsupported absolute motion is not a no-op"
+            return
+        for x, y in self.MULTI_MONITOR_POINTS:
+            sink.move_absolute(x, y)
+        assert self.recorded(sink) == [
+            PointerAction.move_absolute(x, y) for x, y in self.MULTI_MONITOR_POINTS
+        ], "absolute positions must reach the platform exactly as given -- no clamping"
+
+    def test_large_relative_motion_is_neither_capped_nor_split(self) -> None:
+        """Speed limits live above the sink, in the feature, not in the backend.
+
+        Head-Pointer caps its own velocity (``yazses.headpointer.pointer``) and a voice
+        command may legitimately cross two monitors in one step. A sink that also capped,
+        or split one call into several, would make the same intent travel a different
+        distance per platform -- and a split motion is two effects for one call.
+        """
+        sink = self.make_sink()
+        deltas = [(-3840.0, 2160.0), (2500.0, -1440.25), (-1.0e4, 0.0)]
+        for dx, dy in deltas:
+            sink.move_relative(dx, dy)
+        assert self.recorded(sink) == [PointerAction.move_relative(dx, dy) for dx, dy in deltas]
+
+    # ------------------------------------- unsupported is permanent, whatever the state
+    def _unsupported_operations(self, sink: PointerSink) -> list[tuple[str, Callable[[], None]]]:
+        """One callable per operation this backend's capabilities say it does **not** have."""
+        caps = sink.capabilities()
+        ops: list[tuple[str, Callable[[], None]]] = []
+        if not caps.absolute_motion:
+            ops.append(("move_absolute", lambda: sink.move_absolute(10.0, 20.0)))
+        for button in sorted(set(PointerButton) - caps.buttons, key=lambda b: b.value):
+            ops.append((f"click({button.value})", lambda b=button: sink.click(b)))
+        if not caps.scroll_vertical:
+            ops.append(("scroll(vertical)", lambda: sink.scroll(0.0, 1.0)))
+        if not caps.scroll_horizontal:
+            ops.append(("scroll(horizontal)", lambda: sink.scroll(1.0, 0.0)))
+        return ops
+
+    def test_an_unsupported_operation_stays_unsupported_while_failing_and_after_close(self) -> None:
+        """The answer to "can this backend do X?" does not change with the backend's health.
+
+        ``PointerUnsupportedError`` means *permanent for this backend* and
+        ``PointerBackendError`` *maybe transient*; that difference is why the two exist
+        (:mod:`yazses.pointer.base`). A backend that checks "am I up?" before "can I do this
+        at all?" reports a missing capability as a passing outage, and its caller retries
+        something that will never work, or tells the user to wait for it.
+        """
+        probe = self.make_sink()
+        caps = probe.capabilities()
+        names = [name for name, _ in self._unsupported_operations(probe)]
+        if not names:
+            # A backend with every capability: the claim to check is that it says so.
+            assert caps.absolute_motion and caps.scroll_vertical and caps.scroll_horizontal
+            assert caps.buttons == frozenset(PointerButton)
+            return
+        for index, name in enumerate(names):
+            failing = self.make_sink()
+            self.induce_failure(failing)
+            before = self.recorded(failing)
+            with pytest.raises(PointerUnsupportedError):
+                self._unsupported_operations(failing)[index][1]()
+            assert self.recorded(failing) == before, f"{name}: refused, yet something happened"
+            self.clear_failure(failing)
+
+            closed = self.make_sink()
+            closed.close()
+            before = self.recorded(closed)
+            with pytest.raises(PointerUnsupportedError):
+                self._unsupported_operations(closed)[index][1]()
+            assert self.recorded(closed) == before, f"{name}: a closed sink emitted"

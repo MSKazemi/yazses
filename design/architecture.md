@@ -372,8 +372,18 @@ contract rather than re-describing it. The recorded-action vocabulary itself
 nothing from `tests/`: an out-of-tree backend copies that one file next to its own tests.
 `tests/test_pointer_contract_mutants.py` keeps the suite honest by running it against
 deliberately wrong sinks (swallowed errors, reordered or dropped releases, success after
-`close()`, replayed or queued commands, silent no-ops, a flipped scroll sign) and requiring
-a named test to go red for each. One thing the contract does **not** pin: whether a click
+`close()`, replayed or queued commands, silent no-ops, a flipped scroll sign, a clamped
+absolute position, a capped or split long move, a capability reported as an outage) and
+requiring a named test to go red for each.
+
+**Bounds are not the sink's.** A sink passes positions and deltas through unchanged apart
+from its documented unit conversion: no clamp to zero or to the primary display, because a
+display left of or above the main one has negative coordinates (ADR-v2-149), and no
+per-call cap or split, because speed limits belong to the feature. An unsupported operation
+raises `PointerUnsupportedError` in every sink state, failing or closed, so "cannot ever"
+is never reported as "cannot right now". Spec: `design/specs/eye-pointer-output.md`, *Bounds*.
+
+One thing the contract does **not** pin: whether a click
 whose release fails after its press makes a best-effort release. The portal sink does; the
 X11, macOS and Windows sinks leave the button down and say so — a maintainer decision.
 

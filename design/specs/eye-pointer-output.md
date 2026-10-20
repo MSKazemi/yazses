@@ -51,6 +51,26 @@ platform geometry helpers.
 
 The protocol/spec implementation must document conversion at the backend boundary.
 
+### Bounds
+
+A sink does **not** clamp, wrap or re-origin a coordinate. This follows from two rules
+already written down rather than adding a new one: ADR-v2-149 requires negative coordinates
+for displays left of or above the primary to be reachable "if the OS exposes them", and this
+spec's safety boundary keeps the sink deliberately dumb, so it cannot know the topology a
+clamp would need. Specifically:
+
+- `move_absolute` passes the position through unchanged, negative and beyond-the-primary
+  values included. What lies off every display is the OS's to settle. Choosing a sensible
+  target is the caller's job, using the platform geometry helpers.
+- `move_relative` is neither capped nor split. Speed limits live in the feature
+  (Head-Pointer caps its own velocity), and one call is one effect.
+- A value the native field cannot represent (for example a Windows `LONG` overflow) is
+  refused with an explicit backend error, never wrapped or truncated.
+
+The shared contract suite asserts the first two against every backend
+(`tests/pointer_contract.py`), and `tests/test_pointer_contract_mutants.py` proves it fails a
+sink that clamps, caps or splits.
+
 ## Capabilities
 
 A structured capability value reports:
@@ -61,6 +81,9 @@ A structured capability value reports:
 - backend identifier.
 
 Unsupported operations raise/return an explicit supported-domain error. They never silently succeed.
+That error is the same whatever state the sink is in: an operation the capabilities rule out
+stays *unsupported* (permanent) while the backend is failing and after `close()`. It is
+never reported as a backend failure (possibly transient) that a caller might retry.
 
 ## Buttons
 
