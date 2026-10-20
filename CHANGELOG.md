@@ -91,6 +91,29 @@ ordinary-dictation half of R-08. With every camera feature on, the daemon still 
 and hold-to-talk key, whether the camera runtime is missing or the OS refuses permission. `docs/store-submission.md`
 used to send MSIX users who wanted a camera feature to winget, Scoop or the direct installer. All three install the
 same frozen `.exe`, so it now points to PyPI.
+||||||| 3b24fd7f
+
+### Fixed — hands-free health named the camera for a model failure, and called a stalled camera "tracking valid" ([#416](https://github.com/MSKazemi/yazses/issues/416))
+
+These are two gaps in the `doctor` and `status` rows for camera input. Both rows still show only names, states and
+ages, never a face, gaze or head value. Nothing changes on an install with no camera feature enabled.
+
+- **A blocked face-model download no longer reads as a camera problem.** The shared camera source opened the camera
+  and loaded the face model inside one error handler. So a model download refused by a firewall, or a missing
+  `mediapipe`, was reported as "the camera could not be opened". The two steps are now separate, and every failure
+  records its kind: `camera`, `dependency`, `model` or `processing`. The **Hands-free perception** row gives the fix
+  for that kind. For `model` it says the camera itself is fine, and you can allow the one-time download or set
+  `[gaze] model_path`. For `dependency` it names the missing module.
+- **A camera that stops sending frames is reported as `stale`.** Before, a source that was still open with an old
+  sample made the face-switch row say "tracking valid", even though no consumer would act on that sample. Now the
+  rows report `stale` / "tracking invalid" once the newest sample is older than the watchdog's `stale_after_ms`, or
+  500 ms when the watchdog is off. This is the same limit the face switch and Head-Pointer already apply, and a test
+  holds the four values equal.
+- The perception row names the backend in use (for example `backend mediapipe`). `doctor` with a running daemon now
+  also shows the **Face switch actions** row that `yazses status` already printed.
+
+Two keys were added to the `handsfree` block of the daemon's `status` reply: `perception_backend` and
+`perception_failure_kind`. Older clients ignore them, and a reply from an older daemon reads as "not known".
 
 ### Tests — the PointerSink contract now covers bounds and permanence ([#400](https://github.com/MSKazemi/yazses/issues/400))
 

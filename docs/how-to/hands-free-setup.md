@@ -72,6 +72,12 @@ before you turn anything on, and any value you write yourself wins.
    yazses handsfree status
    ```
 
+   While YazSes is running, the **Hands-free perception** line tells apart the causes that otherwise look
+   the same, because each has a different fix. The camera is busy or unplugged. A camera package is not
+   installed, and the line names it. The one-time face-model download was blocked, while the camera itself
+   is fine. Or the camera is open but has stopped sending frames, which is reported as `stale` and not as
+   tracking. It never prints a face, gaze or head value, only states, names and ages.
+
    Your desktop may show a one-time permission dialog (for pointer control on some Wayland sessions, and
    your operating system may ask before a program uses the camera). Answer it; `yazses handsfree status`
    says when one is still waiting.

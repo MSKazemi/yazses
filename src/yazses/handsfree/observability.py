@@ -55,6 +55,8 @@ from yazses.handsfree.safety import SafetyState, SafetyStatus, SourceHealth
 
 __all__ = [
     "CONTINUOUS_FEATURES",
+    "DEFAULT_STALE_AFTER_MS",
+    "FAILURE_REMEDIES",
     "PAYLOAD_KEYS",
     "HEAD_STATES",
     "PERCEPTION_FAILED",
@@ -70,6 +72,7 @@ __all__ = [
     "facts_from_payload",
     "health_rows",
     "render_status_lines",
+    "stale_after_ms",
 ]
 
 
@@ -84,6 +87,44 @@ PERCEPTION_STOPPED = "stopped"
 PERCEPTION_UNKNOWN = "unknown"
 #: The shared source opened and then stopped on a contained failure; the reason says why.
 PERCEPTION_FAILED = "failed"
+
+#: The age past which a sample may no longer act, when the watchdog's own window is not
+#: known (`[handsfree_safety]` off, or a surface that did not read it). Not a new threshold:
+#: it is the one every consumer already applies -- the face switch's ``MAX_SAMPLE_AGE_S``,
+#: the Head-Pointer's ``DEFAULT_FRESHNESS_S`` and ``[handsfree_safety] stale_after_ms`` all
+#: default to it, and `tests/test_handsfree_observability_names_the_failure.py` holds the
+#: four equal so they cannot drift apart silently. A sample older than this is one no
+#: consumer is acting on, so a row that called it "tracking valid" was reporting a working
+#: input that was not working.
+DEFAULT_STALE_AFTER_MS = 500.0
+
+#: What to do about a shared-source failure, keyed by `perception/source.py`'s
+#: ``FAILURE_*`` kinds -- one remedy per place the fix lives. A test holds this total over
+#: the producer's ``FAILURE_KINDS``, so a new kind fails the build until somebody decides
+#: what it tells the user. An unknown or empty kind (an older daemon) gets the generic
+#: remedy, which is what every failure got before the kinds existed.
+FAILURE_REMEDIES: dict[str, str] = {
+    "camera": (
+        "free the camera (close the other application using it, or plug it back in), "
+        "then run `yazses restart`; a failed source never retries by itself"
+    ),
+    "dependency": (
+        "install the camera extra that `yazses doctor`'s Camera row names, then run "
+        "`yazses restart`"
+    ),
+    "model": (
+        "the camera itself is fine; the face model is downloaded once, on first use "
+        "(~3.7 MB, the only network use here), so allow that download or point "
+        "`[gaze] model_path` at a local `face_landmarker.task`, then run `yazses restart`"
+    ),
+    "processing": (
+        "run `yazses restart`; if it fails again, please report it with the reason above"
+    ),
+}
+_GENERIC_FAILURE_REMEDY = (
+    "free the camera or fix the cause named above, then run `yazses restart`; "
+    "a failed source never retries by itself"
+)
 
 
 class Health(Enum):
@@ -172,6 +213,13 @@ class HandsFreeFacts:
     #: How many consumers hold the shared source open; ``None`` = not known.
     perception_consumers: int | None = None
     perception_reason: str = ""
+    #: The shared source's processor *name* while one is open (``"mediapipe"``); ``""`` =
+    #: none open, or not known. The spec's "backend/model name" -- a name, not a model.
+    perception_backend: str = ""
+    #: Which `perception/source.py` ``FAILURE_*`` kind stopped the shared source: tells a
+    #: busy camera, a missing dependency and a model that could not be fetched apart.
+    #: ``""`` = no failure, or a daemon too old to say.
+    perception_failure_kind: str = ""
     #: Whether a runtime path in *this build* actually drives head pose / the face
     #: switch. ``None`` = the question was not asked; only meaningful when requested.
     head_wired: bool | None = None
@@ -280,6 +328,19 @@ def doctor_rows(facts: HandsFreeFacts) -> tuple[tuple[str, str, str], ...]:
     )
 
 
+def stale_after_ms(facts: HandsFreeFacts) -> float:
+    """The age past which a sample may not act: the watchdog's window, else the default. Pure.
+
+    A non-positive or missing window falls back rather than making every sample stale --
+    the config loader already rejects one, and a second refusal here would turn a typo into
+    a permanent "stale" on a camera that is fine.
+    """
+    window = facts.safety_window_ms
+    if window is None or not window > 0:
+        return DEFAULT_STALE_AFTER_MS
+    return float(window)
+
+
 def _safety_row(facts: HandsFreeFacts) -> HealthRow | None:
     """The one ACTIVE/PAUSED/FAULTED line ADR-v2-148 asks every surface to carry."""
     label = "Hands-free safety"
@@ -383,7 +444,25 @@ def _perception_row(facts: HandsFreeFacts) -> HealthRow | None:
             "run `yazses doctor`, which probes it",
         )
     if facts.perception_state == PERCEPTION_RUNNING:
+        window = stale_after_ms(facts)
+        age = facts.perception_age_ms
+        if age is not None and age > window:
+            # Open, and not delivering: the state "running" alone would read as healthy.
+            # Distinct from FAILED (the source said why it stopped) and from a camera the
+            # permission gate refused (`camera_ready is False`, handled above).
+            return HealthRow(
+                label,
+                Health.DEGRADED,
+                f"stale — {wanted}; the camera source is open, but its newest sample is "
+                f"{age:.0f} ms old and nothing older than {window:.0f} ms may act"
+                + (f"; backend {facts.perception_backend}" if facts.perception_backend else ""),
+                "the camera has stopped delivering frames — check that no other application "
+                "took it; if none arrives for a few seconds the source reports itself failed, "
+                "then run `yazses restart`",
+            )
         detail = [f"running — {wanted}"]
+        if facts.perception_backend:
+            detail.append(f"backend {facts.perception_backend}")
         if facts.perception_channels is None:
             detail.append("per-channel state is not being reported")
         elif facts.perception_channels:
@@ -405,8 +484,7 @@ def _perception_row(facts: HandsFreeFacts) -> HealthRow | None:
             Health.FAULT,
             f"failed — {wanted}, and the shared camera source stopped"
             + (f": {facts.perception_reason}" if facts.perception_reason else ""),
-            "free the camera or fix the cause named above, then run `yazses restart`; "
-            "a failed source never retries by itself",
+            FAILURE_REMEDIES.get(facts.perception_failure_kind, _GENERIC_FAILURE_REMEDY),
         )
     if facts.perception_state == PERCEPTION_STOPPED:
         return HealthRow(
@@ -632,6 +710,16 @@ def _consumer_row(
         and facts.perception_state == PERCEPTION_RUNNING
         and facts.perception_channels is not None
     ):
+        window = stale_after_ms(facts)
+        if facts.perception_age_ms is not None and facts.perception_age_ms > window:
+            return HealthRow(
+                label,
+                Health.DEGRADED,
+                f"tracking invalid — the newest `{channel}` sample is "
+                f"{facts.perception_age_ms:.0f} ms old, past the {window:.0f} ms it may act "
+                "within, so it is being ignored",
+                "see the Hands-free perception row — the camera has stopped delivering frames",
+            )
         if channel in facts.perception_channels:
             age = (
                 f", newest sample {facts.perception_age_ms:.0f} ms old"
@@ -819,6 +907,8 @@ PAYLOAD_KEYS: tuple[str, ...] = (
     "perception_age_ms",
     "perception_consumers",
     "perception_reason",
+    "perception_backend",
+    "perception_failure_kind",
     "head_wired",
     "face_wired",
     "head_built",
@@ -955,6 +1045,8 @@ def facts_from_payload(payload: Mapping[str, object] | None) -> HandsFreeFacts |
         perception_age_ms=_number(payload.get("perception_age_ms")),
         perception_consumers=_count(payload.get("perception_consumers")),
         perception_reason=_text(payload.get("perception_reason"), ""),
+        perception_backend=_text(payload.get("perception_backend"), ""),
+        perception_failure_kind=_text(payload.get("perception_failure_kind"), ""),
         head_wired=_flag(payload.get("head_wired")),
         face_wired=_flag(payload.get("face_wired")),
         head_built=_flag(payload.get("head_built")),
