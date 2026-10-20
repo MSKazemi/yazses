@@ -8,6 +8,7 @@ blendshape trace is involved.
 """
 from __future__ import annotations
 
+import logging
 from dataclasses import replace
 from types import SimpleNamespace
 
@@ -50,7 +51,7 @@ class _Injector:
 class Rig:
     """A daemon with select/confirm/cancel bound to three gestures, and a live Head-Pointer."""
 
-    def __init__(self, monkeypatch, *, gate=None):
+    def __init__(self, monkeypatch, *, gate=None, extra=()):
         notices: list[str] = []
         monkeypatch.setattr("yazses.system.notify.notify", lambda title, body="", **kw: notices.append(body))
         self.notices = notices
@@ -62,6 +63,7 @@ class Rig:
                     {"gesture": "smile", "intent": "select"},
                     {"gesture": "brow_raise", "intent": "confirm"},
                     {"gesture": "mouth_pucker", "intent": "cancel"},
+                    *extra,
                 ],
             ),
         )
@@ -342,3 +344,98 @@ def test_the_handsfree_state_carries_each_actions_last_outcome(rig):
 def test_no_outcomes_before_a_face_switch_exists():
     d = Daemon(config=Config(), platform=get_platform())
     assert _switch_action_lines(d) == ()
+
+
+# ------------------------------------------------------------------ pause_pointer, no global stop
+#
+# `handsfree pause`, the panel's Pause and a chord's `pause_pointer` all still pause a running
+# Head-Pointer when `[handsfree_safety]` is off. A face switch bound to `pause_pointer` used to
+# be the one input that did nothing in that configuration (EYE-FACE-002: "supported actions
+# can include ... pause pointer").
+
+_PAUSE = ({"gesture": "eyes_closed", "intent": "pause_pointer"},)
+
+
+def test_pause_pointer_pauses_a_running_head_pointer_when_the_global_stop_is_off(monkeypatch):
+    rig = Rig(monkeypatch, extra=_PAUSE)
+    assert rig.d._handsfree_safety is None
+    assert rig.mapper.unwired() == []
+    rig.track()
+    assert rig.controller.status().paused is False
+    rig.gesture("eyes_closed")
+    assert rig.controller.status().paused is True
+
+
+def test_after_a_face_pause_a_select_is_refused_and_clicks_nothing(monkeypatch):
+    rig = Rig(monkeypatch, extra=_PAUSE)
+    rig.track()
+    rig.gesture("eyes_closed")
+    rig.gesture("smile")
+    assert rig.clicks == 0
+    assert "paused" in rig.last("select").reason
+
+
+def test_a_face_pause_is_undone_by_the_ordinary_resume(monkeypatch):
+    rig = Rig(monkeypatch, extra=_PAUSE)
+    rig.track()
+    rig.gesture("eyes_closed")
+    assert rig.controller.status().paused is True
+    assert rig.runtime.command("resume")["ok"] is True
+    assert rig.controller.status().paused is False
+
+
+def test_with_the_global_stop_on_pause_pointer_pauses_the_gate(monkeypatch):
+    gate = HandsFreeSafety(("headpointer", "facegesture"), clock=lambda: rig.t * 1000.0)
+    rig = Rig(monkeypatch, gate=gate, extra=_PAUSE)
+    rig.track()
+    gate.sample("facegesture", at_ms=rig.t * 1000.0)
+    assert gate.resume().ok
+    rig.gesture("eyes_closed")
+    assert gate.status().user_paused is True
+
+
+def test_pause_pointer_with_nothing_to_pause_stays_unwired_and_names_the_remedy(
+    monkeypatch, caplog
+):
+    rig = Rig(monkeypatch, extra=_PAUSE)
+    rig.d._headpointer = HeadPointerRuntime(reason="Head-Pointer is off")
+    with caplog.at_level(logging.WARNING):
+        source = rig.d._build_face_gesture_source(rig.d._config)[0]
+    assert source._mapper.unwired() == ["pause_pointer"]
+    assert "[handsfree_safety]" in caplog.text and "[headpointer]" in caplog.text
+
+
+def test_a_pause_the_pointer_refuses_is_logged_and_never_raises(caplog):
+    class _Refusing:
+        active = True
+
+        def command(self, action, params=None):
+            return {"ok": False, "reason": "busy"}
+
+    with caplog.at_level(logging.INFO):
+        Daemon._switch_pause_pointer(_Refusing())
+    assert "did not pause (busy)" in caplog.text
+
+
+# ------------------------------------------------------------------ holds take the hotkey's path
+#
+# The confirmation policy (cmdsafety) sits behind the daemon's own hold entry points. A face
+# hold must enter through exactly those -- not a parallel path that could skip the check -- so a
+# destructive spoken command made with a face switch is held for confirmation just as one made
+# with the hotkey is.
+
+
+def test_face_holds_enter_the_same_daemon_entry_points_as_the_hotkey(monkeypatch):
+    rig = Rig(monkeypatch, extra=({"gesture": "eyes_closed", "intent": "hold_to_command"},))
+    calls: list[tuple] = []
+    monkeypatch.setattr(rig.d, "_on_hold_start", lambda leaked: calls.append(("talk", leaked)))
+    monkeypatch.setattr(rig.d, "_on_hold_end", lambda: calls.append(("talk_end",)))
+    monkeypatch.setattr(
+        rig.d, "_on_command_hold_start", lambda leaked: calls.append(("command", leaked))
+    )
+    monkeypatch.setattr(rig.d, "_on_command_hold_end", lambda: calls.append(("command_end",)))
+    # Rebuilt after patching: the legacy primary binding captures the bound method at build.
+    rig.mapper = rig.d._build_face_gesture_source(rig.d._config)[0]._mapper
+    rig.gesture("jaw_open")      # the legacy primary binding: hold_to_talk
+    rig.gesture("eyes_closed")   # hold_to_command
+    assert calls == [("talk", 0), ("talk_end",), ("command", 0), ("command_end",)]

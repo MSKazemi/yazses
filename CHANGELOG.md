@@ -159,6 +159,25 @@ golden key set for the stored artifact and its evidence. A raw sample, click or 
 the file without that test failing. No config key, CLI flag or dependency changed. `[gaze_refine]` stays off by
 default.
 
+### Fixed — a face switch bound to `pause_pointer` did nothing while the global stop was off ([#407](https://github.com/MSKazemi/yazses/issues/407))
+
+EYE-FACE-002 lists "pause pointer" among the actions a face switch can be bound to. The daemon wired
+`pause_pointer` only when `[handsfree_safety]` was on. With the global stop off, which is the shipped default, a
+gesture bound to it did nothing, even with a running Head-Pointer. Three other paths do pause the Head-Pointer in
+that case: `yazses handsfree pause`, the settings panel's Pause and a Gesture Chord's `pause_pointer`. Now the face
+switch does too. With the global stop on it still pauses every hands-free input. With the stop off it pauses the
+running Head-Pointer only, and the log names that scope. With neither, it stays unwired, and the daemon logs which
+setting to turn on instead of the generic "nothing implements it". The settings panel offers the mapping when the
+daemon reports a running Head-Pointer, and the row says "Head-Pointer only". A saved `[headpointer] enabled` is not
+enough: a pointer with no camera or no pointer backend has nothing to pause. The panel-versus-daemon drift guard now
+covers this case as well.
+
+The other EYE-FACE-002 criteria were already met on main: the detector emits intents only, unmapped gestures do
+nothing, mappings are validated, select freezes the pointer and confirm/cancel answer only an existing hold. A new
+test pins that a face hold enters the daemon through the hotkey's own hold entry points, so cmdsafety still holds a
+destructive spoken command made with a face. Default off; nothing changes until a gesture is bound to
+`pause_pointer`.
+
 ### Fixed — the eye-control CI matrix lost its macOS leg to a new Homebrew Python ([#424](https://github.com/MSKazemi/yazses/issues/424))
 
 From 2026-10-17, every macOS leg of `eye-eval-ci.yml` failed in `uv sync`, before the evaluation ran. The step
