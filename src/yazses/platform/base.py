@@ -389,6 +389,16 @@ class UpdateLauncher(Protocol):
         """argv that starts YazSes again, or ``None`` when that cannot be known."""
         ...
 
+    def install_scope(self) -> str:
+        """``"user"`` for a per-user install, ``"machine"`` for an all-users one, or
+        ``"unknown"``. One-click only runs a downloaded installer for ``"user"``."""
+        ...
+
+    def query_package_manager(self, method: str) -> str | None:
+        """What ``method``'s package manager reports about YazSes (its own feed), as
+        text for ``installer_update.parse_feed_version``; ``None`` if it cannot be asked."""
+        ...
+
     def hand_off(self, handoff: UpdateHandoff) -> None:
         """Start ``handoff`` detached and return at once. Raises ``OSError`` if it could
         not be started — the caller must then stay running and fall back."""

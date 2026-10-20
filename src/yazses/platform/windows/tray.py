@@ -289,14 +289,26 @@ def _run_update(icon, notify, *, launcher=None, confirm=None, sleep=None) -> Non
     """
     import time
 
-    from yazses.system.installer_update import confirmation_prompt, one_click_supported
+    from yazses.system.installer_update import confirmation_prompt, one_click_offer
     from yazses.system.updater import RELEASES_URL
     from yazses.tray.updates import check_updates, run_one_click
 
     status = check_updates()
     launcher = launcher if launcher is not None else _update_launcher()
-    if not one_click_supported(status, launcher):
+    offer = one_click_offer(status, launcher)
+    if offer is None:
         notify(icon, *describe_update(status=status))
+        return
+    if not offer.ok:
+        # It applies but cannot deliver now (an all-users install, a package feed that
+        # has not caught up). Say why, and hand over the page that does work.
+        opened = open_link(RELEASES_URL)
+        tail = "Opening the download page." if opened else f"Download page: {RELEASES_URL}"
+        notify(
+            icon,
+            "Update available",
+            f"YazSes {status.current} → {status.latest}\n{offer.reason}\n{tail}",
+        )
         return
     try:
         title, prompt = confirmation_prompt(status)

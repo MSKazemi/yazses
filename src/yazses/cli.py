@@ -4157,9 +4157,20 @@ def _one_click_update(status, launcher, *, check: bool, yes: bool) -> None:
     """`yazses update` for the Windows channels: confirm, download, verify, hand off."""
     from yazses.system.installer_update import (
         RELEASE_DOWNLOAD_PREFIX,
+        one_click_offer,
         package_manager_argv,
         start_one_click_update,
     )
+
+    offer = one_click_offer(status, launcher)
+    if offer is None or not offer.ok:
+        # Applies to this install but cannot deliver now: an all-users install, or a
+        # package manager whose feed does not carry the new version yet. Saying so,
+        # with the manual steps, is the job done -- the old exit status for a known
+        # channel without a command.
+        typer.echo(offer.reason if offer is not None else "One-click update is unavailable.")
+        _echo_steps(status.steps)
+        return
 
     if status.method == "windows-installer":
         typer.echo(
@@ -4180,6 +4191,19 @@ def _one_click_update(status, launcher, *, check: bool, yes: bool) -> None:
     if check:
         typer.echo("\n(--check) Not installing. Re-run without --check to update.")
         return
+
+    tray = _running_tray_pid()
+    if tray is not None:
+        # The installer would have to force-close the tray, and nothing here can ask it
+        # to quit. The tray's own entry closes everything cleanly (ADR-027).
+        typer.echo(
+            "The YazSes tray is running. Use its Check for updates… entry, which closes "
+            "YazSes cleanly before installing, or quit the tray and run "
+            "`yazses update` again.",
+            err=True,
+        )
+        raise typer.Exit(1)
+
     if not yes and not typer.confirm(
         "Install it now? YazSes will close and start again by itself.", default=True
     ):
@@ -4199,21 +4223,34 @@ def _one_click_update(status, launcher, *, check: bool, yes: bool) -> None:
         _echo_steps(result.steps)
         raise typer.Exit(1)
     typer.echo(f"\n{result.message}")
-    # Stop the daemon gracefully here, so a meeting in progress is finalised rather
-    # than force-closed by the installer. The update job waits for it and for us.
-    _stop_daemon_for_update(pids[1:])
+    _request_daemon_shutdown()
 
 
-def _stop_daemon_for_update(pids: list[int]) -> None:
-    """Ask the daemon to shut down before the installer replaces its files. Never raises."""
-    if not pids:
-        return
+def _running_tray_pid() -> int | None:
+    """PID holding the tray's single-instance lock, or None. Never raises."""
+    try:
+        from yazses.platform import get_paths
+        from yazses.system.single_instance import holder_pid
+
+        return holder_pid(get_paths().data_dir / "tray.lock")
+    except Exception:
+        return None
+
+
+def _request_daemon_shutdown() -> None:
+    """Ask the daemon to shut down so the installer can replace its files. Never raises.
+
+    The graceful RPC only, never the lifecycle's kill fallback: a daemon still saving a
+    meeting must be allowed to finish. The update job waits for it and installs nothing
+    if it has not exited in time.
+    """
     try:
         from yazses.platform import get_platform
 
-        get_platform().lifecycle.stop_daemon(pids[0])
+        platform = get_platform()
+        platform.ipc_client_factory(platform.paths.ipc_socket).call("shutdown")
     except Exception as exc:
-        typer.echo(f"  (could not stop the daemon first: {exc}; the installer will close it)")
+        typer.echo(f"  (could not reach the daemon to stop it: {exc})")
 
 
 def _calibrate_mic(*, seconds: float = 4.0, set_threshold: bool = False) -> bool:

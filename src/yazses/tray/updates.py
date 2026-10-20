@@ -68,13 +68,17 @@ def describe_update(
     tries the one-click update) reuse that answer instead of asking github.com twice.
     The one-click path itself is :func:`run_one_click`.
     """
-    from yazses.system.updater import MACOS_METHODS, RELEASES_URL
+    from yazses.system.updater import MACOS_METHODS, MSIX_METHODS, RELEASES_URL
     from yazses.tray.about import update_message
 
     if status is None:
         status = check_updates(current)
     title, body = update_message(status)
     if not (status.available and not status.command):
+        return title, body
+    if status.method in MSIX_METHODS:
+        # The releases page carries no .msix, and its .exe would install a second copy
+        # beside the package. The steps (Store / App Installer) are the whole answer.
         return title, body
 
     open_page = opener

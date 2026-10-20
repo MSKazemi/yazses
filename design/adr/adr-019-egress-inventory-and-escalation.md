@@ -59,6 +59,7 @@ program was not mentioned. A second scan now covers it.
 | `system/setup.py` | `apt-get` (as root) | → package names, ← OS packages | `yazses setup` |
 | `system/winsetup.py` | `winget`, `pip` | → package names, ← VC++ runtime / wheels | `yazses setup` (Windows) |
 | `system/updater.py` | `snap` / `uv` / `pipx` / `pip` / `winget` / `choco` / `scoop` | ← a new version of YazSes | `yazses update`, or the tray's Install |
+| `platform/windows/update_handoff.py` | `choco search` / `winget show` / `scoop info`, then that manager's upgrade (Chocolatey elevated, by absolute path) | → the package name, ← its feed's version, then a new YazSes | *Check for updates…* / `yazses update` on a Chocolatey, winget or Scoop install ([ADR-027](adr-027-one-click-windows-update.md)) |
 
 The last three were invisible for the same reason the first two once were, one level
 further in: the scan listed *transports* — `ssh`, `curl`, `wget`, `git` — and no
@@ -85,12 +86,14 @@ the user has confirmed an update. `system/installer_update.py` downloads the ins
 itself (the fetch row above): it accepts only a URL under
 `https://github.com/MSKazemi/yazses/releases/download/`, follows redirects only to GitHub's
 https asset hosts, caps the size, and runs nothing whose SHA-256 differs from the release's
-`SHA256SUMS.txt`. For Chocolatey, winget and Scoop it instead hands the **same** upgrade
-command already declared in the `system/updater.py` row above to a detached Windows
-PowerShell job (`platform/windows/update_handoff.py`), which runs it after YazSes has
-exited. That job is not a new transport and adds no new destination, but the shell-out scan
-cannot see it — the command is built from `updater.upgrade_command`, not from a list
-literal — so it is declared here in prose. Nothing about the user is sent by either.
+`SHA256SUMS.txt`. For Chocolatey, winget and Scoop, `platform/windows/update_handoff.py`
+(its own row above) first asks the manager which version its feed carries, so nothing is
+offered that the manager will not deliver, then hands the upgrade command already declared
+in the `system/updater.py` row to a detached Windows PowerShell job that runs it after
+YazSes has exited. No new destination is added. Nothing about the user is sent by either.
+(The first version of this paragraph said the hand-off was invisible to the shell-out scan;
+the feed queries are list literals, so the scan found the module on its own — which is the
+guard doing its job.)
 
 `gitvoice/plan.py` builds the argv; `cli.py` runs it only under `--run`, and only with
 `--yes` when the command is destructive. It carries the user's repository at their explicit
