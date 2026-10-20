@@ -88,9 +88,17 @@ byte-identically, and the committed synthetic trace reports still match the code
 **What it is not evidence of:** real webcam accuracy, the real pointer permission or UI, human
 usability, or false activations during natural behaviour — a hosted runner has no representative
 hardware, and the record says so in its own `does_not_prove` field. Nothing is committed or
-published by the workflow; its token is read-only. The workflow has never run on a hosted
-runner at the time of writing: until a dispatched run has produced three green legs, the
-matrix is *designed and unit-tested*, not *observed*.
+published by the workflow; its token is read-only.
+
+The matrix has been *observed* green once, on run 38777947636 (2026-10-15, three `PASS` legs).
+From 2026-10-17 to 2026-10-20 the macOS leg failed in `uv sync`, before the evaluation ran, and
+the verdict job reported it as `MISSING Darwin`. The cause was in the workflow, not the
+evaluation. The step did not name an interpreter. The macOS image (`macos-26-arm64` 20261013)
+had added Homebrew `python@3.15`, uv picked it, and onnxruntime 1.28.0 has no cp315 wheel. The
+workflow now pins Python 3.12, as `test.yml` does, and
+`tests/test_macos_uv_jobs_pin_the_interpreter.py` fails any macOS job that installs with uv
+without a pin. That fix has not yet been observed on a hosted run. Until a run on it has produced
+three green legs, treat the current matrix as *designed and unit-tested*.
 
 ### E2 — deterministic synthetic trace replay
 

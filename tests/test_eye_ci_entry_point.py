@@ -16,7 +16,8 @@ everything that decides whether a hosted run would mean anything:
    quoted output of a failing check (a traceback names the checkout path), and Windows
    spellings of those paths are handled.
 5. **The workflow keeps its contract**: read-only token, a cancellable PR group, no
-   fail-fast, an upload that survives a failed leg, and a verdict job that counts legs.
+   fail-fast, an upload that survives a failed leg, a verdict job that counts legs, and
+   an interpreter pinned to one the main suite runs on macOS.
 """
 
 from __future__ import annotations
@@ -407,6 +408,20 @@ def test_the_workflow_installs_the_base_install_only(workflow: dict[str, Any]) -
     text = WORKFLOW.read_text(encoding="utf-8")
     assert "uv sync\n" in text
     assert "--extra" not in text and "--all-extras" not in text
+
+
+def test_every_leg_installs_with_an_interpreter_test_yml_runs_on_macos(workflow: dict[str, Any]) -> None:
+    # Unpinned, the macOS leg took the image's Homebrew python@3.15 and died in `uv sync`
+    # on every run from 2026-10-17 (onnxruntime has no cp315 wheel), while test.yml's
+    # pinned macOS legs on the same image stayed green. The repo-wide rule is
+    # tests/test_macos_uv_jobs_pin_the_interpreter.py; this ties the eye-eval pin to a
+    # version the main suite proves on macOS, not merely to some version.
+    steps = workflow["jobs"]["evaluate"]["steps"]
+    setup = next(s for s in steps if "setup-uv" in s.get("uses", ""))
+    pinned = str((setup.get("with") or {}).get("python-version", ""))
+    test_yml = yaml.safe_load((WORKFLOW.parent / "test.yml").read_text(encoding="utf-8"))
+    macos_versions = {str(v) for v in test_yml["jobs"]["test"]["strategy"]["matrix"]["python-version"]}
+    assert pinned in macos_versions, (pinned, sorted(macos_versions))
 
 
 def test_the_workflow_triggers_cover_the_files_it_runs(workflow: dict[str, Any]) -> None:
