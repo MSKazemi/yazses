@@ -388,6 +388,9 @@ class Daemon:
         self._gaze_calibration_facts: tuple[bool, str, Callable[[], bool] | None] = (
             False, "explicit", None
         )
+        # The capture's layout watch (#397): a throttled fingerprint of the live display
+        # context, or None when the layout cannot be read. Set beside the facts above.
+        self._gaze_context_fingerprint: Callable[[], str | None] | None = None
         # Implicit gaze calibration (#398): None unless [gaze_refine] is on and every
         # precondition held. `shutdown` stops it before the camera is released.
         self._gaze_refinement: RefinementRuntime | None = None
@@ -2044,13 +2047,21 @@ class Daemon:
             record = load_calibration_record(self._platform.paths.data_dir)
             # Refinement may only improve a calibration that is verified against this
             # desktop (ADR-v2-149): UNVERIFIED is "cannot tell", not "fine".
-            from yazses.gaze.refine_runtime import GuardedContext
+            from yazses.gaze.refine_runtime import GuardedContext, context_fingerprint
 
             self._gaze_calibration_facts = (
                 check.validity is Validity.VALID and guard is not None,
                 record.source if record is not None else "explicit",
                 GuardedContext(guard) if guard is not None else None,
             )
+            if provider is not None:
+                self._gaze_context_fingerprint = context_fingerprint(
+                    lambda: current_context(
+                        camera_id=str(cfg.gaze.camera_index), provider=provider
+                    ),
+                    accepted=context,
+                    clock=time.monotonic,
+                )
             return GazeTargeter(
                 backend, calibration, desktop, cfg.gaze.confidence_min, topology_guard=guard
             )
@@ -2085,6 +2096,7 @@ class Daemon:
                 source=source,
                 fps=cfg.perception.fps,
                 clock=time.monotonic,  # the clock the shared source stamps samples with
+                fingerprint=getattr(self, "_gaze_context_fingerprint", None),
             )
         except Exception:
             log.debug("Implicit gaze calibration init failed; skipping", exc_info=True)
