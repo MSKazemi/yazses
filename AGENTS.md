@@ -126,8 +126,8 @@ regression test.
    reporting, or a cloud API dependency. Offline-first is the product, not a preference.
    This is **enforced**: `tests/test_egress_inventory.py` fails the build when a module
    under `src/yazses/` gains an outbound primitive without being registered and classified
-   in [ADR-019](design/adr/adr-019-egress-inventory-and-escalation.md). Seven paths exist
-   and exactly **two** can transmit what the user said. If your change needs an eighth,
+   in [ADR-019](design/adr/adr-019-egress-inventory-and-escalation.md). Eight paths exist
+   and exactly **two** can transmit what the user said. If your change needs a ninth,
    read the ADR first — the escalation rules are written down, and three categories
    (voiceprints, the learning corpus, third-party capture) may never leave at all.
 2. **New features ship off by default.** Add a config section in `src/yazses/config.py`
