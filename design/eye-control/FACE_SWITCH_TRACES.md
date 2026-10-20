@@ -84,13 +84,15 @@ with no denominator is `{"value": null, "reason": ...}`, never `0`: no deliberat
 ## The nuisance traces and what the shipped detector does
 
 All five run at 15 Hz (the `[facegesture] fps` default). They use the shipped `GestureSwitch`
-at its constructor defaults (hold 0.5, release 0.35, 3-sample debounce). The figures come from
+at its constructor defaults (hold 0.5, release 0.35, 3-sample debounce) plus the per-gesture timed
+minimum hold the backend applies since #406 (`min_hold_s_for`: 0.8 s for `eyes_closed`, none
+otherwise). The figures come from
 `tests/fixtures/face_switch_replay_report.json`, which `--check` keeps current.
 
 | Trace | Gesture | What it is | False activations (non-deliberate s) | Misses |
 |---|---|---|---|---|
-| `natural-blinks` | `eyes_closed` | 34 blinks in 2 min plus 3 deliberate 1.2 s closures | 6, all `blink` (116.4 s) | 0 of 3 |
-| `look-down-glances` | `eyes_closed` | 6 glances of 1.5–4 s plus short blinks plus 2 closures | 5, all `look_down` (78.3 s) | 0 of 2 |
+| `natural-blinks` | `eyes_closed` | 34 blinks in 2 min plus 3 deliberate 1.2 s closures | 0 (116.4 s); 6 `blink` before #406 | 0 of 3 |
+| `look-down-glances` | `eyes_closed` | 6 glances of 1.5–4 s plus short blinks plus 2 closures | 4, all `look_down` (78.3 s); 5 before #406 | 0 of 2 |
 | `animated-talking` | `jaw_open` | 70 s of lively speech, emphatic vowels at most 2 samples long | 0 (90 s) | none intended |
 | `yawns` | `jaw_open` | 3 yawns of 6 s plus 2 deliberate 1.4 s jaw opens | 3, all `yawn` (91.3 s) | 0 of 2 |
 | `blinks-on-jaw-open` | `jaw_open` | 17 blinks watched by a jaw switch | 0 (60 s) | none intended |
@@ -98,10 +100,11 @@ at its constructor defaults (hold 0.5, release 0.35, 3-sample debounce). The fig
 What these shapes show, and only on these shapes:
 
 - **A frame debounce lasts whatever the camera makes it.** Three samples at 15 Hz is 0.2 s, so
-  every blink of 5 samples (about 0.33 s) or more fires an `eyes_closed` switch.
-- **A longer hold fixes blinks, not glances down.** In the test suite a candidate with a 0.8 s
-  timed hold removes all six blink phantoms and keeps all three deliberate closures. Four
-  glances down still fire it, because a glance holds the lids low for longer than the hold.
+  with the frame rule alone (the detector before #406) every blink of 5 samples (about 0.33 s)
+  or more fires an `eyes_closed` switch: 6 here.
+- **The timed hold fixes blinks, not glances down.** The 0.8 s hold that ships since #406 removes
+  all six blink phantoms and keeps all three deliberate closures. Four glances down still fire
+  it, because a glance holds the lids low for longer than the hold.
 - **No threshold or debounce separates a yawn from `jaw_open`.** A yawn is wider and longer than
   the deliberate gesture. All three yawns fire at hold 0.35, 0.5 and 0.6, and with a 15-sample
   debounce too.

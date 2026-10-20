@@ -60,7 +60,7 @@ from yazses.eyeeval.switch_trace import (
     check_trace,
     validate_trace,
 )
-from yazses.facegesture.detector import GestureSwitch
+from yazses.facegesture.detector import GestureSwitch, min_hold_s_for
 
 ROOT = Path(__file__).resolve().parent.parent
 TRACE_DIR = ROOT / "tests" / "fixtures" / "face_switch_traces"
@@ -589,9 +589,11 @@ def test_every_start_equals_what_the_bare_switch_does_on_the_same_numbers() -> N
                 config.hold_threshold, config.release_threshold, config.min_hold_frames,
                 config.min_release_frames, confidence_floor=config.confidence_floor,
                 refractory_frames=config.refractory_frames,
+                min_hold_s=min_hold_s_for(trace.gesture),
             )
             starts = sum(
-                switch.update(s, c) == "start" for s, c in zip(trace.scores, trace.confidences, strict=True)
+                switch.update(s, c, now_s=i / trace.sample_rate_hz) == "start"
+                for i, (s, c) in enumerate(zip(trace.scores, trace.confidences, strict=True))
             )
             result = replay_trace(trace, config)
             attributed = sum(len(i.starts) for i in result.intervals)

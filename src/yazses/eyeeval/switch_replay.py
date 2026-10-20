@@ -109,7 +109,7 @@ from yazses.eyeeval.switch_trace import (
     NON_DELIBERATE_CONTEXTS,
     SwitchTrace,
 )
-from yazses.facegesture.detector import GestureSwitch
+from yazses.facegesture.detector import GestureSwitch, min_hold_s_for
 from yazses.facegesture.switches import ACTIONS, SwitchAction, SwitchMapper, make_intent
 
 #: The report envelope version. ``MAJOR.MINOR``. 1.3 added ``detector``.
@@ -227,7 +227,6 @@ def _build_gesture_switch(config: SwitchConfig, gesture: str, baseline: float | 
     starts passing a new argument (a timed minimum hold, say) this builder has to follow, and
     the committed report then measures the detector that ships rather than an older one.
     """
-    del gesture  # the shipped constructor has no per-gesture rule; a candidate's may
     return GestureSwitch(
         hold_threshold=config.hold_threshold,
         release_threshold=config.release_threshold,
@@ -237,6 +236,7 @@ def _build_gesture_switch(config: SwitchConfig, gesture: str, baseline: float | 
         confidence_floor=config.confidence_floor,
         refractory_frames=config.refractory_frames,
         max_hold_s=config.max_hold_s,
+        min_hold_s=min_hold_s_for(gesture),
     )
 
 

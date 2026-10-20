@@ -386,20 +386,20 @@
       "detections": 2,
       "misses": 0,
       "recall": 1.0,
-      "false_activations": 5,
+      "false_activations": 4,
       "duration_s": 80.733333,
       "non_deliberate_s": 78.333333,
       "deliberate_s": 2.4,
       "non_deliberate_usable_fraction": 1.0,
       "deliberate_usable_fraction": 1.0,
-      "false_activations_per_hour": 229.787,
-      "false_activations_per_hour_lower_95": 90.543,
-      "false_activations_per_hour_upper_95": 483.152,
+      "false_activations_per_hour": 183.83,
+      "false_activations_per_hour_lower_95": 62.793,
+      "false_activations_per_hour_upper_95": 420.672,
       "per_hour_extrapolated": true,
       "activation_latency_ms": {
         "count": 2,
-        "median": 200.0,
-        "max": 200.0
+        "median": 866.667,
+        "max": 866.667
       },
       "chatter": {
         "chattering_gestures": 0,
@@ -409,7 +409,7 @@
       },
       "intervals_held_at_start": 0,
       "stuck_open_holds": 0,
-      "longest_hold_s": 3.8,
+      "longest_hold_s": 3.133333,
       "failures": [],
       "by_context": {
         "rest": {
@@ -430,10 +430,10 @@
         },
         "look_down": {
           "duration_s": 16.533333,
-          "false_activations": 5,
-          "false_activations_per_hour": 1088.71,
-          "false_activations_per_hour_lower_95": 428.984,
-          "false_activations_per_hour_upper_95": 2289.129,
+          "false_activations": 4,
+          "false_activations_per_hour": 870.968,
+          "false_activations_per_hour_lower_95": 297.505,
+          "false_activations_per_hour_upper_95": 1993.105,
           "per_hour_extrapolated": true
         }
       },
@@ -576,20 +576,20 @@
       "detections": 3,
       "misses": 0,
       "recall": 1.0,
-      "false_activations": 6,
+      "false_activations": 0,
       "duration_s": 120.0,
       "non_deliberate_s": 116.4,
       "deliberate_s": 3.6,
       "non_deliberate_usable_fraction": 1.0,
       "deliberate_usable_fraction": 1.0,
-      "false_activations_per_hour": 185.567,
-      "false_activations_per_hour_lower_95": 80.815,
-      "false_activations_per_hour_upper_95": 366.26,
+      "false_activations_per_hour": 0.0,
+      "false_activations_per_hour_lower_95": 0.0,
+      "false_activations_per_hour_upper_95": 92.652,
       "per_hour_extrapolated": true,
       "activation_latency_ms": {
         "count": 3,
-        "median": 200.0,
-        "max": 200.0
+        "median": 866.667,
+        "max": 866.667
       },
       "chatter": {
         "chattering_gestures": 0,
@@ -599,7 +599,7 @@
       },
       "intervals_held_at_start": 0,
       "stuck_open_holds": 0,
-      "longest_hold_s": 1.0,
+      "longest_hold_s": 0.333333,
       "failures": [],
       "by_context": {
         "rest": {
@@ -612,10 +612,10 @@
         },
         "blink": {
           "duration_s": 7.866667,
-          "false_activations": 6,
-          "false_activations_per_hour": 2745.763,
-          "false_activations_per_hour_lower_95": 1195.786,
-          "false_activations_per_hour_upper_95": 5419.401,
+          "false_activations": 0,
+          "false_activations_per_hour": 0.0,
+          "false_activations_per_hour_lower_95": 0.0,
+          "false_activations_per_hour_upper_95": 1370.928,
           "per_hour_extrapolated": true
         }
       },
@@ -947,20 +947,20 @@
       "detections": 5,
       "misses": 0,
       "recall": 1.0,
-      "false_activations": 11,
+      "false_activations": 4,
       "duration_s": 200.733333,
       "non_deliberate_s": 194.733333,
       "deliberate_s": 6.0,
       "non_deliberate_usable_fraction": 1.0,
       "deliberate_usable_fraction": 1.0,
-      "false_activations_per_hour": 203.355,
-      "false_activations_per_hour_lower_95": 114.045,
-      "false_activations_per_hour_upper_95": 336.599,
+      "false_activations_per_hour": 73.947,
+      "false_activations_per_hour_lower_95": 25.259,
+      "false_activations_per_hour_upper_95": 169.219,
       "per_hour_extrapolated": true,
       "activation_latency_ms": {
         "count": 5,
-        "median": 200.0,
-        "max": 200.0
+        "median": 866.667,
+        "max": 866.667
       },
       "chatter": {
         "chattering_gestures": 0,
@@ -970,7 +970,7 @@
       },
       "intervals_held_at_start": 0,
       "stuck_open_holds": 0,
-      "longest_hold_s": 3.8,
+      "longest_hold_s": 3.133333,
       "failures": [],
       "by_context": {
         "rest": {
@@ -983,18 +983,18 @@
         },
         "blink": {
           "duration_s": 10.4,
-          "false_activations": 6,
-          "false_activations_per_hour": 2076.923,
-          "false_activations_per_hour_lower_95": 904.505,
-          "false_activations_per_hour_upper_95": 4099.291,
+          "false_activations": 0,
+          "false_activations_per_hour": 0.0,
+          "false_activations_per_hour_lower_95": 0.0,
+          "false_activations_per_hour_upper_95": 1036.984,
           "per_hour_extrapolated": true
         },
         "look_down": {
           "duration_s": 16.533333,
-          "false_activations": 5,
-          "false_activations_per_hour": 1088.71,
-          "false_activations_per_hour_lower_95": 428.984,
-          "false_activations_per_hour_upper_95": 2289.129,
+          "false_activations": 4,
+          "false_activations_per_hour": 870.968,
+          "false_activations_per_hour_lower_95": 297.505,
+          "false_activations_per_hour_upper_95": 1993.105,
           "per_hour_extrapolated": true
         }
       },
@@ -1116,20 +1116,20 @@
           "detections": 5,
           "misses": 0,
           "recall": 1.0,
-          "false_activations": 44,
+          "false_activations": 6,
           "duration_s": 200.733333,
           "non_deliberate_s": 194.733333,
           "deliberate_s": 6.0,
           "non_deliberate_usable_fraction": 1.0,
           "deliberate_usable_fraction": 1.0,
-          "false_activations_per_hour": 813.42,
-          "false_activations_per_hour_lower_95": 622.758,
-          "false_activations_per_hour_upper_95": 1045.848,
+          "false_activations_per_hour": 110.921,
+          "false_activations_per_hour_lower_95": 48.306,
+          "false_activations_per_hour_upper_95": 218.928,
           "per_hour_extrapolated": true,
           "activation_latency_ms": {
             "count": 5,
-            "median": 133.333,
-            "max": 133.333
+            "median": 800.0,
+            "max": 800.0
           },
           "chatter": {
             "chattering_gestures": 0,
@@ -1139,7 +1139,7 @@
           },
           "intervals_held_at_start": 0,
           "stuck_open_holds": 0,
-          "longest_hold_s": 3.933333,
+          "longest_hold_s": 3.266667,
           "failures": [],
           "by_context": {
             "rest": {
@@ -1152,10 +1152,10 @@
             },
             "blink": {
               "duration_s": 10.4,
-              "false_activations": 38,
-              "false_activations_per_hour": 13153.846,
-              "false_activations_per_hour_lower_95": 9851.507,
-              "false_activations_per_hour_upper_95": 17241.391,
+              "false_activations": 0,
+              "false_activations_per_hour": 0.0,
+              "false_activations_per_hour_lower_95": 0.0,
+              "false_activations_per_hour_upper_95": 1036.984,
               "per_hour_extrapolated": true
             },
             "look_down": {
@@ -1285,20 +1285,20 @@
           "detections": 5,
           "misses": 0,
           "recall": 1.0,
-          "false_activations": 44,
+          "false_activations": 6,
           "duration_s": 200.733333,
           "non_deliberate_s": 194.733333,
           "deliberate_s": 6.0,
           "non_deliberate_usable_fraction": 1.0,
           "deliberate_usable_fraction": 1.0,
-          "false_activations_per_hour": 813.42,
-          "false_activations_per_hour_lower_95": 622.758,
-          "false_activations_per_hour_upper_95": 1045.848,
+          "false_activations_per_hour": 110.921,
+          "false_activations_per_hour_lower_95": 48.306,
+          "false_activations_per_hour_upper_95": 218.928,
           "per_hour_extrapolated": true,
           "activation_latency_ms": {
             "count": 5,
-            "median": 133.333,
-            "max": 133.333
+            "median": 800.0,
+            "max": 800.0
           },
           "chatter": {
             "chattering_gestures": 0,
@@ -1308,7 +1308,7 @@
           },
           "intervals_held_at_start": 0,
           "stuck_open_holds": 0,
-          "longest_hold_s": 3.933333,
+          "longest_hold_s": 3.266667,
           "failures": [],
           "by_context": {
             "rest": {
@@ -1321,10 +1321,10 @@
             },
             "blink": {
               "duration_s": 10.4,
-              "false_activations": 38,
-              "false_activations_per_hour": 13153.846,
-              "false_activations_per_hour_lower_95": 9851.507,
-              "false_activations_per_hour_upper_95": 17241.391,
+              "false_activations": 0,
+              "false_activations_per_hour": 0.0,
+              "false_activations_per_hour_lower_95": 0.0,
+              "false_activations_per_hour_upper_95": 1036.984,
               "per_hour_extrapolated": true
             },
             "look_down": {
@@ -1454,20 +1454,20 @@
           "detections": 5,
           "misses": 0,
           "recall": 1.0,
-          "false_activations": 44,
+          "false_activations": 6,
           "duration_s": 200.733333,
           "non_deliberate_s": 194.733333,
           "deliberate_s": 6.0,
           "non_deliberate_usable_fraction": 1.0,
           "deliberate_usable_fraction": 1.0,
-          "false_activations_per_hour": 813.42,
-          "false_activations_per_hour_lower_95": 622.758,
-          "false_activations_per_hour_upper_95": 1045.848,
+          "false_activations_per_hour": 110.921,
+          "false_activations_per_hour_lower_95": 48.306,
+          "false_activations_per_hour_upper_95": 218.928,
           "per_hour_extrapolated": true,
           "activation_latency_ms": {
             "count": 5,
-            "median": 133.333,
-            "max": 133.333
+            "median": 800.0,
+            "max": 800.0
           },
           "chatter": {
             "chattering_gestures": 0,
@@ -1477,7 +1477,7 @@
           },
           "intervals_held_at_start": 0,
           "stuck_open_holds": 0,
-          "longest_hold_s": 3.933333,
+          "longest_hold_s": 3.266667,
           "failures": [],
           "by_context": {
             "rest": {
@@ -1490,10 +1490,10 @@
             },
             "blink": {
               "duration_s": 10.4,
-              "false_activations": 38,
-              "false_activations_per_hour": 13153.846,
-              "false_activations_per_hour_lower_95": 9851.507,
-              "false_activations_per_hour_upper_95": 17241.391,
+              "false_activations": 0,
+              "false_activations_per_hour": 0.0,
+              "false_activations_per_hour_lower_95": 0.0,
+              "false_activations_per_hour_upper_95": 1036.984,
               "per_hour_extrapolated": true
             },
             "look_down": {
@@ -1623,20 +1623,20 @@
           "detections": 5,
           "misses": 0,
           "recall": 1.0,
-          "false_activations": 44,
+          "false_activations": 6,
           "duration_s": 200.733333,
           "non_deliberate_s": 194.733333,
           "deliberate_s": 6.0,
           "non_deliberate_usable_fraction": 1.0,
           "deliberate_usable_fraction": 1.0,
-          "false_activations_per_hour": 813.42,
-          "false_activations_per_hour_lower_95": 622.758,
-          "false_activations_per_hour_upper_95": 1045.848,
+          "false_activations_per_hour": 110.921,
+          "false_activations_per_hour_lower_95": 48.306,
+          "false_activations_per_hour_upper_95": 218.928,
           "per_hour_extrapolated": true,
           "activation_latency_ms": {
             "count": 5,
-            "median": 133.333,
-            "max": 133.333
+            "median": 800.0,
+            "max": 800.0
           },
           "chatter": {
             "chattering_gestures": 0,
@@ -1646,7 +1646,7 @@
           },
           "intervals_held_at_start": 0,
           "stuck_open_holds": 0,
-          "longest_hold_s": 3.866667,
+          "longest_hold_s": 3.2,
           "failures": [],
           "by_context": {
             "rest": {
@@ -1659,10 +1659,10 @@
             },
             "blink": {
               "duration_s": 10.4,
-              "false_activations": 38,
-              "false_activations_per_hour": 13153.846,
-              "false_activations_per_hour_lower_95": 9851.507,
-              "false_activations_per_hour_upper_95": 17241.391,
+              "false_activations": 0,
+              "false_activations_per_hour": 0.0,
+              "false_activations_per_hour_lower_95": 0.0,
+              "false_activations_per_hour_upper_95": 1036.984,
               "per_hour_extrapolated": true
             },
             "look_down": {
@@ -1792,20 +1792,20 @@
           "detections": 5,
           "misses": 0,
           "recall": 1.0,
-          "false_activations": 44,
+          "false_activations": 6,
           "duration_s": 200.733333,
           "non_deliberate_s": 194.733333,
           "deliberate_s": 6.0,
           "non_deliberate_usable_fraction": 1.0,
           "deliberate_usable_fraction": 1.0,
-          "false_activations_per_hour": 813.42,
-          "false_activations_per_hour_lower_95": 622.758,
-          "false_activations_per_hour_upper_95": 1045.848,
+          "false_activations_per_hour": 110.921,
+          "false_activations_per_hour_lower_95": 48.306,
+          "false_activations_per_hour_upper_95": 218.928,
           "per_hour_extrapolated": true,
           "activation_latency_ms": {
             "count": 5,
-            "median": 133.333,
-            "max": 133.333
+            "median": 800.0,
+            "max": 800.0
           },
           "chatter": {
             "chattering_gestures": 0,
@@ -1815,7 +1815,7 @@
           },
           "intervals_held_at_start": 0,
           "stuck_open_holds": 0,
-          "longest_hold_s": 3.8,
+          "longest_hold_s": 3.133333,
           "failures": [],
           "by_context": {
             "rest": {
@@ -1828,10 +1828,10 @@
             },
             "blink": {
               "duration_s": 10.4,
-              "false_activations": 38,
-              "false_activations_per_hour": 13153.846,
-              "false_activations_per_hour_lower_95": 9851.507,
-              "false_activations_per_hour_upper_95": 17241.391,
+              "false_activations": 0,
+              "false_activations_per_hour": 0.0,
+              "false_activations_per_hour_lower_95": 0.0,
+              "false_activations_per_hour_upper_95": 1036.984,
               "per_hour_extrapolated": true
             },
             "look_down": {
@@ -1961,20 +1961,20 @@
           "detections": 5,
           "misses": 0,
           "recall": 1.0,
-          "false_activations": 43,
+          "false_activations": 4,
           "duration_s": 200.733333,
           "non_deliberate_s": 194.733333,
           "deliberate_s": 6.0,
           "non_deliberate_usable_fraction": 1.0,
           "deliberate_usable_fraction": 1.0,
-          "false_activations_per_hour": 794.933,
-          "false_activations_per_hour_lower_95": 606.583,
-          "false_activations_per_hour_upper_95": 1025.076,
+          "false_activations_per_hour": 73.947,
+          "false_activations_per_hour_lower_95": 25.259,
+          "false_activations_per_hour_upper_95": 169.219,
           "per_hour_extrapolated": true,
           "activation_latency_ms": {
             "count": 5,
-            "median": 133.333,
-            "max": 133.333
+            "median": 800.0,
+            "max": 800.0
           },
           "chatter": {
             "chattering_gestures": 0,
@@ -1984,7 +1984,7 @@
           },
           "intervals_held_at_start": 0,
           "stuck_open_holds": 0,
-          "longest_hold_s": 3.8,
+          "longest_hold_s": 3.133333,
           "failures": [],
           "by_context": {
             "rest": {
@@ -1997,18 +1997,18 @@
             },
             "blink": {
               "duration_s": 10.4,
-              "false_activations": 38,
-              "false_activations_per_hour": 13153.846,
-              "false_activations_per_hour_lower_95": 9851.507,
-              "false_activations_per_hour_upper_95": 17241.391,
+              "false_activations": 0,
+              "false_activations_per_hour": 0.0,
+              "false_activations_per_hour_lower_95": 0.0,
+              "false_activations_per_hour_upper_95": 1036.984,
               "per_hour_extrapolated": true
             },
             "look_down": {
               "duration_s": 16.533333,
-              "false_activations": 5,
-              "false_activations_per_hour": 1088.71,
-              "false_activations_per_hour_lower_95": 428.984,
-              "false_activations_per_hour_upper_95": 2289.129,
+              "false_activations": 4,
+              "false_activations_per_hour": 870.968,
+              "false_activations_per_hour_lower_95": 297.505,
+              "false_activations_per_hour_upper_95": 1993.105,
               "per_hour_extrapolated": true
             }
           },
@@ -2130,20 +2130,20 @@
           "detections": 5,
           "misses": 0,
           "recall": 1.0,
-          "false_activations": 11,
+          "false_activations": 4,
           "duration_s": 200.733333,
           "non_deliberate_s": 194.733333,
           "deliberate_s": 6.0,
           "non_deliberate_usable_fraction": 1.0,
           "deliberate_usable_fraction": 1.0,
-          "false_activations_per_hour": 203.355,
-          "false_activations_per_hour_lower_95": 114.045,
-          "false_activations_per_hour_upper_95": 336.599,
+          "false_activations_per_hour": 73.947,
+          "false_activations_per_hour_lower_95": 25.259,
+          "false_activations_per_hour_upper_95": 169.219,
           "per_hour_extrapolated": true,
           "activation_latency_ms": {
             "count": 5,
-            "median": 200.0,
-            "max": 200.0
+            "median": 866.667,
+            "max": 866.667
           },
           "chatter": {
             "chattering_gestures": 0,
@@ -2153,7 +2153,7 @@
           },
           "intervals_held_at_start": 0,
           "stuck_open_holds": 0,
-          "longest_hold_s": 3.8,
+          "longest_hold_s": 3.133333,
           "failures": [],
           "by_context": {
             "rest": {
@@ -2166,18 +2166,18 @@
             },
             "blink": {
               "duration_s": 10.4,
-              "false_activations": 6,
-              "false_activations_per_hour": 2076.923,
-              "false_activations_per_hour_lower_95": 904.505,
-              "false_activations_per_hour_upper_95": 4099.291,
+              "false_activations": 0,
+              "false_activations_per_hour": 0.0,
+              "false_activations_per_hour_lower_95": 0.0,
+              "false_activations_per_hour_upper_95": 1036.984,
               "per_hour_extrapolated": true
             },
             "look_down": {
               "duration_s": 16.533333,
-              "false_activations": 5,
-              "false_activations_per_hour": 1088.71,
-              "false_activations_per_hour_lower_95": 428.984,
-              "false_activations_per_hour_upper_95": 2289.129,
+              "false_activations": 4,
+              "false_activations_per_hour": 870.968,
+              "false_activations_per_hour_lower_95": 297.505,
+              "false_activations_per_hour_upper_95": 1993.105,
               "per_hour_extrapolated": true
             }
           },
@@ -2299,20 +2299,20 @@
           "detections": 5,
           "misses": 0,
           "recall": 1.0,
-          "false_activations": 8,
+          "false_activations": 1,
           "duration_s": 200.733333,
           "non_deliberate_s": 194.733333,
           "deliberate_s": 6.0,
           "non_deliberate_usable_fraction": 1.0,
           "deliberate_usable_fraction": 1.0,
-          "false_activations_per_hour": 147.895,
-          "false_activations_per_hour_lower_95": 73.593,
-          "false_activations_per_hour_upper_95": 266.851,
+          "false_activations_per_hour": 18.487,
+          "false_activations_per_hour_lower_95": 0.948,
+          "false_activations_per_hour_upper_95": 87.699,
           "per_hour_extrapolated": true,
           "activation_latency_ms": {
             "count": 5,
-            "median": 200.0,
-            "max": 200.0
+            "median": 866.667,
+            "max": 866.667
           },
           "chatter": {
             "chattering_gestures": 0,
@@ -2322,7 +2322,7 @@
           },
           "intervals_held_at_start": 0,
           "stuck_open_holds": 0,
-          "longest_hold_s": 2.866667,
+          "longest_hold_s": 1.133333,
           "failures": [],
           "by_context": {
             "rest": {
@@ -2335,18 +2335,18 @@
             },
             "blink": {
               "duration_s": 10.4,
-              "false_activations": 6,
-              "false_activations_per_hour": 2076.923,
-              "false_activations_per_hour_lower_95": 904.505,
-              "false_activations_per_hour_upper_95": 4099.291,
+              "false_activations": 0,
+              "false_activations_per_hour": 0.0,
+              "false_activations_per_hour_lower_95": 0.0,
+              "false_activations_per_hour_upper_95": 1036.984,
               "per_hour_extrapolated": true
             },
             "look_down": {
               "duration_s": 16.533333,
-              "false_activations": 2,
-              "false_activations_per_hour": 435.484,
-              "false_activations_per_hour_lower_95": 77.377,
-              "false_activations_per_hour_upper_95": 1370.858,
+              "false_activations": 1,
+              "false_activations_per_hour": 217.742,
+              "false_activations_per_hour_lower_95": 11.169,
+              "false_activations_per_hour_upper_95": 1032.938,
               "per_hour_extrapolated": true
             }
           },

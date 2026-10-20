@@ -146,6 +146,25 @@ def _timed_for_eyes_closed(config: SwitchConfig, gesture: str, baseline: float |
 TIMED = Detector(name="test.TimedHold(eyes_closed 0.8 s)", build=_timed_for_eyes_closed)
 
 
+def _frames_only(config: SwitchConfig, gesture: str, baseline: float | None) -> Any:
+    """The detector as it shipped before #406: the frame rule alone, no timed minimum hold."""
+    del gesture
+    return GestureSwitch(
+        hold_threshold=config.hold_threshold,
+        release_threshold=config.release_threshold,
+        min_hold_frames=config.min_hold_frames,
+        min_release_frames=config.min_release_frames,
+        baseline=baseline,
+        confidence_floor=config.confidence_floor,
+        refractory_frames=config.refractory_frames,
+        max_hold_s=config.max_hold_s,
+    )
+
+
+#: The pre-#406 policy, kept as a reference point: what the timed hold is measured against.
+UNTIMED = Detector(name="test.GestureSwitch(frames only, pre-#406)", build=_frames_only)
+
+
 # --------------------------------------------------------------------------- 1. the nuisance fixtures are what they claim
 
 
@@ -207,8 +226,8 @@ def test_blinks_watched_by_a_jaw_switch_barely_move_the_jaw_score() -> None:
 # --------------------------------------------------------------------------- 2. what the shipped detector does on them
 
 
-def test_the_shipped_detector_fires_on_long_natural_blinks() -> None:
-    block = _block("natural-blinks")
+def test_the_frames_only_detector_fires_on_long_natural_blinks() -> None:
+    block = _block("natural-blinks", UNTIMED)
     assert block["false_activations"] == 6
     assert block["by_context"]["blink"]["false_activations"] == 6
     assert block["by_context"]["rest"]["false_activations"] == 0
@@ -220,9 +239,21 @@ def test_the_shipped_detector_fires_on_long_natural_blinks() -> None:
     assert block["false_activations_per_hour_upper_95"] > block["false_activations_per_hour"]
 
 
+def test_the_shipped_detector_ignores_long_natural_blinks() -> None:
+    """#406's 0.8 s timed hold: no blink fires, every deliberate closure still does, and a
+    zero count still carries an upper limit (no events is not proof of none)."""
+    block = _block("natural-blinks")
+    assert block["false_activations"] == 0
+    assert block["by_context"]["blink"]["false_activations"] == 0
+    assert block["intended_activations"] == 3 and block["misses"] == 0 and block["recall"] == 1.0
+    assert block["false_activations_per_hour"] == 0.0
+    assert block["false_activations_per_hour_upper_95"] > 0.0
+
+
 def test_the_shipped_detector_fires_on_deep_glances_down_and_not_on_short_blinks() -> None:
     block = _block("look-down-glances")
-    assert block["by_context"]["look_down"]["false_activations"] == 5
+    assert block["by_context"]["look_down"]["false_activations"] == 4
+    assert _block("look-down-glances", UNTIMED)["by_context"]["look_down"]["false_activations"] == 5
     assert block["by_context"]["blink"]["false_activations"] == 0
     assert block["recall"] == 1.0
 
@@ -269,7 +300,7 @@ def test_the_committed_report_carries_the_same_nuisance_numbers() -> None:
 
 
 def test_a_timed_hold_removes_blink_phantoms_and_keeps_every_deliberate_closure() -> None:
-    shipped, timed = _block("natural-blinks"), _block("natural-blinks", TIMED)
+    shipped, timed = _block("natural-blinks", UNTIMED), _block("natural-blinks", TIMED)
     assert shipped["by_context"]["blink"]["false_activations"] == 6
     assert timed["by_context"]["blink"]["false_activations"] == 0
     assert timed["recall"] == 1.0 and timed["misses"] == 0
@@ -285,11 +316,13 @@ def test_a_timed_hold_does_not_fix_looking_down() -> None:
 def test_the_report_names_the_detector_and_the_sweep_replays_the_same_one() -> None:
     traces = [_trace("natural-blinks")]
     shipped = replay_traces(traces, sweep=[0.5])
+    untimed = replay_traces(traces, sweep=[0.5], detector=UNTIMED)
     timed = replay_traces(traces, sweep=[0.5], detector=TIMED)
     assert shipped["detector"] == "yazses.facegesture.detector.GestureSwitch"
-    assert timed["detector"] == TIMED.name
+    assert untimed["detector"] == UNTIMED.name and timed["detector"] == TIMED.name
     assert timed["sweep"][0]["by_gesture"]["eyes_closed"]["false_activations"] == 0
-    assert shipped["sweep"][0]["by_gesture"]["eyes_closed"]["false_activations"] == 6
+    assert shipped["sweep"][0]["by_gesture"]["eyes_closed"]["false_activations"] == 0
+    assert untimed["sweep"][0]["by_gesture"]["eyes_closed"]["false_activations"] == 6
     assert shipped["config"] == timed["config"], "the configuration is the input, the detector the variable"
 
 
@@ -456,11 +489,11 @@ def test_the_default_detector_passes_every_argument_the_backend_passes() -> None
 
 def test_the_backend_guard_would_notice_a_new_argument() -> None:
     """Green on a backend that adds nothing proves little; show it fires."""
-    mutated = _gesture_switch_calls(ast.parse("GestureSwitch(hold_threshold=1, min_hold_s=0.8)"))
+    mutated = _gesture_switch_calls(ast.parse("GestureSwitch(hold_threshold=1, a_future_policy=0.8)"))
     harness_kw = {
         k.arg for k in _gesture_switch_calls(ast.parse(inspect.getsource(switch_replay._build_gesture_switch)))[0].keywords
     }
-    assert {k.arg for k in mutated[0].keywords} - harness_kw == {"min_hold_s"}
+    assert {k.arg for k in mutated[0].keywords} - harness_kw == {"a_future_policy"}
 
 
 @pytest.mark.skipif(
