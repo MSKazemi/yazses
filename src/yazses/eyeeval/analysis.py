@@ -615,7 +615,7 @@ def _stratum_report(
     return {
         "stratum_id": sid, "stratum": first.stratum, "unit": unit,
         "primary_outcome": spec["primary"], "units": units, "across_units": summary,
-        "latency": latency, "test_retest": _retest(group, spec, min_trials, min_units, claim),
+        "latency": latency, "session_retest": _retest(group, spec, min_trials, min_units, claim),
     }
 
 
@@ -639,7 +639,7 @@ def _retest(group: list[_Run], spec: dict[str, Any], min_trials: int, min_units:
         if len(rates) >= 2:
             values = [x["rate"] for x in rates]
             rows.append({"participant": pid, "sessions": rates, "spread": round(max(values) - min(values), 4)})
-            claim("test_retest", pid, [r for s in sessions.values() for r in s])
+            claim("session_retest", pid, [r for s in sessions.values() for r in s])
     result: dict[str, Any] = {
         "outcome": primary, "provisional": True, "participants_with_two_or_more_sessions": len(rows),
         "minimum_units": min_units, "rows": rows,
@@ -726,7 +726,7 @@ def render_markdown(report: dict[str, Any]) -> str:
         lat = s["latency"]
         lines += ["", f"Latency `{lat['metric']}` (per-run p50 ms, runs n={lat['runs_with_value']}; {lat['pooling']}): "
                       f"{lat['per_run_p50'] or INSUFFICIENT}"]
-        rt = s["test_retest"]
+        rt = s["session_retest"]
         if "status" in rt:
             lines.append(f"Test-retest: {rt['status']}.")
         else:

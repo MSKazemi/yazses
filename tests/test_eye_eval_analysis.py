@@ -478,17 +478,17 @@ def test_test_retest_reports_each_participants_session_spread() -> None:
             name = f"p{p}s{s}.json"
             inputs.append((name, raw(make_doc(outcomes={"correct_target": correct, "wrong_target": 40 - correct}))))
             rows.append((name, f"P{p}", f"S{s}", False))
-    rt = stratum(analyze(inputs, unit="participant", links_text=links(*rows)))["test_retest"]
+    rt = stratum(analyze(inputs, unit="participant", links_text=links(*rows)))["session_retest"]
     assert rt["participants_with_two_or_more_sessions"] == 5
     assert rt["rows"][0]["spread"] == 0.15 and rt["summary"]["median"] == 0.15
 
 
 def test_test_retest_needs_enough_participants_and_a_links_file() -> None:
     inputs, text = study(2, sessions=2)
-    rt = stratum(analyze(inputs, unit="participant", links_text=text))["test_retest"]
+    rt = stratum(analyze(inputs, unit="participant", links_text=text))["session_retest"]
     assert rt["summary"] == INSUFFICIENT and len(rt["rows"]) == 2
     qa = analyze([("q.json", raw(make_doc(mode="community_qa")))], unit="run", study_mode="community_qa")
-    assert stratum(qa)["test_retest"]["status"].startswith("not available")
+    assert stratum(qa)["session_retest"]["status"].startswith("not available")
 
 
 def test_across_unit_summary_appears_only_with_enough_units() -> None:
