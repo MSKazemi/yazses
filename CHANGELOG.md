@@ -6,6 +6,22 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the eye-control CI matrix lost its macOS leg to a new Homebrew Python ([#424](https://github.com/MSKazemi/yazses/issues/424))
+
+From 2026-10-17, every macOS leg of `eye-eval-ci.yml` failed in `uv sync`, before the evaluation ran. The step
+named no interpreter. The `macos-26-arm64` image (20261013) had added Homebrew `python@3.15`, so uv used CPython
+3.15.0, and onnxruntime 1.28.0 publishes no cp315 wheel. The verdict job reported `MISSING Darwin` each time, so
+the gap was visible. The last green run (2026-10-15) had resolved `python@3.14`. `test.yml`'s macOS legs stayed
+green on the same image because they pass `python-version:` to setup-uv. Locally, `UV_PYTHON=3.15 uv sync
+--dry-run` reproduces the error (exit 2) and `UV_PYTHON=3.12` resolves (exit 0).
+
+The workflow now pins Python 3.12, as `test.yml` does. The same latent gap is closed in `benchmark.yml` and
+`macos-smoke.yml`, which had not run since the image changed. In `macos-smoke.yml` the `uv sync` sits inside
+`scripts/build-macos.sh`. A new guard, `tests/test_macos_uv_jobs_pin_the_interpreter.py`, fails any job that
+can run on macOS and installs with uv but does not pin a concrete interpreter. It reads repository scripts the
+job calls, and it checks that the pinned version has a locked macOS arm64 onnxruntime wheel. A hosted run on the
+fix has not been observed yet. That run is #424's definition of done.
+
 ### Tests — the PointerSink contract now covers bounds and permanence ([#400](https://github.com/MSKazemi/yazses/issues/400))
 
 This change touches only the shared pointer contract (`tests/pointer_contract.py`). No backend changed, and every one
