@@ -28,7 +28,9 @@ from pathlib import Path
 
 import pytest
 
-ROOT = Path(__file__).resolve().parent.parent
+from tests.release_window import release_window, released_versions
+
+ROOT =Path(__file__).resolve().parent.parent
 METAINFO = ROOT / "packaging/flatpak/com.mskazemi.YazSes.metainfo.xml"
 PYPROJECT = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
 
@@ -333,12 +335,6 @@ def test_the_flatpak_installs_exactly_one_yazses_wheel():
     )
 
 
-def _released_versions() -> list[str]:
-    """Every version CHANGELOG.md records as released, newest first."""
-    text = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
-    return re.findall(r"(?m)^## \[(\d+\.\d+\.\d+)\]", text)
-
-
 def test_the_pinned_wheel_is_the_project_version_or_the_one_before_it():
     """The listing said 2.29.0 and the build installed 2.18.2 — eleven releases apart.
 
@@ -362,25 +358,25 @@ def test_the_pinned_wheel_is_the_project_version_or_the_one_before_it():
     version with the pin one behind, then the published wheel is pinned in a follow-up.
     Leaving that follow-up undone is caught by the *next* release, not this one.
 
-    **Do not replace this with `test_platform_windows_hardening._released_version()`.**
-    That helper looks like the better mechanism -- it reads the git tags and drops the
-    one being released -- and unifying the two is an obvious-looking tidy-up. It is
-    wrong here, and 2026-08-24 is the proof: the `v2.30.0` tag exists and its GitHub
-    release carries the Windows `.exe`, so tags are the correct proxy *there*, because
-    those assets hang off the tag. This pin is a **PyPI wheel**, and PyPI's newest was
-    still 2.29.0 with `v2.30.0` tagged -- the publish job had been skipped. Pointed at
-    the tags, this guard would have demanded a pin to a wheel that does not exist and
-    pushed the Flathub build into a 404. Different registry, different question.
+    **Never measure this against the git tags.** 2026-08-24 is the proof: the `v2.30.0`
+    tag existed while PyPI's newest was still 2.29.0 -- the publish job had been
+    skipped -- so a tag-based reference would have demanded a pin to a wheel that did
+    not exist and pushed the Flathub build into a 404. The Windows manifests learned
+    the same lesson from the other side (#602): a tag is global state that moves under
+    a commit, and reading it turned every PR red during each release. Both guards now
+    share one tree-only window, `tests/release_window.py`.
     """
     (source,) = _yazses_wheel_sources()
     match = _WHEEL.search(source["url"])
     assert match is not None
     pinned = match.group(2)
     project = PYPROJECT["project"]["version"]
-    released = _released_versions()
-    assert released, "CHANGELOG.md records no released version to measure the pin against"
-    previous = next((v for v in released if v != project), None)
-    allowed = {project} | ({previous} if previous else set())
+    changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+    assert released_versions(changelog), (
+        "CHANGELOG.md records no released version to measure the pin against"
+    )
+    allowed = release_window(project, changelog)
+    previous = next((v for v in sorted(allowed) if v != project), None)
     assert pinned in allowed, (
         f"the Flatpak build installs yazses {pinned}, but this project is at {project} "
         f"and the newest release before it is {previous}. A pin outside those two is "

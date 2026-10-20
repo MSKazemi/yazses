@@ -422,10 +422,13 @@ def test_how_to_grant_mentions_the_elevated_window_trap():
 
 # ---- Windows packaging manifests ----------------------------------------
 #
-# scoop/chocolatey/winget pin a version AND a SHA256 by hand. Nothing in the
-# release pipeline touches them, so they silently fall a release behind — and a
-# manifest carrying the previous release's checksum fails on submission or, if
-# it were published, hands users a file whose hash does not match.
+# scoop/chocolatey/winget pin a version AND a SHA256. A manifest carrying the
+# previous release's checksum fails on submission or, if it were published,
+# hands users a file whose hash does not match. `scripts/refresh-package-
+# manifests.py` rewrites them from the real release assets after each tag.
+#
+# What they are measured against is the tree, never the git tags (#602) — see
+# `tests/release_window.py` for why, and for the replay of `main` that shows it.
 
 
 def _repo_root():
@@ -434,90 +437,133 @@ def _repo_root():
     return Path(__file__).resolve().parent.parent
 
 
-def _released_version() -> str:
-    """The newest published version, from the git tags.
+def _released_version(root=None) -> str:
+    """The release the committed manifests describe, as the tree records it.
 
-    Deliberately *not* ``pyproject.toml``. A manifest pins a SHA256 of a built
-    artefact, which cannot exist until the tag is pushed and CI has published
-    the release — so requiring the manifests to match the in-development
-    version would turn `main` red on every release commit, for a gap nobody can
-    close. The invariant that actually holds is "manifests describe the latest
-    release".
+    `packaging/released-assets.json` is written by the same
+    `refresh-package-manifests.py` run that rewrites every checksum, from the
+    same `gh release view` call, so it is the tree's own record of "the newest
+    release whose assets were really read". It changes only when a refresh
+    lands — which is exactly when the manifests change.
 
-    **The tag alone does not measure that, and v2.18.1 proved it.** Using the
-    newest tag moved the impossible gap rather than closing it: the moment a tag
-    is pushed, the newest tag *is* the release being made, whose assets do not
-    exist yet — and `release.yml` runs this suite at that tag, with the PyPI and
-    `.deb` publish behind it. v2.18.1 was the first release cut after these
-    tests landed, and it deadlocked exactly there: the GitHub release published
-    its `.exe` and `.dmg`, and PyPI never got the version at all.
+    **Deliberately not the git tags.** This used to return the newest tag (and,
+    after v2.18.1 deadlocked its own release, the newest tag *before* the one in
+    `GITHUB_REF_NAME`). Tags are global state that moves underneath a commit:
+    the moment `v2.43.0` was pushed, every pull request and every commit on
+    `main` went red until the refresh commit landed hours later (#602), for a
+    change none of them made. A guard that one push can turn red on a tree it
+    never touched is not measuring the tree.
 
-    So when we are running *inside* the release of tag X, the latest **released**
-    version is the newest stable tag **before** X. `GITHUB_REF_TYPE`/
-    `GITHUB_REF_NAME` say which tag is in flight; both are set by Actions on a
-    tag push and absent everywhere else.
-
-    This does not weaken the gate. On `main` — no tag ref — the behaviour is
-    unchanged: manifests must match the newest tag, so `main` still goes red
-    after a release until they are refreshed, which is the pressure that keeps
-    them honest.
+    **Deliberately not `pyproject.toml` either.** The checksums cannot exist
+    until after the tag, so "manifests == project version" fails on every
+    release commit. Staleness is bounded instead by
+    `test_released_version_is_within_one_release_of_the_project`.
     """
-    import os
-    import subprocess
-
-    # `out` is bound before the try so the read below is unconditionally safe.
-    # pytest.skip() does raise, but nothing in the signature says so, and a
-    # reader (or a static analyser) has to take the fall-through on trust.
-    out: subprocess.CompletedProcess[str] | None = None
-    try:
-        out = subprocess.run(
-            ["git", "tag", "--list", "v[0-9]*", "--sort=-v:refname"],
-            cwd=_repo_root(), capture_output=True, text=True, check=False, timeout=10,
-        )
-    except (OSError, subprocess.SubprocessError):  # pragma: no cover
-        pass
-    if out is None:  # pragma: no cover - git missing from the image
-        pytest.skip("git unavailable")
-    tags = [t.strip().lstrip("v") for t in out.stdout.splitlines() if t.strip()]
-    # Ignore pre-releases; manifests only ever describe stable releases.
-    stable = [t for t in tags if "-" not in t]
-    # Drop the tag currently being released — its assets do not exist yet.
-    if os.environ.get("GITHUB_REF_TYPE") == "tag":
-        in_flight = os.environ.get("GITHUB_REF_NAME", "").lstrip("v")
-        stable = [t for t in stable if t != in_flight]
-    if not stable:  # pragma: no cover - shallow clone, or the very first release
-        pytest.skip("no published release tag available (shallow clone, or first release?)")
-    return stable[0]
-
-
-def test_scoop_manifest_tracks_the_released_version():
     import json
 
-    manifest = json.loads((_repo_root() / "packaging/scoop/yazses.json").read_text(encoding="utf-8"))
-    version = _released_version()
-    assert manifest["version"] == version
-    assert version in manifest["architecture"]["64bit"]["url"]
+    base = _repo_root() if root is None else root
+    data = json.loads((base / "packaging/released-assets.json").read_text(encoding="utf-8"))
+    return str(data["version"])
 
 
-def test_chocolatey_nuspec_tracks_the_released_version():
-    nuspec = (_repo_root() / "packaging/chocolatey/yazses.nuspec").read_text(encoding="utf-8")
-    assert f"<version>{_released_version()}</version>" in nuspec
+def _project_version(root) -> str:
+    import tomllib
+
+    data = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))
+    return str(data["project"]["version"])
 
 
-def test_chocolatey_install_script_points_at_this_release():
-    script = (_repo_root() / "packaging/chocolatey/tools/chocolateyinstall.ps1").read_text(encoding="utf-8")
-    assert _released_version() in script
+def _release_window_problems(root) -> list[str]:
+    """Why the recorded release is outside the one-release window, if it is."""
+    from tests.release_window import release_window
+
+    project = _project_version(root)
+    released = _released_version(root)
+    allowed = release_window(project, (root / "CHANGELOG.md").read_text(encoding="utf-8"))
+    if released in allowed:
+        return []
+    return [
+        f"packaging/ describes release {released}, but this tree is at {project} and "
+        f"may only lag it by one release ({sorted(allowed)}). A post-tag refresh was "
+        f"skipped: run scripts/refresh-package-manifests.py --version <the last "
+        f"published release>."
+    ]
 
 
-def test_winget_manifests_exist_for_this_version():
-    root = _repo_root() / "packaging/winget/manifests/m/MSKazemi/YazSes" / _released_version()
-    assert root.is_dir(), f"no winget manifest folder for {_released_version()}"
-    names = {p.name for p in root.glob("*.yaml")}
-    assert names == {
+def _scoop_problems(root, version: str) -> list[str]:
+    import json
+
+    manifest = json.loads((root / "packaging/scoop/yazses.json").read_text(encoding="utf-8"))
+    problems = []
+    if manifest["version"] != version:
+        problems.append(f"scoop version {manifest['version']} != {version}")
+    if version not in manifest["architecture"]["64bit"]["url"]:
+        problems.append(f"scoop 64bit url does not name {version}")
+    return problems
+
+
+def _nuspec_problems(root, version: str) -> list[str]:
+    nuspec = (root / "packaging/chocolatey/yazses.nuspec").read_text(encoding="utf-8")
+    return [] if f"<version>{version}</version>" in nuspec else [f"nuspec is not {version}"]
+
+
+def _choco_script_problems(root, version: str) -> list[str]:
+    script = (root / "packaging/chocolatey/tools/chocolateyinstall.ps1").read_text(encoding="utf-8")
+    return [] if version in script else [f"chocolateyinstall.ps1 does not name {version}"]
+
+
+def _winget_problems(root, version: str) -> list[str]:
+    folder = root / "packaging/winget/manifests/m/MSKazemi/YazSes" / version
+    if not folder.is_dir():
+        return [f"no winget manifest folder for {version}"]
+    names = {p.name for p in folder.glob("*.yaml")}
+    expected = {
         "MSKazemi.YazSes.installer.yaml",
         "MSKazemi.YazSes.locale.en-US.yaml",
         "MSKazemi.YazSes.yaml",
     }
+    return [] if names == expected else [f"winget {version} has {sorted(names)}"]
+
+
+def _windows_manifest_problems(root) -> list[str]:
+    """Every check below, on any tree — the repository or a fabricated one."""
+    version = _released_version(root)
+    return (
+        _release_window_problems(root)
+        + _scoop_problems(root, version)
+        + _nuspec_problems(root, version)
+        + _choco_script_problems(root, version)
+        + _winget_problems(root, version)
+    )
+
+
+def test_released_version_is_within_one_release_of_the_project():
+    """The staleness bound that the tag comparison used to provide.
+
+    A skipped refresh is red from the next release commit on — and `release.yml`
+    runs this suite at the tag, so that release cannot publish to PyPI on top of
+    manifests two releases old. Between releases, a refresh that is late but not
+    skipped is the scheduled lane's to report: `channel-drift.yml` compares the
+    Scoop bucket served from `main` (and every external channel) with the newest
+    release daily, after a 24-hour grace, without blocking anyone's PR.
+    """
+    assert _release_window_problems(_repo_root()) == []
+
+
+def test_scoop_manifest_tracks_the_released_version():
+    assert _scoop_problems(_repo_root(), _released_version()) == []
+
+
+def test_chocolatey_nuspec_tracks_the_released_version():
+    assert _nuspec_problems(_repo_root(), _released_version()) == []
+
+
+def test_chocolatey_install_script_points_at_this_release():
+    assert _choco_script_problems(_repo_root(), _released_version()) == []
+
+
+def test_winget_manifests_exist_for_this_version():
+    assert _winget_problems(_repo_root(), _released_version()) == []
 
 
 def test_scoop_and_chocolatey_agree_on_the_checksum():
@@ -558,37 +604,135 @@ def test_stop_cancels_a_pending_hold_timer():
     )
 
 
-def test_released_version_ignores_the_tag_being_released(monkeypatch):
-    """The v2.18.1 deadlock, pinned.
+def _fake_release_tree(root, *, project: str, released: str, history: list[str]):
+    """A minimal tree holding just what the Windows manifest checks read.
 
-    Cutting a release runs this suite at the new tag, before its assets exist.
-    If `_released_version()` returned that tag, the manifest tests could never
-    pass during a release — and the job that publishes to PyPI sits behind
-    them. v2.18.1 hit exactly this: the `.exe` and `.dmg` published, PyPI did
-    not get the version at all.
+    `history` is the CHANGELOG's released versions, newest first. The manifests
+    are rendered for `released`, the way one refresh run writes them together.
     """
-    newest = _released_version()          # no tag ref set: the newest stable tag
+    import json
 
-    monkeypatch.setenv("GITHUB_REF_TYPE", "tag")
-    monkeypatch.setenv("GITHUB_REF_NAME", f"v{newest}")
-    during_release = _released_version()
-
-    assert during_release != newest, (
-        "the tag being released is still reported as the latest release, so the "
-        "manifest tests can never pass during a release"
+    (root / "pyproject.toml").write_text(
+        f'[project]\nname = "yazses"\nversion = "{project}"\n', encoding="utf-8"
     )
+    (root / "CHANGELOG.md").write_text(
+        "# Changelog\n\n## [Unreleased]\n\n"
+        + "".join(f"## [{v}] - 2026-10-17\n\n- notes\n\n" for v in history),
+        encoding="utf-8",
+    )
+    pkg = root / "packaging"
+    (pkg / "scoop").mkdir(parents=True)
+    (pkg / "chocolatey" / "tools").mkdir(parents=True)
+    url = f"https://github.com/MSKazemi/yazses/releases/download/v{released}/YazSes-{released}-windows-x64.exe"
+    (pkg / "released-assets.json").write_text(
+        json.dumps({"version": released, "assets": [f"YazSes-{released}-windows-x64.exe"]}),
+        encoding="utf-8",
+    )
+    (pkg / "scoop" / "yazses.json").write_text(
+        json.dumps({"version": released, "architecture": {"64bit": {"url": url}}}),
+        encoding="utf-8",
+    )
+    (pkg / "chocolatey" / "yazses.nuspec").write_text(
+        f"<package><metadata><version>{released}</version></metadata></package>\n",
+        encoding="utf-8",
+    )
+    (pkg / "chocolatey" / "tools" / "chocolateyinstall.ps1").write_text(
+        f"url64bit = '{url}'\n", encoding="utf-8"
+    )
+    winget = pkg / "winget/manifests/m/MSKazemi/YazSes" / released
+    winget.mkdir(parents=True)
+    for name in (
+        "MSKazemi.YazSes.installer.yaml",
+        "MSKazemi.YazSes.locale.en-US.yaml",
+        "MSKazemi.YazSes.yaml",
+    ):
+        (winget / name).write_text(f"PackageVersion: {released}\n", encoding="utf-8")
 
 
-def test_released_version_is_unchanged_outside_a_release(monkeypatch):
-    """On `main` the gate must keep biting, or stale manifests ship unnoticed."""
-    monkeypatch.delenv("GITHUB_REF_TYPE", raising=False)
-    monkeypatch.delenv("GITHUB_REF_NAME", raising=False)
-    baseline = _released_version()
+def _tags_say(monkeypatch, newest: str) -> None:
+    """Make the environment look exactly like #602: a newer tag exists, on a branch run.
 
-    # A branch push sets ref_type=branch; the manifests must still match the newest tag.
+    `git tag` would answer `newest` first, and Actions says this is a branch (or
+    pull-request) build. Neither may move the verdict.
+    """
+    import subprocess
+
+    real_run = subprocess.run
+
+    def fake_run(cmd, *args, **kwargs):
+        if list(cmd[:2]) == ["git", "tag"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout=f"v{newest}\n", stderr="")
+        return real_run(cmd, *args, **kwargs)
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
     monkeypatch.setenv("GITHUB_REF_TYPE", "branch")
     monkeypatch.setenv("GITHUB_REF_NAME", "main")
+
+
+def test_the_bump_window_does_not_turn_unrelated_trees_red(tmp_path, monkeypatch):
+    """#602, simulated: `v2.43.0` is tagged, its assets are not yet refreshed in.
+
+    This is the tree every PR based on `d9576a52` carried on 2026-10-17: project
+    2.43.0, every manifest still at 2.42.0, and the newest tag already v2.43.0.
+    The old tag-based reference failed all four manifest tests on it; a correct
+    tree in that state must be green, or the guard punishes PRs for a release.
+    """
+    _tags_say(monkeypatch, newest="2.43.0")
+    _fake_release_tree(tmp_path, project="2.43.0", released="2.42.0",
+                       history=["2.43.0", "2.42.0", "2.41.0"])
+    assert _windows_manifest_problems(tmp_path) == []
+
+
+def test_the_refreshed_tree_is_green(tmp_path):
+    """The other side of the window: the refresh commit has landed."""
+    _fake_release_tree(tmp_path, project="2.43.0", released="2.43.0",
+                       history=["2.43.0", "2.42.0"])
+    assert _windows_manifest_problems(tmp_path) == []
+
+
+def test_a_skipped_refresh_is_red_at_the_next_release(tmp_path):
+    """The release-time guarantee the tag comparison gave, kept.
+
+    v2.43.0's refresh never happened, and the v2.43.1 release commit is cut on
+    top. The window moved to {2.43.1, 2.43.0}; manifests at 2.42.0 fall outside
+    it, so `release.yml` — which runs this suite at the tag — stops before PyPI.
+    """
+    _fake_release_tree(tmp_path, project="2.43.1", released="2.42.0",
+                       history=["2.43.1", "2.43.0", "2.42.0"])
+    problems = _windows_manifest_problems(tmp_path)
+    assert len(problems) == 1 and "skipped" in problems[0], problems
+
+
+def test_a_manifest_that_drifts_from_the_recorded_release_is_red(tmp_path):
+    """Inside the window, the manifests must still match each other's release."""
+    _fake_release_tree(tmp_path, project="2.43.0", released="2.43.0",
+                       history=["2.43.0", "2.42.0"])
+    nuspec = tmp_path / "packaging/chocolatey/yazses.nuspec"
+    nuspec.write_text(nuspec.read_text(encoding="utf-8").replace("2.43.0", "2.42.0"),
+                      encoding="utf-8")
+    assert _windows_manifest_problems(tmp_path) == ["nuspec is not 2.43.0"]
+
+
+def test_the_released_version_reads_no_tags_and_no_environment(monkeypatch):
+    """One commit, one verdict: the reference must not depend on when it runs.
+
+    Pinned because "read the newest tag" is the obvious-looking way back to
+    #602. Any call to subprocess fails this test, and the Actions ref variables
+    — which the tag-based version branched on — are set to a tag and must not
+    move the answer.
+    """
+    import subprocess
+
+    baseline = _released_version()
+
+    def no_subprocess(*args, **kwargs):
+        raise AssertionError(f"the manifest reference shelled out: {args!r}")
+
+    monkeypatch.setattr(subprocess, "run", no_subprocess)
+    monkeypatch.setenv("GITHUB_REF_TYPE", "tag")
+    monkeypatch.setenv("GITHUB_REF_NAME", "v99.0.0")
     assert _released_version() == baseline
+    assert _release_window_problems(_repo_root()) == []
 
 
 def test_scoop_bucket_copy_matches_the_packaging_manifest():

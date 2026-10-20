@@ -154,6 +154,15 @@ test would fail on every release commit and get disabled. The guard is this chec
 `refresh-package-manifests.py --check`, which compares against the assets really attached
 to a tag.
 
+What the offline suite does hold every checksummed manifest to is **the tree's own record
+of the last release**, `released-assets.json` (written by the same refresh run), and that
+record may trail `pyproject.toml` by at most one release (`tests/release_window.py`). It is
+deliberately **not** compared with the newest git tag: a tag is pushed before its assets
+can be refreshed in, so a tag-based check turned every open PR red for each release window
+([#602](https://github.com/MSKazemi/yazses/issues/602)). A skipped refresh still fails —
+at the next release commit, which `release.yml` tests before publishing — and a late one is
+reported daily by `channel-drift.yml` after its 24-hour grace.
+
 Verified at each sync: the tap is public, `Casks/yazses.rb` matches the source byte for
 byte, and the `.dmg` URL the cask points at resolves on the corresponding release.
 

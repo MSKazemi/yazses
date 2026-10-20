@@ -6,6 +6,26 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — pushing a release tag no longer turns every open pull request red ([#602](https://github.com/MSKazemi/yazses/issues/602))
+
+The Windows packaging tests (Scoop, Chocolatey nuspec and install script, winget)
+compared the committed manifests with the **newest git tag**. A tag is pushed before
+its assets exist, and the manifests can only be refreshed after them, so from each tag
+push until the `chore(release): refresh the packaging manifests` commit landed, every PR
+and every commit on `main` failed four tests for a change none of them made. On
+2026-10-17 that window lasted hours and failed the OneVoice PRs #596 and #599. Replayed
+over the 203 first-parent commits on `main` since `packaging/released-assets.json` exists,
+the tag rule was red on 10 correct trees.
+
+The reference is now read from the tree alone: the manifests must match
+`packaging/released-assets.json` (written by the same refresh run), and that record may
+trail `pyproject.toml` by at most one release (`tests/release_window.py`, now shared with
+the Flatpak wheel-pin guard). The release guarantee is kept: a skipped refresh fails the
+next release commit, which `release.yml` tests at the tag before publishing, and a late
+one is still reported daily by `channel-drift.yml`. New tests simulate the bump window,
+the refreshed tree, a skipped refresh and a drifted manifest, and fail if the reference
+ever shells out to git or reads the Actions ref variables again.
+
 ### Added — `ci-gate`, one stable check for branch protection to require ([#462](https://github.com/MSKazemi/yazses/issues/462))
 
 The Tests workflow reports about fifteen matrix check names, and those names change whenever a leg is

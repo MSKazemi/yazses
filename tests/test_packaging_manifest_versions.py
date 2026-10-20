@@ -412,7 +412,10 @@ _CHECKED_UNDER_A_DIFFERENT_RULE = {
         "test_the_released_asset_manifest_is_a_real_release and "
         "test_every_bundle_matrix_maps_onto_a_released_asset_name in "
         "tests/test_platform_support_claims.py hold its shape and its agreement with "
-        "docs/platform-support.md"
+        "docs/platform-support.md, and "
+        "test_released_version_is_within_one_release_of_the_project in "
+        "tests/test_platform_windows_hardening.py bounds that trail to one release "
+        "(tests/release_window.py)"
     ),
     "flatpak/python3-yazses.json": (
         "the wheel a Flathub install actually contains, pinned by URL and hash: "
