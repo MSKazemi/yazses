@@ -13,7 +13,7 @@
       "name": "mediapipe",
       "asset_version": null
     },
-    "generator": "yazses.eyeeval.gaze_field/1.1"
+    "generator": "yazses.eyeeval.gaze_field/1.2"
   },
   "machine": {
     "os_name": "Ubuntu",
@@ -54,7 +54,7 @@
   },
   "protocol": {
     "task": "gaze_field_measurement",
-    "task_version": "1.1",
+    "task_version": "1.2",
     "task_seed": null,
     "protocol_id": null
   },
@@ -66,8 +66,14 @@
       "validation_points": 3,
       "error_px_rmse": 71.18,
       "error_px_mean": 66.67,
+      "error_px_p50": 60.0,
+      "error_px_p90": 100.0,
       "error_px_max": 100.0,
       "error_deg_mean": 1.145,
+      "zone_grid": "3x3",
+      "zone_points": 3,
+      "zone_hits": 2,
+      "zone_hit_rate": 0.6667,
       "implicit_candidate_delta_px": {
         "value": null,
         "reason": "not_measured"

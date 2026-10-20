@@ -6,6 +6,29 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — the gaze field report now gives error percentiles and zone hit rates, and its validator rejects any report that could leak ([#399](https://github.com/MSKazemi/yazses/issues/399))
+
+`yazses gaze measure` (the report attached to [#104](https://github.com/MSKazemi/yazses/issues/104)) now also
+reports `error_px_p50` and `error_px_p90` (nearest-rank, so each is an observed value) and a zone hit rate:
+`zone_points`, `zone_hits` and `zone_hit_rate`. A hit means the predicted point fell in the same cell of a fixed
+3x3 screen grid as the target, which is the look-to-pane outcome measured against known targets. A prediction off
+the screen counts as a miss rather than being clamped into an edge cell. Each validation point keeps only a
+yes/no for the zone, never the predicted coordinate. `protocol.task_version` is now `1.2`. The envelope
+`schema_version` does not change.
+
+The validator `report_problems` is now a reader for reports other people produce, not only a self-check. It runs the
+privacy sweep, which always looks for home paths and e-mail addresses, and looks for this machine's hostname and
+login when it is given them. It refuses any list or object under `metrics` other than the confidence histogram, the
+drift blocks and the sufficiency statements. Per-sample coordinates can only travel as a series, so this is the rule
+that keeps them out. It also refuses a key named for raw gaze (`x`, `yaw`, `*coordinate*`, `*frame*`, `*mesh*`,
+`*iris*`, ...), a histogram that does not add up to its sample count, and drift blocks that do not add up to the
+validation points. `report_problems_file` and `report_problems_text` fail on a missing, empty, non-UTF-8 or non-JSON
+file. `scripts/check_eye_eval_result.py` now sends every `gaze_field_measurement` file through these rules. The
+parsing is shared with `validate_result_file` (`schema.parse_result_text` / `read_result_file`), so "unreadable"
+has one meaning. No CLI flag changed, and nothing is uploaded: the tester still attaches the file by hand.
+New tests: `tests/test_gaze_field_leak_validator.py`. Every refusal test was checked by disabling the rule it
+covers and confirming the test fails.
+
 ### Fixed — the eye-control CI matrix lost its macOS leg to a new Homebrew Python ([#424](https://github.com/MSKazemi/yazses/issues/424))
 
 From 2026-10-17, every macOS leg of `eye-eval-ci.yml` failed in `uv sync`, before the evaluation ran. The step
