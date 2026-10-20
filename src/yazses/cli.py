@@ -5660,6 +5660,9 @@ def gaze_status() -> None:
     else:
         typer.echo(f"  ✗ gaze target: none -- {target.reason}")
     typer.echo(f"  {mark(cal is not None)} calibration ({calibration_path(platform.paths.data_dir)})")
+    if cal is None and check.stale:
+        # #415: the file is there and damaged -- not the same as never having calibrated.
+        typer.echo(f"  ✗ {check.reason}")
     if cal is not None:
         # ADR-v2-149: a map fitted on another monitor arrangement still answers, it
         # just answers wrongly. Say which of the three states this one is in, and why.

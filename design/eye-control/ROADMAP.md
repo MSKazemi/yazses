@@ -492,6 +492,13 @@ Implement ADR-v2-149.
 **Gate:** calibration/window hit-testing use one coordinate space; incompatible display/camera
 topology makes calibration stale instead of silently wrong.
 
+**Delivered (fixtures only, X11 provider only):** `gaze/topology.py` names the canonical space and owns
+every canonical↔physical↔desktop-relative conversion (negative origins, 1.0/1.25/2.0 scale); the
+calibration file carries a versioned context fingerprint that is verified on load, a damaged file or
+binding is never VALID, a material change is STALE, and `SessionTopologyGuard` suspends routing on a
+mid-session change. **Not met:** a topology provider for Wayland/macOS/Windows (gaze routing runs on
+X11 only), and runtime use of the conversions by implicit calibration (#397/#398).
+
 ### X3 — Observability (#416)
 
 Add privacy-safe health to `doctor`/status.

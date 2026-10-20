@@ -1944,7 +1944,10 @@ class Daemon:
             )
             calibration, check = calibration_state(self._platform.paths.data_dir, context)
             if calibration is None:
-                log.warning("Gaze routing enabled but not calibrated; run `yazses gaze calibrate`.")
+                if check.stale:  # a file exists and is damaged (#415): say that, not "never"
+                    log.warning("Gaze routing enabled but %s; dormant.", check.reason)
+                else:
+                    log.warning("Gaze routing enabled but not calibrated; run `yazses gaze calibrate`.")
                 return None
             if check.validity is Validity.STALE:
                 log.warning(
