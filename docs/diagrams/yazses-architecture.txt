@@ -5,7 +5,7 @@ ASCII so it renders in any terminal, code review, or the master reference PDF.
 
                         ┌───────────────────────────────────────┐
    USER-FACING CONTROL  │   yazses CLI            yazses-tray     │
-                        │   (66 commands)         (all platforms) │
+                        │   (67 commands)         (all platforms) │
                         └───────────────────┬───────────────────┘
                                             │  JSON-RPC 2.0 (newline-delimited)
                                             │  Unix socket / Windows named pipe

@@ -22,7 +22,7 @@ For the narrative explanation of each subsystem, see the
 ```mermaid
 flowchart TB
   subgraph UI["User-facing control"]
-    CLI["yazses CLI (66 commands, 126 with subcommands)"]
+    CLI["yazses CLI (67 commands, 133 with subcommands)"]
     TRAY["yazses-tray (macOS/Windows)"]
   end
   UI -->|"JSON-RPC 2.0 · Unix socket / named pipe"| IPC[["IPC server (ipc/)"]]

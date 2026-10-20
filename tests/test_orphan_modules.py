@@ -52,6 +52,11 @@ ENTRY_MODULES = {
     # `scripts/analyze_eye_eval.py`; it reads result files offline and must not be imported
     # at daemon start. An evaluation entry point, not debt.
     "eyeeval.analysis",
+    # The ADR-028 pack mounter. Its caller is the PyInstaller runtime hook
+    # `packaging/windows/rthook_yazses_packs.py`, which runs before any yazses import in
+    # the frozen app; nothing in the package may import it (packs must be on sys.path
+    # before the modules that need them load). An entry point, not debt.
+    "packs.mount",
 }
 
 #: The known orphans, each with what is missing. An entry here is a debt that has
@@ -69,6 +74,10 @@ KNOWN_ORPHANS = {
         "Retired with the `hotwords` N-best rescorer (ADR-v2-069, Wiring): faster-whisper "
         "exposes no N-best list, so rescore_nbest has no producer. `hotwords` now switches on "
         "vocab_correct instead. Kept as a tested reference for an in-decoder biasing tier.",
+    "packs.catalog":
+        "ADR-028 build/test-time catalogue check (tests/test_packs_catalog.py). "
+        "scripts/build-packs.py `validate` still carries its own copy of the same check; "
+        "make the script call catalogue_problems so there is one.",
 }
 
 
