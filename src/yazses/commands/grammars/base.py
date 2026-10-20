@@ -25,4 +25,6 @@ class CommandGrammar:
     language: str
     rules: tuple[GrammarRule, ...]
     normalise: Callable[[str], str]
-    normalise_arg: Callable[[str, str], str] = _identity_arg
+    #: Canonicalise one captured argument. Returning ``None`` rejects the rule, so an
+    #: argument the grammar cannot interpret fails closed instead of reaching dispatch.
+    normalise_arg: Callable[[str, str], str | None] = _identity_arg

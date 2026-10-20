@@ -100,6 +100,30 @@ cannot count is refused rather than read as silence. A new test fails when `face
 that ships. [FACE_SWITCH_TRACES.md](design/eye-control/FACE_SWITCH_TRACES.md) documents the format for real
 traces and the report a volunteer could send later. The traces are synthetic: they justify no default.
 
+### Fixed — Mandarin commands: a sentence could become a go-to-file/function/class, and numerals were not bounded where they should be ([#499](https://github.com/MSKazemi/yazses/issues/499))
+
+With `[commands] language` resolving to `zh`, the go-to-file, go-to-function and go-to-class rules took the
+rest of the utterance as the name. Ordinary prose such as "打开文件 config.toml 之后再修改端口" or "查找函数 main
+的定义花了很久" became a navigation command whose argument was half a sentence. On an expanded 84-line negative
+corpus of ordinary Mandarin that contains command words (删除, 发送, 保存, 复制 …), origin/main's grammar
+false-triggered on 5 lines; this branch triggers on 0. A name is now one ASCII identifier/path token. A file may
+also be a Han name, but only after a space and ending in an ASCII extension (開啟檔案 設定.toml).
+
+The command numeral parser is now `parse_command_number`. It is pure and has two explicit ranges: counts stay
+0–99 (undo N times, delete/select the last N) and line numbers reach 0–999 (`百`, `零`/`〇` fillers, `两`/`兩`
+as the hundreds multiplier). It refuses 千/万, a bare 百, the elided 一百一 / 两百五, `两` as a tens or units digit
+(两十, 二十两, which origin/main accepted), mixed Arabic/Han, and over-long ASCII such as `005` for a count. A
+numeral argument the grammar cannot interpret now fails closed to dictation: `normalise_arg` may return `None`
+to reject the rule, where before the raw text was passed to dispatch. English classification is unchanged.
+
+Deletion is declared in `zh.DESTRUCTIVE_ACTIONS`. A test checks that it is reachable only through the literal
+删除最后 / 刪除最後 prefix with a capped count. Every phrase family carries an explicit native-review state in
+`zh.PHRASE_REVIEW`, and the fixtures carry a matching marker. All are `provisional` until the native review in
+#505. New tests: `tests/test_mandarin_command_numerals.py` checks the regex/parser agreement on all 813,615
+strings of up to five numeral characters; `tests/test_mandarin_command_safety.py` covers the negative corpus,
+destructive triggers, punctuation variants, English parity and review state. The targeted pytest/ruff/mypy gates
+were run; no native speaker has reviewed the phrases.
+
 ### Fixed — the eye-control CI matrix lost its macOS leg to a new Homebrew Python ([#424](https://github.com/MSKazemi/yazses/issues/424))
 
 From 2026-10-17, every macOS leg of `eye-eval-ci.yml` failed in `uv sync`, before the evaluation ran. The step
