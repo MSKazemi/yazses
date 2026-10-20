@@ -36,6 +36,7 @@ These specs are not part of the original ten-feature v2 set above; they document
 | Feature | Spec | Status |
 |---|---|---|
 | First-class Mandarin language support | [chinese-language-support.md](chinese-language-support.md) | Proposed — transactional English/Mandarin profiles, Simplified/Traditional output, localized command grammar, and measured release gate. |
+| Feature add-on packs (frozen installs) | [feature-addon-packs.md](feature-addon-packs.md) | Proposed — per-build add-on packs fetched on enable, verified against an index built into the installer; decision in [ADR-028](../adr/adr-028-feature-addon-packs.md). |
 
 The companion design package is [`../chinese/`](../chinese/).
 
