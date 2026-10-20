@@ -79,6 +79,20 @@ Do **not** collect:
 - MAC address;
 - full device UUID.
 
+### Reusing the paper benchmark's provenance
+
+The machine and software fields above are the ones `paper/benchmark/_common.py` already
+records. They are mapped, not described a second time. `yazses.eyeeval.provenance.from_benchmark`
+turns one committed benchmark provenance block into the eye-eval `Provenance`.
+`BENCHMARK_FIELDS` lists the fields it carries and `BENCHMARK_FIELDS_NOT_CARRIED` lists the
+ones it leaves out, each with a reason. `argv` and `corpus` are left out because they are
+free text or describe an audio corpus. `tests/test_eye_eval_benchmark_provenance.py` fails
+when a field is added to or removed from the benchmark dataclass and nobody places it here.
+That file also maps every block under `paper/results/` into a result that this schema
+accepts. The benchmark records `os` as one name ("Ubuntu 24.04.4 LTS"), so the mapping
+sets `os_version` to "unknown" instead of guessing a split. The benchmark does not record
+`arch`, the commit or the displays, so the mapping leaves those unrecorded too.
+
 ## Display provenance
 
 Required when gaze/pointer coordinates matter:
