@@ -86,6 +86,7 @@ __all__ = [
     "merge_facts",
     "plan_mapping",
     "render_text",
+    "stop_routes",
     "stop_without_state",
     "wired_switch_actions",
 ]
@@ -224,6 +225,11 @@ class PanelInputs:
     #: microphone): a saved resting level at or above the effective release threshold, or an
     #: unreachable release threshold. Empty = none found. See ``facegesture/restcheck.py``.
     release_issues: tuple[tuple[str, str], ...] = ()
+    #: ``[handsfree_safety] stop_phrase`` as saved (``""`` = no voice stop).
+    stop_phrase: str = ""
+    #: The ``[gesture.chords]`` chords bound to ``pause_pointer``, each as its normalised
+    #: ``token+token`` id -- only when ``[gesture] enabled``; empty otherwise.
+    stop_chords: tuple[str, ...] = ()
 
 
 # ----------------------------------------------------------------------------- the outputs
@@ -362,6 +368,9 @@ class PanelModel:
     mapping: MappingModel
     #: Standing honest notes (nothing is on by default; what restart means).
     notes: tuple[str, ...] = ()
+    #: Every way to stop that needs no pointer and is set up on this machine, one sentence
+    #: each (see :func:`stop_routes`).
+    stop_routes: tuple[str, ...] = ()
 
     def action(self, action_id: str) -> ActionSpec | None:
         for spec in (*self.actions, *self.dwell, self.safety_toggle):
@@ -499,8 +508,9 @@ def overall_state(inputs: PanelInputs) -> StateBanner:
             return StateBanner(
                 Overall.ACTIVE,
                 "Active — hands-free input is allowed to act.",
-                "You can press Pause at any time. It needs no pointing: use the keyboard "
-                "shortcut, `yazses handsfree pause`, or a face-switch mapped to pause.",
+                "You can press Pause at any time, and it needs no pointing. Every way to stop "
+                "that is set up on this machine is listed under “Ways to stop without "
+                "pointing”.",
             )
         if status.state is SafetyState.PAUSED:
             return StateBanner(
@@ -573,6 +583,57 @@ def stop_without_state() -> ActionSpec:
         ipc=_PAUSE_IPC,
         cli=_PAUSE_CLI,
     )
+
+
+def stop_routes(inputs: PanelInputs) -> tuple[str, ...]:
+    """Every way to pause that needs no pointer and is set up here, one sentence each. Pure.
+
+    The ACTIVE banner used to promise "the keyboard shortcut, `yazses handsfree pause`, or a
+    face-switch mapped to pause" on every machine, including ones with no face switch mapped
+    to pause and no shortcut outside this window. A person deciding *in advance* how they will
+    stop a runaway pointer needs the routes that exist, so each line here is derived from the
+    saved config: a route that is not configured is either absent or says it is not set up,
+    never listed as if it worked. The window and the terminal are always present because they
+    always work; the camera-driven routes say they need the camera, because the failure they
+    must survive is often the camera's.
+    """
+    if not _requested(inputs):
+        return ()
+    routes = [
+        "This window (Settings → Hands-free controls): Alt+P presses Pause and Alt+R presses "
+        "Resume or Recover; Tab reaches every control.",
+        "Terminal, script, or anything that can run a command: `yazses handsfree pause` "
+        "(and `yazses handsfree resume`).",
+    ]
+    phrase = " ".join(str(inputs.stop_phrase or "").split())
+    if phrase:
+        routes.append(
+            f"Voice: dictate exactly “{phrase}” on its own — it pauses and is never typed. "
+            "There is no spoken resume."
+        )
+    else:
+        routes.append(
+            "Voice: no stop phrase is set up. Set `[handsfree_safety] stop_phrase` to add one."
+        )
+    if _enabled(inputs, "facegesture"):
+        bindings, _problems = _current_bindings(inputs)
+        pausing = [g for g in GESTURES if bindings.get(g) == "pause_pointer"]
+        if pausing and "pause_pointer" in wired_switch_actions(inputs.safety_configured):
+            names = ", ".join(_gesture_label(g) for g in pausing)
+            routes.append(f"Face switch: {names} pauses (needs the camera).")
+        elif not pausing:
+            routes.append(
+                "Face switch: no gesture is mapped to “Pause hands-free input” — map one "
+                "under Face switch mapping."
+            )
+        # Mapped but unwired: not a route. The mapping row already says why it does nothing.
+    for chord in inputs.stop_chords:
+        routes.append(f"Gesture chord: {chord} pauses (needs the camera).")
+    if not inputs.safety_configured:
+        routes.append(
+            "The global stop is off, so each of these pauses the Head-Pointer only."
+        )
+    return tuple(routes)
 
 
 def _actions(inputs: PanelInputs, banner: StateBanner) -> tuple[ActionSpec, ...]:
@@ -748,11 +809,22 @@ def _feature_rows(inputs: PanelInputs) -> tuple[FeatureRow, ...]:
                 f"Cannot be turned on here: {fact.blocked}",
             ))
             continue
+        missing = ", ".join(fact.missing_packages)
+        if fact.enabled and fact.missing_packages and fact.blocked:
+            # "Press Apply to install them" was printed here too, in an environment that can
+            # never install them (a strict snap): a button that cannot work, offered as the fix.
+            rows.append(FeatureRow(
+                slug, label, summary, "problem",
+                f"Switched on but not working: missing {missing}, and Apply cannot install "
+                f"them here — {fact.blocked.rstrip()}" + staged,
+                desired=False, button=f"Turn {label} off", experimental=False,
+            ))
+            continue
         if fact.enabled and fact.missing_packages:
             rows.append(FeatureRow(
                 slug, label, summary, "attention",
                 "Switched on but not working: missing "
-                + ", ".join(fact.missing_packages)
+                + missing
                 + ". Press Apply to install them." + staged,
                 desired=False, button=f"Turn {label} off", experimental=False,
             ))
@@ -763,9 +835,14 @@ def _feature_rows(inputs: PanelInputs) -> tuple[FeatureRow, ...]:
                 "On." + staged, desired=False, button=f"Turn {label} off",
             ))
             continue
+        # Off. Say what turning it on costs before the button is pressed, not after: an
+        # install is a download, and the person should not learn that from a progress line.
+        needs = (
+            f" Turning it on needs {missing}, which Apply installs." if missing else ""
+        )
         rows.append(FeatureRow(
             slug, label, summary, "off",
-            "Off — nothing uses the camera for this." + staged,
+            "Off — nothing uses the camera for this." + needs + staged,
             desired=True, button=f"Turn {label} on", experimental=fact.experimental,
         ))
     return tuple(rows)
@@ -1077,6 +1154,7 @@ def build_panel(inputs: PanelInputs) -> PanelModel:
         health=_health(inputs),
         mapping=_mapping(inputs),
         notes=tuple(notes),
+        stop_routes=stop_routes(inputs),
     )
 
 
@@ -1095,6 +1173,11 @@ def render_text(model: PanelModel) -> list[str]:
         mark = "" if spec.enabled else f"  [unavailable: {spec.why_disabled}]"
         out.append(f"  {spec.label} — `{spec.cli}`{mark}")
     out.append("")
+    if model.stop_routes:
+        out.append("Ways to stop without pointing:")
+        for route in model.stop_routes:
+            out.append(f"  {route}")
+        out.append("")
     out.append("Camera controls:")
     for row in model.features:
         out.append(f"  [{row.word}] {row.label}: {row.text}")

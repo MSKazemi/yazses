@@ -393,9 +393,20 @@ class SettingsWindow:
             if box is not None and box.isEnabled():
                 box.setChecked(desired)
 
+        def _apply() -> str:
+            self._on_apply()
+            return self._hint.text()  # what landed, what is installing, whether to restart
+
+        def _busy() -> str:
+            # The settings window disables its own Apply exactly while a package install or a
+            # language-profile preparation runs on its worker thread (it never runs two).
+            if self._apply_button.isEnabled():
+                return ""
+            return self._hint.text() or "Packages are being prepared."
+
         self._handsfree_panel = HandsFreePanel(
-            _gather, _perform, toggle_feature=_toggle, apply_staged=self._on_apply,
-            parent=self._win,
+            _gather, _perform, toggle_feature=_toggle, apply_staged=_apply,
+            apply_busy=_busy, parent=self._win,
         )
         self._handsfree_panel.show()
 
