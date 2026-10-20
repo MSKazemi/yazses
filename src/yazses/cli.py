@@ -3963,9 +3963,13 @@ def update(
     snap channel for snap, the GitHub release for the Windows installer, Chocolatey,
     winget and Scoop (that is where the .exe lives), PyPI for the pip-family ones —
     then upgrades only when the available version is strictly newer (never a
-    downgrade). Where there is no one-command upgrade, or the network is blocked,
-    it prints the steps to update by hand instead of just failing. After an upgrade,
-    restart the daemon to load the new code: `yazses restart`.
+    downgrade). On Windows the update is one step: the installer is downloaded from
+    the GitHub release, checked against the release's SHA256SUMS.txt, and installed
+    silently in place after YazSes closes, which then starts again by itself
+    (Chocolatey, winget and Scoop run their own upgrade the same way). Where that is
+    not possible, or the network is blocked, it prints the steps to update by hand
+    instead of just failing. After a pip/uv/pipx/snap upgrade, restart the daemon to
+    load the new code: `yazses restart`.
     """
     from yazses.system.updater import (
         check_update,
@@ -3993,6 +3997,14 @@ def update(
         return
 
     typer.echo(f"\nUpdate available: {current} → {status.latest}")
+    launcher = _update_launcher()
+    from yazses.system.installer_update import one_click_supported
+
+    if one_click_supported(status, launcher):
+        # The Windows channels (ADR-027): the upgrade replaces the files this very
+        # process is running from, so it is handed to a detached job and YazSes exits.
+        _one_click_update(status, launcher, check=check, yes=yes)
+        return
     if not status.command:
         # No command for this method — the Windows installer and the macOS .app
         # are the live cases (the upgrade is a downloaded .exe or .dmg, with
@@ -4052,6 +4064,83 @@ def update(
         err=True,
     )
     raise typer.Exit(1)
+
+
+def _update_launcher():
+    """This platform's one-click update launcher, or None. Never raises.
+
+    A seam of its own so `yazses update` tests can choose the path explicitly instead
+    of inheriting whichever OS happens to run the suite.
+    """
+    try:
+        from yazses.platform import get_platform
+
+        return get_platform().update_launcher
+    except Exception:
+        return None
+
+
+def _one_click_update(status, launcher, *, check: bool, yes: bool) -> None:
+    """`yazses update` for the Windows channels: confirm, download, verify, hand off."""
+    from yazses.system.installer_update import (
+        RELEASE_DOWNLOAD_PREFIX,
+        package_manager_argv,
+        start_one_click_update,
+    )
+
+    if status.method == "windows-installer":
+        typer.echo(
+            "One-click update: download the installer from "
+            f"{RELEASE_DOWNLOAD_PREFIX}…, check its SHA-256 against the release's "
+            "SHA256SUMS.txt, then install it silently in place and restart YazSes."
+        )
+        typer.echo(
+            "Note: the installer is not code-signed yet — the checksum proves the file "
+            "is the one this release published, not who built it."
+        )
+    else:
+        argv, elevate, _capture = package_manager_argv(status.method)
+        typer.echo(f"Command: {' '.join(argv)}  (run after YazSes closes, then it restarts)")
+        if elevate:
+            typer.echo("Chocolatey needs administrator rights; Windows will ask.")
+
+    if check:
+        typer.echo("\n(--check) Not installing. Re-run without --check to update.")
+        return
+    if not yes and not typer.confirm(
+        "Install it now? YazSes will close and start again by itself.", default=True
+    ):
+        typer.echo("Skipped.")
+        return
+
+    from yazses.tray.updates import update_wait_pids
+
+    pids = update_wait_pids()
+
+    def _progress(message: str, fraction) -> None:
+        typer.echo(f"  {message}")
+
+    result = start_one_click_update(status, launcher, wait_pids=pids, progress=_progress)
+    if not result.ok:
+        typer.echo(f"\n{result.message}", err=True)
+        _echo_steps(result.steps)
+        raise typer.Exit(1)
+    typer.echo(f"\n{result.message}")
+    # Stop the daemon gracefully here, so a meeting in progress is finalised rather
+    # than force-closed by the installer. The update job waits for it and for us.
+    _stop_daemon_for_update(pids[1:])
+
+
+def _stop_daemon_for_update(pids: list[int]) -> None:
+    """Ask the daemon to shut down before the installer replaces its files. Never raises."""
+    if not pids:
+        return
+    try:
+        from yazses.platform import get_platform
+
+        get_platform().lifecycle.stop_daemon(pids[0])
+    except Exception as exc:
+        typer.echo(f"  (could not stop the daemon first: {exc}; the installer will close it)")
 
 
 def _calibrate_mic(*, seconds: float = 4.0, set_threshold: bool = False) -> bool:

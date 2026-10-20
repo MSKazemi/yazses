@@ -63,6 +63,7 @@ Binding for v1.0. Supersede with a new ADR; do not edit in place.
 | [adr-024-distributed-coding-agent-worker-model](adr-024-distributed-coding-agent-worker-model.md) | Distributed coding-agent worker model | Proposed |
 | [adr-025-grounded-interaction-kernel](adr-025-grounded-interaction-kernel.md) | Introduce a Grounded Interaction Kernel before new agent, spatial, or robot stacks | Proposed |
 | [adr-026-remote-coding-agents](adr-026-remote-coding-agents.md) | Remote coding agents use the existing task contract; tool identity is not authorship | Accepted |
+| [adr-027-one-click-windows-update](adr-027-one-click-windows-update.md) | One-click update on Windows: verify the installer's SHA-256, hand off to a detached job, relaunch | Accepted |
 
 ### v0.4 series
 

@@ -65,8 +65,17 @@ under `NO_COLOR`, or in CI.
 ### `yazses update`
 
 Detects how YazSes was installed and checks the matching source — the tracked
-**snap** channel for snap installs, **PyPI** for pip / pipx / uv-tool — then
+**snap** channel for snap installs, **PyPI** for pip / pipx / uv-tool, the
+**GitHub release** for the Windows installer, Chocolatey, winget and Scoop — then
 upgrades only when the available version is strictly newer (never a downgrade).
+
+On **Windows** the update is one step ([ADR-027](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-027-one-click-windows-update.md)).
+For the `.exe` install it downloads the installer from the GitHub release and
+checks its SHA-256 against the release's `SHA256SUMS.txt`. It then closes YazSes,
+installs silently in place and starts YazSes again. Chocolatey, winget and Scoop
+installs run their own upgrade the same way. A failure prints the manual steps and
+exits 1. The installer is not code-signed yet, so the checksum is integrity, not
+authenticity.
 
 **Options:** `--check` (report only, don't install) · `--yes` / `-y` (install
 without prompting).

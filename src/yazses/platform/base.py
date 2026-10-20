@@ -335,6 +335,66 @@ class HostBackend(Protocol):
         ...
 
 
+@dataclass(frozen=True)
+class UpdateHandoff:
+    """What a detached updater must do once YazSes itself has exited (ADR-027).
+
+    An installer cannot replace files that the process which launched it still holds
+    open, so a one-click update is a *hand-off*: YazSes describes the job here, an
+    :class:`UpdateLauncher` starts it detached, and YazSes then shuts down. Built by the
+    pure planner in ``system/installer_update.py``; carried out by the OS backend.
+    """
+
+    #: ``"installer"`` (a verified, downloaded .exe) or ``"package-manager"``
+    #: (choco / winget / scoop running the upgrade it already knows).
+    kind: str
+    #: The program and its arguments. For ``"installer"`` the first element is the
+    #: downloaded file, already checked against the release's SHA-256.
+    argv: tuple[str, ...]
+    #: Run with administrator rights (a UAC prompt). Only Chocolatey needs it.
+    elevate: bool
+    #: Process ids to wait for before starting, so the files are free to replace.
+    wait_pids: tuple[int, ...]
+    #: How to start YazSes again afterwards — whether the update succeeded or not.
+    relaunch: tuple[str, ...]
+    #: Where the detached job writes what it did, and the exit code it got.
+    log_file: Path
+    result_file: Path
+    #: Files to delete once the job has run (the downloaded installer).
+    cleanup: tuple[Path, ...] = ()
+    #: Capture the program's console output into ``log_file``. Not possible for an
+    #: elevated run (Windows does not redirect across a UAC boundary).
+    capture_output: bool = False
+    #: The SHA-256 the installer was verified against. The detached job checks it once
+    #: more immediately before running the file, so the window between "verified" and
+    #: "run" (YazSes shutting down) cannot be used to swap it. Empty for package managers,
+    #: which verify their own downloads.
+    sha256: str = ""
+
+
+@runtime_checkable
+class UpdateLauncher(Protocol):
+    """Runs a one-click update after YazSes has exited. One implementation per OS that
+    has one; ``Platform.update_launcher`` is ``None`` everywhere else (ADR-027)."""
+
+    def staging_dir(self) -> Path:
+        """A per-user directory for the download, the log and the result file."""
+        ...
+
+    def native_arch(self) -> str:
+        """The machine's own architecture, normalised ("x64", "arm64", ...)."""
+        ...
+
+    def relaunch_command(self) -> list[str] | None:
+        """argv that starts YazSes again, or ``None`` when that cannot be known."""
+        ...
+
+    def hand_off(self, handoff: UpdateHandoff) -> None:
+        """Start ``handoff`` detached and return at once. Raises ``OSError`` if it could
+        not be started — the caller must then stay running and fall back."""
+        ...
+
+
 HotkeyFactory = Callable[[str, int, Callable[[int], None], Callable[[], None]], HotkeyBackend]
 """Args: key_id, threshold_ms, on_hold_start(leaked_count), on_hold_end."""
 
@@ -386,4 +446,7 @@ class Platform:
     # None everywhere today: no OS backend observes clicks yet (#397 shipped the seam and
     # the CI fake; a real backend needs a real desktop to verify against).
     click_observer_factory: ClickObserverFactory | None = None
+    # None where an update cannot be handed to a detached installer (everything except
+    # Windows today). `yazses update` and the tray then keep the manual steps (ADR-027).
+    update_launcher: UpdateLauncher | None = None
     extras: dict[str, Any] = field(default_factory=dict)

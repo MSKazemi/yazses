@@ -44,6 +44,12 @@ FETCH = {
     "recimport/download.py": "downloads sherpa-onnx diarization models",
     "tts/download.py": "downloads the Kokoro voice model",
     "system/updater.py": "reads a version string from PyPI or the GitHub API (opt-in)",
+    "system/installer_update.py": (
+        "downloads the Windows installer .exe and the release's SHA256SUMS.txt from "
+        "github.com release assets -- only after the user confirms an update (ADR-027). "
+        "Like `system/deps.py` this fetches CODE THAT THEN RUNS, verified by checksum "
+        "but not yet by signature"
+    ),
 }
 SEND = {
     "postprocess/llm_cleanup.py": "POSTs dictated text — CONFINED TO LOOPBACK by is_loopback_endpoint()",
