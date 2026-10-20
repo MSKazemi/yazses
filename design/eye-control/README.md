@@ -356,6 +356,7 @@ See the programme set:
 - [CONTRIBUTING.md](CONTRIBUTING.md) — contributor + coding-agent workflow;
 - [EVALUATION.md](EVALUATION.md) — automated, hardware, cross-person and repeated-session evaluation ladder;
 - [METRICS.md](METRICS.md) — canonical machine-readable parameters/metrics;
+- [FACE_SWITCH_TRACES.md](FACE_SWITCH_TRACES.md) — face-switch trace format, nuisance traces and field report;
 - [DATA_SHARING.md](DATA_SHARING.md) — public QA vs research consent/data-use rules;
 - [PAPER_EVIDENCE.md](PAPER_EVIDENCE.md) — paper-quality study/data plan;
 - [RESEARCH_PARTICIPANT_TEMPLATE.md](RESEARCH_PARTICIPANT_TEMPLATE.md) — pre-recruitment information/consent template;

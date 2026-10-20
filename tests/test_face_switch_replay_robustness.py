@@ -158,8 +158,16 @@ def test_the_reader_and_the_fixtures_agree_on_the_version() -> None:
     from yazses.eyeeval.switch_trace import SUPPORTED_MAJOR, TRACE_SCHEMA_VERSION
 
     assert TRACE_SCHEMA_VERSION.split(".")[0] == str(SUPPORTED_MAJOR)
+    current_minor = int(TRACE_SCHEMA_VERSION.split(".")[1])
+    declared = []
     for path in sorted(TRACE_DIR.glob("*.json")):
-        assert json.loads(path.read_text(encoding="utf-8"))["schema_version"] == TRACE_SCHEMA_VERSION
+        version = json.loads(path.read_text(encoding="utf-8"))["schema_version"]
+        major, minor = (int(part) for part in version.split("."))
+        # A minor bump is additive, so an older-minor fixture must still read (1.0 traces stay
+        # 1.0 on purpose); a fixture newer than the reader would be a fixture nothing can read.
+        assert major == SUPPORTED_MAJOR and minor <= current_minor, (path.name, version)
+        declared.append(version)
+    assert TRACE_SCHEMA_VERSION in declared, "no fixture exercises the current minor version"
 
 
 @pytest.mark.parametrize("trace_id", ["a\n", "a\n\n", "A", "-a", "a b", "", "a" * 81])
@@ -318,8 +326,15 @@ def _speech_trace() -> Any:
 class _OverSensitive(GestureSwitch):
     """The shipped switch with its hold threshold collapsed and its debounce removed."""
 
-    def __init__(self, hold: float, release: float, min_hold: int, min_release: int, **kw: Any) -> None:
-        super().__init__(0.12, 0.05, 1, min_release, **kw)
+    def __init__(
+        self,
+        hold_threshold: float = 0.5,
+        release_threshold: float = 0.35,
+        min_hold_frames: int = 3,
+        min_release_frames: int = 2,
+        **kw: Any,
+    ) -> None:
+        super().__init__(0.12, 0.05, 1, min_release_frames, **kw)
 
 
 def test_a_deliberately_over_sensitive_detector_produces_phantoms_the_real_one_does_not(
@@ -414,7 +429,7 @@ def test_a_report_that_was_checked_out_with_crlf_is_a_drift_and_says_so(
 
 def test_the_trace_fixtures_and_the_report_are_lf_ascii_and_end_in_one_newline() -> None:
     files = sorted(TRACE_DIR.glob("*.json")) + [REPORT_PATH]
-    assert len(files) == 9
+    assert len(files) == 14
     for path in files:
         raw = path.read_bytes()
         assert b"\r" not in raw, path.name

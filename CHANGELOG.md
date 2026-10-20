@@ -83,6 +83,23 @@ landmark, screenshot or typed text is captured. No click observer ships on any p
 stays dormant with its logged reason. Tests: `tests/test_gaze_capture_bounds_and_topology.py`, using a fake
 clock, fake clicks, fake gaze and a fake fingerprint.
 
+### Added — face-switch false-activation replay: nuisance traces and a swappable detector ([#409](https://github.com/MSKazemi/yazses/issues/409))
+
+The replay harness (`scripts/replay_face_switch_trace.py`) now ships five invented 15 Hz nuisance traces:
+natural blinks, glances down at a keyboard, lively talking, yawns, and blinks watched by a jaw switch. Trace
+schema 1.1 adds the `blink`, `yawn` and `look_down` contexts, so a report says which involuntary movement fired
+the switch. Every 1.0 trace still reads. On these traces the shipped `GestureSwitch` at its defaults fires 6
+times on long blinks (`eyes_closed`, 116 s of exposure), 5 times on glances down and once on each of 3 yawns
+(`jaw_open`). Talking and blinks on a jaw switch give 0, and no deliberate gesture is missed.
+
+The harness also takes an injected `Detector`, a name and a factory, and the report records which one ran (report
+1.3). A candidate policy is replayed over the same traces and scored by the same rules. In the tests, a 0.8 s
+timed hold removes every blink phantom and still fires on four glances down. A detector whose events the harness
+cannot count is refused rather than read as silence. A new test fails when `facegesture/backend.py` builds
+`GestureSwitch` with an argument the harness does not pass, so the committed report keeps measuring the detector
+that ships. [FACE_SWITCH_TRACES.md](design/eye-control/FACE_SWITCH_TRACES.md) documents the format for real
+traces and the report a volunteer could send later. The traces are synthetic: they justify no default.
+
 ### Fixed — the eye-control CI matrix lost its macOS leg to a new Homebrew Python ([#424](https://github.com/MSKazemi/yazses/issues/424))
 
 From 2026-10-17, every macOS leg of `eye-eval-ci.yml` failed in `uv sync`, before the evaluation ran. The step
