@@ -42,6 +42,7 @@ from yazses.facegesture.detector import (
     blendshape_scores,
     gesture_reading,
     gesture_score,
+    min_hold_s_for,
 )
 from yazses.facegesture.levels import (
     DEFAULT_HOLD_FRACTION,
@@ -178,6 +179,10 @@ class FaceGestureBackend:
                 confidence_floor=floor,
                 refractory_frames=getattr(config, "refractory_frames", 0),
                 max_hold_s=max_hold_s,
+                # eyes_closed only: 0.8 s of sample time on top of the frame count, because on
+                # the shared camera a frame is one observation at [perception] fps, not at this
+                # section's fps. Both loops pass now_s, so the timed rule always has a clock.
+                min_hold_s=min_hold_s_for(watched),
             )
             stuck = stuck_consequence(bindings.get(watched))
             if stuck is not None:  # a hold leaves a microphone open, a commit leaves the pointer frozen

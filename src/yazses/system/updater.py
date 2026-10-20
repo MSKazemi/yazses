@@ -61,17 +61,24 @@ WINDOWS_METHODS = ("windows-installer", "choco", "winget", "scoop")
 # on their machine and offers no hint that the advice itself is the problem.
 MACOS_METHODS = ("macos-app",)
 
+# The MSIX package (ADR-027). The same PyInstaller payload as the .exe, so it is frozen
+# too, and it used to be classified `windows-installer` — which offered it the .exe:
+# running that beside an MSIX installs a second, unrelated copy rather than updating
+# the package. An MSIX updates through whatever installed it (the Store, or App
+# Installer for a sideloaded package), so it gets steps that say so and no one-click.
+MSIX_METHODS = ("msix",)
+
 # Methods whose version comes from the GitHub release rather than PyPI, because the
 # artifact *is* a release asset. Keep this separate from WINDOWS_METHODS: that tuple
 # also selects Windows-specific prose, and folding the two together is how the .app
 # came to be described as an .exe in the first place.
-GITHUB_METHODS = (*WINDOWS_METHODS, *MACOS_METHODS)
+GITHUB_METHODS = (*WINDOWS_METHODS, *MACOS_METHODS, *MSIX_METHODS)
 
 
 @dataclass
 class UpdateStatus:
     # snap | uv | pipx | pip | windows-installer | choco | winget | scoop
-    # | macos-app | unknown
+    # | macos-app | msix | unknown
     method: str
     current: str
     latest: str | None
@@ -102,6 +109,7 @@ def detect_install_method(
     frozen: bool | None = None,
     choco: bool | None = None,
     platform: str | None = None,
+    msix: bool | None = None,
 ) -> str:
     """Infer how YazSes was installed from the package's on-disk location.
 
@@ -111,7 +119,14 @@ def detect_install_method(
     are injectable so the classification is testable on any OS.
 
     Returns ``snap`` | ``uv`` | ``pipx`` | ``pip`` | ``windows-installer`` |
-    ``choco`` | ``winget`` | ``scoop`` | ``macos-app``.
+    ``choco`` | ``winget`` | ``scoop`` | ``macos-app`` | ``msix``.
+
+    ``msix`` defaults to the platform seam's ``HostInfo.msix_packaged`` — the same fact
+    ``cameraperm/matrix.py`` uses — rather than a second reading of the bundle here.
+
+    Note: a winget install runs the same Inno installer into the same directory as a
+    direct download, and nothing on disk distinguishes the two, so it is classified
+    ``windows-installer``; the ``winget`` method is not produced by this function.
 
     ``platform`` defaults to ``sys.platform`` and exists for the same reason the
     others do: the frozen branch used to answer ``windows-installer`` on **any**
@@ -134,6 +149,8 @@ def detect_install_method(
             # alternative in the steps. A wrong command that exits 0 having done
             # nothing is the failure this whole module keeps being written against.
             return "macos-app"
+        if msix if msix is not None else _msix_packaged():
+            return "msix"
         # One .exe, several channels that ship it. Chocolatey is distinguishable
         # from a marker on disk; winget is not without querying its database, so
         # it is offered as an alternative in the manual steps instead of being
@@ -142,11 +159,24 @@ def detect_install_method(
         if choco if choco is not None else _choco_marker_present():
             return "choco"
         return "windows-installer"
-    if "/uv/tools/" in p:
+    # `uv/tools` on Unix, `uv\data\tools` on Windows (`uv help tool dir`). A
+    # custom UV_TOOL_DIR is still invisible to a path test; see the receipt lookup
+    # in `preserve_enabled_features`, which does not depend on the path.
+    if "/uv/tools/" in p or "/uv/data/tools/" in p:
         return "uv"
     if "/pipx/" in p:
         return "pipx"
     return "pip"
+
+
+def _msix_packaged() -> bool:
+    """``HostInfo.msix_packaged`` through the platform seam. Never raises."""
+    try:
+        from yazses.platform.factory import describe_host
+
+        return bool(describe_host().msix_packaged)
+    except Exception:
+        return False
 
 
 # ---- version comparison ----------------------------------------------------
@@ -342,6 +372,15 @@ def manual_update_steps(method: str, package: str = "yazses") -> list[str]:
         # A Chocolatey/winget/Scoop install can also upgrade through its own
         # package manager; list those rather than assuming the direct download.
         return steps + [""] + _WINDOWS_ALTERNATIVES
+    if method in MSIX_METHODS:
+        # No .msix is published on the releases page, and the .exe there would install
+        # a second copy beside the package rather than update it.
+        return [
+            "This is the MSIX package — it updates through whatever installed it:",
+            "From the Microsoft Store:  Store → Library → Get updates",
+            "Sideloaded:  open the newer .msix with App Installer",
+            "Do not run the .exe installer over it — that installs a second copy",
+        ]
     if method in MACOS_METHODS:
         return [
             f"Open the releases page:  {RELEASES_URL}",
@@ -516,6 +555,11 @@ def pinned_install_hint(method: str, command: list[str] | None) -> str:
         # No shell command upgrades the .exe channel — the upgrade *is* a download.
         # Quoting one would be the same class of untruth as trusting the exit code.
         escape = f"Download and run the current installer:\n    {RELEASES_URL}"
+    elif method in MSIX_METHODS:
+        escape = (
+            "The MSIX package updates through the Microsoft Store (Library → Get "
+            "updates) or by opening the newer .msix — not through the .exe installer."
+        )
     elif method in MACOS_METHODS:
         # Same shape as the installer: the upgrade is a download, not a command.
         # Homebrew is named because a cask install is the one case where a command
@@ -543,6 +587,83 @@ def pinned_install_hint(method: str, command: list[str] | None) -> str:
     return f"{escape}\nIf that does not move it either:  {RECOVERY_URL}"
 
 
+# ---- keeping enabled features across a uv-tool upgrade ---------------------
+#
+# Kept apart from everything above on purpose: it concerns only the `uv` method,
+# and touches nothing on the Windows/installer paths.
+
+
+def _enabled_requirements() -> tuple[str, ...]:
+    """Requirements of every enabled feature whose libraries are installed now.
+
+    Best effort, like the rest of this module: an unreadable config answers
+    "nothing to keep", which leaves the upgrade exactly as it always was. Callers
+    first confirm this interpreter *is* a uv tool install (see
+    :func:`preserve_enabled_features`); this only reads the config.
+    """
+    try:
+        from yazses.config import load_config
+        from yazses.platform import get_platform
+        from yazses.system.dormant import preserved_requirements
+
+        cfg = load_config(get_platform().paths.config_file)
+        return preserved_requirements(cfg)
+    except Exception:  # noqa: BLE001 - must never break an update
+        return ()
+
+
+def preserve_enabled_features(
+    status: UpdateStatus, *, required=None, command_for=None
+) -> UpdateStatus:
+    """*status* with an upgrade command that keeps every enabled feature's libraries.
+
+    ``uv tool upgrade yazses`` rebuilds the tool environment from its receipt and
+    removes whatever the receipt does not list — which is how the tray's "Install
+    update" silently deleted an enabled Parakeet engine. A `features enable` from
+    this version records its packages in the receipt, but one from an older
+    version (or one that took the fallback path) did not, and nothing repaired
+    that on the next upgrade. This does: when an enabled, working feature's
+    requirement is not on the receipt, the command becomes
+    ``uv tool install --upgrade --with … <target>`` (see
+    :func:`yazses.system.deps.uv_tool_upgrade_command` for the evidence).
+
+    Unchanged for every other method, for an unchanged receipt, and whenever
+    anything here fails. Idempotent: a command it already rewrote is left alone.
+    ``required``/``command_for`` are injectable for tests.
+
+    "Is this a uv tool install?" is answered by finding the install's own
+    ``uv-receipt.toml`` through ``uv tool dir`` (:func:`deps._uv_tool_receipt`),
+    never by a path substring. A substring cannot see ``UV_TOOL_DIR`` and missed
+    the Windows default, ``%APPDATA%\\uv\\data\\tools`` (per ``uv help tool dir``),
+    so on both this silently did nothing. The receipt is resolved once and handed
+    to the command builder, so ``uv tool dir`` runs once per update.
+    """
+    if status.method != "uv" or status.command != upgrade_command("uv"):
+        return status
+    try:
+        from yazses.system import deps
+
+        receipt = None
+        if required is None:
+            receipt = deps._uv_tool_receipt()
+            if receipt is None:
+                return status  # not a uv tool install: nothing it could drop
+            packages = _enabled_requirements()
+        else:
+            packages = tuple(required())
+        if command_for is None:
+            def command_for(pkgs):
+                return deps.uv_tool_upgrade_command(pkgs, receipt=receipt)
+        command = command_for(packages) if packages else None
+    except Exception:  # noqa: BLE001 - must never break an update
+        return status
+    if not command:
+        return status
+    import dataclasses
+
+    return dataclasses.replace(status, command=list(command))
+
+
 def run_upgrade_checked(
     status: UpdateStatus, *, upgrade=None, read_version=None
 ) -> UpgradeOutcome:
@@ -561,6 +682,7 @@ def run_upgrade_checked(
     upgrade = upgrade or run_upgrade
     read_version = read_version or installed_version
 
+    status = preserve_enabled_features(status)
     code = upgrade(status)
     return UpgradeOutcome(
         code=code,

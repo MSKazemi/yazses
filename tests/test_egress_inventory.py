@@ -44,6 +44,12 @@ FETCH = {
     "recimport/download.py": "downloads sherpa-onnx diarization models",
     "tts/download.py": "downloads the Kokoro voice model",
     "system/updater.py": "reads a version string from PyPI or the GitHub API (opt-in)",
+    "system/installer_update.py": (
+        "downloads the Windows installer .exe and the release's SHA256SUMS.txt from "
+        "github.com release assets -- only after the user confirms an update (ADR-027). "
+        "Like `system/deps.py` this fetches CODE THAT THEN RUNS, verified by checksum "
+        "but not yet by signature"
+    ),
 }
 SEND = {
     "postprocess/llm_cleanup.py": "POSTs dictated text — CONFINED TO LOOPBACK by is_loopback_endpoint()",
@@ -131,6 +137,13 @@ SHELL_OUT = {
         "upgrade`, `pip install --upgrade`, winget/choco/scoop -- which downloads and "
         "installs a new version. Its FETCH row covers reading the version *string*; "
         "this is the much larger transfer that follows a yes"
+    ),
+    "platform/windows/update_handoff.py": (
+        "the one-click Windows update (ADR-027): asks choco / winget / scoop which "
+        "version THEIR feed carries (`choco search`, `winget show`, `scoop info`) before "
+        "offering an update, then runs that manager's upgrade from a detached job after "
+        "YazSes exits -- Chocolatey elevated, by its absolute machine path. Sends only "
+        "the package name; what comes back is a new YazSes"
     ),
 }
 

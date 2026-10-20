@@ -93,6 +93,28 @@ Configurable:
 
 All timing uses monotonic source time/fake clock semantics.
 
+**As built (2026-10-20, #406).** `GestureSwitch` counts the minimum hold (`min_hold_frames`) and the
+refractory interval (`refractory_frames`) in samples. It also takes the same two rules in seconds,
+`min_hold_s` and `refractory_s`, measured on the caller's `now_s` sample timestamps. Both default to 0
+(off), and each adds to its frame rule instead of replacing it. The freshness timeout is
+`gesture_reading(max_age_s=...)` and the stuck-open bound is `max_hold_s`. The timed rules fail closed:
+- an untimed sample breaks a hold run and keeps a refractory window open;
+- a gap over `max_gap_s` (provisional 0.25 s) restarts the run;
+- a repeated sample adds no time;
+- a backwards clock step restarts the count.
+
+The timed rules are why frame counts alone do not meet "minimum hold time". A frame count's length is
+whatever the source's rate makes it, and the shared camera's rate (`[perception] fps`) is not the face
+switch's own `fps`. That gap was a live defect for **blink** (#406). The panel's eyes-closed floor of
+12 frames ("0.8 s at 15 fps") lasted 0.4 s on a 30 fps shared camera, inside a long blink. So every live
+eyes-closed detector now carries `min_hold_s = EYES_CLOSED_MIN_HOLD_S` (0.8 s, provisional) through
+`detector.min_hold_s_for`, on top of its frame count. That covers the face-switch backend on both camera
+paths and the chord sensors (`gesture/sensors.py`), and both pass sample time. The 0.8 s is an internal
+safety floor, not a config key. Other gestures' timed rules are not yet exposed as `[facegesture]`
+config keys. That is a
+public-interface change for a follow-up. No duration may be called recommended until it has been
+measured in the field.
+
 ## Event contract
 
 Detector emits a normalized event such as:
@@ -115,7 +137,26 @@ Separate adapter maps event -> abstract action/token:
 
 Unknown/unmapped events do nothing.
 
+A stop or a re-arm of the hands-free gate is a boundary for both consumers of the face channel
+(#417, ADR-v2-148). The face switch (`SwitchMapper.frame`) and Gesture Chords
+(`ChordEngine.frame`, #408) each read the gate's one-shot `clear_pending` latch before a frame is
+counted. Each then drops every half-accumulated gesture. For chords that includes the head
+detector's half-made nod, shake or tilt. A gesture begun before a Resume must therefore be made
+again, in full, after it. An open hold stays held and must be relaxed before it can press again.
+
 Destructive desktop operations still use the existing consequence/confirmation policy.
+
+**As built (EYE-FACE-002, #407).** `facegesture/switches.py` (`SwitchIntent`, `parse_bindings`,
+`SwitchMapper`) is the mapping layer; `facegesture/actions.py` holds the pure decisions behind
+`select` / `confirm` / `cancel`; the daemon supplies the handlers. The vocabulary is
+`hold_to_talk`, `hold_to_command`, `select`, `confirm`, `cancel`, `pause_pointer` (and `none` to
+unmap). Holds enter the daemon through the hotkey's own entry points, so cmdsafety still holds a
+destructive spoken command; `confirm` / `cancel` only answer a confirmation that already exists.
+`pause_pointer` does the most it can in each configuration, matching `handsfree pause` and a
+chord's `pause_pointer`: with `[handsfree_safety]` on it pauses the global gate; with it off it
+pauses a running Head-Pointer only; with neither it stays unwired and the daemon names the
+setting to turn on. A Gesture Chord token is not a face-switch action: chords consume face tokens
+through their own runtime (EYE-GESTURE-001, `gesture/sensors.py`).
 
 ## Talking interference
 

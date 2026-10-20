@@ -67,6 +67,7 @@ def build_platform() -> Platform:
     from yazses.platform.windows.permissions import WindowsPermissions
     from yazses.platform.windows.pointer import WindowsPointerSink
     from yazses.platform.windows.tray import WindowsTray
+    from yazses.platform.windows.update_handoff import WindowsUpdateLauncher
 
     paths = build_paths()
     return Platform(
@@ -87,6 +88,7 @@ def build_platform() -> Platform:
         tray_factory=WindowsTray,
         tray_default_enabled=True,
         pointer_factory=WindowsPointerSink,
+        update_launcher=WindowsUpdateLauncher(),
     )
 
 

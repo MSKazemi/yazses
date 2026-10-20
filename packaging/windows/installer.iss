@@ -74,6 +74,19 @@ SetupIconFile=..\..\assets\yazses.ico
 ; the right icon resource, so Add/Remove Programs is correct for free and there is
 ; no second path to drift.
 UninstallDisplayIcon={app}\{#MyAppExeName}
+; In-place upgrade, including the one-click update from the tray / `yazses update`
+; (ADR-027). The AppId above must never change: it is what makes a new installer
+; upgrade this install (same directory, same install mode — UsePreviousAppDir and
+; UsePreviousPrivileges both default to yes) instead of installing a second copy.
+; CloseApplications is Inno's default; it is spelled out because the one-click update
+; depends on it: run silently, Setup closes anything still holding a file it must
+; replace through the Restart Manager. The filter adds .pyd — the bundle's Python
+; extension modules are held open by a running YazSes exactly like its .dll files.
+; The relaunch after a silent upgrade belongs to the update job (it starts YazSes
+; again whether or not the upgrade worked), which is why the [Run] entry below keeps
+; skipifsilent: a second launcher here would start two trays.
+CloseApplications=yes
+CloseApplicationsFilter=*.exe,*.dll,*.pyd,*.chm
 ; We append {app} to the per-user PATH so `yazses doctor` works from a shell;
 ; this broadcasts WM_SETTINGCHANGE so open shells pick it up.
 ChangesEnvironment=yes

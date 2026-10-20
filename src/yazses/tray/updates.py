@@ -41,7 +41,9 @@ def check_and_describe(current: str | None = None) -> tuple[str, str]:
     return update_message(check_updates(current))
 
 
-def describe_update(current: str | None = None, *, opener=None) -> tuple[str, str]:
+def describe_update(
+    current: str | None = None, *, opener=None, status=None
+) -> tuple[str, str]:
     """Check for updates, *act* where a click can act, and describe the result.
 
     The difference from :func:`check_and_describe` is the one thing the user was
@@ -61,13 +63,22 @@ def describe_update(current: str | None = None, *, opener=None) -> tuple[str, st
 
     Never raises, like everything else in this module — a menu click must always end
     in something readable.
+
+    ``status`` lets a caller that has already checked (the Windows tray, which first
+    tries the one-click update) reuse that answer instead of asking github.com twice.
+    The one-click path itself is :func:`run_one_click`.
     """
-    from yazses.system.updater import MACOS_METHODS, RELEASES_URL
+    from yazses.system.updater import MACOS_METHODS, MSIX_METHODS, RELEASES_URL
     from yazses.tray.about import update_message
 
-    status = check_updates(current)
+    if status is None:
+        status = check_updates(current)
     title, body = update_message(status)
     if not (status.available and not status.command):
+        return title, body
+    if status.method in MSIX_METHODS:
+        # The releases page carries no .msix, and its .exe would install a second copy
+        # beside the package. The steps (Store / App Installer) are the whole answer.
         return title, body
 
     open_page = opener
@@ -97,3 +108,57 @@ def describe_update(current: str | None = None, *, opener=None) -> tuple[str, st
             "Run the installer — it upgrades in place and keeps your settings and models."
         )
     return title, f"{headline}\n\nOpening the download page in your browser.\n{follow}"
+
+
+# ---- one-click update (ADR-027) ---------------------------------------------
+
+def update_wait_pids(*, own_pid: int | None = None, daemon_pid=None) -> list[int]:
+    """The YazSes processes a detached update must wait for: this one and the daemon.
+
+    ``daemon_pid`` defaults to the platform lifecycle's PID file. Never raises — a PID
+    that cannot be read is simply not waited for (the installer's Restart Manager closes
+    whatever is left).
+    """
+    import os
+
+    pids = [own_pid if own_pid is not None else os.getpid()]
+    try:
+        if daemon_pid is None:
+            from yazses.platform import get_platform
+
+            daemon_pid = get_platform().lifecycle.read_pid()
+        if isinstance(daemon_pid, int) and daemon_pid > 0:
+            pids.append(daemon_pid)
+    except Exception:
+        log.debug("could not read the daemon pid for the update hand-off", exc_info=True)
+    return pids
+
+
+def run_one_click(status, launcher, *, progress=None, wait_pids=None):
+    """Download, verify and hand off the update for ``status``. Never raises.
+
+    Returns a ``HandoffResult``; on ``ok`` the caller must now quit YazSes.
+    """
+    from yazses.system.installer_update import HandoffResult, start_one_click_update
+
+    try:
+        pids = wait_pids if wait_pids is not None else update_wait_pids()
+        return start_one_click_update(status, launcher, wait_pids=pids, progress=progress)
+    except Exception as exc:  # pragma: no cover - start_one_click_update never raises
+        log.warning("one-click update failed: %s", exc)
+        return HandoffResult(ok=False, title="Update not installed", message=str(exc))
+
+
+def pending_update_report(launcher, current: str | None = None):
+    """``(title, body)`` for the last one-click update, once, or ``None``. Never raises."""
+    if launcher is None:
+        return None
+    try:
+        from yazses import branding
+        from yazses.system.installer_update import read_handoff_result
+
+        running = current if current is not None else branding.version()
+        return read_handoff_result(launcher.staging_dir(), running)
+    except Exception:
+        log.debug("could not read the last update result", exc_info=True)
+        return None

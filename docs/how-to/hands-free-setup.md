@@ -87,6 +87,13 @@ before you turn anything on, and any value you write yourself wins.
    your operating system may ask before a program uses the camera). Answer it; `yazses handsfree status`
    says when one is still waiting.
 
+   On macOS, moving the pointer needs the same **Accessibility** grant the dictation key uses. If it has
+   not been given, the Head-Pointer does not start, and `yazses headpointer status` says so when it is
+   enabled: *macOS has denied YazSes permission to post mouse events*, followed by the pane to open. Enable
+   YazSes in System Settings > Privacy & Security > Accessibility, then restart YazSes. macOS reads the
+   grant when a program starts. This macOS path has so far been tested only against a simulated macOS
+   layer, not on a real Mac.
+
 5. **Calibrate once** so the inputs are judged against *your* face and screen. Both are optional, and
    without them the plain thresholds are used and a log line says so:
 
@@ -196,11 +203,14 @@ Every one of these needs neither a precise pointer nor the camera, except the ch
 | the **Pause** button in the hands-free controls of the settings window (keyboard letter **P**) | the settings window |
 | saying the stop phrase as a whole utterance, see [Stop hands-free input by voice](hands-free-voice-stop.md) | a dictation burst; it only pauses |
 | the chord brow-raise + shake | the camera, so it cannot help once the camera is lost |
+| a face switch you bound to `pause_pointer` (`[[facegesture.switches]]`) | the camera; with the global stop off it pauses the Head-Pointer only |
 | `yazses handsfree disable` | pauses everything now; `yazses restart` then releases the camera |
 
 A pause or a fault is never undone by itself. To come back, run `yazses handsfree resume`. The first frame
 after re-arming only observes: it never moves the pointer or clicks, and nothing recorded while you were
-stopped is replayed.
+stopped is replayed. A face gesture or head gesture you had begun before the Resume does not count either:
+make it again, in full, after the Resume. This applies to a face switch and to a Gesture Chord token (a jaw
+held open, a nod, a tilt). A gesture still held across the Resume must be relaxed and made again.
 
 `yazses handsfree disable` writes `[handsfree] enabled = false`. It keeps your calibration and every
 setting you wrote yourself, and the rest of your `config.toml` is untouched.

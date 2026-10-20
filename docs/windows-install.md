@@ -183,28 +183,64 @@ Both live in `%LOCALAPPDATA%\Programs\YazSes`.
 
 ## Updating
 
-Ask YazSes and it will tell you what applies to *your* install:
+**One click.** Tray → **Check for updates…**. If a newer release is out, YazSes asks
+once whether to install it. Say yes and YazSes:
+
+1. downloads `YazSes-<version>-windows-<arch>.exe` from the GitHub release (only from
+   `github.com/MSKazemi/yazses/releases/download/`);
+2. checks its SHA-256 against the release's `SHA256SUMS.txt`, and refuses (and deletes
+   the file) if they differ;
+3. closes itself, runs the installer silently over your existing install (no uninstall,
+   settings and models kept), and
+4. starts again by itself. On the next start a notification says whether the version
+   actually changed.
+
+The same from a terminal:
 
 ```powershell
-yazses update --check    # what's available, and how to get it
+yazses update --check    # what's available, and what the update would do
+yazses update            # asks, then updates
+yazses update --yes      # updates without asking
 ```
 
-It knows which of the four Windows channels you used, and checks the GitHub
-release — that is where the `.exe` lives, and PyPI carries no `.exe` at all.
+It knows which of the four Windows channels you used and checks the GitHub release.
+That is where the `.exe` lives; PyPI carries no `.exe` at all. Chocolatey, winget and
+Scoop installs update through their own package manager in the same one-click way:
 
-| How you installed | How to update |
+| How you installed | What the one-click update runs |
 |---|---|
-| The `.exe` installer | Download the newest one from the [releases page](https://github.com/MSKazemi/yazses/releases/latest) and run it — it upgrades in place and keeps your settings and models |
-| winget | `winget upgrade --id MSKazemi.YazSes -e` |
-| Chocolatey | `choco upgrade yazses -y` |
+| The `.exe` installer | the verified installer, silently, in place |
+| winget | `winget upgrade --id MSKazemi.YazSes -e` (unattended) |
+| Chocolatey | `choco upgrade yazses -y` — Windows asks for administrator rights |
 | Scoop | `scoop update yazses` |
 
-Restart YazSes afterwards (tray → **Restart daemon**, or `yazses restart`): the
-new code is on disk, but the process doing your dictation is still the old one.
+What to expect:
 
-There is no one-command upgrade for the `.exe` installer — the upgrade *is* a
-downloaded installer, and there is nothing YazSes could safely run for you. It
-prints the steps instead of pretending otherwise.
+- **Per-user installs only.** A normal install is per-user and needs no administrator
+  rights. If YazSes was installed *for all users*, the one-click update is not offered,
+  because it would mean running a file from your temp folder with administrator rights.
+  YazSes tells you so and opens the releases page; run the installer yourself.
+- **Chocolatey, winget and Scoop** are offered the update only once their own package
+  has caught up with the GitHub release. That usually takes a few days. Until then YazSes
+  says which version the manager still offers. Chocolatey asks for administrator rights.
+- **Nothing is force-closed.** If YazSes has not closed within 5 minutes (for example,
+  a meeting still being saved), nothing is installed and the next start tells you why.
+- **From a terminal**, quit the tray first, or use the tray's own **Check for updates…**.
+  `yazses update` will not install while the tray is running, because the tray cannot be
+  closed cleanly from there.
+- **Microsoft Store / MSIX package:** it updates through the Store (Library → Get
+  updates), or by opening the newer `.msix`. Never run the `.exe` over it; that installs
+  a second copy.
+- **Not code-signed yet.** The checksum proves the file is exactly the one the release
+  published. It does not prove who built it; signing is the remaining step. SmartScreen
+  may warn for the same reason.
+- **If anything fails**, nothing is half-installed. YazSes keeps running (or starts again
+  on the version you had), tells you what went wrong, and opens the
+  [releases page](https://github.com/MSKazemi/yazses/releases/latest) so you can update by
+  hand. Logs: `%TEMP%\yazses-update\update.log` and `installer.log`.
+
+By hand, if you prefer: download the newest installer from the releases page and run it.
+It upgrades in place too.
 
 ### Being told when a new version lands
 

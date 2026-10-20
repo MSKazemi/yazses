@@ -212,6 +212,23 @@ Expose derived state sufficient for `doctor`/daemon status:
 - Given failed camera, ordinary daemon path remains usable.
 - Existing gaze behavior remains unchanged after #396.
 
+## Equivalence evidence for Glance-Type (#396)
+
+"Existing gaze behavior remains unchanged" is pinned at four layers, each by a different file:
+
+| Layer | Claim | Test |
+|---|---|---|
+| Inputs | same FaceLandmarker options (asset, mode, face count, detection/presence/tracking floors) and same capture device on both paths; only the blendshape/transform outputs differ | `tests/test_gaze_glance_type_same_inputs.py` |
+| Numbers | same `(x, y, confidence)` from the same landmarks | `tests/test_gaze_glance_type_unchanged.py` |
+| Decisions | same route/fallback/deixis-snapshot decision, down both whole paths | `tests/test_gaze_glance_type_end_to_end.py` |
+| Ownership | one camera open for every consumer; legacy path unchanged unless a source is supplied | `tests/test_gaze_shared_source.py` |
+
+Documented differences, each tested: a face that has just left the frame keeps routing for at most
+`MAX_SAMPLE_AGE_S` (`src/yazses/gaze/shared.py`). A non-finite landmark is "no gaze", where it used to be a
+NaN sample; both fall back to the focused window. One difference is not pinned. The daemon gives the
+shared model `[gaze] model_path`, or else `[facegesture] model_path`. A config that leaves the gaze path empty
+but sets the face-switch one therefore runs gaze on the face-switch model once `[perception]` is on.
+
 ## Required tests
 
 - pure signal dataclasses;

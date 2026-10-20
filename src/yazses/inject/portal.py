@@ -375,6 +375,17 @@ class _PortalSession:
         #: negotiating -- `warm()` on its own thread -- has no other way to tell "the
         #: dialog is still open" from "the user pressed Cancel".
         self._last_error = ""
+        #: Serialises every `Notify*` message onto the one connection. Before the pointer
+        #: joined this session one thread typed through it; now dictation types on the
+        #: daemon's thread while the Head-Pointer moves on the perception thread, through
+        #: the *same* jeepney connection -- and `jeepney.io.blocking` is the module jeepney
+        #: documents as not thread-safe (`jeepney.io.threading` is the variant with a send
+        #: lock). Two concurrent `sendall`s that each write only part of their message
+        #: interleave bytes, the bus drops a client whose stream is corrupt, and the user
+        #: loses the keyboard and the pointer together. Held per message, never across a
+        #: keystroke's delay, so the keyboard keeps its timing and an uncontended
+        #: (dictation-only) session behaves exactly as before.
+        self._send_lock = threading.Lock()
 
     # -- plumbing ---------------------------------------------------------
 
@@ -588,10 +599,16 @@ class _PortalSession:
         # shape of failure that hid a broken injection path here for a year -- so the
         # pointer is considered available only on the compositor's own say-so, and an
         # answer that omits the key is read as "not granted" rather than as consent.
+        #
+        # Gated on what this negotiation *asked* for, not on how many consumers are
+        # registered by the time `Start` returns. The dialog can be open for minutes, and a
+        # consumer that closed meanwhile used to discard a grant the compositor had really
+        # given: the next consumer was then refused with "running for the keyboard alone",
+        # which was false, and told to restart for a dialog it had already been through.
         devices = started.get("devices")
         devices_value = devices[1] if isinstance(devices, tuple) else devices
         self._pointer_granted = bool(
-            self._pointer_consumers
+            self._asked_pointer
             and isinstance(devices_value, int)
             and int(devices_value) & DEVICE_POINTER
         )
@@ -698,12 +715,23 @@ class _PortalSession:
         self.close()
         return True
 
+    def _notify(self, member: str, signature: str, body: tuple) -> None:
+        """Send one `Notify*` message, one message at a time across every thread.
+
+        The lock lives here rather than in `_send_notify` so that a test double replacing
+        that seam is serialised exactly as the real connection is -- which is what lets a
+        test observe that two producers never overlap (see `_send_lock`).
+        """
+        with self._send_lock:
+            self._send_notify(member, signature, body)
+
     def _send_notify(self, member: str, signature: str, body: tuple) -> None:
         """Fire one `Notify*` method at the portal. No reply is asked for or waited on.
 
         Every input event -- key, motion, button, axis -- leaves through here, which is
         also the seam the tests replace: a fake records `(member, signature, body)` and
-        CI needs no bus, no compositor and no consent dialog.
+        CI needs no bus, no compositor and no consent dialog. Callers go through
+        `_notify`, which holds `_send_lock` around this.
 
         Worth naming what this cannot tell you: the portal's `Notify*` methods are
         fire-and-forget, so a send that raises nothing is **not** evidence that anything
@@ -718,7 +746,7 @@ class _PortalSession:
         self._conn.send(new_method_call(addr, member, signature, body))
 
     def notify_keysym(self, keysym: int, state: int) -> None:
-        self._send_notify(
+        self._notify(
             "NotifyKeyboardKeysym",
             "oa{sv}iu",
             (self._session_handle, {}, int(keysym), int(state)),
@@ -726,7 +754,7 @@ class _PortalSession:
 
     def notify_pointer_motion(self, dx: float, dy: float) -> None:
         """Move the pointer by a delta. ``+dx`` is right, ``+dy`` is down."""
-        self._send_notify(
+        self._notify(
             "NotifyPointerMotion",
             "oa{sv}dd",
             (self._session_handle, {}, float(dx), float(dy)),
@@ -734,7 +762,7 @@ class _PortalSession:
 
     def notify_pointer_button(self, button_code: int, state: int) -> None:
         """Press (``BUTTON_PRESSED``) or release an **evdev** button code."""
-        self._send_notify(
+        self._notify(
             "NotifyPointerButton",
             "oa{sv}iu",
             (self._session_handle, {}, int(button_code), int(state)),
@@ -742,7 +770,7 @@ class _PortalSession:
 
     def notify_pointer_axis(self, dx: float, dy: float) -> None:
         """Scroll by a delta, in the portal's own axis signs: ``+dy`` is down."""
-        self._send_notify(
+        self._notify(
             "NotifyPointerAxis",
             "oa{sv}dd",
             (self._session_handle, {}, float(dx), float(dy)),

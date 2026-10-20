@@ -71,6 +71,16 @@ Use bounded state/history consistent with existing incremental design and privac
 Candidate may become active only when `refined_if_better`/equivalent held-out gate wins by the
 defined margin/sample requirement.
 
+As built (#398) the verdict is the pure function `gaze.refine.decide_promotion(baseline,
+candidate, holdout, *, train_samples, policy)`: no I/O, clock or state, arguments unmodified.
+It returns `insufficient_data` below `min_train_samples`/`min_holdout_samples`, otherwise
+`applied` only when both held-out mean errors are finite, the candidate's is strictly lower,
+and `baseline − candidate ≥ min_improvement_px` (policy-enforced `> 0`); anything else —
+including a baseline compared with itself — is `kept_baseline`. `applied` is the verdict, not
+the deed: the refiner still confirms the context and writes atomically, reporting
+`stale_context` or `persist_failed` if either fails. The split is the pure
+`gaze.refine.routes_to_holdout(index, holdout_every)`, by position only.
+
 ## Persistence
 
 Calibration artifact includes:
@@ -85,6 +95,16 @@ Write atomically.
 A failed candidate leaves the prior artifact exactly valid.
 
 Keep enough metadata to report/rollback the previous accepted map if rollback is a supported command.
+
+As built (#398): one level of history, `gaze_calibration.previous.json`, byte-identical to
+the artifact the last promotion replaced; `yazses gaze rollback` restores it byte for byte;
+a new explicit calibration removes it. The `version` field is read on load: absent = 1;
+present but not a positive integer = damaged (STALE, as #415). A file from a newer schema
+still routes (its map and `space` are checked on their own) but `promote_refinement`
+refuses to re-encode it, since that would drop fields this build cannot read. The stored
+key set is pinned by a golden test (`tests/test_gaze_calibration_promotion_contract.py`):
+map coefficients, source, version, space, timestamp, context + fingerprint and, for an
+implicit map, four scalar evidence numbers — no samples, clicks, frames or screen content.
 
 ## Context/topology
 

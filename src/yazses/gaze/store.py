@@ -33,6 +33,20 @@ explicit calibration describes a setup the user has just replaced.
 A file written before ``source`` existed is read as ``"explicit"`` — that is what every
 such file was.
 
+## The schema version is read, not just written
+
+Every writer since the first has stored an integer ``version``. It is checked on load:
+
+* **Absent** reads as 1 (only a hand-written file lacks it). **Present but not a positive
+  integer** -- ``"3"``, ``true``, ``0``, ``2.5`` -- is damage, and the file is unreadable,
+  like any other damaged field (#415).
+* **Newer than this build** (``version > SCHEMA_VERSION``, e.g. after a downgrade) still
+  *routes*: the map and its coordinate space are checked on their own, and a schema that
+  changed what ``A`` means would also change ``space``, which already reads as STALE. But
+  :func:`promote_refinement` **refuses to rewrite it**: re-encoding a newer file in this
+  build's schema would silently drop every field this build cannot see, and the rollback
+  copy would then be the only place they survived.
+
 ## A damaged file never reads as a valid one (#415)
 
 Three layers, each refusing rather than guessing:
@@ -145,6 +159,8 @@ class CalibrationRecord:
     #: The coordinate space the file says ``A`` maps into. Files that predate the field
     #: (schema 1) read as the canonical one -- it is the only space there has ever been.
     space: str = CANONICAL_SPACE
+    #: The schema version the file was written with (1 when the field is absent).
+    version: int = SCHEMA_VERSION
 
 
 def calibration_path(data_dir: Path) -> Path:
@@ -271,6 +287,12 @@ def promote_refinement(
     record = _parse(current_bytes)
     if record is None:
         raise CalibrationWriteError("the stored calibration is unreadable; refusing to replace it")
+    if record.version > SCHEMA_VERSION:
+        raise CalibrationWriteError(
+            f"the stored calibration was written by a newer YazSes (schema {record.version}, "
+            f"this build writes {SCHEMA_VERSION}); rewriting it here would drop what this "
+            "build cannot read, so it is left as it is"
+        )
     if expected_baseline is not None and not np.allclose(
         record.calibration.A, expected_baseline.A, rtol=1e-9, atol=1e-9
     ):
@@ -371,6 +393,17 @@ def _matrix(raw: Any) -> np.ndarray | None:
     return np.array(raw, dtype="float64")
 
 
+def _version(raw: Any) -> int | None:
+    """The schema version as a positive int, or None when it is not one (a damaged file).
+
+    ``bool`` is excluded explicitly (``True`` is an ``int`` to Python), and so is an
+    integral float: no writer has ever stored one, so ``3.0`` is a hand edit or damage.
+    """
+    if isinstance(raw, bool) or not isinstance(raw, int) or raw < 1:
+        return None
+    return raw
+
+
 #: The exceptions a hostile-shaped but bounded file can raise while being decoded or
 #: rebuilt. RecursionError: ``[[[[...]]]]`` nested past the interpreter's limit.
 #: OverflowError: ``int(float("inf"))`` and kin. Anything else is a bug and should surface.
@@ -388,6 +421,9 @@ def _parse(data: bytes) -> CalibrationRecord | None:
         return None
     A = _matrix(raw.get("A"))
     if A is None:
+        return None
+    version = _version(raw.get("version", 1))
+    if version is None:
         return None
     context = None
     context_unreadable = False
@@ -429,6 +465,7 @@ def _parse(data: bytes) -> CalibrationRecord | None:
         # A non-string space is not a space anyone wrote; record it as unknown so the
         # comparison below refuses it rather than it reading as the canonical one.
         space=space if isinstance(space, str) else "?",
+        version=version,
     )
 
 

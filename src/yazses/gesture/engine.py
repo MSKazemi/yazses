@@ -39,6 +39,19 @@ the stop path, even if the gate reopens before it does. (Discarding it outright,
 version did, made every stop chord but a one-token one dead exactly when the pointer might be
 running away: a gesture source that is un-armed while the Head-Pointer is armed alone.)
 
+**A half-made chord does not cross a stop or a re-arm** (#417, ADR-v2-148). Watching the gate
+close is not enough: a Pause and a Resume can both land between two runner ticks, and a gesture
+begun while the gate was closed is counted by the sensors all the same. So :meth:`ChordEngine.frame`
+reads the gate on every tick that carries a signal (and on every tick while an engagement is open)
+and honours its one-shot ``clear_pending`` latch exactly as the face switch does: an engagement in
+flight is tainted (or, if already spent, stays spent), and ``frame`` returns True so the caller
+drops each detector's half-accumulated frames *before* this tick's frame is counted. A token made
+before the boundary must then be made anew, in full, after it. The local pause
+(:meth:`ChordEngine.set_paused`) is the same kind of boundary and is treated the same way. A latch
+first seen by a :meth:`ChordEngine.press` or :meth:`ChordEngine.pulse` (no tick in between) is kept
+for the next ``frame`` rather than lost; the cut is at tick resolution, as the face switch's is at
+frame resolution.
+
 **``hold`` is a token the engine makes itself.** A sensor cannot report "held long enough": it
 reports presses and releases, and the engine already owns the clock. ``hold`` becomes true when the
 tokens now held (at least one, and it must be one that *can* be held: a face gesture or ``tilt``)
@@ -303,6 +316,9 @@ class ChordEngine:
         #: The engagement in flight began, or was in flight when the gate or the local pause
         #: closed: only the stop path may run from it (see the module docstring).
         self._tainted = False
+        #: The gate's one-shot ``clear_pending`` latch fired (or the local pause changed) and
+        #: :meth:`frame` has not yet told the caller to drop its detectors' half-made gestures.
+        self._pending_clear = False
         self._warned: set[str] = set()
 
     # ------------------------------------------------------------------ introspection
@@ -400,28 +416,51 @@ class ChordEngine:
         """Advance time with no new token (the window closing, the freeze tail ending)."""
         self._step(now_s)
 
-    def frame(self, has_signal: bool, now_s: float) -> None:
-        """Once per runner tick: report liveness, and drop everything if now suppressed.
+    def frame(self, has_signal: bool, now_s: float) -> bool:
+        """Once per runner tick, *before* the tick's tokens: report liveness, honour the gate.
 
         Samples the gate only when the tick carried a signal, so a camera that goes blind
         ages the source out (ADR-v2-148) instead of looking healthy. When the gate is closed
         the engagement in flight is *tainted*: it may still complete a stop chord, but nothing
         else it gathers can run -- not now, and not after the gate reopens -- so nothing is
         replayed on resume.
+
+        Returns True when the source entered suppression or was re-armed since the previous
+        tick (the gate's ``clear_pending`` latch), or the local pause changed: the caller must
+        then drop every detector's half-accumulated gesture before it feeds this tick's frame,
+        so no token can complete from frames seen on the other side of a stop or a re-arm
+        (#417). The engagement in flight is treated as if the gate had been seen closed.
         """
         try:
             if self._gate is not None and has_signal:
                 self._gate.sample(self._source)
-            if self._state == "gather" and (self._paused or not self._allowed()):
+            # Asked on every tick that carries a signal, not only while an engagement is open:
+            # the latch is one-shot, so the tick that reads it is the boundary every half-made
+            # token is cut at. A tick with no signal is not asked unless an engagement is open:
+            # it counts nothing towards a token, and asking would register the source with the
+            # gate before it had ever delivered anything.
+            allowed = True
+            if self._gate is not None and (has_signal or self._state != "idle"):
+                allowed = self._allowed()
+            suppressed = self._paused or not allowed or self._pending_clear
+            if self._state == "gather" and suppressed:
                 self._tainted = True
-            elif self._state == "spent" and (self._paused or not self._allowed()):
+            elif self._state == "spent" and suppressed:
                 self._spend()
         except Exception:
             log.debug("gesture: gate poll failed", exc_info=True)
         self._step(now_s)
+        cleared, self._pending_clear = self._pending_clear, False
+        return cleared
 
     def set_paused(self, paused: bool) -> None:
-        """Pause or resume chord actions locally (the ``yazses gesture`` command)."""
+        """Pause or resume chord actions locally (the ``yazses gesture`` command).
+
+        A change is a boundary like the gate's (see :meth:`frame`): the next ``frame`` tells the
+        caller to drop its detectors' half-made gestures.
+        """
+        if bool(paused) != self._paused:
+            self._pending_clear = True
         self._paused = bool(paused)
         if self._paused and self._state == "gather":
             self._tainted = True
@@ -538,6 +577,8 @@ class ChordEngine:
         if self._gate is None:
             return True
         decision = self._gate.gate(self._source)
+        if getattr(decision, "clear_pending", False) is True:
+            self._pending_clear = True  # kept for the next frame(), whoever read it first
         return bool(getattr(decision, "allowed", False))
 
     def _set_freeze(self, now: bool, since_s: float | None = None) -> None:

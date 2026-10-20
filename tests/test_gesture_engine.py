@@ -400,6 +400,79 @@ def test_a_local_pause_suppresses_actions_but_not_the_stop_path():
 
 
 # --------------------------------------------------------------------------- #
+# A stop or a re-arm is a boundary no half-made chord crosses (#417, ADR-v2-148)
+# --------------------------------------------------------------------------- #
+def stop_and_rearm(gate):
+    """A Pause and a Resume that both land between two runner ticks."""
+    gate.pause("tray")
+    gate.sample("gesture")
+    assert gate.resume(["gesture"]).ok
+
+
+def test_a_stop_and_resume_between_two_ticks_still_taints_the_engagement_in_flight():
+    gate, _ = armed_gate()
+    engine, calls = make({"jaw_open+nod": "recenter"}, gate=gate)
+    engine.frame(True, 0.9)
+    engine.press("jaw_open", 1.0)         # half a chord is in flight...
+    engine.frame(True, 1.05)
+    stop_and_rearm(gate)                  # ...the engine never sees the gate closed...
+    assert engine.frame(True, 1.1) is True  # ...but it does see the latch
+    engine.pulse("nod", 1.2)
+    engine.tick(5.0)
+    assert calls.log == []                # the engagement did not cross the Resume
+
+
+def test_a_stop_chord_still_completes_across_a_resume():
+    gate, _ = armed_gate()
+    engine, calls = make({"jaw_open+nod": "pause_pointer"}, gate=gate)
+    engine.frame(True, 0.9)
+    engine.press("jaw_open", 1.0)
+    stop_and_rearm(gate)
+    engine.frame(True, 1.1)
+    engine.pulse("nod", 1.2)
+    assert calls.log == ["pause_pointer"]  # tainted, but stopping is never gated
+
+
+def test_frame_reports_the_latch_once_per_boundary_and_not_on_a_quiet_tick():
+    gate, _ = armed_gate()
+    engine, _ = make({"nod": "recenter"}, gate=gate)
+    assert engine.frame(True, 1.0) is True    # first contact after the arm
+    assert engine.frame(True, 1.1) is False
+    stop_and_rearm(gate)
+    assert engine.frame(True, 1.2) is True
+    assert engine.frame(True, 1.3) is False
+
+
+def test_an_idle_tick_with_no_signal_does_not_ask_the_gate():
+    gate, _ = armed_gate()
+    engine, _ = make({"nod": "recenter"}, gate=gate)
+    assert engine.frame(False, 1.0) is False  # nothing delivered, nothing open: not asked
+    assert engine.frame(True, 1.1) is True    # the latch is still there for the first signal
+
+
+def test_a_latch_first_read_by_a_pulse_is_kept_for_the_next_frame():
+    gate, _ = armed_gate()
+    engine, calls = make({"nod": "recenter"}, gate=gate)
+    engine.pulse("nod", 1.0)              # no tick in between: the press reads the latch
+    assert calls.log == ["recenter"]      # an allowed gate still lets it through...
+    assert engine.frame(True, 2.0) is True  # ...and the sensors are still told to cut
+
+
+def test_a_local_pause_and_resume_is_a_boundary_too():
+    engine, calls = make({"jaw_open+nod": "recenter"})
+    assert engine.frame(True, 0.9) is False   # no gate: no latch of its own
+    engine.press("jaw_open", 1.0)
+    engine.set_paused(True)
+    engine.set_paused(False)              # both between two ticks
+    assert engine.frame(True, 1.1) is True
+    engine.pulse("nod", 1.2)
+    engine.tick(5.0)
+    assert calls.log == []
+    engine.set_paused(False)              # not a change: not a boundary
+    assert engine.frame(True, 6.0) is False
+
+
+# --------------------------------------------------------------------------- #
 # The pointer freeze (Project Gameface's failure mode)
 # --------------------------------------------------------------------------- #
 class Freezes:

@@ -205,6 +205,318 @@ Apply, the window shows the settings window's own summary instead of a fixed "Ap
 
 No new IPC method and no new config key.
 
+### Added — `ci-gate`, one stable check for branch protection to require ([#462](https://github.com/MSKazemi/yazses/issues/462))
+
+The Tests workflow reports about fifteen matrix check names, and those names change whenever a leg is
+added or renamed. A ruleset that listed them would drift. The new last job in `test.yml`, `ci-gate`,
+gives the ruleset one name to require. It `needs` every blocking job (`repo-hygiene`, `test`, `gui`,
+`extras`, `benchmark-harness`), runs with `if: always()`, and passes only when each result is `success`.
+A failed, cancelled or skipped need fails it, and so does empty or unparsable input. It checks nothing
+out, so the verdict comes from the `needs` context alone. `freebsd` is `continue-on-error`, so it is
+advisory and not a need; a red FreeBSD run, like the one in run 39471109286, cannot fail the gate.
+`test.yml` has no path filter, so the check appears on every PR to `main` and is never left pending.
+
+`tests/test_ci_gate.py` derives the blocking and advisory sets from the workflow file instead of a
+written-out list. A new job that is neither a need nor marked advisory fails the suite. The test also
+runs the embedded verdict script against success, failure, cancelled, skipped, empty and malformed
+payloads. Nine hand-made mutations of the workflow were each caught: a dropped need, freebsd added, a
+new unlisted job, `!cancelled()`, a `paths` filter, a conditional blocking job, a verdict that tolerates
+`skipped`, a verdict that accepts `{}`, and expression interpolation into the script. No hosted run has
+executed the gate yet. The `main` ruleset does not require it yet; that is an owner action, specified in
+`.github/CI_POLICY.md` §6.2, and ADR-024 §9 records which central-agent prerequisites remain open.
+
+### Tests — Glance-Type on the shared camera sees the same model and the same device ([#396](https://github.com/MSKazemi/yazses/issues/396))
+
+Tests only. No source changed: the migration of Glance-Type gaze onto the shared perception source already met
+every acceptance criterion of EYE-CAM-003. The existing equivalence tests feed both paths the same landmarks, so
+they cannot see a difference in what produces the landmarks. The new `tests/test_gaze_glance_type_same_inputs.py`
+covers that gap. It builds the legacy `MediapipeGazeBackend` and the shared source, the latter exactly as the
+daemon builds it, under a fake `cv2`/`mediapipe` tree that records each request. It then checks:
+
+- **The same FaceLandmarker.** Model asset, running mode, face count and the detection, presence and tracking
+  floors are equal on both paths, for both an auto-downloaded model and a `[gaze] model_path` override. The
+  shared processor sets the two confidence floors explicitly, while the legacy backend inherits MediaPipe's
+  defaults (0.5, read from mediapipe 1.1.1). Raising the floor for the face switch would therefore make gaze
+  drop faces silently, and every earlier equivalence test would stay green. The only permitted differences are
+  the blendshape and transform outputs, which gaze does not read. Any option nobody has classified fails the test.
+- **The same camera.** Both paths open `cv2.VideoCapture(<camera_index>)` on the same device, and neither changes
+  a capture property.
+
+### Tests — the Head-Pointer is proven reachable through the daemon, not only importable ([#404](https://github.com/MSKazemi/yazses/issues/404))
+
+Tests only. No source changed. The wiring EYE-HEAD-001 asks for was already on `main`: `HeadPoseSignal` from the
+shared camera source, through the controller and the pure `pose_to_cursor` mapping, to `PointerSink.move_relative`.
+The earlier tests checked each daemon builder on its own and checked the start order by reading source text. The
+registry's "wired" flag comes from an import closure. The daemon imports `yazses.headpointer` in four statements,
+and none of them is the line in `_build_pipeline` that builds the runtime. Replacing that line with `None` left the
+closure, and so the "wired" flag, unchanged, and the pointer never moved.
+
+`tests/test_headpointer_reachability.py` runs the daemon's real `_build_pipeline()` from `[headpointer] enabled =
+true` alone. Only the camera, the face model, the platform pointer and the clock are fakes. The tests show that:
+
+- the daemon builds the shared source and gives its own source, safety gate and `pointer_factory` to the
+  Head-Pointer;
+- a head turn moves the platform sink, and the pointer stops at the neutral pose;
+- losing the face, or a failing webcam, gives zero motion while dictation's engine and injector stay built;
+- with dwell-click on, there is no click on startup and none when the face returns, but a deliberate aim and rest
+  clicks exactly once (the positive control);
+- without the overlay, dwell-click is held off and cannot be forced on;
+- shutdown closes the pointer, then the camera.
+
+Ten of the twelve tests fail against the mutant above. A second guard covers "no camera logic inside
+`headpointer/`": the package may import only the perception data contract (`perception/signals.py`). It may not
+import the shared source, the camera, landmark derivation, the gaze or face-switch packages, or use dynamic imports.
+The existing guard banned OpenCV and MediaPipe only by name.
+
+### Tests — every Head-Pointer state, every way in and out, on a fake clock ([#405](https://github.com/MSKazemi/yazses/issues/405))
+
+Tests only. No source changed: `src/yazses/headpointer/controller.py`, `runtime.py` and the
+`yazses headpointer` commands already met EYE-HEAD-002's behaviour criteria (pause/resume,
+recenter, dwell on/off, dwell progress shown before a click, no click on recovery, a clutch).
+The last criterion, "all state transitions have fake-clock/unit coverage", could not be shown
+by the existing hand-picked traces. The new `tests/test_headpointer_state_matrix.py` covers it
+two ways:
+
+- **A matrix derived from the `State` enum.** Every ordered pair of held states (a pending,
+  denied or unavailable permission, a fault, a lost signal, a closed gate, a pause, a clutch)
+  is entered, stacked and unwound. Each tick asserts the state word and that the pointer did
+  nothing while anything was held. Release asserts one settling frame, then motion. Close
+  (from every state), recenter and dwell on/off (in every state) get their own rows. A state
+  added later without a row fails the test.
+- **A model-based property.** Hypothesis generates sequences of samples (fresh, stale,
+  repeated, low-confidence, from the future, missing, held still on a slow or a normal camera)
+  mixed with every control. A small oracle checks every step: no motion or click while
+  anything forbids it, only a settling frame after any interruption, no click with dwell off,
+  no click without travel past the radius, and no click unless progress was shown on an
+  earlier sample. A seeded replay of the same checker must meet clicks (including slow-camera
+  clicks), motion and every state, so a green run is not a checker that saw nothing.
+
+Each rule was checked against an in-memory mutation of the controller: dropping the settling
+frame, the brink rule, dwell arming, pause, signal-loss reset or the dwell switch each failed
+at least one new test. Skipping the quiesce on clutch *release* stayed green. That quiesce is
+redundant: every sample taken under a held clutch already quiesces.
+
+### Fixed — a Mac without the Accessibility grant now says so when the Head-Pointer starts ([#402](https://github.com/MSKazemi/yazses/issues/402))
+
+The macOS and Windows `PointerSink` backends were already in place, and both pass the shared contract against
+fake OS layers. One gap remained on macOS. The platform bundle handed out the bare `MacosPointerSink` class as
+its `pointer_factory`, and constructing that class cannot fail. The Head-Pointer opens its sink at build time so
+that it can report a missing backend before it starts. On a Mac without post-event access, the sink opened
+anyway, and the user found out only when the first head movement raised an error.
+
+`pointer_factory` on macOS is now `build_macos_pointer_sink` in `src/yazses/platform/macos/pointer.py`. It loads
+Quartz and calls `CGPreflightPostEventAccess`, which does not prompt, before it returns a sink. A missing PyObjC
+Quartz bridge raises `PointerUnsupportedError`. A denial raises `PointerBackendError` with a shorter message
+that fits the Head-Pointer's 200-character status reason and still names the pane: *Enable YazSes in System
+Settings > Privacy & Security > Accessibility, then restart YazSes.* A bridge error while asking also raises
+`PointerBackendError`, so a caller only ever sees a `PointerError`. The confirmed grant is reused, so the first motion does
+not ask again. Eight new tests in `tests/test_pointer_macos.py` cover these cases. They include the platform
+wiring and an end-to-end `build_headpointer` run that asserts the user sees the reason.
+
+**Real-hardware validation is still owed.** Neither backend has run on a real Mac or Windows PC. Whether
+`CGPreflightPostEventAccess` reports the grant correctly for a bundled `.app` and for a terminal-launched
+daemon is unverified. So are click recognition without `kCGMouseEventClickState`, `SendInput` delivery under
+UIPI, and both scroll signs on hardware.
+
+### Fixed — the Wayland keyboard and pointer could write to their shared portal connection at the same time ([#403](https://github.com/MSKazemi/yazses/issues/403))
+
+The Wayland pointer uses the same XDG RemoteDesktop session as dictation (ADR-v2-146 rule 6), so it also uses
+the same D-Bus connection. Dictation types on the daemon's thread and the Head-Pointer moves on the perception
+thread. The connection is a `jeepney.io.blocking` one, and its `send` takes no lock (jeepney provides
+`jeepney.io.threading` for callers on several threads). If two threads write at once, the bytes of two messages
+can interleave. Every `Notify*` message now goes out under a per-message lock in `src/yazses/inject/portal.py`.
+The lock is not held during the key delay, so typing speed does not change. A second fix: a pointer grant was
+lost if the consumer that asked for it closed while the consent dialog was open. The next consumer was then
+told the session was "keyboard only" and asked to restart. The grant now follows the device mask that was
+actually requested. `tests/test_portal_shared_session_wire.py` checks both fixes. It also compares every
+keyboard message, byte for byte, with and without a pointer consumer on the session, and against a message
+built independently of the code. The two concurrency tests and the grant test fail on the previous code. This
+is a hermetic fix. No live GNOME/KDE report has been made yet, and #403 asks for one.
+
+### Fixed — implicit gaze calibration: the promotion verdict is a pure function, and the schema version is read ([#398](https://github.com/MSKazemi/yazses/issues/398))
+
+The promote/keep decision now lives in one pure function, `gaze.refine.decide_promotion`. It takes the baseline, the
+candidate, the held-out pairs, the training count and the policy. It does no I/O, reads no clock, keeps no state and
+modifies none of its arguments. `ImplicitRefiner` calls it and adds only the side effects: the context confirmation, the
+atomic write and the live switch. The stated gate is unchanged. Both held-out mean errors must be finite, the
+candidate's must be strictly lower, and the improvement must be at least `min_improvement_px`, which must be > 0. The
+train/held-out split is now the pure `gaze.refine.routes_to_holdout(index, holdout_every)`.
+
+Writing the function found a latent hole in the gate's reading. Passed the same map object as baseline and candidate,
+`refined_if_better` returns the baseline, which `is` the candidate, so the old identity check counted it as a win. The
+refiner always passes a fresh copy as the candidate, so a running daemon could not reach this. It is now a keep.
+
+`gaze_calibration.json` has always stored an integer `version`, but nothing read it. Now a `version` that is present
+but not a positive integer (`"3"`, `true`, `0`, `3.0`, `null`) makes the file damaged, and it is reported as stale,
+as in #415. A file without a version reads as schema 1. A file written by a newer YazSes still routes; its map and
+coordinate space are checked independently. But `promote_refinement` refuses to rewrite it, because re-encoding it
+would drop the fields this build cannot read. Rollback still restores such a file byte for byte.
+
+`tests/test_gaze_calibration_promotion_contract.py` pins all of this: purity, the margin at its exact float boundary
+(accepted at the margin, refused one ulp short), a refiner that agrees with the pure verdict, the version rules, and a
+golden key set for the stored artifact and its evidence. A raw sample, click or screen coordinate cannot be added to
+the file without that test failing. No config key, CLI flag or dependency changed. `[gaze_refine]` stays off by
+default.
+
+### Fixed — a face switch bound to `pause_pointer` did nothing while the global stop was off ([#407](https://github.com/MSKazemi/yazses/issues/407))
+
+EYE-FACE-002 lists "pause pointer" among the actions a face switch can be bound to. The daemon wired
+`pause_pointer` only when `[handsfree_safety]` was on. With the global stop off, which is the shipped default, a
+gesture bound to it did nothing, even with a running Head-Pointer. Three other paths do pause the Head-Pointer in
+that case: `yazses handsfree pause`, the settings panel's Pause and a Gesture Chord's `pause_pointer`. Now the face
+switch does too. With the global stop on it still pauses every hands-free input. With the stop off it pauses the
+running Head-Pointer only, and the log names that scope. With neither, it stays unwired, and the daemon logs which
+setting to turn on instead of the generic "nothing implements it". The settings panel offers the mapping when the
+daemon reports a running Head-Pointer, and the row says "Head-Pointer only". A saved `[headpointer] enabled` is not
+enough: a pointer with no camera or no pointer backend has nothing to pause. The panel-versus-daemon drift guard now
+covers this case as well.
+
+The other EYE-FACE-002 criteria were already met on main: the detector emits intents only, unmapped gestures do
+nothing, mappings are validated, select freezes the pointer and confirm/cancel answer only an existing hold. A new
+test pins that a face hold enters the daemon through the hotkey's own hold entry points, so cmdsafety still holds a
+destructive spoken command made with a face. Default off; nothing changes until a gesture is bound to
+`pause_pointer`.
+
+### Fixed — an eyes-closed face switch could fire on an ordinary blink when the shared camera ran at 30 fps ([#406](https://github.com/MSKazemi/yazses/issues/406))
+
+An "eyes closed" binding is meant to need the eyes shut for 0.8 s. The Hands-free panel enforced that as a frame
+count: it raises `[facegesture] min_hold_frames` to 12, which is 0.8 s at `[facegesture] fps = 15`. When
+`[perception]` is on and both sections name the same camera, the face switch reads the shared camera instead. It
+then counts one frame per observation at `[perception] fps`, not at `[facegesture] fps`. At `[perception] fps =
+30` those 12 frames are **0.4 s**, so a long ordinary blink started dictation (or whatever the gesture was bound
+to). An eyes-closed binding written in the config file, or as a secondary `[[facegesture.switches]]` entry at the
+default 3 frames, fired after 0.1 s. The `[gesture.chords]` token path counted frames the same way.
+
+Now every live eyes-closed detector also needs **0.8 s of sample time**, whatever the frame rate. That covers the
+face-switch backend on both the shared and its own camera, and the chord sensors. The frame count still applies on
+top of it. This is an internal constant (`facegesture.detector.EYES_CLOSED_MIN_HOLD_S`), not a config key. Other
+gestures are unchanged. When the shared camera runs slower than `[facegesture] fps`, the panel's 12-frame floor can
+make an eyes-closed hold longer than 0.8 s. It can no longer make it shorter.
+`tests/test_facegesture_eyes_closed_wall_time.py` drives the real builders at 30 fps: a real
+`FaceGestureBackend` over a real `SharedPerceptionSource`, and `SensorTokens` from `gesture.runtime.sensor_settings`.
+A 0.4 s closure produces no event and a 0.9 s closure produces exactly one. On the previous commit, 5 of its 9
+tests failed: each 0.4 s blink case fired, and the built detector had no timed floor. All 9 pass now. The 0.8 s is
+provisional, chosen above the roughly 0.1-0.4 s that the literature commonly gives for a spontaneous blink. It has
+not been measured on people in YazSes.
+
+**How it works.** `GestureSwitch` now takes optional `min_hold_s` and `refractory_s` (default 0, off). They are measured on the
+caller's sample timestamps (`now_s`), and the detector still reads no clock. Each one adds to its frame rule and
+never replaces it. Both fail closed. A sample with no usable time cannot prove a duration, so it breaks the hold run
+and keeps a refractory window open (`needs_clock` reports when a caller must pass time). A gap longer than
+`max_gap_s` between samples (default 0.25 s, the Head-Pointer dwell's bound) restarts the run. The same sample fed
+twice adds no time, and a clock that steps backwards restarts the count.
+
+`tests/test_facegesture_timed_hold.py` drives deterministic synthetic traces at 15, 30 and 60 fps:
+
+- **Ordinary blinks** of up to 0.4 s never fire an eyes-closed switch with an 0.8 s timed hold, and never fire a
+  non-blink gesture.
+- **Talking-like syllables** cross the hold threshold and pass the shipped three-frame debounce at 30 fps, but never
+  pass a 0.3 s timed hold.
+- **A deliberate hold** fires exactly once, after the same wait at every rate.
+- **Low confidence** emits nothing.
+
+With the timed rules disabled in a subclass, 15 of these test functions fail (one parametrisation of each was
+run). The durations in the tests make each case unambiguous. They are not recommended defaults, and no real face was measured. Apart from the eyes-closed floor
+above, the timed rules are **not reachable from config**. Adding `[facegesture]` keys changes a public interface,
+so that is left to a follow-up.
+
+### Fixed — a half-made Gesture Chord token no longer survives a hands-free Pause and Resume ([#408](https://github.com/MSKazemi/yazses/issues/408))
+
+Gesture Chords watched the hands-free gate for a closed state. They never read its one-shot `clear_pending`
+latch, the signal the gate uses to report that a source was stopped or re-armed (#417, ADR-v2-148). So two
+things could cross a Pause and Resume that landed between two camera frames:
+
+- the face switch's half-counted hold frames and the head detector's half-made nod;
+- an engagement still gathering tokens.
+
+With `[gesture.chords] jaw_open = "recenter"`, a jaw opened for two frames before a Resume and one frame after
+it fired `recenter`. The face switch has required a full three frames after a Resume since #417.
+`design/architecture.md` invariant (6) already said every continuous consumer honoured the latch, so the code
+did not match the design.
+
+`ChordEngine.frame()` now reads the gate on every tick that carries a signal, and on every tick while an
+engagement is open. On the latch it taints the engagement in flight, so only the stop path can still complete
+it. It then returns True. `SensorTokens` then drops half-made state before the tick's frame is counted, through
+`GestureSwitch.discard_pending()` and a new `HeadGestureDetector.discard_pending()`. A held token stays held and
+must be relaxed and made again. A local `yazses gesture pause`/`resume` is the same boundary. No config key, CLI
+flag or default changed, and Gesture Chords stay off with nothing bound.
+
+Tests: 13 in `tests/test_gesture_engine.py`, `tests/test_gesture_sensors.py` and `tests/test_gesture_runtime.py`,
+one of them end to end through the real shared source and `GestureRuntime.command("resume")`. 10 of them fail on
+the previous source. Four more in `tests/test_gesture_headmotion.py`, one of them a control showing that the
+split fixture is a real nod.
+
+### Fixed — an update could still delete an enabled feature's libraries, and a dead feature looked healthy
+
+- **`yazses update` and the tray's "Install update" keep every working feature's libraries** on a `uv tool`
+  install. `uv tool upgrade` removes any package its receipt does not list. Enables made before the receipt
+  fix, or ones that took its fallback path, were still unlisted, so the next update deleted them. That is
+  how an enabled Parakeet engine disappeared. When an enabled feature's requirement is missing from the
+  receipt, the upgrade now runs `uv tool install --upgrade --with … <target>`. That makes the same version
+  move and records the requirements. It was checked offline against uv 0.12.21 with hand-built wheels.
+  Only features that work are carried; a dormant one is reported, not downloaded during an update.
+  A uv tool install is recognised by finding its own receipt through `uv tool dir`, not by a path
+  substring, so a custom `UV_TOOL_DIR` and the Windows default (`%APPDATA%\uv\data\tools`) are covered.
+  `yazses update` also detects that Windows default as a `uv` install; it was reported as `pip`, which
+  offered `pip install --upgrade yazses`.
+- **Receipt round-trips keep environment markers.** Re-rendering a receipt dropped `; sys_platform == …`,
+  so the second feature enabled turned the Intel-Mac-only `onnxruntime<1.24` into a ceiling for every
+  platform. Merging by name also kept only one of `read-back`'s two onnxruntime lines.
+- **An enabled feature with missing libraries is named everywhere, with its fix.** Shared detection lives in
+  `system/dormant.py` and is derived from the feature registry. The daemon logs each such feature at start
+  and shows one rate-limited notification. `yazses doctor` prints one row per feature. `yazses features`
+  draws the row as `◐ ON`, with `yazses features enable <name>` beside it (plus `--force` when the feature
+  is experimental). This covers hand-edited configs, `--no-install`, failed installs and upgrades. `doctor`'s
+  old hand-kept rows told end users to run `uv sync --extra …`, and it probed `l2cs` for gaze.
+- **A failed install is a failed command.** `features enable`, `features reset` and `handsfree enable`
+  printed "Apply it: yazses restart" and exited 0 over the installer's own error. They now exit 1, say the
+  feature is *dormant*, and print the retry command. The config key still stands, as before (see
+  `docs/architecture.md`).
+- **Two new guards.** `tests/test_no_module_imports_an_extra_at_module_scope.py` scans every module, not
+  only the daemon's import graph, for module-scope imports of an extra's packages, transitively.
+  `tests/test_every_extra_has_an_install_path.py` fails when an extra exists that no feature installs
+  and no stated exemption explains.
+
+### Added — one-click update on Windows ([ADR-027](design/adr/adr-027-one-click-windows-update.md))
+
+On Windows, tray → *Check for updates…* and `yazses update` used to stop at "download the newest `.exe` and
+run it". They now finish the job after one confirmation. YazSes downloads the installer for this machine's
+architecture from the GitHub release. It accepts only a URL under
+`https://github.com/MSKazemi/yazses/releases/download/` and follows redirects only to GitHub's https asset
+hosts. The download has a size cap and a timeout. YazSes checks the file's SHA-256 against the release's
+`SHA256SUMS.txt` before anything runs, and deletes the file and refuses on a mismatch. YazSes then closes and
+a detached job runs the installer silently as an in-place upgrade (no uninstall). The job checks the hash
+once more first, then starts YazSes again. Chocolatey, winget and Scoop installs run their own upgrade
+command the same way, but only once that manager's own feed carries the new version (`choco search`,
+`winget show`, `scoop info`). Chocolatey asks for administrator rights. On the next start the tray reports,
+once, whether the version actually moved. Any failure leaves YazSes running and shows the manual steps.
+`yazses update --yes` performs the update without asking, and `--check` only describes it. Nothing is
+downloaded in the background: the optional update-check notifier is unchanged.
+
+Limits, all on purpose:
+
+- An **all-users** install is not updated by one click. Doing so would run a file from your temp folder with
+  administrator rights. It gets the manual steps.
+- If YazSes has not closed within 5 minutes (for example, a meeting still being saved), **nothing is
+  installed**; YazSes is never force-closed.
+- Two clicks cannot run two updates at once.
+- With the tray running, `yazses update` points you to the tray's own entry, which closes YazSes cleanly.
+
+The **MSIX** package is now detected as its own install method (`msix`), with Microsoft Store / App
+Installer steps. Previously it was treated as the `.exe` install and pointed at an installer that would have
+added a second copy. The REST API is asked for JSON (`application/vnd.github+json`). The first draft sent
+`application/octet-stream`, which `api.github.com` rejects with HTTP 415; a test now checks the real
+opener's headers.
+
+The installer is **not code-signed yet**. The checksum proves the file is the one the release published
+(integrity), not who built it (authenticity). Authenticode signing is the remaining step. A new `UpdateLauncher`
+platform Protocol keeps the Windows parts in `platform/windows/update_handoff.py`.
+`system/installer_update.py` is registered as a FETCH and `platform/windows/update_handoff.py` as a
+SHELL_OUT in ADR-019. `installer.iss` now states
+`CloseApplications=yes` and adds `.pyd` to `CloseApplicationsFilter`. Covered offline by
+`tests/test_one_click_windows_update.py`. It has **not yet been run on a real Windows machine**: ADR-027 lists
+what a Windows tester must verify.
+
 ### Fixed — the eye-control CI matrix lost its macOS leg to a new Homebrew Python ([#424](https://github.com/MSKazemi/yazses/issues/424))
 
 From 2026-10-17, every macOS leg of `eye-eval-ci.yml` failed in `uv sync`, before the evaluation ran. The step

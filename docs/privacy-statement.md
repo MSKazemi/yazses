@@ -341,7 +341,11 @@ disclosure as an anonymous one.
 
 `yazses update` is the only other outbound action, and only when you run it yourself —
 unless you set `[general] update_check = true`, which is off by default and, when on,
-fetches a version string in the background and nothing else.
+fetches a version string in the background and nothing else. On Windows, when you confirm
+an update, YazSes also downloads the installer and the release's `SHA256SUMS.txt` from
+the GitHub release. That download happens only after you say yes, never in the
+background, and it sends nothing about you
+([ADR-027](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-027-one-click-windows-update.md)).
 
 All of it is enumerated — module, destination, direction and trigger — in the project's
 [egress inventory](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-019-egress-inventory-and-escalation.md), and a test fails the build when any module gains a

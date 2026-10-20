@@ -9,7 +9,9 @@ Numeric fakes only: a ``PerceptionSample`` is a timestamp and some numbers. What
 * **missing, stale and NaN signals yield no token**, release what was held at once, and drop
   the pointer freeze;
 * an expression that has *begun* freezes the pointer before it is a token;
-* with no chord bound nothing is watched at all.
+* with no chord bound nothing is watched at all;
+* **a stop or a re-arm cuts every half-made token** (#417): frames counted before a Pause /
+  Resume, a local pause or a gate re-arm never complete a token after it.
 """
 from __future__ import annotations
 
@@ -19,6 +21,7 @@ from types import SimpleNamespace
 from yazses.gesture.engine import ChordEngine
 from yazses.gesture.headmotion import HeadMotionSettings
 from yazses.gesture.sensors import FaceSwitchSettings, SensorSettings, SensorTokens
+from yazses.handsfree.safety import HandsFreeSafety
 from yazses.perception.signals import FaceSignal, HeadPoseSignal, PerceptionSample
 
 FPS = 15.0
@@ -28,13 +31,14 @@ DT = 1.0 / FPS
 class Rig:
     """An engine with fake handlers, driven by hand-built samples at a fixed frame rate."""
 
-    def __init__(self, bindings, *, face=None, head=None, freshness_s=0.5, window_s=0.4):
+    def __init__(self, bindings, *, face=None, head=None, freshness_s=0.5, window_s=0.4,
+                 gate=None):
         self.calls: list[str] = []
         self.freeze: list[bool] = []
         handlers = {a: (lambda a=a: self.calls.append(a)) for a in set(bindings.values())}
         self.engine = ChordEngine(
             bindings, handlers, window_s=window_s, refractory_s=1.0, freeze_tail_s=0.3,
-            on_freeze=self.freeze.append,
+            on_freeze=self.freeze.append, gate=gate,
         )
         self.sensors = SensorTokens(
             self.engine,
@@ -281,3 +285,105 @@ def test_the_freeze_names_the_camera_frame_that_showed_the_expression():
     rig.frame(jaw=0.9)                    # first frame at or above the release threshold
     assert rig.engine.freeze_pointer
     assert rig.engine.freeze_started_s == rig.t
+
+
+# --------------------------------------------------------------------------- #
+# A stop or a re-arm cuts every half-made token (#417, ADR-v2-148)
+# --------------------------------------------------------------------------- #
+def armed_gate():
+    """A real gate on a frozen clock (so nothing ages out), armed for the chord source."""
+    gate = HandsFreeSafety(["gesture"], clock=lambda: 0.0)
+    gate.sample("gesture")
+    assert gate.resume(["gesture"]).ok
+    return gate
+
+
+def stop_and_rearm(gate):
+    """A Pause and a Resume that both land between two camera frames."""
+    gate.pause("tray")
+    assert gate.resume(["gesture"]).ok
+
+
+def test_a_face_gesture_begun_before_a_resume_must_be_made_anew_after_it():
+    gate = armed_gate()
+    rig = Rig({"jaw_open": "recenter"}, gate=gate)
+    rig.frame(jaw=0.0)
+    rig.frame(jaw=0.9)
+    rig.frame(jaw=0.9)                    # two of the switch's three frames...
+    stop_and_rearm(gate)
+    rig.frame(jaw=0.9)                    # ...and one after the Resume is not three
+    assert rig.calls == []
+    rig.frame(jaw=0.9)
+    rig.frame(jaw=0.9)                    # three frames after the Resume
+    assert rig.calls == ["recenter"]
+
+
+def test_a_face_gesture_made_during_a_pause_does_not_complete_on_resume():
+    gate = armed_gate()
+    rig = Rig({"jaw_open": "recenter"}, gate=gate)
+    rig.frame(jaw=0.0)
+    gate.pause("tray")
+    rig.frame(jaw=0.9)
+    rig.frame(jaw=0.9)                    # counted while paused, not acted on
+    assert gate.resume(["gesture"]).ok
+    rig.frame(jaw=0.9)
+    assert rig.calls == []
+    rig.frame(jaw=0.9)
+    rig.frame(jaw=0.9)
+    assert rig.calls == ["recenter"]
+
+
+def test_without_a_boundary_the_same_frames_do_fire():
+    """The control for the two above: the fixture is a real token when nothing intervenes."""
+    rig = Rig({"jaw_open": "recenter"}, gate=armed_gate())
+    rig.frame(jaw=0.0)
+    for _ in range(3):
+        rig.frame(jaw=0.9)
+    assert rig.calls == ["recenter"]
+
+
+def test_half_a_nod_before_a_resume_and_half_after_is_no_nod():
+    gate = armed_gate()
+    rig = Rig({"nod": "recenter"}, gate=gate)
+    n = int(1.0 * FPS)
+    pitches = [0.2 * math.sin(2 * math.pi * 2 * i / n) for i in range(n + 1)]
+    for pitch in pitches[: n // 2]:
+        rig.frame(pitch=pitch)
+    stop_and_rearm(gate)
+    for pitch in pitches[n // 2:]:
+        rig.frame(pitch=pitch)
+    rig.engine.tick(rig.t + 1.0)
+    assert rig.calls == []
+    rig.nod()                             # a whole nod after the Resume is still a nod
+    assert rig.calls == ["recenter"]
+
+
+def test_a_local_pause_and_resume_also_cuts_a_half_made_gesture():
+    rig = Rig({"jaw_open": "recenter"})   # no gate at all: `yazses gesture pause/resume`
+    rig.frame(jaw=0.9)
+    rig.frame(jaw=0.9)
+    rig.engine.set_paused(True)
+    rig.engine.set_paused(False)
+    rig.frame(jaw=0.9)
+    assert rig.calls == []
+    rig.frame(jaw=0.9)
+    rig.frame(jaw=0.9)
+    assert rig.calls == ["recenter"]
+
+
+def test_a_gesture_still_held_across_a_resume_must_be_relaxed_and_made_again():
+    gate = armed_gate()
+    rig = Rig({"jaw_open": "recenter"}, gate=gate)
+    rig.frame(jaw=0.0)
+    for _ in range(3):
+        rig.frame(jaw=0.9)
+    assert rig.calls == ["recenter"]
+    stop_and_rearm(gate)
+    for _ in range(30):                   # two seconds of the same open jaw
+        rig.frame(jaw=0.9)
+    assert rig.calls == ["recenter"]      # the hold is not pressed a second time
+    for _ in range(20):
+        rig.frame(jaw=0.0)                # relax, past the refractory
+    for _ in range(3):
+        rig.frame(jaw=0.9)
+    assert rig.calls == ["recenter", "recenter"]

@@ -667,6 +667,7 @@ class Daemon:
             self._start_update_watcher()
             self._load_shown_notices()
             self._announce_permissions()
+            self._announce_dormant_features()
             self._warm_portal_session()
             self._start_portal_idle_reaper()
             self._start_headpointer()
@@ -715,7 +716,7 @@ class Daemon:
         if not overlay_dependency_available():
             log.info(
                 "Overlay is enabled but PySide6 is not installed; skipping. "
-                "Install it with: uv sync --extra overlay  (or pip install 'yazses[overlay]')"
+                "Install it with: yazses features enable overlay"
             )
             return
         try:
@@ -738,7 +739,7 @@ class Daemon:
         if not tray_dependency_available():
             log.info(
                 "Tray is enabled but PySide6 is not installed; skipping. "
-                "Install it with: uv sync --extra overlay  (or pip install 'yazses[overlay]')"
+                "Install it with: yazses features enable tray"
             )
             return
         try:
@@ -978,6 +979,43 @@ class Daemon:
                 )
         except Exception:  # noqa: BLE001 — startup must survive its own warnings
             log.debug("could not announce missing permissions", exc_info=True)
+
+    def _announce_dormant_features(self) -> None:
+        """Say which enabled features cannot run because their libraries are missing.
+
+        The routes to that state never pass through `features enable`'s install: a
+        hand-edited config, `--no-install`, a failed install whose key stood, and an
+        upgrade that rebuilt the environment without the extra. Each feature's own
+        factory then logged one line — some naming `uv sync --extra …`, which does
+        nothing outside a source checkout — and the capability was dead from then
+        on. This names every one, from the registry, with the one command that
+        fixes it. It installs nothing: that stays the user's action (ADR-019).
+
+        Rate-limited through the same persisted record as `_announce_permissions`,
+        so a crash loop cannot multiply it, and a desktop-only feature on a
+        headless box is not a finding at all (see `system/dormant.py`).
+        """
+        try:
+            from yazses.system import notify as notify_mod
+            from yazses.system.diagnosis import should_notify
+            from yazses.system.dormant import dormant_features
+
+            for item in dormant_features(self._config):
+                log.warning("%s", item.describe())
+                with self._lock:
+                    fresh = should_notify(
+                        f"dormant-{item.slug}", time.time(), self._diagnosed_at
+                    )
+                if not fresh:
+                    continue
+                self._persist_shown_notices()
+                urgency, expire_ms = notify_mod.toast_policy(False)
+                notify_mod.notify(
+                    f"{item.name} is on but cannot run",
+                    item.describe(), urgency=urgency, expire_ms=expire_ms,
+                )
+        except Exception:  # noqa: BLE001 — startup must survive its own warnings
+            log.debug("could not check enabled features' libraries", exc_info=True)
 
     def _stale_permissions(self) -> list[str]:
         """Grants given AFTER this daemon started, which its hotkey tap cannot see.
@@ -1749,14 +1787,25 @@ class Daemon:
             actions["select"] = SwitchAction(press=self._switch_select)
             actions["confirm"] = SwitchAction(press=self._switch_confirm)
             actions["cancel"] = SwitchAction(press=self._switch_cancel)
-            # The global hands-free pause/kill state (ADR-v2-148), when something has built
-            # one. Nothing in the daemon owns it yet, so absent means "no gate", never "a
-            # gate that is closed": a face switch must not be disabled by a state that does
-            # not exist. When present, a gesture can pause it, and is suppressed by it.
+            # The global hands-free pause/kill state (ADR-v2-148), built by
+            # `_build_handsfree_safety` only while `[handsfree_safety]` is on. Absent means
+            # "no gate", never "a gate that is closed": a face switch must not be disabled by a
+            # state that does not exist. When present, a gesture can pause it, and is
+            # suppressed by it.
             safety = getattr(self, "_handsfree_safety", None)
+            # `pause_pointer` does the most it can in every configuration, exactly as the
+            # `handsfree pause` IPC, the panel's Pause and a chord's `pause_pointer`
+            # (gesture/runtime.py) already do: with the global gate it pauses every source;
+            # with the gate off it still pauses a running Head-Pointer. Only with neither is
+            # there nothing to pause, and then it stays unwired and is called out at start-up.
+            pointer = getattr(self, "_headpointer", None)
             if safety is not None:
                 actions["pause_pointer"] = SwitchAction(
                     press=lambda: safety.pause("face switch")
+                )
+            elif pointer is not None and bool(getattr(pointer, "active", False)):
+                actions["pause_pointer"] = SwitchAction(
+                    press=lambda: self._switch_pause_pointer(pointer)
                 )
             # ADR-v2-145: lease the shared camera when sharing is correct (a source exists
             # and both sections name the same device); otherwise exactly the own-capture
@@ -1792,6 +1841,14 @@ class Daemon:
                     # (ADR-v2-148 amendment, handsfree/safety.py). Pause still needs Resume.
                     safety.allow_auto_rearm(SAFETY_SOURCE, REARM_AFTER_MS)
             self._switch_bound = frozenset(source.bound_actions)
+            if "pause_pointer" in self._switch_bound and "pause_pointer" not in actions:
+                # The backend's generic "nothing implements it" is true but not actionable;
+                # this is the one unwired action whose remedy is a setting, so name it.
+                log.warning(
+                    "[facegesture] pause_pointer has nothing to pause: turn on "
+                    "[handsfree_safety] (pauses every hands-free input) or a running "
+                    "[headpointer] (pauses the pointer). That gesture does nothing until then."
+                )
             self._face_on_shared_source = lease is not None
         except Exception:
             log.warning("Face-gesture activation source init failed; continuing "
@@ -1830,6 +1887,22 @@ class Daemon:
             return runtime.commit_click(policy, own_clutches=(SWITCH_CLUTCH_SOURCE,))
 
         self._record_switch_outcome(perform_select(commit_click, limiter))
+
+    @staticmethod
+    def _switch_pause_pointer(pointer) -> None:
+        """``pause_pointer`` with the global stop off: pause the Head-Pointer only.
+
+        The reply names the scope in the log, so nobody reads "paused" as "every hands-free
+        input stopped" -- the face switch itself keeps running (the same distinction
+        `handsfree pause` draws). Resumed by `yazses headpointer resume` or `handsfree resume`.
+        """
+        reply = pointer.command("pause")
+        if reply.get("ok"):
+            log.info("Face switch pause_pointer: paused the Head-Pointer only "
+                     "(the global stop is off).")
+        else:
+            log.info("Face switch pause_pointer: the Head-Pointer did not pause (%s).",
+                     reply.get("reason") or "no reason given")
 
     def _switch_limiter(self):
         limiter = getattr(self, "_switch_select_limiter", None)

@@ -278,6 +278,24 @@ true:
 
 A central executor is an automation account, not an additional maintainer.
 
+**Status of prerequisites 1–2 (2026-10-20, #462).** The source half of prerequisite 2 exists.
+`ci-gate`, the last job in `.github/workflows/test.yml`, has a stable name. It `needs` every
+blocking job in that workflow, runs with `if: always()`, and passes only when every need's
+result is `success`. A job is advisory only when it declares a literal
+`continue-on-error: true`; today that is `freebsd`. `tests/test_ci_gate.py` derives both sets
+from the workflow file, so a blocking job cannot quietly drop out of the gate. Prerequisite 1
+and the "required by the ruleset" half of prerequisite 2 are **not met**. Today the live `main`
+ruleset blocks only deletion and force-push, and has no bypass actors. Adding `pull_request`
+and `required_status_checks: ci-gate` is an owner action. The exact payload and the choices
+behind it (zero approvals, the admin bypass mode, non-strict status policy) are in
+[CI_POLICY.md §6.2](../../.github/CI_POLICY.md). Until that step is applied and validated as
+#462 describes, Phase 3 stays closed.
+
+One limit holds even after the ruleset is applied. A pull request runs its own copy of
+`test.yml`, so a PR can change the gate it is judged by. This prerequisite therefore relies on
+human review of workflow changes; the ruleset alone does not deliver it. Workflow and release
+surfaces are L3 under §10, and a central executor's PR that touches them must escalate.
+
 ### 10. L3 and sensitive surfaces always escalate
 
 Even a well-bounded task must stop rather than proceed automatically when the requested change
