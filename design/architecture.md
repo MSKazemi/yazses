@@ -297,7 +297,12 @@ the next frame as a settling frame; the face switch's `SwitchMapper.frame()` rea
 every frame that carries a face (a faceless frame counts nothing toward a hold) and returns the latch, and `FaceGestureBackend` then calls
 `GestureSwitch.discard_pending()` on every detector before that frame is counted (an open hold
 stays held, so a face still gesturing across a Resume must relax and gesture again); Gesture
-Chords taint an engagement in flight. (7) Shutdown closes the gate before anything is stopped:
+Chords do the same (#408): `ChordEngine.frame()` reads the gate on every tick that carries a
+signal (and on every tick while an engagement is open), taints an engagement in flight so only
+the stop path can complete it, and returns the latch, and `SensorTokens` then calls
+`GestureSwitch.discard_pending()` on every face-token detector and
+`HeadGestureDetector.discard_pending()` on the head detector before the tick's frame is counted.
+A local `yazses gesture pause`/`resume` is the same boundary. (7) Shutdown closes the gate before anything is stopped:
 `Daemon.shutdown` closes it before stopping the activation sources, and `Daemon._shutdown`
 closes it again (idempotent) before the pointer and camera backends.
 

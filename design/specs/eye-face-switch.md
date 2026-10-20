@@ -115,6 +115,13 @@ Separate adapter maps event -> abstract action/token:
 
 Unknown/unmapped events do nothing.
 
+A stop or a re-arm of the hands-free gate is a boundary for both consumers of the face channel
+(#417, ADR-v2-148). The face switch (`SwitchMapper.frame`) and Gesture Chords
+(`ChordEngine.frame`, #408) each read the gate's one-shot `clear_pending` latch before a frame is
+counted. Each then drops every half-accumulated gesture. For chords that includes the head
+detector's half-made nod, shake or tilt. A gesture begun before a Resume must therefore be made
+again, in full, after it. An open hold stays held and must be relaxed before it can press again.
+
 Destructive desktop operations still use the existing consequence/confirmation policy.
 
 ## Talking interference

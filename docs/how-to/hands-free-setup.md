@@ -178,7 +178,9 @@ Every one of these needs neither a precise pointer nor the camera, except the ch
 
 A pause or a fault is never undone by itself. To come back, run `yazses handsfree resume`. The first frame
 after re-arming only observes: it never moves the pointer or clicks, and nothing recorded while you were
-stopped is replayed.
+stopped is replayed. A face gesture or head gesture you had begun before the Resume does not count either:
+make it again, in full, after the Resume. This applies to a face switch and to a Gesture Chord token (a jaw
+held open, a nod, a tilt). A gesture still held across the Resume must be relaxed and made again.
 
 `yazses handsfree disable` writes `[handsfree] enabled = false`. It keeps your calibration and every
 setting you wrote yourself, and the rest of your `config.toml` is untouched.

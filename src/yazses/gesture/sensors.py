@@ -23,6 +23,15 @@ releases its held tokens in that tick and its detector forgets its history; when
 is usable the engine drops its engagement and the pointer freeze as well. Nothing is stitched
 across the gap and nothing is replayed after it.
 
+**A stop or a re-arm cuts every half-made token** (#417, ADR-v2-148). The engine reads the
+hands-free gate before this tick's frame is counted; when it reports the gate's one-shot
+``clear_pending`` latch (the source was stopped or re-armed since the last tick, or the local
+pause changed), every face switch drops its half-accumulated hold frames
+(``GestureSwitch.discard_pending``) and the head detector drops its half-made nod, shake or tilt
+(``HeadGestureDetector.discard_pending``), so a gesture begun before a Resume must be made anew,
+in full, after it. An open hold is left alone: it was already prevented from acting, and a face
+still holding the gesture across the Resume has to relax and make it again.
+
 **The pointer onset.** A face gesture moves the head before a detector has seen enough frames
 to call it a token, so a face token is also reported to the engine as *engaged* from the first
 frame at or above the switch's release threshold -- the engine uses that for the pointer freeze
@@ -132,12 +141,15 @@ class SensorTokens:
             gesture_reading(face, name, now_s=now_s, max_age_s=fresh).score is not None
             for name in self._faces
         )
-        head_events = self._head.update(head_pose, now_s) if self._head is not None else []
         head_live = head_pose is not None and 0.0 <= now_s - head_pose.timestamp_s <= fresh
         has_signal = face_live or (head_live and self._head is not None)
 
-        # Liveness first: the gate must have seen this tick's signal before an action asks it.
-        self._engine.frame(has_signal, now_s)
+        # Liveness first: the gate must have seen this tick's signal before an action asks it,
+        # and a stop or re-arm it reports must cut every half-made gesture *before* this frame
+        # is counted towards one (#417).
+        if self._engine.frame(has_signal, now_s):
+            self._discard_pending()
+        head_events = self._head.update(head_pose, now_s) if self._head is not None else []
         if not has_signal:
             for name, switch in self._faces.items():
                 if switch.reset() == "end":
@@ -150,6 +162,13 @@ class SensorTokens:
         self._apply_faces(face, now_s, face_live)
         self._apply_head(head_events, now_s)
         self._engine.tick(now_s)
+
+    def _discard_pending(self) -> None:
+        """Forget every half-made gesture; leave open holds (and their releases) alone."""
+        for switch in self._faces.values():
+            switch.discard_pending()
+        if self._head is not None:
+            self._head.discard_pending()
 
     def _apply_faces(self, face: object, now_s: float, live: bool) -> None:
         fresh = self._s.freshness_s
