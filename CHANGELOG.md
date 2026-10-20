@@ -15,6 +15,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   receipt, the upgrade now runs `uv tool install --upgrade --with … <target>`. That makes the same version
   move and records the requirements. It was checked offline against uv 0.12.21 with hand-built wheels.
   Only features that work are carried; a dormant one is reported, not downloaded during an update.
+  A uv tool install is recognised by finding its own receipt through `uv tool dir`, not by a path
+  substring, so a custom `UV_TOOL_DIR` and the Windows default (`%APPDATA%\uv\data\tools`) are covered.
+  `yazses update` also detects that Windows default as a `uv` install; it was reported as `pip`, which
+  offered `pip install --upgrade yazses`.
 - **Receipt round-trips keep environment markers.** Re-rendering a receipt dropped `; sys_platform == …`,
   so the second feature enabled turned the Intel-Mac-only `onnxruntime<1.24` into a ceiling for every
   platform. Merging by name also kept only one of `read-back`'s two onnxruntime lines.

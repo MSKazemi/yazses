@@ -170,7 +170,9 @@ def _uv_tool_receipt() -> Path | None:
     if not tool_dir:
         return None
     env_dir = Path(tool_dir) / _TOOL_NAME
-    if _norm(str(env_dir)) != _norm(sys.prefix):
+    # normcase: a no-op on POSIX; on Windows it folds case and slashes, so
+    # `C:\Users\...` from uv and `c:/users/...` from sys.prefix still match.
+    if os.path.normcase(_norm(str(env_dir))) != os.path.normcase(_norm(sys.prefix)):
         return None
     receipt = env_dir / "uv-receipt.toml"
     return receipt if receipt.exists() else None
