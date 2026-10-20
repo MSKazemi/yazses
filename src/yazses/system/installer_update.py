@@ -77,7 +77,12 @@ __all__ = [
     "is_allowed_redirect",
     "is_trusted_download_url",
     "normalize_arch",
+    "Offer",
+    "acquire_update_lock",
+    "one_click_offer",
     "one_click_supported",
+    "parse_feed_version",
+    "request_headers",
     "package_manager_argv",
     "parse_sha256sums",
     "plan_installer",
@@ -119,21 +124,24 @@ _CHUNK = 1 << 16
 #: ``packaging/windows/installer.iss`` is stable, so Inno upgrades over the existing
 #: install instead of beside it, reusing its directory and install mode
 #: (``UsePreviousAppDir`` / ``UsePreviousPrivileges`` default to yes).
-#: ``/CLOSEAPPLICATIONS`` + ``/FORCECLOSEAPPLICATIONS``: anything of ours still holding a
-#: file (a tray the CLI could not stop) is closed through the Restart Manager rather than
-#: failing the copy. ``/NORESTARTAPPLICATIONS``: the hand-off owns the relaunch, so the
-#: Restart Manager must not start a second copy.
+#: ``/CLOSEAPPLICATIONS``: anything still holding a file is asked to close through the
+#: Restart Manager. Deliberately **not** ``/FORCECLOSEAPPLICATIONS``: the hand-off has
+#: already waited for every YazSes process to exit and refuses to install if one did not
+#: (a daemon still finishing a meeting), so a force-close here could only ever destroy
+#: work the wait was protecting. If something still holds a file, Inno aborts and rolls
+#: back, and the next start reports it. ``/NORESTARTAPPLICATIONS``: the hand-off owns the
+#: relaunch, so the Restart Manager must not start a second copy.
 INSTALLER_SWITCHES = (
     "/VERYSILENT",
     "/SUPPRESSMSGBOXES",
     "/NORESTART",
     "/SP-",
     "/CLOSEAPPLICATIONS",
-    "/FORCECLOSEAPPLICATIONS",
     "/NORESTARTAPPLICATIONS",
 )
 
 #: File names inside the launcher's staging directory.
+LOCK_NAME = "update.lock"
 PENDING_NAME = "pending.json"
 RESULT_NAME = "exit-code.txt"
 LOG_NAME = "update.log"
@@ -141,6 +149,27 @@ INSTALLER_LOG_NAME = "installer.log"
 
 #: How long a hand-off may go without reporting before it is called lost.
 _PENDING_GRACE_S = 30 * 60.0
+#: A lock older than this belongs to an attempt that died (download deadline + the
+#: job's wait + an install, with room to spare); a newer one means one is running.
+LOCK_STALE_S = 2 * 3600.0
+
+#: Exit codes the detached job records itself, beside the installer's own.
+EXIT_NOT_STARTED = -1
+EXIT_HASH_MISMATCH = -2
+EXIT_STILL_RUNNING = -3
+
+#: The GitHub REST API rejects ``Accept: application/octet-stream`` on a JSON endpoint
+#: with HTTP 415, so the headers depend on what is being fetched (see
+#: :func:`request_headers`). The version pin is GitHub's documented one.
+_API_HOST = "api.github.com"
+_API_HEADERS = {
+    "Accept": "application/vnd.github+json",
+    "X-GitHub-Api-Version": "2022-11-28",
+    "User-Agent": "yazses-updater",
+}
+_ASSET_HEADERS = {"Accept": "application/octet-stream", "User-Agent": "yazses-updater"}
+
+_FEED_NAMES = {"choco": "Chocolatey", "winget": "winget", "scoop": "Scoop"}
 
 #: ``YazSes-<version>-windows-<arch>.exe`` — the name `scripts/build-windows.ps1` produces.
 _ASSET_RE = re.compile(
@@ -387,6 +416,88 @@ def one_click_supported(status: Any, launcher: UpdateLauncher | None) -> bool:
     )
 
 
+_FEED_PATTERNS = {
+    # `choco search yazses --exact --limit-output` -> "yazses|2.44.0"
+    "choco": re.compile(r"^\s*yazses\|(?P<v>[^|\s]+)", re.IGNORECASE | re.MULTILINE),
+    # `winget show --id MSKazemi.YazSes -e` -> "Version: 2.44.0"
+    "winget": re.compile(r"^\s*Version:\s*(?P<v>\S+)", re.IGNORECASE | re.MULTILINE),
+    # `scoop info yazses` -> "Version     : 2.44.0" (the bucket's manifest version)
+    "scoop": re.compile(r"^\s*Version\s*:\s*(?P<v>\S+)", re.IGNORECASE | re.MULTILINE),
+}
+
+
+def parse_feed_version(method: str, output: str | None) -> str | None:
+    """The version a package manager's own feed offers, from its query output (pure).
+
+    ``None`` when the output does not say -- and then no one-click is offered, because
+    "probably fine" is how an update button comes to claim a version the manager then
+    does not deliver.
+    """
+    pattern = _FEED_PATTERNS.get(method)
+    if pattern is None or not output:
+        return None
+    match = pattern.search(output)
+    return match.group("v").strip() if match else None
+
+
+@dataclass(frozen=True)
+class Offer:
+    """Whether to offer the one-click update now. ``ok=False`` carries the reason."""
+
+    ok: bool
+    reason: str = ""
+
+
+def one_click_offer(status: Any, launcher: UpdateLauncher | None) -> Offer | None:
+    """Decide, *before* asking the user, whether the one-click update can deliver.
+
+    ``None``: one-click does not apply to this status at all (callers keep their old
+    behaviour). ``Offer(ok=False, reason)``: it applies but would not work now -- show the
+    reason and the manual steps. ``Offer(ok=True)``: ask. Never raises.
+
+    * An installer install must be **per-user**. An all-users install would run the
+      downloaded file with administrator rights out of the user-writable temp folder,
+      where a process running as the same user could swap it between the hash check and
+      the elevation; one-click does not open that path (ADR-027).
+    * A package manager must already carry the new version. Chocolatey's moderated
+      packages, winget's manifests and Scoop's bucket all follow the GitHub tag, and
+      offering "2.44.0" when ``choco upgrade`` will say "nothing to do" is a false claim.
+    """
+    if not one_click_supported(status, launcher):
+        return None
+    assert launcher is not None
+    method = status.method
+    try:
+        if method == "windows-installer":
+            scope = launcher.install_scope()
+            if scope == "user":
+                return Offer(True)
+            if scope == "machine":
+                return Offer(False, (
+                    "YazSes is installed for all users, so updating it needs "
+                    "administrator rights. One-click update does not run a downloaded "
+                    "installer elevated; download it from the releases page and run it "
+                    "yourself."
+                ))
+            return Offer(False, (
+                "Could not tell whether YazSes is installed for this user or for all "
+                "users, so the one-click update was not offered."
+            ))
+        name = _FEED_NAMES.get(method, method)
+        have = parse_feed_version(method, launcher.query_package_manager(method))
+        if have is None:
+            return Offer(False, f"Could not ask {name} which version it offers.")
+        if is_newer(str(status.latest), have):
+            return Offer(False, (
+                f"{name} still offers {have}, not {status.latest} yet -- its package is "
+                "published after the GitHub release, usually within a few days. Wait for "
+                "it, or use the installer from the releases page."
+            ))
+        return Offer(True)
+    except Exception as exc:
+        return Offer(False, f"Could not prepare the one-click update ({exc}).")
+
+
 def confirmation_prompt(status: Any) -> tuple[str, str]:
     """``(title, text)`` for the yes/no question asked before anything is downloaded."""
     method = getattr(status, "method", "")
@@ -399,9 +510,8 @@ def confirmation_prompt(status: Any) -> tuple[str, str]:
         body = (
             f"{head}\n\nDownload the installer from github.com, check its SHA-256 against "
             f"the release's {CHECKSUMS_ASSET}, and install it in place?\n\n{closing}\n\n"
-            "If YazSes was installed for all users, Windows will ask for administrator "
-            "permission.\n\nThe installer is not code-signed yet: the checksum proves the "
-            "file is the one this release published, not who built it."
+            "The installer is not code-signed yet: the checksum proves the file is the "
+            "one this release published, not who built it."
         )
     else:
         argv, elevate, _ = package_manager_argv(method)
@@ -428,12 +538,19 @@ OpenUrl = Callable[[str, float], Any]
 """``open_url(url, timeout)`` → a context manager with ``.read(n)``. Injected in tests."""
 
 
+def request_headers(url: str) -> dict[str, str]:
+    """Headers for ``url``: the REST API's JSON media type for ``api.github.com``,
+    ``application/octet-stream`` for a release-asset download (pure)."""
+    try:
+        host = (urllib.parse.urlsplit(url).hostname or "").lower()
+    except ValueError:
+        host = ""
+    return dict(_API_HEADERS if host == _API_HOST else _ASSET_HEADERS)
+
+
 def _default_open(url: str, timeout: float) -> Any:
     opener = urllib.request.build_opener(_GithubOnlyRedirects())
-    req = urllib.request.Request(
-        url,
-        headers={"User-Agent": "yazses-updater", "Accept": "application/octet-stream"},
-    )
+    req = urllib.request.Request(url, headers=request_headers(url))
     return opener.open(req, timeout=timeout)  # noqa: S310 (https, allowlisted)
 
 
@@ -573,8 +690,16 @@ def build_handoff(
     sha256: str = "",
     cleanup: tuple[Path, ...] = (),
 ) -> UpdateHandoff:
-    """Assemble the job description the launcher carries out (pure)."""
+    """Assemble the job description the launcher carries out (pure).
+
+    Refuses an elevated installer: the file sits in the user-writable temp folder, and
+    running it with administrator rights would let a same-user process swap it after
+    the last hash check (ADR-027).
+    """
     from yazses.platform.base import UpdateHandoff
+
+    if kind == "installer" and elevate:
+        raise UpdateRefused("a downloaded installer is never run with administrator rights")
 
     pids = tuple(sorted({int(p) for p in wait_pids if isinstance(p, int) and p > 0}))
     return UpdateHandoff(
@@ -611,6 +736,34 @@ def _clear_stale(staging: Path) -> None:
         pass
 
 
+def acquire_update_lock(staging: Path, *, now: Callable[[], float] = time.time) -> Path | None:
+    """Take the single-flight lock, or return ``None`` if an attempt holds it.
+
+    Created with ``O_CREAT | O_EXCL``, so two clicks -- two threads, or the tray and a
+    terminal -- cannot both win and write one ``.part`` file. A lock older than
+    :data:`LOCK_STALE_S` belongs to an attempt that died and is taken over.
+    """
+    import os
+
+    path = staging / LOCK_NAME
+    for _ in range(2):
+        try:
+            fd = os.open(str(path), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+        except FileExistsError:
+            try:
+                age = now() - path.stat().st_mtime
+            except OSError:
+                continue  # vanished between the two calls: try again
+            if age < LOCK_STALE_S:
+                return None
+            _unlink(path)
+            continue
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(f"{os.getpid()} {now():.0f}\n")
+        return path
+    return None
+
+
 def start_one_click_update(
     status: Any,
     launcher: UpdateLauncher | None,
@@ -629,16 +782,24 @@ def start_one_click_update(
     started, any download has been deleted, and ``steps`` are the manual way.
     """
     title = "Update not installed"
-    if not one_click_supported(status, launcher):
+    offer = one_click_offer(status, launcher)
+    if offer is None:
         return _fallback(status, title, "One-click update is not available for this install.")
+    if not offer.ok:
+        return _fallback(status, title, offer.reason)
     assert launcher is not None
     method = status.method
+    lock: Path | None = None
+    handed_off = False
     try:
         relaunch = launcher.relaunch_command()
         if not relaunch:
             raise UpdateRefused("could not tell where YazSes is installed, to restart it")
         staging = launcher.staging_dir()
         staging.mkdir(parents=True, exist_ok=True)
+        lock = acquire_update_lock(staging, now=now)
+        if lock is None:
+            raise UpdateRefused("another update is already in progress")
         _clear_stale(staging)
         if method == "windows-installer":
             if progress is not None:
@@ -660,7 +821,7 @@ def start_one_click_update(
                 relaunch=relaunch,
                 staging=staging,
                 sha256=sha,
-                cleanup=(path,),
+                cleanup=(path, lock),
             )
             target = asset.version
         else:
@@ -673,6 +834,7 @@ def start_one_click_update(
                 wait_pids=wait_pids,
                 relaunch=relaunch,
                 staging=staging,
+                cleanup=(lock,),
             )
             target = str(status.latest)
         _write_pending(staging, {
@@ -690,10 +852,16 @@ def start_one_click_update(
             for leftover in handoff.cleanup:
                 _unlink(leftover)
             raise UpdateRefused(f"could not start the installer ({exc})") from exc
+        handed_off = True
     except UpdateRefused as exc:
         return _fallback(status, title, f"The update was not installed: {exc}.")
     except Exception as exc:  # pragma: no cover - belt and braces: never a traceback
         return _fallback(status, title, f"The update was not installed: unexpected error ({exc}).")
+    finally:
+        # The detached job deletes the lock when it is done; until a hand-off has
+        # happened, the lock is ours to release.
+        if lock is not None and not handed_off:
+            _unlink(lock)
     if progress is not None:
         progress("Installing — YazSes will close and start again by itself.", None)
     return HandoffResult(
@@ -736,12 +904,17 @@ def describe_handoff_result(
     code = _parse_exit(exit_text)
     if code is None:
         reason = "The updater did not report back."
-    elif code == -1:
+    elif code == EXIT_STILL_RUNNING:
+        reason = (
+            "YazSes did not finish closing in time (a meeting may still have been "
+            "saving), so the installer was not run. Try again when YazSes is idle."
+        )
+    elif code == EXIT_NOT_STARTED:
         reason = (
             "The installer could not be started (if Windows asked for administrator "
             "permission, it was declined)."
         )
-    elif code == -2:
+    elif code == EXIT_HASH_MISMATCH:
         reason = (
             "The installer failed its last SHA-256 check just before it would have "
             "run, so it was deleted unrun."

@@ -61,17 +61,24 @@ WINDOWS_METHODS = ("windows-installer", "choco", "winget", "scoop")
 # on their machine and offers no hint that the advice itself is the problem.
 MACOS_METHODS = ("macos-app",)
 
+# The MSIX package (ADR-027). The same PyInstaller payload as the .exe, so it is frozen
+# too, and it used to be classified `windows-installer` — which offered it the .exe:
+# running that beside an MSIX installs a second, unrelated copy rather than updating
+# the package. An MSIX updates through whatever installed it (the Store, or App
+# Installer for a sideloaded package), so it gets steps that say so and no one-click.
+MSIX_METHODS = ("msix",)
+
 # Methods whose version comes from the GitHub release rather than PyPI, because the
 # artifact *is* a release asset. Keep this separate from WINDOWS_METHODS: that tuple
 # also selects Windows-specific prose, and folding the two together is how the .app
 # came to be described as an .exe in the first place.
-GITHUB_METHODS = (*WINDOWS_METHODS, *MACOS_METHODS)
+GITHUB_METHODS = (*WINDOWS_METHODS, *MACOS_METHODS, *MSIX_METHODS)
 
 
 @dataclass
 class UpdateStatus:
     # snap | uv | pipx | pip | windows-installer | choco | winget | scoop
-    # | macos-app | unknown
+    # | macos-app | msix | unknown
     method: str
     current: str
     latest: str | None
@@ -102,6 +109,7 @@ def detect_install_method(
     frozen: bool | None = None,
     choco: bool | None = None,
     platform: str | None = None,
+    msix: bool | None = None,
 ) -> str:
     """Infer how YazSes was installed from the package's on-disk location.
 
@@ -111,7 +119,14 @@ def detect_install_method(
     are injectable so the classification is testable on any OS.
 
     Returns ``snap`` | ``uv`` | ``pipx`` | ``pip`` | ``windows-installer`` |
-    ``choco`` | ``winget`` | ``scoop`` | ``macos-app``.
+    ``choco`` | ``winget`` | ``scoop`` | ``macos-app`` | ``msix``.
+
+    ``msix`` defaults to the platform seam's ``HostInfo.msix_packaged`` — the same fact
+    ``cameraperm/matrix.py`` uses — rather than a second reading of the bundle here.
+
+    Note: a winget install runs the same Inno installer into the same directory as a
+    direct download, and nothing on disk distinguishes the two, so it is classified
+    ``windows-installer``; the ``winget`` method is not produced by this function.
 
     ``platform`` defaults to ``sys.platform`` and exists for the same reason the
     others do: the frozen branch used to answer ``windows-installer`` on **any**
@@ -134,6 +149,8 @@ def detect_install_method(
             # alternative in the steps. A wrong command that exits 0 having done
             # nothing is the failure this whole module keeps being written against.
             return "macos-app"
+        if msix if msix is not None else _msix_packaged():
+            return "msix"
         # One .exe, several channels that ship it. Chocolatey is distinguishable
         # from a marker on disk; winget is not without querying its database, so
         # it is offered as an alternative in the manual steps instead of being
@@ -147,6 +164,16 @@ def detect_install_method(
     if "/pipx/" in p:
         return "pipx"
     return "pip"
+
+
+def _msix_packaged() -> bool:
+    """``HostInfo.msix_packaged`` through the platform seam. Never raises."""
+    try:
+        from yazses.platform.factory import describe_host
+
+        return bool(describe_host().msix_packaged)
+    except Exception:
+        return False
 
 
 # ---- version comparison ----------------------------------------------------
@@ -342,6 +369,15 @@ def manual_update_steps(method: str, package: str = "yazses") -> list[str]:
         # A Chocolatey/winget/Scoop install can also upgrade through its own
         # package manager; list those rather than assuming the direct download.
         return steps + [""] + _WINDOWS_ALTERNATIVES
+    if method in MSIX_METHODS:
+        # No .msix is published on the releases page, and the .exe there would install
+        # a second copy beside the package rather than update it.
+        return [
+            "This is the MSIX package — it updates through whatever installed it:",
+            "From the Microsoft Store:  Store → Library → Get updates",
+            "Sideloaded:  open the newer .msix with App Installer",
+            "Do not run the .exe installer over it — that installs a second copy",
+        ]
     if method in MACOS_METHODS:
         return [
             f"Open the releases page:  {RELEASES_URL}",
@@ -516,6 +552,11 @@ def pinned_install_hint(method: str, command: list[str] | None) -> str:
         # No shell command upgrades the .exe channel — the upgrade *is* a download.
         # Quoting one would be the same class of untruth as trusting the exit code.
         escape = f"Download and run the current installer:\n    {RELEASES_URL}"
+    elif method in MSIX_METHODS:
+        escape = (
+            "The MSIX package updates through the Microsoft Store (Library → Get "
+            "updates) or by opening the newer .msix — not through the .exe installer."
+        )
     elif method in MACOS_METHODS:
         # Same shape as the installer: the upgrade is a download, not a command.
         # Homebrew is named because a cask install is the one case where a command

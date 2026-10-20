@@ -86,13 +86,27 @@ def _opener(data: bytes, seen: list | None = None):
 
 
 class FakeLauncher:
-    def __init__(self, tmp: Path, *, arch="x64", relaunch=None, fail=False):
+    def __init__(self, tmp: Path, *, arch="x64", relaunch=None, fail=False, scope="user",
+                 feed=None):
         self.tmp = tmp
         self.arch = arch
         self.relaunch = ["C:\\Users\\a\\AppData\\Local\\Programs\\YazSes\\YazSesApp.exe", "--tray"] \
             if relaunch is None else relaunch
         self.fail = fail
+        self.scope = scope
+        # What each package manager's own feed says; default: already at 2.44.0.
+        self.feed = feed if feed is not None else {
+            "choco": "yazses|2.44.0\n",
+            "winget": "Found YazSes [MSKazemi.YazSes]\nVersion: 2.44.0\n",
+            "scoop": "Name        : yazses\nVersion     : 2.44.0\n",
+        }
         self.handoffs: list[UpdateHandoff] = []
+
+    def install_scope(self):
+        return self.scope
+
+    def query_package_manager(self, method):
+        return self.feed.get(method)
 
     def staging_dir(self):
         return self.tmp / "stage"
@@ -273,8 +287,11 @@ def test_an_oversized_asset_is_refused_before_download():
 def test_installer_arguments_are_a_silent_in_place_upgrade(tmp_path):
     args = iu.installer_arguments(tmp_path / "installer.log")
     for switch in ("/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-",
-                   "/CLOSEAPPLICATIONS", "/FORCECLOSEAPPLICATIONS", "/NORESTARTAPPLICATIONS"):
+                   "/CLOSEAPPLICATIONS", "/NORESTARTAPPLICATIONS"):
         assert switch in args
+    # The job already waited for YazSes and aborts if it is still running; a force-close
+    # could only destroy what that wait protects (a meeting still being saved).
+    assert "/FORCECLOSEAPPLICATIONS" not in args
     assert args[-1] == f"/LOG={tmp_path / 'installer.log'}"
     # Never an uninstall, never a different directory.
     assert not any(a.upper().startswith(("/DIR=", "/UNINSTALL")) for a in args)
@@ -295,8 +312,7 @@ def test_package_manager_argv():
 
 def test_confirmation_prompt_is_honest_about_signing_and_uac():
     _title, text = iu.confirmation_prompt(_status())
-    assert "SHA-256" in text and "not code-signed" in text
-    assert "administrator" in text and "start again" in text
+    assert "SHA-256" in text and "not code-signed" in text and "start again" in text
     _title, text = iu.confirmation_prompt(_status("choco", command=["choco", "upgrade", "yazses", "-y"]))
     assert "choco upgrade yazses -y" in text and "administrator" in text
 
@@ -403,7 +419,8 @@ def test_the_installer_path_hands_off_a_verified_silent_upgrade(tmp_path):
     assert "/VERYSILENT" in h.argv
     assert h.wait_pids == (11, 22)
     assert h.relaunch == tuple(launcher.relaunch)
-    assert h.cleanup == (stage / "YazSes-2.44.0-windows-x64.exe",)
+    assert h.cleanup == (stage / "YazSes-2.44.0-windows-x64.exe", stage / iu.LOCK_NAME)
+    assert (stage / iu.LOCK_NAME).exists()  # held until the detached job deletes it
     pending = json.loads((stage / iu.PENDING_NAME).read_text(encoding="utf-8"))
     assert pending["from"] == "2.43.2" and pending["to"] == "2.44.0"
     assert pending["started"] == 1000.0
@@ -445,6 +462,7 @@ def test_every_failure_falls_back_without_handing_off(tmp_path, break_it):
     leftovers = [p.name for p in stage.iterdir()] if stage.exists() else []
     assert not any(n.endswith((".exe", ".part")) for n in leftovers)
     assert iu.PENDING_NAME not in leftovers
+    assert iu.LOCK_NAME not in leftovers  # a failed attempt must not block the next
 
 
 def test_a_launcher_that_cannot_start_cleans_up(tmp_path):
@@ -494,14 +512,16 @@ def test_failure_reasons(code, needle):
 
 
 def test_read_handoff_result_reports_once(tmp_path):
-    (tmp_path / iu.PENDING_NAME).write_text(json.dumps({"from": "1.0", "to": "1.1"}))
+    (tmp_path / iu.PENDING_NAME).write_text(json.dumps({"from": "1.0", "to": "1.1"}),
+                                            encoding="utf-8")
     (tmp_path / iu.RESULT_NAME).write_text("\ufeff0\r\n", encoding="utf-8")
     assert iu.read_handoff_result(tmp_path, "1.1")[0] == "YazSes updated"
     assert iu.read_handoff_result(tmp_path, "1.1") is None
 
 
 def test_a_job_still_running_is_not_called_failed(tmp_path):
-    (tmp_path / iu.PENDING_NAME).write_text(json.dumps({"from": "1.0", "to": "1.1", "started": 100}))
+    (tmp_path / iu.PENDING_NAME).write_text(
+        json.dumps({"from": "1.0", "to": "1.1", "started": 100}), encoding="utf-8")
     assert iu.read_handoff_result(tmp_path, "1.0", now=lambda: 200.0) is None
     assert (tmp_path / iu.PENDING_NAME).exists()
     late = iu.read_handoff_result(tmp_path, "1.0", now=lambda: 100 + 3600.0)
@@ -510,7 +530,7 @@ def test_a_job_still_running_is_not_called_failed(tmp_path):
 
 def test_no_pending_record_reports_nothing(tmp_path):
     assert iu.read_handoff_result(tmp_path, "1.0") is None
-    (tmp_path / iu.PENDING_NAME).write_text("{corrupt")
+    (tmp_path / iu.PENDING_NAME).write_text("{corrupt", encoding="utf-8")
     assert iu.read_handoff_result(tmp_path, "1.0") is None
 
 
@@ -566,8 +586,9 @@ def _handoff(tmp_path, **kw):
 def test_the_installer_script_waits_verifies_runs_records_and_relaunches(tmp_path):
     script = wh.build_script(_handoff(tmp_path))
     order = [
-        "foreach ($id in @(11, 22))",
+        "$pids = @(11, 22)",
         "Wait-Process -Id $id",
+        "if ($still.Count -gt 0) {",
         "Get-FileHash",
         f"-ne '{SHA}'",
         "Start-Process -FilePath 'C:\\T\\yazses-update\\YazSes-2.44.0-windows-x64.exe'",
@@ -675,6 +696,10 @@ def _patch_cli(monkeypatch, tmp_path, status, *, result=None):
     monkeypatch.setattr(updater, "check_update", lambda current: status)
     monkeypatch.setattr(cli, "_update_launcher", lambda: FakeLauncher(tmp_path))
     monkeypatch.setattr(tray_updates, "update_wait_pids", lambda: [99])
+    # Both read or act on the HOST: the developer's own tray holds tray.lock, and the
+    # shutdown RPC would reach the developer's own daemon. Pinned for every CLI test.
+    monkeypatch.setattr(cli, "_running_tray_pid", lambda: None)
+    monkeypatch.setattr(cli, "_request_daemon_shutdown", lambda: None)
     started = []
 
     def _start(st, launcher, **kw):
@@ -772,3 +797,350 @@ def test_tray_failure_keeps_running_and_opens_the_page(monkeypatch, tmp_path):
 def test_tray_without_one_click_keeps_the_old_behaviour(monkeypatch, tmp_path):
     shown, icon, _ = _tray_run(monkeypatch, tmp_path, _status("uv", command=["uv"]))
     assert shown == [("described", "body")] and not icon.stopped
+
+
+# ==== review fixes (2026-10-20) =========================================================
+
+# ---- 1. the DEFAULT opener sends the right headers per URL kind ------------------------
+#
+# Every test above injects an opener, so none of them ever saw the headers the real one
+# builds -- which is how `Accept: application/octet-stream` went to api.github.com and
+# came back HTTP 415, making every real one-click attempt fall back to manual.
+
+class _CapturingOpener:
+    def __init__(self, bodies):
+        self.bodies = bodies
+        self.requests = []
+        self.handlers = None
+
+    def open(self, req, timeout=None):
+        self.requests.append((req, timeout))
+        return _Resp(self.bodies[req.full_url])
+
+
+def _capture_default_opener(monkeypatch, bodies):
+    import urllib.request
+
+    fake = _CapturingOpener(bodies)
+
+    def _build(*handlers):
+        fake.handlers = handlers
+        return fake
+
+    monkeypatch.setattr(urllib.request, "build_opener", _build)
+    return fake
+
+
+def test_the_default_opener_asks_the_api_for_json(monkeypatch):
+    fake = _capture_default_opener(
+        monkeypatch, {iu._RELEASES_API: json.dumps(_payload()).encode()})
+    assert iu.fetch_release_payload()["tag_name"] == "v2.44.0"
+    (req, _timeout), = fake.requests
+    assert req.full_url == "https://api.github.com/repos/MSKazemi/yazses/releases/latest"
+    assert req.get_header("Accept") == "application/vnd.github+json"
+    assert req.get_header("X-github-api-version") == "2022-11-28"
+    assert req.get_header("User-agent")
+    assert any(isinstance(h, iu._GithubOnlyRedirects) for h in fake.handlers)
+
+
+def test_the_default_opener_downloads_assets_as_octet_stream(monkeypatch, tmp_path):
+    sums_url = f"{PREFIX}v2.44.0/SHA256SUMS.txt"
+    asset = _plan()
+    fake = _capture_default_opener(
+        monkeypatch, {sums_url: _sums().encode(), asset.url: BLOB})
+    assert SHA in iu.fetch_checksums(sums_url)
+    iu.download_verified(asset, SHA, tmp_path)
+    urls = [r.full_url for r, _ in fake.requests]
+    assert urls == [sums_url, asset.url]
+    for req, _ in fake.requests:
+        assert req.get_header("Accept") == "application/octet-stream"
+        assert req.get_header("X-github-api-version") is None
+
+
+def test_request_headers_by_host():
+    assert iu.request_headers(iu._RELEASES_API)["Accept"] == "application/vnd.github+json"
+    assert iu.request_headers(f"{PREFIX}v1/x.exe")["Accept"] == "application/octet-stream"
+    assert iu.request_headers("not a url")["Accept"] == "application/octet-stream"
+
+
+# ---- 3. elevation: never a temp-folder installer; choco by absolute machine path -------
+
+@pytest.mark.parametrize("scope,needle", [("machine", "all users"), ("unknown", "Could not tell")])
+def test_an_installer_install_that_is_not_per_user_is_not_offered(tmp_path, scope, needle):
+    launcher = FakeLauncher(tmp_path, scope=scope)
+    offer = iu.one_click_offer(_status(), launcher)
+    assert offer is not None and not offer.ok and needle in offer.reason
+    result = _run(launcher)
+    assert not result.ok and launcher.handoffs == []
+    assert any(RELEASES_URL in s for s in result.steps)
+
+
+def test_build_handoff_refuses_an_elevated_installer(tmp_path):
+    with pytest.raises(iu.UpdateRefused):
+        iu.build_handoff(kind="installer", argv=["x.exe"], elevate=True, capture_output=False,
+                         wait_pids=[], relaunch=["a"], staging=tmp_path)
+
+
+def test_build_script_refuses_an_elevated_installer(tmp_path):
+    with pytest.raises(ValueError):
+        wh.build_script(_handoff(tmp_path, elevate=True))
+
+
+def test_scope_for_matches_the_running_directory():
+    app = "C:\\Users\\a\\AppData\\Local\\Programs\\YazSes"
+    assert wh.scope_for(app, app + "\\", None) == "user"
+    assert wh.scope_for(app.upper(), app, "C:\\Program Files\\YazSes") == "user"
+    assert wh.scope_for("C:\\Program Files\\YazSes", app, "C:\\Program Files\\YazSes\\") == "machine"
+    assert wh.scope_for(app, None, None) == "unknown"
+    assert wh.scope_for(app, "D:\\Elsewhere", None) == "unknown"
+
+
+def test_install_scope_reads_both_uninstall_keys():
+    app = "C:\\Users\\a\\AppData\\Local\\Programs\\YazSes"
+    seen = []
+
+    def _reg(hive, subkey, names):
+        seen.append((hive, subkey))
+        return app + "\\" if hive == "HKEY_CURRENT_USER" else None
+
+    launcher = wh.WindowsUpdateLauncher(env={}, executable=app + "\\YazSesApp.exe", frozen=True,
+                                        registry=_reg)
+    assert launcher.install_scope() == "user"
+    assert {h for h, _ in seen} == {"HKEY_CURRENT_USER", "HKEY_LOCAL_MACHINE"}
+    assert all(k.endswith("{F3E8B8A4-1B6C-4F24-9BE8-9B7E58E9C4A2}_is1") for _, k in seen)
+    assert wh.WindowsUpdateLauncher(env={}, frozen=False, registry=_reg).install_scope() == "unknown"
+
+
+def test_chocolatey_is_resolved_from_the_machine_environment_only():
+    present = {"D:\\choco\\choco.exe", "C:\\ProgramData\\chocolatey\\bin\\choco.exe"}
+    exists = present.__contains__
+    assert wh.chocolatey_exe("D:\\choco", exists) == "D:\\choco\\choco.exe"
+    assert wh.chocolatey_exe(None, exists) == "C:\\ProgramData\\chocolatey\\bin\\choco.exe"
+    # An unexpanded value is not trusted; fall back to the documented default.
+    assert wh.chocolatey_exe("%USERPROFILE%\\evil", exists) == \
+        "C:\\ProgramData\\chocolatey\\bin\\choco.exe"
+    assert wh.chocolatey_exe(None, lambda p: False) is None
+
+
+def test_hand_off_runs_choco_by_absolute_path_never_from_the_user_env(tmp_path):
+    calls = []
+    reg = {("HKEY_LOCAL_MACHINE", "ChocolateyInstall"): "C:\\ProgramData\\chocolatey"}
+    launcher = wh.WindowsUpdateLauncher(
+        # A user-level variable pointing somewhere writable must be ignored.
+        env={"SystemRoot": "C:\\Windows", "ChocolateyInstall": "C:\\Users\\a\\evil"},
+        spawn=lambda argv, **kw: calls.append(argv),
+        exists=lambda p: True,
+        registry=lambda hive, sub, names: reg.get((hive, names[0])),
+        which=lambda name: None,
+    )
+    handoff = _handoff(tmp_path, kind="package-manager", sha256="", cleanup=(),
+                       argv=("choco", "upgrade", "yazses", "-y"), elevate=True)
+    launcher.hand_off(handoff)
+    script = base64.b64decode(calls[0][calls[0].index("-EncodedCommand") + 1]).decode("utf-16-le")
+    assert "Start-Process -FilePath 'C:\\ProgramData\\chocolatey\\choco.exe'" in script
+    assert "-Verb RunAs" in script and "evil" not in script
+
+
+def test_hand_off_refuses_a_package_manager_it_cannot_find(tmp_path):
+    launcher = wh.WindowsUpdateLauncher(env={}, spawn=lambda *a, **k: None,
+                                        exists=lambda p: True, which=lambda n: None)
+    handoff = _handoff(tmp_path, kind="package-manager", sha256="", cleanup=(),
+                       argv=("scoop", "update", "yazses"), capture_output=True)
+    with pytest.raises(OSError):
+        launcher.hand_off(handoff)
+
+
+# ---- 4. a package manager is offered only when its own feed has the version -----------
+
+@pytest.mark.parametrize("method,text,expected", [
+    ("choco", "Chocolatey v2.3.0\nyazses|2.44.0\n", "2.44.0"),
+    ("choco", "YazSes|2.43.2", "2.43.2"),
+    ("choco", "0 packages found.", None),
+    ("winget", "Found YazSes [MSKazemi.YazSes]\nVersion: 2.44.0\nPublisher: MSKazemi\n", "2.44.0"),
+    ("scoop", "Name        : yazses\nDescription : x\nVersion     : 2.43.2\nBucket : extras\n", "2.43.2"),
+    ("scoop", "", None),
+    ("scoop", None, None),
+    ("pip", "Version: 9.9", None),
+])
+def test_parse_feed_version(method, text, expected):
+    assert iu.parse_feed_version(method, text) == expected
+
+
+@pytest.mark.parametrize("method", ["choco", "winget", "scoop"])
+def test_a_lagging_feed_is_not_offered(tmp_path, method):
+    lagging = {"choco": "yazses|2.43.2", "winget": "Version: 2.43.2",
+               "scoop": "Version     : 2.43.2"}
+    launcher = FakeLauncher(tmp_path, feed=lagging)
+    offer = iu.one_click_offer(_status(method), launcher)
+    assert offer is not None and not offer.ok
+    assert "2.43.2" in offer.reason and "2.44.0" in offer.reason
+    assert not _run(launcher, _status(method)).ok and launcher.handoffs == []
+
+
+def test_an_unreadable_feed_is_not_offered(tmp_path):
+    offer = iu.one_click_offer(_status("choco"), FakeLauncher(tmp_path, feed={}))
+    assert offer is not None and not offer.ok and "Could not ask Chocolatey" in offer.reason
+
+
+def test_a_caught_up_feed_is_offered(tmp_path):
+    for method in ("choco", "winget", "scoop"):
+        offer = iu.one_click_offer(_status(method), FakeLauncher(tmp_path))
+        assert offer == iu.Offer(True)
+    assert iu.one_click_offer(_status("uv"), FakeLauncher(tmp_path)) is None
+
+
+def test_query_package_manager_runs_the_resolved_program(tmp_path):
+    ran = []
+
+    class _Proc:
+        returncode = 0
+        stdout = "yazses|2.44.0\n"
+        stderr = ""
+
+    launcher = wh.WindowsUpdateLauncher(
+        env={}, exists=lambda p: p.endswith("chocolatey\\choco.exe"),
+        registry=lambda *a: None, which=lambda n: f"C:\\bin\\{n}.cmd",
+        run=lambda argv, **kw: ran.append((argv, kw)) or _Proc(),
+    )
+    assert iu.parse_feed_version("choco", launcher.query_package_manager("choco")) == "2.44.0"
+    assert ran[0][0][0] == "C:\\ProgramData\\chocolatey\\choco.exe"
+    assert ran[0][1]["timeout"] and ran[0][1]["encoding"] == "utf-8"
+    launcher.query_package_manager("scoop")
+    assert ran[1][0] == ["C:\\bin\\scoop.cmd", "info", "yazses"]
+    assert launcher.query_package_manager("pip") is None
+
+
+def test_a_failing_feed_query_answers_none():
+    class _Bad:
+        returncode = 1
+        stdout = "yazses|2.44.0"
+        stderr = ""
+
+    launcher = wh.WindowsUpdateLauncher(env={}, which=lambda n: "C:\\w.exe",
+                                        run=lambda *a, **k: _Bad())
+    assert launcher.query_package_manager("winget") is None
+
+    def _boom(*a, **k):
+        raise OSError("gone")
+
+    launcher = wh.WindowsUpdateLauncher(env={}, which=lambda n: "C:\\w.exe", run=_boom)
+    assert launcher.query_package_manager("winget") is None
+
+
+# ---- 5. a process that will not exit aborts the install --------------------------------
+
+def test_the_job_aborts_rather_than_force_closing(tmp_path):
+    script = wh.build_script(_handoff(tmp_path))
+    assert "/FORCECLOSEAPPLICATIONS" not in script
+    abort = script.index("if ($still.Count -gt 0) {")
+    run = script.index("Start-Process -FilePath 'C:\\T\\yazses-update")
+    assert abort < run
+    # The abort branch records its own code and the installer lives only in the else.
+    between = script[abort:run]
+    assert f"$code = {wh.EXIT_STILL_RUNNING}" in between and "} else {" in between
+    assert f"AddSeconds({wh.WAIT_SECONDS})" in script
+    # Cleanup and relaunch run on every path, after the branch closes.
+    assert script.index("Remove-Item") > run and script.rindex("Start-Process") > run
+
+
+def test_the_exit_codes_agree_between_the_job_and_the_report():
+    assert (wh.EXIT_NOT_STARTED, wh.EXIT_HASH_MISMATCH, wh.EXIT_STILL_RUNNING) == \
+        (iu.EXIT_NOT_STARTED, iu.EXIT_HASH_MISMATCH, iu.EXIT_STILL_RUNNING)
+    _t, body = iu.describe_handoff_result({"from": "1.0", "to": "1.1"},
+                                          str(iu.EXIT_STILL_RUNNING), "1.0")
+    assert "did not finish closing" in body and "not run" in body
+
+
+# ---- 6. MSIX is its own method, with no one-click ---------------------------------------
+
+def test_msix_is_detected_from_the_host_fact():
+    from yazses.system.updater import detect_install_method
+
+    exe = "C:/Program Files/WindowsApps/MSKazemi.YazSes_2.44.0.0_x64__abc/YazSesApp.exe"
+    assert detect_install_method(exe, frozen=True, choco=False, platform="win32",
+                                 msix=True) == "msix"
+    assert detect_install_method(exe, frozen=True, choco=False, platform="win32",
+                                 msix=False) == "windows-installer"
+
+
+def test_msix_gets_store_steps_and_no_one_click(tmp_path):
+    from yazses.system.updater import GITHUB_METHODS, upgrade_command
+
+    steps = manual_update_steps("msix")
+    assert any("Store" in s for s in steps)
+    assert not any("Download" in s for s in steps)
+    assert upgrade_command("msix") is None and "msix" in GITHUB_METHODS
+    assert iu.one_click_offer(_status("msix", steps=steps), FakeLauncher(tmp_path)) is None
+
+
+def test_msix_click_does_not_open_the_exe_download_page():
+    import yazses.tray.updates as tray_updates
+
+    opened = []
+    status = _status("msix", steps=manual_update_steps("msix"))
+    _t, body = tray_updates.describe_update(status=status, opener=lambda u: opened.append(u) or True)
+    assert opened == [] and "Store" in body
+
+
+# ---- 8. single-flight lock ---------------------------------------------------------------
+
+def test_the_lock_is_exclusive_and_goes_stale(tmp_path):
+    import os
+
+    first = iu.acquire_update_lock(tmp_path, now=lambda: 1000.0)
+    assert first is not None and first.exists()
+    os.utime(first, (1000.0, 1000.0))
+    assert iu.acquire_update_lock(tmp_path, now=lambda: 1000.0 + 60) is None
+    taken = iu.acquire_update_lock(tmp_path, now=lambda: 1000.0 + iu.LOCK_STALE_S + 1)
+    assert taken == first
+
+
+def test_a_second_click_while_one_runs_is_refused(tmp_path):
+    launcher = FakeLauncher(tmp_path)
+    (tmp_path / "stage").mkdir()
+    held = iu.acquire_update_lock(tmp_path / "stage")
+    assert held is not None
+    result = _run(launcher)
+    assert not result.ok and "already in progress" in result.message
+    assert launcher.handoffs == [] and held.exists()  # the holder's lock is untouched
+
+
+# ---- CLI: tray running, refused offers, graceful shutdown --------------------------------
+
+def test_cli_refuses_while_the_tray_runs(monkeypatch, tmp_path):
+    started = _patch_cli(monkeypatch, tmp_path, _status())
+    monkeypatch.setattr(cli, "_running_tray_pid", lambda: 4242)
+    out = runner.invoke(cli.app, ["update", "--yes"])
+    assert out.exit_code == 1 and "tray is running" in out.output and started == []
+
+
+def test_cli_reports_a_refused_offer_without_installing(monkeypatch, tmp_path):
+    started = _patch_cli(monkeypatch, tmp_path, _status("choco", command=["choco"]))
+    monkeypatch.setattr(cli, "_update_launcher",
+                        lambda: FakeLauncher(tmp_path, feed={"choco": "yazses|2.43.2"}))
+    out = runner.invoke(cli.app, ["update", "--yes"])
+    assert out.exit_code == 0 and "Chocolatey still offers 2.43.2" in out.output
+    assert started == []
+
+
+def test_cli_asks_the_daemon_to_shut_down_gracefully(monkeypatch, tmp_path):
+    _patch_cli(monkeypatch, tmp_path, _status())
+    monkeypatch.setattr(cli, "_running_tray_pid", lambda: None)
+    asked = []
+    monkeypatch.setattr(cli, "_request_daemon_shutdown", lambda: asked.append(True))
+    out = runner.invoke(cli.app, ["update", "--yes"])
+    assert out.exit_code == 0 and asked == [True]
+
+
+def test_tray_refused_offer_explains_and_opens_the_page(monkeypatch, tmp_path):
+    import yazses.platform.windows.tray as wtray
+    import yazses.tray.updates as tray_updates
+
+    monkeypatch.setattr(tray_updates, "check_updates", lambda current=None: _status())
+    opened, shown, asked = [], [], []
+    monkeypatch.setattr(wtray, "open_link", lambda url: opened.append(url) or True)
+    wtray._run_update(_Icon(), lambda _i, t, b: shown.append((t, b)),
+                      launcher=FakeLauncher(tmp_path, scope="machine"),
+                      confirm=lambda t, b: asked.append(1) or True, sleep=lambda s: None)
+    assert asked == [] and opened == [RELEASES_URL]
+    assert "all users" in shown[-1][1]

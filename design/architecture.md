@@ -241,7 +241,7 @@ a guard that silently stops protecting on a whole display server is worse than n
 | `emg/backend.py` | `EMGBackend` — `HotkeyBackend` over USB CDC serial YESP protocol (v0.4.0); requires `pyserial` optional dep |
 | `linux/` | evdev hotkey, LinuxInjector (xdotool/ydotool/wtype/clipboard), systemd lifecycle, Unix socket IPC |
 | `macos/` | CGEventTap hotkey, MacosInjector (CGEvent Unicode), launchd lifecycle, rumps tray, `pointer.py` (`MacosPointerSink` over CoreGraphics) |
-| `windows/` | WH_KEYBOARD_LL hotkey, WindowsInjector (SendInput UTF-16), named-pipe IPC, pystray tray, `pointer.py` (`WindowsPointerSink` over SendInput mouse events), `update_handoff.py` (`WindowsUpdateLauncher`: the `UpdateLauncher` Protocol — a detached `-EncodedCommand` PowerShell job that waits for YazSes to exit, re-checks the installer's SHA-256, runs the silent in-place upgrade or the choco/winget/scoop command, records the exit code and relaunches YazSes either way; ADR-027) |
+| `windows/` | WH_KEYBOARD_LL hotkey, WindowsInjector (SendInput UTF-16), named-pipe IPC, pystray tray, `pointer.py` (`WindowsPointerSink` over SendInput mouse events), `update_handoff.py` (`WindowsUpdateLauncher`: the `UpdateLauncher` Protocol — a detached `-EncodedCommand` PowerShell job that waits for YazSes to exit — and installs nothing if it has not within 300 s — re-checks the installer's SHA-256, runs the silent, never-elevated in-place upgrade or the choco/winget/scoop command by absolute path, records the exit code and relaunches YazSes either way; also reads the Inno uninstall key for the install scope and asks each package manager which version its feed carries; ADR-027) |
 
 ### `src/yazses/cameraperm/` (EYE-PERM-001, #414 — camera permission + packaging contract)
 

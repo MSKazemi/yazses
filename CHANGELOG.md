@@ -16,15 +16,32 @@ hosts. The download has a size cap and a timeout. YazSes checks the file's SHA-2
 `SHA256SUMS.txt` before anything runs, and deletes the file and refuses on a mismatch. YazSes then closes and
 a detached job runs the installer silently as an in-place upgrade (no uninstall). The job checks the hash
 once more first, then starts YazSes again. Chocolatey, winget and Scoop installs run their own upgrade
-command the same way. Chocolatey asks for administrator rights. On the next start the tray reports, once,
-whether the version actually moved. Any failure leaves YazSes running and shows the manual steps.
+command the same way, but only once that manager's own feed carries the new version (`choco search`,
+`winget show`, `scoop info`). Chocolatey asks for administrator rights. On the next start the tray reports,
+once, whether the version actually moved. Any failure leaves YazSes running and shows the manual steps.
 `yazses update --yes` performs the update without asking, and `--check` only describes it. Nothing is
 downloaded in the background: the optional update-check notifier is unchanged.
+
+Limits, all on purpose:
+
+- An **all-users** install is not updated by one click. Doing so would run a file from your temp folder with
+  administrator rights. It gets the manual steps.
+- If YazSes has not closed within 5 minutes (for example, a meeting still being saved), **nothing is
+  installed**; YazSes is never force-closed.
+- Two clicks cannot run two updates at once.
+- With the tray running, `yazses update` points you to the tray's own entry, which closes YazSes cleanly.
+
+The **MSIX** package is now detected as its own install method (`msix`), with Microsoft Store / App
+Installer steps. Previously it was treated as the `.exe` install and pointed at an installer that would have
+added a second copy. The REST API is asked for JSON (`application/vnd.github+json`). The first draft sent
+`application/octet-stream`, which `api.github.com` rejects with HTTP 415; a test now checks the real
+opener's headers.
 
 The installer is **not code-signed yet**. The checksum proves the file is the one the release published
 (integrity), not who built it (authenticity). Authenticode signing is the remaining step. A new `UpdateLauncher`
 platform Protocol keeps the Windows parts in `platform/windows/update_handoff.py`.
-`system/installer_update.py` is registered as a FETCH in ADR-019. `installer.iss` now states
+`system/installer_update.py` is registered as a FETCH and `platform/windows/update_handoff.py` as a
+SHELL_OUT in ADR-019. `installer.iss` now states
 `CloseApplications=yes` and adds `.pyd` to `CloseApplicationsFilter`. Covered offline by
 `tests/test_one_click_windows_update.py`. It has **not yet been run on a real Windows machine**: ADR-027 lists
 what a Windows tester must verify.

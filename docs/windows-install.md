@@ -216,9 +216,21 @@ Scoop installs update through their own package manager in the same one-click wa
 
 What to expect:
 
-- **Administrator prompt.** A normal install is per-user and needs none. If YazSes was
-  installed *for all users*, Windows asks for permission. If you decline, YazSes starts
-  again on the old version and tells you why.
+- **Per-user installs only.** A normal install is per-user and needs no administrator
+  rights. If YazSes was installed *for all users*, the one-click update is not offered,
+  because it would mean running a file from your temp folder with administrator rights.
+  YazSes tells you so and opens the releases page; run the installer yourself.
+- **Chocolatey, winget and Scoop** are offered the update only once their own package
+  has caught up with the GitHub release. That usually takes a few days. Until then YazSes
+  says which version the manager still offers. Chocolatey asks for administrator rights.
+- **Nothing is force-closed.** If YazSes has not closed within 5 minutes (for example,
+  a meeting still being saved), nothing is installed and the next start tells you why.
+- **From a terminal**, quit the tray first, or use the tray's own **Check for updates…**.
+  `yazses update` will not install while the tray is running, because the tray cannot be
+  closed cleanly from there.
+- **Microsoft Store / MSIX package:** it updates through the Store (Library → Get
+  updates), or by opening the newer `.msix`. Never run the `.exe` over it; that installs
+  a second copy.
 - **Not code-signed yet.** The checksum proves the file is exactly the one the release
   published. It does not prove who built it; signing is the remaining step. SmartScreen
   may warn for the same reason.

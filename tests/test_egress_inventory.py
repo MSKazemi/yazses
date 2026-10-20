@@ -138,6 +138,13 @@ SHELL_OUT = {
         "installs a new version. Its FETCH row covers reading the version *string*; "
         "this is the much larger transfer that follows a yes"
     ),
+    "platform/windows/update_handoff.py": (
+        "the one-click Windows update (ADR-027): asks choco / winget / scoop which "
+        "version THEIR feed carries (`choco search`, `winget show`, `scoop info`) before "
+        "offering an update, then runs that manager's upgrade from a detached job after "
+        "YazSes exits -- Chocolatey elevated, by its absolute machine path. Sends only "
+        "the package name; what comes back is a new YazSes"
+    ),
 }
 
 #: Reaches the network by ASKING A DEPENDENCY TO LOAD A MODEL BY NAME, not by importing a
