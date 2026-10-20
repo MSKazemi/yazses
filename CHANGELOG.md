@@ -6,6 +6,35 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — the face-switch detector can hold and cool down for a time, not a frame count ([#406](https://github.com/MSKazemi/yazses/issues/406))
+
+Detector only. No config key, CLI flag or default changed, so an existing install behaves exactly as before.
+Most of EYE-FACE-001 was already on main: neutral baseline, hysteresis, frame debounce, refractory, confidence
+floor, freshness timeout and synthetic fixtures. The gap was that the minimum hold and the refractory interval were
+counted in frames, so their length depended on the camera. The hands-free panel's eyes-closed floor of 12 frames,
+written as 0.8 s at 15 fps, lasts 0.4 s when samples arrive at 30 fps. The shared camera runs at `[perception] fps`,
+which is not `[facegesture] fps`. A new test shows a 0.4 s blink every 4 s firing that frame-counted switch at 30 fps.
+
+`GestureSwitch` now takes optional `min_hold_s` and `refractory_s` (default 0, off). They are measured on the
+caller's sample timestamps (`now_s`), and the detector still reads no clock. Each one adds to its frame rule and
+never replaces it. Both fail closed. A sample with no usable time cannot prove a duration, so it breaks the hold run
+and keeps a refractory window open (`needs_clock` reports when a caller must pass time). A gap longer than
+`max_gap_s` between samples (default 0.25 s, the Head-Pointer dwell's bound) restarts the run. The same sample fed
+twice adds no time, and a clock that steps backwards restarts the count.
+
+`tests/test_facegesture_timed_hold.py` drives deterministic synthetic traces at 15, 30 and 60 fps:
+
+- **Ordinary blinks** of up to 0.4 s never fire an eyes-closed switch with an 0.8 s timed hold, and never fire a
+  non-blink gesture.
+- **Talking-like syllables** cross the hold threshold and pass the shipped three-frame debounce at 30 fps, but never
+  pass a 0.3 s timed hold.
+- **A deliberate hold** fires exactly once, after the same wait at every rate.
+- **Low confidence** emits nothing.
+
+With the timed rules disabled in a subclass, 15 of these test functions fail (one parametrisation of each was run). The durations in the tests make each case
+unambiguous. They are not recommended defaults, and no real face was measured. The timed rules are **not yet
+reachable from config**: adding `[facegesture]` keys changes a public interface and is left to a follow-up.
+
 ### Fixed — the eye-control CI matrix lost its macOS leg to a new Homebrew Python ([#424](https://github.com/MSKazemi/yazses/issues/424))
 
 From 2026-10-17, every macOS leg of `eye-eval-ci.yml` failed in `uv sync`, before the evaluation ran. The step
