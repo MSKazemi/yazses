@@ -6,6 +6,30 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the hands-free controls window lists only stop routes that exist, and tells the truth about installs ([#420](https://github.com/MSKazemi/yazses/issues/420))
+
+Before this change, the window's *Active* banner said the same thing on every machine: Pause works through "the
+keyboard shortcut, `yazses handsfree pause`, or a face-switch mapped to pause". That was false wherever no face
+switch was mapped to pause. A new **Ways to stop without pointing** block now builds the list from the saved
+config: Alt+P / Alt+R in the window, `yazses handsfree pause`, the `[handsfree_safety] stop_phrase` (or a line
+saying none is set), each wired face switch mapped to pause, and each `[gesture.chords]` chord bound to
+`pause_pointer` (parsed by the daemon's own parser). When the global stop is off, the block says the pause reaches
+the Head-Pointer only. It is a Tab stop right after Pause, Resume and Recenter. `yazses handsfree status` prints
+the same list.
+
+Camera-feature rows now give the true dependency state. A switched-on feature whose packages cannot be installed
+in this environment (a strict snap, a fixed app bundle, a read-only Python) used to say "Press Apply to install
+them". It now gives the reason the install cannot work. A switched-off feature says which packages turning it on
+would install.
+
+The window's **Apply staged changes** button now follows the settings window. While a package install or a
+language-profile preparation runs on the settings window's worker thread, Apply is disabled and the window shows
+what is running. Pause, Resume and Recenter stay usable. Before this, a second Apply pressed here during an install
+had its own install silently dropped, because the settings window never runs two package workers at once. After
+Apply, the window shows the settings window's own summary instead of a fixed "Applied.".
+
+No new IPC method and no new config key.
+
 ### Fixed — the eye-control CI matrix lost its macOS leg to a new Homebrew Python ([#424](https://github.com/MSKazemi/yazses/issues/424))
 
 From 2026-10-17, every macOS leg of `eye-eval-ci.yml` failed in `uv sync`, before the evaluation ran. The step

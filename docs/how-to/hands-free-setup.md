@@ -137,7 +137,10 @@ The preset's dictation switch is jaw-open. To use a deliberate eye closure inste
 
 Then click into a text box, close your eyes for about a second, speak, and open them: the words are typed when
 your eyes open. **Pause hands-free input** in the same window (or `yazses handsfree pause`) stops it. Test it
-with ordinary blinking first; `[facegesture] min_hold_frames` lengthens the hold further.
+with ordinary blinking first; `[facegesture] min_hold_frames` lengthens the hold further. The window's
+**Ways to stop without pointing** list, one Tab stop after **Recenter**, names only the stop routes your saved
+settings set up: Alt+P in the window, `yazses handsfree pause`, your stop phrase, and any face switch or chord
+mapped to pause. It also says which of these is missing.
 The switch compares against a fixed threshold until you run `yazses facegesture calibrate` and set
 `[facegesture] use_baseline = true` (this step still needs a terminal).
 
