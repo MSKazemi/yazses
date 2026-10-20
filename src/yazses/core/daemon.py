@@ -6223,6 +6223,12 @@ class Daemon:
                     shared = perception.status()
             channels: tuple[str, ...] | None = None
             age_ms: float | None = None
+            # A name and a kind word, never a value (#416): which processor is open, and
+            # whether a failure was the camera, a dependency or the face model.
+            backend_name = str(getattr(shared, "backend", "") or "") if shared is not None else ""
+            failure_kind = (
+                str(getattr(shared, "failure_kind", "") or "") if shared is not None else ""
+            )
             if shared is None:
                 reason = (
                     "each camera consumer opens its own capture today, so no shared "
@@ -6261,6 +6267,10 @@ class Daemon:
                 perception_consumers=int(gaze_running) + int(face_running) + int(head_running),
                 perception_channels=channels,
                 perception_age_ms=age_ms,
+                perception_backend=backend_name,
+                perception_failure_kind=(
+                    failure_kind if perception_state == PERCEPTION_FAILED else ""
+                ),
                 perception_reason=(
                     reason
                     if running else

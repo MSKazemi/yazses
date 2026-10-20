@@ -83,6 +83,11 @@ from typing import Protocol, runtime_checkable
 from yazses.perception.signals import PerceptionSample
 
 __all__ = [
+    "FAILURE_CAMERA",
+    "FAILURE_DEPENDENCY",
+    "FAILURE_KINDS",
+    "FAILURE_MODEL",
+    "FAILURE_PROCESSING",
     "FrameCapture",
     "FrameProcessor",
     "PerceptionLease",
@@ -90,6 +95,7 @@ __all__ = [
     "SharedPerceptionSource",
     "SourceState",
     "Worker",
+    "describe_open_failure",
 ]
 
 log = logging.getLogger(__name__)
@@ -97,6 +103,29 @@ log = logging.getLogger(__name__)
 #: Longest a failure reason may be. A camera error is a sentence, not a payload,
 #: and an unbounded one is a place for something unintended to travel.
 _MAX_REASON = 200
+
+#: Where a contained failure came from -- one value per *place the fix lives*, the same
+#: reasoning ``cameraperm.CameraBlocker`` gives (EYE-OBS-001, #416). A camera that is busy,
+#: a dependency that is not installed and a face model that could not be fetched all end
+#: the session the same way, and before this they all read "the camera could not be
+#: opened" -- which sent somebody behind a firewall to look for the application holding
+#: their webcam.
+#:
+#: The camera itself: it would not open, or a read from it raised.
+FAILURE_CAMERA = "camera"
+#: An optional dependency (``cv2``, ``mediapipe``) could not be imported.
+FAILURE_DEPENDENCY = "dependency"
+#: The camera opened, and the face model could not be fetched or loaded.
+FAILURE_MODEL = "model"
+#: Both opened, and deriving signals from a frame, or starting the loop, failed.
+FAILURE_PROCESSING = "processing"
+#: Every kind, in the order a session reaches them. ``""`` means "no failure".
+FAILURE_KINDS: tuple[str, ...] = (
+    FAILURE_CAMERA,
+    FAILURE_DEPENDENCY,
+    FAILURE_MODEL,
+    FAILURE_PROCESSING,
+)
 
 
 @runtime_checkable
@@ -223,6 +252,9 @@ class PerceptionStatus:
     last_sample_age_s: float | None
     #: Why sensing stopped, or ``""``.
     failure_reason: str
+    #: Which ``FAILURE_*`` kind :attr:`failure_reason` is, or ``""`` with no failure.
+    #: Defaulted, so a status built by an older caller still constructs.
+    failure_kind: str = ""
 
 
 class PerceptionLease:
@@ -344,6 +376,7 @@ class SharedPerceptionSource:
         self._opens = 0
         self._state = SourceState.DORMANT
         self._failure = ""
+        self._failure_kind = ""
         self._backend = ""
         self._sample: PerceptionSample | None = None
 
@@ -374,6 +407,7 @@ class SharedPerceptionSource:
                 channels=() if sample is None else sample.channels,
                 last_sample_age_s=None if sample is None else sample.age_s(self._clock()),
                 failure_reason=self._failure,
+                failure_kind=self._failure_kind,
             )
 
     @property
@@ -410,7 +444,9 @@ class SharedPerceptionSource:
         try:
             frame = capture.read()
         except Exception as exc:
-            self._fail(f"reading from the camera failed ({_reason(exc)})", epoch)
+            self._fail(
+                f"reading from the camera failed ({_reason(exc)})", epoch, FAILURE_CAMERA
+            )
             return False
         if frame is None:
             # A dropped frame is not a failure, and nothing is restamped for it.
@@ -418,7 +454,11 @@ class SharedPerceptionSource:
         try:
             sample = processor.process(frame, self._clock())
         except Exception as exc:
-            self._fail(f"deriving signals from the camera failed ({_reason(exc)})", epoch)
+            self._fail(
+                f"deriving signals from the camera failed ({_reason(exc)})",
+                epoch,
+                FAILURE_PROCESSING,
+            )
             return False
         finally:
             # The frame's only reference leaves scope here, always (ADR-011).
@@ -520,14 +560,21 @@ class SharedPerceptionSource:
             processor: FrameProcessor | None = None
             backend = ""
             failure = ""
+            kind = ""
+            # Two attempts, not one: the camera and the model fail for different reasons
+            # with different fixes, and one `except` around both reported a face model
+            # that could not be downloaded as a camera that could not be opened.
             try:
                 capture = self._capture_factory()
                 capture.open()
-                if self._current(token):
+            except Exception as exc:
+                kind, failure = describe_open_failure("camera", exc)
+            if not failure and self._current(token):
+                try:
                     processor = self._processor_factory()
                     backend = processor.name
-            except Exception as exc:
-                failure = f"the camera could not be opened ({_reason(exc)})"
+                except Exception as exc:
+                    kind, failure = describe_open_failure("model", exc)
 
             stopping = threading.Event()
             installed = False
@@ -541,6 +588,7 @@ class SharedPerceptionSource:
                     self._opens += 1
                     self._sample = None
                     self._failure = ""
+                    self._failure_kind = ""
                     self._state = SourceState.RUNNING
                     # A fresh event per open: reusing one that has already been set
                     # would make the new loop exit immediately, and it would look like
@@ -550,13 +598,14 @@ class SharedPerceptionSource:
                 else:
                     self._state = SourceState.FAILED
                     self._failure = failure
+                    self._failure_kind = kind if failure else ""
             if not installed:
                 # Failed, or cancelled while opening: close what was built, install nothing.
                 _close_quietly(capture)
                 _close_quietly(processor)
                 if failure:
                     log.warning(
-                        "Shared camera perception is enabled but %s. The feature that "
+                        "Shared camera perception could not start: %s. The feature that "
                         "asked stays dormant; dictation is unaffected.",
                         failure,
                     )
@@ -568,7 +617,11 @@ class SharedPerceptionSource:
                 # not pick up the next session's.
                 worker = self._spawn(lambda: self._pump(token, stopping), "yazses-perception")
             except Exception as exc:
-                self._fail(f"the camera loop could not be started ({_reason(exc)})", token)
+                self._fail(
+                    f"the camera loop could not be started ({_reason(exc)})",
+                    token,
+                    FAILURE_PROCESSING,
+                )
                 return
             with self._lock:
                 if token == self._epoch:
@@ -604,6 +657,7 @@ class SharedPerceptionSource:
         # Dormant means nothing is wrong and nothing is running. Keeping the last
         # reason here would let `doctor` report a failure that is over as a live one.
         self._failure = ""
+        self._failure_kind = ""
         self._backend = ""
 
     def _drain(self) -> None:
@@ -639,7 +693,7 @@ class SharedPerceptionSource:
             _close_quietly(capture)
             _close_quietly(processor)
 
-    def _fail(self, reason: str, epoch: int) -> None:
+    def _fail(self, reason: str, epoch: int, kind: str = FAILURE_PROCESSING) -> None:
         """Contain a failure: stop sensing, remember why, leave the daemon alone.
 
         *epoch* is the session that observed it. A failure from a session that has
@@ -655,6 +709,7 @@ class SharedPerceptionSource:
                 return
             self._state = SourceState.FAILED
             self._failure = reason
+            self._failure_kind = kind
             self._stopping.set()
             self._epoch += 1
             self._sample = None
@@ -711,6 +766,29 @@ def _close_quietly(thing: object) -> None:
         close()
     except Exception as exc:
         log.debug("Closing %s raised %s", type(thing).__name__, type(exc).__name__)
+
+
+def describe_open_failure(stage: str, exc: BaseException) -> tuple[str, str]:
+    """``(kind, reason)`` for an exception raised while opening a session. Pure.
+
+    *stage* is ``"camera"`` (building or opening the capture) or ``"model"`` (building the
+    processor, which is where the face model is fetched and loaded). An ``ImportError`` is
+    a missing dependency whichever stage raised it, and the reason names the module rather
+    than the stage -- "mediapipe is not installed" is the sentence with a fix in it. The
+    camera wording is unchanged from before the split, because `status`, `doctor` and the
+    controls window already print it and tests hold them to agreeing.
+    """
+    if isinstance(exc, ImportError):
+        module = (getattr(exc, "name", "") or "").split(".")[0]
+        what = f"{module} is not installed" if module else "a camera dependency is not installed"
+        return FAILURE_DEPENDENCY, f"{what} ({_reason(exc)})"
+    if stage == "model":
+        return (
+            FAILURE_MODEL,
+            f"the camera opened, but the face model could not be fetched or loaded "
+            f"({_reason(exc)})",
+        )
+    return FAILURE_CAMERA, f"the camera could not be opened ({_reason(exc)})"
 
 
 def _reason(exc: BaseException) -> str:

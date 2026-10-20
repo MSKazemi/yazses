@@ -403,6 +403,8 @@ def merge_facts(static: HandsFreeFacts, live: HandsFreeFacts | None) -> HandsFre
         perception_age_ms=live.perception_age_ms,
         perception_consumers=live.perception_consumers,
         perception_reason=live.perception_reason or static.perception_reason,
+        perception_backend=live.perception_backend or static.perception_backend,
+        perception_failure_kind=live.perception_failure_kind or static.perception_failure_kind,
         head_wired=live.head_wired if live.head_wired is not None else static.head_wired,
         face_wired=live.face_wired if live.face_wired is not None else static.face_wired,
         head_built=live.head_built if live.head_built is not None else static.head_built,
@@ -449,6 +451,9 @@ def merge_facts(static: HandsFreeFacts, live: HandsFreeFacts | None) -> HandsFre
             live.safety_window_ms if live.safety_window_ms is not None else static.safety_window_ms
         ),
         safety=live.safety if live.safety is not None else static.safety,
+        # Only the daemon knows what a face-switch action last did; dropping it here left
+        # `doctor` (which merges) without the row `yazses status` (which does not) printed.
+        switch_actions=live.switch_actions or static.switch_actions,
     )
 
 

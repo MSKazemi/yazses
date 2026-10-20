@@ -173,7 +173,10 @@ Expose derived state sufficient for `doctor`/daemon status:
 - backend/model name;
 - last sample age;
 - active consumer names/count if safe;
-- failure reason;
+- failure reason, and its kind (`camera`, `dependency`, `model`, `processing`), so a blocked
+  model download is not reported as an unavailable camera (#416);
+- a running source whose newest sample is older than the stale window is reported `stale`,
+  never as tracking valid;
 - no biometric detail.
 
 ## Acceptance criteria
