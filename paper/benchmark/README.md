@@ -75,7 +75,8 @@ uv run python paper/benchmark/make_figures.py
 | `persian_metrics.py` | library: `fa-eval-v1` evaluation normalizer + §5 Persian text-quality metrics (imported by `bench_persian.py`, not run directly) | deliberately **not** `postprocess.persian_text` — §6 versions evaluation and production normalization separately |
 | `persian_manifest.py` | library: the gate in front of `bench_persian.py --manifest` — every row needs a licence and a consent value (own or from the `.meta.json` sidecar), speaker/session may only be opaque pseudonyms, and audio may only be read from the manifest's directory or an explicit `--audio-root`; otherwise the run is refused before a model is built (FA-04, [#513](https://github.com/MSKazemi/yazses/issues/513)) | stdlib only; it checks that the claims are made, it cannot verify them |
 | `persian_stats.py` | 95 % bootstrap confidence intervals over utterances, a *paired* bootstrap for two cells on the same rows, and the WER points attributable to a missing ZWNJ — reads the JSONL `bench_persian.py --hyps-out` writes (FA-05, [#514](https://github.com/MSKazemi/yazses/issues/514)) | an interval describes sampling noise on this corpus and machine only, not another host or decoder setting; pure Python, no benchmark deps |
-| `cost_meter.py` | library: CPU core-seconds (`os.times()`) and optional Linux RAPL / battery energy for a phase, behind an `EnergyProbe` Protocol; imported by `bench_latency.py`, not run directly (PAPER2-ENERGY-001, [#506](https://github.com/MSKazemi/yazses/issues/506)) | stdlib only; see "CPU core-seconds and energy" below |
+| `cost_meter.py` | library: per-decode CPU core-seconds (`os.times()`, threads and exited children included), wall time and RTF, plus optional Linux RAPL / battery energy for a phase behind an `EnergyProbe` Protocol, a parser for a manually captured macOS `powermetrics` log, and the versioned record schema (`yazses.bench.cost/2`) with its validator; imported by `bench_latency.py` and `cost_smoke.py`, not run directly (PAPER2-ENERGY-001, [#506](https://github.com/MSKazemi/yazses/issues/506)) | stdlib only; see "CPU core-seconds and energy" below |
+| `cost_smoke.py` | one-clip check of the cost instrument: model load + N decodes of the bundled `data/librispeech-sample/jfk.wav` (or a `--synthetic` clip), written to an explicit `--out` path, never to `../results/` (#506) | `cost_meter.py`, `stt.faster_whisper` from the local cache only (`HF_HUB_OFFLINE=1`); falls back to a labelled fake decoder when the model is not cached |
 | `run_all.py` | orchestrates all of the above + provenance + optional coverage | — |
 | `make_features_table.py` | capability-surface table + prose macros for the paper, from the live registry | `system.features` (the registry behind `yazses features`) |
 | `make_results_index.py` | `../results/MANIFEST.md` — what every archived artifact is and which machine it came from | reads `../results/**/*.json` |
@@ -130,36 +131,92 @@ work.
 `bench_latency.py` records, per model, a `load_cost` and a `decode_cost` block next to its
 latency fields (method and arithmetic in `cost_meter.py`). Nothing runs unless the benchmark
 is invoked; the daemon never imports it. This is the *instrument*: no result from it is
-archived or quoted in the paper yet, and a number taken on one laptop is a measurement of
-that laptop.
+archived or quoted yet, and a number taken on one laptop is a measurement of that laptop.
 
-**Core-seconds.** `os.times()` user + system CPU time of the benchmark process, summed over
-the spans that wrap `engine.transcribe` (so reading the FLAC is not billed to the decoder).
-`cpu_core_seconds_per_audio_s` divides by the decoded audio's duration (`null` for the load
-phase, which decodes none) and `mean_cores_busy` by the wall time inside the spans. Every
-block carries an explicit `method` string. Limits:
+To exercise it without LibriSpeech, `cost_smoke.py` loads one model from the local cache
+and decodes one clip a few times:
 
-- Threads **are** included (CTranslate2 and ONNX Runtime pools live in this process).
-  Child processes are **not**; an engine that shelled out would be under-counted.
+```bash
+uv run --group benchmark python paper/benchmark/cost_smoke.py --out /tmp/cost.json --repeats 5
+uv run --group benchmark python paper/benchmark/cost_smoke.py --out /tmp/cost.json --fake-decoder --synthetic 3
+```
+
+It never downloads. When the model is not cached it substitutes a fake decoder (numpy work
+proportional to the audio) and records `decoder.kind = "fake"` with the reason -- such a run
+checks the meter, not a model.
+
+### Record schema (`yazses.bench.cost/2`)
+
+Every block carries `schema_version` and is checked by `cost_meter.validate_record` before
+it is written (`check_record` raises), so a record that contradicts its own contract fails
+at measurement time. Version 1 (unversioned) lacked the per-decode list, RTF, child-process
+time and the `source` / `available` / `uncertainty` fields.
+
+| Field | Meaning |
+|---|---|
+| `schema_version`, `method` | the schema, and how CPU time was read |
+| `cpu_user_s`, `cpu_system_s`, `cpu_children_user_s`, `cpu_children_system_s` | the parts; `cpu_core_seconds` is their sum (validated) |
+| `span_wall_s`, `bracket_wall_s` | wall time inside the decode spans, and over the whole begin-to-end bracket |
+| `audio_s`, `n_spans` | audio decoded, number of decodes |
+| `rtf`, `cpu_core_seconds_per_audio_s`, `mean_cores_busy` | span wall / audio, core-seconds / audio, core-seconds / span wall; `null` -- never `0` -- for a phase with no audio (model load) |
+| `spans[]` | one entry per decode: `index`, `audio_s`, `wall_s`, `cpu_core_seconds`, `rtf`, `cpu_core_seconds_per_audio_s` |
+| `span_summary` | `n`, `mean`, sample `stdev` (`null` below two decodes), `min`, `median`, `max` of per-decode core-seconds, wall and RTF -- the variation, not just the mean |
+| `energy.<probe>` | one reading per source, below |
+
+An energy reading always has `source` (what was read), `method`, `available`,
+`energy_joules`, `reason`, `uncertainty` and the normalised `joules_per_audio_s` /
+`joules_per_utterance`. The validator enforces the no-fabrication rule: an unavailable
+reading must have `energy_joules` and both rates `null` and a non-empty `reason`; an
+available one must have `energy_joules > 0` and `reason: null`. `uncertainty` is
+`{quantisation_joules, notes[]}`: `quantisation_joules` is the counter's resolution (two
+integer reads), a *lower* bound on the error, or `null` when not even that is known; the
+notes name the terms that cannot be bounded from the reading (attribution, gauge step,
+sampling).
+
+### Core-seconds
+
+`os.times()` user + system CPU time of the benchmark process, plus its `children_*`
+fields, summed over the spans that wrap `engine.transcribe` (so reading the FLAC is not
+billed to the decoder). Limits:
+
+- Threads **are** included (CTranslate2 and ONNX Runtime pools live in this process); a
+  test burns CPU in a worker thread and checks the span sees it.
+- Child processes count only **once they have exited and been waited for**; a child still
+  running at the end of a span is missed, and on Windows the `children_*` fields are always
+  0. None of the benchmarked engines spawns one.
+- Resolution is the OS clock tick (1/100 s on a typical Linux kernel), so per-decode
+  core-seconds of a very short decode are quantised; use the phase totals for small clips.
 - It is CPU *time*, not work: no normalisation for clock frequency, turbo or SMT, so
   core-seconds from two hosts cannot be compared without calibration.
 
-**Energy** is optional and appears under `energy.<probe>` with `energy_joules` and
-`reason`. When a counter cannot be read, `energy_joules` is `null` and `reason` says why --
-it is never `0`, which would read as "free".
+### Energy
+
+When a counter cannot be read, `energy_joules` is `null` and `reason` says why -- it is
+never `0`, which would read as "free".
 
 | Probe | Source | What it is | What it is not |
 |---|---|---|---|
-| `rapl` | Linux `/sys/class/powercap/intel-rapl:N/energy_uj` (package domains only) | CPU package energy from a hardware counter; wraparound at `max_energy_range_uj` is corrected once | Not wall power (no display, SSD, fans, PSU loss); not per-process, so it also counts everything else on the package -- measure an idle baseline; often readable by root only, in which case the record is `null` with a permission reason and the harness does not escalate. A run long enough to wrap twice cannot be detected |
-| `battery` | Linux `/sys/class/power_supply/BAT*/energy_now` | Whole-system discharge between two readings, valid only while the status is `Discharging` at both ends | **Coarse**: the fuel gauge moves in steps much larger than one short decode, so short phases usually record `null` ("did not drop"); needs `energy_now` (a `charge_now`-only gauge is not converted) |
-| `energy` (macOS, Windows) | none | `unavailable` | No reader is implemented, because none could be tested here |
+| `rapl` | Linux `/sys/class/powercap/intel-rapl:N/energy_uj` (package domains only; AMD parts expose the same names) | CPU package energy from a hardware counter; wraparound at `max_energy_range_uj` is corrected once; quantisation 2 uJ per package | Not wall power (no display, SSD, fans, PSU loss); not per-process, so it also counts everything else on the package -- measure an idle baseline; often readable by root only, in which case the record is `null` with a permission reason and the harness does not escalate. A run long enough to wrap twice cannot be detected (`counter_trace_delta` handles any number of wraps for a densely sampled trace) |
+| `battery` | Linux `/sys/class/power_supply/*` with `type` Battery, excluding `scope` Device (a mouse or headset) | Whole-system discharge between two readings from `energy_now`, or `charge_now` x mean `voltage_now` for a charge-only gauge (flagged as an approximation), valid only while the status is `Discharging` at both ends | **Coarse**: the fuel gauge moves in steps much larger than one short decode, so short phases usually record `null` ("did not drop"); the sysfs unit is not the gauge's real step |
+| `energy` (macOS) | `powermetrics`, manual | `unavailable` in the record: `powermetrics` needs root and the harness never escalates | See the manual path below |
+| `energy` (Windows) | none | `unavailable` | No reader is implemented, because none could be tested here |
+
+**macOS manual path.** In a second terminal, start
+`sudo powermetrics --samplers cpu_power -i 100 -o pm.log` just before the phase and stop it
+(Ctrl-C) just after, then integrate the log with
+`cost_meter.powermetrics_energy(Path("pm.log").read_text(encoding="utf-8"))`. It sums
+`CPU Power` (Apple silicon) or the Intel package-power line over each sample's elapsed time.
+This is a model-estimated CPU power, not a counter and not wall power, the sample boundaries
+do not line up with the phase, and the parser has been checked against **synthetic logs
+only** -- no Mac was available to check a real one.
 
 Energy probes cannot be paused, so they cover the whole bracket around the decode loop
-(including FLAC reads); `bracket_wall_s` is recorded beside `span_wall_s` so the gap is
-visible. Single-host numbers are not generalisable, and absolute energy must not be compared
-across machines. Repeats (to report variation), the `tiny`/`base`/`small`/Parakeet/Moonshine
-comparison and the batch-versus-streaming comparison from #506 are runs of this
-instrument, not part of it, and have not been done.
+(including FLAC reads), and `joules_per_audio_s` divides that bracket energy;
+`bracket_wall_s` is recorded beside `span_wall_s` so the gap is visible. Single-host
+numbers are not generalisable, and absolute energy must not be compared across machines.
+Repeats (to report variation), the `tiny`/`base`/`small`/Parakeet/Moonshine comparison and
+the batch-versus-streaming comparison from #506 are runs of this instrument, not part of it,
+and have not been done.
 
 ## Notes
 
