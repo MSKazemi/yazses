@@ -276,6 +276,32 @@ from `scripts/check_dependency_budget.py::EXTRA_MODULES`, transitively; and
 `tests/test_every_extra_has_an_install_path.py` fails when an extra exists that no
 feature installs and no stated exemption explains.
 
+**A feature's libraries arrive when it is needed, by one action, and never half.**
+Every surface that finds a dormant feature now offers its install instead of a
+sentence: the daemon's start-up notification carries an **Install now** button, `yazses
+start`/`restart` in a terminal ask once (default no), and `yazses features install`
+does all of them (`system/ondemand.py`). Consent is unchanged — nothing downloads
+without that click, yes or command — and an environment that can never take the
+libraries (a snap, a frozen bundle, the distribution's own Python) gets the reason and
+no button. The install itself (`system/deps.py::install_packages`, shared by the CLI,
+the settings window and the toast) is a transaction (`system/install_txn.py`):
+
+- it goes to the channel that *records* it — the `uv tool` receipt, `pipx inject`
+  (a package pip-installed into a pipx venv is dropped by `pipx reinstall`), or the
+  venv; a source checkout is told that `uv sync` will remove it and how to keep it;
+- YazSes's own requirements are passed as `--constraint` (a dry run first, for pipx,
+  which would otherwise *store* the temporary path and replay it on reinstall), so a
+  feature that would downgrade numpy or ctranslate2 is refused before anything moves;
+- the installed set is snapshotted; a failed, interrupted, or base-breaking install
+  is undone, and the report says whether the undo was complete;
+- `features enable` and the toast then check that the feature's modules import.
+
+The registry → extra → installer contract is closed in both directions by tests:
+`tests/test_every_import_is_declared.py` fails when any module imports a third-party
+package that neither the base install nor an extra declares, and
+`tests/test_feature_imports_are_installable.py` fails when a feature's own package
+imports an extra's module that its `_FEATURE_DEPS` entry would not install.
+
 The four blocks in the bottom band are the ones people most often assume are
 already there. Each is a recorded decision rather than an omission:
 

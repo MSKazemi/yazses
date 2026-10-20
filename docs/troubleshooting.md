@@ -260,13 +260,19 @@ suppression needs `noisereduce`, the camera features need `mediapipe`). If the
 capability is switched on but its library is missing, `yazses features` shows it as
 **`◐ ON`**, and the daemon says so when it starts. This happens when the install
 failed, when you used `--no-install`, when you edited `config.toml` by hand, or when
-an older version's update removed the library. The row names the fix. It is always
-the same command, and it is safe to run again:
+an older version's update removed the library. The daemon's notification has an
+**Install now** button, and `yazses start`/`restart` offer the install in a terminal.
+Or install every one in a single step — it shows the download and asks first:
 
 ```sh
-yazses features enable <name>      # add --force for an experimental one
+yazses features install            # or: yazses features install <name>
 yazses restart
 ```
+
+`yazses features enable <name>` (add `--force` for an experimental one) does the same
+for one feature and is safe to run again. If an install fails part-way or you press
+Ctrl-C, whatever it had changed is undone, and an install that would move one of
+YazSes's own libraries (numpy, say) out of range is refused before anything changes.
 
 `yazses doctor` prints one row for each such feature. Updating with `yazses update`
 or the tray's **Install update** keeps the libraries of every feature that works,

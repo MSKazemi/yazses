@@ -55,7 +55,7 @@ program was not mentioned. A second scan now covers it.
 |---|---|---|---|
 | `remote/forwarder.py` | `ssh` | **→ dictated text**, as the tunnel for `local_proxy` | `yazses remote <host>` |
 | `gitvoice/plan.py` | `git` | ← → repository content | `yazses gitvoice … --run` |
-| `system/deps.py` | `uv` / `pip` | → package names, ← **code that then runs here** | `yazses features enable <name>` |
+| `system/deps.py` | `uv` / `pip` / `pipx inject` | → package names, ← **code that then runs here** | `yazses features enable <name>`, `yazses features install`, the dormant-feature toast's **Install now** click, the `yazses start` prompt — each an explicit user action |
 | `system/setup.py` | `apt-get` (as root) | → package names, ← OS packages | `yazses setup` |
 | `system/winsetup.py` | `winget`, `pip` | → package names, ← VC++ runtime / wheels | `yazses setup` (Windows) |
 | `system/updater.py` | `snap` / `uv` / `pipx` / `pip` / `winget` / `choco` / `scoop` | ← a new version of YazSes | `yazses update`, or the tray's Install |

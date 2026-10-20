@@ -1640,6 +1640,7 @@ def start(
     """
     platform = get_platform()
     _warn_unmet_prereqs()
+    _offer_dormant_install(platform)
     if platform.lifecycle.is_running():
         typer.echo("YazSes is already running — restarting it cleanly...")
         _restart_daemon(platform)
@@ -1712,6 +1713,7 @@ def restart(
     platform = get_platform()
     _refuse_while_finalizing(platform, "Restarting", force)
     _warn_unmet_prereqs()
+    _offer_dormant_install(platform)
     _restart_daemon(platform)
     outcome, info = _wait_until_ready(platform)
     _report_start_outcome(platform, outcome, info)
@@ -2045,6 +2047,8 @@ def _echo_capabilities(
         )
         for d in dormant.values():
             typer.echo(f"      {d.slug}: {d.remedy}")
+        if any(d.installable for d in dormant.values()):
+            typer.echo("      Install every one that can be, in one go:  yazses features install")
 
     from yazses.system.features import inactive_reason
 
@@ -2311,7 +2315,7 @@ def _install_feature_deps(feat, *, skip: bool) -> bool:
     """
     if not feat.pip_packages:
         return True
-    from yazses.system.deps import install_packages
+    from yazses.system import deps
 
     if not _missing_feature_deps(feat):
         return True
@@ -2340,7 +2344,13 @@ def _install_feature_deps(feat, *, skip: bool) -> bool:
             f"It stays dormant until they are installed:  {_dormant_remedy(feat)}"
         )
         return True
-    if install_packages(feat.pip_packages, echo=typer.echo):
+    # `install_feature`, not `install_packages`: it also proves the modules import
+    # afterwards, so an installer that exits 0 without providing them is reported
+    # here instead of at the next daemon start. Looked up on the module so a test's
+    # stand-in for either function is what runs.
+    if deps.install_feature(
+        feat.pip_packages, check_modules=feat.check_modules, echo=typer.echo
+    ):
         return True
     typer.echo(
         f"\n{feat.name} is switched on, but its libraries did not install, so it "
@@ -2356,6 +2366,106 @@ def _dormant_remedy(feat) -> str:
     from yazses.system.dormant import enable_command
 
     return enable_command(feat)
+
+
+@features_app.command(
+    "install",
+    epilog=_examples(
+        "yazses features install              install what every switched-on feature lacks",
+        "yazses features install read-back    only the ones named",
+        "yazses features install --yes        no question (scripts)",
+    ),
+)
+def features_install(
+    names: Optional[list[str]] = typer.Argument(
+        None, help="Toggle names to install for. Omit for every dormant feature."
+    ),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Install without asking first."),
+) -> None:
+    """Install the libraries that switched-on features are missing.
+
+    A feature turned on by editing config.toml, with `--no-install`, or before an
+    update rebuilt the environment is ON but dormant: its libraries are not there,
+    so it does nothing. This installs exactly what those features need — after
+    showing what it will download and asking — into whatever YazSes was installed
+    with (uv tool, pipx, a venv), recorded so the next update keeps it. A failed or
+    interrupted install is undone. Writes no config.
+    """
+    from yazses.config import load_config
+    from yazses.system import ondemand
+    from yazses.system.dormant import dormant_features
+
+    platform = get_platform()
+    cfg = load_config(platform.paths.config_file)
+    items = dormant_features(cfg)
+    if names:
+        wanted = {n.strip() for n in names}
+        unknown = sorted(wanted - {d.slug for d in items})
+        if unknown:
+            dormant_list = ", ".join(d.slug for d in items) or "none"
+            typer.echo(
+                f"Not switched on and missing libraries: {', '.join(unknown)}. "
+                f"Dormant features right now: {dormant_list}.\n"
+                "To turn one on and install it:  yazses features enable <name>",
+                err=True,
+            )
+            raise typer.Exit(1)
+        items = [d for d in items if d.slug in wanted]
+    if not items:
+        typer.echo("Every switched-on feature has its libraries. Nothing to install.")
+        return
+    for item in items:
+        if not item.installable:
+            typer.echo(f"Can't install for {item.name}: {item.remedy}", err=True)
+    can = ondemand.installable(items)
+    if not can:
+        raise typer.Exit(1)
+    typer.echo(ondemand.prompt_text(can))
+    if not yes and not typer.confirm("\nInstall them now?", default=False):
+        typer.echo("Nothing installed. They stay dormant until you do.")
+        raise typer.Exit(1)
+    failed = ondemand.install_all(can, echo=typer.echo)
+    done = [d.slug for d in can if d.slug not in failed]
+    if done:
+        typer.echo(f"\nInstalled for: {', '.join(done)}.  Apply it:  yazses restart")
+    if failed or len(can) < len(items):
+        if failed:
+            typer.echo(f"Still dormant: {', '.join(failed)}.", err=True)
+        raise typer.Exit(1)
+
+
+def _offer_dormant_install(platform) -> None:
+    """At the moment of need — starting the daemon — offer the install, once.
+
+    Only in an interactive terminal: an autostart entry, a service unit or a script
+    has no one to answer, and a prompt there would hang it. The default is No, and
+    a No changes nothing; the daemon will still announce the dormant features.
+    Never raises: a probe that fails must not stop the daemon from starting.
+    """
+    import sys
+
+    try:
+        if not (sys.stdin.isatty() and sys.stdout.isatty()):
+            return
+        from yazses.config import load_config
+        from yazses.system import ondemand
+        from yazses.system.dormant import dormant_features
+
+        can = ondemand.installable(dormant_features(load_config(platform.paths.config_file)))
+        text = ondemand.prompt_text(can)
+        if not text:
+            return
+        typer.echo(text)
+        if not typer.confirm("Install their libraries now?", default=False):
+            typer.echo("Skipped. Any time later:  yazses features install\n")
+            return
+        failed = ondemand.install_all(can, echo=typer.echo)
+        if failed:
+            typer.echo(f"Still dormant: {', '.join(failed)}. Starting anyway.\n", err=True)
+    except (KeyboardInterrupt, typer.Abort):
+        typer.echo("\nSkipped.")
+    except Exception:  # noqa: BLE001 - never block the daemon on an optional offer
+        return
 
 
 @features_app.command(

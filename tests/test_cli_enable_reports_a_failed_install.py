@@ -44,6 +44,10 @@ def _install_result(monkeypatch, ok: bool) -> list:
         calls.append(tuple(packages))
         if not ok:
             echo("Automatic install failed (network unreachable).")
+        else:
+            # A real successful install makes the modules importable, and
+            # `install_feature` now checks exactly that afterwards.
+            monkeypatch.setattr(deps, "missing_modules", lambda modules: [])
         return ok
 
     monkeypatch.setattr(deps, "install_packages", fake_install)
