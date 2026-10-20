@@ -65,6 +65,21 @@ every backend interprets differently:
   "scrolling down"), ``+dx`` toward its right. Backends whose native axis runs the other
   way negate at their own boundary, not here.
 
+Bounds: **the sink does not clamp.** A position or delta reaches the platform exactly as
+given, apart from the backend's own documented conversion to its native unit. A display
+left of or above the main one has *negative* coordinates on macOS and Windows, and
+ADR-v2-149 requires those to stay reachable, so a sink that clamped to zero or to the
+primary display would strand every secondary monitor. It cannot know the topology anyway,
+because it is deliberately dumb. Off-desktop positions are the OS's to settle (it keeps
+the cursor on the desktop). Picking a sane target is the caller's job, and so is a speed
+limit: a sink neither caps a large ``move_relative`` nor splits it into steps. A value the
+native field cannot hold at all (a Windows ``LONG`` overflow, for one) is refused with
+:class:`PointerBackendError`, never wrapped or truncated.
+
+Unsupported is permanent: an operation ``capabilities()`` rules out raises
+:class:`PointerUnsupportedError` whatever state the sink is in, failing or closed, so a
+caller is never told that a missing capability is a passing outage.
+
 Failure semantics: a failed operation raises, stops there, and is never retried or
 replayed by the sink. No sink runs an implicit motion loop — one call, one effect — so a
 backend that dies leaves the pointer still rather than gliding off the screen.

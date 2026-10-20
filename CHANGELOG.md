@@ -6,6 +6,26 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Tests — the PointerSink contract now covers bounds and permanence ([#400](https://github.com/MSKazemi/yazses/issues/400))
+
+This change touches only the shared pointer contract (`tests/pointer_contract.py`). No backend changed, and every one
+already passed the new tests: the fake (in three capability shapes), X11, the Wayland portal (direct and deferred),
+macOS and Windows. Three new tests:
+
+- **Multi-monitor and negative coordinates.** `move_absolute` must reach a display left of or above the primary,
+  whose coordinates are negative (ADR-v2-149), and positions beyond the primary's lower right, all unchanged. A sink
+  does not clamp.
+- **No speed limit at the sink.** A long `move_relative` (up to 10,000 units) is neither capped nor split into steps.
+  Velocity caps belong to Head-Pointer.
+- **Unsupported is permanent.** An operation the capabilities rule out raises `PointerUnsupportedError` while the
+  backend is failing and after `close()`. It is never reported as a transient `PointerBackendError`.
+
+The existing "a refused call disturbs nothing" test now also drives the unsupported operations it already claimed to
+cover. Six new deliberately wrong sinks in `tests/test_pointer_contract_mutants.py` fail exactly the new tests. All six
+passed the suite as it stood before this change: two clamp an absolute position, one caps and one splits a long move,
+and two report "unsupported" as an outage or as "closed". The no-clamp rule is written down in
+`design/specs/eye-pointer-output.md` (*Bounds*) and in the `yazses.pointer.base` docstring.
+
 ### Added — `examples/config.discord.toml`, a Windows 11 profile for Discord
 
 A hold-to-talk setup for Discord (`right_ctrl`, `auto` injection, which is SendInput on Windows), contributed by
