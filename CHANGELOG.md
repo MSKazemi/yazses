@@ -47,6 +47,21 @@ Pure, with fixtures over a 1.0/1.25/2.0 layout that has a monitor above and to t
 `tests/test_gaze_display_space.py`. No config key, no new dependency. Runtime use of these conversions by implicit
 calibration (#397/#398) and a non-X11 topology provider are still to come.
 
+### Added: eye-control results reuse the paper benchmark's provenance instead of describing it twice (#421)
+
+The eye-control result schema (`yazses.eyeeval.schema`) already said its `software` and `machine` sections mirror the
+provenance that `paper/benchmark/_common.py` records. Until now nothing checked that claim. Issue #421's last acceptance
+criterion, "existing paper benchmark provenance can be mapped/reused instead of duplicated", is now code:
+`yazses.eyeeval.provenance.from_benchmark` maps one benchmark provenance block into the eye-eval `Provenance`.
+`BENCHMARK_FIELDS` and `BENCHMARK_FIELDS_NOT_CARRIED` place every field of the benchmark dataclass, and each field left
+out has a stated reason. The mapping is a whitelist, so free text such as `argv` or a corpus path cannot reach a result.
+Fields the benchmark never recorded stay unrecorded (`os_version`, `arch`, the commit). A block that is empty, is not an
+object, or has a field of the wrong type raises an error. It is never turned into an all-"unknown" provenance that then
+validates. `tests/test_eye_eval_benchmark_provenance.py` parses the benchmark source without importing it, because it
+needs numpy and psutil. It fails when either side gains a field the other does not place, and it maps all 43 committed
+`paper/results/` provenance blocks into results that pass the schema and the privacy sweep. There is no new dependency,
+CLI command or config key.
+
 ### Added — `examples/config.discord.toml`, a Windows 11 profile for Discord
 
 A hold-to-talk setup for Discord (`right_ctrl`, `auto` injection, which is SendInput on Windows), contributed by

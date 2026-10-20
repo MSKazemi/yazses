@@ -10,7 +10,10 @@ reads the machine, kept separate so every rule in the runner is testable with a
 that produced it is not a reproducible measurement". This maps that dataclass onto the
 result envelope's `software`/`machine` sections. It deliberately does **not** import it:
 `paper/` is not shipped, and `_common.py` pulls numpy and psutil at module scope, neither
-of which a base install has.
+of which a base install has. The mapping is written down instead: `from_benchmark` turns
+one of that harness's committed provenance blocks into a `Provenance` here, and
+`BENCHMARK_FIELDS` / `BENCHMARK_FIELDS_NOT_CARRIED` place every field of the benchmark
+dataclass, which `tests/test_eye_eval_benchmark_provenance.py` checks against its source.
 
 ## What is collected, and what cannot be
 
@@ -40,6 +43,7 @@ from __future__ import annotations
 import dataclasses
 import hashlib
 import json
+import math
 import os
 import platform
 from dataclasses import dataclass, field
@@ -389,3 +393,87 @@ def as_sections(prov: Provenance) -> dict[str, Any]:
 def asdict(prov: Provenance) -> dict[str, Any]:
     """The whole dataclass as plain data, for a test that wants to diff two of them."""
     return dataclasses.asdict(prov)
+
+
+# --- reusing a paper-benchmark provenance block -----------------------------------------
+#
+# #421 asks that the paper harness's provenance be *mapped*, not described a second time.
+# This is that mapping, written as data so a test can hold it against the field list of
+# `paper/benchmark/_common.Provenance` in both directions: a field added there must be placed
+# here, either carried or left out with a reason. It is a whitelist on purpose. A key not
+# named below never reaches an eye-control result, so a free-text field such as `argv`
+# cannot arrive by accident.
+
+#: `_common.Provenance` field -> `Provenance` field here (`packages.<dist>` for a version).
+BENCHMARK_FIELDS: dict[str, str] = {
+    "cpu_model": "cpu_model",
+    "logical_cpus": "logical_cpus",
+    "ram_gb": "ram_gb",
+    "os": "os_name",
+    "kernel": "kernel",
+    "python": "python_version",
+    "yazses": "yazses_version",
+    "faster_whisper": "packages.faster-whisper",
+    "numpy": "packages.numpy",
+    "ctranslate2": "packages.ctranslate2",
+}
+
+#: `_common.Provenance` fields deliberately not carried, each with the reason.
+BENCHMARK_FIELDS_NOT_CARRIED: dict[str, str] = {
+    "timestamp": "the envelope's top-level `timestamp`, which `build_result` takes as an argument",
+    "load_average_1m": "a contention signal for timing benchmarks; the envelope has no field for it",
+    "omp_num_threads": "a CTranslate2 decoder setting, not an eye-control fact",
+    "compute_type": "a Whisper decoder setting, not an eye-control fact",
+    "device": "a Whisper decoder setting, not an eye-control fact",
+    "argv": "free text that can carry a path or a name; the envelope records `generator` instead",
+    "corpus": "an audio-corpus selection; an eye-control result is identified by its task version",
+}
+
+
+def _benchmark_value_ok(key: str, value: Any) -> bool:
+    if key == "logical_cpus":
+        return isinstance(value, int) and not isinstance(value, bool) and value >= 0
+    if key == "ram_gb":  # None is the honest "not read"; 0 RAM is a failed read, not a value
+        if value is None:
+            return True
+        number = isinstance(value, (int, float)) and not isinstance(value, bool)
+        return number and math.isfinite(value) and value > 0
+    return isinstance(value, str)
+
+
+def from_benchmark(block: Any) -> Provenance:
+    """A `Provenance` from one `paper/benchmark/_common.py` provenance block. Pure.
+
+    Raises `ValueError` instead of returning defaults when *block* is not an object,
+    carries none of the mapped fields, or carries one of the wrong type. A block that could
+    not be read must not become an all-"unknown" provenance that then validates.
+
+    What the benchmark never recorded stays unrecorded. `os` is one opaque name such as
+    "Ubuntu 24.04.4 LTS", so it becomes `os_name`, and `os_version` stays "unknown" because
+    splitting the name would be a guess. `arch` stays "unknown", `git_commit` stays None,
+    and no display is listed. A package version of "unknown" (what `_common._pkg_version`
+    returns for an absent distribution) is left out, the same way `collect()` leaves out an
+    absent package.
+    """
+    if not isinstance(block, dict):
+        raise ValueError(f"a benchmark provenance block is an object, not {type(block).__name__}")
+    present = [key for key in BENCHMARK_FIELDS if key in block]
+    if not present:
+        raise ValueError(
+            f"carries none of the benchmark provenance fields {tuple(BENCHMARK_FIELDS)}; "
+            f"it is not a paper/benchmark provenance block"
+        )
+    values: dict[str, Any] = {}
+    packages: dict[str, str] = {}
+    for key in present:
+        value, target = block[key], BENCHMARK_FIELDS[key]
+        if not _benchmark_value_ok(key, value):
+            raise ValueError(f"benchmark provenance {key!r}: unexpected value {value!r}")
+        if target.startswith("packages."):
+            if value.strip() and value != "unknown":
+                packages[target.removeprefix("packages.")] = value
+        elif key == "ram_gb" and value is not None:
+            values[target] = float(value)
+        else:
+            values[target] = value
+    return Provenance(**values, packages=packages)
