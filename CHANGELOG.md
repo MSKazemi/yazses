@@ -124,6 +124,27 @@ strings of up to five numeral characters; `tests/test_mandarin_command_safety.py
 destructive triggers, punctuation variants, English parity and review state. The targeted pytest/ruff/mypy gates
 were run; no native speaker has reviewed the phrases.
 
+### Fixed — a language switch is proven whole before it lands, and doctor names the real command grammar ([#497](https://github.com/MSKazemi/yazses/issues/497))
+
+`yazses language set` and the Settings language-profile row already wrote every key of a profile in one atomic
+replace. The candidate file was only checked to parse as TOML, which does not show which value the loader keeps.
+The commit now re-reads the candidate through the same loader the daemon uses. It refuses the replace, and leaves
+the original byte-for-byte, unless three things hold: `[stt]` is exactly the plan, no other section changed, and
+the result derives as the requested profile. Two new tests break the editor on purpose, once by dropping
+`chinese_script` and once by also changing `[hotkey]`. Both turn red when the check is removed.
+
+`yazses doctor` and `yazses language status` said Mandarin commands were "English-only… not yet wired". The daemon
+already selects the Mandarin Tier-1 grammar when `[commands] language = "auto"` follows `[stt] language = "zh"`.
+Both now report the grammar the daemon's own resolver picks. `status --json` gives `command_language` as the
+resolved value (`"zh"`), not a hard-coded `"en"`, and gains a `warnings` list. A pinned `[commands] language` that
+contradicts the speech language is kept, as ADR-v2-140 requires, and is now reported by status, `language set`
+previews, doctor and Settings. The default English install is unchanged: no write on `language set en`, no new
+doctor row, no Chinese-only import.
+
+Settings no longer formats the profile row inside Qt slots. The choices, the staged-change hint and the
+download/install question come from a Qt-free view-model, `settingsui/language_view.py`. That module reads the
+profile registry, so Settings offers exactly what `yazses language list` lists.
+
 ### Fixed — the eye-control CI matrix lost its macOS leg to a new Homebrew Python ([#424](https://github.com/MSKazemi/yazses/issues/424))
 
 From 2026-10-17, every macOS leg of `eye-eval-ci.yml` failed in `uv sync`, before the evaluation ran. The step

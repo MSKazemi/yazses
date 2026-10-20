@@ -532,6 +532,25 @@ suppressed in command mode so command words are never partially injected.
 | `output_profile.py` | Language output profiles (FA-01, #509; design draft PR #483): `profile_for(stt.language)` -> `PassThroughProfile` (every language by default, builds no normaliser) or `PersianProfile` (`fa`, delegates to the opt-in `persian_text` gate). Keyed by the **STT** language, never the UI locale. Consumed at the one seam `stt/factory.py::_with_persian_normaliser`; shaped like `han_script.build_han_normaliser` so Chinese script normalisation can migrate in later (not moved yet). |
 | `punch_in.py` | Punch-In (spec-punch-in): `propose_corrections` + `apply_top_candidate(buffer, respoken)` — difflib alignment -> corrected full burst. **Wired** via `daemon._apply_punch_in`/`_handle_punch_in` + `yazses punch-in` CLI (record respeak -> align -> backspace + retype; `--dry-run`/`--choose N`). `[punch_in]` off by default |
 
+### `src/yazses/language/` (language profiles, ADR-v2-140, #497)
+
+A profile (`en`, `zh-CN`/`zh-Hans`, `zh-TW`/`zh-Hant`) is a **preset over canonical config**, never a stored
+`active_profile`. `zh-HK` and Cantonese requests are refused, not aliased. Importing the package loads no model,
+OpenCC, Qt or Mandarin grammar module.
+
+| File | Role |
+|---|---|
+| `profiles.py` | The P1 profile table and alias resolution (pure) |
+| `plan.py` | `resolve_profile(...) -> LanguagePlan` — the minimal `[stt]` mutations (engine, model, language, chinese_script), preserve-first or `recommended`, plus the command grammar before/after and warnings (pure) |
+| `status.py` | `derive_status(cfg)` — profile match, coherence problems, and the Tier-1 command grammar resolved by `commands/grammars/registry.resolve_command_language`, the resolver the daemon calls. An explicit `[commands] language` that contradicts speech is a *warning*, not incoherence (pure) |
+| `service.py` | The one side-effect ordering shared by CLI and Settings: stable snapshot -> resolve -> prerequisite preflight -> optional install/download -> `system/configedit.set_config_keys_atomic`. Its `validate` hook (`committed_candidate_validator`) re-reads the temporary candidate **through `load_config_checked`** and refuses the replace unless `[stt]` is exactly the plan, no other section changed, and the result derives as the requested profile |
+| `settingsui/language_view.py` | The Settings row as a Qt-free view-model: profile choices from the registry, staged-change hint and the download/install question, all rendered from the same `PreparedLanguageChange` the CLI previews |
+
+Invariant: a high-level switch is all-or-nothing. Speech language, model compatibility, Han-script output and
+(with `[commands] language = "auto"`) the command grammar move in one atomic write, or the original file stays
+byte-for-byte. Injection keys are not owned by a profile: the injector receives Unicode text either way (target
+architecture §12). `yazses doctor`, `yazses language status` and Settings read the same `derive_status`.
+
 ### `src/yazses/tts/`
 
 Read-Back Loop (spec-read-back-loop): offline TTS that speaks the transcript back. Permissive engines only (Kokoro Apache-2.0 default). All deps in the optional `tts` extra, imported only when `[tts] enabled`.

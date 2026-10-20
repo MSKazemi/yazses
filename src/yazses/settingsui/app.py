@@ -475,13 +475,10 @@ class SettingsWindow:
         box = QGroupBox("Speech")
         form = QFormLayout(box)
 
+        from yazses.settingsui.language_view import profile_choices
+
         profile_box = QComboBox()
-        for label, value in (
-            ("Custom / advanced", ""),
-            ("English", "en"),
-            ("Mandarin — Simplified Chinese", "zh-CN"),
-            ("Mandarin — Traditional Chinese", "zh-TW"),
-        ):
+        for label, value in profile_choices():
             profile_box.addItem(label, value)
         profile_index = profile_box.findData(model.language_profile)
         if profile_index >= 0:
@@ -1100,45 +1097,24 @@ class SettingsWindow:
         finally:
             self._profile_syncing = False
 
-        changes = ", ".join(
-            f"{m.key}: {m.before!r} → {m.after!r}" for m in prepared.plan.mutations
-        ) or "no config-key changes"
-        requirements: list[str] = []
-        req = prepared.requirements
-        if req.missing_imports:
-            requirements.append("install " + " ".join(req.packages))
-        if not req.model_cached:
-            requirements.append(f"download speech model {req.model}")
-        suffix = (
-            "  One-time preparation: " + "; ".join(requirements) + "."
-            if requirements
-            else ""
-        )
-        self._hint.setText(
-            f"Language profile {prepared.plan.canonical_profile} staged — {changes}."
-            f"{suffix} Nothing changes until Apply."
-        )
+        from yazses.settingsui.language_view import preview_hint
+
+        self._hint.setText(preview_hint(prepared))
 
     def _confirm_language_requirements(self, prepared) -> bool:
         """Confirm network/package work before the worker starts spending bandwidth."""
 
-        req = prepared.requirements
-        if not req.missing_imports and req.model_cached:
+        from yazses.settingsui.language_view import confirmation_message
+
+        message = confirmation_message(prepared)
+        if message is None:
             return True
         from PySide6.QtWidgets import QMessageBox
 
-        jobs: list[str] = []
-        if req.missing_imports:
-            jobs.append("install " + " ".join(req.packages))
-        if not req.model_cached:
-            jobs.append(f"download the speech model {req.model}")
         answer = QMessageBox.question(
             self._win,
             "Prepare language profile?",
-            f"Switching to {prepared.plan.canonical_profile} needs a one-time "
-            + " and ".join(jobs)
-            + ".\n\nThe existing config will not be changed unless all prerequisites "
-            "are ready. Continue?",
+            message,
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No,
         )
