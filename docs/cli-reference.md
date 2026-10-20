@@ -1065,7 +1065,9 @@ with a `[[facegesture.switches]]` entry. `select` acts only while the Head-Point
 tracking, not paused, not clutched, and the hands-free gate is open, and at most once per second;
 otherwise it does nothing and `status` says why. `confirm` / `cancel` answer a command the daemon is
 holding for confirmation (the same hold the spoken "confirm" answers) and do nothing when none is
-waiting.
+waiting. `pause_pointer` pauses every hands-free input when `[handsfree_safety]` is on; with it off it
+pauses a running Head-Pointer only, as `yazses handsfree pause` does, and `yazses headpointer resume`
+undoes it. With neither, it does nothing and the daemon log says which setting to turn on.
 
 ### `yazses eye-eval` — scripted eye-control evaluation
 

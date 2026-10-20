@@ -444,6 +444,33 @@ def test_choices_mark_unwired_actions_with_the_reason():
     assert {k: ok for k, _l, ok, _w in on}["pause_pointer"] is True
 
 
+_HP_RUNNING = {"ok": True, "active": True}
+
+
+def test_a_running_head_pointer_is_enough_for_pause_pointer_with_the_global_stop_off():
+    # The daemon pauses the Head-Pointer alone in that case (as `handsfree pause` does), so
+    # the panel offers it -- and says the scope, so nobody thinks dictation stopped too.
+    assert "pause_pointer" in wired_switch_actions(False, pointer_running=True)
+    assert "pause_pointer" not in wired_switch_actions(False, pointer_running=False)
+    inputs = replace(
+        _inputs(facegesture=True, headpointer=True, safety_cfg=False, hp=_HP_RUNNING),
+        switches=({"gesture": "smile", "intent": "pause_pointer"},),
+    )
+    mapping = build_panel(inputs).mapping
+    assert {k: ok for k, _l, ok, _w in mapping.choices}["pause_pointer"] is True
+    smile = next(r for r in mapping.rows if r.gesture == "smile")
+    assert "Head-Pointer only" in smile.note
+    assert plan_mapping(inputs, "brow_raise", "pause_pointer").ok
+
+
+def test_an_enabled_head_pointer_that_is_not_running_does_not_count():
+    # Saved `enabled = true` with no camera or pointer backend: nothing to pause.
+    for hp in (None, {"ok": True, "active": False}, {"ok": False, "active": True}):
+        inputs = _inputs(facegesture=True, headpointer=True, safety_cfg=False, hp=hp)
+        plan = plan_mapping(inputs, "smile", "pause_pointer")
+        assert not plan.ok and "Head-Pointer" in plan.reason, hp
+
+
 def test_invalid_mappings_are_rejected_with_a_reason_and_never_coerced():
     inputs = _inputs(facegesture=True, safety_cfg=False)
     for gesture, action, fragment in [
@@ -527,6 +554,31 @@ def test_the_panel_offers_exactly_the_switch_actions_the_daemon_wires():
             source = daemon._build_face_gesture_source(cfg)[0]
             does_something = action not in source._mapper.unwired()
             assert does_something == (action in wired_switch_actions(safety_on)), (action, safety_on)
+
+
+def test_the_panel_and_the_daemon_agree_when_only_a_running_head_pointer_can_be_paused():
+    """The same drift guard for the third configuration: gate off, Head-Pointer running."""
+    from yazses.config import Config, FacegestureConfig
+    from yazses.core.daemon import Daemon
+    from yazses.headpointer.runtime import HeadPointerRuntime
+    from yazses.platform import get_platform
+
+    for action in ACTIONS:
+        cfg = replace(
+            Config(),
+            facegesture=replace(
+                FacegestureConfig(), enabled=True,
+                switches=[{"gesture": "smile", "intent": action}],
+            ),
+        )
+        daemon = Daemon(config=cfg, platform=get_platform())
+        daemon._handsfree_safety = None
+        daemon._headpointer = HeadPointerRuntime(runner=object())  # active: a runner exists
+        assert daemon._headpointer.active is True
+        source = daemon._build_face_gesture_source(cfg)[0]
+        does_something = action not in source._mapper.unwired()
+        offered = action in wired_switch_actions(False, pointer_running=True)
+        assert does_something == offered, action
 
 
 # ------------------------------------------------------------------ merging facts

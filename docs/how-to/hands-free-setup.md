@@ -174,6 +174,7 @@ Every one of these needs neither a precise pointer nor the camera, except the ch
 | the **Pause** button in the hands-free controls of the settings window (keyboard letter **P**) | the settings window |
 | saying the stop phrase as a whole utterance, see [Stop hands-free input by voice](hands-free-voice-stop.md) | a dictation burst; it only pauses |
 | the chord brow-raise + shake | the camera, so it cannot help once the camera is lost |
+| a face switch you bound to `pause_pointer` (`[[facegesture.switches]]`) | the camera; with the global stop off it pauses the Head-Pointer only |
 | `yazses handsfree disable` | pauses everything now; `yazses restart` then releases the camera |
 
 A pause or a fault is never undone by itself. To come back, run `yazses handsfree resume`. The first frame

@@ -160,13 +160,20 @@ def _seconds(frames: int, fps: int) -> str:
     return f"{frames / min(60, max(1, int(fps))):.1f} s"
 
 
-def wired_switch_actions(safety_configured: bool) -> tuple[str, ...]:
-    """The switch actions that actually do something, given the global-stop setting. Pure.
+def wired_switch_actions(
+    safety_configured: bool, pointer_running: bool = False
+) -> tuple[str, ...]:
+    """The switch actions that actually do something, given what can be paused. Pure.
 
-    ``pause_pointer`` needs the global gate: with ``[handsfree_safety]`` off the daemon has
-    nothing for it to pause and leaves it unwired.
+    ``pause_pointer`` needs something to pause: the global gate (``[handsfree_safety]`` on,
+    which pauses every hands-free input) or, with the gate off, a running Head-Pointer (which
+    it pauses alone, as ``handsfree pause`` and a chord's ``pause_pointer`` do). With neither
+    the daemon leaves it unwired. ``pointer_running`` is the daemon's own ``headpointer
+    status`` answer, not the saved ``[headpointer] enabled``: an enabled pointer with no camera
+    or no pointer backend has nothing to pause either.
     """
-    return WIRED_SWITCH_ACTIONS + (("pause_pointer",) if safety_configured else ())
+    pausable = safety_configured or pointer_running
+    return WIRED_SWITCH_ACTIONS + (("pause_pointer",) if pausable else ())
 
 
 # ----------------------------------------------------------------------------- the inputs
@@ -928,9 +935,13 @@ def _current_bindings(inputs: PanelInputs) -> tuple[dict[str, str], list[str]]:
     return parse_bindings(list(inputs.switches), inputs.primary_gesture, inputs.mode)
 
 
+def _wired(inputs: PanelInputs) -> tuple[str, ...]:
+    return wired_switch_actions(inputs.safety_configured, _hp_active(inputs.headpointer))
+
+
 def _mapping(inputs: PanelInputs) -> MappingModel:
     bindings, problems = _current_bindings(inputs)
-    wired = set(wired_switch_actions(inputs.safety_configured))
+    wired = set(_wired(inputs))
     rows = []
     for gesture in GESTURES:
         action = bindings.get(gesture, "")
@@ -939,7 +950,8 @@ def _mapping(inputs: PanelInputs) -> MappingModel:
             note = (
                 "Does nothing in this build."
                 if action != "pause_pointer"
-                else "Does nothing while the global stop is off."
+                else "Does nothing while the global stop is off and the Head-Pointer is "
+                "not running."
             )
         elif action and gesture == "eyes_closed":
             floor = eyes_closed_min_hold_frames(inputs.fps)
@@ -949,6 +961,11 @@ def _mapping(inputs: PanelInputs) -> MappingModel:
                     f"ordinary blink can trigger it. Press Set to raise the hold to "
                     f"{_seconds(floor, inputs.fps)}."
                 )
+        pointer_only = action in wired and not inputs.safety_configured
+        if not note and action == "pause_pointer" and pointer_only:
+            # Wired through the running Head-Pointer alone: say the scope, so nobody believes
+            # the gesture stops the face switch or dictation too (the `handsfree pause` rule).
+            note = "Pauses the Head-Pointer only — the global stop is off."
         rows.append(MappingRow(
             gesture, _gesture_label(gesture), action,
             ACTION_LABELS.get(action, "Not mapped") if action else "Not mapped", note,
@@ -960,7 +977,8 @@ def _mapping(inputs: PanelInputs) -> MappingModel:
         elif action == "pause_pointer":
             choices.append((
                 action, ACTION_LABELS[action], False,
-                "Turn the global stop on first — there is nothing for it to pause otherwise.",
+                "Turn the global stop on, or start the Head-Pointer, first — there is "
+                "nothing for it to pause otherwise.",
             ))
         else:
             choices.append((
@@ -999,7 +1017,7 @@ def plan_mapping(inputs: PanelInputs, gesture: str, action: str) -> MappingPlan:
     if action != UNMAP and action not in SWITCH_ACTIONS:
         return MappingPlan(False, f"{action!r} is not an action. Choose one of: "
                            + ", ".join((*SWITCH_ACTIONS, UNMAP)) + ".")
-    if action != UNMAP and action not in wired_switch_actions(inputs.safety_configured):
+    if action != UNMAP and action not in _wired(inputs):
         for key, _label, ok, why in _mapping(inputs).choices:
             if key == action and not ok:
                 return MappingPlan(False, why)

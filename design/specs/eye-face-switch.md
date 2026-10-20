@@ -117,6 +117,18 @@ Unknown/unmapped events do nothing.
 
 Destructive desktop operations still use the existing consequence/confirmation policy.
 
+**As built (EYE-FACE-002, #407).** `facegesture/switches.py` (`SwitchIntent`, `parse_bindings`,
+`SwitchMapper`) is the mapping layer; `facegesture/actions.py` holds the pure decisions behind
+`select` / `confirm` / `cancel`; the daemon supplies the handlers. The vocabulary is
+`hold_to_talk`, `hold_to_command`, `select`, `confirm`, `cancel`, `pause_pointer` (and `none` to
+unmap). Holds enter the daemon through the hotkey's own entry points, so cmdsafety still holds a
+destructive spoken command; `confirm` / `cancel` only answer a confirmation that already exists.
+`pause_pointer` does the most it can in each configuration, matching `handsfree pause` and a
+chord's `pause_pointer`: with `[handsfree_safety]` on it pauses the global gate; with it off it
+pauses a running Head-Pointer only; with neither it stays unwired and the daemon names the
+setting to turn on. A Gesture Chord token is not a face-switch action: chords consume face tokens
+through their own runtime (EYE-GESTURE-001, `gesture/sensors.py`).
+
 ## Talking interference
 
 Mouth-open is explicitly tested against traces resembling normal speaking motion.
