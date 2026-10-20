@@ -5,6 +5,33 @@
 > **Sources:** the 2026-06-14 SoA dossier (internal),
 > the per-feature specs (`design/specs/`), and a 2026-06-19 web refresh (citations inline).
 
+> ### Delivery status — checked 2026-10-15 against `main` (v2.42.0)
+>
+> The plan below is kept as written on 2026-06-19; "the four remaining features" and
+> every "buildable now" are that day's framing, not today's. Where the plan and the
+> code disagree, this block is the present-day statement. Active follow-up work exists
+> only for Polyglot Switch (issues #518, #519, the Persian-English evaluation set and
+> qualifying the existing routing before any adapter is trained) and for wiring the
+> `multiprofile` capability (campaign task `WIRE-MULTIPROFILE-001`, under #164). The
+> LoRA pipeline and Cocktail suppression have **no** issue or campaign task, and are
+> not scheduled; per-spec phase notes are tracked by #491.
+>
+> | Item | Phase | Status today | Evidence |
+> |---|---|---|---|
+> | Shared voiceprint (§2.1) | all | **shipped** | `src/yazses/voiceprint/` (embedder, encrypted store, profiles); `yazses enroll-voice` in `cli.py` |
+> | Voiceprint Mind | P1 biasing | **shipped**, off by default | `daemon._effective_initial_prompt`; `[personalize]` |
+> | Voiceprint Mind | P2 nightly LoRA | **deferred, not built** — only the pure held-out gate exists | `personalize/adapter_gate.py` is the whole of it; no train/merge/convert code, no `yazses tune --lora`; the `[personalize] lora*` keys are flagged *inert* in `docs/configuration.md`; compute-gated |
+> | Cocktail Filter | P1 gate | **shipped, experimental** — registry says it over-rejects the user's own voice | `daemon._maybe_cocktail_gate`; `system/features.py` (`EXPERIMENTAL`); the `window_ms` note in `docs/configuration.md` |
+> | Cocktail Filter | P2 suppression | **blocked** on an open, CPU-real-time target-speaker model; `mode = "suppress"` is not implemented | no suppression code in `src/yazses/audio/personal_vad.py` |
+> | Glance-Type | P1 look-to-pane | **shipped, experimental** (registered as wired). Its current state, calibration and accuracy work are covered by the eye-control programme (`design/eye-control/`) and were **not re-audited here** | `system/features.py`; `design/architecture.md` |
+> | Glance-Type | look-to-caret | **not planned** — unchanged: out of scope until webcam gaze is under 1 cm | §3.3 below |
+> | Polyglot Switch | P0 scaffolding | **partially shipped** — config, pair parsing and a routing decision object exist and are built and logged at daemon start; nothing yet calls the per-span LID or loads an adapter during transcription | `polyglot/router.py` is constructed in `core/daemon.py` and never consulted again; `is_code_switched` has no caller outside `polyglot/` |
+> | Polyglot Switch | P1 per-pair adapter | **blocked** on a trained adapter and a code-switch eval set (#518, #519) | `[polyglot] adapter_path` is user-supplied and out-of-band |
+>
+> Also newer than this plan: `[voiceprint] backend = "resemblyzer"` (a second embedder)
+> and a multi-user-profiles capability that is still registered as *planned*
+> (`multiprofile`, in `system/features._UNWIRED`).
+
 This roadmap covers the **four remaining v2 features** — the ones that move YazSes
 from a *text* tool to a *perceptual + personalized* one. They are deliberately the
 hardest of the original ten: each needs an external model, training, or sensor that

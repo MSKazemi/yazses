@@ -14,7 +14,7 @@ Architecture: all
 Depends: ${misc:Depends}, python3 (>= 3.11), libportaudio2, pipx,
  xdotool | ydotool | wtype, xclip | wl-clipboard
 Description: Local, offline voice dictation daemon for Linux
- Hold Space anywhere on your desktop, speak, then release Space.
+ Hold Right Alt anywhere on your desktop, speak, then release it.
  The transcribed text is injected into whatever application is focused.
  No internet required after the initial model download. CPU-only inference.
  .

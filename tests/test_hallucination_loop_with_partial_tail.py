@@ -59,7 +59,14 @@ TYPED_INTO_THE_EDITOR = (
     [
         pytest.param(TYPED_INTO_THE_EDITOR, id="the-real-one"),
         pytest.param("go to the store go to the store go to the store go to", id="tail-2-words"),
-        pytest.param("the the the", id="exact-tiling-1-word"),
+        # Was "the the the". Deliberately raised to four repeats when the ONE-word
+        # unit's threshold moved (see test_hallucination_spares_emphatic_repetition):
+        # at three, this rule could not tell "the the the" from "no no no", and this
+        # same file already lists "very very very good" as speech that must survive.
+        # The only thing separating those two vectors was whether the speaker trailed
+        # off into a fourth word -- an arbitrary line to delete a sentence on. Four
+        # still pins the exact-tiling mechanism this test exists for.
+        pytest.param("the the the the", id="exact-tiling-1-word"),
         pytest.param("um um um um", id="exact-tiling-4x"),
         pytest.param("a b a b a b a", id="tail-1-of-2"),
     ],

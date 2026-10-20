@@ -82,8 +82,11 @@ that most often go wrong — the wrong microphone, and a daemon that needs a res
 
   ![The Microphone submenu expanded, listing each input device with the active one marked](screenshots/tray-mic-picker.png)
 
-- **Re-calibrate** — re-measures the room and writes a fitting silence threshold, for when
-  dictation starts getting discarded as silence.
+- **Re-calibrate** — measures your room (stay quiet for 2 seconds), then your voice (speak
+  normally for 4), and writes a silence threshold between the two, for when dictation starts
+  getting discarded as silence. If the two recordings are too close together, for example
+  because nobody spoke, it says so and changes nothing. The same measurement as
+  `yazses mic-level --set`.
 - **Start meeting** / **Stop meeting** — begin and end a
   [Meeting Mode](meeting-notes-offline.md) recording without a terminal. Meeting Mode is the one thing YazSes does that has no key to
   hold: it runs hands-free for the whole meeting, so the icon is the only place to start it
@@ -199,7 +202,8 @@ reduced_motion = "on"    # auto (follow the desktop, default) | on | off
 
 ## Turn them on
 
-Both are opt-in surfaces you can toggle with `yazses features` (no config-file editing):
+The tray is on by default; the overlay is **optional and off by default**. Toggle either with
+`yazses features` (no config-file editing):
 
 ```sh
 yazses features                 # list capabilities and their on/off state
@@ -209,6 +213,8 @@ yazses restart                  # apply
 ```
 
 - The **tray** icon is on by default when a desktop is present (`[tray] enabled = true`).
-- The **overlay** needs the `overlay` extra (`pipx install 'yazses[overlay]'` or `yazses features enable overlay` auto-installs it).
+- The **overlay** is opt-in. It needs the `overlay` extra (`pipx install 'yazses[overlay]'` or `yazses features enable overlay` auto-installs it).
+  If dictation is heard but nothing is typed on Ubuntu/GNOME Wayland, see
+  [Troubleshooting](troubleshooting.md#dictation-is-heard-and-typed-but-nothing-appears-gnome-wayland).
 
 See the [CLI reference](cli-reference.md) and [features guide](features.md) for the full list.

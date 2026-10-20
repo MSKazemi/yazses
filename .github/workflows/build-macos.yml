@@ -14,6 +14,12 @@ on:
       - 'pyproject.toml'
   workflow_dispatch:
 
+# A new PR head makes the previous build obsolete. Tag pushes and manual runs use
+# a unique run ID so release/manual evidence is never collapsed by PR optimization.
+concurrency:
+  group: build-macos-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
 # Least privilege: read-only by default; the build job declares what it needs.
 permissions:
   contents: read
@@ -80,7 +86,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           # `latest`, like every other workflow here. This was pinned to '0.5.x'
           # — a toolchain from December 2024 — and only in the two desktop-bundle
@@ -323,6 +329,24 @@ jobs:
 
       - name: Attest build provenance for the .dmg
         id: attest
+        # Skipped on a PR from a fork, which is the one context where this cannot
+        # work: GitHub does not grant `id-token: write` to a `pull_request` run from
+        # a fork no matter what the job declares, so the step failed with `missing
+        # "id-token" permission` and put a red X on a first-time contributor's PR
+        # for something their change had nothing to do with. #360 was the first
+        # external fork PR ever to reach this job — every prior success here was a
+        # tag push or a `dependabot/*` branch, both of which live in this repo.
+        #
+        # Not narrowed to tags only, even though the two steps below are: attesting
+        # on same-repo PRs is what would have caught the `subject-path` bug recorded
+        # above *before* a release depended on it, and that smoke test is worth more
+        # than the noise it costs.
+        # Explicit about the non-PR case rather than relying on the null-vs-true
+        # comparison: a tag push silently losing its provenance would be a much
+        # worse bug than the red X this is fixing.
+        if: >-
+          github.event_name != 'pull_request' ||
+          github.event.pull_request.head.repo.fork != true
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           # dist/, not the repo root. Every other step in this job addresses the

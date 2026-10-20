@@ -160,11 +160,31 @@ class MacosTray:
                     target=_work, name="tray-update-check", daemon=True
                 ).start()
 
+        # rumps' own "Quit" item calls NSApplication.terminate:, which ends the process
+        # from inside the event loop -- `self._app.run()` below never returns, so the
+        # statement after it never ran and the daemon was never told to stop. It stayed
+        # up (launchd restarts only a crash), still holding the permission it read when
+        # its keyboard tap was created, and opening the app again exited as a duplicate
+        # (#578). `before_quit` fires from applicationWillTerminate: on that path.
+        # The call after run() stays for a loop that does return, and the guard keeps
+        # the daemon from being asked twice.
+        sent = threading.Event()
+
+        def _tell_daemon_once() -> None:
+            if sent.is_set():
+                return
+            sent.set()
+            if self._on_quit is not None:
+                self._on_quit()
+
+        from rumps import events as rumps_events  # type: ignore[import-not-found]
+
+        rumps_events.before_quit.register(_tell_daemon_once)
+
         self._app = _App()
         log.info("Launching rumps tray (NSApp.run blocks)")
         self._app.run()
-        if self._on_quit is not None:
-            self._on_quit()
+        _tell_daemon_once()
 
     def set_state(self, model: TrayModel) -> None:
         with self._lock:

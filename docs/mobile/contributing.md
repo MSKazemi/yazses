@@ -58,8 +58,9 @@ Stewardship is real delegation, bounded by the ADRs: a steward decides *how* `:f
 renders its key bar; a steward does not decide to add an `AccessibilityService` (that is
 ADR-MOB-003, and changing it takes a new ADR).
 
-Stewardship lapses quietly after ~3 months of silence — no drama, no hard feelings, and the
-door stays open. Announcing a break is the polite version and is always welcome.
+Stewardship lapses quietly after **30 days without substantive project activity** — no drama,
+no hard feelings. The purpose is to keep review ownership current, not to punish a break.
+The role can be restored when someone returns and becomes active again.
 
 ## 4. Claiming work
 

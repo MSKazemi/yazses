@@ -11,7 +11,7 @@
   "commitConvention": "angular",
   "contributorsPerLine": 7,
   "contributorsSortAlphabetically": false,
-  "badgeTemplate": "[![All Contributors](https://img.shields.io/badge/all_contributors-16-orange.svg?style=flat-square)](#contributors)",
+  "badgeTemplate": "[![All Contributors](https://img.shields.io/badge/all_contributors-28-orange.svg?style=flat-square)](#contributors)",
   "contributors": [
     {
       "login": "MSKazemi",
@@ -98,7 +98,9 @@
       "avatar_url": "https://avatars.githubusercontent.com/u/64795732?v=4",
       "profile": "https://github.com/slegarraga",
       "contributions": [
-        "code"
+        "code",
+        "userTesting",
+        "platform"
       ]
     },
     {
@@ -146,7 +148,8 @@
       "profile": "https://github.com/mercael91",
       "contributions": [
         "infra",
-        "doc"
+        "doc",
+        "test"
       ]
     },
     {
@@ -173,7 +176,7 @@
     {
       "login": "hoti-code",
       "name": "hoti-code",
-      "avatar_url": "https://avatars.githubusercontent.com/u/320443384?v=4?s=100",
+      "avatar_url": "https://avatars.githubusercontent.com/u/320443384?v=4",
       "profile": "https://github.com/hoti-code",
       "contributions": [
         "userTesting",
@@ -184,7 +187,7 @@
     {
       "login": "jayavandhiniMK",
       "name": "Jayavandhini M K",
-      "avatar_url": "https://avatars.githubusercontent.com/u/221181058?v=4?s=100",
+      "avatar_url": "https://avatars.githubusercontent.com/u/221181058?v=4",
       "profile": "https://github.com/jayavandhiniMK",
       "contributions": [
         "doc"
@@ -193,21 +196,222 @@
     {
       "login": "visheshbpatel",
       "name": "Vishesh Patel",
-      "avatar_url": "https://avatars.githubusercontent.com/u/206997413?v=4?s=100",
+      "avatar_url": "https://avatars.githubusercontent.com/u/206997413?v=4",
       "profile": "https://github.com/visheshbpatel",
+      "contributions": [
+        "doc",
+        "userTesting",
+        "bug"
+      ]
+    },
+    {
+      "login": "fall-water-zxc",
+      "name": "fall-water-zxc",
+      "avatar_url": "https://avatars.githubusercontent.com/u/210990993?v=4",
+      "profile": "https://github.com/fall-water-zxc",
+      "contributions": [
+        "doc",
+        "userTesting",
+        "bug",
+        "platform"
+      ]
+    },
+    {
+      "login": "greatlord",
+      "name": "Magnus Olsen",
+      "avatar_url": "https://avatars.githubusercontent.com/u/2506501?v=4",
+      "profile": "https://github.com/greatlord",
+      "contributions": [
+        "bug",
+        "ideas"
+      ]
+    },
+    {
+      "login": "Akgithub2028",
+      "name": "Aayaann Kausar",
+      "avatar_url": "https://avatars.githubusercontent.com/u/181275449?v=4",
+      "profile": "https://github.com/Akgithub2028",
       "contributions": [
         "doc",
         "userTesting"
       ]
     },
     {
-      "login": "fall-water-zxc",
-      "name": "fall-water-zxc",
-      "avatar_url": "https://avatars.githubusercontent.com/u/210990993?v=4?s=100",
-      "profile": "https://github.com/fall-water-zxc",
+      "login": "auroraxo",
+      "name": "Aurora",
+      "avatar_url": "https://avatars.githubusercontent.com/u/325296939?v=4",
+      "profile": "https://github.com/auroraxo",
+      "contributions": [
+        "code",
+        "test",
+        "platform"
+      ]
+    },
+    {
+      "login": "YuuGR1337",
+      "name": "Elkero",
+      "avatar_url": "https://avatars.githubusercontent.com/u/241930202?v=4",
+      "profile": "https://github.com/YuuGR1337",
       "contributions": [
         "doc",
-        "userTesting"
+        "translation",
+        "bug"
+      ]
+    },
+    {
+      "login": "Guruharishb",
+      "name": "Guruharishb",
+      "avatar_url": "https://avatars.githubusercontent.com/u/170197232?v=4",
+      "profile": "https://github.com/Guruharishb",
+      "contributions": [
+        "translation"
+      ]
+    },
+    {
+      "login": "vortsghost2025",
+      "name": "DeliberateEnsemble",
+      "avatar_url": "https://avatars.githubusercontent.com/u/248577390?v=4",
+      "profile": "https://x.com/WEFramework",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "doeil1614-ops",
+      "name": "doeil1614-ops",
+      "avatar_url": "https://avatars.githubusercontent.com/u/298136347?v=4",
+      "profile": "https://github.com/doeil1614-ops",
+      "contributions": [
+        "translation"
+      ]
+    },
+    {
+      "login": "musabustun",
+      "name": "Musab Yusuf Üstün",
+      "avatar_url": "https://avatars.githubusercontent.com/u/59414375?v=4",
+      "profile": "https://github.com/musabustun",
+      "contributions": [
+        "translation"
+      ]
+    },
+    {
+      "login": "sameer8945",
+      "name": "sameer",
+      "avatar_url": "https://avatars.githubusercontent.com/u/224630461?v=4",
+      "profile": "https://github.com/sameer8945",
+      "contributions": [
+        "doc"
+      ]
+    },
+    {
+      "login": "HarshRajSinghania",
+      "name": "Harsh Raj Singhania",
+      "avatar_url": "https://avatars.githubusercontent.com/u/40535627?v=4",
+      "profile": "https://github.com/HarshRajSinghania",
+      "contributions": [
+        "doc"
+      ]
+    },
+    {
+      "login": "laurash96",
+      "name": "Laura Saldarriaga Higuita",
+      "avatar_url": "https://avatars.githubusercontent.com/u/49080366?v=4",
+      "profile": "https://github.com/laurash96",
+      "contributions": [
+        "translation"
+      ]
+    },
+    {
+      "login": "Tiyatrotist",
+      "name": "Tiyatrotist",
+      "avatar_url": "https://avatars.githubusercontent.com/u/179411334?v=4",
+      "profile": "https://github.com/Tiyatrotist",
+      "contributions": [
+        "doc"
+      ]
+    },
+    {
+      "login": "AmothissacrajT",
+      "name": "Amoth issac raj",
+      "avatar_url": "https://avatars.githubusercontent.com/u/202615530?v=4",
+      "profile": "https://github.com/AmothissacrajT",
+      "contributions": [
+        "doc"
+      ]
+    },
+    {
+      "login": "Adharsh75r",
+      "name": "Adharsh Narayan",
+      "avatar_url": "https://avatars.githubusercontent.com/u/202615849?v=4",
+      "profile": "https://github.com/Adharsh75r",
+      "contributions": [
+        "doc"
+      ]
+    },
+    {
+      "login": "LE-VAI",
+      "name": "LE-VAI",
+      "avatar_url": "https://avatars.githubusercontent.com/u/281449961?v=4",
+      "profile": "https://github.com/LE-VAI",
+      "contributions": [
+        "ideas",
+        "research"
+      ]
+    },
+    {
+      "login": "yangjie-AE",
+      "name": "yangjie-AE",
+      "avatar_url": "https://avatars.githubusercontent.com/u/316910424?v=4",
+      "profile": "https://github.com/yangjie-AE",
+      "contributions": [
+        "translation"
+      ]
+    },
+    {
+      "login": "VatsalRaina01",
+      "name": "Vatsal Raina",
+      "avatar_url": "https://avatars.githubusercontent.com/u/154910553?v=4",
+      "profile": "https://github.com/VatsalRaina01",
+      "contributions": [
+        "example"
+      ]
+    },
+    {
+      "login": "sahanaekin7-crypto",
+      "name": "sahanaekin7-crypto",
+      "avatar_url": "https://avatars.githubusercontent.com/u/256977437?v=4",
+      "profile": "https://github.com/sahanaekin7-crypto",
+      "contributions": [
+        "translation"
+      ]
+    },
+    {
+      "login": "MarekMnahoncak",
+      "name": "MarekMnahoncak",
+      "avatar_url": "https://avatars.githubusercontent.com/u/195477076?v=4",
+      "profile": "https://github.com/MarekMnahoncak",
+      "contributions": [
+        "code",
+        "test",
+        "infra"
+      ]
+    },
+    {
+      "login": "mrCabez",
+      "name": "mrCabez",
+      "avatar_url": "https://avatars.githubusercontent.com/u/110625817?v=4",
+      "profile": "https://github.com/mrCabez",
+      "contributions": [
+        "translation"
+      ]
+    },
+    {
+      "login": "shashiharanramvanam-crypto",
+      "name": "Vanam Shashi Haran Ram",
+      "avatar_url": "https://avatars.githubusercontent.com/u/226146568?v=4",
+      "profile": "https://github.com/shashiharanramvanam-crypto",
+      "contributions": [
+        "translation"
       ]
     }
   ]

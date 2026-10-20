@@ -1,6 +1,6 @@
 ---
 title: Install offline voice dictation on Linux (Ubuntu, Debian, Fedora, Arch)
-description: Step-by-step install of YazSes offline voice dictation on Linux — the recommended installer, apt, X11-only snap, or pipx, with microphone, hotkey, and text-injection setup.
+description: Step-by-step install of YazSes offline voice dictation on Linux — the recommended installer, apt, snap, or pipx, with microphone, hotkey, and text-injection setup.
 ---
 
 # Installing YazSes on Linux
@@ -40,7 +40,7 @@ That is the whole install. Skip to [§2](#2-finish-setup).
 |---|---|---|
 | **Universal script** (recommended) | `bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install.sh)` | Latest code from git. Installs `uv` if absent. Provisions everything. |
 | **APT** (Debian/Ubuntu) | `bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install-apt.sh)` | Last tagged release. The script adds the YazSes apt repo, installs the runtime deps, joins you to the `input` group and sets up `ydotoold`; the `.deb`'s post-install step then `pipx`-installs the Python package and enables the user service. |
-| **Snap (X11 only)** | `sudo snap install yazses`<br>`sudo snap connect yazses:audio-record`<br>`sudo snap connect yazses:raw-input`<br>`yazses doctor` | **Do not use this channel on Wayland.** All three privileged commands are required: a snap cannot connect its own interfaces, so without `audio-record` it has no microphone and without `raw-input` the hold-to-talk key does nothing ([#44](https://github.com/MSKazemi/yazses/issues/44)). `yazses setup` is not required: confinement blocks host package, group, and service changes, while the snap already bundles its X11 dependencies. See [what the snap can and cannot do](#3e-what-the-snap-can-and-cannot-do). |
+| **Snap** | `sudo snap install yazses`<br>`sudo snap connect yazses:audio-record`<br>`sudo snap connect yazses:raw-input`<br>`yazses doctor` | **Works on X11, and on GNOME/KDE Wayland via the desktop portal** (approve the one-time permission prompt at first dictation). All three privileged commands are required: a snap cannot connect its own interfaces, so without `audio-record` it has no microphone and without `raw-input` the hold-to-talk key does nothing ([#44](https://github.com/MSKazemi/yazses/issues/44)). `yazses setup` is not required: confinement blocks host package, group, and service changes, while the snap already bundles its X11 dependencies. See [what the snap can and cannot do](#3e-what-the-snap-can-and-cannot-do). |
 | **pipx** (any distro, Python ≥ 3.11) | `pipx install yazses` | Installs **only** the Python package — needs `build-essential python3-dev` to compile `evdev`, and you must then run `yazses setup` yourself ([§3](#3-installing-by-hand-what-the-installer-did-for-you)). |
 
 Already installed and want the newest release?
@@ -208,9 +208,18 @@ an editable install plus provisioning plus start, in one command.
 A strictly confined snap cannot install packages on the host, change group
 membership, or configure the host's `ydotoold` service. Therefore:
 
-- hold-to-talk dictation is supported on **X11 only**, after manually connecting
-  both `audio-record` and `raw-input` as shown in [§1](#1-install--one-command);
-- Wayland users must use the universal installer, APT, or `pipx`;
+- hold-to-talk dictation works on **X11**, and on **GNOME/KDE Wayland** through
+  the `xdg-desktop-portal` RemoteDesktop API — the one Wayland injection route
+  that needs no `/dev/uinput`, no udev rule and no extra interface, because
+  portal access rides on the `desktop` plug the snap already has. The first
+  dictation asks once for permission; approve it and the answer is remembered.
+  Both cases still require manually connecting `audio-record` and `raw-input`
+  as shown in [§1](#1-install--one-command);
+- `wtype` is **not** a Wayland fallback here: it needs `virtual-keyboard-manager-v1`,
+  which GNOME's Mutter and KDE's KWin do not implement. The portal is what covers
+  those two desktops;
+- the unconfined installers (universal, APT, `pipx`) remain the most-tested
+  Wayland path, and use `ydotool` + `ydotoold` instead of the portal;
 - `yazses setup` cannot provision a Snap install; current builds only use it to
   print the manual interface checklist.
 
@@ -254,17 +263,32 @@ Note that settings do not carry over: the snap keeps config and models under
 
 ### 3f. Arch Linux and derivatives (AUR)
 
+> **Not on the AUR yet — `yay -S yazses` will not find it.** The recipe below is
+> written, current and verified, but the package has never been published:
+> `aur.archlinux.org` returns no `yazses` (checked 2026-09-25), so `yay -S yazses`
+> and `paru -S yazses` stop with *target not found*. That is the AUR missing the
+> package, not a broken helper. Publication is blocked upstream — AUR account
+> registration was paused on 2026-09-19 with no announced ETA. Until it lands, use
+> the universal installer (§1) or `pipx` (§3d), or build the package yourself from
+> the recipe, which is what the rest of this section covers. Progress:
+> [#67](https://github.com/MSKazemi/yazses/issues/67).
+
+Build it from the recipe in the repository:
+
 ```bash
-yay -S yazses        # or: paru -S yazses
+git clone https://github.com/MSKazemi/yazses.git
+cd yazses/packaging/arch
+makepkg -si
 yazses doctor
 ```
 
-**Use an AUR helper, not `makepkg` alone.** Two runtime dependencies live in the
-AUR (`python-faster-whisper`, `python-sounddevice`), and faster-whisper pulls a
-further AUR chain of its own — `python-ctranslate2`, `python-tokenizers`,
-`python-onnxruntime`, `python-av`. `makepkg` never fetches AUR dependencies by
-design; only a helper resolves them recursively. A bare `makepkg -si` therefore
-stops with *target not found*, which looks like a broken PKGBUILD and is not one.
+**Install the two AUR dependencies with a helper first.** `python-faster-whisper`
+and `python-sounddevice` are AUR packages, and faster-whisper pulls a further chain
+of its own — `python-ctranslate2` and `python-tokenizers` from the AUR,
+`python-av` and an `onnxruntime` provider from `extra`. `makepkg` never fetches AUR
+dependencies by design; only a helper resolves them recursively. So run
+`yay -S python-faster-whisper python-sounddevice` before `makepkg -si`, or the build
+stops with *target not found* — which looks like a broken PKGBUILD and is not one.
 
 The [`PKGBUILD`](https://github.com/MSKazemi/yazses/blob/main/packaging/arch/PKGBUILD)
 is built from the PyPI sdist — the artifact the release actually publishes, with a
@@ -313,15 +337,41 @@ sudo dnf install yazses
 yazses doctor
 ```
 
+The repository is **live** at
+[copr.fedorainfracloud.org/coprs/mskazemi/yazses](https://copr.fedorainfracloud.org/coprs/mskazemi/yazses/),
+serving **2.36.0** for Fedora 43 and 44 (x86_64 and aarch64) and EPEL 10 (x86_64)
+(repository metadata checked 2026-09-25).
+
+> **COPR trails the newest release.** Each version is pushed to COPR by hand, so
+> `dnf install yazses` gives you 2.36.0 rather than the current tag. Check
+> `yazses --version` against the
+> [latest release](https://github.com/MSKazemi/yazses/releases/latest); if you need the
+> newest build, use the universal installer (§1) or `pipx` (§3d).
+
+**EPEL 9 is not offered**, and that is a limitation rather than an oversight: it ships
+Python 3.9, so `python3-devel >= 3.11` cannot be satisfied there. RHEL 9 users need
+another route — `pipx install yazses` under a Python 3.11+ interpreter (RHEL 9 ships
+`python3.11` as a separate package) is the practical one. The three commands above were run end to end in a clean
+`fedora:43` container: `dnf copr enable` → `dnf install` → `yazses --version`
+printing `yazses 2.36.0`.
+
 The spec lives at
-[`packaging/fedora/yazses.spec`](https://github.com/MSKazemi/yazses/blob/main/packaging/fedora/yazses.spec)
-and builds a package that has been installed and run on a clean Fedora 41
-container — `packaging/fedora/build-and-test.sh` is that test, and it is meant to
-be run in a container rather than on your machine:
+[`packaging/fedora/yazses.spec`](https://github.com/MSKazemi/yazses/blob/main/packaging/fedora/yazses.spec).
+`packaging/fedora/build-and-test.sh` builds and installs it locally, and is meant
+to be run in a container rather than on your machine:
 
 ```bash
-podman run --rm -v "$PWD:/src:z" fedora:41 /src/packaging/fedora/build-and-test.sh
+podman run --rm -v "$PWD:/src:z" fedora:43 /src/packaging/fedora/build-and-test.sh
 ```
+
+!!! note "That local test cannot catch everything"
+
+    Docker and podman give a build network access by default; COPR does not. Because
+    `%install` runs pip to populate the bundled virtualenv, the first COPR build failed
+    where the container build had passed — and it failed as
+    `No matching distribution found for hatchling`, which reads like a missing
+    dependency rather than a missing network. The project now sets
+    `--enable-net on`. Only a real COPR build could have found it.
 
 Two honest notes about this package:
 
@@ -468,15 +518,18 @@ speech is below the VAD gate — see [§6](#6-tune-the-silence-threshold).
 ## 9. Voice-activity overlay
 
 The overlay draws neon "sonar" rings near the cursor that pulse with your voice
-while you dictate. It is **on by default** and works out of the box: PySide6 is
-part of the base install (and bundled in the snap), so there is no extra step.
+while you dictate. It is **optional and off by default** (turn it on with
+`yazses features enable overlay`): PySide6 is part of the base install (and bundled
+in the snap), so there is no extra step. On Ubuntu/GNOME Wayland an overlay can take
+keyboard focus and swallow the dictated text — see
+[Troubleshooting](troubleshooting.md#dictation-is-heard-and-typed-but-nothing-appears-gnome-wayland).
 The PySide6 wheels need glibc ≥ 2.28 (Ubuntu 20.04+); on older distros the
 daemon logs a one-line hint and keeps dictating.
 
-The daemon then auto-launches `yazses-overlay` on start when a display is present
+Once enabled, the daemon auto-launches `yazses-overlay` on start when a display is present
 and terminates it on shutdown. If PySide6 isn't installed the daemon logs a
-one-line hint and keeps dictating — nothing breaks. To turn the overlay off, set
-`[overlay] enabled = false` in `~/.config/yazses/config.toml`. Run `yazses
+one-line hint and keeps dictating — nothing breaks. To turn the overlay off again, run
+`yazses features disable overlay` or set `[overlay] enabled = false` in `~/.config/yazses/config.toml`. Run `yazses
 overlay` yourself to preview it.
 
 **Transparency note (X11):** the see-through glow needs a compositing window

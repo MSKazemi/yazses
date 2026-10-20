@@ -154,6 +154,7 @@ _FREE_TEXT_KEYS = frozenset({
     "llm_system_prompt",    # [filters.disfluency] — may be rewritten by hand
     "author",               # [macros] — config.py: "value substituted for ${author}"
     "device_name",          # [bridge] — a paired phone is usually named after its owner
+    "stop_phrase",          # [handsfree_safety] — a spoken phrase the user chose; may be personal
 })
 
 

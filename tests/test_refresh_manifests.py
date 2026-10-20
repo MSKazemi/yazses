@@ -11,6 +11,7 @@ remembered. These cover the renderers directly (no network, no released assets).
 from __future__ import annotations
 
 import importlib.util
+import json
 import sys
 from pathlib import Path
 
@@ -141,17 +142,117 @@ def test_metainfo_refresh_is_idempotent():
     assert refresh.render_metainfo("9.9.9", "2026-09-01", previous) == previous
 
 
+# ---- fedora ------------------------------------------------------------
+
+
+def test_the_spec_moves_to_the_release_and_gains_a_changelog_entry():
+    """The COPR package was four releases behind because nothing here rewrote it."""
+    previous = (
+        "Name:           %{appname}\n"
+        "Version:        2.36.0\n"
+        "Release:        3%{?dist}\n"
+        "\n%changelog\n"
+        "* Sun Sep 13 2026 Mohsen Seyedkazemi Ardebili <m@example.com> - 2.36.0-1\n"
+        "- Track the current release.\n"
+    )
+    out = refresh.render_spec("9.9.9", "2026-09-24", previous)
+
+    assert "Version:        9.9.9" in out
+    # A new upstream version restarts the package release number.
+    assert "Release:        1%{?dist}" in out
+    assert "- 9.9.9-1" in out
+    assert "releases/tag/v9.9.9" in out
+    assert out.index("9.9.9-1") < out.index("2.36.0-1"), "rpm reads the newest entry first"
+    assert "- Track the current release." in out, "history must not be discarded"
+
+
+def test_the_generated_changelog_weekday_matches_its_date():
+    """A weekday written from memory is `rpmbuild`'s "bogus date in %changelog", and
+    both hand-written entries in the real spec had one. Deriving it from the release
+    date is the point of passing the date in at all."""
+    previous = "Name: yazses\nVersion: 1.0.0\nRelease: 1\n\n%changelog\n"
+    # 2026-09-24 is a Thursday; 2026-09-25 is a Friday.
+    assert "* Thu Sep 24 2026 " in refresh.render_spec("9.9.9", "2026-09-24", previous)
+    assert "* Fri Sep 25 2026 " in refresh.render_spec("9.9.9", "2026-09-25", previous)
+
+
+def test_a_release_date_that_is_not_a_date_is_refused_not_guessed():
+    """`gh release view` returning nothing usable must stop the refresh, not produce an
+    entry with an invented weekday that rpmlint then complains about forever."""
+    previous = "Name: yazses\nVersion: 1.0.0\nRelease: 1\n\n%changelog\n"
+    with pytest.raises(SystemExit):
+        refresh.render_spec("9.9.9", "", previous)
+
+
+def test_the_spec_refresh_is_idempotent_and_keeps_a_hand_written_body():
+    """`--check` compares the committed file with what this produces, so a second pass
+    must change nothing — including prose a human added under the generated line."""
+    previous = (
+        "Name: yazses\nVersion: 9.9.9\nRelease: 1\n\n%changelog\n"
+        "* Thu Sep 24 2026 Mohsen Seyedkazemi Ardebili <m@example.com> - 9.9.9-1\n"
+        "- Update to 9.9.9.\n"
+        "- A note somebody wrote by hand about this particular build.\n"
+    )
+    assert refresh.render_spec("9.9.9", "2026-09-24", previous) == previous
+
+
 # ---- coverage ----------------------------------------------------------
 
 
-def test_every_versioned_manifest_has_a_renderer():
+def test_every_manifest_the_refresher_names_exists():
     """The failure mode this whole file exists for: a channel nobody regenerates.
-    If a new manifest is added to the version check, it needs a renderer here."""
-    for path in (
-        refresh.CASK, refresh.SCOOP, refresh.SCOOP_REVIEWED, refresh.PKGBUILD,
-        refresh.SRCINFO, refresh.NUSPEC, refresh.CHOCO_INSTALL, refresh.METAINFO,
-    ):
+
+    Derived from the module rather than listed here — a renderer added with a path
+    constant is checked without anyone remembering to extend a tuple. The other
+    direction, that every manifest the version guard checks has a renderer, is
+    `test_the_refresher_rewrites_every_manifest_this_module_checks` in
+    tests/test_packaging_manifest_versions.py.
+    """
+    paths = [
+        value
+        for name, value in vars(refresh).items()
+        if isinstance(value, Path) and name.isupper() and name != "ROOT"
+    ]
+    assert len(paths) >= 8, f"only {len(paths)} manifest paths found — this reads nothing"
+    for path in paths:
         assert path.exists(), f"{path} is referenced by the refresher but absent"
+
+
+# ---- the released-asset record -----------------------------------------
+
+
+def test_the_released_asset_record_names_every_file_the_tag_carried():
+    """It is the whole asset list, deliberately, and sorted so a diff is readable.
+
+    `docs/platform-support.md` answers "does this installer exist?" from this file,
+    and `tests/test_platform_support_claims.py` fails the build in both directions
+    on the answer -- so a renderer that quietly dropped or filtered a name would
+    make the page wrong without making anything red.
+    """
+    out = json.loads(
+        refresh.render_released_assets(
+            "9.9.9",
+            "2026-01-02",
+            ["b.exe", "a.dmg", "SHA256SUMS.txt"],
+        )
+    )
+    assert out == {
+        "version": "9.9.9",
+        "published": "2026-01-02",
+        "assets": ["SHA256SUMS.txt", "a.dmg", "b.exe"],
+    }
+
+
+def test_the_committed_record_matches_the_renderer():
+    """The file in the tree must be regenerable, not hand-maintained."""
+    committed = refresh.RELEASED_ASSETS.read_text(encoding="utf-8")
+    data = json.loads(committed)
+    assert committed == refresh.render_released_assets(
+        data["version"], data["published"], data["assets"]
+    ), (
+        "packaging/released-assets.json was edited by hand. Regenerate it with "
+        "scripts/refresh-package-manifests.py --version <the last release>."
+    )
 
 
 # ---- scoop, and the architecture it never listed -----------------------
@@ -226,17 +327,30 @@ def test_autoupdate_reads_the_arm64_hash_out_of_the_release_checksums(exe, arm):
     assert "$version" in auto["url"]
 
 
-def test_the_committed_bucket_matches_the_released_arm64_asset():
+def test_the_committed_bucket_matches_the_assets_the_release_carries():
     """The bucket is served straight out of this repository, so a hand-edit that
-    forgets one architecture ships immediately."""
-    import json
+    forgets an architecture, or keeps one the release no longer ships, lands at once.
 
+    The 64-bit entry is mandatory. An arm64 entry must exist exactly when the release
+    carries an arm64 installer: v2.43.0 does not (ctranslate2 has no `win_arm64` wheel,
+    see the matrix comment in build-windows.yml), and a Scoop entry pointing at a file
+    that is not there is a 404 for every ARM user who runs `scoop update`.
+    """
     data = json.loads((refresh.ROOT / "bucket" / "yazses.json").read_text(encoding="utf-8"))
     version = data["version"]
-    for key, tag in (("64bit", "x64"), ("arm64", "arm64")):
-        entry = data["architecture"][key]
-        assert entry["url"] == (
-            f"https://github.com/MSKazemi/yazses/releases/download/v{version}/"
-            f"YazSes-{version}-windows-{tag}.exe#/setup.exe"
-        )
-        assert len(entry["hash"]) == 64
+    released = set(
+        json.loads(
+            (refresh.ROOT / "packaging" / "released-assets.json").read_text(encoding="utf-8")
+        )["assets"]
+    )
+    assert data["architecture"]["64bit"]["url"] == (
+        f"https://github.com/MSKazemi/yazses/releases/download/v{version}/"
+        f"YazSes-{version}-windows-x64.exe#/setup.exe"
+    )
+    assert len(data["architecture"]["64bit"]["hash"]) == 64
+    has_arm_asset = f"YazSes-{version}-windows-arm64.exe" in released
+    assert ("arm64" in data["architecture"]) is has_arm_asset
+    if has_arm_asset:
+        arm = data["architecture"]["arm64"]
+        assert arm["url"].endswith(f"YazSes-{version}-windows-arm64.exe#/setup.exe")
+        assert len(arm["hash"]) == 64

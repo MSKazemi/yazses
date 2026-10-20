@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "yazses_commit": "1a26f200fb39492b5c120c636bb45ff371992eda",
+  "timestamp_utc": "2026-10-06T23:29:20Z",
+  "corpus": {
+    "name": "cvfa_full",
+    "language": "fa",
+    "version": "b16a30c622e4aa86",
+    "split": "test",
+    "samples": 10559
+  },
+  "selection": {
+    "rows_sha256": "d55956eab59e8bb68577c20e94e14a9ab1528746cf7009fdcd5d658999035bbe",
+    "rule": "all rows in manifest order; no subsampling"
+  },
+  "model": {
+    "engine": "faster-whisper",
+    "name": "small",
+    "revision": "536b0662742c02347bc0e980a01041f333bce120",
+    "compute_type": "int8_float32"
+  },
+  "decoder": {
+    "language": "fa",
+    "beam_size": 5,
+    "condition_on_previous_text": true
+  },
+  "machine": {
+    "os": "Ubuntu 24.04.4 LTS",
+    "cpu": "AMD EPYC Processor (with IBPB)",
+    "ram_gb": 8.3
+  },
+  "metrics": {
+    "wer_raw": 75.89,
+    "cer_raw": 27.69,
+    "wer_normalized": 75.58,
+    "cer_normalized": 27.52,
+    "exact_match_raw": 0.013,
+    "exact_match_normalized": 0.013,
+    "rtf": 2.369,
+    "latency_p50_ms": 11157.7,
+    "latency_p95_ms": 19695.8,
+    "persian_quality": {
+      "arabic_yeh_count": 74,
+      "arabic_kaf_count": 17,
+      "zwnj": {
+        "reference_count": 0,
+        "hypothesis_count": 5,
+        "matched_count": 0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0
+      }
+    },
+    "evaluation_normalizer": "fa-eval-v1"
+  },
+  "provenance": {
+    "timestamp": "2026-10-06T23:29:20Z",
+    "cpu_model": "AMD EPYC Processor (with IBPB)",
+    "logical_cpus": 4,
+    "ram_gb": 8.3,
+    "os": "Ubuntu 24.04.4 LTS",
+    "kernel": "6.8.0-139-generic",
+    "python": "3.12.3",
+    "faster_whisper": "1.2.1",
+    "yazses": "2.40.1",
+    "numpy": "2.4.6",
+    "ctranslate2": "4.8.1",
+    "omp_num_threads": "unset",
+    "load_average_1m": 4.2,
+    "compute_type": "int8",
+    "device": "cpu",
+    "argv": "paper/benchmark/bench_persian.py --manifest $HOME/fa_matrix/cvfa_full.jsonl --model faster-whisper:small --threads 4 --out $HOME/fa_matrix/result_cvfa_full_small.json",
+    "corpus": null
+  },
+  "runtime": {
+    "model_load_s": 5.57,
+    "rss_before_load_mb": 45.1,
+    "peak_rss_mb": 1266.6,
+    "peak_rss_source": "VmHWM"
+  }
+}

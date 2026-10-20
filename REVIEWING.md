@@ -20,12 +20,12 @@ because the *task* was wrong, that is ours to fix and you should say so plainly.
 `risk` comes from the task in [`campaign/tasks.json`](campaign/README.md) and decides who
 reviews, not how hard the work is.
 
-| Lane | Typical | You are checking | Time |
-|---|---|---|---|
-| **L0** | A compatibility record, a microphone row, a semantic vector | Is the evidence plausible and non-duplicate? Is anything personal in the diff? | ~4 min |
-| **L1** | An app config, a translated section, a troubleshooting page | Does it match reality? Do the commands work? | ~7 min |
-| **L2** | Wiring a capability, a regression test | Tests present and meaningful, no new dependency, nothing enabled by default | ~15 min |
-| **L3** | Privacy, IPC, dependencies, public interfaces, release path | Maintainer only, plus an ADR where the decision is new | 30 min+ |
+| Lane | Typical | Who may approve | You are checking | Time |
+|---|---|---|---|---|
+| **L0** | A compatibility record, a microphone row, a semantic vector | Regular contributor, steward, or maintainer | Is the evidence plausible and non-duplicate? Is anything personal in the diff? | ~4 min |
+| **L1** | An app config, a translated section, a troubleshooting page | Regular contributor, steward, or maintainer, when they can personally verify it | Does it match reality? Do the commands work? | ~7 min |
+| **L2** | Wiring a capability, a regression test | Module steward for that area, or maintainer | Tests present and meaningful, no new dependency, nothing enabled by default | ~15 min |
+| **L3** | Privacy, IPC, dependencies, public interfaces, release path | Maintainer only, plus an ADR where the decision is new | Architecture, policy and irreversible-risk judgement | 30 min+ |
 
 Automation has already checked scope, personal data, lint and tests before you
 open the page. You are not re-running CI. You are judging the things a machine cannot:
@@ -44,6 +44,21 @@ of what lane the task claimed.
 
 If you cannot personally judge one of these, say so and hand it on. "I can't verify this,
 passing to someone who speaks Tamil" is a complete and useful review.
+
+### Agent-produced pull requests
+
+Review the **change**, not the brand of tool that produced it. Project artifacts credit the human
+contributor only (ADR-024), so the PR should not need an AI-tool disclosure section.
+
+What changes for the reviewer is evidence discipline, not the approval bar:
+
+- do not accept "the agent says tests passed" when CI/command output says otherwise;
+- do not let a polished explanation substitute for a missing acceptance criterion;
+- do not let a cloud agent claim hardware/native-language/human-study evidence it could not observe;
+- do not treat agent self-review as an independent reviewer;
+- keep the same risk lane and escalation rules.
+
+A correct, bounded agent-assisted PR should be no harder to merge than the same diff typed manually.
 
 ## Review responses
 
@@ -82,15 +97,18 @@ Adapt these; do not paste them verbatim into a first-time contributor's PR.
 
 There is a real path and it does not start with permissions:
 
-1. **Apprentice** — draft a review on two open PRs in a lane you know; a maintainer
+1. **Apprentice reviewer** — draft a review on two open PRs in a lane you know; a maintainer
    checks it before it posts. No access needed.
-2. **Reviewer** — approve L0/L1 in one lane.
-3. **Captain** — calibrate other reviewers, take disputed calls, approve bounded L2.
-4. **Module steward** — [`GOVERNANCE.md`](.github/GOVERNANCE.md) already defines this: two
-   non-trivial PRs to a module and it is yours to review.
+2. **Regular contributor** — after repeated useful contributions and demonstrated judgement,
+   you may approve L0/L1 work you can personally verify. See
+   [`GOVERNANCE.md`](.github/GOVERNANCE.md).
+3. **Module steward** — after two non-trivial contributions in one area plus good review
+   judgement, you may own review for that area and approve bounded L2 work.
+4. **Maintainer** — handles L3, cross-module decisions, releases, ADR boundaries and the
+   final call when consensus does not appear.
 
-Write access is not required for steps 1–2 and is not the reward; a maintainer merges what
-you approve until the project's governance says otherwise.
+Write access is not required to become a regular contributor and is not the reward.
+A maintainer merges what you approve until repository permissions are delegated separately.
 
 ## When to stop taking contributions
 

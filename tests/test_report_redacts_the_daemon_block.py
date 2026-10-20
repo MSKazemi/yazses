@@ -58,9 +58,19 @@ _USER_TEXT = frozenset({"preview"})
 #: mostly paths; `input_device` is a microphone name and a Bluetooth microphone is
 #: usually named after its owner — they are kept because which mic is in use is the
 #: first question any audio bug asks.
+#:
+#: `handsfree` (#416) is a machine fact by construction, not by review: the facts record
+#: behind it has no field able to hold a gaze coordinate, a head angle or a blendshape
+#: score (`handsfree/observability.py`), so what reaches the payload is feature names,
+#: states, ages, counts and capability flags. `redact_status` still recurses into it and
+#: puts every string through `redact_text`.
+#:
+#: `headpointer` (#404) is the same by the same construction: `headpointer/runtime.py`'s
+#: `status_dict` is a state name, a few flags, a sample age, a 0..1 dwell fraction and the
+#: backend's own failure message -- no pose, no position, and a test pins that it has none.
 _MACHINE_FACTS = frozenset({
     "audio_level", "bursts", "command_mode", "commands_enabled", "confidence_enabled",
-    "decode_latency", "enabled", "hotkey", "injection_backend", "input_device",
+    "decode_latency", "enabled", "handsfree", "headpointer", "hotkey", "injection_backend", "input_device",
     "last_error", "last_good_device", "low_confidence_last", "meeting_active",
     "meeting_enabled", "meeting_finalizing", "modality_roles", "model", "notifications",
     "outcomes", "platform", "read_back", "ready", "remote_connected", "silent_streak",

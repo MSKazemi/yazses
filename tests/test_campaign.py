@@ -64,6 +64,15 @@ def test_generated_files_are_in_sync(campaign, tasks):
     )
 
 
+def test_agent_ready_never_implies_authority_to_spend(campaign, tasks):
+    """Generated task surfaces must not turn technical readiness into a billing promise."""
+    open_tasks = campaign.render_open_tasks(tasks)
+    finder = campaign.render_task_finder(tasks)
+
+    assert "authorization to buy credits" in open_tasks
+    assert "authorizes or reimburses paid usage" in finder
+
+
 def test_the_schema_is_derived_from_the_field_spec(campaign):
     """If someone hand-edits the JSON Schema, it stops describing the validator."""
     schema = json.loads((ROOT / "campaign" / "schemas" / "task.schema.json").read_text(encoding="utf-8"))
@@ -97,26 +106,42 @@ def test_no_open_task_is_advertised_as_architecture_work(tasks):
     assert not [t["id"] for t in tasks if t["state"] == "open" and t["risk"] == "L3"]
 
 
-def test_feature_wiring_tasks_track_the_live_registry():
-    """A wiring task for an already-wired capability sends someone to do nothing.
+def test_feature_wiring_tasks_exactly_track_the_live_registry():
+    """Every unwired capability has one task, and every wiring task is still needed.
 
-    The registry is the truth; this catches the inventory going stale behind it, which
-    is guaranteed to happen as capabilities get wired.
+    The registry is the implementation truth. The campaign is the contributor-facing
+    work queue. Checking only for stale tasks is not enough: a newly added or accidentally
+    unpublished _UNWIRED capability would otherwise disappear from the queue while all
+    tests stayed green.
     """
     from yazses.system.features import _UNWIRED
 
     campaign_mod = _load("campaign")
-    stale = []
-    for t in campaign_mod.load_tasks():
-        if t["family"] != "feature-wiring":
-            continue
-        slug = t["id"].removeprefix("WIRE-").removesuffix("-001").lower().replace("-", "_")
-        if slug not in _UNWIRED:
-            stale.append(f"{t['id']} (slug {slug!r} is no longer unwired)")
+    task_slugs = [
+        t["id"].removeprefix("WIRE-").removesuffix("-001").lower().replace("-", "_")
+        for t in campaign_mod.load_tasks()
+        if t["family"] == "feature-wiring"
+    ]
+
+    duplicates = sorted({slug for slug in task_slugs if task_slugs.count(slug) > 1})
+    assert not duplicates, (
+        "more than one feature-wiring task maps to the same capability:\n  "
+        + "\n  ".join(duplicates)
+    )
+
+    advertised = set(task_slugs)
+    stale = sorted(advertised - _UNWIRED)
+    missing = sorted(_UNWIRED - advertised)
+
     assert not stale, (
         "feature-wiring tasks exist for capabilities that are already wired:\n  "
         + "\n  ".join(stale)
         + "\nRemove them from campaign/tasks.json and regenerate."
+    )
+    assert not missing, (
+        "unwired capabilities have no contributor-facing feature-wiring task:\n  "
+        + "\n  ".join(missing)
+        + "\nAdd one WIRE-<SLUG>-001 task per capability and regenerate."
     )
 
 
@@ -892,3 +917,24 @@ def test_the_login_is_url_encoded_into_the_query(stats, monkeypatch):
     monkeypatch.setattr(stats, "_get", lambda path: seen.append(path) or [])
     stats.github_attributes_commits("a b")
     assert "author=a%20b" in seen[0]
+
+
+def test_a_task_cannot_be_cloud_ready_while_its_evidence_is_on_the_contributors_machine(
+    campaign, tasks
+):
+    """#531: 45 wiring tasks said cloud_agent_ready while requiring "observed ... on your machine"."""
+    base = next(t for t in tasks if t["family"] == "feature-wiring")
+    assert "on your machine" in " ".join(base["evidence"]), "the real wiring evidence changed"
+
+    contradictory = {**base, "cloud_agent_ready": True}
+    errors = campaign.validate_task(contradictory)
+    assert any("on the contributor's own machine" in e for e in errors), errors
+
+    honest = {**base, "cloud_agent_ready": False}
+    assert not any("own machine" in e for e in campaign.validate_task(honest))
+
+
+def test_no_open_wiring_task_advertises_cloud_completeness(tasks):
+    offenders = [t["id"] for t in tasks
+                 if t["family"] == "feature-wiring" and t["cloud_agent_ready"]]
+    assert not offenders, offenders

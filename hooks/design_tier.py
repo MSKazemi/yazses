@@ -357,6 +357,15 @@ def on_page_markdown(markdown: str, page: Any = None, config: Any = None, **_: A
             # The docs tree is the site root, so drop that segment and re-relativise.
             return f"]({_relative_to(src, resolved[len('docs/'):])}{anchor})"
         if resolved.startswith("design/") and Path(target).suffix.lower() in _PAGE_SUFFIXES:
+            # A section's own README is the one exception: `on_files` never publishes
+            # it (the generated index takes its URL, so both cannot exist), which
+            # leaves a GitHub-written `README.md` link pointing at nothing on the
+            # site — the two eye-control warnings that fail `mkdocs build --strict`
+            # on main. The prose the link promises exists only in the repository,
+            # so the repository is where it must go.
+            parts = resolved.split("/")
+            if len(parts) == 3 and parts[0] == "design" and parts[2].upper() == "README.MD":
+                return f"]({repo_url}/blob/main/{resolved}{anchor})"
             # Mirrored one-to-one; the original relative link is already correct.
             return f"]({target}{anchor})"
 

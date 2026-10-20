@@ -27,14 +27,21 @@ from the table, so editing the table is how a reviewer improves the text.
 from __future__ import annotations
 
 import argparse
-import subprocess
+import re
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from translations import HUMAN_LOCALES, LOCALES  # noqa: E402
+from translations import HUMAN_LOCALES, LOCALES, TABLE_SOURCE_SHA  # noqa: E402
+
+#: Locales this script owns. A draft page is generated output and is rewritten in
+#: full; a page a native speaker has promoted to `status=active` is *their* work and
+#: is left alone. Without this the sequence is silent and total: a reviewer corrects
+#: a translation, someone regenerates months later for an unrelated locale, and the
+#: review is replaced by the machine draft it replaced, banner and all.
+GENERATED_STATUS = "draft"
 
 # Commands are copied from the English README verbatim. Keep this list a SUBSET of
 # what `check-translations.py` finds there, or the check fails by design.
@@ -58,6 +65,36 @@ REPO_BLOB = "https://github.com/MSKazemi/yazses/blob/main"
 #: `blob/main/README.xx.md` page can carry.
 def translation_path(code: str) -> Path:
     return ROOT / "docs" / code / "index.md"
+
+
+def page_metadata(code: str) -> dict[str, str]:
+    """The shipped page's `yazses-l10n` block, or `{}` if there is no page yet.
+
+    Read rather than assumed: the table cannot know that a native speaker has since
+    reviewed a locale, and the page itself is where that fact is recorded.
+    """
+    path = translation_path(code)
+    if not path.exists():
+        return {}
+    match = re.search(r"<!--\s*yazses-l10n:(.*?)-->", path.read_text(encoding="utf-8"))
+    if not match:
+        return {}
+    return {
+        key.strip(): value.strip()
+        for key, _, value in (part.partition("=") for part in match.group(1).split(";"))
+        if key.strip() and value.strip()
+    }
+
+
+def is_reviewed(code: str) -> bool:
+    """True once a native speaker has promoted this locale off `status=draft`.
+
+    A page with no metadata at all is *not* treated as reviewed. An unreadable file
+    must not silently claim protection it has not earned — that turns this guard into
+    one that passes on anything it fails to parse.
+    """
+    status = page_metadata(code).get("status")
+    return status is not None and status != GENERATED_STATUS
 
 
 def _english() -> str:
@@ -92,18 +129,6 @@ def contributors_block() -> str:
     start = text.index("<!-- ALL-CONTRIBUTORS-LIST:START")
     end = text.index("<!-- ALL-CONTRIBUTORS-LIST:END") + len("<!-- ALL-CONTRIBUTORS-LIST:END -->")
     return text[start:end]
-
-
-def source_sha() -> str:
-    """The English README's current commit, for the metadata block."""
-    try:
-        out = subprocess.run(
-            ["git", "log", "-1", "--format=%h", "--", "README.md"],
-            cwd=ROOT, capture_output=True, text=True, check=True,
-        )
-        return out.stdout.strip() or "unknown"
-    except Exception:
-        return "unknown"
 
 
 def switcher(current: str) -> str:
@@ -161,6 +186,24 @@ def front_matter(code: str, spec: dict) -> str:
     )
 
 
+def draft_call(spec: dict) -> str:
+    """The locale's own recruiting sentence, as a blockquote line, or nothing.
+
+    A reader who can fix a Portuguese translation has by definition already reached a
+    Portuguese page, so the one sentence asking them to do it belongs there and in
+    their language. Only pt-BR has it so far (#361); the rest render nothing rather
+    than a machine-written stand-in.
+    """
+    text = spec["strings"].get("draft_call", "")
+    if not text:
+        return ""
+    issue = spec["review_issue"]
+    filled = text.format(
+        issue=issue, issue_url=f"https://github.com/MSKazemi/yazses/issues/{issue}"
+    )
+    return f"\n> {filled}"
+
+
 def render(code: str, spec: dict, sha: str) -> str:
     t = spec["strings"]
     rtl = spec.get("rtl", False)
@@ -168,11 +211,11 @@ def render(code: str, spec: dict, sha: str) -> str:
     body = f"""{switcher(code)}
 <!-- yazses-l10n: locale={code}; source=README.md; source_sha={sha}; scope=partial; status=draft -->
 
-> ⚠️ **{t['draft_title']}** — {t['draft_body']}
+> ⚠️ **{t['draft_title']}** — {t['draft_body']}{draft_call(spec)}
 >
 > *This is a machine-assisted **draft** translation, not yet reviewed by a native
 > speaker. English is authoritative: [README.md]({ENGLISH_README}). Improving it is a
-> welcome first contribution — see [issue #{spec['issue']}](https://github.com/MSKazemi/yazses/issues/{spec['issue']}).*
+> welcome first contribution — see [issue #{spec['review_issue']}](https://github.com/MSKazemi/yazses/issues/{spec['review_issue']}).*
 
 # YazSes
 
@@ -228,7 +271,36 @@ def render(code: str, spec: dict, sha: str) -> str:
     return front_matter(code, spec) + "\n" + body
 
 
-def _update_status_page(sha: str) -> None:
+def _status_row(code: str, spec: dict) -> str:
+    """One matrix row, reading the page's own metadata for what has happened to it.
+
+    A reviewed locale must not keep advertising "needs a native reviewer — #N": the
+    matrix is where a would-be reviewer picks a language, so a done row there costs
+    somebody an evening before they notice.
+    """
+    meta = page_metadata(code)
+    cell = f"| {spec['name']} (`{code}`) | " \
+           f"[docs/{code}/index.md](https://mskazemi.com/yazses/{code}/index.html) | " \
+           f"{meta.get('scope', 'partial')} | "
+    if is_reviewed(code):
+        reviewer = meta.get("reviewer", "")
+        who = (
+            f"[{reviewer}](https://github.com/{reviewer.lstrip('@')})"
+            if reviewer.startswith("@") else "*needed*"
+        )
+        return (
+            f"{cell}{who} | `{meta.get('source_sha', TABLE_SOURCE_SHA)}` | "
+            f"{meta.get('status', 'active')} | "
+            "re-check against English when the README changes materially |"
+        )
+    return (
+        f"{cell}*needed* | `{TABLE_SOURCE_SHA}` | draft | "
+        f"needs a native reviewer — [#{spec['review_issue']}]"
+        f"(https://github.com/MSKazemi/yazses/issues/{spec['review_issue']}) |"
+    )
+
+
+def _update_status_page() -> None:
     """Keep docs/localization/STATUS.md listing every shipped translation.
 
     A test enforces this. It exists because the status page is the one surface a
@@ -242,11 +314,7 @@ def _update_status_page(sha: str) -> None:
     marker = "<!-- generated-drafts:start -->"
     end_marker = "<!-- generated-drafts:end -->"
     rows = [
-        f"| {spec['name']} (`{code}`) | "
-        f"[docs/{code}/index.md](https://mskazemi.com/yazses/{code}/index.html) | "
-        f"partial | *needed* | `{sha}` | draft | "
-        f"needs a native reviewer — [#{spec['issue']}]"
-        f"(https://github.com/MSKazemi/yazses/issues/{spec['issue']}) |"
+        _status_row(code, spec)
         for code, spec in sorted(LOCALES.items(), key=lambda kv: kv[1]["name"])
     ]
     block = marker + "\n" + "\n".join(rows) + "\n" + end_marker
@@ -278,15 +346,20 @@ def main() -> int:
     if not args.all and not args.locale:
         ap.error("pass --all or --locale XX")
 
-    sha = source_sha()
     codes = [args.locale] if args.locale else sorted(LOCALES)
     problems = []
     for code in codes:
         if code not in LOCALES:
             ap.error(f"unknown locale {code!r}; known: {', '.join(sorted(LOCALES))}")
-        text = render(code, LOCALES[code], sha)
         path = translation_path(code)
         rel = path.relative_to(ROOT).as_posix()
+        if is_reviewed(code):
+            # A native speaker owns this page now. Rewriting it would replace their
+            # review with the machine draft it replaced, and put the "not yet
+            # reviewed" banner back over reviewed prose.
+            print(f"skipped {rel} (status={page_metadata(code).get('status')}, reviewed)")
+            continue
+        text = render(code, LOCALES[code], TABLE_SOURCE_SHA)
         if args.check:
             if not path.exists() or path.read_text(encoding="utf-8") != text:
                 problems.append(rel)
@@ -314,7 +387,7 @@ def main() -> int:
                     break
 
     if not args.check:
-        _update_status_page(sha)
+        _update_status_page()
 
     if problems:
         print("out of date: " + ", ".join(problems), file=sys.stderr)

@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "yazses_commit": "46937ced80d636bd9e6c9185c13ee5437031d822",
+  "timestamp_utc": "2026-10-02T00:33:00Z",
+  "corpus": {
+    "name": "fleurs_full871",
+    "language": "fa",
+    "version": "41fc461425c88bd2",
+    "split": "test",
+    "samples": 871
+  },
+  "selection": {
+    "rows_sha256": "37cf001bea3763b55ba8e590dd9ad982636eef3e484f2810b81b46d59c7c29c1",
+    "rule": "all rows in manifest order; no subsampling"
+  },
+  "model": {
+    "engine": "faster-whisper",
+    "name": "small",
+    "revision": null,
+    "compute_type": null
+  },
+  "decoder": {
+    "language": "fa",
+    "beam_size": null,
+    "condition_on_previous_text": null
+  },
+  "machine": {
+    "os": "Ubuntu 24.04.4 LTS",
+    "cpu": "AMD EPYC Processor (with IBPB)",
+    "ram_gb": 8.3
+  },
+  "metrics": {
+    "wer_raw": 59.25,
+    "cer_raw": 18.56,
+    "wer_normalized": 59.11,
+    "cer_normalized": 18.51,
+    "exact_match_raw": 0.0,
+    "exact_match_normalized": 0.0,
+    "rtf": 1.27,
+    "latency_p50_ms": 18168.0,
+    "latency_p95_ms": 31021.2,
+    "persian_quality": {
+      "arabic_yeh_count": 35,
+      "arabic_kaf_count": 5,
+      "zwnj": {
+        "reference_count": 1435,
+        "hypothesis_count": 0,
+        "matched_count": 0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0
+      }
+    },
+    "evaluation_normalizer": "fa-eval-v1"
+  },
+  "provenance": {
+    "timestamp": "2026-10-02T00:33:00Z",
+    "cpu_model": "AMD EPYC Processor (with IBPB)",
+    "logical_cpus": 4,
+    "ram_gb": 8.3,
+    "os": "Ubuntu 24.04.4 LTS",
+    "kernel": "6.8.0-139-generic",
+    "python": "3.12.3",
+    "faster_whisper": "1.2.1",
+    "yazses": "2.40.1",
+    "numpy": "2.4.6",
+    "ctranslate2": "4.8.1",
+    "omp_num_threads": "unset",
+    "load_average_1m": 2.65,
+    "compute_type": "int8",
+    "device": "cpu",
+    "argv": "paper/benchmark/bench_persian.py --manifest $HOME/fa_matrix/fleurs_full871.jsonl --model faster-whisper:small --threads 4 --out $HOME/fa_matrix/result_small_full871_idle.json",
+    "corpus": null
+  }
+}

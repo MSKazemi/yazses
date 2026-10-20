@@ -17,11 +17,12 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from yazses.ipc.client import IpcCallError
+from yazses.ipc.client import IpcUnreachableError as _SharedIpcUnreachableError
 from yazses.ipc.protocol import (
     HANDLER_FAILED,
     INVALID_REQUEST,
     METHOD_NOT_FOUND,
-    NOT_REACHABLE,
     PARSE_ERROR,
     Request,
     Response,
@@ -191,19 +192,30 @@ class NamedPipeIpcServer:
         self._send(handle, Response(id=request_id, error=RpcError(code=code, message=message)))
 
 
-class IpcCallError(RuntimeError):
-    """Raised when an RPC call returns a JSON-RPC error."""
+class IpcUnreachableError(_SharedIpcUnreachableError):
+    """The daemon's named pipe isn't answering.
 
-    def __init__(self, error: RpcError) -> None:
-        super().__init__(f"[{error.code}] {error.message}")
-        self.error = error
+    This subclasses :class:`yazses.ipc.client.IpcUnreachableError` rather than a
+    second, identically-named class declared here, and that inheritance line is
+    load-bearing. Every caller in the codebase — all fourteen ``except
+    IpcUnreachableError:`` sites in ``cli.py``, plus ``tray/app.py``,
+    ``mcp/server.py`` and ``platform/windows/lifecycle.py`` — imports the name
+    from ``yazses.ipc.client``. While this module declared its own, those
+    handlers could not catch what this transport raised: ``yazses start``
+    reported ``IpcUnreachableError`` as an uncaught traceback while politely
+    polling a daemon that was coming up fine, and ``status``, ``stop``,
+    ``doctor`` and ``logs`` degraded gracefully on Linux and macOS and
+    tracebacked on Windows. Reported as #330.
 
+    ``pipe_name`` is kept alongside the inherited ``socket_path`` because the
+    Windows transport's identifier is a pipe name, not a filesystem path, and
+    an error message that says "socket" on Windows is the sort of small lie
+    that costs somebody an afternoon.
+    """
 
-class IpcUnreachableError(IpcCallError):
     def __init__(self, pipe_name: str, cause: Exception | None = None) -> None:
-        super().__init__(RpcError(code=NOT_REACHABLE, message=f"Daemon not reachable at {pipe_name}"))
+        super().__init__(pipe_name, cause=cause)
         self.pipe_name = pipe_name
-        self.cause = cause
 
 
 class NamedPipeIpcClient:

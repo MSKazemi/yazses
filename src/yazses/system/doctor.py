@@ -7,10 +7,12 @@ when Mac and Windows ship they grow their own extras blocks.
 
 from __future__ import annotations
 
+import importlib.util
 import os
 import platform as platform_module  # `platform` is a local in run_doctor (the Platform bundle)
 import shutil
 import sys
+from dataclasses import replace
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as _pkg_version
 from pathlib import Path
@@ -86,10 +88,39 @@ def _injection_readiness(
     a second ``Injection`` one, so exactly one line names the backend actually in use and
     `tests/test_doctor_names_the_injector_in_use.py` can hold the two derivations equal.
     """
-    from yazses.inject.auto import ydotool_ready, ydotool_socket_path
+    from yazses.inject.auto import (
+        find_ydotool_socket,
+        ydotool_ready,
+        ydotool_socket_path,
+    )
+    from yazses.inject.portal import portal_available
+    from yazses.inject.ydotool import (
+        DIALECT_V0,
+        ydotool_dialect,
+    )
 
     configured = (configured or "auto").strip().lower()
     out: list[_Check] = []
+
+    if configured == "unicode":
+        from yazses.inject.unicode import runtime_availability
+        from yazses.system.backends import probe_backend
+
+        status = probe_backend(
+            "unicode",
+            adapter="yazses.inject.unicode",
+            requires=(),
+            runtime=runtime_availability,
+        )
+        if status.available:
+            out.append((
+                "Injection",
+                "OK",
+                "unicode — forced by `[injection] backend = unicode`",
+            ))
+        else:
+            out.append(("Injection", "FAIL", status.message))
+        return out
 
     if configured == "clipboard":
         # get_injector returns ClipboardInjector before it looks at anything else, so
@@ -129,9 +160,39 @@ def _injection_readiness(
         desktop = os.environ.get("XDG_CURRENT_DESKTOP", "").lower()
         gnome_like = any(d in desktop for d in _UINPUT_ONLY_DESKTOPS)
         sock = ydotool_socket_path()
+        # Mirrors get_injector's Wayland order exactly -- ydotool, then the
+        # RemoteDesktop portal, then wtype. A doctor that reports a different
+        # backend from the one the daemon will choose is worse than no doctor:
+        # it certifies a path that is not taken.
+        portal_ok = portal_available()
         if ydotool_ready():
-            out.append(("ydotoold", "OK", f"running ({sock})"))
-            out.append(("Injection", "OK", "ydotool — works on any Wayland compositor"))
+            # The path it is ACTUALLY listening on, not the one we asked for.
+            # ydotoold 0.1.8 ignores `--socket-path` and binds /tmp/.ydotool_socket
+            # (see `ydotool_socket_candidates`), so printing the requested path named
+            # a file that does not exist on exactly the machines the fallback exists
+            # for -- a doctor line the user cannot verify by looking.
+            out.append(("ydotoold", "OK", f"running ({find_ydotool_socket() or sock})"))
+            # Which ydotool, not just whether one is on PATH. 1.x and 0.1.x take
+            # incompatible command lines, and 0.1.x exits 0 when it refuses one --
+            # so "ydotool: found" was reported as a working backend on every
+            # Debian/Ubuntu machine while nothing it was asked to type arrived.
+            if ydotool_dialect() == DIALECT_V0:
+                out.append(("Injection", "OK",
+                            "ydotool 0.1.x — works on any Wayland compositor "
+                            "(Debian/Ubuntu's older CLI: typed with --key-delay and "
+                            "symbolic key names; the key-up flood guard 1.x offers "
+                            "is not expressible here)"))
+            else:
+                out.append(("Injection", "OK", "ydotool 1.x — works on any Wayland compositor"))
+        elif portal_ok:
+            if shutil.which("ydotool"):
+                out.append(("ydotoold", "WARN",
+                            f"not running (no socket at {sock}) — not needed, the "
+                            "desktop portal is being used instead"))
+            out.append(("Injection", "OK",
+                        "xdg-desktop-portal RemoteDesktop — works on GNOME and KDE "
+                        "Wayland, and needs no /dev/uinput. The first dictation asks "
+                        "once for permission; approve it and the answer is remembered."))
         elif shutil.which("ydotool"):
             out.append(("ydotoold", "FAIL" if gnome_like else "WARN",
                         f"not running (no socket at {sock}) — run `yazses setup`"))
@@ -292,6 +353,73 @@ def _stale_daemon_note(daemon_version: str) -> str:
     return ""
 
 
+def divergent_build_note(cli_prefix: str, daemon_prefix: str | None) -> str:
+    """Same version string, different code on disk. Pure.
+
+    `_stale_daemon_note` compares **version strings**, which is only half the question.
+    Two installs routinely report the same version and run entirely different code: a
+    repository checkout and an installed copy both say "2.39.0" while one carries a fix
+    the other has never seen. `yazses` on PATH can resolve to one of them and
+    `yazses-daemon` to the other, so the CLI you type into and the process handling your
+    dictation are different builds and every version check agrees they are fine.
+
+    Measured on a real machine: a fix was written, tested, and confirmed working through
+    `.venv/bin/yazses`, while the daemon doing the dictation was
+    `~/.local/share/uv/tools/yazses/bin/yazses-daemon` -- an installed 2.39.0 that did
+    not contain it. Doctor reported the daemon healthy, `yazses restart` restarted the
+    *other* install, and the bug went on happening with no line anywhere naming the
+    cause.
+
+    `yazses restart` cannot fix this and saying so is the point: the daemon comes back
+    from whichever install owns `yazses-daemon`, so restarting reproduces the split.
+
+    An unknown prefix returns "" rather than a warning -- the probe is Linux-only and a
+    guard that fires wherever it cannot see is ADR-021's dismissed guard.
+    """
+    if not daemon_prefix or not cli_prefix:
+        return ""
+    if os.path.normpath(daemon_prefix) == os.path.normpath(cli_prefix):
+        return ""
+    return (
+        f"the daemon runs from {daemon_prefix}, this CLI from {cli_prefix} — same "
+        "version, different code. `yazses restart` will not fix it: the daemon comes "
+        "back from whichever install owns `yazses-daemon` on PATH"
+    )
+
+
+def _daemon_install_prefix(pid) -> str | None:
+    """The Python prefix the running daemon was launched from, or None. Never raises.
+
+    Reads `argv[0]` from `/proc`, deliberately **not** `/proc/<pid>/exe`: a uv-managed
+    interpreter is shared between environments, so the resolved binary is byte-identical
+    for two installs carrying different code, and comparing it would answer "same build"
+    exactly when the answer is "different build". `argv[0]` is the environment's own
+    `bin/python`, which is what distinguishes them.
+
+    Linux-only by construction. Elsewhere there is no `/proc`, the open fails, and the
+    caller treats an unknown prefix as nothing to report.
+    """
+    try:
+        with open(f"/proc/{int(pid)}/cmdline", "rb") as fh:
+            argv = [a.decode("utf-8", "replace") for a in fh.read().split(b"\0") if a]
+        if not argv:
+            return None
+        # The pid must actually BE our daemon. A pid alone is not identity: a stale pid
+        # file, or a recycled pid, points at an unrelated process, and reading its prefix
+        # would report a "split install" that does not exist. Measured on a CI runner,
+        # where `_daemon_check` was handed a stubbed pid 1234 that happened to be a live
+        # unrelated process -- doctor flipped from OK to WARN on a machine with no split
+        # at all. ADR-021 again: a guard that fires on a coincidence is worse than none.
+        if not any(os.path.basename(a).lower().startswith("yazses") for a in argv):
+            return None
+        bindir = os.path.dirname(argv[0])
+        if os.path.basename(bindir) not in ("bin", "Scripts"):
+            return None
+        return os.path.dirname(bindir) or None
+    except Exception:  # pragma: no cover - a diagnostic may never raise
+        return None
+
+
 # The verdict line decides "is it already running?" from the daemon check's own
 # detail rather than re-asking the OS, so the bottom line can never contradict the
 # lines printed above it. Both sides go through this constant so they cannot drift.
@@ -349,6 +477,10 @@ def _daemon_check(platform) -> tuple[_Check, dict]:
         stale = _stale_daemon_note(str(info.get("version") or ""))
         if stale:
             return ("Daemon", "WARN", f"{_RUNNING_PREFIX} (PID {pid}{suffix}) — {stale}"), info
+        # A matching version is not a matching build -- see `divergent_build_note`.
+        split = divergent_build_note(sys.prefix, _daemon_install_prefix(pid))
+        if split:
+            return ("Daemon", "WARN", f"{_RUNNING_PREFIX} (PID {pid}{suffix}) — {split}"), info
         return ("Daemon", "OK", f"{_RUNNING_PREFIX} (PID {pid}{suffix})"), info
     except Exception:
         # Running but IPC not yet ready (still loading the model) or unreachable.
@@ -417,6 +549,55 @@ def _stt_engine_check(engine: str) -> _Check:
     return (label, "OK", f"faster-whisper ready (ctranslate2 {ctranslate2.__version__}){via}")
 
 
+# Import name -> (feature slug, human name), for every non-default `[stt] engine`.
+# Kept beside `stt/factory.py::_build_raw_engine`'s own dispatch rather than
+# imported from it, because that function is heavy-import-guarded and this
+# check must stay a cheap `find_spec` -- importing the factory to ask it would
+# import `numpy` and the engine modules just to answer a yes/no question.
+_ENGINE_MODULES = {
+    "parakeet": ("onnx_asr", "stt-parakeet", "Parakeet"),
+    "moonshine": ("moonshine_onnx", "stt-moonshine", "Moonshine"),
+}
+
+
+def _configured_engine_check(engine: str) -> _Check | None:
+    """Is the *configured* `[stt] engine` actually the one that will decode?
+
+    `_stt_engine_check` above answers a different, unconditional question --
+    "can faster-whisper load at all" -- because `stt/factory.py` falls back to
+    it no matter what `[stt] engine` says, so its absence is the one failure
+    that always matters. That is also exactly why it cannot tell you whether a
+    *configured* Parakeet or Moonshine engine is the one actually running:
+    "faster-whisper ready" is true in both the working case and the silently
+    degraded one.
+
+    Found on a real machine: `[stt] engine = "parakeet"` with `onnx_asr` missing
+    logs one WARNING line to a rotating file nobody reads, and dictation falls
+    back to a much smaller Whisper model with no error surfaced anywhere a user
+    would see it -- for as long as the mismatch lasts, which was until someone
+    happened to grep the log. `yazses doctor` is the one place that answer
+    belongs, next to the model and hotkey checks it already reports.
+
+    Returns ``None`` for the default engine (nothing extra to check) or an
+    unrecognised one (`_stt_engine_check`'s own "unknown engine" warning covers
+    that at decode time; doctor is not the place to re-derive the valid set).
+    """
+    name = (engine or "").strip().lower()
+    if name not in _ENGINE_MODULES:
+        return None
+    module, slug, human = _ENGINE_MODULES[name]
+    label = f"{human} engine"
+    if importlib.util.find_spec(module) is not None:
+        return (label, "OK", f"configured and installed ({module})")
+    return (
+        label,
+        "WARN",
+        f"[stt] engine = \"{name}\" but its dependency ({module}) is not installed "
+        f"— dictation is silently using faster-whisper instead. "
+        f"Fix: yazses features enable {slug}",
+    )
+
+
 def _model_check(model: str, hf_cache: Path) -> _Check:
     """Report whether the configured STT model is available locally.
 
@@ -482,6 +663,87 @@ def _autostart_check(platform) -> _Check | None:
         "no — YazSes will NOT come back after a reboot. Fix: `yazses autostart enable`",
     )
 
+
+def _language_profile_checks(cfg) -> list[_Check]:
+    """Report Mandarin profile coherence and language-specific degradations.
+
+    This stays lightweight: profile derivation and import-spec probes only.
+    Model cache availability already has its own doctor row.
+    """
+
+    from yazses.language import derive_status
+    from yazses.system.deps import missing_modules
+
+    status = derive_status(cfg)
+    speech = status.speech_language
+
+    if speech not in {"en", "zh"} and not status.output_script:
+        return []
+
+    if not status.coherent:
+        if speech == "zh" and status.output_script == "traditional":
+            fix = "yazses language set zh-TW"
+        elif speech == "zh" and status.output_script == "simplified":
+            fix = "yazses language set zh-CN"
+        elif speech == "en":
+            fix = "yazses language set en"
+        else:
+            fix = "yazses language status"
+        return [(
+            "Language profile",
+            "FAIL",
+            "; ".join(status.problems) + f". Fix: `{fix}`",
+        )]
+
+    out: list[_Check] = []
+    if speech == "en":
+        out.append((
+            "Language profile",
+            "OK",
+            "en — English speech; Han-script normalisation off",
+        ))
+        return out
+
+    if not status.output_script:
+        out.append((
+            "Language profile",
+            "WARN",
+            "Mandarin speech is configured but output script is not pinned. "
+            "Choose `yazses language set zh-CN` or `yazses language set zh-TW`.",
+        ))
+        return out
+
+    profile = status.profile_match or "Mandarin"
+    model_note = "custom model" if status.custom_model else "profile model"
+    out.append((
+        "Language profile",
+        "OK",
+        f"{profile} — Mandarin speech, {status.output_script} output, {model_note}",
+    ))
+
+    if missing_modules(("opencc",)):
+        out.append((
+            "Chinese script",
+            "WARN",
+            f"{status.output_script} output is requested but OpenCC is missing, so "
+            "recognized Han is left in the model\'s original script. Fix: "
+            f"`yazses language set {profile}`",
+        ))
+    else:
+        out.append((
+            "Chinese script",
+            "OK",
+            f"OpenCC available — {status.output_script} output can be enforced",
+        ))
+
+    if bool(getattr(cfg.commands, "enabled", True)):
+        out.append((
+            "Mandarin commands",
+            "WARN",
+            "dictation can be Mandarin, but Tier-1 spoken command grammar is still "
+            "English-only in this build; Mandarin command localization is not yet wired",
+        ))
+    return out
 
 def _config_validity(config_file: Path) -> list[_Check]:
     """Report values the loader had to repair or fall back on.
@@ -604,6 +866,7 @@ def _config_summary(
             f"{config_file} (absent — using built-in defaults)",
         ))
     out.extend(_config_validity(config_file))
+    out.extend(_language_profile_checks(cfg))
     out.extend(_llm_endpoint_check(cfg))
     out.extend(_corpus_redaction_check(cfg))
     drift = hotkey_drift_note(
@@ -758,6 +1021,43 @@ def _input_group_pending_relogin() -> bool:
         return False
 
 
+def _snap_interface_checks() -> list[_Check]:
+    """Report any required snap interface that is definitively disconnected.
+
+    This is the failure this project has been losing users to. Both interfaces
+    are manual-connect, a snap cannot connect its own, and the daemon starts
+    perfectly without them -- it reports IDLE, the model loads, the hotkey
+    backend binds, and then it silently never hears a word or never sees the
+    key. To the user that is indistinguishable from the app being broken, and
+    the only evidence was a paragraph in the store description.
+
+    Emits nothing outside a snap, and nothing when the state cannot be
+    determined: an unrun probe must not report a finding.
+    """
+    from yazses.system.snap import REQUIRED_INTERFACES, in_snap, interface_connected
+
+    if not in_snap():
+        return []
+    out: list[_Check] = []
+    for plug, why in REQUIRED_INTERFACES:
+        state = interface_connected(plug)
+        if state is True:
+            out.append((f"snap:{plug}", "OK", f"connected — grants {why}"))
+        elif state is False:
+            out.append((
+                f"snap:{plug}", "FAIL",
+                f"NOT connected, so YazSes cannot use {why}. Fix with:  "
+                f"sudo snap connect $SNAP_INSTANCE_NAME:{plug} && yazses restart",
+            ))
+        else:
+            out.append((
+                f"snap:{plug}", "WARN",
+                "could not determine (snapctl unavailable) — verify with "
+                f"`snap connections yazses | grep {plug}`",
+            ))
+    return out
+
+
 def _keyboard_capture_check(perms, platform_name: str) -> _Check:
     """Report keyboard-capture access with an actionable permission fix."""
     state = perms.check_keyboard_capture()
@@ -823,6 +1123,230 @@ def _input_monitoring_check(perms, platform_name: str) -> _Check | None:
     if state is PermissionState.UNKNOWN:
         return ("Input monitoring", "WARN", detail)
     return ("Input monitoring", "FAIL", detail)
+
+
+def _camera_check(
+    perms, cfg, *, profile=None, find_module=None, model_present=None
+) -> _Check | None:
+    """The camera row — present only when a camera feature is actually on.
+
+    Returns ``None`` on an ordinary install, and that is the feature, not a gap.
+    Every camera feature ships ``enabled = False``, so a row here on a machine
+    that has never enabled one would be a line about nothing on every `doctor`
+    run ever printed — and ADR-v2-021 is explicit that a signal which fires when
+    nothing is wrong is a signal people learn to skip. It is also the first
+    acceptance criterion of EYE-PERM-001 in its visible form: with camera
+    features off, nothing here reaches the OS, so nothing can raise a camera
+    permission prompt.
+
+    When a feature *is* on, this is the row that has to tell four different
+    failures apart, because they have four different fixes and one of them is
+    "you cannot fix this, reinstall YazSes another way":
+
+    * the install format ships no camera runtime and cannot add one (the .dmg,
+      the .exe, the MSIX, the snap, the flatpak) — R-21;
+    * mediapipe/opencv are simply not installed in a venv that could have them;
+    * the machine exposes no camera device;
+    * the OS refused, or has not been asked.
+
+    All four are decided in :mod:`yazses.cameraperm`; this function only renders.
+    ``UNKNOWN`` states are a WARN and not a FAIL for the reason
+    :func:`_input_monitoring_check` gives: "never asked" and "refused" look
+    identical from a process that has not asked, and a red line in front of a
+    user who has merely not held the key yet is a false alarm.
+
+    The three keyword seams exist so the tests can render every one of those
+    outcomes without reading the developer's installed packages or model cache --
+    a diagnostic test that consults the host machine passes or fails for reasons
+    that have nothing to do with the code, and two tests in this suite have
+    already edited the machine they ran on.
+    """
+    from yazses.cameraperm import CameraBlocker, CameraPermission, resolve
+
+    # `getattr`, because a third-party or older backend may predate `check_camera`
+    # -- and then an explicit "cannot tell", NOT `None`. Handing `resolve` a None
+    # probe means "use the active platform's backend", which for a backend that
+    # merely lacks the method would answer with a *different* object's opinion.
+    # A missing method is not permission, and it is not somebody else's permission
+    # either.
+    probe = getattr(perms, "check_camera", None) or (
+        lambda: CameraPermission.NOT_DETERMINED
+    )
+    remedy = getattr(perms, "how_to_grant_camera", None) or (lambda: "")
+
+    gate = resolve(
+        cfg,
+        probe=probe,
+        remedy=remedy,
+        profile=profile,
+        find_module=find_module,
+        model_present=model_present,
+    )
+    if gate.blocker is CameraBlocker.FEATURE_OFF:
+        return None
+
+    parts = [gate.reason]
+    if gate.remedy:
+        parts.append(gate.remedy)
+    parts.extend(gate.notes)
+    detail = "\n".join(parts)
+
+    if gate.allowed:
+        return ("Camera", "OK", detail)
+    soft = {
+        CameraBlocker.PERMISSION_UNKNOWN,
+        CameraBlocker.UNSUPPORTED,
+        CameraBlocker.NOT_PROBED,
+    }
+    return ("Camera", "WARN" if gate.blocker in soft else "FAIL", detail)
+
+
+def _camera_ready(camera_row: _Check | None) -> bool | None:
+    """Re-read :func:`_camera_check`'s verdict as a tri-state. Pure.
+
+    Deliberately reading the row rather than calling ``cameraperm.resolve`` a second time.
+    On macOS the camera probe is what raises the permission dialog, and asking twice in one
+    `doctor` run to answer one question is how a diagnostic ends up prompting a user twice.
+
+    The mapping is the row's own vocabulary: OK means the gate allowed it, FAIL means a
+    blocker the user can act on, and WARN is the soft set — permission unknown, not probed,
+    unsupported platform — which is *not determined*, not *unavailable*. ``None`` there is
+    the whole point: the hands-free rows must not read a "we did not ask" as a yes.
+    """
+    if camera_row is None:
+        return None
+    status = camera_row[1]
+    if status == "OK":
+        return True
+    if status == "FAIL":
+        return False
+    return None
+
+
+def _headpointer_daemon_view(platform) -> tuple[bool, dict | None]:
+    """Is the daemon running, and what does its Head-Pointer say? Read-only, one local call.
+
+    ``(False, None)`` when it is not running -- the honest basis for "daemon not running" in
+    the Pointer output row. ``(True, None)`` when it runs and did not answer. The call is the
+    same `headpointer status` the CLI makes: it reads state the daemon already holds and
+    cannot open a pointer, a camera or a portal dialog.
+    """
+    try:
+        if not platform.lifecycle.is_running():
+            return False, None
+    except Exception:  # noqa: BLE001 - a lifecycle that cannot answer is "not running"
+        return False, None
+    try:
+        client = platform.ipc_client_factory(platform.paths.ipc_socket)
+        reply = client.call("headpointer", action="status")
+        return True, reply if isinstance(reply, dict) else None
+    except Exception:  # noqa: BLE001 - IPC not ready yet is "no answer", not a failure
+        return True, None
+
+
+def _handsfree_live_facts(platform):
+    """The running daemon's own hands-free health block, or ``None``. Read-only, one local call.
+
+    `doctor` is a separate process, so on its own it cannot know whether the head tracker is
+    waiting, lost or paused, whether the shared camera failed, or what the global gate says --
+    it printed "unknown" for all of it while the controls window (which asks the daemon) and
+    `yazses status` printed the answer. This is the same `status` call the window makes, with
+    ``consume_notifications=False`` so it does not take a toast off the tray's queue. It reads
+    state the daemon already holds: no camera, no pointer, no portal dialog.
+    """
+    try:
+        if not platform.lifecycle.is_running():
+            return None
+        client = platform.ipc_client_factory(platform.paths.ipc_socket)
+        reply = client.call("status", consume_notifications=False)
+        if not isinstance(reply, dict):
+            return None
+        from yazses.handsfree.observability import facts_from_payload
+
+        return facts_from_payload(reply.get("handsfree"))
+    except Exception:  # noqa: BLE001 - no answer is "not determined", never a doctor failure
+        return None
+
+
+def _handsfree_checks(
+    cfg,
+    platform,
+    camera_row: _Check | None,
+    *,
+    unwired: frozenset[str] | None = None,
+    read_context=None,
+    pointer_env=None,
+    daemon_view=None,
+    live_facts=None,
+) -> list[_Check]:
+    """Hands-free health rows — camera perception, head, face switch, pointer, safety.
+
+    EYE-OBS-001 (#416). Empty on an ordinary install, and that is the feature rather than a
+    gap: every camera capability ships ``enabled = False``, so these rows appear only for
+    somebody who asked for one. The same reasoning `_camera_check` gives above, and the
+    same acceptance criterion — with camera features off, nothing here reaches the OS.
+
+    What it reports is names, states, ages, counts and capability flags. No gaze
+    coordinate, head angle, blendshape score, landmark or window title can reach it,
+    because `handsfree/observability.py` has nowhere to put one; that module decides what
+    every state means and `handsfree/probe.py` gathers the facts. Both are testable with no
+    camera, which is why the two seams below exist — ``unwired`` fixes what this build
+    drives, and ``read_context`` the display topology the calibration is judged against.
+    """
+    from yazses.handsfree.observability import doctor_rows
+    from yazses.handsfree.probe import (
+        calibration_facts,
+        facts_from_config,
+        gaze_target_facts,
+        pointer_facts,
+        pointer_route_facts,
+        read_pointer_environment,
+    )
+
+    facts = facts_from_config(cfg, unwired=unwired)
+    if not facts.features_requested and not facts.safety_configured:
+        return []
+    facts = replace(facts, camera_ready=_camera_ready(camera_row))
+    facts = pointer_facts(facts, platform)
+    if "headpointer" in facts.features_requested and not facts.pointer_backend:
+        # `pointer_env` / `daemon_view` are the test seams; in a real run both are read here.
+        # `daemon_view` is ``(running, headpointer_status_reply_or_None)``.
+        running, live = daemon_view if daemon_view is not None else _headpointer_daemon_view(platform)
+        facts = pointer_route_facts(
+            facts,
+            pointer_env if pointer_env is not None else read_pointer_environment(cfg),
+            daemon_running=running,
+            live=live,
+        )
+    if "gaze" in facts.features_requested:
+        validity, reason = calibration_facts(
+            platform.paths.data_dir,
+            str(getattr(getattr(cfg, "gaze", None), "camera_index", 0)),
+            read_context=read_context,
+        )
+        facts = replace(facts, calibration_validity=validity, calibration_reason=reason)
+        facts = gaze_target_facts(facts)
+
+    # What only the running daemon can see (consumer states, the shared camera, the gate, the
+    # pointer's permission). `live_facts` is the test seam: ``False`` = ask nobody.
+    live = _handsfree_live_facts(platform) if live_facts is None else (live_facts or None)
+    if live is not None:
+        from yazses.handsfree.panel import merge_facts
+
+        facts = merge_facts(facts, live)
+    rows = list(doctor_rows(facts))
+    # A face switch that cannot let go holds the microphone open. Its own row, WARN, with the
+    # numbers: this is a comparison of two saved numbers, so it is as certain as `doctor` gets.
+    from yazses.handsfree.probe import face_release_findings
+
+    stuck = [
+        ("Face switch release", "WARN", f"{f.message}\n{f.remedy}")
+        for f in face_release_findings(cfg, platform.paths.data_dir)
+    ]
+    if stuck:
+        at = next((i + 1 for i, r in enumerate(rows) if r[0] == "Face switch"), len(rows))
+        rows[at:at] = stuck
+    return rows
 
 
 def _window_focus_check(is_wayland: bool, is_x11: bool, cfg=None) -> _Check | None:
@@ -998,6 +1522,35 @@ def _systemd_execstart() -> str | None:
         return None
     m = re.search(r"path=([^\s;]+)", out)
     return m.group(1) if m else None
+
+
+def _service_health_checks() -> list[_Check]:
+    """Report a failed or crash-looping systemd unit, with the cause and the commands.
+
+    "Starts at login: yes" only says the unit is *enabled*; a unit that systemd has given
+    up on is still enabled. This reads the live state and the journal tail, so the row says
+    why it is down and what to type — not just that it is. Silent when healthy, when there
+    is no systemd user manager, or when the only finding is the missing-ExecStart case
+    that `_install_consistency_checks` already reports.
+    """
+    if sys.platform != "linux":
+        return []
+    try:
+        from yazses.system import servicehealth
+
+        state = servicehealth.collect_service_state()
+        if state is None:
+            return []
+        findings = [
+            f for f in servicehealth.classify_service(state, servicehealth.read_distro_family())
+            if f.slug not in ("exec-missing", "not-started")
+        ]
+    except Exception:  # noqa: BLE001 — a probe must never break doctor
+        return []
+    if not findings:
+        return []
+    detail = servicehealth.render(findings).replace("  ✗ ", "", 1).lstrip()
+    return [("Service health", "FAIL", detail)]
 
 
 def _install_consistency_checks() -> list[_Check]:
@@ -1266,6 +1819,12 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
     # Install/lifecycle sanity: duplicate installs + a systemd ExecStart that
     # points at a missing/different binary (the silent "restart starts nothing").
     checks.extend(_install_consistency_checks())
+    checks.extend(_service_health_checks())
+
+    # Snap interface connections. Before keyboard capture on purpose: a
+    # disconnected `raw-input` is the *cause* of the capture failure reported
+    # below, and a user reading top-down should meet the cause first.
+    checks.extend(_snap_interface_checks())
 
     # Keyboard capture
     checks.append(_keyboard_capture_check(perms, platform.name))
@@ -1325,6 +1884,25 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
     if check_mic and cfg is not None:
         checks.append(_mic_level_check(cfg, mic_seconds))
 
+    # Camera — only when a camera feature is enabled. Placed after the microphone
+    # because the two read as one question ("what input hardware can YazSes
+    # reach?"), and because a camera row is the rarer of the two by design.
+    camera = _camera_check(perms, cfg)
+    if camera is not None:
+        checks.append(camera)
+
+    # Hands-free health, directly below the camera row that decides whether any of it can
+    # run at all (#416). Nothing on an ordinary install; for somebody who enabled a camera
+    # capability, this is where "nothing happens and no surface says why" stops being the
+    # failure mode. Defensive because it is a diagnostic: a health probe that turns `doctor`
+    # into a traceback removes the one command that was going to explain the problem.
+    try:
+        checks.extend(_handsfree_checks(cfg, platform, camera))
+    except Exception:  # pragma: no cover - defensive
+        checks.append(("Hands-free health", "SKIP",
+                       "unknown — the hands-free health probe itself failed; please report "
+                       "this with the rest of this output"))
+
     # Linux-specific injection tools
     if sys.platform == "linux":
         is_wayland = bool(os.environ.get("WAYLAND_DISPLAY"))
@@ -1363,7 +1941,11 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
     # load is the reason nothing will ever be typed, and the order they are read in is
     # the order they should be fixed in.
     if cfg is not None:
-        checks.append(_stt_engine_check(getattr(cfg.stt, "engine", "")))
+        engine = getattr(cfg.stt, "engine", "")
+        checks.append(_stt_engine_check(engine))
+        engine_check = _configured_engine_check(engine)
+        if engine_check is not None:
+            checks.append(engine_check)
 
     # Configured STT model availability (downloaded vs fetched-on-first-use).
     if cfg is not None:

@@ -38,6 +38,18 @@ def place_near_cursor(cursor: Point, size: int, screen: Rect, offset: int) -> Po
     return x, y
 
 
+def place_centered(cursor: Point, size: int, screen: Rect) -> Point:
+    """Top-left for a ``size``×``size`` overlay centred on the cursor, kept on-screen.
+
+    For the dwell-click ring, which has to surround the pointer to say "this spot is about
+    to be clicked" -- offset placement would draw the warning beside the thing it warns about.
+    """
+    sx, sy, sw, sh = screen
+    x = _clamp(cursor[0] - size // 2, sx, sx + sw - size)
+    y = _clamp(cursor[1] - size // 2, sy, sy + sh - size)
+    return x, y
+
+
 def place_fixed(position: str, size: int, screen: Rect, margin: int = 48) -> Point:
     """Top-left for a non-cursor anchor: bottom_center / top_center / corner."""
     sx, sy, sw, sh = screen

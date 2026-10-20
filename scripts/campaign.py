@@ -234,6 +234,16 @@ def validate_task(task: Any, *, index: int | None = None) -> list[str]:
             f"{where}: family {task['family']!r} needs evidence observed on a real machine, "
             "so cloud_agent_ready must be false"
         )
+    # ADR-024 / #531: a wiring task's evidence is "the feature enabled and observed doing
+    # something on your machine", which a clean cloud VM cannot produce. The tasks must not
+    # advertise cloud completeness while their own evidence says otherwise.
+    if task["cloud_agent_ready"] and any(
+        "on your machine" in e for e in task["evidence"]
+    ):
+        errors.append(
+            f"{where}: evidence says the result is observed on the contributor's own machine, "
+            "so cloud_agent_ready must be false"
+        )
     if task["cloud_agent_ready"] and task["family"] == "localization":
         errors.append(
             f"{where}: localization needs a native speaker's judgement, "
@@ -315,6 +325,10 @@ def render_open_tasks(tasks: list[dict[str, Any]]) -> str:
         "You do not need permission and nothing is assigned. Pick one, say so on the linked",
         "issue so nobody doubles up, and open the PR. A coding agent is welcome — you remain",
         "the author, and you are expected to have read every line you send.",
+        "",
+        "Agent-ready or cloud-ready describes technical suitability only; it is **not**",
+        "authorization to buy credits, enable overages, or incur paid cloud costs. See the",
+        "[safe AI-agent guide](https://mskazemi.com/yazses/contribute/ai-agents.html).",
         "",
         "`Risk` is who reviews it, not how hard it is: **L0** schema-only, **L1** bounded",
         "docs/config, **L2** bounded code.",
@@ -451,6 +465,10 @@ description: Filter {len(openable)} open YazSes contributor tasks by what you ha
 Filter by what you actually have. Nothing is assigned and you need no permission — pick one,
 say so on the issue it links to, and open the pull request.
 [How to make your first contribution](start.md) if you want the short version.
+
+Coding agents are optional. "Cloud-ready" means the task can run in that environment; it does
+**not** mean YazSes authorizes or reimburses paid usage. Read
+[Using AI coding agents safely](ai-agents.md) before connecting one.
 
 <div class="yz-filters" markdown="0">
   <label>What you have

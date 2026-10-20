@@ -45,7 +45,6 @@ KNOWN_UNREAD = {
     "ActivationConfig.confirm_threshold",
     "ActivationConfig.reject_floor",
     "AgentConfig.allowlist",
-    "AudioConfig.channels",
     "AudioguardConfig.cooldown_frames",
     "BrailleoutConfig.grade",
     "BreathConfig.min_gap_s",
@@ -89,8 +88,6 @@ KNOWN_UNREAD = {
     "PolyglotConfig.lid",  # see the note beside GazeConfig.zones
     "PronunciationConfig.good_threshold",
     "ProsodyConfig.experimental_pitch_question",
-    "ProsodypunctConfig.comma_pause_ms",
-    "ProsodypunctConfig.sentence_pause_ms",
     "RagConfig.embed_model",
     "RagConfig.store_path",
     "RagConfig.top_k",
@@ -113,9 +110,10 @@ KNOWN_UNREAD = {
 
 
 #: Keys `unread_fields` cannot see, because the match is by **name alone** and the
-#: name is shared with a field in another section. One section reading it makes it
-#: look read in every section that spells it the same way, so the detector reports a
-#: live setting and `docs/configuration.md` tells the user it works.
+#: name is shared with a field in another section — or, in the last entry, with an
+#: attribute that is not config at all. One section reading it makes it look read in
+#: every section that spells it the same way, so the detector reports a live setting
+#: and `docs/configuration.md` tells the user it works.
 #:
 #: This is the third instance of one collision. A comment naming a key made it look
 #: read; `without_comments` fixed that. A dotted module path spelled like an attribute
@@ -139,7 +137,6 @@ KNOWN_UNREAD = {
 AMBIGUOUS_UNREAD = {
     # `.mode` is read for `[emg]`, `[redaction]` and `[cocktail]` only.
     "AffectConfig.mode",
-    "AutoStopConfig.mode",
     # `.min_confidence` belongs to two unrelated dataclasses -- `gaze.implicit`'s own
     # field and `langroute.route.LangRegistry`, which nothing in `src/` constructs.
     "AffectConfig.min_confidence",
@@ -164,6 +161,15 @@ AMBIGUOUS_UNREAD = {
     # ever reads that attribute. Kokoro emits at its own rate and `speak` uses the
     # rate the model returns, so setting this key changes nothing.
     "TtsConfig.sample_rate",
+    # The fourth instance of the collision, and the first where the name is shared
+    # with something that is not a config field at all: the shared camera source
+    # reads `PerceptionSample.channels` -- which channels one webcam observation
+    # derived -- and the match is `[."']channels`, so `[audio] channels` now looks
+    # wired. It is not. `audio/recorder.py` still passes a literal `channels=1` to
+    # sounddevice, so asking for 2 still gets mono, and moving the entry here is
+    # what keeps the page saying so. `tests/test_shared_config_names.py` holds it
+    # to the stricter, section-attributed search, which finds no read of it.
+    "AudioConfig.channels",
 }
 
 

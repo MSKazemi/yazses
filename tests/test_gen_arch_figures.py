@@ -109,3 +109,51 @@ def test_every_figure_is_well_formed_and_described(name):
     desc = root.find(f"{ns}desc")
     assert desc is not None and (desc.text or "").strip(), f"{name} has no <desc>"
     assert root.get("role") == "img", f"{name} is not role=img"
+
+
+#: The four hand-written renderings of the same diagram. They are not generated, so
+#: `test_every_committed_figure_matches_the_code` cannot see them -- and they carried
+#: the very numbers that test's own docstring records as having drifted (140
+#: capabilities, 73 wired, 57 commands), for a second time: 140 / 73 / 57 / 44 against a
+#: registry of 148 / 110 and a CLI of 66.
+HAND_DRAWN_DIAGRAMS = [
+    "docs/diagrams/index.md",
+    "docs/diagrams/yazses-architecture.mmd",
+    "docs/diagrams/yazses-architecture.html",
+    "docs/diagrams/yazses-architecture.txt",
+]
+
+
+@pytest.mark.parametrize("relpath", HAND_DRAWN_DIAGRAMS)
+def test_hand_drawn_diagrams_carry_the_live_counts(gen, relpath):
+    """Each hand-written diagram states the registry and CLI counts the figures do.
+
+    Matches the phrasing only, never a bare number, so a diagram that drops the claim
+    fails (nothing is being checked) rather than passing on an empty match.
+    """
+    import re
+
+    rows = gen.capability_rows()
+    total = sum(w + p for _n, w, p in rows)
+    wired = sum(w for _n, w, _p in rows)
+    n_cmds, n_leaf = gen.command_counts()
+
+    text = (ROOT / relpath).read_text(encoding="utf-8")
+    caps = re.search(r"([0-9]+) capabilities,? \(?([0-9]+) wired", text)
+    assert caps, f"{relpath} no longer states 'N capabilities, M wired'; nothing checks it"
+    assert tuple(map(int, caps.groups())) == (total, wired), (
+        f"{relpath} claims {caps.group(0)!r}; the registry has {total} capabilities, "
+        f"{wired} wired. Update the diagram."
+    )
+    cmds = re.search(r"\(?([0-9]+) commands", text)
+    assert cmds, f"{relpath} no longer states 'N commands'; nothing checks it"
+    assert int(cmds.group(1)) == n_cmds, (
+        f"{relpath} claims {cmds.group(0)!r}; the CLI has {n_cmds} top-level commands "
+        f"(docs/command-index.md)."
+    )
+    leaf = re.search(r"([0-9]+) with subcommands", text)
+    if leaf:
+        assert int(leaf.group(1)) == n_leaf, (
+            f"{relpath} claims {leaf.group(0)!r}; the CLI has {n_leaf} counting "
+            f"subcommands."
+        )

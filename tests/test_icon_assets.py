@@ -9,6 +9,16 @@ macOS spec carried the identical dangling `.icns`.
 
 The structural tests below deliberately use only `struct` from the stdlib, so
 they guard the assets on every CI leg whether or not Pillow is installed.
+
+The pixel comparisons go through `scripts/imagediff.py` rather than `==`. They used to
+compare decoded pixels exactly, which is one step better than comparing PNG bytes and
+still not portable: `render_mark` supersamples and downsamples in floating point, and
+`ubuntu-24.04-arm` does not always land on the same last bit as x86_64 — the Store box
+art, which contains no text at all, proved it. These guards make the same assumption and
+were simply not being read, because the arm64 leg is still `continue-on-error`; flipping
+it to blocking would have turned them red on correct assets. The tolerance is measured
+rather than loosened until green, and `tests/test_image_drift_tolerance.py` fails if it
+stops rejecting a stale render.
 """
 
 from __future__ import annotations
@@ -20,6 +30,7 @@ from pathlib import Path
 import pytest
 
 from tests.gitprobe import require_git
+from tests.imageprobe import image_diff
 
 _REPO = Path(__file__).resolve().parents[1]
 _ICO = _REPO / "assets" / "yazses.ico"
@@ -111,13 +122,13 @@ class TestRegeneration:
         spec.loader.exec_module(module)
         return module
 
-    # Compared as images, never as bytes. PNG output is not reproducible across
-    # platforms — zlib version and Pillow build change the compressed stream for
-    # pixel-identical input — so a byte assertion here passes only on the machine
-    # that produced the committed file and fails on every other CI leg. It did:
-    # the Windows and macOS legs went red on assets that were perfectly correct.
-    # Decoding first keeps what the test is actually for (the mark changed and
-    # nobody regenerated) and drops the part that only measured the encoder.
+    # Compared as images, never as bytes, and within a tolerance rather than exactly.
+    # PNG output is not reproducible across platforms — zlib version and Pillow build
+    # change the compressed stream for pixel-identical input — so a byte assertion here
+    # passes only on the machine that produced the committed file and fails on every
+    # other CI leg. It did: the Windows and macOS legs went red on assets that were
+    # perfectly correct. The decoded *pixels* are not reproducible either, which is the
+    # same failure one layer down and the reason `imagediff` exists.
     @staticmethod
     def _frames(blob: bytes) -> dict:
         import io
@@ -127,14 +138,25 @@ class TestRegeneration:
         out = {}
         with Image.open(io.BytesIO(blob)) as im:
             for frame in ImageSequence.Iterator(im):
-                out[frame.size] = frame.convert("RGBA").tobytes()
+                out[frame.size] = frame.convert("RGBA")
         return out
 
     def test_committed_ico_matches_the_generator(self) -> None:
         gen = self._generator()
-        assert self._frames(_ICO.read_bytes()) == self._frames(gen.build_ico()), (
-            "assets/yazses.ico is stale — run `uv run python scripts/gen-icons.py`"
+        diff = image_diff()
+        committed = self._frames(_ICO.read_bytes())
+        expected = self._frames(gen.build_ico())
+        assert set(committed) == set(expected), (
+            f"assets/yazses.ico carries frames {sorted(committed)} but the generator "
+            f"produces {sorted(expected)} — run `uv run python scripts/gen-icons.py`"
         )
+        assert expected, "the .ico decoded to no frames at all; nothing was compared"
+        for size, frame in sorted(committed.items()):
+            reason = diff.explain(frame, expected[size])
+            assert reason is None, (
+                f"the {size[0]}px frame of assets/yazses.ico is stale — "
+                f"run `uv run python scripts/gen-icons.py` ({reason})"
+            )
 
     @staticmethod
     def _icns_sizes(blob: bytes) -> set:
@@ -162,15 +184,18 @@ class TestRegeneration:
         )
 
     def test_the_regeneration_check_still_detects_a_changed_mark(self) -> None:
-        """Guards the guard: comparing decoded pixels must still fail when the
-        artwork actually differs, or the relaxation above would be a no-op."""
+        """Guards the guard: a tolerant comparison must still fail on wrong artwork,
+        or the relaxation above would be a no-op — which is the easy way to delete a
+        guard while appearing to keep it."""
         import io
 
         from PIL import Image
 
+        diff = image_diff()
         different = io.BytesIO()
         Image.new("RGBA", (256, 256), (1, 2, 3, 255)).save(different, format="PNG")
-        assert self._frames(_ICO.read_bytes()) != self._frames(different.getvalue())
+        wrong = self._frames(different.getvalue())[(256, 256)]
+        assert not diff.matches(self._frames(_ICO.read_bytes())[(256, 256)], wrong)
 
     def test_ico_frames_are_natively_rendered_not_downscaled(self) -> None:
         """A downscaled 16 px frame smears the wave bars; a native one omits them."""
@@ -179,13 +204,13 @@ class TestRegeneration:
 
         from yazses.brandmark import render_mark
 
+        diff = image_diff()
         ico = Image.open(_ICO)
         for px in (16, 32, 256):
             ico.size = (px, px)
             ico.load()
-            assert ico.convert("RGBA").tobytes() == render_mark(px).tobytes(), (
-                f"the {px}px frame is not this size's own render"
-            )
+            reason = diff.explain(ico.convert("RGBA"), render_mark(px))
+            assert reason is None, f"the {px}px frame is not this size's own render ({reason})"
 
 
 # ---------------------------------------------------------------------------
@@ -274,7 +299,7 @@ class TestLinuxIconsMatchTheMark:
         from PIL import Image
 
         with Image.open(path) as im:
-            return im.size, im.convert("RGBA").tobytes()
+            return im.convert("RGBA")
 
     @pytest.mark.parametrize("size", [48, 64, 128, 256])
     def test_the_deb_icons_are_the_canonical_mark(self, size: int) -> None:
@@ -283,9 +308,10 @@ class TestLinuxIconsMatchTheMark:
         import io
 
         expected = self._rgba(io.BytesIO(gen.build_png(size)))
-        assert committed == expected, (
+        reason = image_diff().explain(committed, expected)
+        assert reason is None, (
             f"contrib/icons/yazses-{size}.png is stale — "
-            "run `uv run python scripts/gen-icons.py`"
+            f"run `uv run python scripts/gen-icons.py` ({reason})"
         )
 
     def test_the_snap_icon_is_the_canonical_mark(self) -> None:
@@ -295,10 +321,12 @@ class TestLinuxIconsMatchTheMark:
 
         committed = self._rgba(_SNAP_ICON)
         expected = self._rgba(io.BytesIO(gen.build_png(gen.SNAP_ICON_SIZE)))
-        assert committed == expected, (
+        reason = image_diff().explain(committed, expected)
+        assert reason is None, (
             "snap/gui/yazses.png is not the YazSes mark — the Snap Store and every "
             "snap install would show a different logo from the website, the .exe, "
-            "the .app, the .deb and the tray. Run `uv run python scripts/gen-icons.py`"
+            f"the .app, the .deb and the tray. Run `uv run python scripts/gen-icons.py` "
+            f"({reason})"
         )
 
     def test_every_packaging_copy_of_the_svg_is_the_canonical_svg(self) -> None:
@@ -390,22 +418,27 @@ def test_every_documented_badge_state_has_an_image() -> None:
 
 
 def test_the_badge_images_still_match_the_colour_policy() -> None:
-    """Compared as pixels, never as bytes: PNG output is not reproducible across
-    platforms, which has turned CI red on assets that were perfectly correct."""
+    """Compared as pixels within a measured tolerance, never as bytes: neither PNG
+    output nor the decoded pixels are reproducible across platforms, and both have
+    turned CI red on assets that were perfectly correct."""
     import io
 
     from PIL import Image
 
     gen = _tray_state_generator()
+    diff = image_diff()
 
-    def rgba(blob: bytes) -> bytes:
+    def rgba(blob: bytes):
         with Image.open(io.BytesIO(blob)) as im:
-            return im.convert("RGBA").tobytes()
+            return im.convert("RGBA")
 
-    for path, data in gen.wanted_assets().items():
-        assert rgba(path.read_bytes()) == rgba(data), (
+    wanted = gen.wanted_assets()
+    assert wanted, "the generator lists no badge states, so this compared nothing"
+    for path, data in wanted.items():
+        reason = diff.explain(rgba(path.read_bytes()), rgba(data))
+        assert reason is None, (
             f"{path.relative_to(_REPO)} no longer matches what icon_spec/render_mark "
-            "produce — run `uv run python scripts/gen-tray-states.py`"
+            f"produce — run `uv run python scripts/gen-tray-states.py` ({reason})"
         )
 
 

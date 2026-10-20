@@ -73,6 +73,27 @@ The measurement and its caveats are documented in
 Conversion is a reversible character mapping, so it cannot repair a mishearing — it only
 stops a correct transcription from arriving in the wrong script.
 
+## Chinese voice commands: safe core only
+
+When `[commands] enabled = true` (the default), the Tier-1 command grammar follows
+`[stt] language` when `[commands] language = "auto"`. With Mandarin selected, YazSes
+recognizes a conservative, whole-utterance command set in both Simplified and Traditional
+forms: undo/save/copy/cut/paste, bounded word/line deletion and selection, Enter/Tab/Escape/
+Backspace, line/page/cursor navigation, and explicit go-to function/class/file commands.
+
+```toml
+[commands]
+language = "auto"  # follows [stt] language; explicit "en" or "zh" overrides
+```
+
+This is intentionally **not full parity with the English command grammar yet**. Mandarin
+terminal execution (the English `run ...` family) and open-ended refactor/create commands
+are not registered in P1. An unmatched Chinese phrase remains dictation on the normal
+dictation key; in dedicated command mode it remains unmatched and is not executed. The
+Chinese Tier-1 path also does not fall through to the English SLM router — which is
+opt-in and off unless `[commands] slm_model_path` names a local model anyway — so
+ordinary Chinese prose cannot become a fuzzy English command.
+
 ## How accurate is it really?
 
 Those figures come from ASCEND, which is **spontaneous conversation** by Hong Kong

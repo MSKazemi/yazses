@@ -213,7 +213,7 @@ def test_the_page_states_the_recording_poll_rates_the_code_actually_uses():
 
 @pytest.mark.parametrize(
     "section,attr,key",
-    [("overlay", "enabled", "`[overlay] enabled` (default `true`)"),
+    [("overlay", "enabled", "`[overlay] enabled` (default `false`"),
      ("tray", "enabled", "`[tray] enabled` (default `true`)")],
 )
 def test_the_page_states_the_right_default_for_each_poller(section, attr, key):
@@ -223,7 +223,8 @@ def test_the_page_states_the_right_default_for_each_poller(section, attr, key):
 
     live = {"overlay": OverlayConfig(), "tray": TrayConfig()}[section]
     on = getattr(live, attr)
-    assert on is True, f"[{section}] {attr} now defaults to {on} -- the page says true"
+    expected = section != "overlay"  # the overlay is opt-in; the tray is on by default
+    assert on is expected, f"[{section}] {attr} now defaults to {on} -- the page says {expected}"
     assert key in DOC.read_text(encoding="utf-8"), f"the page no longer states the [{section}] default"
 
 

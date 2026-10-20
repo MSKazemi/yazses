@@ -1,0 +1,47 @@
+name: Jules issue preflight
+
+on:
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: GitHub issue number to validate
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  issues: read
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+      ISSUE_NUMBER: ${{ inputs.issue_number }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Validate issue number
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "$ISSUE_NUMBER" in
+            ''|*[!0-9]*)
+              echo "::error::issue_number must contain digits only"
+              exit 2
+              ;;
+          esac
+          if [ "$ISSUE_NUMBER" -le 0 ]; then
+            echo "::error::issue_number must be greater than zero"
+            exit 2
+          fi
+
+      - name: Run read-only preflight
+        shell: bash
+        run: |
+          set +e
+          python3 scripts/check-jules-issue.py "$ISSUE_NUMBER" | tee preflight.md
+          status=${PIPESTATUS[0]}
+          set -e
+          cat preflight.md >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"

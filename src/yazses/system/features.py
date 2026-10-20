@@ -187,6 +187,7 @@ def _registry() -> list[_Def]:
     co_on, co_off = _bool("cocktail")
     # Gaze: enabling also turns on routing, so the feature actually targets the
     # looked-at pane (enabled alone samples the camera but changes nothing).
+    fg_on, fg_off = _bool("facegesture")
     g_on = (("gaze", "enabled", "true", False), ("gaze", "route_dictation", "true", False))
     g_off = (("gaze", "enabled", "false", False), ("gaze", "route_dictation", "false", False))
     pg_on, pg_off = _bool("polyglot")
@@ -328,8 +329,9 @@ def _registry() -> list[_Def]:
         _Def("undo", "Mid-Thought Undo", "[revise] — say 'scratch that'", DEFAULT_ON,
              "Say 'scratch that' to drop the last phrase. Keep on.",
              lambda c: c.revise.enabled, r_on, r_off),
-        _Def("overlay", "Voice-activity overlay", "[overlay] — sonar rings", DEFAULT_ON,
-             "Sonar rings near the cursor while you talk. Visual only; safe.",
+        _Def("overlay", "Voice-activity overlay", "[overlay] — sonar rings", OPTIONAL,
+             "Sonar rings near the cursor while you talk. Visual only. Off by default: on "
+             "Wayland a new window can take keyboard focus and swallow the dictated text.",
              lambda c: c.overlay.enabled, o_on, o_off),
         _Def("tray", "System-tray icon", "[tray] — top-bar menu", DEFAULT_ON,
              "A microphone icon in the top bar; click it to pick/pin your mic, "
@@ -588,9 +590,10 @@ def _registry() -> list[_Def]:
              "Off by default.",
              lambda c: c.spatialvad.enabled, sv_on, sv_off),
         _Def("prosodypunct", "Prosodic Auto-Punctuation", "[prosodypunct] — punctuation from prosody",
-             RECOMMENDED,
-             "Inserts periods, commas, and question marks from how you speak (pauses, pitch) — no "
-             "need to say 'comma' or 'period'. Off by default.",
+             OPTIONAL,
+             "Inserts periods and commas from the pauses in how you speak — no need to say 'comma' "
+             "or 'period'. Fills gaps only: punctuation the recognizer already wrote is kept. "
+             "Batch dictation only. Off by default.",
              lambda c: c.prosodypunct.enabled, pp_on, pp_off),
         _Def("vocaljoystick", "Vocal Joystick", "[vocaljoystick] — analog cursor control by voice",
              EXPERIMENTAL,
@@ -687,9 +690,13 @@ _Def("chords", "Chorded Shortcut Synthesis", "[chords] — any keyboard shortcut
              "before launching unless you pass --yes. `[fileopen] threshold` sets how close a "
              "match has to be. Mouse-free. Off by default.",
              lambda c: c.fileopen.enabled, fo_on, fo_off),
-        _Def("reask", "Confidence-Gated Re-Ask", "[reask] — resolve uncertain words", RECOMMENDED,
-             "Instead of injecting a low-confidence guess, holds just the uncertain word and asks "
-             "you to pick or repeat it — closing the correction loop. Off by default.",
+        _Def("reask", "Confidence-Gated Re-Ask", "[reask] — resolve uncertain words", OPTIONAL,
+             "When Whisper is unsure which of their/there, to/too/two, its/it's... you said, "
+             "the burst waits and a notification lists the options. Say 'first', 'second', "
+             "'third' or the word itself to patch just that word; anything else releases the "
+             "text unchanged, and an unanswered hold goes to the clipboard after ten seconds. "
+             "Fires only on one uncertain word at a time. `[reask] threshold` is the "
+             "log-probability below which a word counts as unsure. Off by default.",
              lambda c: c.reask.enabled, rk_on, rk_off),
         _Def("verbatim", "Verbatim / Autoformat Toggle", "[verbatim] — freeze formatting on command", RECOMMENDED,
              "Say 'dictate verbatim' to freeze all formatting (ITN, punctuation, reflow) for exact "
@@ -828,8 +835,10 @@ _Def("chords", "Chorded Shortcut Synthesis", "[chords] — any keyboard shortcut
              "time — works in any app. Accessibility/clipboard now; OCR via extra. Off by default.",
              lambda c: c.screengrounded.enabled, sg_on, sg_off),
         _Def("headpointer", "Head-Pointer", "[headpointer] — cursor by head pose", OPTIONAL,
-             "Move and click the mouse by tilting your head; pair with voice for a fully "
-             "hands-free desktop. Needs a webcam (headpointer extra). Off by default.",
+             "Move and click the mouse by tilting your head, and pair it with voice for a "
+             "hands-free desktop. Experimental: it has not been validated with users, and its "
+             "speed caps and dwell time are provisional. Needs a webcam (OpenCV + "
+             "MediaPipe, shared with Glance-Type) and a pointer backend. Off by default.",
              lambda c: c.headpointer.enabled, hp_on, hp_off),
         _Def("compose", "Compose-in-Target-Language", "[compose] — speak L1, type L2", OPTIONAL,
              "Speak your strongest language and inject the text in a target language you write "
@@ -857,8 +866,10 @@ _Def("chords", "Chorded Shortcut Synthesis", "[chords] — any keyboard shortcut
              "Off by default.",
              lambda c: c.itn.enabled, itn_on, itn_off),
         _Def("gesture", "Gesture Chords", "[gesture] — multi-input chords", OPTIONAL,
-             "Bind chords (held key + nod / second key / sEMG squeeze) to actions like send or "
-             "switch profile. Sensors need their own extras. Off by default.",
+             "Bind chords of face and head gestures (jaw open, brow raise, nod, shake, tilt) to "
+             "abstract actions like pause or recenter the pointer. Needs a webcam (OpenCV + "
+             "MediaPipe, shared with Glance-Type) and binds nothing until you add a chord. "
+             "Experimental: no false-activation study exists yet. Off by default.",
              lambda c: c.gesture.enabled, ge_on, ge_off),
         _Def("interpret", "Two-Way Interpreter", "[interpret] — face-to-face translate", OPTIONAL,
              "Face-to-face mode: two speakers alternate and each turn is translated into the "
@@ -915,8 +926,10 @@ _Def("chords", "Chorded Shortcut Synthesis", "[chords] — any keyboard shortcut
              "Needs [hotkey] command_key bound. Off by default.",
              lambda c: c.math.enabled, ma_on, ma_off),
         _Def("autostop", "Hands-Free Auto-Stop", "[autostop] — tap & speak", OPTIONAL,
-             "Tap once and speak; recording auto-stops when you finish (silence timeout + "
-             "duration cap). Semantic end-of-turn needs the turn extra. Off by default.",
+             "Tap the hotkey once and speak; recording auto-stops when you finish (silence "
+             "timeout + duration cap). A longer hold is still plain hold-to-talk. Needs a "
+             "modifier hotkey (the default), since a tap on a character key is invisible. "
+             "Restart the daemon after enabling. Off by default.",
              lambda c: c.autostop.enabled, as_on, as_off),
         _Def("mousegrid", "Voice Mouse Grid", "[mousegrid] — click by voice", OPTIONAL,
              "Drive the cursor and click by voice via a numbered grid ('three, seven, click') "
@@ -1008,6 +1021,12 @@ _Def("chords", "Chorded Shortcut Synthesis", "[chords] — any keyboard shortcut
              "Uses the webcam to route dictation to the pane you look at. "
              "Experimental; needs a webcam + X11.",
              lambda c: c.gaze.enabled, g_on, g_off),
+        _Def("facegesture", "Face-Gesture Switch (camera)",
+             "[facegesture] — hold a face, not a key", EXPERIMENTAL,
+             "Opens the mic while you hold a facial movement (jaw open, brows raised) "
+             "instead of a key — switch access for people who can speak but cannot "
+             "press one. Needs a webcam; experimental. Off by default.",
+             lambda c: c.facegesture.enabled, fg_on, fg_off),
     ]
     return [_attach_deps(d) for d in defs]
 
@@ -1026,6 +1045,13 @@ _ONNXRUNTIME = (
 
 _FEATURE_DEPS: dict[str, tuple[tuple[str, ...], tuple[str, ...]]] = {
     "gaze": (("cv2", "mediapipe"), ("mediapipe>=0.10.35", "opencv-python>=5.0")),
+    # The same two packages and the same FaceLandmarker asset as Glance-Type: the
+    # face-gesture switch reads blendshapes off the model gaze already downloads,
+    # so enabling it after gaze installs nothing.
+    "facegesture": (("cv2", "mediapipe"), ("mediapipe>=0.10.35", "opencv-python>=5.0")),
+    "headpointer": (("cv2", "mediapipe"), ("mediapipe>=0.10.35", "opencv-python>=5.0")),
+    # Chords read face and head tokens off the same shared camera source.
+    "gesture": (("cv2", "mediapipe"), ("mediapipe>=0.10.35", "opencv-python>=5.0")),
     "overlay": (("PySide6",), ("PySide6>=6.11.1",)),
     # Same Qt dependency as the overlay. Registered separately because PySide6 is
     # no longer a base dependency (it is the `desktop` extra), so enabling the tray
@@ -1126,13 +1152,13 @@ _SLUG_PACKAGES: dict[str, tuple[str, ...]] = {
     "hallucination": ("postprocess",),  # postprocess/hallucination.py
     "corpus_scrub": ("voiceprivacy",),  # voiceprivacy/anonymize.py via learning/capture.py
     "cocktail": ("audio", "voiceprint"),  # audio/personal_vad.py
+    "autostop": ("endpoint",),       # endpoint/autostop.py via core/daemon.py
     # --- designed-but-unwired: the package that WOULD implement it ---
     "readback_clone": ("readback",),  # readback/clone.py — never reached at runtime
     "multiprofile": ("multiprofile",),  # no implementation package exists yet
     "sentiment": ("mood",),          # mood/ledger.py — never reached at runtime
     "acoustic_profiles": ("acoustic",),  # acoustic/profiles.py — never reached
     "hotwords": ("biasing",),        # biasing/trie.py — never reached at runtime
-    "autostop": ("endpoint",),       # endpoint/ (autostop module) — never reached
 }
 
 
@@ -1156,13 +1182,12 @@ def feature_packages(slug: str) -> tuple[str, ...]:
 # feature later forces removing it here, and adding a stub registry entry
 # without wiring it fails CI.
 _UNWIRED: frozenset[str] = frozenset({
-    "acoustic_profiles", "affect", "agent", "audioguard", "autostop", "bookmarks", "breath",
-    "bridge", "cmdspotter", "codec", "compose", "contour", "crowdproof", "gesture",
-    "hatselect", "headpointer", "hesitation", "hotwords", "interpret", "involuntary",
-    "langroute", "lipread", "loadguard", "morsevox", "mousegrid", "mouthswitch",
-    "multiprofile", "pilot", "predict", "pronunciation", "proofback", "prosodypunct", "rag",
-    "readback_clone", "reask", "screengrounded", "scribe", "scrub", "sentiment", "sign",
-    "spatialvad", "vocaljoystick", "voiceguard", "voicehealth", "wakeword",
+    "acoustic_profiles", "affect", "agent", "audioguard", "breath", "bridge", "cmdspotter",
+    "codec", "compose", "contour", "crowdproof", "hatselect", "hesitation", "hotwords",
+    "interpret", "langroute", "lipread", "loadguard", "morsevox", "mousegrid", "mouthswitch",
+    "multiprofile", "pilot", "predict", "pronunciation", "proofback", "rag", "readback_clone",
+    "screengrounded", "scribe", "scrub", "sentiment", "sign", "spatialvad", "vocaljoystick",
+    "voiceguard", "voicehealth", "wakeword",
 })
 
 
@@ -1171,7 +1196,7 @@ _UNWIRED: frozenset[str] = frozenset({
 #: once here rather than repeated in the CLI, the caveat and the tests.
 SPOKEN_COMMAND_SLUGS: frozenset[str] = frozenset({
     "spelling", "code", "math", "spokenregex", "snippets", "voicetimer",
-    "condense", "diagramvox", "spreadsheet", "echo",
+    "condense", "diagramvox", "spreadsheet", "echo", "bookmarks",
 })
 
 
@@ -1295,7 +1320,7 @@ _EXAMPLES: dict[str, str] = {
     "corpus_scrub": "Stored learning clips are pitch-shifted to hide your voice identity.",
     "redaction": "Speak a card number and it's typed as [CARD], not the digits.",
     "fieldaware": "Focus a number field and 'forty two' is typed as 42.",
-    "gesture": "Hold the hotkey and nod to send (bind chords in [gesture]).",
+    "gesture": "Raise your brows and nod to recenter the pointer (bind chords in [gesture.chords]).",
     "interpret": "Set [interpret] pair='en-es'; each speaker's turn is translated.",
     "pronunciation": "Practice mode: dictate a phrase, see per-phoneme good/fair/poor.",
     "readback_clone": "Enroll once; read-back then uses a clone of your own voice.",
@@ -1335,6 +1360,7 @@ _EXAMPLES: dict[str, str] = {
     "bridge": "Pair smart glasses to relay audio to the desktop (experimental).",
     "modality": "Route dictation vs commands to different targets by role.",
     "gaze": "Glance at a screen zone to choose where the next dictation lands.",
+    "facegesture": "Open your jaw to start dictating, close it to stop — no key at all.",
 }
 
 
@@ -1458,7 +1484,7 @@ _USE_CASES: dict[str, str] = {
     "gec": "When you're a non-native speaker and want article/agreement slips fixed with minimal edits.",
     "redaction": "When dictating near secrets (card numbers, SSNs) that must never be typed into another app.",
     "fieldaware": "When dictating into forms where each field needs different formatting (digits, no period).",
-    "gesture": "When your hands are busy and you want to fire send or switch profiles with a nod, not a word.",
+    "gesture": "When your hands are busy and you want to pause or recenter the pointer with a face-and-head gesture, not a word.",
     "interpret": "When you're in a face-to-face conversation with someone whose language you don't share.",
     "pronunciation": "When you're learning a language and want per-phoneme feedback on how close your accent is.",
     "sentiment": "When you want a private journal that tracks how your mood shifts across your dictations.",
@@ -1496,6 +1522,7 @@ _USE_CASES: dict[str, str] = {
     "bridge": "When you want to dictate from a paired phone or glasses mic while your desktop does STT.",
     "modality": "When you have EMG or gaze hardware and want each input assigned to its fastest role.",
     "gaze": "When you have several panes open and want dictation to land in whichever one you look at.",
+    "facegesture": "When you cannot hold a key — a facial movement becomes the hotkey, using only the webcam.",
     "self_repair": "When you catch a slip mid-sentence and naturally say 'no I mean X' instead of editing.",
     "corpus_scrub": "When you enable the learning corpus but want stored audio stripped of your voice identity.",
     "readback_clone": "When you want read-back spoken in a clone of your own voice, not a generic TTS voice.",
@@ -1565,7 +1592,7 @@ _CATEGORIES: dict[str, str] = {
     "overlay-reduced-motion": CAT_ACCESS,
     "readback_clone": CAT_ACCESS, "voicehealth": CAT_ACCESS, "loadguard": CAT_ACCESS,
     "voicetimer": CAT_ACCESS, "spatialvad": CAT_ACCESS, "modality": CAT_ACCESS,
-    "gaze": CAT_ACCESS, "mousegrid": CAT_ACCESS,
+    "gaze": CAT_ACCESS, "mousegrid": CAT_ACCESS, "facegesture": CAT_ACCESS,
     # Learning, memory & analytics.
     "learning": CAT_LEARN, "personalize": CAT_LEARN, "coach": CAT_LEARN,
     "sentiment": CAT_LEARN, "recall": CAT_LEARN, "rag": CAT_LEARN,

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "yazses"
-version = "2.36.0"
+version = "2.43.2"
 description = "Local, offline-by-default voice dictation for Linux, macOS, and Windows — hold a key, speak, release"
 readme = "README.md"
 license = {text = "Apache-2.0"}
@@ -84,6 +84,14 @@ dependencies = [
     # version on a BSD ("freebsd14", "freebsd15"), and PEP 508 markers have no
     # prefix operator, so a sys_platform list would silently stop matching at the
     # next FreeBSD release. platform_system is the unversioned "FreeBSD".
+    # jeepney: the D-Bus client for the xdg-desktop-portal RemoteDesktop API,
+    # which is how a strictly confined snap types on Wayland (inject/portal.py).
+    # Pure Python, no C extension and no build step, so unlike every other
+    # Linux-only dependency here it publishes one universal wheel -- which is
+    # what lets snapcraft.yaml bundle it for amd64 AND arm64, a hard requirement
+    # there. Linux-only because the portal is a freedesktop API; the BSDs run
+    # the same desktops, so they are included for the same reason python-xlib is.
+    'jeepney>=0.9.0; sys_platform == "linux" or platform_system == "FreeBSD" or platform_system == "OpenBSD" or platform_system == "NetBSD" or platform_system == "DragonFly"',
     'python-xlib>=0.33; sys_platform == "linux" or platform_system == "FreeBSD" or platform_system == "OpenBSD" or platform_system == "NetBSD" or platform_system == "DragonFly"',
     # macOS
     'pyobjc-framework-Quartz>=12.2.1; sys_platform == "darwin"',
@@ -430,7 +438,12 @@ benchmark = [
 docs = [
     "mkdocs-material[imaging]>=9.6.14",
     "mkdocs-minify-plugin>=0.8.0",
-    "mkdocs-git-revision-date-localized-plugin>=1.4.5",
+    # <1.6.0 on purpose: 1.6.0 logs "First revision timestamp is older than last
+    # revision timestamp" with logger.warning unconditionally (it ignores the plugin's
+    # own `strict: false`), and `mkdocs build --strict` turns that into a failed Docs
+    # job on two pages whose git history has non-monotonic author dates. 1.5.4 builds
+    # clean. Lift this when the warning respects `strict` or the pages' history is fixed.
+    "mkdocs-git-revision-date-localized-plugin>=1.4.5,<1.6.0",
     "mkdocs-glightbox>=0.4.0",
     "mkdocs-rss-plugin>=1.19.0",
 ]
@@ -445,6 +458,12 @@ testpaths = ["tests"]
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+# `paper/benchmark/probes/` is an archived record, not maintained code. Its own README says
+# "Read them; do not run them": the scripts hardcode absolute paths on hosts that no longer
+# exist, and several were edited between runs — which version produced which artifact is
+# exactly the thing the archive preserves. Linting would rewrite that record. The maintained
+# harness beside them (`paper/benchmark/*.py`) IS linted, and is in the gate.
+extend-exclude = ["paper/benchmark/probes"]
 
 [tool.ruff.lint]
 select = ["E4", "E7", "E9", "F", "I"]
@@ -467,7 +486,7 @@ known-first-party = ["_common"]
 # Re-exports: package __init__ files intentionally import names they do not use.
 "__init__.py" = ["F401"]
 
-# CLAUDE.md names `uv run mypy src` as a quality gate, but the gate had no config, so it
+# AGENTS.md names `uv run mypy src` as a quality gate, but the gate had no config, so it
 # ran with bare defaults and buried its real findings under ~35 unfixable import errors:
 # yazses loads every heavy backend lazily behind an optional extra (ADR-011), so on a base
 # install those imports are *correctly* absent and no contributor can "fix" them.
@@ -482,13 +501,25 @@ files = ["src"]
 # third-party packages that simply ship no type stubs.
 [[tool.mypy.overrides]]
 module = [
-    "bleak.*", "cv2.*", "df.*", "faster_whisper.*", "kokoro_onnx.*", "l2cs.*",
+    "bleak.*", "cv2.*", "df.*", "faster_whisper.*", "jeepney.*", "kokoro_onnx.*", "l2cs.*",
     "brainflow.*", "llama_cpp.*", "mediapipe.*", "moonshine_onnx.*", "noisereduce.*",
     "opencc.*",
     "pyannote.*", "pyatspi.*", "pynvim.*",
     "pywintypes.*", "resemblyzer.*", "sherpa_onnx.*", "silero_vad.*", "sounddevice.*",
     "speechbrain.*", "tomli_w.*", "torch.*", "win32file.*", "win32pipe.*", "Xlib.*",
 ]
+ignore_missing_imports = true
+
+# PySide6 is listed apart from the block above because it is the one entry whose
+# suppression switches itself off. It ships inline stubs, so the moment the `desktop`
+# (or `overlay`) extra is installed mypy resolves the real package and checks every Qt
+# call site normally -- this override then does nothing. It only silences the *absence*
+# of 648 MB of Qt on a base `uv sync`, which used to leave a correct fresh checkout
+# reporting 12 `import-not-found` errors in overlay/, settingsui/ and linux/tray.py that
+# no contributor had caused and none could fix. Anyone actually working on Qt code has
+# the extra and is still fully type-checked.
+[[tool.mypy.overrides]]
+module = ["PySide6.*"]
 ignore_missing_imports = true
 
 # In-tree adapters that are referenced by a `backend = ...` config option but were never
@@ -515,9 +546,11 @@ ignore_missing_imports = true
 # mistakes in them still fail the gate.
 [[tool.mypy.overrides]]
 module = [
+    "yazses.platform.windows.clipboard",
     "yazses.platform.windows.hotkey",
     "yazses.platform.windows.injector",
     "yazses.platform.windows.lifecycle",
+    "yazses.platform.windows.winfo",
 ]
 disable_error_code = ["attr-defined"]
 

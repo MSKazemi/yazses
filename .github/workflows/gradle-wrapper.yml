@@ -62,7 +62,7 @@ jobs:
 
       # Same commit as `gradle/actions/setup-gradle` in android-test.yml -- both
       # actions live in the `gradle/actions` repository, so the pin is one SHA.
-      - uses: gradle/actions/wrapper-validation@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+      - uses: gradle/actions/wrapper-validation@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
         with:
           # There is exactly one wrapper in this repository. The default is also 1,
           # but stating it means adding a second Gradle project cannot silently

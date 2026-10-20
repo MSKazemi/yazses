@@ -76,16 +76,16 @@ before it fetches anything.
 
 | Feature | Download | Packages |
 |---|---:|---:|
-| `cocktail`, `multiprofile`, `voiceguard` (speaker voiceprint) | **~3.1 GB** | 37 |
+| `cocktail`, `multiprofile`, `voiceguard` (speaker voiceprint) | **~3.4 GB** | 39 |
 | `stt-parakeet` | ~604 MB | 1 |
 | `read-back`, `readback_clone` (Kokoro TTS) | ~352 MB | 23 |
 | `overlay`, `tray` (Qt) | ~256 MB | 4 |
-| `gaze` (mediapipe + OpenCV) | ~223 MB | 12 |
+| `gaze`, `facegesture` (mediapipe + OpenCV) | ~224 MB | 12 |
 | `stt-moonshine` | ~113 MB+ | 18 |
 | `llm-cleanup` (llama.cpp) | ~75 MB | 4 |
 | `diarize`, `meeting`, `recimport` (sherpa-onnx) | ~62 MB | 2 |
 | `prosody`, `voicehealth` | ~11 MB | 1 |
-| `agent` (MCP) | ~4.4 MB | 20 |
+| `agent` (MCP) | ~4.5 MB | 20 |
 | `chinese-script` | ~0.5 MB | 1 |
 
 A trailing **`+`** means the packages are measured but the model files are not: the

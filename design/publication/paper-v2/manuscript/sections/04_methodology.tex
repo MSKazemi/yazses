@@ -1,0 +1,122 @@
+\section{Experimental Methodology}
+\label{sec:method}
+
+\subsection{Evaluation philosophy}
+
+The campaign was designed to test whether conclusions drawn from a narrow clean-speech benchmark
+survive changes in speech difficulty, recognizer, repeated inference, platform, and downstream
+task.
+
+We separate stable benchmark measurements from exploratory mechanism probes. Stable artifacts
+provide the primary manuscript results. Follow-up probes are used when an unexpected result
+requires an intervention to identify its mechanism. Derived significance files analyze existing
+measurements and are not counted as independent experiments.
+
+A central reporting rule is that every headline result must specify the population or corpus,
+condition, uncertainty where available, and relevant caveat. Point-estimate rankings are not
+interpreted as statistical superiority unless the corresponding paired or interval evidence
+supports that interpretation.
+
+\subsection{Speech-recognition corpora}
+
+The principal ASR experiments use deterministic subsets of LibriSpeech
+\citep{panayotov2015librispeech}. The clean condition uses 200 utterances from
+\texttt{test-clean}, selected through the benchmark's deterministic speaker-stratified
+procedure. The harder condition uses 200 utterances from \texttt{test-other}, covering 33
+speakers and approximately 23.4 minutes of audio.
+
+\texttt{test-other} is more difficult than \texttt{test-clean}, but it remains read audiobook
+speech. We therefore use it as a robustness stress condition and do not interpret it as a direct
+estimate of spontaneous desktop-dictation accuracy.
+
+The benchmark records a digest of the selected utterance identifiers so that two artifacts
+claiming to evaluate the same number of utterances can be checked for corpus identity rather than
+assumed to have used identical input.
+
+\subsection{Meeting corpora}
+
+Real-meeting diarization is evaluated on the complete 16-recording AMI test split used by the
+campaign \citep{carletta2005ami}. The set contains approximately 543.7 minutes of meeting audio
+and 30,714 seconds of scored reference speech in the archived aggregate. Fifteen recordings have
+four reference speakers and one has three. Human RTTM annotations provide the reference speaker
+labels.
+
+The AMI condition used here is more representative of real conversational turn-taking than the
+project's synthetic meeting fixtures, but the evaluated headset mix is still cleaner than a
+typical single far-field laptop microphone. We therefore report AMI as real annotated meeting
+evidence without treating it as a complete far-field deployment estimate.
+
+Synthetic meetings and selected VoxConverse recordings serve different purposes. Synthetic audio
+is retained as a controlled regression fixture. VoxConverse is used primarily to examine whether
+clustering heuristics calibrated on meeting-like conditions transfer to more crowded speaker
+distributions. Results from these domains are not pooled into one \der{}.
+
+\subsection{Hardware and software conditions}
+
+The main August engine-comparison campaign ran on a CPU-only Azure
+\texttt{Standard\_D16s\_v6} host with 16 logical Intel Xeon Platinum 8573C CPUs and
+approximately 67 GB of memory under Ubuntu 24.04. Inference used integer-8 execution where
+supported. Exact library and \YazSes{} versions are preserved per result artifact rather than
+assumed from one campaign-wide environment.
+
+Cross-platform decoding was separately evaluated on Linux x86-64, Linux arm64, macOS arm64, and
+Windows x86-64 runners using the same 60-utterance subset and CTranslate2 4.8.1 for the compared
+faster-whisper checkpoints.
+
+Timing results are interpreted within a machine condition. We do not use hosted-runner latency to
+make direct absolute performance comparisons across heterogeneous hosts.
+
+\subsection{Metrics}
+
+Speech-recognition accuracy is measured with word error rate:
+\begin{equation}
+  \mathrm{WER} = \frac{S + D + I}{N},
+\end{equation}
+where $S$, $D$, and $I$ are substitution, deletion, and insertion counts and $N$ is the number
+of reference words. References and hypotheses are normalized with Whisper's
+\texttt{EnglishTextNormalizer}. The headline engine-matrix intervals are 95\% percentile
+bootstrap intervals from 1,000 utterance-level resamples with fixed seed 20260823.
+
+Because the repeated-decode investigation is specifically concerned with catastrophic extra text,
+we retain the individual error components rather than relying on \wer{} alone.
+
+Decode performance is reported using real-time factor. Lower values correspond to faster
+transcription, but \rtf{} values are hardware-specific.
+
+Paired beam comparisons use an utterance-paired bootstrap with 10,000 resamples and fixed seed
+20260824. The reported two-sided achieved significance level is the fraction of bootstrap
+replicates whose difference crosses to the opposite side of zero, doubled for a two-sided reading.
+Because the archived beam grid contains several comparisons, we report its p-values as pairwise
+rather than as familywise-confirmatory evidence.
+
+The onset experiment uses exact two-sided McNemar tests on paired first-word outcomes. Each
+non-zero lead-in is compared against the zero-lead-in cell of its own clipping arm, which gives
+sixteen distinct comparisons. The whole grid was run end to end twice over the same utterances
+by a decoder that is deterministic on identical input, so the second pass supplies replicates
+rather than sixteen further hypotheses: the multiplicity family is the sixteen comparisons
+asked, and the Bonferroni threshold is $0.05/16 = 0.003125$. Replication is reported separately,
+as whether a comparison held in both passes.
+
+Diarization is reported using \der{}, with both per-recording mean and time-weighted corpus
+aggregates where appropriate. The comparison between unrestricted clustering and
+\texttt{max\_speakers=4} uses a two-sided exact sign test over recordings that changed and a
+10,000-resample paired bootstrap over the 16 recordings, again with fixed seed 20260824. We separately retain speaker-count error because a system can
+produce the right number of clusters while still assigning speech to the wrong people.
+
+Streaming evaluation reports final speech-end-to-text latency, time to first useful partial
+output, and the fraction of final text already visible at release.
+
+\subsection{Reproducibility and provenance}
+
+Every stable result is intended to answer both the measured value and the conditions that
+produced it. Artifacts therefore retain the benchmark command, relevant software versions,
+machine information, and corpus identity. The result archive also preserves displaced outputs
+when a benchmark is repeated with the same nominal filename.
+
+This mechanism matters scientifically. During the hard-speech engine campaign, a repeated
+\texttt{large-v3} measurement disagreed substantially with an earlier run. Treating the newest
+artifact as authoritative would have erased the disagreement. Retaining both instead converted
+the contradiction into a reproducibility experiment.
+
+The analysis below therefore treats disagreement between repeated runs as evidence to be
+explained, not noise to be silently replaced.

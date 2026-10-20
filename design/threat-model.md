@@ -28,7 +28,7 @@
 > it is, the current security posture is stated in [ADR-011](adr/) (nothing leaves the
 > machine), [ADR-019](adr/) (the enumerated outbound connections, with
 > `tests/test_egress_inventory.py` failing the build on an unregistered eighth), and the
-> guards described in `CLAUDE.md`.
+> guards described in `AGENTS.md`.
 
 ---
 

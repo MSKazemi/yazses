@@ -1,0 +1,162 @@
+{
+  "schema_version": "1.0",
+  "study_mode": "community_qa",
+  "timestamp": "2026-10-12T09:00:00+00:00",
+  "software": {
+    "yazses_version": "9.9.9",
+    "git_commit": "0123456789abcdef0123456789abcdef01234567",
+    "python_version": "3.12.0",
+    "packages": {
+      "mediapipe": "0.10.0"
+    },
+    "perception_backend": {
+      "name": "mediapipe",
+      "asset_version": null
+    },
+    "generator": "yazses.eyeeval.gaze_field/1.1"
+  },
+  "machine": {
+    "os_name": "Ubuntu",
+    "os_version": "24.04",
+    "kernel": "6.8.0",
+    "arch": "x86_64",
+    "cpu_model": "Example CPU",
+    "logical_cpus": 8,
+    "ram_gb": 16.0
+  },
+  "os_session": {
+    "session_type": "x11"
+  },
+  "display": {
+    "display_count": 1,
+    "displays": [
+      {
+        "width_px": 1920,
+        "height_px": 1080,
+        "scale": 1.0
+      }
+    ],
+    "topology_fingerprint": "sha256:7ebc490c38ee46d7"
+  },
+  "camera": {
+    "camera_class": "integrated",
+    "capture_mode": "live"
+  },
+  "feature": {
+    "name": "gaze"
+  },
+  "config": {
+    "config_hash": "sha256:ac434697da0037cb",
+    "settings": {
+      "confidence_min": 0.5,
+      "zones": "grid3x3"
+    }
+  },
+  "protocol": {
+    "task": "gaze_field_measurement",
+    "task_version": "1.1",
+    "task_seed": null,
+    "protocol_id": null
+  },
+  "metrics": {
+    "calibration": {
+      "source": "explicit",
+      "age_s": 3600.0,
+      "topology_validity": "valid",
+      "validation_points": 3,
+      "error_px_rmse": 71.18,
+      "error_px_mean": 66.67,
+      "error_px_max": 100.0,
+      "error_deg_mean": 1.145,
+      "implicit_candidate_delta_px": {
+        "value": null,
+        "reason": "not_measured"
+      }
+    },
+    "confidence": {
+      "samples": 8,
+      "mean": 0.575,
+      "min": 0.0,
+      "max": 1.0,
+      "below_threshold_fraction": 0.375,
+      "threshold": 0.5,
+      "histogram": [
+        2,
+        0,
+        0,
+        1,
+        0,
+        1,
+        0,
+        0,
+        1,
+        3
+      ]
+    },
+    "routing": {
+      "attempts": 40,
+      "gaze_routed": 34,
+      "fallback_no_route": 6,
+      "wrong_target_corrections": 3,
+      "wrong_target_rate": 0.075,
+      "fallback_rate": 0.15
+    },
+    "session": {
+      "duration_s": 900.0,
+      "block_s": 300.0,
+      "drift_blocks": [
+        {
+          "block": 0,
+          "start_s": 0.0,
+          "points": 2,
+          "error_px_mean": 50.0
+        },
+        {
+          "block": 1,
+          "start_s": 300.0,
+          "points": 1,
+          "error_px_mean": 100.0
+        }
+      ]
+    },
+    "sufficiency": {
+      "provisional": true,
+      "validation_points": {
+        "n": 3,
+        "minimum": 5,
+        "enough": false
+      },
+      "confidence_samples": {
+        "n": 8,
+        "minimum": 30,
+        "enough": false
+      },
+      "routing_attempts": {
+        "n": 40,
+        "minimum": 20,
+        "enough": true
+      },
+      "drift_blocks": {
+        "n": 2,
+        "minimum": 2,
+        "enough": true
+      },
+      "statements": [
+        "Only 3 validation point(s) (at least 5 wanted): treat the error figures as indicative only.",
+        "Only 8 confidence sample(s) (at least 30 wanted): the confidence summary is indicative only."
+      ]
+    },
+    "environment": {
+      "glasses": "glasses",
+      "lighting": "normal",
+      "viewing_distance_cm": 60.0,
+      "camera_label": "Integrated 720p"
+    }
+  },
+  "privacy": {
+    "data_class": "B",
+    "raw_media_retained": false,
+    "contains_personal_identifiers": false,
+    "aggregates_only": true
+  }
+}

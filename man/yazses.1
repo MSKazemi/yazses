@@ -1,4 +1,4 @@
-.TH YAZSES 1 "2026-08-30" "yazses 2.36.0" "User Commands"
+.TH YAZSES 1 "2026-10-18" "yazses 2.43.2" "User Commands"
 .SH NAME
 yazses \- Local, offline-by-default voice dictation \(em hold a key, speak, release.
 .SH SYNOPSIS
@@ -136,6 +136,87 @@ Also record a short ambient clip and compare its level to the VAD threshold.
 Run the accessibility enrollment wizard to calibrate VAD thresholds.
 .SS "yazses enroll-voice"
 Record a short voiceprint so YazSes can recognise your voice.
+.SS "yazses eye-eval"
+Run an eye-control evaluation task and save a privacy-safe result you can inspect.
+.br
+Arguments: \fItask\fR
+.RS
+.TP
+\fB\-\-out, \-o\fR
+Where to write the result JSON.
+.TP
+\fB\-\-synthetic\fR
+No-camera dry run: generate the outcomes instead of measuring them.
+.TP
+\fB\-\-outcomes\fR
+A JSON list of per-trial outcomes you recorded during a real run.
+.TP
+\fB\-\-blocked\fR
+Record a BLOCKED result. One of: not_supported, not_measured, permission_denied, tracking_unavailable, participant_stopped, technical_invalidation.
+.TP
+\fB\-\-study\-mode\fR
+ci | synthetic | community_qa | research. Never inferred.
+.TP
+\fB\-\-protocol\-id\fR
+The named, versioned research protocol. Required by --study-mode research.
+.TP
+\fB\-\-camera\-class\fR
+integrated | external | virtual | none. Required with --outcomes.
+.TP
+\fB\-\-perception\-backend\fR
+Which camera perception backend ran, e.g. mediapipe.
+.TP
+\fB\-\-verdict\fR
+Your own PASS/PARTIAL/FAIL/BLOCKED, overriding the computed one.
+.TP
+\fB\-\-seed\fR
+Task seed. Default: the seed the task fixture records.
+.RE
+.SS "yazses facegesture"
+Face-gesture switch \(em capture your relaxed face so the gesture is judged against it.
+.TP
+\fByazses facegesture calibrate\fR
+Capture your neutral (relaxed) face as the baseline for a face gesture.
+.RS
+.TP
+\fB\-\-gesture\fR
+Gesture to calibrate (default: [facegesture] gesture).
+.TP
+\fB\-\-seconds\fR
+How long to watch your relaxed face.
+.TP
+\fB\-\-yes, \-y\fR
+Start without waiting for Enter.
+.TP
+\fB\-\-active\fR
+Also capture your ACTIVE level: a few deliberate holds of the gesture. Needed when your resting level is near zero and the default thresholds never fire.
+.TP
+\fB\-\-talk\fR
+Also capture your TALK level: speak normally so the derived hold threshold stays above it. Needs an active level (from this run or stored).
+.TP
+\fB\-\-skip\-rest\fR
+Reuse the stored resting baseline; capture only --active and/or --talk.
+.TP
+\fB\-\-holds\fR
+Deliberate holds for --active.
+.TP
+\fB\-\-hold\-seconds\fR
+Seconds each --active hold is measured.
+.TP
+\fB\-\-talk\-seconds\fR
+Seconds of speech for --talk.
+.RE
+.TP
+\fByazses facegesture reset\fR
+Forget the stored neutral baseline(s) and active/talk levels; back to configured thresholds.
+.RS
+.TP
+\fB\-\-gesture\fR
+Forget only this gesture's baseline.
+.RE
+.TP
+\fByazses facegesture status\fR
+Show what the face switch's select, confirm and cancel gestures last did.
 .SS "yazses features"
 See capabilities and turn them on/off (no config-editing needed).
 .RS
@@ -212,8 +293,75 @@ Calibrate the webcam so your gaze maps to screen zones.
 Don't auto-install the gaze deps (mediapipe, opencv).
 .RE
 .TP
+\fByazses gaze measure\fR
+Measure how well your saved gaze calibration works, and write a report to share.
+.RS
+.TP
+\fB\-\-camera\-class\fR
+integrated | external | virtual. Never guessed.
+.TP
+\fB\-\-out, \-o\fR
+Where to write the report JSON (default: ./yazses-gaze-report.json).
+.TP
+\fB\-\-rounds\fR
+How many validation passes to run.
+.TP
+\fB\-\-interval\-s\fR
+Seconds to wait between passes (to see drift over time).
+.TP
+\fB\-\-per\-point\fR
+Gaze samples averaged per target.
+.TP
+\fB\-\-block\-s\fR
+Drift bucket length in seconds.
+.TP
+\fB\-\-study\-mode\fR
+community_qa | research. Never inferred.
+.TP
+\fB\-\-protocol\-id\fR
+The named, versioned protocol. Required by --study-mode research.
+.TP
+\fB\-\-camera\-label\fR
+A short model name of your choosing, e.g. 'Integrated 720p'. No serial numbers.
+.TP
+\fB\-\-glasses\fR
+none | glasses | contacts | not_stated.
+.TP
+\fB\-\-lighting\fR
+dim | normal | bright | backlit | not_stated.
+.TP
+\fB\-\-viewing\-distance\-cm\fR
+Eyes to screen, in centimetres.
+.TP
+\fB\-\-screen\-diagonal\-in\fR
+Screen diagonal in inches. With --viewing-distance-cm, errors are also given in degrees.
+.TP
+\fB\-\-routing\-attempts\fR
+Dictations you tried to aim with gaze (your own count).
+.TP
+\fB\-\-routing\-fallbacks\fR
+Of those, how many fell back to the focused window.
+.TP
+\fB\-\-wrong\-target\fR
+Of those, how many you had to correct (landed in the wrong window).
+.RE
+.TP
+\fByazses gaze rollback\fR
+Undo the last implicit refinement and restore the calibration it replaced.
+.TP
 \fByazses gaze status\fR
 Show whether look-to-pane is ready: deps, desktop backend, calibration.
+.SS "yazses gesture"
+Control Gesture Chords: see what is bound and why nothing fires, pause or resume them.
+.TP
+\fByazses gesture pause\fR
+Stop chords from acting. The pause chord itself still works.
+.TP
+\fByazses gesture resume\fR
+Resume after a pause, a fault or a stale camera. Chords never fire from before it.
+.TP
+\fByazses gesture status\fR
+Show whether Gesture Chords are running, and if not, why not.
 .SS "yazses gitvoice"
 Turn a spoken git command into a git command \(em fully offline.
 .br
@@ -226,6 +374,59 @@ Run the command instead of only printing it.
 \fB\-\-yes\fR
 Confirm a destructive command so --run will run it.
 .RE
+.SS "yazses handsfree"
+Turn on the hands-free preset; stop, re-arm and inspect every camera-driven input at once.
+.TP
+\fByazses handsfree disable\fR
+Turn the hands-free preset OFF: stops the pointer and switch now, frees the camera on restart.
+.TP
+\fByazses handsfree enable\fR
+Turn the hands-free preset ON: one switch that sets the ordinary feature configs.
+.RS
+.TP
+\fB\-\-force\fR
+Allow the experimental camera features the preset turns on.
+.TP
+\fB\-\-no\-install\fR
+Don't auto-install the camera features' optional deps.
+.RE
+.TP
+\fByazses handsfree explain\fR
+Print the ordinary feature settings the hands-free preset sets, without applying anything.
+.TP
+\fByazses handsfree pause\fR
+Stop all hands-free input: no pointer motion, no click, no face-switch key press.
+.TP
+\fByazses handsfree resume\fR
+Re-arm hands-free input after a pause or a fault. The first frame afterwards never acts.
+.TP
+\fByazses handsfree status\fR
+Show the same panel the settings window shows: state, health and what to do next.
+.SS "yazses headpointer"
+Control the Head-Pointer: recenter, pause or resume it, hold a clutch, toggle dwell-click.
+.TP
+\fByazses headpointer clutch\fR
+Hold the pointer still without turning the feature off (e.g. while you pull a face).
+.RS
+.TP
+\fB\-\-off\fR
+Release the clutch instead of holding it.
+.RE
+.TP
+\fByazses headpointer dwell\fR \fISTATE\fR
+Turn dwell-click on or off without touching pointer motion.
+.TP
+\fByazses headpointer pause\fR
+Stop the pointer: no motion, no dwell progress, no click.
+.TP
+\fByazses headpointer recenter\fR
+Make your current head position the neutral one. No motion and no click while it happens.
+.TP
+\fByazses headpointer resume\fR
+Resume after a pause or a fault. The first frame afterwards never moves or clicks.
+.TP
+\fByazses headpointer status\fR
+Show whether the Head-Pointer is running, and if not, why not.
 .SS "yazses hotkey"
 Change the key you hold to talk.
 .TP
@@ -241,10 +442,72 @@ Show the current hold-to-talk key (and command key, if set).
 Type text into the focused window without recording (tests the injector).
 .br
 Arguments: \fItext\fR
+.RS
+.TP
+\fB\-\-delay, \-d\fR
+Seconds to wait before injecting, so you can focus the app to test.
+.TP
+\fB\-\-diagnose\fR
+Report the focused window before injecting (Windows only).
+.RE
+.SS "yazses inject-backend"
+Show or pin the keystroke-injection backend.
+.br
+Arguments: \fIname\fR
+.RS
+.TP
+\fB\-\-allow\-portal\fR
+Let `auto` use the desktop portal on Wayland.
+.TP
+\fB\-\-deny\-portal\fR
+Never use the desktop portal.
+.RE
 .SS "yazses jump"
 Jump to a symbol or line in the active editor.
 .br
 Arguments: \fItarget\fR
+.SS "yazses language"
+Inspect dictation-language profiles and effective STT language state.
+.TP
+\fByazses language list\fR
+List the high-level language profiles YazSes can resolve coherently.
+.TP
+\fByazses language set\fR \fIPROFILE\fR
+Switch dictation language through the shared transactional service.
+.RS
+.TP
+\fB\-\-dry\-run\fR
+Show the complete plan and prerequisites without changing anything.
+.TP
+\fB\-\-model\fR
+Explicit faster-whisper model override.
+.TP
+\fB\-\-engine\fR
+Explicit engine override (currently only faster-whisper is accepted).
+.TP
+\fB\-\-recommended\-model\fR
+Select the profile's supported baseline instead of preserving a compatible model.
+.TP
+\fB\-\-no\-download\fR
+Never fetch a missing speech model; refuse before writing config.
+.TP
+\fB\-\-no\-install\fR
+Never install a missing optional Python dependency.
+.TP
+\fB\-\-no\-restart\fR
+Commit a valid config but leave a running daemon unchanged.
+.TP
+\fB\-\-yes, \-y\fR
+Apply the displayed plan without an interactive confirmation.
+.RE
+.TP
+\fByazses language status\fR
+Show the effective speech language, Han script, model, and profile coherence.
+.RS
+.TP
+\fB\-\-json\fR
+Emit a machine-readable status object.
+.RE
 .SS "yazses logs"
 Show the daemon's diagnostic log (metadata only unless log_level is DEBUG).
 .RS
@@ -610,7 +873,7 @@ Record, transcribe, and prove dictation works end to end on this machine.
 How long to record.
 .TP
 \fB\-\-type\fR
-Also type the transcript into the focused window.
+Also type the transcript \(em into a small window YazSes opens, and check it arrived (into the focused window when no such window can open).
 .RE
 .SS "yazses vocab"
 Manage your personal dictionary (words STT mis-hears).

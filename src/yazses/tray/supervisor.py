@@ -57,6 +57,21 @@ def decide(*, alive: bool, relaunches_so_far: int,
     return RelaunchDecision(relaunch=True, reason="tray is not running — relaunching")
 
 
+def lock_state(exists: bool, holder: int | None) -> str:
+    """What the tray lock looked like when the supervisor decided, in a few words.
+
+    The relaunch line used to say only "tray is not running", next to the *previous*
+    tray's stderr. A macOS report (#578) read that stderr ("A YazSes tray is already
+    running; exiting", from three days earlier) as the reason for the new decision and
+    asked why the supervisor called a held lock "not running". Nothing in the log could
+    say which it was. ``holder`` is :func:`yazses.system.single_instance.holder_pid`'s
+    answer: a PID, ``-1`` for held-by-someone-unknown, or ``None`` for nobody.
+    """
+    if holder is None:
+        return "free" if exists else "missing"
+    return "held, holder unknown" if holder < 0 else f"held by pid {holder}"
+
+
 #: Cap on what a dead tray's stderr may contribute to the daemon log. A Qt plugin
 #: failure is a few lines; a traceback with a loop in it is not, and the daemon log is
 #: also what `yazses report` attaches to an issue.

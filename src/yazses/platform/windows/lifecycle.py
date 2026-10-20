@@ -7,6 +7,7 @@ import os
 import signal
 import subprocess
 import sys
+import time
 from collections.abc import Callable
 from pathlib import Path
 
@@ -53,6 +54,18 @@ def is_yazses_image(tasklist_csv: str) -> bool:
 _CREATE_NEW_PROCESS_GROUP = 0x00000200
 _DETACHED_PROCESS = 0x00000008
 _CREATE_NO_WINDOW = 0x08000000
+
+# How long `stop_daemon` waits for a graceful shutdown to finish, and how often
+# it asks. The RPC acknowledges *receipt*; the real teardown (unload model, close
+# IPC server, release hotkey hook) runs afterwards, and the IPC server's close
+# alone can take ~2 s. Without this wait a `restart` spawns the new daemon while
+# the old one is still mid-teardown, and the named-pipe transport happily hosts
+# both (_MAX_INSTANCES = 8), so `status` answers whichever pipe instance Windows
+# routes to — stale hotkey included. Reported under #330.
+_SHUTDOWN_GRACE_S = 10.0
+_SHUTDOWN_POLL_S = 0.05
+# And after a force-kill, the same question once more, briefly.
+_FORCE_GRACE_S = 5.0
 
 
 # ---- Pure command resolution ------------------------------------------------
@@ -148,13 +161,26 @@ class WindowsLifecycle:
 
     def start_daemon_detached(self) -> None:
         # CREATE_NEW_PROCESS_GROUP so we can later send CTRL_BREAK_EVENT for a
-        # graceful shutdown; DETACHED_PROCESS so the daemon survives the parent.
-        flags = _CREATE_NEW_PROCESS_GROUP | _DETACHED_PROCESS | _CREATE_NO_WINDOW
+        # graceful shutdown; CREATE_NO_WINDOW so the console-subsystem daemon has
+        # a hidden console rather than a visible one.
+        #
+        # DETACHED_PROCESS is deliberately NOT part of this flag set any more.
+        # It did not buy the daemon its survival — Windows has no parent/child
+        # process lifecycle, so the daemon outlives the CLI either way — and on
+        # the pipx route it cost a blank console window that sat open for the
+        # daemon's whole life: a detached (console-less) parent launching the venv
+        # redirector makes *that* give the real interpreter a brand-new visible
+        # console, because a console program with no console gets one when it
+        # spawns one. CREATE_NO_WINDOW instead hands the daemon an invisible
+        # console that the redirector's child inherits — no window anywhere, and
+        # stdout/stderr are DEVNULL regardless. #330.
+        flags = _CREATE_NEW_PROCESS_GROUP | _CREATE_NO_WINDOW
         argv = resolve_daemon_command(sys.executable, bool(getattr(sys, "frozen", False)))
         log.info("Starting daemon detached: %s", argv)
         subprocess.Popen(
             argv,
             creationflags=flags,
+            stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             close_fds=True,
@@ -164,6 +190,14 @@ class WindowsLifecycle:
         # Try a graceful shutdown first via the IPC `shutdown` RPC. The
         # caller (cli.stop) doesn't know about IPC, so we attempt it here
         # before falling back to TerminateProcess.
+        #
+        # And then *wait for the process to actually exit*. The RPC returns when
+        # the daemon acknowledges, not when it is gone; returning at the ack let
+        # `restart` spawn the successor while the predecessor still held a live
+        # IPC server on the same pipe (up to 8 coexist by design), which is how
+        # `status` kept answering with the *old* hotkey after a clean-looking
+        # restart. #330.
+        rpc_acknowledged = False
         try:
             from yazses.ipc.client import IpcUnreachableError
             from yazses.platform.windows.ipc import NamedPipeIpcClient
@@ -171,7 +205,7 @@ class WindowsLifecycle:
             client = NamedPipeIpcClient(self._paths.ipc_socket, timeout_s=1.0)
             try:
                 client.call("shutdown")
-                return
+                rpc_acknowledged = True
             except IpcUnreachableError:
                 pass
             except Exception as exc:
@@ -179,8 +213,37 @@ class WindowsLifecycle:
         except Exception:
             log.exception("Could not attempt graceful shutdown")
 
+        if rpc_acknowledged and self._wait_for_exit(pid, _SHUTDOWN_GRACE_S):
+            return
+
         # Forceful fallback. signal.SIGTERM on Windows maps to TerminateProcess.
-        os.kill(pid, signal.SIGTERM)
+        if rpc_acknowledged:
+            log.info("Daemon %s did not exit within %.0fs; terminating.", pid, _SHUTDOWN_GRACE_S)
+        else:
+            log.info("No graceful shutdown for daemon %s; terminating.", pid)
+        try:
+            os.kill(pid, signal.SIGTERM)
+        except OSError:
+            return  # exited between the last probe and the signal — that is success
+        if not self._wait_for_exit(pid, _FORCE_GRACE_S):
+            # Nothing further we can do that does not risk a recycled-PID kill.
+            # Say so loudly instead of pretending; the supervisor in cli sees the
+            # stale PID through `is_running` and the user gets an honest state.
+            log.warning("Daemon %s survived termination; still alive after %.0fs.", pid, _FORCE_GRACE_S)
+
+    def _wait_for_exit(self, pid: int, grace_s: float) -> bool:
+        """Poll the liveness probe until *pid* is gone or *grace_s* elapses.
+
+        Returns True on exit. Never touches the PID file and never sends a
+        signal: this asks a question, it does not take action (see
+        :mod:`yazses.system.proc` for why that distinction is load-bearing here).
+        """
+        deadline = time.monotonic() + grace_s
+        while time.monotonic() < deadline:
+            if not self._alive(pid):
+                return True
+            time.sleep(_SHUTDOWN_POLL_S)
+        return not self._alive(pid)
 
     # ---- Autostart (HKCU\Run) ---------------------------------------------
 

@@ -9,7 +9,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -22,8 +22,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "open",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "draft",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-AFFECT-001",
@@ -35,7 +35,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -49,7 +49,7 @@
       "the feature enabled and observed doing something on your machine"
     ],
     "state": "open",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-AGENT-001",
@@ -61,7 +61,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -75,7 +75,7 @@
       "the feature enabled and observed doing something on your machine"
     ],
     "state": "open",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-AUDIOGUARD-001",
@@ -87,7 +87,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -100,60 +100,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "open",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
-  },
-  {
-    "id": "WIRE-AUTOSTOP-001",
-    "family": "feature-wiring",
-    "title": "Wire the `autostop` capability so it is reachable from the daemon or CLI",
-    "value": "`autostop` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
-    "risk": "L2",
-    "minutes": 90,
-    "skills": [
-      "python"
-    ],
-    "cloud_agent_ready": true,
-    "allowed_paths": [
-      "src/yazses/**",
-      "tests/**",
-      "docs/features.md"
-    ],
-    "validation": [
-      "uv run python -m pytest tests/test_features_write_targets.py -q",
-      "uv run python -m pytest tests/ -q"
-    ],
-    "evidence": [
-      "the feature enabled and observed doing something on your machine"
-    ],
-    "state": "open",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
-  },
-  {
-    "id": "WIRE-BOOKMARKS-001",
-    "family": "feature-wiring",
-    "title": "Wire the `bookmarks` capability so it is reachable from the daemon or CLI",
-    "value": "`bookmarks` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
-    "risk": "L2",
-    "minutes": 90,
-    "skills": [
-      "python"
-    ],
-    "cloud_agent_ready": true,
-    "allowed_paths": [
-      "src/yazses/**",
-      "tests/**",
-      "docs/features.md"
-    ],
-    "validation": [
-      "uv run python -m pytest tests/test_features_write_targets.py -q",
-      "uv run python -m pytest tests/ -q"
-    ],
-    "evidence": [
-      "the feature enabled and observed doing something on your machine"
-    ],
-    "state": "open",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "draft",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-BREATH-001",
@@ -165,7 +113,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -178,8 +126,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "open",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "draft",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-BRIDGE-001",
@@ -191,7 +139,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -205,7 +153,7 @@
       "the feature enabled and observed doing something on your machine"
     ],
     "state": "open",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-CMDSPOTTER-001",
@@ -217,7 +165,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -230,8 +178,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "open",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-CODEC-001",
@@ -243,7 +191,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -256,8 +204,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "open",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-COMPOSE-001",
@@ -269,7 +217,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -282,8 +230,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "open",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-CONTOUR-001",
@@ -295,7 +243,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -308,8 +256,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "open",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-CROWDPROOF-001",
@@ -321,7 +269,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -334,34 +282,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
-  },
-  {
-    "id": "WIRE-GESTURE-001",
-    "family": "feature-wiring",
-    "title": "Wire the `gesture` capability so it is reachable from the daemon or CLI",
-    "value": "`gesture` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
-    "risk": "L2",
-    "minutes": 90,
-    "skills": [
-      "python"
-    ],
-    "cloud_agent_ready": true,
-    "allowed_paths": [
-      "src/yazses/**",
-      "tests/**",
-      "docs/features.md"
-    ],
-    "validation": [
-      "uv run python -m pytest tests/test_features_write_targets.py -q",
-      "uv run python -m pytest tests/ -q"
-    ],
-    "evidence": [
-      "the feature enabled and observed doing something on your machine"
-    ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "open",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-HATSELECT-001",
@@ -373,7 +295,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -386,34 +308,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
-  },
-  {
-    "id": "WIRE-HEADPOINTER-001",
-    "family": "feature-wiring",
-    "title": "Wire the `headpointer` capability so it is reachable from the daemon or CLI",
-    "value": "`headpointer` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
-    "risk": "L2",
-    "minutes": 90,
-    "skills": [
-      "python"
-    ],
-    "cloud_agent_ready": true,
-    "allowed_paths": [
-      "src/yazses/**",
-      "tests/**",
-      "docs/features.md"
-    ],
-    "validation": [
-      "uv run python -m pytest tests/test_features_write_targets.py -q",
-      "uv run python -m pytest tests/ -q"
-    ],
-    "evidence": [
-      "the feature enabled and observed doing something on your machine"
-    ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "open",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-HESITATION-001",
@@ -425,7 +321,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -438,8 +334,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "draft",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-HOTWORDS-001",
@@ -451,7 +347,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -464,8 +360,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "draft",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-INTERPRET-001",
@@ -477,7 +373,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -490,34 +386,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
-  },
-  {
-    "id": "WIRE-INVOLUNTARY-001",
-    "family": "feature-wiring",
-    "title": "Wire the `involuntary` capability so it is reachable from the daemon or CLI",
-    "value": "`involuntary` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
-    "risk": "L2",
-    "minutes": 90,
-    "skills": [
-      "python"
-    ],
-    "cloud_agent_ready": true,
-    "allowed_paths": [
-      "src/yazses/**",
-      "tests/**",
-      "docs/features.md"
-    ],
-    "validation": [
-      "uv run python -m pytest tests/test_features_write_targets.py -q",
-      "uv run python -m pytest tests/ -q"
-    ],
-    "evidence": [
-      "the feature enabled and observed doing something on your machine"
-    ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "open",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-LANGROUTE-001",
@@ -529,7 +399,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -542,8 +412,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "open",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-LIPREAD-001",
@@ -555,7 +425,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -568,8 +438,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "open",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-LOADGUARD-001",
@@ -581,7 +451,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -594,8 +464,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "open",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-MORSEVOX-001",
@@ -607,7 +477,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -620,8 +490,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "open",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-MOUSEGRID-001",
@@ -633,7 +503,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -646,8 +516,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "open",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-MOUTHSWITCH-001",
@@ -659,7 +529,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -672,8 +542,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "open",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-MULTIPROFILE-001",
@@ -685,7 +555,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -698,8 +568,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "open",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-PILOT-001",
@@ -711,7 +581,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -724,8 +594,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "open",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-PREDICT-001",
@@ -737,7 +607,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -750,8 +620,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "open",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-PRONUNCIATION-001",
@@ -763,7 +633,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -776,8 +646,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "open",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-PROOFBACK-001",
@@ -789,7 +659,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -802,34 +672,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
-  },
-  {
-    "id": "WIRE-PROSODYPUNCT-001",
-    "family": "feature-wiring",
-    "title": "Wire the `prosodypunct` capability so it is reachable from the daemon or CLI",
-    "value": "`prosodypunct` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
-    "risk": "L2",
-    "minutes": 90,
-    "skills": [
-      "python"
-    ],
-    "cloud_agent_ready": true,
-    "allowed_paths": [
-      "src/yazses/**",
-      "tests/**",
-      "docs/features.md"
-    ],
-    "validation": [
-      "uv run python -m pytest tests/test_features_write_targets.py -q",
-      "uv run python -m pytest tests/ -q"
-    ],
-    "evidence": [
-      "the feature enabled and observed doing something on your machine"
-    ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "open",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-RAG-001",
@@ -841,7 +685,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -854,8 +698,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "open",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-READBACK-CLONE-001",
@@ -867,7 +711,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -880,34 +724,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
-  },
-  {
-    "id": "WIRE-REASK-001",
-    "family": "feature-wiring",
-    "title": "Wire the `reask` capability so it is reachable from the daemon or CLI",
-    "value": "`reask` has a designed, tested, dependency-free core and no caller, so `yazses features enable` refuses it and the feature page says it is not possible yet. Wiring it turns finished work into a usable feature.",
-    "risk": "L2",
-    "minutes": 90,
-    "skills": [
-      "python"
-    ],
-    "cloud_agent_ready": true,
-    "allowed_paths": [
-      "src/yazses/**",
-      "tests/**",
-      "docs/features.md"
-    ],
-    "validation": [
-      "uv run python -m pytest tests/test_features_write_targets.py -q",
-      "uv run python -m pytest tests/ -q"
-    ],
-    "evidence": [
-      "the feature enabled and observed doing something on your machine"
-    ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "open",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-SCREENGROUNDED-001",
@@ -919,7 +737,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -932,8 +750,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "open",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-SCRIBE-001",
@@ -945,7 +763,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -958,8 +776,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "open",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-SCRUB-001",
@@ -971,7 +789,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -984,8 +802,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "open",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-SENTIMENT-001",
@@ -997,7 +815,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -1010,8 +828,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "open",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-SIGN-001",
@@ -1023,7 +841,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -1036,8 +854,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "open",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-SPATIALVAD-001",
@@ -1049,7 +867,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -1062,8 +880,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "open",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-VOCALJOYSTICK-001",
@@ -1075,7 +893,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -1088,8 +906,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "open",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-VOICEGUARD-001",
@@ -1101,7 +919,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -1114,8 +932,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "open",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-VOICEHEALTH-001",
@@ -1127,7 +945,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -1140,8 +958,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "open",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "WIRE-WAKEWORD-001",
@@ -1153,7 +971,7 @@
     "skills": [
       "python"
     ],
-    "cloud_agent_ready": true,
+    "cloud_agent_ready": false,
     "allowed_paths": [
       "src/yazses/**",
       "tests/**",
@@ -1166,8 +984,8 @@
     "evidence": [
       "the feature enabled and observed doing something on your machine"
     ],
-    "state": "verified",
-    "source": "issue #164 (63 designed capabilities awaiting wiring)"
+    "state": "open",
+    "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
     "id": "I18N-AR-M1",
@@ -23361,5 +23179,327 @@
     "state": "verified",
     "source": "ADR-011 privacy boundary",
     "evidence": []
+  },
+  {
+    "id": "CHN-QA-CJK-CLEANER-001",
+    "family": "qa-fixture",
+    "title": "Add CJK cleaner regressions for Han text, ASCII names, numbers, and Chinese punctuation",
+    "value": "Mandarin support can fail after recognition if an English-oriented cleaner inserts or deletes spaces or punctuation. A small model-free fixture makes that class of regression visible in ordinary CI.",
+    "risk": "L2",
+    "minutes": 45,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "tests/test_cleaner.py",
+      "tests/fixtures/**"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_cleaner.py -q"
+    ],
+    "evidence": [],
+    "state": "open",
+    "source": "issue #501 (Mandarin compatibility)"
+  },
+  {
+    "id": "CHN-QA-HAN-SCRIPT-001",
+    "family": "qa-fixture",
+    "title": "Add mixed Han/ASCII/punctuation regression vectors to the Chinese script normalizer",
+    "value": "Simplified/Traditional normalization must not rewrite ASCII identifiers, version strings, numbers, or punctuation around Han text. Focused vectors protect the existing OpenCC decorator without needing a speech model.",
+    "risk": "L2",
+    "minutes": 40,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "tests/test_han_script.py"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_han_script.py -q"
+    ],
+    "evidence": [],
+    "state": "open",
+    "source": "issue #501 (Mandarin compatibility)"
+  },
+  {
+    "id": "CHN-QA-MEETING-CJK-001",
+    "family": "qa-fixture",
+    "title": "Add a failing regression test for Meeting Mode counting contiguous Han text as one word",
+    "value": "Current meeting quality/count logic inherits English whitespace assumptions. A minimal failing test pins the Mandarin defect before anyone changes the quality gate and prevents an unreviewable combined fix.",
+    "risk": "L2",
+    "minutes": 60,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "tests/**"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [],
+    "state": "open",
+    "source": "issue #501 (Mandarin compatibility; CHN-31M)"
+  },
+  {
+    "id": "CHN-QA-CER-HARNESS-001",
+    "family": "qa-fixture",
+    "title": "Add a reproducible Mandarin CER scorer for benchmark result files",
+    "value": "Chinese model comparisons need character error rate rather than whitespace WER. A pure scorer with fixed normalization rules lets every later model run produce comparable evidence.",
+    "risk": "L2",
+    "minutes": 90,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": true,
+    "allowed_paths": [
+      "paper/benchmark/**",
+      "tests/test_bench_wer*.py",
+      "tests/test_benchmarks_match_results.py"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_bench_wer_split.py tests/test_benchmarks_match_results.py -q"
+    ],
+    "evidence": [],
+    "state": "open",
+    "source": "issue #503 (Mandarin model evidence; CHN-40)"
+  },
+  {
+    "id": "CHN-COMPAT-X11-001",
+    "family": "compatibility",
+    "title": "Validate Simplified and Traditional Han injection on Linux X11 in two real applications",
+    "value": "Recognizer accuracy is irrelevant if the final Unicode text cannot be injected into normal applications. This records real X11 evidence with fixed test strings and exact backend/session versions.",
+    "risk": "L0",
+    "minutes": 30,
+    "skills": [],
+    "requires": {
+      "os": "Linux",
+      "session": "X11",
+      "hardware": "a desktop with a microphone"
+    },
+    "cloud_agent_ready": false,
+    "allowed_paths": [
+      "docs/research/mandarin-platform/linux-x11.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_docs_frontmatter.py -q"
+    ],
+    "evidence": [
+      "exact distro, desktop/session, YazSes version and injection backend",
+      "two named applications tested",
+      "result for Simplified: 你好，世界。今天测试 YazSes 123。",
+      "result for Traditional: 你好，世界。今天測試 YazSes 123。",
+      "no private dictated text or identifying home paths"
+    ],
+    "state": "open",
+    "source": "issue #501 (Mandarin compatibility; CHN-32A)"
+  },
+  {
+    "id": "CHN-COMPAT-WAYLAND-001",
+    "family": "compatibility",
+    "title": "Validate Simplified and Traditional Han injection on Linux Wayland in two real applications",
+    "value": "Wayland uses different injection paths from X11, so Chinese support needs session-specific evidence rather than assuming Unicode behavior transfers.",
+    "risk": "L0",
+    "minutes": 30,
+    "skills": [],
+    "requires": {
+      "os": "Linux",
+      "session": "Wayland",
+      "hardware": "a desktop with a microphone"
+    },
+    "cloud_agent_ready": false,
+    "allowed_paths": [
+      "docs/research/mandarin-platform/linux-wayland.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_docs_frontmatter.py -q"
+    ],
+    "evidence": [
+      "exact distro, compositor/session, YazSes version and injection backend",
+      "two named applications tested",
+      "result for Simplified: 你好，世界。今天测试 YazSes 123。",
+      "result for Traditional: 你好，世界。今天測試 YazSes 123。",
+      "no private dictated text or identifying home paths"
+    ],
+    "state": "open",
+    "source": "issue #501 (Mandarin compatibility; CHN-32B)"
+  },
+  {
+    "id": "CHN-COMPAT-MACOS-001",
+    "family": "compatibility",
+    "title": "Validate Simplified and Traditional Han injection on macOS in two real applications",
+    "value": "macOS must be proven with real Unicode injection and any clipboard fallback, not inferred from unit tests on another operating system.",
+    "risk": "L0",
+    "minutes": 30,
+    "skills": [],
+    "requires": {
+      "os": "macOS",
+      "hardware": "a Mac with a microphone"
+    },
+    "cloud_agent_ready": false,
+    "allowed_paths": [
+      "docs/research/mandarin-platform/macos.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_docs_frontmatter.py -q"
+    ],
+    "evidence": [
+      "exact macOS, architecture, YazSes version and injection backend",
+      "two named applications tested",
+      "result for Simplified: 你好，世界。今天测试 YazSes 123。",
+      "result for Traditional: 你好，世界。今天測試 YazSes 123。",
+      "whether clipboard fallback was required"
+    ],
+    "state": "open",
+    "source": "issue #501 (Mandarin compatibility; CHN-32C)"
+  },
+  {
+    "id": "CHN-COMPAT-WINDOWS-001",
+    "family": "compatibility",
+    "title": "Validate Simplified and Traditional Han injection on Windows in two real applications",
+    "value": "Windows Unicode injection has different backend constraints, so the support claim needs direct evidence with Han text rather than ASCII-only tests.",
+    "risk": "L0",
+    "minutes": 30,
+    "skills": [],
+    "requires": {
+      "os": "Windows",
+      "hardware": "a Windows PC with a microphone"
+    },
+    "cloud_agent_ready": false,
+    "allowed_paths": [
+      "docs/research/mandarin-platform/windows.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_docs_frontmatter.py -q"
+    ],
+    "evidence": [
+      "exact Windows build, architecture, YazSes version and injection backend",
+      "two named applications tested",
+      "result for Simplified: 你好，世界。今天测试 YazSes 123。",
+      "result for Traditional: 你好，世界。今天測試 YazSes 123。",
+      "whether clipboard fallback was required"
+    ],
+    "state": "open",
+    "source": "issue #501 (Mandarin compatibility; CHN-32D)"
+  },
+  {
+    "id": "CHN-MEASURE-WHISPER-SMALL-001",
+    "family": "measurement",
+    "title": "Measure multilingual Whisper small on the agreed Mandarin benchmark corpus",
+    "value": "This is the P1 baseline to beat. The run must report CER and product costs on named hardware using the same corpus and normalization as every other candidate.",
+    "risk": "L0",
+    "minutes": 90,
+    "skills": [
+      "python"
+    ],
+    "requires": {
+      "hardware": "a CPU machine able to run multilingual Whisper small"
+    },
+    "cloud_agent_ready": false,
+    "allowed_paths": [
+      "paper/results/probes/**",
+      "docs/benchmarks.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_benchmarks_match_results.py -q"
+    ],
+    "evidence": [
+      "exact model revision, hardware, OS and runtime versions",
+      "CER before and after configured Han-script normalization",
+      "p50/p95 latency or RTF, peak RSS, cold-load time and core-seconds"
+    ],
+    "state": "verified",
+    "source": "issue #503 (Mandarin model evidence; open after CHN-QA-CER-HARNESS-001 lands)"
+  },
+  {
+    "id": "CHN-MEASURE-WHISPER-TURBO-001",
+    "family": "measurement",
+    "title": "Measure multilingual Whisper large-v3-turbo on the agreed Mandarin benchmark corpus",
+    "value": "This same-runtime candidate may improve Mandarin accuracy without introducing a second ASR stack, but it must earn that cost with YazSes measurements.",
+    "risk": "L0",
+    "minutes": 120,
+    "skills": [
+      "python"
+    ],
+    "requires": {
+      "hardware": "a machine able to run Whisper large-v3-turbo"
+    },
+    "cloud_agent_ready": false,
+    "allowed_paths": [
+      "paper/results/probes/**",
+      "docs/benchmarks.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_benchmarks_match_results.py -q"
+    ],
+    "evidence": [
+      "exact model revision, hardware, OS and runtime versions",
+      "CER using the identical corpus/split/normalization as the small baseline",
+      "p50/p95 latency or RTF, peak RSS, cold-load time and core-seconds"
+    ],
+    "state": "verified",
+    "source": "issue #503 (Mandarin model evidence; open after CHN-QA-CER-HARNESS-001 lands)"
+  },
+  {
+    "id": "CHN-MEASURE-WHISPER-LARGE3-001",
+    "family": "measurement",
+    "title": "Measure multilingual Whisper large-v3 on the agreed Mandarin benchmark corpus",
+    "value": "Large-v3 is the same-runtime quality-ceiling candidate, but the CPU/RAM/startup tradeoff must be quantified on the same evidence set before it can influence a recommended profile.",
+    "risk": "L0",
+    "minutes": 120,
+    "skills": [
+      "python"
+    ],
+    "requires": {
+      "hardware": "a machine able to run Whisper large-v3"
+    },
+    "cloud_agent_ready": false,
+    "allowed_paths": [
+      "paper/results/probes/**",
+      "docs/benchmarks.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_benchmarks_match_results.py -q"
+    ],
+    "evidence": [
+      "exact model revision, hardware, OS and runtime versions",
+      "CER using the identical corpus/split/normalization as the small baseline",
+      "p50/p95 latency or RTF, peak RSS, cold-load time and core-seconds"
+    ],
+    "state": "verified",
+    "source": "issue #503 (Mandarin model evidence; open after CHN-QA-CER-HARNESS-001 lands)"
+  },
+  {
+    "id": "CHN-MEASURE-QWEN3-ASR-06B-001",
+    "family": "measurement",
+    "title": "Probe Qwen3-ASR-0.6B for Mandarin quality, CPU cost, timestamps, streaming, and offline packaging",
+    "value": "Qwen3-ASR is a permissively licensed Chinese/dialect candidate, but it should remain isolated until its runtime and product-contract costs are measured against the Whisper baseline.",
+    "risk": "L2",
+    "minutes": 180,
+    "skills": [
+      "python"
+    ],
+    "requires": {
+      "hardware": "a machine capable of running Qwen3-ASR-0.6B"
+    },
+    "cloud_agent_ready": false,
+    "allowed_paths": [
+      "paper/benchmark/probes/**",
+      "paper/results/probes/**"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_benchmarks_match_results.py -q"
+    ],
+    "evidence": [
+      "exact Qwen3-ASR model revision and Apache-2.0 license source",
+      "Mandarin CER on the identical corpus/split/normalization",
+      "CPU feasibility, peak RSS, load time and dependency closure",
+      "word-timestamp capability, streaming capability and offline-after-cache behavior"
+    ],
+    "state": "verified",
+    "source": "issue #503 (Mandarin model evidence; research probe only)"
   }
 ]

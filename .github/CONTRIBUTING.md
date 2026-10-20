@@ -16,6 +16,24 @@ and say hi on it — several need no Python at all (docs, an example config, tes
 hardware). We aim to respond to issues and PRs within a few days, and we would rather merge
 a small imperfect PR and polish it afterwards than leave you waiting.
 
+## No-code eye / camera testing
+
+If you have a real Windows, macOS, GNOME Wayland, KDE Wayland, X11, or HiDPI/multi-monitor
+computer, the eye-control programme has deliberately small **no-code** validation tasks.
+
+Start with [`design/eye-control/BEGINNER_TESTING.md`](../design/eye-control/BEGINNER_TESTING.md).
+It shows the 15–20 minute validation slots for each environment. **Start only a slot that currently
+has the `help wanted` label and a READY banner**; the others are visible so the coverage plan is
+public, not because they are open — they test code that has not been written yet, and there would
+be nothing to run. When a slot is READY you run one named test pack, report
+**PASS / PARTIAL / FAIL / BLOCKED**, and you are done. A failure is useful evidence.
+
+Those public reports are engineering QA, not automatic enrollment in a research study. The guide
+also says exactly what technical data is useful and what must never be posted publicly.
+
+No camera hardware? #449 becomes a tiny first contribution as soon as the eye-control planning docs
+are merged: read the beginner instructions and report the first confusing step.
+
 ## Getting started
 
 **Want to skip setup entirely?** The repo ships a
@@ -49,22 +67,34 @@ git clone https://github.com/MSKazemi/yazses
 cd yazses
 uv sync
 uv run python -m pytest tests/ -v   # run the test suite  (must be green)
-uv run ruff check src tests scripts # lint                (must be green)
+uv run ruff check src tests scripts paper/benchmark # lint                (must be green)
 uv run mypy src                     # type checking       (advisory — see below)
 ```
 
+**Changing CI/CD?** Read [CI_POLICY.md](CI_POLICY.md) before editing workflows or release
+validation. It explains which checks are blocking, how PR cancellation works, and why
+validation and deployment have different permission boundaries.
+
 **pytest and ruff must pass** — if they are green locally, CI will be green. You do **not**
 need a working microphone, a Whisper model, or the optional extras to contribute: the test
-suite is fully offline and mocks the audio and model layers, and runs in about 30 seconds.
+suite is fully offline and mocks the audio and model layers. It is large, so a full run takes
+minutes rather than seconds — that is expected, not a hang. While you work, narrow it to the
+file you changed (`uv run python -m pytest tests/test_foo.py`, or `-k pattern`) and leave the
+full run for before you push.
 
-**mypy is clean and advisory.** `uv run mypy src` currently reports **no issues across 433
-source files**, so if you see an error, you almost certainly just introduced it. It is not
-a CI gate — only `ruff` and `pytest` are — so nobody will block your PR on it, but please
-run it once before pushing and don't leave the count above zero.
+**mypy is clean and advisory.** `uv run mypy src` reports **no issues** on the plain
+`uv sync` above — you do not need to install anything else first. So if you see an error,
+you almost certainly just introduced it. It is not a CI gate — only `ruff` and `pytest`
+are — so nobody will block your PR on it, but please run it once before pushing and don't
+leave the count above zero. (This paragraph deliberately no longer quotes how many files
+were checked: that number moves every release, and it was wrong here for months.)
 
 The `[tool.mypy]` section in `pyproject.toml` silences the imports of optional backends
 that a base install deliberately omits — those are absent by design, not bugs, and no PR
-should try to "fix" them.
+should try to "fix" them. `PySide6` is the one entry that unsilences itself: it ships
+stubs, so `uv sync --extra desktop` turns the type checking back on for the overlay, the
+tray and the settings window. Install it if you are working on those; you do not need it
+otherwise.
 
 Changed a CLI command, flag, or config key? Regenerate the reference docs, or the doc-sync
 test will fail:
@@ -97,10 +127,13 @@ Reviewing someone else's PR — including as your own next step after a first me
 and a path into reviewing that does not start with repository permissions.
 
 [`GOVERNANCE.md`](GOVERNANCE.md) is the short version: what you can merge yourself,
-what needs an ADR, how **module stewardship** works (two non-trivial PRs to a module
-and it is yours to review), and the handful of things — no telemetry, offline by
-default, off by default, honesty about what exists — that a PR cannot change without
-a superseding ADR. Worth two minutes before you propose anything structural.
+what needs an ADR, and the promotion path from **Contributor → Regular contributor →
+Module steward → Maintainer**. Regular contributors can review bounded L0/L1 work without
+receiving write access; module stewardship adds bounded ownership of one area after two
+non-trivial contributions plus good review judgement. The same document also lists the
+handful of things — no telemetry, offline by default, off by default, honesty about what
+exists — that a PR cannot change without a superseding ADR. Worth two minutes before you
+propose anything structural.
 
 ## Before opening a pull request
 
@@ -170,9 +203,9 @@ it at once. That means the ground floor is open.
   that tells you which arguments have already been had.
 - **Find work:** issues labelled [`android`](https://github.com/MSKazemi/yazses/labels/android),
   coordinated by [the Android epic, #81](https://github.com/MSKazemi/yazses/issues/81).
-  Comment to claim one. The two M0 tasks
-  ([#82](https://github.com/MSKazemi/yazses/issues/82),
-  [#83](https://github.com/MSKazemi/yazses/issues/83)) are Python and are open right now.
+  Comment to claim one. M0 has landed — [`contract/`](../contract/README.md) holds the
+  golden vectors it produced — and extending them is still Python work in this repository,
+  for example [#512](https://github.com/MSKazemi/yazses/issues/512).
 
 Two things worth knowing before you decide it is not for you:
 
@@ -225,14 +258,42 @@ forever. The one part that may **not** drift is the contributor wall — it is g
 identical in every language, and a stale copy quietly drops a real person from the surface
 people actually look at. A test enforces that, so copy that block across verbatim.
 
-## Using an AI coding assistant
+## Using a coding agent
 
 That is fine, and increasingly common — but the PR is yours, so please read and understand
 every line before you open it, and confirm the tests pass locally rather than assuming.
 [`AGENTS.md`](../AGENTS.md) gives your assistant the project conventions, the gates, and the two
 rules it is most likely to break (**no network calls or telemetry**, and **new features ship
-off by default**). Mention in the PR body if a change was largely AI-generated; it only
-changes how carefully we review, never whether we accept it.
+off by default**).
+
+An assistant is a tool, not a project author or co-author: do not add agent
+`Co-Authored-By` trailers or contributor credit. Tooling disclosure in the PR is different
+and is welcome — say which assistant you used and what you verified personally. The human who
+opens the PR remains responsible for the complete diff.
+
+For cloud coding agents such as Jules, use the fork-first worker model in
+[`campaign/agent-workers.md`](../campaign/agent-workers.md). You do not need upstream write
+access merely to connect your own agent.
+
+**You never need to pay for an AI tool to contribute.** Claude Code, Codex, ChatGPT, Gemini,
+Cursor, Copilot, Jules and similar products are third-party services. If you choose to use
+one, its subscription, API, token, credit, cloud, and overage charges are your responsibility.
+YazSes does not reimburse those charges unless a maintainer agreed in writing in advance to
+a specific expense and amount.
+
+Before using a coding agent, read **[Using AI coding agents safely](../docs/contribute/ai-agents.md)**.
+It shows how to work from your fork, keep approval controls on, tell subscription usage from
+API billing, and avoid accidentally enabling paid continuation. The canonical project policy
+is **[Third-party AI tools: billing, responsibility, and no reimbursement](../THIRD_PARTY_AI_TOOLS.md)**.
+
+Using **Google Jules** specifically? Follow the
+**[step-by-step Jules connection guide](../docs/contribute/jules.md)**. The approved contributor
+path connects Jules to **your fork**, not directly to `MSKazemi/yazses`; no upstream collaborator
+access is required.
+
+Provider prices, limits, and billing behavior change. Our examples are teaching material, not
+a promise about a provider account. Always check the provider's current official terms,
+pricing, usage page, and billing settings before enabling paid usage.
 
 ## After it is merged — please take the credit publicly
 

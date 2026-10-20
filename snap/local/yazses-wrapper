@@ -3,4 +3,5 @@ set -euo pipefail
 # shellcheck source=snap/local/snap-env.sh
 . "$SNAP/bin/snap-env.sh"
 yazses_audio_env
+yazses_desktop_env
 exec "$SNAP/usr/bin/python3.12" -c 'import sys; sys.argv[0]="yazses"; from yazses.cli import app; sys.exit(app())' "$@"

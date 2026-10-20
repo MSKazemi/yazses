@@ -17,11 +17,13 @@ yazses doctor                # reports your session type and which backend was p
 yazses start                 # hold the hotkey, speak, release
 ```
 
-!!! warning "Do not use the Snap on Wayland"
+!!! note "The Snap takes a different route on Wayland"
     Strict confinement prevents the Snap from configuring or using the host
-    `ydotoold` service required for reliable keystroke injection. The Snap is a
-    supported dictation install on X11 only. Running `yazses setup` inside it
-    cannot remove that limitation.
+    `ydotoold` service, and running `yazses setup` inside it cannot change that.
+    It therefore injects through the `xdg-desktop-portal` RemoteDesktop API,
+    which needs no `/dev/uinput` and no udev rule and works on GNOME and KDE.
+    Approve the one-time permission prompt at first dictation. The unconfined
+    installs below remain the most-tested Wayland path.
 
 ## Why does dictation break on Wayland?
 

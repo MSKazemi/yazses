@@ -1,0 +1,81 @@
+{
+  "schema_version": "1.0",
+  "study_mode": "community_qa",
+  "timestamp": "2026-09-25T10:14:02+00:00",
+  "software": {
+    "yazses_version": "2.40.1",
+    "git_commit": "a19a8f79",
+    "python_version": "3.12.7",
+    "perception_backend": {"name": "mediapipe_face_landmarker", "asset_version": "v2"},
+    "packages": {"mediapipe": "0.10.21", "numpy": "2.1.3"},
+    "generator": "yazses-eye-eval/0.1.0"
+  },
+  "machine": {
+    "os_name": "Ubuntu",
+    "os_version": "24.04.3 LTS",
+    "kernel": "6.14.0-32-generic",
+    "arch": "x86_64",
+    "cpu_model": "AMD Ryzen 7 5825U",
+    "logical_cpus": 16,
+    "ram_gb": 15.7
+  },
+  "os_session": {"session_type": "x11", "compositor": "mutter"},
+  "display": {
+    "display_count": 1,
+    "displays": [
+      {"index": 0, "x": 0, "y": 0, "width": 1920, "height": 1080, "scale": 1.0, "primary": true}
+    ],
+    "topology_fingerprint": "sha256:0c9f1a6b3d2e4f57"
+  },
+  "camera": {
+    "camera_class": "integrated",
+    "capture_mode": "live",
+    "capture_width": 1280,
+    "capture_height": 720,
+    "nominal_fps": 30,
+    "measured_fps_median": 28.4
+  },
+  "feature": {"name": "gaze", "state": "experimental"},
+  "config": {
+    "config_hash": "sha256:5b1d0e7c",
+    "settings": {
+      "gaze.enabled": true,
+      "gaze.confidence_threshold": 0.55,
+      "gaze.calibration_points": 9
+    }
+  },
+  "protocol": {
+    "task": "gaze_routing_4_pane",
+    "task_version": "1.0",
+    "protocol_id": null
+  },
+  "metrics": {
+    "trials": 40,
+    "correct_target": 35,
+    "wrong_target": 2,
+    "fallback_no_route": 3,
+    "invalid_tracking": 0,
+    "correct_target_rate": 0.875,
+    "calibration": {
+      "explicit_points": 9,
+      "validation_rmse_px": 41.2,
+      "held_out_rmse_px": 58.9,
+      "calibration_age_s": 214.0,
+      "topology_valid": true,
+      "angular_error_deg": {
+        "value": null,
+        "reason": "not_measured"
+      }
+    },
+    "reacquisition_time_ms_p50": {
+      "value": null,
+      "reason": "tracking_unavailable"
+    }
+  },
+  "privacy": {
+    "data_class": "B",
+    "raw_media_retained": false,
+    "contains_personal_identifiers": false,
+    "notes": "Derived counts only. Public GitHub QA, not research (ADR-v2-150 Rule 1)."
+  }
+}

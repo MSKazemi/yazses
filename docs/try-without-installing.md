@@ -129,9 +129,10 @@ The container definition is in [`.devcontainer/`](https://github.com/MSKazemi/ya
 GitHub's free tier covers this comfortably.
 
 The same container is the project's **contributor** environment, so if you decide you
-want to change something, the test suite is already installed and runs fully offline in
-about 30 seconds (`uv run python -m pytest tests/ -q`) — no microphone, model or GPU
-needed.
+want to change something, the test suite is already installed and runs fully offline
+(`uv run python -m pytest tests/ -q`) — no microphone, model or GPU needed. It is a large
+suite, so a full run takes minutes rather than seconds; narrow it to the file you changed
+while you work.
 
 ---
 

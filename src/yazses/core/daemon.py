@@ -17,10 +17,10 @@ import subprocess
 import sys
 import threading
 import time
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from types import FrameType
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -28,12 +28,17 @@ if TYPE_CHECKING:
     # All imported lazily at runtime (in _build_gaze_targeter and the other builders
     # below) so the optional/heavy dependencies stay dormant; the names exist here only
     # so the `X | None` attribute annotations resolve for the type checker.
+    from yazses.bookmarks.service import BookmarkService
+    from yazses.endpoint.autostop import AutoStopTurn
+    from yazses.gaze.refine_runtime import RefinementRuntime
     from yazses.gaze.targeter import GazeTargeter
     from yazses.inject.target import TargetDetector
     from yazses.latency.pool import EnginePool
     from yazses.learning.edit_watch import EditWatcher
     from yazses.meeting.controller import MeetingController
+    from yazses.perception import SharedPerceptionSource
     from yazses.polyglot.router import PolyglotRouter
+    from yazses.reask.gate import ReaskGate
     from yazses.system.single_instance import SingleInstanceLock
     from yazses.timeline.history import InjectionTimeline
     from yazses.tts.base import TtsBackend
@@ -45,10 +50,12 @@ from yazses.audio.device_monitor import DeviceMonitor, SilentStreakTracker, capt
 from yazses.audio.mic_prompt import MicPrompt
 from yazses.audio.padding import PreSpeechRingBuffer
 from yazses.audio.recorder import AudioRecorder
+from yazses.audio.speech_presence import holds_no_speech, speech_check_applies
 from yazses.audio.vad_calibrated import is_silent_calibrated
 from yazses.cmdsafety.classify import ConfirmGate
 from yazses.commands.dispatch import dispatch as cmd_dispatch
 from yazses.commands.grammar import CommandIntent, IntentType, classify
+from yazses.commands.grammars.registry import resolve_command_language
 from yazses.commands.macros import MacroContext, build_macro_table
 from yazses.commands.revise import DictationLedger, parse_revise
 from yazses.config import Config, load_config
@@ -133,7 +140,29 @@ def should_launch_overlay(
 
     if not config.overlay.enabled:
         return False
+    if overlay_steals_focus(env, platform=platform):
+        return False
     return has_graphical_session(env, platform=platform)
+
+
+def overlay_steals_focus(env: Mapping[str, str], *, platform: str | None = None) -> bool:
+    """True where showing the overlay takes keyboard focus away from the user's app.
+
+    Under a native Wayland Qt session the compositor (Mutter, measured on GNOME 46)
+    focuses every new top-level window. ``WindowDoesNotAcceptFocus`` and
+    ``WA_ShowWithoutActivating`` are X11 hints with no Wayland equivalent, so the
+    overlay appears the moment the hotkey goes down and the dictated text is typed
+    into *it* -- the daemon logs "Injecting N chars", ``status`` reports the burst as
+    typed, and nothing shows up anywhere. An overlay that eats the dictation is worse
+    than none, so it is not spawned there. Setting ``QT_QPA_PLATFORM`` explicitly
+    (e.g. ``xcb``) says the user has chosen where it goes, and lifts the block.
+    """
+    import sys
+
+    platform = sys.platform if platform is None else platform
+    if not platform.startswith("linux") or env.get("QT_QPA_PLATFORM"):
+        return False
+    return bool(env.get("WAYLAND_DISPLAY")) or env.get("XDG_SESSION_TYPE") == "wayland"
 
 
 def overlay_dependency_available() -> bool:
@@ -187,10 +216,86 @@ class _DaemonState:
 # daemon accumulate them for the rest of the session.
 _MAX_PENDING_NOTIFICATIONS = 10
 
+# The tray's [Re-calibrate] measures the room, then the voice. The lead gives the toast
+# that asks for each a moment to be read before the recording it describes starts.
+_RECAL_ROOM_S = 2.0
+_RECAL_SPEECH_S = 4.0
+_RECAL_LEAD_S = 1.5
+
+# How long a newly started daemon waits for an older one it asked to stop to give up the
+# lock. Its shutdown joins the audio and STT threads, so a few seconds is normal.
+_TAKEOVER_WAIT_S = 10.0
+
 _TONE_INSTRUCTIONS: dict[str, str] = {
     "casual": "Use a casual, conversational tone.",
     "formal": "Use a formal, professional tone.",
 }
+
+
+
+def _gate_status(gate):
+    """The global hands-free gate's snapshot, or None when there is no gate or it cannot answer."""
+    if gate is None:
+        return None
+    try:
+        return gate.status()
+    except Exception:  # pragma: no cover - defensive
+        log.debug("hands-free safety status failed", exc_info=True)
+        return None
+
+
+def _head_facts(runtime) -> dict[str, Any]:
+    """The Head-Pointer's state and its pointer, for the hands-free status payload.
+
+    Names, flags and a sample age only -- ``HeadPointerRuntime.command("status")`` is the
+    same value-free dict ``yazses headpointer status`` prints. ``{}`` when the runtime
+    cannot answer, which the renderers read as "not determined", never as healthy. Bounded
+    free text: the controller's reason and the pointer backend's own consent detail are
+    sentences about the desktop, and the report bundle redacts every string in this block.
+    """
+    if runtime is None or not getattr(runtime, "active", False):
+        reason = str(getattr(runtime, "reason", "") or "")[:200]
+        return {
+            "head_built": False,
+            "head_state": "not_running",
+            "head_state_reason": reason,
+            "pointer_available": False,
+            "pointer_reason": reason or "the Head-Pointer was not built at start-up",
+        }
+    try:
+        status = runtime.command("status")
+    except Exception:  # pragma: no cover - defensive
+        log.debug("head-pointer status for the hands-free payload failed", exc_info=True)
+        return {}
+    if not isinstance(status, dict) or not status.get("ok"):
+        return {}
+    out: dict[str, Any] = {
+        "head_built": True,
+        "head_state": str(status.get("state") or ""),
+        "head_state_reason": str(status.get("reason") or "")[:200],
+    }
+    age = status.get("sample_age_s")
+    if isinstance(age, (int, float)) and not isinstance(age, bool):
+        out["head_age_ms"] = float(age) * 1000.0
+    backend = str(status.get("backend") or "")
+    if backend:
+        out["pointer_backend"] = backend
+        out["pointer_available"] = True
+        out["pointer_consent"] = str(status.get("consent") or "")
+        out["pointer_consent_reason"] = str(status.get("consent_reason") or "")[:200]
+    return out
+
+
+def _switch_action_lines(daemon) -> tuple[str, ...]:
+    """One line per bound face-switch action saying what it last did; ``()`` if none exists.
+
+    A free function over ``getattr`` so the status payload keeps working against the partial
+    daemon stand-ins the IPC tests use, and against a daemon that never built a face switch.
+    """
+    outcomes = getattr(daemon, "_switch_outcomes", None)
+    if outcomes is None:
+        return ()
+    return outcomes.lines(getattr(daemon, "_switch_bound", frozenset()))
 
 
 class Daemon:
@@ -204,6 +309,20 @@ class Daemon:
     #: an instance-only attribute. A missing router must degrade to Tier 1, and an
     #: AttributeError raised mid-burst does the opposite: it loses the words.
     _slm_router = None
+    #: Same reason: `_shutdown` and the IPC handler read these on paths that a partial
+    #: daemon (a test, a startup that failed early) never assigned them on.
+    _headpointer = None
+    _handsfree_safety = None
+    # The face switch's select/confirm/cancel outcome log and the actions bound to it
+    # (facegesture/actions.py). None / empty until a face switch is built.
+    _switch_outcomes = None
+    _switch_bound: frozenset[str] = frozenset()
+    _switch_select_limiter = None
+    _gesture = None
+    #: Hands-free auto-stop (ADR-v2-029): the tap-to-latch turn, or None -- the default.
+    #: Class-level for the same partial-daemon reason as the attributes above; while it is
+    #: None the two hold handlers behave exactly as they always have.
+    _autostop: AutoStopTurn | None = None
 
     def __init__(
         self,
@@ -212,6 +331,10 @@ class Daemon:
     ) -> None:
         self._config = config or load_config()
         self._platform = platform or get_platform()
+        self._command_language = resolve_command_language(
+            self._config.commands.language,
+            self._config.stt.language,
+        )
         self._state = _DaemonState()
         self._lock = threading.RLock()
         self._hotkey: HotkeyBackend | None = None
@@ -247,6 +370,26 @@ class Daemon:
         # Glance-Type look-to-pane targeter (None unless [gaze] enabled + routing
         # + calibration + an X11 desktop backend all present — otherwise dormant).
         self._gaze_targeter: GazeTargeter | None = None
+        # The one shared camera owner (ADR-v2-145). Declared here rather than only in
+        # `_build_pipeline`, which runs under `run()`: `shutdown` closes it, and an
+        # attribute that exists only after a successful startup would make that
+        # release silently skip on any path that never got there.
+        self._perception: SharedPerceptionSource | None = None
+        # Whether Glance-Type gaze holds a lease on that source (#396) rather than
+        # owning a camera of its own. Only `_build_gaze_targeter` sets it; `status`
+        # reads it so a payload never claims shared state for a consumer that is not.
+        self._gaze_on_shared_source = False
+        # The same fact for the face switch: True only when `_build_face_gesture_source`
+        # handed the backend a lease instead of letting it open a camera of its own.
+        self._face_on_shared_source = False
+        # What `_build_gaze_refinement` needs to know about the calibration that was
+        # loaded: (verified against this desktop, its source, a live context check).
+        self._gaze_calibration_facts: tuple[bool, str, Callable[[], bool] | None] = (
+            False, "explicit", None
+        )
+        # Implicit gaze calibration (#398): None unless [gaze_refine] is on and every
+        # precondition held. `shutdown` stops it before the camera is released.
+        self._gaze_refinement: RefinementRuntime | None = None
         # Ghost Ahead endpoint anticipator (None when [endpoint] disabled — dormant).
         self._endpoint: EndpointAnticipator | None = (
             EndpointAnticipator(
@@ -276,6 +419,8 @@ class Daemon:
         # Confidence Ink (ADR-v2-001): low-confidence word count from the last
         # burst, surfaced in `yazses status` (metadata only, never the words).
         self._last_low_confidence_words: int = 0
+        # Confidence-Gated Re-Ask (ADR-v2-077): built on first use, only when [reask] is on.
+        self._reask: ReaskGate | None = None
         # Recent decode times per model, for the p50/p95 in `yazses status`
         # (#296). Bounded and in-memory: a diagnostic must not depend on the
         # opt-in learning corpus, and it must not write anything to disk.
@@ -312,6 +457,7 @@ class Daemon:
         # Constructed only when a timer is actually set — it owns a thread, and a
         # daemon whose user never says "set a timer" should not have one.
         self._timers: TimerService | None = None
+        self._bookmarks: BookmarkService | None = None  # built on first "bookmark" phrase
         self._edit_watcher: EditWatcher | None = None
         self._cleaner: LlmCleaner | None = None
         # Read-Back Loop TTS backend (None when [tts] disabled — dormant).
@@ -390,13 +536,56 @@ class Daemon:
             self._platform.paths.data_dir / "daemon.lock"
         )
         if not self._instance_lock.acquire():
+            if self._replace_older_daemon(self._instance_lock):
+                return True
             log.error(
                 "Another YazSes daemon is already running — exiting. "
-                "Manage the daemon with: systemctl --user restart yazses "
-                "(avoid `yazses start`, which detaches a second one)."
+                "To restart it, run: yazses restart "
+                "(on Linux with systemd: systemctl --user restart yazses)."
             )
             return False
         return True
+
+    def _replace_older_daemon(self, lock: SingleInstanceLock) -> bool:
+        """Ask a strictly older daemon to stop and take its place. False if not applicable.
+
+        After an upgrade the previous daemon keeps running with what it read at its own
+        start -- on macOS the keyboard permission, before it was granted -- while the new
+        app exits as a duplicate (#562, #578). Only an *older* version is replaced
+        (`core/takeover.py`); an equal or newer one, or one that will not say, is left
+        alone and the caller reports the duplicate as before.
+        """
+        from yazses.core.takeover import is_older
+
+        platform = self._platform
+        try:
+            client = platform.ipc_client_factory(platform.paths.ipc_socket)
+            # Not consuming: this reader displays nothing, and the holder's one-shot toast
+            # queue is the only notification channel on Windows and macOS.
+            status = client.call("status", consume_notifications=False)
+            theirs = status.get("version") if isinstance(status, dict) else None
+            mine = _running_version()
+            if not is_older(theirs, mine):
+                return False
+            log.warning(
+                "YazSes %s is still running from before the upgrade; asking it to stop "
+                "so %s can take over.", theirs, mine,
+            )
+            client.call("shutdown")
+        except Exception:
+            log.debug("Could not ask the running daemon to stop", exc_info=True)
+            return False
+        deadline = time.monotonic() + _TAKEOVER_WAIT_S
+        while time.monotonic() < deadline:
+            if lock.acquire():
+                log.info("The previous daemon stopped; this one has taken over.")
+                return True
+            time.sleep(0.25)
+        log.error(
+            "The older daemon was asked to stop and still holds the lock after %.0f s. "
+            "Run: yazses restart", _TAKEOVER_WAIT_S,
+        )
+        return False
 
     def run(self) -> None:
         self._configure_logging()
@@ -464,6 +653,12 @@ class Daemon:
                 self._device_monitor.start()
                 log.info("Watching for audio-input device changes.")
             self._start_update_watcher()
+            self._load_shown_notices()
+            self._announce_permissions()
+            self._warm_portal_session()
+            self._start_portal_idle_reaper()
+            self._start_headpointer()
+            self._start_gesture()
             self._hotkey.run()
         finally:
             self._shutdown()
@@ -499,6 +694,11 @@ class Daemon:
     def _maybe_launch_overlay(self) -> None:
         """Spawn the sonar overlay as a detached process when configured."""
         if not should_launch_overlay(self._config, os.environ):
+            if self._config.overlay.enabled and overlay_steals_focus(os.environ):
+                log.info(
+                    "Overlay skipped: on Wayland it takes keyboard focus and your "
+                    "dictation would be typed into it. Set QT_QPA_PLATFORM=xcb to force it."
+                )
             return
         if not overlay_dependency_available():
             log.info(
@@ -588,19 +788,18 @@ class Daemon:
         if not summary:
             return ""
         indented = summary.replace("\n", "\n    ")
-        return f"\n  it said:\n    {indented}"
+        return f"\n  the previous tray said:\n    {indented}"
 
     def _supervise_tray(self) -> None:
         from yazses.system.single_instance import holder_pid
-        from yazses.tray.supervisor import DEFAULT_INTERVAL_S, decide
+        from yazses.tray.supervisor import DEFAULT_INTERVAL_S, decide, lock_state
 
         lock = self._platform.paths.data_dir / "tray.lock"
         relaunches = 0
         while not self._stop_event.wait(DEFAULT_INTERVAL_S):
             try:
-                decision = decide(
-                    alive=holder_pid(lock) is not None, relaunches_so_far=relaunches
-                )
+                holder = holder_pid(lock)
+                decision = decide(alive=holder is not None, relaunches_so_far=relaunches)
                 if decision.give_up:
                     # Say why, not just that. The reason text tells the user to run
                     # `yazses tray` to see the error -- advice that only ever existed
@@ -612,7 +811,10 @@ class Daemon:
                 if not decision.relaunch:
                     continue
                 log.info(
-                    "Tray supervisor: %s%s", decision.reason, self._last_tray_error()
+                    "Tray supervisor: %s (tray.lock: %s)%s",
+                    decision.reason,
+                    lock_state(lock.exists(), holder),
+                    self._last_tray_error(),
                 )
                 proc = subprocess.Popen(
                     command_for(Mode.TRAY),
@@ -627,6 +829,311 @@ class Daemon:
                 log.exception("Tray supervisor iteration failed")
 
     # ---- update watcher ---------------------------------------------------
+
+    def _announce_model_download(self, cfg) -> None:
+        """Say that the first run is fetching a model, before it blocks. Never raises.
+
+        The speech model is several hundred megabytes and it is downloaded on the
+        daemon's startup path. Until now the only record was a `log.info`, so a user
+        who installed from App Center, a `.dmg` or an app-grid icon saw an
+        application that had started and then did nothing, for minutes, with no
+        progress, no estimate and no way to tell a slow download from a hung one.
+        Failure was already handled -- `_await_shutdown_in_error` notifies -- so the
+        gap was only ever the *successful* wait, which is the common case.
+
+        Silent when the model is already on disk, which is every run but the first.
+        """
+        try:
+            from yazses.system.hfcache import offline_requested
+
+            # An offline install is not waiting on a download, and telling it one is
+            # coming would be a false statement about the thing it cares most about.
+            if offline_requested():
+                return
+            model = str(getattr(cfg.stt, "model", "") or "")
+            if not model:
+                return
+            from yazses.stt.download import is_cached
+
+            if is_cached(model):
+                return
+            from yazses.system import notify as notify_mod
+
+            log.info("Speech model %r is not cached; downloading it now.", model)
+            notify_mod.notify(
+                "YazSes is downloading its speech model",
+                f"First run only: fetching {model}, a few hundred MB. Dictation "
+                "starts working as soon as it finishes — you can leave this alone.",
+            )
+        except Exception:  # noqa: BLE001 — never let an announcement block the load
+            log.debug("could not announce the model download", exc_info=True)
+
+    def _announce_permissions(self) -> None:
+        """Say which OS permissions are missing, on the desktop. Never raises.
+
+        Every probe and every remedy string used here already existed; their only
+        consumer was `yazses doctor`, a command you have to know to run. So the
+        daemon would start with keyboard access denied, reach IDLE, paint the tray
+        healthy, and let the user hold the key into a void -- which is, word for
+        word, what the first human to run the macOS build reported on #182.
+
+        Only DENIED is announced. UNKNOWN stays silent because it means "I could
+        not tell": macOS reports a microphone nobody has been asked about yet as
+        `NotDetermined`, and an absent PyObjC reports UNKNOWN too. Reddening a
+        working install on the strength of a probe that did not run is the mistake
+        `system/snap.py` already documents.
+
+        Rate-limited through the same persisted record as `_report_failure`, so a
+        crash loop under ``Restart=on-failure`` cannot turn one missing grant into
+        five identical toasts.
+        """
+        try:
+            from yazses.system import notify as notify_mod
+            from yazses.system import permission_alerts as pa
+            from yazses.system.diagnosis import should_notify
+
+            perms = getattr(self._platform, "permissions", None)
+            if perms is None:
+                return
+
+            def _state(name: str) -> str | None:
+                check = getattr(perms, name, None)
+                if check is None:
+                    return None
+                try:
+                    return str(getattr(check(), "value", "")) or None
+                except Exception:
+                    # A probe that raises is a probe that did not run. Same rule as
+                    # UNKNOWN: it must not become a finding.
+                    return None
+
+            def _advice(name: str) -> str:
+                getter = getattr(perms, name, None)
+                if getter is None:
+                    return ""
+                try:
+                    return str(getter() or "")
+                except Exception:
+                    return ""
+
+            probe = pa.PermissionProbe(
+                keyboard=_state("check_keyboard_capture") or pa.UNKNOWN,
+                microphone=_state("check_microphone") or pa.UNKNOWN,
+                input_monitoring=_state("check_input_monitoring"),
+                keyboard_fix=_advice("how_to_grant"),
+                microphone_fix=_advice("how_to_grant_microphone"),
+                input_monitoring_fix=_advice("how_to_grant_input_monitoring"),
+            )
+
+            for alert in pa.alerts_for(probe):
+                with self._lock:
+                    fresh = should_notify(
+                        f"permission-{alert.key}", time.time(), self._diagnosed_at
+                    )
+                if not fresh:
+                    continue
+                self._persist_shown_notices()
+                log.warning("%s — %s", alert.title, alert.body.replace("\n", " "))
+                # Informational, per `toast_policy`: there is no button to press, so
+                # a `critical` toast would outrank everything on screen and sit there
+                # until dismissed like an alarm. The state stays in the tray and in
+                # `yazses doctor` after this clears itself.
+                urgency, expire_ms = notify_mod.toast_policy(False)
+                notify_mod.notify(
+                    alert.title, alert.body, urgency=urgency, expire_ms=expire_ms
+                )
+        except Exception:  # noqa: BLE001 — startup must survive its own warnings
+            log.debug("could not announce missing permissions", exc_info=True)
+
+    def _shown_notices_path(self):
+        from yazses.system import toast_memory
+
+        return toast_memory.path_for(self._platform.paths.data_dir)
+
+    def _load_shown_notices(self) -> None:
+        """Seed the repeat-silence record from disk. Never raises."""
+        try:
+            from yazses.system import toast_memory
+
+            with self._lock:
+                self._diagnosed_at.update(toast_memory.load(self._shown_notices_path()))
+        except Exception:  # noqa: BLE001
+            log.debug("could not read the shown-notice record", exc_info=True)
+
+    def _persist_shown_notices(self) -> None:
+        """Record what has been shown so a restart does not repeat it. Never raises."""
+        try:
+            from yazses.system import toast_memory
+
+            with self._lock:
+                snapshot = dict(self._diagnosed_at)
+            toast_memory.save(self._shown_notices_path(), snapshot)
+        except Exception:  # noqa: BLE001
+            log.debug("could not persist the shown-notice record", exc_info=True)
+
+    def _warm_portal_session(self) -> None:
+        """Negotiate the Wayland portal session now, not mid-sentence.
+
+        The RemoteDesktop portal asks the user's permission once, and `Start`
+        does not return until they answer. Left lazy, that question is asked by
+        the *first hold-to-talk release* -- the one moment the user is watching
+        the text field they just dictated into rather than hunting for a
+        permission window. Worse, the portal logs "Failed to associate portal
+        window with parent window" for our empty `parent_window`, so the dialog
+        can be raised behind whatever is in front.
+
+        Doing it at startup moves the question to login, where a dialog is
+        expected. On a background thread because it blocks until answered, and
+        the daemon must reach IDLE and be ready for the hotkey regardless.
+
+        A refusal is not fatal: `LinuxInjector` falls back to clipboard paste,
+        and the hot path uses a short budget so it degrades in seconds.
+
+        YazSes explains itself *before* `warm()` opens that dialog. The desktop's
+        own wording is "Remote Desktop" confirmed by "Share" -- the only Wayland
+        API for synthetic input, but read cold by someone who installed an
+        offline dictation tool it says the opposite of what is happening, and
+        Cancel is the rational answer to it. The explanation is spoken only when
+        a dialog is actually coming: with a restore token already on disk the
+        portal asks nothing, and a toast on every start would be pure noise.
+        """
+        injector = getattr(self, "_injector", None)
+        backend = getattr(injector, "_primary", injector)
+        warm = getattr(backend, "warm", None)
+        if warm is None:
+            return
+
+        def _explain() -> None:
+            """Say what the dialog is before it appears. Never raises."""
+            try:
+                from yazses.inject.portal import consent_explanation, read_token
+                from yazses.system.snap import in_strict_snap
+
+                if read_token():
+                    return
+                # Follow the request, not the feature list: a pointer consumer registered
+                # on the session (Head-Pointer on Wayland) puts POINTER in the very
+                # SelectDevices this dialog answers, and the copy must say so.
+                title, body = consent_explanation(
+                    can_avoid=not in_strict_snap(),
+                    wants_pointer=bool(getattr(backend, "wants_pointer", False)),
+                )
+                log.info("%s — %s", title, body.replace("\n", " "))
+                from yazses.system.notify import notify
+
+                notify(title, body)
+            except Exception:  # noqa: BLE001 — an explanation must never block the ask
+                log.debug("could not explain the portal consent dialog", exc_info=True)
+
+        def _offer_instead() -> bool:
+            """True when the portal is available but unconsented — offer, don't take.
+
+            Taking it silently is what put a screen-sharing indicator in the top bar
+            of every Wayland user who had no ydotoold, for the life of the daemon,
+            without anyone agreeing to it. Dictation still works meanwhile: selection
+            has already fallen through to the clipboard backend.
+            """
+            try:
+                from yazses.inject import registry
+                from yazses.system import notify as notify_mod
+                from yazses.system.diagnosis import should_notify
+
+                env = registry.Env.detect(
+                    (self._config.injection.backend or "auto"),
+                    consent=getattr(self._config.injection, "portal_consent", "ask"),
+                )
+                pending = registry.select(env).needs_consent
+                if not pending:
+                    return False
+
+                with self._lock:
+                    fresh = should_notify(
+                        "portal-offer", time.time(), self._diagnosed_at
+                    )
+                if fresh:
+                    self._persist_shown_notices()
+                    title = "YazSes is typing through the clipboard"
+                    body = (
+                        "Typing directly needs either ydotoold (run `yazses setup`, "
+                        "then log out) or permission for the desktop portal, which "
+                        "shows a sharing indicator while active. Choose one in "
+                        "Settings → Text injection."
+                    )
+                    log.warning("%s — %s", title, body)
+                    urgency, expire_ms = notify_mod.toast_policy(False)
+                    notify_mod.notify(title, body, urgency=urgency, expire_ms=expire_ms)
+                return True
+            except Exception:  # noqa: BLE001 — never block startup on an offer
+                log.debug("could not evaluate the portal consent offer", exc_info=True)
+                return False
+
+        def _run() -> None:
+            try:
+                if _offer_instead():
+                    return
+                _explain()
+                if warm():
+                    log.info("Wayland portal session established.")
+                    return
+                log.warning(
+                    "The desktop asked for permission to type and did not get an "
+                    "answer, so dictation will paste to the clipboard instead. "
+                    "Look for a permission dialog (it may be behind another "
+                    "window), then run `yazses restart`."
+                )
+                try:
+                    from yazses.system.notify import notify
+
+                    notify(
+                        "YazSes needs permission to type",
+                        "Approve the desktop permission dialog — it may be hidden "
+                        "behind another window — then run `yazses restart`.",
+                    )
+                except Exception:  # noqa: BLE001 — a toast must never matter here
+                    pass
+            except Exception:  # noqa: BLE001 — a startup thread must never crash
+                log.debug("portal warm-up failed", exc_info=True)
+
+        threading.Thread(target=_run, name="portal-warm", daemon=True).start()
+
+    def _start_portal_idle_reaper(self) -> None:
+        """Close the portal session while nobody is dictating. Never raises.
+
+        The desktop shows its screen-sharing indicator for as long as a
+        RemoteDesktop session is open, and nothing about dictation needs one open
+        between bursts -- so held for the daemon's life, the indicator becomes a
+        permanent fixture on an application that is offline by design. Dropping it
+        when idle costs one portal round trip on the next burst, and no dialog,
+        because the restore token is replayed.
+
+        Dormant unless a portal session can exist and `portal_idle_release_s` is
+        positive; `0` keeps the old always-open behaviour.
+        """
+        timeout_s = getattr(self._config.injection, "portal_idle_release_s", 0) or 0
+        if timeout_s <= 0:
+            return
+        injector = getattr(self, "_injector", None)
+        backend = getattr(injector, "_primary", injector)
+        release = getattr(backend, "release_if_idle", None)
+        if release is None:
+            return
+
+        def _reap() -> None:
+            # Checked several times per timeout so the indicator clears promptly
+            # after the last burst rather than up to a full period later.
+            tick = max(1.0, timeout_s / 4)
+            while not self._stop_event.wait(tick):
+                try:
+                    if release(timeout_s):
+                        log.info(
+                            "Portal session released after %ss idle; the desktop's "
+                            "sharing indicator clears until the next dictation.",
+                            timeout_s,
+                        )
+                except Exception:  # noqa: BLE001 — housekeeping outlives its errors
+                    log.debug("portal idle reaper iteration failed", exc_info=True)
+
+        threading.Thread(target=_reap, name="portal-idle-reaper", daemon=True).start()
 
     def _start_update_watcher(self) -> None:
         """Start the opt-in "a newer YazSes is out" watcher.
@@ -712,6 +1219,7 @@ class Daemon:
     def _build_pipeline(self) -> None:
         cfg = self._config
         log.info("Loading STT engine %r (model %r)...", cfg.stt.engine, cfg.stt.model)
+        self._announce_model_download(cfg)
         self._engine = build_engine(cfg.stt)
 
         # [injection] backend selects the Linux injector (type | ydotool |
@@ -806,6 +1314,15 @@ class Daemon:
         # Optional dedicated command key: a second listener that forces command
         # mode while held. Ignored if unset or the same as the dictation key.
         self._command_hotkey = self._make_command_hotkey(cfg, key_id)
+        self._autostop = self._build_autostop(cfg)
+
+        # ADR-v2-145: one camera owner per daemon, so gaze, the Head-Pointer and the
+        # face switch cannot each open the webcam and meet "device already busy".
+        # None while `[perception]` is off (the shipped default), and then every
+        # camera feature keeps the path it has always had. Built *before* the gaze
+        # targeter because gaze is the first consumer to take a lease (#396); building
+        # it opens nothing, the first lease does. `shutdown` closes it.
+        self._perception = self._build_perception_source(cfg)
 
         # Glance-Type look-to-pane (design/v2-cognitive-layer §3.3). Dormant unless
         # [gaze] enabled + route_dictation, with a calibration + X11 desktop + deps.
@@ -813,6 +1330,20 @@ class Daemon:
         # Built before the activation sources so the modality router below can ask
         # whether gaze *actually* came up, rather than whether it was requested.
         self._gaze_targeter = self._build_gaze_targeter(cfg)
+
+        # Implicit refinement of that calibration from clicks (#398). Opt-in twice over
+        # (it holds the camera and listens for clicks) and dormant, with a logged
+        # reason, on every install today: no platform ships a click observer yet.
+        self._gaze_refinement = self._build_gaze_refinement(cfg)
+
+        # Head-Pointer (ADR-v2-052): a lease on the camera above, a pointer sink from the
+        # platform, and the global stop state. Dormant -- no lease, no sink, no thread --
+        # unless `[headpointer] enabled` *and* the shared source and a pointer backend exist.
+        self._handsfree_safety = self._build_handsfree_safety(cfg)
+        self._headpointer = self._build_headpointer(cfg)
+        # Gesture Chords (ADR-v2-043): face/head tokens from the same shared camera, resolved
+        # by gesture/chords.py. Dormant unless `[gesture] enabled` *and* a chord is bound.
+        self._gesture = self._build_gesture(cfg)
 
         # ADR-v2-011 role arbitration. Must precede the activation sources, because
         # it decides what role EMG plays among them.
@@ -953,6 +1484,10 @@ class Daemon:
         server.register("pin_mic", self._handle_pin_mic)
         server.register("recalibrate_mic", self._handle_recalibrate_mic)
         server.register("ask_human", self._handle_ask_human)
+        server.register("headpointer", self._handle_headpointer)
+        server.register("handsfree", self._handle_handsfree)
+        server.register("facegesture", self._handle_facegesture)
+        server.register("gesture", self._handle_gesture)
         server.serve_in_thread()
         self._ipc_server = server
 
@@ -1005,15 +1540,18 @@ class Daemon:
         return roles
 
     def _build_activation_sources(self, cfg) -> list:
-        """Build the non-keyboard activation sources ([emg] squeeze-to-talk).
+        """Build the non-keyboard activation sources ([emg] squeeze, [facegesture] face).
 
-        Constructed only when ``[emg] device_port`` is set. ``mode = "command"``
-        (the default) drives the command-key callbacks — a squeeze speaks a
-        command; ``full_text`` drives plain hold-to-talk dictation. A missing
-        pyserial makes the backend's run() a logged no-op, and any init failure
-        is caught, so this can never break startup.
+        The EMG backends are constructed only when ``[emg] device_port`` (or
+        ``ble_address``) is set. ``mode = "command"`` (the default there) drives the
+        command-key callbacks — a squeeze speaks a command; ``full_text`` drives
+        plain hold-to-talk dictation. A missing pyserial makes the backend's run()
+        a logged no-op, and any init failure is caught, so this can never break
+        startup. The webcam face-gesture switch joins the same list through
+        :meth:`_build_face_gesture_source`, so every non-keyboard source is started
+        and stopped by one caller rather than each growing its own.
         """
-        sources: list = []
+        sources: list = self._build_face_gesture_source(cfg)
         port = (cfg.emg.device_port or "").strip()
         address = (cfg.emg.ble_address or "").strip()
         if not port and not address:
@@ -1083,6 +1621,235 @@ class Daemon:
                         "BOTH activation sources. Clear one if that is not intended.")
         return sources
 
+    def _build_face_gesture_source(self, cfg) -> list:
+        """The webcam face-gesture switch, or an empty list (#102).
+
+        The third activation source through the ADR-v2-129 seam, after the command
+        key and EMG, and the only one that needs no hardware the laptop does not
+        already have. `[facegesture] mode` picks which pair of callbacks a held
+        gesture drives, exactly as `[emg] mode` does — `full_text` is the default
+        here rather than `command`, because a face gesture is the *replacement* for
+        the hotkey for someone who cannot press one, where a squeeze is usually a
+        second input alongside a keyboard.
+
+        Built only when `[facegesture] enabled`; a missing opencv/mediapipe makes
+        the backend's run() a logged no-op, and any init failure is caught, so this
+        can never break startup.
+        """
+        if not getattr(cfg, "facegesture", None) or not cfg.facegesture.enabled:
+            return []
+
+        mode = (cfg.facegesture.mode or "").strip().lower()
+        if mode not in ("command", "full_text"):
+            log.warning("[facegesture] mode = %r is not a mode; using 'full_text'. "
+                        "Valid values: command | full_text.", mode)
+            mode = "full_text"
+        if mode == "command":
+            start, end = self._on_command_hold_start, self._on_command_hold_end
+        else:
+            start, end = self._on_hold_start, self._on_hold_end
+
+        try:
+            from yazses.facegesture.backend import FaceGestureBackend
+            from yazses.facegesture.switches import SwitchAction
+
+            baselines = None
+            levels = None
+            if cfg.facegesture.use_baseline or cfg.facegesture.use_active_levels:
+                # Read only when asked for: an install that never opted in touches no file.
+                from yazses.facegesture.calibration import baseline_path, load_baselines
+
+                baselines = load_baselines(baseline_path(self._platform.paths.data_dir))
+            if cfg.facegesture.use_active_levels:
+                from yazses.facegesture.levels import levels_path, load_levels
+
+                levels = load_levels(levels_path(self._platform.paths.data_dir))
+            # The abstract actions this daemon actually implements, for the switch mapper
+            # (ADR-v2-147). `start`/`end` above are the legacy single-gesture binding; both
+            # hold flavours are offered so `[[facegesture.switches]]` can use either whatever
+            # `mode` says. select / confirm / cancel are wired below to the Head-Pointer's
+            # click and to the pending-confirmation slot (facegesture/actions.py).
+            from yazses.facegesture.actions import SwitchOutcomeLog
+
+            self._switch_outcomes = SwitchOutcomeLog()
+            actions = {
+                "hold_to_talk": SwitchAction(
+                    press=lambda: self._on_hold_start(0), release=lambda: self._on_hold_end()
+                ),
+                "hold_to_command": SwitchAction(
+                    press=lambda: self._on_command_hold_start(0),
+                    release=lambda: self._on_command_hold_end(),
+                ),
+            }
+            actions["select"] = SwitchAction(press=self._switch_select)
+            actions["confirm"] = SwitchAction(press=self._switch_confirm)
+            actions["cancel"] = SwitchAction(press=self._switch_cancel)
+            # The global hands-free pause/kill state (ADR-v2-148), when something has built
+            # one. Nothing in the daemon owns it yet, so absent means "no gate", never "a
+            # gate that is closed": a face switch must not be disabled by a state that does
+            # not exist. When present, a gesture can pause it, and is suppressed by it.
+            safety = getattr(self, "_handsfree_safety", None)
+            if safety is not None:
+                actions["pause_pointer"] = SwitchAction(
+                    press=lambda: safety.pause("face switch")
+                )
+            # ADR-v2-145: lease the shared camera when sharing is correct (a source exists
+            # and both sections name the same device); otherwise exactly the own-capture
+            # path the backend has always run. Taking the lease opens nothing -- the
+            # backend's run() starts it, so a built-but-never-started source stays dark.
+            from yazses.facegesture.shared import shared_source_for_facegesture
+
+            perception = getattr(self, "_perception", None)
+            choice = shared_source_for_facegesture(cfg.facegesture, cfg.perception, perception)
+            if perception is not None and choice.source is None:
+                log.info("Face-gesture switch keeps its own camera -- %s.", choice.reason)
+            lease = None
+            failure_reason = None
+            if choice.source is not None and perception is not None:
+                shared = perception
+                lease = shared.consumer("facegesture")
+                failure_reason = lambda: shared.status().failure_reason  # noqa: E731
+            source = FaceGestureBackend(
+                cfg.facegesture, start, end,
+                baselines=baselines, levels=levels, actions=actions, safety=safety,
+                on_freeze=self._switch_freeze,
+                perception=lease, failure_reason=failure_reason,
+            )
+            if safety is not None:
+                from yazses.facegesture.switches import (
+                    REARM_AFTER_MS,
+                    SAFETY_SOURCE,
+                    rearms_on_face_return,
+                )
+
+                if rearms_on_face_return(source.bound_actions):
+                    # Hold-only: looking away and back must not leave dictation disarmed
+                    # (ADR-v2-148 amendment, handsfree/safety.py). Pause still needs Resume.
+                    safety.allow_auto_rearm(SAFETY_SOURCE, REARM_AFTER_MS)
+            self._switch_bound = frozenset(source.bound_actions)
+            self._face_on_shared_source = lease is not None
+        except Exception:
+            log.warning("Face-gesture activation source init failed; continuing "
+                        "without.", exc_info=True)
+            return []
+        log.info("Face-gesture activation source enabled (%s, %s mode).",
+                 cfg.facegesture.gesture, mode)
+        return [source]
+
+    # ---- Face-switch select / confirm / cancel (facegesture/actions.py) --------------
+    #
+    # Thin glue only: the decisions (may it click? is anything pending? is it too soon?) are
+    # in the pure module and tested there. These supply the two effects it is handed -- the
+    # Head-Pointer's click and the pending-confirmation slot -- and record what happened so
+    # `yazses facegesture status` can say why a gesture did nothing. They run on the camera
+    # thread and must never raise into it.
+
+    def _record_switch_outcome(self, outcome) -> None:
+        log.info("Face switch %s", outcome.line)
+        outcomes = self._switch_outcomes
+        if outcomes is not None:
+            outcomes.record(outcome)
+
+    def _switch_select(self) -> None:
+        """``select``: one left click at the current pointer, if the Head-Pointer allows it."""
+        from yazses.facegesture.actions import SWITCH_CLUTCH_SOURCE, perform_select
+
+        runtime = self._headpointer
+        limiter = self._switch_limiter()
+
+        def commit_click(policy):
+            if runtime is None:
+                from yazses.headpointer.controller import ClickResult
+
+                return ClickResult(False, "the Head-Pointer is not available")
+            return runtime.commit_click(policy, own_clutches=(SWITCH_CLUTCH_SOURCE,))
+
+        self._record_switch_outcome(perform_select(commit_click, limiter))
+
+    def _switch_limiter(self):
+        limiter = getattr(self, "_switch_select_limiter", None)
+        if limiter is None:
+            from yazses.facegesture.actions import SelectLimiter
+
+            limiter = self._switch_select_limiter = SelectLimiter()
+        return limiter
+
+    def _switch_freeze(self, frozen: bool) -> None:
+        """Hold the Head-Pointer still while a commit gesture is down (ADR-v2-147)."""
+        from yazses.facegesture.actions import SWITCH_CLUTCH_SOURCE
+
+        runtime = self._headpointer
+        if runtime is not None and runtime.active:
+            runtime.command("clutch", {"source": SWITCH_CLUTCH_SOURCE, "active": bool(frozen)})
+
+    def _switch_confirm(self) -> None:
+        from yazses.facegesture.actions import resolve_confirmation
+
+        self._record_switch_outcome(
+            resolve_confirmation("confirm", self._cmdsafety, self._switch_release_held)
+        )
+
+    def _switch_cancel(self) -> None:
+        from yazses.facegesture.actions import resolve_confirmation
+
+        def dropped() -> None:
+            self._cmdsafety_intent = None
+            self._notify_cmdsafety("Cancelled \u2014 the command was not run.")
+
+        self._record_switch_outcome(
+            resolve_confirmation(
+                "cancel", self._cmdsafety, lambda _held: None, on_cancel=dropped
+            )
+        )
+
+    def _switch_release_held(self, held: object) -> None:
+        """Do with a switch-confirmed held item what the spoken "confirm" does with it."""
+        self._notify_cmdsafety("Confirmed \u2014 running the held command.")
+        if self._cmdsafety_dispatch_held():
+            return  # a held COMMAND: re-dispatched with its Return
+        text = str(held)
+        with self._lock:
+            target_ok = self._state.target_ok
+        if (
+            self._config.injection.target_guard != "off"
+            and target_ok is False
+            and self._handle_no_target(text)
+        ):
+            return
+        self._active_injector().inject(text)
+
+    def _facegesture_payload(self) -> dict[str, object] | None:
+        """`facegesture` IPC status: which switch actions are bound and what each last did."""
+        outcomes = self._switch_outcomes
+        if outcomes is None:
+            return None
+        return {"actions": outcomes.snapshot(self._switch_bound)}
+
+    def _handle_facegesture(self, request: Request) -> dict[str, object]:
+        """IPC: `status` for the face switch's select / confirm / cancel outcomes."""
+        action = str(request.params.get("action", "status"))
+        if action != "status":
+            return {"ok": False, "reason": f"unknown action {action!r}"}
+        try:
+            payload = self._facegesture_payload()
+        except Exception as exc:  # pragma: no cover - defensive
+            log.exception("facegesture status raised")
+            return {"ok": False, "reason": f"failed: {type(exc).__name__}"}
+        if payload is None:
+            config = getattr(self, "_config", None)
+            if bool(getattr(getattr(config, "facegesture", None), "enabled", False)):
+                # Enabled and not built is a different fact from off: telling a user whose
+                # switch is already on to enable it sent them in a circle. The daemon built
+                # nothing -- a missing dependency or no camera -- and `doctor` names which.
+                reason = (
+                    "`[facegesture]` is on, but the daemon did not construct the face switch "
+                    "at start-up (a missing dependency or no camera) -- run `yazses doctor`"
+                )
+            else:
+                reason = "the face switch is not running (`yazses features enable facegesture`)"
+            return {"ok": True, "active": False, "reason": reason}
+        return {"ok": True, "active": True, **payload}
+
     def _build_slm_router(self, cfg):
         """Tier 2 SLM intent router, or None (#164).
 
@@ -1145,32 +1912,366 @@ class Daemon:
         Requires ``[gaze] enabled`` + (``route_dictation`` or ``deixis``), a
         saved calibration, an X11 desktop backend (xdotool), and the gaze deps.
         Any absent → None, so dictation simply stays on the focused window.
+
+        Also requires the calibration to still *apply here* (ADR-v2-149). A map
+        fitted on a different monitor arrangement still returns plausible screen
+        coordinates, so it would misroute silently; a stale one is refused by name
+        instead. A calibration written before contexts existed cannot be checked
+        and keeps working — refusing it would delete a working setup.
         """
         if not (cfg.gaze.enabled and (cfg.gaze.route_dictation or cfg.gaze.deixis)):
             return None
         try:
-            from yazses.gaze.desktop import build_desktop
+            from yazses.gaze.desktop import build_desktop, unavailable_reason
+            from yazses.gaze.display import build_topology_provider, current_context
             from yazses.gaze.factory import build_gaze
-            from yazses.gaze.store import load_calibration
+            from yazses.gaze.shared import shared_source_for_gaze
+            from yazses.gaze.store import calibration_state
             from yazses.gaze.targeter import GazeTargeter
+            from yazses.gaze.topology import SessionTopologyGuard, Validity
 
             desktop = build_desktop()
             if desktop is None:
-                log.warning("Gaze routing enabled but no X11 desktop backend; dormant.")
+                # The planner's sentence, not a generic "no backend": on Wayland the reason is
+                # a property of the session (#418), and a user told only "no X11 backend"
+                # goes looking for a package that does not exist.
+                log.warning("Gaze routing enabled but cannot run here: %s; dormant.",
+                            unavailable_reason())
                 return None
-            calibration = load_calibration(self._platform.paths.data_dir)
+            provider = build_topology_provider()
+            context = current_context(
+                camera_id=str(cfg.gaze.camera_index), provider=provider
+            )
+            calibration, check = calibration_state(self._platform.paths.data_dir, context)
             if calibration is None:
                 log.warning("Gaze routing enabled but not calibrated; run `yazses gaze calibrate`.")
                 return None
-            backend = build_gaze(cfg.gaze)
+            if check.validity is Validity.STALE:
+                log.warning(
+                    "Gaze calibration is stale — %s. Look-to-pane dormant until "
+                    "`yazses gaze calibrate` runs again.",
+                    check.reason,
+                )
+                return None
+            if check.validity is Validity.UNVERIFIED:
+                log.info("Gaze calibration could not be verified — %s.", check.reason)
+            # Share the camera only when sharing is correct (same device, MediaPipe
+            # backend, a source exists); otherwise exactly the pre-#396 backend.
+            choice = shared_source_for_gaze(cfg.gaze, cfg.perception, self._perception)
+            if self._perception is not None and choice.source is None:
+                log.info("Gaze keeps its own camera — %s.", choice.reason)
+            backend = build_gaze(cfg.gaze, perception=choice.source)
             if backend is None:
                 log.warning("Gaze routing enabled but gaze deps unavailable; dormant.")
                 return None
+            self._gaze_on_shared_source = choice.source is not None
+            guard = None
+            if provider is not None:
+                guard = SessionTopologyGuard(
+                    context,
+                    lambda: current_context(
+                        camera_id=str(cfg.gaze.camera_index), provider=provider
+                    ),
+                )
             log.info("Glance-Type look-to-pane routing active.")
-            return GazeTargeter(backend, calibration, desktop, cfg.gaze.confidence_min)
+            from yazses.gaze.store import load_calibration_record
+
+            record = load_calibration_record(self._platform.paths.data_dir)
+            # Refinement may only improve a calibration that is verified against this
+            # desktop (ADR-v2-149): UNVERIFIED is "cannot tell", not "fine".
+            from yazses.gaze.refine_runtime import GuardedContext
+
+            self._gaze_calibration_facts = (
+                check.validity is Validity.VALID and guard is not None,
+                record.source if record is not None else "explicit",
+                GuardedContext(guard) if guard is not None else None,
+            )
+            return GazeTargeter(
+                backend, calibration, desktop, cfg.gaze.confidence_min, topology_guard=guard
+            )
         except Exception:
             log.debug("Gaze targeter init failed; skipping", exc_info=True)
             return None
+
+    def _build_gaze_refinement(self, cfg):
+        """Start implicit gaze calibration, or None with the reason logged (#398).
+
+        Dormant is the shipped state and is silent. *Enabled but unable to run* is the
+        case worth a line: nothing else would ever tell the user that the feature they
+        turned on is doing nothing, or why. Every precondition lives in
+        :func:`yazses.gaze.refine_runtime.build_refinement_runtime`, which opens nothing
+        until all of them hold.
+        """
+        if not cfg.gaze_refine.enabled:
+            return None
+        try:
+            from yazses.gaze.refine_runtime import build_refinement_runtime
+
+            verified, source, context_valid = self._gaze_calibration_facts
+            runtime, reason = build_refinement_runtime(
+                cfg.gaze_refine,
+                targeter=self._gaze_targeter,
+                perception=self._perception,
+                gaze_on_shared_source=self._gaze_on_shared_source,
+                observer_factory=getattr(self._platform, "click_observer_factory", None),
+                data_dir=self._platform.paths.data_dir,
+                calibration_verified=verified,
+                context_valid=context_valid,
+                source=source,
+                fps=cfg.perception.fps,
+                clock=time.monotonic,  # the clock the shared source stamps samples with
+            )
+        except Exception:
+            log.debug("Implicit gaze calibration init failed; skipping", exc_info=True)
+            return None
+        if runtime is None:
+            log.warning("Implicit gaze calibration is enabled but dormant: %s.", reason)
+        else:
+            log.info("Implicit gaze calibration active (opt-in; clicks refine the map).")
+        return runtime
+
+    def _build_perception_source(self, cfg):
+        """The daemon's single shared camera owner, or None when it is dormant.
+
+        ADR-v2-145 puts one source behind every camera feature and this is where it
+        is owned, because "one owner per daemon" has to be true of an object with a
+        daemon-long lifetime rather than of a convention. Consumers do not get it
+        directly: each takes a lease, the first lease opens the camera once and the
+        last release closes it (src/yazses/perception/source.py).
+
+        None is the answer on a default install, and it is not a failure: the factory
+        returns None while neither `[perception]` nor a feature that only ever uses
+        the shared source (the Head-Pointer) is on, which leaves every camera feature
+        on the path it has always had. With it on, the OpenCV capture and the
+        MediaPipe processor are handed over as *factories*: building the source opens
+        nothing and imports neither library, and the first lease -- Glance-Type gaze,
+        on its first sample (#396), or the Head-Pointer (#404) -- is what opens the
+        camera, once. Wrapped because a source that cannot be built must cost a log
+        line, never a daemon that will not start.
+        """
+        try:
+            from yazses.perception import (
+                build_perception_source,
+                mediapipe_processor_factory,
+                opencv_capture_factory,
+            )
+
+            # The Head-Pointer has no camera path of its own -- it only ever leases this
+            # source -- so enabling it implies the source. Reading that here, instead of
+            # having `features enable` write a second key, keeps one switch for the user
+            # and lets `disable` undo `enable` exactly.
+            section = cfg.perception
+            if (cfg.headpointer.enabled or cfg.gesture.enabled) and not section.enabled:
+                section = dataclasses.replace(section, enabled=True)
+
+            # Both factories are lazy: building the source imports no OpenCV and no
+            # MediaPipe and opens no device -- the first consumer's lease does.
+            return build_perception_source(
+                section,
+                capture_factory=opencv_capture_factory,
+                # One model asset, one override: the gaze section's `model_path` was
+                # the setting before the source existed, the face-switch one is next.
+                processor_factory=mediapipe_processor_factory(
+                    model_path=cfg.gaze.model_path or cfg.facegesture.model_path
+                ),
+            )
+        except Exception:
+            log.debug("Shared camera perception init failed; skipping", exc_info=True)
+            return None
+
+    def _build_handsfree_safety(self, cfg):
+        """The global ACTIVE/PAUSED/FAULTED gate, or None while `[handsfree_safety]` is off.
+
+        None is the shipped answer and means the hands-free state is not in play at all, so
+        a camera feature behaves exactly as it did before the section existed.
+        """
+        try:
+            from yazses.handsfree.safety import gate_from_config
+            from yazses.headpointer.controller import SOURCE_NAME
+
+            sources: list[str] = []
+            if cfg.headpointer.enabled:
+                # Registered only when the pointer can actually run, for the reason given for
+                # chords below: a source that never samples holds the global state at PAUSED
+                # for ever and makes every `handsfree resume` report it as "not ready".
+                sources.append(SOURCE_NAME)
+            if cfg.gesture.enabled and cfg.gesture.chords:
+                # Registered only when chords can actually run: a registered source that
+                # never samples would hold the global state at PAUSED for ever.
+                from yazses.gesture.runtime import SOURCE_NAME as GESTURE_SOURCE
+
+                sources.append(GESTURE_SOURCE)
+            return gate_from_config(cfg, sources)
+        except Exception:
+            log.debug("Hands-free safety gate init failed; skipping", exc_info=True)
+            return None
+
+    def _build_headpointer(self, cfg):
+        """The Head-Pointer runtime (ADR-v2-052, #404). Never raises; never opens a camera.
+
+        Always returns a runtime so `yazses headpointer status` can say *why* the pointer
+        is not moving: off, no shared camera source, or no pointer backend. Only an enabled
+        feature with both present has a runner, and even then the camera is leased by
+        `_start_headpointer`, not here.
+        """
+        from yazses.headpointer.runtime import HeadPointerRuntime
+
+        if not cfg.headpointer.enabled:
+            return HeadPointerRuntime()
+        try:
+            from yazses.headpointer.runtime import build_headpointer
+
+            return build_headpointer(
+                cfg.headpointer,
+                perception=self._perception,
+                pointer_factory=self._platform.pointer_factory,
+                safety=self._handsfree_safety,
+                fps=cfg.perception.fps,
+                # A click must never arrive unannounced: dwell-click is only allowed when
+                # the overlay that draws the progress ring will actually be on screen.
+                dwell_feedback_available=(
+                    should_launch_overlay(cfg, os.environ) and overlay_dependency_available()
+                ),
+            )
+        except Exception as exc:
+            log.warning("Head-Pointer init failed; it stays off", exc_info=True)
+            return HeadPointerRuntime(reason=f"init failed: {type(exc).__name__}")
+
+    def _start_headpointer(self) -> None:
+        """Take the camera lease and start polling, if there is anything to start."""
+        runtime = self._headpointer
+        if runtime is None or not runtime.active:
+            if runtime is not None and runtime.reason:
+                log.warning("Head-Pointer is enabled but not running: %s", runtime.reason)
+            return
+        try:
+            runtime.start()
+            log.info("Head-Pointer running (move your head to move the pointer).")
+        except Exception:
+            log.exception("Head-Pointer start raised")
+
+    def _handle_headpointer(self, request: Request) -> dict[str, object]:
+        """IPC: `status | recenter | pause | resume | clutch | dwell` for the Head-Pointer."""
+        runtime = self._headpointer
+        action = str(request.params.get("action", "status"))
+        if runtime is None:
+            return {"ok": False, "reason": "Head-Pointer is not available in this daemon"}
+        try:
+            return runtime.command(action, dict(request.params))
+        except Exception as exc:
+            log.exception("Head-Pointer command %r raised", action)
+            return {"ok": False, "reason": f"failed: {type(exc).__name__}"}
+
+    def _build_gesture(self, cfg):
+        """The Gesture Chords runtime (ADR-v2-043, #408). Never raises; never opens a camera.
+
+        Always returns a runtime so `yazses gesture status` can say *why* nothing happens:
+        off, no chord bound, or no shared camera source. Only an enabled feature with a
+        chord and the source has a runner, and the camera is leased by `_start_gesture`.
+        """
+        from yazses.gesture.runtime import GestureRuntime
+
+        if not cfg.gesture.enabled:
+            return GestureRuntime()
+        try:
+            from yazses.gesture.runtime import build_gesture, command_runner
+
+            return build_gesture(
+                cfg.gesture,
+                facegesture=cfg.facegesture,
+                perception=self._perception,
+                headpointer=self._headpointer,
+                safety=self._handsfree_safety,
+                # A command a chord asks for goes through the activation policy: reversible
+                # ones run, the rest need a confirmation prompt, and none is wired for
+                # chords, so they are refused (fail closed).
+                run_command=command_runner(self._gesture_classify, self._gesture_dispatch),
+                fps=cfg.perception.fps,
+            )
+        except Exception as exc:
+            log.warning("Gesture Chords init failed; they stay off", exc_info=True)
+            return GestureRuntime(reason=f"init failed: {type(exc).__name__}")
+
+    def _gesture_classify(self, phrase: str):
+        """A chord's command phrase through the ordinary grammar (no macros, no SLM)."""
+        return classify(phrase, self._config.commands.profile,
+                        language=self._command_language)
+
+    def _gesture_dispatch(self, intent) -> None:
+        from yazses.gesture.runtime import no_echo_injector
+
+        # A failing command must not fall back to typing its own name (see no_echo_injector).
+        cmd_dispatch(intent, no_echo_injector(self._active_injector(), intent.raw_text))
+
+    def _start_gesture(self) -> None:
+        """Take the camera lease and start polling, if there is anything to start."""
+        runtime = self._gesture
+        if runtime is None or not runtime.active:
+            if runtime is not None and runtime.reason:
+                log.warning("Gesture Chords is enabled but not running: %s", runtime.reason)
+            return
+        try:
+            runtime.start()
+            log.info("Gesture Chords running (%d chord(s) bound).",
+                     len(runtime.runner.engine.bindings))
+        except Exception:
+            log.exception("Gesture Chords start raised")
+
+    def _handle_gesture(self, request: Request) -> dict[str, object]:
+        """IPC: `status | pause | resume` for Gesture Chords."""
+        runtime = self._gesture
+        action = str(request.params.get("action", "status"))
+        if runtime is None:
+            return {"ok": False, "reason": "Gesture Chords is not available in this daemon"}
+        try:
+            return runtime.command(action, dict(request.params))
+        except Exception as exc:
+            log.exception("Gesture Chords command %r raised", action)
+            return {"ok": False, "reason": f"failed: {type(exc).__name__}"}
+
+    def _build_autostop(self, cfg):
+        """The tap-to-latch turn for ``[autostop]``, or None while the feature is off.
+
+        The import sits behind the ``enabled`` check on purpose: a default start loads
+        nothing from ``yazses.endpoint`` (tests/test_default_start_stays_light.py).
+        """
+        if not cfg.autostop.enabled:
+            return None
+        from yazses.endpoint.autostop import AutoStopTurn
+
+        if cfg.autostop.mode != "silence":
+            log.info("[autostop] mode = %r: the semantic end-of-turn model is not shipped; "
+                     "using the silence timeout.", cfg.autostop.mode)
+        log.info("Hands-free auto-stop enabled: tap the hotkey once, then speak.")
+        return AutoStopTurn(cfg.autostop, tap_ms=cfg.hotkey.hold_threshold_ms)
+
+    def _autostop_defer_end(self) -> bool:
+        """True when this key release was a tap that latched the turn open (nothing ends)."""
+        turn = self._autostop
+        if turn is None or not turn.release(time.monotonic()):
+            return False
+        threading.Thread(
+            target=self._autostop_watch, daemon=True, name="autostop-watch"
+        ).start()
+        return True
+
+    def _autostop_watch(self) -> None:
+        """Poll the live mic level until the latched turn ends, then end it like a release."""
+        turn = self._autostop
+        if turn is None:
+            return
+        threshold = self._config.accessibility.vad_threshold
+        while turn.latched:
+            time.sleep(0.05)
+            with self._lock:
+                recording = self._state.state == TrayState.RECORDING
+                level = self._state.audio_level
+            if not recording:
+                turn.cancel()  # the recording ended another way (mic lost, paused, shutdown)
+                return
+            if turn.tick(time.monotonic(), level >= threshold):
+                self._on_hold_end()
+                return
 
     def _on_command_hold_start(self, leaked: int) -> None:
         """Hold-start for the dedicated command key — arm force-command mode."""
@@ -1182,6 +2283,8 @@ class Daemon:
         self._on_hold_end()
 
     def _on_hold_start(self, leaked: int) -> None:
+        if self._autostop is not None and self._autostop.press(time.monotonic()):
+            return  # a second tap while latched: its release ends the turn
         # Barge-in: a new hold during read-back cancels TTS playback immediately
         # so the user's speech is never recorded over the spoken transcript. The
         # sequence is bumped first and under the lock, so a read-back that has been
@@ -1325,15 +2428,27 @@ class Daemon:
 
             if not ydotool_ready():
                 return
-            import subprocess
-            args = ["ydotool", "key"] + [f"{c}:0" for c in sorted(codes)]
-            subprocess.run(args, check=False, timeout=3)
+            from yazses.inject.ydotool import release_keycodes
+
+            release_keycodes(codes, timeout=3)
         except Exception:  # pragma: no cover - best-effort, environment dependent
             log.debug("hotkey-modifier release (best-effort) failed", exc_info=True)
 
     def _on_hold_end(self) -> None:
-        self._earcon.play("recording_stop")
-        log.info("Recording stopped, transcribing...")
+        if self._autostop is not None and self._autostop_defer_end():
+            return  # a tap: keep recording until the speaker stops
+        # A release can arrive with no burst in progress: a hands-free switch delivers it even
+        # when the safety gate refused the press (facegesture/switches.py), and a microphone
+        # that failed to open leaves the state IDLE. The hot-path cleanup below still runs --
+        # it releases a held modifier -- but transcription must not: the recorder once handed
+        # back the previous clip and the last dictation was typed again, three times in a row.
+        with self._lock:
+            in_burst = self._state.state == TrayState.RECORDING
+        if in_burst:
+            self._earcon.play("recording_stop")
+            log.info("Recording stopped, transcribing...")
+        else:
+            log.info("Hold released with no recording in progress; nothing to transcribe.")
 
         # Force the compositor to release the hold-to-talk key NOW, before the
         # (slow) transcription, and regardless of whether this burst ends in an
@@ -1368,6 +2483,11 @@ class Daemon:
             self._stream_engine.request_stop()
 
         if self._recorder is None or self._engine is None or self._injector is None:
+            return
+        if not in_burst and not getattr(self._recorder, "has_clip", True):
+            # The unpaired release: no burst, nothing captured. Not a silent clip either --
+            # counting it as one would feed the adaptive VAD a 0.0 and the silent streak a
+            # miss. (A recorder that cannot say whether it holds a clip is treated as before.)
             return
         with self._lock:
             self._state.state = TrayState.TRANSCRIBING
@@ -1442,6 +2562,30 @@ class Daemon:
                     stream_injector.cancel()
                 return
 
+            # Speech-presence check (#598). Cleared the energy gate, but is any of it speech?
+            # Whisper answers a burst of fan noise with the words it was primed with, and
+            # those would be typed. Fails open; exempt in the modes built for voices a
+            # general detector under-hears. Metrics only in the log, never audio or text.
+            wm_cfg = self._config.whispermode
+            if speech_check_applies(
+                enabled=acc.speech_presence_check,
+                whisper_mode=acc.vad_threshold != self._config.accessibility.vad_threshold,
+                dysfluency_friendly=acc.dysfluency_friendly,
+                sotto_voce=wm_cfg.enabled and wm_cfg.command_channel,
+            ) and holds_no_speech(padded, sample_rate):
+                event["discard_reason"] = "no_speech"
+                log.info(
+                    "No speech in a %.1fs burst (level %.4f cleared vad_threshold %.4f, "
+                    "but the speech detector found none) -- discarding.",
+                    padded.size / sample_rate,
+                    float(np.abs(padded).mean()),
+                    acc.vad_threshold,
+                )
+                self._earcon.play("error")
+                if stream_injector is not None:
+                    stream_injector.cancel()
+                return
+
             # Sotto-voce command channel (ADR-v2-100, DualVoice pattern): a
             # *whispered* burst is a command, voiced speech dictates. Purely
             # acoustic (no F0 in whisper), so it can never fire on normal
@@ -1468,6 +2612,22 @@ class Daemon:
                 and self._stream_engine is not None
                 and stream_injector is not None
             )
+
+            # Involuntary-vocalization excision (ADR-v2-102): silence an isolated cough /
+            # sneeze / throat-clear in the burst so Whisper never turns it into a ghost word.
+            # Off by default, imported only when on; with nothing flagged `padded` is returned
+            # unchanged. Guarded: detection failure means the original audio, never a crash.
+            if self._config.involuntary.enabled and not use_streaming:
+                try:
+                    from yazses.involuntary.audio import excise_involuntary_audio
+
+                    padded, iv_spans = excise_involuntary_audio(padded, sample_rate)
+                    if iv_spans:
+                        event["involuntary_excised"] = len(iv_spans)
+                        log.info("Involuntary excision: silenced %d span(s).", len(iv_spans))
+                except Exception:
+                    log.debug("Involuntary excision failed; using original audio.",
+                              exc_info=True)
 
             bias_prompt = self._effective_initial_prompt()
 
@@ -1508,7 +2668,12 @@ class Daemon:
             # Joining this OR rather than decoding twice is the whole cost of the
             # feature — a user with prosody or Confidence Ink already on pays nothing.
             want_echo = self._config.echo.enabled and not use_streaming
-            want_words = want_prosody or want_confidence or want_echo
+            # Re-Ask (ADR-v2-077) reads the same per-word probabilities.
+            want_reask = self._config.reask.enabled and not use_streaming
+            # Prosodic Auto-Punctuation (ADR-v2-104) reads the same word gaps.
+            want_prosodypunct = self._config.prosodypunct.enabled and not use_streaming
+            want_words = (want_prosody or want_confidence or want_echo or want_reask
+                          or want_prosodypunct)
             # Speech translation (ADR-v2-014): X→English via Whisper's translate task
             # when [translate] is enabled (whisper backend, target en). None → normal.
             try:
@@ -1613,13 +2778,34 @@ class Daemon:
                     stream_injector.cancel()
                 return
 
+            # Voice stop word (ADR-v2-148): the whole utterance equals the configured
+            # phrase -> pause every hands-free input and type nothing. Ahead of every
+            # handler below on purpose: nothing may type, hold or reinterpret a stop.
+            if self._try_voice_stop(text, event):
+                if stream_injector is not None:
+                    stream_injector.cancel()
+                return
+
             # Hallucination Guard (ADR-v2-025): drop Whisper's fabricated ghost text
             # (silence outros, repetition loops) before injection. Off by default.
             if self._config.hallucination.enabled:
-                from yazses.postprocess.hallucination import should_drop
-                if should_drop(text, self._config.hallucination):
+                from yazses.postprocess.hallucination import drop_reason
+                rule = drop_reason(text, self._config.hallucination)
+                if rule is not None:
                     event["discard_reason"] = "hallucination"
-                    log.info("Hallucination guard -- discarding fabricated transcript.")
+                    # Name the RULE at INFO and the text at DEBUG (ADR-011: the text is
+                    # content, so it stays behind the same DEBUG gate as "Injecting text").
+                    # Without the rule a misfire on ordinary speech and a correct catch
+                    # produce byte-identical logs, which is how a guard eating real
+                    # dictation went unnoticed: nothing typed, no error, one bland line.
+                    log.info("Hallucination guard (%s) -- discarding transcript "
+                             "of %d chars.", rule, len(text))
+                    log.debug("Hallucination guard discarded: %r", text)
+                    # Same reasoning as the empty-transcription branch above: nothing
+                    # will be typed, and a silent discard is indistinguishable from a
+                    # slow decode or a dead hotkey. The user held the key and spoke;
+                    # they are owed the one bit of feedback that says "heard, dropped".
+                    self._earcon.play("error")
                     if stream_injector is not None:
                         stream_injector.cancel()
                     return
@@ -1656,7 +2842,8 @@ class Daemon:
             if command_mode:
                 intent = classify(text, self._config.commands.profile,
                                   slm_router=self._slm_router,
-                                  macro_table=self._macro_table)
+                                  macro_table=self._macro_table,
+                                  language=self._command_language)
                 event["command_mode"] = True
                 event["intent_type"] = intent.intent.value
                 event["intent_action"] = intent.action
@@ -1772,8 +2959,9 @@ class Daemon:
             else:
                 if self._config.commands.enabled:
                     intent = classify(text, self._config.commands.profile,
-                                       slm_router=self._slm_router,
-                                       macro_table=self._macro_table)
+                                      slm_router=self._slm_router,
+                                      macro_table=self._macro_table,
+                                      language=self._command_language)
                     event["intent_type"] = intent.intent.value
                     event["intent_action"] = intent.action
                     # `run <anything>` types the words AND presses Return, so it
@@ -2077,6 +3265,21 @@ class Daemon:
 
                     text = balance_delimiters(text)
                     event["final_text"] = text
+                # Prosodic Auto-Punctuation (ADR-v2-104): . , from the pauses between words.
+                # Runs before Prosody Ink, whose period step skips an already-punctuated
+                # word, so the two compose. Opt-in; no-op when timings and text disagree.
+                if want_prosodypunct and prosody_words:
+                    from yazses.prosodypunct.apply import punctuate_text
+
+                    _pp = punctuate_text(
+                        text, [(w.start, w.end) for w in prosody_words],
+                        sentence_pause_ms=self._config.prosodypunct.sentence_pause_ms,
+                        comma_pause_ms=self._config.prosodypunct.comma_pause_ms,
+                    )
+                    if _pp.text != text:
+                        text = _pp.text
+                        event["prosodypunct_marks"] = _pp.sentences + _pp.commas
+                        event["final_text"] = text
                 # Prosody Ink: map vocal prosody (inter-word pause, emphasis) onto
                 # text formatting. Batch + dictation only; word timings drive the
                 # spacing/emphasis, content stays the cleaned text. Off by default.
@@ -2167,6 +3370,15 @@ class Daemon:
                     if checked is None:
                         return
                     text = checked
+                    event["final_text"] = text
+
+                # Confidence-Gated Re-Ask (ADR-v2-077): one uncertain their/there-style
+                # word waits for a spoken pick instead of being guessed. Opt-in.
+                if self._config.reask.enabled:
+                    asked = self._reask_gate(text, prosody_words, event)
+                    if asked is None:
+                        return
+                    text = asked
                     event["final_text"] = text
 
                 # Spoken answer to the mic guard's toast (ADR-022): the daemon may
@@ -2531,29 +3743,69 @@ class Daemon:
             log.exception("Adaptive threshold retune failed")
 
     def _recalibrate_mic(self) -> None:
-        """[Re-calibrate] action: measure the active mic and write vad_threshold."""
+        """[Re-calibrate] action: measure the room, then the voice, and write the gate.
+
+        This used to record ONE 3 s clip, assume it was speech, and write half its
+        level. That is the rule `yazses mic-level` dropped in v2.36.0: a clip does not
+        say whether it was speech, so an empty room was recommended a gate below its
+        own noise, and a loud sentence a gate above the same person's quieter speech
+        (issue #579: a gate of 0.0220 set from a 0.0441 sample then rejected 0.0208
+        speech). Both ends are measured now and `miclevel.calibrate` places the gate
+        between them -- or refuses, in which case nothing is written.
+        """
         try:
+            from dataclasses import replace
+
             from yazses.system import miclevel
 
             sr = self._config.audio.sample_rate
-            audio = miclevel.record(3.0, sr, device=self._config.audio.device or None)
-            stats = miclevel.analyze(audio, sr)
-            path = self._platform.paths.config_file
-            miclevel.update_threshold_in_config(path, stats.recommended_threshold)
-            with self._lock:
-                from dataclasses import replace
+            device = self._config.audio.device or None
 
+            self._notify_mic(
+                "🎤 Re-calibrating — stay quiet",
+                f"Measuring the room for {_RECAL_ROOM_S:.0f} seconds.",
+                actions=False,
+            )
+            time.sleep(_RECAL_LEAD_S)
+            ambient = miclevel.analyze(miclevel.record(_RECAL_ROOM_S, sr, device=device), sr)
+
+            self._notify_mic(
+                "🎤 Now speak normally",
+                f"Say a sentence at your usual dictation volume ({_RECAL_SPEECH_S:.0f} seconds).",
+                actions=False,
+            )
+            time.sleep(_RECAL_LEAD_S)
+            speech = miclevel.analyze(miclevel.record(_RECAL_SPEECH_S, sr, device=device), sr)
+
+            result = miclevel.calibrate(ambient, speech)
+            if not result.ok:
+                log.info("Re-calibrate refused, vad_threshold unchanged: %s", result.reason)
+                self._notify_mic(
+                    "Mic not changed",
+                    f"{result.reason[:1].upper()}{result.reason[1:]}. Nothing was changed. "
+                    "Try again, speaking at your normal volume, or run "
+                    "`yazses mic-level --set`.",
+                    actions=False,
+                )
+                return
+
+            threshold = result.recommended_threshold
+            miclevel.update_threshold_in_config(self._platform.paths.config_file, threshold)
+            with self._lock:
                 self._config = replace(
                     self._config,
                     accessibility=replace(
-                        self._config.accessibility,
-                        vad_threshold=stats.recommended_threshold,
+                        self._config.accessibility, vad_threshold=threshold
                     ),
                 )
-            log.info("Re-calibrated vad_threshold -> %.4f", stats.recommended_threshold)
+            log.info(
+                "Re-calibrated vad_threshold -> %.4f (room %.4f, voice %.4f)",
+                threshold, ambient.mean_abs, speech.mean_abs,
+            )
             self._notify_mic(
                 "✅ Mic re-calibrated",
-                f"vad_threshold set to {stats.recommended_threshold:.4f}. "
+                f"vad_threshold set to {threshold:.4f}, between your room "
+                f"({ambient.mean_abs:.4f}) and your voice ({speech.mean_abs:.4f}). "
                 "Try dictating again.",
                 actions=False,
             )
@@ -2924,6 +4176,57 @@ class Daemon:
         log.warning("Check digit: holding a number that fails %s.", result.scheme)
         self._notify_cmdsafety(describe(result))
         return None
+
+    def _reask_gate(self, text: str, words: list[Word], event: dict) -> str | None:
+        """Confidence-Gated Re-Ask (ADR-v2-077). The text to type, or None when it waits.
+
+        The logic lives in `yazses.reask.gate`; this only wires it. A hold that nobody
+        answers goes to the clipboard rather than being typed ten seconds later into
+        whatever has focus by then. A pending command-safety hold keeps first claim on
+        the utterance, so this steps aside while one exists.
+        """
+        if self._cmdsafety.pending is not None:
+            return text
+        if self._reask is None:
+            from yazses.reask.gate import ReaskGate
+
+            self._reask = ReaskGate(self._reask_expired)
+        try:
+            verdict = self._reask.handle(
+                text, [(w.text, w.probability) for w in words], self._config.reask.threshold
+            )
+        except Exception:  # a guard must never be the reason dictation stops
+            log.exception("Re-ask gate failed; typing the text as heard.")
+            return text
+        if verdict.action:
+            event["reask_action"] = verdict.action
+            log.info("Re-ask: %s.", verdict.action)
+        if verdict.prompt:
+            try:
+                from yazses.system.notify import notify
+
+                notify("YazSes \u2014 re-ask", verdict.prompt)
+            except Exception:  # pragma: no cover - notification is never load-bearing
+                log.debug("Re-ask notification failed", exc_info=True)
+        return verdict.text
+
+    def _reask_expired(self, text: str) -> None:
+        """Timer thread: nobody answered, so keep the user's words on the clipboard."""
+        from yazses.system.clipboard import set_clipboard
+
+        copied = set_clipboard(text)
+        log.info("Re-ask: no answer; text %s the clipboard.",
+                 "copied to" if copied else "could NOT be copied to")
+        try:
+            from yazses.system.notify import notify
+
+            notify(
+                "YazSes \u2014 re-ask timed out",
+                "Your dictation is on the clipboard \u2014 paste it (Ctrl+V)." if copied
+                else "Your dictation could not be copied; dictate it again.",
+            )
+        except Exception:  # pragma: no cover - notification is never load-bearing
+            log.debug("Re-ask expiry notification failed", exc_info=True)
 
     def _notify_cmdsafety(self, message: str) -> None:
         """Say what the gate did. Best-effort; never raises into dictation."""
@@ -3480,7 +4783,17 @@ class Daemon:
             }
         injector = self._active_injector()
         injector.inject_backspaces(len(last))
-        injector.inject(corrected)
+        try:
+            injector.inject(corrected)
+        except Exception as exc:
+            # Same erase-then-retype hazard as `_try_spoken_edit`, which documents
+            # itself as reusing this mechanism. Here the exception does reach an IPC
+            # caller, so `yazses punch-in` shows something -- but a correction
+            # triggered by voice or from the tray had no caller to show it to, and
+            # the erased text was gone in silence.
+            self._report_failure(exc, where="inject")
+            return {"ok": False, "applied": False, "reason": "could not type the correction",
+                    "old": last, "new": corrected, "candidates": cand_view}
         self._ledger.replace_last(corrected)
         self._last_dictation_monotonic = time.monotonic()
         log.info("Punch-In: corrected %d chars.", len(last))
@@ -3668,6 +4981,15 @@ class Daemon:
                     self._timers.cancel()
             elif name == "echo_play":
                 self._echo_play(str(argument or ""), event)
+            elif name in ("bookmark_add", "bookmark_goto"):
+                # Session Bookmarks (ADR-v2-090): reaches a caret position, never a keypress count.
+                if self._bookmarks is None:
+                    from yazses.bookmarks.service import BookmarkService
+
+                    self._bookmarks = BookmarkService()
+                label = str(argument) if argument else None
+                self._notify_spoken(self._bookmarks.add(label) if name == "bookmark_add"
+                                    else self._bookmarks.goto(label))
             elif name == "keys":
                 # Spoken grid movement (`spreadsheet`). This is the one action that
                 # reaches the focused window rather than reporting, so it goes through
@@ -3909,6 +5231,57 @@ class Daemon:
         log.info("windowctl: performed %s.", action)
         return True
 
+    def _try_voice_stop(self, text: str, event: dict) -> bool:
+        """Pause hands-free input when the WHOLE utterance is the stop phrase. True = consumed.
+
+        The decision is `handsfree/stopword.matches` (equality on the entire transcript, never a
+        substring); this only acts on it. It reuses the `handsfree` IPC handler, so a spoken
+        stop and `yazses handsfree pause` cannot drift apart, and it can only ever *pause*:
+        there is no resume phrase. Consumed whether or not the pause took effect -- a
+        deliberate control phrase must never be typed into the user's document -- and the
+        notification says honestly which it was. Never raises into dictation.
+        """
+        phrase = getattr(getattr(self._config, "handsfree_safety", None), "stop_phrase", "")
+        if not phrase:
+            return False
+        try:
+            from yazses.handsfree.stopword import matches
+
+            if not matches(text, phrase):
+                return False
+        except Exception:
+            log.debug("Voice stop word check failed; treating as dictation.", exc_info=True)
+            return False
+        event["intent_type"] = "handsfree_stop"
+        event["intent_action"] = "pause"
+        # An instruction, not dictation: counted with the command bursts so a stop that types
+        # nothing by design neither flatters nor drags the "typed" rate (outcomes.py).
+        event["command_mode"] = True
+        try:
+            reply = self._handle_handsfree(Request("handsfree", {"action": "pause"}))
+        except Exception:
+            log.exception("Voice stop word: pause raised")
+            reply = {"ok": False, "reason": "the pause failed; see the daemon log"}
+        ok = bool(reply.get("ok"))
+        scoped = reply.get("scope")
+        scope = ", ".join(str(s) for s in scoped) if isinstance(scoped, list) else ""
+        if ok:
+            body = (
+                f"Paused by voice: {scope}. Resume with `yazses handsfree resume` or "
+                "Settings → Hands-free controls."
+            )
+        else:
+            body = f"Heard the stop phrase but did not pause: {reply.get('reason', 'unknown reason')}."
+        log.info("Voice stop word: %s", "paused (%s)" % scope if ok else "not paused")
+        try:
+            self._earcon.play("recording_stop")
+            from yazses.system.notify import notify
+
+            notify("YazSes — hands-free", body)
+        except Exception:  # pragma: no cover - feedback is never load-bearing
+            log.debug("Voice stop word feedback failed", exc_info=True)
+        return True
+
     def _try_deixis(self, phrase: str, event: dict) -> bool:
         """Act on a gaze-deixis command ("close this", "focus that").
 
@@ -3930,10 +5303,28 @@ class Daemon:
         event["intent_type"] = "deixis"
         event["intent_action"] = intent.action
         decision = getattr(targeter, "last_decision", None)
+        refuse_fallback = bool(getattr(self._config.gaze, "refuse_destructive_fallback", False))
         if decision is None or decision.target is None:
             event["discard_reason"] = "deixis_no_target"
             log.info("Deixis %r: no window target from gaze; ignoring.", intent.action)
+            if intent.destructive and refuse_fallback:
+                self._deixis_cannot_act(intent, None)
             return True
+        if intent.destructive and refuse_fallback:
+            # Recovery hierarchy (ADR-v2-148): gaze did not pick this window, the focused one
+            # was only the stand-in, and a destructive action never recovers onto a stand-in.
+            from yazses.activation.confirm import Consequence
+            from yazses.handsfree.recovery import Signal, recover
+
+            verdict = recover(
+                Consequence.IRREVERSIBLE,
+                Signal("gaze", decision.target, usable=bool(decision.used_gaze)),
+                focused=decision.target,
+            )
+            if not verdict.acts:
+                event["discard_reason"] = "deixis_gaze_unavailable"
+                self._deixis_cannot_act(intent, verdict.feedback)
+                return True
         if requires_confirm(intent, decision, self._config.gaze.confirm_destructive):
             self._confirm_deixis(intent, decision)
             return True
@@ -3950,6 +5341,19 @@ class Daemon:
             log.info("Deixis %r unsupported by the desktop backend; ignored.",
                      intent.action)
         return True
+
+    def _deixis_cannot_act(self, intent, feedback: str | None) -> None:
+        """Say out loud that a destructive deixis command did nothing, and why.
+
+        The recovery hierarchy's last rung is an explicit "cannot act", not a silent drop.
+        """
+        from yazses.system.notify import notify
+
+        body = feedback or (
+            "Gaze could not tell which window you meant, so nothing was done. "
+            "Look at the window and try again."
+        )
+        notify(f"Did not {intent.action} anything", body)
 
     def _confirm_deixis(self, intent, decision) -> None:
         """Confirm a destructive gaze-routed action via an actionable toast.
@@ -4018,7 +5422,19 @@ class Daemon:
                 return False
             injector = self._active_injector()
             injector.inject_backspaces(len(last))
-            injector.inject(result.text)
+            try:
+                injector.inject(result.text)
+            except Exception as exc:
+                # The erase has already landed. Swallowing here is what made this
+                # path destructive rather than merely broken: the user watches the
+                # sentence they dictated disappear and nothing replace it, and the
+                # only record is a `log.debug` nobody reads. No blind restore --
+                # a failed `inject` may have typed part of the replacement, and
+                # re-typing the original on top of a partial write corrupts it
+                # further. Reporting is the honest move; the text itself stays out
+                # of the notification, because transcripts do not leave the daemon.
+                self._report_failure(exc, where="inject")
+                return False
             self._ledger.replace_last(result.text)
             self._last_dictation_monotonic = time.monotonic()
             event["intent_type"] = "spoken_edit"
@@ -4490,9 +5906,13 @@ class Daemon:
 
             found = diagnose(error, where=where)
             with self._lock:
-                fresh = should_notify(found.slug, time.monotonic(), self._diagnosed_at)
+                # Wall clock, not monotonic: this record is persisted so a crash
+                # loop cannot re-toast one fault five times, and a monotonic
+                # reading from a dead process means nothing in a live one.
+                fresh = should_notify(found.slug, time.time(), self._diagnosed_at)
             if not fresh:
                 return None
+            self._persist_shown_notices()
 
             # ADR-v2-132 asks whether the report offer should wait for a *repeated*
             # fault. The better rule falls out of the diagnosis itself: offer it only
@@ -4500,7 +5920,7 @@ class Daemon:
             # carries the command that fixes it, and an issue about a missing ydotool
             # helps nobody -- least of all the person who now has two things to do.
             actions = None
-            if found.slug.startswith("unknown-"):
+            if found.report_worthy:
                 actions = [notify_mod.NotifyAction("report", "Prepare a bug report")]
 
             # A named function, not a lambda with a default argument: `notify` declares
@@ -4697,7 +6117,232 @@ class Daemon:
                 "notifications": (
                     self._drain_notifications() if consume else self._peek_notifications()
                 ),
+                # Hands-free health (#416) — `None` for anybody who has not enabled a
+                # camera capability, which is the shipped default, and every reader treats
+                # it as "nothing to report".
+                #
+                # A literal key with a null value rather than a key added conditionally
+                # afterwards, and the difference is not cosmetic:
+                # `tests/test_report_redacts_the_daemon_block.py` walks this function's
+                # AST for the dict it *returns* and classifies every literal key in it as
+                # machine fact or user prose. Assembling the payload into a local and
+                # returning that found six keys instead of thirty-seven and quietly
+                # switched a privacy guard off.
+                "handsfree": self._handsfree_payload(),
+                # The overlay reads the dwell progress out of this to draw a ring before a
+                # click fires. States, flags and a 0..1 fraction -- never a pose or position.
+                "headpointer": self._headpointer_payload(),
             }
+
+    def _headpointer_payload(self) -> dict[str, object] | None:
+        """The Head-Pointer's privacy-safe state for `status`, or None when it is not running.
+
+        None for every install that has not turned it on, so the reply is unchanged for them.
+        """
+        runtime = getattr(self, "_headpointer", None)
+        if runtime is None or not runtime.active:
+            return None
+        try:
+            return runtime.command("status")
+        except Exception:  # pragma: no cover - defensive
+            log.debug("head-pointer status payload failed", exc_info=True)
+            return None
+
+    def _handsfree_payload(self) -> dict[str, object] | None:
+        """Privacy-safe hands-free health for `yazses status`. Caller holds ``self._lock``.
+
+        Names, states, ages and counts — never a gaze coordinate, head angle, blendshape
+        score or landmark. `handsfree/observability.py` is where that is enforced: its facts
+        record has nowhere to put one.
+
+        Two things this must not do, because `status` is polled continuously by the tray and
+        the overlay: no disk read and no subprocess. That is why the calibration check and
+        the camera-permission probe are `doctor`'s job and are reported as *not determined*
+        here rather than guessed at — the alternative is a monitor query on every poll.
+
+        What the daemon uniquely knows is whether a runtime path for each capability was
+        actually built, which is the difference between "your face switch is broken" and
+        "your face switch was never constructed because the webcam deps are missing".
+        """
+        try:
+            from yazses.handsfree.observability import (
+                PERCEPTION_FAILED,
+                PERCEPTION_RUNNING,
+                PERCEPTION_STOPPED,
+                as_payload,
+            )
+            from yazses.handsfree.probe import facts_from_config, gaze_target_facts
+
+            facts = facts_from_config(self._config)
+            if not facts.features_requested and not facts.safety_configured:
+                return None
+            # What a gaze target can be on this session (#418): a pure environment
+            # classification, so unlike the calibration verdict it is safe on a status poll.
+            facts = gaze_target_facts(facts)
+            gaze_running = getattr(self, "_gaze_targeter", None) is not None
+            # By module rather than by class name or `isinstance`: the name is a string
+            # two files can agree on by accident, and importing the backend to compare
+            # types would pull a camera module into a status poll.
+            face_running = any(
+                type(source).__module__.startswith("yazses.facegesture")
+                for source in getattr(self, "_extra_activations", ()) or ()
+            )
+            head_runtime = getattr(self, "_headpointer", None)
+            head_running = bool(getattr(head_runtime, "active", False))
+            running = gaze_running or face_running or head_running
+            # What the shared source can say about itself, but only for a consumer that
+            # really leases it: Glance-Type gaze, once #396 moved it across. The source
+            # is lazy, so "dormant" is the honest state before the first hold and is
+            # *not* reported as a stopped camera. Channels and age are read only while
+            # it is running — a dormant source's empty channel tuple would otherwise
+            # print as "no face in view" for a camera nobody has opened yet.
+            shared = None
+            gaze_shared = gaze_running and getattr(self, "_gaze_on_shared_source", False)
+            face_shared = face_running and getattr(self, "_face_on_shared_source", False)
+            # The Head-Pointer has no own-capture path: `build_headpointer` takes the shared
+            # source, so a running Head-Pointer *is* a shared consumer. Leaving it out made
+            # a head-only install report "each consumer opens its own capture" -- false --
+            # and no per-channel freshness at all.
+            head_shared = head_running
+            if gaze_shared or face_shared or head_shared:
+                perception = getattr(self, "_perception", None)
+                if perception is not None:
+                    shared = perception.status()
+            channels: tuple[str, ...] | None = None
+            age_ms: float | None = None
+            if shared is None:
+                reason = (
+                    "each camera consumer opens its own capture today, so no shared "
+                    "per-channel freshness is reported"
+                )
+            else:
+                if shared.state.value == "running":
+                    channels = shared.channels
+                    if shared.last_sample_age_s is not None:
+                        age_ms = shared.last_sample_age_s * 1000.0
+                reason = (
+                    f"shared camera source {shared.state.value}"
+                    + (f" ({shared.failure_reason})" if shared.failure_reason else "")
+                    + (
+                        ""
+                        if face_shared or head_shared
+                        else "; the camera opens on the first gaze sample"
+                    )
+                )
+            # A source that FAILED (camera taken, model missing) used to print as healthy
+            # because a consumer existing was taken to mean the camera was open. A *dormant*
+            # source stays "running" on purpose: Glance-Type is lazy, so it is the honest
+            # pre-first-hold state, and the reason text says the camera has not opened.
+            perception_state = PERCEPTION_RUNNING if running else PERCEPTION_STOPPED
+            if running and shared is not None:
+                if shared.state.value == "failed":
+                    perception_state = PERCEPTION_FAILED
+            # The Head-Pointer's own state and the pointer it would move -- the daemon is
+            # the only process that holds them, and `status` printed "unknown" for both.
+            head_facts: dict[str, Any] = {}
+            if "headpointer" in facts.features_requested:
+                head_facts = _head_facts(head_runtime)
+            facts = dataclasses.replace(
+                facts,
+                perception_state=perception_state,
+                perception_consumers=int(gaze_running) + int(face_running) + int(head_running),
+                perception_channels=channels,
+                perception_age_ms=age_ms,
+                perception_reason=(
+                    reason
+                    if running else
+                    "no camera consumer was built at start-up — `yazses doctor` says why"
+                ),
+                # A consumer that was never constructed is not a wired consumer *here*,
+                # whatever the registry says about the build. Reporting the registry's
+                # answer for a source this process does not hold would be the "printed OK
+                # for something that cannot act" failure the row exists to end.
+                # `*_wired` stays the registry's answer ("a runtime path exists in this
+                # build"); whether this daemon *constructed* it is `*_built`. Overwriting
+                # the first with the second told a user whose face switch simply lacked a
+                # dependency that "nothing will happen ... nothing to fix locally".
+                face_built=(
+                    face_running if "facegesture" in facts.features_requested else None
+                ),
+                gaze_built=(
+                    gaze_running if "gaze" in facts.features_requested else None
+                ),
+                **head_facts,
+                # The live ACTIVE/PAUSED/FAULTED snapshot, when the global gate exists. The
+                # facts record has always had a slot for it ("None outside the daemon"), but
+                # nothing in the daemon filled it, so `status` and the settings panel could
+                # only ever say the state was unknown. Names, flags and ages only.
+                safety=_gate_status(getattr(self, "_handsfree_safety", None)),
+                # What the face switch's select / confirm / cancel last did, one line each.
+                switch_actions=_switch_action_lines(self),
+            )
+            return as_payload(facts)
+        except Exception:  # pragma: no cover - defensive
+            log.debug("hands-free status payload failed", exc_info=True)
+            return None
+
+    def _handle_handsfree(self, request: Request) -> dict[str, object]:
+        """IPC: `pause | resume` for every hands-free input at once (ADR-v2-148, #420).
+
+        The emergency stop and the explicit re-arm behind the settings panel, the CLI and any
+        voice/switch/tray path. Neither takes a pointer position: a user who cannot aim must
+        be able to stop the pointer. Pause does the most it can in every configuration: with
+        the global gate on it pauses every source; with it off it still pauses the
+        Head-Pointer, and the reply names the scope so nobody believes the face switch was
+        stopped when it was not.
+        """
+        action = str(request.params.get("action", ""))
+        if action not in ("pause", "resume"):
+            return {"ok": False, "reason": f"unknown action {action!r}"}
+        gate = getattr(self, "_handsfree_safety", None)
+        candidate = getattr(self, "_headpointer", None)
+        runtime = candidate if candidate is not None and getattr(candidate, "active", False) else None
+        scope: list[str] = []
+        reasons: list[str] = []
+        try:
+            if action == "pause":
+                if gate is not None:
+                    gate.pause("paused by the user")
+                    scope.append("all hands-free input")
+                if runtime is not None:
+                    runtime.command("pause")
+                    if gate is None:
+                        scope.append("Head-Pointer only")
+                if not scope:
+                    return {
+                        "ok": False,
+                        "reason": "nothing hands-free is running, and the global stop is off "
+                        "(`[handsfree_safety] enabled = false`)",
+                    }
+                return {"ok": True, "scope": scope}
+            # resume: clear the Head-Pointer's own fault and re-arm it first (that is what
+            # tells the gate it may arm), then re-arm every other source the gate knows.
+            ok = True
+            if runtime is not None:
+                result = runtime.command("resume")
+                if result.get("ok"):
+                    scope.append("Head-Pointer")
+                else:
+                    ok = False
+                    reasons.append(str(result.get("reason") or "Head-Pointer would not re-arm"))
+            if gate is not None:
+                rearm = gate.resume()
+                scope.extend(n for n in rearm.armed if n not in scope)
+                if rearm.refused:
+                    ok = False
+                    reasons.append(
+                        "not ready to re-arm: " + ", ".join(rearm.refused)
+                        + (f" ({rearm.reason})" if rearm.reason else "")
+                    )
+            if not scope and not reasons:
+                return {"ok": False, "reason": "nothing hands-free is running"}
+            reply: dict[str, object] = {"ok": ok and bool(scope), "scope": scope}
+            if reasons:
+                reply["reason"] = "; ".join(reasons)
+            return reply
+        except Exception as exc:
+            log.exception("hands-free %s raised", action)
+            return {"ok": False, "reason": f"failed: {type(exc).__name__}"}
 
     def _handle_shutdown(self, _request: Request) -> dict[str, bool]:
         threading.Thread(target=self.shutdown, name="ipc-shutdown", daemon=True).start()
@@ -5065,11 +6710,41 @@ class Daemon:
                 self._edit_watcher.cancel()
             except Exception:
                 log.exception("Edit watcher cancel raised")
+        if self._gaze_refinement is not None:
+            try:
+                self._gaze_refinement.stop()  # click hook off, camera lease back
+            except Exception:
+                log.exception("Gaze refinement stop raised")
+        # ADR-v2-148 shutdown order: suppress actions first, release backends afterwards,
+        # so nothing can fire into a half-closed pointer sink -- and before the camera
+        # source below is closed under the Head-Pointer's lease.
+        if self._handsfree_safety is not None:
+            try:
+                self._handsfree_safety.shutdown("daemon shutting down")
+            except Exception:
+                log.exception("Hands-free safety shutdown raised")
+        if self._gesture is not None:
+            try:
+                self._gesture.stop()  # tokens released, freeze dropped, camera lease back
+            except Exception:
+                log.exception("Gesture Chords stop raised")
+        if self._headpointer is not None:
+            try:
+                self._headpointer.stop()
+            except Exception:
+                log.exception("Head-Pointer stop raised")
         if self._gaze_targeter is not None:
             try:
                 self._gaze_targeter.close()  # release the camera
             except Exception:
                 log.exception("Gaze targeter close raised")
+        if self._perception is not None:
+            try:
+                # Whatever the lease bookkeeping says: a consumer that forgot to
+                # release must not leave the webcam open or its loop alive.
+                self._perception.close()
+            except Exception:
+                log.exception("Shared camera source close raised")
         if self._meeting_recorder is not None:
             try:
                 self._meeting_recorder.stop()
@@ -5101,19 +6776,62 @@ class Daemon:
 def run() -> None:
     """Entry point used by `yazses-daemon` and `python -m yazses.main`."""
     try:
-        # First run: seed a config that enables the recommended feature set so a
-        # fresh install (snap/pipx/apt) gets the good experience out of the box.
-        # No-op once a config exists — never overrides the user's choices.
-        from yazses.system.firstrun import ensure_recommended_config
+        # First run: carry any stranded pre-#330 config over before seeding, then
+        # seed the recommended feature set if no config exists. Both no-op once a
+        # valid config is in place — never override user choices.
+        from yazses.system.firstrun import ensure_recommended_config, migrate_legacy_config
 
+        migrate_legacy_config()
         ensure_recommended_config()
     except Exception:  # noqa: BLE001 — config seeding must never block startup
         pass
     _report_config_problems()
+    _report_snap_interfaces()
     try:
         Daemon().run()
     except KeyboardInterrupt:
         sys.exit(0)
+
+
+def _report_snap_interfaces() -> None:
+    """Warn -- in the log *and* on the desktop -- about a crippled snap install.
+
+    This is the single largest source of "I installed it and nothing happened".
+    Both interfaces the snap needs are manual-connect, a snap cannot connect its
+    own, and without them the daemon starts perfectly: the model loads, the
+    state machine reaches IDLE, `yazses status` says healthy, and the microphone
+    is never opened or the key is never seen.
+
+    The desktop notification is the load-bearing half. A snap installed from App
+    Center or the snapcraft.io web button never passes through a terminal, so
+    every existing signal -- the log line, the store description, `doctor` --
+    reaches only a user who already suspects something and knows where to look.
+    Whoever the toast reaches has not been told anything yet.
+
+    Never raises: this is diagnostics on the startup path.
+    """
+    try:
+        from yazses.system.snap import connection_advice, missing_interfaces
+
+        missing = missing_interfaces()
+        if not missing:
+            return
+        advice = connection_advice(missing)
+        for line in advice.splitlines():
+            log.warning("%s", line)
+        try:
+            from yazses.system.notify import notify
+
+            plugs = ", ".join(plug for plug, _ in missing)
+            notify(
+                "YazSes cannot hear you yet",
+                f"Missing permission: {plugs}. Run `yazses doctor` in a terminal "
+                "for the one command that fixes it.",
+            )
+        except Exception:  # noqa: BLE001 — a toast must never block startup
+            pass
+    except Exception:  # noqa: BLE001 — diagnostics must never block startup
+        pass
 
 
 def _report_config_problems() -> None:

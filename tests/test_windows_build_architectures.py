@@ -23,7 +23,9 @@ WORKFLOW = ROOT / ".github" / "workflows" / "build-windows.yml"
 SCRIPT = ROOT / "scripts" / "build-windows.ps1"
 ISS = ROOT / "packaging" / "windows" / "installer.iss"
 
-EXPECTED_RUNNERS = {"x64": "windows-latest", "arm64": "windows-11-arm"}
+# arm64 is absent on purpose: ctranslate2 has no win_arm64 wheel, so a native build cannot
+# carry the speech engine (see the comment on the matrix in build-windows.yml).
+EXPECTED_RUNNERS = {"x64": "windows-latest"}
 
 
 def _matrix_arches() -> set[str]:
@@ -31,10 +33,14 @@ def _matrix_arches() -> set[str]:
     return set(re.findall(r"^\s*-\s*arch:\s*([A-Za-z0-9_-]+)\s*$", text, re.M))
 
 
-def test_both_architectures_are_built() -> None:
-    assert _matrix_arches() == {"x64", "arm64"}, (
-        "Windows on ARM is a real desktop target; an x64-only matrix means ARM "
-        "users never get a native installer"
+def test_only_x64_is_built_until_the_speech_engine_has_an_arm64_wheel() -> None:
+    """A native arm64 installer cannot include ctranslate2 (no `win_arm64` wheel). The
+    arm64 leg that shipped through v2.42.0 passed only because uv handed the ARM runner
+    an emulated x64 Python; when uv changed, it failed. Putting an arm64 entry back
+    without a native wheel resurrects an x64 installer under an arm64 name."""
+    assert _matrix_arches() == {"x64"}, (
+        "an arm64 leg was added: first confirm ctranslate2 publishes a win_arm64 wheel "
+        "(https://pypi.org/project/ctranslate2/#files), then update this test"
     )
 
 

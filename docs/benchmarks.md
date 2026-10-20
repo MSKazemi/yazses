@@ -820,6 +820,122 @@ The false-collapse rate is the safety-critical one: the feature must never mangl
 fluent speech. The sample is small — 61 clips — so treat the recall figure as
 indicative rather than precise.
 
+## Persian (fa) — first measured numbers
+
+Persian is benchmarked on the pinned Google FLEURS `fa_ir` test split through the same
+shipping engine, scored raw and after the versioned evaluation normalizer
+(`fa-eval-v1`), with the text-quality block the
+[Persian benchmark spec](https://github.com/MSKazemi/yazses/blob/main/design/specs/persian-benchmark-and-validation.md) requires.
+Full method and commands: [`paper/benchmark/README.md`](https://github.com/MSKazemi/yazses/blob/main/paper/benchmark/README.md).
+These runs are FA-04 slice 3 ([#513](https://github.com/MSKazemi/yazses/issues/513));
+machine: AMD EPYC, 4 vCPU, 8.3 GB RAM, int8, 4 threads, Ubuntu 24.04.4.
+
+**The full test split — 871 utterances, no subsampling — is the published number:**
+
+| Model | WER raw | WER norm | CER norm | RTF | p50 | p95 |
+|---|---|---|---|---|---|---|
+| `base` | 89.14 % | 89.10 % | 33.69 % | 0.626 | 9.1 s | 16.7 s |
+| `small` | 59.43 % | 59.29 % | 18.68 % | 1.444 | 20.6 s | 34.9 s |
+| `small` (idle-host re-measure) | 59.25 % | 59.11 % | 18.51 % | 1.27 | 18.2 s | 31.0 s |
+| `large-v3-turbo` | 36.16 % | 36.13 % | 8.92 % | 1.716 | 24.8 s | 34.6 s |
+| `steja/whisper-small-persian` (CT2 int8) | 37.34 % | 37.28 % | 10.98 % | 1.334 | 18.9 s | 31.7 s |
+
+**A 50-utterance seed-42 sample extends the sweep** (sample, not the number — it ran
+3.6–5.3 points easier than the full split, which is exactly why §8 says to publish the
+full run):
+
+| Model | WER raw | WER norm | CER norm | RTF | p50 |
+|---|---|---|---|---|---|
+| `base` | 83.86 % | 83.86 % | 31.88 % | 0.609 | 9.3 s |
+| `small` | 55.79 % | 55.71 % | 18.09 % | 1.289 | 19.1 s |
+| `medium` | 41.80 % | 41.72 % | 11.15 % | 3.250 | 48.2 s |
+| `large-v3` | — | — | — | skipped: 5.2 GB free < 6.0 GB needed | — |
+
+**No default recommendation follows from this table yet**, by the spec's own §9 rule:
+the only model faster than real time (`base`) is unusable at 89 % WER, and every model
+accurate enough for dictation is slower than real time on this machine class, with
+`large-v3` not fitting 8 GB at all. That is a measured statement about 4-vCPU CPU
+boxes, not about the models.
+
+`large-v3-turbo` (FA-05, [#514](https://github.com/MSKazemi/yazses/issues/514)) fits
+and is measured: 1.6 GB int8, 1.74 GB peak RSS (the runtime block recorded
+`model_load_s` 5.95, `rss_before_load_mb` 38.6, `peak_rss_mb` 1738.5). It answers the
+accuracy half of §9 decisively — 36.16 % raw is 23 points under `small` — but it is
+still slower than real time (RTF 1.716 at provenance load average 3.31, peak p50
+latency 24.8 s). So the §9 statement sharpens rather than flips: no Whisper-family
+checkpoint measured on this 4-vCPU/8 GB class is simultaneously accurate enough for
+dictation and faster than real time, and turbo is the closest approach — 61 % of
+`small`'s error at 1.19× its RTF. Whether a distilled/fine-tuned Persian checkpoint
+can close that gap is exactly what the FA-05 fine-tune cells measure next.
+
+The first fine-tune cell has landed, and it nearly closes it: **`steja/whisper-small-persian`**
+(Apache-2.0, `small` architecture, converted to CT2 int8 locally with
+`convert_hf_to_ct2.py` and measured offline — [FA-05, #514](https://github.com/MSKazemi/yazses/issues/514))
+scores **37.34 % raw / 37.28 % normalized WER on the same 871-row split** — 22.1 points
+under stock `small` and within 1.2 points of `large-v3-turbo` — at **RTF 1.334** (0.78×
+turbo's) and **1174.4 MB peak RSS** (68 % of turbo's, `model_load_s` 1.48). The runtime
+block is present since #569; on this Linux run the peak is the `/proc` high-water mark.
+It is still not faster than real time, so §9 does not flip — but it now has a second
+measured close approach from the *small* class, and the accuracy that took an 809 M-parameter
+model (`large-v3-turbo`) to reach is reachable from a 244 M fine-tune of `small` on
+this class of hardware. ZWNJ stays at 0/1435 like every other cell: the fine-tune does not
+emit the zero-width joiner, so the §7 normalization caveat still applies to its numbers.
+
+**Run-to-run stability** (§9's third criterion): repeating the 50-row `small` cell
+reproduced WER bit-for-bit — 55.79 raw / 55.71 norm, every CER digit identical — and
+moved RTF 1.289 → 1.341. The full-split `small` cell was then re-measured on the same
+machine at a quieter moment (provenance load average 2.65; the other runs in this
+section were taken at 2.97–3.55): WER 59.43 → 59.25 raw and RTF 1.444 → 1.27 — the
+decode reproduces to within 0.2 of a WER point, while the timing moves by more than a
+sixth. That is the shape this criterion exists to catch: accuracy claims are
+reproducible on this harness, RTF claims are load-sensitive, and the per-result load
+average recorded in each provenance block is what makes them comparable.
+
+**ZWNJ: zero of 1,435 reference half-spaces survive any model on the full split**
+(0 of 71 on the sample, at every size measured). None of the three Whisper sizes
+tested emitted U+200C on this corpus — a measurement of those models on FLEURS, not
+a claim about every Whisper model or every speaker, and the measured justification for
+the conservative production normalizer.
+
+### Common Voice `fa` — a second corpus, and an in-domain one for the fine-tune
+
+FLEURS is read speech from a fixed prompt set; §9's report asks for Common Voice
+Persian too, and the two are not the same measurement. Both FA-05 cells now run the
+**full Common Voice `fa` test split — 10,559 utterances, no subsampling** (manifest
+rows SHA-256 pinned, corpus `b16a30c622e4aa86`, anonymous-mirror read path from
+[#514](https://github.com/MSKazemi/yazses/issues/514)), on the same 4-vCPU AMD EPYC
+machine and harness:
+
+| Model | WER raw | WER norm | CER norm | RTF | p50 | p95 |
+|---|---|---|---|---|---|---|
+| `small` | 75.89 % | 75.58 % | 27.52 % | 2.369 | 11.2 s | 19.7 s |
+| `steja/whisper-small-persian` (CT2 int8) | 46.04 % | 45.59 % | 13.76 % | 2.202 | 10.3 s | 17.1 s |
+
+**Read the fine-tune's column with its training data in mind.** The model card says
+`steja/whisper-small-persian` was fine-tuned on `mozilla-foundation/common_voice_11_0`
+`fa`, so Common Voice is the fine-tune's *own* domain and FLEURS is the out-of-domain
+split; stock `small` is zero-shot on both. This table is therefore not a
+domain-shift test of the fine-tune, and the 29.9-point lead over stock `small` here
+(75.89 vs 46.04, against 22.1 points on FLEURS) is not evidence that fine-tuning
+generalizes — it is partly the advantage of having trained on this kind of speech.
+Whether any Common Voice 17 test clip also appears in the Common Voice 11 training
+data has **not been checked** here; the splits are speaker-disjoint by Mozilla's
+design, but that is not a measured guarantee.
+
+What the pair does support: stock `small` is 16.5 WER points worse on Common Voice
+than on FLEURS (59.43 → 75.89), so the corpora differ in difficulty for a zero-shot
+model; the fine-tune is 8.7 points worse (37.34 → 46.04) even on its own domain,
+which says Common Voice is the harder corpus rather than that the fine-tune
+degrades. Exact match is 11.8 % of utterances under `steja` versus 1.3 % under stock
+`small` (FLEURS: 0.6 % vs 0.6 % at full-split scale). Peak RSS 1205.4 MB (`steja`)
+and 1266.6 MB (`small`) both fit the 8 GB box; `model_load_s` 1.79 vs 5.57. The §9
+speed statement is unchanged: neither cell is faster than real time (RTF 2.20 / 2.37),
+and both ran at provenance load average 4.2–4.6, so these RTFs are conservative
+against the idle-host FLEURS figures rather than comparable to them. Caveat carried
+over: the ZWNJ references in this split contain zero U+200C to begin with, so this
+corpus cannot re-test the §7 normalizer question — `steja` emitted none, `small`
+emitted 5 unmatched.
+
 ## Community results
 
 This table tracks performance across different machines and engines, measured with the

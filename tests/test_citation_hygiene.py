@@ -17,6 +17,12 @@ invites the obvious next step. The scholarly form is the abstract or publisher p
 
 This matters more since the engineering tier was published: 242 more pages became part
 of the public documentation, and every citation in them is now a citation the site makes.
+
+`hooks/design_tier.py` copies *every* tracked file under a `design/` section into the built
+site, not just the Markdown, so the LaTeX manuscript sources and their `.bib` are published
+pages too. Their citations are scanned by a second pass: a BibTeX entry writes its link as
+`url = {...}`, which the Markdown/HTML link pattern cannot match, so the rule would otherwise
+hold everywhere except the one file whose entire job is citing other people's work.
 """
 
 from __future__ import annotations
@@ -36,6 +42,14 @@ PUBLISHED = ("docs", "design")
 
 #: Markdown or HTML link straight at a PDF on another host.
 _PDF_LINK = re.compile(r'(?:\]\(|href=["\']?)(https?://[^)"\'\s]+\.pdf)', re.I)
+
+#: Manuscript source published alongside the Markdown by `hooks/design_tier.py`.
+_MANUSCRIPT_SUFFIXES = (".tex", ".bib")
+
+#: Any PDF URL at all, however it is delimited. `.tex` and `.bib` wrap a URL in braces,
+#: in `\url{}`, or in nothing; matching only the Markdown form would read the file and
+#: find nothing, which is the failure mode that looks exactly like compliance.
+_PDF_URL = re.compile(r'https?://[^\s{}<>"\')\]]+\.pdf', re.I)
 
 #: Deep links that are *not* third-party redistribution: our own domain, and the
 #: canonical preprint/publisher landing patterns that happen to end in .pdf.
@@ -98,6 +112,41 @@ def test_no_published_page_deep_links_at_a_third_party_pdf():
         f"these published pages link straight at a third-party PDF: {offenders}\n\n"
         f"Cite the landing page (abstract, DOI or publisher page) instead. It carries "
         f"the version and licence, and it does not rot when the file moves."
+    )
+
+
+def _manuscript_sources() -> list[str]:
+    return [f for f in _tracked(PUBLISHED) if f.lower().endswith(_MANUSCRIPT_SUFFIXES)]
+
+
+def test_the_scan_actually_reads_the_manuscript_sources():
+    """Guard the guard: no `.tex`/`.bib` found means the check below proves nothing."""
+    files = _manuscript_sources()
+    assert files, (
+        "no .tex or .bib is tracked under docs/ or design/, so the manuscript citation "
+        "check below is vacuous. If the manuscript moved, point PUBLISHED at its new "
+        "home; do not leave a check that passes because it reads nothing."
+    )
+
+
+def test_no_manuscript_source_cites_a_third_party_pdf():
+    """A `.bib` entry is a citation; the landing-page rule applies to it too."""
+    offenders: dict[str, list[str]] = {}
+    for rel in _manuscript_sources():
+        try:
+            text = (ROOT / rel).read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            continue
+        hits = [
+            url for url in _PDF_URL.findall(text)
+            if not any(host in url for host in _ALLOWED_HOSTS)
+        ]
+        if hits:
+            offenders[rel] = sorted(set(hits))
+    assert not offenders, (
+        f"these manuscript sources cite a third-party PDF directly: {offenders}\n\n"
+        f"Use the abstract, DOI or publisher landing page. arXiv, for example, is "
+        f"arxiv.org/abs/ID and never arxiv.org/pdf/ID."
     )
 
 

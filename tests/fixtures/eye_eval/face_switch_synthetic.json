@@ -1,0 +1,96 @@
+{
+  "schema_version": "1.0",
+  "study_mode": "synthetic",
+  "timestamp": "2026-09-25T09:31:15+00:00",
+  "software": {
+    "yazses_version": "2.40.1",
+    "git_commit": "a19a8f79",
+    "python_version": "3.12.7",
+    "perception_backend": {"name": "trace_replay", "asset_version": "n/a"},
+    "packages": {"numpy": "2.1.3"},
+    "generator": "yazses-eye-eval/0.1.0"
+  },
+  "machine": {
+    "os_name": "Ubuntu",
+    "os_version": "24.04.3 LTS",
+    "kernel": "6.14.0-32-generic",
+    "arch": "x86_64",
+    "cpu_model": "AMD EPYC 7763",
+    "logical_cpus": 4,
+    "ram_gb": 15.6
+  },
+  "os_session": {"session_type": "headless"},
+  "display": {
+    "display_count": 1,
+    "displays": [
+      {"index": 0, "x": 0, "y": 0, "width": 1920, "height": 1080, "scale": 1.0, "primary": true}
+    ],
+    "topology_fingerprint": "sha256:synthetic-1920x1080-1x"
+  },
+  "camera": {
+    "camera_class": "none",
+    "capture_mode": "synthetic_replay",
+    "trace_id": "browraise-neutral-speech-v1",
+    "nominal_fps": 30
+  },
+  "feature": {"name": "face_switch", "state": "experimental"},
+  "config": {
+    "config_hash": "sha256:3f70c8ea",
+    "settings": {
+      "facegesture.enabled": true,
+      "facegesture.gesture": "brow_raise",
+      "facegesture.enter_threshold": 0.62,
+      "facegesture.exit_threshold": 0.45,
+      "facegesture.hold_ms": 200,
+      "facegesture.refractory_ms": 900
+    }
+  },
+  "protocol": {
+    "task": "face_switch_blocks",
+    "task_version": "1.0",
+    "protocol_id": null
+  },
+  "metrics": {
+    "blocks": {
+      "deliberate": {
+        "gesture": "brow_raise",
+        "intended_activations": 30,
+        "detections": 29,
+        "misses": 1,
+        "false_activations": 0,
+        "duration_s": 300.0,
+        "activation_latency_ms_median": 268
+      },
+      "neutral": {
+        "gesture": "brow_raise",
+        "intended_activations": 0,
+        "detections": 0,
+        "misses": 0,
+        "false_activations": 0,
+        "duration_s": 300.0,
+        "activation_latency_ms_median": {
+          "value": null,
+          "reason": "not_measured"
+        }
+      },
+      "speaking": {
+        "gesture": "brow_raise",
+        "intended_activations": 0,
+        "detections": 2,
+        "misses": 0,
+        "false_activations": 2,
+        "duration_s": 300.0,
+        "activation_latency_ms_median": 412
+      }
+    },
+    "false_activations_per_hour": 8.0,
+    "recall": 0.967,
+    "activation_latency_ms_median": 271
+  },
+  "privacy": {
+    "data_class": "A",
+    "raw_media_retained": false,
+    "contains_personal_identifiers": false,
+    "notes": "Replayed numeric blendshape trace; no person and no camera were involved."
+  }
+}

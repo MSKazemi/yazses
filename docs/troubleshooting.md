@@ -51,6 +51,131 @@ Two details worth knowing:
     also lists the failures that are deliberately left for you, so you can tell
     which kind you are looking at.
 
+## My desktop asked to allow "Remote Desktop" — why does a dictation app want that?
+
+Because on Wayland there is no narrower permission to ask for. `RemoteDesktop` is the
+only portal interface that lets one application type into another's window, so every tool
+that types on your behalf — dictation, accessibility software, automation — goes through
+the same door, and inherits the name it was given for its original purpose, screen
+sharing. The confirm button says **Share** for the same reason.
+
+What YazSes actually requests is the keyboard and nothing else:
+
+- it asks the portal for `KEYBOARD` devices only, never the pointer;
+- it never touches the ScreenCast interface, so no screen capture is possible with it;
+- the calls are local D-Bus to your own desktop — no network, consistent with YazSes
+  being offline by design.
+
+**Your top bar will show a screen-sharing indicator the whole time the daemon runs.** That
+is your desktop reporting that a `RemoteDesktop` session is open; it cannot tell that the
+session was granted the keyboard alone, so it shows its generic icon. It is not evidence
+that anything is being captured or sent.
+
+You are asked **once** — the answer is remembered with a restore token stored at
+`~/.local/share/yazses/portal_remote_desktop_token` (mode `0600`). Delete that file to be
+asked again.
+
+### Getting rid of the prompt entirely
+
+The portal is a *fallback*. YazSes prefers `ydotool`, which injects directly and needs no
+permission dialog, and only falls through to the portal when `ydotoold` is not running.
+
+Two things have to be true for `ydotool` to work, and on a stock Ubuntu **neither is by
+default** — which is why most Wayland users land on the portal:
+
+1. the **`ydotoold` daemon** must be installed. On Debian/Ubuntu it is a *separate package*
+   from the `ydotool` client, so installing `ydotool` alone leaves the service pointing at
+   a binary that does not exist;
+2. `/dev/uinput` must be openable by your user. It ships `0600 root:root`, so belonging to
+   the `input` group grants nothing without a udev rule.
+
+`yazses setup` now does both:
+
+```sh
+yazses setup      # installs ydotoold + the /dev/uinput udev rule, joins `input`
+# log out and back in — the group and the rule only apply to a new session
+yazses doctor     # the Injection line names the backend actually in use
+```
+
+**The log-out is not optional.** Until you start a new session the rule has not reached it,
+`ydotoold` still cannot open the device, and YazSes will keep using the portal.
+
+The exception is the **strictly confined snap**, which has no package manager and cannot
+install a udev rule — there the portal is genuinely the only way to type on Wayland, and
+`yazses setup` is not offered.
+
+If you declined the dialog, dictation falls back to pasting via the clipboard, which is a
+no-op in terminals. Approve it, or run `yazses setup`, then `yazses restart`.
+
+## `yazses start` says it started, but `yazses status` says "not running"
+
+YazSes now tells you why instead of printing a hopeful "still loading". If no daemon
+process appears, `yazses start` reads the systemd unit and its journal and prints the cause
+with the exact commands to copy — for example a unit whose program does not exist (a
+packaged unit next to a pipx install), a crash loop systemd gave up on, a missing system
+library (with the package name for your distribution), or an unreadable `/dev/input`.
+`yazses doctor` shows the same thing under **Service health**.
+
+The two fixes behind most cases:
+
+```sh
+yazses autostart enable                          # rewrite the unit to the install you run
+systemctl --user reset-failed yazses.service     # clear "start request repeated too quickly"
+```
+
+## Dictation is heard and "typed", but nothing appears (GNOME Wayland)
+
+**Symptom.** You hold the hotkey, speak, release — and nothing appears. Yet `yazses doctor`
+says everything is fine, `yazses status` reports the burst as "typed", and the log shows
+`Injecting N chars`.
+
+**Cause.** The voice-activity overlay is a separate window that appears the moment you press
+the hotkey. On native Wayland (Ubuntu's default GNOME session) the compositor gives every new
+window keyboard focus, and an application cannot opt out of that. Focus moves from your text
+field to the overlay, and the dictated text is typed into the overlay instead of your app.
+`yazses status` counts injections, not text that arrived, so it cannot see this.
+
+**Fix.** Turn the overlay off, then restart:
+
+```sh
+yazses features disable overlay
+yazses restart
+```
+
+Or set it in `~/.config/yazses/config.toml` and restart:
+
+```toml
+[overlay]
+enabled = false
+```
+
+The overlay is **optional and off by default** in current releases, and a build that includes
+the Wayland guard never starts it on a native Wayland session unless you set
+`QT_QPA_PLATFORM` yourself. Builds up to and including 2.40.1 do not have that guard and
+started the overlay by default, so they are affected. After the restart, confirm with
+`pgrep -af yazses-overlay` — it should print nothing.
+
+Still nothing typed with the overlay off? Ask YazSes to **prove** that typing arrives, not
+merely that it was sent:
+
+```sh
+yazses verify --type
+```
+
+It records a few seconds, transcribes, then types the result into a small window it opens and
+checks the text arrived there. The `Delivery` line is evidence, where `doctor` and `status`
+only describe the sender:
+
+| Result | What it means |
+|---|---|
+| `[OK] Delivery: typed N characters and they arrived` | Typing reaches a focused window on this machine. If your own app still gets nothing, the cause is that app or something taking focus from it. |
+| `[FAIL] Delivery: … nothing arrived` | The keystrokes leave YazSes and are not delivered. On Linux with ydotool, YazSes restarts the `ydotoold` user service once and tries again, and says if that helped. |
+| `[FAIL] Delivery: … received "…"` | Something arrived but not what was typed: a keyboard-layout mismatch or dropped keys. Restarting does not fix that, so none is attempted. |
+| `[FAIL] Delivery: not proven — …` | The check window never got keyboard focus, so nothing was typed and nothing can be said. It is never reported as a pass. |
+
+Without the desktop extra (PySide6) or a graphical session there is no check window; the command
+says so and falls back to typing into the focused window, with arrival **not** checked.
+
 ## It works, but not after I reboot
 
 YazSes is a daemon, so it should already be running when you sit down:
@@ -157,10 +282,70 @@ only reliable way to stop it inventing. `Speech` is the one that fires when room
 clears the gate: it runs a speech detector on what was actually recorded, so a quiet room
 is named as a quiet room rather than transcribed into a confident word.
 
+After v2.43.1 the daemon also asks a speech detector about every burst that clears the gate,
+before it is decoded. A burst that is loud but holds no speech (a fan, a chair, the hotkey
+itself) is discarded with a line like `No speech in a 1.2s burst (level 0.0300 cleared
+vad_threshold 0.0100, but the speech detector found none) -- discarding.` Without that,
+the model answers such a burst with the words it was primed with: the built-in name
+vocabulary came back as the sentence **"The app is called YazSes."** in every no-speech
+test run with the real model. The log line carries numbers only, never audio or text. The
+check is skipped in Whisper / Low-Effort mode, Dysfluency-Friendly mode and the sotto-voce
+command channel, and does nothing when the detector cannot run. Whispering is the weak spot: in a test with a crude whisper stand-in about one word in seven
+was judged to hold no speech at normal volume. If quiet or whispered speech is being
+discarded as "no speech", set `[accessibility] speech_presence_check = false`.
+
 Raising the gate too far has the opposite failure and it is the visible one: quiet speech is
 dropped with `Silent audio -- discarding` in `yazses logs`. That is why the automatic tuner
 only ever lowers the gate — a mic that hears too little tells you so, and a mic that hears
 too much does not.
+
+## Windows: one app gets `????` or `----` where the words should be
+
+The giveaway is that it is *one application*. The same dictation lands correctly in a
+browser and arrives in an editor or a notes app as the right **number** of characters
+with every one of them wrong — rows of `?`, `-` or `.`.
+
+Nothing is wrong with the transcript. YazSes types on Windows with `SendInput` and the
+`KEYEVENTF_UNICODE` flag, and Microsoft documents two ways an application can receive
+that keystroke incorrectly:
+
+- **An ANSI window.** Windows converts each character to the application's ANSI codepage
+  on the way in and substitutes `?` for anything that codepage cannot represent.
+- **A text service that does not unpack `VK_PACKET`.** `KEYEVENTF_UNICODE` synthesises a
+  *VK_PACKET* keystroke that carries the character as data. A text input service that
+  does not read it out runs the keystroke through your keyboard layout instead, so the
+  whole sentence comes out as the same wrong character repeated.
+
+Chromium handles `VK_PACKET` explicitly, which is why the browser is always fine.
+
+Find out which window you are really typing into:
+
+```sh
+yazses inject -d 5 --diagnose "hello world"
+```
+
+You then have five seconds to click into the application under test. It reports the
+focused control, whether it is a Unicode window, and your active keyboard layout, and
+then types. If the text is mangled there too, the application is the cause. If it is
+clean there but dictation is not, the problem is in the hold-to-talk path, not the
+injector — say so in an issue.
+
+The fix is to paste rather than type, which depends on neither condition:
+
+```toml
+[injection]
+backend = "clipboard"
+```
+
+```sh
+yazses restart
+```
+
+The transcript goes on the clipboard as Unicode text and YazSes sends a real Ctrl+V.
+Your previous clipboard contents are put back afterwards. Two trade-offs come with it,
+and they are why typing remains the default: Ctrl+V is literal in most terminals, so
+dictation into a terminal stops working, and applications that refuse paste (some
+password fields) receive nothing.
 
 ## Dictation stops after connecting a USB-C monitor or headset
 

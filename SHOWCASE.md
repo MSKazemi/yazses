@@ -70,4 +70,30 @@ Any setup is welcome — beginner or power user. 💛
   searches and writing emails. It worked reliably even when I was not sitting close to the
   laptop, and it could accurately recognize my speech without me having to speak loudly.
 
+### @sameer8945
+- **OS / desktop:** Windows 11
+- **Mic:** laptop built-in microphone
+- **Apps you dictate into:**  VS Code, PowerShell, web browser
+- **How you use YazSes:**  Mostly for typing while coding and working on GitHub. It’s nice being able to just
+  hold the key, say what I want, and have it appear wherever I'm working instead of constantly switching back
+  to the keyboard.
+  
+### @AmothissacrajT
+- **OS / desktop:** ubuntu 24.04.5 (X11)
+- **Mic:** Razer HyerClear Cardioid, laptop built-in microphone
+- **Apps you dictate into:**  VS Code, Bash, Gnome-text-editor
+- **How you use YazSes:**  Tested YazSes voice dictator using external microphone as well as in-built microphone.
+  Used it in bash instead of manually typing commands repetitively. Also tested it across gnome test editor and vs code.
+  The voice level setting helps in changing the voice level according to the surrounding and voice.
+    
+
+### @Adharsh75r
+- **OS / desktop:** Windows 11
+- **Mic:** Razer HyperClear Cardioid
+- **Apps you dictate into:** terminal, VS Code, email, web browsers
+- **How you use YazSes:** I use YazSes now as a quick way to turn my thoughts into text while
+  working. It's especially useful when I'm debugging code, writing documentation, preparing
+  GitHub contributions, or entering longer text where typing everything out would slow me
+  down and cause mistakes I don't notice while working.
+
 <!-- Add your entry above this line's section by appending a new ### block at the end. -->

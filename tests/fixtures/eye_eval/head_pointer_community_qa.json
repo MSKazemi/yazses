@@ -1,0 +1,80 @@
+{
+  "schema_version": "1.0",
+  "study_mode": "community_qa",
+  "timestamp": "2026-09-25T11:02:47+00:00",
+  "software": {
+    "yazses_version": "2.40.1",
+    "git_commit": "a19a8f79",
+    "python_version": "3.11.9",
+    "perception_backend": {"name": "mediapipe_face_landmarker", "asset_version": "v2"},
+    "packages": {"mediapipe": "0.10.21", "numpy": "2.1.3"},
+    "generator": "yazses-eye-eval/0.1.0"
+  },
+  "machine": {
+    "os_name": "Windows",
+    "os_version": "11 24H2 (26100.1742)",
+    "kernel": "10.0.26100",
+    "arch": "AMD64",
+    "cpu_model": "Intel Core i7-1255U",
+    "logical_cpus": 12,
+    "ram_gb": 15.8
+  },
+  "os_session": {"session_type": "windows"},
+  "display": {
+    "display_count": 2,
+    "displays": [
+      {"index": 0, "x": 0, "y": 0, "width": 2560, "height": 1600, "scale": 1.5, "primary": true},
+      {"index": 1, "x": 2560, "y": 0, "width": 1920, "height": 1080, "scale": 1.0, "primary": false}
+    ],
+    "topology_fingerprint": "sha256:7e4402ab19c8d503"
+  },
+  "camera": {
+    "camera_class": "external",
+    "capture_mode": "live",
+    "capture_width": 1920,
+    "capture_height": 1080,
+    "nominal_fps": 30,
+    "measured_fps_median": 24.1
+  },
+  "feature": {"name": "head_pointer", "state": "experimental"},
+  "config": {
+    "config_hash": "sha256:91ac3f20",
+    "settings": {
+      "headpointer.enabled": true,
+      "headpointer.gain": 1.4,
+      "headpointer.deadzone_deg": 1.5,
+      "headpointer.dwell_ms": 800
+    }
+  },
+  "protocol": {
+    "task": "head_pointer_generated_targets",
+    "task_version": "1.0",
+    "protocol_id": null
+  },
+  "metrics": {
+    "trials": 24,
+    "task_completion_rate": 0.958,
+    "movement_time_ms_median": 1840,
+    "movement_time_ms_p95": 3620,
+    "miss_rate": 0.083,
+    "accidental_clicks": 1,
+    "accidental_clicks_per_hour": 4.2,
+    "tracking_loss_count": 2,
+    "tracking_loss_total_s": 5.4,
+    "recenter_count": 3,
+    "overshoot_count": {
+      "value": null,
+      "reason": "not_supported"
+    },
+    "effective_throughput_bits_per_s": {
+      "value": null,
+      "reason": "not_measured"
+    }
+  },
+  "privacy": {
+    "data_class": "B",
+    "raw_media_retained": false,
+    "contains_personal_identifiers": false,
+    "notes": "Generated on-screen targets only; no desktop content was recorded."
+  }
+}

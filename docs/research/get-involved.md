@@ -21,7 +21,7 @@ flowchart TD
     Q{What do you want<br/>to walk away with?} --> A[A graded project<br/>or a thesis]
     Q --> B[A publishable<br/>measurement]
     Q --> C[A deployment<br/>in my organisation]
-    A --> A1["Pick from the eight scoped projects below<br/>— each has an open issue and an evaluation"]
+    A --> A1["Pick from the scoped projects below<br/>— each has a defined evaluation"]
     B --> B1["Take an open research question<br/>from the survey pages"]
     C --> C1["Read the privacy statement and<br/>Meeting Mode, then open a Discussion"]
     A1 --> D[Open a Discussion to claim it]
@@ -39,8 +39,8 @@ small interface, so an experiment replaces one box without touching the rest:
 |---|---|---|
 | Speech-to-text engine | `SttEngine` (`stt/base.py`) | your model — Whisper variants and NVIDIA Parakeet TDT already ship |
 | Voice-activity detection | `[meeting] vad_backend`, `audio/vad_calibrated.py` | energy gates, Silero, your VAD |
-| Speaker diarization | `recimport/diarizer.py` | sherpa-onnx today; pyannote seam open ([#71](https://github.com/MSKazemi/yazses/issues/71)) |
-| Speaker embeddings | `voiceprint/` | ECAPA today; lighter embedders open ([#70](https://github.com/MSKazemi/yazses/issues/70)) |
+| Speaker diarization | `recimport/diarizer.py` | sherpa-onnx by default; the pyannote backend shipped in [#71](https://github.com/MSKazemi/yazses/issues/71) |
+| Speaker embeddings | `voiceprint/` | ECAPA by default; the lighter Resemblyzer backend shipped in [#70](https://github.com/MSKazemi/yazses/issues/70) |
 | Activation source | `HotkeyBackend` protocol | keyboard, EMG squeeze (YESP serial), your sensor |
 | Gaze targeting | `gaze/` backends | MediaPipe iris today; your estimator |
 
@@ -52,11 +52,21 @@ an obstacle.
 
 ## For students: project-sized problems
 
-Each of these is a real, wanted contribution with an open issue, a defined
-evaluation, and a maintainer who reviews quickly. They are sized between a
-course project and a bachelor/master thesis:
+Each of these is a real, wanted contribution with a defined evaluation and a
+maintainer who reviews quickly. They are sized between a course project and a
+bachelor/master thesis:
 
-| Project | Open issue | Flavour |
+| Project | Where it stands | Flavour |
+|---|---|---|
+| Gaze-aware target selection for dictation ("Glance-Type") | open — [research background](eye-control.md) | HCI / multimodal |
+| Dysfluency-friendly transcription for stuttered speech | open — [accessibility use case](../use-cases/accessibility-rsi-hands-free.md) | accessibility / NLP |
+| Persian and RTL portable contract vectors | open — [#512](https://github.com/MSKazemi/yazses/issues/512) | evaluation / i18n |
+
+The six seams below shipped in August 2026. They are no longer open work, but the
+issue behind each one records the design argument and the measurements that settled
+it, which is the useful starting point if you want to extend or re-evaluate one:
+
+| Shipped seam | Design record | Flavour |
 |---|---|---|
 | STT benchmark harness — WER/RTF methodology + community results | [#72](https://github.com/MSKazemi/yazses/issues/72) | empirical / reproducibility |
 | Vocabulary biasing for transducer STT (Parakeet ignores prompts) | [#73](https://github.com/MSKazemi/yazses/issues/73) | speech ML, open design |
@@ -64,8 +74,6 @@ course project and a bachelor/master thesis:
 | Noise suppression in the dictation hot path (DeepFilterNet) | [#69](https://github.com/MSKazemi/yazses/issues/69) | audio DSP |
 | Speaker-embedding reliability on sub-second windows | [#70](https://github.com/MSKazemi/yazses/issues/70) | speaker modelling |
 | Diarization accuracy vs speed trade-off (pyannote vs sherpa) | [#71](https://github.com/MSKazemi/yazses/issues/71) | evaluation |
-| Gaze-aware target selection for dictation ("Glance-Type") | [research background](eye-control.md) | HCI / multimodal |
-| Dysfluency-friendly transcription for stuttered speech | [accessibility use case](../use-cases/accessibility-rsi-hands-free.md) | accessibility / NLP |
 
 Supervisors: if you want to run one of these as a course assignment or thesis,
 open a Discussion — scoping a variant for your semester is exactly the
@@ -80,7 +88,8 @@ conversation we want to have.
 - **Reproducibility**: pinned Python dependencies, CPU-int8 inference,
   offline models — a described configuration re-runs bit-for-bit on commodity
   hardware. The benchmark harness ([#72](https://github.com/MSKazemi/yazses/issues/72))
-  is the intended home for shared methodology.
+  shipped and is the home for shared methodology; its results are in
+  [Benchmarks](../benchmarks.md).
 - **Study directions already grounded in the codebase**: multimodal input
   (gaze + voice + EMG), personal VAD and the cocktail-party problem on short
   windows, code-switching dictation ([Polyglot](../v2-features.md)),
@@ -101,8 +110,9 @@ conversation we want to have.
   reaching a third party.
 - **Scriptable deployment** — plain TOML config, a CLI for everything,
   systemd/launchd lifecycle (Windows autostarts per-user; there is no Windows
-  Service backend yet), and (coming) a container image for the
-  headless transcription pipeline ([#76](https://github.com/MSKazemi/yazses/issues/76)).
+  Service backend yet), and a container image for the headless transcription
+  pipeline on GHCR ([#76](https://github.com/MSKazemi/yazses/issues/76) —
+  see [Docker](../docker.md)).
 - Pilots and integration questions: open a Discussion or contact the
   maintainer (see the repository profile). Honest expectations: this is an
   open-source project, not a vendor with an SLA — what you get is source
@@ -116,5 +126,5 @@ conversation we want to have.
 - **[Contributor lanes](https://github.com/MSKazemi/yazses/issues/22)** — the
   pinned issue groups every open task by interest: GUI, packaging, speech/ML,
   voice-control features, docs and no-code testing.
-- **[Benchmarks](../benchmarks.md)** — add a row for your machine once the
-  harness lands.
+- **[Benchmarks](../benchmarks.md)** — the harness has landed; add a row for
+  your machine.

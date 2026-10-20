@@ -1,0 +1,54 @@
+{
+  "schema_version": "1.0",
+  "trace_id": "ambiguous-overlap",
+  "study_mode": "synthetic",
+  "description": "Two same-sized buttons that overlap, and a precise point inside the overlap. No element is the right answer here: expected_entity_id is null, so grounding either button would be a wrong target and abstaining is correct.",
+  "space": {"name": "screen", "version": 1},
+  "cases": [
+    {
+      "case_id": "ambiguous-overlap/point-in-the-overlap",
+      "description": "The point is inside both buttons. Equal area, equal distance, equal source — nothing nameable separates them.",
+      "now_s": 1000.0,
+      "target": {
+        "source": "mouse",
+        "timestamp_s": 1000.0,
+        "confidence": 0.9,
+        "point": {"x": 390.0, "y": 270.0},
+        "window_id": "win-dialog"
+      },
+      "candidates": [
+        {
+          "source": "window",
+          "entity_id": "win-dialog",
+          "role": "window",
+          "captured_at_s": 1000.0,
+          "confidence": 0.9,
+          "bounds": {"x": 0.0, "y": 0.0, "width": 800.0, "height": 600.0},
+          "label": "Confirm"
+        },
+        {
+          "source": "accessibility",
+          "entity_id": "btn-left",
+          "role": "button",
+          "captured_at_s": 1000.0,
+          "confidence": 0.88,
+          "bounds": {"x": 300.0, "y": 250.0, "width": 100.0, "height": 40.0},
+          "label": "Accept",
+          "actions": ["press"]
+        },
+        {
+          "source": "accessibility",
+          "entity_id": "btn-right",
+          "role": "button",
+          "captured_at_s": 1000.0,
+          "confidence": 0.72,
+          "bounds": {"x": 380.0, "y": 250.0, "width": 100.0, "height": 40.0},
+          "label": "Approve",
+          "actions": ["press"]
+        }
+      ],
+      "hint": null,
+      "expected_entity_id": null
+    }
+  ]
+}

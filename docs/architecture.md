@@ -185,6 +185,24 @@ so it installs without torch). `stt/factory.py` selects on `[stt] engine` and
 falls back to faster-whisper with a warning whenever an engine's optional
 dependency is absent or its model fails to load — dictation always comes up.
 
+That fallback is deliberately quiet at the decode layer (a log line, never a
+crash), which on a real machine meant it was quiet everywhere: `[stt] engine =
+"parakeet"` with `onnx_asr` missing degraded silently to a much smaller,
+less accurate model with nothing surfaced anywhere a user would see it.
+`yazses doctor`'s `_configured_engine_check` closes that — it reports `WARN`
+with the exact `features enable` fix whenever the configured non-default
+engine's dependency cannot actually be found, distinct from `_stt_engine_check`
+above it (which only asks whether faster-whisper itself, the universal
+fallback, can load — `OK` in both the healthy and the silently-downgraded
+case). The dependency loss that triggered this was `system/deps.py::install_packages`
+installing a feature's extra via a bare `uv pip install`, which never touches a
+`uv tool install`'s own receipt — so `uv tool upgrade` (what the tray's
+"Install update" and `yazses update` both run for that install method)
+reconciled the venv back to a receipt that never listed it, and removed it.
+`install_packages` now detects a `uv tool`-managed environment and records the
+extra in its receipt instead, merged with whatever was already there, so a
+second feature enabled later cannot silently drop the first.
+
 Neither Parakeet nor Moonshine supports `initial_prompt`, so the personal
 dictionary reaches them a different way: `postprocess/vocab_correct.py` (#73)
 recovers mis-heard vocabulary *after* decoding, which is why it was built
@@ -433,6 +451,32 @@ runs in its own background thread beside the keyboard hook and is stopped at
 shutdown; the same seam is where future non-keyboard triggers (wake word,
 switch access) plug in.
 
+**The webcam face-gesture switch is the third source through that seam** (`facegesture/`,
+v2.37). MediaPipe's FaceLandmarker — the model Glance-Type already downloads — reports 52
+blendshape activations per frame, and one of them becomes the key you hold: the mic opens
+while your jaw is open (or your brows are raised) and closes when it relaxes.
+`facegesture/detector.py` is the whole activation policy and is pure, so it is tested
+frame by frame with no camera; `facegesture/backend.py` is the capture loop and duck-types
+`HotkeyBackend` like the two EMG transports, taking the same two callbacks and the same
+`mode` decision.
+
+Two parameters carry it. **Hysteresis:** a blendshape score is continuous and noisy, so a
+gesture held at a single threshold crosses it several times a second and each crossing
+would be a separate recording — the mic opens at `hold_threshold` and closes only below
+`release_threshold`. **A frame-count debounce:** talking, laughing and yawning all spike
+`jawOpen` briefly, so `min_hold_frames` is what separates a held gesture from the
+Midas-touch problem, and its latency is affordable here *because* the audio path already
+prepends `[accessibility] pre_speech_padding_ms` of buffered audio — the words spoken
+during the debounce are still in the recording. A frame with no reading (no face, a
+dropped frame) counts toward *release*, never toward hold: the alternative to releasing
+when the user leaves the camera is a microphone that stays open until they come back.
+
+It matters most for the users who cannot use the other two: it needs no hardware beyond
+the webcam already in the lid, where EMG needs an armband and the keyboard hook needs a
+key you can press. eViacam has been unmaintained since ~2019 and Google's Project
+Gameface was archived in 2025, so this class of Linux switch access currently has no
+maintained free implementation (#102).
+
 **Bluetooth is the second transport through the same seam.** `platform/emg/ble_backend.py`
 (`BLEEMGBackend`) speaks the same YESP protocol over the Nordic UART Service and
 duck-types the same `HotkeyBackend` with the same two callbacks, so `[emg] ble_address`
@@ -482,10 +526,21 @@ picks one automatically (`src/yazses/inject/`):
 - **clipboard** — copies the text and pastes it. A pragmatic fallback, but a
   no-op inside terminals (paste means something different there) and it clobbers
   your clipboard.
+- **portal** (`inject/portal.py`) — types through
+  `org.freedesktop.portal.RemoteDesktop`, the one Wayland route that survives
+  **strict snap confinement**: it needs no `/dev/uinput` device node and no
+  `snap connect`, since access rides on the `desktop` plug the snap already
+  declares. Selected on the snap build's Wayland path, after ydotool and before
+  wtype; types by keysym so it stays layout-independent.
+- **unicode** (`inject/unicode_injector.py`, opt-in) — resolves each character
+  through `libxkbcommon`'s XKB state and emits key events via a private
+  `/dev/uinput` keyboard, to type the non-ASCII characters (accented letters,
+  most non-Latin scripts) the ydotool path silently drops on Wayland. Ships
+  non-default pending real hardware validation.
 
 At startup, `auto.py` probes the environment and selects the best available
 backend; you can override the choice with the `[injection] backend` config key
-(`auto` | `type` | `clipboard` | `wtype`).
+(`auto` | `type` | `clipboard` | `wtype` | `portal` | `unicode`).
 
 **Why Wayland needs ydotool.** Wayland deliberately isolates applications from
 one another for security, so an app generally can't synthesise input into a
@@ -688,12 +743,16 @@ states — Meeting Mode among them — fell through to idle blue. A second imple
 policy is a second policy.
 
 **One renderer draws the mark everywhere.** `brandmark.py` redraws `contrib/icons/yazses.svg`
-in Pillow, and both the live tray badge and the packaged `.ico`/`.icns`
-(`scripts/gen-icons.py`) come out of it, so the shortcut icon and the tray glyph cannot
-diverge. The build now *fails* when the icon file is absent. It used to fall back to
-`icon=None`, which is why every Windows release shipped PyInstaller's default artwork on the
-desktop shortcut: the asset had never existed, and a silent fallback meant no build, test, or
-CI run ever mentioned it.
+in Pillow, and the live tray badge, the packaged `.ico`/`.icns` (`scripts/gen-icons.py`) and
+the Microsoft Store listing artwork (`scripts/gen-store-art.py`) all come out of it, so the
+shortcut icon, the tray glyph and the store page cannot diverge. Each committed image is
+bound back to its generator by a test, comparing decoded pixels within a measured tolerance
+(`scripts/imagediff.py`) rather than exactly — the renderer supersamples in floating point,
+so an exact comparison answers "was this file produced on this architecture", which is not
+the question the guard is asking. The build now *fails* when the icon file is absent. It used
+to fall back to `icon=None`, which is why every Windows release shipped PyInstaller's default
+artwork on the desktop shortcut: the asset had never existed, and a silent fallback meant no
+build, test, or CI run ever mentioned it.
 
 Two commands expose the result: `yazses verify` runs the real chain and names the first
 broken link, and `yazses report` writes a redacted diagnostic bundle locally — never

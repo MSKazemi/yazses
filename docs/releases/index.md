@@ -23,12 +23,11 @@ software itself runs on.
 
 ## Current stable
 
-**[YazSes 2.36.0](v2.36.0.md)** — the failures that reported success. A UTF-8 byte-order
-mark — what Windows PowerShell writes by default — threw away every setting in
-`config.toml` and blamed a line that looks correct on screen. A one-letter typo in
-`[redaction] mode` fell through to not redacting, so the setting that removes a secret was
-the one that shipped it. And a dictated `rm -rf` skipped its confirmation gate in the one
-mode that presses Return.
+**[YazSes 2.43.2](v2.43.2.md)** — speech models no longer type words nobody said. A burst of fan or
+keyboard noise that clears the volume gate used to come back as the vocabulary prompt, "The app is called
+YazSes."; the daemon now checks that a burst holds speech before it decodes it. Eyes-closed dictation also
+stops re-typing the previous sentence on a stray release, and re-arms after a glance away.
+
 Install it with:
 
 ```sh
@@ -38,6 +37,19 @@ pipx upgrade yazses          # upgrade an existing install
 
 ### Recent stable releases
 
+- [v2.43.2](v2.43.2.md) — a loud burst with no speech in it is no longer decoded into the vocabulary prompt (`[accessibility] speech_presence_check`), a stray hold-release no longer re-types the previous dictation, eyes-closed dictation re-arms after a glance away and no longer fires on a blink, and a gaze-grounding edge case is fixed.
+- [v2.43.1](v2.43.1.md) — fixes from the first macOS reports: a newer daemon replaces an older one after an upgrade, macOS Quit stops the daemon, the tray's Re-calibrate measures room and voice, and Windows on ARM uses the x64 installer.
+- [v2.43.0](v2.43.0.md) — a second keyboard works: a keyboard plugged in after YazSes started now works for hold-to-talk on Linux, and five designed features can be switched on with `yazses features enable`.
+- [v2.42.0](v2.42.0.md) — prove that typing arrives: `yazses verify --type` types into a window it opens and checks the text arrived, with one `ydotoold` restart and retry when it did not
+- [v2.41.0](v2.41.0.md) — dictation that was heard and typed into nothing: on Ubuntu's Wayland session the voice-activity overlay took keyboard focus and the text was typed into it; the overlay is now optional and off by default; `yazses start` and `doctor` say why the daemon is not running; Windows and macOS read the config the CLI writes
+- [v2.40.1](v2.40.1.md) — hold the key we actually listen for: the APT and pipx installers, the `.deb` description apt shows before you install, the GitHub release body and the Russian and Hindi home pages all opened by telling a new user to hold `Space`, which does nothing — the default is `auto`, and `auto` is Right Alt on Linux; a test now derives each platform's default from the source and scans every user-facing file. Plus: Wayland's default `ydotool` injector silently dropped every accented and non-Latin character (#329), and a batch of packaging and documentation corrections — the Fedora spec four releases behind, install pages naming channels that serve something else, and two installers the support page denied had shipped.
+- [v2.40.0](v2.40.0.md) — the tool that said yes and did nothing: on Debian and Ubuntu Wayland every dictation was transcribed and then typed nothing, because ydotool 0.1.x is a different CLI from the 1.x we spoke and exits 0 when it refuses a command — so `check=True` never raised, the clipboard fallback never fired, and `doctor` said "Good to go"; reachable only since v2.39.0, whose correct socket fix made ydotool selectable there for the first time. Plus a Windows clipboard injection backend, and `[injection] backend` finally honoured on Windows.
+- [v2.39.1](v2.39.1.md) — the guard that ate your dictation: the hallucination guard deleted ordinary emphatic repetition ("no no no", "okay okay okay") because its loop rule flagged a single word repeated three times, and said nothing at all when it did — five of seven consecutive dictations lost at twenty times the VAD threshold; every Wayland start demanded a `ydotoold` that was already installed, enabled and running, a warning that fired 100% of the time and could never clear.
+- [v2.39.0](v2.39.0.md) — the sharing icon you never agreed to: `yazses setup` could not deliver the ydotool path it recommended (missing `ydotoold` package, no udev rule, wrong socket path — a 726-restart crash loop), so the desktop portal became the Wayland default unasked; it is now offered rather than taken, releases its session when idle, and one backend registry replaces five drifting copies.
+- [v2.38.0](v2.38.0.md) — the failures that never told anyone: every permission denial was reported as a microphone problem, including a refused typing prompt; Spoken Edit erased text and lost it in silence; no permission was checked at startup at all, which is #182's symptom; the Wayland "Remote Desktop" prompt now explains itself before it opens.
+- [v2.37.2](v2.37.2.md) — the tray's own "Install update" silently deleted an enabled STT engine on every `uv tool` update; `doctor` now catches a configured engine whose dependency has gone missing; winget's publish job now generates its own manifest instead of expecting one that cannot exist yet.
+- [v2.37.1](v2.37.1.md) — `anyio` bumped past three advisories (one critical) opened right after v2.37.0 shipped; the `lightning` alert re-flagged by the same scan was already patched.
+- [v2.37.0](v2.37.0.md) — the confined snap could not type, could not be launched, and could not say why: Wayland keystroke injection now works under strict confinement; no application launcher had ever been exported; Chocolatey checksummed arm64 and downloaded x64; the Fedora COPR served a release seventeen versions old; the Microsoft Store route reopened via MSIX; `lightning` CVE-2026-58659 patched.
 - [v2.36.0](v2.36.0.md) — the failures that reported success: a UTF-8 BOM discarded every setting in `config.toml` and blamed line 1; a typo in `[redaction] mode` shipped the secret it hides; a dictated `rm -rf` skipped its gate in command mode; the mic-change watcher could not fire on ALSA/PipeWire; the PPA advertised for two years never existed.
 - [v2.35.0](v2.35.0.md) — the update check could not report an update: a Windows balloon over 255 characters is discarded whole, so only "you are up to date" could ever render; a macOS `.app` was told to download a Windows `.exe`.
 - [v2.34.0](v2.34.0.md) — Windows and macOS never had a GUI at all: Settings, the sonar overlay and the tray were gated on X11 variables those platforms never set; the tray polled too slowly to see a short dictation; every Scoop install silently had no Start Menu entry.

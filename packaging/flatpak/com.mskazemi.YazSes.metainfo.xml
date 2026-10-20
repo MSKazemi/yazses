@@ -126,6 +126,19 @@
   <content_rating type="oars-1.1"/>
 
   <releases>
+    <release version="2.43.2" date="2026-10-18"/>
+    <release version="2.43.1" date="2026-10-17"/>
+    <release version="2.43.0" date="2026-10-17"/>
+    <release version="2.42.0" date="2026-10-04"/>
+    <release version="2.41.0" date="2026-10-04"/>
+    <release version="2.40.1" date="2026-09-25"/>
+    <release version="2.40.0" date="2026-09-24"/>
+    <release version="2.39.1" date="2026-09-24"/>
+    <release version="2.39.0" date="2026-09-24"/>
+    <release version="2.38.0" date="2026-09-24"/>
+    <release version="2.37.2" date="2026-09-19"/>
+    <release version="2.37.1" date="2026-09-19"/>
+    <release version="2.37.0" date="2026-09-19"/>
     <release version="2.36.0" date="2026-08-30"/>
     <release version="2.35.0" date="2026-08-27"/>
     <release version="2.34.0" date="2026-08-27"/>

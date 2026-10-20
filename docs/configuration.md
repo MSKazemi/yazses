@@ -13,7 +13,7 @@ Prefer `yazses features enable/disable <toggle>` over hand-editing — it writes
 
 **Match the Type column exactly.** In TOML only `str` values take quotes; `int`, `float` and `bool` must be bare. Writing `vad_threshold = "0.004"` instead of `vad_threshold = 0.004` loads without complaint and then fails at runtime, because the value stays a string where a number is expected. See [Troubleshooting](troubleshooting.md#dictation-stopped-working-right-after-i-edited-configtoml).
 
-**74 of these 452 keys are inert**, and they are marked ⚠️ inert in the Status column. The loader accepts them, `configcheck` validates them and they have a documented default — but nothing acts on them, so setting one loads without complaint and changes nothing. Most belong to capabilities that are registered but not yet wired; see [`yazses features`](cli-reference.md) for what is actually switchable. Both numbers here are counted at generation time, and the list of inert keys is the same one the test suite gates on, so neither can quietly fall out of date.
+**71 of these 524 keys are inert**, and they are marked ⚠️ inert in the Status column. The loader accepts them, `configcheck` validates them and they have a documented default — but nothing acts on them, so setting one loads without complaint and changes nothing. Most belong to capabilities that are registered but not yet wired; see [`yazses features`](cli-reference.md) for what is actually switchable. Both numbers here are counted at generation time, and the list of inert keys is the same one the test suite gates on, so neither can quietly fall out of date.
 
 This has bitten before: `[injection] fallback_to_clipboard` was documented in seventeen places and defaulted to `true` while nothing read it, so anyone who turned it off was silently overruled.
 
@@ -32,6 +32,7 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 | `cpu_threads` | int | `0` |  | How many CPU cores the decoder may use. 0 keeps ctranslate2's default, which is "all of them" — a 0.8 s decode measured 4.9 CPU-seconds on a 20-core laptop, because the work is spread across every core. That is the right trade on mains power and the wrong one on battery, where the cost is the core-seconds rather than the wall-clock. Nothing capped it before this. |
 | `beam_size` | int | `0` |  | Decoder beam width. 0 keeps faster-whisper's own default (5). 1 is greedy decoding; it is here so the Adaptive Latency Governor (`[latency]`) can ask for it on a loaded machine, and so a user who wants that trade permanently can take it without one. What the trade actually costs, measured on 200 LibriSpeech utterances per cell (`docs/benchmarks.md`): greedy costs `base.en` 0.38 WER points on clean audio and 1.07 on hard audio, and is 11-16% faster — a smaller speed gain than "greedy" suggests. On `small.en` and clean audio it is *better* (2.53% against 2.66%), so "worse" is a property of the model and the audio, not of beam search. Beams 2, 5 and 8 score identically on `base.en`; the default is 5 because it is the well-trodden setting and beam 2 would save about 20 ms on a five-second burst, which nobody can perceive. Ignored by engines that do not decode with a beam. |
 | `chinese_script` | str | `""` |  | Which Han script Chinese output is written in: "simplified" (简体, mainland) \| "traditional" (繁體, Taiwan/Hong Kong) \| "" to leave the model's own choice alone. Whisper picks a script per utterance and is not consistent about it, so a mainland user gets Traditional characters back for a large share of correct transcriptions (postprocess/han_script.py has the measurements). Empty by default because the right answer is regional, not universal. Needs the `chinese` extra; without it the setting warns once and no-ops. |
+| `persian_normalisation` | bool | `false` |  | Conservative Persian Unicode normalisation of the transcript (NFC, Arabic Yeh/Kaf -> Persian Yeh/Keheh, ZWNJ tidying, bidi-control strip; see postprocess/persian_text.py and design/specs/persian-text-and-rtl.md). Off by default: the normaliser changes the text a Persian user already gets, so an upgrade must not switch it on for them. It only acts when `language` is also Persian ("fa"); set on its own it warns once and no-ops. |
 
 ## `[hotkey]`
 
@@ -63,7 +64,9 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 
 | Key | Type | Default | Status | Notes |
 |---|---|---|---|---|
-| `backend` | str | `"auto"` |  | How text reaches the focused app. "auto" (default) probes the session: xdotool on X11, ydotool on Wayland (types, so it works in terminals too). "type"/"ydotool" force typing, "clipboard" forces copy+Ctrl+V (instant, but a no-op in terminals where Ctrl+V is literal), "wtype" is Wayland-only and is ignored on X11. `yazses doctor` names the one that will actually be used. |
+| `backend` | str | `"auto"` |  | How text reaches the focused app. "auto" (default) probes the session: xdotool on X11, ydotool on Wayland (types, so it works in terminals too). "type"/"ydotool" force typing, "clipboard" forces copy+Ctrl+V (instant, but a no-op in terminals where Ctrl+V is literal), "wtype" is Wayland-only and is ignored on X11, and "unicode" is an opt-in Linux XKB/uinput path. `yazses doctor` names the one that will actually be used. "portal" forces the xdg-desktop-portal RemoteDesktop API (inject/portal.py). `auto` already picks it on Wayland when ydotoold is not running, which is the case inside a strictly confined snap; force it when a session has a stale ydotoold socket that wins the probe but cannot actually inject. On **Windows** two values apply: "auto" (SendInput + KEYEVENTF_UNICODE, the default) and "clipboard" (copy + a real Ctrl+V). Use "clipboard" when an application receives the right *number* of characters and every one of them is wrong -- rows of "?", "-" or "." instead of the words. Microsoft documents both causes: an ANSI window has each character converted to the active ANSI codepage ("?" for anything it cannot represent), and a text service that does not unpack the synthesised VK_PACKET keystroke runs it through the keyboard layout instead. Pasting bypasses both. `yazses inject -d 5 --diagnose "test"` says which window you are actually typing into and whether it is ANSI. |
+| `portal_consent` | str | `"ask"` |  | Whether `auto` may select the RemoteDesktop portal on Wayland. "ask" (default) \| "allow" \| "deny". OFF by default, deliberately: the portal makes the desktop show a screen-sharing indicator for as long as the session is open, and switching that on for somebody -- in an application whose whole promise is that nothing leaves the machine -- is not a default to take on their behalf. With "ask", dictation uses the clipboard fallback and YazSes offers the choice instead. Three things already count as consent and are NOT affected by this key, so no working install is regressed: naming `backend = "portal"`, an existing restore token on disk (you answered the dialog before), and a strictly confined snap, for which the portal is the only way to type on Wayland at all. |
+| `portal_idle_release_s` | int | `60` |  | Seconds of idle before the portal session is closed; 0 keeps it open forever. The one place this file deliberately ships a feature "on": defaulting to 0 would ship the indicator sitting in the top bar for the daemon's whole life, which is the complaint this key exists to answer. Re-opening replays the restore token, so it costs a round trip on the first burst after idle and no new dialog. Set 0 if you prefer the session pinned open. |
 | `fallback_to_clipboard` | bool | `true` |  |  |
 | `continuation_window_ms` | int | `30000` |  | Successive hold-to-talk bursts within this window are treated as one continuous dictation: a separating space is prepended to the next burst so words don't glue together at the boundary (postprocess/spacing.py). 0 disables continuation spacing entirely. |
 | `target_guard` | str | `"clipboard"` |  | "No text target" guard: what to do when you dictate with no editable field focused (so the text would be typed into the wrong place / nowhere). "clipboard" (default) — copy the transcript to the clipboard + notify instead of typing; "warn" — notify but still type; "off" — no guard. Detection is AT-SPI when available (precise; needs python3-pyatspi), else a best-effort X11 focus check. Only acts on a *confident* "no target", so it never drops normal dictation. |
@@ -114,6 +117,7 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 | `pre_speech_padding_ms` | int | `300` |  | Silence prepended before STT decode, and the size of the (deliberately unfed) pre-speech ring buffer. Measured on 200 LibriSpeech utterances with the leading room tone trimmed away: with the onset intact it changes nothing, every lead from 0 to 1000 ms landing inside the run-to-run noise band. It matters only when the key was caught late and speech is actually missing, and there it changes sign -- with 40 ms of speech gone it recovers 6 opening words in 200, with 120 ms gone it loses 11. Silence cannot reconstruct audio that was never captured; 300 ms is kept because it is the better half of that trade in the near-miss case and costs nothing when there is no miss at all. |
 | `vad_source` | str | `"default"` | ⚠️ inert |  |
 | `vad_threshold` | float | `0.01` |  |  |
+| `speech_presence_check` | bool | `true` |  | Before decoding a burst that cleared `vad_threshold`, ask a speech detector (Silero, bundled with faster-whisper) whether there is any speech in it, and discard the burst if there is none. Loudness cannot tell a talker from a fan, and Whisper answers a burst of fan with the words it was primed with (#598: "The app is called YazSes."). Fails open: a detector that cannot run decodes as before. Skipped in Whisper / Low-Effort mode, Dysfluency-Friendly mode and the sotto-voce command channel. Set false if quiet speech is being discarded as "no speech". |
 | `dysfluency_friendly` | bool | `false` |  | v0.8.0 — Dysfluency-Friendly Mode master preset (ADR-015): enables the disfluency collapse pass and widens onset padding. Off by default. |
 | `read_back` | str | `"off"` |  | v2 — Read-Back Loop (spec-read-back-loop): speak the final transcript back via offline TTS so dictation can be verified by ear. "off" (default) \| "final" (P1: read the final transcript) \| "confirm" (P2: full yes/no/redo loop). Requires [tts] enabled. confirm_timeout_s is the P2 listen window. |
 | `confirm_timeout_s` | float | `6.0` | ⚠️ inert |  |
@@ -124,6 +128,7 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 |---|---|---|---|---|
 | `enabled` | bool | `true` |  |  |
 | `profile` | str | `"auto"` |  |  |
+| `language` | str | `"auto"` |  | auto \| en \| zh |
 | `custom` | list | `[]` |  |  |
 | `slm_model_path` | str | `""` |  | path to GGUF file; empty = disabled |
 | `slm_confidence_threshold` | float | `0.75` |  |  |
@@ -225,7 +230,7 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 
 | Key | Type | Default | Status | Notes |
 |---|---|---|---|---|
-| `enabled` | bool | `true` |  | auto-launch the overlay with the daemon |
+| `enabled` | bool | `false` |  | auto-launch the overlay with the daemon |
 | `style` | str | `"sonar"` |  | reserved for future styles |
 | `position` | str | `"cursor"` |  | cursor \| bottom_center \| top_center \| corner |
 | `react_to_voice` | bool | `true` |  | amplitude-driven vs state-only self-animation |
@@ -281,6 +286,53 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 | `route_dictation` | bool | `false` |  | v2.0.0 Wave C — Gaze-Routed Dictation (ADR-v2-010): route the next dictation to the looked-at window (else the focused window), and confirm destructive gaze-routed actions since coarse gaze can misroute. Off by default. |
 | `confirm_destructive` | bool | `true` |  |  |
 | `deixis` | bool | `true` |  | Gaze deixis (2026-08): in command mode, "close this" / "focus that" / "minimize this" act on the window the gaze snapshot says you are looking at. Sub-flag of the (opt-in) gaze feature; destructive actions honour confirm_destructive above via an actionable confirm toast. |
+| `refuse_destructive_fallback` | bool | `false` |  | Recovery hierarchy (ADR-v2-148): when gaze could not choose a window and the target is only the focused one, a destructive deixis action ("close this") is REFUSED, with feedback, instead of closing the focused window. Off keeps ADR-v2-010's behaviour (run on the focused window). The hands-free preset turns it on; so can you, by hand. |
+
+## `[facegesture]`
+
+| Key | Type | Default | Status | Notes |
+|---|---|---|---|---|
+| `enabled` | bool | `false` |  |  |
+| `gesture` | str | `"jaw_open"` |  | jaw_open \| brow_raise \| mouth_pucker \| smile \| eyes_closed |
+| `mode` | str | `"full_text"` |  | full_text (dictate) \| command (force command mode) |
+| `camera_index` | int | `0` |  |  |
+| `model_path` | str | `""` |  | override the FaceLandmarker asset; "" = auto-download |
+| `hold_threshold` | float | `0.5` |  | open the mic at/above this blendshape score |
+| `release_threshold` | float | `0.35` |  | close it below this one (must be lower — hysteresis) |
+| `min_hold_frames` | int | `3` |  | frames above hold_threshold before the mic opens |
+| `min_release_frames` | int | `2` |  | frames below release_threshold before it closes |
+| `fps` | int | `15` |  | camera sampling rate (1..60) |
+| `use_baseline` | bool | `false` |  | normalise the score against `yazses facegesture calibrate` |
+| `confidence_floor` | float | `0.0` |  | 0..1; frames below it never count toward a hold (0 = off) |
+| `refractory_frames` | int | `0` |  | frames after a release before a new hold may begin |
+| `max_hold_s` | float | `0.0` |  | seconds: release a hold open this long, once (stuck-open guard; 0 = off) |
+| `use_active_levels` | bool | `false` |  | derive hold/release from your rest + active (+ talk) levels |
+| `active_hold_fraction` | float | `0.5` |  | how far up the rest-to-active span hold sits (<= 0.8) |
+| `active_release_fraction` | float | `0.25` |  | how far up it release sits (must be below hold) |
+| `switches` | list | `[]` |  | Switch mappings (EYE-FACE-002). `gesture` + `mode` above stay the one hold-to-talk binding; each entry here ADDS another, as `[[facegesture.switches]]` tables with `gesture` (a gesture name) and `intent` (hold_to_talk \| hold_to_command \| select \| confirm \| cancel \| pause_pointer \| none). Empty = the single-gesture install, unchanged. |
+
+## `[perception]`
+
+| Key | Type | Default | Status | Notes |
+|---|---|---|---|---|
+| `enabled` | bool | `false` |  |  |
+| `camera_index` | int | `0` |  | which camera the one owner opens |
+| `fps` | int | `15` |  | shared sampling rate, clamped to 1..60 |
+
+## `[gaze_refine]`
+
+| Key | Type | Default | Status | Notes |
+|---|---|---|---|---|
+| `enabled` | bool | `false` |  |  |
+| `click_latency_ms` | int | `100` |  | gaze sample aimed at this long before the click |
+| `lookback_ms` | int | `500` |  | oldest gaze sample a click may be paired with |
+| `min_confidence` | float | `0.5` |  | eye-agreement floor for a pair (and a held-out pair) |
+| `min_train_samples` | int | `30` |  | accepted training pairs before a comparison |
+| `min_holdout_samples` | int | `10` |  | held-out pairs before a comparison |
+| `holdout_every` | int | `4` |  | every Nth pair is held out of training (2 or more) |
+| `min_improvement_px` | float | `1.0` |  | held-out error the candidate must save to promote |
+| `evaluate_every` | int | `10` |  | compare after this many new accepted pairs |
+| `max_holdout_samples` | int | `200` |  | bound on retained held-out pairs |
 
 ## `[cocktail]`
 
@@ -498,7 +550,7 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 | Key | Type | Default | Status | Notes |
 |---|---|---|---|---|
 | `enabled` | bool | `false` |  |  |
-| `mode` | str | `"silence"` | ⚠️ inert | silence \| semantic |
+| `mode` | str | `"silence"` |  | silence \| semantic |
 | `silence_timeout_ms` | int | `800` |  |  |
 | `max_duration_ms` | int | `30000` |  |  |
 
@@ -589,6 +641,19 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 | Key | Type | Default | Status | Notes |
 |---|---|---|---|---|
 | `enabled` | bool | `false` |  |  |
+| `chords` | dict | `{}` |  | "token+token" -> action; empty = nothing bound |
+| `chord_window_ms` | int | `400` |  | tokens made within this window of the first count as one chord |
+| `refractory_ms` | int | `1000` |  | after a chord, nothing fires until every token is released and this passes |
+| `freshness_ms` | int | `500` |  | A sample older than this is "no signal"; unmeasured placeholder. Bounded like `[headpointer] freshness_ms` and `[handsfree_safety] stale_after_ms`: 0 would call every real sample stale (chords silently dead while Config reports a valid 0), and a huge value means "never stale". Outside (0, 60000] the loader repairs it to 500 and says so. |
+| `min_confidence` | float | `0.5` |  | samples below this presence confidence are "no signal" |
+| `freeze_tail_ms` | int | `300` |  | keep the pointer frozen this long after a chord token lets go |
+| `onset_rewind_ms` | int | `150` |  | when the freeze lands a frame late, take back up to this much pointer motion since the expression began; 0 = never. Provisional |
+| `hold_ms` | int | `800` |  | the `hold` token: tokens held unchanged this long. Provisional |
+| `head_amplitude_deg` | float | `10.0` |  | Each leg of a nod/shake must swing at least this far. Bounded (0, 90]: 0 is "no gesture can ever be seen" and the detector would be silently dead. Provisional sanity bound, not measured. |
+| `head_swings` | int | `4` |  | legs per nod/shake: 4 is a double nod, 2 a single down-up |
+| `head_window_ms` | int | `1500` |  | a nod/shake must complete within this long |
+| `tilt_deg` | float | `20.0` |  | Roll beyond this, either way, is a tilt. Bounded (0, 90]: at 0 a perfectly level head is "tilted" and the `tilt` token is held for ever (any chord using it fires with no movement at all); past 90 no head can reach it. Provisional sanity bound, not measured. |
+| `tilt_hold_ms` | int | `400` |  | ...held this long |
 
 ## `[interpret]`
 
@@ -642,6 +707,38 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 | Key | Type | Default | Status | Notes |
 |---|---|---|---|---|
 | `enabled` | bool | `false` |  |  |
+| `x_gain` | float | `-1200.0` |  | pointer units per second per radian of yaw; negative: left turn -> pointer left |
+| `y_gain` | float | `900.0` |  | pointer units per second per radian of pitch; negative flips |
+| `max_speed_x` | float | `800.0` |  | fastest horizontal pointer speed, units per second; provisional safety cap |
+| `max_speed_y` | float | `600.0` |  | fastest vertical pointer speed, units per second; provisional safety cap |
+| `max_speed_overall` | float | `800.0` |  | fastest combined pointer speed, units per second; provisional safety cap |
+| `deadzone` | float | `0.02` |  | radians around the neutral pose that produce no motion |
+| `freshness_ms` | int | `500` |  | a head pose older than this is "no signal"; unmeasured |
+| `min_confidence` | float | `0.5` |  | samples below this presence confidence are "no signal" |
+| `dwell_enabled` | bool | `false` |  | click by holding still; off so motion never clicks unasked |
+| `dwell_radius_px` | float | `15.0` |  | stay within this many pointer units to count as holding still |
+| `dwell_ms` | int | `700` |  | how long to hold still before the click, real time; provisional, unmeasured |
+| `dwell_hold_frames` | int | `0` |  | legacy, replaced by dwell_ms: when above 0, that many frames at a nominal 30 fps |
+
+## `[handsfree_safety]`
+
+| Key | Type | Default | Status | Notes |
+|---|---|---|---|---|
+| `enabled` | bool | `false` |  | off until the hands-free preset and its consumers are wired |
+| `stale_after_ms` | int | `500` |  | a signal older than this cannot act; unmeasured placeholder |
+| `stop_phrase` | str | `""` |  | Voice stop word: saying exactly this phrase (the WHOLE utterance, never a substring of dictation) pauses every hands-free input, like `yazses handsfree pause`. "" = off. It can only pause; there is no resume phrase (`yazses handsfree resume`, or Settings → Hands-free controls). 2-6 words, validated at load (handsfree/stopword.py). `[handsfree] enabled` supplies "pause hands free" -- a PROVISIONAL, unmeasured default -- unless you set this yourself. |
+
+## `[handsfree]`
+
+| Key | Type | Default | Status | Notes |
+|---|---|---|---|---|
+| `enabled` | bool | `false` |  | experimental preset: every value it sets is provisional, none validated with users |
+| `gaze` | bool | `true` |  | Glance-Type: look at a window to target dictation and "close this" |
+| `pointer` | bool | `true` |  | Head-Pointer: the head moves the cursor |
+| `dwell` | bool | `true` |  | commit a click by holding the pointer still (needs [overlay] shown) |
+| `switch` | bool | `true` |  | face switch: hold a jaw-open to dictate, no key |
+| `chords` | bool | `true` |  | Gesture Chords: brow-raise + nod recenters, brow-raise + shake stops |
+| `voice_stop` | bool | `true` |  | say "pause hands free" (the whole utterance) to pause every hands-free input |
 
 ## `[lipread]`
 
@@ -985,8 +1082,8 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 | Key | Type | Default | Status | Notes |
 |---|---|---|---|---|
 | `enabled` | bool | `false` |  |  |
-| `sentence_pause_ms` | float | `700.0` | ⚠️ inert |  |
-| `comma_pause_ms` | float | `250.0` | ⚠️ inert |  |
+| `sentence_pause_ms` | float | `700.0` |  |  |
+| `comma_pause_ms` | float | `250.0` |  |  |
 
 ## `[hesitation]`
 

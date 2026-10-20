@@ -23,8 +23,9 @@ from __future__ import annotations
 
 import time
 
-from _common import librispeech_subset, load_audio
 from bench_wer import _bootstrap_wer_ci
+
+from _common import librispeech_subset, load_audio
 
 GRID = tuple([("base.en", b) for b in (1, 2, 3, 5, 8)] + [("small.en", b) for b in (1, 5)])
 

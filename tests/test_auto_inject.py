@@ -1,7 +1,10 @@
 from unittest.mock import patch
 
+import pytest
+
 from yazses.inject.auto import get_injector
 from yazses.inject.clipboard import ClipboardInjector
+from yazses.inject.portal import PortalInjector
 from yazses.inject.wtype import WtypeInjector
 from yazses.inject.xdotool import XdotoolInjector
 from yazses.inject.ydotool import YdotoolInjector
@@ -9,6 +12,19 @@ from yazses.inject.ydotool import YdotoolInjector
 
 def _which(available: list[str]):
     return lambda cmd: f"/usr/bin/{cmd}" if cmd in available else None
+
+
+@pytest.fixture(autouse=True)
+def _no_host_state(monkeypatch, tmp_path):
+    """Keep the developer's desktop out of every case in this file.
+
+    Which backend is chosen is the thing under test, so none of its inputs may come
+    from the host. Two leak in without this: the portal restore token on disk (which
+    counts as consent, so a developer who has answered the dialog gets a different
+    answer from CI), and the portal's own consent default.
+    """
+    monkeypatch.setenv("YAZSES_DATA_DIR", str(tmp_path))
+    monkeypatch.delenv("YAZSES_PORTAL_CONSENT", raising=False)
 
 
 def test_x11_with_xdotool(monkeypatch):
@@ -24,7 +40,7 @@ def test_wayland_prefers_ydotool_when_daemon_running(monkeypatch):
     monkeypatch.setenv("WAYLAND_DISPLAY", "wayland-0")
     monkeypatch.delenv("XDG_CURRENT_DESKTOP", raising=False)
     with patch("yazses.inject.auto.shutil.which", side_effect=_which(["ydotool", "wtype"])), \
-         patch("yazses.inject.auto.os.path.exists", return_value=True):
+         patch("yazses.inject.auto.ydotool_ready", return_value=True):
         assert isinstance(get_injector(), YdotoolInjector)
 
 
@@ -36,7 +52,7 @@ def test_gnome_wayland_types_by_default(monkeypatch):
     monkeypatch.setenv("XDG_CURRENT_DESKTOP", "ubuntu:GNOME")
     monkeypatch.delenv("YAZSES_INJECTOR", raising=False)
     with patch("yazses.inject.auto.shutil.which", side_effect=_which(["ydotool", "wl-copy"])), \
-         patch("yazses.inject.auto.os.path.exists", return_value=True):
+         patch("yazses.inject.auto.ydotool_ready", return_value=True):
         assert isinstance(get_injector(), YdotoolInjector)
 
 
@@ -56,18 +72,41 @@ def test_env_override_clipboard(monkeypatch):
         assert isinstance(get_injector(), ClipboardInjector)
 
 
+# The portal is pinned explicitly in every Wayland case below. Without that
+# these tests read the *developer's own desktop*: `portal_available()` opens the
+# real session bus, so they passed on a CI runner that has none and would have
+# silently changed meaning on a workstation that does. Which backend is chosen
+# is the thing under test, so none of its inputs may come from the host.
 def test_wayland_without_ydotoold_falls_back_to_wtype(monkeypatch):
     # ydotool installed but no daemon socket → must NOT pick ydotool (it would
-    # fail at runtime); fall back to wtype. This is the GNOME-Wayland fix.
+    # fail at runtime); with no portal either, fall back to wtype.
+    monkeypatch.setenv("WAYLAND_DISPLAY", "wayland-0")
+    # A wlroots compositor, named rather than inherited: wtype is unavailable on
+    # GNOME/KDE, so on a developer's own GNOME desktop this case would otherwise be
+    # asserting a fallback that cannot happen there.
+    monkeypatch.setenv("XDG_CURRENT_DESKTOP", "sway")
+    with patch("yazses.inject.auto.shutil.which", side_effect=_which(["ydotool", "wtype"])), \
+         patch("yazses.inject.auto.portal_available", return_value=False), \
+         patch("yazses.inject.auto.ydotool_ready", return_value=False):
+        assert isinstance(get_injector(), WtypeInjector)
+
+
+def test_wayland_without_ydotoold_prefers_the_portal_over_wtype(monkeypatch):
+    """wtype is a silent no-op on GNOME/KDE, which is where these users are."""
     monkeypatch.setenv("WAYLAND_DISPLAY", "wayland-0")
     with patch("yazses.inject.auto.shutil.which", side_effect=_which(["ydotool", "wtype"])), \
-         patch("yazses.inject.auto.os.path.exists", return_value=False):
-        assert isinstance(get_injector(), WtypeInjector)
+         patch("yazses.inject.auto.portal_available", return_value=True), \
+         patch("yazses.inject.auto.ydotool_ready", return_value=False):
+        # The portal is consent-gated now; this case is about ORDER, so grant it.
+        monkeypatch.setenv("YAZSES_PORTAL_CONSENT", "allow")
+        assert isinstance(get_injector(), PortalInjector)
 
 
 def test_wayland_falls_back_to_wtype(monkeypatch):
     monkeypatch.setenv("WAYLAND_DISPLAY", "wayland-0")
-    with patch("yazses.inject.auto.shutil.which", side_effect=_which(["wtype"])):
+    monkeypatch.setenv("XDG_CURRENT_DESKTOP", "sway")
+    with patch("yazses.inject.auto.shutil.which", side_effect=_which(["wtype"])), \
+         patch("yazses.inject.auto.portal_available", return_value=False):
         assert isinstance(get_injector(), WtypeInjector)
 
 

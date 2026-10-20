@@ -153,9 +153,13 @@ jobs:
             have_dmg=$(grep -c '\.dmg$'  <<<"$names" || true)
             have_exe=$(grep -c '\.exe$'  <<<"$names" || true)
             echo "deb=$have_deb dmg=$have_dmg exe=$have_exe (${SECONDS}s elapsed)"
-            # TWO of each, not one. Every architecture ships its own bundle now --
-            # amd64/arm64 .deb, arm64/x86_64 .dmg, x64/arm64 .exe -- and "at least
-            # one" was accurate only while the cross-architecture legs were failing.
+            # TWO .deb and TWO .dmg, ONE .exe. Every architecture ships its own bundle
+            # -- amd64/arm64 .deb, arm64/x86_64 .dmg -- and "at least one" was accurate
+            # only while the cross-architecture legs were failing. Windows is x64 only:
+            # there is no arm64 installer (ctranslate2 has no win_arm64 wheel, see the
+            # matrix comment in build-windows.yml). This used to demand two .exe, and
+            # with the arm64 leg gone it could never be satisfied, so every release sat
+            # out the full 40-minute deadline before hashing anything.
             # With them building, one-of-each lets this proceed the moment the
             # primary architecture lands, so SHA256SUMS.txt could be generated
             # before the second bundle attaches and would omit it permanently:
@@ -165,8 +169,8 @@ jobs:
             # the job proceeds with whatever exists, which is the old behaviour --
             # so a regressed advisory leg costs waiting, never the release. The
             # printed counts say which one was missing.
-            if (( have_deb > 1 && have_dmg > 1 && have_exe > 1 )); then
-              echo "All expected assets present (both architectures of each)."
+            if (( have_deb > 1 && have_dmg > 1 && have_exe > 0 )); then
+              echo "All expected assets present (both architectures of each .deb and .dmg, and the x64 .exe)."
               break
             fi
             sleep 60

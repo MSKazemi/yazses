@@ -1,11 +1,13 @@
 ---
 title: Install offline voice dictation on Windows — YazSes setup guide
-description: "Install YazSes on Windows for offline speech-to-text: pipx install, microphone permissions, hold-to-talk hotkey, and first-run calibration. A local alternative to Windows Speech Recognition."
+description: "Install YazSes on Windows for offline speech-to-text: winget install, microphone permissions, hold-to-talk hotkey, and first-run calibration. A local alternative to Windows Speech Recognition."
 ---
 
 # YazSes on Windows — install & first-run guide
 
-> **Version:** Applies to the current YazSes release (v2.x). Install the latest with `pipx install yazses`.
+> **Version:** Applies to the current YazSes release (v2.x). `winget install MSKazemi.YazSes`
+> is the shortest install, but the winget catalogue trails the newest tag — see
+> [which version winget gives you](#the-one-line-way--winget-recommended) before you pick a route.
 
 > **Developer preview.** Windows builds are **unsigned**. Windows SmartScreen
 > warns on first launch; the steps below show how to bypass it safely. Code
@@ -19,17 +21,42 @@ description: "Install YazSes on Windows for offline speech-to-text: pipx install
 
 ## Install
 
+### The one-line way — winget (recommended)
+
+YazSes is in the Windows Package Manager, which ships with Windows 10 21H2 and
+Windows 11. Open Terminal or PowerShell and run:
+
+```powershell
+winget install MSKazemi.YazSes
+```
+
+That resolves both x64 and ARM64 automatically, verifies the installer's SHA256
+against the published manifest, and installs per-user with no administrator
+rights. `winget upgrade MSKazemi.YazSes` moves you to a new release later.
+
+!!! note "Which version winget gives you"
+
+    Every version bump is submitted to Microsoft's catalogue by hand and has to clear a
+    community moderator, so winget can trail the newest tag by **weeks and several
+    releases** — not hours. Run `winget show MSKazemi.YazSes` and compare what it offers
+    with the [latest release](https://github.com/MSKazemi/yazses/releases/latest) before
+    you commit to this route. Whatever winget gives you is a working, checksum-verified
+    build, but if you want the newest one the day it ships, use the installer below or
+    Scoop — both track every release.
+
+### Manual installer
+
 1. Download the installer for your machine from the
    [Releases](https://github.com/MSKazemi/yazses/releases) page:
-   `YazSes-<version>-windows-x64.exe` for an Intel or AMD PC, or
-   `YazSes-<version>-windows-arm64.exe` for an ARM one (Snapdragon, Surface Pro X).
+   `YazSes-<version>-windows-x64.exe`. It is the installer for an Intel or AMD PC and,
+   through Windows' emulation, for an ARM one (Snapdragon, Surface Pro X): there is no
+   native ARM build because the speech engine has no ARM Windows wheel yet.
 
-    !!! tip "Not sure which?"
+    !!! tip "On an ARM PC?"
 
-        **Settings → System → About → System type.** The x64 installer also runs on
-        ARM under Windows' emulation, so it is the safe choice if you are unsure —
-        the native ARM build is simply faster. See
-        [platform support](platform-support.md#windows) for what is proven on each.
+        **Settings → System → About → System type** says which you have. Use the same
+        x64 installer either way. See [platform support](platform-support.md#windows)
+        for what is proven on each.
 2. Double-click the installer.
 3. **SmartScreen warning:** Windows shows
    *"Microsoft Defender SmartScreen prevented an unrecognized app from starting."*
@@ -65,13 +92,13 @@ host: `yazses update --check` correctly reports the install as `via scoop` and
 offers `scoop update yazses`. The direct installer above is verified the same way
 (`via windows-installer`).
 
-**winget is not available yet.** The manifests
+**winget works.** The submission to `microsoft/winget-pkgs` was
+moderator-approved and merged on 2026-09-10, so `winget install MSKazemi.YazSes`
+resolves against Microsoft's own catalogue. The manifests are authored here in
 ([`packaging/winget/`](https://github.com/MSKazemi/yazses/tree/main/packaging/winget))
-are written and versioned here and pass every winget validation check, but the
-submission to `microsoft/winget-pkgs` is still waiting on a community moderator, so
-`winget install MSKazemi.YazSes` does not resolve yet. Progress is tracked in
-[issue #78](https://github.com/MSKazemi/yazses/issues/78); Scoop notes go in
-[#79](https://github.com/MSKazemi/yazses/issues/79).
+and their checksums are derived from the real release assets rather than copied by
+hand. Notes go in [issue #78](https://github.com/MSKazemi/yazses/issues/78); Scoop
+notes go in [#79](https://github.com/MSKazemi/yazses/issues/79).
 
 The `.exe` is not code-signed yet, so SmartScreen warns on first launch whichever
 route you take.
@@ -217,8 +244,8 @@ the speech-to-text engine cannot load. YazSes decodes through CTranslate2, which
 compiled library, and on Windows it needs the **Microsoft Visual C++ Redistributable
 (x64)** — see [CTranslate2's installation
 notes](https://opennmt.net/CTranslate2/installation.html). Most machines already have
-it; a fresh Windows install or a Windows Server image often does not. Install it from
-<https://aka.ms/vs/17/release/vc_redist.x64.exe> and restart the daemon.
+it; a fresh Windows install or a Windows Server image often does not. Run `yazses setup` — it installs the runtime with winget — or download it from
+<https://aka.ms/vs/17/release/vc_redist.x64.exe>, then restart the daemon.
 
 Note the wording: Windows says *"or one of its dependencies"* even when the file it
 names is present, which is why this reads like a missing file when it is a missing

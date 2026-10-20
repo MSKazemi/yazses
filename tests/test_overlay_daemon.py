@@ -4,6 +4,7 @@ from yazses.config import Config
 from yazses.core.daemon import (
     Daemon,
     overlay_dependency_available,
+    overlay_steals_focus,
     should_launch_overlay,
 )
 from yazses.ipc.protocol import Request
@@ -16,9 +17,10 @@ def _cfg(enabled: bool) -> Config:
     return cfg
 
 
-def test_overlay_enabled_by_default():
-    # On by default; the daemon still gates on a display + PySide6 at launch.
-    assert Config().overlay.enabled is True
+def test_overlay_is_optional_and_off_by_default():
+    # Opt-in: on native Wayland a new window takes keyboard focus and swallows the
+    # dictated text (docs/troubleshooting.md). Enabling it is a deliberate choice.
+    assert Config().overlay.enabled is False
 
 
 def test_should_launch_overlay_disabled():
@@ -29,10 +31,31 @@ def test_should_launch_overlay_enabled_with_x11():
     assert should_launch_overlay(_cfg(True), {"DISPLAY": ":1"}, platform="linux") is True
 
 
-def test_should_launch_overlay_enabled_with_wayland():
-    assert should_launch_overlay(
-        _cfg(True), {"WAYLAND_DISPLAY": "wayland-0"}, platform="linux"
-    ) is True
+def test_should_not_launch_overlay_on_native_wayland():
+    """It takes focus there, so dictated text would be typed into the overlay."""
+    for env in (
+        {"WAYLAND_DISPLAY": "wayland-0"},
+        {"WAYLAND_DISPLAY": "wayland-0", "DISPLAY": ":0"},  # Wayland + XWayland: Qt still picks wayland
+        {"XDG_SESSION_TYPE": "wayland", "DISPLAY": ":0"},
+    ):
+        assert should_launch_overlay(_cfg(True), env, platform="linux") is False
+
+
+def test_overlay_is_blocked_inside_a_flatpak_wayland_session():
+    """Flatpak grants --socket=wayland and sets WAYLAND_DISPLAY; same focus behaviour."""
+    env = {"WAYLAND_DISPLAY": "wayland-0", "XDG_RUNTIME_DIR": "/run/user/1000", "container": "flatpak"}
+    assert should_launch_overlay(_cfg(True), env, platform="linux") is False
+
+
+def test_explicit_qt_platform_lifts_the_wayland_block():
+    env = {"WAYLAND_DISPLAY": "wayland-0", "QT_QPA_PLATFORM": "xcb"}
+    assert should_launch_overlay(_cfg(True), env, platform="linux") is True
+
+
+def test_wayland_block_is_linux_only():
+    env = {"WAYLAND_DISPLAY": "wayland-0"}
+    assert overlay_steals_focus(env, platform="win32") is False
+    assert overlay_steals_focus(env, platform="darwin") is False
 
 
 def test_should_launch_overlay_enabled_but_headless():

@@ -35,8 +35,11 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "src"))
+sys.path.insert(0, str(REPO / "scripts"))
 
-from yazses.brandmark import render_mark  # noqa: E402  (needs the sys.path above)
+from imagediff import explain  # noqa: E402  (needs the sys.path above)
+
+from yazses.brandmark import render_mark  # noqa: E402
 
 ICO_PATH = REPO / "assets" / "yazses.ico"
 ICNS_PATH = REPO / "assets" / "yazses.icns"
@@ -65,6 +68,30 @@ DEB_ICON_DIR = REPO / "contrib" / "icons"
 # 512 is what the Snap Store shows and what snapcraft's own guidance asks for.
 SNAP_ICON_PATH = REPO / "snap" / "gui" / "yazses.png"
 SNAP_ICON_SIZE = 512
+
+# Microsoft Store (MSIX) tile assets, referenced by packaging/windows/msix/AppxManifest.xml.
+# They live here rather than in a Store-specific generator for the reason this module
+# already exists: an icon a build script ships and no script redraws is one that silently
+# drifts. contrib/icons and snap/gui both did exactly that before landing here.
+#
+# Sizes are the Store's own, not round numbers: Square44x44Logo is the app-list and taskbar
+# icon, Square150x150Logo the medium tile, StoreLogo the listing thumbnail. 71 and 310 are
+# the small and large tiles. `makeappx` fails the package if a manifest names a logo that
+# is absent, so the manifest and this table must stay in step -- tests/test_msix_manifest.py
+# equates the two rather than trusting either.
+MSIX_ASSET_DIR = REPO / "packaging" / "windows" / "msix" / "Assets"
+MSIX_ASSETS = {
+    "Square44x44Logo.png": 44,
+    "Square71x71Logo.png": 71,
+    "Square150x150Logo.png": 150,
+    "Square310x310Logo.png": 310,
+    "StoreLogo.png": 50,
+}
+
+# The one non-square tile. It is not optional-if-you-want-it: makeappx rejects the package
+# outright with "The DefaultTile element must specify the Wide310x150Logo attribute if the
+# Square310x310Logo attribute is specified". Declaring the large tile obliges the wide one.
+MSIX_WIDE_ASSETS = {"Wide310x150Logo.png": (310, 150)}
 
 # The frames Windows picks between. 16/20/24/32 are the small-icon sizes for
 # 100/125/150/200% display scaling — an exact frame always beats Explorer's own
@@ -113,6 +140,25 @@ def build_png(size: int) -> bytes:
     return buf.getvalue()
 
 
+def build_wide_png(width: int, height: int) -> bytes:
+    """A non-square tile: the square mark centred on a transparent canvas.
+
+    The mark is square by construction, so a wide tile cannot simply be a bigger render.
+    Centring rather than stretching is the point -- a stretched brand mark is a distorted
+    brand mark, and the tile background is transparent so the Start menu accent shows
+    through the margins exactly as it does around the square tiles.
+    """
+    from PIL import Image as PilImage
+
+    side = min(width, height)
+    canvas = PilImage.new("RGBA", (width, height), (0, 0, 0, 0))
+    mark = render_mark(side)
+    canvas.paste(mark, ((width - side) // 2, (height - side) // 2), mark)
+    buf = io.BytesIO()
+    canvas.save(buf, format="PNG", optimize=True)
+    return buf.getvalue()
+
+
 def wanted_assets() -> dict[Path, bytes]:
     """Every icon this repo ships, and the bytes it should contain.
 
@@ -124,11 +170,15 @@ def wanted_assets() -> dict[Path, bytes]:
     for size in DEB_ICON_SIZES:
         assets[DEB_ICON_DIR / f"yazses-{size}.png"] = build_png(size)
     assets[SNAP_ICON_PATH] = build_png(SNAP_ICON_SIZE)
+    for filename, size in MSIX_ASSETS.items():
+        assets[MSIX_ASSET_DIR / filename] = build_png(size)
+    for filename, (width, height) in MSIX_WIDE_ASSETS.items():
+        assets[MSIX_ASSET_DIR / filename] = build_wide_png(width, height)
     return assets
 
 
 def _frames(blob: bytes) -> dict:
-    """Every frame in *blob*, decoded to raw RGBA, keyed by size.
+    """Every frame in *blob*, decoded, keyed by size.
 
     Compared as pixels and never as bytes, for the reason `tests/test_icon_assets.py`
     already had to learn: **PNG output is not reproducible across platforms.** The
@@ -137,8 +187,12 @@ def _frames(blob: bytes) -> dict:
     which is not the question. It passed locally and turned the Windows and macOS CI
     legs red on assets that were perfectly correct.
 
-    `--check` is a maintainer command today, so bytes would have worked by accident.
-    Decoding removes the landmine for whoever wires it into CI later.
+    Decoded pixels are not reproducible either — `render_mark` supersamples in floating
+    point and arm64 does not always round the way x86_64 does — so the comparison in
+    `_drifted` is a measured tolerance, not `==`. See `scripts/imagediff.py`.
+
+    `--check` is a maintainer command today, so either mistake would have worked by
+    accident here. Both are removed for whoever wires it into CI later.
     """
     import io
 
@@ -147,16 +201,19 @@ def _frames(blob: bytes) -> dict:
     out = {}
     with Image.open(io.BytesIO(blob)) as im:
         for frame in ImageSequence.Iterator(im):
-            out[frame.size] = frame.convert("RGBA").tobytes()
+            out[frame.size] = frame.convert("RGBA")
     return out
 
 
 def _drifted(path: Path, expected: bytes) -> bool:
-    """True when the committed file is missing, unreadable, or pixel-different."""
+    """True when the committed file is missing, unreadable, or no longer the mark."""
     if not path.exists():
         return True
     try:
-        return _frames(path.read_bytes()) != _frames(expected)
+        committed, wanted = _frames(path.read_bytes()), _frames(expected)
+        if set(committed) != set(wanted) or not wanted:
+            return True
+        return any(explain(committed[size], wanted[size]) is not None for size in wanted)
     except Exception:
         return True  # unreadable or not an image any more — regenerate it
 

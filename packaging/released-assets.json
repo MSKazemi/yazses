@@ -1,0 +1,16 @@
+{
+    "version": "2.43.2",
+    "published": "2026-10-18",
+    "assets": [
+        "SHA256SUMS.txt",
+        "YazSes-2.43.2-macos-arm64.dmg",
+        "YazSes-2.43.2-macos-arm64.intoto.jsonl",
+        "YazSes-2.43.2-macos-x86_64.dmg",
+        "YazSes-2.43.2-macos-x86_64.intoto.jsonl",
+        "YazSes-2.43.2-windows-x64.exe",
+        "YazSes-2.43.2-windows-x64.intoto.jsonl",
+        "yazses-2.43.2-deb.intoto.jsonl",
+        "yazses_2.43.2_amd64.deb",
+        "yazses_2.43.2_arm64.deb"
+    ]
+}

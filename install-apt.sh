@@ -25,7 +25,7 @@ trap 'rm -f "$TMP_KEY"' EXIT
 
 echo ""
 echo "  YazSes APT Installer"
-echo "  Hold Space → speak → release → text appears anywhere"
+echo "  Hold Right Alt → speak → release → text appears anywhere"
 echo ""
 
 if ! command -v curl >/dev/null 2>&1; then

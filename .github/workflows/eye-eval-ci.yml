@@ -1,0 +1,148 @@
+name: Eye-control evaluation (CI evidence)
+
+# Lane (.github/CI_POLICY.md section 1): specialized platform. It re-runs, on all three
+# hosted OSes, the slice of the eye-control evaluation that needs no camera
+# (design/eye-control/EVALUATION.md E0-E2) and leaves a versioned record per leg. It is
+# ADDITIVE: tests.yml still runs the whole suite on every OS, and nothing here is a
+# required status, so a path-scoped trigger cannot hide a failure from branch protection.
+#
+# What this proves: install/import, the result schema, the task fixtures, the privacy
+# sweep, deterministic synthetic results, and the committed synthetic trace reports.
+# What it does NOT prove, and must never be described as proving: real webcam accuracy,
+# real pointer permission or UI, human usability, false activations in natural behaviour.
+# That is hardware evidence (E3+) and a hosted runner has no representative hardware.
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "src/yazses/eyeeval/**"
+      - "scripts/eye_eval_ci.py"
+      - "scripts/replay_face_switch_trace.py"
+      - "scripts/replay_grounding_trace.py"
+      - "tests/test_eye_eval*.py"
+      - "tests/test_eye_ci_entry_point.py"
+      - "tests/test_face_switch_replay.py"
+      - "tests/test_grounding_replay.py"
+      - "tests/fixtures/eye_eval*/**"
+      - "tests/fixtures/face_switch_*"
+      - "tests/fixtures/face_switch_traces/**"
+      - "tests/fixtures/grounding_*"
+      - "tests/fixtures/grounding_traces/**"
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".github/workflows/eye-eval-ci.yml"
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "src/yazses/eyeeval/**"
+      - "scripts/eye_eval_ci.py"
+      - "scripts/replay_face_switch_trace.py"
+      - "scripts/replay_grounding_trace.py"
+      - "tests/test_eye_eval*.py"
+      - "tests/test_eye_ci_entry_point.py"
+      - "tests/test_face_switch_replay.py"
+      - "tests/test_grounding_replay.py"
+      - "tests/fixtures/eye_eval*/**"
+      - "tests/fixtures/face_switch_*"
+      - "tests/fixtures/face_switch_traces/**"
+      - "tests/fixtures/grounding_*"
+      - "tests/fixtures/grounding_traces/**"
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".github/workflows/eye-eval-ci.yml"
+  workflow_dispatch:
+
+# Same contract as tests.yml: a newer head of the same PR cancels the older run; pushes to
+# main and manual runs get a unique group and are never cancelled.
+concurrency:
+  group: eye-eval-ci-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+# Read-only. The workflow uploads an artifact (which needs no token scope) and prints a
+# summary; it never commits, comments, labels or publishes result numbers.
+permissions:
+  contents: read
+
+jobs:
+  evaluate:
+    name: Eye-eval (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      # A failed leg must stay visible, so one failure never cancels the other two.
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Install system dependencies (Linux)
+        if: runner.os == 'Linux'
+        # sounddevice dlopen's PortAudio at import; the eye-eval CLI tests import the CLI.
+        run: sudo apt-get update && sudo apt-get install -y libportaudio2
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+
+      - name: Install dependencies (base install only)
+        # No extras on purpose: cv2, mediapipe and PySide6 must be absent, because the
+        # point is that the evaluation needs none of them.
+        run: uv sync
+
+      - name: Run the non-hardware eye-control evaluation
+        # bash on every OS (Windows runners ship Git Bash) so the quoting is identical.
+        # --require-commit makes a record that cannot name its commit a failure.
+        shell: bash
+        run: |
+          uv run python scripts/eye_eval_ci.py \
+            --out-dir eye-eval-ci \
+            --require-commit \
+            --with-pytest
+
+      - name: Upload the evaluation record
+        # always(): a failed leg must leave its record behind, not a hole.
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: eye-eval-ci-${{ runner.os }}
+          path: eye-eval-ci
+          if-no-files-found: error
+          retention-days: 30
+
+  matrix:
+    # The judge. A leg that never ran uploads nothing, and a missing artifact looks exactly
+    # like a leg nobody asked for -- so this job counts the legs it expects.
+    name: Eye-eval matrix verdict
+    needs: evaluate
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Download every leg's record
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          pattern: eye-eval-ci-*
+          path: eye-eval-ci-all
+
+      - name: Every expected OS must have a passing, valid record
+        shell: bash
+        run: |
+          status=0
+          uv run python scripts/eye_eval_ci.py --collect eye-eval-ci-all > matrix.txt || status=$?
+          cat matrix.txt
+          {
+            echo '### Eye-control evaluation (CI evidence only)'
+            echo '```'
+            cat matrix.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"

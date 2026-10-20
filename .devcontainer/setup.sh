@@ -40,7 +40,7 @@ cat <<'BANNER'
     commands CI runs, so green here means green there:
 
         uv run python -m pytest tests/ -q
-        uv run ruff check src tests scripts && uv run mypy src
+        uv run ruff check src tests scripts paper/benchmark && uv run mypy src
 
     Pick a task: https://mskazemi.com/yazses/contribute/start.html
 

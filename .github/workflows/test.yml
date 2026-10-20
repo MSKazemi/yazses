@@ -6,6 +6,12 @@ on:
   pull_request:
     branches: ["main"]
 
+# A rapid PR update should spend runners only on the newest head. Pushes to main are
+# deliberately unique and never cancelled: every merged commit still gets its own run.
+concurrency:
+  group: tests-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
 # Least privilege: this workflow only reads the repo and runs the suite. It never
 # publishes, comments, or writes a check. (The release/publish workflows need more
 # and declare their own — do not copy this block into them blindly.)
@@ -40,13 +46,13 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libportaudio2
 
       - name: Install uv
-        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
 
       - name: Install dependencies
         run: uv sync
 
       - name: Lint (ruff)
-        run: uv run ruff check src tests scripts
+        run: uv run ruff check src tests scripts paper/benchmark
 
       - name: Dependency budget
         env:
@@ -148,7 +154,7 @@ jobs:
             xdotool
 
       - name: Install uv
-        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
         with:
           version: "latest"
           python-version: ${{ matrix.python-version }}
@@ -199,7 +205,7 @@ jobs:
             libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-shape0
 
       - name: Install uv
-        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
 
       - name: Install dependencies (with Qt)
         run: uv sync --extra overlay
@@ -216,20 +222,20 @@ jobs:
         # only the skip check below would ever fail.
         #
         # `python -m pytest`, not `uv run pytest`: it puts the project on
-        # sys.path the way AGENTS.md/CLAUDE.md specify for this repo.
+        # sys.path the way AGENTS.md specifies for this repo.
         shell: bash
         run: |
           set -o pipefail
+          # The settings-window family is a GLOB, not a hand-written list. It
+          # was a list of nine filenames, and a tenth
+          # (tests/test_settingsui_snap_banner.py) was added without anyone
+          # noticing it had joined nothing: it would have run only on a
+          # developer's machine, where PySide6 is absent and it skips. A set
+          # that has to be remembered is the defect; derive the region instead.
+          # tests/test_gui_covers_every_settingsui_file.py fails if this stops
+          # matching the family.
           uv run python -m pytest -v -rs \
-            tests/test_settingsui_window.py \
-            tests/test_settingsui_help.py \
-            tests/test_settingsui_search.py \
-            tests/test_settingsui_model.py \
-            tests/test_settingsui_controller.py \
-            tests/test_settingsui_controls.py \
-            tests/test_settingsui_restart.py \
-            tests/test_settingsui_deps.py \
-            tests/test_settingsui_launch.py \
+            tests/test_settingsui_*.py \
             tests/test_gui_entry_points.py \
             tests/test_tray_settings_parity.py \
             tests/test_tray_about.py 2>&1 | tee gui-tests.txt
@@ -283,7 +289,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Install uv
-        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
 
       - name: Install dependencies (with the light optional extras)
         run: uv sync --extra chinese
@@ -331,7 +337,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Run the test suite on FreeBSD
-        uses: vmactions/freebsd-vm@f0552d3b69211736abd97f02ff3d4674c56b73b1 # v1.5.5
+        uses: vmactions/freebsd-vm@a2f9a41fa97f6848b8c3b791087dfcdaa5b473ff # v1.5.8
         with:
           usesh: true
           # Derived, not pinned. The first run of this job found two independent
@@ -540,7 +546,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Install uv
-        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
 
       - name: Install dependencies (with the benchmark group)
         run: uv sync --group benchmark
@@ -558,4 +564,6 @@ jobs:
           uv run python -m pytest -v -rs \
             tests/test_bench_provenance.py \
             tests/test_bench_wer_split.py \
-            tests/test_bench_diarization_scoring.py
+            tests/test_bench_diarization_scoring.py \
+            tests/test_bench_persian.py \
+            tests/test_fa_manifest.py

@@ -43,7 +43,7 @@ def test_load_config_full_section(tmp_path):
 
 def test_overlay_defaults():
     cfg = Config()
-    assert cfg.overlay.enabled is True      # on by default (soft no-op without PySide6)
+    assert cfg.overlay.enabled is False     # optional: on Wayland it can take keyboard focus
     assert cfg.overlay.style == "sonar"
     assert cfg.overlay.position == "cursor"
     assert cfg.overlay.react_to_voice is True

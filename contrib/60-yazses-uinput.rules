@@ -1,0 +1,3 @@
+# Installed by `yazses setup`. Lets the `input` group open /dev/uinput so the
+# user's ydotoold can inject keystrokes on Wayland without running as root.
+KERNEL=="uinput", GROUP="input", MODE="0660", OPTIONS+="static_node=uinput"

@@ -2,21 +2,15 @@
 
 from __future__ import annotations
 
+import logging
 import os
-import shutil
-import subprocess
 
 from yazses.inject.auto import get_injector
 from yazses.inject.base import BaseInjector
 from yazses.inject.clipboard import ClipboardInjector
-from yazses.inject.ydotool import ydotool_key_args
+from yazses.pointer.base import PointerSink, PointerUnsupportedError
 
-
-def _xdotool_key_str(combo: str) -> str:
-    """Convert 'ctrl+z' → 'ctrl+z', 'shift+Left' → 'shift+Left' for xdotool."""
-    return combo.replace("meta", "super")
-
-
+log = logging.getLogger(__name__)
 
 
 class LinuxInjector:
@@ -51,14 +45,28 @@ class LinuxInjector:
         self._fallback: ClipboardInjector | None = None
         if fallback_to_clipboard and not isinstance(self._primary, ClipboardInjector):
             self._fallback = ClipboardInjector()
-        self._is_wayland = bool(os.environ.get("WAYLAND_DISPLAY"))
+
+    def _fell_back(self, what: str, exc: Exception) -> None:
+        """Say so in the log, at WARNING.
+
+        Falling back is not a neutral event: the clipboard path overwrites the
+        clipboard and is a no-op in terminals, so a user whose primary backend
+        fails every time should be able to find out from the log rather than by
+        noticing that dictation only works in some windows. This was silent while
+        ydotool 0.1.8 refused every command line it was handed and exited 0.
+        """
+        log.warning(
+            "%s backend failed (%s: %s) — using the clipboard fallback",
+            type(self._primary).__name__, type(exc).__name__, exc,
+        )
 
     def inject(self, text: str) -> None:
         try:
             self._primary.inject(text)
-        except Exception:
+        except Exception as exc:
             if self._fallback is None:
                 raise
+            self._fell_back("injection", exc)
             self._fallback.inject(text)
 
     def inject_backspaces(self, count: int) -> None:
@@ -66,44 +74,50 @@ class LinuxInjector:
             return
         try:
             self._primary.inject_backspaces(count)
-        except Exception:
+        except Exception as exc:
             if self._fallback is None:
                 raise
+            self._fell_back("backspace", exc)
             self._fallback.inject_backspaces(count)
 
     def inject_key_sequence(self, keys: list[str]) -> None:
+        """Delegate to the primary backend, clipboard on failure (#544).
+
+        The backends own their Wayland/X11 tool dispatch — this method used to
+        hand-roll its own, which had no fallback path at all and needed the
+        one-off YAZSES_INJECTOR special case (#390) to keep an explicit
+        unicode selection from losing key combos.
+        """
         if not keys:
             return
-        if self._is_wayland:
-            if shutil.which("ydotool"):
-                for combo in keys:
-                    # ydotool's `key` ignores symbolic names; use numeric keycodes.
-                    subprocess.run(
-                        ["ydotool", "key"] + ydotool_key_args(combo),
-                        check=True,
-                        timeout=5,
-                    )
-                return
-            if shutil.which("wtype"):
-                for combo in keys:
-                    parts = combo.split("+")
-                    args: list[str] = ["wtype"]
-                    for p in parts[:-1]:
-                        args += ["-M", p]
-                    args += ["-k", parts[-1]]
-                    for p in parts[:-1]:
-                        args += ["-m", p]
-                    subprocess.run(args, check=True, timeout=5)
-                return
-        else:
-            if shutil.which("xdotool"):
-                subprocess.run(
-                    ["xdotool", "key", "--clearmodifiers"] + [_xdotool_key_str(k) for k in keys],
-                    check=True,
-                    timeout=5,
-                )
-                return
-        # Clipboard fallback has no key-sequence capability; silently skip.
+        try:
+            self._primary.inject_key_sequence(keys)
+        except Exception as exc:
+            if self._fallback is None:
+                raise
+            self._fell_back("key sequence", exc)
+            self._fallback.inject_key_sequence(keys)
+
+    def pointer_sink(self) -> PointerSink:
+        """A pointer output that extends **this injector's** RemoteDesktop session.
+
+        ADR-v2-146 rule 6: on Wayland the pointer rides the session dictation types
+        through, so there is one dialog, one restore token and one grant. That session
+        exists only when the portal is the backend actually chosen to type, which is why
+        this is answered here -- by the object that knows what it chose -- and not by the
+        platform bundle guessing from the environment.
+
+        Any other backend is an honest ``PointerUnsupportedError`` that names what is in
+        use and the one setting that changes it, rather than a second, rival portal
+        client opened on the side.
+        """
+        open_sink = getattr(self._primary, "deferred_pointer_sink", None)
+        if open_sink is None:
+            raise PointerUnsupportedError(
+                f"the Wayland pointer needs the Remote Desktop portal, but typing uses "
+                f"{self.backend_name}; set [injection] backend = \"portal\" and restart"
+            )
+        return open_sink()
 
     @property
     def backend_name(self) -> str:

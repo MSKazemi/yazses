@@ -56,6 +56,7 @@ program was not mentioned. A second scan now covers it.
 | `gitvoice/plan.py` | `git` | ← → repository content | `yazses gitvoice … --run` |
 | `system/deps.py` | `uv` / `pip` | → package names, ← **code that then runs here** | `yazses features enable <name>` |
 | `system/setup.py` | `apt-get` (as root) | → package names, ← OS packages | `yazses setup` |
+| `system/winsetup.py` | `winget`, `pip` | → package names, ← VC++ runtime / wheels | `yazses setup` (Windows) |
 | `system/updater.py` | `snap` / `uv` / `pipx` / `pip` / `winget` / `choco` / `scoop` | ← a new version of YazSes | `yazses update`, or the tray's Install |
 
 The last three were invisible for the same reason the first two once were, one level

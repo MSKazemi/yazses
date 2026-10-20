@@ -1,5 +1,8 @@
 # Post-install guidance for the AUR package.
 #
+# SOURCE OF TRUTH. The copy in the AUR repo is overwritten wholesale by
+# publish-channels.yml on every release -- edit this file, never the other way round.
+#
 # This lives in a .install file rather than in PKGBUILD. The previous revision defined
 # post_install()/post_upgrade()/post_remove() inside PKGBUILD itself, where pacman never
 # sees them — they were dead code, and the two steps below (which the package genuinely

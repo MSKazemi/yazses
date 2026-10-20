@@ -84,6 +84,13 @@ the hardware.
   correction cost outranks word error rate, and the three things we have not
   measured.
 
+- :material-file-document-edit-outline: **[Paper v2 evidence programme](https://github.com/MSKazemi/yazses/tree/main/design/publication/paper-v2)**
+  The public research package for the next YazSes paper: what is genuinely new
+  since v1, the August/Azure experiment campaign, the claim ledger, manuscript
+  plan, authorship protocol, and the open replication/human-study work.
+  [Current status](https://github.com/MSKazemi/yazses/blob/main/design/publication/paper-v2/STATUS.md)
+  · [programme issue #510](https://github.com/MSKazemi/yazses/issues/510).
+
 - :material-alphabetical-variant: **[Glossary](glossary.md)**
   Plain definitions for the speech, HCI and evaluation terms these pages use —
   including why WER is not enough and what text-entry research reports instead.
@@ -104,6 +111,17 @@ the hardware.
 - :material-eye-outline: **[Eye control](eye-control.md)**
   What a $20 webcam can and cannot know about where you look — and why
   "coarse but honest" beats "precise but fake".
+
+- :material-target: **[Grounded multimodal interaction](grounded-multimodal-interaction.md)**
+  How Google Magic Pointer and Apple's onscreen-awareness stack turn pointing,
+  gaze and language into structured targets — and what architectural layer
+  YazSes is still missing.
+
+- :material-vector-link: **[Grounded Interaction Kernel](interaction-kernel.md)**
+  The proposed common contract for observations, grounded targets, uncertain
+  intent hypotheses, authority, action proposals and verified outcomes — plus
+  the scientific bottlenecks that must be measured before agentic, spatial or
+  robotic extensions.
 
 - :material-microphone-outline: **[Voice control](voice-control.md)**
   Local speech recognition passed the cloud in 2025–26. The numbers, the

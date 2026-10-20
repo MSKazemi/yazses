@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import logging
 
+from yazses.cameraperm.contract import CameraPermission
 from yazses.platform.base import PermissionState
 
 log = logging.getLogger(__name__)
@@ -93,6 +94,66 @@ def elevation_detail(elevated: bool | None) -> str:
     )
 
 
+
+#: Where Windows records the camera privacy decision.
+#:
+#: Microsoft documents the *setting* -- "camera access can be disabled for the
+#: entire device, for all unpackaged apps, or for individual packaged apps"
+#: (learn.microsoft.com/windows/apps/develop/camera/camera-privacy-setting) --
+#: and that is exactly these three values. What Microsoft does **not** document
+#: is a way for an unpackaged desktop app to *ask*: `AppCapability.CheckAccess`
+#: is for packaged apps, and the documented route for a Win32 app is to open the
+#: capture device and handle `E_ACCESSDENIED`.
+#:
+#: Opening the device is not available to us here: that is the very prompt this
+#: contract exists to avoid raising on a machine that never asked for a camera
+#: feature. So this reads the ConsentStore values the Settings page writes, which
+#: is an **undocumented location** -- and that is why a value it cannot read is
+#: reported as undetermined rather than assumed. The authoritative answer still
+#: arrives later, as `E_ACCESSDENIED` from whatever opens the camera.
+_CONSENT_SUBKEY = (
+    r"Software\Microsoft\Windows\CurrentVersion\CapabilityAccessManager"
+    r"\ConsentStore\webcam"
+)
+
+#: ``(hive attribute name, subkey)``, in decreasing scope: the device-wide
+#: switch, this user's switch, and "Let desktop apps access your camera" -- the
+#: last of which is the one that governs YazSes installed from the .exe, and the
+#: one that is most often off while the other two look fine.
+_CONSENT_READS = (
+    ("HKEY_LOCAL_MACHINE", _CONSENT_SUBKEY),
+    ("HKEY_CURRENT_USER", _CONSENT_SUBKEY),
+    ("HKEY_CURRENT_USER", _CONSENT_SUBKEY + r"\NonPackaged"),
+)
+
+
+def camera_consent_state(values: tuple[str | None, ...]) -> CameraPermission:
+    """Map the ConsentStore values onto a camera state. Pure, so it is testable.
+
+    Split out from the registry read for the reason this whole contract exists:
+    there is no Windows machine on this project, so the read cannot be exercised
+    anywhere, but the *mapping* can be -- and the mapping is where an optimistic
+    default would hide.
+
+    * any value ``Deny`` -> ``DENIED``. Windows ANDs these switches, so one
+      refusal is a refusal however permissive the others are.
+    * at least one explicit ``Allow`` and no ``Deny`` -> ``GRANTED``. An explicit
+      value is the user's recorded decision, so reading it is determining the
+      state rather than guessing it.
+    * nothing explicit at all -- keys absent, hive unreadable, not on Windows --
+      > ``NOT_DETERMINED``. **Never ``GRANTED``.** A key that is merely missing
+      is not consent, even though Windows would in fact allow access.
+
+    The asymmetry in the last two arms is deliberate: this probe is allowed to
+    under-claim and is not allowed to over-claim.
+    """
+    if any(v == "Deny" for v in values):
+        return CameraPermission.DENIED
+    if any(v == "Allow" for v in values):
+        return CameraPermission.GRANTED
+    return CameraPermission.NOT_DETERMINED
+
+
 class WindowsPermissions:
     """PermissionsBackend for Windows."""
 
@@ -155,4 +216,65 @@ class WindowsPermissions:
             "plugged in and enabled in Sound settings, then run: yazses audio devices\n"
             "After an update you may have to allow it again: unsigned apps get a new\n"
             "identity when their hash changes."
+        )
+
+    def check_camera(self) -> CameraPermission:
+        """Read the camera privacy setting Windows actually gates desktop apps on.
+
+        Windows exposes no API a plain desktop process can call to ask "may I use
+        the camera" -- the WinRT ``AppCapability`` surface is for packaged apps --
+        so the honest probe is the ConsentStore value the Settings page writes.
+        Opening the device to find out is not an option here: that is the prompt
+        this contract exists to avoid raising on a machine that never asked for a
+        camera feature.
+
+        Every failure path returns ``NOT_DETERMINED``. The mapping itself lives in
+        :func:`camera_consent_state`, and is the part the test suite can reach.
+
+        ⚠ Untested on real hardware: no Windows machine is available here, and the
+        registry read below has never run on one.
+        """
+        try:
+            import winreg  # type: ignore[import-not-found]
+        except ImportError:
+            return CameraPermission.NOT_DETERMINED
+
+        # The `attr-defined` ignores are the checking platform, not a defect:
+        # typeshed declares every `winreg` attribute behind `sys.platform ==
+        # "win32"`, and CI runs mypy on Linux. Ignored per line rather than by
+        # adding this module to the `disable_error_code` block in pyproject.toml,
+        # so a real attribute mistake anywhere else in the file still fails.
+        values: list[str | None] = []
+        for hive_name, path in _CONSENT_READS:
+            try:
+                hive = getattr(winreg, hive_name)
+                with winreg.OpenKey(hive, path) as key:  # type: ignore[attr-defined]
+                    value, _ = winreg.QueryValueEx(key, "Value")  # type: ignore[attr-defined]
+                values.append(str(value))
+            except (OSError, AttributeError):
+                values.append(None)
+        return camera_consent_state(tuple(values))
+
+    def how_to_grant_camera(self) -> str:
+        """Settings -> Privacy & Security -> Camera, and the switch under it.
+
+        Two switches, and the second is the one that catches people: the master
+        camera toggle can be on while "Let desktop apps access your camera" is
+        off, and YazSes installed from the .exe is a desktop app. That is the
+        same shape as the microphone advice above, which exists because the same
+        pair caught someone there.
+        """
+        return (
+            "Allow camera access in:\n"
+            "  Settings -> Privacy & Security -> Camera\n"
+            "and make sure 'Let desktop apps access your camera' is on too --\n"
+            "the top toggle can be on while that one is off.\n"
+            "Or open the pane directly:\n"
+            "  start ms-settings:privacy-webcam\n"
+            "Installed from the .exe installer or the MSIX? Those bundles ship no\n"
+            "camera runtime and cannot add one, so no permission will make the\n"
+            "camera features work there -- use `pipx install 'yazses[gaze]'`.\n"
+            "Already allowed and still nothing? Windows may simply not have\n"
+            "written a decision yet; YazSes reports that as undetermined rather\n"
+            "than claiming access it cannot confirm."
         )

@@ -162,6 +162,50 @@ Run the accessibility enrollment wizard to calibrate VAD thresholds.
 
 Record a short voiceprint so YazSes can recognise your voice.
 
+## `yazses eye-eval`
+
+Run an eye-control evaluation task and save a privacy-safe result you can inspect.
+
+- **Arguments:** `task`
+- `--out`, `-o` — Where to write the result JSON.
+- `--synthetic` — No-camera dry run: generate the outcomes instead of measuring them.
+- `--outcomes` — A JSON list of per-trial outcomes you recorded during a real run.
+- `--blocked` — Record a BLOCKED result. One of: not_supported, not_measured, permission_denied, tracking_unavailable, participant_stopped, technical_invalidation.
+- `--study-mode` — ci | synthetic | community_qa | research. Never inferred.
+- `--protocol-id` — The named, versioned research protocol. Required by --study-mode research.
+- `--camera-class` — integrated | external | virtual | none. Required with --outcomes.
+- `--perception-backend` — Which camera perception backend ran, e.g. mediapipe.
+- `--verdict` — Your own PASS/PARTIAL/FAIL/BLOCKED, overriding the computed one.
+- `--seed` — Task seed. Default: the seed the task fixture records.
+
+## `yazses facegesture`
+
+Face-gesture switch — capture your relaxed face so the gesture is judged against it.
+
+### `yazses facegesture calibrate`
+
+Capture your neutral (relaxed) face as the baseline for a face gesture.
+
+- `--gesture` — Gesture to calibrate (default: [facegesture] gesture).
+- `--seconds` — How long to watch your relaxed face.
+- `--yes`, `-y` — Start without waiting for Enter.
+- `--active` — Also capture your ACTIVE level: a few deliberate holds of the gesture. Needed when your resting level is near zero and the default thresholds never fire.
+- `--talk` — Also capture your TALK level: speak normally so the derived hold threshold stays above it. Needs an active level (from this run or stored).
+- `--skip-rest` — Reuse the stored resting baseline; capture only --active and/or --talk.
+- `--holds` — Deliberate holds for --active.
+- `--hold-seconds` — Seconds each --active hold is measured.
+- `--talk-seconds` — Seconds of speech for --talk.
+
+### `yazses facegesture reset`
+
+Forget the stored neutral baseline(s) and active/talk levels; back to configured thresholds.
+
+- `--gesture` — Forget only this gesture's baseline.
+
+### `yazses facegesture status`
+
+Show what the face switch's select, confirm and cancel gestures last did.
+
 ## `yazses features`
 
 See capabilities and turn them on/off (no config-editing needed).
@@ -223,9 +267,50 @@ Calibrate the webcam so your gaze maps to screen zones.
 
 - `--no-install` — Don't auto-install the gaze deps (mediapipe, opencv).
 
+### `yazses gaze measure`
+
+Measure how well your saved gaze calibration works, and write a report to share.
+
+- `--camera-class` — integrated | external | virtual. Never guessed.
+- `--out`, `-o` — Where to write the report JSON (default: ./yazses-gaze-report.json).
+- `--rounds` — How many validation passes to run.
+- `--interval-s` — Seconds to wait between passes (to see drift over time).
+- `--per-point` — Gaze samples averaged per target.
+- `--block-s` — Drift bucket length in seconds.
+- `--study-mode` — community_qa | research. Never inferred.
+- `--protocol-id` — The named, versioned protocol. Required by --study-mode research.
+- `--camera-label` — A short model name of your choosing, e.g. 'Integrated 720p'. No serial numbers.
+- `--glasses` — none | glasses | contacts | not_stated.
+- `--lighting` — dim | normal | bright | backlit | not_stated.
+- `--viewing-distance-cm` — Eyes to screen, in centimetres.
+- `--screen-diagonal-in` — Screen diagonal in inches. With --viewing-distance-cm, errors are also given in degrees.
+- `--routing-attempts` — Dictations you tried to aim with gaze (your own count).
+- `--routing-fallbacks` — Of those, how many fell back to the focused window.
+- `--wrong-target` — Of those, how many you had to correct (landed in the wrong window).
+
+### `yazses gaze rollback`
+
+Undo the last implicit refinement and restore the calibration it replaced.
+
 ### `yazses gaze status`
 
 Show whether look-to-pane is ready: deps, desktop backend, calibration.
+
+## `yazses gesture`
+
+Control Gesture Chords: see what is bound and why nothing fires, pause or resume them.
+
+### `yazses gesture pause`
+
+Stop chords from acting. The pause chord itself still works.
+
+### `yazses gesture resume`
+
+Resume after a pause, a fault or a stale camera. Chords never fire from before it.
+
+### `yazses gesture status`
+
+Show whether Gesture Chords are running, and if not, why not.
 
 ## `yazses gitvoice`
 
@@ -234,6 +319,69 @@ Turn a spoken git command into a git command — fully offline.
 - **Arguments:** `text`
 - `--run` — Run the command instead of only printing it.
 - `--yes` — Confirm a destructive command so --run will run it.
+
+## `yazses handsfree`
+
+Turn on the hands-free preset; stop, re-arm and inspect every camera-driven input at once.
+
+### `yazses handsfree disable`
+
+Turn the hands-free preset OFF: stops the pointer and switch now, frees the camera on restart.
+
+### `yazses handsfree enable`
+
+Turn the hands-free preset ON: one switch that sets the ordinary feature configs.
+
+- `--force` — Allow the experimental camera features the preset turns on.
+- `--no-install` — Don't auto-install the camera features' optional deps.
+
+### `yazses handsfree explain`
+
+Print the ordinary feature settings the hands-free preset sets, without applying anything.
+
+### `yazses handsfree pause`
+
+Stop all hands-free input: no pointer motion, no click, no face-switch key press.
+
+### `yazses handsfree resume`
+
+Re-arm hands-free input after a pause or a fault. The first frame afterwards never acts.
+
+### `yazses handsfree status`
+
+Show the same panel the settings window shows: state, health and what to do next.
+
+## `yazses headpointer`
+
+Control the Head-Pointer: recenter, pause or resume it, hold a clutch, toggle dwell-click.
+
+### `yazses headpointer clutch`
+
+Hold the pointer still without turning the feature off (e.g. while you pull a face).
+
+- `--off` — Release the clutch instead of holding it.
+
+### `yazses headpointer dwell`
+
+Turn dwell-click on or off without touching pointer motion.
+
+- **Arguments:** `state`
+
+### `yazses headpointer pause`
+
+Stop the pointer: no motion, no dwell progress, no click.
+
+### `yazses headpointer recenter`
+
+Make your current head position the neutral one. No motion and no click while it happens.
+
+### `yazses headpointer resume`
+
+Resume after a pause or a fault. The first frame afterwards never moves or clicks.
+
+### `yazses headpointer status`
+
+Show whether the Head-Pointer is running, and if not, why not.
 
 ## `yazses hotkey`
 
@@ -260,12 +408,50 @@ Show the current hold-to-talk key (and command key, if set).
 Type text into the focused window without recording (tests the injector).
 
 - **Arguments:** `text`
+- `--delay`, `-d` — Seconds to wait before injecting, so you can focus the app to test.
+- `--diagnose` — Report the focused window before injecting (Windows only).
+
+## `yazses inject-backend`
+
+Show or pin the keystroke-injection backend.
+
+- **Arguments:** `name`
+- `--allow-portal` — Let `auto` use the desktop portal on Wayland.
+- `--deny-portal` — Never use the desktop portal.
 
 ## `yazses jump`
 
 Jump to a symbol or line in the active editor.
 
 - **Arguments:** `target`
+
+## `yazses language`
+
+Inspect dictation-language profiles and effective STT language state.
+
+### `yazses language list`
+
+List the high-level language profiles YazSes can resolve coherently.
+
+### `yazses language set`
+
+Switch dictation language through the shared transactional service.
+
+- **Arguments:** `profile`
+- `--dry-run` — Show the complete plan and prerequisites without changing anything.
+- `--model` — Explicit faster-whisper model override.
+- `--engine` — Explicit engine override (currently only faster-whisper is accepted).
+- `--recommended-model` — Select the profile's supported baseline instead of preserving a compatible model.
+- `--no-download` — Never fetch a missing speech model; refuse before writing config.
+- `--no-install` — Never install a missing optional Python dependency.
+- `--no-restart` — Commit a valid config but leave a running daemon unchanged.
+- `--yes`, `-y` — Apply the displayed plan without an interactive confirmation.
+
+### `yazses language status`
+
+Show the effective speech language, Han script, model, and profile coherence.
+
+- `--json` — Emit a machine-readable status object.
 
 ## `yazses logs`
 
@@ -601,7 +787,7 @@ Check for a newer YazSes and update it (snap / uv / pipx / pip / Windows).
 Record, transcribe, and prove dictation works end to end on this machine.
 
 - `--seconds`, `-s` — How long to record.
-- `--type` — Also type the transcript into the focused window.
+- `--type` — Also type the transcript — into a small window YazSes opens, and check it arrived (into the focused window when no such window can open).
 
 ## `yazses vocab`
 

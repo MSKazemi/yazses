@@ -45,7 +45,7 @@ from typing import Any
 # carry neither `hreflang` nor `canonical` and the whole set read to a search engine as
 # unrelated duplicates of each other.
 LANGUAGE_DIRS = {
-    "ar", "bn", "cs", "de", "el", "es", "fa", "fr", "he", "hi", "id", "it", "ja",
+    "ar", "bn", "cs", "de", "el", "es", "fa", "fr", "hi", "id", "it", "ja",
     "ko", "nl", "pl", "pt-BR", "ru", "sv", "ta", "te", "th", "tr", "uk", "ur",
     "vi", "zh", "zh-CN", "zh-TW",
 }

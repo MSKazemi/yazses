@@ -48,6 +48,7 @@ TRANSFORMS = [
     "evaluate",
     "fix_articles",
     "normalize_entities",
+    "punctuate_text",      # Prosodic Auto-Punctuation (ADR-v2-104)
     "restore_diacritics",
     "semantic_breaks",
 ]

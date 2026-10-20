@@ -120,6 +120,12 @@ SHELL_OUT = {
         "`yazses setup` needs (ydotool, wl-clipboard). Reaches the distribution's "
         "mirrors, with root, at the user's explicit request"
     ),
+    "system/winsetup.py": (
+        "runs `winget install` for the Visual C++ Redistributable and `python -m pip "
+        "install` for missing Windows-only packages, for `yazses setup` on Windows. "
+        "Sends only package names; reaches Microsoft's catalogue / PyPI at the user's "
+        "explicit request"
+    ),
     "system/updater.py": (
         "spawns the upgrade the user chose -- `snap refresh`, `uv tool upgrade`, `pipx "
         "upgrade`, `pip install --upgrade`, winget/choco/scoop -- which downloads and "

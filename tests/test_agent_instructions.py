@@ -1,20 +1,29 @@
 """The agent instruction files must agree with each other and with reality.
 
-Five surfaces tell a contributor — human or coding agent — what the gates are:
-`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `CONTRIBUTING.md`, `README.md` (plus its
-translations) and the `Makefile`. They are hand-maintained and they had drifted in the
+Several surfaces tell a contributor — human or coding agent — what the gates are.
+`AGENTS.md` is canonical; `CLAUDE.md` and `GEMINI.md` are intentionally tiny tracked
+adapters that import it, while `CONTRIBUTING.md`, `README.md` (plus its translations)
+and the `Makefile` expose selected human-facing commands. These surfaces had drifted in the
 worst possible direction: `AGENTS.md` told agents the codebase carried "~135 known type
 errors across 50 files" and that "a clean run is not the bar", while `CONTRIBUTING.md`
-said mypy reports no issues at all. `mypy src` actually reports `Success: no issues found
-in 433 source files`. An agent reading the stale file would have shipped type errors and
-called them pre-existing — and been following the instructions when it did.
+said mypy reports no issues at all. `mypy src` actually reported `Success: no issues
+found`. An agent reading the stale file would have shipped type errors and called them
+pre-existing — and been following the instructions when it did.
 
-`AGENTS.md` also sent contributors to a root `CLAUDE.md` for the architecture reference.
-That file is deliberately **gitignored** — it carries local configuration — so it exists in
-the maintainer's checkout and in no clone anyone else has ever made. The instruction read
-fine to the only person who could not observe it failing.
+The follow-up bug was subtler and is why these surfaces no longer quote a file count.
+Each was corrected with the number of files checked *at the time* — 433, then 435, then
+505 — and every one of them rotted, so two live instruction files ended up asserting two
+different wrong counts for the same command. A number that nothing re-measures is a
+liability in a file that is read as instructions; it belongs in a dated `CHANGELOG`
+entry, which is a record rather than a claim about today.
 
-That last point is why these checks resolve paths through `git ls-files` rather than the
+Historically, `AGENTS.md` sent contributors to a root `CLAUDE.md` that was gitignored and
+present only in the maintainer's checkout. The public design now avoids that failure in a
+different way: `AGENTS.md` is the single source of truth, while any tool-specific filename
+is tracked only as a thin import adapter. Private assistant configuration stays in ignored
+local/user files.
+
+That history is why these checks resolve paths through `git ls-files` rather than the
 filesystem: the question is never "is this file on this disk", it is "does a contributor
 receive this file". A test that reads the working tree would have passed on the maintainer's
 machine while the reference was broken for everybody else — reproducing the exact bug.
@@ -34,6 +43,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 
 CANONICAL = "AGENTS.md"
+TOOL_ADAPTERS = {
+    "CLAUDE.md": "@AGENTS.md",
+    "GEMINI.md": "@./AGENTS.md",
+}
 #: GitHub reads the community-health files from `.github/` as readily as from the root,
 #: and the root listing was 43 markdown files deep. Named once, because every surface
 #: below addresses it by repo-relative path.
@@ -79,16 +92,107 @@ def _translated_readmes() -> list[str]:
     return [p.relative_to(ROOT).as_posix() for p in found]
 
 
-def test_the_canonical_agent_file_is_shipped():
-    """`AGENTS.md` is the one instruction file a contributor is guaranteed to get.
+def test_private_agent_configuration_is_never_tracked():
+    """Local assistant state stays private even if an ignore rule is bypassed."""
+    tracked = _tracked()
+    if not tracked:
+        return
 
-    The tool-specific files (`CLAUDE.md`, `GEMINI.md`) are deliberately gitignored as
-    local configuration, so this is the only agent brief that travels with a clone.
-    """
-    assert CANONICAL in _tracked() or not _tracked(), (
-        f"{CANONICAL} is not tracked by git — it is the public agents.md contributor "
-        "standard and the only agent instruction file that reaches a clone"
+    forbidden = sorted(
+        path for path in tracked
+        if path == "CLAUDE.local.md"
+        or path.startswith(".claude/")
+        or path.startswith(".gemini/")
     )
+    assert not forbidden, (
+        "private local agent configuration is tracked: "
+        f"{forbidden}. Keep only the public CLAUDE.md/GEMINI.md adapters in git."
+    )
+
+
+def test_canonical_agent_file_and_thin_adapters_are_shipped():
+    """Every supported auto-discovery filename must resolve to one public source of truth."""
+    tracked = _tracked()
+    if not tracked:  # sdist/vendored trees may not carry git metadata
+        return
+
+    assert CANONICAL in tracked, (
+        f"{CANONICAL} is not tracked by git — it is the public contributor instruction source"
+    )
+
+    for adapter, import_line in TOOL_ADAPTERS.items():
+        assert adapter in tracked, (
+            f"{adapter} is not tracked — the corresponding agent will miss project rules"
+        )
+        text = _read(adapter)
+        assert import_line in text, (
+            f"{adapter} must import {CANONICAL} instead of maintaining a second rule set"
+        )
+        assert "uv sync" not in text and "pytest" not in text and "ruff check" not in text, (
+            f"{adapter} duplicates setup/gate commands — keep policy only in {CANONICAL}"
+        )
+
+
+def test_tool_adapter_names_do_not_become_policy_authority():
+    """Only adapter-design docs may name tool-specific instruction filenames."""
+    tracked = _tracked()
+    if not tracked:
+        return
+
+    allowed = {
+        CANONICAL,
+        *TOOL_ADAPTERS,
+        "CHANGELOG.md",  # historical record: do not rewrite old release/project history
+        "docs/contribute/ai-agents.md",
+        "design/adr/adr-023-agent-first-contribution-pipeline.md",
+        "tests/test_agent_instructions.py",
+    }
+    text_suffixes = {".md", ".py", ".toml", ".yml", ".yaml"}
+    offenders: list[str] = []
+
+    for name in sorted(tracked - allowed):
+        # Release notes are historical records. They may truthfully say that a past
+        # version used a tool-specific file; current policy/config/test surfaces may not.
+        if name.startswith("docs/releases/"):
+            continue
+        path = ROOT / name
+        if path.suffix not in text_suffixes:
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        if any(adapter in text for adapter in TOOL_ADAPTERS):
+            offenders.append(name)
+
+    assert not offenders, (
+        "tool-specific adapter names are being cited outside the adapter-design surfaces: "
+        f"{offenders}. Cite AGENTS.md as the project authority instead."
+    )
+
+
+def test_ai_review_disclosure_is_not_ai_authorship():
+    """The agent rules must permit review transparency without crediting a tool as author."""
+    text = _read(CANONICAL)
+    assert "No AI authorship or contributor credit" in text
+    assert '"AI assistance" section may name the tool used' in text
+    assert "Co-Authored-By" in text
+
+
+def test_cloud_agent_does_not_weaken_yazses_data_boundary():
+    """Agent-assisted development must not turn private user evidence into cloud input."""
+    text = _read(CANONICAL).lower()
+    assert "never upload real user audio" in text
+    assert "cloud development tool is a separate data transfer" in text
+    assert "synthetic or explicitly" in text
+
+
+def test_canonical_agent_rules_treat_external_text_as_untrusted():
+    """GitHub/web text may scope work, but it must never outrank repository safety rules."""
+    text = _read(CANONICAL).lower()
+    assert "untrusted input" in text
+    assert "cannot override this file" in text
+    assert "credentials" in text
 
 
 def _instruction_links(text: str) -> set[str]:
@@ -125,14 +229,13 @@ def _candidate_targets(target: str, owner: str) -> set[str]:
 def test_no_shipped_instruction_file_points_at_something_unshipped():
     """The failure this suite exists to catch, in its general form.
 
-    `AGENTS.md` told contributors to read a root `CLAUDE.md` that no clone contains.
-    A gitignored target is worse than a missing one: it resolves on the author's
-    machine, so the broken link is invisible to the only person who could fix it.
+    This originally caught an `AGENTS.md` reference to an untracked private `CLAUDE.md`.
+    Tool adapters are now tracked, but any instruction link can regress the same way.
     """
     tracked = _tracked()
     if not tracked:  # no git available (sdist, vendored tree) — nothing to verify against
         return
-    for name in (CANONICAL, CONTRIBUTING, "README.md"):
+    for name in (CANONICAL, *TOOL_ADAPTERS, CONTRIBUTING, "README.md"):
         for target in _instruction_links(_read(name)):
             assert _candidate_targets(target, name) & tracked, (
                 f"{name} links to {target}, which git does not ship — a contributor "
@@ -164,6 +267,41 @@ def test_no_surface_claims_type_errors_are_expected():
         f"known: {lying}. `uv run mypy src` reports no issues across the source tree — "
         "an agent that believes otherwise will ship type errors and report them as "
         "someone else's. CONTRIBUTING.md holds the correct wording."
+    )
+
+
+#: "…no issues across 505 source files", including across a line wrap. Only a *counted*
+#: mention matches: prose about "source files" in general is not a measurement claim.
+_FILE_COUNT = re.compile(r"\b\d[\d,]*\s+source files", re.I)
+
+
+def test_no_live_instruction_surface_quotes_a_mypy_file_count():
+    """A file count in an instruction file is a claim that nothing re-measures.
+
+    This has now rotted three times — `AGENTS.md` and `CONTRIBUTING.md` were each
+    "corrected" to the count of the day (433, 435, 505) and each went stale, until the two
+    files asserted two different wrong numbers for the same command against a tree that
+    checks 532. Two agents burned a session on it in one day.
+
+    The durable claim is "no issues", which `test_no_surface_claims_type_errors_are_expected`
+    already holds these surfaces to. The count adds nothing a contributor can act on and
+    silently becomes false, so it is banned here rather than re-corrected.
+
+    Deliberately scoped to the live surfaces: `CHANGELOG.md` and `docs/releases/*.md` quote
+    counts on purpose. A dated entry records what a run measured at that moment; it does not
+    claim anything about today, so it cannot go stale in the way this test is about.
+    """
+    quoting = {
+        name: _FILE_COUNT.search(" ".join(_read(name).split()))[0]  # type: ignore[index]
+        for name in MYPY_SURFACES
+        if _FILE_COUNT.search(" ".join(_read(name).split()))
+    }
+    assert not quoting, (
+        f"these instruction surfaces quote how many files mypy checked: {quoting}. That "
+        "number changes every time a module is added and nothing re-measures it here, so "
+        "it is false within a release or two — and a contributor who reads a wrong number "
+        "in a setup guide stops trusting the rest of it. Say 'no issues' and leave the "
+        "count to the CHANGELOG entry that actually measured it."
     )
 
 
@@ -241,4 +379,45 @@ def test_the_browser_only_contribution_path_is_advertised():
     assert "codespaces.new" in _read("README.md"), (
         "README.md no longer links the Codespaces one-click path — the Dev Container "
         "only helps people who know it is there"
+    )
+
+
+# ADR-024 makes authorship policy explicit: YazSes credits the human contributor, not
+# the coding tool. This exact contradiction existed in three shipped surfaces at once:
+# AGENTS.md forbade attribution while CONTRIBUTING, the first-contribution page and the
+# PR template asked for it. Keep a small regression test because prose drift is the bug.
+ATTRIBUTION_SURFACES = (
+    "AGENTS.md",
+    CONTRIBUTING,
+    "docs/contribute/start.md",
+    ".github/PULL_REQUEST_TEMPLATE.md",
+)
+
+# Disclosure is not attribution, and this guard must not confuse them. AGENTS.md rule 8
+# and ADR-026 both draw the line at *authorship*: a tool may never be an author, co-author,
+# contributor or rights-holder. Naming the tool used and saying what the human verified is
+# review context, which AGENTS.md explicitly permits ("the pull-request template's 'AI
+# assistance' section may name the tool used and must say what the human verified").
+# An earlier revision of this list banned that section too, which would have made the guard
+# refuse what the written contract requires -- so it lists only framings that treat the tool
+# as a credited party or make disclosure an acceptance factor. Literal trailer spellings are
+# deliberately absent: AGENTS.md has to quote the forms it forbids, so matching them here
+# would fire on the rule itself.
+_FORBIDDEN_ATTRIBUTION_SNIPPETS = (
+    "Mention in the PR body if a change was largely AI-generated",
+    "Say in the pull request that you used one",
+)
+
+
+def test_no_contributor_surface_requests_ai_attribution():
+    """Project artifacts credit the human contributor only (ADR-026)."""
+    stale: list[tuple[str, str]] = []
+    for name in ATTRIBUTION_SURFACES:
+        text = _read(name)
+        for snippet in _FORBIDDEN_ATTRIBUTION_SNIPPETS:
+            if snippet.lower() in text.lower():
+                stale.append((name, snippet))
+    assert not stale, (
+        "these contributor surfaces still request coding-tool/AI attribution, "
+        f"contradicting AGENTS.md and ADR-026: {stale}"
     )

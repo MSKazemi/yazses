@@ -1,0 +1,20 @@
+\section{Related Work}
+
+Whisper established a widely used open-weight baseline for robust multilingual speech recognition
+\citep{radford2022whisper}, while LibriSpeech remains a standard read-speech evaluation corpus
+\citep{panayotov2015librispeech}. The present work is not intended to introduce a new recognizer;
+it evaluates how several local recognizers and decoder configurations behave when integrated into
+an interactive offline system.
+
+Speaker diarization has a distinct literature and evaluation methodology from ASR. The AMI
+Meeting Corpus provides a long-running benchmark for multi-party meeting research
+\citep{carletta2005ami}. Our use of AMI is specifically to test whether a clustering operating
+point that appeared reasonable in shorter or synthetic conditions transfers to long, annotated
+meetings.
+
+A complete related-work section must additionally cover four areas before submission:
+repeated-decode non-determinism and fallback behavior in Whisper/faster-whisper-style systems;
+previous-text conditioning and repetition loops; CPU streaming and partial-hypothesis stability;
+and domain transfer in speaker-clustering thresholds. Repository issue \#507 tracks this current
+literature verification. Until that search is complete, this manuscript deliberately avoids
+priority claims such as first or previously unreported.

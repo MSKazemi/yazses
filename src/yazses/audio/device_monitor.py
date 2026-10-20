@@ -81,6 +81,9 @@ CAPTURE_PROVING_DISCARDS = frozenset({
     # downstream of capture.
     "window_action_failed",
     "deixis_no_target",
+    # A destructive deixis command was refused because gaze could not pick the window and
+    # `[gaze] refuse_destructive_fallback` is on: heard and decoded, refused downstream.
+    "deixis_gaze_unavailable",
     # A spoken capability (ADR-v2-131) produced text and a policy declined to type it:
     # the safety gate held it for a confirm, or the injector refused it. Both mean the
     # microphone was heard and decoded — the failure is downstream of capture.
@@ -102,6 +105,7 @@ CAPTURE_DOUBTING_DISCARDS = frozenset({
     "silent",           # mean(|audio|) below the gate — nothing usable arrived
     "empty",            # audio decoded to no words at all
     "cocktail_gated",   # dropped before any decode; there is no transcript to trust
+    "no_speech",        # loud enough, but a speech detector found none; dropped before decode
     "hallucination",    # words fabricated from non-speech — evidence *against* the audio
     "post_filter",      # the transcript was disfluency only; same doubt as above
 })

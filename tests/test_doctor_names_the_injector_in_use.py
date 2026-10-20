@@ -35,6 +35,7 @@ import pytest
 from yazses.config import InjectionConfig
 from yazses.inject.auto import apply_injection_config, get_injector
 from yazses.inject.clipboard import ClipboardInjector
+from yazses.inject.portal import PortalInjector
 from yazses.inject.wtype import WtypeInjector
 from yazses.inject.xdotool import XdotoolInjector
 from yazses.inject.ydotool import YdotoolInjector
@@ -42,11 +43,15 @@ from yazses.system.doctor import _injection_readiness
 
 REPO = Path(__file__).resolve().parents[1]
 
+# Must cover EVERY injector `get_injector` can build. A missing entry does not
+# weaken the assertion below, it crashes it with a KeyError — which is the right
+# failure, but only if the map is kept complete as backends are added.
 _TOKEN = {
     XdotoolInjector: "xdotool",
     YdotoolInjector: "ydotool",
     WtypeInjector: "wtype",
     ClipboardInjector: "clipboard",
+    PortalInjector: "portal",
 }
 
 # Every value `[injection] backend` accepts, per config.py's own comment.
@@ -101,7 +106,20 @@ def _situation(monkeypatch, *, wayland: bool, desktop: str = "sway",
     monkeypatch.setattr(auto_mod.shutil, "which", which)
     monkeypatch.setattr(doctor_mod.shutil, "which", which)
     monkeypatch.setattr(auto_mod, "ydotool_ready", lambda: ydotoold and "ydotool" in have)
+    # The portal is consent-gated, and `Env.detect` reads the restore token from
+    # disk to decide. Without an isolated data dir the developer's own token decides
+    # the outcome of this matrix — the shape that made these cases pass locally and
+    # fail on a clean machine.
+    monkeypatch.setenv("YAZSES_DATA_DIR", str(_data_dir(monkeypatch)))
     monkeypatch.setattr(doctor_mod, "_binary_runs", lambda cmd: cmd[0] in have)
+
+
+def _data_dir(monkeypatch):
+    """A per-test data dir, so no host state reaches the selector."""
+    import tempfile
+
+    path = tempfile.mkdtemp(prefix="yazses-doctor-")
+    return path
 
 
 def _injection_line(checks):

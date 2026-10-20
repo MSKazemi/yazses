@@ -66,6 +66,17 @@ on:
         description: "Version to publish, without the leading v (e.g. 2.18.2)"
         required: true
         type: string
+      channel:
+        description: "Channel to (re)publish -- 'all' runs every channel, same as a tag push. Use a single channel to resubmit one package (e.g. after a moderator-requested fix) without moving the others, which may already be ahead of the version given above."
+        required: false
+        type: choice
+        default: all
+        options:
+          - all
+          - winget
+          - chocolatey
+          - homebrew
+          - aur
 
 permissions:
   contents: read
@@ -164,6 +175,7 @@ jobs:
 
   winget:
     needs: wait-for-assets
+    if: github.event.inputs.channel == '' || github.event.inputs.channel == 'all' || github.event.inputs.channel == 'winget'
     runs-on: windows-latest
     env:
       HAVE_SECRET: ${{ secrets.WINGET_TOKEN != '' && 'yes' || 'no' }}
@@ -172,14 +184,47 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         if: env.HAVE_SECRET == 'yes'
 
+      - name: Sync the winget-pkgs fork with upstream before submitting
+        # `wingetcreate submit` opens its PR from a fork of microsoft/winget-pkgs owned by
+        # whoever WINGET_TOKEN belongs to. That fork only moves when something pushes to
+        # it, and nothing here ever does -- a manual PR bypasses the fork entirely, and a
+        # bot-only PR merges upstream, not back into the fork. Left alone long enough
+        # (microsoft/winget-pkgs takes hundreds of commits a day) it falls behind far
+        # enough that GitHub refuses to fast-forward it for a new PR branch, and
+        # wingetcreate's own error is exactly the fix: "Sync your fork manually and try
+        # again." First seen on v2.37.2: refresh-package-manifests.py now runs correctly
+        # (see the step below), the manifest exists, submit reaches "Submitting pull
+        # request for manifest..." and only then fails there.
+        #
+        # Best-effort: an already-synced fork, or a merge GitHub can fast-forward
+        # trivially, both succeed; a genuine conflict (something pushed directly to the
+        # fork's master, which nothing here does) would need a human regardless, and
+        # failing loudly here would block the whole job on a problem the submit step
+        # reports just as clearly.
+        if: env.HAVE_SECRET == 'yes'
+        continue-on-error: true
+        shell: pwsh
+        run: gh api -X POST repos/MSKazemi/winget-pkgs/merge-upstream -f branch=master
+        env:
+          GH_TOKEN: ${{ secrets.WINGET_TOKEN }}
+
       - name: Submit the manifests to microsoft/winget-pkgs
         if: env.HAVE_SECRET == 'yes'
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
+          # Regenerate from the release first, the same way the homebrew and aur
+          # jobs already do. This job used to instead require the manifest
+          # directory to already be committed on the tag being released, which
+          # cannot be true: the checksums it needs do not exist until the tag is
+          # pushed and this workflow's own siblings publish the release assets --
+          # so on both v2.37.0 and v2.37.1 it failed with "no winget manifests for
+          # <version> ... run scripts/refresh-package-manifests.py first", which
+          # was correct advice that nothing in the job itself ever followed.
+          python scripts/refresh-package-manifests.py --version $env:VERSION
           $dir = "packaging/winget/manifests/m/MSKazemi/YazSes/$env:VERSION"
           if (-not (Test-Path $dir)) {
-            Write-Error "no winget manifests for $env:VERSION at $dir -- run scripts/refresh-package-manifests.py first"
+            Write-Error "refresh-package-manifests.py ran but $dir still does not exist -- inspect its output above."
           }
           # Download the standalone exe rather than `winget install`. winget is a
           # Store-delivered app and is not dependably present on a hosted Windows
@@ -207,6 +252,7 @@ jobs:
 
   chocolatey:
     needs: wait-for-assets
+    if: github.event.inputs.channel == '' || github.event.inputs.channel == 'all' || github.event.inputs.channel == 'chocolatey'
     runs-on: windows-latest
     env:
       HAVE_SECRET: ${{ secrets.CHOCO_API_KEY != '' && 'yes' || 'no' }}
@@ -259,6 +305,7 @@ jobs:
 
   homebrew:
     needs: wait-for-assets
+    if: github.event.inputs.channel == '' || github.event.inputs.channel == 'all' || github.event.inputs.channel == 'homebrew'
     runs-on: ubuntu-latest
     env:
       HAVE_SECRET: ${{ secrets.TAP_TOKEN != '' && 'yes' || 'no' }}
@@ -301,6 +348,7 @@ jobs:
 
   aur:
     needs: wait-for-assets
+    if: github.event.inputs.channel == '' || github.event.inputs.channel == 'all' || github.event.inputs.channel == 'aur'
     runs-on: ubuntu-latest
     env:
       HAVE_SECRET: ${{ secrets.AUR_SSH_KEY != '' && 'yes' || 'no' }}

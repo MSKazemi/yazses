@@ -1,0 +1,38 @@
+\section{System Overview}
+
+\YazSes{} is an offline voice-input system organized around a short interactive path:
+activation, audio capture, speech recognition, text/command processing, and target injection.
+The default interaction is hold-to-talk. Audio capture begins only after user activation, which
+provides both an interaction boundary and a privacy boundary: the system does not need to maintain
+a rolling pre-activation microphone buffer.
+
+The speech-recognition layer is exposed through a pluggable engine interface. This allows
+different local recognizers to be evaluated through the same product-facing seam rather than
+through independent benchmark programs with different preprocessing or scoring paths. The
+expanded campaign uses this seam to compare faster-whisper checkpoints, Parakeet TDT, and
+Moonshine configurations.
+
+Several optional paths are relevant to the experiments in this paper.
+
+\paragraph{Streaming partial recognition.}
+While the key remains held, a rolling decoder may attempt to expose partial text before the final
+commit. The system still performs a final decode after release. Consequently, streaming improves
+perceived latency only when the partial decoder can keep pace with incoming audio without
+consuming enough compute to delay final decoding.
+
+\paragraph{Meeting Mode.}
+Meeting Mode extends transcription with speaker diarization. Speech segments are embedded and
+clustered into speaker labels. This creates a different evaluation problem from ordinary
+dictation: accurate words can still produce a poor meeting transcript if they are attributed to
+the wrong speaker or if one person is fragmented into many clusters.
+
+\paragraph{Benchmark and provenance layer.}
+Benchmark results record not only aggregate metrics but also the invocation, selected corpus
+identity, relevant library versions, and machine properties. Result replacement is
+non-destructive: when a fixed output path is reused, the displaced result is retained in history
+rather than silently overwritten. This design became consequential during the campaign because
+two nominally identical \texttt{large-v3} runs disagreed substantially.
+
+The system architecture itself is described in more detail in the original \YazSes{} paper
+\citep{yazses2026v1}. Here we focus only on components whose configuration or behavior is directly
+exercised by the expanded evaluation.

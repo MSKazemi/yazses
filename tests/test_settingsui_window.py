@@ -75,7 +75,9 @@ def test_window_builds_a_checkbox_for_every_feature_row(qapp):
 def test_core_and_unwired_rows_are_shown_but_not_clickable(qapp):
     win = _window(qapp, _Recorder())
     assert win._checkboxes["dictation"].isEnabled() is False  # core
-    assert win._checkboxes["reask"].isEnabled() is False  # designed, not wired
+    from yazses.system.features import unwired_slugs
+    unwired = sorted(unwired_slugs())[0]
+    assert win._checkboxes[unwired].isEnabled() is False  # designed, not wired
     assert win._checkboxes["streaming"].isEnabled() is True
 
 
@@ -190,7 +192,9 @@ def test_a_disabled_row_still_explains_why_it_cannot_be_switched(qapp):
     """The greyed rows are exactly the ones people need explained."""
     win = _window(qapp, _Recorder())
     assert "not a switch" in win._checkboxes["dictation"].toolTip()
-    assert "not wired into this build" in win._checkboxes["reask"].toolTip()
+    from yazses.system.features import unwired_slugs
+    unwired = sorted(unwired_slugs())[0]
+    assert "not wired into this build" in win._checkboxes[unwired].toolTip()
 
 
 def test_rows_expose_help_to_a_screen_reader_not_only_on_hover(qapp):
@@ -558,8 +562,9 @@ def test_an_idle_daemon_is_not_reported_as_a_quiet_microphone(qapp):
 # language it expects, and how the text is delivered. These build the real widgets
 # and drive the real apply path, because the pure controller tests cannot show
 # that the boxes are wired to it.
-def test_the_speech_group_exposes_model_language_and_backend(qapp):
+def test_the_speech_group_exposes_profile_model_language_and_backend(qapp):
     win = _window(qapp, _Recorder())
+    assert win._profile_box.count() == 4
     assert win._model_box.count() > 5, "the model list should come from the registry"
     assert win._language_box.count() > 5
     assert win._backend_box.count() >= 4
@@ -569,8 +574,10 @@ def test_the_boxes_open_on_what_is_configured(qapp):
     """A picker that opens on a default writes it the moment anything else moves."""
     win = _window(qapp, _Recorder())
     cfg = Config()
+    assert win._profile_box.currentData() == "en"
     assert win._model_box.currentText() == cfg.stt.model
     assert win._language_box.currentData() == cfg.stt.language
+    assert win._language_box.isEnabled() is False
     assert win._backend_box.currentText() == cfg.injection.backend
 
 
@@ -586,6 +593,8 @@ def test_changing_the_language_writes_the_code_not_the_label(qapp):
     """The dropdown shows "German"; `[stt] language` must receive "de"."""
     rec = _Recorder()
     win = _window(qapp, rec)
+    win._profile_box.setCurrentIndex(win._profile_box.findData(""))
+    assert win._language_box.isEnabled()
     win._model_box.setCurrentText("small")  # multilingual, so the pair is legal
     index = win._language_box.findData("de")
     assert index >= 0
@@ -598,6 +607,8 @@ def test_an_impossible_model_language_pair_is_refused_at_the_window(qapp):
     """base.en cannot decode German; the user must be told, not silently misheard."""
     rec = _Recorder()
     win = _window(qapp, rec)
+    win._profile_box.setCurrentIndex(win._profile_box.findData(""))
+    assert win._language_box.isEnabled()
     index = win._language_box.findData("de")
     win._language_box.setCurrentIndex(index)
     changed, errors = win._apply_speech()
@@ -609,6 +620,8 @@ def test_widening_the_model_and_switching_language_together_succeeds(qapp):
     """Order matters: judging the new language against the old model would refuse."""
     rec = _Recorder()
     win = _window(qapp, rec)
+    win._profile_box.setCurrentIndex(win._profile_box.findData(""))
+    assert win._language_box.isEnabled()
     win._model_box.setCurrentText("small")
     win._language_box.setCurrentIndex(win._language_box.findData("de"))
     changed, errors = win._apply_speech()
@@ -620,3 +633,15 @@ def test_an_unchanged_box_writes_nothing(qapp):
     win = _window(qapp, rec)
     win._apply_speech()
     assert not any(w[:2] in {("stt", "model"), ("stt", "language")} for w in rec.writes)
+
+
+def test_a_category_with_an_ampersand_is_titled_as_written(qapp):
+    """`Commands & automation` rendered as "Commands _automation": a bare & is a Qt mnemonic."""
+    from PySide6.QtWidgets import QGroupBox
+
+    win = _window(qapp, _Recorder())
+    titles = [b.title() for b in win._win.findChildren(QGroupBox)]
+    with_amp = [t for t in titles if "&" in t]
+    assert with_amp, "no category has an & any more -- this test guards nothing"
+    for title in with_amp:
+        assert "&&" in title and "& " not in title.replace("&&", ""), title

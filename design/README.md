@@ -16,11 +16,15 @@ site](https://mskazemi.com/yazses/) instead. This directory answers the other qu
 | [`specs/`](specs/) | Implementation-ready feature specs in ADR house style. |
 | [`research/`](research/) | The scientific layer: the [105-reference HCI corpus](research/2026-08-11-hci-reference-corpus.md), the [research agenda](research/2026-08-11-hci-research-agenda.md), literature sweeps, and [`hci-corpus.bib`](research/hci-corpus.bib). |
 | [`research/studies/`](research/studies/) | State-of-the-art studies: scope, SoA matrix, gap analysis, capability cards. |
+| [`publication/`](publication/) | Public publication planning, evidence synthesis, authorship governance, release checklists, and intentionally public manuscript drafts. Paper v2 LaTeX lives under `publication/paper-v2/manuscript/`; other private manuscript material may still remain under `paper/`. |
 | [`architecture.md`](architecture.md) | The as-built architecture reference. |
+| [`white-paper-authoring-standard.md`](white-paper-authoring-standard.md) | Evidence, structure, visual, benchmark, citation, release, and QA standard for future YazSes white papers and one-page briefs. |
 | [`threat-model.md`](threat-model.md) | The privacy and threat model behind the offline-by-construction stance. |
 | [`emg-protocol.md`](emg-protocol.md) | The YESP serial protocol for the EMG activation source. |
 | [`v2-cognitive-layer/`](v2-cognitive-layer/) | Design notes for the opt-in perceptual/personalization features. |
 | [`meeting-mode/`](meeting-mode/), [`mobile/`](mobile/) | Subsystem design notes. |
+| [`chinese/`](chinese/) | First-class Mandarin support design package: architecture, model policy, validation, risk controls, community task contracts, and release evidence gates. |
+| [`eye-control/`](eye-control/) | Eye/gaze/head/face-camera accessibility programme: as-built audit, roadmap, test gates and agent-sized tasks. |
 | [`packaging/`](packaging/) | Release-engineering runbooks: APT, PPA, Snap, macOS notarisation, Windows signing. Procedures only — they name GitHub Secret *keys*, never values. |
 
 ## The visibility contract
@@ -33,7 +37,7 @@ and a new file's status is never ambiguous.
 | `design/` | **Public** | Engineering and science. The argument for the software is the software's best evidence. |
 | `docs/` | **Public** | User-facing documentation, published to the docs site. |
 | `strategy/` | **Private** | Marketing copy, SEO analysis, vision/idea notes for features that may never ship, distribution status. Tactics lose value when public, and unbuilt ideas read as promises. |
-| `paper/` | **Private** | The manuscript, until the preprint is posted. |
+| `paper/` | **Private** | Private manuscript/reference working material. Paper v2 is an explicit public-draft exception kept outside this tree at `design/publication/paper-v2/manuscript/`. |
 | `paper/benchmark/`, `paper/results/` | **Public** | The exception, and a deliberate one: `docs/benchmarks.md` publishes numbers and tells the reader to reproduce them. While these were private, those instructions 404'd and the page's central promise was false. Harness code and small result JSON only — no audio, no transcripts, no manuscript. |
 | `.claude/` | **Private** | Coding-agent artifacts: plans, memory, project-local skills. |
 
@@ -92,6 +96,34 @@ PDF is *tracked* — the ignore rule and the hook guard the commit, and neither 
 that arrived by a merge or a `git add -f`. It keeps a short, named exception list for
 sources that genuinely have no landing page, such as a conference presentation hosted by
 its author; that list is a debt, and the test fails if it grows.
+
+## Planning traceability
+
+The design record answers **what was decided**; it is not, by itself, a delivery promise.
+Current planning relationships live in [`traceability.yml`](traceability.yml), which keeps
+**decision status** separate from **delivery status** and names the right-sized tracking
+surface for active work.
+
+A bounded contributor task does not need its own GitHub issue. For example, feature wiring
+uses [issue #164](https://github.com/MSKazemi/yazses/issues/164) as the umbrella and one
+`WIRE-<SLUG>-001` row in `campaign/tasks.json` per capability. Programme coordination
+uses an issue/epic. Research questions may stay research. Deferred or declined decisions
+carry no fake schedule.
+
+The normal validation is offline:
+
+```sh
+uv run python scripts/check-traceability.py
+uv run python -m pytest tests/test_traceability.py -q
+```
+
+Live GitHub facts such as whether an issue is still open or a milestone still exists are
+intentionally checked separately; the ordinary test suite must remain fully offline. The
+scheduled `.github/workflows/traceability.yml` workflow runs
+`scripts/check-traceability-live.py` (read-only; exit 1 = violation, 2 = GitHub unreadable,
+3 = misconfigured). Deliberate exceptions go in
+[`traceability-exceptions.yml`](traceability-exceptions.yml), empty until the milestone
+policy in #480 is decided.
 
 ## Contributing to the design record
 

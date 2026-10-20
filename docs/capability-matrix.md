@@ -61,6 +61,20 @@ does nothing. Layout commands your compositor binds itself are unaffected.
 Everything else on Wayland — dictation, commands, the tray, the overlay,
 transcription — works normally.
 
+### What Glance-Type does on Wayland
+
+Look-to-pane needs three separate things from the desktop: an absolute screen position
+for your gaze, the position and size of *other* applications' windows, and permission to
+focus one. X11 provides all three. A Wayland application is given none of them, and the
+Remote Desktop permission that lets YazSes move the pointer (Head-Pointer) does not
+change that: pointer control and "which window should get this dictation" are separate
+capabilities.
+
+So on Wayland there is no gaze target. Look-to-pane stays off, your dictation goes to
+the window you already have focused, and nothing is guessed. `yazses gaze status` and
+`yazses doctor` say so, with the reason, instead of showing a feature that silently does
+nothing. To use look-to-pane, log in to an X11 session (on GNOME, "GNOME on Xorg").
+
 ## Linux: which session am I in?
 
 ```bash
@@ -73,14 +87,51 @@ yazses doctor               # reports the same, plus the injector it will use
 - **Linux** — hold-to-talk reads the keyboard through evdev, so a non-Snap install
   needs the `input` group and a **full logout**, not a new terminal. `yazses doctor`
   says when that is pending. The Snap instead needs its `raw-input` interface
-  connected manually and supports dictation on X11 only; use the universal
-  installer, APT, or `pipx` on Wayland.
+  connected manually, and dictates on X11 or on GNOME/KDE Wayland through the
+  `xdg-desktop-portal` RemoteDesktop API; the universal installer, APT and
+  `pipx` remain the most-tested Wayland path.
 - **macOS** — Accessibility and Microphone permissions are per-binary. An update
   that changes the app's identity re-prompts.
 - **Windows** — an app running **as administrator** does not receive input from a
   non-elevated process (User Interface Privilege Isolation). Dictation into Task
   Manager or an elevated PowerShell silently does nothing unless YazSes is
   elevated too; `yazses doctor` reports which case you are in.
+
+## Camera permission and packaging
+
+The camera features — [Glance-Type](features.md) gaze routing, the Face-Gesture
+Switch and the Head-Pointer — are experimental and **off by default**. With all of
+them off, YazSes never asks your operating system about the camera, so it can never
+raise a camera permission prompt.
+
+Turning one on raises a second question that has nothing to do with permissions:
+**can the copy of YazSes you installed run a camera feature at all?** Frozen and
+confined packages cannot. The `.dmg`, the Windows `.exe`, the MSIX, the snap and the
+flatpak are all built without `mediapipe` and `opencv-python`, and none of them can
+install a Python package afterwards.
+
+That is why none of them asks for camera access. A camera capability a package cannot
+use is a permission request with no upside — you would be asked to trust something no
+code in that download could do.
+
+| Install format | Camera features | OS declaration it would need | Declared today |
+|---|---|---|---|
+| a source / PyPI install (pip, uv, pipx) | ✅ with the extra | — | ❌ no |
+| a distribution package (AUR, Fedora, Nix) | ✅ with the extra | — | ❌ no |
+| the macOS .app bundle (.dmg / Homebrew cask) | ❌ no | NSCameraUsageDescription + com.apple.security.device.camera | ❌ no |
+| the Windows installer (.exe, also via Chocolatey, Scoop and WinGet) | ❌ no | — | ❌ no |
+| the Windows MSIX package | ❌ no | DeviceCapability webcam | ❌ no |
+| the snap | ❌ no | camera plug | ❌ no |
+| the flatpak | ❌ no | --device=all | ❌ no |
+
+**If you need the camera features, install from PyPI** — `pipx install 'yazses[gaze]'`
+— and then `yazses features enable gaze`.
+
+`yazses doctor` grows a **Camera** row as soon as a camera feature is enabled, and it
+tells the four causes apart: a package that cannot run one, a missing `mediapipe` /
+`opencv-python`, no camera device, and a refused or not-yet-granted OS permission. It
+never reports access it could not confirm — an undetermined permission is reported as
+undetermined, not as granted.
 
 ## Adding a platform
 

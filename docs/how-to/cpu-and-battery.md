@@ -78,7 +78,7 @@ Three components do poll, all switchable:
 |---|---|---|---|
 | `[audio] device_poll_interval_s` (default `3.0`) | the OS default input device, **only while idle** | 0.33 Hz | set to `0` |
 | `[tray] enabled` (default `true`) | the daemon's status, for the icon colour | 4 Hz | `yazses features disable tray` |
-| `[overlay] enabled` (default `true`) | the daemon's status, for the voice-activity ring | 4 Hz | `yazses features disable overlay` |
+| `[overlay] enabled` (default `false` — opt-in) | the daemon's status, for the voice-activity ring | 4 Hz, only if you enabled it | `yazses features disable overlay` |
 
 Both status pollers speed up *while you are recording* — the tray to about 6.7 Hz
 and the overlay to 20 Hz — so the colour and the ring track a short hold. That part

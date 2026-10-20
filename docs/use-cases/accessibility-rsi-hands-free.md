@@ -52,7 +52,7 @@ Related capabilities worth knowing about:
 | Hesitation-Hold Endpointing | `yazses features enable hesitation` *(planned — not yet wired)* | Not being cut off mid-sentence when you pause |
 | Breath-Paced Dictation | `yazses features enable breath` *(planned — not yet wired)* | Pacing around breath, not clock timeouts |
 | Whisper-Aware Mode | `yazses features enable whispermode` | Speaking quietly, or with limited volume |
-| Involuntary-Vocalization Excision | `yazses features enable involuntary` *(planned — not yet wired)* | Filtering involuntary sounds |
+| Involuntary-Vocalization Excision | `yazses features enable involuntary` | Filtering involuntary sounds |
 | Vocal-Strain Guard | `yazses features enable voicehealth` *(planned — not yet wired)* | Warning before you overuse your voice |
 
 ## Calibrating to your voice
@@ -75,11 +75,53 @@ resolves the majority of "it doesn't hear me" reports.
 If holding a key is difficult or impossible, the trigger is replaceable — the rest
 of the pipeline is unchanged:
 
+- **Face-gesture switch.** `yazses features enable facegesture --force` makes a held
+  facial movement the hotkey: open your jaw (or raise your brows) to start dictating,
+  relax to stop. It needs only the webcam already in your laptop — no armband, no key —
+  and runs entirely on your machine, frames in RAM and never stored (ADR-011). Pick the
+  movement with `[facegesture] gesture` (`jaw_open`, `brow_raise`, `mouth_pucker`,
+  `smile`, `eyes_closed`); if it fires while you talk or laugh, raise `hold_threshold` or
+  `min_hold_frames`. Experimental: it has been built and unit-tested, but the thresholds
+  that suit *your* face have not been measured, so please report what worked.
+- **Face and head chords.** `yazses features enable gesture` lets a *combination* of
+  face and head movements trigger an action, with the same webcam and the same
+  on-device rule (nothing leaves your machine). It binds nothing until you add a
+  chord under `[gesture.chords]`, for example:
+
+  ```toml
+  [gesture]
+  enabled = true
+
+  [gesture.chords]
+  "brow_raise+nod" = "recenter"      # raise your brows and nod: make this head pose neutral
+  "jaw_open+hold"  = "pause_pointer" # keep your jaw open for 0.8 s: stop the pointer
+  ```
+
+  The tokens are the five face movements above plus `nod`, `shake`, `tilt` and `hold`.
+  `hold` means "what you are holding has stayed held" for `[gesture] hold_ms`
+  (800 ms by default, a starting value nobody has measured). It is measured in time,
+  not frames, so it takes the same time on a slow camera as a fast one. It needs a
+  token you can hold -- a face movement or `tilt`; `nod` and `shake` are over as soon as
+  they happen, so `nod+hold` is refused. A chord and the same chord with `+hold` cannot
+  both be bound, because the plain one would always fire first; YazSes tells you which
+  line it ignored (it appears in `yazses doctor` and `yazses gesture status`).
+
+  While a facial expression moves your head, the Head-Pointer is held still. The pointer
+  runner and the gesture runner look at the same camera frame independently, so the pointer
+  can follow the first frame before the hold lands; YazSes then moves it back by exactly
+  that step (`[gesture] onset_rewind_ms`, 150 by default, 0 turns it off). You may see
+  the pointer twitch for one frame; it does not drift. Head tokens (`nod`, `shake`) are
+  different: the pointer follows the head while the nod is being made, because nothing
+  knows a nod has started until it is finished. Chord actions are limited to pausing or
+  recentering the pointer and reversible spoken commands (`command:undo`); anything else
+  is refused. Every number here is provisional: no false-activation study exists yet.
 - **EMG muscle sensor.** A USB muscle sensor over serial can act as the
   hold-to-talk trigger, so a small muscle contraction starts and stops dictation.
   Configure it under `[emg]` with the serial device path.
-- **Hands-Free Auto-Stop** (`yazses features enable autostop` *(planned — not yet wired)*) ends the burst on
-  silence rather than on key release.
+- **Hands-Free Auto-Stop** (`yazses features enable autostop`, then restart) lets you tap the hotkey once
+  instead of holding it: the burst ends on silence (or a second tap) rather than on key release. A tap is a
+  press shorter than `[hotkey] hold_threshold_ms`; a longer hold is still ordinary hold-to-talk. It needs a
+  modifier hotkey, which is the default.
 - **Wake-word activation** exists but is marked experimental and is not
   recommended yet — it is listed honestly as such in `yazses features`.
 
@@ -106,10 +148,12 @@ move and click by voice. **Planned — designed and tested, not yet wired**, so
 yazses features enable mousegrid
 ```
 
-Say a grid number to move the cursor, then *"click"*. There is also a Head-Pointer
-capability, and an experimental camera-based Glance-Type mode that focuses the
-window you look at (X11 only — Wayland does not allow an application to focus
-another window).
+Say a grid number to move the cursor, then *"click"*. There is also an experimental
+Head-Pointer (`yazses features enable headpointer`), which moves and clicks by head pose,
+and an experimental camera-based Glance-Type mode that focuses the window you look at
+(X11 only — Wayland does not allow an application to focus another window). Both are
+off by default, neither has been validated with users yet, and every speed and dwell
+setting is a provisional starting value — please report what works for you.
 
 ## Honest limits
 

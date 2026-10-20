@@ -12,7 +12,7 @@ same pattern `settingsui/app.py` already uses.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 
 from yazses.settingsui.deps import InstallPlan, InstallSummary, run_installs
 
@@ -80,6 +80,59 @@ class InstallWorker(_QObject):  # type: ignore[misc,valid-type]
         if signal is not None and hasattr(signal, "emit"):
             signal.emit(summary)
 
+
+class LanguageWorker(_QObject):  # type: ignore[misc,valid-type]
+    """Apply one high-level language profile off the UI thread.
+
+    The injected applier is SettingsController.apply_language_profile in
+    production. It delegates to language.service.apply_language_change, so this
+    worker contains no transaction logic of its own.
+    """
+
+    if _Signal is not None:  # pragma: no branch - class body runs once
+        progress = _Signal(str)
+        finished = _Signal(object)
+
+    def __init__(
+        self,
+        profile: str,
+        applier: Callable[..., object],
+        *,
+        model: str | None = None,
+    ) -> None:
+        super().__init__()
+        self._profile = profile
+        self._applier = applier
+        self._model = model
+
+    def run(self) -> None:
+        """Run the shared service and always report a result object."""
+
+        try:
+            result = self._applier(
+                self._profile,
+                model=self._model,
+                echo=self._emit,
+            )
+        except Exception as exc:  # noqa: BLE001 - never raise into QThread
+            from yazses.language.service import LanguageApplyResult
+
+            result = LanguageApplyResult(
+                ok=False,
+                category="transaction",
+                error=f"Could not apply the language profile: {exc}",
+            )
+        self._emit_finished(result)
+
+    def _emit(self, line: str) -> None:
+        signal = getattr(self, "progress", None)
+        if signal is not None and hasattr(signal, "emit"):
+            signal.emit(line)
+
+    def _emit_finished(self, result) -> None:
+        signal = getattr(self, "finished", None)
+        if signal is not None and hasattr(signal, "emit"):
+            signal.emit(result)
 
 def _make_installer(echo):
     """An installer that streams the real pip output back through *echo*."""

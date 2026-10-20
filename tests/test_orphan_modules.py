@@ -38,6 +38,16 @@ _PREFIX = len("yazses.")
 ENTRY_MODULES = {
     "__main__", "main", "cli", "core.daemon",
     "tray.app", "overlay.app", "remote.agent",
+    # The grounded-target replay harness (ADR-v2-151 P4). Its caller is
+    # `scripts/replay_grounding_trace.py`, which CI runs; the daemon must *not* import
+    # it, because it reaches `yazses.eyeeval` for the one forbidden-field list it
+    # refuses to keep a second copy of. An entry in KNOWN_ORPHANS would be a false
+    # line in that ledger — this is not debt, it is an evaluation entry point.
+    "grounding.replay",
+    # The face-switch false-activation harness (EYE-BENCH-001, #409). Its caller is
+    # `scripts/replay_face_switch_trace.py`; the daemon must not import it (it reaches
+    # `facegesture`, never the reverse). An evaluation entry point, not debt.
+    "eyeeval.switch_replay",
 }
 
 #: The known orphans, each with what is missing. An entry here is a debt that has
@@ -47,11 +57,6 @@ KNOWN_ORPHANS = {
         "Per-editor grammar config. commands/dispatch.py has a comment pointing at "
         "this module and still never imports it; load_profiles would return an "
         "empty registry anyway.",
-    "activation.pipeline":
-        "Its own docstring says the daemon wires the real classify/dispatch/confirm "
-        "into it. The daemon does not.",
-    "gaze.implicit":
-        "gaze is wired through targeter/route/zones; this module is not on that path.",
     "personalize.adapter_gate":
         "personalize is wired through prompt_builder; the P2 LoRA gate is not.",
     "platform.emg.brainflow_source":
@@ -96,7 +101,31 @@ def _imported_names() -> set[str]:
                 # `from yazses.pkg import mod` names the module in the alias.
                 for alias in node.names:
                     found.add(f"{module}.{alias.name}" if module else alias.name)
+        found |= _dotted_factory_targets(tree)
     return found
+
+
+def _dotted_factory_targets(tree: ast.AST) -> set[str]:
+    """Modules named by a `"yazses.pkg.mod:Class"` factory string.
+
+    `inject/registry.py` refers to each backend by a dotted path imported at
+    selection time, so that importing the table does not pull in jeepney, evdev and
+    every other backend's dependencies. An import scanner sees no `import` for them
+    and calls live code dead -- it reported `inject.wtype` and `inject.xdotool` as
+    orphans while both were reachable from the very next line of the table.
+
+    Recording them here rather than in KNOWN_ORPHANS on purpose: that ledger is for
+    debt that has been looked at, and an entry claiming these are unwired would be a
+    false line in it.
+    """
+    out: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            text = node.value
+            if ":" in text and text.startswith("yazses."):
+                module = text.split(":", 1)[0]
+                out.add(module[_PREFIX:])
+    return out
 
 
 def orphan_modules() -> set[str]:
@@ -120,6 +149,11 @@ def test_the_scan_finds_the_package_at_all() -> None:
     'yazses.' instead of 7 and called 267 live modules dead.)"""
     assert len(list(SRC.rglob("*.py"))) > 100
     assert "system.doctor" in _imported_names(), "a plainly-imported module reads as dead"
+    # Guard the guard's new half too: a backend reached only through the registry's
+    # dotted factory string must read as live, or this scan re-reports live code.
+    assert "inject.xdotool" in _imported_names(), (
+        "a backend named by a registry factory string reads as dead"
+    )
 
 
 def test_no_new_orphan_module_appears() -> None:

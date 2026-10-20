@@ -11,10 +11,11 @@ Pick the row that matches what you have in front of you right now.
 
 | What you have | Do this | Time |
 |---|---|---|
-| **A browser, nothing else** | [Review a draft README translation](https://github.com/MSKazemi/yazses/issues/18) in a language you speak — 25 languages have a machine-assisted draft that says so at the top, and correcting the prose is a much smaller job than translating one. Languages with no draft yet are still open to translate. | 20–45 min |
-| **A laptop, any OS** | [Install YazSes and report what happened](https://github.com/MSKazemi/yazses/issues/42) — working *or* broken, both are useful | 20 min |
-| **A microphone you like** | [Add it to the known-good list](https://github.com/MSKazemi/yazses/issues/21) with its measured level | 15 min |
-| **An editor or terminal you use daily** | [Share a config for it](https://github.com/MSKazemi/yazses/issues/43) | 30 min |
+| **A browser, nothing else** | [Review a draft README translation](../localization/STATUS.md) in a language you speak — the matrix names each draft's own review issue, and correcting the prose is a much smaller job than translating one. [Languages with no draft yet](https://github.com/MSKazemi/yazses/issues/18) are still open to translate. | 20–45 min |
+| **A laptop, any OS** | [Install YazSes and report what happened](https://github.com/MSKazemi/yazses/issues?q=is%3Aopen+%22Test+YazSes+on%22+in%3Atitle) — one issue per OS and desktop, working *or* broken; or [add your setup to SHOWCASE.md](https://github.com/MSKazemi/yazses/issues/42) | 20 min |
+| **Windows, macOS, GNOME/KDE Wayland, X11, or HiDPI hardware** | **[Eye/camera validation programme](https://github.com/MSKazemi/yazses/blob/main/design/eye-control/BEGINNER_TESTING.md)** — no code. The slots open as the code they test lands; take one only if its issue carries `help wanted` | 15–20 min, once a slot is open |
+| **A microphone you like** | [Add it to the known-good list](../known-good-microphones.md) with its measured level | 15 min |
+| **An editor or terminal you use daily** | [Share a config for it](../how-to/app-profiles.md) | 30 min |
 | **Python, and you want real code** | [Browse the task list](tasks.md) and take any `WIRE-*` or `QA-*` | 60–90 min |
 
 Want to narrow it yourself instead? **[Filter the full list](find.md)** by what you have,
@@ -46,10 +47,37 @@ surprised by a red check on your first pull request.
 
 ## Using a coding agent
 
-**This is welcome and normal.** Claude Code, Codex, Cursor, Copilot, Gemini — all fine. Two
-things stay true regardless: you are the author, and you are expected to have read what it
-wrote. Say in the pull request that you used one; it changes how carefully we read it, never
-whether we accept it.
+**This is welcome and normal.** Claude Code, Codex, Cursor, Copilot, Gemini and
+remote agents such as Jules are all fine. Two things stay true regardless: **you are the
+author**, and you are expected to have read and validated the work. Do not add the tool as an
+author/co-author or add generated-with attribution; [`AGENTS.md`](https://github.com/MSKazemi/yazses/blob/main/AGENTS.md) is the
+canonical rule.
+
+Using Google Jules against GitHub? Follow the [5-minute owner/contributor connection guide](jules.md) first. The
+upstream repository uses a one-time GitHub App installation; outside contributors normally
+connect Jules to their own fork and open a standard PR.
+
+Using any paid or metered coding service is optional. Your provider account, plan, usage limits and
+charges remain your responsibility; YazSes does not require or reimburse them unless separately
+agreed in writing. Read [the third-party AI tools notice](https://github.com/MSKazemi/yazses/blob/main/THIRD_PARTY_AI_TOOLS.md) before
+turning on metered/overage usage.
+
+!!! warning "AI tools are optional; paid usage is your choice"
+
+    You do **not** need to buy an AI subscription, credits, tokens, a rate-limit reset, or
+    cloud compute to contribute. If you choose a third-party AI tool, you are responsible
+    for that provider account and its charges. YazSes does not reimburse those costs unless
+    a maintainer agreed in writing in advance to a specific expense and amount.
+
+    Before you start, read **[Using AI coding agents safely](ai-agents.md)**. It includes
+    Claude Code, Codex, and ChatGPT setup patterns for staying inside your intended billing
+    mode and links to the providers' current official documentation. The project-wide legal
+    and billing policy is [THIRD_PARTY_AI_TOOLS.md](https://github.com/MSKazemi/yazses/blob/main/THIRD_PARTY_AI_TOOLS.md).
+
+    Using **Google Jules**? The [Jules connection guide](jules.md) walks through the current
+    fork-first setup click by click: GitHub authorization, selected-repository access,
+    **User only** commit authorship, `uv sync` environment setup, AGENTS.md verification,
+    and the normal fork → upstream PR path.
 
 Copy this, replacing the task ID:
 

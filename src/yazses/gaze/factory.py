@@ -42,8 +42,36 @@ _BACKENDS: dict[str, tuple[str, str, str | None]] = {
 }
 
 
-def build_gaze(config) -> GazeBackend | None:
-    """Return a gaze backend for *config*, or None when dormant/unavailable."""
+def gaze_backend_available(config) -> tuple[bool, str]:
+    """``(available, why_not)`` for the chosen backend, **without constructing it**.
+
+    `yazses gaze status` used to answer "are the gaze dependencies present?" by calling
+    :func:`build_gaze` and closing the result. Building the MediaPipe backend loads the
+    landmarker and, on a machine that does not have it cached, *downloads the ~3.7 MB model
+    from the network* -- so a read-only status command could reach out, and took seconds. This
+    asks the same dependency question (:func:`probe_backend` is what ``build_gaze`` asks first)
+    and stops there: no model, no camera, no socket. What it cannot say is whether a model
+    download would succeed, which is the one thing a status command should not try.
+    """
+    backend = str(getattr(config, "backend", "mediapipe") or "mediapipe")
+    spec = _BACKENDS.get(backend)
+    if spec is None:
+        return False, f"unknown gaze backend {backend!r} (expected mediapipe or l2cs)"
+    adapter, requires, extra = spec
+    status = probe_backend(backend, adapter=adapter, requires=(requires,), extra=extra)
+    return (True, "") if status.available else (False, status.message)
+
+
+def build_gaze(config, perception=None) -> GazeBackend | None:
+    """Return a gaze backend for *config*, or None when dormant/unavailable.
+
+    *perception* is the daemon's shared camera source (ADR-v2-145), passed only when
+    :func:`yazses.gaze.shared.shared_source_for_gaze` said gaze may use it. With it
+    the MediaPipe backend is a lease on that source instead of a camera of its own;
+    without it (every caller but the daemon, and every install with ``[perception]``
+    off) this returns exactly what it always did. The dependency probe above runs
+    either way, so a missing extra is still named by the same message.
+    """
     if not getattr(config, "enabled", False):
         return None
 
@@ -69,6 +97,13 @@ def build_gaze(config) -> GazeBackend | None:
 
     try:
         if backend == "mediapipe":
+            if perception is not None:
+                from yazses.gaze.shared import SharedGazeBackend
+
+                return SharedGazeBackend(
+                    perception.consumer("gaze"),
+                    failure_reason=lambda: perception.status().failure_reason,
+                )
             from yazses.gaze.mediapipe_backend import MediapipeGazeBackend
 
             return MediapipeGazeBackend(config)

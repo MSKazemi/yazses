@@ -22,6 +22,33 @@ argument, and the record of it is the decision it altered.
   meaning-destroying bugs on its first run ([#146](https://github.com/MSKazemi/yazses/issues/146))
   while all 191 parity vectors were green. Also raised the agency-preserving uncertainty
   invariant for graded EMG activation ([#103](https://github.com/MSKazemi/yazses/issues/103)).
+  Since then, specified a **pre-recruitment corpus gate** for the dysfluent-speech study
+  ([#255](https://github.com/MSKazemi/yazses/issues/255)) — a paired error taxonomy that
+  separates destructive semantic transformations from benign cleanup, run over a frozen
+  SEP-28k sample with byte-identical input to both conditions, so the filter can be checked
+  against real disfluent speech before anyone is asked to donate their time. It converted an
+  issue that read "needs participants someday" into one with a runnable checkpoint, and the
+  protocol is now the shape of the issue rather than an appendix to it.
+
+- [@greatlord](https://github.com/greatlord) (Magnus Olsen) — found that dictation on
+  Wayland silently drops `å`, `ä`, `ö` and every other non-ASCII character, and correctly
+  placed the cause at the injector rather than the recogniser: ydotool presses keycodes
+  against the active layout, and a character with no keycode has nothing to press
+  ([#314](https://github.com/MSKazemi/yazses/discussions/314) →
+  [#329](https://github.com/MSKazemi/yazses/issues/329)). This one contradicted a promise
+  the project already makes — `[stt] language` is supported, Whisper transcribes Swedish
+  correctly, and 28 locales ship — so a non-English user was understood and then watched
+  their own alphabet disappear, with nothing erroring. Did not stop at the report: built
+  [`fake-ydotool`](https://github.com/greatlord/fake-ydotool), a working proof that
+  `libxkbcommon` + `/dev/uinput` can inject arbitrary Unicode where ydotool declines to,
+  and offered to dual-license it. The demonstration is what turned "we should replace the
+  injector" from an aspiration into a decided fix direction.
+
+- [@LE-VAI](https://github.com/LE-VAI) — independently built the same EMG activation pipeline
+  (envelope → TKEO → dual thresholds → calibrated levels) in `access-input`, recorded the
+  convergence, and showed that the daemon's two channels — threshold-crossing episodes and the
+  audio window as a witness of intent — make a false-activation rate measurable
+  ([#140](https://github.com/MSKazemi/yazses/issues/140)).
 
 ## Testing & field reports
 
@@ -52,10 +79,13 @@ found defects that no amount of reading the code here would have surfaced.
   cask route end to end on an Apple M4, the route this project had marked "never
   executed", and found that Homebrew's new tap-trust gate makes the **documented
   one-liner fail for every new user** without `brew trust`
-  ([#182](https://github.com/MSKazemi/yazses/issues/182)); also fixed the tap's
-  deprecated `depends_on macos:` warning upstream. Notably declined to claim `doctor`
-  output that could not be captured from a sandbox — a report that says where it stops
-  is worth more than one that guesses.
+  ([#182](https://github.com/MSKazemi/yazses/issues/182)); and found that the tap's
+  cask still uses the deprecated `depends_on macos:` string form, with the fix written and
+  verified ([homebrew-yazses#1](https://github.com/MSKazemi/homebrew-yazses/pull/1) — open,
+  and it turns out it could not have held there: the release workflow copies
+  `packaging/homebrew/yazses.rb` over the tap's cask on every tag, so a downstream copy
+  cannot carry a fix). Notably declined to claim `doctor` output that could not be captured
+  from a sandbox — a report that says where it stops is worth more than one that guesses.
 - [@hoti-code](https://github.com/hoti-code) — ran the Homebrew cask on an M5 and reported
   every symptom precisely: no Accessibility, Input Monitoring or Microphone prompt, no
   menu-bar icon, a dead hotkey, and `doctor` unable to name its own version
@@ -66,36 +96,168 @@ found defects that no amount of reading the code here would have surfaced.
   against the previous release and a permanently-stale channel is its own baseline. A
   faithful list of symptoms was worth more here than a diagnosis would have been.
 
+- [@fall-water-zxc](https://github.com/fall-water-zxc) — took the Scoop manifest through a
+  clean Windows 11 machine, the step [#79](https://github.com/MSKazemi/yazses/issues/79) had
+  been blocked on for a month, and proved two things nobody knew: `scoop install` works, and
+  `yazses update --check` correctly self-identifies as `via scoop` — a branch of
+  `system/updater.py` that had never been executed by anything. Then hit a wall and
+  **reproduced it on pipx before filing it**, which is what proved it was not Scoop's fault
+  ([#330](https://github.com/MSKazemi/yazses/issues/330)). The report is worth more than the
+  two symptoms in it: chasing them down found that `platform/windows/ipc.py` declares its
+  *own* `IpcUnreachableError`, unrelated to the one `cli.py` catches, so **14** error
+  handlers across `status`, `stop`, `doctor`, `logs` and the tray are dead code on Windows —
+  which is a good deal of why Windows has felt rougher than the other two platforms without
+  anyone being able to say why.
+- [@visheshbpatel](https://github.com/visheshbpatel) (Vishesh Patel) — the first end-to-end
+  Windows 11 report on this project: the whole procedure written down rather than a verdict,
+  with the model, compute type, injection backend and the four applications tried
+  ([#183](https://github.com/MSKazemi/yazses/issues/183)). The one warning reported almost as
+  a footnote — that YazSes had not set itself to start at login — turned out to be a real
+  defect, and one only visible from that end: `yazses start` installs the login entry *after*
+  the line that raises on Windows, so it never gets there. Read together with #330 it is the
+  same bug seen from the opposite side, and neither report alone would have shown that.
+
 ## Contributors
+- [@Adharsh75r](https://github.com/Adharsh75r) (Adharsh Narayan) — Windows 11 showcase entry:
+  dictation into the terminal, VS Code, email and the browser while debugging and writing
+  documentation ([#547](https://github.com/MSKazemi/yazses/pull/547))
+- [@Akgithub2028](https://github.com/Akgithub2028) (Aayaann Kausar) — the **first real entry**
+  on the known-good microphone list, which had been asking for one since it was created: the
+  Dell Inspiron 15 3520 built-in on Ubuntu 24.04 / GNOME Wayland, measured rather than guessed
+  ([#333](https://github.com/MSKazemi/yazses/pull/333)). Recorded the half that makes the page
+  worth having — the distance it held speech at and the room noise it rejected — instead of
+  "works fine"
 - [@4nmus](https://github.com/4nmus) — Russian README translation, the project's first in
   Cyrillic script
+- [@AmothissacrajT](https://github.com/AmothissacrajT) (Amoth issac raj) — Ubuntu 24.04 (X11) showcase
+  entry: dictation into bash, VS Code and GNOME Text Editor with both an external and the
+  built-in microphone, and a note on the voice-level setting
+  ([#546](https://github.com/MSKazemi/yazses/pull/546))
 - [@AshSgDe29071999](https://github.com/AshSgDe29071999)
+- [@auroraxo](https://github.com/auroraxo) (Aurora) — found that **two different classes
+  called `IpcUnreachableError`** existed with no relationship between them, so the fourteen
+  `except IpcUnreachableError:` handlers in `cli.py` — plus the tray, the MCP server and the
+  Windows lifecycle — were dead code on Windows while behaving correctly on Linux and macOS
+  ([#330](https://github.com/MSKazemi/yazses/issues/330) →
+  [#360](https://github.com/MSKazemi/yazses/pull/360)). Also found the `SIGKILL` guard that
+  was *unreachable* rather than missing, because Python evaluates an argument before the
+  call that would have returned early. Both defects were Windows-only and both causes were
+  plain Python, and the thirteen tests that come with the fix prove them on Linux — including
+  the one that asserts the Linux force-kill sequence is unchanged, so a platform fix could not
+  quietly weaken the platform it was not about. Has since opened the Persian programme's
+  first slices: the conservative Persian normaliser
+  ([#554](https://github.com/MSKazemi/yazses/pull/554)), 35 hand-written Persian and RTL
+  vectors for the portable contract ([#552](https://github.com/MSKazemi/yazses/pull/552)),
+  the reproducible Persian benchmark harness
+  ([#558](https://github.com/MSKazemi/yazses/pull/558)) and its pinned FLEURS and Common
+  Voice corpus adapters ([#559](https://github.com/MSKazemi/yazses/pull/559))
+- [@doeil1614-ops](https://github.com/doeil1614-ops) — native-speaker review of the Korean
+  page, read in full against the English source and `i18n/glossary.yml`, with commands, code,
+  the project name and the contributor-wall markup deliberately left untouched
+  ([#346](https://github.com/MSKazemi/yazses/issues/346) →
+  [#365](https://github.com/MSKazemi/yazses/pull/365))
 - [@fall-water-zxc](https://github.com/fall-water-zxc) — Windows 11 showcase entry:
   dictation into Notepad, the browser, the terminal and VS Code, with a laptop's
   built-in microphone and not sitting close to it
-  ([#328](https://github.com/MSKazemi/yazses/pull/328))
+  ([#328](https://github.com/MSKazemi/yazses/pull/328)); also see
+  **Testing & field reports** above
+- [@Guruharishb](https://github.com/Guruharishb) — native-speaker review of the Tamil
+  page (`docs/ta/index.md`), extending it well past a wording pass to full parity with
+  the current English docs site — the "Why YazSes", use-cases, "when not to use it",
+  "how it works" and FAQ sections the original machine draft never had
+  ([#351](https://github.com/MSKazemi/yazses/issues/351) →
+  [#363](https://github.com/MSKazemi/yazses/pull/363))
+- [@HarshRajSinghania](https://github.com/HarshRajSinghania) (Harsh Raj Singhania) — synced the
+  AI-optional/cost-safety wording from #453 into the already-English contributor blocks on the
+  Hindi and Russian landing pages, without touching the translated prose
+  ([#476](https://github.com/MSKazemi/yazses/issues/476) →
+  [#477](https://github.com/MSKazemi/yazses/pull/477))
 - [@HeaTTap](https://github.com/HeaTTap)
 - [@jackie-cqz](https://github.com/jackie-cqz)
 - [@jayavandhiniMK](https://github.com/jayavandhiniMK) (Jayavandhini M K) — Windows 11
   showcase entry ([#317](https://github.com/MSKazemi/yazses/pull/317))
+- [@laurash96](https://github.com/laurash96) (Laura Saldarriaga Higuita) — native-speaker
+  review of the Spanish page: restored the "by default" qualifier the draft had dropped from
+  the offline/privacy claims, fixed register and regional neutrality, and promoted `es` from
+  a generator-owned draft to a human-owned translation so it can no longer be silently
+  overwritten ([#339](https://github.com/MSKazemi/yazses/issues/339) →
+  [#474](https://github.com/MSKazemi/yazses/pull/474))
 - [@lntutor](https://github.com/lntutor)
 - [@Maqbool61](https://github.com/Maqbool61)
+- [@MarekMnahoncak](https://github.com/MarekMnahoncak) — the CI change classifier: a
+  standard-library script that maps a pull request's changed paths to CI scopes and fails safe
+  toward *more* validation, with guards that fail when a new top-level tree or a new
+  path-filtered workflow has no classification decision
+  ([#534](https://github.com/MSKazemi/yazses/issues/534) → [#594](https://github.com/MSKazemi/yazses/pull/594))
 - [@mercael91](https://github.com/mercael91) — went after the FreeBSD CI job nobody had looked
   at, which is how we learned the BSD backend had never once been executed
   ([#306](https://github.com/MSKazemi/yazses/issues/306)); and brought the Logseq app
   profile, the one that made the probe harness reach AppImage apps
-  ([#309](https://github.com/MSKazemi/yazses/pull/309))
+  ([#309](https://github.com/MSKazemi/yazses/pull/309)); and proposed pinning the structure of the paper-v2 manuscript with a test
+  so a destructive rewrite of its entry point is caught — the merged guard checks that every
+  include resolves, no section file is left out and every citation key is defined
+  ([#532](https://github.com/MSKazemi/yazses/issues/532) → [#591](https://github.com/MSKazemi/yazses/pull/591))
 - [@Mr-Neutr0n](https://github.com/Mr-Neutr0n) — the VS Code app profile
   ([#43](https://github.com/MSKazemi/yazses/issues/43)), the project's first Electron editor
   and the one most people asked for
+- [@mrCabez](https://github.com/mrCabez) — native-speaker review of the Italian page:
+  replaced the draft's calques ("nessun percorso verso il cloud", "la tua macchina") with
+  natural phrasing, kept dictation distinct from voice commands as the glossary asks, and
+  pointed out that Tier-1 voice-command grammars exist only for English and Mandarin
+  ([#344](https://github.com/MSKazemi/yazses/issues/344) → [#595](https://github.com/MSKazemi/yazses/pull/595))
+- [@musabustun](https://github.com/musabustun) (Musab Yusuf Üstün) — native-speaker review of
+  the Turkish page, and the one that caught a real mistranslation rather than only phrasing:
+  the hero line described YazSes as a *sesli yazdırma servisi*, which a Turkish reader parses
+  as a voice-triggered **printing** service — corrected to *sesli dikte servisi*, matching the
+  page's own "Dikte" heading
+  ([#354](https://github.com/MSKazemi/yazses/issues/354) →
+  [#372](https://github.com/MSKazemi/yazses/pull/372))
 - [@Parinitha-26](https://github.com/Parinitha-26)
 - [@Prithvi4904](https://github.com/Prithvi4904) — first README translation (Hindi), and the
   language switcher that makes every later translation reachable
+- [@sahanaekin7-crypto](https://github.com/sahanaekin7-crypto) — reviewed the Tamil page
+  (`docs/ta/index.md`) and improved its wording and grammar for clarity and consistency,
+  then took the draft marker off ([#549](https://github.com/MSKazemi/yazses/pull/549))
+- [@sameer8945](https://github.com/sameer8945) — Windows 11 showcase entry: dictation into
+  VS Code, PowerShell and the browser while coding
+  ([#391](https://github.com/MSKazemi/yazses/pull/391))
+- [@shashiharanramvanam-crypto](https://github.com/shashiharanramvanam-crypto) (Vanam Shashi
+  Haran Ram) — native-speaker review of the Telugu page: corrected the draft's renderings of
+  "subscription" and "documents", replaced a literal calque of "no cloud path", and wrote the
+  privacy claim as offline *by default* as the glossary requires
+  ([#352](https://github.com/MSKazemi/yazses/issues/352) → [#592](https://github.com/MSKazemi/yazses/pull/592))
 - [@slegarraga](https://github.com/slegarraga) — see **Testing & field reports** above
+- [@Tiyatrotist](https://github.com/Tiyatrotist) — corrected MSIX/store wording that described
+  Face-Gesture as already implemented when no runtime detector or activation adapter exists yet
+  ([#392](https://github.com/MSKazemi/yazses/issues/392) →
+  [#473](https://github.com/MSKazemi/yazses/pull/473))
+- [@VatsalRaina01](https://github.com/VatsalRaina01) (Vatsal Raina) — the Slack app profile,
+  `examples/config.slack.toml`, written from the terminal example to avoid shortcut clashes
+  ([#582](https://github.com/MSKazemi/yazses/pull/582), closes
+  [#227](https://github.com/MSKazemi/yazses/issues/227))
 - [@visheshbpatel](https://github.com/visheshbpatel) (Vishesh Patel) — Windows 11 showcase entry:
   dictation into PowerShell, VS Code and the browser, on the platform this project has
-  the least evidence for ([#327](https://github.com/MSKazemi/yazses/pull/327))
+  the least evidence for ([#327](https://github.com/MSKazemi/yazses/pull/327)); also see
+  **Testing & field reports** above
+- [@vortsghost2025](https://github.com/vortsghost2025) — the opt-in `unicode` injector
+  backend (`src/yazses/inject/unicode.py`): resolves characters through
+  `libxkbcommon` XKB state and emits key events via a private `/dev/uinput`
+  keyboard, so `å`, `ö`, `é` and the rest of what the Wayland `ydotool` path
+  silently dropped now type correctly
+  ([#329](https://github.com/MSKazemi/yazses/issues/329) →
+  [#364](https://github.com/MSKazemi/yazses/pull/364))
 - [@waterlemonnn](https://github.com/MSKazemi/yazses/commits?author=waterlemonnn)
+- [@yangjie-AE](https://github.com/yangjie-AE) — completed the sentence that stopped at
+  "那么" ("then") in the Chinese page's description, checking the wording against the English
+  "When not to use it" section ([#589](https://github.com/MSKazemi/yazses/pull/589))
+- [@YuuGR1337](https://github.com/YuuGR1337) (Elkero) — found that the "improving this
+  translation is a welcome first contribution" link on **every** draft translation page pointed
+  at that locale's *closed* `Translate the README` issue, so the one line whose whole job is to
+  recruit a reviewer sent readers to finished, locked work
+  ([#359](https://github.com/MSKazemi/yazses/pull/359)). Fixed it for Brazilian Portuguese and
+  the pattern held for all 25 locales. Also wrote the first localized recruiting sentence, in
+  Portuguese, next to the ⚠️ draft banner — the page that a Brazilian reader actually lands on,
+  rather than the English README — which is now the template for the other 24
 
 <!-- New contributors: added on merge, alphabetical. Want to be here? See CONTRIBUTING.md and grab a
      good first issue: https://github.com/MSKazemi/yazses/labels/good%20first%20issue

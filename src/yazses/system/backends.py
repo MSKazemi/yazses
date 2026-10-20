@@ -71,13 +71,15 @@ def probe_backend(
     adapter: str,
     requires: Iterable[str] = (),
     extra: str | None = None,
+    runtime: Callable[[], tuple[str, str] | None] | None = None,
     missing: Callable[[Iterable[str]], Sequence[str]] = missing_modules,
 ) -> BackendStatus:
     """Report whether *backend* can actually run, and how to fix it if not.
 
     ``adapter`` is the in-tree dotted module implementing the backend, ``requires``
     the third-party import names it needs, and ``extra`` the pip extra that provides
-    them. ``missing`` is injected for testing.
+    them. ``missing`` is injected for testing. ``runtime`` can add a native/system
+    capability check after the adapter and Python dependencies are present.
 
     A missing *adapter* outranks missing dependencies: when the adapter was never
     shipped, no amount of installing helps, so no remedy is offered.
@@ -108,5 +110,16 @@ def probe_backend(
             ),
             missing=absent,
         )
+
+    if runtime is not None:
+        unavailable = runtime()
+        if unavailable is not None:
+            reason, remedy = unavailable
+            return BackendStatus(
+                backend=backend,
+                available=False,
+                reason=reason,
+                remedy=remedy,
+            )
 
     return BackendStatus(backend=backend, available=True)

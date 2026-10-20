@@ -24,6 +24,46 @@ def silent_audio_1s():
 
 
 @pytest.fixture(autouse=True)
+def _no_test_may_write_the_real_portal_token(monkeypatch, tmp_path_factory):
+    """Point the portal restore token at a throwaway directory for every test.
+
+    `inject.portal.token_path()` falls back to the developer's real data directory, and
+    four test files that negotiate a (fake) portal session wrote their fake token
+    `fresh-token` into `~/.local/share/yazses/portal_remote_desktop_token` on a real
+    machine. That file is the *consent* record: a bogus one counts as "already approved"
+    to the auto-select logic, and it may have replaced a genuine one. Setting the override
+    for the whole suite means a file that forgets to sandbox is safe by default; a test
+    that wants its own directory still overrides it with `monkeypatch.setenv`.
+    """
+    monkeypatch.setenv("YAZSES_DATA_DIR", str(tmp_path_factory.mktemp("yazses_data")))
+
+
+@pytest.fixture(autouse=True)
+def _fake_audio_is_not_judged_for_speech():
+    """Tests that push synthetic audio through `_on_hold_end` are not about speech.
+
+    The speech-presence gate (`audio/speech_presence.py`, #598) asks a real detector
+    whether a burst holds speech, and a constant 0.5 or a seeded ramp is not speech, so
+    some fifty pipeline tests -- written to test what happens *after* a burst is
+    accepted -- would be discarded before reaching the code they exist for. Making the
+    default detector decline ("cannot tell") is exactly the production fail-open path.
+    The gate's own tests (`test_speech_presence*.py`) inject a detector or restore the
+    real one explicitly, so it is still tested; it just is not a hidden precondition of
+    every other file.
+
+    Deliberately not built on the ``monkeypatch`` fixture: requesting it here would
+    instantiate it before `_no_test_may_leak_the_injector_env`, so its teardown would run
+    *after* that guard's and the guard would see every test's own ``setenv`` as a leak.
+    """
+    from yazses.audio import speech_presence
+
+    original = speech_presence._default_detector
+    speech_presence._default_detector = lambda _audio, _sr: None
+    yield
+    speech_presence._default_detector = original
+
+
+@pytest.fixture(autouse=True)
 def _no_test_may_pop_a_toast_on_the_users_desktop(monkeypatch):
     """A test must not reach the real `notify-send`.
 
@@ -583,3 +623,46 @@ def cli_help_restored(_pristine_cli_help):
             setattr(obj, attr, value)
         except (AttributeError, TypeError):
             pass
+
+
+@pytest.fixture(autouse=True)
+def _pinned_ydotool_dialect():
+    """Pin the ydotool CLI dialect so the suite does not depend on the host's.
+
+    `inject/ydotool.py` probes `ydotool type --help` once per process to tell
+    ydotool 1.x from the 0.1.x that Debian and Ubuntu ship, because their command
+    lines are incompatible. Left unpinned, a test that exercises injection asserts
+    one argv on a developer's Ubuntu laptop and a different one on a runner with no
+    ydotool installed -- which is exactly how this was first noticed.
+
+    1.x is the pin because it is what the assertions were written against;
+    `tests/test_ydotool_dialect.py` clears it and drives both dialects explicitly.
+    """
+    from yazses.inject import ydotool
+
+    ydotool.set_ydotool_dialect(ydotool.DIALECT_V1)
+    yield
+    ydotool.set_ydotool_dialect(None)
+
+
+#: The longest test id a CI log can be trusted to carry. The longest legitimate id in the suite is a
+#: little over 500 characters; this leaves a wide margin and still catches a payload used as its own id.
+MAX_TEST_ID_CHARS = 2000
+
+
+def pytest_collection_modifyitems(config, items):
+    """Fail collection when a parametrised case uses its payload as its test id.
+
+    `pytest.mark.parametrize` builds an id from the value when none is given, so passing a
+    200,000-character byte string produced a 200 KB node id. `pytest -v` prints it, and on every
+    hosted CI runner that single log line ended the step with no summary and no failure to read
+    -- while the same suite, run quietly on a laptop, passed. Give such cases `pytest.param(...,
+    id="...")`.
+    """
+    too_long = [item.nodeid for item in items if len(item.nodeid) > MAX_TEST_ID_CHARS]
+    if too_long:
+        shown = "\n".join(f"  {len(n)} chars: {n[:100]}..." for n in too_long[:5])
+        raise pytest.UsageError(
+            f"{len(too_long)} test id(s) exceed {MAX_TEST_ID_CHARS} characters, which breaks "
+            f"`pytest -v` on CI runners. Pass an explicit id=...:\n{shown}"
+        )

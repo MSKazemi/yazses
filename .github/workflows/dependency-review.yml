@@ -7,6 +7,11 @@ on:
   pull_request:
     branches: [main]
 
+# Only the newest head of a PR needs dependency review.
+concurrency:
+  group: dependency-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 

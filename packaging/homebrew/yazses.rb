@@ -19,8 +19,8 @@
 # worse than no cask: Homebrew refuses the download, so the first thing a new
 # user sees is a failure that looks like the project is broken.
 cask "yazses" do
-  version "2.36.0"
-  sha256 "d9b9e0d378826c2ae9703efab05e414c02ba0bd0009e9bb972b23b5c0dc47b70"
+  version "2.43.2"
+  sha256 "11f13535d423fab6cc359783c0c57d35c3a52a9d5641760d43f9317ec7cd5f70"
 
   # arm64 explicitly in the filename since ADR-017: the .dmg used to be named as
   # though it were for everybody, which is a large part of why an Apple-silicon-only
@@ -40,7 +40,18 @@ cask "yazses" do
 
   # Matches LSMinimumSystemVersion "11.0" declared by the app bundle itself in
   # packaging/macos/yazses.spec — keep the two in step.
-  depends_on macos: ">= :big_sur"
+  #
+  # SYMBOL form, not the string ">= :big_sur". Homebrew deprecated the string
+  # comparison format in 5.1.15 and warns on EVERY brew call that touches this
+  # tap, so the first thing a new macOS user saw was a deprecation notice
+  # naming this project. The symbol already means "this release or newer" --
+  # Homebrew's own warning names it as the replacement -- so the requirement is
+  # unchanged. Reported and fixed by @slegarraga (homebrew-yazses#1); it must
+  # land HERE rather than in the tap, because publish-channels.yml does
+  # `cp packaging/homebrew/yazses.rb tap/Casks/yazses.rb` -- a whole-file
+  # overwrite, so a fix merged only into the tap is reverted by the next
+  # release. That is exactly what would have happened to theirs.
+  depends_on macos: :big_sur
 
   # Apple Silicon only, and this is a statement of fact about the artefact, not
   # a preference. The .dmg is built by .github/workflows/build-macos.yml on

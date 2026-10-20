@@ -142,6 +142,13 @@ class SttConfig:
     # Empty by default because the right answer is regional, not universal.
     # Needs the `chinese` extra; without it the setting warns once and no-ops.
     chinese_script: str = ""
+    # Conservative Persian Unicode normalisation of the transcript (NFC, Arabic
+    # Yeh/Kaf -> Persian Yeh/Keheh, ZWNJ tidying, bidi-control strip; see
+    # postprocess/persian_text.py and design/specs/persian-text-and-rtl.md).
+    # Off by default: the normaliser changes the text a Persian user already gets,
+    # so an upgrade must not switch it on for them. It only acts when
+    # `language` is also Persian ("fa"); set on its own it warns once and no-ops.
+    persian_normalisation: bool = False
 
 
 @dataclass
@@ -204,8 +211,46 @@ class InjectionConfig:
     # xdotool on X11, ydotool on Wayland (types, so it works in terminals too).
     # "type"/"ydotool" force typing, "clipboard" forces copy+Ctrl+V (instant, but a
     # no-op in terminals where Ctrl+V is literal), "wtype" is Wayland-only and is
-    # ignored on X11. `yazses doctor` names the one that will actually be used.
+    # ignored on X11, and "unicode" is an opt-in Linux XKB/uinput path. `yazses doctor`
+    # names the one that will actually be used.
+    #
+    # "portal" forces the xdg-desktop-portal RemoteDesktop API (inject/portal.py).
+    # `auto` already picks it on Wayland when ydotoold is not running, which is
+    # the case inside a strictly confined snap; force it when a session has a
+    # stale ydotoold socket that wins the probe but cannot actually inject.
+    #
+    # On **Windows** two values apply: "auto" (SendInput + KEYEVENTF_UNICODE, the
+    # default) and "clipboard" (copy + a real Ctrl+V). Use "clipboard" when an
+    # application receives the right *number* of characters and every one of them
+    # is wrong -- rows of "?", "-" or "." instead of the words. Microsoft documents
+    # both causes: an ANSI window has each character converted to the active ANSI
+    # codepage ("?" for anything it cannot represent), and a text service that does
+    # not unpack the synthesised VK_PACKET keystroke runs it through the keyboard
+    # layout instead. Pasting bypasses both. `yazses inject -d 5 --diagnose "test"`
+    # says which window you are actually typing into and whether it is ANSI.
     backend: str = "auto"
+    # Whether `auto` may select the RemoteDesktop portal on Wayland.
+    # "ask" (default) | "allow" | "deny".
+    #
+    # OFF by default, deliberately: the portal makes the desktop show a
+    # screen-sharing indicator for as long as the session is open, and switching
+    # that on for somebody -- in an application whose whole promise is that nothing
+    # leaves the machine -- is not a default to take on their behalf. With "ask",
+    # dictation uses the clipboard fallback and YazSes offers the choice instead.
+    #
+    # Three things already count as consent and are NOT affected by this key, so no
+    # working install is regressed: naming `backend = "portal"`, an existing restore
+    # token on disk (you answered the dialog before), and a strictly confined snap,
+    # for which the portal is the only way to type on Wayland at all.
+    portal_consent: str = "ask"
+    # Seconds of idle before the portal session is closed; 0 keeps it open forever.
+    #
+    # The one place this file deliberately ships a feature "on": defaulting to 0
+    # would ship the indicator sitting in the top bar for the daemon's whole life,
+    # which is the complaint this key exists to answer. Re-opening replays the
+    # restore token, so it costs a round trip on the first burst after idle and no
+    # new dialog. Set 0 if you prefer the session pinned open.
+    portal_idle_release_s: int = 60
     fallback_to_clipboard: bool = True
     # Successive hold-to-talk bursts within this window are treated as one
     # continuous dictation: a separating space is prepended to the next burst
@@ -350,6 +395,14 @@ class AccessibilityConfig:
     pre_speech_padding_ms: int = 300
     vad_source: str = "default"
     vad_threshold: float = 0.01
+    # Before decoding a burst that cleared `vad_threshold`, ask a speech detector (Silero,
+    # bundled with faster-whisper) whether there is any speech in it, and discard the burst
+    # if there is none. Loudness cannot tell a talker from a fan, and Whisper answers a
+    # burst of fan with the words it was primed with (#598: "The app is called YazSes.").
+    # Fails open: a detector that cannot run decodes as before. Skipped in Whisper /
+    # Low-Effort mode, Dysfluency-Friendly mode and the sotto-voce command channel. Set
+    # false if quiet speech is being discarded as "no speech".
+    speech_presence_check: bool = True
     # v0.8.0 — Dysfluency-Friendly Mode master preset (ADR-015): enables the
     # disfluency collapse pass and widens onset padding. Off by default.
     dysfluency_friendly: bool = False
@@ -387,6 +440,9 @@ class TtsConfig:
 class CommandsConfig:
     enabled: bool = True
     profile: str = "auto"
+    # Spoken Tier-1 grammar; explicit language can decouple commands from STT.
+    # "auto" follows [stt] language; an explicit value overrides it.
+    language: str = "auto"  # auto | en | zh
     custom: list[dict] = field(default_factory=list)
     # v0.4.0 — Tier 2 SLM intent routing (ADR-v04-001)
     slm_model_path: str = ""          # path to GGUF file; empty = disabled
@@ -502,6 +558,123 @@ class GazeConfig:
     # at. Sub-flag of the (opt-in) gaze feature; destructive actions honour
     # confirm_destructive above via an actionable confirm toast.
     deixis: bool = True
+    # Recovery hierarchy (ADR-v2-148): when gaze could not choose a window and the target is
+    # only the focused one, a destructive deixis action ("close this") is REFUSED, with
+    # feedback, instead of closing the focused window. Off keeps ADR-v2-010's behaviour (run on
+    # the focused window). The hands-free preset turns it on; so can you, by hand.
+    refuse_destructive_fallback: bool = False
+
+
+@dataclass
+class GazeRefineConfig:
+    """Implicit gaze calibration from ordinary mouse clicks (#101, #397, #398).
+
+    Pairs each desktop click with the gaze sample from just before it, refines the
+    gaze-to-screen map from those pairs, and promotes the refinement only if it beats the
+    explicit calibration on held-out clicks. Never worse than the wizard: a loss, a tie,
+    too little data, a changed monitor layout or a failed write all leave the saved
+    calibration byte-for-byte as it was, and `yazses gaze rollback` restores the previous
+    one exactly after a promotion.
+
+    OFF by default, and doubly opt-in: it holds the camera open (through the shared
+    `[perception]` source) and listens for clicks while on. It needs `[perception]`
+    enabled, gaze on the same camera, a verified calibration for this desktop, and a
+    platform click observer (none ships yet, so on every install today it explains why it
+    is dormant). Only coordinates, timestamps and gaze numbers are used: no screenshot,
+    window title, typed text or frame, and nothing is kept past the session but the
+    promoted map.
+
+    **Every number below is an unmeasured starting value**, not a finding. The aim latency
+    and look-back in particular are what the field evidence for #104 is meant to set.
+    """
+    enabled: bool = False
+    click_latency_ms: int = 100       # gaze sample aimed at this long before the click
+    lookback_ms: int = 500            # oldest gaze sample a click may be paired with
+    min_confidence: float = 0.5       # eye-agreement floor for a pair (and a held-out pair)
+    min_train_samples: int = 30       # accepted training pairs before a comparison
+    min_holdout_samples: int = 10     # held-out pairs before a comparison
+    holdout_every: int = 4            # every Nth pair is held out of training (2 or more)
+    min_improvement_px: float = 1.0   # held-out error the candidate must save to promote
+    evaluate_every: int = 10          # compare after this many new accepted pairs
+    max_holdout_samples: int = 200    # bound on retained held-out pairs
+
+
+@dataclass
+class FacegestureConfig:
+    """Face-gesture switch access — a held facial movement as the hotkey (#102).
+
+    The switch-access half of the hands-free bundle: MediaPipe's FaceLandmarker (the
+    model Glance-Type already downloads) reports 52 blendshape activations per frame,
+    and one of them becomes the key you hold. For someone who can speak but cannot
+    press a key, this is the activation source that needs no hardware beyond the
+    webcam already in the lid — eViacam and Google Project Gameface, the two tools
+    that used to cover this on Linux, are unmaintained and archived respectively.
+
+    OFF by default; needs a webcam + the ``gaze`` extra (opencv + mediapipe). Frames
+    are processed in-RAM and never stored or transmitted (ADR-011).
+
+    **Stuck-open guard.** A face whose resting score is at or above ``release_threshold`` fires
+    once and never lets go: a microphone open indefinitely. ``max_hold_s`` (0 = off, the shipped
+    state) releases a hold that has lasted that many seconds, once, with a logged reason; the
+    switch re-arms only after it has read a score BELOW ``release_threshold``. It is off by
+    default because a face-only user's long dictation is a legitimate long hold; ``[audio]
+    max_record_seconds`` already drops audio past its cap, so setting this to that value loses
+    nothing the recorder would have kept. ``yazses doctor`` and ``yazses facegesture calibrate``
+    name the underlying cause whenever a saved resting level sits at or above the release.
+    """
+    enabled: bool = False
+    gesture: str = "jaw_open"         # jaw_open | brow_raise | mouth_pucker | smile | eyes_closed
+    mode: str = "full_text"           # full_text (dictate) | command (force command mode)
+    camera_index: int = 0
+    model_path: str = ""              # override the FaceLandmarker asset; "" = auto-download
+    hold_threshold: float = 0.5       # open the mic at/above this blendshape score
+    release_threshold: float = 0.35   # close it below this one (must be lower — hysteresis)
+    min_hold_frames: int = 3          # frames above hold_threshold before the mic opens
+    min_release_frames: int = 2       # frames below release_threshold before it closes
+    fps: int = 15                     # camera sampling rate (1..60)
+    # Calibration and confidence (EYE-FACE-001). All three are dormant defaults: an install
+    # that sets none of them runs exactly the absolute-threshold switch it always did.
+    use_baseline: bool = False        # normalise the score against `yazses facegesture calibrate`
+    confidence_floor: float = 0.0     # 0..1; frames below it never count toward a hold (0 = off)
+    refractory_frames: int = 0        # frames after a release before a new hold may begin
+    max_hold_s: float = 0.0           # seconds: release a hold open this long, once (stuck-open guard; 0 = off)
+    # Active-level calibration (EYE-FACE-004), dormant: `yazses facegesture calibrate --active`
+    # (and `--talk`) store your own levels; with `use_active_levels` the hold/release thresholds
+    # are derived between them per gesture, or left as written (reason logged) when rest, active
+    # and speech cannot be separated by a margin. The fractions are unmeasured starting values.
+    use_active_levels: bool = False   # derive hold/release from your rest + active (+ talk) levels
+    active_hold_fraction: float = 0.5     # how far up the rest-to-active span hold sits (<= 0.8)
+    active_release_fraction: float = 0.25  # how far up it release sits (must be below hold)
+    # Switch mappings (EYE-FACE-002). `gesture` + `mode` above stay the one hold-to-talk
+    # binding; each entry here ADDS another, as `[[facegesture.switches]]` tables with
+    # `gesture` (a gesture name) and `intent` (hold_to_talk | hold_to_command | select |
+    # confirm | cancel | pause_pointer | none). Empty = the single-gesture install, unchanged.
+    switches: list[dict] = field(default_factory=list)
+
+
+@dataclass
+class PerceptionConfig:
+    """Shared camera perception — one webcam owner for every camera feature (ADR-v2-145).
+
+    Glance-Type gaze and the Face-Gesture Switch each open their own camera and
+    their own FaceLandmarker today, and nothing arbitrates between them: enable
+    both and whichever starts second meets "device already busy". This section
+    switches on the single owner that replaces that (src/yazses/perception/), where
+    the first feature to ask opens the camera once, every other feature shares that
+    same observation, and the last one to let go closes it.
+
+    OFF by default, and enabling it alone opens nothing: the lifecycle is driven by
+    consumers, so zero consumers means zero camera opens. Glance-Type gaze is the
+    first consumer (#396): with this on, a MediaPipe gaze backend whose
+    ``[gaze] camera_index`` matches ``camera_index`` here takes a lease instead of
+    opening a camera of its own, and the camera opens on its first gaze sample, as
+    before. With it off, gaze and the face switch keep the path they have always had,
+    so an existing install is unchanged. Frames are processed in-RAM inside the
+    source and never reach a signal, a log or a file (ADR-011).
+    """
+    enabled: bool = False
+    camera_index: int = 0             # which camera the one owner opens
+    fps: int = 15                     # shared sampling rate, clamped to 1..60
 
 
 @dataclass
@@ -668,7 +841,10 @@ class OverlayConfig:
     Python or the Rust daemon can drive it. Requires the ``overlay`` extra
     (``pip install yazses[overlay]`` / ``uv sync --extra overlay``) for PySide6.
     """
-    enabled: bool = True             # auto-launch the overlay with the daemon
+    # Optional, off by default: on native Wayland (Ubuntu/GNOME) the compositor gives a new
+    # window keyboard focus, so the overlay can swallow the dictated text. See
+    # docs/troubleshooting.md. Opt in with `yazses features enable overlay`.
+    enabled: bool = False            # auto-launch the overlay with the daemon
     # (on by default; soft no-op when the `overlay` extra / PySide6 is absent)
     style: str = "sonar"             # reserved for future styles
     position: str = "cursor"         # cursor | bottom_center | top_center | corner
@@ -1138,8 +1314,106 @@ class ScreengroundedConfig:
 
 @dataclass
 class HeadpointerConfig:
-    """v2.3 Wave G — Head-Pointer hands-free cursor (ADR-v2-052). OFF by default."""
+    """v2.3 Wave G — Head-Pointer hands-free cursor (ADR-v2-052). OFF by default.
+
+    Needs `[perception] enabled` (the one shared camera owner, ADR-v2-145) and a pointer
+    backend; with either missing the feature stays dormant and `yazses headpointer status`
+    says which. **None of the numbers below is a measured recommendation.** The gains,
+    dead zone, dwell radius and hold length are the pure core's own values
+    (`headpointer/pointer.py`); `freshness_ms` and `min_confidence` are placeholders until
+    hardware evidence exists (design/eye-control/GOVERNANCE.md). The one exception is the
+    **sign** of `x_gain`, which is geometry and not tuning: on a real webcam (2026-10-13) turning
+    the head to the user's left reads as *positive* yaw, so `x_gain` is negative by default to
+    make the pointer follow the head. `y_gain` needs no flip: chin-up is negative pitch and
+    moves the pointer up.
+
+    **Speed is in real time, not per camera frame.** The head's offset from neutral sets the
+    pointer's *velocity*: `x_gain`/`y_gain` are pointer units per **second** per radian, a
+    sample moves the pointer by that velocity times the real time since the previous sample, and
+    `max_speed_x`/`max_speed_y`/`max_speed_overall` cap it (units per second, cannot be disabled; a value
+    of 0 or less falls back to the default). The same head motion therefore moves the pointer
+    the same distance on a 15, 30 or 60 fps camera. These gains used to mean "per frame": an
+    old value reads as a far slower pointer now, never a faster one. **All the magnitudes and
+    caps are provisional first-principles values, not measurements.**
+
+    **Dwell is in real time too.** `dwell_ms` is how long the pointer must hold still before the
+    click, measured on the camera samples' own timestamps, so a 15 and a 30 fps camera click
+    after the same wait; a gap longer than a quarter of a second between samples (a stall) is not
+    counted as stillness and restarts the dwell. It replaces `dwell_hold_frames`, which counted
+    samples and so lasted whatever the camera made it. An old `dwell_hold_frames` still works:
+    when set above 0 it wins, read as that many frames at a nominal 30 fps (the old default of 20
+    is ~667 ms) -- delete it to use `dwell_ms`. **The 700 ms default is provisional, about the
+    old default at 30 fps, not a measurement.** `dwell_ms` and `freshness_ms` declare their bounds
+    in their field metadata, enforced by `configcheck.build_section`: a `freshness_ms` of 0 would
+    have called every real sample stale (the pointer silently never moved) and one past a minute
+    means "never stale", so a value outside the bounds is repaired to the default and reported.
+    """
     enabled: bool = False
+    x_gain: float = -1200.0       # pointer units per second per radian of yaw; negative: left turn -> pointer left
+    y_gain: float = 900.0         # pointer units per second per radian of pitch; negative flips
+    max_speed_x: float = 800.0    # fastest horizontal pointer speed, units per second; provisional safety cap
+    max_speed_y: float = 600.0    # fastest vertical pointer speed, units per second; provisional safety cap
+    max_speed_overall: float = 800.0  # fastest combined pointer speed, units per second; provisional safety cap
+    deadzone: float = 0.02        # radians around the neutral pose that produce no motion
+    freshness_ms: int = field(default=500, metadata={"min_exclusive": 0, "max": 60_000})  # a head pose older than this is "no signal"; unmeasured
+    min_confidence: float = 0.5   # samples below this presence confidence are "no signal"
+    dwell_enabled: bool = False   # click by holding still; off so motion never clicks unasked
+    dwell_radius_px: float = 15.0  # stay within this many pointer units to count as holding still
+    dwell_ms: int = field(default=700, metadata={"min": 50, "max": 10_000})  # how long to hold still before the click, real time; provisional, unmeasured
+    dwell_hold_frames: int = 0    # legacy, replaced by dwell_ms: when above 0, that many frames at a nominal 30 fps
+
+
+@dataclass
+class HandsfreeSafetyConfig:
+    """Hands-free global stop + stale-signal watchdog (ADR-v2-148). OFF by default.
+
+    One ACTIVE/PAUSED/FAULTED state every camera-driven input consults before it moves a cursor
+    or commits a click, so a runaway pointer can be stopped by a path that does not require
+    pointing, and a camera that goes quiet stops the pointer instead of replaying the last pose.
+
+    `stale_after_ms` is the age at which a source's newest sample stops being allowed to act.
+    **It is not a measured value** — no frame-interval or tracking-loss distribution exists for
+    this programme yet, and `design/eye-control/GOVERNANCE.md` requires measurement before a
+    threshold becomes a recommended default. 500 ms is a deliberately generous placeholder: a
+    guard is judged on how rarely it fires (ADR-021), and a false trip costs a hands-free user
+    their input method until they re-arm.
+
+    The field's bounds (`min_exclusive`, `max` in its metadata) are enforced by
+    `configcheck.build_section`: zero cannot express a freshness judgement
+    (`SafetyLimits.window_ms()` would apply 500 while `Config` reported 0), and a window past a
+    minute means "never stale", the guard silently off.
+    """
+    enabled: bool = False  # off until the hands-free preset and its consumers are wired
+    stale_after_ms: int = field(default=500, metadata={"min_exclusive": 0, "max": 60_000})  # a signal older than this cannot act; unmeasured placeholder
+    # Voice stop word: saying exactly this phrase (the WHOLE utterance, never a substring of
+    # dictation) pauses every hands-free input, like `yazses handsfree pause`. "" = off. It can
+    # only pause; there is no resume phrase (`yazses handsfree resume`, or Settings → Hands-free controls).
+    # 2-6 words, validated at load (handsfree/stopword.py). `[handsfree] enabled` supplies
+    # "pause hands free" -- a PROVISIONAL, unmeasured default -- unless you set this yourself.
+    stop_phrase: str = ""
+
+
+@dataclass
+class HandsfreeConfig:
+    """Hands-free preset -- a composition of ordinary feature configs (ADR-v2-148). OFF by default.
+
+    ``enabled = true`` makes the loader fill in the same keys you could have written by hand
+    (`yazses handsfree explain` prints them, with where each came from); nothing reads this
+    section at runtime, so the preset adds no code path of its own. A key you set yourself
+    always wins over the preset, except the safety floor (global stop, destructive-command
+    confirmation, no destructive fallback), where a contrary value makes the preset refuse
+    and say which key. The other keys choose which roles to compose; all default to on.
+
+    **Every value the preset supplies is a provisional, unmeasured starting value**
+    (design/eye-control/GOVERNANCE.md): no field evidence exists to tune them from.
+    """
+    enabled: bool = False  # experimental preset: every value it sets is provisional, none validated with users
+    gaze: bool = True      # Glance-Type: look at a window to target dictation and "close this"
+    pointer: bool = True   # Head-Pointer: the head moves the cursor
+    dwell: bool = True     # commit a click by holding the pointer still (needs [overlay] shown)
+    switch: bool = True    # face switch: hold a jaw-open to dictate, no key
+    chords: bool = True    # Gesture Chords: brow-raise + nod recenters, brow-raise + shake stops
+    voice_stop: bool = True  # say "pause hands free" (the whole utterance) to pause every hands-free input
 
 
 @dataclass
@@ -1794,8 +2068,52 @@ class ProfilesConfig:
 
 @dataclass
 class GestureConfig:
-    """v2.2 Wave F — Gesture Chords (ADR-v2-043). OFF by default."""
+    """v2.2 Wave F — Gesture Chords (ADR-v2-043, ADR-v2-147). OFF by default.
+
+    A chord is a set of abstract tokens made together -- a face gesture (`jaw_open`,
+    `brow_raise`, `mouth_pucker`, `smile`, `eyes_closed`) and/or a head gesture (`nod`,
+    `shake`, `tilt`) -- bound to an abstract action in `[gesture.chords]`::
+
+        [gesture.chords]
+        "brow_raise+nod" = "recenter"
+        "jaw_open+shake" = "pause_pointer"
+        "jaw_open+hold" = "recenter"        # keep the jaw open for `hold_ms`
+
+    `hold` is a sixth kind of token: "the face or tilt tokens now held have stayed held for
+    `hold_ms`". It needs at least one holdable token beside it (a face gesture or `tilt`, not
+    `nod`/`shake`), and a chord cannot be bound both with and without it.
+
+    **The mapping is empty by default, so enabling the feature does nothing until you bind
+    a chord.** An unknown token, an unknown action, and two spellings of one chord are each
+    refused (logged, and listed by `yazses gesture status`) rather than guessed at. Face tokens use the thresholds of
+    `[facegesture]` (so one calibration serves both); needs `[perception]` and a webcam only
+    when a chord uses a sensor token. **None of the numbers below is a measured
+    recommendation** -- no false-activation study exists yet (design/eye-control/ROADMAP.md
+    P5.4), which is why the head-gesture defaults ask for a deliberate double nod or shake.
+    """
     enabled: bool = False
+    chords: dict[str, str] = field(default_factory=dict)  # "token+token" -> action; empty = nothing bound
+    chord_window_ms: int = 400    # tokens made within this window of the first count as one chord
+    refractory_ms: int = 1000     # after a chord, nothing fires until every token is released and this passes
+    # A sample older than this is "no signal"; unmeasured placeholder. Bounded like
+    # `[headpointer] freshness_ms` and `[handsfree_safety] stale_after_ms`: 0 would call every real
+    # sample stale (chords silently dead while Config reports a valid 0), and a huge value means
+    # "never stale". Outside (0, 60000] the loader repairs it to 500 and says so.
+    freshness_ms: int = field(default=500, metadata={"min_exclusive": 0, "max": 60_000})
+    min_confidence: float = 0.5   # samples below this presence confidence are "no signal"
+    freeze_tail_ms: int = 300     # keep the pointer frozen this long after a chord token lets go
+    onset_rewind_ms: int = 150    # when the freeze lands a frame late, take back up to this much pointer motion since the expression began; 0 = never. Provisional
+    hold_ms: int = field(default=800, metadata={"min_exclusive": 0, "max": 60_000})  # the `hold` token: tokens held unchanged this long. Provisional
+    # Each leg of a nod/shake must swing at least this far. Bounded (0, 90]: 0 is "no gesture can
+    # ever be seen" and the detector would be silently dead. Provisional sanity bound, not measured.
+    head_amplitude_deg: float = field(default=10.0, metadata={"min_exclusive": 0, "max": 90})
+    head_swings: int = 4          # legs per nod/shake: 4 is a double nod, 2 a single down-up
+    head_window_ms: int = 1500    # a nod/shake must complete within this long
+    # Roll beyond this, either way, is a tilt. Bounded (0, 90]: at 0 a perfectly level head is "tilted"
+    # and the `tilt` token is held for ever (any chord using it fires with no movement at all); past 90
+    # no head can reach it. Provisional sanity bound, not measured.
+    tilt_deg: float = field(default=20.0, metadata={"min_exclusive": 0, "max": 90})
+    tilt_hold_ms: int = 400       # ...held this long
 
 
 @dataclass
@@ -1829,6 +2147,9 @@ class Config:
     tts: TtsConfig = field(default_factory=TtsConfig)
     voiceprint: VoiceprintConfig = field(default_factory=VoiceprintConfig)
     gaze: GazeConfig = field(default_factory=GazeConfig)
+    facegesture: FacegestureConfig = field(default_factory=FacegestureConfig)
+    perception: PerceptionConfig = field(default_factory=PerceptionConfig)
+    gaze_refine: GazeRefineConfig = field(default_factory=GazeRefineConfig)
     cocktail: CocktailConfig = field(default_factory=CocktailConfig)
     personalize: PersonalizeConfig = field(default_factory=PersonalizeConfig)
     polyglot: PolyglotConfig = field(default_factory=PolyglotConfig)
@@ -1876,6 +2197,8 @@ class Config:
     gec: GecConfig = field(default_factory=GecConfig)
     screengrounded: ScreengroundedConfig = field(default_factory=ScreengroundedConfig)
     headpointer: HeadpointerConfig = field(default_factory=HeadpointerConfig)
+    handsfree_safety: HandsfreeSafetyConfig = field(default_factory=HandsfreeSafetyConfig)
+    handsfree: HandsfreeConfig = field(default_factory=HandsfreeConfig)
     lipread: LipreadConfig = field(default_factory=LipreadConfig)
     sign: SignConfig = field(default_factory=SignConfig)
     convert: ConvertConfig = field(default_factory=ConvertConfig)
@@ -1978,6 +2301,38 @@ def default_config_path() -> Path:
     daemon reading a file nothing writes. And the whole test suite calls
     ``load_config(None)`` meaning *the defaults*, which silently meant *whatever is on
     the developer's machine* until a fixture could point this somewhere empty.
+
+    It also resolves through the platform layer rather than restating a POSIX path:
+    ``Path.home() / ".config"`` **is** the config dir on Linux by coincidence, but it
+    is a directory nothing writes to on Windows (the product uses
+    ``%LOCALAPPDATA%\\yazses``) or macOS (``~/Library/Application Support``). The
+    daemon loaded ``load_config()`` with no path, so on those two it read defaults
+    forever while the CLI read and wrote the platform file: ``yazses hotkey set
+    left_ctrl`` updated the file, ``yazses status`` kept reporting ``right_ctrl`` —
+    the platform default — and no restart could ever help, because no restart had
+    ever looked at that file. Recorded as #330.
+
+    The factory import is function-local on purpose: ``platform.factory`` must never
+    need ``yazses.config`` at module level, and this is the one edge where config
+    reaches for a path. ``get_paths()`` resolves platformdirs directly even where no
+    OS backend exists, so the OS-independent half of the product gets the same answer
+    as the half with a backend.
+    """
+    from yazses.platform.factory import get_paths
+
+    return get_paths().config_file
+
+
+def legacy_default_config_path() -> Path:
+    """The path ``default_config_path`` returned before #330 — a historical fact.
+
+    The pre-#330 seam restated ``Path.home() / ".config" / "yazses" /
+    "config.toml"`` on every platform, so that is where first-run seeding
+    stranded configs on Windows and macOS. Named here — the module that owns
+    the live seam — rather than restated by callers: ``system.firstrun.
+    migrate_legacy_config`` moves files at this path to wherever
+    ``default_config_path()`` points today. On Linux the two coincide, which
+    is exactly why nothing on Linux was ever stranded.
     """
     return Path.home() / ".config" / "yazses" / "config.toml"
 
@@ -2018,6 +2373,15 @@ def load_config_checked(path: Path | None = None) -> LoadedConfig:
         )
         return LoadedConfig(Config(), problems, path)
 
+    # The hands-free preset (ADR-v2-148) is a rewrite of the *raw file* into the ordinary keys a
+    # user could have written, done before any section is built, so everything downstream reads
+    # an ordinary config. It is the only thing that ever reads `[handsfree]`.
+    from yazses.handsfree.preset import resolve_raw
+
+    data, preset = resolve_raw(data)
+    if preset.refusal:
+        problems.append(ConfigProblem("handsfree", "enabled", f"preset not applied: {preset.refusal}", False))
+
     hints = typing.get_type_hints(Config)
     fields = {f.name for f in dataclasses.fields(Config)}
     for name in data:
@@ -2031,7 +2395,67 @@ def load_config_checked(path: Path | None = None) -> LoadedConfig:
         for name in fields
         if name in data
     }
-    return LoadedConfig(_apply_presets(Config(**sections)), problems, path)
+    config = Config(**sections)
+    problems.extend(_chord_problems(config))
+    problems.extend(_switch_problems(config))
+    return LoadedConfig(_apply_presets(config), problems, path)
+
+
+def _switch_problems(config: Config) -> list[ConfigProblem]:
+    """Why any ``[[facegesture.switches]]`` entry will not be used, found at load, not at fire time.
+
+    ``facegesture.switches.parse_bindings`` is the one place a mapping is understood, and it
+    already skips (never coerces) what it cannot honour. Before this, only the camera backend
+    asked it, so a typo in ``intent`` loaded clean, ``doctor`` reported nothing wrong, and the
+    reason surfaced only as a log line when the daemon built the switch -- or never, for a user
+    who does not read the log. Asking here puts the line, and the valid names, in front of
+    ``doctor`` and the config log. Never raises; costs nothing for the shipped empty list.
+    """
+    face = config.facegesture
+    if not face.switches:
+        return []
+    try:
+        from yazses.facegesture.detector import DEFAULT_GESTURE, GESTURES
+        from yazses.facegesture.switches import parse_bindings
+
+        primary = (face.gesture or DEFAULT_GESTURE).strip().lower()
+        if primary not in GESTURES:
+            primary = DEFAULT_GESTURE  # the key's own problem is reported by its enum check
+        _, refused = parse_bindings(face.switches, primary, face.mode)
+    except Exception:  # a mapping check must never be what stops the daemon starting
+        return []
+    return [ConfigProblem("facegesture", "switches", reason, False) for reason in refused]
+
+
+def _chord_problems(config: Config) -> list[ConfigProblem]:
+    """Why any ``[gesture.chords]`` entry will not be used, found at load rather than at start.
+
+    ``gesture.engine.parse_chords`` is the one place a chord is understood and it already skips
+    what it cannot honour; this only asks it early so ``doctor`` and the log name the line. Never
+    raises, and costs nothing for the shipped empty table.
+    """
+    chords = config.gesture.chords
+    if not chords:
+        return []
+    try:
+        from yazses.gesture.engine import parse_chords, shadowed_chords, switch_collisions
+
+        bound, refused = parse_chords(chords)
+        # Chords that stay bound but will not behave as written. `repaired=True` because nothing
+        # was dropped (doctor shows a WARN, not a "using default" FAIL).
+        notes = shadowed_chords(bound)
+        if config.gesture.enabled and config.facegesture.enabled:
+            from yazses.facegesture.switches import parse_bindings
+
+            switches, _ = parse_bindings(
+                config.facegesture.switches, config.facegesture.gesture, config.facegesture.mode
+            )
+            notes.extend(switch_collisions(bound, switches))
+    except Exception:  # a chord check must never be what stops the daemon starting
+        return []
+    return [ConfigProblem("gesture.chords", "", reason, False) for reason in refused] + [
+        ConfigProblem("gesture.chords", "", note, True) for note in notes
+    ]
 
 
 def load_config(path: Path | None = None) -> Config:

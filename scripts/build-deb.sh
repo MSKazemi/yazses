@@ -82,7 +82,7 @@ Maintainer: Mohsen Seyedkazemi Ardebili <mohsen.seyedkazemi@gmail.com>
 Depends: python3 (>= 3.11), python3-pip, python3-dev, build-essential, libportaudio2, pipx, xdotool | ydotool | wtype, xclip | wl-clipboard
 Recommends: xdotool, xclip
 Description: Local, offline-by-default voice dictation daemon for Linux
- Hold Space anywhere on your desktop, speak, then release Space.
+ Hold Right Alt anywhere on your desktop, speak, then release it.
  The transcribed text is injected into whatever application is focused.
  No internet required after initial model download. CPU-only inference.
  .
@@ -106,6 +106,15 @@ if [ "$1" = "configure" ]; then
             # no diagnostic whatsoever, which is the least actionable failure possible.
             su - "$CALLER" -c "pipx install 'yazses[desktop]' || pipx upgrade yazses"
             su - "$CALLER" -c "pipx ensurepath"
+            # The packaged unit's ExecStart is /usr/bin/yazses-daemon, but pipx installs
+            # into the user's ~/.local/bin. Without these links the service crash-loops
+            # (203/EXEC) and `yazses start` silently starts nothing.
+            CALLER_HOME="$(getent passwd "$CALLER" | cut -d: -f6)"
+            for bin in yazses yazses-daemon; do
+                if [ -x "$CALLER_HOME/.local/bin/$bin" ] && [ ! -e "/usr/bin/$bin" ]; then
+                    ln -s "$CALLER_HOME/.local/bin/$bin" "/usr/bin/$bin"
+                fi
+            done
         fi
     else
         pip3 install --quiet yazses

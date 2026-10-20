@@ -40,13 +40,20 @@ ADR-011/012.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 
 import numpy as np
 
 from yazses.gaze.calibrate import CalibrationMap
 
-# Defaults; all overridable.
+# Defaults; all overridable. **Provisional and unmeasured on people.** Every "px" below is a
+# unit of the canonical desktop space (``yazses.gaze.topology``) -- a framebuffer pixel on X11
+# -- so the same number is a different *physical* distance on a 1080p and a 4K panel (and a
+# different angular one at a different viewing distance). Nothing here rescales it with the
+# display; a calibration is only ever refined on the layout it was measured on, which is what
+# keeps one number honest per setup. ``DEFAULT_MAX_RESIDUAL_PX`` is a mis-click gate chosen
+# by reasoning, not fitted to data.
 DEFAULT_FORGETTING = 0.995      # ~200-click memory: follows a lid angle, ignores noise
 DEFAULT_MAX_RESIDUAL_PX = 400.0  # beyond this a click is not a calibration error
 DEFAULT_MIN_CONFIDENCE = 0.5
@@ -149,6 +156,16 @@ def refined_if_better(
     """
     base_error = mean_error_px(baseline, holdout)
     new_error = mean_error_px(candidate, holdout)
-    if not holdout or new_error > base_error - min_improvement_px:
+    # Three ways to lose that a bare ``new_error > base_error - margin`` gets wrong:
+    # a NaN on either side compares False against everything and would *win*; and with a
+    # margin of 0 an exact tie (a copy of the baseline, or a candidate that learned
+    # nothing) would be promoted. "Equal" is not "better" (#398), so the candidate must
+    # be finite *and* strictly lower, and then clear the margin.
+    if (
+        not holdout
+        or not (math.isfinite(base_error) and math.isfinite(new_error))
+        or new_error >= base_error
+        or new_error > base_error - min_improvement_px
+    ):
         return baseline, base_error, new_error
     return candidate, base_error, new_error

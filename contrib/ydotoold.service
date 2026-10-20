@@ -7,9 +7,13 @@ After=graphical-session.target
 [Service]
 Type=simple
 # Socket at the path ydotool's client looks for by default, owned by the calling
-# user so yazses (same user) can connect. /dev/uinput access comes from the
-# user's membership in the `input` group. On GNOME/KDE Wayland this is the only
+# user so yazses (same user) can connect. On GNOME/KDE Wayland this is the only
 # way to inject keystrokes (Mutter/KWin block wtype's virtual-keyboard protocol).
+#
+# /dev/uinput access needs BOTH `input`-group membership and the udev rule that
+# `yazses setup` installs at /etc/udev/rules.d/60-yazses-uinput.rules -- the node
+# ships 0600 root:root, so the group alone grants nothing. Both apply only to a
+# new login session.
 ExecStart=/usr/bin/ydotoold --socket-path=%t/.ydotool_socket --socket-own=%U:%G
 Restart=always
 RestartSec=2

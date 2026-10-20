@@ -1,26 +1,20 @@
 ---
 title: "YazSes — తెలుగు"
-description: "YazSes అనేది Linux, macOS మరియు Windows కోసం ఉచిత, ఓపెన్ సోర్స్, ఆఫ్‌లైన్ వాయిస్ డిక్టేషన్ సేవ. ఒక కీని నొక్కి పట్టుకుని మాట్లాడి వదిలేయండి — మీరు టైప్ చేస్తున్న చోటే వచనం కనిపిస్తుంది. అంతా మీ కంప్యూటర్‌లోనే జరుగుతుంది: క్లౌడ్ లేదు, ఖాతా లేదు, చందా లేదు."
+description: "YazSes అనేది Linux, macOS మరియు Windows కోసం ఉచిత, ఓపెన్ సోర్స్, ఆఫ్‌లైన్ వాయిస్ డిక్టేషన్ సాధనం. ఒక కీని నొక్కి పట్టుకుని మాట్లాడి వదిలేయండి — మీరు టైప్ చేస్తున్న చోటే నేరుగా వచనం కనిపిస్తుంది. అంతా మీ కంప్యూటర్‌లోనే జరుగుతుంది: క్లౌడ్ లేదు, ఖాతా అవసరం లేదు, ఎలాంటి సబ్‌స్క్రిప్షన్ లేదు."
 alternates:
   en: index.md
 ---
 
-**Read this in other languages:** [English](../index.md) · [Deutsch](../de/index.md) · [Nederlands](../nl/index.md) · [Tiếng Việt](../vi/index.md) · [Türkçe](../tr/index.md) · [bahasa Indonesia](../id/index.md) · [español](../es/index.md) · [français](../fr/index.md) · [italiano](../it/index.md) · [polski](../pl/index.md) · [português do Brasil](../pt-BR/index.md) · [svenska](../sv/index.md) · [čeština](../cs/index.md) · [ελληνικά](../el/index.md) · [Русский](../ru/index.md) · [українська](../uk/index.md) · [עברית](../he/index.md) · [اردو](../ur/index.md) · [العربية](../ar/index.md) · [فارسی](../fa/index.md) · [हिंदी](../hi/index.md) · [বাংলা](../bn/index.md) · [தமிழ்](../ta/index.md) · తెలుగు · [ไทย](../th/index.md) · [日本語](../ja/index.md) · [简体中文](../zh-CN/index.md) · [繁體中文](../zh-TW/index.md) · [한국어](../ko/index.md)
-<!-- yazses-l10n: locale=te; source=README.md; source_sha=3baacb8; scope=partial; status=draft -->
-
-> ⚠️ **ముసాయిదా అనువాదం** — యంత్ర సహాయంతో చేసినది; ఇంకా మాతృభాషీయుల సమీక్షకు నోచుకోలేదు.
->
-> *This is a machine-assisted **draft** translation, not yet reviewed by a native
-> speaker. English is authoritative: [README.md](https://github.com/MSKazemi/yazses#readme). Improving it is a
-> welcome first contribution — see [issue #230](https://github.com/MSKazemi/yazses/issues/230).*
+**Read this in other languages:** [English](../index.md) · [Deutsch](../de/index.md) · [Nederlands](../nl/index.md) · [Tiếng Việt](../vi/index.md) · [Türkçe](../tr/index.md) · [bahasa Indonesia](../id/index.md) · [español](../es/index.md) · [français](../fr/index.md) · [italiano](../it/index.md) · [polski](../pl/index.md) · [português do Brasil](../pt-BR/index.md) · [svenska](../sv/index.md) · [čeština](../cs/index.md) · [ελληνικά](../el/index.md) · [Русский](../ru/index.md) · [українська](../uk/index.md) · [اردو](../ur/index.md) · [العربية](../ar/index.md) · [فارسی](../fa/index.md) · [हिंदी](../hi/index.md) · [বাংলা](../bn/index.md) · [தமிழ்](../ta/index.md) · తెలుగు · [ไทย](../th/index.md) · [日本語](../ja/index.md) · [简体中文](../zh-CN/index.md) · [繁體中文](../zh-TW/index.md) · [한국어](../ko/index.md)
+<!-- yazses-l10n: locale=te; source=README.md; source_sha=3baacb8; scope=partial; status=active; reviewer=@shashiharanramvanam-crypto -->
 
 # YazSes
 
-YazSes అనేది Linux, macOS మరియు Windows కోసం ఉచిత, ఓపెన్ సోర్స్, ఆఫ్‌లైన్ వాయిస్ డిక్టేషన్ సేవ. ఒక కీని నొక్కి పట్టుకుని మాట్లాడి వదిలేయండి — మీరు టైప్ చేస్తున్న చోటే వచనం కనిపిస్తుంది. అంతా మీ కంప్యూటర్‌లోనే జరుగుతుంది: క్లౌడ్ లేదు, ఖాతా లేదు, చందా లేదు.
+YazSes అనేది Linux, macOS మరియు Windows కోసం ఉచిత, ఓపెన్ సోర్స్, ఆఫ్‌లైన్ వాయిస్ డిక్టేషన్ సాధనం. ఒక కీని నొక్కి పట్టుకుని మాట్లాడి వదిలేయండి — మీరు టైప్ చేస్తున్న చోటే నేరుగా వచనం కనిపిస్తుంది. అంతా మీ కంప్యూటర్‌లోనే జరుగుతుంది: క్లౌడ్ లేదు, ఖాతా అవసరం లేదు, ఎలాంటి సబ్‌స్క్రిప్షన్ లేదు.
 
-## ఇన్‌స్టాల్
+## ఇన్‌స్టాలేషన్
 
-| ప్లాట్‌ఫారమ్ | ఆదేశం |
+| ప్లాట్‌ఫారమ్ | కమాండ్ |
 |---|---|
 | **Linux** | `bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install.sh)` |
 | **Linux** (Debian/Ubuntu, APT) | `bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install-apt.sh)` |
@@ -31,24 +25,24 @@ yazses quickstart
 yazses start
 ```
 
-మొదటిసారి నడిపినప్పుడు ఒకసారి మాత్రమే స్పీచ్ మోడల్ (సుమారు 148 MB) డౌన్‌లోడ్ అవుతుంది. ఆ తర్వాత నెట్‌వర్క్ అవసరమే లేదు.
+మొదటిసారి ప్రారంభించినప్పుడు ఒక్కసారి మాత్రమే స్పీచ్ మోడల్ (సుమారు 148 MB) డౌన్‌లోడ్ అవుతుంది. ఆ తర్వాత ఇంటర్నెట్ లేదా నెట్‌వర్క్ అవసరమే ఉండదు.
 
 ## ఇది ఏమి చేస్తుంది
 
-- **డిక్టేషన్** — కీని నొక్కి పట్టుకుని మాట్లాడి వదిలేయండి. వచనం క్రియాశీల విండోలో టైప్ అవుతుంది.
-- **వాయిస్ ఆదేశాలు** — “ఫైల్ సేవ్ చెయ్యి” లేదా “40వ లైన్‌కి వెళ్ళు” అంటే ఆ మాటలు రాయకుండా పనిని చేస్తుంది.
-- **సమావేశాలు మరియు రికార్డింగ్‌లు** — ఆడియో ఫైల్‌ను వచనంగా మార్చండి, లేదా ఎవరు మాట్లాడారో గుర్తులతో సహా మొత్తం సమావేశాన్ని రికార్డ్ చేయండి — అంతా ఆఫ్‌లైన్‌లోనే.
+- **డిక్టేషన్** — కీని నొక్కి పట్టుకుని మాట్లాడి వదిలేయండి. మీరు పనిచేస్తున్న యాక్టివ్ విండోలో వచనం నేరుగా టైప్ అవుతుంది.
+- **వాయిస్ కమాండ్‌లు** — “ఫైల్ సేవ్ చెయ్యి” లేదా “40వ లైన్‌కి వెళ్ళు” అని చెబితే, ఆ మాటలను టైప్ చేయకుండా నేరుగా ఆ పనిని పూర్తి చేస్తుంది.
+- **సమావేశాలు మరియు రికార్డింగ్‌లు** — ఏదైనా ఆడియో ఫైల్‌ను వచనంగా మార్చుకోవచ్చు, లేదా ఎవరు ఎప్పుడు మాట్లాడారో తెలిపే గుర్తింపుతో (speaker labels) సహా మొత్తం సమావేశాన్ని రికార్డ్ చేయవచ్చు — అంతా పూర్తిగా ఆఫ్‌లైన్‌లోనే.
 
 ## గోప్యత
 
-ఆడియో మీ కంప్యూటర్‌లోనే వచనంగా మారుతుంది, ఎక్కడికీ పంపబడదు. టెలిమెట్రీ లేదు, క్లౌడ్‌కు దారీ లేదు.
+డిఫాల్ట్‌గా ఆడియో మీ కంప్యూటర్‌లోనే వచనంగా మారుతుంది మరియు ఎక్కడికీ పంపబడదు. ఎటువంటి టెలిమెట్రీ ఉండదు, క్లౌడ్‌తో ఎలాంటి కనెక్షన్ లేదా సంబంధం లేదు.
 
-## ఇంకా
+## మరింత సమాచారం
 
-మిగిలిన పత్రాలు ప్రస్తుతానికి ఇంగ్లీషులో ఉన్నాయి.
+మిగిలిన డాక్యుమెంటేషన్ ప్రస్తుతానికి ఆంగ్లంలో (English) అందుబాటులో ఉంది.
 
-- [పత్రాలు](https://mskazemi.com/yazses/)
-- [పూర్తి ఇంగ్లీష్ README](https://github.com/MSKazemi/yazses#readme)
+- [డాక్యుమెంటేషన్](https://mskazemi.com/yazses/)
+- [పూర్తి ఆంగ్ల README](https://github.com/MSKazemi/yazses#readme)
 - [సమస్యలు మరియు ప్రశ్నలు](https://github.com/MSKazemi/yazses/issues)
 
 ---
@@ -71,20 +65,47 @@ yazses start
     </tr>
     <tr>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/MSKazemi/yazses/commits?author=waterlemonnn"><img src="https://avatars.githubusercontent.com/u/145488564?v=4?s=100" width="100px;" alt="Renji"/><br /><sub><b>Renji</b></sub></a><br /><a href="https://github.com/MSKazemi/yazses/commits?author=waterlemonnn" title="Code">💻</a> <a href="https://github.com/MSKazemi/yazses/commits?author=waterlemonnn" title="Tests">⚠️</a> <a href="https://github.com/MSKazemi/yazses/commits?author=waterlemonnn" title="Documentation">📖</a> <a href="#security-waterlemonnn" title="Security">🛡️</a> <a href="#infra-waterlemonnn" title="Infrastructure (Hosting, Build-Tools, etc)">🚇</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/slegarraga"><img src="https://avatars.githubusercontent.com/u/64795732?v=4?s=100" width="100px;" alt="Sebastian Legarraga"/><br /><sub><b>Sebastian Legarraga</b></sub></a><br /><a href="https://github.com/MSKazemi/yazses/commits?author=slegarraga" title="Code">💻</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/slegarraga"><img src="https://avatars.githubusercontent.com/u/64795732?v=4?s=100" width="100px;" alt="Sebastian Legarraga"/><br /><sub><b>Sebastian Legarraga</b></sub></a><br /><a href="https://github.com/MSKazemi/yazses/commits?author=slegarraga" title="Code">💻</a> <a href="#userTesting-slegarraga" title="User Testing">📓</a> <a href="#platform-slegarraga" title="Packaging/porting to new platform">📦</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/YossiMH"><img src="https://avatars.githubusercontent.com/u/21257793?v=4?s=100" width="100px;" alt="YossiMH"/><br /><sub><b>YossiMH</b></sub></a><br /><a href="#ideas-YossiMH" title="Ideas, Planning, & Feedback">🤔</a> <a href="https://github.com/MSKazemi/yazses/issues?q=author%3AYossiMH" title="Bug reports">🐛</a> <a href="#research-YossiMH" title="Research">🔬</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/Prithvi4904"><img src="https://avatars.githubusercontent.com/u/216231806?v=4?s=100" width="100px;" alt="Prithvi4904"/><br /><sub><b>Prithvi4904</b></sub></a><br /><a href="#translation-Prithvi4904" title="Translation">🌍</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/4nmus"><img src="https://avatars.githubusercontent.com/u/145120721?v=4?s=100" width="100px;" alt="4nmus"/><br /><sub><b>4nmus</b></sub></a><br /><a href="#translation-4nmus" title="Translation">🌍</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/Mr-Neutr0n"><img src="https://avatars.githubusercontent.com/u/64578610?v=4?s=100" width="100px;" alt="hari"/><br /><sub><b>hari</b></sub></a><br /><a href="https://github.com/MSKazemi/yazses/commits?author=Mr-Neutr0n" title="Documentation">📖</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/mercael91"><img src="https://avatars.githubusercontent.com/u/257655913?v=4?s=100" width="100px;" alt="mercael"/><br /><sub><b>mercael</b></sub></a><br /><a href="#infra-mercael91" title="Infrastructure (Hosting, Build-Tools, etc)">🚇</a> <a href="https://github.com/MSKazemi/yazses/commits?author=mercael91" title="Documentation">📖</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/mercael91"><img src="https://avatars.githubusercontent.com/u/257655913?v=4?s=100" width="100px;" alt="mercael"/><br /><sub><b>mercael</b></sub></a><br /><a href="#infra-mercael91" title="Infrastructure (Hosting, Build-Tools, etc)">🚇</a> <a href="https://github.com/MSKazemi/yazses/commits?author=mercael91" title="Documentation">📖</a> <a href="https://github.com/MSKazemi/yazses/commits?author=mercael91" title="Tests">⚠️</a></td>
     </tr>
     <tr>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/happytester-funbugs"><img src="https://avatars.githubusercontent.com/u/184687761?v=4?s=100" width="100px;" alt="Tanya Martin-McClellan"/><br /><sub><b>Tanya Martin-McClellan</b></sub></a><br /><a href="#userTesting-happytester-funbugs" title="User Testing">📓</a> <a href="https://github.com/MSKazemi/yazses/issues?q=author%3Ahappytester-funbugs" title="Bug reports">🐛</a> <a href="#platform-happytester-funbugs" title="Packaging/porting to new platform">📦</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/AtmanActive"><img src="https://avatars.githubusercontent.com/u/7526717?v=4?s=100" width="100px;" alt="AtmanActive"/><br /><sub><b>AtmanActive</b></sub></a><br /><a href="https://github.com/MSKazemi/yazses/issues?q=author%3AAtmanActive" title="Bug reports">🐛</a> <a href="#userTesting-AtmanActive" title="User Testing">📓</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/hoti-code"><img src="https://avatars.githubusercontent.com/u/320443384?v=4?s=100" width="100px;" alt="hoti-code"/><br /><sub><b>hoti-code</b></sub></a><br /><a href="#userTesting-hoti-code" title="User Testing">📓</a> <a href="https://github.com/MSKazemi/yazses/issues?q=author%3Ahoti-code" title="Bug reports">🐛</a> <a href="#platform-hoti-code" title="Packaging/porting to new platform">📦</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/jayavandhiniMK"><img src="https://avatars.githubusercontent.com/u/221181058?v=4?s=100" width="100px;" alt="Jayavandhini M K"/><br /><sub><b>Jayavandhini M K</b></sub></a><br /><a href="https://github.com/MSKazemi/yazses/commits?author=jayavandhiniMK" title="Documentation">📖</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/visheshbpatel"><img src="https://avatars.githubusercontent.com/u/206997413?v=4?s=100" width="100px;" alt="Vishesh Patel"/><br /><sub><b>Vishesh Patel</b></sub></a><br /><a href="https://github.com/MSKazemi/yazses/commits?author=visheshbpatel" title="Documentation">📖</a> <a href="#userTesting-visheshbpatel" title="User Testing">📓</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/fall-water-zxc"><img src="https://avatars.githubusercontent.com/u/210990993?v=4?s=100" width="100px;" alt="fall-water-zxc"/><br /><sub><b>fall-water-zxc</b></sub></a><br /><a href="https://github.com/MSKazemi/yazses/commits?author=fall-water-zxc" title="Documentation">📖</a> <a href="#userTesting-fall-water-zxc" title="User Testing">📓</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/visheshbpatel"><img src="https://avatars.githubusercontent.com/u/206997413?v=4?s=100" width="100px;" alt="Vishesh Patel"/><br /><sub><b>Vishesh Patel</b></sub></a><br /><a href="https://github.com/MSKazemi/yazses/commits?author=visheshbpatel" title="Documentation">📖</a> <a href="#userTesting-visheshbpatel" title="User Testing">📓</a> <a href="https://github.com/MSKazemi/yazses/issues?q=author%3Avisheshbpatel" title="Bug reports">🐛</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/fall-water-zxc"><img src="https://avatars.githubusercontent.com/u/210990993?v=4?s=100" width="100px;" alt="fall-water-zxc"/><br /><sub><b>fall-water-zxc</b></sub></a><br /><a href="https://github.com/MSKazemi/yazses/commits?author=fall-water-zxc" title="Documentation">📖</a> <a href="#userTesting-fall-water-zxc" title="User Testing">📓</a> <a href="https://github.com/MSKazemi/yazses/issues?q=author%3Afall-water-zxc" title="Bug reports">🐛</a> <a href="#platform-fall-water-zxc" title="Packaging/porting to new platform">📦</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/greatlord"><img src="https://avatars.githubusercontent.com/u/2506501?v=4?s=100" width="100px;" alt="Magnus Olsen"/><br /><sub><b>Magnus Olsen</b></sub></a><br /><a href="https://github.com/MSKazemi/yazses/issues?q=author%3Agreatlord" title="Bug reports">🐛</a> <a href="#ideas-greatlord" title="Ideas, Planning, & Feedback">🤔</a></td>
+    </tr>
+    <tr>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/Akgithub2028"><img src="https://avatars.githubusercontent.com/u/181275449?v=4?s=100" width="100px;" alt="Aayaann Kausar"/><br /><sub><b>Aayaann Kausar</b></sub></a><br /><a href="https://github.com/MSKazemi/yazses/commits?author=Akgithub2028" title="Documentation">📖</a> <a href="#userTesting-Akgithub2028" title="User Testing">📓</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/auroraxo"><img src="https://avatars.githubusercontent.com/u/325296939?v=4?s=100" width="100px;" alt="Aurora"/><br /><sub><b>Aurora</b></sub></a><br /><a href="https://github.com/MSKazemi/yazses/commits?author=auroraxo" title="Code">💻</a> <a href="https://github.com/MSKazemi/yazses/commits?author=auroraxo" title="Tests">⚠️</a> <a href="#platform-auroraxo" title="Packaging/porting to new platform">📦</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/YuuGR1337"><img src="https://avatars.githubusercontent.com/u/241930202?v=4?s=100" width="100px;" alt="Elkero"/><br /><sub><b>Elkero</b></sub></a><br /><a href="https://github.com/MSKazemi/yazses/commits?author=YuuGR1337" title="Documentation">📖</a> <a href="#translation-YuuGR1337" title="Translation">🌍</a> <a href="https://github.com/MSKazemi/yazses/issues?q=author%3AYuuGR1337" title="Bug reports">🐛</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/Guruharishb"><img src="https://avatars.githubusercontent.com/u/170197232?v=4?s=100" width="100px;" alt="Guruharishb"/><br /><sub><b>Guruharishb</b></sub></a><br /><a href="#translation-Guruharishb" title="Translation">🌍</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://x.com/WEFramework"><img src="https://avatars.githubusercontent.com/u/248577390?v=4?s=100" width="100px;" alt="DeliberateEnsemble"/><br /><sub><b>DeliberateEnsemble</b></sub></a><br /><a href="https://github.com/MSKazemi/yazses/commits?author=vortsghost2025" title="Code">💻</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/doeil1614-ops"><img src="https://avatars.githubusercontent.com/u/298136347?v=4?s=100" width="100px;" alt="doeil1614-ops"/><br /><sub><b>doeil1614-ops</b></sub></a><br /><a href="#translation-doeil1614-ops" title="Translation">🌍</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/musabustun"><img src="https://avatars.githubusercontent.com/u/59414375?v=4?s=100" width="100px;" alt="Musab Yusuf Üstün"/><br /><sub><b>Musab Yusuf Üstün</b></sub></a><br /><a href="#translation-musabustun" title="Translation">🌍</a></td>
+    </tr>
+    <tr>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/sameer8945"><img src="https://avatars.githubusercontent.com/u/224630461?v=4?s=100" width="100px;" alt="sameer"/><br /><sub><b>sameer</b></sub></a><br /><a href="https://github.com/MSKazemi/yazses/commits?author=sameer8945" title="Documentation">📖</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/HarshRajSinghania"><img src="https://avatars.githubusercontent.com/u/40535627?v=4?s=100" width="100px;" alt="Harsh Raj Singhania"/><br /><sub><b>Harsh Raj Singhania</b></sub></a><br /><a href="https://github.com/MSKazemi/yazses/commits?author=HarshRajSinghania" title="Documentation">📖</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/laurash96"><img src="https://avatars.githubusercontent.com/u/49080366?v=4?s=100" width="100px;" alt="Laura Saldarriaga Higuita"/><br /><sub><b>Laura Saldarriaga Higuita</b></sub></a><br /><a href="#translation-laurash96" title="Translation">🌍</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/Tiyatrotist"><img src="https://avatars.githubusercontent.com/u/179411334?v=4?s=100" width="100px;" alt="Tiyatrotist"/><br /><sub><b>Tiyatrotist</b></sub></a><br /><a href="https://github.com/MSKazemi/yazses/commits?author=Tiyatrotist" title="Documentation">📖</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/AmothissacrajT"><img src="https://avatars.githubusercontent.com/u/202615530?v=4?s=100" width="100px;" alt="Amoth issac raj"/><br /><sub><b>Amoth issac raj</b></sub></a><br /><a href="https://github.com/MSKazemi/yazses/commits?author=AmothissacrajT" title="Documentation">📖</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/Adharsh75r"><img src="https://avatars.githubusercontent.com/u/202615849?v=4?s=100" width="100px;" alt="Adharsh Narayan"/><br /><sub><b>Adharsh Narayan</b></sub></a><br /><a href="https://github.com/MSKazemi/yazses/commits?author=Adharsh75r" title="Documentation">📖</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/LE-VAI"><img src="https://avatars.githubusercontent.com/u/281449961?v=4?s=100" width="100px;" alt="LE-VAI"/><br /><sub><b>LE-VAI</b></sub></a><br /><a href="#ideas-LE-VAI" title="Ideas, Planning, & Feedback">🤔</a> <a href="#research-LE-VAI" title="Research">🔬</a></td>
+    </tr>
+    <tr>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/yangjie-AE"><img src="https://avatars.githubusercontent.com/u/316910424?v=4?s=100" width="100px;" alt="yangjie-AE"/><br /><sub><b>yangjie-AE</b></sub></a><br /><a href="#translation-yangjie-AE" title="Translation">🌍</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/VatsalRaina01"><img src="https://avatars.githubusercontent.com/u/154910553?v=4?s=100" width="100px;" alt="Vatsal Raina"/><br /><sub><b>Vatsal Raina</b></sub></a><br /><a href="#example-VatsalRaina01" title="Examples">💡</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/sahanaekin7-crypto"><img src="https://avatars.githubusercontent.com/u/256977437?v=4?s=100" width="100px;" alt="sahanaekin7-crypto"/><br /><sub><b>sahanaekin7-crypto</b></sub></a><br /><a href="#translation-sahanaekin7-crypto" title="Translation">🌍</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/MarekMnahoncak"><img src="https://avatars.githubusercontent.com/u/195477076?v=4?s=100" width="100px;" alt="MarekMnahoncak"/><br /><sub><b>MarekMnahoncak</b></sub></a><br /><a href="https://github.com/MSKazemi/yazses/commits?author=MarekMnahoncak" title="Code">💻</a> <a href="https://github.com/MSKazemi/yazses/commits?author=MarekMnahoncak" title="Tests">⚠️</a> <a href="#infra-MarekMnahoncak" title="Infrastructure (Hosting, Build-Tools, etc)">🚇</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/mrCabez"><img src="https://avatars.githubusercontent.com/u/110625817?v=4?s=100" width="100px;" alt="mrCabez"/><br /><sub><b>mrCabez</b></sub></a><br /><a href="#translation-mrCabez" title="Translation">🌍</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/shashiharanramvanam-crypto"><img src="https://avatars.githubusercontent.com/u/226146568?v=4?s=100" width="100px;" alt="Vanam Shashi Haran Ram"/><br /><sub><b>Vanam Shashi Haran Ram</b></sub></a><br /><a href="#translation-shashiharanramvanam-crypto" title="Translation">🌍</a></td>
     </tr>
   </tbody>
 </table>

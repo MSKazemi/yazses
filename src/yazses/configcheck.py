@@ -27,6 +27,8 @@ import types
 import typing
 from dataclasses import dataclass
 
+from yazses.facegesture.detector import gesture_names as _gesture_names
+
 __all__ = ["ConfigProblem", "build_section", "coerce_value"]
 
 _TRUE = {"true", "yes", "on", "1"}
@@ -184,6 +186,33 @@ def negative_is_impossible(field) -> bool:
     return default >= 0
 
 
+def out_of_bounds(field, value) -> str | None:
+    """Why ``value`` is outside the bounds the field declares, or None. Pure.
+
+    Bounds live in the dataclass field's ``metadata`` -- ``min_exclusive``, ``min`` and ``max`` -- beside
+    the default they constrain, not in a list here. ``negative_is_impossible`` cannot say "zero is
+    impossible" because for most magnitudes zero is a real value; a field that needs the stricter
+    rule says so itself, and a new such field cannot be forgotten by this module.
+    """
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    meta = field.metadata
+    low = meta.get("min_exclusive")
+    if low is not None and not value > low:
+        return f"must be greater than {low} (got {value})"
+    floor = meta.get("min")
+    if floor is not None and value < floor:
+        return f"is too small (got {value}; the least it can be is {floor})"
+    high = meta.get("max")
+    if high is not None and value > high:
+        return f"is too large (got {value}; the most it can be is {high})"
+    return None
+
+
+#: The face-gesture switch's supported gestures, read from their definition rather
+#: than restated, so this file cannot fall behind it.
+_FACE_GESTURES: tuple[str, ...] = _gesture_names()
+
 #: Settings whose documented values are a closed set, keyed by ``section.key``.
 #:
 #: Type coercion accepts any string for a `str` field, so a typo was stored verbatim,
@@ -248,8 +277,32 @@ def negative_is_impossible(field) -> bool:
 #: nothing in `src/` consumes it, and its comment (`auto | neovim | vscode`) and the
 #: architecture reference (`neovim` | `none`) disagree, so there is no set to enforce.
 #: `tests/test_config_enums_are_complete.py` holds the remainder in view.
+def _injection_backend_values() -> tuple[str, ...]:
+    """Legal `[injection] backend` values, from the backend table itself.
+
+    Imported lazily and defensively: `configcheck` is on the startup path and must
+    never be the reason a daemon fails to load a config. If the registry cannot be
+    imported, fall back to the historical set rather than validating against an
+    empty one, which would reject every value the user has.
+    """
+    try:
+        from yazses.inject.registry import config_values
+
+        return config_values()
+    except Exception:  # pragma: no cover - a broken import must not gate config
+        return ("type", "ydotool", "clipboard", "wtype", "portal", "unicode")
+
+
 _ENUMS: dict[str, tuple[str, ...]] = {
-    "injection.backend": ("auto", "type", "clipboard", "wtype"),
+    "commands.language": ("auto", "en", "zh"),
+    # DERIVED from `inject/registry.BACKENDS`, not hand-written. The hand-written
+    # version is what silently reverted a documented `backend = "ydotool"` to
+    # `auto`: the value existed in the docs and in `get_injector`, and only this
+    # list disagreed. Deriving it means a backend cannot exist and be
+    # un-configurable, and the settings combo -- which reads `enum_values` -- gets
+    # the same set for free.
+    "injection.backend": ("auto", *_injection_backend_values()),
+    "injection.portal_consent": ("ask", "allow", "deny"),
     "injection.target_guard": ("clipboard", "warn", "off"),
     # Held equal to `recimport.render.VALID_FORMATS` by the test -- that constant is the
     # authority, and this is the pair whose consumer raises.
@@ -271,6 +324,12 @@ _ENUMS: dict[str, tuple[str, ...]] = {
     # the documented default here, and `core/daemon.py` warns if it ever sees another
     # value anyway.
     "emg.mode": ("command", "full_text"),
+    # The same pair on the camera activation source. `gesture` is derived from
+    # `facegesture.detector.GESTURES` rather than restated: a hand-written copy of a
+    # set that already exists is the thing that drifts, and the value names a facial
+    # movement the daemon has to be watching for the switch to work at all.
+    "facegesture.mode": ("command", "full_text"),
+    "facegesture.gesture": _FACE_GESTURES,
     # Five more, each read at its consumer first. They share one shape: the value is
     # compared against a single name and *everything else* takes the other branch, so a
     # typo is not rejected, it silently selects the alternative.
@@ -326,6 +385,22 @@ def invalid_regexes(section: str, key: str, value) -> list[str]:
     return bad
 
 
+#: Settings whose value is a spoken stop phrase and must pass `handsfree.stopword.problem`.
+#: A one-word phrase would pause the user's input whenever they dictated that word on its own,
+#: and a guard that false-fires is a guard people turn off (ADR-021); an unusable phrase falls
+#: back to the default, which for this key is OFF, so a bad value can never become a loose one.
+_STOP_PHRASES: frozenset[str] = frozenset({"handsfree_safety.stop_phrase"})
+
+
+def invalid_stop_phrase(section: str, key: str, value) -> str | None:
+    """Why ``value`` is not a usable spoken stop phrase for ``section.key``, or None. Pure."""
+    if f"{section}.{key}" not in _STOP_PHRASES:
+        return None
+    from yazses.handsfree.stopword import problem
+
+    return problem(value)
+
+
 def enum_values(section: str, key: str) -> tuple[str, ...] | None:
     """The closed set of values for ``section.key``, or None if it is not closed.
 
@@ -371,6 +446,8 @@ def build_section(cls, raw, section: str, problems: list[ConfigProblem]):
             and negative_is_impossible(fields[key])
         ):
             ok, note = False, f"cannot be negative (got {coerced})"
+        if ok and (bound := out_of_bounds(fields[key], coerced)):
+            ok, note = False, bound
         if ok and (bad := invalid_regexes(section, key, coerced)):
             problems.append(
                 ConfigProblem(
@@ -380,6 +457,8 @@ def build_section(cls, raw, section: str, problems: list[ConfigProblem]):
                     False,
                 )
             )
+        if ok and (why := invalid_stop_phrase(section, key, coerced)):
+            ok, note = False, why
         allowed = enum_values(section, key)
         if ok and allowed and isinstance(coerced, str):
             if coerced.strip().lower() not in allowed:

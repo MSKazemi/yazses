@@ -40,6 +40,10 @@ class LevelStats:
     duration_s: float
     mean_abs: float          # the metric the VAD actually compares
     peak: float
+    # NOT where the gate belongs: half of this ONE clip's mean, and a clip cannot say
+    # where the room ends and the voice begins (#579: a gate of 0.0220 was exactly
+    # 0.5 x 0.0441, which the same user's own `verify` then rejected). Nothing in
+    # src/ reads it for a decision; use `calibrate(ambient, speech)`.
     recommended_threshold: float
     is_silent: bool          # true if essentially no signal was captured
     # True when the floor won, i.e. `mean_abs * _HEADROOM < _MIN_THRESHOLD`. The

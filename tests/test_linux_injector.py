@@ -16,6 +16,33 @@ class _Boom:
     def inject_backspaces(self, count):
         raise RuntimeError("primary failed")
 
+
+class _SequenceRecorder:
+    def __init__(self):
+        self.sequences = []
+
+    def inject(self, text):
+        pass
+
+    def inject_backspaces(self, count):
+        pass
+
+    def inject_key_sequence(self, keys):
+        self.sequences.append(keys)
+
+
+class _KeySequenceBoom:
+    """A primary that fails only on key sequences — the #544 fallback proof."""
+
+    def inject(self, text):
+        pass
+
+    def inject_backspaces(self, count):
+        pass
+
+    def inject_key_sequence(self, keys):
+        raise RuntimeError("primary failed")
+
 # ---- [injection] fallback_to_clipboard was documented and read by nothing -----
 
 
@@ -86,3 +113,83 @@ def test_the_daemon_bridges_the_setting():
             os.environ.pop("YAZSES_INJECT_FALLBACK", None)
         else:
             os.environ["YAZSES_INJECT_FALLBACK"] = before
+
+
+def test_explicit_primary_receives_key_sequences(monkeypatch):
+    primary = _SequenceRecorder()
+    monkeypatch.setenv("YAZSES_INJECTOR", "unicode")
+    monkeypatch.setenv("WAYLAND_DISPLAY", "wayland-0")
+    monkeypatch.setattr("yazses.platform.linux.injector.get_injector", lambda: primary)
+    monkeypatch.setattr("shutil.which", lambda _: None)
+
+    LinuxInjector(fallback_to_clipboard=False).inject_key_sequence(["ctrl+z"])
+
+    assert primary.sequences == [["ctrl+z"]]
+
+
+def test_explicit_clipboard_selection_also_delegates_key_sequences(monkeypatch):
+    """Pre-#544 this asserted the hand-rolled LinuxInjector dispatch skipped key
+    sequences when YAZSES_INJECTOR=clipboard. #544 deletes that dispatch: the
+    selected backend owns inject_key_sequence itself — ClipboardInjector
+    included, which implements it for ydotool/wtype/xdotool in
+    inject/clipboard.py — so the primary now receives the sequence instead of
+    the wrapper silently swallowing it."""
+    primary = _SequenceRecorder()
+    monkeypatch.setenv("YAZSES_INJECTOR", "clipboard")
+    monkeypatch.setenv("WAYLAND_DISPLAY", "wayland-0")
+    monkeypatch.setattr("yazses.platform.linux.injector.get_injector", lambda: primary)
+    monkeypatch.setattr("shutil.which", lambda _: None)
+
+    LinuxInjector(fallback_to_clipboard=False).inject_key_sequence(["ctrl+z"])
+
+    assert primary.sequences == [["ctrl+z"]]
+
+
+def test_key_sequence_failure_falls_back_to_clipboard(monkeypatch):
+    """#544: a key-sequence failure must degrade to the clipboard fallback the
+    same way dictation does. The hand-rolled dispatch had no fallback path at
+    all — a ydotool/wtype/xdotool failure propagated uncaught."""
+    received = []
+
+    class _ClipboardSpy:
+        def inject(self, text):
+            pass
+
+        def inject_backspaces(self, count):
+            pass
+
+        def inject_key_sequence(self, keys):
+            received.append(keys)
+
+    monkeypatch.setattr(
+        "yazses.platform.linux.injector.get_injector", _KeySequenceBoom
+    )
+    monkeypatch.setattr("yazses.platform.linux.injector.ClipboardInjector", _ClipboardSpy)
+    monkeypatch.delenv("YAZSES_INJECT_FALLBACK", raising=False)
+
+    LinuxInjector().inject_key_sequence(["ctrl+z"])
+
+    assert received == [["ctrl+z"]]
+
+
+def test_key_sequence_failure_without_fallback_raises(monkeypatch):
+    """With the fallback turned off — the loud-failure remedy this class exists
+    to honour — a key-sequence failure must surface, not silently vanish."""
+    monkeypatch.setattr(
+        "yazses.platform.linux.injector.get_injector", _KeySequenceBoom
+    )
+
+    off = LinuxInjector(fallback_to_clipboard=False)
+
+    with pytest.raises(RuntimeError):
+        off.inject_key_sequence(["ctrl+z"])
+
+
+def test_an_empty_key_sequence_still_does_nothing(monkeypatch):
+    """The empty-sequence guard predates #544 and must survive delegation."""
+    primary = _SequenceRecorder()
+    monkeypatch.setattr("yazses.platform.linux.injector.get_injector", lambda: primary)
+
+    LinuxInjector(fallback_to_clipboard=False).inject_key_sequence([])
+
+    assert primary.sequences == []

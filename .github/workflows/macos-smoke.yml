@@ -27,6 +27,12 @@ on:
       - 'scripts/build-macos.sh'
   workflow_dispatch:
 
+# A new PR head makes the previous build obsolete. Tag pushes and manual runs use
+# a unique run ID so release/manual evidence is never collapsed by PR optimization.
+concurrency:
+  group: macos-smoke-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
@@ -36,7 +42,7 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
 
       - name: Install create-dmg
         # `build-macos.sh` exits 1 without it, and the GitHub macOS image does not

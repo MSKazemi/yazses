@@ -9,6 +9,7 @@ from yazses.settingsui.controller import (
     SettingsController,
     defaults_diff,
 )
+from yazses.system.features import unwired_slugs
 
 
 class _Recorder:
@@ -60,7 +61,9 @@ def test_string_setting_writes_quoted_values():
     assert rec.writes == [("injection", "target_guard", "off", True)]
 
 
-@pytest.mark.parametrize("slug", ["not-a-real-feature", "dictation", "reask"])
+@pytest.mark.parametrize(
+    "slug", ["not-a-real-feature", "dictation", sorted(unwired_slugs())[0]]
+)
 def test_unknown_core_and_unwired_slugs_error_without_writing(slug):
     """Unknown, core (no writes) and designed-but-unwired rows all refuse."""
     rec = _Recorder()

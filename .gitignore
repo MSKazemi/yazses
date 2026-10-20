@@ -62,14 +62,16 @@ Thumbs.db
 
 # AI / assistant tooling
 .claude/
-CLAUDE.md
+.gemini/
+CLAUDE.local.md
+# Root CLAUDE.md and GEMINI.md are intentionally tracked public adapters that
+# import AGENTS.md. Keep personal/private assistant configuration in the ignored
+# local directories/files above or in the tool's user-level configuration.
 # Maintainer's personal inbox/backlog for this project (single entry point for
 # ideas + tasks, driven by .claude/skills/note). Never published.
 .note
 .note.*
-GEMINI.md
-# AGENTS.md is deliberately NOT ignored: unlike CLAUDE.md it holds no private
-# config, it is the public agents.md contributor standard that coding agents read.
+# AGENTS.md is the canonical public contributor instruction file.
 .superpowers/
 .playwright-mcp/
 .mcp.json

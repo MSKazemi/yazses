@@ -10,7 +10,15 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
+
+from yazses.cameraperm.contract import CameraPermission
+from yazses.pointer.base import PointerSink
+
+if TYPE_CHECKING:
+    # Type-only: importing it at module level made every CLI start load the whole `gaze`
+    # package (and, through it, `statistics`/`decimal`/`fractions`) for the sake of an annotation.
+    from yazses.gaze.clicks import ClickObserver
 
 #: The value each bundle puts in `Platform.name`. These are `sys.platform`
 #: strings, not friendly words, and anything that branches on `Platform.name`
@@ -242,6 +250,33 @@ class PermissionsBackend(Protocol):
         to Accessibility for a microphone problem is sent to the wrong place.
         """
 
+    def check_camera(self) -> CameraPermission:
+        """The camera, for the gaze / face-switch / head-pointer features.
+
+        A fourth grant and a fifth state, and neither is a copy of the microphone
+        row. :class:`~yazses.cameraperm.contract.CameraPermission` splits apart
+        three things `PermissionState` folds into ``UNKNOWN`` -- "the OS has not
+        been asked yet", "there is no camera device", and "this probe could not
+        answer" -- because the camera features are opt-in and experimental, so a
+        user who turns one on and gets nothing needs to know *which* of those
+        three happened before they can do anything about it.
+
+        **An implementation that cannot determine the state returns
+        ``NOT_DETERMINED``, never ``GRANTED``.** Camera access is the one grant
+        where an optimistic default is indistinguishable from a working feature
+        right up until the device is opened, and by then the caller has usually
+        already told the user it is on.
+        """
+
+    def how_to_grant_camera(self) -> str:
+        """How to grant, or why there is nothing to grant, on this OS.
+
+        A separate remedy for the same reason ``how_to_grant_microphone`` is one:
+        macOS gates the camera behind its own TCC service and its own pane,
+        Windows behind its own privacy page, and Linux behind no per-app gate at
+        all -- so one shared sentence would be wrong on at least two of the three.
+        """
+
 
 @runtime_checkable
 class TrayBackend(Protocol):
@@ -263,6 +298,43 @@ class TrayBackend(Protocol):
         """
 
 
+@dataclass(frozen=True)
+class HostInfo:
+    """What a caller outside the platform layer may know about the OS it is running on.
+
+    Facts, not behaviour: the point is that modules which only need to *describe* the host
+    (the eye-control provenance collector, the camera packaging detector) do not read
+    ``sys.platform`` themselves -- that is the branch AGENTS.md rule 6 keeps behind this
+    layer. Every field is something an OS backend answers differently, and every one is safe
+    to print: none identifies a person or a machine (no hostname, no user, no serial).
+    """
+
+    #: The OS's ``sys.platform`` string ("linux", "darwin", "win32", "freebsd14", ...), i.e.
+    #: the same vocabulary as ``Platform.name`` and the ``*_PLATFORM_NAME`` constants above.
+    platform_name: str
+    #: A distribution/OS name and version, split so a table can group hosts by name.
+    os_name: str
+    os_version: str
+    #: Installed RAM in GB, or ``None`` where this OS will not say. Never ``0.0``: a machine
+    #: with no RAM does not exist, so a zero could only be a failed measurement.
+    ram_gb: float | None = None
+    #: A desktop-session bucket when the *OS itself* fixes it ("windows", "macos"), else
+    #: ``None`` because it depends on the environment (X11 vs Wayland on Linux).
+    fixed_session_type: str | None = None
+    #: True when the running executable carries an MSIX package identity. Windows only.
+    msix_packaged: bool = False
+
+
+@runtime_checkable
+class HostBackend(Protocol):
+    """Describes the machine this process runs on. One implementation per OS family."""
+
+    def describe(self) -> HostInfo:
+        """Read the host now. May touch ``/etc``, ``/proc`` or the Win32 API; never the
+        network, a subprocess, a camera or a microphone, and never an identifier."""
+        ...
+
+
 HotkeyFactory = Callable[[str, int, Callable[[int], None], Callable[[], None]], HotkeyBackend]
 """Args: key_id, threshold_ms, on_hold_start(leaked_count), on_hold_end."""
 
@@ -270,6 +342,26 @@ InjectorFactory = Callable[[], InjectorBackend]
 IpcServerFactory = Callable[[Path], IpcServer]
 IpcClientFactory = Callable[[Path], IpcClient]
 TrayFactory = Callable[[], TrayBackend]
+
+PointerSinkFactory = Callable[[], PointerSink]
+"""Builds this platform's pointer output — ADR-v2-146, `design/specs/eye-pointer-output.md`.
+
+A factory rather than an instance, and optional, for two reasons. Pointer permission is
+requested only when a pointer consumer is enabled, so nothing may be constructed while
+`get_platform()` merely runs; and not every platform has a backend yet, so `None` here is
+the honest answer for one that does not rather than a sink that accepts everything and
+moves nothing.
+"""
+
+
+ClickObserverFactory = Callable[[], "ClickObserver"]
+"""Builds this platform's desktop click observer for implicit gaze calibration (#397).
+
+A factory, and optional, for the pointer's reasons: a click hook is an input-monitoring
+permission, so nothing may be constructed while `get_platform()` merely runs, and no
+platform ships one yet. `None` is the honest answer for "not here" -- the daemon says so
+and implicit refinement stays dormant, rather than a no-op observer that never delivers a click.
+"""
 
 
 @dataclass(frozen=True)
@@ -287,4 +379,11 @@ class Platform:
     ipc_client_factory: IpcClientFactory
     tray_factory: TrayFactory | None = None
     tray_default_enabled: bool = False
+    # None where this OS has no pointer backend yet. A consumer must check, not assume:
+    # ADR-v2-146 would rather a feature say "no pointer output here" than hand a user a
+    # cursor that never moves.
+    pointer_factory: PointerSinkFactory | None = None
+    # None everywhere today: no OS backend observes clicks yet (#397 shipped the seam and
+    # the CI fake; a real backend needs a real desktop to verify against).
+    click_observer_factory: ClickObserverFactory | None = None
     extras: dict[str, Any] = field(default_factory=dict)

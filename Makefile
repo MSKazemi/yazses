@@ -16,7 +16,7 @@ LOG_FILE := $(HOME)/.local/state/yazses/log/daemon.log
 # `campaign` and `hygiene` must be listed: `campaign/` is also a directory, so without
 # this make sees an up-to-date file target and silently does nothing.
 .PHONY: all install check test lint lint-fix types docs docs-serve man inbox \
-        feature-sizes research-watch adr-index icons tray-states \
+        feature-sizes research-watch adr-index icons store-art tray-states store-check \
         start stop restart status logs doctor overlay build clean help \
         hygiene campaign campaign-generate campaign-stats campaign-queue campaign-validate
 
@@ -47,11 +47,11 @@ test-cov:
 
 lint:
 	@echo "▶  Linting…"
-	uv run ruff check src tests scripts
+	uv run ruff check src tests scripts paper/benchmark
 
 lint-fix:
 	@echo "▶  Linting (auto-fix)…"
-	uv run ruff check src tests scripts --fix
+	uv run ruff check src tests scripts paper/benchmark --fix
 
 hygiene:
 	@echo "▶  Checking repo hygiene (file sizes)…"
@@ -98,6 +98,8 @@ docs:
 	uv run python scripts/gen-arch-figures.py
 	@echo "▶  Regenerating man/yazses.1…"
 	uv run python scripts/gen-man.py
+	@echo "▶  Regenerating the eye validation coverage dashboard…"
+	uv run python scripts/gen-eye-validation-dashboard.py
 
 docs-serve:
 	@echo "▶  Serving the docs site at http://127.0.0.1:8000 …"
@@ -108,6 +110,19 @@ docs-serve:
 man:
 	@echo "▶  Regenerating man/yazses.1…"
 	uv run python scripts/gen-man.py
+
+# Diff the LIVE Snap Store page against snap/snapcraft.yaml. Needs no credentials
+# (the store's read API is public) and is deliberately not part of any gate that
+# must pass offline: an unreachable store exits 2, never 0.
+#
+# It exists because the published listing drifted from the manifest for a month
+# across three releases and nothing could see it — nothing in this repository
+# reads the page, and no workflow, script or target has ever run
+# `snapcraft upload-metadata`. On 2026-09-13 the page still told every visitor to
+# run `yazses setup`, which strict confinement forbids.
+store-check:
+	@echo "▶  Diffing the live Snap Store listing against snapcraft.yaml…"
+	uv run python scripts/check-store-listing.py
 
 # Per-feature download sizes for `yazses features` (ADR-018). Slow — it resolves every
 # feature's full dependency closure against a clean environment and prices each
@@ -127,6 +142,25 @@ feature-sizes:
 icons:
 	@echo "▶  Redrawing every shipped icon from the brand mark…"
 	uv run python scripts/gen-icons.py
+
+# Redraw the Microsoft Store listing artwork (1:1 box art, 2:3 poster) from the same
+# brand mark. It is here for the same reason `icons` is: the box art was produced by a
+# cairosvg snippet pasted into packaging/store/README.md, so when the mark was corrected
+# the listing kept the retired logo for a month. `--check` reports drift without writing;
+# a test fails on it.
+store-art:
+	@echo "▶  Redrawing the Microsoft Store artwork from the brand mark…"
+	uv run python scripts/gen-store-art.py
+
+# Build the Store MSIX. Windows-only (needs makeappx.exe from the Windows SDK).
+# IDENTITY_NAME / PUBLISHER / PUBLISHER_DISPLAY_NAME come from Partner Center and cannot
+# be guessed; build-msix.ps1 aborts rather than shipping a placeholder identity.
+msix:
+	@echo "▶  Packaging YazSes as MSIX for the Microsoft Store…"
+	pwsh ./scripts/build-msix.ps1 -Version "$(VERSION)" \
+		-IdentityName "$(IDENTITY_NAME)" \
+		-Publisher "$(PUBLISHER)" \
+		-PublisherDisplayName "$(PUBLISHER_DISPLAY_NAME)"
 
 # Re-render the five tray-badge states shown in docs/tray-and-overlay.md. Derived from
 # `icon_spec` + the shared brand renderer, never hand-drawn, so the page cannot end up
@@ -226,11 +260,13 @@ help:
 	@echo "    make man         regenerate man/yazses.1 from the CLI"
 	@echo "    make adr-index   regenerate design/adr/README.md from the ADR files"
 	@echo "    make icons       redraw every shipped icon from the brand mark"
+	@echo "    make store-art   redraw the Microsoft Store listing artwork from the mark"
 	@echo "    make tray-states redraw the tray badge states shown in the docs"
 	@echo ""
 	@echo "  Maintainer"
 	@echo "    make inbox       open threads waiting on YOUR reply (ARGS=--all for bots)"
 	@echo "    make feature-sizes  reprice every feature's dependency closure (slow)"
+	@echo "    make store-check     diff the live Snap Store page against snapcraft.yaml"
 	@echo "    make research-watch sweep arXiv into a dated digest under design/research/"
 	@echo ""
 	@echo "  Daemon"

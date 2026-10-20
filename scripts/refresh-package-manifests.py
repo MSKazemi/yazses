@@ -28,6 +28,7 @@ Deliberately stdlib-only -- no requests, no PyYAML -- so it runs under a bare
 from __future__ import annotations
 
 import argparse
+import datetime
 import hashlib
 import json
 import re
@@ -54,11 +55,26 @@ SRCINFO = ROOT / "packaging" / "arch" / ".SRCINFO"
 # at the previous release after every tag: the nuspec packed a nupkg filename that
 # did not exist, and Flathub advertised the wrong release notes.
 NUSPEC = ROOT / "packaging" / "chocolatey" / "yazses.nuspec"
+#: What the tag actually published, recorded so an offline test can read it.
+#: `docs/platform-support.md` tells people whether a desktop bundle exists, and the
+#: only honest answer to that is the release's own asset list -- which the test suite
+#: cannot go and ask, because nothing in it may touch the network. So the answer is
+#: written down here at the one moment it is known for certain, by the same run that
+#: refreshes every other manifest from the same assets, and
+#: `tests/test_platform_support_claims.py` compares the page against it.
+RELEASED_ASSETS = ROOT / "packaging" / "released-assets.json"
 #: The release page a manifest points a reader at. One spelling, so a manifest that
 #: gains a notes link cannot invent a second form of the same URL.
 RELEASE_TAG_URL = "https://github.com/MSKazemi/yazses/releases/tag/v{version}"
 CHOCO_INSTALL = ROOT / "packaging" / "chocolatey" / "tools" / "chocolateyinstall.ps1"
 METAINFO = ROOT / "packaging" / "flatpak" / "com.mskazemi.YazSes.metainfo.xml"
+# The COPR spec was refreshed by nobody at all. A contributor fixed it by hand once, at
+# 2.36.0, and it was four releases behind again by 2.40.0 -- the same drift, returning
+# because the hand-fix left nothing that would do it next time.
+SPEC = ROOT / "packaging" / "fedora" / "yazses.spec"
+#: Who a %changelog entry is attributed to. rpm parses the name-and-email field, and
+#: this package has exactly one maintainer.
+MAINTAINER = "Mohsen Seyedkazemi Ardebili <mohsen.seyedkazemi@gmail.com>"
 LOCALE_NAME = "MSKazemi.YazSes.locale.en-US.yaml"
 
 # Inno Setup registers itself as "<AppId>_is1"; the AppId is fixed in
@@ -225,7 +241,16 @@ def _version_key(name: str) -> tuple:
 
 
 def render_nuspec(version: str, previous: str) -> str:
-    """Rewrite the declared version **and** the release-notes link.
+    """Rewrite the declared version, the release-notes link **and** the icon URL.
+
+    Three URLs a release must move, not two. The `<iconUrl>` is pinned to a tag
+    (`…/gh/MSKazemi/yazses@vX.Y.Z/snap/gui/yazses.png`) because Chocolatey's
+    moderators rejected an unpinned one, and it was added *after* this function was
+    written -- so every release since has silently left it at the previous tag and
+    needed a hand-fix afterwards (`fix(chocolatey): re-pin nuspec iconUrl to the
+    version it declares`). A manifest that names a version it is not is exactly what
+    `tests/test_packaging_manifest_versions.py` fails the build over, and the fix
+    belongs in the generator rather than in a commit someone has to remember.
 
     Only `<version>` was rewritten, so `<releaseNotes>` stayed at whatever release it
     was last edited by hand — v2.19.0 by the time v2.29.0 shipped, ten versions of
@@ -241,9 +266,17 @@ def render_nuspec(version: str, previous: str) -> str:
     out = re.sub(
         r"(?s)(<version>).*?(</version>)", rf"\g<1>{version}\g<2>", previous, count=1
     )
-    return re.sub(
+    out = re.sub(
         r"(?s)(<releaseNotes>).*?(</releaseNotes>)",
         rf"\g<1>{RELEASE_TAG_URL.format(version=version)}\g<2>",
+        out,
+        count=1,
+    )
+    # Only the `@vX.Y.Z` tag segment moves; the host and path are left exactly as
+    # they are, so a future change of CDN or icon path is not silently reverted here.
+    return re.sub(
+        r"(?s)(<iconUrl>.*?@v)\d+\.\d+\.\d+(.*?</iconUrl>)",
+        rf"\g<1>{version}\g<2>",
         out,
         count=1,
     )
@@ -267,6 +300,45 @@ def render_metainfo(version: str, release_date: str, previous: str) -> str:
         return previous
     entry = f'    <release version="{version}" date="{release_date}"/>\n'
     return previous.replace("<releases>\n", f"<releases>\n{entry}", 1)
+
+
+def render_spec(version: str, release_date: str, previous: str) -> str:
+    """Move the RPM spec to this release, and give it the %changelog entry rpm expects.
+
+    `Version:` is not decoration here: `%autosetup -n yazses-%{version}` and
+    `%{pypi_source yazses}` both expand from it, so a stale spec does not fail -- it
+    cheerfully builds the *old* release and publishes it as COPR's current package.
+
+    The %changelog entry is generated rather than left to a human for the reason the
+    rest of this script exists: a step someone has to remember after a tag is a step
+    that gets skipped, and rpm only warns about a version with no entry. The date comes
+    from the release, which also fixes the weekday -- both entries written by hand had a
+    weekday that did not match their date, which `rpmbuild` reports as "bogus date in
+    %changelog" (see tests/test_rpm_changelog_dates.py).
+
+    Idempotent, and deliberately so: once this version has an entry the body is left
+    exactly as it is, so a hand-written note survives, and `--check` stays a fixed point
+    instead of demanding a rewrite of prose it did not produce.
+    """
+    out = re.sub(r"(?m)^(Version:\s+).*$", rf"\g<1>{version}", previous, count=1)
+    if re.search(rf"(?m)^\*.* - {re.escape(version)}-\d+\s*$", out):
+        return out
+    # A new upstream version restarts the package release number.
+    out = re.sub(r"(?m)^(Release:\s+)\S+$", r"\g<1>1%{?dist}", out, count=1)
+    try:
+        stamp = datetime.date.fromisoformat(release_date).strftime("%a %b %d %Y")
+    except ValueError:
+        raise SystemExit(
+            f"cannot date a %changelog entry from release date {release_date!r}; "
+            "refusing to write one with a made-up weekday"
+        ) from None
+    if "%changelog\n" not in out:
+        raise SystemExit(f"{SPEC.name} has no %changelog section to add an entry to")
+    entry = (
+        f"* {stamp} {MAINTAINER} - {version}-1\n"
+        f"- Update to {version}. Release notes: {RELEASE_TAG_URL.format(version=version)}\n"
+    )
+    return out.replace("%changelog\n", f"%changelog\n{entry}", 1)
 
 
 def pypi_sdist_sha256(version: str) -> str:
@@ -324,6 +396,25 @@ def render_scoop(version: str, exe: Asset, arm: Asset | None, previous: str) -> 
             },
         }
     return json.dumps(data, indent=4) + "\n"
+
+
+def render_released_assets(version: str, release_date: str, names: list[str]) -> str:
+    """Record every file this release attached to its tag.
+
+    Everything, not a filtered subset. A filter here would be this script deciding
+    which absences are allowed to stay invisible, which is the exact failure the
+    desktop-bundle rows on `docs/platform-support.md` already shipped twice: an
+    advisory build leg fails, the workflow still reports success, and the page goes
+    on describing a file nobody can download. The reader of this file gets the raw
+    fact and does its own asking.
+    """
+    return (
+        json.dumps(
+            {"version": version, "published": release_date, "assets": sorted(names)},
+            indent=4,
+        )
+        + "\n"
+    )
 
 
 def render_pkgbuild(version: str, sdist_sha: str, previous: str) -> str:
@@ -408,6 +499,8 @@ def main(argv: list[str] | None = None) -> int:
         METAINFO: render_metainfo(
             version, release_date, METAINFO.read_text(encoding="utf-8")
         ),
+        SPEC: render_spec(version, release_date, SPEC.read_text(encoding="utf-8")),
+        RELEASED_ASSETS: render_released_assets(version, release_date, list(assets)),
     }
 
     # The defaultLocale manifest is prose, so it is carried forward rather than

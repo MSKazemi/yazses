@@ -41,3 +41,21 @@ yazses_audio_env() {
   export ALSA_CONFIG_PATH="$SNAP/etc/asound.conf"
   export ALSA_PLUGIN_DIR="$SNAP/usr/lib/$YAZSES_TRIPLET/alsa-lib"
 }
+
+# Desktop-portal environment for the apps that inject keystrokes (yazses,
+# yazses-daemon).
+#
+# Wayland injection goes through xdg-desktop-portal's RemoteDesktop API over the
+# *session* bus, and the session bus socket is reached exactly the way the pulse
+# socket above is not: snap-confine gives the snap a private XDG_RUNTIME_DIR
+# (/run/user/<uid>/snap.yazses), which contains no `bus`. A D-Bus client that
+# falls back to "$XDG_RUNTIME_DIR/bus" -- which is what every client does when
+# DBUS_SESSION_BUS_ADDRESS is unset -- therefore looks in the one directory the
+# socket is guaranteed not to be in, and Wayland injection fails with "no bus"
+# on a machine whose bus is running perfectly.
+#
+# The host socket at /run/user/<uid>/bus is readable under the `desktop`
+# interface, which every app here already plugs.
+yazses_desktop_env() {
+  export DBUS_SESSION_BUS_ADDRESS="${DBUS_SESSION_BUS_ADDRESS:-unix:path=/run/user/$(id -u)/bus}"
+}

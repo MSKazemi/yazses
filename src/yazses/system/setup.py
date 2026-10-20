@@ -21,6 +21,7 @@ import ctypes.util
 import os
 import shutil
 import subprocess
+import tempfile
 
 # NOTE: `grp` and `pwd` are Unix-only; imported lazily inside the functions that
 # use them so this module (and `yazses setup`) stays importable on Windows.
@@ -38,8 +39,29 @@ APT_PACKAGES = [
     "xclip",          # X11 clipboard fallback
     "wtype",          # Wayland (wlroots) text injection
     "ydotool",        # Wayland (any compositor) injection via /dev/uinput
+    # The DAEMON, a separate package on Debian/Ubuntu. Its absence is why the
+    # ydotoold service this module writes could never start: `ydotool` ships only
+    # /usr/bin/ydotool, so the unit pointed at a binary nothing had installed, the
+    # socket never appeared, and `auto` fell through to the RemoteDesktop portal --
+    # which on GNOME lights a screen-sharing indicator for the daemon's whole life.
+    # Verified on Ubuntu 24.04: `dpkg -L ydotool` lists one binary, and
+    # `apt-cache search ydotool` lists `ydotoold` as its own package.
+    "ydotoold",       # Wayland injection daemon — owns /dev/uinput
     "wl-clipboard",   # Wayland clipboard fallback (wl-copy)
 ]
+
+# `input`-group membership is necessary and NOT sufficient: /dev/uinput ships
+# `0600 root:root`, so a group nobody grants buys nothing. Without this rule the
+# user-level ydotoold cannot open the device even as a member of `input`, which is
+# the second half of why the ydotool path never worked on a stock Ubuntu.
+# `static_node=uinput` applies the mode even when the module is auto-loaded rather
+# than hot-plugged, which is the usual case here.
+UDEV_RULE_PATH = "/etc/udev/rules.d/60-yazses-uinput.rules"
+UINPUT_UDEV_RULE = """\
+# Installed by `yazses setup`. Lets the `input` group open /dev/uinput so the
+# user's ydotoold can inject keystrokes on Wayland without running as root.
+KERNEL=="uinput", GROUP="input", MODE="0660", OPTIONS+="static_node=uinput"
+"""
 
 # Shipped at contrib/ydotoold.service too — kept in sync.
 YDOTOOLD_SERVICE = """\
@@ -52,8 +74,13 @@ After=graphical-session.target
 [Service]
 Type=simple
 # Socket at the path ydotool's client looks for by default, owned by the calling
-# user so yazses (same user) can connect. /dev/uinput access comes from the
-# user's membership in the `input` group.
+# user so yazses (same user) can connect. On GNOME/KDE Wayland this is the only
+# way to inject keystrokes (Mutter/KWin block wtype's virtual-keyboard protocol).
+#
+# /dev/uinput access needs BOTH `input`-group membership and the udev rule that
+# `yazses setup` installs at /etc/udev/rules.d/60-yazses-uinput.rules -- the node
+# ships 0600 root:root, so the group alone grants nothing. Both apply only to a
+# new login session.
 ExecStart=/usr/bin/ydotoold --socket-path=%t/.ydotool_socket --socket-own=%U:%G
 Restart=always
 RestartSec=2
@@ -70,6 +97,10 @@ class SetupPlan:
     apt_packages: list[str] = field(default_factory=list)
     add_to_input_group: bool = False
     setup_ydotoold: bool = False
+    #: Write the /dev/uinput udev rule. Separate from `setup_ydotoold` because the
+    #: service and the device permission fail independently, and a plan that could
+    #: only report them together would hide whichever half was already done.
+    install_udev_rule: bool = False
     session: str = "unknown"  # "x11" | "wayland" | "headless"
     notes: list[str] = field(default_factory=list)
     # True inside a strictly confined snap, where every lever below belongs to
@@ -80,7 +111,12 @@ class SetupPlan:
 
     @property
     def is_noop(self) -> bool:
-        return not (self.apt_packages or self.add_to_input_group or self.setup_ydotoold)
+        return not (
+            self.apt_packages
+            or self.add_to_input_group
+            or self.setup_ydotoold
+            or self.install_udev_rule
+        )
 
 
 def _portaudio_present() -> bool:
@@ -104,6 +140,20 @@ def _user_in_input_group(user: str) -> bool:
         return False
 
 
+def _read_udev_rule(path: str = UDEV_RULE_PATH) -> str | None:
+    """The installed udev rule's text, or None when it is absent/unreadable.
+
+    None rather than "" so "not installed" and "installed but empty" stay distinct;
+    an unreadable path answers None too, which plans a write — rewriting a rule we
+    could not read is harmless and idempotent, while skipping it is not.
+    """
+    try:
+        with open(path, encoding="utf-8") as handle:
+            return handle.read()
+    except OSError:
+        return None
+
+
 def detect_session(env: Mapping[str, str] | None = None) -> str:
     env = os.environ if env is None else env
     if env.get("WAYLAND_DISPLAY"):
@@ -120,6 +170,7 @@ def build_plan(
     portaudio_present=_portaudio_present,
     user: str | None = None,
     user_in_input_group=_user_in_input_group,
+    read_udev_rule=_read_udev_rule,
 ) -> SetupPlan:
     """Compute the provisioning plan for the current machine (pure / testable)."""
     env = os.environ if env is None else env
@@ -181,6 +232,15 @@ def build_plan(
     #    the ONLY option on GNOME/KDE Wayland (wtype is blocked there).
     if plan.session == "wayland":
         plan.setup_ydotoold = True
+        # 4. …and the device permission that daemon needs. Planned whenever the
+        #    rule is absent or has drifted from what we ship, so a hand-edited or
+        #    superseded copy is repaired rather than trusted.
+        if read_udev_rule() != UINPUT_UDEV_RULE:
+            plan.install_udev_rule = True
+            plan.notes.append(
+                "The /dev/uinput udev rule takes effect after you log out and back "
+                "in — until then ydotoold still cannot open the device."
+            )
 
     return plan
 
@@ -334,6 +394,7 @@ def preflight_hints(
     *,
     plan: SetupPlan | None = None,
     pending_relogin=None,
+    ydotool_ready=None,
 ) -> list[str]:
     """Actionable one-line warnings about unmet runtime prerequisites.
 
@@ -347,6 +408,30 @@ def preflight_hints(
     plan = build_plan(env) if plan is None else plan
     pending = input_group_pending_relogin() if pending_relogin is None else pending_relogin
     hints: list[str] = []
+
+    # `plan.setup_ydotoold` is not a deficiency -- it is "`yazses setup` will write the
+    # unit", and on Wayland that is unconditionally true because writing it is idempotent.
+    # Reading it as "ydotoold is missing" made this warning fire on EVERY `yazses start`
+    # of a fully provisioned Wayland machine, with no way to ever clear it: running the
+    # very command it recommends changed nothing it looked at. Measured on a machine with
+    # ydotoold installed, its user unit enabled+active and accepting clients, the udev
+    # rule byte-identical to the shipped one, and `input` membership in effect -- the
+    # daemon chose YdotoolInjector and the warning still claimed the portal would be used.
+    # A guard that cannot stop firing is ADR-021's dismissed guard (rule 9).
+    #
+    # Ask the ONE readiness function `doctor` and `get_injector` already share, so the
+    # warning cannot name a backend different from the one the daemon will pick.
+    if ydotool_ready is None:
+        try:
+            from yazses.inject.auto import ydotool_ready as _ready
+        except Exception:  # pragma: no cover - a diagnostic must never block startup
+            def _ready() -> bool:
+                return False
+        ydotool_ready = _ready
+    try:
+        ydotoold_unmet = plan.setup_ydotoold and not ydotool_ready()
+    except Exception:  # pragma: no cover - same rule: never block startup
+        ydotoold_unmet = plan.setup_ydotoold
 
     # Snap-only: both interfaces must be connected once after install. Neither is
     # auto-connected, and between them they cover the two ways a fresh snap
@@ -362,18 +447,29 @@ def preflight_hints(
             "  Grant it once:  sudo snap connect yazses:raw-input"
         )
 
-    if plan.apt_packages or plan.add_to_input_group or plan.setup_ydotoold:
+    if plan.apt_packages or plan.add_to_input_group or ydotoold_unmet:
         missing = []
         if plan.apt_packages:
             missing.append(f"packages ({', '.join(plan.apt_packages)})")
         if plan.add_to_input_group:
             missing.append("`input` group membership")
-        if plan.setup_ydotoold:
+        if ydotoold_unmet:
             missing.append("ydotoold (Wayland injection)")
-        hints.append(
-            "Missing prerequisites: " + "; ".join(missing) + ".\n"
-            "  Fix everything in one step:  yazses setup"
-        )
+        head = "Missing prerequisites: " + "; ".join(missing) + "."
+        # The command sits on its own line: `_echo_action_hint` highlights only lines
+        # that start with `yazses `, so an inline command was never picked out.
+        hint = head + "\n    yazses setup\n  Then log out and back in."
+        if ydotoold_unmet:
+            # Without ydotoold the daemon falls through to the RemoteDesktop
+            # portal, whose dialog the desktop titles "Remote Desktop" and
+            # confirms with "Share". Naming the consequence here is what stops
+            # that arriving unexplained, kept short so it does not bury the command.
+            hint += (
+                '\n  Skip it and your desktop will show a "Remote Desktop" prompt instead.'
+                "\n  That prompt is YazSes asking for the keyboard only: no screen capture,"
+                "\n  nothing sent anywhere."
+            )
+        hints.append(hint)
     elif pending:
         # Fully provisioned, but this session predates the group change: the
         # daemon will start yet the hotkey won't fire until a real re-login.
@@ -568,6 +664,58 @@ def apply_plan(
         ):
             ok = False
             echo("  warning: could not join the `input` group.")
+
+    if plan.install_udev_rule:
+        # Staged through a temp file the user can already write, then copied with
+        # sudo. The alternative -- `sudo sh -c 'echo ... > /etc/...'` -- would put
+        # our rule text through a shell, and this module has never used shell=True.
+        echo(f"Installing the /dev/uinput udev rule: {UDEV_RULE_PATH}")
+        manual = (
+            "Install it yourself:  sudo tee " + UDEV_RULE_PATH + " <<'EOF'\n"
+            + UINPUT_UDEV_RULE
+            + "EOF"
+        )
+        try:
+            with tempfile.NamedTemporaryFile(
+                "w", suffix=".rules", delete=False, encoding="utf-8"
+            ) as handle:
+                handle.write(UINPUT_UDEV_RULE)
+                staged = handle.name
+        except OSError as exc:
+            ok = False
+            echo(f"  warning: could not stage the udev rule — {exc}.")
+            echo(f"  {manual}")
+        else:
+            try:
+                if not run(["sudo", "cp", staged, UDEV_RULE_PATH], why=manual):
+                    ok = False
+                    echo("  warning: could not install the udev rule.")
+                else:
+                    run(["sudo", "chmod", "0644", UDEV_RULE_PATH], why=manual)
+                    # Reload + trigger so it applies to the live /dev/uinput rather
+                    # than only after the next boot; `modprobe` covers the case where
+                    # the node does not exist yet, which is why `static_node` is in
+                    # the rule.
+                    run(
+                        ["sudo", "udevadm", "control", "--reload-rules"],
+                        why="Reload it yourself:  sudo udevadm control --reload-rules",
+                    )
+                    run(
+                        ["sudo", "modprobe", "uinput"],
+                        why="Load it yourself:  sudo modprobe uinput",
+                    )
+                    run(
+                        [
+                            "sudo", "udevadm", "trigger",
+                            "--subsystem-match=misc", "--sysname-match=uinput",
+                        ],
+                        why="Apply it yourself:  sudo udevadm trigger",
+                    )
+            finally:
+                try:
+                    os.unlink(staged)
+                except OSError:
+                    pass
 
     if plan.setup_ydotoold:
         try:

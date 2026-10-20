@@ -414,6 +414,7 @@ debugging. This is the entry point `yazses start` supervises in the background.
 | `yazses hotkey` | Show or change the key you hold to talk. |
 | `yazses audio` | See and pin the input microphone (fixes a mic that silently switches). |
 | `yazses gaze` | Aim dictation with your gaze — type into whichever pane you look at. |
+| `yazses eye-eval` | Run a scripted eye-control evaluation task and save a privacy-safe result JSON. |
 
 ### `yazses quickstart`
 
@@ -967,12 +968,63 @@ no error (every clip is discarded as silence). Two things fix this:
 If dictation goes quiet after changing your audio setup, run `yazses audio status` (or
 `yazses status`) to see the live capture device and whether clips are being discarded.
 
+### `yazses language` — dictation language profiles
+
+| Command | Description |
+|---|---|
+| `yazses language list` | List the high-level language profiles YazSes can resolve coherently. |
+| `yazses language status` | Show the effective speech language, Han script, model, and profile coherence. |
+| `yazses language status --json` | Same, as a machine-readable object. |
+| `yazses language set <profile>` | Switch dictation language transactionally, with prerequisites first. |
+| `yazses language set <profile> --dry-run` | Show the plan and unmet requirements without changing anything. |
+
+```bash
+yazses language list
+# en      English  (speech=en, script=none, recommended=faster-whisper/base.en)
+# zh-CN   Mandarin (Simplified Chinese)  (speech=zh, script=simplified, recommended=faster-whisper/small)  aliases: zh-hans
+# zh-TW   Mandarin (Traditional Chinese)  (speech=zh, script=traditional, recommended=faster-whisper/small)  aliases: zh-hant
+
+yazses language status
+# Speech:        en
+# Script:        model/default
+# STT:           faster-whisper / base.en
+# Profile match: en
+# Status:        coherent
+
+yazses language set zh-CN --dry-run
+# Language profile: zh-CN — Mandarin (Simplified Chinese)
+# Changes:
+#   [stt] model: 'base.en' -> 'small'
+#     reason: base.en is English-only
+#   [stt] language: 'en' -> 'zh'
+#     reason: speech language for zh-CN
+#   [stt] chinese_script: '' -> 'simplified'
+#     reason: output script for zh-CN
+# Requirements:
+#   model: small (not cached)
+#   Chinese script dependency: missing opencc (install: opencc-python-reimplemented>=0.1.7)
+# No files, packages, models, or daemon state changed (--dry-run).
+```
+
+A profile is a named, coherent combination of speech language, output script, and
+recommended engine/model — not a second source of truth. `status` derives the current
+profile match from your actual `[stt]` config rather than storing an active-profile flag,
+so it never disagrees with what dictation is really doing. `--json` gives the same
+information for scripts and dashboards.
+
+`set` writes the config transactionally (all keys land together or none do — see
+`yazses.system.configedit`'s atomic batch writer) and restarts a running daemon by
+default. Drop to `--dry-run` first if you want to see the plan and unmet requirements
+(a missing model download, a missing optional dependency) before committing to anything.
+
 ### `yazses gaze` — Glance-Type (webcam gaze targeting)
 
 | Command | Description |
 |---|---|
 | `yazses gaze calibrate` | Calibrate the webcam so your gaze maps to screen zones. |
 | `yazses gaze status` | Show whether look-to-pane is ready: deps, desktop backend, calibration. |
+| `yazses gaze rollback` | Undo the last implicit refinement and restore the calibration it replaced. |
+| `yazses gaze measure` | Measure how well your saved gaze calibration works, and write a report to share. |
 
 Requires `[gaze] enabled = true`, an X11 session with `xdotool`, and a webcam. The
 webcam gaze deps (mediapipe + opencv) are installed automatically on first run
@@ -984,7 +1036,97 @@ hold only — never stored or sent.
 ```bash
 yazses gaze calibrate    # fit the webcam gaze → screen-zone mapping
 yazses gaze status       # deps, X11/xdotool, and whether a calibration exists
+yazses gaze rollback     # undo an implicit refinement, restoring the previous calibration exactly
+yazses gaze measure --camera-class integrated   # derived-numbers-only field report for issue #104
 ```
+
+### `yazses facegesture` — face-gesture switch calibration
+
+| Command | Description |
+|---|---|
+| `yazses facegesture calibrate` | Capture your neutral (relaxed) face as the baseline for a face gesture. |
+| `yazses facegesture reset` | Forget the stored neutral baseline(s); the switch goes back to absolute thresholds. |
+| `yazses facegesture status` | What the face switch's `select`, `confirm` and `cancel` gestures last did: done, refused with the reason, or nothing to do. Words, counts and ages only. |
+
+`calibrate` watches the webcam for a few seconds while your face is relaxed and stores only
+the derived resting level and its spread — never a frame. Turn it on with
+`[facegesture] use_baseline = true`, then `yazses restart`. It recommends no threshold; it only
+changes what the existing ones are measured against.
+
+```bash
+yazses facegesture calibrate                          # the configured gesture
+yazses facegesture calibrate --gesture brow_raise --seconds 6
+yazses facegesture reset                              # back to absolute thresholds
+yazses facegesture status                             # why did my select / confirm do nothing?
+```
+
+Bind a gesture to `select` (one left click where the Head-Pointer already is), `confirm` or `cancel`
+with a `[[facegesture.switches]]` entry. `select` acts only while the Head-Pointer is running and
+tracking, not paused, not clutched, and the hands-free gate is open, and at most once per second;
+otherwise it does nothing and `status` says why. `confirm` / `cancel` answer a command the daemon is
+holding for confirmation (the same hold the spoken "confirm" answers) and do nothing when none is
+waiting.
+
+### `yazses eye-eval` — scripted eye-control evaluation
+
+| Command | Description |
+|---|---|
+| `yazses eye-eval <task>` | Run one evaluation task and write a privacy-safe result JSON. |
+
+Three tasks, generated on the spot so no data file has to ship:
+`gaze_routing_4_pane`, `head_pointer_generated_targets`, `face_switch_blocks`.
+
+**Nothing is uploaded.** The command writes one JSON file to your own disk, prints a
+summary, and stops. There is no upload flag, no network call and no "share" step: you read
+the file, then attach it to an issue yourself if you want to.
+
+The file carries safe provenance — YazSes and Python version, OS, kernel, architecture, CPU
+model, logical CPUs, RAM, session type, display geometry — plus derived counts. It has no
+field for your hostname, login name, home directory, serial number, window titles, or
+anything a camera saw, and the result is validated against the schema **and** swept for
+those identifiers *before* the file is created. A run that would leak writes nothing.
+
+```bash
+# The no-camera dry run. This is what CI runs; it needs no webcam and no model.
+yazses eye-eval gaze_routing_4_pane --synthetic -o result.json
+
+# A real hardware test: you performed the task and recorded each trial's outcome.
+yazses eye-eval gaze_routing_4_pane \
+    --outcomes trials.json --study-mode community_qa \
+    --camera-class integrated --perception-backend mediapipe -o result.json
+
+# A test you could not run is still a valid result. Say why.
+yazses eye-eval face_switch_blocks --blocked permission_denied \
+    --study-mode community_qa -o result.json
+```
+
+`--outcomes` takes a JSON list of per-trial records. Only the fields the task declares are
+accepted — an unknown one is refused rather than ignored, so a misspelled count cannot
+become a silent zero — and only the aggregates reach the result, never a record itself.
+Each record must also name a trial the task actually scheduled, once: `trial_index` (and, for
+the face-switch task, `block_id` plus `cue_index`) is checked against the task, and a repeated
+trial, a trial the task does not have, or an `intended_target_id` that contradicts the task is
+refused instead of counted. Records are for the scored trials only; leave the practice block
+out. The example is the first three scored trials of `gaze_routing_4_pane` at its default seed:
+
+```json
+[
+  {"trial_index": 0, "intended_target_id": 4, "outcome": "correct", "trial_time_ms": 940},
+  {"trial_index": 1, "intended_target_id": 1, "outcome": "wrong_target", "trial_time_ms": 1520},
+  {"trial_index": 2, "intended_target_id": 3, "outcome": "fallback_no_route"}
+]
+```
+
+`--study-mode` is never guessed. A public hardware test is `community_qa`; `research`
+additionally requires `--protocol-id`, because relabelling an artifact after collection is
+not consent. A `--synthetic` run cannot call itself `community_qa` (nobody performed it),
+and a human-operated run cannot call itself `ci`.
+
+The printed verdict is `PASS` / `PARTIAL` / `FAIL` / `BLOCKED` and describes **the protocol
+running to completion**, not how accurately the feature performed — no rate threshold is
+applied anywhere. Pass `--verdict` to state your own; both yours and the computed one are
+recorded. A metric nothing measured is written `{"value": null, "reason": "..."}`, never
+zero.
 
 ---
 
@@ -1041,6 +1183,43 @@ Until v2.30 it — along with `yazses test` and `yazses verify --type` — alway
 (`LinuxInjector`) rather than the backend behind it. All three are commands whose job is
 to test the injector, so all three could pass on a backend the daemon would not use.
 `yazses status` names the same thing, and the two can now be compared.
+
+### `yazses inject-backend`
+
+Show which injection backend will be used and why the alternatives were passed over,
+or pin one. Renders the same evaluation the daemon and `doctor` use, so all three
+cannot disagree.
+
+```bash
+yazses inject-backend                 # what will be used here, and why
+yazses inject-backend ydotool         # pin direct typing
+yazses inject-backend auto            # go back to choosing automatically
+yazses inject-backend --allow-portal  # permit the desktop portal on Wayland
+```
+
+```console
+$ yazses inject-backend
+Session: wayland    configured: 'auto'
+Using:   portal
+         asks once for permission and shows a screen-sharing indicator while active
+
+  ydotool    ydotoold is running as you but cannot open /dev/uinput
+             Run `yazses setup` to install the udev rule, then log out and back in.
+  xdotool    wrong-session
+```
+
+Before this existed nothing in the CLI could write `[injection] backend`, so a
+headless or SSH user had no supported way to change it and every remedy string had to
+say "edit config.toml".
+
+**On the portal and the sharing indicator.** `auto` never selects the desktop portal
+unless you have allowed it, because while a portal session is open your desktop shows
+a screen-sharing indicator — not something to switch on for somebody in an application
+that is offline by design. Until you choose, dictation pastes via the clipboard.
+Three things already count as allowing it and are not affected by the setting: naming
+`backend = "portal"`, having answered the dialog before (a restore token on disk), and
+running the strictly confined snap, for which the portal is the only way to type on
+Wayland at all.
 
 ### Choosing the injection backend
 
@@ -1221,6 +1400,67 @@ default).
 yazses punch-in              # re-speak the phrase; correct the best match
 yazses punch-in --dry-run    # list candidate spans without editing
 yazses punch-in --choose 1   # apply the 2nd-ranked candidate
+```
+
+### `yazses headpointer`
+
+Control the Head-Pointer while it runs (`yazses features enable headpointer`): see why it is or is not moving, set your current head position as straight ahead, stop it, or hold it still. Every subcommand is a single call to the daemon and takes no coordinate, so none of them needs the pointer that may be misbehaving.
+
+| Command | What it does |
+|---|---|
+| `yazses headpointer status` | State, backend and whether it is calibrated, paused or clutched; says why it is not running when it is not. Never prints an angle or a position. |
+| `yazses headpointer recenter` | Make your current head position the neutral one. No motion and no click while it happens. |
+| `yazses headpointer pause` | Stop all motion and clicks until you resume. |
+| `yazses headpointer resume` | Resume after a pause or a fault. The first camera frame afterwards never moves or clicks. |
+| `yazses headpointer clutch` | Freeze the pointer where it is without turning the feature off; `--off` lets go. |
+| `yazses headpointer dwell on` / `off` | Turn click-by-holding-still on or off without touching motion. It is only available while the overlay can show its progress ring. |
+
+```bash
+yazses headpointer status        # tracking, paused, or waiting, and why
+yazses headpointer recenter      # treat the way you are sitting now as straight ahead
+yazses headpointer pause         # stop everything
+yazses headpointer resume        # carry on (also clears a pointer fault)
+yazses headpointer clutch        # freeze the pointer where it is
+yazses headpointer clutch --off  # let go
+yazses headpointer dwell off     # move only; never click
+```
+
+### `yazses handsfree`
+
+Stop, re-arm and inspect every camera-driven hands-free input at once (the same panel the settings window's "Hands-free controls…" button opens). Each subcommand takes no coordinate, so none needs the pointer that may be misbehaving. `status` never opens the camera.
+
+| Command | What it does |
+|---|---|
+| `yazses handsfree status` | State (active, paused or faulted), health of the camera, pointer, calibration and face switch, and what to do next. States, flags and ages only. |
+| `yazses handsfree pause` | Stop all hands-free input. With `[handsfree_safety]` off it stops the Head-Pointer only, and says so. |
+| `yazses handsfree resume` | Explicit re-arm after a pause or a fault. Refused, with the reason, while a source is stale or faulted. |
+| `yazses handsfree enable` | Turn the hands-free preset on: writes only `[handsfree] enabled = true`; the per-feature settings are filled in when the config loads. Needs `--force` (it turns on experimental camera features); refused, naming the key, if your config weakens the safety floor. |
+| `yazses handsfree explain` | Print the exact per-feature settings the preset sets, and which are yours, without applying anything. Works whether or not the preset is on. |
+| `yazses handsfree disable` | Turn the preset off: stops hands-free input now and says what `yazses restart` releases (the camera). Your calibration and your own settings are kept. |
+
+```bash
+yazses handsfree status   # is it active, paused or faulted, and why
+yazses handsfree pause    # stop everything
+yazses handsfree resume   # re-arm once the signal is back
+yazses handsfree explain  # what the preset sets, and what is yours
+yazses handsfree enable --force   # compose gaze + head pointer + face switch + chords
+yazses handsfree disable  # stop it; yazses restart releases the camera
+```
+
+### `yazses gesture`
+
+Control Gesture Chords while they run (`yazses features enable gesture`, then bind chords under `[gesture.chords]`): see what is bound and why nothing fires, or stop them acting. Every subcommand is a single call to the daemon and takes no coordinate.
+
+| Command | What it does |
+|---|---|
+| `yazses gesture status` | Whether chords are running, how many are bound, which tokens are being watched, and any `[gesture.chords]` line that was refused and why. Never prints an angle or a score. |
+| `yazses gesture pause` | Stop chords from acting. The `pause_pointer` chord still works, because stopping is never gated. |
+| `yazses gesture resume` | Let chords act again, and re-arm the hands-free gate for them if `[handsfree_safety]` is on. Nothing from before the pause is replayed. |
+
+```bash
+yazses gesture status    # are chords running, what is bound, and what was ignored
+yazses gesture pause     # stop chords from acting
+yazses gesture resume    # carry on
 ```
 
 ### `yazses transcribe`

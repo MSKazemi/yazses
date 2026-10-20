@@ -17,7 +17,25 @@
 # much larger job than this file.
 #
 # Build and test it exactly the way CI does:
-#   podman run --rm -v "$PWD:/src:z" fedora:41 /src/packaging/fedora/build-and-test.sh
+#   podman run --rm -v "$PWD:/src:z" fedora:43 /src/packaging/fedora/build-and-test.sh
+#
+# ⚠ COPR REQUIRES `--enable-net on` FOR THIS PACKAGE.
+#
+# %install runs pip to populate the bundled virtualenv, so the build needs to reach
+# PyPI. COPR disables network in the mock chroot by default, and the failure is not
+# obviously about networking -- it surfaces as "ERROR: No matching distribution found
+# for hatchling", which reads like a missing BuildRequires. The real message is further
+# up the log: "Failed to establish a new connection: [Errno -3] Temporary failure in
+# name resolution".
+#
+# A container build passes regardless, because Docker and podman give the build network
+# by default. So the local harness above CANNOT catch this; only a real COPR build can.
+# It cost one failed build (10980673) to find, and the fix is a project setting rather
+# than a spec change:
+#
+#   copr-cli modify yazses --enable-net on
+#
+# Live: https://copr.fedorainfracloud.org/coprs/mskazemi/yazses/
 
 %global appname yazses
 %global venvdir %{_libdir}/%{appname}
@@ -29,7 +47,7 @@
 %global debug_package %{nil}
 
 Name:           %{appname}
-Version:        2.18.2
+Version:        2.43.2
 Release:        1%{?dist}
 Summary:        Offline hold-to-talk voice dictation and speech-to-text
 
@@ -113,5 +131,26 @@ install -Dm644 contrib/icons/yazses.svg \
 %{_datadir}/icons/hicolor/scalable/apps/yazses.svg
 
 %changelog
-* Thu Aug 14 2026 Mohsen Seyedkazemi Ardebili <mohsen.seyedkazemi@gmail.com> - 2.18.2-1
+* Sun Oct 18 2026 Mohsen Seyedkazemi Ardebili <mohsen.seyedkazemi@gmail.com> - 2.43.2-1
+- Update to 2.43.2. Release notes: https://github.com/MSKazemi/yazses/releases/tag/v2.43.2
+* Sat Oct 17 2026 Mohsen Seyedkazemi Ardebili <mohsen.seyedkazemi@gmail.com> - 2.43.1-1
+- Update to 2.43.1. Release notes: https://github.com/MSKazemi/yazses/releases/tag/v2.43.1
+* Sat Oct 17 2026 Mohsen Seyedkazemi Ardebili <mohsen.seyedkazemi@gmail.com> - 2.43.0-1
+- Update to 2.43.0. Release notes: https://github.com/MSKazemi/yazses/releases/tag/v2.43.0
+* Sun Oct 04 2026 Mohsen Seyedkazemi Ardebili <mohsen.seyedkazemi@gmail.com> - 2.42.0-1
+- Update to 2.42.0. Release notes: https://github.com/MSKazemi/yazses/releases/tag/v2.42.0
+* Sun Oct 04 2026 Mohsen Seyedkazemi Ardebili <mohsen.seyedkazemi@gmail.com> - 2.41.0-1
+- Update to 2.41.0. Release notes: https://github.com/MSKazemi/yazses/releases/tag/v2.41.0
+* Fri Sep 25 2026 Mohsen Seyedkazemi Ardebili <mohsen.seyedkazemi@gmail.com> - 2.40.1-1
+- Update to 2.40.1. Release notes: https://github.com/MSKazemi/yazses/releases/tag/v2.40.1
+* Thu Sep 24 2026 Mohsen Seyedkazemi Ardebili <mohsen.seyedkazemi@gmail.com> - 2.40.0-1
+- Update to 2.40.0. Release notes: https://github.com/MSKazemi/yazses/releases/tag/v2.40.0
+- The spec had drifted back to 2.36.0 across four releases. Nothing rewrote it at
+  release time and no test compared it with the other manifests, so it is now written
+  by scripts/refresh-package-manifests.py and checked by
+  tests/test_packaging_manifest_versions.py like every other packaging manifest.
+* Sun Sep 13 2026 Mohsen Seyedkazemi Ardebili <mohsen.seyedkazemi@gmail.com> - 2.36.0-1
+- Track the current release. The spec had been pinned at 2.18.2 since it was written,
+  so a COPR built from it would have shipped a version seventeen releases old.
+* Fri Aug 14 2026 Mohsen Seyedkazemi Ardebili <mohsen.seyedkazemi@gmail.com> - 2.18.2-1
 - Initial COPR package.

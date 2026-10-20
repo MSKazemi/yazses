@@ -1,0 +1,139 @@
+{
+  "schema_version": "1.0",
+  "trace_id": "repeated-labels",
+  "study_mode": "synthetic",
+  "description": "Four identically-labelled list rows. A gaze region covers two of them, and nothing — not geometry, not the user's own words — separates them. The irreducible ambiguity case.",
+  "space": {"name": "screen", "version": 1},
+  "cases": [
+    {
+      "case_id": "repeated-labels/region-over-two-rows",
+      "description": "Two rows intersect the region, same role, same size, same distance. Ambiguous, and the ground truth says row-0 was meant — so this counts as an ambiguity, never as a correct answer.",
+      "now_s": 1000.0,
+      "target": {
+        "source": "gaze",
+        "timestamp_s": 1000.0,
+        "confidence": 0.9,
+        "bounds": {"x": 660.0, "y": 110.0, "width": 480.0, "height": 70.0},
+        "window_id": "win-list"
+      },
+      "candidates": [
+        {
+          "source": "window",
+          "entity_id": "win-list",
+          "role": "window",
+          "captured_at_s": 1000.0,
+          "confidence": 0.9,
+          "bounds": {"x": 0.0, "y": 0.0, "width": 1200.0, "height": 800.0},
+          "label": "Notes"
+        },
+        {
+          "source": "accessibility",
+          "entity_id": "row-0",
+          "role": "listitem",
+          "captured_at_s": 1000.0,
+          "confidence": 0.85,
+          "bounds": {"x": 660.0, "y": 100.0, "width": 480.0, "height": 40.0},
+          "label": "Untitled note",
+          "actions": ["press"]
+        },
+        {
+          "source": "accessibility",
+          "entity_id": "row-1",
+          "role": "listitem",
+          "captured_at_s": 1000.0,
+          "confidence": 0.85,
+          "bounds": {"x": 660.0, "y": 144.0, "width": 480.0, "height": 40.0},
+          "label": "Untitled note",
+          "actions": ["press"]
+        },
+        {
+          "source": "accessibility",
+          "entity_id": "row-2",
+          "role": "listitem",
+          "captured_at_s": 1000.0,
+          "confidence": 0.85,
+          "bounds": {"x": 660.0, "y": 188.0, "width": 480.0, "height": 40.0},
+          "label": "Untitled note",
+          "actions": ["press"]
+        },
+        {
+          "source": "accessibility",
+          "entity_id": "row-3",
+          "role": "listitem",
+          "captured_at_s": 1000.0,
+          "confidence": 0.85,
+          "bounds": {"x": 660.0, "y": 232.0, "width": 480.0, "height": 40.0},
+          "label": "Untitled note",
+          "actions": ["press"]
+        }
+      ],
+      "hint": null,
+      "expected_entity_id": "row-0"
+    },
+    {
+      "case_id": "repeated-labels/hint-cannot-separate-identical-rows",
+      "description": "The same region with \"click the Untitled note\" parsed into a hint. It removes the window from the plausible set and changes nothing else, because both rows match it equally.",
+      "now_s": 1000.0,
+      "target": {
+        "source": "gaze",
+        "timestamp_s": 1000.0,
+        "confidence": 0.9,
+        "bounds": {"x": 660.0, "y": 110.0, "width": 480.0, "height": 70.0},
+        "window_id": "win-list"
+      },
+      "candidates": [
+        {
+          "source": "window",
+          "entity_id": "win-list",
+          "role": "window",
+          "captured_at_s": 1000.0,
+          "confidence": 0.9,
+          "bounds": {"x": 0.0, "y": 0.0, "width": 1200.0, "height": 800.0},
+          "label": "Notes"
+        },
+        {
+          "source": "accessibility",
+          "entity_id": "row-0",
+          "role": "listitem",
+          "captured_at_s": 1000.0,
+          "confidence": 0.85,
+          "bounds": {"x": 660.0, "y": 100.0, "width": 480.0, "height": 40.0},
+          "label": "Untitled note",
+          "actions": ["press"]
+        },
+        {
+          "source": "accessibility",
+          "entity_id": "row-1",
+          "role": "listitem",
+          "captured_at_s": 1000.0,
+          "confidence": 0.85,
+          "bounds": {"x": 660.0, "y": 144.0, "width": 480.0, "height": 40.0},
+          "label": "Untitled note",
+          "actions": ["press"]
+        },
+        {
+          "source": "accessibility",
+          "entity_id": "row-2",
+          "role": "listitem",
+          "captured_at_s": 1000.0,
+          "confidence": 0.85,
+          "bounds": {"x": 660.0, "y": 188.0, "width": 480.0, "height": 40.0},
+          "label": "Untitled note",
+          "actions": ["press"]
+        },
+        {
+          "source": "accessibility",
+          "entity_id": "row-3",
+          "role": "listitem",
+          "captured_at_s": 1000.0,
+          "confidence": 0.85,
+          "bounds": {"x": 660.0, "y": 232.0, "width": 480.0, "height": 40.0},
+          "label": "Untitled note",
+          "actions": ["press"]
+        }
+      ],
+      "hint": {"verb": "click", "role": "listitem", "label_tokens": ["untitled"]},
+      "expected_entity_id": "row-0"
+    }
+  ]
+}

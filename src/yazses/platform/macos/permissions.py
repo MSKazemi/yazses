@@ -15,8 +15,11 @@ local so the module still imports on non-Mac systems for static checks.
 from __future__ import annotations
 
 import logging
+import os
 import sys
+from collections.abc import Mapping
 
+from yazses.cameraperm.contract import CameraPermission
 from yazses.platform.base import PermissionState
 
 log = logging.getLogger(__name__)
@@ -25,6 +28,29 @@ log = logging.getLogger(__name__)
 #: so a reset is scoped to YazSes -- the bare form clears every application's
 #: grant for that service, which is a far worse outcome than the problem.
 _BUNDLE_ID = "com.yazses.app"
+
+
+def terminal_attribution_note(env: Mapping[str, str] | None = None) -> str:
+    """A hedged note for a permission check run from a terminal, else ``""``.
+
+    Terminal.app, iTerm2 and the VS Code terminal all set ``TERM_PROGRAM``.
+
+    The evidence, from #562: ``doctor`` run in Terminal answered denied for both
+    Accessibility and Input Monitoring while the Privacy & Security panes showed
+    YazSes switched **on** and Terminal.app switched **off**. That is consistent with
+    macOS judging the terminal that started the command rather than YazSes.app, but
+    one report is not a mechanism and nobody here has a Mac to confirm it, so the
+    note says "may", names what was seen, and points at the source that cannot be
+    misattributed: what the running app itself logged.
+    """
+    if not (os.environ if env is None else env).get("TERM_PROGRAM"):
+        return ""
+    return (
+        "\nRun from a terminal? macOS may judge the permission of the terminal app\n"
+        "that started this command rather than YazSes.app, so this row can say denied\n"
+        "while YazSes is switched on in Settings (seen on #562: Terminal off, YazSes\n"
+        "on). What the running app itself sees is in ~/Library/Logs/yazses/daemon.log."
+    )
 
 
 # AVAuthorizationStatus values from Apple's AVFoundation framework.
@@ -130,6 +156,80 @@ class MacosPermissions:
             return PermissionState.DENIED
         return PermissionState.UNKNOWN  # NotDetermined → user hasn't been asked yet
 
+    def check_camera(self) -> CameraPermission:
+        """The Camera TCC service — a fourth grant, read the same way as the mic.
+
+        ``AVCaptureDevice.authorizationStatusForMediaType_(AVMediaTypeVideo)`` is
+        the camera twin of :meth:`check_microphone`, and the mapping is the one
+        place a camera probe can quietly lie, so each arm is spelled out:
+
+        * ``Authorized`` -> ``GRANTED``;
+        * ``Denied`` / ``Restricted`` -> ``DENIED``. Restricted (an MDM or
+          Screen Time policy) is not the user's to change, but it is still a
+          refusal and still fails closed;
+        * ``NotDetermined`` -> ``NOT_DETERMINED``. macOS shows its one-time
+          prompt when something first opens the camera; nothing has yet, so this
+          is "you will be asked", not "you were refused";
+        * **PyObjC absent -> ``NOT_DETERMINED``, never ``GRANTED``.** A base
+          install carries no AVFoundation binding, and a probe that cannot run
+          has learned nothing. The temptation to return the permissive value so
+          the row looks clean is exactly the defect.
+
+        ⚠ Untested on real hardware. There is no Mac on this project, and a CI
+        runner does not settle it either: TCC on a runner is permissive, so an
+        ``[OK]`` there is the runner, not a proof that the contract holds on a
+        real desktop. What the suite pins is the mapping above.
+        """
+        try:
+            from AVFoundation import (  # type: ignore[import-not-found]
+                AVCaptureDevice,
+                AVMediaTypeVideo,
+            )
+        except ImportError:
+            log.warning("PyObjC AVFoundation not available; camera access is unknown")
+            return CameraPermission.NOT_DETERMINED
+
+        status = AVCaptureDevice.authorizationStatusForMediaType_(AVMediaTypeVideo)
+        if status == _AV_AUTHORIZED:
+            return CameraPermission.GRANTED
+        if status in (_AV_DENIED, _AV_RESTRICTED):
+            return CameraPermission.DENIED
+        return CameraPermission.NOT_DETERMINED
+
+    def how_to_grant_camera(self) -> str:
+        """The Camera pane, plus the two macOS facts that make it confusing.
+
+        Both are already documented here for the microphone and both apply
+        unchanged: an app that has never *asked* does not appear in the pane at
+        all, and an unsigned build is a new code identity every time its hash
+        changes, so a stale grant still renders as an enabled toggle.
+
+        The third sentence is specific to the camera and is the one a .dmg user
+        needs first: the shipped bundle contains no camera runtime, so on that
+        install there is nothing to grant the permission *to*. See
+        ``yazses.cameraperm.matrix``.
+        """
+        return (
+            "Allow the camera in System Settings:\n"
+            "  System Settings -> Privacy & Security -> Camera -> enable YazSes.\n"
+            "Or open the pane directly:\n"
+            "  open 'x-apple.systempreferences:com.apple.preference.security?Privacy_Camera'\n"
+            "Never seen a camera prompt? macOS only asks the first time an app\n"
+            "actually opens the camera, and an app that has never asked is not\n"
+            "listed in that pane at all.\n"
+            "Installed from the .dmg or the Homebrew cask? That bundle ships no\n"
+            "camera runtime and cannot add one, so no grant will make the camera\n"
+            "features work there -- use `pipx install 'yazses[gaze]'` instead.\n"
+            "Listed and enabled but still refused? These builds are unsigned, so\n"
+            "macOS sees a new identity whenever the binary changes and the old\n"
+            "approval stops applying. Reset just this app's camera decision:\n"
+            f"  tccutil reset Camera {_BUNDLE_ID}\n"
+            "(the bundle id matters -- drop it and that command clears the camera\n"
+            "grant for every app on the Mac, not only this one)\n"
+            "This is the Camera service, not Microphone or Accessibility -- they\n"
+            "are granted separately and one being on says nothing about another."
+        )
+
     def check_input_monitoring(self) -> PermissionState:
         """Report the **Input Monitoring** grant — the one that was never checked.
 
@@ -233,6 +333,7 @@ class MacosPermissions:
             f"  tccutil reset ListenEvent {_BUNDLE_ID}\n"
             "(the bundle id matters -- drop it and that command clears the grant\n"
             "for every app on the Mac, not only this one)"
+            + terminal_attribution_note()
         )
 
     def request_keyboard_capture(self) -> None:
@@ -269,10 +370,11 @@ class MacosPermissions:
           process-scoped, so naming the executable it asked about is the difference
           between "YazSes is broken" and "I granted access to a different copy".
 
-        Deliberately no claim about how macOS attributes trust between a launching
-        shell and a bundle: that would need a Mac to verify and there is none here.
-        Naming the binary lets the reader see the mismatch without being told a
-        mechanism that might be wrong.
+        Still no *claim* about how macOS attributes trust between a launching shell
+        and a bundle: that needs a Mac to verify and there is none here. #562 did
+        supply the first evidence (Terminal off, YazSes on, `doctor` denied), so a
+        hedged :func:`terminal_attribution_note` is appended when a terminal started
+        the command -- "may", with what was seen, never a stated mechanism.
         """
         return (
             "Grant Accessibility access in System Settings:\n"
@@ -291,6 +393,7 @@ class MacosPermissions:
             "Accessibility is also not the only switch. Since macOS 10.15 the\n"
             "dictation key needs Input Monitoring too, in its own pane -- check the\n"
             "'Input monitoring' row above before toggling this one again."
+            + terminal_attribution_note()
         )
 
     def how_to_grant_microphone(self) -> str:

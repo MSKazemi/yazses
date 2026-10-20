@@ -72,7 +72,10 @@ LOUD_DOWNLOAD_MB = 250.0
 _MODEL_FETCHERS: dict[str, tuple[float | None, tuple[str, ...]]] = {
     "yazses/tts/download.py": (340.0, ("read-back", "readback_clone")),
     "yazses/recimport/download.py": (45.0, ("recimport", "meeting", "diarize")),
-    "yazses/gaze/download.py": (3.7, ("gaze",)),
+    # `facegesture` fetches the same FaceLandmarker asset through the same module:
+    # it reads blendshapes off the model Glance-Type downloads. Listing only
+    # `gaze` here priced the face-gesture switch 3.7 MB below what it costs.
+    "yazses/gaze/download.py": (3.7, ("gaze", "facegesture")),
     "yazses/stt/download.py": (0.0, ()),
     # Sourced from `docs/models.md`, which has said "~600 MB model" since the engine
     # shipped; the guard holds the two equal so they cannot drift apart again.

@@ -1,0 +1,79 @@
+{
+  "schema_version": "1.0",
+  "trace_id": "one-target",
+  "study_mode": "synthetic",
+  "description": "One plausible control inside its window. The easy case: semantic grounding names the button, window-only can only name the window that contains it.",
+  "space": {"name": "screen", "version": 1},
+  "cases": [
+    {
+      "case_id": "one-target/precise-point",
+      "description": "A mouse-grade point inside the button. Both the window and the button contain it, and source reliability separates them.",
+      "now_s": 1000.0,
+      "target": {
+        "source": "mouse",
+        "timestamp_s": 1000.0,
+        "confidence": 0.9,
+        "point": {"x": 120.0, "y": 210.0},
+        "window_id": "win-main"
+      },
+      "candidates": [
+        {
+          "source": "window",
+          "entity_id": "win-main",
+          "role": "window",
+          "captured_at_s": 1000.0,
+          "confidence": 0.9,
+          "bounds": {"x": 0.0, "y": 0.0, "width": 1200.0, "height": 800.0},
+          "label": "Composer"
+        },
+        {
+          "source": "accessibility",
+          "entity_id": "send-button",
+          "role": "button",
+          "captured_at_s": 1000.0,
+          "confidence": 0.9,
+          "bounds": {"x": 100.0, "y": 200.0, "width": 60.0, "height": 30.0},
+          "label": "Send",
+          "actions": ["press"]
+        }
+      ],
+      "hint": null,
+      "expected_entity_id": "send-button"
+    },
+    {
+      "case_id": "one-target/coarse-region",
+      "description": "The same layout with a 40 px gaze region instead of a point: tighter than the control pitch, so it still resolves.",
+      "now_s": 1000.0,
+      "target": {
+        "source": "gaze",
+        "timestamp_s": 1000.0,
+        "confidence": 0.9,
+        "bounds": {"x": 110.0, "y": 195.0, "width": 40.0, "height": 40.0},
+        "window_id": "win-main"
+      },
+      "candidates": [
+        {
+          "source": "window",
+          "entity_id": "win-main",
+          "role": "window",
+          "captured_at_s": 1000.0,
+          "confidence": 0.9,
+          "bounds": {"x": 0.0, "y": 0.0, "width": 1200.0, "height": 800.0},
+          "label": "Composer"
+        },
+        {
+          "source": "accessibility",
+          "entity_id": "send-button",
+          "role": "button",
+          "captured_at_s": 1000.0,
+          "confidence": 0.9,
+          "bounds": {"x": 100.0, "y": 200.0, "width": 60.0, "height": 30.0},
+          "label": "Send",
+          "actions": ["press"]
+        }
+      ],
+      "hint": null,
+      "expected_entity_id": "send-button"
+    }
+  ]
+}

@@ -1,0 +1,47 @@
+protocol_version: 1
+paper: yazses-v2
+status: awaiting-final-approval
+
+title: "<exact approved title>"
+approval_round: 1
+
+source:
+  repository: "https://github.com/MSKazemi/yazses"
+  manuscript_commit: "<40-hex commit>"
+  evidence_cutoff: "<40-hex commit or immutable tag>"
+
+pdf:
+  filename: "yazses-paper-v2-final.pdf"
+  sha256: "<64-hex sha256>"
+
+author_roster:
+  count: 0
+  digest_sha256: "<64-hex sha256 of normalized ordered public-author records>"
+  order_rule: "<agreed author ordering rule>"
+
+review:
+  unresolved_change_requests: 0
+  all_authors_reviewed: false
+
+approval:
+  authors_consented: 0
+  authors_metadata_complete: 0
+  authors_final_approved: 0
+  declined: 0
+  unreachable: 0
+  withdrawn: 0
+  all_approvals_same_fingerprint: false
+
+publication:
+  target: "Internet Archive"
+  authorized: false
+  identifier: null
+  landing_page: null
+  published_at: null
+
+created_at: "<ISO-8601 timestamp>"
+created_by: "<publication coordinator>"
+notes: |
+  This manifest contains publication-safe aggregate state only.
+  Private emails, private messages, and per-author consent evidence belong
+  in the private registry and must not be committed here.

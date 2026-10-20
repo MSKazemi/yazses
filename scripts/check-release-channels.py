@@ -158,7 +158,18 @@ def check_release_assets(version: str) -> dict[str, tuple[bool | None, str]]:
         # time; this, the check it delegates the *verdict* to, was not -- so the
         # summary table and `--core-only` both still accepted a half-built
         # release, and --core-only is what decides whether it keeps "Latest".
+        #
+        # Windows is the exception: it is x64 only since v2.43.1 (the "arm64"
+        # installer was an x64 build; see build-windows.yml), so the one .exe
+        # that must be there is the x64 one. Requiring a pair demoted v2.43.1 to
+        # a pre-release the moment it was tagged.
         hits = sorted(n for n in names if n.endswith(suffix))
+        if key == "exe":
+            if any(n.endswith("-windows-x64.exe") for n in hits):
+                out[key] = (True, ", ".join(hits))
+            else:
+                out[key] = (False, "no windows-x64.exe attached")
+            continue
         if not hits:
             out[key] = (False, f"no {suffix} attached")
         elif len(hits) == 1:

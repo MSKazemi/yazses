@@ -11,7 +11,7 @@ can be done by many people at once.
 
 > **Honesty rule.** Nothing here may be described in the README, the docs site, the store
 > listings or a release note as "supported" until it is wired, tested and shipped. The
-> project's existing rule — 147 capabilities, 102 wired and 45 honestly marked *planned* —
+> project's existing rule — 148 capabilities, 110 wired and 38 honestly marked *planned* —
 > applies to mobile without exception.
 
 ---
@@ -96,9 +96,11 @@ Play listing, localisation, and whatever the M1–M3 device reports say is actua
 work breakdown, and every sub-issue says what it needs from you and what "done" means.
 Three ways in that need **no Android device and no Kotlin**:
 
-1. **M0 contract vectors** — Python; write the ugly cases for a unit and generate its
-   expectations. [#82](https://github.com/MSKazemi/yazses/issues/82) builds the mechanism,
-   [#83](https://github.com/MSKazemi/yazses/issues/83) is a good first issue.
+1. **Contract vectors** — Python; write the ugly cases for a unit and generate its
+   expectations. M0 built the mechanism and it ships in
+   [`contract/`](https://github.com/MSKazemi/yazses/tree/main/contract); adding a
+   language or an edge case to it is still a good first issue, such as
+   [#512](https://github.com/MSKazemi/yazses/issues/512).
 2. **Device reports** — run the benchmark on your phone (once `:bench` exists,
    [#92](https://github.com/MSKazemi/yazses/issues/92)) and file the JSON; the performance
    matrix is community-built by design.

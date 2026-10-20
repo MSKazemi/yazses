@@ -240,3 +240,23 @@ def test_no_double_correction_if_called_twice(finisher):
     getattr(si, finisher)("x") if finisher == "commit" else si.cancel()
     corrections_after_second = [o for o in rec.ops if o[0] in ("keys", "bs")]
     assert corrections_after_first == corrections_after_second
+
+
+# ---- 4. `meta` is the Super key, as it was before LinuxInjector delegated (#544) ----
+
+
+def test_meta_modifier_is_sent_as_super(monkeypatch):
+    """xdotool's own `meta` is Meta_L, which is not the Windows/Super key a
+    `meta+d` chord means. LinuxInjector mapped it before #544 moved key-sequence
+    dispatch onto the backend, so the backend must keep doing it."""
+    calls: list[tuple] = []
+    monkeypatch.setattr("yazses.inject.xdotool.subprocess.run", _run_recorder(calls))
+    XdotoolInjector().inject_key_sequence(["meta+d", "ctrl+z"])
+    assert calls[0][0] == ["xdotool", "key", "--clearmodifiers", "super+d", "ctrl+z"]
+
+
+def test_meta_mapping_rewrites_modifiers_only(monkeypatch):
+    calls: list[tuple] = []
+    monkeypatch.setattr("yazses.inject.xdotool.subprocess.run", _run_recorder(calls))
+    XdotoolInjector().inject_key_sequence(["meta+metadata_key"])
+    assert calls[0][0][-1] == "super+metadata_key"

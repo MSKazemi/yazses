@@ -3,7 +3,7 @@ import shutil
 import subprocess
 import time
 
-from yazses.inject.ydotool import ydotool_key_args
+from yazses.inject.ydotool import run_ydotool_keys
 
 # Milliseconds to wait after wl-copy sets the clipboard before sending Ctrl+V, so
 # the new Wayland selection has propagated to the compositor. Without it the
@@ -15,28 +15,29 @@ _CLIPBOARD_SETTLE_S = 0.15
 def _ydotool_ready() -> bool:
     """ydotool only works with a running ydotoold (its socket must exist).
 
-    Mirrors inject.auto.ydotool_ready (kept local to avoid a circular import).
+    Socket discovery is `inject.auto`'s, imported inside the function because
+    `auto` reaches this module through the registry. Its own copy of the search
+    looked only in ``$XDG_RUNTIME_DIR`` and so answered "no ydotool" on Debian and
+    Ubuntu, where ydotoold is 0.1.8 and binds ``/tmp/.ydotool_socket`` -- the very
+    machines where the clipboard path is the fallback that has to work.
     """
     if not shutil.which("ydotool"):
         return False
-    sock = os.environ.get("YDOTOOL_SOCKET")
-    if not sock:
-        runtime = os.environ.get("XDG_RUNTIME_DIR")
-        if not runtime:
-            uid = os.getuid() if hasattr(os, "getuid") else 0
-            runtime = f"/run/user/{uid}"
-        sock = os.path.join(runtime, ".ydotool_socket")
-    return os.path.exists(sock)
+    from yazses.inject.auto import find_ydotool_socket
+
+    return find_ydotool_socket() is not None
 
 
-def _paste_cmd_wayland() -> list[str]:
+def _paste_wayland() -> None:
+    """Send Ctrl+V on Wayland with whichever tool this session has."""
     if _ydotool_ready():
-        # ydotool's `key` ignores symbolic names — use numeric keycodes. `-d 40`
-        # spaces the events out so the compositor reliably sees Ctrl held when V
-        # is pressed (back-to-back events are occasionally missed).
-        return ["ydotool", "key", "-d", "40"] + ydotool_key_args("ctrl+v")
+        # A 40 ms key delay spaces the events out so the compositor reliably sees
+        # Ctrl held when V is pressed (back-to-back events are occasionally missed).
+        run_ydotool_keys(["ctrl+v"], timeout=5, key_delay_ms=40)
+        return
     if shutil.which("wtype"):
-        return ["wtype", "-M", "ctrl", "-k", "v", "-m", "ctrl"]
+        subprocess.run(["wtype", "-M", "ctrl", "-k", "v", "-m", "ctrl"], check=True, timeout=5)
+        return
     raise RuntimeError("No tool available to send Ctrl+V on Wayland (install ydotool, or wtype on wlroots)")
 
 
@@ -46,7 +47,7 @@ class ClipboardInjector:
         if is_wayland:
             subprocess.run(["wl-copy", "--", text], check=True, timeout=5)
             time.sleep(_CLIPBOARD_SETTLE_S)
-            subprocess.run(_paste_cmd_wayland(), check=True, timeout=5)
+            _paste_wayland()
         else:
             subprocess.run(
                 ["xclip", "-selection", "clipboard"],
@@ -66,7 +67,7 @@ class ClipboardInjector:
         is_wayland = bool(os.environ.get("WAYLAND_DISPLAY"))
         if is_wayland:
             if _ydotool_ready():
-                subprocess.run(["ydotool", "key"] + ydotool_key_args("KEY_BACKSPACE") * count, check=True, timeout=10)
+                run_ydotool_keys(["KEY_BACKSPACE"] * count, timeout=10)
             elif shutil.which("wtype"):
                 args = []
                 for _ in range(count):
@@ -87,12 +88,9 @@ class ClipboardInjector:
         is_wayland = bool(os.environ.get("WAYLAND_DISPLAY"))
         if is_wayland:
             if _ydotool_ready():
-                args: list[str] = []
-                for combo in keys:
-                    args += ydotool_key_args(combo)
-                subprocess.run(["ydotool", "key"] + args, check=True, timeout=10)
+                run_ydotool_keys(keys, timeout=10)
             elif shutil.which("wtype"):
-                args = []
+                args: list[str] = []
                 for key in keys:
                     parts = key.split("+")
                     modifiers = parts[:-1]

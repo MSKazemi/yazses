@@ -43,6 +43,9 @@ uv run mypy src
 Tool used:
 What I verified personally:
 
+<!-- If a paid third-party tool was used, its account/billing is the contributor's own
+     responsibility. Do not paste receipts, billing screenshots, API keys, or credentials. -->
+
 ## Checklist
 
 <!-- Docs-only PR (a translation, an example config, a typo, adding yourself to a list)?
@@ -55,6 +58,7 @@ What I verified personally:
 - [ ] Change is cross-platform aware (Linux / macOS / Windows) where relevant
 - [ ] The change is offline-first — no new network calls or telemetry
 - [ ] No secrets, credentials, or personal data added
+- [ ] I did not rely on YazSes to authorize or reimburse third-party AI/cloud charges
 
 <!-- Nothing to sign. No CLA, no DCO, no sign-off line — Apache-2.0 section 5 covers the
      licence grant the moment you open this PR. -->
