@@ -17,10 +17,13 @@ where we are going. If you only read one thing, read the pictures.
 always-current sources are the [GitHub milestones](https://github.com/MSKazemi/yazses/milestones)
 (work you can pick up), the [`[Unreleased]` section of the changelog](https://github.com/MSKazemi/yazses/blob/main/CHANGELOG.md)
 (what is on `main` but not yet tagged) and [`ROADMAP.md`](https://github.com/MSKazemi/yazses/blob/main/ROADMAP.md)
-(the contributor-facing detail). Which issues must carry a milestone is being settled
-under the traceability epic [#377](https://github.com/MSKazemi/yazses/issues/377)
-([#480](https://github.com/MSKazemi/yazses/issues/480)); until that lands, do not read the
-absence of a milestone as the absence of a plan.
+(the contributor-facing detail). Not every open issue carries a milestone, and that is
+deliberate: under the [milestone policy](https://github.com/MSKazemi/yazses/blob/main/design/milestone-policy.md)
+([#480](https://github.com/MSKazemi/yazses/issues/480)) delivery work carries exactly one,
+an epic carries the one its sub-issues share (none if they span several), and evergreen
+issues — research questions, "test it on your machine" calls, translation reviews,
+contributor invitations — carry an `evergreen:*` label and no milestone. An issue with
+neither a milestone nor a class label is a violation the policy check reports.
 
 ## The destination
 
@@ -95,8 +98,8 @@ flowchart LR
 
 ## Working milestones — where you can join
 
-Every milestone is an outcome, not a bucket. Not every open issue carries one yet (see
-the note at the top of this page). Pick the one that sounds like you:
+Every milestone is an outcome, not a bucket, which is why evergreen issues stay out of
+them (see the note at the top of this page). Pick the one that sounds like you:
 
 | Milestone | The promise | Flavour |
 |---|---|---|

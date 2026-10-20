@@ -459,7 +459,9 @@ entries:
       kind: issue
       issues: [81]
       task: null
-      milestone: 1
+      # No milestone: #81's open sub-issues span M0-M3, so under the milestone policy
+      # (design/milestone-policy.md, #480) the epic carries none.
+      milestone: null
   - id: "programme:hands-free"
     kind: programme
     title: "Hands-free / eye-control programme"

@@ -2,10 +2,13 @@
 
 > **The visionary, graphical roadmap lives in the docs:**
 > [Roadmap — eras, milestones, and the destination](https://mskazemi.com/yazses/roadmap.html)
-> (`docs/roadmap.md`). Every open issue is filed under one
+> (`docs/roadmap.md`). Delivery work is filed under one
 > [GitHub milestone](https://github.com/MSKazemi/yazses/milestones) —
 > Settings GUI · Install anywhere · Hear better · Voice control · Welcome mat ·
-> Android M0–M3. This file is the contributor-facing changelog-style detail.
+> Hands-free · Silent input · Android M0–M3. Epics and evergreen issues (research
+> questions, test-report calls, translation reviews, invitations) follow the
+> [milestone policy](design/milestone-policy.md) instead. This file is the
+> contributor-facing changelog-style detail.
 
 ---
 
