@@ -4581,6 +4581,7 @@ def _update_launcher():
 def _one_click_update(status, launcher, *, check: bool, yes: bool) -> None:
     """`yazses update` for the Windows channels: confirm, download, verify, hand off."""
     from yazses.system.installer_update import (
+        ALL_USERS_NOTE,
         RELEASE_DOWNLOAD_PREFIX,
         one_click_offer,
         package_manager_argv,
@@ -4606,6 +4607,8 @@ def _one_click_update(status, launcher, *, check: bool, yes: bool) -> None:
             "Note: the installer is not code-signed yet — the checksum proves the file "
             "is the one this release published, not who built it."
         )
+        if offer.all_users:
+            typer.echo(ALL_USERS_NOTE)
     else:
         argv, elevate, _capture = package_manager_argv(status.method)
         typer.echo(f"Command: {' '.join(argv)}  (run after YazSes closes, then it restarts)")

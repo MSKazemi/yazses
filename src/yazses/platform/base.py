@@ -351,7 +351,10 @@ class UpdateHandoff:
     #: The program and its arguments. For ``"installer"`` the first element is the
     #: downloaded file, already checked against the release's SHA-256.
     argv: tuple[str, ...]
-    #: Run with administrator rights (a UAC prompt). Only Chocolatey needs it.
+    #: Run with administrator rights (a UAC prompt): Chocolatey, and an ``"installer"``
+    #: for an all-users install. The latter never elevates the downloaded file itself --
+    #: the launcher elevates a job that first copies it somewhere only administrators can
+    #: write and checks ``sha256`` there (ADR-027).
     elevate: bool
     #: Process ids to wait for before starting, so the files are free to replace.
     wait_pids: tuple[int, ...]
@@ -391,7 +394,8 @@ class UpdateLauncher(Protocol):
 
     def install_scope(self) -> str:
         """``"user"`` for a per-user install, ``"machine"`` for an all-users one, or
-        ``"unknown"``. One-click only runs a downloaded installer for ``"user"``."""
+        ``"unknown"``. ``"user"`` runs the installer unelevated, ``"machine"`` through the
+        elevated admin-only-copy job, and ``"unknown"`` gets no one-click at all."""
         ...
 
     def query_package_manager(self, method: str) -> str | None:

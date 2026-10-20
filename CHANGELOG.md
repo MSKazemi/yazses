@@ -529,11 +529,34 @@ downloaded in the background. The optional, off-by-default update-check notifier
 update-check`) now tells a Windows user to install from the tray's *Check for updates…* instead of listing
 download-and-run steps.
 
+An **all-users** install (in `C:\Program Files`) is updated by the same click, plus **one** UAC prompt. The
+downloaded file is never what runs with administrator rights. The prompt elevates System32's Windows
+PowerShell, and the confirmation box says so first. The elevated part trusts nothing a non-administrator can
+write:
+
+- It creates `<Windows>\Temp\yazses-update-<random>` with its ACL in place from the start: owner
+  Administrators, inheritance off, only Administrators and SYSTEM. It refuses unless it can read that ACL
+  back.
+- It copies the installer in, opens the copy deny-write, and checks **the copy's** SHA-256 against a hash
+  written into its own `-EncodedCommand` text.
+- It runs the copy with `/ALLUSERS` and with `TEMP`/`TMP` pointed at that folder, so Inno's `setup.tmp` stays
+  out of your temp folder too.
+- It deletes the folder on every path out. It uses no cmdlets and loads no modules, and it writes nothing to
+  a user-writable place.
+
+Saying No at the UAC prompt installs nothing and relaunches the old version. The next start says the
+permission was declined (exit code `-4`). An install whose scope the Inno uninstall key cannot place still
+gets the manual steps. What this does and does not protect is set out in ADR-027's trust model: a same-user
+attacker who can tamper with processes *before* the prompt is outside it, as Microsoft states for
+same-desktop elevation.
+
+**Chocolatey** no longer falls back to `C:\ProgramData\chocolatey` when the machine-level
+`ChocolateyInstall` is missing. Users can create folders under `%ProgramData%`, so without a Chocolatey
+install there, a planted `choco.exe` would have been elevated. A declined Chocolatey prompt is now recorded
+as declined too.
+
 Limits, all on purpose:
 
-- An **all-users** install is not updated by one click. Doing so would run a file from your temp folder with
-  administrator rights. It gets the manual steps, and the tray's message says to run the installer from the
-  releases page and that it upgrades in place, with nothing to uninstall.
 - If YazSes has not closed within 5 minutes (for example, a meeting still being saved), **nothing is
   installed**; YazSes is never force-closed.
 - Two clicks cannot run two updates at once.
@@ -562,8 +585,13 @@ real `WindowsUpdateLauncher`, the real HKCU uninstall-key read and a fake releas
 to a wrong `Accept` header, as GitHub does. A compiled stand-in installer records its arguments. The job checks
 that the job waits for YazSes to exit, re-checks the hash, passes the in-place switches, records the exit code
 and relaunches, for a good, a failing, a tampered and a stuck update, in paths with a space, an apostrophe and
-non-ASCII letters. It has not run yet; it becomes blocking after three green pushes to `main`. It does not
-cover the real Inno installer, UAC, DNS/TLS or GitHub's redirects; ADR-027's manual checklist still does.
+non-ASCII letters. It also runs the all-users path for real. GitHub's runners are administrators with UAC
+disabled, so the run uses a real HKLM uninstall key, a real `runas` start and the real elevated script. The
+stand-in installer records where it ran and its folder's ACL (owner `BA`, protected, only `BA` and `SY`).
+The elevated script is also run with a wrong hash, which must give exit -2 with nothing run. It has not run
+yet; it becomes blocking after three green pushes to `main`. It does not cover the real Inno installer, the
+UAC prompt itself, DNS/TLS or GitHub's redirects; ADR-027's manual checklist (now 18 items, 6 and 14–17 for
+all-users) still does.
 
 Also fixed: after a uv, pipx or pip upgrade, `yazses update` told every user to run `systemctl --user restart
 yazses`, which does not exist on Windows or macOS. It now says `yazses restart`.

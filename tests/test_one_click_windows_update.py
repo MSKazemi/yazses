@@ -607,7 +607,10 @@ def test_the_installer_script_waits_verifies_runs_records_and_relaunches(tmp_pat
 def test_choco_is_elevated_and_winget_is_captured(tmp_path):
     choco = wh.build_script(_handoff(tmp_path, kind="package-manager", sha256="", cleanup=(),
                                      argv=("choco", "upgrade", "yazses", "-y"), elevate=True))
-    assert "-Verb RunAs" in choco and "Get-FileHash" not in choco
+    assert "$psi.Verb = 'runas'" in choco and "Get-FileHash" not in choco
+    # A declined UAC prompt is recorded as such, not as "could not start".
+    assert "NativeErrorCode -eq 1223" in choco and f"$code = {wh.EXIT_ELEVATION_DECLINED}" in choco
+    assert "-Verb RunAs" not in choco and "$psi.WindowStyle" not in choco  # its console stays
     winget = wh.build_script(_handoff(tmp_path, kind="package-manager", sha256="", cleanup=(),
                                       argv=("winget", "upgrade", "--id", "MSKazemi.YazSes"),
                                       capture_output=True))
@@ -865,8 +868,9 @@ def test_request_headers_by_host():
 
 # ---- 3. elevation: never a temp-folder installer; choco by absolute machine path -------
 
-@pytest.mark.parametrize("scope,needle", [("machine", "all users"), ("unknown", "Could not tell")])
-def test_an_installer_install_that_is_not_per_user_is_not_offered(tmp_path, scope, needle):
+@pytest.mark.parametrize("scope,needle", [("unknown", "Could not tell"), ("", "Could not tell"),
+                                          ("both", "Could not tell")])
+def test_an_installer_install_whose_scope_is_unknown_is_not_offered(tmp_path, scope, needle):
     launcher = FakeLauncher(tmp_path, scope=scope)
     offer = iu.one_click_offer(_status(), launcher)
     assert offer is not None and not offer.ok and needle in offer.reason
@@ -882,15 +886,17 @@ def test_an_installer_install_that_is_not_per_user_is_not_offered(tmp_path, scop
     assert any(RELEASES_URL in s for s in result.steps)
 
 
-def test_build_handoff_refuses_an_elevated_installer(tmp_path):
+@pytest.mark.parametrize("sha", ["", "abc", "z" * 64])
+def test_build_handoff_refuses_an_elevated_installer_without_a_hash(tmp_path, sha):
     with pytest.raises(iu.UpdateRefused):
         iu.build_handoff(kind="installer", argv=["x.exe"], elevate=True, capture_output=False,
-                         wait_pids=[], relaunch=["a"], staging=tmp_path)
+                         wait_pids=[], relaunch=["a"], staging=tmp_path, sha256=sha)
 
 
-def test_build_script_refuses_an_elevated_installer(tmp_path):
+@pytest.mark.parametrize("sha", ["", "abc", "z" * 64])
+def test_build_script_refuses_an_elevated_installer_without_a_hash(tmp_path, sha):
     with pytest.raises(ValueError):
-        wh.build_script(_handoff(tmp_path, elevate=True))
+        wh.build_script(_handoff(tmp_path, elevate=True, sha256=sha))
 
 
 def test_scope_for_matches_the_running_directory():
@@ -922,11 +928,15 @@ def test_chocolatey_is_resolved_from_the_machine_environment_only():
     present = {"D:\\choco\\choco.exe", "C:\\ProgramData\\chocolatey\\bin\\choco.exe"}
     exists = present.__contains__
     assert wh.chocolatey_exe("D:\\choco", exists) == "D:\\choco\\choco.exe"
-    assert wh.chocolatey_exe(None, exists) == "C:\\ProgramData\\chocolatey\\bin\\choco.exe"
-    # An unexpanded value is not trusted; fall back to the documented default.
-    assert wh.chocolatey_exe("%USERPROFILE%\\evil", exists) == \
+    assert wh.chocolatey_exe("C:\\ProgramData\\chocolatey", exists) == \
         "C:\\ProgramData\\chocolatey\\bin\\choco.exe"
-    assert wh.chocolatey_exe(None, lambda p: False) is None
+    # No machine variable, or an unexpanded one: NO fallback to the default directory.
+    # %ProgramData% lets users create folders, so without a Chocolatey install to vouch
+    # for C:\ProgramData\chocolatey a same-user process could plant choco.exe there.
+    assert wh.chocolatey_exe(None, exists) is None
+    assert wh.chocolatey_exe("", exists) is None
+    assert wh.chocolatey_exe("%USERPROFILE%\\evil", exists) is None
+    assert wh.chocolatey_exe("D:\\choco", lambda p: False) is None
 
 
 def test_hand_off_runs_choco_by_absolute_path_never_from_the_user_env(tmp_path):
@@ -944,8 +954,8 @@ def test_hand_off_runs_choco_by_absolute_path_never_from_the_user_env(tmp_path):
                        argv=("choco", "upgrade", "yazses", "-y"), elevate=True)
     launcher.hand_off(handoff)
     script = base64.b64decode(calls[0][calls[0].index("-EncodedCommand") + 1]).decode("utf-16-le")
-    assert "Start-Process -FilePath 'C:\\ProgramData\\chocolatey\\choco.exe'" in script
-    assert "-Verb RunAs" in script and "evil" not in script
+    assert "[Diagnostics.ProcessStartInfo]::new('C:\\ProgramData\\chocolatey\\choco.exe')" in script
+    assert "$psi.Verb = 'runas'" in script and "evil" not in script
 
 
 def test_hand_off_refuses_a_package_manager_it_cannot_find(tmp_path):
@@ -1004,9 +1014,16 @@ def test_query_package_manager_runs_the_resolved_program(tmp_path):
         stdout = "yazses|2.44.0\n"
         stderr = ""
 
+    # Without the machine-level ChocolateyInstall there is no choco to trust: nothing runs.
+    bare = wh.WindowsUpdateLauncher(
+        env={}, exists=lambda p: True, registry=lambda *a: None, which=lambda n: None,
+        run=lambda argv, **kw: ran.append((argv, kw)) or _Proc(),
+    )
+    assert bare.query_package_manager("choco") is None and ran == []
     launcher = wh.WindowsUpdateLauncher(
         env={}, exists=lambda p: p.endswith("chocolatey\\choco.exe"),
-        registry=lambda *a: None, which=lambda n: f"C:\\bin\\{n}.cmd",
+        registry=lambda *a: "C:\\ProgramData\\chocolatey",
+        which=lambda n: f"C:\\bin\\{n}.cmd",
         run=lambda argv, **kw: ran.append((argv, kw)) or _Proc(),
     )
     assert iu.parse_feed_version("choco", launcher.query_package_manager("choco")) == "2.44.0"
@@ -1167,10 +1184,10 @@ def test_tray_refused_offer_explains_and_opens_the_page(monkeypatch, tmp_path):
     opened, shown, asked = [], [], []
     monkeypatch.setattr(wtray, "open_link", lambda url: opened.append(url) or True)
     wtray._run_update(_Icon(), lambda _i, t, b: shown.append((t, b)),
-                      launcher=FakeLauncher(tmp_path, scope="machine"),
+                      launcher=FakeLauncher(tmp_path, scope="unknown"),
                       confirm=lambda t, b: asked.append(1) or True, sleep=lambda s: None)
     assert asked == [] and opened == [RELEASES_URL]
-    assert "all users" in shown[-1][1]
+    assert "Could not tell" in shown[-1][1]
 
 
 # ---- a hand-off started outside the tray makes the tray close ----------------------------
@@ -1288,3 +1305,387 @@ def test_outside_the_tray_a_failed_hand_off_stops_nothing(tmp_path, monkeypatch)
     result = tu.hand_off_outside_tray(_status(), FakeLauncher(tmp_path), tray_pid=lambda: 77,
                                       request_daemon_shutdown=lambda: asked.append(1))
     assert not result.ok and asked == []
+
+
+# ---- 5. all-users installs: one UAC prompt, and nothing user-writable is trusted -------
+#
+# The elevated job copies the verified download into a fresh Administrators-only
+# directory, hashes THAT copy against a SHA-256 written into its own -EncodedCommand
+# text, and runs the copy. These tests pin the generated text; the Windows CI job
+# (scripts/check_windows_update_handoff.py) runs it for real on a runner where UAC is
+# off, and ADR-027's checklist covers the real prompt.
+
+_PS_QUOTE_CHARS = ("'", "\u2018", "\u2019", "\u201a", "\u201b")
+#: Everything that breaks a naively quoted PowerShell string.
+HOSTILE = "C:\\Users\\O'Brien `$(calc) \u2018x\u2019 \u201ay\u201b \"z\" ;$env:X\\Temp\\yazses-update"
+HOSTILE_NAME = "YazSes-2.44.0-windows-x64 O'B `$(calc) \u2019.exe"
+
+
+def _ps_literals(script: str) -> tuple[list[str], str]:
+    """Split PowerShell text into its single-quoted literals (decoded) and the code
+    outside them, the way PowerShell's tokenizer reads single-quoted strings: any of
+    the five quote characters opens or closes one, and two in a row inside one are a
+    literal quote. An unterminated literal fails the test."""
+    literals: list[str] = []
+    code: list[str] = []
+    i = 0
+    while i < len(script):
+        ch = script[i]
+        if ch not in _PS_QUOTE_CHARS:
+            code.append(ch)
+            i += 1
+            continue
+        i += 1
+        buf: list[str] = []
+        while True:
+            assert i < len(script), "unterminated single-quoted literal"
+            ch = script[i]
+            if ch in _PS_QUOTE_CHARS:
+                if i + 1 < len(script) and script[i + 1] in _PS_QUOTE_CHARS:
+                    buf.append(ch)
+                    i += 2
+                    continue
+                i += 1
+                break
+            buf.append(ch)
+            i += 1
+        literals.append("".join(buf))
+    return literals, "".join(code)
+
+
+def _admin_handoff(tmp_path, *, source=None, sha=SHA, **kw):
+    source = source or "C:\\T\\yazses-update\\YazSes-2.44.0-windows-x64.exe"
+    base = dict(
+        kind="installer",
+        argv=(source, *iu.installer_arguments(all_users=True)),
+        elevate=True,
+        cleanup=(Path(source),),
+        sha256=sha,
+    )
+    base.update(kw)
+    return _handoff(tmp_path, **base)
+
+
+def _elevated_from(outer: str) -> str:
+    """The elevated script, decoded from the outer job's runas arguments."""
+    literals, _code = _ps_literals(outer)
+    args = next(lit for lit in literals if "-EncodedCommand" in lit)
+    encoded = args.split("-EncodedCommand", 1)[1].strip()
+    return base64.b64decode(encoded).decode("utf-16-le")
+
+
+def _admin_script(name="YazSes-2.44.0-windows-x64.exe", source="C:\\T\\x.exe", sha=SHA):
+    return wh.build_admin_install_script(source, sha, iu.installer_arguments(all_users=True),
+                                         name)
+
+
+# -- when the elevated path is offered (pure planning) --
+
+def _registry(user=None, machine=None):
+    def _reg(hive, subkey, names):
+        return {"HKEY_CURRENT_USER": user, "HKEY_LOCAL_MACHINE": machine}[hive]
+
+    return _reg
+
+
+@pytest.mark.parametrize("user,machine,running,scope", [
+    # Matches the HKLM uninstall entry: the all-users path.
+    (None, "C:\\Program Files\\YazSes", "C:\\Program Files\\YazSes", "machine"),
+    # Both entries exist (an old all-users install left behind): the running dir decides.
+    ("C:\\Users\\a\\AppData\\Local\\Programs\\YazSes", "C:\\Program Files\\YazSes",
+     "C:\\Program Files\\YazSes", "machine"),
+    ("C:\\Users\\a\\AppData\\Local\\Programs\\YazSes", "C:\\Program Files\\YazSes",
+     "C:\\Users\\a\\AppData\\Local\\Programs\\YazSes", "user"),
+    # Running from neither: nothing is offered.
+    (None, "C:\\Program Files\\YazSes", "D:\\Portable\\YazSes", "unknown"),
+    (None, None, "C:\\Program Files\\YazSes", "unknown"),
+])
+def test_the_elevated_path_is_planned_only_for_an_hklm_uninstall_match(
+        tmp_path, user, machine, running, scope):
+    launcher = wh.WindowsUpdateLauncher(env={}, executable=running + "\\YazSesApp.exe",
+                                        frozen=True, registry=_registry(user, machine))
+    assert launcher.install_scope() == scope
+    offer = iu.one_click_offer(_status(), launcher)
+    assert offer is not None
+    assert offer.ok is (scope != "unknown")
+    assert offer.all_users is (scope == "machine")
+
+
+def test_an_all_users_install_hands_off_an_elevated_copy_job(tmp_path):
+    launcher = FakeLauncher(tmp_path, scope="machine")
+    result = _run(launcher)
+    assert result.ok, result.message
+    (h,) = launcher.handoffs
+    assert h.kind == "installer" and h.elevate and h.sha256 == SHA
+    assert iu.ALL_USERS_SWITCH in h.argv and "/VERYSILENT" in h.argv
+    # No /LOG: the elevated job writes nothing to a user-writable place.
+    assert not any(a.startswith("/LOG") for a in h.argv)
+    path = Path(h.argv[0])
+    assert path.parent == launcher.staging_dir() and path in h.cleanup
+    assert launcher.staging_dir() / iu.LOCK_NAME in h.cleanup
+
+
+def test_a_per_user_install_is_never_elevated_and_never_gets_allusers(tmp_path):
+    launcher = FakeLauncher(tmp_path, scope="user")
+    assert _run(launcher).ok
+    (h,) = launcher.handoffs
+    assert not h.elevate and iu.ALL_USERS_SWITCH not in h.argv
+    assert any(a.startswith("/LOG=") for a in h.argv)
+
+
+def test_installer_arguments_per_scope(tmp_path):
+    assert iu.installer_arguments(all_users=True) == [*iu.INSTALLER_SWITCHES, "/ALLUSERS"]
+    assert iu.installer_arguments(tmp_path / "i.log")[-1] == f"/LOG={tmp_path / 'i.log'}"
+    with pytest.raises(ValueError):
+        iu.installer_arguments()
+
+
+def test_inno_accepts_allusers_on_the_command_line():
+    # /ALLUSERS has an effect only when PrivilegesRequiredOverridesAllowed allows the
+    # command line; "dialog" implies it (Inno Setup help, PrivilegesRequiredOverridesAllowed).
+    iss = (ROOT / "packaging" / "windows" / "installer.iss").read_text(encoding="utf-8")
+    line = next(x for x in iss.splitlines() if x.startswith("PrivilegesRequiredOverridesAllowed="))
+    assert {"dialog", "commandline"} & set(line.split("=", 1)[1].split())
+
+
+def test_the_all_users_prompt_says_windows_will_ask_and_names_powershell():
+    _t, text = iu.confirmation_prompt(_status(), all_users=True)
+    assert iu.ALL_USERS_NOTE in text and "Windows PowerShell" in text
+    _t, text = iu.confirmation_prompt(_status())
+    assert iu.ALL_USERS_NOTE not in text
+
+
+def test_the_tray_asks_with_the_all_users_note(monkeypatch, tmp_path):
+    import yazses.platform.windows.tray as wtray
+    import yazses.tray.updates as tray_updates
+
+    monkeypatch.setattr(tray_updates, "check_updates", lambda current=None: _status())
+    asked = []
+    wtray._run_update(_Icon(), lambda _i, t, b: None,
+                      launcher=FakeLauncher(tmp_path, scope="machine"),
+                      confirm=lambda t, b: asked.append(b) or False, sleep=lambda s: None)
+    assert len(asked) == 1 and iu.ALL_USERS_NOTE in asked[0]
+
+
+def test_the_cli_check_says_windows_will_ask(monkeypatch, tmp_path):
+    started = _patch_cli(monkeypatch, tmp_path, _status())
+    monkeypatch.setattr(cli, "_update_launcher", lambda: FakeLauncher(tmp_path, scope="machine"))
+    out = runner.invoke(cli.app, ["update", "--check"])
+    assert out.exit_code == 0 and started == []
+    assert iu.ALL_USERS_NOTE in " ".join(out.output.split())
+
+
+# -- the outer (unelevated) job --
+
+def test_the_outer_job_elevates_system_powershell_never_the_download(tmp_path):
+    script = wh.build_script(_admin_handoff(tmp_path))
+    _lits, code = _ps_literals(script)
+    assert "[IO.Path]::Combine([Environment]::SystemDirectory, 'WindowsPowerShell'" in script
+    assert "$psi.Verb = 'runas'" in script and "$psi.WindowStyle = 'Hidden'" in script
+    # The downloaded file is hashed (a courtesy check) and deleted -- never started.
+    temp = "C:\\T\\yazses-update\\YazSes-2.44.0-windows-x64.exe"
+    assert f"Start-Process -FilePath '{temp}'" not in script
+    assert f"ProcessStartInfo]::new('{temp}')" not in script
+    assert "-Verb RunAs" not in script and "$env:" not in code
+
+
+def test_the_outer_job_waits_elevates_records_cleans_and_relaunches_in_order(tmp_path):
+    script = wh.build_script(_admin_handoff(tmp_path))
+    order = [
+        "Wait-Process -Id $id",
+        "Get-FileHash",
+        "$psi.Verb = 'runas'",
+        "[Diagnostics.Process]::Start($psi)",
+        "$p.WaitForExit()",
+        "$code = $p.ExitCode",
+        "Write-Note ('the update did not run: '",
+        "Set-Content -LiteralPath $result",
+        "Remove-Item -LiteralPath 'C:\\T\\yazses-update\\YazSes-2.44.0-windows-x64.exe'",
+        "Start-Process -FilePath 'C:\\P\\YazSes\\YazSesApp.exe' -ArgumentList '--tray'",
+    ]
+    positions = [script.index(token) for token in order]
+    assert positions == sorted(positions)
+
+
+def test_a_declined_uac_prompt_is_recorded_and_yazses_still_relaunches(tmp_path):
+    script = wh.build_script(_admin_handoff(tmp_path))
+    declined = script.index("NativeErrorCode -eq 1223")
+    assert f"$code = {wh.EXIT_ELEVATION_DECLINED}" in script[declined:declined + 200]
+    # The decline throws to the job's catch, after which the result, the cleanup and the
+    # relaunch all still run: they sit outside the try.
+    assert declined < script.index("} catch {\r\n  Write-Note ('the update did not run: '")
+    assert script.index("Set-Content -LiteralPath $result") > declined
+    assert script.rindex("Start-Process -FilePath 'C:\\P\\YazSes\\YazSesApp.exe'") > declined
+    described = iu.describe_handoff_result({"from": "2.43.2", "to": "2.44.0"},
+                                           str(wh.EXIT_ELEVATION_DECLINED), "2.43.2")
+    assert described is not None and "declined" in described[1]
+
+
+def test_the_exit_codes_agree_between_the_two_modules():
+    for name in ("EXIT_NOT_STARTED", "EXIT_HASH_MISMATCH", "EXIT_STILL_RUNNING",
+                 "EXIT_ELEVATION_DECLINED", "EXIT_UNSAFE_STAGING"):
+        assert getattr(iu, name) == getattr(wh, name), name
+    assert len({iu.EXIT_NOT_STARTED, iu.EXIT_HASH_MISMATCH, iu.EXIT_STILL_RUNNING,
+                iu.EXIT_ELEVATION_DECLINED, iu.EXIT_UNSAFE_STAGING}) == 5
+
+
+@pytest.mark.parametrize("code,needle", [
+    (iu.EXIT_ELEVATION_DECLINED, "administrator permission and it was declined"),
+    (iu.EXIT_UNSAFE_STAGING, "only administrators can change"),
+    (iu.EXIT_HASH_MISMATCH, "SHA-256"),
+])
+def test_the_next_start_explains_an_all_users_failure(code, needle):
+    described = iu.describe_handoff_result({"from": "2.43.2", "to": "2.44.0"}, str(code), "2.43.2")
+    assert described is not None and needle in described[1]
+
+
+def test_the_outer_job_carries_exactly_the_elevated_script(tmp_path):
+    handoff = _admin_handoff(tmp_path)
+    elevated = _elevated_from(wh.build_script(handoff))
+    assert elevated == wh.build_admin_install_script(
+        handoff.argv[0], SHA, list(handoff.argv[1:]), "YazSes-2.44.0-windows-x64.exe")
+    flags = wh.admin_install_command_line(handoff)
+    assert flags.startswith("-NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden")
+
+
+def test_the_elevated_command_line_stays_within_a_budget(tmp_path):
+    # ShellExecuteEx documents no limit on lpParameters, but older shells were reported
+    # to fail near 2 K and CreateProcess caps a command line at 32 767 characters. A
+    # deep, awkward path must still leave a wide margin; if this grows, measure it on
+    # Windows before raising the number.
+    deep = "C:\\Users\\" + "\u0645\u062d\u0633\u0646 O'B " * 12 + "\\AppData\\Local\\Temp\\yazses-update"
+    handoff = _admin_handoff(tmp_path, source=deep + "\\YazSes-2.44.0-windows-x64.exe")
+    assert len(wh.admin_install_command_line(handoff)) < 8000
+
+
+def test_hand_off_starts_the_all_users_job_unelevated_through_the_same_spawn(tmp_path):
+    calls = []
+    launcher = wh.WindowsUpdateLauncher(
+        env={"SystemRoot": "C:\\Windows"}, executable="C:\\Program Files\\YazSes\\YazSesApp.exe",
+        frozen=True, spawn=lambda argv, **kw: calls.append(argv), exists=lambda p: True,
+    )
+    launcher.hand_off(_admin_handoff(tmp_path))
+    (argv,) = calls
+    assert argv[0] == "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"
+    outer = base64.b64decode(argv[argv.index("-EncodedCommand") + 1]).decode("utf-16-le")
+    assert "$psi.Verb = 'runas'" in outer and SHA in _elevated_from(outer)
+
+
+# -- the elevated script itself --
+
+def test_the_admin_only_acl_is_set_before_anything_is_copied():
+    s = _admin_script()
+    order = [
+        "$PSModuleAutoLoadingPreference = 'None'",
+        "[IO.Path]::GetDirectoryName([Environment]::SystemDirectory)",
+        "[guid]::NewGuid()",
+        "if ([IO.Directory]::Exists($dir)) { $dir = $null; throw",
+        "[Security.AccessControl.DirectorySecurity]::new()",
+        f"$acl.SetOwner([Security.Principal.SecurityIdentifier]::new('{wh.SID_ADMINISTRATORS}'))",
+        "$acl.SetAccessRuleProtection($true, $false)",
+        "$acl.AddAccessRule(",
+        "[IO.Directory]::CreateDirectory($dir, $acl)",
+        "[IO.Directory]::GetAccessControl($dir)",
+        "-not $got.AreAccessRulesProtected",
+        "GetFileSystemEntries($dir).Length -ne 0",
+        "[IO.File]::Copy(",
+    ]
+    positions = [s.index(token) for token in order]
+    assert positions == sorted(positions)
+    # Exactly two principals, by SID, full control, inherited into the directory.
+    assert f"@('{wh.SID_ADMINISTRATORS}', '{wh.SID_SYSTEM}')" in s
+    assert "'FullControl', 'ContainerInherit, ObjectInherit', 'None', 'Allow'" in s
+    assert s.count("AddAccessRule(") == 1  # inside the two-SID loop, nothing else
+    assert "S-1-5-32-545" not in s and "S-1-1-0" not in s and "S-1-5-11" not in s  # Users, Everyone, Authenticated
+
+
+def test_the_hash_compared_is_the_copy_s_and_the_expected_hash_is_a_literal():
+    source = "C:\\Users\\a\\AppData\\Local\\Temp\\yazses-update\\YazSes-2.44.0-windows-x64.exe"
+    s = _admin_script(source=source)
+    literals, code = _ps_literals(s)
+    assert SHA in literals                                  # a literal in the script itself
+    assert literals.count(source) == 1                      # the download: named once...
+    assert f"[IO.File]::Copy('{source}', $exe, $false)" in s  # ...as the copy's source only
+    assert "$exe = [IO.Path]::Combine($dir, 'YazSes-2.44.0-windows-x64.exe')" in s
+    assert "$held = [IO.File]::Open($exe, 'Open', 'Read', 'Read')" in s
+    assert ".ComputeHash($held)" in s and "Get-FileHash" not in s
+    assert s.index("[IO.File]::Copy(") < s.index("$held = [IO.File]::Open($exe")
+    assert s.index(".ComputeHash($held)") < s.index(f"if ($hash -ne '{SHA}')")
+    assert f"$code = {wh.EXIT_HASH_MISMATCH}; throw" in s
+
+
+def test_the_installer_is_started_from_the_admin_only_dir_while_held_open():
+    s = _admin_script()
+    for line in ("$psi = [Diagnostics.ProcessStartInfo]::new($exe)",
+                 "$psi.UseShellExecute = $false",
+                 "$psi.WorkingDirectory = $dir",
+                 "$psi.EnvironmentVariables['TEMP'] = $dir",
+                 "$psi.EnvironmentVariables['TMP'] = $dir"):
+        assert line in s
+    assert "/ALLUSERS" in s and "/VERYSILENT" in s and "/LOG" not in s
+    start = s.index("[Diagnostics.Process]::Start($psi)")
+    assert s.index(f"if ($hash -ne '{SHA}')") < start < s.index("$held.Dispose()")
+    assert s.count("::Start(") == 1
+
+
+def test_the_admin_dir_is_deleted_on_every_exit_path():
+    s = _admin_script()
+    body, after = s.split("} finally {", 1)
+    assert "[IO.Directory]::Delete($dir, $true)" in after and "$held.Dispose()" in after
+    assert after.index("$held.Dispose()") < after.index("[IO.Directory]::Delete($dir, $true)")
+    # One exit, after the finally: no path leaves the try without the cleanup.
+    assert s.count("exit ") == 1 and s.rstrip().endswith("exit $code")
+    assert "return" not in body
+    # A pre-existing directory is not ours: forget it before throwing, never delete it.
+    assert "if ([IO.Directory]::Exists($dir)) { $dir = $null; throw" in body
+    # The default result is "unsafe staging" until the directory is verified, then
+    # "not started" until the installer runs.
+    assert body.index(f"$code = {wh.EXIT_UNSAFE_STAGING}") < body.index("throw 'unsafe directory'")
+    assert body.index("throw 'unsafe directory'") < body.index(f"$code = {wh.EXIT_NOT_STARTED}")
+
+
+def test_the_elevated_script_trusts_no_user_writable_input():
+    s = _admin_script()
+    _literals, code = _ps_literals(s)
+    import re
+
+    # No cmdlets at all (module auto-loading is off, and none is needed), no
+    # environment reads, no profile, no writes to a user-writable place, no relaunch.
+    assert not re.search(r"\b(Get|Set|New|Add|Remove|Start|Copy|Out|Write|Wait|Invoke|Test|"
+                         r"Import|Move|Join|Split|Resolve)-[A-Z]", code), code
+    assert "$env:" not in code and "Environment]::GetEnvironmentVariable" not in code
+    assert "YazSesApp" not in s and "--tray" not in s
+
+
+@pytest.mark.parametrize("bad", ["", "abc", "A" * 64, "g" * 64, SHA + "0"])
+def test_the_elevated_script_needs_a_real_sha256(bad):
+    with pytest.raises(ValueError):
+        wh.build_admin_install_script("C:\\x.exe", bad, ["/VERYSILENT"], "x.exe")
+
+
+@pytest.mark.parametrize("name", ["", ".", "..", "a\\b.exe", "a/b.exe", "..\\x.exe", 'a"b.exe',
+                                  "c:x.exe", "a|b.exe"])
+def test_the_elevated_script_refuses_a_name_that_is_not_a_plain_file_name(name):
+    with pytest.raises(ValueError):
+        wh.build_admin_install_script("C:\\x.exe", SHA, ["/VERYSILENT"], name)
+
+
+def test_hostile_paths_are_quoted_everywhere_in_both_scripts(tmp_path):
+    source = HOSTILE + "\\" + HOSTILE_NAME
+    handoff = _admin_handoff(
+        tmp_path, source=source,
+        log_file=Path(HOSTILE) / "update.log", result_file=Path(HOSTILE) / "exit-code.txt",
+        relaunch=(HOSTILE + "\\YazSesApp.exe", "--tray"),
+    )
+    outer = wh.build_script(handoff)
+    elevated = _elevated_from(outer)
+    for script in (outer, elevated):
+        literals, code = _ps_literals(script)  # every literal terminates
+        for marker in ("O'Brien", "`$(calc)", "calc", "\u2018", "\u2019", "\u201a", "\u201b",
+                       "\"z\"", ";$env:X"):
+            assert marker not in code, (marker, code)
+    out_lits, _ = _ps_literals(outer)
+    el_lits, _ = _ps_literals(elevated)
+    assert source in out_lits and source in el_lits          # survived intact
+    assert HOSTILE_NAME in el_lits                           # the copy's name too
+    assert str(Path(HOSTILE) / "update.log") in out_lits

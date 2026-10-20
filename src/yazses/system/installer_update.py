@@ -17,7 +17,10 @@ and then handed the user a chore. This module turns that into one confirmed acti
    still holds open, so the job is given to the platform's :class:`UpdateLauncher`, which
    starts it detached; YazSes then shuts down. The detached job waits for YazSes to exit,
    checks the hash once more, runs the installer silently as an in-place upgrade, records
-   the exit code and starts YazSes again — success or not.
+   the exit code and starts YazSes again — success or not. For an **all-users** install
+   the installer must run elevated, and the downloaded file is never what is elevated:
+   one UAC prompt elevates a job that copies it into a fresh Administrators-only
+   directory, checks the SHA-256 of *that copy*, and runs the copy (ADR-027).
 
 Chocolatey, winget and Scoop already have an upgrade command (``updater.upgrade_command``)
 and go through the same hand-off, because each of them also ends by running the Inno
@@ -66,6 +69,8 @@ __all__ = [
     "CHECKSUMS_ASSET",
     "ONE_CLICK_METHODS",
     "HandoffResult",
+    "ALL_USERS_NOTE",
+    "ALL_USERS_SWITCH",
     "InstallerAsset",
     "UpdateRefused",
     "build_handoff",
@@ -159,6 +164,15 @@ LOCK_STALE_S = 2 * 3600.0
 EXIT_NOT_STARTED = -1
 EXIT_HASH_MISMATCH = -2
 EXIT_STILL_RUNNING = -3
+EXIT_ELEVATION_DECLINED = -4
+EXIT_UNSAFE_STAGING = -5
+
+#: Added for an all-users upgrade. The install mode would follow the previous install
+#: anyway (``UsePreviousPrivileges``); saying it makes an elevated run that cannot find
+#: the HKLM entry an all-users install rather than a per-user one into the admin's
+#: profile. ``PrivilegesRequiredOverridesAllowed=dialog`` in installer.iss is what makes
+#: Inno accept it ("Allowing dialog automatically allows commandline").
+ALL_USERS_SWITCH = "/ALLUSERS"
 
 #: The GitHub REST API rejects ``Accept: application/octet-stream`` on a JSON endpoint
 #: with HTTP 415, so the headers depend on what is being fetched (see
@@ -386,8 +400,17 @@ def plan_installer(payload: Any, current: str, arch: str) -> InstallerAsset:
     return asset
 
 
-def installer_arguments(log_file: Path) -> list[str]:
-    """The Inno Setup command line for the silent in-place upgrade."""
+def installer_arguments(log_file: Path | None = None, *, all_users: bool = False) -> list[str]:
+    """The Inno Setup command line for the silent in-place upgrade.
+
+    An all-users upgrade gets :data:`ALL_USERS_SWITCH` and **no** ``/LOG``: the elevated
+    job writes nothing to a user-writable place (an elevated write there is how a
+    junction becomes "write any file"), and its own directory is deleted when it ends.
+    """
+    if all_users:
+        return [*INSTALLER_SWITCHES, ALL_USERS_SWITCH]
+    if log_file is None:
+        raise ValueError("a per-user upgrade logs to the staging directory")
     return [*INSTALLER_SWITCHES, f"/LOG={log_file}"]
 
 
@@ -451,10 +474,16 @@ def parse_feed_version(method: str, output: str | None) -> str | None:
 
 @dataclass(frozen=True)
 class Offer:
-    """Whether to offer the one-click update now. ``ok=False`` carries the reason."""
+    """Whether to offer the one-click update now. ``ok=False`` carries the reason.
+
+    ``all_users``: the installer install is an all-users one, so the update will ask
+    Windows for administrator permission (one UAC prompt) and run through the elevated
+    admin-only-copy job (ADR-027). Callers say so before asking.
+    """
 
     ok: bool
     reason: str = ""
+    all_users: bool = False
 
 
 def one_click_offer(status: Any, launcher: UpdateLauncher | None) -> Offer | None:
@@ -464,10 +493,12 @@ def one_click_offer(status: Any, launcher: UpdateLauncher | None) -> Offer | Non
     behaviour). ``Offer(ok=False, reason)``: it applies but would not work now -- show the
     reason and the manual steps. ``Offer(ok=True)``: ask. Never raises.
 
-    * An installer install must be **per-user**. An all-users install would run the
-      downloaded file with administrator rights out of the user-writable temp folder,
-      where a process running as the same user could swap it between the hash check and
-      the elevation; one-click does not open that path (ADR-027).
+    * An installer install must be placed by its Inno uninstall entry: the running
+      directory matches the **HKCU** one (per-user: the installer runs unelevated) or the
+      **HKLM** one (all users: ``Offer(True, all_users=True)``; the installer runs from
+      an Administrators-only copy, never from the user-writable temp folder, ADR-027).
+      An install matching neither is ``"unknown"`` and is not offered: there is no
+      telling which privileges its upgrade needs.
     * A package manager must already carry the new version. Chocolatey's moderated
       packages, winget's manifests and Scoop's bucket all follow the GitHub tag, and
       offering "2.44.0" when ``choco upgrade`` will say "nothing to do" is a false claim.
@@ -481,15 +512,11 @@ def one_click_offer(status: Any, launcher: UpdateLauncher | None) -> Offer | Non
             scope = launcher.install_scope()
             if scope == "user":
                 return Offer(True)
-            # Both reasons end in what to do, and say there is nothing to uninstall:
-            # "update by hand" is what sent people to uninstall and reinstall. Kept
-            # short enough that the tray balloon (255 chars) still carries them whole.
             if scope == "machine":
-                return Offer(False, (
-                    "YazSes is installed for all users, so updating needs administrator "
-                    "rights, which one-click never uses on a download. Run the installer "
-                    "from the releases page: it upgrades in place, no uninstall."
-                ))
+                return Offer(True, all_users=True)
+            # The reason ends in what to do, and says there is nothing to uninstall:
+            # "update by hand" is what sent people to uninstall and reinstall. Kept
+            # short enough that the tray balloon (255 chars) still carries it whole.
             return Offer(False, (
                 "Could not tell whether YazSes is installed for this user or for all "
                 "users. Run the installer from the releases page: it upgrades in place, "
@@ -510,8 +537,21 @@ def one_click_offer(status: Any, launcher: UpdateLauncher | None) -> Offer | Non
         return Offer(False, f"Could not prepare the one-click update ({exc}).")
 
 
-def confirmation_prompt(status: Any) -> tuple[str, str]:
-    """``(title, text)`` for the yes/no question asked before anything is downloaded."""
+#: What an all-users update tells the user before asking, and what the UAC prompt
+#: will name: the elevated program is Windows PowerShell, not the installer.
+ALL_USERS_NOTE = (
+    "YazSes is installed for all users, so Windows will ask for administrator "
+    "permission. The prompt names Windows PowerShell: it copies the checked installer "
+    "into a folder only administrators can change, checks it again there, and runs it."
+)
+
+
+def confirmation_prompt(status: Any, *, all_users: bool = False) -> tuple[str, str]:
+    """``(title, text)`` for the yes/no question asked before anything is downloaded.
+
+    ``all_users`` is :attr:`Offer.all_users`: the text then says that Windows will ask
+    for administrator permission, and what the prompt will name.
+    """
     method = getattr(status, "method", "")
     head = f"YazSes {status.current} → {status.latest} is available."
     closing = (
@@ -525,6 +565,8 @@ def confirmation_prompt(status: Any) -> tuple[str, str]:
             "The installer is not code-signed yet: the checksum proves the file is the "
             "one this release published, not who built it."
         )
+        if all_users:
+            body += f"\n\n{ALL_USERS_NOTE}"
     else:
         argv, elevate, _ = package_manager_argv(method)
         body = f"{head}\n\nRun  {' '.join(argv)}  now?\n\n{closing}"
@@ -704,14 +746,18 @@ def build_handoff(
 ) -> UpdateHandoff:
     """Assemble the job description the launcher carries out (pure).
 
-    Refuses an elevated installer: the file sits in the user-writable temp folder, and
-    running it with administrator rights would let a same-user process swap it after
-    the last hash check (ADR-027).
+    An elevated ``installer`` (an all-users install) is accepted only with the SHA-256 it
+    was verified against: the downloaded file sits in the user-writable temp folder and
+    is never itself elevated. The launcher's elevated job copies it into an
+    Administrators-only directory and checks *that copy* against this hash before
+    running it; without the hash there is nothing to check, so it is refused (ADR-027).
     """
     from yazses.platform.base import UpdateHandoff
 
-    if kind == "installer" and elevate:
-        raise UpdateRefused("a downloaded installer is never run with administrator rights")
+    if kind == "installer" and elevate and not _SHA_HEX.match((sha256 or "").lower()):
+        raise UpdateRefused(
+            "an all-users update needs the installer's SHA-256 to check its admin-only copy"
+        )
 
     pids = tuple(sorted({int(p) for p in wait_pids if isinstance(p, int) and p > 0}))
     return UpdateHandoff(
@@ -824,10 +870,13 @@ def start_one_click_update(
                 size = f" ({asset.size / 1e6:.0f} MB)" if asset.size else ""
                 progress(f"Downloading YazSes {asset.version}{size}…", None)
             path = (download or download_verified)(asset, sha, staging, progress=progress)
+            all_users = offer.all_users
             handoff = build_handoff(
                 kind="installer",
-                argv=[str(path), *installer_arguments(staging / INSTALLER_LOG_NAME)],
-                elevate=False,
+                argv=[str(path), *installer_arguments(
+                    None if all_users else staging / INSTALLER_LOG_NAME, all_users=all_users,
+                )],
+                elevate=all_users,
                 capture_output=False,
                 wait_pids=wait_pids,
                 relaunch=relaunch,
@@ -966,6 +1015,16 @@ def describe_handoff_result(
         reason = (
             "The installer could not be started (if Windows asked for administrator "
             "permission, it was declined)."
+        )
+    elif code == EXIT_ELEVATION_DECLINED:
+        reason = (
+            "Windows asked for administrator permission and it was declined, so nothing "
+            "was installed."
+        )
+    elif code == EXIT_UNSAFE_STAGING:
+        reason = (
+            "The installer could not be copied into a folder only administrators can "
+            "change, so it was not run."
         )
     elif code == EXIT_HASH_MISMATCH:
         reason = (

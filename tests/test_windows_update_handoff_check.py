@@ -42,6 +42,37 @@ def test_plan_only_passes(driver, capsys):
     assert "0 failed" in out and "FAIL" not in out
 
 
+def test_plan_only_covers_the_all_users_hand_off(driver, capsys):
+    assert driver.main(["--plan-only"]) == 0
+    out = capsys.readouterr().out
+    assert "== all users (plan)" in out
+    assert "PASS  the elevated script contains .ComputeHash($held)" in out
+
+
+def test_the_sddl_reader_the_windows_half_judges_the_acl_with():
+    # The exact shape Directory.GetAccessControl gives for the job's directory...
+    assert driver_parse("O:BAD:P(A;OICI;FA;;;BA)(A;OICI;FA;;;SY)") == ("BA", True, {"BA", "SY"}, True)
+    # ...and the shapes that must fail it: inherited, a user ACE, a user owner, a deny.
+    assert driver_parse("O:BAD:AI(A;OICIID;FA;;;BA)(A;OICIID;FA;;;SY)")[1] is False
+    assert driver_parse("O:BAD:P(A;OICI;FA;;;BA)(A;OICI;FA;;;SY)(A;OICI;0x1301bf;;;BU)")[2] == \
+        {"BA", "SY", "BU"}
+    assert driver_parse("O:S-1-5-21-1-2-3-1001D:P(A;OICI;FA;;;BA)")[0] == "S-1-5-21-1-2-3-1001"
+    assert driver_parse("O:BAD:P(D;OICI;FA;;;WD)(A;OICI;FA;;;BA)")[3] is False
+    assert driver_parse("") == ("", False, set(), False)
+
+
+def driver_parse(sddl):
+    spec = importlib.util.spec_from_file_location("check_windows_update_handoff_sddl", SCRIPT)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.parse_sddl(sddl)
+
+
+def test_exit_codes_are_read_back_signed(driver):
+    assert driver._exit_code(4294967294) == -2 and driver._exit_code(7) == 7
+
+
 def test_plan_only_catches_the_415_header_defect(driver, monkeypatch, capsys):
     # The defect that every injected-opener test missed: JSON endpoint, binary Accept.
     monkeypatch.setattr(driver.iu, "request_headers", lambda url: dict(driver.iu._ASSET_HEADERS))
