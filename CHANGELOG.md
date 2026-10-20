@@ -47,6 +47,32 @@ label/milestone combination exhaustively. The policy's labels and milestones are
 GitHub: that is an owner action. `programme:android` in `design/traceability.yml` no longer declares
 milestone 1 for epic #81, whose open sub-issues span M0–M3.
 
+### Performance — a feature that is off no longer slows every start, and a test now holds that line
+
+Measured on a base install (Linux, CPython 3.14, fastest of 9 interleaved `-X importtime` runs):
+`import yazses.main`, which every daemon start pays, went from 425 to 333 modules and from 283 ms to
+260 ms. `import yazses.cli` went from 197 to 184 modules and from 76 ms to 71 ms. The gain came
+from four opt-in paths that were imported on every start:
+
+- `postprocess/llm_cleanup.py` imported `urllib.request` (with `http.client`, `ssl` and `email`,
+  about 13 ms) for its Ollama backend, which is off by default. That import now runs on the first
+  request.
+- `remote/local_proxy.py` imported `asyncio` (about 11 ms) for remote mode, which is off by
+  default. It is now imported per call.
+- `learning/crypto.py` imported the `cryptography` bindings (about 7 ms) for the learning corpus,
+  which is off by default. They are now imported when a corpus is opened.
+- `cli.py` and `branding.py` imported `importlib.metadata` for a version string that only
+  `--version`, `about` and the tray read.
+
+Nothing changes for users: the same code runs when the feature is on.
+
+`tests/test_base_weight_budget.py` makes this a budget. It derives every disabled-by-default
+feature package from `Config`, so a new feature is covered without anyone listing it. It fails when
+`import yazses.main` or `yazses --help` imports a new one, and it fails when an entry on the
+`KNOWN_EAGER` list of existing exceptions goes stale, so that list can only shrink. It also holds
+a ceiling on the `yazses.*` module count of each path and keeps the four libraries above out of a
+default start. The patterns are in `docs/contribute/startup-budget.md`.
+
 ### Added — `ci-gate`, one stable check for branch protection to require ([#462](https://github.com/MSKazemi/yazses/issues/462))
 
 The Tests workflow reports about fifteen matrix check names, and those names change whenever a leg is

@@ -3,8 +3,6 @@ PID-file fallback for status.
 """
 
 import sys
-from importlib.metadata import PackageNotFoundError
-from importlib.metadata import version as _pkg_version
 from pathlib import Path
 from typing import Literal, Optional
 
@@ -1222,6 +1220,20 @@ def _hotkey_drift_note(platform) -> str:
 
 
 
+def _pkg_version(name: str) -> str:
+    """``importlib.metadata.version``, imported on first use rather than at module scope.
+
+    ``importlib.metadata`` (with the ``zipfile`` and ``email`` machinery it pulls in) was
+    the single largest import in ``yazses.cli`` -- about 30 ms of a ~70 ms cold start --
+    and every invocation paid it: ``status``, ``stop``, ``--help`` and each shell
+    completion keystroke, for a string only ``--version`` reads. Kept as a module-level
+    name so tests can still replace it.
+    """
+    from importlib.metadata import version
+
+    return version(name)
+
+
 def _installed_version() -> str:
     """The package version, or a marker — never an exception.
 
@@ -1235,6 +1247,8 @@ def _installed_version() -> str:
     Every other call site already guarded this (``__init__``, ``branding``,
     ``doctor``); the CLI was the one that did not.
     """
+    from importlib.metadata import PackageNotFoundError
+
     try:
         return _pkg_version("yazses")
     except PackageNotFoundError:

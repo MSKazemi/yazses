@@ -174,6 +174,14 @@ job):
 
 Run it yourself before pushing: `uv run python scripts/check_dependency_budget.py`.
 
+The same budget applies to the *code* behind a feature, not just to its dependencies:
+a feature that is off must cost a default start no import.
+`tests/test_base_weight_budget.py` fails when the daemon or `yazses --help` imports a
+disabled-by-default feature package, and the set of such packages is derived from
+`Config`, so a new feature is covered automatically. The patterns and the
+`python -X importtime` recipe are in
+[the start-up budget](../docs/contribute/startup-budget.md).
+
 ## Reporting bugs
 
 Open an issue at https://github.com/MSKazemi/yazses/issues and include:

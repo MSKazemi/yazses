@@ -6,12 +6,15 @@ This means text flows: daemon → local_proxy → SSH tunnel → remote agent �
 """
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 from typing import Any
 
 log = logging.getLogger(__name__)
+
+# `asyncio` is imported inside each method rather than here: the daemon imports this
+# module on every start, remote mode is off by default, and asyncio costs ~11 ms of
+# cold start that a local-only user would pay for nothing.
 
 
 class RemoteInjectorProxy:
@@ -28,6 +31,8 @@ class RemoteInjectorProxy:
     def inject(self, text: str) -> None:
         if not text:
             return
+        import asyncio
+
         asyncio.run(self._send_rpc("inject", {"text": text}))
 
     def inject_backspaces(self, count: int) -> None:
@@ -44,6 +49,8 @@ class RemoteInjectorProxy:
         """
         if count <= 0:
             return
+        import asyncio
+
         asyncio.run(self._send_rpc("backspaces", {"count": int(count)}))
 
     def inject_key_sequence(self, keys: list[str]) -> None:
@@ -55,9 +62,13 @@ class RemoteInjectorProxy:
         """
         if not keys:
             return
+        import asyncio
+
         asyncio.run(self._send_rpc("keys", {"keys": [str(k) for k in keys]}))
 
     async def _send_rpc(self, method: str, params: dict[str, Any]) -> Any:
+        import asyncio
+
         try:
             reader, writer = await asyncio.wait_for(
                 asyncio.open_connection(self._host, self._port),

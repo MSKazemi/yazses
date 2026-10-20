@@ -15,8 +15,6 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-
 _KEY_FILENAME = "corpus.key"
 _KEY_BYTES = 32  # AES-256
 _NONCE_BYTES = 12  # GCM standard nonce size
@@ -59,6 +57,11 @@ class Cipher:
     def __init__(self, key: bytes) -> None:
         if len(key) != _KEY_BYTES:
             raise ValueError(f"key must be {_KEY_BYTES} bytes, got {len(key)}")
+        # Imported here: the daemon imports this module on every start (the corpus
+        # writer is built even when learning is off, and returns None), and the
+        # cryptography bindings cost ~7 ms that a user who never opted in should not pay.
+        from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
         self._aead = AESGCM(key)
 
     def encrypt(self, plaintext: bytes) -> bytes:
