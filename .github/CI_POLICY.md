@@ -160,6 +160,8 @@ Optimization must preserve evidence, not redefine green.
 `unknown`, runtime, tests, workflows, packaging, release. So does a push to main, a
 manual `workflow_dispatch` run (the escape hatch), and a PR labelled `ci:full`. The label
 is read from the event, so after adding it, push a commit or close and reopen the PR.
+The classifier and `scripts/ci_gate.py` are themselves `workflow_security`, so a change
+to the code that picks the lane always takes the full lane.
 A change that skips the full lane loses no test: the Linux baseline still runs the whole
 suite, including every test that reads `docs/`, `design/` or `android/`.
 

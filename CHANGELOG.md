@@ -12,11 +12,13 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 (repository hygiene, ruff, the dependency budget, the CI-contract and generated-file drift tests) and the whole suite
 on one Linux leg. The rest of the OS/interpreter matrix, the Qt, extras and benchmark-harness jobs, and the advisory
 FreeBSD leg run unless every changed path is docs/design or Android. For a docs typo that skips about four
-runner-hours (measured on a recent `main` run), including two ~45-minute Windows legs. Unknown paths, runtime, tests, workflows, packaging and release
-changes still take the full lane, as do pushes to `main`, manual runs and PRs labelled `ci:full`. A new `ci-gate` job
+runner-hours (measured on a recent `main` run), including two ~45-minute Windows legs. Unknown paths, runtime, tests,
+workflows, packaging and release changes still take the full lane, as do changes to the classifier or the gate script
+themselves, pushes to `main`, manual runs and PRs labelled `ci:full`. A new `ci-gate` job
 (`scripts/ci_gate.py`) is the single stable status for a ruleset to require (#462): it fails when any blocking job
 selected for the change fails, is cancelled, or is skipped when it should have run. The eight fixtures the issue asked
-for are pinned in `tests/test_ci_lanes.py` and tabled in `.github/CI_POLICY.md` section 5.
+for are pinned in `tests/test_ci_lanes.py` and tabled in `.github/CI_POLICY.md` section 5. Thanks to
+[@filip-dzivy](https://github.com/filip-dzivy) ([#603](https://github.com/MSKazemi/yazses/pull/603)).
 
 ## [2.43.2] - 2026-10-18
 

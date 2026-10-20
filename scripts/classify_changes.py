@@ -134,6 +134,10 @@ RULES: tuple[tuple[str, tuple[str, ...]], ...] = (
     (".github/SECURITY.md", (WORKFLOW_SECURITY,)),
     (".github/labeler.yml", (WORKFLOW_SECURITY,)),
     ("scripts/check-action-pins.py", (WORKFLOW_SECURITY,)),
+    # The two scripts that decide which CI runs (#535): a change to either one must be
+    # validated by the full lane on its own merits, not by falling through to unknown.
+    ("scripts/classify_changes.py", (WORKFLOW_SECURITY,)),
+    ("scripts/ci_gate.py", (WORKFLOW_SECURITY,)),
     # --- release and publishing
     (".github/release.yml", (RELEASE,)),
     ("CITATION.cff", (RELEASE,)),

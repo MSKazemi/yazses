@@ -77,6 +77,8 @@ AREAS = [
     (".github/workflows/test.yml", {"workflow_security"}),
     (".github/codeql/codeql-config.yml", {"workflow_security"}),
     (".github/dependabot.yml", {"workflow_security"}),
+    ("scripts/classify_changes.py", {"workflow_security"}),
+    ("scripts/ci_gate.py", {"workflow_security"}),
     (".github/release.yml", {"release"}),
     ("CITATION.cff", {"release"}),
     ("sbom.cdx.json", {"release"}),
