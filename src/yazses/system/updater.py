@@ -142,7 +142,10 @@ def detect_install_method(
         if choco if choco is not None else _choco_marker_present():
             return "choco"
         return "windows-installer"
-    if "/uv/tools/" in p:
+    # `uv/tools` on Unix, `uv\data\tools` on Windows (`uv help tool dir`). A
+    # custom UV_TOOL_DIR is still invisible to a path test; see the receipt lookup
+    # in `preserve_enabled_features`, which does not depend on the path.
+    if "/uv/tools/" in p or "/uv/data/tools/" in p:
         return "uv"
     if "/pipx/" in p:
         return "pipx"
@@ -553,15 +556,10 @@ def _enabled_requirements() -> tuple[str, ...]:
     """Requirements of every enabled feature whose libraries are installed now.
 
     Best effort, like the rest of this module: an unreadable config answers
-    "nothing to keep", which leaves the upgrade exactly as it always was.
-
-    Answers ``()`` at once unless *this interpreter* lives in a uv tool tree — the
-    same path test :func:`detect_install_method` uses — so a caller that merely
-    passes ``method="uv"`` (every test of this module) reads no config and spawns
-    no ``uv tool dir``.
+    "nothing to keep", which leaves the upgrade exactly as it always was. Callers
+    first confirm this interpreter *is* a uv tool install (see
+    :func:`preserve_enabled_features`); this only reads the config.
     """
-    if "/uv/tools/" not in sys.prefix.replace("\\", "/"):
-        return ()
     try:
         from yazses.config import load_config
         from yazses.platform import get_platform
@@ -591,15 +589,30 @@ def preserve_enabled_features(
     Unchanged for every other method, for an unchanged receipt, and whenever
     anything here fails. Idempotent: a command it already rewrote is left alone.
     ``required``/``command_for`` are injectable for tests.
+
+    "Is this a uv tool install?" is answered by finding the install's own
+    ``uv-receipt.toml`` through ``uv tool dir`` (:func:`deps._uv_tool_receipt`),
+    never by a path substring. A substring cannot see ``UV_TOOL_DIR`` and missed
+    the Windows default, ``%APPDATA%\\uv\\data\\tools`` (per ``uv help tool dir``),
+    so on both this silently did nothing. The receipt is resolved once and handed
+    to the command builder, so ``uv tool dir`` runs once per update.
     """
     if status.method != "uv" or status.command != upgrade_command("uv"):
         return status
     try:
-        packages = tuple(required() if required is not None else _enabled_requirements())
-        if command_for is None:
-            from yazses.system.deps import uv_tool_upgrade_command
+        from yazses.system import deps
 
-            command_for = uv_tool_upgrade_command
+        receipt = None
+        if required is None:
+            receipt = deps._uv_tool_receipt()
+            if receipt is None:
+                return status  # not a uv tool install: nothing it could drop
+            packages = _enabled_requirements()
+        else:
+            packages = tuple(required())
+        if command_for is None:
+            def command_for(pkgs):
+                return deps.uv_tool_upgrade_command(pkgs, receipt=receipt)
         command = command_for(packages) if packages else None
     except Exception:  # noqa: BLE001 - must never break an update
         return status

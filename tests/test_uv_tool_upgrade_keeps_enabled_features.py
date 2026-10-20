@@ -258,10 +258,83 @@ def test_rewriting_is_idempotent():
     assert twice.command == rewritten
 
 
-def test_requirements_are_not_read_outside_a_uv_tool_tree(monkeypatch):
-    """Tests (and any caller) that pass method="uv" from a plain venv read no config."""
-    monkeypatch.setattr(updater.sys, "prefix", "/home/u/project/.venv")
-    assert updater._enabled_requirements() == ()
+# ---- "is this a uv tool install?" comes from the receipt, not a path substring --
+#
+# The first version gated on "/uv/tools/" in sys.prefix. That never matches a custom
+# UV_TOOL_DIR, and the Windows default is %APPDATA%\uv\data\tools (`uv help tool
+# dir`), so on both the preservation silently did nothing.
+
+_PARAKEET = ("onnx-asr[cpu,hub]>=0.12",)
+
+
+def _tool_env(monkeypatch, tool_dir: Path) -> None:
+    """A real `_uv_tool_receipt()` lookup, with `uv tool dir` answering *tool_dir*."""
+    env = tool_dir / "yazses"
+    env.mkdir(parents=True)
+    (env / "uv-receipt.toml").write_text(_RECEIPT_BARE, encoding="utf-8")
+    monkeypatch.setattr(deps.shutil, "which", lambda name: "/usr/bin/uv")
+    monkeypatch.setattr(
+        deps.subprocess, "run",
+        lambda cmd, **k: type("R", (), {"stdout": str(tool_dir) + "\n"})(),
+    )
+    monkeypatch.setattr(deps.sys, "prefix", str(env))
+    _enabled_parakeet(monkeypatch)
+
+
+def _enabled_parakeet(monkeypatch) -> None:
+    """Parakeet on and working. Patched below `_enabled_requirements`, not instead of
+    it, so whatever gate decides "uv tool install" is the real one under test."""
+    import yazses.system.dormant as dormant
+
+    monkeypatch.setattr(dormant, "preserved_requirements", lambda cfg: _PARAKEET)
+
+
+def _assert_kept(status) -> None:
+    assert status.command is not None
+    assert status.command[:4] == ["uv", "tool", "install", "--upgrade"], status.command
+    assert _withs(status.command) == list(_PARAKEET)
+
+
+def test_the_default_unix_layout_is_found(monkeypatch, tmp_path):
+    _tool_env(monkeypatch, tmp_path / ".local" / "share" / "uv" / "tools")
+    _assert_kept(updater.preserve_enabled_features(_status()))
+
+
+def test_a_custom_uv_tool_dir_is_found(monkeypatch, tmp_path):
+    """UV_TOOL_DIR is honoured by `uv tool dir` itself; nothing here parses a path."""
+    custom = tmp_path / "opt" / "my-tools"
+    monkeypatch.setenv("UV_TOOL_DIR", str(custom))
+    _tool_env(monkeypatch, custom)
+    assert "/uv/tools/" not in str(custom).replace("\\", "/")
+    _assert_kept(updater.preserve_enabled_features(_status()))
+
+
+def test_a_windows_backslash_prefix_is_not_rejected_by_its_spelling(monkeypatch, tmp_path):
+    """The default Windows tool dir. Path normalisation for it cannot run on POSIX,
+    so the lookup is stubbed here; the point is that no substring test sits in front."""
+    receipt = _receipt(tmp_path, _RECEIPT_BARE)
+    monkeypatch.setattr(
+        updater.sys, "prefix", r"C:\Users\u\AppData\Roaming\uv\data\tools\yazses"
+    )
+    monkeypatch.setattr(deps, "_uv_tool_receipt", lambda: receipt)
+    _enabled_parakeet(monkeypatch)
+    monkeypatch.setattr(deps, "_extra_requirement_names", lambda extras: set())
+    _assert_kept(updater.preserve_enabled_features(_status()))
+
+
+def test_the_windows_default_tool_dir_is_detected_as_a_uv_install():
+    path = r"C:\Users\u\AppData\Roaming\uv\data\tools\yazses\Lib\site-packages\yazses\x.py"
+    assert updater.detect_install_method(path, frozen=False) == "uv"
+
+
+def test_a_plain_venv_reads_no_config(monkeypatch):
+    """No receipt: return at once, before the config is ever loaded."""
+    monkeypatch.setattr(deps, "_uv_tool_receipt", lambda: None)
+    monkeypatch.setattr(
+        updater, "_enabled_requirements", lambda: pytest.fail("read the config")
+    )
+    status = _status()
+    assert updater.preserve_enabled_features(status) is status
 
 
 def test_run_upgrade_checked_runs_the_rewritten_command(monkeypatch):
@@ -295,7 +368,8 @@ def test_yazses_update_prints_the_command_it_will_run(monkeypatch):
     monkeypatch.setattr(
         updater, "_enabled_requirements", lambda: ("onnx-asr[cpu,hub]>=0.12",)
     )
-    monkeypatch.setattr(deps, "uv_tool_upgrade_command", lambda pkgs: rewritten)
+    monkeypatch.setattr(deps, "_uv_tool_receipt", lambda: Path("uv-receipt.toml"))
+    monkeypatch.setattr(deps, "uv_tool_upgrade_command", lambda pkgs, **k: rewritten)
 
     result = CliRunner().invoke(cli.app, ["update", "--check"])
 
