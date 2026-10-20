@@ -310,15 +310,22 @@ def test_dwell_off_is_its_own_button(qapp):
 
 
 def test_mapping_choices_that_do_nothing_are_disabled_and_explained(qapp):
-    rig = _Rig(qapp, _inputs(face_on=True, safety_cfg=False))
+    # No global stop and no running Head-Pointer: pause_pointer has nothing to pause (#407).
+    rig = _Rig(qapp, _inputs(face_on=True, safety_cfg=False, hp_on=False))
     combo = rig.panel._map_widgets["smile"][1]
     items = {combo.itemData(i): combo.model().item(i) for i in range(combo.count())}
     assert items["hold_to_command"].isEnabled()
-    # select / confirm / cancel are wired now; pause_pointer still needs the global stop.
     for key in ("select", "confirm", "cancel"):
         assert items[key].isEnabled(), key
     assert not items["pause_pointer"].isEnabled()
     assert items["pause_pointer"].toolTip()
+
+    # With the global stop off but a Head-Pointer running, pause_pointer pauses that
+    # pointer, as `handsfree pause` does, so the panel offers it (#407).
+    rig = _Rig(qapp, _inputs(face_on=True, safety_cfg=False))
+    combo = rig.panel._map_widgets["smile"][1]
+    items = {combo.itemData(i): combo.model().item(i) for i in range(combo.count())}
+    assert items["pause_pointer"].isEnabled()
 
 
 def test_saving_a_valid_mapping_writes_a_table_and_an_invalid_one_writes_nothing(qapp):
@@ -330,7 +337,7 @@ def test_saving_a_valid_mapping_writes_a_table_and_an_invalid_one_writes_nothing
     assert isinstance(spec.config[0], ConfigTableArray)
     assert spec.config[0].entries == ((("gesture", "smile"), ("intent", "hold_to_command")),)
 
-    rig = _Rig(qapp, _inputs(face_on=True, safety_cfg=False))
+    rig = _Rig(qapp, _inputs(face_on=True, safety_cfg=False, hp_on=False))
     combo = rig.panel._map_widgets["smile"][1]
     combo.setCurrentIndex(combo.findData("pause_pointer"))  # programmatic: a disabled item
     rig.button("map_smile").click()
