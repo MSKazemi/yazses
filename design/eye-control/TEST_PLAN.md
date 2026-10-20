@@ -166,6 +166,18 @@ Pure gates:
 - exactly one click per dwell until re-armed;
 - pausing suppresses both motion and dwell click.
 
+Daemon reachability (`tests/test_headpointer_reachability.py`, #404). This uses the real `_build_pipeline()`,
+with only the camera, the face model, the pointer sink and the clock faked:
+
+- enabling `[headpointer]` alone is what builds a runner, and the shipped config builds none;
+- a head turn reaches the platform `PointerSink`;
+- face loss and camera failure each give zero motion;
+- with dwell live, startup and face re-acquisition never click, and an aim-and-rest clicks once;
+- `headpointer/` imports only `perception/signals.py`, never camera-owning code.
+
+The registry's import-closure honesty test cannot stand in for these tests. The daemon imports the package from
+places that build no pointer.
+
 Hardware observations:
 
 - target acquisition time for large targets;
