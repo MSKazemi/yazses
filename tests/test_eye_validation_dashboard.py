@@ -84,6 +84,7 @@ def _slot(**overrides: Any) -> dict[str, Any]:
         "sessions": 1,
         "time_estimate_minutes": {"min": 15, "max": 20},
         "hardware_required": True,
+        "hardware_class": "camera",
         "beginner_safe": True,
         "cloud_agent_ready": False,
         "public": True,
@@ -99,10 +100,29 @@ def _ready(**overrides: Any) -> dict[str, Any]:
     return _slot(state="ready", blocked_by=[], additional_blockers=None, **overrides)
 
 
+def _declare(slots: tuple[dict[str, Any], ...]) -> list[dict[str, Any]]:
+    """The issue declaration that matches ``slots``, so a test varies only the slot."""
+    declared: dict[int, dict[str, Any]] = {}
+    for slot in slots:
+        issue = slot.get("issue")
+        if isinstance(issue, int) and issue > 0:
+            repeat = slot.get("slot") == "repeat"
+            key = f"EYE-QA-{'REPEAT' if repeat else slot['environment']}-" + (
+                "A" if repeat else str(slot["slot"])
+            )
+            declared.setdefault(issue, {"number": issue, "key": key, "role": "slot"})
+        for number in slot.get("blocked_by") or []:
+            declared.setdefault(
+                number, {"number": number, "key": f"EYE-EVAL-{number}", "role": "prerequisite"}
+            )
+    return list(declared.values())
+
+
 def _doc(*slots: dict[str, Any]) -> dict[str, Any]:
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "generated_from": ["design/eye-control/VALIDATION_MATRIX.md"],
+        "issues": _declare(slots),
         "slots": list(slots),
     }
 
@@ -287,7 +307,7 @@ def test_the_cli_exits_one_on_an_empty_registry(tmp_path):
 
 def test_a_registry_with_no_slots_key_raises():
     with pytest.raises(gen.DashboardError):
-        gen.build_coverage({"schema_version": 1, "generated_from": ["x"]})
+        gen.build_coverage({"schema_version": 2, "generated_from": ["x"]})
 
 
 def test_an_empty_outcome_file_is_an_error_not_a_silent_no_op(tmp_path):
@@ -315,6 +335,37 @@ def test_the_page_carries_a_do_not_hand_edit_marker():
 def test_issue_links_are_derived_from_the_registry(tmp_path):
     page = gen.generate(_write(tmp_path, _doc(_slot(issue=428))))
     assert "[#428](https://github.com/MSKazemi/yazses/issues/428)" in page
+
+
+def test_a_cells_row_shows_its_declared_issue_code_and_the_hardware_to_bring(tmp_path):
+    row = _row(gen.generate(_write(tmp_path, _doc(_slot()))), "T0-WIN-A")
+    assert "[#428](https://github.com/MSKazemi/yazses/issues/428) `EYE-QA-WIN-A`" in row
+    assert "| a webcam |" in row
+    topology = _slot(
+        id="T5-HIDPI-A", pack="T5", environment="HIDPI", hardware_class="camera_display_topology"
+    )
+    row = _row(gen.generate(_write(tmp_path, _doc(topology))), "T5-HIDPI-A")
+    assert "| a webcam + non-100% scale or a second monitor |" in row
+
+
+def test_every_hardware_class_has_a_reader_facing_label():
+    """The labels are a hand-written mapping, so its completeness is asserted against the
+    validator's vocabulary rather than trusted: a new class must not render as a raw token."""
+    assert set(gen.HARDWARE_LABELS) == set(gen.HARDWARE_CLASSES)
+    assert gen.HARDWARE_CLASSES
+
+
+def test_a_cell_with_an_unknown_hardware_class_produces_no_page():
+    with pytest.raises(gen.DashboardError, match="hardware_class"):
+        gen.build_coverage(_doc(_slot(hardware_class="eye-tracker")))
+
+
+def test_the_committed_page_shows_every_declared_slot_issue_code():
+    page = _page()
+    declared = [e for e in _registry()["issues"] if e["role"] == "slot"]
+    assert declared, "the registry declares no slot issue, so this check proves nothing"
+    for entry in declared:
+        assert f"/issues/{entry['number']}) `{entry['key']}`" in page, entry
 
 
 def test_a_cell_with_no_issue_is_not_given_one(tmp_path):

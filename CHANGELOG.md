@@ -6,6 +6,22 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed — the eye-validation registry declares every issue it names, and what hardware each cell needs ([#454](https://github.com/MSKazemi/yazses/issues/454))
+
+`design/eye-control/validation-slots.json` is now schema version 2, with two additions. A top-level `issues`
+list declares each GitHub issue a cell refers to: its number, the code in its title (`EYE-QA-WIN-A`) and its
+role, `slot` or `prerequisite`. Each cell also has a `hardware_class`: `camera`, `camera_display_topology` or
+`none`. Before this change, a mistyped issue number in a cell or in `blocked_by` was accepted as a new issue.
+`scripts/check_eye_validation_slots.py` now rejects four cases: a cell that names an undeclared issue, an
+issue declared in the wrong role, a declaration no cell uses, and a slot issue whose title code names a
+different cell. The last check keeps the meaning of #428–#440 fixed. The checker builds the referenced
+numbers from the cells on each run and contains no issue number itself, and a test proves that. The checker
+also rejects an empty or missing declaration rather than passing it. A `hardware_class` must agree with
+`hardware_required`, and a T5 or HIDPI cell must ask for a display topology. A test checks the declared codes
+against the issue map in `AGENT_TASKS.md`. The coverage dashboard shows each cell's issue code and the
+hardware to bring. It was regenerated with `scripts/gen-eye-validation-dashboard.py`. No cell changed state:
+all 16 are still PLANNED, and none is reported validated.
+
 ### Fixed — the eye-control CI matrix lost its macOS leg to a new Homebrew Python ([#424](https://github.com/MSKazemi/yazses/issues/424))
 
 From 2026-10-17, every macOS leg of `eye-eval-ci.yml` failed in `uv sync`, before the evaluation ran. The step
