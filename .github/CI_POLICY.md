@@ -102,7 +102,8 @@ The safety rule is simple: **unknown means more validation, never less**.
 Do not optimize CI by adding a broad paths-ignore to the only stable required check.
 Path-scoped jobs are acceptable only when an always-present aggregate/fast gate can explain
 the result and GitHub branch protection still has one stable status to require. The stable
-aggregate gate is tracked in #462.
+aggregate gate is `ci-gate` in `test.yml` (§6.1, #462). That is why `test.yml` itself must
+never gain a path filter.
 
 ---
 
@@ -163,6 +164,127 @@ That aggregate gate must:
 
 Live repository rules are an administrative control. Source changes may prepare and test
 the gate, but changing the live GitHub ruleset must be recorded in the governing issue.
+
+### 6.1 The gate: `ci-gate` in `test.yml`
+
+The aggregate gate is the `ci-gate` job at the end of `.github/workflows/test.yml`. Its
+check name is `ci-gate`, reported by the GitHub Actions app (integration id `15368`).
+
+| Property | How it holds |
+|---|---|
+| Stable name | `name: ci-gate`, no matrix. No other workflow may report a check of that name. |
+| Depends on, does not re-run | `needs:` lists the blocking jobs; the one step reads `toJSON(needs)` from an env var and checks nothing out. |
+| Blocking vs advisory | A job is **advisory exactly when it declares a literal `continue-on-error: true`** (today: `freebsd`). Every other job in `test.yml` is blocking and must be a need. |
+| Fails on failure, cancellation, skip | It passes only when every need's `result` is `success`. Empty or unparsable input fails too. |
+| Cannot itself skip | `if: always()`. A skipped required check counts as passed ([GitHub docs][skip]), so `!cancelled()` or a path condition would let it pass without evidence. |
+| Never pending forever | `test.yml` has no `paths`/`paths-ignore` filter, so every PR to `main` gets the check. Path-scoped workflows (docs, Android, macOS, Windows packaging) stay outside the gate and are not required. |
+
+`tests/test_ci_gate.py` enforces every row. It **derives** the blocking set from the
+workflow file instead of listing it, so a new job in `test.yml` fails the suite until it
+is either a need or deliberately advisory. It also runs the embedded verdict script
+against success, failure, cancelled, skipped, empty and malformed `needs` payloads.
+
+[skip]: https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-jobs-with-conditions
+
+Rules for changing it:
+
+- **Adding a job to `test.yml`:** add it to `ci-gate.needs`, or make it advisory with
+  `continue-on-error: true` plus the reason and promotion condition that §9 requires.
+- **Making a blocking job conditional** (a job-level `if:`, such as path scoping): the gate
+  fails a skipped need, so first teach the gate which skip is legitimate and add a test.
+  The suite rejects a conditional blocking job until then.
+- **Advisory legs inside a blocking matrix:** the `test` matrix's arm64 leg uses an
+  expression-valued `continue-on-error`, so the `test` job is still a need. GitHub does
+  not document how such a leg's failure appears in `needs.test.result`. If it appears as
+  `failure`, the gate fails closed. Arm64 last passed in run
+  [39471109286](https://github.com/MSKazemi/yazses/actions/runs/39471109286). If it
+  starts failing, promote the leg to blocking or move it into its own advisory job. Do not
+  weaken the gate.
+- **Workflows other than `test.yml`** (CodeQL, docs, dependency review, campaign preflight)
+  are not needs, because `needs` cannot cross workflows. They stay visible and remain
+  unrequired, as they are today. To require one, make it always-present and give it a
+  stable name first. Do not add a path-filtered workflow to the ruleset.
+- **Integrity boundary:** a pull request runs its own copy of `test.yml`, so a PR could
+  edit the gate. The ruleset cannot stop that. Human review of any PR touching
+  `.github/workflows/` can (CODEOWNERS, REVIEWING.md, ADR-024 §10). Pinning
+  `integration_id` only stops a different app from posting a fake `ci-gate` status.
+
+### 6.2 Owner step: require `ci-gate` on `main` (issue #462 Part B)
+
+This is an administrative action. Agents prepare it and do not apply it. Apply it only
+after `ci-gate` has reported on at least one ordinary PR **and** on `main` (Part B: "after
+the aggregate check is proven"). PRs opened before the gate merged have no `ci-gate`
+check, so their head must be updated before they can merge.
+
+The live ruleset as read on 2026-10-20 (`gh api repos/MSKazemi/yazses/rulesets/20550886`):
+`main: no force-push, no delete`, target `~DEFAULT_BRANCH`, rules `deletion` and
+`non_fast_forward`, **`bypass_actors: []`**.
+
+The change keeps both existing rules and adds `pull_request` and `required_status_checks`.
+`PUT` replaces the whole rule list, so the payload repeats the two existing rules:
+
+```json
+{
+  "name": "main: PR + ci-gate, no force-push, no delete",
+  "target": "branch",
+  "enforcement": "active",
+  "conditions": { "ref_name": { "include": ["~DEFAULT_BRANCH"], "exclude": [] } },
+  "bypass_actors": [
+    { "actor_id": 5, "actor_type": "RepositoryRole", "bypass_mode": "always" }
+  ],
+  "rules": [
+    { "type": "deletion" },
+    { "type": "non_fast_forward" },
+    { "type": "pull_request",
+      "parameters": {
+        "required_approving_review_count": 0,
+        "dismiss_stale_reviews_on_push": false,
+        "require_code_owner_review": false,
+        "require_last_push_approval": false,
+        "required_review_thread_resolution": false } },
+    { "type": "required_status_checks",
+      "parameters": {
+        "strict_required_status_checks_policy": false,
+        "do_not_enforce_on_create": false,
+        "required_status_checks": [ { "context": "ci-gate", "integration_id": 15368 } ] } }
+  ]
+}
+```
+
+Apply it (owner, personal account):
+
+```sh
+GH_TOKEN=$(gh auth token --user MSKazemi) \
+  gh api -X PUT repos/MSKazemi/yazses/rulesets/20550886 --input ruleset-main.json
+```
+
+Or use Settings → Rules → Rulesets → `main: no force-push, no delete`. Turn on "Require a
+pull request before merging" with 0 approvals, and "Require status checks to pass" with
+`ci-gate`, source GitHub Actions. Leave force-push and deletion blocked.
+
+Each choice in the payload is deliberate and needs the owner's decision:
+
+- **`required_approving_review_count: 0`.** The issue says not to invent self-approval
+  with one maintainer. Review responsibility stays in REVIEWING.md and GOVERNANCE.md.
+  Revisit this when the maintainer set changes.
+- **Bypass actor = repository admin role (`actor_id` 5; check the id in the UI).** Today
+  the ruleset has **no** bypass actors. Requiring PRs with an empty bypass list would
+  also stop the owner's direct pushes to `main`. `bypass_mode: "always"` keeps those
+  pushes working as a documented admin bypass. `"pull_request"` limits the bypass to
+  merging a PR whose checks are red. An empty list makes the owner go through PRs too.
+  A central agent's GitHub App is not a repository admin, so none of these options lets
+  the agent push to `main`. Do **not** add the agent's App as a bypass actor.
+- **`strict_required_status_checks_policy: false`.** A PR does not have to be rebased on
+  the latest `main` before it merges. Setting it to `true` is stricter, but it re-runs the
+  full matrix whenever `main` moves.
+- **No merge queue and no auto-merge.** If a merge queue is turned on later, `test.yml`
+  needs a `merge_group:` trigger first. Without one, `ci-gate` never reports for the
+  queue.
+
+Verify the change by reading it back: `gh api repos/MSKazemi/yazses/rulesets/20550886`.
+Then run the validation in #462 on a disposable PR. A red blocking job must make `ci-gate`
+fail. A green set must make it pass. A direct push to `main` from a non-bypass identity
+must be rejected. Record the final ruleset JSON in #462.
 
 ---
 
@@ -396,7 +518,8 @@ The coordination issue is #539.
 - #536 — CI telemetry and SLO reporting.
 - #537 — reusable setup, cache rules, and timeouts.
 - #538 — flake/rerun/quarantine policy.
-- #462 — stable aggregate gate and main ruleset hardening.
+- #462 — stable aggregate gate and main ruleset hardening. The gate (`ci-gate`, §6.1) is in
+  source. Requiring it in the live ruleset is the owner step in §6.2.
 - #306 — FreeBSD advisory-job dependency/toolchain limitation.
 
 The order matters: first stop obsolete work and move validation before deployment; then

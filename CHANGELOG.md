@@ -6,6 +6,26 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — `ci-gate`, one stable check for branch protection to require ([#462](https://github.com/MSKazemi/yazses/issues/462))
+
+The Tests workflow reports about fifteen matrix check names, and those names change whenever a leg is
+added or renamed. A ruleset that listed them would drift. The new last job in `test.yml`, `ci-gate`,
+gives the ruleset one name to require. It `needs` every blocking job (`repo-hygiene`, `test`, `gui`,
+`extras`, `benchmark-harness`), runs with `if: always()`, and passes only when each result is `success`.
+A failed, cancelled or skipped need fails it, and so does empty or unparsable input. It checks nothing
+out, so the verdict comes from the `needs` context alone. `freebsd` is `continue-on-error`, so it is
+advisory and not a need; a red FreeBSD run, like the one in run 39471109286, cannot fail the gate.
+`test.yml` has no path filter, so the check appears on every PR to `main` and is never left pending.
+
+`tests/test_ci_gate.py` derives the blocking and advisory sets from the workflow file instead of a
+written-out list. A new job that is neither a need nor marked advisory fails the suite. The test also
+runs the embedded verdict script against success, failure, cancelled, skipped, empty and malformed
+payloads. Nine hand-made mutations of the workflow were each caught: a dropped need, freebsd added, a
+new unlisted job, `!cancelled()`, a `paths` filter, a conditional blocking job, a verdict that tolerates
+`skipped`, a verdict that accepts `{}`, and expression interpolation into the script. No hosted run has
+executed the gate yet. The `main` ruleset does not require it yet; that is an owner action, specified in
+`.github/CI_POLICY.md` §6.2, and ADR-024 §9 records which central-agent prerequisites remain open.
+
 ### Fixed — the eye-control CI matrix lost its macOS leg to a new Homebrew Python ([#424](https://github.com/MSKazemi/yazses/issues/424))
 
 From 2026-10-17, every macOS leg of `eye-eval-ci.yml` failed in `uv sync`, before the evaluation ran. The step
