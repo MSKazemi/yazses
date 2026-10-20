@@ -260,7 +260,9 @@ seam and the heavy camera libraries are never imported here.
 asked, so no camera permission prompt can occur. (2) A format that cannot run a camera
 feature declares no camera capability (R-21), and one that can must declare it before the
 feature is claimed to work. (3) A probe that cannot determine the state reports
-`NOT_DETERMINED`; nothing but `GRANTED` opens a camera.
+`NOT_DETERMINED`; nothing but `GRANTED` opens a camera. (4) A format the matrix marks
+`can_add_runtime = False` never runs pip: `system.deps.install_blocked_reason` reads the
+same row, so every enablement surface refuses a camera feature there before writing config.
 
 ### `src/yazses/handsfree/` (hands-free composition, ADR-v2-148)
 

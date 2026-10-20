@@ -6,6 +6,28 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — a camera feature could be switched on in a package that cannot run one ([#414](https://github.com/MSKazemi/yazses/issues/414))
+
+The camera packaging matrix (`yazses.cameraperm.matrix`) already recorded that the macOS `.app`, the Windows
+`.exe` (also what Chocolatey, Scoop and WinGet install), the MSIX and the flatpak cannot add a Python package after
+installation. The dependency installer did not read it. Only the snap and an unwritable site directory were refused.
+In a PyInstaller bundle `sys.executable` is YazSes itself, not a Python, so
+`yazses features enable gaze --force` wrote `[gaze] enabled = true` and then started an install that could not work.
+This is a code-path finding; nobody ran it in a real bundle.
+
+`install_blocked_reason` now reads the same matrix row `yazses doctor` uses. In any fixed-payload format, every
+enablement surface refuses before it writes config and names `pipx install yazses`. That covers
+`features enable`, `features reset`, `handsfree enable`, the Settings window and the tray's Hands-free
+panel. No manifest changed: none of those packages declares a camera capability, and the existing manifest tests
+still pass.
+
+The new tests are in `tests/test_fixed_payload_feature_deps.py`. Twenty cases are derived from the matrix, and 13 of
+them fail with the fix reverted. Two daemon tests in `tests/test_perception_daemon_lifecycle.py` pin the
+ordinary-dictation half of R-08. With every camera feature on, the daemon still builds its speech engine, injector
+and hold-to-talk key, whether the camera runtime is missing or the OS refuses permission. `docs/store-submission.md`
+used to send MSIX users who wanted a camera feature to winget, Scoop or the direct installer. All three install the
+same frozen `.exe`, so it now points to PyPI.
+
 ### Tests — the PointerSink contract now covers bounds and permanence ([#400](https://github.com/MSKazemi/yazses/issues/400))
 
 This change touches only the shared pointer contract (`tests/pointer_contract.py`). No backend changed, and every one
