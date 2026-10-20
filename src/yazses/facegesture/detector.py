@@ -32,8 +32,9 @@ GESTURES: dict[str, tuple[str, ...]] = {
     "smile": ("mouthSmileLeft", "mouthSmileRight"),
     # Deliberately not offered as a default, but offered: a blink is the classic
     # switch, and for someone with no reliable jaw or brow control it may be the
-    # only voluntary movement left. It needs a long `min_hold_frames` to separate
-    # an intentional squeeze from the ~15 involuntary blinks a minute everyone makes.
+    # only voluntary movement left. It needs a long hold to separate an intentional
+    # squeeze from the ~15 involuntary blinks a minute everyone makes, so every live
+    # detector for it requires EYES_CLOSED_MIN_HOLD_S of sample time (min_hold_s_for).
     "eyes_closed": ("eyeBlinkLeft", "eyeBlinkRight"),
 }
 
@@ -49,6 +50,26 @@ DEFAULT_GESTURE = "jaw_open"
 #: imported, this module stays dependency-free). **Provisional:** a first-principles bound,
 #: not a measured value, and it governs only the opt-in timed hold.
 DEFAULT_MAX_SAMPLE_GAP_S = 0.25
+
+#: How long the eyes must stay shut, in seconds of sample time, before an ``eyes_closed``
+#: switch counts. A frame floor cannot carry this: the Hands-free panel's
+#: ``eyes_closed_min_hold_frames`` is computed from ``[facegesture] fps``, but on the shared
+#: camera the switch counts one frame per observation at ``[perception] fps``, so "12 frames =
+#: 0.8 s at 15 fps" was 0.4 s at 30 -- inside a long blink. Every builder of a live detector
+#: applies it through :func:`min_hold_s_for`, on top of the frame rule. Not a config key.
+#: PROVISIONAL and unmeasured in YazSes: chosen to sit well above a spontaneous blink, which
+#: the literature commonly puts at roughly 0.1-0.4 s.
+EYES_CLOSED_MIN_HOLD_S = 0.8
+
+
+def min_hold_s_for(gesture: str) -> float:
+    """The timed minimum hold a live ``gesture`` detector must have; 0.0 means none. Pure.
+
+    Only ``eyes_closed`` has one (:data:`EYES_CLOSED_MIN_HOLD_S`): it is the one gesture an
+    involuntary movement -- a blink, ~15 a minute -- makes many times an hour.
+    """
+    return EYES_CLOSED_MIN_HOLD_S if gesture == "eyes_closed" else 0.0
+
 
 #: Slack for comparing elapsed sample time against a configured duration: ``12 * (1 / 15)`` is
 #: not exactly ``0.8`` in binary floating point, and a hold must not need one extra frame

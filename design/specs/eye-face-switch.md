@@ -105,7 +105,13 @@ refractory interval (`refractory_frames`) in samples. It also takes the same two
 
 The timed rules are why frame counts alone do not meet "minimum hold time". A frame count's length is
 whatever the source's rate makes it, and the shared camera's rate (`[perception] fps`) is not the face
-switch's own `fps`. The rules are not yet exposed as `[facegesture]` config keys. That is a
+switch's own `fps`. That gap was a live defect for **blink** (#406). The panel's eyes-closed floor of
+12 frames ("0.8 s at 15 fps") lasted 0.4 s on a 30 fps shared camera, inside a long blink. So every live
+eyes-closed detector now carries `min_hold_s = EYES_CLOSED_MIN_HOLD_S` (0.8 s, provisional) through
+`detector.min_hold_s_for`, on top of its frame count. That covers the face-switch backend on both camera
+paths and the chord sensors (`gesture/sensors.py`), and both pass sample time. The 0.8 s is an internal
+safety floor, not a config key. Other gestures' timed rules are not yet exposed as `[facegesture]`
+config keys. That is a
 public-interface change for a follow-up. No duration may be called recommended until it has been
 measured in the field.
 

@@ -6,16 +6,29 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-### Added — the face-switch detector can hold and cool down for a time, not a frame count ([#406](https://github.com/MSKazemi/yazses/issues/406))
+### Fixed — an eyes-closed face switch could fire on an ordinary blink when the shared camera ran at 30 fps ([#406](https://github.com/MSKazemi/yazses/issues/406))
 
-Detector only. No config key, CLI flag or default changed, so an existing install behaves exactly as before.
-Most of EYE-FACE-001 was already on main: neutral baseline, hysteresis, frame debounce, refractory, confidence
-floor, freshness timeout and synthetic fixtures. The gap was that the minimum hold and the refractory interval were
-counted in frames, so their length depended on the camera. The hands-free panel's eyes-closed floor of 12 frames,
-written as 0.8 s at 15 fps, lasts 0.4 s when samples arrive at 30 fps. The shared camera runs at `[perception] fps`,
-which is not `[facegesture] fps`. A new test shows a 0.4 s blink every 4 s firing that frame-counted switch at 30 fps.
+An "eyes closed" binding is meant to need the eyes shut for 0.8 s. The Hands-free panel enforced that as a frame
+count: it raises `[facegesture] min_hold_frames` to 12, which is 0.8 s at `[facegesture] fps = 15`. When
+`[perception]` is on and both sections name the same camera, the face switch reads the shared camera instead. It
+then counts one frame per observation at `[perception] fps`, not at `[facegesture] fps`. At `[perception] fps =
+30` those 12 frames are **0.4 s**, so a long ordinary blink started dictation (or whatever the gesture was bound
+to). An eyes-closed binding written in the config file, or as a secondary `[[facegesture.switches]]` entry at the
+default 3 frames, fired after 0.1 s. The `[gesture.chords]` token path counted frames the same way.
 
-`GestureSwitch` now takes optional `min_hold_s` and `refractory_s` (default 0, off). They are measured on the
+Now every live eyes-closed detector also needs **0.8 s of sample time**, whatever the frame rate. That covers the
+face-switch backend on both the shared and its own camera, and the chord sensors. The frame count still applies on
+top of it. This is an internal constant (`facegesture.detector.EYES_CLOSED_MIN_HOLD_S`), not a config key. Other
+gestures are unchanged. When the shared camera runs slower than `[facegesture] fps`, the panel's 12-frame floor can
+make an eyes-closed hold longer than 0.8 s. It can no longer make it shorter.
+`tests/test_facegesture_eyes_closed_wall_time.py` drives the real builders at 30 fps: a real
+`FaceGestureBackend` over a real `SharedPerceptionSource`, and `SensorTokens` from `gesture.runtime.sensor_settings`.
+A 0.4 s closure produces no event and a 0.9 s closure produces exactly one. On the previous commit, 5 of its 9
+tests failed: each 0.4 s blink case fired, and the built detector had no timed floor. All 9 pass now. The 0.8 s is
+provisional, chosen above the roughly 0.1-0.4 s that the literature commonly gives for a spontaneous blink. It has
+not been measured on people in YazSes.
+
+**How it works.** `GestureSwitch` now takes optional `min_hold_s` and `refractory_s` (default 0, off). They are measured on the
 caller's sample timestamps (`now_s`), and the detector still reads no clock. Each one adds to its frame rule and
 never replaces it. Both fail closed. A sample with no usable time cannot prove a duration, so it breaks the hold run
 and keeps a refractory window open (`needs_clock` reports when a caller must pass time). A gap longer than
@@ -31,9 +44,10 @@ twice adds no time, and a clock that steps backwards restarts the count.
 - **A deliberate hold** fires exactly once, after the same wait at every rate.
 - **Low confidence** emits nothing.
 
-With the timed rules disabled in a subclass, 15 of these test functions fail (one parametrisation of each was run). The durations in the tests make each case
-unambiguous. They are not recommended defaults, and no real face was measured. The timed rules are **not yet
-reachable from config**: adding `[facegesture]` keys changes a public interface and is left to a follow-up.
+With the timed rules disabled in a subclass, 15 of these test functions fail (one parametrisation of each was
+run). The durations in the tests make each case unambiguous. They are not recommended defaults, and no real face was measured. Apart from the eyes-closed floor
+above, the timed rules are **not reachable from config**. Adding `[facegesture]` keys changes a public interface,
+so that is left to a follow-up.
 
 ### Fixed — the eye-control CI matrix lost its macOS leg to a new Homebrew Python ([#424](https://github.com/MSKazemi/yazses/issues/424))
 
