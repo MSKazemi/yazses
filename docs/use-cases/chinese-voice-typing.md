@@ -94,6 +94,12 @@ Chinese Tier-1 path also does not fall through to the English SLM router — whi
 opt-in and off unless `[commands] slm_model_path` names a local model anyway — so
 ordinary Chinese prose cannot become a fuzzy English command.
 
+Numbers in commands are bounded and exact. Counts ("撤销三次", "删除最后两行") run from 0 to 99,
+and line numbers ("转到第一百二十三行", "前往第 150 行") from 0 to 999. A form outside that
+set — 一千, the elided 一百一, 两十 — is typed as text, not guessed. Deletion only fires on
+the explicit "删除最后 … 词/行" form. Every Mandarin command phrase is **provisional**
+until a native Mandarin speaker has reviewed it; until then, treat the set as a preview.
+
 ## How accurate is it really?
 
 Those figures come from ASCEND, which is **spontaneous conversation** by Hong Kong

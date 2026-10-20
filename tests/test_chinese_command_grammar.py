@@ -91,12 +91,14 @@ def test_mandarin_command_number_parser_refuses_out_of_scope_forms(spoken):
     [
         "撤销100次",
         "选择100行",
-        "转到第100行",
+        "转到第1000行",
         "删除最后一百行",
         "删除最后二十三四行",
     ],
 )
 def test_out_of_scope_counts_do_not_become_commands(text):
+    # Counts stay capped at 99; line numbers reach 999 (#499) — see
+    # tests/test_mandarin_command_numerals.py for the full bounded range.
     assert classify(text, language="zh").intent is IntentType.DICTATE
 
 
