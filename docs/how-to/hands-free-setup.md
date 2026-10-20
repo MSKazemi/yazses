@@ -58,6 +58,11 @@ before you turn anything on, and any value you write yourself wins.
    of dangerous dictated commands, or refusing a destructive action when gaze cannot choose a window); the
    message names the key.
 
+   The preset is also an ordinary capability: `yazses features enable handsfree --force` is the same
+   command, with the same checks and the same refusals, and `yazses features` lists it as
+   **Hands-Free Preset** under *Accessibility & input modalities*. `yazses features disable handsfree`
+   is likewise `yazses handsfree disable`.
+
 3. **Apply it:**
 
    ```bash
@@ -100,6 +105,20 @@ before you turn anything on, and any value you write yourself wins.
 
 Every terminal step above is listed; there is no other one. Checking status, pausing and resuming are
 also in the settings window (`yazses settings`), which shows the same panel as `yazses handsfree status`.
+
+### Turn it on from the settings window (no terminal)
+
+1. Tray icon → **Settings…**.
+2. Under **Accessibility & input modalities**, tick **Hands-Free Preset**, answer **Yes** to the
+   experimental warning, then click **Apply**. The window runs the same safety-floor check as
+   `yazses features enable handsfree`: if one of your own settings would weaken it, nothing is written
+   and the message names the key. On a Python install (pip, pipx, uv) that lacks the camera libraries,
+   Apply installs them (mediapipe and OpenCV) first; the winget and Homebrew app bundles cannot add them.
+3. Tray icon → **Restart daemon**.
+4. Tray icon → **Settings…** → **Hands-free controls…** → **Resume hands-free input** to arm it.
+
+To turn it off the same way, untick **Hands-Free Preset**, click **Apply**, and restart the daemon from
+the tray. To stop what is moving *before* that restart, press **Pause** in the hands-free controls first.
 
 ### Choose only some of the roles
 

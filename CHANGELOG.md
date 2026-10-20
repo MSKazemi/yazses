@@ -164,6 +164,23 @@ notification says why. This does not depend on `[gaze] refuse_destructive_fallba
 never a stand-in for a target that cannot exist. Not verified: the GNOME and KDE findings come from documentation and
 toolkit source. They were not observed on live sessions, and the spec lists the checks still owed.
 
+### Added — the hands-free preset is a `features` capability, and every way on checks its safety floor ([#410](https://github.com/MSKazemi/yazses/issues/410))
+
+`yazses features enable handsfree` answered "Unknown feature", and the settings window had no row for the
+preset, so `yazses handsfree enable` in a terminal was the only way to turn it on. The preset is now a registry
+row, **Hands-Free Preset**, under *Accessibility & input modalities*. It is experimental and off by default, and
+it writes only `[handsfree] enabled`. `yazses features enable handsfree` runs `yazses handsfree enable`, with the
+same tier, dependency and safety-floor checks and the same refusal text. `features disable handsfree` runs
+`handsfree disable`, which also pauses every hands-free input at once. The settings window applies the same
+safety-floor check before it writes, through `features.enable_refusal`. If it cannot read the config file, it
+refuses the preset. When the loader refused the preset, `yazses features` still shows it as on, because the file
+asks for it. `inactive_reason` now says it is not applied and names the key that weakens the floor.
+`docs/how-to/hands-free-setup.md` adds a path with no terminal: tick the row, Apply, Restart daemon, then Resume.
+
+Nothing new runs at run time. `config.handsfree_preset` is the one named reader of `[handsfree]` outside the
+loader, and `tests/test_handsfree_no_second_path.py` limits its callers to the registry. New tests are in
+`tests/test_handsfree_preset_registry.py`. No hardware was used.
+
 ### Fixed — the eye-control CI matrix lost its macOS leg to a new Homebrew Python ([#424](https://github.com/MSKazemi/yazses/issues/424))
 
 From 2026-10-17, every macOS leg of `eye-eval-ci.yml` failed in `uv sync`, before the evaluation ran. The step
