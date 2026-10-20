@@ -26,6 +26,23 @@ new unlisted job, `!cancelled()`, a `paths` filter, a conditional blocking job, 
 executed the gate yet. The `main` ruleset does not require it yet; that is an owner action, specified in
 `.github/CI_POLICY.md` §6.2, and ADR-024 §9 records which central-agent prerequisites remain open.
 
+### Tests — Glance-Type on the shared camera sees the same model and the same device ([#396](https://github.com/MSKazemi/yazses/issues/396))
+
+Tests only. No source changed: the migration of Glance-Type gaze onto the shared perception source already met
+every acceptance criterion of EYE-CAM-003. The existing equivalence tests feed both paths the same landmarks, so
+they cannot see a difference in what produces the landmarks. The new `tests/test_gaze_glance_type_same_inputs.py`
+covers that gap. It builds the legacy `MediapipeGazeBackend` and the shared source, the latter exactly as the
+daemon builds it, under a fake `cv2`/`mediapipe` tree that records each request. It then checks:
+
+- **The same FaceLandmarker.** Model asset, running mode, face count and the detection, presence and tracking
+  floors are equal on both paths, for both an auto-downloaded model and a `[gaze] model_path` override. The
+  shared processor sets the two confidence floors explicitly, while the legacy backend inherits MediaPipe's
+  defaults (0.5, read from mediapipe 1.1.1). Raising the floor for the face switch would therefore make gaze
+  drop faces silently, and every earlier equivalence test would stay green. The only permitted differences are
+  the blendshape and transform outputs, which gaze does not read. Any option nobody has classified fails the test.
+- **The same camera.** Both paths open `cv2.VideoCapture(<camera_index>)` on the same device, and neither changes
+  a capture property.
+
 ### Fixed — the eye-control CI matrix lost its macOS leg to a new Homebrew Python ([#424](https://github.com/MSKazemi/yazses/issues/424))
 
 From 2026-10-17, every macOS leg of `eye-eval-ci.yml` failed in `uv sync`, before the evaluation ran. The step
