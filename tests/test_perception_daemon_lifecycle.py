@@ -276,3 +276,90 @@ def test_a_source_close_that_raises_does_not_stop_the_rest_of_shutdown(quiet_shu
     daemon._shutdown()  # must not raise
 
     assert later.stopped, "a camera close that raised cut the daemon's teardown short"
+
+
+# --------------------------------------------------------------------------- #
+# EYE-PERM-001 (#414): every camera feature on, no camera runtime -- dictation stands
+# --------------------------------------------------------------------------- #
+
+
+def _every_camera_feature_on() -> Config:
+    """Every section `cameraperm.CAMERA_FEATURES` names, plus the shared owner, switched on.
+
+    Derived from the contract's own list rather than typed out, so a camera feature added
+    there is enabled here without anyone remembering to.
+    """
+    from yazses.cameraperm import CAMERA_FEATURES
+
+    cfg = replace(Config(), perception=replace(PerceptionConfig(), enabled=True))
+    for name in CAMERA_FEATURES:
+        cfg = replace(cfg, **{name: replace(getattr(cfg, name), enabled=True)})
+    return replace(cfg, gaze=replace(cfg.gaze, route_dictation=True))
+
+
+def test_every_camera_feature_on_without_a_camera_runtime_still_builds_dictation(
+    tripwire, built,
+) -> None:
+    """The ordinary-dictation half of R-08, end to end through the real `_build_pipeline`.
+
+    A user who enabled every camera feature on an install with no `mediapipe`/`opencv`
+    (a base PyPI install that ran `--no-install`, say) must still get a daemon that
+    dictates: the speech engine, the injector and the hold-to-talk key are all built,
+    and no camera feature has claimed to be live. The gate then names the missing
+    runtime -- a dependency to install, not a permission to grant.
+    """
+    from yazses.cameraperm import (
+        PACKAGE_PROFILES,
+        CameraBlocker,
+        CameraPermission,
+        enabled_camera_features,
+        resolve,
+    )
+
+    cfg = _every_camera_feature_on()
+    assert enabled_camera_features(cfg), "the fixture enabled no camera feature"
+
+    daemon = built(cfg)  # must finish: dictation does not depend on a webcam
+
+    assert daemon._engine is not None and daemon._injector is not None
+    assert daemon._hotkey is not None, "the hold-to-talk key was not built"
+    assert daemon._gaze_targeter is None, "gaze claimed to be live with no camera runtime"
+
+    source = next(p for p in PACKAGE_PROFILES if p.key == "source")
+    probed: list[str] = []
+
+    def probe() -> CameraPermission:  # pragma: no cover - must never be reached
+        probed.append("asked")
+        return CameraPermission.GRANTED
+
+    gate = resolve(
+        cfg, profile=source, probe=probe, remedy=lambda: "",
+        model_present=lambda: True,  # the real module lookup runs, through the tripwire
+    )
+    assert gate.blocker is CameraBlocker.RUNTIME_MISSING
+    assert "pip install" in gate.remedy
+    assert probed == [], "the OS was asked about a camera nothing installed could open"
+
+
+def test_every_camera_feature_on_with_permission_refused_still_builds_dictation(built) -> None:
+    """The other half: the runtime is there, the OS says no. Dictation stands and the
+    refusal is reported as a refusal, with the platform's own remedy attached."""
+    from yazses.cameraperm import PACKAGE_PROFILES, CameraBlocker, CameraPermission, resolve
+
+    cfg = _every_camera_feature_on()
+    daemon = built(cfg)
+
+    assert daemon._engine is not None and daemon._injector is not None
+    assert daemon._hotkey is not None
+
+    source = next(p for p in PACKAGE_PROFILES if p.key == "source")
+    gate = resolve(
+        cfg, profile=source,
+        probe=lambda: CameraPermission.DENIED,
+        remedy=lambda: "Settings -> Privacy -> Camera",
+        find_module=lambda name: True,
+        model_present=lambda: True,
+    )
+    assert not gate.allowed
+    assert gate.blocker is CameraBlocker.PERMISSION_DENIED
+    assert gate.remedy == "Settings -> Privacy -> Camera"

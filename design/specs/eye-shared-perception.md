@@ -134,6 +134,27 @@ When no camera feature is enabled:
 Optional dependencies remain behind the existing gaze/camera feature installation path unless a later
 ADR changes packaging.
 
+## Permission and packaging contract (EYE-PERM-001, #414)
+
+Whether this install may open the camera at all is decided once, in `src/yazses/cameraperm/`, before
+any consumer leases the source. The order is fixed: feature switch, then install format, then camera
+runtime, then OS permission. The OS is asked only after the first three allow it, so a default install
+never raises a camera prompt.
+
+The install-format half is the checked-in matrix `cameraperm.matrix.PACKAGE_PROFILES`. Today only a
+source/PyPI install and a distribution package can run a camera feature. The macOS `.app`, the Windows
+`.exe` (also what Chocolatey, Scoop and WinGet install), the MSIX, the snap and the flatpak cannot. They
+ship no `mediapipe`/`opencv-python` and cannot add a package later, so none of them declares a camera
+capability (R-21). `tests/test_camera_packaging_matrix.py` and `tests/test_camera_packaging_guards.py`
+hold each row against the real manifest.
+
+The same matrix row (`can_add_runtime`) is what `system.deps.install_blocked_reason` reads. So every
+enablement surface (`features enable`, `handsfree enable`, the Settings window and the Hands-free panel)
+refuses a camera feature in a fixed-payload format *before* writing config, rather than switching on a
+feature the package cannot run. A refused, undetermined or absent camera never reaches dictation: the
+daemon builds its engine, injector and hotkey with every camera feature on and no camera runtime
+(`tests/test_perception_daemon_lifecycle.py`).
+
 ## Model lifecycle
 
 Reuse the existing FaceLandmarker model asset/download policy.

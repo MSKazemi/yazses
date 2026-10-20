@@ -127,6 +127,11 @@ code in that download could do.
 **If you need the camera features, install from PyPI** — `pipx install 'yazses[gaze]'`
 — and then `yazses features enable gaze`.
 
+In those five formats `yazses features enable gaze` (and `facegesture`, `headpointer`,
+`yazses handsfree enable`, and the tray's Hands-free panel) refuses **before it writes
+your config**. It says the package cannot add libraries and names the PyPI install. The
+camera feature is never switched on in a package that could not run it.
+
 `yazses doctor` grows a **Camera** row as soon as a camera feature is enabled, and it
 tells the four causes apart: a package that cannot run one, a missing `mediapipe` /
 `opencv-python`, no camera device, and a refused or not-yet-granted OS permission. It

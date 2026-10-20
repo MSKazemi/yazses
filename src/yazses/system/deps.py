@@ -74,15 +74,21 @@ def install_blocked_reason(
 
     Checked *before* pip runs, because a doomed install is worse than no
     install: the user waits, then reads an error written for a different
-    packaging world. Two environments can never accept a package:
+    packaging world. Three kinds of environment can never accept a package:
 
     * a snap — read-only squashfs plus Debian's PEP 668 marker (see
       :mod:`yazses.system.snap`);
+    * any other install format with a fixed payload — the macOS ``.app``, the
+      Windows ``.exe`` (and the Chocolatey/Scoop/WinGet channels that install it),
+      the MSIX and the flatpak (see :func:`fixed_payload_reason`);
     * any install whose site directory we cannot write (a root-owned
       system install run as a normal user, a read-only image).
     """
     if in_snap(env):
         return dependency_install_advice(packages, env)
+    fixed = fixed_payload_reason(packages, env)
+    if fixed is not None:
+        return fixed
     target = sysconfig.get_paths().get("purelib")
     if target and not os.access(_nearest_existing(Path(target)), os.W_OK):
         return (
@@ -91,6 +97,42 @@ def install_blocked_reason(
             "with sufficient permissions:\n    " + " ".join(install_command(packages))
         )
     return None
+
+
+def fixed_payload_reason(
+    packages: Sequence[str], env: Mapping[str, str] | None = None
+) -> str | None:
+    """Why a frozen or confined install cannot add *packages*, or ``None``.
+
+    The install format is read from the packaging matrix in
+    :mod:`yazses.cameraperm.matrix` (``PackageProfile.can_add_runtime``) rather
+    than from a second hand-written ``sys.frozen`` check, so the answer `doctor`
+    gives on its Camera row and the answer `features enable` gives here cannot
+    disagree (EYE-PERM-001, #414).
+
+    The case it exists for: in a PyInstaller bundle ``sys.executable`` is the
+    YazSes executable itself, so :func:`install_command` would hand pip a program
+    that is not a Python interpreter, and the purelib writability check below
+    can pass on a per-user install directory. Without this, ``yazses features
+    enable gaze --force`` in the ``.app`` or the ``.exe`` wrote ``[gaze] enabled
+    = true`` and then ran an install that could never work — a config key no
+    code in that package can honour.
+    """
+    from yazses.cameraperm.matrix import current_profile
+
+    profile = current_profile(dict(env) if env is not None else None)
+    if profile.can_add_runtime:
+        return None
+    wanted = " ".join(packages)
+    return (
+        f"this is {profile.label}, whose payload is fixed when it is built, so "
+        "extra Python libraries can never be installed into it.\n"
+        f"This capability needs: {wanted}\n"
+        "To use it, install YazSes from PyPI instead — same app, every capability:\n"
+        "    pipx install yazses\n"
+        "then run the same `yazses features enable` command again; it installs "
+        "the libraries for you."
+    )
 
 
 def install_command(packages: Sequence[str]) -> list[str]:
