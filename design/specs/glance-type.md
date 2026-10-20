@@ -71,7 +71,7 @@ class GazeBackend(Protocol):
         Persists the artifact to [gaze] calibration_path. Returns success."""
 ```
 
-A `PaneResolver` (platform-specific) maps a `GazePoint` to a target window/pane using window-manager geometry (X11 `_NET_*` / AT-SPI, Wayland portal where available, macOS Accessibility/CG, Windows UIA). On geometry failure it returns `None` → focused-window fallback.
+A `PaneResolver` (platform-specific) maps a `GazePoint` to a target window/pane using window-manager geometry (X11 `_NET_*`; macOS Accessibility/CG and Windows UIA not yet built). On geometry failure it returns `None` → focused-window fallback. **Wayland:** no portal or cross-desktop protocol provides other windows' geometry or focus, and AT-SPI gives no screen coordinates under GTK 4, so there is no Wayland `PaneResolver`. The capability matrix, its sources and the refusal rule for destructive gaze commands are in [eye-wayland-gaze-target.md](eye-wayland-gaze-target.md) (#418).
 
 ## Rationale
 
@@ -193,7 +193,7 @@ Install with `uv sync --extra gaze`. L2CS-Net is **not** a hard dependency — t
 | **Calibration drift over a session** | `[web:WebGazer]` | Implicit click/keystroke recalibration; confidence-gate so drift → fallback, never a wrong-pane misfire. |
 | **Webcam privacy** (always-on camera) | ADR-011 premise | **Local only** — frames never stored, never transmitted; off by default; explicit enable; visible active state; hard kill; tested invariant. |
 | **CPU cost / latency regression** | `[doc:Google-Research]` (~5% CPU but not free) | Cap `max_fps`; single snapshot not continuous decode; gaze inference off the dictation hot path. |
-| **Pane geometry unavailable** (Wayland sandbox, etc.) | `[unverified]` | `PaneResolver` returns `None` → focused-window fallback; per-platform support landed incrementally. |
+| **Pane geometry unavailable** (Wayland sandbox, etc.) | [eye-wayland-gaze-target.md](eye-wayland-gaze-target.md) (desk research, cited; live check owed) | `PaneResolver` returns `None` → focused-window fallback; per-platform support landed incrementally. |
 | **Over-promise / demo-vs-science** | Vision card §7 (grade F on caret demos) | Spec, config (`target_grain` excludes `caret`), and docs state coarse-only plainly; fallback makes it never-worse-than-today. |
 
 ## Consequences

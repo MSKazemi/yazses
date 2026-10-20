@@ -5707,6 +5707,13 @@ def gaze_status() -> None:
         typer.echo(f"  ✓ gaze target: {target.reason}")
     else:
         typer.echo(f"  ✗ gaze target: none -- {target.reason}")
+    if target.capability_summary:
+        # The evidence for the line above, one capability at a time; pointer injection is
+        # printed as separate so a granted portal permission is not read as a target.
+        typer.echo(f"    capabilities: {target.capability_summary}")
+    if not target.available:
+        typer.echo("    a destructive gaze command (\"close this\") is refused here, never "
+                   "sent to the focused window")
     typer.echo(f"  {mark(cal is not None)} calibration ({calibration_path(platform.paths.data_dir)})")
     if cal is None and check.stale:
         # #415: the file is there and damaged -- not the same as never having calibrated.
