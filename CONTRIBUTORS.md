@@ -159,7 +159,11 @@ found defects that no amount of reading the code here would have surfaced.
 - [@fall-water-zxc](https://github.com/fall-water-zxc) — Windows 11 showcase entry:
   dictation into Notepad, the browser, the terminal and VS Code, with a laptop's
   built-in microphone and not sitting close to it
-  ([#328](https://github.com/MSKazemi/yazses/pull/328)); also see
+  ([#328](https://github.com/MSKazemi/yazses/pull/328)); the Discord profile
+  `examples/config.discord.toml`, run end to end in Discord web on Windows 11 with a check
+  that its hotkey clears Discord's own keybinds
+  ([#228](https://github.com/MSKazemi/yazses/issues/228) →
+  [#590](https://github.com/MSKazemi/yazses/pull/590)); also see
   **Testing & field reports** above
 - [@filip-dzivy](https://github.com/filip-dzivy) — split pull-request CI into a fast lane and
   a full cross-platform lane, so a docs-only PR stops spending about four runner-hours on a
