@@ -65,7 +65,7 @@ def attested_suffixes(workflow_dir: Path = WORKFLOWS) -> set[str]:
         text = path.read_text(encoding="utf-8")
         if "attest-build-provenance" not in text:
             continue
-        for raw in _SUBJECT.findall(text):
+        for raw in _subject_paths(text):
             value = raw.strip().strip("\"'")
             suffix = Path(value).suffix
             # `${{ matrix.arch }}.exe` still ends in a real suffix; an image
@@ -73,6 +73,33 @@ def attested_suffixes(workflow_dir: Path = WORKFLOWS) -> set[str]:
             if suffix and suffix.isascii() and re.fullmatch(r"\.[a-z0-9]+", suffix):
                 found.add(suffix)
     return found
+
+
+def _subject_paths(text: str) -> list[str]:
+    """Every path a `subject-path:` names, including a `|` block's lines.
+
+    The action takes a newline-separated list, and the add-on packs step (ADR-028)
+    attests the `.yazpack` files and their index in one bundle that way. Reading only
+    the `subject-path:` line would see `|` and derive nothing -- the packs would then
+    never be required to carry an attestation, silently.
+    """
+    out: list[str] = []
+    lines = text.splitlines()
+    for i, line in enumerate(lines):
+        m = _SUBJECT.match(line)
+        if not m:
+            continue
+        value = m.group(1)
+        if not re.fullmatch(r"[|>][-+]?", value):
+            out.append(value)
+            continue
+        indent = len(line) - len(line.lstrip())
+        for nxt in lines[i + 1:]:
+            if nxt.strip() and len(nxt) - len(nxt.lstrip()) <= indent:
+                break
+            if nxt.strip():
+                out.append(nxt.strip())
+    return out
 
 
 def parse_sums(text: str) -> dict[str, str]:

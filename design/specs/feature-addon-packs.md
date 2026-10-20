@@ -318,3 +318,97 @@ check, both in `build-windows.yml`, failing the job.
 
 To be filled in by the Phase 0 spike and the Phase 1 checklist: run ids, Windows build
 numbers and measured sizes.
+
+## Implementation status
+
+### Build side, phases 0–1 (2026-10-21)
+
+**Landed:** `scripts/build-packs.py` (pure logic plus a CLI), `packaging/packs/packs.toml`,
+the pack steps in `scripts/build-windows.ps1`, the pack attestation and attachment in
+`build-windows.yml`, `.yazpack` and `-packs.json` coverage in `checksums.yml`,
+`verify-release-assets.py` and `verify-provenance.py`, an index-driven check in
+`release-complete.yml`, and the Phase 0 spike (`.github/workflows/packs-spike.yml` with
+`packaging/packs/spike/rthook_pack_spike.py`). Tests: `tests/test_build_packs.py` and
+`tests/test_checksums_cover_packs.py`.
+
+**Not landed (runtime side, a separate change):** everything under `src/yazses/packs/`,
+`PackRuntime`, `packaging/windows/rthook_yazses_packs.py`, the `packs` CLI and
+`[UninstallDelete]`. The build talks to that work only through the formats below and the
+probe command.
+
+**Not yet run:** neither the spike nor a release build has run on a hosted Windows runner.
+The Live smoke evidence section is still empty. A Linux dry run on a developer machine,
+using a fake bundle and Linux wheels, produced `parakeet` at 4.08 MB archived (7.27 MB
+unpacked) and `diarization` at 15.0 MB (44.7 MB). These figures are not Windows sizes; the
+spike replaces them.
+
+**Where the spec was open, the build chose the following.** The runtime should read the
+formats the same way.
+
+1. **Counts.** `files` and `unpacked_bytes`, in `pack.json` and in the index, count *every*
+   member of the ZIP, `pack.json` and `RECORD.json` included. `pack.json` is computed to a
+   fixed point, because its own size depends on those numbers. An extractor can therefore
+   compare the entry count and the total uncompressed size against them directly.
+2. **`RECORD.json`** has the form `{"format": 1, "files": [{"path", "size", "sha256"}]}`.
+   It lists every member except `RECORD.json` and `pack.json`. Paths are POSIX and relative
+   to the pack root.
+3. **Archive shape.** The ZIP holds regular files only (Unix mode `0o100644`), with no
+   directory entries. Entries are sorted, carry the timestamp 1980-01-01 and use DEFLATE
+   level 9. A member whose DEFLATE ratio would exceed **100:1** is STORED, so a per-member
+   ratio cap of 100 or more never refuses a genuine pack.
+4. **`path_entries`** is a new `pack.json` key, a list of pack-root-relative paths taken
+   from `.pth` lines that only add a path. The `.pth` file itself is removed. The loader
+   appends these after `site/`. A `.pth` that runs `import` code fails the build. Both
+   phase 1 packs have an empty list.
+5. **`native_dirs`** lists pack-root-relative directories that still hold a `.dll` after
+   any DLL byte-identical to the base's has been dropped.
+6. **The OS word in asset names.** `win-*` becomes `windows` and `macosx-*` becomes `macos`.
+   The `platform` field holds the build venv's `sysconfig.get_platform()` (`win-amd64`).
+   `python` is `{cache_tag: sys.implementation.cache_tag, version:
+   platform.python_version(), abi: "cp3XY"}`.
+7. **Base manifest.** `base-manifest.json` is canonical JSON (sorted keys, no whitespace):
+   `{"format": 1, "files": [{"path", "size", "sha256"}]}`. It covers every file in
+   `dist/YazSes/` except `_internal/yazses-packs-index.json`. `base_build_id` is
+   `sha256:` followed by the hex digest of those bytes. The manifest is kept in the build's
+   work directory and is not a release asset.
+8. **Index bytes.** The embedded index and the release asset are byte-identical: UTF-8,
+   sorted keys, 2-space indent, trailing newline. The index lists only packs that passed
+   every check *and* the frozen probe. When none passed, no index is embedded or published.
+9. **The same DLL in two packs.** When two packs carry byte-identical copies of a DLL, both
+   packs keep it, because either pack may be installed alone. The "dropped" rule in ADR-028
+   §1 applies only to copies identical to the base's. Different bytes still fail the build.
+10. **The probe command the build calls:** `yazses-cli.exe --cli packs probe <name>
+    --staged <dir>`. `<dir>` is the *extracted pack root*, the folder holding `pack.json`
+    and `site/`. During the probe, `LOCALAPPDATA`, `APPDATA`, `USERPROFILE`, `HOME` and
+    `XDG_*` point at a sandbox, a provisional index of every built pack is embedded, and
+    the timeout is 120 s. Exit 0 publishes the pack. **Until the runtime side ships this
+    command, every pack is withheld**, which keeps the rule never to publish an unprobed
+    pack.
+11. **Withhold, not fail (acceptance 3).** A pack that fails a check or its probe is
+    withheld: no index entry, no asset, a warning annotation and a row in the job summary.
+    The job still ships the base installer. The job fails only if the base bundle changed
+    during pack production (the step 4 invariance guard). `build-packs.py build --strict`
+    is available for a release that should fail instead.
+12. **`packs.toml` schema.** `format = 1` plus one `[extras.<name>]` table per pyproject
+    extra. Each table has a `decision` (`pack`, `bundled`, `no-windows-wheel`, `unwired`
+    or `deferred`), and a `reason` for anything that is not a pack. A pack also has
+    `features`, `entry_modules` and optionally `approved_large` / `approved_by`. The large
+    threshold is 500 MiB. `shared_with` is not used yet.
+13. **Provenance.** One `actions/attest-build-provenance` step attests the packs and the
+    index through a multi-line `subject-path: |`. `verify-provenance.py` now reads such
+    blocks, so `.yazpack` and `.json` became attested suffixes. Only `-packs.json` assets
+    are in `SHA256SUMS.txt`, so no other JSON file is affected.
+14. **Licences.** Each distribution's licence files go to `LICENSES/<dist>/`, and the
+    declared licence is recorded in the build report. No deny-list gate exists yet,
+    because ADR-028 open question 7 is unanswered.
+15. **No `stdlib/` supplement yet.** The spike measures the stdlib gaps first (Phase 0 item 2).
+
+**Open owner questions, conservative choice taken.** Question 1: `parakeet` stays a pack,
+`chinese` is deferred, and the base is unchanged. Question 2: `voiceprint` is deferred.
+Question 7: no licence gate, `tts` is deferred, and licence texts are copied into each
+pack.
+
+**Spike limits.** The spike's runtime hook imports `json`, `pkgutil`, `ctypes` and
+`traceback`, so PyInstaller collects those four into the spike base, and risk (a) cannot
+report them as missing. The spike builds with `--skip-probe`, which embeds and publishes
+nothing. The shipped spec never contains the spike hook, and a test enforces that.

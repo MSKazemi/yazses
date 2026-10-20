@@ -123,6 +123,27 @@ jobs:
           python3 scripts/verify-provenance.py --tag "$TAG" \
             | tee -a "$GITHUB_STEP_SUMMARY"
 
+      - name: Verify every add-on pack in the published index is attached and checksummed
+        # ADR-028. The list of packs is READ FROM THE PUBLISHED INDEX, never written here:
+        # a hand-written list is exactly what lets a new asset kind go uncovered with
+        # nothing turning red. A release with no index is fine -- build-windows.yml
+        # withholds every pack that fails a check or its frozen probe -- so its absence
+        # is reported, not failed. The installed app refuses a pack whose SHA256SUMS.txt
+        # line is missing or different, so a gap here is a pack nobody can install.
+        run: |
+          set -euo pipefail
+          mkdir -p packcheck
+          gh release view "$TAG" --json assets -q '.assets[].name' > packcheck/assets.txt
+          if ! grep -qE -- '-packs\.json$' packcheck/assets.txt; then
+            echo "No add-on pack index in $TAG -- nothing to check." | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          gh release download "$TAG" --dir packcheck --clobber \
+            --pattern '*-packs.json' --pattern 'SHA256SUMS.txt'
+          python3 scripts/build-packs.py check-release \
+            --sums packcheck/SHA256SUMS.txt --assets packcheck/assets.txt \
+            packcheck/*-packs.json | tee -a "$GITHUB_STEP_SUMMARY"
+
       - name: Report every channel, and fail if any lacks this version
         # Owner policy, 2026-08-13: maximum coverage -- every channel is checked,
         # not just the ones CI builds. Some (winget, Chocolatey, Flathub, nixpkgs)

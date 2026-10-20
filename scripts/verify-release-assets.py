@@ -39,7 +39,9 @@ import tempfile
 from pathlib import Path
 
 SUMS = "SHA256SUMS.txt"
-ARTIFACT_SUFFIXES = (".exe", ".dmg", ".deb")
+#: `.yazpack` and `-packs.json` are the ADR-028 add-on packs and their index; the app
+#: cross-checks a pack against SHA256SUMS.txt, so a stale line there blocks the install.
+ARTIFACT_SUFFIXES = (".exe", ".dmg", ".deb", ".yazpack", "-packs.json")
 
 
 def _gh(*args: str) -> str:

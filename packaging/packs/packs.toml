@@ -1,0 +1,116 @@
+# Add-on pack decisions, one per pyproject extra (ADR-028 §7).
+#
+# Read by scripts/build-packs.py, which builds one `.yazpack` per `decision = "pack"`
+# entry on the Windows release runner, from the same uv.lock and interpreter as the
+# frozen base. tests/test_build_packs.py holds this file to `pyproject.toml` (every
+# extra has exactly one entry) and to `system/features.py::_FEATURE_DEPS` (every wired,
+# dependency-carrying feature is served by a declared pack or by an extra whose
+# decision says why not). A new extra therefore cannot silently be missing a decision.
+#
+# Decisions:
+#   pack              build it; `features` and `entry_modules` are required
+#   bundled           already inside the frozen base (`desktop` is what build-windows.ps1 syncs)
+#   no-windows-wheel  a distribution in its closure is sdist-only in uv.lock
+#   unwired           every feature that would consume it is in features.py::_UNWIRED
+#   deferred          a later phase or an open owner question; `reason` says which
+#
+# Every non-pack entry needs a `reason`. A pack over 500 MiB needs `approved_large = true`
+# and `approved_by = "<owner name>"`.
+#
+# Phase 1 builds `parakeet` and `diarization` only. The small pure-Python extras
+# (`chinese`, and arguably `parakeet`) could instead be bundled into the base; that
+# changes the base, which is ADR-028 open question 1, so until the owner answers they
+# stay packs (parakeet) or deferred (chinese) -- the conservative choice, because it
+# leaves the shipped installer exactly as it is.
+
+format = 1
+
+[extras.parakeet]
+decision = "pack"
+features = ["stt-parakeet"]
+entry_modules = ["onnx_asr"]
+
+[extras.diarization]
+decision = "pack"
+features = ["diarize", "recimport", "meeting"]
+entry_modules = ["sherpa_onnx"]
+
+[extras.desktop]
+decision = "bundled"
+reason = "Synced into the frozen base by scripts/build-windows.ps1 (`--extra desktop`)."
+
+[extras.overlay]
+decision = "bundled"
+reason = "Alias of `desktop`; PySide6 is already in the frozen base."
+
+[extras.chinese]
+decision = "deferred"
+reason = "Phase 2, and ADR-028 open question 1 (bundle tiny pure-Python extras instead?)."
+
+[extras.prosody]
+decision = "deferred"
+reason = "Phase 2 (spec: feature-addon-packs.md)."
+
+[extras.tts]
+decision = "deferred"
+reason = "Phase 2, and ADR-028 open question 7 (espeak-ng licence gate)."
+
+[extras.denoise]
+decision = "deferred"
+reason = "Phase 2 (spec: feature-addon-packs.md)."
+
+[extras.gaze]
+decision = "deferred"
+reason = "Phase 2 (spec: feature-addon-packs.md); needs the native_dirs path proven first."
+
+[extras.moonshine]
+decision = "deferred"
+reason = "Phase 2 (spec: feature-addon-packs.md)."
+
+[extras.voiceprint]
+decision = "deferred"
+reason = "Phase 3: a torch pack, ADR-028 open question 2."
+
+[extras.slm]
+decision = "no-windows-wheel"
+reason = "llama-cpp-python is sdist-only in uv.lock."
+
+[extras.notes]
+decision = "no-windows-wheel"
+reason = "llama-cpp-python is sdist-only in uv.lock."
+
+[extras.voiceprint-resemblyzer]
+decision = "no-windows-wheel"
+reason = "webrtcvad is sdist-only in uv.lock."
+
+[extras.agent]
+decision = "unwired"
+reason = "Its only feature, `agent`, is in features.py::_UNWIRED."
+
+[extras.diarization-pyannote]
+decision = "deferred"
+reason = "No feature in _FEATURE_DEPS installs it (a backend choice behind config); torch."
+
+[extras.silero]
+decision = "deferred"
+reason = "No feature in _FEATURE_DEPS installs it (a backend choice behind config)."
+
+[extras.lsp]
+decision = "deferred"
+reason = "No feature in _FEATURE_DEPS installs it (an editor integration, not a toggle)."
+
+[extras.emg]
+decision = "deferred"
+reason = "No feature in _FEATURE_DEPS installs it (hardware input behind config)."
+
+[extras.emg-band]
+decision = "deferred"
+reason = "No feature in _FEATURE_DEPS installs it (hardware input behind config)."
+
+[extras.ble]
+decision = "deferred"
+reason = "No feature in _FEATURE_DEPS installs it (hardware input behind config)."
+
+[extras.all]
+decision = "deferred"
+reason = "Aggregate of every extra; never a pack."
