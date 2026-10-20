@@ -162,7 +162,11 @@ Pure gates:
 - movement after re-centre uses new neutral;
 - dwell resets after moving beyond radius;
 - exactly one click per dwell until re-armed;
-- pausing suppresses both motion and dwell click.
+- pausing suppresses both motion and dwell click;
+- every state transition (each pair of held states stacked and unwound, close, recenter and
+  dwell toggling from every state) acts on nothing while held and settles one frame on release,
+  and any sample/control sequence keeps the no-motion, arming and shown-before-firing rules
+  (`tests/test_headpointer_state_matrix.py`).
 
 Hardware observations:
 

@@ -132,7 +132,12 @@ Status should expose:
 - fake clock;
 - pause/recenter/recovery;
 - feature-wiring honesty tests;
-- global safety state tests.
+- global safety state tests;
+- **state-transition coverage** (`tests/test_headpointer_state_matrix.py`, #405): a matrix
+  derived from the controller's `State` enum (every ordered pair of held states stacked and
+  unwound; close, recenter and dwell toggling from every state), plus a Hypothesis model that
+  checks the no-motion, settling-frame, arming and shown-before-firing invariants after every
+  step of any sample/control sequence. A new `State` without a matrix row fails the test.
 
 ## Hardware gate
 
