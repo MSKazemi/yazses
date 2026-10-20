@@ -10,3 +10,4 @@ tests/fixtures/face_switch_replay_report.json text eol=lf
 tests/fixtures/grounding_replay_report.json text eol=lf
 design/eye-control/validation-slots.json text eol=lf
 design/eye-control/generated/** text eol=lf
+design/publication/paper-v2/manuscript/generated/** text eol=lf

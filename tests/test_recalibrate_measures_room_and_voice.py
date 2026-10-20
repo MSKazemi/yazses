@@ -22,9 +22,13 @@ LOUD_SAMPLE = 0.0441      # what was said during calibration
 QUIET_SPEECH = 0.0208     # the same person, later, that verify then rejected
 
 
-def _clip(level: float) -> np.ndarray:
-    """Constant-amplitude audio whose mean(|x|) -- the metric the gate uses -- is `level`."""
-    return np.full(16000, level, dtype=np.float32)
+def _clip(level: float, seconds: float) -> np.ndarray:
+    """Constant-amplitude audio whose mean(|x|) -- the metric the gate uses -- is `level`.
+
+    The length matters: `calibrate` refuses a recording too short to trust, so each clip
+    is as long as what the caller really records.
+    """
+    return np.full(int(16000 * seconds), level, dtype=np.float32)
 
 
 @pytest.fixture
@@ -36,7 +40,10 @@ def recal(mocker):
 
     def run(room: float, speech: float):
         rec = mocker.patch(
-            "yazses.system.miclevel.record", side_effect=[_clip(room), _clip(speech)]
+            "yazses.system.miclevel.record", side_effect=[
+                _clip(room, daemon_mod._RECAL_ROOM_S),
+                _clip(speech, daemon_mod._RECAL_SPEECH_S),
+            ]
         )
         before = d._config.accessibility.vad_threshold
         d._recalibrate_mic()
@@ -88,7 +95,8 @@ def test_the_cli_rule_leaves_room_for_quieter_speech_too(loud):
     from yazses.system.miclevel import analyze, calibrate
 
     sr = 16000
-    result = calibrate(analyze(_clip(ROOM), sr), analyze(_clip(loud), sr))
+    # `mic-level`'s defaults: 2 s of room, 4 s of speech.
+    result = calibrate(analyze(_clip(ROOM, 2.0), sr), analyze(_clip(loud, 4.0), sr))
 
     assert result.ok
     assert ROOM < result.recommended_threshold < QUIET_SPEECH

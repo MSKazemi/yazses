@@ -37,7 +37,7 @@ class TranscriptResult:
     attribution_suspect: str = ""
 
 
-def _build_engine(config):
+def _build_engine(config, stt=None):
     """The Whisper engine for a file transcription, decoding in the asked-for language.
 
     Not `stt.factory.build_engine`: this path needs `transcribe_words`, which is a
@@ -49,6 +49,11 @@ def _build_engine(config):
 
     `"translate"` is this field's other value (ADR-v2-014, X→English) and is not a
     language: it must auto-detect the source, which is what `""` means downstream.
+
+    ``stt`` is the ``[stt]`` section. Passing it applies ``[stt] chinese_script`` the way
+    the daemon's factory does (#501, COMP-03): this builder bypasses
+    ``stt.factory.build_engine``, so without it the setting never reached file
+    transcription. ``None`` or an unset script returns the bare engine, unchanged.
     """
     from yazses.stt.download import language_model_problem
     from yazses.stt.faster_whisper import FasterWhisperEngine
@@ -62,7 +67,12 @@ def _build_engine(config):
     problem = language_model_problem(model, language)
     if problem:
         log.warning("[transcribe] %s", problem)
-    return FasterWhisperEngine(model_name=model, language=language)
+    engine = FasterWhisperEngine(model_name=model, language=language)
+    if stt is None:
+        return engine
+    from yazses.stt.factory import _with_han_script
+
+    return _with_han_script(engine, stt)
 
 
 def cleaned_utterance(u):

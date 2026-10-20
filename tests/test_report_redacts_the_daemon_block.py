@@ -75,7 +75,7 @@ _MACHINE_FACTS = frozenset({
     "meeting_enabled", "meeting_finalizing", "modality_roles", "model", "notifications",
     "outcomes", "platform", "read_back", "ready", "remote_connected", "silent_streak",
     "silent_streak_threshold", "spoken_commit", "staged", "state", "streaming_enabled",
-    "summary", "target_ok", "tts_backend", "uptime_s", "vad_threshold", "version",
+    "stale_permissions", "summary", "target_ok", "tts_backend", "uptime_s", "vad_threshold", "version",
     "words",
 })
 

@@ -509,6 +509,12 @@ class Daemon:
         # `system/diagnosis.py::should_notify` for why the ceiling matters more than
         # the repeats do.
         self._diagnosed_at: dict[str, float] = {}
+        # What the OS said about Input Monitoring when this daemon started (macOS only;
+        # empty elsewhere). The hotkey tap reads that grant once, at creation, so a grant
+        # that arrives later is invisible to it -- see `_stale_permissions` (#578).
+        self._grants_at_start: dict[str, str | None] = {}
+        self._stale_checked_at = 0.0
+        self._stale_cached: list[str] = []
         # Audio-input resilience: count consecutive silent-discards and watch the OS
         # default input device so a mic that silently switches (e.g. a USB-C monitor
         # stealing capture) is auto-healed to the last-good device + notified, instead
@@ -925,6 +931,28 @@ class Daemon:
                 input_monitoring_fix=_advice("how_to_grant_input_monitoring"),
             )
 
+            if probe.input_monitoring is not None:
+                self._grants_at_start = {"input_monitoring": probe.input_monitoring}
+
+            # Raise the OS's own prompt for what it can still be asked (#562). Same
+            # slug-keyed, persisted rate limit as the toasts below, so a login item does
+            # not put a system dialog up at every start.
+            for slug, method in pa.requests_for(probe):
+                ask = getattr(perms, method, None)
+                if ask is None:
+                    continue
+                with self._lock:
+                    fresh = should_notify(
+                        f"request-{slug}", time.time(), self._diagnosed_at
+                    )
+                if not fresh:
+                    continue
+                self._persist_shown_notices()
+                try:
+                    ask()
+                except Exception:  # noqa: BLE001 - a prompt that cannot be raised is not fatal
+                    log.debug("could not request %s", slug, exc_info=True)
+
             for alert in pa.alerts_for(probe):
                 with self._lock:
                     fresh = should_notify(
@@ -944,6 +972,27 @@ class Daemon:
                 )
         except Exception:  # noqa: BLE001 — startup must survive its own warnings
             log.debug("could not announce missing permissions", exc_info=True)
+
+    def _stale_permissions(self) -> list[str]:
+        """Grants given AFTER this daemon started, which its hotkey tap cannot see.
+
+        Empty -- and free -- unless something was missing at start, so a healthy install
+        never probes. Otherwise re-asks the OS from *this* process (the only place the
+        answer is attributed to YazSes and not to the terminal `doctor` was typed into,
+        #562), at most every 30 s because `status` is polled continuously.
+        """
+        from yazses.system import permission_alerts as pa
+
+        if not any(v in (pa.DENIED, pa.UNKNOWN) for v in self._grants_at_start.values()):
+            return []
+        now = time.monotonic()
+        if self._stale_checked_at and now - self._stale_checked_at < 30.0:
+            return self._stale_cached
+        self._stale_checked_at = now
+        perms = getattr(self._platform, "permissions", None)
+        current = {"input_monitoring": pa.probe_state(perms, "check_input_monitoring")}
+        self._stale_cached = pa.grants_given_since_start(self._grants_at_start, current)
+        return self._stale_cached
 
     def _shown_notices_path(self):
         from yazses.system import toast_memory
@@ -6142,6 +6191,10 @@ class Daemon:
                 # returning that found six keys instead of thirty-seven and quietly
                 # switched a privacy guard off.
                 "handsfree": self._handsfree_payload(),
+                # Grants given after this daemon started, e.g. ["input_monitoring"]: the
+                # hotkey tap was built without them and needs a restart (#578). A list of
+                # fixed names, [] on every install where nothing was missing at start.
+                "stale_permissions": self._stale_permissions(),
                 # The overlay reads the dwell progress out of this to draw a ring before a
                 # click fires. States, flags and a 0..1 fraction -- never a pose or position.
                 "headpointer": self._headpointer_payload(),

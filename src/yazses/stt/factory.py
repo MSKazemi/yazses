@@ -199,9 +199,12 @@ def _with_persian_normaliser(engine: "SttEngine", stt: "SttConfig") -> "SttEngin
     Persian), preserving the zero-cost zero-wrapper guarantee for everyone who
     has not opted in — an existing `language = "fa"` install included.
     """
-    from yazses.postprocess.persian_text import build_persian_normaliser, is_persian_language
+    from yazses.postprocess.output_profile import profile_for
+    from yazses.postprocess.persian_text import is_persian_language
 
-    normalise = build_persian_normaliser(stt)
+    # FA-01 (#509): the output profile of the *STT* language decides what, if
+    # anything, rewrites the text; pass-through languages get `None` here.
+    normalise = profile_for(getattr(stt, "language", "")).build_normaliser(stt)
     if normalise is None:
         # Set but inert is worth one line: a toggle that reads "on" and does nothing
         # is the failure `_with_han_script` warns about for an `.en` model.

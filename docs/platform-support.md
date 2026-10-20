@@ -36,6 +36,12 @@ file that is not there. Both are wrong answers, and only one of them looks caref
     which session** (hold-to-talk, injection, tray, gaze, window control on X11 vs
     Wayland), see the [capability matrix](capability-matrix.md).
 
+!!! question "Looking for *what a person has actually run*?"
+
+    A ✅ here means the file is published, not that someone has dictated with it. The
+    [validation matrix](validation-matrix.md) lists what has been verified on real
+    hardware, with the evidence, and what nobody has tried.
+
 ## Legend
 
 | | Meaning |

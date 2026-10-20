@@ -26,6 +26,7 @@ ran -- the same three-valued rule `system/snap.py` follows for interface state.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 
 #: The probe answers this module understands. Plain strings rather than the
@@ -114,6 +115,73 @@ def alerts_for(probe: PermissionProbe) -> list[PermissionAlert]:
     return alerts
 
 
+def requests_for(probe: PermissionProbe) -> list[tuple[str, str]]:
+    """The OS prompts worth raising now, as ``(slug, method name on the backend)``.
+
+    #562: a fresh macOS install showed no Accessibility prompt at all. The backend has
+    had `request_keyboard_capture` since the first macOS commit, and nothing in `src/`
+    called it -- so the one switch the user must flip never offered itself, and after a
+    `tccutil reset` the app was not even listed in the pane to switch on.
+
+    Only a *specific* state asks (ADR-021): a denied keyboard grant, and a microphone
+    macOS has not been asked about yet (`NotDetermined` maps to UNKNOWN). A microphone
+    that was refused is not asked again -- macOS would not show a prompt for it. The
+    caller still rate-limits by slug and skips a backend without the method, so the
+    names here are a request, not a promise.
+    """
+    wanted: list[tuple[str, str]] = []
+    if probe.keyboard == DENIED:
+        wanted.append(("keyboard-capture", "request_keyboard_capture"))
+    if probe.microphone == UNKNOWN:
+        wanted.append(("microphone", "request_microphone"))
+    return wanted
+
+
+def probe_state(perms: object, method: str) -> str | None:
+    """One backend probe as a plain string, or None where it did not run. Never raises."""
+    check = getattr(perms, method, None)
+    if check is None:
+        return None
+    try:
+        return str(getattr(check(), "value", "")) or None
+    except Exception:  # noqa: BLE001 - a probe that raises is a probe that did not run
+        return None
+
+
+def grants_given_since_start(
+    at_start: Mapping[str, str | None], now: Mapping[str, str | None]
+) -> list[str]:
+    """Grants that were missing when the daemon started and are present now.
+
+    The hotkey tap reads its Input Monitoring grant when it is created, at daemon start
+    (#578). A daemon that started before the grant therefore keeps a deaf tap after the
+    user flips the switch, and nothing said so: the Settings toggle looked right, the
+    next launch exited as a duplicate, and `doctor` had nothing to compare.
+
+    Not OK -> OK is the only transition reported. OK -> OK and OK -> denied are not this
+    problem, and a state that was never determined at either end says nothing.
+    """
+    return sorted(
+        name
+        for name, was in at_start.items()
+        if was in (DENIED, UNKNOWN) and now.get(name) == OK
+    )
+
+
+_GRANT_LABELS = {"input_monitoring": "Input Monitoring"}
+
+
+def stale_grant_note(names: list[str]) -> str:
+    """One line for `doctor`: which grant the running daemon predates, and the fix."""
+    shown = " and ".join(_GRANT_LABELS.get(n, n) for n in names)
+    return (
+        f"started before {shown} was granted, so its keyboard hook was built without "
+        "it and will not see the grant. Fix: run `yazses restart` (in the .app: "
+        "`/Applications/YazSes.app/Contents/MacOS/YazSes --cli restart`), then check "
+        "`ps aux | grep -i [y]azses` shows one daemon"
+    )
+
+
 __all__ = [
     "DENIED",
     "NOT_APPLICABLE",
@@ -122,4 +190,8 @@ __all__ = [
     "PermissionAlert",
     "PermissionProbe",
     "alerts_for",
+    "grants_given_since_start",
+    "probe_state",
+    "requests_for",
+    "stale_grant_note",
 ]

@@ -7,12 +7,16 @@ Three things:
    command-grammar classification — the pure fast transforms wrapped around the
    Whisper decode. Shows the pipeline adds negligible latency on top of the model.
 4. Resident-set memory (RSS) baseline and per model.
+5. CPU core-seconds (and energy, where a counter is readable) for the model load and for
+   the decode loop, separately -- ``load_cost`` / ``decode_cost`` per model. Method and
+   limits: ``cost_meter.py`` and the "CPU core-seconds and energy" section of the README.
 """
 from __future__ import annotations
 
 import time
 
 import numpy as np
+from cost_meter import CostMeter, default_probes
 
 from _common import librispeech_subset, load_audio, percentile
 
@@ -85,19 +89,27 @@ def run(n_latency: int) -> dict:
 
     for model_name in MODELS:
         print(f"[latency] {model_name}: cold-start load ...", flush=True)
+        load_meter = CostMeter(default_probes())
+        load_meter.begin()
         t0 = time.monotonic()
-        engine = FasterWhisperEngine(model_name=model_name)
+        with load_meter.span():
+            engine = FasterWhisperEngine(model_name=model_name)
         load_s = time.monotonic() - t0
+        load_cost = load_meter.end()
         rss_after_load = _rss_mb()
 
         decode_ms: list[float] = []
-        for i, (_, flac, _, _) in enumerate(subset):
+        decode_meter = CostMeter(default_probes())
+        decode_meter.begin()
+        for i, (_, flac, _, dur) in enumerate(subset):
             audio = load_audio(flac)
             t = time.monotonic()
-            engine.transcribe(audio)
+            with decode_meter.span(audio_s=dur):
+                engine.transcribe(audio)
             decode_ms.append((time.monotonic() - t) * 1000.0)
             if (i + 1) % 10 == 0:
                 print(f"  {model_name}: {i + 1}/{len(subset)}", flush=True)
+        decode_cost = decode_meter.end()
         rss_peak = _rss_mb()
 
         out["models"][model_name] = {
@@ -107,8 +119,15 @@ def run(n_latency: int) -> dict:
             "rss_after_load_mb": round(rss_after_load, 1),
             "rss_peak_mb": round(rss_peak, 1),
             "model_rss_delta_mb": round(rss_after_load - baseline_rss, 1),
+            "load_cost": load_cost,
+            "decode_cost": decode_cost,
         }
-        print(f"[latency] {model_name}: {out['models'][model_name]}", flush=True)
+        shown = {k: v for k, v in out["models"][model_name].items() if not k.endswith("_cost")}
+        print(
+            f"[latency] {model_name}: {shown} "
+            f"decode core-s/audio-s={decode_cost['cpu_core_seconds_per_audio_s']}",
+            flush=True,
+        )
         del engine
 
     print("[latency] pure pipeline-stage timings ...", flush=True)

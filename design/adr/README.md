@@ -26,6 +26,11 @@ These decisions are binding for v1.0 and inform v2 design. To propose a change t
   are deliberately PUBLIC**, because the Android app is built by contributors who need to
   read the architecture they are implementing. See `design/mobile/README.md` for why that
   exception exists and what still belongs in `design/`.
+- **`adr-v2-136..139` do not exist and never did.** Two design branches each allocated
+  `adr-v2-135..139`/`135..141` while 134 was the highest, and `135` was then taken by the
+  face-gesture switch. On landing, the Mandarin set moved to `140..144` and the eye/camera
+  set to `145..151` (#524, resolved on `main`; PRs #378 closed unmerged, #413 merged). The gap
+  is a renumbering artefact, not a missing record: ids are never reused or back-filled.
 
 <!-- BEGIN GENERATED ADR INDEX -->
 
