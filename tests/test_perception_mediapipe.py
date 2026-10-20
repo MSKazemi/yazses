@@ -781,3 +781,153 @@ def test_a_per_output_array_has_no_truth_value_and_must_not_end_the_source(world
     assert sample is not None
     assert sample.gaze is not None and sample.face is not None
     assert sample.head_pose.yaw == pytest.approx(0.1)
+
+
+# --------------------------------------------------------------------------- #
+# Channel independence, for every subset a consumer set can ask for
+# --------------------------------------------------------------------------- #
+_SUBSETS = [
+    ("gaze",), ("head_pose",), ("face",),
+    ("gaze", "head_pose"), ("gaze", "face"), ("head_pose", "face"),
+    ("gaze", "head_pose", "face"),
+]
+
+
+@pytest.mark.parametrize("wanted", _SUBSETS, ids=["+".join(s) for s in _SUBSETS])
+def test_any_channel_subset_requests_exactly_its_outputs_and_derives_exactly_it(
+    world, wanted: tuple[str, ...]
+) -> None:
+    """Turning one family off must not cost a family that stayed on.
+
+    The single gaze-only case above cannot see the failure that matters most here: a
+    consumer set that drops blendshapes and keeps head pose. If the transform flag
+    were wired to the wrong channel name, that set would lose the matrix — and with it
+    the Head-Pointer — while gaze-only still passed. So every subset is held to the
+    same two claims: the model is asked for exactly the outputs the subset needs, and
+    a result that carries all three yields exactly the subset.
+    """
+    processor = build(world, channels=list(wanted))
+    options = world.landmarker.options
+    assert options["output_face_blendshapes"] is ("face" in wanted)
+    assert options["output_facial_transformation_matrixes"] is ("head_pose" in wanted)
+
+    sample = processor.process(Frame(), 4.0)
+    assert sample is not None
+    assert sample.channels == wanted
+    assert processor.channels == wanted
+    assert world.landmarker.detections == 1, "one frame, one inference, whatever the subset"
+
+
+# --------------------------------------------------------------------------- #
+# A result missing an output *attribute*, not just an empty list
+# --------------------------------------------------------------------------- #
+@pytest.mark.parametrize(
+    ("attribute", "survivors"),
+    [
+        ("face_landmarks", ("head_pose", "face")),
+        ("facial_transformation_matrixes", ("gaze", "face")),
+        ("face_blendshapes", ("gaze", "head_pose")),
+    ],
+)
+def test_a_result_without_an_output_attribute_costs_only_that_channel(
+    world, attribute: str, survivors: tuple[str, ...]
+) -> None:
+    """An empty list and a missing attribute are two shapes of the same absence.
+
+    The fakes above model an unrequested output the way current MediaPipe does — an
+    empty list. A result object that has no such attribute at all (an older or
+    narrower build, or a wrapper) must degrade identically rather than raise an
+    `AttributeError` outside the per-channel guard, where it would end the source.
+    """
+    processor = build(world)
+    result = FakeResult()
+    delattr(result, attribute)
+    world.landmarker.result = result
+
+    sample = processor.process(Frame(), 1.0)
+
+    assert sample is not None
+    assert sample.channels == survivors
+
+
+def test_a_detect_that_returns_nothing_is_no_sample_not_an_error(world) -> None:
+    processor = build(world)
+    world.landmarker.result = None
+    assert processor.process(Frame(), 1.0) is None
+    assert world.landmarker.detections == 1
+
+
+# --------------------------------------------------------------------------- #
+# Privacy: a derivation's own error message is the other route out
+# --------------------------------------------------------------------------- #
+@pytest.mark.parametrize("victim", ["derive_gaze", "derive_head_pose", "derive_face"])
+def test_no_biometric_value_reaches_the_log_when_a_derivation_fails(
+    world, monkeypatch, caplog, victim: str
+) -> None:
+    """The inference path is covered above; this is the per-channel path.
+
+    A derivation that fails on its input is the plausible way a landmark coordinate,
+    a pose angle or a blendshape score ends up in an exception message — and a
+    `log.debug("%s", exc)` would write it out. Only the type name and the channel may
+    appear.
+    """
+    processor = build(world)
+    leak = "jawOpen=0.8137 iris=(0.4521,-0.2210) yaw=0.3000"
+
+    def explode(*args, **kwargs):
+        raise ValueError(leak)
+
+    monkeypatch.setattr(f"yazses.perception.mediapipe_backend.{victim}", explode)
+    with caplog.at_level(logging.DEBUG, logger="yazses.perception.mediapipe_backend"):
+        sample = processor.process(Frame(), 1.0)
+
+    assert sample is not None
+    for fragment in ("0.8137", "0.4521", "0.2210", "jawOpen", "iris="):
+        assert fragment not in caplog.text, f"{fragment!r} reached the log"
+    assert "ValueError" in caplog.text, "the failure was not logged at all — nothing proven"
+
+
+# --------------------------------------------------------------------------- #
+# A base install: the module imports, and the open fails with a reason
+# --------------------------------------------------------------------------- #
+def test_without_the_gaze_extra_the_source_fails_contained_and_hands_the_camera_back(
+    monkeypatch,
+) -> None:
+    """AGENTS.md rule 3, behaviourally: the AST scan in `test_perception_source.py`
+    proves no top-level import; this proves what a user without the extra meets.
+
+    `sys.modules[name] = None` makes `import name` raise `ImportError`, which is what
+    a fresh install with no `gaze` extra does. The module must already import (it is
+    imported here, after the block), constructing the processor must raise
+    `ImportError`, and the source must contain that as a failed open — with the
+    camera it had already opened released rather than left lit.
+    """
+    for name in ("cv2", "mediapipe", "mediapipe.tasks", "mediapipe.tasks.python",
+                 "mediapipe.tasks.python.vision"):
+        monkeypatch.setitem(sys.modules, name, None)
+    from yazses.perception.mediapipe_backend import (
+        MediapipeFaceProcessor,
+        mediapipe_processor_factory,
+    )
+
+    with pytest.raises(ImportError):
+        MediapipeFaceProcessor(model_path="/models/f.task")
+
+    capture = _CountingCapture()
+    source = SharedPerceptionSource(
+        capture_factory=lambda: capture,
+        processor_factory=mediapipe_processor_factory(model_path="/models/f.task"),
+        spawn=lambda body, name: _DeadWorker(),
+    )
+    lease = source.consumer("gaze")
+    lease.start()
+    try:
+        status = source.status()
+        assert status.state is SourceState.FAILED
+        assert "ImportError" in status.failure_reason or "ModuleNotFoundError" in (
+            status.failure_reason
+        )
+        assert lease.latest() is None
+        assert capture.opens == 1 and capture.closes == 1, "the camera was left open"
+    finally:
+        source.close()

@@ -21,6 +21,30 @@ The workflow now pins Python 3.12, as `test.yml` does. The same latent gap is cl
 can run on macOS and installs with uv but does not pin a concrete interpreter. It reads repository scripts the
 job calls, and it checks that the pinned version has a locked macOS arm64 onnxruntime wheel. A hosted run on the
 fix has not been observed yet. That run is #424's definition of done.
+||||||| 3b24fd7f
+
+### Tests — one MediaPipe result, three channels: every subset and every absence ([#395](https://github.com/MSKazemi/yazses/issues/395))
+
+Tests only. No source changed: `src/yazses/perception/mediapipe_backend.py` and `derive.py` already met every
+acceptance criterion of EYE-CAM-002. The new tests in `tests/test_perception_mediapipe.py` cover cases the existing
+suite did not reach:
+
+- **Every channel subset.** All seven non-empty combinations of gaze, head pose and blendshapes ask the one
+  FaceLandmarker for exactly the outputs they need and derive exactly those channels from one `detect`. Before, only
+  gaze-only was tested. That missed the case that matters most: a consumer set that drops blendshapes must keep the
+  transform matrix, and with it the Head-Pointer.
+- **A missing output attribute.** A result object that has no landmarks, transform or blendshape attribute at all
+  degrades like an empty list does, costing only that channel. A `detect` that returns nothing produces no sample
+  and does not raise.
+- **No biometric value in a log.** When a derivation fails with landmark coordinates, a pose angle or a blendshape
+  score in its message, only the exception type name reaches the log. Before, only the inference path was checked.
+- **A base install, behaviourally.** With `cv2` and `mediapipe` unimportable, the module still imports and the
+  processor raises `ImportError`. The shared source records that as a contained failed open and releases the camera
+  it had already opened.
+
+Each new test was checked against a deliberately broken source: miswiring the transform flag, reading a result
+attribute directly, logging the exception text, or removing the lazy imports. Every one of those mutations failed at
+least one new test.
 
 ### Tests — the PointerSink contract now covers bounds and permanence ([#400](https://github.com/MSKazemi/yazses/issues/400))
 
