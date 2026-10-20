@@ -870,6 +870,13 @@ def test_an_installer_install_that_is_not_per_user_is_not_offered(tmp_path, scop
     launcher = FakeLauncher(tmp_path, scope=scope)
     offer = iu.one_click_offer(_status(), launcher)
     assert offer is not None and not offer.ok and needle in offer.reason
+    # The manual fallback says what to do and that nothing needs uninstalling, and it
+    # fits the tray balloon whole (Windows drops a body over 255 chars).
+    assert "releases page" in offer.reason and "no uninstall" in offer.reason
+    from yazses.tray.about import fit_balloon
+
+    body = f"YazSes 2.43.12 → 2.44.10\n{offer.reason}\nOpening the download page."
+    assert fit_balloon(body) == body
     result = _run(launcher)
     assert not result.ok and launcher.handoffs == []
     assert any(RELEASES_URL in s for s in result.steps)
@@ -1107,11 +1114,31 @@ def test_a_second_click_while_one_runs_is_refused(tmp_path):
 
 # ---- CLI: tray running, refused offers, graceful shutdown --------------------------------
 
-def test_cli_refuses_while_the_tray_runs(monkeypatch, tmp_path):
+def test_cli_waits_for_a_running_tray_instead_of_refusing(monkeypatch, tmp_path):
+    # The tray autostarts at sign-in, so the old refusal made `yazses update` refuse
+    # on nearly every Windows machine. The tray's PID is now waited for, and the
+    # daemon is asked to stop only once the tray (which would respawn it) has gone.
+    import time
+
     started = _patch_cli(monkeypatch, tmp_path, _status())
-    monkeypatch.setattr(cli, "_running_tray_pid", lambda: 4242)
+    holders = iter([4242, 4242, None])
+    monkeypatch.setattr(cli, "_running_tray_pid", lambda: next(holders, None))
+    monkeypatch.setattr(time, "sleep", lambda s: None)
+    asked = []
+    monkeypatch.setattr(cli, "_request_daemon_shutdown", lambda: asked.append(True))
     out = runner.invoke(cli.app, ["update", "--yes"])
-    assert out.exit_code == 1 and "tray is running" in out.output and started == []
+    assert out.exit_code == 0, out.output
+    assert started[0][1]["wait_pids"] == [99, 4242]
+    assert "Waiting for the YazSes tray to close" in out.output
+    assert "did not close" not in out.output
+    assert asked == [True]
+
+
+def test_cli_refuses_a_tray_it_cannot_identify(monkeypatch, tmp_path):
+    started = _patch_cli(monkeypatch, tmp_path, _status())
+    monkeypatch.setattr(cli, "_running_tray_pid", lambda: -1)
+    out = runner.invoke(cli.app, ["update", "--yes"])
+    assert out.exit_code == 1 and "could not be identified" in out.output and started == []
 
 
 def test_cli_reports_a_refused_offer_without_installing(monkeypatch, tmp_path):
@@ -1144,3 +1171,120 @@ def test_tray_refused_offer_explains_and_opens_the_page(monkeypatch, tmp_path):
                       confirm=lambda t, b: asked.append(1) or True, sleep=lambda s: None)
     assert asked == [] and opened == [RELEASES_URL]
     assert "all users" in shown[-1][1]
+
+
+# ---- a hand-off started outside the tray makes the tray close ----------------------------
+
+def _pending(stage: Path, *, started: float, by_pid: int | None = 1, result: bool = False):
+    stage.mkdir(parents=True, exist_ok=True)
+    record: dict = {"from": "2.43.2", "to": "2.44.0", "started": started}
+    if by_pid is not None:
+        record["by_pid"] = by_pid
+    (stage / iu.PENDING_NAME).write_text(json.dumps(record), encoding="utf-8")
+    if result:
+        (stage / iu.RESULT_NAME).write_text("0", encoding="utf-8")
+
+
+def test_a_hand_off_by_another_process_after_the_tray_started_closes_it(tmp_path):
+    _pending(tmp_path, started=200.0, by_pid=1)
+    assert iu.handoff_started_elsewhere(tmp_path, since=100.0, own_pid=2) is True
+
+
+@pytest.mark.parametrize("kwargs", [
+    dict(started=50.0),               # older than this tray: the job relaunched it
+    dict(started=200.0, by_pid=2),    # the tray's own click quits by itself
+    dict(started=200.0, result=True),  # the job has already finished
+])
+def test_the_tray_stays_open_otherwise(tmp_path, kwargs):
+    _pending(tmp_path, **kwargs)
+    assert iu.handoff_started_elsewhere(tmp_path, since=100.0, own_pid=2) is False
+
+
+def test_no_or_garbled_record_keeps_the_tray_open(tmp_path):
+    assert iu.handoff_started_elsewhere(tmp_path, since=0.0, own_pid=1) is False
+    (tmp_path / iu.PENDING_NAME).write_text("{not json", encoding="utf-8")
+    assert iu.handoff_started_elsewhere(tmp_path, since=0.0, own_pid=1) is False
+    (tmp_path / iu.PENDING_NAME).write_text('{"started": true}', encoding="utf-8")
+    assert iu.handoff_started_elsewhere(tmp_path, since=0.0, own_pid=1) is False
+
+
+def test_the_pending_record_names_the_process_that_started_it(tmp_path):
+    import os
+
+    result = _run(FakeLauncher(tmp_path))
+    assert result.ok
+    record = json.loads((tmp_path / "stage" / iu.PENDING_NAME).read_text(encoding="utf-8"))
+    assert record["by_pid"] == os.getpid()
+
+
+def test_the_tray_watch_is_inert_without_a_launcher_and_throttled_with_one(tmp_path):
+    from yazses.tray.app import UpdateHandoffWatch
+
+    assert UpdateHandoffWatch(None).should_close() is False
+
+    clock = [0.0]
+    launcher = FakeLauncher(tmp_path)
+    watch = UpdateHandoffWatch(launcher, clock=lambda: clock[0], wall=lambda: 100.0,
+                               own_pid=2, interval_s=1.0)
+    assert watch.should_close() is False          # nothing handed off yet
+    _pending(launcher.staging_dir(), started=150.0, by_pid=1)
+    assert watch.should_close() is False          # throttled: it looked a moment ago
+    clock[0] = 1.5
+    assert watch.should_close() is True
+
+
+def test_the_tray_poller_consults_the_watch_before_every_status_call():
+    # Wired, not just written.
+    import inspect
+
+    import yazses.tray.app as tray_app
+
+    src = inspect.getsource(tray_app.run)
+    assert "UpdateHandoffWatch(getattr(platform, \"update_launcher\", None))" in src
+    assert src.index("update_watch.should_close()") < src.index('client.call("status")')
+    assert "tray.stop()" in src
+
+
+def test_outside_the_tray_with_no_tray_asks_the_daemon_directly(tmp_path, monkeypatch):
+    import yazses.tray.updates as tu
+
+    monkeypatch.setattr(tu, "update_wait_pids", lambda: [10])
+    seen, asked = [], []
+    monkeypatch.setattr(iu, "start_one_click_update",
+                        lambda st, la, **kw: seen.append(kw["wait_pids"])
+                        or iu.HandoffResult(ok=True, title="t", message="m"))
+    result = tu.hand_off_outside_tray(_status(), FakeLauncher(tmp_path), tray_pid=lambda: None,
+                                      request_daemon_shutdown=lambda: asked.append(1))
+    assert result.ok and seen == [[10]] and asked == [1]
+
+
+def test_outside_the_tray_a_tray_that_never_closes_is_reported(tmp_path, monkeypatch):
+    import yazses.tray.updates as tu
+
+    monkeypatch.setattr(tu, "update_wait_pids", lambda: [10])
+    monkeypatch.setattr(iu, "start_one_click_update",
+                        lambda st, la, **kw: iu.HandoffResult(ok=True, title="t", message="m"))
+    clock, said, asked = [0.0], [], []
+
+    def _sleep(s):
+        clock[0] += s
+
+    result = tu.hand_off_outside_tray(
+        _status(), FakeLauncher(tmp_path), tray_pid=lambda: 77,
+        request_daemon_shutdown=lambda: asked.append(1),
+        progress=lambda m, f: said.append(m), wait_s=2.0, sleep=_sleep, clock=lambda: clock[0],
+    )
+    assert result.ok and asked == [1]
+    assert any("did not close" in m for m in said)
+
+
+def test_outside_the_tray_a_failed_hand_off_stops_nothing(tmp_path, monkeypatch):
+    import yazses.tray.updates as tu
+
+    monkeypatch.setattr(tu, "update_wait_pids", lambda: [10])
+    monkeypatch.setattr(iu, "start_one_click_update",
+                        lambda st, la, **kw: iu.HandoffResult(ok=False, title="t", message="no"))
+    asked = []
+    result = tu.hand_off_outside_tray(_status(), FakeLauncher(tmp_path), tray_pid=lambda: 77,
+                                      request_daemon_shutdown=lambda: asked.append(1))
+    assert not result.ok and asked == []

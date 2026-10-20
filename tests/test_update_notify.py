@@ -7,6 +7,8 @@ anything the user has to deal with.
 """
 from __future__ import annotations
 
+import pytest
+
 from yazses.config import GeneralConfig
 from yazses.system import update_notify as un
 from yazses.system.updater import UpdateStatus, manual_update_steps
@@ -84,7 +86,22 @@ def test_notification_for_a_windows_install_gives_steps_not_a_dead_end():
     # to act on is worse than saying nothing at all.
     _, body = un.notification(_status(method="windows-installer"))
     assert "releases" in body
-    assert "Download" in body
+    # The tray installs it in one click (ADR-027); the toast names that button first,
+    # because a Windows balloon is trimmed from the end.
+    assert body.index("Check for updates") < body.index("releases")
+
+
+@pytest.mark.parametrize("method", ["windows-installer", "choco", "winget", "scoop"])
+def test_every_one_click_channel_is_pointed_at_the_tray_button(method):
+    command = None if method == "windows-installer" else [method, "upgrade", "yazses"]
+    _, body = un.notification(_status(method=method, command=command))
+    assert "Check for updates" in body
+
+
+@pytest.mark.parametrize("method", ["msix", "macos-app"])
+def test_channels_without_one_click_keep_their_steps(method):
+    _, body = un.notification(_status(method=method))
+    assert "Check for updates" not in body
 
 
 # ---- state file ------------------------------------------------------------

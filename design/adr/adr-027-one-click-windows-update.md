@@ -57,9 +57,18 @@ reason and the manual steps, and the tray opens the releases page:
   winget's manifests and Scoop's bucket follow the GitHub tag, often by days. Offering 2.44.0
   when `choco upgrade` will say "nothing to do" is a false claim. An unreadable answer also
   means no offer.
-- **From the CLI, no tray running.** The CLI cannot ask the tray to quit, and the installer
-  would have to force-close it. `yazses update` therefore says to use the tray's own entry,
-  or to quit the tray first.
+- **From the CLI, with or without the tray** (revised 2026-10-21). The CLI cannot ask the
+  tray to quit over IPC, so the first version refused while the tray ran. The tray
+  autostarts at sign-in, so that refused almost every time. Now the tray's PID (the
+  holder of `tray.lock`) joins the PIDs the job waits for, and the tray closes itself when
+  it sees a `pending.json` written after it started by another process
+  (`installer_update.handoff_started_elsewhere`, polled about once a second by
+  `tray.app.UpdateHandoffWatch`). Closing runs the tray's `on_quit`, which stops its poll
+  before sending `shutdown`, so the daemon is not respawned under the installer. The CLI
+  waits up to 20 s for the tray to go, then sends `shutdown` itself. A lock held by a
+  process that cannot be named (`holder_pid` = -1) is still refused, because the job could
+  not wait for it. `tray.updates.hand_off_outside_tray` holds this sequence so a Settings
+  window button can reuse it.
 
 ### What a confirmed click does
 
@@ -112,8 +121,9 @@ reason and the manual steps, and the tray opens the releases page:
    Never from this process's environment: a user-level variable is writable by any
    same-user process.
 8. **Shut down:** after a successful hand-off, the tray quits and its `on_quit` sends the
-   daemon `shutdown`. The CLI sends the same graceful RPC, never the lifecycle's
-   kill-after-10-s fallback, then exits.
+   daemon `shutdown`. The CLI first waits for a running tray to close itself (see above),
+   then sends the same graceful RPC, never the lifecycle's kill-after-10-s fallback, and
+   exits.
 9. **Report** on the next tray start: `read_handoff_result` compares the version now
    running with the target. The exit code alone is not evidence, which is the lesson of
    `run_upgrade_checked`. The result is shown once: "Updated 2.43.2 → 2.44.0", or the
@@ -211,8 +221,23 @@ ADR does not claim more protection than that.
   needs the asset list, not just the version.
 - The flow depends on Windows PowerShell 5.1, present on every supported Windows 10/11. If
   it is missing, the hand-off raises `OSError` and the user gets the manual steps.
-- **Verification is manual.** Nothing in CI runs the detached job on Windows. The checklist
-  below is the definition of done for the first Windows release that carries this.
+- **Verification is partly automated.** The `windows-update-handoff` job in `test.yml`
+  (advisory until it has passed on three consecutive pushes to `main`) runs
+  `scripts/check_windows_update_handoff.py` on `windows-latest`. It drives the real
+  `start_one_click_update` and `WindowsUpdateLauncher`, including the real HKCU uninstall-key
+  read, `subprocess.Popen` and `powershell.exe -EncodedCommand` job. The release is a fake
+  on 127.0.0.1 that answers 415 to the wrong `Accept`, and the installer is a compiled
+  stand-in that records its arguments. It checks the wait, the re-hash, the in-place
+  switches, the recorded exit code and the relaunch for a good, a failing, a tampered and
+  a stuck update, in awkward paths (checklist items 4, 7 and 10 in miniature). It does not
+  cover the real Inno installer, UAC, SmartScreen, DNS/TLS, GitHub's redirects, or a real
+  tray and daemon. The checklist below is still the definition of done for the first
+  Windows release that carries this.
+- **No Settings-window button yet.** The Settings window has no update entry. A button
+  needs `settingsui/app.py`, which was out of scope for the 2026-10-21 change. It should
+  check off the UI thread, ask with the same `confirmation_prompt`, call
+  `hand_off_outside_tray` with `os.getpid()` among the waited PIDs (the default), and quit
+  its own `QApplication` on success.
 
 ## Revision (2026-10-20, after review)
 
@@ -228,9 +253,10 @@ two clicks sharing one `.part` file. All are fixed as described above, each with
    YazSes starts again → balloon "YazSes updated X → Y". `yazses --version` reports Y.
    `%TEMP%\yazses-update\update.log` and `installer.log` exist; the `.exe` and
    `update.lock` are gone.
-2. The same from a terminal with the tray quit first: `yazses update --yes`. The prompt
-   returns, the daemon stops, the installer runs, and the tray comes back on Y. With the
-   tray running, the CLI refuses and points at the tray.
+2. The same from a terminal: `yazses update --yes`, once with the tray quit first and once
+   with it running. With it running, the CLI prints "Waiting for the YazSes tray to
+   close…", the tray icon disappears within a few seconds, the daemon stops, the installer
+   runs, and the tray comes back on Y.
 3. Decline at the Yes/No box: nothing is downloaded.
 4. Tamper test: edit a byte of the downloaded file during the shutdown window. The log
    says `SHA-256 mismatch`, nothing is installed, and YazSes relaunches on X.

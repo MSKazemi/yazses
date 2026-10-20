@@ -72,6 +72,7 @@ __all__ = [
     "confirmation_prompt",
     "describe_handoff_result",
     "download_verified",
+    "handoff_started_elsewhere",
     "expected_sha256",
     "installer_arguments",
     "is_allowed_redirect",
@@ -472,16 +473,19 @@ def one_click_offer(status: Any, launcher: UpdateLauncher | None) -> Offer | Non
             scope = launcher.install_scope()
             if scope == "user":
                 return Offer(True)
+            # Both reasons end in what to do, and say there is nothing to uninstall:
+            # "update by hand" is what sent people to uninstall and reinstall. Kept
+            # short enough that the tray balloon (255 chars) still carries them whole.
             if scope == "machine":
                 return Offer(False, (
-                    "YazSes is installed for all users, so updating it needs "
-                    "administrator rights. One-click update does not run a downloaded "
-                    "installer elevated; download it from the releases page and run it "
-                    "yourself."
+                    "YazSes is installed for all users, so updating needs administrator "
+                    "rights, which one-click never uses on a download. Run the installer "
+                    "from the releases page: it upgrades in place, no uninstall."
                 ))
             return Offer(False, (
                 "Could not tell whether YazSes is installed for this user or for all "
-                "users, so the one-click update was not offered."
+                "users. Run the installer from the releases page: it upgrades in place, "
+                "no uninstall."
             ))
         name = _FEED_NAMES.get(method, method)
         have = parse_feed_version(method, launcher.query_package_manager(method))
@@ -843,6 +847,9 @@ def start_one_click_update(
             "method": method,
             "log": str(handoff.log_file),
             "started": now(),
+            # Which process started it: a tray that did not must close itself, so the
+            # job it is waiting on can run (``handoff_started_elsewhere``).
+            "by_pid": _own_pid(),
         })
         _unlink(handoff.result_file)
         try:
@@ -876,6 +883,44 @@ def start_one_click_update(
 
 
 # ---- reporting what the hand-off did, on the next start ------------------
+
+def _own_pid() -> int:
+    import os
+
+    return os.getpid()
+
+
+def handoff_started_elsewhere(
+    staging: Path, *, since: float, own_pid: int
+) -> bool:
+    """True when another YazSes process has handed an update off since ``since``.
+
+    The tray asks this while it runs. ``yazses update`` (and any other surface that is
+    not the tray) cannot make the tray quit, yet the installer cannot replace files the
+    tray holds open; so the hand-off leaves ``pending.json`` behind, and a tray that
+    started *before* it, and did not start it itself, closes -- which also stops the
+    daemon. The job has the tray's PID and waits for it (ADR-027).
+
+    False once the job has written its exit code (it is over), for a record older than
+    this tray (a tray relaunched by the job must not close again), and for anything
+    unreadable. Never raises.
+    """
+    try:
+        if (staging / RESULT_NAME).exists():
+            return False
+        record = json.loads((staging / PENDING_NAME).read_text(encoding="utf-8"))
+    except Exception:
+        return False
+    if not isinstance(record, dict):
+        return False
+    started = record.get("started")
+    by_pid = record.get("by_pid")
+    if not isinstance(started, (int, float)) or isinstance(started, bool):
+        return False
+    if started < since:
+        return False
+    return not (isinstance(by_pid, int) and by_pid == own_pid)
+
 
 def _write_pending(staging: Path, record: dict) -> None:
     (staging / PENDING_NAME).write_text(json.dumps(record, indent=2), encoding="utf-8")

@@ -162,3 +162,88 @@ def pending_update_report(launcher, current: str | None = None):
     except Exception:
         log.debug("could not read the last update result", exc_info=True)
         return None
+
+
+#: How long a surface other than the tray waits for the tray to close itself after a
+#: hand-off. The tray checks about once a second; this is generous for a busy machine.
+TRAY_CLOSE_WAIT_S = 20.0
+
+
+def hand_off_outside_tray(
+    status,
+    launcher,
+    *,
+    tray_pid,
+    request_daemon_shutdown,
+    progress=None,
+    wait_s: float = TRAY_CLOSE_WAIT_S,
+    sleep=None,
+    clock=None,
+):
+    """The one-click update from a surface that is not the tray: ``yazses update`` today,
+    the Settings window's button tomorrow. Never raises; returns a ``HandoffResult``.
+
+    The installer cannot replace files the tray holds open, and nothing here can tell the
+    tray to quit. So the tray's PID joins the PIDs the job waits for, and the tray closes
+    itself when it sees the hand-off record (``tray.app.UpdateHandoffWatch``) -- which
+    also stops the daemon, in the order that keeps the tray from respawning it. The
+    daemon is asked directly only after the tray has gone (or ``wait_s`` has passed),
+    never while a live tray could respawn it. Either way the job installs nothing while any of those processes is still
+    running, so a wedged tray costs an update, never a force-close.
+
+    ``tray_pid()`` answers the tray lock's holder: a PID, ``-1`` for held by an unknown
+    process, or ``None`` for no tray.
+    """
+    import time
+
+    from yazses.system.installer_update import HandoffResult, start_one_click_update
+
+    sleep = sleep or time.sleep
+    clock = clock or time.monotonic
+
+    def _say(message: str) -> None:
+        if progress is not None:
+            progress(message, None)
+
+    try:
+        holder = tray_pid()
+        if holder is not None and holder <= 0:
+            # Held, but by a process that cannot be named, so the job could not wait
+            # for it -- and the installer would meet its open files.
+            return HandoffResult(
+                ok=False,
+                title="Update not installed",
+                message=(
+                    "The YazSes tray is running, but its process could not be identified. "
+                    "Use the tray's Check for updates… entry, or quit the tray and try "
+                    "again.\nNothing was installed; YazSes keeps running."
+                ),
+                steps=list(getattr(status, "steps", None) or []),
+            )
+        pids = list(update_wait_pids())
+        if holder is not None and holder not in pids:
+            pids.append(holder)
+        result = start_one_click_update(status, launcher, wait_pids=pids, progress=progress)
+        if not result.ok:
+            return result
+        if holder is not None:
+            _say("Waiting for the YazSes tray to close…")
+            deadline = clock() + wait_s
+            closed = False
+            while clock() < deadline:
+                if tray_pid() != holder:
+                    closed = True
+                    break
+                sleep(0.5)
+            if not closed:
+                _say(
+                    "The tray did not close by itself. If it is still open in 5 minutes, "
+                    "nothing is installed and YazSes says why on its next start."
+                )
+        # Also after the tray closed: it asked the daemon on its way out, and asking
+        # again is harmless. Never earlier -- a live tray would respawn the daemon.
+        request_daemon_shutdown()
+        return result
+    except Exception as exc:  # pragma: no cover - every callee above already never raises
+        log.warning("one-click update from outside the tray failed: %s", exc)
+        return HandoffResult(ok=False, title="Update not installed", message=str(exc))

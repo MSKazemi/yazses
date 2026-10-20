@@ -210,7 +210,7 @@ Scoop installs update through their own package manager in the same one-click wa
 | How you installed | What the one-click update runs |
 |---|---|
 | The `.exe` installer | the verified installer, silently, in place |
-| winget | `winget upgrade --id MSKazemi.YazSes -e` (unattended) |
+| winget | the same as the `.exe` installer: a winget install cannot be told apart from it |
 | Chocolatey | `choco upgrade yazses -y` — Windows asks for administrator rights |
 | Scoop | `scoop update yazses` |
 
@@ -225,9 +225,8 @@ What to expect:
   says which version the manager still offers. Chocolatey asks for administrator rights.
 - **Nothing is force-closed.** If YazSes has not closed within 5 minutes (for example,
   a meeting still being saved), nothing is installed and the next start tells you why.
-- **From a terminal**, quit the tray first, or use the tray's own **Check for updates…**.
-  `yazses update` will not install while the tray is running, because the tray cannot be
-  closed cleanly from there.
+- **From a terminal**, `yazses update` works with the tray running: the tray sees the
+  update starting, closes itself and stops YazSes, and both come back on the new version.
 - **Microsoft Store / MSIX package:** it updates through the Store (Library → Get
   updates), or by opening the newer `.msix`. Never run the `.exe` over it; that installs
   a second copy.
@@ -252,8 +251,8 @@ yazses features enable update-check
 yazses restart
 ```
 
-Once on, YazSes checks daily and shows **one** notification per release, with the
-steps for your install method. It sends a plain "what is the latest version"
+Once on, YazSes checks daily and shows **one** notification per release. It points you
+at the tray's **Check for updates…**, which installs it in one click. It sends a plain "what is the latest version"
 request to github.com — no voice, no text, no config, no identifier — and nothing
 else about your machine ever leaves it.
 

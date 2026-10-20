@@ -140,6 +140,47 @@ def unreachable_decision(
     )
 
 
+#: How often the tray looks for a one-click update started by another process. A stat
+#: and a small JSON read; the job waits minutes for the tray, so a second is plenty.
+_UPDATE_WATCH_INTERVAL_S = 1.0
+
+
+class UpdateHandoffWatch:
+    """Whether this tray must close for a one-click update another process started.
+
+    Inert where the platform has no ``UpdateLauncher`` (everything but Windows). Never
+    raises: a check that fails answers "no", and the tray keeps running.
+    """
+
+    def __init__(self, launcher, *, clock=time.monotonic, wall=time.time, own_pid=None,
+                 interval_s: float = _UPDATE_WATCH_INTERVAL_S) -> None:  # noqa: ANN001
+        import os
+
+        self._launcher = launcher
+        self._clock = clock
+        self._since = wall()
+        self._own_pid = os.getpid() if own_pid is None else own_pid
+        self._interval = interval_s
+        self._next = clock()
+
+    def should_close(self) -> bool:
+        if self._launcher is None:
+            return False
+        now = self._clock()
+        if now < self._next:
+            return False
+        self._next = now + self._interval
+        try:
+            from yazses.system.installer_update import handoff_started_elsewhere
+
+            return handoff_started_elsewhere(
+                self._launcher.staging_dir(), since=self._since, own_pid=self._own_pid
+            )
+        except Exception:
+            log.debug("could not check for an update hand-off", exc_info=True)
+            return False
+
+
 def run() -> None:
     """Entry point — the `yazses-tray` GUI script."""
     # A GUI script has no console on Windows, so sys.stderr is None and
@@ -172,6 +213,7 @@ def run() -> None:
         platform.lifecycle.start_daemon_detached()
 
     stop_event = threading.Event()
+    update_watch = UpdateHandoffWatch(getattr(platform, "update_launcher", None))
 
     def _poller() -> None:
         started = time.monotonic()
@@ -181,6 +223,14 @@ def run() -> None:
         last_relaunch: float | None = None
         while not stop_event.is_set():
             interval = _POLL_INTERVAL_S
+            if update_watch.should_close():
+                # `yazses update` (or another surface) handed off a one-click update and
+                # its job is waiting for this process to exit (ADR-027). Closing runs
+                # `_on_quit`, which stops the poll *before* it asks the daemon to shut
+                # down, so the daemon is not respawned behind the installer's back.
+                log.info("A YazSes update was started elsewhere; closing the tray for it.")
+                tray.stop()
+                return
             try:
                 info = client.call("status")
                 ever_connected = True
