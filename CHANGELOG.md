@@ -15,6 +15,18 @@ microphone: dictation into a Discord web channel and a DM arrived intact, and `r
 Discord's Push to Talk nor its overlay keybind. The desktop app, Linux and macOS are unverified, and the file says so.
 `scripts/check-app-profile.py` passes for all 20 profiles.
 
+### Tests — the shared camera owner is now held to its contract at the daemon, not only on its own (#394)
+
+The single camera owner (`src/yazses/perception/source.py`, ADR-v2-145) was already proven on the source object: one
+open for N leases, the last release closes, start/stop/close idempotent, failures contained. Each of those is only as
+good as the daemon that owns it. `tests/test_perception_daemon_lifecycle.py` runs the daemon's real
+`_build_pipeline()` (speech engine and injector stubbed) behind an import tripwire, and shows that a daemon with every
+camera feature off never imports *or probes* `cv2` or `mediapipe`. It also shows that `[perception]` on with no camera
+feature builds a source that has opened nothing, and that the daemon's teardown closes the camera under a lease nobody
+released. A `close()` that raises does not cut the teardown short, and a source that cannot be built still lets the
+pipeline finish. Each test was mutation-checked: removing the behaviour it guards turns that test red. No behaviour
+changed.
+
 ## [2.43.2] - 2026-10-18
 
 ### Fixed — the gaze grounding resolver grounded a candidate with no extent (property-test counterexample)
