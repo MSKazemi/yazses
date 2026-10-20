@@ -41,7 +41,7 @@ Lần chạy đầu tiên tải về một mô hình giọng nói (khoảng 148 
 
 ## Quyền riêng tư
 
-Âm thanh được chuyển thành văn bản ngay trên máy bạn và không bao giờ được gửi đi đâu. Không có đo từ xa và không có đường ra đám mây.
+Theo mặc định, âm thanh được chuyển thành văn bản ngay trên máy bạn và không được gửi đi đâu. Không có đo từ xa và không có đường ra đám mây.
 
 ## Thêm nữa
 

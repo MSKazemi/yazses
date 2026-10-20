@@ -66,7 +66,7 @@ CORPUS_NO_TEXT = (0.00290, 0.00692, 0.01401)     # p05, median, p95 over 189 cli
 EMPTY_ROOM_READINGS = (0.0036, 0.0044, 0.0048, 0.0050)
 
 
-def _sample(mean: float, n: int = 16000) -> np.ndarray:
+def _sample(mean: float, n: int = 64000) -> np.ndarray:
     return np.full(n, mean, dtype=np.float32)
 
 

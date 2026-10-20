@@ -48,6 +48,10 @@ ENTRY_MODULES = {
     # `scripts/replay_face_switch_trace.py`; the daemon must not import it (it reaches
     # `facegesture`, never the reverse). An evaluation entry point, not debt.
     "eyeeval.switch_replay",
+    # The descriptive eye-evaluation analysis (#426). Its caller is
+    # `scripts/analyze_eye_eval.py`; it reads result files offline and must not be imported
+    # at daemon start. An evaluation entry point, not debt.
+    "eyeeval.analysis",
 }
 
 #: The known orphans, each with what is missing. An entry here is a debt that has
@@ -61,6 +65,10 @@ KNOWN_ORPHANS = {
         "personalize is wired through prompt_builder; the P2 LoRA gate is not.",
     "platform.emg.brainflow_source":
         "A second EMG source, tested but never constructed by the factory.",
+    "biasing.trie":
+        "Retired with the `hotwords` N-best rescorer (ADR-v2-069, Wiring): faster-whisper "
+        "exposes no N-best list, so rescore_nbest has no producer. `hotwords` now switches on "
+        "vocab_correct instead. Kept as a tested reference for an in-decoder biasing tier.",
 }
 
 

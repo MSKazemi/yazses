@@ -11,7 +11,7 @@ can be done by many people at once.
 
 > **Honesty rule.** Nothing here may be described in the README, the docs site, the store
 > listings or a release note as "supported" until it is wired, tested and shipped. The
-> project's existing rule — 148 capabilities, 110 wired and 38 honestly marked *planned* —
+> project's existing rule — 148 capabilities, 112 wired and 36 honestly marked *planned* —
 > applies to mobile without exception.
 
 ---

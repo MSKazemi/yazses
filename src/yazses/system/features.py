@@ -256,7 +256,12 @@ def _registry() -> list[_Def]:
     srx_on, srx_off = _bool("spokenregex")
     mk_on, mk_off = _bool("markup")
     fr_on, fr_off = _bool("findreplace")
-    hw_on, hw_off = _bool("hotwords")
+    # Hotwords: enabling writes the opt-in next to `enabled`, and the feature runs only
+    # when both are true. First-run setup in v2.11.0-dev.9..v2.13.0 seeded
+    # `[hotwords] enabled = true` into new configs while the slug was unwired, so that
+    # line alone is not a choice; only this toggle (CLI, Settings) records one.
+    hw_on = (("hotwords", "enabled", "true", False), ("hotwords", "opted_in", "true", False))
+    hw_off = (("hotwords", "enabled", "false", False), ("hotwords", "opted_in", "false", False))
     wc_on, wc_off = _bool("windowctl")
     rw_on, rw_off = _bool("commands", "rewrite")
     ci_on, ci_off = _bool("cite")
@@ -731,10 +736,12 @@ _Def("chords", "Chorded Shortcut Synthesis", "[chords] — any keyboard shortcut
              "Detects the language you speak and hot-swaps to its specialized model + punctuation, "
              "no manual toggle. Needs the per-language model files. Off by default.",
              lambda c: c.langroute.enabled, lrt_on, lrt_off),
-        _Def("hotwords", "Hard Contextual Biasing", "[hotwords] — names/jargon actually win", RECOMMENDED,
-             "Biases recognition toward your vocabulary with a hotword trie (not just a soft "
-             "prompt), so rare names and jargon are transcribed right. Off by default.",
-             lambda c: c.hotwords.enabled, hw_on, hw_off),
+        _Def("hotwords", "Hotwords", "[hotwords] — fix mis-heard names/jargon", OPTIONAL,
+             "Repairs names and jargon from your vocabulary (`yazses vocab`, plus [hotwords] "
+             "terms) that the recogniser mis-heard, after decoding, with any engine. A word is "
+             "only changed when it sounds the same and is spelled almost the same, and each "
+             "change is logged. It does not bias the decoder itself. Off by default.",
+             lambda c: c.hotwords.active, hw_on, hw_off),
         _Def("rewrite", "Offline Command Mode (rewrite selection)", "[commands] rewrite",
              OPTIONAL,
              "Select text, hold the command key and say 'make this shorter' or 'fix "
@@ -885,8 +892,11 @@ _Def("chords", "Chorded Shortcut Synthesis", "[chords] — any keyboard shortcut
              "tts extra and downloads a voice-clone model on first use. Off by default.",
              lambda c: c.tts.clone_voice, rbc_on, rbc_off),
         _Def("acoustic_profiles", "Acoustic Profiles", "[acoustic_profiles] — scene-adaptive", OPTIONAL,
-             "Detects your environment (quiet/café/car/meeting) and auto-tunes the mic gate + "
-             "noise suppression. Needs the acoustic extra (scene tagger). Off by default.",
+             "Judges whether the room is quiet or noisy from the quietest moments of each "
+             "recording and, in a noisy room, holds flat background noise to a slightly higher "
+             "silence gate so it is not sent to Whisper. The gate is relative to your own "
+             "vad_threshold, never above 1.5x it, in memory only, and speech is never held to "
+             "it. No extra needed. Off by default.",
              lambda c: c.acoustic_profiles.enabled, ap_on, ap_off),
         _Def("sentiment", "Mood Ledger", "[sentiment] — private mood journal", OPTIONAL,
              "Tags each dictation with an emotion and builds a private mood-over-time view. "
@@ -1153,12 +1163,14 @@ _SLUG_PACKAGES: dict[str, tuple[str, ...]] = {
     "corpus_scrub": ("voiceprivacy",),  # voiceprivacy/anonymize.py via learning/capture.py
     "cocktail": ("audio", "voiceprint"),  # audio/personal_vad.py
     "autostop": ("endpoint",),       # endpoint/autostop.py via core/daemon.py
+    "acoustic_profiles": ("acoustic",),  # acoustic/gate.py via core/daemon.py
+    # hotwords: the N-best design (biasing/trie.py) had no producer and was retired; the
+    # slug now switches on vocab_correct (#73) and feeds it `[hotwords] terms`.
+    "hotwords": ("postprocess",),    # postprocess/hotwords.py + vocab_correct.py via core/daemon.py
     # --- designed-but-unwired: the package that WOULD implement it ---
     "readback_clone": ("readback",),  # readback/clone.py — never reached at runtime
     "multiprofile": ("multiprofile",),  # no implementation package exists yet
     "sentiment": ("mood",),          # mood/ledger.py — never reached at runtime
-    "acoustic_profiles": ("acoustic",),  # acoustic/profiles.py — never reached
-    "hotwords": ("biasing",),        # biasing/trie.py — never reached at runtime
 }
 
 
@@ -1182,8 +1194,8 @@ def feature_packages(slug: str) -> tuple[str, ...]:
 # feature later forces removing it here, and adding a stub registry entry
 # without wiring it fails CI.
 _UNWIRED: frozenset[str] = frozenset({
-    "acoustic_profiles", "affect", "agent", "audioguard", "breath", "bridge", "cmdspotter",
-    "codec", "compose", "contour", "crowdproof", "hatselect", "hesitation", "hotwords",
+    "affect", "agent", "audioguard", "breath", "bridge", "cmdspotter",
+    "codec", "compose", "contour", "crowdproof", "hatselect", "hesitation",
     "interpret", "langroute", "lipread", "loadguard", "morsevox", "mousegrid", "mouthswitch",
     "multiprofile", "pilot", "predict", "pronunciation", "proofback", "rag", "readback_clone",
     "screengrounded", "scribe", "scrub", "sentiment", "sign", "spatialvad", "vocaljoystick",
@@ -1324,7 +1336,7 @@ _EXAMPLES: dict[str, str] = {
     "interpret": "Set [interpret] pair='en-es'; each speaker's turn is translated.",
     "pronunciation": "Practice mode: dictate a phrase, see per-phoneme good/fair/poor.",
     "readback_clone": "Enroll once; read-back then uses a clone of your own voice.",
-    "acoustic_profiles": "Move to a café — the mic gate + denoise auto-adapt.",
+    "acoustic_profiles": "Work somewhere with a steady hum — a held key over just room noise types nothing.",
     "sentiment": "yazses features enable sentiment — builds a private mood-over-time view.",
     "reflow": "Ramble, then say 'structure this' → a bulleted outline.",
     "smartpaste": "Dictate into markdown vs a terminal — syntax adapts to the app.",
@@ -1526,7 +1538,7 @@ _USE_CASES: dict[str, str] = {
     "self_repair": "When you catch a slip mid-sentence and naturally say 'no I mean X' instead of editing.",
     "corpus_scrub": "When you enable the learning corpus but want stored audio stripped of your voice identity.",
     "readback_clone": "When you want read-back spoken in a clone of your own voice, not a generic TTS voice.",
-    "acoustic_profiles": "When you dictate in different environments and want the mic gate and denoise to adapt.",
+    "acoustic_profiles": "When a fan or traffic hum keeps getting transcribed as stray words on a key press with no speech.",
 }
 
 
@@ -1648,6 +1660,29 @@ def find_feature(cfg, slug: str) -> Feature | None:
 
 def toggleable_slugs() -> list[str]:
     return [d.slug for d in _registry() if d.on_writes]
+
+
+def inactive_reason(slug: str, cfg) -> str:
+    """Why *cfg* says this capability is on and it is nonetheless off, or ``""``. Pure.
+
+    One case today: `[hotwords] enabled = true` without `opted_in`. First-run setup in
+    v2.11.0-dev.9 through v2.13.0 wrote that line into every new config while hotwords
+    was an unwired recommended slug, so it is not a choice anybody made and must not
+    start rewriting their words now that hotwords is wired. `yazses features`, the
+    feature card and `doctor` all print this text, each followed by the one command
+    that turns it on (`yazses features enable <slug>`), so they cannot disagree.
+    """
+    if (slug or "").strip().lower() != "hotwords":
+        return ""
+    hw = getattr(cfg, "hotwords", None)
+    if hw is None or not getattr(hw, "stale_enabled", False):
+        return ""
+    return (
+        "Your config says [hotwords] enabled = true, but Hotwords is not active: it "
+        "also needs the opt-in that enabling it writes. First-run setup in "
+        "v2.11.0-dev.9 to v2.13.0 put that line into every new config on its own, so "
+        "it is not taken as your choice."
+    )
 
 
 def enable_caveat(slug: str, cfg) -> str | None:

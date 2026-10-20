@@ -12,7 +12,7 @@ import typer
 
 from yazses import branding
 from yazses.hotkeys.names import SETTABLE_HOTKEYS, SUPPORTED_HOTKEYS, canonical
-from yazses.ipc.client import IpcUnreachableError
+from yazses.ipc.client import IpcCallError, IpcUnreachableError
 from yazses.platform import get_paths, get_platform
 from yazses.system.logtail import tail_records
 from yazses.system.outcomes import describe_outcomes
@@ -1504,8 +1504,11 @@ def _wait_until_ready(platform, timeout: float = 20.0):
                 return "ready", info
             if state == "error":
                 return "died", info
-        except IpcUnreachableError:
-            pass  # IPC socket not up yet (or already gone) — keep polling
+        except (IpcCallError, ValueError):
+            # Not up yet (IpcUnreachableError), a daemon answering mid-start with an
+            # RPC error, or a socket/pipe that closed before replying (empty line ->
+            # json ValueError): all transient inside a bounded wait. #330.
+            pass
         time.sleep(0.25)
     if not saw_pid:
         # The PID is written before the model loads, so a slow first run always shows one.
@@ -1561,6 +1564,17 @@ def _report_start_outcome(platform, outcome: str, info) -> None:
             "(first run can take 10–30s). It'll be ready shortly; "
             "check with `yazses status`."
         )
+        if info is None:
+            # The process is alive but its IPC endpoint never answered inside the wait:
+            # name it, so "still loading" is not the only thing a stuck start can say.
+            try:
+                platform.ipc_client_factory(platform.paths.ipc_socket).call(
+                    "status", consume_notifications=False
+                )
+            except IpcUnreachableError as exc:
+                typer.echo(f"  The daemon's IPC endpoint has not answered yet: {exc}")
+            except Exception:  # noqa: BLE001 — a diagnostic line must never fail the start
+                pass
         return
     # died / never-started
     if outcome == "never-started":
@@ -2031,6 +2045,15 @@ def _echo_capabilities(
         )
         for d in dormant.values():
             typer.echo(f"      {d.slug}: {d.remedy}")
+
+    from yazses.system.features import inactive_reason
+
+    for f in all_shown:
+        # A row that reads "○ off" while the config file plainly says `enabled = true`
+        # needs its reason next to it, or the file and the table look like they disagree.
+        reason = inactive_reason(f.slug, cfg)
+        if reason:
+            typer.echo(f"\n  {reason}\n  Turn it on:  yazses features enable {f.slug}")
     typer.echo(
         f"\n  {total} shown.  ●/○ = on/off.  Apply changes with `yazses restart`."
         "\n  DOWNLOAD = what a fresh install fetches in total — packages when you"
@@ -2045,9 +2068,10 @@ def _echo_capabilities(
     )
 
 
-def _echo_feature_card(feat, *, full: bool) -> None:
+def _echo_feature_card(feat, *, full: bool, cfg=None) -> None:
     """Print one capability. `full` adds the enable/disable/apply block (single view);
-    the compact form (used by the catalog) is name + description + example only."""
+    the compact form (used by the catalog) is name + description + example only.
+    *cfg*, when given, lets the full view say why a key the file sets is not active."""
     state = "◌ set" if feat.inert else ("● ON " if feat.on else "○ off")
     slug = feat.slug if feat.toggleable else "core"
     typer.echo(f"{state} {feat.name}  [{slug}]  ({feat.tier_label})")
@@ -2079,6 +2103,12 @@ def _echo_feature_card(feat, *, full: bool) -> None:
             note = _feature_download_note(feat)
             if note:
                 typer.echo(f"\n  Cost:     {note}")
+            if cfg is not None:
+                from yazses.system.features import inactive_reason
+
+                reason = inactive_reason(feat.slug, cfg)
+                if reason:
+                    typer.echo(f"\n  {reason}")
             typer.echo(f"\n  Enable:   yazses features enable {feat.slug}")
             typer.echo(f"  Disable:  yazses features disable {feat.slug}")
             typer.echo("  Apply:    yazses restart")
@@ -2133,7 +2163,7 @@ def features_info(
         known = ", ".join(f.slug for f in feature_status(cfg))
         typer.echo(f"Unknown feature {name!r}. Names: {known}", err=True)
         raise typer.Exit(1)
-    _echo_feature_card(found, full=True)
+    _echo_feature_card(found, full=True, cfg=cfg)
 
 
 def _apply_feature_writes(config_file, writes) -> None:
@@ -3816,6 +3846,17 @@ def status(
     # Names, states, ages and counts only; no sample value can reach here.
     for handsfree_line in render_handsfree_lines(info.get("handsfree")):
         typer.echo(handsfree_line)
+    # Acoustic Context Profiles: the room as the last burst found it and the gate in force.
+    # Absent while the feature is off, before the first burst, and on an older daemon.
+    room = info.get("acoustic")
+    if isinstance(room, dict) and room.get("scene"):
+        line = f"  room:     {room['scene']}"
+        if room.get("floor") is not None:
+            line += f" (floor {room['floor']}, gate {room['gate']}"
+            if room.get("gate") != room.get("base_gate"):
+                line += f", raised from {room['base_gate']}"
+            line += ")"
+        typer.echo(line)
     if info.get("silent_streak"):
         typer.echo(
             f"  ⚠ mic:    {info['silent_streak']} silent clips in a row — "
@@ -4303,7 +4344,12 @@ def _calibrate_mic(*, seconds: float = 4.0, set_threshold: bool = False) -> bool
         # where room tone clears it, reaches the decoder, and returns an invented word.
         typer.secho(f"  cannot calibrate: {result.reason}.",
                     fg=typer.colors.YELLOW)
-        if speech.is_silent:
+        if result.too_short:
+            typer.echo(
+                "Nothing was written. Re-run with a longer speaking time, e.g.  "
+                "yazses mic-level -s 4"
+            )
+        elif speech.is_silent:
             typer.echo(
                 "Nothing was captured in the second recording — check the microphone:  "
                 "yazses audio status"
@@ -4378,6 +4424,9 @@ def mic_level(
     the command cannot tell speech from room tone, and recording a quiet room used to
     yield a confident threshold BELOW that room's own noise. When the two recordings
     are too close together, it now says so instead of recommending a number.
+
+    The threshold follows your ROOM (about twice its level, provisional), so speaking
+    louder in step 2 cannot raise it. A recording too short to trust is refused.
     """
     if not _calibrate_mic(seconds=seconds, set_threshold=set_threshold):
         raise typer.Exit(code=1)
@@ -7471,7 +7520,9 @@ def transcribe(
     from yazses.recimport.pipeline import _build_engine
 
     typer.echo(f"Loading model '{eff.model or cfg.stt.model}'…", err=True)
-    engine = _build_engine(dataclasses.replace(eff, model=eff.model or cfg.stt.model))
+    engine = _build_engine(
+        dataclasses.replace(eff, model=eff.model or cfg.stt.model), stt=cfg.stt
+    )
 
     # Speaker naming: parse explicit maps; load the enrolled voiceprint (→ "You").
     name_list = [n.strip() for n in names.split(",")] if names else None

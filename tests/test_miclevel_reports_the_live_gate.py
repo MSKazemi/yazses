@@ -106,7 +106,7 @@ def calibrate(tmp_path, monkeypatch):
 
     def run(payload):
         monkeypatch.setattr(cli, "get_platform", lambda: _Platform(cfg, payload))
-        return cli._calibrate_mic(seconds=1.0, set_threshold=False)
+        return cli._calibrate_mic(seconds=4.0, set_threshold=False)
 
     return run
 

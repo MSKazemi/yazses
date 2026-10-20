@@ -65,6 +65,10 @@ Read a successful run as four facts:
 - **speech level** — what it hears while you speak.
 - **vad_threshold in config** — the line your speech has to clear.
 - **recommended** — a threshold between the two, which is what `--set` would write.
+  It is aimed at about **twice your room level** (a provisional factor), so speaking louder
+  in step 2 does not raise it; your voice can only pull it *down*, when the room and your
+  voice are close. A recording shorter than 1 s of room or 2 s of speech is refused, and
+  `--set` then writes nothing and exits non-zero — re-run with `-s 4` or more.
 
 !!! warning "If a daemon is running, it may be gating somewhere else"
 

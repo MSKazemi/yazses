@@ -423,6 +423,118 @@ ages, never a face, gaze or head value. Nothing changes on an install with no ca
 Two keys were added to the `handsfree` block of the daemon's `status` reply: `perception_backend` and
 `perception_failure_kind`. Older clients ignore them, and a reply from an older daemon reads as "not known".
 
+### Docs — the machine-drafted translations say offline "by default", not "never"
+
+The English source sentence and the 18 machine-draft locale pages (`docs/<locale>/index.md`) said audio is "never sent
+anywhere". `i18n/glossary.yml` asks for offline *by default*, never an absolute guarantee, because ADR-019 records two
+paths that can transmit what the user said: one confined to loopback, the other only to a host the user names over
+their own SSH tunnel. The sentence now reads "By default, audio is transcribed on your
+machine and is not sent anywhere." The change is in `scripts/translations.py`, and the pages were regenerated with
+`scripts/gen-readme-translation.py --all`. The reviewed, hand-owned locale pages were not touched.
+
+### Added — release validation standard, platform validation matrix and macOS campaign (docs only)
+
+Three contributor pages for [#387](https://github.com/MSKazemi/yazses/issues/387), [#388](https://github.com/MSKazemi/yazses/issues/388)
+and [#389](https://github.com/MSKazemi/yazses/issues/389). `docs/contribute/validation.md` defines what "verified on hardware" means
+(evidence record, six-word vocabulary, privacy rules: no audio, no transcripts) and the per-release checklist.
+`docs/validation-matrix.md` is a platform-by-feature table in which every cell cites an evidence row from public issues, merged
+PRs or CI runs, or says UNVERIFIED; it records, among other things, that no Mac has yet typed a character and that Windows 10 and
+Intel Macs have no human report. `docs/contribute/macos-validation.md` audits the open Mac issues (read on 2026-10-16), names the
+ones that mislead new contributors (#216, #264), lists five volunteer tests and a read-only reporter script. A new test,
+`tests/test_validation_matrix.py`, refuses a matrix cell with no evidence behind it. No code, config or CLI change; the
+checklist and staleness rule are provisional.
+
+### Added: paper-v2 tables and figure data are generated from the archived results (#508)
+
+`scripts/gen-paper-v2-tables.py` reads only `paper/results/` and writes LaTeX tables and CSV figure data to
+`design/publication/paper-v2/manuscript/generated/` (also run by `make docs`; `--check` fails on drift). Each
+output records its source artifacts and their sha256, and is byte-identical on a re-run. Covered: the clean and
+hard engine matrices, the clean-versus-hard robustness data, the `large-v3` repeat decodes, previous-text
+conditioning by checkpoint, cross-platform WER, the onset-padding heatmap with its multiplicity flags, batch versus
+streaming, the AMI diarization conditions with the paired cap comparison, and the clustering-threshold-by-corpus
+data. Disagreeing runs are all shown (the two clean matrices, the two `test-other` runs, four contexts of `large-v3`
+repeats), never reduced to one, and each table carries its artifact's caveats. Not yet covered because the archive
+cannot support it: a frozen clean matrix (#495) and an independent `large-v3` replication (#496). The manuscript
+sections still hold their inline tables; swapping in `\input` of the generated files is a follow-up.
+
+### Changed — macOS install guide: the Open Anyway route first, and how to find a leftover daemon ([#562](https://github.com/MSKazemi/yazses/issues/562))
+
+macOS 15 (Sequoia) and later, including macOS 26, no longer offer *Open* on a right-click for an unsigned app, so
+`docs/macos-install.md` now leads with System Settings → Privacy & Security → **Open Anyway**, the flow the #562 reporter
+followed, and keeps the right-click route for macOS 14 and earlier. The stale-daemon entry adds the `ps` and
+`launchctl` commands to run before relaunching. Docs only.
+
+### Fixed — macOS: no Accessibility or microphone prompt was ever raised, and `doctor` names a daemon that predates a grant ([#562](https://github.com/MSKazemi/yazses/issues/562), [#578](https://github.com/MSKazemi/yazses/issues/578))
+
+Found by reading the code against the #562 log; there is no Mac on this project, so every macOS behaviour below is
+**unconfirmed** until the reporter tries a build. `request_keyboard_capture` had no caller, so the Accessibility prompt
+`docs/macos-install.md` describes was never raised, and the microphone prompt waited for a first recording that the dead
+hotkey could not start. The daemon now raises both at start when the OS has not decided (a denied Accessibility grant, a
+microphone macOS has not asked about), at most once per five minutes (the existing persisted toast rate limit); a
+refused microphone is not asked again. Also: when Input Monitoring was missing at start and is granted later, the daemon
+reports `stale_permissions` in `status`, and `doctor`'s Daemon row warns that its keyboard hook predates the grant and
+gives the restart command. Quit stopping the daemon is v2.43.1's fix and is unchanged here. Evidence and the list of
+what is unverified: `design/macos-quit-and-first-run-permissions.md`.
+
+### Fixed — Mandarin: `yazses transcribe` ignored `[stt] chinese_script`, and the opt-in Hallucination Guard could drop a Han sentence
+
+Audit of [#501](https://github.com/MSKazemi/yazses/issues/501) (COMP-01..03); the classification of every default-on
+text transform is in `design/chinese/postprocess-compatibility.md`. (1) File transcription built its engine without
+the factory, so the Simplified/Traditional setting never reached `yazses transcribe`; it now does (the setting is
+unset by default, so nothing changes until chosen). (2) With `[hallucination]` on, the guard erased Han characters
+before matching, so `我们 thanks for watching 然后` was discarded as a ghost phrase; Han-bearing text is no longer
+judged by its Latin remainder (the guard is off by default and English input is judged exactly as before). New
+`tests/test_cjk_pipeline_vectors.py` runs 23 synthetic Mandarin vectors through the real default pipeline and pins six
+open defects as strict xfails (a space between consecutive Han bursts, full-width closers, segment join, three
+disfluency edges). The pytest/ruff/mypy gates were run; real Mandarin audio and OS injection were not.
+
+### Added — Persian benchmark: the manifest gate, recorded selection seed, and stated scoring rules (FA-04, #513)
+
+`bench_persian.py --manifest` now refuses to run (before any model is built) unless every row has a licence and a consent
+value, optional `speaker`/`session` fields are opaque pseudonyms, and every audio path stays inside the manifest's
+directory or an explicit `--audio-root` (symlinks and `..` included). The gate is the new stdlib-only
+`paper/benchmark/persian_manifest.py`; `make_fa_manifest.py` sidecars now carry `consent`. Manifests made before this need
+`--audio-root <corpus dir>` (their audio paths are absolute) and a `consent` entry in the sidecar. The result JSON now carries
+the selection's seed/limit/rule from the sidecar, the manifest hash and corpus pins, the licences and consents, and the
+stated tokenisation, and is written with sorted keys; `run_manifest` accepts an injected transcriber, audio loader and
+timestamp so tests need no model. `fa-eval-v1` itself is unchanged (so archived numbers stay comparable); the module now
+documents, and tests pin, each rule: Yeh/Kaf folded, ZWNJ kept, digit families and presentation forms not folded.
+Scoring normalisation touches metrics only. No model was run and no corpus was fetched.
+
+### Fixed — `yazses start` keeps waiting through a transient IPC error, and says which endpoint stayed silent (#330)
+
+While the freshly spawned daemon is coming up, `yazses start`/`restart` now keep polling through any IPC call error or a
+reply cut off before it was sent (a `ValueError` from an empty line), not only "unreachable" — a bounded wait must not
+traceback on a half-open socket or pipe. If the daemon process is alive but its IPC endpoint never answered inside the
+wait, the "still loading" message now also names the socket or named pipe that stayed silent. Windows pipe behaviour is
+UNVERIFIED here (tests use fakes). Separately, `design/adr/README.md` now records that `adr-v2-136..139` were never
+allocated (#524, renumbering artefact).
+
+### Added — benchmark harness can record CPU core-seconds and optional energy (#506)
+
+`paper/benchmark/cost_meter.py` (stdlib only, benchmark-only, off unless a benchmark is run) adds CPU core-seconds per decoded
+audio-second, with an explicit `method` field, and optional Linux RAPL package energy and battery discharge behind a small
+Protocol. `bench_latency.py` now writes `load_cost` and `decode_cost` per model, so model load is separate from steady decode.
+An unreadable counter (no RAPL, root-only, battery charging, macOS/Windows) is recorded as `null` with a reason, never `0`.
+The method and its limits are in `paper/benchmark/README.md`. No measurements are archived or claimed; comparing engines and
+repeating runs for variation remain to be done. The daemon is untouched.
+
+### Fixed — calibration no longer sets the gate from how loudly the sample was spoken ([#579](https://github.com/MSKazemi/yazses/issues/579))
+
+v2.43.1 made the tray's Re-calibrate use the same room-then-voice `calibrate` rule as `mic-level --set`, but that
+rule placed the gate at the geometric mean of room and voice, which still rises with the loudness of the one speech
+sample. With the speech levels of #579's consecutive runs (0.0103 and 0.0441) and an ordinary room (0.0036-0.0050), a
+calibration spoken at 0.0441 set a gate of 0.0126-0.0148, above the same person's 0.0103 speech. The gate is now aimed
+at twice the measured room level (a provisional factor) and the voice can only lower it, via the existing "at most half
+the voice" cap, so a louder sample can never raise it and it never exceeds `max(0.002, 2 x room)`. This applies to both
+`mic-level --set` and Re-calibrate. A recording shorter than 1 s of room or 2 s of speech (provisional) is refused:
+`--set` writes nothing and the command exits 1 with an explanation (Re-calibrate records 2 s and 4 s, so it clears
+both). No config key changed. `tests/test_miclevel_threshold_follows_the_room.py` fails on the previous rule.
+
+### Added — language output profiles: one registry keyed by the STT language (FA-01, #509)
+
+A small `postprocess/output_profile.py` boundary replaces "another hard-coded branch per language" in the STT factory: `profile_for([stt] language)` returns a pass-through profile for every language except Persian (`fa`, `fas`, `fa-IR`, `persian`), which gets a profile that hands off to the existing, still opt-in `[stt] persian_normalisation` gate. Selection reads the speech language only, never the UI locale. No behaviour changes: no new config key, English and every other language build no wrapper, and `language = "fa"` alone still changes no text. Chinese script normalisation is not moved yet; the interface is shaped to take it later. Design: draft PR #483.
+
 ### Tests — the PointerSink contract now covers bounds and permanence ([#400](https://github.com/MSKazemi/yazses/issues/400))
 
 This change touches only the shared pointer contract (`tests/pointer_contract.py`). No backend changed, and every one
@@ -703,6 +815,65 @@ held, the recording ends instead of running on with no release to wait for. `tes
 plugging, unplugging, mid-hold removal, node-name reuse and late udev permissions; its loop tests fail on the previous
 code. Checked live with a uinput keyboard created after the listener started: it was picked up and its Right Ctrl
 started and ended a recording.
+
+### Added -- reproducible analysis of de-identified eye-control results (#426)
+
+`scripts/analyze_eye_eval.py` (logic in the new pure, stdlib-only `yazses.eyeeval.analysis`, imported by nothing at daemon
+start) summarises schema-valid evaluation results descriptively: outcome shares with hand-written Wilson intervals,
+false activations per hour of scored exposure, per-run / session / participant tables, within-participant session spread,
+per-host latency and a claim-to-source manifest. It refuses schema-invalid or identifier-carrying results, repeated files,
+counts that do not add up and any mix of study modes (a `community_qa` row never enters a `research` analysis); it excludes
+pilot rows by default, reports every exclusion with its category and reason, keeps wrong-target, fallback and lost tracking
+apart, and prints `insufficient data` instead of a rate below a provisional minimum. Participant and session IDs come from
+a separate links file, since the result envelope has none. Output is deterministic and labelled provisional; no inferential
+test is chosen (that waits for #425), and no threshold comes from the synthetic test records.
+
+### Added — Acoustic Context Profiles is now reachable (`yazses features enable acoustic_profiles`, ADR-v2-039)
+
+In a room whose background noise sits close to your silence gate, a hold that picks up nothing but that noise is no
+longer sent to Whisper (where it tends to come back as a stray "Thank you."). Off by default
+(`[acoustic_profiles] enabled = false`); with it off nothing changes and the module is not imported. The room is judged
+quiet or noisy from the quietest fifth of the recording's own 20 ms frames, relative to **your** `vad_threshold`: the
+room is noisy when that floor reaches half the gate, and the scene only changes after `min_stable` (default 3) bursts in
+a row. In a noisy room a *flat* recording (loud frames under 2.5 x its floor) is held to a gate of 1.5 x its floor,
+clamped to between your threshold and 1.5 x your threshold and never above 2 x the floor; a recording with speech-like
+dynamics keeps your gate exactly. The adjustment lives in memory only: `config.toml` and your `vad_threshold` are never
+written, a flat-noise discard does not count toward the silent-clip warning or the auto-retune, and `yazses status`
+shows a `room:` line with the scene, the floor and the gate in force. It stands down while Whisper Mode has lowered the
+gate.
+
+The original ADR table (absolute gates of 0.010-0.035 for quiet, cafe, car, meeting) is retired: it sits 6-10x above the
+real level of a laptop microphone (mean |x| of 0.003-0.005 at full gain) and would have discarded every utterance. The
+scene set shrinks to quiet and noisy; the amendment to ADR-v2-039 is **proposed** and awaits the owner's review. No
+scene tagger, no denoise switching and no `acoustic` extra are involved. The 1.5 x, 2 x and 2.5 x constants are
+engineering clamps chosen so the gate cannot take speech away; they were not tuned on recorded rooms, so how often the
+noisy scene fires in real use is unknown. `tests/test_acoustic_scene.py` sweeps the owner's microphone range (speech
+0.003-0.005 against gates 0.0005-0.0024 and rooms 0.0001-0.002) to show the profile never drops a burst the configured
+gate keeps; `tests/test_acoustic_gate.py` covers the daemon off and on. A gate the profile raised is not read as Whisper
+Mode by the speech-presence check (#598), so a flat burst loud enough to clear the raised gate is still checked for
+speech.
+
+### Added -- `hotwords` is wired: it switches on guarded vocabulary correction (opt-in, [#164](https://github.com/MSKazemi/yazses/issues/164))
+
+`hotwords` was designed as a hotword trie plus an N-best rescorer, and nothing could feed the rescorer: faster-whisper
+exposes no N-best list, and a second decode path would have put the default one at risk. Rather than invent a producer,
+the feature now does the job its description promised through `postprocess/vocab_correct.py` (#73), which already repairs
+mis-heard vocabulary words after decoding behind four guards (identical phonetic key, small edit distance, nothing under
+four characters, a correct word is left alone). `yazses features enable hotwords` (or the Settings toggle) is a second
+switch for that corrector, and the new `[hotwords] terms = [...]` lists extra words to correct toward, read only while it
+is on; a replacement is logged. No decoding is touched. It is an optional-tier feature (first-run seeding does not enable
+it), and with it off the daemon imports nothing new. Renamed "Hotwords" in the registry because it does not bias the
+decoder. `[hotwords] boost` and the N-best rescorer (`biasing/trie.py`) are retired: nothing reads them, and the module is
+kept only as a tested reference.
+
+**It needs a fresh, deliberate opt-in, so no existing config switches it on.** A config first created by v2.11.0-dev.9
+through v2.13.0 already says `[hotwords] enabled = true`: first-run setup then wrote every recommended feature into a new
+config, wired or not, and `hotwords` was in that tier. That line still does nothing. Hotwords runs only when the config
+also has the new `[hotwords] opted_in = true`, which `yazses features enable hotwords` and the Settings toggle write
+(disabling clears both). With only the old line, `yazses features` shows Hotwords as off, and `yazses doctor` and
+`yazses features info hotwords` say why and give the one command that turns it on: `yazses features enable hotwords`.
+Fresh installs write neither key, so every existing install behaves exactly as before. Tests:
+`tests/test_hotwords_wiring.py`. See ADR-v2-069, "Wiring" and its 2026-10-20 amendment.
 
 ### Fixed — the hands-free window now corrects itself when it turns out too narrow (Windows run, round two)
 

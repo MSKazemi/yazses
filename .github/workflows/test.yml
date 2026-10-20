@@ -566,6 +566,7 @@ jobs:
             tests/test_bench_wer_split.py \
             tests/test_bench_diarization_scoring.py \
             tests/test_bench_persian.py \
+            tests/test_bench_persian_manifest.py \
             tests/test_fa_manifest.py
 
   # ── The one stable check branch protection requires (#462, ADR-024 §9) ──────

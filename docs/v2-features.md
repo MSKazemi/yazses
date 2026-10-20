@@ -33,7 +33,7 @@ It stays listed so contributors can pick it up; see the matching design/adr/ ent
 ```
 
 They stay listed because that is where a contributor picks one up — each has a matching
-`design/adr/` entry. **37 of the 122 rows below are ◌ today.** Rows without the mark are
+`design/adr/` entry. **35 of the 122 rows below are ◌ today.** Rows without the mark are
 wired and can be turned on.
 
 ### "Hold the command key" — what that means
@@ -156,7 +156,7 @@ Toggle with `yazses features enable <name>`.
 | **Smart-Paste** | `smartpaste` | Markdown bullets and autolinked URLs in a notes app; terminals, editors and mail left exactly as dictated. Needs the focused-window probe. |
 | ◌ **Audio-Anchored Scrubbing** | `scrub` | Keeps word timestamps so you can replay what you said or re-dictate one word. |
 | **Dictation Reflow** | `reflow` | Say "structure this" to rewrite a ramble into bullets + action items. |
-| ◌ **Acoustic Context Profiles** | `acoustic_profiles` | Detects your environment (quiet/café/car/meeting) and auto-tunes the mic gate + denoise. |
+| **Acoustic Context Profiles** | `acoustic_profiles` | Judges the room quiet or noisy from the quietest moments of each recording and, in a noisy room, holds flat background noise to a slightly higher silence gate (relative to your own threshold, in memory only). |
 | ◌ **Mood Ledger** | `sentiment` | Private speech-sentiment journal; labels stay in the encrypted corpus. |
 | ◌ **Pronunciation Feedback** | `pronunciation` | Per-phoneme good/fair/poor practice scoring for accent/L2 training. |
 | ◌ **Personal Read-Back Voice** | `readback_clone` | Read the transcript back in a clone of your own voice (permissive OpenVoice V2). |
@@ -207,7 +207,7 @@ All OFF by default. Pure logic ships now; heavy models load only when you enable
 | **Spoken Regex Builder** | `spokenregex` | Build search patterns by voice ("four digits dash two digits" → `\d{4}-\d{2}`). Hold the command key. |
 | **Structured-Markup Dictation** | `markup` | Speak lists/tables → Markdown/org ("bullet list: apples; oranges"). |
 | **Document Find-and-Replace** | `findreplace` | Edit the whole document by voice ("replace every utilise with use"). |
-| ◌ **Hard Contextual Biasing** | `hotwords` | Biases recognition toward your vocabulary with a hotword trie so rare names win. |
+| **Hotwords** | `hotwords` | Repairs your vocabulary words the recogniser mis-heard, after decoding, with any engine (guarded; logs each change). Does not bias the decoder. |
 | **Voice Window Control** | `windowctl` | Raise a window by name ("focus the browser"), or arrange it ("move window left half", "workspace 3"). X11 only. |
 | **Citation-by-Voice** | `cite` | "cite Vaswani 2017" → a formatted citation from your local .bib, offline. |
 | ◌ **Per-Language Auto Switching** | `langroute` | Detects the language you speak and hot-swaps to its model + ITN. |

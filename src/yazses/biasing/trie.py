@@ -1,5 +1,10 @@
 """Hotword trie + N-best rescorer (pure) — ADR-v2-069.
 
+RETIRED as a runtime path (2026-10-15): nothing in the daemon calls this, because
+faster-whisper exposes no N-best list for ``rescore_nbest`` to re-rank. The ``hotwords``
+feature now switches on ``postprocess/vocab_correct.py`` instead (see ADR-v2-069, "Wiring").
+Kept as a tested pure reference for a future in-decoder biasing tier.
+
 A char-level prefix trie of the user's hotwords and a post-hoc N-best rescorer that boosts
 hypotheses containing them. Pure and deterministic; the in-decoder logit-biasing hook is deferred.
 """

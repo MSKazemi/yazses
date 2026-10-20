@@ -155,6 +155,25 @@ Any digit or punctuation normalization must be separately reported because it ca
 
 Historical result files must retain the normalizer version used at generation time.
 
+Tokenisation (stamped into each result as `metrics.tokenisation`): WER tokens are the
+whitespace-separated words of the normalized text, so a ZWNJ-joined compound is one token;
+CER is over Unicode code points, spaces and ZWNJ included; both are case-sensitive. In
+`fa-eval-v1` the ZWNJ is kept, Persian/Arabic-Indic/Latin digits are not folded into one
+another, and Arabic presentation forms, tashkeel, tatweel and bidi marks are not stripped;
+the rule-by-rule rationale is in `paper/benchmark/persian_metrics.py`. Changing any of these
+is a new normalizer version, never an edit to `fa-eval-v1`. Evaluation normalization is for
+metrics only and is never applied to text a user receives.
+
+### 6.1 Manifest contract
+
+Each manifest row has `id`, `audio`, `reference`, and optionally `speaker` and `session`
+(opaque pseudonyms, `[A-Za-z0-9_-]{1,64}`). A `license` and a `consent` value are required
+for every row, from the row or from the `<manifest>.meta.json` sidecar. The harness refuses
+to run when either is missing or a placeholder, and when an audio path resolves outside the
+manifest directory or the explicit `--audio-root`. It checks that the claims are made; it
+cannot verify them. Subset selection (`--limit`, `--seed`) is recorded in the sidecar and
+copied into the result's `selection` block.
+
 ## 7. Result schema
 
 Each result JSON should include:

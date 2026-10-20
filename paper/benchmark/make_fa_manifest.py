@@ -56,6 +56,10 @@ PINS = {
         # records it at the pinned revision. `main` refuses a different file.
         "audio_archive_sha256": "f787ae225da693ed28c734c18aac1932c0f271473c3fb49a98db5e9b222fa11d",
         "license": "CC-BY-4.0",
+        # How use of the recordings is authorised: by the corpus' public licence, not by
+        # a per-speaker record this repository holds. `persian_manifest.load_manifest`
+        # refuses a manifest whose sidecar carries no consent value at all.
+        "consent": "public-corpus-licence",
         "n_examples": 871,
     },
     "common-voice": {
@@ -71,6 +75,7 @@ PINS = {
         "audio_archive": "audio/fa/test/fa_test_0.tar",
         "audio_archive_sha256": "50ae3fd4c2c1d4835a57b6295a87af69d91c7e4bc3c65fe2c6347f876d7d639b",
         "license": "CC0-1.0",
+        "consent": "public-corpus-licence",
     },
 }
 

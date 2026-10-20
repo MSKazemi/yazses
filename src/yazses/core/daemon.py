@@ -28,6 +28,7 @@ if TYPE_CHECKING:
     # All imported lazily at runtime (in _build_gaze_targeter and the other builders
     # below) so the optional/heavy dependencies stay dormant; the names exist here only
     # so the `X | None` attribute annotations resolve for the type checker.
+    from yazses.acoustic.gate import AcousticGate
     from yazses.bookmarks.service import BookmarkService
     from yazses.endpoint.autostop import AutoStopTurn
     from yazses.gaze.refine_runtime import RefinementRuntime
@@ -509,6 +510,12 @@ class Daemon:
         # `system/diagnosis.py::should_notify` for why the ceiling matters more than
         # the repeats do.
         self._diagnosed_at: dict[str, float] = {}
+        # What the OS said about Input Monitoring when this daemon started (macOS only;
+        # empty elsewhere). The hotkey tap reads that grant once, at creation, so a grant
+        # that arrives later is invisible to it -- see `_stale_permissions` (#578).
+        self._grants_at_start: dict[str, str | None] = {}
+        self._stale_checked_at = 0.0
+        self._stale_cached: list[str] = []
         # Audio-input resilience: count consecutive silent-discards and watch the OS
         # default input device so a mic that silently switches (e.g. a USB-C monitor
         # stealing capture) is auto-healed to the last-good device + notified, instead
@@ -517,6 +524,8 @@ class Daemon:
         # Learns the silence gate from outcomes, so a threshold that no longer fits this
         # mic stops being a silent "I speak and nothing happens".
         self._adaptive_vad = AdaptiveThreshold()
+        # Acoustic Context Profiles (ADR-v2-039): built on the first burst, only when on.
+        self._acoustic: AcousticGate | None = None
         self._device_monitor: DeviceMonitor | None = None
         # "No text target" guard: detects whether the focused element accepts text so a
         # burst with no field focused is warned (yellow tray) + saved to the clipboard
@@ -926,6 +935,28 @@ class Daemon:
                 input_monitoring_fix=_advice("how_to_grant_input_monitoring"),
             )
 
+            if probe.input_monitoring is not None:
+                self._grants_at_start = {"input_monitoring": probe.input_monitoring}
+
+            # Raise the OS's own prompt for what it can still be asked (#562). Same
+            # slug-keyed, persisted rate limit as the toasts below, so a login item does
+            # not put a system dialog up at every start.
+            for slug, method in pa.requests_for(probe):
+                ask = getattr(perms, method, None)
+                if ask is None:
+                    continue
+                with self._lock:
+                    fresh = should_notify(
+                        f"request-{slug}", time.time(), self._diagnosed_at
+                    )
+                if not fresh:
+                    continue
+                self._persist_shown_notices()
+                try:
+                    ask()
+                except Exception:  # noqa: BLE001 - a prompt that cannot be raised is not fatal
+                    log.debug("could not request %s", slug, exc_info=True)
+
             for alert in pa.alerts_for(probe):
                 with self._lock:
                     fresh = should_notify(
@@ -982,6 +1013,27 @@ class Daemon:
                 )
         except Exception:  # noqa: BLE001 — startup must survive its own warnings
             log.debug("could not check enabled features' libraries", exc_info=True)
+
+    def _stale_permissions(self) -> list[str]:
+        """Grants given AFTER this daemon started, which its hotkey tap cannot see.
+
+        Empty -- and free -- unless something was missing at start, so a healthy install
+        never probes. Otherwise re-asks the OS from *this* process (the only place the
+        answer is attributed to YazSes and not to the terminal `doctor` was typed into,
+        #562), at most every 30 s because `status` is polled continuously.
+        """
+        from yazses.system import permission_alerts as pa
+
+        if not any(v in (pa.DENIED, pa.UNKNOWN) for v in self._grants_at_start.values()):
+            return []
+        now = time.monotonic()
+        if self._stale_checked_at and now - self._stale_checked_at < 30.0:
+            return self._stale_cached
+        self._stale_checked_at = now
+        perms = getattr(self._platform, "permissions", None)
+        current = {"input_monitoring": pa.probe_state(perms, "check_input_monitoring")}
+        self._stale_cached = pa.grants_given_since_start(self._grants_at_start, current)
+        return self._stale_cached
 
     def _shown_notices_path(self):
         from yazses.system import toast_memory
@@ -2616,9 +2668,52 @@ class Daemon:
                     acc = replace(acc, vad_threshold=eff)
             except Exception:
                 acc = self._config.accessibility
+            # Acoustic Context Profiles (ADR-v2-039): in a room whose floor sits close to the
+            # gate, hold a flat-noise burst to a slightly higher gate. In-memory only (the
+            # configured threshold and config.toml are untouched); the gate stays within
+            # [configured, 1.5 x configured] and 2 x the burst's own floor; a burst with
+            # speech-like dynamics keeps the configured gate. Off by default, imported only
+            # when on. Skipped when Whisper Mode has lowered the gate: that user asked for
+            # quiet speech to pass, and the two must not fight. A failure means the gate
+            # the user configured, never a crash.
+            configured_gate = acc.vad_threshold
+            if (
+                self._config.acoustic_profiles.enabled
+                and configured_gate == self._config.accessibility.vad_threshold
+            ):
+                try:
+                    from dataclasses import replace
+
+                    if self._acoustic is None:
+                        from yazses.acoustic.gate import AcousticGate
+
+                        self._acoustic = AcousticGate(self._config.acoustic_profiles.min_stable)
+                    verdict = self._acoustic.decide(padded, sample_rate, configured_gate)
+                    event["acoustic_scene"] = verdict.scene
+                    if verdict.gate != configured_gate:
+                        acc = replace(acc, vad_threshold=verdict.gate)
+                except Exception:
+                    log.debug("Acoustic profile failed; using the configured gate.",
+                              exc_info=True)
+                    acc = self._config.accessibility
             if is_silent_calibrated(padded, acc):
-                event["discard_reason"] = "silent"
                 level = float(np.abs(padded).mean()) if padded.size else 0.0
+                if level >= configured_gate:
+                    # Only the profile's higher gate refused this burst: it is flat noise at
+                    # the room floor, not a quiet or dead microphone. So it must not feed the
+                    # silent-streak notice or the auto-retune (which would lower and PERSIST
+                    # the threshold), and it plays no more than the usual "nothing typed" cue.
+                    event["discard_reason"] = "acoustic_floor"
+                    log.info(
+                        "Flat room noise -- discarding (level %.4f under the room-adjusted "
+                        "gate %.4f; your configured vad_threshold is %.4f).",
+                        level, acc.vad_threshold, configured_gate,
+                    )
+                    self._earcon.play("error")
+                    if stream_injector is not None:
+                        stream_injector.cancel()
+                    return
+                event["discard_reason"] = "silent"
                 log.info(
                     "Silent audio -- discarding (level %.4f < vad_threshold %.4f; "
                     "run 'yazses mic-level --set' to retune).",
@@ -2652,10 +2747,13 @@ class Daemon:
             # Whisper answers a burst of fan noise with the words it was primed with, and
             # those would be typed. Fails open; exempt in the modes built for voices a
             # general detector under-hears. Metrics only in the log, never audio or text.
+            # Whisper Mode is read from `configured_gate` (the gate before Acoustic Context
+            # Profiles), not from `acc`: a profile-raised gate is not Whisper Mode and must
+            # not exempt the burst from this check.
             wm_cfg = self._config.whispermode
             if speech_check_applies(
                 enabled=acc.speech_presence_check,
-                whisper_mode=acc.vad_threshold != self._config.accessibility.vad_threshold,
+                whisper_mode=configured_gate != self._config.accessibility.vad_threshold,
                 dysfluency_friendly=acc.dysfluency_friendly,
                 sotto_voce=wm_cfg.enabled and wm_cfg.command_channel,
             ) and holds_no_speech(padded, sample_rate):
@@ -4551,11 +4649,18 @@ class Daemon:
         command word ("cubernetties") gets a chance to become the real one before
         the grammar sees it.
 
-        Off unless `[stt] vocab_correction`. Every substitution is logged and
-        recorded on the learning event — silently rewriting what someone said is
-        the thing this must never do.
+        Off unless `[stt] vocab_correction` or hotwords is active (`[hotwords]
+        enabled` *and* `opted_in`: older first-run setup seeded `enabled = true` on
+        its own, so that line alone is not an opt-in) -- two switches for one
+        corrector, because `hotwords` (ADR-v2-069) had no N-best producer and was
+        folded into this path. Every substitution is logged and recorded on the
+        learning event — silently rewriting what someone said is the thing this must
+        never do.
         """
-        if not text or not getattr(self._config.stt, "vocab_correction", False):
+        if not text:
+            return text
+        hotwords_on = bool(getattr(getattr(self._config, "hotwords", None), "active", False))
+        if not (getattr(self._config.stt, "vocab_correction", False) or hotwords_on):
             return text
         try:
             from yazses.postprocess.vocab_correct import correct
@@ -4585,6 +4690,12 @@ class Daemon:
         words += load_vocab(vocab_path(self._platform.paths.config_file.parent))
         raw = os.environ.get("YAZSES_VOCABULARY", "")
         words += [w.strip() for w in raw.split(",") if w.strip()]
+        if getattr(self._config.hotwords, "active", False):
+            # `[hotwords] terms` extends the dictionary for the corrector only; it never
+            # reaches the decoder, so the Whisper decode path is untouched.
+            from yazses.postprocess.hotwords import merge_terms
+
+            words = merge_terms(words, self._config.hotwords.terms)
         return words
 
     def _effective_initial_prompt(self) -> str | None:
@@ -6215,9 +6326,16 @@ class Daemon:
                 # returning that found six keys instead of thirty-seven and quietly
                 # switched a privacy guard off.
                 "handsfree": self._handsfree_payload(),
+                # Grants given after this daemon started, e.g. ["input_monitoring"]: the
+                # hotkey tap was built without them and needs a restart (#578). A list of
+                # fixed names, [] on every install where nothing was missing at start.
+                "stale_permissions": self._stale_permissions(),
                 # The overlay reads the dwell progress out of this to draw a ring before a
                 # click fires. States, flags and a 0..1 fraction -- never a pose or position.
                 "headpointer": self._headpointer_payload(),
+                # Acoustic Context Profiles: the room scene and the gate in force, or None
+                # while the feature is off or has judged no burst. Numbers and a label only.
+                "acoustic": self._acoustic.status() if self._acoustic is not None else None,
             }
 
     def _headpointer_payload(self) -> dict[str, object] | None:
