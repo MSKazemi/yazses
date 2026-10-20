@@ -110,8 +110,18 @@ def detect_install_method(
     choco: bool | None = None,
     platform: str | None = None,
     msix: bool | None = None,
+    prefix: str | None = None,
 ) -> str:
     """Infer how YazSes was installed from the package's on-disk location.
+
+    A ``uv tool install`` is recognised by the ``uv-receipt.toml`` uv writes at the
+    root of the tool's environment, read at *prefix* — by default ``sys.prefix``,
+    the environment actually running, but only when *package_file* is not given, so
+    a test that names a path is never answered by the test runner's own venv. The
+    path substrings remain as a fallback. They alone used to decide it, so an
+    install under a custom ``UV_TOOL_DIR`` read as ``pip`` and `yazses update` told
+    the user to ``pip install --upgrade yazses`` — which upgrades some other
+    environment and leaves the running one where it was.
 
     ``package_file`` defaults to this package's ``__file__``; pass an explicit
     path in tests. ``frozen``/``choco`` default to probing the running process
@@ -159,9 +169,18 @@ def detect_install_method(
         if choco if choco is not None else _choco_marker_present():
             return "choco"
         return "windows-installer"
-    # `uv/tools` on Unix, `uv\data\tools` on Windows (`uv help tool dir`). A
-    # custom UV_TOOL_DIR is still invisible to a path test; see the receipt lookup
-    # in `preserve_enabled_features`, which does not depend on the path.
+    # The receipt is uv's own record that this environment is a tool install, so it
+    # holds wherever UV_TOOL_DIR points. A pipx venv carries pipx_metadata.json and
+    # a plain venv neither, so neither can be mistaken for one.
+    root = prefix if prefix is not None else (sys.prefix if package_file is None else None)
+    if root:
+        try:
+            if os.path.isfile(os.path.join(root, "uv-receipt.toml")):
+                return "uv"
+        except (OSError, ValueError):  # pragma: no cover - an unreadable root: fall back
+            pass
+    # `uv/tools` on Unix, `uv\data\tools` on Windows (`uv help tool dir`): the
+    # fallback for a tool environment whose receipt is missing or unreadable.
     if "/uv/tools/" in p or "/uv/data/tools/" in p:
         return "uv"
     if "/pipx/" in p:
