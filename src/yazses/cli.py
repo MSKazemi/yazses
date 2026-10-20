@@ -156,13 +156,15 @@ def language_status(
         and script_dependency_available
         and not blocked
     )
-    commands_enabled = bool(getattr(cfg.commands, "enabled", True))
-    command_language = "en" if commands_enabled else "disabled"
-    command_support = (
-        "english-only"
-        if commands_enabled and status.speech_language == "zh"
-        else ("available" if commands_enabled else "disabled")
-    )
+    # Resolved by the grammar registry's own resolver, the one the daemon calls.
+    commands_enabled = status.commands_enabled
+    command_language = status.command_language if commands_enabled else "disabled"
+    if not commands_enabled:
+        command_support = "disabled"
+    elif status.command_grammar_available:
+        command_support = "available"
+    else:
+        command_support = "unavailable"
 
     payload = {
         "speech_language": status.speech_language,
@@ -176,6 +178,7 @@ def language_status(
         "coherent": status.coherent,
         "dictation_ready": dictation_ready,
         "problems": list(status.problems),
+        "warnings": list(status.warnings),
         "requirements": {
             "model_cached": model_cached,
             "script_dependency_available": script_dependency_available,
@@ -203,21 +206,28 @@ def language_status(
                 "Script dep:    "
                 + ("ready" if script_dependency_available else "missing OpenCC")
             )
-        if status.speech_language == "zh" and commands_enabled:
-            typer.echo(
-                "Commands:      English Tier-1 only "
-                "(Mandarin command grammar not implemented yet)"
-            )
-        elif not commands_enabled:
+        if not commands_enabled:
             typer.echo("Commands:      disabled")
+        elif not status.command_grammar_available:
+            typer.echo(
+                f"Commands:      no Tier-1 grammar for {command_language or 'auto'!r}"
+            )
         else:
-            typer.echo("Commands:      English Tier-1")
+            grammar = (
+                "Mandarin Tier-1 (edit/navigation subset)"
+                if command_language == "zh"
+                else "English Tier-1"
+            )
+            origin = "pinned" if status.command_language_pinned else "auto"
+            typer.echo(f"Commands:      {grammar} [{origin}]")
         typer.echo(
             f"Dictation:     {'ready' if dictation_ready else 'NOT READY'}"
         )
         typer.echo(f"Status:        {'coherent' if status.coherent else 'INVALID'}")
         for problem in status.problems:
             typer.echo(f"  - {problem}", err=True)
+        for warning in status.warnings:
+            typer.echo(f"  - warning: {warning}", err=True)
         if blocked:
             typer.echo(f"  - prerequisite blocker: {blocked}", err=True)
 
@@ -242,6 +252,15 @@ def _echo_language_set_plan(plan, candidate_stt, missing_imports, packages, bloc
                 typer.echo(f"    reason: {mutation.reason}")
     else:
         typer.echo("Changes: none")
+    if plan.command_language_after and (
+        plan.command_language_after != plan.command_language_before
+    ):
+        typer.echo(
+            f"Command grammar: {plan.command_language_before or 'none'} -> "
+            f"{plan.command_language_after} (follows [stt] language)"
+        )
+    for warning in plan.warnings:
+        typer.echo(f"Warning: {warning}")
 
     typer.echo("Requirements:")
     if (candidate_stt.engine or "").strip().lower() == "faster-whisper":
