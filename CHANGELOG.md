@@ -21,7 +21,6 @@ The workflow now pins Python 3.12, as `test.yml` does. The same latent gap is cl
 can run on macOS and installs with uv but does not pin a concrete interpreter. It reads repository scripts the
 job calls, and it checks that the pinned version has a locked macOS arm64 onnxruntime wheel. A hosted run on the
 fix has not been observed yet. That run is #424's definition of done.
-||||||| 3b24fd7f
 
 ### Tests — one MediaPipe result, three channels: every subset and every absence ([#395](https://github.com/MSKazemi/yazses/issues/395))
 
@@ -45,7 +44,6 @@ suite did not reach:
 Each new test was checked against a deliberately broken source: miswiring the transform flag, reading a result
 attribute directly, logging the exception text, or removing the lazy imports. Every one of those mutations failed at
 least one new test.
-||||||| 3b24fd7f
 
 ### Fixed — an eye-eval outcomes file could carry free text in a face-switch record ([#422](https://github.com/MSKazemi/yazses/issues/422))
 
@@ -68,7 +66,6 @@ missing seed, rather than guessing. New tests in `tests/test_eye_eval_task_contr
 - each task round-trips from a serialised result.
 
 The CLI and config are unchanged.
-||||||| 3b24fd7f
 
 ### Fixed — a camera feature could be switched on in a package that cannot run one ([#414](https://github.com/MSKazemi/yazses/issues/414))
 
@@ -91,7 +88,6 @@ ordinary-dictation half of R-08. With every camera feature on, the daemon still 
 and hold-to-talk key, whether the camera runtime is missing or the OS refuses permission. `docs/store-submission.md`
 used to send MSIX users who wanted a camera feature to winget, Scoop or the direct installer. All three install the
 same frozen `.exe`, so it now points to PyPI.
-||||||| 3b24fd7f
 
 ### Fixed — hands-free health named the camera for a model failure, and called a stalled camera "tracking valid" ([#416](https://github.com/MSKazemi/yazses/issues/416))
 
