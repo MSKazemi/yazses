@@ -77,7 +77,9 @@ DECISIONS = ("pack", "bundled", "no-windows-wheel", "unwired", "deferred")
 PROBE_ARGS = ("--cli", "packs", "probe", "{name}", "--staged", "{staged}")
 PROBE_TIMEOUT_S = 120
 
-_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,39}$")
+# 16 characters, the runtime's cap (``yazses.packs.layout.MAX_PACK_NAME``): a longer name
+# would make the runtime reject the whole index, not just that pack.
+_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,15}$")
 _ARCH_RE = re.compile(r"^[a-z0-9_]{1,16}$")
 _VERSION_RE = re.compile(r"^[0-9][0-9A-Za-z.+-]{0,40}$")
 _SHA_RE = re.compile(r"^[0-9a-f]{64}$")
