@@ -6,6 +6,42 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — Mandarin text no longer gains spaces, loses commas or doubles on the way to the app ([#501](https://github.com/MSKazemi/yazses/issues/501))
+
+Chinese does not put spaces between words, and several stages glued text back together with
+`" ".join` or measured it with `str.split()`. Each now uses one pure, dependency-free rule in
+`postprocess/cjk.py`. For text with no CJK character the result is unchanged; property tests check
+this.
+
+- **Dictation.** Two Mandarin bursts within the continuation window were typed as `你好，世界。 今天测试。`.
+  Continuation spacing now sees the previous burst's last character, so no space goes between two
+  Han clauses or after full-width punctuation. A burst opening with `，`, `。`, `、` or another
+  full-width mark no longer gets a leading space. A Han–Latin seam keeps its space
+  (`测试 YazSes`). A multi-segment decode is joined the same way.
+- **Disfluency filter.** An English filler or correction phrase inside Mandarin text no longer
+  strands a full-width comma (`我觉得，um，很好` → `我觉得，很好`, not `我觉得，，很好`). `。！？`
+  are sentence boundaries, so `scratch that` no longer discards the whole earlier Mandarin sentence.
+- **File transcription and Meeting Mode.** faster-whisper splits a Chinese decode into
+  per-character word tokens. Diarized utterances, the JSON words and every SRT/VTT caption joined
+  them with spaces (`你 好 ， 世 界`). They are now joined without spaces. Latin words and numbers
+  decoded in BPE pieces are reassembled from the tokens' own leading-space signal, so
+  `YazSes` no longer comes back as `Yaz Ses`. Captions are measured in display columns, where a Han
+  character counts as two. They are broken between characters, never before `，` or after `「`.
+  Before, a Han caption was one unbreakable line twice as wide as a player can show. A long
+  Mandarin turn is now split to fit the notes window. `yazses meeting recover` now applies
+  `[stt] chinese_script`.
+- **Injection (Linux, `ydotool`).** A burst mixing English and Chinese is now checked before the
+  first keystroke. A Latin layout has no key for Han, so the English part used to be typed and then
+  the clipboard fallback pasted the whole burst again (`YazSes YazSes 版本`). Now nothing is typed
+  and the burst is pasted once.
+- `contains_han` now covers the astral Han extensions (e.g. 𠮷, U+20BB7).
+
+Contract **7.0.0 → 7.1.0** (minor). Twenty-eight new Mandarin cases were added across
+`clean_text`, `disfluency` and `spacing`, and `spacing` gained an optional `previous_tail`. No
+existing expectation changed. The Android port (`Spacing.kt`, `Disfluency.kt`, new `Cjk.kt`) follows,
+and `:core:postprocess:test` and `:core:contract-test:test` pass locally (299 contract cases).
+Real-model output and on-device injection of Han text are not verified; that is still COMP-06..09 in #501.
+
 ### Added — `ci-gate`, one stable check for branch protection to require ([#462](https://github.com/MSKazemi/yazses/issues/462))
 
 The Tests workflow reports about fifteen matrix check names, and those names change whenever a leg is

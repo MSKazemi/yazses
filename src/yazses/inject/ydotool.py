@@ -414,23 +414,28 @@ class YdotoolInjector:
         Note this path is layout-independent and therefore also **dialect**-
         independent: it never shells out to ydotool, so ydotool 0.1.x vs 1.x does
         not enter into it.
+
+        Every non-ASCII character is resolved **before the first keystroke** (#501).
+        A Latin layout has no key for 版, so ``"YazSes 版本"`` used to type
+        ``"YazSes "`` through ydotool, then fail on the Han run -- and
+        ``LinuxInjector``'s clipboard fallback pasted the whole burst after it:
+        ``"YazSes YazSes 版本"``. Failing up front leaves the fallback a clean slate.
         """
         from yazses.inject.unicode import UnicodeInjector
 
-        unicode_injector: UnicodeInjector | None = None
+        runs = [(is_ascii, run) for is_ascii, run in _ascii_runs(text) if run]
+        unicode_injector = UnicodeInjector()
         try:
-            for is_ascii, run in _ascii_runs(text):
-                if not run:
-                    continue
+            unicode_injector.ensure_producible(
+                "".join(run for is_ascii, run in runs if not is_ascii)
+            )
+            for is_ascii, run in runs:
                 if is_ascii:
                     self._type_ascii_run(run)
                 else:
-                    if unicode_injector is None:
-                        unicode_injector = UnicodeInjector()
                     unicode_injector.inject(run)
         finally:
-            if unicode_injector is not None:
-                unicode_injector.close()
+            unicode_injector.close()
 
     def inject_backspaces(self, count: int) -> None:
         if count <= 0:

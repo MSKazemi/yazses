@@ -399,9 +399,14 @@ class UnicodeInjector:
         self._xkb: _XkbSession | None = None
         self._keyboard: _UinputKeyboard | None = None
 
-    def _ready(self) -> tuple[_XkbSession, _UinputKeyboard]:
+    def _xkb_ready(self) -> _XkbSession:
         if self._xkb is None:
             self._xkb = _XkbSession.create()
+        return self._xkb
+
+    def _ready(self) -> tuple[_XkbSession, _UinputKeyboard]:
+        self._xkb_ready()
+        assert self._xkb is not None
         if self._keyboard is None:
             try:
                 self._keyboard = _UinputKeyboard.create(self._device_path)
@@ -411,20 +416,48 @@ class UnicodeInjector:
                 raise
         return self._xkb, self._keyboard
 
-    def inject(self, text: str) -> None:
-        if not text:
-            return
-        xkb, keyboard = self._ready()
-        for index, character in enumerate(text):
-            result = _find_key_for_character(xkb, character)
+    @staticmethod
+    def _plan(xkb: _XkbSession, text: str) -> list[tuple[int, tuple[int, ...]]]:
+        """The key press for every character of *text*, or raise before any is typed.
+
+        Resolving the whole burst first is what makes a failure clean. Resolving one
+        character at a time typed everything up to the first one the layout lacks and
+        *then* raised -- and `LinuxInjector` answers a raise by pasting the whole burst
+        from the clipboard, so the typed prefix appeared twice. A Mandarin sentence
+        is exactly that case: ``"版本 v2.0"`` on a Latin layout has no key for 版 (#501).
+        """
+        found: dict[str, tuple[int, tuple[int, ...]] | None] = {}
+        plan: list[tuple[int, tuple[int, ...]]] = []
+        for character in text:
+            if character not in found:
+                found[character] = _find_key_for_character(xkb, character)
+            result = found[character]
             if result is None:
                 raise UnicodeInjectorError(
                     f"the active XKB layout cannot produce {character!r}; "
                     "switch to a layout containing it or use clipboard injection"
                 )
-            keycode, modifiers = result
+            plan.append(result)
+        return plan
+
+    def ensure_producible(self, text: str) -> None:
+        """Raise :class:`UnicodeInjectorError` if the layout cannot produce all of *text*.
+
+        Types nothing. For a caller that interleaves this injector with another
+        backend (``YdotoolInjector``'s mixed path) and must know before it types its
+        own part of the burst that this one will not fail half-way.
+        """
+        if text:
+            self._plan(self._xkb_ready(), text)
+
+    def inject(self, text: str) -> None:
+        if not text:
+            return
+        xkb, keyboard = self._ready()
+        plan = self._plan(xkb, text)
+        for index, (keycode, modifiers) in enumerate(plan):
             keyboard.tap(keycode, modifiers)
-            if index < len(text) - 1:
+            if index < len(plan) - 1:
                 time.sleep(_INTER_CHARACTER_GAP_SECONDS)
 
     def inject_backspaces(self, count: int) -> None:

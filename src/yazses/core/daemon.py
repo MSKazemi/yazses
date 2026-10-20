@@ -406,6 +406,9 @@ class Daemon:
         # monotonic timestamp of the last dictation injection; drives
         # continuation spacing between successive hold-to-talk bursts.
         self._last_dictation_monotonic: float | None = None
+        # Last character that injection typed, so continuation spacing can judge a
+        # seam from both sides: two Han clauses take no space between them (#501).
+        self._last_dictation_tail: str = ""
         self._streaming_active: bool = False
         self._corpus: CorpusWriter | None = None
         # Personal Adapter P1 (ADR-v2-009): corpus-mined biasing terms, computed
@@ -3515,7 +3518,11 @@ class Daemon:
                         self._last_dictation_monotonic is not None
                         and (time.monotonic() - self._last_dictation_monotonic) <= window_s
                     )
-                    text = continuation_prefix(text, had_recent_injection=had_recent) + text
+                    text = continuation_prefix(
+                        text,
+                        had_recent_injection=had_recent,
+                        previous_tail=getattr(self, "_last_dictation_tail", ""),
+                    ) + text
                 event["final_text"] = text
 
             if not is_dictation:
@@ -3646,6 +3653,7 @@ class Daemon:
                 else:
                     injector.inject(text)
                 self._last_dictation_monotonic = time.monotonic()
+                self._last_dictation_tail = text[-1:]
                 if self._config.revise.enabled:
                     self._ledger.record(text)
                 if self._timeline is not None:
@@ -4091,6 +4099,7 @@ class Daemon:
                 return {"ok": False, "committed": False, "detail": str(exc),
                         "pending": self.staged_state()}
             self._last_dictation_monotonic = time.monotonic()
+            self._last_dictation_tail = result.text[-1:]
             return {"ok": True, "committed": True, "text": result.text,
                     "pending": self.staged_state()}
 
@@ -4993,6 +5002,7 @@ class Daemon:
                     "old": last, "new": corrected, "candidates": cand_view}
         self._ledger.replace_last(corrected)
         self._last_dictation_monotonic = time.monotonic()
+        self._last_dictation_tail = corrected[-1:]
         log.info("Punch-In: corrected %d chars.", len(last))
         return {"ok": True, "applied": True, "old": last, "new": corrected, "candidates": cand_view}
 
@@ -5634,6 +5644,7 @@ class Daemon:
                 return False
             self._ledger.replace_last(result.text)
             self._last_dictation_monotonic = time.monotonic()
+            self._last_dictation_tail = result.text[-1:]
             event["intent_type"] = "spoken_edit"
             event["spoken_edit_op"] = op
             log.info("Spoken Edit: %s applied (%d -> %d chars).",
