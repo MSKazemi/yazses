@@ -34,13 +34,19 @@ from pathlib import Path
 
 from yazses.gaze.association import AssociationPolicy
 from yazses.gaze.calibrate import CalibrationMap
-from yazses.gaze.capture import ClickGazeCapture, ImplicitCaptureService
+from yazses.gaze.capture import ClickGazeCapture, ImplicitCaptureService, ThrottledFingerprint
 from yazses.gaze.clicks import ClickObserver, ClickObserverError
 from yazses.gaze.refine import ImplicitRefiner, RefinementPolicy, RefinementResult
 from yazses.gaze.store import RefinementInfo, promote_refinement
 from yazses.perception.signals import FacePerceptionSource
 
-__all__ = ["GuardedContext", "RefinementRuntime", "build_refinement_runtime", "policies_from_config"]
+__all__ = [
+    "GuardedContext",
+    "RefinementRuntime",
+    "build_refinement_runtime",
+    "context_fingerprint",
+    "policies_from_config",
+]
 
 log = logging.getLogger(__name__)
 
@@ -96,6 +102,35 @@ class GuardedContext:
         return bool(self._guard.verify_now().validity is Validity.VALID)
 
 
+def context_fingerprint(
+    read_context: Callable[[], object],
+    *,
+    accepted=None,
+    clock: Callable[[], float] | None = None,
+) -> ThrottledFingerprint:
+    """The capture's layout watch (#397): a throttled fingerprint of *read_context*.
+
+    *read_context* returns a :class:`~yazses.gaze.topology.CalibrationContext` (the
+    daemon's ``current_context`` call). A context whose topology is unknown reads as
+    ``None`` -- an unreadable layout is not a different one, and an empty topology has a
+    fingerprint of its own that would otherwise look like a change. *accepted* is the
+    context the running calibration was verified against; when known it seeds the watch,
+    so the first click needs no read and a change is measured from the verified layout.
+    """
+
+    def fingerprint_of(context) -> str | None:
+        topology = getattr(context, "topology", None)
+        if context is None or topology is None or not topology.known:
+            return None
+        return str(context.fingerprint())
+
+    return ThrottledFingerprint(
+        lambda: fingerprint_of(read_context()),
+        clock=clock,
+        seed=fingerprint_of(accepted),
+    )
+
+
 def policies_from_config(section) -> tuple[AssociationPolicy, RefinementPolicy]:
     """The two validated policies for a ``[gaze_refine]`` section.
 
@@ -133,12 +168,16 @@ def build_refinement_runtime(
     fps: int = _DEFAULT_FPS,
     spawn: Spawn | None = None,
     clock: Callable[[], float] | None = None,
+    fingerprint: Callable[[], str | None] | None = None,
 ) -> tuple[RefinementRuntime | None, str]:
     """Start implicit refinement, or return ``(None, why not)``. See the module docstring.
 
     *clock* is the clock the shared source stamps samples with (the daemon passes
     ``time.monotonic``, the source's default). Given, a click stamped on a different clock
     is refused by name instead of being counted as stale gaze.
+
+    *fingerprint* is the capture's layout watch (:func:`context_fingerprint`). Given, a
+    display or camera change drops the recent gaze before a click can pair across it.
     """
     if not getattr(section, "enabled", False):
         return None, ""
@@ -190,7 +229,7 @@ def build_refinement_runtime(
         context_valid=context_valid,
         source=source,
     )
-    capture = ClickGazeCapture(refiner.observe, association, clock=clock)
+    capture = ClickGazeCapture(refiner.observe, association, clock=clock, fingerprint=fingerprint)
     clamped = min(_MAX_FPS, max(_MIN_FPS, int(fps)))
     try:
         observer = observer_factory()

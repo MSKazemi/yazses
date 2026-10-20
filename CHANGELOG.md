@@ -6,6 +6,25 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — implicit gaze calibration kept old eye positions too long, and across a layout change ([#397](https://github.com/MSKazemi/yazses/issues/397))
+
+The click-and-gaze capture for opt-in implicit calibration (`[gaze_refine]`, off by default) kept a ring of
+the 64 most recent gaze observations. That bound is on count only. When the face left the frame, the last
+observations stayed in memory until the service stopped. The ring is now also bounded by age:
+`DEFAULT_MAX_AGE_S` (2 s, an unmeasured starting value), and never less than the look-back window. A ring
+that empties because its samples aged out still reports `stale`, not `no_gaze`.
+
+The ring also did not follow the ADR-v2-149 context fingerprint (display layout and camera). A click in the
+new layout could pair with eye features recorded under the old one. The capture now takes an injected
+fingerprint and records a baseline at start. When the fingerprint changes, it drops the ring and the
+memory of used samples, and refuses that click as `topology_changed`. Only gaze recorded after the change
+can pair. An unreadable layout is not treated as a change. The daemon's watch, `ThrottledFingerprint`,
+reads the real context at most once a second and only on a click, never on a gaze poll. Pairs, the
+`Association` that `ImplicitRefiner.observe` consumes, are unchanged and stay in memory only. No frame,
+landmark, screenshot or typed text is captured. No click observer ships on any platform yet, so this path
+stays dormant with its logged reason. Tests: `tests/test_gaze_capture_bounds_and_topology.py`, using a fake
+clock, fake clicks, fake gaze and a fake fingerprint.
+
 ### Fixed — the eye-control CI matrix lost its macOS leg to a new Homebrew Python ([#424](https://github.com/MSKazemi/yazses/issues/424))
 
 From 2026-10-17, every macOS leg of `eye-eval-ci.yml` failed in `uv sync`, before the evaluation ran. The step
