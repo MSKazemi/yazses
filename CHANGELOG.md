@@ -6,6 +6,25 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — the live traceability audit now reports issue-tracker drift, advisory only ([#487](https://github.com/MSKazemi/yazses/issues/487))
+
+`scripts/check-traceability-live.py` already checked the issues and milestones that `design/traceability.yml`
+names. It now also reports three kinds of drift, using the same two list requests it already made (no new
+endpoint, no request per issue). First, open issues with no milestone and no exempt class label. Second, open
+issues whose "do not start" blockquote banner waits only on issues or pull requests that are now all closed;
+any unknown or still-open reference keeps the banner quiet. Third, non-terminal manifest entries that still list
+a closed issue beside an open one. Drift appears in the job summary and in a new `traceability-live` JSON
+artifact, which is written for every exit code. It **never changes the exit code**. The 0/1/2/3 meanings and
+the blocking manifest rules are unchanged. The exempt classes go in a new
+`issue_policy.exempt_labels` list in `design/traceability-exceptions.yml`. The list stays empty until the #480
+milestone policy names them, so today every unmilestoned open issue is listed. A listed label that no open
+issue carries is reported. The job keeps `contents: read` + `issues: read`, runs on schedule and
+`workflow_dispatch` only, and writes nothing to any issue. Issue titles are sanitised so they cannot break out
+of the summary's code block. An offline dry run over a read-only export of the tracker (2026-10-20) listed 110
+unmilestoned open issues out of 202 and 13 stale banners, every one waiting on the already-merged #413. Tests
+in `tests/test_traceability_live.py` use fixtures only. The workflow has not yet run on GitHub with these
+changes.
+
 ### Fixed — the eye-control CI matrix lost its macOS leg to a new Homebrew Python ([#424](https://github.com/MSKazemi/yazses/issues/424))
 
 From 2026-10-17, every macOS leg of `eye-eval-ci.yml` failed in `uv sync`, before the evaluation ran. The step

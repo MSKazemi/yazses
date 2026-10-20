@@ -13,9 +13,15 @@ name: Live traceability audit
 #   3  the audit cannot run as configured (bad manifest/exceptions file, token, repo)
 # Red is deliberate for all three: an unverified night must not look like a verified one.
 #
-# SECURITY: schedule/workflow_dispatch only, so no contributor-controlled text reaches this
-# job. Token is the standard GITHUB_TOKEN, read-only, and no secrets are used. Exceptions
-# live in design/traceability-exceptions.yml (empty by default, awaiting the #480 policy).
+# ADVISORY DRIFT (never changes the exit code): the same issue listing also reports open
+# issues with no milestone and no exempt class, stale "do not start" banners whose blockers
+# all closed, and manifest entries still listing a closed issue beside an open one. It lands
+# in the job summary and in the `traceability-live` JSON artifact; nothing is written back.
+#
+# SECURITY: schedule/workflow_dispatch only, so no contributor-controlled text reaches an
+# expression or a shell here; issue titles/bodies are read by the script as data only. Token
+# is the standard GITHUB_TOKEN, read-only, and no secrets are used. Exceptions and the
+# exempt-label classes live in design/traceability-exceptions.yml (empty, awaiting #480).
 
 on:
   schedule:
@@ -58,4 +64,19 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
-        run: python scripts/check-traceability-live.py --summary-file "$GITHUB_STEP_SUMMARY"
+        run: >-
+          python scripts/check-traceability-live.py
+          --summary-file "$GITHUB_STEP_SUMMARY"
+          --json-file traceability-live.json
+
+      # The JSON is written for every exit code, so a red night still leaves its evidence.
+      # upload-artifact authenticates with the runner's own token, not GITHUB_TOKEN, so the
+      # job permissions above stay read-only.
+      - name: Upload the audit report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: traceability-live
+          path: traceability-live.json
+          if-no-files-found: ignore
+          retention-days: 30

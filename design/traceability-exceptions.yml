@@ -19,5 +19,13 @@
 #     reason: "Epic intentionally spans several milestones."
 #     tracker: 480                    # the issue that justifies the exception
 #     expires: 2027-01-31             # optional YYYY-MM-DD
+#
+# `issue_policy` drives the ADVISORY per-issue drift report (it never changes the exit code).
+# `exempt_labels` names the label classes that may stay unmilestoned under #480 Option B
+# (e.g. a future `evergreen` or `research` class). EMPTY until #480 decides, so today every
+# open issue without a milestone is listed as UNMILESTONED_UNCLASSIFIED. A label listed here
+# that no open issue carries is reported, so this list cannot rot either.
 version: 1
 exceptions: []
+issue_policy:
+  exempt_labels: []
