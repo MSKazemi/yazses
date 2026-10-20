@@ -68,6 +68,17 @@ released. A `close()` that raises does not cut the teardown short, and a source 
 pipeline finish. Each test was mutation-checked: removing the behaviour it guards turns that test red. No behaviour
 changed.
 
+### Fixed — a face gesture begun before Resume no longer completes after it (#417)
+
+With `[handsfree_safety]` on, the face switch kept counting a gesture's hold frames straight through a
+Pause and a Resume, so a gesture started before Resume could press on the first camera frame after it,
+which is a replay of input from before the stop. The Head-Pointer already dropped its half-made dwell at
+that point. The face switch now does the same: once it has been stopped or re-armed, a gesture must be
+held for its full `min_hold_frames` again, and a face that is still gesturing across Resume must relax
+and gesture again before it can act. Shutdown now closes the hands-free gate before it stops any
+activation source, so the face switch's last frames cannot act into a closing daemon. Nothing changes
+with `[handsfree_safety]` off (the default). Tests: `tests/test_handsfree_safety_clean_rearm.py`.
+
 ## [2.43.2] - 2026-10-18
 
 ### Fixed — the gaze grounding resolver grounded a candidate with no extent (property-test counterexample)

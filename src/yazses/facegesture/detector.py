@@ -334,6 +334,18 @@ class GestureSwitch:
             return "end"
         return None
 
+    def discard_pending(self) -> None:
+        """Forget a half-made gesture; leave an open hold, its release and the latch alone.
+
+        Called when the hands-free gate stops or re-arms this source (#417, ADR-v2-148), so the
+        frames counted towards ``min_hold_frames`` before that moment cannot complete a press
+        after it: the gesture has to be held for the full count again. An open hold is *not*
+        ended here -- the mapper has already released its action, and keeping the detector
+        held means a face still making the gesture across a Resume must relax and make it
+        again before it can press, which is the clean re-arm the ADR asks for. Pure state.
+        """
+        self._above = 0
+
     def _frame_value(self, score: float | None, confidence: float | None) -> float:
         """The comparable value for one frame; -1.0 stands for "no usable reading".
 

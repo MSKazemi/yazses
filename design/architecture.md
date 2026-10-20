@@ -289,7 +289,15 @@ does so as a `SKIP` so it cannot become a permanent warning on a working install
 perception row points at the Camera row rather than restating it. (5) A state the running
 daemon holds is never reported as `unknown` by a surface that could have asked: `doctor` and the
 window read the daemon's `status`, and a shared camera source that *failed* is a failure, not
-"running".
+"running". (6) Every continuous consumer honours the gate's one-shot `clear_pending` latch, so
+no half-made activation crosses a stop or a re-arm: the Head-Pointer drops its dwell and treats
+the next frame as a settling frame; the face switch's `SwitchMapper.frame()` reads the gate on
+every frame that carries a face (a faceless frame counts nothing toward a hold) and returns the latch, and `FaceGestureBackend` then calls
+`GestureSwitch.discard_pending()` on every detector before that frame is counted (an open hold
+stays held, so a face still gesturing across a Resume must relax and gesture again); Gesture
+Chords taint an engagement in flight. (7) Shutdown closes the gate before anything is stopped:
+`Daemon.shutdown` closes it before stopping the activation sources, and `Daemon._shutdown`
+closes it again (idempotent) before the pointer and camera backends.
 
 ### `src/yazses/inject/` (Linux sub-backends)
 

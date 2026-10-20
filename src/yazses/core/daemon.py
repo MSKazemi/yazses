@@ -1197,6 +1197,16 @@ class Daemon:
         log.info("Shutting down.")
         # Stop the tray supervisor first, so it can't relaunch a tray on the way out.
         self._stop_event.set()
+        # ADR-v2-148 shutdown order, from the first line that stops anything: the global
+        # hands-free gate closes before any activation source below is stopped, so the face
+        # switch's last frames before its loop exits cannot press into a closing daemon
+        # (#417). `_shutdown` closes it again (idempotent) for the paths that never come here.
+        safety = getattr(self, "_handsfree_safety", None)
+        if safety is not None:
+            try:
+                safety.shutdown("daemon shutting down")
+            except Exception:
+                log.exception("Hands-free safety shutdown raised")
         if self._command_hotkey is not None:
             try:
                 self._command_hotkey.stop()
