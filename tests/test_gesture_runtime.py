@@ -651,6 +651,25 @@ def test_a_global_pause_suppresses_a_chord_that_was_working():
     assert called == []
 
 
+def test_a_jaw_half_open_across_a_pause_and_resume_must_be_opened_anew():
+    """End to end through the real shared source and ``yazses gesture resume`` (#417)."""
+    gate = armed()
+    called = []
+    rig = Rig({"jaw_open": "command:undo"}, safety=gate, run_command=called.append)
+    rig.start()
+    rig.frame()
+    assert rig.runtime.command("resume")["ok"]
+    rig.frame(jaw=0.9)
+    rig.frame(jaw=0.9)                                   # two of the switch's three frames
+    gate.pause("tray")
+    assert rig.runtime.command("resume")["ok"]           # both between two camera frames
+    rig.frame(jaw=0.9)
+    assert called == []                                  # one frame after the Resume is not three
+    rig.frame(jaw=0.9)
+    rig.frame(jaw=0.9)
+    assert called == ["undo"]
+
+
 def test_resume_reports_why_a_source_will_not_arm():
     gate = armed()
     rig = Rig({"jaw_open": "command:undo"}, safety=gate, run_command=lambda p: None)

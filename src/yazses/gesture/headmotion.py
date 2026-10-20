@@ -170,6 +170,21 @@ class HeadGestureDetector:
         self._last_ts = -math.inf
         return self._lose()
 
+    def discard_pending(self) -> None:
+        """Forget a half-made gesture; leave a held tilt, its release and the clock alone.
+
+        Called when the hands-free gate stops or re-arms the chord source (#417, ADR-v2-148),
+        the head-side twin of ``GestureSwitch.discard_pending``: the legs of a nod or shake seen
+        before that moment, and the time a tilt has been building towards ``tilt_hold_s``, cannot
+        complete a token after it. A held tilt is *not* released here -- it has already been
+        kept from acting, and staying held means a head still tilted across a Resume must come
+        back and tilt again before it can press. The pulse refractory and the last timestamp
+        are kept, so nothing already seen is counted twice. Pure state; emits nothing.
+        """
+        self._poses.clear()
+        if not self._tilt_held:
+            self._tilt_since = None
+
     # ------------------------------------------------------------------ internals
 
     def _usable(self, sample: HeadPoseSignal | None, now_s: float) -> bool:

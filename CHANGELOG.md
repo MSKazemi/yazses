@@ -221,6 +221,32 @@ run). The durations in the tests make each case unambiguous. They are not recomm
 above, the timed rules are **not reachable from config**. Adding `[facegesture]` keys changes a public interface,
 so that is left to a follow-up.
 
+### Fixed — a half-made Gesture Chord token no longer survives a hands-free Pause and Resume ([#408](https://github.com/MSKazemi/yazses/issues/408))
+
+Gesture Chords watched the hands-free gate for a closed state. They never read its one-shot `clear_pending`
+latch, the signal the gate uses to report that a source was stopped or re-armed (#417, ADR-v2-148). So two
+things could cross a Pause and Resume that landed between two camera frames:
+
+- the face switch's half-counted hold frames and the head detector's half-made nod;
+- an engagement still gathering tokens.
+
+With `[gesture.chords] jaw_open = "recenter"`, a jaw opened for two frames before a Resume and one frame after
+it fired `recenter`. The face switch has required a full three frames after a Resume since #417.
+`design/architecture.md` invariant (6) already said every continuous consumer honoured the latch, so the code
+did not match the design.
+
+`ChordEngine.frame()` now reads the gate on every tick that carries a signal, and on every tick while an
+engagement is open. On the latch it taints the engagement in flight, so only the stop path can still complete
+it. It then returns True. `SensorTokens` then drops half-made state before the tick's frame is counted, through
+`GestureSwitch.discard_pending()` and a new `HeadGestureDetector.discard_pending()`. A held token stays held and
+must be relaxed and made again. A local `yazses gesture pause`/`resume` is the same boundary. No config key, CLI
+flag or default changed, and Gesture Chords stay off with nothing bound.
+
+Tests: 13 in `tests/test_gesture_engine.py`, `tests/test_gesture_sensors.py` and `tests/test_gesture_runtime.py`,
+one of them end to end through the real shared source and `GestureRuntime.command("resume")`. 10 of them fail on
+the previous source. Four more in `tests/test_gesture_headmotion.py`, one of them a control showing that the
+split fixture is a real nod.
+
 ### Fixed — the eye-control CI matrix lost its macOS leg to a new Homebrew Python ([#424](https://github.com/MSKazemi/yazses/issues/424))
 
 From 2026-10-17, every macOS leg of `eye-eval-ci.yml` failed in `uv sync`, before the evaluation ran. The step
