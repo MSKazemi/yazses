@@ -249,9 +249,36 @@ def _prosody_check(enabled: bool) -> _Check | None:
             "prosody extra (parselmouth)",
             "WARN",
             "not installed — emphasis disabled, pause→¶ still works "
-            "(uv sync --extra prosody)",
+            "(install it: yazses features enable prosody)",
         )
     return ("prosody extra (parselmouth)", "OK", "importable")
+
+
+#: Dormant capabilities with a dedicated doctor row that says more than "missing"
+#: (prosody degrades to pause-only rather than doing nothing), so the generic row
+#: would only repeat it.
+_DORMANT_REPORTED_ELSEWHERE = frozenset({"prosody"})
+
+
+def _dormant_feature_checks(cfg, *, dormant=None) -> list[_Check]:
+    """One WARN row per enabled capability whose libraries are not installed.
+
+    Silent when there are none — which is every clean install — so doctor does not
+    grow a row per optional feature. *dormant* is injectable for tests.
+    """
+    if dormant is None:
+        try:
+            from yazses.system.dormant import dormant_features
+
+            dormant = dormant_features(cfg)
+        except Exception:  # noqa: BLE001 - doctor must survive its own probes
+            return []
+    return [
+        (f"{d.name} [{d.slug}]", "WARN",
+         f"on, but {', '.join(d.missing)} not installed — dormant. {d.remedy}")
+        for d in dormant
+        if d.slug not in _DORMANT_REPORTED_ELSEWHERE
+    ]
 
 
 def _extra_check(label: str, enabled: bool, module: str, hint: str) -> _Check | None:
@@ -2005,22 +2032,17 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
         dysfluency = _dysfluency_check(cfg.accessibility.dysfluency_friendly)
         if dysfluency is not None:
             checks.append(dysfluency)
-        # v2 cognitive-layer extras (report only when the feature is enabled).
-        for chk in (
-            _extra_check("tts extra (kokoro-onnx)", cfg.tts.enabled,
-                         "kokoro_onnx", "uv sync --extra tts"),
-            _extra_check("voiceprint extra (speechbrain)",
-                         cfg.voiceprint.enabled or cfg.cocktail.enabled,
-                         "speechbrain", "uv sync --extra voiceprint"),
-            _extra_check("gaze extra (l2cs)", cfg.gaze.enabled,
-                         "l2cs", "pip install l2cs mediapipe opencv-python"),
-            _extra_check("agent extra (Spoken MCP)", cfg.agent.enabled,
-                         "mcp", "uv sync --extra agent"),
-            _extra_check("pilot (AT-SPI)", cfg.pilot.enabled,
-                         "pyatspi", "apt install python3-pyatspi gir1.2-atspi-2.0"),
-        ):
-            if chk is not None:
-                checks.append(chk)
+        # Every enabled capability whose optional libraries are missing, from the
+        # feature registry rather than a hand-kept list. The list this replaced named
+        # four features, told end users to run `uv sync --extra …` (a command that
+        # only does anything inside a source checkout), and probed `l2cs` for gaze,
+        # whose default backend is mediapipe — a WARN on a working install.
+        checks.extend(_dormant_feature_checks(cfg))
+        # AT-SPI is a system package, not a pip extra, so the registry cannot know it.
+        pilot = _extra_check("pilot (AT-SPI)", cfg.pilot.enabled,
+                             "pyatspi", "apt install python3-pyatspi gir1.2-atspi-2.0")
+        if pilot is not None:
+            checks.append(pilot)
         # v2 features gated on config (not a module): report when half-configured.
         if cfg.agent.enabled and not cfg.agent.slm_model_path:
             checks.append(("agent planner", "WARN",
