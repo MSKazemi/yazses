@@ -75,14 +75,19 @@ MODULES = [
 #: report and *not* this list -- which is the whole point of a completeness check.
 EXPECTED_TRACE_IDS = frozenset(
     {
+        "animated-talking",
         "baseline-shifted-rest",
+        "blinks-on-jaw-open",
         "chatter-around-threshold",
         "deliberate-hold",
+        "look-down-glances",
         "low-confidence-frames",
         "missing-readings",
+        "natural-blinks",
         "quiet-rest",
         "speech-and-everyday",
         "webcam-summary-reproduction",
+        "yawns",
     }
 )
 
@@ -777,7 +782,9 @@ def test_the_report_has_no_per_sample_data() -> None:
 
 
 def test_every_context_is_a_member_of_the_closed_list() -> None:
-    assert set(CONTEXTS) == {"rest", "speech", "head_movement", "smile", "deliberate", "other"}
+    assert set(CONTEXTS) == {
+        "rest", "speech", "head_movement", "smile", "blink", "yawn", "look_down", "deliberate", "other",
+    }
 
 
 # --------------------------------------------------------------------------- 8. the committed report and CLI
