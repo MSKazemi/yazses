@@ -116,8 +116,10 @@ SHELL_OUT = {
         "remote. Carries repository content at explicit request, never dictation"
     ),
     "system/deps.py": (
-        "runs `uv pip install` (or `python -m pip install`) so `yazses features enable "
-        "<name>` can fetch that feature's optional extras from PyPI. Sends only package "
+        "runs `uv pip install` (or `python -m pip install`, or `pipx inject` in a pipx "
+        "venv) so `yazses features enable <name>` -- and `features install`, or a click "
+        "on a dormant feature's Install now -- can fetch that feature's optional extras "
+        "from PyPI. Sends only package "
         "names; what comes back is **code that then runs in this interpreter**, which "
         "is why it belongs in the inventory rather than being waved through as tooling"
     ),

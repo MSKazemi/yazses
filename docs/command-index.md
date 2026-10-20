@@ -234,6 +234,13 @@ Describe a capability — what it does, a usage example, and how to toggle it.
 
 - **Arguments:** `name`
 
+### `yazses features install`
+
+Install the libraries that switched-on features are missing.
+
+- **Arguments:** `names`
+- `--yes`, `-y` — Install without asking first.
+
 ### `yazses features reset`
 
 Restore every capability to the state a fresh install ships with.

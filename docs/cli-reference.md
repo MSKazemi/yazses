@@ -273,13 +273,14 @@ so `read-back` reads as `~352 MB` rather than as its 12 MB of packages. Blank me
 nothing to download, which is true of most capabilities. See
 [Install only what you need](how-to/install-only-what-you-need.md).
 
-Three states, not two:
+Four states, not two:
 
 | Badge | Meaning |
 |---|---|
 | `● ON` | On, and this build acts on it. |
 | `○ off` | Off. |
 | `◌ set` | Your config turns it on, but **nothing in this build reads it** — it is doing nothing. Clear the key with `yazses features disable <name>`. |
+| `◐ ON` | On, but **its libraries are not installed** (config edited by hand, `--no-install`, or an update rebuilt the environment) — dormant. `yazses features install` installs them, after asking. |
 
 `◌` only appears if you have one. It is not reachable from `yazses features enable`,
 which refuses a capability that is *planned — designed, not yet wired*; it comes from
@@ -307,6 +308,7 @@ side without ever being compared. Such a capability is **not** counted in a grou
 | `yazses features info <name>` | Describe one capability — what it does, a usage example, and how to toggle it. |
 | `yazses features enable <name>` | Turn a capability **on** (writes your config), then `yazses restart` to apply. |
 | `yazses features disable <name>` | Turn a capability **off**, then `yazses restart`. |
+| `yazses features install [<name>…]` | Install the libraries that **switched-on** features are missing (the `◐` rows), after showing the download and asking (`--yes` skips the question). Writes no config; undoes a failed or interrupted install. |
 | `yazses features reset` | Restore **every** capability to the state a fresh install ships with. |
 
 ```bash
@@ -318,6 +320,7 @@ yazses features info                     # describe ALL capabilities + usage exa
 yazses features info reflow              # describe one + show a usage example
 yazses features enable read-back         # turn one on  (use the TOGGLE NAME)
 yazses features disable cocktail         # turn one off
+yazses features install                  # install what switched-on features lack
 yazses features reset --dry-run          # what a reset would change; writes nothing
 yazses features reset                    # restore the defaults (asks first)
 yazses restart                           # apply

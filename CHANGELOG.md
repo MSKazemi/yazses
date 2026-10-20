@@ -109,6 +109,46 @@ existing expectation changed. The Android port (`Spacing.kt`, `Disfluency.kt`, n
 and `:core:postprocess:test` and `:core:contract-test:test` pass locally (299 contract cases).
 Real-model output and on-device injection of Han text are not verified; that is still COMP-06..09 in #501.
 
+### Added — a switched-on feature installs its own libraries at the moment it needs them, with one action, and an install can no longer break the base
+
+A feature turned on by editing `config.toml`, with `--no-install`, or before an update
+rebuilt the environment was announced as dormant with a sentence telling you to go and
+type `yazses features enable <name>`. Now every place that finds it offers the install
+itself, and still asks first — nothing downloads without your click, yes, or command:
+
+- The daemon's start-up notification has **Install now** / **Not now** buttons
+  (Linux, where the notifier supports actions). A finished install says how to apply it.
+- `yazses start` and `yazses restart`, in a terminal, ask once (default **no**).
+- New `yazses features install [<name>…]` installs what every switched-on feature is
+  missing, after showing the download (`--yes` for scripts). `yazses features` names it
+  under the `◐` rows.
+
+The install itself (the CLI, the settings window and the notification all use it) is
+now a transaction, after reproducing three failures offline against uv 0.12.21 and
+pipx 1.4.3 with hand-built wheels:
+
+- **A feature could downgrade dictation's own libraries and exit 0.** YazSes's own
+  requirements now go to the installer as `--constraint`, so that install is refused
+  before anything changes; a success that still leaves one unmet is undone.
+- **A failed or interrupted install was left half-done.** The installed set is
+  snapshotted; a failure that changed anything, or Ctrl-C, is undone, and the output
+  says whether the undo was complete (and the commands if it was not).
+- **pipx installs were lost on `pipx reinstall`, and pipx ignores environment markers.**
+  A pipx venv is now installed into with `pipx inject` (markers evaluated first, so the
+  `onnxruntime` pair yields one requirement, not two incompatible ones), after a dry run
+  under the constraint — pipx stores `--pip-args` and replays them on reinstall, so a
+  temporary constraint path there silently dropped the package.
+
+Also: a source checkout is told that `uv sync` will remove what was installed and how to
+keep it; the distribution's own Python (PEP 668) is refused with `pipx install yazses`
+as the remedy, instead of a `uv pip install --python /usr/bin/python3` that both pip and
+uv refuse; `features enable` checks the feature's modules import after the installer
+exits 0. Two new contract tests close the registry → extra → installer chain from the
+code side: every third-party import in `src/` must be declared somewhere
+(`tests/test_every_import_is_declared.py`), and a feature's own package may not import
+an extra's module its `_FEATURE_DEPS` entry would not install
+(`tests/test_feature_imports_are_installable.py`).
+
 ### Added — `ci-gate`, one stable check for branch protection to require ([#462](https://github.com/MSKazemi/yazses/issues/462))
 
 The Tests workflow reports about fifteen matrix check names, and those names change whenever a leg is

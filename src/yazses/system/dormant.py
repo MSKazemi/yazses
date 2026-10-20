@@ -16,8 +16,9 @@ that does nothing for an end user — and the capability was silently dead after
 that. This module answers the one question all of those surfaces need, from the
 feature registry rather than a hand-written list: *which enabled features cannot
 run here, what is missing, and what is the one command that fixes it?* The daemon
-announces it at start, `yazses doctor` prints a row per feature, and
-`yazses features` marks the row.
+announces it at start — with an **Install now** button where an install can work
+(``system/ondemand.py``) — `yazses doctor` prints a row per feature, `yazses
+features` marks the row, and ``yazses features install`` installs them all.
 
 Pure apart from the injected probes, so every case tests without an optional
 dependency installed. It never installs anything: installing is a network action
@@ -46,6 +47,10 @@ class DormantFeature:
     missing: tuple[str, ...]      # import names that failed to resolve
     packages: tuple[str, ...]     # the requirements `features enable` installs
     remedy: str                   # the one thing to run (or why nothing can)
+    #: False when this environment can never install them (a snap, a frozen bundle,
+    #: the system Python): no surface may then offer an "Install now" that refuses.
+    installable: bool = True
+    command: str = ""             # the exact `yazses features enable …` that fixes it
 
     def describe(self) -> str:
         """One line for a log, a toast or a doctor row."""
@@ -139,7 +144,8 @@ def dormant_features(
             if not desktop:
                 continue
         reason = why_blocked(tuple(feat.pip_packages))
-        remedy = reason if reason else f"Install them with:  {enable_command(feat)}"
+        command = enable_command(feat)
+        remedy = reason if reason else f"Install them with:  {command}"
         out.append(
             DormantFeature(
                 slug=feat.slug,
@@ -147,6 +153,8 @@ def dormant_features(
                 missing=absent,
                 packages=tuple(feat.pip_packages),
                 remedy=remedy,
+                installable=reason is None,
+                command=command,
             )
         )
     return out

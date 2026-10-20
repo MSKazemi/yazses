@@ -55,7 +55,7 @@ def test_the_warning_names_both_interpreters(monkeypatch, capsys):
     """A warning that does not say which is which is not actionable."""
     monkeypatch.setattr(deps, "daemon_interpreter_differs",
                         lambda *a, **k: "/opt/other/bin/python")
-    monkeypatch.setattr(deps, "install_command", lambda pkgs: ["true"])
+    monkeypatch.setattr(deps, "install_command", lambda pkgs, **_kw: ["true"])
     monkeypatch.setattr(deps, "install_blocked_reason", lambda pkgs: None)
 
     said: list[str] = []

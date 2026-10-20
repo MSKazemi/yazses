@@ -989,7 +989,9 @@ class Daemon:
         factory then logged one line — some naming `uv sync --extra …`, which does
         nothing outside a source checkout — and the capability was dead from then
         on. This names every one, from the registry, with the one command that
-        fixes it. It installs nothing: that stays the user's action (ADR-019).
+        fixes it — and, where an install can work, an **Install now** button
+        (`system/ondemand.py`). Nothing installs without that click: the download
+        stays the user's action (ADR-019).
 
         Rate-limited through the same persisted record as `_announce_permissions`,
         so a crash loop cannot multiply it, and a desktop-only feature on a
@@ -997,6 +999,7 @@ class Daemon:
         """
         try:
             from yazses.system import notify as notify_mod
+            from yazses.system import ondemand
             from yazses.system.diagnosis import should_notify
             from yazses.system.dormant import dormant_features
 
@@ -1009,10 +1012,16 @@ class Daemon:
                 if not fresh:
                     continue
                 self._persist_shown_notices()
-                urgency, expire_ms = notify_mod.toast_policy(False)
+                actions = ondemand.toast_actions(item)
+
+                def _on_action(key: str, item=item) -> None:
+                    ondemand.handle_action(key, item)
+
+                urgency, expire_ms = notify_mod.toast_policy(bool(actions))
                 notify_mod.notify(
                     f"{item.name} is on but cannot run",
-                    item.describe(), urgency=urgency, expire_ms=expire_ms,
+                    ondemand.toast_body(item), urgency=urgency, expire_ms=expire_ms,
+                    actions=actions, on_action=_on_action if actions else None,
                 )
         except Exception:  # noqa: BLE001 — startup must survive its own warnings
             log.debug("could not check enabled features' libraries", exc_info=True)
