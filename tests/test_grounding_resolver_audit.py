@@ -150,6 +150,14 @@ def _in_envelope(target: TargetSnapshot, candidate: SemanticCandidate, policy) -
             return True
         if target.bounds is not None and grown.intersects(target.bounds):
             return True
+        # A region with no extent (a point or a line) is measured by distance in the resolver,
+        # and `intersects` (strict: zero area never intersects) cannot see it: give it a hair of
+        # extent and ask again.
+        b = target.bounds
+        if b is not None and (b.width <= 0.0 or b.height <= 0.0
+                              or b.x + b.width <= b.x or b.y + b.height <= b.y):
+            if grown.intersects(Rect(b.x - 1e-6, b.y - 1e-6, b.width + 2e-6, b.height + 2e-6)):
+                return True
     return False
 
 
@@ -511,3 +519,22 @@ def test_the_parent_child_ratio_rule_is_pinned_as_policy() -> None:
         rates = _tally(rows)
         assert rates["wrong"] == 0.0
         assert (rates["ambiguous"] == 1.0) if expect_ambiguous else (rates["correct"] == 1.0)
+
+
+@pytest.mark.parametrize("region", [Rect(10.0, 0.0, 0.0, 10.0), Rect(0.0, 10.0, 10.0, 0.0),
+                                    Rect(10.0, 10.0, 0.0, 0.0)], ids=["vline", "hline", "point"])
+@pytest.mark.parametrize("bounds", [Rect(0.0, 0.0, 20.0, 20.0), Rect(15.0, 0.0, 10.0, 10.0)],
+                         ids=["covering", "beside"])
+def test_the_envelope_oracle_measures_a_zero_extent_region_by_distance(region, bounds):
+    """A target region with no extent (a line or a point) grounds by distance in the resolver,
+    and `Rect.intersects` never sees zero area: without the oracle's own allowance the property
+    test above reports a correct grounding as out of envelope. Every case failed before it."""
+    target = TargetSnapshot(source=TargetSource.GAZE, timestamp_s=T0, confidence=1.0,
+                            space=SPACE, point=None, bounds=region)
+    cand = SemanticCandidate(source=SemanticSourceKind.ACCESSIBILITY, entity_id="a",
+                             role="button", captured_at_s=T0, confidence=1.0, space=SPACE,
+                             bounds=bounds)
+    policy = ResolutionPolicy(envelope_expansion_px=25.0)
+    result = TargetResolver(policy).resolve(target, [cand], now_s=T0)
+    assert result.outcome is GroundingOutcome.GROUNDED  # the premise: the resolver grounds it
+    assert _in_envelope(target, result.candidate, policy)

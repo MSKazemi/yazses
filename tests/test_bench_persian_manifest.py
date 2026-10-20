@@ -409,7 +409,7 @@ def test_tokenisation_is_stated_in_the_metrics_module(metrics):
 def test_scoring_normalisation_never_reaches_product_code():
     """Metrics-only: no module under src/ may import the evaluation normalizer."""
     offenders = [
-        str(p.relative_to(ROOT))
+        p.relative_to(ROOT).as_posix()
         for p in (ROOT / "src").rglob("*.py")
         if "persian_metrics" in p.read_text(encoding="utf-8")
     ]

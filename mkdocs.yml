@@ -404,6 +404,7 @@ nav:
           - Accessibility & throughput: design/accessibility-and-throughput-spec.md
           - CI/CD audit: design/ci-cd-audit.md
           - Troubleshooting review: design/troubleshooting-full-review.md
+          - macOS quit and first-run permissions: design/macos-quit-and-first-run-permissions.md
           - White paper authoring standard: design/white-paper-authoring-standard.md
       - Mobile (in design):
           - Overview: mobile/index.md

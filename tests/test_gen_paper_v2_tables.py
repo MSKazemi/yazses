@@ -139,11 +139,11 @@ def test_the_script_holds_no_typed_result_numbers():
 
 
 def test_robustness_data_equals_the_artifacts_for_every_engine_and_every_run():
-    rows = {r["engine"]: r for r in _csv_rows((GENERATED / "robustness.csv").read_text())}
-    a = json.loads((RESULTS / "probes/wer-matrix.json").read_text())["result"]["models"]
-    b = json.loads((RESULTS / "probes/wer-vm-clean.json").read_text())["result"]["models"]
-    h2 = json.loads((RESULTS / "wer-test-other.json").read_text())["models"]
-    log = (RESULTS / "probes/logs/x86b-other_wer.log").read_text()
+    rows = {r["engine"]: r for r in _csv_rows((GENERATED / "robustness.csv").read_text(encoding="utf-8"))}
+    a = json.loads((RESULTS / "probes/wer-matrix.json").read_text(encoding="utf-8"))["result"]["models"]
+    b = json.loads((RESULTS / "probes/wer-vm-clean.json").read_text(encoding="utf-8"))["result"]["models"]
+    h2 = json.loads((RESULTS / "wer-test-other.json").read_text(encoding="utf-8"))["models"]
+    log = (RESULTS / "probes/logs/x86b-other_wer.log").read_text(encoding="utf-8")
     h1 = {
         m.group(1): float(m.group(2))
         for m in re.finditer(r"^\[wer\] (\S+): WER=([\d.]+)%", log, re.M)
@@ -162,11 +162,11 @@ def test_robustness_data_equals_the_artifacts_for_every_engine_and_every_run():
 
 def test_contradictory_runs_are_both_shown_not_one_selected():
     """large-v3 hard: 4.86 (log) vs 7.69 (JSON); the table must carry the span, and so must the data."""
-    hard = (GENERATED / "hard_asr.tex").read_text()
+    hard = (GENERATED / "hard_asr.tex").read_text(encoding="utf-8")
     assert re.search(r"large-v3\}[^&]*& 3\.23--3\.41 & 4\.86--7\.69 &", hard)
-    clean = (GENERATED / "clean_asr.tex").read_text()
+    clean = (GENERATED / "clean_asr.tex").read_text(encoding="utf-8")
     assert "3.41 (A) vs 3.23 (B)" in clean
-    lv3 = _csv_rows((GENERATED / "largev3_repeats.csv").read_text())
+    lv3 = _csv_rows((GENERATED / "largev3_repeats.csv").read_text(encoding="utf-8"))
     other = [r for r in lv3 if r["split"] == "test-other"]
     assert len(other) == 2 + 4 + 5 + 3  # matrix x2, probe x4, determinism baseline x5, arms x3
     assert {r["substitutions"] for r in other if r["substitutions"]} == {"87"}
@@ -176,7 +176,7 @@ def test_contradictory_runs_are_both_shown_not_one_selected():
 
 
 def test_every_platform_runner_directory_is_a_column(tree):
-    rows = _csv_rows((GENERATED / "platform_wer.csv").read_text())
+    rows = _csv_rows((GENERATED / "platform_wer.csv").read_text(encoding="utf-8"))
     on_disk = {p.name for p in (RESULTS / "platforms").iterdir() if p.is_dir()}
     assert {r["runner"] for r in rows} == on_disk
     # the omission is noticed: a fifth runner appears, it is not silently dropped
@@ -189,7 +189,7 @@ def test_every_platform_runner_directory_is_a_column(tree):
 
 
 def test_platform_table_carries_the_equal_aggregate_unequal_output_caveat():
-    tex = (GENERATED / "platform_wer.tex").read_text()
+    tex = (GENERATED / "platform_wer.tex").read_text(encoding="utf-8")
     rows = {
         m.group(1): m.group(0)
         for m in re.finditer(r"^\\texttt\{(\S+?)\} & .*\\\\$", tex, re.M)
@@ -201,11 +201,11 @@ def test_platform_table_carries_the_equal_aggregate_unequal_output_caveat():
 
 
 def test_conditioning_rows_equal_the_artifacts():
-    rows = _csv_rows((GENERATED / "conditioning.csv").read_text())
+    rows = _csv_rows((GENERATED / "conditioning.csv").read_text(encoding="utf-8"))
     by = {(r["checkpoint"], r["split"]): r for r in rows}
     assert len(by) == len(gen.CONDITIONING)
     for ckpt, split, rel in gen.CONDITIONING:
-        arms = json.loads((ROOT / rel).read_text())["arms"]
+        arms = json.loads((ROOT / rel).read_text(encoding="utf-8"))["arms"]
         want = [x["wer"] for x in arms["baseline"]["runs"]]
         assert float(by[(ckpt, split)]["on_min"]) == min(want)
         assert float(by[(ckpt, split)]["on_max"]) == max(want)
@@ -222,20 +222,20 @@ def test_conditioning_rows_equal_the_artifacts():
 
 
 def test_conditioning_table_carries_the_paired_interval_not_just_the_point_gain():
-    tex = (GENERATED / "conditioning.tex").read_text()
-    arms = json.loads((RESULTS / gen.LV3_ARMS.removeprefix("paper/results/")).read_text())
+    tex = (GENERATED / "conditioning.tex").read_text(encoding="utf-8")
+    arms = json.loads((RESULTS / gen.LV3_ARMS.removeprefix("paper/results/")).read_text(encoding="utf-8"))
     lo, hi = arms["comparisons"]["no_context"]["delta_wer_ci95"]
     assert f"[$-${abs(lo):.2f}, +{hi:.2f}]" in tex
     assert "does not establish a mean-WER improvement" in tex
 
 
 def test_onset_cells_flag_exactly_the_artifacts_uncorrected_significant_comparisons():
-    sig = json.loads((RESULTS / "onset-significance.json").read_text())
+    sig = json.loads((RESULTS / "onset-significance.json").read_text(encoding="utf-8"))
     flagged = [d for d in sig["distinct"] if d["significant_runs"] == d["runs"]]
-    tex = (GENERATED / "onset_heatmap.tex").read_text()
+    tex = (GENERATED / "onset_heatmap.tex").read_text(encoding="utf-8")
     assert tex.count("$^\\dagger$") - 1 == len(flagged)  # minus the legend's own marker
     assert str(sig["bonferroni_alpha"]) in tex
-    data = _csv_rows((GENERATED / "onset_heatmap.csv").read_text())
+    data = _csv_rows((GENERATED / "onset_heatmap.csv").read_text(encoding="utf-8"))
     assert len(data) == 20
     # the multiplicity interpretation: no cell survives the corrected threshold
     assert all(r["survives_bonferroni"] in ("", "False") for r in data)
@@ -245,8 +245,8 @@ def test_onset_cells_flag_exactly_the_artifacts_uncorrected_significant_comparis
 
 
 def test_streaming_table_reports_the_artifacts_numbers_and_its_contention_caveat(tree):
-    doc = json.loads((RESULTS / "streaming.json").read_text())
-    rows = {r["checkpoint"]: r for r in _csv_rows((GENERATED / "streaming.csv").read_text())}
+    doc = json.loads((RESULTS / "streaming.json").read_text(encoding="utf-8"))
+    rows = {r["checkpoint"]: r for r in _csv_rows((GENERATED / "streaming.csv").read_text(encoding="utf-8"))}
     assert set(rows) == set(doc["models"])
     for name, m in doc["models"].items():
         assert float(rows[name]["batch_median_s"]) == m["batch_speech_end_to_text_s"]["median"]
@@ -254,7 +254,7 @@ def test_streaming_table_reports_the_artifacts_numbers_and_its_contention_caveat
             float(rows[name]["streaming_final_median_s"])
             == m["streaming_speech_end_to_final_s"]["median"]
         )
-    assert "may be inflated by a contended host" in (GENERATED / "streaming.tex").read_text()
+    assert "may be inflated by a contended host" in (GENERATED / "streaming.tex").read_text(encoding="utf-8")
     # the caveat is derived, not hard-wired: a quiet host drops it
     _edit_json(
         tree / "paper/results/streaming.json", lambda d: d["provenance"].update(load_average_1m=0.5)
@@ -263,9 +263,9 @@ def test_streaming_table_reports_the_artifacts_numbers_and_its_contention_caveat
 
 
 def test_ami_rows_equal_the_artifacts_and_unrecorded_values_are_not_invented():
-    tex = (GENERATED / "ami_diarization.tex").read_text()
+    tex = (GENERATED / "ami_diarization.tex").read_text(encoding="utf-8")
     for rel in (gen.AMI_SHIPPED, gen.AMI_CAP_05, gen.AMI_12, gen.AMI_CAP_12):
-        d = json.loads((ROOT / rel).read_text())
+        d = json.loads((ROOT / rel).read_text(encoding="utf-8"))
         s = d.get("result", d)["summary"]
         assert f"{s['der_strict']:.2f}" in tex
     old = [ln for ln in tex.splitlines() if ln.startswith("Threshold 0.5")]
@@ -273,17 +273,17 @@ def test_ami_rows_equal_the_artifacts_and_unrecorded_values_are_not_invented():
         "probe rows record no time-weighted DER"
     )
     assert "26.71" in tex and "27.37" in tex and "29.32" in tex
-    paired = (GENERATED / "ami_paired.tex").read_text()
+    paired = (GENERATED / "ami_paired.tex").read_text(encoding="utf-8")
     assert "no difference the sample can resolve" in paired
 
 
 def test_threshold_series_cover_every_swept_threshold_and_agree_where_they_overlap():
-    rows = _csv_rows((GENERATED / "threshold_domain.csv").read_text())
+    rows = _csv_rows((GENERATED / "threshold_domain.csv").read_text(encoding="utf-8"))
     synth = {
         float(r["cluster_threshold"]): r for r in rows if r["corpus"] == "synthetic TTS meetings"
     }
-    first = json.loads((RESULTS / "probes/sweep.json").read_text())["result"]
-    wide = json.loads((RESULTS / "probes/synth-sweep-wide.json").read_text())["result"]["sweep"]
+    first = json.loads((RESULTS / "probes/sweep.json").read_text(encoding="utf-8"))["result"]
+    wide = json.loads((RESULTS / "probes/synth-sweep-wide.json").read_text(encoding="utf-8"))["result"]["sweep"]
     assert set(synth) == {p["threshold"] for p in first} | {p["cluster_threshold"] for p in wide}
     corpora = {r["corpus"] for r in rows}
     assert corpora == {
@@ -321,7 +321,7 @@ def test_check_fails_on_a_hand_edited_generated_file(tree, capsys):
     out = tree / "gen"
     assert gen.main(["--root", str(tree), "--out-dir", str(out)]) == 0
     target = out / "streaming.tex"
-    target.write_text(target.read_text().replace("1.377", "1.000"), encoding="utf-8")
+    target.write_text(target.read_text(encoding="utf-8").replace("1.377", "1.000"), encoding="utf-8")
     assert gen.main(["--root", str(tree), "--out-dir", str(out), "--check"]) == 1
 
 
@@ -371,7 +371,7 @@ def test_two_sweeps_that_disagree_on_one_threshold_stop_the_generator(tree):
 
 
 def test_an_unparseable_hard_run_log_is_an_error_not_a_silently_missing_run(tree):
-    (tree / "paper/results/probes/logs/x86b-other_wer.log").write_text("nothing here\n")
+    (tree / "paper/results/probes/logs/x86b-other_wer.log").write_text("nothing here\n", encoding="utf-8")
     with pytest.raises(gen.GenError):
         gen.build_all(tree)
 

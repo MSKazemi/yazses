@@ -151,14 +151,14 @@ def _rapl(root: Path, name: str, start: int | None, max_range: int | None = 1000
     d = root / name
     d.mkdir(parents=True)
     if start is not None:
-        (d / "energy_uj").write_text(f"{start}\n")
+        (d / "energy_uj").write_text(f"{start}\n", encoding="utf-8")
     if max_range is not None:
-        (d / "max_energy_range_uj").write_text(f"{max_range}\n")
+        (d / "max_energy_range_uj").write_text(f"{max_range}\n", encoding="utf-8")
     return d
 
 
 def _set(d: Path, value: int) -> None:
-    (d / "energy_uj").write_text(f"{value}\n")
+    (d / "energy_uj").write_text(f"{value}\n", encoding="utf-8")
 
 
 def test_rapl_delta_in_joules(cm, tmp_path) -> None:
@@ -262,10 +262,10 @@ def _bat(root: Path, name: str = "BAT0", *, energy: int = 50_000_000,
          status: str = "Discharging", kind: str = "Battery", with_energy: bool = True) -> Path:
     d = root / name
     d.mkdir(parents=True)
-    (d / "type").write_text(kind + "\n")
-    (d / "status").write_text(status + "\n")
+    (d / "type").write_text(kind + "\n", encoding="utf-8")
+    (d / "status").write_text(status + "\n", encoding="utf-8")
     if with_energy:
-        (d / "energy_now").write_text(f"{energy}\n")
+        (d / "energy_now").write_text(f"{energy}\n", encoding="utf-8")
     return d
 
 
@@ -273,7 +273,7 @@ def test_battery_discharge_in_joules(cm, tmp_path) -> None:
     d = _bat(tmp_path, energy=50_000_000)
     p = cm.BatteryProbe(tmp_path)
     p.begin()
-    (d / "energy_now").write_text("49999000\n")
+    (d / "energy_now").write_text("49999000\n", encoding="utf-8")
     out = p.end()
     assert out["energy_joules"] == pytest.approx(1000 * 3.6e-3)  # 1000 uWh = 3.6 J
     assert out["batteries"]["BAT0"]["energy_now_start_uwh"] == 50_000_000
@@ -284,8 +284,8 @@ def test_battery_not_discharging_is_null(cm, tmp_path, status) -> None:
     d = _bat(tmp_path)
     p = cm.BatteryProbe(tmp_path)
     p.begin()
-    (d / "status").write_text(status + "\n")
-    (d / "energy_now").write_text("49000000\n")
+    (d / "status").write_text(status + "\n", encoding="utf-8")
+    (d / "energy_now").write_text("49000000\n", encoding="utf-8")
     out = p.end()
     assert out["energy_joules"] is None and "not discharging" in out["reason"]
 
