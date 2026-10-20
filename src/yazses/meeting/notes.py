@@ -490,6 +490,7 @@ def notes_unavailable_reason(
     utterances=None,
     model_exists=None,
     have_llama=None,
+    hint: str | None = None,
 ) -> str | None:
     """Why minutes cannot be generated, or None when they can. Pure by injection.
 
@@ -509,7 +510,8 @@ def notes_unavailable_reason(
     config key, and a path that does not exist cannot be fixed by setting the path again.
 
     ``model_exists`` and ``have_llama`` are injected so this is testable without a 4 GB
-    GGUF or the `notes` extra; both default to a real probe. `find_spec` is used rather
+    GGUF or the `notes` extra; both default to a real probe. ``hint`` (the install
+    command for this install) likewise defaults to ``system/remedy.install_hint``. `find_spec` is used rather
     than an import because importing llama_cpp costs seconds and loads native code, which
     is far too much for a question asked before any work starts.
     """
@@ -534,9 +536,17 @@ def notes_unavailable_reason(
 
         have_llama = importlib.util.find_spec("llama_cpp") is not None
     if not have_llama:
+        # Not `features enable llm-cleanup`, although it installs the same package:
+        # that switches on LLM rewriting of every dictation. `remedy.install_hint`
+        # names the command for this install (it was `uv sync --extra notes`, which
+        # does nothing outside a source checkout).
+        if hint is None:
+            from yazses.system.remedy import install_hint
+
+            hint = install_hint("notes")
         return (
-            "The local notes model needs llama-cpp-python, which is not installed. "
-            "Install it with `uv sync --extra notes`."
+            "The local notes model needs llama-cpp-python, which is not installed."
+            + (f" {hint}" if hint else "")
         )
     if model_exists is None:
         from pathlib import Path

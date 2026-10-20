@@ -1,6 +1,6 @@
 """What enabling a feature will actually download (ADR-018).
 
-`yazses features enable voiceprint` resolves `speechbrain` to torch and the whole
+`yazses features enable cocktail --force` resolves `speechbrain` to torch and the whole
 NVIDIA CUDA stack -- on a CPU-only, offline dictation tool. Nothing told the user
 that before the download started. This module supplies the number.
 

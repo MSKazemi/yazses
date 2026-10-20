@@ -1,8 +1,8 @@
 """Speaker-embedder factory (dormancy + graceful degradation).
 
 ``build_embedder`` returns ``None`` when ``[voiceprint] enabled = false`` (dormant)
-or when the optional ``voiceprint`` extra (speechbrain / resemblyzer) is not
-installed — callers treat ``None`` as "no voiceprint available" and stay dormant,
+or when the selected backend's library (speechbrain / resemblyzer) is not
+installed — :func:`unavailable_message` says which, and what to run — callers treat ``None`` as "no voiceprint available" and stay dormant,
 so nothing crashes and no model downloads unless explicitly enabled (ADR-011).
 """
 from __future__ import annotations
@@ -12,6 +12,41 @@ import logging
 from yazses.voiceprint.base import SpeakerEmbedder
 
 log = logging.getLogger(__name__)
+
+#: The YazSes extra that ships each backend. They are alternatives behind different
+#: extras, so a remedy must name the one for the backend the user selected.
+BACKEND_EXTRAS: dict[str, str] = {
+    "ecapa": "voiceprint",
+    "resemblyzer": "voiceprint-resemblyzer",
+}
+
+
+def unavailable_message(config, cfg=None) -> str:
+    """Why `build_embedder` returned ``None`` for *config*, and what to do — one line.
+
+    Two different causes used to share one sentence that blamed a missing extra and
+    told the user to ``uv sync`` the voiceprint extra (a source-checkout command):
+    ``[voiceprint]`` simply being off, and the backend's library being absent. The
+    remedy for the second comes from :func:`yazses.system.remedy.install_hint`, with
+    the Cocktail Filter as the capability whose registry entry installs speechbrain.
+    """
+    if not getattr(config, "enabled", False):
+        return (
+            "`[voiceprint] enabled` is false. Set `[voiceprint] enabled = true` in "
+            "config.toml, then run `yazses enroll-voice`."
+        )
+    backend = getattr(config, "backend", "ecapa")
+    extra = BACKEND_EXTRAS.get(backend)
+    if extra is None:
+        return (
+            f"`[voiceprint] backend = {backend!r}` is not a known backend; use "
+            f"{' or '.join(repr(b) for b in BACKEND_EXTRAS)}."
+        )
+    from yazses.system.remedy import install_hint
+
+    hint = install_hint(extra, feature="cocktail", cfg=cfg)
+    head = f"The {backend!r} voiceprint backend could not load"
+    return f"{head}. {hint}" if hint else f"{head}; see the log above for why."
 
 
 def build_embedder(config) -> SpeakerEmbedder | None:
@@ -53,11 +88,11 @@ def _unavailable_detail(backend: str, exc: Exception) -> str:
         from yazses.system.backends import probe_backend
 
         adapters = {
-            "ecapa": ("yazses.voiceprint.ecapa", ("speechbrain",), "voiceprint"),
+            "ecapa": ("yazses.voiceprint.ecapa", ("speechbrain",), BACKEND_EXTRAS["ecapa"]),
             "resemblyzer": (
                 "yazses.voiceprint.resemblyzer_backend",
                 ("resemblyzer",),
-                "voiceprint-resemblyzer",
+                BACKEND_EXTRAS["resemblyzer"],
             ),
         }
         if backend in adapters:

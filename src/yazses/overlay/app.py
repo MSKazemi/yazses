@@ -33,10 +33,22 @@ from yazses.overlay.position import place_centered, place_fixed, place_near_curs
 
 log = logging.getLogger(__name__)
 
-_MISSING_PYSIDE_MSG = (
-    "The overlay needs PySide6. Install the extra:\n"
-    "    uv sync --extra overlay      # or: pip install 'yazses[overlay]'"
-)
+_MISSING_PYSIDE_MSG = "The overlay needs PySide6, which is not installed."
+
+
+def _missing_pyside_message() -> str:
+    """:data:`_MISSING_PYSIDE_MSG` plus the install command for *this* install.
+
+    It was a hard-coded ``uv sync`` of the overlay extra, which does nothing outside
+    a source checkout; ``system/remedy.py`` derives the command instead.
+    """
+    try:
+        from yazses.system.remedy import install_hint
+
+        hint = install_hint("desktop", feature="overlay")
+    except Exception:  # noqa: BLE001 - the refusal must reach the log regardless
+        hint = ""
+    return f"{_MISSING_PYSIDE_MSG} {hint}" if hint else _MISSING_PYSIDE_MSG
 
 # State-only mode shows a steady, strong pulse while recording.
 _STATE_ONLY_INTENSITY = 0.8
@@ -132,7 +144,7 @@ def run() -> None:  # pragma: no cover - thin Qt shell around compute_frame
 
         from yazses.overlay.widget import SonarWidget
     except ImportError:
-        log.error(_MISSING_PYSIDE_MSG)
+        log.error(_missing_pyside_message())
         sys.exit(1)
 
     from yazses.platform import get_platform
