@@ -159,7 +159,11 @@ found defects that no amount of reading the code here would have surfaced.
 - [@fall-water-zxc](https://github.com/fall-water-zxc) — Windows 11 showcase entry:
   dictation into Notepad, the browser, the terminal and VS Code, with a laptop's
   built-in microphone and not sitting close to it
-  ([#328](https://github.com/MSKazemi/yazses/pull/328)); also see
+  ([#328](https://github.com/MSKazemi/yazses/pull/328)); the Discord profile
+  `examples/config.discord.toml`, run end to end in Discord web on Windows 11 with a check
+  that its hotkey clears Discord's own keybinds
+  ([#228](https://github.com/MSKazemi/yazses/issues/228) →
+  [#590](https://github.com/MSKazemi/yazses/pull/590)); also see
   **Testing & field reports** above
 - [@Guruharishb](https://github.com/Guruharishb) — native-speaker review of the Tamil
   page (`docs/ta/index.md`), extending it well past a wording pass to full parity with

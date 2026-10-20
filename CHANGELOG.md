@@ -6,6 +6,15 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — `examples/config.discord.toml`, a Windows 11 profile for Discord
+
+A hold-to-talk setup for Discord (`right_ctrl`, `auto` injection, which is SendInput on Windows), contributed by
+[@fall-water-zxc](https://github.com/fall-water-zxc) ([#590](https://github.com/MSKazemi/yazses/pull/590), closes
+[#228](https://github.com/MSKazemi/yazses/issues/228)). Run end to end on Windows 11 with YazSes 2.42.0 and a built-in
+microphone: dictation into a Discord web channel and a DM arrived intact, and `right_ctrl` clashes with neither
+Discord's Push to Talk nor its overlay keybind. The desktop app, Linux and macOS are unverified, and the file says so.
+`scripts/check-app-profile.py` passes for all 20 profiles.
+
 ## [2.43.2] - 2026-10-18
 
 ### Fixed — the gaze grounding resolver grounded a candidate with no extent (property-test counterexample)
