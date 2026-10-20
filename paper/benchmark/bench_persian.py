@@ -35,7 +35,6 @@ from collections.abc import Callable
 from pathlib import Path
 from types import SimpleNamespace
 
-import jiwer
 from persian_manifest import ManifestError, load_manifest
 from persian_metrics import (
     EVAL_NORMALIZER_VERSION,
@@ -96,6 +95,10 @@ def score_pairs(
         )
     if not references:
         raise ValueError("nothing to score: empty manifest")
+    # Imported here, not at module scope: the CLI's argument and manifest refusals
+    # (`--audio-root` without `--manifest`, a missing licence) must be reachable where the
+    # benchmark group is not installed, e.g. the FreeBSD leg. Only scoring needs jiwer.
+    import jiwer
 
     # Only an empty *reference* is dropped. An empty hypothesis against a real
     # reference is the engine's failure and must count (jiwer scores it as 100%
