@@ -231,6 +231,25 @@ def test_whisper_mode_keeps_its_lowered_gate_untouched() -> None:
     assert d._acoustic is None and d._injector.texts == ["hello world"]
 
 
+def test_a_raised_gate_is_not_whisper_mode_to_the_speech_presence_check(monkeypatch) -> None:
+    """The #598 check exempts Whisper Mode by comparing the gate to the configured one.
+
+    A gate the profile raised differs from the configured one too, and must not be read as
+    Whisper Mode: a flat burst loud enough to clear the raised gate still gets asked whether
+    it holds speech, and a detector that finds none still keeps it from being typed.
+    """
+    from yazses.audio import speech_presence
+
+    monkeypatch.setattr(speech_presence, "_default_detector", lambda _audio, _sr: True)
+    d = _daemon(enabled=True)
+    burst = _noise(2.0, 0.004)
+    _hold(d, burst)
+    room = d._handle_status(None)["acoustic"]
+    assert room["scene"] == "noisy" and room["gate"] > GATE           # the profile raised it
+    assert float(np.abs(burst).mean()) >= room["gate"]                # and the burst cleared it
+    assert d._engine.calls == 0 and d._injector.texts == []           # the #598 check still ran
+
+
 def _fake_platform(tmp_path, payload):
     import types
 

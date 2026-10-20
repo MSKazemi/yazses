@@ -537,7 +537,9 @@ scene tagger, no denoise switching and no `acoustic` extra are involved. The 1.5
 engineering clamps chosen so the gate cannot take speech away; they were not tuned on recorded rooms, so how often the
 noisy scene fires in real use is unknown. `tests/test_acoustic_scene.py` sweeps the owner's microphone range (speech
 0.003-0.005 against gates 0.0005-0.0024 and rooms 0.0001-0.002) to show the profile never drops a burst the configured
-gate keeps; `tests/test_acoustic_gate.py` covers the daemon off and on.
+gate keeps; `tests/test_acoustic_gate.py` covers the daemon off and on. A gate the profile raised is not read as Whisper
+Mode by the speech-presence check (#598), so a flat burst loud enough to clear the raised gate is still checked for
+speech.
 
 ### Fixed — the hands-free window now corrects itself when it turns out too narrow (Windows run, round two)
 

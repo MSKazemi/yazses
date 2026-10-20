@@ -2674,10 +2674,13 @@ class Daemon:
             # Whisper answers a burst of fan noise with the words it was primed with, and
             # those would be typed. Fails open; exempt in the modes built for voices a
             # general detector under-hears. Metrics only in the log, never audio or text.
+            # Whisper Mode is read from `configured_gate` (the gate before Acoustic Context
+            # Profiles), not from `acc`: a profile-raised gate is not Whisper Mode and must
+            # not exempt the burst from this check.
             wm_cfg = self._config.whispermode
             if speech_check_applies(
                 enabled=acc.speech_presence_check,
-                whisper_mode=acc.vad_threshold != self._config.accessibility.vad_threshold,
+                whisper_mode=configured_gate != self._config.accessibility.vad_threshold,
                 dysfluency_friendly=acc.dysfluency_friendly,
                 sotto_voce=wm_cfg.enabled and wm_cfg.command_channel,
             ) and holds_no_speech(padded, sample_rate):
