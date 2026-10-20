@@ -242,7 +242,7 @@ a guard that silently stops protecting on a whole display server is worse than n
 | `emg/backend.py` | `EMGBackend` — `HotkeyBackend` over USB CDC serial YESP protocol (v0.4.0); requires `pyserial` optional dep |
 | `linux/` | evdev hotkey, LinuxInjector (xdotool/ydotool/wtype/clipboard), systemd lifecycle, Unix socket IPC |
 | `macos/` | CGEventTap hotkey, MacosInjector (CGEvent Unicode), launchd lifecycle, rumps tray, `pointer.py` (`MacosPointerSink` over CoreGraphics) |
-| `windows/` | WH_KEYBOARD_LL hotkey, WindowsInjector (SendInput UTF-16), named-pipe IPC, pystray tray, `pointer.py` (`WindowsPointerSink` over SendInput mouse events) |
+| `windows/` | WH_KEYBOARD_LL hotkey, WindowsInjector (SendInput UTF-16), named-pipe IPC, pystray tray, `pointer.py` (`WindowsPointerSink` over SendInput mouse events), `update_handoff.py` (`WindowsUpdateLauncher`: the `UpdateLauncher` Protocol — a detached `-EncodedCommand` PowerShell job that waits for YazSes to exit, re-checks the installer's SHA-256, runs the silent in-place upgrade or the choco/winget/scoop command, records the exit code and relaunches YazSes either way; ADR-027) |
 
 ### `src/yazses/cameraperm/` (EYE-PERM-001, #414 — camera permission + packaging contract)
 
@@ -608,6 +608,7 @@ Host-side helpers and the CLI-facing config/diagnostics surface (no daemon neede
 | `vocabulary.py` | Personal dictionary at `~/.config/yazses/vocabulary.txt`. `load_vocab`/`add_vocab`/`remove_vocab`/`vocab_path` back `yazses vocab`; the daemon merges these words into Whisper's `initial_prompt` every dictation |
 | `single_instance.py` | `SingleInstanceLock` — one-daemon guard (`daemon.lock`) preventing duplicate daemons (double-typing) |
 | `updater.py` | `check_update`/`run_upgrade` backing `yazses update` (snap channel / PyPI by install method) |
+| `installer_update.py` | One-click Windows update ([ADR-027](adr/adr-027-one-click-windows-update.md)). Pure: pick the installer asset for the machine's arch from the release JSON, allowlist `github.com/MSKazemi/yazses/releases/download/` URLs and redirects, parse `SHA256SUMS.txt`, gate on strictly newer. I/O: capped, deadline-bound download verified by SHA-256 before anything runs. Then builds an `UpdateHandoff` for the platform's `UpdateLauncher` and reports the result on the next start by the version actually running. ADR-019 FETCH |
 | `pid.py` | PID-file management at `~/.local/share/yazses/daemon.pid` |
 | `backends.py` | `probe_backend`/`BackendStatus` — honest availability reporting for lazily-imported, pluggable backends. Distinguishes "the optional dependency is missing" (installing the named extra fixes it) from "the adapter was never shipped in this build" (nothing can fix it), so a factory never sends users after an extra that cannot supply the backend. Used by `denoise/frontend.py`, `voiceprint/factory.py`, `recimport/factory.py` |
 

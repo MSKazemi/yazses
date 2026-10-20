@@ -30,7 +30,7 @@ from yazses.tray.menu import (
     icon_spec,
     status_from_model,
 )
-from yazses.tray.updates import describe_update
+from yazses.tray.updates import describe_update, pending_update_report
 
 log = logging.getLogger(__name__)
 
@@ -125,8 +125,7 @@ class WindowsTray:
             _notify(icon, "YazSes", "Checking for updates…")
 
             def _work() -> None:
-                title, body = describe_update()
-                _notify(icon, title, body)
+                _run_update(icon, _notify)
 
             threading.Thread(target=_work, name="tray-update-check", daemon=True).start()
 
@@ -180,9 +179,22 @@ class WindowsTray:
             tooltip[:_TOOLTIP_MAX],
             menu,
         )
+        def _setup(icon) -> None:  # noqa: ANN001
+            # pystray's default setup only shows the icon; this also reports, once, what
+            # the last one-click update did — the job that ran it could not tell anyone,
+            # because YazSes had to be closed for it to run (ADR-027).
+            icon.visible = True
+
+            def _report() -> None:
+                message = pending_update_report(_update_launcher())
+                if message is not None:
+                    _notify(icon, *message)
+
+            threading.Thread(target=_report, name="tray-update-report", daemon=True).start()
+
         log.info("Launching pystray tray (blocks the calling thread)")
         try:
-            self._icon.run()
+            self._icon.run(setup=_setup)
         finally:
             if self._on_quit is not None:
                 self._on_quit()
@@ -233,6 +245,85 @@ class WindowsTray:
                     self._icon.stop()
                 except Exception:
                     log.exception("Tray stop raised")
+
+
+def _update_launcher():
+    """The Windows update launcher. Built here rather than through `get_platform()`,
+    which would construct the hotkey and IPC stacks just to answer a menu click."""
+    from yazses.platform.windows.update_handoff import WindowsUpdateLauncher
+
+    return WindowsUpdateLauncher()
+
+
+def confirm_dialog(title: str, text: str) -> bool:
+    """A native Yes/No box. Anything but an explicit *Yes* — including a failure to show
+    the box at all — answers False: nothing is downloaded without that click."""
+    try:
+        import ctypes
+
+        mb_yesno, mb_iconquestion, mb_setforeground, mb_topmost, idyes = (
+            0x4, 0x20, 0x10000, 0x40000, 6,
+        )
+        user32 = getattr(ctypes, "windll").user32
+        answer = user32.MessageBoxW(
+            None, text, title, mb_yesno | mb_iconquestion | mb_setforeground | mb_topmost
+        )
+        return int(answer) == idyes
+    except Exception:
+        log.warning("could not show the update confirmation", exc_info=True)
+        return False
+
+
+#: Seconds the "closing to install" balloon stays up before the icon (and with it the
+#: balloon) goes away. The update job waits for this process anyway.
+_HANDOFF_NOTICE_S = 4.0
+
+
+def _run_update(icon, notify, *, launcher=None, confirm=None, sleep=None) -> None:  # noqa: ANN001
+    """Check → confirm → download → verify → install → relaunch, from one click.
+
+    Where the one-click path does not apply (no update, no network, a method without
+    it), this is exactly the old behaviour: `describe_update` reports, and opens the
+    download page when there is nothing to run. Where it applies and fails, the user
+    is told why, the download page is opened, and YazSes keeps running.
+    """
+    import time
+
+    from yazses.system.installer_update import confirmation_prompt, one_click_supported
+    from yazses.system.updater import RELEASES_URL
+    from yazses.tray.updates import check_updates, run_one_click
+
+    status = check_updates()
+    launcher = launcher if launcher is not None else _update_launcher()
+    if not one_click_supported(status, launcher):
+        notify(icon, *describe_update(status=status))
+        return
+    try:
+        title, prompt = confirmation_prompt(status)
+    except Exception:
+        notify(icon, *describe_update(status=status))
+        return
+    if not (confirm or confirm_dialog)(title, prompt):
+        notify(icon, "YazSes", "Update skipped. Check for updates again whenever you like.")
+        return
+
+    def _progress(message: str, fraction) -> None:  # noqa: ANN001
+        # Stage changes only: a balloon per 10 % would replace itself faster than it
+        # can be read.
+        if fraction is None:
+            notify(icon, "YazSes", message)
+
+    result = run_one_click(status, launcher, progress=_progress)
+    if result.ok:
+        notify(icon, result.title, result.message)
+        (sleep or time.sleep)(_HANDOFF_NOTICE_S)
+        # Quit → `on_quit` sends the daemon `shutdown`; the update job is waiting for
+        # both processes to exit before it starts the installer.
+        icon.stop()
+        return
+    opened = open_link(RELEASES_URL)
+    tail = "Opening the download page." if opened else f"Download page: {RELEASES_URL}"
+    notify(icon, result.title, f"{result.message}\n{tail}")
 
 
 def open_link(url: str) -> bool:

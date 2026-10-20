@@ -84,8 +84,15 @@ detected.
 
 === "Windows"
 
-    There is no command that upgrades the installer channel — the upgrade **is** a
-    download. Get the current `YazSes-<version>-windows-<arch>.exe` from the
+    Since the one-click update ([ADR-027](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-027-one-click-windows-update.md)),
+    tray → *Check for updates…* or `yazses update --yes` downloads the installer,
+    verifies it and installs it for you. The notification on the next start says
+    whether the version really moved. If it did not, it gives the reason (a declined
+    administrator prompt, a cancelled install, an installer exit code) and the log
+    path, `%TEMP%\yazses-update\update.log`.
+
+    The way out that always works is still a download. Get the current
+    `YazSes-<version>-windows-<arch>.exe` from the
     [releases page](https://github.com/MSKazemi/yazses/releases/latest) and run it. It
     upgrades in place and keeps your settings and models.
 

@@ -274,6 +274,29 @@ split fixture is a real nod.
   `tests/test_every_extra_has_an_install_path.py` fails when an extra exists that no feature installs
   and no stated exemption explains.
 
+### Added — one-click update on Windows ([ADR-027](design/adr/adr-027-one-click-windows-update.md))
+
+On Windows, tray → *Check for updates…* and `yazses update` used to stop at "download the newest `.exe` and
+run it". They now finish the job after one confirmation. YazSes downloads the installer for this machine's
+architecture from the GitHub release. It accepts only a URL under
+`https://github.com/MSKazemi/yazses/releases/download/` and follows redirects only to GitHub's https asset
+hosts. The download has a size cap and a timeout. YazSes checks the file's SHA-256 against the release's
+`SHA256SUMS.txt` before anything runs, and deletes the file and refuses on a mismatch. YazSes then closes and
+a detached job runs the installer silently as an in-place upgrade (no uninstall). The job checks the hash
+once more first, then starts YazSes again. Chocolatey, winget and Scoop installs run their own upgrade
+command the same way. Chocolatey asks for administrator rights. On the next start the tray reports, once,
+whether the version actually moved. Any failure leaves YazSes running and shows the manual steps.
+`yazses update --yes` performs the update without asking, and `--check` only describes it. Nothing is
+downloaded in the background: the optional update-check notifier is unchanged.
+
+The installer is **not code-signed yet**. The checksum proves the file is the one the release published
+(integrity), not who built it (authenticity). Authenticode signing is the remaining step. A new `UpdateLauncher`
+platform Protocol keeps the Windows parts in `platform/windows/update_handoff.py`.
+`system/installer_update.py` is registered as a FETCH in ADR-019. `installer.iss` now states
+`CloseApplications=yes` and adds `.pyd` to `CloseApplicationsFilter`. Covered offline by
+`tests/test_one_click_windows_update.py`. It has **not yet been run on a real Windows machine**: ADR-027 lists
+what a Windows tester must verify.
+
 ### Fixed — the eye-control CI matrix lost its macOS leg to a new Homebrew Python ([#424](https://github.com/MSKazemi/yazses/issues/424))
 
 From 2026-10-17, every macOS leg of `eye-eval-ci.yml` failed in `uv sync`, before the evaluation ran. The step
