@@ -494,14 +494,14 @@ def test_failure_reasons(code, needle):
 
 
 def test_read_handoff_result_reports_once(tmp_path):
-    (tmp_path / iu.PENDING_NAME).write_text(json.dumps({"from": "1.0", "to": "1.1"}))
+    (tmp_path / iu.PENDING_NAME).write_text(json.dumps({"from": "1.0", "to": "1.1"}), encoding="utf-8")
     (tmp_path / iu.RESULT_NAME).write_text("\ufeff0\r\n", encoding="utf-8")
     assert iu.read_handoff_result(tmp_path, "1.1")[0] == "YazSes updated"
     assert iu.read_handoff_result(tmp_path, "1.1") is None
 
 
 def test_a_job_still_running_is_not_called_failed(tmp_path):
-    (tmp_path / iu.PENDING_NAME).write_text(json.dumps({"from": "1.0", "to": "1.1", "started": 100}))
+    (tmp_path / iu.PENDING_NAME).write_text(json.dumps({"from": "1.0", "to": "1.1", "started": 100}), encoding="utf-8")
     assert iu.read_handoff_result(tmp_path, "1.0", now=lambda: 200.0) is None
     assert (tmp_path / iu.PENDING_NAME).exists()
     late = iu.read_handoff_result(tmp_path, "1.0", now=lambda: 100 + 3600.0)
@@ -510,7 +510,7 @@ def test_a_job_still_running_is_not_called_failed(tmp_path):
 
 def test_no_pending_record_reports_nothing(tmp_path):
     assert iu.read_handoff_result(tmp_path, "1.0") is None
-    (tmp_path / iu.PENDING_NAME).write_text("{corrupt")
+    (tmp_path / iu.PENDING_NAME).write_text("{corrupt", encoding="utf-8")
     assert iu.read_handoff_result(tmp_path, "1.0") is None
 
 
