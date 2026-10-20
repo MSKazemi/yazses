@@ -100,12 +100,22 @@ def should_notify(status, notified_version: str) -> bool:
 def notification(status) -> tuple[str, str]:
     """``(summary, body)`` for the desktop toast announcing an available update."""
     from yazses import branding
-    from yazses.system.updater import manual_update_steps
+    from yazses.system.installer_update import ONE_CLICK_METHODS as ONE_CLICK_TRAY_METHODS
+    from yazses.system.updater import RELEASES_URL, manual_update_steps
 
     summary = f"{branding.APP_NAME} {status.latest} is available"
     lines = [f"You're running {status.current}."]
     command = list(getattr(status, "command", None) or [])
-    if command:
+    if getattr(status, "method", "") in ONE_CLICK_TRAY_METHODS:
+        # The Windows channels install from the tray in one click (ADR-027). Listing the
+        # download-and-run steps here sent people to do by hand what one click does.
+        # The tray line comes first: a Windows balloon is trimmed from the end.
+        lines.append(
+            "Install it from the tray: Check for updates… — YazSes downloads, checks and "
+            "installs it, then starts again by itself."
+        )
+        lines.append(f"Or by hand: {RELEASES_URL}")
+    elif command:
         lines.append(f"Update with:  {' '.join(command)}")
     else:
         steps = list(getattr(status, "steps", None) or []) or manual_update_steps(status.method)

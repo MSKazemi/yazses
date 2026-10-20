@@ -292,16 +292,24 @@ command the same way, but only once that manager's own feed carries the new vers
 `winget show`, `scoop info`). Chocolatey asks for administrator rights. On the next start the tray reports,
 once, whether the version actually moved. Any failure leaves YazSes running and shows the manual steps.
 `yazses update --yes` performs the update without asking, and `--check` only describes it. Nothing is
-downloaded in the background: the optional update-check notifier is unchanged.
+downloaded in the background. The optional, off-by-default update-check notifier (`yazses features enable
+update-check`) now tells a Windows user to install from the tray's *Check for updates…* instead of listing
+download-and-run steps.
 
 Limits, all on purpose:
 
 - An **all-users** install is not updated by one click. Doing so would run a file from your temp folder with
-  administrator rights. It gets the manual steps.
+  administrator rights. It gets the manual steps, and the tray's message says to run the installer from the
+  releases page and that it upgrades in place, with nothing to uninstall.
 - If YazSes has not closed within 5 minutes (for example, a meeting still being saved), **nothing is
   installed**; YazSes is never force-closed.
 - Two clicks cannot run two updates at once.
-- With the tray running, `yazses update` points you to the tray's own entry, which closes YazSes cleanly.
+- `yazses update` works while the tray is running. The tray autostarts at sign-in, so refusing there would
+  have meant refusing almost every time. The update job also waits for the tray's process, and the tray
+  closes itself when it sees an update another process started (`pending.json` in the staging folder), then
+  stops the daemon on its way out, so the daemon is not respawned under the installer. A tray that does not
+  close within 5 minutes means nothing is installed. The same helper (`tray.updates.hand_off_outside_tray`)
+  is what a Settings-window button would call.
 
 The **MSIX** package is now detected as its own install method (`msix`), with Microsoft Store / App
 Installer steps. Previously it was treated as the `.exe` install and pointed at an installer that would have
@@ -315,8 +323,17 @@ platform Protocol keeps the Windows parts in `platform/windows/update_handoff.py
 `system/installer_update.py` is registered as a FETCH and `platform/windows/update_handoff.py` as a
 SHELL_OUT in ADR-019. `installer.iss` now states
 `CloseApplications=yes` and adds `.pyd` to `CloseApplicationsFilter`. Covered offline by
-`tests/test_one_click_windows_update.py`. It has **not yet been run on a real Windows machine**: ADR-027 lists
-what a Windows tester must verify.
+`tests/test_one_click_windows_update.py`. A new advisory CI job, `windows-update-handoff` in `test.yml`, runs
+the real detached PowerShell job on `windows-latest` (`scripts/check_windows_update_handoff.py`). It uses the
+real `WindowsUpdateLauncher`, the real HKCU uninstall-key read and a fake release on 127.0.0.1 that answers 415
+to a wrong `Accept` header, as GitHub does. A compiled stand-in installer records its arguments. The job checks
+that the job waits for YazSes to exit, re-checks the hash, passes the in-place switches, records the exit code
+and relaunches, for a good, a failing, a tampered and a stuck update, in paths with a space, an apostrophe and
+non-ASCII letters. It has not run yet; it becomes blocking after three green pushes to `main`. It does not
+cover the real Inno installer, UAC, DNS/TLS or GitHub's redirects; ADR-027's manual checklist still does.
+
+Also fixed: after a uv, pipx or pip upgrade, `yazses update` told every user to run `systemctl --user restart
+yazses`, which does not exist on Windows or macOS. It now says `yazses restart`.
 
 ### Fixed — the eye-control CI matrix lost its macOS leg to a new Homebrew Python ([#424](https://github.com/MSKazemi/yazses/issues/424))
 

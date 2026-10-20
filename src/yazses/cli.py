@@ -4155,7 +4155,9 @@ def update(
     outcome = run_upgrade_checked(status)
     if outcome.ok:
         typer.echo(f"\nUpdated to {outcome.after}. Restart the daemon to load it:")
-        typer.echo("  systemctl --user restart yazses   # or: yazses stop && yazses start")
+        # `yazses restart`, not `systemctl --user`: this branch is the uv/pipx/pip path,
+        # which runs on Windows and macOS too, where systemctl does not exist.
+        typer.echo("  yazses restart")
         return
     if outcome.code != 0:
         typer.echo(f"\nUpgrade command exited with code {outcome.code}.", err=True)
@@ -4200,7 +4202,6 @@ def _one_click_update(status, launcher, *, check: bool, yes: bool) -> None:
         RELEASE_DOWNLOAD_PREFIX,
         one_click_offer,
         package_manager_argv,
-        start_one_click_update,
     )
 
     offer = one_click_offer(status, launcher)
@@ -4233,38 +4234,32 @@ def _one_click_update(status, launcher, *, check: bool, yes: bool) -> None:
         typer.echo("\n(--check) Not installing. Re-run without --check to update.")
         return
 
-    tray = _running_tray_pid()
-    if tray is not None:
-        # The installer would have to force-close the tray, and nothing here can ask it
-        # to quit. The tray's own entry closes everything cleanly (ADR-027).
-        typer.echo(
-            "The YazSes tray is running. Use its Check for updates… entry, which closes "
-            "YazSes cleanly before installing, or quit the tray and run "
-            "`yazses update` again.",
-            err=True,
-        )
-        raise typer.Exit(1)
-
     if not yes and not typer.confirm(
         "Install it now? YazSes will close and start again by itself.", default=True
     ):
         typer.echo("Skipped.")
         return
 
-    from yazses.tray.updates import update_wait_pids
-
-    pids = update_wait_pids()
+    from yazses.tray.updates import hand_off_outside_tray
 
     def _progress(message: str, fraction) -> None:
         typer.echo(f"  {message}")
 
-    result = start_one_click_update(status, launcher, wait_pids=pids, progress=_progress)
+    # A running tray is waited for, not refused: it closes itself when it sees the
+    # hand-off, and stops the daemon on its way out (ADR-027). The tray autostarts at
+    # sign-in, so refusing here made `yazses update` refuse almost every time.
+    result = hand_off_outside_tray(
+        status,
+        launcher,
+        tray_pid=_running_tray_pid,
+        request_daemon_shutdown=_request_daemon_shutdown,
+        progress=_progress,
+    )
     if not result.ok:
         typer.echo(f"\n{result.message}", err=True)
         _echo_steps(result.steps)
         raise typer.Exit(1)
     typer.echo(f"\n{result.message}")
-    _request_daemon_shutdown()
 
 
 def _running_tray_pid() -> int | None:
