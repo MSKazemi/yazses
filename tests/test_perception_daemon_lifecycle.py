@@ -84,8 +84,13 @@ def built(monkeypatch: pytest.MonkeyPatch):
     # It exports the injector choice as process env vars, which is not this file's subject
     # and which the suite's env-leak guard rightly refuses to see left behind.
     monkeypatch.setattr(inject_auto, "apply_injection_config", lambda injection: None)
+    # The hotkey is stubbed for the same reason as the injector: it is not this file's
+    # subject, and the real one is an OS listener -- on FreeBSD it imports `evdev`, which
+    # the advisory leg does not have, so all five daemon tests failed there.
     platform = dataclasses.replace(
-        get_platform(), injector_factory=lambda: types.SimpleNamespace(name="stub")
+        get_platform(),
+        injector_factory=lambda: types.SimpleNamespace(name="stub"),
+        hotkey_factory=lambda *args: types.SimpleNamespace(run=lambda: None, stop=lambda: None),
     )
     monkeypatch.setattr(platform.lifecycle, "clear_pid", lambda: None)
     made: list[Daemon] = []
