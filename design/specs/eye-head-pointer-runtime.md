@@ -135,7 +135,12 @@ Status should expose:
 - global safety state tests;
 - daemon reachability through the real `_build_pipeline()`
   (`tests/test_headpointer_reachability.py`). The import-closure honesty test alone cannot show that the
-  daemon builds a runner.
+  daemon builds a runner;
+- **state-transition coverage** (`tests/test_headpointer_state_matrix.py`, #405): a matrix
+  derived from the controller's `State` enum (every ordered pair of held states stacked and
+  unwound; close, recenter and dwell toggling from every state), plus a Hypothesis model that
+  checks the no-motion, settling-frame, arming and shown-before-firing invariants after every
+  step of any sample/control sequence. A new `State` without a matrix row fails the test.
 
 ## Hardware gate
 

@@ -69,6 +69,34 @@ Ten of the twelve tests fail against the mutant above. A second guard covers "no
 import the shared source, the camera, landmark derivation, the gaze or face-switch packages, or use dynamic imports.
 The existing guard banned OpenCV and MediaPipe only by name.
 
+### Tests — every Head-Pointer state, every way in and out, on a fake clock ([#405](https://github.com/MSKazemi/yazses/issues/405))
+
+Tests only. No source changed: `src/yazses/headpointer/controller.py`, `runtime.py` and the
+`yazses headpointer` commands already met EYE-HEAD-002's behaviour criteria (pause/resume,
+recenter, dwell on/off, dwell progress shown before a click, no click on recovery, a clutch).
+The last criterion, "all state transitions have fake-clock/unit coverage", could not be shown
+by the existing hand-picked traces. The new `tests/test_headpointer_state_matrix.py` covers it
+two ways:
+
+- **A matrix derived from the `State` enum.** Every ordered pair of held states (a pending,
+  denied or unavailable permission, a fault, a lost signal, a closed gate, a pause, a clutch)
+  is entered, stacked and unwound. Each tick asserts the state word and that the pointer did
+  nothing while anything was held. Release asserts one settling frame, then motion. Close
+  (from every state), recenter and dwell on/off (in every state) get their own rows. A state
+  added later without a row fails the test.
+- **A model-based property.** Hypothesis generates sequences of samples (fresh, stale,
+  repeated, low-confidence, from the future, missing, held still on a slow or a normal camera)
+  mixed with every control. A small oracle checks every step: no motion or click while
+  anything forbids it, only a settling frame after any interruption, no click with dwell off,
+  no click without travel past the radius, and no click unless progress was shown on an
+  earlier sample. A seeded replay of the same checker must meet clicks (including slow-camera
+  clicks), motion and every state, so a green run is not a checker that saw nothing.
+
+Each rule was checked against an in-memory mutation of the controller: dropping the settling
+frame, the brink rule, dwell arming, pause, signal-loss reset or the dwell switch each failed
+at least one new test. Skipping the quiesce on clutch *release* stayed green. That quiesce is
+redundant: every sample taken under a held clutch already quiesces.
+
 ### Fixed — the eye-control CI matrix lost its macOS leg to a new Homebrew Python ([#424](https://github.com/MSKazemi/yazses/issues/424))
 
 From 2026-10-17, every macOS leg of `eye-eval-ci.yml` failed in `uv sync`, before the evaluation ran. The step
