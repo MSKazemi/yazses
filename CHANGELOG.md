@@ -145,6 +145,25 @@ Settings no longer formats the profile row inside Qt slots. The choices, the sta
 download/install question come from a Qt-free view-model, `settingsui/language_view.py`. That module reads the
 profile registry, so Settings offers exactly what `yazses language list` lists.
 
+### Added — the Wayland gaze target is a cited capability model, and "close this" on Wayland is refused out loud ([#418](https://github.com/MSKazemi/yazses/issues/418))
+
+The 2026-10-15 change defined a Wayland gaze target as *none*. This change adds the evidence and turns it into data.
+`gaze/target_capabilities.py` is the platform matrix: for X11, GNOME Wayland, KDE Wayland, other Wayland
+compositors and headless sessions, it records what an ordinary client gets for screen position, other windows'
+geometry and focus. Pointer injection is listed separately. Each answer cites the protocol documentation or
+toolkit source it comes from (`design/specs/eye-wayland-gaze-target.md`). A gaze target needs all three target
+capabilities as plain `yes`. A path that only one compositor offers (KWin scripting, a GNOME Shell extension,
+wlroots IPC) never counts, and a granted Remote Desktop pointer permission is never read, so neither can become a
+default requirement. `yazses gaze status`, `yazses doctor` and `yazses status` now print the session's row next to
+the `Gaze target` line.
+
+Fixed with it: on Wayland, no gaze targeter is ever built. A command-mode "close this" or "focus that" therefore fell
+through every handler and was discarded as unmatched. Nothing was closed, but nothing was said, so it looked like a
+misrecognition. Where the session cannot have a gaze target, the phrase is now consumed, nothing is acted on, and a
+notification says why. This does not depend on `[gaze] refuse_destructive_fallback`, because the focused window is
+never a stand-in for a target that cannot exist. Not verified: the GNOME and KDE findings come from documentation and
+toolkit source. They were not observed on live sessions, and the spec lists the checks still owed.
+
 ### Fixed — the eye-control CI matrix lost its macOS leg to a new Homebrew Python ([#424](https://github.com/MSKazemi/yazses/issues/424))
 
 From 2026-10-17, every macOS leg of `eye-eval-ci.yml` failed in `uv sync`, before the evaluation ran. The step

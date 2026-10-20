@@ -24,7 +24,7 @@ Scales:
 | R-12 | Facial commit moves head pointer at same time | M/H | Medium | freeze pointer during gesture interval | #407 |
 | R-13 | Talking itself triggers mouth-open switch | H | Medium/High | calibrated gesture definition; trace + field testing; choose safe defaults | #406, #409 |
 | R-14 | Blink mapping conflicts with natural blink | H | High | never default; advanced opt-in; evidence gate | #406 |
-| R-15 | Wayland portal pointer works but gaze cannot focus target window | M | High | separate target-semantics design; explicit fallback | #418 |
+| R-15 | Wayland portal pointer works but gaze cannot focus target window | M | High | separate target-semantics design; explicit fallback. Mitigated 2026-10-20: [capability model and matrix](../specs/eye-wayland-gaze-target.md), with gaze commands refused on Wayland; live GNOME/KDE check owed | #418 |
 | R-16 | HiDPI coordinate spaces mismatch | H | Medium | canonical logical/physical coordinate spec + tests | ADR-v2-149 + #415 |
 | R-17 | Multi-monitor gaze target crosses wrong display | H | Medium | per-display geometry and topology-bound calibration | ADR-v2-149 + #415 |
 | R-18 | Accessibility defaults cause fatigue/neck strain | H | Unknown | adjustable gain/deadzone/dwell; user study; no recommendation without review | #411 + #419 |

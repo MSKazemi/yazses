@@ -5428,7 +5428,7 @@ class Daemon:
         """
         targeter = self._gaze_targeter
         if targeter is None:
-            return False
+            return self._deixis_without_gaze_target(phrase, event)
         try:
             from yazses.gaze.deixis import parse_deixis, requires_confirm
         except Exception:
@@ -5476,6 +5476,40 @@ class Daemon:
         else:
             log.info("Deixis %r unsupported by the desktop backend; ignored.",
                      intent.action)
+        return True
+
+    def _deixis_without_gaze_target(self, phrase: str, event: dict) -> bool:
+        """A deixis phrase with no targeter: say so when the *session* cannot name a window.
+
+        #418. On Wayland (and on X11 without xdotool) no targeter is ever built, and the
+        phrase used to fall through to the other handlers and be discarded as unmatched --
+        nothing closed, but nothing said either, so "close this" looked like a
+        misrecognition. Where the session plan says a gaze target cannot exist, the phrase is
+        consumed, nothing is acted on (the focused window is not a stand-in for a target that
+        cannot exist), and the user is told why. Any other reason for a missing targeter (the
+        feature off, no calibration yet) keeps the old behaviour: not consumed.
+        """
+        if not getattr(self._config.gaze, "enabled", False):
+            return False
+        try:
+            from yazses.gaze.deixis import parse_deixis
+            from yazses.gaze.target_semantics import DestructiveDeixis, describe_gaze_target
+
+            intent = parse_deixis(phrase)
+            if intent is None:
+                return False
+            plan = describe_gaze_target()
+        except Exception:  # noqa: BLE001 - a probe must not break a hold-release
+            log.debug("Deixis: session gaze-target plan unavailable", exc_info=True)
+            return False
+        if plan.destructive_deixis is not DestructiveDeixis.REFUSE:
+            return False
+        event["intent_type"] = "deixis"
+        event["intent_action"] = intent.action
+        event["discard_reason"] = "deixis_no_gaze_target"
+        log.info("Deixis %r refused: no gaze target on %s (%s).",
+                 intent.action, plan.session, plan.reason)
+        self._deixis_cannot_act(intent, f"No window can be picked by gaze here: {plan.reason}.")
         return True
 
     def _deixis_cannot_act(self, intent, feedback: str | None) -> None:

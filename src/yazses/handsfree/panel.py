@@ -446,6 +446,9 @@ def merge_facts(static: HandsFreeFacts, live: HandsFreeFacts | None) -> HandsFre
         ),
         gaze_target_reason=live.gaze_target_reason or static.gaze_target_reason,
         gaze_target_remedy=live.gaze_target_remedy or static.gaze_target_remedy,
+        gaze_target_capabilities=(
+            live.gaze_target_capabilities or static.gaze_target_capabilities
+        ),
         safety_configured=live.safety_configured or static.safety_configured,
         safety_window_ms=(
             live.safety_window_ms if live.safety_window_ms is not None else static.safety_window_ms

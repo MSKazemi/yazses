@@ -149,6 +149,7 @@ def gaze_target_facts(
         gaze_target_available=plan.available,
         gaze_target_reason=plan.reason,
         gaze_target_remedy=plan.remedy,
+        gaze_target_capabilities=plan.capability_summary,
     )
 
 

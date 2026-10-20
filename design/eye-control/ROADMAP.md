@@ -527,6 +527,17 @@ reason, and `gaze status`, `doctor`, `status` and the settings panel print it. A
 AT-SPI exposes on real GNOME and KDE Wayland sessions, and whether a supported focus path exists -- is not
 investigated, so no supported target path and no platform matrix from measurements exist yet.
 
+**Delivered 2026-10-20 (desk research, fakes only):** the capability model and the platform matrix.
+`gaze/target_capabilities.py` records, per session, whether an ordinary client gets screen position, other windows'
+geometry, focus, and pointer injection (kept separate), and cites the protocol docs and toolkit source for each
+answer. A target requires all three target capabilities as plain `yes`, so a compositor-specific path (KWin
+scripting, a GNOME Shell extension, wlroots IPC) can never become a default requirement. Where no target can exist,
+a gaze command such as "close this" is refused with a notification and never sent to the focused window. The
+matrix, the findings and the remaining hardware check are in
+[`design/specs/eye-wayland-gaze-target.md`](../specs/eye-wayland-gaze-target.md). **Still owed:** observing the
+GNOME and KDE refusals on live sessions. The only candidate supported path (KDE, via KWin scripting) is a separate
+opt-in child, not part of #418.
+
 ### X6 — Accessibility co-design and fatigue (#419)
 
 Use structured field reports before recommending defaults.

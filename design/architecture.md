@@ -821,6 +821,7 @@ an internal design note.
 | `modality/router.py` | Modality Role Router | v2-011 |
 | `continuum/whisper_mode.py` | Accessibility Continuum (Whisper Mode) | v2-012 |
 | `gaze/route.py` | Gaze-Routed Dictation | v2-010 |
+| `gaze/target_capabilities.py`, `gaze/target_semantics.py` | Gaze-target semantics per session (#418): the pure platform matrix (screen position, other windows' geometry, focus; pointer injection kept separate and never read), the derivation "a target needs all three as plain `yes`", and the plan's `dictation_route` / `destructive_deixis`. Where no target can exist (every Wayland session), `Daemon._deixis_without_gaze_target` refuses gaze commands with feedback. Spec: `design/specs/eye-wayland-gaze-target.md` | v2-010, v2-146, v2-148 |
 | `bridge/` (session, frame) | Glasses↔Desktop Bridge | v2-013 |
 
 ### Daemon integration points (`core/daemon.py`)
