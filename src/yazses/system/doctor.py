@@ -2043,12 +2043,19 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
             from importlib.util import find_spec
 
             has_bleak = find_spec("bleak") is not None
+            if has_bleak:
+                ble_detail = cfg.emg.ble_address
+            else:
+                from yazses.system.remedy import install_hint
+
+                ble_detail = (
+                    f"{cfg.emg.ble_address} — bleak is not installed, so nothing will "
+                    f"connect. {install_hint('ble')}"
+                ).rstrip()
             checks.append((
                 "EMG BLE address",
                 "OK" if has_bleak else "WARN",
-                cfg.emg.ble_address if has_bleak else
-                f"{cfg.emg.ble_address} — bleak is not installed, so nothing will "
-                f"connect. Install it with: pip install 'yazses[ble]'",
+                ble_detail,
             ))
         prosody = _prosody_check(cfg.prosody.enabled)
         if prosody is not None:

@@ -673,8 +673,9 @@ yazses enroll    # calibrate the mic/VAD thresholds to your voice
 
 Records a short sample of your voice, computes a speaker embedding, and stores it
 **encrypted on this machine** (never leaves it). Needed by Cocktail Filter and
-Voiceprint Mind. Requires `[voiceprint] enabled = true` and the voiceprint extra
-(`uv sync --extra voiceprint`). Run once; re-run to re-enroll.
+Voiceprint Mind. Requires `[voiceprint] enabled = true` and the speaker-embedding
+library (`yazses features enable cocktail --force` installs it; if it is missing the
+command prints the exact install step for your setup). Run once; re-run to re-enroll.
 
 ```bash
 yazses enroll-voice    # record a sample → save your speaker voiceprint
@@ -2221,7 +2222,7 @@ aren't *you* before transcription. Enroll once (`yazses enroll-voice`), then:
 
 ```toml
 [voiceprint]
-enabled = true             # speaker embedder (uv sync --extra voiceprint)
+enabled = true             # speaker embedder (installed by `features enable cocktail`)
 [cocktail]
 enabled = true             # mode = "gate" (P1); "suppress" (P2) is gated on a model
 target_threshold = 0.6     # higher = stricter "is this me?"

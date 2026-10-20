@@ -1525,15 +1525,18 @@ class Daemon:
         # Cocktail Filter / Voiceprint Mind: build the speaker embedder and load the
         # enrolled voiceprint when either feature is on (dormant/None otherwise).
         if cfg.cocktail.enabled or cfg.voiceprint.enabled:
-            from yazses.voiceprint.factory import build_embedder
+            from yazses.voiceprint.factory import build_embedder, unavailable_message
             from yazses.voiceprint.store import load_voiceprint
 
             self._embedder = build_embedder(cfg.voiceprint)
             self._voiceprint = self._load_voiceprint_vector()
             if self._embedder is None:
+                # Not always a missing library: Cocktail Filter on with `[voiceprint]`
+                # off lands here too, and was told to install an extra it already had.
                 log.warning(
-                    "Voiceprint enabled but the `voiceprint` extra is missing; "
-                    "Cocktail Filter stays dormant (uv sync --extra voiceprint)."
+                    "No speaker embedder, so Cocktail Filter and voiceprint features "
+                    "stay dormant. %s",
+                    unavailable_message(cfg.voiceprint, cfg),
                 )
             elif self._voiceprint is None:
                 log.warning("No enrolled voiceprint yet; run `yazses enroll-voice`.")

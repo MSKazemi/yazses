@@ -6,6 +6,38 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — "install it with…" messages name a command that works on your install, and `yazses update` recognises a uv tool under a custom `UV_TOOL_DIR`
+
+Eight user-facing messages told end users to run `uv sync --extra <x>` (or
+`pip install 'yazses[x]'`), which only does anything inside a source checkout: the
+tray, the settings window and the overlay when PySide6 is missing, `yazses
+enroll-voice` and its `--help`, the daemon's Cocktail Filter warning, `yazses meeting
+notes`, the BLE armband backend and its `doctor` row. Two more named capabilities that
+do not exist — `yazses features enable voiceprint` (`meeting enroll`) and `yazses
+features enable emg-band` (the BrainFlow source) — and answered "Unknown feature".
+All of them now take their remedy from one helper, `system/remedy.install_hint`: the
+point-of-need `yazses features install <slug>` when the capability is on and the
+feature registry says it ships those libraries, the refusal reason on a snap, a
+frozen `.app`/`.exe` or the system Python, and otherwise the command that installs
+into *this* environment and survives its next update (`uv tool install --with …`
+keeping the receipt's existing requirements, `pipx inject`, `uv sync --inexact` in a
+checkout). A hint never switches a capability on: installing PySide6 by enabling the
+overlay would also make it take keyboard focus on Wayland, and meeting notes'
+llama-cpp-python is not offered through `llm-cleanup`, which would rewrite every
+dictation. The voiceprint messages now also tell `[voiceprint] enabled = false` apart
+from a missing library, and name the extra of the backend actually selected.
+`tests/test_install_hints_are_for_end_users.py` scans every string literal under
+`src/` through the AST and fails on a new source-checkout hint (developer docstrings
+are allowlisted with reasons), on an `install_hint` call whose capability does not
+ship that extra, and on any `features enable|install <slug>` naming a slug that does
+not exist.
+
+`detect_install_method` recognised a uv tool install only by the path substrings
+`/uv/tools/` and `/uv/data/tools/`, so one under a custom `UV_TOOL_DIR` read as `pip`
+and `yazses update` told the user to `pip install --upgrade yazses`, which upgrades a
+different environment. It now checks for the `uv-receipt.toml` uv writes at the root
+of the running environment (`sys.prefix`), with the substrings kept as the fallback.
+
 ### Fixed — pushing a release tag no longer turns every open pull request red ([#602](https://github.com/MSKazemi/yazses/issues/602))
 
 The Windows packaging tests (Scoop, Chocolatey nuspec and install script, winget)

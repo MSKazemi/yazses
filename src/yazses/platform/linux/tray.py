@@ -52,10 +52,14 @@ class LinuxTray:
         try:
             from PySide6.QtCore import QObject, Signal
             from PySide6.QtWidgets import QApplication, QSystemTrayIcon
-        except ImportError as exc:  # pragma: no cover - PySide6 is a base dep
+        except ImportError as exc:  # pragma: no cover - PySide6 is the desktop extra
+            from yazses.system.remedy import install_hint
+
+            hint = install_hint("desktop", feature="tray")
             raise RuntimeError(
-                "The tray needs PySide6. Install it with `uv sync --extra overlay` "
-                "(or pip install 'yazses[overlay]'), or run the daemon without the tray."
+                "The tray needs PySide6, which is not installed. "
+                + (f"{hint}\n" if hint else "")
+                + "Or run the daemon without the tray."
             ) from exc
 
         from yazses.platform import get_platform
