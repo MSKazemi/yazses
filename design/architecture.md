@@ -356,6 +356,14 @@ pointer consumer therefore raises no second consent dialog. Capability is read f
 refused because `NotifyPointerMotionAbsolute` addresses a position inside a ScreenCast
 stream, which this session deliberately does not have.
 
+Sharing the session means sharing its one D-Bus connection between two threads: dictation
+types on the daemon's thread while the Head-Pointer moves on the perception thread. That
+connection is a `jeepney.io.blocking` one, whose `send` takes no lock, so every `Notify*`
+goes out through `_PortalSession._notify`, which holds `_send_lock` for one message (never
+across a keystroke's delay). The grant is gated on what the negotiation *asked* for, not on
+which consumers are still registered when `Start` returns. The keyboard's wire is held
+byte-identical with and without a pointer consumer by `tests/test_portal_shared_session_wire.py`.
+
 The X11 backend injects its display connection (`X11PointerConnection`), so the shared
 contract suite runs in CI with no display server, and it keeps the X11 dialect where it
 can be asserted on: button 1/2/3 for left/middle/right, buttons 4-7 for one wheel notch

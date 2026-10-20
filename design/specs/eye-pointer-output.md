@@ -126,7 +126,16 @@ Requirements:
 - no events before session permission;
 - refusal/unavailable is explicit;
 - pointer motion/button/axis D-Bus calls tested with fakes;
-- no `/dev/uinput` or privileged helper for portal path.
+- no `/dev/uinput` or privileged helper for portal path;
+- keyboard and pointer events share one connection, so sends are serialised one message
+  at a time across threads, and the keyboard's messages are byte-identical with or without
+  a pointer consumer on the session;
+- the pointer grant follows the `SelectDevices` mask that was sent, so a consumer that
+  leaves while the dialog is open does not discard a grant for the next one.
+
+Absolute motion stays unsupported on this backend: `NotifyPointerMotionAbsolute` takes a
+ScreenCast stream node id, and acquiring a stream would turn a keyboard/pointer grant into
+screen capture. Changing that needs a design decision first, not an implementation change.
 
 ## macOS backend
 
