@@ -27,6 +27,19 @@ gate closes is released at once. Only :data:`SAFE_ACTIONS` (pausing) bypass the 
 they can only move the system toward the stopped state. A *release* is never gated: refusing to
 close the microphone is the failure the gate exists to prevent.
 
+**A half-made gesture does not survive a stop or a re-arm** (#417, ADR-v2-148). The gate bumps a
+source's epoch on every entry into suppression and on every re-arm, and reports it once as
+``clear_pending``. :meth:`SwitchMapper.frame` reads the gate on every frame that carries a face
+(a faceless frame resets the hold count anyway) and returns True when
+that latch fired, so the camera loop drops each detector's half-accumulated hold frames
+(:meth:`~yazses.facegesture.detector.GestureSwitch.discard_pending`) *before* the frame is fed:
+a gesture begun before a Resume must be made anew, for its full ``min_hold_frames``, after it.
+A latch first seen by a press (no frame polled in between, as when a test calls :meth:`handle`
+directly) is kept for the next :meth:`frame` rather than lost, so the detectors are still cleared.
+The cut is at frame resolution: a Resume landing between one frame's poll and that same frame's
+detector update is not seen until the next frame. That window is the time between two calls in
+one loop iteration, not a camera frame interval.
+
 **Consequences are not decided here.** The handlers are injected and are the daemon's own
 entry points, which are themselves behind the existing confirmation policy
 (``activation/confirm.py``). This module carries no notion of "destructive" because it performs
@@ -231,6 +244,9 @@ class SwitchMapper:
         self._open: dict[str, int] = {}   # hold action -> gestures currently holding it
         self._freeze = False
         self._warned: set[str] = set()
+        #: The gate's one-shot ``clear_pending`` latch fired and the camera loop has not yet
+        #: been told to drop its detectors' half-made gestures (see :meth:`frame`).
+        self._pending_clear = False
 
     # ------------------------------------------------------------------ introspection
 
@@ -270,23 +286,38 @@ class SwitchMapper:
             return False
         return self._press(intent.gesture, action)
 
-    def frame(self, has_signal: bool) -> None:
-        """Called once per camera frame: report liveness, and drop holds if now suppressed.
+    def frame(self, has_signal: bool) -> bool:
+        """Called once per camera frame, *before* the frame reaches the detectors.
 
         Samples the gate only when the frame carried a face, so a camera that goes blind
         ages the source out (ADR-v2-148) instead of looking healthy. If the gate has closed
         since the last frame, every open hold is released *now*: pausing must not wait for
         the user to relax their face before the microphone closes.
+
+        Returns True when the source entered suppression or was re-armed since the previous
+        frame: the caller must then drop every detector's half-accumulated gesture
+        (``GestureSwitch.discard_pending``) before feeding this frame, so no activation can
+        complete from frames seen on the other side of a stop or a re-arm (#417). Without a
+        gate there is no such transition, and the answer is always False.
         """
         if self._gate is None:
-            return
+            return False
         try:
             if has_signal:
                 self._gate.sample(self._source)
-            if self._down and not self._allowed():
-                self.release_all()
+            # Asked on every frame that carries a face, not only while a hold is open: the
+            # latch is one-shot, so the frame that reads it is the boundary every half-made
+            # gesture is cut at. A frame with no face is not asked (unless a hold is open):
+            # it counts nothing towards a hold anyway, and asking would register the source
+            # with the gate before it had ever seen a face, changing what Resume reports.
+            if has_signal or self._down:
+                allowed = self._allowed()
+                if self._down and not allowed:
+                    self.release_all()
         except Exception:
             log.debug("face-switch: gate poll failed", exc_info=True)
+        cleared, self._pending_clear = self._pending_clear, False
+        return cleared
 
     def release_all(self) -> None:
         """Release every open hold (shutdown, suppression). Idempotent."""
@@ -299,6 +330,8 @@ class SwitchMapper:
         if self._gate is None:
             return True
         decision = self._gate.gate(self._source)
+        if getattr(decision, "clear_pending", False) is True:
+            self._pending_clear = True
         return bool(getattr(decision, "allowed", False))
 
     def _press(self, gesture: str, action: str) -> bool:
