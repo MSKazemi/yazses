@@ -132,7 +132,10 @@ Status should expose:
 - fake clock;
 - pause/recenter/recovery;
 - feature-wiring honesty tests;
-- global safety state tests.
+- global safety state tests;
+- daemon reachability through the real `_build_pipeline()`
+  (`tests/test_headpointer_reachability.py`). The import-closure honesty test alone cannot show that the
+  daemon builds a runner.
 
 ## Hardware gate
 

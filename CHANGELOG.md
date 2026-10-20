@@ -6,6 +6,32 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Tests — the Head-Pointer is proven reachable through the daemon, not only importable ([#404](https://github.com/MSKazemi/yazses/issues/404))
+
+Tests only. No source changed. The wiring EYE-HEAD-001 asks for was already on `main`: `HeadPoseSignal` from the
+shared camera source, through the controller and the pure `pose_to_cursor` mapping, to `PointerSink.move_relative`.
+The earlier tests checked each daemon builder on its own and checked the start order by reading source text. The
+registry's "wired" flag comes from an import closure. The daemon imports `yazses.headpointer` in four statements,
+and none of them is the line in `_build_pipeline` that builds the runtime. Replacing that line with `None` left the
+closure, and so the "wired" flag, unchanged, and the pointer never moved.
+
+`tests/test_headpointer_reachability.py` runs the daemon's real `_build_pipeline()` from `[headpointer] enabled =
+true` alone. Only the camera, the face model, the platform pointer and the clock are fakes. The tests show that:
+
+- the daemon builds the shared source and gives its own source, safety gate and `pointer_factory` to the
+  Head-Pointer;
+- a head turn moves the platform sink, and the pointer stops at the neutral pose;
+- losing the face, or a failing webcam, gives zero motion while dictation's engine and injector stay built;
+- with dwell-click on, there is no click on startup and none when the face returns, but a deliberate aim and rest
+  clicks exactly once (the positive control);
+- without the overlay, dwell-click is held off and cannot be forced on;
+- shutdown closes the pointer, then the camera.
+
+Ten of the twelve tests fail against the mutant above. A second guard covers "no camera logic inside
+`headpointer/`": the package may import only the perception data contract (`perception/signals.py`). It may not
+import the shared source, the camera, landmark derivation, the gaze or face-switch packages, or use dynamic imports.
+The existing guard banned OpenCV and MediaPipe only by name.
+
 ### Fixed — the eye-control CI matrix lost its macOS leg to a new Homebrew Python ([#424](https://github.com/MSKazemi/yazses/issues/424))
 
 From 2026-10-17, every macOS leg of `eye-eval-ci.yml` failed in `uv sync`, before the evaluation ran. The step
