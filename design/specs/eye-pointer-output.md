@@ -132,6 +132,13 @@ Requirements:
 
 Use supported native synthetic pointer API. Imports are platform guarded and fakeable.
 
+Post-event access (System Settings > Privacy & Security > Accessibility) is checked when the
+sink is **opened**, by the platform factory `build_macos_pointer_sink`, and again before each
+post until it is confirmed. A missing Quartz bridge is `PointerUnsupportedError`. A denial is
+`PointerBackendError`, because a grant plus a restart fixes it. Either way the Head-Pointer
+gets a status reason at build time, not a failure on the first head movement. The check uses
+`CGPreflightPostEventAccess`, which does not prompt.
+
 Camera permission is unrelated to pointer injection and remains separate.
 
 ## Windows backend

@@ -82,6 +82,13 @@ before you turn anything on, and any value you write yourself wins.
    your operating system may ask before a program uses the camera). Answer it; `yazses handsfree status`
    says when one is still waiting.
 
+   On macOS, moving the pointer needs the same **Accessibility** grant the dictation key uses. If it has
+   not been given, the Head-Pointer does not start, and `yazses headpointer status` says so when it is
+   enabled: *macOS has denied YazSes permission to post mouse events*, followed by the pane to open. Enable
+   YazSes in System Settings > Privacy & Security > Accessibility, then restart YazSes. macOS reads the
+   grant when a program starts. This macOS path has so far been tested only against a simulated macOS
+   layer, not on a real Mac.
+
 5. **Calibrate once** so the inputs are judged against *your* face and screen. Both are optional, and
    without them the plain thresholds are used and a log line says so:
 

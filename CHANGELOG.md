@@ -6,6 +6,28 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — a Mac without the Accessibility grant now says so when the Head-Pointer starts ([#402](https://github.com/MSKazemi/yazses/issues/402))
+
+The macOS and Windows `PointerSink` backends were already in place, and both pass the shared contract against
+fake OS layers. One gap remained on macOS. The platform bundle handed out the bare `MacosPointerSink` class as
+its `pointer_factory`, and constructing that class cannot fail. The Head-Pointer opens its sink at build time so
+that it can report a missing backend before it starts. On a Mac without post-event access, the sink opened
+anyway, and the user found out only when the first head movement raised an error.
+
+`pointer_factory` on macOS is now `build_macos_pointer_sink` in `src/yazses/platform/macos/pointer.py`. It loads
+Quartz and calls `CGPreflightPostEventAccess`, which does not prompt, before it returns a sink. A missing PyObjC
+Quartz bridge raises `PointerUnsupportedError`. A denial raises `PointerBackendError` with a shorter message
+that fits the Head-Pointer's 200-character status reason and still names the pane: *Enable YazSes in System
+Settings > Privacy & Security > Accessibility, then restart YazSes.* A bridge error while asking also raises
+`PointerBackendError`, so a caller only ever sees a `PointerError`. The confirmed grant is reused, so the first motion does
+not ask again. Eight new tests in `tests/test_pointer_macos.py` cover these cases. They include the platform
+wiring and an end-to-end `build_headpointer` run that asserts the user sees the reason.
+
+**Real-hardware validation is still owed.** Neither backend has run on a real Mac or Windows PC. Whether
+`CGPreflightPostEventAccess` reports the grant correctly for a bundled `.app` and for a terminal-launched
+daemon is unverified. So are click recognition without `kCGMouseEventClickState`, `SendInput` delivery under
+UIPI, and both scroll signs on hardware.
+
 ### Fixed — the eye-control CI matrix lost its macOS leg to a new Homebrew Python ([#424](https://github.com/MSKazemi/yazses/issues/424))
 
 From 2026-10-17, every macOS leg of `eye-eval-ci.yml` failed in `uv sync`, before the evaluation ran. The step

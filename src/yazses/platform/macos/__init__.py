@@ -18,7 +18,7 @@ def build_platform() -> Platform:
     from yazses.platform.macos.ipc import UnixSocketIpcClient, UnixSocketIpcServer
     from yazses.platform.macos.lifecycle import MacosLifecycle
     from yazses.platform.macos.permissions import MacosPermissions
-    from yazses.platform.macos.pointer import MacosPointerSink
+    from yazses.platform.macos.pointer import build_macos_pointer_sink
     from yazses.platform.macos.tray import MacosTray
 
     paths = build_paths()
@@ -39,7 +39,9 @@ def build_platform() -> Platform:
         ipc_client_factory=lambda socket_path: UnixSocketIpcClient(socket_path),
         tray_factory=MacosTray,
         tray_default_enabled=True,
-        pointer_factory=MacosPointerSink,
+        # The factory, not the bare class: it refuses at open time when Quartz is
+        # missing or post-event access is denied, so the Head-Pointer can say why.
+        pointer_factory=build_macos_pointer_sink,
     )
 
 
