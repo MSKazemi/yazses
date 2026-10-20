@@ -74,6 +74,23 @@ def test_a_new_attested_suffix_is_picked_up_without_editing_this_test(tmp_path, 
     assert mod.attested_suffixes(tmp_path) == {".pkg"}
 
 
+def test_a_multi_line_subject_path_contributes_every_line(tmp_path, mod):
+    """ADR-028 attests the `.yazpack` files and their index in one `|` block. Reading
+    only the `subject-path:` line itself would see `|` and derive nothing."""
+    (tmp_path / "packs.yml").write_text(
+        "jobs:\n  b:\n    steps:\n"
+        "      - uses: actions/attest-build-provenance@v2\n"
+        "        with:\n"
+        "          subject-path: |\n"
+        "            dist/packs/YazSes-*-pack-*.yazpack\n"
+        "            dist/packs/YazSes-*-packs.json\n"
+        "      - name: next step\n"
+        "        run: echo dist/other.zip\n",
+        encoding="utf-8",
+    )
+    assert mod.attested_suffixes(tmp_path) == {".yazpack", ".json"}
+
+
 # --- reading the published checksums --------------------------------------------------
 
 

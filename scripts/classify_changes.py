@@ -102,6 +102,9 @@ RULES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("assets/", (WINDOWS, PACKAGING)),
     ("scripts/gen-icons.py", (WINDOWS, PACKAGING)),
     ("scripts/build-windows.ps1", (WINDOWS, PACKAGING)),
+    # ADR-028 add-on packs: built by build-windows.yml, published with the release.
+    ("scripts/build-packs.py", (WINDOWS, PACKAGING, RELEASE)),
+    ("packaging/packs/", (WINDOWS, PACKAGING)),
     ("scripts/build-msix.ps1", (WINDOWS, PACKAGING)),
     ("scripts/render-chocolatey.py", (WINDOWS, PACKAGING, RELEASE)),
     # --- packaging channels and installers

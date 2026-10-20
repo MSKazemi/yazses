@@ -149,6 +149,31 @@ code side: every third-party import in `src/` must be declared somewhere
 an extra's module its `_FEATURE_DEPS` entry would not install
 (`tests/test_feature_imports_are_installable.py`).
 
+### Added — the Windows release builds feature add-on packs (ADR-028, build side of phases 0–1)
+
+A Windows `.exe` install cannot install a heavy feature's libraries. Today, turning on
+Parakeet there ends with "install YazSes from PyPI instead". ADR-028 adds downloadable
+add-on packs, and this change is the half that builds them. The new `scripts/build-packs.py`
+runs in `build-windows.ps1` after PyInstaller and before Inno. It builds one `.yazpack` for
+each extra that `packaging/packs/packs.toml` marks as a pack. In phase 1 those are
+`parakeet` and `diarization`. The script resolves from the same `uv.lock` and interpreter as
+the base, keeps only the distributions the base does not already freeze, and stamps each
+pack with the exact base build id. It then writes `YazSes-<v>-windows-<arch>-packs.json`,
+which lists each pack's SHA-256, and copies that index into the installer
+(`_internal/yazses-packs-index.json`). A pack is withheld, and the installer still ships,
+when it fails any of these checks: module, DLL-basename or distribution collision, a `.pth`
+that runs code, the 140-character path budget, the size ceiling, or a probe inside the
+frozen app. The job fails only if pack production changed a byte of the base bundle.
+`build-windows.yml` attests the packs and the index, then attaches them after the
+installer. `SHA256SUMS.txt`, `verify-release-assets.py` and `verify-provenance.py` now
+cover `.yazpack` and `-packs.json`, and `release-complete.yml` reads the published index to
+check that every pack is attached and checksummed. A manual workflow, `packs-spike.yml`,
+runs the phase 0 spike on a Windows runner and prints PASS/FAIL for each of ADR-028's four
+open risks. No user-visible change yet: a pack ships only once its frozen probe passes, and
+the runtime side that provides `yazses packs probe` is a separate change. Tests:
+`tests/test_build_packs.py` and `tests/test_checksums_cover_packs.py`. The spike workflow and
+the Windows build have not run on a hosted runner yet.
+
 ### Added — `ci-gate`, one stable check for branch protection to require ([#462](https://github.com/MSKazemi/yazses/issues/462))
 
 The Tests workflow reports about fifteen matrix check names, and those names change whenever a leg is
