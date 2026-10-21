@@ -99,7 +99,7 @@ reachable on a PyPI install, and all of them are off by default. Glance-Type gaz
 Face-Gesture Switch (`yazses features enable facegesture`) opens the mic while you hold
 a facial movement, for someone who can speak but cannot press a key. The Head-Pointer
 (`yazses features enable headpointer`) moves the cursor by head pose. Each command
-installs the same two optional packages, `mediapipe` and `opencv-contrib-python`.
+installs the same two optional packages, `mediapipe` and `opencv-python`.
 
 What differs here is the packaging, not the product. The Store package is a frozen
 PyInstaller bundle — `scripts/build-windows.ps1` syncs no camera extra (only `desktop`,

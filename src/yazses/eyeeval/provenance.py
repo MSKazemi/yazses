@@ -58,11 +58,8 @@ _WAYLAND_DESKTOPS = (("gnome", "wayland_gnome"), ("kde", "wayland_kde"), ("plasm
 
 #: Package versions worth recording next to an eye-control number. Only names -- the
 #: version string comes from the installed distribution, and a package that is absent is
-#: simply not listed rather than recorded as "0". Both OpenCV builds are listed: the
-#: `gaze` extra installs `opencv-contrib-python` (what mediapipe requires), and an
-#: `opencv-python` beside it -- left over from a 2.43.2-or-older install, or pulled
-#: in by another package -- shares the same `cv2/` files, so a result should say so.
-_RELEVANT_PACKAGES = ("mediapipe", "opencv-contrib-python", "opencv-python", "numpy", "yazses")
+#: simply not listed rather than recorded as "0".
+_RELEVANT_PACKAGES = ("mediapipe", "opencv-python", "numpy", "yazses")
 
 
 @dataclass(frozen=True)

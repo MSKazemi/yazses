@@ -64,28 +64,6 @@ file). No add-on has been released yet.
 Tested on Linux with synthetic add-on files and a text check of `installer.iss`. Not yet
 verified: compiling the installer, and a real per-user or all-users uninstall on Windows.
 
-### Fixed — the camera features installed OpenCV twice
-
-The `gaze` extra (and `features enable` for gaze, facegesture, headpointer, gesture and
-handsfree) declared `opencv-python`, while `mediapipe` 1.0.1, which the same features
-install, requires `opencv-contrib-python`. Both are separate distributions that write the
-same `cv2/` package, so every camera install downloaded OpenCV twice and `cv2` came from
-whichever installed last. The camera features now name `opencv-contrib-python`, the build
-mediapipe already requires. Contrib is a superset of the plain build, and YazSes calls only
-`VideoCapture` and `cvtColor`. The measured Linux x86_64 download for each camera feature
-drops from about 224 MB (13 distributions) to about 150 MB (12). The `all` extra makes the
-same change. A new test walks `uv.lock` for every extra and group on six platforms and fails
-if any install set holds two OpenCV builds.
-
-**If you installed a camera feature with 2.43.2 or older**, your environment has both builds.
-Removing the now-unneeded `opencv-python` (for example `uv sync` in a source checkout, or
-`pip uninstall opencv-python`) deletes `cv2` files that `opencv-contrib-python` also owns,
-and `cv2` stops working. Reinstall contrib afterwards to repair it:
-`pip install --force-reinstall --no-deps opencv-contrib-python`
-(or `uv pip install --reinstall-package opencv-contrib-python opencv-contrib-python`).
-The breakage and both repairs were reproduced with the 5.0.0.93 wheels in a Linux Python 3.12
-environment. Windows, macOS and `uv tool upgrade` were not tested.
-
 ### Added — add-on packs use YazSes's own ONNX Runtime (unreleased feature, ADR-028 M1)
 
 The Windows wheel of `sherpa-onnx-core`, which the diarization add-on needs, carries its own

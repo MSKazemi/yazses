@@ -80,7 +80,7 @@ before it fetches anything.
 | `stt-parakeet` | ~604 MB | 1 |
 | `read-back`, `readback_clone` (Kokoro TTS) | ~352 MB | 23 |
 | `overlay`, `tray` (Qt) | ~268 MB | 6 |
-| `gaze`, `facegesture` (mediapipe + OpenCV) | ~154 MB | 12 |
+| `gaze`, `facegesture` (mediapipe + OpenCV) | ~227 MB | 13 |
 | `stt-moonshine` | ~113 MB+ | 18 |
 | `llm-cleanup` (llama.cpp) | ~77 MB | 4 |
 | `diarize`, `meeting`, `recimport` (sherpa-onnx) | ~63 MB | 2 |
