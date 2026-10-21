@@ -9,7 +9,7 @@ the loop, ``stop`` is idempotent and leaves no thread behind, ``start`` twice op
 connection.
 
 **The one class that touches python-xlib.** ``XInputClickConnection`` gets a fake display
-whose ``fileno()`` is a real pipe, so the ``select``-then-``pending_events`` wait is the
+whose ``fileno()`` is a real socket, so the ``select``-then-``pending_events`` wait is the
 code that actually runs, with no X server, no ``DISPLAY`` and nothing clicked on a
 developer's desktop. Opening is tested the same way: every refusal names itself and raises
 ``ClickObserverError``, never an Xlib traceback.
@@ -26,7 +26,7 @@ from __future__ import annotations
 
 import ast
 import dataclasses
-import os
+import socket
 import sys
 import threading
 import time
@@ -333,14 +333,18 @@ class _FakeRoot:
 
 
 class _FakeDisplay:
-    """A display whose event queue is fed by the test and whose ``fileno`` is a real pipe,
-    so the backend's ``select`` wait runs for real."""
+    """A display whose event queue is fed by the test and whose ``fileno`` is a real socket,
+    so the backend's ``select`` wait runs for real.
+
+    A socket pair, not a pipe: Windows' ``select`` accepts only sockets (WinError 10038 on a
+    pipe), and this test runs on every OS even though the backend only ever runs on Linux —
+    as an X display connection's fd is a socket there too."""
 
     XI_OPCODE = 131
 
     def __init__(self, *, xinput: bool = True, version: tuple[int, int] = (2, 0)) -> None:
-        self._read_fd, self._write_fd = os.pipe()
-        os.set_blocking(self._read_fd, False)  # python-xlib's pending_events never blocks
+        self._reader, self._writer = socket.socketpair()
+        self._reader.setblocking(False)  # python-xlib's pending_events never blocks
         self.queue: list[Any] = []
         self.root = _FakeRoot()
         self.closed = 0
@@ -353,7 +357,7 @@ class _FakeDisplay:
 
     def push(self, event: Any) -> None:
         self.queue.append(event)
-        os.write(self._write_fd, b"x")
+        self._writer.send(b"x")
 
     def push_raw_press(self, detail: int, *, extension: int | None = None) -> None:
         self.push(_FakeEvent(
@@ -366,11 +370,11 @@ class _FakeDisplay:
     # -- the python-xlib surface ------------------------------------------- #
 
     def fileno(self) -> int:
-        return self._read_fd
+        return self._reader.fileno()
 
     def pending_events(self) -> int:
         try:
-            os.read(self._read_fd, 64)
+            self._reader.recv(64)
         except BlockingIOError:
             pass
         return len(self.queue)
@@ -410,11 +414,8 @@ class _FakeDisplay:
 
     def close(self) -> None:
         self.closed += 1
-        for fd in (self._read_fd, self._write_fd):
-            try:
-                os.close(fd)
-            except OSError:
-                pass
+        for sock in (self._reader, self._writer):
+            sock.close()
 
 
 def _connection(display: _FakeDisplay) -> XInputClickConnection:
