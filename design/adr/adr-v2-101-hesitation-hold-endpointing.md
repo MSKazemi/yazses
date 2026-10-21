@@ -47,8 +47,10 @@ extra), and `src/yazses/hesitation/stream.py` adapts it:
 - stability is `1 - mean(spectral flux)` over that window;
 - **added condition:** the window must hold at least 300 ms of voiced frames, so the flat last
   syllable of an ordinary word does not extend the endpoint (AGENTS.md rule 9);
-- `HesitationMonitor` queues chunks from the audio thread and analyses them on the reader's
-  thread, then answers `endpoint_decision` for the caller's silence.
+- `HesitationMonitor` queues chunks from the audio thread under a short queue-only lock and
+  analyses them on the reader's thread outside it, then answers `endpoint_decision` for the
+  caller's silence. If nobody reads for 2 s, the oldest audio is dropped and the last verdict is
+  cleared with it (commit at the plain threshold).
 
 Open points for the owner: (a) hold-to-talk ends on key release, so the hold only changes
 anything in a hands-free (`[autostop]`) turn — wiring there means `[hesitation] commit_ms` and

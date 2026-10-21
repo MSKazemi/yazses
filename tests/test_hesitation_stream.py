@@ -6,6 +6,8 @@ right inputs. Signals come from `tests/synthetic_voice.py`; no recorded audio.
 """
 from __future__ import annotations
 
+import threading
+
 import numpy as np
 
 from tests.synthetic_voice import SR, glide, hum, silence, white_noise
@@ -105,3 +107,53 @@ def test_monitor_memory_stays_bounded_when_nobody_reads():
     _feed(mon, np.concatenate([_falling_phrase(3.0), _umm()]), chunk=1600)
     assert mon._pending_n <= SR * 1.0 + 1600
     assert mon.last_was_filled_pause is True  # the kept tail still holds the hesitation
+
+
+def test_dropped_audio_clears_the_verdict_from_before_the_drop():
+    """The dropped audio may hold newer speech, so a pre-drop umm must not keep holding."""
+    stalled = HesitationMonitor(SR)  # max_pending_s = 2.0
+    _feed(stalled, _umm())
+    assert stalled.last_was_filled_pause is True
+    # 3.5 s with no read: the falling speech is dropped, only trailing silence is kept.
+    _feed(stalled, np.concatenate([_falling_phrase(1.0), silence(2.5)]))
+    assert stalled.last_was_filled_pause is False
+    assert stalled.decision(900.0) == "commit"
+
+    # Without the stall, the speech is analysed and the verdict is False too.
+    polled = HesitationMonitor(SR)
+    _feed(polled, _umm())
+    assert polled.last_was_filled_pause is True
+    _feed(polled, np.concatenate([_falling_phrase(1.0), silence(0.5)]))
+    assert polled.last_was_filled_pause is False
+
+
+def test_push_does_not_wait_for_a_running_analysis():
+    """The audio callback must never block on YIN: push takes only the queue lock."""
+    mon = HesitationMonitor(SR)
+    started, release = threading.Event(), threading.Event()
+    real_feed = mon._tracker.feed
+
+    def slow_feed(chunk):
+        started.set()
+        assert release.wait(5.0)
+        return real_feed(chunk)
+
+    mon._tracker.feed = slow_feed  # type: ignore[method-assign]
+    mon.push(_umm())
+    reader = threading.Thread(target=lambda: mon.last_was_filled_pause, daemon=True)
+    reader.start()
+    try:
+        assert started.wait(5.0)  # the reader is now inside the analysis
+        pusher = threading.Thread(target=mon.push, args=(silence(0.1),), daemon=True)
+        pusher.start()
+        pusher.join(2.0)
+        assert not pusher.is_alive(), "push blocked behind the analysis"
+    finally:
+        release.set()
+        reader.join(5.0)
+    assert not reader.is_alive()
+    mon._tracker.feed = real_feed  # type: ignore[method-assign]
+    # The chunk pushed during the analysis was queued, not lost: the next read analyses it.
+    assert mon._pending_n == silence(0.1).size
+    assert mon.last_was_filled_pause is True  # 100 ms of silence keeps the umm verdict
+    assert mon._pending_n == 0

@@ -47,7 +47,8 @@ spoken "no" falls like the cancel hum — so classifying every burst would turn 
 commands. Proposed gate (`is_nonword_voiced_burst`), both halves required:
 
 1. the transcript is empty or only hum spellings (`hmm`, `mm`, `mhm`, `uh`, `um`, `ah`, `er`…).
-   Any other word, in any script, keeps the burst as dictation;
+   Any other word, in any script, keeps the burst as dictation — including spellings that are
+   also words or letters (`hum`, `err`, `em`, `m`, `u`, `n`);
 2. at least 80% of the burst's active frames are voiced, and at least 400 ms of them are.
 
 Open points for the owner: (a) the default map sends a *flat* hum to `repeat`, so a lone

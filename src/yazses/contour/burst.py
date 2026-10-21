@@ -11,8 +11,9 @@ commands. :func:`is_nonword_voiced_burst` is the proposed gate, and it fires onl
 checkable signal (AGENTS.md rule 9), both halves required:
 
 * **the transcript is empty or only hum spellings** (``hmm``, ``mm``, ``mhm``, ``uh``, ``um``,
-  ``ah``, ``er``…, :func:`is_hum_transcript`). Any other word — including "no", "yes", "okay" —
-  keeps the burst as dictation. A hum that the recognizer turns into some other word is a missed
+  ``ah``, ``er``…, :func:`is_hum_transcript`). Any other word — including "no", "yes", "okay",
+  and spellings that are also words or letters, such as "hum", "err", "em" or "u" — keeps the
+  burst as dictation. A hum that the recognizer turns into some other word is a missed
   gesture, which is the cheap side of the error;
 * **the audio is mostly voiced**: at least ``min_voiced_fraction`` of the burst's active frames
   (within ``ACTIVE_DB`` of its loud part) carry a pitch, and at least ``min_voiced_ms`` of them do.
@@ -36,8 +37,16 @@ import numpy as np
 from yazses.audio.pitch import HOP_MS, PitchFrame, track
 from yazses.contour.gesture import classify_contour, gesture_to_command, normalize_contour
 
-#: One hum spelling: hm, hmm, mm, mhm, mm-hmm (split on the hyphen), uh, um, uhm, ah, er, erm, eh.
-_HUM_TOKEN = re.compile(r"^(?:h*m+(?:h+m+)*|m+h*m*|u+h*m*|a+h+|e+r*m*|e+h+|h+u+m+|n+)$")
+#: One hum spelling: hm, hmm, mm, mhm, mm-hmm (split on the hyphen), uh, um, uhm, ah, er, erm, eh,
+#: with letters repeated (hmmm, uhh, ahh). A spelling that is also a word or a letter — "hum",
+#: "err", "em", "m", "u", "n" — is deliberately not a hum: it could be dictation.
+_HUM_TOKEN = re.compile(
+    r"^(?:(?:h+m+|m{2,}|m+h+m+)(?:h+m+)*"  # hm hmm mm mmm mhm mm-hmm hmhm; never a lone "m"
+    r"|u+(?:h+m*|m+)"                       # uh uhh uhm um umm; never a lone "u"
+    r"|a+h+"                                # ah ahh aah
+    r"|erm*"                                # er erm ermm; never "err" (a verb) or "em"
+    r"|e+h+)$"                              # eh ehh
+)
 #: Characters that never make a word: punctuation and the ellipsis a recognizer adds to a hum.
 _NON_WORD = re.compile(r"[^\w\s-]+|_", re.UNICODE)
 #: A frame is active when its RMS is within this many dB of the burst's 95th-percentile frame.

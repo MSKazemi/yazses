@@ -74,11 +74,17 @@ def trailing_filled_pause(frames: Sequence[PitchFrame], *, tail_ms: float = TAIL
 class HesitationMonitor:
     """Live "was the last thing said a filled pause?" for one recording turn.
 
-    :meth:`push` is cheap and safe on the audio-callback thread: it only queues a copy of the
-    chunk. The analysis runs on whichever thread calls :attr:`last_was_filled_pause` or
-    :meth:`decision` (the auto-stop watcher polls every 50 ms), so YIN never runs inside the
-    audio callback. The verdict is recomputed on every voiced frame and kept through the
-    unvoiced frames after it, so it describes the most recent vocalization.
+    :meth:`push` only copies the chunk and appends it to a queue under a short lock, so the
+    audio-callback thread never waits for analysis. The analysis runs on whichever thread calls
+    :attr:`last_was_filled_pause` or :meth:`decision` (the auto-stop watcher polls every 50 ms):
+    it swaps the queue out under that short lock and runs YIN outside it, under a separate
+    analysis lock. The verdict is recomputed on every voiced frame and kept through the unvoiced
+    frames after it, so it describes the most recent vocalization.
+
+    If queued audio had to be dropped (nobody read for ``max_pending_s``), the verdict is cleared
+    along with the tracker: the dropped audio may have held newer speech, so a verdict from before
+    the drop no longer describes the most recent vocalization. Clearing it means "commit at the
+    plain threshold", the behaviour without this feature.
     """
 
     def __init__(self, sample_rate: int = 16000, *, commit_ms: float = 800.0,
@@ -94,7 +100,11 @@ class HesitationMonitor:
         self._f0_range_max = float(f0_range_max)
         self._stability_min = float(stability_min)
         self._max_pending = max(self._tracker.frame_len, int(max_pending_s * sample_rate))
+        # ``_lock`` guards only the queue (``_pending``, ``_pending_n``, ``_gap``) and is the one
+        # lock ``push`` takes. ``_analysis_lock`` guards the tracker, window and verdict. When both
+        # are needed, ``_analysis_lock`` is taken first.
         self._lock = threading.Lock()
+        self._analysis_lock = threading.Lock()
         self._pending: list[np.ndarray] = []
         self._pending_n = 0
         self._window: deque[PitchFrame] = deque(
@@ -105,16 +115,17 @@ class HesitationMonitor:
 
     def reset(self) -> None:
         """Start a new turn: drop queued audio, frames, and the last verdict."""
-        with self._lock:
-            self._pending = []
-            self._pending_n = 0
+        with self._analysis_lock:
+            with self._lock:
+                self._pending = []
+                self._pending_n = 0
+                self._gap = False
             self._tracker.reset()
             self._window.clear()
             self._filled = False
-            self._gap = False
 
     def push(self, chunk) -> None:
-        """Queue one recorded chunk (mono). Cheap; no analysis happens here."""
+        """Queue one recorded chunk (mono). Takes only the queue lock; no analysis happens here."""
         x = np.array(chunk, dtype=np.float32, copy=True).ravel()
         if not x.size:
             return
@@ -128,19 +139,23 @@ class HesitationMonitor:
                 self._pending_n -= self._pending.pop(0).size
                 self._gap = True
 
-    def _drain_locked(self) -> None:
-        if not self._pending:
-            return
-        audio = np.concatenate(self._pending)
-        self._pending = []
-        self._pending_n = 0
-        gap, self._gap = self._gap, False
+    def _analyse(self) -> None:
+        """Analyse the queued audio. Caller holds ``_analysis_lock``, not ``_lock``."""
+        with self._lock:
+            if not self._pending:
+                return
+            chunks, self._pending = self._pending, []
+            self._pending_n = 0
+            gap, self._gap = self._gap, False
+        audio = chunks[0] if len(chunks) == 1 else np.concatenate(chunks)
         if gap or audio.size > self._max_pending:
             # Fell behind: only the tail can matter, and frames across the gap would compare
-            # spectra that were never adjacent, so restart the tracker on the kept audio.
+            # spectra that were never adjacent, so restart the tracker on the kept audio. The
+            # dropped audio may have held newer speech, so the old verdict goes with it.
             audio = audio[-self._max_pending:]
             self._tracker.reset()
             self._window.clear()
+            self._filled = False
         for frame in self._tracker.feed(audio):
             self._window.append(frame)
             if frame.voiced:
@@ -153,8 +168,8 @@ class HesitationMonitor:
     @property
     def last_was_filled_pause(self) -> bool:
         """The verdict for the most recent vocalization, after analysing queued audio."""
-        with self._lock:
-            self._drain_locked()
+        with self._analysis_lock:
+            self._analyse()
             return self._filled
 
     def decision(self, silence_ms: float) -> str:

@@ -90,6 +90,7 @@ def test_a_user_profile_overrides_the_default_map():
 
 @pytest.mark.parametrize("text", [
     "", None, "   ", "Hmm.", "mm", "Mhm", "mm-hmm", "uh", "Um...", "uhm", "ah", "erm", "hm hmm", "…",
+    "hmmm", "Mmm.", "uhh", "umm", "ahh", "er", "eh",
 ])
 def test_hum_transcripts(text):
     assert is_hum_transcript(text) is True
@@ -97,6 +98,8 @@ def test_hum_transcripts(text):
 
 @pytest.mark.parametrize("text", [
     "no", "yes", "okay", "a", "oh", "Thank you.", "hmm okay", "send it", "نه",
+    # Spellings that are also words or letters: a dictated "Hum." or "Err." must stay text.
+    "hum", "Hum.", "err", "Err.", "em", "m", "u", "n", "nn", "uhm hum",
 ])
 def test_any_real_word_keeps_the_burst_as_dictation(text):
     assert is_hum_transcript(text) is False
@@ -140,3 +143,13 @@ def test_the_gate_needs_both_halves():
     assert is_nonword_voiced_burst("", frames) is True
     assert is_nonword_voiced_burst("repeat that", frames) is False
     assert is_nonword_voiced_burst("", track(white_noise(1.0), SR)) is False
+
+
+def test_a_dictated_word_spelled_like_a_hum_is_not_a_gesture():
+    """'Hum.' over a long, fully voiced burst passes the audio half; the transcript stops it."""
+    audio = _burst(180.0)
+    frames = track(audio, SR)
+    assert is_mostly_voiced(frames) is True
+    for text in ("Hum.", "Err.", "Em.", "U."):
+        assert is_nonword_voiced_burst(text, frames) is False
+        assert burst_to_command(text, audio, SR) is None

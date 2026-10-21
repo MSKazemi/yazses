@@ -13,8 +13,9 @@ arbitrarily sized chunks, with only numpy (a base dependency).
 music", JASA 111(4), 2002): the cumulative-mean-normalised difference function, the first dip
 under an absolute threshold, refined by parabolic interpolation. A frame is *voiced* when that
 dip is under ``threshold``. YIN is amplitude-invariant, so the decision does not depend on the
-microphone's gain; only exact digital silence (RMS under ``silence_rms``) is short-circuited to
-unvoiced, because the normalised difference is undefined there.
+microphone's gain; only exact digital silence (RMS under the fixed module constant
+``SILENCE_RMS``, not a parameter) is short-circuited to unvoiced, because the normalised
+difference is undefined there.
 
 **Spectral flux** is the total-variation distance between consecutive frames' normalised power
 spectra (Hann window, bins up to ``flux_max_hz``), in ``[0, 1]``: ``0`` for an unchanging
