@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/MSKazemi/yazses/scripts/injectmatrix/result.schema.json",
+  "title": "YazSes Persian injection matrix result (FA-08, #517)",
+  "description": "One run of the fixture set through one backend into one target application on one machine. Code-point exactness (codepoint_verdict) and visual bidi layout (visual_check) are separate fields because they are separate bugs. Validated in code by validate_result() in injectmatrix.py, which also recomputes every verdict.",
+  "type": "object",
+  "required": ["schema_version", "kind", "recorded_at", "fixture_set", "environment", "cases", "summary"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "kind": {"const": "yazses-injection-matrix-result"},
+    "recorded_at": {"type": "string", "format": "date-time"},
+    "fixture_set": {
+      "type": "object",
+      "required": ["version", "sha256"],
+      "properties": {
+        "version": {"type": "string"},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "environment": {
+      "type": "object",
+      "required": ["os", "os_version", "session", "yazses_version", "backend", "backend_version", "receiver", "target_app", "target_app_version", "python_version"],
+      "properties": {
+        "os": {"enum": ["linux", "macos", "windows"]},
+        "os_version": {"type": "string", "minLength": 1},
+        "session": {"enum": ["x11", "wayland", "none"], "description": "Linux display session; 'none' on macOS and Windows."},
+        "yazses_version": {"type": "string", "minLength": 1},
+        "backend": {"type": "string", "minLength": 1, "description": "The concrete backend `yazses inject` reported, e.g. xdotool, wtype, ydotool, clipboard."},
+        "backend_version": {"type": ["string", "null"]},
+        "receiver": {"enum": ["tk", "raw-file"]},
+        "target_app": {"type": "string", "minLength": 1},
+        "target_app_version": {"type": ["string", "null"]},
+        "python_version": {"type": "string"}
+      }
+    },
+    "receiver_selftest": {
+      "type": ["object", "null"],
+      "description": "fixture_id -> whether the Tk receiver could hold the text when inserted directly. A false entry turns that case's mismatch into RECEIVER_LIMIT.",
+      "additionalProperties": {"type": "boolean"}
+    },
+    "receiver_normalization": {"enum": ["strip-one-final-newline"]},
+    "stray_captures": {"type": "integer", "minimum": 0},
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["fixture_id", "categories", "expected_code_points", "received_code_points", "codepoint_verdict", "first_divergence", "corruption_hints", "visual_check"],
+        "properties": {
+          "fixture_id": {"type": "string"},
+          "categories": {"type": "array", "items": {"enum": ["control", "persian", "mixed", "zwnj", "url-path", "digits", "punctuation", "multiline", "emoji"]}},
+          "expected_code_points": {"type": "array", "items": {"type": "string", "pattern": "^U\\+[0-9A-F]{4,6}$"}},
+          "received_code_points": {"type": "array", "items": {"type": "string", "pattern": "^U\\+[0-9A-F]{4,6}$"}},
+          "codepoint_verdict": {"enum": ["EXACT", "MISMATCH", "NOTHING", "RECEIVER_LIMIT"]},
+          "first_divergence": {
+            "type": ["object", "null"],
+            "required": ["index", "expected", "received"],
+            "properties": {
+              "index": {"type": "integer", "minimum": 0},
+              "expected": {"type": ["string", "null"]},
+              "received": {"type": ["string", "null"]},
+              "expected_name": {"type": ["string", "null"]},
+              "received_name": {"type": ["string", "null"]}
+            }
+          },
+          "corruption_hints": {"type": "array", "items": {"type": "string"}},
+          "visual_check": {
+            "type": "object",
+            "required": ["status", "notes"],
+            "properties": {
+              "status": {"enum": ["pending", "pass", "fail", "not-applicable"]},
+              "notes": {"type": "string"}
+            }
+          }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": ["cases", "exact", "mismatch", "nothing", "receiver_limit", "visual_pending", "visual_fail"],
+      "additionalProperties": {"type": "integer", "minimum": 0}
+    }
+  }
+}

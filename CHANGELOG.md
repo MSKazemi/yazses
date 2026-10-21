@@ -304,6 +304,98 @@ an enabled feature's libraries must be kept.
 such as `onnx-asr[cpu,hub]>=0.12` used to be printed bare, which a shell reads as a
 redirection to a file named `=0.12`.
 
+### Fixed — dictated text no longer reaches the log when a keystroke tool fails
+
+When `wtype`, `xdotool`, `ydotool` or `wl-copy` failed, the warning written to `daemon.log`
+quoted the command line, and the command line carried the dictated text. It then also reached
+`last_error` and the `yazses report` bundle. The command is now described by its length, and a
+new set of privacy tests drives a sentinel transcript through the injection, meeting and
+transcribe paths and fails if it reaches any log handler at any level (SEC-002).
+
+### Fixed — `yazses report` no longer carries your home directory
+
+Config problems and the error for an unreadable config or log file quoted absolute paths, and a
+mistyped identifier or an invalid redact pattern was quoted back verbatim. All are redacted now
+(SEC-001). The privacy statement lists exactly what `yazses report` reads and writes, and says
+that the "Prepare a bug report" summary reaches GitHub when that page opens (SEC-004).
+
+### Fixed — long streaming corrections on Wayland could delete text outside the dictation
+
+The `ydotool` key paths and every key path in the clipboard fallback used a fixed 10-second
+timeout. A long streaming correction or backspace run could time out part-way, and the
+correction then selected into text that was already in the field. Key-sequence timeouts now
+scale with the number of keys sent. This was found by reading the code and argv against
+`ydotool`'s documented per-event delay, not on a Wayland session.
+
+### Fixed — smaller defects found by new regression tests
+
+- A config, macros or style-rules file holding a value nested thousands of levels deep crashed
+  the loader and the config editor with `RecursionError`. It is now reported as unreadable, like
+  any other unparseable file, and defaults are used.
+- Spoken Edit Mode read "delete the last passwords", or any phrase ending in "…words", as
+  "delete the last word".
+- A microphone unplugged or switched mid-recording leaked its audio stream, and the clip was
+  passed on as silence. The stream is now closed even when `stop()` raises, and the recorder
+  reports that the clip was cut short (QA-005).
+
+### Added — the missing signal producers for six unwired accessibility features (#164)
+
+A triage of #164's 45 capabilities found that "only the wiring is missing" was true for 2 of
+them. Most lacked the code that produces their input. These pure, numpy-only producers now
+exist, each with synthetic-signal tests. **None of them is wired into the daemon yet, so nothing
+changes for users**:
+
+- a shared YIN pitch and spectral-flux tracker (`audio/pitch.py`), feeding Hesitation-Hold
+  Endpointing and Pitch-Contour Gestures, plus an optional endpoint judge on `AutoStopTurn`
+  (unused unless a caller passes one);
+- the Vocal Morse level-stream segmenter (`morsevox/segment.py`);
+- the Vocal-Strain Guard's jitter, shimmer and HNR measurement through parselmouth, imported
+  lazily, with a deliberately conservative per-session strain history;
+- a per-word playback timeline for Interruptible Proofreading, and an optional per-chunk
+  playback listener on the Kokoro backend;
+- the Mouth-Sound Switch onset detector and feature extractor;
+- the Vocal Joystick per-frame F1/F2, loudness and pitch tracker.
+
+Every threshold was tuned on synthetic signals only. ADR-v2-101 and ADR-v2-103 carry
+**proposed** amendments that the owner has not yet ratified.
+
+### Added — benchmark and evaluation tooling for Mandarin and Persian
+
+- `paper/benchmark/bench_mandarin.py`: a Mandarin CER harness that reports raw,
+  punctuation-aware, punctuation-stripped and script-normalized CER separately, with S/D/I
+  counts, hardware and runtime provenance and a model-weight licence record. `--smoke` needs
+  no audio and no model (#503, MODEL-01). No result has been archived yet.
+- A Persian–English code-switch evaluation protocol (`fa-en-cs-v1`) and a text-only scorer,
+  `paper/benchmark/codeswitch_metrics.py` (#518). Its consent template is a draft awaiting
+  review.
+- `scripts/injectmatrix/`: a harness that checks Persian text typed by each injection
+  backend arrives code point for code point, with a procedure in
+  `docs/contribute/persian-injection-matrix.md` (#517). It has not been run on any platform
+  yet.
+- `docs/benchmarks.md` and `paper/results/MANIFEST.md` now record the Persian candidates FA-05
+  did not measure, each with its reason and source (#514).
+
+### Changed — documentation and project tooling
+
+- The Meeting Mode design page and eleven implementation specs open with a dated delivery-status
+  block that separates what has shipped from what is partial, measured or deferred (#489, #491).
+- The scheduled live traceability audit applies the milestone policy (#480): epic and
+  `evergreen:<class>` issues are no longer reported as unmilestoned, and policy violations
+  appear, advisory, in the job summary (#487).
+- The agent-task issue form says that `agent-ready` is not the `jules` execution label, and
+  that a cloud VM cannot supply hardware, native-language or research-participant evidence
+  (#463).
+
+### Tests
+
+- A test-isolation leak is fixed: a real-model helper left `huggingface_hub`'s offline flag set
+  for the rest of the process, so a later Parakeet cache-first test failed whenever the two ran
+  in that order.
+- New regression guards: the learning corpus is ciphertext on disk (SEC-003); a reproducer for
+  #153's streaming duplication on a modelled text field (QA-001); Han-aware Meeting Mode word
+  counts; CJK cleaner and Han-script vectors; and fuzz seeds for every command-grammar rule
+  (SEC-005).
+
 ### Fixed — the one-click Windows update never ran the installer (unreleased feature)
 
 The first real run of the update hand-off on a Windows machine (CI, `windows-latest`) showed

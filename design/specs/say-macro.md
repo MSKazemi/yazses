@@ -3,12 +3,31 @@
 | Field | Value |
 |---|---|
 | **ID** | spec-say-macro |
-| **Status** | Ready to implement |
+| **Status** | Ready to implement (2026-06-14 design) · current: P1 shipped, action chains deferred — see [Delivery status](#delivery-status-current) |
 | **Date** | 2026-06-14 |
 | **Modules** | `src/yazses/commands/macros.py` (new), `commands/grammar.py`, `commands/dispatch.py`, `config.py`, `core/daemon.py` |
 | **Vision card** | the Say-Macro vision card (internal) |
 | **Evidence** | the 2026-06-14 ten-feature SoA dossier (internal) (Say-Macro block) |
 | **Related** | ADR-004 (grammar-constrained tool calls), ADR-v04-001 (SLM inference), ADR-011 (offline-only, off-by-default) |
+
+---
+
+## Delivery status (current)
+
+> Checked **2026-10-21** against `main` at `3245f848` (latest tag v2.43.2). This section
+> states what the code does today; everything below it is the original design, kept as
+> written. Where the two disagree, this section is the current statement. Status words:
+> **shipped** (wired and reachable), **partial**, **blocked** (names its gate),
+> **deferred** (no delivery promise), **rejected**, **out of scope**. "No tracker" means
+> no issue or campaign task exists for that remainder; it is not scheduled.
+
+| Phase | Status | Evidence | Tracking |
+|---|---|---|---|
+| P1 — `text` and `snippet` macros | **Shipped**, off by default (`[macros]`, slug `macros`) | `commands/macros.py` (whole-utterance exact match; `${cursor}`, `${clipboard}`, `${date}`, `${time}`, `${author}`; duplicate triggers rejected; a bad entry is skipped); macro lookup runs first in `commands/grammar.py` `classify`; `commands/dispatch.py` `_execute_macro`; `tests/test_macros.py` | — |
+| P1 — `actions` macros parsed, dormant | **Shipped as specified** — dispatch logs the macro and types nothing | `_execute_macro` | — |
+| P2 — action chains that fire | **Deferred**, not built | — | No tracker; no delivery promise |
+| Substring / fuzzy matching; learned triggers via `yazses tune` | **Deferred**, not built | — | No tracker |
+| Shell / command substitution in expansions | **Rejected** permanently (unchanged) | *Out of scope* below | — |
 
 ---
 

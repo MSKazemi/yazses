@@ -48,6 +48,20 @@ to satisfy a scanner and never run would be a claim the project could not back.
 `.github/workflows/fuzz.yml` runs both on a schedule and on pushes that touch the
 pipeline, for a bounded time, and uploads any crashing input as an artifact.
 
+## Command-grammar seeds
+
+`fuzz_text_pipeline` also runs the command-key path: `classify` on the filtered text
+in every registered command language (`en`, `zh`), then the Spoken Edit parser
+(`commands/edit_ops.py`). Its corpus carries one seed per grammar rule and per edit
+operation, named for what it reaches:
+
+- `grammar-<lang>-<action>[-variant]`: claimed by that rule, e.g. `grammar-zh-go_to_line`
+- `edit-<op>`: parsed as that spoken edit, e.g. `edit-replace`
+- `near-miss-<lang>-...`: one edit away from a command, and dictation
+
+`tests/test_fuzz_grammar_seeds_reach_every_rule.py` holds each name to its result and
+fails when a rule or an edit operation has no seed, so a new rule needs a new seed.
+
 ## When a harness finds something
 
 Do not fix it and move on. The corpus entry that triggered it goes into the suite

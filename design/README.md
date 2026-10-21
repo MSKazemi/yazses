@@ -132,7 +132,9 @@ Which open issues must carry a milestone is decided by the
 [milestone policy](milestone-policy.md) (#480): delivery issues carry exactly one, epics carry
 the one their sub-issues share, and evergreen issues carry an `evergreen:<class>` label and
 none. `scripts/milestone_policy.py` checks an issue snapshot against it offline, alone or via
-`scripts/check-traceability.py --issues issues.json`.
+`scripts/check-traceability.py --issues issues.json`. The scheduled live audit applies the same
+module to its own issue listing and reports the policy's violations, advisory, in their own
+section of the job summary.
 
 ## Contributing to the design record
 

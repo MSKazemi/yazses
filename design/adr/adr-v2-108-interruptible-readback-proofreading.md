@@ -28,3 +28,32 @@ TTS/barge-in capture is the existing infra. OFF by default.
 - Distinct from Read-Back (alignment vs playback) and Spoken Edit (barge-in-located vs current).
 - Privacy (ADR-011): local audio/text only.
 - Caveat: fixed/estimated per-word durations (true forced alignment is a later tier); off by default.
+
+## Addendum (2026-10-21) — per-word playback timing; post-barge-in semantics open
+
+`build_schedule` needs a duration per word, and no TTS backend reports one. Two pieces now
+supply an estimate, still unwired:
+
+- `proofback/timeline.py` (pure): `PlaybackTimeline.add_chunk(text, n_samples, sample_rate,
+  started_at)` records each sentence chunk as it starts playing and spreads the chunk's
+  duration over its words by `char_weight` (letters/digits, default) or `syllable_weight`
+  (an English vowel-group heuristic). `word_at(t, lag_s=0.0)` maps a monotonic time to a
+  global word index, which equals the word's position in `text.split()` of the read-back
+  text. Silence between chunks maps to the last word heard; before playback, to word 0.
+- `KokoroTtsBackend.set_playback_listener(fn)`: optional and duck-typed like `begin`, not a
+  `TtsBackend` Protocol method. `speak` calls `fn(chunk, len(samples), sr, monotonic())`
+  right after starting each chunk. Output-device latency is not subtracted.
+
+Open questions, deliberately undecided:
+
+1. **Which word does a barge-in mean?** The word playing at the hold, or an earlier one,
+   because the listener reacts after hearing the mistake. `word_at` takes `lag_s` but
+   defaults to 0. Nothing has measured the right value for this audience.
+2. **What happens to playback after the edit?** Resume from the edited word, restart the
+   sentence, or stop. Today a hold cancels read-back outright.
+3. **What does the index address?** Read-back may be truncated to `[tts]
+   max_readback_chars` with an appended `…`. Indices count words of the *spoken* text, so a
+   caller must map them back onto the injected text. That holds only while the two texts
+   share a word prefix.
+4. **How is the cursor moved?** `resolve_target` returns `{word_index, intent}`. Turning
+   that into keystrokes in an app that has since received other input is not designed.

@@ -117,6 +117,50 @@ ANALYSES = {
 }
 
 
+#: Benchmark candidates that were considered and *not* decoded, so no result file
+#: exists for them and the directory walk above cannot see them. #514's acceptance
+#: list says "failures/unsupported combinations are recorded, not omitted", and a
+#: manifest derived only from JSON files omits every one of them by construction.
+#:
+#: This is a hand-written list, which this module otherwise avoids, because there is
+#: nothing on disk to derive it from: a skip that happened before conversion leaves
+#: no artifact. Every entry therefore names the issue comment its numbers come from,
+#: and `tests/test_recorded_persian_skips.py` checks that it does and that
+#: `docs/benchmarks.md` carries the same candidates.
+NOT_MEASURED = (
+    {
+        "candidate": "`nezamisafa/whisper-persian-v4` (Apache-2.0, rev `b84fc89f`, `large-v3` fine-tune)",
+        "disposition": "**SKIP** -- memory gate, conversion not attempted",
+        "reason": (
+            "6.17 GB of fp32 weights (two safetensors shards, 4.99 + 1.18 GB); loading "
+            "them for conversion needs >= 6.2 GB RAM and the 4 vCPU / 8 GB FA-05 host had "
+            "4.80-5.15 GB available"
+        ),
+        "source": "https://github.com/MSKazemi/yazses/issues/514#issuecomment-5961845919",
+    },
+    {
+        "candidate": (
+            "every other Persian Whisper fine-tune in the Hub survey (about 70 repositories "
+            "searched), including the medium-class ytcv-persian, farbodbij and "
+            "colloquial/telephony series"
+        ),
+        "disposition": "**Excluded** -- no licence declared",
+        "reason": (
+            "#514 admits a Persian-specific checkpoint only with a documented licence; "
+            "only `steja/whisper-small-persian` and `nezamisafa/whisper-persian-v4` "
+            "declared one"
+        ),
+        "source": "https://github.com/MSKazemi/yazses/issues/514#issuecomment-5951777490",
+    },
+    {
+        "candidate": "Qwen3-ASR, NeMo Canary",
+        "disposition": "**Excluded** -- outside scope",
+        "reason": "not Whisper-family; #514's matrix is Whisper-family only",
+        "source": "https://github.com/MSKazemi/yazses/issues/514#issuecomment-5946394603",
+    },
+)
+
+
 def _describe(name: str) -> str:
     stem = name.split(".")[0]
     analysis = next(
@@ -278,6 +322,24 @@ def render(entries: list[dict]) -> str:
         ]
         for e in history:
             lines.append(f"| `{e['path']}` | {e['measures']} | {e['machine']} | {e['when']} |")
+
+    if NOT_MEASURED:
+        lines += [
+            "",
+            "## Recorded without an artifact",
+            "",
+            "Candidates that were considered and not decoded, so there is no result file to",
+            "list above. They are kept here because a table derived only from the files on",
+            "disk would omit every one of them. Nothing in this section was measured by a",
+            "committed script: the `Source` column is the issue comment the numbers come from.",
+            "",
+            "| Candidate | Disposition | Reason | Source |",
+            "|---|---|---|---|",
+        ]
+        for n in NOT_MEASURED:
+            lines.append(
+                f"| {n['candidate']} | {n['disposition']} | {n['reason']} | {n['source']} |"
+            )
 
     if other:
         lines += ["", "## Other", "", "| File | Measures | Machine | Taken |", "|---|---|---|---|"]

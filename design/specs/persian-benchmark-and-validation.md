@@ -125,6 +125,9 @@ For `fa-en`:
 - Persian-token CER;
 - span-language classification accuracy where observable.
 
+The exact definitions, categories, consent template and held-out split are frozen in
+[persian-code-switch-evaluation.md](persian-code-switch-evaluation.md) (`fa-en-cs-v1`).
+
 ### Performance
 
 - real-time factor;
@@ -248,6 +251,11 @@ Publish the full table. The preset is the project default recommendation, not a 
 ## 10. Cross-platform injection validation
 
 Use a deterministic target harness that captures received Unicode text.
+
+The harness is `scripts/injectmatrix/` (#517): a Tk receiver that records arriving code points,
+a driver that types each fixture through `yazses inject`, a comparator that reports the first
+divergence, and a result format that names OS, session, backend and versions. The procedure and
+the results table are in `docs/contribute/persian-injection-matrix.md`.
 
 Matrix:
 

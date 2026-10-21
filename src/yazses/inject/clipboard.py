@@ -3,7 +3,9 @@ import shutil
 import subprocess
 import time
 
-from yazses.inject.ydotool import run_ydotool_keys
+from yazses.inject.payload import hide_payload
+from yazses.inject.xdotool import _timeout_for as xdotool_timeout_for
+from yazses.inject.ydotool import run_ydotool_keys, ydotool_key_timeout
 
 # Milliseconds to wait after wl-copy sets the clipboard before sending Ctrl+V, so
 # the new Wayland selection has propagated to the compositor. Without it the
@@ -45,7 +47,8 @@ class ClipboardInjector:
     def inject(self, text: str) -> None:
         is_wayland = bool(os.environ.get("WAYLAND_DISPLAY"))
         if is_wayland:
-            subprocess.run(["wl-copy", "--", text], check=True, timeout=5)
+            with hide_payload():
+                subprocess.run(["wl-copy", "--", text], check=True, timeout=5)
             time.sleep(_CLIPBOARD_SETTLE_S)
             _paste_wayland()
         else:
@@ -67,7 +70,8 @@ class ClipboardInjector:
         is_wayland = bool(os.environ.get("WAYLAND_DISPLAY"))
         if is_wayland:
             if _ydotool_ready():
-                run_ydotool_keys(["KEY_BACKSPACE"] * count, timeout=10)
+                keys = ["KEY_BACKSPACE"] * count
+                run_ydotool_keys(keys, timeout=ydotool_key_timeout(keys))
             elif shutil.which("wtype"):
                 args = []
                 for _ in range(count):
@@ -79,7 +83,7 @@ class ClipboardInjector:
             subprocess.run(
                 ["xdotool", "key", "--repeat", str(count), "BackSpace"],
                 check=True,
-                timeout=10,
+                timeout=xdotool_timeout_for(count),
             )
 
     def inject_key_sequence(self, keys: list[str]) -> None:
@@ -88,7 +92,7 @@ class ClipboardInjector:
         is_wayland = bool(os.environ.get("WAYLAND_DISPLAY"))
         if is_wayland:
             if _ydotool_ready():
-                run_ydotool_keys(keys, timeout=10)
+                run_ydotool_keys(keys, timeout=ydotool_key_timeout(keys))
             elif shutil.which("wtype"):
                 args: list[str] = []
                 for key in keys:
@@ -107,5 +111,5 @@ class ClipboardInjector:
             subprocess.run(
                 ["xdotool", "key", "--clearmodifiers"] + keys,
                 check=True,
-                timeout=10,
+                timeout=xdotool_timeout_for(len(keys)),
             )

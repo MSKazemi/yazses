@@ -3,6 +3,7 @@ import subprocess
 from collections.abc import Iterable, Sequence
 
 from yazses.inject.keycodes import KEYCODES
+from yazses.inject.payload import describe_argv, hide_payload
 
 
 def _keycode_from_evdev(name: str) -> int | None:
@@ -76,12 +77,17 @@ def run_ydotool(args: Sequence[str], timeout: float, check: bool = True) -> None
     """Run ydotool and raise on failure, including the failures it exits 0 for."""
     argv = list(args)
     try:
-        proc = subprocess.run(argv, capture_output=True, text=True, timeout=timeout)
+        # `ydotool type ... -- <text>`: a timeout formats the whole argv, payload and all.
+        with hide_payload():
+            proc = subprocess.run(argv, capture_output=True, text=True, timeout=timeout)
     except FileNotFoundError as exc:  # pragma: no cover - `which` gates selection
         raise YdotoolCliError("ydotool is not installed") from exc
     failure = _classify(proc.stderr or "", proc.returncode)
     if failure is not None and check:
-        raise failure(f"{' '.join(argv)} -> exit {proc.returncode}: {(proc.stderr or '').strip()}")
+        # The command line is described, not quoted: after `--` it is the transcript,
+        # and this message is logged at WARNING and kept in `last_error` (SEC-002).
+        shown = " ".join(describe_argv(argv))
+        raise failure(f"{shown} -> exit {proc.returncode}: {(proc.stderr or '').strip()}")
 
 
 def _probe_dialect() -> str:
@@ -255,6 +261,34 @@ def ydotool_key_argv(
             ydotool_key_args_v0(combo) if dialect == DIALECT_V0 else ydotool_key_args(combo)
         )
     return argv
+
+
+# `ydotool key` waits its key delay between events -- 1.x `-d`, 0.1.x `--key-delay`,
+# both 12 ms unless told otherwise -- and every combo is at least a press and a
+# release of each key in it. So `shift+Left` is four events, and the streaming
+# commit's `["shift+Left"] * N` is 4N of them: at 12 ms each a fixed `timeout=10`
+# expires at about 208 characters, *after* part of the selection has been sent.
+_DEFAULT_KEY_DELAY_MS = 12
+# Budget 2.5x the nominal delay per event, the same headroom `YdotoolInjector`
+# gives `type` (30 ms against ~12 ms), so a loaded machine cannot drift into a
+# false timeout.
+_KEY_TIMEOUT_HEADROOM = 2.5
+
+
+def ydotool_key_timeout(combos: Sequence[str], key_delay_ms: int | None = None) -> float:
+    """Timeout for `run_ydotool_keys(combos)`, scaled with the events it will emit.
+
+    A **fixed** timeout is the defect this replaces, and it is the one #153 fixed in
+    `XdotoolInjector` but not here: a timeout fires after ydotool has already sent
+    some of the keys, `LinuxInjector` reads that as a broken backend and replays the
+    *whole* sequence through the clipboard path, and the streaming commit's
+    selection runs past the partial text into text the user kept. Counting events
+    as two per key name is an upper bound for both dialects -- 0.1.x sends one
+    token per combo but still presses and releases each key in it.
+    """
+    events = sum(2 * len(ydotool_key_names(combo)) for combo in combos)
+    delay_ms = _DEFAULT_KEY_DELAY_MS if key_delay_ms is None else max(key_delay_ms, 0)
+    return 10.0 + events * (delay_ms / 1000.0) * _KEY_TIMEOUT_HEADROOM
 
 
 def run_ydotool_keys(
@@ -440,9 +474,10 @@ class YdotoolInjector:
     def inject_backspaces(self, count: int) -> None:
         if count <= 0:
             return
-        run_ydotool_keys(["KEY_BACKSPACE"] * count, timeout=10)
+        keys = ["KEY_BACKSPACE"] * count
+        run_ydotool_keys(keys, timeout=ydotool_key_timeout(keys))
 
     def inject_key_sequence(self, keys: list[str]) -> None:
         if not keys:
             return
-        run_ydotool_keys(keys, timeout=10)
+        run_ydotool_keys(keys, timeout=ydotool_key_timeout(keys))

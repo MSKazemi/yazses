@@ -16,6 +16,14 @@ on screen. The user sees dictation behave as though they had never configured it
 So a BOM is stripped and everything else is left alone: an editor's invisible
 encoding artefact is not a syntax error the user can act on, while a real syntax
 error still is.
+
+One failure is translated rather than widened. `tomllib` is a recursive-descent
+parser with no depth limit of its own, so an array or inline table nested past the
+interpreter's recursion limit (`x = [[[[...]]]]`, a few thousand levels) raises
+`RecursionError` -- a `RuntimeError`, which none of the callers catch, so the config
+loader that promises it never raises did raise. It is reported here as a
+`TOMLDecodeError`, the error every caller already handles: the file is unreadable in
+the same sense a syntax error makes it unreadable, and is reported the same way.
 """
 
 from __future__ import annotations
@@ -25,12 +33,35 @@ import tomllib
 from pathlib import Path
 from typing import Any
 
-__all__ = ["loads", "read"]
+__all__ = ["NestingTooDeepError", "loads", "read"]
+
+_NESTING_MESSAGE = "a value is nested too deeply to parse"
+
+
+class NestingTooDeepError(tomllib.TOMLDecodeError):
+    """`tomllib` ran out of recursion depth. A `TOMLDecodeError`, so callers need no change.
+
+    Built through `ValueError.__init__` with a single message: `(msg, doc, pos)` is the
+    3.14 signature of `TOMLDecodeError`, and on 3.11-3.13 the same three arguments would
+    make `str(exc)` a tuple carrying the whole document into a log line or `doctor`.
+    """
+
+    def __init__(self) -> None:
+        ValueError.__init__(self, _NESTING_MESSAGE)
+
+
+def _parse(text: str) -> dict[str, Any]:
+    try:
+        return tomllib.loads(text)
+    except RecursionError:
+        # Caught after the parser's own frames have unwound, so the stack has room
+        # again. `from None`: the thousand-frame chain names nothing a user can act on.
+        raise NestingTooDeepError() from None
 
 
 def loads(text: str) -> dict[str, Any]:
     """Parse TOML text, tolerating a leading BOM."""
-    return tomllib.loads(text.lstrip("﻿"))
+    return _parse(text.lstrip("﻿"))
 
 
 def read(path: str | Path) -> dict[str, Any]:
@@ -45,4 +76,4 @@ def read(path: str | Path) -> dict[str, Any]:
     # `decode` here rather than handing bytes to `tomllib.load`: a file that is not
     # valid UTF-8 must still raise, and `UnicodeDecodeError` is a `ValueError`, which
     # is what the callers already catch alongside `TOMLDecodeError`.
-    return tomllib.loads(data.decode("utf-8"))
+    return _parse(data.decode("utf-8"))

@@ -1,7 +1,8 @@
 """Filled-pause detection + hesitation-aware endpoint rule (pure) — ADR-v2-101.
 
 Detect a filled hesitation (flat, spectrally-stable vocalization) and extend the endpoint threshold
-so the speaker is not cut off. Pure and deterministic; the F0/spectral extraction is the lazy extra.
+so the speaker is not cut off. Pure and deterministic; the F0/spectral inputs come from
+``yazses.hesitation.stream`` (numpy, no optional extra).
 """
 from __future__ import annotations
 

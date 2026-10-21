@@ -126,3 +126,93 @@ def test_an_unclaimed_caller_is_not_silenced_forever_by_one_cancel():
     b = _backend()
     b.cancel()
     assert list(b.synthesize("hello there.")) != []
+
+
+# ---- optional per-chunk playback listener (ADR-v2-108 proofback) -------------
+#
+# Interruptible proofreading needs to know when each sentence started playing and
+# how long it is. `set_playback_listener` is duck-typed like `begin`, so the
+# Protocol, and `isinstance` for backends that predate it, are unchanged.
+
+class _FakeSounddevice:
+    def __init__(self):
+        self.played = []
+
+    def play(self, samples, sr):
+        self.played.append((list(samples), sr))
+
+    def wait(self):
+        return None
+
+    def stop(self):
+        return None
+
+
+class _FakeKokoroWithLengths(_FakeKokoro):
+    def create(self, chunk, voice=None, speed=None):
+        self.calls.append(chunk)
+        return [0.0] * (len(chunk) * 10), 24000
+
+
+def _fake_sd(monkeypatch):
+    import sys
+
+    sd = _FakeSounddevice()
+    monkeypatch.setitem(sys.modules, "sounddevice", sd)
+    return sd
+
+
+def test_playback_listener_receives_each_chunk_with_its_sample_count(monkeypatch):
+    sd = _fake_sd(monkeypatch)
+    b = _backend()
+    b._kokoro = _FakeKokoroWithLengths()
+    events = []
+    b.set_playback_listener(lambda *a: events.append(a))
+    b.speak("Hello there. Bye!")
+    assert [(e[0], e[1], e[2]) for e in events] == [
+        ("Hello there.", 120, 24000),
+        ("Bye!", 40, 24000),
+    ]
+    assert events[0][3] <= events[1][3]  # monotonic stamps, in playback order
+    assert len(sd.played) == 2
+
+
+def test_playback_listener_feeds_a_proofback_timeline(monkeypatch):
+    from yazses.proofback.timeline import PlaybackTimeline
+
+    _fake_sd(monkeypatch)
+    b = _backend()
+    b._kokoro = _FakeKokoroWithLengths()
+    tl = PlaybackTimeline()
+    b.set_playback_listener(tl.add_chunk)
+    b.speak("Hello there. Bye!")
+    assert [w.text for w in tl.words] == ["Hello", "there.", "Bye!"]
+
+
+def test_no_listener_is_the_default_and_speak_is_unchanged(monkeypatch):
+    sd = _fake_sd(monkeypatch)
+    b = _backend()  # built without __init__, like every existing caller's view
+    assert b._playback_listener is None
+    b.speak("One. Two.")
+    assert len(sd.played) == 2
+
+
+def test_a_raising_listener_never_stops_playback(monkeypatch):
+    sd = _fake_sd(monkeypatch)
+    b = _backend()
+
+    def boom(*_a):
+        raise RuntimeError("listener bug")
+
+    b.set_playback_listener(boom)
+    b.speak("One. Two.")
+    assert len(sd.played) == 2
+    b.set_playback_listener(None)
+    assert b._playback_listener is None
+
+
+def test_the_listener_is_not_part_of_the_protocol():
+    from yazses.tts.base import TtsBackend
+
+    assert "set_playback_listener" not in TtsBackend.__dict__
+    assert isinstance(NullTtsBackend(), TtsBackend)

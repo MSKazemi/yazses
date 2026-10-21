@@ -9,16 +9,24 @@ from __future__ import annotations
 
 import logging
 import threading
-from collections.abc import Iterator
+import time
+from collections.abc import Callable, Iterator
 from pathlib import Path
 
 from yazses.tts.chunking import sentence_chunks
 
 log = logging.getLogger(__name__)
 
+# (chunk_text, n_samples, sample_rate, started_at_monotonic) -> None
+PlaybackListener = Callable[[str, int, int, float], None]
+
 
 class KokoroTtsBackend:
     """Sentence-chunked Kokoro TTS with barge-in cancel."""
+
+    # Class-level default so instances built without `__init__` (the tests' fakes)
+    # and every existing caller see "no listener".
+    _playback_listener: PlaybackListener | None = None
 
     def __init__(self, config) -> None:
         from kokoro_onnx import Kokoro  # optional `tts` extra; raises if absent
@@ -70,6 +78,28 @@ class KokoroTtsBackend:
             self._claimed = True
             self._cancel.clear()
 
+    def set_playback_listener(self, listener: PlaybackListener | None) -> None:
+        """Report each sentence chunk to *listener* as `speak` starts playing it.
+
+        The listener receives ``(chunk_text, n_samples, sample_rate, started_at)``,
+        where ``started_at`` is ``time.monotonic()`` taken right after playback of the
+        chunk was started (device output latency is not subtracted). ``None`` removes
+        it. A listener that raises is logged and ignored; playback continues.
+
+        Like `begin`, this is not part of the `TtsBackend` Protocol: a caller looks it
+        up with ``getattr`` so backends that lack it are unaffected.
+        """
+        self._playback_listener = listener
+
+    def _report_chunk(self, chunk: str, samples, sr: int, started_at: float) -> None:
+        listener = self._playback_listener
+        if listener is None:
+            return
+        try:
+            listener(chunk, len(samples), int(sr), started_at)
+        except Exception:  # noqa: BLE001 - a listener must never break playback
+            log.debug("Read-back playback listener failed", exc_info=True)
+
     def _take_claim(self) -> None:
         """Consume a `begin`, or self-heal for a caller that never issues one.
 
@@ -107,6 +137,7 @@ class KokoroTtsBackend:
                     chunk, voice=self._voice, speed=self._speed
                 )
                 sd.play(samples, sr)
+                self._report_chunk(chunk, samples, sr, time.monotonic())
                 sd.wait()
             except Exception as exc:  # never let a playback error break the daemon
                 log.debug("Kokoro speak error: %s", exc)

@@ -3,11 +3,28 @@
 | Field | Value |
 |---|---|
 | **ID** | spec-mid-thought-undo |
-| **Status** | Proposed |
+| **Status** | Proposed (2026-06-14 design) · current: P1 "scratch that" shipped (on by default), P2 rewrite not built — see [Delivery status](#delivery-status-current) |
 | **Date** | 2026-06-14 |
 | **Module** | `src/yazses/commands/` (new `edit_ops.py`), `commands/grammar.py`, `commands/dispatch.py`, `stt/filters/disfluency.py`, `inject/streaming.py`, `core/daemon.py`, `config.py` |
 | **Vision card** | the Mid-Thought Undo vision card (internal) |
 | **Related** | ADR-004 (streaming injector / correction-on-commit), ADR-v04-001 (SLM inference), ADR-011 (offline-only), ADR-013 (LLM cleanup guards), spec-say-macro (full-utterance gating pattern) |
+
+---
+
+## Delivery status (current)
+
+> Checked **2026-10-21** against `main` at `3245f848` (latest tag v2.43.2). This section
+> states what the code does today; everything below it is the original design, kept as
+> written. Where the two disagree, this section is the current statement. Status words:
+> **shipped** (wired and reachable), **partial**, **blocked** (names its gate),
+> **deferred** (no delivery promise), **rejected**, **out of scope**. "No tracker" means
+> no issue or campaign task exists for that remainder; it is not scheduled.
+
+| Phase | Status | Evidence | Tracking |
+|---|---|---|---|
+| P1 — "scratch that" | **Shipped, on by default** (`[revise] enabled = true`, slug `undo`) — unlike the spec's `enabled = False`. A whole-utterance "scratch / delete / cancel that / this / last" (optionally led by "no") backspaces the last YazSes-injected burst, and is refused when no text target is focused | `commands/revise.py` (`parse_revise`, `DictationLedger`); the scratch branch in `core/daemon.py`; `tests/test_revise.py` | — |
+| P1 — the rest of the template set | **Partial, through neighbouring features, not `[revise]`.** "strike that", "never mind" and "forget that" are not recognised. "delete the last N words" / "delete the last sentence" are Spoken Edit Mode (`[commands] spoken_edit`, off by default); cross-burst "undo" / "redo" of YazSes output is the Voice Undo/Redo Timeline (`[timeline]`, [ADR-v2-089](../adr/adr-v2-089-voice-undo-redo-timeline.md), off by default). `[revise]` keeps no undo stack of its own | `commands/edit_ops.py`; `timeline/history.py`; `ReviseConfig` has only `enabled` | No tracker |
+| P2 — open-ended "no, make it X" rewrite | **Not built** (deferred, WATCH). Offline Command Mode (`[commands] rewrite`) rewrites a *selection* on command; it is a different feature and does not implement this phase | no rewrite key in `ReviseConfig`; `commands/revise.py` docstring | No tracker; no delivery promise |
 
 ---
 

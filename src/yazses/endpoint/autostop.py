@@ -8,6 +8,13 @@ from __future__ import annotations
 
 import threading
 from dataclasses import is_dataclass, replace
+from typing import Callable
+
+#: An end-of-turn judge for the trailing silence: ``endpoint(silence_ms)`` returns
+#: ``"commit"`` (end the turn now) or ``"hold"`` (keep listening). The shape of
+#: ``yazses.hesitation.stream.HesitationMonitor.decision`` (ADR-v2-101), which extends the
+#: commit threshold right after a filled pause ("um...") so a thinking user is not cut off.
+Endpoint = Callable[[float], str]
 
 
 def should_stop(silence_ms, elapsed_ms, config) -> bool:
@@ -53,16 +60,26 @@ class AutoStopTurn:
     * a longer press is ordinary hold-to-talk and its release passes straight through, so a
       user who keeps holding the key sees exactly the behaviour they had before.
 
+    ``endpoint``, when given, replaces the plain ``silence_timeout_ms`` comparison once speech
+    has been heard (see :data:`Endpoint`). The ``max_duration_ms`` cap is still checked first
+    and the no-speech grace is unchanged, so a judge that always says ``"hold"`` cannot keep a
+    turn open past the cap; it can never commit inside ``MIN_SILENCE_TIMEOUT_MS`` of silence;
+    and if it raises, that tick falls back to the plain threshold. With ``endpoint=None``
+    (the default) :meth:`tick` is exactly the plain-threshold machine.
+
     Every method takes ``now`` (seconds, monotonic) so tests drive time directly. Thread-safe:
     the hotkey thread (press/release) and the watcher thread (tick) share one lock, and the
     transitions that end a turn happen under it, so a turn is ended exactly once.
     """
 
-    def __init__(self, config, tap_ms: float = DEFAULT_TAP_MS) -> None:
+    def __init__(
+        self, config, tap_ms: float = DEFAULT_TAP_MS, *, endpoint: Endpoint | None = None
+    ) -> None:
         timeout = int(getattr(config, "silence_timeout_ms", 800))
         if is_dataclass(config) and timeout < MIN_SILENCE_TIMEOUT_MS:
             config = replace(config, silence_timeout_ms=MIN_SILENCE_TIMEOUT_MS)  # type: ignore[type-var]
         self._cfg = config
+        self._endpoint = endpoint
         self._tap_s = max(float(tap_ms), 0.0) / 1000.0
         self._lock = threading.Lock()
         self._down = False
@@ -123,12 +140,36 @@ class AutoStopTurn:
                 silence_ms = (now - self._silent_since) * 1000.0 if self._silent_since else 0.0
             else:
                 silence_ms = 0.0
-            stop = should_stop(silence_ms, elapsed_ms, self._cfg)
+            if self._endpoint is None:
+                stop = should_stop(silence_ms, elapsed_ms, self._cfg)
+            else:
+                stop = self._endpoint_stop_locked(silence_ms, elapsed_ms)
             if not stop and not self._heard and elapsed_ms >= NO_SPEECH_GRACE_MS:
                 stop = True
             if stop:
                 self._finish_locked()
             return stop
+
+    def _endpoint_stop_locked(self, silence_ms: float, elapsed_ms: float) -> bool:
+        """``should_stop`` with the silence comparison delegated to ``self._endpoint``."""
+        cfg = self._cfg
+        if not getattr(cfg, "enabled", False):
+            return False
+        max_ms = float(getattr(cfg, "max_duration_ms", 30000))
+        if max_ms > 0 and elapsed_ms >= max_ms:
+            return True
+        # Before the first word ``silence_ms`` is 0 by construction and the no-speech grace
+        # governs; under the floor a between-word pause would end the sentence.
+        if not self._heard or silence_ms < MIN_SILENCE_TIMEOUT_MS:
+            return False
+        endpoint = self._endpoint
+        assert endpoint is not None
+        try:
+            return endpoint(silence_ms) == "commit"
+        except Exception:
+            # The judge is an optional refinement: a fault in it must not stop hands-free
+            # dictation from ending, so this tick uses the plain threshold instead.
+            return should_stop(silence_ms, elapsed_ms, cfg)
 
     def cancel(self) -> None:
         """Drop a latched turn without ending it (the recording ended some other way)."""

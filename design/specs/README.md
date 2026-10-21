@@ -10,21 +10,26 @@ alone.
 Pipeline that produced these: `/vision-spark` (10 seeds) → `/vision-scout` (cited SoA dossier,
 tier-graded) → per-feature `/vision-card` + `/vision-sharpen` + this spec (10 parallel agents).
 
-| # | Feature | Spec | Vision Card | Verdict | Build tier |
-|---|---|---|---|---|---|
-| 1 | Cocktail Filter | [cocktail-filter.md](cocktail-filter.md) | card *(internal)* | ready-now (gate) | **A** |
-| 2 | Voiceprint Mind | [voiceprint-mind.md](voiceprint-mind.md) | card *(internal)* | ready-now (online=partial) | **A** |
-| 3 | Say-Macro | [say-macro.md](say-macro.md) | card *(internal)* | ready-now | **A** |
-| 4 | Read-Back Loop | [read-back-loop.md](read-back-loop.md) | card *(internal)* | ready-now | **A** |
-| 5 | Prosody Ink | [prosody-ink.md](prosody-ink.md) | card *(internal)* | partial (ship ¶+bold) | **B** |
-| 6 | Mid-Thought Undo | [mid-thought-undo.md](mid-thought-undo.md) | card *(internal)* | partial (ship templates) | **B** |
-| 7 | Punch-In | [punch-in.md](punch-in.md) | card *(internal)* | partial (respeak→candidates→confirm) | **B** |
-| 8 | Polyglot Switch | [polyglot-switch.md](polyglot-switch.md) | card *(internal)* | partial (per-pair) | **B** |
-| 9 | Glance-Type | [glance-type.md](glance-type.md) | card *(internal)* | too-early (coarse look-to-pane) | **C** |
-| 10 | Ghost Ahead | [ghost-ahead.md](ghost-ahead.md) | card *(internal)* | too-early → pivot to endpoint anticipation | **C** |
+| # | Feature | Spec | Vision Card | Verdict | Build tier | Delivery status (2026-10-21) |
+|---|---|---|---|---|---|---|
+| 1 | Cocktail Filter | [cocktail-filter.md](cocktail-filter.md) | card *(internal)* | ready-now (gate) | **A** | P1 gate wired but **experimental** — over-rejects the user's own voice; P2 suppression **blocked** on an open model |
+| 2 | Voiceprint Mind | [voiceprint-mind.md](voiceprint-mind.md) | card *(internal)* | ready-now (online=partial) | **A** | P1 biasing **shipped**; LoRA layer **deferred**, not built |
+| 3 | Say-Macro | [say-macro.md](say-macro.md) | card *(internal)* | ready-now | **A** | P1 text/snippet macros **shipped**; action chains **deferred** |
+| 4 | Read-Back Loop | [read-back-loop.md](read-back-loop.md) | card *(internal)* | ready-now | **A** | P1 read-back **shipped**; P2 confirm loop not built |
+| 5 | Prosody Ink | [prosody-ink.md](prosody-ink.md) | card *(internal)* | partial (ship ¶+bold) | **B** | pause→¶ **shipped**; bold behind the `prosody` extra, gate unmeasured; pitch→? not built |
+| 6 | Mid-Thought Undo | [mid-thought-undo.md](mid-thought-undo.md) | card *(internal)* | partial (ship templates) | **B** | "scratch that" **shipped** (on by default); open-ended rewrite not built |
+| 7 | Punch-In | [punch-in.md](punch-in.md) | card *(internal)* | partial (respeak→candidates→confirm) | **B** | `yazses punch-in` **shipped**, narrower than designed; voice trigger and confirm UX not built |
+| 8 | Polyglot Switch | [polyglot-switch.md](polyglot-switch.md) | card *(internal)* | partial (per-pair) | **B** | scaffolding only; P1 **blocked** on an evaluation set ([#518](https://github.com/MSKazemi/yazses/issues/518), [#519](https://github.com/MSKazemi/yazses/issues/519)) |
+| 9 | Glance-Type | [glance-type.md](glance-type.md) | card *(internal)* | too-early (coarse look-to-pane) | **C** | coarse look-to-pane **shipped, experimental**, X11 only; caret precision **deferred** |
+| 10 | Ghost Ahead | [ghost-ahead.md](ghost-ahead.md) | card *(internal)* | too-early → pivot to endpoint anticipation | **C** | pre-warm **shipped** (streaming path only); speculative finalize not built; content prediction **rejected** |
 
 **Tiers:** A = ship-now, high evidence, reuses existing infra · B = ship the safe sub-feature, gate the
 hard one · C = re-scope or pivot before building.
+
+Each of these specs, and the diarized-import spec below, carries a dated **Delivery status
+(current)** section under its header. It separates shipped, partial, blocked, deferred and
+rejected phases and names the tracker for any remainder; the column above summarises it. The
+rest of each spec is the original design, kept as written.
 
 All specs follow ADR-011 (off by default, fully local/offline) and the optional-extra dependency
 pattern (deps imported only when the feature is enabled).
@@ -35,6 +40,7 @@ These specs are not part of the original ten-feature v2 set above; they document
 
 | Feature | Spec | Status |
 |---|---|---|
+| Diarized recording import (`yazses transcribe`) | [diarized-recording-import.md](diarized-recording-import.md) | Phases 1–3 shipped (2026-10-21 check) — file transcription, `--diarize`, voiceprint naming. Phase 4 deferred: forced alignment, Parakeet for files, and cloud escalation, which stays design-only ([ADR-v2-126](../adr/adr-v2-126-cloud-escalation.md)). |
 | First-class Mandarin language support | [chinese-language-support.md](chinese-language-support.md) | Proposed — transactional English/Mandarin profiles, Simplified/Traditional output, localized command grammar, and measured release gate. |
 | Feature add-on packs (frozen installs) | [feature-addon-packs.md](feature-addon-packs.md) | Proposed — per-build add-on packs fetched on enable, verified against an index built into the installer; decision in [ADR-028](../adr/adr-028-feature-addon-packs.md). |
 

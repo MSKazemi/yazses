@@ -25,13 +25,17 @@ What it checks, per manifest entry that names issues or a milestone
 
 Advisory drift, per open GitHub issue (reported, NEVER changes the exit code)
 ------------------------------------------------------------------------------
-The same issue listing also answers three questions about the issue tracker itself. They are
-advisory because the policy that would make them binding is #480's decision, still open:
+The same issue listing also answers three questions about the issue tracker itself:
 
 ``UNMILESTONED_UNCLASSIFIED``
-    An open issue has no milestone and carries none of the exempt class labels listed under
-    ``issue_policy.exempt_labels`` in ``design/traceability-exceptions.yml``. That list is
-    empty until #480 names the classes, so today this is simply "open issue, no milestone".
+    An open issue has no milestone and is not exempt from one. The exemptions are the
+    milestone policy's classes (#480, ``design/milestone-policy.md``): an ``epic`` (its
+    milestone is derived from its sub-issues, below) or an ``evergreen:<class>`` issue (it
+    carries none). An issue with no class label is delivery work and owes a milestone; so
+    does one whose class label is invalid. This is the policy's
+    ``DELIVERY_WITHOUT_MILESTONE``, reported once, under this name. Any extra label listed
+    under ``issue_policy.exempt_labels`` in ``design/traceability-exceptions.yml`` also
+    exempts (empty by default; the policy's own classes need no entry there).
 ``STALE_DO_NOT_START``
     An open issue's body carries a "do not start" blockquote banner and every issue/PR the
     banner (or the issue's ``## Blocked by`` section) names is now closed. Conservative by
@@ -39,6 +43,26 @@ advisory because the policy that would make them binding is #480's decision, sti
 ``CLOSED_TRACKER_REFERENCE``
     A non-terminal manifest entry still lists a closed issue beside an open one. (When every
     tracker is closed that is the blocking ``NO_OPEN_TRACKER`` above, not this.)
+
+Milestone policy (#480), per open GitHub issue (reported, NEVER changes the exit code)
+---------------------------------------------------------------------------------------
+Every open issue is classified by ``scripts/milestone_policy.py`` (loaded the same way
+``scripts/check-traceability.py --issues`` loads it) from the listing already fetched, so it
+costs no extra request. Its rule violations (``EVERGREEN_WITH_MILESTONE``,
+``UNKNOWN_EVERGREEN_CLASS``, ``CONFLICTING_CLASSES``, ``MILESTONE_UNKNOWN``,
+``MILESTONE_CLOSED``, ``EPIC_SPANS_MILESTONES``, ``EPIC_MILESTONE_MISSING``) are listed in
+their own section of the summary and under ``milestone_policy`` in the JSON. Epic milestones
+are derived from GitHub sub-issue links: the REST listing names each sub-issue's parent in
+``parent_issue_url``. An epic with no open child in the listing is reported as *unverified*,
+never as passing.
+
+Why advisory: this audit's exit code answers one question, "does ``design/traceability.yml``
+still match GitHub?", and a red run means exactly that (or that GitHub could not be read or
+the audit is misconfigured). Tracker hygiene is a different question. The policy already has
+its own blocking form, ``scripts/milestone_policy.py`` (exit 1 on any violation), for whoever
+chooses to gate on it; folding it into this exit code would turn every new unlabelled issue
+into a red night for the manifest. Promoting it is a small change to :func:`exit_code_for`
+and a maintainer decision, not a side effect of this audit.
 
 Exit codes (a transient outage must never read as a traceability finding)
 ------------------------------------------------------------------------
@@ -146,6 +170,7 @@ class IssueFact:
     labels: tuple[str, ...] = ()
     body: str = ""
     merged: bool = False  # pull requests only: closed by a merge, not abandoned
+    parent: int | None = None  # the GitHub sub-issue parent, when it is in the same repo
 
 
 @dataclass(frozen=True)
@@ -160,8 +185,34 @@ def _require(cond: bool, what: str) -> None:
         raise LiveStateUnavailable(f"unreadable GitHub response: {what}")
 
 
-def parse_issues(items: Iterable[Any]) -> dict[int, IssueFact]:
-    """Index the ``GET /repos/{r}/issues`` payload. Pull requests are listed there too."""
+_PARENT_URL = re.compile(r"/repos/([^/]+/[^/]+)/issues/(\d+)/?$")
+
+
+def _parent_number(raw: dict[str, Any], number: int, repo: str | None) -> int | None:
+    """The sub-issue parent named by ``parent_issue_url``, or ``None``.
+
+    A parent in another repository is ``None``: its number would otherwise be matched to an
+    unrelated issue of this repository that happens to share it.
+    """
+    url = raw.get("parent_issue_url")
+    if url is None:
+        return None
+    _require(isinstance(url, str), f"issue #{number}.parent_issue_url")
+    match = _PARENT_URL.search(url)
+    if match is None:
+        raise LiveStateUnavailable(
+            f"unreadable GitHub response: issue #{number}.parent_issue_url is not an issue URL"
+        )
+    if repo is not None and match.group(1).lower() != repo.lower():
+        return None
+    return int(match.group(2))
+
+
+def parse_issues(items: Iterable[Any], repo: str | None = None) -> dict[int, IssueFact]:
+    """Index the ``GET /repos/{r}/issues`` payload. Pull requests are listed there too.
+
+    ``repo`` (``owner/name``) makes a sub-issue parent in another repository count as none.
+    """
     out: dict[int, IssueFact] = {}
     for raw in items:
         _require(isinstance(raw, dict), "issue item is not an object")
@@ -196,6 +247,7 @@ def parse_issues(items: Iterable[Any]) -> dict[int, IssueFact]:
             labels=tuple(labels),
             body=body or "",
             merged=isinstance(pull, dict) and bool(pull.get("merged_at")),
+            parent=_parent_number(raw, number, repo),
         )
     return out
 
@@ -400,6 +452,8 @@ class AuditResult:
     drift: list[Drift] = field(default_factory=list)
     open_issues: int = 0
     unused_exempt_labels: list[str] = field(default_factory=list)
+    #: ``milestone_policy.PolicyReport`` over the open issues (#480). Advisory.
+    policy: Any = None
 
 
 def _ms_label(number: int, milestones: dict[int, MilestoneFact]) -> str:
@@ -492,6 +546,64 @@ def evaluate_entry(
     return findings
 
 
+# --------------------------------------------------------------------------------------
+# Pure logic: the milestone policy (#480), applied to the listing already fetched
+# --------------------------------------------------------------------------------------
+#: Policy rules this audit reports under another name (see the module docstring).
+POLICY_RULES_REPORTED_AS_DRIFT = frozenset({"DELIVERY_WITHOUT_MILESTONE"})
+
+
+def _milestone_policy() -> Any:
+    """Import the sibling ``milestone_policy`` module, as ``check-traceability.py`` does."""
+    name = "milestone_policy"
+    if name in sys.modules:
+        return sys.modules[name]
+    spec = importlib.util.spec_from_file_location(name, Path(__file__).with_name(f"{name}.py"))
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module  # dataclasses resolve their module through sys.modules
+    spec.loader.exec_module(module)
+    return module
+
+
+def _open_issues(issues: dict[int, IssueFact]) -> list[IssueFact]:
+    return sorted(
+        (f for f in issues.values() if f.state == "open" and not f.is_pull_request),
+        key=lambda f: f.number,
+    )
+
+
+def _policy_issue(fact: IssueFact, milestones: dict[int, MilestoneFact]) -> Any:
+    ms = milestones.get(fact.milestone) if fact.milestone is not None else None
+    return _milestone_policy().Issue(
+        number=fact.number,
+        title=fact.title,
+        labels=frozenset(fact.labels),
+        milestone=fact.milestone,
+        milestone_title=ms.title if ms else None,
+        parent=fact.parent,
+    )
+
+
+def policy_class(fact: IssueFact) -> str:
+    """The issue's #480 class: ``delivery``, ``epic``, ``evergreen:<class>`` or ``invalid``."""
+    cls, _problems = _milestone_policy().classify(_policy_issue(fact, {}))
+    return str(cls)
+
+
+def evaluate_milestone_policy(
+    issues: dict[int, IssueFact], milestones: dict[int, MilestoneFact]
+) -> Any:
+    """Classify every open issue under #480 and collect its violations. Pure: no I/O.
+
+    Returns a ``milestone_policy.PolicyReport``. The milestone listing passed in is the
+    complete ``state=all`` one, so ``MILESTONE_UNKNOWN`` / ``MILESTONE_CLOSED`` are checked.
+    """
+    mp = _milestone_policy()
+    listing = {n: mp.Milestone(m.number, m.title, m.state) for n, m in milestones.items()}
+    return mp.evaluate([_policy_issue(f, milestones) for f in _open_issues(issues)], listing)
+
+
 def _safe_title(title: str, limit: int = 80) -> str:
     """An issue title is contributor text: keep it from breaking out of the summary's fence."""
     flat = re.sub(r"[\x00-\x1f\x7f`]+", " ", title).strip()
@@ -511,26 +623,26 @@ def evaluate_drift(
 ) -> tuple[list[Drift], int, list[str]]:
     """Advisory drift over every open issue. Pure: no I/O, no clock.
 
-    Returns the observations, how many open issues were looked at, and which exempt labels
-    matched no open issue (so the #480 class list cannot quietly rot either).
+    Returns the observations, how many open issues were looked at, and which extra exempt
+    labels (``issue_policy.exempt_labels``) matched no open issue, so that list cannot quietly
+    rot either. The #480 classes, ``epic`` and ``evergreen:<class>``, exempt an issue from
+    ``UNMILESTONED_UNCLASSIFIED`` without being listed there.
     """
     policy = policy or IssuePolicy()
     drift: list[Drift] = []
-    open_issues = sorted(
-        (f for f in issues.values() if f.state == "open" and not f.is_pull_request),
-        key=lambda f: f.number,
-    )
+    open_issues = _open_issues(issues)
     used_labels: set[str] = set()
     for fact in open_issues:
         exempt = policy.exempt_labels.intersection(fact.labels)
         used_labels.update(exempt)
-        if fact.milestone is None and not exempt:
+        owes_milestone = policy_class(fact) in ("delivery", "invalid")
+        if fact.milestone is None and not exempt and owes_milestone:
             drift.append(
                 Drift(
                     "UNMILESTONED_UNCLASSIFIED",
                     fact.number,
-                    f"open issue #{fact.number} has no milestone and no exempt class label "
-                    f"({_safe_title(fact.title)})",
+                    f"open issue #{fact.number} has no milestone and is not epic or "
+                    f"evergreen:<class> ({_safe_title(fact.title)})",
                 )
             )
         blockers = banner_blockers(fact.body, fact.number)
@@ -619,7 +731,17 @@ def audit(
     result.drift, result.open_issues, result.unused_exempt_labels = evaluate_drift(
         manifest, issues, policy
     )
+    result.policy = evaluate_milestone_policy(issues, milestones)
     return result
+
+
+def policy_violations(result: AuditResult) -> list[Any]:
+    """The #480 violations listed in the policy section (advisory, like drift)."""
+    if result.policy is None:
+        return []
+    return [
+        v for v in result.policy.violations if v.rule not in POLICY_RULES_REPORTED_AS_DRIFT
+    ]
 
 
 def exit_code_for(result: AuditResult) -> int:
@@ -672,6 +794,7 @@ def render_report(
             f"matched nothing; remove it from {EXCEPTIONS_REL}"
         )
     out.extend(render_drift(result))
+    out.extend(render_policy(result))
     return "\n".join(out) + "\n"
 
 
@@ -691,6 +814,33 @@ def render_drift(result: AuditResult) -> list[str]:
         out.append(
             f"  unused exempt label {label!r}: no open issue carries it; check "
             f"issue_policy in {EXCEPTIONS_REL}"
+        )
+    return out
+
+
+def render_policy(result: AuditResult) -> list[str]:
+    """The #480 milestone-policy section. Advisory, and it says so."""
+    report = result.policy
+    if report is None:
+        return []
+    counts = ", ".join(f"{cls}={n}" for cls, n in report.counts().items()) or "none"
+    violations = policy_violations(result)
+    out = [
+        "",
+        f"Milestone policy (#480, design/milestone-policy.md): {len(report.classes)} open "
+        f"issue(s) classified ({counts}); {len(violations)} violation(s). Advisory only: "
+        "this never changes the exit code.",
+    ]
+    out.extend(f"  - [{v.rule}] #{v.issue}: {_safe_title(v.message, 240)}" for v in violations)
+    if any(v.rule in POLICY_RULES_REPORTED_AS_DRIFT for v in report.violations):
+        out.append(
+            "  delivery issues without a milestone are listed above as UNMILESTONED_UNCLASSIFIED"
+        )
+    if report.unverified_epics:
+        names = ", ".join(f"#{n}" for n in report.unverified_epics)
+        out.append(
+            f"  unverified epic(s) {names}: no open sub-issue in the listing, so the epic's "
+            "milestone cannot be derived; link its children as GitHub sub-issues"
         )
     return out
 
@@ -747,6 +897,16 @@ def render_json(
             for d in result.drift
         ]
         doc["unused_exempt_labels"] = list(result.unused_exempt_labels)
+        if result.policy is not None:
+            doc["milestone_policy"] = {
+                "policy": "design/milestone-policy.md",
+                "classes": result.policy.counts(),
+                "violations": [
+                    {"rule": v.rule, "issue": v.issue, "message": v.message}
+                    for v in policy_violations(result)
+                ],
+                "unverified_epics": list(result.policy.unverified_epics),
+            }
     return json.dumps(doc, indent=2, sort_keys=True) + "\n"
 
 
@@ -883,7 +1043,8 @@ class GitHubClient:
         # Ascending creation order: a new issue appends at the end instead of shifting every
         # later page, which would otherwise be able to hide a real one from the scan.
         return parse_issues(
-            self.paginate("issues", {"state": "all", "sort": "created", "direction": "asc"})
+            self.paginate("issues", {"state": "all", "sort": "created", "direction": "asc"}),
+            repo=self.repo,
         )
 
     def milestones(self) -> dict[int, MilestoneFact]:
