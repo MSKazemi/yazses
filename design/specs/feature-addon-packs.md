@@ -497,18 +497,24 @@ ADR-028's answered questions). The build drops the pack's copy; the runtime must
 
 - `bind_to_base`: a list of bare DLL file names (no directory, no drive; compared
   case-insensitively; duplicates refused) the build dropped because the pack must use the
-  base's own file of that name. Agreed with the build side.
+  base's own file of that name. Agreed with the build side, which writes the names in lower
+  case (today `["onnxruntime.dll"]`) and ships no copy of a listed DLL.
 - `bind_min_versions`: an object mapping some of those names to the lowest version of the
   base's copy the pack accepts, e.g. `{"onnxruntime.dll": "1.28"}`. A key not listed in
   `bind_to_base` refuses the manifest. **This field is the runtime side's proposal; the build
   side does not write it yet.** Without it, any version of the base's copy binds and the
-  version is only reported.
+  version is only reported. That is safe today because a pack loads only into the one base
+  build it names (`base_build_id`), and the build's frozen probe already checks that the
+  base's copy is the version the base froze.
 
 **Landed.**
 
 - `packs/bind.py`: the pure decisions and the binding. The base's copy is found by walking
-  the frozen app's `_internal` folder (`sys._MEIPASS`) and nowhere else; exactly one file
-  of that name must exist (two is a refusal, not a guess). It is loaded by absolute path
+  the frozen app's `_internal` folder (`sys._MEIPASS`) and nowhere else. One copy is taken.
+  Of several, the only one inside a package folder named after the DLL
+  (`onnxruntime/capi/onnxruntime.dll`) is taken: it is the file the base's own
+  `import onnxruntime` loads, and the build's spike (`spike_bind_request`) preloads the same
+  file. Any other set of copies is refused, not ranked. It is loaded by absolute path
   (`ctypes.WinDLL`, which passes `LOAD_LIBRARY_SEARCH_DEFAULT_DIRS |
   LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR` for a path), so the loader never searches for the name,
   and its module name is then in the loaded-module list that answers sherpa's import
@@ -522,8 +528,8 @@ ADR-028's answered questions). The build drops the pack's copy; the runtime must
   modules binds, before the pack's own code runs; on success the finder removes itself.
   A binding pack in whose `site/` no module name is found is not mounted (fail closed).
   The start-up path imports `packs/bind.py` only when such a pack is mounted.
-- **Refusal** has a named reason: the base does not contain the DLL; it contains more than
-  one; it does not load; its version is below `bind_min_versions`; its version cannot be
+- **Refusal** has a named reason: the base does not contain the DLL; it contains several
+  copies and not exactly one inside a package folder of that name; it does not load; its version is below `bind_min_versions`; its version cannot be
   read while a minimum is stated; another file of that name is already loaded; the loaded
   list cannot be read. At first use it is an `ImportError` naming the reason for every
   import of that pack, and an entry in `mount.LAST.failed`. The pack is not quarantined:
@@ -545,7 +551,7 @@ ADR-028's answered questions). The build drops the pack's copy; the runtime must
   base's 1.28.0, or any `onnxruntime.dll` loaded from a path other than the base's. Until
   then, a pack whose mode is not in-process is skipped at mount and refused by the probe.
 
-**Tests.** `tests/test_packs_bind.py` (63 cases, through a fake runtime): field parsing,
+**Tests.** `tests/test_packs_bind.py` (64 cases, through a fake runtime): field parsing,
 every refusal reason, the import ordering through the real import system, nothing loaded
 or walked at mount, the probe and `verify` output, the Windows folder walk and the
 `OrtGetApiBase` read through a ctypes stand-in. Each guard was mutated out and the suite
@@ -554,5 +560,6 @@ went red.
 **Not verified (needs a Windows run).** That `sherpa_onnx`'s extension actually resolves to
 the base's preloaded `onnxruntime.dll` and works against 1.28.0; `ctypes.WinDLL` on the real
 `_internal\onnxruntime\capi\onnxruntime.dll` path; `K32EnumProcessModules` paths matching the
-walked path; `OrtGetApiBase` on Microsoft's build; that the frozen base contains exactly one
-`onnxruntime.dll`. The spike's check (d) and the release job's frozen probe answer these.
+walked path; `OrtGetApiBase` on Microsoft's build; how many `onnxruntime.dll` files the
+frozen base contains, and where. The spike's check (d) and the release job's frozen probe
+answer these.

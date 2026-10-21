@@ -497,7 +497,7 @@ never asked to *search* for that name.
 | `fetch.py` | **Egress (ADR-019 `FETCH_VIA`)**: the two release URLs, through ADR-027's `download_verified` |
 | `install.py` | The transaction: lock → disk → download → extract → match → child-process probe → `os.replace` → `COMPLETE` |
 | `mount.py` | `mount_at_startup()`, called by `packaging/windows/rthook_yazses_packs.py`; appends to `sys.path`, keeps DLL-directory handles, puts a first-use binder on `sys.meta_path` for a `bind_to_base` pack, never raises |
-| `bind.py` | ADR-028 M1. Pure decisions (one base copy or refuse, version floor, nothing else of that name loaded) plus `bind_pack()` through `PackRuntime` and `FirstUseBinder`, which loads the base's DLL on the pack's first import, never at start-up. `OutOfProcessHost` is the typed, unbuilt ADR-028 §1 fallback |
+| `bind.py` | ADR-028 M1. Pure decisions (one base copy, or the only one inside a package folder named after the DLL, else refuse; version floor, nothing else of that name loaded) plus `bind_pack()` through `PackRuntime` and `FirstUseBinder`, which loads the base's DLL on the pack's first import, never at start-up. `OutOfProcessHost` is the typed, unbuilt ADR-028 §1 fallback |
 | `probe.py` | `yazses packs probe`: binds `bind_to_base` first, imports `entry_modules`, re-checks the loaded modules; exit code names the Phase 0 risk that failed, and success names the DLL file and version that bound |
 | `manage.py` | What the `yazses packs` commands and `features enable` do |
 

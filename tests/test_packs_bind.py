@@ -158,9 +158,20 @@ def test_choose_base_copy_needs_exactly_one() -> None:
     path, why = choose_base_copy(ORT, [])
     assert path is None and "does not contain onnxruntime.dll" in why
     assert "never uses another copy" in why
-    other = Path("/app/_internal/onnxruntime.dll")
-    path, why = choose_base_copy(ORT, [BASE_ORT, other])
+    other = Path("/app/_internal/sherpa/onnxruntime.dll")
+    path, why = choose_base_copy(ORT, [other, Path("/app/_internal/x/onnxruntime.dll")])
     assert path is None and "2 files named onnxruntime.dll" in why and "guess" in why
+    twin = Path("/app/_internal/onnxruntime/other/onnxruntime.dll")
+    assert choose_base_copy(ORT, [BASE_ORT, twin])[0] is None, "two package copies: refuse"
+
+
+def test_of_several_copies_the_one_the_base_package_loads_is_taken() -> None:
+    """The build's spike (``spike_bind_request``) preloads the copy inside the
+    ``onnxruntime`` package folder; the runtime must pick the same file, or the base's
+    own ``import onnxruntime`` would add a second copy."""
+    top = Path("/app/_internal/onnxruntime.dll")
+    assert choose_base_copy(ORT, [top, BASE_ORT]) == (BASE_ORT, "")
+    assert choose_base_copy("ONNXRUNTIME.DLL", [top, BASE_ORT]) == (BASE_ORT, "")
 
 
 def test_judge_version() -> None:

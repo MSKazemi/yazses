@@ -147,14 +147,24 @@ def _key(path: Path | str) -> str:
 
 
 def choose_base_copy(dll: str, candidates: Sequence[Path]) -> tuple[Path | None, str]:
-    """``(path, "")`` when the base carries exactly one ``dll``, else ``(None, reason)``.
-    Two copies are refused rather than ranked: a guess is not deterministic."""
+    """``(path, "")`` for the base's copy of ``dll``, else ``(None, reason)``.
+
+    One copy is taken. Of several, the one inside a package folder named after the DLL
+    (``onnxruntime/capi/onnxruntime.dll``) is taken when it is the only such copy: it is
+    the file the base's own ``import onnxruntime`` loads, so binding to it leaves one copy
+    in the process, not two. The build side's spike picks the same file
+    (``scripts/build-packs.py`` ``spike_bind_request``). Anything else is refused, not
+    ranked: a guess is not deterministic."""
     unique = sorted({_key(p): p for p in candidates}.values(), key=str)
     if not unique:
         return None, (
             f"this copy of YazSes does not contain {dll}, which the add-on must share "
             "with it; reinstall YazSes (the add-on never uses another copy of that file)"
         )
+    stem = Path(dll).stem.casefold()
+    in_package = [p for p in unique if stem in {s.casefold() for s in p.parent.parts}]
+    if len(unique) > 1 and len(in_package) == 1:
+        return in_package[0], ""
     if len(unique) > 1:
         return None, (
             f"this copy of YazSes contains {len(unique)} files named {dll} "

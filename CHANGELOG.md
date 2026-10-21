@@ -15,7 +15,7 @@ copy and lists the name in `pack.json`'s new `bind_to_base` field. On the add-on
 YazSes now loads its own copy by full path from its install folder before any of the add-on's
 code runs, so the add-on can only bind to that file, never to another `onnxruntime.dll` on
 the computer. It refuses the add-on, with a named reason, if YazSes's copy is missing,
-duplicated, older than the optional `bind_min_versions` floor, or if another copy is already
+ambiguous (several copies, and not exactly one inside the `onnxruntime` package folder), older than the optional `bind_min_versions` floor, or if another copy is already
 loaded. `yazses packs probe` and `yazses packs verify` now report which file and version the
 add-on bound to. Nothing is loaded at start-up, and nothing changes for anyone without such
 an add-on. Tested on Linux through a fake loader only; the Windows run (the packs spike and
