@@ -16,8 +16,10 @@ import pytest
 from tests.synthetic_voice import PETERSON_BARNEY_MALE, SR, silence, vowel, white_noise
 from yazses.vocaljoystick.control import VocalJoystick
 from yazses.vocaljoystick.formants import (
+    MIN_FORMANT_HZ,
     VocalFrameTracker,
     estimate_formants,
+    formant_candidates,
     loudness,
     lpc,
     track,
@@ -140,10 +142,25 @@ def test_invalid_parameters_are_refused():
         loudness(0.1, floor_db=-20.0, ceil_db=-20.0)
 
 
+def test_a_resonance_below_the_floor_is_never_reported_as_f1():
+    """A root in the glottal/DC region (under ``MIN_FORMANT_HZ``) is not a formant.
+
+    The fixture is checked first: with the floor at 0 Hz this frame does yield a sub-floor
+    root, so the assertion below exercises the floor rather than passing on a frame that
+    never had one.
+    """
+    frame = vowel((60.0, 730.0, 1090.0), 0.2)[1000:1400]
+    unfloored = formant_candidates(frame, SR, min_formant_hz=0.0)
+    assert any(f < MIN_FORMANT_HZ for f, _ in unfloored)
+    assert all(f >= MIN_FORMANT_HZ for f, _ in formant_candidates(frame, SR))
+    est = estimate_formants(frame, SR)
+    assert est is None or est[0] >= MIN_FORMANT_HZ
+
+
 def test_per_frame_cost_fits_inside_the_hop():
     """Real-time means one frame's analysis must finish within one 10 ms hop.
 
-    Measured on the development laptop at about 0.7-1.0 ms per frame. The bound is the hop
+    Measured on the development laptop at about 0.7-1.5 ms per frame. The bound is the hop
     itself, so a slow CI runner has ~10x headroom; the measured figure is printed (`-s`).
     """
     x = vowel(PETERSON_BARNEY_MALE["a"], 1.0)
@@ -160,9 +177,10 @@ def test_per_frame_cost_fits_inside_the_hop():
 def test_a_high_voice_starting_from_silence_is_not_a_click():
     """Unvoiced frames carry pitch 0.0, so every onset is a 'jump' from zero.
 
-    Before the core ignored jumps out of an unvoiced frame, any voice at or above
-    ``click_pitch`` (250 Hz: many women's and most children's voices) clicked on its first
-    voiced frame — a guard firing on no gesture at all (AGENTS.md rule 9).
+    Before the core measured the jump from the last *voiced* pitch (and only across at most
+    ``click_gap_frames`` unvoiced frames), any voice at or above ``click_pitch`` (250 Hz: many
+    women's and most children's voices) clicked on its first voiced frame — a guard firing on
+    no gesture at all (AGENTS.md rule 9).
     """
     audio = np.concatenate((silence(0.2), vowel(PETERSON_BARNEY_MALE["a"], 0.4, f0=280.0)))
     joy = VocalJoystick()

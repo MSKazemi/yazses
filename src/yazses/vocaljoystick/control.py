@@ -1,8 +1,8 @@
 """Vocal-joystick mapping + velocity integrator (pure) — ADR-v2-095.
 
 Map (F1, F2) formants to a direction, direction+loudness to a velocity, and integrate frames into a
-position with click-on-pitch-jump. Pure and deterministic; the formant/pitch tracker is the lazy
-extra.
+position with click-on-pitch-jump. Pure and deterministic; the per-frame producer that feeds it is
+``vocaljoystick.formants`` (numpy only, no optional extra).
 """
 from __future__ import annotations
 
