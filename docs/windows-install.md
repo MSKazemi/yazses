@@ -276,6 +276,24 @@ YazSes. When it does not, the button is greyed out and says why: install YazSes 
 `pipx install yazses` to use that feature. `yazses packs` lists the add-ons your build
 has.
 
+#### Licences of add-on packs
+
+Every add-on carries the licence text of each library inside it, in its `LICENSES\`
+folder (under `%LOCALAPPDATA%\yazses\packs\` once installed). The release build checks
+those licences before it publishes an add-on:
+
+- **Permissive** licences (MIT, Apache-2.0, BSD, ISC and similar) pass.
+- **LGPL** and **MPL-2.0** pass, and the add-on then also carries `LICENSES\SOURCE.md`,
+  which names each of those libraries, its exact version and where its source code is.
+- **GPL** passes only when the maintainer has recorded an approval for that library, at
+  that version, in that add-on. `SOURCE.md` lists those too.
+- A library whose licence the build cannot identify, or that ships no licence file, holds
+  the whole add-on back. The feature then works the same way as one with no add-on:
+  install YazSes with `pipx install yazses` to use it.
+
+The check reads the licence each library *declares*. It does not scan the compiled files
+inside a library for code under another licence.
+
 ### Being told when a new version lands
 
 Off by default, because it is the only thing in YazSes that opens an outbound

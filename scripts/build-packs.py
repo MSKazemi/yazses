@@ -1046,6 +1046,22 @@ def _metadata(dist_info: Path) -> dict[str, list[str]]:
     return out
 
 
+def _licence_gate() -> Any:
+    """``scripts/pack_licences.py`` (ADR-028 Q7), imported lazily so that
+    ``check-release`` keeps running on a bare python3 with the standard library alone.
+    Loaded by path, so ``scripts/`` never lands on ``sys.path``."""
+    mod = sys.modules.get("pack_licences")
+    if mod is None:
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location(
+            "pack_licences", Path(__file__).resolve().parent / "pack_licences.py")
+        assert spec is not None and spec.loader is not None
+        mod = sys.modules["pack_licences"] = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+    return mod
+
+
 def build_one(spec: PackSpec, ctx: Context, built: Mapping[str, Mapping[str, str]]
               ) -> dict[str, Any]:
     """Build one pack into ``work/<name>``. Raises PackError with the withholding reason."""
@@ -1101,6 +1117,10 @@ def build_one(spec: PackSpec, ctx: Context, built: Mapping[str, Mapping[str, str
     if overlap:
         raise PackError(f"distributions already in the base: {overlap}")
     report["base_requires"] = sorted(requires & ctx.base_names)
+    lic = _licence_gate().check_pack(spec.name, _dist_infos(site))
+    report["licence_gate"] = lic.report()
+    if lic.problems and not ctx.report_only:
+        raise PackError("licence gate: " + "; ".join(lic.problems))
 
     rels = [p.relative_to(site).as_posix() for p in sorted(site.rglob("*")) if p.is_file()]
     pack_modules = top_level_modules(rels)
@@ -1136,6 +1156,8 @@ def build_one(spec: PackSpec, ctx: Context, built: Mapping[str, Mapping[str, str
 
     members: dict[str, bytes | Path] = {f"site/{r}": site / r for r in rels}
     members.update(licences)
+    if lic.source_md:
+        members[_licence_gate().SOURCE_MD] = lic.source_md.encode("utf-8")
     errors = [f"{n}: {'; '.join(e)}" for n in members if (e := member_path_errors(n))]
     if errors:
         raise PackError("path rule: " + "; ".join(errors[:5]))
@@ -1149,6 +1171,7 @@ def build_one(spec: PackSpec, ctx: Context, built: Mapping[str, Mapping[str, str
         platform_tag=ctx.platform_tag, arch=ctx.arch, distributions=dists,
         entry_modules=list(spec.entry_modules), native=natives, path_entries=path_entries,
     )
+    fields["licences"] = lic.pack_json()
     pj = pack_json(fields, sum(s for _, s, _ in payload), len(payload), len(record))
     members["RECORD.json"] = record
     members["pack.json"] = pj

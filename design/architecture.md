@@ -498,6 +498,14 @@ an elevated process, and never with `YAZSES_NO_PACKS=1`. Nothing under `packs/` 
 User-initiated only: the daemon, the update watcher and the runtime hook cannot reach
 `fetch.py`, `install.py` or `manage.py` (`tests/test_egress_inventory.py`).
 
+**Build-side invariant (ADR-028 Q7): no pack is published whose licences the build could
+not classify.** `scripts/pack_licences.py` (pure, standard library only) classes every
+distribution in a pack as permissive, LGPL, GPL or UNKNOWN; `scripts/build-packs.py`
+withholds the pack on UNKNOWN, a missing licence file, a copyleft distribution with no
+source URL, or GPL without a matching owner approval in
+`packaging/packs/licence-approvals.toml`. A copyleft pack carries `LICENSES/SOURCE.md`.
+The runtime does not re-check licences.
+
 ### `src/yazses/commands/`
 
 | File | Role |
