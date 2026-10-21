@@ -6163,11 +6163,18 @@ class Daemon:
         threading.Thread(target=_run, daemon=True, name="readback").start()
 
     def _active_injector(self) -> InjectorBackend:
-        """Return remote injector when remote session is active, else local."""
+        """Return the remote injector while a remote session is up, else the local one.
+
+        The session itself decides, not the tray state: `REMOTE_ACTIVE` is set once when
+        the tunnel comes up, and every burst then moves the state through RECORDING and
+        INJECTING, so checking it sent all dictation to the local machine. The remote
+        injector exists exactly while a session does (`_handle_remote_start` sets it,
+        `_handle_remote_stop` clears it).
+        """
         with self._lock:
-            remote_active = self._state.state == TrayState.REMOTE_ACTIVE
-        if remote_active and self._remote_injector is not None:
-            return self._remote_injector
+            remote = self._remote_injector
+        if remote is not None:
+            return remote
         assert self._injector is not None
         return self._injector
 
