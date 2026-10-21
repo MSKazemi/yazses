@@ -32,6 +32,9 @@ Hardware slots [#428](https://github.com/MSKazemi/yazses/issues/428) to
 future validation matrix. They become real contributor tasks only after their evaluator/runtime
 blockers merge.
 
+Every READY slot is also listed in the project's [task finder](https://mskazemi.com/yazses/contribute/find.html):
+choose "specific hardware or an OS" and the "measurement" kind. A slot that is not listed there is not READY yet.
+
 If no hardware slot is READY, choose another current contributor task rather than forcing the test.
 [Open issues labelled `good first issue`](https://github.com/MSKazemi/yazses/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
 is a good place to look.

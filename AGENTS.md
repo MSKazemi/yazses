@@ -195,6 +195,7 @@ fails and your change is reverted anyway.
 | `docs/features.md`, `docs/configuration.md`, `docs/command-index.md`, `docs/cli-reference.md` | `uv run python scripts/gen-docs.py` |
 | `man/yazses.1` | `uv run python scripts/gen-man.py` |
 | `campaign/generated/**`, `campaign/schemas/**` | `uv run python scripts/campaign.py --generate` |
+| The eye-validation rows of `campaign/tasks.json` (`source` names an `eye-validation slot`) | `uv run python scripts/campaign.py --generate` (source: `design/eye-control/validation-slots.json`) |
 | `design/eye-control/generated/validation-coverage.md` | `uv run python scripts/gen-eye-validation-dashboard.py` |
 | The contributor wall in `README.md` + every `README.<code>.md` | `npx all-contributors-cli generate` |
 | Draft `docs/<locale>/index.md`, the generated rows of `docs/localization/STATUS.md` | `uv run python scripts/gen-readme-translation.py --all` (source: `scripts/translations.py`) |

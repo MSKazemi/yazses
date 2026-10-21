@@ -208,9 +208,18 @@ READY eye-validation slots are held to that by `scripts/check_eye_validation_slo
 `campaign/tasks.json` without changing the campaign schema or validator: each READY slot needs exactly one open
 `measurement` task whose `source` names it (`eye-validation slot <ID>`), with `cloud_agent_ready=false`, a `minutes`
 estimate of at least `sessions x max`, a `requires` block naming the OS/session and camera, stated `evidence`, and
-this validator as a `validation` command. A PLANNED slot may not be advertised at all. No slot is READY today, so
-the finder carries no eye-validation task; adding one is the act of flipping a slot to READY, and the checker
-fails until both halves exist.
+this validator as a `validation` command. A PLANNED slot may not be advertised at all.
+
+The registry is the only source of those tasks (#456). `uv run python scripts/campaign.py --generate` derives one
+`MEASURE-EYE-<slot>` task per READY slot into `campaign/tasks.json` and the finder
+([`docs/contribute/find.md`](../../docs/contribute/find.md)): title with pack, session, slot and issue number,
+`minutes` = `sessions x max`, `requires` naming the session and the webcam (plus the display need for a topology
+cell), the "No-code eye-control test" form as the report path, and no request for research consent or identifying
+data. Making a slot available is therefore one edit — flip it to READY — and one regeneration; `campaign.py --check`
+and `tests/test_campaign_eye_slots.py` fail while the inventory or the finder disagrees with the registry in either
+direction, and both refuse an unreadable or empty registry rather than deriving an empty finder from it. The
+campaign validator is unchanged and still authoritative: a slot task is a `measurement` task, so it cannot be
+`cloud_agent_ready`. No slot is READY today, so the finder carries no eye-validation task.
 
 ## Coverage dashboard
 
