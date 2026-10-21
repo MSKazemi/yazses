@@ -6,6 +6,53 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — the website shows what is being built right now, and a three-step quick start for every OS
+
+The home page of [mskazemi.com/yazses](https://mskazemi.com/yazses/) gains two sections
+directly under the hero:
+
+- **Quick start.** Three steps per OS: install, allow and check, dictate. It shares one OS
+  selection with the hero's install switcher, which picks the visitor's OS locally. The
+  "Get started" buttons now go there, not to a section 8,000 px down.
+- **What we're building right now.** The latest release, the number and kinds of changes
+  on `main` that are not released yet, their newest headlines, and the recent releases.
+
+Two new pages: [Get started in five minutes](https://mskazemi.com/yazses/get-started.html)
+walks through each OS, and [What we're building now](https://mskazemi.com/yazses/now.html)
+lists every unreleased change, the recent releases, and the rules that hold every change.
+
+None of the status is written by hand. The new `hooks/project_status.py` reads
+`CHANGELOG.md` and `docs/releases/` at build time. Hand-written status had rotted: the
+roadmap still placed "Settings GUI finished" in a v2.18+ future, 25 releases after that
+line was written. `CHANGELOG.md` now triggers a docs rebuild. `tests/test_docs_deploy_trigger.py`
+derives that from the hook's own `BUILD_INPUTS`, so a release can no longer leave the
+home page announcing the previous one.
+
+### Fixed — the website made 27 failing requests on every page view, and its home-page title named the product twice
+
+Material's language selector fetches a `sitemap.xml` beside every `<link rel="alternate">`,
+and only the root one existed. Every page view logged a 404 for each of the 27
+translation directories. The new `hooks/locale_sitemaps.py` writes a scoped sitemap
+wherever one is requested, derived from the same rule the browser applies. The home
+page's `<title>` no longer ends in a second "- YazSes".
+
+### Fixed — install and status pages that had drifted from the code and the live channels
+
+A docs audit checked each claim against the code and against live, read-only queries of
+every channel (2026-10-21). These were wrong:
+
+- The roadmap and the home page's eras still listed already-shipped work as "next":
+  offline Command Mode and per-engine vocabulary correction (v2.19.0), the MCP server
+  (v2.22.0), and the whole Perception era. They also showed v2.21.0 as "current stable".
+- The home page and README told macOS users to type a `yazses` command that a Homebrew or
+  `.dmg` install does not put on `PATH`.
+- winget was presented as resolving ARM64. It installs the x64 build, and it trails the
+  newest release.
+- The snap was said to be unable to dictate. It dictates on X11 and GNOME/KDE Wayland once
+  both interfaces are connected, and the snap steps now end with `yazses start`.
+- First-run steps used `yazses enroll` where every installer uses `yazses mic-level --set`.
+- `llms.txt` gave Vocalinux's licence as GPLv3 (it is AGPL-3.0), named only one speech
+  engine, and gave a stale count of Android issues.
 ### Fixed — the Windows install guide's facts
 
 `docs/windows-install.md` no longer claims an ARM64 build (winget and Scoop carry the x64 installer, which ARM PCs run under emulation; the mislabelled ARM64 asset was dropped in 2.43.1), names the real default model (`base.en`, about 150 MB, not `tiny.en`), asks for about 500 MB of disk rather than 250 MB, shows the Chocolatey command, and no longer tells you to delete a roaming `%APPDATA%\yazses` folder YazSes never creates; it now names the Whisper model cache instead. Found by a docs audit against the live channels.

@@ -160,6 +160,14 @@ hooks:
   # from a hook because `!!python/name:` cannot reach the repo root at the point
   # mkdocs.yml is parsed.
   - hooks/indic_slugify.py
+  # Derives "latest release" and "on main, not yet released" from CHANGELOG.md and
+  # docs/releases/, for the home page's Building-now band (config.extra.yazses_status)
+  # and the <!-- yazses-status:* --> placeholders on docs/now.md. Hand-written status
+  # rotted; this cannot.
+  - hooks/project_status.py
+  # Material fetches "sitemap.xml" beside every <link rel=alternate>; only the root one
+  # existed, so each translation directory was a 404 on every page view.
+  - hooks/locale_sitemaps.py
 
 plugins:
   - search
@@ -289,6 +297,7 @@ markdown_extensions:
 nav:
   - Home: index.md
   - Get started:
+      - Quick start (five minutes): get-started.md
       - Watch the CLI: watch-the-cli.md
       - Try it without installing: try-without-installing.md
       - Platform support (OS + CPU): platform-support.md
@@ -415,6 +424,7 @@ nav:
           - Contributing to mobile: mobile/contributing.md
           - Decision records: mobile/adr/README.md
   - Project:
+      - What we're building now: now.md
       - Roadmap: roadmap.md
       - Releases: releases/index.md
       - Contributing:
