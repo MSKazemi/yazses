@@ -340,7 +340,11 @@ entry: only a person who has read the licence fills those two fields in. An
 from the metadata of the Linux 1.13.8 wheels in a local uv cache (the Windows wheels'
 METADATA has not been read), `sherpa-onnx-core` has no licence file and `sherpa-onnx`
 declares `License: Apache licensed, as found in the LICENSE file`, which is not an SPDX
-expression. Both entries that fix this are committed, unsigned. To release it:
+expression. Both entries that fix this are committed, unsigned.
+
+**Do not sign these as Apache-2.0 (finding, 2026-10-21).** The sherpa-onnx 1.13.8 binaries embed espeak-ng, which is GPL-3.0-or-later: `strings` on the Linux wheels finds 137 `espeak` symbols in `libsherpa-onnx-c-api.so` and 98 in `_sherpa_onnx…so` (`espeak_Initialize`, `espeak_TextToPhonemesWithTerminator`, `espeak_CompileDictionary`; `.constprop`/`.isra` suffixes mean statically compiled in, not loaded). sherpa-onnx builds TTS in by default, so the Windows wheels very likely do too (not checked). The declared licence is therefore incomplete, and the gate cannot see it because it reads declared metadata only. Redistributing these binaries in a Windows add-on means GPL-3.0 obligations: an `[[approval]]` for GPL-3.0-or-later plus a source offer in `SOURCE.md`, or a sherpa-onnx build without TTS. Owner decision 2026-10-21: leave both entries unsigned; `diarization` stays PyPI-only (pip/uv), which is not redistribution by YazSes. This is a technical finding, not legal advice.
+
+Only if that is resolved, the steps to release it are:
 
 1. Read `packs/licence-texts/sherpa-onnx-core/1.13.8/LICENSE` and compare it with its
    `source_url` (the repository's `LICENSE` at tag `v1.13.8`, commit `11afbd0`; it is

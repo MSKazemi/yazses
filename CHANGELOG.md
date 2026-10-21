@@ -6,6 +6,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Security — the Windows diarization add-on stays unreleased: its libraries embed GPL code
+
+The sherpa-onnx 1.13.8 binaries the diarization add-on would ship contain espeak-ng (GPL-3.0-or-later) compiled in, although sherpa-onnx declares Apache-2.0. The prepared licence entries for the add-on are therefore left unsigned and now say why, and the spec and ADR-028 record the evidence. Diarization through pip or uv is unaffected; nothing was ever released as an add-on.
+
 ### Fixed — the Windows add-on spike's bind check reported a correct bind as FAIL
 
 The first real `packs-spike.yml` run (windows-latest, run 39631811305) measured every ADR-028

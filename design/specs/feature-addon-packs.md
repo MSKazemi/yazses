@@ -507,6 +507,7 @@ formats the same way.
       needs the bind probe (item 16) and a real Windows build, and the Windows wheels'
       METADATA has not been read, so the first real build may still report something the
       Linux wheels did not show.
+    - **Do not sign these as Apache-2.0 (finding, 2026-10-21).** The sherpa-onnx 1.13.8 binaries embed espeak-ng, which is GPL-3.0-or-later: `strings` on the Linux wheels finds 137 `espeak` symbols in `libsherpa-onnx-c-api.so` and 98 in `_sherpa_onnx…so` (`espeak_Initialize`, `espeak_TextToPhonemesWithTerminator`, `espeak_CompileDictionary`; `.constprop`/`.isra` suffixes mean statically compiled in, not loaded). sherpa-onnx builds TTS in by default, so the Windows wheels very likely do too (not checked). The declared licence is therefore incomplete, and the gate cannot see it because it reads declared metadata only. Redistributing these binaries in a Windows add-on means GPL-3.0 obligations: an `[[approval]]` for GPL-3.0-or-later plus a source offer in `SOURCE.md`, or a sherpa-onnx build without TTS. Owner decision 2026-10-21: leave both entries unsigned; `diarization` stays PyPI-only (pip/uv), which is not redistribution by YazSes. This is a technical finding, not legal advice.
 15. **No `stdlib/` supplement yet.** The spike measures the stdlib gaps first (Phase 0 item 2).
 16. **`bind_to_base`: a reviewed DLL exception (ADR-028 finding on sherpa-onnx-core).**
     `packs.toml` may list bare DLL basenames under `bind_to_base` for a pack, with a
