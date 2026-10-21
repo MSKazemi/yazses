@@ -189,6 +189,16 @@ file in the YazSes data folder). `yazses start` leaves autostart off, `doctor` s
 row as skipped with the command to turn it back on, and `yazses autostart status` says
 you turned it off. `yazses autostart enable` reverses all of it. On every platform.
 
+### Fixed — `scoop uninstall yazses` removes the start-at-login entry
+
+A Scoop install never runs the installer's uninstall step, so the `HKCU\Run` entry that
+`yazses start` adds survived `scoop uninstall yazses`. It pointed at a program that no
+longer existed, and stayed in Task Manager's Startup list. The Scoop manifest now
+removes it before uninstalling, but only when it points inside that Scoop install's own
+folder. An entry from the `.exe` installer, or from anything else, is left alone.
+Checked on Windows 11 22H2 by installing from the bucket, running `yazses start`, then
+`scoop uninstall yazses`.
+
 ### Fixed — the Windows install guide's facts
 
 `docs/windows-install.md` no longer claims an ARM64 build (winget and Scoop carry the x64 installer, which ARM PCs run under emulation; the mislabelled ARM64 asset was dropped in 2.43.1), names the real default model (`base.en`, about 150 MB, not `tiny.en`), asks for about 500 MB of disk rather than 250 MB, shows the Chocolatey command, and no longer tells you to delete a roaming `%APPDATA%\yazses` folder YazSes never creates; it now names the Whisper model cache instead. Found by a docs audit against the live channels.
