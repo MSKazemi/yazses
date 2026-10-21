@@ -165,3 +165,20 @@ Report:
 - dock/undock/camera change outcome.
 
 No promotion to recommended implicit calibration without longitudinal field evidence.
+
+## Backends
+
+### macOS
+
+As built (#607): `src/yazses/platform/macos/click_observer.py`, `MacClickObserver`, registered as
+`click_observer_factory` in `src/yazses/platform/macos/__init__.py`. A `CGEventTap` created with
+`kCGEventTapOptionListenOnly` on a dedicated daemon thread's run loop, masked to the three
+mouse-down types only; listen-only means it can never swallow, delay or alter a click, and the
+test pins the exact option constant. It emits `ClickEvent(monotonic, x, y)` with the location
+passed through unchanged (CoreGraphics global points are already the ADR-v2-149 space here: main
+display top-left, y down, negative left/above) and emits nothing for mouse-up, motion, scroll or a
+tap-disabled notification, which it answers by re-enabling. It needs the same Input Monitoring +
+Accessibility grants as the dictation key; a NULL tap raises `ClickObserverError` naming both
+panes and `yazses doctor`, so dictation keeps working and the refiner stays dormant with the
+reason surfaced. Live evidence on real hardware is pending: nothing here has run against a real
+`CGEventTapCreate`, and a CI runner's TCC is permissive, so a runner `[OK]` proves nothing.
