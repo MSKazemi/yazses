@@ -166,6 +166,18 @@ kept starting another daemon. Versioned interpreter names (`python3.exe`,
 still do not. Checked on Windows 11 22H2 with the Store's Python 3.11: `start`, then
 `status` reports the daemon, and `stop` stops it.
 
+### Fixed — on Windows, no empty terminal window at sign-in after `yazses start` ([#330](https://github.com/MSKazemi/yazses/issues/330))
+
+On a Scoop install, `yazses start` set YazSes to start at sign-in using the console program
+`yazses-cli.exe` instead of the windowed `YazSesApp.exe`. Windows gives a console program a
+terminal window, so every sign-in left an empty window titled `yazses-cli.exe` open for as long
+as YazSes ran. On an installer install, `yazses autostart enable` replaced the installer's
+correct entry with the same console one. Both now write the windowed program, the same entry
+the installer writes. An entry already written the old way is fixed the next time you run
+`yazses start`, which says so once. Only that exact entry, for the same install folder, is
+changed; any other value is left alone. Reproduced and checked on Windows 11 22H2 with the
+Scoop install of 2.43.2.
+
 ### Fixed — the Windows install guide's facts
 
 `docs/windows-install.md` no longer claims an ARM64 build (winget and Scoop carry the x64 installer, which ARM PCs run under emulation; the mislabelled ARM64 asset was dropped in 2.43.1), names the real default model (`base.en`, about 150 MB, not `tiny.en`), asks for about 500 MB of disk rather than 250 MB, shows the Chocolatey command, and no longer tells you to delete a roaming `%APPDATA%\yazses` folder YazSes never creates; it now names the Whisper model cache instead. Found by a docs audit against the live channels.
