@@ -1,6 +1,6 @@
 # ADR-028 — Feature add-on packs: a frozen install fetches a feature's libraries when it is turned on
 
-**Status:** Proposed (2026-10-20)
+**Status:** Proposed (2026-10-20); the eight owner questions answered 2026-10-21
 **Deciders:** Mohsen Seyedkazemi Ardebili
 **Context links:** [[adr-019-egress-inventory-and-escalation]] (the egress row this adds),
 [[adr-018-feature-packs-and-the-plugin-question]] (no third-party plug-ins; show the price
@@ -616,26 +616,144 @@ running version's tag, after a click, carrying nothing about the user.
 Each of these is caught by the frozen probe in CI before a release ships, rather than on a
 user's machine.
 
-## Open questions for the owner
+## Owner questions: answered 2026-10-21
 
-1. **Bundle the tiny pure-Python extras instead?** `chinese` (about 0.5 MB) and possibly
-   `parakeet` (`onnx-asr`, about 4 MB on Linux) would cost less in the base than as packs.
-   It changes the base. Yes or no?
-2. **Torch packs (`voiceprint` for `cocktail`).** Several hundred MB on Windows (CPU-only
-   wheel; unmeasured), and torch's DLL set is the likeliest to collide. Build them in
-   Phase 3, or keep "PyPI only" for torch features?
-3. **Re-download after an update:** one click after relaunch (proposed), or fold it into
-   the update confirmation, which costs fetching the new release's index first?
-4. **All-users uninstall** cannot remove other users' `packs\`. Accept and document
-   `yazses packs remove --all`, or add a per-user cleanup on the next login of each user?
-5. **Offline / firewalled install** (`yazses packs install --from <file>`). With the hash
-   embedded, a hand-downloaded pack is as trustworthy as a fetched one. Ship it in Phase 2?
-6. **MSIX:** treat packs as described functionality in the Store listing, or skip MSIX
-   packs and wait for a Store-native optional-package design?
-7. **Licences.** `tts` bundles the espeak-ng library through `espeakng-loader`, and other
-   packs redistribute native third-party binaries. Is a per-pack `LICENSES/` directory plus
-   a licence deny-list gate in the build (copyleft needs explicit approval) acceptable as
-   the policy?
-8. **Signing priority.** Packs make SignPath signing more valuable, because one signature
-   then authenticates the installer and every pack. Should it move ahead of other release
-   work?
+The owner asked for these eight questions to be researched and answered. The evidence is in
+[`design/research/2026-10-21-pay-for-what-you-enable.md`](../research/2026-10-21-pay-for-what-you-enable.md),
+plus a measured pass over the `uv.lock` Windows wheels (each wheel downloaded and its
+SHA-256 checked against the lock). Until the code changes listed below land, the code keeps
+its most cautious behaviour, which is what landed in `e50e35f2`. This ADR stays
+**Proposed**, because acceptance waits on the Phase 0 spike.
+
+1. **Bundle the tiny pure-Python extras: yes, both, in the frozen base only.**
+   - `onnx-asr` 0.12.0 is MIT, a 3.98 MB `py3-none-any` wheel (7.0 MB unpacked). Its
+     `[cpu,hub]` dependencies are already in the base.
+   - `opencc-python-reimplemented` 0.1.7 is Apache-2.0, a 0.48 MB wheel.
+   - Neither ships native code. Together they add about 4.5 MB, about 2.4% of the 188 MB
+     v2.43.2 installer.
+   - The heavy part of Parakeet is its model (int8, about 661–670 MB, CC-BY-4.0, which
+     requires attribution). It downloads on first use either way, so a pack would save
+     almost nothing.
+   - The PyPI base does not change; ADR-016 still governs it.
+   - Consequence: Phase 1 is proven on `diarization`, the pack with native code, which is
+     where the mechanism can actually fail.
+   - Code change:
+     - `scripts/build-windows.ps1` syncs `--extra parakeet --extra chinese`;
+     - `packaging/packs/packs.toml` marks both `bundled`.
+2. **Torch packs: no. `voiceprint` stays PyPI-only, and its replacement is an ONNX backend.**
+   - The voiceprint set is about 173 MB compressed and well over 500 MB unpacked. The
+     torch 2.13.0 Windows wheel alone is 122 MB (466 MB unpacked) and is already CPU-only.
+   - It serves one EXPERIMENTAL feature (`cocktail`).
+   - Torch's `libiomp5md.dll` shares a basename with the base's (it ships with
+     ctranslate2) but has different bytes. Torch loads its DLLs by full path, so two OpenMP
+     runtimes can load into one process. That is the documented
+     "OMP: Error #15" failure for CTranslate2 + PyTorch on Windows.
+   - torchaudio 2.11.0 declares no torch requirement and is locked against torch 2.13, so
+     that ABI pairing is unverified.
+   - The route forward is a `sherpa_onnx.SpeakerEmbeddingExtractor` backend for
+     `voiceprint`:
+     - `recimport/diarizer.py` already uses that extractor with a 39.6 MB model;
+     - 26–30 MB models exist;
+     - it would ride on the diarization pack;
+     - existing enrolments must be re-enrolled, because embeddings differ across models.
+   - Code change: none now; `voiceprint` stays `deferred`, with this reason.
+3. **Re-download after an update: ask at update-confirm, download from the new build.**
+   - The update confirmation names the installed packs and their sizes from the *old*
+     index ("this update will also re-download Diarization, 19 MB").
+   - The *new* app then fetches them on first launch and verifies them against its own
+     embedded index.
+   - This is how Steam DLC and Windows Features on Demand behave.
+   - It adds no pre-update fetch and no second trust path.
+   - If the user declines, or a download fails, it falls back to the proposed one click
+     after relaunch.
+   - Code change: today nothing is re-fetched (`packs remove --all` is the only cleanup).
+     The ADR-027 confirm text and a first-launch re-sync job both need to be added.
+4. **All-users uninstall: accept the gap and document it.**
+   - Inno Setup's own guidance is that in administrative mode "user-level files and
+     settings must be handled by the application itself"
+     ([Inno Setup](https://jrsoftware.org/ishelp/topic_admininstallmode.htm)).
+   - The uninstaller removes the elevating user's `packs\`.
+   - The uninstall page and `doctor` name `yazses packs remove --all` for the other users.
+   - Leftover packs are inert: nothing loads them without the app, and a later build
+     ignores them because its build id differs.
+   - Active Setup is rejected. It is undocumented on Microsoft Learn, runs synchronously at
+     every logon with no timeout, and leaves a registry entry behind after uninstall.
+   - Code change: `[UninstallDelete]` for the running user's pack root, plus documentation.
+5. **Offline install from a file: yes, in Phase 2.**
+   - `yazses packs install --from <file>` accepts only a file whose SHA-256 is in the
+     embedded index. It reuses the verify, extract, probe and commit pipeline.
+   - Because the expected hash comes from the installed app, a matching file is
+     byte-identical to the CI output, however it was carried. This is the same trust as a
+     fetched pack, and the same limit (an unsigned installer).
+   - The UI names the exact asset file for this build id.
+   - Precedents: `code --install-extension <file.vsix>`, `pip --no-index --find-links`,
+     and DISM `/Source /LimitAccess`.
+   - It closes the firewall class of failure first reported by a real user in #310.
+6. **MSIX: no MSIX packs. The Store route stays the unpackaged `.exe` (policy 10.2.9).**
+   - `packaging/store/README.md` already chose that route.
+   - The Store listing describes the optional add-ons as downloaded on request. That keeps
+     them within "described functionality" under policy 10.2.2 (Store Policies v7.20,
+     2026-09-15).
+   - MSIX optional packages that contain code need Microsoft's permission and UWP-era
+     tooling, and MSIX is not a released asset today.
+   - **Risk to raise with Microsoft before submitting:** 10.2.9 requires that "the binary
+     and all of its Portable Executable (PE) files" be signed. The base already carries
+     unsigned upstream PE files (ctranslate2, numpy, PortAudio), and SignPath forbids
+     signing upstream binaries.
+7. **Licences: yes to per-pack `LICENSES/` plus a build gate, with three rules.**
+   1. **Permissive licences and LGPL pass.** LGPL is already in the frozen base (PySide6),
+      and libsndfile, FFmpeg (inside opencv) and soxr are LGPL. LGPL needs a source offer
+      and loose, replaceable DLLs; the pack layout already gives the latter.
+   2. **GPL needs the owner's explicit, recorded approval per pack**, as a `packs.toml`
+      field, plus a `SOURCE.md` giving exact upstream source URLs, tags and hashes. This
+      covers:
+      - `tts`: espeak-ng inside `espeakng-loader`, and **`phonemizer` 3.4.0, which the
+        first draft missed**;
+      - `prosody`: `praat-parselmouth`.
+      
+      YazSes is Apache-2.0, which is GPLv3-compatible, so these packs are permissible. The
+      FSF treats in-process loading as one combined program, even when the parts are
+      downloaded separately. Distributing the packs therefore carries GPLv3 source duties.
+      This is engineering analysis, not legal advice.
+   3. **An unknown licence or a missing licence file fails the build.** Today that catches
+      `espeakng-loader` (empty metadata, no licence file) and `sherpa-onnx-core` (no
+      notices, although it bundles MIT ONNX Runtime). Metadata-only tools cannot see a
+      GPL binary inside a wheel, so the gate uses `pip-licenses` for metadata and ScanCode
+      or a reviewed per-pack allowlist for bundled files.
+   - Code change: today there is no gate, the licence texts are copied, and `tts` is
+     deferred.
+8. **Signing: yes, move it ahead of other release work, justified by the base installer.**
+   - A signed installer:
+     - builds SmartScreen reputation on the certificate (EV no longer bypasses
+       SmartScreen);
+     - meets Store policy 10.2.9;
+     - gets past Smart App Control;
+     - anchors the embedded pack index, and with it every pack hash.
+   - It does **not** make pack DLLs pass Smart App Control. Almost all of them are unsigned
+     upstream builds; the exceptions are Microsoft's ONNX Runtime and Intel's OpenMP.
+     SignPath's terms forbid signing them, and an Authenticode signature on a ZIP is
+     invisible to Windows. Smart App Control behaviour for packs stays a Phase 1 manual
+     checklist item.
+   - Routes:
+     - **SignPath Foundation** (application answered 2026-09-13; current status
+       unverified);
+     - **Certum's open-source certificate** (€69 with a hardware card; listed out of stock
+       on 2026-10-21; impractical from hosted CI);
+     - Azure Trusted Signing is excluded by owner policy.
+
+**Findings from the same pass that change Phase 1:**
+
+- **`sherpa-onnx-core` 1.13.8's Windows wheel ships its own `onnxruntime.dll`.** It is an
+  unsigned 1.28.2 build. The base has Microsoft's signed 1.28.0.
+  - §1 asked whether the Windows wheel carries its own ONNX Runtime: it does.
+  - Under §1's rule the diarization pack therefore fails the build, and the build withholds
+    it.
+  - Proposed resolution:
+    - drop sherpa's copy and bind to the base's ONNX Runtime (same 1.28 line);
+    - prove that with the spike's loaded-module probe (`rthook_pack_spike.py`, check (d));
+    - if the probe fails, take §1's recorded out-of-process route.
+- **The `gaze` closure contains both `opencv-python` and `opencv-contrib-python`.** The
+  extra declares the first; mediapipe 1.0.1 requires the second. Both own `cv2`, which
+  fires the module-collision rule and duplicates about 70 MB on every platform.
+  - Fix: drop `opencv-python` from the extra, because contrib is a superset.
+
