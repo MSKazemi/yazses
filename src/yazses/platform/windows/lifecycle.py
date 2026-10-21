@@ -138,16 +138,22 @@ def is_console_twin(current: str, wanted: str) -> bool:
     That exact value is what an earlier ``yazses start`` or ``yazses autostart enable``
     wrote from the same install folder, so it is the only entry safe to rewrite: one
     pointing anywhere else (another install, a hand-edited command) is the user's,
-    and is left alone. Windows paths compare case-insensitively.
+    and is left alone. The paths compare as Windows paths, not as text: case and
+    ``/`` against ``\\`` do not matter, which is also what lets this run off Windows.
     """
+    app = _quoted_tray_exe(wanted)
+    if app is None or app.name.lower() != APP_EXE.lower():
+        return False
+    return _quoted_tray_exe(current) == app.with_name(_CLI_EXE)
+
+
+def _quoted_tray_exe(command: str) -> PureWindowsPath | None:
+    """The program in a ``"<path>" --tray`` command line, or None for any other shape."""
     suffix = '" --tray'
-    if not (wanted.startswith('"') and wanted.endswith(suffix)):
-        return False
-    app = PureWindowsPath(wanted[1 : -len(suffix)])
-    if app.name.lower() != APP_EXE.lower():
-        return False
-    console = f'"{app.with_name(_CLI_EXE)}" --tray'
-    return current.strip().lower() == console.lower()
+    command = command.strip()
+    if not (command.startswith('"') and command.lower().endswith(suffix)):
+        return None
+    return PureWindowsPath(command[1 : -len(suffix)])
 
 
 class WindowsLifecycle:
