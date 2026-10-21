@@ -1029,7 +1029,10 @@ def _voiceguard_check(cfg, data_dir: Path) -> _Check | None:
     return ("Voice Guard", "OK", (
         f"on -- refuses a burst whose voiceprint similarity is under "
         f"{cfg.voiceguard.match_threshold:.2f}. Speaker match only: no anti-spoof model "
-        "ships yet, so a recording of your voice is admitted"
+        "ships yet, so a recording of your voice is admitted. A voiceprint file is "
+        "present; doctor does not decrypt it, and the daemon log warns once if it cannot "
+        "load it or score a burst with it (the guard then lets bursts through). The "
+        "threshold is tuned on synthetic signals only"
     ))
 
 

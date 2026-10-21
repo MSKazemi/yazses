@@ -33,7 +33,7 @@ It stays listed so contributors can pick it up; see the matching design/adr/ ent
 ```
 
 They stay listed because that is where a contributor picks one up — each has a matching
-`design/adr/` entry. **35 of the 122 rows below are ◌ today.** Rows without the mark are
+`design/adr/` entry. **34 of the 122 rows below are ◌ today.** Rows without the mark are
 wired and can be turned on.
 
 ### "Hold the command key" — what that means
@@ -121,7 +121,7 @@ A fresh 2026 state-of-the-art round. Manage them with `yazses features enable/di
 | ◌ **Meeting Scribe** | `scribe` | On-device "who said what" transcript — you are tagged **You**, others **Speaker N**. No `scribe` extra exists; the shipped diarization path is `yazses transcribe --diarize` behind the `diarization` extra. |
 | ◌ **Ask My Notes (voice RAG)** | `rag` | Ask a question by voice, get an answer grounded in and citing your own local notes/docs. No `rag` extra exists yet. |
 | ◌ **Codec Streaming** | `codec` | Routes decoding to a low-latency streaming neural-codec engine (Kyutai/Mimi). No `codec` extra exists yet; English/French-centric. |
-| ◌ **Voice Guard** (experimental) | `voiceguard` | Types only when the *live* speaker matches your enrolled voiceprint and the audio isn't a recording/synthetic. `--force`. No `voiceguard` extra exists; the speaker-embedding dependency is the `voiceprint` extra. |
+| **Voice Guard** (experimental) | `voiceguard` | Refuses a dictation burst, before it is transcribed, when the speaker does not match your enrolled voiceprint. Speaker match only: no anti-spoof model ships, so a recording of your voice is still admitted. Needs `[voiceprint]` on and `yazses enroll-voice`; `--force`. No `voiceguard` extra exists; the speaker-embedding dependency is the `voiceprint` extra. |
 
 Two more Wave D directions are designed but await hardware: **silent-speech (sEMG)**
 dictation by mouthing words, and **pure-vision screen commanding** for surfaces with no

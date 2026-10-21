@@ -25,7 +25,7 @@ import pytest
 from yazses.config import Config, VoiceguardConfig, VoiceprintConfig
 from yazses.core.daemon import Daemon
 from yazses.platform import get_platform
-from yazses.voiceguard.admission import decide, inactive_reason
+from yazses.voiceguard.admission import burst_refusal, inactive_reason
 from yazses.voiceprint.embedding import Embedding
 
 ME = np.array([1.0, 0.0, 0.0], dtype=np.float32)
@@ -39,9 +39,11 @@ class _Embedder:
         self.vector = vector
         self.error = error
         self.calls = 0
+        self.seen: list[np.ndarray] = []
 
     def embed(self, audio, sample_rate=16000):
         self.calls += 1
+        self.seen.append(np.array(audio, copy=True))
         if self.error is not None:
             raise self.error
         return Embedding(self.vector)
@@ -93,31 +95,48 @@ def test_fail_closed_is_refused_because_no_anti_spoof_score_exists():
     assert reason is not None and "anti-spoof" in reason
 
 
-# --- decide: whole-burst embedding -> cosine -> admit -----------------------------------
+def test_an_unreadable_voiceprint_file_is_named_not_called_missing():
+    reason = inactive_reason(_cfg(), embedder_ready=True, enrolled=False, unreadable=True)
+    assert reason is not None and "could not be decrypted" in reason
+
+
+# --- burst_refusal: whole-burst embedding -> cosine -> admit -----------------------------
 
 def _burst() -> np.ndarray:
     return np.full(16000, 0.5, dtype=np.float32)
 
 
 def test_the_enrolled_speaker_is_admitted():
-    d = decide(_burst(), 16000, _Embedder(ME), ME, _cfg().voiceguard)
-    assert d.admit and d.reason == "admitted"
+    assert burst_refusal(_burst(), 16000, _Embedder(ME), ME, _cfg().voiceguard) == (None, None)
 
 
 def test_another_speaker_is_refused_with_the_score_not_the_words():
-    d = decide(_burst(), 16000, _Embedder(SOMEONE_ELSE), ME, _cfg().voiceguard)
-    assert not d.admit
-    assert "speaker mismatch" in d.reason and "0.00" in d.reason
+    refusal, inert = burst_refusal(_burst(), 16000, _Embedder(SOMEONE_ELSE), ME, _cfg().voiceguard)
+    assert inert is None
+    assert refusal is not None and "speaker mismatch" in refusal and "0.00" in refusal
 
 
-def test_an_embedder_failure_admits_under_fail_open():
-    d = decide(_burst(), 16000, _Embedder(error=RuntimeError("boom")), ME, _cfg().voiceguard)
-    assert d.admit
+def test_an_embedder_failure_admits_but_reports_why():
+    refusal, inert = burst_refusal(
+        _burst(), 16000, _Embedder(error=RuntimeError("boom")), ME, _cfg().voiceguard
+    )
+    assert refusal is None
+    assert inert is not None and "boom" in inert
+
+
+def test_a_voiceprint_from_another_backend_is_reported_not_silently_admitted():
+    """ECAPA enrolls 192 dimensions; resemblyzer embeds 256. Every burst fails the same way."""
+    refusal, inert = burst_refusal(
+        _burst(), 16000, _Embedder(np.ones(256, dtype=np.float32)),
+        np.ones(192, dtype=np.float32), _cfg().voiceguard,
+    )
+    assert refusal is None
+    assert inert is not None and "192" in inert and "256" in inert and "enroll-voice" in inert
 
 
 def test_the_whole_burst_is_embedded_once():
     embedder = _Embedder(ME)
-    decide(_burst(), 16000, embedder, ME, _cfg().voiceguard)
+    burst_refusal(_burst(), 16000, embedder, ME, _cfg().voiceguard)
     assert embedder.calls == 1
 
 
@@ -172,6 +191,18 @@ def test_enabled_and_enrolled_refuses_another_speaker():
     d._voiceprint = ME
     reason = d._voiceguard_refusal(_burst())
     assert reason is not None and "speaker mismatch" in reason
+
+
+def test_an_embedder_that_fails_every_burst_is_warned_once_at_warning(caplog):
+    d = _daemon(_cfg())
+    d._embedder = _Embedder(error=ValueError("shapes (192,) and (256,) not aligned"))
+    d._voiceprint = ME
+    with caplog.at_level("WARNING", logger="yazses.core.daemon"):
+        for _ in range(3):
+            assert d._voiceguard_refusal(_burst()) is None
+    warned = [r for r in caplog.records if "[voiceguard]" in r.getMessage()]
+    assert len(warned) == 1 and warned[0].levelname == "WARNING"
+    assert "not aligned" in warned[0].getMessage()
 
 
 def test_enabled_and_enrolled_admits_the_user():
@@ -246,6 +277,24 @@ def test_a_refused_burst_is_never_decoded_or_typed():
     assert "hello" not in repr(captured), "no words exist for a refused burst"
 
 
+def test_a_refused_burst_keeps_no_audio_in_the_corpus():
+    """A refused burst is most likely a third party's voice (ADR-019): event yes, audio no."""
+    audio_written: list[object] = []
+    cfg = _cfg()
+    cfg.learning.capture_audio = True
+    d = _burst_daemon(cfg, SOMEONE_ELSE, [])
+    d._corpus = SimpleNamespace(write=lambda event, audio, sr: audio_written.append(audio))
+    d._on_hold_end()
+    assert audio_written == [None]
+
+
+def test_the_guard_judges_the_burst_before_cocktail_filter_edits_it(monkeypatch):
+    d = _burst_daemon(_cfg(), ME, [])
+    monkeypatch.setattr(d, "_maybe_cocktail_gate", lambda audio: audio[: audio.size // 2])
+    d._on_hold_end()
+    assert d._embedder.seen and d._embedder.seen[0].size == _burst().size
+
+
 def test_the_users_own_burst_is_typed():
     d = _burst_daemon(_cfg(), ME, [])
     d._on_hold_end()
@@ -296,3 +345,45 @@ def test_the_discard_reason_is_classified_as_doubting_capture(reason):
 def test_simple_namespace_config_without_sections_is_inactive():
     """`inactive_reason` reads defensively: a config missing the section explains nothing."""
     assert inactive_reason(SimpleNamespace(), embedder_ready=True, enrolled=True) is None
+
+
+# --- the feature registry: the toggle must not lie -----------------------------------------
+
+def test_enable_writes_voiceprint_too_and_disable_leaves_it():
+    from yazses.system.features import find_feature
+
+    feat = find_feature(Config(), "voiceguard")
+    assert feat is not None
+    assert ("voiceprint", "enabled", "true", False) in feat.on_writes
+    assert all(w[0] == "voiceguard" for w in feat.off_writes)
+
+
+def test_listing_shows_off_with_a_reason_while_voiceprint_is_off():
+    from yazses.system.features import find_feature
+    from yazses.system.features import inactive_reason as registry_reason
+
+    cfg = replace(_cfg(), voiceprint=VoiceprintConfig())
+    feat = find_feature(cfg, "voiceguard")
+    assert feat is not None and not feat.on
+    on = find_feature(_cfg(), "voiceguard")
+    assert on is not None and on.on
+    assert "[voiceprint]" in registry_reason("voiceguard", cfg)
+    assert registry_reason("voiceguard", _cfg()) == ""
+    assert registry_reason("voiceguard", Config()) == ""
+
+
+def test_enable_caveat_names_enrollment_and_the_missing_anti_spoof():
+    from yazses.system.features import enable_caveat
+
+    caveat = enable_caveat("voiceguard", Config()) or ""
+    assert "yazses enroll-voice" in caveat and "recording" in caveat
+    assert "fail_open" in (enable_caveat("voiceguard", _cfg(fail_open=False)) or "")
+
+
+def test_the_registry_no_longer_promises_anti_spoof():
+    from yazses.system.features import find_feature
+
+    feat = find_feature(Config(), "voiceguard")
+    assert feat is not None
+    assert "anti-spoof" not in feat.name
+    assert "voiceguard extra" not in feat.why

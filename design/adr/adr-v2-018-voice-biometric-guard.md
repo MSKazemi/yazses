@@ -35,13 +35,18 @@ user out. **EXPERIMENTAL**, off by default, `--force` to enable.
 What is reachable, and what is not:
 
 - **Hook point.** `Daemon._voiceguard_refusal`, called once per burst after the
-  speech-presence check and before decode. It embeds the *whole* burst with the speaker
+  speech-presence check and before decode. It judges the burst *as heard* -- before
+  Cocktail Filter removes non-target frames, which would raise another speaker's
+  score. It embeds the *whole* burst with the speaker
   embedder `[voiceprint]` already builds, takes the cosine similarity to the enrolled
   voiceprint, and calls `admit(similarity, None, config)` through
   `voiceguard/admission.py`. A refused burst is never decoded, so no text from it exists
   to type; the log carries the reason (a similarity score), never words, and the event
-  records `discard_reason = "voiceguard_rejected"` (classified as doubting capture). With
-  `[streaming]` on, partials already typed during the hold are erased on refusal.
+  records `discard_reason = "voiceguard_rejected"` (classified as doubting capture). The
+  learning corpus keeps that event without its audio, even with `[learning]
+  capture_audio` on: a refused burst is most likely a third party's voice, a category
+  ADR-019 says may never be kept. With `[streaming]` on, partials already typed during
+  the hold reach the window and are erased by backspaces on refusal.
 - **No anti-spoof producer exists.** The spoof score is always `None`. With the default
   `fail_open = true` the guard is a speaker match only; a recording or synthesis of the
   user's voice is admitted. `yazses doctor` says so on the Voice Guard row.
@@ -49,8 +54,20 @@ What is reachable, and what is not:
   with no embedder, with no enrolled voiceprint, or with `fail_open = false` (which would
   refuse everything for want of a spoof score nobody produces), the guard lets bursts
   through and says why: once in the daemon log at start, and as a WARN row in
-  `yazses doctor`. It never silently admits or silently rejects everything.
+  `yazses doctor`. The same applies to a voiceprint file that exists but cannot be
+  decrypted or loaded, and to a burst the embedder cannot score (an enrolled voiceprint
+  from a different `[voiceprint] backend` has a different length on every burst): the
+  burst is admitted and the reason is logged once at WARNING. It never silently admits
+  or silently rejects everything. `doctor` reads only whether the voiceprint file
+  exists, so its OK row says the daemon log is where a load or scoring failure shows.
+- **The toggle cannot lie.** `yazses features enable voiceguard` writes `[voiceprint]
+  enabled = true` as well, and prints that a voiceprint must be enrolled (and that
+  `fail_open = false` stays inactive). `yazses features` lists the guard as off, with
+  the reason, while `[voiceprint]` is off.
 - **Thresholds are tuned on synthetic signals only** (fixed vectors in
   `tests/test_voiceguard_wiring.py`); how often a real voice clears `match_threshold =
   0.5` on the shipped ECAPA backend is unmeasured.
+- **Paths the guard does not see.** Punch-in respeak (`_record_respeak` ->
+  `_apply_punch_in`) retypes a span without passing through the guard; only the main
+  hold-to-talk burst is judged.
 - Off by default; a default daemon never imports `yazses.voiceguard`.
