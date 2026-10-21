@@ -276,6 +276,20 @@ YazSes. When it does not, the button is greyed out and says why: install YazSes 
 `pipx install yazses` to use that feature. `yazses packs` lists the add-ons your build
 has.
 
+**No internet on this PC, or a firewall that blocks github.com?** Download the add-on file
+on another computer, from the release of the version you run (for example
+`YazSes-2.44.0-windows-x64-pack-diarization.yazpack`), copy it over, and run:
+
+```powershell
+yazses packs install --from D:\YazSes-2.44.0-windows-x64-pack-diarization.yazpack
+```
+
+This makes no network request. The file is accepted only if its name is one of this
+build's add-on files and its SHA-256 matches the checksum built into your copy of YazSes,
+so a file that was changed, cut short, or made for another version or build is refused
+and nothing is installed. It is then unpacked, tested and installed exactly as a
+download would be. Keep the file name as the release gives it.
+
 ### Being told when a new version lands
 
 Off by default, because it is the only thing in YazSes that opens an outbound
@@ -417,6 +431,25 @@ Use *Settings → Apps → Installed apps → YazSes → Uninstall*, or run the
 uninstaller from `%LOCALAPPDATA%\Programs\YazSes\unins000.exe`. The uninstaller
 stops a running daemon, removes the autostart registry entry, and takes its own
 entry back out of your PATH (leaving the rest of PATH untouched).
+
+**Add-ons.** For a normal install (just for you), the uninstaller also deletes your
+add-ons folder, `%LOCALAPPDATA%\yazses\packs`. Only that folder: your config, logs and
+models stay, as below. An update never deletes add-ons; it installs over the old copy
+without running the uninstaller.
+
+If YazSes was installed **for all users**, Windows runs the uninstaller as the
+administrator, so it cannot reach anyone's add-ons and deletes none. Each user who
+installed add-ons should run this **before** the uninstall:
+
+```powershell
+yazses packs remove --all
+```
+
+`yazses doctor` shows an **Add-ons** row in that case, with how much the command frees.
+It shows the same row on any install where add-ons from an older build are left over
+that this copy no longer loads. Add-ons left behind are inert: nothing loads them without
+YazSes, and a later version ignores them because they belong to another build. You can
+also delete the folder by hand.
 
 To clear user data (config, logs, model cache) after uninstalling, also run:
 

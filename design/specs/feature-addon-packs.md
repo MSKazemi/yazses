@@ -485,3 +485,63 @@ elevation probe; `sys._MEIPASS` and the `yazses-cli.exe` sibling path; that PyIn
 collects `yazses.packs.*` through the hook's import; `CREATE_NO_WINDOW` for the probe child;
 `os.replace` of a tree across `%LOCALAPPDATA%`; Defender or Smart App Control; and every
 item in the manual checklist above.
+
+### Uninstall and offline install, owner questions 4 and 5 (2026-10-21, branch `feat/packs-uninstall-from`)
+
+This supersedes the Q4 and Q5 sentences under *Conservative choices* above, and the
+`[UninstallDelete]` part of *Not landed*.
+
+**Q4, landed.**
+
+- `installer.iss` has `[UninstallDelete] Type: filesandordirs; Name:
+  "{localappdata}\yazses\packs"; Check: IsPerUserInstall`, where `IsPerUserInstall` is
+  `not IsAdminInstallMode`. Only the packs folder: config, logs and models beside it keep
+  their policy.
+- **Per-user installs only.** In an all-users uninstall `{localappdata}` is the elevated
+  administrator's profile, so that uninstall deletes nothing there. ADR-028's answer says
+  "the uninstaller removes the elevating user's `packs\`"; this deliberately does less,
+  because the administrator who elevates is usually not a user who installed packs, and
+  the one who is gets the doctor row instead. Changing it means dropping the `Check`.
+- The `Check` is right whichever moment Inno evaluates it (when it writes the uninstall
+  log or when it uninstalls), because one registration has one install mode. Inno's
+  documentation pages checked on 2026-10-21 do not say which moment it is.
+- **Never on an upgrade.** `[UninstallDelete]` runs only from the uninstaller, and an
+  in-place upgrade (ADR-027's one-click update included) never starts it.
+  `tests/test_packaging_windows.py` fails if `[InstallDelete]`, `[Run]`, `[Files]` or
+  `[Registry]` names the packs folder, or if `[Code]` deletes a tree, names the folder or
+  starts the uninstaller, and if any `[UninstallDelete]` entry naming a per-user folder
+  lacks the `Check`.
+- `yazses doctor` has an **Add-ons** row (`doctor.packs_row`, facts from
+  `packs.manage.disk_use`). WARN when the pack folder holds bytes this copy never loads
+  (another build's packs, or `staging`/`downloads`/`quarantine` leftovers). OK, as a
+  statement, when the install is all-users (`UpdateLauncher.install_scope() ==
+  "machine"`) and this user has packs. Both name `yazses packs remove --all` and what it
+  frees. No row without a pack folder, and nothing is called unused when the process
+  cannot tell its own build (a source checkout sharing the data folder).
+- `docs/windows-install.md` *Uninstall* says the same.
+
+**Q5, landed.** `yazses packs install --from <file>` (`packs.manage.install_from_file`,
+additive; the name argument becomes optional when `--from` is given).
+
+- The file name must equal one of this build's asset names exactly
+  (`manage.entry_for_file`); a wrong name is refused before the file is read, naming the
+  accepted files, and the YazSes version when the name says another one.
+- `manage.file_fetcher` stands in for the network fetch inside the unchanged
+  `install_pack` transaction. It refuses a size mismatch from `stat`, copies the file into
+  `downloads\<asset>.part`, and hashes **the copy** against the embedded index entry, so a
+  file changed after a check cannot be the one extracted. On a mismatch it reads only
+  `pack.json` to say "made for a different build" when that is the reason. The user's own
+  file is never deleted.
+- After the hash: member validation, `RECORD.json`, the ABI match, the child-process probe
+  and the atomic place, exactly as for a download.
+- No `SHA256SUMS.txt` and no request of any kind.
+  `tests/test_packs_egress.py::test_an_offline_install_from_a_file_makes_no_request`
+  runs a whole `--from` install through the captured opener and asserts zero requests;
+  `tests/test_packs_install_from_file.py` replaces every network primitive with a failing
+  one.
+- `fetch.manual_steps`, which every failed download prints, now adds the `--from` route
+  after the asset name and URL.
+
+**Not verified.** `installer.iss` was not compiled (no ISCC on Linux); the uninstall on a
+real per-user and all-users install is manual checklist item 12, still open, plus the
+all-users case. `install_scope()` on a real all-users install is unit-tested only.

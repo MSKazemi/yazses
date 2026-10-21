@@ -6,6 +6,24 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — install a Windows add-on from a file with no network, and the uninstaller removes your add-ons (ADR-028 questions 4 and 5)
+
+- `yazses packs install --from <file>` installs an add-on file you copied over yourself,
+  for a PC that is offline or behind a firewall that blocks github.com (the #310 case). It
+  makes no network request. The file is accepted only if its name is one of your build's
+  add-on files and its SHA-256 matches the checksum built into your copy of YazSes. A file
+  that was changed, cut short, or made for another version or build is refused with a
+  sentence saying which, and nothing is installed. It is then unpacked, tested and placed
+  exactly as a download would be. A failed download now names this route.
+- The Windows uninstaller deletes your `%LOCALAPPDATA%\yazses\packs` folder, for a
+  per-user install only and never during an update. An all-users uninstall runs as the
+  administrator and cannot reach users' folders, so it deletes none. For that case, and
+  for add-ons an older build left behind, `yazses doctor` has an **Add-ons** row that names
+  `yazses packs remove --all` and how much it frees.
+
+Tested on Linux with synthetic add-on files and a text check of `installer.iss`. Not yet
+verified: compiling the installer, and a real per-user or all-users uninstall on Windows.
+
 ### Fixed — the one-click Windows update never ran the installer (unreleased feature)
 
 The first real run of the update hand-off on a Windows machine (CI, `windows-latest`) showed

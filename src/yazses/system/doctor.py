@@ -1670,6 +1670,77 @@ def _service_health_checks() -> list[_Check]:
     return [("Service health", "FAIL", detail)]
 
 
+def packs_row(use, scope: str) -> _Check | None:
+    """The ``Add-ons`` row (ADR-028, owner answer to question 4). Pure.
+
+    ``use`` is a :class:`yazses.packs.manage.DiskUse`; ``scope`` is the update launcher's
+    ``install_scope()`` (``"user"``, ``"machine"`` or ``"unknown"``). Two facts earn a
+    row, and both name ``yazses packs remove --all`` with what it frees:
+
+    * add-ons this copy never loads (another build's packs, or the leftovers of an
+      unfinished install) — WARN, since that is disk held for nothing;
+    * an all-users install while this user has add-ons — OK, a statement: Windows runs an
+      all-users uninstaller as the administrator, whose profile is not this user's, so
+      the uninstaller cannot remove them (the per-user uninstaller does).
+
+    Nothing at all when neither holds, which is every install without add-ons and every
+    install that is not the Windows installer build.
+    """
+    from yazses.packs.policy import human_bytes
+
+    mine = use.total
+    unused = use.unused
+    all_users = scope == "machine" and mine > 0
+    if unused <= 0 and not all_users:
+        return None
+    lines: list[str] = []
+    if unused > 0:
+        frees = f"frees {human_bytes(mine)}"
+        if use.this_build:
+            frees += (
+                f", including this build's {human_bytes(use.this_build)}, which you then "
+                "reinstall with `yazses packs install <name>`"
+            )
+        lines.append(
+            f"{human_bytes(unused)} of add-ons are not used by this copy of YazSes (another "
+            "build's, or an unfinished install's).\n"
+            f"     Free the space:  yazses packs remove --all   ({frees})"
+        )
+    if all_users:
+        lines.append(
+            "YazSes is installed for all users, so uninstalling it cannot remove your "
+            "add-ons (Windows runs that uninstaller as the administrator).\n"
+            "     Before uninstalling, each user who added some runs:  yazses packs "
+            f"remove --all   (frees {human_bytes(mine)} for you)"
+        )
+    return ("Add-ons", "WARN" if unused > 0 else "OK", "\n     ".join(lines))
+
+
+def _packs_check(platform) -> _Check | None:
+    """Gather the facts for :func:`packs_row`. A diagnostic: never raises."""
+    try:
+        from yazses.packs.context import load_context
+        from yazses.packs.layout import PackLayout
+        from yazses.packs.manage import disk_use
+        from yazses.platform.factory import get_pack_paths
+
+        data_dir = get_pack_paths().data_dir
+        # The common case, and every OS but Windows: no pack folder, no row, no work.
+        if not PackLayout.under(data_dir).root.is_dir():
+            return None
+        use = disk_use(load_context(data_dir=data_dir))
+        scope = "unknown"
+        launcher = getattr(platform, "update_launcher", None)
+        if launcher is not None:
+            try:
+                scope = str(launcher.install_scope())
+            except Exception:  # noqa: BLE001 - an unknown scope only drops a sentence
+                scope = "unknown"
+        return packs_row(use, scope)
+    except Exception:  # noqa: BLE001 - a diagnostic must not take doctor down
+        return None
+
+
 def _install_consistency_checks() -> list[_Check]:
     """Catch the deployment traps that make a daemon silently run wrong/old code:
     multiple installs on PATH, and a systemd ExecStart that points at a missing
@@ -1937,6 +2008,11 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
     # points at a missing/different binary (the silent "restart starts nothing").
     checks.extend(_install_consistency_checks())
     checks.extend(_service_health_checks())
+    # Windows installer build only (ADR-028): add-ons this copy never loads, and the
+    # all-users uninstall that cannot remove a user's add-ons. No pack folder, no row.
+    packs = _packs_check(platform)
+    if packs is not None:
+        checks.append(packs)
 
     # Snap interface connections. Before keyboard capture on purpose: a
     # disconnected `raw-input` is the *cause* of the capture failure reported
