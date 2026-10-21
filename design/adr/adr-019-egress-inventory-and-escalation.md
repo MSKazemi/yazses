@@ -35,9 +35,9 @@ Every module in `src/yazses/` that contains an outbound network primitive
 | `gaze/download.py` | `storage.googleapis.com` | ← MediaPipe model (~3.7 MB) | user enables gaze |
 | `recimport/download.py` | `github.com` releases | ← sherpa-onnx models (~15 MB) | user enables diarization |
 | `tts/download.py` | `github.com` releases | ← Kokoro voice model | user enables read-back |
-| `system/updater.py` | `pypi.org`, GitHub API | ↔ a version string | `yazses update`, or the opt-in watcher |
-| `system/installer_update.py` | GitHub API, `github.com` release assets (redirected only to `*.githubusercontent.com`) | ← the release JSON, `SHA256SUMS.txt` and **the installer `.exe`, which then runs** | the user confirms a one-click update — `yazses update` or the Windows tray ([ADR-027](adr-027-one-click-windows-update.md)) |
-| `packs/fetch.py` (via the helpers above; see *Reached by calling the shared release downloader* below) | `github.com/MSKazemi/yazses/releases/download/v<running version>/` (redirected only to `*.githubusercontent.com`) | ← `SHA256SUMS.txt` and **an add-on pack `.yazpack`, whose code then runs** | the user confirms enabling a pack-backed feature or `yazses packs install` in the Windows installer build ([ADR-028](adr-028-feature-addon-packs.md)) |
+| `system/updater.py` | `pypi.org`, GitHub API | ↔ a version string | `yazses update`, the tray's or the Settings window's *Check for updates*, or the opt-in watcher |
+| `system/installer_update.py` | GitHub API, `github.com` release assets (redirected only to `*.githubusercontent.com`) | ← the release JSON, `SHA256SUMS.txt` and **the installer `.exe`, which then runs** | the user confirms a one-click update — `yazses update`, the Windows tray or the Settings window ([ADR-027](adr-027-one-click-windows-update.md)) |
+| `packs/fetch.py` (via the helpers above; see *Reached by calling the shared release downloader* below) | `github.com/MSKazemi/yazses/releases/download/v<running version>/` (redirected only to `*.githubusercontent.com`) | ← `SHA256SUMS.txt` and **an add-on pack `.yazpack`, whose code then runs** | the user confirms enabling a pack-backed feature, clicks the Settings window's **Install now** for one, or runs `yazses packs install` in the Windows installer build ([ADR-028](adr-028-feature-addon-packs.md)) |
 | `postprocess/llm_cleanup.py` | `[filters.disfluency] llm_endpoint` | **→ dictated text** | LLM cleanup enabled |
 | `remote/local_proxy.py` | `127.0.0.1` (the tunnel's local end) | **→ dictated text** | `yazses remote <host>` |
 
@@ -56,11 +56,11 @@ program was not mentioned. A second scan now covers it.
 |---|---|---|---|
 | `remote/forwarder.py` | `ssh` | **→ dictated text**, as the tunnel for `local_proxy` | `yazses remote <host>` |
 | `gitvoice/plan.py` | `git` | ← → repository content | `yazses gitvoice … --run` |
-| `system/deps.py` | `uv` / `pip` / `pipx inject` | → package names, ← **code that then runs here** | `yazses features enable <name>`, `yazses features install`, the dormant-feature toast's **Install now** click, the `yazses start` prompt — each an explicit user action |
+| `system/deps.py` | `uv` / `pip` / `pipx inject` | → package names, ← **code that then runs here** | `yazses features enable <name>`, `yazses features install`, the dormant-feature toast's or the Settings window's **Install now** click, the `yazses start` prompt — each an explicit user action |
 | `system/setup.py` | `apt-get` (as root) | → package names, ← OS packages | `yazses setup` |
 | `system/winsetup.py` | `winget`, `pip` | → package names, ← VC++ runtime / wheels | `yazses setup` (Windows) |
-| `system/updater.py` | `snap` / `uv` / `pipx` / `pip` / `winget` / `choco` / `scoop` | ← a new version of YazSes | `yazses update`, or the tray's Install |
-| `platform/windows/update_handoff.py` | `choco search` / `winget show` / `scoop info`, then that manager's upgrade (Chocolatey elevated, by absolute path) | → the package name, ← its feed's version, then a new YazSes | *Check for updates…* / `yazses update` on a Chocolatey, winget or Scoop install ([ADR-027](adr-027-one-click-windows-update.md)) |
+| `system/updater.py` | `snap` / `uv` / `pipx` / `pip` / `winget` / `choco` / `scoop` | ← a new version of YazSes | `yazses update`, or the tray's or the Settings window's Install |
+| `platform/windows/update_handoff.py` | `choco search` / `winget show` / `scoop info`, then that manager's upgrade (Chocolatey elevated, by absolute path) | → the package name, ← its feed's version, then a new YazSes | *Check for updates…* (tray or Settings window) / `yazses update` on a Chocolatey, winget or Scoop install ([ADR-027](adr-027-one-click-windows-update.md)) |
 
 The last three were invisible for the same reason the first two once were, one level
 further in: the scan listed *transports* — `ssh`, `curl`, `wget`, `git` — and no

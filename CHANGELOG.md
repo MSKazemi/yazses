@@ -50,6 +50,36 @@ so it can never be `cloud_agent_ready`. The derived rows are checked by the regi
 `validate_campaign_exposure` before anything is written. Not verified: how the rows read to a
 real newcomer, since none can be published until a slot turns READY.
 
+### Added — the Settings window checks for updates and installs dormant features
+
+The tray and the CLI could already find and install an update, and install a switched-on
+feature's missing libraries. The Settings window could do neither, so a GUI user was sent
+back to a terminal. Its new **About and updates** box has:
+
+- **Check for updates**, run off the window's thread, showing the installed and available
+  versions. **Install update…** then does what that install supports: on a per-user
+  Windows installer, winget, Chocolatey or Scoop install, the ADR-027 one-click update
+  (the same confirmation, then `tray.updates.hand_off_outside_tray`, then the window
+  closes); on uv/pipx/pip, `updater.run_upgrade_checked`, which keeps enabled features'
+  libraries and verifies the version moved, then offers the restart. Where one-click is
+  refused (an all-users install, a package feed that has not caught up) the reason and the
+  manual steps are shown, with **Open download page**. A snap is shown its terminal
+  command.
+- **Install now (size)** beside each switched-on feature whose libraries are missing. It
+  runs the transactional `ondemand.install_one` off the window's thread, shows its
+  progress, says whether a failure was undone completely, partly (with the restore
+  commands) or changed nothing, and offers the restart on success. Snap, Homebrew cask,
+  frozen and PEP 668 installs get a disabled button with the reason. In a frozen build
+  whose pack runtime is supported and which publishes an add-on for the feature, the button
+  installs that add-on through `packs.manage.install` (ADR-028).
+
+No update or install logic is new: `settingsui/maintenance.py` (pure decisions and wording)
+and `settingsui/maintenance_panel.py` (widgets and threads) call the functions above, and
+`settingsui/app.py` gains one line. Tested headless with fakes for every effect
+(`tests/test_settingsui_maintenance_logic.py`, `tests/test_settingsui_maintenance_panel.py`),
+including that the check and the install run off the UI thread and report back on it. Not
+yet tried from the window on a real Windows machine.
+
 ### Fixed — pushing a release tag no longer turns every open pull request red ([#602](https://github.com/MSKazemi/yazses/issues/602))
 
 The Windows packaging tests (Scoop, Chocolatey nuspec and install script, winget)
