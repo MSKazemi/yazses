@@ -78,6 +78,12 @@ KNOWN_ORPHANS = {
         "ADR-028 build/test-time catalogue check (tests/test_packs_catalog.py). "
         "scripts/build-packs.py `validate` still carries its own copy of the same check; "
         "make the script call catalogue_problems so there is one.",
+    "system.residency":
+        "ADR-029 (Proposed) runtime-residency policy: idle unload, LRU cap, worker "
+        "placement, the nightly RSS check. Pure and tested (tests/test_residency.py); "
+        "its consumers are the daemon's engine load/unload hooks and the feature model "
+        "owners listed under the ADR's 'Integration hand-offs', which land separately. "
+        "Delete this entry in the change that wires core/daemon.py to it.",
 }
 
 
