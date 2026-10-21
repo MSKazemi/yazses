@@ -6,6 +6,16 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `scoop uninstall yazses` removes the start-at-login entry
+
+A Scoop install never runs the installer's uninstall step, so the `HKCU\Run` entry that
+`yazses start` adds survived `scoop uninstall yazses`. It pointed at a program that no
+longer existed, and stayed in Task Manager's Startup list. The Scoop manifest now
+removes it before uninstalling, but only when it points inside that Scoop install's own
+folder. An entry from the `.exe` installer, or from anything else, is left alone.
+Checked on Windows 11 22H2 by installing from the bucket, running `yazses start`, then
+`scoop uninstall yazses`.
+
 ### Security — the Windows diarization add-on stays unreleased: its libraries embed GPL code
 
 The sherpa-onnx 1.13.8 binaries the diarization add-on would ship contain espeak-ng (GPL-3.0-or-later) compiled in, although sherpa-onnx declares Apache-2.0. The prepared licence entries for the add-on are therefore left unsigned and now say why, and the spec and ADR-028 record the evidence. Diarization through pip or uv is unaffected; nothing was ever released as an add-on.
