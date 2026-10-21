@@ -930,9 +930,10 @@ _Def("chords", "Chorded Shortcut Synthesis", "[chords] — any keyboard shortcut
              "Private on-device analytics of your dictation: filler rate, words-per-minute, "
              "vocabulary diversity, trend. From the encrypted corpus only. Off by default.",
              lambda c: c.coach.enabled, ch_on, ch_off),
-        _Def("voicehealth", "Vocal-Strain Guard", "[voicehealth] — break reminders", OPTIONAL,
+        _Def("voicehealth", "Vocal-Strain Guard", "[voicehealth] — break reminders", EXPERIMENTAL,
              "Advises a break when your voice shows rising strain (jitter/shimmer/HNR) over a "
-             "session. Advisory only, not diagnostic. Off by default.",
+             "session. Advisory only, not diagnostic; thresholds tuned on synthetic signals "
+             "only. Needs the `prosody` extra. Off by default.",
              lambda c: c.voicehealth.enabled, vh_on, vh_off),
         _Def("code", "Spoken Code Mode", "[code] — dictate code syntax", OPTIONAL,
              "Dictate code: spoken symbols become punctuation and word-groups become cased "
@@ -1222,7 +1223,7 @@ _UNWIRED: frozenset[str] = frozenset({
     "interpret", "langroute", "lipread", "loadguard", "morsevox", "mousegrid", "mouthswitch",
     "multiprofile", "pilot", "predict", "pronunciation", "proofback", "rag", "readback_clone",
     "screengrounded", "scribe", "scrub", "sentiment", "sign", "spatialvad", "vocaljoystick",
-    "voiceguard", "voicehealth", "wakeword",
+    "voiceguard", "wakeword",
 })
 
 

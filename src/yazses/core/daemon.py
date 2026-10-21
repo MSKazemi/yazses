@@ -558,6 +558,8 @@ class Daemon:
         self._adaptive_vad = AdaptiveThreshold()
         # Acoustic Context Profiles (ADR-v2-039): built on the first burst, only when on.
         self._acoustic: AcousticGate | None = None
+        # Vocal-Strain Guard (ADR-v2-034): built on the first decoded burst, only when on.
+        self._voicehealth: Any = None
         self._device_monitor: DeviceMonitor | None = None
         # "No text target" guard: detects whether the focused element accepts text so a
         # burst with no field focused is warned (yellow tray) + saved to the clipboard
@@ -3023,6 +3025,10 @@ class Daemon:
                     stream_injector.cancel()
                 return
 
+            # Vocal-Strain Guard (ADR-v2-034): measured on a worker, never on this path.
+            if self._config.voicehealth.enabled:
+                self._voicehealth_submit(padded, sample_rate)
+
             # Voice stop word (ADR-v2-148): the whole utterance equals the configured
             # phrase -> pause every hands-free input and type nothing. Ahead of every
             # handler below on purpose: nothing may type, hold or reinterpret a stop.
@@ -4913,6 +4919,23 @@ class Daemon:
             return
         self._warned_inert.add(feature)
         log.warning("[%s] is enabled but inactive: %s.", feature, reason)
+
+    def _voicehealth_submit(self, audio: np.ndarray, sample_rate: int) -> None:
+        """Hand a decoded burst to the Vocal-Strain Guard's worker (ADR-v2-034).
+
+        Called only while ``[voicehealth] enabled``; builds the runtime on first use, so a
+        default install never imports it. Non-blocking and never raises: a measurement
+        problem must not cost the user their dictation.
+        """
+        try:
+            if self._voicehealth is None:
+                from yazses.voicehealth.runtime import build_runtime
+
+                self._voicehealth = build_runtime(self._config.voicehealth)
+                self._warn_feature_inert("voicehealth", self._voicehealth.inactive_reason)
+            self._voicehealth.submit(audio, sample_rate)
+        except Exception:
+            log.debug("Vocal-Strain Guard submit failed", exc_info=True)
 
     def _maybe_cocktail_gate(self, audio: np.ndarray) -> np.ndarray:
         """Drop non-target-speaker frames before STT (Cocktail Filter P1).
@@ -6986,6 +7009,11 @@ class Daemon:
             set_fallback_sink(None)
         except Exception:
             log.debug("clearing the notification sink failed", exc_info=True)
+        if self._voicehealth is not None:
+            try:
+                self._voicehealth.close()
+            except Exception:
+                log.exception("Vocal-Strain Guard close raised")
         if self._timers is not None:
             # A pending voice timer has nothing to report to a desktop that is
             # going away, and its thread must not hold the process open.
