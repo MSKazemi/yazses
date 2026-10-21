@@ -16,6 +16,10 @@ folder. An entry from the `.exe` installer, or from anything else, is left alone
 Checked on Windows 11 22H2 by installing from the bucket, running `yazses start`, then
 `scoop uninstall yazses`.
 
+### Fixed — the Windows install guide's facts
+
+`docs/windows-install.md` no longer claims an ARM64 build (winget and Scoop carry the x64 installer, which ARM PCs run under emulation; the mislabelled ARM64 asset was dropped in 2.43.1), names the real default model (`base.en`, about 150 MB, not `tiny.en`), asks for about 500 MB of disk rather than 250 MB, shows the Chocolatey command, and no longer tells you to delete a roaming `%APPDATA%\yazses` folder YazSes never creates; it now names the Whisper model cache instead. Found by a docs audit against the live channels.
+
 ### Security — the Windows diarization add-on stays unreleased: its libraries embed GPL code
 
 The sherpa-onnx 1.13.8 binaries the diarization add-on would ship contain espeak-ng (GPL-3.0-or-later) compiled in, although sherpa-onnx declares Apache-2.0. The prepared licence entries for the add-on are therefore left unsigned and now say why, and the spec and ADR-028 record the evidence. Diarization through pip or uv is unaffected; nothing was ever released as an add-on.

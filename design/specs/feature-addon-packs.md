@@ -331,6 +331,10 @@ measured sizes.
   base's `_internal\onnxruntime\capi\onnxruntime.dll`, onnxruntime 1.28.0, and an ONNX Runtime
   session ran. The bind row's FAIL was a probe path-comparison bug, fixed afterwards (see
   *Implementation status*). Pack and installer sizes on Windows: not yet recorded.
+- 2026-10-21, `packs-spike.yml` run 39648862078 (windows-latest, main 0fe86633, after the
+  bind-check fix): all 8 probes PASS for `diarization`, including (d) bind: the only
+  `onnxruntime.dll` loaded is the base's `_internal\onnxruntime\capi\onnxruntime.dll`. Phase 0 is
+  proven on Windows. The pack is still not released (licence: see item 14).
 
 ## Implementation status
 
