@@ -442,11 +442,14 @@ outstanding for both.
 | `streaming.py` | `StreamingEngine` — background decode thread, LocalAgreement stable-prefix policy (ADR-002). `prefix_stable_for_ms()` accessor + `prewarm()` feed Ghost Ahead endpoint anticipation |
 | `filters/disfluency.py` | Disfluency filter: filler removal → 2-gram dedup → **opt-in collapse pass (Rule B.5, ADR-015): sub-word repetition + prolongation collapse for Dysfluency-Friendly Mode, off by default, `_is_protected`-guarded** → self-correction rollback |
 | `endpoint.py` | Ghost Ahead pivot (spec-ghost-ahead): `EndpointAnticipator` (with debounce) — predicts end-of-utterance from partial-transcript stability + trailing silence. **Wired** into `_partial_poll_loop` via `daemon._endpoint_prewarm_tick`: on a likely endpoint, pre-warm (eager, discardable decode); `[endpoint]` off by default. Speculative finalize (Phase 2) gated |
+| `decoder_settings.py` | Pure: `file_decoder_settings(stt, section)` -> frozen `DecoderSettings` (model, language, task, device, compute_type, threads, beam, conditioning, `chinese_script`, `persian_normalisation`, warnings) for every **file** decode — `yazses transcribe`, `meeting recover`, the meeting post-pass without an engine, and the MCP `transcribe` tool. An empty `[recimport]`/`[meeting] model` inherits `[stt] model` (never another engine's checkpoint); the section's `language` is authoritative. `require_section()` raises `TypeError` on a whole `Config` where a section belongs — the substitution that made the MCP tool decode `small.en` English silently |
 | `faster_whisper.py` | `FasterWhisperEngine.transcribe` (fast path) + `transcribe_words()` — opt-in word-timestamp path returning `(text, list[Word])`, used by Prosody Ink (`[prosody]`) and by Diarized Recording Import (`recimport/pipeline.py`, `yazses transcribe <file>`) |
 
 ### `src/yazses/recimport/` (Wave O, ADR-v2-125 — Diarized Recording Import)
 
-CLI-only (`yazses transcribe <file>`); no daemon/IPC/hotkey involvement. Off by
+Reached from `yazses transcribe <file>`, `yazses meeting recover`, the meeting post-pass
+and the MCP `transcribe` tool; no IPC/hotkey involvement. Decoder settings come from
+`stt/decoder_settings.py` (one rule for every entry point). Off by
 default; diarization is lazy behind the `diarization` extra. `pipeline.py::transcribe_file`
 is pure orchestration with injected backends, so every stage is unit-testable without models.
 

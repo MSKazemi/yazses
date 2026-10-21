@@ -6,6 +6,27 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the MCP `transcribe` tool and `meeting recover` now decode with your model, language, device and precision
+
+`yazses mcp-server`'s `transcribe` tool passed the whole config where the `[recimport]`
+section belongs. Every setting was then read with its default, so each call decoded with
+`small.en` in English whatever `[stt]` and `[recimport]` said, and its `diarize` argument
+could never label a speaker. Nothing raised. The same file pipeline also fell back to a
+hard-coded `small.en` instead of inheriting `[stt] model`, which `[recimport]`/`[meeting]
+model = ""` promise, so `yazses meeting recover` decoded with a model nobody chose; and no
+file path passed `[stt] device`, `compute_type`, `cpu_threads`, `beam_size` or
+`condition_on_previous_text` to the decoder.
+
+One pure helper, `stt/decoder_settings.py::file_decoder_settings`, now decides all of
+it for every file entry point, and `transcribe_file` raises `TypeError` when handed a
+whole `Config`. `[stt] chinese_script` and the Persian normaliser are judged against the
+file's own model and language. A `[stt] model` that names a Parakeet or Moonshine
+checkpoint is not inherited (the file path is Whisper-only); it falls back to `base.en`
+with a warning. Tested with a recording fake decoder through the MCP tool, `yazses
+transcribe` and `recover_meeting`; not verified against a real model or a CUDA device.
+Live meetings still decode their post-pass with the daemon's dictation engine, so
+`[meeting] model`/`language` are not applied there yet (unchanged by this fix).
+
 ### Fixed — pushing a release tag no longer turns every open pull request red ([#602](https://github.com/MSKazemi/yazses/issues/602))
 
 The Windows packaging tests (Scoop, Chocolatey nuspec and install script, winget)
