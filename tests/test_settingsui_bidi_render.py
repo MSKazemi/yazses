@@ -24,7 +24,6 @@ Named ``test_settingsui_*`` so the GUI job's glob runs it with PySide6 installed
 from __future__ import annotations
 
 import os
-import sys
 
 import pytest
 
@@ -61,10 +60,19 @@ def _glyph_x(text: str, index: int) -> float:
     return min(xs)
 
 
+def _bang_x(text: str) -> float:
+    return _glyph_x(text, text.index("!"))
+
+
 def _bang_is_left_of_word(text: str) -> bool:
-    word_start = text.index("س")
-    bang = text.index("!")
-    return _glyph_x(text, bang) < _glyph_x(text, word_start)
+    """The '!' is not right of the Persian word's first letter.
+
+    ``<=``, not ``<``: windows-latest's offscreen Qt has no font that draws Persian, so
+    every Persian glyph there has zero width and sits at one x, with a correctly isolated
+    '!' at that same x (PR #606 measured 144.0 for all of them). A strict ``<`` read that
+    as the isolate failing when Qt had placed it correctly.
+    """
+    return _bang_x(text) <= _glyph_x(text, text.index("س"))
 
 
 def test_without_isolation_qt_puts_the_persian_punctuation_on_the_wrong_side(qapp):
@@ -72,19 +80,13 @@ def test_without_isolation_qt_puts_the_persian_punctuation_on_the_wrong_side(qap
     assert not _bang_is_left_of_word("Bookmarked 'سلام!'.")
 
 
-@pytest.mark.xfail(
-    sys.platform == "win32",
-    reason=(
-        "On windows-latest (Qt 6.11, offscreen) the '!' still lands right of the Persian "
-        "word with the isolate in place (run 39566671404). Unknown yet whether Windows Qt "
-        "resolves FSI/PDI differently or this glyph-run measurement does not carry over to "
-        "Windows font fallback; being debugged on a draft PR. strict=False so a fix shows "
-        "as XPASS, not as a new failure. Remove this mark once the cause is known."
-    ),
-    strict=False,
-)
 def test_with_isolation_qt_puts_it_at_the_logical_end(qapp):
-    assert _bang_is_left_of_word(f"Bookmarked '{wrap_user_text('سلام!')}'.")
+    plain = "Bookmarked 'سلام!'."
+    isolated = f"Bookmarked '{wrap_user_text('سلام!')}'."
+    assert _bang_is_left_of_word(isolated)
+    # And it moved: without the isolate the '!' sits right of the word (the defect), so
+    # the isolate must pull it left. This half holds even where Persian has no font.
+    assert _bang_x(isolated) < _bang_x(plain)
 
 
 def test_an_english_sentence_around_the_isolate_keeps_its_order(qapp):
