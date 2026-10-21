@@ -27,6 +27,29 @@ transcribe` and `recover_meeting`; not verified against a real model or a CUDA d
 Live meetings still decode their post-pass with the daemon's dictation engine, so
 `[meeting] model`/`language` are not applied there yet (unchanged by this fix).
 
+### Added — READY eye/camera validation slots appear in the contributor task finder ([#456](https://github.com/MSKazemi/yazses/issues/456))
+
+The no-code eye/camera checks were discoverable only by someone who already knew about
+`design/eye-control/`. `scripts/campaign.py --generate` now derives one `MEASURE-EYE-<slot>`
+measurement task per **READY** slot of the machine-readable registry
+(`design/eye-control/validation-slots.json`) into `campaign/tasks.json`, so it shows up in the
+existing [task finder](https://mskazemi.com/yazses/contribute/find.html) under "specific
+hardware or an OS" and the `measurement` kind — for example *T0 camera lifecycle and privacy on
+Windows 11: slot A, issue #428, no coding* at 20 minutes. Each row names the session and the
+webcam (and the second monitor or scaling a topology cell needs) before anyone claims it, the
+"No-code eye-control test" issue form as the report path, `check_eye_validation_slots.py` as
+its validation command, and asks for no research consent and no identifying data.
+
+PLANNED slots never appear, and **every slot is PLANNED today, so the finder shows no eye task
+yet** — nothing about any platform has changed. The registry is the single source: a
+hand-written row naming a slot is replaced by the derived one, and `campaign.py --check` (and
+`tests/test_campaign_eye_slots.py`) fail when the inventory or the published finder disagrees
+with the registry in either direction, or when the registry is unreadable or empty. The
+campaign validator is unchanged and still authoritative; a slot task is a `measurement` task,
+so it can never be `cloud_agent_ready`. The derived rows are checked by the registry's own
+`validate_campaign_exposure` before anything is written. Not verified: how the rows read to a
+real newcomer, since none can be published until a slot turns READY.
+
 ### Fixed — pushing a release tag no longer turns every open pull request red ([#602](https://github.com/MSKazemi/yazses/issues/602))
 
 The Windows packaging tests (Scoop, Chocolatey nuspec and install script, winget)
