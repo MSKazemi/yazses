@@ -248,6 +248,18 @@ Nothing new can leave the machine: this is the path ADR-019 already lists, used 
 run `yazses remote <host>`. Found by reading the code during a docs audit, and confirmed by a
 test that failed in every state a burst passes through.
 
+### Changed — the README now opens with what YazSes is, what it does, how to install it, and how to help
+
+A first-time visitor used to meet 28 language links, two paragraphs, an install table and
+three sets of commands before learning what YazSes does. The top of `README.md` is now four
+short sections in the order a newcomer needs them: one sentence on what YazSes is with the
+demo reel, a five-row table of the main features, one install command per operating system
+with its single first-run step and the default hotkey, and a list of ways to contribute,
+several needing no Python. The language links fold into a collapsible block. macOS and
+Windows are labelled as previews and point at `docs/validation-matrix.md`, because no report
+there yet shows typed text on a Mac and the last Windows hardware run predates the start
+and restart fixes. Everything that used to sit at the top is kept under "About YazSes".
+
 ### Changed — the Windows installer carries Parakeet's engine and Chinese script conversion; the diarization add-on runs on the installer's ONNX Runtime
 
 ADR-028's owner answers (2026-10-21), build side. The Windows installer now bundles two
