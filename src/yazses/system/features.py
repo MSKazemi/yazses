@@ -1222,7 +1222,7 @@ _UNWIRED: frozenset[str] = frozenset({
     "interpret", "langroute", "lipread", "loadguard", "morsevox", "mousegrid", "mouthswitch",
     "multiprofile", "pilot", "predict", "pronunciation", "proofback", "rag", "readback_clone",
     "screengrounded", "scribe", "scrub", "sentiment", "sign", "spatialvad", "vocaljoystick",
-    "voiceguard", "voicehealth", "wakeword",
+    "voicehealth", "wakeword",
 })
 
 
