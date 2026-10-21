@@ -62,6 +62,21 @@ _OPEN_RETRY_DELAYS_S: tuple[float, ...] = (0.05, 0.55)
 _OPEN_ATTEMPTS = len(_OPEN_RETRY_DELAYS_S) + 1
 
 
+def _ended_on_its_own(stream: object) -> bool:
+    """Had PortAudio already stopped ``stream`` before we asked it to? Pure.
+
+    `sounddevice` streams expose ``active`` as a real ``bool``; it goes False when the
+    stream stops without ``stop()`` being called -- which is how a device that was
+    unplugged or switched mid-recording looks from here. Only an explicit ``False``
+    counts: an object without the attribute, or one whose ``active`` is not a bool
+    (a test double), is treated as a normal stop, never as a lost device.
+    """
+    try:
+        return getattr(stream, "active", True) is False
+    except Exception:
+        return False
+
+
 class AudioRecorder:
     def __init__(
         self,
@@ -85,6 +100,12 @@ class AudioRecorder:
         # Name of the device actually opened by the last ``start()`` — the daemon
         # records this as "last-good" when the clip yields usable audio.
         self.current_device_name: str | None = None
+        # True when the last ``stop()`` found the stream had already ended on its own --
+        # the device was unplugged or switched mid-recording, so everything said after
+        # that point is missing from the clip. Read it after ``stop()``; it is how a
+        # caller tells a dead stream from a quiet microphone (both hand back little or
+        # no audio). Reset by ``start()``.
+        self.stream_interrupted = False
         self._chunks: list[np.ndarray] = []
         self._n_samples = 0
         self._stream: sd.InputStream | None = None
@@ -118,6 +139,7 @@ class AudioRecorder:
         self._chunks = []
         self._n_samples = 0
         self._stream = None
+        self.stream_interrupted = False
         device_index = self._resolve_device()
         last_exc: Exception | None = None
         for attempt in range(1, _OPEN_ATTEMPTS + 1):
@@ -183,13 +205,30 @@ class AudioRecorder:
         return self._stream is not None or bool(self._chunks)
 
     def stop(self) -> np.ndarray:
+        interrupted = False
         if self._stream is not None:
+            stream, self._stream = self._stream, None
+            interrupted = _ended_on_its_own(stream)
+            if interrupted:
+                log.warning(
+                    "Microphone stream ended before recording was stopped (input device "
+                    "removed or switched mid-recording?); %.2f s were captured and "
+                    "anything said after that is missing.",
+                    self._n_samples / self._sample_rate,
+                )
+            # stop() and close() are separate on purpose. A stream whose device vanished
+            # mid-recording is the one most likely to make stop() raise, and when both
+            # sat in one `try` that skipped close(): the PortAudio handle leaked on
+            # exactly the path that most needs a clean slate for the next start().
             try:
-                self._stream.stop()
-                self._stream.close()
+                stream.stop()
             except Exception as exc:  # never let teardown crash the pipeline
+                log.warning("Error stopping mic stream: %s", exc)
+            try:
+                stream.close()
+            except Exception as exc:
                 log.warning("Error closing mic stream: %s", exc)
-            self._stream = None
+        self.stream_interrupted = interrupted
         if not self._chunks:
             return np.array([], dtype="float32")
         audio = np.concatenate(self._chunks)
