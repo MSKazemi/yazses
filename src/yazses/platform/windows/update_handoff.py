@@ -415,9 +415,15 @@ def build_script(handoff: UpdateHandoff) -> str:
         # For an all-users install this early check is a courtesy, not the protection:
         # it spares the user a UAC prompt for a file that is already wrong. The check
         # that counts is the elevated job's, on its own admin-only copy.
+        # .NET, not Get-FileHash: on windows-latest 5.1 reported Get-FileHash "not
+        # recognized" here, so no installer ever ran, per-user or all-users (run
+        # 39577798547). Cause not confirmed -- an inherited PowerShell 7 PSModulePath and
+        # an execution policy blocking 5.1's Utility .psm1 both fit; .NET depends on
+        # neither. The elevated script already hashes this way.
         lines += [
-            f"  $hash = (Get-FileHash -LiteralPath {q(program)} -Algorithm SHA256)"
-            ".Hash.ToLowerInvariant()",
+            f"  $fs = [IO.File]::OpenRead({q(program)})",
+            "  try { $hash = [BitConverter]::ToString([Security.Cryptography.SHA256]::Create()"
+            ".ComputeHash($fs)).Replace('-', '').ToLowerInvariant() } finally { $fs.Dispose() }",
             f"  if ($hash -ne {q(handoff.sha256.lower())}) {{",
             f"    $code = {EXIT_HASH_MISMATCH}",
             "    throw ('SHA-256 mismatch immediately before running: ' + $hash)",

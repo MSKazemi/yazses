@@ -426,7 +426,11 @@ def _run_child(tmp_path: Path, test_source: str, registry: str) -> tuple[int, st
     )
     (tmp_path / "pytest.ini").write_text("[pytest]\n", encoding="utf-8")
     step_summary = tmp_path / "step-summary.md"
-    env = dict(os.environ, PYTHONPATH=str(ROOT), GITHUB_STEP_SUMMARY=str(step_summary))
+    # PYTHONIOENCODING: the child prints "§" (CI_POLICY.md §9.3). On Windows a piped
+    # child writes cp1252 by default, which the utf-8 read below cannot decode, so
+    # stdout came back None and three tests failed on windows-latest only.
+    env = dict(os.environ, PYTHONPATH=str(ROOT), GITHUB_STEP_SUMMARY=str(step_summary),
+               PYTHONIOENCODING="utf-8")
     env.pop("PYTEST_ADDOPTS", None)
     result = subprocess.run(
         [

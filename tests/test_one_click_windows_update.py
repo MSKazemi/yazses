@@ -589,7 +589,7 @@ def test_the_installer_script_waits_verifies_runs_records_and_relaunches(tmp_pat
         "$pids = @(11, 22)",
         "Wait-Process -Id $id",
         "if ($still.Count -gt 0) {",
-        "Get-FileHash",
+        "[Security.Cryptography.SHA256]::Create()",
         f"-ne '{SHA}'",
         "Start-Process -FilePath 'C:\\T\\yazses-update\\YazSes-2.44.0-windows-x64.exe'",
         "Set-Content -LiteralPath $result",
@@ -1493,7 +1493,7 @@ def test_the_outer_job_waits_elevates_records_cleans_and_relaunches_in_order(tmp
     script = wh.build_script(_admin_handoff(tmp_path))
     order = [
         "Wait-Process -Id $id",
-        "Get-FileHash",
+        "[Security.Cryptography.SHA256]::Create()",
         "$psi.Verb = 'runas'",
         "[Diagnostics.Process]::Start($psi)",
         "$p.WaitForExit()",
@@ -1689,3 +1689,23 @@ def test_hostile_paths_are_quoted_everywhere_in_both_scripts(tmp_path):
     assert source in out_lits and source in el_lits          # survived intact
     assert HOSTILE_NAME in el_lits                           # the copy's name too
     assert str(Path(HOSTILE) / "update.log") in out_lits
+
+
+def test_no_hand_off_script_depends_on_get_filehash(tmp_path):
+    """On windows-latest, Windows PowerShell 5.1 reported Get-FileHash "not recognized" in
+    the unelevated job, so neither the per-user nor the all-users installer ever ran (run
+    39577798547). Cause not confirmed: an inherited PowerShell 7 PSModulePath and an
+    execution policy blocking 5.1's Utility .psm1 both fit. Every hash in every generated
+    script, the elevated one included, is computed with .NET, which neither can block."""
+    scripts = [
+        wh.build_script(_handoff(tmp_path)),
+        wh.build_script(_admin_handoff(tmp_path)),
+        wh.build_admin_install_script("C:\\T\\YazSes-2.44.0-windows-x64.exe", SHA,
+                                      ["/VERYSILENT"], "YazSes-2.44.0-windows-x64.exe"),
+        wh.build_script(_handoff(tmp_path, kind="package-manager", sha256="", cleanup=(),
+                                 argv=("choco", "upgrade", "yazses", "-y"), elevate=True)),
+    ]
+    for script in scripts:
+        assert "Get-FileHash" not in script
+    assert "[Security.Cryptography.SHA256]::Create()" in scripts[0]
+    assert "$fs.Dispose()" in scripts[0]  # the installer is not held open while it runs

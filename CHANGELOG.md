@@ -6,6 +6,17 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the one-click Windows update never ran the installer (unreleased feature)
+
+The first real run of the update hand-off on a Windows machine (CI, `windows-latest`) showed
+that the update job stopped before the installer, every time, for per-user and all-users
+installs alike: its early SHA-256 check called `Get-FileHash`, which Windows PowerShell 5.1
+reported as "not recognized". YazSes was relaunched and the download cleaned up, so the update
+simply did nothing. The check now hashes with .NET, as the elevated step already did, and a test
+fails if any generated script calls `Get-FileHash` again. Why 5.1 could not resolve it is not
+confirmed (an inherited PowerShell 7 module path and an execution policy both fit). This code
+was not in any release.
+
 ### Fixed — "install it with…" messages name a command that works on your install, and `yazses update` recognises a uv tool under a custom `UV_TOOL_DIR`
 
 Eight user-facing messages told end users to run `uv sync --extra <x>` (or
