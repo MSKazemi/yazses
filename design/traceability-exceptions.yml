@@ -21,11 +21,14 @@
 #     tracker: 480                    # the issue that justifies the exception
 #     expires: 2027-01-31             # optional YYYY-MM-DD
 #
-# `issue_policy` drives the ADVISORY per-issue drift report (it never changes the exit code).
-# `exempt_labels` names the label classes that may stay unmilestoned under #480 Option B
-# (e.g. a future `evergreen` or `research` class). EMPTY until #480 decides, so today every
-# open issue without a milestone is listed as UNMILESTONED_UNCLASSIFIED. A label listed here
-# that no open issue carries is reported, so this list cannot rot either.
+# `issue_policy` tunes the ADVISORY per-issue drift report (it never changes the exit code).
+# #480 is decided (design/milestone-policy.md, option B): the audit classifies every open
+# issue with scripts/milestone_policy.py, so `epic` and `evergreen:<class>` issues are
+# already exempt from UNMILESTONED_UNCLASSIFIED and need NO entry here. Topic labels such as
+# `research` or `documentation` never exempt. `exempt_labels` is only for an EXTRA label a
+# maintainer deliberately treats as exempt on top of the policy, and stays empty unless one
+# is agreed. A label listed here that no open issue carries is reported, so this list cannot
+# rot either.
 version: 1
 exceptions: []
 issue_policy:

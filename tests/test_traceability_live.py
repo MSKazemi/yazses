@@ -56,7 +56,7 @@ def _no_network(monkeypatch):
 
 # ---- recorded-style payloads (trimmed to the fields the API really returns) -------------
 def api_issue(number, state="open", milestone=None, pr=False, title="t", labels=(), body=None,
-              merged=None):
+              merged=None, parent=None):
     raw = {
         "url": f"https://api.github.com/repos/MSKazemi/yazses/issues/{number}",
         "number": number,
@@ -72,6 +72,9 @@ def api_issue(number, state="open", milestone=None, pr=False, title="t", labels=
     if pr:
         raw["pull_request"] = {"url": raw["url"].replace("/issues/", "/pulls/"),
                                "merged_at": merged}
+    if parent is not None:
+        # The REST listing names a sub-issue's parent this way (and omits the key otherwise).
+        raw["parent_issue_url"] = f"https://api.github.com/repos/MSKazemi/yazses/issues/{parent}"
     return raw
 
 
@@ -728,9 +731,9 @@ def test_an_exempt_class_label_suppresses_and_an_unused_one_is_reported():
     assert unused == ["evergreen"]
 
 
-def test_with_no_policy_every_unmilestoned_open_issue_is_listed():
-    """#480 has not named any class, so no label is silently treated as exempt."""
-    found, _, unused = drift([api_issue(1, labels=("research", "epic", "documentation"))])
+def test_topical_labels_never_exempt_an_unmilestoned_issue():
+    """Only `epic` / `evergreen:<class>` exempt (#480); `research` is a topic, not a class."""
+    found, _, unused = drift([api_issue(1, labels=("research", "documentation"))])
     assert drift_rules(found) == [("UNMILESTONED_UNCLASSIFIED", 1)] and unused == []
 
 
@@ -826,3 +829,153 @@ def test_json_is_written_for_every_exit_code(tmp_path, capsys, monkeypatch, step
         assert violation["location"].startswith("design/traceability.yml")
     else:
         assert doc["reason"] and doc["violations"] == [] and doc["drift"] == []
+
+
+# ---- the milestone policy (#480) applied to the live listing: advisory, fixture-based ------
+FIXTURES = ROOT / "tests" / "fixtures" / "traceability_live"
+
+
+def fixture_world():
+    """A synthetic REST-shaped listing covering every #480 class (no real issue text)."""
+    issues = json.loads((FIXTURES / "policy_issues.json").read_text(encoding="utf-8"))
+    milestones = json.loads((FIXTURES / "policy_milestones.json").read_text(encoding="utf-8"))
+    return issues, milestones
+
+
+def fixture_audit():
+    issues, milestones = fixture_world()
+    return live.audit(
+        {"version": 1, "entries": [entry()]},
+        live.parse_issues(issues, repo="MSKazemi/yazses"),
+        live.parse_milestones(milestones),
+    )
+
+
+def policy_rules(result):
+    return sorted((v.rule, v.issue) for v in live.policy_violations(result))
+
+
+def test_parent_issue_url_names_the_sub_issue_parent_in_the_same_repository():
+    issues, _ = fixture_world()
+    facts = live.parse_issues(issues, repo="MSKazemi/yazses")
+    assert facts[41].parent == 40 and facts[51].parent == 50
+    assert facts[40].parent is None and facts[60].parent is None  # key absent: not a sub-issue
+
+
+def test_a_parent_in_another_repository_is_not_matched_to_a_local_number():
+    raw = api_issue(5)
+    raw["parent_issue_url"] = "https://api.github.com/repos/someone/else/issues/40"
+    assert live.parse_issues([raw], repo="MSKazemi/yazses")[5].parent is None
+    assert live.parse_issues([raw])[5].parent == 40  # no repo given: taken as is
+    raw["parent_issue_url"] = "https://api.github.com/repos/mskazemi/YAZSES/issues/40"
+    assert live.parse_issues([raw], repo="MSKazemi/yazses")[5].parent == 40
+
+
+@pytest.mark.parametrize("bad", [42, "https://api.github.com/repos/MSKazemi/yazses/pulls/4"])
+def test_an_unreadable_parent_link_is_unavailable_not_a_finding(bad):
+    raw = api_issue(5)
+    raw["parent_issue_url"] = bad
+    with pytest.raises(live.LiveStateUnavailable):
+        live.parse_issues([raw])
+
+
+def test_every_open_issue_gets_exactly_one_policy_class():
+    result = fixture_audit()
+    assert result.policy.classes == {
+        10: "delivery", 30: "evergreen:field-report", 31: "evergreen:research", 40: "epic",
+        41: "delivery", 42: "delivery", 50: "epic", 51: "delivery", 60: "delivery",
+        61: "delivery", 70: "epic", 80: "delivery",
+    }  # the PR (#90) and the closed issue (#91) are not classified
+
+
+def test_evergreen_and_epic_issues_are_not_reported_unmilestoned():
+    result = fixture_audit()
+    unmilestoned = sorted(d.issue for d in result.drift if d.rule == "UNMILESTONED_UNCLASSIFIED")
+    assert unmilestoned == [60, 61]  # unlabelled and topic-labelled delivery work only
+
+
+def test_unlabelled_and_invalid_class_issues_are_still_flagged():
+    found, _, _ = drift([
+        api_issue(1), api_issue(2, labels=("evergreen:wishlist",)),
+        api_issue(3, labels=("epic", "evergreen:community")), api_issue(4, labels=("epic",)),
+        api_issue(5, labels=("evergreen:translation",)),
+    ])
+    assert drift_rules(found) == [
+        ("UNMILESTONED_UNCLASSIFIED", 1), ("UNMILESTONED_UNCLASSIFIED", 2),
+        ("UNMILESTONED_UNCLASSIFIED", 3),
+    ]
+
+
+def test_policy_violations_are_derived_from_the_listing():
+    assert policy_rules(fixture_audit()) == [
+        ("EPIC_MILESTONE_MISSING", 50),  # its only open child is in M9, so it owes M9
+        ("EVERGREEN_WITH_MILESTONE", 31),
+        ("MILESTONE_CLOSED", 80),
+    ]  # epic #40 spans M8 and M9 and rightly carries none: no violation
+
+
+def test_an_epic_carrying_one_milestone_while_a_child_sits_in_another_spans():
+    iss, ms = world(
+        [api_issue(1, labels=("epic",), milestone=9), api_issue(2, milestone=9, parent=1),
+         api_issue(3, milestone=8, parent=1)],
+        milestones=(8, 9),
+    )
+    result = live.audit({"version": 1, "entries": []}, iss, ms)
+    assert policy_rules(result) == [("EPIC_SPANS_MILESTONES", 1)]
+
+
+def test_an_epic_with_no_open_sub_issue_is_unverified_never_passing():
+    result = fixture_audit()
+    assert result.policy.unverified_epics == [70]
+    assert "unverified epic(s) #70" in live.render_report(result)
+
+
+def test_delivery_without_milestone_is_reported_once_under_the_drift_name():
+    result = fixture_audit()
+    assert "DELIVERY_WITHOUT_MILESTONE" in {v.rule for v in result.policy.violations}
+    assert all(v.rule != "DELIVERY_WITHOUT_MILESTONE" for v in live.policy_violations(result))
+    report = live.render_report(result)
+    assert "[DELIVERY_WITHOUT_MILESTONE]" not in report
+    assert "listed above as UNMILESTONED_UNCLASSIFIED" in report
+
+
+def test_policy_violations_appear_in_the_summary_and_never_change_the_exit_code():
+    result = fixture_audit()
+    assert result.findings == [] and live.exit_code_for(result) == live.EXIT_OK
+    report = live.render_report(result)
+    section = report[report.index("Milestone policy (#480"):]
+    assert "Advisory only" in section and "design/milestone-policy.md" in section
+    assert "3 violation(s)" in section
+    for rule, number in policy_rules(result):
+        assert f"[{rule}] #{number}:" in section
+
+
+def test_end_to_end_policy_reaches_summary_and_json_with_exit_0(tmp_path, capsys, monkeypatch):
+    issues, milestones = fixture_world()
+    summary, report = tmp_path / "summary.md", tmp_path / "report.json"
+    code, text = _run(
+        tmp_path, [FakeResponse(issues), FakeResponse(milestones)], capsys, monkeypatch,
+        extra=("--summary-file", str(summary), "--json-file", str(report)),
+    )
+    assert code == 0 and "EPIC_MILESTONE_MISSING" in text
+    assert "[EVERGREEN_WITH_MILESTONE] #31" in summary.read_text(encoding="utf-8")
+    doc = json.loads(report.read_text(encoding="utf-8"))
+    assert doc["status"] == "ok"
+    policy = doc["milestone_policy"]
+    assert policy["policy"] == "design/milestone-policy.md"
+    assert policy["classes"] == {"delivery": 7, "epic": 3, "evergreen:field-report": 1,
+                                 "evergreen:research": 1}
+    assert [(v["rule"], v["issue"]) for v in policy["violations"]] == [
+        ("EVERGREEN_WITH_MILESTONE", 31), ("EPIC_MILESTONE_MISSING", 50),
+        ("MILESTONE_CLOSED", 80),
+    ]
+    assert policy["unverified_epics"] == [70]
+    unmilestoned = [d["issue"] for d in doc["drift"] if d["rule"] == "UNMILESTONED_UNCLASSIFIED"]
+    assert sorted(unmilestoned) == [60, 61]
+
+
+def test_the_policy_module_is_the_one_check_traceability_loads():
+    """One classifier, not two: the live audit uses scripts/milestone_policy.py itself."""
+    module = live._milestone_policy()
+    assert module is sys.modules["milestone_policy"]
+    assert Path(module.__file__).resolve() == ROOT / "scripts" / "milestone_policy.py"

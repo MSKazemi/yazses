@@ -98,6 +98,26 @@ Exit codes: `0` no violation, `1` violations, `2` an input could not be read. Th
 (`tests/test_milestone_policy.py`) run on fixtures and stay offline; fetching live state is
 the job of the scheduled live audit (#487).
 
+### In the scheduled live audit
+
+`scripts/check-traceability-live.py` (workflow `.github/workflows/traceability.yml`) applies
+this policy to the issue listing it already fetches, through the same
+`scripts/milestone_policy.py`, so there is one classifier and no extra API request:
+
+- `epic` and `evergreen:<class>` issues are not reported as `UNMILESTONED_UNCLASSIFIED`; an
+  unlabelled, topic-labelled or invalid-class issue without a milestone still is. That drift
+  rule *is* `DELIVERY_WITHOUT_MILESTONE`, reported once under the audit's name.
+- Every other rule above appears in its own "Milestone policy (#480)" section of the job
+  summary and under `milestone_policy` in the `traceability-live` JSON artifact.
+- Epic milestones are derived from the listing's sub-issue links (`parent_issue_url`); an epic
+  with no open sub-issue there is listed as unverified.
+
+**Advisory, by decision.** In the live audit these findings never change the exit code. That
+exit code means "`design/traceability.yml` no longer matches GitHub" (or GitHub could not be
+read), and a policy violation is a different fact: an unlabelled new issue would otherwise
+turn the manifest audit red every night. To gate on the policy, run
+`scripts/milestone_policy.py` (exit `1` on any violation) where a red result is wanted.
+
 ## Why not an "Evergreen" milestone
 
 The other way to make every issue carry a milestone is a catch-all bucket milestone. It was
