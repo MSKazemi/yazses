@@ -561,6 +561,7 @@ differently means changing one constant or one profile field.
   `deferred` (the embedded index carries no reasons), are follow-ups.
 - The tray's `started-ok` marker (`state.mark_started_ok` exists, nothing calls it). Until
   it does, `clean` and the post-install GC always keep the newest previous build.
+  *Landed with Q3 below (`packs.refetch.mark_first_start`).*
 - A full `RECORD.json` check triggered by an `ImportError` at a lazy import site. Today
   `yazses packs verify` runs it and quarantines a damaged tree.
 - `[UninstallDelete]` in `installer.iss`, `docs/addons.md`, `docs/install-cost.md` rows.
@@ -708,3 +709,73 @@ the base's preloaded `onnxruntime.dll` and works against 1.28.0; `ctypes.WinDLL`
 walked path; `OrtGetApiBase` on Microsoft's build; how many `onnxruntime.dll` files the
 frozen base contains, and where. The spike's check (d) and the release job's frozen probe
 answer these.
+
+### Q3: add-ons across an update (2026-10-21, branch `feat/packs-update-consent`)
+
+**Landed**, as the owner answered Q3 (ADR-028, *Owner questions: answered 2026-10-21*):
+
+- **Consent at the update question.** `installer_update.confirmation_prompt(..., addons=)`
+  appends one sentence from `installer_update.addons_note`, e.g. *"Your add-on
+  (Diarization, 15 MB) will be downloaded again for the new version. If that download
+  fails, Settings offers Install now."* The names and sizes come from the **running (old)**
+  build's embedded index and the trees intact under it (`packs.refetch.addons_for_update`).
+  Dialog text only: `Offer.reason`, which rides a tray balloon, is unchanged, and so are
+  the `all_users` keyword and `ALL_USERS_NOTE`. The Windows tray and the Settings window
+  pass it; `yazses update` in a terminal does not, and so records no consent.
+- **The consent record.** Once the hand-off has started (`HandoffResult.ok`), the surface
+  that asked writes `packs/update-consent.json` (`format`, old `build_id`, `from`, `to`,
+  `packs`, `at`) through `tray.updates.record_update_consent`.
+- **First start of the new version.** The tray's entry point (`tray.app.run`) starts
+  `start_addon_refetch`, a worker thread that waits 5 s (the daemon and the icon come
+  first) and calls `tray.updates.refetch_after_update`. Without a consent file it returns
+  after one `stat`. Otherwise `packs.refetch.run_refetch`
+  **erases the consent first** (if it cannot, nothing is downloaded), then
+  `plan_refetch` (pure) picks the packs that are consented, recorded in `state.json` for
+  the old build, listed in the **new** build's own index and not already installed. A
+  stale consent (over 7 days), an incapable or elevated process, or an unchanged build id
+  (a failed update relaunched the old version) downloads nothing. Each pack goes through
+  `packs.manage.install` (the existing verified transaction: no second downloader, no new
+  ADR-019 row) with a freshly read `state.json`, then `packs.manage.verify`.
+- **Where the downloader is bound.** `tray.updates` is in the daemon's *static* import
+  closure (`handsfree.probe` → `platform.factory` → the platform trays), so neither it nor
+  `packs.refetch` imports `packs.manage`: `run_refetch` takes `install` and `verify` with no
+  default, and only `tray.app` (the tray process's entry point, outside the daemon's
+  closure) binds them. The first version of this branch bound them inside `packs.refetch`,
+  and `test_pack_downloads_are_user_initiated_only` failed on it, which is the guard doing
+  its job. ADR-028 §4's "never at startup" still holds for the daemon, the watcher and the
+  hook; this one start-time download runs in the tray process and only on the consent
+  given in the update question.
+- **Old build retired only after everything verified.** On full success the new build is
+  marked `started_ok` and `policy.gc_plan(..., started_ok=True)` deletes the other builds'
+  trees. On a partial or failed run nothing of the old build is touched, the features read
+  *waiting for add-on*, and the existing **Install now** (Settings) or
+  `yazses packs install` is the one-click retry. The result is shown once, in a balloon
+  under 255 characters (`refetch.describe`).
+- **The `started_ok` marker is now written.** Nothing called `state.mark_started_ok`
+  before, so every previous build's packs stayed on disk until `yazses packs remove
+  --all`. The tray job now runs on every start of a frozen build that has a
+  `state.json` (one `stat` otherwise), and a start with **nothing to download** -- no
+  consent, a consent with nothing left to fetch, or a failed update that relaunched the
+  old build -- is this build's first good start: `refetch.mark_first_start` marks it
+  and retires the other builds through the same `retire_old_builds` (`mark_started_ok` +
+  `policy.gc_plan(started_ok=True)` + `state.remove_build`). It does nothing in an
+  incapable or elevated process, writes no `state.json` for someone who never had an
+  add-on, and runs once per build. A start that downloaded and failed retires nothing;
+  the next start, with nothing left to download, does. That old tree is not loadable by
+  the new build, so only the rollback reason kept it, and a second start of the new
+  build settles that.
+
+**Tests.** `tests/test_packs_refetch.py` (prompt with and without packs, `all_users`
+unchanged; consent parse; the plan; consented / not consented / failed / partial / verify
+failure / raised install; at most once; an un-erasable consent; the old build kept until
+every tree verified; the tray question and consent wiring; the entry point binding the
+downloader and notifying once) and three cases in
+`tests/test_settingsui_maintenance_panel.py`. Each guard was shown red by a mutation that
+removes it.
+
+**Not verified.** No run on Windows with a published pack: the balloon text on a real
+tray, the download after a real relaunch, and the timing of the tray's startup thread
+against a daemon that has not finished starting are untested. A balloon raised before
+pystray has shown the icon is dropped (the 5 s delay makes that unlikely, not
+impossible). A restart is still needed to load the new
+packs into the daemon that started before they arrived; the message says so.

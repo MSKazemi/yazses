@@ -262,6 +262,23 @@ What to expect:
   keeps no `installer.log`: the privileged helper writes nothing into your folders, and
   `update.log` records how it ended.
 
+- **Add-ons are downloaded again for the new version.** An add-on (see below) is built
+  for one exact build of YazSes, so after an update the old copy is not loaded. If you
+  have add-ons installed, the update question in the tray and the Settings window names
+  them and their download sizes, for example *"Your add-on (Diarization, 15 MB) will be
+  downloaded again for the new version."* Saying yes covers that download too: on its
+  first start the new version fetches its own copy of each add-on in the background,
+  checks it against the checksum built into the new version, tests it, and then tells
+  you once (**Add-ons ready** — restart YazSes to switch them on). The old version's
+  add-on files are deleted only after every new copy has checked out, so a failed
+  update can still go back to them; if there is nothing to download, they are deleted
+  once the new version has started. If a download fails, or you updated with
+  `yazses update` from a terminal (which does not ask about add-ons), nothing is
+  retried on its own: the feature shows *waiting for add-on*, and **Install now** in
+  the Settings window (or `yazses packs install <name>`) downloads it with one click.
+  This path is covered by offline tests; it has not yet been tried on a real Windows
+  machine with a published add-on.
+
 By hand, if you prefer: download the newest installer from the releases page and run it.
 It upgrades in place too.
 

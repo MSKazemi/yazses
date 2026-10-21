@@ -291,7 +291,12 @@ def _run_update(icon, notify, *, launcher=None, confirm=None, sleep=None) -> Non
 
     from yazses.system.installer_update import confirmation_prompt, one_click_offer
     from yazses.system.updater import RELEASES_URL
-    from yazses.tray.updates import check_updates, run_one_click
+    from yazses.tray.updates import (
+        check_updates,
+        record_update_consent,
+        run_one_click,
+        update_addons,
+    )
 
     status = check_updates()
     launcher = launcher if launcher is not None else _update_launcher()
@@ -310,8 +315,11 @@ def _run_update(icon, notify, *, launcher=None, confirm=None, sleep=None) -> Non
             f"YazSes {status.current} → {status.latest}\n{offer.reason}\n{tail}",
         )
         return
+    # The add-ons installed now, from this build's own index: the question names them,
+    # and a yes is the consent the new version's first start acts on (ADR-028 Q3).
+    addons = update_addons()
     try:
-        title, prompt = confirmation_prompt(status, all_users=offer.all_users)
+        title, prompt = confirmation_prompt(status, all_users=offer.all_users, addons=addons)
     except Exception:
         notify(icon, *describe_update(status=status))
         return
@@ -327,6 +335,7 @@ def _run_update(icon, notify, *, launcher=None, confirm=None, sleep=None) -> Non
 
     result = run_one_click(status, launcher, progress=_progress)
     if result.ok:
+        record_update_consent(status, addons)
         notify(icon, result.title, result.message)
         (sleep or time.sleep)(_HANDOFF_NOTICE_S)
         # Quit → `on_quit` sends the daemon `shutdown`; the update job is waiting for

@@ -79,7 +79,10 @@ reason and the manual steps, and the tray opens the releases page:
 ### What a confirmed click does
 
 1. **Confirm:** a native Yes/No box (tray) or a prompt (CLI; `--yes` skips it). Only an
-   explicit yes continues. If the box cannot be shown, the answer is no.
+   explicit yes continues. If the box cannot be shown, the answer is no. When ADR-028
+   add-on packs are installed, the tray's and Settings' question also names them and their
+   sizes (`confirmation_prompt(..., addons=)`, dialog text only, never `Offer.reason`), and
+   that yes is the consent the new version's first start acts on (ADR-028 Q3).
 2. **Single-flight lock:** `update.lock` is created with `O_CREAT | O_EXCL` in the staging
    directory. A second click (two threads, or the tray and a terminal) is refused with
    "already in progress". A lock older than 2 h is from a dead attempt and is taken over.

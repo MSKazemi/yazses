@@ -500,9 +500,12 @@ never asked to *search* for that name.
 | `bind.py` | ADR-028 M1. Pure decisions (one base copy, or the only one inside a package folder named after the DLL, else refuse; version floor, nothing else of that name loaded) plus `bind_pack()` through `PackRuntime` and `FirstUseBinder`, which loads the base's DLL on the pack's first import, never at start-up. `OutOfProcessHost` is the typed, unbuilt ADR-028 §1 fallback |
 | `probe.py` | `yazses packs probe`: binds `bind_to_base` first, imports `entry_modules`, re-checks the loaded modules; exit code names the Phase 0 risk that failed, and success names the DLL file and version that bound |
 | `manage.py` | What the `yazses packs` commands and `features enable` do |
+| `refetch.py` | ADR-028 Q3: the update question's add-ons line (`addons_for_update`), the consent file written once the update hand-off started, and on the new version's first start the one-time re-download through `manage.install` against the new build's own index; the old build is retired only after every new tree verified, and a start with nothing to download writes `started_ok` and retires it (`mark_first_start`) |
 
 User-initiated only: the daemon, the update watcher and the runtime hook cannot reach
-`fetch.py`, `install.py` or `manage.py` (`tests/test_egress_inventory.py`).
+`fetch.py`, `install.py` or `manage.py` (`tests/test_egress_inventory.py`). `refetch.py` downloads only on a consent the user gave in the update
+question, from a tray worker thread, at most once per consent; it has no downloader of
+its own (`install`/`verify` are bound by `tray/app.py`, which the daemon cannot import).
 
 **Build side** (`scripts/build-packs.py`, `packaging/packs/packs.toml`). The frozen base
 is exactly the extras `packs.toml` decides `bundled` (`desktop`, `overlay`, and since
