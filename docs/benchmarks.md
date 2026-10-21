@@ -936,6 +936,27 @@ over: the ZWNJ references in this split contain zero U+200C to begin with, so th
 corpus cannot re-test the §7 normalizer question — `steja` emitted none, `small`
 emitted 5 unmatched.
 
+### Recorded, not measured: one skip and two exclusions
+
+FA-05 ([#514](https://github.com/MSKazemi/yazses/issues/514)) asks for failures and
+unsupported combinations to be recorded rather than omitted. The candidates below
+were considered and **not decoded**, so no result file exists for them and the tables
+above cannot show them. Each figure comes from the issue comment linked in its row,
+not from an archived artifact;
+[`paper/results/MANIFEST.md`](https://github.com/MSKazemi/yazses/blob/main/paper/results/MANIFEST.md)
+lists the same three under "Recorded without an artifact".
+
+| Candidate | Disposition | Reason | Source |
+|---|---|---|---|
+| `nezamisafa/whisper-persian-v4` (Apache-2.0, rev `b84fc89f`, `large-v3` fine-tune) | **SKIP**: memory gate, conversion not attempted | 6.17 GB of fp32 weights (two safetensors shards, 4.99 + 1.18 GB); loading them for conversion needs ≥ 6.2 GB RAM, and the 4 vCPU / 8 GB FA-05 host had 4.80–5.15 GB available | [#514 comment](https://github.com/MSKazemi/yazses/issues/514#issuecomment-5961845919) |
+| Every other Persian Whisper fine-tune in the Hub survey (about 70 repositories searched), including the medium-class ytcv-persian, farbodbij and colloquial/telephony series | **Excluded**: no licence declared | #514 admits a Persian-specific checkpoint only with a documented licence; only `steja/whisper-small-persian` (measured above) and `nezamisafa/whisper-persian-v4` declared one | [#514 comment](https://github.com/MSKazemi/yazses/issues/514#issuecomment-5951777490) |
+| Qwen3-ASR, NeMo Canary | **Excluded**: outside scope | Not Whisper-family; #514's matrix is Whisper-family only | [#514 comment](https://github.com/MSKazemi/yazses/issues/514#issuecomment-5946394603) |
+
+The `nezamisafa` skip is the same boundary as the stock `large-v3` row in the
+50-utterance table above (skipped: 5.2 GB free < 6.0 GB needed), now on a
+fine-tune of that model. It says this 8 GB host class cannot convert the
+checkpoint. It says nothing about the model's accuracy, which remains unmeasured.
+
 ## Community results
 
 This table tracks performance across different machines and engines, measured with the
