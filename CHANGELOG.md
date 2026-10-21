@@ -155,6 +155,17 @@ during a transcription still starts the next dictation once the current one ends
 Measured on Windows 11 22H2: keys pressed during a transcription went from a 300 ms delay each
 to none, and the ten-key burst from 3.5 s to 16 ms.
 
+### Fixed — with Microsoft Store Python on Windows, `yazses status` and `stop` see the running daemon
+
+YazSes checks that a recorded process ID still belongs to it by the process's program
+name, and accepted only `python.exe` and `pythonw.exe`. The Microsoft Store's Python runs
+as `python3.11.exe` (or similar), so on a pip or pipx install that uses it, `yazses status`
+said "not running" about a live daemon, `yazses stop` found nothing to stop, and the tray
+kept starting another daemon. Versioned interpreter names (`python3.exe`,
+`python3.11.exe`, `pythonw3.12.exe`) now count; names that merely start with "python"
+still do not. Checked on Windows 11 22H2 with the Store's Python 3.11: `start`, then
+`status` reports the daemon, and `stop` stops it.
+
 ### Fixed — the Windows install guide's facts
 
 `docs/windows-install.md` no longer claims an ARM64 build (winget and Scoop carry the x64 installer, which ARM PCs run under emulation; the mislabelled ARM64 asset was dropped in 2.43.1), names the real default model (`base.en`, about 150 MB, not `tiny.en`), asks for about 500 MB of disk rather than 250 MB, shows the Chocolatey command, and no longer tells you to delete a roaming `%APPDATA%\yazses` folder YazSes never creates; it now names the Whisper model cache instead. Found by a docs audit against the live channels.

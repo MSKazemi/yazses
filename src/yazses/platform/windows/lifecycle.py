@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import signal
 import subprocess
 import sys
@@ -24,6 +25,11 @@ _STILL_ACTIVE = 259
 # OpenProcess access right that is enough to read an exit code.
 _PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
 
+# python.exe / pythonw.exe from python.org and uv; python3.exe and python3.11.exe from
+# the Microsoft Store, whose interpreter runs under the versioned name even when it was
+# started as python.exe.
+_PYTHON_IMAGE = re.compile(r"pythonw?(\d+(\.\d+)?)?\.exe")
+
 
 def process_alive(pid: int) -> bool:
     """True when *pid* names a live process. Never terminates anything.
@@ -42,11 +48,17 @@ def is_yazses_image(tasklist_csv: str) -> bool:
     bare ``"python"`` would call *any* Python process our daemon, which on a
     developer machine is a coin flip; the image name has to actually be one of
     ours.
+
+    The interpreter's own name counts too, versioned or not. Accepting only
+    ``python.exe`` missed the Microsoft Store build, which runs as
+    ``python3.11.exe``. A pip or pipx install on it then had `status` saying "not
+    running" about a live daemon, `stop` finding nothing to stop, and the tray
+    restarting a daemon that had never gone.
     """
     image = tasklist_csv.strip().strip('"').split('","')[0].strip('"').lower()
     if not image:
         return False
-    return image.startswith("yazses") or image in {"python.exe", "pythonw.exe"}
+    return image.startswith("yazses") or _PYTHON_IMAGE.fullmatch(image) is not None
 
 
 # Subprocess creation flags — defined here because Linux dev machines don't
