@@ -13,6 +13,7 @@ from pathlib import Path
 import pytest
 
 import yazses.overlay.app as overlay_app
+from tests.pointer_fake import FakePointerSink
 from yazses.mousegrid.runtime import MousegridRuntime
 from yazses.overlay.grid import (
     GridPoller,
@@ -46,8 +47,7 @@ def test_bad_dimensions_fall_back_to_three_by_three():
 
 def test_the_painted_numbers_are_the_numbers_the_daemon_resolves():
     """A cell labelled N must be the cell that "N" moves the pointer to."""
-    rt = MousegridRuntime(sink_factory=None, region_provider=lambda: (0, 0, 900, 600))
-    rt._unavailable = ""  # draw-only: opening needs no sink
+    rt = MousegridRuntime(sink_factory=FakePointerSink, region_provider=lambda: (0, 0, 900, 600))
     assert rt.handle_transcript("mouse grid") == "opened"
     snap = parse_grid_status(rt.status())
     cells = grid_cells(snap)

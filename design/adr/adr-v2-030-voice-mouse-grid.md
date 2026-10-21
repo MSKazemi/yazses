@@ -29,9 +29,10 @@ click. No ML. OFF by default.
 - `mousegrid/session.py` (pure): the zoom state machine, a 30 s idle close, no click before a
   cell is chosen, no zoom below a pixel.
 - `mousegrid/runtime.py`: the daemon's consumer. Built only when `[mousegrid] enabled`; the
-  `PointerSink` is built on the first pointer action and must offer absolute motion (X11,
-  macOS) — relative-only backends are refused with a reason. Honours the hands-free pause. An
-  open grid hands back any utterance that is not a grid command, closing itself.
+  `PointerSink` is built when a grid is first opened and must offer absolute motion (X11,
+  macOS) — relative-only backends are refused with a reason when the grid opens. Honours
+  the hands-free pause when `[handsfree_safety]` is on. An open grid hands back any
+  utterance that is not a grid command, closing itself.
 - Overlay: `overlay/grid.py` (pure parse + poller over the `mousegrid` IPC method) and
   `overlay/grid_widget.py` (click-through Qt window), both loaded only when the section is on.
 - Thresholds (timeout, vocabulary) are tuned on synthetic transcripts only.

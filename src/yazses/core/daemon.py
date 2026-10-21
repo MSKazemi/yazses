@@ -2370,7 +2370,7 @@ class Daemon:
         """The Voice Mouse Grid runtime (ADR-v2-030), or None while `[mousegrid]` is off.
 
         Imported only when enabled, so a default daemon never loads `yazses.mousegrid`.
-        The pointer sink is built by the runtime on the first grid action, not here.
+        The pointer sink is built by the runtime when a grid is first opened, not here.
         """
         if not cfg.mousegrid.enabled:
             return None
@@ -3104,7 +3104,13 @@ class Daemon:
             # default; with no grid open only that exact phrase is claimed, and an open grid
             # hands back (closing itself) any utterance that is not a grid command.
             if self._mousegrid is not None:
-                grid_result = self._mousegrid.handle_transcript(text)
+                try:
+                    grid_result = self._mousegrid.handle_transcript(text)
+                except Exception:
+                    # Never break dictation: a grid fault falls through to typing the text.
+                    log.warning("Mouse grid failed on a transcript; dictating it instead.",
+                                exc_info=True)
+                    grid_result = None
                 if grid_result is not None:
                     event["discard_reason"] = "mousegrid"
                     event["mousegrid"] = grid_result

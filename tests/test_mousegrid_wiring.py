@@ -16,6 +16,8 @@ from __future__ import annotations
 
 import builtins
 import dataclasses
+import logging
+import threading
 import types
 from dataclasses import replace
 
@@ -91,6 +93,25 @@ def test_more_than_nine_cells_reads_a_digit_run_as_one_number():
 ])
 def test_click_words(heard, button, count):
     assert parse_open_command(heard, 9) == GridCommand("click", button=button, count=count)
+
+
+@pytest.mark.parametrize(("heard", "button", "count"), [
+    ("Right-click.", "right", 1), ("Double-click.", "left", 2), ("Left-click", "left", 1),
+    ("right\u2010click", "right", 1),
+])
+def test_whisper_hyphenated_click_words(heard, button, count):
+    """Whisper writes "Right-click." — it must not fall through to being typed."""
+    assert parse_open_command(heard, 9) == GridCommand("click", button=button, count=count)
+
+
+@pytest.mark.parametrize("heard", ["Mouse-grid.", "show mouse-grid", "mouse\u2013grid"])
+def test_a_hyphenated_open_phrase_opens(heard):
+    assert is_open_phrase(heard)
+
+
+def test_hyphens_do_not_widen_prose_into_commands():
+    assert parse_open_command("right-click the link", 9) is None
+    assert not is_open_phrase("mouse-grid settings")
 
 
 def test_back_and_cancel():
@@ -172,7 +193,7 @@ def test_three_seven_click_moves_then_clicks_once_at_the_cell_centre():
     calls: list[int] = []
     rt, sink = _runtime(factory_calls=calls)
     assert rt.handle_transcript("Mouse grid.") == "opened"
-    assert calls == [], "opening a grid must not build the sink (no permission prompt yet)"
+    assert calls == [1], "opening a grid probes the sink once, so a bad backend refuses now"
     assert rt.handle_transcript("three") == "moved"
     assert rt.handle_transcript("seven") == "moved"
     assert rt.handle_transcript("click") == "clicked"
@@ -231,9 +252,11 @@ def test_a_relative_only_backend_is_refused_with_a_reason_and_closed():
     )
     sink = FakePointerSink(caps)
     rt, _ = _runtime(sink)
-    rt.handle_transcript("mouse grid")
-    assert rt.handle_transcript("three") == "refused"
+    assert rt.handle_transcript("mouse grid") == "refused", "refused at open, before a grid draws"
+    assert not rt.active and rt.status()["region"] is None
+    assert rt.handle_transcript("three") is None, "no grid open: the number is dictation"
     assert sink.closed
+    assert [a for a in sink.actions if a.kind.value != "close"] == [], "nothing moved"
     assert "absolute motion" in str(rt.status()["reason"])
     assert rt.status()["available"] is False
     assert rt.handle_transcript("mouse grid") == "refused", "unsupported is permanent"
@@ -282,6 +305,59 @@ def test_build_mousegrid_reads_the_section_and_the_safety_gate():
     assert rt.status()["cols"] == 4 and rt.status()["rows"] == 2
     rt._region_provider = lambda: SCREEN
     assert rt.handle_transcript("mouse grid") == "refused", "a paused gate blocks the grid"
+
+
+def test_a_runtime_that_is_never_opened_never_builds_the_sink():
+    calls: list[int] = []
+    rt, _ = _runtime(factory_calls=calls)
+    for prose in ("hello", "three", "click"):
+        rt.handle_transcript(prose)
+    rt.command("status")
+    assert calls == [], "no pointer permission is asked before the user opens a grid"
+
+
+def test_a_grid_bigger_than_the_number_words_warns_at_build(caplog):
+    with caplog.at_level(logging.WARNING, logger="yazses.mousegrid.runtime"):
+        build_mousegrid(MousegridConfig(enabled=True, cols=4, rows=5),
+                        pointer_factory=FakePointerSink)
+    assert any("20 cells" in r.getMessage() for r in caplog.records)
+    caplog.clear()
+    with caplog.at_level(logging.WARNING, logger="yazses.mousegrid.runtime"):
+        build_mousegrid(MousegridConfig(enabled=True, cols=4, rows=4),
+                        pointer_factory=FakePointerSink)
+    assert caplog.records == []
+
+
+def test_an_ipc_status_poll_cannot_interleave_with_a_transcript():
+    """The overlay polls `status` from an IPC thread while the pipeline applies a command.
+
+    The poll must wait for the command to finish: without the lock it can run the idle
+    close between `apply()`'s open-check and its region read (a TypeError, a lost burst).
+    """
+    polled = threading.Event()
+    started = threading.Event()
+    seen_inside: list[bool] = []
+    rt, _ = _runtime()
+    rt.handle_transcript("mouse grid")
+
+    def poll():
+        started.set()
+        rt.command("status")
+        polled.set()
+
+    real_apply = rt._session.apply
+
+    def apply_with_a_poll_racing(command):
+        t = threading.Thread(target=poll, daemon=True)
+        t.start()
+        started.wait(1.0)
+        seen_inside.append(polled.wait(0.2))
+        return real_apply(command)
+
+    rt._session.apply = apply_with_a_poll_racing  # type: ignore[method-assign]
+    assert rt.handle_transcript("three") == "moved"
+    assert seen_inside == [False], "a status poll ran in the middle of a grid command"
+    assert polled.wait(2.0), "the poll must complete once the command is done"
 
 
 def test_no_pointer_backend_on_this_platform_is_a_reason():
@@ -372,6 +448,17 @@ def test_an_enabled_daemon_still_dictates_everything_else():
     _say(d, "click the link and three more")
     assert inj.injected and "click the link" in inj.injected[-1].lower()
     assert sink.actions == []
+
+
+def test_a_failing_grid_never_breaks_dictation():
+    d, inj, _sink = _daemon(enabled=True)
+
+    def boom(text):
+        raise TypeError("grid fault")
+
+    d._mousegrid.handle_transcript = boom
+    _say(d, "send the report")
+    assert inj.injected and "send the report" in inj.injected[-1].lower()
 
 
 def test_a_default_daemon_types_the_grid_words_and_touches_no_pointer():

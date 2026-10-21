@@ -13,11 +13,15 @@ what it says:
   **not** claimed, so it is dictated as usual — the grid never swallows speech it did not
   understand.
 
-Pointer output goes through :class:`yazses.pointer.base.PointerSink`. The sink is built on
-the first pointer action, not at start-up, so enabling the feature asks for no pointer
-permission until the user actually opens a grid. Absolute motion is required: a backend
-that offers only relative motion (the Wayland portal, Windows SendInput) is refused with a
-reason rather than driven by guesswork.
+Pointer output goes through :class:`yazses.pointer.base.PointerSink`. The sink is built when
+the user first opens a grid, not at start-up, so enabling the feature asks for no pointer
+permission until then. Absolute motion is required: a backend that offers only relative
+motion (the Wayland portal, Windows SendInput) is refused with a reason *at open*, before a
+grid is drawn, rather than driven by guesswork.
+
+Thread safety: the daemon's pipeline thread (transcripts) and the IPC server's per-connection
+threads (the overlay polls ``status`` about 12 times a second) share one runtime, so every
+public entry point holds one re-entrant lock and the session is never seen half-changed.
 
 Safety: the hands-free global pause (``[handsfree_safety]``) is honoured before every
 pointer action, the same way the Head-Pointer honours it. A click never happens before at
@@ -26,11 +30,12 @@ least one cell was chosen.
 from __future__ import annotations
 
 import logging
+import threading
 import time
 from collections.abc import Callable
 from typing import Any
 
-from yazses.mousegrid.grammar import is_open_phrase, parse_open_command
+from yazses.mousegrid.grammar import MAX_NUMBER_WORD, is_open_phrase, parse_open_command
 from yazses.mousegrid.session import GridSession, Step
 from yazses.pointer.base import PointerButton, PointerError
 
@@ -88,12 +93,15 @@ class MousegridRuntime:
         )
         self._reported_region: Region | None = None
         self.last_reason = ""
+        # Re-entrant: command("say") and command("open") call back into the public methods.
+        self._lock = threading.RLock()
 
     # ---- transcript path ----------------------------------------------------
 
     @property
     def active(self) -> bool:
-        return self._session.active
+        with self._lock:
+            return self._session.active
 
     def handle_transcript(self, text: str) -> str | None:
         """Claim *text* for the grid, act on it, and return what happened — or None.
@@ -101,6 +109,10 @@ class MousegridRuntime:
         None means "not the grid's": the daemon carries on and dictates or classifies the
         utterance exactly as it would without this feature.
         """
+        with self._lock:
+            return self._handle_transcript(text)
+
+    def _handle_transcript(self, text: str) -> str | None:
         if not self._session.active:
             if not is_open_phrase(text):
                 return None
@@ -133,6 +145,11 @@ class MousegridRuntime:
         if region is None:
             return self._refuse("the screen size is unknown on this session, so the grid "
                                 "did not open (it reads the X11 layout or the overlay's screen)")
+        # Probe the pointer backend now, so a relative-only one (Wayland, Windows) is refused
+        # before any grid is drawn — not at the first cell number.
+        if self._ensure_sink() is None:
+            self._session.close()
+            return self._refuse(f"cannot drive the pointer: {self._unavailable}")
         try:
             self._session.open(region)
         except ValueError as exc:
@@ -200,6 +217,10 @@ class MousegridRuntime:
     # ---- IPC ----------------------------------------------------------------
 
     def status(self) -> dict[str, object]:
+        with self._lock:
+            return self._status()
+
+    def _status(self) -> dict[str, object]:
         out = self._session.status()
         out["enabled"] = True
         out["available"] = not self._unavailable
@@ -215,7 +236,10 @@ class MousegridRuntime:
         grammar as a spoken utterance, so a script or test can drive the grid exactly as a
         voice would.
         """
-        params = params or {}
+        with self._lock:
+            return self._command(action, params or {})
+
+    def _command(self, action: str, params: dict[str, Any]) -> dict[str, object]:
         if action == "status":
             return {"ok": True, **self.status()}
         if action == "screen":
@@ -236,8 +260,9 @@ class MousegridRuntime:
         return {"ok": False, "reason": f"unknown mousegrid action {action!r}"}
 
     def close(self) -> None:
-        self._session.close()
-        sink, self._sink = self._sink, None
+        with self._lock:
+            self._session.close()
+            sink, self._sink = self._sink, None
         if sink is not None:
             try:
                 sink.close()
@@ -272,4 +297,9 @@ def build_mousegrid(cfg: Any, *, pointer_factory: Callable[[], Any] | None,
 
     cols = int(cfg.cols) if int(cfg.cols) > 0 else 3
     rows = int(cfg.rows) if int(cfg.rows) > 0 else 3
+    if cols * rows > MAX_NUMBER_WORD:
+        log.warning("Mouse grid: a %dx%d grid has %d cells, but number words stop at %s; "
+                    "say cells above %d as digits (\"17\"), or a spoken word closes the grid "
+                    "and is typed.", cols, rows, cols * rows, MAX_NUMBER_WORD,
+                    MAX_NUMBER_WORD)
     return MousegridRuntime(cols, rows, sink_factory=pointer_factory, paused=paused)

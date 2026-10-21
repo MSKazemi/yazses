@@ -27,10 +27,13 @@ from dataclasses import dataclass
 
 from yazses.commands.grammars.en import strip_outer_punct
 
-__all__ = ["OPEN_PHRASES", "GridCommand", "is_open_phrase", "parse_open_command"]
+__all__ = ["MAX_NUMBER_WORD", "OPEN_PHRASES", "GridCommand", "is_open_phrase", "parse_open_command"]
 
 #: The whole-utterance phrases that open a grid while none is open.
 OPEN_PHRASES: frozenset[str] = frozenset({"mouse grid", "show mouse grid"})
+
+#: The largest cell number that can be spoken as a word; bigger cells need digits.
+MAX_NUMBER_WORD = 16
 
 _NUMBER_WORDS: dict[str, int] = {
     "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
@@ -69,9 +72,17 @@ class GridCommand:
     count: int = 1
 
 
+# Whisper hyphenates compounds ("Right-click.", "Double-click.", "Mouse-grid."); read a
+# hyphen or dash as a space, exactly as ``handsfree/stopword.py`` does for the same reason.
+_HYPHENS_RE = re.compile(r"[-\u2010-\u2015]+")
+
+
 def _normalise(text: str) -> str:
-    """Lower-case, outer punctuation stripped, inner whitespace collapsed. Pure."""
-    return " ".join(strip_outer_punct(text or "").lower().split())
+    """Lower-case, outer punctuation stripped, hyphens read as spaces, whitespace collapsed.
+
+    Pure.
+    """
+    return " ".join(_HYPHENS_RE.sub(" ", strip_outer_punct(text or "").lower()).split())
 
 
 def is_open_phrase(text: str) -> bool:
