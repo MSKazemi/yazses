@@ -331,6 +331,7 @@ class Daemon:
     #: daemon (a test, a startup that failed early) never assigned them on.
     _headpointer = None
     _handsfree_safety = None
+    _vocaljoystick = None
     # The face switch's select/confirm/cancel outcome log and the actions bound to it
     # (facegesture/actions.py). None / empty until a face switch is built.
     _switch_outcomes = None
@@ -1482,6 +1483,7 @@ class Daemon:
         # unless `[headpointer] enabled` *and* the shared source and a pointer backend exist.
         self._handsfree_safety = self._build_handsfree_safety(cfg)
         self._headpointer = self._build_headpointer(cfg)
+        self._vocaljoystick = self._build_vocaljoystick(cfg)
         # Gesture Chords (ADR-v2-043): face/head tokens from the same shared camera, resolved
         # by gesture/chords.py. Dormant unless `[gesture] enabled` *and* a chord is bound.
         self._gesture = self._build_gesture(cfg)
@@ -2335,6 +2337,34 @@ class Daemon:
         except Exception as exc:
             log.warning("Head-Pointer init failed; it stays off", exc_info=True)
             return HeadPointerRuntime(reason=f"init failed: {type(exc).__name__}")
+
+    def _build_vocaljoystick(self, cfg):
+        """Vocal Joystick (ADR-v2-095), or None while `[vocaljoystick]` is off (the default).
+
+        Building opens no microphone: `handsfree resume` opens it and every pause closes it
+        (`_handle_handsfree`). Never raises.
+        """
+        if not cfg.vocaljoystick.enabled:
+            return None
+        try:
+            from yazses.vocaljoystick.runtime import build_vocaljoystick
+
+            sr = cfg.audio.sample_rate
+            return build_vocaljoystick(
+                cfg.vocaljoystick,
+                pointer_factory=self._platform.pointer_factory,
+                recorder_factory=lambda on_chunk: AudioRecorder(
+                    sample_rate=sr, max_seconds=0, on_chunk=on_chunk, accumulate=False,
+                    device=self._config.audio.device or None,
+                ),
+                sample_rate=sr,
+                # Never steer while dictation records, transcribes or types.
+                busy=lambda: self._state.state is not TrayState.IDLE,
+                safety=self._handsfree_safety,
+            )
+        except Exception:
+            log.warning("Vocal Joystick init failed; it stays off", exc_info=True)
+            return None
 
     def _start_headpointer(self) -> None:
         """Take the camera lease and start polling, if there is anything to start."""
@@ -6628,6 +6658,8 @@ class Daemon:
                     runtime.command("pause")
                     if gate is None:
                         scope.append("Head-Pointer only")
+                if (joystick := getattr(self, "_vocaljoystick", None)) is not None:
+                    joystick.toggle("pause", scope, reasons)  # closes its microphone
                 if not scope:
                     return {
                         "ok": False,
@@ -6645,6 +6677,9 @@ class Daemon:
                 else:
                     ok = False
                     reasons.append(str(result.get("reason") or "Head-Pointer would not re-arm"))
+            if (joystick := getattr(self, "_vocaljoystick", None)) is not None:
+                # Opens its microphone (and arms its gate source) before the gate re-arms all.
+                ok = joystick.toggle("resume", scope, reasons) and ok
             if gate is not None:
                 rearm = gate.resume()
                 scope.extend(n for n in rearm.armed if n not in scope)
@@ -7053,6 +7088,11 @@ class Daemon:
                 self._headpointer.stop()
             except Exception:
                 log.exception("Head-Pointer stop raised")
+        if self._vocaljoystick is not None:
+            try:
+                self._vocaljoystick.stop()  # microphone stream closed, pointer sink released
+            except Exception:
+                log.exception("Vocal Joystick stop raised")
         if self._gaze_targeter is not None:
             try:
                 self._gaze_targeter.close()  # release the camera

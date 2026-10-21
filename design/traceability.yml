@@ -390,18 +390,6 @@ entries:
       task: "WIRE-SPATIALVAD-001"
       milestone: 9
     remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
-  - id: "capability:vocaljoystick"
-    kind: capability
-    title: "Vocal Joystick"
-    source: "design/adr/adr-v2-095-vocal-joystick.md"
-    decision_status: accepted
-    delivery_status: designed
-    tracking:
-      kind: campaign
-      issues: [164]
-      task: "WIRE-VOCALJOYSTICK-001"
-      milestone: 9
-    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
   - id: "capability:voiceguard"
     kind: capability
     title: "Voice-Biometric Guard"
