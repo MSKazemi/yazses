@@ -23,18 +23,18 @@ For the narrative explanation of each subsystem, see the
 flowchart TB
   subgraph UI["User-facing control"]
     CLI["yazses CLI (67 commands, 133 with subcommands)"]
-    TRAY["yazses-tray (macOS/Windows)"]
+    TRAY["yazses-tray (all platforms)"]
   end
   UI -->|"JSON-RPC 2.0 · Unix socket / named pipe"| IPC[["IPC server (ipc/)"]]
   IPC --> DAEMON
 
   subgraph DAEMON["yazses-daemon — orchestrator (core/daemon.py)"]
     direction TB
-    HK["1 · Hotkey — keyboard OR EMG (USB serial)"]
+    HK["1 · Hotkey — keyboard OR EMG (USB serial / BLE)"]
     AUD["2 · Audio — recorder → VAD → padding"]
     STT["3 · STT — faster-whisper (int8) · streaming · disfluency"]
     PP["4 · Post-process — cleaner · voice-punct · spacing · LLM cleanup"]
-    CMD["5 · Commands — Tier1 grammar · LSP (Tier2 SLM router: opt-in, needs a model)"]
+    CMD["5 · Commands — Tier1 grammar (Tier2 SLM router: opt-in, needs a model)"]
     DIS{"6 · dispatch()"}
     HK --> AUD --> STT --> PP --> CMD --> DIS
   end

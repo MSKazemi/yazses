@@ -48,7 +48,9 @@ passing to someone who speaks Tamil" is a complete and useful review.
 ### Agent-produced pull requests
 
 Review the **change**, not the brand of tool that produced it. Project artifacts credit the human
-contributor only (ADR-024), so the PR should not need an AI-tool disclosure section.
+contributor only (ADR-024 §7): no agent `Co-Authored-By` trailer and no contributor credit for
+a tool. The PR template's *AI assistance* section (which tool, and what the human verified) is
+tooling disclosure, not authorship, and is welcome.
 
 What changes for the reviewer is evidence discipline, not the approval bar:
 

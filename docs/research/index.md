@@ -52,9 +52,10 @@ If you read nothing else, these five results are the whole argument:
   computer](../use-cases/research-interview-transcription.md).
 
 - :material-school-outline: **I'm a student.**
-  There are eight thesis- and course-sized projects with an open issue, a
-  defined evaluation, and a maintainer who reviews quickly —
-  [see the list](get-involved.md#for-students-project-sized-problems).
+  There are thesis- and course-sized projects with a defined evaluation and a
+  maintainer who reviews quickly, and ten [open research questions](agenda.md) that
+  each have an open issue to claim —
+  [see the student list](get-involved.md#for-students-project-sized-problems).
   Supervisors welcome; scoping a variant for your semester is a Discussion away.
 
 - :material-code-braces: **I build things.**

@@ -79,7 +79,7 @@ layers, so no microphone, network, or Whisper model download is required.
 it reports an error, you almost certainly just introduced it — fix it rather than reporting
 it as pre-existing. It is not a CI gate (only `ruff` and `pytest` are), but do not leave the
 count above zero. Do not write the number of files checked into this file: it has read 433,
-then 435, then 505, against a tree that now checks 532, and each figure outlived the run
+then 435, then 505, then 532, and each figure outlived the run
 that produced it. A count belongs in a dated `CHANGELOG` entry, which records a measurement;
 here it would assert a present fact that nothing re-measures.
 
@@ -197,7 +197,7 @@ fails and your change is reverted anyway.
 
 | File | Regenerate with |
 |---|---|
-| `docs/features.md`, `docs/configuration.md`, `docs/command-index.md`, `docs/cli-reference.md`, `src/yazses/config_sections.py` | `uv run python scripts/gen-docs.py` |
+| `docs/features.md`, `docs/configuration.md`, `docs/command-index.md`, `src/yazses/config_sections.py` | `uv run python scripts/gen-docs.py` |
 | `man/yazses.1` | `uv run python scripts/gen-man.py` |
 | `campaign/generated/**`, `campaign/schemas/**` | `uv run python scripts/campaign.py --generate` |
 | The eye-validation rows of `campaign/tasks.json` (`source` names an `eye-validation slot`) | `uv run python scripts/campaign.py --generate` (source: `design/eye-control/validation-slots.json`) |

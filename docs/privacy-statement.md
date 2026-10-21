@@ -1,34 +1,41 @@
 ---
 title: Privacy Statement
-description: What YazSes does and does not do with your voice, text, and data. Offline by design — nothing leaves your machine unless you explicitly turn on the SSH remote path.
+description: What YazSes does and does not do with your voice, camera, text, and data. Offline by design — nothing you say leaves your machine unless you turn on one of two opt-in features, and every network connection is listed with its trigger.
 ---
 
 # YazSes Privacy Statement
 
-**Last updated: 2026-10-21**
+**Last updated: 2026-10-22**
 
 YazSes is designed from the ground up to keep your voice and text on your device.
 **By default, no audio, transcripts, editor context, or usage data ever leave your
 machine.** There is no cloud dependency, no telemetry, and no account. Everything
-below describes local behaviour; the only outbound path is the SSH remote feature
-you turn on yourself, and even then only the final typed text is sent.
+below describes local behaviour. Only two features can send anything you said, both off
+until you turn them on: `yazses remote <host>` (the final typed text, to a host you name)
+and dictation cleanup through Ollama (held to this machine unless you explicitly allow
+otherwise). The other connections YazSes can make, such as model downloads, packages for
+features you enable, updates you ask for and the optional bug-report form, are listed in
+[What leaves your device](#what-leaves-your-device).
 
 ## Audio
 
 Audio is captured from your microphone **only while you hold the hold-to-talk key**
-(or squeeze a connected EMG device). It is held in a short in-memory buffer, fed
-directly to the on-device transcription model, and then discarded. Because YazSes is
-push-to-talk, nothing is recorded while the key is up. Audio is never written to disk,
-never logged, and never transmitted anywhere — unless you explicitly opt in to the
-learning corpus (below) with audio capture enabled.
+(or squeeze a connected EMG device, or, with the opt-in Face-Gesture Switch, hold the
+facial gesture you chose), and for the length of a meeting you started yourself (see
+[Meeting Mode](#meeting-mode-opt-in-off-by-default)). With the opt-in Hands-Free Auto-Stop,
+one tap starts a recording that stops itself when you fall silent. It is held in a short
+in-memory buffer, fed directly to the on-device transcription model, and then discarded.
+Nothing is recorded while none of those is active. Outside Meeting Mode, audio is never
+written to disk, never logged, and never transmitted anywhere — unless you explicitly opt
+in to the learning corpus (below) with audio capture enabled.
 
 ## Transcription (speech-to-text)
 
 Transcription runs entirely on your device using
 [faster-whisper](https://github.com/SYSTRAN/faster-whisper) (CPU, int8; no GPU
 required). The model weights are downloaded once into the shared Hugging Face cache —
-`~/.cache/huggingface/hub/` on Linux and macOS, `%LOCALAPPDATA%\huggingface\hub\` on
-Windows — and run offline thereafter. That cache is shared with any other Hugging Face
+`~/.cache/huggingface/hub/` on Linux and macOS, `%USERPROFILE%\.cache\huggingface\hub\`
+on Windows (or wherever `HF_HOME` / `HF_HUB_CACHE` points) — and run offline thereafter. That cache is shared with any other Hugging Face
 tool you have, which is why it survives uninstalling YazSes and has
 [its own step](uninstall.md#4-remove-the-speech-models) on the uninstall page. The resulting transcript is held in memory
 only long enough to inject the text (and, if commands are enabled, to check whether
@@ -73,7 +80,7 @@ You stay in control of the corpus:
 | Auto-expire old events | `retention_days` / `max_corpus_mb` under `[learning]` |
 | Scrub patterns from stored text | `redact_patterns` under `[learning]` |
 | Inspect what is stored | `yazses corpus status` |
-| Erase everything | `yazses corpus destroy` (or delete `corpus.db`) |
+| Erase everything | `yazses corpus destroy --i-mean-it` (or delete `corpus.db`, `clips/` and `corpus.key`) |
 
 `redact_patterns` are regular expressions removed from every transcript column before it is
 encrypted — but a redaction cannot reach into a waveform. With `capture_audio` on (the
@@ -87,7 +94,7 @@ then every 200 captures — rather than on every write. So an event older than
 `retention_days` can still be on disk until the next sweep, and `yazses corpus status` can
 report a size above `max_corpus_mb`. Both are limits the corpus is pulled back to, not
 ceilings it is prevented from crossing. If you need something gone *now*, use
-`yazses corpus forget -m N` or `yazses corpus destroy`, which act immediately.
+`yazses corpus forget -m N` or `yazses corpus destroy --i-mean-it`, which act immediately.
 
 A sweep will not empty the corpus to satisfy the size limit: it trims the oldest events
 as far as reclaiming disk actually helps and then stops, leaving the rest in place.
@@ -126,6 +133,20 @@ Naming speakers is separate and explicit. Diarization alone labels people *Speak
 person with `yazses meeting enroll`. An enrolled participant is stored as an encrypted
 voiceprint under `participants/` and never auto-created from a recording. Recording other
 people may need their consent where you are — YazSes does not and cannot judge that for you.
+
+## Camera (opt-in, off by default)
+
+Glance-Type, the Face-Gesture Switch, the Head-Pointer, Gesture Chords, and the Hands-Free
+preset that combines them read frames from your webcam. Each is off by default. Frames are
+processed in memory on your device and are neither saved nor transmitted: the capture code
+(`perception/camera.py`, `perception/source.py`) hands each frame to the face-landmark model
+and keeps nothing, and none of the camera features writes an image or video file. What *is* saved,
+when you calibrate, is numbers: the screen mapping in `gaze_calibration.json` and your
+resting face levels in `facegesture_baseline.json` and `facegesture_levels.json`, in your
+data directory. The one network access is the one-time download of the face-landmark model
+(`face_landmarker.task`, about 3.7 MB, from Google's MediaPipe model storage) when you first
+enable one of these features. Lip-reading and sign-language input are listed as camera
+features too, but they are not wired into this build and open no camera.
 
 ## What is written to your data directory
 
@@ -230,8 +251,9 @@ If you do not configure a model path, neither feature is active and no model run
 
 ### The one call that carries text, and what stops it leaving
 
-Dictation cleanup's Ollama backend is the **only** path in YazSes that sends *transcribed
-text* over a socket. That is worth stating plainly rather than rounding down to "nothing
+Dictation cleanup's Ollama backend is one of only two paths in YazSes that send
+*transcribed text* over a socket. The other is remote mode, below, which goes only to a host
+you name. That is worth stating plainly rather than rounding down to "nothing
 leaves your machine", because it is an HTTP request and `llm_endpoint` is a string you can
 edit.
 
@@ -251,7 +273,7 @@ separate, deliberate setting:
 ```toml
 [filters.disfluency]
 llm_endpoint = "http://ollama.my-lan-box:11434"
-llm_allow_remote_endpoint = true    # off by default; warns on every daemon start
+llm_allow_remote_endpoint = true    # off by default; `yazses doctor` warns while it is set
 ```
 
 Two edits, not one, and never the default. Audio is never involved in any case — only the
@@ -339,9 +361,14 @@ accepted the licence. It is still a download and it still carries nothing you sa
 is the only fetch in the product that tells anyone **who** is asking, which is not the same
 disclosure as an anonymous one.
 
-`yazses update` is the only other outbound action, and only when you run it yourself —
-unless you set `[general] update_check = true`, which is off by default and, when on,
-fetches a version string in the background and nothing else. On Windows, when you confirm
+Apart from model downloads, YazSes reaches the network only when you ask it to:
+`yazses update` (or *Check for updates* in the tray or the Settings window);
+`yazses features enable` / `features install` or a dormant feature's **Install now**, which
+installs that feature's Python packages from PyPI (and, for the PyTorch-based features on
+Linux, from download.pytorch.org); `yazses setup`, which runs your package manager; and a
+dictated git command that you run with `--run`, which reaches your own git remote. None of
+these sends anything you said. In addition, if you set `[general] update_check = true` (off
+by default), it fetches a version string in the background and nothing else. On Windows, when you confirm
 an update, YazSes also downloads the installer and the release's `SHA256SUMS.txt` from
 the GitHub release. That download happens only after you say yes, never in the
 background, and it sends nothing about you
@@ -448,7 +475,7 @@ it drifts out of step with the lock file. Regenerate it yourself with
 | Action | How |
 |---|---|
 | Disable the learning corpus | Leave `[learning]` off (default), or `yazses features disable learning` |
-| Erase all captured data | `yazses corpus destroy` (or delete `corpus.db`) |
+| Erase the learning corpus | `yazses corpus destroy --i-mean-it` (everything else YazSes stores is listed under [What is written to your data directory](#what-is-written-to-your-data-directory)) |
 | Disable editor context | Nothing to disable — the daemon never reads your editor; only `yazses jump` contacts it, when you run it |
 | Disable the offline cleanup LLM | Set `llm_enabled = false` under `[filters.disfluency]` (the default) |
 | Inspect stored data | `yazses corpus status` |

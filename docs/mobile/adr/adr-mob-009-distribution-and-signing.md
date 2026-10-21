@@ -1,9 +1,13 @@
+---
+description: "ADR-MOB-009: Android ships F-Droid-shaped by default, as a signed GitHub Releases APK first and on Play later, with its own android-v tags and a release keystore held by the maintainer."
+---
+
 # ADR-MOB-009 — Distribution: F-Droid-shaped by default, GitHub APK first, Play later
 
 **Status:** Accepted (2026-08-07) · design only, no code yet
 **Deciders:** Mohsen Seyedkazemi Ardebili
-**Context links:** [[adr-mob-005]] (engines), [[adr-mob-006]] (models),
-[[adr-mob-007]] (privacy gate), [[adr-011]], desktop analogue: `adr-008` (packaging),
+**Context links:** [ADR-MOB-005](adr-mob-005-stt-runtime.md) (engines), [ADR-MOB-006](adr-mob-006-model-distribution.md) (models),
+[ADR-MOB-007](adr-mob-007-privacy-permissions-lifecycle.md) (privacy gate), [ADR-011](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-011.md), desktop analogue: `adr-008` (packaging),
 the internal distribution-status note
 
 ---
@@ -19,7 +23,7 @@ cannot do hold-to-talk. The Android channels impose their own, and they conflict
   (no Play Services, no Firebase), and rewards reproducible builds. It is also where the
   privacy-focused Android audience actually looks, which is exactly YazSes' audience.
 - **Google Play** reaches everyone else, costs a one-off developer fee, requires an
-  accurate Data Safety declaration ([[adr-mob-007]] F), applies extra scrutiny to keyboards
+  accurate Data Safety declaration ([ADR-MOB-007](adr-mob-007-privacy-permissions-lifecycle.md) F), applies extra scrutiny to keyboards
   and to `RECORD_AUDIO`, and forces an annual target-SDK treadmill.
 - **Accrescent** and direct **GitHub Releases APKs** are fast, unmediated channels; the
   closest FOSS neighbour (Transcribro) ships via Accrescent and GitHub.
@@ -27,7 +31,7 @@ cannot do hold-to-talk. The Android channels impose their own, and they conflict
 The engine choice interacts directly: whisper.cpp is a small CMake project that an F-Droid
 recipe can realistically build from source, whereas sherpa-onnx's practical Android path is
 a prebuilt AAR over ONNX Runtime — convenient everywhere except the one channel that
-matters most ([[adr-mob-005]]).
+matters most ([ADR-MOB-005](adr-mob-005-stt-runtime.md)).
 
 ## Decision
 
@@ -51,7 +55,7 @@ matters most ([[adr-mob-005]]).
 4. **Independent versioning and tags.** Android releases use `android-vX.Y.Z` tags and an
    `android-release.yml` workflow; desktop `v*` tags must not build or publish an APK, and
    the Android workflow must not fire on desktop tags. The Android About screen shows both
-   its own version and the contract version it satisfies ([[adr-mob-008]] §6).
+   its own version and the contract version it satisfies ([ADR-MOB-008](adr-mob-008-cross-platform-contract.md) §6).
 5. **Signing.** A dedicated Android release keystore, held only by the maintainer, backed up
    offline, never in the repo and never in a workflow that a fork can trigger; the CI secret
    is scoped to tag-triggered release runs. `apksigner` v2+v3 signing. Reproducible-build
@@ -78,7 +82,7 @@ matters most ([[adr-mob-005]]).
   privacy-motivated one, and a rushed Play listing for a keyboard with `RECORD_AUDIO` and a
   half-built Meeting Mode is a rejection risk with reputational cost.
 - An annual target-SDK obligation now exists for the Play build, and target-SDK bumps
-  change FGS/permission behaviour ([[adr-mob-007]]) — so the bump is a scheduled task with
+  change FGS/permission behaviour ([ADR-MOB-007](adr-mob-007-privacy-permissions-lifecycle.md)) — so the bump is a scheduled task with
   a test pass, not a one-line diff.
 
 ## Rejected

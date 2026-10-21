@@ -74,12 +74,17 @@ does and where to check it:
 
 - **The hook matches a single configured virtual-key code** and never records key content.
   It answers one question — "is the hold-to-talk key currently down?" It is not a log.
-- **Nothing leaves the machine.** This is enforced mechanically, not promised: a test
-  enumerates every module permitted to open an outbound connection and fails the build if
-  any module gains an unregistered one (see [ADR-019](https://github.com/MSKazemi/yazses)).
-  Of the modules that touch the network, all but two only fetch model weights or a version
-  string; the two that can transmit speech are confined to localhost and to a host the user
-  names on the command line.
+- **Nothing the user says leaves the machine by default.** This is enforced mechanically,
+  not promised: a test enumerates every module permitted to open an outbound connection and
+  fails the build if any module gains an unregistered one (see
+  [ADR-019](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-019-egress-inventory-and-escalation.md)).
+  Exactly two paths can transmit dictated text, never audio, and both are off by default:
+  one is confined to localhost unless the user explicitly overrides it, and the other goes
+  only to a host the user names on the command line. Apart from those, the network paths
+  only fetch model weights, a version string, or (at the user's request) packages and
+  updates, and carry no user content. The remaining two are user-initiated too: a dictated
+  `git` command run with `--run`, which reaches the user's own remote, and the optional
+  bug-report button, which opens github.com with a redacted diagnostic summary.
 - **Transcription is local.** faster-whisper runs on the CPU. There is no account, no API
   key, and no telemetry.
 - **The same two OS facilities** are used by Dragon NaturallySpeaking, Talon Voice and
@@ -117,7 +122,7 @@ camera feature on Windows should install from PyPI (`pipx install 'yazses[gaze]'
 ## Building the package
 
 ```bash
-make msix VERSION=2.40.0 \
+make msix VERSION=<version> \
   IDENTITY_NAME=<from Partner Center> \
   PUBLISHER=<from Partner Center> \
   PUBLISHER_DISPLAY_NAME=<from Partner Center>
@@ -127,7 +132,7 @@ or directly:
 
 ```powershell
 ./scripts/build-windows.ps1              # produces dist/YazSes (PyInstaller COLLECT)
-./scripts/build-msix.ps1 -Version 2.40.0 `
+./scripts/build-msix.ps1 -Version <version> `
     -IdentityName "..." -Publisher "CN=..." -PublisherDisplayName "..."
 ```
 

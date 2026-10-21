@@ -1476,21 +1476,21 @@ not a benchmark:
 - **No real-world dictation WER.** Everything above uses read audiobook speech.
   Spontaneous speech into a laptop microphone in a normal room is harder, and we do
   not have a licensed corpus to quantify it.
-- **No diarization accuracy on *real* meeting audio.** There is now a number — see
-  [Diarization](#diarization-meeting-mode) below — but it comes from a synthetic
-  corpus, so it is a floor rather than a field figure. AMI and VoxConverse remain
-  unscored: the first is 100+ GB, and the second's audio is pulled from YouTube
-  under terms that forbid redistribution, so neither can become a fixture here.
-- **No macOS or Windows figures yet.** Every number above was measured on Linux
-  x86_64. The harness itself is cross-platform as of the `Benchmarks` workflow
-  (`.github/workflows/benchmark.yml`), which runs it on Linux x86_64, Linux arm64,
-  macOS arm64, macOS x86_64 and Windows — but it is dispatched by hand and has not
-  been run yet, so there is nothing to publish here. This bullet becomes a table,
-  not a promise, once it has.
-- **No arm64 figures.** The `.deb`, the snap and the docker image all ship for
-  arm64 and not one published number comes from the architecture.
-- **Single machine.** One CPU model, one run. There is no variance estimate across
-  machines.
+- **Diarization is scored on AMI (headset mix) and VoxConverse dev only.** See
+  [Diarization](#diarization-meeting-mode) above. Far-field AMI, other meeting corpora
+  and non-English meetings are unscored, and neither corpus can be redistributed as a
+  fixture here: AMI is 100+ GB, and VoxConverse's audio is pulled from YouTube under
+  terms that forbid redistribution.
+- **No macOS or Windows timings.** WER has been measured on macOS arm64 and Windows
+  x86_64 (see [The same code on four instruction sets](#the-same-code-on-four-instruction-sets)),
+  but the timings from that dispatch are not comparable (the macOS runner was heavily
+  overloaded) and are not quoted, so every timing on this page is from Linux x86_64.
+- **No arm64 timings.** arm64 WER is published (Neoverse-N2 and Apple M1, above);
+  latency and memory have not been measured on arm64.
+- **No cross-machine variance for timings.** Timings come from a few Linux x86_64
+  hosts (the reference laptop, a 16-vCPU Xeon for the engine matrix, a 4-vCPU EPYC for
+  Persian), and no timing is repeated across machines. WER has a cross-ISA spread (four
+  runners, above) but no repeated-run variance across machines.
 
 When those runs do land, latency and RTF get **one table per host and are never
 merged**: latency is a property of the machine. Word error rate is *nearly* a

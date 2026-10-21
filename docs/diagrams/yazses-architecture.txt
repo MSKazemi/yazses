@@ -24,13 +24,13 @@ ASCII so it renders in any terminal, code review, or the master reference PDF.
  │        │                                                                       │
  │        ▼                                                                       │
  │   [3] STT           faster-whisper (CPU int8) · streaming decode ·             │
- │        │            disfluency filter        ◄── initial_prompt (vocab/LSP)    │
+ │        │            disfluency filter        ◄── initial_prompt (vocabulary)   │
  │        ▼                                                                       │
  │   [4] POST-PROCESS  cleaner · voice-punctuation · continuation spacing ·       │
  │        │            optional offline LLM cleanup                               │
  │        ▼                                                                       │
  │   [5] COMMANDS      Tier-1 regex grammar ─► (low conf) ─► Tier-2 SLM router    │
- │        │            LSP context provider                                       │
+ │        │            (Tier-2 is opt-in and needs a local model)                 │
  │        ▼                                                                       │
  │   [6] dispatch() ───────────────┬───────────────────────────┐                 │
  │        │ dictate                │ command                                     │

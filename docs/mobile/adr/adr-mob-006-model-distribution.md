@@ -1,9 +1,13 @@
+---
+description: "ADR-MOB-006: no model weights ship in the APK; the user picks a model from a signed catalogue, nothing downloads before an explicit tap, and every file is checksum-verified and user-owned."
+---
+
 # ADR-MOB-006 — Models are downloaded, verified and user-owned; never bundled, never silent
 
 **Status:** Accepted (2026-08-07) · design only, no code yet
 **Deciders:** Mohsen Seyedkazemi Ardebili
-**Context links:** [[adr-mob-005]] (engines), [[adr-mob-007]] (privacy/permissions),
-[[adr-mob-009]] (distribution), [[adr-011]] (offline default, open weights)
+**Context links:** [ADR-MOB-005](adr-mob-005-stt-runtime.md) (engines), [ADR-MOB-007](adr-mob-007-privacy-permissions-lifecycle.md) (privacy/permissions),
+[ADR-MOB-009](adr-mob-009-distribution-and-signing.md) (distribution), [ADR-011](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-011.md) (offline default, open weights)
 
 ---
 
@@ -33,7 +37,7 @@ the design:
    request YazSes ever makes; after it completes you can disable network access for this
    app entirely and dictation will keep working.*
 3. **Download is a WorkManager job in `:model`, the single module with the `INTERNET`
-   permission** ([[adr-mob-007]]). Requirements: resumable, cancellable, Wi-Fi-only by
+   permission** ([ADR-MOB-007](adr-mob-007-privacy-permissions-lifecycle.md)). Requirements: resumable, cancellable, Wi-Fi-only by
    default, HTTPS only (`cleartextTrafficPermitted=false`), **SHA-256 verified against the
    in-APK catalogue before the file is made visible**, atomic rename into place, and a
    readable failure state. A checksum mismatch deletes the file and reports it loudly — a
@@ -46,12 +50,12 @@ the design:
 5. **Models are stored in app-private storage** (`filesDir`/`noBackupFilesDir`), excluded
    from cloud backup (`android:allowBackup` handling and backup rules), and listed in a
    Storage screen that shows size and offers deletion. Removing YazSes removes the weights.
-6. **Open weights only, licence shown before download** ([[adr-011]] §5). Each catalogue
+6. **Open weights only, licence shown before download** ([ADR-011](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-011.md) §5). Each catalogue
    entry carries its licence and its upstream URL, and the download screen shows both.
 7. **The catalogue is versioned in-repo** (`android/app/src/main/assets/models.json`), so a
    model addition is a reviewable PR with a checksum in the diff — not a server-side
    change. There is **no remote catalogue endpoint**: the app never asks a YazSes-operated
-   server anything, because there is no YazSes-operated server ([[adr-011]] §1).
+   server anything, because there is no YazSes-operated server ([ADR-011](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-011.md) §1).
 8. **A quantisation/size matrix per engine** is maintained from `:bench` device reports
    rather than asserted; the chooser's "recommended for your device" hint is derived from
    RAM and SoC class and is presented as a hint, with all options selectable.
@@ -78,12 +82,12 @@ the design:
   the accuracy expectation at the worst model the project can ship, adds ~75 MB to every
   install including for users who will immediately download something better, and starts
   an argument with F-Droid about in-tree blobs. Revisit only if onboarding drop-off data
-  (from user reports, not telemetry — [[adr-011]] §1) shows it is the deciding factor.
+  (from user reports, not telemetry — [ADR-011](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-011.md) §1) shows it is the deciding factor.
 - **A play-asset-delivery / dynamic-feature module for weights.** Ties the mechanism to
   Play; F-Droid and GitHub APKs would need the download path anyway, so this would mean
   two mechanisms instead of one.
 - **A YazSes-operated model server or catalogue endpoint.** Creates the exact telemetry
-  surface [[adr-011]] forbids (download logs are usage data), plus an operating cost and a
+  surface [ADR-011](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-011.md) forbids (download logs are usage data), plus an operating cost and a
   single point of failure.
 - **Downloading silently in the background on first launch.** Violates the spirit of the
   offline claim, surprises metered-connection users, and would make the network permission

@@ -1,9 +1,13 @@
+---
+description: "ADR-MOB-010: the Apple wave covers iOS and iPadOS only, starts after Android reaches M2, and shares the behaviour contract rather than code with the Android app."
+---
+
 # ADR-MOB-010 — The Apple wave: iOS/iPadOS is a different product shape; macOS is already shipped
 
 **Status:** Accepted (2026-08-07) · direction fixed, execution deferred to after Android M2
 **Deciders:** Mohsen Seyedkazemi Ardebili
-**Context links:** [[adr-mob-001]] (Android first), [[adr-mob-002]] (pure-Kotlin cores → KMP option),
-[[adr-mob-003]] (IME), [[adr-mob-008]] (contract), [[adr-011]]
+**Context links:** [ADR-MOB-001](adr-mob-001-android-first-monorepo.md) (Android first), [ADR-MOB-002](adr-mob-002-native-kotlin-stack.md) (pure-Kotlin cores → KMP option),
+[ADR-MOB-003](adr-mob-003-text-delivery-surfaces.md) (IME), [ADR-MOB-008](adr-mob-008-cross-platform-contract.md) (contract), [ADR-011](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-011.md)
 
 ---
 
@@ -51,11 +55,11 @@ jurisdiction.
    - a **Share extension** and **Shortcuts/App Intents** actions for file transcription and
      for "dictate into anything that accepts text";
    - **no claim of parity with the Android keyboard**, in the App Store listing or the docs.
-4. **The shared asset is the contract, not the code** ([[adr-mob-008]]). The iOS
+4. **The shared asset is the contract, not the code** ([ADR-MOB-008](adr-mob-008-cross-platform-contract.md)). The iOS
    implementation is validated by the identical `contract/vectors/*.json`, and it must
    satisfy the same contract version the shipping Android build does.
 5. **Language decision is deferred to the wave's own ADR (`adr-mob-011`), with two live
-   options**, both kept open by [[adr-mob-002]]'s pure-Kotlin `:core:*` rule:
+   options**, both kept open by [ADR-MOB-002](adr-mob-002-native-kotlin-stack.md)'s pure-Kotlin `:core:*` rule:
    - **Swift + SwiftUI**, reimplementing `:core:*` against the contract vectors — idiomatic,
      attracts iOS contributors, third implementation of the same logic;
    - **Kotlin Multiplatform**, converting `:core:*` to `commonMain` and writing only the
@@ -64,11 +68,11 @@ jurisdiction.
    The deciding evidence will be how much `:core:*` actually is by then, and whether the
    contributors who show up are iOS people (who will want Swift) or the existing Kotlin
    ones. Choosing now would be guessing.
-6. **STT on Apple:** whisper.cpp again, with Metal/Core ML acceleration; [[adr-mob-006]]'s
+6. **STT on Apple:** whisper.cpp again, with Metal/Core ML acceleration; [ADR-MOB-006](adr-mob-006-model-distribution.md)'s
    download-and-verify model policy applies unchanged. **Apple's own speech APIs are not
    used** — an on-device path the user cannot audit is not the same promise, and
-   [[adr-011]] §5's open-weights default applies.
-7. **[[adr-011]] applies unchanged**: no analytics, no crash reporting SDK, no cloud
+   [ADR-011](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-011.md) §5's open-weights default applies.
+7. **[ADR-011](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-011.md) applies unchanged**: no analytics, no crash reporting SDK, no cloud
    fallback, no ambient capture, and an App Privacy declaration that says "no data
    collected" and matches the binary.
 
@@ -88,7 +92,7 @@ jurisdiction.
 
 ## Rejected
 
-- **iOS before or alongside Android** — [[adr-mob-001]]; the restriction above means an
+- **iOS before or alongside Android** — [ADR-MOB-001](adr-mob-001-android-first-monorepo.md); the restriction above means an
   iOS-first wave would ship the worse interaction model and teach the project nothing
   reusable.
 - **Treating macOS as part of the mobile programme** — it is a shipped desktop platform;

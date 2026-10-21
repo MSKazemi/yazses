@@ -314,7 +314,8 @@ grounding pipeline.
 | Accessibility-tree planning | `src/yazses/pilot/plan.py` | parses commands and matches UI labels; runtime backend remains a planned capability |
 | Screen-grounded terms | `src/yazses/screengrounded/` | pure screen-term harvesting; broader runtime feature remains planned |
 | Tool planning / confirmation | `src/yazses/agent/plan.py` | structured tool-call planning/guard; runtime agent feature remains planned |
-| Other pointing modalities | `src/yazses/headpointer/`, mouse grid, modality router | designed seams for non-mouse target sources |
+| Other pointing modalities | `src/yazses/headpointer/`, mouse grid, modality router | non-mouse target sources, each wired and off by default |
+| Grounded target resolution | `src/yazses/grounding/`, `gaze/grounded.py` | pure contracts + resolver (ADR-v2-151, Proposed); no semantic source wired yet |
 | Feedback | overlay / toast infrastructure | communicate state and confirmations |
 
 The current shipped gaze path already demonstrates the first useful slice:
@@ -330,10 +331,13 @@ webcam
 
 The missing generalization is between **screen point** and **planner/action**.
 
-## The missing YazSes abstraction: a grounded target
+## The grounded target
 
-A future architecture could introduce a small, dependency-free core object such as a
-`GroundedTarget`. The name is provisional; adopting it would require an ADR.
+[ADR-v2-151](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-v2-151-grounded-target-resolution.md)
+(Proposed) adopts this layer, and its dependency-free core now exists in
+`src/yazses/grounding/` (`TargetSnapshot`, a tri-state resolver, replay and trace) with
+the gaze-side join in `src/yazses/gaze/grounded.py`. No semantic source is constructed by
+the shipped daemon yet, so every install keeps window-level behaviour.
 
 Conceptually:
 
@@ -526,9 +530,10 @@ shape. They are **not** evidence that:
 The useful conclusion is narrower and stronger: **grounding is becoming a first-class
 system interaction layer**.
 
-## Questions to settle before an ADR
+## Questions the ADR still has to settle
 
-Before turning this research note into an accepted YazSes architecture, we should answer:
+Before ADR-v2-151 turns this research note into an accepted YazSes architecture, we should
+answer:
 
 1. What is the minimal `TargetSnapshot` / `GroundedTarget` contract that covers gaze,
    mouse, head pose and explicit selection without becoming a giant object?
@@ -548,8 +553,8 @@ Before turning this research note into an accepted YazSes architecture, we shoul
 10. Can the same protocol support dedicated IR eye trackers later without changing the
     planner or policy layers?
 
-If this direction is adopted, those answers belong in a new ADR and implementation spec.
-Until then this page is the research record that motivates the decision.
+These are the questions ADR-v2-151 (Proposed) has to answer before it is accepted; until
+then this page is the research record that motivates the decision.
 
 ## References
 

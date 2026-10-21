@@ -37,12 +37,12 @@ will fetch it, and a first run with no model and no network fails for a boring
 reason that has nothing to do with the claim being tested:
 
 ```bash
-yazses doctor                # confirms which model is configured
-yazses transcribe --help     # loading the CLI is enough to trigger the fetch path
+yazses doctor                  # confirms which model is configured
+yazses model download base.en  # or the model doctor names; prints progress
 ```
 
-If `doctor` reports the model is not cached, run one dictation or one
-`yazses transcribe <file>` while online to pull it, then re-check.
+If `doctor` still reports the model is not cached, re-run `yazses model download`
+while online, then re-check.
 
 ## 2. Record what you are testing
 
@@ -96,8 +96,8 @@ yazses status            # state should reach idle
 yazses transcribe path/to/some-audio.wav
 ```
 
-No sample handy? `scripts/download-sample.py` fetches one — but run it in step 1,
-while you still have a network.
+No sample handy? Download one in step 1, while you still have a network:
+`curl -fsSLO https://raw.githubusercontent.com/MSKazemi/yazses/main/data/librispeech-sample/jfk.wav`.
 
 ## 5. Record the result
 

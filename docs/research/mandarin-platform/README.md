@@ -1,7 +1,12 @@
+---
+description: "Where real-hardware reports on Simplified and Traditional Han text injection on Linux X11, Linux Wayland, macOS and Windows collect, one per CHN-COMPAT campaign task; none has been submitted yet."
+---
+
 # Mandarin platform compatibility reports
 
 Real hardware evidence for Simplified and Traditional Han text injection, collected per
-platform/session via the `CHN-COMPAT-*` campaign tasks:
+platform/session via the `CHN-COMPAT-*` campaign tasks. **No report has been submitted
+yet**; each will appear here under this name:
 
 - `linux-x11.md` — Linux, X11 session
 - `linux-wayland.md` — Linux, Wayland session

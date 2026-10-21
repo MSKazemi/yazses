@@ -79,8 +79,10 @@ already instrumented and already running on a real machine doing real work.
 confidence — rather than "started"/"stopped" makes every published silent-speech and
 neuromotor decoder pluggable without a bespoke adapter.
 
-The mismatch is architectural: EMG and neural decoders in the literature all produce a
-*word*, while the hotkey interface they must plug into accepts two edge events.
+The mismatch was architectural: EMG and neural decoders in the literature all produce a
+*word*, while the hotkey interface accepted two edge events. YazSes has since widened the
+seam (`[activation]`, `contract/vectors/activation.json`); the open claim is whether
+published decoders actually plug into it without a bespoke adapter.
 [Buxton](#ref-buxton1983) on the lexical and pragmatic structure of input is the right
 vocabulary for what a source is allowed to say.
 
@@ -91,6 +93,11 @@ vocabulary for what a source is allowed to say.
 **Claim:** a gate that triggers on *low decoder confidence only* costs less total time
 than either always-confirming or never-confirming, at the 3–4% error rate real command
 channels exhibit.
+
+YazSes already implements one arm — a confidence × consequence gate under `[activation]`
+(a reversible intent acts at 0.90 or above and confirms below it, an irreversible one always
+confirms, below 0.50 it is dropped); its thresholds are literature-derived, and the timing
+comparison has not been run.
 
 Closed-vocabulary silent input runs at 96–97% — about one command in thirty is wrong.
 Unacceptable for a destructive action; noise for dictation. The design literature says an

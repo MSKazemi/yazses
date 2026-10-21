@@ -1,16 +1,20 @@
+---
+description: "ADR-MOB-007: the Android privacy budget, with a reviewed permission list, INTERNET declared in the model-download module only, and a CI gate that fails the build if either drifts."
+---
+
 # ADR-MOB-007 — Android privacy budget: permission minimalism, one networked module, CI-enforced
 
 **Status:** Accepted (2026-08-07) · design only, no code yet
 **Deciders:** Mohsen Seyedkazemi Ardebili
-**Context links:** [[adr-011]] (the parent policy), [[adr-mob-003]] (no accessibility grant),
-[[adr-mob-004]] (no ambient capture), [[adr-mob-006]] (the only network use),
-[[adr-mob-009]] (store declarations)
+**Context links:** [ADR-011](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-011.md) (the parent policy), [ADR-MOB-003](adr-mob-003-text-delivery-surfaces.md) (no accessibility grant),
+[ADR-MOB-004](adr-mob-004-activation-model.md) (no ambient capture), [ADR-MOB-006](adr-mob-006-model-distribution.md) (the only network use),
+[ADR-MOB-009](adr-mob-009-distribution-and-signing.md) (store declarations)
 
 ---
 
 ## Context
 
-[[adr-011]] is the project's constitutional document: zero telemetry, offline by default,
+[ADR-011](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-011.md) is the project's constitutional document: zero telemetry, offline by default,
 no cloud fallback, no ambient capture, local-only logs, CI-enforced. It was written for a
 desktop daemon. Android changes the enforcement surface in ways that need to be made
 explicit before contributors start adding dependencies:
@@ -35,10 +39,10 @@ explicit before contributors start adding dependencies:
 | Permission | Where | Why |
 |---|---|---|
 | `RECORD_AUDIO` | `:platform:audio` | the product. Declared beside the code that opens the microphone rather than in `:app`, so it travels with that code and the manifest gate reports it if it ever moves. Manifest merging puts it in the app either way. |
-| `INTERNET` | **`:model` only** | model download ([[adr-mob-006]]) |
+| `INTERNET` | **`:model` only** | model download ([ADR-MOB-006](adr-mob-006-model-distribution.md)) |
 | `POST_NOTIFICATIONS` | `:app` | Meeting Mode ongoing notification, download status |
 | `FOREGROUND_SERVICE` + `FOREGROUND_SERVICE_MICROPHONE` | `:feature:meeting` | long capture |
-| `SYSTEM_ALERT_WINDOW` | `:feature:bubble` (opt-in variant) | floating mic ([[adr-mob-003]] §5) |
+| `SYSTEM_ALERT_WINDOW` | `:feature:bubble` (opt-in variant) | floating mic ([ADR-MOB-003](adr-mob-003-text-delivery-surfaces.md) §5) |
 
 Everything else is **forbidden without a superseding ADR** — explicitly including
 `READ_EXTERNAL_STORAGE`/`READ_MEDIA_*` (use SAF), `ACCESS_NETWORK_STATE` outside `:model`,
@@ -52,7 +56,7 @@ network permission. The dictation path — `:core:audio` → `:core:vad` → `:c
 `:core:postprocess` → `:feature:ime` — has no reachable network code, and that is a
 build-enforced property rather than a promise.
 
-**C. CI privacy gate** (the Android analogue of [[adr-011]] §10, and of the desktop's
+**C. CI privacy gate** (the Android analogue of [ADR-011](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-011.md) §10, and of the desktop's
 `privacy-gate` job):
 1. **Manifest diff gate** — the merged manifest is dumped and compared against a checked-in
    golden file; any new permission, exported component, or `usesCleartextTraffic` change
@@ -69,7 +73,7 @@ build-enforced property rather than a promise.
 
 **D. Lifecycle and capture rules.**
 - Hold-to-talk needs no foreground service: the IME window is visible, so the app is
-  in-use ([[adr-mob-004]]).
+  in-use ([ADR-MOB-004](adr-mob-004-activation-model.md)).
 - Meeting Mode runs a `microphone`-typed foreground service **started from a visible,
   user-initiated action** (Quick Settings tile, shortcut, or in-app button), with a
   permanent notification carrying elapsed time and a stop action. Android 15+ FGS
@@ -90,14 +94,14 @@ and delete. If and when the desktop's learning corpus (`adr-012`) is ported, it 
 is written to shared storage without SAF and an explicit user pick. Backups exclude models,
 transcripts and any future corpus.
 
-**F. Store declarations must match the binary** ([[adr-mob-009]]): "no data collected, no
+**F. Store declarations must match the binary** ([ADR-MOB-009](adr-mob-009-distribution-and-signing.md)): "no data collected, no
 data shared", with the model download described accurately as a user-initiated file
 download to a third-party host.
 
 ## Consequences
 
 - A contributor cannot accidentally weaken the privacy posture: the manifest gate and the
-  dependency allow-list turn [[adr-011]] from a document into a build failure.
+  dependency allow-list turn [ADR-011](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-011.md) from a document into a build failure.
 - Meeting Mode is the only genuinely hard lifecycle problem in the app, and it is scoped
   and risk-flagged rather than assumed to work.
 - Some conveniences are permanently unavailable (crash reporting, remote config, A/B
@@ -112,7 +116,7 @@ download to a third-party host.
 - **`INTERNET` in `:app` "for convenience".** Destroys the containment property, which is
   the whole point.
 - **Crash reporting, even self-hosted (e.g. an ACRA endpoint), even opt-in, in wave 1.**
-  [[adr-011]] §1 is unambiguous; a local, user-reviewed crash log is the substitute. An
+  [ADR-011](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-011.md) §1 is unambiguous; a local, user-reviewed crash log is the substitute. An
   opt-in local-file crash log is acceptable; anything that transmits is not.
 - **Google Play Services / Firebase for anything** (including push, config or App Check) —
   also disqualifying for F-Droid.

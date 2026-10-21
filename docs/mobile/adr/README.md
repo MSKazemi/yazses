@@ -25,9 +25,10 @@ most useful part, because it tells you which arguments have already been had.
 
 ## Reading notes
 
-- **`[[adr-011]]`, `[[adr-v2-129]]` and similar links** point into the desktop ADR series,
-  which is an internal maintainer document and is not published. Where a desktop ADR is
-  load-bearing for a mobile decision, the mobile ADR restates what it says, so you never
+- **Links to ADR-011, ADR-v2-129 and similar** point into the desktop ADR series, which is
+  public under [`design/adr/`](https://github.com/MSKazemi/yazses/tree/main/design/adr) and
+  published on this site under Engineering (design) → Decision records. Where a desktop ADR
+  is load-bearing for a mobile decision, the mobile ADR restates what it says, so you never
   need the original. The most important one, **ADR-011 (zero telemetry, offline by default,
   no cloud fallback, no ambient capture)**, is published in user-facing form as the
   [privacy statement](../../privacy-statement.md), and it governs the Android app
