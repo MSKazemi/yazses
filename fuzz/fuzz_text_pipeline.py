@@ -41,7 +41,8 @@ PROFILES = ("default", "vim", "emacs", "vscode")
 # Every registered Tier-1 command language (`commands/grammars/registry.py`). Each has
 # its own rule table and its own `normalise`, so the default ("en") alone leaves the
 # Mandarin grammar -- NFKC, full-width punctuation, Han numerals -- unfuzzed.
-# `tests/test_fuzz_harnesses_still_run.py` fails if this drifts from the registry.
+# `tests/test_fuzz_grammar_seeds_reach_every_rule.py` fails if this drifts from the
+# registry.
 COMMAND_LANGUAGES = ("en", "zh")
 
 _LOADED: dict[str, Any] = {}
