@@ -33,7 +33,7 @@ It stays listed so contributors can pick it up; see the matching design/adr/ ent
 ```
 
 They stay listed because that is where a contributor picks one up — each has a matching
-`design/adr/` entry. **34 of the 122 rows below are ◌ today.** Rows without the mark are
+`design/adr/` entry. **29 of the 122 rows below are ◌ today.** Rows without the mark are
 wired and can be turned on.
 
 ### "Hold the command key" — what that means
