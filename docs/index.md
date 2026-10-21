@@ -124,12 +124,12 @@ hide:
 
 ## See it run
 
-![YazSes — hold a key, speak, release; the text is typed into the focused app](screenshots/yazses-reel.gif)
+![YazSes — hold a key, speak, release; the text is typed into the focused app](screenshots/yazses-reel.webp){ loading=lazy width=1280 height=720 }
 
 *40-second tour: the core loop, the command line, and the system tray. Terminal output is real; the command-line typing is re-enacted for legibility.*
 [:material-youtube: Watch it with narration and chapters on YouTube](https://www.youtube.com/watch?v=nn8WUKsCvZ4)
 
-![yazses doctor — all green, fully offline by default](screenshots/yazses-doctor.png)
+![yazses doctor — all green, fully offline by default](screenshots/yazses-doctor.png){ loading=lazy }
 
 ## Why YazSes
 
