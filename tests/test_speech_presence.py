@@ -334,8 +334,16 @@ def test_a_no_speech_burst_in_streaming_mode_removes_the_partials_already_typed(
 
 def _local_engine(monkeypatch):
     """A real tiny.en engine from the local cache, or skip. Never downloads."""
+    # faster_whisper imports huggingface_hub at module scope, and the hub copies
+    # HF_HUB_OFFLINE into a module constant at that first import. Import it here,
+    # under the real environment, and patch the constant alongside the variable:
+    # setting only the variable first left the constant True for the rest of the
+    # process, so a later cache-first test saw offline mode already requested.
     pytest.importorskip("faster_whisper")
+    from huggingface_hub import constants as hub_constants
+
     monkeypatch.setenv("HF_HUB_OFFLINE", "1")
+    monkeypatch.setattr(hub_constants, "HF_HUB_OFFLINE", True)
     from yazses.stt.faster_whisper import FasterWhisperEngine
 
     try:
