@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
+from yazses.bidi import wrap_user_text
 from yazses.bookmarks.caret import Caret, CaretBackend, Refusal, capture, jump
 from yazses.bookmarks.store import BookmarkStore
 
@@ -49,7 +50,8 @@ class BookmarkService:
             return f"Bookmark not set: {found.value}."
         label = (name or "").strip() or self._next_name()
         self._store.add(label, found)
-        return f"Bookmarked '{label}'."
+        # The label is stored raw; only the message's copy is isolated (#516).
+        return f"Bookmarked '{wrap_user_text(label)}'."
 
     def goto(self, name: str | None) -> str:
         """Move the caret to ``name`` (None = the most recent). Returns the message."""
@@ -57,7 +59,7 @@ class BookmarkService:
         done = jump(saved, self._caret_backend())
         if isinstance(done, Refusal):
             return f"Did not jump: {done.value}."
-        return "Jumped to " + (f"'{name}'." if name else "the last bookmark.")
+        return "Jumped to " + (f"'{wrap_user_text(name)}'." if name else "the last bookmark.")
 
     def _next_name(self) -> str:
         n = len(self._store.names()) + 1

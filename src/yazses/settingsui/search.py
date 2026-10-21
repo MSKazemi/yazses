@@ -17,6 +17,8 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
 
+from yazses.bidi import quote_user_text
+
 # Tier words a user might type, mapped onto the substring that identifies the
 # tier in `Feature.tier_label`. Keys are what `yazses features --tier` accepts,
 # so the two surfaces take the same words.
@@ -94,7 +96,7 @@ def describe_filter(matching: int, total: int, query: str) -> str:
     if not (query or "").strip():
         return ""
     if matching == 0:
-        return f"No capability matches {query.strip()!r}. Try a shorter word."
+        return f"No capability matches {quote_user_text(query.strip())}. Try a shorter word."
     return f"Showing {matching} of {total} capabilities."
 
 

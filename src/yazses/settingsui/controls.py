@@ -23,6 +23,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 
+from yazses.bidi import quote_user_text, wrap_user_text
 from yazses.configcheck import enum_values
 
 # A VAD threshold outside this range is not a setting, it is a broken microphone
@@ -276,9 +277,12 @@ def mic_choices(
     `[audio] device` means, and the state most people should be in. Pinning is
     for when a device *steals* capture, not the normal case.
     """
+    # Labels are display copies: a device name in Persian or Arabic script is isolated
+    # (FSI..PDI) so it cannot pull the English parentheses and marks around with it
+    # (#516). `value` stays the raw name -- it is what gets written to the config.
     rows = [MicChoice(
         label="Follow the system default"
-              + (f" (currently {default_name})" if default_name else ""),
+              + (f" (currently {wrap_user_text(default_name)})" if default_name else ""),
         value="",
         is_default=True,
         is_pinned=not pinned,
@@ -293,7 +297,7 @@ def mic_choices(
         if pinned and pinned.lower() in name.lower():
             marks += " ★"
         rows.append(MicChoice(
-            label=f"{name}{marks}",
+            label=f"{wrap_user_text(name)}{marks}",
             value=name,
             is_default=bool(default_name and name == default_name),
             is_pinned=bool(pinned and pinned.lower() in name.lower()),
@@ -372,4 +376,4 @@ def apply_setting(
         return False, f"Could not save [{section}] {key}: {exc}"
     if not ok:
         return False, f"Could not save [{section}] {key}."
-    return True, f"Saved [{section}] {key} = {value!r}. Restart YazSes to apply."
+    return True, f"Saved [{section}] {key} = {quote_user_text(value)}. Restart YazSes to apply."
