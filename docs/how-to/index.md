@@ -20,6 +20,7 @@ self-contained — pick the one that matches what you want to do.
 | [Aim dictation with your gaze](gaze-look-to-pane.md) | Glance at a window and hold-to-talk — the text lands in the pane you looked at (X11). |
 | [Set up hands-free input](hands-free-setup.md) | One preset that composes gaze, head pointer, face switch and chords; what it sets, what it needs, every way to stop it, and how it recovers. |
 | [Stop hands-free input by voice](hands-free-voice-stop.md) | Say a short phrase and the pointer, chords and face switch pause, with no key and no pointer. |
+| [Click anywhere by voice](voice-mouse-grid.md) | Say "mouse grid", cell numbers, then "click" — pointer control on any pixels (experimental; X11 or macOS). |
 | [Transcribe recordings to text](../tutorials/transcribe-recordings.md) | Turn an existing audio/video file into text — offline, with speaker labels. |
 | [Tune for speed and accuracy](performance-tuning.md) | Choose the STT model, set the VAD threshold, and manage CPU load. |
 | [The update said it worked but the version did not change](update-did-nothing.md) | A package manager can exit 0 without upgrading anything — the reinstall command per install method. |

@@ -134,7 +134,6 @@ docs/config, **L2** bounded code.
 | Wire the `lipread` capability so it is reachable from the daemon or CLI | `WIRE-LIPREAD-001` | L2 | 90 min | python | `uv run python -m pytest tests/test_features_write_targets.py -q` |
 | Wire the `loadguard` capability so it is reachable from the daemon or CLI | `WIRE-LOADGUARD-001` | L2 | 90 min | python | `uv run python -m pytest tests/test_features_write_targets.py -q` |
 | Wire the `morsevox` capability so it is reachable from the daemon or CLI | `WIRE-MORSEVOX-001` | L2 | 90 min | python | `uv run python -m pytest tests/test_features_write_targets.py -q` |
-| Wire the `mousegrid` capability so it is reachable from the daemon or CLI | `WIRE-MOUSEGRID-001` | L2 | 90 min | python | `uv run python -m pytest tests/test_features_write_targets.py -q` |
 | Wire the `mouthswitch` capability so it is reachable from the daemon or CLI | `WIRE-MOUTHSWITCH-001` | L2 | 90 min | python | `uv run python -m pytest tests/test_features_write_targets.py -q` |
 | Wire the `multiprofile` capability so it is reachable from the daemon or CLI | `WIRE-MULTIPROFILE-001` | L2 | 90 min | python | `uv run python -m pytest tests/test_features_write_targets.py -q` |
 | Wire the `pilot` capability so it is reachable from the daemon or CLI | `WIRE-PILOT-001` | L2 | 90 min | python | `uv run python -m pytest tests/test_features_write_targets.py -q` |

@@ -742,6 +742,7 @@ from the tree, so a method added to the daemon, or a caller added or removed, fa
 | `handsfree` | settings window, CLI | Global hands-free stop, chosen by an `action` param: `pause` (every source at once; Head-Pointer only when `[handsfree_safety]` is off) or `resume` (explicit re-arm; refuses while a source is stale or faulted). Takes no pointer position (`yazses handsfree ...`) |
 | `facegesture` | CLI | Face-switch action outcomes, `action` param: `status` only. Lists each bound `select` / `confirm` / `cancel` with its last outcome (done, refused with a reason, no-op) and counts. Read-only; names, words and ages, never a score (`yazses facegesture status`) |
 | `gesture` | CLI | Gesture Chords controls, chosen by an `action` param: `status`, `pause`, `resume` (`yazses gesture ...`) |
+| `mousegrid` | overlay | Voice Mouse Grid (`[mousegrid]`), chosen by an `action` param: `status` (active flag, grid size, the current cell rectangle, depth — no transcript), `open`, `say` (runs `text` through the spoken grid grammar), `cancel`, and `screen` (the overlay reports its screen rectangle for sessions where the daemon cannot read the display layout). Replies `ok: false` while the feature is off |
 | `remote_status` | nothing | Is the tunnel connected? Redundant: `status` already carries `remote_connected`, and `yazses status` prints it |
 | `streaming_enable` | nothing | Turn streaming transcription on at runtime, building the `StreamingEngine` if it is absent |
 | `streaming_disable` | nothing | Turn it off again |

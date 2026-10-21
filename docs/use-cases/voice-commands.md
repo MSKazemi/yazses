@@ -99,7 +99,7 @@ Related capabilities worth knowing about:
 | Spoken Shell Pipeline Builder | `yazses features enable shellpipe` | Compose a shell pipeline by speaking it |
 | Terminal Command Safety Gate | `yazses features enable cmdsafety` | Catch destructive commands before they run |
 | Voice Window Management | `yazses features enable windowctl` | Move and switch windows by voice |
-| Voice Mouse Grid | `yazses features enable mousegrid` *(planned — not yet wired)* | Move the pointer and click by voice |
+| Voice Mouse Grid | `yazses features enable mousegrid` *(experimental)* | Say "mouse grid", cell numbers, then "click" to move the pointer and click by voice (X11 or macOS) |
 | Voice Fuzzy File Open | `yazses features enable fileopen` | Open a file by speaking part of its name |
 
 Browse everything with `yazses features`, and see what any single capability does

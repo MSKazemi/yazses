@@ -302,8 +302,8 @@ def _notes(components: HandsfreeConfig, raw: Mapping[str, Any]) -> list[str]:
     out: list[str] = [
         "PROVISIONAL -- every value the preset supplies is an unmeasured starting value; no field "
         "evidence exists to tune them from (design/eye-control/GOVERNANCE.md).",
-        "Not composed: the Voice Mouse Grid ([mousegrid]) is designed but not wired into this build, "
-        "so the precision fallback is not part of the preset; no face-switch gesture is bound to "
+        "Not composed: the Voice Mouse Grid ([mousegrid]) is experimental and the preset does not "
+        "turn it on, so the precision fallback is yours to enable; no face-switch gesture is bound to "
         "select / confirm / cancel by the preset, so the commit is dwell-click unless you add a "
         "[[facegesture.switches]] entry yourself.",
     ]

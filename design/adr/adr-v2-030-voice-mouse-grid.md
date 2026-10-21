@@ -20,6 +20,23 @@ selections (recursive coarse-to-fine) and returns the center point to click. Reu
 existing overlay (`yazses-overlay`, PySide6) to draw the grid and the existing injector to move/
 click. No ML. OFF by default.
 
+## Implementation (2026-10-21, WIRE-MOUSEGRID-001)
+
+- `mousegrid/grammar.py` (pure): whole-utterance, anchored phrases — "mouse grid" opens; while
+  open, cell numbers (words up to sixteen, or digits), `click` / `right click` / `double click`,
+  `back`, `cancel`. Kept out of the always-on `commands/grammars/en.py` so no user who has not
+  enabled the section has "click" claimed.
+- `mousegrid/session.py` (pure): the zoom state machine, a 30 s idle close, no click before a
+  cell is chosen, no zoom below a pixel.
+- `mousegrid/runtime.py`: the daemon's consumer. Built only when `[mousegrid] enabled`; the
+  `PointerSink` is built when a grid is first opened and must offer absolute motion (X11,
+  macOS) — relative-only backends are refused with a reason when the grid opens. Honours
+  the hands-free pause when `[handsfree_safety]` is on. An open grid hands back any
+  utterance that is not a grid command, closing itself.
+- Overlay: `overlay/grid.py` (pure parse + poller over the `mousegrid` IPC method) and
+  `overlay/grid_widget.py` (click-through Qt window), both loaded only when the section is on.
+- Thresholds (timeout, vocabulary) are tuned on synthetic transcripts only.
+
 ## Consequences
 
 - Universal pixel-level fallback where AT-SPI Pilot and Gaze can't resolve a target.

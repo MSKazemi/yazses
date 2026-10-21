@@ -95,6 +95,9 @@ CAPTURE_PROVING_DISCARDS = frozenset({
     # Field-Aware Dictation refused the *destination* (a password box). The audio was
     # captured, decoded and shaped; only the target was wrong.
     "fieldaware_refused",
+    # The Voice Mouse Grid (ADR-v2-030) claimed the utterance: a grid phrase was heard,
+    # decoded and parsed, whatever the pointer then did.
+    "mousegrid",
 })
 
 

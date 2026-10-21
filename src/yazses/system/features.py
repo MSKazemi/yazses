@@ -959,9 +959,13 @@ _Def("chords", "Chorded Shortcut Synthesis", "[chords] — any keyboard shortcut
              "modifier hotkey (the default), since a tap on a character key is invisible. "
              "Restart the daemon after enabling. Off by default.",
              lambda c: c.autostop.enabled, as_on, as_off),
-        _Def("mousegrid", "Voice Mouse Grid", "[mousegrid] — click by voice", OPTIONAL,
-             "Drive the cursor and click by voice via a numbered grid ('three, seven, click') "
-             "where no accessibility tree exists. Reuses the overlay. Off by default.",
+        _Def("mousegrid", "Voice Mouse Grid", "[mousegrid] — click by voice, experimental",
+             EXPERIMENTAL,
+             "Say 'mouse grid', then cell numbers ('three', 'seven') to move the pointer to "
+             "that cell's centre, then 'click' ('right click', 'double click'); 'back' zooms "
+             "out, 'cancel' closes. Works where no accessibility tree exists. Needs absolute "
+             "pointer motion (X11 or macOS); the numbered grid is drawn by the overlay when "
+             "[overlay] is on. Experimental: tuned on synthetic input only. Off by default.",
              lambda c: c.mousegrid.enabled, mg_on, mg_off),
         _Def("multiprofile", "Multi-User Profiles", "[voiceprint] multi_profile", OPTIONAL,
              "On a shared machine, loads each enrolled speaker's own vocab/hotkey/cleanup "
@@ -1228,8 +1232,7 @@ def feature_packages(slug: str) -> tuple[str, ...]:
 # without wiring it fails CI.
 _UNWIRED: frozenset[str] = frozenset({
     "affect", "agent", "audioguard", "breath", "bridge", "cmdspotter",
-    "codec", "compose", "crowdproof", "hatselect",
-    "interpret", "langroute", "lipread", "loadguard", "morsevox", "mousegrid", "mouthswitch",
+    "codec", "compose", "crowdproof", "hatselect", "interpret", "langroute", "lipread", "loadguard", "morsevox", "mouthswitch",
     "multiprofile", "pilot", "predict", "pronunciation", "proofback", "rag", "readback_clone",
     "screengrounded", "scribe", "scrub", "sentiment", "sign", "spatialvad", "wakeword",
 })

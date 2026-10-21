@@ -256,7 +256,7 @@ def test_explain_says_provisional_and_what_it_leaves_out():
     text = "\n".join(preset.render(preset.expand({}, assume_enabled=True), enabled_in_file=False))
     assert "PROVISIONAL" in text
     assert "OFF in your config" in text and "`yazses handsfree enable` would set" in text
-    assert "mousegrid" in text and "not wired" in text
+    assert "mousegrid" in text and "does not turn it on" in text
     assert "[safety floor]" in text
     assert "yazses handsfree pause" in text, "a stop path that needs no pointer must be listed"
     assert "overlay" in text, "dwell needs the overlay and explain must say so"
