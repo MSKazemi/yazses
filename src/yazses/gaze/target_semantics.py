@@ -28,6 +28,15 @@ one. Abstaining with a reason is the entire contract; if a supported accessibili
 is ever validated on real GNOME and KDE sessions, it is a new ``TargetBasis`` here, not a
 reinterpretation of this one.
 
+**The capability model.** Each plan carries its session's row of the platform matrix in
+:mod:`yazses.gaze.target_capabilities` -- screen position, other windows' geometry, focus,
+and pointer injection kept apart -- and states what gaze may honestly do with it:
+:attr:`GazeTargetPlan.dictation_route` (the gazed window, or the focused window only) and
+:attr:`GazeTargetPlan.destructive_deixis` (decided by ``[gaze]`` config where gaze can name
+a window, **refused** where it cannot, whatever ``refuse_destructive_fallback`` says: with
+no gaze target, the focused window is not a stand-in for one). The matrix, its sources and
+the GNOME/KDE findings are in ``design/specs/eye-wayland-gaze-target.md``.
+
 Pure: it reads nothing. :func:`classify_session` takes the environment and the OS-fixed
 bucket as arguments (the caller gets the latter from ``describe_host()``, the platform
 seam), so every row of the matrix is reachable from any machine.
@@ -39,7 +48,16 @@ import os
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 
+from yazses.gaze.target_capabilities import (
+    CapabilityFact,
+    capabilities_for,
+    gaze_target_supported,
+    summarize,
+)
+
 __all__ = [
+    "DestructiveDeixis",
+    "DictationRoute",
     "GazeTargetPlan",
     "TargetBasis",
     "WAYLAND_REASON",
@@ -78,6 +96,26 @@ class TargetBasis(str, enum.Enum):
     NONE = "none"
 
 
+class DictationRoute(str, enum.Enum):
+    """Where the next dictation may go, given what gaze can know here."""
+
+    #: The window under the calibrated gaze point (X11 look-to-pane).
+    GAZED_WINDOW = "gazed_window"
+    #: The window the user already focused. Gaze contributes nothing and claims nothing.
+    FOCUSED_WINDOW = "focused_window"
+
+
+class DestructiveDeixis(str, enum.Enum):
+    """What a destructive gaze command ("close this") may do on this session."""
+
+    #: Gaze can name a window; ``[gaze] confirm_destructive`` and
+    #: ``refuse_destructive_fallback`` decide (ADR-v2-010, ADR-v2-148).
+    BY_CONFIG = "by_config"
+    #: Gaze can never name a window here, so the command is refused with feedback. The
+    #: focused window is not a stand-in for a target that cannot exist (#418).
+    REFUSE = "refuse"
+
+
 @dataclass(frozen=True)
 class GazeTargetPlan:
     """The answer to "what can a gaze target be here?" -- with the reason when it is nothing."""
@@ -89,10 +127,28 @@ class GazeTargetPlan:
     reason: str
     #: What would change the answer. Empty when nothing local can.
     remedy: str = ""
+    #: This session's row of the platform matrix (`gaze/target_capabilities.py`); ``()``
+    #: where it was not assessed (Windows, macOS).
+    capabilities: tuple[CapabilityFact, ...] = ()
 
     @property
     def available(self) -> bool:
         return self.basis is not TargetBasis.NONE
+
+    @property
+    def dictation_route(self) -> DictationRoute:
+        """Where the next dictation may go: the gazed window only when one can be named."""
+        return DictationRoute.GAZED_WINDOW if self.available else DictationRoute.FOCUSED_WINDOW
+
+    @property
+    def destructive_deixis(self) -> DestructiveDeixis:
+        """Whether "close this" is left to config or refused outright on this session."""
+        return DestructiveDeixis.BY_CONFIG if self.available else DestructiveDeixis.REFUSE
+
+    @property
+    def capability_summary(self) -> str:
+        """One printable line, pointer injection last and labelled separate. ``""`` if unassessed."""
+        return summarize(self.capabilities)
 
     @property
     def absolute_position(self) -> bool:
@@ -150,35 +206,49 @@ def plan_gaze_target(session: str, *, xdotool_available: bool | None = None) -> 
 
     *xdotool_available* is ``None`` when it was not checked; only X11 reads it, and only a
     definite ``False`` refuses (an unchecked tool is not a missing one).
+
+    The basis is derived from the session's capability row: a gaze target exists only where
+    :func:`~yazses.gaze.target_capabilities.gaze_target_supported` says so (all three target
+    capabilities available to an ordinary client) *and* YazSes has a backend for it, which
+    today is X11 alone. A matrix row that ever became supportable elsewhere would still
+    answer ``NONE`` here until a backend is written and validated.
     """
     kind = (session or "").strip().lower()
-    if kind == "x11":
+    facts = capabilities_for(kind)
+    supported = gaze_target_supported(facts)
+    if kind == "x11" and supported:
         if xdotool_available is False:
             return GazeTargetPlan(
                 kind,
                 TargetBasis.NONE,
                 "X11 window routing needs `xdotool` and it is not installed",
                 "run `yazses setup` (or install xdotool from your package manager)",
+                facts,
             )
         return GazeTargetPlan(
             kind,
             TargetBasis.SCREEN_WINDOWS,
             "X11: gaze resolves to the window under a calibrated desktop pixel",
+            "",
+            facts,
         )
     if kind.startswith("wayland"):
-        return GazeTargetPlan(kind, TargetBasis.NONE, WAYLAND_REASON, _WAYLAND_REMEDY)
+        return GazeTargetPlan(kind, TargetBasis.NONE, WAYLAND_REASON, _WAYLAND_REMEDY, facts)
     if kind in ("windows", "macos"):
         return GazeTargetPlan(
             kind,
             TargetBasis.NONE,
             f"look-to-pane has no window backend on {kind} yet, so there is no gaze target "
             "to resolve and dictation stays in the focused window",
+            "",
+            facts,
         )
     return GazeTargetPlan(
         kind or "headless",
         TargetBasis.NONE,
         "no desktop session was detected (headless), so there is no screen to look at",
         "run YazSes from inside a graphical X11 session",
+        capabilities_for("headless"),
     )
 
 

@@ -127,6 +127,21 @@ def test_a_session_writes_a_valid_report_and_prints_a_summary(monkeypatch, tmp_p
     assert backend.closed is True, "the camera must be released even on the happy path"
 
 
+def test_the_command_measures_zone_hits_on_the_real_screen_size(monkeypatch, tmp_path) -> None:
+    """The fake gaze always lands at the screen centre, so only a target in the centre cell
+    of the 3x3 grid is a hit: one of the nine. Without the screen size the rate would be a
+    missing marker, which is how this test fails if the CLI stops passing it."""
+    _wire(monkeypatch, tmp_path)
+    out = tmp_path / "report.json"
+    result = _invoke(out=out)
+    assert result.exit_code == 0, result.output
+    cal = json.loads(out.read_text(encoding="utf-8"))["metrics"]["calibration"]
+    assert cal["zone_points"] == cal["validation_points"] == 9
+    assert cal["zone_hits"] == 1
+    assert cal["zone_hit_rate"] == pytest.approx(1 / 9, abs=1e-4)
+    assert "Zone hits (3x3 grid): 1 of 9" in result.output
+
+
 def test_nothing_in_the_file_or_the_screen_names_this_machine_or_person(monkeypatch, tmp_path) -> None:
     _wire(monkeypatch, tmp_path)
     out = tmp_path / "report.json"

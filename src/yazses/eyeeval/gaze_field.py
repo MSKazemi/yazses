@@ -27,7 +27,7 @@ paths, e-mail addresses and this machine's own hostname and login before anythin
 written. Confidence is kept as a ten-bin histogram plus a running mean, not as a time
 series, so there is no per-moment trace to leak either.
 
-## Schema (``protocol.task_version`` "1.1"; ``schema_version`` is the envelope's, shared with ``yazses.eyeeval.schema``)
+## Schema (``protocol.task_version`` "1.2"; ``schema_version`` is the envelope's, shared with ``yazses.eyeeval.schema``)
 
 ``feature.name = "gaze"``, ``protocol.task = "gaze_field_measurement"``, ``study_mode`` is
 the tester's declaration (``community_qa`` for a public report). ``metrics``:
@@ -35,8 +35,13 @@ the tester's declaration (``community_qa`` for a public report). ``metrics``:
 ``calibration``
     ``source`` ("explicit" | "implicit"), ``age_s``, ``topology_validity``
     ("valid" | "unverified" | "stale"), ``validation_points``, ``error_px_rmse``,
-    ``error_px_mean``, ``error_px_max``, ``error_deg_mean`` (degrees; missing without
-    geometry), ``implicit_candidate_delta_px`` (stored refinement evidence, if any).
+    ``error_px_mean``, ``error_px_p50``, ``error_px_p90`` (nearest-rank percentiles of the
+    per-point error), ``error_px_max``, ``error_deg_mean`` (degrees; missing without
+    geometry), ``zone_grid`` / ``zone_points`` / ``zone_hits`` / ``zone_hit_rate`` (how
+    often the predicted point fell in the same cell of a 3x3 screen grid as the target --
+    the look-to-*pane* outcome, measured rather than tester-counted; a prediction off the
+    screen is a miss), ``implicit_candidate_delta_px`` (stored refinement evidence, if
+    any).
 ``confidence``
     ``samples``, ``mean``, ``min``, ``max``, ``below_threshold_fraction`` (against the
     ``confidence_min`` the tester ran with), ``histogram`` (ten bins of width 0.1).
@@ -60,10 +65,27 @@ the tester's declaration (``community_qa`` for a public report). ``metrics``:
     synthetic data to choose them. How many people and sessions a *claim* needs is
     ``EVALUATION.md``'s question.
 
+## What the validator refuses
+
+``report_problems`` is the reader for this task, not only a self-check. Beyond the shared
+envelope it rejects a document that **could leak**, whoever produced it: a value carrying a
+home directory or an e-mail address (``runner.privacy_problems``, plus this machine's own
+hostname and login when ``identifiers`` are given); a key under ``metrics`` that names a
+coordinate, an angle, a frame, a mesh, an eye feature or a trajectory; and any list or
+object under ``metrics`` that this schema does not define. That last rule is the one that
+matters: per-sample coordinates can only travel as a series, so a field report has exactly
+three lists (the confidence histogram, the drift blocks, the sufficiency statements) and a
+fourth is refused rather than read. The histogram must sum to the sample count and the
+drift blocks to the validation points, so neither can be widened into a trace either.
+``report_problems_text`` / ``report_problems_file`` apply the same rules to a file someone
+attached, and fail on input that is missing, empty, not UTF-8 or not JSON -- an unreadable
+report is a problem, never an empty document that then passes.
+
 ``METRICS.md`` is explicit that "gaze accuracy" is three different things — coordinate error,
 correct-window rate, tracker availability — and must never be one number. This report keeps
-them apart: ``calibration.*`` is coordinate error, ``routing.*`` is the window-level outcome,
-and ``confidence.*`` is the availability/quality signal.
+them apart: ``calibration.*`` is coordinate error (``zone_*`` is that error expressed at the
+granularity routing uses, still against known targets), ``routing.*`` is the tester-counted
+window-level outcome, and ``confidence.*`` is the availability/quality signal.
 
 ## What it does not do
 
@@ -75,11 +97,19 @@ from __future__ import annotations
 import math
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
-from yazses.eyeeval.provenance import Provenance, as_sections, fingerprint
-from yazses.eyeeval.runner import safe_settings
-from yazses.eyeeval.schema import DATA_CLASS_FOR_MODE, SCHEMA_VERSION, validate_result
+from yazses.eyeeval.provenance import LocalIdentifiers, Provenance, as_sections, fingerprint
+from yazses.eyeeval.runner import privacy_problems, safe_settings
+from yazses.eyeeval.schema import (
+    DATA_CLASS_FOR_MODE,
+    SCHEMA_VERSION,
+    parse_result_text,
+    read_result_file,
+    validate_result,
+)
+from yazses.gaze.zones import grid_zone
 
 __all__ = [
     "CONFIDENCE_BINS",
@@ -93,6 +123,8 @@ __all__ = [
     "REQUIRED_METRICS",
     "TASK",
     "TASK_VERSION",
+    "ZONE_COLS",
+    "ZONE_ROWS",
     "CalibrationFacts",
     "Environment",
     "Geometry",
@@ -104,13 +136,23 @@ __all__ = [
     "degrees_from_px",
     "render_markdown",
     "report_problems",
+    "report_problems_file",
+    "report_problems_text",
+    "zone_hit",
 ]
 
 #: Stamped into ``software.generator`` and ``protocol.task_version``; bump when the shape
 #: of what this writes changes.
-GENERATOR = "yazses.eyeeval.gaze_field/1.1"
+GENERATOR = "yazses.eyeeval.gaze_field/1.2"
 TASK = "gaze_field_measurement"
-TASK_VERSION = "1.1"
+TASK_VERSION = "1.2"
+
+#: The zone hit rate is measured on this grid: the 3x3 layout the validation targets are
+#: drawn on (``gaze.calibrate.default_targets`` puts one target in each cell), so a hit
+#: means "the calibration put the gaze in the right ninth of the screen". Fixed rather than
+#: read from ``[gaze] zones``: a 2x2 grid would put the centre target on a cell corner.
+ZONE_ROWS = 3
+ZONE_COLS = 3
 
 #: Confidence is binned, not recorded as a series. Ten bins of width 0.1 over 0..1.
 CONFIDENCE_BINS = 10
@@ -160,6 +202,9 @@ class PointError:
 
     t_s: float          # seconds since the session began
     error_px: float     # euclidean distance, predicted point to target
+    #: Whether the predicted point fell in the target's grid cell; ``None`` when the screen
+    #: size was not known, so the point counts toward the error but not the zone rate.
+    zone_hit: bool | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "t_s", _finite("t_s", self.t_s))
@@ -167,6 +212,33 @@ class PointError:
         if err < 0:
             raise ValueError("error_px must be >= 0")
         object.__setattr__(self, "error_px", err)
+        if self.zone_hit is not None and not isinstance(self.zone_hit, bool):
+            raise ValueError("zone_hit must be True, False or omitted")
+
+
+def zone_hit(
+    predicted: tuple[float, float], target: tuple[float, float], screen: tuple[int, int]
+) -> bool:
+    """Whether *predicted* lies in the same ``ZONE_ROWS`` x ``ZONE_COLS`` cell as *target*.
+
+    A prediction off the screen is a miss. ``zones.grid_zone`` clamps an off-screen point
+    into the nearest edge cell -- right for routing, where something must be chosen, and
+    wrong here, where it would score a gaze that left the screen as a hit on every edge
+    target.
+    """
+    width, height = screen
+    px, py = predicted
+    if not (0 <= px < width and 0 <= py < height):
+        return False
+    return grid_zone(px, py, width, height, ZONE_ROWS, ZONE_COLS) == grid_zone(
+        target[0], target[1], width, height, ZONE_ROWS, ZONE_COLS
+    )
+
+
+def _nearest_rank(sorted_values: list[float], percentile: float) -> float:
+    """The nearest-rank percentile: an observed value, never an interpolated one."""
+    rank = max(1, math.ceil(percentile / 100.0 * len(sorted_values)))
+    return sorted_values[rank - 1]
 
 
 @dataclass(frozen=True)
@@ -347,24 +419,39 @@ class MeasurementSession:
 
     def error_block(self, geometry: Geometry | None) -> dict[str, Any]:
         errors = [p.error_px for p in self._points]
+        zoned = [p.zone_hit for p in self._points if p.zone_hit is not None]
+        hits = sum(1 for hit in zoned if hit)
+        zone = {
+            "zone_grid": f"{ZONE_ROWS}x{ZONE_COLS}",
+            "zone_points": len(zoned),
+            "zone_hits": hits if zoned else _missing(),
+            "zone_hit_rate": round(hits / len(zoned), 4) if zoned else _missing(),
+        }
         if not errors:
             return {
                 "validation_points": 0,
                 "error_px_rmse": _missing(),
                 "error_px_mean": _missing(),
+                "error_px_p50": _missing(),
+                "error_px_p90": _missing(),
                 "error_px_max": _missing(),
                 "error_deg_mean": _missing(),
+                **zone,
             }
         mean = sum(errors) / len(errors)
+        ordered = sorted(errors)
         return {
             "validation_points": len(errors),
             "error_px_rmse": round(math.sqrt(sum(e * e for e in errors) / len(errors)), 2),
             "error_px_mean": round(mean, 2),
+            "error_px_p50": round(_nearest_rank(ordered, 50), 2),
+            "error_px_p90": round(_nearest_rank(ordered, 90), 2),
             "error_px_max": round(max(errors), 2),
             "error_deg_mean": (
                 _missing("not_measured") if geometry is None
                 else round(degrees_from_px(mean, geometry), 3)
             ),
+            **zone,
         }
 
     def drift_blocks(self, block_s: float) -> list[dict[str, Any]]:
@@ -457,6 +544,7 @@ def collect_validation(
     *,
     per_point: int = 8,
     started_at: float = 0.0,
+    screen: tuple[int, int] | None = None,
 ) -> int:
     """Measure the stored calibration at each target; return how many targets produced a point.
 
@@ -477,6 +565,10 @@ def collect_validation(
     A sample whose numbers are not finite, or whose confidence is outside 0..1, is a backend
     fault and is skipped like a no-face read: one such frame must not abort the pass, and
     must not become a NaN error figure either.
+
+    With *screen* (``(width, height)`` of the desktop the targets are drawn on), each point
+    also records whether the prediction landed in the target's grid cell (`zone_hit`).
+    Only that yes/no is kept; the predicted coordinate is not.
     """
     sampler = getattr(backend, "estimate_sample", None)
     if sampler is None:
@@ -501,7 +593,8 @@ def collect_validation(
         error = math.hypot(px - xy[0], py - xy[1])
         if not math.isfinite(error):
             continue  # a calibration that predicts NaN measured nothing: no point, not a zero
-        session.record_point(PointError(t_s=clock() - started_at, error_px=error))
+        hit = None if screen is None else zone_hit((px, py), xy, screen)
+        session.record_point(PointError(t_s=clock() - started_at, error_px=error, zone_hit=hit))
         produced += 1
     return produced
 
@@ -646,7 +739,8 @@ def build_report(
 REQUIRED_METRICS: dict[str, tuple[str, ...]] = {
     "calibration": (
         "source", "age_s", "topology_validity", "validation_points", "error_px_rmse",
-        "error_px_mean", "error_px_max", "error_deg_mean", "implicit_candidate_delta_px",
+        "error_px_mean", "error_px_p50", "error_px_p90", "error_px_max", "error_deg_mean",
+        "zone_grid", "zone_points", "zone_hits", "zone_hit_rate", "implicit_candidate_delta_px",
     ),
     "confidence": (
         "samples", "mean", "min", "max", "below_threshold_fraction", "threshold", "histogram",
@@ -664,11 +758,123 @@ REQUIRED_METRICS: dict[str, tuple[str, ...]] = {
 }
 
 
-def report_problems(doc: Any) -> list[str]:
-    """Every problem with a gaze field report: the shared envelope's, then this schema's."""
+#: The only lists a field report has, by path under ``metrics``. Per-sample coordinates
+#: can only travel as a series, so any other list is refused rather than read.
+_ALLOWED_LISTS = frozenset({"confidence.histogram", "session.drift_blocks", "sufficiency.statements"})
+
+#: The only objects under ``metrics`` that are not missing-data markers.
+_ALLOWED_OBJECTS = frozenset(
+    {*REQUIRED_METRICS}
+    | {f"sufficiency.{key}" for key in (
+        "validation_points", "confidence_samples", "routing_attempts", "drift_blocks",
+    )}
+)
+
+#: The exact keys of one drift block. A block that grows a key is a block that could carry
+#: the points inside it.
+_DRIFT_BLOCK_KEYS = frozenset({"block", "start_s", "points", "error_px_mean"})
+
+#: Key names under ``metrics`` that would hold raw gaze rather than a summary of it. Exact
+#: names are matched whole (``x`` must not fire on ``max``); tokens anywhere in the name.
+#: Checked under ``metrics`` only: the shared envelope's ``display.displays`` legitimately
+#: carries a monitor's ``x``/``y`` origin.
+_RAW_KEY_NAMES = frozenset({"x", "y", "px", "py", "yaw", "pitch", "roll", "xy"})
+_RAW_KEY_TOKENS = (
+    "coordinate", "coords", "gaze_point", "frame", "mesh", "iris", "pupil", "eye_",
+    "trajectory", "image", "pixels",
+)
+
+
+def _is_marker(node: Any) -> bool:
+    return isinstance(node, dict) and ("value" in node or "reason" in node)
+
+
+def _raw_data_problems(node: Any, path: str) -> list[str]:
+    """Containers this schema does not define, and keys that name raw gaze, under metrics."""
+    out: list[str] = []
+    if isinstance(node, dict):
+        if path and path not in _ALLOWED_OBJECTS and not _is_marker(node):
+            out.append(
+                f"metrics.{path}: an object this schema does not define. A field report "
+                "carries summaries only; a per-sample series (coordinates, angles, frames) "
+                "cannot be attached to it under any name."
+            )
+            return out
+        for key, value in node.items():
+            low = str(key).lower()
+            where = f"{path}.{key}" if path else str(key)
+            if low in _RAW_KEY_NAMES or any(token in low for token in _RAW_KEY_TOKENS):
+                out.append(
+                    f"metrics.{where}: the name describes raw gaze data, which a field report "
+                    "never contains (DATA_SHARING.md). Remove the field; do not rename it."
+                )
+                continue
+            out += _raw_data_problems(value, where)
+    elif isinstance(node, list):
+        if path not in _ALLOWED_LISTS:
+            out.append(
+                f"metrics.{path}: a list this schema does not define. The only lists are "
+                f"{sorted(_ALLOWED_LISTS)}; a per-sample series is refused rather than read."
+            )
+        elif path == "session.drift_blocks":
+            for index, block in enumerate(node):
+                if not isinstance(block, dict) or set(block) != _DRIFT_BLOCK_KEYS:
+                    out.append(
+                        f"metrics.{path}.{index}: a drift block has exactly the keys "
+                        f"{sorted(_DRIFT_BLOCK_KEYS)}."
+                    )
+        elif any(not isinstance(item, (str, int, float)) or isinstance(item, bool) for item in node):
+            out.append(f"metrics.{path}: holds something other than plain numbers or sentences.")
+    return out
+
+
+def _consistency_problems(metrics: dict[str, Any]) -> list[str]:
+    """The histogram sums to the samples and the drift blocks to the validation points.
+
+    Without these, a "histogram" of thousands of bins or a "drift block" per sample would be
+    a trace in summary's clothing; with them, each list is bounded by a count it summarises.
+    """
+    out: list[str] = []
+    conf = metrics.get("confidence")
+    if isinstance(conf, dict):
+        histogram, samples = conf.get("histogram"), conf.get("samples")
+        if isinstance(histogram, list) and len(histogram) == CONFIDENCE_BINS:
+            if not all(isinstance(b, int) and not isinstance(b, bool) and b >= 0 for b in histogram):
+                out.append("metrics.confidence.histogram: each bin is a non-negative count.")
+            elif isinstance(samples, int) and sum(histogram) != samples:
+                out.append("metrics.confidence.histogram: the bins do not add up to samples.")
+    cal, session = metrics.get("calibration"), metrics.get("session")
+    if isinstance(cal, dict) and isinstance(session, dict):
+        blocks, points = session.get("drift_blocks"), cal.get("validation_points")
+        if isinstance(blocks, list) and all(isinstance(b, dict) for b in blocks):
+            counts = [b.get("points") for b in blocks]
+            if not all(isinstance(c, int) and not isinstance(c, bool) and c >= 1 for c in counts):
+                out.append("metrics.session.drift_blocks: each block holds at least one point.")
+            elif isinstance(points, int) and sum(counts) != points:
+                out.append(
+                    "metrics.session.drift_blocks: the blocks do not add up to "
+                    "calibration.validation_points."
+                )
+        zoned, hits = cal.get("zone_points"), cal.get("zone_hits")
+        if isinstance(zoned, int) and isinstance(points, int) and zoned > points:
+            out.append("metrics.calibration.zone_points: exceeds validation_points.")
+        if isinstance(hits, int) and isinstance(zoned, int) and hits > zoned:
+            out.append("metrics.calibration.zone_hits: exceeds zone_points.")
+    return out
+
+
+def report_problems(doc: Any, identifiers: LocalIdentifiers | None = None) -> list[str]:
+    """Every problem with a gaze field report: the shared envelope's, then this schema's.
+
+    Includes the privacy sweep (generic patterns always; this machine's own hostname and
+    login only when *identifiers* are given -- a maintainer checking someone else's file has
+    no way to know theirs) and the raw-data rules in the module docstring. Empty means the
+    document is valid **and** carries nothing but aggregates.
+    """
     problems = validate_result(doc)
     if not isinstance(doc, dict):
         return problems
+    problems += privacy_problems(doc, identifiers)
     if (doc.get("protocol") or {}).get("task") != TASK:
         problems.append(f"protocol.task: expected {TASK!r}.")
     metrics = doc.get("metrics")
@@ -688,6 +894,8 @@ def report_problems(doc: Any) -> list[str]:
         if not (isinstance(histogram, list) and len(histogram) == CONFIDENCE_BINS):
             problems.append(f"metrics.confidence.histogram: expected {CONFIDENCE_BINS} bins.")
     problems += _sufficiency_problems(metrics)
+    problems += _raw_data_problems(metrics, "")
+    problems += _consistency_problems(metrics)
     environment = metrics.get("environment")
     if isinstance(environment, dict):
         if environment.get("glasses") not in GLASSES:
@@ -695,6 +903,29 @@ def report_problems(doc: Any) -> list[str]:
         if environment.get("lighting") not in LIGHTING:
             problems.append(f"metrics.environment.lighting: expected one of {LIGHTING}.")
     return problems
+
+
+def report_problems_text(text: str, identifiers: LocalIdentifiers | None = None) -> list[str]:
+    """`report_problems` for JSON text. Empty, garbled or non-JSON text is a problem. Total."""
+    doc, problems = parse_result_text(text)
+    if problems:
+        return problems
+    try:
+        return report_problems(doc, identifiers)
+    except RecursionError:
+        return ["<file>: nested too deeply to be a result document."]
+
+
+def report_problems_file(path: str | Path, identifiers: LocalIdentifiers | None = None) -> list[str]:
+    """`report_problems` for the report at *path*. A missing, empty, non-UTF-8 or non-JSON
+    file is a problem, never an empty document that passes."""
+    doc, problems = read_result_file(path)
+    if problems:
+        return problems
+    try:
+        return report_problems(doc, identifiers)
+    except RecursionError:
+        return ["<file>: nested too deeply to be a result document."]
 
 
 def _sufficiency_problems(metrics: dict[str, Any]) -> list[str]:
@@ -770,7 +1001,10 @@ def render_markdown(doc: dict[str, Any]) -> str:
         f"age {show(cal.get('age_s'), ' s')}",
         f"- Error at {cal.get('validation_points')} validation point(s): RMSE "
         f"{show(cal.get('error_px_rmse'), ' px')}, mean {show(cal.get('error_px_mean'), ' px')}, "
+        f"median {show(cal.get('error_px_p50'), ' px')}, p90 {show(cal.get('error_px_p90'), ' px')}, "
         f"max {show(cal.get('error_px_max'), ' px')}, mean angle {show(cal.get('error_deg_mean'), ' deg')}",
+        f"- Zone hits ({cal.get('zone_grid')} grid): {show(cal.get('zone_hits'))} of "
+        f"{cal.get('zone_points')} point(s), rate {show(cal.get('zone_hit_rate'))}",
         f"- Confidence over {conf.get('samples')} sample(s): mean {show(conf.get('mean'))}, "
         f"below {conf.get('threshold')}: {show(conf.get('below_threshold_fraction'))}",
         f"- Routing (tester-counted): {show(routing.get('attempts'))} attempts, "

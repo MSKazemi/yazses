@@ -65,8 +65,10 @@ from typing import Any
 from yazses.eyeeval.schema import forbidden_field_problems
 from yazses.facegesture.detector import GESTURES
 
-#: The trace schema version this module implements and the fixtures declare.
-TRACE_SCHEMA_VERSION = "1.0"
+#: The trace schema version this module implements and the fixtures declare. 1.1 added the
+#: nuisance contexts ``blink``, ``yawn`` and ``look_down`` (additive: every 1.0 document is a
+#: valid 1.1 document, and a 1.0 reader refuses a 1.1 one that uses them rather than mislabel it).
+TRACE_SCHEMA_VERSION = "1.1"
 SUPPORTED_MAJOR = 1
 
 #: ADR-v2-150 classes A and B. ``research`` is absent on purpose; see the module docstring.
@@ -75,8 +77,16 @@ STUDY_MODES = ("synthetic", "ci", "community_qa")
 #: The label a segment carries. A closed list so a typo is a failure, not a new
 #: silently-unaggregated context. ``deliberate`` is the one that is *intended*; every other
 #: context is exposure to accidental activation and counts toward the phantom rate.
+#:
+#: ``blink``, ``yawn`` and ``look_down`` (1.1) name the involuntary movements a switch most
+#: plausibly mistakes for a gesture -- a spontaneous blink for ``eyes_closed``, a yawn for
+#: ``jaw_open``, a glance at the keyboard (the lids lower, so eye-blink scores rise) for
+#: ``eyes_closed`` -- so a report can say *which* nuisance produced a phantom instead of
+#: folding it into ``other``. ``speech`` is talking.
 DELIBERATE = "deliberate"
-CONTEXTS = ("rest", "speech", "head_movement", "smile", DELIBERATE, "other")
+CONTEXTS = (
+    "rest", "speech", "head_movement", "smile", "blink", "yawn", "look_down", DELIBERATE, "other",
+)
 NON_DELIBERATE_CONTEXTS = tuple(c for c in CONTEXTS if c != DELIBERATE)
 
 #: Key-name fragments that name data a trace must never carry, beyond the shared list.

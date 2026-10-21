@@ -6,8 +6,9 @@ ones — exactly which config key(s) `yazses features enable/disable` must write
 """
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Callable
+from typing import Any, Callable
 
 # Recommendation tiers (drive the advice column + enable/disable guard).
 CORE = "core"            # always on, not toggleable
@@ -128,6 +129,13 @@ def _bool(section: str, key: str = "enabled") -> tuple:
     return on, off
 
 
+def _preset_requested(cfg) -> bool:
+    """``[handsfree] enabled`` as the file says it (see :func:`yazses.config.handsfree_preset`)."""
+    from yazses.config import handsfree_preset
+
+    return bool(handsfree_preset(cfg).enabled)
+
+
 # One row per capability. `status` reads the live config; `*_writes` are
 # (section, key, value, quote) tuples handed to set_config_key.
 def _registry() -> list[_Def]:
@@ -240,6 +248,7 @@ def _registry() -> list[_Def]:
     gec_on, gec_off = _bool("gec")
     sg_on, sg_off = _bool("screengrounded")
     hp_on, hp_off = _bool("headpointer")
+    hf_on, hf_off = _bool("handsfree")
     lr_on, lr_off = _bool("lipread")
     sn2_on, sn2_off = _bool("sign")
     sym_on, sym_off = _bool("commands", "symbols")
@@ -1037,6 +1046,18 @@ _Def("chords", "Chorded Shortcut Synthesis", "[chords] — any keyboard shortcut
              "instead of a key — switch access for people who can speak but cannot "
              "press one. Needs a webcam; experimental. Off by default.",
              lambda c: c.facegesture.enabled, fg_on, fg_off),
+        # The preset is a composition, not a capability of its own (ADR-v2-148): its one key
+        # is expanded by the config loader into the rows above. It is a row so that the one
+        # switch is reachable from `yazses features` and the settings window, and both route
+        # the turn-on through `enable_refusal` (the safety floor) before writing anything.
+        _Def(PRESET_SLUG, "Hands-Free Preset",
+             "[handsfree] — gaze + head pointer + face switch + voice stop, experimental",
+             EXPERIMENTAL,
+             "One switch that turns on Glance-Type, Head-Pointer with dwell-click, the face "
+             "switch, Gesture Chords and a voice stop word together, under one global stop. "
+             "No new engine: it sets their ordinary keys (`yazses handsfree explain`). "
+             "Every value is provisional. Needs a webcam. Off by default.",
+             _preset_requested, hf_on, hf_off),
     ]
     return [_attach_deps(d) for d in defs]
 
@@ -1060,6 +1081,8 @@ _FEATURE_DEPS: dict[str, tuple[tuple[str, ...], tuple[str, ...]]] = {
     # so enabling it after gaze installs nothing.
     "facegesture": (("cv2", "mediapipe"), ("mediapipe>=0.10.35", "opencv-python>=5.0")),
     "headpointer": (("cv2", "mediapipe"), ("mediapipe>=0.10.35", "opencv-python>=5.0")),
+    # The preset composes the three camera features above, so it needs exactly their packages.
+    "handsfree": (("cv2", "mediapipe"), ("mediapipe>=0.10.35", "opencv-python>=5.0")),
     # Chords read face and head tokens off the same shared camera source.
     "gesture": (("cv2", "mediapipe"), ("mediapipe>=0.10.35", "opencv-python>=5.0")),
     "overlay": (("PySide6",), ("PySide6>=6.11.1",)),
@@ -1373,6 +1396,10 @@ _EXAMPLES: dict[str, str] = {
     "modality": "Route dictation vs commands to different targets by role.",
     "gaze": "Glance at a screen zone to choose where the next dictation lands.",
     "facegesture": "Open your jaw to start dictating, close it to stop — no key at all.",
+    "handsfree": (
+        "yazses handsfree explain — read what it sets; yazses features enable handsfree "
+        "--force, yazses restart, then yazses handsfree resume to arm it."
+    ),
 }
 
 
@@ -1535,6 +1562,7 @@ _USE_CASES: dict[str, str] = {
     "modality": "When you have EMG or gaze hardware and want each input assigned to its fastest role.",
     "gaze": "When you have several panes open and want dictation to land in whichever one you look at.",
     "facegesture": "When you cannot hold a key — a facial movement becomes the hotkey, using only the webcam.",
+    "handsfree": "When you want voice, gaze, head pointer and a face switch working together, with one stop.",
     "self_repair": "When you catch a slip mid-sentence and naturally say 'no I mean X' instead of editing.",
     "corpus_scrub": "When you enable the learning corpus but want stored audio stripped of your voice identity.",
     "readback_clone": "When you want read-back spoken in a clone of your own voice, not a generic TTS voice.",
@@ -1605,6 +1633,7 @@ _CATEGORIES: dict[str, str] = {
     "readback_clone": CAT_ACCESS, "voicehealth": CAT_ACCESS, "loadguard": CAT_ACCESS,
     "voicetimer": CAT_ACCESS, "spatialvad": CAT_ACCESS, "modality": CAT_ACCESS,
     "gaze": CAT_ACCESS, "mousegrid": CAT_ACCESS, "facegesture": CAT_ACCESS,
+    "handsfree": CAT_ACCESS,
     # Learning, memory & analytics.
     "learning": CAT_LEARN, "personalize": CAT_LEARN, "coach": CAT_LEARN,
     "sentiment": CAT_LEARN, "recall": CAT_LEARN, "rag": CAT_LEARN,
@@ -1662,6 +1691,28 @@ def toggleable_slugs() -> list[str]:
     return [d.slug for d in _registry() if d.on_writes]
 
 
+#: The hands-free preset's toggle name. Turning it on is gated (:func:`enable_refusal`).
+PRESET_SLUG = "handsfree"
+
+
+def enable_refusal(slug: str, raw: Mapping[str, Any] | None) -> str:
+    """Why turning *slug* on over this raw config file must be refused, or ``""``.
+
+    One capability has a gate beyond tier and dependencies: the hands-free preset refuses, and
+    writes nothing, when the user's own file would weaken its safety floor (ADR-v2-148). The CLI
+    and the settings window both ask here, so they refuse the same files with the same words.
+    ``raw is None`` means the caller could not read the file, and a gate that cannot see the
+    file must not wave the preset through.
+    """
+    if (slug or "").strip().lower() != PRESET_SLUG:
+        return ""
+    if raw is None:
+        return "the config file could not be read, so the hands-free safety floor cannot be checked."
+    from yazses.handsfree.preset import enable_refusal as preset_refusal
+
+    return preset_refusal(raw)
+
+
 def inactive_reason(slug: str, cfg) -> str:
     """Why *cfg* says this capability is on and it is nonetheless off, or ``""``. Pure.
 
@@ -1672,6 +1723,18 @@ def inactive_reason(slug: str, cfg) -> str:
     feature card and `doctor` all print this text, each followed by the one command
     that turns it on (`yazses features enable <slug>`), so they cannot disagree.
     """
+    if (slug or "").strip().lower() == PRESET_SLUG:
+        from yazses.config import handsfree_preset
+        from yazses.handsfree.preset import floor_unmet
+
+        unmet = floor_unmet(handsfree_preset(cfg), cfg)
+        if not unmet:
+            return ""
+        return (
+            "Your config says [handsfree] enabled = true, but the preset is not applied: "
+            f"your own {', '.join(unmet)} weakens its safety floor, so it set nothing. "
+            "`yazses handsfree explain` names the fix."
+        )
     if (slug or "").strip().lower() != "hotwords":
         return ""
     hw = getattr(cfg, "hotwords", None)

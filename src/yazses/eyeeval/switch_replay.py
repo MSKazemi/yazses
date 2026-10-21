@@ -72,6 +72,20 @@ recall trade off *on that trace*; it does not say which threshold to ship, and `
 P5.4 forbids calling a switch recommended on synthetic evidence. The report says so in a
 field (:data:`NO_THRESHOLD_NOTICE`), so a reader who sees only the JSON is told too.
 
+## Which detector is measured
+
+The harness owns the traces, the labels and the scoring; it does not own the activation
+policy. A :class:`Detector` names one and builds a fresh instance of it per trace (anything
+with the small :class:`SwitchDetector` surface ``GestureSwitch`` has), and every function here
+takes one, defaulting to :data:`CURRENT_DETECTOR` -- ``GestureSwitch`` constructed the way the
+backend constructs it. So a candidate detector (a timed minimum hold, a refractory period in
+seconds) is measured over exactly the same traces and scored by exactly the same rules as the
+one that ships, and the report says which one it measured (``detector``). The harness checks
+what a detector tells it rather than trusting it: an event other than ``"start"``/``"end"``,
+an ``"end"`` with no hold open, a second ``"start"`` while one is, or a frame status outside
+:data:`FRAME_STATUSES` is a :class:`SwitchReplayError` -- an event the harness silently
+ignored would read as a switch that never misfires.
+
 ## What is never in a report
 
 No score, no sample, no description, no unknown field from a trace document: the report is
@@ -84,9 +98,9 @@ import math
 import statistics
 from bisect import bisect_right
 from collections import Counter
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass, replace
-from typing import Any
+from typing import Any, Protocol
 
 from yazses.eyeeval.schema import MISSING_REASONS
 from yazses.eyeeval.switch_trace import (
@@ -95,11 +109,11 @@ from yazses.eyeeval.switch_trace import (
     NON_DELIBERATE_CONTEXTS,
     SwitchTrace,
 )
-from yazses.facegesture.detector import GestureSwitch
+from yazses.facegesture.detector import GestureSwitch, min_hold_s_for
 from yazses.facegesture.switches import ACTIONS, SwitchAction, SwitchMapper, make_intent
 
-#: The report envelope version. ``MAJOR.MINOR``.
-REPORT_VERSION = "1.2"
+#: The report envelope version. ``MAJOR.MINOR``. 1.3 added ``detector``.
+REPORT_VERSION = "1.3"
 
 #: The one named failure the report carries beyond the counts: a hold that never let go.
 STUCK_OPEN = "stuck_open"
@@ -151,6 +165,102 @@ METRIC_DEFINITIONS = {
 
 class SwitchReplayError(ValueError):
     """The harness was asked to report on something it cannot honestly report on."""
+
+
+# --------------------------------------------------------------------------- #
+# The detector under test
+# --------------------------------------------------------------------------- #
+
+#: Why a frame counted as it did -- ``GestureSwitch.last_frame``'s vocabulary. Only
+#: ``"reading"`` is a trustworthy sample; the others make the phantom-rate exposure unusable.
+FRAME_STATUSES = ("reading", "no_reading", "low_confidence", "unusable_baseline")
+
+#: The only events a detector may return from ``update`` and ``reset``.
+DETECTOR_EVENTS = ("start", "end")
+
+
+class SwitchDetector(Protocol):
+    """What the harness needs from an activation policy: the surface ``GestureSwitch`` has.
+
+    ``update`` advances one sample (``now_s`` is the sample index over the trace's rate, never a
+    clock) and returns ``"start"``, ``"end"`` or None; ``reset`` drains an open hold at the end
+    of the trace. ``last_frame`` is one of :data:`FRAME_STATUSES`; ``thresholds`` and
+    ``repaired_release`` are reported, not used.
+    """
+
+    repaired_release: bool
+
+    @property
+    def held(self) -> bool: ...
+
+    @property
+    def last_frame(self) -> str: ...
+
+    @property
+    def thresholds(self) -> tuple[float, float]: ...
+
+    def update(
+        self, score: float | None, confidence: float | None = None, now_s: float | None = None
+    ) -> str | None: ...
+
+    def reset(self) -> str | None: ...
+
+
+#: Builds one fresh detector for one trace from ``(config, gesture, baseline_level_or_None)``.
+#: It is given the trace's gesture (a policy may differ per gesture, as a blink switch's may)
+#: and the baseline to apply -- never the samples.
+DetectorFactory = Callable[["SwitchConfig", str, "float | None"], SwitchDetector]
+
+
+@dataclass(frozen=True)
+class Detector:
+    """A named activation policy under test. ``name`` goes into the report verbatim."""
+
+    name: str
+    build: DetectorFactory
+
+
+def _build_gesture_switch(config: SwitchConfig, gesture: str, baseline: float | None) -> SwitchDetector:
+    """``GestureSwitch`` exactly as ``facegesture/backend.py`` builds one per watched gesture.
+
+    Keyword for keyword: a test compares this call with the backend's, so when the backend
+    starts passing a new argument (a timed minimum hold, say) this builder has to follow, and
+    the committed report then measures the detector that ships rather than an older one.
+    """
+    return GestureSwitch(
+        hold_threshold=config.hold_threshold,
+        release_threshold=config.release_threshold,
+        min_hold_frames=config.min_hold_frames,
+        min_release_frames=config.min_release_frames,
+        baseline=baseline,
+        confidence_floor=config.confidence_floor,
+        refractory_frames=config.refractory_frames,
+        max_hold_s=config.max_hold_s,
+        min_hold_s=min_hold_s_for(gesture),
+    )
+
+
+#: The detector that ships: the default for every function in this module.
+CURRENT_DETECTOR = Detector(name="yazses.facegesture.detector.GestureSwitch", build=_build_gesture_switch)
+
+
+def _checked_event(
+    event: object, *, open_hold: bool, detector: Detector, trace_id: str, sample: int
+) -> str | None:
+    """``event`` if it is one the harness can count, else :class:`SwitchReplayError`."""
+    if event is None:
+        return None
+    where = f"detector {detector.name!r} on trace {trace_id!r} at sample {sample}"
+    if not isinstance(event, str) or event not in DETECTOR_EVENTS:
+        raise SwitchReplayError(
+            f"{where} returned {event!r}; only None, 'start' and 'end' can be counted, and an "
+            f"event the harness ignored would read as a switch that never misfires."
+        )
+    if event == "start" and open_hold:
+        raise SwitchReplayError(f"{where} returned 'start' while its previous hold is still open.")
+    if event == "end" and not open_hold:
+        raise SwitchReplayError(f"{where} returned 'end' with no hold open.")
+    return event
 
 
 def _missing(reason: str) -> dict[str, Any]:
@@ -275,8 +385,14 @@ class TraceResult:
         return self.samples / self.sample_rate_hz
 
 
-def replay_trace(trace: SwitchTrace, config: SwitchConfig | None = None) -> TraceResult:
-    """Replay one validated trace through the real switch and mapper. Pure."""
+def replay_trace(
+    trace: SwitchTrace,
+    config: SwitchConfig | None = None,
+    *,
+    detector: Detector = CURRENT_DETECTOR,
+) -> TraceResult:
+    """Replay one validated trace through ``detector`` (the shipped switch by default) and the
+    real mapper. Pure, as long as the detector is."""
     config = config or SwitchConfig()
     config.check()
     n = trace.samples
@@ -305,16 +421,7 @@ def replay_trace(trace: SwitchTrace, config: SwitchConfig | None = None) -> Trac
 
     # --- the real switch, behind the real mapper ----------------------------------------
     baseline = trace.baseline_level if config.use_trace_baseline else None
-    switch = GestureSwitch(
-        config.hold_threshold,
-        config.release_threshold,
-        config.min_hold_frames,
-        config.min_release_frames,
-        baseline=baseline,
-        confidence_floor=config.confidence_floor,
-        refractory_frames=config.refractory_frames,
-        max_hold_s=config.max_hold_s,
-    )
+    switch = detector.build(config, trace.gesture, baseline)
     cursor_frame = 0
     presses: list[int] = []
     held_at: list[bool] = [False] * n
@@ -332,9 +439,18 @@ def replay_trace(trace: SwitchTrace, config: SwitchConfig | None = None) -> Trac
     for i in range(n):
         cursor_frame = i
         held_at[i] = switch.held
-        event = switch.update(trace.scores[i], trace.confidences[i], now_s=i / rate)
-        sample_status[switch.last_frame] += 1
-        status[i] = 1 if switch.last_frame == "reading" else 0
+        event = _checked_event(
+            switch.update(trace.scores[i], trace.confidences[i], now_s=i / rate),
+            open_hold=open_at is not None, detector=detector, trace_id=trace.trace_id, sample=i,
+        )
+        frame_status = switch.last_frame
+        if frame_status not in FRAME_STATUSES:
+            raise SwitchReplayError(
+                f"detector {detector.name!r} on trace {trace.trace_id!r} at sample {i} reported "
+                f"frame status {frame_status!r}, not one of {FRAME_STATUSES}."
+            )
+        sample_status[frame_status] += 1
+        status[i] = 1 if frame_status == "reading" else 0
         if event == "start":
             open_at = i
         elif event == "end" and open_at is not None:
@@ -344,7 +460,9 @@ def replay_trace(trace: SwitchTrace, config: SwitchConfig | None = None) -> Trac
             mapper.handle(make_intent(trace.gesture, event, trace.confidences[i], now_s=i / rate))
     if open_at is not None:
         spans.append((open_at, n))  # never ended: only the shutdown drain below closes it
-    end_event = switch.reset()
+    end_event = _checked_event(
+        switch.reset(), open_hold=open_at is not None, detector=detector, trace_id=trace.trace_id, sample=n,
+    )
     if end_event is not None:
         mapper.handle(make_intent(trace.gesture, end_event, None, now_s=n / rate))
     mapper.release_all()
@@ -388,7 +506,7 @@ def replay_trace(trace: SwitchTrace, config: SwitchConfig | None = None) -> Trac
         config=config,
         effective_hold=switch.thresholds[0],
         effective_release=switch.thresholds[1],
-        release_repaired=switch.repaired_release,
+        release_repaired=bool(switch.repaired_release),
         baseline_applied=baseline,
         intervals=intervals,
         stuck_open_holds=stuck,
@@ -624,8 +742,7 @@ def aggregate(results: Sequence[TraceResult]) -> dict[str, Any]:
         "failures": [STUCK_OPEN] if stuck_open else [],
         "by_context": by_context,
         "sample_status": {
-            name: statuses.get(name, 0)
-            for name in ("reading", "no_reading", "low_confidence", "unusable_baseline")
+            name: statuses.get(name, 0) for name in FRAME_STATUSES
         },
         "samples": total_samples,
         "effective_thresholds": {
@@ -684,8 +801,12 @@ def replay_traces(
     config: SwitchConfig | None = None,
     *,
     sweep: Iterable[float] | None = None,
+    detector: Detector = CURRENT_DETECTOR,
 ) -> dict[str, Any]:
     """Replay every trace and return the report document. Raises on an empty trace list.
+
+    ``detector`` is the activation policy under test (the shipped ``GestureSwitch`` by default);
+    the sweep replays the same one, and the report names it.
 
     ``sweep`` is a list of hold thresholds replayed over the *same* traces with every other
     setting held as in ``config`` (including the release threshold, which the switch repairs
@@ -698,7 +819,7 @@ def replay_traces(
     grid = sweep_thresholds(sweep) if sweep is not None else None
 
     ordered = tuple(sorted(ordered, key=lambda t: t.trace_id))
-    results = [replay_trace(t, config) for t in ordered]
+    results = [replay_trace(t, config, detector=detector) for t in ordered]
     document: dict[str, Any] = {
         "report_version": REPORT_VERSION,
         "no_threshold_notice": NO_THRESHOLD_NOTICE,
@@ -708,6 +829,7 @@ def replay_traces(
         "evidence_class": (
             "synthetic" if all(t.study_mode in ("synthetic", "ci") for t in ordered) else "includes_community_qa"
         ),
+        "detector": detector.name,
         "config": config.to_document(),
         "total_traces": len(ordered),
         "traces": [
@@ -726,7 +848,9 @@ def replay_traces(
     if grid is not None:
         rows = []
         for hold in grid:
-            swept = [replay_trace(t, replace(config, hold_threshold=hold)) for t in ordered]
+            swept = [
+                replay_trace(t, replace(config, hold_threshold=hold), detector=detector) for t in ordered
+            ]
             rows.append(
                 {
                     "hold_threshold": hold,
@@ -739,12 +863,18 @@ def replay_traces(
 
 __all__ = [
     "CONTEXTS",
+    "CURRENT_DETECTOR",
+    "DETECTOR_EVENTS",
+    "FRAME_STATUSES",
     "NO_THRESHOLD_NOTICE",
     "REPORT_VERSION",
     "STUCK_OPEN",
     "ZERO_DENOMINATOR_RULE",
+    "Detector",
+    "DetectorFactory",
     "IntervalOutcome",
     "SwitchConfig",
+    "SwitchDetector",
     "SwitchReplayError",
     "TraceResult",
     "aggregate",

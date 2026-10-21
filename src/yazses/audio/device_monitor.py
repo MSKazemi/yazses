@@ -84,6 +84,9 @@ CAPTURE_PROVING_DISCARDS = frozenset({
     # A destructive deixis command was refused because gaze could not pick the window and
     # `[gaze] refuse_destructive_fallback` is on: heard and decoded, refused downstream.
     "deixis_gaze_unavailable",
+    # A deixis command on a session where gaze can never name a window (Wayland, #418):
+    # heard, decoded and parsed, then refused because no gaze target can exist there.
+    "deixis_no_gaze_target",
     # A spoken capability (ADR-v2-131) produced text and a policy declined to type it:
     # the safety gate held it for a confirm, or the injector refused it. Both mean the
     # microphone was heard and decoded — the failure is downstream of capture.
