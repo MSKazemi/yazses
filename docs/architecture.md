@@ -311,7 +311,7 @@ already there. Each is a recorded decision rather than an omission:
 
 | Designed, not built | Why it isn't in the build | Where the decision lives |
 |---|---|---|
-| **Android dictation keyboard** | Architecture and portability matrix are done; the app is not written. iOS follows Android because an iOS keyboard extension cannot use the microphone. | [The mobile programme](mobile/index.md) |
+| **Android dictation keyboard** | The architecture is decided, the module skeleton and first pure-Kotlin ports are built (M0), and there is no app yet: no engine, keyboard or APK. iOS follows Android because an iOS keyboard extension cannot use the microphone. | [The mobile programme](mobile/index.md) |
 | **Cloud escalation** | Fully designed with guardrails, and deliberately **not implemented**, so "nothing leaves your machine" is never quietly weakened. | [Roadmap — designed, but explicitly deferred](roadmap.md#future-work) |
 | **Personal speech adapters (LoRA)** | On-device fine-tuning for your voice, including atypical speech. Gated on a measured accuracy win on held-out data — prompt-level personalization from your own corpus already ships. | `[personalize] lora` in the [configuration reference](configuration.md) |
 | **Code-switch models** | The language-routing layer ships (`src/yazses/polyglot/`); the code-switch-adapted acoustic model does not, and the feature stays dormant until `adapter_path` is set. | [v2 features preview](v2-features.md) |
@@ -825,8 +825,8 @@ shipping code:
   burst" as a plug-in. A keyboard key and an EMG squeeze are already two
   implementations of the same contract; a wake word, a switch, or a
   brain-computer interface would be a third without touching the pipeline.
-- **The engine seam.** `SttEngine` made a second engine (Parakeet) a config
-  change rather than a fork. Anything that turns audio into words plugs in here.
+- **The engine seam.** `SttEngine` made Parakeet and Moonshine config
+  changes rather than forks. Anything that turns audio into words plugs in here.
 - **The platform seam.** Every OS-specific concern is a Protocol, which is what
   makes the Android programme a port rather than a rewrite.
 
@@ -835,7 +835,7 @@ is. Cloud escalation is fully specified and stays unimplemented so the offline
 promise cannot erode by increments; personal speech adapters wait on a measured
 win against held-out data rather than shipping on the strength of the idea. See
 the [roadmap](roadmap.md) for the full account, including the speculative
-directions — spoken recall over your own corpus is the one the project exists
+directions — semantic recall over your own corpus is the one the project exists
 for.
 
 ## Privacy posture

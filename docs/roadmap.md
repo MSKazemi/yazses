@@ -8,7 +8,9 @@ description: Where YazSes is going — the vision of keyboard-optional, fully pr
 YazSes is a fully-offline, hold-to-talk voice dictation daemon for Linux,
 macOS, and Windows — no cloud, no account, nothing leaves your machine.
 **The current stable release is v2.43.2**, published on PyPI, GitHub
-Releases, Snap, and the APT repository.
+Releases (Windows, macOS and Linux installers), Snap, the APT repository and more —
+see [platform support](platform-support.md). For what is landing *this week*, see
+[what we're building now](now.md), which is generated from the changelog on every build.
 
 This page is two things at once: an honest status report, and a statement of
 where we are going. If you only read one thing, read the pictures.
@@ -40,7 +42,7 @@ The finished shape has three faculties, wrapped in two promises:
 mindmap
   root((YazSes))
     Perceive
-      Voice through Whisper and Parakeet
+      Voice through Whisper, Parakeet and Moonshine
       Gaze knows where you look
       Muscle signals for silent input
       Meetings and recordings
@@ -67,18 +69,18 @@ mindmap
 ## The eras
 
 Each era is a promise kept before the next one starts. Foundation is shipped.
-Perception is shipping now. Understanding is the active frontier. Recall is
-the reason the project exists.
+Perception has shipped, and its hands-free layer is still maturing. Understanding is
+the active frontier. Recall is the reason the project exists.
 
 ```mermaid
 timeline
     title From dictation tool to keyboard-optional computing
     section Foundation — shipped
         v0.x to v1.4 : Hold-to-talk dictation that just works : Linux, macOS and Windows : Encrypted on-device learning loop
-    section Perception — shipping now
-        v2.x : Meeting Mode with speaker diarization : Second STT engine (Parakeet TDT) : Gaze deixis and EMG activation : Sotto-voce command channel
-    section Understanding — next
-        v2.18+ : Settings GUI finished (it can't install feature deps yet) : Offline command mode over selected text : Vocabulary biasing in every engine : Android dictation keyboard
+    section Perception — shipped, hands-free maturing
+        v2.12 to v2.43 : Meeting Mode with speaker diarization : Parakeet TDT and Moonshine engines : Gaze deixis and EMG activation : Sotto-voce command channel : Head-Pointer, face switch and hands-free preset (experimental)
+    section Understanding — under way
+        v2.19 onward : Offline command mode over selected text (shipped) : Settings that install what they enable (on main) : Windows add-on packs for Parakeet and diarization (on main) : Android dictation keyboard (M1) : Cited answers from your own notes
     section Recall — the horizon
         v3 : Spoken recall over everything you ever dictated : Ambient scribe you control : A computer you talk with, that stays yours
 ```
@@ -89,8 +91,8 @@ flowchart LR
     P --> U["🧠 Understanding<br><em>it knows what you mean</em>"]
     U --> R["💬 Recall<br><em>it remembers for you</em>"]
     style F stroke-width:1px
-    style P stroke-width:3px
-    style U stroke-dasharray: 5 5
+    style P stroke-width:1px
+    style U stroke-width:3px
     style R stroke-dasharray: 2 4
 ```
 
@@ -103,14 +105,14 @@ them (see the note at the top of this page). Pick the one that sounds like you:
 
 | Milestone | The promise | Flavour |
 |---|---|---|
-| [Settings GUI — click, not config](https://github.com/MSKazemi/yazses/milestone/5) | Configure everything from a window and a tray icon | Desktop / Python / Qt |
+| [Settings GUI — click, not config](https://github.com/MSKazemi/yazses/milestone/5) | Configure everything from a window and a tray icon (complete — its last work is on `main`, unreleased) | Desktop / Python / Qt |
 | [Install anywhere](https://github.com/MSKazemi/yazses/milestone/6) | One command on every distro and OS — you own a channel | Packaging |
 | [Hear better — speech intelligence](https://github.com/MSKazemi/yazses/milestone/7) | Accuracy measured, not asserted: benchmarks, denoising, new engines | Speech / ML |
 | [Voice control — beyond dictation](https://github.com/MSKazemi/yazses/milestone/8) | Git, files, windows, and symbols — commanded, not typed | Systems / HCI |
 | [Welcome mat](https://github.com/MSKazemi/yazses/milestone/9) | The first hour is easy, the first contribution is likely | Docs / testing / no-code |
-| [Hands-free — perception & accessibility](https://github.com/MSKazemi/yazses/milestone/10) | Eye, muscle and whisper input maturing into a complete hands-free stack on Linux | Perception / accessibility |
-| [Silent input — EMG commands](https://github.com/MSKazemi/yazses/milestone/11) | EMG as a first-class command channel, with no cost to anyone who never enables it | Hardware / signal processing |
-| [M0–M3 — Android](https://github.com/MSKazemi/yazses/milestones) | An offline dictation keyboard in your pocket, designed in the open | Mobile / Kotlin |
+| [Hands-free — perception & accessibility](https://github.com/MSKazemi/yazses/milestone/10) | Eye, muscle and whisper input maturing into a complete hands-free stack, on Linux first | Perception / accessibility |
+| [Silent input — EMG commands](https://github.com/MSKazemi/yazses/milestone/11) | EMG as a first-class command channel, with no cost to anyone who never enables it (complete — reopens when new EMG work is filed) | Hardware / signal processing |
+| [M0–M3 — Android](https://github.com/MSKazemi/yazses/milestone/2) | An offline dictation keyboard in your pocket, designed in the open | Mobile / Kotlin |
 
 Start at the [pinned contributor guide](https://github.com/MSKazemi/yazses/issues/22),
 or — for research-shaped work — at
@@ -160,12 +162,15 @@ or — for research-shaped work — at
 | **v2.18.2** | 2026-08-13 | Patch: cutting a release could not publish to PyPI. The manifest gate ran at the new tag and demanded manifests describing assets that did not exist yet, so 2.18.1 never reached PyPI at all. |
 | **v2.19.0** | 2026-08-14 | The tray can answer the questions you ask it: **About**, **Help ▸** and **Check for updates…** on Linux, macOS and Windows. Three shipped commands (`gitvoice`, `fileopen`, `jump`) rejoin the CLI reference, now guarded against the live Click tree. Real AUR and Fedora packages, built and installed on clean containers; the Nix flake evaluates for the first time. |
 | **v2.20.0** | 2026-08-14 | The Windows release that actually works, driven by live user reports: a firewall-blocked model download killed the daemon with a raw traceback (#310), every CLI command was unreachable because `YazSes.exe` shadowed its own `.cmd` shim through `PATHEXT`, and `assets/yazses.ico` had never existed — so every build shipped PyInstaller's default artwork behind a silent `else None`. Plus `yazses model download` for speech models, and Windows tray colours that finally match Linux. |
-| **v2.21.0** | 2026-08-15 | Sixty-nine commits of things that were reported as working and were not: a CI job that could only ever be red, eleven tests skipped in every job, three packaging guards that passed by iterating an empty list, a CLI-reference guard that checked 58 names and ignored 50, a crashed daemon that stayed dead on Windows and macOS while the tray watched, and "Update installed" for upgrades that never happened. Plus a `DOWNLOAD` column in `yazses features`, the Command Safety Gate wired, check-digit validation on dictated numbers, a mic-level ring in the tray, and an Intel macOS build. **Current stable release.** |
+| **v2.21.0** | 2026-08-15 | Sixty-nine commits of things that were reported as working and were not: a CI job that could only ever be red, eleven tests skipped in every job, three packaging guards that passed by iterating an empty list, a CLI-reference guard that checked 58 names and ignored 50, a crashed daemon that stayed dead on Windows and macOS while the tray watched, and "Update installed" for upgrades that never happened. Plus a `DOWNLOAD` column in `yazses features`, the Command Safety Gate wired, check-digit validation on dictated numbers, a mic-level ring in the tray, and an Intel macOS build. |
 
 This table was last extended at v2.21.0. Every release since then, up to the
 current stable release, has its own note on the [release notes](releases/index.md)
 page and its full entry in the
-[changelog](https://github.com/MSKazemi/yazses/blob/main/CHANGELOG.md).
+[changelog](https://github.com/MSKazemi/yazses/blob/main/CHANGELOG.md). The latest
+ones, generated from the changelog at build time:
+
+<!-- yazses-status:recent-releases -->
 
 ## Carried over from the earlier `[Unreleased]` list
 
@@ -214,9 +219,9 @@ The items below are planned directions. We distinguish clearly between what is
   [ADR-018](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-018-feature-packs-and-the-plugin-question.md)
   records why — a plug-in would sit on the dictation hot path with the microphone, the
   transcript and the injector — and what would reverse it: a real isolation boundary.
-- **Agent protocols.** YazSes as an **MCP server over stdio** is worth building, for two
-  tools: transcription, and *asking a human a question out loud*. FastAPI and
-  agent-to-agent are declined with reasons in
+- **Agent protocols.** YazSes ships an **MCP server over stdio** (`yazses mcp-server`,
+  since v2.22.0) with two tools: transcription, and *asking a human a question out loud*
+  (`ask_human`). FastAPI and agent-to-agent are declined with reasons in
   [ADR-020](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-020-agent-protocols.md).
 - **Personal speech adapters (LoRA).** On-device fine-tuning that adapts the
   model to your voice — including atypical speech (dysarthria, ALS,
@@ -235,8 +240,9 @@ The items below are planned directions. We distinguish clearly between what is
 
 **Speculative / research directions:**
 
-- Spoken recall — semantic retrieval (RAG) over your personal dictation
-  corpus, fully offline. This is the Recall era's core bet.
+- Spoken recall — `yazses recall` already searches your past dictation by
+  keyword (opt-in); semantic, cited retrieval (RAG) over that corpus, fully
+  offline, is the Recall era's core bet.
 - Deeper multi-step task chaining over long sessions.
 
 When research directions ship, they follow the same rule as everything else:
@@ -257,9 +263,11 @@ off by default, opt-in, on-device.
 - **Some capabilities need optional extras or hardware.** Diarization, gaze,
   EMG, neural denoise and others stay dormant until you install their extras
   and enable them.
-- **Linux packaging caveat.** Install via the APT script or `pipx` for
-  hold-to-talk dictation. The strictly-confined snap cannot read the keyboard
-  device, so the snap only serves the offline file-transcription use case.
+- **Linux packaging caveat.** The snap dictates on X11 and on GNOME/KDE Wayland,
+  but only after `sudo snap connect yazses:audio-record` and
+  `sudo snap connect yazses:raw-input`, because a snap cannot connect its own
+  interfaces. The universal installer, the APT script and `pipx` remain the
+  most-tested path.
 
 ## Requesting features and reporting bugs
 

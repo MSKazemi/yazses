@@ -39,8 +39,8 @@ That is the whole install. Skip to [§2](#2-finish-setup).
 | Channel | Command | Notes |
 |---|---|---|
 | **Universal script** (recommended) | `bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install.sh)` | Latest code from git. Installs `uv` if absent. Provisions everything. |
-| **APT** (Debian/Ubuntu) | `bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install-apt.sh)` | Last tagged release. The script adds the YazSes apt repo, installs the runtime deps, joins you to the `input` group and sets up `ydotoold`; the `.deb`'s post-install step then `pipx`-installs the Python package and enables the user service. |
-| **Snap** | `sudo snap install yazses`<br>`sudo snap connect yazses:audio-record`<br>`sudo snap connect yazses:raw-input`<br>`yazses doctor` | **Works on X11, and on GNOME/KDE Wayland via the desktop portal** (approve the one-time permission prompt at first dictation). All three privileged commands are required: a snap cannot connect its own interfaces, so without `audio-record` it has no microphone and without `raw-input` the hold-to-talk key does nothing ([#44](https://github.com/MSKazemi/yazses/issues/44)). `yazses setup` is not required: confinement blocks host package, group, and service changes, while the snap already bundles its X11 dependencies. See [what the snap can and cannot do](#3e-what-the-snap-can-and-cannot-do). |
+| **APT** (Debian/Ubuntu) | `bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install-apt.sh)` | Needs a distro whose `python3` is ≥ 3.11 (Debian 12+, Ubuntu 23.04+); on Ubuntu 22.04 use the universal script. Last tagged release. The script adds the YazSes apt repo, installs the runtime deps, joins you to the `input` group and sets up `ydotoold`; the `.deb`'s post-install step then `pipx`-installs the Python package and enables the user service. |
+| **Snap** | `sudo snap install yazses`<br>`sudo snap connect yazses:audio-record`<br>`sudo snap connect yazses:raw-input`<br>`yazses doctor`<br>`yazses start` | **Works on X11, and on GNOME/KDE Wayland via the desktop portal** (approve the one-time permission prompt at first dictation). All three privileged commands are required: a snap cannot connect its own interfaces, so without `audio-record` it has no microphone and without `raw-input` the hold-to-talk key does nothing ([#44](https://github.com/MSKazemi/yazses/issues/44)). `yazses setup` is not required: confinement blocks host package, group, and service changes, while the snap already bundles its X11 dependencies. See [what the snap can and cannot do](#3e-what-the-snap-can-and-cannot-do). |
 | **pipx** (any distro, Python ≥ 3.11) | `pipx install yazses` | Installs **only** the Python package — needs `build-essential python3-dev` to compile `evdev`, and you must then run `yazses setup` yourself ([§3](#3-installing-by-hand-what-the-installer-did-for-you)). |
 
 Already installed and want the newest release?
@@ -191,9 +191,10 @@ ls -l /run/user/$(id -u)/.ydotool_socket   # socket should now exist
 
 ### 3d. What gets installed
 
-The script, APT and `pipx` all install five commands into `~/.local/bin` (make
+The script, APT and `pipx` all install six commands into `~/.local/bin` (make
 sure that's on your `PATH`): `yazses`, `yazses-daemon`, `yazses-tray`,
-`yazses-agent`, `yazses-overlay`. The Snap instead exposes `yazses`,
+`yazses-settings`, `yazses-agent`, `yazses-overlay`. The APT path also links
+`yazses` and `yazses-daemon` into `/usr/bin`. The Snap instead exposes `yazses`,
 `yazses-daemon`, `yazses-tray` and `yazses-overlay` on `/snap/bin`, which is
 already on your `PATH`.
 
@@ -239,7 +240,7 @@ fit inside a snap:
 | Capability | In the snap? | Why |
 |---|---|---|
 | Dictation, commands, tray, overlay, mic guard, target guard | ✅ | Part of the base install |
-| `stt-parakeet` — higher-accuracy English engine | ✅ | `onnx-asr` is a base dependency |
+| `stt-parakeet` — higher-accuracy English engine | ❌ | `onnx-asr` is the optional `parakeet` extra and is not bundled in the snap |
 | `meeting`, `recimport`, `diarize` — Meeting Mode and diarized import | ✅ | `sherpa-onnx` is bundled |
 | `read-back` — spoken read-back of what you dictated | ✅ | `kokoro-onnx` + `soundfile` are bundled |
 | `cocktail` — Cocktail Filter | ❌ | `speechbrain` pulls PyTorch (~1 GB) |
@@ -251,7 +252,7 @@ Enabling one of the ❌ rows inside the snap refuses with an explanation rather
 than failing halfway through — the config is left untouched, so nothing reads as
 "on" while being unable to work.
 
-To use those four, install through any other channel:
+To use those five, install through any other channel:
 
 ```bash
 sudo snap remove yazses
@@ -265,11 +266,11 @@ Note that settings do not carry over: the snap keeps config and models under
 
 > **Not on the AUR yet — `yay -S yazses` will not find it.** The recipe below is
 > written, current and verified, but the package has never been published:
-> `aur.archlinux.org` returns no `yazses` (checked 2026-09-25), so `yay -S yazses`
+> `aur.archlinux.org` returns no `yazses` (checked 2026-10-21), so `yay -S yazses`
 > and `paru -S yazses` stop with *target not found*. That is the AUR missing the
 > package, not a broken helper. Publication is blocked upstream — AUR account
 > registration was paused on 2026-09-19 with no announced ETA. Until it lands, use
-> the universal installer (§1) or `pipx` (§3d), or build the package yourself from
+> the universal installer (§1) or `pipx` (§3), or build the package yourself from
 > the recipe, which is what the rest of this section covers. Progress:
 > [#67](https://github.com/MSKazemi/yazses/issues/67).
 
@@ -346,7 +347,7 @@ serving **2.36.0** for Fedora 43 and 44 (x86_64 and aarch64) and EPEL 10 (x86_64
 > `dnf install yazses` gives you 2.36.0 rather than the current tag. Check
 > `yazses --version` against the
 > [latest release](https://github.com/MSKazemi/yazses/releases/latest); if you need the
-> newest build, use the universal installer (§1) or `pipx` (§3d).
+> newest build, use the universal installer (§1) or `pipx` (§3).
 
 **EPEL 9 is not offered**, and that is a limitation rather than an oversight: it ships
 Python 3.9, so `python3-devel >= 3.11` cannot be satisfied there. RHEL 9 users need
@@ -392,9 +393,8 @@ After installing, `yazses doctor` will still ask you to join the `input` group
 (§3b) — that is a system-level change no package can make on your behalf, and it
 needs a full logout.
 
-> **Status:** the spec and its container test are in the repository and verified.
-> The COPR itself lives under the maintainer's Fedora account; until it is
-> published, build the RPM locally with the command above.
+> **Status:** live, but hand-published — it serves 2.36.0 while the current
+> release is 2.43.2.
 
 ## 4. Start at login
 
@@ -518,9 +518,10 @@ speech is below the VAD gate — see [§6](#6-tune-the-silence-threshold).
 ## 9. Voice-activity overlay
 
 The overlay draws neon "sonar" rings near the cursor that pulse with your voice
-while you dictate. It is **optional and off by default** (turn it on with
-`yazses features enable overlay`): PySide6 is part of the base install (and bundled
-in the snap), so there is no extra step. On Ubuntu/GNOME Wayland an overlay can take
+while you dictate. It is **optional and off by default**: turn it on with
+`yazses features enable overlay`. The universal installer, the `.deb` and the snap
+already include Qt (PySide6); a plain `pipx install yazses` does not, and
+`features enable overlay` downloads it (~268 MB) on demand. On Ubuntu/GNOME Wayland an overlay can take
 keyboard focus and swallow the dictated text — see
 [Troubleshooting](troubleshooting.md#dictation-is-heard-and-typed-but-nothing-appears-gnome-wayland).
 The PySide6 wheels need glibc ≥ 2.28 (Ubuntu 20.04+); on older distros the

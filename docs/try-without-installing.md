@@ -24,6 +24,15 @@ that cost you nothing and leave nothing behind.
 ## 1. Docker — one command, nothing installed
 
 ```sh
+docker run --rm -v yazses-models:/home/yazses/.cache -v "$PWD:/data" \
+    ghcr.io/mskazemi/yazses transcribe /data/<your-file>
+```
+
+That pulls the published image (amd64 and arm64) and transcribes a file from the
+current directory. To check the result against a known-correct transcript, build
+from the repo and use the clip that ships with it:
+
+```sh
 git clone https://github.com/MSKazemi/yazses.git && cd yazses
 docker build -f packaging/docker/Dockerfile -t yazses .
 docker run --rm -v yazses-models:/home/yazses/.cache \

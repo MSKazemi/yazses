@@ -48,8 +48,10 @@ audio or text ever leaves your machine, and there is no subscription.
 ## Does YazSes work without internet?
 
 Yes. Transcription runs locally with faster-whisper, and by default nothing is
-sent anywhere. YazSes works fully offline, including on air-gapped machines. The
-only time it touches the network is a one-time model download on first run.
+sent anywhere. YazSes works fully offline, including on air-gapped machines. By
+default the only network use is the one-time model download. Actions you start
+yourself — enabling a feature that needs extra packages or models, `yazses update`,
+**Check for updates** — also download; none of them uploads anything you said.
 
 ## Does YazSes send my voice or text to the cloud?
 
@@ -130,11 +132,13 @@ but multilingual support is not the out-of-the-box default today.
 
 ## Is there an Android app?
 
-Not yet — there is no APK to install today. The Android app is **in design, in the
-open**: the architecture and ten decision records are public, and seventeen issues
-are open for contributors. It will be a keyboard whose mic key you hold to dictate
-into any app, fully on-device, and it will keep working with the app's network
-access revoked. See [the mobile programme](mobile/index.md).
+Not yet — there is no APK to install today. The Android app is being built in the
+open: the M0 foundations (Gradle skeleton, privacy gates, and Kotlin ports of the
+post-processing, command, vocabulary, audio and silence-gate cores) are in `android/`,
+and the first M1 work has landed, but nothing dictates yet. It will be a keyboard
+whose mic key you hold to dictate into any app, fully on-device, and it will keep
+working with the app's network access revoked. See
+[the mobile programme](mobile/index.md) for what is built and what remains.
 
 ## Is there an iPhone or iPad app?
 

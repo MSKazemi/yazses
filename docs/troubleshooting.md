@@ -59,9 +59,11 @@ that types on your behalf — dictation, accessibility software, automation — 
 the same door, and inherits the name it was given for its original purpose, screen
 sharing. The confirm button says **Share** for the same reason.
 
-What YazSes actually requests is the keyboard and nothing else:
+What YazSes actually requests is the keyboard, and nothing else unless you ask for it:
 
-- it asks the portal for `KEYBOARD` devices only, never the pointer;
+- it asks the portal for `KEYBOARD` devices only — the pointer is added to the same request
+  only while a pointer feature you turned on (the head pointer) needs it, and the dialog
+  wording says so;
 - it never touches the ScreenCast interface, so no screen capture is possible with it;
 - the calls are local D-Bus to your own desktop — no network, consistent with YazSes
   being offline by design.
@@ -308,7 +310,7 @@ only reliable way to stop it inventing. `Speech` is the one that fires when room
 clears the gate: it runs a speech detector on what was actually recorded, so a quiet room
 is named as a quiet room rather than transcribed into a confident word.
 
-After v2.43.1 the daemon also asks a speech detector about every burst that clears the gate,
+Since v2.43.2 the daemon also asks a speech detector about every burst that clears the gate,
 before it is decoded. A burst that is loud but holds no speech (a fan, a chair, the hotkey
 itself) is discarded with a line like `No speech in a 1.2s burst (level 0.0300 cleared
 vad_threshold 0.0100, but the speech detector found none) -- discarding.` Without that,

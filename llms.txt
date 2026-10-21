@@ -1,6 +1,6 @@
 # YazSes
 
-> YazSes is an open-source, offline voice-dictation daemon for Linux, macOS, and Windows. Hold a key, speak, release — your speech is transcribed locally with faster-whisper and typed into the focused app. It also recognises editor/terminal voice commands and user-defined macros. No cloud, no API key, no subscription; nothing leaves the machine by default.
+> YazSes is an open-source, offline voice-dictation daemon for Linux, macOS, and Windows. Hold a key, speak, release — your speech is transcribed locally — with faster-whisper by default, or the optional Parakeet TDT and Moonshine engines — and typed into the focused app. It also recognises editor/terminal voice commands and user-defined macros. No cloud, no API key, no subscription; nothing leaves the machine by default.
 
 ## What it is
 
@@ -35,6 +35,12 @@ A separate, **paused/archived Rust exploration** (`archive/rust-hci-v1` branch) 
 | Apple Dictation | partial | limited | ❌ | ✅ |
 | Whisper + scripts | ✅ | ❌ | ✅ | ✅ |
 
+YazSes's distinguishing combination: it is the only one of these that is **both**
+cross-platform (Linux + macOS + Windows) **and** covers live dictation, offline file
+transcription, and whole-meeting capture with speaker labels from one install.
+nerd-dictation is more minimal; Vocalinux has GPU acceleration; Talon is more powerful
+for voice control; Dragon is more accurate on specialist medical/legal vocabulary.
+
 ## Voice commands (examples)
 
 YazSes types whatever you say unless it matches a command. Recognised command families map to key sequences:
@@ -54,6 +60,8 @@ bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install
 
 # Any distro (snap)
 sudo snap install yazses
+sudo snap connect yazses:audio-record
+sudo snap connect yazses:raw-input
 
 # Cross-platform (Python >= 3.11)
 pipx install yazses
@@ -67,14 +75,14 @@ yazses start      # start the dictation daemon
 ## Technical stack
 
 - **Language**: Python 3.11+ (managed with `uv`)
-- **STT model**: faster-whisper (CPU, int8) — `tiny.en` / `base.en` / `small.en`
+- **STT engines**: faster-whisper (CPU, int8; `tiny.en`/`base.en`/`small.en` and multilingual sizes) by default; optional NVIDIA Parakeet TDT and Moonshine
 - **Command routing**: Tier 1 regex grammar; optional Tier 2 SLM router (Qwen2.5-0.5B) for low-confidence intents
 - **Optional dictation cleanup**: small offline LLM, off by default, guarded against meaning changes
-- **VAD**: calibrated RMS gate (`yazses mic-level` / `yazses enroll`)
+- **VAD**: calibrated energy gate (`yazses mic-level` / `yazses enroll`), then a Silero speech check before decoding (on by default since v2.43.2)
 - **Audio**: sounddevice
 - **IPC**: JSON-RPC 2.0 over Unix socket / named pipe
 - **Learning corpus**: opt-in, encrypted SQLite (AES-256-GCM); off by default
-- **Injection backends**: xdotool, ydotool, wtype, clipboard (Linux); platform backends on macOS/Windows
+- **Injection backends**: xdotool, ydotool, wtype, clipboard, xdg-desktop-portal RemoteDesktop (snap / Wayland) on Linux; platform backends on macOS/Windows
 - **Hotkey**: keyboard hold-to-talk, or EMG USB serial (YESP protocol)
 
 ## Frequently asked questions
@@ -85,7 +93,10 @@ yazses start      # start the dictation daemon
 
 **What GPU do I need?** None — it runs on CPU. 4 GB RAM minimum, 8 GB comfortable.
 
-**Does it work with Wayland?** Yes, via wtype or ydotool.
+**Does it work with Wayland?** Yes. Installed with the universal installer, APT
+or pipx it uses ydotool (or wtype on wlroots compositors). The strictly confined
+Snap uses the xdg-desktop-portal RemoteDesktop API instead, which works on
+GNOME and KDE Wayland and needs no /dev/uinput.
 
 **Can it type in any app?** Yes — browsers, terminals, IDEs, chat apps, anything with a focused text field.
 
@@ -93,7 +104,7 @@ yazses start      # start the dictation daemon
 
 **Can I customise commands?** Yes — define macros, add a personal vocabulary, and set/disable the hold-to-talk and command keys via `yazses hotkey` / `yazses vocab` / `yazses features`.
 
-**Is there an Android app?** Not yet — no APK exists today. The Android port is in design in the open: ten public architecture decision records and seventeen open issues, at https://mskazemi.com/yazses/mobile/index.html. It will be a keyboard whose mic key you hold to dictate into any app, fully on-device.
+**Is there an Android app?** Not yet — no APK exists today. The module skeleton and the first pure-Kotlin ports are built; the engine, keyboard and model download are open work, designed in public (ten architecture decision records) at https://mskazemi.com/yazses/mobile/index.html. It will be a keyboard whose mic key you hold to dictate into any app, fully on-device.
 
 **Is there an iPhone/iPad app?** No, and it follows Android deliberately: no iOS app extension — including a custom keyboard — may access the microphone (Apple's rule since iOS 8), so an iOS version must be a different product shape. macOS is already supported by the desktop app.
 
@@ -101,12 +112,14 @@ yazses start      # start the dictation daemon
 
 ## Documentation
 
+- [Quick start — five minutes, every OS](docs/get-started.md)
+- [What we're building now](docs/now.md) (generated from the changelog on the docs site)
 - [Install on Linux](docs/install-linux.md)
 - [Install on macOS](docs/macos-install.md)
 - [Install on Windows](docs/windows-install.md)
 - [CLI reference](docs/cli-reference.md)
 - [Privacy statement](docs/privacy-statement.md)
-- [Android / mobile programme (in design)](docs/mobile/index.md)
+- [Android / mobile programme (early build, no app yet)](docs/mobile/index.md)
 - [Chinese voice typing (中文语音输入)](docs/zh/chinese-voice-typing.md)
 - [Hindi voice typing (हिंदी)](docs/hi/hindi-voice-typing.md)
 

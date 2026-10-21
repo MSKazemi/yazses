@@ -13,12 +13,6 @@ numbers, not estimates, so you can decide before you start.
 | What | Size | Notes |
 |---|---|---|
 | YazSes, headless (no desktop extra) | **414 MB** | `pip install yazses` — enough for `transcribe`. 42 distributions; 84% of it is four binary wheels that arrive with faster-whisper |
-
-*The 414 MB is measured on **Linux x86_64, CPython 3.12**. Expect it to differ by a few
-tens of MB elsewhere: the platform-conditional dependencies are not the same set —
-Linux compiles `evdev`, macOS pulls four `pyobjc` frameworks plus `rumps`, Windows pulls
-`pywin32`, `pystray` and Pillow. The four wheels that dominate the total are the same
-everywhere.*
 | YazSes + the `desktop` extra | **1.1 GB** | what `install.sh`, the `.deb` and the Snap install |
 | ↳ of which **PySide6 (Qt)** | **648 MB** | the overlay and the tray — now optional, see below |
 | Speech model — `tiny.en` | 75 MB | fastest, least accurate |
@@ -26,6 +20,12 @@ everywhere.*
 | Speech model — `small.en` | 464 MB | most accurate of the three |
 | Speaker diarization models | ~45 MB | only if you use `--diarize` |
 | Docker image (transcription only) | 833 MB | no Qt |
+
+*The 414 MB is measured on **Linux x86_64, CPython 3.12**. Expect it to differ by a few
+tens of MB elsewhere: the platform-conditional dependencies are not the same set —
+Linux compiles `evdev`, macOS pulls four `pyobjc` frameworks plus `rumps`, Windows pulls
+`pywin32`, `pystray` and Pillow. The four wheels that dominate the total are the same
+everywhere.*
 
 **A normal desktop install is therefore about 1.25 GB**: 1.1 GB of program plus the
 141 MB default model. A **headless** install is roughly **555 MB** all-in. Only one
@@ -55,7 +55,7 @@ model is downloaded — the one you configure.
     It now lives in the **`desktop` extra**:
 
     ```sh
-    pip install yazses              # headless: transcribe, meetings, the CLI
+    pip install yazses              # headless: dictation, transcribe, the CLI
     pip install 'yazses[desktop]'   # adds the overlay and the tray
     ```
 
@@ -117,7 +117,7 @@ decides for you:
 
 | How you installed | Pulls the `desktop` extra (Qt, 648 MB)? | You get | Roughly |
 |---|---|---|---|
-| `pip install yazses` / `pipx install yazses` | **No** | The CLI, dictation, `transcribe`, meetings | **414 MB** |
+| `pip install yazses` / `pipx install yazses` | **No** | The CLI, dictation, `transcribe` (Meeting Mode is a ~63 MB opt-in via `yazses features enable meeting`) | **414 MB** |
 | `install.sh` (the Linux one-liner) | **Yes** | …plus the tray and the voice-activity overlay | ~1.1 GB |
 | The `.deb` | **Yes** (`yazses[desktop]`) | Same as above | ~1.1 GB |
 | The Snap | **Yes** (bundled) | Same, in a confined package | ~1.1 GB |
@@ -190,7 +190,7 @@ On Linux, a full dictation install touches these and nothing else:
 | Enables **`ydotoold`** (Wayland only) | the only way to inject keystrokes on GNOME/KDE Wayland | yes — `systemctl --user disable --now ydotoold` |
 | Writes config to `~/.config/yazses/` | your settings | yes — delete it |
 | Writes data to `~/.local/share/yazses/` | logs, PID, learning corpus if enabled | yes — delete it |
-| Optional systemd **user** unit | start at login, if you ask for it | yes — `yazses autostart disable` |
+| systemd **user** unit | start at login — enabled by the first `yazses start` | yes — `yazses autostart disable` |
 
 !!! note "The `input` group is the one real security consideration, and it is worth understanding"
     Membership lets any program you run read raw input events — which is how the
@@ -206,7 +206,8 @@ On Linux, a full dictation install touches these and nothing else:
   code in the project at all. Downloads on PyPI are the only number the project can see,
   and that is PyPI's counter, not ours.
 - **No background network access** after the model is downloaded.
-- **No autostart unless you run `yazses autostart enable`.**
+- **Autostart is turned on the first time you run `yazses start`** (it says so once). Skip it
+  with `yazses start --no-autostart`, or undo it with `yazses autostart disable`.
 
 ## Getting it back off
 
