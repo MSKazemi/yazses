@@ -37,7 +37,10 @@ yazses transcribe lecture.mp3 -f md               # Markdown (also: vtt, json)
 ## 2. Pick the right model for the job
 
 By default `transcribe` uses your configured `[stt]` model (often `base.en`,
-which is fast). For anything you care about — a real meeting, an accented
+which is fast), unless `[recimport] model` names another; it also decodes on your
+`[stt] device` with your `[stt] compute_type`. `yazses meeting recover` and the
+`transcribe` tool of `yazses mcp-server` follow the same rule (with `[meeting] model`
+for a recovered meeting). For anything you care about — a real meeting, an accented
 speaker, background noise — a larger model is noticeably more accurate:
 
 ```sh

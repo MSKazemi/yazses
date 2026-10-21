@@ -38,41 +38,53 @@ class TranscriptResult:
 
 
 def _build_engine(config, stt=None):
-    """The Whisper engine for a file transcription, decoding in the asked-for language.
+    """The Whisper engine for a file transcription, built from the user's settings.
 
     Not `stt.factory.build_engine`: this path needs `transcribe_words`, which is a
-    faster-whisper method rather than part of the `SttEngine` protocol. What it *did*
-    inherit from that shortcut was the factory's language threading, and losing it was
-    silent — `language` reaches the decoder only through this constructor and defaults
-    to `"en"`, so `--language fa` set `task=None` here, changed nothing else, and had
-    Persian audio transcribed as English.
+    faster-whisper method rather than part of the `SttEngine` protocol. What it must
+    still share with that factory is *what the user configured*, and every setting it
+    has dropped was dropped silently -- `language` reaches the decoder only through
+    this constructor and defaults to `"en"`, so `--language fa` once had Persian audio
+    transcribed as English; the model fell back to a hard-coded `small.en` rather than
+    `[stt] model`; and `[stt] device`/`compute_type` never arrived at all.
 
-    `"translate"` is this field's other value (ADR-v2-014, X→English) and is not a
-    language: it must auto-detect the source, which is what `""` means downstream.
-
-    ``stt`` is the ``[stt]`` section. Passing it applies ``[stt] chinese_script`` the way
-    the daemon's factory does (#501, COMP-03): this builder bypasses
-    ``stt.factory.build_engine``, so without it the setting never reached file
-    transcription. ``None`` or an unset script returns the bare engine, unchanged.
+    So the decision lives in one pure function,
+    :func:`yazses.stt.decoder_settings.file_decoder_settings`, and this only executes
+    it. ``config`` is the ``[recimport]`` or ``[meeting]`` section; ``stt`` is the
+    ``[stt]`` section (``None`` = its defaults). ``[stt] chinese_script`` (#501,
+    COMP-03) and ``[stt] persian_normalisation`` are applied the way the daemon's
+    factory applies them, but judged against the *file's* model and language.
     """
-    from yazses.stt.download import language_model_problem
+    from yazses.stt.decoder_settings import file_decoder_settings
     from yazses.stt.faster_whisper import FasterWhisperEngine
 
-    model = getattr(config, "model", "") or "small.en"
-    wish = (getattr(config, "language", "en") or "").strip()
-    language = "" if wish == "translate" else wish
-    # An `.en` checkpoint carries no language tokens, so it answers foreign speech with
-    # fluent English nonsense rather than an error. Same rule as the daemon's factory,
-    # from the same function, because two copies of it would drift.
-    problem = language_model_problem(model, language)
-    if problem:
+    settings = file_decoder_settings(stt, config)
+    for problem in settings.problems:
         log.warning("[transcribe] %s", problem)
-    engine = FasterWhisperEngine(model_name=model, language=language)
+    engine = FasterWhisperEngine(
+        model_name=settings.model,
+        device=settings.device,
+        compute_type=settings.compute_type,
+        language=settings.language,
+        cpu_threads=settings.cpu_threads,
+        beam_size=settings.beam_size,
+        condition_on_previous_text=settings.condition_on_previous_text,
+    )
     if stt is None:
         return engine
-    from yazses.stt.factory import _with_han_script
+    from yazses.postprocess.persian_text import is_persian_language
+    from yazses.stt.factory import _with_han_script, _with_persian_normaliser
 
-    return _with_han_script(engine, stt)
+    # `settings` carries `model`, `language`, `chinese_script` and
+    # `persian_normalisation` -- every attribute the two wrappers read -- so their
+    # checks ("an .en model cannot emit Han characters") look at this decode, not at
+    # the dictation model. The Persian wrapper is applied only to a Persian file: on
+    # any other it would log that the opt-in "has no effect", which is true of this
+    # file and misleading about the user's dictation.
+    engine = _with_han_script(engine, settings)
+    if is_persian_language(settings.language):
+        engine = _with_persian_normaliser(engine, settings)
+    return engine
 
 
 def cleaned_utterance(u):
@@ -105,9 +117,14 @@ def transcribe_file(
 ) -> TranscriptResult:
     """Transcribe (and optionally diarize) an audio file into a ``TranscriptResult``.
 
-    ``stt`` is the ``[stt]`` section, used only when no ``engine`` is passed: it lets
-    the engine built here apply ``[stt] chinese_script`` like every other path (#501).
+    ``config`` is the ``[recimport]`` or ``[meeting]`` section -- never the whole
+    ``Config``, which raises ``TypeError``. ``stt`` is the ``[stt]`` section, used only
+    when no ``engine`` is passed: the engine built here then inherits ``[stt] model``
+    (when the section's is empty), device, precision and ``chinese_script`` (#501).
     """
+    from yazses.stt.decoder_settings import file_decoder_settings, require_section
+
+    require_section(config, "transcribe_file")
     if audio is None:
         from yazses.recimport.audio_io import load_audio
 
@@ -115,7 +132,9 @@ def transcribe_file(
 
     if engine is None:
         engine = _build_engine(config, stt=stt)
-    task = "translate" if getattr(config, "language", "en") == "translate" else None
+    # From the same pure rule the engine was built with, so the two cannot disagree
+    # about whether this decode is a translation.
+    task = file_decoder_settings(stt, config).task
     # Measured before decoding, on the audio itself. Whisper answers silence with a
     # confident hallucination rather than nothing, so this cannot be inferred from the
     # transcript afterwards.

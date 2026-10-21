@@ -7932,12 +7932,16 @@ def transcribe(
     # from the one `yazses meeting` uses. It also carries `--language` into the decoder,
     # which this call site did not: the flag set `task` for "translate" and was
     # otherwise inert, so `--language fa` transcribed Persian audio as English.
+    #
+    # The model name echoed here comes from the same pure rule the builder uses
+    # (`stt/decoder_settings.py`), so the line cannot name a model other than the one
+    # that loads -- e.g. when `[stt] model` names a Parakeet checkpoint Whisper cannot
+    # load and the file decode falls back.
     from yazses.recimport.pipeline import _build_engine
+    from yazses.stt.decoder_settings import file_decoder_settings
 
-    typer.echo(f"Loading model '{eff.model or cfg.stt.model}'…", err=True)
-    engine = _build_engine(
-        dataclasses.replace(eff, model=eff.model or cfg.stt.model), stt=cfg.stt
-    )
+    typer.echo(f"Loading model '{file_decoder_settings(cfg.stt, eff).model}'…", err=True)
+    engine = _build_engine(eff, stt=cfg.stt)
 
     # Speaker naming: parse explicit maps; load the enrolled voiceprint (→ "You").
     name_list = [n.strip() for n in names.split(",")] if names else None
