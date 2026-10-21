@@ -98,13 +98,18 @@ capability catalog.
 
 ---
 
-## Mobile — Android wave 1 (design complete 2026-08-07, **no code yet**)
+## Mobile — Android wave 1 (M0 foundations built, M1 started, **no app yet**)
 
 A second, parallel programme, run in the open and built by contributors: **YazSes for
 Android** — a keyboard whose mic key you hold to dictate into any app, fully on-device, with
-the app's network access revocable. Design first, on purpose, so that many people can build
-it at once without re-deciding the same questions in PR review.
+the app's network access revocable. The design came first (2026-08-07), on purpose, so that
+many people can build it at once without re-deciding the same questions in PR review.
 
+- **What `android/` contains now:** the Gradle skeleton with build-enforced layering and
+  privacy gates (#84, #85), and pure-Kotlin ports of `:core:postprocess` (#86),
+  `:core:commands` + `:core:vocab` (#94) and `:core:audio` + `:core:vad` (#88), all run
+  against the shared `contract/` vectors. The `AudioRecord` capture shim compiles but has
+  never run on a device. There is no speech engine, no keyboard and no APK.
 - **Ten binding ADRs** (`docs/mobile/adr/`, public): Android first and in this repo · native
   Kotlin with pure-JVM cores · IME-first delivery and **no `AccessibilityService`** ·
   hold-the-mic-key and **no wake word** · a pluggable STT seam with whisper.cpp as default ·
@@ -116,13 +121,19 @@ it at once without re-deciding the same questions in PR review.
 - **Why Android before iPhone:** platform capability, not preference — Android's
   `InputMethodService` can hold the mic and type into any app; no iOS app extension can.
   **macOS is already supported** by the desktop app.
-- **Milestones:** M0 foundations (contract + Gradle skeleton — *Python-only work, open now*)
-  → M1 "it types what I say" (first signed APK) → M2 good enough to replace your phone's
-  dictation (F-Droid; the iOS wave may start here) → M3 file transcription, diarization,
-  Meeting Mode → M4 Play and reach.
+- **Milestones:** M0 foundations (contract + Gradle skeleton) → M1 "it types what I say"
+  (first signed APK) → M2 good enough to replace your phone's dictation (F-Droid; the iOS
+  wave may start here) → M3 file transcription, diarization, Meeting Mode → M4 Play and
+  reach. **M0 is the active milestone:** its four build issues (#82–#85) are closed, and
+  it stays open as the home of the epic and the design review (#98). M1's remaining work
+  is #87 (engine + whisper.cpp), #89 (keyboard), #90 (model download), #91 (onboarding),
+  #92 (`:bench`) and the device check in #88; M2 has #93, #95 and #96 open; M3 has one
+  spike, #97.
+- **iOS** ([ADR-MOB-010](docs/mobile/adr/adr-mob-010-apple-second-wave.md)) is an
+  accepted decision with deferred execution: it waits for Android M2, so it is not current
+  implementation work.
 - **Where to start:** `docs/mobile/index.md`, then `docs/mobile/contributing.md`. Issues are
-  labelled `android`, coordinated by the Android epic (#81); the Python-only M0 tasks
-  (#82, #83) are open now.
+  labelled `android`, coordinated by the Android epic (#81).
 
 ---
 
