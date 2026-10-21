@@ -47,7 +47,9 @@ def _measure(text: str) -> list[str]:
         x = line.cursorToX(i)  # PySide6 returns (x, cursor_pos)
         cursor_x = x[0] if isinstance(x, tuple) else x
         runs = layout.glyphRuns(i, 1)
-        glyph = [(round(p.x(), 1), r.rawFont().familyName()) for r in runs for p in r.positions()]
+        # No rawFont(): on windows-latest QGlyphRun.rawFont() is an access violation
+        # (PR #606, first run), which killed the job before anything printed.
+        glyph = [round(p.x(), 1) for r in runs for p in r.positions()]
         rows.append(f"  [{i:2}] U+{ord(ch):04X} cursorToX={cursor_x:7.1f} glyphs={glyph}")
     return rows
 
