@@ -11,6 +11,13 @@ PyInstaller pruned, and a DLL basename collision (``sherpa-onnx-core`` against t
 base's ``onnxruntime``). Each must fail **loudly, with a named reason**, so
 :func:`classify_failure` turns the exception into one of those kinds, and the child's
 exit code carries the kind to the parent.
+
+A pack whose ``pack.json`` lists ``bind_to_base`` (ADR-028 M1) is bound to the base's
+own copy of each DLL **before** its entry modules are imported (:mod:`yazses.packs.bind`),
+and after the imports every loaded module of that name must still be the base's file.
+A refusal is a ``native-load`` failure with the reason; a success names the file and
+version that bound, so the install log and the CI job record which ONNX Runtime the pack
+runs on.
 """
 from __future__ import annotations
 
@@ -21,6 +28,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from yazses.packs.bind import (
+    Binding,
+    bind_mode,
+    bind_pack,
+    describe_bindings,
+    judge_loaded,
+    requests_for,
+)
 from yazses.packs.manifest import ManifestError, PackManifest, parse_manifest
 
 if TYPE_CHECKING:
@@ -166,6 +181,19 @@ def run_probe(
             if p.is_dir() and str(p) not in path_list:
                 path_list.append(str(p))
         importlib.invalidate_caches()
+        bindings: tuple[Binding, ...] = ()
+        if manifest.bind_to_base:
+            if bind_mode(manifest) != "in-process":
+                return ProbeResult(False, "refused", message=(
+                    "the add-on must run in a separate process, which this version of "
+                    "YazSes cannot do yet"
+                ))
+            bindings = bind_pack(name, requests_for(manifest), runtime, keep=keep)
+            refused = [b for b in bindings if not b.ok]
+            if refused:
+                return ProbeResult(False, "native-load", message=(
+                    f"not bound to YazSes's own library: {refused[0].reason}"
+                ))
         for module in manifest.entry_modules:
             try:
                 import_module(module)
@@ -174,9 +202,18 @@ def run_probe(
                     raise
                 kind, message = classify_failure(module, exc)
                 return ProbeResult(False, kind, module, message)
-        return ProbeResult(True, "ok", message=(
-            f"imported {', '.join(manifest.entry_modules)}"
-        ))
+        for b in bindings:
+            if b.path is None:  # an ok binding always has one; refuse if not
+                return ProbeResult(False, "native-load", message=f"{b.dll} has no path")
+            after = judge_loaded(b.dll, b.path, runtime.loaded_native_paths(b.dll))
+            if after:
+                return ProbeResult(False, "native-load", message=(
+                    f"after importing {', '.join(manifest.entry_modules)}: {after}"
+                ))
+        done = f"imported {', '.join(manifest.entry_modules)}"
+        if bindings:
+            done += f"; bound {describe_bindings(bindings)}"
+        return ProbeResult(True, "ok", message=done)
     except KeyboardInterrupt:
         raise
     except Exception as exc:  # noqa: BLE001

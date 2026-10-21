@@ -477,7 +477,12 @@ index of every pack's SHA-256 is built into the installed app. **Invariant: no s
 ever loaded** — a pack mounts only into the base whose `base_build_id` it names, never into
 an elevated process, and never with `YAZSES_NO_PACKS=1`. Nothing under `packs/` reads
 `sys.platform`; the OS facts come from `PackRuntime` (`platform/base.py`,
-`platform/windows/packs.py`).
+`platform/windows/packs.py`). **Invariant: a pack never brings its own copy of a library
+the base already loads** — a DLL the build dropped is named in `pack.json`'s
+`bind_to_base`, and the pack runs only against the base's own file of that name, loaded
+by absolute path from the frozen app's folder before the pack's first module, at a version
+no lower than `bind_min_versions`; otherwise it is refused with a reason. The loader is
+never asked to *search* for that name.
 
 | File | Role |
 |---|---|
@@ -491,8 +496,9 @@ an elevated process, and never with `YAZSES_NO_PACKS=1`. Nothing under `packs/` 
 | `context.py` | Reads only: the facts above for this process |
 | `fetch.py` | **Egress (ADR-019 `FETCH_VIA`)**: the two release URLs, through ADR-027's `download_verified` |
 | `install.py` | The transaction: lock → disk → download → extract → match → child-process probe → `os.replace` → `COMPLETE` |
-| `mount.py` | `mount_at_startup()`, called by `packaging/windows/rthook_yazses_packs.py`; appends to `sys.path`, keeps DLL-directory handles, never raises |
-| `probe.py` | `yazses packs probe`: imports `entry_modules`, exit code names the Phase 0 risk that failed |
+| `mount.py` | `mount_at_startup()`, called by `packaging/windows/rthook_yazses_packs.py`; appends to `sys.path`, keeps DLL-directory handles, puts a first-use binder on `sys.meta_path` for a `bind_to_base` pack, never raises |
+| `bind.py` | ADR-028 M1. Pure decisions (one base copy or refuse, version floor, nothing else of that name loaded) plus `bind_pack()` through `PackRuntime` and `FirstUseBinder`, which loads the base's DLL on the pack's first import, never at start-up. `OutOfProcessHost` is the typed, unbuilt ADR-028 §1 fallback |
+| `probe.py` | `yazses packs probe`: binds `bind_to_base` first, imports `entry_modules`, re-checks the loaded modules; exit code names the Phase 0 risk that failed, and success names the DLL file and version that bound |
 | `manage.py` | What the `yazses packs` commands and `features enable` do |
 
 User-initiated only: the daemon, the update watcher and the runtime hook cannot reach
