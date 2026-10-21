@@ -88,6 +88,8 @@ class _Fakes:
         self.pip_ok = True
         self.pip_lines: list[str] = ["Installing dependencies: kokoro-onnx"]
         self.pack_result = None
+        self.addons: tuple = ()
+        self.consents: list = []
 
     def services(self):
         def hand_off(status, launcher, progress):
@@ -121,11 +123,16 @@ class _Fakes:
         def quit_app():
             self.quits += 1
 
+        def consent(status, addons):
+            self.consents.append((status.latest, tuple(addons)))
+            return True
+
         return mp.Services(
             version=lambda: "2.43.2",
             check=lambda: self.check_result,
             hand_off=hand_off, upgrade=upgrade, open_page=open_page, scan=scan,
             install_pip=install_pip, install_pack=install_pack, quit_app=quit_app,
+            addons=lambda: self.addons, consent=consent,
         )
 
 
@@ -247,6 +254,38 @@ def test_the_per_user_question_does_not_mention_administrator_permission(qapp):
     panel.on_check()
     panel.on_action()
     assert ALL_USERS_NOTE not in panel.asked[0][1]
+
+
+def test_the_question_names_the_installed_addons_and_a_started_hand_off_records_the_yes(qapp):
+    # ADR-028 Q3: the add-ons come from this (old) build's index; the yes is the consent
+    # the new version's first start acts on, recorded only once the hand-off started.
+    fakes = _Fakes(check=(_status(), Offer(True, all_users=True), object()))
+    fakes.addons = (("diarization", 15_000_000),)
+    _win, panel = _panel(qapp, fakes)
+    panel.on_check()
+    panel.on_action()
+    assert "Your add-on (Diarization, 15 MB)" in panel.asked[0][1]
+    assert ALL_USERS_NOTE in panel.asked[0][1]
+    assert fakes.consents == [("2.44.0", (("diarization", 15_000_000),))]
+
+
+@pytest.mark.parametrize("confirm, ok", [(False, True), (True, False)])
+def test_a_no_or_a_failed_hand_off_records_no_addon_consent(qapp, confirm, ok):
+    fakes = _Fakes(check=(_status(), Offer(True), object()))
+    fakes.addons = (("diarization", 15_000_000),)
+    fakes.hand_off_result = HandoffResult(ok=ok, title="t", message="m")
+    _win, panel = _panel(qapp, fakes, confirm=confirm)
+    panel.on_check()
+    panel.on_action()
+    assert fakes.consents == []
+
+
+def test_no_addons_no_sentence_and_no_consent(qapp):
+    fakes = _Fakes(check=(_status(), Offer(True), object()))
+    _win, panel = _panel(qapp, fakes)
+    panel.on_check()
+    panel.on_action()
+    assert "add-on" not in panel.asked[0][1] and fakes.consents == []
 
 
 def test_a_refused_one_click_shows_the_manual_steps_and_the_page_button(qapp):

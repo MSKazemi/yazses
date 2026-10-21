@@ -6,6 +6,21 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — add-ons are downloaded again after a one-click Windows update (ADR-028 Q3, unreleased feature)
+
+An add-on pack is built for one exact build of YazSes, so an update left the add-ons you had
+unloaded until you installed each one again. Now the update question in the tray and the
+Settings window names the add-ons you have and their sizes ("Your add-on (Diarization, 15 MB)
+will be downloaded again for the new version."), and saying yes covers that download: on its
+first start the new version fetches its own copy of each one through the same verified install
+as **Install now**, checked against the index built into the new version, and tells you once.
+The old version's add-on files are deleted only after every new copy has checked out, or, with
+nothing to download, once the new version has started; before this they were never deleted
+(nothing wrote the `started_ok` marker) until `yazses packs remove --all`. A failed
+download is not retried on its own: the feature waits, and **Install now** retries it in one
+click. `yazses update` in a terminal does not ask about add-ons and downloads none. Covered by
+offline tests (`tests/test_packs_refetch.py`); not yet run on Windows with a published add-on.
+
 ### Fixed — the one-click Windows update never ran the installer (unreleased feature)
 
 The first real run of the update hand-off on a Windows machine (CI, `windows-latest`) showed

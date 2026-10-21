@@ -494,9 +494,12 @@ an elevated process, and never with `YAZSES_NO_PACKS=1`. Nothing under `packs/` 
 | `mount.py` | `mount_at_startup()`, called by `packaging/windows/rthook_yazses_packs.py`; appends to `sys.path`, keeps DLL-directory handles, never raises |
 | `probe.py` | `yazses packs probe`: imports `entry_modules`, exit code names the Phase 0 risk that failed |
 | `manage.py` | What the `yazses packs` commands and `features enable` do |
+| `refetch.py` | ADR-028 Q3: the update question's add-ons line (`addons_for_update`), the consent file written once the update hand-off started, and on the new version's first start the one-time re-download through `manage.install` against the new build's own index; the old build is retired only after every new tree verified, and a start with nothing to download writes `started_ok` and retires it (`mark_first_start`) |
 
 User-initiated only: the daemon, the update watcher and the runtime hook cannot reach
-`fetch.py`, `install.py` or `manage.py` (`tests/test_egress_inventory.py`).
+`fetch.py`, `install.py` or `manage.py` (`tests/test_egress_inventory.py`). `refetch.py` downloads only on a consent the user gave in the update
+question, from a tray worker thread, at most once per consent; it has no downloader of
+its own (`install`/`verify` are bound by `tray/app.py`, which the daemon cannot import).
 
 ### `src/yazses/commands/`
 

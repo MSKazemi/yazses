@@ -12,7 +12,10 @@ the tray and the CLI already use. It implements no update or install logic of it
   ``tray.updates.hand_off_outside_tray`` on a worker thread (this process is among the
   PIDs the update waits for, by default), then quit this window's ``QApplication``. On
   uv/pipx/pip it runs ``updater.run_upgrade_checked`` on a worker thread and offers the
-  daemon restart through the window's own ``_offer_restart``.
+  daemon restart through the window's own ``_offer_restart``. In a frozen build with
+  add-on packs installed, the question also names them and their sizes, and a started
+  hand-off records that yes for the new version's first start (``packs.refetch``,
+  ADR-028 Q3).
 * **Install now** beside each switched-on, dormant feature runs
   ``system.ondemand.install_one`` (the transactional install) -- or, in a frozen build
   whose pack runtime is supported, ``packs.manage.install`` (ADR-028) -- on a worker
@@ -79,6 +82,18 @@ def _default_hand_off(status, launcher, progress):
         request_daemon_shutdown=_request_daemon_shutdown,
         progress=progress,
     )
+
+
+def _default_addons() -> tuple:
+    from yazses.tray.updates import update_addons
+
+    return update_addons()
+
+
+def _default_consent(status, addons) -> bool:
+    from yazses.tray.updates import record_update_consent
+
+    return record_update_consent(status, addons)
 
 
 def _default_upgrade(status):
@@ -197,6 +212,10 @@ class Services:
     install_pip: Callable[..., bool] = _default_install_pip
     install_pack: Callable[..., Any] = _default_install_pack
     quit_app: Callable[[], None] = _default_quit
+    #: The installed add-ons the update question names (ADR-028 Q3), and the consent
+    #: recorded once the hand-off has started. Empty / a no-op outside a frozen build.
+    addons: Callable[[], tuple] = _default_addons
+    consent: Callable[[Any, tuple], bool] = _default_consent
 
 
 # ---- running work off the UI thread -----------------------------------------
@@ -312,6 +331,7 @@ class MaintenancePanel:
         self._status: Any = None
         self._offer: Any = None
         self._launcher: Any = None
+        self._addons: tuple = ()
         self._view = m.UpdateView("")
         self._rows: list[m.FeatureInstallRow] = []
         self._row_buttons: dict[str, Any] = {}
@@ -430,8 +450,16 @@ class MaintenancePanel:
         self._set_busy(True)
         self.action_button.setVisible(False)
         self.update_label.setText(m.checking_text(self._current))
-        self._runner.run(lambda _progress: self._svc.check(), lambda _line: None,
-                         self._on_checked)
+        def work(_progress):
+            result = self._svc.check()
+            # Read here, off the UI thread: the update question names them.
+            try:
+                self._addons = tuple(self._svc.addons())
+            except Exception:  # noqa: BLE001 - a missing sentence, never a failed check
+                self._addons = ()
+            return result
+
+        self._runner.run(work, lambda _line: None, self._on_checked)
 
     def _on_checked(self, result) -> None:
         self._set_busy(False)
@@ -477,9 +505,11 @@ class MaintenancePanel:
             )
             return
         status, launcher = self._status, self._launcher
+        addons = self._addons
         try:
             title, text = confirmation_prompt(
                 status, all_users=bool(getattr(self._offer, "all_users", False)),
+                addons=addons,
             )
         except Exception:  # noqa: BLE001
             log.warning("could not word the update confirmation", exc_info=True)
@@ -494,9 +524,12 @@ class MaintenancePanel:
         self.update_label.setText("Preparing the update…")
 
         def work(emit):
-            return self._svc.hand_off(
+            result = self._svc.hand_off(
                 status, launcher, lambda msg, frac: emit(m.progress_line(msg, frac)),
             )
+            if getattr(result, "ok", False) and addons:
+                self._svc.consent(status, addons)
+            return result
 
         self._runner.run(work, self.update_label.setText, self._on_handed_off)
 
