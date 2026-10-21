@@ -19,6 +19,23 @@ during a transcription still starts the next dictation once the current one ends
 Measured on Windows 11 22H2: keys pressed during a transcription went from a 300 ms delay each
 to none, and the ten-key burst from 3.5 s to 16 ms.
 
+### Fixed — the Windows install guide's facts
+
+`docs/windows-install.md` no longer claims an ARM64 build (winget and Scoop carry the x64 installer, which ARM PCs run under emulation; the mislabelled ARM64 asset was dropped in 2.43.1), names the real default model (`base.en`, about 150 MB, not `tiny.en`), asks for about 500 MB of disk rather than 250 MB, shows the Chocolatey command, and no longer tells you to delete a roaming `%APPDATA%\yazses` folder YazSes never creates; it now names the Whisper model cache instead. Found by a docs audit against the live channels.
+
+### Security — the Windows diarization add-on stays unreleased: its libraries embed GPL code
+
+The sherpa-onnx 1.13.8 binaries the diarization add-on would ship contain espeak-ng (GPL-3.0-or-later) compiled in, although sherpa-onnx declares Apache-2.0. The prepared licence entries for the add-on are therefore left unsigned and now say why, and the spec and ADR-028 record the evidence. Diarization through pip or uv is unaffected; nothing was ever released as an add-on.
+
+### Fixed — the Windows add-on spike's bind check reported a correct bind as FAIL
+
+The first real `packs-spike.yml` run (windows-latest, run 39631811305) measured every ADR-028
+risk for the `diarization` add-on and found them all fine: the frozen app imports the add-on,
+its metadata is visible, and sherpa-onnx runs on YazSes's own signed ONNX Runtime 1.28.0. The
+bind row still said FAIL, because the probe compared the relative path it asked for with the
+absolute path Windows reported. The probe now records the absolute path and the verdict accepts
+the relative form; tests reproduce the run's exact paths.
+
 ### Changed — the Windows installer carries Parakeet's engine and Chinese script conversion; the diarization add-on runs on the installer's ONNX Runtime
 
 ADR-028's owner answers (2026-10-21), build side. The Windows installer now bundles two
@@ -58,6 +75,25 @@ cannot see GPL code compiled into a library that declares MIT. Tested on synthet
 metadata, not yet on a Windows build. The Linux 1.13.8 wheels of `sherpa-onnx` and
 `sherpa-onnx-core` would hold the `diarization` add-on back (free-text licence, no licence
 file). No add-on has been released yet.
+
+### Added — a reviewed licence text can stand in for one a library does not ship (ADR-028 Q7)
+
+Some libraries declare a licence but leave the licence file out of their package, and the
+licence check held their add-on back for it. The maintainer can now commit the upstream
+licence text under `packaging/packs/licence-texts/` and record it in
+`licence-approvals.toml` as a `[[licence_text]]`, pinned to one library version and to
+the file's SHA-256. The build copies it into the add-on's `LICENSES/` folder only when
+the version, the declared licence and the hash all match and a person has signed the
+entry; it never replaces a licence file the library ships. A clarification or licence
+text can be committed unsigned (`reviewed_by = ""`): the build report lists it as
+awaiting review and it counts for nothing until a person signs it.
+
+The two entries `diarization` needs are now committed, **unsigned**: `sherpa-onnx` 1.13.8
+read as Apache-2.0, and the Apache-2.0 text for `sherpa-onnx-core` 1.13.8, taken from
+the sherpa-onnx repository at tag `v1.13.8` and byte-identical to apache.org's
+`LICENSE-2.0.txt`. A test keeps them inert, so `diarization` stays held back until the
+maintainer reads both texts and signs. Tested on synthetic metadata and a simulated
+build, not on a Windows build.
 
 ### Added — install a Windows add-on from a file with no network, and the uninstaller removes your add-ons (ADR-028 questions 4 and 5)
 

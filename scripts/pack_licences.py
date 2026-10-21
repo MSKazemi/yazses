@@ -32,10 +32,21 @@ A ``[[clarification]]`` entry in the approvals file can replace step 1-3 for one
 file. The expression is then classified like any other, so a clarification to GPL still
 needs an approval. A clarification never excuses a missing licence file.
 
-An approval or clarification whose dist, version or licence no longer matches the pack
-is reported as stale and approves nothing. That is the point of pinning the version: a
-new upstream release can change its licence, and an approval the owner gave for 0.4.7
-says nothing about 0.4.8.
+A ``[[licence_text]]`` entry supplies the licence file a distribution does not ship: a
+copy of the upstream text, committed under ``packaging/packs/licence-texts/`` and pinned
+by SHA-256. It is used, and copied into the pack as ``LICENSES/<dist>/<file name>``,
+only when its pack, distribution and exact version match, its ``spdx`` equals the
+licence the distribution declares (or a clarification gives it), the committed file
+exists and hashes to the recorded ``sha256``, and ``reviewed_by`` names the person who
+read it. A distribution that ships its own licence file keeps it: an entry for it is
+reported as redundant and never overrides the shipped text.
+
+An approval, clarification or licence text whose dist, version or licence no longer
+matches the pack is reported as stale and approves nothing. That is the point of
+pinning the version: a new upstream release can change its licence, and an approval the
+owner gave for 0.4.7 says nothing about 0.4.8. A clarification or licence text with an
+empty ``reviewed_by`` is *prepared but unsigned*: it is reported as awaiting review and
+honours nothing, so an agent can stage the entry and only a person can make it count.
 
 Limits, stated so nobody reads more into a green gate than it checks: this reads
 *declared metadata*. It cannot see a GPL binary vendored inside a wheel that declares
@@ -44,12 +55,14 @@ This is engineering, not legal advice.
 
 Standard library only. Everything above the ``I/O`` line is pure and is tested
 directly by ``tests/test_pack_licences.py``; ``scripts/build-packs.py`` calls
-:func:`check_pack` once per pack.
+:func:`check_pack` once per pack and adds :attr:`PackVerdict.vendored` (the reviewed
+licence texts) to the archive.
 """
 
 from __future__ import annotations
 
 import datetime as _dt
+import hashlib
 import re
 import tomllib
 from dataclasses import dataclass, field
@@ -63,6 +76,9 @@ APPROVALS_TOML = ROOT / "packaging" / "packs" / "licence-approvals.toml"
 #: (``yazses.packs.archive.TOP_LEVEL``), so it cannot sit at the pack root.
 SOURCE_MD = "LICENSES/SOURCE.md"
 APPROVALS_FORMAT = 1
+#: A ``[[licence_text]]`` ``file`` is relative to the approvals file's directory and
+#: must sit under this folder (``packaging/packs/licence-texts/`` in the repository).
+LICENCE_TEXTS_DIR = "licence-texts"
 
 PERMISSIVE, LGPL, GPL, UNKNOWN = "permissive", "LGPL", "GPL", "UNKNOWN"
 CLASSES = (PERMISSIVE, LGPL, GPL, UNKNOWN)
@@ -372,12 +388,19 @@ def declared_licence(meta: Mapping[str, Sequence[str]]) -> tuple[str, str, str]:
 
 _APPROVAL_FIELDS = ("pack", "dist", "version", "licence", "approved_by", "date", "reason")
 _CLARIFY_FIELDS = ("pack", "dist", "version", "licence", "reviewed_by", "date", "reason")
+_TEXT_FIELDS = ("pack", "dist", "version", "spdx", "source_url", "file", "sha256",
+                "reviewed_by", "date")
+#: The signature fields. In a clarification or a licence text they may be left empty,
+#: which makes the entry *pending*: prepared, reported, and honoured by nothing.
+_SIGNATURE = ("reviewed_by", "date")
+_SHA256_RE = re.compile(r"[0-9a-f]{64}")
+_DATE_RE = re.compile(r"\d{4}-\d{2}-\d{2}")
 
 
 @dataclass(frozen=True)
 class Record:
     """One ``[[approval]]`` or ``[[clarification]]`` entry. ``by`` is approved_by /
-    reviewed_by."""
+    reviewed_by; empty only on a pending (unsigned) clarification."""
 
     kind: str
     pack: str
@@ -389,20 +412,72 @@ class Record:
     reason: str
 
     def describe(self) -> str:
-        return (f"{self.kind} for {self.dist} {self.version} ({self.licence}) "
-                f"by {self.by} on {self.date}")
+        signed = f"by {self.by} on {self.date}" if self.by else "not yet reviewed"
+        return f"{self.kind} for {self.dist} {self.version} ({self.licence}) {signed}"
+
+
+@dataclass(frozen=True)
+class LicenceText:
+    """One ``[[licence_text]]`` entry: a reviewed copy of the licence file a distribution
+    does not ship. ``file`` is relative to the approvals file's directory."""
+
+    pack: str
+    dist: str
+    version: str
+    spdx: str
+    source_url: str
+    file: str
+    sha256: str
+    by: str
+    date: str
+    kind: str = "licence_text"
+
+    @property
+    def licence(self) -> str:
+        return self.spdx
+
+    def member(self, dist_name: str) -> str:
+        """Where the text goes in the pack, beside any other dist's licence files."""
+        return f"LICENSES/{canonical_name(dist_name)}/{PurePosixPath(self.file).name}"
+
+    def describe(self) -> str:
+        signed = f"by {self.by} on {self.date}" if self.by else "not yet reviewed"
+        return (f"{self.kind} for {self.dist} {self.version} ({self.spdx}, {self.file}) "
+                f"{signed}")
 
 
 @dataclass
 class Approvals:
     approvals: list[Record] = field(default_factory=list)
     clarifications: list[Record] = field(default_factory=list)
+    licence_texts: list[LicenceText] = field(default_factory=list)
+    #: Prepared but unsigned entries (empty ``reviewed_by``). Reported, never honoured,
+    #: and kept out of the lists above so no honouring path can see them.
+    pending: list[Record | LicenceText] = field(default_factory=list)
     #: Entries that could not be read. They approve nothing; they are reported.
     errors: list[str] = field(default_factory=list)
 
 
 def _norm(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip().casefold()
+
+
+def _canon_spdx(text: str) -> str:
+    """For comparing a licence text's ``spdx`` with the declared licence: ids without
+    case, whitespace collapsed, and the legacy spellings (``Apache 2.0``) mapped."""
+    flat = re.sub(r"\s+", " ", text).strip()
+    return _norm(_ALIASES.get(flat.lower(), flat))
+
+
+def _text_file_error(rel: str) -> str | None:
+    """Why a ``[[licence_text]]`` ``file`` value is not acceptable, or None."""
+    if "\\" in rel or rel.startswith("/") or re.match(r"^[A-Za-z]:", rel):
+        return "file (a relative POSIX path)"
+    parts = PurePosixPath(rel).parts
+    if (len(parts) < 2 or parts[0] != LICENCE_TEXTS_DIR
+            or any(p in ("", ".", "..") for p in parts)):
+        return f"file (a path under {LICENCE_TEXTS_DIR}/, without '..')"
+    return None
 
 
 def parse_approvals(doc: Any) -> Approvals:
@@ -413,14 +488,15 @@ def parse_approvals(doc: Any) -> Approvals:
         out.errors.append(f"licence-approvals.toml: missing or unknown `format` "
                           f"(expected {APPROVALS_FORMAT}); no approval is honoured")
         return out
-    for table, kind, fields_, sink in (
-        ("approval", "approval", _APPROVAL_FIELDS, out.approvals),
-        ("clarification", "clarification", _CLARIFY_FIELDS, out.clarifications),
-    ):
+    for table, fields_ in (("approval", _APPROVAL_FIELDS),
+                           ("clarification", _CLARIFY_FIELDS),
+                           ("licence_text", _TEXT_FIELDS)):
         entries = doc.get(table, [])
         if not isinstance(entries, list):
             out.errors.append(f"`{table}` is not an array of tables")
             continue
+        # Only a person's review can be left for later; an owner approval cannot.
+        may_pend = table != "approval"
         for i, raw in enumerate(entries):
             where = f"[[{table}]] #{i + 1}"
             if not isinstance(raw, dict):
@@ -432,19 +508,43 @@ def parse_approvals(doc: Any) -> Approvals:
                 v = raw.get(k)
                 if isinstance(v, _dt.date) and not isinstance(v, _dt.datetime) and k == "date":
                     v = v.isoformat()
-                if not isinstance(v, str) or not v.strip():
-                    bad.append(k)
-                else:
+                if isinstance(v, str) and (v.strip() or (may_pend and k in _SIGNATURE)):
                     vals[k] = v.strip()
-            if not bad and not re.fullmatch(r"\d{4}-\d{2}-\d{2}", vals["date"]):
+                else:
+                    bad.append(k)
+            by = vals.get("approved_by" if table == "approval" else "reviewed_by", "")
+            pending = may_pend and not bad and not by
+            if not bad and not pending and not _DATE_RE.fullmatch(vals["date"]):
                 bad.append("date (YYYY-MM-DD)")
+            if table == "licence_text" and not bad:
+                if not _SHA256_RE.fullmatch(vals["sha256"]):
+                    bad.append("sha256 (64 lower-case hex digits)")
+                if not _URL_RE.match(vals["source_url"]):
+                    bad.append("source_url (an http(s) URL)")
+                if (err := _text_file_error(vals["file"])) is not None:
+                    bad.append(err)
             if bad:
-                out.errors.append(f"{where} is missing or has an empty {', '.join(bad)}")
+                out.errors.append(f"{where} is missing or has an empty or invalid "
+                                  f"{', '.join(bad)}")
                 continue
-            sink.append(Record(kind=kind, pack=vals["pack"], dist=vals["dist"],
-                               version=vals["version"], licence=vals["licence"],
-                               by=vals[fields_[4]], date=vals["date"],
-                               reason=vals["reason"]))
+            rec: Record | LicenceText
+            if table == "licence_text":
+                rec = LicenceText(pack=vals["pack"], dist=vals["dist"],
+                                  version=vals["version"], spdx=vals["spdx"],
+                                  source_url=vals["source_url"], file=vals["file"],
+                                  sha256=vals["sha256"], by=by, date=vals["date"])
+            else:
+                rec = Record(kind=table, pack=vals["pack"], dist=vals["dist"],
+                             version=vals["version"], licence=vals["licence"], by=by,
+                             date=vals["date"], reason=vals["reason"])
+            if pending:
+                out.pending.append(rec)
+            elif isinstance(rec, LicenceText):
+                out.licence_texts.append(rec)
+            elif table == "approval":
+                out.approvals.append(rec)
+            else:
+                out.clarifications.append(rec)
     return out
 
 
@@ -463,6 +563,8 @@ class DistVerdict:
     licence_files: int
     source_url: str | None
     approved_by: str | None = None
+    #: The ``[[licence_text]]`` that stands in for a missing licence file, if one did.
+    vendored_licence: dict[str, str] | None = None
     problems: list[str] = field(default_factory=list)
 
     def as_dict(self) -> dict[str, Any]:
@@ -475,6 +577,8 @@ class DistVerdict:
             out["source_url"] = self.source_url
         if self.approved_by:
             out["approved_by"] = self.approved_by
+        if self.vendored_licence:
+            out["vendored_licence"] = dict(self.vendored_licence)
         if self.problems:
             out["problems"] = list(self.problems)
         return out
@@ -487,6 +591,10 @@ class PackVerdict:
     problems: list[str]
     stale: list[str]
     source_md: str | None
+    #: Prepared entries for this pack that nobody has signed yet. They honour nothing.
+    pending: list[str] = field(default_factory=list)
+    #: Reviewed licence texts to add to the pack: archive member -> the exact bytes.
+    vendored: dict[str, bytes] = field(default_factory=dict)
 
     @property
     def ok(self) -> bool:
@@ -499,6 +607,8 @@ class PackVerdict:
             "distributions": [d.as_dict() for d in self.dists],
             "problems": list(self.problems),
             "stale_approvals": list(self.stale),
+            "awaiting_review": list(self.pending),
+            "vendored_licences": sorted(self.vendored),
             "source_offer": SOURCE_MD if self.source_md else None,
         }
 
@@ -508,18 +618,20 @@ class PackVerdict:
                  "class": d.licence_class} for d in self.dists]
 
 
-def _match(rec: Record, pack: str, dist: Dist) -> bool:
+def _match(rec: Record | LicenceText, pack: str, dist: Dist) -> bool:
     return rec.pack == pack and canonical_name(rec.dist) == canonical_name(dist.name)
 
 
-def _stale_reason(rec: Record, pack: str, dists: Sequence[Dist],
-                  current: Mapping[str, DistVerdict]) -> str:
+def _stale_reason(rec: Record | LicenceText, pack: str, dists: Sequence[Dist],
+                  current: Mapping[str, DistVerdict], rejected: Mapping[int, str]) -> str:
     same = [d for d in dists if _match(rec, pack, d)]
     if not same:
         return f"{rec.describe()}: {rec.dist} is not in pack {pack!r}"
     d = same[0]
     if rec.version != d.version:
         return f"{rec.describe()}: the pack now has {d.name} {d.version}"
+    if id(rec) in rejected:
+        return f"{rec.describe()}: {rejected[id(rec)]}"
     v = current.get(canonical_name(d.name))
     if v is not None and rec.kind == "approval":
         if _norm(rec.licence) != _norm(v.licence):
@@ -529,11 +641,47 @@ def _stale_reason(rec: Record, pack: str, dists: Sequence[Dist],
     return f"{rec.describe()}: unused"
 
 
-def evaluate_pack(pack: str, dists: Sequence[Dist], approvals: Approvals | None = None
-                  ) -> PackVerdict:
-    """Apply the Q7 rules to one pack. Pure; ``problems`` non-empty means withhold."""
+def _pending_reason(rec: Record | LicenceText, pack: str, dists: Sequence[Dist]) -> str:
+    why = (f"{rec.describe()}: awaiting review (reviewed_by is empty), so it honours "
+           f"nothing until a person who has read the licence signs it")
+    same = [d for d in dists if _match(rec, pack, d)]
+    if not same:
+        return f"{why}; and {rec.dist} is not in pack {pack!r}"
+    if rec.version != same[0].version:
+        return f"{why}; and the pack now has {same[0].name} {same[0].version}"
+    return why
+
+
+def _licence_text_problem(rec: LicenceText, dist: Dist, declared: str,
+                          data: bytes | None) -> str | None:
+    """Why a signed, version-matched licence text cannot stand in for ``dist``'s
+    missing licence file, or None when it can."""
+    if dist.licence_files:
+        return (f"redundant: {dist.name} ships its own licence file "
+                f"({', '.join(dist.licence_files)}); the recorded text is not used")
+    if _canon_spdx(rec.spdx) != _canon_spdx(declared):
+        return (f"the text is recorded as {rec.spdx!r} but {dist.name} {dist.version} "
+                f"declares {declared!r}")
+    if data is None:
+        return f"{rec.file} is missing"
+    got = hashlib.sha256(data).hexdigest()
+    if got != rec.sha256:
+        return f"{rec.file} has sha256 {got}, the entry records {rec.sha256}"
+    return None
+
+
+def evaluate_pack(pack: str, dists: Sequence[Dist], approvals: Approvals | None = None,
+                  texts: Mapping[str, bytes | None] | None = None) -> PackVerdict:
+    """Apply the Q7 rules to one pack. Pure; ``problems`` non-empty means withhold.
+
+    ``texts`` maps a ``[[licence_text]]`` ``file`` to its bytes (None or absent: the file
+    could not be read). Only :func:`check_pack` reads the files.
+    """
     approvals = approvals or Approvals()
+    texts = texts or {}
     used: set[int] = set()
+    rejected: dict[int, str] = {}
+    vendored: dict[str, bytes] = {}
     verdicts: dict[str, DistVerdict] = {}
     out: list[DistVerdict] = []
     for dist in sorted(dists, key=lambda d: canonical_name(d.name)):
@@ -549,10 +697,38 @@ def evaluate_pack(pack: str, dists: Sequence[Dist], approvals: Approvals | None 
                         licence_files=len(dist.licence_files),
                         source_url=source_url(dist.metadata))
         who = f"{dist.name} {dist.version}"
-        if not dist.licence_files:
-            v.problems.append(f"{who}: no licence file in its dist-info")
+        unsigned = {p.kind for p in approvals.pending
+                    if _match(p, pack, dist) and p.version == dist.version}
+        text_why: list[str] = []
+        for lt in approvals.licence_texts:
+            if not (_match(lt, pack, dist) and lt.version == dist.version):
+                continue
+            data = texts.get(lt.file)
+            why = _licence_text_problem(lt, dist, declared, data)
+            if why is None and v.vendored_licence is not None:
+                why = "unused: another licence text for this distribution is already used"
+            if why is not None or data is None:
+                rejected[id(lt)] = why or f"{lt.file} is missing"
+                text_why.append(rejected[id(lt)])
+                continue
+            used.add(id(lt))
+            vendored[lt.member(dist.name)] = data
+            v.vendored_licence = {"file": lt.file, "member": lt.member(dist.name),
+                                  "spdx": lt.spdx, "source_url": lt.source_url,
+                                  "sha256": lt.sha256,
+                                  "reviewed_by": f"{lt.by} on {lt.date}"}
+        if not dist.licence_files and v.vendored_licence is None:
+            msg = f"{who}: no licence file in its dist-info"
+            if text_why:
+                msg += f" (recorded licence text not used: {'; '.join(text_why)})"
+            elif "licence_text" in unsigned:
+                msg += " (a licence text is recorded but awaits review)"
+            v.problems.append(msg)
         if cls == UNKNOWN:
-            v.problems.append(f"{who}: licence not classifiable ({basis}: {declared!r})")
+            msg = f"{who}: licence not classifiable ({basis}: {declared!r})"
+            if "clarification" in unsigned:
+                msg += " (a clarification is recorded but awaits review)"
+            v.problems.append(msg)
         if cls in (LGPL, GPL) and not v.source_url:
             v.problems.append(f"{who}: {cls} needs a source offer, and METADATA names no "
                               f"upstream source URL (Project-URL or Home-page)")
@@ -569,16 +745,21 @@ def evaluate_pack(pack: str, dists: Sequence[Dist], approvals: Approvals | None 
                 v.approved_by = f"{hit.by} on {hit.date}"
         verdicts[canonical_name(dist.name)] = v
         out.append(v)
+    recorded: list[Record | LicenceText] = [
+        *approvals.clarifications, *approvals.approvals, *approvals.licence_texts]
     stale = [
-        _stale_reason(rec, pack, dists, verdicts)
-        for rec in [*approvals.clarifications, *approvals.approvals]
+        _stale_reason(rec, pack, dists, verdicts, rejected)
+        for rec in recorded
         if rec.pack == pack and id(rec) not in used
     ]
     stale += [f"ignored: {e}" for e in approvals.errors]
+    pending = [_pending_reason(rec, pack, dists) for rec in approvals.pending
+               if rec.pack == pack]
     problems = [p for v in out for p in v.problems]
     copyleft = [v for v in out if v.licence_class in (LGPL, GPL)]
     return PackVerdict(pack=pack, dists=out, problems=problems, stale=stale,
-                       source_md=render_source_md(pack, copyleft) if copyleft else None)
+                       source_md=render_source_md(pack, copyleft) if copyleft else None,
+                       pending=pending, vendored=vendored)
 
 
 def render_source_md(pack: str, copyleft: Sequence[DistVerdict]) -> str:
@@ -639,8 +820,29 @@ def load_approvals(path: Path | None = None) -> Approvals:
     return parse_approvals(doc)
 
 
+def read_licence_texts(approvals: Approvals, base: Path, pack: str | None = None
+                       ) -> dict[str, bytes | None]:
+    """The bytes of every signed ``[[licence_text]]`` file (for one pack, if given),
+    relative to ``base``, the approvals file's directory. A file that is missing,
+    unreadable, or resolves outside ``base/licence-texts`` (a symlink out) reads as
+    None, which the gate reports as missing."""
+    root = (base / LICENCE_TEXTS_DIR).resolve()
+    out: dict[str, bytes | None] = {}
+    for rec in approvals.licence_texts:
+        if pack is not None and rec.pack != pack:
+            continue
+        path = (base / rec.file).resolve()
+        try:
+            out[rec.file] = path.read_bytes() if path.is_relative_to(root) else None
+        except OSError:
+            out[rec.file] = None
+    return out
+
+
 def check_pack(pack: str, dist_infos: Iterable[Path],
                approvals_path: Path | None = None) -> PackVerdict:
     """The gate build-packs.py calls once per pack, after the wheels are installed."""
-    return evaluate_pack(pack, [read_dist(d) for d in dist_infos],
-                         load_approvals(approvals_path))
+    path = approvals_path or APPROVALS_TOML
+    approvals = load_approvals(path)
+    return evaluate_pack(pack, [read_dist(d) for d in dist_infos], approvals,
+                         read_licence_texts(approvals, path.parent, pack))

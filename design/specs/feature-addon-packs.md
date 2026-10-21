@@ -323,10 +323,38 @@ check, both in `build-windows.yml`, failing the job.
 
 ## Live smoke evidence
 
-To be filled in by the Phase 0 spike and the Phase 1 checklist: run ids, Windows build
-numbers and measured sizes.
+Filled in by the Phase 0 spike and the Phase 1 checklist: run ids, Windows build numbers and
+measured sizes.
+
+- 2026-10-21, `packs-spike.yml` run 39631811305 (windows-latest, main c946e71e), pack
+  `diarization` (sherpa-onnx 1.13.8): probes (a)–(d) PASS; the bound `onnxruntime.dll` was the
+  base's `_internal\onnxruntime\capi\onnxruntime.dll`, onnxruntime 1.28.0, and an ONNX Runtime
+  session ran. The bind row's FAIL was a probe path-comparison bug, fixed afterwards (see
+  *Implementation status*). Pack and installer sizes on Windows: not yet recorded.
+- 2026-10-21, `packs-spike.yml` run 39648862078 (windows-latest, main 0fe86633, after the
+  bind-check fix): all 8 probes PASS for `diarization`, including (d) bind: the only
+  `onnxruntime.dll` loaded is the base's `_internal\onnxruntime\capi\onnxruntime.dll`. Phase 0 is
+  proven on Windows. The pack is still not released (licence: see item 14).
 
 ## Implementation status
+
+### First Phase 0 spike on Windows (2026-10-21, run 39631811305 on main c946e71e)
+
+`packs-spike.yml` ran the frozen app on `windows-latest` with the `diarization` pack (sherpa-onnx
+1.13.8) mounted. Every risk the ADR called unmeasured **passed**: the probe ran inside the frozen
+app (`sys.frozen`, `_MEIPASS`); a `sys.path` append made the pack importable; (a) the 7 stdlib
+modules the pack references import; (b) `importlib.metadata` sees `sherpa_onnx` and
+`sherpa-onnx-core` 1.13.8; (c) no pruned base submodule is referenced; (d) no DLL collision
+remains (sherpa's `onnxruntime.dll` dropped, 1 bound to the base). The bind row reported FAIL
+although its own detail shows the bind is right: the only `onnxruntime.dll` loaded was the base's
+`_internal\onnxruntime\capi\onnxruntime.dll`, `onnxruntime` 1.28.0, and an ONNX Runtime session
+ran. The hook had recorded the preload request as a relative path and the verdict compared it with
+the loader's absolute one. Fixed (branch `fix/spike-bind-abspath`): the hook records the absolute
+path, and `bind_verdict` accepts a relative expected path that ends the loaded one on a directory
+boundary. Tests reproduce this run's exact paths. **Not yet re-run on Windows after the fix**, and
+`diarization` is still withheld at release by the Q7 licence gate until the owner signs its two
+licence entries.
+
 
 ### Build side, phases 0–1 (2026-10-21)
 
@@ -415,7 +443,8 @@ formats the same way.
     `License-Expression` (SPDX; `OR` → most permissive, `AND` → strictest, `WITH` only a
     known exception, which can relax GPL to LGPL), otherwise from `License` plus the
     `License ::` classifiers, the stricter of the two. A pack is withheld on UNKNOWN, on a
-    distribution with no licence file in its dist-info, on LGPL/GPL without an upstream URL
+    distribution with no licence file in its dist-info (unless a signed
+    `[[licence_text]]` supplies one, below), on LGPL/GPL without an upstream URL
     in METADATA, and on GPL without an `[[approval]]` in
     `packaging/packs/licence-approvals.toml` naming that pack, distribution, exact version
     and licence. A `[[clarification]]` records a person's reading of a free-text licence
@@ -436,11 +465,53 @@ formats the same way.
       wheels. Read offline from the Linux 1.13.8 wheels in a local uv cache:
       `sherpa-onnx-core` has no licence file and `sherpa-onnx` declares free text
       (`Apache licensed, as found in the LICENSE file`), so **the first real build
-      withholds `diarization`** on two counts. `sherpa-onnx` needs a `[[clarification]]`;
-      `-core` needs a licence file, from upstream or from a follow-up that lets the build
-      supply a reviewed text, which does not exist yet. `parakeet`'s
+      withholds `diarization`** on two counts. `parakeet`'s
       `onnx-asr` 0.12.0 passes (`License-Expression: MIT`). `espeakng-loader` was not in
       the cache, so the ADR's finding for it is not re-checked here.
+    - **A reviewed licence text for a distribution that ships none
+      (`[[licence_text]]`, 2026-10-21).** Fields: `pack`, `dist`, `version`, `spdx`,
+      `source_url`, `file` (relative to the approvals file, under `licence-texts/`, no
+      `..`), `sha256` (of the file's bytes, lower-case hex), `reviewed_by`, `date`. The
+      build copies the file to `LICENSES/<dist>/<file name>` only when pack, dist and
+      exact version match, `spdx` equals the declared licence (legacy spellings such as
+      `Apache 2.0` mapped; a clarification's licence counts as declared), the file exists
+      inside `licence-texts/` (a symlink out reads as missing) and hashes to `sha256`,
+      and `reviewed_by` is not empty. Otherwise the pack keeps its "no licence file"
+      problem, with the reason appended, and the entry is reported in `stale_approvals`:
+      another version, a wrong hash, a missing file, another licence. An entry for a
+      distribution that ships its own licence file is reported as **redundant** and never
+      overrides that file. `build_one` refuses a vendored member that would overwrite an
+      existing one. The build report lists the copied members as `vendored_licences` and
+      the entry under the distribution's `vendored_licence`. `.gitattributes` marks
+      `packaging/packs/licence-texts/**` `-text`, because Git for Windows would otherwise
+      check the text out with CRLF and change its hash.
+    - **Prepared but unsigned.** A `[[clarification]]` or `[[licence_text]]` whose
+      `reviewed_by` is empty (`date` may be empty too) parses cleanly, is listed in the
+      build report's `awaiting_review`, and honours nothing. An `[[approval]]` cannot be
+      unsigned: an empty `approved_by` is an error. Two such entries are committed for
+      `diarization`, both with `reviewed_by = ""`: a clarification of `sherpa-onnx`
+      1.13.8 as `Apache-2.0`, and a licence text for `sherpa-onnx-core` 1.13.8 at
+      `packaging/packs/licence-texts/sherpa-onnx-core/1.13.8/LICENSE`. That text is the
+      repository's `LICENSE` at tag `v1.13.8` (a lightweight tag on commit
+      `11afbd009a7f8c08f4bcf2fc1b265d0df4670fbf`, whose `CMakeLists.txt` sets
+      `SHERPA_ONNX_VERSION "1.13.8"`), fetched 2026-10-21; it is byte-identical (11,358
+      bytes, SHA-256 `cfc7749b…3d30`) to `https://www.apache.org/licenses/LICENSE-2.0.txt`
+      and to the `licenses/LICENSE` in the `sherpa-onnx` 1.13.8 Linux wheel.
+      `tests/test_pack_licences.py` holds both entries inert
+      (`DIARIZATION_LICENCES_SIGNED = False`) and rehearses on a copy that filling in
+      the two fields is all that is left.
+    - **What the owner does to release `diarization` (licence side only).** (1) Read
+      `packaging/packs/licence-texts/sherpa-onnx-core/1.13.8/LICENSE` and compare it with
+      its `source_url`; read the `LICENSE` in the `sherpa-onnx` 1.13.8 wheel's dist-info.
+      (2) In `packaging/packs/licence-approvals.toml`, set `reviewed_by` to your full name
+      and `date` to the day, in both diarization entries. (3) In
+      `tests/test_pack_licences.py`, set `DIARIZATION_LICENCES_SIGNED = True` in the same
+      commit. (4) Run `uv run python -m pytest tests/test_pack_licences.py`. A coding
+      agent does none of (1)–(3). The licence gate is not the only gate: the pack still
+      needs the bind probe (item 16) and a real Windows build, and the Windows wheels'
+      METADATA has not been read, so the first real build may still report something the
+      Linux wheels did not show.
+    - **Do not sign these as Apache-2.0 (finding, 2026-10-21).** The sherpa-onnx 1.13.8 binaries embed espeak-ng, which is GPL-3.0-or-later: `strings` on the Linux wheels finds 137 `espeak` symbols in `libsherpa-onnx-c-api.so` and 98 in `_sherpa_onnx…so` (`espeak_Initialize`, `espeak_TextToPhonemesWithTerminator`, `espeak_CompileDictionary`; `.constprop`/`.isra` suffixes mean statically compiled in, not loaded). sherpa-onnx builds TTS in by default, so the Windows wheels very likely do too (not checked). The declared licence is therefore incomplete, and the gate cannot see it because it reads declared metadata only. Redistributing these binaries in a Windows add-on means GPL-3.0 obligations: an `[[approval]]` for GPL-3.0-or-later plus a source offer in `SOURCE.md`, or a sherpa-onnx build without TTS. Owner decision 2026-10-21: leave both entries unsigned; `diarization` stays PyPI-only (pip/uv), which is not redistribution by YazSes. This is a technical finding, not legal advice.
 15. **No `stdlib/` supplement yet.** The spike measures the stdlib gaps first (Phase 0 item 2).
 16. **`bind_to_base`: a reviewed DLL exception (ADR-028 finding on sherpa-onnx-core).**
     `packs.toml` may list bare DLL basenames under `bind_to_base` for a pack, with a
