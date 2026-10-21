@@ -17,8 +17,8 @@ its output line by line.
 
 !!! info "Verified on"
 
-    Ubuntu 24.04 · GNOME 46 · X11 · YazSes 2.18.2 · Python 3.14. The diagnosis
-    commands were run there; the upgrade itself was not performed for this page —
+    Ubuntu 24.04 · GNOME 46 · X11 · YazSes 2.18.2 (Aug 2026) · Python 3.14; output
+    may differ in later versions. The diagnosis commands were run there; the upgrade itself was not performed for this page —
     see the note at the end.
 
 ## 1. The `yazses` command is gone, or crashes on import

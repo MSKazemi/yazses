@@ -124,13 +124,25 @@ ssh -R 9875:127.0.0.1:9875 dev.example.com yazses-agent --listen 9875
 
 Once connected, hold your hotkey and speak as usual — the text lands in whatever
 window is focused **on the remote host**. Make sure the remote application you
-want to type into has keyboard focus.
+want to type into has keyboard focus. `yazses status` shows
+`remote:   ON — dictation is being sent to the host you connected to` while the
+session is up.
+
+!!! warning "Up to v2.43.2, dictation was typed locally during a session"
+
+    In v2.43.2 and earlier, voice commands reached the remote host but dictated text
+    was typed into the focused window on **your own machine**, because the daemon
+    chose the remote injector only while its state read "remote active", which a
+    hold-to-talk burst always leaves. The fix makes the choice follow the session
+    itself; it ships in the first release after v2.43.2.
 
 ## 3. Disconnect
 
 ```bash
-yazses remote dev.example.com --stop
+yazses remote --stop
 ```
+
+`--stop` needs no host: the daemon knows which session it holds.
 
 ## Running the agent manually
 
@@ -146,27 +158,33 @@ is reachable exclusively through the SSH tunnel — not exposed on the network.
 
 ## Defaults and config
 
-The `[remote]` section of `config.toml` sets the defaults the `remote` command
-uses when you omit flags:
+Only one key in the `[remote]` section of `config.toml` changes what
+`yazses remote` does:
 
 ```toml
 [remote]
-ssh_port = 22
-agent_port = 9875        # must match `yazses-agent --listen`
-key_file = ""            # SSH private key path
+agent_port = 9875        # the tunnel/agent port; must match `yazses-agent --listen`
+ssh_port = 22            # accepted, but see below
+key_file = ""            # accepted, but see below
 ```
+
+`ssh_port` and `key_file` are accepted, but `yazses remote` always sends its own
+`-p`/`-i` values (22 and no key file when you omit them), so the config values never
+apply. Pass the port and key on the command line.
 
 !!! warning "`default_host` is accepted but not implemented"
 
-    The section also takes a `default_host`, and **nothing reads it**. The host is a
-    required argument — `yazses remote` with no host exits with *"Missing argument
-    'host'"* before any configuration is consulted — so there is no code path on which
-    a default could apply. Setting it has no effect; naming the host on the command
-    line is the only way.
+    The section also takes a `default_host`, and **nothing reads it**.
+    `yazses remote` without a host (and without `--stop`) exits with *"Error: a host
+    is required"* before any configuration is consulted, so there is no code path on
+    which a default could apply. Setting it has no effect; naming the host on the
+    command line is the only way.
 
     It is left in place rather than removed because the loader accepts it and removing
     a key people may already have set is a separate decision. It is listed in
-    `tests/test_config_keys_are_read.py`, which fails if the set of unread keys grows.
+    `KNOWN_UNREAD` in `scripts/config_status.py`, which
+    `tests/test_config_keys_are_read.py` enforces: the test fails if the set of unread
+    keys grows.
 
 ## Requirements
 

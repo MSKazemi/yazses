@@ -12,8 +12,8 @@ to verify the claim rather than take it on trust.
 
 !!! info "Verified on"
 
-    Ubuntu 24.04 · Python 3.14 · YazSes 2.18.2 · faster-whisper, int8 CPU. Every
-    command below was run there.
+    Ubuntu 24.04 · Python 3.14 · YazSes 2.18.2 (Aug 2026) · faster-whisper, int8 CPU.
+    Every command below was run there; output may differ in later versions.
 
 ## What actually needs the network
 
