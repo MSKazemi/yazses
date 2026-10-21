@@ -51,15 +51,15 @@ Speakers are distinguished by **voice embeddings and clustering** — not by pit
 optional extra, so if you do not need it you do not pay for it in install size:
 
 ```sh
-yazses features enable diarize
+yazses features enable recimport   # or: pipx install 'yazses[diarization]'
 ```
 
 ### Naming speakers
 
 Three levels, in priority order:
 
-1. **Tell it directly** — `--names "Alice,Bob"` or `--rename` to relabel after
-   the fact.
+1. **Tell it directly** — `--names "Alice,Bob"` (in order of first appearance) or
+   `--rename speaker_0=Alice` when you run `yazses transcribe`.
 2. **Enrolled voiceprints** — if someone has explicitly enrolled, they are
    recognised and named automatically in future recordings. This is opt-in and
    consent-gated by design; YazSes never silently enrolls a voice it hears.
@@ -84,6 +84,7 @@ Transcribing a file after the fact is one job; capturing a meeting as it happens
 is another. YazSes does both from the same install:
 
 ```sh
+yazses features enable meeting   # once
 yazses meeting start
 # … the meeting happens …
 yazses meeting stop      # → labelled transcript, and optional minutes
@@ -100,8 +101,9 @@ Otter.ai, Fireflies and Granola.
 - **It is not real-time on CPU.** A long recording takes a meaningful fraction of
   its own duration to process. Plan for unattended runs.
 - **Diarization is good, not perfect.** Heavy crosstalk, more than a handful of
-  speakers, or poor room audio will degrade attribution. Fix labels afterwards
-  with `--rename` rather than re-running.
+  speakers, or poor room audio will degrade attribution. Correct labels by
+  re-running with `--speakers N` and `--names`/`--rename`; for meetings,
+  `yazses meeting relabel` fixes them without re-transcribing.
 - **Diarization needs the optional extra.** If you ask for speaker labels without
   it installed, YazSes warns you rather than silently producing an
   un-attributed transcript.

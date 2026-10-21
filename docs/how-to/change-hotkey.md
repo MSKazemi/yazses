@@ -31,9 +31,13 @@ yazses restart                   # apply the new key
 Valid keys are:
 
 ```
-right_alt  left_alt  right_ctrl  left_ctrl
+auto  right_alt  left_alt  right_option  left_option  right_ctrl  left_ctrl
 right_shift  left_shift  right_meta  left_meta  space
 ```
+
+`auto` (the default) means the usual key for this OS, and setting it is the way back
+to that default. `right_option` and `left_option` are the macOS names for `right_alt`
+and `left_alt`.
 
 **Choose a dedicated modifier** (`right_alt`, `right_ctrl`, or `right_shift`) that
 you don't otherwise use. Avoid `space` — you'd trigger dictation every time you

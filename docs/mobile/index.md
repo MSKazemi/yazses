@@ -48,13 +48,14 @@ breakdown. No milestone has a date.
 
 | Milestone | Shipped | In progress | Remaining |
 |---|---|---|---|
-| **M0** Foundations | contract/ (#82), edge-case vectors (#83), Gradle skeleton (#84), privacy gate (#85) | — | the epic #81 and the design review #98 are kept open in it |
+| **M0** Foundations | contract/ (#82), edge-case vectors (#83), Gradle skeleton (#84), privacy gate (#85) | — | the design review #98 is kept open in it (the epic #81 spans M0–M3, so it carries no milestone) |
 | **M1** It types what I say | `:core:postprocess` (#86) | capture and silence gate (#88): cores done, device check open | engine seam and whisper.cpp bridge (#87), keyboard (#89), model download (#90), onboarding (#91), `:bench` (#92) |
 | **M2** It's actually good | command grammar and personal dictionary (#94), ported ahead of M1 | — | `RecognitionService` (#93), generated settings (#95), F-Droid build and submission (#96) |
 | **M3** Beyond dictation | — | — | the meeting foreground-service spike (#97); the rest of M3 has no issue yet |
 
 **Active milestone: M0**, which is still open on GitHub. All four of its build issues are
-closed. It stays open because it holds the epic and the standing design-review invitation.
+closed. It stays open because it holds the standing design-review invitation (#98).
+The epic, #81, spans M0–M3, so it carries no milestone of its own.
 M1 has started alongside it, but its done-statement, a signed APK dictating on a real
 phone, is several issues away: there is no engine, no keyboard and no model download yet.
 

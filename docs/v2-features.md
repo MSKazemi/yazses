@@ -1,15 +1,23 @@
 ---
-title: YazSes v2 voice-first interaction layer (preview)
-description: "Preview of the YazSes v2 features: voice-first interaction beyond dictation — perception, personalization and multi-modal input, all opt-in and off by default."
+title: YazSes v2 voice-first interaction layer
+description: "The YazSes v2 features: voice-first interaction beyond dictation — perception, personalization and multi-modal input, each one switchable with yazses features."
 ---
 
-# v2 Voice-First Interaction Layer (preview)
+# v2 Voice-First Interaction Layer
 
 YazSes v2 grows from a dictation daemon into a broader **voice-first interaction
-layer** — still 100% on-device and privacy-first. **Every v2 feature is opt-in and
-off by default**, so your day-to-day dictation is unchanged until you turn one on.
-v1.4.x remains the stable release; the features below are a developer preview
-(`v2.0.0-dev`).
+layer** — still 100% on-device and privacy-first. These features ship in the stable
+v2 line (v2.12.0 onward). Rows marked ◌ are designed but not yet wired.
+
+**Every v2 feature is off in YazSes's built-in defaults.** The config a fresh install
+writes on its first start switches on the *recommended* tier, and nine features on this
+page are in it: `cmdsafety`, `latency`, `spelling`, `verbatim`, `corrdict`, `compute`,
+`timeline`, `focusprofile` and `checkdigit`. Everything else stays off until you turn it
+on, and `yazses features disable <name>` turns any of those nine off.
+
+This page covers the v2 waves A–N only. It does not list later work such as Meeting Mode,
+the Parakeet and Moonshine engines or the hands-free stack; [Features](features.md) lists
+every capability, generated from the registry.
 
 Manage all of them with the switchboard:
 
@@ -94,7 +102,7 @@ doing nothing.
 |---|---|---|
 | **Personal Adapter** | `personalize` | Biases the recognizer toward *your* jargon and names, mined from your local corpus. Nothing leaves the machine. |
 | **Spoken Recall & Scratch** | `recall` | Search your past dictations (`yazses recall <query>`) and capture spoken notes-to-self (`yazses scratch`). Corpus-local. |
-| **True Code-Switch** | `polyglot` | Routes mixed-language speech to a code-switch model (you supply the adapter). |
+| **True Code-Switch** | `polyglot` | Checks a `[polyglot]` language pair and a code-switch adapter you supply (`yazses doctor` reports it as dormant without one). The daemon does not route any speech to the adapter yet, so turning it on changes no transcript. |
 | ◌ **Voice-to-Tool (Spoken MCP)** | `agent` | Run allowlisted tools by voice via MCP; state-changing tools ask first. Needs the `agent` extra + a local planner model. |
 | ◌ **Voice Pilot (AT-SPI)** | `pilot` | Drive the desktop by voice via the accessibility tree — "click Save", "focus the terminal". Reads labels only, **no screenshots**. |
 
@@ -137,7 +145,7 @@ accessibility tree. See `design/adr/adr-v2-023/024` (internal).
 | **Multi-User Profiles** | `voiceprint` `multi_profile` | Loads each enrolled speaker's own vocab/hotkey/cleanup from their voiceprint. |
 | **Hands-Free Auto-Stop** | `autostop` | Tap once and speak; recording auto-stops when you finish. A longer hold is still hold-to-talk. |
 | **Voice Mouse Grid** (exp) | `mousegrid` | Say "mouse grid", then cell numbers, then "click" to drive the cursor and click by voice via a numbered grid, on any pixels. Needs absolute pointer motion (X11 or macOS). |
-| **Spoken Code Mode** | `code` | Dictate code: spoken symbols → punctuation, word-groups → cased identifiers. Hold the command key. |
+| **Spoken Code Mode** | `code` | Dictate code: spoken symbols → punctuation ("code def sync open paren self close paren colon" → `def sync(self):`). It does not join words into identifiers; `yazses case` does that. Hold the command key. |
 | **Spoken Math (LaTeX)** | `math` | Dictate equations → LaTeX ("x squared plus y squared" → `x^{2} + y^{2}`). Hold the command key. |
 | ◌ **Wake-Word Activation** (exp) | `wakeword` | Start dictation hands-free on a keyword. Always-listening, local-only, `--force`. |
 | **Vocal-Strain Guard** (exp) | `voicehealth` | Advises a break when your voice shows rising strain over a session (advisory only; thresholds tuned on synthetic signals). Needs the `prosody` extra, `--force`. |
@@ -197,9 +205,9 @@ All OFF by default. Pure logic ships now; heavy models load only when you enable
 | **Slot-Filling Dictation** | `slotfill` | One utterance fills a named-field template. |
 | ◌ **Few-Shot Command Spotter** | `cmdspotter` | Enrolled low-latency micro-commands ("send", "stop"). |
 
-## Wave I — safety, patterns & power tools (v2.5, in progress)
+## Wave I — safety, patterns & power tools (v2.5)
 
-All OFF by default. Pure logic ships now; heavy models load only when you enable the feature.
+All OFF in the built-in defaults; `cmdsafety` and `latency` are in the recommended set a fresh install switches on. Pure logic ships now; heavy models load only when you enable the feature.
 
 | Feature | `features` name | What it does |
 |---|---|---|
@@ -214,14 +222,14 @@ All OFF by default. Pure logic ships now; heavy models load only when you enable
 | **Adaptive Latency Governor** | `latency` | Decodes with a lighter model at a greedy beam while the load average is high. POSIX only; speculative decoding not built. |
 | **Diarized Conversation Capture** | `diarize` | Attributed multi-speaker Markdown (**Alice:** …) with rename-by-voice. |
 
-## Wave J — precision input, safety & recovery (v2.6, in progress)
+## Wave J — precision input, safety & recovery (v2.6)
 
-All OFF by default. Pure logic ships now; heavy models load only when you enable the feature.
+All OFF in the built-in defaults; `spelling`, `verbatim` and `corrdict` are in the recommended set a fresh install switches on. Pure logic ships now; heavy models load only when you enable the feature.
 
 | Feature | `features` name | What it does |
 |---|---|---|
 | **Phonetic Spelling Mode** | `spelling` | NATO words → exact characters for passwords/codes ("capital alpha bravo double lima" → `Abll`). Hold the command key. |
-| **Voice Git Choreographer** | `gitvoice` | Safe git by voice: destructive ops wait for a spoken confirm; the undo is always spoken. |
+| **Voice Git Choreographer** | `gitvoice` | `yazses gitvoice "<phrase>"` turns a spoken git phrase into a git command and prints it with how to undo it; `--run` runs it, and a destructive one (force-push, hard reset, `branch -D`) never runs without `--yes`. A command-line tool: there is no spoken-confirm path in the daemon. |
 | **Confidence-Gated Re-Ask** | `reask` | Holds a burst whose one uncertain their/there-style word Whisper could not settle, and lets you say "second" (or the word) to patch just that word. Opt-in. |
 | **Verbatim / Autoformat Toggle** | `verbatim` | "dictate verbatim" freezes all formatting mid-burst; "resume formatting" restores it. |
 | **Self-Learning Correction Dictionary** | `corrdict` | Auto-fixes the ASR errors you keep correcting, learned from your own edits. Needs `[learning] enabled`. |
@@ -231,9 +239,9 @@ All OFF by default. Pure logic ships now; heavy models load only when you enable
 | **Recording Import** | `recimport` | `yazses transcribe <file>` — transcribe existing recordings offline (wav/mp3/m4a/ogg/flac/opus/mp4) to a sidecar .txt/.md/.srt/.vtt/.json. `--diarize` tags speakers ("Speaker 1:"); `--names`/`--rename` or an enrolled voiceprint name them. Diarizer = sherpa-onnx (`diarization` extra). |
 | ◌ **Crowd-Proof Dictation** (experimental) | `crowdproof` | Reconstructs your voice out of overlapping babble before STT (open-plan/café). |
 
-## Wave K — keyboard, compute & session tools (v2.7, in progress)
+## Wave K — keyboard, compute & session tools (v2.7)
 
-All OFF by default. Pure logic ships now; heavy models load only when you enable the feature.
+All OFF in the built-in defaults; `compute`, `timeline` and `focusprofile` are in the recommended set a fresh install switches on. Pure logic ships now; heavy models load only when you enable the feature.
 
 | Feature | `features` name | What it does |
 |---|---|---|
@@ -248,8 +256,8 @@ All OFF by default. Pure logic ships now; heavy models load only when you enable
 | **Local Voice Timer** | `voicetimer` | "set a timer for 25 minutes" — offline; announced by a desktop notification. Hold the command key. |
 | **Focus-Class Auto-Profile** | `focusprofile` | Dictates verbatim into a terminal or editor when no `[profiles.app]` glob matches, so a cleanup pass cannot reword a command line. |
 
-Wave K is complete — all ten features (see Wave K) are shipped,
-pure, 100%-covered, and off by default.
+Wave K is complete — all ten features are wired. Three of them (`compute`, `timeline`,
+`focusprofile`) are switched on by a fresh install's config; the rest are off by default.
 
 ## Non-speech & prosodic interaction (Wave L)
 
@@ -269,8 +277,9 @@ phonate but not articulate discrete words, and for word-free eyes-free control.
 | ◌ **Mouth-Sound Switch Access** | `mouthswitch` | Non-verbal mouth sounds drive a scan-and-select selector (AAC switch access). Experimental. |
 | **Involuntary-Vocalization Excision** | `involuntary` | Drops cough/throat-clear/sneeze before they corrupt the transcript. |
 
-Wave L is complete — all ten features (see Wave L) are shipped,
-pure, 100%-covered, and off by default.
+Wave L: seven of its ten features are wired and off by default, and three of those
+(`vocaljoystick`, `hesitation`, `contour`) are experimental and need `--force`. The three
+marked ◌ are designed but not yet wired.
 
 ## Minimal-bandwidth AAC & text-intelligence (Wave M)
 
@@ -289,8 +298,9 @@ The lowest-bandwidth input methods and new text-intelligence layers.
 | **Diagrams-as-Code by Voice** | `diagramvox` | Dictate a flowchart → Mermaid/Graphviz source, no canvas. |
 | ◌ **Interruptible Proofreading** | `proofback` | Interrupt the read-back and land the cursor on the exact word. |
 
-Wave M is complete — all ten features (see Wave M) are shipped,
-pure, 100%-covered, and off by default.
+Wave M: eight of its ten features are wired; `checkdigit` is switched on by a fresh
+install's config and the rest are off by default. The two marked ◌ are designed but not
+yet wired.
 
 ## Structural editing, i18n & accessibility-output (Wave N)
 
@@ -309,8 +319,8 @@ Structural code editing, internationalization, and accessibility-output correctn
 | **Echo** | `echo` | "Play that back" replays your own captured audio for a text span (not TTS). |
 | **Screen-Reader Pacing** | `srpace` | Pace injection to a screen reader's reading rate, clause-chunked. |
 
-Wave N is complete — all ten features (see Wave N) are shipped,
-pure, 100%-covered, and off by default.
+Wave N: eight of its ten features are wired and off by default. The two marked ◌ are
+designed but not yet wired.
 
 ## Privacy
 

@@ -15,8 +15,9 @@ difference, and there is nothing to install on it.
 
 !!! info "Verified on"
 
-    Ubuntu 24.04 · GNOME 46 · X11 · YazSes 2.18.2. The agent behaviour below was
-    exercised locally; see *what was not tested* at the end.
+    Ubuntu 24.04 · GNOME 46 · X11 · YazSes 2.18.2 (Aug 2026); output may differ in
+    later versions. The agent behaviour below was exercised locally; see *what was
+    not tested* at the end.
 
 ## What works with no setup
 
@@ -45,7 +46,7 @@ field you are typing into is a local window like any other.
 
   ```toml
   [injection]
-  backend = "type"     # auto | type | clipboard | wtype
+  backend = "type"     # auto | type (= ydotool) | portal | wtype | xdotool | unicode | clipboard
   ```
 
   `clipboard` is the one to avoid here: pasting is a no-op in most terminals.
@@ -84,8 +85,13 @@ That opens the reverse tunnel and points injection at the far end. Dictate as
 normal; the text appears in the remote GUI's focused window.
 
 ```bash
-yazses status      # state: remote_active while it is connected
+yazses status      # remote:   ON — dictation is being sent to the host you connected to
 ```
+
+The `state:` line is not the signal: it reads `remote_active` only until your next
+hold-to-talk burst. Up to v2.43.2, dictated text was also typed on your own machine
+during a session (voice commands were forwarded); see
+[remote dictation](remote-dictation.md) for the fix.
 
 ## Choosing which side transcribes
 

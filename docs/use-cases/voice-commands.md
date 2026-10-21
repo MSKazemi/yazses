@@ -30,7 +30,7 @@ hold → speak → release → classify → DICTATE: type the text
 | *"select all"* · *"select to end"* | Selection commands |
 | *"comment this line"* | Toggles a comment |
 | *"go to line 42"* | Jumps to line 42 |
-| *"go to function parse_config"* | Jumps to the symbol (via LSP, opt-in) |
+| *"go to function parse_config"* | Opens the editor's Go-to-Symbol (Ctrl+Shift+O) and types the name |
 | *"run the tests"* / *"run the build"* | Runs the editor/terminal action |
 | *"rename this to user_id"* | Renames the symbol |
 
@@ -50,7 +50,7 @@ Two tiers, and the second one is optional:
 ```toml
 [commands]
 slm_model_path = ""            # a local GGUF; empty means Tier 1 only
-slm_confidence_threshold = 0.6 # below this, the router's answer is discarded
+slm_confidence_threshold = 0.75 # the default; below this, the router's answer is discarded
 ```
 
 !!! note "Tier 2 is off until you give it a model"
@@ -94,12 +94,12 @@ Related capabilities worth knowing about:
 | Capability | Enable with | What it gives you |
 |---|---|---|
 | Chorded Shortcut Synthesis | `yazses features enable chords` | Speak a modifier chord instead of contorting your hand |
-| Voice Snippets | `yazses features enable snippets` | Say *"insert \<trigger\>"* to expand it into boilerplate |
-| Voice Git Choreographer | `yazses features enable gitvoice` | Drive git by voice, with a spoken confirm before anything destructive |
+| Voice Snippets | `yazses features enable snippets` | Hold the command key and say *"insert \<trigger\>"* to expand it into boilerplate |
+| Voice Git Choreographer | `yazses gitvoice "<phrase>"` | Turn a spoken git phrase into a git command; destructive ones need `--yes` |
 | Spoken Shell Pipeline Builder | `yazses features enable shellpipe` | Compose a shell pipeline by speaking it |
-| Terminal Command Safety Gate | `yazses features enable cmdsafety` | Catch destructive commands before they run |
+| Terminal Command Safety Gate | on for new installs; `yazses features enable cmdsafety` if you disabled it | Catch destructive commands before they run |
 | Voice Window Management | `yazses features enable windowctl` | Move and switch windows by voice |
-| Voice Mouse Grid | `yazses features enable mousegrid` *(experimental)* | Say "mouse grid", cell numbers, then "click" to move the pointer and click by voice (X11 or macOS) |
+| Voice Mouse Grid | `yazses features enable mousegrid --force` *(experimental)* | Say "mouse grid", cell numbers, then "click" to move the pointer and click by voice (X11 or macOS) |
 | Voice Fuzzy File Open | `yazses features enable fileopen` | Open a file by speaking part of its name |
 
 Browse everything with `yazses features`, and see what any single capability does
@@ -131,9 +131,10 @@ best match. Two behaviours are deliberate:
 
 ## Per-application behaviour
 
-Different apps want different commands. Editor profiles let the grammar map the
-same spoken phrase to whatever that application actually binds, so *"save file"*
-works in your editor and in your browser without you re-learning phrasing.
+Different apps want different commands, but command key sequences are fixed to
+common editor bindings (Ctrl+S save, Ctrl+G go to line, Ctrl+Shift+K delete line,
+Ctrl+Shift+O go to symbol). Per-application remapping is not implemented yet; use a
+[macro](../how-to/macros-and-snippets.md) for an app-specific action.
 
 ## Honest limits
 

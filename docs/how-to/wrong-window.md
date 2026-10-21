@@ -6,12 +6,12 @@ description: Why dictated text lands somewhere unexpected, what the no-text-targ
 # Dictation types into the wrong window
 
 You hold the key, speak, release — and the words appear in the wrong place, or
-nowhere at all. There are three distinct causes, and they need different fixes.
+nowhere at all. There are four distinct causes, and they need different fixes.
 
 !!! info "Verified on"
 
-    Ubuntu 24.04 · GNOME 46 · X11 · YazSes 2.18.2. Commands and their output are
-    from that machine.
+    Ubuntu 24.04 · GNOME 46 · X11 · YazSes 2.18.2 (Aug 2026). Commands and their
+    output are from that machine; output may differ in later versions.
 
 ## First: what does YazSes think the target is?
 

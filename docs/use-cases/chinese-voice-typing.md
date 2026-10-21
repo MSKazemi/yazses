@@ -29,7 +29,14 @@ speech they produce fluent-looking English nonsense rather than an error, which 
 worst possible failure mode. YazSes warns about this at start-up, but you still have to
 change the setting yourself.
 
-In `~/.config/yazses/config.toml`:
+The quickest route is one command that writes every key, installs what is missing and
+fetches the model:
+
+```sh
+yazses language set zh-CN      # or zh-TW; add --dry-run to preview the plan
+```
+
+To do it by hand instead, in `~/.config/yazses/config.toml`:
 
 ```toml
 [stt]

@@ -16,8 +16,9 @@ first thing to establish is which one you have.
 
 !!! info "Verified on"
 
-    Ubuntu 24.04 · GNOME 46 · X11 · YazSes 2.18.2 · Python 3.14. Every command
-    below was run on that machine and the output is real.
+    Ubuntu 24.04 · GNOME 46 · X11 · YazSes 2.18.2 (Aug 2026) · Python 3.14. Every
+    command below was run on that machine and the output is real; output may differ
+    in later versions.
 
 ## What the message means
 
@@ -41,7 +42,8 @@ It records **twice**: stay quiet for the first, then speak normally for the seco
 The gate has to sit above your room and below your voice, and one recording cannot
 tell those apart — so the command measures both and puts the threshold between them.
 
-Real output from the machine above, in a quiet room **without speaking in step 2**:
+Real output from the machine above, in a quiet room **without speaking in step 2**
+(this run spoke for 3 s; a default run speaks for 4 s and measures the room for 2 s):
 
 ```
 1/2  Stay quiet — measuring the room for 2s...
@@ -236,7 +238,9 @@ YazSes is running (PID 4084).
   state:    idle
   hotkey:   right_ctrl
   model:    base.en
+  backend:  XdotoolInjector
   mic:      default
+  uptime:   2h 14m
   latency:  base.en p50 740 ms / p95 1210 ms (n=143)
 ```
 
