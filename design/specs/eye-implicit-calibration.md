@@ -133,6 +133,34 @@ Status reports:
 
 A user can disable refinement without deleting explicit calibration.
 
+## Backends
+
+One `ClickObserver` (`src/yazses/gaze/clicks.py`) per display server, under
+`src/yazses/platform/<os>/`, registered as `Platform.click_observer_factory`. Where a session has
+none, the factory is `None` and `Platform.click_observer_unavailable_reason` carries the sentence
+the daemon log, `yazses doctor` and `yazses gaze status` repeat. Every backend emits only
+`(time.monotonic() timestamp, x, y)` in the canonical desktop space; a backend is constructed by the
+factory but opens nothing until `start`, which only the refinement runtime calls, only when
+`[gaze_refine] enabled = true`. Each OS has its own subsection below.
+
+### Linux
+
+- **X11** — `platform/linux/click_observer_x11.py` (#607). XInput2 `XI_RawButtonPress` selected on
+  the root window for `XIAllDevices`: delivered for a press in any window, takes no grab, and the raw
+  event carries no window at all. Position is `QueryPointer` on the root at event time, in root-window
+  (framebuffer) pixels — the same space `gaze/display.py` reads from `xrandr` with `scale=1.0`, so no
+  conversion. Buttons 1–3 only; the wheel (4–7) and extra buttons are dropped before the pointer is
+  queried. Own daemon thread on a separate display connection; the loop waits in `select` on the
+  display socket (≤ 0.25 s) so `stop()` is a flag plus a join. `start` raises `ClickObserverError`
+  with the reason for: no `DISPLAY`, no python-xlib, no `XInputExtension`, XInput < 2, a refused
+  connection. Status: implemented and hermetically tested; **no real-desktop smoke report yet**.
+- **Wayland** — none, by design. `click_observer_factory = None` with the reason: a native Wayland
+  session exposes no global click stream (button events reach only the focused client, the compositor
+  APIs that could report them are private, and the XDG RemoteDesktop portal is output-only). The
+  bundle classifies the session with `gaze/target_semantics.classify_session`, so `WAYLAND_DISPLAY`
+  with no `XDG_SESSION_TYPE` is Wayland too — XInput2 on XWayland would otherwise register and see only
+  X clients' clicks.
+
 ## Acceptance criteria
 
 - Low confidence click pair is rejected.

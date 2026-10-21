@@ -5,14 +5,34 @@ from __future__ import annotations
 import logging
 import os
 import weakref
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from typing import Any
 
-from yazses.platform.base import LINUX_PLATFORM_NAME, Platform
+from yazses.platform.base import LINUX_PLATFORM_NAME, ClickObserverFactory, Platform
 from yazses.platform.linux.paths import build_paths
 from yazses.pointer.base import PointerSink, PointerUnsupportedError
 
 log = logging.getLogger(__name__)
+
+#: Why a native Wayland session has no click observer (#607), in the sentence the daemon
+#: log, `yazses doctor` and `yazses gaze status` repeat. Not a missing package: Wayland
+#: delivers button events only to the focused client, the compositor interfaces that could
+#: report them are private, and the XDG RemoteDesktop portal is output-only -- it accepts
+#: synthetic input, it never reports the user's. XInput2 on XWayland would "work" and see
+#: only X clients' clicks, which is a plausible, partial sample stream the refiner must
+#: never be fed.
+WAYLAND_CLICK_REASON = (
+    "a native Wayland session exposes no global click stream: button events reach only the "
+    "focused client, the compositor APIs that could report them are private, and the XDG "
+    "RemoteDesktop portal only sends input, it never reports it; log in to an X11 session "
+    "to let implicit refinement learn from clicks"
+)
+
+#: No `DISPLAY`, no `WAYLAND_DISPLAY`: a service or SSH environment with nothing to click.
+HEADLESS_CLICK_REASON = (
+    "no desktop session was detected (neither DISPLAY nor WAYLAND_DISPLAY is set), so there "
+    "are no clicks to observe"
+)
 
 
 def _make_hotkey(key_id: str, threshold_ms: int, on_start, on_end):
@@ -97,6 +117,33 @@ def _pointer_factory(injector: object | None = None) -> PointerSink:
     return build_pointer_sink()
 
 
+def _click_observer_route(
+    environ: Mapping[str, str] | None = None,
+) -> tuple[ClickObserverFactory | None, str | None]:
+    """``(factory, None)`` on X11; ``(None, reason)`` on Wayland or with no desktop (#607).
+
+    Decided when the bundle is built, from the same session classifier gaze routing uses
+    (:func:`yazses.gaze.target_semantics.classify_session`), so "no gaze target on Wayland"
+    and "no click observer on Wayland" can never disagree about which session this is.
+    The factory itself opens nothing -- `start` does, and only the refinement runtime calls
+    that, only when ``[gaze_refine] enabled = true``.
+    """
+    from yazses.gaze.target_semantics import classify_session
+
+    session = classify_session(os.environ if environ is None else environ)
+    if session == "x11":
+        return _make_click_observer, None
+    if session.startswith("wayland"):
+        return None, WAYLAND_CLICK_REASON
+    return None, HEADLESS_CLICK_REASON
+
+
+def _make_click_observer() -> Any:
+    from yazses.platform.linux.click_observer_x11 import build_x11_click_observer
+
+    return build_x11_click_observer()
+
+
 class _InjectorRoute:
     """Ties ``injector_factory`` to ``pointer_factory`` without widening the Protocols.
 
@@ -130,6 +177,7 @@ def build_platform() -> Platform:
 
     paths = build_paths()
     route = _InjectorRoute(LinuxInjector)
+    click_observer_factory, click_observer_reason = _click_observer_route()
     return Platform(
         name=LINUX_PLATFORM_NAME,
         default_hotkey="right_alt",
@@ -145,7 +193,16 @@ def build_platform() -> Platform:
         # A factory, so nothing is opened here (ADR-v2-146 rule 7): a pointer consumer
         # calls it, and dictation alone never takes a display connection.
         pointer_factory=route.pointer_factory,
+        # X11 only (#607): XInput2 raw presses carry no window and take no grab. None on
+        # Wayland, with the reason, rather than an observer that sees only XWayland clients.
+        click_observer_factory=click_observer_factory,
+        click_observer_unavailable_reason=click_observer_reason,
     )
 
 
-__all__ = ["build_platform", "build_pointer_sink"]
+__all__ = [
+    "HEADLESS_CLICK_REASON",
+    "WAYLAND_CLICK_REASON",
+    "build_platform",
+    "build_pointer_sink",
+]
