@@ -66,13 +66,24 @@ def test_a_per_user_windows_install_gets_the_one_click_button():
     assert "Installed: 2.43.2" in view.text and "Available: 2.44.0" in view.text
 
 
-def test_an_all_users_install_is_refused_with_the_reason_and_the_manual_steps():
+def test_an_all_users_windows_install_gets_the_one_click_button_too():
+    # ADR-027: the elevated job runs the installer from an Administrators-only copy, so
+    # an all-users install is offered, not sent to the releases page.
     status = _status()
     offer = one_click_offer(status, _Launcher("machine"))
+    assert offer is not None and offer.ok and offer.all_users
+    view = m.plan_update(status, offer)
+    assert view.action is m.UpdateAction.ONE_CLICK
+    assert view.label == m.INSTALL_LABEL
+
+
+def test_an_install_of_unknown_scope_is_refused_with_the_reason_and_the_manual_steps():
+    status = _status()
+    offer = one_click_offer(status, _Launcher("unknown"))
     assert offer is not None and not offer.ok
     view = m.plan_update(status, offer)
     assert view.action is m.UpdateAction.OPEN_PAGE
-    assert "installed for all users" in view.text
+    assert "for this user or for all users" in view.text
     assert "no uninstall" in view.text
     # Every manual step is on screen, so the user is never left with just "refused".
     for step in status.steps:

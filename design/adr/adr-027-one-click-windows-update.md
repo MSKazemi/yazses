@@ -404,7 +404,9 @@ This ADR does not claim more protection than the points above.
 - **Settings window: implemented** in `settingsui/maintenance_panel.py` (check off-thread,
   `confirmation_prompt`, `hand_off_outside_tray`, `QApplication.quit`); not yet verified on
   Windows. It waits on `os.getpid()` among the hand-off's PIDs (the default), and when
-  one-click is refused it shows the same reason and manual steps as the tray.
+  one-click is refused it shows the same reason and manual steps as the tray. For an
+  all-users install it asks with `confirmation_prompt(status, all_users=True)`, so the
+  question says Windows will ask for administrator permission, as the tray's does.
 
 ## Revision (2026-10-20, after review)
 
