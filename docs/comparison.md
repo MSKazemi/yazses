@@ -17,7 +17,7 @@ wins.
 
 | Tool | Runs offline | Voice commands | Linux | macOS / Windows | Cost | Open source |
 |---|---|---|---|---|---|---|
-| **YazSes** | **Yes** (on-device faster-whisper) | **Yes** (regex grammar) | **Yes** (X11 & Wayland) | **Yes** | **Free** | **Yes (Apache-2.0)** |
+| **YazSes** | **Yes** (on-device faster-whisper; Parakeet/Moonshine optional) | **Yes** (regex grammar) | **Yes** (X11 & Wayland) | **Yes** | **Free** | **Yes (Apache-2.0)** |
 | **Handy** | Yes (whisper.cpp) | No | Yes | Yes | Free | Yes (MIT) |
 | **OpenWhispr** | Yes (Whisper/Parakeet; cloud optional) | Spoken instructions | Yes | Yes | Free | Yes (MIT) |
 | **FluidVoice** | Yes (Parakeet) | Yes (Command Mode) | Announced | macOS (Windows community port) | Free | Yes (GPLv3) |

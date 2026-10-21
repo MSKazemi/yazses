@@ -80,8 +80,12 @@ def _spike(request_path):
         try:
             import ctypes
 
-            ctypes.WinDLL(paths[0])
-            bind["preloaded"][name] = paths[0]
+            # Absolute: the loader reports loaded modules by absolute path, and the
+            # first windows-latest run compared that with a relative request (FAIL on a
+            # correct bind, run 39631811305).
+            full = os.path.abspath(paths[0])
+            ctypes.WinDLL(full)
+            bind["preloaded"][name] = full
         except BaseException as exc:
             bind["preload_errors"][name] = repr(exc)[:300]
 

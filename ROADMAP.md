@@ -12,7 +12,10 @@
 
 ---
 
-## Current frontier — Waves F–O (all OFF by default)
+## Current state (all new features OFF by default)
+
+What is landing right now — the latest release and every unreleased change on `main` — is
+generated from the changelog at [mskazemi.com/yazses/now.html](https://mskazemi.com/yazses/now.html).
 
 **Stable release: v2.43.2**, published on PyPI, GitHub Releases, Snap, and the APT repo, with
 Windows `.exe`, macOS `.dmg`, and Debian `.deb` installers attached to the GitHub release (all
@@ -35,7 +38,7 @@ uv run python -c "from yazses.system import features as F; \
 uv run python -m pytest tests/ -q | tail -1
 ```
 
-The test figure is deliberately a **floor** (`4300+`), not an exact count. An exact
+The test figure is deliberately a **floor**, not an exact count. An exact
 one is self-invalidating: adding the guard tests that check this very line moved it
 4337 → 4347 in the same sitting, so any number written here is stale the moment the
 suite grows. A floor stays true as tests are added and only breaks if tests are
@@ -50,9 +53,10 @@ gets embarrassing; the guard fails if the suite ever drops below it.
   command channel** (whisper a phrase → command, speak → dictation; pure DSP); the
   **activation-source seam** that finally constructs the EMG squeeze-to-talk backend; and
   **registry honesty** (`features enable` refuses the 72 designed-but-unwired entries
-  instead of silently doing nothing). Next candidates from the 2026-08-07 study: offline
-  Command Mode on selected text (the market's #1 white space), decode-time hotword
-  boosting, Moonshine v2 streaming preview, the hands-free accessibility bundle.
+  instead of silently doing nothing). Of the candidates the 2026-08-07 study named
+  next, offline Command Mode on selected text and Moonshine (as a third engine) shipped in
+  v2.19.0, and a hands-free preset in v2.43.0; decode-time hotword boosting was retired in
+  v2.43.0 in favour of engine-agnostic post-decode correction.
 
 - **Shipped in `v2.12.0-dev.2`** (off by default): **Meeting Mode** (`yazses meeting`,
   ADR-v2-127/128) — hands-free whole-meeting capture with a live rolling transcript and an
@@ -88,7 +92,7 @@ gets embarrassing; the guard fails if the suite ever drops below it.
   (Grade-2 UEB), spoken outline (→ Markdown/OPML), diacritic restoration, homoglyph safety (UTS-39),
   reverse-dictionary (WordFind), cognitive-load guardrails (LoadGuard), own-audio replay (Echo), and
   screen-reader-paced injection (SRPace).
-- **Wave O** (`v2.11`, open) — offline media ingestion & speaker attribution: **Diarized Recording
+- **Wave O** (`v2.11`, complete) — offline media ingestion & speaker attribution: **Diarized Recording
   Import** (`yazses transcribe <file>` — decode any audio format, transcribe offline, tag speakers via
   sherpa-onnx, name them from `--names`/enrolled voiceprint, write a `.txt`/`.md`/`.srt`/`.vtt`/`.json`
   sidecar; ADR-v2-125). Cloud escalation designed but deferred (ADR-v2-126).
@@ -125,7 +129,8 @@ many people can build it at once without re-deciding the same questions in PR re
   (first signed APK) → M2 good enough to replace your phone's dictation (F-Droid; the iOS
   wave may start here) → M3 file transcription, diarization, Meeting Mode → M4 Play and
   reach. **M0 is the active milestone:** its four build issues (#82–#85) are closed, and
-  it stays open as the home of the epic and the design review (#98). M1's remaining work
+  it stays open as the home of the design review (#98); the epic (#81) spans M0–M3, so
+  under the milestone policy it carries none. M1's remaining work
   is #87 (engine + whisper.cpp), #89 (keyboard), #90 (model download), #91 (onboarding),
   #92 (`:bench`) and the device check in #88; M2 has #93, #95 and #96 open; M3 has one
   spike, #97.
@@ -137,7 +142,7 @@ many people can build it at once without re-deciding the same questions in PR re
 
 ---
 
-## v2.1.0 (in progress) — Wave D: new frontier features
+## v2.1.0 — Wave D: new frontier features (shipped as dev previews)
 
 A fresh 2026 SoA round on top of the v2 layer (Wave D,
 `design/adr/adr-v2-014..024`). Still 100% on-device, every feature **off by default**.
@@ -161,7 +166,7 @@ Dev tags `v2.1.0-dev.1/2/3` cut (do **not** auto-publish; v1.4.1 stays stable).
 
 ---
 
-## v2.0.0 (planned) — the Voice-First Interaction Layer
+## v2.0.0 — the Voice-First Interaction Layer (shipped as dev previews; stable from v2.12.0)
 
 YazSes grows from offline dictation into a broader **voice-first HCI layer** — still 100%
 on-device, privacy-first, every feature **off by default**. Grounded in a 2026-07 SoA
@@ -232,7 +237,7 @@ Friendlier control surface, no TOML hand-editing:
 
 ---
 
-## Next — v2 Perceptual & Personalization layer (post-1.0)
+## v2 Perceptual & Personalization layer (historical plan; status below)
 
 The four remaining v2 features (Voiceprint Mind, Cocktail Filter, Glance-Type,
 Polyglot Switch) have **complete technical plans** in
@@ -276,13 +281,10 @@ Five new capabilities from the SoA2Prod innovation pipeline:
 
 ---
 
-## In progress
+## Distribution channels
 
-### Distribution channels (v0.2.x)
-- **winget** — PR under review at microsoft/winget-pkgs
-- **Snap Store** — snapcraft.yaml bumped to v0.5.0 (2026-05-31); needs `SNAPCRAFT_STORE_CREDENTIALS` secret set to publish
-- **AUR** — needs AUR account + PKGBUILD push
-- **macOS signing** — Apple Developer account enrolment
+Live channel status lives in [platform support](docs/platform-support.md). Still open: the
+AUR package (needs an AUR account) and macOS/Windows code signing.
 
 ---
 

@@ -119,7 +119,9 @@ SHELL_OUT = {
         "runs `uv pip install` (or `python -m pip install`, or `pipx inject` in a pipx "
         "venv) so `yazses features enable <name>` -- and `features install`, or a click "
         "on a dormant feature's Install now -- can fetch that feature's optional extras "
-        "from PyPI. Sends only package "
+        "from PyPI -- and, for the torch stack on Linux only, from download.pytorch.org, "
+        "the PyTorch project's CPU-wheel index, because PyPI's torch is the CUDA build "
+        "there (`deps.TORCH_CPU_INDEX`, 2026-10-21). Sends only package "
         "names; what comes back is **code that then runs in this interpreter**, which "
         "is why it belongs in the inventory rather than being waved through as tooling"
     ),
