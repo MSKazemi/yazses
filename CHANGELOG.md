@@ -125,6 +125,18 @@ bind row still said FAIL, because the probe compared the relative path it asked 
 absolute path Windows reported. The probe now records the absolute path and the verdict accepts
 the relative form; tests reproduce the run's exact paths.
 
+### Fixed — with `yazses remote` connected, dictation was typed on this machine instead of the remote one
+
+The daemon chose the remote injector only while its state read `REMOTE_ACTIVE`, which is set
+once when the SSH tunnel comes up. Every hold-to-talk burst then moves the state through
+recording and transcription, and the daemon set it to "injecting" on the line before it chose
+the injector. So no dictated text ever reached the remote host: it was typed locally, into
+whichever window had focus on this machine. Voice commands were forwarded (fixed earlier in
+`a92e4619`); plain dictation was not. The choice now follows the remote session itself.
+Nothing new can leave the machine: this is the path ADR-019 already lists, used only after you
+run `yazses remote <host>`. Found by reading the code during a docs audit, and confirmed by a
+test that failed in every state a burst passes through.
+
 ### Changed — the Windows installer carries Parakeet's engine and Chinese script conversion; the diarization add-on runs on the installer's ONNX Runtime
 
 ADR-028's owner answers (2026-10-21), build side. The Windows installer now bundles two
