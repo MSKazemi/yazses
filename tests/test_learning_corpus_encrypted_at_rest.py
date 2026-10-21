@@ -65,7 +65,7 @@ def _encodings(text: str) -> list[bytes]:
 
 def _all_bytes_under(root) -> dict[str, bytes]:
     return {
-        str(p.relative_to(root)): p.read_bytes()
+        p.relative_to(root).as_posix(): p.read_bytes()
         for p in sorted(root.rglob("*"))
         if p.is_file()
     }
