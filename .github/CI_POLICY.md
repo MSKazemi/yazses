@@ -541,8 +541,8 @@ be partially visible across package channels.
 
 ## 12. CI service-level objectives
 
-#536 will automate measurement. Until there is enough history, these are targets rather
-than guarantees.
+The CI telemetry report (§12.1, #536) measures these daily. Until there is enough history,
+they are targets rather than guarantees.
 
 | Metric | Initial target |
 |---|---|
@@ -558,6 +558,80 @@ describe the contributor experience during busy periods.
 
 Telemetry must not collect contributor email addresses, arbitrary PR bodies, secrets, or
 full logs merely to compute timing metrics.
+
+### 12.1 The CI telemetry report
+
+`.github/workflows/ci-telemetry.yml` runs daily and on `workflow_dispatch`. It writes the
+report to the run's job summary and uploads `ci-telemetry.json` and `ci-telemetry.md` as
+the `ci-telemetry` artifact, kept for 14 days. To read it, open the newest
+**CI telemetry** run in the Actions tab.
+
+"CI telemetry" here means metadata about this repository's own GitHub Actions runs. It
+has nothing to do with the product, which collects no telemetry (AGENTS.md rule 1).
+
+| Part | Role |
+|---|---|
+| `scripts/ci_telemetry.py` | Pure aggregation. Takes the API's run and job JSON and returns the report. Opens no connection, reads no clock. |
+| `scripts/ci-telemetry-report.py` | Thin fetcher. Read-only `GET`s, bounded, then writes the JSON and Markdown. |
+| `tests/test_ci_telemetry.py` | Pins every metric on a synthetic fixture (`tests/fixtures/ci_telemetry/`). Also covers the privacy guards, the fetcher bounds through a fake transport, and the workflow contract. No network. |
+
+**What it reports.** Runs by workflow and by event. Success, failure, cancelled and other
+percentages. Job queue latency and run duration, p50 and p95, per workflow. Job-minutes
+per workflow, which shows what is consuming CI. Superseded PR runs: how many there were,
+the share cancelled, the cancellation delay, and which workflows let a superseded run
+finish. The longest jobs. Workflows with no successful run, and active workflows with no
+run at all. Repeated failures by workflow, job and first failed step. Workflows red on the
+default branch, with how long they have been red. The table of §12 targets, each marked
+`met`, `missed`, `no data` or `n/a`.
+
+**Definitions.** The module docstring is the full contract. The ones that matter most:
+
+- *Queue latency* is per job: `started_at - created_at`. A job with `needs:` is created
+  when its dependencies finish, so this is time spent waiting for a runner. Skipped jobs
+  are excluded.
+- *Run duration* is the last job's `completed_at` minus `run_started_at`. It is never
+  computed from `updated_at`, because GitHub rewrites `updated_at` on finished runs. On
+  2026-10-16 it moved a dozen failed PR runs' `updated_at` up to 22 hours past their end.
+- *Percentiles* are nearest-rank, so every reported value was actually observed.
+- *Superseded*: a newer run of the same workflow for the same PR was created before this
+  run finished. Runs that ended `action_required` never started, so they do not count.
+- *Red*: the newest default-branch run that succeeded or failed is a failure. Cancelled
+  and skipped runs do not break or extend the red streak. The 24-hour limit applies to
+  most workflows; a streak made only of `schedule` runs gets the 7-day limit.
+
+**Bounds.** The default window is 14 days (`--days`, at most 90). Runs are listed in
+24-hour slices, because the runs API returns at most 1,000 results for a filtered query.
+A slice that hit that ceiling is reported as truncated. `--max-runs` (default 5,000)
+caps the listing. Job lists are fetched for at most `--max-job-runs` completed runs
+(default 1,000), failures first. Fetching stops once fewer than `--rate-limit-reserve`
+(default 200) requests remain. A repository `GITHUB_TOKEN` gets 1,000 requests an hour,
+so the report cannot starve the other workflows. Every bound that applied is listed under
+`coverage.notes` and at the top of the summary, so a partial report says it is partial.
+
+**Privacy.** Every raw record is cut down to an explicit allow-list of fields as soon as
+it is read. The report never contains PR titles or bodies, commit messages, author names
+or emails, actor logins, branch or fork names, runner names, or log text. Logs are never
+downloaded. A PR is identified only by an opaque grouping key, and that key is never
+written out. The only text that remains is workflow, job and step names, events and
+conclusions, plus numeric run ids so a reader can open a failing run. Names are escaped
+before they become Markdown, because a pull request runs its own copy of the workflow
+file and can choose its own job names. Two tests check this: one looks for the fixture's
+personal values in the output, and one fails on any JSON key outside a reviewed
+allow-list.
+
+**What it does not do.** It changes no gate. A missed target does not turn it red. It
+fails only when the API cannot be read. It is not in `test.yml`, is not a `ci-gate` need
+and is not a required check. Two targets cannot be measured yet. *Fast PR gate execution*
+waits for #535 to define the fast lane; until then the queue target is reported over all
+PR jobs. *Without a linked issue* cannot be seen from Actions data, so the report gives
+how long a workflow has been red and leaves the issue check to a person.
+
+Run it locally (read-only; any token that can read the repository's Actions data works):
+
+```sh
+GH_TOKEN=$(gh auth token) python3 scripts/ci-telemetry-report.py \
+  --repo MSKazemi/yazses --out-json ci-telemetry.json --out-md ci-telemetry.md
+```
 
 ---
 
@@ -638,7 +712,8 @@ The coordination issue is #539.
 - #523 — repair current strict docs link failure.
 - #534 — tested change classifier and fast-gate contract.
 - #535 — split fast and full PR lanes without coverage loss.
-- #536 — CI telemetry and SLO reporting.
+- #536 — CI telemetry and SLO reporting. The daily report is in source (`ci-telemetry.yml`,
+  §12.1).
 - #537 — reusable setup, cache rules, and timeouts.
 - #538 — flake/rerun/quarantine policy. The policy, the quarantine registry and marker, and
   the `continue-on-error` condition guard are in source (§9). Creating the `ci:flaky-test`
