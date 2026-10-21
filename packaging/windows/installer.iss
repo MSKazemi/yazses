@@ -148,7 +148,35 @@ Filename: "{app}\{#MyAppExeName}"; Parameters: "--tray"; \
 Filename: "{app}\yazses-cli.exe"; Parameters: "stop"; Flags: runhidden; \
     RunOnceId: "stop-daemon"
 
+[UninstallDelete]
+; Add-on packs (ADR-028, owner answer to question 4): code only this app can load,
+; installed per user under %LOCALAPPDATA%\yazses\packs (Paths.data_dir / "packs").
+; Only the packs folder: config, logs and downloaded models beside it keep their
+; current policy and are left alone.
+;
+; PER-USER INSTALLS ONLY. In an all-users (administrative install mode) uninstall,
+; {localappdata} is the ELEVATED ADMINISTRATOR's profile, not the profile of whoever
+; installed the packs, so this entry would delete the wrong account's folder and none
+; of the users'. Inno's guidance for that mode is that user-level files are the app's
+; job; `yazses doctor` and docs/windows-install.md name `yazses packs remove --all`.
+; The Check gives the same answer whether Inno evaluates it when it writes the
+; uninstall log or when it uninstalls: the install mode is fixed for one registration.
+;
+; Never on an upgrade: Inno runs [UninstallDelete] only from the uninstaller, and an
+; in-place upgrade (including ADR-027's one-click update) never runs the uninstaller.
+; Nothing in [Code] below deletes packs or starts the uninstaller either.
+Type: filesandordirs; Name: "{localappdata}\yazses\packs"; Check: IsPerUserInstall
+
 [Code]
+{ ---- Install mode ------------------------------------------------------------
+
+  The one gate on deleting per-user data at uninstall (see [UninstallDelete]). }
+
+function IsPerUserInstall: Boolean;
+begin
+  Result := not IsAdminInstallMode;
+end;
+
 { ---- PATH maintenance -------------------------------------------------------
 
   Touching PATH is the one thing here that can damage a machine beyond this

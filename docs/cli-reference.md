@@ -719,8 +719,9 @@ administrator. `YAZSES_NO_PACKS=1` starts YazSes with every add-on switched off.
 |---|---|
 | `yazses packs` | List this build's add-ons: state, download size, size on disk, features. |
 | `yazses packs install <name>` | Download, verify and install one add-on (asks first; `--yes` skips). Writes no config. |
+| `yazses packs install --from <file>` | Install an add-on file you copied here, with no network request. Accepted only if the file name is one of this build's add-on files and its SHA-256 matches the one built into this copy. |
 | `yazses packs verify [name]` | Check every installed file's size and SHA-256; a damaged add-on is set aside in `quarantine\`. |
-| `yazses packs remove <name>` / `--all` | Delete an installed add-on. Features that need it then read *waiting for add-on*. |
+| `yazses packs remove <name>` / `--all` | Delete an installed add-on, or every add-on of every build. Features that need it then read *waiting for add-on*. Run `--all` before uninstalling an all-users install: that uninstaller cannot remove each user's add-ons. |
 | `yazses packs clean` | Delete set-aside, half-finished and old builds' add-ons, keeping what an update rollback needs. |
 | `yazses packs path` | Print the add-on folder. |
 | `yazses packs probe <name> --staged <dir>` | Test-import an unpacked add-on in this app (used by the install and by the release build). |
@@ -729,6 +730,7 @@ administrator. `YAZSES_NO_PACKS=1` starts YazSes with every add-on switched off.
 yazses features enable stt-parakeet   # shows the size, asks, downloads, verifies, enables
 yazses packs                          # what is installed for this build
 yazses packs verify                   # after security software removed a file
+yazses packs install --from D:\YazSes-2.44.0-windows-x64-pack-diarization.yazpack   # offline
 ```
 
 ### `yazses vocab` — personal dictionary

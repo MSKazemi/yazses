@@ -2578,20 +2578,49 @@ def packs_path() -> None:
 
 @packs_app.command(
     "install",
-    epilog=_examples("yazses packs install parakeet    download and install one add-on"),
+    epilog=_examples(
+        "yazses packs install parakeet    download and install one add-on",
+        "yazses packs install --from YazSes-2.44.0-windows-x64-pack-diarization.yazpack"
+        "    install a file carried here (no network)",
+    ),
 )
 def packs_install(
-    name: str = typer.Argument(..., help="Add-on name, from `yazses packs`."),
+    name: str | None = typer.Argument(
+        None, help="Add-on name, from `yazses packs`. Optional with --from."
+    ),
     yes: bool = typer.Option(False, "--yes", "-y", help="Don't ask before downloading."),
+    from_file: Path | None = typer.Option(
+        None, "--from",
+        help="Install this .yazpack file instead of downloading (offline). Its name and "
+             "SHA-256 must match this build's built-in add-on list.",
+    ),
 ) -> None:
-    """Download, verify and install one add-on for this build. Writes no config."""
+    """Download, verify and install one add-on for this build. Writes no config.
+
+    With --from, nothing is downloaded: the file is checked against the SHA-256 built
+    into this copy of YazSes, then unpacked, tested and installed the same way.
+    """
     from yazses.packs.manage import install
     from yazses.packs.policy import human_bytes
 
+    if from_file is None and name is None:
+        typer.echo("Name one add-on, or pass --from <file>.", err=True)
+        raise typer.Exit(2)
     pctx = _packs_context()
     if not pctx.capability.ok:
         typer.echo(f"Can't install add-ons: {pctx.capability.reason}.", err=True)
         raise typer.Exit(1)
+    if from_file is not None:
+        from yazses.packs.manage import install_from_file
+
+        result = install_from_file(pctx, from_file, name=name, progress=_pack_progress)
+        if not result.ok:
+            _echo_pack_failure(result)
+            raise typer.Exit(1)
+        typer.echo(result.message)
+        typer.echo("Apply it:  yazses restart")
+        return
+    assert name is not None
     entry = pctx.index.entry(name) if pctx.index is not None else None
     if entry is None:
         known = ", ".join(p.name for p in pctx.index.packs) if pctx.index else "none"
