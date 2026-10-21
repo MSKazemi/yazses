@@ -502,3 +502,193 @@ def test_the_lightning_assessment_is_actually_published():
             ".github/SECURITY.md. This advisory is reachable rather than merely "
             "present, so an unexplained alert is worse here than for the others."
         )
+
+
+# ---------------------------------------------------------------------------
+# The October 2026 OSV sweep (#116) -- advisories closed by an upgrade
+#
+# OpenSSF Scorecard's `Vulnerabilities` check fell to 0/10 with 21 open OSV
+# advisories. 20 came from `uv.lock` and one from
+# `packaging/flatpak/tools-requirements.txt`; the method and the reachability
+# call for each are in the "Known advisories" section of `.github/SECURITY.md`.
+# Every one except `diskcache` (assessed above) had a patched release, so they
+# were upgraded rather than argued about.
+#
+# The tables below are hand-written, and that is a known limit rather than an
+# oversight: the advisory database is external and this suite is offline, so no
+# test here can *discover* a new advisory. What they can do is stop a closed one
+# from silently reopening -- a re-lock under a new constraint, a downgrade forced
+# by some other package, or a regeneration of the Flatpak tools file that forgets
+# `--upgrade-package`. Finding new ones is the job of the reproducible command
+# recorded in SECURITY.md and of Scorecard's weekly run.
+# ---------------------------------------------------------------------------
+
+#: package -> (first patched release, the advisories it closes). `uv.lock` must
+#: resolve each at or above its floor.
+LOCK_PATCHED: dict[str, tuple[tuple[int, ...], tuple[str, ...]]] = {
+    "aiohttp": ((3, 14, 4), (
+        "GHSA-2g87-pp6c-29x5", "GHSA-494j-54xm-rwp3", "GHSA-5wr8-gcqf-gqf3",
+        "GHSA-6cjc-53gc-5rqm", "GHSA-9xw5-w5jj-pvcg", "GHSA-f9xw-jh8m-3mwq",
+        "GHSA-gx76-c99x-2c96", "GHSA-pqxq-w44r-73xw",
+    )),
+    "certifi": ((2026, 10, 19), ("PYSEC-2026-4320",)),
+    "pillow": ((13, 0, 0), (
+        "GHSA-462x-pgg6-55fp", "GHSA-58r4-6rv3-gfh8", "GHSA-65qm-jvmh-6pqg",
+        "GHSA-8g5g-8vmr-9782", "GHSA-c6hw-5grf-ff96", "GHSA-p4wg-p73j-c528",
+        "GHSA-pchr-8j38-3x4p", "GHSA-q45j-58j2-45rg", "GHSA-vx6w-vv9f-6gvg",
+    )),
+    # The *other* distribution of the lightning checkpoint loader. `lightning`
+    # (CVE-2026-58659 above) and `pytorch-lightning` ship the same vulnerable
+    # `_load_state`; `lightning` depends on `pytorch-lightning`, so both are in
+    # the lock. The earlier assessment patched one and left its twin at 2.6.5,
+    # which is the advisory Scorecard reported as PYSEC-2026-3967.
+    "pytorch-lightning": ((2, 6, 6), ("PYSEC-2026-3967",)),
+}
+
+#: The Flatpak dependency generator's `uv`, hash-pinned outside `uv.lock`.
+FLATPAK_TOOLS = ROOT / "packaging" / "flatpak" / "tools-requirements.txt"
+#: PYSEC-2026-4321: uv's vendored CA store trusts a root with compromised intermediates.
+UV_PATCHED = (0, 13, 4)
+
+
+def _dotted(v: tuple[int, ...]) -> str:
+    return ".".join(map(str, v))
+
+
+@pytest.mark.parametrize("package", sorted(LOCK_PATCHED))
+def test_the_lock_stays_at_or_above_the_patched_release(package):
+    floor, advisories = LOCK_PATCHED[package]
+    got = _locked_version(package)
+    assert got >= floor, (
+        f"uv.lock resolves {package} {_dotted(got)}, below {_dotted(floor)}, which "
+        f"reopens {', '.join(advisories)}. These were closed in the October 2026 "
+        "sweep (#116), each has a patched release, and nothing in "
+        ".github/SECURITY.md covers running the old version. Find what forced the "
+        f"downgrade (`uv tree --invert --package {package}`) and fix that instead."
+    )
+
+
+def test_both_distributions_of_the_lightning_loader_are_patched():
+    """The mistake this sweep found, as its own guard.
+
+    CVE-2026-58659 was marked patched when `lightning` reached 2.6.6. The same
+    vulnerable `_load_state` also ships in `pytorch-lightning`, a separate PyPI
+    distribution that `lightning` itself depends on, and that one stayed at
+    2.6.5 -- a guard that names one package cannot see its twin. So ask the lock
+    which lightning distributions it actually contains.
+    """
+    lock = tomllib.loads((ROOT / "uv.lock").read_text(encoding="utf-8"))
+    names = {p["name"] for p in lock["package"]
+             if p["name"] == "lightning" or p["name"].endswith("-lightning")}
+    assert {"lightning", "pytorch-lightning"} <= names, (
+        f"expected both lightning distributions in uv.lock, found {sorted(names)}. "
+        "If one was dropped, trim this guard and the SECURITY.md entry with it."
+    )
+    stale = {n: _dotted(_locked_version(n)) for n in sorted(names)
+             if _locked_version(n) < LIGHTNING_PATCHED}
+    assert not stale, (
+        f"{stale} still carry the CVE-2026-58659 checkpoint loader. Every "
+        "distribution of it in the lock must be at or above "
+        f"{_dotted(LIGHTNING_PATCHED)}, not only the one pyannote imports."
+    )
+
+
+def test_the_windows_pillow_floor_excludes_the_vulnerable_releases():
+    """The lock covers the .exe; the *declaration* covers `pip install yazses`.
+
+    pip's default upgrade strategy is `only-if-needed`: upgrading YazSes on a
+    Windows machine that already has Pillow 12.x keeps it, because 12.x satisfies
+    a `>=12.3.0` floor. Pillow is a base dependency on Windows (the pystray tray),
+    so the floor -- not the lock -- is what moves those users off the nine
+    advisories 13.0.0 fixes.
+    """
+    deps = _pyproject()["project"]["dependencies"]
+    pillow = [d for d in deps if re.match(r"(?i)pillow\b", d)]
+    assert pillow, "Pillow is no longer a declared base dependency on Windows"
+    for spec in pillow:
+        m = re.search(r">=\s*([0-9][0-9.]*)", spec)
+        assert m, f"{spec!r} has no `>=` floor"
+        got = tuple(int(p) for p in m.group(1).split(".")[:3])
+        assert got >= LOCK_PATCHED["pillow"][0], (
+            f"{spec!r} admits a Pillow below {_dotted(LOCK_PATCHED['pillow'][0])}. "
+            "An existing Windows install upgraded with pip keeps its old Pillow "
+            "whenever the floor allows it."
+        )
+
+
+def test_the_flatpak_generator_uv_is_at_or_above_the_patched_release():
+    """The one advisory Scorecard found outside `uv.lock`.
+
+    Dependabot's `uv` ecosystem reads `uv.lock`; this file is a separate
+    hash-pinned closure that nothing bumps unless someone regenerates it. It runs
+    on a CI runner and writes the pins Flathub builds from, which is exactly where
+    trusting a compromised CA root (PYSEC-2026-4321) would matter.
+    """
+    text = FLATPAK_TOOLS.read_text(encoding="utf-8")
+    m = re.search(r"^uv==([0-9][^\s\\]*)", text, re.M)
+    assert m, f"{FLATPAK_TOOLS.relative_to(ROOT)} no longer pins uv"
+    got = tuple(int(p) for p in re.findall(r"\d+", m.group(1))[:3])
+    assert got >= UV_PATCHED, (
+        f"the Flatpak generator pins uv {m.group(1)}, below {_dotted(UV_PATCHED)} "
+        "(PYSEC-2026-4321). Regenerate with the recipe at the top of that file, "
+        "adding `--upgrade-package uv`."
+    )
+
+
+#: `osv-scanner.toml` at the root is what Scorecard's Vulnerabilities check reads
+#: to skip an advisory. An entry silences a public score signal, so each one must
+#: be an assessed, unfixable advisory with a reason and an expiry.
+OSV_CONFIG = ROOT / "osv-scanner.toml"
+
+
+def _ignored_vulns() -> list[dict]:
+    assert OSV_CONFIG.is_file(), (
+        "osv-scanner.toml is gone. If nothing needs ignoring any more, delete these "
+        "osv-scanner tests too rather than leaving them to pass on a missing file."
+    )
+    return tomllib.loads(OSV_CONFIG.read_text(encoding="utf-8")).get("IgnoredVulns", [])
+
+
+def test_every_osv_ignore_carries_a_reason_and_an_expiry():
+    entries = _ignored_vulns()
+    assert entries, "osv-scanner.toml ignores nothing; delete it instead"
+    for e in entries:
+        assert e.get("id"), f"an ignore entry has no id: {e}"
+        assert str(e.get("reason", "")).strip(), f"{e['id']} is ignored without a reason"
+        # A TOML date parses to a `datetime.date`, never to a string: a quoted
+        # "2027-01-21" would be silently ignored by osv-scanner as an expiry.
+        until = e.get("ignoreUntil")
+        assert until is not None and not isinstance(until, str), (
+            f"{e['id']} has no TOML-date `ignoreUntil`, so it would be muted forever. "
+            "An unfixable advisory gets re-assessed on a date, not inherited."
+        )
+
+
+def test_an_osv_ignore_is_never_used_for_an_advisory_with_a_fix():
+    """The sweep's upgraded advisories must never be muted instead of fixed."""
+    fixed = {a for _, ads in LOCK_PATCHED.values() for a in ads} | {"PYSEC-2026-4321"}
+    muted = {e["id"] for e in _ignored_vulns()} & fixed
+    assert not muted, (
+        f"{sorted(muted)} have patched releases and are ignored in osv-scanner.toml. "
+        "Upgrade instead; the ignore list is only for advisories with no fix."
+    )
+
+
+def test_every_osv_ignore_is_assessed_in_the_security_policy():
+    text = SECURITY_POLICY.read_text(encoding="utf-8")
+    unassessed = [e["id"] for e in _ignored_vulns() if e["id"] not in text]
+    assert not unassessed, (
+        f"{unassessed} are ignored in osv-scanner.toml but not assessed in "
+        ".github/SECURITY.md. An ignore without a published assessment is a mute "
+        "button, which is exactly what the policy says this list is not."
+    )
+
+
+def test_the_sweep_is_actually_published():
+    text = SECURITY_POLICY.read_text(encoding="utf-8")
+    ids = [a for _, ads in LOCK_PATCHED.values() for a in ads] + ["PYSEC-2026-4321"]
+    missing = [a for a in ids if a not in text]
+    assert not missing, (
+        f"{missing} are guarded here but not listed in .github/SECURITY.md, so a "
+        "reader holding Scorecard's list cannot find what happened to them."
+    )
