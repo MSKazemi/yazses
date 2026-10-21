@@ -96,8 +96,12 @@ _RE_REPLACE = re.compile(
 _RE_DEL_SENTENCE = re.compile(
     r"^delete\s+(?:the\s+)?last\s+sentence$", re.IGNORECASE
 )
+# The count must be a word of its own. With `(\w+)?\s*words?` the regex backtracked into
+# a longer word and matched its tail: "delete the last passwords" parsed as a count of
+# "pass" (unknown, so 1) plus "words" -- a destructive edit from a word that merely ends
+# in "words". tests/test_spoken_edit_does_not_match_a_word_ending_in_words.py holds it.
 _RE_DEL_WORDS = re.compile(
-    r"^delete\s+(?:the\s+)?last\s+(\w+)?\s*words?$", re.IGNORECASE
+    r"^delete\s+(?:the\s+)?last\s+(?:(\w+)\s+)?words?$", re.IGNORECASE
 )
 _RE_CAP = re.compile(
     r"^capital(?:ize|ise)\s+(?:that|the\s+last\s+word)$", re.IGNORECASE
