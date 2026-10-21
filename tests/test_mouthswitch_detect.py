@@ -205,6 +205,48 @@ def test_digital_silence_and_nonfinite_input_never_fire():
     assert det.feed([]) == []
 
 
+def _kinds(sig: np.ndarray) -> list[str]:
+    return [e.kind for e in detect(sig, SR)]
+
+
+def test_a_stream_that_opens_with_digital_zeros_still_hears_later_sounds():
+    """Zeros seed the floor at FLOOR_MIN; the room noise after them is then all "sounding".
+
+    Before the re-seed the floor never left FLOOR_MIN, no quiet run ever built up, and every
+    later click and pop was silently dropped. The sounds sit past FLOOR_RESEED_MS of noise.
+    """
+    room = np.concatenate([_noise(1.5, seed=7), placed(click(), pop())])
+    sig = np.concatenate([np.zeros(int(SR * 0.3)), room])
+    assert _kinds(sig) == ["click", "pop"]
+
+
+@pytest.mark.parametrize("level, expected", [
+    (4 * FLOOR, ["click", "pop"]),   # a fan at 4x: the pop still clears 8x the new floor
+    (10 * FLOOR, ["click"]),         # at 10x the pop is under the onset level, steady or not
+])
+def test_a_step_up_in_background_noise_does_not_deafen_the_detector(level, expected):
+    """A fan switching on: a step of more than SUSTAIN_RATIO leaves no quiet frame to track.
+
+    ``expected`` is what the same sounds give over that noise level from the first sample
+    (``test_detection_after_a_step_matches_steady_noise_at_that_level``), so the step costs
+    nothing once the floor has re-seeded — and the step itself fires nothing.
+    """
+    before = _noise(1.0, FLOOR, seed=1)
+    fan = _noise(1.5, level, seed=2)
+    tail = np.concatenate([np.zeros(int(SR * 0.6)), click(), np.zeros(int(SR * 0.6)), pop(),
+                           np.zeros(int(SR * 0.6))])
+    tail = tail + _noise(tail.size / SR, level, seed=3)
+    assert _kinds(np.concatenate([before, fan, tail])) == expected
+
+
+@pytest.mark.parametrize("level, expected", [(4 * FLOOR, ["click", "pop"]),
+                                             (10 * FLOOR, ["click"])])
+def test_detection_after_a_step_matches_steady_noise_at_that_level(level, expected):
+    sig = np.concatenate([np.zeros(int(SR * 0.6)), click(), np.zeros(int(SR * 0.6)), pop(),
+                          np.zeros(int(SR * 0.6))])
+    assert _kinds(sig + _noise(sig.size / SR, level, seed=3)) == expected
+
+
 @pytest.mark.parametrize("seed", range(4))
 def test_speechlike_stream_false_fire_rate_is_zero(seed):
     """30 s of the speech stand-in per seed, 2 min in all: no switch event at all."""

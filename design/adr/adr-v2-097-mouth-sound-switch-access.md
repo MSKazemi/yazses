@@ -57,7 +57,20 @@ daemon constructs any of the code below, so `[mouthswitch] enabled = true` chang
   glides, plosive and fricative onsets, word-final stop releases, pauses); 0 events in 10 min
   of steady and amplitude-modulated noise at five levels (3e-4 to 3e-2 RMS); recall 40/40 for
   each of click, pop and sh over amplitudes 0.3×–2× and 10 seeds, no wrong kinds. The suite
-  holds the 2-minute subset to zero. **Not measured:** real recorded mouth sounds, real speech,
+  holds the 2-minute subset to zero.
+- **Noise-floor step (fixed 2026-10-21, review finding).** The floor was updated from quiet
+  frames only, so a background step of more than 3× (a fan switching on, or a stream that opens
+  with digital zeros, which seed the floor at 1e-5) made every frame "sounding" and the
+  detector went deaf for good, silently: the recall above covered only streams already at the
+  noise level from the first sample. After `FLOOR_RESEED_MS` (1 s) with no floor update the
+  floor is now re-seeded from the quietest 5 ms frame of that window — every frame there
+  sounded, so the re-seed can only raise the floor. Sounds in the first ~1 s after the step are
+  still missed. Re-measured after the fix with the same generators (my own reconstruction of
+  the harness, not the original script): 0 events over the 60 × 30 s speech stand-in; 0 over
+  10 min of steady and modulated noise at the five levels; 0 over 20 step-only streams (zeros,
+  then steps of 2×–100×); click, pop and sh each 40/40 with no wrong kinds. After a 4× step,
+  click and pop are detected; after a 10× step only the click is, exactly as over steady noise
+  at that level (the pop is then under the onset level). **Not measured:** real recorded mouth sounds, real speech,
   and the false-fire source most likely to dominate in practice — keyboard taps, mic bumps and
   desk knocks, which are impulses and will read as `click`.
 - **Not done (wiring).** (1) An idle microphone stream: the daemon has none — today's

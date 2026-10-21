@@ -28,8 +28,12 @@ specific, checkable conditions holds, and is silent otherwise:
 * **refractory** — no second event within ``REFRACTORY_MS`` of the last one's end, so one
   physical sound (and its room echo) is one switch press.
 
-The noise floor is tracked from quiet frames only (an exponential average), so a steady fan or
-hiss raises the floor rather than firing. Levels and thresholds are signal-processing defaults
+The noise floor is tracked from quiet frames (an exponential average), so a gradual rise in a
+fan or hiss raises the floor rather than firing. A *step* up of more than ``SUSTAIN_RATIO`` (a
+fan switching on, or a stream that opens with digital zeros before the room noise starts) makes
+every frame "sounding", so no quiet frame is left to update it from; after ``FLOOR_RESEED_MS``
+with no floor update the floor is re-seeded from the quietest frame of that window, and the
+detector hears again instead of going deaf for good. Levels and thresholds are signal-processing defaults
 checked on synthetic signals (``tests/test_mouthswitch_detect.py``); they have **not** been
 measured on recorded mouth sounds or real speech. Local audio only; nothing is stored.
 """
@@ -76,6 +80,10 @@ FLOOR_ALPHA = 0.05
 FLOOR_MIN = 1e-5
 #: Frames used to seed the floor before any onset may count.
 WARMUP_MS = 100
+#: With no quiet frame to update the floor from for this long, re-seed it from the quietest
+#: frame of the window. Every frame of that window then stood over ``SUSTAIN_RATIO`` x floor,
+#: so the re-seed can only raise the floor (less sensitive, never a new fire on its own).
+FLOOR_RESEED_MS = 1000
 
 #: The ADR's mapping: "pop" advances the highlight, a tongue click selects. ``sh`` is
 #: recognised but unmapped by default — a sustained broadband hiss is the kind most easily
@@ -219,12 +227,15 @@ class MouthSoundDetector:
         self._context = np.zeros(0)      # the audio before the current onset
         self._rise: list[np.ndarray] = []  # sub-onset sounding frames just before an onset
         self._rise_quiet = 0             # the quiet run that preceded the current rise
+        self._stuck = 0                  # consecutive frames without a floor update
+        self._recent_rms: deque[float] = deque(maxlen=self._ms_to_frames(FLOOR_RESEED_MS))
 
     # -- frame bookkeeping -------------------------------------------------------------------
     def _ms_to_frames(self, ms: float) -> int:
         return max(1, int(round(ms / FRAME_MS)))
 
     def _update_floor(self, rms: float) -> None:
+        self._stuck = 0
         if self._floor is None:
             self._floor = max(rms, FLOOR_MIN)
         else:
@@ -249,6 +260,14 @@ class MouthSoundDetector:
         idx = self._frames_seen
         self._frames_seen += 1
         rms = float(np.sqrt(np.mean(frame * frame)))
+        self._recent_rms.append(rms)
+        self._stuck += 1                 # reset by _update_floor on a quiet frame
+        if (self._state != "active" and self._floor is not None
+                and self._stuck >= self._ms_to_frames(FLOOR_RESEED_MS)):
+            # A step up in the background left no quiet frame to track it from. Every frame in
+            # the window sounded, so its minimum is above the old floor: re-seed from it.
+            self._floor = max(FLOOR_MIN, min(self._recent_rms))
+            self._stuck = 0
         floor = self._floor if self._floor is not None else max(rms, FLOOR_MIN)
         sounding = rms > floor * SUSTAIN_RATIO
         onset = rms > max(floor * ONSET_RATIO, ONSET_MIN_RMS)
