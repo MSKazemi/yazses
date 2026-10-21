@@ -379,14 +379,301 @@ def test_a_toml_date_literal_is_accepted(pl, tmp_path):
     assert pl.check_pack("prosody", dis, _approvals(tmp_path, body)).ok
 
 
+def test_an_empty_approved_by_is_an_error_not_a_pending_approval(pl, tmp_path):
+    """Only a person's *review* may be staged unsigned; an owner approval may not."""
+    site = tmp_path / "site"
+    dis = [_dist(site, "gpl-thing", "1.0", "License-Expression: GPL-3.0-or-later")]
+    body = _approval().replace('approved_by = "A. Owner"', 'approved_by = ""')
+    v = pl.check_pack("prosody", dis, _approvals(tmp_path, body))
+    assert not v.ok and v.pending == []
+    assert any("ignored" in s and "approved_by" in s for s in v.stale)
+
+
+# --- [[licence_text]]: a reviewed text for a dist that ships none ----------------------
+
+_TEXT = b"Apache License\nVersion 2.0, January 2004\n(the synthetic test text)\n"
+_TEXT_FILE = "licence-texts/core/1.0/LICENSE"
+
+
+def _sha(data: bytes) -> str:
+    import hashlib
+
+    return hashlib.sha256(data).hexdigest()
+
+
+def _licence_text(pack="p", dist="core", version="1.0", spdx="Apache-2.0",
+                  file=_TEXT_FILE, sha256=None, by="A. Reviewer", date="2026-10-21"):
+    return (f'\n[[licence_text]]\npack = "{pack}"\ndist = "{dist}"\nversion = "{version}"\n'
+            f'spdx = "{spdx}"\nsource_url = "https://git.example/core/blob/abc/LICENSE"\n'
+            f'file = "{file}"\nsha256 = "{sha256 or _sha(_TEXT)}"\n'
+            f'reviewed_by = "{by}"\ndate = "{date}"\n')
+
+
+def _core(tmp_path, *, licence_file=False, version="1.0", headers="License: Apache-2.0"):
+    return [_dist(tmp_path / "site", "core", version, headers, licence_file=licence_file)]
+
+
+def _with_text(tmp_path, entry, data: bytes | None = _TEXT):
+    """The approvals file plus, unless ``data`` is None, the committed text beside it."""
+    if data is not None:
+        path = tmp_path / _TEXT_FILE
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+    return _approvals(tmp_path, entry)
+
+
+def test_a_signed_licence_text_supplies_the_missing_licence_file(pl, tmp_path):
+    v = pl.check_pack("p", _core(tmp_path), _with_text(tmp_path, _licence_text()))
+    assert v.ok, v.problems
+    assert v.vendored == {"LICENSES/core/LICENSE": _TEXT}
+    assert v.stale == [] and v.pending == []
+    d = v.dists[0]
+    assert d.licence_files == 0, "the dist-info count stays honest"
+    assert d.vendored_licence["reviewed_by"] == "A. Reviewer on 2026-10-21"
+    assert d.vendored_licence["sha256"] == _sha(_TEXT)
+    rep = v.report()
+    assert rep["vendored_licences"] == ["LICENSES/core/LICENSE"]
+    assert rep["distributions"][0]["vendored_licence"]["file"] == _TEXT_FILE
+
+
+def test_a_legacy_spelling_of_the_declared_licence_still_matches(pl, tmp_path):
+    v = pl.check_pack("p", _core(tmp_path, headers="License: Apache 2.0"),
+                      _with_text(tmp_path, _licence_text()))
+    assert v.ok, v.problems
+
+
+def test_a_licence_text_for_another_version_is_stale(pl, tmp_path):
+    v = pl.check_pack("p", _core(tmp_path, version="1.1"),
+                      _with_text(tmp_path, _licence_text(version="1.0")))
+    assert not v.ok and v.vendored == {}
+    assert v.problems == ["core 1.1: no licence file in its dist-info"]
+    assert len(v.stale) == 1 and "the pack now has core 1.1" in v.stale[0]
+
+
+def test_a_licence_text_whose_hash_does_not_match_is_not_used(pl, tmp_path):
+    v = pl.check_pack("p", _core(tmp_path),
+                      _with_text(tmp_path, _licence_text(), data=_TEXT + b"edited\n"))
+    assert not v.ok and v.vendored == {}
+    assert "recorded licence text not used" in v.problems[0]
+    assert f"the entry records {_sha(_TEXT)}" in v.problems[0]
+    assert len(v.stale) == 1 and "has sha256" in v.stale[0]
+
+
+def test_a_crlf_checkout_of_the_text_is_a_hash_mismatch(pl, tmp_path):
+    """Why .gitattributes pins licence-texts/ byte-exact: CRLF is different bytes."""
+    v = pl.check_pack("p", _core(tmp_path), _with_text(
+        tmp_path, _licence_text(), data=_TEXT.replace(b"\n", b"\r\n")))
+    assert not v.ok and v.vendored == {}
+
+
+def test_a_licence_text_with_an_empty_reviewed_by_is_inert_and_awaits_review(pl, tmp_path):
+    path = _with_text(tmp_path, _licence_text(by="", date=""))
+    v = pl.check_pack("p", _core(tmp_path), path)
+    assert not v.ok and v.vendored == {}
+    assert v.problems == ["core 1.0: no licence file in its dist-info "
+                          "(a licence text is recorded but awaits review)"]
+    assert v.stale == [], "a prepared entry is not an error"
+    assert len(v.pending) == 1 and "not yet reviewed" in v.pending[0]
+    assert v.report()["awaiting_review"] == v.pending
+    parsed = pl.load_approvals(path)
+    assert parsed.errors == [] and parsed.licence_texts == []
+    assert [p.kind for p in parsed.pending] == ["licence_text"]
+
+
+def test_a_whitespace_reviewed_by_is_unsigned_too(pl, tmp_path):
+    v = pl.check_pack("p", _core(tmp_path), _with_text(tmp_path, _licence_text(by="   ")))
+    assert not v.ok and v.vendored == {} and len(v.pending) == 1
+
+
+def test_a_signed_entry_needs_a_date(pl, tmp_path):
+    v = pl.check_pack("p", _core(tmp_path), _with_text(tmp_path, _licence_text(date="")))
+    assert not v.ok and v.vendored == {} and v.pending == []
+    assert any("ignored" in s and "date" in s for s in v.stale)
+
+
+def test_a_licence_text_whose_file_is_missing_is_not_used(pl, tmp_path):
+    v = pl.check_pack("p", _core(tmp_path), _with_text(tmp_path, _licence_text(), data=None))
+    assert not v.ok and v.vendored == {}
+    assert f"{_TEXT_FILE} is missing" in v.problems[0]
+    assert len(v.stale) == 1 and "is missing" in v.stale[0]
+
+
+def test_a_licence_text_never_overrides_a_shipped_licence_file(pl, tmp_path):
+    v = pl.check_pack("p", _core(tmp_path, licence_file=True),
+                      _with_text(tmp_path, _licence_text()))
+    assert v.ok, v.problems
+    assert v.vendored == {}, "the dist's own licence file is what ships"
+    assert v.dists[0].vendored_licence is None
+    assert len(v.stale) == 1 and "redundant: core ships its own licence file" in v.stale[0]
+
+
+def test_a_licence_text_for_another_licence_is_not_used(pl, tmp_path):
+    v = pl.check_pack("p", _core(tmp_path, headers="License-Expression: MIT"),
+                      _with_text(tmp_path, _licence_text(spdx="Apache-2.0")))
+    assert not v.ok and v.vendored == {}
+    assert "recorded as 'Apache-2.0' but core 1.0 declares 'MIT'" in v.problems[0]
+
+
+def test_a_licence_text_for_another_pack_is_not_this_packs_business(pl, tmp_path):
+    v = pl.check_pack("p", _core(tmp_path), _with_text(tmp_path, _licence_text(pack="q")))
+    assert not v.ok and v.vendored == {} and v.stale == []
+
+
+def test_a_licence_text_can_follow_a_clarification(pl, tmp_path):
+    clar = _approval(pack="p", dist="core", version="1.0", licence="Apache-2.0",
+                     table="clarification", by_key="reviewed_by")
+    v = pl.check_pack("p", _core(tmp_path, headers="License: Apache licensed"),
+                      _with_text(tmp_path, clar + _licence_text()))
+    assert v.ok, v.problems
+    assert v.vendored == {"LICENSES/core/LICENSE": _TEXT}
+
+
+@pytest.mark.parametrize("change, field", [
+    ({"file": "../outside/LICENSE"}, "file"),
+    ({"file": "licence-texts/../LICENSE"}, "file"),
+    ({"file": "elsewhere/LICENSE"}, "file"),
+    ({"file": "/etc/LICENSE"}, "file"),
+    ({"file": "licence-texts\\\\core\\\\LICENSE"}, "file"),
+    ({"sha256": "ABC"}, "sha256"),
+    ({"sha256": _sha(_TEXT).upper()}, "sha256"),
+])
+def test_a_malformed_licence_text_is_ignored_and_reported(pl, tmp_path, change, field):
+    v = pl.check_pack("p", _core(tmp_path), _with_text(tmp_path, _licence_text(**change)))
+    assert not v.ok and v.vendored == {}
+    assert any(s.startswith("ignored: [[licence_text]] #1") and field in s for s in v.stale)
+
+
+def test_a_licence_text_without_a_source_url_is_ignored(pl, tmp_path):
+    body = _licence_text().replace(
+        'source_url = "https://git.example/core/blob/abc/LICENSE"', 'source_url = "n/a"')
+    v = pl.check_pack("p", _core(tmp_path), _with_text(tmp_path, body))
+    assert not v.ok and any("source_url" in s for s in v.stale)
+
+
+def test_a_licence_text_symlinked_out_of_the_folder_reads_as_missing(pl, tmp_path):
+    outside = tmp_path / "outside.txt"
+    outside.write_bytes(_TEXT)
+    link = tmp_path / _TEXT_FILE
+    link.parent.mkdir(parents=True)
+    try:
+        link.symlink_to(outside)
+    except OSError:
+        pytest.skip("this platform cannot create a symlink here")
+    v = pl.check_pack("p", _core(tmp_path), _approvals(tmp_path, _licence_text()))
+    assert not v.ok and v.vendored == {}
+    assert "is missing" in v.problems[0]
+
+
+def test_an_unsigned_clarification_is_inert_and_awaits_review(pl, tmp_path):
+    site = tmp_path / "site"
+    dis = [_dist(site, "sherpa-onnx", "1.13.8",
+                 "License: Apache licensed, as found in the LICENSE file")]
+    clar = _approval(pack="diarization", dist="sherpa-onnx", version="1.13.8",
+                     licence="Apache-2.0", table="clarification", by_key="reviewed_by")
+    clar = clar.replace('reviewed_by = "A. Owner"', 'reviewed_by = ""').replace(
+        'date = "2026-10-21"', 'date = ""')
+    path = _approvals(tmp_path, clar)
+    v = pl.check_pack("diarization", dis, path)
+    assert not v.ok
+    assert v.problems[0].endswith("(a clarification is recorded but awaits review)")
+    assert v.stale == [] and len(v.pending) == 1
+    parsed = pl.load_approvals(path)
+    assert parsed.errors == [] and parsed.clarifications == []
+
+
+# --- the committed file -----------------------------------------------------------------
+
+#: Flip to True in the SAME commit in which the owner fills in `reviewed_by` and `date`
+#: of the two diarization entries in licence-approvals.toml, after reading both licence
+#: texts. Until then this file proves the diarization pack stays withheld. A coding
+#: agent never flips it and never writes a name into that file.
+DIARIZATION_LICENCES_SIGNED = False
+
+#: SHA-256 of https://www.apache.org/licenses/LICENSE-2.0.txt (11358 bytes), measured
+#: 2026-10-21; the sherpa-onnx v1.13.8 LICENSE and the sherpa-onnx 1.13.8 wheel's
+#: dist-info licence have the same bytes.
+APACHE_2_0_SHA256 = "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+
+
 def test_the_committed_approvals_file_parses_cleanly(pl):
     import tomllib
 
     parsed = pl.parse_approvals(tomllib.loads(APPROVALS.read_text(encoding="utf-8")))
     assert parsed.errors == []
     # Every recorded decision is a real one: nothing but the owner adds an approval.
-    for rec in parsed.approvals + parsed.clarifications:
+    for rec in [*parsed.approvals, *parsed.clarifications, *parsed.licence_texts]:
         assert "<" not in rec.by and "YYYY" not in rec.date
+    # Every licence text, signed or not, is committed and hashes to what is recorded.
+    for rec in [*parsed.licence_texts, *parsed.pending]:
+        if isinstance(rec, pl.LicenceText):
+            data = (APPROVALS.parent / rec.file).read_bytes()
+            assert _sha(data) == rec.sha256, rec.file
+
+
+def test_licence_texts_are_checked_out_byte_exact():
+    """Git for Windows checks text out with CRLF by default, which changes the hash."""
+    attrs = (ROOT / ".gitattributes").read_text(encoding="utf-8").splitlines()
+    assert "packaging/packs/licence-texts/** -text" in attrs
+
+
+def test_the_vendored_sherpa_onnx_core_text_is_the_standard_apache_2_0_text():
+    data = (APPROVALS.parent / "licence-texts/sherpa-onnx-core/1.13.8/LICENSE").read_bytes()
+    assert len(data) == 11358 and _sha(data) == APACHE_2_0_SHA256
+    assert data.lstrip().startswith(b"Apache License\n")
+    assert b"\r" not in data
+
+
+def _real_diarization_dists(site: Path) -> list[Path]:
+    """The two dists as their 1.13.8 METADATA reads (Linux wheels, local uv cache)."""
+    return [_dist(site, "sherpa_onnx", "1.13.8",
+                  "License: Apache licensed, as found in the LICENSE file", url=None),
+            _dist(site, "sherpa-onnx-core", "1.13.8", "License: Apache-2.0",
+                  licence_file=False, url=None)]
+
+
+def test_the_prepared_diarization_entries_hold_the_pack_until_a_person_signs(pl, tmp_path):
+    dis = _real_diarization_dists(tmp_path / "site")
+    v = pl.check_pack("diarization", dis, APPROVALS)
+    if DIARIZATION_LICENCES_SIGNED:
+        assert v.ok, v.problems
+        assert list(v.vendored) == ["LICENSES/sherpa-onnx-core/LICENSE"]
+        assert v.pending == [] and v.stale == []
+        return
+    assert not v.ok, "an agent-prepared entry must not release the pack"
+    assert v.vendored == {}
+    assert sorted(v.problems) == [
+        "sherpa-onnx-core 1.13.8: no licence file in its dist-info "
+        "(a licence text is recorded but awaits review)",
+        "sherpa_onnx 1.13.8: licence not classifiable (License (free text, not an SPDX "
+        "expression): 'Apache licensed, as found in the LICENSE file') "
+        "(a clarification is recorded but awaits review)",
+    ]
+    assert len(v.pending) == 2 and v.stale == []
+    parsed = pl.load_approvals(APPROVALS)
+    assert parsed.clarifications == [] and parsed.licence_texts == []
+    assert {(p.kind, p.dist, p.by, p.date) for p in parsed.pending} == {
+        ("clarification", "sherpa-onnx", "", ""), ("licence_text", "sherpa-onnx-core", "", "")}
+
+
+def test_the_prepared_diarization_entries_release_the_pack_once_signed(pl, tmp_path):
+    """What the owner's signature will do, rehearsed on a copy: the prepared entries are
+    complete and correct, so filling in the two fields is all that is left."""
+    import shutil
+
+    text = APPROVALS.read_text(encoding="utf-8")
+    assert text.count('reviewed_by = ""') == 2 or DIARIZATION_LICENCES_SIGNED
+    signed = text.replace('reviewed_by = ""', 'reviewed_by = "Test Signer"').replace(
+        'date = ""', 'date = "2026-10-21"')
+    copy = tmp_path / "packs" / "licence-approvals.toml"
+    copy.parent.mkdir()
+    copy.write_text(signed, encoding="utf-8")
+    shutil.copytree(APPROVALS.parent / "licence-texts", copy.parent / "licence-texts")
+    v = pl.check_pack("diarization", _real_diarization_dists(tmp_path / "site"), copy)
+    assert v.ok, v.problems
+    assert v.vendored["LICENSES/sherpa-onnx-core/LICENSE"] == (
+        APPROVALS.parent / "licence-texts/sherpa-onnx-core/1.13.8/LICENSE").read_bytes()
+    assert {d.licence_class for d in v.dists} == {"permissive"}
+    assert v.pending == [] and v.stale == []
 
 
 def test_the_gate_is_standard_library_only():
@@ -509,3 +796,49 @@ def test_spike_mode_records_the_gate_but_does_not_withhold(bp, tmp_path, monkeyp
     report = json.loads((tmp_path / "work" / "build-report.json").read_bytes())
     gate = report["packs"]["diarization"]["licence_gate"]
     assert gate["ok"] is False and "not classifiable" in gate["problems"][0]
+
+
+def _point_gate_at(bp, monkeypatch, tmp_path, *, by="A. Reviewer", date="2026-10-21"):
+    """A temporary approvals file with one licence text for the fake sherpa-onnx 1.0."""
+    approvals = tmp_path / "approvals" / "licence-approvals.toml"
+    approvals.parent.mkdir()
+    approvals.write_text("format = 1\n" + _licence_text(
+        pack="diarization", dist="sherpa-onnx", version="1.0", by=by, date=date,
+        file="licence-texts/sherpa-onnx/1.0/LICENSE"), encoding="utf-8")
+    text = approvals.parent / "licence-texts" / "sherpa-onnx" / "1.0" / "LICENSE"
+    text.parent.mkdir(parents=True)
+    text.write_bytes(_TEXT)
+    monkeypatch.setattr(bp._licence_gate(), "APPROVALS_TOML", approvals)
+
+
+def test_build_ships_a_signed_licence_text_the_runtime_accepts(bp, tmp_path, monkeypatch):
+    """A dist with no licence file: the build copies the reviewed text into
+    LICENSES/<dist>/, RECORD.json lists it, and the runtime's extractor accepts it."""
+    from yazses.packs.install import extract_archive
+
+    _point_gate_at(bp, monkeypatch, tmp_path)
+    dist = _fake_bundle(tmp_path)
+    _install_fake(monkeypatch, bp, tmp_path)
+    _rewrite_metadata(monkeypatch, bp, {"sherpa-onnx": ("License: Apache-2.0", False)})
+    assert bp.main(_argv(tmp_path, dist)) == 0
+    report = json.loads((tmp_path / "work" / "build-report.json").read_bytes())
+    entry = report["packs"]["diarization"]
+    assert entry["licence_gate"]["vendored_licences"] == ["LICENSES/sherpa-onnx/LICENSE"]
+    with zipfile.ZipFile(entry["archive"]) as zf:
+        assert zf.read("LICENSES/sherpa-onnx/LICENSE") == _TEXT
+        record = {f["path"] for f in json.loads(zf.read("RECORD.json"))["files"]}
+    assert "LICENSES/sherpa-onnx/LICENSE" in record
+    extract_archive(Path(entry["archive"]), tmp_path / "x")
+    assert (tmp_path / "x" / "LICENSES" / "sherpa-onnx" / "LICENSE").read_bytes() == _TEXT
+
+
+def test_build_withholds_when_the_licence_text_is_unsigned(bp, tmp_path, monkeypatch):
+    _point_gate_at(bp, monkeypatch, tmp_path, by="", date="")
+    dist = _fake_bundle(tmp_path)
+    _install_fake(monkeypatch, bp, tmp_path)
+    _rewrite_metadata(monkeypatch, bp, {"sherpa-onnx": ("License: Apache-2.0", False)})
+    assert bp.main(_argv(tmp_path, dist)) == 0
+    report = json.loads((tmp_path / "work" / "build-report.json").read_bytes())
+    assert "awaits review" in report["withheld"]["diarization"]
+    assert sorted(report["packs"]) == ["parakeet"]
+    assert not list((tmp_path / "out").glob("*diarization*"))

@@ -584,6 +584,17 @@ space, an apostrophe and non-ASCII characters; a long `%LOCALAPPDATA%`; cancel m
 re-fetch after a one-click update; rollback after a failed update; the all-users install;
 Chocolatey and Scoop; and, later, MSIX DLL loading from virtualised AppData.
 
+## Revision (2026-10-21, first Phase 0 spike)
+
+`packs-spike.yml` run 39631811305 (windows-latest, main c946e71e): risks (a)–(d) measured and
+passed for `diarization`; sherpa-onnx binds to the base's MS-signed onnxruntime 1.28.0 (the bind
+row's FAIL was a relative-vs-absolute path comparison in the probe, fixed in the build script).
+The out-of-process fallback (§1) is not needed. Details: the spec, *Implementation status*.
+
+## Revision (2026-10-21, sherpa-onnx embeds espeak-ng)
+
+The `diarization` pack's sherpa-onnx 1.13.8 binaries statically embed espeak-ng (GPL-3.0-or-later) although the distributions declare Apache-2.0. Q7's gate reads declared metadata only, so it cannot see this. The pack must not be released on Apache-only licence entries; it needs GPL-3.0 treatment or a TTS-free sherpa build. Until then `diarization` is PyPI-only. Evidence and options: the spec, item 14.
+
 ## Consequences
 
 **Good.** The base `.exe` stays as it is. A Windows user turns on Parakeet and gets it,

@@ -318,16 +318,47 @@ Recording a decision, in `packs/licence-approvals.toml`:
   free text, and records the SPDX expression it really is. A clarification to GPL still
   needs an approval, and no clarification excuses a missing licence file.
 
-An entry whose distribution, version or licence no longer matches is printed as stale in
-the build report and approves nothing. The file holds no entries yet.
+- `[[licence_text]]`: a distribution declares a licence but ships no licence file. Commit
+  the upstream text under `packs/licence-texts/<dist>/<version>/`, and record `pack`,
+  `dist`, `version`, `spdx`, `source_url` (a permalink at the release's commit), `file`
+  (relative to `packs/`), `sha256` (`sha256sum` of the committed file), `reviewed_by`,
+  `date`. The build copies it to `LICENSES/<dist>/` in the pack only when the version,
+  the declared licence and the hash all match and `reviewed_by` is filled in. It never
+  replaces a licence file the distribution ships (that entry is reported as redundant).
+  `.gitattributes` keeps these files byte-exact on every checkout; do not edit them.
 
-Expected on the first real build, from the metadata of the Linux 1.13.8 wheels in a local
-uv cache (the Windows wheels' METADATA has not been read): **`diarization` is withheld**,
-because `sherpa-onnx-core` has no licence file and `sherpa-onnx` declares
-`License: Apache licensed, as found in the LICENSE file`, which is not an SPDX
-expression. ADR-028 names `espeakng-loader` (`tts`, deferred) for the same reason. The gate
-reads declared metadata only; it cannot see a GPL binary vendored in a wheel that
-declares MIT.
+An entry whose distribution, version, licence, file or hash no longer matches is printed
+as stale in the build report and approves nothing.
+
+**Prepared, unsigned entries.** A `[[clarification]]` or `[[licence_text]]` may be
+committed with `reviewed_by = ""` and `date = ""`. It is listed under `awaiting_review`
+in the build report and honours nothing. That is how an agent or a contributor stages an
+entry: only a person who has read the licence fills those two fields in. An
+`[[approval]]` can never be unsigned.
+
+**Releasing `diarization` (licence side).** The first real build would withhold it:
+from the metadata of the Linux 1.13.8 wheels in a local uv cache (the Windows wheels'
+METADATA has not been read), `sherpa-onnx-core` has no licence file and `sherpa-onnx`
+declares `License: Apache licensed, as found in the LICENSE file`, which is not an SPDX
+expression. Both entries that fix this are committed, unsigned.
+
+**Do not sign these as Apache-2.0 (finding, 2026-10-21).** The sherpa-onnx 1.13.8 binaries embed espeak-ng, which is GPL-3.0-or-later: `strings` on the Linux wheels finds 137 `espeak` symbols in `libsherpa-onnx-c-api.so` and 98 in `_sherpa_onnx…so` (`espeak_Initialize`, `espeak_TextToPhonemesWithTerminator`, `espeak_CompileDictionary`; `.constprop`/`.isra` suffixes mean statically compiled in, not loaded). sherpa-onnx builds TTS in by default, so the Windows wheels very likely do too (not checked). The declared licence is therefore incomplete, and the gate cannot see it because it reads declared metadata only. Redistributing these binaries in a Windows add-on means GPL-3.0 obligations: an `[[approval]]` for GPL-3.0-or-later plus a source offer in `SOURCE.md`, or a sherpa-onnx build without TTS. Owner decision 2026-10-21: leave both entries unsigned; `diarization` stays PyPI-only (pip/uv), which is not redistribution by YazSes. This is a technical finding, not legal advice.
+
+Only if that is resolved, the steps to release it are:
+
+1. Read `packs/licence-texts/sherpa-onnx-core/1.13.8/LICENSE` and compare it with its
+   `source_url` (the repository's `LICENSE` at tag `v1.13.8`, commit `11afbd0`; it is
+   byte-identical to apache.org's `LICENSE-2.0.txt`). Read the `LICENSE` in the
+   `sherpa-onnx` 1.13.8 wheel's `.dist-info/licenses/`.
+2. In `packs/licence-approvals.toml`, put your full name in `reviewed_by` and the day in
+   `date` (YYYY-MM-DD) of both diarization entries.
+3. In the same commit, set `DIARIZATION_LICENCES_SIGNED = True` in
+   `tests/test_pack_licences.py`, then run
+   `uv run python -m pytest tests/test_pack_licences.py`.
+
+The pack still has to pass the bind probe and a real Windows build. ADR-028 names
+`espeakng-loader` (`tts`, deferred) for the missing-licence reason too. The gate reads
+declared metadata only; it cannot see a GPL binary vendored in a wheel that declares MIT.
 
 ### Nix
 

@@ -525,7 +525,12 @@ distribution in a pack as permissive, LGPL, GPL or UNKNOWN; `scripts/build-packs
 withholds the pack on UNKNOWN, a missing licence file, a copyleft distribution with no
 source URL, or GPL without a matching owner approval in
 `packaging/packs/licence-approvals.toml`. A copyleft pack carries `LICENSES/SOURCE.md`.
-The runtime does not re-check licences.
+The only stand-in for a missing licence file is a `[[licence_text]]` there: a committed
+copy under `packaging/packs/licence-texts/`, pinned by SHA-256 and copied into
+`LICENSES/<dist>/` only for the exact version, the declared licence, and a non-empty
+`reviewed_by`; it never overrides a licence file the distribution ships. **An entry with
+an empty `reviewed_by` honours nothing**, so a prepared entry cannot release a pack until
+a person signs it. The runtime does not re-check licences.
 
 ### `src/yazses/commands/`
 
