@@ -41,9 +41,26 @@ NOT_A_TOGGLE: dict[str, str] = {
 }
 
 
+#: Requirements an extra repeats purely to anchor a `[tool.uv.sources]` index -- uv
+#: applies a source only to a *direct* dependency (measured on 0.12.21: with the torch
+#: source declared and torch absent from every extra, `uv lock` left torch on pypi.org,
+#: the CUDA build, with no warning). Each is already pulled by the named package of the
+#: same extra, which a feature *does* install, and `system/deps.py` carries the index to
+#: that install -- so a toggle installs nothing less for leaving them out. Not a free
+#: pass: `test_every_anchor_is_sourced_and_already_pulled` fails the day the source or
+#: the pulling package goes away.
+ANCHORS: dict[str, str] = {
+    "torch": "speechbrain",
+    "torchaudio": "speechbrain",
+}
+
+
+def _pyproject() -> dict:
+    return tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+
+
 def _extras() -> dict[str, list[str]]:
-    data = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
-    return data["project"]["optional-dependencies"]
+    return _pyproject()["project"]["optional-dependencies"]
 
 
 def _installable() -> set[str]:
@@ -51,7 +68,7 @@ def _installable() -> set[str]:
 
 
 def _uncovered(requirements: list[str]) -> list[str]:
-    have = _installable()
+    have = _installable() | set(ANCHORS)
     return sorted({_requirement_name(r) for r in requirements} - have)
 
 
@@ -68,6 +85,30 @@ def test_every_toggle_extra_is_installed_by_some_feature(extra):
         "enable` would turn the capability on and install nothing. Add the feature's "
         "entry, or add the extra to NOT_A_TOGGLE here with the reason it is not a toggle."
     )
+
+
+@pytest.mark.parametrize("anchor,puller", sorted(ANCHORS.items()))
+def test_every_anchor_is_sourced_and_already_pulled(anchor, puller):
+    """An anchor earns its exemption twice over, and both halves are read from files:
+    it has a `[tool.uv.sources]` entry (the reason it is spelled out), and `uv.lock`
+    records it as a dependency of *puller*, which some feature installs."""
+    sources = _pyproject()["tool"]["uv"]["sources"]
+    assert anchor in sources, f"{anchor} is in ANCHORS but has no [tool.uv.sources] entry"
+    assert puller in _installable(), f"{puller} is not installed by any feature"
+    lock = (ROOT / "uv.lock").read_text(encoding="utf-8")
+    blocks = [b for b in lock.split("\n[[package]]\n") if b.startswith(f'name = "{puller}"\n')]
+    assert blocks, f"{puller} is not in uv.lock"
+    assert any(f'{{ name = "{anchor}"' in b for b in blocks), (
+        f"uv.lock no longer records {anchor} as a dependency of {puller}; the extra "
+        f"now installs {anchor} on its own account and a feature must declare it"
+    )
+    extras_with_anchor = [
+        e for e, reqs in _extras().items() if anchor in {_requirement_name(r) for r in reqs}
+    ]
+    for extra in extras_with_anchor:
+        assert puller in {_requirement_name(r) for r in _extras()[extra]}, (
+            f"[{extra}] lists the anchor {anchor} without {puller}, the package it rides on"
+        )
 
 
 @pytest.mark.parametrize("extra", sorted(NOT_A_TOGGLE))

@@ -93,17 +93,27 @@ feature fetches weights whose size is not established here, so the figure is a f
 Every number is `yazses features`' own, so the page and the command cannot drift —
 `tests/test_install_cost_page_matches_the_tool.py` fails the build if they do.
 
-!!! warning "The voiceprint features cost 3.1 GB, and it is worth knowing why"
+!!! warning "The voiceprint features are the heavy ones, and it is worth knowing why"
 
     `cocktail`, `multiprofile` and `voiceguard` all need a speaker-embedding model, and
-    the default backend (`speechbrain`) resolves to **PyTorch and the full NVIDIA CUDA
-    stack** — cuDNN, NCCL, cuSPARSE, cuSOLVER — none of which YazSes uses, because
-    everything here runs on the CPU. That is a dependency of a dependency, not a choice
-    this project makes, and it is **7× the size of YazSes itself**.
+    the default backend (`speechbrain`) resolves to **PyTorch**. On Linux, PyPI's PyTorch
+    is the CUDA build, and the figure in the table was measured that way: PyTorch plus
+    the full NVIDIA CUDA stack — cuDNN, NCCL, cuSPARSE, cuSOLVER — none of which YazSes
+    uses, because everything here runs on the CPU. That was a dependency of a dependency,
+    not a choice this project made, and it was **7× the size of YazSes itself**.
 
-    If you want speaker features without it, `[voiceprint] backend = "resemblyzer"` is
-    the lighter alternative. Otherwise, leave them off — all three are off by default
-    and `cocktail` is experimental besides.
+    Since 2026-10-21 YazSes installs the torch stack on Linux from the PyTorch project's
+    **CPU-only wheel index** instead: `yazses features enable cocktail` (and the other
+    two) passes that index to the installer, and a source checkout's `uv sync --extra
+    voiceprint` resolves it from the lockfile, so the 15 `nvidia-*` packages are no
+    longer downloaded. A bare `pip install "yazses[voiceprint]"` reads neither; on Linux
+    add `--extra-index-url https://download.pytorch.org/whl/cpu` to it yourself. The
+    table above still shows the pre-change measurement until the Linux figure is
+    re-measured; macOS was always CPU-only on PyPI and is unaffected.
+
+    If you want speaker features without PyTorch at all, `[voiceprint] backend =
+    "resemblyzer"` is the lighter alternative. Otherwise, leave them off — all three are
+    off by default and `cocktail` is experimental besides.
 
 These are **download** sizes for the fully resolved dependency set, measured on Linux
 x86_64 against a clean base install, so they will not match a `du` afterwards. A feature
