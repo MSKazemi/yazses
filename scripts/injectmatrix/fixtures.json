@@ -1,0 +1,255 @@
+{
+  "fixture_set_version": "1",
+  "about": "Strings for the Persian injection matrix (#517). Synthetic or copied from contract/vectors; never dictated by a person. Invisible characters are written as \\u escapes so the file can be reviewed. Changing any text requires bumping fixture_set_version.",
+  "fixtures": [
+    {
+      "id": "en-control",
+      "categories": [
+        "control"
+      ],
+      "text": "kubectl get pods --namespace prod && cat src/main.py",
+      "source": "synthetic",
+      "why": "ASCII flags, an operator and a path: if this fails, the harness or the focus is wrong, not Unicode handling. Same string as scripts/appprobe/probe.sh."
+    },
+    {
+      "id": "fa-plain",
+      "categories": [
+        "persian"
+      ],
+      "text": "سلام دنیا",
+      "source": {
+        "file": "contract/vectors/clean_text.json",
+        "case": "rtl-persian-preserved",
+        "field": "expected"
+      },
+      "why": "Two Persian words and one space: the smallest RTL case."
+    },
+    {
+      "id": "fa-zwnj",
+      "categories": [
+        "persian",
+        "zwnj"
+      ],
+      "text": "می\u200cخواهم خانه\u200cها",
+      "source": {
+        "file": "contract/vectors/clean_text.json",
+        "case": "zwnj-word-joiner-preserved",
+        "field": "expected"
+      },
+      "why": "ZWNJ (U+200C) inside two words. A backend that drops it joins the letters; one that turns it into a space splits the word."
+    },
+    {
+      "id": "fa-double-zwnj",
+      "categories": [
+        "persian",
+        "zwnj"
+      ],
+      "text": "می\u200c\u200cخواهم",
+      "source": {
+        "file": "contract/vectors/clean_text.json",
+        "case": "double-zwnj-preserved",
+        "field": "expected"
+      },
+      "why": "Two ZWNJ in a row must arrive as two, not be collapsed."
+    },
+    {
+      "id": "fa-boundary-zwnj",
+      "categories": [
+        "persian",
+        "zwnj"
+      ],
+      "text": "\u200cسلام دنیا\u200c",
+      "source": {
+        "file": "contract/vectors/clean_text.json",
+        "case": "boundary-zwnj-not-whitespace",
+        "field": "expected"
+      },
+      "why": "ZWNJ at the very start and end of the burst, where trimming code is most likely to eat it."
+    },
+    {
+      "id": "fa-arabic-variants",
+      "categories": [
+        "persian"
+      ],
+      "text": "ک ك ی ي",
+      "source": {
+        "file": "contract/vectors/clean_text.json",
+        "case": "arabic-kaf-yeh-mix-preserved",
+        "field": "expected"
+      },
+      "why": "Persian kaf/yeh next to their Arabic look-alikes. A keyboard-layout or normalisation step that maps one to the other changes the text while looking identical."
+    },
+    {
+      "id": "fa-en-product-names",
+      "categories": [
+        "persian",
+        "mixed",
+        "zwnj"
+      ],
+      "text": "من با VS Code و YazSes کار می\u200cکنم",
+      "source": {
+        "file": "contract/vectors/clean_text.json",
+        "case": "persian-with-english-product-names-preserved",
+        "field": "expected"
+      },
+      "why": "Latin product names embedded in a Persian sentence, plus a ZWNJ word."
+    },
+    {
+      "id": "fa-email-path",
+      "categories": [
+        "persian",
+        "mixed",
+        "url-path",
+        "punctuation"
+      ],
+      "text": "ایمیل من user@example.com است؛ مسیر /usr/local/bin/yazses را ببینید",
+      "source": {
+        "file": "contract/vectors/clean_text.json",
+        "case": "email-and-path-inside-persian-preserved",
+        "field": "expected"
+      },
+      "why": "An email address and a POSIX path inside Persian, with the Persian semicolon."
+    },
+    {
+      "id": "fa-url",
+      "categories": [
+        "persian",
+        "mixed",
+        "url-path"
+      ],
+      "text": "به https://example.com/actually مراجعه کنید",
+      "source": {
+        "file": "contract/vectors/disfluency.json",
+        "case": "url-filler-segment-in-persian-sentence-preserved",
+        "field": "expected"
+      },
+      "why": "A URL between Persian words."
+    },
+    {
+      "id": "fa-persian-digits",
+      "categories": [
+        "persian",
+        "digits"
+      ],
+      "text": "برو به خط ۴۲",
+      "source": {
+        "file": "contract/vectors/grammar.json",
+        "case": "persian-command-phrasing-is-dictation",
+        "field": "expected.raw_text"
+      },
+      "why": "Extended Arabic-Indic (Persian) digits as dictated."
+    },
+    {
+      "id": "fa-mixed-digits",
+      "categories": [
+        "persian",
+        "digits",
+        "punctuation"
+      ],
+      "text": "نسخه 2.43.1 در سال ۱۴۰۵ و شماره ٤٢",
+      "source": "synthetic",
+      "why": "ASCII, Persian (U+06F0..) and Arabic-Indic (U+0660..) digits in one burst. A backend that maps digits through the keyboard layout converts one family into another."
+    },
+    {
+      "id": "fa-punctuation-spliced",
+      "categories": [
+        "persian",
+        "punctuation"
+      ],
+      "text": "سلام، روز خوبی? هست؟",
+      "source": {
+        "file": "contract/vectors/voice_punctuation.json",
+        "case": "question-mark-spliced-into-rtl-sentence",
+        "field": "expected"
+      },
+      "why": "Persian comma and question mark next to an ASCII question mark."
+    },
+    {
+      "id": "fa-punctuation-quotes",
+      "categories": [
+        "persian",
+        "punctuation",
+        "zwnj"
+      ],
+      "text": "او گفت: «فردا می\u200cآیم»؛ آیا مطمئنی؟ (بله!)",
+      "source": "synthetic",
+      "why": "Guillemets, colon, Persian semicolon and question mark, and parentheses, which bidi rendering mirrors on screen but must not change in the code points."
+    },
+    {
+      "id": "fa-bidi-controls",
+      "categories": [
+        "persian"
+      ],
+      "text": "\u202bسلام دنیا\u202c",
+      "source": {
+        "file": "contract/vectors/clean_text.json",
+        "case": "bidi-controls-preserved",
+        "field": "expected"
+      },
+      "why": "Explicit RLE/PDF bidi controls are invisible; they must survive injection unchanged."
+    },
+    {
+      "id": "fa-emoji",
+      "categories": [
+        "persian",
+        "emoji"
+      ],
+      "text": "خیلی عالی بود 🚀 دستت درد نکنه 🙏",
+      "source": {
+        "file": "contract/vectors/clean_text.json",
+        "case": "persian-with-emoji-preserved",
+        "field": "expected"
+      },
+      "why": "Astral-plane emoji (U+1F680, U+1F64F) between Persian words: one code point, two UTF-16 units."
+    },
+    {
+      "id": "fa-emoji-sequences",
+      "categories": [
+        "persian",
+        "emoji"
+      ],
+      "text": "کار 👩\u200d💻 تمام شد ❤\ufe0f 👍🏽",
+      "source": "synthetic",
+      "why": "A ZWJ sequence, a variation selector and a skin-tone modifier: each is several code points that render as one glyph, so a visual check cannot catch a dropped part."
+    },
+    {
+      "id": "fa-multiline",
+      "categories": [
+        "persian",
+        "mixed",
+        "multiline",
+        "digits"
+      ],
+      "text": "خط اول\nخط دوم با English\nخط سوم ۳",
+      "source": "synthetic",
+      "why": "Three lines. A newline must arrive as one U+000A, not CRLF, not a space, not nothing."
+    },
+    {
+      "id": "fa-multiline-paths",
+      "categories": [
+        "persian",
+        "mixed",
+        "multiline",
+        "url-path",
+        "punctuation"
+      ],
+      "text": "مسیر:\nC:\\Users\\test\\سند.txt\n~/پروژه/main.py",
+      "source": "synthetic",
+      "why": "A Windows path with backslashes and a Persian file name, then a home-relative path with a Persian directory."
+    },
+    {
+      "id": "fa-long-paragraph",
+      "categories": [
+        "persian",
+        "punctuation"
+      ],
+      "text": "این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است. این یک متن طولانی به زبان فارسی است که برای آزمایش قراردادهای چندسکویی در نظر گرفته شده است.",
+      "source": {
+        "file": "contract/vectors/clean_text.json",
+        "case": "long-persian-paragraph-trailing-space-stripped",
+        "field": "expected"
+      },
+      "why": "A long paragraph: a backend that chunks its input must not drop or duplicate characters at a chunk boundary."
+    }
+  ]
+}
