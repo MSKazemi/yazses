@@ -150,6 +150,10 @@ an enabled feature's libraries must be kept.
 - Not verified: the pipx and pip repair commands were not run, and Windows and macOS were
   not tested.
 
+`yazses update` and the tray now print the upgrade command quoted for pasting: a requirement
+such as `onnx-asr[cpu,hub]>=0.12` used to be printed bare, which a shell reads as a
+redirection to a file named `=0.12`.
+
 ### Fixed — the one-click Windows update never ran the installer (unreleased feature)
 
 The first real run of the update hand-off on a Windows machine (CI, `windows-latest`) showed

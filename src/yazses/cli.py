@@ -4619,7 +4619,10 @@ def update(
             typer.echo("Reinstalling OpenCV (cv2) in the same step, so it keeps working.")
         if "--with" in (status.command or []):
             typer.echo("Keeping your enabled features' libraries through the upgrade.")
-    typer.echo(f"Command: {' '.join(status.command or [])}")
+    from yazses.system.remedy import render_command
+
+    # Quoted: `--with mediapipe>=0.10` pasted unquoted is a shell redirection.
+    typer.echo(f"Command: {render_command(status.command or [])}")
 
     if check:
         typer.echo("\n(--check) Not installing. Re-run without --check to update.")
@@ -4715,7 +4718,9 @@ def _one_click_update(status, launcher, *, check: bool, yes: bool) -> None:
             typer.echo(ALL_USERS_NOTE)
     else:
         argv, elevate, _capture = package_manager_argv(status.method)
-        typer.echo(f"Command: {' '.join(argv)}  (run after YazSes closes, then it restarts)")
+        from yazses.system.remedy import render_command
+
+        typer.echo(f"Command: {render_command(argv)}  (run after YazSes closes, then it restarts)")
         if elevate:
             typer.echo("Chocolatey needs administrator rights; Windows will ask.")
 

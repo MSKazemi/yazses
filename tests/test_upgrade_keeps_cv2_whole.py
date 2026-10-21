@@ -400,7 +400,11 @@ def test_cli_settings_tray_and_the_run_all_use_the_same_command(
     # 1. `yazses update --check` prints it.
     result = CliRunner().invoke(cli.app, ["update", "--check"])
     assert result.exit_code == 0, result.output
-    assert f"Command: {' '.join(expected)}" in result.output
+    from yazses.system.remedy import render_command
+
+    assert f"Command: {render_command(expected)}" in result.output
+    # Pasteable: a requirement with `>=` or `[...]` is quoted, never bare in a shell.
+    assert f'"{_PARAKEET[0]}"' in result.output
     assert "Reinstalling OpenCV" in result.output
     assert "Keeping your enabled features" in result.output
 
