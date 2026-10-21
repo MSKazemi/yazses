@@ -5,9 +5,9 @@ description: YazSes reported 'Update installed', you restarted, and it came back
 
 # The update said it worked, but the version did not change
 
-You ran `yazses update` (or clicked **Check for updates…** in the tray), it said the
-update was installed, you restarted the daemon — and it came back on exactly the
-version you had. Possibly more than once.
+You ran `yazses update` (or clicked **Check for updates…** in the tray, or **Install
+update…** in the Settings window), it said the update was installed, you restarted the
+daemon — and it came back on exactly the version you had. Possibly more than once.
 
 Nothing is corrupted, and nothing needs uninstalling. **The upgrade command ran, did
 nothing, and reported success.** This page is the way out.
