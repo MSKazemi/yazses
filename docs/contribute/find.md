@@ -1,12 +1,13 @@
 ---
 title: Find a task that fits you
-description: Filter 155 open YazSes contributor tasks by what you have — a browser, a laptop, specific hardware — how much time, and whether you want to write code.
+description: Filter 154 open YazSes contributor tasks by what you have — a browser, a laptop, specific hardware — how much time, and whether you want to write code.
 ---
 
 # Find a task that fits you
 
 Filter by what you actually have. Nothing is assigned and you need no permission — pick one,
-say so on the issue it links to, and open the pull request.
+say so in your pull request's first line (or on [#22](https://github.com/MSKazemi/yazses/issues/22))
+so nobody doubles up, and open the pull request.
 [How to make your first contribution](start.md) if you want the short version.
 
 Coding agents are optional. "Cloud-ready" means the task can run in that environment; it does
@@ -38,7 +39,7 @@ Coding agents are optional. "Cloud-ready" means the task can run in that environ
   </label>
 </div>
 
-<p id="yz-count"><strong>155</strong> tasks shown.</p>
+<p id="yz-count"><strong>154</strong> tasks shown.</p>
 
 <table class="yz-table">
 <thead><tr><th>Task</th><th>You need</th><th>Skills</th></tr></thead>
@@ -162,7 +163,6 @@ Coding agents are optional. "Cloud-ready" means the task can run in that environ
 <tr class="yz-row" data-env="local" data-family="localization" data-minutes="45" data-skills="no coding" data-text="translate readme module 2 (quick start) into chinese, simplified a local clone"><td><strong>Translate README module 2 (Quick Start) into Chinese, Simplified</strong><br><code>I18N-ZHCN-M2</code> · L1 · 45 min</td><td>a local clone</td><td>no coding</td></tr>
 <tr class="yz-row" data-env="cloud" data-family="qa-fixture" data-minutes="45" data-skills="python" data-text="add cjk cleaner regressions for han text, ascii names, numbers, and chinese punctuation a browser or container"><td><strong>Add CJK cleaner regressions for Han text, ASCII names, numbers, and Chinese punctuation</strong><br><code>CHN-QA-CJK-CLEANER-001</code> · L2 · 45 min</td><td>a browser or container</td><td>python</td></tr>
 <tr class="yz-row" data-env="cloud" data-family="qa-fixture" data-minutes="60" data-skills="python" data-text="add a failing regression test for meeting mode counting contiguous han text as one word a browser or container"><td><strong>Add a failing regression test for Meeting Mode counting contiguous Han text as one word</strong><br><code>CHN-QA-MEETING-CJK-001</code> · L2 · 60 min</td><td>a browser or container</td><td>python</td></tr>
-<tr class="yz-row" data-env="cloud" data-family="qa-fixture" data-minutes="60" data-skills="python" data-text="turn into a minimal failing test: streaming character duplication (#153) a browser or container"><td><strong>Turn into a minimal failing test: streaming character duplication (#153)</strong><br><code>QA-001</code> · L2 · 60 min</td><td>a browser or container</td><td>python</td></tr>
 <tr class="yz-row" data-env="cloud" data-family="qa-fixture" data-minutes="60" data-skills="python" data-text="turn into a minimal failing test: a config file that crashes the loader a browser or container"><td><strong>Turn into a minimal failing test: a config file that crashes the loader</strong><br><code>QA-002</code> · L2 · 60 min</td><td>a browser or container</td><td>python</td></tr>
 <tr class="yz-row" data-env="cloud" data-family="qa-fixture" data-minutes="60" data-skills="python" data-text="turn into a minimal failing test: a voice grammar that matches a suffix it should not a browser or container"><td><strong>Turn into a minimal failing test: a voice grammar that matches a suffix it should not</strong><br><code>QA-003</code> · L2 · 60 min</td><td>a browser or container</td><td>python</td></tr>
 <tr class="yz-row" data-env="cloud" data-family="qa-fixture" data-minutes="60" data-skills="python" data-text="turn into a minimal failing test: an injection backend timing out on long text a browser or container"><td><strong>Turn into a minimal failing test: an injection backend timing out on long text</strong><br><code>QA-004</code> · L2 · 60 min</td><td>a browser or container</td><td>python</td></tr>
