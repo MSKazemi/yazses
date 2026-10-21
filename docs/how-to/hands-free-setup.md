@@ -103,8 +103,8 @@ before you turn anything on, and any value you write yourself wins.
    ```
 
 6. **Arm it.** Hands-free starts **paused**, and the first arming needs a fresh signal from the camera,
-   so nothing moves the instant the camera comes up. Re-arm from any terminal, the tray, or the hands-free
-   controls in the settings window:
+   so nothing moves the instant the camera comes up. Re-arm from any terminal, or from Tray →
+   **Settings…** → **Hands-free controls…**:
 
    ```bash
    yazses handsfree resume

@@ -18,10 +18,10 @@ where you choose, not only where you pay.
 ```console
 $ yazses features
 │         NAME                             TOGGLE NAME            DOWNLOAD  ADVICE
-│  ● ON   Voice-activity overlay           overlay                ~256 MB   recommended (on by default)
+│  ○ off  Voice-activity overlay           overlay                ~268 MB   optional
 │  ○ off  Read-Back Loop                   read-back              ~352 MB   optional
-│  ○ off  Glance-Type (camera)             gaze                   ~223 MB   experimental — not advised yet
-│  ○ off  Cocktail Filter (voice focus)    cocktail               ~3.1 GB   experimental — not advised yet
+│  ○ off  Glance-Type (camera)             gaze                   ~227 MB   experimental — not advised yet
+│  ○ off  Cocktail Filter (voice focus)    cocktail               ~3.4 GB   experimental — not advised yet
 │  ○ off  Dictation Reflow                 reflow                           optional
 ```
 
@@ -36,11 +36,11 @@ The two arrive at different times, which is why `yazses features enable` names t
 separately: the packages land while you wait on the command, the model on the first
 run afterwards.
 
-!!! warning "Two engines are not priced here"
+!!! note "Engine models"
 
-    `stt-parakeet` and `stt-moonshine` fetch their weights through their own
-    libraries rather than through YazSes, so the column covers their packages only.
-    Both models are substantial — expect a further download on first use.
+    `stt-parakeet`'s figure (~604 MB) includes its ~600 MB model. `stt-moonshine`
+    shows `+` because its model size is not known, so expect a further download on
+    first use.
 
 A blank cell means there is nothing to download. Most capabilities are blank:
 `reflow`, `undo`, `commands` and the rest are pure logic that ships in the base
@@ -62,7 +62,7 @@ Sizes are read from a table that ships inside the package. Listing capabilities 
 touches the network
 ([ADR-011](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-011.md)).
 
-## The three tiers
+## The tiers
 
 The **ADVICE** column says how much you should want each one:
 
@@ -74,10 +74,10 @@ The **ADVICE** column says how much you should want each one:
 | `experimental — not advised yet` | works, but has a known sharp edge; `enable` refuses without `--force` |
 | `planned — designed, not yet wired` | in the catalogue so it is honest, not yet callable |
 
-Nothing in the recommended tier is expensive except the tray and overlay, which share
-one Qt install (~256 MB) and give you the on-screen state that makes dictation
-legible. On a headless or memory-tight machine, turn both off and the Qt dependency
-is never fetched:
+Nothing in the recommended tier is expensive except the tray (~268 MB of Qt, shared
+with the optional overlay), which gives you the on-screen state that makes dictation
+legible. The overlay has been off by default since v2.41.0. On a headless or
+memory-tight machine, turn both off and the Qt dependency is never fetched:
 
 ```bash
 yazses features disable tray
@@ -110,8 +110,8 @@ yazses features enable gaze --no-install
 
 - **Ask what it costs first** — `yazses features --category access` or `--tier opt`
   narrows the table to the group you are considering.
-- **Prefer the smaller engine.** `stt-parakeet` is ~4 MB of packages on top of what
-  you have — its weights come down separately on first use — and it is more accurate
+- **Know what an engine really costs.** `stt-parakeet` is ~4 MB of packages on top of
+  what you have plus a ~600 MB model on first use, and it is more accurate
   than `whisper-large-v3` on English; see
   [choosing a model](low-ram-models.md) for the memory side of that decision.
 - **Turn things back off.** `yazses features disable <name>` stops loading the

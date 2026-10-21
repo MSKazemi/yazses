@@ -22,13 +22,14 @@ to verify the claim rather than take it on trust.
 | The Whisper model | first use of each model | copy the cache directory |
 | Diarization models | first `--diarize` only | copy the data directory |
 | The package itself | install | `pip download` on a connected machine |
-| **Anything else** | never | — |
+| Optional feature models (read-back voice, camera face model, Parakeet/Moonshine, Cocktail voiceprint) and feature packages | first enable / first use | enable and use each once on the connected machine, then copy the caches |
+| **Anything else** | never, unless you enable `[general] update_check` | — |
 
 There is no telemetry, no update check on the dictation path, and no cloud
 inference. The one place a remote endpoint can be configured — the optional LLM
 cleanup — **refuses a non-loopback address** unless you explicitly opt out with
-`[filters.disfluency] llm_allow_remote_endpoint`, and the daemon warns on every
-start while that is on.
+`[filters.disfluency] llm_allow_remote_endpoint`, and `yazses doctor` reports it
+as a WARN for as long as that is on.
 
 ## Step 1 — fetch the models on a connected machine
 
@@ -136,16 +137,20 @@ yazses restart && yazses status
 
 ## What to turn off
 
-Nothing on the dictation path reaches out. One optional feature would, if enabled:
+Nothing on the dictation path reaches out. Two optional settings would, if enabled:
 
 ```toml
 [filters.disfluency]
 llm_enabled = false                # or point it at 127.0.0.1 and keep the guard on
+
+[general]
+update_check = false               # the default
 ```
 
-That is the whole list. There is **no update-check setting to disable**, because
-there is no automatic update check: `yazses update` contacts PyPI or the Snap Store
-only when you run it, and is never called on your behalf.
+Leave `[general] update_check` at its default, `false`: it is the only thing in
+YazSes that reaches out on its own, and only if you turned it on (`yazses features
+enable update-check`). `yazses update` contacts PyPI, GitHub Releases or the Snap
+Store only when you run it.
 
 ## What is not covered here
 

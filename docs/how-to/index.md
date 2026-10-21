@@ -24,6 +24,16 @@ self-contained — pick the one that matches what you want to do.
 | [Transcribe recordings to text](../tutorials/transcribe-recordings.md) | Turn an existing audio/video file into text — offline, with speaker labels. |
 | [Tune for speed and accuracy](performance-tuning.md) | Choose the STT model, set the VAD threshold, and manage CPU load. |
 | [The update said it worked but the version did not change](update-did-nothing.md) | A package manager can exit 0 without upgrading anything — the reinstall command per install method. |
+| [Stop a misheard command from running](command-safety.md) | Hold `rm -rf`, `mkfs`, `curl \| sh` until you say confirm — on in a fresh install. |
+| [Over SSH and in Remote-SSH editors](ssh-and-remote.md) | Why dictation into an SSH session needs no setup, and when the remote agent is needed. |
+| [Install only what you need](install-only-what-you-need.md) | Read the DOWNLOAD column before you turn a capability on, and keep an install small. |
+| [Choose a model on a low-RAM machine](low-ram-models.md) | Measured memory per Whisper model, and which features load a model of their own. |
+| [Reduce CPU use and battery drain](cpu-and-battery.md) | What dictation costs on a laptop, and the settings that actually lower it. |
+| [Run fully air-gapped](air-gapped.md) | Which files YazSes downloads, how to carry them to an offline machine, and how to check nothing phones home. |
+| [Fix "Silent audio -- discarding"](silent-audio-discarding.md) | Set the voice-activity threshold with `yazses mic-level`, or find the muted microphone. |
+| [Dictation types into the wrong window](wrong-window.md) | The causes, the no-text-target guard, and precise detection with AT-SPI on Linux. |
+| [The tray icon does not appear](tray-icon-missing.md) | The AppIndicator requirement, the tray's own error log, and what each desktop needs. |
+| [Dictation stopped after a distro upgrade](after-a-distro-upgrade.md) | A moved Python, a switch to Wayland, lost input-group access, or a stopped `ydotoold`. |
 
 ## See also
 

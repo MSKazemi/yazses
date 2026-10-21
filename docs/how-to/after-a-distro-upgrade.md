@@ -46,6 +46,10 @@ uv tool upgrade --reinstall yazses
 rm -rf .venv && uv sync
 ```
 
+A rebuild keeps only what the installer's own record lists, so the libraries of any
+feature you had switched on can disappear with it. Then run `yazses features install`
+to put them back.
+
 !!! warning "`evdev` needs a compiler, and the upgrade may have removed it"
 
     `evdev` publishes no wheels, so every Linux install compiles it. If the

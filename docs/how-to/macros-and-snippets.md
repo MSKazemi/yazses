@@ -82,9 +82,11 @@ A broken macro entry is skipped and logged — it never breaks the daemon.
 ## Voice Snippets
 
 For simple text expansions without a separate file, use `[snippets]` in
-`config.toml`:
+`config.toml`. Snippets run in command mode, so bind a command key first (any key
+other than your dictation key):
 
 ```bash
+yazses hotkey command right_ctrl
 yazses features enable snippets
 ```
 
@@ -101,7 +103,8 @@ enabled = true
 yazses restart
 ```
 
-Say **`insert my signature`** and YazSes types the stored template.
+Hold the **command key** and say **`insert my signature`** — YazSes types the stored
+template. Said on the dictation key, the same words are typed as text.
 
 !!! warning "Write the trigger *without* the verb"
 
