@@ -334,9 +334,17 @@ agent = [
 # older torch that conflicts with a unified resolution, so it is intentionally
 # NOT declared — install it manually (`pip install "l2cs>=2.0"`) only if you set
 # `[gaze] backend = "l2cs"`. Gaze deps are imported lazily; absent → dormant.
+#
+# OpenCV is `opencv-contrib-python`, never `opencv-python`: mediapipe requires the
+# contrib build, and the two are separate distributions that write the same `cv2/`
+# package. Declaring the plain build here installed both -- about 70 MB twice, with
+# `cv2` belonging to whichever installed last. Contrib is a superset of the plain
+# build. It is declared rather than left to mediapipe because YazSes imports `cv2`
+# itself. tests/test_one_opencv_distribution.py fails on any extra whose locked
+# closure holds two OpenCV builds.
 gaze = [
     "mediapipe>=0.10.35",
-    "opencv-python>=5.0",
+    "opencv-contrib-python>=5.0",
 ]
 # "Just give me the lot." This list is the union of every other extra minus exactly one
 # exclusion, and tests/test_the_all_extra_is_the_union_it_claims.py computes that equality
@@ -382,7 +390,7 @@ all = [
     "sherpa-onnx>=1.13.6",
     "sherpa-onnx-core>=1.13.6",
     "mediapipe>=0.10.35; sys_platform != 'darwin' or platform_machine != 'x86_64'",
-    "opencv-python>=5.0",
+    "opencv-contrib-python>=5.0",
     "opencc-python-reimplemented>=0.1.7",
     "brainflow>=5.22.2",
     "noisereduce>=3.0.3",

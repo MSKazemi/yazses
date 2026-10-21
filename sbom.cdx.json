@@ -1854,20 +1854,6 @@
     },
     {
       "type": "library",
-      "name": "opencv-python",
-      "version": "5.0.0.93",
-      "purl": "pkg:pypi/opencv-python@5.0.0.93",
-      "bom-ref": "pkg:pypi/opencv-python@5.0.0.93",
-      "scope": "optional",
-      "hashes": [
-        {
-          "alg": "SHA-256",
-          "content": "66aac3e5b5faa48d4025816592f3af19e4bfc2c68dec067bae2dbb4ca10aa9e2"
-        }
-      ]
-    },
-    {
-      "type": "library",
       "name": "opentelemetry-api",
       "version": "1.44.0",
       "purl": "pkg:pypi/opentelemetry-api@1.44.0",
