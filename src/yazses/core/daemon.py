@@ -34,6 +34,7 @@ if TYPE_CHECKING:
     from yazses.endpoint.autostop import AutoStopTurn
     from yazses.gaze.refine_runtime import RefinementRuntime
     from yazses.gaze.targeter import GazeTargeter
+    from yazses.hesitation.stream import HesitationMonitor
     from yazses.inject.target import TargetDetector
     from yazses.latency.pool import EnginePool
     from yazses.learning.capture import CorpusWriter
@@ -341,6 +342,8 @@ class Daemon:
     #: Class-level for the same partial-daemon reason as the attributes above; while it is
     #: None the two hold handlers behave exactly as they always have.
     _autostop: AutoStopTurn | None = None
+    #: Hesitation-hold (ADR-v2-101): the filled-pause judge of a latched turn, or None.
+    _hesitation: HesitationMonitor | None = None
 
     def __init__(
         self,
@@ -2444,14 +2447,27 @@ class Daemon:
         nothing from ``yazses.endpoint`` (tests/test_default_start_stays_light.py).
         """
         if not cfg.autostop.enabled:
+            if cfg.hesitation.enabled:
+                # [hesitation] only extends a hands-free turn: build_monitor logs why it is inert.
+                from yazses.hesitation.handsfree import build_monitor
+
+                build_monitor(cfg.hesitation, cfg.autostop, cfg.audio.sample_rate)
             return None
         from yazses.endpoint.autostop import AutoStopTurn
+
+        # ADR-v2-101: [hesitation] only lengthens this turn's silence timeout after a
+        # filled pause. Imported only when enabled; None keeps the plain threshold.
+        if cfg.hesitation.enabled:
+            from yazses.hesitation.handsfree import build_monitor
+
+            self._hesitation = build_monitor(cfg.hesitation, cfg.autostop, cfg.audio.sample_rate)
+        judge = self._hesitation.decision if self._hesitation is not None else None
 
         if cfg.autostop.mode != "silence":
             log.info("[autostop] mode = %r: the semantic end-of-turn model is not shipped; "
                      "using the silence timeout.", cfg.autostop.mode)
         log.info("Hands-free auto-stop enabled: tap the hotkey once, then speak.")
-        return AutoStopTurn(cfg.autostop, tap_ms=cfg.hotkey.hold_threshold_ms)
+        return AutoStopTurn(cfg.autostop, tap_ms=cfg.hotkey.hold_threshold_ms, endpoint=judge)
 
     def _autostop_defer_end(self) -> bool:
         """True when this key release was a tap that latched the turn open (nothing ends)."""
@@ -2493,6 +2509,8 @@ class Daemon:
     def _on_hold_start(self, leaked: int) -> None:
         if self._autostop is not None and self._autostop.press(time.monotonic()):
             return  # a second tap while latched: its release ends the turn
+        if self._hesitation is not None:
+            self._hesitation.reset()  # ADR-v2-101: each turn's filled-pause verdict starts empty
         # Barge-in: a new hold during read-back cancels TTS playback immediately
         # so the user's speech is never recorded over the spoken transcript. The
         # sequence is bumped first and under the lock, so a read-back that has been
@@ -3823,6 +3841,9 @@ class Daemon:
                 self._state.audio_level = float(np.abs(chunk).mean())
         if self._streaming_active and self._stream_engine is not None:
             self._stream_engine.push(chunk)
+        # ADR-v2-101: queue only (a copy under a short lock); YIN runs on the watcher thread.
+        if self._hesitation is not None and self._autostop is not None and self._autostop.latched:
+            self._hesitation.push(chunk)
 
     # ---- Audio-input resilience (device change + silent-streak) -------------
 

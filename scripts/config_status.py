@@ -72,8 +72,6 @@ KNOWN_UNREAD = {
     # `[polyglot] lid` names a language-ID granularity for a router that stays dormant
     # until `[polyglot] adapter_path` points at a trained adapter that is not shipped.
     "GazeConfig.zones",
-    "HesitationConfig.commit_ms",
-    "HesitationConfig.hold_extra_ms",
     "HotkeyConfig.evdev_device",
     "HotwordsConfig.boost",
     "LipreadConfig.mouth_threshold",
