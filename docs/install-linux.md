@@ -417,7 +417,9 @@ yazses autostart status    # will YazSes be running after the next reboot?
 yazses doctor              # includes a "Starts at login" check
 ```
 
-`yazses autostart disable` turns it off again.
+`yazses autostart disable` turns it off again, and it stays off: a later `yazses start`
+does not turn it back on, and `doctor` shows it as your choice rather than a problem.
+`yazses autostart enable` reverses it.
 
 The service restarts YazSes automatically if it ever crashes — verified by killing it
 outright, it is back within about five seconds — and gives up after five failures in a

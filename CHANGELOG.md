@@ -178,6 +178,17 @@ the installer writes. An entry already written the old way is fixed the next tim
 changed; any other value is left alone. Reproduced and checked on Windows 11 22H2 with the
 Scoop install of 2.43.2.
 
+### Fixed — `yazses autostart disable` stays disabled
+
+`yazses start` turns on start-at-login when it is missing, so an install that never set
+it up survives a reboot. It could not tell a missing setup from a choice, though, so after
+`yazses autostart disable` the next `yazses start` turned it straight back on, and told
+you to run `yazses autostart disable` to undo it. `yazses doctor` reported the same choice
+as "1 problem to fix" on every run. The choice is now remembered (a small `autostart-off`
+file in the YazSes data folder). `yazses start` leaves autostart off, `doctor` shows the
+row as skipped with the command to turn it back on, and `yazses autostart status` says
+you turned it off. `yazses autostart enable` reverses all of it. On every platform.
+
 ### Fixed — the Windows install guide's facts
 
 `docs/windows-install.md` no longer claims an ARM64 build (winget and Scoop carry the x64 installer, which ARM PCs run under emulation; the mislabelled ARM64 asset was dropped in 2.43.1), names the real default model (`base.en`, about 150 MB, not `tiny.en`), asks for about 500 MB of disk rather than 250 MB, shows the Chocolatey command, and no longer tells you to delete a roaming `%APPDATA%\yazses` folder YazSes never creates; it now names the Whisper model cache instead. Found by a docs audit against the live channels.
