@@ -29,6 +29,14 @@ The variable names below are the ones this codebase uses for a transcript. A new
 the scan — which is why the empirical check above matters and why this is a second line of
 defence rather than the only one. A false positive costs one entry in `ALLOWED`; a false
 negative costs the promise.
+
+A name scan also cannot see a transcript that travels **inside another value**. The one
+found so far rode in an exception: `subprocess.run([..., "--", text], check=True)` raises
+`CalledProcessError`, whose message is the whole command line, and `log.warning("Pipeline
+error: %s", exc)` passes `exc` -- not a transcript-shaped name -- so this scan was green
+while that WARNING carried the text. `test_no_log_record_carries_dictated_text.py` is the
+runtime counterpart: it drives the real paths with a sentinel transcript and inspects every
+record at the root logger.
 """
 
 from __future__ import annotations
