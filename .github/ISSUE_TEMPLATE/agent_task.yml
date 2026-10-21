@@ -155,7 +155,9 @@ body:
         Eligibility only — this does not start an agent or authorize a merge.
         Choose whether a clean cloud VM can produce all evidence required by
         this issue. For campaign tasks, campaign/tasks.json cloud_agent_ready
-        remains authoritative.
+        remains authoritative. The agent-ready label is not the jules
+        execution label, and a cloud VM cannot infer hardware, native-language
+        or research-participant evidence.
       options:
         - "Cloud-ready — implementation and all required evidence can be completed in a clean VM"
         - "Code-ready only — implementation can run remotely, but human/device/native-language evidence is still required"
