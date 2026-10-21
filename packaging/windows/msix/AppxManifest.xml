@@ -117,8 +117,8 @@
       Switch (`yazses features enable facegesture`). Both run on a normal install, and
       both need the same two optional packages, mediapipe and opencv-python.
 
-      This package is a frozen bundle: scripts/build-windows.ps1 syncs only the `desktop`
-      extra, so neither package is inside it, and an MSIX has no pip to add them
+      This package is a frozen bundle: scripts/build-windows.ps1 syncs no camera extra
+      (only `desktop`, `parakeet` and `chinese`), so neither package is inside it, and an MSIX has no pip to add them
       afterwards. Both camera paths are unreachable in this package specifically.
       Declaring `webcam` would ask a user and a reviewer to grant camera access nobody
       here can benefit from. An unused capability is a review question with no upside.

@@ -103,6 +103,11 @@ The goal is to settle ADR-028's open risks with evidence before any surface is b
 
 ### Phase 1: mechanism + `parakeet` and `diarization` packs, Inno `.exe` only
 
+> **Changed by ADR-028 Q1 (answered 2026-10-21):** `parakeet` is bundled into the frozen
+> base instead of packed, so Phase 1 ships one pack, `diarization`. Criteria below that
+> name `parakeet` or `stt-parakeet` apply to `diarization` and `diarize`; on a pack-capable
+> install `stt-parakeet` needs no add-on, only its model download.
+
 Build:
 
 - `scripts/build-packs.py` and `packs.toml` with the two packs.
@@ -177,13 +182,14 @@ Docs:
 
 ### Phase 2: the remaining qualifying packs, Chocolatey, Scoop, offline install
 
-- `packs.toml` adds whichever of `gaze`, `tts`, `prosody`, `denoise`, `moonshine` and
-  `chinese` pass, subject to the owner's answer on bundling small extras and the licence
-  gate (ADR-028, open questions 1 and 7).
+- `packs.toml` adds whichever of `gaze`, `tts`, `prosody`, `denoise` and `moonshine`
+  pass the licence gate (ADR-028 Q7, answered: permissive and LGPL pass; GPL needs a
+  recorded owner approval and a `SOURCE.md`; an unknown licence fails). `chinese` is not
+  among them: ADR-028 Q1 bundled it, with `parakeet`, into the frozen base.
 - `PACK_INSTALL_METHODS` adds `choco` and `scoop` once their checklist items pass.
-- `yazses packs install --from <file>` (if the owner accepts open question 5): the file
-  name must equal the expected asset name and its SHA-256 must equal the embedded index
-  entry. No network.
+- `yazses packs install --from <file>` (ADR-028 Q5, answered yes): the file name must
+  equal the expected asset name and its SHA-256 must equal the embedded index entry. No
+  network.
 - `cancel` and `ReleaseAsset` from the ADR-028 §4a follow-up refactor, if it has landed.
   Otherwise Phase 1's coarse cancel (raising from `progress`) is documented as a known
   limit.
@@ -196,7 +202,8 @@ Docs:
 
 ### Phase 3: large packs and other channels (each needs an owner decision)
 
-- `voiceprint` (torch), if open question 2 says yes.
+- Not `voiceprint`: ADR-028 Q2 answered no torch packs. It stays PyPI-only; the route
+  forward is an ONNX speaker-embedding backend riding on the `diarization` pack.
 - MSIX, after the spike in ADR-028 §8 on `AddDllDirectory` inside a packaged process and
   DLL loading from virtualised AppData, and after the Store-policy question.
 - The macOS `.app`, in an ADR-028 addendum.
@@ -340,7 +347,7 @@ probe command.
 The Live smoke evidence section is still empty. A Linux dry run on a developer machine,
 using a fake bundle and Linux wheels, produced `parakeet` at 4.08 MB archived (7.27 MB
 unpacked) and `diarization` at 15.0 MB (44.7 MB). These figures are not Windows sizes; the
-spike replaces them.
+spike replaces them. (`parakeet` is no longer a pack; see the answers below.)
 
 **Where the spec was open, the build chose the following.** The runtime should read the
 formats the same way.
@@ -361,7 +368,8 @@ formats the same way.
    appends these after `site/`. A `.pth` that runs `import` code fails the build. Both
    phase 1 packs have an empty list.
 5. **`native_dirs`** lists pack-root-relative directories that still hold a `.dll` after
-   any DLL byte-identical to the base's has been dropped.
+   any DLL byte-identical to the base's, or bound to the base's (item 16), has been
+   dropped.
 6. **The OS word in asset names.** `win-*` becomes `windows` and `macosx-*` becomes `macos`.
    The `platform` field holds the build venv's `sysconfig.get_platform()` (`win-amd64`).
    `python` is `{cache_tag: sys.implementation.cache_tag, version:
@@ -392,21 +400,70 @@ formats the same way.
 12. **`packs.toml` schema.** `format = 1` plus one `[extras.<name>]` table per pyproject
     extra. Each table has a `decision` (`pack`, `bundled`, `no-windows-wheel`, `unwired`
     or `deferred`), and a `reason` for anything that is not a pack. A pack also has
-    `features`, `entry_modules` and optionally `approved_large` / `approved_by`. The large
-    threshold is 500 MiB. `shared_with` is not used yet.
+    `features`, `entry_modules` and optionally `approved_large` / `approved_by` and
+    `bind_to_base` / `bind_reason` (item 16). A non-pack entry carrying `features`,
+    `entry_modules` or `bind_to_base` fails validation. The large threshold is 500 MiB.
+    `shared_with` is not used yet.
 13. **Provenance.** One `actions/attest-build-provenance` step attests the packs and the
     index through a multi-line `subject-path: |`. `verify-provenance.py` now reads such
     blocks, so `.yazpack` and `.json` became attested suffixes. Only `-packs.json` assets
     are in `SHA256SUMS.txt`, so no other JSON file is affected.
 14. **Licences.** Each distribution's licence files go to `LICENSES/<dist>/`, and the
-    declared licence is recorded in the build report. No deny-list gate exists yet,
-    because ADR-028 open question 7 is unanswered.
+    declared licence is recorded in the build report. ADR-028 Q7 is answered (a build-time
+    gate: permissive and LGPL pass, GPL needs a recorded owner approval plus `SOURCE.md`,
+    an unknown licence or a missing licence file fails); the gate is a separate change
+    (`scripts/pack_licences.py`). Until it lands, `tts` and `prosody` stay deferred.
 15. **No `stdlib/` supplement yet.** The spike measures the stdlib gaps first (Phase 0 item 2).
+16. **`bind_to_base`: a reviewed DLL exception (ADR-028 finding on sherpa-onnx-core).**
+    `packs.toml` may list bare DLL basenames under `bind_to_base` for a pack, with a
+    `bind_reason`. When the base ships a DLL of a listed basename, *every* copy of it in
+    the pack is dropped although the bytes differ (sherpa-onnx-core 1.13.8 ships an
+    unsigned onnxruntime 1.28.2 in `sherpa_onnx/lib/` and again under
+    `.data/data/Scripts/`; the base has Microsoft's signed 1.28.0). The build report
+    records the dropped paths (`dll_bound_to_base`) and any listed name that collided
+    with nothing (`dll_bind_unused`, a warning), and `pack.json` gains
+    `bind_to_base`: the sorted, lower-case basenames the pack relies on the base for,
+    always present and usually empty. The runtime must load the base's copy of each
+    before it imports the pack's entry modules. Every other differing collision still
+    withholds the pack; the byte-identical drop (item 5) is unchanged.
+17. **The base is the `bundled` extras.** `build-packs.py` measures the base from the
+    extras `packs.toml` decides `bundled` (today `desktop`, `overlay`, `parakeet`,
+    `chinese`), not from a hard-coded `desktop`, and subtracts their closure from every
+    pack. If the build venv lacks a bundled extra's distribution, every pack is withheld
+    and the base still ships. `build-packs.py validate` (and `tests/test_build_packs.py`)
+    holds `scripts/build-windows.ps1`'s `uv sync` extras, and the spike workflow's, to the
+    `bundled` set in both directions. A bundled extra is never built as a pack.
 
-**Open owner questions, conservative choice taken.** Question 1: `parakeet` stays a pack,
-`chinese` is deferred, and the base is unchanged. Question 2: `voiceprint` is deferred.
-Question 7: no licence gate, `tts` is deferred, and licence texts are copied into each
-pack.
+**Owner answers (ADR-028, "Owner questions: answered 2026-10-21") and their build-side
+effect.**
+
+- **Q1, bundle the tiny pure-Python extras: yes.** `parakeet` (onnx-asr, MIT, ~4 MB
+  wheel) and `chinese` (opencc-python-reimplemented, Apache-2.0, ~0.5 MB) are `bundled`.
+  `scripts/build-windows.ps1` runs `uv sync --no-dev --extra desktop --extra parakeet
+  --extra chinese`, and `packaging/windows/yazses.spec` adds `copy_metadata("onnx-asr")`,
+  `collect_data_files("onnx_asr")` and its submodules, because onnx-asr reads its own
+  version through `importlib.metadata` at import and its preprocessor `.onnx` files
+  through `importlib.resources` (opencc is covered by pyinstaller-hooks-contrib's
+  `hook-opencc`). Both files are therefore part of the base manifest and its
+  `base_build_id`. Phase 1 builds one pack, `diarization`. The PyPI base is unchanged.
+- **Q2, torch packs: no.** `voiceprint` stays `deferred`, with that reason.
+- **Q7, licence gate: yes, three rules** (item 14). `tts` and `prosody` stay `deferred`
+  with the GPL reason.
+- **Finding M1, sherpa's onnxruntime.dll:** `diarization` binds `onnxruntime.dll` to the
+  base (item 16). `packs-spike.yml` probe (d) now proves or refutes the binding: with the
+  base's copy preloaded by full path, `import sherpa_onnx` must leave exactly one
+  `onnxruntime.dll` loaded, from the base; `onnxruntime.__version__` must equal the
+  version the build venv froze (from the build report, 1.28.0 today); and both an
+  onnxruntime session and sherpa-onnx's own silero VAD session must build and run on a
+  pinned `silero_vad.onnx` (SHA-256 checked in the workflow). It prints one `PASS:` or
+  `FAIL:` line carrying the loaded path and the version. If it fails, `diarization` takes
+  ADR-028 §1's out-of-process route.
+- Q3–Q6 and Q8 are runtime, installer or account matters; the build side does not change
+  for them.
+
+**Not verified.** None of the above has run on Windows: not the frozen bundle with
+onnx-asr and opencc inside it, not its size, and not the bind probe. The +~4.5 MB
+installer figure is ADR-028's wheel measurement, not a built installer.
 
 **Spike limits.** The spike's runtime hook imports `json`, `pkgutil`, `ctypes` and
 `traceback`, so PyInstaller collects those four into the spike base, and risk (a) cannot

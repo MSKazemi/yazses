@@ -86,7 +86,16 @@ Write-Host "==> Syncing runtime dependencies"
 # child dies on the import with its explanation going to a stderr that a windowed
 # process does not have. `snap/snapcraft.yaml` carries the same note for the same
 # reason; `tests/test_frozen_bundles_ship_the_gui.py` now keeps both honest.
-uv sync --no-dev --extra desktop
+#
+# `--extra parakeet --extra chinese`: ADR-028 question 1, answered 2026-10-21. Both are
+# small pure-Python wheels (onnx-asr, MIT, ~4 MB; opencc-python-reimplemented,
+# Apache-2.0, ~0.5 MB) whose other dependencies the base already carries, so they ship
+# inside the installer instead of as add-on packs. The extras synced here must be
+# exactly the `bundled` decisions in packaging/packs/packs.toml: `build-packs.py
+# validate` and tests/test_build_packs.py fail otherwise, and `build-packs.py build`
+# withholds every pack if this venv lacks a bundled extra. packaging/windows/yazses.spec
+# collects onnx_asr's data files and metadata, which PyInstaller does not find alone.
+uv sync --no-dev --extra desktop --extra parakeet --extra chinese
 
 Write-Host "==> Installing PyInstaller"
 uv pip install "pyinstaller>=6.10"

@@ -498,6 +498,17 @@ an elevated process, and never with `YAZSES_NO_PACKS=1`. Nothing under `packs/` 
 User-initiated only: the daemon, the update watcher and the runtime hook cannot reach
 `fetch.py`, `install.py` or `manage.py` (`tests/test_egress_inventory.py`).
 
+**Build side** (`scripts/build-packs.py`, `packaging/packs/packs.toml`). The frozen base
+is exactly the extras `packs.toml` decides `bundled` (`desktop`, `overlay`, and since
+ADR-028 Q1 `parakeet` and `chinese`); `scripts/build-windows.ps1` syncs that set and
+`build-packs.py validate` holds the two together. A bundled extra is never packed, and its
+closure is subtracted from every pack. **Invariant: a pack never ships a DLL whose
+basename the base also ships**, unless the bytes are identical (the pack's copy is
+dropped) or the basename is on that pack's reviewed `bind_to_base` allow-list (every
+pack copy is dropped, and `pack.json`'s `bind_to_base` tells the runtime to load the
+base's copy first). The `diarization` pack binds `onnxruntime.dll` this way; any other
+differing collision withholds the pack.
+
 ### `src/yazses/commands/`
 
 | File | Role |

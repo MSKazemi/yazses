@@ -6,6 +6,31 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed — the Windows installer carries Parakeet's engine and Chinese script conversion; the diarization add-on runs on the installer's ONNX Runtime
+
+ADR-028's owner answers (2026-10-21), build side. The Windows installer now bundles two
+small pure-Python libraries that a frozen install could not add later: `onnx-asr`, the
+engine behind `stt-parakeet` (MIT, about 4 MB), and `opencc-python-reimplemented`,
+behind `chinese-script` (Apache-2.0, about 0.5 MB). Together about 4.5 MB, roughly 2.4%
+of the v2.43.2 installer; that figure is the wheels' size, not yet a measured installer.
+Parakeet's model still downloads on first use. `scripts/build-windows.ps1` syncs
+`--extra parakeet --extra chinese`, and the PyInstaller spec now collects onnx-asr's
+metadata and preprocessor files, without which `import onnx_asr` fails in a frozen app.
+`packs.toml` marks both `bundled`; the PyPI install is unchanged.
+
+Speaker diarization (`diarization`) becomes the only Phase 1 add-on pack. sherpa-onnx-core's Windows
+wheel ships its own unsigned `onnxruntime.dll` (1.28.2, twice), which differs from the
+installer's signed 1.28.0 and would have withheld the pack. A new reviewed allow-list,
+`bind_to_base` in `packs.toml`, drops exactly the listed DLL basenames and records them
+in the build report and in `pack.json` (`bind_to_base`), so the runtime loads the base's
+copy first; every other DLL collision still withholds a pack. `build-packs.py` now
+measures the base from the `bundled` extras, withholds every pack when the build venv
+lacks one, and `build-packs.py validate` fails when `build-windows.ps1` syncs a different
+set. The manual `packs-spike.yml` probe (d) now proves or refutes the binding on a real
+Windows runner: `import sherpa_onnx` must load only the base's `onnxruntime.dll`, at the
+version the base froze, and build and run both an ONNX Runtime and a sherpa-onnx VAD
+session on a pinned model. None of this has run on Windows yet.
+
 ### Fixed — the one-click Windows update never ran the installer (unreleased feature)
 
 The first real run of the update hand-off on a Windows machine (CI, `windows-latest`) showed

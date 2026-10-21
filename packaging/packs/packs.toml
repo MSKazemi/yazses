@@ -9,31 +9,57 @@
 #
 # Decisions:
 #   pack              build it; `features` and `entry_modules` are required
-#   bundled           already inside the frozen base (`desktop` is what build-windows.ps1 syncs)
+#   bundled           inside the frozen base: scripts/build-windows.ps1 syncs exactly the
+#                     bundled extras (`build-packs.py validate` and the tests hold the two
+#                     together), the pack build subtracts their closure from every pack,
+#                     and a bundled extra is never packed
 #   no-windows-wheel  a distribution in its closure is sdist-only in uv.lock
 #   unwired           every feature that would consume it is in features.py::_UNWIRED
-#   deferred          a later phase or an open owner question; `reason` says which
+#   deferred          a later phase or an owner decision; `reason` says which
 #
 # Every non-pack entry needs a `reason`. A pack over 500 MiB needs `approved_large = true`
 # and `approved_by = "<owner name>"`.
 #
-# Phase 1 builds `parakeet` and `diarization` only. The small pure-Python extras
-# (`chinese`, and arguably `parakeet`) could instead be bundled into the base; that
-# changes the base, which is ADR-028 open question 1, so until the owner answers they
-# stay packs (parakeet) or deferred (chinese) -- the conservative choice, because it
-# leaves the shipped installer exactly as it is.
+# `bind_to_base` (packs only) is the reviewed allow-list of DLL basenames for which the
+# pack's own, different copy is dropped and the pack runs on the base's copy instead.
+# It needs `bind_reason`. Every other DLL basename the base also ships with different
+# bytes still withholds the pack; a byte-identical copy is dropped as before. pack.json
+# records the bound names (`bind_to_base`), and the runtime loads the base's copy of
+# each before it imports the pack's entry modules.
+#
+# Owner answers (ADR-028, "Owner questions: answered 2026-10-21"):
+#   Q1  `parakeet` (onnx-asr, MIT, ~4 MB) and `chinese` (opencc, Apache-2.0, ~0.5 MB)
+#       are bundled into the frozen Windows base; the PyPI base is unchanged. Phase 1
+#       therefore builds one pack, `diarization`, the one with native code.
+#   Q2  no torch packs: `voiceprint` stays PyPI-only.
+#   Q7  the licence gate runs at build time (permissive and LGPL pass; GPL needs a
+#       recorded owner approval and a SOURCE.md; an unknown licence fails).
 
 format = 1
-
-[extras.parakeet]
-decision = "pack"
-features = ["stt-parakeet"]
-entry_modules = ["onnx_asr"]
 
 [extras.diarization]
 decision = "pack"
 features = ["diarize", "recimport", "meeting"]
 entry_modules = ["sherpa_onnx"]
+# sherpa-onnx-core 1.13.8's win_amd64 wheel carries its own onnxruntime.dll (an
+# unsigned 1.28.2 build; a second copy sits under its .data/data/Scripts/). The base
+# ships Microsoft's signed onnxruntime 1.28.0. Without this line the pack is withheld.
+bind_to_base = ["onnxruntime.dll"]
+bind_reason = """ADR-028 finding (2026-10-21, lock-hash-verified wheel): sherpa's copy \
+differs from the base's but is the same 1.28 line. The pack drops every copy and binds \
+to the base's; packs-spike.yml probe (d) must show sherpa_onnx loading the base's DLL and \
+building a session, or diarization takes ADR-028 §1's out-of-process route."""
+
+[extras.parakeet]
+decision = "bundled"
+reason = """ADR-028 Q1 (answered 2026-10-21): onnx-asr is MIT, pure Python, ~4 MB, and its \
+[cpu,hub] dependencies are already in the base; build-windows.ps1 syncs --extra \
+parakeet. The ~660 MB model downloads on first use either way."""
+
+[extras.chinese]
+decision = "bundled"
+reason = """ADR-028 Q1 (answered 2026-10-21): opencc-python-reimplemented is Apache-2.0, \
+pure Python, ~0.5 MB; build-windows.ps1 syncs --extra chinese."""
 
 [extras.desktop]
 decision = "bundled"
@@ -43,17 +69,15 @@ reason = "Synced into the frozen base by scripts/build-windows.ps1 (`--extra des
 decision = "bundled"
 reason = "Alias of `desktop`; PySide6 is already in the frozen base."
 
-[extras.chinese]
-decision = "deferred"
-reason = "Phase 2, and ADR-028 open question 1 (bundle tiny pure-Python extras instead?)."
-
 [extras.prosody]
 decision = "deferred"
-reason = "Phase 2 (spec: feature-addon-packs.md)."
+reason = """Phase 2. ADR-028 Q7: praat-parselmouth is GPL, so the pack needs a recorded \
+owner approval and a SOURCE.md before the licence gate lets it through."""
 
 [extras.tts]
 decision = "deferred"
-reason = "Phase 2, and ADR-028 open question 7 (espeak-ng licence gate)."
+reason = """Phase 2. ADR-028 Q7: espeak-ng and phonemizer are GPL (recorded owner approval \
+plus SOURCE.md), and espeakng-loader declares no licence, which the gate fails."""
 
 [extras.denoise]
 decision = "deferred"
@@ -69,7 +93,9 @@ reason = "Phase 2 (spec: feature-addon-packs.md)."
 
 [extras.voiceprint]
 decision = "deferred"
-reason = "Phase 3: a torch pack, ADR-028 open question 2."
+reason = """ADR-028 Q2 (answered 2026-10-21): no torch packs; voiceprint stays PyPI-only \
+(torch's libiomp5md.dll differs from ctranslate2's: OMP Error #15). The route forward \
+is an ONNX speaker-embedding backend riding on the diarization pack."""
 
 [extras.slm]
 decision = "no-windows-wheel"
