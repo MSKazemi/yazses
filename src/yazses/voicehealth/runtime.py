@@ -3,9 +3,10 @@
 The daemon calls :meth:`VoiceHealthRuntime.submit` with each burst it decoded into text,
 and only while ``[voicehealth] enabled`` is true; nothing here is imported otherwise.
 ``submit`` never blocks dictation: it hands the clip to one worker thread through a
-one-slot queue and returns. When the worker is still measuring the previous burst, the
-new one is *dropped* rather than queued — a missed reading costs nothing, a backlog of
-audio would cost memory and hold speech in RAM for longer than needed.
+one-slot queue and returns. While the worker is measuring one burst, at most one further
+burst is held in that slot (its audio stays in RAM until measured); any burst after that
+is *dropped* rather than queued — a missed reading costs nothing, a backlog of audio would
+cost memory and hold speech in RAM for longer than needed.
 
 The worker runs :class:`~yazses.voicehealth.biomarkers.StrainMonitor` (Praat via the
 optional ``prosody`` extra) and feeds :class:`~yazses.voicehealth.biomarkers.StrainHistory`.
@@ -13,7 +14,11 @@ When the history says a break is warranted it raises ONE advisory desktop notifi
 The history already enforces a session baseline, a minimum rise, a 45-minute cooldown and
 a cap of two suggestions per session; this module adds only that a long idle gap
 (:data:`SESSION_GAP_S`) starts a new session, so a daemon left running for days does not
-spend its whole allowance on the first day and fall silent for ever.
+spend its whole allowance on the first day and fall silent for ever. The gap is measured
+on wall-clock time, because the monotonic clock does not advance while the machine is
+suspended (Linux ``CLOCK_MONOTONIC``): a laptop suspended overnight would otherwise show
+only its awake idle time and never reset. The cooldown stays on the monotonic clock, so
+a wall-clock step (NTP, a manual change) can never shorten it.
 
 **Privacy.** Audio is never logged or written anywhere: the worker drops its reference
 to the clip as soon as the measurement returns. Only three floats per utterance (and the
@@ -88,12 +93,14 @@ class VoiceHealthRuntime:
         backend: BiomarkerBackend | None = None,
         notify: Notifier | None = None,
         clock: Callable[[], float] = time.monotonic,
+        wall_clock: Callable[[], float] = time.time,
         missing: Callable[[], list[str]] | None = None,
         start_thread: bool = True,
     ) -> None:
         self._config = config
         self._notify = notify or _default_notify
         self._clock = clock
+        self._wall_clock = wall_clock
         self.history = StrainHistory(config)
         absent = list((missing or _default_missing)()) if backend is None else []
         self.inactive_reason: str | None = (
@@ -134,9 +141,10 @@ class VoiceHealthRuntime:
         if self._monitor is None:
             return False
         now = self._clock()
-        if self._last_observed is not None and now - self._last_observed >= SESSION_GAP_S:
+        wall = self._wall_clock()
+        if self._last_observed is not None and wall - self._last_observed >= SESSION_GAP_S:
             self.history.reset()
-        self._last_observed = now
+        self._last_observed = wall
         if not self._monitor.on_utterance(audio, sample_rate, now):
             return False
         self.suggestions_sent += 1

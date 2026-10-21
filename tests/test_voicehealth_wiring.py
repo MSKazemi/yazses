@@ -70,7 +70,7 @@ def _runtime(readings, **kw):
     clock = _Clock()
     rt = VoiceHealthRuntime(
         _Cfg(), backend=_Backend(readings), notify=lambda t, b: notes.append((t, b)),
-        clock=clock, start_thread=False, **kw,
+        clock=clock, wall_clock=kw.pop("wall_clock", clock), start_thread=False, **kw,
     )
     return rt, notes, clock
 
@@ -118,6 +118,28 @@ def test_a_long_idle_gap_starts_a_new_session() -> None:
     assert rt.history.baseline is not None and rt.history.baseline > 0.9
     clock.now += SESSION_GAP_S
     _feed(rt, clock, 6)                   # fresh calm baseline, then a rise
+    assert len(notes) == 1
+
+
+def test_an_overnight_suspend_starts_a_new_session() -> None:
+    # CLOCK_MONOTONIC does not advance while suspended: the monotonic clock sees only a
+    # minute between the evening and the morning, the wall clock sees ten hours.
+    wall = _Clock()
+    rt, notes, clock = _runtime([STRAINED] * 3 + [CALM] * 3 + [STRAINED] * 3,
+                                wall_clock=wall)
+
+    def feed(n):
+        out = []
+        for _ in range(n):
+            clock.now += 60.0
+            wall.now += 60.0
+            out.append(rt.process(np.zeros(10), SR))
+        return out
+
+    assert not any(feed(3))               # high baseline: never fires this session
+    clock.now += 60.0                     # suspended overnight: monotonic barely moves
+    wall.now += 10 * 60 * 60.0
+    feed(6)                               # fresh calm baseline, then a rise
     assert len(notes) == 1
 
 
@@ -254,6 +276,30 @@ def test_a_failing_monitor_never_breaks_dictation(monkeypatch) -> None:
     try:
         d._on_hold_end()
         assert d._injector.texts == ["hello world"]
+    finally:
+        d._shutdown()
+
+
+def test_a_runtime_that_cannot_start_is_reported_once_and_never_retried(
+    monkeypatch, caplog
+) -> None:
+    attempts: list[int] = []
+
+    def boom(cfg, **kw):
+        attempts.append(1)
+        raise RuntimeError("monitor exploded")
+
+    monkeypatch.setattr(vh_runtime, "build_runtime", boom)
+    d = _daemon(_speech(), enabled=True)
+    try:
+        with caplog.at_level("WARNING", logger="yazses.core.daemon"):
+            d._on_hold_end()
+            d._recorder = _Recorder(_speech())
+            d._on_hold_end()
+        assert [t.strip() for t in d._injector.texts] == ["hello world", "hello world"]
+        assert len(attempts) == 1
+        warnings = [r.getMessage() for r in caplog.records if "[voicehealth]" in r.getMessage()]
+        assert len(warnings) == 1 and "monitor exploded" in warnings[0]
     finally:
         d._shutdown()
 

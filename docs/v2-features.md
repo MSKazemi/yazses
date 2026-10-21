@@ -33,7 +33,7 @@ It stays listed so contributors can pick it up; see the matching design/adr/ ent
 ```
 
 They stay listed because that is where a contributor picks one up — each has a matching
-`design/adr/` entry. **35 of the 122 rows below are ◌ today.** Rows without the mark are
+`design/adr/` entry. **34 of the 122 rows below are ◌ today.** Rows without the mark are
 wired and can be turned on.
 
 ### "Hold the command key" — what that means
@@ -140,7 +140,7 @@ accessibility tree. See `design/adr/adr-v2-023/024` (internal).
 | **Spoken Code Mode** | `code` | Dictate code: spoken symbols → punctuation, word-groups → cased identifiers. Hold the command key. |
 | **Spoken Math (LaTeX)** | `math` | Dictate equations → LaTeX ("x squared plus y squared" → `x^{2} + y^{2}`). Hold the command key. |
 | ◌ **Wake-Word Activation** (exp) | `wakeword` | Start dictation hands-free on a keyword. Always-listening, local-only, `--force`. |
-| ◌ **Vocal-Strain Guard** | `voicehealth` | Advises a break when your voice shows rising strain over a session (advisory only). |
+| **Vocal-Strain Guard** (exp) | `voicehealth` | Advises a break when your voice shows rising strain over a session (advisory only; thresholds tuned on synthetic signals). Needs the `prosody` extra, `--force`. |
 
 The **zero-touch bundle** — Wake-Word + Auto-Stop + Voice Mouse Grid — composes into a
 complete hands-free operating mode.

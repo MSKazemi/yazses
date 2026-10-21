@@ -4925,14 +4925,25 @@ class Daemon:
 
         Called only while ``[voicehealth] enabled``; builds the runtime on first use, so a
         default install never imports it. Non-blocking and never raises: a measurement
-        problem must not cost the user their dictation.
+        problem must not cost the user their dictation. A runtime that cannot be built is
+        reported once and never retried (``_voicehealth`` becomes ``False``).
         """
-        try:
-            if self._voicehealth is None:
+        if self._voicehealth is None:
+            try:
                 from yazses.voicehealth.runtime import build_runtime
 
                 self._voicehealth = build_runtime(self._config.voicehealth)
-                self._warn_feature_inert("voicehealth", self._voicehealth.inactive_reason)
+            except Exception as exc:
+                self._voicehealth = False
+                log.debug("Vocal-Strain Guard could not start", exc_info=True)
+                self._warn_feature_inert(
+                    "voicehealth", f"it could not start ({type(exc).__name__}: {exc})"
+                )
+                return
+            self._warn_feature_inert("voicehealth", self._voicehealth.inactive_reason)
+        if not self._voicehealth:
+            return
+        try:
             self._voicehealth.submit(audio, sample_rate)
         except Exception:
             log.debug("Vocal-Strain Guard submit failed", exc_info=True)
@@ -7009,7 +7020,7 @@ class Daemon:
             set_fallback_sink(None)
         except Exception:
             log.debug("clearing the notification sink failed", exc_info=True)
-        if self._voicehealth is not None:
+        if self._voicehealth:
             try:
                 self._voicehealth.close()
             except Exception:

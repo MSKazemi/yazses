@@ -53,7 +53,7 @@ Related capabilities worth knowing about:
 | Breath-Paced Dictation | `yazses features enable breath` *(planned — not yet wired)* | Pacing around breath, not clock timeouts |
 | Whisper-Aware Mode | `yazses features enable whispermode` | Speaking quietly, or with limited volume |
 | Involuntary-Vocalization Excision | `yazses features enable involuntary` | Filtering involuntary sounds |
-| Vocal-Strain Guard | `yazses features enable voicehealth` *(planned — not yet wired)* | Warning before you overuse your voice |
+| Vocal-Strain Guard | `yazses features enable voicehealth --force` *(experimental; needs the `prosody` extra)* | A break suggestion when your voice shows rising strain |
 
 ## Calibrating to your voice
 

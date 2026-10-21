@@ -1,6 +1,6 @@
 ---
 title: Find a task that fits you
-description: Filter 160 open YazSes contributor tasks by what you have — a browser, a laptop, specific hardware — how much time, and whether you want to write code.
+description: Filter 159 open YazSes contributor tasks by what you have — a browser, a laptop, specific hardware — how much time, and whether you want to write code.
 ---
 
 # Find a task that fits you
@@ -38,7 +38,7 @@ Coding agents are optional. "Cloud-ready" means the task can run in that environ
   </label>
 </div>
 
-<p id="yz-count"><strong>160</strong> tasks shown.</p>
+<p id="yz-count"><strong>159</strong> tasks shown.</p>
 
 <table class="yz-table">
 <thead><tr><th>Task</th><th>You need</th><th>Skills</th></tr></thead>
@@ -200,7 +200,6 @@ Coding agents are optional. "Cloud-ready" means the task can run in that environ
 <tr class="yz-row" data-env="local" data-family="feature-wiring" data-minutes="90" data-skills="python" data-text="wire the `spatialvad` capability so it is reachable from the daemon or cli a local clone"><td><strong>Wire the `spatialvad` capability so it is reachable from the daemon or CLI</strong><br><code>WIRE-SPATIALVAD-001</code> · L2 · 90 min</td><td>a local clone</td><td>python</td></tr>
 <tr class="yz-row" data-env="local" data-family="feature-wiring" data-minutes="90" data-skills="python" data-text="wire the `vocaljoystick` capability so it is reachable from the daemon or cli a local clone"><td><strong>Wire the `vocaljoystick` capability so it is reachable from the daemon or CLI</strong><br><code>WIRE-VOCALJOYSTICK-001</code> · L2 · 90 min</td><td>a local clone</td><td>python</td></tr>
 <tr class="yz-row" data-env="local" data-family="feature-wiring" data-minutes="90" data-skills="python" data-text="wire the `voiceguard` capability so it is reachable from the daemon or cli a local clone"><td><strong>Wire the `voiceguard` capability so it is reachable from the daemon or CLI</strong><br><code>WIRE-VOICEGUARD-001</code> · L2 · 90 min</td><td>a local clone</td><td>python</td></tr>
-<tr class="yz-row" data-env="local" data-family="feature-wiring" data-minutes="90" data-skills="python" data-text="wire the `voicehealth` capability so it is reachable from the daemon or cli a local clone"><td><strong>Wire the `voicehealth` capability so it is reachable from the daemon or CLI</strong><br><code>WIRE-VOICEHEALTH-001</code> · L2 · 90 min</td><td>a local clone</td><td>python</td></tr>
 <tr class="yz-row" data-env="local" data-family="feature-wiring" data-minutes="90" data-skills="python" data-text="wire the `wakeword` capability so it is reachable from the daemon or cli a local clone"><td><strong>Wire the `wakeword` capability so it is reachable from the daemon or CLI</strong><br><code>WIRE-WAKEWORD-001</code> · L2 · 90 min</td><td>a local clone</td><td>python</td></tr>
 <tr class="yz-row" data-env="cloud" data-family="qa-fixture" data-minutes="90" data-skills="python" data-text="add a reproducible mandarin cer scorer for benchmark result files a browser or container"><td><strong>Add a reproducible Mandarin CER scorer for benchmark result files</strong><br><code>CHN-QA-CER-HARNESS-001</code> · L2 · 90 min</td><td>a browser or container</td><td>python</td></tr>
 </tbody>
