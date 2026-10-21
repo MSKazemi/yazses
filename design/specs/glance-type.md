@@ -3,12 +3,32 @@
 | Field | Value |
 |---|---|
 | **ID** | spec-glance-type |
-| **Status** | Proposed |
+| **Status** | Proposed (2026-06-14 design) · current: P1 coarse look-to-pane wired, experimental, X11 only; P2 partial; caret precision deferred — see [Delivery status](#delivery-status-current) |
 | **Date** | 2026-06-14 |
 | **Module** | `src/yazses/platform/gaze/` (new, optional) |
 | **Vision card** | the Glance-Type vision card (internal) |
 | **Dossier** | the 2026-06-14 ten-feature SoA dossier (internal) (Glance-Type block, verdict row #2) |
 | **Related** | ADR-005 (InputBackend Protocol pattern), ADR-v04-003 (optional-backend / config-gated dep pattern), ADR-011 (offline / no-capture premise) |
+
+---
+
+## Delivery status (current)
+
+> Checked **2026-10-21** against `main` at `3245f848` (latest tag v2.43.2). This section
+> states what the code does today; everything below it is the original design, kept as
+> written. Where the two disagree, this section is the current statement. Status words:
+> **shipped** (wired and reachable), **partial**, **blocked** (names its gate),
+> **deferred** (no delivery promise), **rejected**, **out of scope**. "No tracker" means
+> no issue or campaign task exists for that remainder; it is not scheduled.
+
+| Phase | Status | Evidence | Tracking |
+|---|---|---|---|
+| P1 — calibration + coarse look-to-pane | **Shipped, experimental**, off by default; **X11 only** (slug `gaze`, "needs a webcam + X11"). Lives in `src/yazses/gaze/`, not the planned `platform/gaze/`; calibration is `yazses gaze calibrate`, not `yazses enroll --gaze` | `gaze/mediapipe_backend.py` (optional `gaze/l2cs.py`), `gaze/zones.py`, `gaze/calibrate.py`; window hit-test and focus via `xdotool` in `gaze/desktop.py` | The P1 gate (≥ 85 % correct pane, still head, 4-pane layout) has **no recorded result**: field measurement is [#104](https://github.com/MSKazemi/yazses/issues/104) and [#399](https://github.com/MSKazemi/yazses/issues/399), the cross-hardware matrix [#411](https://github.com/MSKazemi/yazses/issues/411). Shared-camera migration: [#396](https://github.com/MSKazemi/yazses/issues/396) |
+| P2 — implicit click calibration | **Partial — core built, not running.** Capture, promotion and storage exist, but no platform registers a click observer, so the runtime always declines with a reason | `gaze/clicks.py`, `gaze/capture.py`, `gaze/refine.py`, `gaze/store.py`, `gaze/refine_runtime.py`; `platform/base.py` `click_observer_factory` defaults to `None` and no platform sets it; spec [eye-implicit-calibration.md](eye-implicit-calibration.md) | [#397](https://github.com/MSKazemi/yazses/issues/397), [#398](https://github.com/MSKazemi/yazses/issues/398) |
+| P2 — pane resolver for macOS / Windows | **Not built** — the desktop backend is X11-only | `gaze/desktop.py` `build_desktop()` returns `None` off X11 | No dedicated tracker |
+| P2 — head-motion validation (LOFA-2) | **Not measured** | — | [#104](https://github.com/MSKazemi/yazses/issues/104), [#411](https://github.com/MSKazemi/yazses/issues/411) |
+| Wayland | **Abstains by design** — look-to-pane returns no target, with a reason | `gaze/target_semantics.py`; spec [eye-wayland-gaze-target.md](eye-wayland-gaze-target.md) | [#418](https://github.com/MSKazemi/yazses/issues/418) |
+| Caret / line precision | **Deferred — outside the shipped claim.** What ships is coarse zone / window targeting; no setting selects a caret grain (`[gaze] zones` is `grid3x3`, `grid2x2` or `windows`) | *Deferred — caret precision* below | None; no delivery promise. The dedicated eye-tracker study [#412](https://github.com/MSKazemi/yazses/issues/412) is research, not a schedule |
 
 ---
 

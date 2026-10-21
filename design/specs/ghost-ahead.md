@@ -3,11 +3,31 @@
 | Field | Value |
 |---|---|
 | **ID** | spec-ghost-ahead |
-| **Status** | Proposed (experimental; off by default) |
+| **Status** | Proposed (2026-06-14 design; experimental, off by default) · current: Phase 1 pre-warm wired (streaming path only), Phase 2 not built, content prediction rejected — see [Delivery status](#delivery-status-current) |
 | **Date** | 2026-06-14 |
 | **Module** | `src/yazses/stt/streaming.py`, `src/yazses/audio/vad_calibrated.py`, `src/yazses/core/daemon.py` |
 | **Vision card** | the Ghost Ahead vision card (internal) |
 | **Supersedes seed** | "Ghost Ahead" predictive content ghost-text (the idea-seeds note (internal) #7) — **rejected, reframed** |
+
+---
+
+## Delivery status (current)
+
+> Checked **2026-10-21** against `main` at `3245f848` (latest tag v2.43.2). This section
+> states what the code does today; everything below it is the original design, kept as
+> written. Where the two disagree, this section is the current statement. Status words:
+> **shipped** (wired and reachable), **partial**, **blocked** (names its gate),
+> **deferred** (no delivery promise), **rejected**, **out of scope**. "No tracker" means
+> no issue or campaign task exists for that remainder; it is not scheduled.
+
+| Phase | Status | Evidence | Tracking |
+|---|---|---|---|
+| 0 — measurement harness (LOFA-1) | **Not done.** No harness or result for endpoint lead time or false-early-fire rate is recorded | nothing under `paper/benchmark/` measures it | No tracker |
+| 1 — pre-warm | **Shipped, narrower than designed**, off by default (`[endpoint]`, slug `ghost-ahead`). The anticipator is fed only from the streaming-partial loop, so it acts only when `[streaming] enabled` is also on; this spec wanted it on the default batch path. The Phase 1 gate (a measured cut in the post-release tail, ≤ 3 fires per release) is unmeasured | `stt/endpoint.py` `EndpointAnticipator`; `core/daemon.py` `_endpoint_prewarm_tick` calls `StreamingEngine.prewarm()`; `stt/streaming.py` `prefix_stable_for_ms()`. `audio/vad_calibrated.py` `trailing_energy_falling()` has no caller, and `[endpoint] prefix_stable_ms` / `falling_window_ms` are flagged inert in `docs/configuration.md` | No tracker |
+| 2 — speculative finalize | **Not built.** `[endpoint] speculative_finalize` is accepted and inert; the LOFA-3 harmless-discard test it is gated on does not exist | `docs/configuration.md` (⚠️ inert) | No tracker; no delivery promise |
+| Content ghost-text (lexical prediction) | **Rejected** — unchanged. Re-opens only on the pre-registered bar: a peer-reviewed result showing > 30 % acceptance of free-form *spoken*-content suggestions on CPU-class models. No such result is recorded here | *Explicitly deferred* and *Deferred-feature note* below | None — rejected, see the note below |
+
+**Related, and not this spec's content ghost-text.** A separate capability, Predictive Completion (slug `predict`, [ADR-v2-016](../adr/adr-v2-016-predictive-completion.md), Accepted 2026-07-02), designs generative next-text suggestion accepted by voice. It is designed but unwired (`system/features.py` `_UNWIRED`) and is listed as campaign task `WIRE-PREDICT-001` under [#164](https://github.com/MSKazemi/yazses/issues/164). Wiring it would not meet the evidence bar above, and this section does not treat it as scheduling content ghost-text; how the two decisions relate is an open question for the maintainer.
 
 ---
 
