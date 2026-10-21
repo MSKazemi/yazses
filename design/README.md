@@ -122,7 +122,7 @@ intentionally checked separately; the ordinary test suite must remain fully offl
 scheduled `.github/workflows/traceability.yml` workflow runs
 `scripts/check-traceability-live.py` (read-only; exit 1 = violation, 2 = GitHub unreadable,
 3 = misconfigured). Deliberate exceptions to *that* audit go in
-[`traceability-exceptions.yml`](traceability-exceptions.yml).
+[`traceability-exceptions.yml`](traceability-exceptions.yml). The same run also reports **advisory** tracker drift: open issues with no milestone and no exempt class, stale "do not start" banners whose numbered blockers have all closed, and closed issues still listed beside an open tracker. This drift appears in the job summary and the `traceability-live` artifact and never changes the exit code.
 
 Which open issues must carry a milestone is decided by the
 [milestone policy](milestone-policy.md) (#480): delivery issues carry exactly one, epics carry

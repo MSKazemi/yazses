@@ -81,9 +81,9 @@ def full_session() -> MeasurementSession:
     session = MeasurementSession(confidence_min=0.5)
     for confidence in (0.95, 0.9, 0.85, 0.55, 0.3, 0.05, 1.0, 0.0):
         session.record_confidence(confidence)
-    session.record_point(PointError(t_s=10.0, error_px=40.0))
-    session.record_point(PointError(t_s=20.0, error_px=60.0))
-    session.record_point(PointError(t_s=400.0, error_px=100.0))
+    session.record_point(PointError(t_s=10.0, error_px=40.0, zone_hit=True))
+    session.record_point(PointError(t_s=20.0, error_px=60.0, zone_hit=True))
+    session.record_point(PointError(t_s=400.0, error_px=100.0, zone_hit=False))
     session.set_duration(900.0)
     return session
 

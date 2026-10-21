@@ -2305,6 +2305,17 @@ class Config:
     profiles: ProfilesConfig = field(default_factory=ProfilesConfig)
 
 
+def handsfree_preset(config: Config) -> HandsfreeConfig:
+    """``[handsfree]`` as the file says it, for the capability *status* surfaces only.
+
+    The preset is expanded by the loader into ordinary keys (ADR-v2-148), and nothing at run
+    time may branch on this section (`tests/test_handsfree_no_second_path.py`). The features
+    registry still has to show the one switch as on or off, so this is the one named place
+    that reads it, and the same test pins its callers to the registry.
+    """
+    return config.handsfree
+
+
 def _load_filters(data: dict) -> FiltersConfig:
     filters_raw = data.get("filters", {})
     disf_raw = filters_raw.get("disfluency", {})

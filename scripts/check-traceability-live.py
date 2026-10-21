@@ -23,9 +23,26 @@ What it checks, per manifest entry that names issues or a milestone
     The entry declares a milestone and an *open* issue it names carries a different one (or
     none). Closed issues are not compared: their milestone is history.
 
+Advisory drift, per open GitHub issue (reported, NEVER changes the exit code)
+------------------------------------------------------------------------------
+The same issue listing also answers three questions about the issue tracker itself. They are
+advisory because the policy that would make them binding is #480's decision, still open:
+
+``UNMILESTONED_UNCLASSIFIED``
+    An open issue has no milestone and carries none of the exempt class labels listed under
+    ``issue_policy.exempt_labels`` in ``design/traceability-exceptions.yml``. That list is
+    empty until #480 names the classes, so today this is simply "open issue, no milestone".
+``STALE_DO_NOT_START``
+    An open issue's body carries a "do not start" blockquote banner and every issue/PR the
+    banner (or the issue's ``## Blocked by`` section) names is now closed. Conservative by
+    construction: an unknown or still-open reference keeps the banner quiet.
+``CLOSED_TRACKER_REFERENCE``
+    A non-terminal manifest entry still lists a closed issue beside an open one. (When every
+    tracker is closed that is the blocking ``NO_OPEN_TRACKER`` above, not this.)
+
 Exit codes (a transient outage must never read as a traceability finding)
 ------------------------------------------------------------------------
-``0``  every live check passed (exceptions are listed, never silent)
+``0``  every live check passed (exceptions and advisory drift are listed, never silent)
 ``1``  at least one real traceability violation
 ``2``  live state could not be obtained: network error, timeout, 5xx, 429, exhausted rate
        limit, truncated pagination or an unreadable response. Not a finding; retry later.
@@ -43,6 +60,9 @@ The milestone policy (#480) is still being decided, so this script invents none.
 names a rule, an entry and (optionally) an issue, and must carry a ``reason`` and the
 ``tracker`` issue that justifies it; an optional ``expires`` date stops it applying. An
 exception that matched nothing is reported so the file cannot quietly rot.
+
+``--summary-file`` appends a human report (the job summary); ``--json-file`` writes the same
+outcome as JSON for the workflow artifact, for every exit code.
 
 The token is read from ``GITHUB_TOKEN``/``GH_TOKEN`` and is only ever sent to the API host; it
 is never printed, logged, or echoed in an error.
@@ -90,6 +110,13 @@ RULES = (
     "MILESTONE_MISMATCH",
 )
 
+#: Advisory rules: reported in the summary and artifact, never part of the exit code.
+DRIFT_RULES = (
+    "UNMILESTONED_UNCLASSIFIED",
+    "STALE_DO_NOT_START",
+    "CLOSED_TRACKER_REFERENCE",
+)
+
 MAX_PAGES = 100  # 10,000 items; hitting it means the listing is truncated, not "done"
 MAX_ATTEMPTS = 3
 MAX_WAIT_SECONDS = 60
@@ -116,6 +143,9 @@ class IssueFact:
     is_pull_request: bool
     milestone: int | None
     title: str
+    labels: tuple[str, ...] = ()
+    body: str = ""
+    merged: bool = False  # pull requests only: closed by a merge, not abandoned
 
 
 @dataclass(frozen=True)
@@ -146,12 +176,26 @@ def parse_issues(items: Iterable[Any]) -> dict[int, IssueFact]:
         _require(
             ms_number is None or isinstance(ms_number, int), f"issue #{number}.milestone.number"
         )
+        raw_labels = raw.get("labels") or []
+        _require(isinstance(raw_labels, list), f"issue #{number}.labels")
+        labels: list[str] = []
+        for label in raw_labels:
+            name = label.get("name") if isinstance(label, dict) else label
+            if not isinstance(name, str):
+                raise LiveStateUnavailable(f"unreadable GitHub response: issue #{number} label")
+            labels.append(name)
+        body = raw.get("body")
+        _require(body is None or isinstance(body, str), f"issue #{number}.body")
+        pull = raw.get("pull_request")
         out[number] = IssueFact(
             number=number,
             state=state,
             is_pull_request="pull_request" in raw,
             milestone=ms_number,
             title=str(raw.get("title") or ""),
+            labels=tuple(labels),
+            body=body or "",
+            merged=isinstance(pull, dict) and bool(pull.get("merged_at")),
         )
     return out
 
@@ -237,6 +281,92 @@ def parse_exceptions(data: Any) -> list[AllowedException]:
     return parsed
 
 
+@dataclass(frozen=True)
+class IssuePolicy:
+    """Which open issues may lack a milestone. #480 decides; this only encodes the decision."""
+
+    exempt_labels: frozenset[str] = frozenset()
+
+
+def parse_issue_policy(data: Any) -> IssuePolicy:
+    """Read ``issue_policy`` from the exceptions file. Absent means no exemption class."""
+    if not isinstance(data, dict) or data.get("issue_policy") is None:
+        return IssuePolicy()
+    raw = data["issue_policy"]
+    where = f"{EXCEPTIONS_REL}: issue_policy"
+    if not isinstance(raw, dict):
+        raise AuditConfigError(f"{where} must be a mapping")
+    unknown = set(raw) - {"exempt_labels"}
+    if unknown:
+        raise AuditConfigError(f"{where} has unknown key(s): {', '.join(sorted(unknown))}")
+    labels = raw.get("exempt_labels") or []
+    if not isinstance(labels, list) or not all(
+        isinstance(name, str) and name.strip() for name in labels
+    ):
+        raise AuditConfigError(f"{where}.exempt_labels must be a list of label names")
+    return IssuePolicy(frozenset(name.strip() for name in labels))
+
+
+# --------------------------------------------------------------------------------------
+# Pure logic: "do not start" banners in issue bodies
+# --------------------------------------------------------------------------------------
+_DO_NOT_START = re.compile(r"\b(?:do\s+not|don['’]t)\s+start\b", re.IGNORECASE)
+# `#123`, but not `owner/repo#123`, `&#123;` or an anchor such as `page#123`.
+_ISSUE_REF = re.compile(r"(?<![\w/&])#(\d+)\b")
+_HEADING = re.compile(r"^\s{0,3}#{1,6}\s+(.*?)\s*#*\s*$")
+_FENCE = re.compile(r"^\s{0,3}(```|~~~)")
+
+
+def _prose_lines(body: str) -> list[str]:
+    """The body's lines with fenced code blanked, so a quoted snippet is not read as prose."""
+    out: list[str] = []
+    fenced = False
+    for line in body.splitlines():
+        if _FENCE.match(line):
+            fenced = not fenced
+            out.append("")
+            continue
+        out.append("" if fenced else line)
+    return out
+
+
+def banner_blockers(body: str, own_number: int | None = None) -> list[int] | None:
+    """Issue numbers a "do not start" banner waits on, or ``None`` when there is no banner.
+
+    The banner is a Markdown blockquote block that says "do not start". Its blockers are the
+    ``#N`` references in that block plus those in a ``## Blocked by`` section, if the issue
+    has one. Taking the union is the conservative direction: a stray extra reference that is
+    still open can only keep a banner from being reported stale, never make one fire.
+    """
+    lines = _prose_lines(body)
+    banner: list[str] | None = None
+    block: list[str] = []
+    for line in [*lines, ""]:
+        if line.lstrip().startswith(">"):
+            block.append(line)
+            continue
+        if block and _DO_NOT_START.search(" ".join(block)):
+            banner = (banner or []) + block
+        block = []
+    if banner is None:
+        return None
+    text = list(banner)
+    in_blocked = False
+    for line in lines:
+        heading = _HEADING.match(line)
+        if heading:
+            in_blocked = heading.group(1).strip().lower().rstrip(":") == "blocked by"
+            continue
+        if in_blocked:
+            text.append(line)
+    refs: list[int] = []
+    for match in _ISSUE_REF.finditer("\n".join(text)):
+        number = int(match.group(1))
+        if number != own_number and number not in refs:
+            refs.append(number)
+    return refs
+
+
 # --------------------------------------------------------------------------------------
 # Pure logic: the decision
 # --------------------------------------------------------------------------------------
@@ -249,6 +379,16 @@ class Finding:
     milestone: int | None = None
 
 
+@dataclass(frozen=True)
+class Drift:
+    """An advisory observation about the live tracker. Never part of the exit code."""
+
+    rule: str
+    issue: int
+    message: str
+    entry: str | None = None
+
+
 @dataclass
 class AuditResult:
     findings: list[Finding] = field(default_factory=list)
@@ -257,6 +397,9 @@ class AuditResult:
     unused: list[AllowedException] = field(default_factory=list)
     entries_checked: int = 0
     issues_referenced: int = 0
+    drift: list[Drift] = field(default_factory=list)
+    open_issues: int = 0
+    unused_exempt_labels: list[str] = field(default_factory=list)
 
 
 def _ms_label(number: int, milestones: dict[int, MilestoneFact]) -> str:
@@ -349,6 +492,89 @@ def evaluate_entry(
     return findings
 
 
+def _safe_title(title: str, limit: int = 80) -> str:
+    """An issue title is contributor text: keep it from breaking out of the summary's fence."""
+    flat = re.sub(r"[\x00-\x1f\x7f`]+", " ", title).strip()
+    return flat if len(flat) <= limit else flat[: limit - 1] + "…"
+
+
+def _describe(fact: IssueFact) -> str:
+    if not fact.is_pull_request:
+        return f"#{fact.number} (closed)"
+    return f"#{fact.number} (PR merged)" if fact.merged else f"#{fact.number} (PR closed unmerged)"
+
+
+def evaluate_drift(
+    manifest: dict[str, Any],
+    issues: dict[int, IssueFact],
+    policy: IssuePolicy | None = None,
+) -> tuple[list[Drift], int, list[str]]:
+    """Advisory drift over every open issue. Pure: no I/O, no clock.
+
+    Returns the observations, how many open issues were looked at, and which exempt labels
+    matched no open issue (so the #480 class list cannot quietly rot either).
+    """
+    policy = policy or IssuePolicy()
+    drift: list[Drift] = []
+    open_issues = sorted(
+        (f for f in issues.values() if f.state == "open" and not f.is_pull_request),
+        key=lambda f: f.number,
+    )
+    used_labels: set[str] = set()
+    for fact in open_issues:
+        exempt = policy.exempt_labels.intersection(fact.labels)
+        used_labels.update(exempt)
+        if fact.milestone is None and not exempt:
+            drift.append(
+                Drift(
+                    "UNMILESTONED_UNCLASSIFIED",
+                    fact.number,
+                    f"open issue #{fact.number} has no milestone and no exempt class label "
+                    f"({_safe_title(fact.title)})",
+                )
+            )
+        blockers = banner_blockers(fact.body, fact.number)
+        if blockers:
+            known = [issues.get(n) for n in blockers]
+            if all(b is not None and b.state == "closed" for b in known):
+                closed = ", ".join(_describe(b) for b in known if b is not None)
+                drift.append(
+                    Drift(
+                        "STALE_DO_NOT_START",
+                        fact.number,
+                        f'open issue #{fact.number} still says "do not start" but every '
+                        f"blocker it references by number is closed: {closed}; re-check any "
+                        "prose condition, then lift or update the banner",
+                    )
+                )
+
+    for entry in manifest.get("entries", []):
+        if entry.get("delivery_status") in TERMINAL_DELIVERY:
+            continue
+        tracking = entry.get("tracking") or {}
+        facts = [
+            issues[n]
+            for n in tracking.get("issues") or []
+            if isinstance(n, int) and n in issues and not issues[n].is_pull_request
+        ]
+        if not any(f.state == "open" for f in facts):
+            continue  # all closed is NO_OPEN_TRACKER, a blocking finding, not drift
+        for fact in facts:
+            if fact.state == "closed":
+                drift.append(
+                    Drift(
+                        "CLOSED_TRACKER_REFERENCE",
+                        fact.number,
+                        f"entry {entry['id']!r} (delivery_status="
+                        f"{entry.get('delivery_status')}) still lists closed issue "
+                        f"#{fact.number} beside an open tracker",
+                        entry=str(entry["id"]),
+                    )
+                )
+    unused = sorted(policy.exempt_labels - used_labels)
+    return drift, len(open_issues), unused
+
+
 def _matches(finding: Finding, exc: AllowedException) -> bool:
     return (
         finding.rule == exc.rule
@@ -363,8 +589,9 @@ def audit(
     milestones: dict[int, MilestoneFact],
     exceptions: list[AllowedException] | None = None,
     today: dt.date | None = None,
+    policy: IssuePolicy | None = None,
 ) -> AuditResult:
-    """Run every live check and apply the explicit exception allowlist."""
+    """Run every live check, apply the explicit exception allowlist, and collect drift."""
     today = today or dt.datetime.now(dt.timezone.utc).date()
     exceptions = exceptions or []
     result = AuditResult()
@@ -389,6 +616,9 @@ def audit(
                 result.suppressed.append((finding, allowed))
     result.issues_referenced = len(referenced)
     result.unused = [e for e in live if e not in used]
+    result.drift, result.open_issues, result.unused_exempt_labels = evaluate_drift(
+        manifest, issues, policy
+    )
     return result
 
 
@@ -441,7 +671,83 @@ def render_report(
             f"  unused exception [{exc.rule}] entry {exc.entry!r} (#{exc.tracker}): "
             f"matched nothing; remove it from {EXCEPTIONS_REL}"
         )
+    out.extend(render_drift(result))
     return "\n".join(out) + "\n"
+
+
+def render_drift(result: AuditResult) -> list[str]:
+    """The advisory section. It says plainly that it does not change the verdict."""
+    out = [
+        "",
+        f"Advisory drift: {len(result.drift)} observation(s) across {result.open_issues} open "
+        "issue(s). Advisory only: this never changes the exit code (milestone policy: #480).",
+    ]
+    for rule in DRIFT_RULES:
+        items = [d for d in result.drift if d.rule == rule]
+        if items:
+            out.append(f"  {rule} ({len(items)}):")
+            out.extend(f"    - {d.message}" for d in items)
+    for label in result.unused_exempt_labels:
+        out.append(
+            f"  unused exempt label {label!r}: no open issue carries it; check "
+            f"issue_policy in {EXCEPTIONS_REL}"
+        )
+    return out
+
+
+_STATUS = {
+    EXIT_OK: "ok",
+    EXIT_VIOLATION: "violations",
+    EXIT_UNAVAILABLE: "not-checked",
+    EXIT_CONFIG: "cannot-run",
+}
+
+
+def render_json(
+    result: AuditResult | None,
+    code: int,
+    lines: dict[str, int] | None = None,
+    repo: str = DEFAULT_REPO,
+    reason: str | None = None,
+) -> str:
+    """The machine-readable outcome for the workflow artifact, written for every exit code."""
+    lines = lines or {}
+    doc: dict[str, Any] = {
+        "schema": 1,
+        "repo": repo,
+        "manifest": MANIFEST_REL,
+        "exceptions": EXCEPTIONS_REL,
+        "exit_code": code,
+        "status": _STATUS[code],
+        "reason": reason,
+        "violations": [],
+        "drift": [],
+    }
+    if result is not None:
+
+        def where(entry: str) -> str:
+            line = lines.get(entry)
+            return f"{MANIFEST_REL}:{line}" if line else MANIFEST_REL
+
+        doc["entries_checked"] = result.entries_checked
+        doc["issues_referenced"] = result.issues_referenced
+        doc["open_issues"] = result.open_issues
+        doc["violations"] = [
+            {"rule": f.rule, "entry": f.entry, "location": where(f.entry), "issue": f.issue,
+             "milestone": f.milestone, "message": f.message}
+            for f in result.findings
+        ]
+        doc["suppressed"] = [
+            {"rule": f.rule, "entry": f.entry, "issue": f.issue, "tracker": e.tracker,
+             "reason": e.reason}
+            for f, e in result.suppressed
+        ]
+        doc["drift"] = [
+            {"rule": d.rule, "issue": d.issue, "entry": d.entry, "message": d.message}
+            for d in result.drift
+        ]
+        doc["unused_exempt_labels"] = list(result.unused_exempt_labels)
+    return json.dumps(doc, indent=2, sort_keys=True) + "\n"
 
 
 def render_unavailable(reason: str) -> str:
@@ -608,7 +914,7 @@ def _load_offline_checker() -> Any:
 
 def load_inputs(
     manifest_path: Path, exceptions_path: Path
-) -> tuple[dict[str, Any], str, list[AllowedException]]:
+) -> tuple[dict[str, Any], str, list[AllowedException], IssuePolicy]:
     """Read and validate both local files. Raises :class:`AuditConfigError` on any problem."""
     import yaml
 
@@ -625,12 +931,15 @@ def load_inputs(
         )
     text = manifest_path.read_text(encoding="utf-8")
     exceptions: list[AllowedException] = []
+    policy = IssuePolicy()
     if exceptions_path.exists():
         try:
-            exceptions = parse_exceptions(yaml.safe_load(exceptions_path.read_text(encoding="utf-8")))
+            data = yaml.safe_load(exceptions_path.read_text(encoding="utf-8"))
         except (OSError, UnicodeDecodeError, yaml.YAMLError) as exc:
             raise AuditConfigError(f"cannot read {EXCEPTIONS_REL}: {exc}") from exc
-    return manifest, text, exceptions
+        exceptions = parse_exceptions(data)
+        policy = parse_issue_policy(data)
+    return manifest, text, exceptions, policy
 
 
 def _write_summary(path: str, body: str, title: str) -> None:
@@ -639,6 +948,13 @@ def _write_summary(path: str, body: str, title: str) -> None:
             handle.write(f"### {title}\n\n```\n{body}```\n")
     except OSError:
         pass  # a missing summary file must not change the verdict
+
+
+def _write_json(path: str, text: str) -> None:
+    try:
+        Path(path).write_text(text, encoding="utf-8")
+    except OSError:
+        pass  # an unwritable artifact path must not change the verdict either
 
 
 def run(
@@ -650,33 +966,47 @@ def run(
     parser.add_argument("--manifest", type=Path, default=MANIFEST)
     parser.add_argument("--exceptions", type=Path, default=EXCEPTIONS)
     parser.add_argument("--summary-file", help="append the report here (GITHUB_STEP_SUMMARY)")
+    parser.add_argument("--json-file", help="write the outcome as JSON here (workflow artifact)")
     args = parser.parse_args(argv)
 
-    def finish(code: int, body: str, title: str) -> int:
+    def finish(code: int, body: str, title: str, payload: str) -> int:
         stream = sys.stdout if code == EXIT_OK else sys.stderr
         stream.write(body)
         if args.summary_file:
             _write_summary(args.summary_file, body, title)
+        if args.json_file:
+            _write_json(args.json_file, payload)
         return code
 
     token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
     api_url = os.environ.get("GITHUB_API_URL") or DEFAULT_API
     try:
-        manifest, text, exceptions = load_inputs(args.manifest, args.exceptions)
+        manifest, text, exceptions, policy = load_inputs(args.manifest, args.exceptions)
         factory = client_factory or (lambda repo, tok, api: GitHubClient(repo, tok, api))
         client = factory(args.repo, token, api_url)
         issues = client.issues()
         milestones = client.milestones()
     except AuditConfigError as exc:
-        return finish(EXIT_CONFIG, render_config_error(str(exc)), "Traceability: cannot run")
+        return finish(
+            EXIT_CONFIG,
+            render_config_error(str(exc)),
+            "Traceability: cannot run",
+            render_json(None, EXIT_CONFIG, repo=args.repo, reason=str(exc)),
+        )
     except LiveStateUnavailable as exc:
-        return finish(EXIT_UNAVAILABLE, render_unavailable(str(exc)), "Traceability: not checked")
+        return finish(
+            EXIT_UNAVAILABLE,
+            render_unavailable(str(exc)),
+            "Traceability: not checked",
+            render_json(None, EXIT_UNAVAILABLE, repo=args.repo, reason=str(exc)),
+        )
 
-    result = audit(manifest, issues, milestones, exceptions)
+    result = audit(manifest, issues, milestones, exceptions, policy=policy)
     code = exit_code_for(result)
-    body = render_report(result, locate_entries(text), args.repo)
+    lines = locate_entries(text)
+    body = render_report(result, lines, args.repo)
     title = "Traceability: violations" if code else "Traceability: OK"
-    return finish(code, body, title)
+    return finish(code, body, title, render_json(result, code, lines, args.repo))
 
 
 def main() -> int:

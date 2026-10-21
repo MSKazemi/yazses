@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -148,6 +149,10 @@ def test_record_has_the_documented_fields_and_is_json_serialisable(cm) -> None:
 # --- RAPL ----------------------------------------------------------------------------
 
 def _rapl(root: Path, name: str, start: int | None, max_range: int | None = 1000) -> Path:
+    if os.name == "nt":
+        # RAPL zones are named like `intel-rapl:0`, and NTFS refuses `:` in a file name
+        # (WinError 267). RAPL is a Linux sysfs interface, so there is nothing to fake here.
+        pytest.skip("RAPL sysfs names contain ':', which Windows cannot create; RAPL is Linux-only")
     d = root / name
     d.mkdir(parents=True)
     if start is not None:

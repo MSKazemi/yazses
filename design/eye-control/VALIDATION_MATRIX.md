@@ -53,8 +53,12 @@ These public reports are `community_qa`, not automatic research participants.
 [`validation-slots.json`](validation-slots.json) carries the **A/B table above** (every issue in
 it is exactly one cell) plus the PLANNED T1 cells that wait on #422, as one versioned entry per
 cell — pack, environment/session, A/B/repeat, PLANNED/READY, prerequisite issues, target issue
-where one exists, time estimate, hardware requirement, beginner-safety and evidence class. It
-holds no participant identity, contact detail or raw result.
+where one exists, time estimate, hardware requirement and hardware class (`camera`, or
+`camera_display_topology` for a non-100% scale or second monitor), beginner-safety and evidence
+class. A top-level `issues` list declares every GitHub issue the cells name, with the code in its
+title and its role (`slot` or `prerequisite`). The validator rejects a cell that names an
+undeclared issue, a declaration no cell uses, and a slot issue whose title code names a different
+cell. It holds no participant identity, contact detail or raw result.
 
 It does **not** carry every cell the "Which test must run where?" table below names. T2, T3, T4,
 T6 and T7 have no registered cell, because a cell is registered when its capability is reachable

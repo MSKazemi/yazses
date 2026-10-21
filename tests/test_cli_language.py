@@ -116,8 +116,8 @@ def test_language_status_json_is_stable_and_machine_readable(tmp_path):
     payload = json.loads(result.output)
     assert payload == {
         "coherent": True,
-        "command_language": "en",
-        "command_support": "english-only",
+        "command_language": "zh",
+        "command_support": "available",
         "custom_model": False,
         "dictation_ready": True,
         "engine": "faster-whisper",
@@ -131,6 +131,7 @@ def test_language_status_json_is_stable_and_machine_readable(tmp_path):
             "script_dependency_available": True,
         },
         "speech_language": "zh",
+        "warnings": [],
     }
 
 

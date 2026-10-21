@@ -25,6 +25,16 @@ empty document that then passes every per-slot check. For the same reason an emp
 ``slots`` list is an error, not a vacuous pass: a guard that only iterates is green on a
 collection with nothing in it, which is the failure mode this file is written against.
 
+**Every issue number it sees is one the registry declared.** The top-level ``issues``
+list names each GitHub issue the slots refer to: its number, the code in its title
+(``EYE-QA-WIN-A``) and its role, ``slot`` or ``prerequisite``. A slot's ``issue`` must be
+declared as a ``slot``, every ``blocked_by`` entry as a ``prerequisite``, and every
+declaration must be referenced by some slot, so a mistyped number is an error rather
+than a new, silently accepted issue. A slot issue's title code must also name the cell it
+represents (VALIDATION_OPERATIONS.md: ``[EYE-QA-<ENV>-<SLOT>]``), which is how the
+historical meaning of #428-#440 is held still. The referenced sets are derived from the
+slots on every run; nothing in this file lists issue numbers.
+
 **It checks that READY work is actually advertised, and PLANNED work is not.** The
 contributor task finder is generated from ``campaign/tasks.json``. Every READY slot must
 have exactly one open measurement task there that names it, and no PLANNED slot may have
@@ -52,7 +62,10 @@ ROOT = Path(__file__).resolve().parent.parent
 REGISTRY = ROOT / "design" / "eye-control" / "validation-slots.json"
 CAMPAIGN_TASKS = ROOT / "campaign" / "tasks.json"
 
-SCHEMA_VERSION = 1
+#: Version 2 added the top-level ``issues`` declaration and the per-slot
+#: ``hardware_class``. Both are required, so a version-1 document is rejected rather
+#: than read as though its declaration were merely empty.
+SCHEMA_VERSION = 2
 
 #: One sitting. The campaign contract (scripts/campaign.py) bounds a whole task at 480
 #: minutes; a single hardware session must be far shorter than that, because the slot
@@ -60,8 +73,15 @@ SCHEMA_VERSION = 1
 #: ``size:s`` is "roughly one short session"). A repeat slot is checked per session.
 MAX_SESSION_MINUTES = 120
 
-TOP_LEVEL_KEYS = {"schema_version", "description", "generated_from", "slots"}
-TOP_LEVEL_REQUIRED = {"schema_version", "generated_from", "slots"}
+TOP_LEVEL_KEYS = {"schema_version", "description", "generated_from", "issues", "slots"}
+TOP_LEVEL_REQUIRED = {"schema_version", "generated_from", "issues", "slots"}
+
+#: The registry's own declaration of every GitHub issue its slots name.
+ISSUE_KEYS = {"number", "key", "role"}
+#: ``slot``: the issue *is* a validation cell. ``prerequisite``: a code/fixture issue a
+#: cell waits on. A closed vocabulary; an issue that is neither does not belong here.
+ISSUE_ROLES = {"slot", "prerequisite"}
+_ISSUE_KEY = re.compile(r"EYE(?:-[A-Z0-9]+)+")
 
 SLOT_KEYS = {
     "id",
@@ -76,6 +96,7 @@ SLOT_KEYS = {
     "sessions",
     "time_estimate_minutes",
     "hardware_required",
+    "hardware_class",
     "beginner_safe",
     "cloud_agent_ready",
     "public",
@@ -91,6 +112,7 @@ SLOT_REQUIRED = {
     "slot",
     "state",
     "hardware_required",
+    "hardware_class",
     "beginner_safe",
     "requirement",
 }
@@ -104,6 +126,16 @@ PACKS = {"T0", "T1", "T2", "T3", "T4", "T5", "T6", "T7"}
 ENVIRONMENTS = {"WIN", "MAC", "GNOME", "KDE", "X11", "HIDPI", "ANY"}
 SLOTS = {"A", "B", "repeat"}
 STATES = {"planned", "ready"}
+
+#: What a contributor must physically have before claiming the slot: the camera/display
+#: need #456 says must be visible before claiming. ``camera`` is any working webcam,
+#: integrated or USB; ``camera_display_topology`` adds a non-100% scale or a second
+#: monitor (VALIDATION_MATRIX.md, T5); ``none`` is a slot that needs no hardware.
+HARDWARE_CLASSES = {"none", "camera", "camera_display_topology"}
+#: The T5 pack and the HIDPI environment are *about* display topology, so a cell in either
+#: that asks only for a camera would under-state what a contributor needs.
+_TOPOLOGY_PACKS = {"T5"}
+_TOPOLOGY_ENVIRONMENTS = {"HIDPI"}
 
 #: ADR-v2-150's evidence classes, minus ``research``. Research participant data is
 #: collected under a named protocol on a private path and never appears in a public
@@ -314,6 +346,29 @@ def _check_slot(slot: Any, where: str, errors: list[str]) -> str | None:
         if value is not None and not isinstance(value, bool):
             errors.append(f"{where}: {flag} must be a boolean")
 
+    hardware_class = slot.get("hardware_class")
+    if hardware_class is not None:
+        if not _in(hardware_class, HARDWARE_CLASSES):
+            errors.append(
+                f"{where}: hardware_class must be one of {sorted(HARDWARE_CLASSES)}, "
+                f"got {hardware_class!r}"
+            )
+        else:
+            needs_hardware = hardware_class != "none"
+            required = slot.get("hardware_required")
+            if isinstance(required, bool) and required is not needs_hardware:
+                errors.append(
+                    f"{where}: hardware_class {hardware_class!r} contradicts "
+                    f"hardware_required={required}"
+                )
+            if (
+                _in(pack, _TOPOLOGY_PACKS) or _in(environment, _TOPOLOGY_ENVIRONMENTS)
+            ) and hardware_class != "camera_display_topology":
+                errors.append(
+                    f"{where}: a {pack}/{environment} cell tests display topology, so "
+                    "hardware_class must be 'camera_display_topology'"
+                )
+
     issue = slot.get("issue")
     if issue is not None and (not isinstance(issue, int) or isinstance(issue, bool) or issue <= 0):
         errors.append(f"{where}: issue must be null or a positive integer")
@@ -429,6 +484,8 @@ def validate_registry(data: dict[str, Any], root: Path = ROOT) -> list[str]:
 
     _scan_identity(data, "", errors)
 
+    declared = _check_issue_declaration(data.get("issues"), errors)
+
     slots = data.get("slots")
     if not isinstance(slots, list):
         errors.append("slots must be a list")
@@ -459,7 +516,131 @@ def validate_registry(data: dict[str, Any], root: Path = ROOT) -> list[str]:
                 else:
                     seen_issues[issue] = slot_id or f"slots[{index}]"
 
+    if declared is not None:
+        _check_issue_references(slots, declared, errors)
+
     return errors
+
+
+def _check_issue_declaration(issues: Any, errors: list[str]) -> dict[int, dict[str, Any]] | None:
+    """Validate the top-level ``issues`` list; return it keyed by number when usable.
+
+    Returns ``None`` when the list itself is unusable, so the cross-reference check is
+    skipped rather than run against a half-read declaration. The error for the list is
+    already recorded, so a skipped check is never reported as a pass.
+    """
+    if not isinstance(issues, list):
+        errors.append("issues must be a list declaring every issue the slots refer to")
+        return None
+    if not issues:
+        # Iteration over nothing proves nothing: an empty declaration is a failure, not a
+        # registry that happens to reference no issue.
+        errors.append("issues is empty -- an empty declaration proves nothing and is not valid")
+        return None
+    declared: dict[int, dict[str, Any]] = {}
+    for index, entry in enumerate(issues):
+        where = f"issues[{index}]"
+        if not isinstance(entry, dict):
+            errors.append(f"{where}: issue declaration must be a mapping")
+            continue
+        unknown = set(entry) - ISSUE_KEYS
+        if unknown:
+            errors.append(f"{where}: unknown issue keys {sorted(unknown)}")
+        number = entry.get("number")
+        if not isinstance(number, int) or isinstance(number, bool) or number <= 0:
+            errors.append(f"{where}: number must be a positive integer")
+            continue
+        where = f"issues[#{number}]"
+        key = entry.get("key")
+        if not isinstance(key, str) or not _ISSUE_KEY.fullmatch(key):
+            errors.append(
+                f"{where}: key must be the code in the issue title, e.g. 'EYE-QA-WIN-A', "
+                f"got {key!r}"
+            )
+        role = entry.get("role")
+        if not _in(role, ISSUE_ROLES):
+            errors.append(f"{where}: role must be one of {sorted(ISSUE_ROLES)}, got {role!r}")
+        if number in declared:
+            errors.append(f"{where}: issue #{number} is declared more than once")
+            continue
+        declared[number] = entry
+    return declared
+
+
+def _expected_slot_key(slot: dict[str, Any]) -> re.Pattern[str] | None:
+    """The title code a slot's issue must carry, per VALIDATION_OPERATIONS.md.
+
+    ``EYE-QA-<ENV>-<SLOT>`` for an A/B cell. The one repeat cell on record (#437) is
+    titled ``EYE-QA-REPEAT-A``: a repeat cell is the same environment run again, so its
+    code names the repetition, not an environment. ``None`` when the slot's own fields
+    are unusable, which :func:`_check_slot` has already reported.
+    """
+    environment, ab = slot.get("environment"), slot.get("slot")
+    if not (isinstance(environment, str) and environment in ENVIRONMENTS):
+        return None
+    if not (isinstance(ab, str) and ab in SLOTS):
+        return None
+    if ab == "repeat":
+        return re.compile(r"EYE-QA-REPEAT-[A-Z]")
+    return re.compile(rf"EYE-QA-{re.escape(environment)}-{re.escape(ab)}")
+
+
+def _check_issue_references(
+    slots: list[Any], declared: dict[int, dict[str, Any]], errors: list[str]
+) -> None:
+    """Every issue a slot names is declared in the right role, and every declaration is used.
+
+    The referenced numbers are derived from the slots on every run. This function holds no
+    list of its own, so it cannot drift from the registry it checks.
+    """
+    referenced: dict[str, set[int]] = {role: set() for role in ISSUE_ROLES}
+    for index, slot in enumerate(slots):
+        if not isinstance(slot, dict):
+            continue
+        raw_id = slot.get("id")
+        label = raw_id if isinstance(raw_id, str) and raw_id else f"slots[{index}]"
+        issue = slot.get("issue")
+        if isinstance(issue, int) and not isinstance(issue, bool) and issue > 0:
+            referenced["slot"].add(issue)
+            entry = declared.get(issue)
+            if entry is None:
+                errors.append(f"{label}: issue #{issue} is not declared in the issues list")
+            elif entry.get("role") != "slot":
+                errors.append(
+                    f"{label}: issue #{issue} is declared as {entry.get('role')!r}, "
+                    "not as a 'slot'"
+                )
+            else:
+                expected = _expected_slot_key(slot)
+                key = entry.get("key")
+                if expected is not None and isinstance(key, str) and not expected.fullmatch(key):
+                    errors.append(
+                        f"{label}: issue #{issue} is titled {key!r}, which names a different "
+                        f"cell (expected {expected.pattern!r}) -- an issue keeps the meaning "
+                        "it was opened with"
+                    )
+        blocked_by = slot.get("blocked_by")
+        if not isinstance(blocked_by, list):
+            continue
+        for number in blocked_by:
+            if not isinstance(number, int) or isinstance(number, bool) or number <= 0:
+                continue  # already reported by _check_slot
+            referenced["prerequisite"].add(number)
+            entry = declared.get(number)
+            if entry is None:
+                errors.append(f"{label}: prerequisite #{number} is not declared in the issues list")
+            elif entry.get("role") != "prerequisite":
+                errors.append(
+                    f"{label}: blocked_by #{number} is declared as {entry.get('role')!r}, "
+                    "not as a 'prerequisite'"
+                )
+    for number in sorted(declared):
+        role = declared[number].get("role")
+        if isinstance(role, str) and role in referenced and number not in referenced[role]:
+            errors.append(
+                f"issues[#{number}]: declared as a {role!r} but no slot refers to it -- "
+                "remove the stale declaration"
+            )
 
 
 #: How a campaign task says which registry slot it advertises. Matched in ``source``, the

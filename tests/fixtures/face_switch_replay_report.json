@@ -1,5 +1,5 @@
 {
-  "report_version": "1.2",
+  "report_version": "1.3",
   "no_threshold_notice": "No product threshold, default or 'recommended' status follows from these numbers. Checked-in traces are synthetic and a threshold sweep only shows the phantom/recall trade-off on the trace it ran on. A facial switch is not recommended until false-activation evidence exists from real volunteer sessions across people (design/eye-control/ROADMAP.md P5.4, ADR-v2-150).",
   "zero_denominator_rule": "An empty trace is refused. A rate whose own denominator is zero is reported as {\"value\": null, \"reason\": ...}, never as 0.0: no non-deliberate time -> not_measured; no deliberate gestures -> not_measured; non-deliberate time with no usable reading -> tracking_unavailable.",
   "metric_definitions": {
@@ -17,6 +17,7 @@
   },
   "upper_bound_caveat": "Exact one-sided 95% Poisson lower and upper limits on the rate, assuming independent events in a single session; real phantoms cluster (a long conversation, a bad lighting spell), so treat them as a floor on the uncertainty, not a guarantee.",
   "evidence_class": "synthetic",
+  "detector": "yazses.facegesture.detector.GestureSwitch",
   "config": {
     "hold_threshold": 0.5,
     "release_threshold": 0.35,
@@ -29,8 +30,91 @@
     "match_grace_samples": 0,
     "max_hold_s": 0.0
   },
-  "total_traces": 8,
+  "total_traces": 13,
   "traces": [
+    {
+      "trace_id": "animated-talking",
+      "study_mode": "synthetic",
+      "gesture": "jaw_open",
+      "sample_rate_hz": 15.0,
+      "baseline_applied": null,
+      "intended_activations": 0,
+      "detections": 0,
+      "misses": 0,
+      "recall": {
+        "value": null,
+        "reason": "not_measured"
+      },
+      "false_activations": 0,
+      "duration_s": 90.0,
+      "non_deliberate_s": 90.0,
+      "deliberate_s": 0.0,
+      "non_deliberate_usable_fraction": 1.0,
+      "deliberate_usable_fraction": {
+        "value": null,
+        "reason": "not_measured"
+      },
+      "false_activations_per_hour": 0.0,
+      "false_activations_per_hour_lower_95": 0.0,
+      "false_activations_per_hour_upper_95": 119.829,
+      "per_hour_extrapolated": true,
+      "activation_latency_ms": {
+        "value": null,
+        "reason": "not_measured"
+      },
+      "chatter": {
+        "chattering_gestures": {
+          "value": null,
+          "reason": "not_measured"
+        },
+        "starts_per_detected_gesture": {
+          "value": null,
+          "reason": "not_measured"
+        },
+        "max_starts_per_gesture": {
+          "value": null,
+          "reason": "not_measured"
+        },
+        "extra_starts": {
+          "value": null,
+          "reason": "not_measured"
+        }
+      },
+      "intervals_held_at_start": 0,
+      "stuck_open_holds": 0,
+      "longest_hold_s": 0.0,
+      "failures": [],
+      "by_context": {
+        "rest": {
+          "duration_s": 20.0,
+          "false_activations": 0,
+          "false_activations_per_hour": 0.0,
+          "false_activations_per_hour_lower_95": 0.0,
+          "false_activations_per_hour_upper_95": 539.232,
+          "per_hour_extrapolated": true
+        },
+        "speech": {
+          "duration_s": 70.0,
+          "false_activations": 0,
+          "false_activations_per_hour": 0.0,
+          "false_activations_per_hour_lower_95": 0.0,
+          "false_activations_per_hour_upper_95": 154.066,
+          "per_hour_extrapolated": true
+        }
+      },
+      "sample_status": {
+        "reading": 1350,
+        "no_reading": 0,
+        "low_confidence": 0,
+        "unusable_baseline": 0
+      },
+      "samples": 1350,
+      "effective_thresholds": {
+        "hold": 0.5,
+        "release": 0.35,
+        "release_repaired": false
+      }
+    },
     {
       "trace_id": "baseline-shifted-rest",
       "study_mode": "synthetic",
@@ -87,6 +171,89 @@
         "unusable_baseline": 0
       },
       "samples": 362,
+      "effective_thresholds": {
+        "hold": 0.5,
+        "release": 0.35,
+        "release_repaired": false
+      }
+    },
+    {
+      "trace_id": "blinks-on-jaw-open",
+      "study_mode": "synthetic",
+      "gesture": "jaw_open",
+      "sample_rate_hz": 15.0,
+      "baseline_applied": null,
+      "intended_activations": 0,
+      "detections": 0,
+      "misses": 0,
+      "recall": {
+        "value": null,
+        "reason": "not_measured"
+      },
+      "false_activations": 0,
+      "duration_s": 60.0,
+      "non_deliberate_s": 60.0,
+      "deliberate_s": 0.0,
+      "non_deliberate_usable_fraction": 1.0,
+      "deliberate_usable_fraction": {
+        "value": null,
+        "reason": "not_measured"
+      },
+      "false_activations_per_hour": 0.0,
+      "false_activations_per_hour_lower_95": 0.0,
+      "false_activations_per_hour_upper_95": 179.744,
+      "per_hour_extrapolated": true,
+      "activation_latency_ms": {
+        "value": null,
+        "reason": "not_measured"
+      },
+      "chatter": {
+        "chattering_gestures": {
+          "value": null,
+          "reason": "not_measured"
+        },
+        "starts_per_detected_gesture": {
+          "value": null,
+          "reason": "not_measured"
+        },
+        "max_starts_per_gesture": {
+          "value": null,
+          "reason": "not_measured"
+        },
+        "extra_starts": {
+          "value": null,
+          "reason": "not_measured"
+        }
+      },
+      "intervals_held_at_start": 0,
+      "stuck_open_holds": 0,
+      "longest_hold_s": 0.0,
+      "failures": [],
+      "by_context": {
+        "rest": {
+          "duration_s": 57.0,
+          "false_activations": 0,
+          "false_activations_per_hour": 0.0,
+          "false_activations_per_hour_lower_95": 0.0,
+          "false_activations_per_hour_upper_95": 189.204,
+          "per_hour_extrapolated": true
+        },
+        "blink": {
+          "duration_s": 3.0,
+          "false_activations": 0,
+          "false_activations_per_hour": 0.0,
+          "false_activations_per_hour_lower_95": 0.0,
+          "false_activations_per_hour_upper_95": 3594.879,
+          "per_hour_extrapolated": true
+        }
+      },
+      "sample_status": {
+        "reading": 900,
+        "no_reading": 0,
+        "low_confidence": 0,
+        "unusable_baseline": 0
+      },
+      "samples": 900,
       "effective_thresholds": {
         "hold": 0.5,
         "release": 0.35,
@@ -210,6 +377,80 @@
       }
     },
     {
+      "trace_id": "look-down-glances",
+      "study_mode": "synthetic",
+      "gesture": "eyes_closed",
+      "sample_rate_hz": 15.0,
+      "baseline_applied": null,
+      "intended_activations": 2,
+      "detections": 2,
+      "misses": 0,
+      "recall": 1.0,
+      "false_activations": 4,
+      "duration_s": 80.733333,
+      "non_deliberate_s": 78.333333,
+      "deliberate_s": 2.4,
+      "non_deliberate_usable_fraction": 1.0,
+      "deliberate_usable_fraction": 1.0,
+      "false_activations_per_hour": 183.83,
+      "false_activations_per_hour_lower_95": 62.793,
+      "false_activations_per_hour_upper_95": 420.672,
+      "per_hour_extrapolated": true,
+      "activation_latency_ms": {
+        "count": 2,
+        "median": 866.667,
+        "max": 866.667
+      },
+      "chatter": {
+        "chattering_gestures": 0,
+        "starts_per_detected_gesture": 1.0,
+        "max_starts_per_gesture": 1,
+        "extra_starts": 0
+      },
+      "intervals_held_at_start": 0,
+      "stuck_open_holds": 0,
+      "longest_hold_s": 3.133333,
+      "failures": [],
+      "by_context": {
+        "rest": {
+          "duration_s": 59.266667,
+          "false_activations": 0,
+          "false_activations_per_hour": 0.0,
+          "false_activations_per_hour_lower_95": 0.0,
+          "false_activations_per_hour_upper_95": 181.968,
+          "per_hour_extrapolated": true
+        },
+        "blink": {
+          "duration_s": 2.533333,
+          "false_activations": 0,
+          "false_activations_per_hour": 0.0,
+          "false_activations_per_hour_lower_95": 0.0,
+          "false_activations_per_hour_upper_95": 4257.093,
+          "per_hour_extrapolated": true
+        },
+        "look_down": {
+          "duration_s": 16.533333,
+          "false_activations": 4,
+          "false_activations_per_hour": 870.968,
+          "false_activations_per_hour_lower_95": 297.505,
+          "false_activations_per_hour_upper_95": 1993.105,
+          "per_hour_extrapolated": true
+        }
+      },
+      "sample_status": {
+        "reading": 1211,
+        "no_reading": 0,
+        "low_confidence": 0,
+        "unusable_baseline": 0
+      },
+      "samples": 1211,
+      "effective_thresholds": {
+        "hold": 0.5,
+        "release": 0.35,
+        "release_repaired": false
+      }
+    },
+    {
       "trace_id": "low-confidence-frames",
       "study_mode": "synthetic",
       "gesture": "jaw_open",
@@ -319,6 +560,72 @@
         "unusable_baseline": 0
       },
       "samples": 242,
+      "effective_thresholds": {
+        "hold": 0.5,
+        "release": 0.35,
+        "release_repaired": false
+      }
+    },
+    {
+      "trace_id": "natural-blinks",
+      "study_mode": "synthetic",
+      "gesture": "eyes_closed",
+      "sample_rate_hz": 15.0,
+      "baseline_applied": null,
+      "intended_activations": 3,
+      "detections": 3,
+      "misses": 0,
+      "recall": 1.0,
+      "false_activations": 0,
+      "duration_s": 120.0,
+      "non_deliberate_s": 116.4,
+      "deliberate_s": 3.6,
+      "non_deliberate_usable_fraction": 1.0,
+      "deliberate_usable_fraction": 1.0,
+      "false_activations_per_hour": 0.0,
+      "false_activations_per_hour_lower_95": 0.0,
+      "false_activations_per_hour_upper_95": 92.652,
+      "per_hour_extrapolated": true,
+      "activation_latency_ms": {
+        "count": 3,
+        "median": 866.667,
+        "max": 866.667
+      },
+      "chatter": {
+        "chattering_gestures": 0,
+        "starts_per_detected_gesture": 1.0,
+        "max_starts_per_gesture": 1,
+        "extra_starts": 0
+      },
+      "intervals_held_at_start": 0,
+      "stuck_open_holds": 0,
+      "longest_hold_s": 0.333333,
+      "failures": [],
+      "by_context": {
+        "rest": {
+          "duration_s": 108.533333,
+          "false_activations": 0,
+          "false_activations_per_hour": 0.0,
+          "false_activations_per_hour_lower_95": 0.0,
+          "false_activations_per_hour_upper_95": 99.367,
+          "per_hour_extrapolated": true
+        },
+        "blink": {
+          "duration_s": 7.866667,
+          "false_activations": 0,
+          "false_activations_per_hour": 0.0,
+          "false_activations_per_hour_lower_95": 0.0,
+          "false_activations_per_hour_upper_95": 1370.928,
+          "per_hour_extrapolated": true
+        }
+      },
+      "sample_status": {
+        "reading": 1800,
+        "no_reading": 0,
+        "low_confidence": 0,
+        "unusable_baseline": 0
+      },
+      "samples": 1800,
       "effective_thresholds": {
         "hold": 0.5,
         "release": 0.35,
@@ -566,32 +873,167 @@
         "release": 0.35,
         "release_repaired": false
       }
+    },
+    {
+      "trace_id": "yawns",
+      "study_mode": "synthetic",
+      "gesture": "jaw_open",
+      "sample_rate_hz": 15.0,
+      "baseline_applied": null,
+      "intended_activations": 2,
+      "detections": 2,
+      "misses": 0,
+      "recall": 1.0,
+      "false_activations": 3,
+      "duration_s": 94.133333,
+      "non_deliberate_s": 91.333333,
+      "deliberate_s": 2.8,
+      "non_deliberate_usable_fraction": 1.0,
+      "deliberate_usable_fraction": 1.0,
+      "false_activations_per_hour": 118.248,
+      "false_activations_per_hour_lower_95": 32.23,
+      "false_activations_per_hour_upper_95": 305.619,
+      "per_hour_extrapolated": true,
+      "activation_latency_ms": {
+        "count": 2,
+        "median": 200.0,
+        "max": 200.0
+      },
+      "chatter": {
+        "chattering_gestures": 0,
+        "starts_per_detected_gesture": 1.0,
+        "max_starts_per_gesture": 1,
+        "extra_starts": 0
+      },
+      "intervals_held_at_start": 0,
+      "stuck_open_holds": 0,
+      "longest_hold_s": 4.466667,
+      "failures": [],
+      "by_context": {
+        "rest": {
+          "duration_s": 73.333333,
+          "false_activations": 0,
+          "false_activations_per_hour": 0.0,
+          "false_activations_per_hour_lower_95": 0.0,
+          "false_activations_per_hour_upper_95": 147.063,
+          "per_hour_extrapolated": true
+        },
+        "yawn": {
+          "duration_s": 18.0,
+          "false_activations": 3,
+          "false_activations_per_hour": 600.0,
+          "false_activations_per_hour_lower_95": 163.538,
+          "false_activations_per_hour_upper_95": 1550.731,
+          "per_hour_extrapolated": true
+        }
+      },
+      "sample_status": {
+        "reading": 1412,
+        "no_reading": 0,
+        "low_confidence": 0,
+        "unusable_baseline": 0
+      },
+      "samples": 1412,
+      "effective_thresholds": {
+        "hold": 0.5,
+        "release": 0.35,
+        "release_repaired": false
+      }
     }
   ],
   "pooled_by_gesture": {
-    "jaw_open": {
-      "intended_activations": 14,
-      "detections": 8,
-      "misses": 6,
-      "recall": 0.571429,
+    "eyes_closed": {
+      "intended_activations": 5,
+      "detections": 5,
+      "misses": 0,
+      "recall": 1.0,
       "false_activations": 4,
-      "duration_s": 306.9,
-      "non_deliberate_s": 279.0,
-      "deliberate_s": 27.9,
-      "non_deliberate_usable_fraction": 0.992115,
-      "deliberate_usable_fraction": 0.982079,
-      "false_activations_per_hour": 51.613,
-      "false_activations_per_hour_lower_95": 17.63,
-      "false_activations_per_hour_upper_95": 118.11,
+      "duration_s": 200.733333,
+      "non_deliberate_s": 194.733333,
+      "deliberate_s": 6.0,
+      "non_deliberate_usable_fraction": 1.0,
+      "deliberate_usable_fraction": 1.0,
+      "false_activations_per_hour": 73.947,
+      "false_activations_per_hour_lower_95": 25.259,
+      "false_activations_per_hour_upper_95": 169.219,
       "per_hour_extrapolated": true,
       "activation_latency_ms": {
-        "count": 8,
+        "count": 5,
+        "median": 866.667,
+        "max": 866.667
+      },
+      "chatter": {
+        "chattering_gestures": 0,
+        "starts_per_detected_gesture": 1.0,
+        "max_starts_per_gesture": 1,
+        "extra_starts": 0
+      },
+      "intervals_held_at_start": 0,
+      "stuck_open_holds": 0,
+      "longest_hold_s": 3.133333,
+      "failures": [],
+      "by_context": {
+        "rest": {
+          "duration_s": 167.8,
+          "false_activations": 0,
+          "false_activations_per_hour": 0.0,
+          "false_activations_per_hour_lower_95": 0.0,
+          "false_activations_per_hour_upper_95": 64.271,
+          "per_hour_extrapolated": true
+        },
+        "blink": {
+          "duration_s": 10.4,
+          "false_activations": 0,
+          "false_activations_per_hour": 0.0,
+          "false_activations_per_hour_lower_95": 0.0,
+          "false_activations_per_hour_upper_95": 1036.984,
+          "per_hour_extrapolated": true
+        },
+        "look_down": {
+          "duration_s": 16.533333,
+          "false_activations": 4,
+          "false_activations_per_hour": 870.968,
+          "false_activations_per_hour_lower_95": 297.505,
+          "false_activations_per_hour_upper_95": 1993.105,
+          "per_hour_extrapolated": true
+        }
+      },
+      "sample_status": {
+        "reading": 3011,
+        "no_reading": 0,
+        "low_confidence": 0,
+        "unusable_baseline": 0
+      },
+      "samples": 3011,
+      "effective_thresholds": {
+        "hold": 0.5,
+        "release": 0.35,
+        "release_repaired": false
+      }
+    },
+    "jaw_open": {
+      "intended_activations": 16,
+      "detections": 10,
+      "misses": 6,
+      "recall": 0.625,
+      "false_activations": 7,
+      "duration_s": 551.033333,
+      "non_deliberate_s": 520.333333,
+      "deliberate_s": 30.7,
+      "non_deliberate_usable_fraction": 0.996568,
+      "deliberate_usable_fraction": 0.984424,
+      "false_activations_per_hour": 48.43,
+      "false_activations_per_hour_lower_95": 22.73,
+      "false_activations_per_hour_upper_95": 90.967,
+      "per_hour_extrapolated": true,
+      "activation_latency_ms": {
+        "count": 10,
         "median": 300.0,
         "max": 300.0
       },
       "chatter": {
         "chattering_gestures": 2,
-        "starts_per_detected_gesture": 1.75,
+        "starts_per_detected_gesture": 1.6,
         "max_starts_per_gesture": 6,
         "extra_starts": 6
       },
@@ -603,19 +1045,19 @@
       ],
       "by_context": {
         "rest": {
-          "duration_s": 219.0,
+          "duration_s": 369.333333,
           "false_activations": 4,
-          "false_activations_per_hour": 65.753,
-          "false_activations_per_hour_lower_95": 22.46,
-          "false_activations_per_hour_upper_95": 150.469,
+          "false_activations_per_hour": 38.989,
+          "false_activations_per_hour_lower_95": 13.318,
+          "false_activations_per_hour_upper_95": 89.222,
           "per_hour_extrapolated": true
         },
         "speech": {
-          "duration_s": 40.0,
+          "duration_s": 110.0,
           "false_activations": 0,
           "false_activations_per_hour": 0.0,
           "false_activations_per_hour_lower_95": 0.0,
-          "false_activations_per_hour_upper_95": 269.616,
+          "false_activations_per_hour_upper_95": 98.042,
           "per_hour_extrapolated": true
         },
         "head_movement": {
@@ -633,15 +1075,31 @@
           "false_activations_per_hour_lower_95": 0.0,
           "false_activations_per_hour_upper_95": 1078.464,
           "per_hour_extrapolated": true
+        },
+        "blink": {
+          "duration_s": 3.0,
+          "false_activations": 0,
+          "false_activations_per_hour": 0.0,
+          "false_activations_per_hour_lower_95": 0.0,
+          "false_activations_per_hour_upper_95": 3594.879,
+          "per_hour_extrapolated": true
+        },
+        "yawn": {
+          "duration_s": 18.0,
+          "false_activations": 3,
+          "false_activations_per_hour": 600.0,
+          "false_activations_per_hour_lower_95": 163.538,
+          "false_activations_per_hour_upper_95": 1550.731,
+          "per_hour_extrapolated": true
         }
       },
       "sample_status": {
-        "reading": 3042,
+        "reading": 6704,
         "no_reading": 27,
         "low_confidence": 0,
         "unusable_baseline": 0
       },
-      "samples": 3069,
+      "samples": 6731,
       "effective_thresholds": {
         "hold": 0.5,
         "release": 0.35,
@@ -653,29 +1111,98 @@
     {
       "hold_threshold": 0.2,
       "by_gesture": {
-        "jaw_open": {
-          "intended_activations": 14,
-          "detections": 11,
-          "misses": 3,
-          "recall": 0.785714,
-          "false_activations": 29,
-          "duration_s": 306.9,
-          "non_deliberate_s": 279.0,
-          "deliberate_s": 27.9,
-          "non_deliberate_usable_fraction": 0.992115,
-          "deliberate_usable_fraction": 0.982079,
-          "false_activations_per_hour": 374.194,
-          "false_activations_per_hour_lower_95": 267.69,
-          "false_activations_per_hour_upper_95": 510.206,
+        "eyes_closed": {
+          "intended_activations": 5,
+          "detections": 5,
+          "misses": 0,
+          "recall": 1.0,
+          "false_activations": 6,
+          "duration_s": 200.733333,
+          "non_deliberate_s": 194.733333,
+          "deliberate_s": 6.0,
+          "non_deliberate_usable_fraction": 1.0,
+          "deliberate_usable_fraction": 1.0,
+          "false_activations_per_hour": 110.921,
+          "false_activations_per_hour_lower_95": 48.306,
+          "false_activations_per_hour_upper_95": 218.928,
           "per_hour_extrapolated": true,
           "activation_latency_ms": {
-            "count": 11,
+            "count": 5,
+            "median": 800.0,
+            "max": 800.0
+          },
+          "chatter": {
+            "chattering_gestures": 0,
+            "starts_per_detected_gesture": 1.0,
+            "max_starts_per_gesture": 1,
+            "extra_starts": 0
+          },
+          "intervals_held_at_start": 0,
+          "stuck_open_holds": 0,
+          "longest_hold_s": 3.266667,
+          "failures": [],
+          "by_context": {
+            "rest": {
+              "duration_s": 167.8,
+              "false_activations": 0,
+              "false_activations_per_hour": 0.0,
+              "false_activations_per_hour_lower_95": 0.0,
+              "false_activations_per_hour_upper_95": 64.271,
+              "per_hour_extrapolated": true
+            },
+            "blink": {
+              "duration_s": 10.4,
+              "false_activations": 0,
+              "false_activations_per_hour": 0.0,
+              "false_activations_per_hour_lower_95": 0.0,
+              "false_activations_per_hour_upper_95": 1036.984,
+              "per_hour_extrapolated": true
+            },
+            "look_down": {
+              "duration_s": 16.533333,
+              "false_activations": 6,
+              "false_activations_per_hour": 1306.452,
+              "false_activations_per_hour_lower_95": 568.963,
+              "false_activations_per_hour_upper_95": 2578.586,
+              "per_hour_extrapolated": true
+            }
+          },
+          "sample_status": {
+            "reading": 3011,
+            "no_reading": 0,
+            "low_confidence": 0,
+            "unusable_baseline": 0
+          },
+          "samples": 3011,
+          "effective_thresholds": {
+            "hold": 0.2,
+            "release": 0.14,
+            "release_repaired": true
+          }
+        },
+        "jaw_open": {
+          "intended_activations": 16,
+          "detections": 13,
+          "misses": 3,
+          "recall": 0.8125,
+          "false_activations": 69,
+          "duration_s": 551.033333,
+          "non_deliberate_s": 520.333333,
+          "deliberate_s": 30.7,
+          "non_deliberate_usable_fraction": 0.996568,
+          "deliberate_usable_fraction": 0.984424,
+          "false_activations_per_hour": 477.386,
+          "false_activations_per_hour_lower_95": 386.949,
+          "false_activations_per_hour_upper_95": 583.286,
+          "per_hour_extrapolated": true,
+          "activation_latency_ms": {
+            "count": 13,
             "median": 200.0,
             "max": 400.0
           },
           "chatter": {
             "chattering_gestures": 1,
-            "starts_per_detected_gesture": 1.090909,
+            "starts_per_detected_gesture": 1.076923,
             "max_starts_per_gesture": 2,
             "extra_starts": 1
           },
@@ -687,19 +1214,19 @@
           ],
           "by_context": {
             "rest": {
-              "duration_s": 219.0,
+              "duration_s": 369.333333,
               "false_activations": 4,
-              "false_activations_per_hour": 65.753,
-              "false_activations_per_hour_lower_95": 22.46,
-              "false_activations_per_hour_upper_95": 150.469,
+              "false_activations_per_hour": 38.989,
+              "false_activations_per_hour_lower_95": 13.318,
+              "false_activations_per_hour_upper_95": 89.222,
               "per_hour_extrapolated": true
             },
             "speech": {
-              "duration_s": 40.0,
-              "false_activations": 25,
-              "false_activations_per_hour": 2250.0,
-              "false_activations_per_hour_lower_95": 1564.391,
-              "false_activations_per_hour_upper_95": 3142.447,
+              "duration_s": 110.0,
+              "false_activations": 62,
+              "false_activations_per_hour": 2029.091,
+              "false_activations_per_hour_lower_95": 1624.625,
+              "false_activations_per_hour_upper_95": 2506.875,
               "per_hour_extrapolated": true
             },
             "head_movement": {
@@ -717,15 +1244,31 @@
               "false_activations_per_hour_lower_95": 0.0,
               "false_activations_per_hour_upper_95": 1078.464,
               "per_hour_extrapolated": true
+            },
+            "blink": {
+              "duration_s": 3.0,
+              "false_activations": 0,
+              "false_activations_per_hour": 0.0,
+              "false_activations_per_hour_lower_95": 0.0,
+              "false_activations_per_hour_upper_95": 3594.879,
+              "per_hour_extrapolated": true
+            },
+            "yawn": {
+              "duration_s": 18.0,
+              "false_activations": 3,
+              "false_activations_per_hour": 600.0,
+              "false_activations_per_hour_lower_95": 163.538,
+              "false_activations_per_hour_upper_95": 1550.731,
+              "per_hour_extrapolated": true
             }
           },
           "sample_status": {
-            "reading": 3042,
+            "reading": 6704,
             "no_reading": 27,
             "low_confidence": 0,
             "unusable_baseline": 0
           },
-          "samples": 3069,
+          "samples": 6731,
           "effective_thresholds": {
             "hold": 0.2,
             "release": 0.14,
@@ -737,29 +1280,98 @@
     {
       "hold_threshold": 0.25,
       "by_gesture": {
-        "jaw_open": {
-          "intended_activations": 14,
-          "detections": 11,
-          "misses": 3,
-          "recall": 0.785714,
-          "false_activations": 4,
-          "duration_s": 306.9,
-          "non_deliberate_s": 279.0,
-          "deliberate_s": 27.9,
-          "non_deliberate_usable_fraction": 0.992115,
-          "deliberate_usable_fraction": 0.982079,
-          "false_activations_per_hour": 51.613,
-          "false_activations_per_hour_lower_95": 17.63,
-          "false_activations_per_hour_upper_95": 118.11,
+        "eyes_closed": {
+          "intended_activations": 5,
+          "detections": 5,
+          "misses": 0,
+          "recall": 1.0,
+          "false_activations": 6,
+          "duration_s": 200.733333,
+          "non_deliberate_s": 194.733333,
+          "deliberate_s": 6.0,
+          "non_deliberate_usable_fraction": 1.0,
+          "deliberate_usable_fraction": 1.0,
+          "false_activations_per_hour": 110.921,
+          "false_activations_per_hour_lower_95": 48.306,
+          "false_activations_per_hour_upper_95": 218.928,
           "per_hour_extrapolated": true,
           "activation_latency_ms": {
-            "count": 11,
+            "count": 5,
+            "median": 800.0,
+            "max": 800.0
+          },
+          "chatter": {
+            "chattering_gestures": 0,
+            "starts_per_detected_gesture": 1.0,
+            "max_starts_per_gesture": 1,
+            "extra_starts": 0
+          },
+          "intervals_held_at_start": 0,
+          "stuck_open_holds": 0,
+          "longest_hold_s": 3.266667,
+          "failures": [],
+          "by_context": {
+            "rest": {
+              "duration_s": 167.8,
+              "false_activations": 0,
+              "false_activations_per_hour": 0.0,
+              "false_activations_per_hour_lower_95": 0.0,
+              "false_activations_per_hour_upper_95": 64.271,
+              "per_hour_extrapolated": true
+            },
+            "blink": {
+              "duration_s": 10.4,
+              "false_activations": 0,
+              "false_activations_per_hour": 0.0,
+              "false_activations_per_hour_lower_95": 0.0,
+              "false_activations_per_hour_upper_95": 1036.984,
+              "per_hour_extrapolated": true
+            },
+            "look_down": {
+              "duration_s": 16.533333,
+              "false_activations": 6,
+              "false_activations_per_hour": 1306.452,
+              "false_activations_per_hour_lower_95": 568.963,
+              "false_activations_per_hour_upper_95": 2578.586,
+              "per_hour_extrapolated": true
+            }
+          },
+          "sample_status": {
+            "reading": 3011,
+            "no_reading": 0,
+            "low_confidence": 0,
+            "unusable_baseline": 0
+          },
+          "samples": 3011,
+          "effective_thresholds": {
+            "hold": 0.25,
+            "release": 0.175,
+            "release_repaired": true
+          }
+        },
+        "jaw_open": {
+          "intended_activations": 16,
+          "detections": 13,
+          "misses": 3,
+          "recall": 0.8125,
+          "false_activations": 16,
+          "duration_s": 551.033333,
+          "non_deliberate_s": 520.333333,
+          "deliberate_s": 30.7,
+          "non_deliberate_usable_fraction": 0.996568,
+          "deliberate_usable_fraction": 0.984424,
+          "false_activations_per_hour": 110.698,
+          "false_activations_per_hour_lower_95": 69.435,
+          "false_activations_per_hour_upper_95": 168.131,
+          "per_hour_extrapolated": true,
+          "activation_latency_ms": {
+            "count": 13,
             "median": 200.0,
             "max": 400.0
           },
           "chatter": {
             "chattering_gestures": 1,
-            "starts_per_detected_gesture": 1.090909,
+            "starts_per_detected_gesture": 1.076923,
             "max_starts_per_gesture": 2,
             "extra_starts": 1
           },
@@ -771,19 +1383,19 @@
           ],
           "by_context": {
             "rest": {
-              "duration_s": 219.0,
+              "duration_s": 369.333333,
               "false_activations": 4,
-              "false_activations_per_hour": 65.753,
-              "false_activations_per_hour_lower_95": 22.46,
-              "false_activations_per_hour_upper_95": 150.469,
+              "false_activations_per_hour": 38.989,
+              "false_activations_per_hour_lower_95": 13.318,
+              "false_activations_per_hour_upper_95": 89.222,
               "per_hour_extrapolated": true
             },
             "speech": {
-              "duration_s": 40.0,
-              "false_activations": 0,
-              "false_activations_per_hour": 0.0,
-              "false_activations_per_hour_lower_95": 0.0,
-              "false_activations_per_hour_upper_95": 269.616,
+              "duration_s": 110.0,
+              "false_activations": 9,
+              "false_activations_per_hour": 294.545,
+              "false_activations_per_hour_lower_95": 153.662,
+              "false_activations_per_hour_upper_95": 513.989,
               "per_hour_extrapolated": true
             },
             "head_movement": {
@@ -801,15 +1413,31 @@
               "false_activations_per_hour_lower_95": 0.0,
               "false_activations_per_hour_upper_95": 1078.464,
               "per_hour_extrapolated": true
+            },
+            "blink": {
+              "duration_s": 3.0,
+              "false_activations": 0,
+              "false_activations_per_hour": 0.0,
+              "false_activations_per_hour_lower_95": 0.0,
+              "false_activations_per_hour_upper_95": 3594.879,
+              "per_hour_extrapolated": true
+            },
+            "yawn": {
+              "duration_s": 18.0,
+              "false_activations": 3,
+              "false_activations_per_hour": 600.0,
+              "false_activations_per_hour_lower_95": 163.538,
+              "false_activations_per_hour_upper_95": 1550.731,
+              "per_hour_extrapolated": true
             }
           },
           "sample_status": {
-            "reading": 3042,
+            "reading": 6704,
             "no_reading": 27,
             "low_confidence": 0,
             "unusable_baseline": 0
           },
-          "samples": 3069,
+          "samples": 6731,
           "effective_thresholds": {
             "hold": 0.25,
             "release": 0.175,
@@ -821,29 +1449,98 @@
     {
       "hold_threshold": 0.3,
       "by_gesture": {
-        "jaw_open": {
-          "intended_activations": 14,
-          "detections": 11,
-          "misses": 3,
-          "recall": 0.785714,
-          "false_activations": 4,
-          "duration_s": 306.9,
-          "non_deliberate_s": 279.0,
-          "deliberate_s": 27.9,
-          "non_deliberate_usable_fraction": 0.992115,
-          "deliberate_usable_fraction": 0.982079,
-          "false_activations_per_hour": 51.613,
-          "false_activations_per_hour_lower_95": 17.63,
-          "false_activations_per_hour_upper_95": 118.11,
+        "eyes_closed": {
+          "intended_activations": 5,
+          "detections": 5,
+          "misses": 0,
+          "recall": 1.0,
+          "false_activations": 6,
+          "duration_s": 200.733333,
+          "non_deliberate_s": 194.733333,
+          "deliberate_s": 6.0,
+          "non_deliberate_usable_fraction": 1.0,
+          "deliberate_usable_fraction": 1.0,
+          "false_activations_per_hour": 110.921,
+          "false_activations_per_hour_lower_95": 48.306,
+          "false_activations_per_hour_upper_95": 218.928,
           "per_hour_extrapolated": true,
           "activation_latency_ms": {
-            "count": 11,
+            "count": 5,
+            "median": 800.0,
+            "max": 800.0
+          },
+          "chatter": {
+            "chattering_gestures": 0,
+            "starts_per_detected_gesture": 1.0,
+            "max_starts_per_gesture": 1,
+            "extra_starts": 0
+          },
+          "intervals_held_at_start": 0,
+          "stuck_open_holds": 0,
+          "longest_hold_s": 3.266667,
+          "failures": [],
+          "by_context": {
+            "rest": {
+              "duration_s": 167.8,
+              "false_activations": 0,
+              "false_activations_per_hour": 0.0,
+              "false_activations_per_hour_lower_95": 0.0,
+              "false_activations_per_hour_upper_95": 64.271,
+              "per_hour_extrapolated": true
+            },
+            "blink": {
+              "duration_s": 10.4,
+              "false_activations": 0,
+              "false_activations_per_hour": 0.0,
+              "false_activations_per_hour_lower_95": 0.0,
+              "false_activations_per_hour_upper_95": 1036.984,
+              "per_hour_extrapolated": true
+            },
+            "look_down": {
+              "duration_s": 16.533333,
+              "false_activations": 6,
+              "false_activations_per_hour": 1306.452,
+              "false_activations_per_hour_lower_95": 568.963,
+              "false_activations_per_hour_upper_95": 2578.586,
+              "per_hour_extrapolated": true
+            }
+          },
+          "sample_status": {
+            "reading": 3011,
+            "no_reading": 0,
+            "low_confidence": 0,
+            "unusable_baseline": 0
+          },
+          "samples": 3011,
+          "effective_thresholds": {
+            "hold": 0.3,
+            "release": 0.21,
+            "release_repaired": true
+          }
+        },
+        "jaw_open": {
+          "intended_activations": 16,
+          "detections": 13,
+          "misses": 3,
+          "recall": 0.8125,
+          "false_activations": 18,
+          "duration_s": 551.033333,
+          "non_deliberate_s": 520.333333,
+          "deliberate_s": 30.7,
+          "non_deliberate_usable_fraction": 0.996568,
+          "deliberate_usable_fraction": 0.984424,
+          "false_activations_per_hour": 124.536,
+          "false_activations_per_hour_lower_95": 80.494,
+          "false_activations_per_hour_upper_95": 184.671,
+          "per_hour_extrapolated": true,
+          "activation_latency_ms": {
+            "count": 13,
             "median": 200.0,
             "max": 400.0
           },
           "chatter": {
             "chattering_gestures": 1,
-            "starts_per_detected_gesture": 1.090909,
+            "starts_per_detected_gesture": 1.076923,
             "max_starts_per_gesture": 2,
             "extra_starts": 1
           },
@@ -855,19 +1552,19 @@
           ],
           "by_context": {
             "rest": {
-              "duration_s": 219.0,
+              "duration_s": 369.333333,
               "false_activations": 4,
-              "false_activations_per_hour": 65.753,
-              "false_activations_per_hour_lower_95": 22.46,
-              "false_activations_per_hour_upper_95": 150.469,
+              "false_activations_per_hour": 38.989,
+              "false_activations_per_hour_lower_95": 13.318,
+              "false_activations_per_hour_upper_95": 89.222,
               "per_hour_extrapolated": true
             },
             "speech": {
-              "duration_s": 40.0,
-              "false_activations": 0,
-              "false_activations_per_hour": 0.0,
-              "false_activations_per_hour_lower_95": 0.0,
-              "false_activations_per_hour_upper_95": 269.616,
+              "duration_s": 110.0,
+              "false_activations": 11,
+              "false_activations_per_hour": 360.0,
+              "false_activations_per_hour_lower_95": 201.895,
+              "false_activations_per_hour_upper_95": 595.882,
               "per_hour_extrapolated": true
             },
             "head_movement": {
@@ -885,15 +1582,31 @@
               "false_activations_per_hour_lower_95": 0.0,
               "false_activations_per_hour_upper_95": 1078.464,
               "per_hour_extrapolated": true
+            },
+            "blink": {
+              "duration_s": 3.0,
+              "false_activations": 0,
+              "false_activations_per_hour": 0.0,
+              "false_activations_per_hour_lower_95": 0.0,
+              "false_activations_per_hour_upper_95": 3594.879,
+              "per_hour_extrapolated": true
+            },
+            "yawn": {
+              "duration_s": 18.0,
+              "false_activations": 3,
+              "false_activations_per_hour": 600.0,
+              "false_activations_per_hour_lower_95": 163.538,
+              "false_activations_per_hour_upper_95": 1550.731,
+              "per_hour_extrapolated": true
             }
           },
           "sample_status": {
-            "reading": 3042,
+            "reading": 6704,
             "no_reading": 27,
             "low_confidence": 0,
             "unusable_baseline": 0
           },
-          "samples": 3069,
+          "samples": 6731,
           "effective_thresholds": {
             "hold": 0.3,
             "release": 0.21,
@@ -905,29 +1618,98 @@
     {
       "hold_threshold": 0.35,
       "by_gesture": {
-        "jaw_open": {
-          "intended_activations": 14,
-          "detections": 11,
-          "misses": 3,
-          "recall": 0.785714,
-          "false_activations": 4,
-          "duration_s": 306.9,
-          "non_deliberate_s": 279.0,
-          "deliberate_s": 27.9,
-          "non_deliberate_usable_fraction": 0.992115,
-          "deliberate_usable_fraction": 0.982079,
-          "false_activations_per_hour": 51.613,
-          "false_activations_per_hour_lower_95": 17.63,
-          "false_activations_per_hour_upper_95": 118.11,
+        "eyes_closed": {
+          "intended_activations": 5,
+          "detections": 5,
+          "misses": 0,
+          "recall": 1.0,
+          "false_activations": 6,
+          "duration_s": 200.733333,
+          "non_deliberate_s": 194.733333,
+          "deliberate_s": 6.0,
+          "non_deliberate_usable_fraction": 1.0,
+          "deliberate_usable_fraction": 1.0,
+          "false_activations_per_hour": 110.921,
+          "false_activations_per_hour_lower_95": 48.306,
+          "false_activations_per_hour_upper_95": 218.928,
           "per_hour_extrapolated": true,
           "activation_latency_ms": {
-            "count": 11,
+            "count": 5,
+            "median": 800.0,
+            "max": 800.0
+          },
+          "chatter": {
+            "chattering_gestures": 0,
+            "starts_per_detected_gesture": 1.0,
+            "max_starts_per_gesture": 1,
+            "extra_starts": 0
+          },
+          "intervals_held_at_start": 0,
+          "stuck_open_holds": 0,
+          "longest_hold_s": 3.2,
+          "failures": [],
+          "by_context": {
+            "rest": {
+              "duration_s": 167.8,
+              "false_activations": 0,
+              "false_activations_per_hour": 0.0,
+              "false_activations_per_hour_lower_95": 0.0,
+              "false_activations_per_hour_upper_95": 64.271,
+              "per_hour_extrapolated": true
+            },
+            "blink": {
+              "duration_s": 10.4,
+              "false_activations": 0,
+              "false_activations_per_hour": 0.0,
+              "false_activations_per_hour_lower_95": 0.0,
+              "false_activations_per_hour_upper_95": 1036.984,
+              "per_hour_extrapolated": true
+            },
+            "look_down": {
+              "duration_s": 16.533333,
+              "false_activations": 6,
+              "false_activations_per_hour": 1306.452,
+              "false_activations_per_hour_lower_95": 568.963,
+              "false_activations_per_hour_upper_95": 2578.586,
+              "per_hour_extrapolated": true
+            }
+          },
+          "sample_status": {
+            "reading": 3011,
+            "no_reading": 0,
+            "low_confidence": 0,
+            "unusable_baseline": 0
+          },
+          "samples": 3011,
+          "effective_thresholds": {
+            "hold": 0.35,
+            "release": 0.245,
+            "release_repaired": true
+          }
+        },
+        "jaw_open": {
+          "intended_activations": 16,
+          "detections": 13,
+          "misses": 3,
+          "recall": 0.8125,
+          "false_activations": 9,
+          "duration_s": 551.033333,
+          "non_deliberate_s": 520.333333,
+          "deliberate_s": 30.7,
+          "non_deliberate_usable_fraction": 0.996568,
+          "deliberate_usable_fraction": 0.984424,
+          "false_activations_per_hour": 62.268,
+          "false_activations_per_hour_lower_95": 32.485,
+          "false_activations_per_hour_upper_95": 108.659,
+          "per_hour_extrapolated": true,
+          "activation_latency_ms": {
+            "count": 13,
             "median": 300.0,
             "max": 500.0
           },
           "chatter": {
             "chattering_gestures": 1,
-            "starts_per_detected_gesture": 1.090909,
+            "starts_per_detected_gesture": 1.076923,
             "max_starts_per_gesture": 2,
             "extra_starts": 1
           },
@@ -939,19 +1721,19 @@
           ],
           "by_context": {
             "rest": {
-              "duration_s": 219.0,
+              "duration_s": 369.333333,
               "false_activations": 4,
-              "false_activations_per_hour": 65.753,
-              "false_activations_per_hour_lower_95": 22.46,
-              "false_activations_per_hour_upper_95": 150.469,
+              "false_activations_per_hour": 38.989,
+              "false_activations_per_hour_lower_95": 13.318,
+              "false_activations_per_hour_upper_95": 89.222,
               "per_hour_extrapolated": true
             },
             "speech": {
-              "duration_s": 40.0,
-              "false_activations": 0,
-              "false_activations_per_hour": 0.0,
-              "false_activations_per_hour_lower_95": 0.0,
-              "false_activations_per_hour_upper_95": 269.616,
+              "duration_s": 110.0,
+              "false_activations": 2,
+              "false_activations_per_hour": 65.455,
+              "false_activations_per_hour_lower_95": 11.63,
+              "false_activations_per_hour_upper_95": 206.044,
               "per_hour_extrapolated": true
             },
             "head_movement": {
@@ -969,15 +1751,31 @@
               "false_activations_per_hour_lower_95": 0.0,
               "false_activations_per_hour_upper_95": 1078.464,
               "per_hour_extrapolated": true
+            },
+            "blink": {
+              "duration_s": 3.0,
+              "false_activations": 0,
+              "false_activations_per_hour": 0.0,
+              "false_activations_per_hour_lower_95": 0.0,
+              "false_activations_per_hour_upper_95": 3594.879,
+              "per_hour_extrapolated": true
+            },
+            "yawn": {
+              "duration_s": 18.0,
+              "false_activations": 3,
+              "false_activations_per_hour": 600.0,
+              "false_activations_per_hour_lower_95": 163.538,
+              "false_activations_per_hour_upper_95": 1550.731,
+              "per_hour_extrapolated": true
             }
           },
           "sample_status": {
-            "reading": 3042,
+            "reading": 6704,
             "no_reading": 27,
             "low_confidence": 0,
             "unusable_baseline": 0
           },
-          "samples": 3069,
+          "samples": 6731,
           "effective_thresholds": {
             "hold": 0.35,
             "release": 0.245,
@@ -989,29 +1787,98 @@
     {
       "hold_threshold": 0.4,
       "by_gesture": {
-        "jaw_open": {
-          "intended_activations": 14,
-          "detections": 11,
-          "misses": 3,
-          "recall": 0.785714,
-          "false_activations": 4,
-          "duration_s": 306.9,
-          "non_deliberate_s": 279.0,
-          "deliberate_s": 27.9,
-          "non_deliberate_usable_fraction": 0.992115,
-          "deliberate_usable_fraction": 0.982079,
-          "false_activations_per_hour": 51.613,
-          "false_activations_per_hour_lower_95": 17.63,
-          "false_activations_per_hour_upper_95": 118.11,
+        "eyes_closed": {
+          "intended_activations": 5,
+          "detections": 5,
+          "misses": 0,
+          "recall": 1.0,
+          "false_activations": 6,
+          "duration_s": 200.733333,
+          "non_deliberate_s": 194.733333,
+          "deliberate_s": 6.0,
+          "non_deliberate_usable_fraction": 1.0,
+          "deliberate_usable_fraction": 1.0,
+          "false_activations_per_hour": 110.921,
+          "false_activations_per_hour_lower_95": 48.306,
+          "false_activations_per_hour_upper_95": 218.928,
           "per_hour_extrapolated": true,
           "activation_latency_ms": {
-            "count": 11,
+            "count": 5,
+            "median": 800.0,
+            "max": 800.0
+          },
+          "chatter": {
+            "chattering_gestures": 0,
+            "starts_per_detected_gesture": 1.0,
+            "max_starts_per_gesture": 1,
+            "extra_starts": 0
+          },
+          "intervals_held_at_start": 0,
+          "stuck_open_holds": 0,
+          "longest_hold_s": 3.133333,
+          "failures": [],
+          "by_context": {
+            "rest": {
+              "duration_s": 167.8,
+              "false_activations": 0,
+              "false_activations_per_hour": 0.0,
+              "false_activations_per_hour_lower_95": 0.0,
+              "false_activations_per_hour_upper_95": 64.271,
+              "per_hour_extrapolated": true
+            },
+            "blink": {
+              "duration_s": 10.4,
+              "false_activations": 0,
+              "false_activations_per_hour": 0.0,
+              "false_activations_per_hour_lower_95": 0.0,
+              "false_activations_per_hour_upper_95": 1036.984,
+              "per_hour_extrapolated": true
+            },
+            "look_down": {
+              "duration_s": 16.533333,
+              "false_activations": 6,
+              "false_activations_per_hour": 1306.452,
+              "false_activations_per_hour_lower_95": 568.963,
+              "false_activations_per_hour_upper_95": 2578.586,
+              "per_hour_extrapolated": true
+            }
+          },
+          "sample_status": {
+            "reading": 3011,
+            "no_reading": 0,
+            "low_confidence": 0,
+            "unusable_baseline": 0
+          },
+          "samples": 3011,
+          "effective_thresholds": {
+            "hold": 0.4,
+            "release": 0.35,
+            "release_repaired": false
+          }
+        },
+        "jaw_open": {
+          "intended_activations": 16,
+          "detections": 13,
+          "misses": 3,
+          "recall": 0.8125,
+          "false_activations": 7,
+          "duration_s": 551.033333,
+          "non_deliberate_s": 520.333333,
+          "deliberate_s": 30.7,
+          "non_deliberate_usable_fraction": 0.996568,
+          "deliberate_usable_fraction": 0.984424,
+          "false_activations_per_hour": 48.43,
+          "false_activations_per_hour_lower_95": 22.73,
+          "false_activations_per_hour_upper_95": 90.967,
+          "per_hour_extrapolated": true,
+          "activation_latency_ms": {
+            "count": 13,
             "median": 300.0,
             "max": 600.0
           },
           "chatter": {
             "chattering_gestures": 2,
-            "starts_per_detected_gesture": 1.545455,
+            "starts_per_detected_gesture": 1.461538,
             "max_starts_per_gesture": 6,
             "extra_starts": 6
           },
@@ -1023,19 +1890,19 @@
           ],
           "by_context": {
             "rest": {
-              "duration_s": 219.0,
+              "duration_s": 369.333333,
               "false_activations": 4,
-              "false_activations_per_hour": 65.753,
-              "false_activations_per_hour_lower_95": 22.46,
-              "false_activations_per_hour_upper_95": 150.469,
+              "false_activations_per_hour": 38.989,
+              "false_activations_per_hour_lower_95": 13.318,
+              "false_activations_per_hour_upper_95": 89.222,
               "per_hour_extrapolated": true
             },
             "speech": {
-              "duration_s": 40.0,
+              "duration_s": 110.0,
               "false_activations": 0,
               "false_activations_per_hour": 0.0,
               "false_activations_per_hour_lower_95": 0.0,
-              "false_activations_per_hour_upper_95": 269.616,
+              "false_activations_per_hour_upper_95": 98.042,
               "per_hour_extrapolated": true
             },
             "head_movement": {
@@ -1053,15 +1920,31 @@
               "false_activations_per_hour_lower_95": 0.0,
               "false_activations_per_hour_upper_95": 1078.464,
               "per_hour_extrapolated": true
+            },
+            "blink": {
+              "duration_s": 3.0,
+              "false_activations": 0,
+              "false_activations_per_hour": 0.0,
+              "false_activations_per_hour_lower_95": 0.0,
+              "false_activations_per_hour_upper_95": 3594.879,
+              "per_hour_extrapolated": true
+            },
+            "yawn": {
+              "duration_s": 18.0,
+              "false_activations": 3,
+              "false_activations_per_hour": 600.0,
+              "false_activations_per_hour_lower_95": 163.538,
+              "false_activations_per_hour_upper_95": 1550.731,
+              "per_hour_extrapolated": true
             }
           },
           "sample_status": {
-            "reading": 3042,
+            "reading": 6704,
             "no_reading": 27,
             "low_confidence": 0,
             "unusable_baseline": 0
           },
-          "samples": 3069,
+          "samples": 6731,
           "effective_thresholds": {
             "hold": 0.4,
             "release": 0.35,
@@ -1073,29 +1956,98 @@
     {
       "hold_threshold": 0.45,
       "by_gesture": {
-        "jaw_open": {
-          "intended_activations": 14,
-          "detections": 8,
-          "misses": 6,
-          "recall": 0.571429,
+        "eyes_closed": {
+          "intended_activations": 5,
+          "detections": 5,
+          "misses": 0,
+          "recall": 1.0,
           "false_activations": 4,
-          "duration_s": 306.9,
-          "non_deliberate_s": 279.0,
-          "deliberate_s": 27.9,
-          "non_deliberate_usable_fraction": 0.992115,
-          "deliberate_usable_fraction": 0.982079,
-          "false_activations_per_hour": 51.613,
-          "false_activations_per_hour_lower_95": 17.63,
-          "false_activations_per_hour_upper_95": 118.11,
+          "duration_s": 200.733333,
+          "non_deliberate_s": 194.733333,
+          "deliberate_s": 6.0,
+          "non_deliberate_usable_fraction": 1.0,
+          "deliberate_usable_fraction": 1.0,
+          "false_activations_per_hour": 73.947,
+          "false_activations_per_hour_lower_95": 25.259,
+          "false_activations_per_hour_upper_95": 169.219,
           "per_hour_extrapolated": true,
           "activation_latency_ms": {
-            "count": 8,
+            "count": 5,
+            "median": 800.0,
+            "max": 800.0
+          },
+          "chatter": {
+            "chattering_gestures": 0,
+            "starts_per_detected_gesture": 1.0,
+            "max_starts_per_gesture": 1,
+            "extra_starts": 0
+          },
+          "intervals_held_at_start": 0,
+          "stuck_open_holds": 0,
+          "longest_hold_s": 3.133333,
+          "failures": [],
+          "by_context": {
+            "rest": {
+              "duration_s": 167.8,
+              "false_activations": 0,
+              "false_activations_per_hour": 0.0,
+              "false_activations_per_hour_lower_95": 0.0,
+              "false_activations_per_hour_upper_95": 64.271,
+              "per_hour_extrapolated": true
+            },
+            "blink": {
+              "duration_s": 10.4,
+              "false_activations": 0,
+              "false_activations_per_hour": 0.0,
+              "false_activations_per_hour_lower_95": 0.0,
+              "false_activations_per_hour_upper_95": 1036.984,
+              "per_hour_extrapolated": true
+            },
+            "look_down": {
+              "duration_s": 16.533333,
+              "false_activations": 4,
+              "false_activations_per_hour": 870.968,
+              "false_activations_per_hour_lower_95": 297.505,
+              "false_activations_per_hour_upper_95": 1993.105,
+              "per_hour_extrapolated": true
+            }
+          },
+          "sample_status": {
+            "reading": 3011,
+            "no_reading": 0,
+            "low_confidence": 0,
+            "unusable_baseline": 0
+          },
+          "samples": 3011,
+          "effective_thresholds": {
+            "hold": 0.45,
+            "release": 0.35,
+            "release_repaired": false
+          }
+        },
+        "jaw_open": {
+          "intended_activations": 16,
+          "detections": 10,
+          "misses": 6,
+          "recall": 0.625,
+          "false_activations": 7,
+          "duration_s": 551.033333,
+          "non_deliberate_s": 520.333333,
+          "deliberate_s": 30.7,
+          "non_deliberate_usable_fraction": 0.996568,
+          "deliberate_usable_fraction": 0.984424,
+          "false_activations_per_hour": 48.43,
+          "false_activations_per_hour_lower_95": 22.73,
+          "false_activations_per_hour_upper_95": 90.967,
+          "per_hour_extrapolated": true,
+          "activation_latency_ms": {
+            "count": 10,
             "median": 300.0,
             "max": 300.0
           },
           "chatter": {
             "chattering_gestures": 2,
-            "starts_per_detected_gesture": 1.75,
+            "starts_per_detected_gesture": 1.6,
             "max_starts_per_gesture": 6,
             "extra_starts": 6
           },
@@ -1107,19 +2059,19 @@
           ],
           "by_context": {
             "rest": {
-              "duration_s": 219.0,
+              "duration_s": 369.333333,
               "false_activations": 4,
-              "false_activations_per_hour": 65.753,
-              "false_activations_per_hour_lower_95": 22.46,
-              "false_activations_per_hour_upper_95": 150.469,
+              "false_activations_per_hour": 38.989,
+              "false_activations_per_hour_lower_95": 13.318,
+              "false_activations_per_hour_upper_95": 89.222,
               "per_hour_extrapolated": true
             },
             "speech": {
-              "duration_s": 40.0,
+              "duration_s": 110.0,
               "false_activations": 0,
               "false_activations_per_hour": 0.0,
               "false_activations_per_hour_lower_95": 0.0,
-              "false_activations_per_hour_upper_95": 269.616,
+              "false_activations_per_hour_upper_95": 98.042,
               "per_hour_extrapolated": true
             },
             "head_movement": {
@@ -1137,15 +2089,31 @@
               "false_activations_per_hour_lower_95": 0.0,
               "false_activations_per_hour_upper_95": 1078.464,
               "per_hour_extrapolated": true
+            },
+            "blink": {
+              "duration_s": 3.0,
+              "false_activations": 0,
+              "false_activations_per_hour": 0.0,
+              "false_activations_per_hour_lower_95": 0.0,
+              "false_activations_per_hour_upper_95": 3594.879,
+              "per_hour_extrapolated": true
+            },
+            "yawn": {
+              "duration_s": 18.0,
+              "false_activations": 3,
+              "false_activations_per_hour": 600.0,
+              "false_activations_per_hour_lower_95": 163.538,
+              "false_activations_per_hour_upper_95": 1550.731,
+              "per_hour_extrapolated": true
             }
           },
           "sample_status": {
-            "reading": 3042,
+            "reading": 6704,
             "no_reading": 27,
             "low_confidence": 0,
             "unusable_baseline": 0
           },
-          "samples": 3069,
+          "samples": 6731,
           "effective_thresholds": {
             "hold": 0.45,
             "release": 0.35,
@@ -1157,29 +2125,98 @@
     {
       "hold_threshold": 0.5,
       "by_gesture": {
-        "jaw_open": {
-          "intended_activations": 14,
-          "detections": 8,
-          "misses": 6,
-          "recall": 0.571429,
+        "eyes_closed": {
+          "intended_activations": 5,
+          "detections": 5,
+          "misses": 0,
+          "recall": 1.0,
           "false_activations": 4,
-          "duration_s": 306.9,
-          "non_deliberate_s": 279.0,
-          "deliberate_s": 27.9,
-          "non_deliberate_usable_fraction": 0.992115,
-          "deliberate_usable_fraction": 0.982079,
-          "false_activations_per_hour": 51.613,
-          "false_activations_per_hour_lower_95": 17.63,
-          "false_activations_per_hour_upper_95": 118.11,
+          "duration_s": 200.733333,
+          "non_deliberate_s": 194.733333,
+          "deliberate_s": 6.0,
+          "non_deliberate_usable_fraction": 1.0,
+          "deliberate_usable_fraction": 1.0,
+          "false_activations_per_hour": 73.947,
+          "false_activations_per_hour_lower_95": 25.259,
+          "false_activations_per_hour_upper_95": 169.219,
           "per_hour_extrapolated": true,
           "activation_latency_ms": {
-            "count": 8,
+            "count": 5,
+            "median": 866.667,
+            "max": 866.667
+          },
+          "chatter": {
+            "chattering_gestures": 0,
+            "starts_per_detected_gesture": 1.0,
+            "max_starts_per_gesture": 1,
+            "extra_starts": 0
+          },
+          "intervals_held_at_start": 0,
+          "stuck_open_holds": 0,
+          "longest_hold_s": 3.133333,
+          "failures": [],
+          "by_context": {
+            "rest": {
+              "duration_s": 167.8,
+              "false_activations": 0,
+              "false_activations_per_hour": 0.0,
+              "false_activations_per_hour_lower_95": 0.0,
+              "false_activations_per_hour_upper_95": 64.271,
+              "per_hour_extrapolated": true
+            },
+            "blink": {
+              "duration_s": 10.4,
+              "false_activations": 0,
+              "false_activations_per_hour": 0.0,
+              "false_activations_per_hour_lower_95": 0.0,
+              "false_activations_per_hour_upper_95": 1036.984,
+              "per_hour_extrapolated": true
+            },
+            "look_down": {
+              "duration_s": 16.533333,
+              "false_activations": 4,
+              "false_activations_per_hour": 870.968,
+              "false_activations_per_hour_lower_95": 297.505,
+              "false_activations_per_hour_upper_95": 1993.105,
+              "per_hour_extrapolated": true
+            }
+          },
+          "sample_status": {
+            "reading": 3011,
+            "no_reading": 0,
+            "low_confidence": 0,
+            "unusable_baseline": 0
+          },
+          "samples": 3011,
+          "effective_thresholds": {
+            "hold": 0.5,
+            "release": 0.35,
+            "release_repaired": false
+          }
+        },
+        "jaw_open": {
+          "intended_activations": 16,
+          "detections": 10,
+          "misses": 6,
+          "recall": 0.625,
+          "false_activations": 7,
+          "duration_s": 551.033333,
+          "non_deliberate_s": 520.333333,
+          "deliberate_s": 30.7,
+          "non_deliberate_usable_fraction": 0.996568,
+          "deliberate_usable_fraction": 0.984424,
+          "false_activations_per_hour": 48.43,
+          "false_activations_per_hour_lower_95": 22.73,
+          "false_activations_per_hour_upper_95": 90.967,
+          "per_hour_extrapolated": true,
+          "activation_latency_ms": {
+            "count": 10,
             "median": 300.0,
             "max": 300.0
           },
           "chatter": {
             "chattering_gestures": 2,
-            "starts_per_detected_gesture": 1.75,
+            "starts_per_detected_gesture": 1.6,
             "max_starts_per_gesture": 6,
             "extra_starts": 6
           },
@@ -1191,19 +2228,19 @@
           ],
           "by_context": {
             "rest": {
-              "duration_s": 219.0,
+              "duration_s": 369.333333,
               "false_activations": 4,
-              "false_activations_per_hour": 65.753,
-              "false_activations_per_hour_lower_95": 22.46,
-              "false_activations_per_hour_upper_95": 150.469,
+              "false_activations_per_hour": 38.989,
+              "false_activations_per_hour_lower_95": 13.318,
+              "false_activations_per_hour_upper_95": 89.222,
               "per_hour_extrapolated": true
             },
             "speech": {
-              "duration_s": 40.0,
+              "duration_s": 110.0,
               "false_activations": 0,
               "false_activations_per_hour": 0.0,
               "false_activations_per_hour_lower_95": 0.0,
-              "false_activations_per_hour_upper_95": 269.616,
+              "false_activations_per_hour_upper_95": 98.042,
               "per_hour_extrapolated": true
             },
             "head_movement": {
@@ -1221,15 +2258,31 @@
               "false_activations_per_hour_lower_95": 0.0,
               "false_activations_per_hour_upper_95": 1078.464,
               "per_hour_extrapolated": true
+            },
+            "blink": {
+              "duration_s": 3.0,
+              "false_activations": 0,
+              "false_activations_per_hour": 0.0,
+              "false_activations_per_hour_lower_95": 0.0,
+              "false_activations_per_hour_upper_95": 3594.879,
+              "per_hour_extrapolated": true
+            },
+            "yawn": {
+              "duration_s": 18.0,
+              "false_activations": 3,
+              "false_activations_per_hour": 600.0,
+              "false_activations_per_hour_lower_95": 163.538,
+              "false_activations_per_hour_upper_95": 1550.731,
+              "per_hour_extrapolated": true
             }
           },
           "sample_status": {
-            "reading": 3042,
+            "reading": 6704,
             "no_reading": 27,
             "low_confidence": 0,
             "unusable_baseline": 0
           },
-          "samples": 3069,
+          "samples": 6731,
           "effective_thresholds": {
             "hold": 0.5,
             "release": 0.35,
@@ -1241,29 +2294,98 @@
     {
       "hold_threshold": 0.6,
       "by_gesture": {
-        "jaw_open": {
-          "intended_activations": 14,
-          "detections": 9,
-          "misses": 5,
-          "recall": 0.642857,
-          "false_activations": 3,
-          "duration_s": 306.9,
-          "non_deliberate_s": 279.0,
-          "deliberate_s": 27.9,
-          "non_deliberate_usable_fraction": 0.992115,
-          "deliberate_usable_fraction": 0.982079,
-          "false_activations_per_hour": 38.71,
-          "false_activations_per_hour_lower_95": 10.551,
-          "false_activations_per_hour_upper_95": 100.047,
+        "eyes_closed": {
+          "intended_activations": 5,
+          "detections": 5,
+          "misses": 0,
+          "recall": 1.0,
+          "false_activations": 1,
+          "duration_s": 200.733333,
+          "non_deliberate_s": 194.733333,
+          "deliberate_s": 6.0,
+          "non_deliberate_usable_fraction": 1.0,
+          "deliberate_usable_fraction": 1.0,
+          "false_activations_per_hour": 18.487,
+          "false_activations_per_hour_lower_95": 0.948,
+          "false_activations_per_hour_upper_95": 87.699,
           "per_hour_extrapolated": true,
           "activation_latency_ms": {
-            "count": 9,
+            "count": 5,
+            "median": 866.667,
+            "max": 866.667
+          },
+          "chatter": {
+            "chattering_gestures": 0,
+            "starts_per_detected_gesture": 1.0,
+            "max_starts_per_gesture": 1,
+            "extra_starts": 0
+          },
+          "intervals_held_at_start": 0,
+          "stuck_open_holds": 0,
+          "longest_hold_s": 1.133333,
+          "failures": [],
+          "by_context": {
+            "rest": {
+              "duration_s": 167.8,
+              "false_activations": 0,
+              "false_activations_per_hour": 0.0,
+              "false_activations_per_hour_lower_95": 0.0,
+              "false_activations_per_hour_upper_95": 64.271,
+              "per_hour_extrapolated": true
+            },
+            "blink": {
+              "duration_s": 10.4,
+              "false_activations": 0,
+              "false_activations_per_hour": 0.0,
+              "false_activations_per_hour_lower_95": 0.0,
+              "false_activations_per_hour_upper_95": 1036.984,
+              "per_hour_extrapolated": true
+            },
+            "look_down": {
+              "duration_s": 16.533333,
+              "false_activations": 1,
+              "false_activations_per_hour": 217.742,
+              "false_activations_per_hour_lower_95": 11.169,
+              "false_activations_per_hour_upper_95": 1032.938,
+              "per_hour_extrapolated": true
+            }
+          },
+          "sample_status": {
+            "reading": 3011,
+            "no_reading": 0,
+            "low_confidence": 0,
+            "unusable_baseline": 0
+          },
+          "samples": 3011,
+          "effective_thresholds": {
+            "hold": 0.6,
+            "release": 0.35,
+            "release_repaired": false
+          }
+        },
+        "jaw_open": {
+          "intended_activations": 16,
+          "detections": 11,
+          "misses": 5,
+          "recall": 0.6875,
+          "false_activations": 6,
+          "duration_s": 551.033333,
+          "non_deliberate_s": 520.333333,
+          "deliberate_s": 30.7,
+          "non_deliberate_usable_fraction": 0.996568,
+          "deliberate_usable_fraction": 0.984424,
+          "false_activations_per_hour": 41.512,
+          "false_activations_per_hour_lower_95": 18.079,
+          "false_activations_per_hour_upper_95": 81.933,
+          "per_hour_extrapolated": true,
+          "activation_latency_ms": {
+            "count": 11,
             "median": 300.0,
             "max": 300.0
           },
           "chatter": {
             "chattering_gestures": 2,
-            "starts_per_detected_gesture": 1.666667,
+            "starts_per_detected_gesture": 1.545455,
             "max_starts_per_gesture": 6,
             "extra_starts": 6
           },
@@ -1275,19 +2397,19 @@
           ],
           "by_context": {
             "rest": {
-              "duration_s": 219.0,
+              "duration_s": 369.333333,
               "false_activations": 3,
-              "false_activations_per_hour": 49.315,
-              "false_activations_per_hour_lower_95": 13.442,
-              "false_activations_per_hour_upper_95": 127.457,
+              "false_activations_per_hour": 29.242,
+              "false_activations_per_hour_lower_95": 7.97,
+              "false_activations_per_hour_upper_95": 75.577,
               "per_hour_extrapolated": true
             },
             "speech": {
-              "duration_s": 40.0,
+              "duration_s": 110.0,
               "false_activations": 0,
               "false_activations_per_hour": 0.0,
               "false_activations_per_hour_lower_95": 0.0,
-              "false_activations_per_hour_upper_95": 269.616,
+              "false_activations_per_hour_upper_95": 98.042,
               "per_hour_extrapolated": true
             },
             "head_movement": {
@@ -1305,15 +2427,31 @@
               "false_activations_per_hour_lower_95": 0.0,
               "false_activations_per_hour_upper_95": 1078.464,
               "per_hour_extrapolated": true
+            },
+            "blink": {
+              "duration_s": 3.0,
+              "false_activations": 0,
+              "false_activations_per_hour": 0.0,
+              "false_activations_per_hour_lower_95": 0.0,
+              "false_activations_per_hour_upper_95": 3594.879,
+              "per_hour_extrapolated": true
+            },
+            "yawn": {
+              "duration_s": 18.0,
+              "false_activations": 3,
+              "false_activations_per_hour": 600.0,
+              "false_activations_per_hour_lower_95": 163.538,
+              "false_activations_per_hour_upper_95": 1550.731,
+              "per_hour_extrapolated": true
             }
           },
           "sample_status": {
-            "reading": 3042,
+            "reading": 6704,
             "no_reading": 27,
             "low_confidence": 0,
             "unusable_baseline": 0
           },
-          "samples": 3069,
+          "samples": 6731,
           "effective_thresholds": {
             "hold": 0.6,
             "release": 0.35,

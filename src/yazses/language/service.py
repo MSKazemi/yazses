@@ -4,7 +4,9 @@ The pure resolver in :mod:`yazses.language.plan` decides *what* a profile means.
 This module owns the side-effect ordering shared by CLI and Settings:
 
 stable snapshot -> resolve/validate -> prerequisite preflight -> optional install/
-download -> optimistic atomic config commit.
+download -> optimistic atomic config commit, whose candidate is re-read through the
+real loader and refused unless it is exactly the plan (see
+:func:`committed_candidate_validator`).
 
 It deliberately does not restart the daemon. Restart policy belongs to the caller
 because the CLI can guard Meeting Mode finalization while the Settings window must
@@ -12,6 +14,7 @@ coordinate with its own worker/restart UI.
 """
 from __future__ import annotations
 
+import dataclasses
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Callable, Literal
@@ -101,6 +104,75 @@ def candidate_stt(cfg: Config, plan: LanguagePlan) -> SttConfig:
         if mutation.section == "stt"
     }
     return replace(cfg.stt, **updates)
+
+
+def committed_candidate_validator(
+    path: Path,
+    plan: LanguagePlan,
+    *,
+    load_checked_fn=None,
+) -> Callable[[Path], None]:
+    """A ``validate`` hook proving a candidate file means exactly *plan*.
+
+    The text editor guarantees the candidate parses; it cannot say which value the
+    loader will keep (a duplicate dotted key, a value the loader repairs, a preset
+    that rewrites the raw file). This hook reads the candidate **through the same
+    loader the daemon uses** and refuses, before the atomic replace, unless:
+
+    * ``[stt]`` equals the original ``[stt]`` with exactly the plan's mutations;
+    * every other section is unchanged, so command grammar ("auto" follows speech),
+      injection, post-processing toggles and the rest move only as the plan says;
+    * the result derives as a coherent match for the requested profile.
+
+    The target is re-read here, under the transaction's lock, so the comparison is
+    against the bytes actually being replaced rather than an earlier snapshot.
+    """
+
+    if load_checked_fn is None:
+        from yazses.config import load_config_checked
+
+        load_checked_fn = load_config_checked
+
+    def _validate(candidate_path: Path) -> None:
+        from yazses.config import Config
+        from yazses.language.status import derive_status
+        from yazses.system.configedit import ConfigEditValidationError
+
+        original = load_checked_fn(Path(path)).config
+        candidate = load_checked_fn(Path(candidate_path)).config
+
+        expected_stt = candidate_stt(original, plan)
+        if candidate.stt != expected_stt:
+            drift = sorted(
+                f.name
+                for f in dataclasses.fields(expected_stt)
+                if getattr(candidate.stt, f.name) != getattr(expected_stt, f.name)
+            )
+            raise ConfigEditValidationError(
+                "the written [stt] section would not load as planned "
+                f"(differs in: {', '.join(drift)})"
+            )
+        collateral = sorted(
+            f.name
+            for f in dataclasses.fields(Config)
+            if f.name != "stt" and getattr(candidate, f.name) != getattr(original, f.name)
+        )
+        if collateral:
+            raise ConfigEditValidationError(
+                "the language change would also alter unrelated sections: "
+                + ", ".join(f"[{name}]" for name in collateral)
+            )
+        status = derive_status(candidate)
+        if not status.coherent or status.profile_match != plan.canonical_profile:
+            detail = "; ".join(status.problems) or (
+                f"it would load as {status.profile_match!r}"
+            )
+            raise ConfigEditValidationError(
+                f"the written config would not be a coherent {plan.canonical_profile}: "
+                + detail
+            )
+
+    return _validate
 
 
 def inspect_language_requirements(
@@ -436,6 +508,7 @@ def apply_language_change(
                     path,
                     changes,
                     expected_revision=prepared.revision,
+                    validate=committed_candidate_validator(path, prepared.plan),
                 )
             except ConfigEditConflictError:
                 if attempt == 0:

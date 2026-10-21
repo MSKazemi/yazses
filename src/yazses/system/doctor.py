@@ -735,6 +735,7 @@ def _language_profile_checks(cfg) -> list[_Check]:
             "OK",
             "en — English speech; Han-script normalisation off",
         ))
+        out.extend(_command_grammar_checks(status))
         return out
 
     if not status.output_script:
@@ -769,14 +770,38 @@ def _language_profile_checks(cfg) -> list[_Check]:
             f"OpenCC available — {status.output_script} output can be enforced",
         ))
 
-    if bool(getattr(cfg.commands, "enabled", True)):
-        out.append((
-            "Mandarin commands",
-            "WARN",
-            "dictation can be Mandarin, but Tier-1 spoken command grammar is still "
-            "English-only in this build; Mandarin command localization is not yet wired",
-        ))
+    out.extend(_command_grammar_checks(status, report_ok=True))
     return out
+
+
+def _command_grammar_checks(status, *, report_ok: bool = False) -> list[_Check]:
+    """The Tier-1 grammar the daemon will select, from the same resolver it calls.
+
+    A row for the default English install appears only when something is off, so the
+    shipped `doctor` output is unchanged; a Mandarin profile always gets one, because
+    "which commands do I say?" is the question that profile raises.
+    """
+
+    if not status.commands_enabled:
+        return []
+    if status.warnings:
+        return [("Command grammar", "WARN", "; ".join(status.warnings))]
+    if not status.command_grammar_available:
+        return [(
+            "Command grammar",
+            "WARN",
+            f"no Tier-1 grammar is registered for {status.command_language or '<auto>'!r}; "
+            "spoken commands fall through to dictation",
+        )]
+    if not report_ok:
+        return []
+    pinned = "pinned" if status.command_language_pinned else "auto from speech"
+    detail = (
+        "Mandarin Tier-1 grammar (edit/navigation subset)"
+        if status.command_language == "zh"
+        else "English Tier-1 grammar"
+    )
+    return [("Command grammar", "OK", f"{status.command_language} ({pinned}) — {detail}")]
 
 def _config_validity(config_file: Path) -> list[_Check]:
     """Report values the loader had to repair or fall back on.

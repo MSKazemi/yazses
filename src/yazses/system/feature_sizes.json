@@ -3,7 +3,7 @@
   "features": {
     "agent": {
       "download_mb": 4.5,
-      "packages": 20,
+      "packages": 17,
       "unpriced": []
     },
     "chinese-script": {
@@ -12,58 +12,63 @@
       "unpriced": []
     },
     "cocktail": {
-      "download_mb": 3361.5,
-      "packages": 39,
+      "download_mb": 3362.6,
+      "packages": 40,
       "unpriced": []
     },
     "denoise": {
-      "download_mb": 61.6,
+      "download_mb": 61.8,
       "packages": 12,
       "unpriced": []
     },
     "diarize": {
-      "download_mb": 17.5,
+      "download_mb": 17.8,
       "packages": 2,
       "unpriced": []
     },
     "facegesture": {
-      "download_mb": 219.8,
-      "packages": 12,
+      "download_mb": 223.7,
+      "packages": 13,
       "unpriced": []
     },
     "gaze": {
-      "download_mb": 219.8,
-      "packages": 12,
+      "download_mb": 223.7,
+      "packages": 13,
       "unpriced": []
     },
     "gesture": {
-      "download_mb": 219.8,
-      "packages": 12,
+      "download_mb": 223.7,
+      "packages": 13,
+      "unpriced": []
+    },
+    "handsfree": {
+      "download_mb": 223.7,
+      "packages": 13,
       "unpriced": []
     },
     "headpointer": {
-      "download_mb": 219.8,
-      "packages": 12,
+      "download_mb": 223.7,
+      "packages": 13,
       "unpriced": []
     },
     "llm-cleanup": {
-      "download_mb": 75.0,
+      "download_mb": 76.7,
       "packages": 4,
       "unpriced": []
     },
     "meeting": {
-      "download_mb": 17.5,
+      "download_mb": 17.8,
       "packages": 2,
       "unpriced": []
     },
     "multiprofile": {
-      "download_mb": 3361.5,
-      "packages": 39,
+      "download_mb": 3362.6,
+      "packages": 40,
       "unpriced": []
     },
     "overlay": {
-      "download_mb": 256.1,
-      "packages": 4,
+      "download_mb": 268.3,
+      "packages": 6,
       "unpriced": []
     },
     "prosody": {
@@ -82,13 +87,13 @@
       "unpriced": []
     },
     "recimport": {
-      "download_mb": 17.5,
+      "download_mb": 17.8,
       "packages": 2,
       "unpriced": []
     },
     "stt-moonshine": {
       "download_mb": 112.8,
-      "packages": 19,
+      "packages": 20,
       "unpriced": []
     },
     "stt-parakeet": {
@@ -97,13 +102,13 @@
       "unpriced": []
     },
     "tray": {
-      "download_mb": 256.1,
-      "packages": 4,
+      "download_mb": 268.3,
+      "packages": 6,
       "unpriced": []
     },
     "voiceguard": {
-      "download_mb": 3361.5,
-      "packages": 39,
+      "download_mb": 3362.6,
+      "packages": 40,
       "unpriced": []
     },
     "voicehealth": {

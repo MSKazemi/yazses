@@ -412,23 +412,50 @@ def _reject_constant(name: str) -> Any:
     )
 
 
-def validate_result_text(text: str) -> list[str]:
-    """Problems with one result document given as JSON text. Empty list means valid.
+def parse_result_text(text: str) -> tuple[Any, list[str]]:
+    """``(document, [])`` for readable JSON text, or ``(None, problems)`` when it is not.
 
-    Total: it returns a list for any string, including an empty or garbled one.
+    Total: it returns for any string, including an empty or garbled one. Shared by every
+    reader of a result *file* -- `validate_result_text` here, and a task-specific checker
+    such as `yazses.eyeeval.gaze_field.report_problems_text` -- so "unreadable" has one
+    meaning and no second parser can be kinder about ``NaN`` or a repeated key.
     """
     if not text.strip():
-        return ["<file>: empty; a result document must be a JSON object."]
+        return None, ["<file>: empty; a result document must be a JSON object."]
     try:
         doc = json.loads(
             text, object_pairs_hook=_reject_repeated_keys, parse_constant=_reject_constant
         )
     except _UnreadableResult as exc:
-        return [f"<file>: {exc}"]
+        return None, [f"<file>: {exc}"]
     except RecursionError:
-        return ["<file>: nested too deeply to be a result document."]
+        return None, ["<file>: nested too deeply to be a result document."]
     except ValueError as exc:  # JSONDecodeError, or an integer past the interpreter's limit
-        return [f"<file>: not valid JSON ({exc})."]
+        return None, [f"<file>: not valid JSON ({exc})."]
+    return doc, []
+
+
+def read_result_file(path: str | Path) -> tuple[Any, list[str]]:
+    """``(document, [])`` for the file at *path*, or ``(None, problems)`` if unreadable."""
+    try:
+        raw = Path(path).read_bytes()
+    except OSError as exc:
+        return None, [f"<file>: cannot be read ({exc.strerror or exc})."]
+    try:
+        text = raw.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        return None, ["<file>: not UTF-8 text."]
+    return parse_result_text(text)
+
+
+def validate_result_text(text: str) -> list[str]:
+    """Problems with one result document given as JSON text. Empty list means valid.
+
+    Total: it returns a list for any string, including an empty or garbled one.
+    """
+    doc, problems = parse_result_text(text)
+    if problems:
+        return problems
     try:
         return validate_result(doc)
     except RecursionError:
@@ -437,12 +464,10 @@ def validate_result_text(text: str) -> list[str]:
 
 def validate_result_file(path: str | Path) -> list[str]:
     """Problems with the result document at *path*; an unreadable file is a problem."""
+    doc, problems = read_result_file(path)
+    if problems:
+        return problems
     try:
-        raw = Path(path).read_bytes()
-    except OSError as exc:
-        return [f"<file>: cannot be read ({exc.strerror or exc})."]
-    try:
-        text = raw.decode("utf-8-sig")
-    except UnicodeDecodeError:
-        return ["<file>: not UTF-8 text."]
-    return validate_result_text(text)
+        return validate_result(doc)
+    except RecursionError:
+        return ["<file>: nested too deeply to be a result document."]
