@@ -333,9 +333,13 @@ def test_check_fails_on_a_stray_file_the_generator_does_not_produce(tree):
 
 
 def test_crlf_checkout_of_an_artifact_does_not_change_the_output(tree):
-    baseline = gen.build_all(tree)
+    # Start from LF whatever the checkout gave: on a Windows runner the file may already be
+    # CRLF, and converting "\n" again would write "\r\r\n", which no checkout produces.
     p = tree / "paper/results/streaming.json"
-    p.write_bytes(p.read_bytes().replace(b"\n", b"\r\n"))
+    lf = p.read_bytes().replace(b"\r\n", b"\n")
+    p.write_bytes(lf)
+    baseline = gen.build_all(tree)
+    p.write_bytes(lf.replace(b"\n", b"\r\n"))
     assert gen.build_all(tree) == baseline
 
 
