@@ -316,7 +316,7 @@ def plan_only(work: Path) -> Checks:
             checks.check(staged.is_file() and hashlib.sha256(staged.read_bytes()).hexdigest()
                          == release.sha, "the staged installer is the verified download")
             script = build_script(handoff)
-            for needle in ("Wait-Process", "Get-FileHash", "/VERYSILENT", "Set-Content",
+            for needle in ("Wait-Process", "[Security.Cryptography.SHA256]::Create()", "/VERYSILENT", "Set-Content",
                            "Start-Process -FilePath", "--tray"):
                 checks.check(needle in script, f"the job script contains {needle}")
         _plan_all_users(checks, release, work)

@@ -439,6 +439,19 @@ through *The all-users path*.
 - **Chocolatey.** It lost its default-directory fallback, and its elevation now reports a
   declined prompt as -4.
 
+## Revision (2026-10-21, first real Windows run)
+
+The advisory `windows-update-handoff` job ran the real PowerShell job on `windows-latest`
+for the first time (run 39577798547). The wait, relaunch, cleanup and lock release all
+passed, but **no installer ever ran**, per-user or all-users: the unelevated job's early
+hash check called `Get-FileHash`, which Windows PowerShell 5.1 reported as "not
+recognized", so the job ended with exit code -1 before elevation. The cause is **not
+confirmed**: an inherited PowerShell 7 `PSModulePath` (the step's shell is pwsh 7, as is a
+developer's terminal) and an execution policy blocking 5.1's Utility `.psm1` both fit. The
+hash is now computed with `[Security.Cryptography.SHA256]` over a `FileStream`, as the
+elevated script already did, and a test fails if any generated script calls `Get-FileHash`.
+The next run of that job is the evidence that either path installs.
+
 ## Windows verification checklist
 
 1. Per-user `.exe` install of the previous release. Tray → *Check for updates…* → Yes →
