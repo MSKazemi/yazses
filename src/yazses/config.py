@@ -1891,9 +1891,17 @@ class ProsodypunctConfig:
 
 @dataclass
 class HesitationConfig:
-    """v2.8 Wave L — Hesitation-Hold Endpointing (ADR-v2-101). OFF by default."""
+    """v2.8 Wave L — Hesitation-Hold Endpointing (ADR-v2-101). OFF by default.
+
+    Experimental, and only active in hands-free ``[autostop]`` turns (hold-to-talk ends on
+    key release). ``[autostop] silence_timeout_ms`` stays the base commit threshold; after a
+    detected filled pause ("uhh...") the turn waits ``hold_extra_ms`` longer. ``commit_ms``
+    is kept for older configs: ``0`` (the default) means "use the auto-stop timeout", and any
+    other value is ignored with a warning, so there is never a second competing threshold.
+    The detector's thresholds were tuned on synthetic signals only.
+    """
     enabled: bool = False
-    commit_ms: float = 800.0
+    commit_ms: float = 0.0
     hold_extra_ms: float = 1200.0
 
 

@@ -65,10 +65,11 @@ room:
 ```bash
 yazses mic-level              # measure and recommend a threshold
 yazses mic-level --set        # measure and write it to config.toml
-yazses mic-level -s 6         # record for 6 seconds instead of 4
+yazses mic-level -s 6         # speak for 6 seconds instead of 4 (the room is measured for half that)
 ```
 
-Speak in a normal voice for the whole countdown. `--set` writes the recommended
+Stay quiet for the first recording (the room), then speak in a normal voice for the
+second. `--set` writes the recommended
 value to `[accessibility] vad_threshold` (default `0.01`). Lower it for quiet
 speech; raise it if background noise triggers false transcripts.
 
@@ -77,22 +78,27 @@ already meets or exceeds your threshold (which would cause spurious triggers).
 
 ## Manage CPU load
 
-Two features help when the CPU is busy — both are **off by default**:
+Two features help when the CPU is busy:
 
-- **Adaptive Latency Governor (`latency`)** — keeps dictation responsive when your
-  CPU is loaded and lets it run faster when the machine is idle, by adapting decode
-  behaviour to current load (`[latency] high_load = 85.0`, `low_load = 40.0`).
-  **Planned — not yet wired**, so `features enable` refuses it for now:
+- **Adaptive Latency Governor (`latency`)** — *recommended, and switched on in the
+  config a fresh install writes on first start.* While the 1-minute load average is
+  at or above `[latency] high_load` (default `85.0`, as a percentage of all your
+  cores) it decodes the next utterance with `[latency] light_model` (default
+  `tiny.en`) at a narrow beam, and otherwise with your normal model. The light model
+  loads in the background the first time load is high and then stays resident
+  (~75 MB). POSIX only; on Windows it logs once that it is inactive. To turn it off,
+  or back on:
 
   ```bash
-  yazses features enable latency
+  yazses features disable latency    # or: yazses features enable latency
   yazses restart
   ```
 
 - **Ghost Ahead (`ghost-ahead`)** — pre-warms the decoder so the *first* word comes
   out slightly faster (it eagerly decodes the buffer when it detects you've
-  stopped; the authoritative transcript still happens on hold-release). Config
-  lives under `[endpoint]` (`prewarm = true`):
+  stopped; the authoritative transcript still happens on hold-release). Off by
+  default. Config lives under `[endpoint]` (`enabled = true`; `prewarm` already
+  defaults to `true`):
 
   ```bash
   yazses features enable ghost-ahead

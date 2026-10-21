@@ -177,11 +177,11 @@ YazSes ships **149 capabilities**. All but the core are **off by default** — t
 
 ### Hesitation-Hold Endpointing
 
-- **Toggle:** `hesitation`  ·  **Tier:** planned — designed, not yet wired  ·  **Config:** `[hesitation] — don't cut off filled pauses`
-- **What it does:** Holds the turn open when you trail off with a filled hesitation ('annnd… uhh…') instead of cutting you off — for anyone who thinks out loud. Off by default.
+- **Toggle:** `hesitation`  ·  **Tier:** experimental — not advised yet  ·  **Config:** `[hesitation] — don't cut off filled pauses`
+- **What it does:** Holds the turn open when you trail off with a filled hesitation ('annnd… uhh…') instead of cutting you off — for anyone who thinks out loud. Needs hands-free [autostop]: it only lengthens that silence timeout. Tuned on synthetic signals only. Off by default.
 - **Use when:** When you think out loud and keep getting cut off whenever you pause to find the next word.
 - **Example:** Trail off with 'annnd… uhh…' and it waits instead of cutting you off.
-- **Activate:** not possible yet — designed but not wired into this build (`yazses features enable` refuses it; contributions welcome)
+- **Activate:** `yazses features enable hesitation` then `yazses restart`
 
 ### Focus-Class Auto-Profile
 
@@ -1000,11 +1000,11 @@ YazSes ships **149 capabilities**. All but the core are **off by default** — t
 
 ### Pitch-Contour Gestures
 
-- **Toggle:** `contour`  ·  **Tier:** planned — designed, not yet wired  ·  **Config:** `[contour] — hum a shape to run a command`
-- **What it does:** Hum a pitch shape as a word-free command: rising = confirm, falling = cancel, rise-fall = undo. Language-independent, works in noise. Off by default.
+- **Toggle:** `contour`  ·  **Tier:** experimental — not advised yet  ·  **Config:** `[contour] — hum a shape to run a command`
+- **What it does:** Hum a pitch shape as a word-free command: rising = confirm, falling = cancel, rise-fall = undo; a flat hum does nothing. Fires only on an empty or hum-only transcript of mostly-voiced audio, with thresholds tuned on synthetic tones only. Off by default.
 - **Use when:** When you want to confirm or cancel hands- and word-free, even in noise where speech struggles.
 - **Example:** Hum a rising note to confirm, a falling one to cancel — no words.
-- **Activate:** not possible yet — designed but not wired into this build (`yazses features enable` refuses it; contributions welcome)
+- **Activate:** `yazses features enable contour` then `yazses restart`
 
 ### Beam-Steered Spatial VAD
 
@@ -1016,11 +1016,11 @@ YazSes ships **149 capabilities**. All but the core are **off by default** — t
 
 ### Vocal Joystick
 
-- **Toggle:** `vocaljoystick`  ·  **Tier:** planned — designed, not yet wired  ·  **Config:** `[vocaljoystick] — analog cursor control by voice`
-- **What it does:** Continuous cursor/scroll control by sustaining vowels — 'ahh' right, 'eee' up, louder = faster, pitch-jump = click. No words. For severe motor impairment. Off by default.
+- **Toggle:** `vocaljoystick`  ·  **Tier:** experimental — not advised yet  ·  **Config:** `[vocaljoystick] — analog cursor control by voice`
+- **What it does:** Continuous cursor control by sustaining vowels — 'eee' up-left, 'ooo' up-right, 'ahh' down-right, louder = faster, a held pitch jump = click. No words. Armed by `yazses handsfree resume`, stopped by `handsfree pause`; thresholds tuned on synthetic signals only. For severe motor impairment. Off by default.
 - **Use when:** When you have severe motor impairment and need continuous cursor/scroll control by voice.
-- **Example:** Hum 'eee' and the cursor glides up — louder moves it faster.
-- **Activate:** not possible yet — designed but not wired into this build (`yazses features enable` refuses it; contributions welcome)
+- **Example:** Hum 'eee' and the cursor glides up and to the left — louder moves it faster.
+- **Activate:** `yazses features enable vocaljoystick` then `yazses restart`
 
 ### Earcon Feedback
 
@@ -1074,20 +1074,20 @@ YazSes ships **149 capabilities**. All but the core are **off by default** — t
 
 ### Vocal-Strain Guard
 
-- **Toggle:** `voicehealth`  ·  **Tier:** planned — designed, not yet wired  ·  **Config:** `[voicehealth] — break reminders`
-- **What it does:** Advises a break when your voice shows rising strain (jitter/shimmer/HNR) over a session. Advisory only, not diagnostic. Off by default.
+- **Toggle:** `voicehealth`  ·  **Tier:** experimental — not advised yet  ·  **Config:** `[voicehealth] — break reminders`
+- **What it does:** Advises a break when your voice shows rising strain (jitter/shimmer/HNR) over a session. Advisory only, not diagnostic; thresholds tuned on synthetic signals only. Needs the `prosody` extra. Off by default.
 - **Use when:** When you dictate in long stretches and want a nudge to rest before your voice strains.
 - **Example:** Get a break reminder when your voice shows rising strain.
 - **Download:** ~11 MB
-- **Activate:** not possible yet — designed but not wired into this build (`yazses features enable` refuses it; contributions welcome)
+- **Activate:** `yazses features enable voicehealth` then `yazses restart`
 
 ### Voice Mouse Grid
 
-- **Toggle:** `mousegrid`  ·  **Tier:** planned — designed, not yet wired  ·  **Config:** `[mousegrid] — click by voice`
-- **What it does:** Drive the cursor and click by voice via a numbered grid ('three, seven, click') where no accessibility tree exists. Reuses the overlay. Off by default.
+- **Toggle:** `mousegrid`  ·  **Tier:** experimental — not advised yet  ·  **Config:** `[mousegrid] — click by voice, experimental`
+- **What it does:** Say 'mouse grid', then cell numbers ('three', 'seven') to move the pointer to that cell's centre, then 'click' ('right click', 'double click'); 'back' zooms out, 'cancel' closes. Works where no accessibility tree exists. Needs absolute pointer motion (X11 or macOS); the numbered grid is drawn by the overlay when [overlay] is on. Experimental: tuned on synthetic input only. Off by default.
 - **Use when:** When you need to click somewhere no accessibility tree exists and want to do it hands-free.
 - **Example:** Say a grid number to move the cursor, then 'click'.
-- **Activate:** not possible yet — designed but not wired into this build (`yazses features enable` refuses it; contributions welcome)
+- **Activate:** `yazses features enable mousegrid` then `yazses restart`
 
 ### Modality Role Router
 
@@ -1257,14 +1257,14 @@ YazSes ships **149 capabilities**. All but the core are **off by default** — t
 - **Download:** ~3.4 GB
 - **Activate:** `yazses features enable cocktail` then `yazses restart`
 
-### Voice Guard (biometric + anti-spoof)
+### Voice Guard (speaker match)
 
-- **Toggle:** `voiceguard`  ·  **Tier:** planned — designed, not yet wired  ·  **Config:** `[voiceguard] — experimental`
-- **What it does:** Types only when the live speaker matches your enrolled voiceprint and the audio isn't a recording/synthetic. Needs enrollment + the voiceguard extra; false-reject risk (fail-open by default). Off by default.
-- **Use when:** When you must guarantee only your live voice types, blocking recordings, synthesis, or others.
-- **Example:** yazses features enable voiceguard --force — only your voice dictates.
+- **Toggle:** `voiceguard`  ·  **Tier:** experimental — not advised yet  ·  **Config:** `[voiceguard] — experimental`
+- **What it does:** Refuses a dictation burst, before it is transcribed, when the speaker does not match your enrolled voiceprint (`yazses enroll-voice`). Speaker match only: no anti-spoof model ships, so a recording of your voice is still admitted. Threshold tuned on synthetic signals only; false-reject risk. Off by default.
+- **Use when:** When other people talk near your microphone and only your own voice should type (a recording of you still gets through).
+- **Example:** yazses features enable voiceguard --force — another speaker's burst is not typed.
 - **Download:** ~3.4 GB
-- **Activate:** not possible yet — designed but not wired into this build (`yazses features enable` refuses it; contributions welcome)
+- **Activate:** `yazses features enable voiceguard` then `yazses restart`
 
 ### Glasses↔Desktop Bridge
 

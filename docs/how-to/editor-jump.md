@@ -2,7 +2,7 @@
 title: Jump to a symbol by voice
 # No double quotes here: they are emitted unescaped into the meta description's
 # content attribute, which truncates it at the first one (verified in site/).
-description: Say go to line 240, or jump to function tokenize, and your editor moves there — resolved offline through the LSP symbols Neovim or VS Code already has.
+description: Say go to line 240, or jump to function tokenize, and Neovim moves there — resolved offline through the LSP symbols your editor already has.
 ---
 
 # Jump to a symbol by voice
@@ -13,10 +13,10 @@ Say where you want to be and the cursor goes there: YazSes jumps to lines, symbo
 
 Your editor has to be reachable from YazSes.
 
-- **Neovim** — start it with `nvim --listen /tmp/nvim.sock`, or rely on `$NVIM`, which Neovim sets automatically inside its own terminal.
-- **VS Code** — install the YazSes extension so it writes the context file.
+- **Neovim** — start it with `nvim --listen /tmp/nvim.sock`, or rely on `$NVIM`, which Neovim sets automatically inside its own terminal. YazSes talks to it through `pynvim`, which is in the `lsp` extra (`pipx install 'yazses[lsp]'`, or `pipx inject yazses pynvim` on an existing install).
+- **VS Code** — not supported for jumping: its bridge supplies dictation context only and has no cursor motion, and no YazSes VS Code extension is published.
 
-If neither is reachable, `yazses jump` says so and exits rather than moving a cursor somewhere else.
+If Neovim is not reachable, `yazses jump` says so and exits rather than moving a cursor somewhere else.
 
 ## Usage
 

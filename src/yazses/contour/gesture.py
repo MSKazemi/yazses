@@ -7,11 +7,13 @@ from __future__ import annotations
 
 import math
 
+#: A *flat* hum is deliberately absent (owner decision 2026-10-21): a reflexive thinking "hmm"
+#: is flat, and mapping it would make the commonest non-word sound a command. A user profile
+#: may still map it.
 _DEFAULT_MAP = {
     "rise": "confirm",
     "fall": "cancel",
     "rise_fall": "undo",
-    "flat": "repeat",
 }
 
 

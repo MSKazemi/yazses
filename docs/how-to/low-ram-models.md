@@ -73,8 +73,12 @@ recovers from swapping a model in and out.
 - **`[stt] cpu_threads`** changes CPU use, not memory — see
   [CPU and battery](cpu-and-battery.md). Measured: 363–373 MB across every thread
   setting, i.e. no effect.
-- **Turning off features** helps only if they load their *own* model. The optional
-  ones that do are LLM cleanup, gaze and Cocktail Filter; the rest are pure logic.
+- **Turning off features** helps only if they load their *own* model. The ones that
+  do include the Adaptive Latency Governor (`latency`, switched on in the config a
+  fresh install writes: a second Whisper model, ~75 MB for `tiny.en`, once load is
+  high), LLM cleanup, gaze and the camera features, Cocktail Filter and voiceprints,
+  speaker labels and Meeting Mode, and the Parakeet and Moonshine engines.
+  `yazses features disable latency` is the one worth knowing on a small machine.
 
 ## The multilingual models
 

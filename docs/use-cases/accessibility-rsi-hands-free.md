@@ -42,18 +42,20 @@ yazses restart
 ```
 
 It collapses stutters and repeats — *"b-b-because"* → *"because"* — as a
-post-processing pass. It is recommended (not experimental), and it is opt-in
-because collapsing repeats is wrong for people who do not need it.
+post-processing pass. It is in the recommended tier, so a fresh install already
+switches it on in the first config the daemon writes; the commands above matter only
+if your config predates that or you turned it off. If you do not stutter and want
+repeats kept verbatim, run `yazses features disable dysfluency`.
 
 Related capabilities worth knowing about:
 
 | Capability | Enable with | For |
 |---|---|---|
-| Hesitation-Hold Endpointing | `yazses features enable hesitation` *(planned — not yet wired)* | Not being cut off mid-sentence when you pause |
+| Hesitation-Hold Endpointing | `yazses features enable hesitation --force` *(experimental; needs `autostop`)* | Not being cut off mid-sentence when you pause |
 | Breath-Paced Dictation | `yazses features enable breath` *(planned — not yet wired)* | Pacing around breath, not clock timeouts |
 | Whisper-Aware Mode | `yazses features enable whispermode` | Speaking quietly, or with limited volume |
 | Involuntary-Vocalization Excision | `yazses features enable involuntary` | Filtering involuntary sounds |
-| Vocal-Strain Guard | `yazses features enable voicehealth` *(planned — not yet wired)* | Warning before you overuse your voice |
+| Vocal-Strain Guard | `yazses features enable voicehealth --force` *(experimental; needs the `prosody` extra)* | A break suggestion when your voice shows rising strain |
 
 ## Calibrating to your voice
 
@@ -122,8 +124,14 @@ of the pipeline is unchanged:
   instead of holding it: the burst ends on silence (or a second tap) rather than on key release. A tap is a
   press shorter than `[hotkey] hold_threshold_ms`; a longer hold is still ordinary hold-to-talk. It needs a
   modifier hotkey, which is the default.
-- **Wake-word activation** exists but is marked experimental and is not
-  recommended yet — it is listed honestly as such in `yazses features`.
+- **Hesitation-hold** (`yazses features enable hesitation --force`, experimental) works on top of Hands-Free
+  Auto-Stop: when you trail off with a held "uhh…" or "mmm…", the turn waits `[hesitation] hold_extra_ms`
+  (1200 ms by default) longer than `[autostop] silence_timeout_ms` before it ends, so a thinking pause is
+  not cut off. The auto-stop timeout stays the only base threshold; it has no effect in hold-to-talk. Its
+  detector was tuned on synthetic signals only, not on recorded speech.
+- **Wake-word activation** is planned — designed, not yet wired, so
+  `yazses features enable wakeword` refuses it. It is listed honestly as such in
+  `yazses features`.
 
 ## Eyes-free use
 
@@ -135,20 +143,23 @@ yazses features enable read-back
 
 The transcript is spoken back to you with an on-device TTS model (downloaded on
 first use — still no cloud). Complementary capabilities include Earcon Feedback
-for non-speech audio cues, Screen-Reader Pacing to cooperate with a screen
-reader, and Interruptible Proofreading.
+for non-speech audio cues and Screen-Reader Pacing to cooperate with a screen
+reader. Interruptible Proofreading (`proofback`) is planned — designed, not yet
+wired, so `yazses features enable` refuses it.
 
 ## Driving the pointer by voice
 
 Where there is no accessibility tree to target, a numbered grid overlay lets you
-move and click by voice. **Planned — designed and tested, not yet wired**, so
-`features enable` refuses it for now:
+move and click by voice. It is **experimental** (tuned on synthetic input only),
+so `features enable` asks for `--force`; it needs absolute pointer motion (X11 or
+macOS), and the numbered grid is drawn by the overlay when `[overlay]` is on:
 
 ```sh
-yazses features enable mousegrid
+yazses features enable mousegrid --force
 ```
 
-Say a grid number to move the cursor, then *"click"*. There is also an experimental
+Say *"mouse grid"*, then a grid number to move the cursor, then *"click"*. See
+[click anywhere by voice](../how-to/voice-mouse-grid.md). There is also an experimental
 Head-Pointer (`yazses features enable headpointer`), which moves and clicks by head pose,
 and an experimental camera-based Glance-Type mode that focuses the window you look at
 (X11 only — Wayland does not allow an application to focus another window). Both are
@@ -157,10 +168,13 @@ setting is a provisional starting value — please report what works for you.
 
 ## Honest limits
 
-- Several of the more exotic input modalities (vocal joystick, mouth-sound switch
-  access, pitch-contour gestures, lip-reading, sign-language input) are marked
-  **experimental — not advised yet** in `yazses features`. They exist, they are
-  not yet dependable, and the CLI says so rather than pretending otherwise.
+- Two of the more exotic input modalities, the vocal joystick (`vocaljoystick`) and
+  pitch-contour gestures (`contour`), are wired but marked **experimental — not
+  advised yet** in `yazses features`: they need `--force`, and their thresholds were
+  tuned on synthetic signals only. Mouth-sound switch access, lip-reading and
+  sign-language input are **planned — designed, not yet wired**, so
+  `yazses features enable` refuses them. The CLI says which is which rather than
+  pretending otherwise.
 - Dictation accuracy for heavily dysarthric speech varies a great deal by
   individual. The opt-in learning loop (`yazses tune`) is designed to close that
   gap from *your own* corrections over time, but it needs usage to work.

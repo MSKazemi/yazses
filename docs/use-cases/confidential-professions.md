@@ -51,7 +51,9 @@ voiceprints you enroll yourself — never from a cloud identity.
 ## Prove it, don't trust it
 
 The whole claim on this page rests on "it runs locally", so do not take that on faith from
-a documentation page. Check it in one command:
+a documentation page. Run it once with network access so the model is cached in the
+`yazses-models` volume (the same command without `--network none`), then prove it with
+the network removed:
 
 ```sh
 docker run --rm --network none -v yazses-models:/home/yazses/.cache \

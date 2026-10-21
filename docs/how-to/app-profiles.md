@@ -33,6 +33,8 @@ For an email client like Thunderbird or Outlook, or a professional word processo
 ### 3. Verbatim Mode for Terminals
 For IDEs and terminals where you want dictation inserted exactly as heard with no formatting, you can use the `verbatim` mode. This bypasses all text formatting passes.
 
+Terminals and code editors already get `verbatim` through Focus-Class Auto-Profile (`focusprofile`), which a fresh install switches on, whenever no `[profiles.app]` glob matches the window. Add a glob only for an app it does not recognise, or to override it.
+
 ```toml
 [profiles.app]
 "*term*" = "verbatim"

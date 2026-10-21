@@ -153,13 +153,16 @@ yazses --version
 If YazSes says *"The upgrade to YazSes X finished, but OpenCV (cv2), which the camera
 features use, does not load any more"*, the version did move. What broke is OpenCV.
 
-Up to 2.43.2 the camera features (gaze, face gestures, head pointer, hand gestures,
-hands-free) installed two OpenCV builds, `opencv-python` and `opencv-contrib-python`.
-They share the same `cv2/` folder. Later releases need only contrib, so an upgrade
-removes `opencv-python`, and removing it deletes the files the two builds shared.
+The camera features (gaze, face gestures, head pointer, hand gestures, hands-free)
+install two OpenCV builds today, `opencv-python` and `opencv-contrib-python`. They share
+the same `cv2/` folder. A future release will drop `opencv-python`; a `uv tool` upgrade
+to it removes that package, and removing it deletes the files the two builds shared.
 `import cv2` still succeeds afterwards, but `cv2.VideoCapture` is missing.
 
-`yazses update`, the tray and the Settings window prevent this on a `uv tool` install:
+The protection below is not in 2.43.2. It ships in the first release after 2.43.2, one
+release ahead of that change, because an upgrade runs the YazSes you already have.
+From that release on, `yazses update`, the tray and the Settings window prevent this on a
+`uv tool` install:
 when both builds are present, they add `--reinstall-package opencv-contrib-python` to the
 upgrade command they show and run. After every `uv`, `pipx` or `pip` upgrade they also
 check that `cv2` still works. If it does not, they print the exact repair for your
@@ -218,8 +221,9 @@ tested.
 ## Your settings, models and vocabulary are not affected
 
 None of the commands above touch your data. Configuration lives in
-`~/.config/yazses/` (`%LOCALAPPDATA%\yazses\` on Windows), models and the learning corpus
-in `~/.local/share/yazses/` — all outside the installed package. A reinstall replaces
+`~/.config/yazses/` (`%LOCALAPPDATA%\yazses\` on Windows), the learning corpus in
+`~/.local/share/yazses/`, and speech models in the Hugging Face cache
+(`~/.cache/huggingface/hub`) — all outside the installed package. A reinstall replaces
 code only.
 
 ## See also

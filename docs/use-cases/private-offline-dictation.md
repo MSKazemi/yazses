@@ -64,7 +64,7 @@ It is off unless you turn it on, and when on:
 
 ```sh
 yazses corpus status    # what has been captured, if anything
-yazses corpus destroy   # delete it all
+yazses corpus destroy --i-mean-it   # delete it all (irreversible)
 ```
 
 Full details in the [privacy statement](../privacy-statement.md).

@@ -1036,6 +1036,33 @@ def _hotwords_optin_check(cfg) -> _Check | None:
     return ("Hotwords", "SKIP", f"{reason} Turn it on:\n    yazses features enable hotwords")
 
 
+def _voiceguard_check(cfg, data_dir: Path) -> _Check | None:
+    """Whether an enabled Voice Guard can judge anything, or ``None`` while it is off.
+
+    WARN when it cannot -- no voiceprint enrolled, `[voiceprint]` off, or fail-closed with
+    no anti-spoof model -- because the daemon then lets every burst through rather than
+    refusing them all, and that must not happen without a line saying so. Reads only
+    whether the encrypted voiceprint file exists; it decrypts and loads nothing.
+    """
+    if not getattr(getattr(cfg, "voiceguard", None), "enabled", False):
+        return None
+    from yazses.voiceguard.admission import inactive_reason
+
+    reason = inactive_reason(
+        cfg, embedder_ready=None, enrolled=(data_dir / "voiceprint.enc").exists()
+    )
+    if reason is not None:
+        return ("Voice Guard", "WARN", f"enabled but inactive: {reason}.")
+    return ("Voice Guard", "OK", (
+        f"on -- refuses a burst whose voiceprint similarity is under "
+        f"{cfg.voiceguard.match_threshold:.2f}. Speaker match only: no anti-spoof model "
+        "ships yet, so a recording of your voice is admitted. A voiceprint file is "
+        "present; doctor does not decrypt it, and the daemon log warns once if it cannot "
+        "load it or score a burst with it (the guard then lets bursts through). The "
+        "threshold is tuned on synthetic signals only"
+    ))
+
+
 def _config_summary(
     cfg, config_file: Path, *, live_hotkey: str = "", platform_default: str = ""
 ) -> list[_Check]:
@@ -2286,6 +2313,9 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
         hotwords = _hotwords_optin_check(cfg)
         if hotwords is not None:
             checks.append(hotwords)
+        voiceguard = _voiceguard_check(cfg, paths.data_dir)
+        if voiceguard is not None:
+            checks.append(voiceguard)
         # Every enabled capability whose optional libraries are missing, from the
         # feature registry rather than a hand-kept list. The list this replaced named
         # four features, told end users to run `uv sync --extra …` (a command that

@@ -34,6 +34,7 @@ if TYPE_CHECKING:
     from yazses.endpoint.autostop import AutoStopTurn
     from yazses.gaze.refine_runtime import RefinementRuntime
     from yazses.gaze.targeter import GazeTargeter
+    from yazses.hesitation.stream import HesitationMonitor
     from yazses.inject.target import TargetDetector
     from yazses.latency.pool import EnginePool
     from yazses.learning.capture import CorpusWriter
@@ -331,16 +332,21 @@ class Daemon:
     #: daemon (a test, a startup that failed early) never assigned them on.
     _headpointer = None
     _handsfree_safety = None
+    _vocaljoystick = None
     # The face switch's select/confirm/cancel outcome log and the actions bound to it
     # (facegesture/actions.py). None / empty until a face switch is built.
     _switch_outcomes = None
     _switch_bound: frozenset[str] = frozenset()
     _switch_select_limiter = None
     _gesture = None
+    #: Voice Mouse Grid (ADR-v2-030): the grid runtime, or None -- the default.
+    _mousegrid = None
     #: Hands-free auto-stop (ADR-v2-029): the tap-to-latch turn, or None -- the default.
     #: Class-level for the same partial-daemon reason as the attributes above; while it is
     #: None the two hold handlers behave exactly as they always have.
     _autostop: AutoStopTurn | None = None
+    #: Hesitation-hold (ADR-v2-101): the filled-pause judge of a latched turn, or None.
+    _hesitation: HesitationMonitor | None = None
 
     def __init__(
         self,
@@ -558,6 +564,8 @@ class Daemon:
         self._adaptive_vad = AdaptiveThreshold()
         # Acoustic Context Profiles (ADR-v2-039): built on the first burst, only when on.
         self._acoustic: AcousticGate | None = None
+        # Vocal-Strain Guard (ADR-v2-034): built on the first decoded burst, only when on.
+        self._voicehealth: Any = None
         self._device_monitor: DeviceMonitor | None = None
         # "No text target" guard: detects whether the focused element accepts text so a
         # burst with no field focused is warned (yellow tray) + saved to the clipboard
@@ -1482,9 +1490,12 @@ class Daemon:
         # unless `[headpointer] enabled` *and* the shared source and a pointer backend exist.
         self._handsfree_safety = self._build_handsfree_safety(cfg)
         self._headpointer = self._build_headpointer(cfg)
+        self._vocaljoystick = self._build_vocaljoystick(cfg)
         # Gesture Chords (ADR-v2-043): face/head tokens from the same shared camera, resolved
         # by gesture/chords.py. Dormant unless `[gesture] enabled` *and* a chord is bound.
         self._gesture = self._build_gesture(cfg)
+        # Voice Mouse Grid (ADR-v2-030): None unless `[mousegrid] enabled`; opens no sink.
+        self._mousegrid = self._build_mousegrid(cfg)
 
         # ADR-v2-011 role arbitration. Must precede the activation sources, because
         # it decides what role EMG plays among them.
@@ -1561,7 +1572,7 @@ class Daemon:
 
         # Cocktail Filter / Voiceprint Mind: build the speaker embedder and load the
         # enrolled voiceprint when either feature is on (dormant/None otherwise).
-        if cfg.cocktail.enabled or cfg.voiceprint.enabled:
+        if cfg.cocktail.enabled or cfg.voiceprint.enabled or cfg.voiceguard.enabled:
             from yazses.voiceprint.factory import build_embedder, unavailable_message
             from yazses.voiceprint.store import load_voiceprint
 
@@ -1578,6 +1589,15 @@ class Daemon:
             elif self._voiceprint is None:
                 log.warning("No enrolled voiceprint yet; run `yazses enroll-voice`.")
             _ = load_voiceprint  # referenced via the helper below
+        # Voice Guard (ADR-v2-018): say at start, once, why an enabled guard cannot judge.
+        if cfg.voiceguard.enabled:
+            from yazses.voiceguard.admission import inactive_reason as voiceguard_inactive
+
+            self._warn_feature_inert("voiceguard", voiceguard_inactive(
+                cfg, embedder_ready=self._embedder is not None,
+                enrolled=self._voiceprint is not None,
+                unreadable=self._voiceprint is None and self._voiceprint_path().exists(),
+            ))
 
     def _voiceprint_path(self):
         return self._platform.paths.data_dir / "voiceprint.enc"
@@ -1640,6 +1660,7 @@ class Daemon:
         server.register("handsfree", self._handle_handsfree)
         server.register("facegesture", self._handle_facegesture)
         server.register("gesture", self._handle_gesture)
+        server.register("mousegrid", self._handle_mousegrid)
         server.serve_in_thread()
         self._ipc_server = server
 
@@ -2005,6 +2026,63 @@ class Daemon:
             return
         self._active_injector().inject(text)
 
+    def _contour_gesture(self, audio, sample_rate: int, transcript: str | None,
+                         event: dict) -> bool:
+        """Pitch-Contour Gestures (ADR-v2-103): True when a hummed burst ran its command.
+
+        False, with nothing imported or touched, while `[contour]` is off -- the caller then
+        carries on exactly as before -- and for any burst that is not a recognised hum.
+        ``transcript`` is None only before decoding, after a positive "no speech" finding
+        (see `contour/wiring.py`). Never raises: a failure means the burst is treated as before.
+        """
+        if not self._config.contour.enabled:
+            return False
+        try:
+            from yazses.contour.wiring import run_hum_gesture, scratch_last_burst
+            from yazses.facegesture.actions import resolve_confirmation
+
+            # The voice stop word outranks every handler (ADR-v2-148), even if the user
+            # chose a hum spelling for it.
+            phrase = self._config.handsfree_safety.stop_phrase
+            if transcript and phrase:
+                from yazses.handsfree.stopword import matches
+
+                if matches(transcript, phrase):
+                    return False
+
+            def dropped() -> None:
+                self._cmdsafety_intent = None
+                self._notify_cmdsafety("Cancelled — the command was not run.")
+
+            def undo() -> str:
+                if not self._config.revise.enabled:
+                    return "not applied: [revise] is off"
+                return scratch_last_burst(self._ledger, self._active_injector(),
+                                          target_ok=self._state.target_ok)
+
+            def said(outcome) -> str:
+                return f"{outcome.result} ({outcome.reason})" if outcome.reason else outcome.result
+
+            ran = run_hum_gesture(audio, sample_rate, transcript, {
+                "confirm": lambda: said(resolve_confirmation(
+                    "confirm", self._cmdsafety, self._switch_release_held)),
+                "cancel": lambda: said(resolve_confirmation(
+                    "cancel", self._cmdsafety, lambda _held: None, on_cancel=dropped)),
+                "undo": undo,
+            })
+        except Exception:
+            log.debug("Contour gesture check failed; treating the burst as before.",
+                      exc_info=True)
+            return False
+        if ran is None:
+            return False
+        command, outcome = ran
+        event["intent_type"] = "contour"
+        event["contour_command"] = command
+        # The outcome names what happened, never what was said (ADR-011).
+        log.info("Contour hum %s: %s.", command, outcome)
+        return True
+
     def _facegesture_payload(self) -> dict[str, object] | None:
         """`facegesture` IPC status: which switch actions are bound and what each last did."""
         outcomes = self._switch_outcomes
@@ -2336,6 +2414,37 @@ class Daemon:
             log.warning("Head-Pointer init failed; it stays off", exc_info=True)
             return HeadPointerRuntime(reason=f"init failed: {type(exc).__name__}")
 
+    def _build_vocaljoystick(self, cfg):
+        """Vocal Joystick (ADR-v2-095), or None while `[vocaljoystick]` is off (the default).
+
+        Building opens no microphone: `handsfree resume` opens it and every pause closes it
+        (`_handle_handsfree`). Never raises.
+        """
+        if not cfg.vocaljoystick.enabled:
+            return None
+        try:
+            from yazses.vocaljoystick.runtime import build_vocaljoystick, notify_vocaljoystick_fault
+
+            sr = cfg.audio.sample_rate
+            return build_vocaljoystick(
+                cfg.vocaljoystick,
+                pointer_factory=self._platform.pointer_factory,
+                recorder_factory=lambda on_chunk: AudioRecorder(
+                    sample_rate=sr, max_seconds=0, on_chunk=on_chunk, accumulate=False,
+                    device=self._config.audio.device or None,
+                ),
+                sample_rate=sr,
+                # Never steer while dictation records, transcribes or types.
+                busy=lambda: self._state.state is not TrayState.IDLE,
+                # Read-only: a gate pause (face switch, chord) closes the mic. Never a source.
+                stop_requested=None if (gate := self._handsfree_safety) is None
+                else lambda: gate.status().user_paused,
+                on_fault=notify_vocaljoystick_fault,  # the cursor never stops silently
+            )
+        except Exception:
+            log.warning("Vocal Joystick init failed; it stays off", exc_info=True)
+            return None
+
     def _start_headpointer(self) -> None:
         """Take the camera lease and start polling, if there is anything to start."""
         runtime = self._headpointer
@@ -2359,6 +2468,35 @@ class Daemon:
             return runtime.command(action, dict(request.params))
         except Exception as exc:
             log.exception("Head-Pointer command %r raised", action)
+            return {"ok": False, "reason": f"failed: {type(exc).__name__}"}
+
+    def _build_mousegrid(self, cfg):
+        """The Voice Mouse Grid runtime (ADR-v2-030), or None while `[mousegrid]` is off.
+
+        Imported only when enabled, so a default daemon never loads `yazses.mousegrid`.
+        The pointer sink is built by the runtime when a grid is first opened, not here.
+        """
+        if not cfg.mousegrid.enabled:
+            return None
+        try:
+            from yazses.mousegrid.runtime import build_mousegrid
+
+            return build_mousegrid(cfg.mousegrid, pointer_factory=self._platform.pointer_factory,
+                                   safety=self._handsfree_safety)
+        except Exception:
+            log.warning("Voice Mouse Grid could not be built; it stays off.", exc_info=True)
+            return None
+
+    def _handle_mousegrid(self, request: Request) -> dict[str, object]:
+        """IPC: `status | open | say | cancel | screen` for the Voice Mouse Grid."""
+        runtime = self._mousegrid
+        if runtime is None:
+            return {"ok": False, "enabled": False, "reason": "[mousegrid] is not enabled"}
+        action = str(request.params.get("action", "status"))
+        try:
+            return runtime.command(action, dict(request.params))
+        except Exception as exc:
+            log.exception("Mouse grid command %r raised", action)
             return {"ok": False, "reason": f"failed: {type(exc).__name__}"}
 
     def _build_gesture(self, cfg):
@@ -2435,14 +2573,27 @@ class Daemon:
         nothing from ``yazses.endpoint`` (tests/test_default_start_stays_light.py).
         """
         if not cfg.autostop.enabled:
+            if cfg.hesitation.enabled:
+                # [hesitation] only extends a hands-free turn: build_monitor logs why it is inert.
+                from yazses.hesitation.handsfree import build_monitor
+
+                build_monitor(cfg.hesitation, cfg.autostop, cfg.audio.sample_rate)
             return None
         from yazses.endpoint.autostop import AutoStopTurn
+
+        # ADR-v2-101: [hesitation] only lengthens this turn's silence timeout after a
+        # filled pause. Imported only when enabled; None keeps the plain threshold.
+        if cfg.hesitation.enabled:
+            from yazses.hesitation.handsfree import build_monitor
+
+            self._hesitation = build_monitor(cfg.hesitation, cfg.autostop, cfg.audio.sample_rate)
+        judge = self._hesitation.decision if self._hesitation is not None else None
 
         if cfg.autostop.mode != "silence":
             log.info("[autostop] mode = %r: the semantic end-of-turn model is not shipped; "
                      "using the silence timeout.", cfg.autostop.mode)
         log.info("Hands-free auto-stop enabled: tap the hotkey once, then speak.")
-        return AutoStopTurn(cfg.autostop, tap_ms=cfg.hotkey.hold_threshold_ms)
+        return AutoStopTurn(cfg.autostop, tap_ms=cfg.hotkey.hold_threshold_ms, endpoint=judge)
 
     def _autostop_defer_end(self) -> bool:
         """True when this key release was a tap that latched the turn open (nothing ends)."""
@@ -2484,6 +2635,8 @@ class Daemon:
     def _on_hold_start(self, leaked: int) -> None:
         if self._autostop is not None and self._autostop.press(time.monotonic()):
             return  # a second tap while latched: its release ends the turn
+        if self._hesitation is not None:
+            self._hesitation.reset()  # ADR-v2-101: each turn's filled-pause verdict starts empty
         # Barge-in: a new hold during read-back cancels TTS playback immediately
         # so the user's speech is never recorded over the spoken transcript. The
         # sequence is bumped first and under the lock, so a read-back that has been
@@ -2794,6 +2947,7 @@ class Daemon:
                     stream_injector.cancel()
                 return
 
+            unfiltered = padded  # Voice Guard judges the burst as heard, not as filtered
             # Cocktail Filter: drop frames that aren't the enrolled target speaker
             # before STT, so an interfering voice never enters the transcript.
             padded = self._maybe_cocktail_gate(padded)
@@ -2818,6 +2972,12 @@ class Daemon:
                 dysfluency_friendly=acc.dysfluency_friendly,
                 sotto_voce=wm_cfg.enabled and wm_cfg.command_channel,
             ) and holds_no_speech(padded, sample_rate):
+                # Pitch-Contour Gestures (ADR-v2-103): a hum gets its check before this
+                # discard. No-op while `[contour]` is off.
+                if self._contour_gesture(padded, sample_rate, None, event):
+                    if stream_injector is not None:
+                        stream_injector.cancel()
+                    return
                 event["discard_reason"] = "no_speech"
                 log.info(
                     "No speech in a %.1fs burst (level %.4f cleared vad_threshold %.4f, "
@@ -2826,6 +2986,18 @@ class Daemon:
                     float(np.abs(padded).mean()),
                     acc.vad_threshold,
                 )
+                self._earcon.play("error")
+                if stream_injector is not None:
+                    stream_injector.cancel()
+                return
+
+            # Voice Guard (ADR-v2-018): refuse a burst that is not the enrolled speaker
+            # before it is decoded, so no text from it exists to type. Logs the reason
+            # (a similarity score), never words. Dormant unless `[voiceguard] enabled`.
+            voiceguard_refusal = self._voiceguard_refusal(unfiltered)
+            if voiceguard_refusal is not None:
+                event["discard_reason"] = "voiceguard_rejected"
+                log.info("Voice Guard refused the burst: %s.", voiceguard_refusal)
                 self._earcon.play("error")
                 if stream_injector is not None:
                     stream_injector.cancel()
@@ -3003,6 +3175,12 @@ class Daemon:
             text = clean_text(text)
             text = self._correct_vocabulary(text, event)
             event["cleaned_text"] = text
+            # Pitch-Contour Gestures (ADR-v2-103): an empty or hum-only transcript of a
+            # mostly-voiced burst is a gesture, not text. No-op while `[contour]` is off.
+            if self._contour_gesture(padded, sample_rate, text, event):
+                if stream_injector is not None:
+                    stream_injector.cancel()
+                return
             if not text:
                 event["discard_reason"] = "empty"
                 log.info("Empty transcription -- discarding.")
@@ -3022,6 +3200,10 @@ class Daemon:
                 if stream_injector is not None:
                     stream_injector.cancel()
                 return
+
+            # Vocal-Strain Guard (ADR-v2-034): measured on a worker, never on this path.
+            if self._config.voicehealth.enabled:
+                self._voicehealth_submit(padded, sample_rate)
 
             # Voice stop word (ADR-v2-148): the whole utterance equals the configured
             # phrase -> pause every hands-free input and type nothing. Ahead of every
@@ -3062,6 +3244,29 @@ class Daemon:
                 if not text:
                     event["discard_reason"] = "post_filter"
                     log.info("Post-filter empty -- discarding.")
+                    if stream_injector is not None:
+                        stream_injector.cancel()
+                    return
+
+            # Voice Mouse Grid (ADR-v2-030): "mouse grid", cell numbers, "click". Off by
+            # default; with no grid open only that exact phrase is claimed, and an open grid
+            # hands back (closing itself) any utterance that is not a grid command.
+            if self._mousegrid is not None:
+                try:
+                    grid_result = self._mousegrid.handle_transcript(text)
+                except Exception:
+                    # Never break dictation: a grid fault falls through to typing the text.
+                    log.warning("Mouse grid failed on a transcript; dictating it instead.",
+                                exc_info=True)
+                    grid_result = None
+                if grid_result is not None:
+                    event["discard_reason"] = "mousegrid"
+                    event["mousegrid"] = grid_result
+                    # An instruction, not an attempt to dictate: keep it out of the
+                    # dictation rate exactly as a command-key burst is kept out.
+                    event["command_mode"] = True
+                    if grid_result == "refused":
+                        self._earcon.play("error")
                     if stream_injector is not None:
                         stream_injector.cancel()
                     return
@@ -3774,6 +3979,8 @@ class Daemon:
                 event.get("raw_text") or event.get("discard_reason")
             ):
                 cap_audio = clip if self._config.learning.capture_audio else None
+                if event.get("discard_reason") == "voiceguard_rejected":
+                    cap_audio = None  # likely a third party's voice: never kept (ADR-019)
                 self._corpus.write(event, cap_audio, sample_rate)
             # Edit capture (signal b): for plain dictation, read the editor back
             # shortly and record any in-place correction.
@@ -3799,13 +4006,20 @@ class Daemon:
                 self._state.audio_level = float(np.abs(chunk).mean())
         if self._streaming_active and self._stream_engine is not None:
             self._stream_engine.push(chunk)
+        # ADR-v2-101: queue only (a copy under a short lock); YIN runs on the watcher thread.
+        if self._hesitation is not None and self._autostop is not None and self._autostop.latched:
+            self._hesitation.push(chunk)
 
     # ---- Audio-input resilience (device change + silent-streak) -------------
 
     def _audio_idle(self) -> bool:
         """True when no recording is in flight — safe to poll/reinit the mic."""
         with self._lock:
-            return self._state.state == TrayState.IDLE
+            idle = self._state.state == TrayState.IDLE
+        # The Vocal Joystick keeps the daemon IDLE while its own stream is open; a PortAudio
+        # reinit under that stream would close it, so the monitor waits while it is open.
+        joystick = self._vocaljoystick
+        return idle and not (joystick is not None and joystick.mic_open)
 
     def _active_device_name(self) -> str | None:
         """The mic capture would currently use: the pin, else the OS default."""
@@ -4913,6 +5127,65 @@ class Daemon:
             return
         self._warned_inert.add(feature)
         log.warning("[%s] is enabled but inactive: %s.", feature, reason)
+
+    def _voiceguard_refusal(self, audio: np.ndarray) -> str | None:
+        """Why Voice Guard refuses this burst, or ``None`` to let it through.
+
+        ``None`` while `[voiceguard]` is off (nothing imported) and while it is on but
+        cannot judge (no voiceprint, no embedder, fail-closed with no anti-spoof model, a
+        burst the embedder cannot score): the burst is let through and the reason is
+        logged at WARNING, once, rather than refusing every burst. Never raises.
+        """
+        cfg = self._config
+        if not cfg.voiceguard.enabled:
+            return None
+        try:
+            from yazses.voiceguard.admission import burst_refusal, inactive_reason
+
+            embedder, voiceprint = self._embedder, self._voiceprint
+            reason = inactive_reason(
+                cfg, embedder_ready=embedder is not None, enrolled=voiceprint is not None,
+                unreadable=voiceprint is None and self._voiceprint_path().exists(),
+            )
+            if reason is not None or embedder is None or voiceprint is None:
+                self._warn_feature_inert("voiceguard", reason)
+                return None
+            refusal, inert = burst_refusal(
+                audio, cfg.audio.sample_rate, embedder, voiceprint, cfg.voiceguard
+            )
+        except Exception as exc:
+            refusal, inert = None, f"the guard failed on a burst ({type(exc).__name__}: {exc})"
+        if inert is not None:
+            self._warn_feature_inert("voiceguard", inert + "; bursts are let through")
+        return refusal
+
+    def _voicehealth_submit(self, audio: np.ndarray, sample_rate: int) -> None:
+        """Hand a decoded burst to the Vocal-Strain Guard's worker (ADR-v2-034).
+
+        Called only while ``[voicehealth] enabled``; builds the runtime on first use, so a
+        default install never imports it. Non-blocking and never raises: a measurement
+        problem must not cost the user their dictation. A runtime that cannot be built is
+        reported once and never retried (``_voicehealth`` becomes ``False``).
+        """
+        if self._voicehealth is None:
+            try:
+                from yazses.voicehealth.runtime import build_runtime
+
+                self._voicehealth = build_runtime(self._config.voicehealth)
+            except Exception as exc:
+                self._voicehealth = False
+                log.debug("Vocal-Strain Guard could not start", exc_info=True)
+                self._warn_feature_inert(
+                    "voicehealth", f"it could not start ({type(exc).__name__}: {exc})"
+                )
+                return
+            self._warn_feature_inert("voicehealth", self._voicehealth.inactive_reason)
+        if not self._voicehealth:
+            return
+        try:
+            self._voicehealth.submit(audio, sample_rate)
+        except Exception:
+            log.debug("Vocal-Strain Guard submit failed", exc_info=True)
 
     def _maybe_cocktail_gate(self, audio: np.ndarray) -> np.ndarray:
         """Drop non-target-speaker frames before STT (Cocktail Filter P1).
@@ -6635,6 +6908,8 @@ class Daemon:
                     runtime.command("pause")
                     if gate is None:
                         scope.append("Head-Pointer only")
+                if (joystick := getattr(self, "_vocaljoystick", None)) is not None:
+                    joystick.toggle("pause", scope, reasons)  # closes its microphone
                 if not scope:
                     return {
                         "ok": False,
@@ -6652,6 +6927,9 @@ class Daemon:
                 else:
                     ok = False
                     reasons.append(str(result.get("reason") or "Head-Pointer would not re-arm"))
+            if (joystick := getattr(self, "_vocaljoystick", None)) is not None:
+                # Opens its microphone; it is no gate source, so the gate re-arms nothing for it.
+                ok = joystick.toggle("resume", scope, reasons) and ok
             if gate is not None:
                 rearm = gate.resume()
                 scope.extend(n for n in rearm.armed if n not in scope)
@@ -6993,6 +7271,11 @@ class Daemon:
             set_fallback_sink(None)
         except Exception:
             log.debug("clearing the notification sink failed", exc_info=True)
+        if self._voicehealth:
+            try:
+                self._voicehealth.close()
+            except Exception:
+                log.exception("Vocal-Strain Guard close raised")
         if self._timers is not None:
             # A pending voice timer has nothing to report to a desktop that is
             # going away, and its thread must not hold the process open.
@@ -7060,6 +7343,17 @@ class Daemon:
                 self._headpointer.stop()
             except Exception:
                 log.exception("Head-Pointer stop raised")
+        if self._vocaljoystick is not None:
+            try:
+                self._vocaljoystick.stop()  # microphone stream closed, pointer sink released
+            except Exception:
+                log.exception("Vocal Joystick stop raised")
+
+        if self._mousegrid is not None:
+            try:
+                self._mousegrid.close()  # releases the pointer sink, if one was opened
+            except Exception:
+                log.exception("Mouse grid close raised")
         if self._gaze_targeter is not None:
             try:
                 self._gaze_targeter.close()  # release the camera

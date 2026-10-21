@@ -6,6 +6,40 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — six accessibility features you can now turn on (experimental, off by default)
+
+Six capabilities that had a designed, tested core but no caller are now reachable from the
+daemon. An install that does not enable them is unchanged: nothing is imported, no thread starts
+and no microphone opens (`tests/test_dormant_features_stay_unimported.py`). All six are marked
+experimental, and every threshold in them was tuned on synthetic signals, not on recorded speech.
+
+- **Voice Guard** (`[voiceguard]`): with an enrolled voiceprint, a dictation burst whose speaker
+  does not match is refused before it is transcribed. It checks the speaker only; there is no
+  anti-spoof model yet, so a recording of your voice gets through. It needs `[voiceprint]`
+  enabled and an enrolled voiceprint (`yazses enroll-voice`); `features enable` says so. When the guard cannot judge (no voiceprint, no embedder, a voiceprint enrolled
+  with a different backend), it says so once in the daemon log and in `yazses doctor`, and lets
+  bursts through rather than refusing everything.
+- **Hesitation-Hold** (`[hesitation]`, needs `[autostop]`): a held "uhh…" makes a hands-free turn
+  wait `[hesitation] hold_extra_ms` longer before it ends. The `[autostop]` silence timeout stays
+  the base threshold. `[hesitation] commit_ms` now defaults to `0`, meaning "follow
+  `[autostop] silence_timeout_ms`", so the two settings no longer compete.
+- **Pitch-Contour Gestures** (`[contour]`): hum a rising note to confirm, a falling one to cancel,
+  rise-fall to undo the last dictation. A flat hum does nothing. A gesture fires only on an empty
+  or hum-only transcript of mostly-voiced audio, and the hum check runs before the no-speech gate
+  (#598) so a hum is not discarded first.
+- **Vocal-Strain Guard** (`[voicehealth]`, needs the `prosody` extra): measures jitter, shimmer
+  and HNR of each burst on a background thread and suggests a voice break at most twice a
+  session, 45 minutes apart. Advisory only, never diagnostic; audio is never stored. A fresh
+  session starts after a suspend.
+- **Vocal Joystick** (`[vocaljoystick]`): enable it, run `yazses handsfree resume`, and hold a
+  vowel to move the pointer ("eee" up-left, "ooo" up-right, "ahh" down-right; louder is faster;
+  a held pitch jump clicks). `yazses handsfree pause` or the stop phrase closes the microphone. A
+  pointer failure raises a notification instead of stopping silently.
+- **Voice Mouse Grid** (`[mousegrid]`): say "mouse grid", then cell numbers and "click", to move
+  the pointer and click by voice on X11 or macOS. The overlay draws the numbered grid.
+  Hyphenated forms ("Right-click.") work, and an unsupported pointer backend is refused when the
+  grid opens rather than after.
+
 ### Added — implicit gaze calibration can now see real clicks on X11, Windows and macOS ([#607](https://github.com/MSKazemi/yazses/issues/607))
 
 The `[gaze_refine]` feature treats an ordinary mouse click as "where the user was looking
