@@ -72,6 +72,8 @@ class PollDecision:
     # gone — a wedged one still holds its single-instance lock, so a replacement
     # would exit as a duplicate and achieve nothing but noise.
     relaunch: bool = False
+    # Close the tray: the user ran `yazses stop`, which means all of YazSes.
+    close_tray: bool = False
 
 
 def unreachable_decision(
@@ -82,6 +84,7 @@ def unreachable_decision(
     relaunches: int = 0,
     since_relaunch_s: float | None = None,
     max_relaunches: int = MAX_DAEMON_RELAUNCHES,
+    stop_requested: bool = False,
 ) -> PollDecision:
     """Decide how to react to an unreachable daemon. Pure, so it unit-tests directly.
 
@@ -104,7 +107,16 @@ def unreachable_decision(
     bounded and spaced by ``since_relaunch_s`` for the same reason the tray supervisor
     bounds its own: a daemon that dies on boot every time is broken in a way respawning
     cannot fix, and hammering it would just bury the real error.
+
+    ``stop_requested`` comes first: `yazses stop` left a note after this tray started
+    (``system/stop_request.py``), so the daemon is gone on purpose and the tray goes
+    with it. Restarting it, as this used to, undid the stop within seconds. A daemon
+    still shutting down is waited for, not answered.
     """
+    if stop_requested:
+        if daemon_running:
+            return PollDecision(give_up=False, last_error="daemon stopping")
+        return PollDecision(give_up=True, close_tray=True)
     if not ever_connected:
         if waiting_s > _DAEMON_BOOT_TIMEOUT_S:
             return PollDecision(give_up=True)
@@ -208,6 +220,11 @@ def run() -> None:
     tray = platform.tray_factory()
     client = platform.ipc_client_factory(platform.paths.ipc_socket)
 
+    # Wall clock, because `yazses stop` writes its note from another process: only a
+    # note left after this moment can close this tray (see system/stop_request.py).
+    tray_started_wall = time.time()
+    from yazses.system.stop_request import stop_requested_since
+
     if not platform.lifecycle.is_running():
         log.info("Daemon not running; spawning.")
         platform.lifecycle.start_daemon_detached()
@@ -286,7 +303,14 @@ def run() -> None:
                     daemon_running=_daemon_running(platform),
                     relaunches=relaunches,
                     since_relaunch_s=(None if last_relaunch is None else now - last_relaunch),
+                    stop_requested=stop_requested_since(
+                        platform.paths.data_dir, tray_started_wall
+                    ),
                 )
+                if decision.close_tray:
+                    log.info("`yazses stop` stopped the daemon; closing the tray too.")
+                    tray.stop()
+                    return
                 if decision.give_up:
                     log.warning("Daemon never became reachable; stopping poll.")
                     return

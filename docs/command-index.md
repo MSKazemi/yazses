@@ -777,7 +777,7 @@ Show daemon status. Queries the daemon over IPC when reachable.
 
 ## `yazses stop`
 
-Stop the running daemon.
+Stop YazSes: the daemon, and the tray icon with it.
 
 - `--force` — Stop even while a meeting is still being written up.
 
