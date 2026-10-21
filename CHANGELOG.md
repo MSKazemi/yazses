@@ -19,6 +19,154 @@ during a transcription still starts the next dictation once the current one ends
 Measured on Windows 11 22H2: keys pressed during a transcription went from a 300 ms delay each
 to none, and the ten-key burst from 3.5 s to 16 ms.
 
+### Changed — the Windows installer carries Parakeet's engine and Chinese script conversion; the diarization add-on runs on the installer's ONNX Runtime
+
+ADR-028's owner answers (2026-10-21), build side. The Windows installer now bundles two
+small pure-Python libraries that a frozen install could not add later: `onnx-asr`, the
+engine behind `stt-parakeet` (MIT, about 4 MB), and `opencc-python-reimplemented`,
+behind `chinese-script` (Apache-2.0, about 0.5 MB). Together about 4.5 MB, roughly 2.4%
+of the v2.43.2 installer; that figure is the wheels' size, not yet a measured installer.
+Parakeet's model still downloads on first use. `scripts/build-windows.ps1` syncs
+`--extra parakeet --extra chinese`, and the PyInstaller spec now collects onnx-asr's
+metadata and preprocessor files, without which `import onnx_asr` fails in a frozen app.
+`packs.toml` marks both `bundled`; the PyPI install is unchanged.
+
+Speaker diarization (`diarization`) becomes the only Phase 1 add-on pack. sherpa-onnx-core's Windows
+wheel ships its own unsigned `onnxruntime.dll` (1.28.2, twice), which differs from the
+installer's signed 1.28.0 and would have withheld the pack. A new reviewed allow-list,
+`bind_to_base` in `packs.toml`, drops exactly the listed DLL basenames and records them
+in the build report and in `pack.json` (`bind_to_base`), so the runtime loads the base's
+copy first; every other DLL collision still withholds a pack. `build-packs.py` now
+measures the base from the `bundled` extras, withholds every pack when the build venv
+lacks one, and `build-packs.py validate` fails when `build-windows.ps1` syncs a different
+set. The manual `packs-spike.yml` probe (d) now proves or refutes the binding on a real
+Windows runner: `import sherpa_onnx` must load only the base's `onnxruntime.dll`, at the
+version the base froze, and build and run both an ONNX Runtime and a sherpa-onnx VAD
+session on a pinned model. None of this has run on Windows yet.
+
+### Added — a licence check holds back any Windows add-on whose licences are unclear (ADR-028 Q7)
+
+The release build now checks the licence of every library in a Windows add-on before it
+publishes the add-on. Permissive licences pass. LGPL and MPL-2.0 pass, and the add-on
+carries `LICENSES/SOURCE.md` saying where each one's source code is. GPL passes only with
+the maintainer's approval, recorded for that library at that exact version in
+`packaging/packs/licence-approvals.toml`. An approval that no longer matches is reported
+as stale and approves nothing. An unidentifiable licence or a missing licence file holds
+the add-on back, as any other failed check does. The result is recorded in the build
+report and in each add-on's `pack.json`. The check reads declared metadata only, so it
+cannot see GPL code compiled into a library that declares MIT. Tested on synthetic
+metadata, not yet on a Windows build. The Linux 1.13.8 wheels of `sherpa-onnx` and
+`sherpa-onnx-core` would hold the `diarization` add-on back (free-text licence, no licence
+file). No add-on has been released yet.
+
+### Added — install a Windows add-on from a file with no network, and the uninstaller removes your add-ons (ADR-028 questions 4 and 5)
+
+- `yazses packs install --from <file>` installs an add-on file you copied over yourself,
+  for a PC that is offline or behind a firewall that blocks github.com (the #310 case). It
+  makes no network request. The file is accepted only if its name is one of your build's
+  add-on files and its SHA-256 matches the checksum built into your copy of YazSes. A file
+  that was changed, cut short, or made for another version or build is refused with a
+  sentence saying which, and nothing is installed. It is then unpacked, tested and placed
+  exactly as a download would be. A failed download now names this route.
+- The Windows uninstaller deletes your `%LOCALAPPDATA%\yazses\packs` folder, for a
+  per-user install only and never during an update. An all-users uninstall runs as the
+  administrator and cannot reach users' folders, so it deletes none. For that case, and
+  for add-ons an older build left behind, `yazses doctor` has an **Add-ons** row that names
+  `yazses packs remove --all` and how much it frees.
+
+Tested on Linux with synthetic add-on files and a text check of `installer.iss`. Not yet
+verified: compiling the installer, and a real per-user or all-users uninstall on Windows.
+
+### Added — add-on packs use YazSes's own ONNX Runtime (unreleased feature, ADR-028 M1)
+
+The Windows wheel of `sherpa-onnx-core`, which the diarization add-on needs, carries its own
+unsigned `onnxruntime.dll` (1.28.2), while YazSes already ships Microsoft's signed 1.28.0. Two
+files with one module name in one process are not safe, so the add-on build drops the pack's
+copy and lists the name in `pack.json`'s new `bind_to_base` field. On the add-on's first use,
+YazSes now loads its own copy by full path from its install folder before any of the add-on's
+code runs, so the add-on can only bind to that file, never to another `onnxruntime.dll` on
+the computer. It refuses the add-on, with a named reason, if YazSes's copy is missing,
+ambiguous (several copies, and not exactly one inside the `onnxruntime` package folder), older than the optional `bind_min_versions` floor, or if another copy is already
+loaded. `yazses packs probe` and `yazses packs verify` now report which file and version the
+add-on bound to. Nothing is loaded at start-up, and nothing changes for anyone without such
+an add-on. Tested on Linux through a fake loader only; the Windows run (the packs spike and
+the release job's probe) has not happened yet. No add-on has been released.
+
+### Added — add-ons are downloaded again after a one-click Windows update (ADR-028 Q3, unreleased feature)
+
+An add-on pack is built for one exact build of YazSes, so an update left the add-ons you had
+unloaded until you installed each one again. Now the update question in the tray and the
+Settings window names the add-ons you have and their sizes ("Your add-on (Diarization, 15 MB)
+will be downloaded again for the new version."), and saying yes covers that download: on its
+first start the new version fetches its own copy of each one through the same verified install
+as **Install now**, checked against the index built into the new version, and tells you once.
+The old version's add-on files are deleted only after every new copy has checked out, or, with
+nothing to download, once the new version has started; before this they were never deleted
+(nothing wrote the `started_ok` marker) until `yazses packs remove --all`. A failed
+download is not retried on its own: the feature waits, and **Install now** retries it in one
+click. `yazses update` in a terminal does not ask about add-ons and downloads none. Covered by
+offline tests (`tests/test_packs_refetch.py`); not yet run on Windows with a published add-on.
+
+### Fixed — updating will not break OpenCV (cv2) for camera-feature users
+
+The camera features install two OpenCV builds today (`opencv-python`, and
+`opencv-contrib-python` through mediapipe), which write the same `cv2/` files. A future
+release will drop `opencv-python`, and the `uv tool upgrade yazses` that applies such a
+release removes it and, with it, the `cv2` files the two builds share. That command is the
+one `yazses update`, the tray's *Install update* and the Settings window run. The upgrade
+exits 0 and reports the new version, and the camera features then fail to start. Because
+the upgrade runs the version you already have, the protection must ship a release before
+the change, so this release ships it and keeps both builds. `import cv2` still succeeds afterwards, because what is left is a namespace
+package, but `cv2.VideoCapture` is missing. This was reproduced offline on Linux
+(Python 3.12, uv 0.12.21, the 5.0.0.93 wheels) for both forms of the command:
+`uv tool upgrade yazses` and the `uv tool install --upgrade --with … yazses` form used when
+an enabled feature's libraries must be kept.
+
+- When both builds are installed, the uv upgrade command now includes
+  `--reinstall-package opencv-contrib-python`. In the same reproduction this left `cv2`
+  working with both command forms. Both `uv tool upgrade --help` and
+  `uv tool install --help` list the flag in uv 0.12.21. The flag is added after the step
+  that keeps enabled features' libraries, inside the one function
+  (`updater.resolve_upgrade_command`) that `yazses update`, the Settings window, the tray
+  and the upgrade itself all use. A test checks that the command shown is the command run.
+- After any `uv`, `pipx` or `pip` upgrade, the environment's own Python checks
+  `cv2.VideoCapture` and `cv2.cvtColor`. A bare `import cv2` would not catch this
+  breakage. The check runs only when an OpenCV build is installed and either `cv2` worked
+  before the upgrade or a camera feature is on. If it fails, YazSes does not say
+  "Updated". It prints the exact repair command, pinned to the contrib version installed
+  after the upgrade (`uv pip install --python <env python> --reinstall --no-deps …`,
+  `pipx runpip yazses install --force-reinstall --no-deps …`, or
+  `<env python> -m pip install --force-reinstall --no-deps …`), and `yazses update`
+  exits 1. pip and pipx never remove a dependency on upgrade, so their command is not
+  changed.
+- Other routes break `cv2` the same way without passing that check: an upgrade run by an
+  older YazSes, `uv sync` in a source checkout, or `pip uninstall opencv-python`. YazSes
+  now also checks whenever it starts and whenever `yazses doctor` runs. A camera feature
+  that is switched on while `cv2` is half-deleted counts as not ready. The start-up
+  notification says so and gives the same pinned repair command, with no *Install now*
+  button, because reinstalling an installed package does not repair it. `yazses doctor`
+  has a new **OpenCV** row, shown whenever an OpenCV build is installed: `OK`, or `FAIL`
+  with the repair command. The check never imports OpenCV. It looks for OpenCV's native
+  module in the `cv2/` folder (0.23 ms measured on a whole install) and reads the package
+  list only when that module is missing. It does not run unless a camera feature is on.
+  In an environment with no pip (one that uv created, such as a source checkout's
+  `.venv`), the repair uses the `uv pip` form. This was tested on Linux with real
+  environments built with the 5.0.0.93 wheels. The check reported the broken environment
+  as half-deleted and the whole one as healthy, and after the printed repair was run it
+  reported the repaired one as healthy.
+- The Windows and macOS tray balloon now shows the same full upgrade command as
+  `yazses update`, quoted so it can be pasted into a shell. The Linux tray's dialog uses
+  the same quoting. Windows drops a balloon longer than 255 characters without showing
+  anything, so a command too long to fit is replaced by a pointer to `yazses update`, which
+  builds and runs the same command. A test measures the balloon for the longest command
+  the feature list can produce (767 characters before the fallback, 170 after).
+- Not verified: the pipx and pip repair commands were not run, and Windows and macOS were
+  not tested.
+
+`yazses update` and the tray now print the upgrade command quoted for pasting: a requirement
+such as `onnx-asr[cpu,hub]>=0.12` used to be printed bare, which a shell reads as a
+redirection to a file named `=0.12`.
+
 ### Fixed — the one-click Windows update never ran the installer (unreleased feature)
 
 The first real run of the update hand-off on a Windows machine (CI, `windows-latest`) showed

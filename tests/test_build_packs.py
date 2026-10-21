@@ -186,6 +186,80 @@ def test_two_different_copies_inside_one_pack_conflict(bp):
     assert rep.conflicts
 
 
+# --- bind_to_base: the reviewed allow-list (ADR-028 finding M1) -----------------------
+
+#: sherpa-onnx-core 1.13.8 win_amd64 as measured: its own onnxruntime.dll in lib/ and a
+#: duplicate under .data/data/Scripts/, plus a C-API DLL the base does not ship.
+_SHERPA_DLLS = {
+    "site/sherpa_onnx/lib/onnxruntime.dll": "1" * 64,
+    "site/sherpa_onnx_core-1.13.8.data/data/Scripts/onnxruntime.dll": "1" * 64,
+    "site/sherpa_onnx/lib/sherpa-onnx-c-api.dll": "2" * 64,
+}
+_BASE_DLLS = {
+    "_internal/onnxruntime/capi/onnxruntime.dll": "9" * 64,
+    "_internal/vcruntime140.dll": "8" * 64,
+}
+
+
+def test_without_the_allow_list_sherpas_onnxruntime_withholds_the_pack(bp):
+    """The red half: today's rule, on the measured wheel, is a conflict."""
+    rep = bp.dll_collisions(_SHERPA_DLLS, _BASE_DLLS)
+    assert rep.conflicts and all("onnxruntime.dll" in c for c in rep.conflicts)
+    assert rep.bound == [] and rep.bound_names() == []
+
+
+def test_the_bind_allow_list_drops_exactly_the_listed_name(bp):
+    rep = bp.dll_collisions(_SHERPA_DLLS, _BASE_DLLS, bind_to_base=["onnxruntime.dll"])
+    assert rep.conflicts == []
+    both = ["site/sherpa_onnx/lib/onnxruntime.dll",
+            "site/sherpa_onnx_core-1.13.8.data/data/Scripts/onnxruntime.dll"]
+    assert sorted(rep.bound) == sorted(both)
+    assert sorted(rep.drop) == sorted(both), "the C-API DLL must stay in the pack"
+    assert rep.bound_names() == ["onnxruntime.dll"]
+    assert rep.bind_unused == []
+
+
+def test_a_bound_name_is_matched_case_insensitively(bp):
+    rep = bp.dll_collisions({"site/x/OnnxRuntime.DLL": "1" * 64}, _BASE_DLLS,
+                            bind_to_base=["ONNXRUNTIME.dll"])
+    assert rep.conflicts == [] and rep.bound_names() == ["onnxruntime.dll"]
+
+
+def test_any_other_collision_still_withholds_with_the_allow_list_present(bp):
+    dlls = {**_SHERPA_DLLS, "site/sherpa_onnx/lib/vcruntime140.dll": "7" * 64}
+    rep = bp.dll_collisions(dlls, _BASE_DLLS, bind_to_base=["onnxruntime.dll"])
+    assert len(rep.conflicts) == 1 and "vcruntime140.dll" in rep.conflicts[0]
+    assert rep.bound_names() == ["onnxruntime.dll"]
+
+
+def test_two_differing_copies_of_a_bound_name_inside_the_pack_are_both_dropped(bp):
+    dlls = {"site/a/onnxruntime.dll": "1" * 64, "site/b/onnxruntime.dll": "3" * 64}
+    rep = bp.dll_collisions(dlls, _BASE_DLLS, bind_to_base=["onnxruntime.dll"])
+    assert rep.conflicts == [] and sorted(rep.drop) == sorted(dlls)
+
+
+def test_the_identical_copy_path_is_unchanged_by_the_allow_list(bp):
+    dlls = {"site/x/vcruntime140.dll": "8" * 64, **_SHERPA_DLLS}
+    rep = bp.dll_collisions(dlls, _BASE_DLLS, bind_to_base=["onnxruntime.dll"])
+    assert "site/x/vcruntime140.dll" in rep.drop
+    assert "site/x/vcruntime140.dll" not in rep.bound
+    assert rep.bound_names() == ["onnxruntime.dll"]
+
+
+def test_an_allow_list_entry_that_collides_with_nothing_changes_nothing(bp):
+    rep = bp.dll_collisions({"site/x/foo.dll": "1" * 64}, _BASE_DLLS,
+                            bind_to_base=["onnxruntime.dll", "foo.dll"])
+    assert rep.drop == [] and rep.bound == [] and rep.conflicts == []
+    assert rep.bind_unused == ["foo.dll", "onnxruntime.dll"]
+
+
+def test_a_bound_dll_is_not_compared_against_other_packs(bp):
+    rep = bp.dll_collisions({"site/x/onnxruntime.dll": "1" * 64}, _BASE_DLLS,
+                            {"other": {"site/y/onnxruntime.dll": "4" * 64}},
+                            bind_to_base=["onnxruntime.dll"])
+    assert rep.conflicts == []
+
+
 def test_native_dirs(bp):
     assert bp.native_dirs(["sherpa_onnx/lib/a.dll", "sherpa_onnx/lib/b.DLL", "top.dll",
                            "x/y.pyd"]) == ["site", "site/sherpa_onnx/lib"]
@@ -264,8 +338,25 @@ def test_pack_json_counts_every_member_including_itself(bp, tmp_path):
             i.filename for i in infos} - {"pack.json", "RECORD.json"}
     for key in ("format", "name", "extra", "features", "app_version", "base_build_id",
                 "python", "platform", "arch", "distributions", "entry_modules",
-                "native_dirs", "unpacked_bytes", "files"):
+                "native_dirs", "unpacked_bytes", "files", "bind_to_base"):
         assert key in doc, key
+    assert doc["bind_to_base"] == []
+
+
+def test_pack_json_records_the_bound_dlls_sorted_and_lower_case(bp):
+    fields = bp.pack_fields(
+        name="diarization", extra="diarization", features=["diarize"], app_version="2.44.0",
+        base_build_id=BID, python=PY, platform_tag="win-amd64", arch="x64",
+        distributions=[], entry_modules=["sherpa_onnx"], native=[], path_entries=[],
+        bind_to_base=["OnnxRuntime.dll", "onnxruntime.dll", "abc.dll"],
+    )
+    assert fields["bind_to_base"] == ["abc.dll", "onnxruntime.dll"]
+    sys.path.insert(0, str(ROOT / "src"))
+    from yazses.packs.manifest import parse_manifest
+
+    # The runtime parser must still accept a pack.json that carries the new key.
+    pj = bp.pack_json(fields, 0, 0, 0)
+    assert parse_manifest(pj).name == "diarization"
 
 
 def test_zip_is_deterministic_sorted_and_has_no_directories(bp, tmp_path):
@@ -421,7 +512,69 @@ def test_the_real_catalogue_is_complete_and_consistent(bp):
     extras, deps, unwired = _repo_inputs(bp)
     doc = bp.load_catalog()
     assert bp.validate_catalog(doc, extras, deps, unwired) == []
-    assert {p.name for p in bp.packs_from_catalog(doc)} == {"parakeet", "diarization"}
+    # ADR-028 Q1: parakeet and chinese ship inside the frozen base; Phase 1 packs only
+    # diarization, whose sherpa onnxruntime.dll is bound to the base's.
+    packs = {p.name: p for p in bp.packs_from_catalog(doc)}
+    assert set(packs) == {"diarization"}
+    assert packs["diarization"].bind_to_base == ("onnxruntime.dll",)
+    assert {"desktop", "overlay", "parakeet", "chinese"} <= set(bp.bundled_extras(doc))
+
+
+def test_bundled_extras_are_never_packs(bp):
+    doc = bp.load_catalog()
+    bundled = set(bp.bundled_extras(doc))
+    assert bundled, "guard the guard: no bundled extra at all"
+    assert not bundled & {p.extra for p in bp.packs_from_catalog(doc)}
+
+
+def test_the_base_build_syncs_exactly_the_bundled_extras(bp):
+    """build-windows.ps1 and the spike freeze the same base packs.toml describes."""
+    _, extras = bp.read_project()
+    doc = bp.load_catalog()
+    for script in (PS1, SPIKE_WORKFLOW):
+        synced = bp.ps1_synced_extras(script.read_text(encoding="utf-8"))
+        assert synced == {"desktop", "parakeet", "chinese"}, (script.name, synced)
+        assert bp.base_sync_problems(synced, doc, extras) == [], script.name
+
+
+def test_the_base_sync_guard_catches_each_mismatch(bp):
+    _, extras = bp.read_project()
+    doc = bp.load_catalog()
+    assert bp.base_sync_problems(set(), doc, extras)                          # blind
+    missing = bp.base_sync_problems({"desktop", "parakeet"}, doc, extras)
+    assert any("'chinese'" in e for e in missing)
+    packed = bp.base_sync_problems({"desktop", "parakeet", "chinese", "diarization"},
+                                   doc, extras)
+    assert any("--extra diarization" in e and "'pack'" in e for e in packed)
+    # `overlay` is satisfied by desktop's identical requirement, not by name.
+    assert bp.base_sync_problems({"overlay", "parakeet", "chinese"}, doc, extras) == []
+
+
+def test_the_frozen_spec_collects_what_bundled_onnx_asr_reads_at_runtime(bp):
+    """onnx_asr/__init__ calls importlib.metadata.version("onnx-asr") on import and its
+    preprocessors load data/*.onnx via importlib.resources; PyInstaller's import
+    analysis finds neither, so a bundled parakeet without these lines would ship an
+    engine that raises PackageNotFoundError the first time it is enabled."""
+    if "parakeet" not in bp.bundled_extras(bp.load_catalog()):
+        pytest.skip("parakeet is not bundled")
+    tree = ast.parse(SPEC.read_text(encoding="utf-8"))
+    calls = {(n.func.id, n.args[0].value) for n in ast.walk(tree)
+             if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.args
+             and isinstance(n.args[0], ast.Constant)}
+    assert ("copy_metadata", "onnx-asr") in calls
+    assert ("collect_data_files", "onnx_asr") in calls
+
+
+def test_synced_extras_ignore_comment_lines(bp):
+    text = "# uv sync --extra gaze\n  uv sync --no-dev --extra desktop --extra=chinese\n"
+    assert bp.ps1_synced_extras(text) == {"desktop", "chinese"}
+
+
+def test_validate_command_checks_the_base_script(bp, tmp_path):
+    assert bp.main(["validate"]) == 0
+    bad = tmp_path / "build-windows.ps1"
+    bad.write_text("uv sync --no-dev --extra desktop\n", encoding="utf-8")
+    assert bp.main(["validate", "--base-script", str(bad)]) == 1
 
 
 def test_the_catalogue_guard_fails_on_an_empty_catalogue(bp):
@@ -444,10 +597,20 @@ def test_the_catalogue_guard_catches_each_defect(bp):
     assert errs(lambda e: e["prosody"].pop("reason"))                         # no reason
     assert errs(lambda e: e["prosody"].update(decision="maybe"))
     assert errs(lambda e: e["diarization"].update(features=["diarize"]))      # incomplete
-    assert errs(lambda e: e["parakeet"].update(features=["stt-parakeet", "agent"]))
-    assert errs(lambda e: e["parakeet"].update(features=["diarize"]))         # wrong extra
-    assert errs(lambda e: e["parakeet"].update(entry_modules=[]))
-    assert errs(lambda e: e["parakeet"].update(approved_large=True))          # no approver
+    diar = ["diarize", "recimport", "meeting"]
+    assert errs(lambda e: e["diarization"].update(features=[*diar, "agent"]))
+    assert errs(lambda e: e["diarization"].update(features=[*diar, "stt-parakeet"]))
+    assert errs(lambda e: e["diarization"].update(entry_modules=[]))
+    assert errs(lambda e: e["diarization"].update(approved_large=True))       # no approver
+    # bind_to_base: bare DLL basenames only, with the reviewed evidence, packs only.
+    assert errs(lambda e: e["diarization"].update(bind_to_base=["lib/onnxruntime.dll"]))
+    assert errs(lambda e: e["diarization"].update(bind_to_base=["onnxruntime"]))
+    assert errs(lambda e: e["diarization"].update(bind_to_base="onnxruntime.dll"))
+    assert errs(lambda e: e["diarization"].pop("bind_reason"))
+    assert errs(lambda e: e["parakeet"].update(bind_to_base=["onnxruntime.dll"]))
+    # A bundled extra that grew pack fields is a contradiction, not a pack.
+    assert errs(lambda e: e["parakeet"].update(entry_modules=["onnx_asr"]))
+    assert errs(lambda e: e["chinese"].update(features=["chinese-script"]))
 
 
 # --- the Phase 0 spike: pure parts -----------------------------------------------------
@@ -535,6 +698,92 @@ def test_summary_has_one_plain_pass_fail_line_per_probe(bp):
     assert text.count("PASS: parakeet:") == sum(1 for _, v, _ in rows if v == bp.PASS)
 
 
+# --- probe (d) bind: sherpa_onnx on the base's onnxruntime ---------------------------
+
+_BASE_ORT = "D:/a/dist/YazSes/_internal/onnxruntime/capi/onnxruntime.dll"
+_BOUND_ENTRY = {
+    "dll_conflicts": [],
+    "dll_dropped": ["site/sherpa_onnx/lib/onnxruntime.dll"],
+    "dll_bound_to_base": ["site/sherpa_onnx/lib/onnxruntime.dll"],
+}
+
+
+def _bound_result():
+    r = _good_result()
+    r["entry"] = {"sherpa_onnx": {"ok": True, "file": "D:/w/spike/diarization/site/x"}}
+    r["bind"] = {
+        "pack_root": "D:/w/spike/diarization",
+        "preloaded": {"onnxruntime.dll": _BASE_ORT.replace("/", "\\")},
+        "preload_errors": {},
+        "loaded": {"onnxruntime.dll": [_BASE_ORT.replace("/", "\\")]},
+        "expected_ort_version": "1.28.0",
+        "ort": {"version": "1.28.0", "file": "D:/a/dist/YazSes/_internal/onnxruntime/__init__.pyc"},
+        "ort_session": {"ok": True},
+        "native_session": {"ok": True},
+    }
+    return r
+
+
+def _bind_row(bp, result, entry=_BOUND_ENTRY):
+    rows = [r for r in bp.spike_verdicts(entry, result) if r[0] == bp.BIND_PROBE]
+    assert len(rows) == 1
+    return rows[0]
+
+
+def test_bind_probe_passes_and_names_the_loaded_dll_and_version(bp):
+    _, verdict, detail = _bind_row(bp, _bound_result())
+    assert verdict == bp.PASS, detail
+    assert "onnxruntime\\capi\\onnxruntime.dll" in detail and "onnxruntime 1.28.0" in detail
+    text = bp.render_summary("t", {"diarization": bp.spike_verdicts(_BOUND_ENTRY, _bound_result())})
+    line = next(ln for ln in text.splitlines() if ln.startswith("PASS: diarization: (d) bind"))
+    assert "onnxruntime.dll <- " in line and "1.28.0" in line
+
+
+@pytest.mark.parametrize("breakage", [
+    "two_copies", "from_pack", "wrong_version", "no_expected", "ort_session",
+    "native_session", "not_preloaded", "entry_failed", "no_bind_result",
+])
+def test_bind_probe_fails_on_each_real_failure(bp, breakage):
+    r = _bound_result()
+    b = r["bind"]
+    pack_copy = "D:\\w\\spike\\diarization\\site\\sherpa_onnx\\lib\\onnxruntime.dll"
+    if breakage == "two_copies":
+        b["loaded"]["onnxruntime.dll"].append("C:\\Windows\\System32\\onnxruntime.dll")
+    elif breakage == "from_pack":
+        b["loaded"]["onnxruntime.dll"] = [pack_copy]
+    elif breakage == "wrong_version":
+        b["ort"]["version"] = "1.28.2"
+    elif breakage == "no_expected":
+        b["expected_ort_version"] = ""
+    elif breakage == "ort_session":
+        b["ort_session"] = {"ok": False, "error": "InvalidGraph"}
+    elif breakage == "native_session":
+        b["native_session"] = {"ok": False, "error": "OrtGetApiBase returned NULL"}
+    elif breakage == "not_preloaded":
+        b["preloaded"] = {}
+        b["preload_errors"] = {"onnxruntime.dll": "OSError(126)"}
+    elif breakage == "entry_failed":
+        r["entry"]["sherpa_onnx"] = {"ok": False, "error": "DLL load failed"}
+    elif breakage == "no_bind_result":
+        del r["bind"]
+    assert _bind_row(bp, r)[1] == bp.FAIL
+
+
+def test_the_bind_row_appears_only_for_a_pack_that_binds(bp):
+    rows = bp.spike_verdicts({"dll_conflicts": [], "dll_dropped": []}, _good_result())
+    assert bp.BIND_PROBE not in [p for p, _, _ in rows]
+
+
+def test_spike_bind_request_puts_the_onnxruntime_package_copy_first(bp, tmp_path):
+    base = ["_internal/onnxruntime.dll", "_internal/onnxruntime/capi/onnxruntime.dll",
+            "_internal/other.dll"]
+    req = bp.spike_bind_request(["OnnxRuntime.dll"], base, tmp_path)
+    assert list(req) == ["onnxruntime.dll"]
+    assert req["onnxruntime.dll"][0] == str(tmp_path / "_internal/onnxruntime/capi/onnxruntime.dll")
+    assert len(req["onnxruntime.dll"]) == 2
+    assert bp.spike_bind_request(["missing.dll"], base, tmp_path) == {"missing.dll": []}
+
+
 # --- the spike hook itself, run unfrozen --------------------------------------------
 
 
@@ -574,6 +823,35 @@ def test_the_spike_hook_mounts_imports_and_reports(tmp_path):
     assert data["metadata"]["base"] == {"definitely-not-installed-xyz": None}
     assert [f["missing"] for f in data["sweep_failures"]] == ["nonexistent_dep_xyz"]
     assert data["stdlib_missing"] == []
+    assert data["bind"]["preloaded"] == {}, "no bind request, nothing preloaded"
+    assert "ort" not in data["bind"], "onnxruntime is imported only for a binding pack"
+
+
+def test_the_spike_hook_records_a_bind_attempt_and_never_crashes(tmp_path):
+    """Off Windows the preload cannot work; the hook must say so in the JSON, not die."""
+    site = tmp_path / "site"
+    site.mkdir()
+    result = tmp_path / "result.json"
+    req = tmp_path / "req.json"
+    req.write_text(json.dumps({
+        "site": str(site), "native_dirs": [], "entry_modules": [], "pack_packages": [],
+        "distributions": [], "base_requires": [], "stdlib_candidates": [],
+        "base_submodule_candidates": [], "base_modules": [], "collided_dlls": [],
+        "bind_to_base": {"onnxruntime.dll": [str(tmp_path / "base" / "onnxruntime.dll")]},
+        "expected_ort_version": "1.28.0", "session_model": None, "result": str(result),
+    }), encoding="utf-8")
+    env = dict(os.environ, YAZSES_PACK_SPIKE_REQUEST=str(req))
+    out = subprocess.run([sys.executable, "-I", str(HOOK)], env=env, capture_output=True,
+                         text=True, timeout=120, check=False)
+    assert out.returncode == 0, out.stderr
+    bind = json.loads(result.read_text(encoding="utf-8"))["bind"]
+    assert bind["pack_root"] == str(tmp_path)
+    assert bind["expected_ort_version"] == "1.28.0"
+    if sys.platform != "win32":
+        assert "onnxruntime.dll" in bind["preload_errors"]
+    assert bind["ort_session"] == {"ok": False, "error": "no --session-model given"}
+    assert bind["native_session"]["ok"] is False
+    assert "onnxruntime.dll" in bind["loaded"]
 
 
 # --- the build orchestration, with uv and the probe faked ----------------------------
@@ -601,24 +879,72 @@ _WHEELS = {
 }
 
 
-def _install_fake(monkeypatch, bp, tmp_path, *, fail_probe=(), probe_hook=None, extra_files=None):
-    exports = {
-        ("desktop",): "numpy==2.4.6 \\\n    --hash=sha256:11\n",
-        ("desktop", "parakeet"): "numpy==2.4.6 \\\n    --hash=sha256:11\n"
-                                 "onnx-asr==0.12.0 \\\n    --hash=sha256:22\n",
-        ("desktop", "diarization"): "numpy==2.4.6 \\\n    --hash=sha256:11\n"
-                                    "sherpa-onnx==1.13.8 \\\n    --hash=sha256:33\n",
-    }
-    monkeypatch.setattr(bp, "uv_export",
-                        lambda extras: bp.parse_requirements_export(exports[tuple(extras)]))
-    monkeypatch.setattr(bp, "installed_distributions",
-                        lambda: {"numpy": _FakeDist(["numpy/__init__.py"])})
+class _Probes(list):
+    """The pack names the fake probe saw, plus ``.exports``: every `uv export` call."""
+
+    exports: list[list[str]]
+
+
+#: A two-pack catalogue (the pre-Q1 shape), so the orchestration tests can exercise
+#: withholding one pack while the other ships. The real packs.toml is used where the
+#: test says so (``real_catalog=True``).
+_SYNTH_CATALOG = """format = 1
+[extras.desktop]
+decision = "bundled"
+reason = "the frozen base"
+[extras.parakeet]
+decision = "pack"
+features = ["stt-parakeet"]
+entry_modules = ["onnx_asr"]
+[extras.diarization]
+decision = "pack"
+features = ["diarize"]
+entry_modules = ["sherpa_onnx"]
+"""
+
+#: What each extra adds to `uv export`; numpy stands for the shared transitive base.
+_EXPORT_LINES = {
+    "desktop": "pyside6==6.11.1 \\\n    --hash=sha256:44\n",
+    "overlay": "pyside6==6.11.1 \\\n    --hash=sha256:44\n",
+    "parakeet": "onnx-asr==0.12.0 \\\n    --hash=sha256:22\n",
+    "chinese": "opencc-python-reimplemented==0.1.7 \\\n    --hash=sha256:55\n",
+    "diarization": "sherpa-onnx==1.13.8 \\\n    --hash=sha256:33\n",
+}
+_FAKE_EXTRAS = {
+    "desktop": ["PySide6>=6.11.1"], "overlay": ["PySide6>=6.11.1"],
+    "parakeet": ["onnx-asr[cpu,hub]>=0.12"],
+    "chinese": ["opencc-python-reimplemented>=0.1.7"],
+    "diarization": ["sherpa-onnx>=1.13.6"],
+}
+
+
+def _install_fake(monkeypatch, bp, tmp_path, *, fail_probe=(), probe_hook=None, extra_files=None,
+                  real_catalog=False, venv_missing=()):
+    (tmp_path / "packs.toml").write_text(
+        bp.PACKS_TOML.read_text(encoding="utf-8") if real_catalog else _SYNTH_CATALOG,
+        encoding="utf-8")
+    exports_seen = []
+
+    def fake_export(extras):
+        extras = list(extras)
+        exports_seen.append(extras)
+        text = "numpy==2.4.6 \\\n    --hash=sha256:11\n" + "".join(
+            _EXPORT_LINES[x] for x in sorted(set(extras)))
+        return bp.parse_requirements_export(text)
+
+    monkeypatch.setattr(bp, "uv_export", fake_export)
+    venv = {"numpy": _FakeDist(["numpy/__init__.py"]),
+            "pyside6": _FakeDist(["PySide6/__init__.py"]),
+            "onnx-asr": _FakeDist(["onnx_asr/__init__.py"]),
+            "opencc-python-reimplemented": _FakeDist(["opencc/__init__.py"])}
+    for name in venv_missing:
+        venv.pop(name)
+    monkeypatch.setattr(bp, "installed_distributions", lambda: dict(venv))
     # The build runs on the Windows release runner; pin that, or a leg whose platform has
     # no asset OS token (FreeBSD) withholds every pack and the assertions below test nothing.
     monkeypatch.setattr(bp, "host_platform", lambda: "win-amd64")
-    monkeypatch.setattr(bp, "read_project", lambda: ("9.9.9", {
-        "parakeet": ["onnx-asr[cpu,hub]>=0.12"], "diarization": ["sherpa-onnx>=1.13.6"]}))
-    probes = []
+    monkeypatch.setattr(bp, "read_project", lambda: ("9.9.9", dict(_FAKE_EXTRAS)))
+    probes = _Probes()
 
     def fake_run(cmd, **kw):
         if cmd[:3] == ["uv", "pip", "install"]:
@@ -649,12 +975,14 @@ def _install_fake(monkeypatch, bp, tmp_path, *, fail_probe=(), probe_hook=None, 
     monkeypatch.setattr(bp, "_run", fake_run)
     monkeypatch.delenv("GITHUB_STEP_SUMMARY", raising=False)
     monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
+    probes.exports = exports_seen
     return probes
 
 
 def _argv(tmp_path, dist, *extra):
     return ["build", "--dist", str(dist), "--out", str(tmp_path / "out"),
             "--work", str(tmp_path / "work"), "--arch", "x64",
+            "--catalog", str(tmp_path / "packs.toml"),
             "--probe-exe", str(dist / "yazses-cli.exe"), *extra]
 
 
@@ -738,6 +1066,91 @@ def test_an_identical_dll_is_dropped_not_refused(bp, tmp_path, monkeypatch):
     assert entry["dll_dropped"] == ["site/sherpa_onnx/lib/onnxruntime.dll"]
     with zipfile.ZipFile(entry["archive"]) as zf:
         assert "site/sherpa_onnx/lib/onnxruntime.dll" not in zf.namelist()
+
+
+_SHERPA_ORT = {"sherpa-onnx": {
+    "sherpa_onnx/lib/onnxruntime.dll": b"sherpa-ort-1.28.2",
+    "sherpa_onnx_core-1.13.8.data/data/Scripts/onnxruntime.dll": b"sherpa-ort-1.28.2",
+}}
+
+
+def test_bundled_extras_are_never_packed_and_are_subtracted(bp, tmp_path, monkeypatch):
+    """ADR-028 Q1 on the real packs.toml: one pack, built against the bundled base."""
+    dist = _fake_bundle(tmp_path)
+    probes = _install_fake(monkeypatch, bp, tmp_path, real_catalog=True, extra_files=_SHERPA_ORT)
+    assert bp.main(_argv(tmp_path, dist)) == 0
+    assert list(probes) == ["diarization"]
+    bundled = sorted(bp.bundled_extras(bp.load_catalog(tmp_path / "packs.toml")))
+    assert probes.exports[0] == bundled, "the base is measured from the bundled extras"
+    assert probes.exports[1] == [*bundled, "diarization"]
+    assert len(probes.exports) == 2, "no export for a bundled extra as a pack"
+    report = json.loads((tmp_path / "work" / "build-report.json").read_bytes())
+    assert report["base_extras"] == bundled
+    assert set(report["packs"]) == {"diarization"} and report["withheld"] == {}
+    assert report["packs"]["diarization"]["requirements"] == ["sherpa-onnx"]
+    doc = json.loads((dist / bp.EMBEDDED_INDEX).read_bytes())
+    assert [p["name"] for p in doc["packs"]] == ["diarization"]
+    assert not [p for p in (tmp_path / "out").iterdir() if "parakeet" in p.name
+                or "chinese" in p.name]
+
+
+def test_a_venv_without_a_bundled_extra_withholds_every_pack(bp, tmp_path, monkeypatch, capsys):
+    """build-windows.ps1 forgot --extra parakeet: the packs' "minus the base" is wrong."""
+    dist = _fake_bundle(tmp_path)
+    before = _tree(dist)
+    probes = _install_fake(monkeypatch, bp, tmp_path, real_catalog=True,
+                           extra_files=_SHERPA_ORT, venv_missing=("onnx-asr",))
+    assert bp.main(_argv(tmp_path, dist)) == 0
+    assert bp.main(_argv(tmp_path, dist, "--strict")) == 1
+    assert list(probes) == []
+    assert "onnx-asr" in capsys.readouterr().err
+    assert not (dist / bp.EMBEDDED_INDEX).exists() and not (tmp_path / "out").exists()
+    assert _tree(dist) == before
+
+
+def test_the_diarization_pack_binds_onnxruntime_to_the_base(bp, tmp_path, monkeypatch):
+    """M1: sherpa's own onnxruntime.dll (both copies) is dropped and pack.json says so."""
+    dist = _fake_bundle(tmp_path)
+    _install_fake(monkeypatch, bp, tmp_path, real_catalog=True, extra_files=_SHERPA_ORT)
+    assert bp.main(_argv(tmp_path, dist)) == 0
+    report = json.loads((tmp_path / "work" / "build-report.json").read_bytes())
+    entry = report["packs"]["diarization"]
+    bound = ["site/sherpa_onnx/lib/onnxruntime.dll",
+             "site/sherpa_onnx_core-1.13.8.data/data/Scripts/onnxruntime.dll"]
+    assert sorted(entry["dll_bound_to_base"]) == sorted(bound)
+    assert entry["dll_conflicts"] == [] and entry["dll_bind_unused"] == []
+    with zipfile.ZipFile(entry["archive"]) as zf:
+        names = zf.namelist()
+        assert not [n for n in names if n.lower().endswith("onnxruntime.dll")]
+        assert "site/sherpa_onnx/lib/sherpa-onnx-c-api.dll" in names
+        pj = json.loads(zf.read("pack.json"))
+    assert pj["bind_to_base"] == ["onnxruntime.dll"]
+    assert pj["native_dirs"] == ["site/sherpa_onnx/lib"]
+    assert entry["pack_json"]["bind_to_base"] == ["onnxruntime.dll"]
+
+
+def test_without_the_allow_list_the_same_build_withholds_diarization(bp, tmp_path, monkeypatch):
+    """The red half of the bind test: drop `bind_to_base` and the pack is withheld."""
+    dist = _fake_bundle(tmp_path)
+    _install_fake(monkeypatch, bp, tmp_path, real_catalog=True, extra_files=_SHERPA_ORT)
+    toml = tmp_path / "packs.toml"
+    toml.write_text(toml.read_text(encoding="utf-8").replace(
+        'bind_to_base = ["onnxruntime.dll"]', ""), encoding="utf-8")
+    assert bp.main(_argv(tmp_path, dist)) == 0
+    report = json.loads((tmp_path / "work" / "build-report.json").read_bytes())
+    assert "onnxruntime.dll" in report["withheld"]["diarization"]
+
+
+def test_another_dll_collision_still_withholds_a_binding_pack(bp, tmp_path, monkeypatch):
+    dist = _fake_bundle(tmp_path)
+    (dist / "_internal" / "vcruntime140.dll").write_bytes(b"base-vc")
+    _install_fake(monkeypatch, bp, tmp_path, real_catalog=True, extra_files={"sherpa-onnx": {
+        **_SHERPA_ORT["sherpa-onnx"], "sherpa_onnx/lib/vcruntime140.dll": b"other-vc"}})
+    assert bp.main(_argv(tmp_path, dist)) == 0
+    report = json.loads((tmp_path / "work" / "build-report.json").read_bytes())
+    why = report["withheld"]["diarization"]
+    assert "vcruntime140.dll" in why and "onnxruntime.dll" not in why
+    assert not (dist / bp.EMBEDDED_INDEX).exists()
 
 
 def test_a_base_that_changed_during_packing_fails_the_build(bp, tmp_path, monkeypatch):

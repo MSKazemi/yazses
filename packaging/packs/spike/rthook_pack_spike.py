@@ -14,9 +14,18 @@
 #   (a) stdlib modules the pack needs that the frozen app did not collect
 #   (b) importlib.metadata over the pack's dist-info and the base's distributions
 #   (c) submodules of base packages that PyInstaller pruned
-#   (d) which file a colliding DLL basename (onnxruntime.dll) actually loaded from
+#   (d) which file a colliding DLL basename (onnxruntime.dll) actually loaded from, and
+#       for a pack whose pack.json `bind_to_base` lists it: that, with the base's copy
+#       preloaded by full path, the pack's code binds to it, the base's onnxruntime
+#       reports the version the base froze, and both an onnxruntime session and the
+#       pack's own native session (sherpa-onnx's silero VAD) build and run
 #
-# Standard library only. Every exception is caught and recorded: the job reads the JSON.
+# The hook imports onnxruntime only when a pack binds to the base, and onnxruntime is
+# already in the frozen base, so it adds nothing PyInstaller would not collect anyway.
+#
+# Standard library only, apart from the bind probe's onnxruntime and the pack's own
+# sherpa_onnx (both imported only when a request names `bind_to_base`). Every exception
+# is caught and recorded: the job reads the JSON.
 
 # ruff: noqa
 # mypy: ignore-errors
@@ -55,6 +64,26 @@ def _spike(request_path):
             result["dll_dir_errors"].append(f"{d}: {exc!r}")
     importlib.invalidate_caches()
     result["sys_path_after"] = list(sys.path)
+
+    # --- bind_to_base: load the base's copy by full path BEFORE the pack's code -------
+    # pack.json's `bind_to_base` names DLLs the build dropped from the pack (sherpa-onnx-
+    # core's own onnxruntime.dll). The pack's .pyd still asks for them by basename, and
+    # Windows answers a by-name request from the loaded-module list, so the base's copy
+    # must already be loaded. This is what the runtime does before an entry import.
+    bind = {"pack_root": os.path.dirname(req["site"]), "preloaded": {},
+            "preload_errors": {}, "expected_ort_version": req.get("expected_ort_version")}
+    result["bind"] = bind
+    for name, paths in sorted((req.get("bind_to_base") or {}).items()):
+        if not paths:
+            bind["preload_errors"][name] = "the base ships no copy"
+            continue
+        try:
+            import ctypes
+
+            ctypes.WinDLL(paths[0])
+            bind["preloaded"][name] = paths[0]
+        except BaseException as exc:
+            bind["preload_errors"][name] = repr(exc)[:300]
 
     def kind_of(name):
         top = (name or "").split(".", 1)[0]
@@ -132,6 +161,47 @@ def _spike(request_path):
         "base": {d: version_of(d) for d in req.get("base_requires", [])},
     }
 
+    # --- (d) bind: does the pack's native code run on the base's ONNX Runtime? --------
+    # Measured before the loaded-module list below, so a second onnxruntime.dll pulled
+    # in by either session would show up there and fail the verdict.
+    if req.get("bind_to_base"):
+        model = req.get("session_model")
+        try:
+            import onnxruntime as ort
+
+            bind["ort"] = {"version": getattr(ort, "__version__", None),
+                           "file": getattr(ort, "__file__", None)}
+        except BaseException as exc:
+            bind["ort"] = {"version": None, "file": None, "error": repr(exc)[:300]}
+        if not model:
+            bind["ort_session"] = {"ok": False, "error": "no --session-model given"}
+            bind["native_session"] = {"ok": False, "error": "no --session-model given"}
+        else:
+            try:
+                import onnxruntime as ort
+
+                sess = ort.InferenceSession(model, providers=["CPUExecutionProvider"])
+                bind["ort_session"] = {"ok": True,
+                                       "inputs": [i.name for i in sess.get_inputs()]}
+            except BaseException as exc:
+                bind["ort_session"] = {"ok": False, "error": repr(exc)[:300]}
+            try:
+                import sherpa_onnx
+
+                cfg = sherpa_onnx.VadModelConfig()
+                cfg.silero_vad.model = model
+                cfg.sample_rate = 16000
+                if not cfg.validate():
+                    raise RuntimeError("sherpa_onnx rejected the VAD config")
+                vad = sherpa_onnx.VoiceActivityDetector(cfg, buffer_size_in_seconds=5)
+                vad.accept_waveform([0.0] * 16000)  # one second of silence: real inference
+                detected = getattr(vad, "is_speech_detected", lambda: None)()
+                bind["native_session"] = {"ok": True, "speech_in_silence": detected,
+                                          "file": getattr(sherpa_onnx, "__file__", None)}
+            except BaseException as exc:
+                bind["native_session"] = {"ok": False, "error": repr(exc)[:300],
+                                          "trace": traceback.format_exc()[-2000:]}
+
     # --- (d) where each colliding DLL basename actually loaded from --------------------
     loaded = []
     try:
@@ -163,6 +233,10 @@ def _spike(request_path):
         if base in collided:
             by_name.setdefault(base, []).append(path)
     result["loaded_collisions"] = by_name
+    bind["loaded"] = {
+        name: [p for p in loaded if os.path.basename(p).lower() == name]
+        for name in (req.get("bind_to_base") or {})
+    }
     result["loaded_onnxruntime"] = [p for p in loaded if "onnxruntime" in p.lower()]
     result["dll_handles_kept"] = len(handles)
     return result

@@ -122,6 +122,23 @@ decides for you:
 | The `.deb` | **Yes** (`yazses[desktop]`) | Same as above | ~1.1 GB |
 | The Snap | **Yes** (bundled) | Same, in a confined package | ~1.1 GB |
 | The Docker image | **No** — it has no display | `transcribe` + diarization only | 833 MB |
+| The Windows installer (`.exe`) | **Yes** (bundled) | Same, plus the Parakeet engine's library and Chinese script conversion built in; speaker diarization as a download-on-request add-on | ~188 MB download (v2.43.2) |
+
+**What the Windows installer carries.** It is a frozen bundle, so it cannot `pip install`
+a feature later. From the release after v2.43.2 it also carries two small libraries that
+used to need a Python install: `onnx-asr`, the engine behind `stt-parakeet` (MIT, about
+4 MB), and `opencc-python-reimplemented`, behind `chinese-script` (Apache-2.0, about
+0.5 MB). Together they add about 4.5 MB, roughly 2.4% of the v2.43.2 installer. Those
+figures are the wheels' sizes
+([ADR-028](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-028-feature-addon-packs.md),
+question 1), not a measurement of a built installer, which has not run yet. Parakeet's
+model (about 600 MB) still downloads the first time you use it, as on every other
+install. Speaker diarization (`diarize`, `meeting`, `recimport`) is the first
+**add-on**: a separate download you start from Settings or with
+`yazses packs install diarization`, only when you want it. A release publishes it only
+after it passes its checks inside the frozen app, so `yazses packs` is the authority on
+whether your build has it. See
+[Windows install](windows-install.md#features-that-need-extra-libraries).
 
 **If you want the smallest install, `pip install yazses` already is it.** There is no
 `minimal` extra to ask for, because the base install *is* the minimum — see the box

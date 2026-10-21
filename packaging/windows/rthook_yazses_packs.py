@@ -6,6 +6,11 @@
 # nothing in an elevated process, with YAZSES_NO_PACKS=1, or when the embedded index
 # does not belong to this build -- all decided in yazses.packs.mount.
 #
+# A pack that lists `bind_to_base` in pack.json (ADR-028 M1: diarization shares the
+# base's onnxruntime.dll) gets a first-use finder on sys.meta_path. The hook itself loads
+# no DLL: the base's copy is loaded by absolute path only when that pack is first
+# imported (yazses.packs.bind).
+#
 # A pack must never be able to stop YazSes from starting, so every exception is
 # swallowed here as well as inside mount_at_startup.
 try:

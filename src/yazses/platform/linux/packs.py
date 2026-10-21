@@ -24,5 +24,14 @@ class UnsupportedPackRuntime:
         return [sys.executable, "-m", "yazses", "--cli", "packs", "probe", name,
                 "--staged", str(staged)]
 
+    def base_native_candidates(self, name: str) -> list[Path]:
+        return []  # no frozen base to share a library with: a binding pack is refused
+
+    def load_base_native(self, path: Path) -> tuple[object, str | None]:
+        raise OSError("add-on packs are not supported on this platform")
+
+    def loaded_native_paths(self, name: str) -> list[Path] | None:
+        return None
+
 
 LinuxPackRuntime = UnsupportedPackRuntime

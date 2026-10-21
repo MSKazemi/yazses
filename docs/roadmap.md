@@ -250,8 +250,9 @@ off by default, opt-in, on-device.
 - **English-tuned by default.** The default configuration targets English
   (`small.en` / `base.en`). Other languages work; per-language auto-switching
   and code-switch support are still in progress.
-- **Desktop-only, today.** An **Android app is in design** — see
-  [the mobile programme](mobile/index.md) for the architecture and how to help.
+- **Desktop-only, today.** There is **no Android app yet**: the module skeleton and the first
+  pure-Kotlin ports of desktop logic are built, but there is nothing to install — see
+  [the mobile programme](mobile/index.md) for where M0–M3 stand and how to help.
   iOS follows Android for a platform reason explained there.
 - **Some capabilities need optional extras or hardware.** Diarization, gaze,
   EMG, neural denoise and others stay dormant until you install their extras

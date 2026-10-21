@@ -262,6 +262,23 @@ What to expect:
   keeps no `installer.log`: the privileged helper writes nothing into your folders, and
   `update.log` records how it ended.
 
+- **Add-ons are downloaded again for the new version.** An add-on (see below) is built
+  for one exact build of YazSes, so after an update the old copy is not loaded. If you
+  have add-ons installed, the update question in the tray and the Settings window names
+  them and their download sizes, for example *"Your add-on (Diarization, 15 MB) will be
+  downloaded again for the new version."* Saying yes covers that download too: on its
+  first start the new version fetches its own copy of each add-on in the background,
+  checks it against the checksum built into the new version, tests it, and then tells
+  you once (**Add-ons ready** — restart YazSes to switch them on). The old version's
+  add-on files are deleted only after every new copy has checked out, so a failed
+  update can still go back to them; if there is nothing to download, they are deleted
+  once the new version has started. If a download fails, or you updated with
+  `yazses update` from a terminal (which does not ask about add-ons), nothing is
+  retried on its own: the feature shows *waiting for add-on*, and **Install now** in
+  the Settings window (or `yazses packs install <name>`) downloads it with one click.
+  This path is covered by offline tests; it has not yet been tried on a real Windows
+  machine with a published add-on.
+
 By hand, if you prefer: download the newest installer from the releases page and run it.
 It upgrades in place too.
 
@@ -275,6 +292,47 @@ installs the add-on, the same as `yazses packs install <name>`, and then asks to
 YazSes. When it does not, the button is greyed out and says why: install YazSes with
 `pipx install yazses` to use that feature. `yazses packs` lists the add-ons your build
 has.
+
+Two such features need no add-on, because their libraries are inside the installer
+from the release after v2.43.2: the Parakeet speech engine (`stt-parakeet`; its ~600 MB
+model still downloads on first use) and Chinese script conversion (`chinese-script`).
+They add about 4.5 MB to the installer (a wheel-size figure, not yet measured on a
+built installer). Speaker diarization (`diarize`, `meeting`, `recimport`) is the first
+add-on; a release publishes it only after it passes its checks inside the frozen app.
+Its pack does not carry its own copy of ONNX Runtime: it uses the one the installer
+already has, so two different copies are never loaded into one process.
+
+**No internet on this PC, or a firewall that blocks github.com?** Download the add-on file
+on another computer, from the release of the version you run (for example
+`YazSes-2.44.0-windows-x64-pack-diarization.yazpack`), copy it over, and run:
+
+```powershell
+yazses packs install --from D:\YazSes-2.44.0-windows-x64-pack-diarization.yazpack
+```
+
+This makes no network request. The file is accepted only if its name is one of this
+build's add-on files and its SHA-256 matches the checksum built into your copy of YazSes,
+so a file that was changed, cut short, or made for another version or build is refused
+and nothing is installed. It is then unpacked, tested and installed exactly as a
+download would be. Keep the file name as the release gives it.
+
+#### Licences of add-on packs
+
+Every add-on carries the licence text of each library inside it, in its `LICENSES\`
+folder (under `%LOCALAPPDATA%\yazses\packs\` once installed). The release build checks
+those licences before it publishes an add-on:
+
+- **Permissive** licences (MIT, Apache-2.0, BSD, ISC and similar) pass.
+- **LGPL** and **MPL-2.0** pass, and the add-on then also carries `LICENSES\SOURCE.md`,
+  which names each of those libraries, its exact version and where its source code is.
+- **GPL** passes only when the maintainer has recorded an approval for that library, at
+  that version, in that add-on. `SOURCE.md` lists those too.
+- A library whose licence the build cannot identify, or that ships no licence file, holds
+  the whole add-on back. The feature then works the same way as one with no add-on:
+  install YazSes with `pipx install yazses` to use it.
+
+The check reads the licence each library *declares*. It does not scan the compiled files
+inside a library for code under another licence.
 
 ### Being told when a new version lands
 
@@ -417,6 +475,25 @@ Use *Settings → Apps → Installed apps → YazSes → Uninstall*, or run the
 uninstaller from `%LOCALAPPDATA%\Programs\YazSes\unins000.exe`. The uninstaller
 stops a running daemon, removes the autostart registry entry, and takes its own
 entry back out of your PATH (leaving the rest of PATH untouched).
+
+**Add-ons.** For a normal install (just for you), the uninstaller also deletes your
+add-ons folder, `%LOCALAPPDATA%\yazses\packs`. Only that folder: your config, logs and
+models stay, as below. An update never deletes add-ons; it installs over the old copy
+without running the uninstaller.
+
+If YazSes was installed **for all users**, Windows runs the uninstaller as the
+administrator, so it cannot reach anyone's add-ons and deletes none. Each user who
+installed add-ons should run this **before** the uninstall:
+
+```powershell
+yazses packs remove --all
+```
+
+`yazses doctor` shows an **Add-ons** row in that case, with how much the command frees.
+It shows the same row on any install where add-ons from an older build are left over
+that this copy no longer loads. Add-ons left behind are inert: nothing loads them without
+YazSes, and a later version ignores them because they belong to another build. You can
+also delete the folder by hand.
 
 To clear user data (config, logs, model cache) after uninstalling, also run:
 

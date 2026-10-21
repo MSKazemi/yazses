@@ -2578,20 +2578,49 @@ def packs_path() -> None:
 
 @packs_app.command(
     "install",
-    epilog=_examples("yazses packs install parakeet    download and install one add-on"),
+    epilog=_examples(
+        "yazses packs install parakeet    download and install one add-on",
+        "yazses packs install --from YazSes-2.44.0-windows-x64-pack-diarization.yazpack"
+        "    install a file carried here (no network)",
+    ),
 )
 def packs_install(
-    name: str = typer.Argument(..., help="Add-on name, from `yazses packs`."),
+    name: str | None = typer.Argument(
+        None, help="Add-on name, from `yazses packs`. Optional with --from."
+    ),
     yes: bool = typer.Option(False, "--yes", "-y", help="Don't ask before downloading."),
+    from_file: Path | None = typer.Option(
+        None, "--from",
+        help="Install this .yazpack file instead of downloading (offline). Its name and "
+             "SHA-256 must match this build's built-in add-on list.",
+    ),
 ) -> None:
-    """Download, verify and install one add-on for this build. Writes no config."""
+    """Download, verify and install one add-on for this build. Writes no config.
+
+    With --from, nothing is downloaded: the file is checked against the SHA-256 built
+    into this copy of YazSes, then unpacked, tested and installed the same way.
+    """
     from yazses.packs.manage import install
     from yazses.packs.policy import human_bytes
 
+    if from_file is None and name is None:
+        typer.echo("Name one add-on, or pass --from <file>.", err=True)
+        raise typer.Exit(2)
     pctx = _packs_context()
     if not pctx.capability.ok:
         typer.echo(f"Can't install add-ons: {pctx.capability.reason}.", err=True)
         raise typer.Exit(1)
+    if from_file is not None:
+        from yazses.packs.manage import install_from_file
+
+        result = install_from_file(pctx, from_file, name=name, progress=_pack_progress)
+        if not result.ok:
+            _echo_pack_failure(result)
+            raise typer.Exit(1)
+        typer.echo(result.message)
+        typer.echo("Apply it:  yazses restart")
+        return
+    assert name is not None
     entry = pctx.index.entry(name) if pctx.index is not None else None
     if entry is None:
         known = ", ".join(p.name for p in pctx.index.packs) if pctx.index else "none"
@@ -2618,18 +2647,32 @@ def packs_install(
 def packs_verify(
     name: str | None = typer.Argument(None, help="One add-on; all when omitted."),
 ) -> None:
-    """Check every installed file's size and SHA-256. A damaged add-on is set aside."""
-    from yazses.packs.manage import verify
+    """Check every installed file's size and SHA-256. A damaged add-on is set aside.
+
+    An add-on that shares a library with YazSes (``onnxruntime.dll`` for diarization)
+    also reports which file and version it binds to, or why it is refused.
+    """
+    from yazses.packs.manage import check_bindings, verify
 
     pctx = _packs_context()
     problems = verify(pctx, name)
-    if not problems:
+    bindings = check_bindings(pctx, name)
+    for b in bindings:
+        typer.echo(f"{b.pack}: {b.describe()}", err=not b.ok)
+    refused = [b for b in bindings if not b.ok]
+    if not problems and not refused:
         typer.echo("Every installed add-on matches its record.")
         return
     for pack, problem in problems:
         typer.echo(
             f"{pack}: damaged ({problem}). It was set aside in {pctx.layout.quarantine}. "
             f"Reinstall it: yazses packs install {pack}",
+            err=True,
+        )
+    for b in refused:
+        typer.echo(
+            f"{b.pack}: will not load until YazSes is repaired or updated; the add-on "
+            "itself is intact and was not set aside.",
             err=True,
         )
     raise typer.Exit(1)
@@ -4563,16 +4606,23 @@ def update(
             raise typer.Exit(1)
         return
     # A uv tool upgrade removes libraries its receipt does not list, which is how
-    # an enabled engine vanished on update. Resolve the command that keeps them
-    # *before* printing it, so what is shown is what runs (it is idempotent, so
-    # `run_upgrade_checked` applying it again changes nothing).
-    from yazses.system.updater import preserve_enabled_features
+    # an enabled engine vanished on update -- and how a removed opencv-python takes
+    # the cv2 files it shares with opencv-contrib-python. Resolve the command that
+    # keeps both *before* printing it, so what is shown is what runs (it is
+    # idempotent, so `run_upgrade_checked` applying it again changes nothing).
+    from yazses.system.updater import CV2_CONTRIB, resolve_upgrade_command
 
     plain = status.command
-    status = preserve_enabled_features(status)
+    status = resolve_upgrade_command(status)
     if status.command != plain:
-        typer.echo("Keeping your enabled features' libraries through the upgrade.")
-    typer.echo(f"Command: {' '.join(status.command or [])}")
+        if CV2_CONTRIB in (status.command or []):
+            typer.echo("Reinstalling OpenCV (cv2) in the same step, so it keeps working.")
+        if "--with" in (status.command or []):
+            typer.echo("Keeping your enabled features' libraries through the upgrade.")
+    from yazses.system.remedy import render_command
+
+    # Quoted: `--with mediapipe>=0.10` pasted unquoted is a shell redirection.
+    typer.echo(f"Command: {render_command(status.command or [])}")
 
     if check:
         typer.echo("\n(--check) Not installing. Re-run without --check to update.")
@@ -4586,6 +4636,12 @@ def update(
     # install carries an exact version pin, and this used to print "Updated to X"
     # over the top of the package manager's own "Nothing to upgrade".
     outcome = run_upgrade_checked(status)
+    if outcome.code == 0 and outcome.cv2_repair:
+        # Exit 0 and a new version, and still not done: cv2 stopped loading.
+        from yazses.tray.about import cv2_repair_message
+
+        typer.echo("\n" + cv2_repair_message(outcome), err=True)
+        raise typer.Exit(1)
     if outcome.ok:
         typer.echo(f"\nUpdated to {outcome.after}. Restart the daemon to load it:")
         # `yazses restart`, not `systemctl --user`: this branch is the uv/pipx/pip path,
@@ -4662,7 +4718,9 @@ def _one_click_update(status, launcher, *, check: bool, yes: bool) -> None:
             typer.echo(ALL_USERS_NOTE)
     else:
         argv, elevate, _capture = package_manager_argv(status.method)
-        typer.echo(f"Command: {' '.join(argv)}  (run after YazSes closes, then it restarts)")
+        from yazses.system.remedy import render_command
+
+        typer.echo(f"Command: {render_command(argv)}  (run after YazSes closes, then it restarts)")
         if elevate:
             typer.echo("Chocolatey needs administrator rights; Windows will ask.")
 

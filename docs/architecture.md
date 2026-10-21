@@ -263,7 +263,11 @@ always visible.
 "Always visible" is enforced, not assumed. `system/dormant.py` derives, from the
 feature registry, every enabled capability whose libraries cannot be imported — however
 it got that way: a failed install, `--no-install`, a hand-edited `config.toml`, or an
-upgrade that rebuilt the environment without the extra. The daemon logs each at start
+upgrade that rebuilt the environment without the extra. A camera feature also counts
+when its libraries import but OpenCV is half-deleted (`system/opencv_health.py`: `cv2`
+left as a folder without its native module after one of two OpenCV builds was removed).
+That finding gets the exact repair command and no install button, since installing would
+change nothing. The daemon logs each at start
 and shows one rate-limited notification with the fix; `yazses doctor` prints a row per
 feature; `yazses features` draws it as `◐ ON` with the command beside it. And a failed
 `features enable`, `features reset` or `handsfree enable` exits non-zero and says

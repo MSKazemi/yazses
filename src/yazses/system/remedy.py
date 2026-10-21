@@ -59,8 +59,12 @@ def _quote(arg: str) -> str:
     return arg if _SAFE_ARG.match(arg) else f'"{arg}"'
 
 
-def _render(argv: Sequence[str]) -> str:
+def render_command(argv: Sequence[str]) -> str:
+    """*argv* as one command line a user can paste, each argument quoted only if needed."""
     return " ".join(_quote(a) for a in argv)
+
+
+_render = render_command  # the module's own call sites predate the public name
 
 
 def _canonical(name: str) -> str:

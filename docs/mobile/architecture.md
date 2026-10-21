@@ -4,7 +4,9 @@ description: "Reference architecture for the YazSes Android app — the document
 
 # YazSes for Android — architecture
 
-**Status:** design, no code yet · governed by `docs/mobile/adr/adr-mob-001..010`
+**Status:** reference design; the module skeleton and the first pure `:core:*` ports exist
+under `android/`, with no app yet (progress: [programme overview](index.md)) · governed by
+`docs/mobile/adr/adr-mob-001..010`
 **Last updated:** 2026-08-07
 
 This is the reference architecture for the Android app. It is the document a new

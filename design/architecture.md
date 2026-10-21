@@ -231,7 +231,8 @@ a guard that silently stops protecting on a whole display server is worse than n
 | `settingsui/theme.py` | Secondary-text colour computed from the desktop palette to stay above WCAG AA 4.5:1; Qt-free maths |
 | `system/servicehealth.py` | Why the daemon is *not running*, asked of the service manager rather than the daemon: `classify_service` (unit state → findings: missing `ExecStart`/203, `start-limit-hit`, crash loop) and `classify_log` (journal/log signatures → cause, exact commands, distro-correct packages via `install_command`), falling through to `diagnosis.diagnose` for runtime causes. Pure apart from `collect_service_state`. Used by `yazses start` (`_explain_start_failure`) and a `yazses doctor` "Service health" row. Complements `system/diagnosis.py`, which only sees failures the *running* daemon catches |
 | `system/depsize.py` | What enabling a feature will download — *marginal* against what is installed, from a committed table of resolved closures, plus the model files it fetches on first run (ADR-018) |
-| `system/dormant.py` | Which **enabled** capabilities cannot run because their optional libraries are missing — derived from the feature registry, never a hand-kept list — with the one command that fixes each (`yazses features enable <slug>`, `--force` when experimental; the refusal reason in a snap or frozen bundle). Desktop-only rows (`tray`, `overlay`) are not findings without a graphical session. Read by the daemon at start (log + one rate-limited toast), `yazses doctor` and the `yazses features` ◐ marker; `preserved_requirements` feeds the uv-tool upgrade. Pure apart from injected probes; installs nothing |
+| `system/dormant.py` | Which **enabled** capabilities cannot run because their optional libraries are missing — derived from the feature registry, never a hand-kept list — with the one command that fixes each (`yazses features enable <slug>`, `--force` when experimental; the refusal reason in a snap or frozen bundle). Desktop-only rows (`tray`, `overlay`) are not findings without a graphical session. A camera feature (its registry row checks for `cv2`) whose libraries all import is also not ready when `opencv_health` finds `cv2` half-deleted; that finding is `installable=False` (no **Install now**), carries `problem`, and its remedy is the pinned repair from `updater.cv2_repair_here`. Read by the daemon at start (log + one rate-limited toast), `yazses doctor` and the `yazses features` ◐ marker; `preserved_requirements` feeds the uv-tool upgrade. Pure apart from injected probes; installs nothing |
+| `system/opencv_health.py` | Is `cv2` half-deleted? `cv2_half_deleted` is the one decision the start-up dormant check and `yazses doctor`'s **OpenCV** row share: an OpenCV distribution is installed and `cv2` is a namespace package, or a package without its native module (left behind when removing one of two OpenCV builds deletes the files they share). Never imports `cv2`; a whole install costs one `find_spec` and one directory listing, and package metadata is read only when the directory already looks broken. Owns `CV2_DISTRIBUTIONS` / `installed_cv2_versions`, which `updater.py` re-uses. Stdlib only, never raises |
 | `system/ondemand.py` | The one-action install for a dormant feature: the daemon toast's **Install now** / **Not now** buttons and their handler (one install at a time), the `yazses start`/`restart` terminal prompt, and `yazses features install`. Installs only on a click, a typed yes or the command; no button where `dormant.py` says nothing can install |
 | `settingsui/maintenance.py`, `settingsui/maintenance_panel.py` | The Settings window's **About and updates** box. `maintenance.py` (pure) turns an update check plus `installer_update.one_click_offer` into one action (one-click hand-off, verified pip-family upgrade, open the releases page, or none) and routes each dormant feature to the install that can work here (`ondemand.install_one`, an ADR-028 pack via `packs.manage.install` in a frozen build, or a disabled button with `dormant.py`'s reason); it reads the transaction's undo outcome from `deps._undo`'s own lines. `maintenance_panel.py` owns the widgets and runs every check, hand-off, upgrade and install on a `QThread`, delivering results through a UI-thread `QObject` relay (a signal connected to a plain callable would run it on the worker thread). Implements no update or install logic: it calls `tray.updates.check_updates`/`hand_off_outside_tray`, `updater.run_upgrade_checked` and the functions above |
 | `system/install_txn.py` | Pure decisions for a feature install as a transaction: the install channel (`uv-tool`, `pipx`, `editable`, `venv`, `system`, `snap`, `frozen`) and `METHOD_CHANNELS` from every `updater` install method; YazSes's base requirements as `--constraint` lines; markers evaluated for pipx (which ignores them); snapshot/diff of the installed set and the undo specs. `system/deps.py` runs the subprocesses |
@@ -477,7 +478,12 @@ index of every pack's SHA-256 is built into the installed app. **Invariant: no s
 ever loaded** — a pack mounts only into the base whose `base_build_id` it names, never into
 an elevated process, and never with `YAZSES_NO_PACKS=1`. Nothing under `packs/` reads
 `sys.platform`; the OS facts come from `PackRuntime` (`platform/base.py`,
-`platform/windows/packs.py`).
+`platform/windows/packs.py`). **Invariant: a pack never brings its own copy of a library
+the base already loads** — a DLL the build dropped is named in `pack.json`'s
+`bind_to_base`, and the pack runs only against the base's own file of that name, loaded
+by absolute path from the frozen app's folder before the pack's first module, at a version
+no lower than `bind_min_versions`; otherwise it is refused with a reason. The loader is
+never asked to *search* for that name.
 
 | File | Role |
 |---|---|
@@ -491,12 +497,35 @@ an elevated process, and never with `YAZSES_NO_PACKS=1`. Nothing under `packs/` 
 | `context.py` | Reads only: the facts above for this process |
 | `fetch.py` | **Egress (ADR-019 `FETCH_VIA`)**: the two release URLs, through ADR-027's `download_verified` |
 | `install.py` | The transaction: lock → disk → download → extract → match → child-process probe → `os.replace` → `COMPLETE` |
-| `mount.py` | `mount_at_startup()`, called by `packaging/windows/rthook_yazses_packs.py`; appends to `sys.path`, keeps DLL-directory handles, never raises |
-| `probe.py` | `yazses packs probe`: imports `entry_modules`, exit code names the Phase 0 risk that failed |
+| `mount.py` | `mount_at_startup()`, called by `packaging/windows/rthook_yazses_packs.py`; appends to `sys.path`, keeps DLL-directory handles, puts a first-use binder on `sys.meta_path` for a `bind_to_base` pack, never raises |
+| `bind.py` | ADR-028 M1. Pure decisions (one base copy, or the only one inside a package folder named after the DLL, else refuse; version floor, nothing else of that name loaded) plus `bind_pack()` through `PackRuntime` and `FirstUseBinder`, which loads the base's DLL on the pack's first import, never at start-up. `OutOfProcessHost` is the typed, unbuilt ADR-028 §1 fallback |
+| `probe.py` | `yazses packs probe`: binds `bind_to_base` first, imports `entry_modules`, re-checks the loaded modules; exit code names the Phase 0 risk that failed, and success names the DLL file and version that bound |
 | `manage.py` | What the `yazses packs` commands and `features enable` do |
+| `refetch.py` | ADR-028 Q3: the update question's add-ons line (`addons_for_update`), the consent file written once the update hand-off started, and on the new version's first start the one-time re-download through `manage.install` against the new build's own index; the old build is retired only after every new tree verified, and a start with nothing to download writes `started_ok` and retires it (`mark_first_start`) |
 
 User-initiated only: the daemon, the update watcher and the runtime hook cannot reach
-`fetch.py`, `install.py` or `manage.py` (`tests/test_egress_inventory.py`).
+`fetch.py`, `install.py` or `manage.py` (`tests/test_egress_inventory.py`). `refetch.py` downloads only on a consent the user gave in the update
+question, from a tray worker thread, at most once per consent; it has no downloader of
+its own (`install`/`verify` are bound by `tray/app.py`, which the daemon cannot import).
+
+**Build side** (`scripts/build-packs.py`, `packaging/packs/packs.toml`). The frozen base
+is exactly the extras `packs.toml` decides `bundled` (`desktop`, `overlay`, and since
+ADR-028 Q1 `parakeet` and `chinese`); `scripts/build-windows.ps1` syncs that set and
+`build-packs.py validate` holds the two together. A bundled extra is never packed, and its
+closure is subtracted from every pack. **Invariant: a pack never ships a DLL whose
+basename the base also ships**, unless the bytes are identical (the pack's copy is
+dropped) or the basename is on that pack's reviewed `bind_to_base` allow-list (every
+pack copy is dropped, and `pack.json`'s `bind_to_base` tells the runtime to load the
+base's copy first). The `diarization` pack binds `onnxruntime.dll` this way; any other
+differing collision withholds the pack.
+
+**Build-side invariant (ADR-028 Q7): no pack is published whose licences the build could
+not classify.** `scripts/pack_licences.py` (pure, standard library only) classes every
+distribution in a pack as permissive, LGPL, GPL or UNKNOWN; `scripts/build-packs.py`
+withholds the pack on UNKNOWN, a missing licence file, a copyleft distribution with no
+source URL, or GPL without a matching owner approval in
+`packaging/packs/licence-approvals.toml`. A copyleft pack carries `LICENSES/SOURCE.md`.
+The runtime does not re-check licences.
 
 ### `src/yazses/commands/`
 
@@ -671,7 +700,7 @@ Host-side helpers and the CLI-facing config/diagnostics surface (no daemon neede
 | `features.py` | Capability registry (single source of truth for `yazses features`). `Feature`/`_Def`, recommendation tiers (core/on/rec/opt/exp), `feature_status(cfg)`, `find_feature`, `toggleable_slugs`; drives the advice column + the experimental-guard on enable |
 | `vocabulary.py` | Personal dictionary at `~/.config/yazses/vocabulary.txt`. `load_vocab`/`add_vocab`/`remove_vocab`/`vocab_path` back `yazses vocab`; the daemon merges these words into Whisper's `initial_prompt` every dictation |
 | `single_instance.py` | `SingleInstanceLock` — one-daemon guard (`daemon.lock`) preventing duplicate daemons (double-typing) |
-| `updater.py` | `check_update`/`run_upgrade` backing `yazses update` (snap channel / PyPI by install method) |
+| `updater.py` | `check_update`/`run_upgrade` backing `yazses update` (snap channel / PyPI by install method). `resolve_upgrade_command` is the one upgrade command `yazses update`, the Settings window, the Linux tray and `run_upgrade_checked` all show and run: first `preserve_enabled_features` (which matches only the plain `uv tool upgrade yazses`), then `keep_cv2_whole` (adds `--reinstall-package opencv-contrib-python` when two `cv2` owners are installed). `run_upgrade_checked` verifies the version moved and, where OpenCV was in use, that `cv2` still loads; otherwise it returns the repair command. `cv2_repair_here` builds the same pinned repair for the running environment (the `uv pip` form in a pip-less venv) for `dormant.py` and doctor. The Windows/macOS tray balloon (`tray.updates.describe_update`) shows the resolved command too, or a pointer to `yazses update` when it would overrun the 255-character balloon |
 | `installer_update.py` | One-click Windows update ([ADR-027](adr/adr-027-one-click-windows-update.md)). Pure: pick the installer asset for the machine's arch from the release JSON, allowlist `github.com/MSKazemi/yazses/releases/download/` URLs and redirects, parse `SHA256SUMS.txt`, gate on strictly newer. I/O: capped, deadline-bound download verified by SHA-256 before anything runs. Then builds an `UpdateHandoff` for the platform's `UpdateLauncher` and reports the result on the next start by the version actually running. ADR-019 FETCH |
 | `pid.py` | PID-file management at `~/.local/share/yazses/daemon.pid` |
 | `backends.py` | `probe_backend`/`BackendStatus` — honest availability reporting for lazily-imported, pluggable backends. Distinguishes "the optional dependency is missing" (installing the named extra fixes it) from "the adapter was never shipped in this build" (nothing can fix it), so a factory never sends users after an extra that cannot supply the backend. Used by `denoise/frontend.py`, `voiceprint/factory.py`, `recimport/factory.py` |

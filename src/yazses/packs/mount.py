@@ -15,6 +15,14 @@ What mounting does, and does not:
   kept in :data:`_HANDLES` for the life of the process (closing it removes the directory).
   ``PATH`` is not touched.
 * nothing from a pack is imported. A pack's modules load lazily, when its feature runs.
+* a pack whose ``pack.json`` lists ``bind_to_base`` (ADR-028 M1) gets a
+  :class:`~yazses.packs.bind.FirstUseBinder` on ``sys.meta_path``. It loads the
+  **base's** copy of each named DLL by absolute path the first time one of that pack's
+  top-level modules is imported, before the pack's extension loads, and refuses the pack
+  (``ImportError`` with a named reason, also added to :attr:`MountReport.failed`) if the
+  base lacks the DLL, its version is below ``bind_min_versions``, or another file of that
+  name is loaded. Start-up itself loads nothing; :mod:`yazses.packs.bind` is imported
+  only when such a pack is mounted.
 
 Skipped entirely when: not frozen; ``YAZSES_NO_PACKS=1``; the OS has no pack loader;
 this install may not use packs (profile or install method); **the process is
@@ -32,11 +40,11 @@ import sys
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from yazses.packs.abi import BaseIdentity, match
 from yazses.packs.context import NO_PACKS_ENV, InstalledTree, no_packs_requested
-from yazses.packs.manifest import PackIndex
+from yazses.packs.manifest import PackIndex, PackManifest
 from yazses.packs.policy import Capability, disposition
 
 if TYPE_CHECKING:
@@ -58,6 +66,11 @@ class MountItem:
     name: str
     paths: tuple[Path, ...]
     native_dirs: tuple[Path, ...]
+    #: ``(dll, minimum version or None)`` from ``bind_to_base`` (ADR-028 M1).
+    binds: tuple[tuple[str, str | None], ...] = ()
+    #: The pack's import directories (``site/`` and ``path_entries``, not ``stdlib/``):
+    #: their top-level names trigger the binding.
+    module_dirs: tuple[Path, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -128,14 +141,63 @@ def plan_mount(
             skipped.append((tree.name, "; ".join(verdict.reasons)))
         elif action == "quarantine":
             quarantine.append((tree.name, "; ".join(verdict.reasons)))
+        elif tree.manifest.bind_to_base and _bind_mode(tree.manifest) != "in-process":
+            skipped.append((tree.name, "the add-on must run in a separate process, which "
+                                       "this version of YazSes cannot do yet"))
         else:
             paths = [tree.path / "site"]
             paths += [tree.path / Path(*p.split("/")) for p in tree.manifest.path_entries]
+            module_dirs = tuple(paths)
             if tree.has_stdlib:
                 paths.append(tree.path / "stdlib")
             natives = tuple(tree.path / Path(*d.split("/")) for d in tree.manifest.native_dirs)
-            items.append(MountItem(tree.name, tuple(paths), natives))
+            mins = {d.casefold(): v for d, v in tree.manifest.bind_min_versions}
+            binds = tuple((d, mins.get(d.casefold())) for d in tree.manifest.bind_to_base)
+            items.append(MountItem(tree.name, tuple(paths), natives, binds,
+                                   module_dirs if binds else ()))
     return MountPlan(tuple(items), tuple(skipped), tuple(quarantine))
+
+
+def _bind_mode(manifest: PackManifest) -> str:
+    from yazses.packs.bind import bind_mode
+
+    return bind_mode(manifest)
+
+
+def _install_binder(
+    item: MountItem,
+    runtime: PackRuntime,
+    report: MountReport,
+    *,
+    meta_path: list[Any],
+    keep: list[object],
+) -> None:
+    """Put a :class:`~yazses.packs.bind.FirstUseBinder` for ``item`` first on
+    ``meta_path``. Lists the pack's import directories (one ``scandir`` each); loads
+    nothing."""
+    from yazses.packs.bind import BindRequest, FirstUseBinder, top_level_names
+
+    listing: list[tuple[str, bool]] = []
+    for d in item.module_dirs:
+        try:
+            with os.scandir(d) as it:
+                listing += [(e.name, e.is_dir()) for e in it]
+        except OSError:
+            continue
+    triggers = top_level_names(listing)
+    if not triggers:
+        # A binder with nothing to watch would let the pack import unbound: fail closed.
+        raise OSError("no importable module was found in its site folder")
+    binder = FirstUseBinder(
+        item.name,
+        [BindRequest(dll, minimum) for dll, minimum in item.binds],
+        triggers,
+        runtime,
+        meta_path=meta_path,
+        keep=keep,
+        on_refused=lambda pack, why: report.failed.append((pack, why)),
+    )
+    meta_path.insert(0, binder)
 
 
 def apply(
@@ -144,11 +206,15 @@ def apply(
     *,
     sys_path: list[str] | None = None,
     handles: list[object] | None = None,
+    meta_path: list[Any] | None = None,
 ) -> MountReport:
     """Carry out ``plan``. A pack whose native directory cannot be added is not put on
-    ``sys.path`` at all (half a pack is worse than none). Never raises."""
+    ``sys.path`` at all (half a pack is worse than none). A pack that lists
+    ``bind_to_base`` gets its first-use binder *before* it reaches ``sys.path``, and is
+    not mounted if the binder cannot be installed. Never raises."""
     path_list = sys.path if sys_path is None else sys_path
     keep = _HANDLES if handles is None else handles
+    finders = sys.meta_path if meta_path is None else meta_path
     report = MountReport(plan)
     for item in plan.items:
         try:
@@ -158,6 +224,13 @@ def apply(
             report.failed.append((item.name, f"its native library folder could not be "
                                              f"added ({exc})"))
             continue
+        if item.binds:
+            try:
+                _install_binder(item, runtime, report, meta_path=finders, keep=keep)
+            except Exception as exc:  # noqa: BLE001 - unbound is refused, not mounted
+                report.failed.append((item.name, f"its shared-library binding could not "
+                                                 f"be prepared ({exc})"))
+                continue
         for p in item.paths:
             text = str(p)
             if text not in path_list:

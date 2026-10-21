@@ -296,6 +296,39 @@ that asset should be observed before a future auto-update is made to depend on i
 nothing here has been installed on a real Windows machine yet. Revisit alongside
 [#79](https://github.com/MSKazemi/yazses/issues/79).
 
+### Windows add-on packs: the licence gate (ADR-028 Q7)
+
+`scripts/build-packs.py` runs `scripts/pack_licences.py` on every pack after its wheels are
+installed. Each distribution is classed `permissive`, `LGPL` (LGPL and MPL-2.0), `GPL`
+(GPL and AGPL) or `UNKNOWN`, from its `License-Expression` (SPDX: `OR` takes the most
+permissive branch, `AND` the strictest, `WITH` only a known exception), otherwise from
+its `License` field and `License ::` classifiers (the stricter wins). The pack is
+**withheld**, like any other failed check, when a distribution is `UNKNOWN`, has no
+licence file in its dist-info, is `LGPL`/`GPL` with no upstream URL in METADATA, or is
+`GPL` with no matching entry in `packs/licence-approvals.toml`. A copyleft distribution
+puts `LICENSES/SOURCE.md` (name, version, licence, upstream and PyPI source) in the pack.
+The classification goes into `build-report.json` (`licence_gate`) and `pack.json`
+(`licences`).
+
+Recording a decision, in `packs/licence-approvals.toml`:
+
+- `[[approval]]`: **owner only.** One pack, one distribution, one exact version and the
+  licence exactly as the build report prints it, plus `approved_by`, `date`, `reason`.
+- `[[clarification]]`: a person read the licence file of a distribution whose metadata is
+  free text, and records the SPDX expression it really is. A clarification to GPL still
+  needs an approval, and no clarification excuses a missing licence file.
+
+An entry whose distribution, version or licence no longer matches is printed as stale in
+the build report and approves nothing. The file holds no entries yet.
+
+Expected on the first real build, from the metadata of the Linux 1.13.8 wheels in a local
+uv cache (the Windows wheels' METADATA has not been read): **`diarization` is withheld**,
+because `sherpa-onnx-core` has no licence file and `sherpa-onnx` declares
+`License: Apache licensed, as found in the LICENSE file`, which is not an SPDX
+expression. ADR-028 names `espeakng-loader` (`tts`, deferred) for the same reason. The gate
+reads declared metadata only; it cannot see a GPL binary vendored in a wheel that
+declares MIT.
+
 ### Nix
 
 `../flake.nix` provides `nix run github:MSKazemi/yazses` plus a `yazses-desktop` variant

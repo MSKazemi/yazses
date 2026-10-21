@@ -606,6 +606,7 @@ Download, verify and install one add-on for this build. Writes no config.
 
 - **Arguments:** `name`
 - `--yes`, `-y` — Don't ask before downloading.
+- `--from` — Install this .yazpack file instead of downloading (offline). Its name and SHA-256 must match this build's built-in add-on list.
 
 ### `yazses packs path`
 

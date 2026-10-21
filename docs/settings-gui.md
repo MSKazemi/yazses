@@ -193,7 +193,7 @@ the one thing that can be done:
 | How YazSes is installed | What **Install update…** does |
 |---|---|
 | Windows `.exe` installer (per-user), winget, Chocolatey, Scoop | The one-click update ([Windows install › Updating](windows-install.md#updating)): it asks once, downloads and checks the installer (or runs the package manager), then **this window closes**, YazSes updates in place and starts again by itself. Staged changes you have not applied are named in the question, because closing discards them. |
-| `uv tool`, `pipx`, `pip` | Runs the upgrade command shown, keeping the libraries of the features you have switched on, then checks the version really changed and offers to restart the daemon. If the version did not move (a pinned install), it says so instead; see [the update did nothing](how-to/update-did-nothing.md). |
+| `uv tool`, `pipx`, `pip` | Runs the upgrade command shown, keeping the libraries of the features you have switched on (and, on `uv tool`, OpenCV whole), then checks the version really changed and offers to restart the daemon. If the version did not move (a pinned install), it says so instead; if OpenCV stopped loading, it shows the repair command. See [the update did nothing](how-to/update-did-nothing.md). |
 | Windows, installed for all users | Not offered: it would run a downloaded file with administrator rights. The window says so, lists the steps, and **Open download page** opens the releases page. Run the installer from there; it upgrades in place, with no uninstall. |
 | macOS `.app` | **Open download page**: open the new `.dmg` and replace the app. |
 | Snap | Shows `sudo snap refresh yazses` to run in a terminal (it needs your password). |

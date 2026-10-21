@@ -41,6 +41,42 @@ def check_and_describe(current: str | None = None) -> tuple[str, str]:
     return update_message(check_updates(current))
 
 
+def _resolved(status):
+    """*status* with the upgrade command every other surface shows and runs
+    (``updater.resolve_upgrade_command``: keep enabled features' libraries, keep ``cv2``
+    whole). The plain command when resolving fails. Never raises."""
+    try:
+        from yazses.system.updater import resolve_upgrade_command
+
+        return resolve_upgrade_command(status)
+    except Exception:
+        log.warning("tray could not resolve the upgrade command", exc_info=True)
+        return status
+
+
+def _fit_command_body(status, body: str) -> str:
+    """*body* when it fits a Windows balloon whole; else a shorter one naming
+    ``yazses update``.
+
+    Windows drops a balloon body over ``BALLOON_LIMIT`` characters without a trace, and
+    ``fit_balloon`` trims from the end -- which here would cut the command and keep the
+    line introducing it. The composed command (``--with`` per enabled feature, plus the
+    OpenCV flag) can run past the limit on its own, so it is measured, and when it does
+    not fit the user is sent to ``yazses update``, which composes the same command
+    itself and runs it.
+    """
+    from yazses.tray.about import BALLOON_LIMIT
+
+    if len(body) <= BALLOON_LIMIT:
+        return body
+    headline = body.split("\n", 1)[0]
+    return (
+        f"{headline}\n\nThe upgrade command is too long to show here. Run this in a "
+        "terminal; it upgrades and keeps your features' libraries and OpenCV:\n"
+        "    yazses update"
+    )
+
+
 def describe_update(
     current: str | None = None, *, opener=None, status=None
 ) -> tuple[str, str]:
@@ -64,6 +100,12 @@ def describe_update(
     Never raises, like everything else in this module — a menu click must always end
     in something readable.
 
+    Where there *is* a command, it is the one ``updater.resolve_upgrade_command``
+    composes -- the same that ``yazses update``, the Settings window and the Linux tray
+    show and run -- not the plain ``uv tool upgrade yazses``, which on an install with
+    both OpenCV builds is the upgrade that half-deletes ``cv2``. It is measured against
+    the balloon limit (:func:`_fit_command_body`).
+
     ``status`` lets a caller that has already checked (the Windows tray, which first
     tries the one-click update) reuse that answer instead of asking github.com twice.
     The one-click path itself is :func:`run_one_click`.
@@ -73,6 +115,10 @@ def describe_update(
 
     if status is None:
         status = check_updates(current)
+    if status.available and status.command:
+        status = _resolved(status)
+        title, body = update_message(status)
+        return title, _fit_command_body(status, body)
     title, body = update_message(status)
     if not (status.available and not status.command):
         return title, body
@@ -247,3 +293,88 @@ def hand_off_outside_tray(
     except Exception as exc:  # pragma: no cover - every callee above already never raises
         log.warning("one-click update from outside the tray failed: %s", exc)
         return HandoffResult(ok=False, title="Update not installed", message=str(exc))
+
+
+# ---- add-on packs across an update (ADR-028 Q3) ------------------------------
+
+def _pack_context():
+    """This frozen build's pack context, or ``None`` anywhere packs cannot apply. A
+    source or PyPI install answers ``None`` without probing anything."""
+    import sys
+
+    if not getattr(sys, "frozen", False):
+        return None
+    from yazses.packs.context import load_context
+
+    return load_context()
+
+
+def update_addons(*, load=None) -> tuple[tuple[str, int], ...]:
+    """``(pack, download bytes)`` for the add-ons installed now, from this (old) build's
+    embedded index: what the update question names. Never raises; empty means none."""
+    try:
+        ctx = (load or _pack_context)()
+        if ctx is None:
+            return ()
+        from yazses.packs.refetch import addons_for_update
+
+        return addons_for_update(ctx)
+    except Exception:
+        log.debug("could not list the installed add-ons", exc_info=True)
+        return ()
+
+
+def record_update_consent(status, addons, *, load=None) -> bool:
+    """After a hand-off has started for a question that named ``addons``: remember the
+    yes, for the new version's first start (``packs.refetch``). Never raises."""
+    if not addons:
+        return False
+    try:
+        ctx = (load or _pack_context)()
+        if ctx is None:
+            return False
+        from yazses.packs.refetch import record_consent
+
+        return record_consent(ctx, addons, from_version=str(status.current),
+                              to_version=str(status.latest))
+    except Exception:
+        log.warning("could not record the add-on consent", exc_info=True)
+        return False
+
+
+def refetch_after_update(*, install, verify, layout=None, load=None, run=None):
+    """On a start after an update the user agreed to: download this version's copies of
+    the add-ons they had. Returns ``(title, body)`` to show once, or ``None``.
+
+    ``install`` / ``verify`` are ``packs.manage``'s, handed in by the tray's entry point
+    (``tray.app``): this module is in the daemon's static import closure, so it must not
+    import the downloader itself (``packs.refetch``'s docstring). Blocking (it downloads)
+    -- the tray calls it on a worker thread, never on the UI loop. With no consent and no
+    ``state.json`` it returns at once, before loading anything; with a ``state.json`` it
+    still runs, to mark this build's first good start and retire the previous build's
+    add-ons (``packs.refetch.mark_first_start``). Never raises.
+    """
+    try:
+        from yazses.packs.refetch import consent_pending, describe, run_refetch
+
+        if layout is None:
+            from yazses.packs.layout import PackLayout
+            from yazses.platform.factory import get_pack_paths
+
+            layout = PackLayout.under(get_pack_paths().data_dir)
+        pending = consent_pending(layout)
+        # With no consent, there is still the first-start marker to write (and the old
+        # build to retire) -- but only for someone who has ever had an add-on.
+        if not pending and not layout.state_file.is_file():
+            return None
+        ctx = (load or _pack_context)()
+        if ctx is None:
+            if pending:
+                from yazses.packs.refetch import erase_consent
+
+                erase_consent(layout)  # nothing here can act on it, now or later
+            return None
+        return describe((run or run_refetch)(ctx, install=install, verify=verify))
+    except Exception:
+        log.warning("re-downloading the add-ons after the update failed", exc_info=True)
+        return None

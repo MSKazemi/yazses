@@ -275,10 +275,50 @@ def _dormant_feature_checks(cfg, *, dormant=None) -> list[_Check]:
             return []
     return [
         (f"{d.name} [{d.slug}]", "WARN",
-         f"on, but {', '.join(d.missing)} not installed — dormant. {d.remedy}")
+         f"on, but {d.what()} — dormant. {d.remedy}")
         for d in dormant
         if d.slug not in _DORMANT_REPORTED_ELSEWHERE
     ]
+
+
+def _opencv_check(*, versions=None, broken=None, repair=None) -> _Check | None:
+    """Is OpenCV (``cv2``) whole? Shown only when an OpenCV distribution is installed.
+
+    The camera features installed two OpenCV builds up to 2.43.2, and removing either
+    one (an older YazSes's ``uv tool upgrade``, ``uv sync``, ``pip uninstall``) leaves
+    ``cv2`` a husk that still imports -- so no import probe sees it, and the camera
+    feature fails later. FAIL carries the pinned repair ``yazses update`` would print
+    (``updater.cv2_repair_here``). The decision is ``opencv_health.cv2_half_deleted``,
+    the same one the daemon's start-up check uses, and ``cv2`` is never imported.
+    Every probe is injectable for tests; a diagnostic, so it never raises.
+    """
+    try:
+        from yazses.system import opencv_health
+
+        found = (versions or opencv_health.installed_cv2_versions)()
+        if not found:
+            return None
+        owners = ", ".join(f"{d} {v}" for d, v in sorted(found.items()))
+        if not (broken or opencv_health.cv2_half_deleted)():
+            return ("OpenCV", "OK", f"cv2 is whole ({owners})")
+        from yazses.system.dormant import CV2_HALF_DELETED, cv2_repair_remedy
+
+        if repair is None:
+            from yazses.system.updater import cv2_repair_here
+
+            repair = cv2_repair_here
+        try:
+            argv = repair()
+        except Exception:  # noqa: BLE001 - the finding stands without its command
+            argv = None
+        return (
+            "OpenCV", "FAIL",
+            f"{CV2_HALF_DELETED}: removing one of two OpenCV builds deleted the files "
+            f"they share, so cv2.VideoCapture is gone (installed: {owners}). Camera "
+            f"features will fail. {cv2_repair_remedy(argv)}  Then restart YazSes.",
+        )
+    except Exception:  # noqa: BLE001 - doctor must survive its own probes
+        return None
 
 
 def _extra_check(label: str, enabled: bool, module: str, hint: str) -> _Check | None:
@@ -1670,6 +1710,77 @@ def _service_health_checks() -> list[_Check]:
     return [("Service health", "FAIL", detail)]
 
 
+def packs_row(use, scope: str) -> _Check | None:
+    """The ``Add-ons`` row (ADR-028, owner answer to question 4). Pure.
+
+    ``use`` is a :class:`yazses.packs.manage.DiskUse`; ``scope`` is the update launcher's
+    ``install_scope()`` (``"user"``, ``"machine"`` or ``"unknown"``). Two facts earn a
+    row, and both name ``yazses packs remove --all`` with what it frees:
+
+    * add-ons this copy never loads (another build's packs, or the leftovers of an
+      unfinished install) — WARN, since that is disk held for nothing;
+    * an all-users install while this user has add-ons — OK, a statement: Windows runs an
+      all-users uninstaller as the administrator, whose profile is not this user's, so
+      the uninstaller cannot remove them (the per-user uninstaller does).
+
+    Nothing at all when neither holds, which is every install without add-ons and every
+    install that is not the Windows installer build.
+    """
+    from yazses.packs.policy import human_bytes
+
+    mine = use.total
+    unused = use.unused
+    all_users = scope == "machine" and mine > 0
+    if unused <= 0 and not all_users:
+        return None
+    lines: list[str] = []
+    if unused > 0:
+        frees = f"frees {human_bytes(mine)}"
+        if use.this_build:
+            frees += (
+                f", including this build's {human_bytes(use.this_build)}, which you then "
+                "reinstall with `yazses packs install <name>`"
+            )
+        lines.append(
+            f"{human_bytes(unused)} of add-ons are not used by this copy of YazSes (another "
+            "build's, or an unfinished install's).\n"
+            f"     Free the space:  yazses packs remove --all   ({frees})"
+        )
+    if all_users:
+        lines.append(
+            "YazSes is installed for all users, so uninstalling it cannot remove your "
+            "add-ons (Windows runs that uninstaller as the administrator).\n"
+            "     Before uninstalling, each user who added some runs:  yazses packs "
+            f"remove --all   (frees {human_bytes(mine)} for you)"
+        )
+    return ("Add-ons", "WARN" if unused > 0 else "OK", "\n     ".join(lines))
+
+
+def _packs_check(platform) -> _Check | None:
+    """Gather the facts for :func:`packs_row`. A diagnostic: never raises."""
+    try:
+        from yazses.packs.context import load_context
+        from yazses.packs.layout import PackLayout
+        from yazses.packs.manage import disk_use
+        from yazses.platform.factory import get_pack_paths
+
+        data_dir = get_pack_paths().data_dir
+        # The common case, and every OS but Windows: no pack folder, no row, no work.
+        if not PackLayout.under(data_dir).root.is_dir():
+            return None
+        use = disk_use(load_context(data_dir=data_dir))
+        scope = "unknown"
+        launcher = getattr(platform, "update_launcher", None)
+        if launcher is not None:
+            try:
+                scope = str(launcher.install_scope())
+            except Exception:  # noqa: BLE001 - an unknown scope only drops a sentence
+                scope = "unknown"
+        return packs_row(use, scope)
+    except Exception:  # noqa: BLE001 - a diagnostic must not take doctor down
+        return None
+
+
 def _install_consistency_checks() -> list[_Check]:
     """Catch the deployment traps that make a daemon silently run wrong/old code:
     multiple installs on PATH, and a systemd ExecStart that points at a missing
@@ -1937,6 +2048,11 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
     # points at a missing/different binary (the silent "restart starts nothing").
     checks.extend(_install_consistency_checks())
     checks.extend(_service_health_checks())
+    # Windows installer build only (ADR-028): add-ons this copy never loads, and the
+    # all-users uninstall that cannot remove a user's add-ons. No pack folder, no row.
+    packs = _packs_check(platform)
+    if packs is not None:
+        checks.append(packs)
 
     # Snap interface connections. Before keyboard capture on purpose: a
     # disconnected `raw-input` is the *cause* of the capture failure reported
@@ -2007,6 +2123,12 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
     camera = _camera_check(perms, cfg)
     if camera is not None:
         checks.append(camera)
+    # OpenCV, beside the camera it serves -- whenever an OpenCV build is installed, not
+    # only while a camera feature is on: a half-deleted cv2 is found before the user
+    # switches one on and wonders why it crashes.
+    opencv = _opencv_check()
+    if opencv is not None:
+        checks.append(opencv)
 
     # Hands-free health, directly below the camera row that decides whether any of it can
     # run at all (#416). Nothing on an ordinary install; for somebody who enabled a camera
