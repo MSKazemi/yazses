@@ -193,19 +193,37 @@ def xdotool_app_class(
 
 
 class TargetDetector:
-    """Resolve whether there's a text target: AT-SPI first, then xdotool, then unknown."""
+    """Resolve whether there's a text target: AT-SPI first, then xdotool, then unknown.
+
+    A platform ``block_probe`` outranks all three. It reports a window that *cannot*
+    receive what we type, whatever its widgets accept (Windows: one running elevated,
+    where UIPI drops the input and reports success). That is a definite "no", and
+    ``last_block_reason`` says why, so the message can name the real cause.
+    """
 
     def __init__(
         self,
         atspi: AtspiFocusTracker | None = None,
         xdotool_fn: Callable[[], bool | None] = xdotool_target_ok,
         xdotool_class_fn: Callable[[], str] = xdotool_app_class,
+        block_probe: Callable[[], str | None] | None = None,
     ) -> None:
         self._atspi = atspi
         self._xdotool = xdotool_fn
         self._xdotool_class = xdotool_class_fn
+        self._block_probe = block_probe
+        self.last_block_reason: str | None = None
 
     def resolve(self) -> bool | None:
+        self.last_block_reason = None
+        if self._block_probe is not None:
+            try:
+                reason = self._block_probe()
+            except Exception:
+                reason = None  # cannot tell is not a block
+            if reason:
+                self.last_block_reason = reason
+                return False
         if self._atspi is not None:
             result = self._atspi.has_text_target()
             if result is not None:

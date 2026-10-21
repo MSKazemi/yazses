@@ -195,10 +195,13 @@ class WindowsInjector:
         sent = _load_user32().SendInput(len(inputs), inputs, ctypes.sizeof(_INPUT))
         if sent != len(inputs):
             err = ctypes.get_last_error()
+            # A short count means input was blocked outright (another program's
+            # BlockInput, the secure desktop). An elevated window is NOT reported here:
+            # UIPI drops the input and SendInput still counts it as sent. The
+            # no-text-target guard catches that case before typing (integrity.py).
             log.warning(
-                "SendInput sent %d/%d events (lastError=%d). Error 5 (ACCESS_DENIED) "
-                "means the focused window runs elevated and UIPI blocks input from "
-                "this process -- run YazSes as administrator to type into it.",
+                "SendInput sent %d/%d events (lastError=%d): keyboard input is blocked "
+                "right now (another program, or the secure desktop).",
                 sent, len(inputs), err,
             )
 

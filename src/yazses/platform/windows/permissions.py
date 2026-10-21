@@ -29,9 +29,11 @@ def is_elevated() -> bool | None:
     windows. Windows' User Interface Privilege Isolation blocks `SendInput`
     from a lower-integrity process to a higher-integrity one, and the low-level
     keyboard hook likewise never sees keys typed into an elevated window. Both
-    fail silently: `SendInput` returns 0 with ERROR_ACCESS_DENIED and nothing
-    reaches the target, which reads as "dictation just doesn't work in this one
-    app".
+    fail silently: `SendInput` reports every event sent with no error (Microsoft
+    documents that UIPI blocking shows in neither the return value nor
+    GetLastError, and Windows 11 behaved exactly so), and nothing reaches the
+    target, which reads as "dictation just doesn't work in this one app". The
+    per-dictation check that catches it is `platform/windows/integrity.py`.
     """
     try:
         import ctypes

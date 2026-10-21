@@ -60,6 +60,7 @@ def build_injector():
 def build_platform() -> Platform:
     from yazses.platform.windows.click_observer import WindowsClickObserver
     from yazses.platform.windows.hotkey import WindowsHotkey
+    from yazses.platform.windows.integrity import foreground_input_block
     from yazses.platform.windows.ipc import (
         NamedPipeIpcClient,
         NamedPipeIpcServer,
@@ -93,6 +94,7 @@ def build_platform() -> Platform:
         # `[gaze_refine] enabled = true`, and the hook itself is installed in start().
         click_observer_factory=WindowsClickObserver,
         update_launcher=WindowsUpdateLauncher(),
+        input_block_probe=foreground_input_block,
     )
 
 

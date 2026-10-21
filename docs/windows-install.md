@@ -428,9 +428,13 @@ plugged in and enabled in Sound settings, then run `yazses audio devices`. The
 administrator (Task Manager, an elevated PowerShell, some installers and
 enterprise tools), Windows blocks input sent to it from a non-elevated
 process — User Interface Privilege Isolation, a security boundary, not a
-bug. The daemon logs `SendInput sent 0/N events (lastError=5)` when this
-happens. Run YazSes elevated too if you need to dictate into elevated
-windows; otherwise leave it unelevated, which is the safer default.
+bug. Windows does not report the block: the keystrokes simply never arrive.
+So YazSes checks before typing. When the window in front runs as
+administrator, your dictation goes to the clipboard instead, with a
+notification saying so; paste it with Ctrl+V. (That needs the default
+`[injection] target_guard = "clipboard"`; with `"warn"` you only get the
+notification.) Run YazSes elevated too if you need to dictate into elevated
+windows directly; otherwise leave it unelevated, which is the safer default.
 
 To see which side of that boundary you are on, run `yazses doctor` and look
 for the **Elevated windows** row:

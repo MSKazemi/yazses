@@ -217,6 +217,9 @@ class _DaemonState:
     # "No text target" guard: whether the focused element accepts text for the current
     # burst — True (editable field), False (no target → warn/clipboard), None (unknown).
     target_ok: bool | None = None
+    # Why `target_ok` is False when the window itself refuses our input rather than
+    # lacking a text field (Windows: "elevated", UIPI). None otherwise.
+    target_block: str | None = None
     # Per-app profiles (ADR-v2-100): the focused application, resolved alongside
     # `target_ok` by the same detector, so a profile can key off it. "" when unknown.
     app_class: str = ""
@@ -1439,14 +1442,19 @@ class Daemon:
         if cfg.injection.target_guard != "off":
             from yazses.inject.target import AtspiFocusTracker, TargetDetector
 
+            # Windows' answer to "will the window even take our input?" (UIPI); None
+            # on platforms that cannot be blocked that way or cannot tell.
+            block_probe = getattr(self._platform, "input_block_probe", None)
             tracker = AtspiFocusTracker()
             if tracker.available() and tracker.start():
-                self._target_detector = TargetDetector(atspi=tracker)
+                self._target_detector = TargetDetector(atspi=tracker, block_probe=block_probe)
             else:
-                self._target_detector = TargetDetector()  # best-effort xdotool only
+                # best-effort xdotool only
+                self._target_detector = TargetDetector(block_probe=block_probe)
             log.info(
-                "Text-target guard enabled (%s; action=%s).",
+                "Text-target guard enabled (%s%s; action=%s).",
                 "AT-SPI" if tracker.available() else "best-effort X11",
+                " + elevated-window check" if block_probe is not None else "",
                 cfg.injection.target_guard,
             )
 
@@ -4324,6 +4332,7 @@ class Daemon:
         """Resolve whether there's a text target for this burst, off the hot path."""
         with self._lock:
             self._state.target_ok = None
+            self._state.target_block = None
         detector = self._target_detector
         if detector is None or self._command_mode:
             return  # guard off, or command mode types no text
@@ -4331,14 +4340,17 @@ class Daemon:
         def _run() -> None:
             try:
                 ok = detector.resolve()
+                block = getattr(detector, "last_block_reason", None)
                 app_class = detector.get_app_class()
                 field_role = detector.get_field_role()
             except Exception:
                 ok = None
+                block = None
                 app_class = ""
                 field_role = ""
             with self._lock:
                 self._state.target_ok = ok
+                self._state.target_block = block
                 self._state.app_class = app_class
                 self._state.field_role = field_role
 
@@ -4772,6 +4784,10 @@ class Daemon:
         ``warn`` → notify but let the caller type as usual. ``off`` never reaches here.
         """
         action = self._config.injection.target_guard
+        with self._lock:
+            block = self._state.target_block
+        if block == "elevated":
+            return self._handle_elevated_target(text, action)
         if action == "clipboard":
             from yazses.system.clipboard import set_clipboard
 
@@ -4791,6 +4807,40 @@ class Daemon:
         self._notify_mic(
             "⌨ No text field focused",
             "You may be dictating into the wrong place — click a text field first.",
+            actions=False,
+        )
+        return False
+
+    def _handle_elevated_target(self, text: str, action: str) -> bool:
+        """The focused window runs as administrator, so Windows drops what we type.
+
+        Same choice as any other missing target (clipboard, or warn and type anyway),
+        with a message naming the real cause: "no text field" would send the user
+        clicking around a window whose field is right there. Typing is not the remedy
+        in either mode: under UIPI it reports success and delivers nothing.
+        """
+        fix = "To dictate into administrator windows, run YazSes as administrator."
+        if action == "clipboard":
+            from yazses.system.clipboard import set_clipboard
+
+            copied = set_clipboard(text)
+            log.info("Focused window is elevated -- transcript %s the clipboard.",
+                     "copied to" if copied else "could NOT be copied to")
+            body = (
+                "This window runs as administrator, and Windows does not let YazSes type "
+                "into it. Your dictation was copied to the clipboard — paste it with "
+                f"Ctrl+V. {fix}"
+                if copied
+                else "This window runs as administrator, and Windows does not let YazSes "
+                f"type into it; the clipboard copy failed too. {fix}"
+            )
+            self._notify_mic("⌨ Can't type into this window", body, actions=False)
+            return True
+        log.info("Focused window is elevated -- typing anyway ([injection] target_guard = warn).")
+        self._notify_mic(
+            "⌨ Can't type into this window",
+            "This window runs as administrator, and Windows does not let YazSes type into "
+            f"it, so nothing will appear. {fix}",
             actions=False,
         )
         return False

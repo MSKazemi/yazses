@@ -6,6 +6,20 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — on Windows, a dictation into an administrator window is no longer lost without a word
+
+Windows blocks a normal program from typing into a window that runs as administrator
+(Task Manager, an elevated PowerShell, many installers), and it does not report it.
+`SendInput` says every key was sent. Measured on Windows 11 22H2 with an elevated Task
+Manager in front: 2 of 2 events "sent", no error, nothing typed. So the dictation vanished
+with no notification and not even a log line, and the log message written for this case
+could never appear. YazSes now checks before typing whether the window in front runs above
+its own privilege level. If it does, the existing "no place to type" guard copies the
+dictation to the clipboard and says why ("This window runs as administrator… paste it with
+Ctrl+V"). The check reads a fact Windows itself enforces, so it never fires on an ordinary
+window, and anything it cannot read counts as "fine". Checked live against an elevated Task
+Manager and an ordinary window.
+
 ### Fixed — the docs' memory and Docker-image figures are re-measured, and four stale status lines corrected
 
 - **Model memory.** `models.md` gave `base.en` an 874 MB footprint. The low-RAM guide gave
