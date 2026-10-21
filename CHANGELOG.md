@@ -210,6 +210,15 @@ it. `yazses start` brings both back. A real crash is still recovered by the tray
 within 5 seconds of `stop`; after, daemon and tray both gone within 5 seconds and still
 gone after 30, and a killed daemon is still restarted by the tray (in 8 seconds).
 
+### Fixed — the Windows tray greys out a Meeting Mode entry that cannot work, and says why
+
+Start meeting and Stop meeting were always clickable on Windows, so the only way to learn
+that Meeting Mode was off, or that no meeting was running, was to click and read the
+refusal. The menu now follows the same rules as the Linux tray: the entry that cannot
+work is greyed out, and a line above them explains why when both are. The greyed-out
+"Pause hotkey" entry, which had nothing behind it, is gone. Checked on Windows 11 22H2 by
+reading the real tray menu back from Windows in each state.
+
 ### Fixed — the Windows install guide's facts
 
 `docs/windows-install.md` no longer claims an ARM64 build (winget and Scoop carry the x64 installer, which ARM PCs run under emulation; the mislabelled ARM64 asset was dropped in 2.43.1), names the real default model (`base.en`, about 150 MB, not `tiny.en`), asks for about 500 MB of disk rather than 250 MB, shows the Chocolatey command, and no longer tells you to delete a roaming `%APPDATA%\yazses` folder YazSes never creates; it now names the Whisper model cache instead. Found by a docs audit against the live channels.

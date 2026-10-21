@@ -27,7 +27,10 @@ from yazses.tray.menu import (
     MEETING_STOP_LABEL,
     SETTINGS_LABEL,
     UPDATE_LABEL,
+    MeetingEntry,
     icon_spec,
+    meeting_entries,
+    meeting_notice,
     status_from_model,
 )
 from yazses.tray.updates import describe_update, pending_update_report
@@ -72,6 +75,27 @@ class WindowsTray:
         self._icon: Any = None
         self._on_quit: Callable[[], None] | None = None
         self._lock = threading.Lock()
+        # The last status the poller pushed. The meeting entries read it each time
+        # pystray rebuilds the menu, and `_menu_key` says when that is worth doing.
+        self._status: dict = status_from_model(TrayModel())
+        self._menu_key = self._meeting_menu_key()
+
+    # ---- Meeting Mode entries ------------------------------------------------
+    #
+    # pystray evaluates a callable `enabled`/`visible`/text whenever it rebuilds the
+    # menu, and `update_menu()` makes it rebuild. So the Windows menu can grey out a
+    # click that would fail and say why, as the Linux tray does, instead of leaving
+    # both entries clickable and answering with a refusal toast.
+
+    def _meeting_entry(self, action: str) -> MeetingEntry:
+        return next(e for e in meeting_entries(self._status) if e.action == action)
+
+    def _meeting_notice(self) -> str | None:
+        return meeting_notice(meeting_entries(self._status))
+
+    def _meeting_menu_key(self) -> tuple:
+        entries = meeting_entries(self._status)
+        return (tuple(e.enabled for e in entries), meeting_notice(entries))
 
     def run(self, on_quit: Callable[[], None]) -> None:
         try:
@@ -155,14 +179,28 @@ class WindowsTray:
             # The same entry the Linux and macOS trays have (#63).
             pystray.MenuItem(SETTINGS_LABEL, _settings_clicked),
             pystray.Menu.SEPARATOR,
-            # Meeting Mode. Both entries are always present and always clickable: a
-            # pystray menu is built once here and cannot be re-derived per open the way
-            # the Qt tray's is, so the daemon's refusal ("a meeting is already running")
-            # is what tells the user which of the two applied.
-            pystray.MenuItem(MEETING_START_LABEL, _meeting_clicked("meeting_start")),
-            pystray.MenuItem(MEETING_STOP_LABEL, _meeting_clicked("meeting_stop")),
+            # Meeting Mode, from the same `meeting_entries` the Linux tray uses: the
+            # entry that cannot work is greyed out and the note above says why. The
+            # click still goes to the daemon, which has the final say.
+            pystray.MenuItem(
+                lambda _item: self._meeting_notice() or "",
+                None,
+                enabled=False,
+                visible=lambda _item: self._meeting_notice() is not None,
+            ),
+            pystray.MenuItem(
+                MEETING_START_LABEL,
+                _meeting_clicked("meeting_start"),
+                enabled=lambda _item: self._meeting_entry("meeting_start").enabled,
+            ),
+            pystray.MenuItem(
+                MEETING_STOP_LABEL,
+                _meeting_clicked("meeting_stop"),
+                enabled=lambda _item: self._meeting_entry("meeting_stop").enabled,
+            ),
             pystray.Menu.SEPARATOR,
-            pystray.MenuItem("Pause hotkey", None, enabled=False),
+            # No "Pause hotkey" here any more: it was a greyed-out placeholder with
+            # nothing behind it, the kind of entry this menu already dropped once (Help).
             pystray.MenuItem(HELP_LABEL, help_menu),
             pystray.MenuItem(ABOUT_LABEL, _about_clicked),
             pystray.MenuItem(UPDATE_LABEL, _update_clicked),
@@ -207,6 +245,7 @@ class WindowsTray:
         # members that fell through to idle blue.
         status = status_from_model(model)
         with self._lock:
+            self._status = status
             if self._icon is None:
                 return
             try:
@@ -215,6 +254,15 @@ class WindowsTray:
                 self._icon.title = tooltip[:_TOOLTIP_MAX]
             except Exception:
                 log.exception("Tray icon update failed")
+            # Rebuild the menu only when the meeting entries would change: the poller
+            # calls this four times a second, and the menu rarely moves.
+            key = self._meeting_menu_key()
+            if key != self._menu_key:
+                self._menu_key = key
+                try:
+                    self._icon.update_menu()
+                except Exception:
+                    log.debug("tray menu update failed", exc_info=True)
 
     def notify(self, title: str, body: str) -> None:
         """Show a balloon toast from the tray icon.
