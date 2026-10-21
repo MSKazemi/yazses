@@ -27,7 +27,7 @@ from yazses.system import deps
 
 FIXED = [p for p in PACKAGE_PROFILES if not p.can_add_runtime]
 ADDABLE = [p for p in PACKAGE_PROFILES if p.can_add_runtime]
-CAMERA_PKGS = ["mediapipe>=0.10.35", "opencv-python>=5.0"]
+CAMERA_PKGS = ["mediapipe>=0.10.35", "opencv-contrib-python>=5.0"]
 
 
 def test_the_matrix_has_rows_on_both_sides() -> None:

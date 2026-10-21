@@ -1074,17 +1074,26 @@ _ONNXRUNTIME = (
     "onnxruntime>=1.23.2,<1.24; sys_platform == 'darwin' and platform_machine == 'x86_64'",
 )
 
+#: The camera runtime every camera feature installs, identical to the `gaze` extra.
+#: `opencv-contrib-python`, not `opencv-python`: mediapipe itself requires the contrib
+#: build, and the two are separate distributions that both write the same `cv2/`
+#: package. Naming the plain build here installed both (~70 MB twice) and left `cv2`
+#: to whichever installed last. Contrib is a superset of the plain build, and YazSes
+#: calls only `VideoCapture` and `cvtColor`, which both carry.
+#: tests/test_one_opencv_distribution.py derives the same rule from uv.lock.
+_CAMERA = ("mediapipe>=0.10.35", "opencv-contrib-python>=5.0")
+
 _FEATURE_DEPS: dict[str, tuple[tuple[str, ...], tuple[str, ...]]] = {
-    "gaze": (("cv2", "mediapipe"), ("mediapipe>=0.10.35", "opencv-python>=5.0")),
+    "gaze": (("cv2", "mediapipe"), _CAMERA),
     # The same two packages and the same FaceLandmarker asset as Glance-Type: the
     # face-gesture switch reads blendshapes off the model gaze already downloads,
     # so enabling it after gaze installs nothing.
-    "facegesture": (("cv2", "mediapipe"), ("mediapipe>=0.10.35", "opencv-python>=5.0")),
-    "headpointer": (("cv2", "mediapipe"), ("mediapipe>=0.10.35", "opencv-python>=5.0")),
+    "facegesture": (("cv2", "mediapipe"), _CAMERA),
+    "headpointer": (("cv2", "mediapipe"), _CAMERA),
     # The preset composes the three camera features above, so it needs exactly their packages.
-    "handsfree": (("cv2", "mediapipe"), ("mediapipe>=0.10.35", "opencv-python>=5.0")),
+    "handsfree": (("cv2", "mediapipe"), _CAMERA),
     # Chords read face and head tokens off the same shared camera source.
-    "gesture": (("cv2", "mediapipe"), ("mediapipe>=0.10.35", "opencv-python>=5.0")),
+    "gesture": (("cv2", "mediapipe"), _CAMERA),
     "overlay": (("PySide6",), ("PySide6>=6.11.1",)),
     # Same Qt dependency as the overlay. Registered separately because PySide6 is
     # no longer a base dependency (it is the `desktop` extra), so enabling the tray
