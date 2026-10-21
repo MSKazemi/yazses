@@ -582,8 +582,8 @@ class GazeRefineConfig:
     OFF by default, and doubly opt-in: it holds the camera open (through the shared
     `[perception]` source) and listens for clicks while on. It needs `[perception]`
     enabled, gaze on the same camera, a verified calibration for this desktop, and a
-    platform click observer (none ships yet, so on every install today it explains why it
-    is dormant). Only coordinates, timestamps and gaze numbers are used: no screenshot,
+    platform click observer (X11, Windows and macOS have one, not yet tried on real
+    hardware; Wayland has none, so there it explains why it is dormant). Only coordinates, timestamps and gaze numbers are used: no screenshot,
     window title, typed text or frame, and nothing is kept past the session but the
     promoted map.
 

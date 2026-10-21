@@ -1482,7 +1482,7 @@ class Daemon:
 
         # Implicit refinement of that calibration from clicks (#398). Opt-in twice over
         # (it holds the camera and listens for clicks) and dormant, with a logged
-        # reason, on every install today: no platform ships a click observer yet.
+        # reason, wherever the platform has no click observer (Wayland, headless).
         self._gaze_refinement = self._build_gaze_refinement(cfg)
 
         # Head-Pointer (ADR-v2-052): a lease on the camera above, a pointer sink from the

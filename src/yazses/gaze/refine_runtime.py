@@ -16,8 +16,8 @@ symptomless failure this project keeps paying for. The checks, in order:
 3. Gaze is on the **shared** camera source — refinement needs a continuous gaze stream to
    look back through, which only the shared source provides, and it must not open a second
    camera (ADR-v2-145). An always-on camera also needs the explicit enable it just had.
-4. The platform has a click observer — none ships yet, and saying so beats a feature that
-   never receives a click.
+4. The platform has a click observer — X11, Windows and macOS do; Wayland and headless
+   sessions do not, and saying so beats a feature that never receives a click.
 5. The stored calibration is **verified** against this desktop (ADR-v2-149): refinement may
    only refine a valid baseline in a valid context. "Unverified" is refused, not waved
    through — a map that cannot be checked is not a baseline to improve on.
