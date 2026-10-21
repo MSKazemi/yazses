@@ -374,3 +374,14 @@ def test_no_repair_command_where_no_python_environment_can_be_repaired(method):
     from yazses.system import updater
 
     assert updater.cv2_repair_here(method=method, versions=CONTRIB, python="x") is None
+
+
+def test_a_frozen_app_is_never_reported_half_deleted():
+    """Review caution (yazses-a9): in a bundle a husk-looking cv2 is not pip's doing and the
+    printed repair cannot run there, so a frozen build always answers "whole"."""
+    from yazses.system.opencv_health import cv2_half_deleted
+
+    husk = dict(find_spec=lambda: object(), versions=lambda: {"opencv-python": "5.0.0.93"},
+                listdir=lambda _path: [])
+    assert cv2_half_deleted(frozen=False, **husk) is True  # the same input is a husk
+    assert cv2_half_deleted(frozen=True, **husk) is False

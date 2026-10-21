@@ -31,6 +31,7 @@ subfolders behind and nothing else).
 from __future__ import annotations
 
 import os
+import sys
 from collections.abc import Callable, Iterable
 
 #: The distribution mediapipe requires and the camera features need.
@@ -127,6 +128,7 @@ def cv2_half_deleted(
     find_spec: Callable[[], object] | None = None,
     versions: Callable[[], dict[str, str]] | None = None,
     listdir: Callable[[str], Iterable[str]] = os.listdir,
+    frozen: bool | None = None,
 ) -> bool:
     """The one decision: an OpenCV distribution is installed, and ``cv2`` is importable
     only as a husk -- a namespace package, or a package without its native module, so
@@ -136,6 +138,12 @@ def cv2_half_deleted(
     and when it is whole. Never imports ``cv2``; reads package metadata only when the
     directory already looks broken. Never raises. Every probe is injectable for tests.
     """
+    # A frozen app (PyInstaller) is never half-deleted by pip, and an ADR-028 pack that
+    # brought cv2 in has its own RECORD.json validation; its file layout may not match
+    # `cv2/cv2.<suffix>`, which would tell every camera user to run a repair that cannot
+    # run there. So the answer in a bundle is "whole".
+    if getattr(sys, "frozen", False) if frozen is None else frozen:
+        return False
     try:
         spec = (find_spec or _find_cv2_spec)()
         if spec is None:
