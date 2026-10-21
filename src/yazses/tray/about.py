@@ -175,7 +175,12 @@ def update_message(status) -> tuple[str, str]:
         )
     body = f"{branding.APP_NAME} {status.current} → {status.latest}"
     if status.command:
-        joined = " ".join(status.command)
+        # Quoted like every other printed command: the composed upgrade carries
+        # `--with mediapipe>=0.10.35` and `yazses[desktop]`, a redirection and a glob
+        # when pasted unquoted into a shell.
+        from yazses.system.remedy import render_command
+
+        joined = render_command(status.command)
         if needs_terminal(status):
             body += f"\n\nRun this in a terminal to upgrade:\n    {joined}"
         else:

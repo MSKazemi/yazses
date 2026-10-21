@@ -126,9 +126,29 @@ an enabled feature's libraries must be kept.
   `<env python> -m pip install --force-reinstall --no-deps …`), and `yazses update`
   exits 1. pip and pipx never remove a dependency on upgrade, so their command is not
   changed.
+- Other routes break `cv2` the same way without passing that check: an upgrade run by an
+  older YazSes, `uv sync` in a source checkout, or `pip uninstall opencv-python`. YazSes
+  now also checks whenever it starts and whenever `yazses doctor` runs. A camera feature
+  that is switched on while `cv2` is half-deleted counts as not ready. The start-up
+  notification says so and gives the same pinned repair command, with no *Install now*
+  button, because reinstalling an installed package does not repair it. `yazses doctor`
+  has a new **OpenCV** row, shown whenever an OpenCV build is installed: `OK`, or `FAIL`
+  with the repair command. The check never imports OpenCV. It looks for OpenCV's native
+  module in the `cv2/` folder (0.23 ms measured on a whole install) and reads the package
+  list only when that module is missing. It does not run unless a camera feature is on.
+  In an environment with no pip (one that uv created, such as a source checkout's
+  `.venv`), the repair uses the `uv pip` form. This was tested on Linux with real
+  environments built with the 5.0.0.93 wheels. The check reported the broken environment
+  as half-deleted and the whole one as healthy, and after the printed repair was run it
+  reported the repaired one as healthy.
+- The Windows and macOS tray balloon now shows the same full upgrade command as
+  `yazses update`, quoted so it can be pasted into a shell. The Linux tray's dialog uses
+  the same quoting. Windows drops a balloon longer than 255 characters without showing
+  anything, so a command too long to fit is replaced by a pointer to `yazses update`, which
+  builds and runs the same command. A test measures the balloon for the longest command
+  the feature list can produce (767 characters before the fallback, 170 after).
 - Not verified: the pipx and pip repair commands were not run, and Windows and macOS were
-  not tested. On the Windows and macOS trays, the balloon still shows the plain command,
-  but nothing runs from it. `yazses update` and the Settings window run the full command.
+  not tested.
 
 ### Fixed — the one-click Windows update never ran the installer (unreleased feature)
 

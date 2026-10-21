@@ -411,7 +411,14 @@ def test_cli_settings_tray_and_the_run_all_use_the_same_command(
     # 3. The tray's dialog shows it.
     shown_tray = TrayController(SimpleNamespace()).check_updates()
     assert shown_tray.command == expected
-    assert " ".join(expected) in update_message(shown_tray)[1]
+    # Quoted for pasting (`>=` redirects and `[...]` globs in a shell, unquoted).
+    from yazses.system.remedy import render_command
+
+    assert render_command(expected) in update_message(shown_tray)[1]
+
+    # 3b. The Windows/macOS tray balloon shows it too, not the plain command.
+    balloon = updates.describe_update(status=_status(), opener=lambda url: False)[1]
+    assert render_command(expected) in balloon
 
     # 4. What each of them hands to the upgrade runs it unchanged.
     for shown in (shown_settings, shown_tray, _status()):

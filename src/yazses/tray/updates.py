@@ -41,6 +41,42 @@ def check_and_describe(current: str | None = None) -> tuple[str, str]:
     return update_message(check_updates(current))
 
 
+def _resolved(status):
+    """*status* with the upgrade command every other surface shows and runs
+    (``updater.resolve_upgrade_command``: keep enabled features' libraries, keep ``cv2``
+    whole). The plain command when resolving fails. Never raises."""
+    try:
+        from yazses.system.updater import resolve_upgrade_command
+
+        return resolve_upgrade_command(status)
+    except Exception:
+        log.warning("tray could not resolve the upgrade command", exc_info=True)
+        return status
+
+
+def _fit_command_body(status, body: str) -> str:
+    """*body* when it fits a Windows balloon whole; else a shorter one naming
+    ``yazses update``.
+
+    Windows drops a balloon body over ``BALLOON_LIMIT`` characters without a trace, and
+    ``fit_balloon`` trims from the end -- which here would cut the command and keep the
+    line introducing it. The composed command (``--with`` per enabled feature, plus the
+    OpenCV flag) can run past the limit on its own, so it is measured, and when it does
+    not fit the user is sent to ``yazses update``, which composes the same command
+    itself and runs it.
+    """
+    from yazses.tray.about import BALLOON_LIMIT
+
+    if len(body) <= BALLOON_LIMIT:
+        return body
+    headline = body.split("\n", 1)[0]
+    return (
+        f"{headline}\n\nThe upgrade command is too long to show here. Run this in a "
+        "terminal; it upgrades and keeps your features' libraries and OpenCV:\n"
+        "    yazses update"
+    )
+
+
 def describe_update(
     current: str | None = None, *, opener=None, status=None
 ) -> tuple[str, str]:
@@ -64,6 +100,12 @@ def describe_update(
     Never raises, like everything else in this module — a menu click must always end
     in something readable.
 
+    Where there *is* a command, it is the one ``updater.resolve_upgrade_command``
+    composes -- the same that ``yazses update``, the Settings window and the Linux tray
+    show and run -- not the plain ``uv tool upgrade yazses``, which on an install with
+    both OpenCV builds is the upgrade that half-deletes ``cv2``. It is measured against
+    the balloon limit (:func:`_fit_command_body`).
+
     ``status`` lets a caller that has already checked (the Windows tray, which first
     tries the one-click update) reuse that answer instead of asking github.com twice.
     The one-click path itself is :func:`run_one_click`.
@@ -73,6 +115,10 @@ def describe_update(
 
     if status is None:
         status = check_updates(current)
+    if status.available and status.command:
+        status = _resolved(status)
+        title, body = update_message(status)
+        return title, _fit_command_body(status, body)
     title, body = update_message(status)
     if not (status.available and not status.command):
         return title, body

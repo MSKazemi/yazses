@@ -36,6 +36,13 @@ from dataclasses import dataclass, field
 
 from packaging.version import InvalidVersion, Version
 
+from yazses.system.opencv_health import (  # noqa: F401 - re-exported
+    CV2_CONTRIB,
+    CV2_DISTRIBUTIONS,
+    installed_cv2_versions,
+    uses_cv2,
+)
+
 # Package identifiers per channel, and where the Windows .exe is published.
 WINGET_ID = "MSKazemi.YazSes"
 RELEASES_URL = "https://github.com/MSKazemi/yazses/releases/latest"
@@ -712,16 +719,10 @@ def preserve_enabled_features(
 # it: that step recognises the plain `uv tool upgrade yazses`, and a flag added
 # first would make it silently do nothing (:func:`resolve_upgrade_command`).
 
-#: The distribution mediapipe requires and the camera features now name.
-CV2_CONTRIB = "opencv-contrib-python"
-
-#: Every PyPI distribution that writes the top-level `cv2/` package.
-CV2_DISTRIBUTIONS = (
-    CV2_CONTRIB,
-    "opencv-python",
-    "opencv-python-headless",
-    "opencv-contrib-python-headless",
-)
+# `CV2_CONTRIB` (the distribution mediapipe requires and the camera features need) and
+# `CV2_DISTRIBUTIONS` (every PyPI distribution that writes the top-level `cv2/`
+# package) live in `system/opencv_health.py`, which the daemon's start-up check imports
+# without this module's network imports; re-exported here for the existing callers.
 
 #: What YazSes needs of cv2 (`VideoCapture` and `cvtColor`). A bare `import cv2`
 #: is not a test: the broken package still imports, as a namespace.
@@ -798,6 +799,42 @@ def cv2_repair_command(
     return [python, "-m", "pip", "install", "--force-reinstall", "--no-deps", spec]
 
 
+def _pip_importable() -> bool:
+    import importlib.util
+
+    try:
+        return importlib.util.find_spec("pip") is not None
+    except (ImportError, ValueError):
+        return False
+
+
+def cv2_repair_here(
+    *,
+    method: str | None = None,
+    versions: dict[str, str] | None = None,
+    python: str | None = None,
+    has_pip: Callable[[], bool] | None = None,
+) -> list[str] | None:
+    """:func:`cv2_repair_command` for the environment that is running, or ``None``.
+
+    For the surfaces that find a half-deleted ``cv2`` outside an upgrade -- the
+    daemon's start-up check and ``yazses doctor`` -- so they print the same pinned
+    repair an upgrade does. ``None`` for an install that is not a Python environment
+    YazSes can repair (a snap, a frozen bundle). A ``pip``-classified environment
+    with no pip in it (a ``uv venv`` / ``uv sync`` environment, which uv does not seed
+    with pip) gets the ``uv pip`` form, because ``python -m pip`` would fail there.
+    Every input is injectable for tests.
+    """
+    method = method if method is not None else detect_install_method()
+    if method not in _PYTHON_ENV_METHODS:
+        return None
+    found = versions if versions is not None else installed_cv2_versions()
+    interpreter = python if python is not None else env_python(sys.prefix)
+    if method == "pip" and not (has_pip or _pip_importable)():
+        method = "uv"
+    return cv2_repair_command(method, found, python=interpreter)
+
+
 def should_verify_cv2(
     owners_before: list[str], works_before: bool | None, camera_enabled
 ) -> bool:
@@ -869,20 +906,7 @@ def _env_cv2_versions(
     """
     running = os.path.normcase(os.path.abspath(sys.prefix))
     if not fresh and os.path.normcase(os.path.abspath(prefix)) == running:
-        try:
-            import importlib
-            import importlib.metadata as metadata
-
-            importlib.invalidate_caches()
-            found: dict[str, str] = {}
-            for name in CV2_DISTRIBUTIONS:
-                try:
-                    found[name] = metadata.version(name)
-                except metadata.PackageNotFoundError:
-                    pass
-            return found
-        except Exception:  # noqa: BLE001 - must never break an update
-            return {}
+        return installed_cv2_versions()
     try:
         proc = runner(
             [python, "-c", _CV2_VERSIONS_PROBE, *CV2_DISTRIBUTIONS],
@@ -918,9 +942,7 @@ def _camera_feature_enabled() -> bool:
         from yazses.system.features import feature_status
 
         cfg = load_config(get_platform().paths.config_file)
-        return any(
-            f.on and f.wired and "cv2" in f.check_modules for f in feature_status(cfg)
-        )
+        return any(f.on and f.wired and uses_cv2(f) for f in feature_status(cfg))
     except Exception:  # noqa: BLE001 - must never break an update
         return False
 

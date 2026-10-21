@@ -275,10 +275,50 @@ def _dormant_feature_checks(cfg, *, dormant=None) -> list[_Check]:
             return []
     return [
         (f"{d.name} [{d.slug}]", "WARN",
-         f"on, but {', '.join(d.missing)} not installed — dormant. {d.remedy}")
+         f"on, but {d.what()} — dormant. {d.remedy}")
         for d in dormant
         if d.slug not in _DORMANT_REPORTED_ELSEWHERE
     ]
+
+
+def _opencv_check(*, versions=None, broken=None, repair=None) -> _Check | None:
+    """Is OpenCV (``cv2``) whole? Shown only when an OpenCV distribution is installed.
+
+    The camera features installed two OpenCV builds up to 2.43.2, and removing either
+    one (an older YazSes's ``uv tool upgrade``, ``uv sync``, ``pip uninstall``) leaves
+    ``cv2`` a husk that still imports -- so no import probe sees it, and the camera
+    feature fails later. FAIL carries the pinned repair ``yazses update`` would print
+    (``updater.cv2_repair_here``). The decision is ``opencv_health.cv2_half_deleted``,
+    the same one the daemon's start-up check uses, and ``cv2`` is never imported.
+    Every probe is injectable for tests; a diagnostic, so it never raises.
+    """
+    try:
+        from yazses.system import opencv_health
+
+        found = (versions or opencv_health.installed_cv2_versions)()
+        if not found:
+            return None
+        owners = ", ".join(f"{d} {v}" for d, v in sorted(found.items()))
+        if not (broken or opencv_health.cv2_half_deleted)():
+            return ("OpenCV", "OK", f"cv2 is whole ({owners})")
+        from yazses.system.dormant import CV2_HALF_DELETED, cv2_repair_remedy
+
+        if repair is None:
+            from yazses.system.updater import cv2_repair_here
+
+            repair = cv2_repair_here
+        try:
+            argv = repair()
+        except Exception:  # noqa: BLE001 - the finding stands without its command
+            argv = None
+        return (
+            "OpenCV", "FAIL",
+            f"{CV2_HALF_DELETED}: removing one of two OpenCV builds deleted the files "
+            f"they share, so cv2.VideoCapture is gone (installed: {owners}). Camera "
+            f"features will fail. {cv2_repair_remedy(argv)}  Then restart YazSes.",
+        )
+    except Exception:  # noqa: BLE001 - doctor must survive its own probes
+        return None
 
 
 def _extra_check(label: str, enabled: bool, module: str, hint: str) -> _Check | None:
@@ -2083,6 +2123,12 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
     camera = _camera_check(perms, cfg)
     if camera is not None:
         checks.append(camera)
+    # OpenCV, beside the camera it serves -- whenever an OpenCV build is installed, not
+    # only while a camera feature is on: a half-deleted cv2 is found before the user
+    # switches one on and wonders why it crashes.
+    opencv = _opencv_check()
+    if opencv is not None:
+        checks.append(opencv)
 
     # Hands-free health, directly below the camera row that decides whether any of it can
     # run at all (#416). Nothing on an ordinary install; for somebody who enabled a camera
