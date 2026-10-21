@@ -6,6 +6,19 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — on Windows, the whole keyboard no longer lags while a dictation transcribes
+
+After you released the hotkey, every key you pressed in any application arrived late until
+the transcription finished. Typing quickly built a queue: ten keys typed during a 4-second
+transcription took 3.5 seconds to appear. Other programs that watch the keyboard (AutoHotkey,
+PowerToys) missed those keys entirely. The cause was that the hotkey's low-level keyboard hook
+transcribed inside the hook itself, and Windows waits on that hook, up to about 300 ms, for
+every keystroke on the system. The hook now only records the press and release, and returns at
+once. A separate thread runs the dictation start and finish, in order, so a hotkey press made
+during a transcription still starts the next dictation once the current one ends, as before.
+Measured on Windows 11 22H2: keys pressed during a transcription went from a 300 ms delay each
+to none, and the ten-key burst from 3.5 s to 16 ms.
+
 ### Fixed — the one-click Windows update never ran the installer (unreleased feature)
 
 The first real run of the update hand-off on a Windows machine (CI, `windows-latest`) showed
