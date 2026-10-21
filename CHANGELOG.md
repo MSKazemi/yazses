@@ -31,6 +31,21 @@ Windows runner: `import sherpa_onnx` must load only the base's `onnxruntime.dll`
 version the base froze, and build and run both an ONNX Runtime and a sherpa-onnx VAD
 session on a pinned model. None of this has run on Windows yet.
 
+### Added — a licence check holds back any Windows add-on whose licences are unclear (ADR-028 Q7)
+
+The release build now checks the licence of every library in a Windows add-on before it
+publishes the add-on. Permissive licences pass. LGPL and MPL-2.0 pass, and the add-on
+carries `LICENSES/SOURCE.md` saying where each one's source code is. GPL passes only with
+the maintainer's approval, recorded for that library at that exact version in
+`packaging/packs/licence-approvals.toml`. An approval that no longer matches is reported
+as stale and approves nothing. An unidentifiable licence or a missing licence file holds
+the add-on back, as any other failed check does. The result is recorded in the build
+report and in each add-on's `pack.json`. The check reads declared metadata only, so it
+cannot see GPL code compiled into a library that declares MIT. Tested on synthetic
+metadata, not yet on a Windows build. The Linux 1.13.8 wheels of `sherpa-onnx` and
+`sherpa-onnx-core` would hold the `diarization` add-on back (free-text licence, no licence
+file). No add-on has been released yet.
+
 ### Fixed — the one-click Windows update never ran the installer (unreleased feature)
 
 The first real run of the update hand-off on a Windows machine (CI, `windows-latest`) showed

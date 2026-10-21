@@ -509,6 +509,14 @@ pack copy is dropped, and `pack.json`'s `bind_to_base` tells the runtime to load
 base's copy first). The `diarization` pack binds `onnxruntime.dll` this way; any other
 differing collision withholds the pack.
 
+**Build-side invariant (ADR-028 Q7): no pack is published whose licences the build could
+not classify.** `scripts/pack_licences.py` (pure, standard library only) classes every
+distribution in a pack as permissive, LGPL, GPL or UNKNOWN; `scripts/build-packs.py`
+withholds the pack on UNKNOWN, a missing licence file, a copyleft distribution with no
+source URL, or GPL without a matching owner approval in
+`packaging/packs/licence-approvals.toml`. A copyleft pack carries `LICENSES/SOURCE.md`.
+The runtime does not re-check licences.
+
 ### `src/yazses/commands/`
 
 | File | Role |

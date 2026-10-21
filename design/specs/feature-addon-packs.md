@@ -408,11 +408,39 @@ formats the same way.
     index through a multi-line `subject-path: |`. `verify-provenance.py` now reads such
     blocks, so `.yazpack` and `.json` became attested suffixes. Only `-packs.json` assets
     are in `SHA256SUMS.txt`, so no other JSON file is affected.
-14. **Licences.** Each distribution's licence files go to `LICENSES/<dist>/`, and the
-    declared licence is recorded in the build report. ADR-028 Q7 is answered (a build-time
-    gate: permissive and LGPL pass, GPL needs a recorded owner approval plus `SOURCE.md`,
-    an unknown licence or a missing licence file fails); the gate is a separate change
-    (`scripts/pack_licences.py`). Until it lands, `tts` and `prosody` stay deferred.
+14. **Licences.** Each distribution's licence files go to `LICENSES/<dist>/`. The Q7
+    licence gate (owner answer, 2026-10-21) is `scripts/pack_licences.py`, called once
+    per pack from `build_one` after the wheels are installed. It classes each
+    distribution permissive / LGPL (LGPL, MPL-2.0) / GPL (GPL, AGPL) / UNKNOWN from
+    `License-Expression` (SPDX; `OR` → most permissive, `AND` → strictest, `WITH` only a
+    known exception, which can relax GPL to LGPL), otherwise from `License` plus the
+    `License ::` classifiers, the stricter of the two. A pack is withheld on UNKNOWN, on a
+    distribution with no licence file in its dist-info, on LGPL/GPL without an upstream URL
+    in METADATA, and on GPL without an `[[approval]]` in
+    `packaging/packs/licence-approvals.toml` naming that pack, distribution, exact version
+    and licence. A `[[clarification]]` records a person's reading of a free-text licence
+    as an SPDX expression for one exact version. An entry that no longer matches is
+    reported as stale and approves nothing. A copyleft pack carries `LICENSES/SOURCE.md`
+    (`LICENSES/`, not the root, because the runtime's `archive.TOP_LEVEL` allows only
+    five root names). The result is `licence_gate` in the build report and `licences`
+    (`name`, `version`, `licence`, `class` per distribution) in `pack.json`, which the
+    runtime ignores. Under `--skip-probe` (the spike) a failure is recorded, not
+    withheld, as for DLL conflicts.
+    - **Two differences from the ADR text.** Approvals live in
+      `licence-approvals.toml`, not as a `packs.toml` field, so the per-version record
+      and its staleness check have their own schema. The gate is the standard library
+      only, not `pip-licenses`, and has no ScanCode step, so it cannot see a GPL binary
+      vendored in a wheel that declares MIT.
+    - **Verified:** `tests/test_pack_licences.py`, synthetic METADATA only, with each rule
+      shown to fail its tests when removed. **Not verified:** a run on real Windows
+      wheels. Read offline from the Linux 1.13.8 wheels in a local uv cache:
+      `sherpa-onnx-core` has no licence file and `sherpa-onnx` declares free text
+      (`Apache licensed, as found in the LICENSE file`), so **the first real build
+      withholds `diarization`** on two counts. `sherpa-onnx` needs a `[[clarification]]`;
+      `-core` needs a licence file, from upstream or from a follow-up that lets the build
+      supply a reviewed text, which does not exist yet. `parakeet`'s
+      `onnx-asr` 0.12.0 passes (`License-Expression: MIT`). `espeakng-loader` was not in
+      the cache, so the ADR's finding for it is not re-checked here.
 15. **No `stdlib/` supplement yet.** The spike measures the stdlib gaps first (Phase 0 item 2).
 16. **`bind_to_base`: a reviewed DLL exception (ADR-028 finding on sherpa-onnx-core).**
     `packs.toml` may list bare DLL basenames under `bind_to_base` for a pack, with a
