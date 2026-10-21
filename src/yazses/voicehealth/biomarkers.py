@@ -210,10 +210,16 @@ class StrainHistory:
         """Record one utterance and return True when a break should be suggested now.
 
         ``reading`` is a :class:`Biomarkers` or an already-computed strain level.
-        Non-finite values are ignored. The first ``baseline_samples`` readings build the
-        session baseline and never fire.
+        Non-finite values are ignored, including a :class:`Biomarkers` with any NaN or
+        infinite field (its strain score would otherwise be clamped to a finite number).
+        The first ``baseline_samples`` readings build the session baseline and never fire.
         """
-        level = reading.strain() if isinstance(reading, Biomarkers) else float(reading)
+        if isinstance(reading, Biomarkers):
+            if not reading.is_finite():
+                return False
+            level = reading.strain()
+        else:
+            level = float(reading)
         if not math.isfinite(level):
             return False
         level = min(1.0, max(0.0, level))

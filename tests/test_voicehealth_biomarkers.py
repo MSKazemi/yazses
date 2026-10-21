@@ -131,6 +131,24 @@ def test_non_finite_readings_are_ignored():
     assert h.baseline is None and h.window == ()
 
 
+@pytest.mark.parametrize(
+    "reading",
+    [
+        Biomarkers(float("nan"), 0.1, 10.0),
+        Biomarkers(float("inf"), 0.0, 20.0),
+        Biomarkers(0.01, float("-inf"), 20.0),
+        Biomarkers(0.01, 0.05, float("nan")),
+    ],
+)
+def test_non_finite_biomarkers_are_ignored(reading):
+    # strain_level clamps into [0, 1], and max(0.0, nan) is 0.0, so without the
+    # is_finite() check a NaN field would enter the baseline as a finite score.
+    h = StrainHistory(_Cfg(), baseline_samples=1)
+    assert h.observe(reading, 0.0) is False
+    assert h.baseline is None and h.window == ()
+    assert h._baseline == []
+
+
 def test_default_window_means_no_suggestion_before_40_utterances():
     @dataclass
     class _DefaultCfg:  # the shipped VoicehealthConfig defaults, enabled
@@ -213,6 +231,24 @@ def _vowel(f0: float = 150.0, seconds: float = 1.0, sr: int = 16000,
     return wave.astype(np.float32)
 
 
+def _perturbed_vowel(f0: float = 150.0, seconds: float = 1.0, sr: int = 16000, *,
+                     period_sd: float = 0.0, amplitude_sd: float = 0.0,
+                     seed: int = 0) -> np.ndarray:
+    """A vowel built period by period: *period_sd* perturbs each period's length only
+    (jitter), *amplitude_sd* scales each period's amplitude only (shimmer)."""
+    rng = np.random.default_rng(seed)
+    t = np.arange(int(seconds * sr)) / sr
+    bounds, amps = [0.0], []
+    while bounds[-1] < seconds:
+        bounds.append(bounds[-1] + (1.0 / f0) * (1.0 + period_sd * rng.standard_normal()))
+        amps.append(1.0 + amplitude_sd * rng.standard_normal())
+    edges, gains = np.array(bounds), np.array(amps)
+    idx = np.searchsorted(edges, t, side="right") - 1
+    phase = 2 * np.pi * (idx + (t - edges[idx]) / (edges[idx + 1] - edges[idx]))
+    wave = sum((1.0 / k) * np.sin(k * phase) for k in range(1, 15)) * gains[idx]
+    return (0.3 * wave / np.max(np.abs(wave))).astype(np.float32)
+
+
 def test_parselmouth_backend_returns_none_without_the_extra(monkeypatch):
     import sys
 
@@ -255,3 +291,30 @@ def test_parselmouth_feeds_the_monitor():
         assert monitor.on_utterance(_vowel(seed=i), 16000, float(i)) is False
     baseline = monitor.history.baseline
     assert baseline is not None and math.isfinite(baseline) and baseline < 0.25
+
+
+@needs_parselmouth
+def test_parselmouth_jitter_tracks_period_perturbation_only():
+    # Period lengths vary with a 2 % standard deviation, amplitude is constant. Local
+    # jitter of i.i.d. Gaussian periods is about 1.13 x 2 % (E|a-b| = 2*sd/sqrt(pi));
+    # Praat measured 0.0213 here. RAP/PPQ5 measured ~0.013 and DDP ~0.037, so the band
+    # also catches the wrong jitter command, and the near-zero shimmer catches a swap.
+    clean = ParselmouthBiomarkers().measure(_perturbed_vowel(), 16000)
+    jittered = ParselmouthBiomarkers().measure(_perturbed_vowel(period_sd=0.02), 16000)
+    assert clean is not None and jittered is not None
+    assert jittered.jitter > 100 * max(clean.jitter, 1e-6)
+    assert 0.016 < jittered.jitter < 0.03
+    assert jittered.shimmer < 0.01
+
+
+@needs_parselmouth
+def test_parselmouth_shimmer_tracks_amplitude_perturbation_only():
+    # Each period's amplitude varies with a 15 % standard deviation, period length is
+    # constant. Praat measured local shimmer 0.108 here (APQ3 0.058, DDA 0.175), and
+    # jitter stays near zero, so swapping the two fields fails this test.
+    clean = ParselmouthBiomarkers().measure(_perturbed_vowel(), 16000)
+    shimmered = ParselmouthBiomarkers().measure(_perturbed_vowel(amplitude_sd=0.15), 16000)
+    assert clean is not None and shimmered is not None
+    assert shimmered.shimmer > 100 * max(clean.shimmer, 1e-6)
+    assert 0.07 < shimmered.shimmer < 0.15
+    assert shimmered.jitter < 0.002
