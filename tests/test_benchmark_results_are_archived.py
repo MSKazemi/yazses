@@ -53,6 +53,13 @@ NO_ARCHIVED_RESULT = {
         "is run, and a synthetic stand-in would be the guess the instrument exists to "
         "avoid."
     ),
+    "bench_mandarin.py": (
+        "ships before any Mandarin corpus manifest is pinned (MODEL-01 of #503 is the "
+        "instrument; the first measurement is MODEL-02). Its only runnable mode is "
+        "`--smoke`, whose hypotheses are fixed in the source, so a re-run reproduces "
+        "the same constant, and archiving it would publish a constant as a measurement. "
+        "Remove this entry when the first `--manifest` result is committed."
+    ),
 }
 
 #: The provenance keys that make a result a measurement rather than a number.
