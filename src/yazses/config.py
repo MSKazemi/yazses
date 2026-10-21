@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from yazses import tomlio
-from yazses.configcheck import ConfigProblem, build_section
+from yazses.configcheck import ConfigProblem, build_section, language_pairing_problems
 
 log = logging.getLogger(__name__)
 
@@ -45,10 +45,13 @@ class SttConfig:
     # Empty string = let Whisper auto-detect per utterance, which costs an extra
     # decode pass and can flip mid-session, so an explicit code is preferred when
     # you know the language. Requires a MULTILINGUAL model: the `.en` checkpoints
-    # (base.en, small.en, …) are English-only and cannot decode anything else, so
-    # set `model = "small"` (no suffix) alongside it — stt/factory.py warns when
-    # the pair is contradictory. Ignored on the translate path (ADR-v2-014), which
-    # auto-detects the source by design, and by the Parakeet engine (English-only).
+    # (base.en, small.en, …) and the distil-* checkpoints are English-only and
+    # cannot decode anything else, so set `model = "small"` (no suffix) alongside
+    # it. A contradictory pair is refused, not decoded as English: doctor fails
+    # it, Settings will not save it and dictation does not start (#515; the cited
+    # table is src/yazses/language/capability.py). The default Parakeet and
+    # Moonshine models are English-only too. Ignored on the translate path
+    # (ADR-v2-014), which auto-detects the source by design.
     language: str = "en"
     # Where CTranslate2 runs the decode: "cpu" (default) | "cuda" | "auto". YazSes is
     # a CPU-first project — every published benchmark, latency target and model
@@ -2440,7 +2443,10 @@ def load_config_checked(path: Path | None = None) -> LoadedConfig:
     config = Config(**sections)
     problems.extend(_chord_problems(config))
     problems.extend(_switch_problems(config))
-    return LoadedConfig(_apply_presets(config), problems, path)
+    config = _apply_presets(config)
+    # After the presets, so the pair judged is the one the daemon will build (#515).
+    problems.extend(language_pairing_problems(config))
+    return LoadedConfig(config, problems, path)
 
 
 def _switch_problems(config: Config) -> list[ConfigProblem]:

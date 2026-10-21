@@ -165,11 +165,15 @@ def test_the_default_is_unchanged(stub_model):
     assert _build_engine(RecimportConfig())._language == "en"
 
 
-def test_a_foreign_language_on_an_english_checkpoint_warns(stub_model, caplog):
-    """`.en` has no language tokens: it answers Persian with fluent English nonsense."""
-    from yazses.recimport.pipeline import _build_engine
+def test_a_foreign_language_on_an_english_checkpoint_is_refused(stub_model, caplog):
+    """`.en` has no language tokens: it answers Persian with fluent English nonsense.
 
-    with caplog.at_level("WARNING"):
+    So the pair is refused before the model loads (#515), not warned about and decoded.
+    """
+    from yazses.recimport.pipeline import _build_engine
+    from yazses.stt.errors import LanguageUnsupportedError
+
+    with caplog.at_level("WARNING"), pytest.raises(LanguageUnsupportedError):
         _build_engine(RecimportConfig(language="fa", model="small.en"))
     assert any("fa" in r.getMessage() for r in caplog.records), caplog.text
 

@@ -55,18 +55,18 @@ def _build_engine(config, stt=None):
     ``stt.factory.build_engine``, so without it the setting never reached file
     transcription. ``None`` or an unset script returns the bare engine, unchanged.
     """
-    from yazses.stt.download import language_model_problem
+    from yazses.stt.factory import refuse_unsupported_language
     from yazses.stt.faster_whisper import FasterWhisperEngine
 
     model = getattr(config, "model", "") or "small.en"
     wish = (getattr(config, "language", "en") or "").strip()
     language = "" if wish == "translate" else wish
-    # An `.en` checkpoint carries no language tokens, so it answers foreign speech with
-    # fluent English nonsense rather than an error. Same rule as the daemon's factory,
-    # from the same function, because two copies of it would drift.
-    problem = language_model_problem(model, language)
-    if problem:
-        log.warning("[transcribe] %s", problem)
+    # An English-only checkpoint answers foreign speech with fluent English nonsense
+    # rather than an error. Refused before the model loads (#515), by the same function
+    # the daemon's factory calls, because two copies of the rule would drift. Raises
+    # `LanguageUnsupportedError`, a `ModelUnavailableError`, which every caller of this
+    # builder already has to handle for a missing model.
+    refuse_unsupported_language("faster-whisper", model, language)
     engine = FasterWhisperEngine(model_name=model, language=language)
     if stt is None:
         return engine

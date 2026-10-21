@@ -207,3 +207,41 @@ class ComputeTypeUnsupportedError(ModelUnavailableError):
             f"[stt] compute_type = {self.compute_type!r} is not supported on this "
             "machine. Remove it to use the default int8, then: yazses restart",
         )
+
+
+class LanguageUnsupportedError(ModelUnavailableError):
+    """`[stt] language` names a language the configured engine/model cannot transcribe.
+
+    Raised by `stt/factory.py` *before* any model is loaded (#515). A subclass of
+    `ModelUnavailableError` for the same reason `ComputeTypeUnsupportedError` is one:
+    `core/daemon.py` catches that type to hold the daemon in ERROR state with IPC
+    alive, a red tray icon and a desktop toast, instead of either dying with a
+    traceback or — the failure this exists to stop — loading the English-only model
+    anyway and typing English for Persian speech. Every other caller of the factory
+    already handles the base type, because a missing model raises it too.
+    """
+
+    def __init__(self, engine: str, model: str, language: str, reason: str) -> None:
+        self.model = model
+        self.engine = engine
+        self.language = language
+        self.cause = reason
+        RuntimeError.__init__(
+            self,
+            "\n".join([
+                f"YazSes will not transcribe {language!r} with {engine} / {model!r}.",
+                "",
+                f"  {reason}",
+                "",
+                "Dictation stays unavailable until [stt] language, engine and model "
+                "agree, rather than silently typing English. "
+                "`yazses language status` shows the pairing; then: yazses restart",
+            ]),
+        )
+
+    def notification(self) -> tuple[str, str]:
+        return (
+            "YazSes cannot start dictation",
+            f"[stt] language = {self.language!r} cannot be transcribed by "
+            f"{self.engine} / {self.model!r}. Run: yazses language status",
+        )

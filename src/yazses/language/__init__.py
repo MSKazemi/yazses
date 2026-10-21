@@ -5,6 +5,8 @@ network access, optional dependency import, or config mutation. Higher-level CLI
 code can therefore use the same resolver for previews and real application.
 """
 
+from yazses.language.capability import LanguageSupport
+from yazses.language.capability import check as check_language_support
 from yazses.language.plan import ConfigMutation, LanguagePlan, resolve_profile
 from yazses.language.profiles import (
     LanguageProfile,
@@ -20,6 +22,8 @@ __all__ = [
     "LanguageProfile",
     "LanguageProfileError",
     "LanguageStatus",
+    "LanguageSupport",
+    "check_language_support",
     "derive_status",
     "get_profile",
     "list_profiles",

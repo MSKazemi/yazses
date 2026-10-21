@@ -6,6 +6,39 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — a non-English language on an English-only model is refused, not typed as English ([#515](https://github.com/MSKazemi/yazses/issues/515))
+
+`[stt] language = "fa"` (or any non-English code) beside an English-only checkpoint did
+not fail. faster-whisper 1.2.1 replaces the language with `"en"` for an English-only
+tokenizer and only logs a warning. Parakeet TDT v2 and Moonshine take no language at all.
+YazSes itself only logged a warning, so Persian speech came out as fluent-looking English.
+The old guard checked only the `.en` suffix, so it also missed the Distil-Whisper large
+checkpoints (`distil-large-v2`, `-v3`, `-v3.5`). Their model cards say they are
+English-only, but their names carry no suffix and they keep Whisper's multilingual
+tokenizer, so faster-whisper does not even warn.
+
+- **New `src/yazses/language/capability.py`**: a pure table of which languages each
+  known checkpoint transcribes. Every row cites its model card or the engine's docs. It
+  is held equal to the Whisper model registry, faster-whisper's language codes and the
+  engines' default models by tests. A custom checkpoint is *unverified*: it is reported,
+  never refused.
+- **Engine factory**: an unsupported pairing raises `LanguageUnsupportedError` before
+  any model loads. This includes the Parakeet/Moonshine → faster-whisper fallback, which
+  lands on `base.en`. The daemon holds in ERROR state with a notification, and
+  `yazses status` shows the reason. The latency governor's `light_model` (`tiny.en`) is
+  refused the same way, so a loaded machine keeps decoding Persian with your model.
+- **Config validation** reports the pair as a *refused* problem naming the model to
+  switch to. **Settings** will not save it, including when the engine is Parakeet.
+  **`yazses transcribe`** exits 2 with the same message.
+- **`yazses doctor`** gains a *Speech language* row: language, engine, the model that
+  actually loads, whether it is multilingual, and whether the combination is supported.
+  **`yazses language status`** shows the same (`--json`: `effective_model`,
+  `multilingual`, `language_support`, `support_source`).
+
+English stays the default. A shipped or existing English config loads, builds and
+reports exactly as before, and tests pin this. The *recommended Persian preset* from
+#515 is **not** part of this change. It waits for the FA-05 benchmark evidence.
+
 ### Fixed — pushing a release tag no longer turns every open pull request red ([#602](https://github.com/MSKazemi/yazses/issues/602))
 
 The Windows packaging tests (Scoop, Chocolatey nuspec and install script, winget)

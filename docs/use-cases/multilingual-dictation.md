@@ -98,14 +98,25 @@ This costs an extra detection pass on every burst and can occasionally guess
 wrong on very short utterances, so prefer an explicit code when you know what
 you'll be speaking.
 
-!!! note "Mismatched model and language"
+!!! warning "Mismatched model and language: dictation is refused"
 
-    `language` needs a multilingual model to act on. If you set a non-English
-    language while `model` is still an `.en` checkpoint, YazSes logs a warning at
-    startup naming both values and telling you to drop the `.en` suffix — those
-    models have no language tokens at all, so they would silently transliterate
-    your speech into English-looking nonsense rather than fail outright. Check
-    it with `yazses logs` after a restart.
+    `language` needs a model that can transcribe that language. The English-only
+    checkpoints do not fail when you give them Persian. They transcribe it as
+    English-looking text. The English-only checkpoints are the `.en` models
+    (`base.en`, `small.en`, …), the Distil-Whisper models (`distil-large-v3` and the
+    rest, English-only even without the suffix), the default Parakeet engine and
+    Moonshine. So YazSes refuses the pairing:
+
+    - `yazses doctor` fails the **Speech language** row and names the model to switch to;
+    - the daemon does not start dictation. The tray goes red, a notification says
+      what is wrong, and `yazses status` shows the reason;
+    - the Settings window will not save the pair, and `yazses transcribe` exits
+      with the same message.
+
+    `yazses language status` shows the language, engine, model, whether that model is
+    multilingual, and whether the combination is supported, with a link to the
+    model card that says so. A custom checkpoint (a Hugging Face id or a local path)
+    is reported as *unverified*, never refused.
 
 ## Sentences that mix two languages
 
@@ -160,7 +171,8 @@ yazses transcribe interview.fr.m4a --language translate   # any language → Eng
 `--language` takes any Whisper code, and it now reaches the decoder: until v2.30 only
 `translate` did anything, so `--language fr` set nothing and the file was transcribed as
 English. A non-English code needs a multilingual model — drop the `.en` suffix from
-`[stt] model`, and YazSes says so rather than handing you fluent nonsense.
+`[stt] model` (or pass `--model small`). YazSes refuses with exit code 2 and names the
+model to use, instead of handing you fluent English for non-English audio.
 
 ## Non-Latin scripts
 
