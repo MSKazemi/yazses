@@ -269,6 +269,64 @@ def redact_config(raw: dict) -> dict:
     return out
 
 
+#: A quoted span in a config problem. `configcheck` quotes the value it refused --
+#: `got the text "…"`, `not the string "…"`, `(got '…')`, and every invalid
+#: `redact_patterns` entry by `repr` -- which is the whole diagnosis for an ordinary
+#: setting and the very thing `redact_config` hides for an identifier or the user's prose.
+_QUOTED = re.compile(r""""(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'""")
+
+_MISSING = object()
+
+
+def _raw_value(raw: dict, section: str, key: str) -> object:
+    """``raw[section][key]``, following a dotted section (`gesture.chords`), or _MISSING."""
+    node: object = raw
+    for part in [*section.split("."), key]:
+        if not isinstance(node, dict) or part not in node:
+            return _MISSING
+        node = node[part]
+    return node
+
+
+def redact_problem(problem: object, raw: dict | None = None) -> str:
+    """One `config_problems` entry, held to the same rules as the config it describes.
+
+    The problems list went into the bundle as bare `str(p)` -- the one config-derived
+    field nothing filtered -- and a problem *quotes the value it refused*. Measured
+    through `collect()` with a mistyped `[accessibility] vad_threshold = "/home/<you>/v"`:
+    `redact_config` turned the value into `~/v`, and a few lines further down the same
+    report the problem said `got the text "/home/<you>/v"`. A config file the daemon
+    cannot read put its full path there too (`[Errno 13] Permission denied: '/home/…'`).
+
+    So every entry goes through `redact_text`, and the quoted spans of an entry are
+    blanked whenever the config section of this same report does not show that value
+    verbatim. That decision is `redact_config`'s, asked about the one value, rather
+    than a second list of sensitive keys here: the two cannot drift, and a key it
+    summarises by type -- `[learning] redact_patterns`, whose invalid entries
+    `configcheck` quotes by `repr` -- is covered without being named. Where *raw* is
+    not available, or the value is not in it, the key-name rules decide.
+    """
+    text = str(problem)
+    section = str(getattr(problem, "section", "") or "")
+    key = str(getattr(problem, "key", "") or "")
+    if key:
+        value = _raw_value(raw, section, key) if raw is not None else _MISSING
+        if value is _MISSING:
+            hidden = key in _FREE_TEXT_KEYS or bool(_REDACT_KEYS.search(key))
+        else:
+            # Re-nest under the problem's own section name: `redact_config` keys its
+            # fixed-set allowance on (section, key). A string it only passed through
+            # `redact_text` is not hidden -- the `redact_text` below does the same to
+            # the quote, so the problem shows exactly what the config section shows.
+            shown = redact_config({section: {key: value}})[section][key]
+            hidden = shown != value and not (
+                isinstance(value, str) and shown == redact_text(value)
+            )
+        if hidden:
+            text = _QUOTED.sub(f'"{_REDACTED}"', text)
+    return redact_text(text)
+
+
 #: Daemon-status fields that carry **what the user said**, as opposed to what the daemon
 #: is doing. Same rule as `_FREE_TEXT_KEYS` one layer up, and the same reason for
 #: replacing rather than filtering: a partially-scrubbed transcript looks handled.
@@ -361,13 +419,16 @@ def collect(*, config_file: Path, log_file: Path, data_dir: Path,
     )
 
     if config_file.exists():
+        raw: dict | None = None
         try:
-            report["config"] = redact_config(tomlio.read(config_file))
+            raw = tomlio.read(config_file)
+            report["config"] = redact_config(raw)
         except Exception as exc:  # noqa: BLE001
-            report["config"] = {"error": f"unreadable: {exc}"}
+            # An OSError names the file: `[Errno 13] Permission denied: '/home/<you>/…'`.
+            report["config"] = {"error": redact_text(f"unreadable: {exc}")}
         try:
             report["config_problems"] = [
-                str(p) for p in load_config_checked(config_file).problems
+                redact_problem(p, raw) for p in load_config_checked(config_file).problems
             ]
         except Exception:  # noqa: BLE001
             report["config_problems"] = ["could not be checked"]
@@ -422,7 +483,8 @@ def _log_tail(log_file: Path, lines: int) -> list[str]:
     try:
         content = log_file.read_text(encoding="utf-8", errors="replace").splitlines()
     except OSError as exc:
-        return [f"<unreadable: {exc}>"]
+        # The OSError's message is the log's full path, which sits under $HOME.
+        return [redact_text(f"<unreadable: {exc}>")]
     # Drop whole *records*, not lines. A log record is not one line: every `exc_info=True`
     # call writes a header plus a traceback, and a filter that tests each line drops the
     # header -- the only line carrying the level -- while keeping the body, which carries

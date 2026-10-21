@@ -5,7 +5,7 @@ description: What YazSes does and does not do with your voice, text, and data. O
 
 # YazSes Privacy Statement
 
-**Last updated: 2026-07-10**
+**Last updated: 2026-10-21**
 
 YazSes is designed from the ground up to keep your voice and text on your device.
 **By default, no audio, transcripts, editor context, or usage data ever leave your
@@ -368,14 +368,49 @@ default and which — when you switch it on — reads a version string and annou
 release once. It carries nothing about you or your machine, and a firewall makes it a
 silent no-op rather than a delay.
 
-**"Prepare a bug report" is not an exception to this**, and it is worth being exact
-about why. When YazSes cannot identify a failure, its notification offers a button. That
-button assembles the same redacted bundle `yazses report` writes and **opens your
-browser** at GitHub's issue form with the text already filled in. You read it there,
-signed in as yourself, and press submit — or close the tab. YazSes never makes the
-request; your browser does, if you decide to. Nothing is transmitted by YazSes at any
-point, and the project's [egress inventory](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-019-egress-inventory-and-escalation.md)
-— which a test enforces on every build — is unchanged by this feature.
+**"Prepare a bug report" is not automatic, but it does send something**, and it is worth
+being exact about what. When YazSes cannot identify a failure, its notification offers a
+button. Nothing happens unless you click it. When you do, YazSes builds a short summary
+from the same redacted data `yazses report` collects (see below) and **opens your
+browser** at GitHub's issue form with that summary already filled in. The summary is
+part of the form's web address, so **it reaches github.com as soon as the page opens**,
+before you press submit. Closing the tab means no issue is filed, but it does not
+un-send the summary. YazSes opens no connection itself; your browser makes the request.
+The project's [egress inventory](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-019-egress-inventory-and-escalation.md)
+lists it under "handoff" (YazSes picks the address and the browser sends it), and a
+test enforces that inventory on every build.
+
+## Bug reports (`yazses report`)
+
+**Running `yazses report` sends nothing. No file leaves your machine.** The command opens
+no network connection and does not start a browser. It writes one file, prints where it
+put it, and prints the address of the issue tracker as plain text. You decide whether to
+attach the file to an issue, and you do the attaching yourself.
+
+What it reads, and what each source contributes to the file:
+
+| Source | How it is read | What goes into the report |
+|---|---|---|
+| `config.toml` | opened and parsed | your settings, except that paths, addresses and identifiers are replaced by `<redacted>`, your own text (such as `initial_prompt`) is reduced to a length, and lists and tables are reduced to a count. Any problems the config check found are listed too, under the same rules |
+| `daemon.log` | the last 200 lines (change this with `--log-lines`) | metadata lines. **Every DEBUG record is dropped whole** and only counted, because DEBUG records can hold dictated text |
+| the running daemon | one `status` request over the local IPC channel described above. Notifications waiting for the tray are left where they are | state, versions and counters. Text you have dictated but not yet committed (the staged buffer) appears only as a length, and lists appear only as a count |
+| `corpus.db` and `clips/` | **file sizes only**. Neither is opened or decrypted | whether the corpus exists, and its size in MiB |
+| your system | Python's `platform` module, plus `XDG_SESSION_TYPE` and `XDG_CURRENT_DESKTOP` | OS, kernel release, Python version, session type, desktop and YazSes version |
+
+In the config values, daemon fields, log lines and config problems that are kept, your
+home directory becomes `~` and your account name becomes `<redacted>`. Very short or
+generic account names, such as `root` or `ubuntu`, are left alone because they do not
+identify anyone.
+
+What it writes: exactly one file, `yazses-report.json` in your data directory, or the
+path you pass with `-o`. With `--print` it writes no file at all and prints the same JSON
+to your terminal.
+
+The "Prepare a bug report" button described above sends less than this file. Its
+summary contains the diagnosis YazSes showed you, the environment lines (versions,
+platform, session, daemon state and model), the config problems, and up to the last 40
+lines of the filtered log tail (fewer when they would not fit in the form's address). It
+does not include the config section or the rest of the daemon block.
 
 ## Third-party dependencies
 
