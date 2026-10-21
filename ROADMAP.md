@@ -383,7 +383,35 @@ Three capabilities from the second SoA2Prod pipeline (`design/research/studies/y
 
 ---
 
-## v1.0 Rewrite (Rust core + Python plugins) — archived on `archive/rust-hci-v1`
+## Historical — not current `main` work: the archived Rust rewrite (v1.0.0-dev)
+
+> [!WARNING]
+> **Archive. Nothing in this section is a task, a commitment or a plan for `main`.**
+> It records the Rust HCI rewrite (v1.0.0-dev) as it stood when it was parked, and the
+> plan written beside it. `main` is the Python app. For what is planned now, read
+> [`docs/roadmap.md`](docs/roadmap.md) (the canonical public roadmap) and the
+> [GitHub milestones](https://github.com/MSKazemi/yazses/milestones). The checkboxes
+> that used to be here are plain bullets on purpose: none of them is open work.
+>
+> The `archive/rust-hci-v1` branch named below is not published on this repository's
+> remote, and the commit IDs in the phase table come from that Rust history, so they do
+> not resolve here. They are kept for archaeology.
+
+**Where the still-valid product ideas went.** Three items in the deferred backlog below
+describe the product rather than the Rust code. This is where each one stands on `main`:
+
+| Rust-era item | Where it is tracked on `main` now |
+|---|---|
+| Wire a real `WindowDetector` so per-app modes activate | Built on the Python side: `[focusprofile]` picks the grammar from the focused window's class, and `[profiles] app` sets a tone per application ([#100](https://github.com/MSKazemi/yazses/issues/100), closed). Keys: [configuration](docs/configuration.md). |
+| STT model evaluation (Parakeet-TDT, Distil-Whisper, Moonshine, Whisper) | Parakeet TDT shipped as a second engine in v2.14.0 and Moonshine is a third; [`docs/models.md`](docs/models.md) measures the Whisper sizes and says when each engine fits. The engine matrix is being re-run in [#495](https://github.com/MSKazemi/yazses/issues/495). |
+| Semantic VAD / neural endpointing | Designed, not built: [ADR-v2-029](design/adr/adr-v2-029-semantic-autostop.md) ships `[autostop]` with the silence and duration-cap decision; `mode = "semantic"` falls back to the silence timeout because the Smart Turn model step has no implementation. No issue tracks it yet. |
+
+The other backlog items (a Rust release tag, live checks of the Rust dictation flags, two
+Dependabot advisories on the old default branch, llama.cpp KV-cache tuning, a TOML loader
+for the Rust core) belonged to the Rust code and ended with it. The Python app reads TOML
+config already.
+
+### v1.0 Rewrite (Rust core + Python plugins) — archived on `archive/rust-hci-v1`
 
 > **Status: paused / archived.** The Rust HCI rewrite was moved off `main` to the
 > `archive/rust-hci-v1` branch; `main` is the Python app (Part 1). The section
@@ -393,9 +421,9 @@ YazSes v1.0 is a ground-up Rust rewrite adopting the **Cognitive Exocortex**
 architecture — voice-first on-device agentic OS layer. The Python v0.4.x
 pipeline is preserved in parallel.
 
-### Implementation status — all phases complete ✅
+#### Implementation status — all phases complete ✅
 
-| Phase | Scope | Commit | Status |
+| Phase | Scope | Commit (Rust history) | Status |
 |---|---|---|---|
 | Phase 0 | IPC + daemon scaffold | a452ad7 | ✅ |
 | Phase 1 | Input + Audio | 3735c4d | ✅ |
@@ -407,25 +435,23 @@ pipeline is preserved in parallel.
 | Phase 7 | Distribution (cargo-dist, deb, rpm, Homebrew, winget) | 85809fd | ✅ |
 | Post-phase | Pipeline fixes, OS actions, protocol, observability | 098a67f | ✅ |
 
-**v1.0.0-dev.5** tagged — all phases complete, merged to `main`. Current state: **pre-beta, documentation in progress**.
+**v1.0.0-dev.5** tagged — all phases complete, merged to `main`. State at the time: **pre-beta, documentation in progress**.
 
-### Before v1.0.0-rc1
+#### Before v1.0.0-rc1
 
-- [x] Documentation: README v1.0, architecture.md, 11 ADRs in docs/adr/, install guides, privacy statement, threat model, plugin SDK reference, migration guide v0.4→v1.0
-- [x] Homebrew formula v1.0.0 (formula, not cask — CLI binary) + winget manifests v1.0.0 prepared (SHA256 placeholders — fill with `scripts/patch-release-shas.sh 1.0.0` after CI release build)
-- [x] `apt-repo.yml` updated to trigger on "Rust Release" workflow — v1.0 `.deb` auto-publishes on tag push; v0.4 packages retired automatically (existing `update-apt-repo.sh` replaces all `yazses_*.deb`)
-- [ ] Run `bash scripts/patch-release-shas.sh 1.0.0` after CI produces the v1.0.0 release artifacts
-- [ ] Beta testing / dogfooding ≥ 4 weeks (production readiness Re-06, started 2026-05-18)
+- Done at the time: Documentation: README v1.0, architecture.md, 11 ADRs in docs/adr/, install guides, privacy statement, threat model, plugin SDK reference, migration guide v0.4→v1.0
+- Done at the time: Homebrew formula v1.0.0 (formula, not cask — CLI binary) + winget manifests v1.0.0 prepared (SHA256 placeholders — fill with `scripts/patch-release-shas.sh 1.0.0` after CI release build)
+- Done at the time: `apt-repo.yml` updated to trigger on "Rust Release" workflow — v1.0 `.deb` auto-publishes on tag push; v0.4 packages retired automatically (existing `update-apt-repo.sh` replaces all `yazses_*.deb`)
+- Still open when the rewrite was parked: Run `bash scripts/patch-release-shas.sh 1.0.0` after CI produces the v1.0.0 release artifacts
+- Still open when the rewrite was parked: Beta testing / dogfooding ≥ 4 weeks (production readiness Re-06, started 2026-05-18)
 
-### Before v1.0.0 GA
+#### Before v1.0.0 GA
 
-- [ ] All production readiness checklist items green (docs/adr/production-readiness.md)
-- [ ] Cross-platform CI green on Linux + macOS + Windows
-- [ ] Beta-tester feedback incorporated
+- Still open when the rewrite was parked: All production readiness checklist items green (docs/adr/production-readiness.md)
+- Still open when the rewrite was parked: Cross-platform CI green on Linux + macOS + Windows
+- Still open when the rewrite was parked: Beta-tester feedback incorporated
 
----
-
-## Shipped on `main` after v1.0.0-dev.5 (2026-05-29, not yet tagged)
+### Shipped on `main` after v1.0.0-dev.5 (2026-05-29, not yet tagged)
 
 A research-driven feature/quality push, from a 2026-05-29 scan of the Apple,
 Microsoft and Azure dictation stacks plus the relevant literature.
@@ -444,23 +470,30 @@ Microsoft and Azure dictation stacks plus the relevant literature.
 All new dictation behavior is `YAZSES_*` env-gated and **off by default**
 (default pipeline byte-identical). `cargo test --workspace` green; clippy clean.
 
-### Deferred backlog — next-session pickup
-- [ ] **Cut a release tag** for the above (versioning is mixed: Python `0.4.1`, learning `v0.5.0`, Rust `1.0.0-dev`) — decide a number.
-- [ ] **Live-hardware verification** of the overlay + new dictation flags (only end-to-end gap; unit-tested already).
-- [ ] **2 moderate Dependabot advisories** on the default branch — investigate + bump.
-- [ ] **Wire a real `WindowDetector`** so per-app cleanup modes actually activate (daemon default is `NullWindowDetector`).
-- [ ] **STT model evaluation** — Parakeet-TDT / Distil-Whisper swap vs Moonshine/Whisper (accuracy + CPU latency).
-- [ ] **Semantic VAD / neural endpointing** layer on top of Silero + the new hysteresis gate.
-- [ ] **Inference perf** — KV-cache quantization + prompt caching in the llama.cpp path.
-- [ ] **TOML config loader** for the Rust core (currently all `YAZSES_*` env vars).
+#### Deferred backlog — next-session pickup (as written then)
 
-## Planned
+- Still open when the rewrite was parked: **Cut a release tag** for the above (versioning is mixed: Python `0.4.1`, learning `v0.5.0`, Rust `1.0.0-dev`) — decide a number.
+- Still open when the rewrite was parked: **Live-hardware verification** of the overlay + new dictation flags (only end-to-end gap; unit-tested already).
+- Still open when the rewrite was parked: **2 moderate Dependabot advisories** on the default branch — investigate + bump.
+- Still open when the rewrite was parked: **Wire a real `WindowDetector`** so per-app cleanup modes actually activate (daemon default is `NullWindowDetector`).
+- Still open when the rewrite was parked: **STT model evaluation** — Parakeet-TDT / Distil-Whisper swap vs Moonshine/Whisper (accuracy + CPU latency).
+- Still open when the rewrite was parked: **Semantic VAD / neural endpointing** layer on top of Silero + the new hysteresis gate.
+- Still open when the rewrite was parked: **Inference perf** — KV-cache quantization + prompt caching in the llama.cpp path.
+- Still open when the rewrite was parked: **TOML config loader** for the Rust core (currently all `YAZSES_*` env vars).
 
-### v2.0 — Deep-tier routing and advanced intelligence
+### Planned (Rust-era plan)
+
+#### v2.0 — Deep-tier routing and advanced intelligence
+
+The current versions of these four ideas are under
+[Future work](docs/roadmap.md#future-work) in `docs/roadmap.md`.
+
 - Tier::Deep LLM routing: multi-step reasoning, cross-turn context, agentic task chaining over long sessions.
 - RAG memory: semantic retrieval over personal note corpus (sqlite-vec ANN, BGE-small-en embeddings) replacing linear O(n) scan.
 - LoRA adapters for atypical speech: personal model fine-tuning for users with dysarthria, ALS, or Parkinson's (gap-005b).
 - sEMG wristband input: silent-speech channel via surface electromyography wristband (BLE YESP), enabling fully silent dictation in open-plan offices.
+
+*End of the historical Rust-era archive. Current planning: [`docs/roadmap.md`](docs/roadmap.md).*
 
 ---
 
