@@ -151,9 +151,21 @@ def test_hesitation_without_autostop_builds_nothing_and_says_so(caplog):
     with caplog.at_level(logging.INFO, logger="yazses.hesitation.handsfree"):
         assert build_monitor(cfg.hesitation, cfg.autostop, SR) is None
     assert any("[autostop] is off" in r.getMessage() for r in caplog.records)
+    caplog.clear()
     daemon = _daemon(cfg)
-    assert daemon._build_autostop(cfg) is None
+    with caplog.at_level(logging.INFO, logger="yazses.hesitation.handsfree"):
+        assert daemon._build_autostop(cfg) is None
     assert daemon._hesitation is None
+    # The daemon path itself must say why the toggle is inert, not only build_monitor.
+    assert any("[autostop] is off" in r.getMessage() for r in caplog.records)
+
+
+def test_enabling_hesitation_without_autostop_prints_a_caveat():
+    from yazses.system.features import enable_caveat
+
+    caveat = enable_caveat("hesitation", _cfg(autostop=False, hesitation=True))
+    assert caveat is not None and "yazses features enable autostop" in caveat
+    assert enable_caveat("hesitation", _cfg(autostop=True, hesitation=True)) is None
 
 
 # ---- the three hook points ----------------------------------------------------------------

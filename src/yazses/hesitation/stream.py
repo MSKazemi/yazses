@@ -76,10 +76,16 @@ class HesitationMonitor:
 
     :meth:`push` only copies the chunk and appends it to a queue under a short lock, so the
     audio-callback thread never waits for analysis. The analysis runs on whichever thread calls
-    :attr:`last_was_filled_pause` or :meth:`decision` (the auto-stop watcher polls every 50 ms):
-    it swaps the queue out under that short lock and runs YIN outside it, under a separate
-    analysis lock. The verdict is recomputed on every voiced frame and kept through the unvoiced
-    frames after it, so it describes the most recent vocalization.
+    :attr:`last_was_filled_pause` or :meth:`decision`: it swaps the queue out under that short
+    lock and runs YIN outside it, under a separate analysis lock. The analysis is not incremental
+    per watcher tick: in a hands-free turn ``AutoStopTurn`` consults :meth:`decision` only after
+    speech was heard and at least ``MIN_SILENCE_TIMEOUT_MS`` of silence followed, so during a
+    turn longer than ``max_pending_s`` the queue drops its oldest audio and the first
+    consultation analyses one block of up to ``max_pending_s`` on the watcher thread. That block
+    still holds the trailing vocalization, which is all the verdict needs; a :meth:`reset` from
+    the hotkey thread can wait for that one analysis. The verdict is recomputed on every voiced
+    frame and kept through the unvoiced frames after it, so it describes the most recent
+    vocalization.
 
     If queued audio had to be dropped (nobody read for ``max_pending_s``), the verdict is cleared
     along with the tracker: the dropped audio may have held newer speech, so a verdict from before

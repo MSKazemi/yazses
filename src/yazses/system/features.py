@@ -1824,6 +1824,14 @@ def enable_caveat(slug: str, cfg) -> str | None:
         except Exception:
             pass
 
+    if slug == "hesitation" and not getattr(getattr(cfg, "autostop", None), "enabled", False):
+        # Hesitation-hold only lengthens a hands-free turn's silence timeout; hold-to-talk
+        # ends on key release, so with [autostop] off the toggle would change nothing.
+        return (
+            "Heads up: hesitation-hold only extends the hands-free auto-stop timeout, and "
+            "[autostop] enabled is false — so enabling it now changes nothing. Turn on "
+            "hands-free first: `yazses features enable autostop`, then `yazses restart`."
+        )
     if slug == "streaming":
         model = (getattr(getattr(cfg, "stt", None), "model", "") or "").strip().lower()
         # Streaming only wins where a rolling decode keeps up with the speech.

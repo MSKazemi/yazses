@@ -49,7 +49,7 @@ Related capabilities worth knowing about:
 
 | Capability | Enable with | For |
 |---|---|---|
-| Hesitation-Hold Endpointing | `yazses features enable hesitation` *(planned — not yet wired)* | Not being cut off mid-sentence when you pause |
+| Hesitation-Hold Endpointing | `yazses features enable hesitation` *(experimental; needs `autostop`)* | Not being cut off mid-sentence when you pause |
 | Breath-Paced Dictation | `yazses features enable breath` *(planned — not yet wired)* | Pacing around breath, not clock timeouts |
 | Whisper-Aware Mode | `yazses features enable whispermode` | Speaking quietly, or with limited volume |
 | Involuntary-Vocalization Excision | `yazses features enable involuntary` | Filtering involuntary sounds |

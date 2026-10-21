@@ -74,7 +74,13 @@ detected filled pause. Wired for #164 (WIRE-HESITATION-001):
   monitor's queue lock, no analysis); `_on_hold_start` resets the monitor for a new turn (not
   on the swallowed second tap). YIN runs on the auto-stop watcher thread, inside
   `AutoStopTurn.tick`, so a hotkey press can wait for at most one analysis of the queued
-  audio (bounded at 2 s).
+  audio (bounded at 2 s). The analysis is not incremental: the turn consults the judge only
+  after it has heard speech and at least `MIN_SILENCE_TIMEOUT_MS` (300 ms) of silence, so while
+  someone speaks the queue fills to `MAX_PENDING_S` (2 s), drops its oldest audio and resets
+  the tracker, and the first consultation runs YIN over one block of up to 2 s in a single
+  watcher tick. The block still holds the trailing vocalization the verdict is about.
+- With `[hesitation]` on and `[autostop]` off the daemon builds nothing and logs why, and
+  `yazses features enable hesitation` prints a caveat naming `yazses features enable autostop`.
 - Hold-to-talk is untouched: it ends on key release and never feeds the monitor.
 - The feature is registered as **experimental**. Point (b) still stands: the thresholds were
   checked on synthetic tones only.

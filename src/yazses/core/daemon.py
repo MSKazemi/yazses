@@ -2438,6 +2438,11 @@ class Daemon:
         nothing from ``yazses.endpoint`` (tests/test_default_start_stays_light.py).
         """
         if not cfg.autostop.enabled:
+            if cfg.hesitation.enabled:
+                # [hesitation] only extends a hands-free turn: build_monitor logs why it is inert.
+                from yazses.hesitation.handsfree import build_monitor
+
+                build_monitor(cfg.hesitation, cfg.autostop, cfg.audio.sample_rate)
             return None
         from yazses.endpoint.autostop import AutoStopTurn
 
