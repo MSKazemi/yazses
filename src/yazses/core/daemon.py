@@ -337,6 +337,8 @@ class Daemon:
     _switch_bound: frozenset[str] = frozenset()
     _switch_select_limiter = None
     _gesture = None
+    #: Voice Mouse Grid (ADR-v2-030): the grid runtime, or None -- the default.
+    _mousegrid = None
     #: Hands-free auto-stop (ADR-v2-029): the tap-to-latch turn, or None -- the default.
     #: Class-level for the same partial-daemon reason as the attributes above; while it is
     #: None the two hold handlers behave exactly as they always have.
@@ -1485,6 +1487,8 @@ class Daemon:
         # Gesture Chords (ADR-v2-043): face/head tokens from the same shared camera, resolved
         # by gesture/chords.py. Dormant unless `[gesture] enabled` *and* a chord is bound.
         self._gesture = self._build_gesture(cfg)
+        # Voice Mouse Grid (ADR-v2-030): None unless `[mousegrid] enabled`; opens no sink.
+        self._mousegrid = self._build_mousegrid(cfg)
 
         # ADR-v2-011 role arbitration. Must precede the activation sources, because
         # it decides what role EMG plays among them.
@@ -1640,6 +1644,7 @@ class Daemon:
         server.register("handsfree", self._handle_handsfree)
         server.register("facegesture", self._handle_facegesture)
         server.register("gesture", self._handle_gesture)
+        server.register("mousegrid", self._handle_mousegrid)
         server.serve_in_thread()
         self._ipc_server = server
 
@@ -2361,6 +2366,35 @@ class Daemon:
             log.exception("Head-Pointer command %r raised", action)
             return {"ok": False, "reason": f"failed: {type(exc).__name__}"}
 
+    def _build_mousegrid(self, cfg):
+        """The Voice Mouse Grid runtime (ADR-v2-030), or None while `[mousegrid]` is off.
+
+        Imported only when enabled, so a default daemon never loads `yazses.mousegrid`.
+        The pointer sink is built by the runtime on the first grid action, not here.
+        """
+        if not cfg.mousegrid.enabled:
+            return None
+        try:
+            from yazses.mousegrid.runtime import build_mousegrid
+
+            return build_mousegrid(cfg.mousegrid, pointer_factory=self._platform.pointer_factory,
+                                   safety=self._handsfree_safety)
+        except Exception:
+            log.warning("Voice Mouse Grid could not be built; it stays off.", exc_info=True)
+            return None
+
+    def _handle_mousegrid(self, request: Request) -> dict[str, object]:
+        """IPC: `status | open | say | cancel | screen` for the Voice Mouse Grid."""
+        runtime = self._mousegrid
+        if runtime is None:
+            return {"ok": False, "enabled": False, "reason": "[mousegrid] is not enabled"}
+        action = str(request.params.get("action", "status"))
+        try:
+            return runtime.command(action, dict(request.params))
+        except Exception as exc:
+            log.exception("Mouse grid command %r raised", action)
+            return {"ok": False, "reason": f"failed: {type(exc).__name__}"}
+
     def _build_gesture(self, cfg):
         """The Gesture Chords runtime (ADR-v2-043, #408). Never raises; never opens a camera.
 
@@ -3062,6 +3096,23 @@ class Daemon:
                 if not text:
                     event["discard_reason"] = "post_filter"
                     log.info("Post-filter empty -- discarding.")
+                    if stream_injector is not None:
+                        stream_injector.cancel()
+                    return
+
+            # Voice Mouse Grid (ADR-v2-030): "mouse grid", cell numbers, "click". Off by
+            # default; with no grid open only that exact phrase is claimed, and an open grid
+            # hands back (closing itself) any utterance that is not a grid command.
+            if self._mousegrid is not None:
+                grid_result = self._mousegrid.handle_transcript(text)
+                if grid_result is not None:
+                    event["discard_reason"] = "mousegrid"
+                    event["mousegrid"] = grid_result
+                    # An instruction, not an attempt to dictate: keep it out of the
+                    # dictation rate exactly as a command-key burst is kept out.
+                    event["command_mode"] = True
+                    if grid_result == "refused":
+                        self._earcon.play("error")
                     if stream_injector is not None:
                         stream_injector.cancel()
                     return
@@ -7053,6 +7104,11 @@ class Daemon:
                 self._headpointer.stop()
             except Exception:
                 log.exception("Head-Pointer stop raised")
+        if self._mousegrid is not None:
+            try:
+                self._mousegrid.close()  # releases the pointer sink, if one was opened
+            except Exception:
+                log.exception("Mouse grid close raised")
         if self._gaze_targeter is not None:
             try:
                 self._gaze_targeter.close()  # release the camera

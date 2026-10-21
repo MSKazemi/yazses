@@ -149,7 +149,8 @@ def run() -> None:  # pragma: no cover - thin Qt shell around compute_frame
 
     from yazses.platform import get_platform
 
-    cfg = load_config().overlay
+    full_cfg = load_config()
+    cfg = full_cfg.overlay
     platform = get_platform()
     client = platform.ipc_client_factory(platform.paths.ipc_socket)
 
@@ -167,7 +168,25 @@ def run() -> None:  # pragma: no cover - thin Qt shell around compute_frame
         geo = screen.geometry()
         return geo.x(), geo.y(), geo.width(), geo.height()
 
+    # Voice Mouse Grid (ADR-v2-030): a second click-through window for the numbered cells,
+    # and its own poller. Built only when `[mousegrid] enabled`, so an overlay without the
+    # feature imports nothing more and sends the same IPC it always did.
+    grid_poller = None
+    grid_widget = None
+    if full_cfg.mousegrid.enabled:
+        from yazses.overlay.grid import GridPoller
+        from yazses.overlay.grid_widget import GridWidget
+
+        primary = QGuiApplication.primaryScreen().geometry()
+        grid_poller = GridPoller(
+            client, (primary.x(), primary.y(), primary.width(), primary.height())
+        )
+        grid_poller.start()
+        grid_widget = GridWidget(cfg.accent)
+
     def _tick() -> None:
+        if grid_widget is not None and grid_poller is not None:
+            grid_widget.show_grid(grid_poller.latest())
         cursor = QCursor.pos()
         frame = compute_frame(
             poller.latest(),
@@ -202,6 +221,8 @@ def run() -> None:  # pragma: no cover - thin Qt shell around compute_frame
         app.exec()
     finally:
         poller.stop()
+        if grid_poller is not None:
+            grid_poller.stop()
 
 
 if __name__ == "__main__":

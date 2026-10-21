@@ -210,18 +210,6 @@ entries:
       task: "WIRE-MORSEVOX-001"
       milestone: 9
     remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
-  - id: "capability:mousegrid"
-    kind: capability
-    title: "Voice Mouse Grid"
-    source: "design/adr/adr-v2-030-voice-mouse-grid.md"
-    decision_status: accepted
-    delivery_status: designed
-    tracking:
-      kind: campaign
-      issues: [164]
-      task: "WIRE-MOUSEGRID-001"
-      milestone: 9
-    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
   - id: "capability:mouthswitch"
     kind: capability
     title: "Mouth-Sound Switch Access"

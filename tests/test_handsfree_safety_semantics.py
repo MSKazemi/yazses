@@ -708,6 +708,10 @@ def test_speech_only_dictation_does_not_consult_the_hands_free_gate():
     assert mentioning == {
         "_build_pipeline", "_build_face_gesture_source", "_build_headpointer", "_build_gesture",
         "_handsfree_payload", "_handle_handsfree", "shutdown", "_shutdown",
+        # The Voice Mouse Grid's builder hands the gate to the grid so a pause stops the
+        # pointer; the grid itself is reached from `_on_hold_end` only through its runtime,
+        # which never consults the gate for dictation (it returns None for non-grid speech).
+        "_build_mousegrid",
     }
     for dictation in ("_on_hold_start", "_on_hold_end", "_on_command_hold_start",
                       "_on_command_hold_end"):

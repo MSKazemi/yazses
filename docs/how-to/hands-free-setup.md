@@ -188,8 +188,10 @@ another way to commit.
 
 ## Not part of the preset
 
-- The **Voice Mouse Grid** (click by voice) is designed but not wired into this build, so there is no
-  precision fallback in the preset.
+- The **Voice Mouse Grid** (click by voice) is experimental and the preset does not turn it on, so the
+  precision fallback is yours to enable: `yazses features enable mousegrid`, then say "mouse grid",
+  cell numbers, and "click". It needs absolute pointer motion (X11 or macOS), and the numbered grid is
+  drawn only when `[overlay]` is on.
 - No face gesture is bound to select, confirm or cancel by the preset. The commit is dwell-click unless you
   add a `[[facegesture.switches]]` entry yourself.
 
