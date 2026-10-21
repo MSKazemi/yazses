@@ -125,6 +125,9 @@ For `fa-en`:
 - Persian-token CER;
 - span-language classification accuracy where observable.
 
+The exact definitions, categories, consent template and held-out split are frozen in
+[persian-code-switch-evaluation.md](persian-code-switch-evaluation.md) (`fa-en-cs-v1`).
+
 ### Performance
 
 - real-time factor;
