@@ -71,14 +71,14 @@
     {
       "type": "library",
       "name": "aiohttp",
-      "version": "3.14.3",
-      "purl": "pkg:pypi/aiohttp@3.14.3",
-      "bom-ref": "pkg:pypi/aiohttp@3.14.3",
+      "version": "3.14.5",
+      "purl": "pkg:pypi/aiohttp@3.14.5",
+      "bom-ref": "pkg:pypi/aiohttp@3.14.5",
       "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "9491196535a88924a60afd5b5f434b5b203b6cc616250878dbdb223a8f7844bc"
+          "content": "5558a7f5a05af9ecf744af91e5baefc436f93c9333e656c27ec253f9a6bbe178"
         }
       ]
     },
@@ -345,14 +345,14 @@
     {
       "type": "library",
       "name": "certifi",
-      "version": "2026.6.17",
-      "purl": "pkg:pypi/certifi@2026.6.17",
-      "bom-ref": "pkg:pypi/certifi@2026.6.17",
+      "version": "2026.10.19",
+      "purl": "pkg:pypi/certifi@2026.10.19",
+      "bom-ref": "pkg:pypi/certifi@2026.10.19",
       "scope": "required",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "024c88eeec92ca068db80f02b8b07c9cef7b9fe261d1d535abfd5abd6f6af432"
+          "content": "035c1e85572b141bf1c3a3eff0e33a8eb74917522f2559075ff8d2fea780a1ae"
         }
       ]
     },
@@ -2065,14 +2065,14 @@
     {
       "type": "library",
       "name": "pillow",
-      "version": "12.3.0",
-      "purl": "pkg:pypi/pillow@12.3.0",
-      "bom-ref": "pkg:pypi/pillow@12.3.0",
+      "version": "13.0.0",
+      "purl": "pkg:pypi/pillow@13.0.0",
+      "bom-ref": "pkg:pypi/pillow@13.0.0",
       "scope": "required",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "3b8182a766685eaa002637e28b4ec8d6b18819a0c71f579bf0dbaa5830297cce"
+          "content": "cdcd1ba258178f7356d74170c9a81ba4eab6a5d55748bc402a5a2a6fe6be3510"
         }
       ]
     },
@@ -2685,14 +2685,14 @@
     {
       "type": "library",
       "name": "pytorch-lightning",
-      "version": "2.6.5",
-      "purl": "pkg:pypi/pytorch-lightning@2.6.5",
-      "bom-ref": "pkg:pypi/pytorch-lightning@2.6.5",
+      "version": "2.6.6",
+      "purl": "pkg:pypi/pytorch-lightning@2.6.6",
+      "bom-ref": "pkg:pypi/pytorch-lightning@2.6.6",
       "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "1c32cefa76a1a9c4c5250338272d961d1e48b180e68396849efe128538ddb28e"
+          "content": "52c52b20522dd3d3feb3bb3aae2dbe3f291e8e836d4111a74cfd72e9df018834"
         }
       ]
     },
@@ -3721,14 +3721,14 @@
     {
       "type": "library",
       "name": "yarl",
-      "version": "1.24.5",
-      "purl": "pkg:pypi/yarl@1.24.5",
-      "bom-ref": "pkg:pypi/yarl@1.24.5",
+      "version": "1.25.1",
+      "purl": "pkg:pypi/yarl@1.25.1",
+      "bom-ref": "pkg:pypi/yarl@1.25.1",
       "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "e81b83143bee16329c23db3c1b2d82b29892fcbcb849186d2f6e98a5abe9a57f"
+          "content": "03dd38de09bc213e9a8b29761eec33ee1d5318dac0e49d8af36e4d27830e23a7"
         }
       ]
     }

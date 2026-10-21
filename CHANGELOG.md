@@ -6,6 +6,43 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Security — 20 of 21 open dependency advisories closed by upgrading, the last one assessed ([#116](https://github.com/MSKazemi/yazses/issues/116))
+
+OpenSSF Scorecard's `Vulnerabilities` check had fallen to 0/10 with 21 open OSV
+advisories that nobody had assessed. Each was traced to the package that brings it
+in and checked for whether YazSes reaches the vulnerable code:
+
+- **`certifi` 2026.6.17 → 2026.10.19** (PYSEC-2026-4320). This one *was* reachable
+  in a default install: it is the CA bundle behind the first-run model download,
+  and it trusted a root CA whose intermediate keys were compromised.
+- **`Pillow` 12.3.0 → 13.0.0**, with the Windows runtime floor raised to
+  `>=13.0.0` (nine decoder advisories, one critical). Pillow is in the Windows base
+  install for the tray, but YazSes never opens an image file, so none of the decoders
+  was reached. The floor is raised because `pip install --upgrade` would otherwise
+  keep an existing 12.x. Under 13.0.0 the committed icons and tray images still
+  match what `scripts/gen-icons.py --check` and `scripts/gen-tray-states.py --check`
+  render, on Linux x86_64; the Windows tray itself was not run.
+- **`aiohttp` 3.14.3 → 3.14.5** (with `yarl` 1.25.1, which it requires; eight
+  advisories) and **`pytorch-lightning` 2.6.5 → 2.6.6** (PYSEC-2026-3967). Both
+  arrive only under the opt-in `diarization-pyannote` extra and neither is imported.
+  The second is the twin distribution of the `lightning` checkpoint loader:
+  `lightning` had been patched for CVE-2026-58659 while `pytorch-lightning`, which
+  it depends on, stayed at the vulnerable version.
+- **`uv` 0.12.18 → 0.13.4** in the Flatpak generator's hash-pinned
+  `packaging/flatpak/tools-requirements.txt` (PYSEC-2026-4321). Dependabot does not
+  read that file.
+- **`diskcache`** has no fix upstream and is still not reached (nothing here
+  builds a llama-cpp cache). It is now listed in a new `osv-scanner.toml` with its
+  reason and an expiry of 2027-01-21. Scorecard documents that it honours that file.
+
+Only those packages moved in `uv.lock`; the Intel-macOS `onnxruntime` split is
+unchanged. How the list is produced (Scorecard API, `pip-audit` on a full
+`uv export`, `osv-scanner`) and the reachability call for each advisory are in
+`.github/SECURITY.md`. `tests/test_dependency_advisories.py` now fails if any of
+these packages drops below its fixed version, if either lightning distribution is
+unpatched, and if an `osv-scanner.toml` entry has no reason, no expiry, no published
+assessment, or covers an advisory that has a fix.
+
 ### Fixed — pushing a release tag no longer turns every open pull request red ([#602](https://github.com/MSKazemi/yazses/issues/602))
 
 The Windows packaging tests (Scoop, Chocolatey nuspec and install script, winget)

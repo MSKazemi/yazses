@@ -64,10 +64,71 @@ fix — and **each assessment is pinned by a test** in
 `tests/test_dependency_advisories.py` — the reasoning below cannot quietly stop
 being true without the suite failing.
 
+### How the list is produced
+
+Two independent sources, both reproducible without installing anything into the
+project environment:
+
+```sh
+# 1. What OpenSSF Scorecard reported (read-only public API, weekly scan of main):
+curl -s https://api.securityscorecards.dev/projects/github.com/MSKazemi/yazses \
+  | jq '.checks[] | select(.name == "Vulnerabilities")'
+
+# 2. A cross-check against the lock, every extra and group, all platforms:
+uv export --frozen --all-extras --all-groups --no-hashes --no-emit-project \
+  -o /tmp/yazses-all.txt
+uvx pip-audit -r /tmp/yazses-all.txt --no-deps --disable-pip -s osv
+# ...and the one hash-pinned closure that lives outside uv.lock:
+uvx pip-audit -r packaging/flatpak/tools-requirements.txt --no-deps --disable-pip -s osv
+
+# 3. The scanner Scorecard itself runs, honouring osv-scanner.toml
+#    (a release binary from github.com/google/osv-scanner, checksum-verified):
+osv-scanner scan source -L uv.lock -L sbom.cdx.json \
+  -L requirements.txt:packaging/flatpak/tools-requirements.txt
+```
+
+Scorecard runs `osv-scanner` over every manifest in the tree, so it also reads
+`packaging/flatpak/tools-requirements.txt` (and `sbom.cdx.json`, which is
+generated from `uv.lock` and therefore carries the same findings). The export
+in step 2 covers the *universal* lock — every extra on every platform — which is
+deliberately wider than any one install.
+
+### October 2026 sweep (#116) — 21 advisories, 20 closed by upgrading
+
+Scorecard's scan of 2026-10-20 scored `Vulnerabilities` **0/10** with 21 open
+advisories. `pip-audit` against the lock found the same 20, and `osv-scanner`
+2.7.0 over the three files above reproduced all 21 — the 21st being `uv` in the
+Flatpak tools file. After the upgrades below, the same `osv-scanner` run reports
+only `diskcache`, which `osv-scanner.toml` then filters. Each was checked for whether YazSes actually reaches the
+vulnerable code. All but `diskcache` had a patched release compatible with every
+other pin — including the Intel-macOS `onnxruntime<1.24` split, which the
+upgrade left untouched — so they were upgraded rather than argued about, and
+`tests/test_dependency_advisories.py` now fails if any of them falls back below
+its fix.
+
+| Package (was → now) | Advisories | Reached by YazSes? |
+|---|---|---|
+| `certifi` 2026.6.17 → 2026.10.19 | PYSEC-2026-4320 | **Yes, in a default install.** It is the CA bundle behind `huggingface-hub`/`httpx`, i.e. the first-run model download. An on-path attacker holding one of the compromised emSign intermediates could have presented a trusted certificate for that connection. The most relevant fix of the sweep. |
+| `Pillow` 12.3.0 → 13.0.0 (floor raised to `>=13.0.0`) | GHSA-462x-pgg6-55fp, GHSA-58r4-6rv3-gfh8, GHSA-65qm-jvmh-6pqg, GHSA-8g5g-8vmr-9782, GHSA-c6hw-5grf-ff96, GHSA-p4wg-p73j-c528, GHSA-pchr-8j38-3x4p, GHSA-q45j-58j2-45rg, GHSA-vx6w-vv9f-6gvg | **Installed, not reached.** Pillow is a base dependency on Windows (the `pystray` tray) and is in the docs/dev tooling. Every advisory is in a *decoder* (TIFF, JPEG, GIF, PDF, EPS, morph); `src/yazses/` never opens an image file — `brandmark.py` only draws into new in-memory images. The floor was raised anyway, because pip's `only-if-needed` upgrade would otherwise keep a Windows user on 12.x. |
+| `aiohttp` 3.14.3 → 3.14.5 (`yarl` 1.24.5 → 1.25.1, required by it) | GHSA-2g87-pp6c-29x5, GHSA-494j-54xm-rwp3, GHSA-5wr8-gcqf-gqf3, GHSA-6cjc-53gc-5rqm, GHSA-9xw5-w5jj-pvcg, GHSA-f9xw-jh8m-3mwq, GHSA-gx76-c99x-2c96, GHSA-pqxq-w44r-73xw | **Not reached.** Arrives only as `fsspec[http]` under `lightning` under the opt-in `diarization-pyannote` extra. Nothing here imports `aiohttp` or runs an aiohttp server, and most of the eight are server-side. |
+| `pytorch-lightning` 2.6.5 → 2.6.6 | PYSEC-2026-3967 (= CVE-2026-58659) | **Installed, not imported.** The twin distribution of the `lightning` checkpoint loader assessed below. `pyannote.audio` 4.0.7 imports `lightning`, never `pytorch_lightning` (checked in its wheel), but `lightning` depends on `pytorch-lightning`, so it was installed at the vulnerable version while the entry below described the CVE as patched. |
+| `uv` 0.12.18 → 0.13.4, in `packaging/flatpak/tools-requirements.txt` | PYSEC-2026-4321 | **CI only.** The Flatpak `generate` job uses this `uv` to resolve the wheels Flathub builds from, over TLS to PyPI, with a vendored CA store that trusted the same compromised root. Dependabot does not read this file. |
+| `diskcache` 5.6.3 | PYSEC-2026-2447 | **Not reached; no fix exists.** Assessed in its own entry below, and listed with a reason and an expiry in `osv-scanner.toml`, which Scorecard honours ([its docs](https://github.com/ossf/scorecard/blob/main/docs/checks.md#vulnerabilities)). The ignore lapses on its date so the assessment is re-made rather than inherited. |
+
+A lock upgrade protects the bundles built from the lock (`.exe`, `.dmg`) and
+every fresh resolve. An **existing** pip install keeps its old transitive
+packages until they are upgraded: `pip install --upgrade --upgrade-strategy eager
+yazses` picks these fixes up, as does upgrading the named packages directly
+(`pip install --upgrade certifi`). Whether `uv tool upgrade` re-resolves
+transitive packages in an existing tool environment was not checked for this
+entry.
+
 ### `diskcache` ≤ 5.6.3 — unsafe pickle deserialization
 
 **Not exploitable in YazSes as shipped.** No patched release exists upstream, so
-this alert stays open until one does.
+the Dependabot alert stays open until one does. For OSV/Scorecard it is listed
+in `osv-scanner.toml` as `PYSEC-2026-2447` with this reasoning and an
+`ignoreUntil` of 2027-01-21, after which it is reported again and re-assessed.
 
 `diskcache` is not a dependency of YazSes. It arrives only underneath
 `llama-cpp-python`, and two things have to be true for the advisory to bite —
@@ -96,7 +157,9 @@ want, so please open an issue rather than assuming.
 three things this repository controls.** `lightning` 2.6.6, released upstream
 2026-09-10, restricts the `_instantiator` hyperparameter to an allowlist and
 rejects a `_class_path` that does not resolve to an already-imported subclass —
-fixing this CVE directly. `uv.lock` now resolves `lightning>=2.6.6`. Until this
+fixing this CVE directly. `uv.lock` now resolves `lightning>=2.6.6` — and, since
+the October 2026 sweep above, `pytorch-lightning>=2.6.6` too: the same loader
+ships in both distributions, and until then only `lightning` had been moved. Until this
 release shipped, no patched version existed at all, which is why the three
 bounds below were written as the entire mitigation rather than as
 defense-in-depth; they remain true and are kept for that reason.
