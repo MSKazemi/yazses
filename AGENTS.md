@@ -65,6 +65,11 @@ uv run mypy src                     # types — clean, advisory, see below
 branch-gate logic, read [`.github/CI_POLICY.md`](.github/CI_POLICY.md). It defines the
 workflow lanes, cancellation contract, permission boundaries, retry policy, and scale roadmap.
 
+**A red check:** follow CI_POLICY.md §9.1. Read the first failure, classify it, and rerun the
+failed jobs at most once, as a diagnostic. Never rerun until green. Never quarantine a test
+(`@pytest.mark.quarantine` plus an entry in `tests/quarantine.toml`) without a linked issue, an
+owner, a reason and an expiry. The suite fails on any quarantine missing one of them.
+
 **pytest and ruff must be green.** Run them before claiming anything works — do not infer
 success from a change looking correct. The suite is offline and mocks audio and model
 layers, so no microphone, network, or Whisper model download is required.

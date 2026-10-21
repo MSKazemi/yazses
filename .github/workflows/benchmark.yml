@@ -41,6 +41,8 @@ jobs:
     # macOS/Windows runners are free on a public repository, so the whole matrix
     # costs nothing but wall clock.
     timeout-minutes: 150
+    # PROMOTE WHEN: an `experimental: true` leg has completed green once -- set it to
+    # false (macos-15-intel: or drop the leg when GitHub retires the image, ADR-017).
     continue-on-error: ${{ matrix.experimental }}
     strategy:
       fail-fast: false
