@@ -78,6 +78,8 @@ jobs:
     # Legs without `experimental` are blocking; only a leg that explicitly opts
     # out is allowed to fail. Written this way round so that adding a new leg
     # makes it blocking by default rather than silently non-blocking.
+    # PROMOTE WHEN: an `experimental: true` leg has passed once -- delete the flag. The
+    # arm64 leg has (run 39471109286); flipping it is the owner's call (CI_POLICY.md §6.1).
     continue-on-error: ${{ matrix.experimental == true }}
     strategy:
       fail-fast: false
@@ -331,6 +333,8 @@ jobs:
     # and upgrade the ⚗️ row in docs/platform-support.md to ✅ — once it is
     # reliably passing.
     runs-on: ubuntu-latest
+    # PROMOTE WHEN: green on several consecutive runs with #306 resolved -- delete this,
+    # add the job to ci-gate's needs and upgrade its row in docs/platform-support.md.
     continue-on-error: true
     timeout-minutes: 45
     steps:
@@ -588,6 +592,8 @@ jobs:
   windows-update-handoff:
     name: Windows one-click update hand-off (real PowerShell)
     runs-on: windows-latest
+    # PROMOTE WHEN: passed on three consecutive pushes to main -- delete this and add the
+    # job to ci-gate's needs (see the comment above the job).
     continue-on-error: true
     timeout-minutes: 15
     steps:

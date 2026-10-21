@@ -645,6 +645,19 @@ def _pinned_ydotool_dialect():
     ydotool.set_ydotool_dialect(None)
 
 
+def pytest_configure(config):
+    """Register the `quarantine` marker and the plugin that applies it (#538).
+
+    A quarantined test still runs; its failure is reported as XFAIL with its issue, owner and
+    expiry, and a "quarantined tests" section lists it at the end of the run. An expired or
+    unregistered quarantine is not honoured. See `tests/quarantine_plugin.py` and
+    `.github/CI_POLICY.md` section 9.
+    """
+    from tests import quarantine_plugin
+
+    quarantine_plugin.install(config)
+
+
 #: The longest test id a CI log can be trusted to carry. The longest legitimate id in the suite is a
 #: little over 500 characters; this leaves a wide margin and still catches a payload used as its own id.
 MAX_TEST_ID_CHARS = 2000

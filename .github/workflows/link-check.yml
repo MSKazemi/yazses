@@ -33,6 +33,8 @@ concurrency:
 jobs:
   links:
     runs-on: ubuntu-latest
+    # PROMOTE WHEN: never -- advisory by design (see the header): a remote host's outage
+    # must not block a merge. A red run is read and the dead link fixed by hand.
     continue-on-error: true
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7

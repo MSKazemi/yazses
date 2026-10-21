@@ -174,6 +174,32 @@ its content while the window stays left-to-right, and copies the logical string.
 overlay draws no text. Not yet verified: how it looks to an RTL reader on real GNOME,
 KDE, Windows and macOS desktops, screen-reader output, and high-DPI.
 
+### Added — one written response to a red check, and quarantines that expire ([#538](https://github.com/MSKazemi/yazses/issues/538))
+
+`.github/CI_POLICY.md` §9 now says what to do when a blocking check is red. Read the first
+failure. Classify it as deterministic, a runner/service incident, or a suspected flake. Rerun
+the failed jobs at most once, as a diagnostic. Explain the failure before you merge. A test is
+called flaky only when the same commit both passed and failed it. Flaky tests are labelled
+`ci:flaky-test` and runner incidents `ci:runner-incident`, and the two are tracked
+separately. Nothing in CI changes behaviour.
+
+The policy has a test. A test may now be marked
+`@pytest.mark.quarantine(issue=, owner=, reason=, expires=)`. The marker needs a matching
+entry in the new `tests/quarantine.toml`, and the registry starts empty. A quarantined test
+**still runs**. Its failure is reported as `XFAIL` with its issue, owner and expiry, and every
+run that touches one ends with a "quarantined tests" section. In CI the same table goes to the
+step summary. `tests/test_flake_policy.py` fails the build in these cases: a quarantine that is
+expired, unregistered or incomplete; a quarantine that disagrees with the registry; a
+quarantine set to expire more than 90 days ahead; and a registry entry whose marker is gone.
+The plugin also stops honouring an expired quarantine, so on its expiry date the test blocks
+again.
+
+Each of the nine `continue-on-error` switches in `.github/workflows/` now has a
+`# PROMOTE WHEN:` / `# REMOVE WHEN:` comment beside it, and a new test requires one for any
+future switch. The test checks its line scan against a YAML parse, so a key it cannot read
+fails the test. The parsed YAML of every edited workflow is identical before and after. Only
+comments were added.
+
 ### Fixed — pushing a release tag no longer turns every open pull request red ([#602](https://github.com/MSKazemi/yazses/issues/602))
 
 The Windows packaging tests (Scoop, Chocolatey nuspec and install script, winget)

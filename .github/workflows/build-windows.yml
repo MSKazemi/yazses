@@ -62,6 +62,9 @@ jobs:
             experimental: false
     name: build (windows-${{ matrix.arch }})
     runs-on: ${{ matrix.runner }}
+    # PROMOTE WHEN: a re-added `experimental: true` leg (win_arm64, once ctranslate2 ships
+    # the wheel) has built green -- set it to false. No leg is experimental today, so this
+    # evaluates to false on every leg.
     continue-on-error: ${{ matrix.experimental }}
     timeout-minutes: 45
 

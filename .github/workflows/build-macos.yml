@@ -62,6 +62,8 @@ jobs:
             experimental: true
     name: build (macos-${{ matrix.arch }})
     runs-on: ${{ matrix.runner }}
+    # PROMOTE WHEN: the x86_64 leg has built green on a few consecutive runs -- set its
+    # `experimental` to false. REMOVE WHEN macos-15-intel is retired (August 2027, ADR-017).
     continue-on-error: ${{ matrix.experimental }}
     timeout-minutes: 30
 

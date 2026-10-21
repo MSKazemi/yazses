@@ -95,6 +95,8 @@ jobs:
         # Convenience copy only. Must not block the store publish below — when the
         # account's Actions artifact-storage quota is full this step errors, which
         # previously sank the whole job (and the publish with it).
+        # PROMOTE WHEN: a later job consumes this artefact; until then it is a
+        # convenience copy and must not gate the publish.
         continue-on-error: true
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:

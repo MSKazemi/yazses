@@ -351,23 +351,146 @@ The purpose of reuse is preventing policy drift, not minimizing line count.
 
 ## 9. Flakes, reruns, advisory jobs, and experimental legs
 
-#538 owns the detailed implementation.
+Issue #538 set this policy. Contributors and agents have one response to a red check, and
+a temporary exception cannot turn into a permanent gap that nobody sees.
 
-Current policy:
+Summary:
 
 - a blocking failure is a failure until explained;
 - one diagnostic rerun can distinguish an infrastructure/transient event from a
   deterministic failure;
 - repeated blind reruns are not a fix;
 - a test is not called flaky because it passed once on retry;
-- a quarantine needs a linked issue, owner, reason, and review/expiry point;
+- a quarantine needs a linked issue, owner, reason, and expiry date;
 - quarantined coverage stays visible;
-- continue-on-error requires an explicit reason and a promotion/removal condition.
+- continue-on-error requires an explicit reason and a promotion/removal condition;
+- flaky tests and runner/service incidents are tracked separately.
 
-Advisory platform coverage must remain honest. A green advisory job is useful evidence, but
-it must not be described as a blocking guarantee if the workflow permits failure.
+`tests/test_flake_policy.py` enforces the parts a machine can check (§9.3, §9.4). The
+rules are in `tests/flake_policy.py`, a standard-library module, and the pytest side is
+in `tests/quarantine_plugin.py`.
 
-FreeBSD-specific limitations remain tracked in #306 rather than being hidden by retries.
+### 9.1 The response to a red blocking check
+
+1. **Read the first failure.** Open the failed job and find the first failing test or
+   step. Do not work from the count of red legs. When every OS fails in the same test, the
+   cause is almost always one deterministic shared invariant (§13).
+2. **Classify it** as one of:
+   - **deterministic**: the change, or `main`, is broken. Fix it or revert. It is not
+     flaky, and no rerun is needed to know that.
+   - **runner/service incident**: the runner, network, package index or GitHub itself
+     failed (a cancelled setup, an index 5xx, a lost runner, a download timeout before any
+     test ran). See §9.5.
+   - **suspected flake**: a test failed with no code change that explains it, and the
+     failure is in the test or the code it exercises, not in infrastructure.
+3. **One diagnostic rerun** is allowed for the second and third classes. Rerun **only the
+   failed jobs**, once, and record what it showed. A pass after one rerun does not prove a
+   flake. It proves only that the failure is not deterministic on that runner, so the
+   failure still needs the issue in §9.2.
+4. **No second blind rerun.** If the rerun fails again, treat it as deterministic until
+   shown otherwise. If you rerun more than once, write down each attempt and what changed
+   between attempts. Rerunning until green is not a fix, and agents must never do it
+   (§14).
+5. **Explain it before you merge.** A red blocking check is merged past only once it is
+   explained. Write the explanation in the PR, or in the issue for a red `main`, with the
+   run id. A rerun that came back green without an explanation counts as unexplained.
+
+### 9.2 Calling a test flaky
+
+A test is **flaky** only when the same commit both passed and failed it, and nothing in
+the environment explains the difference. Record that evidence in an issue labelled
+`ci:flaky-test` (the label is an owner step; see #538): both run ids, the failing
+assertion, and the platform and interpreter. One green retry is not enough to call a test
+flaky. Neither is "it passes on my machine".
+
+The issue is the work item. A flake costs every later contributor time, and it teaches
+people to ignore red, so it is fixed or quarantined, not left to recur.
+
+### 9.3 Quarantine
+
+A quarantine lets a known-flaky test run without blocking while its issue is worked on. A
+quarantine is valid only if it has all of the following:
+
+| Requirement | How it is enforced |
+|---|---|
+| a linked issue | the marker's `issue=` must be a positive issue number |
+| an owner | `owner=` is the GitHub login that is responsible for closing it |
+| a reason | `reason=` says what fails and how often |
+| an expiry | `expires=` is an ISO date no more than 90 days ahead |
+| registration | `tests/quarantine.toml` has an entry with the same four values |
+
+```python
+@pytest.mark.quarantine(issue=1234, owner="MSKazemi",
+                        reason="times out about 1 run in 40 on windows-latest",
+                        expires="2026-12-01")
+def test_reads_the_socket(): ...
+```
+
+The marker is allowed only as a decorator on a test function or class. It is not allowed
+in `pytestmark`, `pytest.param` or `add_marker`, because the registry must name exactly
+what each quarantine covers.
+
+**Quarantined coverage stays visible.** A quarantined test **still runs**. A failure in
+its call phase is reported as `XFAIL` with its issue, owner and expiry. A pass is reported
+as a pass. Setup and teardown errors are never downgraded. Each run that touches a
+quarantined test ends with a `quarantined tests` section that lists each one and its
+result. In CI the same table is appended to the job's step summary, so it shows on the run
+page.
+
+**An exception cannot become permanent.** `tests/test_flake_policy.py` fails the build in
+any of these cases:
+
+- a marker is expired, unregistered or missing a field;
+- a marker and its registry entry disagree;
+- an entry has no marker (the quarantine is over, so delete the entry);
+- the expiry is more than 90 days away.
+
+The plugin also refuses to honour an invalid quarantine, so on its expiry date the test
+blocks again. To renew a quarantine, move the date in both places and give the reason in
+the issue. A reviewer sees the renewal in the diff.
+
+The registry starts empty on purpose. Add an entry only for a real, explained flake (§9.2),
+never to make one PR green. A test that is merely slow, or depends on a platform, is not
+flaky. Give it a `skipif` with a reason, or fix it.
+
+### 9.4 `continue-on-error`
+
+Every `continue-on-error` in `.github/workflows/` that can evaluate to true must have a
+comment on the same line, or in the comment block directly above it, of the form:
+
+```yaml
+# PROMOTE WHEN: green on three consecutive pushes to main -- add it to ci-gate's needs.
+continue-on-error: true
+```
+
+or `# REMOVE WHEN: <condition>`. If a step or job is advisory by design (a convenience
+upload, a best-effort sync, an external-link check), it says so: `# PROMOTE WHEN: never --
+<why>`. A literal `false` needs no comment. `tests/test_flake_policy.py` enforces this for
+literal and expression values, at job and step level. It also checks its line scan against
+a real YAML parse, so a flow-style key the scan cannot see fails the test instead of
+passing it. To list the switches and their conditions:
+`grep -n -A1 -e 'PROMOTE WHEN' -e 'REMOVE WHEN' .github/workflows/*.yml`.
+
+When a promotion condition is met, promoting the job is a deliberate change with its own
+PR, and `test_ci_gate.py` must agree with it (§6.1). A condition that has been met but not
+acted on is an owner decision waiting to be made. It is not a reason to delete the comment.
+
+Advisory coverage must remain honest. A green advisory job is useful evidence, but it is
+not a blocking guarantee while the workflow allows it to fail.
+
+### 9.5 Flakes and runner incidents are tracked separately
+
+| | Flaky test | Runner / service incident |
+|---|---|---|
+| Cause | the test or the code it exercises | the runner, network, package index, GitHub Actions |
+| Evidence | same commit passed and failed one test (§9.2) | failure before or outside any test, or a known outage |
+| Label | `ci:flaky-test` | `ci:runner-incident` |
+| Remedy | fix, or quarantine (§9.3) | retry once; repeated incidents mean a structural fix (pin, cache, timeout, wait-for-propagation), §8 and §13 |
+| Never | quarantined because a runner was slow | "fixed" by quarantining a test |
+
+Keeping the two apart keeps the numbers honest. A test is not quarantined for an outage of
+a package index, and an outage is not counted as a flaky test. FreeBSD-specific
+limitations stay tracked in #306 and are not hidden by retries.
 
 ---
 
@@ -517,7 +640,9 @@ The coordination issue is #539.
 - #535 — split fast and full PR lanes without coverage loss.
 - #536 — CI telemetry and SLO reporting.
 - #537 — reusable setup, cache rules, and timeouts.
-- #538 — flake/rerun/quarantine policy.
+- #538 — flake/rerun/quarantine policy. The policy, the quarantine registry and marker, and
+  the `continue-on-error` condition guard are in source (§9). Creating the `ci:flaky-test`
+  and `ci:runner-incident` labels is an owner step.
 - #462 — stable aggregate gate and main ruleset hardening. The gate (`ci-gate`, §6.1) is in
   source. Requiring it in the live ruleset is the owner step in §6.2.
 - #306 — FreeBSD advisory-job dependency/toolchain limitation.
