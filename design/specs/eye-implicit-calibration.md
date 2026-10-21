@@ -165,3 +165,21 @@ Report:
 - dock/undock/camera change outcome.
 
 No promotion to recommended implicit calibration without longitudinal field evidence.
+
+## Backends
+
+### Windows
+
+`platform/windows/click_observer.py` (#607) installs a `WH_MOUSE_LL` low-level mouse hook on
+a dedicated thread with its own message loop, the shape `platform/windows/hotkey.py` already
+uses. `WM_LBUTTONDOWN`, `WM_RBUTTONDOWN` and `WM_MBUTTONDOWN` each become one
+`ClickEvent(time.monotonic(), x, y)`; wheel, move, button-up and X-button messages produce
+nothing. The event names no button, no window and no text — the value has no field for them —
+and `MSLLHOOKSTRUCT.pt` is read as the hook reports it (primary-origin, negative left/above;
+the DPI factor belongs to the still-missing Windows topology provider, see the module
+docstring). The hook procedure only enqueues and returns `CallNextHookEx` — never `1` — because
+`LowLevelHooksTimeout` (300 ms default) silently removes a slow hook; the callback runs on a
+second thread. `start()` raises `ClickObserverError` naming `GetLastError` when the hook is
+refused. Hermetic tests: `tests/test_click_observer_windows.py`. **No real-Windows evidence
+yet**: a hook has not been installed on a Windows desktop by this code; that smoke report is
+still owed before the refiner is described as working there.
