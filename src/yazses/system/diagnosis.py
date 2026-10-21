@@ -371,8 +371,11 @@ _RULES: tuple[tuple[str, tuple[str, ...], str, str, str, str | None], ...] = (
         ("ydotool",),
         "YazSes transcribed your speech but could not type it",
         "The tool that types text into other windows is missing or not running.",
+        # No "the transcript is in the log": at the default log level it is not, by
+        # design (ADR-011). That sentence was only ever true because the failing
+        # command line quoted the text into a WARNING, which was the leak (SEC-002).
         "Run `yazses doctor` — it names the exact command to install and start "
-        "ydotool. Your words were not lost; the transcript is in the log.",
+        "ydotool, then dictate it again.",
         f"{_DOCS}/troubleshooting.html",
     ),
     (

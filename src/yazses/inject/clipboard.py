@@ -3,6 +3,7 @@ import shutil
 import subprocess
 import time
 
+from yazses.inject.payload import hide_payload
 from yazses.inject.ydotool import run_ydotool_keys
 
 # Milliseconds to wait after wl-copy sets the clipboard before sending Ctrl+V, so
@@ -45,7 +46,8 @@ class ClipboardInjector:
     def inject(self, text: str) -> None:
         is_wayland = bool(os.environ.get("WAYLAND_DISPLAY"))
         if is_wayland:
-            subprocess.run(["wl-copy", "--", text], check=True, timeout=5)
+            with hide_payload():
+                subprocess.run(["wl-copy", "--", text], check=True, timeout=5)
             time.sleep(_CLIPBOARD_SETTLE_S)
             _paste_wayland()
         else:

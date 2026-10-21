@@ -3,6 +3,7 @@ import subprocess
 from collections.abc import Iterable, Sequence
 
 from yazses.inject.keycodes import KEYCODES
+from yazses.inject.payload import describe_argv, hide_payload
 
 
 def _keycode_from_evdev(name: str) -> int | None:
@@ -76,12 +77,17 @@ def run_ydotool(args: Sequence[str], timeout: float, check: bool = True) -> None
     """Run ydotool and raise on failure, including the failures it exits 0 for."""
     argv = list(args)
     try:
-        proc = subprocess.run(argv, capture_output=True, text=True, timeout=timeout)
+        # `ydotool type ... -- <text>`: a timeout formats the whole argv, payload and all.
+        with hide_payload():
+            proc = subprocess.run(argv, capture_output=True, text=True, timeout=timeout)
     except FileNotFoundError as exc:  # pragma: no cover - `which` gates selection
         raise YdotoolCliError("ydotool is not installed") from exc
     failure = _classify(proc.stderr or "", proc.returncode)
     if failure is not None and check:
-        raise failure(f"{' '.join(argv)} -> exit {proc.returncode}: {(proc.stderr or '').strip()}")
+        # The command line is described, not quoted: after `--` it is the transcript,
+        # and this message is logged at WARNING and kept in `last_error` (SEC-002).
+        shown = " ".join(describe_argv(argv))
+        raise failure(f"{shown} -> exit {proc.returncode}: {(proc.stderr or '').strip()}")
 
 
 def _probe_dialect() -> str:
