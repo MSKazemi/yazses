@@ -176,6 +176,25 @@ def test_tasklist_image_match_rejects_unrelated_process():
     assert not is_yazses_image("INFO: No tasks are running which match the criteria.")
 
 
+@pytest.mark.parametrize(
+    "image",
+    ["python3.11.exe", "python3.exe", "pythonw3.12.exe", "PYTHON3.13.EXE", "pythonw.exe"],
+)
+def test_tasklist_image_match_accepts_versioned_interpreters(image):
+    """The Microsoft Store interpreter runs as python3.11.exe, even when started as
+    python.exe. Seen on Windows 11: `tasklist` named a live daemon that way, so
+    `status` said "not running", `stop` found nothing, and the tray kept starting
+    another one."""
+    assert is_yazses_image(f'"{image}","14204","Console","1","18,392 K"')
+
+
+@pytest.mark.parametrize(
+    "image", ["pythonista.exe", "python-installer.exe", "mypython.exe", "python3.11.exe.bak"]
+)
+def test_tasklist_image_match_still_rejects_lookalikes(image):
+    assert not is_yazses_image(f'"{image}","4321","Console","1","5,000 K"')
+
+
 # ---- Autostart command line ---------------------------------------------
 
 
