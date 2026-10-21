@@ -16,6 +16,9 @@ channel.
 
 ## Decision
 
+> The default map stated above (flat-hum = repeat) is superseded by owner decision 1 of the
+> 2026-10-21 amendment below: a flat hum is unmapped by default.
+
 Add an opt-in **Pitch-Contour Vocal Gestures**: `[contour] enabled=false`. Pure cores in
 `contour/gesture.py`: `normalize_contour(f0_series)` → a z-normalized voiced contour,
 `classify_contour(f0_norm)` → `rise` | `fall` | `rise_fall` | `flat`, and `gesture_to_command(gesture,

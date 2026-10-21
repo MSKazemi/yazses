@@ -270,3 +270,54 @@ def test_on_a_stop_phrase_spelled_like_a_hum_stays_the_stop_word(monkeypatch, ca
     assert "Contour hum" not in caplog.text
     assert d._cmdsafety.pending == "rm -rf build"
     assert d._injector.calls == []
+
+
+# ---- on: a contour failure never costs the user the burst ---------------------------
+#
+# `_contour_gesture` promises "never raises": with `[contour]` on, a failure inside the hum
+# check must leave each hook exactly where it would be with the section off.
+
+
+def _raise(*_a, **_k):
+    raise RuntimeError("contour broke")
+
+
+def test_on_a_failing_hum_check_before_decoding_still_lets_598_discard(
+    monkeypatch, caplog
+) -> None:
+    from yazses.contour import wiring
+
+    monkeypatch.setattr(wiring, "run_hum_gesture", _raise)
+    d = _daemon(monkeypatch, _burst(RISE), no_speech=True)
+    d._cmdsafety.hold("rm -rf build")
+    with caplog.at_level(logging.INFO, logger="yazses.core.daemon"):
+        d._on_hold_end()
+    assert "No speech in a" in caplog.text, "a contour failure skipped the #598 discard"
+    assert "Contour hum" not in caplog.text
+    assert d._cmdsafety.pending == "rm -rf build"
+    assert d._engine.calls == 0 and d._injector.calls == []
+
+
+def test_on_a_failing_hum_check_after_decoding_still_types_the_dictation(monkeypatch) -> None:
+    from yazses.contour import wiring
+
+    monkeypatch.setattr(wiring, "run_hum_gesture", _raise)
+    d = _daemon(monkeypatch, _burst(FALL), no_speech=False, text="hello world")
+    d._on_hold_end()
+    assert d._engine.calls == 1
+    assert d._injector.calls == ["hello world"], "a contour failure swallowed the dictation"
+
+
+def test_on_a_handler_that_raises_falls_through_to_598_and_keeps_the_ledger(
+    monkeypatch, caplog
+) -> None:
+    """`undo`'s injection fails mid-command: the burst is treated as before, nothing is lost."""
+    d = _daemon(monkeypatch, _burst(_rise_fall()), no_speech=True)
+    d._ledger.record("hello")
+    monkeypatch.setattr(d._injector, "inject_key_sequence", _raise)
+    with caplog.at_level(logging.INFO, logger="yazses.core.daemon"):
+        d._on_hold_end()
+    assert "No speech in a" in caplog.text
+    assert "Contour hum" not in caplog.text
+    assert d._ledger.last_text() == "hello", "a failed undo popped the ledger"
+    assert d._injector.calls == []
