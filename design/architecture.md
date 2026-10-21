@@ -897,7 +897,11 @@ an internal design note.
 The table above lists the founding Wave A–C packages (ADRs v2-000..013). Waves D–O add ~100 more
 off-by-default capabilities following the **same pattern** — a pure, 100%-covered core module under
 `src/yazses/<feature>/`, an `enabled = False` dataclass in `config.py`, a `system/features.py`
-registry entry, and heavy backends (if any) lazy-imported behind an optional extra. As of
+registry entry, and heavy backends (if any) lazy-imported behind an optional extra. A feature
+that is off also costs a default start no import of its own package: `tests/test_base_weight_budget.py`
+holds `import yazses.main` and `yazses --help` to that, and `tests/test_dormant_features_stay_unimported.py`
+holds a default daemon's `__init__` and `_build_pipeline` to it, each with a shrink-only list of the
+remaining exceptions (`docs/contribute/startup-budget.md`). As of
 `v2.11.0-dev.1`: **135 capabilities, 1489 tests green**, ADRs `adr-v2-001..126`.
 
 **Wave O (`v2.11`)** opens the first **file-ingestion entry point**: `yazses transcribe <file>`

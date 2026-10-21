@@ -162,3 +162,53 @@ def test_the_section_list_is_derived_from_the_config_dataclass():
 @pytest.mark.parametrize("text", ["", None, "no brackets here"])
 def test_text_without_a_section_is_returned_unchanged(text):
     assert escape_config_sections(text) == text
+
+
+# --- the precomputed names: `cli.main()` must not import `yazses.config` ---------------
+
+
+def test_the_precomputed_names_are_the_derived_names():
+    """`apply` reads the generated `config_sections.SECTION_NAMES` so that `cli.main()`
+    does not import the whole of `yazses.config` (~66 ms) on every invocation. The
+    derivation stays the authority; this is what keeps the copy honest, both ways."""
+    from yazses.config_sections import SECTION_NAMES
+
+    derived = config_section_names()
+    missing = sorted(derived - SECTION_NAMES)
+    extra = sorted(SECTION_NAMES - derived)
+    assert not missing and not extra, (
+        f"src/yazses/config_sections.py is stale (missing {missing}, extra {extra}): a "
+        "config section was added, renamed or removed. Run "
+        "`uv run python scripts/gen-docs.py` and commit the result."
+    )
+
+
+def _escape_by_derivation(text):
+    """The escape as it was written before the names were precomputed: one replace per
+    derived section name. Kept here as the reference the faster version must equal."""
+    if not text:
+        return text
+    for name in config_section_names():
+        token = f"[{name}]"
+        if token in text:
+            text = text.replace(token, f"\\{token}")
+    return text
+
+
+def test_the_escape_is_unchanged_on_every_help_string_in_the_app():
+    texts = [getattr(obj, attr, None) for obj, attr in _help_slots(cli_mod.app)]
+    texts = [t for t in texts if isinstance(t, str)]
+    assert len(texts) > 100, f"only {len(texts)} help strings found"
+    assert any("[" in t for t in texts), "no help string has a bracket; the check is vacuous"
+    for text in texts:
+        assert escape_config_sections(text) == _escape_by_derivation(text), text[:120]
+
+
+@pytest.mark.parametrize("text", [
+    "[meeting]", "see [meeting] and [tts], then [meeting] again",
+    "[filters.disfluency] and [filters]", "[filters.nope] is not a section",
+    "[[meeting]]", "\\[meeting] already escaped", "[bold][meeting][/bold]",
+    "[Meeting] is not a section", "[meeting.] trailing dot", "[ meeting ]", "[]",
+])
+def test_the_escape_is_unchanged_on_edge_cases(text):
+    assert escape_config_sections(text) == _escape_by_derivation(text)

@@ -224,6 +224,35 @@ superseded-run cancellation target (p95 under 2 min) was **met** at 19 s, with 8
 superseded PR runs cancelled. `Tests` used 14,269 of 15,744 job-minutes, and its two
 Windows legs failed `Run tests` in 27 runs each.
 
+### Changed — five disabled features no longer load at daemon start, and the CLI no longer imports the config for `--version`
+
+A default daemon start imported five feature packages that ship switched off: `earcon`,
+`facegesture`, `learning`, `styleguard` and `tts`. Each is now imported only on the code path
+that runs when the feature is enabled. `import yazses.main` loads 94 → 73 `yazses.*` modules
+and 340 → 306 modules in all, and `sqlite3`, `tempfile`, `random` and `wave` drop out with
+them. `configcheck` still validates `[facegesture] gesture` against the gesture definitions.
+It now reads them on the first lookup of that key instead of at import, and a test proves the
+table holds the same values either way.
+
+`cli.main()` runs on every CLI invocation. It imported the whole of `yazses.config`, the
+largest module in the tree, only to escape `[section]` names in help text. It now reads
+`src/yazses/config_sections.py`, which `scripts/gen-docs.py` generates. `yazses --version`
+loads 237 → 225 modules and stops importing `yazses.config`. Escaped help output is unchanged:
+a test compares the new escape with the old one on every help string in the app.
+
+`cmdsafety` and `staged` are still imported at start. Each would need more than moving an
+import, and `tests/test_base_weight_budget.py` records why. A new test,
+`tests/test_dormant_features_stay_unimported.py`, extends the budget from module import to a
+real default `Daemon.__init__` and `_build_pipeline`. It found seven more disabled packages
+imported while the pipeline is built (`gesture`, `facegesture`, `perception`, `gaze`,
+`handsfree`, `headpointer`, `polyglot`), now recorded on a shrink-only list. The module-count
+ceilings no longer depend on the OS they were measured on. `platform/<os>/` is not counted,
+and an AST check rejects a module-scope OS branch that imports a `yazses` module. See
+`docs/contribute/startup-budget.md`. Measured on Linux only; the Windows and macOS legs have
+not run it yet. One guard now covers more than it did. Moving the styleguard import into the
+dictation path let `tests/test_verbatim_bypasses_every_transform.py` see `apply_style`, and
+that guard now pins the style pass ahead of the verbatim restore too.
+
 ### Fixed — pushing a release tag no longer turns every open pull request red ([#602](https://github.com/MSKazemi/yazses/issues/602))
 
 The Windows packaging tests (Scoop, Chocolatey nuspec and install script, winget)
