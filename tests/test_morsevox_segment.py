@@ -237,6 +237,30 @@ def test_flush_closes_a_pulse_still_in_progress():
     assert seg.flush(400.0) == []
 
 
+def test_flush_accepts_a_candidate_pulse_that_reaches_min_pulse_only_at_the_flush():
+    # Capture stops a few samples into a hum: at the last sample the pulse has 30 ms of
+    # voiced time, under min_pulse_ms=40, so it is still a candidate. Only the voiced time
+    # flush() adds (up to t_ms) carries it past the minimum. That acceptance happens in
+    # _close, not _resolve; drop it and the final dot vanishes along with the gap before it.
+    seg = PulseSegmenter(SegmenterConfig.from_threshold(ON))
+    pushed: list[Segment] = []
+    for t, lv in [(0.0, LOUD), (10.0, LOUD), (100.0, QUIET), (200.0, QUIET),
+                  (400.0, LOUD), (410.0, LOUD), (420.0, LOUD), (430.0, LOUD)]:
+        pushed += seg.push(t, lv)
+    assert pushed == [Segment("pulse", 0.0, 100.0)]  # the earlier pulse; its gap is open
+    assert not seg.in_pulse                         # still only a candidate at 430 ms
+    assert seg.flush(450.0) == [Segment("gap", 100.0, 300.0), Segment("pulse", 400.0, 50.0)]
+
+
+def test_flush_drops_a_candidate_pulse_still_under_min_pulse():
+    # The twin: the same flush on a candidate that stays under min_pulse_ms is a click.
+    seg = PulseSegmenter(SegmenterConfig.from_threshold(ON))
+    seg.push(0.0, QUIET)
+    seg.push(10.0, LOUD)
+    seg.push(20.0, LOUD)
+    assert seg.flush(30.0) == []
+
+
 def test_stream_flush_emits_pending_letter_without_space():
     st = stream()
     for t, lv in sample([(False, 100.0), (True, 100.0), (False, 100.0)]):
