@@ -9,15 +9,19 @@ import subprocess
 import sys
 import time
 from collections.abc import Callable
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 
 from yazses.platform.base import Paths
+from yazses.platform.windows.update_handoff import APP_EXE
 from yazses.system.proc import process_alive as _process_alive
 
 log = logging.getLogger(__name__)
 
 _RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
 _RUN_VALUE_NAME = "YazSes"
+
+#: The console binary the spec builds beside ``YazSesApp.exe`` (packaging/windows/yazses.spec).
+_CLI_EXE = "yazses-cli.exe"
 
 # GetExitCodeProcess reports this while a process is still running.
 _STILL_ACTIVE = 259
@@ -90,10 +94,15 @@ def resolve_daemon_command(executable: str, frozen: bool) -> list[str]:
     return [executable, "-m", "yazses.main"]
 
 
-def resolve_tray_command(executable: str, frozen: bool, tray_script: Path | None) -> str:
+def resolve_tray_command(
+    executable: str,
+    frozen: bool,
+    tray_script: Path | None,
+    windowed_exe: Path | None = None,
+) -> str:
     """The HKCU\\Run command line that starts YazSes in tray mode.
 
-    Two things this has to get right, and previously got wrong:
+    Three things this has to get right, and previously got wrong:
 
     * **Quote the path.** A ``Run`` value is handed to ``CreateProcess`` as a raw
       command line, so an unquoted path containing a space is ambiguous —
@@ -106,12 +115,39 @@ def resolve_tray_command(executable: str, frozen: bool, tray_script: Path | None
       flag it does not start in tray mode. ``installer.iss`` already writes
       ``"{app}\\YazSes.exe" --tray``, so omitting it here meant toggling autostart
       in-app *overwrote the installer's correct value with a broken one*.
+    * **Name the windowed binary.** The bundle ships two: ``YazSesApp.exe``
+      (windowed) and ``yazses-cli.exe`` (console). Run from the CLI, *executable*
+      is the console one, and Windows gives a console program a terminal window
+      when it starts at sign-in, so ``yazses start`` on a Scoop install left an
+      empty window titled ``yazses-cli.exe`` open after every sign-in (#330), and
+      ``yazses autostart enable`` swapped the installer's entry for that one. A
+      *windowed_exe* that exists wins; without one, *executable* is all there is.
     """
     if frozen:
+        if windowed_exe is not None and windowed_exe.exists():
+            return f'"{windowed_exe}" --tray'
         return f'"{executable}" --tray'
     if tray_script is not None and tray_script.exists():
         return f'"{tray_script}"'
     return f'"{executable}" -m yazses.tray.app'
+
+
+def is_console_twin(current: str, wanted: str) -> bool:
+    """True when *current* is *wanted* with ``yazses-cli.exe`` in place of ``YazSesApp.exe``.
+
+    That exact value is what an earlier ``yazses start`` or ``yazses autostart enable``
+    wrote from the same install folder, so it is the only entry safe to rewrite: one
+    pointing anywhere else (another install, a hand-edited command) is the user's,
+    and is left alone. Windows paths compare case-insensitively.
+    """
+    suffix = '" --tray'
+    if not (wanted.startswith('"') and wanted.endswith(suffix)):
+        return False
+    app = PureWindowsPath(wanted[1 : -len(suffix)])
+    if app.name.lower() != APP_EXE.lower():
+        return False
+    console = f'"{app.with_name(_CLI_EXE)}" --tray'
+    return current.strip().lower() == console.lower()
 
 
 class WindowsLifecycle:
@@ -280,6 +316,30 @@ class WindowsLifecycle:
         except (FileNotFoundError, OSError):
             return False
 
+    def repair_autostart(self) -> bool:
+        """Point an entry this install wrote for its console binary at the windowed one.
+
+        Returns True when it rewrote the entry. Fixes installs that already carry the
+        value :func:`resolve_tray_command` used to produce; see :func:`is_console_twin`
+        for why nothing else is touched.
+        """
+        try:
+            import winreg  # type: ignore[import-not-found]
+        except ImportError:
+            return False
+        try:
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, _RUN_KEY, 0, winreg.KEY_READ) as key:
+                current, _ = winreg.QueryValueEx(key, _RUN_VALUE_NAME)
+        except OSError:
+            return False
+        wanted = self._tray_executable()
+        if not is_console_twin(str(current), wanted):
+            return False
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, _RUN_KEY, 0, winreg.KEY_SET_VALUE) as key:
+            winreg.SetValueEx(key, _RUN_VALUE_NAME, 0, winreg.REG_SZ, wanted)
+        log.info("Autostart pointed at the console binary; now %s", wanted)
+        return True
+
     def _tray_executable(self) -> str:
         """The HKCU\\Run command line that starts YazSes in tray mode.
 
@@ -297,9 +357,12 @@ class WindowsLifecycle:
           already writes ``"{app}\\YazSes.exe" --tray``, so omitting it here
           meant toggling autostart in-app *overwrote the installer's correct
           value with a broken one*.
+        * **Name the windowed binary**, not the console one the CLI runs as;
+          see :func:`resolve_tray_command`.
         """
         return resolve_tray_command(
             sys.executable,
             bool(getattr(sys, "frozen", False)),
             Path(sys.executable).parent / "yazses-tray.exe",
+            Path(sys.executable).parent / APP_EXE,
         )

@@ -6,6 +6,18 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — on Windows, no empty terminal window at sign-in after `yazses start` ([#330](https://github.com/MSKazemi/yazses/issues/330))
+
+On a Scoop install, `yazses start` set YazSes to start at sign-in using the console program
+`yazses-cli.exe` instead of the windowed `YazSesApp.exe`. Windows gives a console program a
+terminal window, so every sign-in left an empty window titled `yazses-cli.exe` open for as long
+as YazSes ran. On an installer install, `yazses autostart enable` replaced the installer's
+correct entry with the same console one. Both now write the windowed program, the same entry
+the installer writes. An entry already written the old way is fixed the next time you run
+`yazses start`, which says so once. Only that exact entry, for the same install folder, is
+changed; any other value is left alone. Reproduced and checked on Windows 11 22H2 with the
+Scoop install of 2.43.2.
+
 ### Changed — the Windows installer carries Parakeet's engine and Chinese script conversion; the diarization add-on runs on the installer's ONNX Runtime
 
 ADR-028's owner answers (2026-10-21), build side. The Windows installer now bundles two

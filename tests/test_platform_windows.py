@@ -22,6 +22,8 @@ from yazses.platform.windows.hotkey import (
 from yazses.platform.windows.injector import INJECTED_TAG, _utf16_units
 from yazses.platform.windows.ipc import _pipe_name_from_path
 from yazses.platform.windows.lifecycle import (
+    WindowsLifecycle,
+    is_console_twin,
     resolve_daemon_command,
     resolve_tray_command,
 )
@@ -168,3 +170,148 @@ def test_tray_command_falls_back_to_the_module_when_no_script(tmp_path):
         r"C:\py\python.exe", frozen=False, tray_script=tmp_path / "absent.exe"
     )
     assert cmd == r'"C:\py\python.exe" -m yazses.tray.app'
+
+
+# ---- Autostart names the windowed binary (#330's blank console window) ----
+#
+# The bundle ships YazSesApp.exe (windowed) and yazses-cli.exe (console). Run from
+# the CLI, sys.executable is the console one, and a console program started from
+# HKCU\Run gets a terminal window at every sign-in. Reproduced on Windows 11 with a
+# Scoop install: an empty window titled yazses-cli.exe, open as long as YazSes ran.
+
+
+def _bundle(tmp_path):
+    app = tmp_path / "YazSesApp.exe"
+    cli = tmp_path / "yazses-cli.exe"
+    app.write_bytes(b"")
+    cli.write_bytes(b"")
+    return app, cli
+
+
+def test_frozen_cli_writes_the_windowed_binary_into_autostart(tmp_path):
+    app, cli = _bundle(tmp_path)
+    cmd = resolve_tray_command(str(cli), frozen=True, tray_script=None, windowed_exe=app)
+    assert cmd == f'"{app}" --tray'
+
+
+def test_frozen_cli_matches_the_installer_entry_exactly(tmp_path):
+    """installer.iss writes `"{app}\\YazSesApp.exe" --tray`. `yazses autostart
+    enable` manages the same value, so it must write the same string."""
+    app, cli = _bundle(tmp_path)
+    installer_value = f'"{tmp_path / "YazSesApp.exe"}" --tray'
+    cmd = resolve_tray_command(str(cli), frozen=True, tray_script=None, windowed_exe=app)
+    assert cmd == installer_value
+
+
+def test_frozen_without_a_windowed_sibling_keeps_the_running_binary(tmp_path):
+    cli = tmp_path / "yazses-cli.exe"
+    cmd = resolve_tray_command(
+        str(cli), frozen=True, tray_script=None, windowed_exe=tmp_path / "YazSesApp.exe"
+    )
+    assert cmd == f'"{cli}" --tray'
+
+
+def test_a_source_install_ignores_the_windowed_binary(tmp_path):
+    app, _ = _bundle(tmp_path)
+    cmd = resolve_tray_command(
+        r"C:\py\python.exe", frozen=False, tray_script=None, windowed_exe=app
+    )
+    assert cmd == r'"C:\py\python.exe" -m yazses.tray.app'
+
+
+_APP = r'"C:\Users\ada\scoop\apps\yazses\current\YazSesApp.exe" --tray'
+_CLI = r'"C:\Users\ada\scoop\apps\yazses\current\yazses-cli.exe" --tray'
+
+
+@pytest.mark.parametrize(
+    "current",
+    [_CLI, _CLI.upper(), _CLI + "  "],
+    ids=["exact", "different-case", "trailing-space"],
+)
+def test_the_console_entry_from_the_same_folder_is_recognised(current):
+    assert is_console_twin(current, _APP)
+
+
+@pytest.mark.parametrize(
+    "current",
+    [
+        _APP,  # already right
+        r'"C:\Users\ada\AppData\Local\Programs\YazSes\yazses-cli.exe" --tray',  # another install
+        r'"C:\Users\ada\scoop\apps\yazses\current\yazses-cli.exe" --tray --debug',  # hand-edited
+        r'"C:\tools\my-launcher.exe"',  # the user's own
+        "",
+    ],
+    ids=["already-windowed", "other-folder", "extra-args", "foreign", "empty"],
+)
+def test_anything_else_in_the_entry_is_left_alone(current):
+    assert not is_console_twin(current, _APP)
+
+
+def test_nothing_is_rewritten_when_the_wanted_entry_is_not_the_windowed_binary():
+    # A source install wants `python -m yazses.tray.app`; there is no console twin.
+    assert not is_console_twin(_CLI, r'"C:\py\python.exe" -m yazses.tray.app')
+    assert not is_console_twin(_CLI, _CLI)
+
+
+class _FakeRunKey:
+    """Just enough of `winreg` for one REG_SZ under HKCU\\Run."""
+
+    HKEY_CURRENT_USER = object()
+    KEY_READ = 1
+    KEY_SET_VALUE = 2
+    REG_SZ = 1
+
+    def __init__(self, value):
+        self.value = value
+        self.writes: list[str] = []
+
+    def OpenKey(self, root, sub, reserved, access):  # noqa: N802 — winreg's name
+        import contextlib
+
+        return contextlib.nullcontext(self)
+
+    def QueryValueEx(self, key, name):  # noqa: N802
+        if self.value is None:
+            raise FileNotFoundError(name)
+        return self.value, self.REG_SZ
+
+    def SetValueEx(self, key, name, reserved, kind, value):  # noqa: N802
+        self.value = value
+        self.writes.append(value)
+
+
+def _lifecycle_running_from(monkeypatch, tmp_path, run_value):
+    import sys
+
+    app, cli = _bundle(tmp_path)
+    reg = _FakeRunKey(run_value)
+    monkeypatch.setitem(sys.modules, "winreg", reg)
+    monkeypatch.setattr(sys, "executable", str(cli))
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    return WindowsLifecycle.__new__(WindowsLifecycle), reg, app, cli
+
+
+def test_repair_rewrites_the_console_entry_this_install_wrote(monkeypatch, tmp_path):
+    lc, reg, app, cli = _lifecycle_running_from(monkeypatch, tmp_path, None)
+    reg.value = f'"{cli}" --tray'
+    assert lc.repair_autostart() is True
+    assert reg.writes == [f'"{app}" --tray']
+
+
+def test_repair_leaves_a_correct_entry_untouched(monkeypatch, tmp_path):
+    lc, reg, app, _ = _lifecycle_running_from(monkeypatch, tmp_path, None)
+    reg.value = f'"{app}" --tray'
+    assert lc.repair_autostart() is False
+    assert reg.writes == []
+
+
+def test_repair_does_nothing_without_an_entry(monkeypatch, tmp_path):
+    lc, reg, _, _ = _lifecycle_running_from(monkeypatch, tmp_path, None)
+    assert lc.repair_autostart() is False
+    assert reg.writes == []
+
+
+def test_install_from_the_cli_writes_the_windowed_binary(monkeypatch, tmp_path):
+    lc, reg, app, _ = _lifecycle_running_from(monkeypatch, tmp_path, None)
+    lc.install_autostart()
+    assert reg.writes == [f'"{app}" --tray']

@@ -109,6 +109,53 @@ def test_an_unanswerable_query_does_not_trigger_an_install(monkeypatch):
     assert lc.install_calls == 0
 
 
+class _RepairingLifecycle(_Lifecycle):
+    """Windows' lifecycle can also fix an entry an earlier start pointed at the
+    console binary, which opened an empty terminal window at every sign-in."""
+
+    def __init__(self, *, repaired=False, repair_raises=None, **kw):
+        super().__init__(**kw)
+        self._repaired = repaired
+        self._repair_raises = repair_raises
+        self.repair_calls = 0
+
+    def repair_autostart(self):
+        self.repair_calls += 1
+        if self._repair_raises is not None:
+            raise self._repair_raises
+        return self._repaired
+
+
+def test_start_repairs_an_existing_console_entry_and_says_so(monkeypatch):
+    lc = _RepairingLifecycle(installed=True, repaired=True)
+    r = _start(monkeypatch, lc)
+    assert r.exit_code == 0, r.output
+    assert lc.repair_calls == 1 and lc.install_calls == 0
+    assert "without a console window" in r.output
+
+
+def test_start_is_silent_when_the_existing_entry_needs_no_repair(monkeypatch):
+    lc = _RepairingLifecycle(installed=True, repaired=False)
+    r = _start(monkeypatch, lc)
+    assert r.exit_code == 0, r.output
+    assert lc.repair_calls == 1
+    assert "login" not in r.output
+
+
+def test_a_failed_repair_never_fails_the_start(monkeypatch):
+    lc = _RepairingLifecycle(installed=True, repair_raises=PermissionError("registry"))
+    r = _start(monkeypatch, lc)
+    assert r.exit_code == 0, r.output
+    assert lc.install_calls == 0
+
+
+def test_repair_is_not_attempted_when_autostart_is_missing(monkeypatch):
+    # A fresh install writes the right value; there is nothing to repair.
+    lc = _RepairingLifecycle(installed=False)
+    _start(monkeypatch, lc)
+    assert lc.install_calls == 1 and lc.repair_calls == 0
+
+
 @pytest.mark.parametrize("attr", ["install_autostart", "is_autostart_installed"])
 def test_a_backend_without_autostart_support_is_left_alone(monkeypatch, attr):
     # Not every platform backend implements autostart; `start` must still work.

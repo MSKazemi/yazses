@@ -1591,9 +1591,21 @@ def _ensure_autostart(platform) -> None:
     if lifecycle is None or not hasattr(lifecycle, "install_autostart"):
         return
     try:
-        if lifecycle.is_autostart_installed():
-            return
+        installed = lifecycle.is_autostart_installed()
     except Exception:  # noqa: BLE001 — an unanswerable question is not a reason to act
+        return
+    if installed:
+        # Windows only, for now: an earlier start pointed the entry at the console
+        # binary, which opens an empty terminal window at every sign-in.
+        repair = getattr(lifecycle, "repair_autostart", None)
+        try:
+            repaired = repair is not None and repair()
+        except Exception:  # noqa: BLE001 — a working entry beats a failed start
+            return
+        if repaired:
+            typer.echo(
+                "  Fixed the login entry: YazSes now starts at login without a console window."
+            )
         return
     try:
         lifecycle.install_autostart()
