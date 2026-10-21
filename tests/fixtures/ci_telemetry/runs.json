@@ -1,0 +1,799 @@
+[
+ {
+  "id": 101,
+  "name": "Tests",
+  "path": ".github/workflows/test.yml",
+  "event": "push",
+  "status": "completed",
+  "conclusion": "success",
+  "created_at": "2026-10-02T10:00:00Z",
+  "run_started_at": "2026-10-02T10:00:00Z",
+  "updated_at": "2026-10-02T10:30:00Z",
+  "run_attempt": 1,
+  "head_branch": "main",
+  "head_sha": "0000000000000000000000000000000000000101",
+  "display_title": "Synthetic run title",
+  "pull_requests": [],
+  "head_repository": {
+   "full_name": "example/yazses"
+  },
+  "actor": {
+   "login": "synthetic-actor",
+   "id": 1
+  },
+  "triggering_actor": {
+   "login": "synthetic-actor",
+   "id": 1
+  },
+  "head_commit": {
+   "id": "0000000000000000000000000000000000000000",
+   "message": "SYNTHETIC-COMMIT-MESSAGE do not leak",
+   "author": {
+    "name": "Synthetic Author",
+    "email": "synthetic.author@example.invalid"
+   },
+   "committer": {
+    "name": "Synthetic Author",
+    "email": "synthetic.author@example.invalid"
+   }
+  }
+ },
+ {
+  "id": 111,
+  "name": "Tests",
+  "path": ".github/workflows/test.yml",
+  "event": "push",
+  "status": "completed",
+  "conclusion": "timed_out",
+  "created_at": "2026-10-13T00:00:00Z",
+  "run_started_at": "2026-10-13T00:00:00Z",
+  "updated_at": "2026-10-13T01:00:00Z",
+  "run_attempt": 1,
+  "head_branch": "main",
+  "head_sha": "0000000000000000000000000000000000000111",
+  "display_title": "Synthetic run title",
+  "pull_requests": [],
+  "head_repository": {
+   "full_name": "example/yazses"
+  },
+  "actor": {
+   "login": "synthetic-actor",
+   "id": 1
+  },
+  "triggering_actor": {
+   "login": "synthetic-actor",
+   "id": 1
+  },
+  "head_commit": {
+   "id": "0000000000000000000000000000000000000000",
+   "message": "SYNTHETIC-COMMIT-MESSAGE do not leak",
+   "author": {
+    "name": "Synthetic Author",
+    "email": "synthetic.author@example.invalid"
+   },
+   "committer": {
+    "name": "Synthetic Author",
+    "email": "synthetic.author@example.invalid"
+   }
+  }
+ },
+ {
+  "id": 102,
+  "name": "Tests",
+  "path": ".github/workflows/test.yml",
+  "event": "pull_request",
+  "status": "completed",
+  "conclusion": "failure",
+  "created_at": "2026-10-03T09:00:00Z",
+  "run_started_at": "2026-10-03T09:00:00Z",
+  "updated_at": "2026-10-05T18:00:00Z",
+  "run_attempt": 1,
+  "head_branch": "feature-a",
+  "head_sha": "0000000000000000000000000000000000000102",
+  "display_title": "SYNTHETIC-PR-TITLE",
+  "pull_requests": [
+   {
+    "number": 7,
+    "head": {
+     "ref": "feature-a"
+    }
+   }
+  ],
+  "head_repository": {
+   "full_name": "example/yazses"
+  },
+  "actor": {
+   "login": "synthetic-actor",
+   "id": 1
+  },
+  "triggering_actor": {
+   "login": "synthetic-actor",
+   "id": 1
+  },
+  "head_commit": {
+   "id": "0000000000000000000000000000000000000000",
+   "message": "SYNTHETIC-COMMIT-MESSAGE do not leak",
+   "author": {
+    "name": "Synthetic Author",
+    "email": "synthetic.author@example.invalid"
+   },
+   "committer": {
+    "name": "Synthetic Author",
+    "email": "synthetic.author@example.invalid"
+   }
+  }
+ },
+ {
+  "id": 103,
+  "name": "Tests",
+  "path": ".github/workflows/test.yml",
+  "event": "pull_request",
+  "status": "completed",
+  "conclusion": "cancelled",
+  "created_at": "2026-10-03T12:00:00Z",
+  "run_started_at": "2026-10-03T12:00:00Z",
+  "updated_at": "2026-10-03T12:05:31Z",
+  "run_attempt": 1,
+  "head_branch": "feature-a",
+  "head_sha": "0000000000000000000000000000000000000103",
+  "display_title": "Synthetic run title",
+  "pull_requests": [
+   {
+    "number": 7,
+    "head": {
+     "ref": "feature-a"
+    }
+   }
+  ],
+  "head_repository": {
+   "full_name": "example/yazses"
+  },
+  "actor": {
+   "login": "synthetic-actor",
+   "id": 1
+  },
+  "triggering_actor": {
+   "login": "synthetic-actor",
+   "id": 1
+  },
+  "head_commit": {
+   "id": "0000000000000000000000000000000000000000",
+   "message": "SYNTHETIC-COMMIT-MESSAGE do not leak",
+   "author": {
+    "name": "Synthetic Author",
+    "email": "synthetic.author@example.invalid"
+   },
+   "committer": {
+    "name": "Synthetic Author",
+    "email": "synthetic.author@example.invalid"
+   }
+  }
+ },
+ {
+  "id": 104,
+  "name": "Tests",
+  "path": ".github/workflows/test.yml",
+  "event": "pull_request",
+  "status": "completed",
+  "conclusion": "failure",
+  "created_at": "2026-10-03T12:05:00Z",
+  "run_started_at": "2026-10-03T12:05:00Z",
+  "updated_at": "2026-10-03T12:20:01Z",
+  "run_attempt": 1,
+  "head_branch": "feature-a",
+  "head_sha": "0000000000000000000000000000000000000104",
+  "display_title": "Synthetic run title",
+  "pull_requests": [
+   {
+    "number": 7,
+    "head": {
+     "ref": "feature-a"
+    }
+   }
+  ],
+  "head_repository": {
+   "full_name": "example/yazses"
+  },
+  "actor": {
+   "login": "synthetic-actor",
+   "id": 1
+  },
+  "triggering_actor": {
+   "login": "synthetic-actor",
+   "id": 1
+  },
+  "head_commit": {
+   "id": "0000000000000000000000000000000000000000",
+   "message": "SYNTHETIC-COMMIT-MESSAGE do not leak",
+   "author": {
+    "name": "Synthetic Author",
+    "email": "synthetic.author@example.invalid"
+   },
+   "committer": {
+    "name": "Synthetic Author",
+    "email": "synthetic.author@example.invalid"
+   }
+  }
+ },
+ {
+  "id": 105,
+  "name": "Tests",
+  "path": ".github/workflows/test.yml",
+  "event": "pull_request",
+  "status": "completed",
+  "conclusion": "success",
+  "created_at": "2026-10-03T13:00:00Z",
+  "run_started_at": "2026-10-03T13:00:00Z",
+  "updated_at": "2026-10-03T13:20:01Z",
+  "run_attempt": 1,
+  "head_branch": "feature-a",
+  "head_sha": "0000000000000000000000000000000000000105",
+  "display_title": "Synthetic run title",
+  "pull_requests": [
+   {
+    "number": 7,
+    "head": {
+     "ref": "feature-a"
+    }
+   }
+  ],
+  "head_repository": {
+   "full_name": "example/yazses"
+  },
+  "actor": {
+   "login": "synthetic-actor",
+   "id": 1
+  },
+  "triggering_actor": {
+   "login": "synthetic-actor",
+   "id": 1
+  },
+  "head_commit": {
+   "id": "0000000000000000000000000000000000000000",
+   "message": "SYNTHETIC-COMMIT-MESSAGE do not leak",
+   "author": {
+    "name": "Synthetic Author",
+    "email": "synthetic.author@example.invalid"
+   },
+   "committer": {
+    "name": "Synthetic Author",
+    "email": "synthetic.author@example.invalid"
+   }
+  }
+ },
+ {
+  "id": 106,
+  "name": "Tests",
+  "path": ".github/workflows/test.yml",
+  "event": "pull_request",
+  "status": "completed",
+  "conclusion": "success",
+  "created_at": "2026-10-03T13:05:00Z",
+  "run_started_at": "2026-10-03T13:05:00Z",
+  "updated_at": "2026-10-03T13:25:01Z",
+  "run_attempt": 1,
+  "head_branch": "feature-a",
+  "head_sha": "0000000000000000000000000000000000000106",
+  "display_title": "Synthetic run title",
+  "pull_requests": [
+   {
+    "number": 7,
+    "head": {
+     "ref": "feature-a"
+    }
+   }
+  ],
+  "head_repository": {
+   "full_name": "example/yazses"
+  },
+  "actor": {
+   "login": "synthetic-actor",
+   "id": 1
+  },
+  "triggering_actor": {
+   "login": "synthetic-actor",
+   "id": 1
+  },
+  "head_commit": {
+   "id": "0000000000000000000000000000000000000000",
+   "message": "SYNTHETIC-COMMIT-MESSAGE do not leak",
+   "author": {
+    "name": "Synthetic Author",
+    "email": "synthetic.author@example.invalid"
+   },
+   "committer": {
+    "name": "Synthetic Author",
+    "email": "synthetic.author@example.invalid"
+   }
+  }
+ },
+ {
+  "id": 107,
+  "name": "Tests",
+  "path": ".github/workflows/test.yml",
+  "event": "pull_request",
+  "status": "completed",
+  "conclusion": "cancelled",
+  "created_at": "2026-10-04T08:00:00Z",
+  "run_started_at": "2026-10-04T08:00:00Z",
+  "updated_at": "2026-10-04T08:02:30Z",
+  "run_attempt": 1,
+  "head_branch": "SYNTHETIC-FORK-BRANCH",
+  "head_sha": "0000000000000000000000000000000000000107",
+  "display_title": "Synthetic run title",
+  "pull_requests": [],
+  "head_repository": {
+   "full_name": "synthetic-fork-owner/yazses"
+  },
+  "actor": {
+   "login": "synthetic-actor",
+   "id": 1
+  },
+  "triggering_actor": {
+   "login": "synthetic-actor",
+   "id": 1
+  },
+  "head_commit": {
+   "id": "0000000000000000000000000000000000000000",
+   "message": "SYNTHETIC-COMMIT-MESSAGE do not leak",
+   "author": {
+    "name": "Synthetic Author",
+    "email": "synthetic.author@example.invalid"
+   },
+   "committer": {
+    "name": "Synthetic Author",
+    "email": "synthetic.author@example.invalid"
+   }
+  }
+ },
+ {
+  "id": 108,
+  "name": "Tests",
+  "path": ".github/workflows/test.yml",
+  "event": "pull_request",
+  "status": "completed",
+  "conclusion": "success",
+  "created_at": "2026-10-04T08:02:00Z",
+  "run_started_at": "2026-10-04T08:02:00Z",
+  "updated_at": "2026-10-04T08:20:00Z",
+  "run_attempt": 1,
+  "head_branch": "SYNTHETIC-FORK-BRANCH",
+  "head_sha": "0000000000000000000000000000000000000108",
+  "display_title": "Synthetic run title",
+  "pull_requests": [],
+  "head_repository": {
+   "full_name": "synthetic-fork-owner/yazses"
+  },
+  "actor": {
+   "login": "synthetic-actor",
+   "id": 1
+  },
+  "triggering_actor": {
+   "login": "synthetic-actor",
+   "id": 1
+  },
+  "head_commit": {
+   "id": "0000000000000000000000000000000000000000",
+   "message": "SYNTHETIC-COMMIT-MESSAGE do not leak",
+   "author": {
+    "name": "Synthetic Author",
+    "email": "synthetic.author@example.invalid"
+   },
+   "committer": {
+    "name": "Synthetic Author",
+    "email": "synthetic.author@example.invalid"
+   }
+  }
+ },
+ {
+  "id": 109,
+  "name": "Tests",
+  "path": ".github/workflows/test.yml",
+  "event": "pull_request",
+  "status": "completed",
+  "conclusion": "success",
+  "created_at": "2026-10-06T10:00:00Z",
+  "run_started_at": "2026-10-06T10:00:00Z",
+  "updated_at": "2026-10-06T10:20:00Z",
+  "run_attempt": 1,
+  "head_branch": "feature-b",
+  "head_sha": "0000000000000000000000000000000000000109",
+  "display_title": "Synthetic run title",
+  "pull_requests": [
+   {
+    "number": 9,
+    "head": {
+     "ref": "feature-b"
+    }
+   }
+  ],
+  "head_repository": {
+   "full_name": "example/yazses"
+  },
+  "actor": {
+   "login": "synthetic-actor",
+   "id": 1
+  },
+  "triggering_actor": {
+   "login": "synthetic-actor",
+   "id": 1
+  },
+  "head_commit": {
+   "id": "0000000000000000000000000000000000000000",
+   "message": "SYNTHETIC-COMMIT-MESSAGE do not leak",
+   "author": {
+    "name": "Synthetic Author",
+    "email": "synthetic.author@example.invalid"
+   },
+   "committer": {
+    "name": "Synthetic Author",
+    "email": "synthetic.author@example.invalid"
+   }
+  }
+ },
+ {
+  "id": 110,
+  "name": "Tests",
+  "path": ".github/workflows/test.yml",
+  "event": "pull_request",
+  "status": "completed",
+  "conclusion": "action_required",
+  "created_at": "2026-10-06T10:01:00Z",
+  "run_started_at": "2026-10-06T10:01:00Z",
+  "updated_at": "2026-10-06T10:01:01Z",
+  "run_attempt": 1,
+  "head_branch": "feature-b",
+  "head_sha": "0000000000000000000000000000000000000110",
+  "display_title": "Synthetic run title",
+  "pull_requests": [
+   {
+    "number": 9,
+    "head": {
+     "ref": "feature-b"
+    }
+   }
+  ],
+  "head_repository": {
+   "full_name": "example/yazses"
+  },
+  "actor": {
+   "login": "synthetic-actor",
+   "id": 1
+  },
+  "triggering_actor": {
+   "login": "synthetic-actor",
+   "id": 1
+  },
+  "head_commit": {
+   "id": "0000000000000000000000000000000000000000",
+   "message": "SYNTHETIC-COMMIT-MESSAGE do not leak",
+   "author": {
+    "name": "Synthetic Author",
+    "email": "synthetic.author@example.invalid"
+   },
+   "committer": {
+    "name": "Synthetic Author",
+    "email": "synthetic.author@example.invalid"
+   }
+  }
+ },
+ {
+  "id": 201,
+  "name": "Nightly",
+  "path": ".github/workflows/nightly.yml",
+  "event": "schedule",
+  "status": "completed",
+  "conclusion": "success",
+  "created_at": "2026-10-10T03:00:00Z",
+  "run_started_at": "2026-10-10T03:00:00Z",
+  "updated_at": "2026-10-10T03:10:00Z",
+  "run_attempt": 1,
+  "head_branch": "main",
+  "head_sha": "0000000000000000000000000000000000000201",
+  "display_title": "Synthetic run title",
+  "pull_requests": [],
+  "head_repository": {
+   "full_name": "example/yazses"
+  },
+  "actor": {
+   "login": "synthetic-actor",
+   "id": 1
+  },
+  "triggering_actor": {
+   "login": "synthetic-actor",
+   "id": 1
+  },
+  "head_commit": {
+   "id": "0000000000000000000000000000000000000000",
+   "message": "SYNTHETIC-COMMIT-MESSAGE do not leak",
+   "author": {
+    "name": "Synthetic Author",
+    "email": "synthetic.author@example.invalid"
+   },
+   "committer": {
+    "name": "Synthetic Author",
+    "email": "synthetic.author@example.invalid"
+   }
+  }
+ },
+ {
+  "id": 202,
+  "name": "Nightly",
+  "path": ".github/workflows/nightly.yml",
+  "event": "schedule",
+  "status": "completed",
+  "conclusion": "failure",
+  "created_at": "2026-10-11T03:00:00Z",
+  "run_started_at": "2026-10-11T03:00:00Z",
+  "updated_at": "2026-10-11T03:10:00Z",
+  "run_attempt": 1,
+  "head_branch": "main",
+  "head_sha": "0000000000000000000000000000000000000202",
+  "display_title": "Synthetic run title",
+  "pull_requests": [],
+  "head_repository": {
+   "full_name": "example/yazses"
+  },
+  "actor": {
+   "login": "synthetic-actor",
+   "id": 1
+  },
+  "triggering_actor": {
+   "login": "synthetic-actor",
+   "id": 1
+  },
+  "head_commit": {
+   "id": "0000000000000000000000000000000000000000",
+   "message": "SYNTHETIC-COMMIT-MESSAGE do not leak",
+   "author": {
+    "name": "Synthetic Author",
+    "email": "synthetic.author@example.invalid"
+   },
+   "committer": {
+    "name": "Synthetic Author",
+    "email": "synthetic.author@example.invalid"
+   }
+  }
+ },
+ {
+  "id": 203,
+  "name": "Nightly",
+  "path": ".github/workflows/nightly.yml",
+  "event": "schedule",
+  "status": "completed",
+  "conclusion": "cancelled",
+  "created_at": "2026-10-12T03:00:00Z",
+  "run_started_at": "2026-10-12T03:00:00Z",
+  "updated_at": "2026-10-12T03:01:00Z",
+  "run_attempt": 1,
+  "head_branch": "main",
+  "head_sha": "0000000000000000000000000000000000000203",
+  "display_title": "Synthetic run title",
+  "pull_requests": [],
+  "head_repository": {
+   "full_name": "example/yazses"
+  },
+  "actor": {
+   "login": "synthetic-actor",
+   "id": 1
+  },
+  "triggering_actor": {
+   "login": "synthetic-actor",
+   "id": 1
+  },
+  "head_commit": {
+   "id": "0000000000000000000000000000000000000000",
+   "message": "SYNTHETIC-COMMIT-MESSAGE do not leak",
+   "author": {
+    "name": "Synthetic Author",
+    "email": "synthetic.author@example.invalid"
+   },
+   "committer": {
+    "name": "Synthetic Author",
+    "email": "synthetic.author@example.invalid"
+   }
+  }
+ },
+ {
+  "id": 204,
+  "name": "Nightly",
+  "path": ".github/workflows/nightly.yml",
+  "event": "schedule",
+  "status": "completed",
+  "conclusion": "failure",
+  "created_at": "2026-10-13T03:00:00Z",
+  "run_started_at": "2026-10-13T03:00:00Z",
+  "updated_at": "2026-10-13T03:10:00Z",
+  "run_attempt": 1,
+  "head_branch": "main",
+  "head_sha": "0000000000000000000000000000000000000204",
+  "display_title": "Synthetic run title",
+  "pull_requests": [],
+  "head_repository": {
+   "full_name": "example/yazses"
+  },
+  "actor": {
+   "login": "synthetic-actor",
+   "id": 1
+  },
+  "triggering_actor": {
+   "login": "synthetic-actor",
+   "id": 1
+  },
+  "head_commit": {
+   "id": "0000000000000000000000000000000000000000",
+   "message": "SYNTHETIC-COMMIT-MESSAGE do not leak",
+   "author": {
+    "name": "Synthetic Author",
+    "email": "synthetic.author@example.invalid"
+   },
+   "committer": {
+    "name": "Synthetic Author",
+    "email": "synthetic.author@example.invalid"
+   }
+  }
+ },
+ {
+  "id": 301,
+  "name": "Docs",
+  "path": ".github/workflows/docs.yml",
+  "event": "pull_request",
+  "status": "completed",
+  "conclusion": "failure",
+  "created_at": "2026-10-08T11:00:00Z",
+  "run_started_at": "2026-10-08T11:00:00Z",
+  "updated_at": "2026-10-08T11:03:00Z",
+  "run_attempt": 1,
+  "head_branch": "feature-c",
+  "head_sha": "0000000000000000000000000000000000000301",
+  "display_title": "Synthetic run title",
+  "pull_requests": [
+   {
+    "number": 8,
+    "head": {
+     "ref": "feature-c"
+    }
+   }
+  ],
+  "head_repository": {
+   "full_name": "example/yazses"
+  },
+  "actor": {
+   "login": "synthetic-actor",
+   "id": 1
+  },
+  "triggering_actor": {
+   "login": "synthetic-actor",
+   "id": 1
+  },
+  "head_commit": {
+   "id": "0000000000000000000000000000000000000000",
+   "message": "SYNTHETIC-COMMIT-MESSAGE do not leak",
+   "author": {
+    "name": "Synthetic Author",
+    "email": "synthetic.author@example.invalid"
+   },
+   "committer": {
+    "name": "Synthetic Author",
+    "email": "synthetic.author@example.invalid"
+   }
+  }
+ },
+ {
+  "id": 302,
+  "name": "Docs",
+  "path": ".github/workflows/docs.yml",
+  "event": "push",
+  "status": "in_progress",
+  "conclusion": null,
+  "created_at": "2026-10-14T23:00:00Z",
+  "run_started_at": "2026-10-14T23:00:00Z",
+  "updated_at": "2026-10-14T23:01:00Z",
+  "run_attempt": 1,
+  "head_branch": "main",
+  "head_sha": "0000000000000000000000000000000000000302",
+  "display_title": "Synthetic run title",
+  "pull_requests": [],
+  "head_repository": {
+   "full_name": "example/yazses"
+  },
+  "actor": {
+   "login": "synthetic-actor",
+   "id": 1
+  },
+  "triggering_actor": {
+   "login": "synthetic-actor",
+   "id": 1
+  },
+  "head_commit": {
+   "id": "0000000000000000000000000000000000000000",
+   "message": "SYNTHETIC-COMMIT-MESSAGE do not leak",
+   "author": {
+    "name": "Synthetic Author",
+    "email": "synthetic.author@example.invalid"
+   },
+   "committer": {
+    "name": "Synthetic Author",
+    "email": "synthetic.author@example.invalid"
+   }
+  }
+ },
+ {
+  "id": 999,
+  "name": "Tests",
+  "path": ".github/workflows/test.yml",
+  "event": "push",
+  "status": "completed",
+  "conclusion": "failure",
+  "created_at": "2026-09-20T00:00:00Z",
+  "run_started_at": "2026-09-20T00:00:00Z",
+  "updated_at": "2026-09-20T00:10:00Z",
+  "run_attempt": 1,
+  "head_branch": "main",
+  "head_sha": "0000000000000000000000000000000000000999",
+  "display_title": "Synthetic run title",
+  "pull_requests": [],
+  "head_repository": {
+   "full_name": "example/yazses"
+  },
+  "actor": {
+   "login": "synthetic-actor",
+   "id": 1
+  },
+  "triggering_actor": {
+   "login": "synthetic-actor",
+   "id": 1
+  },
+  "head_commit": {
+   "id": "0000000000000000000000000000000000000000",
+   "message": "SYNTHETIC-COMMIT-MESSAGE do not leak",
+   "author": {
+    "name": "Synthetic Author",
+    "email": "synthetic.author@example.invalid"
+   },
+   "committer": {
+    "name": "Synthetic Author",
+    "email": "synthetic.author@example.invalid"
+   }
+  }
+ },
+ {
+  "id": 101,
+  "name": "Tests",
+  "path": ".github/workflows/test.yml",
+  "event": "push",
+  "status": "completed",
+  "conclusion": "success",
+  "created_at": "2026-10-02T10:00:00Z",
+  "run_started_at": "2026-10-02T10:00:00Z",
+  "updated_at": "2026-10-02T10:30:00Z",
+  "run_attempt": 1,
+  "head_branch": "main",
+  "head_sha": "0000000000000000000000000000000000000101",
+  "display_title": "Synthetic run title",
+  "pull_requests": [],
+  "head_repository": {
+   "full_name": "example/yazses"
+  },
+  "actor": {
+   "login": "synthetic-actor",
+   "id": 1
+  },
+  "triggering_actor": {
+   "login": "synthetic-actor",
+   "id": 1
+  },
+  "head_commit": {
+   "id": "0000000000000000000000000000000000000000",
+   "message": "SYNTHETIC-COMMIT-MESSAGE do not leak",
+   "author": {
+    "name": "Synthetic Author",
+    "email": "synthetic.author@example.invalid"
+   },
+   "committer": {
+    "name": "Synthetic Author",
+    "email": "synthetic.author@example.invalid"
+   }
+  }
+ }
+]

@@ -1,0 +1,328 @@
+{
+ "101": [
+  {
+   "name": "build",
+   "status": "completed",
+   "conclusion": "success",
+   "created_at": "2026-10-02T10:00:00Z",
+   "started_at": "2026-10-02T10:02:00Z",
+   "completed_at": "2026-10-02T10:20:00Z",
+   "runner_name": "SYNTHETIC-RUNNER",
+   "steps": [
+    {
+     "name": "Set up job",
+     "status": "completed",
+     "conclusion": "success",
+     "number": 1
+    },
+    {
+     "name": "Run tests",
+     "status": "completed",
+     "conclusion": "success",
+     "number": 2
+    }
+   ]
+  },
+  {
+   "name": "macos",
+   "status": "completed",
+   "conclusion": "skipped",
+   "created_at": "2026-10-02T10:00:00Z",
+   "started_at": "2026-10-02T10:00:00Z",
+   "completed_at": "2026-10-02T10:00:00Z",
+   "runner_name": "SYNTHETIC-RUNNER",
+   "steps": []
+  },
+  {
+   "name": "ci-gate",
+   "status": "completed",
+   "conclusion": "success",
+   "created_at": "2026-10-02T10:20:05Z",
+   "started_at": "2026-10-02T10:20:10Z",
+   "completed_at": "2026-10-02T10:20:15Z",
+   "runner_name": "SYNTHETIC-RUNNER",
+   "steps": []
+  }
+ ],
+ "111": [
+  {
+   "name": "build",
+   "status": "completed",
+   "conclusion": "timed_out",
+   "created_at": "2026-10-13T00:00:00Z",
+   "started_at": "2026-10-13T00:01:00Z",
+   "completed_at": "2026-10-13T01:00:00Z",
+   "runner_name": "SYNTHETIC-RUNNER",
+   "steps": [
+    {
+     "name": "Set up job",
+     "status": "completed",
+     "conclusion": "success",
+     "number": 1
+    },
+    {
+     "name": "Run tests",
+     "status": "completed",
+     "conclusion": "success",
+     "number": 2
+    }
+   ]
+  }
+ ],
+ "102": [
+  {
+   "name": "build",
+   "status": "completed",
+   "conclusion": "failure",
+   "created_at": "2026-10-03T09:00:00Z",
+   "started_at": "2026-10-03T09:01:00Z",
+   "completed_at": "2026-10-03T09:15:00Z",
+   "runner_name": "SYNTHETIC-RUNNER",
+   "steps": [
+    {
+     "name": "Set up job",
+     "status": "completed",
+     "conclusion": "success",
+     "number": 1
+    },
+    {
+     "name": "Run tests",
+     "status": "completed",
+     "conclusion": "failure",
+     "number": 2
+    },
+    {
+     "name": "Upload",
+     "status": "completed",
+     "conclusion": "skipped",
+     "number": 3
+    }
+   ]
+  }
+ ],
+ "103": [
+  {
+   "name": "build",
+   "status": "completed",
+   "conclusion": "cancelled",
+   "created_at": "2026-10-03T12:00:00Z",
+   "started_at": "2026-10-03T12:00:30Z",
+   "completed_at": "2026-10-03T12:05:30Z",
+   "runner_name": "SYNTHETIC-RUNNER",
+   "steps": [
+    {
+     "name": "Set up job",
+     "status": "completed",
+     "conclusion": "success",
+     "number": 1
+    },
+    {
+     "name": "Run tests",
+     "status": "completed",
+     "conclusion": "success",
+     "number": 2
+    }
+   ]
+  }
+ ],
+ "104": [
+  {
+   "name": "build",
+   "status": "completed",
+   "conclusion": "failure",
+   "created_at": "2026-10-03T12:05:00Z",
+   "started_at": "2026-10-03T12:06:00Z",
+   "completed_at": "2026-10-03T12:20:00Z",
+   "runner_name": "SYNTHETIC-RUNNER",
+   "steps": [
+    {
+     "name": "Set up job",
+     "status": "completed",
+     "conclusion": "success",
+     "number": 1
+    },
+    {
+     "name": "Run tests",
+     "status": "completed",
+     "conclusion": "failure",
+     "number": 2
+    },
+    {
+     "name": "Upload",
+     "status": "completed",
+     "conclusion": "skipped",
+     "number": 3
+    }
+   ]
+  }
+ ],
+ "105": [
+  {
+   "name": "build",
+   "status": "completed",
+   "conclusion": "success",
+   "created_at": "2026-10-03T13:00:00Z",
+   "started_at": "2026-10-03T13:00:10Z",
+   "completed_at": "2026-10-03T13:20:00Z",
+   "runner_name": "SYNTHETIC-RUNNER",
+   "steps": [
+    {
+     "name": "Set up job",
+     "status": "completed",
+     "conclusion": "success",
+     "number": 1
+    },
+    {
+     "name": "Run tests",
+     "status": "completed",
+     "conclusion": "success",
+     "number": 2
+    }
+   ]
+  }
+ ],
+ "106": [
+  {
+   "name": "build",
+   "status": "completed",
+   "conclusion": "success",
+   "created_at": "2026-10-03T13:05:00Z",
+   "started_at": "2026-10-03T13:05:10Z",
+   "completed_at": "2026-10-03T13:25:00Z",
+   "runner_name": "SYNTHETIC-RUNNER",
+   "steps": [
+    {
+     "name": "Set up job",
+     "status": "completed",
+     "conclusion": "success",
+     "number": 1
+    },
+    {
+     "name": "Run tests",
+     "status": "completed",
+     "conclusion": "success",
+     "number": 2
+    }
+   ]
+  }
+ ],
+ "108": [
+  {
+   "name": "build",
+   "status": "completed",
+   "conclusion": "success",
+   "created_at": "2026-10-04T08:02:00Z",
+   "started_at": "2026-10-04T08:04:00Z",
+   "completed_at": "2026-10-04T08:20:00Z",
+   "runner_name": "SYNTHETIC-RUNNER",
+   "steps": [
+    {
+     "name": "Set up job",
+     "status": "completed",
+     "conclusion": "success",
+     "number": 1
+    },
+    {
+     "name": "Run tests",
+     "status": "completed",
+     "conclusion": "success",
+     "number": 2
+    }
+   ]
+  }
+ ],
+ "109": [
+  {
+   "name": "build",
+   "status": "completed",
+   "conclusion": "success",
+   "created_at": "2026-10-06T10:00:00Z",
+   "started_at": "2026-10-06T10:00:20Z",
+   "completed_at": "2026-10-06T10:20:00Z",
+   "runner_name": "SYNTHETIC-RUNNER",
+   "steps": [
+    {
+     "name": "Set up job",
+     "status": "completed",
+     "conclusion": "success",
+     "number": 1
+    },
+    {
+     "name": "Run tests",
+     "status": "completed",
+     "conclusion": "success",
+     "number": 2
+    }
+   ]
+  }
+ ],
+ "202": [
+  {
+   "name": "fuzz",
+   "status": "completed",
+   "conclusion": "failure",
+   "created_at": "2026-10-11T03:00:00Z",
+   "started_at": "2026-10-11T03:00:05Z",
+   "completed_at": "2026-10-11T03:10:00Z",
+   "runner_name": "SYNTHETIC-RUNNER",
+   "steps": [
+    {
+     "name": "Fuzz the parser",
+     "status": "completed",
+     "conclusion": "failure",
+     "number": 1
+    }
+   ]
+  }
+ ],
+ "204": [
+  {
+   "name": "fuzz",
+   "status": "completed",
+   "conclusion": "failure",
+   "created_at": "2026-10-13T03:00:00Z",
+   "started_at": "2026-10-13T03:00:05Z",
+   "completed_at": "2026-10-13T03:10:00Z",
+   "runner_name": "SYNTHETIC-RUNNER",
+   "steps": [
+    {
+     "name": "Fuzz the parser",
+     "status": "completed",
+     "conclusion": "failure",
+     "number": 1
+    }
+   ]
+  }
+ ],
+ "999": [
+  {
+   "name": "build",
+   "status": "completed",
+   "conclusion": "failure",
+   "created_at": "2026-09-20T00:00:00Z",
+   "started_at": "2026-09-20T00:01:00Z",
+   "completed_at": "2026-09-20T00:10:00Z",
+   "runner_name": "SYNTHETIC-RUNNER",
+   "steps": [
+    {
+     "name": "Set up job",
+     "status": "completed",
+     "conclusion": "success",
+     "number": 1
+    },
+    {
+     "name": "Run tests",
+     "status": "completed",
+     "conclusion": "failure",
+     "number": 2
+    },
+    {
+     "name": "Upload",
+     "status": "completed",
+     "conclusion": "skipped",
+     "number": 3
+    }
+   ]
+  }
+ ]
+}

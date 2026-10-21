@@ -1,0 +1,77 @@
+name: CI telemetry
+
+# Why this exists (#536)
+# ----------------------
+# Queue storms used to be diagnosed from the Actions UI after they happened, by paging
+# through runs. This job answers "what is consuming CI, and where are contributors
+# waiting?" once a day, from one job summary and one JSON artifact: run counts, job queue
+# and run duration p50/p95, outcome percentages, superseded-PR-run cancellation, the
+# longest jobs, workflows with no success, repeated failures by step, and the SLO facts
+# from CI_POLICY.md §12. Definitions and bounds: CI_POLICY.md §12.1.
+#
+# Lane: scheduled assurance (CI_POLICY.md §1, §10). It never blocks anything: it is not
+# in test.yml, not a ci-gate need and not a required check, and a missed SLO does not
+# turn it red. It goes red only when the API could not be read.
+#
+# What it can touch: `actions: read` to list runs and jobs, `contents: read` for the
+# checkout. No write scope, no secret, no pull_request trigger, so contributor input
+# never reaches it except as workflow/job/step names in the data, which the report
+# escapes. It reads metadata only; it never downloads logs.
+#
+# Token budget: a repository GITHUB_TOKEN gets 1,000 REST requests an hour. A 14-day
+# window here is ~800 requests; the script stops fetching job lists when 200 remain and
+# says so in the report, so it cannot starve the other workflows.
+
+on:
+  schedule:
+    # Daily, off the hour (GitHub delays cron runs that pile up on :00).
+    - cron: "43 4 * * *"
+  workflow_dispatch:
+    inputs:
+      days:
+        description: "Observation window in days (1-90)"
+        required: false
+        default: "14"
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: ci-telemetry
+  cancel-in-progress: false
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Build the report
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # Passed as data, validated by the script (an integer, 1-90); never spliced
+          # into the shell (CI_POLICY.md §7 rule 4).
+          DAYS: ${{ inputs.days || '14' }}
+        run: |
+          set -euo pipefail
+          python3 scripts/ci-telemetry-report.py \
+            --repo "$GITHUB_REPOSITORY" \
+            --days "$DAYS" \
+            --out-json ci-telemetry.json \
+            --out-md ci-telemetry.md
+          cat ci-telemetry.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Keep the report
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: ci-telemetry
+          path: |
+            ci-telemetry.json
+            ci-telemetry.md
+          if-no-files-found: error
+          retention-days: 14

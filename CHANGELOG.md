@@ -6,6 +6,30 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — a daily CI telemetry report: queue time, runtime, cancellation and failure hot spots ([#536](https://github.com/MSKazemi/yazses/issues/536))
+
+Queue storms were diagnosed by paging through the Actions UI after they happened. A new
+scheduled workflow, `ci-telemetry.yml`, now answers "what is consuming CI, and where are
+contributors waiting?" every day, as a job summary plus a JSON/Markdown artifact kept for
+14 days. It reports runs by workflow and event, outcome percentages, job queue latency
+and run duration (p50/p95), job-minutes per workflow, the superseded-PR-run cancellation
+rate and delay, the longest jobs, workflows with no success, repeated failures by
+workflow, job and step, and workflows red on `main`, each compared with the targets in
+`.github/CI_POLICY.md` §12. It only reports. It changes no gate and is not part of
+`ci-gate`. Its token can do `actions: read` and `contents: read` and nothing else. The
+artifact holds names, timings and conclusions only: no PR text, commit messages, emails,
+logins, branch names or logs. Definitions and bounds are in CI_POLICY.md §12.1. The
+aggregation is a pure module (`scripts/ci_telemetry.py`), pinned by 75 tests on a
+synthetic fixture. Ten deliberate mutations of the logic each turned a test red.
+
+This is CI-only and does not change the product, which still collects no telemetry. The
+first read-only run over 2026-10-06 to 2026-10-20 covered 777 runs, all fetched within
+the bounds. Success was 74.5%, failure 15.1% and cancellation 8.2%. Job queue p50 was 4 s
+and p95 16 m 26 s. The PR queue target (p95 under 5 min) was **missed** at 15 m 29 s. The
+superseded-run cancellation target (p95 under 2 min) was **met** at 19 s, with 87% of
+superseded PR runs cancelled. `Tests` used 14,269 of 15,744 job-minutes, and its two
+Windows legs failed `Run tests` in 27 runs each.
+
 ### Fixed — pushing a release tag no longer turns every open pull request red ([#602](https://github.com/MSKazemi/yazses/issues/602))
 
 The Windows packaging tests (Scoop, Chocolatey nuspec and install script, winget)
