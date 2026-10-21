@@ -54,11 +54,12 @@ class _Client:
 
 
 @pytest.fixture
-def daemon(monkeypatch):
+def daemon(monkeypatch, tmp_path):
     """Patch the platform so no real daemon is touched."""
     from yazses import cli
 
     state = {"client": _Client(status={"meeting_finalizing": False}), "stopped": False}
+    data_dir = tmp_path  # `stop` leaves a note for the tray here
 
     class _Lifecycle:
         def read_pid(self):
@@ -72,8 +73,9 @@ def daemon(monkeypatch):
 
     class _Paths:
         ipc_socket = "/tmp/nonexistent.sock"
-        data_dir = "/tmp"
         config_file = "/tmp/config.toml"
+
+    _Paths.data_dir = data_dir
 
     class _Platform:
         name = "linux"

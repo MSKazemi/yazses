@@ -775,7 +775,9 @@ The tray's poller now restarts it, under the same shape as the supervisor above:
 attempts, spaced by a cooldown, then stop and say how to see the real error. The one
 distinction worth the code is *dead* versus *wedged* — a daemon that is alive but not
 answering still holds the single-instance lock, so replacing it is impossible and red is
-the honest answer.
+the honest answer. The other is *crashed* versus *stopped*: `yazses stop` leaves a note
+first (`system/stop_request.py`), and a tray that finds the daemon gone and a note newer
+than itself closes instead of restarting it, so a stop stays a stop.
 
 The user-facing inventory of every one of these — what triggers it, what bounds it,
 and the failures deliberately left alone — is

@@ -199,6 +199,17 @@ folder. An entry from the `.exe` installer, or from anything else, is left alone
 Checked on Windows 11 22H2 by installing from the bucket, running `yazses start`, then
 `scoop uninstall yazses`.
 
+### Fixed — `yazses stop` stops YazSes, tray icon included, instead of being undone by it
+
+The tray restarts a daemon that disappears, because on Windows nothing else would after a
+crash. It could not tell a crash from `yazses stop`, so `stop` printed "YazSes stopped"
+and, when the tray was running (as it is after sign-in or a Start-menu launch), a new
+daemon was up within seconds. `yazses stop` now stops the daemon and closes the tray with
+it. `yazses start` brings both back. A real crash is still recovered by the tray, and
+`yazses restart` still keeps the tray. Measured on Windows 11 22H2: before, a new daemon
+within 5 seconds of `stop`; after, daemon and tray both gone within 5 seconds and still
+gone after 30, and a killed daemon is still restarted by the tray (in 8 seconds).
+
 ### Fixed — the Windows install guide's facts
 
 `docs/windows-install.md` no longer claims an ARM64 build (winget and Scoop carry the x64 installer, which ARM PCs run under emulation; the mislabelled ARM64 asset was dropped in 2.43.1), names the real default model (`base.en`, about 150 MB, not `tiny.en`), asks for about 500 MB of disk rather than 250 MB, shows the Chocolatey command, and no longer tells you to delete a roaming `%APPDATA%\yazses` folder YazSes never creates; it now names the Whisper model cache instead. Found by a docs audit against the live channels.

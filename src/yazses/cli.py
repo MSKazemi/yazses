@@ -1714,6 +1714,7 @@ def start(
     platform = get_platform()
     _warn_unmet_prereqs()
     _offer_dormant_install(platform)
+    _clear_stop_request(platform)
     if platform.lifecycle.is_running():
         typer.echo("YazSes is already running — restarting it cleanly...")
         _restart_daemon(platform)
@@ -1728,6 +1729,20 @@ def start(
     _report_start_outcome(platform, outcome, info)
     if not no_autostart and outcome in ("ready", "loading"):
         _ensure_autostart(platform)
+
+
+def _clear_stop_request(platform) -> None:
+    """Forget an earlier `yazses stop`. Tidiness only: a tray already ignores a note
+    older than itself, so a leftover could never close one started after it."""
+    data_dir = getattr(getattr(platform, "paths", None), "data_dir", None)
+    if data_dir is None:
+        return
+    from yazses.system.stop_request import clear_stop_request
+
+    try:
+        clear_stop_request(data_dir)
+    except Exception:  # noqa: BLE001 — never let tidying fail a start
+        pass
 
 
 def _finalizing_meeting(platform) -> bool:
@@ -4263,7 +4278,7 @@ def stop(
         False, "--force", help="Stop even while a meeting is still being written up."
     ),
 ) -> None:
-    """Stop the running daemon.
+    """Stop YazSes: the daemon, and the tray icon with it.
 
     Dictation stays off until you `yazses start` again. To pick up a config or
     version change instead, use `yazses restart` (stop + start in one step).
@@ -4274,8 +4289,19 @@ def stop(
     if pid is None or not platform.lifecycle.is_running():
         typer.echo("YazSes is not running — nothing to stop.")
         raise typer.Exit(1)
+    # Before the daemon goes: a running tray restarts a daemon that disappears, and
+    # this note is how it tells a stop from a crash (system/stop_request.py).
+    from yazses.system.stop_request import request_stop
+
+    try:
+        request_stop(platform.paths.data_dir)
+        noted = True
+    except Exception:  # noqa: BLE001 — a missing note must never stop the stop
+        noted = False
     platform.lifecycle.stop_daemon(pid)
     typer.echo("YazSes stopped. Start it again with `yazses start`.")
+    if not noted:
+        typer.echo("  (note: a running tray icon may restart it; quit the tray to stop fully.)")
 
 
 @app.command(
