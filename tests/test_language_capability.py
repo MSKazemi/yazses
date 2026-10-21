@@ -19,6 +19,7 @@ import logging
 
 import pytest
 
+from tests.decoder_stack import needs_faster_whisper
 from yazses.config import Config, LatencyConfig, SttConfig, load_config_checked
 from yazses.configcheck import ConfigProblem, language_pairing_problems
 from yazses.language.capability import (
@@ -172,6 +173,7 @@ def test_an_existing_english_config_loads_with_no_new_problem(tmp_path):
     assert loaded.config.stt.model == "small.en"
 
 
+@needs_faster_whisper
 def test_the_default_english_engine_is_built_exactly_as_before(monkeypatch):
     seen: dict = {}
 
@@ -251,6 +253,7 @@ def no_engine_loads(monkeypatch):
     SttConfig(engine="moonshine", model="moonshine/base", language="de"),
     SttConfig(engine="bogus", model="base.en", language="fa"),  # unknown → faster-whisper
 ])
+@needs_faster_whisper
 def test_factory_refuses_an_unsupported_pair(no_engine_loads, monkeypatch, stt):
     import builtins
 
@@ -270,6 +273,7 @@ def test_factory_refuses_an_unsupported_pair(no_engine_loads, monkeypatch, stt):
     assert isinstance(exc.value, ModelUnavailableError)
 
 
+@needs_faster_whisper
 def test_the_parakeet_fallback_cannot_rescue_a_language_into_english(monkeypatch, caplog):
     """v3 + German passes, its runtime is missing, and the fallback is `base.en`."""
     import builtins
@@ -290,6 +294,7 @@ def test_the_parakeet_fallback_cannot_rescue_a_language_into_english(monkeypatch
     assert exc.value.model == "base.en"
 
 
+@needs_faster_whisper
 def test_factory_warns_but_builds_a_custom_checkpoint(monkeypatch, caplog):
     seen: dict = {}
 
@@ -307,6 +312,7 @@ def test_factory_warns_but_builds_a_custom_checkpoint(monkeypatch, caplog):
     assert "cannot confirm" in caplog.text
 
 
+@needs_faster_whisper
 def test_the_latency_governor_keeps_the_base_engine_when_the_light_model_is_refused(
     monkeypatch,
 ):
@@ -338,6 +344,7 @@ def test_the_toast_fits_a_windows_balloon():
     assert "distil-large-v3.5" in str(exc)
 
 
+@needs_faster_whisper
 def test_file_transcription_refuses_too(no_engine_loads):
     from yazses.config import RecimportConfig
     from yazses.recimport.pipeline import _build_engine

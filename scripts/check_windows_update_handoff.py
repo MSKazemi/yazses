@@ -337,8 +337,10 @@ class _Registry:
 
 
 def _read(path: Path) -> str:
+    # utf-8-sig: Windows PowerShell 5.1's `-Encoding UTF8` writes a byte-order mark, and
+    # update.log is written that way; the result file is ASCII, which this also reads.
     try:
-        return path.read_text(encoding="utf-8")
+        return path.read_text(encoding="utf-8-sig")
     except OSError:
         return ""
 
@@ -506,6 +508,12 @@ def main(argv: list[str] | None = None) -> int:
         print("This check runs the Windows hand-off; use --plan-only elsewhere.",
               file=sys.stderr)
         return 2
+    # The runner's console is cp1252; the logs this prints carry paths with non-ASCII
+    # letters on purpose. Printing must never be what fails the check.
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            reconfigure(encoding="utf-8", errors="backslashreplace")
     saved_tempdir = tempfile.tempdir
     work = Path(tempfile.mkdtemp(prefix="yazses-handoff-"))
     try:

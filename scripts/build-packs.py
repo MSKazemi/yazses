@@ -104,6 +104,16 @@ def canonical_name(name: str) -> str:
     return re.sub(r"[-_.]+", "-", name).lower()
 
 
+def host_platform() -> str:
+    """The ``sysconfig`` platform tag of the interpreter running the build.
+
+    A seam, not a shortcut: the pack build only runs on the Windows release runner,
+    and the tests pin it to ``win-amd64`` so they do not depend on the host they run
+    on (the FreeBSD leg has no asset OS token at all).
+    """
+    return sysconfig.get_platform()
+
+
 def os_token(platform_tag: str) -> str:
     """The ``<os>`` word in an asset name, from a ``sysconfig.get_platform()`` tag.
 
@@ -1015,7 +1025,7 @@ def base_context(dist: Path, work: Path, version: str, arch: str) -> tuple[Conte
     }
     ctx = Context(
         dist=dist, work=work, version=version, arch=arch,
-        platform_tag=sysconfig.get_platform(), python=python_facts(),
+        platform_tag=host_platform(), python=python_facts(),
         base_build_id=build_id_of(manifest), base_names=base_names,
         base_modules=base_modules, base_dlls=base_dlls, base_installed=installed,
     )

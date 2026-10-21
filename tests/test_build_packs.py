@@ -613,6 +613,9 @@ def _install_fake(monkeypatch, bp, tmp_path, *, fail_probe=(), probe_hook=None, 
                         lambda extras: bp.parse_requirements_export(exports[tuple(extras)]))
     monkeypatch.setattr(bp, "installed_distributions",
                         lambda: {"numpy": _FakeDist(["numpy/__init__.py"])})
+    # The build runs on the Windows release runner; pin that, or a leg whose platform has
+    # no asset OS token (FreeBSD) withholds every pack and the assertions below test nothing.
+    monkeypatch.setattr(bp, "host_platform", lambda: "win-amd64")
     monkeypatch.setattr(bp, "read_project", lambda: ("9.9.9", {
         "parakeet": ["onnx-asr[cpu,hub]>=0.12"], "diarization": ["sherpa-onnx>=1.13.6"]}))
     probes = []
@@ -667,7 +670,7 @@ def test_build_publishes_probed_packs_and_embeds_the_same_index(bp, tmp_path, mo
     assert bp.main(_argv(tmp_path, dist)) == 0
     assert sorted(probes) == ["diarization", "parakeet"]
     out = tmp_path / "out"
-    os_tok = bp.os_token(__import__("sysconfig").get_platform())
+    os_tok = bp.os_token(bp.host_platform())
     idx_name = bp.index_asset_name("9.9.9", os_tok, "x64")
     embedded = dist / bp.EMBEDDED_INDEX
     assert embedded.read_bytes() == (out / idx_name).read_bytes()

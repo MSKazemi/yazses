@@ -99,3 +99,18 @@ def test_the_new_job_is_advisory_until_proven():
     # The comment directly above the job writes the reason and promotion condition down.
     above = text.split(f"\n  {JOB}:", 1)[0].rsplit("\n\n", 1)[-1]
     assert "PROMOTE" in above and "never run" in above
+
+
+def test_a_powershell_log_with_a_byte_order_mark_is_read_and_printable(driver, tmp_path):
+    """The first real windows-latest run crashed here, not in the hand-off.
+
+    Windows PowerShell 5.1's `-Encoding UTF8` writes a BOM; reading update.log as plain
+    utf-8 kept U+FEFF, and printing it to the runner's cp1252 console raised
+    UnicodeEncodeError after the hand-off itself had started fine (run 39566671404).
+    """
+    log = tmp_path / "update.log"
+    log.write_bytes("﻿[2026-10-21] waiting for YazSes to exit — ç\n".encode("utf-8"))
+    text = driver._read(log)
+    assert not text.startswith("﻿")
+    assert text.startswith("[2026-10-21]")
+    text.encode("cp1252", errors="strict")  # what the runner's console can print
