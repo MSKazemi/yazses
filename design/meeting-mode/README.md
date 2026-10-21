@@ -1,11 +1,98 @@
 # Meeting Mode — design & state-of-the-art
 
-**Status:** design (2026-07-10) · private dev doc
+**Status:** design written 2026-07-10; the architecture in §6 has since shipped (first in
+v2.12.0) — see **Delivery status** below for what is built, what is partial, and what is
+still being measured · public design document, published on the docs site
 **Decisions:** [ADR-v2-127](../adr/adr-v2-127-live-meeting-mode.md) (live meeting mode + hybrid diarization),
 [ADR-v2-128](../adr/adr-v2-128-meeting-minutes-generation.md) (on-device minutes)
 **Plan:** an internal planning note
 **Full SoA study:** [`soa-report.html`](./soa-report.html) (57 cited primary sources; also a private
 claude.ai artifact)
+
+---
+
+## Delivery status (current, 2026-10-21)
+
+This block is the only part of the page that tracks the code. Everything from §1 on is the
+original 2026-07-10 design, kept as written — read it as the reasoning behind what was
+built, not as a list of open work. Each row below was checked against `src/yazses/meeting/`,
+`docs/features.md`, `docs/command-index.md`, `CHANGELOG.md` and the git tags on
+2026-10-21; release numbers are the first tag containing the change. Tracking: parent
+[#481](https://github.com/MSKazemi/yazses/issues/481), this reconciliation
+[#489](https://github.com/MSKazemi/yazses/issues/489).
+
+Meeting Mode is an **optional, off-by-default** feature (`[meeting] enabled = false`;
+`yazses features enable meeting`). Speaker labels need the diarization extra; minutes need
+the `notes` extra plus a GGUF model you supply.
+
+### As-built / shipped
+
+| Design element (§) | Shipped as | First release |
+|---|---|---|
+| Hands-free capture, no key held (§1, §6) | `yazses meeting start` / `stop` / `status` / `list`; `meeting/controller.py`, `session.py` (audio streamed to a WAV on disk) | v2.12.0 |
+| Live transcript, not injected (§6) | VAD utterance segmenter (`meeting/segmenter.py`, `vad.py`) → rolling `live.jsonl`; `live-transcript.md` you can `tail -f` (`[meeting] live_markdown`, default on) | v2.12.0; `live-transcript.md` v2.32.0 |
+| Hybrid diarization: batch post-pass at stop (§3) | `meeting/finalize.py` delegates to `recimport.pipeline.transcribe_file` — the same cores as `yazses transcribe` (ADR-v2-125) | v2.12.0 |
+| Unknown speaker count (§4) | sherpa-onnx auto-clustering; default `[meeting] cluster_threshold = 1.2`, chosen by measurement in [ADR-v2-133](../adr/adr-v2-133-diarization-clustering-default.md) | v2.12.0; `1.2` default v2.30.0 |
+| Human correction step (§4) | `yazses meeting relabel` — merge and rename clusters, re-rendered from `transcript.json` without re-diarizing (`meeting/store.py::relabel`) | v2.12.0 |
+| Speaker naming (§5, §8) | "You" from the enrolled voiceprint; `yazses meeting enroll` turns a cluster from a stored meeting into an encrypted, on-device voiceprint (`meeting/participants.py`) | `enroll` in v2.12.0 |
+| Minutes pipeline (§7, ADR-v2-128) | `meeting/notes.py` — turn-aware map-reduce, optional GBNF grammar (`[meeting] notes_grammar`), `yazses meeting notes` | v2.12.0 |
+| Selectable VAD (§5) | `[meeting] vad_backend = calibrated` (default) or `silero` (optional `silero` extra, falls back to calibrated) | v2.12.0 |
+| Accuracy backend option | `[meeting] backend = "pyannote"` behind the opt-in `diarization-pyannote` extra (a one-time gated model download; sherpa stays the default) | v2.19.0 |
+| Audio deleted unless `retain_audio`; auto-stop at `max_minutes` (§6, §9) | `[meeting] retain_audio = false`, `max_minutes = 180` (finalizes rather than dropping audio) | v2.12.0 |
+| Tray entry points | **Start meeting** / **Stop meeting** in the tray menu on Linux, macOS and Windows (`tray/meeting.py`) | v2.28.0 |
+| Retry a failed post-pass | `yazses meeting recover` (`meeting/recover.py`) — never truncates or deletes the recording | v2.30.0 |
+| Transcript quality gate (not in the original design) | `meeting/quality.py`, [ADR-v2-134](../adr/adr-v2-134-meeting-transcript-quality-gate.md): live vs batch decode compared, `quality.json` written, recording kept on a bad verdict; `yazses meeting summary` | v2.32.0 |
+
+Tests: `tests/test_meeting_*.py`. Both decision records,
+[ADR-v2-127](../adr/adr-v2-127-live-meeting-mode.md) and ADR-v2-128, are still marked
+*Proposed* although their code ships; changing an ADR's status is the owner's decision.
+
+### Partially shipped
+
+- **`[meeting] model` / `language` on a live meeting.** The live post-pass still decodes with
+  the daemon's dictation engine (`core/daemon.py` passes `engine=self._engine`), so those two
+  keys are not applied there yet. The `[Unreleased]` section of `CHANGELOG.md` records the
+  file-transcription path, including `meeting recover`, now honouring them; that fix is not
+  yet released.
+- **Minutes (ADR-v2-128, status still *Proposed*).** The pipeline ships, but there is no
+  bundled model and no default: notes stay dormant until you set `[meeting] notes_model` to a
+  local GGUF and install the `notes` extra.
+- **Cross-meeting naming.** `meeting enroll` reads the stored recording, so it works only for
+  meetings captured with `[meeting] retain_audio = true`; with the default, the audio is gone.
+- **Live view.** §6 names "status / overlay"; what shipped is `meeting status`,
+  `live-transcript.md` and the tray. The overlay does not show the meeting transcript.
+- **Snap.** The snap bundles `sherpa-onnx` for Meeting Mode; verification on real machines,
+  especially arm64, is open in [#142](https://github.com/MSKazemi/yazses/issues/142).
+
+### Research / quality validation
+
+These are measurement questions, not missing features. No result is claimed here beyond what
+the linked record states.
+
+- **Diarization accuracy, headset condition — measured.** ADR-v2-133 scores the shipped
+  clustering against the AMI test split (16 recordings, 543.7 min; the headset mix, per
+  #502) with a VoxConverse cross-domain check, reproducible with `paper/benchmark/bench_diarization.py`.
+- **Diarization accuracy, far-field condition — open.** A laptop/table microphone is closer to
+  real Meeting Mode use than a headset mix:
+  [#502](https://github.com/MSKazemi/yazses/issues/502), under the paper-v2 programme
+  [#510](https://github.com/MSKazemi/yazses/issues/510).
+- **Speaker-count error and overlap (§4, §9).** Speaker-count error is part of #502's required
+  reporting. Overlapping speech stays a documented caveat; no measurement of it is tracked.
+- **Minutes quality (ADR-v2-128).** ADR-v2-128 names AMI, ICSI and QMSum as evaluation
+  grounding. No minutes evaluation has been run and no issue tracks one as of 2026-10-21;
+  until one exists, treat minutes quality as unmeasured.
+- **Non-English meetings.** Mandarin file/meeting transcription:
+  [#501](https://github.com/MSKazemi/yazses/issues/501).
+
+### Deferred (not scheduled; none is a commitment)
+
+- **Online/streaming diarization** — rejected in §3 on licensing and GPU grounds; the hybrid
+  batch pass is the design.
+- **Overlap-aware diarization** — the candidate models are the gated/GPU set §3 rejects.
+- **`relabel` split** of one cluster into two — out of scope in §4; merge and rename only.
+- **System-audio / call capture** — Meeting Mode records the room microphone, not a
+  Zoom/Teams call's audio (stated in `docs/meeting-notes-offline.md`).
+- **Meeting transcript in the overlay** — see *Partially shipped*.
 
 ---
 
