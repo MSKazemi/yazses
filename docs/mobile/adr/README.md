@@ -32,9 +32,15 @@ most useful part, because it tells you which arguments have already been had.
   no cloud fallback, no ambient capture)**, is published in user-facing form as the
   [privacy statement](../../privacy-statement.md), and it governs the Android app
   unchanged.
-- **"Accepted" here means the decision is binding, not that the code exists.** As of
-  2026-08-07 there is no Android code at all. See [the programme overview](../index.md) for
-  what actually ships today (nothing) and what M0–M4 mean.
+- **"Accepted" here means the decision is binding, not that the code exists.** Some of
+  these decisions are now partly implemented under
+  [`android/`](https://github.com/MSKazemi/yazses/tree/main/android): the module skeleton
+  and its layering and privacy gates, and the first pure-Kotlin cores that pass the shared
+  contract vectors. The others have no code yet, and there is still no app to install.
+  Where an ADR's own status line says "design only, no code yet", it records the state on
+  the day it was accepted (2026-08-07), not today's. See
+  [the programme overview](../index.md) for what exists today and where each milestone
+  stands.
 - **To change a decision**, open a PR adding a new ADR that supersedes the old one. Do not
   edit an accepted ADR to say something different from what was decided; the point of the
   series is that the reasoning survives the decision.

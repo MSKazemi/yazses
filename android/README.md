@@ -76,8 +76,11 @@ The skeleton is in place: every module from
 [architecture.md §3](../docs/mobile/architecture.md#3-module-map) exists, compiles and has a
 placeholder test, so several people can start in parallel without colliding.
 
-**There is still no app.** Every module is empty. What works today is the structure, the
-rules it enforces, and the contract harness.
+**There is still no app.** Most modules are still placeholders. What works today is the
+structure, the rules it enforces, the contract harness, and the first pure-Kotlin ports of
+desktop logic in `:core:postprocess`, `:core:commands`, `:core:vocab`, `:core:audio` and
+`:core:vad`, which pass the shared contract vectors. `:platform:audio` compiles but has not
+run on a device.
 
 ### What you need
 
