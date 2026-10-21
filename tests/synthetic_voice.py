@@ -51,3 +51,41 @@ def white_noise(seconds: float, level: float = 0.01, seed: int = 1, sr: int = SR
     return np.random.default_rng(seed).normal(0.0, level, int(round(sr * seconds))).astype(
         np.float32
     )
+
+
+#: Average adult-male formants (Hz), Peterson & Barney, "Control methods used in a study of the
+#: vowels", JASA 24(2):175-184, 1952, Table II: F1, F2, F3.
+PETERSON_BARNEY_MALE = {
+    "i": (270.0, 2290.0, 3010.0),
+    "a": (730.0, 1090.0, 2440.0),
+    "u": (300.0, 870.0, 2240.0),
+}
+
+
+def _resonator_ir(freq: float, bw: float, sr: int) -> np.ndarray:
+    """Impulse response of the two-pole resonator ``1 / (1 - 2r cos(th) z^-1 + r^2 z^-2)``."""
+    r = float(np.exp(-np.pi * bw / sr))
+    th = 2.0 * np.pi * freq / sr
+    n = np.arange(int(np.ceil(np.log(1e-6) / np.log(r))) + 1)
+    return (r ** n) * np.sin((n + 1) * th) / np.sin(th)
+
+
+def vowel(formants: tuple[float, ...], seconds: float, *, f0: float = 120.0, amp: float = 0.01,
+          bandwidths: tuple[float, ...] = (60.0, 90.0, 120.0, 175.0), f4: float = 3500.0,
+          sr: int = SR) -> np.ndarray:
+    """A source-filter vowel: an impulse train at ``f0`` through resonators at ``formants``.
+
+    The source is shaped by a double pole at ``0.97`` (the glottal -12 dB/octave roll-off) and
+    the output by a first difference (lip radiation, +6 dB/octave), the classic Fant/Klatt
+    cascade. ``f4`` is appended as a fixed higher formant. The result is scaled to RMS ``amp``.
+    """
+    n = int(round(sr * seconds))
+    src = np.zeros(n)
+    src[(np.arange(0.0, seconds, 1.0 / f0) * sr).astype(int)] = 1.0
+    k = np.arange(400)
+    x = np.convolve(src, (k + 1) * 0.97 ** k)[:n]
+    for freq, bw in zip((*formants, f4), bandwidths, strict=False):
+        x = np.convolve(x, _resonator_ir(freq, bw, sr))[:n]
+    x = np.append(x[0], np.diff(x))
+    x = x / float(np.sqrt(np.mean(x * x))) * amp
+    return np.asarray(x, dtype=np.float32)

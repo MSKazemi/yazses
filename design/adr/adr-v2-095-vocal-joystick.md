@@ -33,3 +33,17 @@ default.
 - Privacy (ADR-011): local audio only; nothing stored or sent.
 - Caveat: needs a formant/pitch tracker for live use; the direction thresholds are speaker-general
   (per-speaker calibration is a later tier); off by default.
+
+## Implementation note (2026-10-21) — the producer
+
+The tracker turned out not to need an extra. `vocaljoystick/formants.py` is pure numpy (a base
+dependency): F1/F2 by autocorrelation LPC (pre-emphasis, Hamming window, Levinson-Durbin, root
+bandwidth filter), loudness as RMS dBFS mapped onto `[0, 1]`, and pitch from the shared YIN
+tracker in `audio/pitch.py` (no second pitch tracker). It emits one `VocalFrame` per 10 ms hop
+whose `joystick_args()` are exactly `VocalJoystick.feed`'s arguments. Checked only on synthetic
+source-filter vowels (Peterson & Barney 1952 male formants, F0 100-200 Hz); real speech, high
+voices and per-speaker calibration are unmeasured. Connecting it to the producer exposed a core
+defect, fixed alongside: a click was measured from the `0.0` pitch of an unvoiced frame, so any
+voice at or above `click_pitch` clicked on onset; the jump is now measured from the last voiced
+pitch within `click_gap_frames`. Pointer wiring (recorder → tracker → joystick → pointer
+backend) remains open.
