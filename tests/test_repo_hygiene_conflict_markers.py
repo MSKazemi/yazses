@@ -209,13 +209,26 @@ def test_the_walk_flags_a_planted_conflict_and_reports_the_count(tmp_path: Path)
     (tmp_path / "rule.md").write_text(f"T\n{MID}\n", encoding="utf-8")
     (tmp_path / "blob.bin").write_bytes(b"\x00\x01" + CONFLICT.encode())
     (tmp_path / "latin1.txt").write_bytes(b"caf\xe9\n" + CONFLICT.encode())
-    (tmp_path / "link.md").symlink_to(tmp_path / "CHANGELOG.md")
 
     scanned, offenders = scan_files(sorted(tmp_path.iterdir()), root=tmp_path)
 
-    assert scanned == 3  # CHANGELOG.md, clean.py, rule.md -- binary, non-UTF-8 and symlink skipped
+    assert scanned == 3  # CHANGELOG.md, clean.py, rule.md -- binary and non-UTF-8 skipped
     assert len(offenders) == 4
     assert all(o.startswith("CHANGELOG.md:") for o in offenders), offenders
+
+
+def test_the_walk_skips_a_symlink_to_a_conflicted_file(tmp_path: Path) -> None:
+    """Its own test because Windows refuses to create a symlink without admin
+    rights or Developer Mode (WinError 1314). CI's Windows runner is an admin, so
+    only a contributor's machine hit that, and it took the other checks with it."""
+    (tmp_path / "CHANGELOG.md").write_text(CONFLICT, encoding="utf-8")
+    link = tmp_path / "link.md"
+    try:
+        link.symlink_to(tmp_path / "CHANGELOG.md")
+    except (OSError, NotImplementedError):
+        pytest.skip("symlinks unavailable here")
+
+    assert scan_files([link], root=tmp_path) == (0, [])
 
 
 def test_an_empty_walk_scans_nothing_and_the_real_test_refuses_it() -> None:
