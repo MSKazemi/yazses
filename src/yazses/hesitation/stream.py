@@ -12,8 +12,8 @@ room floor. The window must hold at least ``min_voiced_ms`` of voiced frames: a 
 sustained vocalization, and a short flat syllable at the end of an ordinary word must not extend
 the endpoint. These defaults are reasoned, not measured on real speech.
 
-Not wired: nothing in the daemon constructs a :class:`HesitationMonitor` yet, and ``[hesitation]``
-stays off by default.
+Wired through :mod:`yazses.hesitation.handsfree`: the daemon builds a monitor only when both
+``[hesitation]`` and ``[autostop]`` are enabled, and ``[hesitation]`` stays off by default.
 """
 from __future__ import annotations
 

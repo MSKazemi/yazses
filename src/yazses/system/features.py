@@ -589,9 +589,10 @@ def _registry() -> list[_Def]:
              "dictation stays accurate in shared or private spaces. Off by default.",
              lambda c: c.whispermode.enabled, wm_on, wm_off),
         _Def("hesitation", "Hesitation-Hold Endpointing", "[hesitation] — don't cut off filled pauses",
-             RECOMMENDED,
+             EXPERIMENTAL,
              "Holds the turn open when you trail off with a filled hesitation ('annnd… uhh…') instead "
-             "of cutting you off — for anyone who thinks out loud. Off by default.",
+             "of cutting you off — for anyone who thinks out loud. Needs hands-free [autostop]: it "
+             "only lengthens that silence timeout. Tuned on synthetic signals only. Off by default.",
              lambda c: c.hesitation.enabled, hes_on, hes_off),
         _Def("contour", "Pitch-Contour Gestures", "[contour] — hum a shape to run a command",
              EXPERIMENTAL,
@@ -1218,7 +1219,7 @@ def feature_packages(slug: str) -> tuple[str, ...]:
 # without wiring it fails CI.
 _UNWIRED: frozenset[str] = frozenset({
     "affect", "agent", "audioguard", "breath", "bridge", "cmdspotter",
-    "codec", "compose", "contour", "crowdproof", "hatselect", "hesitation",
+    "codec", "compose", "contour", "crowdproof", "hatselect",
     "interpret", "langroute", "lipread", "loadguard", "morsevox", "mousegrid", "mouthswitch",
     "multiprofile", "pilot", "predict", "pronunciation", "proofback", "rag", "readback_clone",
     "screengrounded", "scribe", "scrub", "sentiment", "sign", "spatialvad", "vocaljoystick",

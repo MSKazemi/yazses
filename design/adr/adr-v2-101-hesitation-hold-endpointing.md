@@ -34,8 +34,8 @@ is the lazy extra; the rule is pure. OFF by default.
 ## Amendment (2026-10-21) — PROPOSED, for the owner's review
 
 **Status of this amendment: proposed, not accepted.** It records what was built toward wiring
-(#164, WIRE-HESITATION-001). Nothing below is wired; `[hesitation]` is still unreachable and
-off by default.
+(#164, WIRE-HESITATION-001). When it was written nothing below was wired; the wiring
+amendment that follows records how it now is. `[hesitation]` stays off by default.
 
 **What was missing.** `is_filled_pause` takes an F0 series and a spectral-stability value, and
 nothing on main produced either from live audio. A shared numpy YIN tracker with per-frame
@@ -56,3 +56,25 @@ Open points for the owner: (a) hold-to-talk ends on key release, so the hold onl
 anything in a hands-free (`[autostop]`) turn — wiring there means `[hesitation] commit_ms` and
 `[autostop] silence_timeout_ms` both describe the plain commit threshold, and one must win;
 (b) the 300 ms / 400 ms / 25 Hz / 0.7 thresholds were checked on synthetic tones only.
+
+## Amendment (2026-10-21, wiring) — owner decision applied
+
+The open point (a) above is decided by the owner: **`[autostop] silence_timeout_ms` is the
+base threshold, and hesitation only extends it**, by `[hesitation] hold_extra_ms`, after a
+detected filled pause. Wired for #164 (WIRE-HESITATION-001):
+
+- `src/yazses/hesitation/handsfree.py::build_monitor` builds a `HesitationMonitor` only when
+  both `[hesitation]` and `[autostop]` are enabled. Its commit threshold is the auto-stop
+  timeout, with the same `MIN_SILENCE_TIMEOUT_MS` floor the turn applies.
+- `[hesitation] commit_ms` now defaults to `0`, meaning "use the auto-stop timeout"; any other
+  value is ignored with a warning, so there are never two competing thresholds. A negative or
+  non-finite `hold_extra_ms` reads as `0`: the feature can only lengthen a turn.
+- Daemon hooks: `_build_autostop` passes `monitor.decision` as `AutoStopTurn`'s `endpoint`;
+  `_on_audio_chunk` queues chunks only while a hands-free turn is latched (a copy under the
+  monitor's queue lock, no analysis); `_on_hold_start` resets the monitor for a new turn (not
+  on the swallowed second tap). YIN runs on the auto-stop watcher thread, inside
+  `AutoStopTurn.tick`, so a hotkey press can wait for at most one analysis of the queued
+  audio (bounded at 2 s).
+- Hold-to-talk is untouched: it ends on key release and never feeds the monitor.
+- The feature is registered as **experimental**. Point (b) still stands: the thresholds were
+  checked on synthetic tones only.

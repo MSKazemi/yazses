@@ -122,6 +122,11 @@ of the pipeline is unchanged:
   instead of holding it: the burst ends on silence (or a second tap) rather than on key release. A tap is a
   press shorter than `[hotkey] hold_threshold_ms`; a longer hold is still ordinary hold-to-talk. It needs a
   modifier hotkey, which is the default.
+- **Hesitation-hold** (`yazses features enable hesitation`, experimental) works on top of Hands-Free
+  Auto-Stop: when you trail off with a held "uhh…" or "mmm…", the turn waits `[hesitation] hold_extra_ms`
+  (1200 ms by default) longer than `[autostop] silence_timeout_ms` before it ends, so a thinking pause is
+  not cut off. The auto-stop timeout stays the only base threshold; it has no effect in hold-to-talk. Its
+  detector was tuned on synthetic signals only, not on recorded speech.
 - **Wake-word activation** exists but is marked experimental and is not
   recommended yet — it is listed honestly as such in `yazses features`.
 
