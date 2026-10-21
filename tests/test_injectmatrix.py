@@ -239,6 +239,54 @@ def test_a_verdict_that_lies_about_its_code_points_is_rejected() -> None:
     assert any("says EXACT but the code points give MISMATCH" in p for p in problems)
 
 
+def _with_selftest(cases: list[dict], selftest: object) -> dict:
+    doc = _result(cases)
+    doc["receiver_selftest"] = selftest
+    return doc
+
+
+@pytest.mark.parametrize("selftest", [{"fa-zwnj": True}, {}, None])
+def test_a_backend_failure_cannot_be_relabelled_receiver_limit(selftest) -> None:
+    """RECEIVER_LIMIT excuses a mismatch only when the receiver's self-test says so.
+
+    A dropped ZWNJ is a backend failure; calling it RECEIVER_LIMIT while the self-test
+    shows the window held that text (or never ran) must not validate.
+    """
+    case = im.build_case(BY_ID["fa-zwnj"], ZWNJ.replace("\u200c", ""))
+    case["codepoint_verdict"] = "RECEIVER_LIMIT"
+    doc = _with_selftest([case], selftest)
+    doc["summary"] = im.summarize([case])
+    problems = im.validate_result(doc, FIXTURES)
+    assert any("says RECEIVER_LIMIT but the code points give MISMATCH" in p
+               for p in problems), problems
+
+
+def test_a_receiver_limit_backed_by_the_selftest_validates() -> None:
+    emoji = BY_ID["fa-emoji"]
+    lossy = emoji.text.replace("\U0001f680", "\ud83d\ude80")
+    assert lossy != emoji.text
+    case = im.build_case(emoji, lossy, receiver_ok=False)
+    assert case["codepoint_verdict"] == "RECEIVER_LIMIT"
+    assert im.validate_result(_with_selftest([case], {"fa-emoji": False}), FIXTURES) == []
+
+
+def test_receiver_limit_on_an_exact_case_is_rejected() -> None:
+    """Even a failed self-test cannot excuse text that arrived exactly: that is EXACT."""
+    emoji = BY_ID["fa-emoji"]
+    case = im.build_case(emoji, emoji.text)
+    case["codepoint_verdict"] = "RECEIVER_LIMIT"
+    doc = _with_selftest([case], {"fa-emoji": False})
+    doc["summary"] = im.summarize([case])
+    problems = im.validate_result(doc, FIXTURES)
+    assert any("says RECEIVER_LIMIT but the code points give EXACT" in p for p in problems)
+
+
+@pytest.mark.parametrize("selftest", [["fa-emoji"], {"fa-emoji": "false"}, "no"])
+def test_a_malformed_receiver_selftest_is_rejected(selftest) -> None:
+    problems = im.validate_result(_with_selftest(None, selftest), FIXTURES)
+    assert "receiver_selftest must be null or an object of booleans" in problems
+
+
 def test_doctored_expectation_is_rejected() -> None:
     """Editing the expected side to match what arrived must not turn a failure into a pass."""
     received = ZWNJ.replace("\u200c", "")
@@ -359,6 +407,32 @@ def test_render_separates_corruption_from_layout() -> None:
     assert "`fa-zwnj` MISMATCH" in corruption and "zwnj-dropped" in corruption
     assert "fa-punctuation-quotes" not in corruption
     assert "parentheses not mirrored" in visual and "fa-zwnj" not in visual
+
+
+def test_render_does_not_blame_the_backend_for_a_receiver_limit() -> None:
+    """A case the receiver could not hold is not a code-point failure to file."""
+    emoji = BY_ID["fa-emoji"]
+    assert "emoji" in emoji.categories
+    cases = [im.build_case(f, f.text) for f in FIXTURES]
+    limited = next(c for c in cases if c["fixture_id"] == "fa-emoji")
+    limited.update(im.build_case(emoji, emoji.text.replace("\U0001f680", "\ud83d\ude80"),
+                                 receiver_ok=False))
+    assert limited["codepoint_verdict"] == "RECEIVER_LIMIT"
+    doc = _result(cases)
+    out = im.render_matrix([doc])
+    table, rest = out.split("Code-point failures", 1)
+    corruption, rest = rest.split("Visual-layout failures", 1)
+    visual, limits = rest.split("Receiver limits", 1)
+    assert "FAIL" not in table
+    # persian and emoji both hold fa-emoji beside fixtures that arrived exactly
+    assert table.count("EXACT (receiver limit, not tested: fa-emoji)") == 2
+    assert "fa-emoji`" not in corruption and "- none" in corruption
+    assert "fa-emoji" not in visual
+    assert "`fa-emoji` RECEIVER_LIMIT" in limits
+    # a column whose only case hit the limit says "not tested", never EXACT or FAIL
+    alone = im.render_matrix([_result([limited])]).split("Code-point failures", 1)[0]
+    assert alone.count("not tested (receiver limit: fa-emoji)") == 2
+    assert "FAIL" not in alone
 
 
 def test_render_says_not_tested_for_an_absent_class() -> None:

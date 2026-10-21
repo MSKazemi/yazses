@@ -117,9 +117,12 @@ python scripts/injectmatrix/injectmatrix.py render *.json
 ```
 
 `validate` recomputes every verdict from the stored code points and compares the expected side
-with the shipped fixture, so a result cannot say `EXACT` for text that did not match. `render`
-prints a row for the table below, then the code-point failures and the visual failures as two
-separate lists, ready to file as two kinds of issue.
+with the shipped fixture, so a result cannot say `EXACT` for text that did not match. It accepts
+`RECEIVER_LIMIT` only for a fixture the receiver's self-test marked as one it cannot hold, so a
+backend failure cannot be relabelled as the receiver's. `render` prints a row for the table below,
+then the code-point failures and the visual failures as two separate lists, ready to file as two
+kinds of issue. A `RECEIVER_LIMIT` case is neither: its cell says "not tested" and names the
+fixture, and it is listed last, under receiver limits, as nothing to file against the backend.
 
 ### Another target application
 

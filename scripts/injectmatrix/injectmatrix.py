@@ -347,8 +347,11 @@ def validate_result(doc: Any, fixtures: list[Fixture] | None = None) -> list[str
     `result.schema.json` beside this file is the published contract and
     `tests/test_injectmatrix.py` pins the two to the same required fields.
 
-    With `fixtures`, each case is also checked against the shipped fixture text, and
-    its verdict is recomputed -- a result that says EXACT must actually be exact.
+    With `fixtures`, each case is also checked against the shipped fixture text.
+    Every verdict is recomputed from the stored code points -- a result that says
+    EXACT must actually be exact -- and RECEIVER_LIMIT is accepted only for a case
+    whose `receiver_selftest` entry is false, so a backend failure cannot be
+    relabelled as the receiver's.
     """
     if not isinstance(doc, dict):
         return ["result is not a JSON object"]
@@ -382,6 +385,13 @@ def validate_result(doc: Any, fixtures: list[Fixture] | None = None) -> list[str
         problems.append("environment.session must be 'x11' or 'wayland' on Linux")
     if env.get("receiver") not in RECEIVERS:
         problems.append(f"environment.receiver {env.get('receiver')!r} not in {RECEIVERS}")
+
+    selftest = doc.get("receiver_selftest")
+    if selftest is not None and not (
+        isinstance(selftest, dict) and all(isinstance(v, bool) for v in selftest.values())
+    ):
+        problems.append("receiver_selftest must be null or an object of booleans")
+        selftest = None
 
     by_id = {f.id: f for f in fixtures} if fixtures is not None else None
     cases = doc["cases"]
@@ -418,11 +428,16 @@ def validate_result(doc: Any, fixtures: list[Fixture] | None = None) -> list[str
                 problems.append(f"{where} is not in the shipped fixture set")
             elif fixture.text != expected:
                 problems.append(f"{where} expected_code_points differ from the shipped fixture")
-        if verdict == "RECEIVER_LIMIT":
-            continue
-        recomputed = compare(expected, received).verdict
+        # Only the receiver's own self-test can excuse a mismatch: an entry that is
+        # absent or true means the window held this text, so the backend is judged.
+        receiver_ok = not (isinstance(selftest, dict) and selftest.get(fid) is False)
+        recomputed = compare(expected, received, receiver_ok=receiver_ok).verdict
         if verdict in CODEPOINT_VERDICTS and recomputed != verdict:
-            problems.append(f"{where} says {verdict} but the code points give {recomputed}")
+            why = (" (receiver_selftest does not mark this fixture as one the receiver"
+                   " cannot hold)" if verdict == "RECEIVER_LIMIT" else "")
+            problems.append(
+                f"{where} says {verdict} but the code points give {recomputed}{why}"
+            )
     if isinstance(doc["summary"], dict) and all(
         isinstance(c, dict) and "codepoint_verdict" in c and isinstance(c.get("visual_check"), dict)
         for c in cases
@@ -482,11 +497,34 @@ def receiver_roundtrip(widget: Any, text: str) -> bool:
 # ---------------------------------------------------------------------- rendering
 
 
+def _render_cell(cases: list[dict[str, Any]]) -> str:
+    """One category's cell. RECEIVER_LIMIT is the receiver's failure, never the backend's.
+
+    A case the target window could not hold even when inserted directly says nothing
+    about the backend, so it is neither EXACT nor FAIL: it is "not tested", named so
+    the gap is visible rather than blank (the evidence standard's wording).
+    """
+    if not cases:
+        return "not tested"
+    failed = [c["fixture_id"] for c in cases if c["codepoint_verdict"] in ("MISMATCH", "NOTHING")]
+    limited = [c["fixture_id"] for c in cases if c["codepoint_verdict"] == "RECEIVER_LIMIT"]
+    if failed:
+        cell = "FAIL: " + ", ".join(failed)
+    elif len(limited) == len(cases):
+        return "not tested (receiver limit: " + ", ".join(limited) + ")"
+    else:
+        cell = "EXACT"
+    if limited:
+        cell += " (receiver limit, not tested: " + ", ".join(limited) + ")"
+    return cell
+
+
 def render_matrix(results: list[dict[str, Any]]) -> str:
     cols = REQUIRED_CATEGORIES
     head = ["OS", "Session", "Backend", "YazSes", "Target", *cols, "Visual"]
     lines = ["| " + " | ".join(head) + " |", "|" + "---|" * len(head)]
     corruption: list[str] = []
+    limits: list[str] = []
     layout: list[str] = []
     for doc in results:
         env = doc["environment"]
@@ -496,12 +534,7 @@ def render_matrix(results: list[dict[str, Any]]) -> str:
                f"{env['target_app']}" + (f" {env['target_app_version']}"
                                           if env["target_app_version"] else "")]
         for cat in cols:
-            in_cat = [c for c in doc["cases"] if cat in c["categories"]]
-            if not in_cat:
-                row.append("not tested")
-                continue
-            bad = [c["fixture_id"] for c in in_cat if c["codepoint_verdict"] != "EXACT"]
-            row.append("EXACT" if not bad else "FAIL: " + ", ".join(bad))
+            row.append(_render_cell([c for c in doc["cases"] if cat in c["categories"]]))
         s = doc["summary"]
         row.append("fail" if s["visual_fail"] else ("pending" if s["visual_pending"] else "pass"))
         lines.append("| " + " | ".join(row) + " |")
@@ -510,17 +543,21 @@ def render_matrix(results: list[dict[str, Any]]) -> str:
             if c["codepoint_verdict"] != "EXACT":
                 d = c["first_divergence"] or {}
                 hints = ", ".join(c["corruption_hints"]) or "uncatalogued"
-                corruption.append(
+                entry = (
                     f"- {label}: `{c['fixture_id']}` {c['codepoint_verdict']} at index "
                     f"{d.get('index')} (expected {d.get('expected')}, got {d.get('received')}; "
                     f"{hints})"
                 )
+                (limits if c["codepoint_verdict"] == "RECEIVER_LIMIT" else corruption).append(entry)
             if c["visual_check"]["status"] == "fail":
                 layout.append(f"- {label}: `{c['fixture_id']}` {c['visual_check']['notes']}")
     out = ["\n".join(lines), "", "Code-point failures (file each as a Unicode-corruption issue):",
            *(corruption or ["- none"]), "",
            "Visual-layout failures (file each as a bidi-layout issue, separately):",
-           *(layout or ["- none"])]
+           *(layout or ["- none"]), "",
+           "Receiver limits (the target window could not hold the text even when inserted"
+           " directly; not a backend failure, do not file -- re-run with another target):",
+           *(limits or ["- none"])]
     return "\n".join(out) + "\n"
 
 
