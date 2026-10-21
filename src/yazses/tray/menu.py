@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from yazses.audio.devices import InputDevice, resolve_input_device
+from yazses.bidi import wrap_user_text
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from yazses.platform.base import TrayModel
@@ -90,7 +91,9 @@ def build_menu_model(
     state = str(status.get("state") or "idle")
     header = f"YazSes — {state}"
 
-    input_device = status.get("input_device") or "default"
+    # Device names come from the OS, in the desktop's script: display copies are
+    # isolated (#516); `DeviceItem.device` keeps the raw name the pin is written from.
+    input_device = wrap_user_text(status.get("input_device") or "default")
     mic_line = f"Mic: {input_device}"
 
     streak = int(status.get("silent_streak") or 0)
@@ -106,7 +109,7 @@ def build_menu_model(
     for dev in devices:
         items.append(
             DeviceItem(
-                label=dev.name + (" (OS default)" if dev.is_default else ""),
+                label=wrap_user_text(dev.name) + (" (OS default)" if dev.is_default else ""),
                 device=dev.name,
                 checked=(resolved_index is not None and dev.index == resolved_index),
             )
@@ -322,7 +325,9 @@ def icon_spec(status: dict) -> tuple[str, str]:
     else:
         color = _BLUE  # normal / ready / idle
 
-    mic = status.get("input_device") or "default"
+    # The OS names the device, and on a Persian or Arabic desktop it names it in that
+    # script: isolated so its punctuation stays with it, not with "Mic:" (#516).
+    mic = wrap_user_text(status.get("input_device") or "default")
     hotkey = status.get("hotkey") or "?"
     label = "command mode" if (state in _RECORDING_STATES and command_mode) else state
     tooltip = f"YazSes — {label}\nMic: {mic}\nHold {hotkey} to dictate"

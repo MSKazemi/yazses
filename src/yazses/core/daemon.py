@@ -30,16 +30,19 @@ if TYPE_CHECKING:
     # so the `X | None` attribute annotations resolve for the type checker.
     from yazses.acoustic.gate import AcousticGate
     from yazses.bookmarks.service import BookmarkService
+    from yazses.earcon.play import EarconPlayer
     from yazses.endpoint.autostop import AutoStopTurn
     from yazses.gaze.refine_runtime import RefinementRuntime
     from yazses.gaze.targeter import GazeTargeter
     from yazses.inject.target import TargetDetector
     from yazses.latency.pool import EnginePool
+    from yazses.learning.capture import CorpusWriter
     from yazses.learning.edit_watch import EditWatcher
     from yazses.meeting.controller import MeetingController
     from yazses.perception import SharedPerceptionSource
     from yazses.polyglot.router import PolyglotRouter
     from yazses.reask.gate import ReaskGate
+    from yazses.styleguard.rules import Rule as StyleRule
     from yazses.system.single_instance import SingleInstanceLock
     from yazses.timeline.history import InjectionTimeline
     from yazses.tts.base import TtsBackend
@@ -60,10 +63,8 @@ from yazses.commands.grammars.registry import resolve_command_language
 from yazses.commands.macros import MacroContext, build_macro_table
 from yazses.commands.revise import DictationLedger, parse_revise
 from yazses.config import Config, load_config
-from yazses.earcon.play import EarconPlayer
 from yazses.inject.streaming import StreamingInjector
 from yazses.ipc.protocol import Request
-from yazses.learning.capture import CorpusWriter, build_writer
 from yazses.platform import Platform, get_platform
 from yazses.platform.base import HotkeyBackend, InjectorBackend, IpcServer, TrayState
 from yazses.postprocess.cleaner import clean_text
@@ -87,14 +88,30 @@ from yazses.stt.factory import build_engine
 from yazses.stt.filters.disfluency import filter_transcript
 from yazses.stt.latency import LatencyWindow
 from yazses.stt.streaming import StreamingEngine
-from yazses.styleguard.loader import build_style_rules
-from yazses.styleguard.rules import apply_style
 from yazses.system.outcomes import OutcomeWindow, classify_outcome
 from yazses.system.relaunch import Mode, command_for
 from yazses.system.uptime import monotonic_including_suspend
-from yazses.tts.factory import build_tts
+
+# `[earcon]`, `[learning]`, `[styleguard]` and `[tts]` are imported inside the branch
+# that runs when each is enabled, never here: a feature that is off must cost a
+# default start no import (tests/test_base_weight_budget.py,
+# docs/contribute/startup-budget.md).
 
 log = logging.getLogger(__name__)
+
+
+class _SilentEarcon:
+    """What ``Daemon._earcon`` is while ``[earcon]`` is off.
+
+    `EarconPlayer(False).play` returns at once and is constructed once, so this is
+    the same behaviour without importing `yazses.earcon` on every start. Kept beside
+    the daemon because it is the daemon's seam, not part of the feature.
+    """
+
+    enabled = False
+
+    def play(self, event: str, confidence: float | None = None) -> None:
+        return None
 
 
 @functools.cache
@@ -452,9 +469,14 @@ class Daemon:
         # scoped to an open question rather than to the whole session.
         self._mic_prompt = MicPrompt()
         # Earcon feedback (ADR-v2-096): non-speech tones for state changes, so the
-        # daemon is usable without seeing the tray. Always constructed and inert
-        # unless [earcon] enabled, keeping the hot path free of a None check.
-        self._earcon = EarconPlayer(self._config.earcon.enabled)
+        # daemon is usable without seeing the tray. Never None and inert unless
+        # [earcon] enabled, keeping the hot path free of a None check. The player is
+        # imported only when it can make a sound; off, a no-op stands in.
+        self._earcon: EarconPlayer | _SilentEarcon = _SilentEarcon()
+        if self._config.earcon.enabled:
+            from yazses.earcon.play import EarconPlayer as _EarconPlayer
+
+            self._earcon = _EarconPlayer(True)
         # Spoken capabilities (ADR-v2-131): phonetic spelling, spoken code, spoken
         # maths, snippets, spoken regex and voice timers answer to a *phrase*, not
         # to a key of their own. Built once from config into a list the command
@@ -495,9 +517,13 @@ class Daemon:
             self._config, self._platform.paths.config_file.parent
         )
         # Style-Consistency Enforcer rules (None when [styleguard] disabled).
-        self._style_rules = build_style_rules(
-            self._config, self._platform.paths.config_file.parent
-        )
+        self._style_rules: list[StyleRule] | None = None
+        if self._config.styleguard.enabled:
+            from yazses.styleguard.loader import build_style_rules
+
+            self._style_rules = build_style_rules(
+                self._config, self._platform.paths.config_file.parent
+            )
         # Mid-Thought Undo: ledger of injected dictation bursts for "scratch that".
         self._ledger = DictationLedger()
         # Voice Undo/Redo Timeline (ADR-v2-089) — None when [timeline] is off.
@@ -1475,7 +1501,11 @@ class Daemon:
         self._slm_router = self._build_slm_router(cfg)
 
         # Opt-in self-improvement corpus (ADR-012). Dormant unless enabled.
-        self._corpus = build_writer(self._platform.paths.data_dir, cfg.learning)
+        self._corpus = None
+        if cfg.learning.enabled:
+            from yazses.learning.capture import build_writer
+
+            self._corpus = build_writer(self._platform.paths.data_dir, cfg.learning)
 
         # True Code-Switch routing (ADR-v2-008). Dormant unless [polyglot] is
         # fully configured with an out-of-band adapter; surface a hint otherwise.
@@ -1518,7 +1548,11 @@ class Daemon:
 
         # Read-Back Loop: offline TTS that speaks the transcript back (ADR-011).
         # None when [tts] disabled; NullTtsBackend when enabled-but-unavailable.
-        self._tts = build_tts(cfg.tts)
+        self._tts = None
+        if cfg.tts.enabled:
+            from yazses.tts.factory import build_tts
+
+            self._tts = build_tts(cfg.tts)
         if self._tts is not None:
             log.info(
                 "Read-back TTS enabled (backend=%s, mode=%s)",
@@ -3455,6 +3489,8 @@ class Daemon:
                 # style ('email' -> 'e-mail'), a local Vale-lite pass driven by
                 # ~/.config/yazses/style-rules.toml. Opt-in (ADR-v2-109).
                 if self._config.styleguard.enabled and self._style_rules:
+                    from yazses.styleguard.rules import apply_style
+
                     text, _ = apply_style(text, self._style_rules)
                     event["final_text"] = text
                 # SafeGlyph: flag confusable homoglyphs (e.g. Cyrillic look-alikes) in the
@@ -5405,11 +5441,12 @@ class Daemon:
             event["discard_reason"] = "window_focus_no_match"
             log.info("Voice focus: no unambiguous window matches %r.", target)
             try:
+                from yazses.bidi import quote_user_text
                 from yazses.system.notify import notify
 
                 notify("No window matched",
-                       f"Nothing was focused for {target!r}. Say part of the "
-                       "window title, or check `yazses doctor`.")
+                       f"Nothing was focused for {quote_user_text(target)}. Say part of "
+                       "the window title, or check `yazses doctor`.")
             except Exception:
                 log.debug("focus notification failed", exc_info=True)
             return True

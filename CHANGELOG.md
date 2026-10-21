@@ -38,6 +38,253 @@ and `yazses update` told the user to `pip install --upgrade yazses`, which upgra
 different environment. It now checks for the `uv-receipt.toml` uv writes at the root
 of the running environment (`sys.prefix`), with the substrings kept as the fallback.
 
+### Fixed — the MCP `transcribe` tool and `meeting recover` now decode with your model, language, device and precision
+
+`yazses mcp-server`'s `transcribe` tool passed the whole config where the `[recimport]`
+section belongs. Every setting was then read with its default, so each call decoded with
+`small.en` in English whatever `[stt]` and `[recimport]` said, and its `diarize` argument
+could never label a speaker. Nothing raised. The same file pipeline also fell back to a
+hard-coded `small.en` instead of inheriting `[stt] model`, which `[recimport]`/`[meeting]
+model = ""` promise, so `yazses meeting recover` decoded with a model nobody chose; and no
+file path passed `[stt] device`, `compute_type`, `cpu_threads`, `beam_size` or
+`condition_on_previous_text` to the decoder.
+
+One pure helper, `stt/decoder_settings.py::file_decoder_settings`, now decides all of
+it for every file entry point, and `transcribe_file` raises `TypeError` when handed a
+whole `Config`. `[stt] chinese_script` and the Persian normaliser are judged against the
+file's own model and language. A `[stt] model` that names a Parakeet or Moonshine
+checkpoint is not inherited (the file path is Whisper-only); it falls back to `base.en`
+with a warning. Tested with a recording fake decoder through the MCP tool, `yazses
+transcribe` and `recover_meeting`; not verified against a real model or a CUDA device.
+Live meetings still decode their post-pass with the daemon's dictation engine, so
+`[meeting] model`/`language` are not applied there yet (unchanged by this fix).
+
+### Added — READY eye/camera validation slots appear in the contributor task finder ([#456](https://github.com/MSKazemi/yazses/issues/456))
+
+The no-code eye/camera checks were discoverable only by someone who already knew about
+`design/eye-control/`. `scripts/campaign.py --generate` now derives one `MEASURE-EYE-<slot>`
+measurement task per **READY** slot of the machine-readable registry
+(`design/eye-control/validation-slots.json`) into `campaign/tasks.json`, so it shows up in the
+existing [task finder](https://mskazemi.com/yazses/contribute/find.html) under "specific
+hardware or an OS" and the `measurement` kind — for example *T0 camera lifecycle and privacy on
+Windows 11: slot A, issue #428, no coding* at 20 minutes. Each row names the session and the
+webcam (and the second monitor or scaling a topology cell needs) before anyone claims it, the
+"No-code eye-control test" issue form as the report path, `check_eye_validation_slots.py` as
+its validation command, and asks for no research consent and no identifying data.
+
+PLANNED slots never appear, and **every slot is PLANNED today, so the finder shows no eye task
+yet** — nothing about any platform has changed. The registry is the single source: a
+hand-written row naming a slot is replaced by the derived one, and `campaign.py --check` (and
+`tests/test_campaign_eye_slots.py`) fail when the inventory or the published finder disagrees
+with the registry in either direction, or when the registry is unreadable or empty. The
+campaign validator is unchanged and still authoritative; a slot task is a `measurement` task,
+so it can never be `cloud_agent_ready`. The derived rows are checked by the registry's own
+`validate_campaign_exposure` before anything is written. Not verified: how the rows read to a
+real newcomer, since none can be published until a slot turns READY.
+
+### Added — the Settings window checks for updates and installs dormant features
+
+The tray and the CLI could already find and install an update, and install a switched-on
+feature's missing libraries. The Settings window could do neither, so a GUI user was sent
+back to a terminal. Its new **About and updates** box has:
+
+- **Check for updates**, run off the window's thread, showing the installed and available
+  versions. **Install update…** then does what that install supports: on a per-user
+  Windows installer, winget, Chocolatey or Scoop install, the ADR-027 one-click update
+  (the same confirmation, then `tray.updates.hand_off_outside_tray`, then the window
+  closes); on uv/pipx/pip, `updater.run_upgrade_checked`, which keeps enabled features'
+  libraries and verifies the version moved, then offers the restart. Where one-click is
+  refused (an all-users install, a package feed that has not caught up) the reason and the
+  manual steps are shown, with **Open download page**. A snap is shown its terminal
+  command.
+- **Install now (size)** beside each switched-on feature whose libraries are missing. It
+  runs the transactional `ondemand.install_one` off the window's thread, shows its
+  progress, says whether a failure was undone completely, partly (with the restore
+  commands) or changed nothing, and offers the restart on success. Snap, Homebrew cask,
+  frozen and PEP 668 installs get a disabled button with the reason. In a frozen build
+  whose pack runtime is supported and which publishes an add-on for the feature, the button
+  installs that add-on through `packs.manage.install` (ADR-028).
+
+No update or install logic is new: `settingsui/maintenance.py` (pure decisions and wording)
+and `settingsui/maintenance_panel.py` (widgets and threads) call the functions above, and
+`settingsui/app.py` gains one line. Tested headless with fakes for every effect
+(`tests/test_settingsui_maintenance_logic.py`, `tests/test_settingsui_maintenance_panel.py`),
+including that the check and the install run off the UI thread and report back on it. Not
+yet tried from the window on a real Windows machine.
+
+### Security — 20 of 21 open dependency advisories closed by upgrading, the last one assessed ([#116](https://github.com/MSKazemi/yazses/issues/116))
+
+OpenSSF Scorecard's `Vulnerabilities` check had fallen to 0/10 with 21 open OSV
+advisories that nobody had assessed. Each was traced to the package that brings it
+in and checked for whether YazSes reaches the vulnerable code:
+
+- **`certifi` 2026.6.17 → 2026.10.19** (PYSEC-2026-4320). This one *was* reachable
+  in a default install: it is the CA bundle behind the first-run model download,
+  and it trusted a root CA whose intermediate keys were compromised.
+- **`Pillow` 12.3.0 → 13.0.0**, with the Windows runtime floor raised to
+  `>=13.0.0` (nine decoder advisories, one critical). Pillow is in the Windows base
+  install for the tray, but YazSes never opens an image file, so none of the decoders
+  was reached. The floor is raised because `pip install --upgrade` would otherwise
+  keep an existing 12.x. Under 13.0.0 the committed icons and tray images still
+  match what `scripts/gen-icons.py --check` and `scripts/gen-tray-states.py --check`
+  render, on Linux x86_64; the Windows tray itself was not run.
+- **`aiohttp` 3.14.3 → 3.14.5** (with `yarl` 1.25.1, which it requires; eight
+  advisories) and **`pytorch-lightning` 2.6.5 → 2.6.6** (PYSEC-2026-3967). Both
+  arrive only under the opt-in `diarization-pyannote` extra and neither is imported.
+  The second is the twin distribution of the `lightning` checkpoint loader:
+  `lightning` had been patched for CVE-2026-58659 while `pytorch-lightning`, which
+  it depends on, stayed at the vulnerable version.
+- **`uv` 0.12.18 → 0.13.4** in the Flatpak generator's hash-pinned
+  `packaging/flatpak/tools-requirements.txt` (PYSEC-2026-4321). Dependabot does not
+  read that file.
+- **`diskcache`** has no fix upstream and is still not reached (nothing here
+  builds a llama-cpp cache). It is now listed in a new `osv-scanner.toml` with its
+  reason and an expiry of 2027-01-21. Scorecard documents that it honours that file.
+
+Only those packages moved in `uv.lock`; the Intel-macOS `onnxruntime` split is
+unchanged. How the list is produced (Scorecard API, `pip-audit` on a full
+`uv export`, `osv-scanner`) and the reachability call for each advisory are in
+`.github/SECURITY.md`. `tests/test_dependency_advisories.py` now fails if any of
+these packages drops below its fixed version, if either lightning distribution is
+unpatched, and if an `osv-scanner.toml` entry has no reason, no expiry, no published
+assessment, or covers an advisory that has a fix.
+
+### Fixed — a non-English language on an English-only model is refused, not typed as English ([#515](https://github.com/MSKazemi/yazses/issues/515))
+
+`[stt] language = "fa"` (or any non-English code) beside an English-only checkpoint did
+not fail. faster-whisper 1.2.1 replaces the language with `"en"` for an English-only
+tokenizer and only logs a warning. Parakeet TDT v2 and Moonshine take no language at all.
+YazSes itself only logged a warning, so Persian speech came out as fluent-looking English.
+The old guard checked only the `.en` suffix, so it also missed the Distil-Whisper large
+checkpoints (`distil-large-v2`, `-v3`, `-v3.5`). Their model cards say they are
+English-only, but their names carry no suffix and they keep Whisper's multilingual
+tokenizer, so faster-whisper does not even warn.
+
+- **New `src/yazses/language/capability.py`**: a pure table of which languages each
+  known checkpoint transcribes. Every row cites its model card or the engine's docs. It
+  is held equal to the Whisper model registry, faster-whisper's language codes and the
+  engines' default models by tests. A custom checkpoint is *unverified*: it is reported,
+  never refused.
+- **Engine factory**: an unsupported pairing raises `LanguageUnsupportedError` before
+  any model loads. This includes the Parakeet/Moonshine → faster-whisper fallback, which
+  lands on `base.en`. The daemon holds in ERROR state with a notification, and
+  `yazses status` shows the reason. The latency governor's `light_model` (`tiny.en`) is
+  refused the same way, so a loaded machine keeps decoding Persian with your model.
+- **Config validation** reports the pair as a *refused* problem naming the model to
+  switch to. **Settings** will not save it, including when the engine is Parakeet.
+  **`yazses transcribe`** exits 2 with the same message.
+- **`yazses doctor`** gains a *Speech language* row: language, engine, the model that
+  actually loads, whether it is multilingual, and whether the combination is supported.
+  **`yazses language status`** shows the same (`--json`: `effective_model`,
+  `multilingual`, `language_support`, `support_source`).
+
+English stays the default. A shipped or existing English config loads, builds and
+reports exactly as before, and tests pin this. The *recommended Persian preset* from
+#515 is **not** part of this change. It waits for the FA-05 benchmark evidence.
+
+### Fixed — Persian and Arabic names keep their punctuation in the tray, Settings and notifications ([#516](https://github.com/MSKazemi/yazses/issues/516))
+
+YazSes' interface is English, so a message that quotes something in Persian -- a
+bookmark label, a window name you spoke, a filter query, a microphone your desktop
+names in Persian -- puts a right-to-left phrase inside a left-to-right sentence. The
+punctuation at the seam then followed the English sentence: `Bookmarked 'سلام!'.`
+showed the `!` on the right of the word, which a Persian reader sees as its start.
+Measured in Qt 6.11 offscreen, not assumed. Settings also showed a saved Persian
+vocabulary with its half-spaces (ZWNJ) spelled out as `\u200c`.
+
+A small display-only helper, `yazses/bidi.py`, now wraps such text in Unicode
+first-strong isolates (FSI…PDI), only when it holds a right-to-left character. It
+is applied to the tray tooltip and microphone menu, the Settings microphone list, the
+Settings save and filter messages, bookmark messages and the "No window matched"
+notification. English text is unchanged byte for byte. The isolates are only in
+what is shown: the stored, typed and copied text never contains them, and a test
+fails if the injector, post-processing, clipboard, config-write or transcript-file
+code imports the helper. The CLI and transcript files are deliberately unchanged.
+
+Audited and already correct: the Vocabulary field lays Persian out right-to-left by
+its content while the window stays left-to-right, and copies the logical string. The
+overlay draws no text. Not yet verified: how it looks to an RTL reader on real GNOME,
+KDE, Windows and macOS desktops, screen-reader output, and high-DPI.
+
+### Added — one written response to a red check, and quarantines that expire ([#538](https://github.com/MSKazemi/yazses/issues/538))
+
+`.github/CI_POLICY.md` §9 now says what to do when a blocking check is red. Read the first
+failure. Classify it as deterministic, a runner/service incident, or a suspected flake. Rerun
+the failed jobs at most once, as a diagnostic. Explain the failure before you merge. A test is
+called flaky only when the same commit both passed and failed it. Flaky tests are labelled
+`ci:flaky-test` and runner incidents `ci:runner-incident`, and the two are tracked
+separately. Nothing in CI changes behaviour.
+
+The policy has a test. A test may now be marked
+`@pytest.mark.quarantine(issue=, owner=, reason=, expires=)`. The marker needs a matching
+entry in the new `tests/quarantine.toml`, and the registry starts empty. A quarantined test
+**still runs**. Its failure is reported as `XFAIL` with its issue, owner and expiry, and every
+run that touches one ends with a "quarantined tests" section. In CI the same table goes to the
+step summary. `tests/test_flake_policy.py` fails the build in these cases: a quarantine that is
+expired, unregistered or incomplete; a quarantine that disagrees with the registry; a
+quarantine set to expire more than 90 days ahead; and a registry entry whose marker is gone.
+The plugin also stops honouring an expired quarantine, so on its expiry date the test blocks
+again.
+
+Each of the nine `continue-on-error` switches in `.github/workflows/` now has a
+`# PROMOTE WHEN:` / `# REMOVE WHEN:` comment beside it, and a new test requires one for any
+future switch. The test checks its line scan against a YAML parse, so a key it cannot read
+fails the test. The parsed YAML of every edited workflow is identical before and after. Only
+comments were added.
+
+### Added — a daily CI telemetry report: queue time, runtime, cancellation and failure hot spots ([#536](https://github.com/MSKazemi/yazses/issues/536))
+
+Queue storms were diagnosed by paging through the Actions UI after they happened. A new
+scheduled workflow, `ci-telemetry.yml`, now answers "what is consuming CI, and where are
+contributors waiting?" every day, as a job summary plus a JSON/Markdown artifact kept for
+14 days. It reports runs by workflow and event, outcome percentages, job queue latency
+and run duration (p50/p95), job-minutes per workflow, the superseded-PR-run cancellation
+rate and delay, the longest jobs, workflows with no success, repeated failures by
+workflow, job and step, and workflows red on `main`, each compared with the targets in
+`.github/CI_POLICY.md` §12. It only reports. It changes no gate and is not part of
+`ci-gate`. Its token can do `actions: read` and `contents: read` and nothing else. The
+artifact holds names, timings and conclusions only: no PR text, commit messages, emails,
+logins, branch names or logs. Definitions and bounds are in CI_POLICY.md §12.1. The
+aggregation is a pure module (`scripts/ci_telemetry.py`), pinned by 75 tests on a
+synthetic fixture. Ten deliberate mutations of the logic each turned a test red.
+
+This is CI-only and does not change the product, which still collects no telemetry. The
+first read-only run over 2026-10-06 to 2026-10-20 covered 777 runs, all fetched within
+the bounds. Success was 74.5%, failure 15.1% and cancellation 8.2%. Job queue p50 was 4 s
+and p95 16 m 26 s. The PR queue target (p95 under 5 min) was **missed** at 15 m 29 s. The
+superseded-run cancellation target (p95 under 2 min) was **met** at 19 s, with 87% of
+superseded PR runs cancelled. `Tests` used 14,269 of 15,744 job-minutes, and its two
+Windows legs failed `Run tests` in 27 runs each.
+
+### Changed — five disabled features no longer load at daemon start, and the CLI no longer imports the config for `--version`
+
+A default daemon start imported five feature packages that ship switched off: `earcon`,
+`facegesture`, `learning`, `styleguard` and `tts`. Each is now imported only on the code path
+that runs when the feature is enabled. `import yazses.main` loads 94 → 73 `yazses.*` modules
+and 340 → 306 modules in all, and `sqlite3`, `tempfile`, `random` and `wave` drop out with
+them. `configcheck` still validates `[facegesture] gesture` against the gesture definitions.
+It now reads them on the first lookup of that key instead of at import, and a test proves the
+table holds the same values either way.
+
+`cli.main()` runs on every CLI invocation. It imported the whole of `yazses.config`, the
+largest module in the tree, only to escape `[section]` names in help text. It now reads
+`src/yazses/config_sections.py`, which `scripts/gen-docs.py` generates. `yazses --version`
+loads 237 → 225 modules and stops importing `yazses.config`. Escaped help output is unchanged:
+a test compares the new escape with the old one on every help string in the app.
+
+`cmdsafety` and `staged` are still imported at start. Each would need more than moving an
+import, and `tests/test_base_weight_budget.py` records why. A new test,
+`tests/test_dormant_features_stay_unimported.py`, extends the budget from module import to a
+real default `Daemon.__init__` and `_build_pipeline`. It found seven more disabled packages
+imported while the pipeline is built (`gesture`, `facegesture`, `perception`, `gaze`,
+`handsfree`, `headpointer`, `polyglot`), now recorded on a shrink-only list. The module-count
+ceilings no longer depend on the OS they were measured on. `platform/<os>/` is not counted,
+and an AST check rejects a module-scope OS branch that imports a `yazses` module. See
+`docs/contribute/startup-budget.md`. Measured on Linux only; the Windows and macOS legs have
+not run it yet. One guard now covers more than it did. Moving the styleguard import into the
+dictation path let `tests/test_verbatim_bypasses_every_transform.py` see `apply_style`, and
+that guard now pins the style pass ahead of the verbatim restore too.
+
 ### Fixed — pushing a release tag no longer turns every open pull request red ([#602](https://github.com/MSKazemi/yazses/issues/602))
 
 The Windows packaging tests (Scoop, Chocolatey nuspec and install script, winget)
@@ -987,6 +1234,19 @@ traceback on a half-open socket or pipe. If the daemon process is alive but its 
 wait, the "still loading" message now also names the socket or named pipe that stayed silent. Windows pipe behaviour is
 UNVERIFIED here (tests use fakes). Separately, `design/adr/README.md` now records that `adr-v2-136..139` were never
 allocated (#524, renumbering artefact).
+
+### Added — per-decode cost records, a versioned cost schema and battery/macOS energy paths (#506)
+
+`paper/benchmark/cost_meter.py` records now carry `schema_version` (`yazses.bench.cost/2`) and are validated before a
+benchmark writes them: an unavailable energy reading must be `null` with a reason, an available one must be positive, and
+`cpu_core_seconds` must equal its parts. Each record lists every decode (core-seconds, wall time, real-time factor) with a
+spread summary, adds a phase RTF, counts the CPU time of exited child processes, and normalises energy to joules per audio-second
+and per utterance. Every energy reading names its `source`, `available` flag and `uncertainty` (a quantisation floor plus the
+unbounded error terms). The battery probe now reads any system battery (not only `BAT*`), skips peripheral batteries, and
+converts charge-only gauges with a flagged approximation; macOS energy is a documented manual `sudo powermetrics` path with a
+log parser tested on synthetic logs only. `paper/benchmark/cost_smoke.py` exercises the instrument on the bundled
+`jfk.wav` from the local model cache only. Run once on one AMD Ryzen 5 PRO 4650U laptop (tiny.en, 5 decodes): RAPL was root-only
+and the battery was charging, so both energy readings were `null` with reasons; that run is not archived and is not a result.
 
 ### Added — benchmark harness can record CPU core-seconds and optional energy (#506)
 

@@ -102,7 +102,9 @@ dependencies = [
     # Windows
     'pywin32>=312; sys_platform == "win32"',
     'pystray>=0.19.5; sys_platform == "win32"',
-    'Pillow>=12.3.0; sys_platform == "win32"',
+    # 13.0.0 is the floor because it closes nine decoder advisories (#116); see the
+    # "Known advisories" section of .github/SECURITY.md.
+    'Pillow>=13.0.0; sys_platform == "win32"',
     # NOTE: onnx-asr is deliberately NOT here. It is the `parakeet` extra
     # (`onnx-asr[cpu,hub]`), imported lazily by stt/parakeet.py; stt/factory.py falls
     # back to faster-whisper with a warning when it is absent, and
@@ -406,7 +408,7 @@ dev = [
     # Pillow is a win32-only runtime dep (the pystray tray), but the brand-mark
     # renderer and `scripts/gen-icons.py` need it on every platform so the icon
     # assets can be regenerated and unit-tested on the Linux CI leg too.
-    "Pillow>=12.3.0",
+    "Pillow>=13.0.0",
     # Declared because the suite imports them, not because anything here is new.
     # Thirteen test files `import yaml` at module scope and one imports `click`,
     # and both were arriving only as transitive dependencies of mkdocs and

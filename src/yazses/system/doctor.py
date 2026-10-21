@@ -697,6 +697,40 @@ def _autostart_check(platform) -> _Check | None:
     )
 
 
+def _speech_language_checks(cfg) -> list[_Check]:
+    """One row: speech language, engine, model, multilingual capability, verdict (#515).
+
+    Shown for every config, English included, because "can this model hear my
+    language?" is a question the default install answers too (base.en: English only).
+    The verdict is `language/capability.py::check`, the cited table the engine
+    factory refuses on, so this row and the daemon cannot disagree. Pure config
+    inspection: no model import, no cache probe.
+    """
+    try:
+        from yazses.language import derive_status
+
+        status = derive_status(cfg)
+    except Exception as exc:  # noqa: BLE001 — doctor must survive anything
+        return [("Speech language", "WARN", f"could not be checked ({exc})")]
+    speech = status.speech_language or "auto-detect"
+    model = status.effective_model or status.model
+    if status.multilingual is None:
+        capability = "language coverage unknown (custom checkpoint)"
+    elif status.multilingual:
+        capability = "multilingual"
+    else:
+        capability = "English-only"
+    head = f"{speech} — {status.engine} / {model} ({capability})"
+    if status.language_support == "unsupported":
+        return [(
+            "Speech language", "FAIL",
+            f"{head} — NOT SUPPORTED, dictation is refused: {status.support_reason}",
+        )]
+    if status.language_support == "unknown":
+        return [("Speech language", "WARN", f"{head} — unverified: {status.support_reason}")]
+    return [("Speech language", "OK", f"{head} — supported")]
+
+
 def _language_profile_checks(cfg) -> list[_Check]:
     """Report Mandarin profile coherence and language-specific degradations.
 
@@ -824,14 +858,20 @@ def _config_validity(config_file: Path) -> list[_Check]:
 
     out: list[_Check] = []
     defaulted = [p for p in problems if not p.repaired]
+    refused = [p for p in defaulted if getattr(p, "refused", False)]
     status = "FAIL" if defaulted else "WARN"
+    refused_text = f", {len(refused)} refused" if refused else ""
     out.append((
         "Config validity", status,
         f"{len(problems)} problem(s): {len(problems) - len(defaulted)} repaired, "
-        f"{len(defaulted)} using defaults — fix them in {config_file}",
+        f"{len(defaulted) - len(refused)} using defaults{refused_text} — fix them in "
+        f"{config_file}",
     ))
     for problem in problems:
-        verb = "repaired" if problem.repaired else "using default"
+        if getattr(problem, "refused", False):
+            verb = "refused"
+        else:
+            verb = "repaired" if problem.repaired else "using default"
         out.append((f"  └ {verb}", "WARN" if problem.repaired else "FAIL", str(problem)))
     return out
 
@@ -942,6 +982,7 @@ def _config_summary(
             f"{config_file} (absent — using built-in defaults)",
         ))
     out.extend(_config_validity(config_file))
+    out.extend(_speech_language_checks(cfg))
     out.extend(_language_profile_checks(cfg))
     out.extend(_llm_endpoint_check(cfg))
     out.extend(_corpus_redaction_check(cfg))

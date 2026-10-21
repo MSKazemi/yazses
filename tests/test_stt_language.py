@@ -6,7 +6,7 @@ configcheck. These tests pin the wiring end to end: the config value reaches
 every faster-whisper decode, ``""`` means auto-detect, the translate path still
 auto-detects by design, and the two ways a user can configure something
 impossible (an ``.en`` model, or the English-only Parakeet engine) each produce
-an honest warning instead of quiet nonsense.
+an honest refusal (#515) instead of quiet nonsense.
 """
 from __future__ import annotations
 
@@ -117,12 +117,20 @@ def test_config_default_language_is_english():
 
 # ── honest warnings for impossible combinations ──────────────────────────────
 
-def test_en_model_with_non_english_language_warns(calls, caplog):
-    """`.en` checkpoints have no language tokens — this cannot work, so say so."""
+def test_en_model_with_non_english_language_is_refused(calls, caplog):
+    """`.en` checkpoints have no language tokens — this cannot work, so refuse it (#515).
+
+    It used to be a warning, after which the model loaded and faster-whisper swapped
+    the language for "en": German speech typed as English, the daemon looking healthy.
+    """
+    from yazses.stt.errors import LanguageUnsupportedError
+
     with caplog.at_level(logging.WARNING, logger="yazses.stt.factory"):
-        build_engine(SttConfig(model="base.en", language="de"))
+        with pytest.raises(LanguageUnsupportedError) as exc:
+            build_engine(SttConfig(model="base.en", language="de"))
     assert "English-only" in caplog.text
-    assert "drop the .en suffix" in caplog.text
+    assert "drop the .en suffix" in str(exc.value)
+    assert calls == []  # refused before anything decoded
 
 
 def test_multilingual_model_with_non_english_language_is_silent(calls, caplog):

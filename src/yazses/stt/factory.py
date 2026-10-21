@@ -6,6 +6,12 @@ back to faster-whisper — with an honest log line saying exactly what happened
 and how to get the requested engine (never a silent engine switch, per the
 `system/backends.py` honesty rule).
 
+One deliberate exception (#515): a `[stt] language` the resolved engine/model
+cannot transcribe is *refused* with `LanguageUnsupportedError`, not fallen back
+from. Every fallback here ends on an English-only checkpoint, so "staying up"
+would mean typing English for Persian speech — a working-looking failure, which is
+worse than an ERROR state that says what to change.
+
 The concrete engines are imported inside :func:`build_engine` so their heavy
 runtimes (CTranslate2, onnx-asr) stay lazy: importing this module costs nothing.
 """
@@ -35,8 +41,38 @@ def build_engine(stt: "SttConfig") -> "SttEngine":
     return _with_persian_normaliser(engine, stt)
 
 
+def refuse_unsupported_language(engine: str, model: str, language: str) -> None:
+    """Raise `LanguageUnsupportedError` when *engine*/*model* cannot do *language*.
+
+    The engine-side half of #515: `language/capability.py` is the cited table, and a
+    pairing it marks ``unsupported`` is refused here, before any model is loaded,
+    instead of being logged and then transcribed as English. faster-whisper itself
+    replaces the language with "en" for an English-only tokenizer and only logs it;
+    Parakeet v2 and Moonshine take no language at all. An ``unknown`` verdict (a
+    custom checkpoint) is logged, never refused — guessing would reject a model
+    that works.
+    """
+    from yazses.language.capability import check
+    from yazses.stt.errors import LanguageUnsupportedError
+
+    support = check(engine, model, language)
+    if support.verdict == "unsupported":
+        log.error("[stt] %s", support.reason)
+        raise LanguageUnsupportedError(
+            support.engine, support.model, (language or "").strip(), support.reason
+        )
+    if support.verdict == "unknown":
+        log.warning("[stt] %s", support.reason)
+
+
 def _build_raw_engine(stt: "SttConfig") -> "SttEngine":
     name = (getattr(stt, "engine", "") or DEFAULT_ENGINE).strip().lower()
+    language = (getattr(stt, "language", "en") or "").strip()
+    if name in ("parakeet", "moonshine"):
+        # Before the import, so a pairing that would type English is refused rather
+        # than loaded — and rather than "fixed" by the faster-whisper fallback below,
+        # whose default `base.en` is English-only too.
+        refuse_unsupported_language(name, getattr(stt, "model", "") or "", language)
     if name == "parakeet":
         try:
             from yazses.stt.parakeet import ParakeetEngine
@@ -82,7 +118,6 @@ def _build_raw_engine(stt: "SttConfig") -> "SttEngine":
 
 
 def _build_faster_whisper(stt: "SttConfig", fallback_from: str = "") -> "SttEngine":
-    from yazses.stt.download import language_model_problem
     from yazses.stt.faster_whisper import FasterWhisperEngine
 
     model = (getattr(stt, "model", "") or "base.en").strip() or "base.en"
@@ -97,17 +132,14 @@ def _build_faster_whisper(stt: "SttConfig", fallback_from: str = "") -> "SttEngi
         )
         model = "base.en"
     language = (getattr(stt, "language", "en") or "").strip()
-    # An `.en` checkpoint has no language tokens at all — it physically cannot
-    # decode German. Silently forcing English would hand the user fluent-looking
-    # nonsense (Whisper transliterates rather than erroring), which is the worst
-    # possible failure mode, so say exactly what is wrong and what to change.
-    #
-    # The rule itself lives in `stt/download.py` because the settings window has
-    # to apply it too — before writing, where it can still be refused rather than
-    # merely logged. Two copies of this condition would drift.
-    problem = language_model_problem(model, language)
-    if problem:
-        log.warning("[stt] %s", problem)
+    # An English-only checkpoint cannot decode Persian. faster-whisper does not
+    # fail on it — it swaps the language for "en" (or, for Distil-Whisper's large
+    # models, decodes with a model trained only on English) — so the user would
+    # get fluent-looking English. Refused here, before the model loads (#515); the
+    # daemon holds in ERROR state with a toast. The rule itself lives in
+    # `language/capability.py` because the settings window, the config loader and
+    # doctor apply it too; two copies of this condition would drift.
+    refuse_unsupported_language(DEFAULT_ENGINE, model, language)
     return FasterWhisperEngine(
         model_name=model,
         device=getattr(stt, "device", "cpu"),

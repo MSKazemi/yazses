@@ -335,14 +335,17 @@ class SettingsController:
         if not cleaned:
             return ToggleResult(ok=False, error="Pick a model — an empty name has no default here.")
 
+        try:
+            cfg = self._load_config()
+        except Exception as exc:  # pragma: no cover - load_config is total
+            return ToggleResult(ok=False, error=f"Could not read the config: {exc}")
         if language is None:
-            try:
-                cfg = self._load_config()
-            except Exception as exc:  # pragma: no cover - load_config is total
-                return ToggleResult(ok=False, error=f"Could not read the config: {exc}")
             language = getattr(getattr(cfg, "stt", None), "language", "") or ""
+        # Judged on the configured engine too (#515): Parakeet and Moonshine load
+        # their own English-only checkpoint whatever `[stt] model` says.
+        engine = getattr(getattr(cfg, "stt", None), "engine", "") or ""
 
-        problem = language_model_problem(cleaned, language)
+        problem = language_model_problem(cleaned, language, engine)
         if problem:
             return ToggleResult(ok=False, error=problem)
 
@@ -366,14 +369,15 @@ class SettingsController:
         from yazses.stt.download import language_model_problem
 
         cleaned = (code or "").strip()
+        try:
+            cfg = self._load_config()
+        except Exception as exc:  # pragma: no cover - load_config is total
+            return ToggleResult(ok=False, error=f"Could not read the config: {exc}")
         if model is None:
-            try:
-                cfg = self._load_config()
-            except Exception as exc:  # pragma: no cover - load_config is total
-                return ToggleResult(ok=False, error=f"Could not read the config: {exc}")
             model = getattr(getattr(cfg, "stt", None), "model", "") or "base.en"
+        engine = getattr(getattr(cfg, "stt", None), "engine", "") or ""
 
-        problem = language_model_problem(model, cleaned)
+        problem = language_model_problem(model, cleaned, engine)
         if problem:
             return ToggleResult(ok=False, error=problem)
 

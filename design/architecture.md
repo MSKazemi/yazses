@@ -227,11 +227,13 @@ a guard that silently stops protecting on a whole display server is worse than n
 | `tray/menu.py::level_ring` | Live input-level ring with the silence gate **anchored at a fixed point**, so "past the notch" means the same thing on every microphone (pure) |
 | `earcon/tones.py` | Non-speech motif grammar + numpy synth (pure) |
 | `earcon/play.py` | Playback seam — never blocks the hot path, never raises, drops a concurrent cue rather than queueing a late one |
+| `bidi.py` | Display-only bidi isolation (FA-07, #516). `wrap_user_text` puts FSI..PDI around user, transcript or OS-supplied text quoted inside an English UI sentence, **only** when it holds a right-to-left character (bidi class R/AL/AN), per paragraph, after dropping any embedding/override/isolate control from the display copy; `quote_user_text` replaces `!r` at those sites (`repr` escapes ZWNJ). Used by the tray tooltip and mic menu, the settings microphone list, save and filter messages, bookmark messages and the window-focus toast. Invariant: display copies only -- the raw value is what is stored, typed or copied, and `tests/test_bidi.py` fails if the injector, post-processing, clipboard, config-write or transcript-file modules import it. Never reverses a string; layout is the toolkit's (Qt honours isolates, measured in `tests/test_settingsui_bidi_render.py`). The CLI and transcript files get no isolates (pure, stdlib only) |
 | `settingsui/theme.py` | Secondary-text colour computed from the desktop palette to stay above WCAG AA 4.5:1; Qt-free maths |
 | `system/servicehealth.py` | Why the daemon is *not running*, asked of the service manager rather than the daemon: `classify_service` (unit state → findings: missing `ExecStart`/203, `start-limit-hit`, crash loop) and `classify_log` (journal/log signatures → cause, exact commands, distro-correct packages via `install_command`), falling through to `diagnosis.diagnose` for runtime causes. Pure apart from `collect_service_state`. Used by `yazses start` (`_explain_start_failure`) and a `yazses doctor` "Service health" row. Complements `system/diagnosis.py`, which only sees failures the *running* daemon catches |
 | `system/depsize.py` | What enabling a feature will download — *marginal* against what is installed, from a committed table of resolved closures, plus the model files it fetches on first run (ADR-018) |
 | `system/dormant.py` | Which **enabled** capabilities cannot run because their optional libraries are missing — derived from the feature registry, never a hand-kept list — with the one command that fixes each (`yazses features enable <slug>`, `--force` when experimental; the refusal reason in a snap or frozen bundle). Desktop-only rows (`tray`, `overlay`) are not findings without a graphical session. Read by the daemon at start (log + one rate-limited toast), `yazses doctor` and the `yazses features` ◐ marker; `preserved_requirements` feeds the uv-tool upgrade. Pure apart from injected probes; installs nothing |
 | `system/ondemand.py` | The one-action install for a dormant feature: the daemon toast's **Install now** / **Not now** buttons and their handler (one install at a time), the `yazses start`/`restart` terminal prompt, and `yazses features install`. Installs only on a click, a typed yes or the command; no button where `dormant.py` says nothing can install |
+| `settingsui/maintenance.py`, `settingsui/maintenance_panel.py` | The Settings window's **About and updates** box. `maintenance.py` (pure) turns an update check plus `installer_update.one_click_offer` into one action (one-click hand-off, verified pip-family upgrade, open the releases page, or none) and routes each dormant feature to the install that can work here (`ondemand.install_one`, an ADR-028 pack via `packs.manage.install` in a frozen build, or a disabled button with `dormant.py`'s reason); it reads the transaction's undo outcome from `deps._undo`'s own lines. `maintenance_panel.py` owns the widgets and runs every check, hand-off, upgrade and install on a `QThread`, delivering results through a UI-thread `QObject` relay (a signal connected to a plain callable would run it on the worker thread). Implements no update or install logic: it calls `tray.updates.check_updates`/`hand_off_outside_tray`, `updater.run_upgrade_checked` and the functions above |
 | `system/install_txn.py` | Pure decisions for a feature install as a transaction: the install channel (`uv-tool`, `pipx`, `editable`, `venv`, `system`, `snap`, `frozen`) and `METHOD_CHANNELS` from every `updater` install method; YazSes's base requirements as `--constraint` lines; markers evaluated for pipx (which ignores them); snapshot/diff of the installed set and the undo specs. `system/deps.py` runs the subprocesses |
 
 ### `src/yazses/platform/`
@@ -442,11 +444,14 @@ outstanding for both.
 | `streaming.py` | `StreamingEngine` — background decode thread, LocalAgreement stable-prefix policy (ADR-002). `prefix_stable_for_ms()` accessor + `prewarm()` feed Ghost Ahead endpoint anticipation |
 | `filters/disfluency.py` | Disfluency filter: filler removal → 2-gram dedup → **opt-in collapse pass (Rule B.5, ADR-015): sub-word repetition + prolongation collapse for Dysfluency-Friendly Mode, off by default, `_is_protected`-guarded** → self-correction rollback |
 | `endpoint.py` | Ghost Ahead pivot (spec-ghost-ahead): `EndpointAnticipator` (with debounce) — predicts end-of-utterance from partial-transcript stability + trailing silence. **Wired** into `_partial_poll_loop` via `daemon._endpoint_prewarm_tick`: on a likely endpoint, pre-warm (eager, discardable decode); `[endpoint]` off by default. Speculative finalize (Phase 2) gated |
+| `decoder_settings.py` | Pure: `file_decoder_settings(stt, section)` -> frozen `DecoderSettings` (model, language, task, device, compute_type, threads, beam, conditioning, `chinese_script`, `persian_normalisation`, warnings) for every **file** decode — `yazses transcribe`, `meeting recover`, the meeting post-pass without an engine, and the MCP `transcribe` tool. An empty `[recimport]`/`[meeting] model` inherits `[stt] model` (never another engine's checkpoint); the section's `language` is authoritative. `require_section()` raises `TypeError` on a whole `Config` where a section belongs — the substitution that made the MCP tool decode `small.en` English silently |
 | `faster_whisper.py` | `FasterWhisperEngine.transcribe` (fast path) + `transcribe_words()` — opt-in word-timestamp path returning `(text, list[Word])`, used by Prosody Ink (`[prosody]`) and by Diarized Recording Import (`recimport/pipeline.py`, `yazses transcribe <file>`) |
 
 ### `src/yazses/recimport/` (Wave O, ADR-v2-125 — Diarized Recording Import)
 
-CLI-only (`yazses transcribe <file>`); no daemon/IPC/hotkey involvement. Off by
+Reached from `yazses transcribe <file>`, `yazses meeting recover`, the meeting post-pass
+and the MCP `transcribe` tool; no IPC/hotkey involvement. Decoder settings come from
+`stt/decoder_settings.py` (one rule for every entry point). Off by
 default; diarization is lazy behind the `diarization` extra. `pipeline.py::transcribe_file`
 is pure orchestration with injected backends, so every stage is unit-testable without models.
 
@@ -587,6 +592,7 @@ OpenCC, Qt or Mandarin grammar module.
 |---|---|
 | `profiles.py` | The P1 profile table and alias resolution (pure) |
 | `plan.py` | `resolve_profile(...) -> LanguagePlan` — the minimal `[stt]` mutations (engine, model, language, chinese_script), preserve-first or `recommended`, plus the command grammar before/after and warnings (pure) |
+| `capability.py` | **Language/model compatibility table** (#515). Pure data: for every checkpoint YazSes knows by name (the faster-whisper names are exactly `stt/download.WHISPER_MODELS`; Parakeet v2/v3; Moonshine tiny/base), the language codes it transcribes plus a cited source URL and quoted evidence. A row without a source is marked `verified=False` and never refuses anything. `check(engine, model, language)` resolves the checkpoint that would actually load (an unknown engine is faster-whisper; Parakeet/Moonshine ignore a Whisper name) and answers `supported` / `unsupported` / `unknown`. That one answer is used by `stt/download.language_model_problem` (and so Settings and `yazses language set`), by `configcheck.language_pairing_problems`, by `stt/factory.refuse_unsupported_language` and by doctor's **Speech language** row. Tests hold the table equal to `WHISPER_MODELS`, faster-whisper's language codes and the engines' `DEFAULT_MODEL`s |
 | `status.py` | `derive_status(cfg)` — profile match, coherence problems, and the Tier-1 command grammar resolved by `commands/grammars/registry.resolve_command_language`, the resolver the daemon calls. An explicit `[commands] language` that contradicts speech is a *warning*, not incoherence (pure) |
 | `service.py` | The one side-effect ordering shared by CLI and Settings: stable snapshot -> resolve -> prerequisite preflight -> optional install/download -> `system/configedit.set_config_keys_atomic`. Its `validate` hook (`committed_candidate_validator`) re-reads the temporary candidate **through `load_config_checked`** and refuses the replace unless `[stt]` is exactly the plan, no other section changed, and the result derives as the requested profile |
 | `settingsui/language_view.py` | The Settings row as a Qt-free view-model: profile choices from the registry, staged-change hint and the download/install question, all rendered from the same `PreparedLanguageChange` the CLI previews |
@@ -595,6 +601,13 @@ Invariant: a high-level switch is all-or-nothing. Speech language, model compati
 (with `[commands] language = "auto"`) the command grammar move in one atomic write, or the original file stays
 byte-for-byte. Injection keys are not owned by a profile: the injector receives Unicode text either way (target
 architecture §12). `yazses doctor`, `yazses language status` and Settings read the same `derive_status`.
+
+Invariant (#515): a `[stt] language` that the resolved engine/model cannot transcribe, according to a *cited*
+`capability.py` row, is never decoded. The config loader reports it (`ConfigProblem.refused`), Settings refuses
+to write it, and `stt/factory.py` raises `LanguageUnsupportedError` before any model loads. That error subclasses
+`ModelUnavailableError`, so the daemon holds in ERROR state with a toast. It is the one exception to the factory's
+fall-back-and-stay-up rule, because every fallback ends on an English-only checkpoint. An `unknown` verdict (custom
+checkpoint) is only reported.
 
 ### `src/yazses/tts/`
 
@@ -884,7 +897,11 @@ an internal design note.
 The table above lists the founding Wave A–C packages (ADRs v2-000..013). Waves D–O add ~100 more
 off-by-default capabilities following the **same pattern** — a pure, 100%-covered core module under
 `src/yazses/<feature>/`, an `enabled = False` dataclass in `config.py`, a `system/features.py`
-registry entry, and heavy backends (if any) lazy-imported behind an optional extra. As of
+registry entry, and heavy backends (if any) lazy-imported behind an optional extra. A feature
+that is off also costs a default start no import of its own package: `tests/test_base_weight_budget.py`
+holds `import yazses.main` and `yazses --help` to that, and `tests/test_dormant_features_stay_unimported.py`
+holds a default daemon's `__init__` and `_build_pipeline` to it, each with a shrink-only list of the
+remaining exceptions (`docs/contribute/startup-budget.md`). As of
 `v2.11.0-dev.1`: **135 capabilities, 1489 tests green**, ADRs `adr-v2-001..126`.
 
 **Wave O (`v2.11`)** opens the first **file-ingestion entry point**: `yazses transcribe <file>`

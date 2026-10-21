@@ -43,6 +43,7 @@ from yazses.settingsui.help import (
     summary_line,
 )
 from yazses.settingsui.launch import has_display, pyside_available
+from yazses.settingsui.maintenance_panel import attach_maintenance
 from yazses.settingsui.model import SettingRow, SettingsModel, build_settings_model
 from yazses.settingsui.search import describe_filter, matches, visible_counts
 from yazses.settingsui.theme import muted_style_for
@@ -241,6 +242,7 @@ class SettingsWindow:
         outer.addLayout(self._build_hotkey_row(model.hotkey))
         outer.addWidget(self._build_speech_rows(model))
         outer.addWidget(self._build_audio_rows(model))
+        outer.addWidget(attach_maintenance(self))  # Check for updates; Install now
         outer.addLayout(self._build_filter_box())
 
         scroll = QScrollArea()

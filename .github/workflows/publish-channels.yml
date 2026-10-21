@@ -202,6 +202,8 @@ jobs:
         # failing loudly here would block the whole job on a problem the submit step
         # reports just as clearly.
         if: env.HAVE_SECRET == 'yes'
+        # PROMOTE WHEN: never -- best-effort by design; the submit step below fails loudly
+        # on the one case (a real fork conflict) that needs a human.
         continue-on-error: true
         shell: pwsh
         run: gh api -X POST repos/MSKazemi/winget-pkgs/merge-upstream -f branch=master

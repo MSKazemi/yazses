@@ -239,7 +239,7 @@ def test_the_note_does_not_call_an_enforced_setting_deliberately_absent() -> Non
 
     from yazses import configcheck
 
-    note = inspect.getsource(configcheck).split("_ENUMS: dict")[0]
+    note = inspect.getsource(configcheck).split("_ENUMS: Mapping")[0]
     assert 'absent, because each one\n#: already fails safe and says so' not in note, (
         "the exclusion note has regained the sentence that went stale: it listed "
         "eight settings as deliberately outside _ENUMS on a fail-safe claim, while "

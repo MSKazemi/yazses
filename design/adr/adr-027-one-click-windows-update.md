@@ -401,11 +401,10 @@ This ADR does not claim more protection than the points above.
   over-the-shoulder credentials), a filtered admin token being denied the directory,
   SmartScreen, DNS/TLS, GitHub's redirects, or a real tray and daemon. The checklist below
   is still the definition of done for the first Windows release that carries this.
-- **No Settings-window button yet.** The Settings window has no update entry. A button
-  needs `settingsui/app.py`, which was out of scope for the 2026-10-21 change. It should
-  check off the UI thread, ask with the same `confirmation_prompt`, call
-  `hand_off_outside_tray` with `os.getpid()` among the waited PIDs (the default), and quit
-  its own `QApplication` on success.
+- **Settings window: implemented** in `settingsui/maintenance_panel.py` (check off-thread,
+  `confirmation_prompt`, `hand_off_outside_tray`, `QApplication.quit`); not yet verified on
+  Windows. It waits on `os.getpid()` among the hand-off's PIDs (the default), and when
+  one-click is refused it shows the same reason and manual steps as the tray.
 
 ## Revision (2026-10-20, after review)
 

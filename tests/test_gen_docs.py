@@ -65,6 +65,17 @@ def test_config_doc_covers_every_section(gen):
         assert f"## `[{fld.name}]`" in text, f"[{fld.name}] missing from configuration.md"
 
 
+def test_the_generated_section_names_module_is_in_sync(gen):
+    """`src/yazses/config_sections.py` is generated so `cli.main()` can escape `[section]`
+    names without importing `yazses.config`; a stale copy would leave a new section's name
+    to be eaten by Rich in `--help`."""
+    on_disk = gen.CONFIG_SECTIONS.read_text(encoding="utf-8")
+    assert gen.gen_config_sections() == on_disk, (
+        "src/yazses/config_sections.py is stale — run `uv run python scripts/gen-docs.py` "
+        "and commit."
+    )
+
+
 def test_no_config_comment_smuggles_a_layout_into_a_table_cell() -> None:
     """A config comment is flattened into one markdown table cell.
 

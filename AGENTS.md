@@ -65,6 +65,11 @@ uv run mypy src                     # types — clean, advisory, see below
 branch-gate logic, read [`.github/CI_POLICY.md`](.github/CI_POLICY.md). It defines the
 workflow lanes, cancellation contract, permission boundaries, retry policy, and scale roadmap.
 
+**A red check:** follow CI_POLICY.md §9.1. Read the first failure, classify it, and rerun the
+failed jobs at most once, as a diagnostic. Never rerun until green. Never quarantine a test
+(`@pytest.mark.quarantine` plus an entry in `tests/quarantine.toml`) without a linked issue, an
+owner, a reason and an expiry. The suite fails on any quarantine missing one of them.
+
 **pytest and ruff must be green.** Run them before claiming anything works — do not infer
 success from a change looking correct. The suite is offline and mocks audio and model
 layers, so no microphone, network, or Whisper model download is required.
@@ -192,9 +197,10 @@ fails and your change is reverted anyway.
 
 | File | Regenerate with |
 |---|---|
-| `docs/features.md`, `docs/configuration.md`, `docs/command-index.md`, `docs/cli-reference.md` | `uv run python scripts/gen-docs.py` |
+| `docs/features.md`, `docs/configuration.md`, `docs/command-index.md`, `docs/cli-reference.md`, `src/yazses/config_sections.py` | `uv run python scripts/gen-docs.py` |
 | `man/yazses.1` | `uv run python scripts/gen-man.py` |
 | `campaign/generated/**`, `campaign/schemas/**` | `uv run python scripts/campaign.py --generate` |
+| The eye-validation rows of `campaign/tasks.json` (`source` names an `eye-validation slot`) | `uv run python scripts/campaign.py --generate` (source: `design/eye-control/validation-slots.json`) |
 | `design/eye-control/generated/validation-coverage.md` | `uv run python scripts/gen-eye-validation-dashboard.py` |
 | The contributor wall in `README.md` + every `README.<code>.md` | `npx all-contributors-cli generate` |
 | Draft `docs/<locale>/index.md`, the generated rows of `docs/localization/STATUS.md` | `uv run python scripts/gen-readme-translation.py --all` (source: `scripts/translations.py`) |

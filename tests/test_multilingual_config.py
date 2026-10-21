@@ -83,19 +83,30 @@ def test_empty_language_means_autodetect(built):
 # ---- the warning that prevents fluent-looking nonsense ---------------------
 
 
-@pytest.mark.parametrize("model", ["base.en", "small.en", "tiny.en", "MEDIUM.EN"])
-def test_non_english_language_on_an_english_model_warns(built, caplog, model):
-    with caplog.at_level(logging.WARNING):
+@pytest.mark.parametrize(
+    "model",
+    ["base.en", "small.en", "tiny.en", "MEDIUM.EN", "distil-large-v3", "distil-large-v3.5"],
+)
+def test_non_english_language_on_an_english_model_is_refused(built, model):
+    """Refused, not warned (#515): a warning was followed by English for Persian speech.
+
+    The Distil-Whisper large checkpoints are English-only by their model cards but
+    carry no `.en` suffix, so the suffix-only guard let them through silently.
+    """
+    from yazses.stt.errors import LanguageUnsupportedError
+
+    with pytest.raises(LanguageUnsupportedError) as exc:
         built(model=model, language="de")
-    warnings = [r.getMessage() for r in caplog.records if r.levelno >= logging.WARNING]
-    assert any("English-only" in w for w in warnings), warnings
+    assert "English-only" in str(exc.value)
 
 
-def test_the_warning_names_the_exact_fix(built, caplog):
-    """A warning that does not say what to change is a warning people ignore."""
-    with caplog.at_level(logging.WARNING):
+def test_the_refusal_names_the_exact_fix(built):
+    """A message that does not say what to change is a message people ignore."""
+    from yazses.stt.errors import LanguageUnsupportedError
+
+    with pytest.raises(LanguageUnsupportedError) as exc:
         built(model="small.en", language="fa")
-    text = " ".join(r.getMessage() for r in caplog.records)
+    text = str(exc.value)
     assert "'small'" in text, "must name the multilingual checkpoint to switch to"
     assert "fa" in text, "must name the language that triggered it"
 
@@ -144,6 +155,10 @@ def test_no_documented_config_pairs_an_english_model_with_another_language():
         language = re.search(r'^\s*language\s*=\s*"([^"]*)"', block, re.M)
         if not model or not language:
             continue
-        if model.group(1).lower().endswith(".en") and language.group(1) not in ("en", ""):
+        # The cited capability table, not the `.en` suffix: a documented
+        # `distil-large-v3` beside `language = "de"` is the same trap (#515).
+        from yazses.language.capability import check
+
+        if check("faster-whisper", model.group(1), language.group(1)).verdict == "unsupported":
             bad.append((model.group(1), language.group(1)))
     assert not bad, f"documented config pairs an English-only model with a language: {bad}"

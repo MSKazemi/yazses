@@ -80,38 +80,47 @@ def is_whisper_model(name: str) -> bool:
 
 
 def is_english_only(name: str) -> bool:
-    """True for an ``.en`` checkpoint, which carries no language tokens at all.
+    """True for a faster-whisper checkpoint that can transcribe only English.
 
-    Not a preference — such a model *physically cannot* decode another language.
-    Whisper transliterates rather than failing, so the user gets fluent-looking
-    nonsense instead of an error, which is why every surface that lets someone
-    choose a language has to check this before the choice reaches the daemon.
+    Not a preference — such a model *cannot* decode another language. Whisper
+    transliterates rather than failing, so the user gets fluent-looking nonsense
+    instead of an error, which is why every surface that lets someone choose a
+    language has to check this before the choice reaches the daemon.
+
+    Answered from the cited capability table (`language/capability.py`, #515), so
+    the Distil-Whisper ``large`` checkpoints — English-only by their model cards
+    but named without ``.en`` — count too. A name the table does not know falls
+    back to Whisper's ``.en`` naming convention.
     """
-    return (name or "").strip().lower().endswith(".en")
+    from yazses.language.capability import find_capability
+
+    cleaned = (name or "").strip()
+    cap = find_capability("faster-whisper", cleaned)
+    if cap is not None:
+        return not cap.multilingual
+    return cleaned.lower().endswith(".en")
 
 
-def language_model_problem(model: str, language: str) -> str | None:
-    """Why *language* cannot work with *model*, or None if the pair is fine.
+def language_model_problem(model: str, language: str, engine: str = "") -> str | None:
+    """Why *language* cannot work with *model* on *engine*, or None if it can.
 
     One implementation, deliberately: this rule started as an inline condition on
     the daemon's startup path, where it could only ever be a log line nobody was
     watching. The settings window needs the same answer *before* writing, and a
-    second copy of the condition is how the two drift.
+    second copy of the condition is how the two drift. It now delegates to
+    `language/capability.py::check`, the cited per-engine table (#515).
+
+    *engine* defaults to faster-whisper. Only a *cited* incompatibility is a
+    problem; a custom checkpoint the table does not know is reported elsewhere as
+    unverified, never refused here.
 
     An empty language means auto-detect, which is valid on a multilingual model
     and merely redundant on an English-only one — not a problem either way.
     """
-    lang = (language or "").strip()
-    if not lang or lang.lower() == "en":
-        return None
-    if not is_english_only(model):
-        return None
-    suggestion = model.strip()[: -len(".en")] or "small"
-    return (
-        f"{lang!r} needs a multilingual model, but {model!r} is English-only — "
-        f"speech would be mis-transcribed as English rather than refused. "
-        f"Choose {suggestion!r} instead — drop the .en suffix."
-    )
+    from yazses.language.capability import check
+
+    support = check(engine, model, language)
+    return support.reason if support.verdict == "unsupported" else None
 
 
 def whisper_repo_id(name: str) -> str | None:

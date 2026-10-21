@@ -31,12 +31,23 @@ def transcribe_tool(config) -> ToolSpec:
     new." It reads a file the caller already has and returns text; it does not
     touch the microphone, the focused window, or the network.
     """
-    def _run(path: str, diarize: bool = False) -> str:
+    def _run(path: str, diarize: bool | None = None) -> str:
+        import dataclasses
+
         from yazses.recimport.pipeline import transcribe_file
 
-        result = transcribe_file(path, config)
+        # The `[recimport]` section and `[stt]`, exactly as `yazses transcribe` passes
+        # them. This used to hand over the whole `Config`, which every field lookup
+        # downstream answers with its default: the tool decoded `small.en` in English
+        # whatever the user had configured, and `diarize` -- read off the Config, which
+        # has no such field -- was never true. `transcribe_file` now refuses a whole
+        # Config outright, so that substitution cannot come back quietly.
+        section = config.recimport
+        if diarize is not None:
+            section = dataclasses.replace(section, diarize=bool(diarize))
+        result = transcribe_file(path, section, stt=config.stt)
         segments = getattr(result, "utterances", None) or []
-        if diarize and segments:
+        if getattr(result, "diarized", False) and segments:
             return "\n".join(
                 f"{getattr(u, 'speaker', '?')}: {getattr(u, 'text', '')}".strip()
                 for u in segments
@@ -58,7 +69,10 @@ def transcribe_tool(config) -> ToolSpec:
                 "path": {"type": "string", "description": "Path to the audio or video file."},
                 "diarize": {
                     "type": "boolean",
-                    "description": "Label each line with a speaker (needs the diarization extra).",
+                    "description": (
+                        "Label each line with a speaker (needs the diarization extra). "
+                        "Omit it to follow the user's [recimport] diarize setting."
+                    ),
                 },
             },
             "required": ["path"],

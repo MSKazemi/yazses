@@ -157,6 +157,27 @@ Use localized direction at content surfaces:
 
 Never reverse strings in application code.
 
+### 11.1 Implementation status (FA-07, #516)
+
+Audited 2026-10-21 against the surfaces that show user, transcript or OS-named text.
+"Verified" below means an automated offscreen test, not a human RTL reader.
+
+| Surface | Finding | State |
+|---|---|---|
+| Overlay (`overlay/`) | Draws rings and a dwell arc only; no text at all | nothing to fix |
+| Settings Vocabulary (`QLineEdit`) | Qt lays the content out by its first strong character while the widget stays LTR; `text()` and copy return the logical string | verified, no change |
+| Settings microphone list | OS device names embedded next to English parentheses and markers | fixed: `bidi.wrap_user_text` on labels, raw value stored |
+| Settings save / filter messages | `!r` put Persian quotes and punctuation on the wrong side and spelled ZWNJ as `\u200c` | fixed: `bidi.quote_user_text` |
+| Tray tooltip and mic menu | `Mic: <device>` with an RTL device name | fixed: isolated display copy |
+| Notifications (bookmarks, window focus) | spoken labels/names quoted in English sentences | fixed: isolated display copy |
+| Meeting live transcript, `yazses meeting status`, other CLI output | terminal and file output | deliberately unchanged: no isolates in text a user pipes, saves or copies; most terminals do no bidi layout |
+
+Isolates are added to display copies only. The injector, post-processing, clipboard,
+config writes and transcript files never see them (`tests/test_bidi.py`).
+Not yet verified: rendering by an RTL reader on real desktops (GNOME, KDE, Windows,
+macOS notification servers), screen-reader output for the isolate characters,
+high-DPI, and shaping with the user's actual fonts.
+
 ## 12. Tests
 
 Minimum unit cases:

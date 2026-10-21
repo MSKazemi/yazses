@@ -183,8 +183,9 @@ Both live in `%LOCALAPPDATA%\Programs\YazSes`.
 
 ## Updating
 
-**One click.** Tray → **Check for updates…**. If a newer release is out, YazSes asks
-once whether to install it. Say yes and YazSes:
+**One click.** Tray → **Check for updates…**, or the Settings window → **About and
+updates** → **Check for updates**, then **Install update…**. If a newer release is out,
+YazSes asks once whether to install it. Say yes and YazSes:
 
 1. downloads `YazSes-<version>-windows-<arch>.exe` from the GitHub release (only from
    `github.com/MSKazemi/yazses/releases/download/`);
@@ -240,6 +241,14 @@ What to expect:
   a meeting still being saved), nothing is installed and the next start tells you why.
 - **From a terminal**, `yazses update` works with the tray running: the tray sees the
   update starting, closes itself and stops YazSes, and both come back on the new version.
+- **From the Settings window**, the same: the check runs in the background, so the window
+  keeps responding. After you confirm, the Settings window closes, the tray closes itself
+  and stops YazSes, and the update installs. Changes you staged in the window but did not
+  apply are lost, and the question says so first. If one-click is not possible (an
+  all-users install, a package manager that has not caught up), the window shows why and
+  the manual steps, and **Open download page** opens the releases page. The Settings
+  button uses the same code as the tray and `yazses update`, but it has not yet been
+  tried on a real Windows machine.
 - **Microsoft Store / MSIX package:** it updates through the Store (Library → Get
   updates), or by opening the newer `.msix`. Never run the `.exe` over it; that installs
   a second copy.
@@ -255,6 +264,17 @@ What to expect:
 
 By hand, if you prefer: download the newest installer from the releases page and run it.
 It upgrades in place too.
+
+### Features that need extra libraries
+
+The installer build's files are fixed when it is built, so it cannot install Python
+packages the way a `pipx` install can. A feature that needs them is listed in the
+Settings window's **About and updates** box. When the build you run publishes an
+**add-on** for that feature (ADR-028), its **Install now** button downloads, checks and
+installs the add-on, the same as `yazses packs install <name>`, and then asks to restart
+YazSes. When it does not, the button is greyed out and says why: install YazSes with
+`pipx install yazses` to use that feature. `yazses packs` lists the add-ons your build
+has.
 
 ### Being told when a new version lands
 
