@@ -1250,3 +1250,25 @@ def test_the_build_script_runs_on_the_standard_library_alone():
         if not (isinstance(n, ast.ImportFrom) and n.module == "__future__")
     }
     assert tops <= set(sys.stdlib_module_names), tops - set(sys.stdlib_module_names)
+
+
+def test_a_relative_preload_matching_the_loaded_base_copy_passes(bp):
+    """windows-latest run 39631811305: the hook recorded the request as given
+    (``dist\\YazSes\\_internal\\...``) and the loader reported the same file absolutely
+    (``D:\\a\\...\\dist\\YazSes\\_internal\\...``); a correct bind was reported FAIL."""
+    r = _bound_result()
+    rel = "dist\\YazSes\\_internal\\onnxruntime\\capi\\onnxruntime.dll"
+    r["bind"]["preloaded"] = {"onnxruntime.dll": rel}
+    r["bind"]["loaded"] = {"onnxruntime.dll": ["D:\\a\\yazses\\yazses\\" + rel]}
+    _, verdict, detail = _bind_row(bp, r)
+    assert verdict == bp.PASS, detail
+
+
+def test_a_relative_preload_does_not_excuse_a_different_file(bp):
+    r = _bound_result()
+    r["bind"]["preloaded"] = {"onnxruntime.dll": "dist\\YazSes\\_internal\\onnxruntime\\capi\\onnxruntime.dll"}
+    r["bind"]["loaded"] = {"onnxruntime.dll": ["D:\\elsewhere\\onnxruntime.dll"]}
+    assert _bind_row(bp, r)[1] == bp.FAIL
+    # Nor a path that only shares a suffix without a directory boundary.
+    r["bind"]["loaded"] = {"onnxruntime.dll": ["D:\\a\\xdist\\YazSes\\_internal\\onnxruntime\\capi\\onnxruntime.dll"]}
+    assert _bind_row(bp, r)[1] == bp.FAIL

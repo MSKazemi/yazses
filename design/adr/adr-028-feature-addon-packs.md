@@ -584,6 +584,13 @@ space, an apostrophe and non-ASCII characters; a long `%LOCALAPPDATA%`; cancel m
 re-fetch after a one-click update; rollback after a failed update; the all-users install;
 Chocolatey and Scoop; and, later, MSIX DLL loading from virtualised AppData.
 
+## Revision (2026-10-21, first Phase 0 spike)
+
+`packs-spike.yml` run 39631811305 (windows-latest, main c946e71e): risks (a)–(d) measured and
+passed for `diarization`; sherpa-onnx binds to the base's MS-signed onnxruntime 1.28.0 (the bind
+row's FAIL was a relative-vs-absolute path comparison in the probe, fixed in the build script).
+The out-of-process fallback (§1) is not needed. Details: the spec, *Implementation status*.
+
 ## Consequences
 
 **Good.** The base `.exe` stays as it is. A Windows user turns on Parakeet and gets it,

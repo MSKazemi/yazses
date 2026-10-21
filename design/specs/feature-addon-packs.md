@@ -323,10 +323,34 @@ check, both in `build-windows.yml`, failing the job.
 
 ## Live smoke evidence
 
-To be filled in by the Phase 0 spike and the Phase 1 checklist: run ids, Windows build
-numbers and measured sizes.
+Filled in by the Phase 0 spike and the Phase 1 checklist: run ids, Windows build numbers and
+measured sizes.
+
+- 2026-10-21, `packs-spike.yml` run 39631811305 (windows-latest, main c946e71e), pack
+  `diarization` (sherpa-onnx 1.13.8): probes (a)–(d) PASS; the bound `onnxruntime.dll` was the
+  base's `_internal\onnxruntime\capi\onnxruntime.dll`, onnxruntime 1.28.0, and an ONNX Runtime
+  session ran. The bind row's FAIL was a probe path-comparison bug, fixed afterwards (see
+  *Implementation status*). Pack and installer sizes on Windows: not yet recorded.
 
 ## Implementation status
+
+### First Phase 0 spike on Windows (2026-10-21, run 39631811305 on main c946e71e)
+
+`packs-spike.yml` ran the frozen app on `windows-latest` with the `diarization` pack (sherpa-onnx
+1.13.8) mounted. Every risk the ADR called unmeasured **passed**: the probe ran inside the frozen
+app (`sys.frozen`, `_MEIPASS`); a `sys.path` append made the pack importable; (a) the 7 stdlib
+modules the pack references import; (b) `importlib.metadata` sees `sherpa_onnx` and
+`sherpa-onnx-core` 1.13.8; (c) no pruned base submodule is referenced; (d) no DLL collision
+remains (sherpa's `onnxruntime.dll` dropped, 1 bound to the base). The bind row reported FAIL
+although its own detail shows the bind is right: the only `onnxruntime.dll` loaded was the base's
+`_internal\onnxruntime\capi\onnxruntime.dll`, `onnxruntime` 1.28.0, and an ONNX Runtime session
+ran. The hook had recorded the preload request as a relative path and the verdict compared it with
+the loader's absolute one. Fixed (branch `fix/spike-bind-abspath`): the hook records the absolute
+path, and `bind_verdict` accepts a relative expected path that ends the loaded one on a directory
+boundary. Tests reproduce this run's exact paths. **Not yet re-run on Windows after the fix**, and
+`diarization` is still withheld at release by the Q7 licence gate until the owner signs its two
+licence entries.
+
 
 ### Build side, phases 0–1 (2026-10-21)
 

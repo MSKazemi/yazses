@@ -47,7 +47,7 @@ import tomllib
 import zipfile
 import zlib
 from dataclasses import dataclass, field
-from pathlib import Path, PurePosixPath
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Any, Iterable, Mapping
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -904,6 +904,23 @@ def _norm_path(p: str) -> str:
     return p.replace("\\", "/").rstrip("/").lower()
 
 
+def _is_absolute(p: str) -> bool:
+    return PureWindowsPath(p).is_absolute() or PurePosixPath(p).is_absolute()
+
+
+def _same_file(loaded: str, expected: str) -> bool:
+    """Whether *loaded* (always absolute: the loader's own report) is *expected*.
+
+    A relative *expected* matches an absolute *loaded* that ends with it on a path
+    boundary: a hook that recorded the request as given must not turn a correct bind
+    into a FAIL, as on the first windows-latest run (39631811305).
+    """
+    a, b = _norm_path(loaded), _norm_path(expected)
+    if _is_absolute(expected):
+        return a == b
+    return a == b or a.endswith("/" + b)
+
+
 def bind_verdict(entry: Mapping[str, Any], result: Mapping[str, Any]) -> tuple[str, str, str]:
     """PASS only if every ``bind_to_base`` DLL is loaded once, from the base, the base's
     ONNX Runtime is the version the base was built with, and both an ONNX Runtime
@@ -927,7 +944,7 @@ def bind_verdict(entry: Mapping[str, Any], result: Mapping[str, Any]) -> tuple[s
                             f"({bind.get('preload_errors', {}).get(name, 'no base copy')})")
             continue
         facts.append(f"{name} <- {', '.join(loaded) or '(not loaded)'}")
-        if [_norm_path(p) for p in loaded] != [_norm_path(pre)]:
+        if len(loaded) != 1 or not _same_file(loaded[0], pre):
             problems.append(f"{name}: loaded {loaded}, expected only the base's {pre}")
         if pack_root and any(_norm_path(p).startswith(pack_root + "/") for p in loaded):
             problems.append(f"{name}: a copy loaded from inside the pack")

@@ -6,6 +6,15 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the Windows add-on spike's bind check reported a correct bind as FAIL
+
+The first real `packs-spike.yml` run (windows-latest, run 39631811305) measured every ADR-028
+risk for the `diarization` add-on and found them all fine: the frozen app imports the add-on,
+its metadata is visible, and sherpa-onnx runs on YazSes's own signed ONNX Runtime 1.28.0. The
+bind row still said FAIL, because the probe compared the relative path it asked for with the
+absolute path Windows reported. The probe now records the absolute path and the verdict accepts
+the relative form; tests reproduce the run's exact paths.
+
 ### Changed — the Windows installer carries Parakeet's engine and Chinese script conversion; the diarization add-on runs on the installer's ONNX Runtime
 
 ADR-028's owner answers (2026-10-21), build side. The Windows installer now bundles two
