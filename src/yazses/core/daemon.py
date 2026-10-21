@@ -5402,11 +5402,12 @@ class Daemon:
             event["discard_reason"] = "window_focus_no_match"
             log.info("Voice focus: no unambiguous window matches %r.", target)
             try:
+                from yazses.bidi import quote_user_text
                 from yazses.system.notify import notify
 
                 notify("No window matched",
-                       f"Nothing was focused for {target!r}. Say part of the "
-                       "window title, or check `yazses doctor`.")
+                       f"Nothing was focused for {quote_user_text(target)}. Say part of "
+                       "the window title, or check `yazses doctor`.")
             except Exception:
                 log.debug("focus notification failed", exc_info=True)
             return True

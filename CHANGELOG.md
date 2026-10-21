@@ -6,6 +6,30 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — Persian and Arabic names keep their punctuation in the tray, Settings and notifications ([#516](https://github.com/MSKazemi/yazses/issues/516))
+
+YazSes' interface is English, so a message that quotes something in Persian -- a
+bookmark label, a window name you spoke, a filter query, a microphone your desktop
+names in Persian -- puts a right-to-left phrase inside a left-to-right sentence. The
+punctuation at the seam then followed the English sentence: `Bookmarked 'سلام!'.`
+showed the `!` on the right of the word, which a Persian reader sees as its start.
+Measured in Qt 6.11 offscreen, not assumed. Settings also showed a saved Persian
+vocabulary with its half-spaces (ZWNJ) spelled out as `\u200c`.
+
+A small display-only helper, `yazses/bidi.py`, now wraps such text in Unicode
+first-strong isolates (FSI…PDI), only when it holds a right-to-left character. It
+is applied to the tray tooltip and microphone menu, the Settings microphone list, the
+Settings save and filter messages, bookmark messages and the "No window matched"
+notification. English text is unchanged byte for byte. The isolates are only in
+what is shown: the stored, typed and copied text never contains them, and a test
+fails if the injector, post-processing, clipboard, config-write or transcript-file
+code imports the helper. The CLI and transcript files are deliberately unchanged.
+
+Audited and already correct: the Vocabulary field lays Persian out right-to-left by
+its content while the window stays left-to-right, and copies the logical string. The
+overlay draws no text. Not yet verified: how it looks to an RTL reader on real GNOME,
+KDE, Windows and macOS desktops, screen-reader output, and high-DPI.
+
 ### Fixed — pushing a release tag no longer turns every open pull request red ([#602](https://github.com/MSKazemi/yazses/issues/602))
 
 The Windows packaging tests (Scoop, Chocolatey nuspec and install script, winget)
