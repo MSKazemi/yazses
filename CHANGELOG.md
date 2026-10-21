@@ -86,6 +86,21 @@ and `cv2` stops working. Reinstall contrib afterwards to repair it:
 The breakage and both repairs were reproduced with the 5.0.0.93 wheels in a Linux Python 3.12
 environment. Windows, macOS and `uv tool upgrade` were not tested.
 
+### Added — add-on packs use YazSes's own ONNX Runtime (unreleased feature, ADR-028 M1)
+
+The Windows wheel of `sherpa-onnx-core`, which the diarization add-on needs, carries its own
+unsigned `onnxruntime.dll` (1.28.2), while YazSes already ships Microsoft's signed 1.28.0. Two
+files with one module name in one process are not safe, so the add-on build drops the pack's
+copy and lists the name in `pack.json`'s new `bind_to_base` field. On the add-on's first use,
+YazSes now loads its own copy by full path from its install folder before any of the add-on's
+code runs, so the add-on can only bind to that file, never to another `onnxruntime.dll` on
+the computer. It refuses the add-on, with a named reason, if YazSes's copy is missing,
+ambiguous (several copies, and not exactly one inside the `onnxruntime` package folder), older than the optional `bind_min_versions` floor, or if another copy is already
+loaded. `yazses packs probe` and `yazses packs verify` now report which file and version the
+add-on bound to. Nothing is loaded at start-up, and nothing changes for anyone without such
+an add-on. Tested on Linux through a fake loader only; the Windows run (the packs spike and
+the release job's probe) has not happened yet. No add-on has been released.
+
 ### Fixed — the one-click Windows update never ran the installer (unreleased feature)
 
 The first real run of the update hand-off on a Windows machine (CI, `windows-latest`) showed

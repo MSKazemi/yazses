@@ -630,3 +630,81 @@ additive; the name argument becomes optional when `--from` is given).
 **Not verified.** `installer.iss` was not compiled (no ISCC on Linux); the uninstall on a
 real per-user and all-users install is manual checklist item 12, still open, plus the
 all-users case. `install_scope()` on a real all-users install is unit-tested only.
+
+### Runtime side: binding to the base's ONNX Runtime (ADR-028 M1, 2026-10-21, branch `feat/packs-runtime-ort`)
+
+**Why.** `sherpa-onnx-core` 1.13.8's Windows wheel carries its own `onnxruntime.dll` (an
+unsigned 1.28.2 build) while the base carries Microsoft's signed 1.28.0 (measured fact M1 in
+ADR-028's answered questions). The build drops the pack's copy; the runtime must make
+`sherpa_onnx` use the base's copy, deterministically, and refuse otherwise.
+
+**The contract with the build side** (`pack.json`, both optional, absent = empty):
+
+- `bind_to_base`: a list of bare DLL file names (no directory, no drive; compared
+  case-insensitively; duplicates refused) the build dropped because the pack must use the
+  base's own file of that name. Agreed with the build side, which writes the names in lower
+  case (today `["onnxruntime.dll"]`) and ships no copy of a listed DLL.
+- `bind_min_versions`: an object mapping some of those names to the lowest version of the
+  base's copy the pack accepts, e.g. `{"onnxruntime.dll": "1.28"}`. A key not listed in
+  `bind_to_base` refuses the manifest. **This field is the runtime side's proposal; the build
+  side does not write it yet.** Without it, any version of the base's copy binds and the
+  version is only reported. That is safe today because a pack loads only into the one base
+  build it names (`base_build_id`), and the build's frozen probe already checks that the
+  base's copy is the version the base froze.
+
+**Landed.**
+
+- `packs/bind.py`: the pure decisions and the binding. The base's copy is found by walking
+  the frozen app's `_internal` folder (`sys._MEIPASS`) and nowhere else. One copy is taken.
+  Of several, the only one inside a package folder named after the DLL
+  (`onnxruntime/capi/onnxruntime.dll`) is taken: it is the file the base's own
+  `import onnxruntime` loads, and the build's spike (`spike_bind_request`) preloads the same
+  file. Any other set of copies is refused, not ranked. It is loaded by absolute path
+  (`ctypes.WinDLL`, which passes `LOAD_LIBRARY_SEARCH_DEFAULT_DIRS |
+  LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR` for a path), so the loader never searches for the name,
+  and its module name is then in the loaded-module list that answers sherpa's import
+  ([DLL search order](https://learn.microsoft.com/en-us/windows/win32/dlls/dynamic-link-library-search-order)).
+  The version comes from ONNX Runtime's own C entry point,
+  `OrtGetApiBase()->GetVersionString()`. Afterwards every loaded module of that name
+  (`K32EnumProcessModules`, as the spike's check (d) does) must be the base's file.
+- **Lazy.** `mount.apply` puts a `FirstUseBinder` on `sys.meta_path` for each mounted pack
+  that lists `bind_to_base`. Start-up loads nothing and walks nothing (one `scandir` of the
+  pack's `site/` to learn its top-level names). The first import of one of the pack's
+  modules binds, before the pack's own code runs; on success the finder removes itself.
+  A binding pack in whose `site/` no module name is found is not mounted (fail closed).
+  The start-up path imports `packs/bind.py` only when such a pack is mounted.
+- **Refusal** has a named reason: the base does not contain the DLL; it contains several
+  copies and not exactly one inside a package folder of that name; it does not load; its version is below `bind_min_versions`; its version cannot be
+  read while a minimum is stated; another file of that name is already loaded; the loaded
+  list cannot be read. At first use it is an `ImportError` naming the reason for every
+  import of that pack, and an entry in `mount.LAST.failed`. The pack is not quarantined:
+  the fault is the base's, not the pack's.
+- **Probe.** `yazses packs probe` binds before importing `entry_modules` and re-checks the
+  loaded modules after. A refusal or a second `onnxruntime.dll` appearing during the import
+  is `native-load` (exit 7). Success ends the `YAZSES-PROBE ok` line with
+  `bound onnxruntime.dll -> <path> (version <v>), YazSes's own copy`, so the install
+  transaction and the release job record which ONNX Runtime the pack runs on. No exit code
+  was added.
+- **Verify.** `yazses packs verify` prints one line per bound DLL (path and version, or the
+  refusal) and exits 1 on a refusal without setting the pack aside.
+- `PackRuntime` gained `base_native_candidates`, `load_base_native` and
+  `loaded_native_paths`; the Linux/BSD and macOS backends answer "none" / "cannot tell", so a
+  binding pack is refused there.
+- **Out-of-process fallback (ADR-028 §1): not built.** `bind.bind_mode()` always returns
+  `"in-process"`; `bind.OutOfProcessHost` is the typed seam, with a TODO naming what would
+  trigger it: the spike's check (d) showing `sherpa_onnx` failing to import against the
+  base's 1.28.0, or any `onnxruntime.dll` loaded from a path other than the base's. Until
+  then, a pack whose mode is not in-process is skipped at mount and refused by the probe.
+
+**Tests.** `tests/test_packs_bind.py` (64 cases, through a fake runtime): field parsing,
+every refusal reason, the import ordering through the real import system, nothing loaded
+or walked at mount, the probe and `verify` output, the Windows folder walk and the
+`OrtGetApiBase` read through a ctypes stand-in. Each guard was mutated out and the suite
+went red.
+
+**Not verified (needs a Windows run).** That `sherpa_onnx`'s extension actually resolves to
+the base's preloaded `onnxruntime.dll` and works against 1.28.0; `ctypes.WinDLL` on the real
+`_internal\onnxruntime\capi\onnxruntime.dll` path; `K32EnumProcessModules` paths matching the
+walked path; `OrtGetApiBase` on Microsoft's build; how many `onnxruntime.dll` files the
+frozen base contains, and where. The spike's check (d) and the release job's frozen probe
+answer these.

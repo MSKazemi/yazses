@@ -448,6 +448,26 @@ class PackRuntime(Protocol):
         this same app, or ``None`` when that cannot be built."""
         ...
 
+    # -- binding a pack to the base's own copy of a shared DLL (ADR-028 M1) -----------
+    # Called only for a pack whose pack.json lists ``bind_to_base``, and only on that
+    # pack's first use (``yazses.packs.bind``), never at start-up.
+
+    def base_native_candidates(self, name: str) -> list[Path]:
+        """Every file named ``name`` (case-insensitive) inside the frozen app's own
+        folder. Empty when not frozen or unsupported. Never searches anywhere else."""
+        ...
+
+    def load_base_native(self, path: Path) -> tuple[object, str | None]:
+        """Load the library at the absolute ``path`` so its module name is in this
+        process's loaded-module list; return ``(handle, version or None)``. Raises
+        ``OSError`` when it does not load. The caller keeps the handle alive."""
+        ...
+
+    def loaded_native_paths(self, name: str) -> list[Path] | None:
+        """The file of every loaded module named ``name``, or ``None`` when this cannot
+        be determined."""
+        ...
+
 
 HotkeyFactory = Callable[[str, int, Callable[[int], None], Callable[[], None]], HotkeyBackend]
 """Args: key_id, threshold_ms, on_hold_start(leaked_count), on_hold_end."""

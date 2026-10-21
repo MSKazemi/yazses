@@ -15,6 +15,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
+from yazses.packs.bind import Binding
 from yazses.packs.context import PackContext, scan_trees, write_state
 from yazses.packs.install import (
     InstallResult,
@@ -36,6 +37,7 @@ from yazses.packs.state import (
 __all__ = [
     "DiskUse",
     "PackRow",
+    "check_bindings",
     "clean",
     "disk_use",
     "entry_for_file",
@@ -145,6 +147,37 @@ def verify(ctx: PackContext, name: str | None = None, *, set_aside: bool = True
             if set_aside:
                 quarantine_tree(ctx.layout, path, problem)
     return out
+
+
+def check_bindings(ctx: PackContext, name: str | None = None) -> list[Binding]:
+    """What each installed pack of this build that lists ``bind_to_base`` binds to
+    (ADR-028 M1): the base's file and its version, or why it is refused. Loads the
+    base's own DLLs by path, exactly as the pack's first use would; imports nothing from
+    any pack and sets nothing aside (a refusal is the base's fault, not the pack's)."""
+    from yazses.packs.bind import bind_pack, requests_for
+    from yazses.packs.context import read_tree
+
+    out: list[Binding] = []
+    build = ctx.build_dir
+    if ctx.index is None or build is None or not build.is_dir():
+        return out
+    for entry in ctx.index.packs:
+        if name is not None and entry.name != name:
+            continue
+        path = build / entry.name
+        if not path.is_dir():
+            continue
+        tree = read_tree(path)
+        if tree.complete_sha256 is None or tree.manifest is None:
+            continue
+        if tree.manifest.bind_to_base:
+            out.extend(bind_pack(entry.name, requests_for(tree.manifest), ctx.runtime,
+                                 keep=_BOUND))
+    return out
+
+
+#: Handles of libraries :func:`check_bindings` loaded; kept for the life of the process.
+_BOUND: list[object] = []
 
 
 def _record_problem(path: Path) -> str:

@@ -2647,18 +2647,32 @@ def packs_install(
 def packs_verify(
     name: str | None = typer.Argument(None, help="One add-on; all when omitted."),
 ) -> None:
-    """Check every installed file's size and SHA-256. A damaged add-on is set aside."""
-    from yazses.packs.manage import verify
+    """Check every installed file's size and SHA-256. A damaged add-on is set aside.
+
+    An add-on that shares a library with YazSes (``onnxruntime.dll`` for diarization)
+    also reports which file and version it binds to, or why it is refused.
+    """
+    from yazses.packs.manage import check_bindings, verify
 
     pctx = _packs_context()
     problems = verify(pctx, name)
-    if not problems:
+    bindings = check_bindings(pctx, name)
+    for b in bindings:
+        typer.echo(f"{b.pack}: {b.describe()}", err=not b.ok)
+    refused = [b for b in bindings if not b.ok]
+    if not problems and not refused:
         typer.echo("Every installed add-on matches its record.")
         return
     for pack, problem in problems:
         typer.echo(
             f"{pack}: damaged ({problem}). It was set aside in {pctx.layout.quarantine}. "
             f"Reinstall it: yazses packs install {pack}",
+            err=True,
+        )
+    for b in refused:
+        typer.echo(
+            f"{b.pack}: will not load until YazSes is repaired or updated; the add-on "
+            "itself is intact and was not set aside.",
             err=True,
         )
     raise typer.Exit(1)
