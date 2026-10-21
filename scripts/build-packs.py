@@ -1386,6 +1386,10 @@ def build_one(spec: PackSpec, ctx: Context, built: Mapping[str, Mapping[str, str
 
     members: dict[str, bytes | Path] = {f"site/{r}": site / r for r in rels}
     members.update(licences)
+    # Reviewed texts for dists that ship none (licence-approvals.toml [[licence_text]]).
+    if clash := sorted(members.keys() & lic.vendored.keys()):
+        raise PackError(f"a vendored licence text would overwrite {clash}")
+    members.update(lic.vendored)
     if lic.source_md:
         members[_licence_gate().SOURCE_MD] = lic.source_md.encode("utf-8")
     errors = [f"{n}: {'; '.join(e)}" for n in members if (e := member_path_errors(n))]

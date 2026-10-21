@@ -55,6 +55,25 @@ metadata, not yet on a Windows build. The Linux 1.13.8 wheels of `sherpa-onnx` a
 `sherpa-onnx-core` would hold the `diarization` add-on back (free-text licence, no licence
 file). No add-on has been released yet.
 
+### Added — a reviewed licence text can stand in for one a library does not ship (ADR-028 Q7)
+
+Some libraries declare a licence but leave the licence file out of their package, and the
+licence check held their add-on back for it. The maintainer can now commit the upstream
+licence text under `packaging/packs/licence-texts/` and record it in
+`licence-approvals.toml` as a `[[licence_text]]`, pinned to one library version and to
+the file's SHA-256. The build copies it into the add-on's `LICENSES/` folder only when
+the version, the declared licence and the hash all match and a person has signed the
+entry; it never replaces a licence file the library ships. A clarification or licence
+text can be committed unsigned (`reviewed_by = ""`): the build report lists it as
+awaiting review and it counts for nothing until a person signs it.
+
+The two entries `diarization` needs are now committed, **unsigned**: `sherpa-onnx` 1.13.8
+read as Apache-2.0, and the Apache-2.0 text for `sherpa-onnx-core` 1.13.8, taken from
+the sherpa-onnx repository at tag `v1.13.8` and byte-identical to apache.org's
+`LICENSE-2.0.txt`. A test keeps them inert, so `diarization` stays held back until the
+maintainer reads both texts and signs. Tested on synthetic metadata and a simulated
+build, not on a Windows build.
+
 ### Added — install a Windows add-on from a file with no network, and the uninstaller removes your add-ons (ADR-028 questions 4 and 5)
 
 - `yazses packs install --from <file>` installs an add-on file you copied over yourself,
