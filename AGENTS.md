@@ -192,7 +192,7 @@ fails and your change is reverted anyway.
 
 | File | Regenerate with |
 |---|---|
-| `docs/features.md`, `docs/configuration.md`, `docs/command-index.md`, `docs/cli-reference.md` | `uv run python scripts/gen-docs.py` |
+| `docs/features.md`, `docs/configuration.md`, `docs/command-index.md`, `docs/cli-reference.md`, `src/yazses/config_sections.py` | `uv run python scripts/gen-docs.py` |
 | `man/yazses.1` | `uv run python scripts/gen-man.py` |
 | `campaign/generated/**`, `campaign/schemas/**` | `uv run python scripts/campaign.py --generate` |
 | `design/eye-control/generated/validation-coverage.md` | `uv run python scripts/gen-eye-validation-dashboard.py` |

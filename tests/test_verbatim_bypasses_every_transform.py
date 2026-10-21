@@ -42,6 +42,10 @@ TRANSFORMS = [
     "apply_conversions",
     "apply_corrections",   # Self-Learning Correction Dictionary (ADR-v2-079)
     "apply_self_repair",
+    # Style-Consistency Enforcer (ADR-v2-109). Always ran inside the region; it became
+    # visible to `test_the_list_is_still_complete` only when its import moved there from
+    # the top of `core/daemon.py` (2026-10-21, docs/contribute/startup-budget.md).
+    "apply_style",
     "apply_symbols",
     "balance_delimiters",
     "correct_text",

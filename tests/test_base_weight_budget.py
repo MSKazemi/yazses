@@ -33,6 +33,7 @@ laptop). How a contributor stays inside all of this: ``docs/contribute/startup-b
 """
 from __future__ import annotations
 
+import ast
 import dataclasses
 import json
 import subprocess
@@ -51,32 +52,52 @@ PACKAGE_ROOT = Path(yazses.__file__).resolve().parent
 #: so whoever makes one lazy must delete its line. Keyed by probe, then package.
 KNOWN_EAGER: dict[str, dict[str, str]] = {
     "daemon": {
-        "cmdsafety": "`Daemon.__init__` builds a `ConfirmGate()` unconditionally; the gate "
-        "reads `[cmdsafety] enabled` per command. Pure, <1 ms.",
-        "earcon": "`Daemon.__init__` builds `EarconPlayer(cfg.earcon.enabled)` "
-        "unconditionally. Pure; the audio backend is imported on first play.",
-        "facegesture": "reached through `yazses.config` -> `yazses.configcheck`, which derives "
-        "the closed set for `[facegesture] gesture` from `facegesture.detector` rather than "
-        "restating it. Pure, ~4 ms.",
-        "learning": "`core/daemon.py` imports `build_writer` at module scope; it returns None "
-        "when `[learning]` is off. The cryptography bindings are imported only when a corpus "
-        "is opened.",
-        "staged": "`Daemon.__init__` builds a `StagedBuffer()` unconditionally. Pure, ~1 ms.",
-        "styleguard": "`Daemon.__init__` calls `build_style_rules(...)`, which returns no "
-        "rules when `[styleguard]` is off. Pure, ~1 ms.",
-        "tts": "`core/daemon.py` imports `build_tts`, which returns a null backend when "
-        "`[tts]` is off; every engine is imported inside the factory.",
+        # Both kept on purpose on 2026-10-21, when earcon, facegesture, learning,
+        # styleguard and tts were made lazy. Neither is an import move: each would need
+        # the daemon to answer for an object it no longer holds.
+        "cmdsafety": "`Daemon._cmdsafety` is one held-command slot shared by four "
+        "consumers -- `[cmdsafety]`, `[checkdigit]`, `[reask]` and the face switch's "
+        "confirm/cancel -- reached from the dictation and camera threads. Building it "
+        "lazily needs a locked accessor, or a first use from two threads could hold a "
+        "command in a gate nobody reads. Pure, 2 modules, <1 ms.",
+        "staged": "`_handle_status` reports `staged_state()` on every IPC status poll "
+        "(the tray and overlay poll several times a second), so a lazy import would load "
+        "on the first poll anyway. Pure, 2 modules, ~1 ms.",
     },
-    "help": {
-        "facegesture": "`cli.main()` escapes `[section]` names via `cli_help`, which imports "
-        "`yazses.config`; see the daemon entry for why that reaches `facegesture`.",
-    },
+    "help": {},
 }
 
-#: Ceiling on ``yazses.*`` modules each probe may load. Recorded on Linux / CPython 3.14
-#: on 2026-10-21 (daemon 92, help 32) with headroom for a module or two. Raising one is
-#: allowed — say why in the PR; the number changing is the point of the diff.
-MAX_YAZSES_MODULES: dict[str, int] = {"daemon": 96, "help": 35}
+def os_backend_packages() -> frozenset[str]:
+    """The packages where an OS difference is *supposed* to live (AGENTS.md rule 6).
+
+    Derived from where ``platform/factory.py`` imports ``build_platform`` -- the
+    registration of an OS: ``yazses.platform.linux``, ``.macos``, ``.windows``,
+    ``.bsd`` -- rather than listed, so a new OS backend is excluded the day it is
+    registered. Their modules are not counted against a ceiling: how many modules a
+    backend needs is a property of the OS, not of a change in review.
+    """
+    tree = ast.parse((PACKAGE_ROOT / "platform" / "factory.py").read_text(encoding="utf-8"))
+    out = set()
+    for node in ast.walk(tree):
+        if (
+            isinstance(node, ast.ImportFrom)
+            and (node.module or "").startswith("yazses.platform.")
+            and any(alias.name == "build_platform" for alias in node.names)
+        ):
+            out.add(".".join(node.module.split(".")[:3]))
+    return frozenset(out)
+
+#: Ceiling on ``yazses.*`` modules each probe may load, excluding `os_backend_packages()`.
+#:
+#: Recorded on Linux / CPython 3.14 on 2026-10-21: daemon **73**, help **25**. The
+#: count does not depend on the OS by construction -- no module either probe loads
+#: imports a ``yazses`` module under a module-scope platform or version branch, which
+#: :func:`test_the_module_count_cannot_depend_on_the_os` asserts -- so the same ceiling
+#: is right on the Windows and macOS legs. The **+3 headroom** covers what that AST
+#: check cannot see (an import made by a function a module calls at import time on one
+#: OS only); it is a review signal, not an allowance. Raising one is allowed -- say why
+#: in the PR; the number changing is the point of the diff.
+MAX_YAZSES_MODULES: dict[str, int] = {"daemon": 76, "help": 28}
 
 _HELP_PROBE = """
 import contextlib, io, sys
@@ -88,6 +109,18 @@ with contextlib.redirect_stdout(io.StringIO()) as out:
     except SystemExit:
         pass
 assert "Usage" in out.getvalue(), "the --help probe rendered no help"
+"""
+
+_VERSION_PROBE = """
+import contextlib, io, sys
+sys.argv = ["yazses", "--version"]
+from yazses.cli import main
+with contextlib.redirect_stdout(io.StringIO()) as out:
+    try:
+        main()
+    except SystemExit:
+        pass
+assert out.getvalue().strip(), "the --version probe printed nothing"
 """
 
 PROBES: dict[str, str] = {
@@ -108,9 +141,18 @@ NOT_LOADED_BY: dict[str, tuple[str, ...]] = {
         "ssl",
         "cryptography",
         "importlib.metadata",
+        # The learning corpus's store; reached at start only while `core/daemon.py`
+        # imported `learning.capture` at module scope (made lazy 2026-10-21).
+        "sqlite3",
     ),
     "import yazses.cli": ("importlib.metadata",),
 }
+
+#: `cli.main()` runs on every CLI invocation. It imported the whole of `yazses.config`
+#: (~66 ms measured, the largest module in the tree) only to escape `[section]` names in
+#: help text, until 2026-10-21; `cli_help` now reads the generated
+#: `yazses.config_sections` instead. A command that needs the config imports it itself.
+CLI_ENTRY_PROBES: dict[str, str] = {"yazses --version": _VERSION_PROBE, "yazses --help": _HELP_PROBE}
 
 
 def disabled_by_default_packages() -> frozenset[str]:
@@ -207,11 +249,22 @@ def test_the_known_eager_list_only_shrinks(probe: str, loaded: dict[str, list[st
     )
 
 
+def counted_yazses_modules(loaded: list[str]) -> list[str]:
+    """The ``yazses.*`` modules a ceiling counts: everything but ``platform/<os>/``."""
+    backends = os_backend_packages()
+    return [
+        m
+        for m in loaded
+        if (m == "yazses" or m.startswith("yazses."))
+        and not any(m == b or m.startswith(b + ".") for b in backends)
+    ]
+
+
 @pytest.mark.parametrize("probe", sorted(PROBES))
 def test_the_yazses_module_count_stays_within_budget(
     probe: str, loaded: dict[str, list[str]]
 ) -> None:
-    ours = [m for m in loaded[probe] if m == "yazses" or m.startswith("yazses.")]
+    ours = counted_yazses_modules(loaded[probe])
     ceiling = MAX_YAZSES_MODULES[probe]
     assert len(ours) <= ceiling, (
         f"the {probe} probe loads {len(ours)} yazses modules, over its budget of {ceiling}. "
@@ -252,3 +305,109 @@ def test_the_matcher_reads_package_boundaries() -> None:
     disabled = frozenset({"tts", "gaze"})
     loaded = ["yazses.tts.factory", "yazses.ttsx", "yazses.core.gaze", "yazses", "gaze"]
     assert eager_feature_packages(loaded, disabled) == {"tts"}
+
+
+# --- the CLI entry point ---------------------------------------------------------------
+
+
+@pytest.mark.parametrize("label", sorted(CLI_ENTRY_PROBES))
+def test_the_cli_entry_point_does_not_import_the_config(label: str) -> None:
+    loaded = _loaded(CLI_ENTRY_PROBES[label])
+    assert "yazses.cli" in loaded, "the probe did not reach the CLI"
+    assert "yazses.config" not in loaded, (
+        f"`{label}` imports yazses.config again (~66 ms on every invocation, measured). "
+        "`cli.main()` must not need it: `cli_help` escapes `[section]` names from the "
+        "generated `yazses.config_sections`. Find the importer with "
+        f"`python -X importtime` on the probe in {Path(__file__).name}."
+    )
+
+
+# --- the ceiling must mean the same thing on every OS -----------------------------------
+
+#: Spellings of "which OS / which interpreter is this" a module-scope branch tests.
+_OS_TESTS = (
+    "sys.platform", "os.name", "platform.system", "platform.machine", "version_info",
+    "IS_WINDOWS", "IS_MACOS", "IS_MAC", "IS_LINUX", "WINDOWS", "MACOS",
+)
+
+
+def platform_branch_imports(source: str) -> list[str]:
+    """``yazses`` imports made under a module-scope OS or version branch in *source*.
+
+    Such an import would make a probe's module count depend on the runner, so a
+    ceiling measured on Linux could fail on Windows or macOS for no change at all.
+    """
+    found = []
+    for node in ast.parse(source).body:
+        if not isinstance(node, ast.If):
+            continue
+        test = ast.unparse(node.test)
+        if not any(key in test for key in _OS_TESTS):
+            continue
+        for inner in ast.walk(node):
+            if isinstance(inner, ast.ImportFrom) and (inner.module or "").startswith("yazses"):
+                found.append(f"if {test}: from {inner.module} import ...")
+            elif isinstance(inner, ast.Import):
+                found += [f"if {test}: import {a.name}" for a in inner.names
+                          if a.name.startswith("yazses")]
+    return found
+
+
+@pytest.mark.parametrize("probe", sorted(PROBES))
+def test_the_module_count_cannot_depend_on_the_os(
+    probe: str, loaded: dict[str, list[str]]
+) -> None:
+    """Why one Linux-measured ceiling is valid on the Windows and macOS legs too.
+
+    `platform/<os>/` is excluded from the count (`os_backend_packages`). Everything
+    else a probe loads must import the same ``yazses`` modules on every OS, which holds
+    as long as none of them imports one under a module-scope platform branch.
+    """
+    offenders = {}
+    for name in counted_yazses_modules(loaded[probe]):
+        rel = Path(*name.split(".")[1:])
+        path = PACKAGE_ROOT / rel / "__init__.py"
+        if not path.is_file():
+            path = (PACKAGE_ROOT / rel).with_suffix(".py")
+        if not path.is_file():  # `yazses` itself
+            path = PACKAGE_ROOT / "__init__.py"
+        hits = platform_branch_imports(path.read_text(encoding="utf-8"))
+        if hits:
+            offenders[name] = hits
+    assert not offenders, (
+        f"the {probe} probe loads modules that import yazses modules under an OS branch, "
+        "so its module count differs per OS and MAX_YAZSES_MODULES (measured on Linux) "
+        f"can fail on another runner: {offenders}. Move the OS-specific import behind "
+        "`platform/<os>/` or into the function that needs it."
+    )
+
+
+def test_the_os_branch_scanner_sees_a_platform_import() -> None:
+    """Red-green for the scanner: an empty answer must mean "none", not "cannot see"."""
+    src = (
+        "import sys\n"
+        "if sys.platform == 'win32':\n"
+        "    from yazses.platform.windows import keys\n"
+        "else:\n"
+        "    import yazses.platform.linux.keys\n"
+        "if TYPE_CHECKING:\n"
+        "    from yazses.config import Config\n"
+    )
+    assert platform_branch_imports(src) == [
+        "if sys.platform == 'win32': from yazses.platform.windows import ...",
+        "if sys.platform == 'win32': import yazses.platform.linux.keys",
+    ]
+    assert platform_branch_imports("import os\nif os.name == 'nt':\n    import ctypes\n") == []
+
+
+def test_the_os_backends_are_derived_from_the_factory() -> None:
+    backends = os_backend_packages()
+    assert {"yazses.platform.linux", "yazses.platform.macos",
+            "yazses.platform.windows"} <= backends
+    assert "yazses.platform.base" not in backends
+    counted = counted_yazses_modules(
+        ["yazses", "yazses.platform", "yazses.platform.linux", "yazses.platform.linux.tray",
+         "yazses.platform.base", "yazses.platform.linuxish"]
+    )
+    assert counted == ["yazses", "yazses.platform", "yazses.platform.base",
+                       "yazses.platform.linuxish"]
