@@ -169,6 +169,7 @@ def build_refinement_runtime(
     spawn: Spawn | None = None,
     clock: Callable[[], float] | None = None,
     fingerprint: Callable[[], str | None] | None = None,
+    observer_unavailable_reason: str | None = None,
 ) -> tuple[RefinementRuntime | None, str]:
     """Start implicit refinement, or return ``(None, why not)``. See the module docstring.
 
@@ -178,6 +179,11 @@ def build_refinement_runtime(
 
     *fingerprint* is the capture's layout watch (:func:`context_fingerprint`). Given, a
     display or camera change drops the recent gaze before a click can pair across it.
+
+    *observer_unavailable_reason* is ``Platform.click_observer_unavailable_reason`` (#607):
+    why *observer_factory* is ``None`` on this session, when the platform knows. Given, the
+    dormant reason names it (a Wayland desktop reads "no global click stream", not "no
+    backend yet"); absent, the generic sentence stands.
     """
     if not getattr(section, "enabled", False):
         return None, ""
@@ -190,6 +196,11 @@ def build_refinement_runtime(
             "a second camera"
         )
     if observer_factory is None:
+        if observer_unavailable_reason:
+            return None, (
+                f"this session has no click observer ({observer_unavailable_reason}), "
+                "so there is nothing to learn from"
+            )
         return None, "this platform has no click observer yet, so there is nothing to learn from"
     if not calibration_verified:
         return None, (
