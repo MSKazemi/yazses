@@ -1595,6 +1595,12 @@ def _ensure_autostart(platform) -> None:
             return
     except Exception:  # noqa: BLE001 — an unanswerable question is not a reason to act
         return
+    paths = getattr(platform, "paths", None)
+    if paths is not None:
+        from yazses.system.autostart_choice import opted_out
+
+        if opted_out(paths.data_dir):
+            return  # `yazses autostart disable` was a choice, not a missing setup
     try:
         lifecycle.install_autostart()
     except Exception as exc:  # noqa: BLE001 — report, never fail the start
@@ -3850,6 +3856,9 @@ def autostart_enable() -> None:
     except Exception as exc:  # noqa: BLE001 — report, don't traceback at the user
         typer.echo(f"Could not enable autostart: {exc}", err=True)
         raise typer.Exit(1) from exc
+    from yazses.system.autostart_choice import clear_opt_out
+
+    clear_opt_out(platform.paths.data_dir)
     typer.echo("YazSes will now start automatically at login.")
     typer.echo("Verify any time with:  yazses doctor")
 
@@ -3859,13 +3868,28 @@ def autostart_enable() -> None:
     epilog=_examples("yazses autostart disable   stop launching YazSes at login"),
 )
 def autostart_disable() -> None:
-    """Stop starting YazSes at login. The daemon keeps running until you stop it."""
+    """Stop starting YazSes at login. The daemon keeps running until you stop it.
+
+    The choice is remembered, so a later `yazses start` does not turn it back on.
+    """
     platform = get_platform()
     try:
         platform.lifecycle.uninstall_autostart()
     except Exception as exc:  # noqa: BLE001
         typer.echo(f"Could not disable autostart: {exc}", err=True)
         raise typer.Exit(1) from exc
+    from yazses.system.autostart_choice import record_opt_out
+
+    try:
+        record_opt_out(platform.paths.data_dir)
+    except OSError as exc:
+        # Off for now, but not remembered: say so, or the next start looks like a bug.
+        typer.echo("YazSes will no longer start at login.")
+        typer.echo(
+            f"  (note: could not remember this choice: {exc}\n"
+            "   the next `yazses start` will turn it back on; use `yazses start --no-autostart`.)"
+        )
+        return
     typer.echo("YazSes will no longer start at login.")
 
 
@@ -3884,9 +3908,14 @@ def autostart_status() -> None:
     if installed:
         typer.echo("Enabled — YazSes starts automatically at login.")
         return
-    typer.echo("Not enabled — YazSes will NOT come back after a reboot.")
+    from yazses.system.autostart_choice import opted_out
+
+    if opted_out(platform.paths.data_dir):
+        typer.echo("Off — you turned it off with `yazses autostart disable`.")
+    else:
+        typer.echo("Not enabled — YazSes will NOT come back after a reboot.")
     typer.echo("Enable it with:  yazses autostart enable")
-    raise typer.Exit(1)
+    raise typer.Exit(1)  # unchanged either way: scripts ask "will it come back?"
 
 
 audio_app = typer.Typer(

@@ -731,6 +731,18 @@ def _autostart_check(platform) -> _Check | None:
             return ("Starts at login", "OK", f"yes — {mechanism}")
     except Exception as exc:  # noqa: BLE001 — never let a probe break doctor
         return ("Starts at login", "WARN", f"could not be determined ({exc})")
+    paths = getattr(platform, "paths", None)
+    if paths is not None:
+        from yazses.system.autostart_choice import opted_out
+
+        if opted_out(paths.data_dir):
+            # The user's decision, not a fault: a FAIL here would sit in every doctor
+            # run, forever, and teach them to skim past the FAIL lines that matter.
+            return (
+                "Starts at login", "SKIP",
+                "off — you turned it off (`yazses autostart disable`). "
+                "To turn it back on: `yazses autostart enable`",
+            )
     return (
         "Starts at login", "FAIL",
         "no — YazSes will NOT come back after a reboot. Fix: `yazses autostart enable`",

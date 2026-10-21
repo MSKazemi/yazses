@@ -6,6 +6,17 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `yazses autostart disable` stays disabled
+
+`yazses start` turns on start-at-login when it is missing, so an install that never set
+it up survives a reboot. It could not tell a missing setup from a choice, though, so after
+`yazses autostart disable` the next `yazses start` turned it straight back on, and told
+you to run `yazses autostart disable` to undo it. `yazses doctor` reported the same choice
+as "1 problem to fix" on every run. The choice is now remembered (a small `autostart-off`
+file in the YazSes data folder). `yazses start` leaves autostart off, `doctor` shows the
+row as skipped with the command to turn it back on, and `yazses autostart status` says
+you turned it off. `yazses autostart enable` reverses all of it. On every platform.
+
 ### Security — the Windows diarization add-on stays unreleased: its libraries embed GPL code
 
 The sherpa-onnx 1.13.8 binaries the diarization add-on would ship contain espeak-ng (GPL-3.0-or-later) compiled in, although sherpa-onnx declares Apache-2.0. The prepared licence entries for the add-on are therefore left unsigned and now say why, and the spec and ADR-028 record the evidence. Diarization through pip or uv is unaffected; nothing was ever released as an add-on.

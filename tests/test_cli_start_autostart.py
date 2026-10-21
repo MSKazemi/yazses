@@ -35,12 +35,19 @@ class _Lifecycle:
 
 
 class _Platform:
-    def __init__(self, lifecycle):
+    def __init__(self, lifecycle, paths=None):
         self.lifecycle = lifecycle
+        if paths is not None:
+            self.paths = paths
 
 
-def _start(monkeypatch, lifecycle, *, outcome="ready", argv=("start",)):
-    platform = _Platform(lifecycle)
+class _Paths:
+    def __init__(self, data_dir):
+        self.data_dir = data_dir
+
+
+def _start(monkeypatch, lifecycle, *, outcome="ready", argv=("start",), data_dir=None):
+    platform = _Platform(lifecycle, None if data_dir is None else _Paths(data_dir))
     monkeypatch.setattr(cli, "get_platform", lambda: platform)
     monkeypatch.setattr(cli, "_warn_unmet_prereqs", lambda: None)
     monkeypatch.setattr(cli, "_spawn_daemon", lambda p: None)
@@ -107,6 +114,26 @@ def test_an_unanswerable_query_does_not_trigger_an_install(monkeypatch):
     r = _start(monkeypatch, lc)
     assert r.exit_code == 0, r.output
     assert lc.install_calls == 0
+
+
+def test_start_respects_an_earlier_autostart_disable(monkeypatch, tmp_path):
+    """The bug: `yazses autostart disable`, then `yazses start`, put it straight back
+    and said "`yazses autostart disable` to undo" -- the command just run."""
+    from yazses.system.autostart_choice import record_opt_out
+
+    record_opt_out(tmp_path)
+    lc = _Lifecycle(installed=False)
+    r = _start(monkeypatch, lc, data_dir=tmp_path)
+    assert r.exit_code == 0, r.output
+    assert lc.install_calls == 0
+    assert "login" not in r.output
+
+
+def test_start_still_sets_up_autostart_when_no_choice_was_recorded(monkeypatch, tmp_path):
+    lc = _Lifecycle(installed=False)
+    r = _start(monkeypatch, lc, data_dir=tmp_path)
+    assert r.exit_code == 0, r.output
+    assert lc.install_calls == 1
 
 
 @pytest.mark.parametrize("attr", ["install_autostart", "is_autostart_installed"])
