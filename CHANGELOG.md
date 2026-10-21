@@ -6,6 +6,24 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the docs' memory and Docker-image figures are re-measured, and four stale status lines corrected
+
+- **Model memory.** `models.md` gave `base.en` an 874 MB footprint. The low-RAM guide gave
+  it 370 MB. Both were measurements, of different things at different times: the 874 MB
+  figure (2026-08-06) included an ~820 MB import baseline that the current code no longer
+  has. Re-measured on 2026-10-21 (AMD Ryzen 5 PRO 4650U, int8, an 11 s clip, two runs
+  each), a process that imports `yazses.core.daemon` and loads the model holds
+  165 / 202 / 384 MB for tiny.en / base.en / small.en, and peaks at 272 / 344 / 618 MB
+  while decoding. `benchmarks.md` keeps the August table and adds the new one, together
+  with its method.
+- **Docker image.** Three pages said 833 MB and one said ~1.5 GB. The v2.43.2 linux/amd64
+  image is 387 MB to download and 1.14 GB unpacked, measured from the registry layers.
+- **Capability matrix.** Meeting Mode and diarization gain a footnote for the `.dmg` and
+  `.exe`: today they need the PyPI install. The Windows add-on is held back because its
+  sherpa-onnx binaries embed GPL code.
+- **Validation pages.** They still pointed at "the first release after v2.42.0", and one
+  said #330 was open; #330 was closed on 2026-10-21.
+
 ### Added — six accessibility features you can now turn on (experimental, off by default)
 
 Six capabilities that had a designed, tested core but no caller are now reachable from the

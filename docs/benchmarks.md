@@ -764,8 +764,25 @@ large and consistent; the exact percentages are not precise to the point given.
 | `small.en` | 1,340 MB | 1,340 MB | 520 MB |
 
 The 820 MB baseline is the Python process with its dependencies loaded, before any
-model. This is the honest cost of a Python daemon — it is why the requirements say
-4 GB minimum and 8 GB comfortable.
+model, measured on 2026-08-06. This is the honest cost of a Python daemon — it is why the
+requirements say 4 GB minimum and 8 GB comfortable.
+
+**Re-measured 2026-10-21.** The baseline has since fallen to about 70 MB: features that
+are switched off no longer import their libraries at start. The setup was faster-whisper
+1.2.1, ctranslate2 4.8.1, int8 on the CPU, on an AMD Ryzen 5 PRO 4650U under Linux 7.0.
+Each row is a fresh process that imports `yazses.core.daemon`, loads the model from the
+local cache with `HF_HUB_OFFLINE=1`, and decodes `data/librispeech-sample/jfk.wav` (11 s,
+beam 1). Each process was run twice, and the two runs agreed within 4 MB:
+
+| Model | Baseline (daemon imported) | RSS after load | Peak RSS (`ru_maxrss`) |
+|---|---|---|---|
+| `tiny.en` | 42–46 MB | 165 MB | 272 MB |
+| `base.en` | 42 MB | 202 MB | 342–344 MB |
+| `small.en` | 42 MB | 384 MB | 618 MB |
+
+This covers the module import plus the model, not a running daemon. A daemon also loads
+whatever switched-on features load at start. A bare `faster_whisper.WhisperModel` with no
+YazSes import peaks 7 MB lower.
 
 ## Voice-activity gate
 

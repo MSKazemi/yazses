@@ -33,7 +33,7 @@ the general case, and it names the fix for anything missing.
 | Voice-activity overlay | ✅ | ✅ | ✅ | ✅ |
 | Autostart at login | ✅ systemd | ✅ systemd | ✅ launchd | ✅ HKCU\\Run |
 | Offline transcription (`transcribe`) | ✅ | ✅ | ✅ | ✅ |
-| Meeting Mode, diarization | ✅ | ✅ | ✅ | ✅ |
+| Meeting Mode, diarization | ✅ | ✅ | ✅⁴ | ✅⁴ |
 | **Voice window focus** ("focus the browser") | ✅ xdotool | ❌ **not possible** | ❌ | ❌ |
 | **Glance-Type gaze routing** | ✅ | ❌ **not possible** | ❌ | ❌ |
 | EMG / BrainFlow activation | ✅ | ✅ | ✅ | ✅ |
@@ -43,6 +43,11 @@ The macOS and Windows trays render through `rumps`/`pystray` and repaint far les
 so the ring would lag the thing it reports. The **earcons** carry the same information on
 every platform, and audio is the channel that works when the tray is not being looked at
 anyway.
+
+⁴ This applies to installs made with pip, pipx or uv. The macOS `.dmg` and the Windows `.exe` cannot add
+the speaker-label libraries afterwards, so Meeting Mode and diarization need the PyPI
+install there today. A Windows diarization add-on is prepared on `main` but not
+released: its sherpa-onnx binaries embed GPL code, so it is held back.
 
 ¹ Wayland needs `ydotool` **and** a running `ydotoold`; `wtype` works only on
 wlroots compositors and is blocked on GNOME and KDE. For a non-Snap install,

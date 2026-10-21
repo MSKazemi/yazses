@@ -95,7 +95,7 @@ docker run --rm -v yazses-models:/home/yazses/.cache -v "$PWD:/data" \
         -v "$PWD:/data" yazses transcribe jfk.wav
     ```
 
-The image is **833 MB**. It deliberately drops PySide6 (the desktop overlay, ~648 MB),
+The image is **387 MB to download and about 1.14 GB unpacked** (v2.43.2, linux/amd64). It deliberately drops PySide6 (the desktop overlay, ~648 MB),
 which transcription never uses.
 
 ---

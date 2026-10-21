@@ -28,6 +28,11 @@ everything else".
 [benchmarks page](../benchmarks.md). Real dictation is harder than that benchmark;
 treat WER as a comparison *between* models, not a promise.
 
+The peak figures above and the 2026-10-21 re-measurement on the
+[models page](../models.md) (peak 272 / 344 / 618 MB on an AMD Ryzen 5 PRO 4650U) were
+taken on different machines, and agree within about 20 %. An older ~874 MB figure for
+`base.en` included an ~820 MB import baseline that the current code no longer has.
+
 **Resident memory is roughly twice the file on disk.** That surprises people who
 size a machine from the download.
 

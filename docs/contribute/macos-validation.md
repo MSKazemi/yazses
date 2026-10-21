@@ -26,8 +26,8 @@ record used a stale Homebrew tap at 2.18.2. Details and links are in the matrix,
   Accessibility and Input Monitoring are denied while both toggles show on, and the state did not
   change after `tccutil reset` for this app ([#562](https://github.com/MSKazemi/yazses/issues/562)).
   No Mac has yet shown a typed character.
-* **Unknown:** whether it is that machine or that macOS build; whether the fixes since v2.42.0
-  change anything (they are not released); whether any Mac updates in place without losing its
+* **Unknown:** whether it is that machine or that macOS build; whether the fixes in v2.43.0–v2.43.2
+  change anything, and whether the permission-prompt fix now on main (unreleased) does; whether any Mac updates in place without losing its
   grants; and everything about pipx and Homebrew on a current release.
 
 ## What is unverified on Intel
@@ -41,7 +41,7 @@ GitHub's Intel runners (see [platform support](../platform-support.md#macos)) is
 | Issue | State | Verdict | What it still needs |
 |---|---|---|---|
 | [#182](https://github.com/MSKazemi/yazses/issues/182) Apple silicon test | open | **Active.** The umbrella for Apple silicon. Its acceptance (install by a route, `doctor`, dictate into a real window) is met up to the last step only. | A hotkey-driven dictation that types text. Its "two unknowns" paragraph is out of date: the `.app` has launched on hardware (E3) and the cask has installed (E4, E5). |
-| [#562](https://github.com/MSKazemi/yazses/issues/562) hotkey dead on 2.40.0 | open | **Active, the blocker.** The reproduction behind every macOS cell in the matrix. | A retest on the first release that carries `1e20ebd3`, and a second Mac (task 1 and task 4 below). |
+| [#562](https://github.com/MSKazemi/yazses/issues/562) hotkey dead on 2.40.0 | open | **Active, the blocker.** The reproduction behind every macOS cell in the matrix. | A retest on v2.43.0 or later (the first to carry `1e20ebd3`), and on the first release after v2.43.2 for the permission prompt, plus a second Mac (task 1 and task 4 below). |
 | [#578](https://github.com/MSKazemi/yazses/issues/578) daemon survived "Quit" | open | **Active, undiagnosed.** (After this audit, v2.43.1 shipped a fix on 2026-10-17; not yet confirmed on a Mac.) | `ps` and `launchctl` output before and after Quit (task 1). The issue itself says it needs a Mac. |
 | [#579](https://github.com/MSKazemi/yazses/issues/579) `mic-level --set` varies | open | **Related, not Mac-specific.** It was seen on a Mac but is a threshold-rule decision. | A decision, not a Mac. It affects whether `verify` passes on a quiet voice. |
 | [#241](https://github.com/MSKazemi/yazses/issues/241) microphone-permission guide | open | **Mostly met in another place.** The troubleshooting section of [Install on macOS](../macos-install.md#troubleshooting) now covers Gatekeeper, Accessibility, Input Monitoring, the stale-grant case and the unreachable microphone prompt. | A tester-written walk-through in the order the dead ends were hit, if the original volunteer still wants to write it. The maintainer offered to unassign. |
@@ -103,7 +103,7 @@ tccutil reset Microphone com.yazses.app
 Each is a volunteer task. Say on the linked issue that you are taking it, so nobody duplicates it.
 You do not need to test more than one.
 
-1. **Retest the hotkey on the first release after v2.42.0** (Apple silicon, `.dmg`; [#562](https://github.com/MSKazemi/yazses/issues/562),
+1. **Retest the hotkey on the first release after v2.43.2** (Apple silicon, `.dmg`; [#562](https://github.com/MSKazemi/yazses/issues/562),
    [#578](https://github.com/MSKazemi/yazses/issues/578)). Install it, run the
    [reporter script](#reporter-script), hold Right Option once and say whether a prompt appeared,
    then press Quit in the menu-bar and run the "after Quit" lines. *Done when:* the script output

@@ -104,7 +104,7 @@ See the [CLI reference](cli-reference.md#yazses-transcribe) for the full set.
   older image, run those two commands outside the container.
 - **`/data` is the convention**, not a requirement — mount wherever you like and
   give the container that path.
-- **Size: ~1.5 GB.** Most of it is PyTorch-free but still substantial ML wheels
+- **Size: 387 MB to download, about 1.14 GB unpacked** (v2.43.2, linux/amd64, measured 2026-10-21 from the registry). Most of it is PyTorch-free but still substantial ML wheels
   (ctranslate2, onnxruntime, numpy). It is a fair bit of disk for a transcription
   tool and we would rather say so than let you find out.
 - **`linux/amd64` and `linux/arm64`.**

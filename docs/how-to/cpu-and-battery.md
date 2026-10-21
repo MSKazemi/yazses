@@ -27,6 +27,9 @@ not wall-clock:
 | `base.en` (default) | 0.79 s | **4.9 s** | 370 MB |
 | `small.en` | 1.93 s | **9.5 s** | 712 MB |
 
+Peak RSS is the decoding process's own memory; [choosing a model](low-ram-models.md)
+explains how it compares with other published figures.
+
 **Model choice is the biggest lever.** Moving from `small.en` to `base.en` roughly
 halves the CPU cost of every utterance. See
 [choosing a model](low-ram-models.md) for what that costs in accuracy.

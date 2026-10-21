@@ -19,7 +19,7 @@ numbers, not estimates, so you can decide before you start.
 | Speech model — `base.en` | **141 MB** | **the default** |
 | Speech model — `small.en` | 464 MB | most accurate of the three |
 | Speaker diarization models | ~45 MB | only if you use `--diarize` |
-| Docker image (transcription only) | 833 MB | no Qt |
+| Docker image (transcription only) | 1.14 GB unpacked (387 MB download) | no Qt |
 
 *The 414 MB is measured on **Linux x86_64, CPython 3.12**. Expect it to differ by a few
 tens of MB elsewhere: the platform-conditional dependencies are not the same set —
@@ -131,7 +131,7 @@ decides for you:
 | `install.sh` (the Linux one-liner) | **Yes** | …plus the tray and the voice-activity overlay | ~1.1 GB |
 | The `.deb` | **Yes** (`yazses[desktop]`) | Same as above | ~1.1 GB |
 | The Snap | **Yes** (bundled) | Same, in a confined package | ~1.1 GB |
-| The Docker image | **No** — it has no display | `transcribe` + diarization only | 833 MB |
+| The Docker image | **No** — it has no display | `transcribe` + diarization only | 1.14 GB (387 MB download) |
 | The Windows installer (`.exe`) | **Yes** (bundled) | Same, plus the Parakeet engine's library and Chinese script conversion built in; speaker diarization as a download-on-request add-on | ~188 MB download (v2.43.2) |
 
 **What the Windows installer carries.** It is a frozen bundle, so it cannot `pip install`
