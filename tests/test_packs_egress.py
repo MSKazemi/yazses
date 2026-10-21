@@ -87,3 +87,25 @@ def test_a_checksums_mismatch_stops_after_one_request(tmp_path, captured) -> Non
     with pytest.raises(PackFetchError):
         fetch_pack(index, entry, tmp_path / "dl")
     assert [r.full_url for r in requests] == [sums_url]
+
+
+def test_an_offline_install_from_a_file_makes_no_request(tmp_path, captured) -> None:
+    """ADR-028 question 5: `packs install --from <file>` trusts the embedded index alone.
+    Through the same captured opener that sees both requests of a real fetch, a whole
+    --from install (copy, hash, extract, match, place) builds **no** request at all: no
+    SHA256SUMS.txt, no pack URL."""
+    from tests.packs_fixtures import FakeRuntime, asset_name, base
+    from yazses.packs.context import PackContext
+    from yazses.packs.layout import PackLayout
+    from yazses.packs.manage import install_from_file
+    from yazses.packs.policy import Capability
+
+    requests, _served = captured
+    pack = build_pack(tmp_path / "usb" / asset_name("parakeet"))
+    ctx = PackContext(
+        runtime=FakeRuntime(), layout=PackLayout.under(tmp_path / "data"), frozen=True,
+        capability=Capability(True), index=pack.index(), base=base(),
+    )
+    result = install_from_file(ctx, pack.path, probe=lambda name, staged: (True, ""))
+    assert result.ok, result.message
+    assert requests == [], [r.full_url for r in requests]

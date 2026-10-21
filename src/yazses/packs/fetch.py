@@ -81,6 +81,8 @@ def manual_steps(index: PackIndex, entry: IndexEntry) -> list[str]:
         f"Check that this computer can reach github.com, then run: yazses packs install "
         f"{entry.name}",
         f"The add-on file is {entry.asset} on the v{index.app_version} release: {url}",
+        f"Or download that file on another computer, copy it here, and run: yazses packs "
+        f"install --from <path to {entry.asset}>",
     ]
 
 

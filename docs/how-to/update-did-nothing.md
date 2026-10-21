@@ -148,6 +148,73 @@ And confirm, in a new terminal, that the number actually moved:
 yazses --version
 ```
 
+## The update finished, but the camera features stopped working
+
+If YazSes says *"The upgrade to YazSes X finished, but OpenCV (cv2), which the camera
+features use, does not load any more"*, the version did move. What broke is OpenCV.
+
+Up to 2.43.2 the camera features (gaze, face gestures, head pointer, hand gestures,
+hands-free) installed two OpenCV builds, `opencv-python` and `opencv-contrib-python`.
+They share the same `cv2/` folder. Later releases need only contrib, so an upgrade
+removes `opencv-python`, and removing it deletes the files the two builds shared.
+`import cv2` still succeeds afterwards, but `cv2.VideoCapture` is missing.
+
+`yazses update`, the tray and the Settings window prevent this on a `uv tool` install:
+when both builds are present, they add `--reinstall-package opencv-contrib-python` to the
+upgrade command they show and run. After every `uv`, `pipx` or `pip` upgrade they also
+check that `cv2` still works. If it does not, they print the exact repair for your
+install.
+
+Other routes reach the same broken state without going through that check: an upgrade
+run by an older YazSes, `uv sync` in a source checkout, or `pip uninstall opencv-python`.
+For those, YazSes checks again whenever it starts and whenever you run `yazses doctor`:
+
+- **At start**, each camera feature that is switched on and has a half-deleted `cv2` is
+  reported as not ready, the same way as a feature whose libraries are missing. The
+  notification says *"OpenCV (cv2) is half-deleted"* and gives the repair command. It has
+  no **Install now** button, because installing a package that is already installed does
+  not repair it.
+- **`yazses doctor`** shows an **OpenCV** row whenever an OpenCV build is installed:
+  `OK` when `cv2` is whole, and `FAIL` with the repair command when it is not.
+
+The check does not import OpenCV. It looks for OpenCV's native module inside the `cv2/`
+folder, and it reads the package list only when that module is missing. So it adds
+almost nothing to start-up, and it does not run at all unless a camera feature is
+switched on (doctor checks whenever an OpenCV build is installed).
+
+The repair has this shape, pinned to the version that is installed now:
+
+=== "uv"
+
+    ```bash
+    uv pip install --python <your YazSes environment's python> --reinstall --no-deps opencv-contrib-python==<version>
+    ```
+
+=== "pipx"
+
+    ```bash
+    pipx runpip yazses install --force-reinstall --no-deps opencv-contrib-python==<version>
+    ```
+
+=== "pip"
+
+    ```bash
+    <your YazSes environment's python> -m pip install --force-reinstall --no-deps opencv-contrib-python==<version>
+    ```
+
+Copy the command YazSes printed rather than these templates, because it already has the
+right interpreter path and version. Then restart the daemon (`yazses restart`).
+
+In a virtual environment that has no pip (uv does not install pip into the environments
+it creates, including a source checkout's `.venv`), YazSes prints the `uv` form instead,
+because `python -m pip` would fail there.
+
+The `uv` repair was run on Linux against an environment broken this way, and it worked.
+The start-up and doctor check was also run there: it reported the broken environment as
+half-deleted and the whole one as healthy, and after the repair it reported the repaired
+one as healthy. The `pipx` and `pip` forms were not run, and Windows and macOS were not
+tested.
+
 ## Your settings, models and vocabulary are not affected
 
 None of the commands above touch your data. Configuration lives in

@@ -54,6 +54,7 @@ ROOT = Path(__file__).resolve().parent.parent
 PACKS_TOML = ROOT / "packaging" / "packs" / "packs.toml"
 PYPROJECT = ROOT / "pyproject.toml"
 SPIKE_HOOK = ROOT / "packaging" / "packs" / "spike" / "rthook_pack_spike.py"
+BUILD_WINDOWS_PS1 = ROOT / "scripts" / "build-windows.ps1"
 
 #: ``pack.json`` / ``RECORD.json`` / base-manifest format.
 PACK_FORMAT = 1
@@ -85,6 +86,7 @@ _VERSION_RE = re.compile(r"^[0-9][0-9A-Za-z.+-]{0,40}$")
 _SHA_RE = re.compile(r"^[0-9a-f]{64}$")
 _BUILD_ID_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 _MODULE_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$")
+_DLL_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._+-]{0,80}\.dll$", re.IGNORECASE)
 _DIST_SUFFIXES = (".dist-info", ".data", ".egg-info")
 _NOT_MODULE_DIRS = {"__pycache__", "bin", "Scripts"}
 _LICENCE_PREFIXES = ("LICENSE", "LICENCE", "COPYING", "NOTICE", "AUTHORS")
@@ -288,12 +290,22 @@ class DllReport:
     drop: list[str] = field(default_factory=list)
     conflicts: list[str] = field(default_factory=list)
     shared_identical: list[str] = field(default_factory=list)
+    #: Copies dropped because packs.toml's ``bind_to_base`` names their basename: the
+    #: pack runs against the base's (different) copy. Every one is also in ``drop``.
+    bound: list[str] = field(default_factory=list)
+    #: ``bind_to_base`` names that matched no collision (stale allow-list entries).
+    bind_unused: list[str] = field(default_factory=list)
+
+    def bound_names(self) -> list[str]:
+        """The basenames the pack relies on the base for (pack.json ``bind_to_base``)."""
+        return sorted({PurePosixPath(r).name.lower() for r in self.bound})
 
 
 def dll_collisions(
     pack_dlls: Mapping[str, str],
     base_dlls: Mapping[str, str],
     other_packs: Mapping[str, Mapping[str, str]] | None = None,
+    bind_to_base: Iterable[str] = (),
 ) -> DllReport:
     """DLL basename rule (§1). Maps are ``{relpath: sha256}``.
 
@@ -303,8 +315,16 @@ def dll_collisions(
     -> conflict. Against another pack: different -> conflict; identical -> both keep it
     (either pack may be installed alone, and whichever loads serves both). Two copies
     of one basename inside the same pack with different bytes -> conflict.
+
+    ``bind_to_base`` is the one reviewed exception (packs.toml; ADR-028's finding on
+    sherpa-onnx-core's own ``onnxruntime.dll``). For a listed basename that the base
+    also ships, *every* copy in the pack is dropped although its bytes differ, and the
+    runtime loads the base's copy before the pack's code asks for it by name. Only a
+    listed name is bound; every other differing collision is still a conflict. A
+    listed name that collides with nothing lands in ``bind_unused`` and changes nothing.
     """
     rep = DllReport()
+    bind = {b.lower() for b in bind_to_base}
 
     def by_base(m: Mapping[str, str]) -> dict[str, dict[str, str]]:
         out: dict[str, dict[str, str]] = {}
@@ -314,7 +334,15 @@ def dll_collisions(
 
     mine = by_base(pack_dlls)
     base = by_base(base_dlls)
+    rep.bind_unused = sorted(b for b in bind if not (b in mine and b in base))
     for basename, copies in sorted(mine.items()):
+        if basename in bind and basename in base:
+            # Every copy goes, so copies that differ inside the pack cannot clash, and
+            # no other pack is ever compared against a file this pack will not ship.
+            for rel in sorted(copies):
+                rep.drop.append(rel)
+                rep.bound.append(rel)
+            continue
         if len(set(copies.values())) > 1:
             rep.conflicts.append(
                 f"{basename}: {len(copies)} copies with different bytes inside the pack "
@@ -440,8 +468,14 @@ def pack_json(fields: Mapping[str, Any], payload_bytes: int, payload_files: int,
 def pack_fields(*, name: str, extra: str, features: list[str], app_version: str,
                 base_build_id: str, python: Mapping[str, str], platform_tag: str, arch: str,
                 distributions: list[dict[str, str]], entry_modules: list[str],
-                native: list[str], path_entries: list[str]) -> dict[str, Any]:
-    """Everything in pack.json except the two counts (ADR-028 §1 + ``path_entries``)."""
+                native: list[str], path_entries: list[str],
+                bind_to_base: Iterable[str] = ()) -> dict[str, Any]:
+    """Everything in pack.json except the two counts (ADR-028 §1 + ``path_entries``).
+
+    ``bind_to_base`` holds the DLL basenames (lower case) whose pack copies the build
+    dropped under packs.toml's allow-list: the runtime must load the base's copy of
+    each before it imports the pack's ``entry_modules``. Always present, often empty.
+    """
     return {
         "format": PACK_FORMAT,
         "name": name,
@@ -456,6 +490,7 @@ def pack_fields(*, name: str, extra: str, features: list[str], app_version: str,
         "entry_modules": list(entry_modules),
         "native_dirs": sorted(native),
         "path_entries": list(path_entries),
+        "bind_to_base": sorted({b.lower() for b in bind_to_base}),
     }
 
 
@@ -642,6 +677,7 @@ class PackSpec:
     features: tuple[str, ...]
     entry_modules: tuple[str, ...]
     approved_large: bool = False
+    bind_to_base: tuple[str, ...] = ()
 
 
 def _norm_req(req: str) -> str:
@@ -674,6 +710,10 @@ def validate_catalog(doc: Any, extras: Mapping[str, list[str]],
         if decision != "pack":
             if not str(entry.get("reason", "")).strip():
                 errs.append(f"{name}: a {decision!r} decision needs a reason")
+            for key in ("features", "entry_modules", "bind_to_base"):
+                if key in entry:
+                    errs.append(f"{name}: a {decision!r} extra is never packed; "
+                                f"`{key}` belongs to packs only")
             continue
         if not _NAME_RE.match(name):
             errs.append(f"{name}: not a valid pack name")
@@ -688,6 +728,13 @@ def validate_catalog(doc: Any, extras: Mapping[str, list[str]],
             errs.append(f"{name}: a pack needs `entry_modules` (dotted module names)")
         if entry.get("approved_large") and not str(entry.get("approved_by", "")).strip():
             errs.append(f"{name}: approved_large needs approved_by")
+        bind = entry.get("bind_to_base", [])
+        if not isinstance(bind, list) or not all(
+            isinstance(b, str) and _DLL_NAME_RE.match(b) for b in bind
+        ):
+            errs.append(f"{name}: bind_to_base must list bare DLL basenames (x.dll)")
+        elif bind and not str(entry.get("bind_reason", "")).strip():
+            errs.append(f"{name}: bind_to_base needs bind_reason (the reviewed evidence)")
         extra_reqs = {_norm_req(r) for r in extras.get(name, [])}
         for slug in feats:
             if slug not in feature_deps:
@@ -730,8 +777,61 @@ def packs_from_catalog(doc: Mapping[str, Any]) -> list[PackSpec]:
                 name=name, extra=name, features=tuple(entry["features"]),
                 entry_modules=tuple(entry["entry_modules"]),
                 approved_large=bool(entry.get("approved_large", False)),
+                bind_to_base=tuple(b.lower() for b in entry.get("bind_to_base", [])),
             ))
     return out
+
+
+def bundled_extras(doc: Mapping[str, Any]) -> list[str]:
+    """The extras packs.toml says are inside the frozen base (decision ``bundled``).
+
+    The single source for what the base is: ``build-windows.ps1`` must sync exactly
+    these (:func:`base_sync_problems`), the pack build subtracts their closure from
+    every pack, and none of them is ever built as a pack.
+    """
+    table = doc.get("extras") or {}
+    return sorted(n for n, e in table.items()
+                  if isinstance(e, dict) and e.get("decision") == "bundled")
+
+
+_SYNC_EXTRA_RE = re.compile(r"--extra[= ]+([A-Za-z0-9][A-Za-z0-9._-]*)")
+
+
+def ps1_synced_extras(text: str) -> set[str]:
+    """Extras named on the non-comment ``uv sync`` lines of a build script."""
+    return {
+        e for ln in text.splitlines()
+        if "uv sync" in ln and not ln.lstrip().startswith("#")
+        for e in _SYNC_EXTRA_RE.findall(ln)
+    }
+
+
+def base_sync_problems(synced: Iterable[str], doc: Mapping[str, Any],
+                       extras: Mapping[str, list[str]]) -> list[str]:
+    """The frozen base's ``uv sync`` against packs.toml's ``bundled`` decisions.
+
+    Both directions: an extra synced into the base must be decided ``bundled`` (or a
+    pack of it would duplicate the base), and every ``bundled`` extra's requirements
+    must be declared by a synced extra (``overlay`` is satisfied by ``desktop``, which
+    declares the same PySide6). An empty sync set is a problem: the guard would be blind.
+    """
+    synced = set(synced)
+    if not synced:
+        return ["the base build syncs no extra at all; is this the right `uv sync` line?"]
+    table = doc.get("extras") or {}
+    errs = []
+    for x in sorted(synced):
+        decision = (table.get(x) or {}).get("decision")
+        if decision != "bundled":
+            errs.append(f"the base build syncs --extra {x}, but packs.toml decides "
+                        f"{decision!r}, not 'bundled'")
+    have = {_norm_req(r) for x in synced for r in extras.get(x, [])}
+    for x in bundled_extras(doc):
+        missing = sorted({_norm_req(r) for r in extras.get(x, [])} - have)
+        if missing:
+            errs.append(f"packs.toml bundles {x!r}, but the base build's `uv sync` does "
+                        f"not install {missing}")
+    return errs
 
 
 def size_errors(size: int, approved_large: bool) -> list[str]:
@@ -795,6 +895,64 @@ def spike_candidates(imported: Iterable[str], stdlib: Iterable[str], pack_module
 
 
 PASS, FAIL, WARN, INFO = "PASS", "FAIL", "WARN", "INFO"
+
+
+BIND_PROBE = "(d) bind: the pack's code runs on the base's copy of each bound DLL"
+
+
+def _norm_path(p: str) -> str:
+    return p.replace("\\", "/").rstrip("/").lower()
+
+
+def bind_verdict(entry: Mapping[str, Any], result: Mapping[str, Any]) -> tuple[str, str, str]:
+    """PASS only if every ``bind_to_base`` DLL is loaded once, from the base, the base's
+    ONNX Runtime is the version the base was built with, and both an ONNX Runtime
+    session and the pack's own native session (sherpa-onnx's VAD) build and run.
+
+    ``result["bind"]`` is what the spike hook measured after loading the base's copy by
+    full path, then importing the pack's entry modules (ADR-028 finding M1).
+    """
+    bind = result.get("bind")
+    names = sorted({PurePosixPath(r).name.lower() for r in entry.get("dll_bound_to_base", [])})
+    if not isinstance(bind, Mapping):
+        return (BIND_PROBE, FAIL, "the hook measured no bind result")
+    problems: list[str] = []
+    facts: list[str] = []
+    pack_root = _norm_path(str(bind.get("pack_root", "")))
+    for name in names:
+        pre = bind.get("preloaded", {}).get(name)
+        loaded = list(bind.get("loaded", {}).get(name, []))
+        if not pre:
+            problems.append(f"{name}: base copy not preloaded "
+                            f"({bind.get('preload_errors', {}).get(name, 'no base copy')})")
+            continue
+        facts.append(f"{name} <- {', '.join(loaded) or '(not loaded)'}")
+        if [_norm_path(p) for p in loaded] != [_norm_path(pre)]:
+            problems.append(f"{name}: loaded {loaded}, expected only the base's {pre}")
+        if pack_root and any(_norm_path(p).startswith(pack_root + "/") for p in loaded):
+            problems.append(f"{name}: a copy loaded from inside the pack")
+    failed = [m for m, r in result.get("entry", {}).items() if not r.get("ok")]
+    if failed or not result.get("entry"):
+        problems.append(f"entry modules did not import: {failed or 'none requested'}")
+    ort = bind.get("ort") or {}
+    want = str(bind.get("expected_ort_version") or "")
+    got = str(ort.get("version") or "")
+    facts.append(f"onnxruntime {got or '?'} ({ort.get('file') or '?'})")
+    if not want:
+        problems.append("the build report recorded no base onnxruntime version")
+    elif got != want:
+        problems.append(f"onnxruntime is {got or 'not importable'}, the base froze {want}")
+    for key, label in (("ort_session", "ONNX Runtime session"),
+                       ("native_session", "the pack's native session")):
+        s = bind.get(key) or {}
+        if s.get("ok"):
+            facts.append(f"{label}: ok")
+        else:
+            problems.append(f"{label}: {str(s.get('error') or 'not attempted')[:200]}")
+    detail = "; ".join(facts)
+    if problems:
+        return (BIND_PROBE, FAIL, "; ".join(problems) + " | " + detail)
+    return (BIND_PROBE, PASS, detail)
 
 
 def spike_verdicts(entry: Mapping[str, Any], result: Mapping[str, Any] | None
@@ -863,11 +1021,16 @@ def spike_verdicts(entry: Mapping[str, Any], result: Mapping[str, Any] | None
         rows.append(("(c) base submodules PyInstaller did not prune", PASS,
                      f"{len(result.get('base_submodules_checked', []))} referenced submodules import"))
     loaded = result.get("loaded_collisions", {})
-    detail = "; ".join(conflicts) or f"none ({len(dropped)} identical copies dropped)"
+    bound = list(entry.get("dll_bound_to_base", []))
+    detail = "; ".join(conflicts) or (
+        f"none ({len(dropped) - len(bound)} identical copies dropped, "
+        f"{len(bound)} bound to the base)")
     if loaded:
         detail += " | loaded: " + "; ".join(f"{b} <- {', '.join(p)}" for b, p in sorted(loaded.items()))
     rows.append(("(d) DLL basename collisions with the base (e.g. onnxruntime.dll)",
                  FAIL if conflicts else PASS, detail))
+    if bound:
+        rows.append(bind_verdict(entry, result))
     other = kinds.get("other", []) + kinds.get("base", [])
     rows.append(("deep import sweep", WARN if other else INFO,
                  f"{result.get('sweep_imported', 0)} submodules imported; "
@@ -879,6 +1042,23 @@ def spike_verdicts(entry: Mapping[str, Any], result: Mapping[str, Any] | None
     return rows
 
 
+def spike_bind_request(bound: Iterable[str], base_dlls: Iterable[str], dist: Path
+                       ) -> dict[str, list[str]]:
+    """``{basename: [absolute base copies]}`` for each name pack.json binds to the base.
+
+    The copy under an ``onnxruntime`` package directory sorts first: that is the file the
+    base's own ``import onnxruntime`` loads, so preloading it leaves one copy in the
+    process rather than two.
+    """
+    out: dict[str, list[str]] = {}
+    for name in sorted({b.lower() for b in bound}):
+        rels = [r for r in base_dlls if PurePosixPath(r).name.lower() == name]
+        rels.sort(key=lambda r: (PurePosixPath(r).stem.lower() not in
+                                 {p.lower() for p in PurePosixPath(r).parts[:-1]}, r))
+        out[name] = [str(dist / PurePosixPath(r)) for r in rels]
+    return out
+
+
 def render_summary(title: str, packs: Mapping[str, list[tuple[str, str, str]]]) -> str:
     lines = [f"## {title}", ""]
     for name, rows in sorted(packs.items()):
@@ -887,8 +1067,10 @@ def render_summary(title: str, packs: Mapping[str, list[tuple[str, str, str]]]) 
             safe = detail.replace("|", "\\|").replace("\n", " ")
             lines.append(f"| {probe} | **{verdict}** | {safe} |")
         lines.append("")
-        lines += [f"{verdict}: {name}: {probe}" for probe, verdict, _ in rows
-                  if verdict in (PASS, FAIL)]
+        # The detail rides on the plain line too, so a log grep shows the evidence
+        # (for the bind row: the loaded onnxruntime.dll path and the version).
+        lines += [f"{verdict}: {name}: {probe} -- {detail.replace(chr(10), ' ')[:400]}"
+                  for probe, verdict, detail in rows if verdict in (PASS, FAIL)]
         lines.append("")
     return "\n".join(lines) + "\n"
 
@@ -999,17 +1181,38 @@ class Context:
     base_modules: set[str]
     base_dlls: dict[str, str]
     base_installed: dict[str, Any]
+    base_extras: tuple[str, ...] = ("desktop",)
     report_only: bool = False
 
 
-def base_context(dist: Path, work: Path, version: str, arch: str) -> tuple[Context, bytes]:
+def base_context(dist: Path, work: Path, version: str, arch: str,
+                 base_extras: Iterable[str] = ("desktop",),
+                 extras: Mapping[str, list[str]] | None = None) -> tuple[Context, bytes]:
+    """Measure the frozen base. ``base_extras`` are packs.toml's ``bundled`` extras.
+
+    The manifest is written first, so the caller's invariance check works even when the
+    venv check below refuses: an extra packs.toml bundles must be installed in the venv
+    PyInstaller froze, or every pack's "minus the base" would subtract something the base
+    does not carry.
+    """
     if not (dist / "_internal").is_dir():
         raise SystemExit(f"{dist}/_internal is missing: not a PyInstaller >= 6 one-folder bundle")
     manifest = base_manifest(scan_tree(dist, exclude={EMBEDDED_INDEX}))
     work.mkdir(parents=True, exist_ok=True)
     (work / "base-manifest.json").write_bytes(manifest)
     installed = installed_distributions()
-    exported = set(uv_export(["desktop"]))
+    base_extras = tuple(sorted(base_extras))
+    absent = sorted({
+        canonical_name(re.split(r"[<>=!~\[;\s]", req.strip(), maxsplit=1)[0])
+        for x in base_extras for req in (extras or {}).get(x, [])
+    } - set(installed))
+    if absent:
+        raise PackError(
+            f"packs.toml bundles {list(base_extras)}, but the build venv lacks {absent}; "
+            f"was the base synced with "
+            f"{' '.join(f'--extra {x}' for x in base_extras)}?"
+        )
+    exported = set(uv_export(base_extras))
     base_names = exported & set(installed)
     base_modules: set[str] = set(sys.stdlib_module_names)
     for name in base_names:
@@ -1028,6 +1231,7 @@ def base_context(dist: Path, work: Path, version: str, arch: str) -> tuple[Conte
         platform_tag=host_platform(), python=python_facts(),
         base_build_id=build_id_of(manifest), base_names=base_names,
         base_modules=base_modules, base_dlls=base_dlls, base_installed=installed,
+        base_extras=base_extras,
     )
     return ctx, manifest
 
@@ -1046,6 +1250,22 @@ def _metadata(dist_info: Path) -> dict[str, list[str]]:
     return out
 
 
+def _licence_gate() -> Any:
+    """``scripts/pack_licences.py`` (ADR-028 Q7), imported lazily so that
+    ``check-release`` keeps running on a bare python3 with the standard library alone.
+    Loaded by path, so ``scripts/`` never lands on ``sys.path``."""
+    mod = sys.modules.get("pack_licences")
+    if mod is None:
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location(
+            "pack_licences", Path(__file__).resolve().parent / "pack_licences.py")
+        assert spec is not None and spec.loader is not None
+        mod = sys.modules["pack_licences"] = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+    return mod
+
+
 def build_one(spec: PackSpec, ctx: Context, built: Mapping[str, Mapping[str, str]]
               ) -> dict[str, Any]:
     """Build one pack into ``work/<name>``. Raises PackError with the withholding reason."""
@@ -1057,7 +1277,10 @@ def build_one(spec: PackSpec, ctx: Context, built: Mapping[str, Mapping[str, str
     report: dict[str, Any] = {"name": spec.name, "extra": spec.extra,
                               "features": list(spec.features)}
 
-    marginal = marginal_requirements(uv_export(["desktop", spec.extra]), ctx.base_names)
+    if spec.extra in ctx.base_extras:
+        raise PackError(f"{spec.extra!r} is bundled into the base; it is never packed")
+    marginal = marginal_requirements(uv_export([*ctx.base_extras, spec.extra]),
+                                     ctx.base_names)
     if not marginal:
         raise PackError("the extra adds nothing beyond the base (decide `bundled` instead)")
     req = wdir / "requirements.txt"
@@ -1101,6 +1324,10 @@ def build_one(spec: PackSpec, ctx: Context, built: Mapping[str, Mapping[str, str
     if overlap:
         raise PackError(f"distributions already in the base: {overlap}")
     report["base_requires"] = sorted(requires & ctx.base_names)
+    lic = _licence_gate().check_pack(spec.name, _dist_infos(site))
+    report["licence_gate"] = lic.report()
+    if lic.problems and not ctx.report_only:
+        raise PackError("licence gate: " + "; ".join(lic.problems))
 
     rels = [p.relative_to(site).as_posix() for p in sorted(site.rglob("*")) if p.is_file()]
     pack_modules = top_level_modules(rels)
@@ -1110,10 +1337,16 @@ def build_one(spec: PackSpec, ctx: Context, built: Mapping[str, Mapping[str, str
     report["top_level_modules"] = sorted(pack_modules)
 
     pack_dlls = {r: sha256_file(site / r) for r in rels if r.lower().endswith(".dll")}
-    dll = dll_collisions({f"site/{r}": d for r, d in pack_dlls.items()}, ctx.base_dlls, built)
+    dll = dll_collisions({f"site/{r}": d for r, d in pack_dlls.items()}, ctx.base_dlls, built,
+                         bind_to_base=spec.bind_to_base)
     report["dll_conflicts"] = dll.conflicts
     report["dll_dropped"] = dll.drop
+    report["dll_bound_to_base"] = dll.bound
+    report["dll_bind_unused"] = dll.bind_unused
     report["dll_shared_identical"] = dll.shared_identical
+    if dll.bind_unused:
+        gh_annotation("warning", f"add-on pack {spec.name}: stale bind_to_base",
+                      f"packs.toml binds {dll.bind_unused}, which collide with nothing")
     report["dlls"] = {f"site/{r}": d for r, d in pack_dlls.items()}
     if dll.conflicts and not ctx.report_only:
         raise PackError("DLL basename collision: " + "; ".join(dll.conflicts))
@@ -1136,6 +1369,8 @@ def build_one(spec: PackSpec, ctx: Context, built: Mapping[str, Mapping[str, str
 
     members: dict[str, bytes | Path] = {f"site/{r}": site / r for r in rels}
     members.update(licences)
+    if lic.source_md:
+        members[_licence_gate().SOURCE_MD] = lic.source_md.encode("utf-8")
     errors = [f"{n}: {'; '.join(e)}" for n in members if (e := member_path_errors(n))]
     if errors:
         raise PackError("path rule: " + "; ".join(errors[:5]))
@@ -1148,7 +1383,9 @@ def build_one(spec: PackSpec, ctx: Context, built: Mapping[str, Mapping[str, str
         app_version=ctx.version, base_build_id=ctx.base_build_id, python=ctx.python,
         platform_tag=ctx.platform_tag, arch=ctx.arch, distributions=dists,
         entry_modules=list(spec.entry_modules), native=natives, path_entries=path_entries,
+        bind_to_base=dll.bound_names(),
     )
+    fields["licences"] = lic.pack_json()
     pj = pack_json(fields, sum(s for _, s, _ in payload), len(payload), len(record))
     members["RECORD.json"] = record
     members["pack.json"] = pj
@@ -1227,14 +1464,20 @@ def _build(args: argparse.Namespace) -> int:
     embedded = dist / EMBEDDED_INDEX
     embedded.unlink(missing_ok=True)
 
-    ctx, manifest = base_context(dist, work, version, args.arch)
-    ctx.report_only = args.skip_probe
-    print(f"base_build_id {ctx.base_build_id} ({ctx.python['version']}, {ctx.platform_tag})")
     catalog = load_catalog(Path(args.catalog))
     _, extras = read_project()
+    ctx, manifest = base_context(dist, work, version, args.arch,
+                                 base_extras=bundled_extras(catalog), extras=extras)
+    ctx.report_only = args.skip_probe
+    print(f"base_build_id {ctx.base_build_id} ({ctx.python['version']}, {ctx.platform_tag}); "
+          f"bundled extras {list(ctx.base_extras)}")
     report: dict[str, Any] = {"base_build_id": ctx.base_build_id, "app_version": version,
                               "python": ctx.python, "platform": ctx.platform_tag,
                               "arch": ctx.arch, "base_dlls": ctx.base_dlls,
+                              "base_extras": list(ctx.base_extras),
+                              "base_versions": {
+                                  n: str(getattr(ctx.base_installed[n], "version", "") or "")
+                                  for n in sorted(ctx.base_names)},
                               "base_modules": sorted(ctx.base_modules - set(sys.stdlib_module_names)),
                               "packs": {}, "withheld": {}}
     built: dict[str, dict[str, Any]] = {}
@@ -1350,8 +1593,11 @@ def cmd_validate(args: argparse.Namespace) -> int:
     from yazses.system import features
 
     _, extras = read_project()
-    errs = validate_catalog(load_catalog(Path(args.catalog)), extras,
-                            features._FEATURE_DEPS, features._UNWIRED)
+    catalog = load_catalog(Path(args.catalog))
+    errs = validate_catalog(catalog, extras, features._FEATURE_DEPS, features._UNWIRED)
+    ps1 = Path(args.base_script)
+    errs += [f"{ps1.name}: {e}" for e in base_sync_problems(
+        ps1_synced_extras(ps1.read_text(encoding="utf-8")), catalog, extras)]
     for e in errs:
         print(f"ERROR: {e}", file=sys.stderr)
     print("packs.toml ok" if not errs else f"{len(errs)} problem(s)")
@@ -1399,6 +1645,11 @@ def cmd_spike_probe(args: argparse.Namespace) -> int:
             "base_submodule_candidates": entry["base_submodule_candidates"],
             "base_modules": base_modules,
             "collided_dlls": collided,
+            "bind_to_base": spike_bind_request(pj.get("bind_to_base", []),
+                                               report["base_dlls"], exe.parent),
+            "expected_ort_version": report.get("base_versions", {}).get("onnxruntime", ""),
+            "session_model": str(Path(args.session_model).resolve()) if args.session_model
+            else None,
             "result": str(result_path),
         }
         req_path = work / "spike" / f"{name}.request.json"
@@ -1452,6 +1703,8 @@ def main(argv: list[str] | None = None) -> int:
 
     v = sub.add_parser("validate", help="packs.toml against pyproject and _FEATURE_DEPS")
     v.add_argument("--catalog", default=str(PACKS_TOML))
+    v.add_argument("--base-script", default=str(BUILD_WINDOWS_PS1),
+                   help="the script whose `uv sync` freezes the base")
     v.set_defaults(func=cmd_validate)
 
     s = sub.add_parser("spike-spec", help="copy the spec with the Phase 0 runtime hook")
@@ -1464,6 +1717,9 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--work", default="build/packs")
     p.add_argument("--exe", default="dist/YazSes/yazses-cli.exe")
     p.add_argument("--timeout", type=int, default=600)
+    p.add_argument("--session-model",
+                   help="an ONNX model both onnxruntime and the pack's native code can load "
+                        "(the bind probe; packs-spike.yml downloads a pinned silero_vad.onnx)")
     p.set_defaults(func=cmd_spike_probe)
 
     args = ap.parse_args(argv)

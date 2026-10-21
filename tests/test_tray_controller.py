@@ -1,5 +1,24 @@
 """TrayController maps menu actions to daemon IPC calls / subprocess (all injected)."""
+import pytest
+
+from yazses.system import deps, updater
 from yazses.tray.controller import TrayController
+
+
+@pytest.fixture(autouse=True)
+def _no_opencv_in_the_environment(monkeypatch):
+    """The upgrade path also asks the running environment about OpenCV (cv2). Answer
+    "none installed", so these tests never depend on what the developer's own venv
+    holds; tests/test_upgrade_keeps_cv2_whole.py covers that step. No `uv tool dir` either:
+    this is not a uv tool install."""
+    monkeypatch.setattr(deps, "_uv_tool_receipt", lambda: None)
+    monkeypatch.setattr(
+        updater, "default_opencv_probe",
+        lambda prefix=None: updater.OpenCVProbe(
+            python="python", versions=lambda fresh: {}, works=lambda: None,
+            camera_enabled=lambda: False,
+        ),
+    )
 
 
 class _FakeClient:

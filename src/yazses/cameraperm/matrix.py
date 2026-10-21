@@ -149,8 +149,8 @@ PACKAGE_PROFILES: tuple[PackageProfile, ...] = (
         declares_camera=False,
         remedy="pipx install 'yazses[gaze]'   # the camera features need a real Python",
         why=(
-            "scripts/build-windows.ps1 syncs only `--extra desktop`, so the frozen "
-            "bundle carries no camera runtime. An unpackaged Windows app declares no "
+            "scripts/build-windows.ps1 syncs no camera extra (desktop, parakeet and "
+            "chinese only), so the frozen bundle carries no camera runtime. An unpackaged Windows app declares no "
             "capabilities: the gate is Settings -> Privacy -> Camera, not a manifest."
         ),
         # ADR-028 Phase 1. The camera row is unchanged until a `gaze` pack exists

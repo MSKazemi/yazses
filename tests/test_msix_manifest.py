@@ -90,7 +90,7 @@ def test_microphone_is_declared_and_webcam_is_not(manifest: ET.Element) -> None:
     Both camera features are implemented and reachable on a normal install: Glance-Type
     gaze and the Face-Gesture Switch (`yazses features enable gaze` / `... facegesture`).
     What makes the webcam capability wrong is the packaging, not the product — this frozen
-    bundle syncs only the `desktop` extra, so mediapipe and opencv-python are not inside
+    bundle syncs no camera extra, so mediapipe and opencv-python are not inside
     it and an MSIX cannot add them afterwards. Neither camera path can run here.
     """
     devices = [c.get("Name") for c in manifest.findall("d:Capabilities/d:DeviceCapability", NS)]
@@ -113,7 +113,8 @@ def test_the_webcam_rationale_is_packaging_not_a_missing_feature() -> None:
     rather than left to prose.
 
     The load-bearing line is the frozen build's extras. `build-windows.ps1` syncs only
-    `desktop`, so mediapipe and opencv-python are absent from the bundle and neither
+    `desktop`, `parakeet` and `chinese` (the last two bundled by ADR-028 Q1; neither
+    touches a camera), so mediapipe and opencv-python are absent from the bundle and neither
     camera path can run. If that ever grows a camera extra, a camera path becomes
     reachable inside the package and the manifest must declare `webcam` or the feature
     fails silently on a user's machine -- so this fails and asks for that decision.
@@ -132,8 +133,10 @@ def test_the_webcam_rationale_is_packaging_not_a_missing_feature() -> None:
              if "uv sync" in ln and not ln.lstrip().startswith("#")]
     assert syncs, "build-windows.ps1 no longer runs `uv sync`; re-check what the bundle carries"
     extras = sorted({e for ln in syncs for e in re.findall(r"--extra\s+([\w.-]+)", ln)})
-    assert extras == ["desktop"], (
-        f"build-windows.ps1 now syncs extras {extras}, not just ['desktop']. If a camera "
+    # ADR-028 Q1 bundles parakeet (onnx-asr) and chinese (opencc): no camera code.
+    assert extras == ["chinese", "desktop", "parakeet"], (
+        f"build-windows.ps1 now syncs extras {extras}, not ['chinese', 'desktop', "
+        f"'parakeet']. If a camera "
         f"extra (mediapipe/opencv-python) is now inside the frozen bundle, the camera "
         f"features ARE reachable in the MSIX and it must declare the webcam capability, "
         f"or they will fail silently under the package's restrictions"

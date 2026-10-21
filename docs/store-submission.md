@@ -102,8 +102,8 @@ a facial movement, for someone who can speak but cannot press a key. The Head-Po
 installs the same two optional packages, `mediapipe` and `opencv-python`.
 
 What differs here is the packaging, not the product. The Store package is a frozen
-PyInstaller bundle — `scripts/build-windows.ps1` syncs only the `desktop` extra, so
-neither camera package is inside it, and an MSIX has no pip to add them afterwards.
+PyInstaller bundle — `scripts/build-windows.ps1` syncs no camera extra (only `desktop`,
+`parakeet` and `chinese`), so neither camera package is inside it, and an MSIX has no pip to add them afterwards.
 The camera code paths are therefore unreachable **in this package specifically**:
 `yazses features enable gaze` inside the MSIX refuses before it writes any config, and
 names the install that works. Requesting camera access a user could never benefit from

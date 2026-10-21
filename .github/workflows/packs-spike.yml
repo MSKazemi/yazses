@@ -6,7 +6,15 @@ name: packs-spike
 #   (a) stdlib modules a pack's library needs that the frozen app did not collect
 #   (b) importlib.metadata over the pack's dist-info and the base's distributions
 #   (c) submodules of base packages (onnxruntime, huggingface_hub, numpy) PyInstaller pruned
-#   (d) a DLL basename clash, e.g. sherpa-onnx-core's onnxruntime.dll against the base's
+#   (d) a DLL basename clash, e.g. sherpa-onnx-core's onnxruntime.dll against the base's.
+#       packs.toml binds that one name to the base (`bind_to_base`), so the build drops
+#       sherpa's copy, and the probe must show that with the base's copy preloaded,
+#       `import sherpa_onnx` loads ONLY the base's onnxruntime.dll, `onnxruntime` is the
+#       version the base froze (1.28.0 today), and both an onnxruntime session and
+#       sherpa's own VAD session build and run on a pinned silero_vad.onnx. One line
+#       `PASS: diarization: (d) bind: ... -- onnxruntime.dll <- <path>; onnxruntime
+#       <version> ...` (or FAIL) carries the evidence. A FAIL there sends diarization
+#       to ADR-028 §1's out-of-process route.
 #
 # Each pack gets one PASS/FAIL line per risk in the job summary, plus the measured Windows
 # pack sizes that replace the Linux figures in ADR-028's table. Record the run id in the
@@ -48,11 +56,13 @@ jobs:
       - name: Set up Python
         run: uv python install 3.12
 
-      # The same environment build-windows.ps1 freezes: no dev group, the desktop extra.
+      # The same environment build-windows.ps1 freezes: no dev group, and exactly the
+      # extras packs.toml decides `bundled` (ADR-028 Q1). tests/test_build_packs.py holds
+      # this line to build-windows.ps1's.
       - name: Sync the base environment
         shell: pwsh
         run: |
-          uv sync --no-dev --extra desktop
+          uv sync --no-dev --extra desktop --extra parakeet --extra chinese
           uv pip install "pyinstaller>=6.10"
 
       - name: Freeze the base with the spike runtime hook
@@ -73,11 +83,27 @@ jobs:
             --dist dist\YazSes --work build\packs --out build\packs-out --arch x64 --skip-probe
           if ($LASTEXITCODE -ne 0) { throw "build-packs.py build failed" }
 
+      # The model both onnxruntime and sherpa-onnx's VAD load in probe (d)'s bind check.
+      # Pinned by SHA-256 (measured 2026-10-21, 643,854 bytes): a replaced asset fails
+      # here, loudly, rather than quietly changing what the probe proves. This is CI
+      # tooling, not product egress; nothing under src/ fetches it.
+      - name: Fetch the pinned bind-probe model
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          New-Item -ItemType Directory -Force build\spike-model | Out-Null
+          $model = "build\spike-model\silero_vad.onnx"
+          Invoke-WebRequest -Uri "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/silero_vad.onnx" -OutFile $model
+          $got = (Get-FileHash -Algorithm SHA256 $model).Hash.ToLowerInvariant()
+          $want = "9e2449e1087496d8d4caba907f23e0bd3f78d91fa552479bb9c23ac09cbb1fd6"
+          if ($got -ne $want) { throw "silero_vad.onnx sha256 $got, expected $want" }
+
       - name: Mount each pack into the frozen app and probe the four risks
         shell: pwsh
         run: |
           uv run --no-sync python scripts/build-packs.py spike-probe `
-            --work build\packs --exe dist\YazSes\yazses-cli.exe
+            --work build\packs --exe dist\YazSes\yazses-cli.exe `
+            --session-model build\spike-model\silero_vad.onnx
           if ($LASTEXITCODE -ne 0) { throw "the spike harness produced no result for a pack" }
 
       - name: Upload the spike evidence

@@ -23,6 +23,13 @@ state its own hash and ``RECORD.json`` cannot hash itself.
 
 ``path_entries`` (optional, default empty) are pack-root-relative directories taken from
 ``.pth`` lines that only add a path; the loader appends them after ``site/``.
+
+``bind_to_base`` (optional, default empty) lists DLL **file names** the build dropped from
+the pack because the pack must use the base's own copy (ADR-028 M1: sherpa-onnx-core's
+``onnxruntime.dll``). ``bind_min_versions`` (optional, default empty) maps some of those
+names to the lowest version of the base's copy the pack accepts. Names compare
+case-insensitively, as Windows compares module names. The runtime half is
+:mod:`yazses.packs.bind`.
 """
 from __future__ import annotations
 
@@ -63,6 +70,8 @@ _ARCH_RE = re.compile(r"^[a-z0-9_]{1,16}$")
 _PLATFORM_RE = re.compile(r"^[a-z0-9_.-]{1,40}$")
 _MODULE_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$")
 _DIST_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
+#: A bare DLL file name: no directory part and no drive, so nothing a path could hide in.
+_DLL_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._+-]{0,127}$")
 
 #: ``sysconfig.get_platform()`` prefix -> the OS word release assets use.
 _PLATFORM_OS = {"win": "windows", "macosx": "macos", "linux": "linux"}
@@ -135,6 +144,11 @@ class PackManifest:
     files: int
     #: Extra ``sys.path`` directories from ``.pth`` path lines (build item 4).
     path_entries: tuple[str, ...] = ()
+    #: DLL file names this pack must bind to the base's copy of (ADR-028 M1).
+    bind_to_base: tuple[str, ...] = ()
+    #: ``(dll, minimum version)`` for the entries of :attr:`bind_to_base` that state one,
+    #: sorted, each name spelled as :attr:`bind_to_base` spells it.
+    bind_min_versions: tuple[tuple[str, str], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -345,6 +359,7 @@ def parse_manifest(text: str | bytes) -> PackManifest:
             raise ManifestError(f"pack.json names a path entry outside the pack: {entry!r}")
     platform = _str(data, "platform", what, _PLATFORM_RE)
     platform_os(platform)
+    bind_to_base, bind_min = _bindings(data, what)
     return PackManifest(
         format=FORMAT,
         name=_str(data, "name", what, _NAME_RE),
@@ -361,7 +376,38 @@ def parse_manifest(text: str | bytes) -> PackManifest:
         unpacked_bytes=_int(data, "unpacked_bytes", what),
         files=_int(data, "files", what),
         path_entries=tuple(extra_paths),
+        bind_to_base=bind_to_base,
+        bind_min_versions=bind_min,
     )
+
+
+def _bindings(
+    data: dict[str, Any], what: str
+) -> tuple[tuple[str, ...], tuple[tuple[str, str], ...]]:
+    """``bind_to_base`` and ``bind_min_versions``, both optional (ADR-028 M1)."""
+    names = _str_list({"bind_to_base": data.get("bind_to_base", [])}, "bind_to_base",
+                      what, _DLL_NAME_RE, empty_ok=True)
+    folded = {n.casefold(): n for n in names}
+    if len(folded) != len(names):
+        raise ManifestError(f"the {what} lists a duplicate in 'bind_to_base'")
+    raw = data.get("bind_min_versions", {})
+    if not isinstance(raw, dict):
+        raise ManifestError(f"the {what} has an invalid 'bind_min_versions' (not an object)")
+    mins: list[tuple[str, str]] = []
+    for dll, version in raw.items():
+        if dll.casefold() not in folded:
+            raise ManifestError(
+                f"the {what} states a minimum version for {dll!r}, which 'bind_to_base' "
+                "does not list"
+            )
+        if not isinstance(version, str) or not _VERSION_RE.match(version):
+            raise ManifestError(
+                f"the {what} has an invalid minimum version for {dll!r}: {version!r}"
+            )
+        mins.append((folded[dll.casefold()], version))
+    if len({d.casefold() for d, _ in mins}) != len(mins):
+        raise ManifestError(f"the {what} states two minimum versions for one DLL")
+    return names, tuple(sorted(mins))
 
 
 def parse_record(text: str | bytes) -> Record:

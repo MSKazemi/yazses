@@ -103,6 +103,11 @@ The goal is to settle ADR-028's open risks with evidence before any surface is b
 
 ### Phase 1: mechanism + `parakeet` and `diarization` packs, Inno `.exe` only
 
+> **Changed by ADR-028 Q1 (answered 2026-10-21):** `parakeet` is bundled into the frozen
+> base instead of packed, so Phase 1 ships one pack, `diarization`. Criteria below that
+> name `parakeet` or `stt-parakeet` apply to `diarization` and `diarize`; on a pack-capable
+> install `stt-parakeet` needs no add-on, only its model download.
+
 Build:
 
 - `scripts/build-packs.py` and `packs.toml` with the two packs.
@@ -177,13 +182,14 @@ Docs:
 
 ### Phase 2: the remaining qualifying packs, Chocolatey, Scoop, offline install
 
-- `packs.toml` adds whichever of `gaze`, `tts`, `prosody`, `denoise`, `moonshine` and
-  `chinese` pass, subject to the owner's answer on bundling small extras and the licence
-  gate (ADR-028, open questions 1 and 7).
+- `packs.toml` adds whichever of `gaze`, `tts`, `prosody`, `denoise` and `moonshine`
+  pass the licence gate (ADR-028 Q7, answered: permissive and LGPL pass; GPL needs a
+  recorded owner approval and a `SOURCE.md`; an unknown licence fails). `chinese` is not
+  among them: ADR-028 Q1 bundled it, with `parakeet`, into the frozen base.
 - `PACK_INSTALL_METHODS` adds `choco` and `scoop` once their checklist items pass.
-- `yazses packs install --from <file>` (if the owner accepts open question 5): the file
-  name must equal the expected asset name and its SHA-256 must equal the embedded index
-  entry. No network.
+- `yazses packs install --from <file>` (ADR-028 Q5, answered yes): the file name must
+  equal the expected asset name and its SHA-256 must equal the embedded index entry. No
+  network.
 - `cancel` and `ReleaseAsset` from the ADR-028 §4a follow-up refactor, if it has landed.
   Otherwise Phase 1's coarse cancel (raising from `progress`) is documented as a known
   limit.
@@ -196,7 +202,8 @@ Docs:
 
 ### Phase 3: large packs and other channels (each needs an owner decision)
 
-- `voiceprint` (torch), if open question 2 says yes.
+- Not `voiceprint`: ADR-028 Q2 answered no torch packs. It stays PyPI-only; the route
+  forward is an ONNX speaker-embedding backend riding on the `diarization` pack.
 - MSIX, after the spike in ADR-028 §8 on `AddDllDirectory` inside a packaged process and
   DLL loading from virtualised AppData, and after the Store-policy question.
 - The macOS `.app`, in an ADR-028 addendum.
@@ -340,7 +347,7 @@ probe command.
 The Live smoke evidence section is still empty. A Linux dry run on a developer machine,
 using a fake bundle and Linux wheels, produced `parakeet` at 4.08 MB archived (7.27 MB
 unpacked) and `diarization` at 15.0 MB (44.7 MB). These figures are not Windows sizes; the
-spike replaces them.
+spike replaces them. (`parakeet` is no longer a pack; see the answers below.)
 
 **Where the spec was open, the build chose the following.** The runtime should read the
 formats the same way.
@@ -361,7 +368,8 @@ formats the same way.
    appends these after `site/`. A `.pth` that runs `import` code fails the build. Both
    phase 1 packs have an empty list.
 5. **`native_dirs`** lists pack-root-relative directories that still hold a `.dll` after
-   any DLL byte-identical to the base's has been dropped.
+   any DLL byte-identical to the base's, or bound to the base's (item 16), has been
+   dropped.
 6. **The OS word in asset names.** `win-*` becomes `windows` and `macosx-*` becomes `macos`.
    The `platform` field holds the build venv's `sysconfig.get_platform()` (`win-amd64`).
    `python` is `{cache_tag: sys.implementation.cache_tag, version:
@@ -392,21 +400,98 @@ formats the same way.
 12. **`packs.toml` schema.** `format = 1` plus one `[extras.<name>]` table per pyproject
     extra. Each table has a `decision` (`pack`, `bundled`, `no-windows-wheel`, `unwired`
     or `deferred`), and a `reason` for anything that is not a pack. A pack also has
-    `features`, `entry_modules` and optionally `approved_large` / `approved_by`. The large
-    threshold is 500 MiB. `shared_with` is not used yet.
+    `features`, `entry_modules` and optionally `approved_large` / `approved_by` and
+    `bind_to_base` / `bind_reason` (item 16). A non-pack entry carrying `features`,
+    `entry_modules` or `bind_to_base` fails validation. The large threshold is 500 MiB.
+    `shared_with` is not used yet.
 13. **Provenance.** One `actions/attest-build-provenance` step attests the packs and the
     index through a multi-line `subject-path: |`. `verify-provenance.py` now reads such
     blocks, so `.yazpack` and `.json` became attested suffixes. Only `-packs.json` assets
     are in `SHA256SUMS.txt`, so no other JSON file is affected.
-14. **Licences.** Each distribution's licence files go to `LICENSES/<dist>/`, and the
-    declared licence is recorded in the build report. No deny-list gate exists yet,
-    because ADR-028 open question 7 is unanswered.
+14. **Licences.** Each distribution's licence files go to `LICENSES/<dist>/`. The Q7
+    licence gate (owner answer, 2026-10-21) is `scripts/pack_licences.py`, called once
+    per pack from `build_one` after the wheels are installed. It classes each
+    distribution permissive / LGPL (LGPL, MPL-2.0) / GPL (GPL, AGPL) / UNKNOWN from
+    `License-Expression` (SPDX; `OR` → most permissive, `AND` → strictest, `WITH` only a
+    known exception, which can relax GPL to LGPL), otherwise from `License` plus the
+    `License ::` classifiers, the stricter of the two. A pack is withheld on UNKNOWN, on a
+    distribution with no licence file in its dist-info, on LGPL/GPL without an upstream URL
+    in METADATA, and on GPL without an `[[approval]]` in
+    `packaging/packs/licence-approvals.toml` naming that pack, distribution, exact version
+    and licence. A `[[clarification]]` records a person's reading of a free-text licence
+    as an SPDX expression for one exact version. An entry that no longer matches is
+    reported as stale and approves nothing. A copyleft pack carries `LICENSES/SOURCE.md`
+    (`LICENSES/`, not the root, because the runtime's `archive.TOP_LEVEL` allows only
+    five root names). The result is `licence_gate` in the build report and `licences`
+    (`name`, `version`, `licence`, `class` per distribution) in `pack.json`, which the
+    runtime ignores. Under `--skip-probe` (the spike) a failure is recorded, not
+    withheld, as for DLL conflicts.
+    - **Two differences from the ADR text.** Approvals live in
+      `licence-approvals.toml`, not as a `packs.toml` field, so the per-version record
+      and its staleness check have their own schema. The gate is the standard library
+      only, not `pip-licenses`, and has no ScanCode step, so it cannot see a GPL binary
+      vendored in a wheel that declares MIT.
+    - **Verified:** `tests/test_pack_licences.py`, synthetic METADATA only, with each rule
+      shown to fail its tests when removed. **Not verified:** a run on real Windows
+      wheels. Read offline from the Linux 1.13.8 wheels in a local uv cache:
+      `sherpa-onnx-core` has no licence file and `sherpa-onnx` declares free text
+      (`Apache licensed, as found in the LICENSE file`), so **the first real build
+      withholds `diarization`** on two counts. `sherpa-onnx` needs a `[[clarification]]`;
+      `-core` needs a licence file, from upstream or from a follow-up that lets the build
+      supply a reviewed text, which does not exist yet. `parakeet`'s
+      `onnx-asr` 0.12.0 passes (`License-Expression: MIT`). `espeakng-loader` was not in
+      the cache, so the ADR's finding for it is not re-checked here.
 15. **No `stdlib/` supplement yet.** The spike measures the stdlib gaps first (Phase 0 item 2).
+16. **`bind_to_base`: a reviewed DLL exception (ADR-028 finding on sherpa-onnx-core).**
+    `packs.toml` may list bare DLL basenames under `bind_to_base` for a pack, with a
+    `bind_reason`. When the base ships a DLL of a listed basename, *every* copy of it in
+    the pack is dropped although the bytes differ (sherpa-onnx-core 1.13.8 ships an
+    unsigned onnxruntime 1.28.2 in `sherpa_onnx/lib/` and again under
+    `.data/data/Scripts/`; the base has Microsoft's signed 1.28.0). The build report
+    records the dropped paths (`dll_bound_to_base`) and any listed name that collided
+    with nothing (`dll_bind_unused`, a warning), and `pack.json` gains
+    `bind_to_base`: the sorted, lower-case basenames the pack relies on the base for,
+    always present and usually empty. The runtime must load the base's copy of each
+    before it imports the pack's entry modules. Every other differing collision still
+    withholds the pack; the byte-identical drop (item 5) is unchanged.
+17. **The base is the `bundled` extras.** `build-packs.py` measures the base from the
+    extras `packs.toml` decides `bundled` (today `desktop`, `overlay`, `parakeet`,
+    `chinese`), not from a hard-coded `desktop`, and subtracts their closure from every
+    pack. If the build venv lacks a bundled extra's distribution, every pack is withheld
+    and the base still ships. `build-packs.py validate` (and `tests/test_build_packs.py`)
+    holds `scripts/build-windows.ps1`'s `uv sync` extras, and the spike workflow's, to the
+    `bundled` set in both directions. A bundled extra is never built as a pack.
 
-**Open owner questions, conservative choice taken.** Question 1: `parakeet` stays a pack,
-`chinese` is deferred, and the base is unchanged. Question 2: `voiceprint` is deferred.
-Question 7: no licence gate, `tts` is deferred, and licence texts are copied into each
-pack.
+**Owner answers (ADR-028, "Owner questions: answered 2026-10-21") and their build-side
+effect.**
+
+- **Q1, bundle the tiny pure-Python extras: yes.** `parakeet` (onnx-asr, MIT, ~4 MB
+  wheel) and `chinese` (opencc-python-reimplemented, Apache-2.0, ~0.5 MB) are `bundled`.
+  `scripts/build-windows.ps1` runs `uv sync --no-dev --extra desktop --extra parakeet
+  --extra chinese`, and `packaging/windows/yazses.spec` adds `copy_metadata("onnx-asr")`,
+  `collect_data_files("onnx_asr")` and its submodules, because onnx-asr reads its own
+  version through `importlib.metadata` at import and its preprocessor `.onnx` files
+  through `importlib.resources` (opencc is covered by pyinstaller-hooks-contrib's
+  `hook-opencc`). Both files are therefore part of the base manifest and its
+  `base_build_id`. Phase 1 builds one pack, `diarization`. The PyPI base is unchanged.
+- **Q2, torch packs: no.** `voiceprint` stays `deferred`, with that reason.
+- **Q7, licence gate: yes, three rules** (item 14). `tts` and `prosody` stay `deferred`
+  with the GPL reason.
+- **Finding M1, sherpa's onnxruntime.dll:** `diarization` binds `onnxruntime.dll` to the
+  base (item 16). `packs-spike.yml` probe (d) now proves or refutes the binding: with the
+  base's copy preloaded by full path, `import sherpa_onnx` must leave exactly one
+  `onnxruntime.dll` loaded, from the base; `onnxruntime.__version__` must equal the
+  version the build venv froze (from the build report, 1.28.0 today); and both an
+  onnxruntime session and sherpa-onnx's own silero VAD session must build and run on a
+  pinned `silero_vad.onnx` (SHA-256 checked in the workflow). It prints one `PASS:` or
+  `FAIL:` line carrying the loaded path and the version. If it fails, `diarization` takes
+  ADR-028 §1's out-of-process route.
+- Q3–Q6 and Q8 are runtime, installer or account matters; the build side does not change
+  for them.
+
+**Not verified.** None of the above has run on Windows: not the frozen bundle with
+onnx-asr and opencc inside it, not its size, and not the bind probe. The +~4.5 MB
+installer figure is ADR-028's wheel measurement, not a built installer.
 
 **Spike limits.** The spike's runtime hook imports `json`, `pkgutil`, `ctypes` and
 `traceback`, so PyInstaller collects those four into the spike base, and risk (a) cannot
@@ -476,6 +561,7 @@ differently means changing one constant or one profile field.
   `deferred` (the embedded index carries no reasons), are follow-ups.
 - The tray's `started-ok` marker (`state.mark_started_ok` exists, nothing calls it). Until
   it does, `clean` and the post-install GC always keep the newest previous build.
+  *Landed with Q3 below (`packs.refetch.mark_first_start`).*
 - A full `RECORD.json` check triggered by an `ImportError` at a lazy import site. Today
   `yazses packs verify` runs it and quarantines a damaged tree.
 - `[UninstallDelete]` in `installer.iss`, `docs/addons.md`, `docs/install-cost.md` rows.
@@ -485,3 +571,211 @@ elevation probe; `sys._MEIPASS` and the `yazses-cli.exe` sibling path; that PyIn
 collects `yazses.packs.*` through the hook's import; `CREATE_NO_WINDOW` for the probe child;
 `os.replace` of a tree across `%LOCALAPPDATA%`; Defender or Smart App Control; and every
 item in the manual checklist above.
+
+### Uninstall and offline install, owner questions 4 and 5 (2026-10-21, branch `feat/packs-uninstall-from`)
+
+This supersedes the Q4 and Q5 sentences under *Conservative choices* above, and the
+`[UninstallDelete]` part of *Not landed*.
+
+**Q4, landed.**
+
+- `installer.iss` has `[UninstallDelete] Type: filesandordirs; Name:
+  "{localappdata}\yazses\packs"; Check: IsPerUserInstall`, where `IsPerUserInstall` is
+  `not IsAdminInstallMode`. Only the packs folder: config, logs and models beside it keep
+  their policy.
+- **Per-user installs only.** In an all-users uninstall `{localappdata}` is the elevated
+  administrator's profile, so that uninstall deletes nothing there. ADR-028's answer says
+  "the uninstaller removes the elevating user's `packs\`"; this deliberately does less,
+  because the administrator who elevates is usually not a user who installed packs, and
+  the one who is gets the doctor row instead. Changing it means dropping the `Check`.
+- The `Check` is right whichever moment Inno evaluates it (when it writes the uninstall
+  log or when it uninstalls), because one registration has one install mode. Inno's
+  documentation pages checked on 2026-10-21 do not say which moment it is.
+- **Never on an upgrade.** `[UninstallDelete]` runs only from the uninstaller, and an
+  in-place upgrade (ADR-027's one-click update included) never starts it.
+  `tests/test_packaging_windows.py` fails if `[InstallDelete]`, `[Run]`, `[Files]` or
+  `[Registry]` names the packs folder, or if `[Code]` deletes a tree, names the folder or
+  starts the uninstaller, and if any `[UninstallDelete]` entry naming a per-user folder
+  lacks the `Check`.
+- `yazses doctor` has an **Add-ons** row (`doctor.packs_row`, facts from
+  `packs.manage.disk_use`). WARN when the pack folder holds bytes this copy never loads
+  (another build's packs, or `staging`/`downloads`/`quarantine` leftovers). OK, as a
+  statement, when the install is all-users (`UpdateLauncher.install_scope() ==
+  "machine"`) and this user has packs. Both name `yazses packs remove --all` and what it
+  frees. No row without a pack folder, and nothing is called unused when the process
+  cannot tell its own build (a source checkout sharing the data folder).
+- `docs/windows-install.md` *Uninstall* says the same.
+
+**Q5, landed.** `yazses packs install --from <file>` (`packs.manage.install_from_file`,
+additive; the name argument becomes optional when `--from` is given).
+
+- The file name must equal one of this build's asset names exactly
+  (`manage.entry_for_file`); a wrong name is refused before the file is read, naming the
+  accepted files, and the YazSes version when the name says another one.
+- `manage.file_fetcher` stands in for the network fetch inside the unchanged
+  `install_pack` transaction. It refuses a size mismatch from `stat`, copies the file into
+  `downloads\<asset>.part`, and hashes **the copy** against the embedded index entry, so a
+  file changed after a check cannot be the one extracted. On a mismatch it reads only
+  `pack.json` to say "made for a different build" when that is the reason. The user's own
+  file is never deleted.
+- After the hash: member validation, `RECORD.json`, the ABI match, the child-process probe
+  and the atomic place, exactly as for a download.
+- No `SHA256SUMS.txt` and no request of any kind.
+  `tests/test_packs_egress.py::test_an_offline_install_from_a_file_makes_no_request`
+  runs a whole `--from` install through the captured opener and asserts zero requests;
+  `tests/test_packs_install_from_file.py` replaces every network primitive with a failing
+  one.
+- `fetch.manual_steps`, which every failed download prints, now adds the `--from` route
+  after the asset name and URL.
+
+**Not verified.** `installer.iss` was not compiled (no ISCC on Linux); the uninstall on a
+real per-user and all-users install is manual checklist item 12, still open, plus the
+all-users case. `install_scope()` on a real all-users install is unit-tested only.
+
+### Runtime side: binding to the base's ONNX Runtime (ADR-028 M1, 2026-10-21, branch `feat/packs-runtime-ort`)
+
+**Why.** `sherpa-onnx-core` 1.13.8's Windows wheel carries its own `onnxruntime.dll` (an
+unsigned 1.28.2 build) while the base carries Microsoft's signed 1.28.0 (measured fact M1 in
+ADR-028's answered questions). The build drops the pack's copy; the runtime must make
+`sherpa_onnx` use the base's copy, deterministically, and refuse otherwise.
+
+**The contract with the build side** (`pack.json`, both optional, absent = empty):
+
+- `bind_to_base`: a list of bare DLL file names (no directory, no drive; compared
+  case-insensitively; duplicates refused) the build dropped because the pack must use the
+  base's own file of that name. Agreed with the build side, which writes the names in lower
+  case (today `["onnxruntime.dll"]`) and ships no copy of a listed DLL.
+- `bind_min_versions`: an object mapping some of those names to the lowest version of the
+  base's copy the pack accepts, e.g. `{"onnxruntime.dll": "1.28"}`. A key not listed in
+  `bind_to_base` refuses the manifest. **This field is the runtime side's proposal; the build
+  side does not write it yet.** Without it, any version of the base's copy binds and the
+  version is only reported. That is safe today because a pack loads only into the one base
+  build it names (`base_build_id`), and the build's frozen probe already checks that the
+  base's copy is the version the base froze.
+
+**Landed.**
+
+- `packs/bind.py`: the pure decisions and the binding. The base's copy is found by walking
+  the frozen app's `_internal` folder (`sys._MEIPASS`) and nowhere else. One copy is taken.
+  Of several, the only one inside a package folder named after the DLL
+  (`onnxruntime/capi/onnxruntime.dll`) is taken: it is the file the base's own
+  `import onnxruntime` loads, and the build's spike (`spike_bind_request`) preloads the same
+  file. Any other set of copies is refused, not ranked. It is loaded by absolute path
+  (`ctypes.WinDLL`, which passes `LOAD_LIBRARY_SEARCH_DEFAULT_DIRS |
+  LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR` for a path), so the loader never searches for the name,
+  and its module name is then in the loaded-module list that answers sherpa's import
+  ([DLL search order](https://learn.microsoft.com/en-us/windows/win32/dlls/dynamic-link-library-search-order)).
+  The version comes from ONNX Runtime's own C entry point,
+  `OrtGetApiBase()->GetVersionString()`. Afterwards every loaded module of that name
+  (`K32EnumProcessModules`, as the spike's check (d) does) must be the base's file.
+- **Lazy.** `mount.apply` puts a `FirstUseBinder` on `sys.meta_path` for each mounted pack
+  that lists `bind_to_base`. Start-up loads nothing and walks nothing (one `scandir` of the
+  pack's `site/` to learn its top-level names). The first import of one of the pack's
+  modules binds, before the pack's own code runs; on success the finder removes itself.
+  A binding pack in whose `site/` no module name is found is not mounted (fail closed).
+  The start-up path imports `packs/bind.py` only when such a pack is mounted.
+- **Refusal** has a named reason: the base does not contain the DLL; it contains several
+  copies and not exactly one inside a package folder of that name; it does not load; its version is below `bind_min_versions`; its version cannot be
+  read while a minimum is stated; another file of that name is already loaded; the loaded
+  list cannot be read. At first use it is an `ImportError` naming the reason for every
+  import of that pack, and an entry in `mount.LAST.failed`. The pack is not quarantined:
+  the fault is the base's, not the pack's.
+- **Probe.** `yazses packs probe` binds before importing `entry_modules` and re-checks the
+  loaded modules after. A refusal or a second `onnxruntime.dll` appearing during the import
+  is `native-load` (exit 7). Success ends the `YAZSES-PROBE ok` line with
+  `bound onnxruntime.dll -> <path> (version <v>), YazSes's own copy`, so the install
+  transaction and the release job record which ONNX Runtime the pack runs on. No exit code
+  was added.
+- **Verify.** `yazses packs verify` prints one line per bound DLL (path and version, or the
+  refusal) and exits 1 on a refusal without setting the pack aside.
+- `PackRuntime` gained `base_native_candidates`, `load_base_native` and
+  `loaded_native_paths`; the Linux/BSD and macOS backends answer "none" / "cannot tell", so a
+  binding pack is refused there.
+- **Out-of-process fallback (ADR-028 §1): not built.** `bind.bind_mode()` always returns
+  `"in-process"`; `bind.OutOfProcessHost` is the typed seam, with a TODO naming what would
+  trigger it: the spike's check (d) showing `sherpa_onnx` failing to import against the
+  base's 1.28.0, or any `onnxruntime.dll` loaded from a path other than the base's. Until
+  then, a pack whose mode is not in-process is skipped at mount and refused by the probe.
+
+**Tests.** `tests/test_packs_bind.py` (64 cases, through a fake runtime): field parsing,
+every refusal reason, the import ordering through the real import system, nothing loaded
+or walked at mount, the probe and `verify` output, the Windows folder walk and the
+`OrtGetApiBase` read through a ctypes stand-in. Each guard was mutated out and the suite
+went red.
+
+**Not verified (needs a Windows run).** That `sherpa_onnx`'s extension actually resolves to
+the base's preloaded `onnxruntime.dll` and works against 1.28.0; `ctypes.WinDLL` on the real
+`_internal\onnxruntime\capi\onnxruntime.dll` path; `K32EnumProcessModules` paths matching the
+walked path; `OrtGetApiBase` on Microsoft's build; how many `onnxruntime.dll` files the
+frozen base contains, and where. The spike's check (d) and the release job's frozen probe
+answer these.
+
+### Q3: add-ons across an update (2026-10-21, branch `feat/packs-update-consent`)
+
+**Landed**, as the owner answered Q3 (ADR-028, *Owner questions: answered 2026-10-21*):
+
+- **Consent at the update question.** `installer_update.confirmation_prompt(..., addons=)`
+  appends one sentence from `installer_update.addons_note`, e.g. *"Your add-on
+  (Diarization, 15 MB) will be downloaded again for the new version. If that download
+  fails, Settings offers Install now."* The names and sizes come from the **running (old)**
+  build's embedded index and the trees intact under it (`packs.refetch.addons_for_update`).
+  Dialog text only: `Offer.reason`, which rides a tray balloon, is unchanged, and so are
+  the `all_users` keyword and `ALL_USERS_NOTE`. The Windows tray and the Settings window
+  pass it; `yazses update` in a terminal does not, and so records no consent.
+- **The consent record.** Once the hand-off has started (`HandoffResult.ok`), the surface
+  that asked writes `packs/update-consent.json` (`format`, old `build_id`, `from`, `to`,
+  `packs`, `at`) through `tray.updates.record_update_consent`.
+- **First start of the new version.** The tray's entry point (`tray.app.run`) starts
+  `start_addon_refetch`, a worker thread that waits 5 s (the daemon and the icon come
+  first) and calls `tray.updates.refetch_after_update`. Without a consent file it returns
+  after one `stat`. Otherwise `packs.refetch.run_refetch`
+  **erases the consent first** (if it cannot, nothing is downloaded), then
+  `plan_refetch` (pure) picks the packs that are consented, recorded in `state.json` for
+  the old build, listed in the **new** build's own index and not already installed. A
+  stale consent (over 7 days), an incapable or elevated process, or an unchanged build id
+  (a failed update relaunched the old version) downloads nothing. Each pack goes through
+  `packs.manage.install` (the existing verified transaction: no second downloader, no new
+  ADR-019 row) with a freshly read `state.json`, then `packs.manage.verify`.
+- **Where the downloader is bound.** `tray.updates` is in the daemon's *static* import
+  closure (`handsfree.probe` → `platform.factory` → the platform trays), so neither it nor
+  `packs.refetch` imports `packs.manage`: `run_refetch` takes `install` and `verify` with no
+  default, and only `tray.app` (the tray process's entry point, outside the daemon's
+  closure) binds them. The first version of this branch bound them inside `packs.refetch`,
+  and `test_pack_downloads_are_user_initiated_only` failed on it, which is the guard doing
+  its job. ADR-028 §4's "never at startup" still holds for the daemon, the watcher and the
+  hook; this one start-time download runs in the tray process and only on the consent
+  given in the update question.
+- **Old build retired only after everything verified.** On full success the new build is
+  marked `started_ok` and `policy.gc_plan(..., started_ok=True)` deletes the other builds'
+  trees. On a partial or failed run nothing of the old build is touched, the features read
+  *waiting for add-on*, and the existing **Install now** (Settings) or
+  `yazses packs install` is the one-click retry. The result is shown once, in a balloon
+  under 255 characters (`refetch.describe`).
+- **The `started_ok` marker is now written.** Nothing called `state.mark_started_ok`
+  before, so every previous build's packs stayed on disk until `yazses packs remove
+  --all`. The tray job now runs on every start of a frozen build that has a
+  `state.json` (one `stat` otherwise), and a start with **nothing to download** -- no
+  consent, a consent with nothing left to fetch, or a failed update that relaunched the
+  old build -- is this build's first good start: `refetch.mark_first_start` marks it
+  and retires the other builds through the same `retire_old_builds` (`mark_started_ok` +
+  `policy.gc_plan(started_ok=True)` + `state.remove_build`). It does nothing in an
+  incapable or elevated process, writes no `state.json` for someone who never had an
+  add-on, and runs once per build. A start that downloaded and failed retires nothing;
+  the next start, with nothing left to download, does. That old tree is not loadable by
+  the new build, so only the rollback reason kept it, and a second start of the new
+  build settles that.
+
+**Tests.** `tests/test_packs_refetch.py` (prompt with and without packs, `all_users`
+unchanged; consent parse; the plan; consented / not consented / failed / partial / verify
+failure / raised install; at most once; an un-erasable consent; the old build kept until
+every tree verified; the tray question and consent wiring; the entry point binding the
+downloader and notifying once) and three cases in
+`tests/test_settingsui_maintenance_panel.py`. Each guard was shown red by a mutation that
+removes it.
+
+**Not verified.** No run on Windows with a published pack: the balloon text on a real
+tray, the download after a real relaunch, and the timing of the tray's startup thread
+against a daemon that has not finished starting are untested. A balloon raised before
+pystray has shown the icon is dropped (the 5 s delay makes that unlikely, not
+impossible). A restart is still needed to load the new
+packs into the daemon that started before they arrived; the message says so.

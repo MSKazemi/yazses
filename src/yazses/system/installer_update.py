@@ -49,7 +49,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -73,6 +73,7 @@ __all__ = [
     "ALL_USERS_SWITCH",
     "InstallerAsset",
     "UpdateRefused",
+    "addons_note",
     "build_handoff",
     "confirmation_prompt",
     "describe_handoff_result",
@@ -546,11 +547,41 @@ ALL_USERS_NOTE = (
 )
 
 
-def confirmation_prompt(status: Any, *, all_users: bool = False) -> tuple[str, str]:
+def addons_note(addons: Sequence[tuple[str, int]]) -> str:
+    """The sentence the update question adds for the add-on packs installed now (pure).
+
+    ``addons`` is ``(pack name, download bytes)`` from the index built into the *running*
+    app (``packs.refetch.addons_for_update``): packs are pinned to the exact base build,
+    so the new version downloads its own copies on its first start (ADR-028 Q3). Empty
+    when there are none. Dialog text only -- never ``Offer.reason``, which a tray balloon
+    carries and Windows drops whole over 255 characters.
+    """
+    if not addons:
+        return ""
+    from yazses.packs.policy import human_bytes
+
+    listed = "; ".join(
+        f"{name.replace('-', ' ').title()}, {human_bytes(size)}" for name, size in addons
+    )
+    noun = "add-on" if len(addons) == 1 else "add-ons"
+    return (
+        f"Your {noun} ({listed}) will be downloaded again for the new version. If that "
+        "download fails, Settings offers Install now."
+    )
+
+
+def confirmation_prompt(
+    status: Any,
+    *,
+    all_users: bool = False,
+    addons: Sequence[tuple[str, int]] = (),
+) -> tuple[str, str]:
     """``(title, text)`` for the yes/no question asked before anything is downloaded.
 
     ``all_users`` is :attr:`Offer.all_users`: the text then says that Windows will ask
-    for administrator permission, and what the prompt will name.
+    for administrator permission, and what the prompt will name. ``addons`` names the
+    installed add-on packs and their sizes (:func:`addons_note`); answering yes is the
+    consent the new version's first start acts on.
     """
     method = getattr(status, "method", "")
     head = f"YazSes {status.current} → {status.latest} is available."
@@ -572,6 +603,9 @@ def confirmation_prompt(status: Any, *, all_users: bool = False) -> tuple[str, s
         body = f"{head}\n\nRun  {' '.join(argv)}  now?\n\n{closing}"
         if elevate:
             body += "\n\nChocolatey needs administrator rights, so Windows will ask."
+    note = addons_note(addons)
+    if note:
+        body += f"\n\n{note}"
     return "Install the YazSes update?", body
 
 

@@ -318,6 +318,7 @@ def run() -> None:
 
     poll_thread = threading.Thread(target=_poller, name="tray-poller", daemon=True)
     poll_thread.start()
+    start_addon_refetch(tray, stop_event)
 
     def _on_quit() -> None:
         stop_event.set()
@@ -332,6 +333,58 @@ def run() -> None:
         tray.run(_on_quit)
     finally:
         stop_event.set()
+
+
+#: Seconds the add-on re-download waits after the tray starts, so the daemon and the icon
+#: come up first (and a balloon has an icon to hang from).
+_ADDON_REFETCH_DELAY_S = 5.0
+
+
+def _pack_install(ctx, entry):  # noqa: ANN001
+    from yazses.packs.manage import install
+
+    return install(ctx, entry)
+
+
+def _pack_verify(ctx, name):  # noqa: ANN001
+    from yazses.packs.manage import verify
+
+    return verify(ctx, name, set_aside=True)
+
+
+def start_addon_refetch(tray: object, stop_event: threading.Event, *,
+                        delay_s: float = _ADDON_REFETCH_DELAY_S, refetch=None) -> threading.Thread:
+    """After an update the user agreed to, download this version's copies of the add-ons
+    they had (ADR-028 Q3), on a worker thread, and say how it went once.
+
+    The downloader is bound here, in the tray's entry point, and nowhere the daemon can
+    import: ``tray.updates`` and ``packs.refetch`` only receive it. Never blocks start-up
+    (it waits ``delay_s`` first, and returns at once without a consent) and never raises.
+    """
+    def _job() -> None:
+        if stop_event.wait(delay_s):
+            return
+        try:
+            if refetch is None:
+                from yazses.tray.updates import refetch_after_update as run_job
+            else:
+                run_job = refetch
+            message = run_job(install=_pack_install, verify=_pack_verify)
+        except Exception:
+            log.warning("add-on re-download after the update failed", exc_info=True)
+            return
+        if message is None or stop_event.is_set():
+            return
+        show = getattr(tray, "notify", None)
+        if callable(show):
+            try:
+                show(*message)
+            except Exception:
+                log.debug("add-on re-download notice failed", exc_info=True)
+
+    thread = threading.Thread(target=_job, name="tray-addon-refetch", daemon=True)
+    thread.start()
+    return thread
 
 
 def _show_notifications(tray: object, raw: object) -> None:

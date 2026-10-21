@@ -8,7 +8,13 @@ run it, by routes no single command sees:
   see ``settingsui/deps.py`` and ``docs/architecture.md``);
 * `features enable --no-install`, or the settings window with auto-install off;
 * an upgrade or reinstall rebuilt the environment without the extra
-  (``uv tool upgrade``, ``pipx reinstall``, ``uv tool install --force``).
+  (``uv tool upgrade``, ``pipx reinstall``, ``uv tool install --force``);
+* something removed one of the two OpenCV builds the camera features installed up to
+  2.43.2 (an older YazSes's ``uv tool upgrade``, ``uv sync``, ``pip uninstall
+  opencv-python``) and took the ``cv2`` files the other build shares with it. ``cv2``
+  then still *imports*, as a namespace package, so the import probe calls it present;
+  ``system/opencv_health.py`` sees the husk, and the remedy is the pinned repair an
+  upgrade would print (``updater.cv2_repair_here``), not an install.
 
 Each of those used to end the same way: the feature's own factory logged one line
 at daemon start — often naming a developer command such as ``uv sync --extra tts``
@@ -47,18 +53,35 @@ class DormantFeature:
     missing: tuple[str, ...]      # import names that failed to resolve
     packages: tuple[str, ...]     # the requirements `features enable` installs
     remedy: str                   # the one thing to run (or why nothing can)
-    #: False when this environment can never install them (a snap, a frozen bundle,
-    #: the system Python): no surface may then offer an "Install now" that refuses.
+    #: False when installing is not the fix: this environment can never install them
+    #: (a snap, a frozen bundle, the system Python), or they *are* installed and
+    #: damaged (a half-deleted ``cv2``). No surface may then offer an "Install now"
+    #: that refuses or changes nothing; the remedy says what to do instead.
     installable: bool = True
-    command: str = ""             # the exact `yazses features enable …` that fixes it
+    command: str = ""             # the exact command that fixes it
+    #: What is wrong when it is not "not installed" -- a half-deleted ``cv2``.
+    problem: str = ""
+
+    def what(self) -> str:
+        """The finding without the remedy: "cv2 is not installed", or :attr:`problem`."""
+        if self.problem:
+            return self.problem
+        return (
+            f"{', '.join(self.missing)} "
+            f"{'is' if len(self.missing) == 1 else 'are'} not installed"
+        )
 
     def describe(self) -> str:
-        """One line for a log, a toast or a doctor row."""
-        return (
-            f"{self.name} is on, but {', '.join(self.missing)} "
-            f"{'is' if len(self.missing) == 1 else 'are'} not installed, so it "
-            f"does nothing. {self.remedy}"
-        )
+        """One line for a log, a toast or a doctor row.
+
+        A :attr:`problem` finding is worded tighter: its remedy carries a full
+        interpreter path, and on Windows the toast is relayed into a tray balloon that
+        Windows drops over 255 characters (the toast's title already says the feature
+        is on and cannot run).
+        """
+        if self.problem:
+            return f"{self.name}: {self.problem}. {self.remedy}"
+        return f"{self.name} is on, but {self.what()}, so it does nothing. {self.remedy}"
 
 
 def enable_command(feat) -> str:
@@ -93,6 +116,52 @@ def _default_graphical() -> bool:
     return has_graphical_session(os.environ)
 
 
+def _default_cv2_broken() -> bool:
+    from yazses.system.opencv_health import cv2_half_deleted
+
+    return cv2_half_deleted()
+
+
+def _default_cv2_repair() -> list[str] | None:
+    # Imported only once a husk was found: `updater` carries the network imports a
+    # start must not pay for.
+    from yazses.system.updater import cv2_repair_here
+
+    return cv2_repair_here()
+
+
+#: The finding for a half-deleted ``cv2``; ``yazses doctor``'s OpenCV row says the same.
+#: Short on purpose: on Windows the daemon's toast becomes a tray balloon, which
+#: Windows drops over 255 characters, and the repair command after it carries the full
+#: path of the environment's interpreter. ``yazses doctor`` and the docs say why.
+CV2_HALF_DELETED = "OpenCV (cv2) is half-deleted"
+
+
+def cv2_repair_remedy(repair: Sequence[str] | None) -> str:
+    """The remedy for a half-deleted ``cv2``: the exact pinned repair when this install
+    has one (``updater.cv2_repair_here``), else which package to reinstall."""
+    if repair:
+        from yazses.system.remedy import render_command
+
+        return f"Repair it with:  {render_command(repair)}"
+    return "Reinstall opencv-contrib-python with --force-reinstall --no-deps."
+
+
+def _cv2_finding(feat, repair: Sequence[str]) -> DormantFeature:
+    from yazses.system.remedy import render_command
+
+    return DormantFeature(
+        slug=feat.slug,
+        name=feat.name,
+        missing=("cv2",),
+        packages=tuple(feat.pip_packages),
+        remedy=cv2_repair_remedy(repair),
+        installable=False,
+        command=render_command(repair) if repair else "",
+        problem=CV2_HALF_DELETED,
+    )
+
+
 def _runs_here(feat) -> bool:
     """On, wired, and backed by optional libraries — the only rows that can be dormant."""
     return bool(
@@ -110,8 +179,11 @@ def dormant_features(
     missing: Callable[[Iterable[str]], Sequence[str]] | None = None,
     blocked: Callable[[Sequence[str]], str | None] | None = None,
     graphical: Callable[[], bool] | None = None,
+    cv2_broken: Callable[[], bool] | None = None,
+    cv2_repair: Callable[[], Sequence[str] | None] | None = None,
 ) -> list[DormantFeature]:
-    """Every enabled capability in *cfg* whose optional libraries are not importable.
+    """Every enabled capability in *cfg* whose optional libraries are not importable
+    -- or, for a camera feature, whose ``cv2`` imports only as a half-deleted husk.
 
     Derived from the registry (``features.feature_status``), so a capability added
     with a ``_FEATURE_DEPS`` entry is covered with no edit here. An unwired
@@ -121,6 +193,14 @@ def dormant_features(
     When the environment can never install the libraries (a snap, a frozen
     ``.app``/``.exe``), the remedy is that reason rather than a command that would
     refuse.
+
+    A camera feature (its registry row checks for ``cv2``) whose libraries all import
+    is asked one more question, at most once per call: is ``cv2`` a husk
+    (``system/opencv_health.py``)? One ``find_spec`` and one directory listing, never
+    an import of ``cv2``; nobody without a camera feature switched on pays even that.
+    The repair command is built only when a husk is found. A caller that injects
+    *missing* describes a hypothetical environment, so the real ``cv2`` is consulted
+    only if *cv2_broken* is injected too.
     """
     if features is None:
         from yazses.system.features import feature_status
@@ -129,14 +209,31 @@ def dormant_features(
     probe = missing or _default_missing
     why_blocked = blocked or _default_blocked
     is_graphical = graphical or _default_graphical
+    if cv2_broken is None:
+        cv2_broken = _default_cv2_broken if missing is None else (lambda: False)
+    repair_for = cv2_repair or _default_cv2_repair
+
+    from yazses.system.opencv_health import uses_cv2
 
     out: list[DormantFeature] = []
     desktop: bool | None = None
+    husk: bool | None = None
+    repair: list[str] | None = None
     for feat in features:
         if not _runs_here(feat):
             continue
         absent = tuple(probe(feat.check_modules))
         if not absent:
+            if uses_cv2(feat):
+                if husk is None:
+                    husk = bool(cv2_broken())
+                if husk:
+                    if repair is None:
+                        try:
+                            repair = list(repair_for() or ())
+                        except Exception:  # noqa: BLE001 - must not hide the finding
+                            repair = []
+                    out.append(_cv2_finding(feat, repair))
             continue
         if feat.slug in DESKTOP_ONLY:
             if desktop is None:

@@ -11,6 +11,20 @@ import pytest
 
 from yazses.system import updater
 
+
+@pytest.fixture(autouse=True)
+def _no_opencv_in_the_environment(monkeypatch):
+    """The upgrade path also asks the running environment about OpenCV (cv2). Answer
+    "none installed", so these tests never depend on what the developer's own venv
+    holds; tests/test_upgrade_keeps_cv2_whole.py covers that step."""
+    monkeypatch.setattr(
+        updater, "default_opencv_probe",
+        lambda prefix=None: updater.OpenCVProbe(
+            python="python", versions=lambda fresh: {}, works=lambda: None,
+            camera_enabled=lambda: False,
+        ),
+    )
+
 # ---- install-method detection ---------------------------------------------
 
 def test_detect_snap_install():

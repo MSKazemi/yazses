@@ -1,0 +1,44 @@
+# Recorded licence decisions for add-on packs (ADR-028, owner answer Q7).
+#
+# Read by scripts/pack_licences.py, which scripts/build-packs.py runs on every pack at
+# build time. The gate's rules:
+#
+#   permissive          passes
+#   LGPL / MPL-2.0      passes with a generated source offer (LICENSES/SOURCE.md)
+#   GPL / AGPL          passes ONLY with an [[approval]] below, plus SOURCE.md
+#   UNKNOWN             fails: the pack is withheld
+#   no licence file     fails: the pack is withheld
+#
+# Only the project owner adds an [[approval]]. Each one names one pack, one
+# distribution, one exact version and the licence exactly as the build report shows it.
+# When any of those stops matching (a version bump, a changed licence), the entry is
+# reported as stale and approves nothing; re-read the new licence and record it again.
+#
+#   [[approval]]
+#   pack = "prosody"
+#   dist = "praat-parselmouth"
+#   version = "0.4.7"
+#   licence = "GPL-3.0-or-later"        # the `licence` the build report prints
+#   approved_by = "<owner's full name>"
+#   date = "YYYY-MM-DD"
+#   reason = "why shipping this GPL component is acceptable"
+#
+# A [[clarification]] is for a distribution whose metadata the gate cannot classify
+# (free-text `License:`, no classifier) but whose licence file a person has read. Its
+# `licence` is an SPDX expression and is classified like declared metadata, so a
+# clarification to a GPL licence still needs an [[approval]]. It never excuses a missing
+# licence file, and it goes stale on a version bump exactly like an approval.
+#
+#   [[clarification]]
+#   pack = "diarization"
+#   dist = "sherpa-onnx"
+#   version = "1.13.8"
+#   licence = "Apache-2.0"
+#   reviewed_by = "<reviewer's full name>"
+#   date = "YYYY-MM-DD"
+#   reason = "METADATA says 'Apache licensed, as found in the LICENSE file'; the file is Apache-2.0"
+#
+# No entry is recorded yet: no GPL component ships in a pack today, and no licence has
+# been reviewed by hand. The examples above are comments, not decisions.
+
+format = 1
