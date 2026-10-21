@@ -27,6 +27,24 @@ from yazses.system.snap import dependency_install_advice, in_snap
 # The only package this module ever installs dependencies *for*.
 _TOOL_NAME = "yazses"
 
+#: The PyTorch project's CPU-only wheel index. On Linux, PyPI's ``torch`` is the CUDA
+#: build: ``speechbrain>=1.1`` -- the one line in the ``voiceprint`` extra -- resolved
+#: there to 15 ``nvidia-*`` distributions and 4.22 GB of wheels (``uv.lock``,
+#: 2026-10-21) for a tool that never touches a GPU. Resolved here instead, the same
+#: closure is 39 distributions instead of 58, no ``nvidia-*``, and every non-torch
+#: package at the identical version (gap 7 of
+#: design/research/2026-10-21-pay-for-what-you-enable.md). ``pyproject.toml`` pins this
+#: same index into the lock; this is the copy an *installed* yazses uses, which never
+#: sees the lock. One constant, and a test holds the two spellings equal.
+TORCH_CPU_INDEX = "https://download.pytorch.org/whl/cpu"
+
+#: Distributions whose closure pulls torch, by canonical name. Matched by name because
+#: this module is handed requirement strings, not features -- and the undo path hands
+#: it exact versions such as ``torch==2.14.1+cpu``, which only the mirror can serve.
+_TORCH_STACK = frozenset(
+    {"torch", "torchaudio", "torchvision", "speechbrain", "resemblyzer", "pyannote-audio"}
+)
+
 
 def missing_modules(modules: Iterable[str]) -> list[str]:
     """Return the import names in *modules* that are not importable.
@@ -141,11 +159,64 @@ def fixed_payload_reason(
     )
 
 
+def pulls_torch(packages: Iterable[str]) -> bool:
+    """Whether installing *packages* resolves torch (see :data:`_TORCH_STACK`)."""
+    return any(_requirement_name(p) in _TORCH_STACK for p in packages)
+
+
+def _on_linux(environment: Mapping[str, str] | None = None) -> bool:
+    """The PEP 508 question ``sys_platform == 'linux'``, asked the way requirements
+    ask it, so a test can answer it for another platform the same way
+    :func:`install_txn.applicable` lets it. Without ``packaging`` (it reaches every
+    install through faster-whisper, but is not a declared dependency of ours) the
+    answer is "no", which costs a user the CUDA download they get today -- never a
+    broken install."""
+    try:
+        from packaging.markers import Marker
+    except ImportError:
+        return False
+    return Marker("sys_platform == 'linux'").evaluate(
+        dict(environment) if environment is not None else None
+    )
+
+
+def torch_index_flags(
+    packages: Iterable[str],
+    *,
+    uv: bool,
+    environment: Mapping[str, str] | None = None,
+) -> list[str]:
+    """The installer flags that make torch resolve from :data:`TORCH_CPU_INDEX`.
+
+    Empty unless *packages* :func:`pulls_torch` **and** this is Linux: PyPI's macOS
+    wheels are already CPU-only, and Windows stays on PyPI (its wheel carries no CUDA
+    dependencies, and ADR-028 Q2 keeps voiceprint off the frozen build there).
+
+    For uv the pair is ``--index URL --index-strategy unsafe-best-match``, never the
+    bare index. uv's default ``first-index`` strategy takes **every** package the
+    mirror hosts from the mirror, and the mirror's copies are old: a dry run of the
+    `speechbrain` closure under it resolved setuptools 78.1.0 (below the 83.0.0 that
+    patches Dependabot alert #9), requests 2.28.1 and urllib3 1.26.13.
+    ``unsafe-best-match`` is pip's semantics -- best version across all indexes --
+    so PyPI wins everything the mirror is behind on and the ``+cpu`` local version
+    wins torch; measured, the non-torch set was identical to a PyPI-only resolve.
+    "Unsafe" is dependency confusion between indexes, which two first-party hosts
+    cannot do to each other. pip gets ``--extra-index-url``, whose semantics already
+    are best-match.
+    """
+    if not pulls_torch(packages) or not _on_linux(environment):
+        return []
+    if uv:
+        return ["--index", TORCH_CPU_INDEX, "--index-strategy", "unsafe-best-match"]
+    return ["--extra-index-url", TORCH_CPU_INDEX]
+
+
 def install_command(
     packages: Sequence[str],
     *,
     constraints: Path | None = None,
     no_deps: bool = False,
+    environment: Mapping[str, str] | None = None,
 ) -> list[str]:
     """Return the argv that installs *packages* into the running interpreter.
 
@@ -155,14 +226,16 @@ def install_command(
     *constraints* is a ``--constraint`` file holding YazSes's own requirements
     (:func:`install_txn.constraint_lines`), so a feature cannot move a base
     dependency out of its range. *no_deps* is for the undo path, which restores
-    exact previous versions and must not resolve anything new.
+    exact previous versions and must not resolve anything new. *environment*
+    answers the platform marker for :func:`torch_index_flags` (tests).
     """
-    flags: list[str] = []
+    uv = shutil.which("uv") is not None
+    flags: list[str] = torch_index_flags(packages, uv=uv, environment=environment)
     if constraints is not None:
         flags += ["--constraint", str(constraints)]
     if no_deps:
         flags.append("--no-deps")
-    if shutil.which("uv"):
+    if uv:
         return ["uv", "pip", "install", "--python", sys.executable, *flags, *packages]
     return [sys.executable, "-m", "pip", "install", *flags, *packages]
 
@@ -174,7 +247,9 @@ def uninstall_command(names: Sequence[str]) -> list[str]:
     return [sys.executable, "-m", "pip", "uninstall", "-y", *names]
 
 
-def pipx_inject_command(venv: str, packages: Sequence[str]) -> list[str]:
+def pipx_inject_command(
+    venv: str, packages: Sequence[str], *, environment: Mapping[str, str] | None = None
+) -> list[str]:
     """``pipx inject <venv> <packages>`` — the install pipx itself remembers.
 
     A package installed into a pipx venv any other way is not in
@@ -192,8 +267,17 @@ def pipx_inject_command(venv: str, packages: Sequence[str]) -> list[str]:
     failed, and the package was silently dropped from the venv *and* from the
     metadata — reproduced offline. The constraint is checked by a dry run first
     instead (:func:`_install_into_channel`).
+
+    The one pip argument that *is* passed is :func:`torch_index_flags`'s
+    ``--extra-index-url`` for the torch stack on Linux. Replaying that on
+    ``pipx reinstall`` is the point, not the hazard: the index is permanent, and
+    without it the reinstall would resolve torch from PyPI -- the CUDA build.
     """
-    return ["pipx", "inject", venv, *install_txn.applicable(packages)]
+    cmd = ["pipx", "inject", venv, *install_txn.applicable(packages, environment)]
+    pip_args = torch_index_flags(packages, uv=False, environment=environment)
+    if pip_args:
+        cmd += ["--pip-args", " ".join(pip_args)]
+    return cmd
 
 
 def _uv_tool_receipt() -> Path | None:
@@ -291,7 +375,12 @@ def _read_receipt(receipt: Path) -> tuple[str, list[str], list[str]] | None:
 
 
 def _merged_install_argv(
-    target: str, withs: Sequence[str], packages: Sequence[str], *, upgrade: bool = False
+    target: str,
+    withs: Sequence[str],
+    packages: Sequence[str],
+    *,
+    upgrade: bool = False,
+    environment: Mapping[str, str] | None = None,
 ) -> list[str]:
     """``uv tool install [--upgrade] --with … <target>`` keeping every requirement.
 
@@ -302,14 +391,23 @@ def _merged_install_argv(
     second of the pair, and keying on the exact string would keep an old floor
     beside a new one. Replacing the whole group by name is the only rule that is
     right for both.
+
+    :func:`torch_index_flags` is computed over the **merged** list, not the new
+    packages: uv records ``index`` and ``index-strategy`` in the receipt's
+    ``[tool.options]`` (checked against uv 0.12.21), and this command *replaces*
+    that table. Enabling an unrelated feature after voiceprint re-issues the whole
+    with-list, and dropping the index there would hand the next ``uv tool upgrade``
+    a torch resolved from PyPI -- the CUDA build -- with no error anyone sees.
     """
     new_names = {_requirement_name(p) for p in packages}
     kept = [w for w in withs if _requirement_name(w) not in new_names]
+    merged = list(dict.fromkeys([*kept, *packages]))
     cmd = ["uv", "tool", "install"]
     if upgrade:
         cmd.append("--upgrade")
-    for spec in dict.fromkeys([*kept, *packages]):
+    for spec in merged:
         cmd += ["--with", spec]
+    cmd += torch_index_flags(merged, uv=True, environment=environment)
     cmd.append(target)
     return cmd
 
