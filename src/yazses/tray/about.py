@@ -195,13 +195,13 @@ def cv2_repair_message(outcome) -> str:
     start, and the exact command that repairs it is the useful part. Quoted with the
     same rules as the install hints, so a Windows path runs as printed.
     """
-    from yazses.system.remedy import _render
+    from yazses.system.remedy import render_command
 
     version = outcome.after or outcome.expected or "the new version"
     return (
         f"The upgrade to {branding.APP_NAME} {version} finished, but OpenCV (cv2), which "
         "the camera features use, does not load any more. Repair it with:\n"
-        f"    {_render(outcome.cv2_repair)}\n"
+        f"    {render_command(outcome.cv2_repair)}\n"
         "Then restart the daemon (tray → Restart daemon, or `yazses restart`)."
     )
 
