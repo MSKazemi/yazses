@@ -291,13 +291,17 @@ def test_modifier_starts_immediately_no_onset_clipping():
     the two platforms feel the same."""
     hk, started, _ = _hotkey(key_id="right_ctrl", threshold_ms=1000)
     hk._press()
-    assert started == [0], "modifier must record from the instant it goes down"
+    # Far inside the 1 s threshold: only a start that skipped the wait passes.
+    assert _wait_for(lambda: started == [0], timeout=0.5), (
+        "modifier must record from the instant it goes down"
+    )
 
 
 def test_modifier_release_ends_the_hold_even_below_the_threshold():
     hk, started, ended = _hotkey(key_id="right_ctrl", threshold_ms=1000)
     hk._press()
     hk._release()
+    _wait_for(lambda: ended == [1])
     assert started == [0] and ended == [1]
 
 
@@ -306,6 +310,8 @@ def test_modifier_repeat_does_not_restart_recording():
     hk._press()
     for _ in range(5):  # typematic repeat while held
         hk._press()
+    _wait_for(lambda: started == [0])
+    time.sleep(0.05)  # settle: a wrongly re-fired start would land here
     assert started == [0], "auto-repeat must not re-fire hold-start"
 
 
@@ -314,8 +320,138 @@ def test_release_after_threshold_ends_the_hold():
     hk._press()
     _wait_for(lambda: started == [0])
     hk._release()
+    _wait_for(lambda: ended == [1])
     assert started == [0]
     assert ended == [1]
+
+
+# ---- The hook thread never runs the daemon's callbacks ---------------------
+#
+# Windows waits on a low-level hook for every keystroke in every application.
+# on_hold_end transcribes for seconds; run on the hook thread, it froze the
+# whole keyboard that long (measured: ten keys typed during a 4 s transcription
+# arrived 3.5 s late). _press/_release are what the hook calls, so they must
+# return at once however long the callbacks take.
+
+
+def _blocking_hotkey(key_id="right_ctrl"):
+    from yazses.platform.windows.hotkey import WindowsHotkey
+
+    gate = threading.Event()
+    calls: list[str] = []
+
+    def on_start(leaked: int) -> None:
+        calls.append("start")
+        gate.wait(5)
+
+    def on_end() -> None:
+        calls.append("end")
+        gate.wait(5)
+
+    hk = WindowsHotkey(key_id=key_id, threshold_ms=40, on_hold_start=on_start, on_hold_end=on_end)
+    return hk, gate, calls
+
+
+def _returns_within(fn, seconds: float) -> bool:
+    t0 = time.monotonic()
+    fn()
+    return time.monotonic() - t0 < seconds
+
+
+def test_a_slow_hold_end_does_not_block_the_release():
+    from yazses.platform.windows.hotkey import WindowsHotkey
+
+    transcribing = threading.Event()
+    done = threading.Event()
+
+    def transcribe() -> None:
+        transcribing.set()
+        done.wait(5)
+
+    hk = WindowsHotkey("right_ctrl", 40, on_hold_start=lambda n: None, on_hold_end=transcribe)
+    try:
+        hk._press()
+        assert _returns_within(hk._release, 0.5), "release waited for the transcription"
+        assert transcribing.wait(2), "the transcription never ran"
+    finally:
+        done.set()
+        hk._teardown()
+
+
+def test_a_slow_hold_start_does_not_block_the_press():
+    hk, gate, calls = _blocking_hotkey()
+    try:
+        assert _returns_within(hk._press, 0.5), "press waited for on_hold_start"
+    finally:
+        gate.set()
+        hk._teardown()
+
+
+def test_keys_pressed_during_a_transcription_are_still_seen_in_order():
+    """A second dictation started while the first one is still transcribing is
+    queued behind it, never run alongside it or dropped."""
+    hk, gate, calls = _blocking_hotkey()
+    try:
+        hk._press()
+        hk._release()
+        hk._press()  # while the first start is still blocked
+        hk._release()
+        time.sleep(0.05)
+        assert calls == ["start"], "a callback ran alongside one still in progress"
+        gate.set()
+        assert _wait_for(lambda: calls == ["start", "end", "start", "end"])
+    finally:
+        gate.set()
+        hk._teardown()
+
+
+def test_a_threshold_start_is_never_overtaken_by_its_release():
+    """For `space` the start fires from the threshold timer. If the release
+    lands while that start is still running, the end must wait for it."""
+    hk, gate, calls = _blocking_hotkey(key_id="space")
+    try:
+        hk._press()
+        assert _wait_for(lambda: calls == ["start"])
+        hk._release()
+        time.sleep(0.05)
+        assert calls == ["start"], "the end ran before the start had finished"
+        gate.set()
+        assert _wait_for(lambda: calls == ["start", "end"])
+    finally:
+        gate.set()
+        hk._teardown()
+
+
+def test_a_raising_callback_does_not_stop_later_ones():
+    from yazses.platform.windows.hotkey import WindowsHotkey
+
+    ended: list[int] = []
+
+    def boom(leaked: int) -> None:
+        raise RuntimeError("microphone vanished")
+
+    hk = WindowsHotkey("right_ctrl", 40, on_hold_start=boom, on_hold_end=lambda: ended.append(1))
+    try:
+        for _ in range(2):
+            hk._press()
+            hk._release()
+        assert _wait_for(lambda: ended == [1, 1])
+    finally:
+        hk._teardown()
+
+
+def test_teardown_stops_the_callback_thread_after_queued_work():
+    hk, gate, calls = _blocking_hotkey()
+    hk._press()
+    hk._release()
+    assert _wait_for(lambda: calls == ["start"])
+    worker = hk._callbacks._thread
+    assert worker is not None
+    hk._teardown()
+    gate.set()
+    worker.join(2)
+    assert not worker.is_alive()
+    assert calls == ["start", "end"], "a release seen before stop() lost its transcription"
 
 
 def test_repeat_keydowns_do_not_rearm_the_timer():

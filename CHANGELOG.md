@@ -142,6 +142,19 @@ every channel (2026-10-21). These were wrong:
 - `llms.txt` gave Vocalinux's licence as GPLv3 (it is AGPL-3.0), named only one speech
   engine, and gave a stale count of Android issues.
 
+### Fixed — on Windows, the whole keyboard no longer lags while a dictation transcribes
+
+After you released the hotkey, every key you pressed in any application arrived late until
+the transcription finished. Typing quickly built a queue: ten keys typed during a 4-second
+transcription took 3.5 seconds to appear. Other programs that watch the keyboard (AutoHotkey,
+PowerToys) missed those keys entirely. The cause was that the hotkey's low-level keyboard hook
+transcribed inside the hook itself, and Windows waits on that hook, up to about 300 ms, for
+every keystroke on the system. The hook now only records the press and release, and returns at
+once. A separate thread runs the dictation start and finish, in order, so a hotkey press made
+during a transcription still starts the next dictation once the current one ends, as before.
+Measured on Windows 11 22H2: keys pressed during a transcription went from a 300 ms delay each
+to none, and the ten-key burst from 3.5 s to 16 ms.
+
 ### Fixed — the Windows install guide's facts
 
 `docs/windows-install.md` no longer claims an ARM64 build (winget and Scoop carry the x64 installer, which ARM PCs run under emulation; the mislabelled ARM64 asset was dropped in 2.43.1), names the real default model (`base.en`, about 150 MB, not `tiny.en`), asks for about 500 MB of disk rather than 250 MB, shows the Chocolatey command, and no longer tells you to delete a roaming `%APPDATA%\yazses` folder YazSes never creates; it now names the Whisper model cache instead. Found by a docs audit against the live channels.
