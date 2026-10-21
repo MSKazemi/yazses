@@ -2347,7 +2347,7 @@ class Daemon:
         if not cfg.vocaljoystick.enabled:
             return None
         try:
-            from yazses.vocaljoystick.runtime import build_vocaljoystick
+            from yazses.vocaljoystick.runtime import build_vocaljoystick, notify_vocaljoystick_fault
 
             sr = cfg.audio.sample_rate
             return build_vocaljoystick(
@@ -2360,7 +2360,10 @@ class Daemon:
                 sample_rate=sr,
                 # Never steer while dictation records, transcribes or types.
                 busy=lambda: self._state.state is not TrayState.IDLE,
-                safety=self._handsfree_safety,
+                # Read-only: a gate pause (face switch, chord) closes the mic. Never a source.
+                stop_requested=None if (gate := self._handsfree_safety) is None
+                else lambda: gate.status().user_paused,
+                on_fault=notify_vocaljoystick_fault,  # the cursor never stops silently
             )
         except Exception:
             log.warning("Vocal Joystick init failed; it stays off", exc_info=True)
@@ -3835,7 +3838,11 @@ class Daemon:
     def _audio_idle(self) -> bool:
         """True when no recording is in flight — safe to poll/reinit the mic."""
         with self._lock:
-            return self._state.state == TrayState.IDLE
+            idle = self._state.state == TrayState.IDLE
+        # The Vocal Joystick keeps the daemon IDLE while its own stream is open; a PortAudio
+        # reinit under that stream would close it, so the monitor waits while it is open.
+        joystick = self._vocaljoystick
+        return idle and not (joystick is not None and joystick.mic_open)
 
     def _active_device_name(self) -> str | None:
         """The mic capture would currently use: the pin, else the OS default."""
@@ -6678,7 +6685,7 @@ class Daemon:
                     ok = False
                     reasons.append(str(result.get("reason") or "Head-Pointer would not re-arm"))
             if (joystick := getattr(self, "_vocaljoystick", None)) is not None:
-                # Opens its microphone (and arms its gate source) before the gate re-arms all.
+                # Opens its microphone; it is no gate source, so the gate re-arms nothing for it.
                 ok = joystick.toggle("resume", scope, reasons) and ok
             if gate is not None:
                 rearm = gate.resume()

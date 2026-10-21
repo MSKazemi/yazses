@@ -19,14 +19,18 @@ because the daemon started.
 true (a hold is recording, a transcript is being typed, a meeting runs) every frame is dropped
 and every run is reset, so speech being dictated cannot steer the pointer.
 
-**With the global gate on, it obeys it.** When ``[handsfree_safety]`` is enabled the runner
-registers as source ``vocaljoystick``: an open stream is its evidence of life, and any pause the
-gate hears -- including a face switch's ``pause_pointer``, which does not go through the
-``handsfree`` IPC -- closes the stream on the next chunk. Re-arming stays explicit.
+**With the global gate on, it hears the gate's stop -- and only reads it.** When
+``[handsfree_safety]`` is enabled the daemon hands the runner ``stop_requested`` (the gate's
+``user_paused`` flag). A pause that *begins* while the stream is open -- including a face
+switch's ``pause_pointer``, which does not go through the ``handsfree`` IPC -- closes the stream
+on the next chunk. The runner is **not** a gate source: it never samples, arms or re-arms the
+gate (ADR-v2-148 R-24 keeps re-arming with the human entry points), so a joystick that stopped
+can never leave a stale source that would report the whole hands-free system as faulted.
 
 **A failure stops motion, never dictation.** A pointer error or an analysis crash is logged
-once and faults the runner; the stream is closed by the worker and nothing moves until the
-next ``resume``.
+once, handed to ``on_fault`` (the daemon turns it into a desktop notification, so the cursor
+never just stops without a word) and faults the runner; the stream is closed by the worker and
+nothing moves until the next ``resume``.
 """
 from __future__ import annotations
 
@@ -45,16 +49,13 @@ from yazses.vocaljoystick.drive import PointerIntent, SustainedVowelDriver
 from yazses.vocaljoystick.formants import VocalFrameTracker
 
 __all__ = [
-    "SOURCE_NAME",
     "VocalJoystickRunner",
     "VocalJoystickRuntime",
     "build_vocaljoystick",
+    "notify_vocaljoystick_fault",
 ]
 
 log = logging.getLogger(__name__)
-
-#: The name this feature registers under in the hands-free safety gate.
-SOURCE_NAME = "vocaljoystick"
 
 #: Chunks the worker may fall behind by before it drops audio (and resets, so a gap is never
 #: integrated as motion). Bounded so a stalled worker cannot queue seconds of stale intent.
@@ -65,14 +66,6 @@ class _Recorder(Protocol):
     def start(self) -> None: ...
 
     def stop(self) -> Any: ...
-
-
-class _Gate(Protocol):
-    def sample(self, source: str) -> None: ...
-
-    def gate(self, source: str) -> Any: ...
-
-    def resume(self, sources: Any = None) -> Any: ...
 
 
 def _num(value: object, default: float) -> float:
@@ -100,13 +93,15 @@ class VocalJoystickRunner:
         click_pitch: float = 250.0,
         clicks: bool = True,
         busy: Callable[[], bool] = lambda: False,
-        safety: _Gate | None = None,
+        stop_requested: Callable[[], bool] | None = None,
+        on_fault: Callable[[str], None] | None = None,
         thread: bool = True,
     ) -> None:
         self._sink = sink
         self._recorder_factory = recorder_factory
         self._busy = busy
-        self._safety = safety
+        self._stop_requested = stop_requested
+        self._on_fault = on_fault
         self._use_thread = thread
         self._tracker = VocalFrameTracker(sample_rate)
         self._driver = SustainedVowelDriver(
@@ -119,7 +114,8 @@ class VocalJoystickRunner:
         self._worker: threading.Thread | None = None
         self._dropped = False
         self._complained = False
-        self._gate_armed = False
+        #: The stop flag as last seen; only a False -> True edge closes the stream.
+        self._stop_seen = False
         self.fault = ""
         self.moves = 0
         self.clicks = 0
@@ -136,8 +132,12 @@ class VocalJoystickRunner:
             if self._recorder is not None:
                 return True, ""
             self.fault = ""
+            self._complained = False
             self._reset_locked()
             self._queue = queue.Queue(maxsize=_QUEUE_CHUNKS)
+            # A stop already in force when the user resumes is not a new stop: `handsfree
+            # resume` clears it right after this. Only a pause that begins later closes us.
+            self._stop_seen = self._stop_flag()
             try:
                 recorder = self._recorder_factory(self._on_chunk)
                 recorder.start()
@@ -145,24 +145,6 @@ class VocalJoystickRunner:
                 log.warning("Vocal Joystick could not open the microphone", exc_info=True)
                 return False, f"could not open the microphone: {type(exc).__name__}"
             self._recorder = recorder
-            self._gate_armed = False
-        if self._safety is not None:
-            # An open stream is this source's evidence of life; without a sample the gate
-            # refuses to arm a source. Arming only this source is what `handsfree resume`
-            # (the one caller) is about to do for every source anyway.
-            try:
-                self._safety.sample(SOURCE_NAME)
-                rearm = self._safety.resume([SOURCE_NAME])
-            except Exception as exc:
-                self.stop()
-                return False, f"the hands-free gate failed: {type(exc).__name__}"
-            if SOURCE_NAME not in getattr(rearm, "armed", ()):
-                self.stop()
-                return False, "the hands-free gate would not arm it: " + (
-                    str(getattr(rearm, "reason", "")) or "refused")
-        with self._lock:
-            if self._recorder is None:
-                return False, self.fault or "stopped while starting"
             if self._use_thread and self._worker is None:
                 self._worker = threading.Thread(
                     target=self._work, args=(self._queue,), name="vocaljoystick", daemon=True
@@ -229,18 +211,12 @@ class VocalJoystickRunner:
                 self._dropped = False
                 self._tracker.reset()
                 self._driver.reset()
-            if self._safety is not None:
-                self._safety.sample(SOURCE_NAME)
-                decision = self._safety.gate(SOURCE_NAME)
-                if getattr(decision, "clear_pending", False):
-                    self._tracker.reset()
-                    self._driver.reset()
-                if not getattr(decision, "allowed", False):
-                    if self._gate_armed:
-                        # Armed, then suppressed: a pause from any stop path. Close the mic.
-                        self._fail("paused by the hands-free gate", quiet=True)
-                    return  # not armed yet: `start` is still between opening and arming
-                self._gate_armed = True
+            stop = self._stop_flag()
+            began, self._stop_seen = stop and not self._stop_seen, stop
+            if began:
+                # A pause from any stop path the gate hears. Close the mic; resume is explicit.
+                self._fail("paused by the hands-free gate", quiet=True)
+                return
             if self._busy():
                 self._tracker.reset()
                 self._driver.reset()
@@ -262,11 +238,25 @@ class VocalJoystickRunner:
             self._sink.move_relative(intent.dx, intent.dy)
             self.moves += 1
 
+    def _stop_flag(self) -> bool:
+        if self._stop_requested is None:
+            return False
+        try:
+            return bool(self._stop_requested())
+        except Exception:
+            log.debug("Vocal Joystick stop check raised; treating it as a stop", exc_info=True)
+            return True
+
     def _fail(self, reason: str, *, quiet: bool = False) -> None:
         self.fault = reason
         if not quiet and not self._complained:
             self._complained = True
             log.warning("Vocal Joystick stopped: %s", reason, exc_info=True)
+            if self._on_fault is not None:
+                try:
+                    self._on_fault(reason)
+                except Exception:
+                    log.debug("Vocal Joystick fault notification raised", exc_info=True)
         if not self._use_thread:
             # No worker to hand the stop to; the inline path is the test path.
             self._recorder = None
@@ -275,6 +265,17 @@ class VocalJoystickRunner:
         self._tracker.reset()
         self._driver.reset()
         self._dropped = False
+
+
+def notify_vocaljoystick_fault(reason: str) -> None:
+    """Tell the user the Vocal Joystick stopped, and how to restart it. Never raises."""
+    try:
+        from yazses.system.notify import notify
+
+        notify("YazSes — Vocal Joystick stopped",
+               f"{reason}. Run `yazses handsfree resume` to start it again.")
+    except Exception:  # a notification is never load-bearing
+        log.debug("Vocal Joystick fault notification failed", exc_info=True)
 
 
 @dataclass
@@ -290,6 +291,11 @@ class VocalJoystickRuntime:
     @property
     def available(self) -> bool:
         return self.runner is not None
+
+    @property
+    def mic_open(self) -> bool:
+        """True while the runner holds a live microphone stream (the device monitor's cue)."""
+        return self.runner is not None and self.runner.active
 
     def command(self, action: str) -> dict[str, object]:
         """``status | pause | resume`` -- reached through the ``handsfree`` IPC, not its own."""
@@ -315,9 +321,13 @@ class VocalJoystickRuntime:
         The daemon's ``handsfree`` IPC calls this, so the CLI, the settings panel and the spoken
         stop phrase all reach it through one path. False only when a resume failed.
         """
+        was_open = self.mic_open
         reply = self.command(action)
         if reply.get("ok"):
-            if self.runner is not None:
+            # Name it only for what it really did: a pause of a mode that was off is no pause.
+            if action == "resume" and self.runner is not None:
+                scope.append("Vocal Joystick" + (f" ({self.notice})" if self.notice else ""))
+            elif action == "pause" and was_open:
                 scope.append("Vocal Joystick")
             return True
         reasons.append(f"Vocal Joystick: {reply.get('reason') or 'would not start'}")
@@ -335,7 +345,8 @@ def build_vocaljoystick(
     recorder_factory: Callable[[Callable[[np.ndarray], None]], _Recorder],
     sample_rate: int = 16000,
     busy: Callable[[], bool] = lambda: False,
-    safety: _Gate | None = None,
+    stop_requested: Callable[[], bool] | None = None,
+    on_fault: Callable[[str], None] | None = None,
     thread: bool = True,
 ) -> VocalJoystickRuntime:
     """The Vocal Joystick for ``[vocaljoystick]``, or a runtime that says why there is none.
@@ -370,7 +381,8 @@ def build_vocaljoystick(
         click_pitch=_num(getattr(config, "click_pitch", None), 250.0),
         clicks=clicks,
         busy=busy,
-        safety=safety,
+        stop_requested=stop_requested,
+        on_fault=on_fault,
         thread=thread,
     )
     return VocalJoystickRuntime(runner=runner, notice=notice)

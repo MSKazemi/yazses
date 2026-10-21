@@ -7,7 +7,8 @@ WIRE-VOCALJOYSTICK-001. Four claims:
   `handsfree` IPC replies exactly as it did before.
 * **The microphone is open only while armed.** Enabling the feature builds a runner but opens
   nothing; `yazses handsfree resume` opens the stream, `handsfree pause` (and so the spoken stop
-  phrase, which reuses it) closes it, and so does a pause from the global gate.
+  phrase, which reuses it) closes it, and so does a pause from the global gate, which it only
+  reads. While it is open the device monitor does not reinit PortAudio under it.
 * **A held vowel moves the pointer the way the mapping says** -- "eee" up-left -- and a held
   pitch jump clicks once.
 * **The guards hold on what they exist for** (AGENTS.md rule 9): running speech, a quiet voice,
@@ -252,8 +253,60 @@ def test_a_pause_from_the_global_gate_closes_the_microphone(monkeypatch):
         rec.push(_i(0.4))
         time.sleep(0.1)
         assert len(_moves(sink)) == before
+        # It only *reads* the gate: it is no source, so a closed joystick can never leave a
+        # stale one behind that reports the whole hands-free system as faulted.
+        status = daemon._handsfree_safety.status()
+        assert status.source("vocaljoystick") is None
+        assert "stale" not in status.reason
+        # And the explicit resume brings it back.
+        assert daemon._handle_handsfree(Request("handsfree", {"action": "resume"}))["ok"] is True
+        assert FakeRecorder.instances[-1].open
     finally:
         daemon._vocaljoystick.stop()
+
+
+def test_pausing_a_joystick_that_was_never_started_claims_nothing(armed_daemon):
+    """With the gate off and nothing armed, `handsfree pause` must not report a pause."""
+    daemon, _sink = armed_daemon
+    assert daemon._handle_handsfree(Request("handsfree", {"action": "pause"})) == {
+        "ok": False,
+        "reason": "nothing hands-free is running, and the global stop is off "
+        "(`[handsfree_safety] enabled = false`)",
+    }
+
+
+def test_the_device_monitor_never_reinits_portaudio_under_the_open_stream(armed_daemon):
+    """The joystick keeps the daemon IDLE while its stream is open; a reinit would kill it."""
+    daemon, _sink = armed_daemon
+    assert daemon._audio_idle() is True
+    daemon._handle_handsfree(Request("handsfree", {"action": "resume"}))
+    assert daemon._audio_idle() is False
+    daemon._handle_handsfree(Request("handsfree", {"action": "pause"}))
+    assert daemon._audio_idle() is True
+
+
+def test_a_fault_is_told_to_the_user_once(monkeypatch):
+    told: list[str] = []
+    runner, sink, made = _runner(on_fault=told.append)
+    runner.start()
+    sink.fail_with()
+    made[0].push(_i(1.0))
+    assert len(told) == 1 and told[0].startswith("pointer output failed")
+
+
+def test_the_daemon_wires_the_fault_to_a_notification(armed_daemon, monkeypatch):
+    import yazses.system.notify as notify_mod
+
+    told: list[tuple[str, str]] = []
+    monkeypatch.setattr(notify_mod, "notify", lambda title, body, **kw: told.append((title, body)))
+    daemon, sink = armed_daemon
+    runner = daemon._vocaljoystick.runner
+    runner._use_thread = False  # drive the chunk inline
+    assert runner.start() == (True, "")
+    sink.fail_with()
+    FakeRecorder.instances[-1].push(_i(1.0))
+    assert len(told) == 1
+    assert "Vocal Joystick" in told[0][0] and "handsfree resume" in told[0][1]
 
 
 def test_shutdown_closes_the_stream_and_releases_the_sink(armed_daemon):
@@ -406,3 +459,25 @@ def test_clicks_can_be_held_off_for_a_backend_without_a_left_button():
     out = [driver.feed(_frame(140.0)) for _ in range(30)]
     out += [driver.feed(_frame(300.0)) for _ in range(10)]
     assert all(o is None or o.kind != "click" for o in out)
+
+
+def test_resume_says_when_clicks_are_off(monkeypatch):
+    """A backend with no left button is not hidden in the log: the resume reply names it."""
+    import yazses.core.daemon as daemon_mod
+    from yazses.pointer.base import PointerCapabilities
+
+    FakeRecorder.instances.clear()
+    monkeypatch.setattr(daemon_mod, "AudioRecorder", lambda **kw: FakeRecorder(kw["on_chunk"]))
+    sink = FakePointerSink(PointerCapabilities(backend="fake-nobuttons", relative_motion=True))
+    cfg = Config()
+    cfg.vocaljoystick.enabled = True
+    daemon = _daemon(cfg, sink)
+    daemon._vocaljoystick = daemon._build_vocaljoystick(cfg)
+    daemon._state.state = TrayState.IDLE
+    try:
+        reply = daemon._handle_handsfree(Request("handsfree", {"action": "resume"}))
+        assert reply["ok"] is True
+        (label,) = reply["scope"]  # type: ignore[misc]
+        assert "clicks are off" in label and "fake-nobuttons" in label
+    finally:
+        daemon._vocaljoystick.stop()

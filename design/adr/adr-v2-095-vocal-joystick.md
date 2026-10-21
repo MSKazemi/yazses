@@ -54,9 +54,18 @@ The chain is reachable: `vocaljoystick/runtime.py` owns a dedicated microphone s
 thread and the platform's `PointerSink` (ADR-v2-146), and the daemon builds it only while
 `[vocaljoystick] enabled`. There is no new command and no implicit start: the stream is opened
 by the existing hands-free re-arm, `yazses handsfree resume`, and closed by `yazses handsfree
-pause`, the spoken stop phrase, a pause from the `[handsfree_safety]` gate (when that gate is on,
-the joystick is its source `vocaljoystick`) and shutdown. Nothing is steered while dictation is
-recording, transcribing or typing.
+pause`, the spoken stop phrase, a pause that begins at the `[handsfree_safety]` gate (when that
+gate is on, e.g. a face switch's `pause_pointer`) and shutdown. Nothing is steered while dictation
+is recording, transcribing or typing, and the device-change monitor does not reinit PortAudio
+while the joystick's stream is open (the daemon stays IDLE, so it has to be told).
+
+The joystick **reads** the gate's pause flag and is **not** a gate source: it never samples,
+arms or re-arms the gate. Two reasons. ADR-v2-148 R-24 keeps re-arming with the human entry
+points, and a source that closed itself on a fault would otherwise sit in the gate with a stale
+sample and report the whole hands-free system as FAULTED while the Head-Pointer works. A fault
+(pointer output failed, analysis error) is logged once and shown as a desktop notification that
+names `yazses handsfree resume`; `handsfree resume` replies with the "clicks are off" caveat
+when the pointer backend has no left button.
 
 `vocaljoystick/drive.py` sits between the integrator and the pointer and holds the misfire
 guards, each a specific signal (ADR-021): motion needs one direction held for 150 ms and a
