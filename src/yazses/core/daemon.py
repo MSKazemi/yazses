@@ -2017,6 +2017,63 @@ class Daemon:
             return
         self._active_injector().inject(text)
 
+    def _contour_gesture(self, audio, sample_rate: int, transcript: str | None,
+                         event: dict) -> bool:
+        """Pitch-Contour Gestures (ADR-v2-103): True when a hummed burst ran its command.
+
+        False, with nothing imported or touched, while `[contour]` is off -- the caller then
+        carries on exactly as before -- and for any burst that is not a recognised hum.
+        ``transcript`` is None only before decoding, after a positive "no speech" finding
+        (see `contour/wiring.py`). Never raises: a failure means the burst is treated as before.
+        """
+        if not self._config.contour.enabled:
+            return False
+        try:
+            from yazses.contour.wiring import run_hum_gesture, scratch_last_burst
+            from yazses.facegesture.actions import resolve_confirmation
+
+            # The voice stop word outranks every handler (ADR-v2-148), even if the user
+            # chose a hum spelling for it.
+            phrase = self._config.handsfree_safety.stop_phrase
+            if transcript and phrase:
+                from yazses.handsfree.stopword import matches
+
+                if matches(transcript, phrase):
+                    return False
+
+            def dropped() -> None:
+                self._cmdsafety_intent = None
+                self._notify_cmdsafety("Cancelled — the command was not run.")
+
+            def undo() -> str:
+                if not self._config.revise.enabled:
+                    return "not applied: [revise] is off"
+                return scratch_last_burst(self._ledger, self._active_injector(),
+                                          target_ok=self._state.target_ok)
+
+            def said(outcome) -> str:
+                return f"{outcome.result} ({outcome.reason})" if outcome.reason else outcome.result
+
+            ran = run_hum_gesture(audio, sample_rate, transcript, {
+                "confirm": lambda: said(resolve_confirmation(
+                    "confirm", self._cmdsafety, self._switch_release_held)),
+                "cancel": lambda: said(resolve_confirmation(
+                    "cancel", self._cmdsafety, lambda _held: None, on_cancel=dropped)),
+                "undo": undo,
+            })
+        except Exception:
+            log.debug("Contour gesture check failed; treating the burst as before.",
+                      exc_info=True)
+            return False
+        if ran is None:
+            return False
+        command, outcome = ran
+        event["intent_type"] = "contour"
+        event["contour_command"] = command
+        # The outcome names what happened, never what was said (ADR-011).
+        log.info("Contour hum %s: %s.", command, outcome)
+        return True
+
     def _facegesture_payload(self) -> dict[str, object] | None:
         """`facegesture` IPC status: which switch actions are bound and what each last did."""
         outcomes = self._switch_outcomes
@@ -2846,6 +2903,12 @@ class Daemon:
                 dysfluency_friendly=acc.dysfluency_friendly,
                 sotto_voce=wm_cfg.enabled and wm_cfg.command_channel,
             ) and holds_no_speech(padded, sample_rate):
+                # Pitch-Contour Gestures (ADR-v2-103): a hum gets its check before this
+                # discard. No-op while `[contour]` is off.
+                if self._contour_gesture(padded, sample_rate, None, event):
+                    if stream_injector is not None:
+                        stream_injector.cancel()
+                    return
                 event["discard_reason"] = "no_speech"
                 log.info(
                     "No speech in a %.1fs burst (level %.4f cleared vad_threshold %.4f, "
@@ -3043,6 +3106,12 @@ class Daemon:
             text = clean_text(text)
             text = self._correct_vocabulary(text, event)
             event["cleaned_text"] = text
+            # Pitch-Contour Gestures (ADR-v2-103): an empty or hum-only transcript of a
+            # mostly-voiced burst is a gesture, not text. No-op while `[contour]` is off.
+            if self._contour_gesture(padded, sample_rate, text, event):
+                if stream_injector is not None:
+                    stream_injector.cancel()
+                return
             if not text:
                 event["discard_reason"] = "empty"
                 log.info("Empty transcription -- discarding.")

@@ -49,7 +49,8 @@ def test_classify_contour_respects_the_slope_threshold():
 
 
 def test_gesture_to_command_with_an_empty_profile_maps_nothing():
-    assert gesture_to_command("flat") == "repeat"
+    assert gesture_to_command("flat") is None  # unmapped by default (owner, 2026-10-21)
+    assert gesture_to_command("rise") == "confirm"
     assert gesture_to_command("rise", profile={}) is None
 
 
@@ -59,7 +60,7 @@ def test_gesture_to_command_with_an_empty_profile_maps_nothing():
     (glide(150.0, 300.0, 0.8), "rise", "confirm"),
     (glide(300.0, 150.0, 0.8), "fall", "cancel"),
     (_rise_fall(), "rise_fall", "undo"),
-    (180.0, "flat", "repeat"),
+    (180.0, "flat", None),  # a flat hum is unmapped by default (owner, 2026-10-21)
 ])
 def test_hummed_shapes_classify_as_the_adr_gestures(f0, gesture, command):
     audio = _burst(f0)
