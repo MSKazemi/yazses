@@ -16,7 +16,7 @@ It is **experimental** and **off by default**.
 ## Turn it on
 
 ```sh
-yazses features enable mousegrid
+yazses features enable mousegrid --force   # experimental, so enable asks for --force
 yazses restart
 ```
 

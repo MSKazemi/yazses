@@ -77,10 +77,17 @@ say them:
 voice_punctuation = true
 ```
 
-Then "def sync open paren self close paren colon" arrives as `def sync(self):`.
-It is off by default because these words occur in ordinary speech — turn it on
-for coding, leave it off for prose. The full word list is in the
+Then "hello comma world period" arrives as `hello, world.`. Voice punctuation
+covers sentence punctuation only: "open paren" and "close paren" stay words. It is
+off by default because these words occur in ordinary speech — turn it on for
+coding, leave it off for prose. The full word list is in the
 [configuration reference](../configuration.md).
+
+Brackets and other code symbols come from **Spoken Code Mode** instead. Turn it on
+with `yazses features enable code`, bind a command key (`yazses hotkey command
+right_ctrl`, or any key other than your dictation key), then hold that key and say
+"code def sync open paren self close paren colon" — it types `def sync(self):`. See
+[coding by voice](voice-coding.md).
 
 ## 4. Prime one-off context — `[stt] initial_prompt`
 

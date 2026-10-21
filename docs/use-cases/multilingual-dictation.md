@@ -13,10 +13,12 @@ description: YazSes is English-tuned and ships an English-only model. Whisper it
 
 **Short answer:** the *underlying Whisper model* is multilingual, so if you supply a
 multilingual checkpoint yourself, YazSes will pass your chosen language through to it.
-On top of that YazSes adds some conveniences bilingual speakers ask for — switching
-language per application, transliterating into a non-Latin script, translating as you
-speak, and handling sentences that mix two languages mid-thought. **The recognition
-quality in any of those languages is Whisper's, and we have not measured it.**
+On top of that YazSes adds some conveniences bilingual speakers ask for — translating
+as you speak and transliterating Persian into its script. Switching language per
+application and routing sentences that mix two languages mid-thought are designed but
+do not work yet; the sections below say exactly how far each one goes. **The
+recognition quality in any of those languages is Whisper's, and we have not measured
+it.**
 
 All of it runs on your machine. This matters for languages where the cloud
 alternatives are weakest or absent entirely.
@@ -35,6 +37,11 @@ language = "de"        # or fr, es, it, fa, ar, hi, zh, …
 
 Then `yazses restart`. Accuracy varies substantially by language and model size;
 larger models help disproportionately for lower-resource languages.
+
+For Mandarin there is a one-command route that writes every key and fetches the
+model: `yazses language set zh-CN` (or `zh-TW`); add `--dry-run` to preview it. See
+[Chinese voice typing](chinese-voice-typing.md). `yazses language list` shows the
+profiles it supports.
 
 ### German, French, Spanish
 
@@ -64,10 +71,11 @@ language = "es"
 
 ### Downloading the model
 
-There is no separate "download" step to run by hand — faster-whisper fetches
-`small` (or whichever multilingual model you configured) the first time the
-daemon starts with it set, the same way it fetches `.en` models, and caches it
-in the Hugging Face cache. Multilingual weights are somewhat larger than their
+faster-whisper fetches `small` (or whichever multilingual model you configured)
+automatically the first time the daemon starts with it set, the same way it
+fetches `.en` models, and caches it in the Hugging Face cache. To fetch it as a
+separate, visible step (recommended behind a firewall or proxy), run
+`yazses model download small` first. Multilingual weights are somewhat larger than their
 `.en` counterparts at the same size tier, so expect a longer first-run download
 and a few hundred MB more disk use. Confirm it landed with:
 
@@ -125,17 +133,20 @@ switch mid-sentence — a Persian speaker dropping in English technical terms, a
 Spanish speaker using English product names — and a single-language recogniser
 mangles whichever language it was not set to.
 
-```sh
-yazses features enable polyglot
-```
+What works today is a multilingual model with auto-detection, which picks one
+language per burst:
 
 ```toml
-[polyglot]
-pair = "fa-en"          # the two languages you actually mix
+[stt]
+model = "small"
+language = ""          # auto-detect
 ```
 
-The routing layer detects the dominant language of each span and handles the
-switch, rather than forcing the whole utterance through one language setting.
+`[polyglot]` (`yazses features enable polyglot`, with `pair = "fa-en"`) is not a
+working answer yet. It is a code-switch hook for a separately trained adapter
+(`[polyglot] adapter_path`); with none set it does nothing, and `yazses doctor`
+reports it as dormant. Even with an adapter set, the daemon does not route any
+speech to it yet, so turning it on changes no transcript.
 
 ## Per-application language switching
 
@@ -178,12 +189,12 @@ model to use, instead of handing you fluent English for non-English audio.
 
 Two different problems here, and they need different tools:
 
-- **Transliteration** (`yazses features enable translit`) — you speak the
-  language but want it written in a different script, or you type Latin and want
-  the native script.
-- **Diacritics** (`yazses features enable diacritize`) — restoring diacritical
-  marks that speech does not distinguish, which matters a great deal in Arabic,
-  Hebrew and Vietnamese.
+- **Transliteration** (`yazses features enable translit`) — dictate Persian in
+  romanized Finglish and get Persian script, by a letter-by-letter table lookup.
+  Finglish is currently the only scheme.
+- **Diacritics** (`yazses features enable diacritize`) — restores accents dropped
+  from common loanwords (*cafe* → *café*, *naive* → *naïve*) from a fixed lexicon.
+  It does not vocalise Arabic or Hebrew or restore Vietnamese tones.
 
 There is also **SafeGlyph** (`yazses features enable safeglyph`), which guards
 against visually confusable characters — relevant when mixing scripts in
@@ -200,9 +211,12 @@ not on your physical keyboard layout:
   scripts. Verified end-to-end with Devanagari.
 - **Clipboard (`[injection] backend = "clipboard"`)** passes UTF-8 straight
   through — script-independent by construction, and the reliable fallback.
-- **Wayland (`ydotool`)** injects below the keyboard layout, which is where
-  non-Latin characters are most likely to be dropped. Test one sentence before
-  relying on it.
+- **Wayland (`ydotool`)** injects below the keyboard layout, so it can only press
+  keys your active layout has. YazSes checks every non-ASCII character before
+  typing: on a Latin layout there is no key for a Devanagari or Arabic character,
+  so it pastes the whole burst from the clipboard instead (`[injection]
+  fallback_to_clipboard`, on by default), which overwrites your clipboard and does
+  nothing in most terminals. Test one sentence before relying on it.
 
 If the transcript is right but nothing appears in the target application, change
 the backend before changing the model.
@@ -256,8 +270,8 @@ use the table below.
 
 ### Report what you found
 
-Post one row per language on
-[#167](https://github.com/MSKazemi/yazses/issues/167). This is the only way the
+Open an issue titled "Language report: <code>"
+(<https://github.com/MSKazemi/yazses/issues/new>) with one row per language. This is the only way the
 project learns which languages are genuinely usable, because no one here speaks
 them all.
 
@@ -265,7 +279,7 @@ them all.
 |---|---|
 | Language | `fa` |
 | Model | `small` |
-| YazSes version | `2.18.2` |
+| YazSes version | the output of `yazses --version` |
 | OS / CPU | Ubuntu 26.04, i7-1165G7 |
 | Expected text | what you said — only if you are happy to publish it |
 | Actual output | what appeared |
@@ -283,11 +297,10 @@ never needs your words to diagnose anything.
   well-resourced languages and noticeably weaker in low-resource ones. No amount
   of surrounding tooling changes that. Test with your own speech before relying
   on it.
-- **Code-switching routing is a routing layer.** A dedicated code-switch-adapted
-  transcription model can be plugged in via `[polyglot] adapter_path`, but that
-  adapter is trained out-of-band and the feature stays dormant until you set it.
-  Without it you get sensible routing over a general multilingual model, not a
-  purpose-trained code-switch model.
+- **Code-switching is not routed yet.** `[polyglot] adapter_path` names a
+  code-switch-adapted model you train out-of-band, and the feature stays dormant
+  until you set it; even then the daemon does not route speech to it yet. For
+  mixed-language speech today, use a multilingual model with auto-detection.
 - **Multilingual models are larger and slower** than the English-only ones. On a
   modest CPU expect noticeably more latency than `base.en`. See [performance
   tuning](../how-to/performance-tuning.md).

@@ -100,10 +100,11 @@ tells you how to stop it. It is a warning
 rather than a prompt on purpose: a prompt you have to answer is one more thing to
 click through, and knowing mid-download still beats knowing afterwards.
 
-To see the packages without fetching anything:
+To see the packages without fetching anything (this still switches the capability on;
+`yazses features disable read-back` undoes it):
 
 ```bash
-yazses features enable gaze --no-install
+yazses features enable read-back --no-install
 ```
 
 ## Keeping an install small
