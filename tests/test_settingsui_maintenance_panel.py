@@ -529,6 +529,13 @@ def test_the_default_check_resolves_the_command_that_keeps_enabled_features(monk
     monkeypatch.setattr(cli, "_update_launcher", lambda: None)
     monkeypatch.setattr(iu, "one_click_offer", lambda status, launcher: None)
     monkeypatch.setattr(updater, "preserve_enabled_features", lambda status: kept)
+    # No OpenCV here, so the cv2 step after it leaves `kept` alone (it has its own
+    # tests in tests/test_upgrade_keeps_cv2_whole.py).
+    monkeypatch.setattr(
+        updater, "default_opencv_probe",
+        lambda prefix=None: updater.OpenCVProbe("python", lambda fresh: {}, lambda: None,
+                                                lambda: False),
+    )
     assert mp._default_check() == (kept, None, None)
 
 

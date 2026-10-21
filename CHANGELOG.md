@@ -94,6 +94,42 @@ download is not retried on its own: the feature waits, and **Install now** retri
 click. `yazses update` in a terminal does not ask about add-ons and downloads none. Covered by
 offline tests (`tests/test_packs_refetch.py`); not yet run on Windows with a published add-on.
 
+### Fixed — updating will not break OpenCV (cv2) for camera-feature users
+
+The camera features install two OpenCV builds today (`opencv-python`, and
+`opencv-contrib-python` through mediapipe), which write the same `cv2/` files. A future
+release will drop `opencv-python`, and the `uv tool upgrade yazses` that applies such a
+release removes it and, with it, the `cv2` files the two builds share. That command is the
+one `yazses update`, the tray's *Install update* and the Settings window run. The upgrade
+exits 0 and reports the new version, and the camera features then fail to start. Because
+the upgrade runs the version you already have, the protection must ship a release before
+the change, so this release ships it and keeps both builds. `import cv2` still succeeds afterwards, because what is left is a namespace
+package, but `cv2.VideoCapture` is missing. This was reproduced offline on Linux
+(Python 3.12, uv 0.12.21, the 5.0.0.93 wheels) for both forms of the command:
+`uv tool upgrade yazses` and the `uv tool install --upgrade --with … yazses` form used when
+an enabled feature's libraries must be kept.
+
+- When both builds are installed, the uv upgrade command now includes
+  `--reinstall-package opencv-contrib-python`. In the same reproduction this left `cv2`
+  working with both command forms. Both `uv tool upgrade --help` and
+  `uv tool install --help` list the flag in uv 0.12.21. The flag is added after the step
+  that keeps enabled features' libraries, inside the one function
+  (`updater.resolve_upgrade_command`) that `yazses update`, the Settings window, the tray
+  and the upgrade itself all use. A test checks that the command shown is the command run.
+- After any `uv`, `pipx` or `pip` upgrade, the environment's own Python checks
+  `cv2.VideoCapture` and `cv2.cvtColor`. A bare `import cv2` would not catch this
+  breakage. The check runs only when an OpenCV build is installed and either `cv2` worked
+  before the upgrade or a camera feature is on. If it fails, YazSes does not say
+  "Updated". It prints the exact repair command, pinned to the contrib version installed
+  after the upgrade (`uv pip install --python <env python> --reinstall --no-deps …`,
+  `pipx runpip yazses install --force-reinstall --no-deps …`, or
+  `<env python> -m pip install --force-reinstall --no-deps …`), and `yazses update`
+  exits 1. pip and pipx never remove a dependency on upgrade, so their command is not
+  changed.
+- Not verified: the pipx and pip repair commands were not run, and Windows and macOS were
+  not tested. On the Windows and macOS trays, the balloon still shows the plain command,
+  but nothing runs from it. `yazses update` and the Settings window run the full command.
+
 ### Fixed — the one-click Windows update never ran the installer (unreleased feature)
 
 The first real run of the update hand-off on a Windows machine (CI, `windows-latest`) showed

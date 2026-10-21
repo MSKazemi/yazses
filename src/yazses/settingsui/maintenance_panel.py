@@ -62,12 +62,12 @@ def _default_check():
     launcher = _update_launcher()
     offer = one_click_offer(status, launcher)
     if offer is None and status.available and status.command:
-        # The command that keeps the enabled features' libraries, resolved before it is
-        # shown so what the window says is what runs (`yazses update` does the same;
-        # `run_upgrade_checked` applies it again, idempotently).
-        from yazses.system.updater import preserve_enabled_features
+        # The command that keeps the enabled features' libraries (and cv2), resolved
+        # before it is shown so what the window says is what runs (`yazses update` and
+        # the tray do the same; `run_upgrade_checked` applies it again, idempotently).
+        from yazses.system.updater import resolve_upgrade_command
 
-        status = preserve_enabled_features(status)
+        status = resolve_upgrade_command(status)
     return status, offer, launcher
 
 

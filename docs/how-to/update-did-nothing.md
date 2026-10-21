@@ -148,6 +148,47 @@ And confirm, in a new terminal, that the number actually moved:
 yazses --version
 ```
 
+## The update finished, but the camera features stopped working
+
+If YazSes says *"The upgrade to YazSes X finished, but OpenCV (cv2), which the camera
+features use, does not load any more"*, the version did move. What broke is OpenCV.
+
+Up to 2.43.2 the camera features (gaze, face gestures, head pointer, hand gestures,
+hands-free) installed two OpenCV builds, `opencv-python` and `opencv-contrib-python`.
+They share the same `cv2/` folder. Later releases need only contrib, so an upgrade
+removes `opencv-python`, and removing it deletes the files the two builds shared.
+`import cv2` still succeeds afterwards, but `cv2.VideoCapture` is missing.
+
+`yazses update`, the tray and the Settings window prevent this on a `uv tool` install:
+when both builds are present, they add `--reinstall-package opencv-contrib-python` to the
+upgrade command they show and run. After every `uv`, `pipx` or `pip` upgrade they also
+check that `cv2` still works. If it does not, they print the exact repair for your
+install. It has this shape, pinned to the version that is installed now:
+
+=== "uv"
+
+    ```bash
+    uv pip install --python <your YazSes environment's python> --reinstall --no-deps opencv-contrib-python==<version>
+    ```
+
+=== "pipx"
+
+    ```bash
+    pipx runpip yazses install --force-reinstall --no-deps opencv-contrib-python==<version>
+    ```
+
+=== "pip"
+
+    ```bash
+    <your YazSes environment's python> -m pip install --force-reinstall --no-deps opencv-contrib-python==<version>
+    ```
+
+Copy the command YazSes printed rather than these templates, because it already has the
+right interpreter path and version. Then restart the daemon (`yazses restart`).
+
+The `uv` repair was run on Linux against an environment broken this way, and it worked.
+The `pipx` and `pip` forms were not run.
+
 ## Your settings, models and vocabulary are not affected
 
 None of the commands above touch your data. Configuration lives in

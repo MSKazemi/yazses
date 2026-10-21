@@ -34,6 +34,20 @@ import pytest
 from yazses.system import deps, updater
 from yazses.system.dormant import preserved_requirements
 
+
+@pytest.fixture(autouse=True)
+def _no_opencv_in_the_environment(monkeypatch):
+    """The upgrade path also asks the running environment about OpenCV (cv2). Answer
+    "none installed", so these tests never depend on what the developer's own venv
+    holds; tests/test_upgrade_keeps_cv2_whole.py covers that step."""
+    monkeypatch.setattr(
+        updater, "default_opencv_probe",
+        lambda prefix=None: updater.OpenCVProbe(
+            python="python", versions=lambda fresh: {}, works=lambda: None,
+            camera_enabled=lambda: False,
+        ),
+    )
+
 ONNX_A = "onnxruntime>=1.27.0; sys_platform != 'darwin' or platform_machine != 'x86_64'"
 ONNX_B = "onnxruntime>=1.23.2,<1.24; sys_platform == 'darwin' and platform_machine == 'x86_64'"
 

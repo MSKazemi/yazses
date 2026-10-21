@@ -4606,15 +4606,19 @@ def update(
             raise typer.Exit(1)
         return
     # A uv tool upgrade removes libraries its receipt does not list, which is how
-    # an enabled engine vanished on update. Resolve the command that keeps them
-    # *before* printing it, so what is shown is what runs (it is idempotent, so
-    # `run_upgrade_checked` applying it again changes nothing).
-    from yazses.system.updater import preserve_enabled_features
+    # an enabled engine vanished on update -- and how a removed opencv-python takes
+    # the cv2 files it shares with opencv-contrib-python. Resolve the command that
+    # keeps both *before* printing it, so what is shown is what runs (it is
+    # idempotent, so `run_upgrade_checked` applying it again changes nothing).
+    from yazses.system.updater import CV2_CONTRIB, resolve_upgrade_command
 
     plain = status.command
-    status = preserve_enabled_features(status)
+    status = resolve_upgrade_command(status)
     if status.command != plain:
-        typer.echo("Keeping your enabled features' libraries through the upgrade.")
+        if CV2_CONTRIB in (status.command or []):
+            typer.echo("Reinstalling OpenCV (cv2) in the same step, so it keeps working.")
+        if "--with" in (status.command or []):
+            typer.echo("Keeping your enabled features' libraries through the upgrade.")
     typer.echo(f"Command: {' '.join(status.command or [])}")
 
     if check:
@@ -4629,6 +4633,12 @@ def update(
     # install carries an exact version pin, and this used to print "Updated to X"
     # over the top of the package manager's own "Nothing to upgrade".
     outcome = run_upgrade_checked(status)
+    if outcome.code == 0 and outcome.cv2_repair:
+        # Exit 0 and a new version, and still not done: cv2 stopped loading.
+        from yazses.tray.about import cv2_repair_message
+
+        typer.echo("\n" + cv2_repair_message(outcome), err=True)
+        raise typer.Exit(1)
     if outcome.ok:
         typer.echo(f"\nUpdated to {outcome.after}. Restart the daemon to load it:")
         # `yazses restart`, not `systemctl --user`: this branch is the uv/pipx/pip path,

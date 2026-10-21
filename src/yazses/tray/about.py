@@ -188,11 +188,31 @@ def update_message(status) -> tuple[str, str]:
     return ("Update available", body)
 
 
+def cv2_repair_message(outcome) -> str:
+    """The body for an upgrade that finished and left OpenCV (``cv2``) unusable.
+
+    Never "Updated": the version moved, but a camera feature would fail on the next
+    start, and the exact command that repairs it is the useful part. Quoted with the
+    same rules as the install hints, so a Windows path runs as printed.
+    """
+    from yazses.system.remedy import _render
+
+    version = outcome.after or outcome.expected or "the new version"
+    return (
+        f"The upgrade to {branding.APP_NAME} {version} finished, but OpenCV (cv2), which "
+        "the camera features use, does not load any more. Repair it with:\n"
+        f"    {_render(outcome.cv2_repair)}\n"
+        "Then restart the daemon (tray → Restart daemon, or `yazses restart`)."
+    )
+
+
 def upgrade_result_message(outcome) -> tuple[str, str]:
     """``(title, body)`` for a finished in-place upgrade.
 
-    Three outcomes, because an exit status of 0 is not evidence that anything happened:
+    Four outcomes, because an exit status of 0 is not evidence that anything happened:
 
+    * the command succeeded and left ``cv2`` unusable — the repair command, never
+      "Updated" (:func:`cv2_repair_message`)
     * the version really moved — say so, and say the running daemon is still the old one
     * the command failed — say that
     * the command succeeded and the version did **not** move — the case that made this
@@ -200,6 +220,8 @@ def upgrade_result_message(outcome) -> tuple[str, str]:
       pinned install, and reporting "Update installed. Restart the daemon" then sends the
       user to restart into the very same version, over and over, with nothing to explain it.
     """
+    if outcome.code == 0 and getattr(outcome, "cv2_repair", None):
+        return ("Update needs one more step", cv2_repair_message(outcome))
     if outcome.ok:
         return (
             branding.APP_NAME,
