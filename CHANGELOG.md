@@ -21,7 +21,8 @@ feature registry says it ships those libraries, the refusal reason on a snap, a
 frozen `.app`/`.exe` or the system Python, and otherwise the command that installs
 into *this* environment and survives its next update (`uv tool install --with …`
 keeping the receipt's existing requirements, `pipx inject`, `uv sync --inexact` in a
-checkout). A hint never switches a capability on: installing PySide6 by enabling the
+checkout). A Windows interpreter path is printed without quotes unless it has a space:
+PowerShell does not run a quoted first word followed by arguments. A hint never switches a capability on: installing PySide6 by enabling the
 overlay would also make it take keyboard focus on Wayland, and meeting notes'
 llama-cpp-python is not offered through `llm-cleanup`, which would rewrite every
 dictation. The voiceprint messages now also tell `[voiceprint] enabled = false` apart

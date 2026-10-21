@@ -43,11 +43,19 @@ from pathlib import Path
 #: The wording `dormant.py` uses before a command, kept identical on purpose.
 _LEAD = "Install them with:  "
 
-_SAFE_ARG = re.compile(r"^[\w@%+=:,./-]+$")
+#: A backslash is safe because the interpreter path leads the command, and PowerShell
+#: will not run a quoted first word (`"C:\...\python.exe" -m pip` is a parse error
+#: without `&`). Bare, a Windows path without spaces runs in PowerShell and cmd.exe
+#: alike; a POSIX path with a backslash in it is not a case worth breaking that for.
+_SAFE_ARG = re.compile(r"^[\w@%+=:,./\\-]+$")
 
 
 def _quote(arg: str) -> str:
-    """Double quotes, which POSIX shells, PowerShell and cmd.exe all honour."""
+    """Double quotes, which POSIX shells, PowerShell and cmd.exe all honour as arguments.
+
+    A path with a space is still quoted, so in PowerShell that command needs `&` in
+    front; cmd.exe and POSIX shells run it as printed.
+    """
     return arg if _SAFE_ARG.match(arg) else f'"{arg}"'
 
 

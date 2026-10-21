@@ -109,6 +109,25 @@ def test_no_capability_named_installs_the_extra_into_this_environment(monkeypatc
     )
 
 
+def test_a_windows_interpreter_path_without_spaces_is_left_bare(monkeypatch):
+    # PowerShell will not run a quoted first word followed by arguments, so a quoted
+    # `"D:\...\python.exe" -m pip ...` is a parse error there (Windows CI caught it).
+    monkeypatch.setattr("shutil.which", lambda name: None)
+    monkeypatch.setattr(sys, "executable", r"D:\a\yazses\.venv\Scripts\python.exe")
+    assert _hint("notes") == (
+        r'Install them with:  D:\a\yazses\.venv\Scripts\python.exe -m pip install '
+        '"llama-cpp-python>=0.3.33"'
+    )
+
+
+def test_an_interpreter_path_with_a_space_is_still_quoted(monkeypatch):
+    monkeypatch.setattr("shutil.which", lambda name: None)
+    monkeypatch.setattr(sys, "executable", r"C:\Users\Ada Lovelace\py\python.exe")
+    assert _hint("notes").startswith(
+        r'Install them with:  "C:\Users\Ada Lovelace\py\python.exe" -m pip install '
+    )
+
+
 def test_a_pipx_venv_gets_pipx_inject(monkeypatch, tmp_path):
     venv = tmp_path / "yazses"
     venv.mkdir()
