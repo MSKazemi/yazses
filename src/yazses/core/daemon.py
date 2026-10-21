@@ -1561,7 +1561,7 @@ class Daemon:
 
         # Cocktail Filter / Voiceprint Mind: build the speaker embedder and load the
         # enrolled voiceprint when either feature is on (dormant/None otherwise).
-        if cfg.cocktail.enabled or cfg.voiceprint.enabled:
+        if cfg.cocktail.enabled or cfg.voiceprint.enabled or cfg.voiceguard.enabled:
             from yazses.voiceprint.factory import build_embedder, unavailable_message
             from yazses.voiceprint.store import load_voiceprint
 
@@ -1578,6 +1578,15 @@ class Daemon:
             elif self._voiceprint is None:
                 log.warning("No enrolled voiceprint yet; run `yazses enroll-voice`.")
             _ = load_voiceprint  # referenced via the helper below
+        # Voice Guard (ADR-v2-018): say at start, once, why an enabled guard cannot judge.
+        if cfg.voiceguard.enabled:
+            from yazses.voiceguard.admission import inactive_reason as voiceguard_inactive
+
+            self._warn_feature_inert("voiceguard", voiceguard_inactive(
+                cfg, embedder_ready=self._embedder is not None,
+                enrolled=self._voiceprint is not None,
+                unreadable=self._voiceprint is None and self._voiceprint_path().exists(),
+            ))
 
     def _voiceprint_path(self):
         return self._platform.paths.data_dir / "voiceprint.enc"
@@ -2794,6 +2803,7 @@ class Daemon:
                     stream_injector.cancel()
                 return
 
+            unfiltered = padded  # Voice Guard judges the burst as heard, not as filtered
             # Cocktail Filter: drop frames that aren't the enrolled target speaker
             # before STT, so an interfering voice never enters the transcript.
             padded = self._maybe_cocktail_gate(padded)
@@ -2826,6 +2836,18 @@ class Daemon:
                     float(np.abs(padded).mean()),
                     acc.vad_threshold,
                 )
+                self._earcon.play("error")
+                if stream_injector is not None:
+                    stream_injector.cancel()
+                return
+
+            # Voice Guard (ADR-v2-018): refuse a burst that is not the enrolled speaker
+            # before it is decoded, so no text from it exists to type. Logs the reason
+            # (a similarity score), never words. Dormant unless `[voiceguard] enabled`.
+            voiceguard_refusal = self._voiceguard_refusal(unfiltered)
+            if voiceguard_refusal is not None:
+                event["discard_reason"] = "voiceguard_rejected"
+                log.info("Voice Guard refused the burst: %s.", voiceguard_refusal)
                 self._earcon.play("error")
                 if stream_injector is not None:
                     stream_injector.cancel()
@@ -3774,6 +3796,8 @@ class Daemon:
                 event.get("raw_text") or event.get("discard_reason")
             ):
                 cap_audio = clip if self._config.learning.capture_audio else None
+                if event.get("discard_reason") == "voiceguard_rejected":
+                    cap_audio = None  # likely a third party's voice: never kept (ADR-019)
                 self._corpus.write(event, cap_audio, sample_rate)
             # Edit capture (signal b): for plain dictation, read the editor back
             # shortly and record any in-place correction.
@@ -4913,6 +4937,37 @@ class Daemon:
             return
         self._warned_inert.add(feature)
         log.warning("[%s] is enabled but inactive: %s.", feature, reason)
+
+    def _voiceguard_refusal(self, audio: np.ndarray) -> str | None:
+        """Why Voice Guard refuses this burst, or ``None`` to let it through.
+
+        ``None`` while `[voiceguard]` is off (nothing imported) and while it is on but
+        cannot judge (no voiceprint, no embedder, fail-closed with no anti-spoof model, a
+        burst the embedder cannot score): the burst is let through and the reason is
+        logged at WARNING, once, rather than refusing every burst. Never raises.
+        """
+        cfg = self._config
+        if not cfg.voiceguard.enabled:
+            return None
+        try:
+            from yazses.voiceguard.admission import burst_refusal, inactive_reason
+
+            embedder, voiceprint = self._embedder, self._voiceprint
+            reason = inactive_reason(
+                cfg, embedder_ready=embedder is not None, enrolled=voiceprint is not None,
+                unreadable=voiceprint is None and self._voiceprint_path().exists(),
+            )
+            if reason is not None or embedder is None or voiceprint is None:
+                self._warn_feature_inert("voiceguard", reason)
+                return None
+            refusal, inert = burst_refusal(
+                audio, cfg.audio.sample_rate, embedder, voiceprint, cfg.voiceguard
+            )
+        except Exception as exc:
+            refusal, inert = None, f"the guard failed on a burst ({type(exc).__name__}: {exc})"
+        if inert is not None:
+            self._warn_feature_inert("voiceguard", inert + "; bursts are let through")
+        return refusal
 
     def _maybe_cocktail_gate(self, audio: np.ndarray) -> np.ndarray:
         """Drop non-target-speaker frames before STT (Cocktail Filter P1).

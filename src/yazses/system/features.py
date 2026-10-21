@@ -216,7 +216,11 @@ def _registry() -> list[_Def]:
     af_on, af_off = _bool("affect")
     dn_on, dn_off = _bool("denoise")
     pd_on, pd_off = _bool("predict")
-    vg_on, vg_off = _bool("voiceguard")
+    # Voice Guard compares each burst with the voiceprint `[voiceprint]` loads, so
+    # enabling it alone would leave an inert guard; disabling it leaves `[voiceprint]`
+    # alone, since Cocktail Filter and voice profiles read it too.
+    vg_on = (("voiceguard", "enabled", "true", False), ("voiceprint", "enabled", "true", False))
+    vg_off = (("voiceguard", "enabled", "false", False),)
     sc_on, sc_off = _bool("scribe")
     rg_on, rg_off = _bool("rag")
     cd_on, cd_off = _bool("codec")
@@ -1023,11 +1027,12 @@ _Def("chords", "Chorded Shortcut Synthesis", "[chords] — any keyboard shortcut
              "Tries to focus on your voice and reject other speakers. Currently "
              "over-rejects your OWN voice — leave off until improved.",
              lambda c: c.cocktail.enabled, co_on, co_off),
-        _Def("voiceguard", "Voice Guard (biometric + anti-spoof)", "[voiceguard] — experimental", EXPERIMENTAL,
-             "Types only when the live speaker matches your enrolled voiceprint and the "
-             "audio isn't a recording/synthetic. Needs enrollment + the voiceguard extra; "
-             "false-reject risk (fail-open by default). Off by default.",
-             lambda c: c.voiceguard.enabled, vg_on, vg_off),
+        _Def("voiceguard", "Voice Guard (speaker match)", "[voiceguard] — experimental", EXPERIMENTAL,
+             "Refuses a dictation burst, before it is transcribed, when the speaker does not "
+             "match your enrolled voiceprint (`yazses enroll-voice`). Speaker match only: no "
+             "anti-spoof model ships, so a recording of your voice is still admitted. Threshold "
+             "tuned on synthetic signals only; false-reject risk. Off by default.",
+             lambda c: c.voiceguard.enabled and c.voiceprint.enabled, vg_on, vg_off),
         _Def("bridge", "Glasses↔Desktop Bridge", "[bridge] — phone/glasses mic, experimental", EXPERIMENTAL,
              "Dictate from a paired phone/glasses; the desktop does STT + typing. "
              "Reuses the remote transport; local link only. Experimental. Off by default.",
@@ -1222,7 +1227,7 @@ _UNWIRED: frozenset[str] = frozenset({
     "interpret", "langroute", "lipread", "loadguard", "morsevox", "mousegrid", "mouthswitch",
     "multiprofile", "pilot", "predict", "pronunciation", "proofback", "rag", "readback_clone",
     "screengrounded", "scribe", "scrub", "sentiment", "sign", "spatialvad", "vocaljoystick",
-    "voiceguard", "voicehealth", "wakeword",
+    "voicehealth", "wakeword",
 })
 
 
@@ -1391,7 +1396,7 @@ _EXAMPLES: dict[str, str] = {
     "agent": "Say 'create a calendar event tomorrow at 3' (allowlisted tools).",
     "pilot": "Say 'click the Save button' to drive the focused app via AT-SPI.",
     "cocktail": "yazses features enable cocktail --force — filters other voices (experimental).",
-    "voiceguard": "yazses features enable voiceguard --force — only your voice dictates.",
+    "voiceguard": "yazses features enable voiceguard --force — another speaker's burst is not typed.",
     "bridge": "Pair smart glasses to relay audio to the desktop (experimental).",
     "modality": "Route dictation vs commands to different targets by role.",
     "gaze": "Glance at a screen zone to choose where the next dictation lands.",
@@ -1557,7 +1562,7 @@ _USE_CASES: dict[str, str] = {
     "agent": "When you want to run allowlisted tools or actions by voice through a local planner.",
     "pilot": "When you want a hands-free desktop, clicking buttons by their labels on Linux.",
     "cocktail": "When others are talking nearby and you want only your own voice to reach STT (still rough).",
-    "voiceguard": "When you must guarantee only your live voice types, blocking recordings, synthesis, or others.",
+    "voiceguard": "When other people talk near your microphone and only your own voice should type (a recording of you still gets through).",
     "bridge": "When you want to dictate from a paired phone or glasses mic while your desktop does STT.",
     "modality": "When you have EMG or gaze hardware and want each input assigned to its fastest role.",
     "gaze": "When you have several panes open and want dictation to land in whichever one you look at.",
@@ -1722,6 +1727,10 @@ def inactive_reason(slug: str, cfg) -> str:
     start rewriting their words now that hotwords is wired. `yazses features`, the
     feature card and `doctor` all print this text, each followed by the one command
     that turns it on (`yazses features enable <slug>`), so they cannot disagree.
+
+    Voice Guard too: `[voiceguard] enabled = true` with `[voiceprint]` off is a guard with
+    nothing to compare against, and enabling it writes both keys, so the same command
+    fixes it.
     """
     if (slug or "").strip().lower() == PRESET_SLUG:
         from yazses.config import handsfree_preset
@@ -1734,6 +1743,17 @@ def inactive_reason(slug: str, cfg) -> str:
             "Your config says [handsfree] enabled = true, but the preset is not applied: "
             f"your own {', '.join(unmet)} weakens its safety floor, so it set nothing. "
             "`yazses handsfree explain` names the fix."
+        )
+    if (slug or "").strip().lower() == "voiceguard":
+        vg = getattr(cfg, "voiceguard", None)
+        if not getattr(vg, "enabled", False) or getattr(
+            getattr(cfg, "voiceprint", None), "enabled", False
+        ):
+            return ""
+        return (
+            "Your config says [voiceguard] enabled = true, but Voice Guard is not active: "
+            "it compares each burst with your enrolled voiceprint, and [voiceprint] "
+            "enabled is false. Enabling Voice Guard sets both."
         )
     if (slug or "").strip().lower() != "hotwords":
         return ""
@@ -1777,6 +1797,24 @@ def enable_caveat(slug: str, cfg) -> str | None:
                 "changes nothing you can trigger. Bind one first, e.g. "
                 "`yazses hotkey command right_ctrl`, then `yazses restart`."
             )
+    if slug == "voiceguard":
+        # Enabling writes [voiceprint] enabled too, but no write can enroll a voice, and
+        # fail_open = false is refused outright (no anti-spoof score exists). Either way
+        # the guard lets every burst through -- say so before the user trusts it.
+        vg = getattr(cfg, "voiceguard", None)
+        advice = (
+            "Heads up: Voice Guard judges a burst only against an enrolled voiceprint. If "
+            "you have not recorded one, run `yazses enroll-voice` -- until then it lets "
+            "every burst through, and `yazses doctor` says so. It matches the speaker "
+            "only: a recording of your voice is admitted."
+        )
+        if vg is not None and not getattr(vg, "fail_open", True):
+            advice += (
+                " Your [voiceguard] fail_open = false needs an anti-spoof score that no "
+                "model produces yet, so the guard stays inactive until you set "
+                "fail_open = true."
+            )
+        return advice
     if slug == "corrdict":
         # The table is mined from corpus events, and the corpus is off by default
         # (ADR-011). Enabling corrdict alone is the same "toggle that lies" shape:
