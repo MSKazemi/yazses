@@ -301,11 +301,13 @@ def test_the_validator_rejects_an_unearned_permissive_verdict(bm):
 
 @pytest.mark.parametrize("key", ["model_license", "script_fold", "provenance", "metrics"])
 def test_the_validator_requires_every_block(bm, key):
-    assert any(key in p for p in _tamper(bm, lambda d: d.pop(key)))
+    problems = _tamper(bm, lambda d: d.pop(key))
+    assert any(key in p for p in problems)
 
 
 def test_the_validator_rejects_a_foreign_schema(bm):
-    assert any("schema" in p for p in _tamper(bm, lambda d: d.update(schema="other/1")))
+    problems = _tamper(bm, lambda d: d.update(schema="other/1"))
+    assert any("schema" in p for p in problems)
     assert bm.validate_result({})
 
 

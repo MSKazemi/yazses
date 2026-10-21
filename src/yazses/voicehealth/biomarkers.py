@@ -93,7 +93,6 @@ class BiomarkerBackend(Protocol):
 
     def measure(self, audio: Any, sample_rate: int) -> Biomarkers | None:
         """Return a reading, or ``None`` when the audio cannot support one."""
-        ...
 
 
 class _StrainConfig(Protocol):

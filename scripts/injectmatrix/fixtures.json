@@ -233,7 +233,7 @@
         "url-path",
         "punctuation"
       ],
-      "text": "مسیر:\nC:\\Users\\test\\سند.txt\n~/پروژه/main.py",
+      "text": "مسیر:\nC:\\Users\\user\\سند.txt\n~/پروژه/main.py",
       "source": "synthetic",
       "why": "A Windows path with backslashes and a Persian file name, then a home-relative path with a Persian directory."
     },

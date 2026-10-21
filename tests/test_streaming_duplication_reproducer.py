@@ -204,7 +204,7 @@ def test_the_model_selects_the_prefix_under_a_fixed_timeout(x11_linux_injector, 
     try:
         stream.commit(final)
     except subprocess.TimeoutExpired:
-        pass
+        pass  # the modelled timeout is the point: the assertions below inspect the damage
     prefix = "KEEP THIS. "
     deleted = not screen.text.startswith(prefix)
     selected = screen.anchor is not None and min(screen.anchor, screen.cursor) < len(prefix)

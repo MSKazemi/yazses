@@ -33,6 +33,11 @@ def test_only_the_first_end_of_options_counts():
     ]
 
 
+
+def _raise(exc: BaseException) -> None:
+    """Raise *exc* from a call, as the injectors' subprocess helpers do."""
+    raise exc
+
 @pytest.mark.parametrize(
     "exc",
     [
@@ -44,7 +49,7 @@ def test_only_the_first_end_of_options_counts():
 def test_the_same_exception_propagates_without_the_text(exc):
     with pytest.raises(type(exc)) as caught:
         with hide_payload():
-            raise exc
+            _raise(exc)
 
     assert caught.value is exc, "a new exception would break `except` clauses and chaining"
     for rendered in (str(exc), repr(exc), repr(exc.args), str(exc.cmd)):
@@ -58,7 +63,7 @@ def test_other_exceptions_pass_through_untouched():
     err = FileNotFoundError(2, "No such file or directory", "wtype")
     with pytest.raises(FileNotFoundError) as caught:
         with hide_payload():
-            raise err
+            _raise(err)
     assert caught.value is err
     assert caught.value.filename == "wtype"
 
@@ -66,6 +71,6 @@ def test_other_exceptions_pass_through_untouched():
 def test_the_return_code_survives():
     with pytest.raises(subprocess.CalledProcessError) as caught:
         with hide_payload():
-            raise subprocess.CalledProcessError(3, ["wl-copy", "--", "x"])
+            _raise(subprocess.CalledProcessError(3, ["wl-copy", "--", "x"]))
     assert caught.value.returncode == 3
     assert "exit status 3" in str(caught.value)

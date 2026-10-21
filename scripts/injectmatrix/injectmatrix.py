@@ -285,7 +285,7 @@ def _linux_pretty_name() -> str:
             if line.startswith("PRETTY_NAME="):
                 return line.split("=", 1)[1].strip().strip('"')
     except OSError:
-        pass
+        pass  # no /etc/os-release (not Linux, or a minimal container): report no name
     return ""
 
 
@@ -430,8 +430,11 @@ def validate_result(doc: Any, fixtures: list[Fixture] | None = None) -> list[str
                 problems.append(f"{where} expected_code_points differ from the shipped fixture")
         # Only the receiver's own self-test can excuse a mismatch: an entry that is
         # absent or true means the window held this text, so the backend is judged.
-        receiver_ok = not (isinstance(selftest, dict) and selftest.get(fid) is False)
-        recomputed = compare(expected, received, receiver_ok=receiver_ok).verdict
+        recomputed = compare(
+            expected,
+            received,
+            receiver_ok=not (isinstance(selftest, dict) and selftest.get(fid) is False),
+        ).verdict
         if verdict in CODEPOINT_VERDICTS and recomputed != verdict:
             why = (" (receiver_selftest does not mark this fixture as one the receiver"
                    " cannot hold)" if verdict == "RECEIVER_LIMIT" else "")
@@ -556,7 +559,7 @@ def render_matrix(results: list[dict[str, Any]]) -> str:
            "Visual-layout failures (file each as a bidi-layout issue, separately):",
            *(layout or ["- none"]), "",
            "Receiver limits (the target window could not hold the text even when inserted"
-           " directly; not a backend failure, do not file -- re-run with another target):",
+           + " directly; not a backend failure, do not file -- re-run with another target):",
            *(limits or ["- none"])]
     return "\n".join(out) + "\n"
 
