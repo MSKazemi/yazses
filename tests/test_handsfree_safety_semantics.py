@@ -705,9 +705,15 @@ def test_speech_only_dictation_does_not_consult_the_hands_free_gate():
             for n in ast.walk(fn)
         )
     }
+    # `_build_vocaljoystick` is the one microphone-driven reader, recorded here on purpose
+    # (#164): it hands the Vocal Joystick the gate's `user_paused` flag *only*, so a face
+    # switch's or a chord's pause also closes that mic. It is not a gate source -- it never
+    # samples, gates, arms or resumes (the R-24 inventory above stays unchanged) -- and
+    # dictation still never reads the gate.
     assert mentioning == {
         "_build_pipeline", "_build_face_gesture_source", "_build_headpointer", "_build_gesture",
         "_handsfree_payload", "_handle_handsfree", "shutdown", "_shutdown",
+        "_build_vocaljoystick",
     }
     for dictation in ("_on_hold_start", "_on_hold_end", "_on_command_hold_start",
                       "_on_command_hold_end"):

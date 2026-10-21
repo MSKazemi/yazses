@@ -99,8 +99,6 @@ KNOWN_UNREAD = {
     "StreamingConfig.partial_marker",
     "TablecsvConfig.delimiter",
     "TrayConfig.poll_interval_s",
-    "VocaljoystickConfig.click_pitch",
-    "VocaljoystickConfig.max_speed",
     "VoiceprintConfig.profile_min_similarity",
     "WakewordConfig.keyword",
 }

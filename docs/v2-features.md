@@ -258,7 +258,7 @@ phonate but not articulate discrete words, and for word-free eyes-free control.
 
 | Feature | `features` name | What it does |
 |---|---|---|
-| ◌ **Vocal Joystick** | `vocaljoystick` | Continuous analog cursor control by sustaining vowels ("eee"→up, louder=faster, pitch-jump=click). Experimental. |
+| **Vocal Joystick** | `vocaljoystick` | Continuous analog cursor control by sustaining vowels ("eee"→up-left, "ooo"→up-right, "ahh"→down-right, louder=faster, a held pitch jump=click). Armed by `yazses handsfree resume`, stopped by `yazses handsfree pause` or the stop phrase; the microphone is open only while armed. Thresholds tuned on synthetic signals only. Experimental. |
 | **Earcon Feedback** | `earcon` | Non-speech state tones (rising motif = recording, buzz = low confidence) — eyes-free, faster than read-back. |
 | ◌ **Beam-Steered Spatial VAD** | `spatialvad` | With 2 mics, gates out sound not from your seat by its arrival direction (pure-numpy GCC-PHAT). |
 | **Prosodic Auto-Punctuation** | `prosodypunct` | Inserts periods and commas from the pauses in how you speak — no need to say "comma". Fills gaps only; punctuation the recognizer already wrote is kept. |

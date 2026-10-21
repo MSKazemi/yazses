@@ -617,8 +617,10 @@ def _registry() -> list[_Def]:
              lambda c: c.prosodypunct.enabled, pp_on, pp_off),
         _Def("vocaljoystick", "Vocal Joystick", "[vocaljoystick] — analog cursor control by voice",
              EXPERIMENTAL,
-             "Continuous cursor/scroll control by sustaining vowels — 'ahh' right, 'eee' up, louder "
-             "= faster, pitch-jump = click. No words. For severe motor impairment. Off by default.",
+             "Continuous cursor control by sustaining vowels — 'eee' up-left, 'ooo' up-right, 'ahh' "
+             "down-right, louder = faster, a held pitch jump = click. No words. Armed by `yazses "
+             "handsfree resume`, stopped by `handsfree pause`; thresholds tuned on synthetic "
+             "signals only. For severe motor impairment. Off by default.",
              lambda c: c.vocaljoystick.enabled, vj_on, vj_off),
         _Def("earcon", "Earcon Feedback", "[earcon] — non-speech state tones", OPTIONAL,
              "Tiny structured tones signal daemon state eyes-free (rising motif = recording, buzz = "
@@ -1229,8 +1231,7 @@ _UNWIRED: frozenset[str] = frozenset({
     "codec", "compose", "crowdproof", "hatselect",
     "interpret", "langroute", "lipread", "loadguard", "morsevox", "mousegrid", "mouthswitch",
     "multiprofile", "pilot", "predict", "pronunciation", "proofback", "rag", "readback_clone",
-    "screengrounded", "scribe", "scrub", "sentiment", "sign", "spatialvad", "vocaljoystick",
-    "wakeword",
+    "screengrounded", "scribe", "scrub", "sentiment", "sign", "spatialvad", "wakeword",
 })
 
 
@@ -1310,7 +1311,7 @@ _EXAMPLES: dict[str, str] = {
     "contour": "Hum a rising note to confirm, a falling one to cancel — no words.",
     "spatialvad": "A colleague talks beside you and it's gated out by direction.",
     "prosodypunct": "Speak naturally and the periods and commas appear on their own.",
-    "vocaljoystick": "Hum 'eee' and the cursor glides up — louder moves it faster.",
+    "vocaljoystick": "Hum 'eee' and the cursor glides up and to the left — louder moves it faster.",
     "earcon": "A rising two-note beep tells you recording started, no glance needed.",
     "voicetimer": "Say 'set a timer for 25 minutes' — it reminds you, fully offline.",
     "focusprofile": "Move from your editor to a terminal and the grammar follows.",

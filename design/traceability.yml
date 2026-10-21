@@ -126,18 +126,6 @@ entries:
       task: "WIRE-HATSELECT-001"
       milestone: 9
     remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
-  - id: "capability:hesitation"
-    kind: capability
-    title: "Hesitation-Hold Endpointing"
-    source: "design/adr/adr-v2-101-hesitation-hold-endpointing.md"
-    decision_status: accepted
-    delivery_status: designed
-    tracking:
-      kind: campaign
-      issues: [164]
-      task: "WIRE-HESITATION-001"
-      milestone: 9
-    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
   - id: "capability:interpret"
     kind: capability
     title: "Two-Way Interpreter"
@@ -196,18 +184,6 @@ entries:
       kind: campaign
       issues: [164]
       task: "WIRE-MORSEVOX-001"
-      milestone: 9
-    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
-  - id: "capability:mousegrid"
-    kind: capability
-    title: "Voice Mouse Grid"
-    source: "design/adr/adr-v2-030-voice-mouse-grid.md"
-    decision_status: accepted
-    delivery_status: designed
-    tracking:
-      kind: campaign
-      issues: [164]
-      task: "WIRE-MOUSEGRID-001"
       milestone: 9
     remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
   - id: "capability:mouthswitch"
@@ -376,30 +352,6 @@ entries:
       kind: campaign
       issues: [164]
       task: "WIRE-SPATIALVAD-001"
-      milestone: 9
-    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
-  - id: "capability:vocaljoystick"
-    kind: capability
-    title: "Vocal Joystick"
-    source: "design/adr/adr-v2-095-vocal-joystick.md"
-    decision_status: accepted
-    delivery_status: designed
-    tracking:
-      kind: campaign
-      issues: [164]
-      task: "WIRE-VOCALJOYSTICK-001"
-      milestone: 9
-    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
-  - id: "capability:voicehealth"
-    kind: capability
-    title: "Vocal-Strain Guard"
-    source: "design/adr/adr-v2-034-vocal-strain-guard.md"
-    decision_status: accepted
-    delivery_status: designed
-    tracking:
-      kind: campaign
-      issues: [164]
-      task: "WIRE-VOICEHEALTH-001"
       milestone: 9
     remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
   - id: "capability:wakeword"
