@@ -219,8 +219,10 @@ def _registry() -> list[_Def]:
     # Voice Guard compares each burst with the voiceprint `[voiceprint]` loads, so
     # enabling it alone would leave an inert guard; disabling it leaves `[voiceprint]`
     # alone, since Cocktail Filter and voice profiles read it too.
-    vg_on = (("voiceguard", "enabled", "true", False), ("voiceprint", "enabled", "true", False))
-    vg_off = (("voiceguard", "enabled", "false", False),)
+    # Only its own key, as cocktail does: `[voiceprint]` is shared (cocktail, multi-profile),
+    # so a disable that switched it off would silently break them, and an enable that set it
+    # could not be undone. inactive_reason() names the missing [voiceprint] step instead.
+    vg_on, vg_off = _bool("voiceguard")
     sc_on, sc_off = _bool("scribe")
     rg_on, rg_off = _bool("rag")
     cd_on, cd_off = _bool("codec")
@@ -1041,7 +1043,7 @@ _Def("chords", "Chorded Shortcut Synthesis", "[chords] — any keyboard shortcut
              "match your enrolled voiceprint (`yazses enroll-voice`). Speaker match only: no "
              "anti-spoof model ships, so a recording of your voice is still admitted. Threshold "
              "tuned on synthetic signals only; false-reject risk. Off by default.",
-             lambda c: c.voiceguard.enabled and c.voiceprint.enabled, vg_on, vg_off),
+             lambda c: c.voiceguard.enabled, vg_on, vg_off),
         _Def("bridge", "Glasses↔Desktop Bridge", "[bridge] — phone/glasses mic, experimental", EXPERIMENTAL,
              "Dictate from a paired phone/glasses; the desktop does STT + typing. "
              "Reuses the remote transport; local link only. Experimental. Off by default.",
@@ -1760,7 +1762,8 @@ def inactive_reason(slug: str, cfg) -> str:
         return (
             "Your config says [voiceguard] enabled = true, but Voice Guard is not active: "
             "it compares each burst with your enrolled voiceprint, and [voiceprint] "
-            "enabled is false. Enabling Voice Guard sets both."
+            "enabled is false. Set [voiceprint] enabled = true in your config, then run "
+            "`yazses enroll-voice`."
         )
     if (slug or "").strip().lower() != "hotwords":
         return ""

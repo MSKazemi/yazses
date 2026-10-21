@@ -15,8 +15,8 @@ experimental, and every threshold in them was tuned on synthetic signals, not on
 
 - **Voice Guard** (`[voiceguard]`): with an enrolled voiceprint, a dictation burst whose speaker
   does not match is refused before it is transcribed. It checks the speaker only; there is no
-  anti-spoof model yet, so a recording of your voice gets through. Enabling it also turns on
-  `[voiceprint]`. When the guard cannot judge (no voiceprint, no embedder, a voiceprint enrolled
+  anti-spoof model yet, so a recording of your voice gets through. It needs `[voiceprint]`
+  enabled and an enrolled voiceprint (`yazses enroll-voice`); `features enable` says so. When the guard cannot judge (no voiceprint, no embedder, a voiceprint enrolled
   with a different backend), it says so once in the daemon log and in `yazses doctor`, and lets
   bursts through rather than refusing everything.
 - **Hesitation-Hold** (`[hesitation]`, needs `[autostop]`): a held "uhh…" makes a hands-free turn

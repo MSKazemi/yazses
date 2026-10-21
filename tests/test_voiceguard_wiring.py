@@ -349,22 +349,32 @@ def test_simple_namespace_config_without_sections_is_inactive():
 
 # --- the feature registry: the toggle must not lie -----------------------------------------
 
-def test_enable_writes_voiceprint_too_and_disable_leaves_it():
-    from yazses.system.features import find_feature
+def test_the_toggle_writes_only_its_own_section_and_the_caveat_names_the_rest():
+    """`[voiceprint]` is shared with cocktail and multi-profile: writing it on enable could
+    not be undone on disable without silently breaking them, so the toggle leaves it alone
+    and the caveat tells the user the extra step instead."""
+    from yazses.system.features import enable_caveat, find_feature
 
     feat = find_feature(Config(), "voiceguard")
     assert feat is not None
-    assert ("voiceprint", "enabled", "true", False) in feat.on_writes
+    assert all(w[0] == "voiceguard" for w in feat.on_writes)
     assert all(w[0] == "voiceguard" for w in feat.off_writes)
+    from yazses.system.features import inactive_reason as registry_reason
+
+    on_without_voiceprint = replace(Config(), voiceguard=replace(Config().voiceguard, enabled=True))
+    reason = registry_reason("voiceguard", on_without_voiceprint)
+    assert "[voiceprint] enabled = true" in reason and "yazses enroll-voice" in reason
+    assert enable_caveat("voiceguard", on_without_voiceprint)  # still warns at enable time
 
 
-def test_listing_shows_off_with_a_reason_while_voiceprint_is_off():
+def test_listing_shows_a_reason_while_voiceprint_is_off():
     from yazses.system.features import find_feature
     from yazses.system.features import inactive_reason as registry_reason
 
     cfg = replace(_cfg(), voiceprint=VoiceprintConfig())
     feat = find_feature(cfg, "voiceguard")
-    assert feat is not None and not feat.on
+    # Switched on, as `features enable` promises; the reason column says why it is idle.
+    assert feat is not None and feat.on
     on = find_feature(_cfg(), "voiceguard")
     assert on is not None and on.on
     assert "[voiceprint]" in registry_reason("voiceguard", cfg)
