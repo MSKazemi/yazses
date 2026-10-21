@@ -4,10 +4,10 @@
 runs :func:`yazses.audio.pitch.track` over a finished hold-to-talk burst and hands the voiced F0
 to the core.
 
-**A decision the ADR does not contain, and must ratify before this is wired.** ADR-v2-103 says
+**A decision the original ADR did not contain** (recorded in its 2026-10-21 amendment). It says
 how to classify a hum, not how to tell a hum from dictation. Every voiced word has an F0
 contour — a spoken "no" falls — so classifying every burst would turn ordinary speech into
-commands. :func:`is_nonword_voiced_burst` is the proposed gate, and it fires only on a specific,
+commands. :func:`is_nonword_voiced_burst` is the gate, and it fires only on a specific,
 checkable signal (AGENTS.md rule 9), both halves required:
 
 * **the transcript is empty or only hum spellings** (``hmm``, ``mm``, ``mhm``, ``uh``, ``um``,
@@ -19,13 +19,12 @@ checkable signal (AGENTS.md rule 9), both halves required:
   (within ``ACTIVE_DB`` of its loud part) carry a pitch, and at least ``min_voiced_ms`` of them do.
   A hum is continuously voiced; a cough, a breath or a click is not.
 
-Two consequences the owner should weigh: the default map sends a *flat* hum to ``repeat``, so a
-lone thinking "hmm" during dictation would fire it unless ``min_voiced_ms`` is long enough to
-separate a deliberate hum from a short one (the default 400 ms is a guess, not a measurement);
-and the #598 speech-presence check runs before transcription and may discard a hum outright,
-so the wiring must decide its order relative to that check.
+The two open points the owner decided on 2026-10-21: a *flat* hum is unmapped by default, so a
+lone thinking "hmm" does nothing; and with ``[contour]`` on the hum check runs before the #598
+speech-presence discard, so a hum is not thrown away first (:mod:`yazses.contour.wiring`). The
+thresholds here were checked on synthetic tones only, not on recorded hums.
 
-Not wired: nothing calls this yet, and ``[contour]`` stays off by default.
+Wired through :mod:`yazses.contour.wiring`; ``[contour]`` stays off by default.
 """
 from __future__ import annotations
 
@@ -90,7 +89,7 @@ def is_nonword_voiced_burst(transcript: str | None, frames: Sequence[PitchFrame]
                             min_voiced_fraction: float = MIN_VOICED_FRACTION,
                             min_voiced_ms: float = MIN_VOICED_MS,
                             hop_ms: float = HOP_MS) -> bool:
-    """The proposed gate: a hum-only transcript *and* mostly-voiced audio. Pure."""
+    """The non-word gate: a hum-only transcript *and* mostly-voiced audio. Pure."""
     return is_hum_transcript(transcript) and is_mostly_voiced(
         frames, min_voiced_fraction=min_voiced_fraction, min_voiced_ms=min_voiced_ms,
         hop_ms=hop_ms,

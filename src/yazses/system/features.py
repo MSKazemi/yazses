@@ -596,7 +596,8 @@ def _registry() -> list[_Def]:
         _Def("contour", "Pitch-Contour Gestures", "[contour] — hum a shape to run a command",
              EXPERIMENTAL,
              "Hum a pitch shape as a word-free command: rising = confirm, falling = cancel, rise-fall "
-             "= undo. Language-independent, works in noise. Off by default.",
+             "= undo; a flat hum does nothing. Fires only on an empty or hum-only transcript of "
+             "mostly-voiced audio, with thresholds tuned on synthetic tones only. Off by default.",
              lambda c: c.contour.enabled, cg_on, cg_off),
         _Def("spatialvad", "Beam-Steered Spatial VAD", "[spatialvad] — 2-mic direction gate", OPTIONAL,
              "With a stereo/2-mic input, drops any sound not coming from your seat (a TV, a "
@@ -1218,7 +1219,7 @@ def feature_packages(slug: str) -> tuple[str, ...]:
 # without wiring it fails CI.
 _UNWIRED: frozenset[str] = frozenset({
     "affect", "agent", "audioguard", "breath", "bridge", "cmdspotter",
-    "codec", "compose", "contour", "crowdproof", "hatselect", "hesitation",
+    "codec", "compose", "crowdproof", "hatselect", "hesitation",
     "interpret", "langroute", "lipread", "loadguard", "morsevox", "mousegrid", "mouthswitch",
     "multiprofile", "pilot", "predict", "pronunciation", "proofback", "rag", "readback_clone",
     "screengrounded", "scribe", "scrub", "sentiment", "sign", "spatialvad", "vocaljoystick",

@@ -33,7 +33,7 @@ It stays listed so contributors can pick it up; see the matching design/adr/ ent
 ```
 
 They stay listed because that is where a contributor picks one up — each has a matching
-`design/adr/` entry. **35 of the 122 rows below are ◌ today.** Rows without the mark are
+`design/adr/` entry. **34 of the 122 rows below are ◌ today.** Rows without the mark are
 wired and can be turned on.
 
 ### "Hold the command key" — what that means
@@ -263,7 +263,7 @@ phonate but not articulate discrete words, and for word-free eyes-free control.
 | ◌ **Beam-Steered Spatial VAD** | `spatialvad` | With 2 mics, gates out sound not from your seat by its arrival direction (pure-numpy GCC-PHAT). |
 | **Prosodic Auto-Punctuation** | `prosodypunct` | Inserts periods and commas from the pauses in how you speak — no need to say "comma". Fills gaps only; punctuation the recognizer already wrote is kept. |
 | ◌ **Hesitation-Hold Endpointing** | `hesitation` | Holds the turn open on filled pauses ("uhh…") instead of cutting you off. |
-| ◌ **Pitch-Contour Gestures** | `contour` | Hum a shape — rise=confirm, fall=cancel, rise-fall=undo. Word-free. Experimental. |
+| **Pitch-Contour Gestures** | `contour` | Hum a shape — rise=confirm, fall=cancel, rise-fall=undo; a flat hum does nothing. Word-free, and only on an empty or hum-only transcript. Tuned on synthetic tones only. Experimental. |
 | ◌ **Breath-Paced Dictation** | `breath` | Segments dictation by your natural breath groups, not silence. |
 | **Whisper-Aware Mode** | `whispermode` | Detects whispered speech (no fundamental frequency — pure DSP, no model). With `command_channel` (default on): *whisper* a phrase and it runs as a command, speak normally and it types — a hands-free, socially-silent mode switch on a plain microphone. |
 | ◌ **Mouth-Sound Switch Access** | `mouthswitch` | Non-verbal mouth sounds drive a scan-and-select selector (AAC switch access). Experimental. |
