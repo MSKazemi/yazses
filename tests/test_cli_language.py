@@ -120,8 +120,11 @@ def test_language_status_json_is_stable_and_machine_readable(tmp_path):
         "command_support": "available",
         "custom_model": False,
         "dictation_ready": True,
+        "effective_model": "small",
         "engine": "faster-whisper",
+        "language_support": "supported",
         "model": "small",
+        "multilingual": True,
         "output_script": "traditional",
         "problems": [],
         "profile_match": "zh-TW",
@@ -131,6 +134,7 @@ def test_language_status_json_is_stable_and_machine_readable(tmp_path):
             "script_dependency_available": True,
         },
         "speech_language": "zh",
+        "support_source": "https://github.com/openai/whisper#available-models-and-languages",
         "warnings": [],
     }
 

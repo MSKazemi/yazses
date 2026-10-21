@@ -59,9 +59,14 @@ class ParakeetEngine:
         self._warned_translate = False
         # Parakeet TDT 0.6B v2 is English-only, so `[stt] language` has nothing to
         # act on here. Say so rather than letting a user who set language = "de"
-        # assume it took effect (system/backends.py honesty rule).
+        # assume it took effect (system/backends.py honesty rule). Asked of the
+        # cited capability table (#515) so a multilingual Parakeet checkpoint is
+        # not told it is English-only; `stt/factory.py` refuses the unsupported
+        # pairing before this constructor runs, so this line is for direct callers.
+        from yazses.language.capability import check
+
         language = (getattr(config, "language", "en") or "").strip()
-        if language and language.lower() != "en":
+        if check("parakeet", model_name, language).verdict == "unsupported":
             log.warning(
                 "[stt] language = %r is ignored by the Parakeet engine, which is "
                 "English-only. Fix: set [stt] engine = \"faster-whisper\" with a "

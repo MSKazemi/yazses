@@ -56,11 +56,18 @@ def _build_engine(config, stt=None):
     factory applies them, but judged against the *file's* model and language.
     """
     from yazses.stt.decoder_settings import file_decoder_settings
+    from yazses.stt.factory import refuse_unsupported_language
     from yazses.stt.faster_whisper import FasterWhisperEngine
 
     settings = file_decoder_settings(stt, config)
     for problem in settings.problems:
         log.warning("[transcribe] %s", problem)
+    # An English-only checkpoint answers foreign speech with fluent English nonsense
+    # rather than an error. Refused before the model loads (#515), by the same function
+    # the daemon's factory calls, because two copies of the rule would drift. Raises
+    # `LanguageUnsupportedError`, a `ModelUnavailableError`, which every caller of this
+    # builder already has to handle for a missing model.
+    refuse_unsupported_language("faster-whisper", settings.model, settings.language)
     engine = FasterWhisperEngine(
         model_name=settings.model,
         device=settings.device,

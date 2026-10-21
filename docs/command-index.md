@@ -457,7 +457,7 @@ Switch dictation language through the shared transactional service.
 
 ### `yazses language status`
 
-Show the effective speech language, Han script, model, and profile coherence.
+Show the speech language, Han script, engine/model, multilingual support, and coherence.
 
 - `--json` — Emit a machine-readable status object.
 

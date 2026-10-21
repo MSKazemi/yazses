@@ -131,7 +131,7 @@ def language_status(
         help="Emit a machine-readable status object.",
     ),
 ) -> None:
-    """Show the effective speech language, Han script, model, and profile coherence."""
+    """Show the speech language, Han script, engine/model, multilingual support, and coherence."""
     import json
 
     from yazses.config import load_config
@@ -171,6 +171,12 @@ def language_status(
         "command_support": command_support,
         "engine": status.engine,
         "model": status.model,
+        # #515: the checkpoint that would actually load, whether it is multilingual
+        # (null = a custom checkpoint with no language data), and the cited verdict.
+        "effective_model": status.effective_model,
+        "multilingual": status.multilingual,
+        "language_support": status.language_support,
+        "support_source": status.support_source,
         "profile_match": status.profile_match,
         "custom_model": status.custom_model,
         "coherent": status.coherent,
@@ -195,6 +201,20 @@ def language_status(
         typer.echo(f"Speech:        {speech}")
         typer.echo(f"Script:        {script}")
         typer.echo(f"STT:           {status.engine} / {status.model}")
+        if status.effective_model and status.effective_model != status.model:
+            typer.echo(f"Loads:         {status.effective_model} ({status.engine} default)")
+        multilingual = {True: "yes", False: "no (English-only)", None: "unknown"}[
+            status.multilingual
+        ]
+        typer.echo(f"Multilingual:  {multilingual}")
+        support = {
+            "supported": "supported",
+            "unsupported": "NOT SUPPORTED — dictation is refused",
+            "unknown": "unverified (custom checkpoint)",
+        }.get(status.language_support, status.language_support)
+        if status.support_source:
+            support += f"  [source: {status.support_source}]"
+        typer.echo(f"Language fit:  {support}")
         typer.echo(f"Profile match: {profile}")
         typer.echo(
             f"Model cache:   {'ready' if model_cached else 'missing'}"
@@ -7939,9 +7959,17 @@ def transcribe(
     # load and the file decode falls back.
     from yazses.recimport.pipeline import _build_engine
     from yazses.stt.decoder_settings import file_decoder_settings
+    from yazses.stt.errors import LanguageUnsupportedError
 
     typer.echo(f"Loading model '{file_decoder_settings(cfg.stt, eff).model}'…", err=True)
-    engine = _build_engine(eff, stt=cfg.stt)
+    try:
+        engine = _build_engine(eff, stt=cfg.stt)
+    except LanguageUnsupportedError as exc:
+        # Refused, not transcribed as English (#515): a transcript of Persian audio
+        # written in fluent English is the output nobody can tell is wrong.
+        typer.echo(str(exc), err=True)
+        typer.echo("Pass --model with a multilingual checkpoint, e.g. --model small.", err=True)
+        raise typer.Exit(2) from None
 
     # Speaker naming: parse explicit maps; load the enrolled voiceprint (→ "You").
     name_list = [n.strip() for n in names.split(",")] if names else None

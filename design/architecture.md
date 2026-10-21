@@ -591,6 +591,7 @@ OpenCC, Qt or Mandarin grammar module.
 |---|---|
 | `profiles.py` | The P1 profile table and alias resolution (pure) |
 | `plan.py` | `resolve_profile(...) -> LanguagePlan` — the minimal `[stt]` mutations (engine, model, language, chinese_script), preserve-first or `recommended`, plus the command grammar before/after and warnings (pure) |
+| `capability.py` | **Language/model compatibility table** (#515). Pure data: for every checkpoint YazSes knows by name (the faster-whisper names are exactly `stt/download.WHISPER_MODELS`; Parakeet v2/v3; Moonshine tiny/base), the language codes it transcribes plus a cited source URL and quoted evidence. A row without a source is marked `verified=False` and never refuses anything. `check(engine, model, language)` resolves the checkpoint that would actually load (an unknown engine is faster-whisper; Parakeet/Moonshine ignore a Whisper name) and answers `supported` / `unsupported` / `unknown`. That one answer is used by `stt/download.language_model_problem` (and so Settings and `yazses language set`), by `configcheck.language_pairing_problems`, by `stt/factory.refuse_unsupported_language` and by doctor's **Speech language** row. Tests hold the table equal to `WHISPER_MODELS`, faster-whisper's language codes and the engines' `DEFAULT_MODEL`s |
 | `status.py` | `derive_status(cfg)` — profile match, coherence problems, and the Tier-1 command grammar resolved by `commands/grammars/registry.resolve_command_language`, the resolver the daemon calls. An explicit `[commands] language` that contradicts speech is a *warning*, not incoherence (pure) |
 | `service.py` | The one side-effect ordering shared by CLI and Settings: stable snapshot -> resolve -> prerequisite preflight -> optional install/download -> `system/configedit.set_config_keys_atomic`. Its `validate` hook (`committed_candidate_validator`) re-reads the temporary candidate **through `load_config_checked`** and refuses the replace unless `[stt]` is exactly the plan, no other section changed, and the result derives as the requested profile |
 | `settingsui/language_view.py` | The Settings row as a Qt-free view-model: profile choices from the registry, staged-change hint and the download/install question, all rendered from the same `PreparedLanguageChange` the CLI previews |
@@ -599,6 +600,13 @@ Invariant: a high-level switch is all-or-nothing. Speech language, model compati
 (with `[commands] language = "auto"`) the command grammar move in one atomic write, or the original file stays
 byte-for-byte. Injection keys are not owned by a profile: the injector receives Unicode text either way (target
 architecture §12). `yazses doctor`, `yazses language status` and Settings read the same `derive_status`.
+
+Invariant (#515): a `[stt] language` that the resolved engine/model cannot transcribe, according to a *cited*
+`capability.py` row, is never decoded. The config loader reports it (`ConfigProblem.refused`), Settings refuses
+to write it, and `stt/factory.py` raises `LanguageUnsupportedError` before any model loads. That error subclasses
+`ModelUnavailableError`, so the daemon holds in ERROR state with a toast. It is the one exception to the factory's
+fall-back-and-stay-up rule, because every fallback ends on an English-only checkpoint. An `unknown` verdict (custom
+checkpoint) is only reported.
 
 ### `src/yazses/tts/`
 

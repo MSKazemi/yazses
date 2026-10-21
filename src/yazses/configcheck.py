@@ -29,7 +29,7 @@ from dataclasses import dataclass
 
 from yazses.facegesture.detector import gesture_names as _gesture_names
 
-__all__ = ["ConfigProblem", "build_section", "coerce_value"]
+__all__ = ["ConfigProblem", "build_section", "coerce_value", "language_pairing_problems"]
 
 _TRUE = {"true", "yes", "on", "1"}
 _FALSE = {"false", "no", "off", "0"}
@@ -43,6 +43,10 @@ class ConfigProblem:
     key: str
     detail: str
     repaired: bool  # True = value salvaged; False = default used, or key dropped
+    #: The value was kept as written, but what it asks for is refused at runtime
+    #: (#515: a language the engine/model cannot transcribe). `repaired` is False:
+    #: the setting the user believes is applied is not, which is a FAIL in doctor.
+    refused: bool = False
 
     def __str__(self) -> str:
         where = f"[{self.section}] {self.key}" if self.key else f"[{self.section}]"
@@ -500,3 +504,51 @@ def _name(value) -> str:
 
 def _type_name(tp) -> str:
     return getattr(tp, "__name__", str(tp))
+
+
+def language_pairing_problems(config) -> list[ConfigProblem]:
+    """Why ``[stt] language`` cannot be transcribed by the configured engine/model. Pure.
+
+    A cross-field check, so it cannot live in :func:`build_section`: ``language`` and
+    ``model`` are each valid alone, and only the pair is impossible. The verdict comes
+    from `language/capability.py`, the same cited table `stt/factory.py` refuses on, so
+    `doctor` and the config log name the line the daemon will refuse — before the
+    user dictates Persian and gets English. Nothing is rewritten: silently swapping
+    ``base.en`` for a 460 MB multilingual model is a download the user did not ask
+    for. Only a *cited* incompatibility is reported; a custom checkpoint is not.
+
+    ``[latency] light_model`` is checked too when the governor is on: it is built
+    through the same factory, which refuses it, so under load the governor keeps the
+    base model — correct, but the user should know the setting is inert.
+    """
+    try:
+        from yazses.language.capability import check, resolve_engine
+    except Exception:  # pragma: no cover - a check must never stop the daemon starting
+        return []
+    stt = getattr(config, "stt", None)
+    if stt is None:
+        return []
+    language = getattr(stt, "language", "en")
+    out: list[ConfigProblem] = []
+    support = check(getattr(stt, "engine", ""), getattr(stt, "model", ""), language)
+    if support.verdict == "unsupported":
+        key = "model" if resolve_engine(getattr(stt, "engine", "")) == "faster-whisper" else "engine"
+        out.append(ConfigProblem(
+            "stt", key,
+            f"{support.reason} Dictation is refused until this is fixed; "
+            "`yazses language status` shows the pairing",
+            repaired=False, refused=True,
+        ))
+        return out  # the light model cannot matter while the base pairing is refused
+    latency = getattr(config, "latency", None)
+    if latency is not None and getattr(latency, "enabled", False):
+        light = getattr(latency, "light_model", "") or ""
+        light_support = check(getattr(stt, "engine", ""), light, language)
+        if light and light_support.verdict == "unsupported":
+            out.append(ConfigProblem(
+                "latency", "light_model",
+                f"{light_support.reason} The latency governor will keep using "
+                "[stt] model under load instead of switching to it",
+                repaired=False, refused=True,
+            ))
+    return out
