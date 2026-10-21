@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterable
 
+from yazses import tomlio
 from yazses.system.single_instance import SingleInstanceLock
 
 #: The escapes a TOML basic string requires. Anything else below U+0020 has no literal
@@ -281,8 +282,10 @@ def set_config_keys_atomic(
                 )
             )
 
-        # Parse the complete candidate before the target path becomes visible.
-        tomllib.loads(temp_path.read_text(encoding="utf-8-sig"))
+        # Parse the complete candidate before the target path becomes visible. Through
+        # `tomlio` rather than `tomllib` directly: a value nested past the recursion limit
+        # must surface as the `TOMLDecodeError` callers handle, not as `RecursionError`.
+        tomlio.loads(temp_path.read_text(encoding="utf-8-sig"))
         if validate is not None:
             validate(temp_path)
 
@@ -360,7 +363,8 @@ def set_config_table_array(path, name: str, entries: Iterable[Iterable[tuple[str
         original = p.read_text(encoding="utf-8-sig") if p.exists() else ""
         candidate = _replace_table_array(original, name, planned)
         try:
-            tomllib.loads(candidate)
+            # `tomlio`, so deep nesting is this `TOMLDecodeError`, not a `RecursionError`.
+            tomlio.loads(candidate)
         except tomllib.TOMLDecodeError as exc:
             raise ValueError(
                 f"[[{name}]] could not be written without breaking the config ({exc}); "
