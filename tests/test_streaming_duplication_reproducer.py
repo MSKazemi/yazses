@@ -188,6 +188,12 @@ def test_the_model_selects_the_prefix_under_a_fixed_timeout(x11_linux_injector, 
     fallback replays the *whole* sequence on top of it, and the selection runs past
     the start of the partials into "KEEP THIS. ". Whatever is typed next -- the
     final text, or the user's own next keystroke -- deletes it.
+
+    Whether the commit then *raises* depends on the fallback's own timeout: while
+    `ClipboardInjector`'s key paths had a fixed 10 s too (until QA-004) the replay
+    was killed as well and the commit raised with the prefix still selected; with
+    them scaled the replay completes and the final text types straight over the
+    prefix. The damage is the same either way, so the test asserts the damage.
     """
     injector, screen = x11_linux_injector
     _fixed_ten_second_timeout(monkeypatch)
@@ -195,9 +201,11 @@ def test_the_model_selects_the_prefix_under_a_fixed_timeout(x11_linux_injector, 
     stream = StreamingInjector(injector)
     for piece in partials:
         stream.inject_partial(piece)
-    with pytest.raises(subprocess.TimeoutExpired):
+    try:
         stream.commit(final)
-    assert screen.anchor is not None
-    assert min(screen.anchor, screen.cursor) < len("KEEP THIS. "), (
-        "the correction's selection stayed inside the partials"
-    )
+    except subprocess.TimeoutExpired:
+        pass
+    prefix = "KEEP THIS. "
+    deleted = not screen.text.startswith(prefix)
+    selected = screen.anchor is not None and min(screen.anchor, screen.cursor) < len(prefix)
+    assert deleted or selected, "the correction left the prefix the user kept alone"
