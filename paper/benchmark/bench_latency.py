@@ -8,15 +8,17 @@ Three things:
    Whisper decode. Shows the pipeline adds negligible latency on top of the model.
 4. Resident-set memory (RSS) baseline and per model.
 5. CPU core-seconds (and energy, where a counter is readable) for the model load and for
-   the decode loop, separately -- ``load_cost`` / ``decode_cost`` per model. Method and
-   limits: ``cost_meter.py`` and the "CPU core-seconds and energy" section of the README.
+   the decode loop, separately -- ``load_cost`` / ``decode_cost`` per model, each with
+   one entry per decode (core-seconds, wall, RTF) and validated against
+   ``cost_meter.SCHEMA_VERSION`` before it is written. Method and limits:
+   ``cost_meter.py`` and the "CPU core-seconds and energy" section of the README.
 """
 from __future__ import annotations
 
 import time
 
 import numpy as np
-from cost_meter import CostMeter, default_probes
+from cost_meter import CostMeter, check_record, default_probes
 
 from _common import librispeech_subset, load_audio, percentile
 
@@ -95,7 +97,7 @@ def run(n_latency: int) -> dict:
         with load_meter.span():
             engine = FasterWhisperEngine(model_name=model_name)
         load_s = time.monotonic() - t0
-        load_cost = load_meter.end()
+        load_cost = check_record(load_meter.end())
         rss_after_load = _rss_mb()
 
         decode_ms: list[float] = []
@@ -109,7 +111,7 @@ def run(n_latency: int) -> dict:
             decode_ms.append((time.monotonic() - t) * 1000.0)
             if (i + 1) % 10 == 0:
                 print(f"  {model_name}: {i + 1}/{len(subset)}", flush=True)
-        decode_cost = decode_meter.end()
+        decode_cost = check_record(decode_meter.end())
         rss_peak = _rss_mb()
 
         out["models"][model_name] = {

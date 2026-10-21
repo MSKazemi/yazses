@@ -928,6 +928,19 @@ wait, the "still loading" message now also names the socket or named pipe that s
 UNVERIFIED here (tests use fakes). Separately, `design/adr/README.md` now records that `adr-v2-136..139` were never
 allocated (#524, renumbering artefact).
 
+### Added — per-decode cost records, a versioned cost schema and battery/macOS energy paths (#506)
+
+`paper/benchmark/cost_meter.py` records now carry `schema_version` (`yazses.bench.cost/2`) and are validated before a
+benchmark writes them: an unavailable energy reading must be `null` with a reason, an available one must be positive, and
+`cpu_core_seconds` must equal its parts. Each record lists every decode (core-seconds, wall time, real-time factor) with a
+spread summary, adds a phase RTF, counts the CPU time of exited child processes, and normalises energy to joules per audio-second
+and per utterance. Every energy reading names its `source`, `available` flag and `uncertainty` (a quantisation floor plus the
+unbounded error terms). The battery probe now reads any system battery (not only `BAT*`), skips peripheral batteries, and
+converts charge-only gauges with a flagged approximation; macOS energy is a documented manual `sudo powermetrics` path with a
+log parser tested on synthetic logs only. `paper/benchmark/cost_smoke.py` exercises the instrument on the bundled
+`jfk.wav` from the local model cache only. Run once on one AMD Ryzen 5 PRO 4650U laptop (tiny.en, 5 decodes): RAPL was root-only
+and the battery was charging, so both energy readings were `null` with reasons; that run is not archived and is not a result.
+
 ### Added — benchmark harness can record CPU core-seconds and optional energy (#506)
 
 `paper/benchmark/cost_meter.py` (stdlib only, benchmark-only, off unless a benchmark is run) adds CPU core-seconds per decoded
