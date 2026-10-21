@@ -38,12 +38,19 @@ from typing import Any
 # default profile would leave most of the regexes unreached.
 PROFILES = ("default", "vim", "emacs", "vscode")
 
+# Every registered Tier-1 command language (`commands/grammars/registry.py`). Each has
+# its own rule table and its own `normalise`, so the default ("en") alone leaves the
+# Mandarin grammar -- NFKC, full-width punctuation, Han numerals -- unfuzzed.
+# `tests/test_fuzz_harnesses_still_run.py` fails if this drifts from the registry.
+COMMAND_LANGUAGES = ("en", "zh")
+
 _LOADED: dict[str, Any] = {}
 
 
 def _load() -> dict[str, Any]:
     """Import the pipeline. Must be called inside `atheris.instrument_imports()`."""
     if not _LOADED:
+        from yazses.commands.edit_ops import parse_edit
         from yazses.commands.grammar import classify
         from yazses.config import DisfluencyConfig
         from yazses.postprocess.cleaner import clean_text
@@ -52,6 +59,7 @@ def _load() -> dict[str, Any]:
 
         _LOADED.update(
             classify=classify,
+            parse_edit=parse_edit,
             disfluency_config=DisfluencyConfig(),
             clean_text=clean_text,
             apply_voice_punctuation=apply_voice_punctuation,
@@ -80,6 +88,22 @@ def one_input(text: str) -> None:
         intent = p["classify"](punctuated, profile)
         if intent is None:  # pragma: no cover
             raise TypeError(f"classify returned None for profile {profile!r}")
+
+    # The command-key path. In command mode `_on_hold_end` classifies the *filtered*
+    # text -- before voice punctuation -- in the configured command language, and an
+    # utterance no rule claims may then be read as a spoken edit (`edit_ops`).
+    for language in COMMAND_LANGUAGES:
+        intent = p["classify"](filtered.text, "default", language=language)
+        if intent is None:  # pragma: no cover
+            raise TypeError(f"classify returned None for language {language!r}")
+        if not all(isinstance(v, str) for v in intent.args.values()):  # pragma: no cover
+            raise TypeError(f"classify returned a non-str argument for {language!r}")
+
+    edit = p["parse_edit"](filtered.text)
+    if edit is not None and edit[0] == "delete_words":  # pragma: no cover
+        # A count reaches `delete_last_words` as an int; anything else raises there.
+        if not isinstance(edit[1].get("n"), int):
+            raise TypeError(f"parse_edit returned count {edit[1].get('n')!r}")
 
 
 def test_one_input(data: bytes) -> None:
