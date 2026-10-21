@@ -161,6 +161,37 @@ factory but opens nothing until `start`, which only the refinement runtime calls
   with no `XDG_SESSION_TYPE` is Wayland too — XInput2 on XWayland would otherwise register and see only
   X clients' clicks.
 
+### Windows
+
+`platform/windows/click_observer.py` (#607) installs a `WH_MOUSE_LL` low-level mouse hook on
+a dedicated thread with its own message loop, the shape `platform/windows/hotkey.py` already
+uses. `WM_LBUTTONDOWN`, `WM_RBUTTONDOWN` and `WM_MBUTTONDOWN` each become one
+`ClickEvent(time.monotonic(), x, y)`; wheel, move, button-up and X-button messages produce
+nothing. The event names no button, no window and no text — the value has no field for them —
+and `MSLLHOOKSTRUCT.pt` is read as the hook reports it (primary-origin, negative left/above;
+the DPI factor belongs to the still-missing Windows topology provider, see the module
+docstring). The hook procedure only enqueues and returns `CallNextHookEx` — never `1` — because
+`LowLevelHooksTimeout` (300 ms default) silently removes a slow hook; the callback runs on a
+second thread. `start()` raises `ClickObserverError` naming `GetLastError` when the hook is
+refused. Hermetic tests: `tests/test_click_observer_windows.py`. **No real-Windows evidence
+yet**: a hook has not been installed on a Windows desktop by this code; that smoke report is
+still owed before the refiner is described as working there.
+
+### macOS
+
+As built (#607): `src/yazses/platform/macos/click_observer.py`, `MacClickObserver`, registered as
+`click_observer_factory` in `src/yazses/platform/macos/__init__.py`. A `CGEventTap` created with
+`kCGEventTapOptionListenOnly` on a dedicated daemon thread's run loop, masked to the three
+mouse-down types only; listen-only means it can never swallow, delay or alter a click, and the
+test pins the exact option constant. It emits `ClickEvent(monotonic, x, y)` with the location
+passed through unchanged (CoreGraphics global points are already the ADR-v2-149 space here: main
+display top-left, y down, negative left/above) and emits nothing for mouse-up, motion, scroll or a
+tap-disabled notification, which it answers by re-enabling. It needs the same Input Monitoring +
+Accessibility grants as the dictation key; a NULL tap raises `ClickObserverError` naming both
+panes and `yazses doctor`, so dictation keeps working and the refiner stays dormant with the
+reason surfaced. Live evidence on real hardware is pending: nothing here has run against a real
+`CGEventTapCreate`, and a CI runner's TCC is permissive, so a runner `[OK]` proves nothing.
+
 ## Acceptance criteria
 
 - Low confidence click pair is rejected.
@@ -193,21 +224,3 @@ Report:
 - dock/undock/camera change outcome.
 
 No promotion to recommended implicit calibration without longitudinal field evidence.
-
-## Backends
-
-### Windows
-
-`platform/windows/click_observer.py` (#607) installs a `WH_MOUSE_LL` low-level mouse hook on
-a dedicated thread with its own message loop, the shape `platform/windows/hotkey.py` already
-uses. `WM_LBUTTONDOWN`, `WM_RBUTTONDOWN` and `WM_MBUTTONDOWN` each become one
-`ClickEvent(time.monotonic(), x, y)`; wheel, move, button-up and X-button messages produce
-nothing. The event names no button, no window and no text — the value has no field for them —
-and `MSLLHOOKSTRUCT.pt` is read as the hook reports it (primary-origin, negative left/above;
-the DPI factor belongs to the still-missing Windows topology provider, see the module
-docstring). The hook procedure only enqueues and returns `CallNextHookEx` — never `1` — because
-`LowLevelHooksTimeout` (300 ms default) silently removes a slow hook; the callback runs on a
-second thread. `start()` raises `ClickObserverError` naming `GetLastError` when the hook is
-refused. Hermetic tests: `tests/test_click_observer_windows.py`. **No real-Windows evidence
-yet**: a hook has not been installed on a Windows desktop by this code; that smoke report is
-still owed before the refiner is described as working there.
