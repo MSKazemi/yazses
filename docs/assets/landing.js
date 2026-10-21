@@ -63,10 +63,13 @@
   function install(root) {
     var box = root.querySelector("[data-yzl-install]");
     if (!box) return;
-    var tabs = box.querySelectorAll("[data-os]");
+    // The hero switcher and the quick-start steps share one OS selection, so picking
+    // macOS in either place shows macOS commands in both.
+    var tabs = root.querySelectorAll("[data-yzl-install] [data-os], [data-yzl-qs-tabs] [data-os]");
     function select(os) {
       tabs.forEach(function (t) { t.setAttribute("aria-selected", String(t.getAttribute("data-os") === os)); });
       box.querySelectorAll("[data-cmd]").forEach(function (c) { c.hidden = c.getAttribute("data-cmd") !== os; });
+      root.querySelectorAll("[data-qs]").forEach(function (c) { c.hidden = c.getAttribute("data-qs") !== os; });
     }
     tabs.forEach(function (t) {
       t.addEventListener("click", function () { select(t.getAttribute("data-os")); });
@@ -89,6 +92,33 @@
         });
       });
     }
+  }
+
+  /* ---- Quick start: a copy button on every command block -------------- */
+  function quickCopy(root) {
+    if (!navigator.clipboard) return;
+    root.querySelectorAll(".yzl-qs__step pre").forEach(function (pre) {
+      if (pre.parentNode.classList.contains("yzl-qs__cmd")) return;
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "yzl-qs__copy";
+      btn.setAttribute("aria-label", "Copy command");
+      btn.textContent = "Copy";
+      btn.addEventListener("click", function () {
+        var code = pre.querySelector("code");
+        navigator.clipboard.writeText((code || pre).textContent.trim()).then(function () {
+          btn.textContent = "Copied";
+          later(function () { btn.textContent = "Copy"; }, 1800);
+        });
+      });
+      // The button sits on a wrapper, not inside the <pre>, so it stays put when a
+      // long command is scrolled sideways.
+      var wrap = document.createElement("div");
+      wrap.className = "yzl-qs__cmd";
+      pre.parentNode.insertBefore(wrap, pre);
+      wrap.appendChild(pre);
+      wrap.appendChild(btn);
+    });
   }
 
   /* ---- Hero demo: hold → speak → release → typed ---------------------- */
@@ -201,6 +231,7 @@
     var final = document.querySelector(".yzl-final");
     if (final) reveal(final);
     install(root);
+    quickCopy(root);
     demo(root);
     pipeline(root);
   }

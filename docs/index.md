@@ -131,19 +131,6 @@ hide:
 
 ![yazses doctor — all green, fully offline by default](screenshots/yazses-doctor.png)
 
-## Start with your goal
-
-<div class="grid cards" markdown>
-
-- :material-linux: **[Install on Linux](install-linux.md)** — recommended universal installer, plus APT, Snap and pipx alternatives
-- :material-apple: **[Install on macOS](macos-install.md)** — Homebrew on Apple Silicon, native `.dmg` builds, or pipx
-- :material-microsoft-windows: **[Install on Windows](windows-install.md)** — winget, native `.exe`, Scoop, or pipx
-- :material-file-music: **[Transcribe a recording](tutorials/transcribe-recordings.md)** — audio/video to text or subtitles; speaker labels are optional
-- :material-lifebuoy: **[Fix something that is not working](troubleshooting.md)** — start with `yazses doctor`, then jump to the symptom
-- :material-tune: **[Customize YazSes](configuration.md)** — hotkey, models, vocabulary, features and `config.toml`
-
-</div>
-
 ## Why YazSes
 
 <div class="grid cards" markdown>
@@ -247,9 +234,12 @@ hide:
     winget install MSKazemi.YazSes
     ```
 
-    winget resolves x64 vs ARM64 automatically. See the
-    [Windows install guide](windows-install.md) for the native installer, Scoop,
-    SmartScreen and microphone permissions.
+    winget installs the x64 build, which also runs on ARM64 PCs under emulation.
+    It can trail the newest release by a few weeks; the installer on the
+    [latest release](https://github.com/MSKazemi/yazses/releases/latest), Scoop and
+    Chocolatey (`choco install yazses`) track every release. See the
+    [Windows install guide](windows-install.md) for SmartScreen and microphone
+    permissions.
 
 === ":material-language-python: Python package"
 
@@ -269,13 +259,15 @@ hide:
     first dictation asks once for permission and the answer is remembered. The
     unconfined installs above remain the most-tested Wayland path.
 
-    On X11, connect both required interfaces after installing:
+    On X11 and Wayland alike, connect both required interfaces after installing,
+    then start it:
 
     ```sh
     sudo snap install yazses
     sudo snap connect yazses:audio-record
     sudo snap connect yazses:raw-input
     yazses doctor
+    yazses start
     ```
 
     `yazses setup` is not required for the snap. Confinement prevents it from
@@ -291,16 +283,21 @@ yazses setup        # installs audio + injection deps, joins the input group, se
 # then log out and back in (the input-group change needs a fresh login)
 ```
 
-Then:
+Then, on Linux or a pipx install:
 
 ```sh
-yazses quickstart # machine-tailored next steps; read-only
-yazses doctor     # check mic, injection backend and permissions
-yazses enroll     # calibrate your microphone (~30 s)
-yazses start      # start the dictation daemon
+yazses quickstart        # machine-tailored next steps; read-only
+yazses doctor            # check mic, injection backend and permissions
+yazses mic-level --set   # tune the silence gate to your room and voice
+yazses start             # start the dictation daemon
 ```
 
-Hold the hotkey (Right Alt on Linux, Right Option on macOS, Right Ctrl on Windows), speak, release — the text appears in the focused app within about a second.
+On **macOS** (Homebrew or `.dmg`) and **Windows** (winget or the installer) there is
+nothing to type: open YazSes, grant the permissions it asks for, and it runs from the
+menu bar or system tray. The macOS app puts no `yazses` command on your `PATH`; its CLI
+is `/Applications/YazSes.app/Contents/MacOS/YazSes --cli doctor`.
+
+Hold the hotkey (Right Alt on Linux, Right Option on macOS, Right Ctrl on Windows), speak, release — the text appears in the focused app within one to two seconds on a laptop CPU. The [quick start](get-started.md) walks through each OS step by step.
 
 ## What it does
 
@@ -352,23 +349,6 @@ Want the CLI itself, not a description of it? **[Watch it play right here](watch
 a real [asciinema](https://asciinema.org) recording of `-h` → `about` → `quickstart` →
 `features` → `status`, with selectable, copy-pasteable text. Or in your own terminal:
 `asciinema play docs/demo/yazses-cli.cast`.
-
-## Documentation
-
-<div class="grid cards" markdown>
-
-- :material-book-open-variant: **[Install on Linux](install-linux.md)** · [macOS](macos-install.md) · [Windows](windows-install.md)
-- :material-console-line: **[CLI reference](cli-reference.md)** — every command and flag
-- :material-cog: **[Configuration](configuration.md)** — every `config.toml` section
-- :material-star-four-points: **[Features](features.md)** & **[v2 preview](v2-features.md)**
-- :material-scale-balance: **[Comparison & alternatives](comparison.md)** — vs Talon, Dragon, Wispr Flow
-- :material-frequently-asked-questions: **[FAQ](faq.md)** — common questions answered
-- :material-sitemap: **[Architecture](architecture.md)** & **[diagrams](diagrams/index.md)**
-- :material-lifebuoy: **[Troubleshooting](troubleshooting.md)** & **[roadmap](roadmap.md)**
-- :material-flask-outline: **[Research](research/index.md)** — the cited science behind eye, voice & muscle input
-- :material-school-outline: **[Student & research projects](research/get-involved.md)** — thesis-sized problems, open issues
-
-</div>
 
 !!! tip "Curious *why* it works this way?"
 

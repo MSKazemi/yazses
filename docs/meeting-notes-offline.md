@@ -1,11 +1,6 @@
 ---
-title: Offline meeting transcription & minutes — no cloud, no upload
-description: Record, transcribe and summarise whole meetings entirely on-device with speaker labels. A private alternative to Otter.ai, Fireflies and Granola for confidential meetings.
----
-
----
-title: Offline meeting notes — a local, open-source Otter.ai alternative
-description: Record a meeting and get a speaker-labelled transcript and minutes entirely on your own machine. No cloud, no account, no per-seat fee, and no bot joining the call. Free and open source.
+title: Offline meeting transcription & minutes — a local, open-source Otter.ai alternative
+description: Record, transcribe and summarise whole meetings entirely on-device with speaker labels. A private alternative to Otter.ai, Fireflies and Granola — no cloud, no account, no bot joining the call.
 ---
 
 # Offline meeting notes — transcripts and minutes without the cloud
@@ -40,12 +35,13 @@ Speaker 1: Then we move the cutover to Monday. I'll tell the customer.
 Then, optionally:
 
 ```sh
-yazses meeting relabel <id> --rename speaker_1=Amara         # fix the labels once
-yazses meeting enroll  <id> --speaker speaker_1 --name Amara # …or teach it a voice, so it's named next time
+yazses meeting relabel <id> --rename speaker_0=Amara         # fix the labels once ("Speaker 1" is usually cluster speaker_0 — see "speakers" in transcript.json)
+yazses meeting enroll  <id> --speaker speaker_0 --name Amara # …or teach it a voice, so it's named next time
 yazses meeting notes   <id>                                  # summary, decisions, action items (needs a local LLM)
 ```
 
-Everything above runs on CPU. No network access is used at any point.
+Everything above runs on CPU. After the one-time model downloads (Whisper, and the
+speaker-label models), no network access is used.
 
 !!! tip "No terminal? Use the tray icon"
 

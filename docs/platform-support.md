@@ -99,13 +99,11 @@ install:
 
 - **The snap is on `stable` for arm64**, not edge-only. The Snap Store API answers
   `stable arm64` directly — the command is in [Verifying this page](#verifying-this-page-yourself).
-  What *is* true is that the whole snap, both architectures, sits two releases
-  behind the tag — at the time of writing `stable` is 2.29.0 against a 2.31.0
-  release. That is a publishing gap, not an architecture gap, and it affects x86_64
-  users equally.
+  Both architectures are on `stable` at the current release (2.43.2 on 2026-10-21) —
+  run that command for today's answer.
 - **The `.deb` and the APT repo are architecture-independent by construction.** The
   package declares `Architecture: all` and carries no compiled code: it installs a
-  systemd user unit, a man page, and a `postinst` that runs `pipx install yazses`,
+  systemd user unit, a man page, and a `postinst` that runs `pipx install 'yazses[desktop]'`,
   which then fetches the architecture-appropriate wheels from PyPI. The two release
   assets `yazses_<version>_amd64.deb` and `yazses_<version>_arm64.deb` are the same
   package — same size, same file listing, both `Architecture: all`. The architecture
@@ -121,8 +119,8 @@ install:
 for the whole runtime stack.
 
 **Why the other five architectures cannot work:** the runtime stack is wheel-only.
-`ctranslate2` (via faster-whisper), `onnxruntime` (via onnx-asr) and PySide6 publish
-manylinux wheels for `x86_64` and `aarch64` **and nothing else**, so a build for any
+`ctranslate2` and `onnxruntime` (both via faster-whisper), and PySide6 for the desktop
+extra, publish manylinux wheels for `x86_64` and `aarch64` **and nothing else**, so a build for any
 other architecture fails at `pip install` every time. This is a dependency ceiling,
 not a decision we can reverse in this repository.
 
@@ -142,7 +140,7 @@ macOS 11 (Big Sur) or newer.
 
 | CPU | `pipx` (PyPI) | Homebrew | `.dmg` app bundle |
 |---|---|---|---|
-| **Apple Silicon** (`arm64`) | ✅ | ✅ `brew install --cask mskazemi/yazses/yazses` | ✅ (unsigned) |
+| **Apple Silicon** (`arm64`) | ✅ | ✅ `brew tap MSKazemi/yazses && brew trust MSKazemi/yazses && brew install --cask yazses` | ✅ (unsigned) |
 | **Intel** (`x86_64`) | ✅ | ❌ cask tracks arm64 | ✅ (unsigned) |
 
 **On an Intel Mac, download `YazSes-<version>-macos-x86_64.dmg`** from the
@@ -221,9 +219,10 @@ why an Apple-silicon-only bundle went unnoticed.
     `ctranslate2` publishes `macosx_11_0_x86_64` wheels, so the Python install works
     on Intel today and keeps working as long as those wheels are published.
 
-The `.dmg` is unsigned: right-click → **Open** on first launch. Grant
-**Accessibility** and **Microphone** when prompted. See
-[Install on macOS](macos-install.md).
+The `.dmg` is unsigned: on macOS 15 and later, use System Settings → Privacy &
+Security → **Open Anyway** after the first blocked launch; on macOS 14 and earlier,
+right-click → **Open**. Grant **Accessibility**, **Input Monitoring** and
+**Microphone**. See [Install on macOS](macos-install.md).
 
 ## Windows
 

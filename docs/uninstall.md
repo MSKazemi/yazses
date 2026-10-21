@@ -31,8 +31,8 @@ each one is harmless when the package is not there.
 uv tool uninstall yazses         # the install.sh / uv path (most common)
 pipx uninstall yazses            # the pipx path
 pip uninstall yazses             # a plain pip install
-sudo apt remove yazses           # the APT / .deb path
-sudo snap remove yazses          # the Snap path
+sudo apt remove yazses && pipx uninstall yazses   # the APT / .deb path — the .deb pipx-installs the program, so remove both
+sudo snap remove --purge yazses  # the Snap path — --purge also drops ~/snap/yazses and the automatic snapshot
 ```
 
 On **macOS**, run `brew uninstall --zap --cask yazses` if you installed from the
@@ -106,6 +106,7 @@ rm -rf ~/.cache/huggingface/hub/models--speechbrain--spkrec-ecapa-voxceleb
 sudo gpasswd -d "$USER" input                    # leave the input group
 systemctl --user disable --now ydotoold          # stop the Wayland injection daemon
 rm -f ~/.config/systemd/user/yazses.service      # only if you skipped step 1
+sudo rm -f /etc/apt/sources.list.d/yazses.list /usr/share/keyrings/yazses.gpg /usr/bin/yazses /usr/bin/yazses-daemon   # APT path only
 ```
 
 The `input` group change, like joining it, only takes effect at your next login.

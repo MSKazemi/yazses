@@ -177,9 +177,22 @@ replace a better baseline in tests.
 
 **Delivered 2026-10-12 (#396–#399), with one gap.** Glance-Type leases the shared source; click+gaze capture, the
 held-out gate, atomic apply and `yazses gaze rollback` exist, and `yazses gaze measure` emits the
-privacy-safe report. **Not met:** no OS ships a click observer, so the runtime cannot yet collect a
-real sample outside tests. The exit gate is therefore satisfied for the guard (a refinement can never
-replace a better baseline, mutation-checked) and open for collection.
+privacy-safe report. **Partly met (collection), per OS:**
+
+- **Linux X11 — implemented, awaiting live evidence** (#607, `platform/linux/click_observer_x11.py`):
+  XInput2 `XI_RawButtonPress` on the root window for all devices, no grab, position from
+  `QueryPointer` in root-window pixels (the X11 canonical space), `time.monotonic` stamps, buttons
+  1–3 only. Hermetic tests against a faked python-xlib; **no real-desktop smoke report yet**, so the
+  refiner is not described as working on X11 until one exists.
+- **Linux Wayland — not available, by design:** `click_observer_factory` is `None` and
+  `click_observer_unavailable_reason` says why — a native Wayland session has no global click stream
+  (button events reach only the focused client, the compositor APIs are private, and the XDG
+  RemoteDesktop portal only sends input, it never reports it). XInput2 through XWayland would see only X
+  clients' clicks, a plausible partial stream the refiner must not be fed. `yazses doctor` and the
+  daemon log repeat the reason.
+
+The exit gate is therefore satisfied for the guard (a refinement can never replace a better baseline,
+mutation-checked) and open for collection until a real-device sample exists on at least one OS.
 
 ## Phase 3 — pointer-output substrate
 

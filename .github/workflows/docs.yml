@@ -26,6 +26,8 @@ on:
       - "overrides/**"
       - "mkdocs.yml"
       - "pyproject.toml"
+      # hooks/project_status.py renders the Building-now band and docs/now.md from it.
+      - "CHANGELOG.md"
       - ".github/workflows/docs.yml"
   pull_request:
     branches: ["main"]
@@ -38,6 +40,8 @@ on:
       - "overrides/**"
       - "mkdocs.yml"
       - "pyproject.toml"
+      # hooks/project_status.py renders the Building-now band and docs/now.md from it.
+      - "CHANGELOG.md"
       - ".github/workflows/docs.yml"
   workflow_dispatch:
 

@@ -42,7 +42,7 @@ accuracy and correction, accessibility, and so on — and each row carries a
 | Tier | Meaning |
 |---|---|
 | **on by default** | shipped on; leave it unless you have a reason |
-| **recommended** | safe and useful, worth turning on |
+| **recommended** | switched on in the config a fresh install writes; safe and useful — leave it unless you have a reason |
 | **optional** | enable it if you want that capability |
 | **experimental** | known rough edges, not advised yet |
 
@@ -62,7 +62,7 @@ itself, not a feature.
 
 ## Finding a capability
 
-There are around two hundred rows, so the box at the top filters them. It matches
+There are about 150 rows, so the box at the top filters them. It matches
 the name you can see, the toggle name the CLI uses, the category heading, **and
 the description** — so typing `stutter` finds *Dysfluency-Friendly*, whose label
 contains neither word. Several words narrow rather than widen.
@@ -83,7 +83,7 @@ visibility only: a hidden row keeps any change you staged, and **Apply** and
 ## What does this option actually do?
 
 A checkbox and a name answer "is it on?" and nothing else, which is not enough
-when there are around two hundred of them. So every row explains itself, three
+when there are about 150 of them. So every row explains itself, three
 ways — because any single way excludes someone:
 
 - **A one-line summary, always visible**, under the label: the tier, then the
@@ -132,7 +132,7 @@ Three things it will not do:
 - **It only touches feature switches.** Your hotkey, your microphone, your VAD
   threshold, your vocabulary and every setting you hand-edited are left exactly
   as they are. This is a reset of the switchboard, not of `config.toml`.
-- **It only writes what actually differs.** Rewriting all ~200 keys to change
+- **It only writes what actually differs.** Rewriting all ~150 keys to change
   three of them would churn the whole file, comments included.
 
 No graphical session? `yazses features reset` is the same operation in a
@@ -145,7 +145,7 @@ difference between "you can turn this on" and "we suggest you do".
 
 ## Features that need extra packages
 
-Roughly fifteen capabilities need an optional Python package — gaze needs
+About twenty capabilities need an optional Python package — gaze needs
 mediapipe, Cocktail Filter needs speechbrain, and so on. Ticking one installs it
 for you, on a worker thread, through the identical `system/deps.py` call that
 `yazses features enable` uses. The two cannot drift on what "enabled" means.

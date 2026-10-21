@@ -1,6 +1,6 @@
 # YazSes
 
-> YazSes is an open-source, offline voice-dictation daemon for Linux, macOS, and Windows. Hold a key, speak, release — your speech is transcribed locally with faster-whisper and typed into the focused app. It also recognises editor/terminal voice commands and user-defined macros. No cloud, no API key, no subscription; nothing leaves the machine by default.
+> YazSes is an open-source, offline voice-dictation daemon for Linux, macOS, and Windows. Hold a key, speak, release — your speech is transcribed locally — with faster-whisper by default, or the optional Parakeet TDT and Moonshine engines — and typed into the focused app. It also recognises editor/terminal voice commands and user-defined macros. No cloud, no API key, no subscription; nothing leaves the machine by default.
 
 ## What it is
 
@@ -30,7 +30,7 @@ YazSes is a hold-to-talk voice daemon that replaces cloud dictation tools. When 
 | Dragon NaturallySpeaking | yes | yes | no | Windows | no | no |
 | Talon Voice | yes | yes (advanced scripting) | yes | yes | freemium | no |
 | nerd-dictation | yes (VOSK) | via Python config | yes | no | yes | yes (GPLv3) |
-| Vocalinux | yes (whisper.cpp/VOSK) | yes | yes (X11 & Wayland) | no | yes | yes (GPLv3) |
+| Vocalinux | yes (whisper.cpp/VOSK) | yes | yes (X11 & Wayland) | no | yes | yes (AGPL-3.0) |
 | Wispr Flow | no (cloud) | limited | no | yes | no | no |
 | Google Dictation | no | no | yes | yes | yes | no |
 | Apple Dictation | partial | limited | no | macOS | yes | no |
@@ -51,6 +51,15 @@ The terminal output in that recording is real, captured from the running tool; t
 ## Quick start
 
 ```sh
+# Linux, any distro (recommended): installs YazSes plus its audio/hotkey/typing helpers
+bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install.sh)
+
+# macOS (Apple Silicon)
+brew tap MSKazemi/yazses && brew trust MSKazemi/yazses && brew install --cask yazses
+
+# Windows (the installer on the GitHub releases page tracks every release; winget can lag)
+winget install MSKazemi.YazSes
+
 # Any OS with Python >= 3.11
 pipx install yazses
 
@@ -63,11 +72,13 @@ sudo snap connect yazses:audio-record
 sudo snap connect yazses:raw-input
 # `yazses setup` is not required; it cannot provision the host from a snap.
 
-# First run
-yazses doctor     # check mic, injection backend, permissions
-yazses enroll     # calibrate your microphone (~30 s)
-yazses start      # start the dictation daemon
+# First run (Linux / pipx). The macOS and Windows apps run from the menu bar / tray instead.
+yazses doctor            # check mic, injection backend, permissions
+yazses mic-level --set   # tune the silence gate to your room and voice
+yazses start             # start the dictation daemon; then hold Right Alt, speak, release
 ```
+
+Step-by-step for every OS: https://mskazemi.com/yazses/get-started.html
 
 ## Frequently asked questions
 
@@ -84,7 +95,7 @@ GNOME and KDE Wayland and needs no /dev/uinput.
 
 **Is it a replacement for Talon?** YazSes focuses on offline dictation plus a practical command grammar. Talon has far more advanced scripting. They can coexist.
 
-**Is there an Android app?** Not yet — no APK exists today. The Android port is in design in the open: ten public architecture decision records and seventeen open issues, at https://mskazemi.com/yazses/mobile/index.html. It will be a keyboard whose mic key you hold to dictate into any app, fully on-device.
+**Is there an Android app?** Not yet — no APK exists today. The module skeleton and the first pure-Kotlin ports are built; the engine, keyboard and model download are open work, designed in public (ten architecture decision records) at https://mskazemi.com/yazses/mobile/index.html. It will be a keyboard whose mic key you hold to dictate into any app, fully on-device.
 
 **Is there an iPhone/iPad app?** No, and it follows Android deliberately: no iOS app extension — including a custom keyboard — may access the microphone (Apple's rule since iOS 8), so an iOS version must be a different product shape. macOS is already supported by the desktop app.
 
@@ -114,6 +125,9 @@ GNOME and KDE Wayland and needs no /dev/uinput.
 
 ## Documentation
 
+- Quick start (five minutes, every OS): https://mskazemi.com/yazses/get-started.html
+- What we're building now (latest release and unreleased changes, generated from the changelog): https://mskazemi.com/yazses/now.html
+- Roadmap: https://mskazemi.com/yazses/roadmap.html
 - Use cases overview: https://mskazemi.com/yazses/use-cases/index.html
 - Install on Linux: https://mskazemi.com/yazses/install-linux.html
 - Install on macOS: https://mskazemi.com/yazses/macos-install.html
@@ -122,7 +136,7 @@ GNOME and KDE Wayland and needs no /dev/uinput.
 - Comparison & alternatives: https://mskazemi.com/yazses/comparison.html
 - FAQ: https://mskazemi.com/yazses/faq.html
 - Privacy statement: https://mskazemi.com/yazses/privacy-statement.html
-- Android / mobile programme (in design): https://mskazemi.com/yazses/mobile/index.html
+- Android / mobile programme (early build, no app yet): https://mskazemi.com/yazses/mobile/index.html
 - Contributing (including tasks that need no code): https://mskazemi.com/yazses/contributing.html
 - Known-good microphones (community-reported): https://mskazemi.com/yazses/known-good-microphones.html
 - Chinese voice typing (中文语音输入): https://mskazemi.com/yazses/zh/chinese-voice-typing.html
@@ -136,7 +150,7 @@ YazSes is described in a peer-reviewable preprint. Cite this when referencing th
 > Hold-to-Talk Voice-Dictation System." arXiv:2607.28878 (2026).
 > https://arxiv.org/abs/2607.28878
 
-The paper reports word error rates between 2.59% and 4.82% with real-time decoding on CPU.
+The paper reports word error rates between 2.59% and 4.82% with real-time decoding on CPU (Whisper models; the optional Parakeet TDT engine has since measured 2.06% on LibriSpeech).
 
 ## Project info
 
