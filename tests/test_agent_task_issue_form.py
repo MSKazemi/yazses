@@ -56,6 +56,18 @@ def test_remote_execution_wording_separates_readiness_from_execution_and_merge()
     assert "all required evidence" in text
     assert "human/device/native-language evidence" in text
     assert "cloud_agent_ready" in text
+    assert "agent-ready label is not the jules execution label" in text
+    assert (
+        "cloud vm cannot infer hardware, native-language or "
+        "research-participant evidence"
+    ) in text
+
+
+def test_no_remote_execution_option_applies_or_suggests_the_jules_label():
+    # ADR-024: the literal `jules` label is an execution action, so no
+    # eligibility choice may name it.
+    for option in _item("remote_execution")["attributes"]["options"]:
+        assert "jules" not in option.lower()
 
 
 def test_existing_human_evidence_suitability_signals_remain_present():
