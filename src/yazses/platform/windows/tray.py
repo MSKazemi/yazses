@@ -311,7 +311,7 @@ def _run_update(icon, notify, *, launcher=None, confirm=None, sleep=None) -> Non
         )
         return
     try:
-        title, prompt = confirmation_prompt(status)
+        title, prompt = confirmation_prompt(status, all_users=offer.all_users)
     except Exception:
         notify(icon, *describe_update(status=status))
         return

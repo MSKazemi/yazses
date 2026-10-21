@@ -113,8 +113,12 @@ class BrainFlowSource:
             log.info("BrainFlow activation source streaming (board %s).", self._board_id)
             return board
         except ModuleNotFoundError:
-            log.info("BrainFlow not installed — EMG band source disabled. "
-                     "Fix: yazses features enable emg-band")
+            # There is no `emg-band` capability to enable (that command answered
+            # "Unknown feature"); the hint is derived for the `emg-band` extra.
+            from yazses.system.remedy import install_hint
+
+            log.info("BrainFlow not installed — EMG band source disabled. %s",
+                     install_hint("emg-band"))
         except Exception as exc:
             # An unplugged or busy device is the common case, not an error worth
             # taking the daemon down for.

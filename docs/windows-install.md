@@ -210,17 +210,30 @@ Scoop installs update through their own package manager in the same one-click wa
 
 | How you installed | What the one-click update runs |
 |---|---|
-| The `.exe` installer | the verified installer, silently, in place |
+| The `.exe` installer, for you only (the default) | the verified installer, silently, in place |
+| The `.exe` installer, for all users | the same, after one administrator prompt (see below) |
 | winget | the same as the `.exe` installer: a winget install cannot be told apart from it |
 | Chocolatey | `choco upgrade yazses -y` — Windows asks for administrator rights |
 | Scoop | `scoop update yazses` |
 
 What to expect:
 
-- **Per-user installs only.** A normal install is per-user and needs no administrator
-  rights. If YazSes was installed *for all users*, the one-click update is not offered,
-  because it would mean running a file from your temp folder with administrator rights.
-  YazSes tells you so and opens the releases page; run the installer yourself.
+- **Per-user installs need no administrator rights.** A normal install is per-user, and
+  the update runs as you.
+- **All-users installs ask once.** If YazSes was installed *for all users* (in
+  `C:\Program Files`), updating needs administrator rights, so Windows shows **one**
+  permission prompt. The prompt names **Windows PowerShell** from Microsoft, not YazSes:
+  that is the small helper that does the privileged part. It copies the checked
+  installer into a new folder that only administrators can change, checks its SHA-256
+  again there, runs it from that folder, and deletes the folder. The installer is never
+  run with administrator rights from your own temp folder, where any program you run
+  could have swapped it. On a standard (non-administrator) account, the prompt asks for
+  an administrator's password.
+- **Saying No at that prompt is safe.** Nothing is installed, YazSes starts again on the
+  version you had, and the next start says the permission was declined.
+- **If YazSes cannot tell how it was installed** (for example, you copied the folder
+  somewhere else), no one-click update is offered. YazSes says so and opens the releases
+  page; run the installer yourself. It upgrades in place, with no uninstall needed.
 - **Chocolatey, winget and Scoop** are offered the update only once their own package
   has caught up with the GitHub release. That usually takes a few days. Until then YazSes
   says which version the manager still offers. Chocolatey asks for administrator rights.
@@ -245,7 +258,9 @@ What to expect:
 - **If anything fails**, nothing is half-installed. YazSes keeps running (or starts again
   on the version you had), tells you what went wrong, and opens the
   [releases page](https://github.com/MSKazemi/yazses/releases/latest) so you can update by
-  hand. Logs: `%TEMP%\yazses-update\update.log` and `installer.log`.
+  hand. Logs: `%TEMP%\yazses-update\update.log` and `installer.log`. An all-users update
+  keeps no `installer.log`: the privileged helper writes nothing into your folders, and
+  `update.log` records how it ended.
 
 By hand, if you prefer: download the newest installer from the releases page and run it.
 It upgrades in place too.

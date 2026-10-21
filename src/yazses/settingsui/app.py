@@ -62,10 +62,28 @@ _TERMINAL_EQUIVALENT = (
     "    yazses features reset               restore every capability to its default"
 )
 _MISSING_PYSIDE_MSG = (
-    "The settings window needs PySide6. Install it with:\n"
-    "    uv sync --extra overlay      # or: pip install 'yazses[overlay]'\n"
+    "The settings window needs PySide6, which is not installed.\n"
     "Every setting is also available from the terminal:\n" + _TERMINAL_EQUIVALENT
 )
+
+
+def _missing_pyside_message() -> str:
+    """:data:`_MISSING_PYSIDE_MSG` with the install command for *this* install.
+
+    Computed when the window refuses, not at import: the command depends on how
+    YazSes was installed (``system/remedy.py``), and it used to be a hard-coded
+    ``uv sync`` of the overlay extra, which does nothing outside a source checkout.
+    """
+    try:
+        from yazses.system.remedy import install_hint
+
+        hint = install_hint("desktop", feature="tray")
+    except Exception:  # noqa: BLE001 - the refusal must reach the user regardless
+        hint = ""
+    if not hint:
+        return _MISSING_PYSIDE_MSG
+    head, _, rest = _MISSING_PYSIDE_MSG.partition("\n")
+    return f"{head}\n{hint}\n{rest}"
 _NO_DISPLAY_MSG = (
     "The settings window needs a graphical session — no DISPLAY or WAYLAND_DISPLAY\n"
     "is set, so there is nothing to open it on (an SSH session without X forwarding,\n"
@@ -97,14 +115,14 @@ def run() -> None:
         sys.exit(1)
 
     if not pyside_available():
-        _fatal(_MISSING_PYSIDE_MSG)
+        _fatal(_missing_pyside_message())
     if not has_display(os.environ):
         _fatal(_NO_DISPLAY_MSG)
 
     try:
         from PySide6.QtWidgets import QApplication
     except ImportError as exc:  # installed but unusable (missing Qt libs on old distros)
-        _fatal(f"{_MISSING_PYSIDE_MSG}\n\nImport failed: {exc}")
+        _fatal(f"{_missing_pyside_message()}\n\nImport failed: {exc}")
 
     from yazses.config import Config, load_config
     from yazses.language.service import apply_language_change, prepare_language_change

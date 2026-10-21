@@ -478,7 +478,9 @@ class MaintenancePanel:
             return
         status, launcher = self._status, self._launcher
         try:
-            title, text = confirmation_prompt(status)
+            title, text = confirmation_prompt(
+                status, all_users=bool(getattr(self._offer, "all_users", False)),
+            )
         except Exception:  # noqa: BLE001
             log.warning("could not word the update confirmation", exc_info=True)
             return

@@ -95,8 +95,10 @@ def plan_update(status, offer) -> UpdateView:
 
     ``offer`` is ``installer_update.one_click_offer(status, launcher)``: ``None`` when
     one-click does not apply to this install at all, ``Offer(ok=False, reason)`` when it
-    applies but cannot deliver now (an all-users install, a package feed that has not
-    caught up), ``Offer(ok=True)`` when it can.
+    applies but cannot deliver now (a package feed that has not caught up, an installer
+    install that is neither per-user nor all-users), ``Offer(ok=True)`` when it
+    can. An all-users install is ``Offer(ok=True, all_users=True)``: the hand-off asks
+    for one UAC prompt and runs the installer from an Administrators-only copy.
     """
     from yazses.system.updater import GITHUB_METHODS, MSIX_METHODS
     from yazses.tray.about import needs_terminal, update_message

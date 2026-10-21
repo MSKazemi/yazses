@@ -1107,7 +1107,7 @@ def meeting_enroll(
     from yazses.config import load_config
     from yazses.learning.crypto import Cipher, load_or_create_key
     from yazses.meeting.participants import enroll_participant
-    from yazses.voiceprint.factory import build_embedder
+    from yazses.voiceprint.factory import build_embedder, unavailable_message
 
     paths = get_paths()
     cfg = load_config(paths.config_file)
@@ -1117,9 +1117,11 @@ def meeting_enroll(
         raise typer.Exit(1)
     embedder = build_embedder(cfg.voiceprint)
     if embedder is None:
+        # It named `yazses features enable voiceprint`, a capability that does not
+        # exist: the command answered "Unknown feature".
         typer.echo(
-            "Voiceprint embedder unavailable — install it with "
-            "`yazses features enable voiceprint`.", err=True,
+            "Voiceprint embedder unavailable. " + unavailable_message(cfg.voiceprint, cfg),
+            err=True,
         )
         raise typer.Exit(1)
     cipher = Cipher(load_or_create_key(paths.data_dir))
@@ -4630,6 +4632,7 @@ def _update_launcher():
 def _one_click_update(status, launcher, *, check: bool, yes: bool) -> None:
     """`yazses update` for the Windows channels: confirm, download, verify, hand off."""
     from yazses.system.installer_update import (
+        ALL_USERS_NOTE,
         RELEASE_DOWNLOAD_PREFIX,
         one_click_offer,
         package_manager_argv,
@@ -4655,6 +4658,8 @@ def _one_click_update(status, launcher, *, check: bool, yes: bool) -> None:
             "Note: the installer is not code-signed yet — the checksum proves the file "
             "is the one this release published, not who built it."
         )
+        if offer.all_users:
+            typer.echo(ALL_USERS_NOTE)
     else:
         argv, elevate, _capture = package_manager_argv(status.method)
         typer.echo(f"Command: {' '.join(argv)}  (run after YazSes closes, then it restarts)")
@@ -5765,14 +5770,15 @@ def enroll_voice() -> None:
 
     Records a short sample of your voice, computes a speaker embedding, and stores
     it encrypted on this machine (never leaves the machine). Requires
-    `[voiceprint] enabled = true` and the voiceprint extra
-    (`uv sync --extra voiceprint`). Run once; re-run to re-enroll.
+    `[voiceprint] enabled = true` and the speaker-embedding library of your
+    `[voiceprint] backend`; when either is missing this command says exactly what
+    to run for your install. Run once; re-run to re-enroll.
     """
     from yazses.config import load_config
     from yazses.learning.crypto import Cipher, load_or_create_key
     from yazses.system.miclevel import record
     from yazses.voiceprint.enroll import enroll as do_enroll
-    from yazses.voiceprint.factory import build_embedder
+    from yazses.voiceprint.factory import build_embedder, unavailable_message
     from yazses.voiceprint.store import save_voiceprint
 
     platform = get_platform()
@@ -5780,8 +5786,7 @@ def enroll_voice() -> None:
     embedder = build_embedder(cfg.voiceprint)
     if embedder is None:
         typer.echo(
-            "Voiceprint unavailable. Set `[voiceprint] enabled = true` and install "
-            "the extra:\n  uv sync --extra voiceprint",
+            "Voiceprint unavailable. " + unavailable_message(cfg.voiceprint, cfg),
             err=True,
         )
         raise typer.Exit(1)

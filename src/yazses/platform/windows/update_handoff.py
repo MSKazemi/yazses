@@ -9,22 +9,34 @@ PowerShell job that
    exit, and **aborts** (records :data:`EXIT_STILL_RUNNING`, installs nothing) if any is
    still running then: a daemon still saving a meeting must not be force-closed,
 2. re-checks the installer's SHA-256 immediately before running it,
-3. runs the installer silently — never elevated — or the package manager's upgrade, by
-   absolute path; only Chocolatey is elevated, and only ``choco.exe`` from its
-   administrator-owned install directory is ever run that way,
-4. records the exit code, deletes the downloaded installer and the single-flight lock, and
-5. starts YazSes again, **whether or not** the update worked: a failed update must leave
-   the user with a running old version, never with no YazSes at all.
+3. runs the update:
+
+   * a **per-user** install: the installer, unelevated, as the same user;
+   * an **all-users** install: a second, *elevated* Windows PowerShell (one UAC prompt)
+     that trusts nothing in a user-writable place -- see
+     :func:`build_admin_install_script`. It creates a fresh directory only
+     Administrators and SYSTEM can write, copies the installer there, hashes **that
+     copy** against a SHA-256 written into its own ``-EncodedCommand`` text, runs the
+     copy with ``TEMP``/``TMP`` pointed at the same directory, and deletes it;
+   * a package manager: its upgrade, by absolute path; only Chocolatey is elevated, and
+     only ``choco.exe`` from the directory the **machine** environment names,
+
+4. records the exit code (a declined UAC prompt is :data:`EXIT_ELEVATION_DECLINED`),
+   deletes the downloaded installer and the single-flight lock, and
+5. starts YazSes again -- unelevated, **whether or not** the update worked: a failed
+   update must leave the user with a running old version, never with no YazSes at all.
 
 The script is passed with ``-EncodedCommand`` (UTF-16LE, base64), not as a ``.ps1`` file
 or a ``cmd /c`` line: that sidesteps the execution policy for a file, cmd's ``%`` and
 ``&`` parsing, and the OEM code page — a Persian or accented user name in the temp path
-must not be what breaks the update.
+must not be what breaks the update. Every value interpolated into either script goes
+through :func:`ps_quote`.
 
 Before anything is offered, :meth:`WindowsUpdateLauncher.query_package_manager` asks
 Chocolatey, winget or Scoop which version *its own feed* carries, so the button never
 promises a version the manager will not deliver; and :meth:`install_scope` reads the Inno
-uninstall key so an all-users install is never handed a temp-folder installer to elevate.
+uninstall key, so an all-users install takes the elevated path and an install whose
+scope cannot be placed takes none.
 
 Everything except the spawns, the registry reads and the architecture probe is pure and
 tested off Windows.
@@ -35,6 +47,7 @@ import base64
 import dataclasses
 import logging
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -74,6 +87,21 @@ WAIT_SECONDS = 300
 EXIT_NOT_STARTED = -1
 EXIT_HASH_MISMATCH = -2
 EXIT_STILL_RUNNING = -3
+#: The UAC prompt was answered "No" (``ShellExecuteEx`` failed with ERROR_CANCELLED).
+EXIT_ELEVATION_DECLINED = -4
+#: The elevated job could not make, and verify, an Administrators-only directory, so it
+#: ran nothing.
+EXIT_UNSAFE_STAGING = -5
+
+#: ``ERROR_CANCELLED``: what ``ShellExecuteEx`` reports when the user declines UAC.
+_ERROR_CANCELLED = 1223
+
+#: BUILTIN\\Administrators and LOCAL SYSTEM, by SID -- never by name, which is localised
+#: ("Administrateurs", "Administradores").
+SID_ADMINISTRATORS = "S-1-5-32-544"
+SID_SYSTEM = "S-1-5-18"
+#: The elevated job's directory: ``<Windows>\\Temp\\yazses-update-<random 128-bit hex>``.
+ADMIN_DIR_PREFIX = "yazses-update-"
 
 #: How each package manager is asked which version its own feed carries. Read-only.
 FEED_QUERIES: dict[str, list[str]] = {
@@ -175,8 +203,17 @@ def chocolatey_exe(machine_root: str | None, exists: Callable[[str], bool]) -> s
     this process's environment: a user-level variable is writable by any process running
     as the user, and an elevated run of whatever it names is exactly the privilege
     boundary ADR-027 refuses to open. A value that still needs expanding is not trusted.
+
+    There is **no fallback** to :data:`DEFAULT_CHOCOLATEY_ROOT` when the machine variable
+    is missing. Chocolatey's setup writes ``ChocolateyInstall`` at machine scope for an
+    administrator install, and locks its default directory down to Administrators -- but
+    only when it really is installed there. Without the variable there is no install to
+    vouch for that path, ``%ProgramData%`` lets ordinary users create folders, and a
+    same-user process could plant a ``chocolatey\\choco.exe`` for YazSes to elevate.
     """
-    root = machine_root if machine_root and "%" not in machine_root else DEFAULT_CHOCOLATEY_ROOT
+    if not machine_root or "%" in machine_root:
+        return None
+    root = machine_root
     for candidate in (PureWindowsPath(root) / "choco.exe",
                       PureWindowsPath(root) / "bin" / "choco.exe"):
         if exists(str(candidate)):
@@ -197,22 +234,172 @@ def _wait_block(pids: tuple[int, ...]) -> list[str]:
     ]
 
 
+_SHA256_HEX = re.compile(r"^[0-9a-f]{64}$")
+_BAD_NAME_CHARS = frozenset('\\/:*?"<>|')
+
+
+def build_admin_install_script(source: str, sha256: str,
+                               switches: list[str] | tuple[str, ...], name: str) -> str:
+    """The script the **elevated** PowerShell runs for an all-users upgrade (pure).
+
+    It trusts nothing a non-administrator can write. ``source`` (the verified download in
+    the user's ``%TEMP%``) is only ever *read*, once, by a copy. Everything after that
+    works on the copy, inside a directory that
+
+    * sits under ``<Windows>\\Temp``, found from ``[Environment]::SystemDirectory``
+      (``GetSystemDirectory``), not from ``$env:``, which the user's own environment can
+      redefine. ``<Windows>\\Temp`` gives Users create-only rights, so no user can rename
+      or delete a directory an administrator made in it;
+    * has a 128-bit random name, is refused if it already exists, and is **created with
+      its security descriptor** (``Directory.CreateDirectory(path, DirectorySecurity)``):
+      owner BUILTIN\\Administrators, inheritance disabled, full control for Administrators
+      and SYSTEM and nobody else. So there is no moment at which it carries an inherited,
+      user-writable ACL. Owner, protection and emptiness are read back before the copy.
+
+    The copy is opened deny-write, its SHA-256 compared with ``sha256`` -- a literal in
+    this very script, which reaches the elevated process as its command line when the
+    process is created -- and it stays open while the installer starts. The installer
+    runs from that directory, with it as working directory and as ``TEMP``/``TMP`` (Inno
+    extracts its ``setup.tmp`` to ``GetTempPath``, otherwise the user's ``%TEMP%``). The
+    directory is deleted on every path out. The exit code is the installer's, or
+    :data:`EXIT_UNSAFE_STAGING` (no verifiable directory), :data:`EXIT_NOT_STARTED` (the
+    copy or the start failed) or :data:`EXIT_HASH_MISMATCH` (the copy is not the file).
+
+    Only .NET types are used: ``$PSModuleAutoLoadingPreference = 'None'`` stops module
+    auto-loading, so no cmdlet can come from a module on the user's ``PSModulePath``, and
+    the caller passes ``-NoProfile``. Nothing is written to a user-writable place (an
+    elevated write there is how a junction becomes "write any file"), and nothing is
+    relaunched from here: the unelevated job starts YazSes again, as the user.
+    """
+    if not _SHA256_HEX.match(sha256 or ""):
+        raise ValueError("an elevated install needs the lower-case SHA-256 it was verified against")
+    if not name or name in {".", ".."} or any(c in _BAD_NAME_CHARS for c in name):
+        raise ValueError(f"not a plain file name: {name!r}")
+    q = ps_quote
+    sid = "[Security.Principal.SecurityIdentifier]"
+    rule = "[Security.AccessControl.FileSystemAccessRule]"
+    lines = [
+        "$ErrorActionPreference = 'Stop'",
+        "$PSModuleAutoLoadingPreference = 'None'",
+        f"$code = {EXIT_UNSAFE_STAGING}",
+        "$dir = $null",
+        "$held = $null",
+        "try {",
+        "  $win = [IO.Path]::GetDirectoryName([Environment]::SystemDirectory)",
+        f"  $dir = [IO.Path]::Combine($win, 'Temp', {q(ADMIN_DIR_PREFIX)} + "
+        "[guid]::NewGuid().ToString('N'))",
+        "  if ([IO.Directory]::Exists($dir)) { $dir = $null; throw 'directory exists' }",
+        "  $acl = [Security.AccessControl.DirectorySecurity]::new()",
+        f"  $acl.SetOwner({sid}::new({q(SID_ADMINISTRATORS)}))",
+        "  $acl.SetAccessRuleProtection($true, $false)",
+        f"  foreach ($s in @({q(SID_ADMINISTRATORS)}, {q(SID_SYSTEM)})) {{ "
+        f"$acl.AddAccessRule({rule}::new({sid}::new($s), 'FullControl', "
+        "'ContainerInherit, ObjectInherit', 'None', 'Allow')) }",
+        "  $null = [IO.Directory]::CreateDirectory($dir, $acl)",
+        "  $got = [IO.Directory]::GetAccessControl($dir)",
+        f"  if ($got.GetOwner({sid}).Value -ne {q(SID_ADMINISTRATORS)} -or "
+        "-not $got.AreAccessRulesProtected -or "
+        "[IO.Directory]::GetFileSystemEntries($dir).Length -ne 0) { throw 'unsafe directory' }",
+        f"  $code = {EXIT_NOT_STARTED}",
+        f"  $exe = [IO.Path]::Combine($dir, {q(name)})",
+        f"  [IO.File]::Copy({q(source)}, $exe, $false)",
+        "  $held = [IO.File]::Open($exe, 'Open', 'Read', 'Read')",
+        "  $hash = [BitConverter]::ToString([Security.Cryptography.SHA256]::Create()"
+        ".ComputeHash($held)).Replace('-', '').ToLowerInvariant()",
+        f"  if ($hash -ne {q(sha256)}) {{ $code = {EXIT_HASH_MISMATCH}; throw 'SHA-256 mismatch' }}",
+        "  $psi = [Diagnostics.ProcessStartInfo]::new($exe)",
+        f"  $psi.Arguments = {q(windows_command_line(list(switches)))}",
+        "  $psi.UseShellExecute = $false",
+        "  $psi.WorkingDirectory = $dir",
+        "  $psi.EnvironmentVariables['TEMP'] = $dir",
+        "  $psi.EnvironmentVariables['TMP'] = $dir",
+        "  $run = [Diagnostics.Process]::Start($psi)",
+        "  $run.WaitForExit()",
+        "  $code = $run.ExitCode",
+        "} catch {",
+        "} finally {",
+        "  if ($null -ne $held) { $held.Dispose() }",
+        "  if ($null -ne $dir) { try { [IO.Directory]::Delete($dir, $true) } catch {} }",
+        "}",
+        "exit $code",
+    ]
+    return "\r\n".join(lines) + "\r\n"
+
+
+def _elevated_start(program: str, arguments: str, *, hidden: bool) -> list[str]:
+    """Lines that start ``program`` elevated (one UAC prompt) and wait for its exit code.
+
+    ``ProcessStartInfo`` with ``Verb = 'runas'``, not ``Start-Process -Verb RunAs``:
+    ``Process.Start`` surfaces ShellExecuteEx's own ``Win32Exception``, so a declined
+    prompt (ERROR_CANCELLED, 1223) is recorded as :data:`EXIT_ELEVATION_DECLINED` rather
+    than as a generic "could not start". ``program`` is a PowerShell *expression*.
+    """
+    return [
+        f"  $psi = [Diagnostics.ProcessStartInfo]::new({program})",
+        f"  $psi.Arguments = {ps_quote(arguments)}",
+        "  $psi.Verb = 'runas'",
+        "  $psi.UseShellExecute = $true",
+        *(["  $psi.WindowStyle = 'Hidden'"] if hidden else []),
+        "  try { $p = [Diagnostics.Process]::Start($psi) } catch {",
+        "    $e = $_.Exception",
+        "    while ($null -ne $e -and -not ($e -is [ComponentModel.Win32Exception])) "
+        "{ $e = $e.InnerException }",
+        f"    if ($null -ne $e -and $e.NativeErrorCode -eq {_ERROR_CANCELLED}) "
+        f"{{ $code = {EXIT_ELEVATION_DECLINED}; "
+        "throw 'administrator permission was declined at the UAC prompt' }",
+        "    throw",
+        "  }",
+        # Touching .Handle before the process exits is what makes ExitCode readable
+        # afterwards in Windows PowerShell 5.1.
+        "  $null = $p.Handle",
+        "  $p.WaitForExit()",
+        "  $code = $p.ExitCode",
+    ]
+
+
+def _powershell_flags() -> list[str]:
+    return ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
+            "-WindowStyle", "Hidden"]
+
+
+def admin_install_command_line(handoff: UpdateHandoff) -> str:
+    """The elevated PowerShell's argument string for an all-users ``handoff`` (pure)."""
+    source, switches = handoff.argv[0], list(handoff.argv[1:])
+    script = build_admin_install_script(
+        source, handoff.sha256.lower(), switches, PureWindowsPath(source).name,
+    )
+    return windows_command_line([*_powershell_flags(), "-EncodedCommand",
+                                 encode_command(script)])
+
+
+#: The elevated program, as a PowerShell expression evaluated by the job: System32's
+#: Windows PowerShell via ``GetSystemDirectory``, never ``$env:SystemRoot`` or ``PATH``.
+_SYSTEM_POWERSHELL = (
+    "[IO.Path]::Combine([Environment]::SystemDirectory, 'WindowsPowerShell', 'v1.0', "
+    "'powershell.exe')"
+)
+
+
 def build_script(handoff: UpdateHandoff) -> str:
     """The PowerShell job for ``handoff`` (pure; see the module docstring).
 
-    Raises ``ValueError`` for an elevated installer: a file in the user's temp folder is
-    never run with administrator rights (ADR-027).
+    An elevated ``installer`` hand-off (an all-users install) never elevates the
+    downloaded file: what is elevated is System32's Windows PowerShell running
+    :func:`build_admin_install_script`. Raises ``ValueError`` when that cannot be done
+    safely -- there is no SHA-256 for the admin-only copy to be checked against.
     """
-    if handoff.elevate and handoff.kind == "installer":
-        raise ValueError("a downloaded installer is never run elevated")
+    admin = handoff.elevate and handoff.kind == "installer"
+    if admin and not _SHA256_HEX.match((handoff.sha256 or "").lower()):
+        raise ValueError("an elevated installer needs the SHA-256 it was verified against")
     q = ps_quote
+    started = "YazSes update started: " + handoff.kind + (" (all users)" if admin else "")
     lines = [
         "$ErrorActionPreference = 'Continue'",
         f"$log = {q(str(handoff.log_file))}",
         f"$result = {q(str(handoff.result_file))}",
         "function Write-Note([string]$m) { try { Add-Content -LiteralPath $log "
         "-Value ('[' + (Get-Date -Format o) + '] ' + $m) -Encoding UTF8 } catch {} }",
-        f"Write-Note {q('YazSes update started: ' + handoff.kind)}",
+        f"Write-Note {q(started)}",
         *_wait_block(handoff.wait_pids),
         f"$code = {EXIT_NOT_STARTED}",
         "if ($still.Count -gt 0) {",
@@ -225,6 +412,9 @@ def build_script(handoff: UpdateHandoff) -> str:
     ]
     program, args = handoff.argv[0], list(handoff.argv[1:])
     if handoff.sha256:
+        # For an all-users install this early check is a courtesy, not the protection:
+        # it spares the user a UAC prompt for a file that is already wrong. The check
+        # that counts is the elevated job's, on its own admin-only copy.
         lines += [
             f"  $hash = (Get-FileHash -LiteralPath {q(program)} -Algorithm SHA256)"
             ".Hash.ToLowerInvariant()",
@@ -233,7 +423,13 @@ def build_script(handoff: UpdateHandoff) -> str:
             "    throw ('SHA-256 mismatch immediately before running: ' + $hash)",
             "  }",
         ]
-    if handoff.capture_output and not handoff.elevate:
+    if admin:
+        lines += [
+            "  Write-Note 'asking Windows for administrator permission (all-users install)'",
+            *_elevated_start(_SYSTEM_POWERSHELL, admin_install_command_line(handoff),
+                             hidden=True),
+        ]
+    elif handoff.capture_output and not handoff.elevate:
         call = " ".join(["&", q(program), *(q(a) for a in args)])
         lines += [
             "  $global:LASTEXITCODE = $null",
@@ -243,12 +439,13 @@ def build_script(handoff: UpdateHandoff) -> str:
             "  if ($null -ne $LASTEXITCODE) { $code = $LASTEXITCODE } "
             "elseif ($ok) { $code = 0 } else { $code = 1 }",
         ]
+    elif handoff.elevate:
+        # Chocolatey keeps a visible console, as `Start-Process -Verb RunAs` gave it.
+        lines += _elevated_start(q(program), windows_command_line(args), hidden=False)
     else:
         start = f"  $p = Start-Process -FilePath {q(program)}"
         if args:
             start += f" -ArgumentList {q(windows_command_line(args))}"
-        if handoff.elevate:
-            start += " -Verb RunAs"
         start += " -PassThru"
         lines += [
             start,
@@ -271,9 +468,9 @@ def build_script(handoff: UpdateHandoff) -> str:
             f"Remove-Item -LiteralPath {q(str(path))} -Force -ErrorAction SilentlyContinue"
         )
     if handoff.relaunch:
-        # Outside every branch above: whatever happened, YazSes is started again. If a
-        # process was still running, the second tray finds the single-instance lock held
-        # and exits quietly.
+        # Outside every branch above: whatever happened, YazSes is started again -- by
+        # this unelevated job, as the user, never by the elevated one. If a process was
+        # still running, the second tray finds the single-instance lock held and exits.
         relaunch = f"Start-Process -FilePath {q(handoff.relaunch[0])}"
         if len(handoff.relaunch) > 1:
             relaunch += f" -ArgumentList {q(windows_command_line(handoff.relaunch[1:]))}"
@@ -290,10 +487,7 @@ def encode_command(script: str) -> str:
 
 
 def powershell_argv(powershell: str, script: str) -> list[str]:
-    return [
-        powershell, "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
-        "-WindowStyle", "Hidden", "-EncodedCommand", encode_command(script),
-    ]
+    return [powershell, *_powershell_flags(), "-EncodedCommand", encode_command(script)]
 
 
 def default_powershell(env: Mapping[str, str]) -> str:
@@ -458,16 +652,23 @@ class WindowsUpdateLauncher:
 
 
 __all__ = [
+    "ADMIN_DIR_PREFIX",
     "APP_EXE",
     "DEFAULT_CHOCOLATEY_ROOT",
+    "EXIT_ELEVATION_DECLINED",
     "EXIT_HASH_MISMATCH",
     "EXIT_NOT_STARTED",
     "EXIT_STILL_RUNNING",
+    "EXIT_UNSAFE_STAGING",
     "FEED_QUERIES",
+    "SID_ADMINISTRATORS",
+    "SID_SYSTEM",
     "UNINSTALL_SUBKEY",
     "WAIT_SECONDS",
     "WindowsUpdateLauncher",
+    "admin_install_command_line",
     "arch_from_env",
+    "build_admin_install_script",
     "build_script",
     "chocolatey_exe",
     "default_powershell",

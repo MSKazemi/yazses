@@ -841,8 +841,8 @@ class OverlayConfig:
     blocked by the hotkey loop) draws an animated "sonar" — concentric rings that
     expand near the cursor and pulse with your live mic level while you dictate.
     It is a thin IPC client that polls the daemon's ``status`` RPC, so either the
-    Python or the Rust daemon can drive it. Requires the ``overlay`` extra
-    (``pip install yazses[overlay]`` / ``uv sync --extra overlay``) for PySide6.
+    Python or the Rust daemon can drive it. Requires PySide6 (the ``desktop``
+    extra), which ``yazses features enable overlay`` installs for an end user.
     """
     # Optional, off by default: on native Wayland (Ubuntu/GNOME) the compositor gives a new
     # window keyboard focus, so the overlay can swallow the dictated text. See

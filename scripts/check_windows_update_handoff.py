@@ -26,9 +26,19 @@ relaunches); a file tampered with after the download (hash mismatch, nothing run
 relaunch); a YazSes process that will not exit (nothing runs, relaunch). Each result is
 then read back by ``read_handoff_result``, the code the next tray start runs.
 
+**All users** (needs an elevated session; GitHub's Windows runners are administrators
+with UAC disabled, so ``runas`` elevates without a prompt): a real HKLM uninstall key, the
+real ``runas`` start of System32's PowerShell with the elevated ``-EncodedCommand``, and
+the fake installer recording *where* it ran -- ``<Windows>\\Temp\\yazses-update-<random>``,
+with TEMP/TMP/working directory there, owner BUILTIN\\Administrators, a protected DACL
+naming only Administrators and SYSTEM -- and that the directory is gone afterwards. Then
+the elevated script is run directly with a matching and a wrong hash (exit -2, nothing
+runs, the user-writable source untouched).
+
 What it does NOT cover: DNS, TLS and GitHub's real redirects (the opener is pointed at
-127.0.0.1); the real Inno installer; UAC; a real tray and daemon. ADR-027's manual
-checklist still owns those.
+127.0.0.1); the real Inno installer; the UAC *prompt* (consent, decline, a standard user
+entering admin credentials) and a filtered admin token that cannot write the directory;
+a real tray and daemon. ADR-027's manual checklist still owns those.
 
 Usage::
 
@@ -84,13 +94,40 @@ EXIT_ENV = "YAZSES_FAKE_INSTALLER_EXIT"
 FAKE_CS = r"""
 using System;
 using System.IO;
+using System.Reflection;
+using System.Security.AccessControl;
 using System.Threading;
 
 public static class FakeYazSes
 {
     static string Rec(string name)
     {
-        return Path.Combine(Environment.GetEnvironmentVariable("YAZSES_FAKE_RECORD_DIR"), name);
+        // An elevated child may not inherit the job's environment (the all-users path
+        // runs the installer from a runas-started PowerShell), so there is a fixed
+        // fallback the check also reads.
+        string dir = Environment.GetEnvironmentVariable("YAZSES_FAKE_RECORD_DIR");
+        if (string.IsNullOrEmpty(dir))
+            dir = Path.Combine(Path.GetPathRoot(Environment.SystemDirectory), "yazses-handoff-records");
+        return Path.Combine(dir, name);
+    }
+
+    static void RecordWhere()
+    {
+        // Where the installer runs from, its TEMP/TMP, and the ACL of its directory:
+        // the all-users path must run it from an Administrators-only copy.
+        string self = Assembly.GetEntryAssembly().Location;
+        string dir = Path.GetDirectoryName(self);
+        string sddl;
+        try
+        {
+            sddl = Directory.GetAccessControl(dir).GetSecurityDescriptorSddlForm(
+                AccessControlSections.Owner | AccessControlSections.Access);
+        }
+        catch (Exception e) { sddl = "error: " + e.Message; }
+        File.WriteAllText(Rec("installer-where.txt"), self + "\n"
+            + Environment.GetEnvironmentVariable("TEMP") + "\n"
+            + Environment.GetEnvironmentVariable("TMP") + "\n"
+            + Environment.CurrentDirectory + "\n" + sddl);
     }
 
     public static int Main(string[] args)
@@ -108,6 +145,7 @@ public static class FakeYazSes
             return 0;
         }
         File.WriteAllText(Rec("installer.txt"), ticks + "\n" + Environment.CommandLine);
+        RecordWhere();
         string code = Environment.GetEnvironmentVariable("YAZSES_FAKE_INSTALLER_EXIT");
         return string.IsNullOrEmpty(code) ? 0 : int.Parse(code);
     }
@@ -238,8 +276,9 @@ def check_requests(checks: Checks, release: FakeRelease) -> None:
 # ---- plan-only: any OS ------------------------------------------------------------------
 
 class RecordingLauncher:
-    def __init__(self, staging: Path) -> None:
+    def __init__(self, staging: Path, scope: str = "user") -> None:
         self.staging = staging
+        self.scope = scope
         self.handoffs: list[Any] = []
 
     def staging_dir(self) -> Path:
@@ -252,7 +291,7 @@ class RecordingLauncher:
         return [rf"C:\Users\x\{AWKWARD}\YazSesApp.exe", "--tray"]
 
     def install_scope(self) -> str:
-        return "user"
+        return self.scope
 
     def query_package_manager(self, method: str) -> str | None:
         return None
@@ -280,9 +319,36 @@ def plan_only(work: Path) -> Checks:
             for needle in ("Wait-Process", "Get-FileHash", "/VERYSILENT", "Set-Content",
                            "Start-Process -FilePath", "--tray"):
                 checks.check(needle in script, f"the job script contains {needle}")
+        _plan_all_users(checks, release, work)
     finally:
         release.close()
     return checks
+
+
+def _plan_all_users(checks: Checks, release: FakeRelease, work: Path) -> None:
+    """The all-users plan: an elevated job whose payload carries the hash and the copy."""
+    import base64
+
+    from yazses.platform.windows.update_handoff import build_script
+
+    print("\n== all users (plan)")
+    launcher = RecordingLauncher(work / AWKWARD / "machine" / "yazses-update", scope="machine")
+    result = _one_click(release, launcher, [4242])
+    checks.check(result.ok and len(launcher.handoffs) == 1,
+                 "an all-users install reaches the hand-off", result.message)
+    if not launcher.handoffs:
+        return
+    handoff = launcher.handoffs[0]
+    checks.check(handoff.elevate and iu.ALL_USERS_SWITCH in handoff.argv,
+                 "the hand-off is elevated and passes /ALLUSERS")
+    script = build_script(handoff)
+    checks.check("$psi.Verb = 'runas'" in script, "the job elevates through runas")
+    encoded = script.split("-EncodedCommand ", 1)[1].split("'", 1)[0] if \
+        "-EncodedCommand " in script else ""
+    elevated = base64.b64decode(encoded).decode("utf-16-le") if encoded else ""
+    for needle in (f"'{release.sha}'", "CreateDirectory($dir, $acl)", "[IO.File]::Copy(",
+                   ".ComputeHash($held)", "[IO.Directory]::Delete($dir, $true)"):
+        checks.check(needle in elevated, f"the elevated script contains {needle}")
 
 
 # ---- Windows: the real thing ---------------------------------------------------------------
@@ -306,32 +372,34 @@ def compile_fake_exe(out: Path) -> None:
 
 
 class _Registry:
-    """The HKCU Inno uninstall key ``install_scope`` reads, created for the run."""
+    """The Inno uninstall key ``install_scope`` reads, created for the run: HKCU for a
+    per-user install, HKLM (administrators only) for an all-users one."""
 
-    def __init__(self, app_dir: Path, in_ci: bool) -> None:
+    def __init__(self, app_dir: Path, in_ci: bool, hive: str = "HKEY_CURRENT_USER") -> None:
         import winreg  # type: ignore[import-not-found,unused-ignore]
 
         from yazses.platform.windows.update_handoff import UNINSTALL_SUBKEY
 
         self._winreg = winreg
+        self._root = getattr(winreg, hive)
         self._subkey = UNINSTALL_SUBKEY
         try:
-            winreg.CloseKey(winreg.OpenKey(winreg.HKEY_CURRENT_USER, UNINSTALL_SUBKEY))
+            winreg.CloseKey(winreg.OpenKey(self._root, UNINSTALL_SUBKEY))
             exists = True
         except OSError:
             exists = False
         if exists and not in_ci:
             raise SystemExit(
-                "YazSes's uninstall key already exists in HKCU: this machine has YazSes "
+                f"YazSes's uninstall key already exists in {hive}: this machine has YazSes "
                 "installed, and this check will not overwrite it. Run it in CI."
             )
-        key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, UNINSTALL_SUBKEY)
+        key = winreg.CreateKey(self._root, UNINSTALL_SUBKEY)
         winreg.SetValueEx(key, "Inno Setup: App Path", 0, winreg.REG_SZ, str(app_dir))
         winreg.CloseKey(key)
 
     def remove(self) -> None:
         try:
-            self._winreg.DeleteKey(self._winreg.HKEY_CURRENT_USER, self._subkey)
+            self._winreg.DeleteKey(self._root, self._subkey)
         except OSError:
             pass
 
@@ -493,10 +561,213 @@ def run_windows(work: Path) -> Checks:
                  tamper=True)
         scenario("a YazSes process that does not exit", linger_s=60, installer_exit=0,
                  wait_seconds=3)
+        registry.remove()
+        run_windows_all_users(checks, work, fake, lingerer, release,
+                              in_ci=os.environ.get("GITHUB_ACTIONS") == "true")
     finally:
         registry.remove()
         release.close()
     return checks
+
+
+# ---- Windows, all users: the elevated admin-only-copy job --------------------------------
+
+#: Where the fake installer records when the elevated job did not hand its environment on.
+FALLBACK_RECORDS = "yazses-handoff-records"
+
+
+def _is_admin() -> bool:
+    try:
+        import ctypes
+
+        return bool(getattr(ctypes, "windll").shell32.IsUserAnAdmin())
+    except Exception:
+        return False
+
+
+def _windows_temp() -> Path:
+    return Path(os.environ.get("SystemRoot") or r"C:\Windows") / "Temp"
+
+
+def _admin_dirs() -> set[Path]:
+    from yazses.platform.windows.update_handoff import ADMIN_DIR_PREFIX
+
+    try:
+        return {p for p in _windows_temp().iterdir() if p.name.startswith(ADMIN_DIR_PREFIX)}
+    except OSError:
+        return set()
+
+
+def parse_sddl(sddl: str) -> tuple[str, bool, set[str], bool]:
+    """``(owner, dacl_protected, trustees, all_allow)`` from an ``O:..D:..`` SDDL string.
+
+    ``O:BAD:P(A;OICI;FA;;;BA)(A;OICI;FA;;;SY)`` -> ``("BA", True, {"BA", "SY"}, True)``.
+    """
+    import re
+
+    owner = re.match(r"^O:(.*?)(?:G:|D:|$)", sddl)
+    dacl = sddl.split("D:", 1)[1] if "D:" in sddl else ""
+    flags = dacl.split("(", 1)[0]
+    aces = re.findall(r"\(([^)]*)\)", dacl)
+    trustees = {ace.split(";")[-1] for ace in aces if ace.count(";") == 5}
+    return (owner.group(1) if owner else "", "P" in flags, trustees,
+            bool(aces) and all(ace.startswith("A;") for ace in aces))
+
+
+def _exit_code(raw: int) -> int:
+    """A Windows exit code as the signed number the job wrote (-2, not 4294967294)."""
+    return raw - (1 << 32) if raw >= (1 << 31) else raw
+
+
+def _check_admin_copy_ran(checks: Checks, records: Path, before: set[Path]) -> None:
+    from yazses.platform.windows.update_handoff import ADMIN_DIR_PREFIX
+
+    where = _read(records / "installer-where.txt").splitlines()
+    checks.check(len(where) >= 5, "the installer recorded where it ran", repr(where))
+    if len(where) < 5:
+        return
+    exe, temp, tmp, cwd, sddl = where[0], where[1], where[2], where[3], "\n".join(where[4:])
+    here = str(Path(exe).parent).rstrip("\\").casefold()
+    prefix = str(_windows_temp() / ADMIN_DIR_PREFIX).casefold()
+    checks.check(exe.casefold().startswith(prefix),
+                 "the installer ran from <Windows>\\Temp\\yazses-update-<random>", exe)
+    checks.check({temp.rstrip("\\").casefold(), tmp.rstrip("\\").casefold(),
+                  cwd.rstrip("\\").casefold()} == {here},
+                 "TEMP, TMP and the working directory were that same directory",
+                 f"TEMP={temp} TMP={tmp} cwd={cwd}")
+    owner, protected, trustees, all_allow = parse_sddl(sddl)
+    checks.check(owner == "BA", "the directory is owned by BUILTIN\\Administrators", sddl)
+    checks.check(protected, "the directory's DACL is protected (no inheritance)", sddl)
+    checks.check(trustees == {"BA", "SY"} and all_allow,
+                 "only Administrators and SYSTEM have access to it", sddl)
+    checks.check(_admin_dirs() - before == set(), "the admin-only directory was deleted",
+                 repr(sorted(_admin_dirs() - before)))
+
+
+def _direct_elevated_runs(checks: Checks, work: Path, fake: Path, records: Path) -> None:
+    """Run ``build_admin_install_script`` itself in this (elevated) session."""
+    from yazses.platform.windows import update_handoff as uh
+
+    source_dir = work / AWKWARD / "direct"
+    source_dir.mkdir(parents=True)
+    source = source_dir / ASSET
+    shutil.copy2(fake, source)
+    good = hashlib.sha256(source.read_bytes()).hexdigest()
+    for label, sha, installer_exit, want in (
+        ("a matching hash", good, 7, 7),
+        ("a wrong hash", "0" * 64, 0, iu.EXIT_HASH_MISMATCH),
+    ):
+        print(f"\n== the elevated script, run directly, with {label}")
+        for child in records.iterdir():
+            child.unlink()
+        before = _admin_dirs()
+        script = uh.build_admin_install_script(
+            str(source), sha, iu.installer_arguments(all_users=True), source.name)
+        env = dict(os.environ, **{RECORD_ENV: str(records), EXIT_ENV: str(installer_exit)})
+        proc = subprocess.run(uh.powershell_argv(uh.default_powershell(env), script),
+                              env=env, timeout=180, check=False)
+        code = _exit_code(proc.returncode)
+        checks.check(code == want, f"it exited {want}", f"exit code {code}")
+        ran = (records / "installer.txt").exists()
+        checks.check(ran is (want == installer_exit),
+                     "the copy ran" if want == installer_exit else "nothing ran")
+        if ran:
+            _check_admin_copy_ran(checks, records, before)
+            line = _read(records / "installer.txt")
+            checks.check(iu.ALL_USERS_SWITCH in line and "/LOG" not in line,
+                         "the installer got /ALLUSERS and no /LOG", line)
+        checks.check(_admin_dirs() - before == set(), "no admin-only directory was left behind")
+        checks.check(source.is_file() and hashlib.sha256(source.read_bytes()).hexdigest() == good,
+                     "the user-writable source was only read, never changed")
+
+
+def run_windows_all_users(checks: Checks, work: Path, fake: Path, lingerer: Path,
+                          release: FakeRelease, in_ci: bool) -> None:
+    """An all-users install end to end: offer → hand-off → runas → admin-only copy."""
+    from yazses.platform.windows import update_handoff as uh
+
+    print("\n== all users: the elevated update through an admin-only copy")
+    if not _is_admin():
+        # GitHub's Windows runners are administrators with UAC disabled, so runas
+        # elevates without a prompt; anywhere else this half needs an elevated shell.
+        checks.check(not in_ci, "the CI runner is elevated (GitHub: admin, UAC disabled)")
+        print("  SKIP  not elevated; run from an administrator shell to cover all users")
+        return
+    records = Path(_windows_temp().anchor) / FALLBACK_RECORDS
+    shutil.rmtree(records, ignore_errors=True)
+    records.mkdir()
+    saved_record = os.environ.get(RECORD_ENV)
+    os.environ[RECORD_ENV] = str(records)
+    app_dir = work / AWKWARD / "Program Files" / "YazSes"
+    app_dir.mkdir(parents=True)
+    shutil.copy2(fake, app_dir / uh.APP_EXE)
+    spawned: list[subprocess.Popen] = []
+
+    def _spawn(*args: Any, **kwargs: Any) -> subprocess.Popen:
+        proc = subprocess.Popen(*args, **kwargs)
+        spawned.append(proc)
+        return proc
+
+    launcher = uh.WindowsUpdateLauncher(executable=str(app_dir / uh.APP_EXE), frozen=True,
+                                        spawn=_spawn)
+    staging = launcher.staging_dir()
+    registry = _Registry(app_dir, in_ci, hive="HKEY_LOCAL_MACHINE")
+    before = _admin_dirs()
+    lingering: subprocess.Popen | None = None
+    try:
+        checks.check(launcher.install_scope() == "machine",
+                     "the real HKLM uninstall key reads as an all-users install")
+        offer = iu.one_click_offer(_status(), launcher)
+        checks.check(offer is not None and offer.ok and offer.all_users,
+                     "an all-users install is offered, as all-users", repr(offer))
+        os.environ[EXIT_ENV] = "0"
+        lingering = subprocess.Popen([str(lingerer), "--linger", "2"])
+        result = _one_click(release, launcher, [lingering.pid])
+        checks.check(result.ok, "the all-users hand-off started", result.message)
+        if not result.ok or not spawned:
+            return
+        try:
+            spawned[0].wait(timeout=uh.WAIT_SECONDS + 180)
+        except subprocess.TimeoutExpired:
+            spawned[0].kill()
+            checks.check(False, "the PowerShell job finished")
+        relaunched = _wait_for(lambda: (records / "relaunched.txt").exists(), 30)
+        log = _read(staging / iu.LOG_NAME)
+        print("  update.log:\n    " + log.strip().replace("\n", "\n    "))
+        code = _read(staging / iu.RESULT_NAME).strip()
+        checks.check(code == "0", "the job recorded the elevated installer's exit code 0",
+                     f"exit-code.txt says {code!r}")
+        checks.check("administrator permission" in log, "the log says it asked for elevation")
+        checks.check((records / "installer.txt").exists(), "the installer ran")
+        _check_admin_copy_ran(checks, records, before)
+        line = _read(records / "installer.txt")
+        for switch in (*iu.INSTALLER_SWITCHES, iu.ALL_USERS_SWITCH):
+            checks.check(switch in line, f"the installer got {switch}", line)
+        checks.check("/LOG" not in line, "the elevated installer got no /LOG", line)
+        checks.check(relaunched, "YazSes was started again afterwards")
+        checks.check(not (staging / ASSET).exists(), "the downloaded installer was deleted")
+        checks.check(not (staging / iu.LOCK_NAME).exists(), "the update lock was released")
+        report = iu.read_handoff_result(staging, CURRENT)
+        checks.check(report is not None and "did not change the version" in report[1],
+                     "the next start reads the result back", repr(report))
+        handoff_line = uh.admin_install_command_line(
+            iu.build_handoff(kind="installer",
+                             argv=[str(staging / ASSET), *iu.installer_arguments(all_users=True)],
+                             elevate=True, capture_output=False, wait_pids=[],
+                             relaunch=["x"], staging=staging, sha256=release.sha))
+        print(f"  the elevated command line is {len(handoff_line)} characters")
+        _direct_elevated_runs(checks, work, fake, records)
+    finally:
+        if lingering is not None:
+            lingering.kill()
+        registry.remove()
+        for leftover in _admin_dirs() - before:
+            shutil.rmtree(leftover, ignore_errors=True)
+        shutil.rmtree(records, ignore_errors=True)
+        if saved_record is None:
+            os.environ.pop(RECORD_ENV, None)
+        else:
+            os.environ[RECORD_ENV] = saved_record
 
 
 def main(argv: list[str] | None = None) -> int:

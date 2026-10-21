@@ -5,7 +5,8 @@ Uses the Nordic UART Service (NUS) for transparent serial-over-BLE:
   TX char UUID : 6E400003-B5A3-F393-E0A9-E50E24DCCA9E  (device → host, notify)
   RX char UUID : 6E400002-B5A3-F393-E0A9-E50E24DCCA9E  (host → device, write)
 
-bleak is an optional dependency. Install with: pip install 'yazses[ble]'
+bleak is an optional dependency (the ``ble`` extra); when it is missing, ``run()``
+logs the install command for the way YazSes was installed (``system/remedy.py``).
 See docs/emg-protocol.md for the full YESP message specification.
 """
 from __future__ import annotations
@@ -69,9 +70,11 @@ class BLEEMGBackend:
     def run(self) -> None:
         """Connect over BLE and dispatch YESP messages until stop() is called."""
         if not _BLEAK_AVAILABLE:
+            from yazses.system.remedy import install_hint
+
             log.warning(
-                "BLEEMGBackend: bleak is not installed; BLE EMG input is disabled. "
-                "Install it with: pip install 'yazses[ble]'"
+                "BLEEMGBackend: bleak is not installed; BLE EMG input is disabled. %s",
+                install_hint("ble"),
             )
             return
 

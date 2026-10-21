@@ -26,7 +26,7 @@ from yazses.settingsui.app import SettingsWindow  # noqa: E402
 from yazses.settingsui.controller import SettingsController  # noqa: E402
 from yazses.settingsui.model import build_settings_model  # noqa: E402
 from yazses.system.dormant import DormantFeature  # noqa: E402
-from yazses.system.installer_update import HandoffResult, Offer  # noqa: E402
+from yazses.system.installer_update import ALL_USERS_NOTE, HandoffResult, Offer  # noqa: E402
 from yazses.system.updater import UpdateStatus, UpgradeOutcome, manual_update_steps  # noqa: E402
 
 
@@ -231,9 +231,27 @@ def test_a_failed_hand_off_keeps_the_window_and_offers_the_page(qapp):
     assert panel.check_button.isEnabled()
 
 
-def test_an_all_users_install_shows_the_manual_steps_and_the_page_button(qapp):
+def test_the_all_users_question_says_windows_will_ask_for_administrator_permission(qapp):
+    # The UAC prompt names Windows PowerShell, not YazSes; the question must say so
+    # before the user is asked, as the tray's does.
+    fakes = _Fakes(check=(_status(), Offer(True, all_users=True), object()), confirm=False)
+    _win, panel = _panel(qapp, fakes)
+    panel.on_check()
+    panel.on_action()
+    assert ALL_USERS_NOTE in panel.asked[0][1]
+
+
+def test_the_per_user_question_does_not_mention_administrator_permission(qapp):
+    fakes = _Fakes(check=(_status(), Offer(True), object()), confirm=False)
+    _win, panel = _panel(qapp, fakes)
+    panel.on_check()
+    panel.on_action()
+    assert ALL_USERS_NOTE not in panel.asked[0][1]
+
+
+def test_a_refused_one_click_shows_the_manual_steps_and_the_page_button(qapp):
     status = _status()
-    reason = ("YazSes is installed for all users, so updating needs administrator rights. "
+    reason = ("Could not tell whether YazSes is installed for this user or for all users. "
               "Run the installer from the releases page: it upgrades in place, no uninstall.")
     fakes = _Fakes(check=(status, Offer(False, reason), object()))
     _win, panel = _panel(qapp, fakes)
