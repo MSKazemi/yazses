@@ -2,9 +2,10 @@
 
 Windows doesn't gate WH_KEYBOARD_LL behind a UAC or privacy prompt — it Just
 Works. Microphone, on the other hand, has been gated by Settings → Privacy →
-Microphone since Windows 10 1903. We probe by asking sounddevice for the
-device list; an empty list strongly suggests the user has revoked access (or
-no mic is plugged in).
+Microphone since Windows 10 1903. We probe the ConsentStore switches that page
+writes, then ask sounddevice for the device list. The device list alone cannot
+answer the question: a revoked switch leaves every device enumerated, and the
+capture stream just delivers nothing.
 """
 
 from __future__ import annotations
@@ -111,20 +112,58 @@ def elevation_detail(elevated: bool | None) -> str:
 #: is an **undocumented location** -- and that is why a value it cannot read is
 #: reported as undetermined rather than assumed. The authoritative answer still
 #: arrives later, as `E_ACCESSDENIED` from whatever opens the camera.
-_CONSENT_SUBKEY = (
+#:
+#: The microphone page writes the same three values under ``microphone``. Both
+#: layouts were read on a real Windows 11 machine (22H2), where every value
+#: was the string ``Allow`` exactly as assumed here.
+_CONSENT_ROOT = (
     r"Software\Microsoft\Windows\CurrentVersion\CapabilityAccessManager"
-    r"\ConsentStore\webcam"
+    r"\ConsentStore"
 )
 
-#: ``(hive attribute name, subkey)``, in decreasing scope: the device-wide
-#: switch, this user's switch, and "Let desktop apps access your camera" -- the
-#: last of which is the one that governs YazSes installed from the .exe, and the
-#: one that is most often off while the other two look fine.
-_CONSENT_READS = (
-    ("HKEY_LOCAL_MACHINE", _CONSENT_SUBKEY),
-    ("HKEY_CURRENT_USER", _CONSENT_SUBKEY),
-    ("HKEY_CURRENT_USER", _CONSENT_SUBKEY + r"\NonPackaged"),
-)
+
+def _consent_reads(capability: str) -> tuple[tuple[str, str], ...]:
+    """``(hive attribute name, subkey)`` for one capability, in decreasing scope.
+
+    The device-wide switch, this user's switch, and "Let desktop apps access
+    your camera/microphone" -- the last of which is the one that governs YazSes
+    installed from the .exe, and the one that is most often off while the other
+    two look fine.
+    """
+    subkey = rf"{_CONSENT_ROOT}\{capability}"
+    return (
+        ("HKEY_LOCAL_MACHINE", subkey),
+        ("HKEY_CURRENT_USER", subkey),
+        ("HKEY_CURRENT_USER", subkey + r"\NonPackaged"),
+    )
+
+
+def _read_consent(capability: str) -> tuple[str | None, ...]:
+    """The three ConsentStore values for `capability`; ``None`` for each unreadable one.
+
+    An empty tuple means `winreg` is not importable at all (not Windows), which
+    every mapping below already treats as "nothing recorded".
+    """
+    try:
+        import winreg  # type: ignore[import-not-found]
+    except ImportError:
+        return ()
+
+    # The `attr-defined` ignores are the checking platform, not a defect:
+    # typeshed declares every `winreg` attribute behind `sys.platform ==
+    # "win32"`, and CI runs mypy on Linux. Ignored per line rather than by
+    # adding this module to the `disable_error_code` block in pyproject.toml,
+    # so a real attribute mistake anywhere else in the file still fails.
+    values: list[str | None] = []
+    for hive_name, path in _consent_reads(capability):
+        try:
+            hive = getattr(winreg, hive_name)
+            with winreg.OpenKey(hive, path) as key:  # type: ignore[attr-defined]
+                value, _ = winreg.QueryValueEx(key, "Value")  # type: ignore[attr-defined]
+            values.append(str(value))
+        except (OSError, AttributeError):
+            values.append(None)
+    return tuple(values)
 
 
 def camera_consent_state(values: tuple[str | None, ...]) -> CameraPermission:
@@ -154,6 +193,23 @@ def camera_consent_state(values: tuple[str | None, ...]) -> CameraPermission:
     return CameraPermission.NOT_DETERMINED
 
 
+def microphone_permission_state(
+    consent: tuple[str | None, ...], has_input_device: bool
+) -> PermissionState:
+    """Combine the microphone ConsentStore values with the device list. Pure.
+
+    * any switch ``Deny`` -> ``DENIED``, *whatever the device list says*. This
+      is the arm the device list used to miss: Windows keeps enumerating every
+      microphone after the user revokes access, so "devices present" was
+      reported as OK while the daemon recorded silence.
+    * otherwise a device -> ``OK``; no device -> ``DENIED``, the long-standing
+      answer for an empty list (`how_to_grant_microphone` names both causes).
+    """
+    if any(v == "Deny" for v in consent):
+        return PermissionState.DENIED
+    return PermissionState.OK if has_input_device else PermissionState.DENIED
+
+
 class WindowsPermissions:
     """PermissionsBackend for Windows."""
 
@@ -167,11 +223,16 @@ class WindowsPermissions:
         return PermissionState.OK
 
     def check_microphone(self) -> PermissionState:
+        # The switches first: a revoked one is the answer even when the device
+        # query below would fail, and it is the only signal of a revocation.
+        consent = _read_consent("microphone")
+        if any(v == "Deny" for v in consent):
+            return PermissionState.DENIED
         try:
             import sounddevice as sd
 
             inputs = [d for d in sd.query_devices() if d["max_input_channels"] > 0]
-            return PermissionState.OK if inputs else PermissionState.DENIED
+            return microphone_permission_state(consent, bool(inputs))
         except Exception as exc:
             log.warning("sounddevice query failed: %s", exc)
             return PermissionState.UNKNOWN
@@ -202,9 +263,9 @@ class WindowsPermissions:
     def how_to_grant_microphone(self) -> str:
         """Settings → Privacy → Microphone has gated this since Windows 10 1903.
 
-        `check_microphone` answers DENIED off an empty device list, which is the
-        same symptom as an unplugged microphone, so the message names both rather
-        than asserting the one it cannot distinguish.
+        `check_microphone` answers DENIED for a revoked privacy switch and also for
+        an empty device list, which is the same symptom as an unplugged microphone,
+        so the message names both rather than asserting one of them.
         """
         return (
             "Allow microphone access in:\n"
@@ -231,29 +292,11 @@ class WindowsPermissions:
         Every failure path returns ``NOT_DETERMINED``. The mapping itself lives in
         :func:`camera_consent_state`, and is the part the test suite can reach.
 
-        ⚠ Untested on real hardware: no Windows machine is available here, and the
-        registry read below has never run on one.
+        The registry read has run on one real Windows 11 machine with every switch
+        on, and answered ``GRANTED``. A ``Deny`` has still only been exercised by
+        the mapping tests.
         """
-        try:
-            import winreg  # type: ignore[import-not-found]
-        except ImportError:
-            return CameraPermission.NOT_DETERMINED
-
-        # The `attr-defined` ignores are the checking platform, not a defect:
-        # typeshed declares every `winreg` attribute behind `sys.platform ==
-        # "win32"`, and CI runs mypy on Linux. Ignored per line rather than by
-        # adding this module to the `disable_error_code` block in pyproject.toml,
-        # so a real attribute mistake anywhere else in the file still fails.
-        values: list[str | None] = []
-        for hive_name, path in _CONSENT_READS:
-            try:
-                hive = getattr(winreg, hive_name)
-                with winreg.OpenKey(hive, path) as key:  # type: ignore[attr-defined]
-                    value, _ = winreg.QueryValueEx(key, "Value")  # type: ignore[attr-defined]
-                values.append(str(value))
-            except (OSError, AttributeError):
-                values.append(None)
-        return camera_consent_state(tuple(values))
+        return camera_consent_state(_read_consent("webcam"))
 
     def how_to_grant_camera(self) -> str:
         """Settings -> Privacy & Security -> Camera, and the switch under it.
