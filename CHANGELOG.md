@@ -6,6 +6,60 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — implicit gaze calibration can now see real clicks on X11, Windows and macOS ([#607](https://github.com/MSKazemi/yazses/issues/607))
+
+The `[gaze_refine]` feature treats an ordinary mouse click as "where the user was looking
+a moment ago", but no platform had a click observer, so on every real install it stayed
+dormant. Each OS now ships one behind the existing `ClickObserver` seam, and each emits
+only a monotonic timestamp and a screen position: the event has no field for a button, a
+window, a title or a character, so a backend cannot leak one.
+
+- **Linux X11**: XInput2 raw button presses on the root window over a separate display
+  connection, no grab, buttons 1–3 only. On **Wayland** there is no global click stream
+  without compositor-private APIs and the RemoteDesktop portal is output-only, so the
+  factory stays `None` and the daemon log and `yazses doctor` say so.
+- **Windows**: a `WH_MOUSE_LL` hook on its own thread. The hook procedure only reads the
+  pointer position and hands it to a queue, so it returns within Windows' low-level hook
+  timeout. Coordinates are passed through unconverted until a Windows topology provider
+  exists; the conversion site is named.
+- **macOS**: a listen-only `CGEventTap` (`kCGEventTapOptionListenOnly`, asserted by a
+  test), which can never swallow or alter a click. A missing Input Monitoring or
+  Accessibility grant leaves dictation working and names the pane to open.
+
+Nothing starts unless `[gaze_refine] enabled = true` (default off). `yazses doctor` gains a
+"Click observer" row only while that feature is on. All three backends are tested against
+faked OS APIs; none has yet run on real hardware, and the spec and the eye-control roadmap
+say so.
+
+### Added — ADR-029 "Runtime residency": RAM and CPU proportional to what is enabled (Proposed)
+
+The research note of 2026-10-21 measured that the speech model loads at daemon start and
+is never unloaded (base.en: 188 MB after load, 216 MB after the first decode, 343 MB peak),
+and that nothing bounds how many heavy models stay resident. ADR-029 proposes idle unload
+per feature with a keep-alive (core dictation stays resident by default; diarization,
+gaze, TTS, the LLM and voiceprint get timeouts), out-of-process workers for the native
+stacks that never return memory, a least-recently-used cap on resident models, and
+nightly RSS and idle-CPU budgets. `system/residency.py` is the pure policy it specifies
+(`IdleTracker`, `ResidencyBudget`, worker placement, `check_rss`), with 74 tests.
+Policy only: the daemon does not change in this release, and the ADR lists the exact
+integration hooks and the two quick fixes it defers (`latency` out of the recommended
+tier; `[stt] idle_unload_s`).
+
+### Fixed — Linux: enabling a voiceprint feature no longer downloads the CUDA build of PyTorch
+
+On Linux, `yazses features enable cocktail`, `multiprofile` or `voiceguard`, and a
+checkout's `uv sync --extra voiceprint`, resolved PyTorch from PyPI, whose Linux wheel
+pulls 15 `nvidia-*` packages: 4.22 GB of wheels for a CPU-only app. The lock now routes
+`torch` and `torchaudio` to the PyTorch project's CPU-only index on Linux only (macOS and
+Windows wheels on PyPI are already CPU builds), and the feature installer passes that
+index, with pip's best-match strategy so no base package is downgraded by the mirror;
+`uv tool upgrade` keeps it through the tool receipt. The lock lost exactly the CUDA closure
+(19 packages) and changed no other version. A bare `pip install "yazses[voiceprint]"` from
+PyPI cannot read a uv source; the install-cost page tells Linux users to add
+`--extra-index-url https://download.pytorch.org/whl/cpu`. The measured voiceprint download
+size on the install-cost page is still the old figure until it is re-measured. ADR-019's
+egress inventory names the new host.
+
 ### Added — the website shows what is being built right now, and a three-step quick start for every OS
 
 The home page of [mskazemi.com/yazses](https://mskazemi.com/yazses/) gains two sections
