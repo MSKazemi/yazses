@@ -7,7 +7,8 @@
 #   LGPL / MPL-2.0      passes with a generated source offer (LICENSES/SOURCE.md)
 #   GPL / AGPL          passes ONLY with an [[approval]] below, plus SOURCE.md
 #   UNKNOWN             fails: the pack is withheld
-#   no licence file     fails: the pack is withheld
+#   no licence file     fails: the pack is withheld, unless a signed [[licence_text]]
+#                       below supplies it
 #
 # Only the project owner adds an [[approval]]. Each one names one pack, one
 # distribution, one exact version and the licence exactly as the build report shows it.
@@ -29,16 +30,67 @@
 # clarification to a GPL licence still needs an [[approval]]. It never excuses a missing
 # licence file, and it goes stale on a version bump exactly like an approval.
 #
-#   [[clarification]]
-#   pack = "diarization"
-#   dist = "sherpa-onnx"
-#   version = "1.13.8"
-#   licence = "Apache-2.0"
-#   reviewed_by = "<reviewer's full name>"
-#   date = "YYYY-MM-DD"
-#   reason = "METADATA says 'Apache licensed, as found in the LICENSE file'; the file is Apache-2.0"
+# A [[licence_text]] supplies the licence file a distribution does not ship. The text is
+# committed under licence-texts/ (next to this file; `file` is relative to this
+# directory) and pinned by `sha256` (of the file's bytes; .gitattributes keeps every
+# checkout byte-exact). The build copies it to LICENSES/<dist>/<file name> in the pack
+# only when pack, dist and exact version match, `spdx` equals the licence the
+# distribution declares (or a clarification gives it), the file's SHA-256 matches, and
+# `reviewed_by` is filled in. A distribution that ships its own licence file keeps it;
+# an entry for it is reported as redundant and never overrides the shipped text.
 #
-# No entry is recorded yet: no GPL component ships in a pack today, and no licence has
-# been reviewed by hand. The examples above are comments, not decisions.
+# SIGNING. `reviewed_by` and `date` may be left empty ("") in a [[clarification]] or a
+# [[licence_text]]: the entry is then prepared but unsigned. The build report lists it
+# under `awaiting_review` and it honours nothing. Only a person fills those two fields,
+# after reading the licence text themselves; a coding agent must never write a name
+# there. An [[approval]] cannot be left unsigned: an empty `approved_by` is an error.
 
 format = 1
+
+# --- diarization (sherpa-onnx 1.13.8) -- PREPARED, NOT SIGNED -------------------------
+#
+# Do not sign these as Apache-2.0 (finding, 2026-10-21). The sherpa-onnx 1.13.8 binaries
+# embed espeak-ng, which is GPL-3.0-or-later: strings on the Linux wheels finds 137
+# espeak symbols in libsherpa-onnx-c-api.so and 98 in _sherpa_onnx…so
+# (espeak_Initialize, espeak_TextToPhonemesWithTerminator, espeak_CompileDictionary;
+# .constprop/.isra suffixes mean statically compiled in, not loaded). sherpa-onnx builds
+# TTS in by default, so the Windows wheels very likely do too (not checked). The
+# declared licence is therefore incomplete, and the gate cannot see it because it reads
+# declared metadata only. Redistributing these binaries in a Windows add-on means
+# GPL-3.0 obligations: an [[approval]] for GPL-3.0-or-later plus a source offer in
+# SOURCE.md, or a sherpa-onnx build without TTS. Owner decision 2026-10-21: leave both
+# entries unsigned; diarization stays PyPI-only (pip/uv), which is not redistribution by
+# YazSes. This is a technical finding, not legal advice.
+#
+# Both entries are inert until the owner reads and signs them. tests/test_pack_licences.py
+# (DIARIZATION_LICENCES_SIGNED) holds them inert; the steps to sign are in
+# design/specs/feature-addon-packs.md item 14 and packaging/README.md.
+
+# sherpa-onnx 1.13.8 METADATA declares only `License: Apache licensed, as found in the
+# LICENSE file`, which the gate cannot classify. Its wheel ships dist-info
+# licenses/LICENSE (SHA-256 cfc7749b...3d30, measured on the Linux 1.13.8 wheel): the
+# same bytes as https://www.apache.org/licenses/LICENSE-2.0.txt.
+[[clarification]]
+pack = "diarization"
+dist = "sherpa-onnx"
+version = "1.13.8"
+licence = "Apache-2.0"
+reviewed_by = ""          # the owner fills this in after reading the LICENSE; never an agent
+date = ""                 # YYYY-MM-DD, filled in with reviewed_by
+reason = "METADATA says 'Apache licensed, as found in the LICENSE file'; the LICENSE in the wheel's dist-info is the Apache License 2.0 text"
+
+# sherpa-onnx-core 1.13.8 declares `License: Apache-2.0` but its wheel ships no licence
+# file. The text below is the repository's LICENSE at tag v1.13.8 (a lightweight tag on
+# commit 11afbd009a7f8c08f4bcf2fc1b265d0df4670fbf, whose CMakeLists.txt sets
+# SHERPA_ONNX_VERSION "1.13.8"), fetched 2026-10-21. It is byte-identical to
+# https://www.apache.org/licenses/LICENSE-2.0.txt (11358 bytes).
+[[licence_text]]
+pack = "diarization"
+dist = "sherpa-onnx-core"
+version = "1.13.8"
+spdx = "Apache-2.0"
+source_url = "https://github.com/k2-fsa/sherpa-onnx/blob/11afbd009a7f8c08f4bcf2fc1b265d0df4670fbf/LICENSE"
+file = "licence-texts/sherpa-onnx-core/1.13.8/LICENSE"
+sha256 = "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
+reviewed_by = ""          # the owner fills this in after reading the text; never an agent
+date = ""                 # YYYY-MM-DD, filled in with reviewed_by

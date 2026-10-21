@@ -8,6 +8,7 @@ trigger and with the trees MkDocs actually reads.
 
 from __future__ import annotations
 
+import ast
 from pathlib import Path
 
 import yaml
@@ -45,6 +46,37 @@ def _mkdocs_sources() -> set[str]:
         elif stripped.startswith("- hooks/"):
             sources.add(f"{stripped.removeprefix('- ').split('/')[0]}/**")
     return sources
+
+
+def _hook_build_inputs() -> set[str]:
+    """Files outside the hook trees that a hook declares it reads (``BUILD_INPUTS``).
+
+    Read with ``ast`` rather than by importing, so the test does not execute build code.
+    """
+    inputs: set[str] = set()
+    for line in MKDOCS.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if not stripped.startswith("- hooks/"):
+            continue
+        tree = ast.parse((ROOT / stripped.removeprefix("- ")).read_text(encoding="utf-8"))
+        for node in tree.body:
+            if (
+                isinstance(node, ast.Assign)
+                and any(isinstance(t, ast.Name) and t.id == "BUILD_INPUTS" for t in node.targets)
+            ):
+                inputs.update(ast.literal_eval(node.value))
+    return inputs
+
+
+def test_a_file_a_hook_reads_triggers_both_validation_and_deploy() -> None:
+    # hooks/project_status.py renders release status from CHANGELOG.md. Without
+    # CHANGELOG.md in the filter, a release would leave the home page announcing the
+    # previous one until an unrelated docs commit happened to rebuild it.
+    inputs = _hook_build_inputs()
+    assert "CHANGELOG.md" in inputs, f"BUILD_INPUTS was not read from the hooks: {inputs}"
+    for event in ("push", "pull_request"):
+        missing = sorted(inputs - set(_trigger_paths(event)))
+        assert not missing, f"a hook reads {missing} but {event} does not run docs.yml"
 
 
 def test_push_and_pull_request_both_have_path_filters() -> None:

@@ -281,6 +281,33 @@ def _dormant_feature_checks(cfg, *, dormant=None) -> list[_Check]:
     ]
 
 
+def _click_observer_check(cfg, platform) -> _Check | None:
+    """One row for implicit gaze refinement's click producer, only while it is on (#607).
+
+    Silent on a default install (``[gaze_refine] enabled = false``), so this costs nothing
+    for anyone who did not ask. For somebody who did, the row answers the one question the
+    daemon log otherwise answers alone: can clicks be observed on *this* session? OK when
+    the platform registered a backend (X11 today); WARN with the platform's own sentence
+    when it did not -- on Wayland that is "no global click stream", which is not a missing
+    package to go and fetch. Reads two attributes and opens nothing.
+    """
+    try:
+        if not bool(cfg.gaze_refine.enabled):
+            return None
+    except AttributeError:
+        return None
+    factory = getattr(platform, "click_observer_factory", None)
+    if factory is not None:
+        return ("Click observer [gaze_refine]", "OK",
+                "a desktop click observer is registered for this session; the daemon starts "
+                "it with implicit refinement (`yazses gaze status` shows what it learned)")
+    reason = (getattr(platform, "click_observer_unavailable_reason", None)
+              or "this platform has no click observer yet")
+    return ("Click observer [gaze_refine]", "WARN",
+            f"on, but no clicks can be observed here — {reason}. Implicit refinement stays "
+            "dormant; dictation and gaze routing are unaffected.")
+
+
 def _opencv_check(*, versions=None, broken=None, repair=None) -> _Check | None:
     """Is OpenCV (``cv2``) whole? Shown only when an OpenCV distribution is installed.
 
@@ -2168,6 +2195,11 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
         checks.append(("Hands-free health", "SKIP",
                        "unknown — the hands-free health probe itself failed; please report "
                        "this with the rest of this output"))
+    # Implicit refinement's click producer (#607), beside the hands-free rows it feeds.
+    # Nothing on a default install; two attribute reads otherwise.
+    click_observer = _click_observer_check(cfg, platform)
+    if click_observer is not None:
+        checks.append(click_observer)
 
     # Linux-specific injection tools
     if sys.platform == "linux":

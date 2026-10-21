@@ -16,7 +16,7 @@ description: "Install YazSes on Windows for offline speech-to-text: winget insta
 ## Requirements
 
 - Windows 10 21H2 or later, 64-bit (Windows 11 also fine)
-- ~250 MB free disk for the app + the Whisper model on first download
+- ~500 MB free disk for the app (about 190 MB) and the default Whisper model (about 150 MB), downloaded on first use
 - A microphone
 
 ## Install
@@ -30,7 +30,8 @@ Windows 11. Open Terminal or PowerShell and run:
 winget install MSKazemi.YazSes
 ```
 
-That resolves both x64 and ARM64 automatically, verifies the installer's SHA256
+It installs the x64 build (an ARM PC runs it under Windows' x64 emulation; there is no
+native ARM64 build), verifies the installer's SHA256
 against the published manifest, and installs per-user with no administrator
 rights. `winget upgrade MSKazemi.YazSes` moves you to a new release later.
 
@@ -76,6 +77,9 @@ rights. `winget upgrade MSKazemi.YazSes` moves you to a new release later.
 Prefer the terminal? The manifests live in this repo and track each release.
 
 ```powershell
+# Chocolatey — from an administrator PowerShell
+choco install yazses
+
 # Scoop — add the bucket once, then install and update like anything else
 scoop bucket add yazses https://github.com/MSKazemi/yazses
 scoop install yazses
@@ -87,7 +91,7 @@ together rather than the checksum going stale.
 
 **Status, honestly.** **Scoop works** — the bucket is served straight from this repo
 ([`bucket/yazses.json`](https://github.com/MSKazemi/yazses/blob/main/bucket/yazses.json)),
-carries both x64 and ARM64, and has been installed end-to-end on a clean Windows
+carries the x64 installer (ARM PCs run it under emulation), and has been installed end-to-end on a clean Windows
 host: `yazses update --check` correctly reports the install as `via scoop` and
 offers `scoop update yazses`. The direct installer above is verified the same way
 (`via windows-installer`).
@@ -123,16 +127,16 @@ release, and the transcribed text appears in whatever window is focused.
 > hold_threshold_ms = 500
 >
 > [stt]
-> model = "tiny.en"   # try "base.en" for better accuracy at the cost of CPU
+> model = "base.en"   # the default; "tiny.en" is faster and less accurate
 > ```
 
-The first transcription downloads the Whisper model (~80 MB for `tiny.en`)
+The first transcription downloads the Whisper model (about 150 MB for the default `base.en`)
 into `%USERPROFILE%\.cache\huggingface\hub\`. Subsequent dictations are fully
 offline.
 
 > **Behind a firewall?** That one download is the only time YazSes needs the
 > network, and a personal firewall will block it. Fetch it deliberately instead —
-> `yazses model download tiny.en` — or see
+> `yazses model download base.en` — or see
 > [Choosing a model → Installing a model without network access](models.md#installing-a-model-without-network-access).
 
 ## Microphone access
@@ -303,8 +307,9 @@ Its pack does not carry its own copy of ONNX Runtime: it uses the one the instal
 already has, so two different copies are never loaded into one process.
 
 **No internet on this PC, or a firewall that blocks github.com?** Download the add-on file
-on another computer, from the release of the version you run (for example
-`YazSes-2.44.0-windows-x64-pack-diarization.yazpack`), copy it over, and run:
+on another computer, from the release of the version you run, copy it over, and run the
+command below. The file name has this shape (an illustration: no add-on has been published
+yet): `YazSes-2.44.0-windows-x64-pack-diarization.yazpack`.
 
 ```powershell
 yazses packs install --from D:\YazSes-2.44.0-windows-x64-pack-diarization.yazpack
@@ -498,6 +503,7 @@ also delete the folder by hand.
 To clear user data (config, logs, model cache) after uninstalling, also run:
 
 ```powershell
-Remove-Item -Recurse -Force "$env:APPDATA\yazses"
 Remove-Item -Recurse -Force "$env:LOCALAPPDATA\yazses"
+# the Whisper models, shared with other faster-whisper apps — skip this if you use one
+Remove-Item -Recurse -Force "$env:USERPROFILE\.cache\huggingface\hub\models--Systran--faster-whisper-*"
 ```

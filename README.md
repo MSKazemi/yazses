@@ -15,7 +15,7 @@ CPU. Dictation works out of the box; the extras beyond it are opt-in and off by 
 | 🐧 **Linux** | `bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install.sh)` | **[Linux install →](https://mskazemi.com/yazses/install-linux.html)** |
 | 🍎 **macOS (Apple Silicon)** | `brew tap MSKazemi/yazses && brew trust MSKazemi/yazses && brew install --cask yazses` | **[macOS install →](https://mskazemi.com/yazses/macos-install.html)** |
 | 🍎 **macOS (Intel)** | Download the `-macos-x86_64.dmg` from [Releases](https://github.com/MSKazemi/yazses/releases/latest) | **[macOS install →](https://mskazemi.com/yazses/macos-install.html)** |
-| 🪟 **Windows** | `winget install MSKazemi.YazSes` | **[Windows install →](https://mskazemi.com/yazses/windows-install.html)** |
+| 🪟 **Windows** | `winget install MSKazemi.YazSes` (may trail the newest release — the [installer](https://github.com/MSKazemi/yazses/releases/latest), Scoop and Chocolatey track every release) | **[Windows install →](https://mskazemi.com/yazses/windows-install.html)** |
 
 After installation, run:
 
@@ -24,6 +24,10 @@ yazses quickstart   # 3 steps tailored to your machine — read-only, changes no
 yazses doctor       # verify microphone, hotkey and text injection
 yazses start        # now hold your hotkey, speak, release
 ```
+
+On **macOS** (Homebrew or `.dmg`) there is no `yazses` on your PATH: open **YazSes**
+from Applications, grant the permissions it asks for, and run the CLI as
+`/Applications/YazSes.app/Contents/MacOS/YazSes --cli doctor`.
 
 On a native macOS or Windows desktop install, the app can also be launched from
 the normal application menu; the CLI remains available for diagnostics and advanced setup.
@@ -66,7 +70,7 @@ write a small tested config. We'll help you through your first PR — see
 [![Open Source Helpers](https://www.codetriage.com/mskazemi/yazses/badges/users.svg)](https://www.codetriage.com/mskazemi/yazses)
 [![All Contributors](https://img.shields.io/badge/all_contributors-41-orange.svg?style=flat-square)](#contributors)
 
-[![Get it from the Snap Store](https://snapcraft.io/en/light/install.svg)](https://snapcraft.io/yazses) **Two `snap connect` lines are required after install — see [§Snap](docs/install-linux.md#3-snap).**
+[![Get it from the Snap Store](https://snapcraft.io/en/light/install.svg)](https://snapcraft.io/yazses) **Two `snap connect` lines are required after install — see [§Snap](docs/install-linux.md#3e-what-the-snap-can-and-cannot-do).**
 
 **No audio, no text, nothing leaves your machine by default.** Offline voice dictation that types into any app, transcribes a recording, or captures a whole meeting with speaker names and minutes — all on your own CPU. No cloud. No API key. No subscription.
 
@@ -185,7 +189,8 @@ calibration for you right away.
 ```sh
 yazses quickstart           # not sure what's next? a 3-step guide tailored to your machine
 yazses doctor               # check mic, injection backend, permissions (want all [OK])
-yazses enroll               # calibrate your microphone (~30 seconds)
+yazses mic-level --set      # tune the silence gate to your room and voice (~6 s)
+yazses enroll               # optional: a longer guided calibration (20 short phrases)
 yazses autostart enable     # run it at login, so it's there after a reboot
 yazses start                # start the dictation daemon
 yazses verify               # speak once and prove the whole pipeline works
@@ -503,16 +508,14 @@ with `yazses --version` (or `yazses doctor`, which also reports the running daem
 ### Linux
 
 ```bash
-# APT script — Debian / Ubuntu (recommended)
+# APT script — Debian / Ubuntu (tracks tagged releases; the universal script above is the recommended route)
 bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install-apt.sh)
 
 # pipx — any distro with Python ≥ 3.11
-# Debian/Ubuntu runtime deps. libportaudio2 = audio capture (required);
-# xdotool/xclip = X11 injection+clipboard; wtype/ydotool/wl-clipboard = Wayland.
-# Installing all of them makes YazSes work on either session type.
-sudo apt install libportaudio2 xdotool ydotool wtype xclip wl-clipboard pipx
-sudo usermod -aG input "$USER"   # hotkey access — then log out and back in
-pipx install yazses
+sudo apt install pipx build-essential python3-dev   # evdev is compiled from source
+pipx install 'yazses[desktop]'                      # [desktop] adds the tray + overlay (Qt)
+yazses setup                                        # audio/injection deps, input group, ydotoold
+# then log out and back in once (the input-group change needs a new login)
 
 # From source (contributors) — one command does the whole loop:
 # editable install + `yazses setup` provisioning + start (bridges the input
@@ -527,6 +530,7 @@ sudo snap install yazses
 sudo snap connect yazses:audio-record   # microphone; without it, no audio
 sudo snap connect yazses:raw-input      # hold-to-talk key; without it, nothing fires
 yazses doctor                           # says if anything is still missing
+yazses start
 ```
 
 `yazses setup` is not required for a Snap install. Strict confinement prevents it
@@ -568,11 +572,11 @@ pipx install yazses
 ### Windows
 
 ```powershell
-# pipx (Python ≥ 3.11)
-pipx install yazses
-
-# Installer (.exe) — unsigned developer preview
-# https://github.com/MSKazemi/yazses/releases/latest
+winget install MSKazemi.YazSes                  # may trail the newest release
+scoop bucket add yazses https://github.com/MSKazemi/yazses; scoop install yazses
+choco install yazses                            # administrator PowerShell
+# Installer (.exe) — unsigned developer preview: https://github.com/MSKazemi/yazses/releases/latest
+pipx install yazses                             # Python ≥ 3.11
 ```
 
 ---
@@ -614,8 +618,8 @@ bash scripts/install-local.sh        # install locally + run as a user service
 ```
 
 **Install the latest dev build from source** (ahead of the published PyPI release —
-this is how a working copy is installed system-wide as an unconfined `uv` tool, which
-Linux hold-to-talk needs because the strict-confinement snap cannot read `/dev/input`):
+this is how a working copy is installed system-wide as an unconfined `uv` tool — the way
+to run unreleased code, since the snap only ever carries a published release):
 
 ```bash
 uv tool install --from . yazses --force   # (re)install the working tree as the `yazses` command

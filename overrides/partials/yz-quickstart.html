@@ -1,0 +1,123 @@
+{#-
+  Landing-page quick start: three steps from nothing to the first dictated sentence,
+  per operating system. Included by overrides/home.html, directly under the hero.
+
+  The OS tabs share one selection with the hero's install switcher (landing.js picks
+  the visitor's OS locally from the user agent; nothing is sent). Every command and
+  every permission step here is the one the matching install guide gives — if you
+  change one, change the guide too:
+    Linux   docs/install-linux.md   (install.sh prints the same three next steps)
+    macOS   docs/macos-install.md   (Gatekeeper, Accessibility, Input Monitoring, Microphone)
+    Windows docs/windows-install.md (winget, SmartScreen, tray, Right Ctrl)
+-#}
+{% macro ic(name) -%}
+  <span class="yz-ic" aria-hidden="true">{% include ".icons/material/" ~ name ~ ".svg" %}</span>
+{%- endmacro %}
+<section class="yzl-qs" id="quick-start" aria-labelledby="yzl-qs-h">
+  <div class="yzl-wrap">
+    <header class="yzl-head yzl-reveal">
+      <p class="yzl-kicker">Quick start</p>
+      <h2 id="yzl-qs-h">From zero to your first dictated sentence</h2>
+      <p>Three steps, a few minutes, no account. The speech model downloads once; after that,
+        dictation never touches the network.</p>
+    </header>
+
+    <div class="yzl-qs__tabs yzl-reveal" role="tablist" aria-label="Choose your operating system" data-yzl-qs-tabs>
+      <button role="tab" aria-selected="true" data-os="linux">{{ ic("linux") }}Linux</button>
+      <button role="tab" aria-selected="false" data-os="mac">{{ ic("apple") }}macOS</button>
+      <button role="tab" aria-selected="false" data-os="win">{{ ic("microsoft-windows") }}Windows</button>
+      <button role="tab" aria-selected="false" data-os="py">{{ ic("language-python") }}Python (pipx)</button>
+    </div>
+
+    <ol class="yzl-qs__steps">
+      <li class="yzl-card yzl-qs__step yzl-reveal">
+        <h3>Install</h3>
+        <div data-qs="linux">
+          <pre><code>bash &lt;(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install.sh)</code></pre>
+          <p>One command for Ubuntu, Debian, Fedora, Arch and their relatives. It installs YazSes plus
+            the audio, hotkey and typing helpers your session needs, then runs <code>yazses doctor</code>.</p>
+          <a href="{{ 'install-linux.html' | url }}">APT, Snap or pipx instead →</a>
+        </div>
+        <div data-qs="mac" hidden>
+          <pre><code>brew tap MSKazemi/yazses
+brew trust MSKazemi/yazses
+brew install --cask yazses</code></pre>
+          <p>Apple Silicon. On an Intel Mac, download the x86_64 <code>.dmg</code> from the
+            releases page instead.</p>
+          <a href="{{ 'macos-install.html' | url }}">The macOS guide →</a>
+        </div>
+        <div data-qs="win" hidden>
+          <pre><code>winget install MSKazemi.YazSes</code></pre>
+          <p>winget can trail the newest release by a few weeks; the
+            <a href="https://github.com/MSKazemi/yazses/releases/latest" rel="noopener">installer</a>,
+            Scoop and Chocolatey track every one. The build is not code-signed yet, so SmartScreen
+            asks once: <b>More info → Run anyway</b>.</p>
+          <a href="{{ 'windows-install.html' | url }}">The Windows guide →</a>
+        </div>
+        <div data-qs="py" hidden>
+          <pre><code>pipx install yazses</code></pre>
+          <p>Any OS with Python 3.11 or newer. On Linux, follow it with <code>yazses setup</code>,
+            which installs the audio and typing helpers.</p>
+          <a href="{{ 'platform-support.html' | url }}">Will it run on my machine? →</a>
+        </div>
+      </li>
+
+      <li class="yzl-card yzl-qs__step yzl-reveal" style="--n:1">
+        <h3>Allow and check</h3>
+        <div data-qs="linux">
+          <pre><code>yazses doctor
+yazses mic-level --set</code></pre>
+          <p>If doctor says you were added to the <code>input</code> group, log out and back in once.
+            <code>mic-level --set</code> tunes the voice gate to your microphone and room.</p>
+          <a href="{{ 'troubleshooting.html' | url }}">Something flagged? →</a>
+        </div>
+        <div data-qs="mac" hidden>
+          <p>Open YazSes from Applications (on macOS 15+, the first blocked launch is approved with
+            <b>Open Anyway</b> in Privacy &amp; Security). Then switch it on under <b>Accessibility</b>,
+            <b>Input Monitoring</b> and <b>Microphone</b>, and relaunch it. Input Monitoring is the
+            switch people miss.</p>
+          <a href="{{ 'macos-install.html' | url }}#grant-input-monitoring-access--the-second-switch">Why there are three switches →</a>
+        </div>
+        <div data-qs="win" hidden>
+          <p>YazSes starts in the system tray, next to the clock. If Windows asks about the
+            microphone, allow it. The tray icon’s colour shows what it is doing.</p>
+          <a href="{{ 'tray-and-overlay.html' | url }}">What the tray colours mean →</a>
+        </div>
+        <div data-qs="py" hidden>
+          <pre><code>yazses doctor</code></pre>
+          <p>Checks the microphone, the hotkey, the typing backend and permissions, and names the
+            fix for anything that is missing.</p>
+          <a href="{{ 'troubleshooting.html' | url }}">Something flagged? →</a>
+        </div>
+      </li>
+
+      <li class="yzl-card yzl-qs__step yzl-reveal" style="--n:2">
+        <h3>Dictate</h3>
+        <div data-qs="linux">
+          <pre><code>yazses start</code></pre>
+          <p>Now hold <kbd>Right Alt</kbd>, speak, and release. The words are typed wherever your cursor
+            is, in any app, on X11 or Wayland.</p>
+        </div>
+        <div data-qs="mac" hidden>
+          <p>Hold <kbd>Right Option</kbd>, speak, and release. The words are typed into whichever app
+            has focus.</p>
+        </div>
+        <div data-qs="win" hidden>
+          <p>Hold <kbd>Right Ctrl</kbd>, speak, and release. The words are typed into whichever app
+            has focus.</p>
+        </div>
+        <div data-qs="py" hidden>
+          <pre><code>yazses start</code></pre>
+          <p>Hold the hotkey (<kbd>Right Alt</kbd> on Linux, <kbd>Right Option</kbd> on macOS,
+            <kbd>Right Ctrl</kbd> on Windows), speak, and release.</p>
+        </div>
+        <a href="{{ 'how-to/change-hotkey.html' | url }}">Use a different key →</a>
+      </li>
+    </ol>
+
+    <p class="yzl-qs__foot yzl-reveal">Next: <a href="{{ 'get-started.html' | url }}">the five-minute guide</a> ·
+      <a href="{{ 'command-index.html' | url }}">voice commands</a> ·
+      <a href="{{ 'tutorials/transcribe-recordings.html' | url }}">transcribe a recording</a> ·
+      <a href="{{ 'try-without-installing.html' | url }}">try it without installing</a></p>
+  </div>
+</section>

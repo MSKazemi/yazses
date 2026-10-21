@@ -60,12 +60,15 @@ recording (tens of minutes) can take several minutes on `base.en` and longer on
 To transcribe non-English audio and get **English** text back:
 
 ```sh
-yazses transcribe note.fr.m4a --language translate
+yazses transcribe note.fr.m4a --language translate --model small
 ```
+
+Translation also needs a multilingual model: the default `base.en` is English-only.
 
 To keep the original language instead, name it — `--language fr`. That needs a
 multilingual model (`small`, not `small.en`); an `.en` checkpoint has no language tokens
-and would transliterate French into English-looking nonsense, so YazSes warns instead.
+and would transliterate French into English-looking nonsense, so YazSes refuses the run
+(exit code 2) and tells you to pass a multilingual model such as `--model small`.
 
 ## 4. Tag who said what (diarization)
 
@@ -106,6 +109,9 @@ yazses transcribe meeting.wav --diarize --names "Alice,Bob,Carol"
 # Explicit — map a specific detected speaker to a name (repeatable):
 yazses transcribe meeting.wav --diarize --rename speaker_0=Alice --rename speaker_1=Bob
 ```
+
+The IDs `--rename` takes are the diarizer's (`speaker_0`, …), not the printed
+"Speaker N"; `-f json` lists the mapping under `speakers`.
 
 ### Help the model with the speaker count
 
@@ -152,9 +158,9 @@ result improves a lot with model size and a correct speaker count. Expect:
   under-attributed (their lines folded into another speaker) on the fast model.
 
 If a diarized transcript looks rough, re-run with `--model small.en` and either
-let the speaker count auto-detect or set it explicitly — both help. The
-transcript files you already have are never overwritten unless you reuse the
-same `-o` path.
+let the speaker count auto-detect or set it explicitly — both help. A re-run
+without `-o` overwrites the sidecar (`meeting.txt`); pass `-o meeting-small.txt` to
+keep the first transcript.
 
 ## Privacy
 
@@ -170,7 +176,7 @@ responsible for having permission to record and transcribe other people.
 | Fast transcript beside the file | `yazses transcribe talk.mp3` |
 | Accurate transcript | `yazses transcribe talk.mp3 --model small.en` |
 | Subtitles | `yazses transcribe talk.mp3 --format srt` |
-| Non-English → English | `yazses transcribe talk.mp3 --language translate` |
+| Non-English → English | `yazses transcribe talk.mp3 --language translate --model small` |
 | Non-English, kept as-is | `yazses transcribe talk.mp3 --language fr --model small` |
 | Tag speakers | `yazses transcribe mtg.m4a --diarize` |
 | Name speakers | `yazses transcribe mtg.m4a --diarize --names "Alice,Bob"` |

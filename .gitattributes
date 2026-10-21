@@ -11,3 +11,6 @@ tests/fixtures/grounding_replay_report.json text eol=lf
 design/eye-control/validation-slots.json text eol=lf
 design/eye-control/generated/** text eol=lf
 design/publication/paper-v2/manuscript/generated/** text eol=lf
+# Vendored licence texts for add-on packs: the build copies them only when their SHA-256
+# matches licence-approvals.toml, so no checkout may rewrite their line endings.
+packaging/packs/licence-texts/** -text

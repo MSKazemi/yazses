@@ -20,7 +20,7 @@ different, defensible choices rather than one being behind the other.
 | | Vocalinux | YazSes |
 |---|---|---|
 | Licence | **AGPL-3.0** | **Apache-2.0** |
-| Engines | whisper.cpp (default), Whisper, VOSK | faster-whisper; Parakeet optional |
+| Engines | whisper.cpp (default), Whisper, VOSK | faster-whisper; Parakeet or Moonshine optional |
 | Hardware target | GPU-accelerated | CPU int8 |
 | Activation | Toggle **or** push-to-talk | Hold-to-talk |
 | Platforms | Linux only | Linux, macOS, Windows |
@@ -60,8 +60,9 @@ Vocalinux lets you pick between whisper.cpp, OpenAI Whisper and VOSK. That is
 useful if you want VOSK's tiny footprint on old hardware, or you already know which
 engine suits your accent.
 
-YazSes ships one well-tuned default (faster-whisper) with an optional second engine
-(NVIDIA Parakeet, behind `yazses features enable stt-parakeet`). Fewer choices, more
+YazSes ships one well-tuned default (faster-whisper) with two optional engines
+(NVIDIA Parakeet, behind `yazses features enable stt-parakeet`, and Moonshine for short
+bursts, behind `stt-moonshine`). Fewer choices, more
 opinion. Which you prefer is temperament as much as requirement.
 
 ## Where YazSes is doing something different

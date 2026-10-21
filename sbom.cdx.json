@@ -520,30 +520,6 @@
     },
     {
       "type": "library",
-      "name": "cuda-bindings",
-      "version": "13.3.1",
-      "purl": "pkg:pypi/cuda-bindings@13.3.1",
-      "bom-ref": "pkg:pypi/cuda-bindings@13.3.1",
-      "scope": "optional"
-    },
-    {
-      "type": "library",
-      "name": "cuda-pathfinder",
-      "version": "1.5.6",
-      "purl": "pkg:pypi/cuda-pathfinder@1.5.6",
-      "bom-ref": "pkg:pypi/cuda-pathfinder@1.5.6",
-      "scope": "optional"
-    },
-    {
-      "type": "library",
-      "name": "cuda-toolkit",
-      "version": "13.0.3.0",
-      "purl": "pkg:pypi/cuda-toolkit@13.0.3.0",
-      "bom-ref": "pkg:pypi/cuda-toolkit@13.0.3.0",
-      "scope": "optional"
-    },
-    {
-      "type": "library",
       "name": "cycler",
       "version": "0.12.1",
       "purl": "pkg:pypi/cycler@0.12.1",
@@ -1673,126 +1649,6 @@
           "content": "f3a3570c4a2a16746ac2c31a7c7c7b0c186b95ce902e33db6f28094ed7387dda"
         }
       ]
-    },
-    {
-      "type": "library",
-      "name": "nvidia-cublas",
-      "version": "13.1.1.3",
-      "purl": "pkg:pypi/nvidia-cublas@13.1.1.3",
-      "bom-ref": "pkg:pypi/nvidia-cublas@13.1.1.3",
-      "scope": "optional"
-    },
-    {
-      "type": "library",
-      "name": "nvidia-cuda-cupti",
-      "version": "13.0.85",
-      "purl": "pkg:pypi/nvidia-cuda-cupti@13.0.85",
-      "bom-ref": "pkg:pypi/nvidia-cuda-cupti@13.0.85",
-      "scope": "optional"
-    },
-    {
-      "type": "library",
-      "name": "nvidia-cuda-nvrtc",
-      "version": "13.0.88",
-      "purl": "pkg:pypi/nvidia-cuda-nvrtc@13.0.88",
-      "bom-ref": "pkg:pypi/nvidia-cuda-nvrtc@13.0.88",
-      "scope": "optional"
-    },
-    {
-      "type": "library",
-      "name": "nvidia-cuda-runtime",
-      "version": "13.0.96",
-      "purl": "pkg:pypi/nvidia-cuda-runtime@13.0.96",
-      "bom-ref": "pkg:pypi/nvidia-cuda-runtime@13.0.96",
-      "scope": "optional"
-    },
-    {
-      "type": "library",
-      "name": "nvidia-cudnn-cu13",
-      "version": "9.20.0.48",
-      "purl": "pkg:pypi/nvidia-cudnn-cu13@9.20.0.48",
-      "bom-ref": "pkg:pypi/nvidia-cudnn-cu13@9.20.0.48",
-      "scope": "optional"
-    },
-    {
-      "type": "library",
-      "name": "nvidia-cufft",
-      "version": "12.0.0.61",
-      "purl": "pkg:pypi/nvidia-cufft@12.0.0.61",
-      "bom-ref": "pkg:pypi/nvidia-cufft@12.0.0.61",
-      "scope": "optional"
-    },
-    {
-      "type": "library",
-      "name": "nvidia-cufile",
-      "version": "1.15.1.6",
-      "purl": "pkg:pypi/nvidia-cufile@1.15.1.6",
-      "bom-ref": "pkg:pypi/nvidia-cufile@1.15.1.6",
-      "scope": "optional"
-    },
-    {
-      "type": "library",
-      "name": "nvidia-curand",
-      "version": "10.4.0.35",
-      "purl": "pkg:pypi/nvidia-curand@10.4.0.35",
-      "bom-ref": "pkg:pypi/nvidia-curand@10.4.0.35",
-      "scope": "optional"
-    },
-    {
-      "type": "library",
-      "name": "nvidia-cusolver",
-      "version": "12.0.4.66",
-      "purl": "pkg:pypi/nvidia-cusolver@12.0.4.66",
-      "bom-ref": "pkg:pypi/nvidia-cusolver@12.0.4.66",
-      "scope": "optional"
-    },
-    {
-      "type": "library",
-      "name": "nvidia-cusparse",
-      "version": "12.6.3.3",
-      "purl": "pkg:pypi/nvidia-cusparse@12.6.3.3",
-      "bom-ref": "pkg:pypi/nvidia-cusparse@12.6.3.3",
-      "scope": "optional"
-    },
-    {
-      "type": "library",
-      "name": "nvidia-cusparselt-cu13",
-      "version": "0.8.1",
-      "purl": "pkg:pypi/nvidia-cusparselt-cu13@0.8.1",
-      "bom-ref": "pkg:pypi/nvidia-cusparselt-cu13@0.8.1",
-      "scope": "optional"
-    },
-    {
-      "type": "library",
-      "name": "nvidia-nccl-cu13",
-      "version": "2.29.7",
-      "purl": "pkg:pypi/nvidia-nccl-cu13@2.29.7",
-      "bom-ref": "pkg:pypi/nvidia-nccl-cu13@2.29.7",
-      "scope": "optional"
-    },
-    {
-      "type": "library",
-      "name": "nvidia-nvjitlink",
-      "version": "13.3.33",
-      "purl": "pkg:pypi/nvidia-nvjitlink@13.3.33",
-      "bom-ref": "pkg:pypi/nvidia-nvjitlink@13.3.33",
-      "scope": "optional"
-    },
-    {
-      "type": "library",
-      "name": "nvidia-nvshmem-cu13",
-      "version": "3.4.5",
-      "purl": "pkg:pypi/nvidia-nvshmem-cu13@3.4.5",
-      "bom-ref": "pkg:pypi/nvidia-nvshmem-cu13@3.4.5",
-      "scope": "optional"
-    },
-    {
-      "type": "library",
-      "name": "nvidia-nvtx",
-      "version": "13.0.85",
-      "purl": "pkg:pypi/nvidia-nvtx@13.0.85",
-      "bom-ref": "pkg:pypi/nvidia-nvtx@13.0.85",
-      "scope": "optional"
     },
     {
       "type": "library",
@@ -3325,9 +3181,17 @@
     {
       "type": "library",
       "name": "torch",
-      "version": "2.13.0",
-      "purl": "pkg:pypi/torch@2.13.0",
-      "bom-ref": "pkg:pypi/torch@2.13.0",
+      "version": "2.14.1",
+      "purl": "pkg:pypi/torch@2.14.1",
+      "bom-ref": "pkg:pypi/torch@2.14.1",
+      "scope": "optional"
+    },
+    {
+      "type": "library",
+      "name": "torch",
+      "version": "2.14.1+cpu",
+      "purl": "pkg:pypi/torch@2.14.1%2Bcpu",
+      "bom-ref": "pkg:pypi/torch@2.14.1%2Bcpu",
       "scope": "optional"
     },
     {
@@ -3368,6 +3232,14 @@
     },
     {
       "type": "library",
+      "name": "torchaudio",
+      "version": "2.11.0+cpu",
+      "purl": "pkg:pypi/torchaudio@2.11.0%2Bcpu",
+      "bom-ref": "pkg:pypi/torchaudio@2.11.0%2Bcpu",
+      "scope": "optional"
+    },
+    {
+      "type": "library",
       "name": "torchcodec",
       "version": "0.16.0",
       "purl": "pkg:pypi/torchcodec@0.16.0",
@@ -3401,14 +3273,6 @@
           "content": "19829c9673638f2a0b8617da4cdcb927e831cd88bcfcb6e78d42a4d1af131520"
         }
       ]
-    },
-    {
-      "type": "library",
-      "name": "triton",
-      "version": "3.7.1",
-      "purl": "pkg:pypi/triton@3.7.1",
-      "bom-ref": "pkg:pypi/triton@3.7.1",
-      "scope": "optional"
     },
     {
       "type": "library",

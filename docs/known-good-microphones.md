@@ -34,8 +34,9 @@ nothing here is tested by the maintainers.
     yazses mic-level
     ```
 
-    It records for a few seconds, reports your average level against the current threshold,
-    and recommends a value. Add `--set` if you want it written to your config as well.
+    It makes two short recordings — stay quiet for the first (your room), then speak normally
+    for the second — and recommends a threshold between them, or says so if the two are too
+    close to separate. Add `--set` if you want it written to your config as well.
 
 2. **Check your room** while you're there — this warns if ambient noise is loud enough to
    trip the silence gate on its own:

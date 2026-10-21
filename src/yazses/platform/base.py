@@ -517,9 +517,14 @@ class Platform:
     # ADR-v2-146 would rather a feature say "no pointer output here" than hand a user a
     # cursor that never moves.
     pointer_factory: PointerSinkFactory | None = None
-    # None everywhere today: no OS backend observes clicks yet (#397 shipped the seam and
-    # the CI fake; a real backend needs a real desktop to verify against).
+    # None where this OS/session has no click backend. Linux sets it on an X11 session
+    # (`platform/linux/click_observer_x11.py`, #607) and leaves it None on Wayland, where
+    # there is no global click stream; #397 shipped the seam and the CI fake.
     click_observer_factory: ClickObserverFactory | None = None
+    # Why `click_observer_factory` is None, in a sentence the daemon log, `doctor` and
+    # `gaze status` can repeat -- or None when it is not None, or when the platform has
+    # simply never had a backend (the generic "no click observer yet" reason then applies).
+    click_observer_unavailable_reason: str | None = None
     # None where an update cannot be handed to a detached installer (everything except
     # Windows today). `yazses update` and the tray then keep the manual steps (ADR-027).
     update_launcher: UpdateLauncher | None = None
