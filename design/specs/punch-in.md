@@ -3,11 +3,30 @@
 | Field | Value |
 |---|---|
 | **ID** | spec-punch-in |
-| **Status** | Proposed |
+| **Status** | Proposed (2026-06-14 design) · current: alignment core and a CLI-triggered correction shipped in a narrower shape; voice trigger and confirm UX not built — see [Delivery status](#delivery-status-current) |
 | **Date** | 2026-06-14 |
 | **Module** | `src/yazses/postprocess/punch_in.py` (new) |
 | **Vision card** | the Punch-In vision card (internal) |
 | **Maturity** | Experimental (ship respeak → 2–3 aligned candidates → confirm; never auto-splice) |
+
+---
+
+## Delivery status (current)
+
+> Checked **2026-10-21** against `main` at `3245f848` (latest tag v2.43.2). This section
+> states what the code does today; everything below it is the original design, kept as
+> written. Where the two disagree, this section is the current statement. Status words:
+> **shipped** (wired and reachable), **partial**, **blocked** (names its gate),
+> **deferred** (no delivery promise), **rejected**, **out of scope**. "No tracker" means
+> no issue or campaign task exists for that remainder; it is not scheduled.
+
+| Phase | Status | Evidence | Tracking |
+|---|---|---|---|
+| 0 — kill-test (≥ 70 % top-3, ≤ 15 % mislocation) | **Not run** — no result recorded | — | No tracker |
+| Alignment core | **Shipped** — stdlib `difflib` similarity, not the planned phonetic (metaphone) blend; no `punch_in` extra | `postprocess/punch_in.py` (`propose_corrections`, `apply_top_candidate`); `tests/test_punch_in.py` | — |
+| 1 — present-and-confirm | **Shipped in a different, narrower shape**, off by default (`[punch_in]`, slug `punch-in`). The trigger is `yazses punch-in` over IPC (it re-records `record_seconds`), not a spoken "correct that" / "fix that" or a hotkey. It searches only the **last** injected burst, not a 40-word window. By default it **applies the best candidate**; `--dry-run` lists candidates and `--choose N` applies another, so confirmation is opt-in — this departs from the spec's never-auto-splice rule | `core/daemon.py` `_handle_punch_in` / `_apply_punch_in`; the `punch-in` command in `cli.py` | No tracker |
+| 2 — shift+Left splice + app probe | **Not built** — the splice backspaces the whole burst and retypes it | `_apply_punch_in` | No tracker |
+| 3 — GGUF rerank, hotkey / EMG trigger, `auto_top1` | **Not built** | `PunchInConfig` has only `enabled`, `min_score`, `max_candidates`, `record_seconds` | No tracker; no delivery promise |
 
 ---
 

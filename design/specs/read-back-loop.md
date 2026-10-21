@@ -3,11 +3,29 @@
 | Field | Value |
 |---|---|
 | **ID** | spec-read-back-loop |
-| **Status** | Proposed |
+| **Status** | Proposed (2026-06-14 design) · current: P1 shipped, P2 confirm loop not built — see [Delivery status](#delivery-status-current) |
 | **Date** | 2026-06-14 |
 | **Modules** | `src/yazses/tts/` (new), `src/yazses/core/daemon.py`, `src/yazses/config.py`, `src/yazses/commands/grammar.py` |
 | **Vision card** | the Read-Back Loop vision card (internal) |
 | **Related** | ADR-011 (offline-default), ADR-v04-003 (optional-extra + Protocol-backend pattern), ADR-v04-001 (SLM intent routing) |
+
+---
+
+## Delivery status (current)
+
+> Checked **2026-10-21** against `main` at `3245f848` (latest tag v2.43.2). This section
+> states what the code does today; everything below it is the original design, kept as
+> written. Where the two disagree, this section is the current statement. Status words:
+> **shipped** (wired and reachable), **partial**, **blocked** (names its gate),
+> **deferred** (no delivery promise), **rejected**, **out of scope**. "No tracker" means
+> no issue or campaign task exists for that remainder; it is not scheduled.
+
+| Phase | Status | Evidence | Tracking |
+|---|---|---|---|
+| P1 — read back the final transcript | **Shipped**, off by default (`[tts] enabled` + `[accessibility] read_back = "final"`, slug `read-back`) | `src/yazses/tts/` (Kokoro and null backends, sentence chunking, factory); `TrayState.READBACK`; `core/daemon.py` `_maybe_read_back` (dictation only, after injection, on a background thread; a hold during playback is barge-in); `readback_speak` IPC; `yazses say`; `status` reports `read_back` and `tts_backend` | The P1 exit gate (median TTFA < 300 ms on a 4-core CPU) has no recorded result. Snap verification call: [#142](https://github.com/MSKazemi/yazses/issues/142) |
+| P1 — `readback_enable` / `readback_disable` IPC | **Not built** — read-back is toggled through config (`yazses features enable read-back`) | `readback_speak` is the only read-back IPC method `core/daemon.py` registers | No tracker |
+| P2 — voice confirm / correct loop | **Not built.** No `AWAIT_CONFIRM` state or confirm grammar. `read_back = "confirm"` is accepted but behaves like `"final"` (the daemon only tests `!= "off"`), and `confirm_timeout_s` is inert | `_maybe_read_back`; `docs/configuration.md` (⚠️ inert) | No tracker; no delivery promise |
+| Personal read-back voice (adjacent) | **Designed, not wired** — slug `readback_clone` is in `_UNWIRED` | `readback/clone.py`; `system/features.py` | campaign task `WIRE-READBACK-CLONE-001` under [#164](https://github.com/MSKazemi/yazses/issues/164) |
 
 ---
 
