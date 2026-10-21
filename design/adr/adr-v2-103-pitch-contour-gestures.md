@@ -30,3 +30,30 @@ sequence classifier is pure. OFF by default.
 - Distinct from Vocal Joystick (symbolic vs analog) and word commands.
 - Privacy (ADR-011): local F0 only.
 - Caveat: a small fixed gesture set (four contours); off by default.
+
+## Amendment (2026-10-21) — PROPOSED, for the owner's review
+
+**Status of this amendment: proposed, not accepted.** It records what was built toward wiring
+(#164, WIRE-CONTOUR-001) and adds a decision the original text does not make. Nothing below is
+wired; `[contour]` is still unreachable and off by default.
+
+**What was missing.** The decision classifies an F0 contour, but nothing on main produced one.
+A shared numpy YIN tracker now does (`src/yazses/audio/pitch.py`, also used by ADR-v2-101), and
+`src/yazses/contour/burst.py` turns a finished burst into a smoothed voiced contour for the
+classifier above. No optional extra is involved.
+
+**The new decision: when is a burst a gesture at all?** Every voiced word has a contour — a
+spoken "no" falls like the cancel hum — so classifying every burst would turn dictation into
+commands. Proposed gate (`is_nonword_voiced_burst`), both halves required:
+
+1. the transcript is empty or only hum spellings (`hmm`, `mm`, `mhm`, `uh`, `um`, `ah`, `er`…).
+   Any other word, in any script, keeps the burst as dictation — including spellings that are
+   also words or letters (`hum`, `err`, `em`, `m`, `u`, `n`);
+2. at least 80% of the burst's active frames are voiced, and at least 400 ms of them are.
+
+Open points for the owner: (a) the default map sends a *flat* hum to `repeat`, so a lone
+thinking "hmm" would fire it unless 400 ms (a guess, unmeasured) separates deliberate hums
+from reflexive ones — consider leaving `flat` unmapped by default; (b) the #598 speech-presence
+check runs before transcription and may discard a hum, so the wiring must choose whether the
+contour check runs before it; (c) the thresholds were checked on synthetic tones only, not on
+recorded hums.
