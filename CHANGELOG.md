@@ -6,6 +6,15 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed — every CI test job now has a time limit that fits the parallel suite
+
+With no `timeout-minutes`, `repo-hygiene` sat in a hung `apt-get update` for 78 minutes
+on PR #625, and a hang there or in `benchmark-harness` could hold a runner for GitHub's
+six-hour default. Both now stop after 10 minutes; healthy runs take under one. The `test`
+matrix and the Linux baseline drop from 60 to 30 minutes: in parallel their slowest leg
+took 15 minutes, and 3–5 once the suite was sped up. `tests/test_ci_job_timeouts.py`
+reads the job list from `test.yml` and fails if any job lacks a limit.
+
 ### Fixed — a repo-hygiene guard had been skipped on every run, so it checked nothing
 
 `tests/test_repo_hygiene_source_order_needles.py` checks that every `getsource(...).index(needle)`

@@ -79,6 +79,9 @@ jobs:
     # Cheap and Linux-only: a large file costs every future clone permanently, and the
     # only inexpensive moment to catch one is before the commit lands.
     runs-on: ubuntu-latest
+    # Healthy runs take under a minute. With no limit, a hung `apt-get update` held a
+    # runner for 78 minutes on PR #625 before it was cancelled by hand (CI_POLICY.md §8).
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: No oversized files in the repo
@@ -144,7 +147,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     # The same limit as `test`, for the same reason: without one a hang holds a runner
     # for GitHub's 6-hour default (CI_POLICY.md §8).
-    timeout-minutes: 60
+    timeout-minutes: 30
     strategy:
       matrix:
         os: [ubuntu-latest]
@@ -188,7 +191,9 @@ jobs:
     # The suite runs on every core (pytest-xdist, below). Serial, the slowest leg --
     # windows-latest, 3.12 -- took 77 minutes on 92ad3c89 and this job had no limit at
     # all, so a hang held a runner for GitHub's 6-hour default (CI_POLICY.md §8).
-    timeout-minutes: 60
+    # In parallel the slowest leg took 15 minutes (e0463500) and 3-5 minutes once the
+    # suite itself was sped up (96e98ffe, c1a9ab56), so 30 is twice the worst healthy run.
+    timeout-minutes: 30
     # Legs without `experimental` are blocking; only a leg that explicitly opts
     # out is allowed to fail. Written this way round so that adding a new leg
     # makes it blocking by default rather than silently non-blocking.
@@ -689,6 +694,8 @@ jobs:
     needs: changes
     if: needs.changes.outputs.full != 'false'
     runs-on: ubuntu-latest
+    # Healthy runs take under a minute; the limit only ends a hang (CI_POLICY.md §8).
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
