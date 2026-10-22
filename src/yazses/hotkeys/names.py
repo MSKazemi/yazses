@@ -21,7 +21,9 @@ promise a key the daemon would reject.
 from __future__ import annotations
 
 #: Ordered for display: the modifiers people actually hold, then space.
-#: `right_alt` leads because it is the default on Linux and Windows.
+#: `right_alt` leads because it is the Linux and BSD default (macOS's `right_option`
+#: is the same physical key). Windows defaults to `right_ctrl` instead. Each
+#: platform's `default_hotkey` in `platform/<os>/__init__.py` is the source of truth.
 SUPPORTED_HOTKEYS: tuple[str, ...] = (
     "right_alt",
     "left_alt",

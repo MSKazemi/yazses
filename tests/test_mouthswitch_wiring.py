@@ -1,0 +1,584 @@
+"""Mouth-Sound Switch Access is reachable -- single-switch scanning, armed by the existing
+hands-free toggle (WIRE-MOUTHSWITCH-001, #164, ADR-v2-097).
+
+Five claims:
+
+* **A default install is unchanged.** `[mouthswitch]` ships off, so the daemon imports nothing
+  from `yazses.mouthswitch`, asks for no pointer sink, opens no microphone, and `status`
+  carries `"mouthswitch": None`.
+* **The microphone is open only while armed.** Enabling the feature builds a runner but opens
+  nothing; `handsfree resume` opens the stream, `handsfree pause` (and so the spoken stop
+  phrase) and a pause of the global gate close it, and so does shutdown.
+* **A pop starts the scan; a click runs the item lit when the click began** -- through the
+  existing command path (activation policy → grammar → dispatcher) for a command item, one
+  call on the existing pointer sink for "click" / "scroll".
+* **A select comes only from a detected click inside a running scan** (ADR-021): a click with
+  no scan, a second click, a click while dictation is busy and a stretch of the speech
+  stand-in run nothing.
+* **No highlight, no switch.** Without the overlay that draws the scan, the feature refuses to
+  build and `handsfree resume` says why.
+
+Detector thresholds are synthetic-only (`tests/test_mouthswitch_detect.py`); the end-to-end
+case below uses the same synthetic click and pop, not recorded sounds.
+"""
+from __future__ import annotations
+
+import dataclasses
+import types
+from dataclasses import dataclass
+
+import numpy as np
+import pytest
+
+from tests.pointer_fake import FakePointerSink, PointerActionKind
+from tests.synthetic_voice import SR
+from tests.test_dormant_features_stay_unimported import started, tripwire  # noqa: F401
+from yazses.config import Config
+from yazses.ipc.protocol import Request
+from yazses.platform import get_platform
+from yazses.platform.base import TrayState
+from yazses.pointer.base import PointerButton, PointerCapabilities
+from yazses.system.features import feature_status, unwired_slugs
+
+
+class FakeRecorder:
+    """Stands in for `AudioRecorder`: records start/stop, and pushes chunks on request."""
+
+    instances: list[FakeRecorder] = []
+
+    def __init__(self, on_chunk) -> None:
+        self.on_chunk = on_chunk
+        self.started = 0
+        self.stopped = 0
+        FakeRecorder.instances.append(self)
+
+    @property
+    def open(self) -> bool:
+        return self.started > self.stopped
+
+    def start(self) -> None:
+        self.started += 1
+
+    def stop(self):
+        self.stopped += 1
+        return np.zeros(0, dtype=np.float32)
+
+
+@dataclass(frozen=True)
+class Ev:
+    """A detector event as the runner reads it: onset in stream seconds, kind, action."""
+
+    t_s: float
+    kind: str
+    action: str | None
+
+
+class FakeDetector:
+    """Emits the events a test queues on the next ``feed``; a reset drops them."""
+
+    def __init__(self) -> None:
+        self.pending: list[Ev] = []
+        self.resets = 0
+
+    def emit(self, *events: Ev) -> None:
+        self.pending.extend(events)
+
+    def feed(self, chunk):
+        out, self.pending = self.pending, []
+        return out
+
+    def reset(self) -> None:
+        self.resets += 1
+        self.pending = []
+
+
+def pop_at(t: float) -> Ev:
+    return Ev(t, "pop", "toggle")
+
+
+def click_at(t: float) -> Ev:
+    return Ev(t, "click", "select")
+
+
+class Clock:
+    """The runner's clock, moved by hand."""
+
+    def __init__(self) -> None:
+        self.t = 0.0
+
+    def __call__(self) -> float:
+        return self.t
+
+
+class Drive:
+    """Feeds a runner contiguous silence in which clock time equals stream time.
+
+    The runner was started at clock 0, so an event's ``t_s`` is also its clock onset.
+    """
+
+    def __init__(self, runner, detector: FakeDetector, clock: Clock) -> None:
+        self.runner = runner
+        self.detector = detector
+        self.clock = clock
+        self.fed = 0
+
+    def advance(self, seconds: float, *events: Ev) -> None:
+        self.detector.emit(*events)
+        n = int(round(seconds * SR))
+        self.fed += n
+        self.clock.t = self.fed / SR
+        self.runner.process(np.zeros(n, dtype=np.float32), self.clock.t)
+
+
+def _runner(items=None, sink=None, run_command=None, **kwargs):
+    from yazses.mouthswitch.runtime import MouthSwitchRunner
+    from yazses.mouthswitch.scanner import DEFAULT_SCAN_ITEMS, parse_scan_items
+
+    made: list[FakeRecorder] = []
+
+    def factory(on_chunk):
+        rec = FakeRecorder(on_chunk)
+        made.append(rec)
+        return rec
+
+    ran: list[str] = []
+
+    def record(phrase: str):
+        ran.append(phrase)
+        return types.SimpleNamespace(executed=True)
+
+    parsed, _ = parse_scan_items(list(items or DEFAULT_SCAN_ITEMS))
+    detector = kwargs.pop("detector", None) or FakeDetector()
+    sink = sink or FakePointerSink()
+    clock = Clock()
+    runner = MouthSwitchRunner(
+        parsed, recorder_factory=factory, run_command=run_command or record, sink=sink,
+        sample_rate=SR, interval_s=1.0, clock=clock, detector=detector, thread=False,
+        **kwargs,
+    )
+    runner.test_clock = clock  # type: ignore[attr-defined]
+    return runner, sink, made, ran, detector
+
+
+def _started(**kwargs):
+    runner, sink, made, ran, detector = _runner(**kwargs)
+    assert runner.start() == (True, "")
+    return runner, sink, made, ran, Drive(runner, detector, runner.test_clock)
+
+
+def _presses(sink: FakePointerSink):
+    return [a for a in sink.actions if a.kind is PointerActionKind.BUTTON_PRESS]
+
+
+def _scrolls(sink: FakePointerSink):
+    return [a for a in sink.actions if a.kind is PointerActionKind.SCROLL]
+
+
+# --------------------------------------------------------------------------- #
+# Registry honesty
+# --------------------------------------------------------------------------- #
+def test_mouthswitch_is_no_longer_advertised_as_unwired():
+    assert "mouthswitch" not in unwired_slugs()
+    feature = next(f for f in feature_status(Config()) if f.slug == "mouthswitch")
+    assert feature.wired is True
+
+
+def test_the_registry_describes_single_switch_scanning_not_pop_to_advance():
+    from yazses.system.features import _EXAMPLES, _registry
+
+    definition = next(d for d in _registry() if d.slug == "mouthswitch")
+    assert "'pop' = advance" not in definition.why
+    assert "handsfree resume" in definition.why and "overlay" in definition.why
+    assert "synthetic" in definition.why
+    assert "move the highlight" not in _EXAMPLES["mouthswitch"]
+
+
+# --------------------------------------------------------------------------- #
+# The scan and the select, on the runner alone
+# --------------------------------------------------------------------------- #
+def test_a_pop_starts_the_scan_and_a_click_runs_the_lit_command():
+    runner, _sink, _made, ran, d = _started()
+    d.advance(0.3, pop_at(0.1))              # the scan starts at 0.3 s, "enter" lit
+    assert runner.view()["scanning"] is True
+    d.advance(1.5)                        # now 1.8 s: one step on, "undo" lit
+    assert runner.view()["index"] == 1
+    d.advance(0.3, click_at(1.9))
+    assert ran == ["undo"]
+    assert runner.view()["scanning"] is False  # one selection per scan
+    assert runner.selections == 1 and runner.last_selected == "undo"
+
+
+def test_the_click_selects_what_was_lit_when_it_began_not_when_it_was_heard():
+    runner, _sink, _made, ran, d = _started()
+    d.advance(0.3, pop_at(0.1))              # scan from 0.3 s
+    d.advance(1.9)                        # now 2.2 s
+    # The click began at 2.25 s ("undo" lit: 1.95 s into the scan) and the detector reports
+    # it at 2.4 s, when "scroll up" is already lit.
+    d.advance(0.2, click_at(2.25))
+    assert ran == ["undo"]
+
+
+def test_a_second_pop_stops_the_scan_and_a_later_click_runs_nothing():
+    runner, _sink, _made, ran, d = _started()
+    d.advance(0.3, pop_at(0.1))
+    d.advance(0.5, pop_at(0.6))
+    assert runner.view()["scanning"] is False
+    d.advance(0.5, click_at(1.0))
+    assert ran == []
+
+
+def test_a_click_with_no_scan_running_does_nothing():
+    """The keyboard-tap case: a stray impulse outside a scan must cost nothing."""
+    runner, sink, _made, ran, d = _started()
+    d.advance(0.5, click_at(0.2))
+    d.advance(0.5, click_at(0.7))
+    assert ran == [] and sink.actions == []
+    assert runner.selections == 0
+
+
+def test_a_sound_the_switch_does_not_map_does_nothing():
+    runner, sink, _made, ran, d = _started()
+    d.advance(0.5, Ev(0.2, "sh", None), Ev(0.3, "pop", "advance"))
+    assert runner.view()["scanning"] is False
+    assert ran == [] and sink.actions == []
+
+
+def test_the_pointer_items_use_the_existing_sink():
+    runner, sink, _made, ran, d = _started()
+    d.advance(0.3, pop_at(0.1))              # scan from 0.3 s; "click" is item 4
+    d.advance(4.4)                        # now 4.7 s
+    d.advance(0.3, click_at(4.8))            # 4.5 s into the scan: "click" (reported at 5.0 s)
+    assert ran == []
+    assert [a.button for a in _presses(sink)] == [PointerButton.LEFT]
+
+    d.advance(0.3, pop_at(5.1))              # a fresh scan from 5.3 s; "scroll down" is item 3
+    d.advance(3.2)                        # now 8.5 s
+    d.advance(0.3, click_at(8.7))            # 3.4 s into the scan: "scroll down"
+    assert [(a.x, a.y) for a in _scrolls(sink)] == [(0.0, 3.0)]
+
+
+def test_scroll_up_scrolls_toward_the_top():
+    runner, sink, _made, _ran, d = _started(items=["scroll up"])
+    d.advance(0.3, pop_at(0.1))
+    d.advance(0.3, click_at(0.4))
+    assert [(a.x, a.y) for a in _scrolls(sink)] == [(0.0, -3.0)]
+
+
+def test_nothing_is_heard_while_dictation_is_busy():
+    busy = {"on": False}
+    runner, _sink, _made, ran, d = _started(busy=lambda: busy["on"])
+    d.advance(0.3, pop_at(0.1))
+    assert runner.view()["scanning"] is True
+    busy["on"] = True
+    d.advance(0.3, click_at(0.4))            # dropped with the chunk, and the scan stops
+    assert runner.view()["scanning"] is False
+    busy["on"] = False
+    d.advance(0.3, click_at(0.7))
+    assert ran == []
+
+
+def test_a_pause_of_the_global_gate_closes_the_microphone_quietly():
+    paused = {"on": False}
+    told: list[str] = []
+    runner, _sink, _made, ran, d = _started(stop_requested=lambda: paused["on"],
+                                           on_fault=told.append)
+    d.advance(0.3, pop_at(0.1))
+    paused["on"] = True
+    d.advance(0.3, click_at(0.4))
+    assert runner.active is False and runner.view()["scanning"] is False
+    assert ran == [] and told == []      # a pause is not a fault to complain about
+    assert runner.start() == (True, "")  # and an explicit resume brings it back
+
+
+def test_a_broken_pointer_backend_stops_the_switch_and_says_so_once():
+    told: list[str] = []
+    runner, sink, _made, _ran, d = _started(items=["click"], on_fault=told.append)
+    sink.fail_with()
+    d.advance(0.3, pop_at(0.1))
+    d.advance(0.3, click_at(0.4))
+    assert runner.fault.startswith("pointer output failed")
+    assert len(told) == 1
+
+
+def test_a_command_that_raises_does_not_stop_the_switch():
+    def boom(_phrase):
+        raise RuntimeError("dispatch failed")
+
+    runner, _sink, _made, _ran, d = _started(run_command=boom)
+    d.advance(0.3, pop_at(0.1))
+    d.advance(0.3, click_at(0.4))
+    assert runner.fault == "" and runner.active
+
+
+def test_stop_closes_the_stream_and_ends_the_scan():
+    runner, sink, made, _ran, d = _started()
+    d.advance(0.3, pop_at(0.1))
+    runner.close()
+    assert not made[0].open and runner.view()["scanning"] is False
+    assert sink.closed
+
+
+# --------------------------------------------------------------------------- #
+# The real detector, end to end, on synthetic sounds
+# --------------------------------------------------------------------------- #
+def _feed(runner, signal: np.ndarray, fed: int = 0, chunk: int = 512) -> int:
+    """Feed ``signal`` in stream chunks after ``fed`` samples; the clock follows the stream."""
+    for i in range(0, signal.size, chunk):
+        part = signal[i:i + chunk].astype(np.float32)
+        fed += part.size
+        runner.test_clock.t = fed / SR
+        runner.process(part, fed / SR)
+    return fed
+
+
+def test_a_synthetic_pop_then_click_runs_the_first_item_through_the_real_detector():
+    from tests.test_mouthswitch_detect import click, placed, pop
+    from yazses.mouthswitch.detect import MouthSoundDetector
+    from yazses.mouthswitch.runtime import SWITCH_ACTIONS
+
+    runner, _sink, _made, ran, _detector = _runner(
+        detector=MouthSoundDetector(SR, actions=SWITCH_ACTIONS)
+    )
+    runner.start()
+    # 0.6 s quiet, pop, 0.6 s quiet, click, 0.6 s quiet: the click begins well inside the
+    # first 1.0 s step of the scan the pop started, so "enter" is the lit item.
+    _feed(runner, placed(pop(), click(), gap_s=0.6))
+    assert ran == ["enter"]
+
+
+def test_the_speech_stand_in_selects_nothing_from_a_running_scan():
+    from tests.test_mouthswitch_detect import placed, pop, speechlike
+    from yazses.mouthswitch.detect import MouthSoundDetector
+    from yazses.mouthswitch.runtime import SWITCH_ACTIONS
+
+    runner, sink, _made, ran, _detector = _runner(
+        detector=MouthSoundDetector(SR, actions=SWITCH_ACTIONS)
+    )
+    runner.start()
+    fed = _feed(runner, placed(pop(), gap_s=0.6))
+    # A scan is running (5 items x 1.0 s x 3 loops = 15 s) for the whole stretch of speech.
+    assert runner.view()["scanning"] is True
+    _feed(runner, speechlike(8.0, seed=0), fed)
+    assert ran == [] and sink.actions == []
+
+
+# --------------------------------------------------------------------------- #
+# Build rules
+# --------------------------------------------------------------------------- #
+def _classify(phrase: str):
+    from yazses.commands.grammar import classify
+
+    return classify(phrase, "default", language="en")
+
+
+def _build(config, **kwargs):
+    from yazses.mouthswitch.runtime import build_mouthswitch
+
+    defaults = dict(
+        pointer_factory=FakePointerSink,
+        recorder_factory=lambda on_chunk: FakeRecorder(on_chunk),
+        run_command=lambda phrase: None,
+        classify=_classify,
+        highlight_available=True,
+        thread=False,
+    )
+    defaults.update(kwargs)
+    return build_mouthswitch(config, **defaults)
+
+
+def _cfg(**overrides):
+    cfg = Config().mouthswitch
+    cfg.enabled = True
+    for key, value in overrides.items():
+        setattr(cfg, key, value)
+    return cfg
+
+
+def test_off_builds_nothing_and_asks_for_no_sink():
+    asked: list[int] = []
+    runtime = _build(Config().mouthswitch, pointer_factory=lambda: asked.append(1))
+    assert runtime.runner is None and runtime.reason == "" and asked == []
+
+
+def test_without_the_overlay_there_is_no_switch_and_the_reason_says_why():
+    runtime = _build(_cfg(), highlight_available=False)
+    assert runtime.runner is None
+    assert "overlay" in runtime.reason and "cannot see" in runtime.reason
+
+
+def test_the_default_items_all_build_with_a_full_pointer_backend():
+    runtime = _build(_cfg())
+    assert runtime.available and runtime.notice == ""
+    assert [i.label for i in runtime.runner.items] == [
+        "enter", "undo", "scroll up", "scroll down", "click"]
+
+
+def test_an_item_the_grammar_does_not_know_or_that_needs_confirmation_is_dropped():
+    runtime = _build(_cfg(scan_items=["enter", "save", "make me a sandwich", "page down"]))
+    assert [i.label for i in runtime.runner.items] == ["enter", "page down"]
+    assert "'save' dropped" in runtime.notice and "confirmation" in runtime.notice
+    assert "'make me a sandwich' dropped" in runtime.notice
+
+
+def test_no_pointer_backend_drops_only_the_pointer_items():
+    runtime = _build(_cfg(), pointer_factory=None)
+    assert [i.label for i in runtime.runner.items] == ["enter", "undo"]
+    assert "no pointer backend" in runtime.notice
+
+
+def test_a_backend_without_scroll_keeps_click_and_drops_scroll():
+    caps = PointerCapabilities(backend="clicky", buttons=frozenset({PointerButton.LEFT}))
+    runtime = _build(_cfg(), pointer_factory=lambda: FakePointerSink(caps))
+    assert [i.label for i in runtime.runner.items] == ["enter", "undo", "click"]
+    assert "cannot scroll" in runtime.notice
+
+
+def test_when_nothing_can_run_there_is_no_runner_and_the_sink_is_released():
+    sinks: list[FakePointerSink] = []
+
+    def factory():
+        sinks.append(FakePointerSink(PointerCapabilities(backend="mute")))
+        return sinks[-1]
+
+    runtime = _build(_cfg(scan_items=["click", "save"]), pointer_factory=factory)
+    assert runtime.runner is None
+    assert runtime.reason.startswith("no scan item can run here")
+    assert sinks and sinks[0].closed
+
+
+def test_dwell_s_sets_the_scan_interval():
+    runtime = _build(_cfg(dwell_s=2.0))
+    assert runtime.runner.view()["interval_s"] == 2.0
+
+
+# --------------------------------------------------------------------------- #
+# The daemon
+# --------------------------------------------------------------------------- #
+def test_a_default_daemon_never_imports_the_mouth_switch(tripwire, started):  # noqa: F811
+    daemon = started(Config())
+    assert "mouthswitch" not in tripwire.packages()
+    assert daemon._mouthswitch is None
+    assert daemon._mouthswitch_payload() is None
+
+
+def _overlay_on(monkeypatch) -> None:
+    import yazses.core.daemon as daemon_mod
+
+    monkeypatch.setattr(daemon_mod, "should_launch_overlay", lambda cfg, env: True)
+    monkeypatch.setattr(daemon_mod, "overlay_dependency_available", lambda: True)
+
+
+def test_an_enabled_daemon_imports_and_builds_it(tripwire, started, monkeypatch):  # noqa: F811
+    """The positive control for the test above: the tripwire does see the import."""
+    _overlay_on(monkeypatch)
+    cfg = Config()
+    cfg.mouthswitch.enabled = True
+    daemon = started(cfg, pipeline=False)
+    daemon._platform = dataclasses.replace(daemon._platform, pointer_factory=FakePointerSink)
+    runtime = daemon._build_mouthswitch(cfg)
+    assert "mouthswitch" in tripwire.packages()
+    assert runtime is not None and runtime.available
+    runtime.stop()
+
+
+def _daemon(cfg: Config, sink=None):
+    from yazses.core.daemon import Daemon
+
+    platform = get_platform()
+    if sink is not None:
+        platform = dataclasses.replace(platform, pointer_factory=lambda: sink)
+    return Daemon(config=cfg, platform=platform)
+
+
+@pytest.fixture
+def armed_daemon(monkeypatch):
+    import yazses.core.daemon as daemon_mod
+
+    FakeRecorder.instances.clear()
+    monkeypatch.setattr(daemon_mod, "AudioRecorder", lambda **kw: FakeRecorder(kw["on_chunk"]))
+    _overlay_on(monkeypatch)
+    sink = FakePointerSink()
+    cfg = Config()
+    cfg.mouthswitch.enabled = True
+    daemon = _daemon(cfg, sink)
+    daemon._mouthswitch = daemon._build_mouthswitch(cfg)
+    daemon._state.state = TrayState.IDLE
+    yield daemon, sink
+    daemon._mouthswitch.stop()
+
+
+def test_enabling_it_opens_no_microphone(armed_daemon):
+    daemon, sink = armed_daemon
+    assert daemon._mouthswitch.available
+    assert FakeRecorder.instances == []
+    assert sink.actions == []
+
+
+def test_handsfree_resume_opens_the_microphone_and_pause_closes_it(armed_daemon):
+    daemon, _sink = armed_daemon
+    reply = daemon._handle_handsfree(Request("handsfree", {"action": "resume"}))
+    assert reply == {"ok": True, "scope": ["Mouth-Sound Switch"]}
+    (rec,) = FakeRecorder.instances
+    assert rec.open
+    payload = daemon._mouthswitch_payload()
+    assert payload is not None
+    assert payload["armed"] is True and payload["scanning"] is False
+    assert payload["items"] == ["enter", "undo", "scroll up", "scroll down", "click"]
+
+    reply = daemon._handle_handsfree(Request("handsfree", {"action": "pause"}))
+    assert reply == {"ok": True, "scope": ["Mouth-Sound Switch"]}
+    assert not rec.open
+
+
+def test_the_spoken_stop_phrase_closes_the_microphone(armed_daemon):
+    daemon, _sink = armed_daemon
+    daemon._config.handsfree_safety.stop_phrase = "stop pointer"  # opt-in; ships empty
+    daemon._handle_handsfree(Request("handsfree", {"action": "resume"}))
+    (rec,) = FakeRecorder.instances
+    assert daemon._try_voice_stop("stop pointer", {}) is True
+    assert not rec.open
+
+
+def test_the_device_monitor_never_reinits_portaudio_under_the_open_stream(armed_daemon):
+    daemon, _sink = armed_daemon
+    assert daemon._audio_idle() is True
+    daemon._handle_handsfree(Request("handsfree", {"action": "resume"}))
+    assert daemon._audio_idle() is False
+    daemon._handle_handsfree(Request("handsfree", {"action": "pause"}))
+    assert daemon._audio_idle() is True
+
+
+def test_shutdown_closes_the_stream_and_releases_the_sink(armed_daemon):
+    daemon, sink = armed_daemon
+    daemon._handle_handsfree(Request("handsfree", {"action": "resume"}))
+    (rec,) = FakeRecorder.instances
+    daemon._mouthswitch.stop()
+    assert not rec.open and sink.closed
+
+
+def test_a_selected_command_goes_through_the_activation_policy_and_the_grammar(armed_daemon):
+    daemon, _sink = armed_daemon
+    dispatched: list[object] = []
+    daemon._gesture_dispatch = dispatched.append  # the existing dispatcher, recorded
+    runner = daemon._mouthswitch.runner
+    outcome = runner._run_command("undo")
+    assert outcome.executed is True
+    assert [getattr(c, "action", None) for c in dispatched] == ["undo"]
+    # An irreversible command is refused by the policy even if it reached the runner.
+    outcome = runner._run_command("save")
+    assert outcome.executed is False
+    assert len(dispatched) == 1
+
+
+def test_without_the_overlay_resume_says_why(monkeypatch):
+    import yazses.core.daemon as daemon_mod
+
+    monkeypatch.setattr(daemon_mod, "should_launch_overlay", lambda cfg, env: False)
+    cfg = Config()
+    cfg.mouthswitch.enabled = True
+    daemon = _daemon(cfg, FakePointerSink())
+    daemon._mouthswitch = daemon._build_mouthswitch(cfg)
+    reply = daemon._handle_handsfree(Request("handsfree", {"action": "resume"}))
+    assert reply["ok"] is False
+    assert "overlay" in str(reply["reason"])
+    assert daemon._mouthswitch_payload() is None

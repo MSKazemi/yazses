@@ -87,18 +87,22 @@ language = "ta"
 ## Hinglish — हिंदी और अंग्रेज़ी मिली-जुली बातचीत
 
 हिंदी वाक्य में अंग्रेज़ी शब्द मिलाना सामान्य भारतीय बोलचाल है, और यही वह स्थिति है जहाँ अधिकतर
-dictation tools गड़बड़ करते हैं। YazSes में इसके लिए एक routing layer है:
+dictation tools गड़बड़ करते हैं। आज Hinglish के लिए auto-detection वाला एक बहुभाषी model इस्तेमाल करें:
 
 ```toml
-[polyglot]
-enabled = true
-pair = "hi-en"
+[stt]
+model = "small"
+language = ""          # auto-detect
 ```
 
-यह स्पष्ट रहे कि यह क्या करता है: यह सामान्य बहुभाषी model के ऊपर दोनों भाषाओं के बीच **routing**
-करता है। यह विशेष रूप से code-switching के लिए train किया गया model नहीं है। `[polyglot]
-adapter_path` के ज़रिए एक अलग adapter दिया जा सकता है, पर वह अलग से train होता है और जब तक आप
-इसे सेट नहीं करते, यह खाली रहता है।
+Whisper तब हर burst के लिए एक ही भाषा पहचानता है, बीच वाक्य में भाषा नहीं बदलता; इसलिए मिले-जुले
+वाक्य तब सबसे अच्छे आते हैं जब model इतना बड़ा हो कि हिंदी संदर्भ में अंग्रेज़ी शब्दों को भी ठीक लिख सके।
+
+`[polyglot]` अभी इसका जवाब नहीं है: यह planned है, wired नहीं। इसका design एक घोषित भाषा-जोड़ी
+(`[polyglot] pair = "hi-en"`) वाले मिले-जुले burst को अलग से train किए गए code-switch adapter
+(`[polyglot] adapter_path`) पर भेजता है, पर अभी कोई हिस्सा यह पहचानता ही नहीं कि burst में भाषा कहाँ
+बदलती है। हर burst `[stt]` model से ही decode होता है, adapter हो या न हो, इसलिए इसे चालू करने से
+कोई transcript नहीं बदलता।
 
 ## क्या देवनागरी सचमुच मेरे applications में टाइप होगी?
 
