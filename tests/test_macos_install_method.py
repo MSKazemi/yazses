@@ -150,7 +150,12 @@ def test_no_test_leaves_the_frozen_platform_to_the_runner() -> None:
     """
     offenders: list[str] = []
     for path in sorted(pathlib.Path(__file__).parent.glob("test_*.py")):
-        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        source = path.read_text(encoding="utf-8")
+        # Only a file that names the function can call it. Skipping the rest avoids
+        # parsing the whole suite.
+        if "detect_install_method" not in source:
+            continue
+        tree = ast.parse(source, filename=str(path))
         for node in ast.walk(tree):
             if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)):
                 continue

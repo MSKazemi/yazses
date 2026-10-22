@@ -208,6 +208,8 @@ def _calls_on_a_gate(method: str) -> set[tuple[str, str]]:
         if rel == "handsfree/safety.py":
             continue
         text = path.read_text(encoding="utf-8")
+        if method not in text:
+            continue  # cannot call `.<method>(...)` without naming it; saves the parse
         tree = ast.parse(text)
 
         def visit(node: ast.AST, scope: tuple[str, ...]) -> None:

@@ -78,7 +78,14 @@ def test_no_module_uses_the_posix_liveness_idiom():
         rel = path.relative_to(REPO)
         if rel in ALLOWED:
             continue
-        lines = _liveness_probes(ast.parse(path.read_text(encoding="utf-8")))
+        text = path.read_text(encoding="utf-8")
+        # Parse only what could match. A call to `os.kill` needs the word `kill` in
+        # the text. The one exception is an identifier spelt in full-width letters,
+        # which Python normalises to ASCII; nobody writes that. Skipping the rest
+        # avoids parsing ~1,800 files, which was nearly all of this test's 20 s.
+        if "kill" not in text:
+            continue
+        lines = _liveness_probes(ast.parse(text))
         if lines:
             offenders[str(rel)] = lines
     assert not offenders, (

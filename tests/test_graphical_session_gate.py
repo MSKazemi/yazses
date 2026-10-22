@@ -148,7 +148,12 @@ def test_no_module_outside_the_shared_one_rederives_the_predicate() -> None:
     for path in sorted(SRC.rglob("*.py")):
         if path == SHARED:
             continue
-        if rederives_the_predicate(path.read_text(encoding="utf-8")):
+        source = path.read_text(encoding="utf-8")
+        # The predicate reads the literal "WAYLAND_DISPLAY", so a file without the
+        # word `WAYLAND` cannot hold it. The exception is a string spelt with escape
+        # sequences; nobody writes that. `WAYLAND`, not the full name, so a literal
+        # split by implicit concatenation is still parsed.
+        if "WAYLAND" in source and rederives_the_predicate(source):
             offenders.append(path.relative_to(SRC).as_posix())
     assert not offenders, (
         f"these modules decide 'is there a desktop?' themselves instead of calling "

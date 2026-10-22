@@ -36,6 +36,7 @@ import re
 
 import pytest
 
+from tests.scan_cache import scan_once
 from yazses.system import depsize, features
 from yazses.system.depsize import _MODEL_FETCHERS
 
@@ -50,6 +51,7 @@ _STATED_MB = re.compile(r"~\s*([\d.]+)\s*MB")
 _MIN_FETCHERS = 4
 
 
+@scan_once
 def _download_modules() -> dict[str, pathlib.Path]:
     """Every ``download.py`` in the package, keyed the way the table keys it."""
     return {
