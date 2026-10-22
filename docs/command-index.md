@@ -227,12 +227,20 @@ Turn a capability ON (writes your config), then `yazses restart` to apply.
 - **Arguments:** `name`
 - `--force` — Allow enabling experimental features.
 - `--no-install` — Don't auto-install the feature's optional deps.
+- `--yes`, `-y` — Don't ask before downloading an add-on (Windows installer build only).
 
 ### `yazses features info`
 
 Describe a capability — what it does, a usage example, and how to toggle it.
 
 - **Arguments:** `name`
+
+### `yazses features install`
+
+Install the libraries that switched-on features are missing.
+
+- **Arguments:** `names`
+- `--yes`, `-y` — Install without asking first.
 
 ### `yazses features reset`
 
@@ -449,7 +457,7 @@ Switch dictation language through the shared transactional service.
 
 ### `yazses language status`
 
-Show the effective speech language, Han script, model, and profile coherence.
+Show the speech language, Han script, engine/model, multilingual support, and coherence.
 
 - `--json` — Emit a machine-readable status object.
 
@@ -583,6 +591,46 @@ Render the current outline to Markdown or OPML.
 ## `yazses overlay`
 
 Run the sonar voice-activity overlay (needs the `overlay` extra: PySide6).
+
+## `yazses packs`
+
+Add-ons: a feature's libraries, downloaded and verified (Windows installer build).
+
+### `yazses packs clean`
+
+Delete set-aside, half-finished and old builds' add-ons (keeps what rollback needs).
+
+### `yazses packs install`
+
+Download, verify and install one add-on for this build. Writes no config.
+
+- **Arguments:** `name`
+- `--yes`, `-y` — Don't ask before downloading.
+- `--from` — Install this .yazpack file instead of downloading (offline). Its name and SHA-256 must match this build's built-in add-on list.
+
+### `yazses packs path`
+
+Print the folder add-ons are installed in.
+
+### `yazses packs probe`
+
+Mount one unpacked add-on and import its entry modules (used by install and CI).
+
+- **Arguments:** `name`
+- `--staged` — The unpacked add-on folder to test.
+
+### `yazses packs remove`
+
+Delete an installed add-on. Features that need it then read *waiting for add-on*.
+
+- **Arguments:** `name`
+- `--all` — Remove every add-on of every build.
+
+### `yazses packs verify`
+
+Check every installed file's size and SHA-256. A damaged add-on is set aside.
+
+- **Arguments:** `name`
 
 ## `yazses punch-in`
 
@@ -729,7 +777,7 @@ Show daemon status. Queries the daemon over IPC when reachable.
 
 ## `yazses stop`
 
-Stop the running daemon.
+Stop YazSes: the daemon, and the tray icon with it.
 
 - `--force` — Stop even while a meeting is still being written up.
 

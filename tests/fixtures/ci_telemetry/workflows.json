@@ -1,0 +1,27 @@
+[
+ {
+  "name": "Tests",
+  "path": ".github/workflows/test.yml",
+  "state": "active"
+ },
+ {
+  "name": "Docs",
+  "path": ".github/workflows/docs.yml",
+  "state": "active"
+ },
+ {
+  "name": "Nightly",
+  "path": ".github/workflows/nightly.yml",
+  "state": "active"
+ },
+ {
+  "name": "Release",
+  "path": ".github/workflows/release.yml",
+  "state": "active"
+ },
+ {
+  "name": "Retired",
+  "path": ".github/workflows/retired.yml",
+  "state": "disabled_manually"
+ }
+]

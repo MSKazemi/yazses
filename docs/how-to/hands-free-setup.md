@@ -58,6 +58,11 @@ before you turn anything on, and any value you write yourself wins.
    of dangerous dictated commands, or refusing a destructive action when gaze cannot choose a window); the
    message names the key.
 
+   The preset is also an ordinary capability: `yazses features enable handsfree --force` is the same
+   command, with the same checks and the same refusals, and `yazses features` lists it as
+   **Hands-Free Preset** under *Accessibility & input modalities*. `yazses features disable handsfree`
+   is likewise `yazses handsfree disable`.
+
 3. **Apply it:**
 
    ```bash
@@ -72,9 +77,22 @@ before you turn anything on, and any value you write yourself wins.
    yazses handsfree status
    ```
 
+   While YazSes is running, the **Hands-free perception** line tells apart the causes that otherwise look
+   the same, because each has a different fix. The camera is busy or unplugged. A camera package is not
+   installed, and the line names it. The one-time face-model download was blocked, while the camera itself
+   is fine. Or the camera is open but has stopped sending frames, which is reported as `stale` and not as
+   tracking. It never prints a face, gaze or head value, only states, names and ages.
+
    Your desktop may show a one-time permission dialog (for pointer control on some Wayland sessions, and
    your operating system may ask before a program uses the camera). Answer it; `yazses handsfree status`
    says when one is still waiting.
+
+   On macOS, moving the pointer needs the same **Accessibility** grant the dictation key uses. If it has
+   not been given, the Head-Pointer does not start, and `yazses headpointer status` says so when it is
+   enabled: *macOS has denied YazSes permission to post mouse events*, followed by the pane to open. Enable
+   YazSes in System Settings > Privacy & Security > Accessibility, then restart YazSes. macOS reads the
+   grant when a program starts. This macOS path has so far been tested only against a simulated macOS
+   layer, not on a real Mac.
 
 5. **Calibrate once** so the inputs are judged against *your* face and screen. Both are optional, and
    without them the plain thresholds are used and a log line says so:
@@ -85,8 +103,8 @@ before you turn anything on, and any value you write yourself wins.
    ```
 
 6. **Arm it.** Hands-free starts **paused**, and the first arming needs a fresh signal from the camera,
-   so nothing moves the instant the camera comes up. Re-arm from any terminal, the tray, or the hands-free
-   controls in the settings window:
+   so nothing moves the instant the camera comes up. Re-arm from any terminal, or from Tray →
+   **Settings…** → **Hands-free controls…**:
 
    ```bash
    yazses handsfree resume
@@ -94,6 +112,20 @@ before you turn anything on, and any value you write yourself wins.
 
 Every terminal step above is listed; there is no other one. Checking status, pausing and resuming are
 also in the settings window (`yazses settings`), which shows the same panel as `yazses handsfree status`.
+
+### Turn it on from the settings window (no terminal)
+
+1. Tray icon → **Settings…**.
+2. Under **Accessibility & input modalities**, tick **Hands-Free Preset**, answer **Yes** to the
+   experimental warning, then click **Apply**. The window runs the same safety-floor check as
+   `yazses features enable handsfree`: if one of your own settings would weaken it, nothing is written
+   and the message names the key. On a Python install (pip, pipx, uv) that lacks the camera libraries,
+   Apply installs them (mediapipe and OpenCV) first; the winget and Homebrew app bundles cannot add them.
+3. Tray icon → **Restart daemon**.
+4. Tray icon → **Settings…** → **Hands-free controls…** → **Resume hands-free input** to arm it.
+
+To turn it off the same way, untick **Hands-Free Preset**, click **Apply**, and restart the daemon from
+the tray. To stop what is moving *before* that restart, press **Pause** in the hands-free controls first.
 
 ### Choose only some of the roles
 
@@ -131,7 +163,10 @@ The preset's dictation switch is jaw-open. To use a deliberate eye closure inste
 
 Then click into a text box, close your eyes for about a second, speak, and open them: the words are typed when
 your eyes open. **Pause hands-free input** in the same window (or `yazses handsfree pause`) stops it. Test it
-with ordinary blinking first; `[facegesture] min_hold_frames` lengthens the hold further.
+with ordinary blinking first; `[facegesture] min_hold_frames` lengthens the hold further. The window's
+**Ways to stop without pointing** list, one Tab stop after **Recenter**, names only the stop routes your saved
+settings set up: Alt+P in the window, `yazses handsfree pause`, your stop phrase, and any face switch or chord
+mapped to pause. It also says which of these is missing.
 The switch compares against a fixed threshold until you run `yazses facegesture calibrate` and set
 `[facegesture] use_baseline = true` (this step still needs a terminal).
 
@@ -153,8 +188,10 @@ another way to commit.
 
 ## Not part of the preset
 
-- The **Voice Mouse Grid** (click by voice) is designed but not wired into this build, so there is no
-  precision fallback in the preset.
+- The **Voice Mouse Grid** (click by voice) is experimental and the preset does not turn it on, so the
+  precision fallback is yours to enable: `yazses features enable mousegrid --force`, then say "mouse grid",
+  cell numbers, and "click". It needs absolute pointer motion (X11 or macOS), and the numbered grid is
+  drawn only when `[overlay]` is on.
 - No face gesture is bound to select, confirm or cancel by the preset. The commit is dwell-click unless you
   add a `[[facegesture.switches]]` entry yourself.
 
@@ -168,11 +205,14 @@ Every one of these needs neither a precise pointer nor the camera, except the ch
 | the **Pause** button in the hands-free controls of the settings window (keyboard letter **P**) | the settings window |
 | saying the stop phrase as a whole utterance, see [Stop hands-free input by voice](hands-free-voice-stop.md) | a dictation burst; it only pauses |
 | the chord brow-raise + shake | the camera, so it cannot help once the camera is lost |
+| a face switch you bound to `pause_pointer` (`[[facegesture.switches]]`) | the camera; with the global stop off it pauses the Head-Pointer only |
 | `yazses handsfree disable` | pauses everything now; `yazses restart` then releases the camera |
 
 A pause or a fault is never undone by itself. To come back, run `yazses handsfree resume`. The first frame
 after re-arming only observes: it never moves the pointer or clicks, and nothing recorded while you were
-stopped is replayed.
+stopped is replayed. A face gesture or head gesture you had begun before the Resume does not count either:
+make it again, in full, after the Resume. This applies to a face switch and to a Gesture Chord token (a jaw
+held open, a nod, a tilt). A gesture still held across the Resume must be relaxed and made again.
 
 `yazses handsfree disable` writes `[handsfree] enabled = false`. It keeps your calibration and every
 setting you wrote yourself, and the rest of your `config.toml` is untouched.

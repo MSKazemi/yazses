@@ -202,14 +202,17 @@ def test_the_real_focus_chain_starts_with_pause_resume_recenter_and_misses_no_co
     assert missing == [], f"operable by pointer, skipped by Tab: {missing}"
 
 
-def test_the_only_extra_tab_stops_are_the_scroll_area_and_the_selectable_health_text(qapp):
+def test_the_only_extra_tab_stops_are_the_scroll_area_and_the_two_selectable_reports(qapp):
     rig = _Rig(qapp, _faulted_with_everything_on())
     stops = _chain(rig, qapp)
     extras = [w for w in stops if not isinstance(w, (QPushButton, QComboBox))]
     assert {type(w) for w in extras} <= {QScrollArea, QLabel}
     assert rig.panel._health in extras, "the health report must be reachable to be read and copied"
+    assert rig.panel._routes in extras, "the ways to stop must be reachable without a pointer"
     labels = [w for w in extras if isinstance(w, QLabel)]
-    assert labels == [rig.panel._health]
+    # The stop routes straight after the three emergency buttons, the health report later.
+    assert labels == [rig.panel._routes, rig.panel._health]
+    assert stops.index(rig.panel._routes) == 3
 
 
 def test_the_real_chain_follows_the_order_the_shell_declared(qapp):

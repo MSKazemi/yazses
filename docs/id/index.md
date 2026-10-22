@@ -41,7 +41,7 @@ Jalankan pertama kali akan mengunduh model suara satu kali (sekitar 148 MB). Set
 
 ## Privasi
 
-Audio ditranskripsikan di komputer Anda dan tidak pernah dikirim ke mana pun. Tidak ada telemetri dan tidak ada jalur ke awan.
+Secara default, audio ditranskripsikan di komputer Anda dan tidak dikirim ke mana pun. Tidak ada telemetri dan tidak ada jalur ke awan.
 
 ## Selengkapnya
 

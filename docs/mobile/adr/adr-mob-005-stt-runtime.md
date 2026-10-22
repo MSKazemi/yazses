@@ -1,9 +1,13 @@
+---
+description: "ADR-MOB-005: Android speech-to-text runs behind an engine seam that mirrors the desktop SttEngine Protocol, with whisper.cpp as the default engine and sherpa-onnx as the second."
+---
+
 # ADR-MOB-005 — STT runtime: an engine seam, whisper.cpp as the default, sherpa-onnx as the second
 
 **Status:** Accepted (2026-08-07) · design only, no code yet
 **Deciders:** Mohsen Seyedkazemi Ardebili
-**Context links:** [[adr-mob-002]] (native stack), [[adr-mob-006]] (model distribution),
-[[adr-mob-009]] (F-Droid), [[adr-v2-129]] (desktop `SttEngine` seam),
+**Context links:** [ADR-MOB-002](adr-mob-002-native-kotlin-stack.md) (native stack), [ADR-MOB-006](adr-mob-006-model-distribution.md) (model distribution),
+[ADR-MOB-009](adr-mob-009-distribution-and-signing.md) (F-Droid), [ADR-v2-129](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-v2-129-killer-features-10x.md) (desktop `SttEngine` seam),
 desktop analogue: `src/yazses/stt/base.py`, `src/yazses/stt/factory.py`
 
 ---
@@ -12,7 +16,7 @@ desktop analogue: `src/yazses/stt/base.py`, `src/yazses/stt/factory.py`
 
 The desktop learned this lesson the expensive way: faster-whisper was hard-wired for two
 years, `StreamingEngine` reached into its private `_model`, and adding Parakeet required
-inventing an `SttEngine` Protocol and a factory first ([[adr-v2-129]]). The Android port
+inventing an `SttEngine` Protocol and a factory first ([ADR-v2-129](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-v2-129-killer-features-10x.md)). The Android port
 should start where the desktop ended up.
 
 Which engine, though, is constrained by more than accuracy:
@@ -22,7 +26,7 @@ Which engine, though, is constrained by more than accuracy:
 - **whisper.cpp** is a small, self-contained CMake/C++ project with first-class Android
   support (it ships an Android example), GGML quantisation down to ~Q5/int8, and it is what
   the closest FOSS neighbour (Transcribro) ships. Being a small CMake project matters
-  disproportionately for [[adr-mob-009]]: F-Droid forbids prebuilt binaries and requires
+  disproportionately for [ADR-MOB-009](adr-mob-009-distribution-and-signing.md): F-Droid forbids prebuilt binaries and requires
   native code to be built from source in the build recipe, and whisper.cpp is realistically
   buildable there.
 - **sherpa-onnx** (k2-fsa) covers more ground — streaming Zipformer, Whisper, Parakeet-TDT,
@@ -54,12 +58,12 @@ different packaging consequences, which is exactly the situation an engine seam 
    factory. **No `:feature:*` module may reference a concrete engine.**
 2. **whisper.cpp is the default engine** (`:native:whispercpp` — a git submodule plus a
    thin JNI bridge and a CMake target). Default model `base.en`-class for English; the
-   model is downloaded, not bundled ([[adr-mob-006]]).
+   model is downloaded, not bundled ([ADR-MOB-006](adr-mob-006-model-distribution.md)).
 3. **sherpa-onnx is the second engine** (`:native:sherpaonnx`), shipped in M3 and required
    for the capabilities whisper.cpp does not provide: Silero VAD, speaker diarization for
    Meeting Mode / file import, and Parakeet-TDT for users who want the desktop's
    high-accuracy engine. It is a **build variant / optional download**, never a hard
-   dependency of the dictation path — see [[adr-mob-009]] for how the F-Droid and
+   dependency of the dictation path — see [ADR-MOB-009](adr-mob-009-distribution-and-signing.md) for how the F-Droid and
    GitHub/Play variants differ.
 4. **The engine boundary is PCM in, `Transcript` out.** No engine sees the config object,
    the Android `Context`, or the delivery layer. `Transcript` carries text, per-segment
@@ -71,7 +75,7 @@ different packaging consequences, which is exactly the situation an engine seam 
 6. **Hardware acceleration (NNAPI, QNN, GPU delegates) is deferred**, behind the same seam.
    Reason: NNAPI's deprecation and vendor-driver variability make it a per-device lottery
    that would cost more in bug reports than it returns in latency at `base.en` scale. It is
-   revisited only with on-device benchmark data from `:bench` ([[adr-mob-008]] §5).
+   revisited only with on-device benchmark data from `:bench` ([ADR-MOB-008](adr-mob-008-cross-platform-contract.md) §5).
 7. **Every claim about speed or accuracy must come from `:bench`, not from a blog post.**
    The benchmark harness is a first-class module: it runs a fixed audio corpus on-device
    and emits JSON (device, SoC, Android version, engine, model, real-time factor, peak RSS,
@@ -82,7 +86,7 @@ different packaging consequences, which is exactly the situation an engine seam 
 ## Consequences
 
 - The dictation path is buildable entirely from source with one small C++ dependency,
-  which is what makes an F-Droid listing realistic ([[adr-mob-009]]).
+  which is what makes an F-Droid listing realistic ([ADR-MOB-009](adr-mob-009-distribution-and-signing.md)).
 - Diarization and neural VAD arrive with sherpa-onnx in M3 and are therefore *variant-
   dependent* features; the feature registry must mark them unavailable-in-this-build
   honestly, exactly as the desktop's `system/backends.py` distinguishes "the optional
@@ -101,11 +105,11 @@ different packaging consequences, which is exactly the situation an engine seam 
 ## Rejected
 
 - **faster-whisper / CTranslate2** — no Android build. Not a judgement, an availability fact.
-- **A single hard-wired engine** — the exact mistake [[adr-v2-129]] had to undo on desktop.
-- **Cloud STT of any kind, including "just for the first run"** — [[adr-011]] §3 forbids a
+- **A single hard-wired engine** — the exact mistake [ADR-v2-129](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-v2-129-killer-features-10x.md) had to undo on desktop.
+- **Cloud STT of any kind, including "just for the first run"** — [ADR-011](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-011.md) §3 forbids a
   cloud fallback; the app ships with no such code path at all.
 - **Android's built-in `SpeechRecognizer` as a backend** — it is the thing YazSes exists to
   replace, and on most devices it is Google's service.
 - **MLC/LLM-based ASR or a large multimodal model on-device** — memory and battery are not
   there for a keyboard that must respond in ~1 s.
-- **Bundling model weights in the APK** — see [[adr-mob-006]].
+- **Bundling model weights in the APK** — see [ADR-MOB-006](adr-mob-006-model-distribution.md).

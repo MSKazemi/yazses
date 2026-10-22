@@ -5,9 +5,15 @@ This script intentionally does not call GitHub. Local/CI validation answers stru
 questions only: is the manifest internally coherent, do referenced repo paths exist, and
 are delivery states compatible with their tracking metadata? Live issue/milestone state
 belongs in a separate network-backed audit.
+
+``--issues SNAPSHOT.json`` (optionally with ``--milestones LISTING.json``) additionally
+applies the milestone policy (#480, ``design/milestone-policy.md``) to an issue snapshot that
+was fetched beforehand, via the pure ``scripts/milestone_policy.py``. The script still makes
+no network call: fetching the snapshot is the caller's job.
 """
 from __future__ import annotations
 
+import argparse
 import sys
 from pathlib import Path
 from typing import Any
@@ -155,11 +161,38 @@ def validate_manifest(data: dict[str, Any], root: Path = ROOT) -> list[str]:
     return errors
 
 
+def _load_milestone_policy() -> Any:
+    """Import the sibling ``milestone_policy`` module, which is pure and offline too."""
+    import importlib.util
+
+    name = "milestone_policy"
+    if name in sys.modules:
+        return sys.modules[name]
+    spec = importlib.util.spec_from_file_location(name, Path(__file__).with_name(f"{name}.py"))
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module  # dataclasses resolve their module through sys.modules
+    spec.loader.exec_module(module)
+    return module
+
+
 def main(argv: list[str] | None = None) -> int:
-    args = sys.argv[1:] if argv is None else argv
-    path = Path(args[0]) if args else MANIFEST
+    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser.add_argument("manifest", nargs="?", type=Path, default=MANIFEST)
+    parser.add_argument(
+        "--issues",
+        type=Path,
+        help="also apply the milestone policy (#480) to this open-issue snapshot "
+        "(gh issue list --state open --json number,title,labels,milestone)",
+    )
+    parser.add_argument(
+        "--milestones", type=Path, help="milestone listing for the policy check (needs --issues)"
+    )
+    args = parser.parse_args(sys.argv[1:] if argv is None else argv)
+    if args.milestones and not args.issues:
+        parser.error("--milestones needs --issues")
     try:
-        errors = validate_manifest(load_manifest(path))
+        errors = validate_manifest(load_manifest(args.manifest))
     except ManifestError as exc:
         print(f"Planning traceability errors:\n  - {exc}", file=sys.stderr)
         return 1
@@ -169,7 +202,18 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  - {error}", file=sys.stderr)
         return 1
     print("Planning traceability manifest is structurally valid.")
-    return 0
+    if args.issues is None:
+        return 0
+
+    policy = _load_milestone_policy()
+    try:
+        report = policy.check_files(args.issues, args.milestones)
+    except policy.SnapshotError as exc:
+        print(f"Milestone policy: CANNOT CHECK ({exc}).", file=sys.stderr)
+        return 2
+    body = policy.render(report)
+    (sys.stderr if report.violations else sys.stdout).write(body)
+    return 1 if report.violations else 0
 
 
 if __name__ == "__main__":

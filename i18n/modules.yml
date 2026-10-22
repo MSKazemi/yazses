@@ -11,7 +11,7 @@
 modules:
   - id: 1
     name: Landing
-    sections: ["Three things it does"]
+    sections: ["✨ What it does", "⬇️ Install"]
     from_top: true          # also covers the intro above the first heading
     approx_lines: 60
     why: Decides whether someone keeps reading.
@@ -56,7 +56,7 @@ modules:
 
   - id: 8
     name: Contributing
-    sections: ["Contributing"]
+    sections: ["🙌 Help build YazSes", "Contributing"]
     approx_lines: 30
     why: Grows the next translator.
 

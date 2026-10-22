@@ -3,12 +3,30 @@
 | Field | Value |
 |---|---|
 | **ID** | spec-polyglot-switch |
-| **Status** | Proposed |
+| **Status** | Proposed (2026-06-14 design) · current: P0 scaffolding only, P1 blocked on an evaluation set — see [Delivery status](#delivery-status-current) |
 | **Date** | 2026-06-14 |
 | **Module** | `src/yazses/stt/code_switch.py` (new); `src/yazses/stt/faster_whisper.py` (modified) |
 | **Vision card** | the Polyglot Switch vision card (internal) |
 | **SoA dossier** | the 2026-06-14 ten-feature SoA dossier (internal) (Feature 9) |
 | **Verdict** | partial — buildable offline **per configured language pair** (P1 = ZH-EN); **not** an any-blend drop-in |
+
+---
+
+## Delivery status (current)
+
+> Checked **2026-10-21** against `main` at `3245f848` (latest tag v2.43.2). This section
+> states what the code does today; everything below it is the original design, kept as
+> written. Where the two disagree, this section is the current statement. Status words:
+> **shipped** (wired and reachable), **partial**, **blocked** (names its gate),
+> **deferred** (no delivery promise), **rejected**, **out of scope**. "No tracker" means
+> no issue or campaign task exists for that remainder; it is not scheduled.
+
+| Phase | Status | Evidence | Tracking |
+|---|---|---|---|
+| P0 — scaffolding | **Partial — scaffolding only, not a working feature.** `[polyglot]` config, pair parsing and a routing decision object exist; the router is built and logged at daemon start and nothing consults it during transcription. The registry lists `polyglot` as wired because its package is imported, which is not the same as it doing anything | `polyglot/router.py`, `polyglot/lid.py` (`is_code_switched` has no caller outside `polyglot/`); `core/daemon.py` constructs `PolyglotRouter` and never reads it again | — |
+| P1 — one configured pair | **Blocked** on a code-switch evaluation set and a measured baseline. No adapter is trained or loaded (`[polyglot] adapter_path` is user-supplied). The current follow-up targets `fa-en`, the canonical pair in the Persian plan, not the ZH-EN this spec chose | [persian-language-support-plan.md](persian-language-support-plan.md) WS-5 | [#518](https://github.com/MSKazemi/yazses/issues/518) (privacy-safe Persian-English evaluation set), [#519](https://github.com/MSKazemi/yazses/issues/519) (qualify the existing `fa-en` routing before training an adapter); research question [#258](https://github.com/MSKazemi/yazses/issues/258) |
+| P2 — more pairs | **Deferred** — no second pair is planned | — | No tracker |
+| Universal any-pair code-switching | **Out of scope** (unchanged) | Scope boundary below | — |
 
 ---
 

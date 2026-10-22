@@ -5,10 +5,12 @@
 #   1. uv sync (env-markered deps pull pywin32, pystray, Pillow)
 #   2. Install PyInstaller (build-only)
 #   3. Run PyInstaller against packaging/windows/yazses.spec → dist/YazSes/
-#   4. Run Inno Setup against packaging/windows/installer.iss → dist/YazSes-<v>-windows-<arch>.exe
+#   4. Build the ADR-028 add-on packs and embed their index (scripts/build-packs.py)
+#   5. Run Inno Setup against packaging/windows/installer.iss → dist/YazSes-<v>-windows-<arch>.exe
 #
 # Outputs:
 #   dist/YazSes-<version>-windows-<arch>.exe   (arch = x64 | arm64)
+#   dist/packs/YazSes-<version>-windows-<arch>-pack-<extra>.yazpack, …-packs.json  (if any passed)
 #
 # Requires: Windows, uv, Inno Setup 6 (preinstalled on GitHub windows-latest).
 
@@ -84,7 +86,16 @@ Write-Host "==> Syncing runtime dependencies"
 # child dies on the import with its explanation going to a stderr that a windowed
 # process does not have. `snap/snapcraft.yaml` carries the same note for the same
 # reason; `tests/test_frozen_bundles_ship_the_gui.py` now keeps both honest.
-uv sync --no-dev --extra desktop
+#
+# `--extra parakeet --extra chinese`: ADR-028 question 1, answered 2026-10-21. Both are
+# small pure-Python wheels (onnx-asr, MIT, ~4 MB; opencc-python-reimplemented,
+# Apache-2.0, ~0.5 MB) whose other dependencies the base already carries, so they ship
+# inside the installer instead of as add-on packs. The extras synced here must be
+# exactly the `bundled` decisions in packaging/packs/packs.toml: `build-packs.py
+# validate` and tests/test_build_packs.py fail otherwise, and `build-packs.py build`
+# withholds every pack if this venv lacks a bundled extra. packaging/windows/yazses.spec
+# collects onnx_asr's data files and metadata, which PyInstaller does not find alone.
+uv sync --no-dev --extra desktop --extra parakeet --extra chinese
 
 Write-Host "==> Installing PyInstaller"
 uv pip install "pyinstaller>=6.10"
@@ -131,6 +142,27 @@ try {
     # System.Drawing needs the Windows Desktop runtime, which the arm64 runner
     # may lack. A missing probe must not fail an otherwise good build.
     Write-Host "  --  icon probe unavailable on this host: $($_.Exception.Message)"
+}
+
+# --- add-on packs (ADR-028) ---------------------------------------------
+# Between PyInstaller and Inno, from the same .venv, interpreter and uv.lock: one
+# .yazpack per `pack` extra in packaging/packs/packs.toml, each pinned to this exact
+# bundle's base_build_id and probed inside the frozen app. The index of the packs that
+# passed is copied into dist\YazSes\_internal\ so the installer below carries it, and
+# the script then proves every other file in dist\YazSes is byte-identical to before.
+# A pack that fails a check or its probe is withheld; the base installer still ships.
+# Output: dist\packs\ (the .yazpack files and the index), absent when no pack passed.
+# Set YAZSES_BUILD_PACKS=0 to skip, e.g. for a quick local installer build.
+if ($env:YAZSES_BUILD_PACKS -eq "0") {
+    Write-Host "==> Skipping add-on packs (YAZSES_BUILD_PACKS=0)"
+} else {
+    Write-Host "==> Building add-on packs"
+    uv run --no-sync python scripts\build-packs.py build `
+        --dist dist\YazSes --out dist\packs --work build\packs `
+        --arch $Arch --version $Version --probe-exe dist\YazSes\yazses-cli.exe
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "build-packs.py failed (exit $LASTEXITCODE): the base bundle changed during pack production"
+    }
 }
 
 # --- Inno Setup ---------------------------------------------------------

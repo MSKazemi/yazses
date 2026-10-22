@@ -120,6 +120,27 @@ def test_wait_until_ready_times_out_as_loading(monkeypatch):
     assert outcome == "loading"
 
 
+def test_wait_until_ready_keeps_polling_through_a_transient_protocol_error(monkeypatch):
+    # #330: a pipe/socket that accepts and closes before replying yields an empty line,
+    # which the client surfaces as a ValueError (json), not as IpcUnreachableError; and a
+    # daemon mid-start may answer with a JSON-RPC error.  Neither is a reason for `start`
+    # to traceback while the daemon is coming up.  Windows pipe behaviour: UNVERIFIED.
+    from yazses.ipc.client import IpcCallError
+    from yazses.ipc.protocol import RpcError
+
+    lc = _Lifecycle([True, True, True])
+    client = _Client(
+        [
+            ValueError("Expecting value: line 1 column 1 (char 0)"),
+            IpcCallError(RpcError(code=-32603, message="starting")),
+            {"state": "idle", "ready": True},
+        ]
+    )
+    outcome, info = cli._wait_until_ready(_Platform(lc, client), timeout=5.0)
+    assert outcome == "ready"
+    assert info["ready"] is True
+
+
 # ---- _report_start_outcome -------------------------------------------------
 
 
@@ -133,6 +154,23 @@ def test_report_loading(capsys):
     plat = _Platform(_Lifecycle([]), _Client([]))
     cli._report_start_outcome(plat, "loading", {"state": "loading"})
     assert "loading" in capsys.readouterr().out.lower()
+
+
+def test_report_loading_names_the_endpoint_when_ipc_never_answered(capsys):
+    # #330: alive PID but IPC silent for the whole wait is not "the model is loading" --
+    # say which socket/pipe stayed silent so the user can look at it.
+    plat = _Platform(_Lifecycle([]), _Client([IpcUnreachableError(r"\\.\pipe\yazses-x-daemon")]))
+    cli._report_start_outcome(plat, "loading", None)
+    out = capsys.readouterr().out
+    assert r"\\.\pipe\yazses-x-daemon" in out
+    assert "not answered" in out.lower()
+
+
+def test_report_loading_with_a_live_status_stays_unchanged(capsys):
+    plat = _Platform(_Lifecycle([]), _Client([]))
+    cli._report_start_outcome(plat, "loading", {"state": "loading"})
+    out = capsys.readouterr().out
+    assert "not answered" not in out.lower()
 
 
 def test_report_died_exits_nonzero_with_reason(capsys):

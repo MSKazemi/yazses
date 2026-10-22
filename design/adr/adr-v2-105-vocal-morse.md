@@ -31,3 +31,33 @@ from the existing hold/mouth-sound stream. OFF by default.
 - Distinct from Mouth-Switch (symbol alphabet vs single trigger).
 - Privacy (ADR-011): local timing only.
 - Caveat: Morse is slow and has a learning curve (inherent); off by default.
+
+## Implementation status (2026-10-21, WIRE-MORSEVOX-001)
+
+**Still unwired.** `morsevox` remains in `_UNWIRED` in `system/features.py`; nothing in the
+daemon constructs any of the code below, so `[morsevox] enabled = true` changes nothing yet.
+
+- **Done — the producer.** The "pulse timing from the existing stream" in the Decision had
+  no code behind it. `morsevox/segment.py` now supplies it, pure and dependency-free:
+  `PulseSegmenter` turns a `(timestamp_ms, level)` stream — the per-chunk `mean(|samples|)`
+  that `daemon._on_audio_chunk` already computes — into pulse and gap durations, with
+  hysteresis (`on_level`/`off_level`) and debounce (dropouts under `bridge_ms` are bridged;
+  a pulse with under `min_pulse_ms` of voiced time is discarded as a click). `MorseStream`
+  feeds those durations through `classify_pulse`/`classify_gap` into `MorseDecoder`, emits a
+  letter as soon as the silence reaches `letter_gap_ms` (and a space at `word_gap_ms`), and
+  can re-fit `dot_max_ms` with `adapt_dot_threshold` — only once the recent pulses form two
+  clusters, so a run of dots cannot drag the threshold into the dots. Tested on synthetic
+  level streams in `tests/test_morsevox_segment.py` (including jitter, noise floor, clicks
+  and dropouts, each paired with a twin that fails with the guard switched off); the core's
+  edges are pinned in `tests/test_morsevox_decode.py`.
+- **Undecided — how a minimal-ability user starts and stops it.** `_on_audio_chunk` runs only
+  while the recorder is capturing, which today begins in `_on_hold_start` — a hold or toggle
+  of a hotkey. The users this ADR is for may be unable to press one. Whether Morse listening
+  is latched on by a mouth-sound switch (ADR-v2-097), by a toggle, by an always-listening
+  mode while the feature is enabled, or by something else is **not decided**, and neither is
+  how it is latched off again. This is a UX decision for the owner, not a wiring detail.
+- **Also undecided before wiring:** whether a Morse capture is kept away from speech-to-text
+  (otherwise the same hums are transcribed), where `on_level` comes from (the obvious
+  source is `accessibility.vad_threshold`, which is the same metric, but it is tuned for
+  speech), and whether `adapt` is user-visible. No config keys were added for the
+  segmenter's thresholds.

@@ -45,7 +45,7 @@ from dataclasses import dataclass, field, replace
 from enum import Enum
 from typing import Any
 
-from yazses.facegesture.detector import GESTURES
+from yazses.facegesture.detector import EYES_CLOSED_MIN_HOLD_S, GESTURES
 from yazses.facegesture.switches import (
     ACTIONS as SWITCH_ACTIONS,
 )
@@ -86,6 +86,7 @@ __all__ = [
     "merge_facts",
     "plan_mapping",
     "render_text",
+    "stop_routes",
     "stop_without_state",
     "wired_switch_actions",
 ]
@@ -138,19 +139,23 @@ WIRED_SWITCH_ACTIONS: tuple[str, ...] = (
     "hold_to_talk", "hold_to_command", "select", "confirm", "cancel",
 )
 
-#: How long the eyes must stay shut before an eyes-closed switch counts. `facegesture/detector.py`
-#: already says this gesture "needs a long `min_hold_frames`" to tell a deliberate closure from
-#: the ~15 involuntary blinks a minute, but the shipped `min_hold_frames = 3` is 0.2 s at 15 fps
-#: -- inside a blink. A config-file user can read that comment; a person binding the gesture
-#: from this panel never sees the key, so the mapping itself raises it. PROVISIONAL and
-#: unmeasured in YazSes: chosen to sit well above a spontaneous blink, which the literature
-#: commonly puts at roughly 0.1-0.4 s.
-EYES_CLOSED_MIN_HOLD_S = 0.8
+# ``EYES_CLOSED_MIN_HOLD_S`` (how long the eyes must stay shut before an eyes-closed switch
+# counts) is imported from ``facegesture/detector.py``, which enforces it in seconds of sample
+# time on every live path; it stays importable from here for the frame floor below.
 
 
 def eyes_closed_min_hold_frames(fps: int) -> int:
     """The smallest ``min_hold_frames`` that holds an eyes-closed switch for
-    :data:`EYES_CLOSED_MIN_HOLD_S` at ``fps`` (clamped to the config's 1..60). Pure."""
+    :data:`EYES_CLOSED_MIN_HOLD_S` at ``fps`` (clamped to the config's 1..60). Pure.
+
+    The shipped ``min_hold_frames = 3`` is 0.2 s at 15 fps -- inside a blink -- and a person
+    binding the gesture from this panel never sees the key, so the mapping raises it. ``fps`` is
+    ``[facegesture] fps``, which is the rate only on the switch's own camera; on the shared
+    camera frames arrive at ``[perception] fps``. That no longer decides safety: the detector
+    itself requires :data:`EYES_CLOSED_MIN_HOLD_S` of sample time for this gesture
+    (``detector.min_hold_s_for``), on top of this frame count, at any rate. When the shared
+    camera runs *slower* than ``[facegesture] fps``, this floor can make the hold longer than
+    0.8 s; it never makes it shorter."""
     fps = min(60, max(1, int(fps)))
     # The epsilon keeps 0.8 * 15 (= 12.000000000000002 in floating point) at 12, not 13.
     return max(1, math.ceil(EYES_CLOSED_MIN_HOLD_S * fps - 1e-9))
@@ -160,13 +165,20 @@ def _seconds(frames: int, fps: int) -> str:
     return f"{frames / min(60, max(1, int(fps))):.1f} s"
 
 
-def wired_switch_actions(safety_configured: bool) -> tuple[str, ...]:
-    """The switch actions that actually do something, given the global-stop setting. Pure.
+def wired_switch_actions(
+    safety_configured: bool, pointer_running: bool = False
+) -> tuple[str, ...]:
+    """The switch actions that actually do something, given what can be paused. Pure.
 
-    ``pause_pointer`` needs the global gate: with ``[handsfree_safety]`` off the daemon has
-    nothing for it to pause and leaves it unwired.
+    ``pause_pointer`` needs something to pause: the global gate (``[handsfree_safety]`` on,
+    which pauses every hands-free input) or, with the gate off, a running Head-Pointer (which
+    it pauses alone, as ``handsfree pause`` and a chord's ``pause_pointer`` do). With neither
+    the daemon leaves it unwired. ``pointer_running`` is the daemon's own ``headpointer
+    status`` answer, not the saved ``[headpointer] enabled``: an enabled pointer with no camera
+    or no pointer backend has nothing to pause either.
     """
-    return WIRED_SWITCH_ACTIONS + (("pause_pointer",) if safety_configured else ())
+    pausable = safety_configured or pointer_running
+    return WIRED_SWITCH_ACTIONS + (("pause_pointer",) if pausable else ())
 
 
 # ----------------------------------------------------------------------------- the inputs
@@ -224,6 +236,11 @@ class PanelInputs:
     #: microphone): a saved resting level at or above the effective release threshold, or an
     #: unreachable release threshold. Empty = none found. See ``facegesture/restcheck.py``.
     release_issues: tuple[tuple[str, str], ...] = ()
+    #: ``[handsfree_safety] stop_phrase`` as saved (``""`` = no voice stop).
+    stop_phrase: str = ""
+    #: The ``[gesture.chords]`` chords bound to ``pause_pointer``, each as its normalised
+    #: ``token+token`` id -- only when ``[gesture] enabled``; empty otherwise.
+    stop_chords: tuple[str, ...] = ()
 
 
 # ----------------------------------------------------------------------------- the outputs
@@ -362,6 +379,9 @@ class PanelModel:
     mapping: MappingModel
     #: Standing honest notes (nothing is on by default; what restart means).
     notes: tuple[str, ...] = ()
+    #: Every way to stop that needs no pointer and is set up on this machine, one sentence
+    #: each (see :func:`stop_routes`).
+    stop_routes: tuple[str, ...] = ()
 
     def action(self, action_id: str) -> ActionSpec | None:
         for spec in (*self.actions, *self.dwell, self.safety_toggle):
@@ -403,6 +423,8 @@ def merge_facts(static: HandsFreeFacts, live: HandsFreeFacts | None) -> HandsFre
         perception_age_ms=live.perception_age_ms,
         perception_consumers=live.perception_consumers,
         perception_reason=live.perception_reason or static.perception_reason,
+        perception_backend=live.perception_backend or static.perception_backend,
+        perception_failure_kind=live.perception_failure_kind or static.perception_failure_kind,
         head_wired=live.head_wired if live.head_wired is not None else static.head_wired,
         face_wired=live.face_wired if live.face_wired is not None else static.face_wired,
         head_built=live.head_built if live.head_built is not None else static.head_built,
@@ -444,11 +466,17 @@ def merge_facts(static: HandsFreeFacts, live: HandsFreeFacts | None) -> HandsFre
         ),
         gaze_target_reason=live.gaze_target_reason or static.gaze_target_reason,
         gaze_target_remedy=live.gaze_target_remedy or static.gaze_target_remedy,
+        gaze_target_capabilities=(
+            live.gaze_target_capabilities or static.gaze_target_capabilities
+        ),
         safety_configured=live.safety_configured or static.safety_configured,
         safety_window_ms=(
             live.safety_window_ms if live.safety_window_ms is not None else static.safety_window_ms
         ),
         safety=live.safety if live.safety is not None else static.safety,
+        # Only the daemon knows what a face-switch action last did; dropping it here left
+        # `doctor` (which merges) without the row `yazses status` (which does not) printed.
+        switch_actions=live.switch_actions or static.switch_actions,
     )
 
 
@@ -491,8 +519,9 @@ def overall_state(inputs: PanelInputs) -> StateBanner:
             return StateBanner(
                 Overall.ACTIVE,
                 "Active — hands-free input is allowed to act.",
-                "You can press Pause at any time. It needs no pointing: use the keyboard "
-                "shortcut, `yazses handsfree pause`, or a face-switch mapped to pause.",
+                "You can press Pause at any time, and it needs no pointing. Every way to stop "
+                "that is set up on this machine is listed under “Ways to stop without "
+                "pointing”.",
             )
         if status.state is SafetyState.PAUSED:
             return StateBanner(
@@ -565,6 +594,57 @@ def stop_without_state() -> ActionSpec:
         ipc=_PAUSE_IPC,
         cli=_PAUSE_CLI,
     )
+
+
+def stop_routes(inputs: PanelInputs) -> tuple[str, ...]:
+    """Every way to pause that needs no pointer and is set up here, one sentence each. Pure.
+
+    The ACTIVE banner used to promise "the keyboard shortcut, `yazses handsfree pause`, or a
+    face-switch mapped to pause" on every machine, including ones with no face switch mapped
+    to pause and no shortcut outside this window. A person deciding *in advance* how they will
+    stop a runaway pointer needs the routes that exist, so each line here is derived from the
+    saved config: a route that is not configured is either absent or says it is not set up,
+    never listed as if it worked. The window and the terminal are always present because they
+    always work; the camera-driven routes say they need the camera, because the failure they
+    must survive is often the camera's.
+    """
+    if not _requested(inputs):
+        return ()
+    routes = [
+        "This window (Settings → Hands-free controls): Alt+P presses Pause and Alt+R presses "
+        "Resume or Recover; Tab reaches every control.",
+        "Terminal, script, or anything that can run a command: `yazses handsfree pause` "
+        "(and `yazses handsfree resume`).",
+    ]
+    phrase = " ".join(str(inputs.stop_phrase or "").split())
+    if phrase:
+        routes.append(
+            f"Voice: dictate exactly “{phrase}” on its own — it pauses and is never typed. "
+            "There is no spoken resume."
+        )
+    else:
+        routes.append(
+            "Voice: no stop phrase is set up. Set `[handsfree_safety] stop_phrase` to add one."
+        )
+    if _enabled(inputs, "facegesture"):
+        bindings, _problems = _current_bindings(inputs)
+        pausing = [g for g in GESTURES if bindings.get(g) == "pause_pointer"]
+        if pausing and "pause_pointer" in wired_switch_actions(inputs.safety_configured):
+            names = ", ".join(_gesture_label(g) for g in pausing)
+            routes.append(f"Face switch: {names} pauses (needs the camera).")
+        elif not pausing:
+            routes.append(
+                "Face switch: no gesture is mapped to “Pause hands-free input” — map one "
+                "under Face switch mapping."
+            )
+        # Mapped but unwired: not a route. The mapping row already says why it does nothing.
+    for chord in inputs.stop_chords:
+        routes.append(f"Gesture chord: {chord} pauses (needs the camera).")
+    if not inputs.safety_configured:
+        routes.append(
+            "The global stop is off, so each of these pauses the Head-Pointer only."
+        )
+    return tuple(routes)
 
 
 def _actions(inputs: PanelInputs, banner: StateBanner) -> tuple[ActionSpec, ...]:
@@ -740,11 +820,22 @@ def _feature_rows(inputs: PanelInputs) -> tuple[FeatureRow, ...]:
                 f"Cannot be turned on here: {fact.blocked}",
             ))
             continue
+        missing = ", ".join(fact.missing_packages)
+        if fact.enabled and fact.missing_packages and fact.blocked:
+            # "Press Apply to install them" was printed here too, in an environment that can
+            # never install them (a strict snap): a button that cannot work, offered as the fix.
+            rows.append(FeatureRow(
+                slug, label, summary, "problem",
+                f"Switched on but not working: missing {missing}, and Apply cannot install "
+                f"them here — {fact.blocked.rstrip()}" + staged,
+                desired=False, button=f"Turn {label} off", experimental=False,
+            ))
+            continue
         if fact.enabled and fact.missing_packages:
             rows.append(FeatureRow(
                 slug, label, summary, "attention",
                 "Switched on but not working: missing "
-                + ", ".join(fact.missing_packages)
+                + missing
                 + ". Press Apply to install them." + staged,
                 desired=False, button=f"Turn {label} off", experimental=False,
             ))
@@ -755,9 +846,14 @@ def _feature_rows(inputs: PanelInputs) -> tuple[FeatureRow, ...]:
                 "On." + staged, desired=False, button=f"Turn {label} off",
             ))
             continue
+        # Off. Say what turning it on costs before the button is pressed, not after: an
+        # install is a download, and the person should not learn that from a progress line.
+        needs = (
+            f" Turning it on needs {missing}, which Apply installs." if missing else ""
+        )
         rows.append(FeatureRow(
             slug, label, summary, "off",
-            "Off — nothing uses the camera for this." + staged,
+            "Off — nothing uses the camera for this." + needs + staged,
             desired=True, button=f"Turn {label} on", experimental=fact.experimental,
         ))
     return tuple(rows)
@@ -923,9 +1019,13 @@ def _current_bindings(inputs: PanelInputs) -> tuple[dict[str, str], list[str]]:
     return parse_bindings(list(inputs.switches), inputs.primary_gesture, inputs.mode)
 
 
+def _wired(inputs: PanelInputs) -> tuple[str, ...]:
+    return wired_switch_actions(inputs.safety_configured, _hp_active(inputs.headpointer))
+
+
 def _mapping(inputs: PanelInputs) -> MappingModel:
     bindings, problems = _current_bindings(inputs)
-    wired = set(wired_switch_actions(inputs.safety_configured))
+    wired = set(_wired(inputs))
     rows = []
     for gesture in GESTURES:
         action = bindings.get(gesture, "")
@@ -934,7 +1034,8 @@ def _mapping(inputs: PanelInputs) -> MappingModel:
             note = (
                 "Does nothing in this build."
                 if action != "pause_pointer"
-                else "Does nothing while the global stop is off."
+                else "Does nothing while the global stop is off and the Head-Pointer is "
+                "not running."
             )
         elif action and gesture == "eyes_closed":
             floor = eyes_closed_min_hold_frames(inputs.fps)
@@ -944,6 +1045,11 @@ def _mapping(inputs: PanelInputs) -> MappingModel:
                     f"ordinary blink can trigger it. Press Set to raise the hold to "
                     f"{_seconds(floor, inputs.fps)}."
                 )
+        pointer_only = action in wired and not inputs.safety_configured
+        if not note and action == "pause_pointer" and pointer_only:
+            # Wired through the running Head-Pointer alone: say the scope, so nobody believes
+            # the gesture stops the face switch or dictation too (the `handsfree pause` rule).
+            note = "Pauses the Head-Pointer only — the global stop is off."
         rows.append(MappingRow(
             gesture, _gesture_label(gesture), action,
             ACTION_LABELS.get(action, "Not mapped") if action else "Not mapped", note,
@@ -955,7 +1061,8 @@ def _mapping(inputs: PanelInputs) -> MappingModel:
         elif action == "pause_pointer":
             choices.append((
                 action, ACTION_LABELS[action], False,
-                "Turn the global stop on first — there is nothing for it to pause otherwise.",
+                "Turn the global stop on, or start the Head-Pointer, first — there is "
+                "nothing for it to pause otherwise.",
             ))
         else:
             choices.append((
@@ -994,7 +1101,7 @@ def plan_mapping(inputs: PanelInputs, gesture: str, action: str) -> MappingPlan:
     if action != UNMAP and action not in SWITCH_ACTIONS:
         return MappingPlan(False, f"{action!r} is not an action. Choose one of: "
                            + ", ".join((*SWITCH_ACTIONS, UNMAP)) + ".")
-    if action != UNMAP and action not in wired_switch_actions(inputs.safety_configured):
+    if action != UNMAP and action not in _wired(inputs):
         for key, _label, ok, why in _mapping(inputs).choices:
             if key == action and not ok:
                 return MappingPlan(False, why)
@@ -1069,6 +1176,7 @@ def build_panel(inputs: PanelInputs) -> PanelModel:
         health=_health(inputs),
         mapping=_mapping(inputs),
         notes=tuple(notes),
+        stop_routes=stop_routes(inputs),
     )
 
 
@@ -1087,6 +1195,11 @@ def render_text(model: PanelModel) -> list[str]:
         mark = "" if spec.enabled else f"  [unavailable: {spec.why_disabled}]"
         out.append(f"  {spec.label} — `{spec.cli}`{mark}")
     out.append("")
+    if model.stop_routes:
+        out.append("Ways to stop without pointing:")
+        for route in model.stop_routes:
+            out.append(f"  {route}")
+        out.append("")
     out.append("Camera controls:")
     for row in model.features:
         out.append(f"  [{row.word}] {row.label}: {row.text}")

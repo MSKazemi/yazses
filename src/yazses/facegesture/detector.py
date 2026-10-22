@@ -32,14 +32,49 @@ GESTURES: dict[str, tuple[str, ...]] = {
     "smile": ("mouthSmileLeft", "mouthSmileRight"),
     # Deliberately not offered as a default, but offered: a blink is the classic
     # switch, and for someone with no reliable jaw or brow control it may be the
-    # only voluntary movement left. It needs a long `min_hold_frames` to separate
-    # an intentional squeeze from the ~15 involuntary blinks a minute everyone makes.
+    # only voluntary movement left. It needs a long hold to separate an intentional
+    # squeeze from the ~15 involuntary blinks a minute everyone makes, so every live
+    # detector for it requires EYES_CLOSED_MIN_HOLD_S of sample time (min_hold_s_for).
     "eyes_closed": ("eyeBlinkLeft", "eyeBlinkRight"),
 }
 
 #: The default. Jaw-open is large, easy to hold, easy to release, and — unlike a
 #: blink or a smile — almost never happens by accident while sitting at a screen.
 DEFAULT_GESTURE = "jaw_open"
+
+#: The longest gap (seconds) between two consecutive samples that a *timed* minimum hold
+#: (``min_hold_s``) will credit as held. A longer gap -- a stalled thread, a camera that
+#: hiccuped without going stale -- is time in which nobody saw the face, so the run restarts at
+#: the new sample instead of being credited. 0.25 s is the period of a 4 fps camera and the same
+#: bound the Head-Pointer's dwell applies (``headpointer/pointer.py`` ``DEFAULT_MAX_DT_S``; not
+#: imported, this module stays dependency-free). **Provisional:** a first-principles bound,
+#: not a measured value, and it governs only the opt-in timed hold.
+DEFAULT_MAX_SAMPLE_GAP_S = 0.25
+
+#: How long the eyes must stay shut, in seconds of sample time, before an ``eyes_closed``
+#: switch counts. A frame floor cannot carry this: the Hands-free panel's
+#: ``eyes_closed_min_hold_frames`` is computed from ``[facegesture] fps``, but on the shared
+#: camera the switch counts one frame per observation at ``[perception] fps``, so "12 frames =
+#: 0.8 s at 15 fps" was 0.4 s at 30 -- inside a long blink. Every builder of a live detector
+#: applies it through :func:`min_hold_s_for`, on top of the frame rule. Not a config key.
+#: PROVISIONAL and unmeasured in YazSes: chosen to sit well above a spontaneous blink, which
+#: the literature commonly puts at roughly 0.1-0.4 s.
+EYES_CLOSED_MIN_HOLD_S = 0.8
+
+
+def min_hold_s_for(gesture: str) -> float:
+    """The timed minimum hold a live ``gesture`` detector must have; 0.0 means none. Pure.
+
+    Only ``eyes_closed`` has one (:data:`EYES_CLOSED_MIN_HOLD_S`): it is the one gesture an
+    involuntary movement -- a blink, ~15 a minute -- makes many times an hour.
+    """
+    return EYES_CLOSED_MIN_HOLD_S if gesture == "eyes_closed" else 0.0
+
+
+#: Slack for comparing elapsed sample time against a configured duration: ``12 * (1 / 15)`` is
+#: not exactly ``0.8`` in binary floating point, and a hold must not need one extra frame
+#: because of it.
+_TIME_EPS = 1e-9
 
 
 def gesture_names() -> tuple[str, ...]:
@@ -156,6 +191,24 @@ class GestureSwitch:
     ``now_s`` -- this class reads none -- and without a finite ``now_s`` the limit is not
     enforced. A ``now_s`` that goes backwards restarts the count from the new time. It only
     ever *ends* a hold; nothing about it gates a release.
+
+    **Durations in seconds (opt-in).** ``min_hold_frames`` and ``refractory_frames`` count
+    samples, so they last whatever the camera makes them: three frames is 0.2 s at 15 fps and
+    0.1 s at 30, and the shared camera's rate (``[perception] fps``) is not this switch's own.
+    ``min_hold_s`` and ``refractory_s`` (default 0 = off, exactly the frame-only behaviour) state
+    the same rules as *time*, measured on the caller's ``now_s`` -- the sample timestamps, never
+    a clock read here -- so the same gesture fires after the same wait on a 15, 30 or 60 fps
+    source. Each **adds to** its frame rule; neither replaces it (a hold needs both
+    ``min_hold_frames`` samples *and* ``min_hold_s`` between its first and latest sample). They
+    fail closed, because unlike ``max_hold_s`` they guard against a false *press*:
+
+    * a sample with no finite ``now_s`` cannot prove a duration, so it breaks the hold run and
+      keeps a timed refractory window open (:attr:`needs_clock` says when a caller must pass
+      time);
+    * a gap longer than ``max_gap_s`` between two samples of one run restarts the run at the
+      later sample (unobserved time is not held time), and the same sample fed twice adds no
+      time;
+    * a clock that steps backwards restarts the run, or the refractory window, from the new time.
     """
 
     def __init__(
@@ -169,6 +222,9 @@ class GestureSwitch:
         confidence_floor: float = 0.0,
         refractory_frames: int = 0,
         max_hold_s: float = 0.0,
+        min_hold_s: float = 0.0,
+        refractory_s: float = 0.0,
+        max_gap_s: float = DEFAULT_MAX_SAMPLE_GAP_S,
     ) -> None:
         hold = _clamp01(hold_threshold)
         release = _clamp01(release_threshold)
@@ -191,6 +247,14 @@ class GestureSwitch:
         self._refractory = max(0, int(refractory_frames))
         self._cooldown = 0
         self._max_hold_s = _max_hold(max_hold_s)
+        self._min_hold_s = _seconds(min_hold_s)
+        self._refractory_s = _seconds(refractory_s)
+        gap = _seconds(max_gap_s)
+        self._max_gap_s = gap if gap > 0.0 else DEFAULT_MAX_SAMPLE_GAP_S
+        self._run_since: float | None = None   # timestamp of the current run's first sample
+        self._run_last: float | None = None    # timestamp of its latest sample
+        self._ref_open = False                 # a timed refractory window is in force
+        self._ref_since: float | None = None   # when it began (None: not yet timed)
         self._held_since: float | None = None
         self._latched = False
         self._held = False
@@ -220,6 +284,25 @@ class GestureSwitch:
     def max_hold_s(self) -> float:
         """The effective maximum hold in seconds; 0.0 means the limit is off."""
         return self._max_hold_s
+
+    @property
+    def min_hold_s(self) -> float:
+        """The effective timed minimum hold in seconds; 0.0 means only frames are counted."""
+        return self._min_hold_s
+
+    @property
+    def refractory_s(self) -> float:
+        """The effective timed refractory window in seconds; 0.0 means only frames."""
+        return self._refractory_s
+
+    @property
+    def needs_clock(self) -> bool:
+        """True when a timed press rule is on, so :meth:`update` must be given ``now_s``.
+
+        Without it such a switch can never press (it cannot prove a duration). ``max_hold_s``
+        is not counted here: it only ever ends a hold, so a missing clock merely disarms it.
+        """
+        return self._min_hold_s > 0.0 or self._refractory_s > 0.0
 
     @property
     def latched(self) -> bool:
@@ -258,7 +341,7 @@ class GestureSwitch:
             if self._last_frame == "reading" and value < self._release_threshold:
                 self._latched = False
             else:
-                self._above = 0
+                self._break_run()
                 return None
 
         if self._held:
@@ -266,37 +349,100 @@ class GestureSwitch:
                 self._below += 1
                 self._above = 0
                 if self._below >= self._min_release:
-                    return self._end("release")
+                    return self._end("release", now_s)
             else:
                 self._below = 0
             if self._over_max_hold(now_s):
                 self._latched = True
-                return self._end("max_hold")
+                return self._end("max_hold", now_s)
             return None
 
         if self._cooldown > 0:
             self._cooldown -= 1
-            self._above = 0
+            self._break_run()
+            return None
+
+        if self._in_timed_refractory(now_s):
+            self._break_run()
             return None
 
         if value >= self._hold_threshold:
+            if not self._extend_run(now_s):
+                return None
             self._above += 1
             self._below = 0
-            if self._above >= self._min_hold:
+            if self._above >= self._min_hold and self._timed_hold_met():
                 self._held = True
                 self._held_since = _finite_time(now_s)
-                self._above = 0
+                self._break_run()
                 return "start"
         else:
-            self._above = 0
+            self._break_run()
         return None
 
-    def _end(self, reason: str) -> str:
+    def _break_run(self) -> None:
+        """Forget the run of above-threshold samples counted towards a press."""
+        self._above = 0
+        self._run_since = None
+        self._run_last = None
+
+    def _extend_run(self, now_s: float | None) -> bool:
+        """Account one above-threshold sample's time; False if it cannot count at all.
+
+        Always True unless ``min_hold_s`` is on. Then an untimed sample breaks the run and does
+        not count; a gap over ``max_gap_s`` or a backwards step restarts the run at this sample,
+        which then counts as its first.
+        """
+        if self._min_hold_s <= 0.0:
+            return True
+        now = _finite_time(now_s)
+        if now is None:
+            self._break_run()
+            return False
+        last = self._run_last
+        stalled = last is not None and now - last > self._max_gap_s + _TIME_EPS
+        if self._run_since is None or last is None or now < last or stalled:
+            self._break_run()
+            self._run_since = now
+        self._run_last = now
+        return True
+
+    def _timed_hold_met(self) -> bool:
+        if self._min_hold_s <= 0.0:
+            return True
+        if self._run_since is None or self._run_last is None:
+            return False
+        return (self._run_last - self._run_since) >= self._min_hold_s - _TIME_EPS
+
+    def _in_timed_refractory(self, now_s: float | None) -> bool:
+        """Is a timed refractory window still open at ``now_s``? Closes it once elapsed.
+
+        An end with no usable time starts the window at the first timed sample after it, and a
+        sample with no time keeps it open: neither can show that ``refractory_s`` has passed.
+        """
+        if not self._ref_open:
+            return False
+        now = _finite_time(now_s)
+        if now is None:
+            return True
+        if self._ref_since is None or now < self._ref_since:
+            self._ref_since = now
+            return True
+        if now - self._ref_since >= self._refractory_s - _TIME_EPS:
+            self._ref_open = False
+            self._ref_since = None
+            return False
+        return True
+
+    def _end(self, reason: str, now_s: float | None = None) -> str:
         self._held = False
         self._held_since = None
         self._below = 0
-        self._above = 0
+        self._break_run()
         self._cooldown = self._refractory
+        if self._refractory_s > 0.0:
+            self._ref_open = True
+            self._ref_since = _finite_time(now_s)
         self._last_end = reason
         return "end"
 
@@ -324,8 +470,11 @@ class GestureSwitch:
         Called when the capture loop stops, so a shutdown mid-gesture releases the
         key instead of leaving the daemon in RECORDING for ever.
         """
-        self._above = self._below = 0
+        self._break_run()
+        self._below = 0
         self._cooldown = 0
+        self._ref_open = False
+        self._ref_since = None
         self._latched = False
         self._held_since = None
         if self._held:
@@ -333,6 +482,19 @@ class GestureSwitch:
             self._last_end = "reset"
             return "end"
         return None
+
+    def discard_pending(self) -> None:
+        """Forget a half-made gesture; leave an open hold, its release and the latch alone.
+
+        Called when the hands-free gate stops or re-arms this source (#417, ADR-v2-148), so the
+        frames counted towards ``min_hold_frames`` before that moment cannot complete a press
+        after it: the gesture has to be held for the full count again. An open hold is *not*
+        ended here -- the mapper has already released its action, and keeping the detector
+        held means a face still making the gesture across a Resume must relax and make it
+        again before it can press, which is the clean re-arm the ADR asks for. A timed run
+        (``min_hold_s``) restarts with it. Pure state.
+        """
+        self._break_run()
 
     def _frame_value(self, score: float | None, confidence: float | None) -> float:
         """The comparable value for one frame; -1.0 stands for "no usable reading".
@@ -370,11 +532,16 @@ def _finite_time(value: object) -> float | None:
     return float(value) if value is not None and _finite(value) else None  # type: ignore[arg-type]
 
 
-def _max_hold(value: object) -> float:
-    """A maximum hold in seconds; anything unreadable, negative or non-finite is 0.0 (off)."""
+def _seconds(value: object) -> float:
+    """A duration in seconds; anything unreadable, negative or non-finite is 0.0 (off)."""
     if value is None or isinstance(value, bool) or not _finite(value):
         return 0.0
     return max(0.0, float(value))  # type: ignore[arg-type]
+
+
+def _max_hold(value: object) -> float:
+    """A maximum hold in seconds; anything unreadable, negative or non-finite is 0.0 (off)."""
+    return _seconds(value)
 
 
 def _floor(value: object) -> float:

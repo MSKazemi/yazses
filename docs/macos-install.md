@@ -5,7 +5,7 @@ description: "Install YazSes on macOS for private, on-device dictation: pipx ins
 
 # YazSes on macOS — install & first-run guide
 
-> **Version:** Applies to the current YazSes release (v2.x). Install the latest with `pipx install yazses`.
+> **Version:** Applies to the current YazSes release (v2.x). Install the latest with Homebrew (`brew tap MSKazemi/yazses && brew trust MSKazemi/yazses && brew install --cask yazses`) or the `.dmg`.
 
 > **Developer preview.** macOS builds are **unsigned** and **not notarized**.
 > macOS will warn you on first launch; the steps below show how to bypass
@@ -16,7 +16,8 @@ description: "Install YazSes on macOS for private, on-device dictation: pipx ins
 - macOS 11 (Big Sur) or later
 - **Either architecture** — releases carry an Apple Silicon `.dmg` and an Intel
   one; only the *Homebrew cask* is Apple Silicon only (see the note below)
-- ~250 MB free disk for the app + the Whisper model on first download
+- ~500 MB free disk: a 101 MB `.dmg` (2.43.2, Apple Silicon), the installed app,
+  and the 147 MB default Whisper model on first use
 - A microphone
 
 ### Which Mac do I have?
@@ -58,7 +59,7 @@ Upgrades then come with `brew upgrade --cask yazses`.
 
 ### Apple Silicon — direct download
 
-1. Download `YazSes-<version>.dmg` from the
+1. Download `YazSes-<version>-macos-arm64.dmg` from the
    [Releases](https://github.com/MSKazemi/yazses/releases) page.
 2. Open the `.dmg`. Drag **YazSes.app** into the **Applications** folder shown
    in the Finder window.
@@ -130,11 +131,26 @@ Because the app is unsigned, macOS shows
 *"YazSes can’t be opened because Apple cannot check it for malicious software"*
 the first time you double-click the app. To get past this:
 
+**macOS 15 (Sequoia) and later** — including macOS 26 — no longer offer *Open* on a
+right-click for an unsigned app. Use the Settings route instead (this is the flow
+reported on [#562](https://github.com/MSKazemi/yazses/issues/562)):
+
+1. Double-click **YazSes.app** once. macOS says it was *Not Opened*; click **Done**.
+2. Open **System Settings → Privacy & Security** and scroll to the bottom.
+3. Next to *"YazSes" was blocked to protect your Mac*, click **Open Anyway**, then
+   **Open Anyway** again in the dialog, and enter your login password if asked.
+
+**macOS 14 and earlier:**
+
 1. Open Finder → Applications.
 2. **Right-click** (or Control-click) **YazSes.app** → **Open**.
 3. In the dialog that appears, click **Open** again.
 
 You only need to do this once. After that, double-clicking works normally.
+
+Opening the app does not by itself grant any permission. YazSes then asks macOS for
+Accessibility, Input Monitoring and the microphone; if no prompt appears, the sections
+below say where to switch each one on.
 
 > If you prefer, do the same from a terminal:
 > ```sh
@@ -220,11 +236,11 @@ key = "auto"
 hold_threshold_ms = 500
 
 [stt]
-model = "tiny.en"   # try "base.en" for better accuracy at the cost of CPU
+model = "base.en"   # the default; "tiny.en" is faster and less accurate, "small.en" more accurate
 ```
 
-The first transcription downloads the Whisper model (~80 MB for `tiny.en`)
-into `~/Library/Caches/huggingface/hub/`. Subsequent dictations are fully offline.
+The first transcription downloads the default Whisper model (`base.en`, ~147 MB)
+into `~/.cache/huggingface/hub/` (the shared Hugging Face cache). Subsequent dictations are fully offline.
 
 ## Verify with the CLI
 
@@ -278,8 +294,8 @@ tail -n 60 ~/Library/Logs/yazses/daemon.log
 
 **"`doctor` says the daemon is not running, but the menu-bar icon is there."**
 Releases up to 2.42.0 compared the process name case-sensitively, so a daemon
-started from the `.app` (`.../MacOS/YazSes`) was reported as not running. Update
-to the next release. Until then, look for it yourself:
+started from the `.app` (`.../MacOS/YazSes`) was reported as not running. Fixed
+in 2.43.0 — update. On an older release, look for it yourself:
 
 ```sh
 ps aux | grep -i yazses
@@ -291,18 +307,26 @@ running (opening the app again exits with *"Another YazSes daemon is already
 running"* in the log), it keeps the old answer. Run `yazses restart` (from the app:
 `/Applications/YazSes.app/Contents/MacOS/YazSes --cli restart`), check that
 `ps aux | grep -i yazses` shows one daemon with a recent start time, and try the
-hotkey again.
+hotkey again. `yazses doctor` also says so in the **Daemon** row when it can tell:
+*"started before Input Monitoring was granted"*.
+
+To be sure nothing old is left, look before you relaunch:
+
+```sh
+ps aux | grep -i [y]azses          # every YazSes process; the daemon ends in --daemon
+launchctl list | grep yazses       # the login item, if you enabled it (com.yazses.daemon)
+```
 
 Releases up to 2.43.0 have a second way into this state: **Quit in the menu bar
 did not stop the daemon.** The menu's Quit ends the tray process from inside its
 event loop, so the tray never got to ask the daemon to shut down, and the daemon
 carried on, holding whatever permission it had read at its start, for days
-([#578](https://github.com/MSKazemi/yazses/issues/578)). From the next release Quit
-stops it. Until you are on that release, do not rely on Quit plus reopening to pick
+([#578](https://github.com/MSKazemi/yazses/issues/578)). Fixed in 2.43.1: Quit now
+stops the daemon. On 2.43.0 or older, do not rely on Quit plus reopening to pick
 up a permission you have just fixed; use `yazses restart` as above. This was found by
 reading the library and the log, not by reproducing it on a Mac.
 
-From the next release, opening a newer YazSes while an **older** one is still running
+Since 2.43.1, opening a newer YazSes while an **older** one is still running
 asks the old daemon to stop and takes its place, instead of exiting as a duplicate. The
 old daemon has to be a release that reports its version over `status`; if the log says
 *"Another YazSes daemon is already running"* anyway, use `yazses restart` once.

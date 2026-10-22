@@ -66,3 +66,21 @@ def test_features_registered_off_by_default():
     slugs = [f.slug for f in feature_status(Config())]
     assert "vocaljoystick" in slugs and "earcon" in slugs
     assert Config().vocaljoystick.enabled is False and Config().earcon.enabled is False
+
+
+def test_vocal_joystick_click_is_measured_from_the_last_voiced_pitch():
+    # pitch 0.0 = unvoiced. A step across one or two dropped frames is still a click ...
+    j = VocalJoystick(click_pitch=250.0, click_jump=30.0, click_gap_frames=5)
+    for p in (150.0, 0.0, 0.0):
+        assert j.feed("right", 1.0, p).kind != "click"
+    assert j.feed("right", 1.0, 300.0).kind == "click"
+    # ... but a voice resuming after a pause is an onset, however high it is.
+    j = VocalJoystick(click_pitch=250.0, click_jump=30.0, click_gap_frames=5)
+    j.feed("right", 1.0, 150.0)
+    for _ in range(6):
+        j.feed(None, 0.0, 0.0)
+    assert j.feed("right", 1.0, 300.0).kind == "move"
+    # ... and the very first voiced frame, out of silence, never clicks.
+    j = VocalJoystick()
+    j.feed(None, 0.0, 0.0)
+    assert j.feed("right", 1.0, 320.0).kind == "move"

@@ -1,6 +1,7 @@
-"""Acoustic Context Profiles (ADR-v2-039).
+"""Acoustic Context Profiles (ADR-v2-039, amended 2026-10-15).
 
-Detect the acoustic scene (quiet/café/car/meeting) and auto-switch VAD threshold + noise
-suppression. The ``profiles`` module is the pure scene→policy map + hysteresis; the YAMNet/
-CLAP scene tagger is lazy behind the ``acoustic`` extra. OFF by default.
+A pure quiet/noisy classifier computed from the quietest frames of the hold-to-talk burst itself,
+and a floor-relative, clamped adjustment of the silence gate. ``profiles`` is the scene->policy
+map plus hysteresis, ``scene`` the pure classifier, ``gate`` the numpy half the daemon calls.
+In-memory only, never written to config.toml. OFF by default.
 """

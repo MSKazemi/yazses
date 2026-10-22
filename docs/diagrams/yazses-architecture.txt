@@ -5,7 +5,7 @@ ASCII so it renders in any terminal, code review, or the master reference PDF.
 
                         ┌───────────────────────────────────────┐
    USER-FACING CONTROL  │   yazses CLI            yazses-tray     │
-                        │   (66 commands)         (all platforms) │
+                        │   (67 commands)         (all platforms) │
                         └───────────────────┬───────────────────┘
                                             │  JSON-RPC 2.0 (newline-delimited)
                                             │  Unix socket / Windows named pipe
@@ -24,13 +24,13 @@ ASCII so it renders in any terminal, code review, or the master reference PDF.
  │        │                                                                       │
  │        ▼                                                                       │
  │   [3] STT           faster-whisper (CPU int8) · streaming decode ·             │
- │        │            disfluency filter        ◄── initial_prompt (vocab/LSP)    │
+ │        │            disfluency filter        ◄── initial_prompt (vocabulary)   │
  │        ▼                                                                       │
  │   [4] POST-PROCESS  cleaner · voice-punctuation · continuation spacing ·       │
  │        │            optional offline LLM cleanup                               │
  │        ▼                                                                       │
  │   [5] COMMANDS      Tier-1 regex grammar ─► (low conf) ─► Tier-2 SLM router    │
- │        │            LSP context provider                                       │
+ │        │            (Tier-2 is opt-in and needs a local model)                 │
  │        ▼                                                                       │
  │   [6] dispatch() ───────────────┬───────────────────────────┐                 │
  │        │ dictate                │ command                                     │
@@ -54,7 +54,7 @@ ASCII so it renders in any terminal, code review, or the master reference PDF.
 
  ── Cross-cutting ────────────────────────────────────────────────────────────────
  CONFIG        config.toml / config.py  ── every section has defaults ──► daemon
- FEATURES      system/features.py — 148 capabilities, 110 wired (9 cats) ─► CLI
+ FEATURES      system/features.py — 149 capabilities, 119 wired (9 cats) ─► CLI
  PLATFORM      platform/base.py Protocols  →  linux · macos · windows · emg
                (HotkeyBackend · InjectorBackend · LifecycleBackend ·
                 IpcServer/Client · PermissionsBackend · TrayBackend)

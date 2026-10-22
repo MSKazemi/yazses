@@ -41,7 +41,6 @@ ROOT = Path(__file__).resolve().parent.parent
 KNOWN_UNREAD = {
     "AccessibilityConfig.confirm_timeout_s",
     "AccessibilityConfig.vad_source",
-    "AcousticProfilesConfig.min_stable",
     "ActivationConfig.confirm_threshold",
     "ActivationConfig.reject_floor",
     "AgentConfig.allowlist",
@@ -73,8 +72,6 @@ KNOWN_UNREAD = {
     # `[polyglot] lid` names a language-ID granularity for a router that stays dormant
     # until `[polyglot] adapter_path` points at a trained adapter that is not shipped.
     "GazeConfig.zones",
-    "HesitationConfig.commit_ms",
-    "HesitationConfig.hold_extra_ms",
     "HotkeyConfig.evdev_device",
     "HotwordsConfig.boost",
     "LipreadConfig.mouth_threshold",
@@ -102,8 +99,6 @@ KNOWN_UNREAD = {
     "StreamingConfig.partial_marker",
     "TablecsvConfig.delimiter",
     "TrayConfig.poll_interval_s",
-    "VocaljoystickConfig.click_pitch",
-    "VocaljoystickConfig.max_speed",
     "VoiceprintConfig.profile_min_similarity",
     "WakewordConfig.keyword",
 }

@@ -6,8 +6,11 @@ Part of FA-04 / #513, slice 1. Implements the result schema and the metrics of
 
 Two input modes, one output:
 
-- ``--manifest``: a JSONL file of ``{"id", "audio", "reference"}`` rows (Corpus A/B
-  adapters in slice 2 write this). Transcription goes through the shipping
+- ``--manifest``: a JSONL file of ``{"id", "audio", "reference"}`` rows plus its
+  ``.meta.json`` sidecar (Corpus A/B adapters in slice 2 write both). The manifest is
+  gated first by ``persian_manifest.load_manifest``: licence and consent for every row,
+  opaque speaker/session pseudonyms, and audio only from ``--audio-root`` (default: the
+  manifest's directory) — otherwise the run is refused before a model is built. Transcription goes through the shipping
   ``stt.factory.build_engine`` so the numbers describe YazSes' real decode path,
   exactly as ``bench_wer.py`` already does for English.
 - ``--smoke``: a tiny built-in synthetic set with a mock engine that echoes the
@@ -28,11 +31,14 @@ import argparse
 import hashlib
 import json
 import time
+from collections.abc import Callable
 from pathlib import Path
+from types import SimpleNamespace
 
-import jiwer
+from persian_manifest import ManifestError, load_manifest
 from persian_metrics import (
     EVAL_NORMALIZER_VERSION,
+    TOKENISATION,
     compute_persian_quality,
     normalize_fa_eval_v1,
 )
@@ -89,6 +95,10 @@ def score_pairs(
         )
     if not references:
         raise ValueError("nothing to score: empty manifest")
+    # Imported here, not at module scope: the CLI's argument and manifest refusals
+    # (`--audio-root` without `--manifest`, a missing licence) must be reachable where the
+    # benchmark group is not installed, e.g. the FreeBSD leg. Only scoring needs jiwer.
+    import jiwer
 
     # Only an empty *reference* is dropped. An empty hypothesis against a real
     # reference is the engine's failure and must count (jiwer scores it as 100%
@@ -268,26 +278,31 @@ def run_manifest(
     model_spec: str,
     cpu_threads: int = 0,
     hyps_out: Path | None = None,
+    *,
+    audio_root: Path | None = None,
+    transcriber: Callable | None = None,
+    audio_loader: Callable | None = None,
+    timestamp: str | None = None,
 ) -> dict:
     """Transcribe a JSONL manifest through the shipping engine and score it.
 
+    The manifest is validated first (`persian_manifest.load_manifest`): a missing
+    licence or consent, a bad pseudonym, or an audio path outside *audio_root*
+    (default: the manifest's directory) stops the run before any model is built.
+
     ``hyps_out`` additionally writes one ``{id, reference, hypothesis}`` JSON line per
-    row, which ``persian_stats.py`` needs for confidence intervals and ZWNJ
-    attribution. The result document is identical with or without it.
+    row, which ``persian_stats.py`` needs for confidence intervals and ZWNJ attribution.
+    The result document is identical with or without it.
+
+    ``transcriber`` (``audio ndarray -> str``), ``audio_loader`` (``Path -> ndarray``)
+    and ``timestamp`` are injection points so tests and dry runs need no model, no
+    audio decoder and no clock. When ``transcriber`` is given no engine is built.
     """
-    rows: list[dict] = []
-    with manifest.open(encoding="utf-8") as fh:
-        for line in fh:
-            line = line.strip()
-            if not line:
-                continue
-            row = json.loads(line)
-            for key in ("id", "audio", "reference"):
-                if key not in row:
-                    raise SystemExit(f"manifest row missing {key!r}: {row}")
-            rows.append(row)
-    if not rows:
-        raise SystemExit(f"manifest has no rows: {manifest}")
+    try:
+        loaded = load_manifest(manifest, audio_root)
+    except ManifestError as exc:
+        raise SystemExit(str(exc)) from exc
+    rows = list(loaded.rows)
 
     engine_name, _, model_name = model_spec.partition(":")
     if not model_name:
@@ -303,34 +318,38 @@ def run_manifest(
     # "will this fit in 8 GB" decision needs.
     import psutil  # noqa: PLC0415 — benchmark-group dependency
 
-    from _common import load_audio  # noqa: PLC0415 — optional heavy dep at call time
+    if audio_loader is None:
+        from _common import load_audio as audio_loader  # noqa: PLC0415 — optional heavy dep
 
     proc = psutil.Process()
     rss_before_mb = proc.memory_info().rss / 1e6
     load_t0 = time.monotonic()
-    engine = _build_checked(engine_name, model_name, cpu_threads)
+    if transcriber is None:
+        engine = _build_checked(engine_name, model_name, cpu_threads)
+    else:
+        engine = SimpleNamespace(transcribe=transcriber)
     model_load_s = time.monotonic() - load_t0
     references: list[str] = []
     hypotheses: list[str] = []
     decode_times: list[float] = []
     durations: list[float] = []
-    for row in rows:
-        audio = load_audio(Path(row["audio"]))
+    for entry in loaded.entries:
+        audio = audio_loader(entry.audio)
         duration = len(audio) / 16000
         t0 = time.monotonic()
         hyp = engine.transcribe(audio)
         decode_times.append(time.monotonic() - t0)
         durations.append(duration)
-        references.append(row["reference"])
+        references.append(entry.reference)
         hypotheses.append(hyp)
 
     if hyps_out is not None:
         hyps_out.parent.mkdir(parents=True, exist_ok=True)
         with hyps_out.open("w", encoding="utf-8") as fh:
-            for row, ref, hyp in zip(rows, references, hypotheses):
+            for entry, ref, hyp in zip(loaded.entries, references, hypotheses):
                 fh.write(
                     json.dumps(
-                        {"id": row["id"], "reference": ref, "hypothesis": hyp},
+                        {"id": entry.id, "reference": ref, "hypothesis": hyp},
                         ensure_ascii=False,
                     )
                     + "\n"
@@ -349,6 +368,13 @@ def run_manifest(
     }
 
     model_block, decoder_block = _decode_settings(engine_name, model_name, engine)
+    meta = loaded.meta
+    pins = {
+        k: meta[k]
+        for k in ("dataset", "revision", "config", "audio_archive_sha256", "audio_archive_verified")
+        if k in meta
+    }
+    sel = meta.get("selection") if isinstance(meta.get("selection"), dict) else {}
     return _assemble(
         corpus={
             "name": manifest.stem,
@@ -356,8 +382,10 @@ def run_manifest(
             # The manifest's own identity: same content in, same version stamped
             # out. An mtime would move the "version" on every checkout, which is
             # the opposite of what §2 pins.
-            "version": hashlib.sha256(manifest.read_bytes()).hexdigest()[:16],
-            "split": "test",
+            "version": loaded.sha256[:16],
+            "split": meta["split"] if isinstance(meta.get("split"), str) else "test",
+            "licenses": sorted({e.license for e in loaded.entries}),
+            "consents": sorted({e.consent for e in loaded.entries}),
         },
         model=model_block,
         decoder=decoder_block,
@@ -368,6 +396,12 @@ def run_manifest(
         latency_p50_ms=round(p50, 1),
         latency_p95_ms=round(p95, 1),
         runtime=runtime,
+        # The sidecar's selection (rule/seed/limit from make_fa_manifest --limit
+        # --seed) travels into the result: the §8 "publish sample count and
+        # selection seed/hash" line is only met if the artifact itself carries it.
+        selection={k: sel.get(k) for k in ("rule", "seed", "limit") if sel.get(k) is not None},
+        manifest={"sha256": loaded.sha256, "pins": pins},
+        timestamp=timestamp,
     )
 
 
@@ -424,6 +458,9 @@ def _assemble(
     latency_p50_ms: float | None,
     latency_p95_ms: float | None,
     runtime: dict | None = None,
+    selection: dict | None = None,
+    manifest: dict | None = None,
+    timestamp: str | None = None,
 ) -> dict:
     """Build the §7 result document: schema, corpus, model, decoder, machine, metrics."""
     from _common import provenance  # noqa: PLC0415 — psutil is a benchmark-group dep
@@ -435,7 +472,7 @@ def _assemble(
     )
     from datetime import UTC, datetime
 
-    timestamp = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+    timestamp = timestamp or datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     prov = provenance(timestamp)
 
     doc = {
@@ -445,7 +482,10 @@ def _assemble(
         "corpus": {**corpus, "samples": len(rows)},
         "selection": {
             "rows_sha256": _sha256_of(rows),
-            "rule": "all rows in manifest order; no subsampling" if rows else "",
+            "rule": "all rows in manifest order; no subsampling",
+            "seed": None,
+            "limit": None,
+            **(selection or {}),
         },
         "model": model,
         "decoder": decoder,
@@ -466,9 +506,12 @@ def _assemble(
             "latency_p95_ms": latency_p95_ms,
             "persian_quality": metrics["persian_quality"],
             "evaluation_normalizer": metrics["evaluation_normalizer"],
+            "tokenisation": TOKENISATION,
         },
         "provenance": prov,
     }
+    if manifest is not None:
+        doc["manifest"] = manifest
     # `runtime` is present only where it was measured: the manifest path records
     # model load time and peak RSS (FA-05's report list, issue #514), the smoke
     # path builds no engine and has nothing to report. Optional rather than
@@ -482,6 +525,16 @@ def _assemble(
             "assembled result does not match the schema:\n  " + "\n  ".join(problems)
         )
     return doc
+
+
+def dumps_result(doc: dict) -> str:
+    """The artifact's byte form: sorted keys, UTF-8 text kept readable, no trailing newline.
+
+    Sorted so the same document always serialises to the same bytes, whatever order the
+    code that built it filled the dict in; two runs then differ only in the fields that
+    are measurements (timestamp, latencies, load average), which a diff shows at once.
+    """
+    return json.dumps(doc, indent=2, ensure_ascii=False, sort_keys=True)
 
 
 def _yazses_commit() -> str:
@@ -580,6 +633,26 @@ def validate_result(doc: dict) -> list[str]:
             f"{EVAL_NORMALIZER_VERSION!r}"
         )
 
+    # Optional since the manifest gate (#513): the selection's seed/limit and the
+    # manifest identity. Checked when present; the archived results predate them.
+    sel = doc.get("selection")
+    if sel is not None:
+        if not isinstance(sel, dict):
+            problems.append(f"selection has type {type(sel).__name__}, expected dict")
+        else:
+            _need(sel, "rows_sha256", "selection", (str,))
+            for key in ("seed", "limit"):
+                if key in sel and sel[key] is not None and not isinstance(sel[key], int):
+                    problems.append(f"selection.{key} must be an integer or null")
+    if "manifest" in doc:
+        mf = doc["manifest"]
+        if not isinstance(mf, dict):
+            problems.append(f"manifest has type {type(mf).__name__}, expected dict")
+        else:
+            _need(mf, "sha256", "manifest", (str,))
+    if "tokenisation" in doc["metrics"] and not isinstance(doc["metrics"]["tokenisation"], str):
+        problems.append("metrics.tokenisation must be a string")
+
     # Optional block (present since FA-05): validate the shape when it exists,
     # never pretend it is required when the archive says otherwise. The
     # archived turbo cell was written before peak_rss_source existed, so the
@@ -615,20 +688,28 @@ def main() -> None:
     parser.add_argument("--out", type=Path, help="write result JSON here")
     parser.add_argument("--threads", type=int, default=0)
     parser.add_argument(
+        "--audio-root",
+        type=Path,
+        help="the only directory --manifest audio may be read from "
+        "(default: the manifest's own directory)",
+    )
+    parser.add_argument(
         "--hyps-out",
         type=Path,
         help="also write per-utterance transcripts (JSONL) for persian_stats.py",
     )
     args = parser.parse_args()
-    if args.hyps_out and not args.manifest:
-        parser.error("--hyps-out needs --manifest")
+    if (args.hyps_out or args.audio_root) and not args.manifest:
+        parser.error("--hyps-out and --audio-root need --manifest")
 
     if args.smoke:
         doc = run_smoke()
     else:
-        doc = run_manifest(args.manifest, args.model, args.threads, args.hyps_out)
+        doc = run_manifest(
+            args.manifest, args.model, args.threads, args.hyps_out, audio_root=args.audio_root
+        )
 
-    blob = json.dumps(doc, indent=2, ensure_ascii=False)
+    blob = dumps_result(doc)
     if args.out:
         args.out.parent.mkdir(parents=True, exist_ok=True)
         args.out.write_text(blob + "\n", encoding="utf-8")

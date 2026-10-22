@@ -116,7 +116,7 @@ that most often go wrong — the wrong microphone, and a daemon that needs a res
 
   ![The About YazSes dialog showing the version, the tagline and clickable Website, Source and Issues links](screenshots/tray-about.png)
 
-- **Check for updates…** — asks the source you installed from (PyPI, or your snap channel)
+- **Check for updates…** — asks the place you installed from (PyPI, GitHub Releases, or your snap channel)
   whether there is a newer release. If there is one and it can be installed without a
   password, the dialog offers **Install now**; snap installs are shown the
   `sudo snap refresh yazses` command to run in a terminal instead, because a tray click has
@@ -133,7 +133,8 @@ that most often go wrong — the wrong microphone, and a daemon that needs a res
   ![The update dialog reading: You're on the latest version](screenshots/tray-update-check.png)
 
 - **Restart daemon** / **Stop daemon** — and **Quit tray**, which closes only the icon and
-  leaves dictation running.
+  leaves dictation running. These three are the Linux menu; on macOS and Windows the menu
+  has a single **Quit** instead, and it stops the daemon too.
 
 The **Settings…**, **Help**, **About** and **Check for updates…** entries are in the menu on
 **Linux, macOS and Windows** — the menu means the same thing wherever you run it. (macOS and

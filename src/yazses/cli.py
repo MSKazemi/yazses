@@ -3,8 +3,6 @@ PID-file fallback for status.
 """
 
 import sys
-from importlib.metadata import PackageNotFoundError
-from importlib.metadata import version as _pkg_version
 from pathlib import Path
 from typing import Literal, Optional
 
@@ -12,7 +10,7 @@ import typer
 
 from yazses import branding
 from yazses.hotkeys.names import SETTABLE_HOTKEYS, SUPPORTED_HOTKEYS, canonical
-from yazses.ipc.client import IpcUnreachableError
+from yazses.ipc.client import IpcCallError, IpcUnreachableError
 from yazses.platform import get_paths, get_platform
 from yazses.system.logtail import tail_records
 from yazses.system.outcomes import describe_outcomes
@@ -133,7 +131,7 @@ def language_status(
         help="Emit a machine-readable status object.",
     ),
 ) -> None:
-    """Show the effective speech language, Han script, model, and profile coherence."""
+    """Show the speech language, Han script, engine/model, multilingual support, and coherence."""
     import json
 
     from yazses.config import load_config
@@ -156,13 +154,15 @@ def language_status(
         and script_dependency_available
         and not blocked
     )
-    commands_enabled = bool(getattr(cfg.commands, "enabled", True))
-    command_language = "en" if commands_enabled else "disabled"
-    command_support = (
-        "english-only"
-        if commands_enabled and status.speech_language == "zh"
-        else ("available" if commands_enabled else "disabled")
-    )
+    # Resolved by the grammar registry's own resolver, the one the daemon calls.
+    commands_enabled = status.commands_enabled
+    command_language = status.command_language if commands_enabled else "disabled"
+    if not commands_enabled:
+        command_support = "disabled"
+    elif status.command_grammar_available:
+        command_support = "available"
+    else:
+        command_support = "unavailable"
 
     payload = {
         "speech_language": status.speech_language,
@@ -171,11 +171,18 @@ def language_status(
         "command_support": command_support,
         "engine": status.engine,
         "model": status.model,
+        # #515: the checkpoint that would actually load, whether it is multilingual
+        # (null = a custom checkpoint with no language data), and the cited verdict.
+        "effective_model": status.effective_model,
+        "multilingual": status.multilingual,
+        "language_support": status.language_support,
+        "support_source": status.support_source,
         "profile_match": status.profile_match,
         "custom_model": status.custom_model,
         "coherent": status.coherent,
         "dictation_ready": dictation_ready,
         "problems": list(status.problems),
+        "warnings": list(status.warnings),
         "requirements": {
             "model_cached": model_cached,
             "script_dependency_available": script_dependency_available,
@@ -194,6 +201,20 @@ def language_status(
         typer.echo(f"Speech:        {speech}")
         typer.echo(f"Script:        {script}")
         typer.echo(f"STT:           {status.engine} / {status.model}")
+        if status.effective_model and status.effective_model != status.model:
+            typer.echo(f"Loads:         {status.effective_model} ({status.engine} default)")
+        multilingual = {True: "yes", False: "no (English-only)", None: "unknown"}[
+            status.multilingual
+        ]
+        typer.echo(f"Multilingual:  {multilingual}")
+        support = {
+            "supported": "supported",
+            "unsupported": "NOT SUPPORTED — dictation is refused",
+            "unknown": "unverified (custom checkpoint)",
+        }.get(status.language_support, status.language_support)
+        if status.support_source:
+            support += f"  [source: {status.support_source}]"
+        typer.echo(f"Language fit:  {support}")
         typer.echo(f"Profile match: {profile}")
         typer.echo(
             f"Model cache:   {'ready' if model_cached else 'missing'}"
@@ -203,21 +224,28 @@ def language_status(
                 "Script dep:    "
                 + ("ready" if script_dependency_available else "missing OpenCC")
             )
-        if status.speech_language == "zh" and commands_enabled:
-            typer.echo(
-                "Commands:      English Tier-1 only "
-                "(Mandarin command grammar not implemented yet)"
-            )
-        elif not commands_enabled:
+        if not commands_enabled:
             typer.echo("Commands:      disabled")
+        elif not status.command_grammar_available:
+            typer.echo(
+                f"Commands:      no Tier-1 grammar for {command_language or 'auto'!r}"
+            )
         else:
-            typer.echo("Commands:      English Tier-1")
+            grammar = (
+                "Mandarin Tier-1 (edit/navigation subset)"
+                if command_language == "zh"
+                else "English Tier-1"
+            )
+            origin = "pinned" if status.command_language_pinned else "auto"
+            typer.echo(f"Commands:      {grammar} [{origin}]")
         typer.echo(
             f"Dictation:     {'ready' if dictation_ready else 'NOT READY'}"
         )
         typer.echo(f"Status:        {'coherent' if status.coherent else 'INVALID'}")
         for problem in status.problems:
             typer.echo(f"  - {problem}", err=True)
+        for warning in status.warnings:
+            typer.echo(f"  - warning: {warning}", err=True)
         if blocked:
             typer.echo(f"  - prerequisite blocker: {blocked}", err=True)
 
@@ -242,6 +270,15 @@ def _echo_language_set_plan(plan, candidate_stt, missing_imports, packages, bloc
                 typer.echo(f"    reason: {mutation.reason}")
     else:
         typer.echo("Changes: none")
+    if plan.command_language_after and (
+        plan.command_language_after != plan.command_language_before
+    ):
+        typer.echo(
+            f"Command grammar: {plan.command_language_before or 'none'} -> "
+            f"{plan.command_language_after} (follows [stt] language)"
+        )
+    for warning in plan.warnings:
+        typer.echo(f"Warning: {warning}")
 
     typer.echo("Requirements:")
     if (candidate_stt.engine or "").strip().lower() == "faster-whisper":
@@ -900,7 +937,7 @@ def meeting_recover(
         typer.echo(reason, err=True)
         raise typer.Exit(1)
     typer.echo(f"Recovering {meeting_id} from {d / 'audio.wav'}… (this can take a while)")
-    info = recover_meeting(d, cfg.meeting)
+    info = recover_meeting(d, cfg.meeting, stt=cfg.stt)
     if archived := info.get("archived_previous"):
         typer.echo(f"Previous outputs archived to {archived} (nothing was deleted).")
     for name, path in info["files"].items():
@@ -1070,7 +1107,7 @@ def meeting_enroll(
     from yazses.config import load_config
     from yazses.learning.crypto import Cipher, load_or_create_key
     from yazses.meeting.participants import enroll_participant
-    from yazses.voiceprint.factory import build_embedder
+    from yazses.voiceprint.factory import build_embedder, unavailable_message
 
     paths = get_paths()
     cfg = load_config(paths.config_file)
@@ -1080,9 +1117,11 @@ def meeting_enroll(
         raise typer.Exit(1)
     embedder = build_embedder(cfg.voiceprint)
     if embedder is None:
+        # It named `yazses features enable voiceprint`, a capability that does not
+        # exist: the command answered "Unknown feature".
         typer.echo(
-            "Voiceprint embedder unavailable — install it with "
-            "`yazses features enable voiceprint`.", err=True,
+            "Voiceprint embedder unavailable. " + unavailable_message(cfg.voiceprint, cfg),
+            err=True,
         )
         raise typer.Exit(1)
     cipher = Cipher(load_or_create_key(paths.data_dir))
@@ -1222,6 +1261,20 @@ def _hotkey_drift_note(platform) -> str:
 
 
 
+def _pkg_version(name: str) -> str:
+    """``importlib.metadata.version``, imported on first use rather than at module scope.
+
+    ``importlib.metadata`` (with the ``zipfile`` and ``email`` machinery it pulls in) was
+    the single largest import in ``yazses.cli`` -- about 30 ms of a ~70 ms cold start --
+    and every invocation paid it: ``status``, ``stop``, ``--help`` and each shell
+    completion keystroke, for a string only ``--version`` reads. Kept as a module-level
+    name so tests can still replace it.
+    """
+    from importlib.metadata import version
+
+    return version(name)
+
+
 def _installed_version() -> str:
     """The package version, or a marker — never an exception.
 
@@ -1235,6 +1288,8 @@ def _installed_version() -> str:
     Every other call site already guarded this (``__init__``, ``branding``,
     ``doctor``); the CLI was the one that did not.
     """
+    from importlib.metadata import PackageNotFoundError
+
     try:
         return _pkg_version("yazses")
     except PackageNotFoundError:
@@ -1504,8 +1559,11 @@ def _wait_until_ready(platform, timeout: float = 20.0):
                 return "ready", info
             if state == "error":
                 return "died", info
-        except IpcUnreachableError:
-            pass  # IPC socket not up yet (or already gone) — keep polling
+        except (IpcCallError, ValueError):
+            # Not up yet (IpcUnreachableError), a daemon answering mid-start with an
+            # RPC error, or a socket/pipe that closed before replying (empty line ->
+            # json ValueError): all transient inside a bounded wait. #330.
+            pass
         time.sleep(0.25)
     if not saw_pid:
         # The PID is written before the model loads, so a slow first run always shows one.
@@ -1533,10 +1591,28 @@ def _ensure_autostart(platform) -> None:
     if lifecycle is None or not hasattr(lifecycle, "install_autostart"):
         return
     try:
-        if lifecycle.is_autostart_installed():
-            return
+        installed = lifecycle.is_autostart_installed()
     except Exception:  # noqa: BLE001 — an unanswerable question is not a reason to act
         return
+    if installed:
+        # Windows only, for now: an earlier start pointed the entry at the console
+        # binary, which opens an empty terminal window at every sign-in.
+        repair = getattr(lifecycle, "repair_autostart", None)
+        try:
+            repaired = repair is not None and repair()
+        except Exception:  # noqa: BLE001 — a working entry beats a failed start
+            return
+        if repaired:
+            typer.echo(
+                "  Fixed the login entry: YazSes now starts at login without a console window."
+            )
+        return
+    paths = getattr(platform, "paths", None)
+    if paths is not None:
+        from yazses.system.autostart_choice import opted_out
+
+        if opted_out(paths.data_dir):
+            return  # `yazses autostart disable` was a choice, not a missing setup
     try:
         lifecycle.install_autostart()
     except Exception as exc:  # noqa: BLE001 — report, never fail the start
@@ -1561,6 +1637,17 @@ def _report_start_outcome(platform, outcome: str, info) -> None:
             "(first run can take 10–30s). It'll be ready shortly; "
             "check with `yazses status`."
         )
+        if info is None:
+            # The process is alive but its IPC endpoint never answered inside the wait:
+            # name it, so "still loading" is not the only thing a stuck start can say.
+            try:
+                platform.ipc_client_factory(platform.paths.ipc_socket).call(
+                    "status", consume_notifications=False
+                )
+            except IpcUnreachableError as exc:
+                typer.echo(f"  The daemon's IPC endpoint has not answered yet: {exc}")
+            except Exception:  # noqa: BLE001 — a diagnostic line must never fail the start
+                pass
         return
     # died / never-started
     if outcome == "never-started":
@@ -1626,6 +1713,8 @@ def start(
     """
     platform = get_platform()
     _warn_unmet_prereqs()
+    _offer_dormant_install(platform)
+    _clear_stop_request(platform)
     if platform.lifecycle.is_running():
         typer.echo("YazSes is already running — restarting it cleanly...")
         _restart_daemon(platform)
@@ -1640,6 +1729,20 @@ def start(
     _report_start_outcome(platform, outcome, info)
     if not no_autostart and outcome in ("ready", "loading"):
         _ensure_autostart(platform)
+
+
+def _clear_stop_request(platform) -> None:
+    """Forget an earlier `yazses stop`. Tidiness only: a tray already ignores a note
+    older than itself, so a leftover could never close one started after it."""
+    data_dir = getattr(getattr(platform, "paths", None), "data_dir", None)
+    if data_dir is None:
+        return
+    from yazses.system.stop_request import clear_stop_request
+
+    try:
+        clear_stop_request(data_dir)
+    except Exception:  # noqa: BLE001 — never let tidying fail a start
+        pass
 
 
 def _finalizing_meeting(platform) -> bool:
@@ -1698,6 +1801,7 @@ def restart(
     platform = get_platform()
     _refuse_while_finalizing(platform, "Restarting", force)
     _warn_unmet_prereqs()
+    _offer_dormant_install(platform)
     _restart_daemon(platform)
     outcome, info = _wait_until_ready(platform)
     _report_start_outcome(platform, outcome, info)
@@ -1910,6 +2014,20 @@ def _catalogue_size(feat) -> str:
         return ""
 
 
+def _dormant_shown(cfg, shown) -> dict:
+    """``slug -> DormantFeature`` for the enabled rows on screen that cannot run.
+
+    Never raises into the catalogue (same rule as `_catalogue_size`): a probe that
+    fails costs the ◐ marker, not the listing.
+    """
+    try:
+        from yazses.system.dormant import dormant_by_slug, dormant_features
+
+        return dict(dormant_by_slug(dormant_features(cfg, features=shown)))
+    except Exception:  # pragma: no cover - a marker must never break the catalogue
+        return {}
+
+
 def _echo_capabilities(
     platform,
     *,
@@ -1968,6 +2086,7 @@ def _echo_capabilities(
     #   NAME is prose and may be clipped; `yazses features info` carries the full text.
     all_shown = [f for _, _, feats in groups for f in feats if _keep(f)]
     slug_w = max([16, *(len(f.slug) for f in all_shown if f.toggleable)])
+    dormant = _dormant_shown(cfg, all_shown)
 
     for cat, blurb, feats in groups:
         shown = [f for f in feats if _keep(f)]
@@ -1982,7 +2101,12 @@ def _echo_capabilities(
             f"{'DOWNLOAD':<{_SIZE_W}} ADVICE"
         )
         for f in shown:
-            mark = "◌ set" if f.inert else ("● ON " if f.on else "○ off")
+            if f.inert:
+                mark = "◌ set"
+            elif f.slug in dormant:
+                mark = "◐ ON "
+            else:
+                mark = "● ON " if f.on else "○ off"
             slug = f.slug if f.toggleable else "—"
             size = _catalogue_size(f)
             typer.echo(
@@ -2003,6 +2127,25 @@ def _echo_capabilities(
             " so it does nothing."
             "\n      Clear a stale key with `yazses features disable <name>`."
         )
+    if dormant:
+        # Same rule as ◌: only when one is on screen, and each with its own remedy,
+        # because "some libraries are missing" with no command is a dead end.
+        typer.echo(
+            "\n  ◐ = switched on, but its libraries are not installed, so it does nothing:"
+        )
+        for d in dormant.values():
+            typer.echo(f"      {d.slug}: {d.remedy}")
+        if any(d.installable for d in dormant.values()):
+            typer.echo("      Install every one that can be, in one go:  yazses features install")
+
+    from yazses.system.features import inactive_reason
+
+    for f in all_shown:
+        # A row that reads "○ off" while the config file plainly says `enabled = true`
+        # needs its reason next to it, or the file and the table look like they disagree.
+        reason = inactive_reason(f.slug, cfg)
+        if reason:
+            typer.echo(f"\n  {reason}\n  Turn it on:  yazses features enable {f.slug}")
     typer.echo(
         f"\n  {total} shown.  ●/○ = on/off.  Apply changes with `yazses restart`."
         "\n  DOWNLOAD = what a fresh install fetches in total — packages when you"
@@ -2017,9 +2160,10 @@ def _echo_capabilities(
     )
 
 
-def _echo_feature_card(feat, *, full: bool) -> None:
+def _echo_feature_card(feat, *, full: bool, cfg=None) -> None:
     """Print one capability. `full` adds the enable/disable/apply block (single view);
-    the compact form (used by the catalog) is name + description + example only."""
+    the compact form (used by the catalog) is name + description + example only.
+    *cfg*, when given, lets the full view say why a key the file sets is not active."""
     state = "◌ set" if feat.inert else ("● ON " if feat.on else "○ off")
     slug = feat.slug if feat.toggleable else "core"
     typer.echo(f"{state} {feat.name}  [{slug}]  ({feat.tier_label})")
@@ -2051,6 +2195,12 @@ def _echo_feature_card(feat, *, full: bool) -> None:
             note = _feature_download_note(feat)
             if note:
                 typer.echo(f"\n  Cost:     {note}")
+            if cfg is not None:
+                from yazses.system.features import inactive_reason
+
+                reason = inactive_reason(feat.slug, cfg)
+                if reason:
+                    typer.echo(f"\n  {reason}")
             typer.echo(f"\n  Enable:   yazses features enable {feat.slug}")
             typer.echo(f"  Disable:  yazses features disable {feat.slug}")
             typer.echo("  Apply:    yazses restart")
@@ -2105,7 +2255,7 @@ def features_info(
         known = ", ".join(f.slug for f in feature_status(cfg))
         typer.echo(f"Unknown feature {name!r}. Names: {known}", err=True)
         raise typer.Exit(1)
-    _echo_feature_card(found, full=True)
+    _echo_feature_card(found, full=True, cfg=cfg)
 
 
 def _apply_feature_writes(config_file, writes) -> None:
@@ -2129,22 +2279,34 @@ def features_enable(
     no_install: bool = typer.Option(
         False, "--no-install", help="Don't auto-install the feature's optional deps."
     ),
+    yes: bool = typer.Option(
+        False, "--yes", "-y",
+        help="Don't ask before downloading an add-on (Windows installer build only).",
+    ),
 ) -> None:
     """Turn a capability ON (writes your config), then `yazses restart` to apply.
 
     Use the TOGGLE NAME column from `yazses features`. Experimental features
     (e.g. cocktail, gaze) refuse to enable without --force. Any optional Python
     dependencies the feature needs are installed automatically (skip with
-    --no-install).
+    --no-install). In the Windows installer build they come as a verified add-on
+    download, shown with its size and confirmed first (skip the question with --yes).
     """
     from yazses.config import load_config
     from yazses.system.features import (
         EXPERIMENTAL,
+        PRESET_SLUG,
         enable_caveat,
         find_feature,
         toggleable_slugs,
     )
 
+    if name.strip().lower() == PRESET_SLUG:
+        # The preset is gated on more than tier and deps: the safety floor, and the tier and
+        # deps of every feature it composes (ADR-v2-148). One implementation, so the two
+        # spellings of "turn it on" refuse the same files with the same words.
+        handsfree_enable(force=force, no_install=no_install)
+        return
     platform = get_platform()
     cfg = load_config(platform.paths.config_file)
     feat = find_feature(cfg, name)
@@ -2183,6 +2345,8 @@ def features_enable(
         typer.echo("Enable anyway with: yazses features enable "
                    f"{feat.slug} --force", err=True)
         raise typer.Exit(1)
+    if _enable_via_pack(feat, platform.paths.config_file, cfg, yes=yes, no_install=no_install):
+        return
     blocked = _feature_deps_blocked(feat)
     if blocked is not None:
         # Refuse *before* writing config. Enabling a capability whose libraries
@@ -2195,7 +2359,8 @@ def features_enable(
     caveat = enable_caveat(feat.slug, cfg)
     if caveat:
         typer.echo(f"\n{caveat}\n")
-    _install_feature_deps(feat, skip=no_install)
+    if _install_feature_deps(feat, skip=no_install) is False:
+        raise typer.Exit(1)
     typer.echo("Apply it:  yazses restart")
 
 
@@ -2240,14 +2405,22 @@ def _feature_deps_blocked(feat) -> str | None:
     return install_blocked_reason(feat.pip_packages)
 
 
-def _install_feature_deps(feat, *, skip: bool) -> None:
-    """Install a feature's optional pip deps when any are missing."""
+def _install_feature_deps(feat, *, skip: bool) -> bool:
+    """Install a feature's optional pip deps when any are missing.
+
+    Returns False only when an install was attempted and failed. The config key
+    stands in that case (docs/architecture.md, "When an install fails, the config
+    key stands"), so the caller must say plainly that the capability is on but
+    dormant and exit non-zero — it used to print "Apply it: yazses restart" and
+    exit 0 over the installer's own error, which a script, the hands-free
+    preset and a skimming reader all took as success.
+    """
     if not feat.pip_packages:
-        return
-    from yazses.system.deps import install_packages
+        return True
+    from yazses.system import deps
 
     if not _missing_feature_deps(feat):
-        return
+        return True
     # Say what this costs before spending it (ADR-018). Printed even when the
     # install proceeds: a download that turns out to be gigabytes is one the user
     # should have been able to cancel, and knowing mid-download still beats
@@ -2269,8 +2442,424 @@ def _install_feature_deps(feat, *, skip: bool) -> None:
             "Skipping dependency install (--no-install). This feature needs:\n  "
             + " ".join(feat.pip_packages)
         )
+        typer.echo(
+            f"It stays dormant until they are installed:  {_dormant_remedy(feat)}"
+        )
+        return True
+    # `install_feature`, not `install_packages`: it also proves the modules import
+    # afterwards, so an installer that exits 0 without providing them is reported
+    # here instead of at the next daemon start. Looked up on the module so a test's
+    # stand-in for either function is what runs.
+    if deps.install_feature(
+        feat.pip_packages, check_modules=feat.check_modules, echo=typer.echo
+    ):
+        return True
+    typer.echo(
+        f"\n{feat.name} is switched on, but its libraries did not install, so it "
+        "stays dormant (the daemon and `yazses doctor` will say so).\n"
+        f"Retry once the cause is fixed:  {_dormant_remedy(feat)}",
+        err=True,
+    )
+    return False
+
+
+def _dormant_remedy(feat) -> str:
+    """The one command that installs *feat*'s libraries (``--force`` when needed)."""
+    from yazses.system.dormant import enable_command
+
+    return enable_command(feat)
+
+
+def _pack_progress(message: str, fraction: float | None) -> None:
+    typer.echo(f"  {message}")
+
+
+def _echo_pack_failure(result) -> None:
+    typer.echo(f"{result.title}: {result.message}", err=True)
+    for step in result.steps:
+        typer.echo(f"  - {step}", err=True)
+
+
+def _enable_via_pack(feat, config_file, cfg, *, yes: bool, no_install: bool) -> bool:
+    """Enable *feat* through an ADR-028 add-on pack, when this is a pack install.
+
+    Returns ``False`` to hand back to the ordinary path (a source install, a format or
+    channel without packs, or a feature with no pack in this build, all of which keep
+    their existing answers). Returns ``True`` once it has enabled the feature, and
+    raises ``typer.Exit(1)`` when it refused or the install failed. Config is written
+    **only after** the pack installed and passed its import probe (ADR-028 §5); a
+    refusal, a "no" at the prompt, ``--no-install``, a cancel or a failure writes nothing.
+    """
+    if not feat.pip_packages or not _missing_feature_deps(feat):
+        return False
+    from yazses.packs.context import load_context
+    from yazses.packs.manage import feature_pack_status, install
+    from yazses.packs.state import OK
+
+    ctx = load_context()
+    if not ctx.frozen or not ctx.runtime.supported():
+        return False
+    if ctx.capability.code == "elevated":
+        typer.echo(f"Can't enable {feat.name}: {ctx.capability.reason}.", err=True)
+        raise typer.Exit(1)
+    if not ctx.capability.ok or ctx.index is None:
+        return False
+    entry = ctx.index.for_feature(feat.slug)
+    if entry is None:
+        return False
+    if ctx.base_problems:
+        typer.echo(
+            f"Can't enable {feat.name}: this copy of YazSes carries an add-on list for "
+            f"a different build ({'; '.join(ctx.base_problems)}). Reinstall YazSes from "
+            "the releases page.",
+            err=True,
+        )
+        raise typer.Exit(1)
+    status = feature_pack_status(ctx, feat.slug, config_on=False)
+    if status.state != OK:
+        typer.echo(status.message)
+        if no_install:
+            typer.echo(
+                f"{feat.name} was not enabled (--no-install): it stays off until its "
+                f"add-on is installed. Run  yazses features enable {feat.slug}  to "
+                "download it.",
+                err=True,
+            )
+            raise typer.Exit(1)
+        if not yes and not typer.confirm(
+            f"Download and install the {entry.name} add-on now?", default=False
+        ):
+            typer.echo("Nothing was changed.", err=True)
+            raise typer.Exit(1)
+        result = install(ctx, entry, progress=_pack_progress)
+        if not result.ok:
+            _echo_pack_failure(result)
+            raise typer.Exit(1)
+        typer.echo(result.message)
+    from yazses.system.features import enable_caveat
+
+    _apply_feature_writes(config_file, feat.on_writes)
+    typer.echo(f"Enabled {feat.name}.  {feat.why}")
+    caveat = enable_caveat(feat.slug, cfg)
+    if caveat:
+        typer.echo(f"\n{caveat}\n")
+    typer.echo("Apply it:  yazses restart")
+    return True
+
+
+packs_app = typer.Typer(
+    name="packs",
+    help="Add-ons: a feature's libraries, downloaded and verified (Windows installer build).",
+    context_settings=CONTEXT_SETTINGS,
+    invoke_without_command=True,
+    no_args_is_help=False,
+)
+app.add_typer(packs_app, rich_help_panel=_SETUP)
+
+
+def _packs_context():
+    from yazses.packs.context import load_context
+
+    return load_context()
+
+
+@packs_app.callback(
+    invoke_without_command=True,
+    epilog=_examples(
+        "yazses packs                     list this build's add-ons and their state",
+        "yazses packs install parakeet    download, verify and install one",
+        "yazses packs verify              check every installed file's SHA-256",
+    ),
+)
+def packs_list(ctx: typer.Context) -> None:
+    """List this build's add-ons: name, features, size, and whether each is installed.
+
+    Add-ons exist only in the Windows installer build (ADR-028). Elsewhere, `yazses
+    features enable <name>` installs a feature's libraries from PyPI instead.
+    """
+    if ctx.invoked_subcommand is not None:
         return
-    install_packages(feat.pip_packages, echo=typer.echo)
+    from yazses.packs.manage import rows
+    from yazses.packs.policy import human_bytes
+
+    pctx = _packs_context()
+    if not pctx.capability.ok:
+        typer.echo(f"No add-ons here: {pctx.capability.reason}.")
+        return
+    if pctx.index is None:
+        typer.echo(f"No add-ons: {pctx.index_error}.")
+        return
+    listing = rows(pctx)
+    if not listing:
+        typer.echo("This build publishes no add-ons.")
+        return
+    for row in listing:
+        detail = f"  ({row.detail})" if row.detail else ""
+        typer.echo(
+            f"{row.name:<14} {row.state:<8} {human_bytes(row.size):>8} download, "
+            f"{human_bytes(row.unpacked):>8} on disk   features: "
+            f"{', '.join(row.features)}{detail}"
+        )
+    typer.echo(f"\nFolder: {pctx.layout.root}")
+
+
+@packs_app.command("path", epilog=_examples("yazses packs path    print the add-on folder"))
+def packs_path() -> None:
+    """Print the folder add-ons are installed in."""
+    typer.echo(str(_packs_context().layout.root))
+
+
+@packs_app.command(
+    "install",
+    epilog=_examples(
+        "yazses packs install parakeet    download and install one add-on",
+        "yazses packs install --from YazSes-2.44.0-windows-x64-pack-diarization.yazpack"
+        "    install a file carried here (no network)",
+    ),
+)
+def packs_install(
+    name: str | None = typer.Argument(
+        None, help="Add-on name, from `yazses packs`. Optional with --from."
+    ),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Don't ask before downloading."),
+    from_file: Path | None = typer.Option(
+        None, "--from",
+        help="Install this .yazpack file instead of downloading (offline). Its name and "
+             "SHA-256 must match this build's built-in add-on list.",
+    ),
+) -> None:
+    """Download, verify and install one add-on for this build. Writes no config.
+
+    With --from, nothing is downloaded: the file is checked against the SHA-256 built
+    into this copy of YazSes, then unpacked, tested and installed the same way.
+    """
+    from yazses.packs.manage import install
+    from yazses.packs.policy import human_bytes
+
+    if from_file is None and name is None:
+        typer.echo("Name one add-on, or pass --from <file>.", err=True)
+        raise typer.Exit(2)
+    pctx = _packs_context()
+    if not pctx.capability.ok:
+        typer.echo(f"Can't install add-ons: {pctx.capability.reason}.", err=True)
+        raise typer.Exit(1)
+    if from_file is not None:
+        from yazses.packs.manage import install_from_file
+
+        result = install_from_file(pctx, from_file, name=name, progress=_pack_progress)
+        if not result.ok:
+            _echo_pack_failure(result)
+            raise typer.Exit(1)
+        typer.echo(result.message)
+        typer.echo("Apply it:  yazses restart")
+        return
+    assert name is not None
+    entry = pctx.index.entry(name) if pctx.index is not None else None
+    if entry is None:
+        known = ", ".join(p.name for p in pctx.index.packs) if pctx.index else "none"
+        typer.echo(f"No add-on called {name!r} in this build. Add-ons: {known}.", err=True)
+        raise typer.Exit(1)
+    typer.echo(
+        f"The {name} add-on: {human_bytes(entry.size)} download, "
+        f"{human_bytes(entry.unpacked_bytes)} on disk."
+    )
+    if not yes and not typer.confirm("Download and install it now?", default=False):
+        typer.echo("Nothing was changed.", err=True)
+        raise typer.Exit(1)
+    result = install(pctx, entry, progress=_pack_progress)
+    if not result.ok:
+        _echo_pack_failure(result)
+        raise typer.Exit(1)
+    typer.echo(result.message)
+    typer.echo("Apply it:  yazses restart")
+
+
+@packs_app.command(
+    "verify", epilog=_examples("yazses packs verify    check every installed add-on file")
+)
+def packs_verify(
+    name: str | None = typer.Argument(None, help="One add-on; all when omitted."),
+) -> None:
+    """Check every installed file's size and SHA-256. A damaged add-on is set aside.
+
+    An add-on that shares a library with YazSes (``onnxruntime.dll`` for diarization)
+    also reports which file and version it binds to, or why it is refused.
+    """
+    from yazses.packs.manage import check_bindings, verify
+
+    pctx = _packs_context()
+    problems = verify(pctx, name)
+    bindings = check_bindings(pctx, name)
+    for b in bindings:
+        typer.echo(f"{b.pack}: {b.describe()}", err=not b.ok)
+    refused = [b for b in bindings if not b.ok]
+    if not problems and not refused:
+        typer.echo("Every installed add-on matches its record.")
+        return
+    for pack, problem in problems:
+        typer.echo(
+            f"{pack}: damaged ({problem}). It was set aside in {pctx.layout.quarantine}. "
+            f"Reinstall it: yazses packs install {pack}",
+            err=True,
+        )
+    for b in refused:
+        typer.echo(
+            f"{b.pack}: will not load until YazSes is repaired or updated; the add-on "
+            "itself is intact and was not set aside.",
+            err=True,
+        )
+    raise typer.Exit(1)
+
+
+@packs_app.command(
+    "remove", epilog=_examples("yazses packs remove parakeet    delete one add-on")
+)
+def packs_remove(
+    name: str | None = typer.Argument(None, help="Add-on name, from `yazses packs`."),
+    all_: bool = typer.Option(False, "--all", help="Remove every add-on of every build."),
+) -> None:
+    """Delete an installed add-on. Features that need it then read *waiting for add-on*."""
+    from yazses.packs.manage import remove
+
+    if (name is None) == (not all_):
+        typer.echo("Name one add-on, or pass --all.", err=True)
+        raise typer.Exit(2)
+    removed = remove(_packs_context(), None if all_ else name)
+    typer.echo(f"Removed: {', '.join(removed)}." if removed else "Nothing to remove.")
+
+
+@packs_app.command(
+    "clean", epilog=_examples("yazses packs clean    delete leftovers and old builds' add-ons")
+)
+def packs_clean() -> None:
+    """Delete set-aside, half-finished and old builds' add-ons (keeps what rollback needs)."""
+    from yazses.packs.manage import clean
+
+    removed = clean(_packs_context())
+    typer.echo(f"Removed: {', '.join(removed)}." if removed else "Nothing to clean.")
+
+
+@packs_app.command(
+    "probe",
+    epilog=_examples("yazses packs probe parakeet --staged DIR    test-import a pack tree"),
+)
+def packs_probe(
+    name: str = typer.Argument(..., help="Add-on name."),
+    staged: Path = typer.Option(..., "--staged", help="The unpacked add-on folder to test."),
+) -> None:
+    """Mount one unpacked add-on and import its entry modules (used by install and CI).
+
+    Exits 0 on success, otherwise with a code naming the failure: 4 a missing
+    standard-library module, 5 missing package metadata, 6 a pruned submodule of a
+    base package, 7 a native library that failed to load, 8 another import error.
+    """
+    from yazses.packs.probe import run_probe
+    from yazses.platform.factory import get_pack_runtime
+
+    result = run_probe(name, staged, runtime=get_pack_runtime())
+    typer.echo(result.line())
+    if not result.ok:
+        raise typer.Exit(result.exit_code)
+
+
+@features_app.command(
+    "install",
+    epilog=_examples(
+        "yazses features install              install what every switched-on feature lacks",
+        "yazses features install read-back    only the ones named",
+        "yazses features install --yes        no question (scripts)",
+    ),
+)
+def features_install(
+    names: Optional[list[str]] = typer.Argument(
+        None, help="Toggle names to install for. Omit for every dormant feature."
+    ),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Install without asking first."),
+) -> None:
+    """Install the libraries that switched-on features are missing.
+
+    A feature turned on by editing config.toml, with `--no-install`, or before an
+    update rebuilt the environment is ON but dormant: its libraries are not there,
+    so it does nothing. This installs exactly what those features need — after
+    showing what it will download and asking — into whatever YazSes was installed
+    with (uv tool, pipx, a venv), recorded so the next update keeps it. A failed or
+    interrupted install is undone. Writes no config.
+    """
+    from yazses.config import load_config
+    from yazses.system import ondemand
+    from yazses.system.dormant import dormant_features
+
+    platform = get_platform()
+    cfg = load_config(platform.paths.config_file)
+    items = dormant_features(cfg)
+    if names:
+        wanted = {n.strip() for n in names}
+        unknown = sorted(wanted - {d.slug for d in items})
+        if unknown:
+            dormant_list = ", ".join(d.slug for d in items) or "none"
+            typer.echo(
+                f"Not switched on and missing libraries: {', '.join(unknown)}. "
+                f"Dormant features right now: {dormant_list}.\n"
+                "To turn one on and install it:  yazses features enable <name>",
+                err=True,
+            )
+            raise typer.Exit(1)
+        items = [d for d in items if d.slug in wanted]
+    if not items:
+        typer.echo("Every switched-on feature has its libraries. Nothing to install.")
+        return
+    for item in items:
+        if not item.installable:
+            typer.echo(f"Can't install for {item.name}: {item.remedy}", err=True)
+    can = ondemand.installable(items)
+    if not can:
+        raise typer.Exit(1)
+    typer.echo(ondemand.prompt_text(can))
+    if not yes and not typer.confirm("\nInstall them now?", default=False):
+        typer.echo("Nothing installed. They stay dormant until you do.")
+        raise typer.Exit(1)
+    failed = ondemand.install_all(can, echo=typer.echo)
+    done = [d.slug for d in can if d.slug not in failed]
+    if done:
+        typer.echo(f"\nInstalled for: {', '.join(done)}.  Apply it:  yazses restart")
+    if failed or len(can) < len(items):
+        if failed:
+            typer.echo(f"Still dormant: {', '.join(failed)}.", err=True)
+        raise typer.Exit(1)
+
+
+def _offer_dormant_install(platform) -> None:
+    """At the moment of need — starting the daemon — offer the install, once.
+
+    Only in an interactive terminal: an autostart entry, a service unit or a script
+    has no one to answer, and a prompt there would hang it. The default is No, and
+    a No changes nothing; the daemon will still announce the dormant features.
+    Never raises: a probe that fails must not stop the daemon from starting.
+    """
+    import sys
+
+    try:
+        if not (sys.stdin.isatty() and sys.stdout.isatty()):
+            return
+        from yazses.config import load_config
+        from yazses.system import ondemand
+        from yazses.system.dormant import dormant_features
+
+        can = ondemand.installable(dormant_features(load_config(platform.paths.config_file)))
+        text = ondemand.prompt_text(can)
+        if not text:
+            return
+        typer.echo(text)
+        if not typer.confirm("Install their libraries now?", default=False):
+            typer.echo("Skipped. Any time later:  yazses features install\n")
+            return
+        failed = ondemand.install_all(can, echo=typer.echo)
+        if failed:
+            typer.echo(f"Still dormant: {', '.join(failed)}. Starting anyway.\n", err=True)
+    except (KeyboardInterrupt, typer.Abort):
+        typer.echo("\nSkipped.")
+    except Exception:  # noqa: BLE001 - never block the daemon on an optional offer
+        return
 
 
 @features_app.command(
@@ -2285,8 +2874,13 @@ def features_disable(
 ) -> None:
     """Turn a capability OFF (writes your config), then `yazses restart` to apply."""
     from yazses.config import load_config
-    from yazses.system.features import find_feature, toggleable_slugs
+    from yazses.system.features import PRESET_SLUG, find_feature, toggleable_slugs
 
+    if name.strip().lower() == PRESET_SLUG:
+        # Same as `yazses handsfree disable`: it also pauses every hands-free input at once,
+        # so the pointer and switch stop now rather than at the restart.
+        handsfree_disable()
+        return
     platform = get_platform()
     cfg = load_config(platform.paths.config_file)
     feat = find_feature(cfg, name)
@@ -2372,6 +2966,7 @@ def features_reset(
         raise typer.Exit(1)
 
     written = 0
+    failed: list[str] = []
     for feat, desired in drift:
         # A default-on capability whose libraries this environment can never
         # supply (a read-only snap, say) is skipped rather than written: the same
@@ -2384,10 +2979,17 @@ def features_reset(
             platform.paths.config_file, feat.on_writes if desired else feat.off_writes
         )
         written += 1
-        if desired:
-            _install_feature_deps(feat, skip=no_install)
+        if desired and _install_feature_deps(feat, skip=no_install) is False:
+            failed.append(feat.slug)
     typer.echo(f"\nRestored {written} capabilit{'y' if written == 1 else 'ies'} "
                "to their defaults.")
+    if failed:
+        typer.echo(
+            f"Libraries did not install for: {', '.join(failed)} — on but dormant.",
+            err=True,
+        )
+        typer.echo("Apply the rest:  yazses restart")
+        raise typer.Exit(1)
     typer.echo("Apply it:  yazses restart")
 
 
@@ -3281,6 +3883,9 @@ def autostart_enable() -> None:
     except Exception as exc:  # noqa: BLE001 — report, don't traceback at the user
         typer.echo(f"Could not enable autostart: {exc}", err=True)
         raise typer.Exit(1) from exc
+    from yazses.system.autostart_choice import clear_opt_out
+
+    clear_opt_out(platform.paths.data_dir)
     typer.echo("YazSes will now start automatically at login.")
     typer.echo("Verify any time with:  yazses doctor")
 
@@ -3290,13 +3895,28 @@ def autostart_enable() -> None:
     epilog=_examples("yazses autostart disable   stop launching YazSes at login"),
 )
 def autostart_disable() -> None:
-    """Stop starting YazSes at login. The daemon keeps running until you stop it."""
+    """Stop starting YazSes at login. The daemon keeps running until you stop it.
+
+    The choice is remembered, so a later `yazses start` does not turn it back on.
+    """
     platform = get_platform()
     try:
         platform.lifecycle.uninstall_autostart()
     except Exception as exc:  # noqa: BLE001
         typer.echo(f"Could not disable autostart: {exc}", err=True)
         raise typer.Exit(1) from exc
+    from yazses.system.autostart_choice import record_opt_out
+
+    try:
+        record_opt_out(platform.paths.data_dir)
+    except OSError as exc:
+        # Off for now, but not remembered: say so, or the next start looks like a bug.
+        typer.echo("YazSes will no longer start at login.")
+        typer.echo(
+            f"  (note: could not remember this choice: {exc}\n"
+            "   the next `yazses start` will turn it back on; use `yazses start --no-autostart`.)"
+        )
+        return
     typer.echo("YazSes will no longer start at login.")
 
 
@@ -3315,9 +3935,14 @@ def autostart_status() -> None:
     if installed:
         typer.echo("Enabled — YazSes starts automatically at login.")
         return
-    typer.echo("Not enabled — YazSes will NOT come back after a reboot.")
+    from yazses.system.autostart_choice import opted_out
+
+    if opted_out(platform.paths.data_dir):
+        typer.echo("Off — you turned it off with `yazses autostart disable`.")
+    else:
+        typer.echo("Not enabled — YazSes will NOT come back after a reboot.")
     typer.echo("Enable it with:  yazses autostart enable")
-    raise typer.Exit(1)
+    raise typer.Exit(1)  # unchanged either way: scripts ask "will it come back?"
 
 
 audio_app = typer.Typer(
@@ -3653,7 +4278,7 @@ def stop(
         False, "--force", help="Stop even while a meeting is still being written up."
     ),
 ) -> None:
-    """Stop the running daemon.
+    """Stop YazSes: the daemon, and the tray icon with it.
 
     Dictation stays off until you `yazses start` again. To pick up a config or
     version change instead, use `yazses restart` (stop + start in one step).
@@ -3664,8 +4289,19 @@ def stop(
     if pid is None or not platform.lifecycle.is_running():
         typer.echo("YazSes is not running — nothing to stop.")
         raise typer.Exit(1)
+    # Before the daemon goes: a running tray restarts a daemon that disappears, and
+    # this note is how it tells a stop from a crash (system/stop_request.py).
+    from yazses.system.stop_request import request_stop
+
+    try:
+        request_stop(platform.paths.data_dir)
+        noted = True
+    except Exception:  # noqa: BLE001 — a missing note must never stop the stop
+        noted = False
     platform.lifecycle.stop_daemon(pid)
     typer.echo("YazSes stopped. Start it again with `yazses start`.")
+    if not noted:
+        typer.echo("  (note: a running tray icon may restart it; quit the tray to stop fully.)")
 
 
 @app.command(
@@ -3753,6 +4389,17 @@ def status(
     # Names, states, ages and counts only; no sample value can reach here.
     for handsfree_line in render_handsfree_lines(info.get("handsfree")):
         typer.echo(handsfree_line)
+    # Acoustic Context Profiles: the room as the last burst found it and the gate in force.
+    # Absent while the feature is off, before the first burst, and on an older daemon.
+    room = info.get("acoustic")
+    if isinstance(room, dict) and room.get("scene"):
+        line = f"  room:     {room['scene']}"
+        if room.get("floor") is not None:
+            line += f" (floor {room['floor']}, gate {room['gate']}"
+            if room.get("gate") != room.get("base_gate"):
+                line += f", raised from {room['base_gate']}"
+            line += ")"
+        typer.echo(line)
     if info.get("silent_streak"):
         typer.echo(
             f"  ⚠ mic:    {info['silent_streak']} silent clips in a row — "
@@ -3963,9 +4610,13 @@ def update(
     snap channel for snap, the GitHub release for the Windows installer, Chocolatey,
     winget and Scoop (that is where the .exe lives), PyPI for the pip-family ones —
     then upgrades only when the available version is strictly newer (never a
-    downgrade). Where there is no one-command upgrade, or the network is blocked,
-    it prints the steps to update by hand instead of just failing. After an upgrade,
-    restart the daemon to load the new code: `yazses restart`.
+    downgrade). On Windows the update is one step: the installer is downloaded from
+    the GitHub release, checked against the release's SHA256SUMS.txt, and installed
+    silently in place after YazSes closes, which then starts again by itself
+    (Chocolatey, winget and Scoop run their own upgrade the same way). Where that is
+    not possible, or the network is blocked, it prints the steps to update by hand
+    instead of just failing. After a pip/uv/pipx/snap upgrade, restart the daemon to
+    load the new code: `yazses restart`.
     """
     from yazses.system.updater import (
         check_update,
@@ -3993,6 +4644,14 @@ def update(
         return
 
     typer.echo(f"\nUpdate available: {current} → {status.latest}")
+    launcher = _update_launcher()
+    from yazses.system.installer_update import one_click_supported
+
+    if one_click_supported(status, launcher):
+        # The Windows channels (ADR-027): the upgrade replaces the files this very
+        # process is running from, so it is handed to a detached job and YazSes exits.
+        _one_click_update(status, launcher, check=check, yes=yes)
+        return
     if not status.command:
         # No command for this method — the Windows installer and the macOS .app
         # are the live cases (the upgrade is a downloaded .exe or .dmg, with
@@ -4013,7 +4672,24 @@ def update(
         if not known:
             raise typer.Exit(1)
         return
-    typer.echo(f"Command: {' '.join(status.command)}")
+    # A uv tool upgrade removes libraries its receipt does not list, which is how
+    # an enabled engine vanished on update -- and how a removed opencv-python takes
+    # the cv2 files it shares with opencv-contrib-python. Resolve the command that
+    # keeps both *before* printing it, so what is shown is what runs (it is
+    # idempotent, so `run_upgrade_checked` applying it again changes nothing).
+    from yazses.system.updater import CV2_CONTRIB, resolve_upgrade_command
+
+    plain = status.command
+    status = resolve_upgrade_command(status)
+    if status.command != plain:
+        if CV2_CONTRIB in (status.command or []):
+            typer.echo("Reinstalling OpenCV (cv2) in the same step, so it keeps working.")
+        if "--with" in (status.command or []):
+            typer.echo("Keeping your enabled features' libraries through the upgrade.")
+    from yazses.system.remedy import render_command
+
+    # Quoted: `--with mediapipe>=0.10` pasted unquoted is a shell redirection.
+    typer.echo(f"Command: {render_command(status.command or [])}")
 
     if check:
         typer.echo("\n(--check) Not installing. Re-run without --check to update.")
@@ -4027,9 +4703,17 @@ def update(
     # install carries an exact version pin, and this used to print "Updated to X"
     # over the top of the package manager's own "Nothing to upgrade".
     outcome = run_upgrade_checked(status)
+    if outcome.code == 0 and outcome.cv2_repair:
+        # Exit 0 and a new version, and still not done: cv2 stopped loading.
+        from yazses.tray.about import cv2_repair_message
+
+        typer.echo("\n" + cv2_repair_message(outcome), err=True)
+        raise typer.Exit(1)
     if outcome.ok:
         typer.echo(f"\nUpdated to {outcome.after}. Restart the daemon to load it:")
-        typer.echo("  systemctl --user restart yazses   # or: yazses stop && yazses start")
+        # `yazses restart`, not `systemctl --user`: this branch is the uv/pipx/pip path,
+        # which runs on Windows and macOS too, where systemctl does not exist.
+        typer.echo("  yazses restart")
         return
     if outcome.code != 0:
         typer.echo(f"\nUpgrade command exited with code {outcome.code}.", err=True)
@@ -4052,6 +4736,118 @@ def update(
         err=True,
     )
     raise typer.Exit(1)
+
+
+def _update_launcher():
+    """This platform's one-click update launcher, or None. Never raises.
+
+    A seam of its own so `yazses update` tests can choose the path explicitly instead
+    of inheriting whichever OS happens to run the suite.
+    """
+    try:
+        from yazses.platform import get_platform
+
+        return get_platform().update_launcher
+    except Exception:
+        return None
+
+
+def _one_click_update(status, launcher, *, check: bool, yes: bool) -> None:
+    """`yazses update` for the Windows channels: confirm, download, verify, hand off."""
+    from yazses.system.installer_update import (
+        ALL_USERS_NOTE,
+        RELEASE_DOWNLOAD_PREFIX,
+        one_click_offer,
+        package_manager_argv,
+    )
+
+    offer = one_click_offer(status, launcher)
+    if offer is None or not offer.ok:
+        # Applies to this install but cannot deliver now: an all-users install, or a
+        # package manager whose feed does not carry the new version yet. Saying so,
+        # with the manual steps, is the job done -- the old exit status for a known
+        # channel without a command.
+        typer.echo(offer.reason if offer is not None else "One-click update is unavailable.")
+        _echo_steps(status.steps)
+        return
+
+    if status.method == "windows-installer":
+        typer.echo(
+            "One-click update: download the installer from "
+            f"{RELEASE_DOWNLOAD_PREFIX}…, check its SHA-256 against the release's "
+            "SHA256SUMS.txt, then install it silently in place and restart YazSes."
+        )
+        typer.echo(
+            "Note: the installer is not code-signed yet — the checksum proves the file "
+            "is the one this release published, not who built it."
+        )
+        if offer.all_users:
+            typer.echo(ALL_USERS_NOTE)
+    else:
+        argv, elevate, _capture = package_manager_argv(status.method)
+        from yazses.system.remedy import render_command
+
+        typer.echo(f"Command: {render_command(argv)}  (run after YazSes closes, then it restarts)")
+        if elevate:
+            typer.echo("Chocolatey needs administrator rights; Windows will ask.")
+
+    if check:
+        typer.echo("\n(--check) Not installing. Re-run without --check to update.")
+        return
+
+    if not yes and not typer.confirm(
+        "Install it now? YazSes will close and start again by itself.", default=True
+    ):
+        typer.echo("Skipped.")
+        return
+
+    from yazses.tray.updates import hand_off_outside_tray
+
+    def _progress(message: str, fraction) -> None:
+        typer.echo(f"  {message}")
+
+    # A running tray is waited for, not refused: it closes itself when it sees the
+    # hand-off, and stops the daemon on its way out (ADR-027). The tray autostarts at
+    # sign-in, so refusing here made `yazses update` refuse almost every time.
+    result = hand_off_outside_tray(
+        status,
+        launcher,
+        tray_pid=_running_tray_pid,
+        request_daemon_shutdown=_request_daemon_shutdown,
+        progress=_progress,
+    )
+    if not result.ok:
+        typer.echo(f"\n{result.message}", err=True)
+        _echo_steps(result.steps)
+        raise typer.Exit(1)
+    typer.echo(f"\n{result.message}")
+
+
+def _running_tray_pid() -> int | None:
+    """PID holding the tray's single-instance lock, or None. Never raises."""
+    try:
+        from yazses.platform import get_paths
+        from yazses.system.single_instance import holder_pid
+
+        return holder_pid(get_paths().data_dir / "tray.lock")
+    except Exception:
+        return None
+
+
+def _request_daemon_shutdown() -> None:
+    """Ask the daemon to shut down so the installer can replace its files. Never raises.
+
+    The graceful RPC only, never the lifecycle's kill fallback: a daemon still saving a
+    meeting must be allowed to finish. The update job waits for it and installs nothing
+    if it has not exited in time.
+    """
+    try:
+        from yazses.platform import get_platform
+
+        platform = get_platform()
+        platform.ipc_client_factory(platform.paths.ipc_socket).call("shutdown")
+    except Exception as exc:
+        typer.echo(f"  (could not reach the daemon to stop it: {exc})")
 
 
 def _calibrate_mic(*, seconds: float = 4.0, set_threshold: bool = False) -> bool:
@@ -4104,7 +4900,12 @@ def _calibrate_mic(*, seconds: float = 4.0, set_threshold: bool = False) -> bool
         # where room tone clears it, reaches the decoder, and returns an invented word.
         typer.secho(f"  cannot calibrate: {result.reason}.",
                     fg=typer.colors.YELLOW)
-        if speech.is_silent:
+        if result.too_short:
+            typer.echo(
+                "Nothing was written. Re-run with a longer speaking time, e.g.  "
+                "yazses mic-level -s 4"
+            )
+        elif speech.is_silent:
             typer.echo(
                 "Nothing was captured in the second recording — check the microphone:  "
                 "yazses audio status"
@@ -4179,6 +4980,9 @@ def mic_level(
     the command cannot tell speech from room tone, and recording a quiet room used to
     yield a confident threshold BELOW that room's own noise. When the two recordings
     are too close together, it now says so instead of recommending a number.
+
+    The threshold follows your ROOM (about twice its level, provisional), so speaking
+    louder in step 2 cannot raise it. A recording too short to trust is refused.
     """
     if not _calibrate_mic(seconds=seconds, set_threshold=set_threshold):
         raise typer.Exit(code=1)
@@ -5091,14 +5895,15 @@ def enroll_voice() -> None:
 
     Records a short sample of your voice, computes a speaker embedding, and stores
     it encrypted on this machine (never leaves the machine). Requires
-    `[voiceprint] enabled = true` and the voiceprint extra
-    (`uv sync --extra voiceprint`). Run once; re-run to re-enroll.
+    `[voiceprint] enabled = true` and the speaker-embedding library of your
+    `[voiceprint] backend`; when either is missing this command says exactly what
+    to run for your install. Run once; re-run to re-enroll.
     """
     from yazses.config import load_config
     from yazses.learning.crypto import Cipher, load_or_create_key
     from yazses.system.miclevel import record
     from yazses.voiceprint.enroll import enroll as do_enroll
-    from yazses.voiceprint.factory import build_embedder
+    from yazses.voiceprint.factory import build_embedder, unavailable_message
     from yazses.voiceprint.store import save_voiceprint
 
     platform = get_platform()
@@ -5106,8 +5911,7 @@ def enroll_voice() -> None:
     embedder = build_embedder(cfg.voiceprint)
     if embedder is None:
         typer.echo(
-            "Voiceprint unavailable. Set `[voiceprint] enabled = true` and install "
-            "the extra:\n  uv sync --extra voiceprint",
+            "Voiceprint unavailable. " + unavailable_message(cfg.voiceprint, cfg),
             err=True,
         )
         raise typer.Exit(1)
@@ -5659,7 +6463,17 @@ def gaze_status() -> None:
         typer.echo(f"  ✓ gaze target: {target.reason}")
     else:
         typer.echo(f"  ✗ gaze target: none -- {target.reason}")
+    if target.capability_summary:
+        # The evidence for the line above, one capability at a time; pointer injection is
+        # printed as separate so a granted portal permission is not read as a target.
+        typer.echo(f"    capabilities: {target.capability_summary}")
+    if not target.available:
+        typer.echo("    a destructive gaze command (\"close this\") is refused here, never "
+                   "sent to the focused window")
     typer.echo(f"  {mark(cal is not None)} calibration ({calibration_path(platform.paths.data_dir)})")
+    if cal is None and check.stale:
+        # #415: the file is there and damaged -- not the same as never having calibrated.
+        typer.echo(f"  ✗ {check.reason}")
     if cal is not None:
         # ADR-v2-149: a map fitted on another monitor arrangement still answers, it
         # just answers wrongly. Say which of the three states this one is in, and why.
@@ -5961,7 +6775,7 @@ def gaze_measure(
                 time.sleep(interval_s)
             collect_validation(
                 backend, calibration, targets, before_point, session, time.monotonic,
-                per_point=per_point, started_at=started,
+                per_point=per_point, started_at=started, screen=(width, height),
             )
     finally:
         backend.close()
@@ -6022,12 +6836,13 @@ def gaze_measure(
     )
     if study_mode == "research":
         doc["protocol"]["protocol_id"] = protocol_id
-    problems = report_problems(doc)
+    identifiers = local_identifiers()
+    problems = report_problems(doc, identifiers)
     if problems:
         fail("The report is not valid, so nothing was written:\n  - " + "\n  - ".join(problems))
     target = out or Path("yazses-gaze-report.json")
     try:
-        write_result(doc, target, identifiers=local_identifiers())
+        write_result(doc, target, identifiers=identifiers)
     except EyeEvalRunError as exc:
         fail(str(exc))
     typer.echo(f"\n{render_markdown(doc)}\nWrote {target} — read it before you share it.")
@@ -6834,7 +7649,8 @@ def handsfree_enable(
 
     Writes only `[handsfree] enabled = true`; the per-feature settings are filled in when the
     config is loaded, so `yazses handsfree explain` shows them and a value you set yourself wins.
-    Refuses, naming the key, if your config weakens the safety floor.
+    Refuses, naming the key, if your config weakens the safety floor. Same as
+    `yazses features enable handsfree`.
     """
     from yazses.handsfree.preset import expand
     from yazses.system.configedit import set_config_key
@@ -6864,8 +7680,17 @@ def handsfree_enable(
             raise typer.Exit(1)
     set_config_key(platform.paths.config_file, "handsfree", "enabled", True)
     typer.echo("Enabled the hands-free preset. Its values are provisional starting points.")
-    for feat in feats:
-        _install_feature_deps(feat, skip=no_install)
+    # Installed in turn, and every one attempted even after a failure: the camera
+    # features share mediapipe, so one failure usually means all, but a partial run
+    # must still leave as much working as it can and then say what is not.
+    failed = [f.slug for f in feats if _install_feature_deps(f, skip=no_install) is False]
+    if failed:
+        typer.echo(
+            f"The preset is on, but {', '.join(failed)} stay dormant until their "
+            "libraries install.",
+            err=True,
+        )
+        raise typer.Exit(1)
     typer.echo("See what it sets:  yazses handsfree explain")
     typer.echo("Stop any time:     yazses handsfree pause")
     typer.echo("Apply it:          yazses restart")
@@ -7257,10 +8082,24 @@ def transcribe(
     # from the one `yazses meeting` uses. It also carries `--language` into the decoder,
     # which this call site did not: the flag set `task` for "translate" and was
     # otherwise inert, so `--language fa` transcribed Persian audio as English.
+    #
+    # The model name echoed here comes from the same pure rule the builder uses
+    # (`stt/decoder_settings.py`), so the line cannot name a model other than the one
+    # that loads -- e.g. when `[stt] model` names a Parakeet checkpoint Whisper cannot
+    # load and the file decode falls back.
     from yazses.recimport.pipeline import _build_engine
+    from yazses.stt.decoder_settings import file_decoder_settings
+    from yazses.stt.errors import LanguageUnsupportedError
 
-    typer.echo(f"Loading model '{eff.model or cfg.stt.model}'…", err=True)
-    engine = _build_engine(dataclasses.replace(eff, model=eff.model or cfg.stt.model))
+    typer.echo(f"Loading model '{file_decoder_settings(cfg.stt, eff).model}'…", err=True)
+    try:
+        engine = _build_engine(eff, stt=cfg.stt)
+    except LanguageUnsupportedError as exc:
+        # Refused, not transcribed as English (#515): a transcript of Persian audio
+        # written in fluent English is the output nobody can tell is wrong.
+        typer.echo(str(exc), err=True)
+        typer.echo("Pass --model with a multilingual checkpoint, e.g. --model small.", err=True)
+        raise typer.Exit(2) from None
 
     # Speaker naming: parse explicit maps; load the enrolled voiceprint (→ "You").
     name_list = [n.strip() for n in names.split(",")] if names else None

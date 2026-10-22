@@ -74,12 +74,17 @@ does and where to check it:
 
 - **The hook matches a single configured virtual-key code** and never records key content.
   It answers one question — "is the hold-to-talk key currently down?" It is not a log.
-- **Nothing leaves the machine.** This is enforced mechanically, not promised: a test
-  enumerates every module permitted to open an outbound connection and fails the build if
-  any module gains an unregistered one (see [ADR-019](https://github.com/MSKazemi/yazses)).
-  Of the modules that touch the network, all but two only fetch model weights or a version
-  string; the two that can transmit speech are confined to localhost and to a host the user
-  names on the command line.
+- **Nothing the user says leaves the machine by default.** This is enforced mechanically,
+  not promised: a test enumerates every module permitted to open an outbound connection and
+  fails the build if any module gains an unregistered one (see
+  [ADR-019](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-019-egress-inventory-and-escalation.md)).
+  Exactly two paths can transmit dictated text, never audio, and both are off by default:
+  one is confined to localhost unless the user explicitly overrides it, and the other goes
+  only to a host the user names on the command line. Apart from those, the network paths
+  only fetch model weights, a version string, or (at the user's request) packages and
+  updates, and carry no user content. The remaining two are user-initiated too: a dictated
+  `git` command run with `--run`, which reaches the user's own remote, and the optional
+  bug-report button, which opens github.com with a redacted diagnostic summary.
 - **Transcription is local.** faster-whisper runs on the CPU. There is no account, no API
   key, and no telemetry.
 - **The same two OS facilities** are used by Dragon NaturallySpeaking, Talon Voice and
@@ -93,26 +98,31 @@ does and where to check it:
 | `runFullTrust` | above |
 | `microphone` | recording while the hotkey is held |
 
-**`webcam` is deliberately not declared.** Both camera features are implemented and
-reachable on a normal install, and both are off by default. Glance-Type gaze targeting
+**`webcam` is deliberately not declared.** The camera features are implemented and
+reachable on a PyPI install, and all of them are off by default. Glance-Type gaze targeting
 (`yazses features enable gaze`) routes dictation to the pane you look at. The
 Face-Gesture Switch (`yazses features enable facegesture`) opens the mic while you hold
-a facial movement, for someone who can speak but cannot press a key. Either command
+a facial movement, for someone who can speak but cannot press a key. The Head-Pointer
+(`yazses features enable headpointer`) moves the cursor by head pose. Each command
 installs the same two optional packages, `mediapipe` and `opencv-python`.
 
 What differs here is the packaging, not the product. The Store package is a frozen
-PyInstaller bundle — `scripts/build-windows.ps1` syncs only the `desktop` extra, so
-neither camera package is inside it, and an MSIX has no pip to add them afterwards.
-Both camera code paths are therefore unreachable **in this package specifically**.
-Requesting camera access a user could never benefit from is a certification question
-with no upside. Anyone who wants gaze or the face-gesture switch should install from
-[winget, Scoop or the direct installer](windows-install.md), where enabling them works
-normally.
+PyInstaller bundle — `scripts/build-windows.ps1` syncs no camera extra (only `desktop`,
+`parakeet` and `chinese`), so neither camera package is inside it, and an MSIX has no pip to add them afterwards.
+The camera code paths are therefore unreachable **in this package specifically**:
+`yazses features enable gaze` inside the MSIX refuses before it writes any config, and
+names the install that works. Requesting camera access a user could never benefit from
+is a certification question with no upside.
+
+The direct installer, winget, Scoop and Chocolatey do not help here. All four install
+the same frozen `.exe`, which has the same payload and no pip either. Anyone who wants a
+camera feature on Windows should install from PyPI (`pipx install 'yazses[gaze]'`); see
+[the camera permission and packaging matrix](capability-matrix.md#camera-permission-and-packaging).
 
 ## Building the package
 
 ```bash
-make msix VERSION=2.40.0 \
+make msix VERSION=<version> \
   IDENTITY_NAME=<from Partner Center> \
   PUBLISHER=<from Partner Center> \
   PUBLISHER_DISPLAY_NAME=<from Partner Center>
@@ -122,7 +132,7 @@ or directly:
 
 ```powershell
 ./scripts/build-windows.ps1              # produces dist/YazSes (PyInstaller COLLECT)
-./scripts/build-msix.ps1 -Version 2.40.0 `
+./scripts/build-msix.ps1 -Version <version> `
     -IdentityName "..." -Publisher "CN=..." -PublisherDisplayName "..."
 ```
 

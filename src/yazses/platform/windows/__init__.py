@@ -58,6 +58,7 @@ def build_injector():
 
 
 def build_platform() -> Platform:
+    from yazses.platform.windows.click_observer import WindowsClickObserver
     from yazses.platform.windows.hotkey import WindowsHotkey
     from yazses.platform.windows.ipc import (
         NamedPipeIpcClient,
@@ -67,6 +68,7 @@ def build_platform() -> Platform:
     from yazses.platform.windows.permissions import WindowsPermissions
     from yazses.platform.windows.pointer import WindowsPointerSink
     from yazses.platform.windows.tray import WindowsTray
+    from yazses.platform.windows.update_handoff import WindowsUpdateLauncher
 
     paths = build_paths()
     return Platform(
@@ -87,6 +89,10 @@ def build_platform() -> Platform:
         tray_factory=WindowsTray,
         tray_default_enabled=True,
         pointer_factory=WindowsPointerSink,
+        # Built, never started, here: the daemon starts it only under
+        # `[gaze_refine] enabled = true`, and the hook itself is installed in start().
+        click_observer_factory=WindowsClickObserver,
+        update_launcher=WindowsUpdateLauncher(),
     )
 
 

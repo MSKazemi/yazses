@@ -27,7 +27,11 @@ _ANSI = re.compile(r"\x1b\[[0-9;]*m")
 # was added in v2.30 and was *not* in this class, so those rows escaped the
 # alignment check entirely -- a guard that quietly stops covering a row is
 # worse than one that fails, because the table stays green while going ragged.
-_BADGES = "●○◌"
+# `◐` (on, but its optional libraries are missing -- `system/dormant.py`) is the
+# fourth; its first run proved the point again: the rows were rendered intact and
+# aligned, but this filter skipped them, so the truncation check reported `tray`
+# as missing from the table.
+_BADGES = "●○◌◐"
 _ROW = re.compile(f"│  [{_BADGES}]")
 _TIERS = ("core", "recommended", "optional", "experimental", "planned")
 

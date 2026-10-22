@@ -1,33 +1,42 @@
-"""Acoustic scene → profile policy (pure) — ADR-v2-039.
+"""Acoustic scene -> profile policy (pure) -- ADR-v2-039, amended 2026-10-15 (proposed).
 
-Map a coarse scene label to a recommended capture policy and apply hysteresis so a transient
-sound never thrashes the active profile. Pure and deterministic; the scene tagger lives behind
-the ``acoustic`` extra.
+Two scenes, ``quiet`` and ``noisy``, and a policy that is *relative*: a multiple of the room
+floor measured from the burst itself, clamped to a multiple of the gate the user configured.
+There is deliberately no absolute VAD threshold here. The earlier table (0.010 .. 0.035) sat
+6-10x above the real level of a laptop's microphone (mean |x| of 0.003-0.005 at full gain), so
+applying it would have gated away all speech; a number that fits one machine fits no other.
+
+Pure and deterministic; hysteresis (:func:`should_switch`) keeps a transient sound from
+thrashing the active scene.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
 
+SCENES = ("quiet", "noisy")
+
 
 @dataclass(frozen=True)
 class ScenePolicy:
-    """Recommended capture settings for an acoustic scene."""
+    """How a scene may move the silence gate -- always relative, never an absolute level."""
     scene: str
-    vad_threshold: float
-    denoise: bool
+    #: Wanted gate as a multiple of the measured room floor (0 = leave the gate alone).
+    floor_multiple: float
+    #: The gate may rise at most this multiple of the gate the user configured.
+    max_raise: float
 
 
-# Conservative recommendations; noisy scenes raise the VAD gate and enable denoise.
 _POLICIES = {
-    "quiet": ScenePolicy("quiet", 0.010, False),
-    "cafe": ScenePolicy("cafe", 0.030, True),
-    "car": ScenePolicy("car", 0.035, True),
-    "meeting": ScenePolicy("meeting", 0.020, True),
+    "quiet": ScenePolicy("quiet", 0.0, 1.0),
+    "noisy": ScenePolicy("noisy", 1.5, 1.5),
 }
+
+#: The gate never exceeds this multiple of the measured floor, whatever else is asked.
+MAX_FLOOR_MULTIPLE = 2.0
 
 
 def policy_for(scene) -> ScenePolicy:
-    """Return the :class:`ScenePolicy` for a scene label; unknown → ``quiet``. Pure."""
+    """Return the :class:`ScenePolicy` for a scene label; unknown -> ``quiet``. Pure."""
     return _POLICIES.get((scene or "").lower(), _POLICIES["quiet"])
 
 

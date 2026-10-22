@@ -1,3 +1,7 @@
+---
+description: "ADR-MOB-008: shared behaviour is defined once, in a language-neutral contract/ directory of golden vectors, which every implementation (desktop, Android, later iOS) must pass."
+---
+
 # ADR-MOB-008 — One behaviour, many implementations: a language-neutral contract with golden vectors
 
 **Status:** Accepted (2026-08-07) · **amended 2026-08-08** — §8 adds a hand-authored
@@ -5,8 +9,8 @@ semantic-invariant layer that the desktop cannot generate ([#98](https://github.
 **Deciders:** Mohsen Seyedkazemi Ardebili
 **Review credit:** §8 exists because **@YossiMH** read this ADR before any code was
 written and found the flaw described there.
-**Context links:** [[adr-mob-001]] (monorepo), [[adr-mob-002]] (pure-Kotlin cores),
-[[adr-mob-010]] (Apple wave), desktop analogues: `src/yazses/postprocess/`,
+**Context links:** [ADR-MOB-001](adr-mob-001-android-first-monorepo.md) (monorepo), [ADR-MOB-002](adr-mob-002-native-kotlin-stack.md) (pure-Kotlin cores),
+[ADR-MOB-010](adr-mob-010-apple-second-wave.md) (Apple wave), desktop analogues: `src/yazses/postprocess/`,
 `src/yazses/commands/grammar.py`, `src/yazses/config.py`, `src/yazses/system/features.py`,
 `scripts/gen-docs.py` + `tests/test_gen_docs.py` (the sync-guard pattern this reuses)
 
@@ -14,7 +18,7 @@ written and found the flaw described there.
 
 ## Context
 
-The Android port shares no code with the desktop ([[adr-mob-002]]) but must be *the same
+The Android port shares no code with the desktop ([ADR-MOB-002](adr-mob-002-native-kotlin-stack.md)) but must be *the same
 product*. "Same product" has a precise meaning here, and it is not vague: given the same
 recognised words and the same settings, both platforms must produce the same delivered
 text and the same command classification. Concretely that covers Whisper-artefact
@@ -150,7 +154,7 @@ code. Generate-and-guard, applied to behaviour instead of documentation, is the 
   Group needs to parallelise (`docs/mobile/contributing.md`).
 - The desktop gains a regression net over behaviour that is currently only implicitly
   specified, and a machine-readable description of its own config surface.
-- The iOS wave gets a spec for free and lands in a fraction of the time ([[adr-mob-010]]).
+- The iOS wave gets a spec for free and lands in a fraction of the time ([ADR-MOB-010](adr-mob-010-apple-second-wave.md)).
 - Cost: an extra step in desktop PRs that touch post-processing, and a real risk of
   rubber-stamped regeneration. Mitigation: the generator writes a stable, diff-friendly
   format (sorted keys, one case per block), and the PR template asks explicitly whether a
@@ -184,7 +188,7 @@ code. Generate-and-guard, applied to behaviour instead of documentation, is the 
 - **A documentation-only spec ("Android should behave like the desktop").** Exactly the
   failure this ADR exists to prevent. Prose is not enforceable; JSON in CI is.
 - **Making Android call the desktop over the network to stay in sync.** Contradicts
-  [[adr-011]] and the phone-only user.
+  [ADR-011](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-011.md) and the phone-only user.
 - **Generating the semantic invariants from the desktop too** (the original §2 approach,
   applied to §8). It would have been consistent, cheap, and worthless: an oracle derived
   from the implementation under test cannot contradict it. The layer's entire value is

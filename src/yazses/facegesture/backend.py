@@ -42,6 +42,7 @@ from yazses.facegesture.detector import (
     blendshape_scores,
     gesture_reading,
     gesture_score,
+    min_hold_s_for,
 )
 from yazses.facegesture.levels import (
     DEFAULT_HOLD_FRACTION,
@@ -178,6 +179,10 @@ class FaceGestureBackend:
                 confidence_floor=floor,
                 refractory_frames=getattr(config, "refractory_frames", 0),
                 max_hold_s=max_hold_s,
+                # eyes_closed only: 0.8 s of sample time on top of the frame count, because on
+                # the shared camera a frame is one observation at [perception] fps, not at this
+                # section's fps. Both loops pass now_s, so the timed rule always has a clock.
+                min_hold_s=min_hold_s_for(watched),
             )
             stuck = stuck_consequence(bindings.get(watched))
             if stuck is not None:  # a hold leaves a microphone open, a commit leaves the pointer frozen
@@ -379,6 +384,11 @@ class FaceGestureBackend:
         """Signal run() to exit at the next frame."""
         self._stop_event.set()
 
+    def _discard_pending(self) -> None:
+        """The gate stopped or re-armed this source: no half-made gesture may finish (#417)."""
+        for switch in self._switches.values():
+            switch.discard_pending()
+
     def _drain(self) -> None:
         """Close every open hold; shared by both camera paths' shutdown."""
         for name, switch in self._switches.items():
@@ -454,7 +464,8 @@ class FaceGestureBackend:
 
     def _feed_face(self, face, now: float) -> None:
         """One shared-camera frame through every watched gesture's detector."""
-        self._mapper.frame(has_signal=face is not None)
+        if self._mapper.frame(has_signal=face is not None):
+            self._discard_pending()
         for name, switch in self._switches.items():
             reading = gesture_reading(face, name, now_s=now, max_age_s=self._max_age_s)
             event = switch.update(reading.score, reading.confidence, now_s=now)
@@ -567,8 +578,10 @@ class FaceGestureBackend:
         """One frame through every watched gesture's detector, then out as intents."""
         shapes = self._blendshapes(landmarker, cap, cv2, mp)
         # Liveness and suppression first: a gate that has closed releases open holds
-        # before this frame can start a new one.
-        self._mapper.frame(has_signal=shapes is not None)
+        # before this frame can start a new one, and a stop or re-arm since the last
+        # frame drops every half-made gesture before this frame is counted.
+        if self._mapper.frame(has_signal=shapes is not None):
+            self._discard_pending()
         now = self._clock()
         for name, switch in self._switches.items():
             reading = self._reading_for(shapes, name)

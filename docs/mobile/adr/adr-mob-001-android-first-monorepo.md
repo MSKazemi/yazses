@@ -1,9 +1,13 @@
+---
+description: "ADR-MOB-001: YazSes mobile is a first-class, ADR-governed port, built Android first in this repository and kept in step with the desktop through a shared, tested contract."
+---
+
 # ADR-MOB-001 — Mobile is a first-class port, Android first, in this repository
 
 **Status:** Accepted (2026-08-07) · design only, no code yet
 **Deciders:** Mohsen Seyedkazemi Ardebili
-**Context links:** [[adr-011]] (zero telemetry, offline-default), [[adr-mob-002]] (native stack),
-[[adr-mob-008]] (cross-platform contract), [[adr-mob-010]] (Apple second wave),
+**Context links:** [ADR-011](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-011.md) (zero telemetry, offline-default), [ADR-MOB-002](adr-mob-002-native-kotlin-stack.md) (native stack),
+[ADR-MOB-008](adr-mob-008-cross-platform-contract.md) (cross-platform contract), [ADR-MOB-010](adr-mob-010-apple-second-wave.md) (Apple second wave),
 program docs: `docs/mobile/`
 
 ---
@@ -27,7 +31,7 @@ Three structural facts shape the decision:
    grant. On iOS, **no app extension — including a custom keyboard — may access the
    microphone**; this has been a hard Apple restriction since iOS 8, which is why every
    iOS competitor (Wispr Flow, Spokenly, Willow) routes through an app switch. So
-   "Android first" is a technical ordering, not a preference. (See [[adr-mob-010]].)
+   "Android first" is a technical ordering, not a preference. (See [ADR-MOB-010](adr-mob-010-apple-second-wave.md).)
 2. **macOS is already shipped.** The user-facing ask "…and Mac" is satisfied today by the
    desktop app; the Apple work that remains is *iOS/iPadOS*, and it is a different product
    shape, not a port of this one.
@@ -35,7 +39,7 @@ Three structural facts shape the decision:
    which has no Android build; the daemon model (long-lived process + Unix socket) fights
    Android's lifecycle; a Python-on-Android runtime cannot implement an IME. The port
    shares *behaviour*, not code — which is precisely why the behaviour must be written
-   down as a testable contract before anyone writes Kotlin ([[adr-mob-008]]).
+   down as a testable contract before anyone writes Kotlin ([ADR-MOB-008](adr-mob-008-cross-platform-contract.md)).
 
 The community question is equally structural. A mobile port is a 6–12 month effort that
 the maintainer cannot execute alone alongside the desktop line. It only happens if it is
@@ -46,7 +50,7 @@ definition of "correct", and tasks that a new contributor can finish in a weeken
 
 1. **Mobile is a first-class, ADR-governed port**, not an experiment. It is governed by
    the `adr-mob-*` series, and it inherits every v1/v2 invariant unchanged — most
-   importantly [[adr-011]] (zero telemetry, offline by default, no cloud fallback) and
+   importantly [ADR-011](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-011.md) (zero telemetry, offline by default, no cloud fallback) and
    the project rule that **new features ship off by default**.
 2. **Android is wave 1. Apple (iOS/iPadOS) is wave 2**, and wave 2 starts only after
    Android reaches M2 (see `docs/mobile/index.md` for the milestone ladder), so the
@@ -55,7 +59,7 @@ definition of "correct", and tasks that a new contributor can finish in a weeken
    with its own Gradle build and its own CI workflow — *not* in a separate
    `yazses-android` repo.
 4. **The desktop Python tree and the Android tree are peers**, both conforming to a
-   language-neutral contract in a new top-level `contract/` directory ([[adr-mob-008]]).
+   language-neutral contract in a new top-level `contract/` directory ([ADR-MOB-008](adr-mob-008-cross-platform-contract.md)).
    Neither imports the other; neither is "the reference implementation" informally — the
    contract is the reference.
 5. **Scope of wave 1 is dictation, not the whole desktop feature set.** The Android app
@@ -79,9 +83,9 @@ definition of "correct", and tasks that a new contributor can finish in a weeken
   path-filtered CI (`android/**` triggers the Gradle workflow only), separate module
   stewards, and a `mobile` label on every mobile issue.
 - A `git clone` gets bigger → the Android tree carries no model weights and no prebuilt
-  binaries ([[adr-mob-006]]), so the growth is source only.
+  binaries ([ADR-MOB-006](adr-mob-006-model-distribution.md)), so the growth is source only.
 - Release tagging must not imply that a `v2.x` desktop tag ships an APK → Android uses its
-  own tag prefix `android-v*` with its own workflow ([[adr-mob-009]]).
+  own tag prefix `android-v*` with its own workflow ([ADR-MOB-009](adr-mob-009-distribution-and-signing.md)).
 
 **Programme-level:**
 - Wave 1 will not have feature parity with the desktop, and saying so plainly is a
@@ -97,7 +101,7 @@ definition of "correct", and tasks that a new contributor can finish in a weeken
   cross-repo dependency that will drift. Revisit only if the Android tree grows its own
   distinct maintainer team.
 - **Waiting for the desktop v2 line to stabilise first.** The v2 line is a permanent
-  research frontier; "later" means never. The contract work ([[adr-mob-008]]) also pays
+  research frontier; "later" means never. The contract work ([ADR-MOB-008](adr-mob-008-cross-platform-contract.md)) also pays
   the desktop back immediately by pinning post-processing behaviour that is currently
   only implicitly specified by its tests.
 - **iOS first, or both at once.** The microphone restriction on iOS app extensions means

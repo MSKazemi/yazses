@@ -3,8 +3,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from yazses.language.capability import check
 from yazses.language.profiles import get_profile
-from yazses.stt.download import language_model_problem
 
 
 @dataclass(frozen=True)
@@ -17,10 +17,55 @@ class LanguageStatus:
     custom_model: bool
     coherent: bool
     problems: tuple[str, ...]
+    # The Tier-1 command grammar the daemon will actually use, resolved exactly as
+    # `Daemon.__init__` resolves it ([commands] language, "auto" following the speech
+    # language). Defaults keep the dataclass constructible by older callers.
+    command_language: str = ""
+    command_language_pinned: bool = False
+    command_grammar_available: bool = False
+    commands_enabled: bool = True
+    # Coherent-but-surprising combinations (an explicit [commands] language that does
+    # not match the speech language). Never a reason to call a config INVALID: the
+    # design preserves an explicit pin, so it is reported, not refused.
+    warnings: tuple[str, ...] = ()
+    # #515: what the resolved engine/model can transcribe, from the cited table in
+    # `language/capability.py`. `effective_model` is the checkpoint that would
+    # actually load (Parakeet/Moonshine ignore a Whisper name in `[stt] model`);
+    # `multilingual` is None for a custom checkpoint the table does not know;
+    # `language_support` is "supported" | "unsupported" | "unknown".
+    effective_model: str = ""
+    multilingual: bool | None = None
+    language_support: str = "supported"
+    support_source: str = ""
+    support_reason: str = ""
 
 
 def _stt(current):
     return getattr(current, "stt", current)
+
+
+def command_language_state(current, speech_language: str) -> tuple[str, bool, bool, bool]:
+    """``(resolved, pinned, grammar_available, enabled)`` for *current*'s commands.
+
+    Uses the registry's own resolver, the one the daemon calls, so status/doctor can
+    never describe a grammar the daemon would not select. Checks availability by
+    registry membership only: the Mandarin grammar module is not imported.
+
+    *current* may be a whole ``Config`` or a bare ``SttConfig``; without a
+    ``commands`` section the shipped defaults (enabled, ``auto``) apply.
+    """
+
+    from yazses.commands.grammars.registry import (
+        registered_languages,
+        resolve_command_language,
+    )
+
+    commands = getattr(current, "commands", None)
+    configured = str(getattr(commands, "language", "auto") or "auto").strip().lower()
+    enabled = bool(getattr(commands, "enabled", True))
+    resolved = resolve_command_language(configured, speech_language)
+    pinned = configured not in ("", "auto")
+    return resolved, pinned, resolved in registered_languages(), enabled
 
 
 def derive_status(current) -> LanguageStatus:
@@ -39,9 +84,9 @@ def derive_status(current) -> LanguageStatus:
 
     problems: list[str] = []
 
-    pair_problem = language_model_problem(model, language)
-    if pair_problem:
-        problems.append(pair_problem)
+    support = check(engine, model, language)
+    if support.verdict == "unsupported":
+        problems.append(support.reason)
 
     if script not in {"", "simplified", "traditional"}:
         problems.append(
@@ -69,6 +114,19 @@ def derive_status(current) -> LanguageStatus:
     elif language == "zh" and script == "traditional":
         profile_match = "zh-TW"
 
+    command_language, pinned, grammar_available, commands_enabled = (
+        command_language_state(current, language)
+    )
+    warnings: list[str] = []
+    if support.verdict == "unknown":
+        warnings.append(support.reason)
+    if commands_enabled and pinned and language in {"en", "zh"} and command_language != language:
+        warnings.append(
+            f"[commands] language is pinned to {command_language!r} while speech is "
+            f"{language!r}: spoken commands are matched against the {command_language!r} "
+            "grammar. Set [commands] language = \"auto\" to follow the speech language."
+        )
+
     custom_model = False
     if profile_match is not None:
         profile = get_profile(profile_match)
@@ -86,4 +144,14 @@ def derive_status(current) -> LanguageStatus:
         custom_model=custom_model,
         coherent=not problems,
         problems=tuple(problems),
+        command_language=command_language,
+        command_language_pinned=pinned,
+        command_grammar_available=grammar_available,
+        commands_enabled=commands_enabled,
+        warnings=tuple(warnings),
+        effective_model=support.model,
+        multilingual=support.multilingual,
+        language_support=support.verdict,
+        support_source=support.source_url,
+        support_reason=support.reason,
     )

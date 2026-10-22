@@ -1,17 +1,19 @@
 """Pitch-contour classification + command mapping (pure) — ADR-v2-103.
 
 Z-normalize a voiced F0 contour, classify its shape, and map it to a command. Pure and
-deterministic; the F0 tracker is the lazy extra.
+deterministic; the F0 contour comes from ``yazses.contour.burst`` (numpy, no optional extra).
 """
 from __future__ import annotations
 
 import math
 
+#: A *flat* hum is deliberately absent (owner decision 2026-10-21): a reflexive thinking "hmm"
+#: is flat, and mapping it would make the commonest non-word sound a command. A user profile
+#: may still map it.
 _DEFAULT_MAP = {
     "rise": "confirm",
     "fall": "cancel",
     "rise_fall": "undo",
-    "flat": "repeat",
 }
 
 

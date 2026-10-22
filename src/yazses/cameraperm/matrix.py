@@ -76,6 +76,12 @@ class PackageProfile:
     remedy: str
     #: Why the row is what it is -- the sentence a reviewer needs.
     why: str
+    #: True when a heavy feature's libraries can be added as an ADR-028 add-on pack
+    #: (downloaded, hash-checked against the index built into the app, mounted at
+    #: start). Distinct from ``can_add_runtime``: a frozen bundle still cannot pip-install
+    #: anything, and every pip path keeps refusing there. Phase 1 is the Inno ``.exe``
+    #: only; ``packs/policy.py::PACK_INSTALL_METHODS`` narrows it further by channel.
+    can_add_packs: bool = False
 
 
 PACKAGE_PROFILES: tuple[PackageProfile, ...] = (
@@ -143,10 +149,13 @@ PACKAGE_PROFILES: tuple[PackageProfile, ...] = (
         declares_camera=False,
         remedy="pipx install 'yazses[gaze]'   # the camera features need a real Python",
         why=(
-            "scripts/build-windows.ps1 syncs only `--extra desktop`, so the frozen "
-            "bundle carries no camera runtime. An unpackaged Windows app declares no "
+            "scripts/build-windows.ps1 syncs no camera extra (desktop, parakeet and "
+            "chinese only), so the frozen bundle carries no camera runtime. An unpackaged Windows app declares no "
             "capabilities: the gate is Settings -> Privacy -> Camera, not a manifest."
         ),
+        # ADR-028 Phase 1. The camera row is unchanged until a `gaze` pack exists
+        # (Phase 2) and EYE-PERM-001 is re-checked against it.
+        can_add_packs=True,
     ),
     PackageProfile(
         key="windows-msix",

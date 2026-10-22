@@ -100,6 +100,8 @@ docs:
 	uv run python scripts/gen-man.py
 	@echo "▶  Regenerating the eye validation coverage dashboard…"
 	uv run python scripts/gen-eye-validation-dashboard.py
+	@echo "▶  Regenerating the paper-v2 manuscript tables from paper/results/…"
+	uv run python scripts/gen-paper-v2-tables.py
 
 docs-serve:
 	@echo "▶  Serving the docs site at http://127.0.0.1:8000 …"

@@ -53,6 +53,7 @@ def finalize_meeting(
     llm=None,
     progress=None,
     live_words: int = 0,
+    stt=None,
 ) -> MeetingResult:
     """Transcribe + diarize the recording and (opt-in) generate minutes.
 
@@ -74,6 +75,7 @@ def finalize_meeting(
         embedder=embedder,
         profiles=profiles,
         progress=progress,
+        stt=stt,
     )
 
     minutes = None

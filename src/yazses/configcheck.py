@@ -25,11 +25,10 @@ import math
 import re
 import types
 import typing
+from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass
 
-from yazses.facegesture.detector import gesture_names as _gesture_names
-
-__all__ = ["ConfigProblem", "build_section", "coerce_value"]
+__all__ = ["ConfigProblem", "build_section", "coerce_value", "language_pairing_problems"]
 
 _TRUE = {"true", "yes", "on", "1"}
 _FALSE = {"false", "no", "off", "0"}
@@ -43,6 +42,10 @@ class ConfigProblem:
     key: str
     detail: str
     repaired: bool  # True = value salvaged; False = default used, or key dropped
+    #: The value was kept as written, but what it asks for is refused at runtime
+    #: (#515: a language the engine/model cannot transcribe). `repaired` is False:
+    #: the setting the user believes is applied is not, which is a FAIL in doctor.
+    refused: bool = False
 
     def __str__(self) -> str:
         where = f"[{self.section}] {self.key}" if self.key else f"[{self.section}]"
@@ -209,9 +212,55 @@ def out_of_bounds(field, value) -> str | None:
     return None
 
 
-#: The face-gesture switch's supported gestures, read from their definition rather
-#: than restated, so this file cannot fall behind it.
-_FACE_GESTURES: tuple[str, ...] = _gesture_names()
+def _face_gestures() -> tuple[str, ...]:
+    """The face-gesture switch's supported gestures, read from their definition.
+
+    Read rather than restated, so this file cannot fall behind it -- and read on the
+    first lookup of ``facegesture.gesture`` rather than at import. `configcheck` is
+    imported by `yazses.config`, which every daemon start and most CLI commands load,
+    and importing `yazses.facegesture` here made every one of them pay for a feature
+    that is off by default (tests/test_base_weight_budget.py).
+    """
+    from yazses.facegesture.detector import gesture_names
+
+    return gesture_names()
+
+
+class _ClosedSets(Mapping[str, tuple[str, ...]]):
+    """`_ENUMS`: a read-only mapping whose few feature-owned sets resolve on first use.
+
+    A value in *table* is either the tuple itself or a zero-argument function that
+    returns it. A function is called the first time its key is read and its result
+    kept, so every lookup -- `[]`, `get`, `in`, iteration, `values()`, `items()` --
+    sees the same tuples a plain dict built eagerly would have held. Only reading the
+    *value* of a deferred key imports anything: `in`, `len` and iterating the keys do
+    not, and a config that never sets `[facegesture] gesture` never reads it.
+    """
+
+    def __init__(
+        self, table: dict[str, tuple[str, ...] | Callable[[], tuple[str, ...]]]
+    ) -> None:
+        self._table = table
+
+    def __getitem__(self, key: str) -> tuple[str, ...]:
+        value = self._table[key]
+        if callable(value):
+            # Pure and idempotent, so two threads racing here store equal tuples.
+            value = self._table[key] = tuple(value())
+        return value
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self._table)
+
+    def __len__(self) -> int:
+        return len(self._table)
+
+    def __contains__(self, key: object) -> bool:
+        return key in self._table
+
+    def is_deferred(self, key: str) -> bool:
+        """Whether *key*'s set has not been resolved yet. For the tests."""
+        return callable(self._table.get(key))
 
 #: Settings whose documented values are a closed set, keyed by ``section.key``.
 #:
@@ -293,7 +342,7 @@ def _injection_backend_values() -> tuple[str, ...]:
         return ("type", "ydotool", "clipboard", "wtype", "portal", "unicode")
 
 
-_ENUMS: dict[str, tuple[str, ...]] = {
+_ENUMS: Mapping[str, tuple[str, ...]] = _ClosedSets({
     "commands.language": ("auto", "en", "zh"),
     # DERIVED from `inject/registry.BACKENDS`, not hand-written. The hand-written
     # version is what silently reverted a documented `backend = "ydotool"` to
@@ -329,7 +378,9 @@ _ENUMS: dict[str, tuple[str, ...]] = {
     # set that already exists is the thing that drifts, and the value names a facial
     # movement the daemon has to be watching for the switch to work at all.
     "facegesture.mode": ("command", "full_text"),
-    "facegesture.gesture": _FACE_GESTURES,
+    # Deferred (a function, resolved on first lookup) so that importing this module
+    # does not import the face-gesture feature; see `_ClosedSets`.
+    "facegesture.gesture": _face_gestures,
     # Five more, each read at its consumer first. They share one shape: the value is
     # compared against a single name and *everything else* takes the other branch, so a
     # typo is not rejected, it silently selects the alternative.
@@ -358,7 +409,7 @@ _ENUMS: dict[str, tuple[str, ...]] = {
     # bottom_center for everything else, so a typo moves the overlay somewhere the
     # user did not ask for rather than reporting anything.
     "overlay.position": ("cursor", "bottom_center", "top_center", "corner"),
-}
+})
 
 
 #: Settings whose entries must be valid regular expressions. Type coercion accepts any
@@ -500,3 +551,51 @@ def _name(value) -> str:
 
 def _type_name(tp) -> str:
     return getattr(tp, "__name__", str(tp))
+
+
+def language_pairing_problems(config) -> list[ConfigProblem]:
+    """Why ``[stt] language`` cannot be transcribed by the configured engine/model. Pure.
+
+    A cross-field check, so it cannot live in :func:`build_section`: ``language`` and
+    ``model`` are each valid alone, and only the pair is impossible. The verdict comes
+    from `language/capability.py`, the same cited table `stt/factory.py` refuses on, so
+    `doctor` and the config log name the line the daemon will refuse — before the
+    user dictates Persian and gets English. Nothing is rewritten: silently swapping
+    ``base.en`` for a 460 MB multilingual model is a download the user did not ask
+    for. Only a *cited* incompatibility is reported; a custom checkpoint is not.
+
+    ``[latency] light_model`` is checked too when the governor is on: it is built
+    through the same factory, which refuses it, so under load the governor keeps the
+    base model — correct, but the user should know the setting is inert.
+    """
+    try:
+        from yazses.language.capability import check, resolve_engine
+    except Exception:  # pragma: no cover - a check must never stop the daemon starting
+        return []
+    stt = getattr(config, "stt", None)
+    if stt is None:
+        return []
+    language = getattr(stt, "language", "en")
+    out: list[ConfigProblem] = []
+    support = check(getattr(stt, "engine", ""), getattr(stt, "model", ""), language)
+    if support.verdict == "unsupported":
+        key = "model" if resolve_engine(getattr(stt, "engine", "")) == "faster-whisper" else "engine"
+        out.append(ConfigProblem(
+            "stt", key,
+            f"{support.reason} Dictation is refused until this is fixed; "
+            "`yazses language status` shows the pairing",
+            repaired=False, refused=True,
+        ))
+        return out  # the light model cannot matter while the base pairing is refused
+    latency = getattr(config, "latency", None)
+    if latency is not None and getattr(latency, "enabled", False):
+        light = getattr(latency, "light_model", "") or ""
+        light_support = check(getattr(stt, "engine", ""), light, language)
+        if light and light_support.verdict == "unsupported":
+            out.append(ConfigProblem(
+                "latency", "light_model",
+                f"{light_support.reason} The latency governor will keep using "
+                "[stt] model under load instead of switching to it",
+                repaired=False, refused=True,
+            ))
+    return out

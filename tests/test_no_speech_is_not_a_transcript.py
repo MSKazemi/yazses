@@ -210,7 +210,7 @@ def _run(tmp_path, monkeypatch, audio, text="You"):
     )
     monkeypatch.setattr(
         "yazses.recimport.pipeline._build_engine",
-        lambda _config: _FakeEngine(text),
+        lambda _config, stt=None: _FakeEngine(text),
         raising=True,
     )
     src = tmp_path / "clip.wav"

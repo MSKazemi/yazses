@@ -39,6 +39,14 @@ fails first.
 * *A disabled button says why.* The reason sits in visible text beside it and in its
   accessible description; a greyed-out control with no explanation is a dead end for someone
   who cannot hover.
+* *Every way to stop is listed, and only the ones that exist.* A "Ways to stop without
+  pointing" block, reachable by Tab straight after the three emergency buttons, names the
+  routes the saved config actually sets up (this window's Alt keys, the terminal, the voice
+  stop phrase, a face switch or a chord mapped to Pause) -- decided by
+  :func:`yazses.handsfree.panel.stop_routes`, never a generic promise.
+* *Package work never freezes it, and never hides behind it.* While the settings window is
+  installing packages or preparing a model (on its own worker thread), this window's Apply is
+  disabled and says what is running; Pause, Resume and Recenter stay usable throughout.
 * *Opening it never opens the camera, and never blocks.* The slow part of gathering the facts
   (the display topology behind the calibration check) runs on a worker thread; the window
   appears at once saying it is checking.
@@ -66,7 +74,7 @@ from yazses.handsfree.panel_io import ActionResult
 
 log = logging.getLogger(__name__)
 
-__all__ = ["MIN_TARGET_PX", "HandsFreePanel", "mnemonic"]
+__all__ = ["MIN_TARGET_PX", "HandsFreePanel", "apply_control", "mnemonic", "stop_routes_text"]
 
 #: Minimum height (and width) of any button, in pixels. Not a measured value: a conventional
 #: large-target floor, set well above the toolkit default (~24 px) because the users of this
@@ -120,6 +128,32 @@ def health_text(model: PanelModel) -> str:
     return "\n".join(lines) if lines else "No camera control is switched on, so there is nothing to report."
 
 
+def stop_routes_text(model: PanelModel) -> str:
+    """The stop routes as one block of text, one route per line. Pure."""
+    if not model.stop_routes:
+        return "Nothing hands-free is switched on, so there is nothing to stop."
+    return "\n".join(f"• {route}" for route in model.stop_routes)
+
+
+def apply_control(has_apply: bool, busy: str) -> tuple[bool, str]:
+    """``(enabled, why_disabled)`` for this window's Apply button. Pure.
+
+    ``busy`` is the settings window's own account of the package or model work it is doing
+    ("" = none). Pressing Apply here while that runs used to start a second Apply whose
+    install the settings window then dropped without a word, because it never runs two
+    package workers at once; its own Apply is disabled for exactly that reason, and this one
+    now follows it.
+    """
+    if not has_apply:
+        return False, "Applying is not available from here."
+    if busy:
+        return False, (
+            f"Busy: {busy.strip()} (Apply comes back when that finishes; Pause, Resume and "
+            "Recenter work meanwhile.)"
+        )
+    return True, ""
+
+
 class HandsFreePanel:
     """The window. ``gather`` and ``perform`` are injected so tests never touch a daemon."""
 
@@ -129,7 +163,8 @@ class HandsFreePanel:
         perform: Callable[[ActionSpec], ActionResult],
         *,
         toggle_feature: Callable[[str, bool], None] | None = None,
-        apply_staged: Callable[[], None] | None = None,
+        apply_staged: Callable[[], str | None] | None = None,
+        apply_busy: Callable[[], str] | None = None,
         poll_ms: int = 1000,
         threaded: bool = True,
         parent: Any = None,
@@ -155,6 +190,9 @@ class HandsFreePanel:
         self._perform = perform
         self._toggle_feature = toggle_feature
         self._apply_staged = apply_staged
+        #: ``() -> reason`` the settings window is busy installing/preparing ("" = idle).
+        #: Called on the UI thread only, so it may read widgets.
+        self._apply_busy = apply_busy
         self._threaded = threaded
         self._inputs: PanelInputs | None = None
         self._model: PanelModel | None = None
@@ -225,6 +263,22 @@ class HandsFreePanel:
         self._result = wrapped("")
         col.addWidget(self._result)
 
+        # ---- 2b. every way to stop that needs no pointer ------------------------
+        from PySide6.QtCore import Qt
+
+        rbox = QGroupBox("Ways to stop without pointing")
+        rlay = QVBoxLayout(rbox)
+        self._routes = wrapped("Checking…")
+        self._routes.setTextInteractionFlags(
+            Qt.TextInteractionFlag.TextSelectableByMouse
+            | Qt.TextInteractionFlag.TextSelectableByKeyboard
+        )
+        # Reachable by Tab, like the health report: a list of stop routes nobody can reach
+        # without a pointer would defeat its own purpose.
+        self._routes.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        rlay.addWidget(self._routes)
+        col.addWidget(rbox)
+
         # ---- 3. camera controls (the existing staged-toggle path) --------------
         box = QGroupBox("Camera controls")
         grid = QGridLayout(box)
@@ -246,6 +300,8 @@ class HandsFreePanel:
         apply_row.addWidget(apply_btn)
         apply_row.addStretch(1)
         col.addLayout(apply_row)
+        self._apply_why = wrapped("")
+        col.addWidget(self._apply_why)
 
         # ---- 4. dwell, independently of motion ---------------------------------
         dbox = QGroupBox("Dwell-click (clicks when you hold still)")
@@ -272,8 +328,6 @@ class HandsFreePanel:
         hbox = QGroupBox("Health")
         hlay = QVBoxLayout(hbox)
         self._health = wrapped("Checking…")
-        from PySide6.QtCore import Qt
-
         self._health.setTextInteractionFlags(
             Qt.TextInteractionFlag.TextSelectableByMouse
             | Qt.TextInteractionFlag.TextSelectableByKeyboard
@@ -388,10 +442,11 @@ class HandsFreePanel:
     def _set_tab_order(self) -> None:
         """Pause, Resume, Recenter first; then controls, in reading order. Explicit, so a
         layout change cannot silently reorder what a keyboard user reaches first."""
-        order = ["pause", "resume", "recenter"]
-        order += [f"feature_{s}" for s in ("headpointer", "facegesture", "gaze")] + ["apply"]
+        widgets: list[Any] = [self._buttons[i] for i in ("pause", "resume", "recenter")]
+        widgets.append(self._routes)
+        order = [f"feature_{s}" for s in ("headpointer", "facegesture", "gaze")] + ["apply"]
         order += ["dwell_off", "dwell_on", "safety_toggle"]
-        widgets: list[Any] = [self._buttons[i] for i in order]
+        widgets += [self._buttons[i] for i in order]
         widgets.append(self._health)
         for gesture, (_name, combo, setb) in self._map_widgets.items():
             widgets += [combo, setb]
@@ -477,6 +532,7 @@ class HandsFreePanel:
             if not spec.enabled:
                 why_lines.append(f"{spec.label}: unavailable — {spec.why_disabled}")
         self._set_text(self._why_box, "\n".join(why_lines))
+        self._set_text(self._routes, stop_routes_text(model))
 
         dwell_why = []
         for spec in model.dwell:
@@ -493,7 +549,7 @@ class HandsFreePanel:
         self._set_text(self._safety_btn, sp.label)
         self._set_enabled(self._safety_btn, sp.enabled)
         self._safety_btn.setAccessibleDescription(sp.help)
-        self._set_enabled(self._buttons["apply"], self._apply_staged is not None)
+        self._render_apply()
         self._set_text(self._safety_help, sp.help)
 
         for feat in model.features:
@@ -508,6 +564,27 @@ class HandsFreePanel:
         if not self._first_read:
             self._first_read = True
             self._focus_first_action(focused, model)
+
+    def _busy_reason(self) -> str:
+        if self._apply_busy is None:
+            return ""
+        try:
+            return str(self._apply_busy() or "")
+        except Exception:
+            log.debug("hands-free panel: apply_busy failed", exc_info=True)
+            return ""
+
+    def _render_apply(self) -> None:
+        enabled, why = apply_control(self._apply_staged is not None, self._busy_reason())
+        btn = self._buttons["apply"]
+        self._set_enabled(btn, enabled)
+        description = why or (
+            "Writes the camera-control changes you staged and installs any missing "
+            "packages. The install runs in the background."
+        )
+        if btn.accessibleDescription() != description:  # polled every second: set on change
+            btn.setAccessibleDescription(description)
+        self._set_text(self._apply_why, why)
 
     def _focus_first_action(self, focused: Any, model: PanelModel) -> None:
         """On the first read, put focus on the action the state calls for (Recover when
@@ -618,10 +695,18 @@ class HandsFreePanel:
         self.refresh()
 
     def _press_apply(self) -> None:
-        if self._apply_staged is None:
+        enabled, why = apply_control(self._apply_staged is not None, self._busy_reason())
+        if not enabled or self._apply_staged is None:
+            self._show(f"Not applied: {why}")
             return
-        self._apply_staged()
-        self._show("Applied. Restart YazSes for camera-control changes to take effect.")
+        summary = self._apply_staged()
+        # The settings window's own summary says what was written, what is installing and
+        # whether a restart is needed; "Applied." on its own claimed all three every time.
+        self._show(
+            summary.strip() if summary and summary.strip()
+            else "Applied. Restart YazSes for camera-control changes to take effect."
+        )
+        self._render_apply()
         self.refresh()
 
     def _press_map(self, gesture: str) -> None:

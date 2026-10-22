@@ -47,7 +47,8 @@ has beautifully forgiving requirements: squeeze-onset detection lands at
 **35–125 ms** with classical threshold/TKEO methods ([Liu et al.](#ref-onset)) —
 faster than human reaction time. Even continuous grip *force* regresses at
 r≈0.97 ([Rahimi et al.](#ref-grip)), which is why "light squeeze = talk, hard
-squeeze = command" is on our roadmap.
+squeeze = command" is already implemented as pure logic (`platform/emg/pressure.py`)
+but not yet wired to a config key or the daemon.
 
 ```mermaid
 flowchart LR
@@ -211,11 +212,11 @@ Not the thesis — the *seam*. Splitting the earlier claim in two:
 Three concrete consequences we are treating as design work rather than
 speculation:
 
-- **The activation seam is currently trigger-only.** `EMGBackend` implements
-  `HotkeyBackend` — it can say *start* and *stop*, and nothing else. A decoder
-  that produces an intent or a word cannot express it. Widening that protocol to
-  admit an intent-carrying source is the smallest change that makes every system
-  in the table above pluggable.
+- **The activation seam now carries intent.** `EMGBackend` itself is still
+  onset/offset only, but an activation source can declare a vocabulary and emit a
+  label plus a confidence (see [the seam](#the-seam-if-you-want-to-plug-a-decoder-in)
+  below) — the change that makes every system in the table above pluggable. What is
+  missing is a decoder that uses it.
 - **The shared representation is the cheap integration point.** If S3 features
   linearly track EMG power ([r = 0.85](#ref-emg2speech)), an EMG decoder that
   targets the same latent space a speech encoder already produces can reuse the
@@ -302,11 +303,12 @@ until an intent-carrying source exists.
    [emg2qwerty](#ref-emg2qwerty) identifies as the hard part. A silent command
    set is only useful if it survives taking the device off and putting it
    back on.
-6. **Should the activation seam carry intent, not just onset?** Today a source
-   can say *start* and *stop*. Widening it so a decoder can deliver a word or
-   an intent would make every system in the table above pluggable — but it
-   also invites a source to inject text the user never reviewed. What is the
-   right confirmation model for a channel with a 3% error rate?
+6. **Is the confirmation gate set right?** The seam now carries intent, gated on
+   confidence × consequence (a reversible intent acts at 0.90 or above and confirms
+   below it, an irreversible one always confirms, and below 0.50 it is dropped).
+   Those thresholds are literature-derived, not measured: what do real decoders'
+   confidence distributions say about where they should sit for a channel with a
+   3% error rate?
 
 !!! tip "If you build the rig, we'll help"
 

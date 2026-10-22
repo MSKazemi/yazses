@@ -72,11 +72,35 @@ def test_no_model_set_is_not_reported_as_notes_being_off() -> None:
     assert "are off" not in reason
 
 
-def test_a_missing_dependency_names_the_extra() -> None:
-    reason = notes_unavailable_reason(_Cfg(), have_llama=False)
+def test_a_missing_dependency_names_the_library_and_the_derived_command() -> None:
+    """It said `uv sync --extra notes`, which does nothing outside a source checkout.
+
+    The command now comes from `system/remedy.install_hint`, injected here so the
+    test does not depend on how this checkout happens to be installed.
+    """
+    hint = "Install them with:  pipx inject yazses llama-cpp-python>=0.3.33"
+    reason = notes_unavailable_reason(_Cfg(), have_llama=False, hint=hint)
     assert reason is not None
     assert "llama-cpp-python" in reason
-    assert "--extra notes" in reason
+    assert hint in reason
+    assert "uv sync --extra" not in reason
+
+
+def test_the_default_hint_is_derived_for_the_notes_extra(monkeypatch) -> None:
+    from yazses.system import remedy
+
+    seen: list[tuple] = []
+
+    def fake(extra, **kw):
+        seen.append((extra, kw))
+        return "DERIVED"
+
+    monkeypatch.setattr(remedy, "install_hint", fake)
+    reason = notes_unavailable_reason(_Cfg(), have_llama=False)
+    assert reason is not None and reason.endswith("DERIVED")
+    # No capability is named: the one that ships llama-cpp-python (llm-cleanup)
+    # would switch on LLM rewriting of every dictation.
+    assert seen == [("notes", {})]
 
 
 def test_a_model_path_that_is_not_a_file_says_which_path() -> None:

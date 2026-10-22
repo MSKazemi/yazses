@@ -21,9 +21,7 @@ import ipaddress
 import json
 import logging
 import re
-import urllib.error
 import urllib.parse
-import urllib.request
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -289,6 +287,12 @@ class LlmCleaner:
         return self._model
 
     def _complete_ollama(self, text: str, custom_prompt: str | None) -> str | None:
+        # Imported here, not at module scope: the daemon imports this module on every
+        # start to build a cleaner that is disabled by default, and `urllib.request`
+        # drags in http.client, ssl and email (~13 ms) for a backend nobody enabled.
+        import urllib.error
+        import urllib.request
+
         payload = json.dumps(
             {
                 "model": "qwen2.5:1.5b",

@@ -35,7 +35,9 @@ Every module in `src/yazses/` that contains an outbound network primitive
 | `gaze/download.py` | `storage.googleapis.com` | ← MediaPipe model (~3.7 MB) | user enables gaze |
 | `recimport/download.py` | `github.com` releases | ← sherpa-onnx models (~15 MB) | user enables diarization |
 | `tts/download.py` | `github.com` releases | ← Kokoro voice model | user enables read-back |
-| `system/updater.py` | `pypi.org`, GitHub API | ↔ a version string | `yazses update`, or the opt-in watcher |
+| `system/updater.py` | `pypi.org`, GitHub API | ↔ a version string | `yazses update`, the tray's or the Settings window's *Check for updates*, or the opt-in watcher |
+| `system/installer_update.py` | GitHub API, `github.com` release assets (redirected only to `*.githubusercontent.com`) | ← the release JSON, `SHA256SUMS.txt` and **the installer `.exe`, which then runs** | the user confirms a one-click update — `yazses update`, the Windows tray or the Settings window ([ADR-027](adr-027-one-click-windows-update.md)) |
+| `packs/fetch.py` (via the helpers above; see *Reached by calling the shared release downloader* below) | `github.com/MSKazemi/yazses/releases/download/v<running version>/` (redirected only to `*.githubusercontent.com`) | ← `SHA256SUMS.txt` and **an add-on pack `.yazpack`, whose code then runs** | the user confirms enabling a pack-backed feature, clicks the Settings window's **Install now** for one, or runs `yazses packs install` in the Windows installer build ([ADR-028](adr-028-feature-addon-packs.md)) |
 | `postprocess/llm_cleanup.py` | `[filters.disfluency] llm_endpoint` | **→ dictated text** | LLM cleanup enabled |
 | `remote/local_proxy.py` | `127.0.0.1` (the tunnel's local end) | **→ dictated text** | `yazses remote <host>` |
 
@@ -54,10 +56,11 @@ program was not mentioned. A second scan now covers it.
 |---|---|---|---|
 | `remote/forwarder.py` | `ssh` | **→ dictated text**, as the tunnel for `local_proxy` | `yazses remote <host>` |
 | `gitvoice/plan.py` | `git` | ← → repository content | `yazses gitvoice … --run` |
-| `system/deps.py` | `uv` / `pip` | → package names, ← **code that then runs here** | `yazses features enable <name>` |
+| `system/deps.py` | `uv` / `pip` / `pipx inject` | → package names, ← **code that then runs here** — from PyPI, plus `download.pytorch.org` (the PyTorch project's CPU-wheel index) for the torch stack on Linux, where PyPI's torch is the CUDA build (added 2026-10-21; same program, same class, one more first-party host) | `yazses features enable <name>`, `yazses features install`, the dormant-feature toast's or the Settings window's **Install now** click, the `yazses start` prompt — each an explicit user action |
 | `system/setup.py` | `apt-get` (as root) | → package names, ← OS packages | `yazses setup` |
 | `system/winsetup.py` | `winget`, `pip` | → package names, ← VC++ runtime / wheels | `yazses setup` (Windows) |
-| `system/updater.py` | `snap` / `uv` / `pipx` / `pip` / `winget` / `choco` / `scoop` | ← a new version of YazSes | `yazses update`, or the tray's Install |
+| `system/updater.py` | `snap` / `uv` / `pipx` / `pip` / `winget` / `choco` / `scoop` | ← a new version of YazSes | `yazses update`, or the tray's or the Settings window's Install |
+| `platform/windows/update_handoff.py` | `choco search` / `winget show` / `scoop info`, then that manager's upgrade (Chocolatey elevated, by absolute path) | → the package name, ← its feed's version, then a new YazSes | *Check for updates…* (tray or Settings window) / `yazses update` on a Chocolatey, winget or Scoop install ([ADR-027](adr-027-one-click-windows-update.md)) |
 
 The last three were invisible for the same reason the first two once were, one level
 further in: the scan listed *transports* — `ssh`, `curl`, `wget`, `git` — and no
@@ -78,6 +81,20 @@ exposure. What it does correct is the row above it: `local_proxy` connects to `1
 and nowhere else, and this is the half that makes that loopback reach the named host. The
 table used to name the remote host as `local_proxy`'s destination, which described the
 route rather than the module.
+
+**The one-click Windows update (ADR-027)** reaches the network in two ways, and only after
+the user has confirmed an update. `system/installer_update.py` downloads the installer
+itself (the fetch row above): it accepts only a URL under
+`https://github.com/MSKazemi/yazses/releases/download/`, follows redirects only to GitHub's
+https asset hosts, caps the size, and runs nothing whose SHA-256 differs from the release's
+`SHA256SUMS.txt`. For Chocolatey, winget and Scoop, `platform/windows/update_handoff.py`
+(its own row above) first asks the manager which version its feed carries, so nothing is
+offered that the manager will not deliver, then hands the upgrade command already declared
+in the `system/updater.py` row to a detached Windows PowerShell job that runs it after
+YazSes has exited. No new destination is added. Nothing about the user is sent by either.
+(The first version of this paragraph said the hand-off was invisible to the shell-out scan;
+the feed queries are list literals, so the scan found the module on its own — which is the
+guard doing its job.)
 
 `gitvoice/plan.py` builds the argv; `cli.py` runs it only under `--run`, and only with
 `--yes` when the command is destructive. It carries the user's repository at their explicit
@@ -102,12 +119,17 @@ review. (These two were found *by* the guard, not by the audit that preceded it.
 
 ### The two classes, which is the useful part
 
-**Class A — fetch.** Five of the seven only pull *in*: model weights and a version number.
-No user content is transmitted. They go to fixed, hard-coded hosts, they run once, and
-they are triggered by the user turning something on. (This said "six of the seven" until
-2026-08-20 — the inventory table above has always had five fetches and two sends. The
-count was written by hand and never recomputed, which is the same failure the enforced
-inventory exists to prevent, one level up.)
+**Class A — fetch.** Seven of the nine only pull *in*: model weights, a version number and,
+since ADR-027, the Windows installer, and since ADR-028 an add-on pack. No user content is transmitted. They go to fixed,
+hard-coded hosts, they run once, and they are triggered by the user turning something on
+or confirming an update. (This said "six of the seven" until 2026-08-20 — the inventory
+table above then had five fetches and two sends. The count was written by hand and never
+recomputed, which is the same failure the enforced inventory exists to prevent, one level
+up. On 2026-10-20 `system/installer_update.py` made it six fetches of eight, and on
+2026-10-21 `packs/fetch.py` made it seven of nine. The authoritative count is `FETCH`,
+`FETCH_VIA` and `SEND` in `tests/test_egress_inventory.py`, and
+`test_the_class_a_count_in_adr_019_is_computed_not_written` now fails when this sentence
+disagrees with them.)
 
 **Class B — send.** **Exactly two code paths in the entire product can transmit
 something the user said**, and both are already constrained:
@@ -153,6 +175,28 @@ paths and identifiers removed, a metadata-only log tail. No dictated text, and t
 learning corpus is reported by size and never opened. The docstring on `issue_url` says
 so in those terms, and `test_the_issue_url_says_when_the_report_actually_travels` fails if
 it goes back to implying the content waits for the submit button.
+
+## Reached by calling the shared release downloader
+
+The fifth mechanism, and the first found before it shipped. ADR-028's add-on packs reuse
+ADR-027's allow-listed helpers in `system/installer_update.py` (`fetch_checksums`,
+`expected_sha256`, `download_verified`) instead of adding a second downloader. That is the
+right design, and it makes the caller invisible: `packs/fetch.py` imports no `urllib`,
+spawns nothing and names no model. So a fourth scan finds every call to
+`download_verified`, `fetch_checksums` or `fetch_release_payload` outside their defining
+module, and the result must equal `FETCH_VIA` in the test, in both directions.
+
+| Module | Through | What crosses the wire | Trigger |
+|---|---|---|---|
+| `packs/fetch.py` | `fetch_checksums`, `download_verified` | → an HTTP GET with the fixed asset headers, no cookie, no token; ← `SHA256SUMS.txt` and the `.yazpack`, **code that then runs** | the user confirms enabling a pack-backed feature, or `yazses packs install` |
+
+Two more assertions go with it. A pack download is user-initiated only: nothing reachable
+from `core/daemon.py`, `system/update_notify.py` or the PyInstaller runtime hook can import
+`packs.fetch`, `packs.install` or `packs.manage`, checked on the static import closure.
+And a `FETCH_VIA` module may not import a network primitive itself, which would make it the
+second downloader ADR-028 refuses. The request reveals what a manual download from the
+releases page reveals: this IP fetched add-on *X* for version *Y*. No API call is made, so
+`api.github.com` is never contacted on this path.
 
 ## Reached by asking a dependency to load a model by name
 

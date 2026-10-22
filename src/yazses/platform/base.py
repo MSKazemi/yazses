@@ -335,6 +335,140 @@ class HostBackend(Protocol):
         ...
 
 
+@dataclass(frozen=True)
+class UpdateHandoff:
+    """What a detached updater must do once YazSes itself has exited (ADR-027).
+
+    An installer cannot replace files that the process which launched it still holds
+    open, so a one-click update is a *hand-off*: YazSes describes the job here, an
+    :class:`UpdateLauncher` starts it detached, and YazSes then shuts down. Built by the
+    pure planner in ``system/installer_update.py``; carried out by the OS backend.
+    """
+
+    #: ``"installer"`` (a verified, downloaded .exe) or ``"package-manager"``
+    #: (choco / winget / scoop running the upgrade it already knows).
+    kind: str
+    #: The program and its arguments. For ``"installer"`` the first element is the
+    #: downloaded file, already checked against the release's SHA-256.
+    argv: tuple[str, ...]
+    #: Run with administrator rights (a UAC prompt): Chocolatey, and an ``"installer"``
+    #: for an all-users install. The latter never elevates the downloaded file itself --
+    #: the launcher elevates a job that first copies it somewhere only administrators can
+    #: write and checks ``sha256`` there (ADR-027).
+    elevate: bool
+    #: Process ids to wait for before starting, so the files are free to replace.
+    wait_pids: tuple[int, ...]
+    #: How to start YazSes again afterwards — whether the update succeeded or not.
+    relaunch: tuple[str, ...]
+    #: Where the detached job writes what it did, and the exit code it got.
+    log_file: Path
+    result_file: Path
+    #: Files to delete once the job has run (the downloaded installer).
+    cleanup: tuple[Path, ...] = ()
+    #: Capture the program's console output into ``log_file``. Not possible for an
+    #: elevated run (Windows does not redirect across a UAC boundary).
+    capture_output: bool = False
+    #: The SHA-256 the installer was verified against. The detached job checks it once
+    #: more immediately before running the file, so the window between "verified" and
+    #: "run" (YazSes shutting down) cannot be used to swap it. Empty for package managers,
+    #: which verify their own downloads.
+    sha256: str = ""
+
+
+@runtime_checkable
+class UpdateLauncher(Protocol):
+    """Runs a one-click update after YazSes has exited. One implementation per OS that
+    has one; ``Platform.update_launcher`` is ``None`` everywhere else (ADR-027)."""
+
+    def staging_dir(self) -> Path:
+        """A per-user directory for the download, the log and the result file."""
+        ...
+
+    def native_arch(self) -> str:
+        """The machine's own architecture, normalised ("x64", "arm64", ...)."""
+        ...
+
+    def relaunch_command(self) -> list[str] | None:
+        """argv that starts YazSes again, or ``None`` when that cannot be known."""
+        ...
+
+    def install_scope(self) -> str:
+        """``"user"`` for a per-user install, ``"machine"`` for an all-users one, or
+        ``"unknown"``. ``"user"`` runs the installer unelevated, ``"machine"`` through the
+        elevated admin-only-copy job, and ``"unknown"`` gets no one-click at all."""
+        ...
+
+    def query_package_manager(self, method: str) -> str | None:
+        """What ``method``'s package manager reports about YazSes (its own feed), as
+        text for ``installer_update.parse_feed_version``; ``None`` if it cannot be asked."""
+        ...
+
+    def hand_off(self, handoff: UpdateHandoff) -> None:
+        """Start ``handoff`` detached and return at once. Raises ``OSError`` if it could
+        not be started — the caller must then stay running and fall back."""
+        ...
+
+
+#: File name of the pack index CI copies into a frozen bundle's data directory
+#: (``_internal/`` on Windows) before the installer is built (ADR-028 §3).
+PACK_INDEX_NAME = "yazses-packs-index.json"
+
+
+@runtime_checkable
+class PackRuntime(Protocol):
+    """The OS facts the add-on pack loader needs (ADR-028 §2). Nothing under
+    ``yazses/packs/`` branches on ``sys.platform``; it asks this instead.
+
+    Obtained with ``platform.factory.get_pack_runtime()``, which imports only this
+    backend — the runtime hook runs before ``main`` and must not build a ``Platform``.
+    """
+
+    def supported(self) -> bool:
+        """True where this OS has a pack loader at all (Windows, Phase 1)."""
+        ...
+
+    def is_elevated(self) -> bool:
+        """True when this process has administrator rights — **or when that cannot be
+        determined**. Packs are user-writable, so loading them elevated would turn a
+        same-user file write into elevation; an unknown answer must fail closed."""
+        ...
+
+    def add_native_dir(self, path: Path) -> object:
+        """Add ``path`` to the native-library search path and return the handle that
+        keeps it there. The caller keeps the handle alive for the life of the process:
+        closing it removes the directory (``os.add_dll_directory``)."""
+        ...
+
+    def embedded_index_path(self) -> Path | None:
+        """Where the frozen bundle carries its pack index, or ``None`` when not frozen."""
+        ...
+
+    def probe_command(self, name: str, staged: Path) -> list[str] | None:
+        """argv that runs ``yazses packs probe <name> --staged <dir>`` in a child of
+        this same app, or ``None`` when that cannot be built."""
+        ...
+
+    # -- binding a pack to the base's own copy of a shared DLL (ADR-028 M1) -----------
+    # Called only for a pack whose pack.json lists ``bind_to_base``, and only on that
+    # pack's first use (``yazses.packs.bind``), never at start-up.
+
+    def base_native_candidates(self, name: str) -> list[Path]:
+        """Every file named ``name`` (case-insensitive) inside the frozen app's own
+        folder. Empty when not frozen or unsupported. Never searches anywhere else."""
+        ...
+
+    def load_base_native(self, path: Path) -> tuple[object, str | None]:
+        """Load the library at the absolute ``path`` so its module name is in this
+        process's loaded-module list; return ``(handle, version or None)``. Raises
+        ``OSError`` when it does not load. The caller keeps the handle alive."""
+        ...
+
+    def loaded_native_paths(self, name: str) -> list[Path] | None:
+        """The file of every loaded module named ``name``, or ``None`` when this cannot
+        be determined."""
+        ...
+
+
 HotkeyFactory = Callable[[str, int, Callable[[int], None], Callable[[], None]], HotkeyBackend]
 """Args: key_id, threshold_ms, on_hold_start(leaked_count), on_hold_end."""
 
@@ -383,7 +517,15 @@ class Platform:
     # ADR-v2-146 would rather a feature say "no pointer output here" than hand a user a
     # cursor that never moves.
     pointer_factory: PointerSinkFactory | None = None
-    # None everywhere today: no OS backend observes clicks yet (#397 shipped the seam and
-    # the CI fake; a real backend needs a real desktop to verify against).
+    # None where this OS/session has no click backend. Linux sets it on an X11 session
+    # (`platform/linux/click_observer_x11.py`, #607) and leaves it None on Wayland, where
+    # there is no global click stream; #397 shipped the seam and the CI fake.
     click_observer_factory: ClickObserverFactory | None = None
+    # Why `click_observer_factory` is None, in a sentence the daemon log, `doctor` and
+    # `gaze status` can repeat -- or None when it is not None, or when the platform has
+    # simply never had a backend (the generic "no click observer yet" reason then applies).
+    click_observer_unavailable_reason: str | None = None
+    # None where an update cannot be handed to a detached installer (everything except
+    # Windows today). `yazses update` and the tray then keep the manual steps (ADR-027).
+    update_launcher: UpdateLauncher | None = None
     extras: dict[str, Any] = field(default_factory=dict)

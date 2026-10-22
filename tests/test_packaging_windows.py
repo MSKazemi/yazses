@@ -251,3 +251,107 @@ def test_build_script_preflights_the_icon():
     ps1 = (_PKG.parents[1] / "scripts" / "build-windows.ps1").read_text(encoding="utf-8")
     assert r"assets\yazses.ico" in ps1
     assert "gen-icons.py" in ps1
+
+
+# ---- Add-on packs at uninstall (ADR-028, owner answer to question 4) ----------
+
+
+def _strip_pascal_comments(text: str) -> str:
+    """Drop ``{ ... }``, ``(* ... *)`` and ``//`` comments, but not braces inside a
+    ``'...'`` string, where ``{app}`` is an Inno constant, not a comment."""
+    out: list[str] = []
+    i, n, in_str = 0, len(text), False
+    while i < n:
+        ch = text[i]
+        if in_str:
+            out.append(ch)
+            in_str = ch != "'"
+            i += 1
+        elif ch == "'":
+            out.append(ch)
+            in_str = True
+            i += 1
+        elif ch == "{":
+            i = text.find("}", i) + 1 or n
+        elif text.startswith("(*", i):
+            i = text.find("*)", i) + 2 if text.find("*)", i) >= 0 else n
+        elif text.startswith("//", i):
+            i = text.find("\n", i) if text.find("\n", i) >= 0 else n
+        else:
+            out.append(ch)
+            i += 1
+    return "".join(out)
+
+
+def _iss_section(name: str) -> list[str]:
+    """The non-comment, non-blank lines of one ``[Section]`` of installer.iss, with
+    ``\\``-continued lines joined. ``[Code]`` is returned with its ``{ ... }`` and
+    ``//`` comments removed, so a test reads only what Inno executes."""
+    import re
+
+    iss = _ISS.read_text(encoding="utf-8")
+    parts = re.split(r"^\[([A-Za-z]+)\]\s*$", iss, flags=re.M)
+    bodies = [parts[i + 1] for i in range(1, len(parts) - 1, 2) if parts[i] == name]
+    text = "\n".join(bodies)
+    if name == "Code":
+        text = _strip_pascal_comments(text)
+        return [ln.strip() for ln in text.splitlines() if ln.strip()]
+    text = re.sub(r"\\\s*\n\s*", " ", text)
+    return [ln.strip() for ln in text.splitlines()
+            if ln.strip() and not ln.strip().startswith(";")]
+
+
+def test_iss_section_reads_real_sections():
+    """Guard the guard: a parser that returns nothing would pass every test below."""
+    assert any("yazses-cli.exe" in ln for ln in _iss_section("UninstallRun"))
+    assert any("procedure RemovePath" in ln for ln in _iss_section("Code"))
+    assert _iss_section("UninstallDelete"), "the packs entry must exist"
+
+
+def test_uninstall_deletes_the_running_users_packs_folder():
+    """%LOCALAPPDATA%\\yazses\\packs is Paths.data_dir / "packs" (platform/windows/paths.py
+    + packs/layout.py). Only that folder: config, logs and models beside it are not
+    the uninstaller's to delete."""
+    from yazses.packs.layout import PackLayout
+
+    assert PackLayout.under(Path("D")).root.name == "packs"
+    lines = _iss_section("UninstallDelete")
+    packs = [ln for ln in lines if r'"{localappdata}\yazses\packs"' in ln]
+    assert len(packs) == 1, lines
+    assert "Type: filesandordirs" in packs[0]
+    assert not any(r'"{localappdata}\yazses"' in ln for ln in lines), (
+        "never the whole data folder: it holds the user's config"
+    )
+
+
+def test_the_packs_delete_is_for_per_user_installs_only():
+    """In an all-users (administrative) uninstall, {localappdata} is the elevated
+    administrator's profile, not the profile of whoever installed the packs. Every
+    [UninstallDelete] entry naming a per-user folder must be gated on the install mode."""
+    user_constants = ("{localappdata}", "{userappdata}", "{userdocs}", "{userprofile}",
+                      "{%USERPROFILE", "{%LOCALAPPDATA", "{%APPDATA")
+    lines = [ln for ln in _iss_section("UninstallDelete")
+             if any(c.lower() in ln.lower() for c in user_constants)]
+    assert lines, "the guard needs at least the packs entry to check"
+    for ln in lines:
+        assert "Check: IsPerUserInstall" in ln, ln
+    code = " ".join(_iss_section("Code"))
+    assert "function IsPerUserInstall: Boolean;" in code
+    body = code.split("function IsPerUserInstall: Boolean;", 1)[1].split("end;", 1)[0]
+    assert "Result := not IsAdminInstallMode;" in body, body
+
+
+def test_no_upgrade_path_deletes_packs():
+    """An in-place upgrade (including ADR-027's one-click update) runs Setup, never the
+    uninstaller, so [UninstallDelete] cannot fire then. What Setup itself runs —
+    [InstallDelete], [Run] and [Code] — must never touch the packs folder, delete a
+    tree, or start the uninstaller."""
+    for section in ("InstallDelete", "Run", "Files", "Registry"):
+        for ln in _iss_section(section):
+            assert "packs" not in ln.lower(), (section, ln)
+            assert "{localappdata}" not in ln.lower(), (section, ln)
+    code = " ".join(_iss_section("Code")).lower()
+    assert "expandconstant('{app}')" in code, "the parser must keep constants in strings"
+    for forbidden in ("deltree", "deletefile", "removedir", "packs", "unins000",
+                      "{uninstallexe}", "localappdata", "exec(", "shellexec("):
+        assert forbidden not in code, f"[Code] contains {forbidden!r}"

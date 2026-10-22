@@ -16,7 +16,7 @@ description: "Install YazSes on Windows for offline speech-to-text: winget insta
 ## Requirements
 
 - Windows 10 21H2 or later, 64-bit (Windows 11 also fine)
-- ~250 MB free disk for the app + the Whisper model on first download
+- ~500 MB free disk for the app (about 190 MB) and the default Whisper model (about 150 MB), downloaded on first use
 - A microphone
 
 ## Install
@@ -30,7 +30,8 @@ Windows 11. Open Terminal or PowerShell and run:
 winget install MSKazemi.YazSes
 ```
 
-That resolves both x64 and ARM64 automatically, verifies the installer's SHA256
+It installs the x64 build (an ARM PC runs it under Windows' x64 emulation; there is no
+native ARM64 build), verifies the installer's SHA256
 against the published manifest, and installs per-user with no administrator
 rights. `winget upgrade MSKazemi.YazSes` moves you to a new release later.
 
@@ -76,6 +77,9 @@ rights. `winget upgrade MSKazemi.YazSes` moves you to a new release later.
 Prefer the terminal? The manifests live in this repo and track each release.
 
 ```powershell
+# Chocolatey — from an administrator PowerShell
+choco install yazses
+
 # Scoop — add the bucket once, then install and update like anything else
 scoop bucket add yazses https://github.com/MSKazemi/yazses
 scoop install yazses
@@ -87,7 +91,7 @@ together rather than the checksum going stale.
 
 **Status, honestly.** **Scoop works** — the bucket is served straight from this repo
 ([`bucket/yazses.json`](https://github.com/MSKazemi/yazses/blob/main/bucket/yazses.json)),
-carries both x64 and ARM64, and has been installed end-to-end on a clean Windows
+carries the x64 installer (ARM PCs run it under emulation), and has been installed end-to-end on a clean Windows
 host: `yazses update --check` correctly reports the install as `via scoop` and
 offers `scoop update yazses`. The direct installer above is verified the same way
 (`via windows-installer`).
@@ -123,16 +127,16 @@ release, and the transcribed text appears in whatever window is focused.
 > hold_threshold_ms = 500
 >
 > [stt]
-> model = "tiny.en"   # try "base.en" for better accuracy at the cost of CPU
+> model = "base.en"   # the default; "tiny.en" is faster and less accurate
 > ```
 
-The first transcription downloads the Whisper model (~80 MB for `tiny.en`)
+The first transcription downloads the Whisper model (about 150 MB for the default `base.en`)
 into `%USERPROFILE%\.cache\huggingface\hub\`. Subsequent dictations are fully
 offline.
 
 > **Behind a firewall?** That one download is the only time YazSes needs the
 > network, and a personal firewall will block it. Fetch it deliberately instead —
-> `yazses model download tiny.en` — or see
+> `yazses model download base.en` — or see
 > [Choosing a model → Installing a model without network access](models.md#installing-a-model-without-network-access).
 
 ## Microphone access
@@ -183,28 +187,157 @@ Both live in `%LOCALAPPDATA%\Programs\YazSes`.
 
 ## Updating
 
-Ask YazSes and it will tell you what applies to *your* install:
+**One click.** Tray → **Check for updates…**, or the Settings window → **About and
+updates** → **Check for updates**, then **Install update…**. If a newer release is out,
+YazSes asks once whether to install it. Say yes and YazSes:
+
+1. downloads `YazSes-<version>-windows-<arch>.exe` from the GitHub release (only from
+   `github.com/MSKazemi/yazses/releases/download/`);
+2. checks its SHA-256 against the release's `SHA256SUMS.txt`, and refuses (and deletes
+   the file) if they differ;
+3. closes itself, runs the installer silently over your existing install (no uninstall,
+   settings and models kept), and
+4. starts again by itself. On the next start a notification says whether the version
+   actually changed.
+
+The same from a terminal:
 
 ```powershell
-yazses update --check    # what's available, and how to get it
+yazses update --check    # what's available, and what the update would do
+yazses update            # asks, then updates
+yazses update --yes      # updates without asking
 ```
 
-It knows which of the four Windows channels you used, and checks the GitHub
-release — that is where the `.exe` lives, and PyPI carries no `.exe` at all.
+It knows which of the four Windows channels you used and checks the GitHub release.
+That is where the `.exe` lives; PyPI carries no `.exe` at all. Chocolatey, winget and
+Scoop installs update through their own package manager in the same one-click way:
 
-| How you installed | How to update |
+| How you installed | What the one-click update runs |
 |---|---|
-| The `.exe` installer | Download the newest one from the [releases page](https://github.com/MSKazemi/yazses/releases/latest) and run it — it upgrades in place and keeps your settings and models |
-| winget | `winget upgrade --id MSKazemi.YazSes -e` |
-| Chocolatey | `choco upgrade yazses -y` |
+| The `.exe` installer, for you only (the default) | the verified installer, silently, in place |
+| The `.exe` installer, for all users | the same, after one administrator prompt (see below) |
+| winget | the same as the `.exe` installer: a winget install cannot be told apart from it |
+| Chocolatey | `choco upgrade yazses -y` — Windows asks for administrator rights |
 | Scoop | `scoop update yazses` |
 
-Restart YazSes afterwards (tray → **Restart daemon**, or `yazses restart`): the
-new code is on disk, but the process doing your dictation is still the old one.
+What to expect:
 
-There is no one-command upgrade for the `.exe` installer — the upgrade *is* a
-downloaded installer, and there is nothing YazSes could safely run for you. It
-prints the steps instead of pretending otherwise.
+- **Per-user installs need no administrator rights.** A normal install is per-user, and
+  the update runs as you.
+- **All-users installs ask once.** If YazSes was installed *for all users* (in
+  `C:\Program Files`), updating needs administrator rights, so Windows shows **one**
+  permission prompt. The prompt names **Windows PowerShell** from Microsoft, not YazSes:
+  that is the small helper that does the privileged part. It copies the checked
+  installer into a new folder that only administrators can change, checks its SHA-256
+  again there, runs it from that folder, and deletes the folder. The installer is never
+  run with administrator rights from your own temp folder, where any program you run
+  could have swapped it. On a standard (non-administrator) account, the prompt asks for
+  an administrator's password.
+- **Saying No at that prompt is safe.** Nothing is installed, YazSes starts again on the
+  version you had, and the next start says the permission was declined.
+- **If YazSes cannot tell how it was installed** (for example, you copied the folder
+  somewhere else), no one-click update is offered. YazSes says so and opens the releases
+  page; run the installer yourself. It upgrades in place, with no uninstall needed.
+- **Chocolatey, winget and Scoop** are offered the update only once their own package
+  has caught up with the GitHub release. That usually takes a few days. Until then YazSes
+  says which version the manager still offers. Chocolatey asks for administrator rights.
+- **Nothing is force-closed.** If YazSes has not closed within 5 minutes (for example,
+  a meeting still being saved), nothing is installed and the next start tells you why.
+- **From a terminal**, `yazses update` works with the tray running: the tray sees the
+  update starting, closes itself and stops YazSes, and both come back on the new version.
+- **From the Settings window**, the same: the check runs in the background, so the window
+  keeps responding. After you confirm, the Settings window closes, the tray closes itself
+  and stops YazSes, and the update installs. Changes you staged in the window but did not
+  apply are lost, and the question says so first. If one-click is not possible (an
+  all-users install, a package manager that has not caught up), the window shows why and
+  the manual steps, and **Open download page** opens the releases page. The Settings
+  button uses the same code as the tray and `yazses update`, but it has not yet been
+  tried on a real Windows machine.
+- **Microsoft Store / MSIX package:** it updates through the Store (Library → Get
+  updates), or by opening the newer `.msix`. Never run the `.exe` over it; that installs
+  a second copy.
+- **Not code-signed yet.** The checksum proves the file is exactly the one the release
+  published. It does not prove who built it; signing is the remaining step. SmartScreen
+  may warn for the same reason.
+- **If anything fails**, nothing is half-installed. YazSes keeps running (or starts again
+  on the version you had), tells you what went wrong, and opens the
+  [releases page](https://github.com/MSKazemi/yazses/releases/latest) so you can update by
+  hand. Logs: `%TEMP%\yazses-update\update.log` and `installer.log`. An all-users update
+  keeps no `installer.log`: the privileged helper writes nothing into your folders, and
+  `update.log` records how it ended.
+
+- **Add-ons are downloaded again for the new version.** An add-on (see below) is built
+  for one exact build of YazSes, so after an update the old copy is not loaded. If you
+  have add-ons installed, the update question in the tray and the Settings window names
+  them and their download sizes, for example *"Your add-on (Diarization, 15 MB) will be
+  downloaded again for the new version."* Saying yes covers that download too: on its
+  first start the new version fetches its own copy of each add-on in the background,
+  checks it against the checksum built into the new version, tests it, and then tells
+  you once (**Add-ons ready** — restart YazSes to switch them on). The old version's
+  add-on files are deleted only after every new copy has checked out, so a failed
+  update can still go back to them; if there is nothing to download, they are deleted
+  once the new version has started. If a download fails, or you updated with
+  `yazses update` from a terminal (which does not ask about add-ons), nothing is
+  retried on its own: the feature shows *waiting for add-on*, and **Install now** in
+  the Settings window (or `yazses packs install <name>`) downloads it with one click.
+  This path is covered by offline tests; it has not yet been tried on a real Windows
+  machine with a published add-on.
+
+By hand, if you prefer: download the newest installer from the releases page and run it.
+It upgrades in place too.
+
+### Features that need extra libraries
+
+The installer build's files are fixed when it is built, so it cannot install Python
+packages the way a `pipx` install can. A feature that needs them is listed in the
+Settings window's **About and updates** box. When the build you run publishes an
+**add-on** for that feature (ADR-028), its **Install now** button downloads, checks and
+installs the add-on, the same as `yazses packs install <name>`, and then asks to restart
+YazSes. When it does not, the button is greyed out and says why: install YazSes with
+`pipx install yazses` to use that feature. `yazses packs` lists the add-ons your build
+has.
+
+Two such features need no add-on, because their libraries are inside the installer
+from the release after v2.43.2: the Parakeet speech engine (`stt-parakeet`; its ~600 MB
+model still downloads on first use) and Chinese script conversion (`chinese-script`).
+They add about 4.5 MB to the installer (a wheel-size figure, not yet measured on a
+built installer). Speaker diarization (`diarize`, `meeting`, `recimport`) is the first
+add-on; a release publishes it only after it passes its checks inside the frozen app.
+Its pack does not carry its own copy of ONNX Runtime: it uses the one the installer
+already has, so two different copies are never loaded into one process.
+
+**No internet on this PC, or a firewall that blocks github.com?** Download the add-on file
+on another computer, from the release of the version you run, copy it over, and run the
+command below. The file name has this shape (an illustration: no add-on has been published
+yet): `YazSes-2.44.0-windows-x64-pack-diarization.yazpack`.
+
+```powershell
+yazses packs install --from D:\YazSes-2.44.0-windows-x64-pack-diarization.yazpack
+```
+
+This makes no network request. The file is accepted only if its name is one of this
+build's add-on files and its SHA-256 matches the checksum built into your copy of YazSes,
+so a file that was changed, cut short, or made for another version or build is refused
+and nothing is installed. It is then unpacked, tested and installed exactly as a
+download would be. Keep the file name as the release gives it.
+
+#### Licences of add-on packs
+
+Every add-on carries the licence text of each library inside it, in its `LICENSES\`
+folder (under `%LOCALAPPDATA%\yazses\packs\` once installed). The release build checks
+those licences before it publishes an add-on:
+
+- **Permissive** licences (MIT, Apache-2.0, BSD, ISC and similar) pass.
+- **LGPL** and **MPL-2.0** pass, and the add-on then also carries `LICENSES\SOURCE.md`,
+  which names each of those libraries, its exact version and where its source code is.
+- **GPL** passes only when the maintainer has recorded an approval for that library, at
+  that version, in that add-on. `SOURCE.md` lists those too.
+- A library whose licence the build cannot identify, or that ships no licence file, holds
+  the whole add-on back. The feature then works the same way as one with no add-on:
+  install YazSes with `pipx install yazses` to use it.
+
+The check reads the licence each library *declares*. It does not scan the compiled files
+inside a library for code under another licence.
 
 ### Being told when a new version lands
 
@@ -216,8 +349,8 @@ yazses features enable update-check
 yazses restart
 ```
 
-Once on, YazSes checks daily and shows **one** notification per release, with the
-steps for your install method. It sends a plain "what is the latest version"
+Once on, YazSes checks daily and shows **one** notification per release. It points you
+at the tray's **Check for updates…**, which installs it in one click. It sends a plain "what is the latest version"
 request to github.com — no voice, no text, no config, no identifier — and nothing
 else about your machine ever leaves it.
 
@@ -348,9 +481,29 @@ uninstaller from `%LOCALAPPDATA%\Programs\YazSes\unins000.exe`. The uninstaller
 stops a running daemon, removes the autostart registry entry, and takes its own
 entry back out of your PATH (leaving the rest of PATH untouched).
 
+**Add-ons.** For a normal install (just for you), the uninstaller also deletes your
+add-ons folder, `%LOCALAPPDATA%\yazses\packs`. Only that folder: your config, logs and
+models stay, as below. An update never deletes add-ons; it installs over the old copy
+without running the uninstaller.
+
+If YazSes was installed **for all users**, Windows runs the uninstaller as the
+administrator, so it cannot reach anyone's add-ons and deletes none. Each user who
+installed add-ons should run this **before** the uninstall:
+
+```powershell
+yazses packs remove --all
+```
+
+`yazses doctor` shows an **Add-ons** row in that case, with how much the command frees.
+It shows the same row on any install where add-ons from an older build are left over
+that this copy no longer loads. Add-ons left behind are inert: nothing loads them without
+YazSes, and a later version ignores them because they belong to another build. You can
+also delete the folder by hand.
+
 To clear user data (config, logs, model cache) after uninstalling, also run:
 
 ```powershell
-Remove-Item -Recurse -Force "$env:APPDATA\yazses"
 Remove-Item -Recurse -Force "$env:LOCALAPPDATA\yazses"
+# the Whisper models, shared with other faster-whisper apps — skip this if you use one
+Remove-Item -Recurse -Force "$env:USERPROFILE\.cache\huggingface\hub\models--Systran--faster-whisper-*"
 ```

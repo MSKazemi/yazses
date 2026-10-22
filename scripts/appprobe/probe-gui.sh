@@ -97,6 +97,10 @@ sleep 3
 xdotool key ctrl+a; sleep 1; xdotool key ctrl+c; sleep 2
 
 GOT=$(xclip -o -selection clipboard 2>/dev/null | head -c 200 | tr '\n' ' ')
+# GOT is cut at 200 bytes and has its newlines folded, which is fine for the
+# verdict below and useless for a code-point comparison. Keep the untouched copy
+# for scripts/injectmatrix/injectmatrix.py compare (#517).
+xclip -o -selection clipboard > "/work/${LABEL}.received.txt" 2>/dev/null
 if [ "$GOT" = "$TEXT" ]; then V=EXACT
 elif [ -n "$GOT" ]; then V=PARTIAL; else V=NOTHING; fi
 # A screenshot is the fastest way to tell "no keystrokes land" from "a dialog

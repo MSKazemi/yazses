@@ -41,7 +41,7 @@ Při prvním spuštění se jednou stáhne řečový model (asi 148 MB). Potom u
 
 ## Soukromí
 
-Zvuk se přepisuje na vašem počítači a nikam se neodesílá. Není zde žádná telemetrie ani cesta do cloudu.
+Ve výchozím nastavení se zvuk přepisuje na vašem počítači a nikam se neodesílá. Není zde žádná telemetrie ani cesta do cloudu.
 
 ## Další
 

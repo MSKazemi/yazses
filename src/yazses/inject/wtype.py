@@ -1,9 +1,12 @@
 import subprocess
 
+from yazses.inject.payload import hide_payload
+
 
 class WtypeInjector:
     def inject(self, text: str) -> None:
-        subprocess.run(["wtype", "--", text], check=True, timeout=10)
+        with hide_payload():
+            subprocess.run(["wtype", "--", text], check=True, timeout=10)
 
     def inject_backspaces(self, count: int) -> None:
         if count <= 0:

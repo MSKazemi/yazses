@@ -79,6 +79,20 @@ Do **not** collect:
 - MAC address;
 - full device UUID.
 
+### Reusing the paper benchmark's provenance
+
+The machine and software fields above are the ones `paper/benchmark/_common.py` already
+records. They are mapped, not described a second time. `yazses.eyeeval.provenance.from_benchmark`
+turns one committed benchmark provenance block into the eye-eval `Provenance`.
+`BENCHMARK_FIELDS` lists the fields it carries and `BENCHMARK_FIELDS_NOT_CARRIED` lists the
+ones it leaves out, each with a reason. `argv` and `corpus` are left out because they are
+free text or describe an audio corpus. `tests/test_eye_eval_benchmark_provenance.py` fails
+when a field is added to or removed from the benchmark dataclass and nobody places it here.
+That file also maps every block under `paper/results/` into a result that this schema
+accepts. The benchmark records `os` as one name ("Ubuntu 24.04.4 LTS"), so the mapping
+sets `os_version` to "unknown" instead of guessing a split. The benchmark does not record
+`arch`, the commit or the displays, so the mapping leaves those unrecorded too.
+
 ## Display provenance
 
 Required when gaze/pointer coordinates matter:
@@ -162,13 +176,13 @@ correct-window rate, or tracker availability.
 ### Gaze field-measurement report (`yazses gaze measure`, #399)
 
 The report a tester attaches to #104. Envelope as above; `feature.name = "gaze"`,
-`protocol.task = "gaze_field_measurement"`, `protocol.task_version = "1.1"`. The authoritative
+`protocol.task = "gaze_field_measurement"`, `protocol.task_version = "1.2"`. The authoritative
 list is `REQUIRED_METRICS` in `src/yazses/eyeeval/gaze_field.py`, which the validator enforces; a
 golden file (`tests/fixtures/gaze_field_report/full_session.json`) pins the whole document.
 
 | Group | Keys | Notes |
 |---|---|---|
-| `calibration` | `source`, `age_s`, `topology_validity`, `validation_points`, `error_px_rmse`, `error_px_mean`, `error_px_max`, `error_deg_mean`, `implicit_candidate_delta_px` | Coordinate error. Degrees only with screen size and viewing distance. `topology_validity` is `unverified` when the layout could not be re-read after the pass; a layout that changed during the pass writes no report. |
+| `calibration` | `source`, `age_s`, `topology_validity`, `validation_points`, `error_px_rmse`, `error_px_mean`, `error_px_p50`, `error_px_p90`, `error_px_max`, `error_deg_mean`, `zone_grid`, `zone_points`, `zone_hits`, `zone_hit_rate`, `implicit_candidate_delta_px` | Coordinate error; p50/p90 are nearest-rank (observed values). `zone_*` is how often the prediction fell in the target's cell of a fixed 3x3 screen grid (an off-screen prediction is a miss) — only the yes/no per point is kept, never the predicted coordinate. Degrees only with screen size and viewing distance. `topology_validity` is `unverified` when the layout could not be re-read after the pass; a layout that changed during the pass writes no report. |
 | `confidence` | `samples`, `mean`, `min`, `max`, `below_threshold_fraction`, `threshold`, `histogram` | Availability/quality signal; a ten-bin histogram, never a time series. A backend that reports no per-sample confidence (L2CS) gives `reason: not_supported`, not a value. |
 | `routing` | `attempts`, `gaze_routed`, `fallback_no_route`, `wrong_target_corrections`, `wrong_target_rate`, `fallback_rate` | Window-level outcome, tester-counted; missing when not counted. |
 | `session` | `duration_s`, `block_s`, `drift_blocks` | Mean error per time block; blocks with no point are omitted, not zero. |
@@ -176,8 +190,19 @@ golden file (`tests/fixtures/gaze_field_report/full_session.json`) pins the whol
 | `sufficiency` | `provisional`, `validation_points`, `confidence_samples`, `routing_attempts`, `drift_blocks` (each `{n, minimum, enough}`), `statements` | Says in the document when there is too little data to mean anything. The minimums are **provisional reporting floors** (5 points, 30 confidence samples, 20 routing attempts, 2 time blocks): they stop a one-point report reading as a finding and are not a power calculation. Unmeasured, to be revised with field evidence (#104). |
 
 Never exported: frames, face meshes or landmarks, screenshots, dictated or typed text, window
-titles, identity. There is no field for any of them, and the document is swept for home paths,
-e-mail addresses and the machine's own hostname and login before it is written.
+titles, identity, per-sample coordinates or angles. There is no field for any of them, and the
+document is swept for home paths, e-mail addresses and the machine's own hostname and login before
+it is written.
+
+The validator (`report_problems`, and `report_problems_file` for an attached file) is a reader as
+well as a self-check, and refuses a report that **could** leak whoever produced it: any list or
+object under `metrics` other than the three this schema defines (`confidence.histogram`,
+`session.drift_blocks`, `sufficiency.statements`), a key under `metrics` named for raw gaze
+(`x`, `y`, `yaw`, `pitch`, or containing `coordinate`, `frame`, `mesh`, `iris`, `pupil`,
+`trajectory`, ...), a histogram that does not sum to `samples`, drift blocks that do not sum to
+`validation_points`, and a missing, empty, non-UTF-8 or non-JSON file.
+`scripts/check_eye_eval_result.py` applies these rules to any file whose `protocol.task` is
+`gaze_field_measurement`.
 
 ## Head-Pointer metrics
 

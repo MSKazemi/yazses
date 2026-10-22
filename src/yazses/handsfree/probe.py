@@ -112,6 +112,10 @@ def calibration_facts(
     except Exception:
         return ("unknown", "the stored calibration could not be read")
     if calibration is None:
+        if check.stale:
+            # A calibration file that exists and is damaged (#415). "Nothing has been
+            # calibrated" would be false; the store's reason names the file.
+            return (check.validity.value, check.reason)
         return ("missing", "nothing has been calibrated on this machine yet")
     return (check.validity.value, check.reason)
 
@@ -145,6 +149,7 @@ def gaze_target_facts(
         gaze_target_available=plan.available,
         gaze_target_reason=plan.reason,
         gaze_target_remedy=plan.remedy,
+        gaze_target_capabilities=plan.capability_summary,
     )
 
 

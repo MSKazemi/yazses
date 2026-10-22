@@ -88,9 +88,17 @@ byte-identically, and the committed synthetic trace reports still match the code
 **What it is not evidence of:** real webcam accuracy, the real pointer permission or UI, human
 usability, or false activations during natural behaviour — a hosted runner has no representative
 hardware, and the record says so in its own `does_not_prove` field. Nothing is committed or
-published by the workflow; its token is read-only. The workflow has never run on a hosted
-runner at the time of writing: until a dispatched run has produced three green legs, the
-matrix is *designed and unit-tested*, not *observed*.
+published by the workflow; its token is read-only.
+
+The matrix has been *observed* green once, on run 38777947636 (2026-10-15, three `PASS` legs).
+From 2026-10-17 to 2026-10-20 the macOS leg failed in `uv sync`, before the evaluation ran, and
+the verdict job reported it as `MISSING Darwin`. The cause was in the workflow, not the
+evaluation. The step did not name an interpreter. The macOS image (`macos-26-arm64` 20261013)
+had added Homebrew `python@3.15`, uv picked it, and onnxruntime 1.28.0 has no cp315 wheel. The
+workflow now pins Python 3.12, as `test.yml` does, and
+`tests/test_macos_uv_jobs_pin_the_interpreter.py` fails any macOS job that installs with uv
+without a pin. That fix has not yet been observed on a hosted run. Until a run on it has produced
+three green legs, treat the current matrix as *designed and unit-tested*.
 
 ### E2 — deterministic synthetic trace replay
 
@@ -146,6 +154,9 @@ denominator is zero is `{"value": null, "reason": ...}`, never `0.0`. The same t
 output on every OS (LF endings, pinned by `.gitattributes`). **The fixtures are invented; a threshold
 sweep shows a trade-off on one trace and recommends nothing.** Recommending a face switch needs
 false-activation evidence from real volunteer sessions across people (ROADMAP P5.4).
+The trace format, the nuisance traces (natural blinks, lively talking, yawns, glances down), how to
+replay a different detector over the same traces, and the report a volunteer could later send are in
+[FACE_SWITCH_TRACES.md](FACE_SWITCH_TRACES.md).
 
 ### E3 — one-machine hardware smoke
 
@@ -185,6 +196,25 @@ reads the file and attaches it themselves. A test that could not run is recorded
 A maintainer checking a file someone attached runs
 `uv run python scripts/check_eye_eval_result.py result.json` (non-zero exit if invalid; see
 [METRICS.md](METRICS.md) "Schema versioning and compatibility").
+
+### Analysing de-identified results (#426)
+
+Schema-valid results are summarised, descriptively and reproducibly, by
+`uv run python scripts/analyze_eye_eval.py --unit participant --links links.json results/`
+(logic in `yazses.eyeeval.analysis`; `--unit run|session|participant` is required, never assumed).
+It refuses rather than repairs: a schema-invalid or identifier-carrying result, a repeated file,
+counts that do not add up, and any mix of study modes -- a `community_qa` row never enters a
+`research` analysis. Participant, session and pilot status are not in the result envelope, so a
+separate **links file** (`{"links_version": "1.0", "rows": [{"result", "participant_id",
+"session_id", "pilot", "host_id"?, "exclusion"?}]}`, pseudonymous IDs only, closed key set) supplies
+them, and a research analysis requires it. Output: outcome shares with Wilson intervals (wrong
+target, fallback and lost tracking stay separate), false activations per hour over the scored
+exposure, per-unit tables, the min / median / max of unit rates, a within-participant session
+spread, per-host latency (never pooled), the exclusions with category, reason and whether the rule
+was predefined, separate participant / session / run / trial / host counts, and a claim-to-source
+manifest. A rate below the **provisional** minimum prints `insufficient data`. There is no
+inferential test until the analysis plan is frozen (#425), and tests use synthetic records that
+prove the code, not the product. Real participant data stays outside this repository.
 
 ### E4 — cross-computer replication
 
@@ -271,6 +301,15 @@ alone hides the relevant differences.
 A contributor does **not** need to test every bucket. Each small issue should ask for one bucket.
 
 ## Capability evaluation scripts
+
+The three tasks below are generated, not hand-drawn: `yazses.eyeeval.tasks` builds each one from a
+recorded seed and task version, and the default-seed copies are checked in under
+`tests/fixtures/eye_eval_tasks/`. A result records `protocol.task`, `task_version` and `task_seed`,
+and `task_from_protocol` rebuilds the exact task from those three. It refuses a result whose
+version this build does not generate, or that carries no seed, because guessing either would replay
+a different run. A per-trial record holds numbers and task-defined identifiers only. Its string
+fields (`outcome`, and the face-switch `block_id` / `block_type`) are limited to the task's own
+vocabulary, so an outcomes file has nowhere to put a window title or a spoken sentence (#422).
 
 ### Gaze routing task
 

@@ -85,6 +85,14 @@ def _is_protected(token: str) -> bool:
 # It is not evidence of a code identifier, so it is trimmed before that check.
 _TRAILING_PUNCTUATION = '.,;:!?…'
 
+# Their full-width (CJK) counterparts (#501). Kept separate from
+# `_TRAILING_PUNCTUATION` on purpose: that set also feeds the code-identifier and
+# hyphen guards, which have no business learning about Han text. These are used only
+# where a filler or a correction trigger meets a full-width mark -- an English filler
+# inside Mandarin text ("我觉得，um，很好") -- so no English input can reach them.
+_CJK_CLAUSE_PUNCTUATION = '，、；：'
+_CJK_SENTENCE_END = '。！？'
+
 
 def _is_code_or_path_token(token: str) -> bool:
     """True when the token looks like a code identifier or path/URL fragment.
@@ -246,8 +254,8 @@ def _tidy_orphaned_punctuation(text: str) -> str:
     text = re.sub(r",\s*,", ",", text)
     # " ," -> ","   (the word before the comma was the one removed)
     text = re.sub(r"\s+([,;:])", r"\1", text)
-    # a clause separator with nothing left after it
-    text = re.sub(r"[,;:]\s*$", "", text)
+    # a clause separator with nothing left after it (ASCII or full-width)
+    text = re.sub(r"[,;:，、；：]\s*$", "", text)
     return text
 
 
@@ -282,7 +290,7 @@ def _remove_fillers(text: str, filler_words: list[str]) -> str:
     # only the closing comma left "the tests, are slow" — a comma between subject
     # and verb, typed into the user's document.
     pattern = re.compile(
-        r'(?:,\s*)?\b(' + '|'.join(re.escape(w) for w in sorted_fillers) + r')\b[,]?\s*',
+        r'(?:,\s*)?\b(' + '|'.join(re.escape(w) for w in sorted_fillers) + r')\b[,，、]?\s*',
         re.IGNORECASE,
     )
 
@@ -337,7 +345,7 @@ def _remove_fillers(text: str, filler_words: list[str]) -> str:
 
     out = pattern.sub(_replacer, text)
     if removed_leading:
-        out = out.lstrip(_TRAILING_PUNCTUATION + ' ')
+        out = out.lstrip(_TRAILING_PUNCTUATION + _CJK_CLAUSE_PUNCTUATION + _CJK_SENTENCE_END + ' ')
     if out != text:
         out = _tidy_orphaned_punctuation(out)
     return out
@@ -493,7 +501,7 @@ def _has_text_to_roll_back(text: str, start: int, end: int) -> bool:
     # reconsider" and "no wait for the build to finish" differ only in meaning —
     # so the punctuation Whisper writes for the pause is the only signal, and the
     # safe default is to require it. Without one the words are typed as spoken.
-    return text[end:end + 1] in tuple(".,;:!?…")
+    return text[end:end + 1] in tuple(".,;:!?…" + _CJK_CLAUSE_PUNCTUATION + _CJK_SENTENCE_END)
 
 
 def _trigger_positions(lower: str, trigger: str, *, require_boundary: bool = True):
@@ -545,17 +553,27 @@ def _apply_self_corrections(text: str, triggers: list[str]) -> str:
             text.rfind('! ', 0, idx),
             text.rfind('? ', 0, idx),
         )
+        # A full-width sentence end (。！？) is a boundary with or without a space
+        # after it -- Chinese puts none (#501 F4). Without this the whole earlier
+        # sentence was rolled back: "我今天很忙。 scratch that 我很闲" -> "我很闲".
+        cjk_boundary = max(text.rfind(c, 0, idx) for c in _CJK_SENTENCE_END)
         end = idx + len(trigger)
         # Consume the punctuation that belongs to the trigger clause. Periods
         # were previously left behind, so "delete that." — the ordinary way
         # people phrase it, as a complete sentence — deposited a bare " . " in
         # the middle of the output (#145).
-        while end < len(text) and text[end] in ' ,.!?…':
+        while end < len(text) and text[end] in ' ,.!?…' + _CJK_CLAUSE_PUNCTUATION + _CJK_SENTENCE_END:
             end += 1
-        if boundary == -1:
+        if boundary == -1 and cjk_boundary == -1:
             # No sentence boundary — remove everything up to end of trigger
             text = text[end:].strip()
         else:
             # Remove from after the boundary separator through end of trigger
-            keep_end = boundary + 2  # keep '. '
+            keep_end = boundary + 2 if boundary != -1 else -1  # keep '. '
+            if cjk_boundary != -1:
+                # keep '。' and the one space after it, if the user's text had one
+                cjk_end = cjk_boundary + 1
+                if text[cjk_end:cjk_end + 1] == ' ' and cjk_end < idx:
+                    cjk_end += 1
+                keep_end = max(keep_end, cjk_end)
             text = (text[:keep_end] + text[end:]).strip()

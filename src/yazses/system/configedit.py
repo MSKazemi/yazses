@@ -14,8 +14,9 @@ import tempfile
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
+from typing import Callable, Iterable
 
+from yazses import tomlio
 from yazses.system.single_instance import SingleInstanceLock
 
 #: The escapes a TOML basic string requires. Anything else below U+0020 has no literal
@@ -141,6 +142,10 @@ class ConfigEditConflictError(RuntimeError):
     """The config changed after a caller planned a multi-key transaction."""
 
 
+class ConfigEditValidationError(RuntimeError):
+    """A complete candidate parsed but does not mean what the transaction intended."""
+
+
 def config_revision(path) -> str:
     """Stable revision token for optimistic config transactions."""
 
@@ -199,6 +204,7 @@ def set_config_keys_atomic(
     changes: Iterable[ConfigChange],
     *,
     expected_revision: str | None = None,
+    validate: Callable[[Path], None] | None = None,
 ) -> tuple[str, ...]:
     """Apply several comment-preserving TOML edits as one visible transaction.
 
@@ -210,6 +216,13 @@ def set_config_keys_atomic(
     expected_revision is an optimistic-concurrency guard. When provided, the target
     is compared while the OS lock is held; a mismatch raises ConfigEditConflictError
     before a temporary candidate is created.
+
+    validate, when given, is called with the path of the complete candidate after it
+    parses and before it replaces the target, while the lock is still held and the
+    target still holds its original bytes. Any exception it raises (conventionally
+    ConfigEditValidationError) aborts the transaction with the original untouched.
+    It is how a caller proves the file *as the loader will read it* means what was
+    planned -- parsing as TOML says nothing about which value the loader keeps.
 
     This function does not download models, install dependencies, or restart the daemon.
     Those preflight/application steps belong to the higher orchestration layer; this
@@ -269,8 +282,12 @@ def set_config_keys_atomic(
                 )
             )
 
-        # Parse the complete candidate before the target path becomes visible.
-        tomllib.loads(temp_path.read_text(encoding="utf-8-sig"))
+        # Parse the complete candidate before the target path becomes visible. Through
+        # `tomlio` rather than `tomllib` directly: a value nested past the recursion limit
+        # must surface as the `TOMLDecodeError` callers handle, not as `RecursionError`.
+        tomlio.loads(temp_path.read_text(encoding="utf-8-sig"))
+        if validate is not None:
+            validate(temp_path)
 
         if mode is not None:
             os.chmod(temp_path, mode)
@@ -346,7 +363,8 @@ def set_config_table_array(path, name: str, entries: Iterable[Iterable[tuple[str
         original = p.read_text(encoding="utf-8-sig") if p.exists() else ""
         candidate = _replace_table_array(original, name, planned)
         try:
-            tomllib.loads(candidate)
+            # `tomlio`, so deep nesting is this `TOMLDecodeError`, not a `RecursionError`.
+            tomlio.loads(candidate)
         except tomllib.TOMLDecodeError as exc:
             raise ValueError(
                 f"[[{name}]] could not be written without breaking the config ({exc}); "

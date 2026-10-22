@@ -180,3 +180,16 @@ than a redundant copy.
 | `history/probes-prompt-vs-no-context-small.en-test-clean-2026-08-24T15-18-29Z.json` | Whether turning off condition_on_previous_text silently disables YazSes's personal-vocabulary initial_prompt, by testing whether a biasing prompt still changes the decoded text -- on a single-window clip (a hold-to-talk burst) and on a multi-window one. | Intel Xeon Platinum 8573C (16 vCPU) | 2026-08-24T15:18:29Z |
 | `history/probes-thread-determinism-base.en-test-clean-2026-08-24T15-57-24Z.json` | Whether run-to-run decode instability is CPU thread scheduling rather than the temperature fallback: the same utterances decoded repeatedly at cpu_threads=0 (shipping default) and cpu_threads=1, hashing the hypotheses and counting rejected decode attempts each time. | Intel Xeon Platinum 8573C (16 vCPU) | 2026-08-24T15:57:24Z |
 | `history/probes-thread-determinism-base.en-test-clean-2026-08-24T17-26-09Z.json` | Whether run-to-run decode instability is CPU thread scheduling rather than the temperature fallback: the same utterances decoded repeatedly at cpu_threads=0 (shipping default) and cpu_threads=1, hashing the hypotheses and counting rejected decode attempts each time. | Intel Xeon Platinum 8573C (16 vCPU) | 2026-08-24T17:26:09Z |
+
+## Recorded without an artifact
+
+Candidates that were considered and not decoded, so there is no result file to
+list above. They are kept here because a table derived only from the files on
+disk would omit every one of them. Nothing in this section was measured by a
+committed script: the `Source` column is the issue comment the numbers come from.
+
+| Candidate | Disposition | Reason | Source |
+|---|---|---|---|
+| `nezamisafa/whisper-persian-v4` (Apache-2.0, rev `b84fc89f`, `large-v3` fine-tune) | **SKIP** -- memory gate, conversion not attempted | 6.17 GB of fp32 weights (two safetensors shards, 4.99 + 1.18 GB); loading them for conversion needs >= 6.2 GB RAM and the 4 vCPU / 8 GB FA-05 host had 4.80-5.15 GB available | https://github.com/MSKazemi/yazses/issues/514#issuecomment-5961845919 |
+| every other Persian Whisper fine-tune in the Hub survey (about 70 repositories searched), including the medium-class ytcv-persian, farbodbij and colloquial/telephony series | **Excluded** -- no licence declared | #514 admits a Persian-specific checkpoint only with a documented licence; only `steja/whisper-small-persian` and `nezamisafa/whisper-persian-v4` declared one | https://github.com/MSKazemi/yazses/issues/514#issuecomment-5951777490 |
+| Qwen3-ASR, NeMo Canary | **Excluded** -- outside scope | not Whisper-family; #514's matrix is Whisper-family only | https://github.com/MSKazemi/yazses/issues/514#issuecomment-5946394603 |

@@ -111,6 +111,9 @@ RULES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("assets/", (WINDOWS, PACKAGING)),
     ("scripts/gen-icons.py", (WINDOWS, PACKAGING)),
     ("scripts/build-windows.ps1", (WINDOWS, PACKAGING)),
+    # ADR-028 add-on packs: built by build-windows.yml, published with the release.
+    ("scripts/build-packs.py", (WINDOWS, PACKAGING, RELEASE)),
+    ("packaging/packs/", (WINDOWS, PACKAGING)),
     ("scripts/build-msix.ps1", (WINDOWS, PACKAGING)),
     ("scripts/render-chocolatey.py", (WINDOWS, PACKAGING, RELEASE)),
     # --- packaging channels and installers
@@ -134,10 +137,10 @@ RULES: tuple[tuple[str, tuple[str, ...]], ...] = (
     (".github/SECURITY.md", (WORKFLOW_SECURITY,)),
     (".github/labeler.yml", (WORKFLOW_SECURITY,)),
     ("scripts/check-action-pins.py", (WORKFLOW_SECURITY,)),
-    # The two scripts that decide which CI runs (#535): a change to either one must be
-    # validated by the full lane on its own merits, not by falling through to unknown.
+    # The script that decides which CI runs (#535): a change to it must be validated by
+    # the full lane on its own merits, not by falling through to unknown. The gate's
+    # verdict lives inside test.yml, which the rule above already covers.
     ("scripts/classify_changes.py", (WORKFLOW_SECURITY,)),
-    ("scripts/ci_gate.py", (WORKFLOW_SECURITY,)),
     # --- release and publishing
     (".github/release.yml", (RELEASE,)),
     ("CITATION.cff", (RELEASE,)),

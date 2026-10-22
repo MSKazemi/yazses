@@ -18,11 +18,18 @@ rows below describes you.
 
 ## English models, measured
 
-| Model | Word-error rate | Median latency | Download | RSS after load | Pick it when |
+| Model | Word-error rate | Median latency | Download | RSS after load¹ | Pick it when |
 |---|---|---|---|---|---|
-| `tiny.en` | 4.82 % | **0.89 s** | 75 MB | 857 MB | An old or very slow machine, or you value latency over the occasional wrong word |
-| `base.en` **(default)** | 4.07 % | 1.56 s | 141 MB | 874 MB | You have no specific reason to change |
-| `small.en` | **2.59 %** | 5.05 s | 464 MB | 1,340 MB | Accuracy matters more than waiting — names, jargon, long-form writing |
+| `tiny.en` | 4.82 % | **0.89 s** | 78 MB | 165 MB | An old or very slow machine, or you value latency over the occasional wrong word |
+| `base.en` **(default)** | 4.07 % | 1.56 s | 148 MB | 202 MB | You have no specific reason to change |
+| `small.en` | **2.59 %** | 5.05 s | 486 MB | 384 MB | Accuracy matters more than waiting — names, jargon, long-form writing |
+
+¹ Resident memory of a process that has imported `yazses.core.daemon` and loaded the
+model (int8, CPU), re-measured 2026-10-21 on an AMD Ryzen 5 PRO 4650U. Decoding an 11 s
+clip then peaks at 272 / 344 / 618 MB. The earlier 857 / 874 / 1,340 MB figures were taken
+on 2026-08-06, when importing the daemon's dependencies alone cost about 820 MB; see the
+[benchmarks memory section](benchmarks.md#memory). The running daemon adds whatever
+switched-on features load at start.
 
 Read the two ends of that table together: `small.en` cuts errors by roughly a
 third, and costs **more than three times the wait** on the same machine. For a

@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from yazses import tomlio
-from yazses.configcheck import ConfigProblem, build_section
+from yazses.configcheck import ConfigProblem, build_section, language_pairing_problems
 
 log = logging.getLogger(__name__)
 
@@ -45,10 +45,13 @@ class SttConfig:
     # Empty string = let Whisper auto-detect per utterance, which costs an extra
     # decode pass and can flip mid-session, so an explicit code is preferred when
     # you know the language. Requires a MULTILINGUAL model: the `.en` checkpoints
-    # (base.en, small.en, …) are English-only and cannot decode anything else, so
-    # set `model = "small"` (no suffix) alongside it — stt/factory.py warns when
-    # the pair is contradictory. Ignored on the translate path (ADR-v2-014), which
-    # auto-detects the source by design, and by the Parakeet engine (English-only).
+    # (base.en, small.en, …) and the distil-* checkpoints are English-only and
+    # cannot decode anything else, so set `model = "small"` (no suffix) alongside
+    # it. A contradictory pair is refused, not decoded as English: doctor fails
+    # it, Settings will not save it and dictation does not start (#515; the cited
+    # table is src/yazses/language/capability.py). The default Parakeet and
+    # Moonshine models are English-only too. Ignored on the translate path
+    # (ADR-v2-014), which auto-detects the source by design.
     language: str = "en"
     # Where CTranslate2 runs the decode: "cpu" (default) | "cuda" | "auto". YazSes is
     # a CPU-first project — every published benchmark, latency target and model
@@ -579,8 +582,8 @@ class GazeRefineConfig:
     OFF by default, and doubly opt-in: it holds the camera open (through the shared
     `[perception]` source) and listens for clicks while on. It needs `[perception]`
     enabled, gaze on the same camera, a verified calibration for this desktop, and a
-    platform click observer (none ships yet, so on every install today it explains why it
-    is dormant). Only coordinates, timestamps and gaze numbers are used: no screenshot,
+    platform click observer (X11, Windows and macOS have one, not yet tried on real
+    hardware; Wayland has none, so there it explains why it is dormant). Only coordinates, timestamps and gaze numbers are used: no screenshot,
     window title, typed text or frame, and nothing is kept past the session but the
     promoted map.
 
@@ -838,8 +841,8 @@ class OverlayConfig:
     blocked by the hotkey loop) draws an animated "sonar" — concentric rings that
     expand near the cursor and pulse with your live mic level while you dictate.
     It is a thin IPC client that polls the daemon's ``status`` RPC, so either the
-    Python or the Rust daemon can drive it. Requires the ``overlay`` extra
-    (``pip install yazses[overlay]`` / ``uv sync --extra overlay``) for PySide6.
+    Python or the Rust daemon can drive it. Requires PySide6 (the ``desktop``
+    extra), which ``yazses features enable overlay`` installs for an end user.
     """
     # Optional, off by default: on native Wayland (Ubuntu/GNOME) the compositor gives a new
     # window keyboard focus, so the overlay can swallow the dictated text. See
@@ -1530,9 +1533,40 @@ class FindreplaceConfig:
 
 @dataclass
 class HotwordsConfig:
-    """v2.5 Wave I — Hard Contextual Biasing (ADR-v2-069). OFF by default."""
+    """v2.5 Wave I — Hotwords (ADR-v2-069, folded into vocab_correct #73). OFF by default.
+
+    Turns on the guarded post-decode vocabulary correction (`postprocess/vocab_correct.py`)
+    for your `yazses vocab` dictionary, the same switch as `[stt] vocab_correction`. It does
+    not touch decoding: the original N-best rescorer had no producer, because faster-whisper
+    exposes no N-best list.
+
+    It runs only when `enabled` AND `opted_in` are both true (see `active`). First-run
+    setup in v2.11.0-dev.9 through v2.13.0 wrote `enabled = true` into every new config,
+    because hotwords was in the recommended tier then and did nothing; so `enabled` alone
+    is not a choice anybody made, and must not start rewriting their words.
+    """
     enabled: bool = False
+    # Retired with the N-best rescorer (biasing/trie.py), which had no producer. Read by
+    # nothing; kept so an existing config that sets it still loads.
     boost: float = 2.0
+    # Extra terms to correct toward, on top of the `yazses vocab` dictionary. Only read
+    # while hotwords is active (`enabled` and `opted_in`). Words under four characters are
+    # never corrected.
+    terms: list[str] = field(default_factory=list)
+    # The deliberate opt-in: `yazses features enable hotwords` and the Settings toggle write
+    # it next to `enabled = true`. Hotwords runs only when both are true, because older
+    # first-run setup wrote `enabled = true` into configs on its own.
+    opted_in: bool = False
+
+    @property
+    def active(self) -> bool:
+        """True only for a deliberate opt-in: `enabled` and `opted_in` both set. Pure."""
+        return bool(self.enabled) and bool(self.opted_in)
+
+    @property
+    def stale_enabled(self) -> bool:
+        """`enabled = true` without the opt-in -- the shape older first-run setup wrote. Pure."""
+        return bool(self.enabled) and not bool(self.opted_in)
 
 
 @dataclass
@@ -1857,9 +1891,17 @@ class ProsodypunctConfig:
 
 @dataclass
 class HesitationConfig:
-    """v2.8 Wave L — Hesitation-Hold Endpointing (ADR-v2-101). OFF by default."""
+    """v2.8 Wave L — Hesitation-Hold Endpointing (ADR-v2-101). OFF by default.
+
+    Experimental, and only active in hands-free ``[autostop]`` turns (hold-to-talk ends on
+    key release). ``[autostop] silence_timeout_ms`` stays the base commit threshold; after a
+    detected filled pause ("uhh...") the turn waits ``hold_extra_ms`` longer. ``commit_ms``
+    is kept for older configs: ``0`` (the default) means "use the auto-stop timeout", and any
+    other value is ignored with a warning, so there is never a second competing threshold.
+    The detector's thresholds were tuned on synthetic signals only.
+    """
     enabled: bool = False
-    commit_ms: float = 800.0
+    commit_ms: float = 0.0
     hold_extra_ms: float = 1200.0
 
 
@@ -2274,6 +2316,17 @@ class Config:
     profiles: ProfilesConfig = field(default_factory=ProfilesConfig)
 
 
+def handsfree_preset(config: Config) -> HandsfreeConfig:
+    """``[handsfree]`` as the file says it, for the capability *status* surfaces only.
+
+    The preset is expanded by the loader into ordinary keys (ADR-v2-148), and nothing at run
+    time may branch on this section (`tests/test_handsfree_no_second_path.py`). The features
+    registry still has to show the one switch as on or off, so this is the one named place
+    that reads it, and the same test pins its callers to the registry.
+    """
+    return config.handsfree
+
+
 def _load_filters(data: dict) -> FiltersConfig:
     filters_raw = data.get("filters", {})
     disf_raw = filters_raw.get("disfluency", {})
@@ -2398,7 +2451,10 @@ def load_config_checked(path: Path | None = None) -> LoadedConfig:
     config = Config(**sections)
     problems.extend(_chord_problems(config))
     problems.extend(_switch_problems(config))
-    return LoadedConfig(_apply_presets(config), problems, path)
+    config = _apply_presets(config)
+    # After the presets, so the pair judged is the one the daemon will build (#515).
+    problems.extend(language_pairing_problems(config))
+    return LoadedConfig(config, problems, path)
 
 
 def _switch_problems(config: Config) -> list[ConfigProblem]:

@@ -65,9 +65,10 @@ Then restart:
 yazses restart
 ```
 
-That is the whole configuration. The model downloads itself the first time you
-dictate — there is no separate download step, and after that it never needs the
-network again.
+That is the whole configuration. The model downloads automatically the first time
+the daemon starts with it, and after that it never needs the network again. To fetch
+it as a separate, visible step (recommended behind a firewall or proxy), run
+`yazses model download small` first.
 
 For another Indian language, change `language` to the code from the table above:
 
@@ -96,18 +97,24 @@ See [performance tuning](../how-to/performance-tuning.md) for the latency trade-
 ## Hinglish — sentences that mix Hindi and English
 
 Mixing English words into a Hindi sentence is normal Indian speech, and it is the
-case that trips up most dictation tools. YazSes has a routing layer for exactly this:
+case that trips up most dictation tools. For Hinglish today, use a multilingual model
+with auto-detection:
 
 ```toml
-[polyglot]
-enabled = true
-pair = "hi-en"
+[stt]
+model = "small"
+language = ""          # auto-detect
 ```
 
-Be clear about what this does: it **routes** between the two languages of the pair
-over the general multilingual model. It is not a purpose-trained code-switching
-model. A dedicated adapter can be supplied via `[polyglot] adapter_path`, but that
-is trained separately and the slot stays empty until you set it.
+Whisper then detects one language per burst rather than switching inside it, so
+mixed sentences come out best when the model is large enough to transcribe the
+English words in Hindi context.
+
+`[polyglot]` is not the answer yet. It is a code-switch hook for a separately trained
+adapter (`[polyglot] pair = "hi-en"` plus `[polyglot] adapter_path`); with no adapter
+set it does nothing, and `yazses doctor` reports it as dormant. Even with one set,
+the daemon does not route any speech to it yet, so turning it on changes no
+transcript.
 
 ## Will Devanagari actually type into my applications?
 
@@ -130,10 +137,13 @@ physical keyboard layout.
 
 - **Linux on Wayland — verify it yourself before relying on it.** The default
   Wayland backend, `ydotool`, injects at the kernel input layer *below* the keyboard
-  layout, which is exactly the layer where non-Latin characters are most likely to
-  be dropped. We have not been able to confirm Devanagari output through it. If you
-  are on GNOME or KDE under Wayland, dictate one Hindi sentence into a text editor
-  first; if nothing appears, switch `[injection] backend` to `clipboard` as above.
+  layout, so it can only press keys your active layout has. YazSes checks every
+  non-ASCII character before typing: on a Latin keyboard layout there is no key for a
+  Devanagari character, so YazSes pastes the whole burst from the clipboard instead
+  (`[injection] fallback_to_clipboard`, on by default). That overwrites your
+  clipboard and does nothing in most terminals. With a Devanagari layout active, the
+  characters are typed. We have not confirmed Devanagari output end to end on
+  Wayland; dictate one Hindi sentence into a text editor first.
 
 If your text is transcribed but nothing lands in the application, that is an
 injection problem, not a language problem — [troubleshooting](../troubleshooting.md)

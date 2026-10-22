@@ -54,6 +54,18 @@ first and raises :class:`PointerBackendError` naming the pane. Forum reports (no
 documentation) say the preflight answer reflects the access the process had when it
 *launched*, so a grant given while YazSes runs needs a restart to be seen.
 
+**And it asks when the sink is opened, not on the first head movement.** The platform
+bundle's ``pointer_factory`` is :func:`build_macos_pointer_sink`, not the bare class. The
+Head-Pointer opens its sink when it is built so that "no pointer here" is known up front
+(`src/yazses/headpointer/runtime.py`, ``build_headpointer``), and that only works if opening
+can fail. The Linux factory already refuses at open time. This one does the same for the
+two answers macOS can give before any event is posted: no Quartz bridge in this install
+(:class:`PointerUnsupportedError`, permanent until reinstalled) and post-event access
+denied (:class:`PointerBackendError`, because a grant plus a restart fixes it). Either way
+the refusal becomes the reason ``yazses headpointer status`` prints. The check does not
+prompt: it calls ``CGPreflightPostEventAccess``, never its prompting sibling
+``CGRequestPostEventAccess``, and the factory runs only once a pointer feature is enabled.
+
 **Never executed on macOS.** Everything in :class:`QuartzMouseApi` is written from
 Apple's API documentation and checked against a fake Quartz module on Linux. No line of
 it has run against a real `CGEventPost`. In particular, whether a synthetic click needs
@@ -65,6 +77,7 @@ landing as mere mouse-downs, that field is the first thing to add.
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from typing import Any, Protocol
 
 from yazses.pointer.base import (
@@ -73,6 +86,7 @@ from yazses.pointer.base import (
     PointerButton,
     PointerCapabilities,
     PointerError,
+    PointerUnsupportedError,
     check_finite,
     require_absolute,
     require_button,
@@ -86,6 +100,16 @@ log = logging.getLogger(__name__)
 #: Apple: scroll values are "typically in a range from -10 to +10"; larger ones "may have
 #: unexpected results, depending on the application". One event never exceeds this.
 MAX_SCROLL_LINES_PER_EVENT = 10
+
+#: The one denial message, used at open time and on every refused operation. Kept short
+#: on purpose: the Head-Pointer stores a build refusal as a status reason capped at 200
+#: characters after a ``"no pointer output: PointerBackendError: "`` prefix, and the pane
+#: name and the restart are the part a user needs, so they must survive that cut.
+#: ``tests/test_pointer_macos.py`` checks that they do.
+POST_ACCESS_DENIED = (
+    "macOS has denied YazSes permission to post mouse events. Enable YazSes in System "
+    "Settings > Privacy & Security > Accessibility, then restart YazSes."
+)
 
 #: What this backend honestly offers. See the module docstring for why horizontal scroll
 #: is absent; `backend` is the short stable identifier the protocol asks for.
@@ -188,15 +212,23 @@ class QuartzMouseApi:
         if self._post_access_confirmed:
             return
         preflight = getattr(quartz, "CGPreflightPostEventAccess", None)
+        # Without this check an unapproved process posts events that go nowhere and no log
+        # says why. The grant is the same Accessibility one the dictation key uses, and it
+        # is read when the process starts, hence "restart" in the message.
         if preflight is not None and not preflight():
-            raise PointerBackendError(
-                "macOS has not allowed YazSes to post mouse events, so the pointer would "
-                "not move and nothing would say why. Enable YazSes in System Settings > "
-                "Privacy & Security > Accessibility (the same grant the dictation key "
-                "uses), then quit and reopen YazSes: the answer is read when the "
-                "process starts."
-            )
+            raise PointerBackendError(POST_ACCESS_DENIED)
         self._post_access_confirmed = True
+
+    def preflight(self) -> None:
+        """Load Quartz and confirm post-event access now, posting nothing.
+
+        What :func:`build_macos_pointer_sink` calls so a denial is reported when the sink
+        is opened. Raises :class:`ImportError` when PyObjC is absent (the factory turns
+        that into :class:`PointerUnsupportedError`) and :class:`PointerBackendError` when
+        macOS says no. A positive answer is remembered, so the first real operation does
+        not ask again.
+        """
+        self._require_post_access(self._q())
 
     # -- position ---------------------------------------------------------- #
 
@@ -357,3 +389,44 @@ class MacosPointerSink:
             raise
         except Exception as exc:  # deliberately broad -- see the docstring
             raise PointerBackendError(f"macOS pointer could not {what}: {exc}") from exc
+
+
+def build_macos_pointer_sink(load_quartz: Callable[[], Any] | None = None) -> MacosPointerSink:
+    """Open the macOS pointer sink, or raise the reason there can be none.
+
+    This is ``Platform.pointer_factory`` on macOS (`src/yazses/platform/macos/__init__.py`).
+    It is called only when a pointer consumer is enabled, so importing Quartz and asking
+    for access here costs a dictation-only user nothing.
+
+    * No PyObjC Quartz bridge -> :class:`PointerUnsupportedError`. It is a dependency
+      of every macOS install, so this means a broken environment, and nothing changes
+      until it is reinstalled.
+    * Post-event access denied -> :class:`PointerBackendError` with
+      :data:`POST_ACCESS_DENIED`. A grant and a restart fix it.
+    * A bridge that raises while answering -> :class:`PointerBackendError`. An
+      untranslated bridge error would reach the caller as something other than a
+      ``PointerError``.
+    * A bridge without ``CGPreflightPostEventAccess`` -> the sink opens. Unknown is not
+      denied, which matches what each operation does.
+
+    *load_quartz* replaces the PyObjC import in tests. It is resolved at call time so a
+    test that patches the module's ``_load_quartz`` is honoured as well.
+    """
+    loader = load_quartz if load_quartz is not None else _load_quartz
+    try:
+        quartz = loader()
+    except ImportError as exc:
+        raise PointerUnsupportedError(
+            "the PyObjC Quartz bridge (pyobjc-framework-Quartz) is not installed, so "
+            f"YazSes cannot post mouse events on this Mac: {exc}"
+        ) from exc
+    api = QuartzMouseApi(quartz=quartz)
+    try:
+        api.preflight()
+    except PointerError:
+        raise
+    except Exception as exc:  # deliberately broad -- see the docstring
+        raise PointerBackendError(
+            f"macOS could not say whether YazSes may post mouse events: {exc}"
+        ) from exc
+    return MacosPointerSink(api=api)

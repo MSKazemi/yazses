@@ -7,21 +7,43 @@ pip environment — so ``yazses features enable <name>`` is turnkey.
 """
 from __future__ import annotations
 
+import importlib
 import importlib.util
+import json
 import os
 import re
 import shutil
 import subprocess
 import sys
 import sysconfig
+import tempfile
 import tomllib
 from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
 
+from yazses.system import install_txn
 from yazses.system.snap import dependency_install_advice, in_snap
 
 # The only package this module ever installs dependencies *for*.
 _TOOL_NAME = "yazses"
+
+#: The PyTorch project's CPU-only wheel index. On Linux, PyPI's ``torch`` is the CUDA
+#: build: ``speechbrain>=1.1`` -- the one line in the ``voiceprint`` extra -- resolved
+#: there to 15 ``nvidia-*`` distributions and 4.22 GB of wheels (``uv.lock``,
+#: 2026-10-21) for a tool that never touches a GPU. Resolved here instead, the same
+#: closure is 39 distributions instead of 58, no ``nvidia-*``, and every non-torch
+#: package at the identical version (gap 7 of
+#: design/research/2026-10-21-pay-for-what-you-enable.md). ``pyproject.toml`` pins this
+#: same index into the lock; this is the copy an *installed* yazses uses, which never
+#: sees the lock. One constant, and a test holds the two spellings equal.
+TORCH_CPU_INDEX = "https://download.pytorch.org/whl/cpu"
+
+#: Distributions whose closure pulls torch, by canonical name. Matched by name because
+#: this module is handed requirement strings, not features -- and the undo path hands
+#: it exact versions such as ``torch==2.14.1+cpu``, which only the mirror can serve.
+_TORCH_STACK = frozenset(
+    {"torch", "torchaudio", "torchvision", "speechbrain", "resemblyzer", "pyannote-audio"}
+)
 
 
 def missing_modules(modules: Iterable[str]) -> list[str]:
@@ -74,15 +96,23 @@ def install_blocked_reason(
 
     Checked *before* pip runs, because a doomed install is worse than no
     install: the user waits, then reads an error written for a different
-    packaging world. Two environments can never accept a package:
+    packaging world. Three kinds of environment can never accept a package:
 
     * a snap — read-only squashfs plus Debian's PEP 668 marker (see
       :mod:`yazses.system.snap`);
+    * any other install format with a fixed payload — the macOS ``.app``, the
+      Windows ``.exe`` (and the Chocolatey/Scoop/WinGet channels that install it),
+      the MSIX and the flatpak (see :func:`fixed_payload_reason`);
     * any install whose site directory we cannot write (a root-owned
       system install run as a normal user, a read-only image).
     """
     if in_snap(env):
         return dependency_install_advice(packages, env)
+    fixed = fixed_payload_reason(packages, env)
+    if fixed is not None:
+        return fixed
+    if _externally_managed():
+        return externally_managed_reason(packages)
     target = sysconfig.get_paths().get("purelib")
     if target and not os.access(_nearest_existing(Path(target)), os.W_OK):
         return (
@@ -93,15 +123,161 @@ def install_blocked_reason(
     return None
 
 
-def install_command(packages: Sequence[str]) -> list[str]:
+def fixed_payload_reason(
+    packages: Sequence[str], env: Mapping[str, str] | None = None
+) -> str | None:
+    """Why a frozen or confined install cannot add *packages*, or ``None``.
+
+    The install format is read from the packaging matrix in
+    :mod:`yazses.cameraperm.matrix` (``PackageProfile.can_add_runtime``) rather
+    than from a second hand-written ``sys.frozen`` check, so the answer `doctor`
+    gives on its Camera row and the answer `features enable` gives here cannot
+    disagree (EYE-PERM-001, #414).
+
+    The case it exists for: in a PyInstaller bundle ``sys.executable`` is the
+    YazSes executable itself, so :func:`install_command` would hand pip a program
+    that is not a Python interpreter, and the purelib writability check below
+    can pass on a per-user install directory. Without this, ``yazses features
+    enable gaze --force`` in the ``.app`` or the ``.exe`` wrote ``[gaze] enabled
+    = true`` and then ran an install that could never work — a config key no
+    code in that package can honour.
+    """
+    from yazses.cameraperm.matrix import current_profile
+
+    profile = current_profile(dict(env) if env is not None else None)
+    if profile.can_add_runtime:
+        return None
+    wanted = " ".join(packages)
+    return (
+        f"this is {profile.label}, whose payload is fixed when it is built, so "
+        "extra Python libraries can never be installed into it.\n"
+        f"This capability needs: {wanted}\n"
+        "To use it, install YazSes from PyPI instead — same app, every capability:\n"
+        "    pipx install yazses\n"
+        "then run the same `yazses features enable` command again; it installs "
+        "the libraries for you."
+    )
+
+
+def pulls_torch(packages: Iterable[str]) -> bool:
+    """Whether installing *packages* resolves torch (see :data:`_TORCH_STACK`)."""
+    return any(_requirement_name(p) in _TORCH_STACK for p in packages)
+
+
+def _on_linux(environment: Mapping[str, str] | None = None) -> bool:
+    """The PEP 508 question ``sys_platform == 'linux'``, asked the way requirements
+    ask it, so a test can answer it for another platform the same way
+    :func:`install_txn.applicable` lets it. Without ``packaging`` (it reaches every
+    install through faster-whisper, but is not a declared dependency of ours) the
+    answer is "no", which costs a user the CUDA download they get today -- never a
+    broken install."""
+    try:
+        from packaging.markers import Marker
+    except ImportError:
+        return False
+    return Marker("sys_platform == 'linux'").evaluate(
+        dict(environment) if environment is not None else None
+    )
+
+
+def torch_index_flags(
+    packages: Iterable[str],
+    *,
+    uv: bool,
+    environment: Mapping[str, str] | None = None,
+) -> list[str]:
+    """The installer flags that make torch resolve from :data:`TORCH_CPU_INDEX`.
+
+    Empty unless *packages* :func:`pulls_torch` **and** this is Linux: PyPI's macOS
+    wheels are already CPU-only, and Windows stays on PyPI (its wheel carries no CUDA
+    dependencies, and ADR-028 Q2 keeps voiceprint off the frozen build there).
+
+    For uv the pair is ``--index URL --index-strategy unsafe-best-match``, never the
+    bare index. uv's default ``first-index`` strategy takes **every** package the
+    mirror hosts from the mirror, and the mirror's copies are old: a dry run of the
+    `speechbrain` closure under it resolved setuptools 78.1.0 (below the 83.0.0 that
+    patches Dependabot alert #9), requests 2.28.1 and urllib3 1.26.13.
+    ``unsafe-best-match`` is pip's semantics -- best version across all indexes --
+    so PyPI wins everything the mirror is behind on and the ``+cpu`` local version
+    wins torch; measured, the non-torch set was identical to a PyPI-only resolve.
+    "Unsafe" is dependency confusion between indexes, which two first-party hosts
+    cannot do to each other. pip gets ``--extra-index-url``, whose semantics already
+    are best-match.
+    """
+    if not pulls_torch(packages) or not _on_linux(environment):
+        return []
+    if uv:
+        return ["--index", TORCH_CPU_INDEX, "--index-strategy", "unsafe-best-match"]
+    return ["--extra-index-url", TORCH_CPU_INDEX]
+
+
+def install_command(
+    packages: Sequence[str],
+    *,
+    constraints: Path | None = None,
+    no_deps: bool = False,
+    environment: Mapping[str, str] | None = None,
+) -> list[str]:
     """Return the argv that installs *packages* into the running interpreter.
 
     Prefers ``uv pip install`` (how yazses is installed on most machines here);
     falls back to ``python -m pip install`` when uv is not on PATH.
+
+    *constraints* is a ``--constraint`` file holding YazSes's own requirements
+    (:func:`install_txn.constraint_lines`), so a feature cannot move a base
+    dependency out of its range. *no_deps* is for the undo path, which restores
+    exact previous versions and must not resolve anything new. *environment*
+    answers the platform marker for :func:`torch_index_flags` (tests).
     """
+    uv = shutil.which("uv") is not None
+    flags: list[str] = torch_index_flags(packages, uv=uv, environment=environment)
+    if constraints is not None:
+        flags += ["--constraint", str(constraints)]
+    if no_deps:
+        flags.append("--no-deps")
+    if uv:
+        return ["uv", "pip", "install", "--python", sys.executable, *flags, *packages]
+    return [sys.executable, "-m", "pip", "install", *flags, *packages]
+
+
+def uninstall_command(names: Sequence[str]) -> list[str]:
+    """The argv that removes *names* from the running interpreter (the undo path)."""
     if shutil.which("uv"):
-        return ["uv", "pip", "install", "--python", sys.executable, *packages]
-    return [sys.executable, "-m", "pip", "install", *packages]
+        return ["uv", "pip", "uninstall", "--python", sys.executable, *names]
+    return [sys.executable, "-m", "pip", "uninstall", "-y", *names]
+
+
+def pipx_inject_command(
+    venv: str, packages: Sequence[str], *, environment: Mapping[str, str] | None = None
+) -> list[str]:
+    """``pipx inject <venv> <packages>`` — the install pipx itself remembers.
+
+    A package installed into a pipx venv any other way is not in
+    ``pipx_metadata.json``, and ``pipx reinstall`` (which a Python upgrade forces)
+    rebuilds the venv without it. Reproduced offline with pipx 1.4.3: a package
+    installed with the venv's own pip was gone after ``pipx reinstall``; an injected
+    one was put back.
+
+    Markers are evaluated here (:func:`install_txn.applicable`) because pipx does not
+    evaluate them — it installs every spec it is handed.
+
+    No ``--pip-args``, and in particular no constraint file: pipx **stores** an
+    injected package's pip arguments and replays them on ``pipx reinstall``. A
+    temporary ``--constraint`` path was replayed after it had been deleted, pip
+    failed, and the package was silently dropped from the venv *and* from the
+    metadata — reproduced offline. The constraint is checked by a dry run first
+    instead (:func:`_install_into_channel`).
+
+    The one pip argument that *is* passed is :func:`torch_index_flags`'s
+    ``--extra-index-url`` for the torch stack on Linux. Replaying that on
+    ``pipx reinstall`` is the point, not the hazard: the index is permanent, and
+    without it the reinstall would resolve torch from PyPI -- the CUDA build.
+    """
+    cmd = ["pipx", "inject", venv, *install_txn.applicable(packages, environment)]
+    pip_args = torch_index_flags(packages, uv=False, environment=environment)
+    if pip_args:
+        cmd += ["--pip-args", " ".join(pip_args)]
+    return cmd
 
 
 def _uv_tool_receipt() -> Path | None:
@@ -128,7 +304,9 @@ def _uv_tool_receipt() -> Path | None:
     if not tool_dir:
         return None
     env_dir = Path(tool_dir) / _TOOL_NAME
-    if _norm(str(env_dir)) != _norm(sys.prefix):
+    # normcase: a no-op on POSIX; on Windows it folds case and slashes, so
+    # `C:\Users\...` from uv and `c:/users/...` from sys.prefix still match.
+    if os.path.normcase(_norm(str(env_dir))) != os.path.normcase(_norm(sys.prefix)):
         return None
     receipt = env_dir / "uv-receipt.toml"
     return receipt if receipt.exists() else None
@@ -147,12 +325,167 @@ def _requirement_name(requirement: str) -> str:
 
 
 def _render_requirement(entry: dict) -> str:
-    """A parsed ``uv-receipt.toml`` requirement dict back into a PEP 508 string."""
+    """A parsed ``uv-receipt.toml`` requirement dict back into a PEP 508 string.
+
+    The environment marker is part of the requirement, not decoration. uv records
+    ``--with "onnxruntime>=1.23.2,<1.24; sys_platform == 'darwin' and
+    platform_machine == 'x86_64'"`` as ``{name, specifier, marker}`` (checked
+    against uv 0.12.21 in an offline ``UV_TOOL_DIR``). Rendering it without the
+    marker turned an Intel-Mac-only ceiling into a ceiling for *every* platform the
+    next time a feature was enabled, beside the ``>=1.27`` the other half of the
+    pair demands: an install that cannot resolve at all.
+    """
     name = entry.get("name", "")
     extras = entry.get("extras") or []
     specifier = entry.get("specifier") or ""
+    marker = entry.get("marker") or ""
     suffix = f"[{','.join(extras)}]" if extras else ""
-    return f"{name}{suffix}{specifier}"
+    rendered = f"{name}{suffix}{specifier}"
+    return f"{rendered}; {marker}" if marker else rendered
+
+
+def _read_receipt(receipt: Path) -> tuple[str, list[str], list[str]] | None:
+    """``(target, target_extras, other requirements)`` from a uv receipt, or None.
+
+    *target* is the rendered ``yazses`` requirement exactly as recorded (a version
+    pin and an extra such as ``[desktop]`` included), so a reinstall built from it
+    neither drops the pin nor the extra. ``None`` for an unreadable or malformed
+    file: every caller treats that as "cannot do better than the plain path".
+    """
+    try:
+        data = tomllib.loads(receipt.read_text(encoding="utf-8"))
+    except (OSError, tomllib.TOMLDecodeError):
+        return None
+    requirements = data.get("tool", {}).get("requirements", [])
+    target = _TOOL_NAME
+    target_extras: list[str] = []
+    withs: list[str] = []
+    for entry in requirements:
+        if not isinstance(entry, dict):
+            continue
+        name = entry.get("name", "")
+        if not name:
+            continue
+        if _requirement_name(name) == _TOOL_NAME:
+            target = _render_requirement(entry)
+            target_extras = [str(e) for e in entry.get("extras") or []]
+        else:
+            withs.append(_render_requirement(entry))
+    return target, target_extras, withs
+
+
+def _merged_install_argv(
+    target: str,
+    withs: Sequence[str],
+    packages: Sequence[str],
+    *,
+    upgrade: bool = False,
+    environment: Mapping[str, str] | None = None,
+) -> list[str]:
+    """``uv tool install [--upgrade] --with … <target>`` keeping every requirement.
+
+    A package named in *packages* replaces **every** recorded requirement of the
+    same distribution, rather than only an identically-spelled one. A feature's
+    requirements arrive as a complete set — ``read-back`` names onnxruntime twice,
+    once per platform marker — so keying on the name alone used to keep only the
+    second of the pair, and keying on the exact string would keep an old floor
+    beside a new one. Replacing the whole group by name is the only rule that is
+    right for both.
+
+    :func:`torch_index_flags` is computed over the **merged** list, not the new
+    packages: uv records ``index`` and ``index-strategy`` in the receipt's
+    ``[tool.options]`` (checked against uv 0.12.21), and this command *replaces*
+    that table. Enabling an unrelated feature after voiceprint re-issues the whole
+    with-list, and dropping the index there would hand the next ``uv tool upgrade``
+    a torch resolved from PyPI -- the CUDA build -- with no error anyone sees.
+    """
+    new_names = {_requirement_name(p) for p in packages}
+    kept = [w for w in withs if _requirement_name(w) not in new_names]
+    merged = list(dict.fromkeys([*kept, *packages]))
+    cmd = ["uv", "tool", "install"]
+    if upgrade:
+        cmd.append("--upgrade")
+    for spec in merged:
+        cmd += ["--with", spec]
+    cmd += torch_index_flags(merged, uv=True, environment=environment)
+    cmd.append(target)
+    return cmd
+
+
+def _extra_requirement_names(extras: Iterable[str]) -> set[str]:
+    """Distributions the installed yazses pulls in through *extras* (canonical).
+
+    A receipt whose target is ``yazses[desktop]`` already keeps PySide6 across an
+    upgrade even though PySide6 is not a ``--with`` of its own, so it must not be
+    reported as "about to be dropped". Read from the installed distribution's own
+    metadata, which is what uv resolves the extra from. Best effort: an unreadable
+    metadata block answers "nothing covered", which can only make the upgrade
+    command longer, never drop a package.
+    """
+    wanted = {str(e) for e in extras}
+    if not wanted:
+        return set()
+    try:
+        from importlib.metadata import requires
+
+        from packaging.requirements import Requirement
+
+        covered: set[str] = set()
+        for raw in requires(_TOOL_NAME) or []:
+            req = Requirement(raw)
+            if req.marker is None:
+                continue
+            if any(req.marker.evaluate({"extra": extra}) for extra in wanted):
+                covered.add(_requirement_name(req.name))
+        return covered
+    except Exception:  # noqa: BLE001 - metadata is a courtesy here, never fatal
+        return set()
+
+
+def uv_tool_upgrade_command(
+    required: Sequence[str],
+    *,
+    receipt: Path | None = None,
+    covered: Iterable[str] | None = None,
+) -> list[str] | None:
+    """An upgrade argv that keeps *required* installed, or ``None`` if none is needed.
+
+    ``uv tool upgrade yazses`` rebuilds the tool's environment from its receipt and
+    **removes** anything the receipt does not list. Reproduced offline against uv
+    0.12.21: ``uv pip install`` a package into the tool venv, run ``uv tool
+    upgrade yazses``, and uv prints ``- extra-a==1.0`` — even on a no-op upgrade of
+    a pinned install. Every package `features enable` installed before
+    :func:`_persist_uv_tool_extras` existed, and every one that reached the
+    fallback path inside :func:`install_packages`, is in exactly that position.
+
+    So when an enabled feature's requirement is missing from the receipt, the
+    upgrade is issued as ``uv tool install --upgrade --with <recorded> --with
+    <missing> <target>`` instead: the same version move (``--upgrade`` with the
+    target unchanged, pins included) and the requirements recorded, so the *next*
+    plain ``uv tool upgrade`` keeps them too. Both properties were checked in the
+    same offline experiment (1.0 → 2.0, extras present afterwards and after a
+    second plain upgrade).
+
+    ``None`` — "the plain command is already right" — when this is not a uv tool
+    install, the receipt cannot be read, or every requirement is already recorded
+    (directly, or through an extra of the target such as ``[desktop]``). *receipt*
+    and *covered* are injectable for tests.
+    """
+    if not required:
+        return None
+    path = receipt if receipt is not None else _uv_tool_receipt()
+    if path is None:
+        return None
+    parsed = _read_receipt(path)
+    if parsed is None:
+        return None
+    target, target_extras, withs = parsed
+    recorded = {_requirement_name(w) for w in withs}
+    recorded |= set(covered) if covered is not None else _extra_requirement_names(target_extras)
+    missing = [r for r in required if _requirement_name(r) not in recorded]
+    if not missing:
+        return None
+    return _merged_install_argv(target, withs, missing, upgrade=True)
 
 
 def _persist_uv_tool_extras(receipt: Path, packages: Sequence[str]) -> bool:
@@ -187,28 +520,11 @@ def _persist_uv_tool_extras(receipt: Path, packages: Sequence[str]) -> bool:
     False so the caller can fall back to the plain install, which still enables
     the feature for *this* session even if it will not survive an upgrade.
     """
-    try:
-        data = tomllib.loads(receipt.read_text(encoding="utf-8"))
-    except (OSError, tomllib.TOMLDecodeError):
+    parsed = _read_receipt(receipt)
+    if parsed is None:
         return False
-    requirements = data.get("tool", {}).get("requirements", [])
-    target = _TOOL_NAME
-    withs: dict[str, str] = {}
-    for entry in requirements:
-        name = entry.get("name", "")
-        if not name:
-            continue
-        rendered = _render_requirement(entry)
-        if _requirement_name(name) == _TOOL_NAME:
-            target = rendered
-        else:
-            withs[_requirement_name(name)] = rendered
-    for pkg in packages:
-        withs[_requirement_name(pkg)] = pkg
-    cmd = ["uv", "tool", "install"]
-    for spec in withs.values():
-        cmd += ["--with", spec]
-    cmd.append(target)
+    target, _extras, withs = parsed
+    cmd = _merged_install_argv(target, withs, packages)
     try:
         subprocess.run(cmd, check=True)
         return True
@@ -293,8 +609,175 @@ def _env_prefix(argv0: str, cwd: str) -> str:
     return _norm(os.path.dirname(os.path.dirname(absolute)))
 
 
+# --- the running install's channel -------------------------------------------
+
+
+def _externally_managed() -> bool:
+    """True for a system interpreter its distribution manages (PEP 668).
+
+    Only outside a venv: a venv never carries the marker's authority, even when its
+    base interpreter does.
+    """
+    if sys.prefix != sys.base_prefix:
+        return False
+    stdlib = sysconfig.get_paths().get("stdlib")
+    if not stdlib:
+        return False
+    return (Path(stdlib) / "EXTERNALLY-MANAGED").is_file()
+
+
+def externally_managed_reason(packages: Sequence[str]) -> str:
+    """Why YazSes will not install into the distribution's own Python, and what will.
+
+    The case: ``pip install --user --break-system-packages yazses``. The old answer
+    was "this environment is not writable; install them yourself with sufficient
+    permissions" followed by a ``uv pip install --python /usr/bin/python3`` that pip
+    and uv both refuse on exactly this marker — a remedy that cannot work.
+    """
+    wanted = " ".join(packages)
+    return (
+        "this is the system Python, which your distribution manages (PEP 668), so "
+        "YazSes will not install libraries into it — doing that can break the "
+        f"system's own tools.\nThis capability needs: {wanted}\n"
+        "Install YazSes in its own environment instead — same app, every capability:\n"
+        "    pipx install yazses\n"
+        "then run the same `yazses features enable` command again; it installs "
+        "the libraries for you."
+    )
+
+
+def _pipx_venv() -> str | None:
+    """The pipx venv name when this interpreter *is* a pipx-managed venv, else None.
+
+    pipx writes ``pipx_metadata.json`` at the venv root and names the venv after
+    the package (plus any ``--suffix``), which is what ``pipx inject`` takes. With
+    no ``pipx`` on PATH there is nothing to call, so the plain path is used.
+    """
+    prefix = Path(sys.prefix)
+    if not (prefix / "pipx_metadata.json").is_file():
+        return None
+    if not shutil.which("pipx"):
+        return None
+    return prefix.name
+
+
+def _editable_checkout() -> bool:
+    """True when ``yazses`` is an editable install (a source checkout, `uv sync`).
+
+    PEP 610's ``direct_url.json`` sits beside ``METADATA`` in the ``.dist-info``
+    directory, which is located through the distribution's own file list rather
+    than ``Distribution.read_text`` so the read names its encoding like every
+    other text read here.
+    """
+    try:
+        from importlib.metadata import distribution
+
+        dist = distribution(_TOOL_NAME)
+        meta = next(f for f in dist.files or () if f.name == "METADATA")
+        path = Path(str(dist.locate_file(meta.parent / "direct_url.json")))
+        data = json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {}
+    except Exception:  # noqa: BLE001 - no metadata means "not editable", never an error
+        return False
+    return bool((data.get("dir_info") or {}).get("editable"))
+
+
+def install_channel(
+    *, receipt: Path | None = None, env: Mapping[str, str] | None = None
+) -> str:
+    """Which :mod:`install_txn` channel a feature install takes here."""
+    return install_txn.classify(
+        snap=in_snap(env),
+        frozen=fixed_payload_reason((), env) is not None,
+        uv_receipt=(receipt if receipt is not None else _uv_tool_receipt()) is not None,
+        pipx_venv=_pipx_venv() is not None,
+        editable=_editable_checkout(),
+        in_venv=sys.prefix != sys.base_prefix,
+    )
+
+
+def _yazses_requires() -> list[str]:
+    try:
+        from importlib.metadata import requires
+
+        return list(requires(_TOOL_NAME) or [])
+    except Exception:  # noqa: BLE001 - no metadata: no constraints, no base check
+        return []
+
+
+def _installed_snapshot() -> dict[str, str]:
+    """canonical name → version of every distribution this interpreter sees, now.
+
+    ``invalidate_caches`` first: the metadata finder caches directory listings, and
+    a snapshot that cannot see what the install just wrote would report no change.
+    """
+    importlib.invalidate_caches()
+    try:
+        from importlib.metadata import distributions
+
+        return install_txn.snapshot(distributions())
+    except Exception:  # noqa: BLE001 - an unreadable set disables undo, not the install
+        return {}
+
+
+def _state_files(receipt: Path | None) -> dict[Path, bytes]:
+    """The channel records an install edits, so an undo can put them back too."""
+    files: dict[Path, bytes] = {}
+    for path in (receipt, Path(sys.prefix) / "pipx_metadata.json"):
+        if path is None:
+            continue
+        try:
+            files[path] = path.read_bytes()
+        except OSError:
+            continue
+    return files
+
+
+def _undo(before: Mapping[str, str], state: Mapping[Path, bytes], *, echo) -> bool:
+    """Put the environment back to *before*. True when nothing differs afterwards."""
+    change = install_txn.diff(before, _installed_snapshot())
+    uninstall, reinstall = install_txn.restore_specs(change)
+    commands: list[list[str]] = []
+    if uninstall:
+        commands.append(uninstall_command(uninstall))
+    if reinstall:
+        commands.append(install_command(reinstall, no_deps=True))
+    for cmd in commands:
+        try:
+            subprocess.run(cmd, check=True)
+        except (subprocess.CalledProcessError, OSError, subprocess.SubprocessError):
+            pass  # the residual diff below is the verdict, not the exit code
+    for path, data in state.items():
+        try:
+            path.write_bytes(data)
+        except OSError:
+            echo(f"Could not restore {path}.")
+    residual = install_txn.diff(before, _installed_snapshot())
+    if not residual:
+        echo("Undone: the environment is exactly as it was before the install.")
+        return True
+    echo(
+        "Could NOT fully undo the install — still different: "
+        f"{residual.describe()}.\nRestore it by hand:\n  "
+        + "\n  ".join(" ".join(c) for c in commands)
+    )
+    return False
+
+
 def install_packages(packages: Sequence[str], *, echo=print) -> bool:
-    """Install *packages* into the current environment. Returns True on success."""
+    """Install *packages* into the current environment. Returns True on success.
+
+    A transaction, so a feature cannot leave the base install worse than it found
+    it (see :mod:`yazses.system.install_txn` for the three failures this closes):
+
+    1. YazSes's own requirements go to the installer as ``--constraint``, so the
+       resolver refuses a feature that would move numpy, ctranslate2 & co. out of
+       range — before anything is touched;
+    2. the installed set is snapshotted, and the install is routed to the channel
+       that records it (uv tool receipt, ``pipx inject``, or the venv);
+    3. afterwards, if the install failed part-way, was interrupted, or left a base
+       requirement unmet that was met before, everything it changed is undone, and
+       the report says whether the undo was complete.
+    """
     if not packages:
         return True
     blocked = install_blocked_reason(packages)
@@ -304,8 +787,6 @@ def install_packages(packages: Sequence[str], *, echo=print) -> bool:
     echo("Installing dependencies: " + " ".join(packages))
     other = daemon_interpreter_differs()
     if other is not None:
-        import sys
-
         echo(
             "\n⚠ The running daemon uses a DIFFERENT Python:\n"
             f"    daemon:  {other}\n"
@@ -316,13 +797,82 @@ def install_packages(packages: Sequence[str], *, echo=print) -> bool:
             f"    {other} -m pip install " + " ".join(packages) + "\n"
         )
 
+    receipt = _uv_tool_receipt()
+    base = install_txn.base_requirements(_yazses_requires())
+    before = _installed_snapshot()
+    state = _state_files(receipt)
+    broken_before = set(install_txn.unsatisfied(base, before))
+    with tempfile.TemporaryDirectory(prefix="yazses-install-") as tmp:
+        constraints: Path | None = None
+        lines = install_txn.constraint_lines(base)
+        if lines:
+            constraints = Path(tmp) / "yazses-constraints.txt"
+            constraints.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        try:
+            ok = _install_into_channel(packages, receipt, constraints, echo=echo)
+        except KeyboardInterrupt:
+            echo("\nInterrupted — undoing whatever the install had already changed.")
+            if before:
+                _undo(before, state, echo=echo)
+            raise
+    if not before:
+        return ok  # nothing to compare against: report the installer's own verdict
+    after = _installed_snapshot()
+    if ok:
+        newly_broken = [
+            p for p in install_txn.unsatisfied(base, after) if p not in broken_before
+        ]
+        if not newly_broken:
+            _say_how_it_persists(packages, echo=echo)
+            return True
+        echo(
+            "The install succeeded but broke YazSes's own requirements:\n  "
+            + "\n  ".join(newly_broken)
+            + "\nUndoing it, so dictation keeps working."
+        )
+        _undo(before, state, echo=echo)
+        return False
+    change = install_txn.diff(before, after)
+    if change:
+        echo(f"The install failed part-way, after changing: {change.describe()}. Undoing it.")
+        _undo(before, state, echo=echo)
+    return False
+
+
+def _say_how_it_persists(packages: Sequence[str], *, echo) -> None:
+    """The one channel whose install does not survive its own manager: a checkout."""
+    if not _editable_checkout():
+        return
+    extras = install_txn.extras_providing(packages, _yazses_requires())
+    # `--inexact` first: `uv sync --extra tts` alone is exact too, and would remove
+    # the extras the developer synced before (Qt, say) to add this one.
+    keep = "uv sync --inexact"
+    if extras:
+        keep += "   (or sync its extra with yours: " + " ".join(
+            f"--extra {e}" for e in extras
+        ) + ")"
+    echo(
+        "Note: this is a source checkout. A plain `uv sync` removes packages its "
+        f"lockfile's extras do not list; keep these with:  {keep}"
+    )
+
+
+def _install_into_channel(
+    packages: Sequence[str],
+    receipt: Path | None,
+    constraints: Path | None,
+    *,
+    echo,
+) -> bool:
+    """Run the channel's own installer. True on success; only KeyboardInterrupt escapes."""
     # A `uv tool install` reinstalls this interpreter itself from its own
     # receipt on every `uv tool upgrade` — the command the tray's "Install
     # update" and `yazses update` both run for this install method. A package
     # landing here any other way looks, to that reconciliation, like it should
     # not be there, and disappears on the next upgrade with no error anyone
     # sees. Recording it in the receipt instead is what makes it survive.
-    receipt = _uv_tool_receipt()
+    # No constraint file here: `uv tool install` resolves yazses *together with*
+    # the new requirements, so YazSes's own requirements already bind.
     if receipt is not None:
         if _persist_uv_tool_extras(receipt, packages):
             echo("Recorded in the uv tool install, so it survives future upgrades.")
@@ -343,17 +893,112 @@ def install_packages(packages: Sequence[str], *, echo=print) -> bool:
             "YazSes may lose this feature on the next update",
             message + " Re-run `yazses features enable` after updating.",
         )
+    else:
+        venv = _pipx_venv()
+        if venv is not None:
+            cmd = manual = pipx_inject_command(venv, packages)
+            if constraints is not None and not _preflight(packages, constraints, echo=echo):
+                return False
+            try:
+                subprocess.run(cmd, check=True)
+                echo("Recorded as injected in the pipx venv, so `pipx reinstall` keeps it.")
+                return True
+            except subprocess.CalledProcessError as exc:
+                echo(f"Automatic install failed ({exc}). Install manually:\n  {' '.join(manual)}")
+                _notify_install_failed(exc, manual)
+                return False
+            except OSError:
+                pass  # pipx vanished between the probe and the call: use the venv directly
 
-    cmd = install_command(packages)
+    cmd = install_command(packages, constraints=constraints)
     try:
         subprocess.run(cmd, check=True)
         return True
     except (subprocess.CalledProcessError, FileNotFoundError, OSError) as exc:
-        echo(f"Automatic install failed ({exc}). Install manually:\n  {' '.join(cmd)}")
-        from yazses.system.notify import notify_when_unattended
-
-        notify_when_unattended(
-            "YazSes could not install a feature's dependencies",
-            f"The install failed ({exc}). Run this in a terminal:\n  {' '.join(cmd)}",
-        )
+        # The printed command carries no temporary constraint file: it is gone by
+        # the time anyone copies the line.
+        manual = install_command(packages)
+        echo(f"Automatic install failed ({exc}). Install manually:\n  {' '.join(manual)}")
+        if constraints is not None:
+            echo(_CONFLICT_NOTE)
+        _notify_install_failed(exc, manual)
         return False
+
+
+#: Printed under a failed constrained install. The manual command cannot carry the
+#: temporary constraint file, so it is the one thing that *could* break the base
+#: install — which is worth one sentence before someone pastes it.
+_CONFLICT_NOTE = (
+    "(That command skips the guard that keeps YazSes's own libraries in range. If "
+    "the installer's error above is a dependency conflict, do not force it: this "
+    "capability cannot share an environment with this version of YazSes.)"
+)
+
+
+def _preflight(packages: Sequence[str], constraints: Path, *, echo) -> bool:
+    """Resolve *packages* under YazSes's constraints without installing anything.
+
+    For the one channel that cannot take a constraint file on its real install
+    (pipx; see :func:`pipx_inject_command`). A resolver conflict is refused here,
+    before pipx touches the venv. An installer that cannot dry-run (pip older than
+    22.2) answers True: the post-install check in :func:`install_packages` still
+    undoes a result that broke the base.
+    """
+    cmd = install_command(install_txn.applicable(packages), constraints=constraints)
+    cmd.insert(cmd.index("--constraint"), "--dry-run")
+    try:
+        proc = subprocess.run(cmd, capture_output=True, text=True, check=False)
+    except (OSError, subprocess.SubprocessError):
+        return True
+    if proc.returncode == 0:
+        return True
+    output = (proc.stderr or proc.stdout or "").strip()
+    if "no such option" in output.lower() or "unexpected argument" in output.lower():
+        return True
+    echo(
+        "Not installed: a dry run of the install (held to YazSes's own requirements) "
+        "failed, so nothing was changed. The resolver said:\n" + output[-1500:]
+        + "\nIf that is a dependency conflict, do not force the install: this "
+        "capability cannot share an environment with this version of YazSes."
+    )
+    return False
+
+
+def _notify_install_failed(exc: BaseException, manual: Sequence[str]) -> None:
+    from yazses.system.notify import notify_when_unattended
+
+    notify_when_unattended(
+        "YazSes could not install a feature's dependencies",
+        f"The install failed ({exc}). Run this in a terminal:\n  {' '.join(manual)}",
+    )
+
+
+def install_feature(
+    packages: Sequence[str],
+    *,
+    check_modules: Sequence[str] = (),
+    echo=print,
+) -> bool:
+    """Install a feature's *packages*, then prove its *check_modules* now resolve.
+
+    :func:`install_packages` reports what the installer said. A feature is only
+    installed when its modules are importable, and an installer that exits 0
+    without providing them (a wrong package for this platform, a split install
+    whose other interpreter got the files) used to be reported as success, leaving
+    the capability dormant behind "Apply it: yazses restart". This is the check the
+    daemon's dormancy probe would make at the next start, made now, so the person
+    who asked hears it.
+    """
+    if not install_packages(packages, echo=echo):
+        return False
+    if not check_modules:
+        return True
+    importlib.invalidate_caches()
+    still = missing_modules(check_modules)
+    if not still:
+        return True
+    echo(
+        f"The installer finished, but {', '.join(still)} still cannot be imported by "
+        f"this Python ({sys.executable}), so the capability stays dormant."
+    )
+    return False

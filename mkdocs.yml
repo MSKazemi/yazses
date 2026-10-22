@@ -62,9 +62,11 @@ theme:
     repo: fontawesome/brands/github
     edit: material/pencil
     view: material/eye
-  font:
-    text: Inter
-    code: JetBrains Mono
+  # System fonts, not web fonts. With Inter and JetBrains Mono the home page's largest
+  # paint waited on font downloads: Lighthouse mobile LCP 8.8–9.0 s, performance 63–64.
+  # With the platform's own UI and monospace stacks it was 1.6–2.2 s and 85 (2026-10-22,
+  # same build, gzip server, two runs each). One less asset class to self-host, too.
+  font: false
   palette:
     # Palette toggle — light mode
     - media: "(prefers-color-scheme: light)"
@@ -126,6 +128,8 @@ extra_css:
 
 extra_javascript:
   - assets/landing.js
+  # Names Material's search dialog and progress bar for screen readers (see the file).
+  - assets/a11y.js
 
 # Build-time hooks. `faq_schema` derives schema.org FAQPage JSON-LD from the
 # FAQ page's own markdown, so the structured data cannot drift out of sync with
@@ -160,6 +164,17 @@ hooks:
   # from a hook because `!!python/name:` cannot reach the repo root at the point
   # mkdocs.yml is parsed.
   - hooks/indic_slugify.py
+  # Derives "latest release" and "on main, not yet released" from CHANGELOG.md and
+  # docs/releases/, for the home page's Building-now band (config.extra.yazses_status)
+  # and the <!-- yazses-status:* --> placeholders on docs/now.md. Hand-written status
+  # rotted; this cannot.
+  - hooks/project_status.py
+  # Material fetches "sitemap.xml" beside every <link rel=alternate>; only the root one
+  # existed, so each translation directory was a 404 on every page view.
+  - hooks/locale_sitemaps.py
+  # Keeps design-tier bodies and preview release notes out of the in-browser search
+  # index, which every page downloads at high priority (6.1 MB measured 2026-10-22).
+  - hooks/search_scope.py
 
 plugins:
   - search
@@ -289,9 +304,11 @@ markdown_extensions:
 nav:
   - Home: index.md
   - Get started:
+      - Quick start (five minutes): get-started.md
       - Watch the CLI: watch-the-cli.md
       - Try it without installing: try-without-installing.md
       - Platform support (OS + CPU): platform-support.md
+      - Validation matrix (what is proven on hardware): validation-matrix.md
       - Install on Linux: install-linux.md
       - Install on macOS: macos-install.md
       - Install on Windows: windows-install.md
@@ -340,6 +357,7 @@ nav:
       - Glance-Type (look to pane): how-to/gaze-look-to-pane.md
       - Set up hands-free input: how-to/hands-free-setup.md
       - Stop hands-free input by voice: how-to/hands-free-voice-stop.md
+      - Click anywhere by voice (mouse grid): how-to/voice-mouse-grid.md
       - Transcribe recordings: tutorials/transcribe-recordings.md
       - Troubleshooting: troubleshooting.md
   - Research:
@@ -403,7 +421,9 @@ nav:
           - Accessibility & throughput: design/accessibility-and-throughput-spec.md
           - CI/CD audit: design/ci-cd-audit.md
           - Troubleshooting review: design/troubleshooting-full-review.md
+          - macOS quit and first-run permissions: design/macos-quit-and-first-run-permissions.md
           - White paper authoring standard: design/white-paper-authoring-standard.md
+          - Milestone policy: design/milestone-policy.md
       - Mobile (in design):
           - Overview: mobile/index.md
           - Android architecture: mobile/architecture.md
@@ -412,6 +432,7 @@ nav:
           - Contributing to mobile: mobile/contributing.md
           - Decision records: mobile/adr/README.md
   - Project:
+      - What we're building now: now.md
       - Roadmap: roadmap.md
       - Releases: releases/index.md
       - Contributing:
@@ -421,6 +442,10 @@ nav:
           - Connect Google Jules: contribute/jules.md
           - Find a task that fits you: contribute/find.md
           - All open tasks: contribute/tasks.md
+          - Release validation and evidence standard: contribute/validation.md
+          - The start-up budget: contribute/startup-budget.md
+          - macOS validation campaign: contribute/macos-validation.md
+          - Persian injection matrix: contribute/persian-injection-matrix.md
           - What contributors built: contribute/built.md
           - Share your contribution: contribute/share.md
           - Translation status: localization/STATUS.md

@@ -16,8 +16,9 @@ first thing to establish is which one you have.
 
 !!! info "Verified on"
 
-    Ubuntu 24.04 · GNOME 46 · X11 · YazSes 2.18.2 · Python 3.14. Every command
-    below was run on that machine and the output is real.
+    Ubuntu 24.04 · GNOME 46 · X11 · YazSes 2.18.2 (Aug 2026) · Python 3.14. Every
+    command below was run on that machine and the output is real; output may differ
+    in later versions.
 
 ## What the message means
 
@@ -41,7 +42,8 @@ It records **twice**: stay quiet for the first, then speak normally for the seco
 The gate has to sit above your room and below your voice, and one recording cannot
 tell those apart — so the command measures both and puts the threshold between them.
 
-Real output from the machine above, in a quiet room **without speaking in step 2**:
+Real output from the machine above, in a quiet room **without speaking in step 2**
+(this run spoke for 3 s; a default run speaks for 4 s and measures the room for 2 s):
 
 ```
 1/2  Stay quiet — measuring the room for 2s...
@@ -65,6 +67,10 @@ Read a successful run as four facts:
 - **speech level** — what it hears while you speak.
 - **vad_threshold in config** — the line your speech has to clear.
 - **recommended** — a threshold between the two, which is what `--set` would write.
+  It is aimed at about **twice your room level** (a provisional factor), so speaking louder
+  in step 2 does not raise it; your voice can only pull it *down*, when the room and your
+  voice are close. A recording shorter than 1 s of room or 2 s of speech is refused, and
+  `--set` then writes nothing and exits non-zero — re-run with `-s 4` or more.
 
 !!! warning "If a daemon is running, it may be gating somewhere else"
 
@@ -232,7 +238,9 @@ YazSes is running (PID 4084).
   state:    idle
   hotkey:   right_ctrl
   model:    base.en
+  backend:  XdotoolInjector
   mic:      default
+  uptime:   2h 14m
   latency:  base.en p50 740 ms / p95 1210 ms (n=143)
 ```
 

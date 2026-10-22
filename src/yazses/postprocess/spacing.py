@@ -21,10 +21,25 @@ cannot see cannot carry the "this burst opens with closing punctuation"
 decision. A burst whose first *visible* character is an ordinary word still
 gets its space — joining across a leading ZWNJ is a normalization decision
 (``persian_text`` strips boundary ZWNJ), not a spacing one.
+
+Since #501 (contract 7.1.0) the policy also knows Chinese and Japanese, which do not
+put spaces between words. Two changes, both inert for text with no CJK in it:
+
+* The full-width closers ``，。、；：！？）」』》】〉〕`` and the rest of the CJK
+  punctuation set suppress the separator, so ``你好`` + ``，然后`` renders
+  ``你好，然后`` and not ``你好 ，然后``. Full-width *opening* marks (``「`` ``（``)
+  suppress it too, unlike their ASCII cousins: the glyph carries its own spacing.
+* ``previous_tail`` -- the last character the previous burst typed -- lets the seam
+  be judged from both sides. ``你好，世界。`` + ``今天测试。`` must not gain a space,
+  and only the previous burst's last character can say that the seam is Han--Han.
+  The rule is :func:`yazses.postprocess.cjk.needs_space`; a caller that does not
+  pass ``previous_tail`` gets exactly the pre-7.1.0 answer.
 """
 from __future__ import annotations
 
 import unicodedata
+
+from yazses.postprocess.cjk import is_cjk_punct, needs_space
 
 # Closing punctuation that should hug the preceding word — never preceded by a
 # space. Opening delimiters (quotes, "(", "[", U+00AB «) are intentionally
@@ -48,16 +63,27 @@ def _first_visible(text: str) -> str:
     return ""
 
 
-def continuation_prefix(text: str, *, had_recent_injection: bool) -> str:
+def continuation_prefix(
+    text: str, *, had_recent_injection: bool, previous_tail: str = ""
+) -> str:
     """Return the separator to prepend before injecting ``text``.
 
     Returns a single space when ``text`` continues a recent dictation burst,
-    except when its first visible character is closing punctuation. Returns
-    "" for the first burst of a session, for empty text, or before closing
-    punctuation.
+    except when its first visible character is closing punctuation (ASCII or
+    Persian) or any CJK punctuation mark -- a full-width mark carries its own
+    spacing, opening ones included. Returns "" for the first burst of a
+    session, for empty text, or before such punctuation.
+
+    ``previous_tail`` is the last character of the burst this one continues
+    ("" when unknown). When given, the seam is also withheld where
+    :func:`~yazses.postprocess.cjk.needs_space` says an unspaced script needs
+    none -- between two Han clauses, or after a full-width mark such as ``。``.
     """
     if not had_recent_injection or not text:
         return ""
-    if _first_visible(text) in _NO_LEADING_SPACE_BEFORE:
+    first = _first_visible(text)
+    if first in _NO_LEADING_SPACE_BEFORE or is_cjk_punct(first):
+        return ""
+    if previous_tail and first and not needs_space(previous_tail[-1:], first):
         return ""
     return " "

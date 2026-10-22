@@ -41,7 +41,7 @@ Pierwsze uruchomienie jednorazowo pobiera model mowy (około 148 MB). Potem sie�
 
 ## Prywatność
 
-Dźwięk jest przetwarzany na twoim komputerze i nigdy nigdzie nie jest wysyłany. Nie ma telemetrii ani żadnej ścieżki do chmury.
+Domyślnie dźwięk jest przetwarzany na twoim komputerze i nigdzie nie jest wysyłany. Nie ma telemetrii ani żadnej ścieżki do chmury.
 
 ## Więcej
 

@@ -1,9 +1,16 @@
+---
+description: "ADR-MOB-004: on mobile you press and hold the mic key on the YazSes keyboard to dictate, with a user-selectable hold/toggle accessibility switch that defaults to hold."
+---
+
 # ADR-MOB-004 — Activation on mobile: hold-the-mic-key, with a hold/toggle accessibility switch
 
 **Status:** Accepted (2026-08-07) · design only, no code yet
+**Erratum (2026-10):** the toggle-mode cap is the desktop's shared key
+`[audio] max_record_seconds` (desktop default 300 s); any mobile-specific default must be
+recorded in `contract/` rather than under a new key name.
 **Deciders:** Mohsen Seyedkazemi Ardebili
-**Context links:** [[adr-mob-003]] (IME), [[adr-011]] (no ambient capture),
-[[adr-v2-129]] (activation-source seam on desktop),
+**Context links:** [ADR-MOB-003](adr-mob-003-text-delivery-surfaces.md) (IME), [ADR-011](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-011.md) (no ambient capture),
+[ADR-v2-129](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-v2-129-killer-features-10x.md) (activation-source seam on desktop),
 desktop analogue: `src/yazses/hotkeys/hold_detector.py`
 
 ---
@@ -12,7 +19,7 @@ desktop analogue: `src/yazses/hotkeys/hold_detector.py`
 
 The desktop's defining interaction is **hold-to-talk**: press and hold a key, speak,
 release, the words appear. It is not an arbitrary choice — it is what makes "no ambient
-capture" ([[adr-011]] §9) true by construction: the microphone is open exactly while a
+capture" ([ADR-011](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-011.md) §9) true by construction: the microphone is open exactly while a
 human is physically holding something down.
 
 A phone has no keyboard to hold, so the interaction must be re-derived rather than copied,
@@ -21,11 +28,11 @@ and the derivation has to survive three constraints the desktop does not have:
 1. **`RECORD_AUDIO` is while-in-use.** An app can capture only while it is foreground, or
    from a `microphone`-typed foreground service — and Android 14+ blocks *starting* such a
    service from the background. Any activation gesture that fires while YazSes is not on
-   screen therefore cannot simply open the mic. (Meeting Mode's FGS is [[adr-mob-007]].)
+   screen therefore cannot simply open the mic. (Meeting Mode's FGS is [ADR-MOB-007](adr-mob-007-privacy-permissions-lifecycle.md).)
 2. **A held finger occupies the screen.** Holding the mic key is natural, but it conflicts
    with users who cannot sustain a press — the accessibility constituency that YazSes
    explicitly serves (`adr-v2-012`, `adr-v2-021`).
-3. **Always-listening is disqualified by [[adr-011]]**, which forbids ambient capture
+3. **Always-listening is disqualified by [ADR-011](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-011.md)**, which forbids ambient capture
    outright. A wake word is not a small feature on mobile; it is the abandonment of the
    product's central privacy claim, and on battery it is expensive besides.
 
@@ -35,7 +42,7 @@ and the derivation has to survive three constraints the desktop does not have:
    (with the same pre-speech ring-buffer padding the desktop uses, so the first word is not
    clipped); up → stop, decode, deliver. The desktop's hold-debounce semantics
    (`hold_detector.py`: a key must be held ≥ N ms before a burst starts, so a stray tap is
-   not a burst) port directly and are covered by contract vectors ([[adr-mob-008]]).
+   not a burst) port directly and are covered by contract vectors ([ADR-MOB-008](adr-mob-008-cross-platform-contract.md)).
 2. **A user-selectable hold/toggle switch, defaulting to hold.** In toggle mode a tap
    starts and a second tap stops, with a hard safety cap (`max_burst_seconds`, default
    120 s) and a persistent, unmissable recording indicator. This is an accessibility
@@ -44,17 +51,17 @@ and the derivation has to survive three constraints the desktop does not have:
    `KEYCODE_HEADSETHOOK` / media-button press maps to start/stop *while the YazSes keyboard
    is the active input method*. This gives a genuinely hands-free path within the
    permission model, with no always-on mic.
-4. **Tertiary, M3, opt-in: the floating bubble** ([[adr-mob-003]] §5) — a draggable mic
+4. **Tertiary, M3, opt-in: the floating bubble** ([ADR-MOB-003](adr-mob-003-text-delivery-surfaces.md) §5) — a draggable mic
    button over other apps, for users who want to keep their own keyboard. Requires the
    overlay grant; off by default.
 5. **A Quick Settings tile and a launcher shortcut start Meeting Mode**, which is a
    deliberate, visible, user-initiated foreground action — the only capture path that
    outlives the on-screen UI, and it shows a permanent notification for its whole life
-   ([[adr-mob-007]]).
+   ([ADR-MOB-007](adr-mob-007-privacy-permissions-lifecycle.md)).
 6. **No wake word, no ambient capture, no "raise to speak", in any milestone**, unless a
-   future ADR supersedes [[adr-011]] — which is not anticipated.
+   future ADR supersedes [ADR-011](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-011.md) — which is not anticipated.
 7. **The activation source is an interface, not a hard-wired listener**, mirroring the
-   desktop's activation-source seam from [[adr-v2-129]]: `:core:session` exposes
+   desktop's activation-source seam from [ADR-v2-129](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-v2-129-killer-features-10x.md): `:core:session` exposes
    `ActivationSource` with `onHoldStart`/`onHoldEnd`, and the IME key, the media button, the
    bubble and (later) a watch or a hardware switch are all just implementations. This is
    what makes external-switch accessibility hardware a contributor-sized addition rather
@@ -63,7 +70,7 @@ and the derivation has to survive three constraints the desktop does not have:
 ## Consequences
 
 - The mic is open only while a finger is down, a toggle session is explicitly running, or
-  Meeting Mode is explicitly running — so [[adr-011]]'s no-ambient-capture claim holds on
+  Meeting Mode is explicitly running — so [ADR-011](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-011.md)'s no-ambient-capture claim holds on
   Android with the same strength as on desktop, and the app can say so without hedging.
 - Hold-to-talk on a touchscreen has a failure mode the desktop lacks: the finger slides off
   the key. The key must keep the burst alive while the pointer is anywhere in the keyboard
@@ -77,11 +84,11 @@ and the derivation has to survive three constraints the desktop does not have:
 
 ## Rejected
 
-- **Wake word / always-listening** — contradicts [[adr-011]] §9, drains battery, and would
+- **Wake word / always-listening** — contradicts [ADR-011](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-011.md) §9, drains battery, and would
   make the app's central claim false. The desktop's own wake-word ADR (`adr-v2-033`) is
   likewise unshipped for the same reason.
 - **Volume-key or power-key hold as a global hotkey.** Requires an `AccessibilityService`
-  to intercept keys globally ([[adr-mob-003]] rejects that grant), hijacks a control users
+  to intercept keys globally ([ADR-MOB-003](adr-mob-003-text-delivery-surfaces.md) rejects that grant), hijacks a control users
   need for media and for the camera, and is fragile across OEM skins.
 - **Shake-to-dictate / proximity-sensor gestures.** High false-positive rate; opening a
   microphone on an accidental gesture is exactly the failure this project must never have.

@@ -6,8 +6,9 @@ ones — exactly which config key(s) `yazses features enable/disable` must write
 """
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Callable
+from typing import Any, Callable
 
 # Recommendation tiers (drive the advice column + enable/disable guard).
 CORE = "core"            # always on, not toggleable
@@ -128,6 +129,13 @@ def _bool(section: str, key: str = "enabled") -> tuple:
     return on, off
 
 
+def _preset_requested(cfg) -> bool:
+    """``[handsfree] enabled`` as the file says it (see :func:`yazses.config.handsfree_preset`)."""
+    from yazses.config import handsfree_preset
+
+    return bool(handsfree_preset(cfg).enabled)
+
+
 # One row per capability. `status` reads the live config; `*_writes` are
 # (section, key, value, quote) tuples handed to set_config_key.
 def _registry() -> list[_Def]:
@@ -208,6 +216,12 @@ def _registry() -> list[_Def]:
     af_on, af_off = _bool("affect")
     dn_on, dn_off = _bool("denoise")
     pd_on, pd_off = _bool("predict")
+    # Voice Guard compares each burst with the voiceprint `[voiceprint]` loads, so
+    # enabling it alone would leave an inert guard; disabling it leaves `[voiceprint]`
+    # alone, since Cocktail Filter and voice profiles read it too.
+    # Only its own key, as cocktail does: `[voiceprint]` is shared (cocktail, multi-profile),
+    # so a disable that switched it off would silently break them, and an enable that set it
+    # could not be undone. inactive_reason() names the missing [voiceprint] step instead.
     vg_on, vg_off = _bool("voiceguard")
     sc_on, sc_off = _bool("scribe")
     rg_on, rg_off = _bool("rag")
@@ -240,6 +254,7 @@ def _registry() -> list[_Def]:
     gec_on, gec_off = _bool("gec")
     sg_on, sg_off = _bool("screengrounded")
     hp_on, hp_off = _bool("headpointer")
+    hf_on, hf_off = _bool("handsfree")
     lr_on, lr_off = _bool("lipread")
     sn2_on, sn2_off = _bool("sign")
     sym_on, sym_off = _bool("commands", "symbols")
@@ -256,7 +271,12 @@ def _registry() -> list[_Def]:
     srx_on, srx_off = _bool("spokenregex")
     mk_on, mk_off = _bool("markup")
     fr_on, fr_off = _bool("findreplace")
-    hw_on, hw_off = _bool("hotwords")
+    # Hotwords: enabling writes the opt-in next to `enabled`, and the feature runs only
+    # when both are true. First-run setup in v2.11.0-dev.9..v2.13.0 seeded
+    # `[hotwords] enabled = true` into new configs while the slug was unwired, so that
+    # line alone is not a choice; only this toggle (CLI, Settings) records one.
+    hw_on = (("hotwords", "enabled", "true", False), ("hotwords", "opted_in", "true", False))
+    hw_off = (("hotwords", "enabled", "false", False), ("hotwords", "opted_in", "false", False))
     wc_on, wc_off = _bool("windowctl")
     rw_on, rw_off = _bool("commands", "rewrite")
     ci_on, ci_off = _bool("cite")
@@ -575,14 +595,16 @@ def _registry() -> list[_Def]:
              "dictation stays accurate in shared or private spaces. Off by default.",
              lambda c: c.whispermode.enabled, wm_on, wm_off),
         _Def("hesitation", "Hesitation-Hold Endpointing", "[hesitation] — don't cut off filled pauses",
-             RECOMMENDED,
+             EXPERIMENTAL,
              "Holds the turn open when you trail off with a filled hesitation ('annnd… uhh…') instead "
-             "of cutting you off — for anyone who thinks out loud. Off by default.",
+             "of cutting you off — for anyone who thinks out loud. Needs hands-free [autostop]: it "
+             "only lengthens that silence timeout. Tuned on synthetic signals only. Off by default.",
              lambda c: c.hesitation.enabled, hes_on, hes_off),
         _Def("contour", "Pitch-Contour Gestures", "[contour] — hum a shape to run a command",
              EXPERIMENTAL,
              "Hum a pitch shape as a word-free command: rising = confirm, falling = cancel, rise-fall "
-             "= undo. Language-independent, works in noise. Off by default.",
+             "= undo; a flat hum does nothing. Fires only on an empty or hum-only transcript of "
+             "mostly-voiced audio, with thresholds tuned on synthetic tones only. Off by default.",
              lambda c: c.contour.enabled, cg_on, cg_off),
         _Def("spatialvad", "Beam-Steered Spatial VAD", "[spatialvad] — 2-mic direction gate", OPTIONAL,
              "With a stereo/2-mic input, drops any sound not coming from your seat (a TV, a "
@@ -597,8 +619,10 @@ def _registry() -> list[_Def]:
              lambda c: c.prosodypunct.enabled, pp_on, pp_off),
         _Def("vocaljoystick", "Vocal Joystick", "[vocaljoystick] — analog cursor control by voice",
              EXPERIMENTAL,
-             "Continuous cursor/scroll control by sustaining vowels — 'ahh' right, 'eee' up, louder "
-             "= faster, pitch-jump = click. No words. For severe motor impairment. Off by default.",
+             "Continuous cursor control by sustaining vowels — 'eee' up-left, 'ooo' up-right, 'ahh' "
+             "down-right, louder = faster, a held pitch jump = click. No words. Armed by `yazses "
+             "handsfree resume`, stopped by `handsfree pause`; thresholds tuned on synthetic "
+             "signals only. For severe motor impairment. Off by default.",
              lambda c: c.vocaljoystick.enabled, vj_on, vj_off),
         _Def("earcon", "Earcon Feedback", "[earcon] — non-speech state tones", OPTIONAL,
              "Tiny structured tones signal daemon state eyes-free (rising motif = recording, buzz = "
@@ -731,10 +755,12 @@ _Def("chords", "Chorded Shortcut Synthesis", "[chords] — any keyboard shortcut
              "Detects the language you speak and hot-swaps to its specialized model + punctuation, "
              "no manual toggle. Needs the per-language model files. Off by default.",
              lambda c: c.langroute.enabled, lrt_on, lrt_off),
-        _Def("hotwords", "Hard Contextual Biasing", "[hotwords] — names/jargon actually win", RECOMMENDED,
-             "Biases recognition toward your vocabulary with a hotword trie (not just a soft "
-             "prompt), so rare names and jargon are transcribed right. Off by default.",
-             lambda c: c.hotwords.enabled, hw_on, hw_off),
+        _Def("hotwords", "Hotwords", "[hotwords] — fix mis-heard names/jargon", OPTIONAL,
+             "Repairs names and jargon from your vocabulary (`yazses vocab`, plus [hotwords] "
+             "terms) that the recogniser mis-heard, after decoding, with any engine. A word is "
+             "only changed when it sounds the same and is spelled almost the same, and each "
+             "change is logged. It does not bias the decoder itself. Off by default.",
+             lambda c: c.hotwords.active, hw_on, hw_off),
         _Def("rewrite", "Offline Command Mode (rewrite selection)", "[commands] rewrite",
              OPTIONAL,
              "Select text, hold the command key and say 'make this shorter' or 'fix "
@@ -885,8 +911,11 @@ _Def("chords", "Chorded Shortcut Synthesis", "[chords] — any keyboard shortcut
              "tts extra and downloads a voice-clone model on first use. Off by default.",
              lambda c: c.tts.clone_voice, rbc_on, rbc_off),
         _Def("acoustic_profiles", "Acoustic Profiles", "[acoustic_profiles] — scene-adaptive", OPTIONAL,
-             "Detects your environment (quiet/café/car/meeting) and auto-tunes the mic gate + "
-             "noise suppression. Needs the acoustic extra (scene tagger). Off by default.",
+             "Judges whether the room is quiet or noisy from the quietest moments of each "
+             "recording and, in a noisy room, holds flat background noise to a slightly higher "
+             "silence gate so it is not sent to Whisper. The gate is relative to your own "
+             "vad_threshold, never above 1.5x it, in memory only, and speech is never held to "
+             "it. No extra needed. Off by default.",
              lambda c: c.acoustic_profiles.enabled, ap_on, ap_off),
         _Def("sentiment", "Mood Ledger", "[sentiment] — private mood journal", OPTIONAL,
              "Tags each dictation with an emotion and builds a private mood-over-time view. "
@@ -911,9 +940,10 @@ _Def("chords", "Chorded Shortcut Synthesis", "[chords] — any keyboard shortcut
              "Private on-device analytics of your dictation: filler rate, words-per-minute, "
              "vocabulary diversity, trend. From the encrypted corpus only. Off by default.",
              lambda c: c.coach.enabled, ch_on, ch_off),
-        _Def("voicehealth", "Vocal-Strain Guard", "[voicehealth] — break reminders", OPTIONAL,
+        _Def("voicehealth", "Vocal-Strain Guard", "[voicehealth] — break reminders", EXPERIMENTAL,
              "Advises a break when your voice shows rising strain (jitter/shimmer/HNR) over a "
-             "session. Advisory only, not diagnostic. Off by default.",
+             "session. Advisory only, not diagnostic; thresholds tuned on synthetic signals "
+             "only. Needs the `prosody` extra. Off by default.",
              lambda c: c.voicehealth.enabled, vh_on, vh_off),
         _Def("code", "Spoken Code Mode", "[code] — dictate code syntax", OPTIONAL,
              "Dictate code: spoken symbols become punctuation and word-groups become cased "
@@ -931,9 +961,13 @@ _Def("chords", "Chorded Shortcut Synthesis", "[chords] — any keyboard shortcut
              "modifier hotkey (the default), since a tap on a character key is invisible. "
              "Restart the daemon after enabling. Off by default.",
              lambda c: c.autostop.enabled, as_on, as_off),
-        _Def("mousegrid", "Voice Mouse Grid", "[mousegrid] — click by voice", OPTIONAL,
-             "Drive the cursor and click by voice via a numbered grid ('three, seven, click') "
-             "where no accessibility tree exists. Reuses the overlay. Off by default.",
+        _Def("mousegrid", "Voice Mouse Grid", "[mousegrid] — click by voice, experimental",
+             EXPERIMENTAL,
+             "Say 'mouse grid', then cell numbers ('three', 'seven') to move the pointer to "
+             "that cell's centre, then 'click' ('right click', 'double click'); 'back' zooms "
+             "out, 'cancel' closes. Works where no accessibility tree exists. Needs absolute "
+             "pointer motion (X11 or macOS); the numbered grid is drawn by the overlay when "
+             "[overlay] is on. Experimental: tuned on synthetic input only. Off by default.",
              lambda c: c.mousegrid.enabled, mg_on, mg_off),
         _Def("multiprofile", "Multi-User Profiles", "[voiceprint] multi_profile", OPTIONAL,
              "On a shared machine, loads each enrolled speaker's own vocab/hotkey/cleanup "
@@ -1004,10 +1038,11 @@ _Def("chords", "Chorded Shortcut Synthesis", "[chords] — any keyboard shortcut
              "Tries to focus on your voice and reject other speakers. Currently "
              "over-rejects your OWN voice — leave off until improved.",
              lambda c: c.cocktail.enabled, co_on, co_off),
-        _Def("voiceguard", "Voice Guard (biometric + anti-spoof)", "[voiceguard] — experimental", EXPERIMENTAL,
-             "Types only when the live speaker matches your enrolled voiceprint and the "
-             "audio isn't a recording/synthetic. Needs enrollment + the voiceguard extra; "
-             "false-reject risk (fail-open by default). Off by default.",
+        _Def("voiceguard", "Voice Guard (speaker match)", "[voiceguard] — experimental", EXPERIMENTAL,
+             "Refuses a dictation burst, before it is transcribed, when the speaker does not "
+             "match your enrolled voiceprint (`yazses enroll-voice`). Speaker match only: no "
+             "anti-spoof model ships, so a recording of your voice is still admitted. Threshold "
+             "tuned on synthetic signals only; false-reject risk. Off by default.",
              lambda c: c.voiceguard.enabled, vg_on, vg_off),
         _Def("bridge", "Glasses↔Desktop Bridge", "[bridge] — phone/glasses mic, experimental", EXPERIMENTAL,
              "Dictate from a paired phone/glasses; the desktop does STT + typing. "
@@ -1027,6 +1062,18 @@ _Def("chords", "Chorded Shortcut Synthesis", "[chords] — any keyboard shortcut
              "instead of a key — switch access for people who can speak but cannot "
              "press one. Needs a webcam; experimental. Off by default.",
              lambda c: c.facegesture.enabled, fg_on, fg_off),
+        # The preset is a composition, not a capability of its own (ADR-v2-148): its one key
+        # is expanded by the config loader into the rows above. It is a row so that the one
+        # switch is reachable from `yazses features` and the settings window, and both route
+        # the turn-on through `enable_refusal` (the safety floor) before writing anything.
+        _Def(PRESET_SLUG, "Hands-Free Preset",
+             "[handsfree] — gaze + head pointer + face switch + voice stop, experimental",
+             EXPERIMENTAL,
+             "One switch that turns on Glance-Type, Head-Pointer with dwell-click, the face "
+             "switch, Gesture Chords and a voice stop word together, under one global stop. "
+             "No new engine: it sets their ordinary keys (`yazses handsfree explain`). "
+             "Every value is provisional. Needs a webcam. Off by default.",
+             _preset_requested, hf_on, hf_off),
     ]
     return [_attach_deps(d) for d in defs]
 
@@ -1050,6 +1097,8 @@ _FEATURE_DEPS: dict[str, tuple[tuple[str, ...], tuple[str, ...]]] = {
     # so enabling it after gaze installs nothing.
     "facegesture": (("cv2", "mediapipe"), ("mediapipe>=0.10.35", "opencv-python>=5.0")),
     "headpointer": (("cv2", "mediapipe"), ("mediapipe>=0.10.35", "opencv-python>=5.0")),
+    # The preset composes the three camera features above, so it needs exactly their packages.
+    "handsfree": (("cv2", "mediapipe"), ("mediapipe>=0.10.35", "opencv-python>=5.0")),
     # Chords read face and head tokens off the same shared camera source.
     "gesture": (("cv2", "mediapipe"), ("mediapipe>=0.10.35", "opencv-python>=5.0")),
     "overlay": (("PySide6",), ("PySide6>=6.11.1",)),
@@ -1153,12 +1202,14 @@ _SLUG_PACKAGES: dict[str, tuple[str, ...]] = {
     "corpus_scrub": ("voiceprivacy",),  # voiceprivacy/anonymize.py via learning/capture.py
     "cocktail": ("audio", "voiceprint"),  # audio/personal_vad.py
     "autostop": ("endpoint",),       # endpoint/autostop.py via core/daemon.py
+    "acoustic_profiles": ("acoustic",),  # acoustic/gate.py via core/daemon.py
+    # hotwords: the N-best design (biasing/trie.py) had no producer and was retired; the
+    # slug now switches on vocab_correct (#73) and feeds it `[hotwords] terms`.
+    "hotwords": ("postprocess",),    # postprocess/hotwords.py + vocab_correct.py via core/daemon.py
     # --- designed-but-unwired: the package that WOULD implement it ---
     "readback_clone": ("readback",),  # readback/clone.py — never reached at runtime
     "multiprofile": ("multiprofile",),  # no implementation package exists yet
     "sentiment": ("mood",),          # mood/ledger.py — never reached at runtime
-    "acoustic_profiles": ("acoustic",),  # acoustic/profiles.py — never reached
-    "hotwords": ("biasing",),        # biasing/trie.py — never reached at runtime
 }
 
 
@@ -1182,12 +1233,10 @@ def feature_packages(slug: str) -> tuple[str, ...]:
 # feature later forces removing it here, and adding a stub registry entry
 # without wiring it fails CI.
 _UNWIRED: frozenset[str] = frozenset({
-    "acoustic_profiles", "affect", "agent", "audioguard", "breath", "bridge", "cmdspotter",
-    "codec", "compose", "contour", "crowdproof", "hatselect", "hesitation", "hotwords",
-    "interpret", "langroute", "lipread", "loadguard", "morsevox", "mousegrid", "mouthswitch",
+    "affect", "agent", "audioguard", "breath", "bridge", "cmdspotter",
+    "codec", "compose", "crowdproof", "hatselect", "interpret", "langroute", "lipread", "loadguard", "morsevox", "mouthswitch",
     "multiprofile", "pilot", "predict", "pronunciation", "proofback", "rag", "readback_clone",
-    "screengrounded", "scribe", "scrub", "sentiment", "sign", "spatialvad", "vocaljoystick",
-    "voiceguard", "voicehealth", "wakeword",
+    "screengrounded", "scribe", "scrub", "sentiment", "sign", "spatialvad", "wakeword",
 })
 
 
@@ -1267,7 +1316,7 @@ _EXAMPLES: dict[str, str] = {
     "contour": "Hum a rising note to confirm, a falling one to cancel — no words.",
     "spatialvad": "A colleague talks beside you and it's gated out by direction.",
     "prosodypunct": "Speak naturally and the periods and commas appear on their own.",
-    "vocaljoystick": "Hum 'eee' and the cursor glides up — louder moves it faster.",
+    "vocaljoystick": "Hum 'eee' and the cursor glides up and to the left — louder moves it faster.",
     "earcon": "A rising two-note beep tells you recording started, no glance needed.",
     "voicetimer": "Say 'set a timer for 25 minutes' — it reminds you, fully offline.",
     "focusprofile": "Move from your editor to a terminal and the grammar follows.",
@@ -1324,7 +1373,7 @@ _EXAMPLES: dict[str, str] = {
     "interpret": "Set [interpret] pair='en-es'; each speaker's turn is translated.",
     "pronunciation": "Practice mode: dictate a phrase, see per-phoneme good/fair/poor.",
     "readback_clone": "Enroll once; read-back then uses a clone of your own voice.",
-    "acoustic_profiles": "Move to a café — the mic gate + denoise auto-adapt.",
+    "acoustic_profiles": "Work somewhere with a steady hum — a held key over just room noise types nothing.",
     "sentiment": "yazses features enable sentiment — builds a private mood-over-time view.",
     "reflow": "Ramble, then say 'structure this' → a bulleted outline.",
     "smartpaste": "Dictate into markdown vs a terminal — syntax adapts to the app.",
@@ -1356,11 +1405,15 @@ _EXAMPLES: dict[str, str] = {
     "agent": "Say 'create a calendar event tomorrow at 3' (allowlisted tools).",
     "pilot": "Say 'click the Save button' to drive the focused app via AT-SPI.",
     "cocktail": "yazses features enable cocktail --force — filters other voices (experimental).",
-    "voiceguard": "yazses features enable voiceguard --force — only your voice dictates.",
+    "voiceguard": "yazses features enable voiceguard --force — another speaker's burst is not typed.",
     "bridge": "Pair smart glasses to relay audio to the desktop (experimental).",
     "modality": "Route dictation vs commands to different targets by role.",
     "gaze": "Glance at a screen zone to choose where the next dictation lands.",
     "facegesture": "Open your jaw to start dictating, close it to stop — no key at all.",
+    "handsfree": (
+        "yazses handsfree explain — read what it sets; yazses features enable handsfree "
+        "--force, yazses restart, then yazses handsfree resume to arm it."
+    ),
 }
 
 
@@ -1518,15 +1571,16 @@ _USE_CASES: dict[str, str] = {
     "agent": "When you want to run allowlisted tools or actions by voice through a local planner.",
     "pilot": "When you want a hands-free desktop, clicking buttons by their labels on Linux.",
     "cocktail": "When others are talking nearby and you want only your own voice to reach STT (still rough).",
-    "voiceguard": "When you must guarantee only your live voice types, blocking recordings, synthesis, or others.",
+    "voiceguard": "When other people talk near your microphone and only your own voice should type (a recording of you still gets through).",
     "bridge": "When you want to dictate from a paired phone or glasses mic while your desktop does STT.",
     "modality": "When you have EMG or gaze hardware and want each input assigned to its fastest role.",
     "gaze": "When you have several panes open and want dictation to land in whichever one you look at.",
     "facegesture": "When you cannot hold a key — a facial movement becomes the hotkey, using only the webcam.",
+    "handsfree": "When you want voice, gaze, head pointer and a face switch working together, with one stop.",
     "self_repair": "When you catch a slip mid-sentence and naturally say 'no I mean X' instead of editing.",
     "corpus_scrub": "When you enable the learning corpus but want stored audio stripped of your voice identity.",
     "readback_clone": "When you want read-back spoken in a clone of your own voice, not a generic TTS voice.",
-    "acoustic_profiles": "When you dictate in different environments and want the mic gate and denoise to adapt.",
+    "acoustic_profiles": "When a fan or traffic hum keeps getting transcribed as stray words on a key press with no speech.",
 }
 
 
@@ -1593,6 +1647,7 @@ _CATEGORIES: dict[str, str] = {
     "readback_clone": CAT_ACCESS, "voicehealth": CAT_ACCESS, "loadguard": CAT_ACCESS,
     "voicetimer": CAT_ACCESS, "spatialvad": CAT_ACCESS, "modality": CAT_ACCESS,
     "gaze": CAT_ACCESS, "mousegrid": CAT_ACCESS, "facegesture": CAT_ACCESS,
+    "handsfree": CAT_ACCESS,
     # Learning, memory & analytics.
     "learning": CAT_LEARN, "personalize": CAT_LEARN, "coach": CAT_LEARN,
     "sentiment": CAT_LEARN, "recall": CAT_LEARN, "rag": CAT_LEARN,
@@ -1650,6 +1705,79 @@ def toggleable_slugs() -> list[str]:
     return [d.slug for d in _registry() if d.on_writes]
 
 
+#: The hands-free preset's toggle name. Turning it on is gated (:func:`enable_refusal`).
+PRESET_SLUG = "handsfree"
+
+
+def enable_refusal(slug: str, raw: Mapping[str, Any] | None) -> str:
+    """Why turning *slug* on over this raw config file must be refused, or ``""``.
+
+    One capability has a gate beyond tier and dependencies: the hands-free preset refuses, and
+    writes nothing, when the user's own file would weaken its safety floor (ADR-v2-148). The CLI
+    and the settings window both ask here, so they refuse the same files with the same words.
+    ``raw is None`` means the caller could not read the file, and a gate that cannot see the
+    file must not wave the preset through.
+    """
+    if (slug or "").strip().lower() != PRESET_SLUG:
+        return ""
+    if raw is None:
+        return "the config file could not be read, so the hands-free safety floor cannot be checked."
+    from yazses.handsfree.preset import enable_refusal as preset_refusal
+
+    return preset_refusal(raw)
+
+
+def inactive_reason(slug: str, cfg) -> str:
+    """Why *cfg* says this capability is on and it is nonetheless off, or ``""``. Pure.
+
+    One case today: `[hotwords] enabled = true` without `opted_in`. First-run setup in
+    v2.11.0-dev.9 through v2.13.0 wrote that line into every new config while hotwords
+    was an unwired recommended slug, so it is not a choice anybody made and must not
+    start rewriting their words now that hotwords is wired. `yazses features`, the
+    feature card and `doctor` all print this text, each followed by the one command
+    that turns it on (`yazses features enable <slug>`), so they cannot disagree.
+
+    Voice Guard too: `[voiceguard] enabled = true` with `[voiceprint]` off is a guard with
+    nothing to compare against, and enabling it writes both keys, so the same command
+    fixes it.
+    """
+    if (slug or "").strip().lower() == PRESET_SLUG:
+        from yazses.config import handsfree_preset
+        from yazses.handsfree.preset import floor_unmet
+
+        unmet = floor_unmet(handsfree_preset(cfg), cfg)
+        if not unmet:
+            return ""
+        return (
+            "Your config says [handsfree] enabled = true, but the preset is not applied: "
+            f"your own {', '.join(unmet)} weakens its safety floor, so it set nothing. "
+            "`yazses handsfree explain` names the fix."
+        )
+    if (slug or "").strip().lower() == "voiceguard":
+        vg = getattr(cfg, "voiceguard", None)
+        if not getattr(vg, "enabled", False) or getattr(
+            getattr(cfg, "voiceprint", None), "enabled", False
+        ):
+            return ""
+        return (
+            "Your config says [voiceguard] enabled = true, but Voice Guard is not active: "
+            "it compares each burst with your enrolled voiceprint, and [voiceprint] "
+            "enabled is false. Set [voiceprint] enabled = true in your config, then run "
+            "`yazses enroll-voice`."
+        )
+    if (slug or "").strip().lower() != "hotwords":
+        return ""
+    hw = getattr(cfg, "hotwords", None)
+    if hw is None or not getattr(hw, "stale_enabled", False):
+        return ""
+    return (
+        "Your config says [hotwords] enabled = true, but Hotwords is not active: it "
+        "also needs the opt-in that enabling it writes. First-run setup in "
+        "v2.11.0-dev.9 to v2.13.0 put that line into every new config on its own, so "
+        "it is not taken as your choice."
+    )
+
+
 def enable_caveat(slug: str, cfg) -> str | None:
     """A measured reason this capability may not do what the user expects *here*.
 
@@ -1679,6 +1807,24 @@ def enable_caveat(slug: str, cfg) -> str | None:
                 "changes nothing you can trigger. Bind one first, e.g. "
                 "`yazses hotkey command right_ctrl`, then `yazses restart`."
             )
+    if slug == "voiceguard":
+        # Enabling writes [voiceprint] enabled too, but no write can enroll a voice, and
+        # fail_open = false is refused outright (no anti-spoof score exists). Either way
+        # the guard lets every burst through -- say so before the user trusts it.
+        vg = getattr(cfg, "voiceguard", None)
+        advice = (
+            "Heads up: Voice Guard judges a burst only against an enrolled voiceprint. If "
+            "you have not recorded one, run `yazses enroll-voice` -- until then it lets "
+            "every burst through, and `yazses doctor` says so. It matches the speaker "
+            "only: a recording of your voice is admitted."
+        )
+        if vg is not None and not getattr(vg, "fail_open", True):
+            advice += (
+                " Your [voiceguard] fail_open = false needs an anti-spoof score that no "
+                "model produces yet, so the guard stays inactive until you set "
+                "fail_open = true."
+            )
+        return advice
     if slug == "corrdict":
         # The table is mined from corpus events, and the corpus is off by default
         # (ADR-011). Enabling corrdict alone is the same "toggle that lies" shape:
@@ -1725,6 +1871,14 @@ def enable_caveat(slug: str, cfg) -> str | None:
         except Exception:
             pass
 
+    if slug == "hesitation" and not getattr(getattr(cfg, "autostop", None), "enabled", False):
+        # Hesitation-hold only lengthens a hands-free turn's silence timeout; hold-to-talk
+        # ends on key release, so with [autostop] off the toggle would change nothing.
+        return (
+            "Heads up: hesitation-hold only extends the hands-free auto-stop timeout, and "
+            "[autostop] enabled is false — so enabling it now changes nothing. Turn on "
+            "hands-free first: `yazses features enable autostop`, then `yazses restart`."
+        )
     if slug == "streaming":
         model = (getattr(getattr(cfg, "stt", None), "model", "") or "").strip().lower()
         # Streaming only wins where a rolling decode keeps up with the speech.

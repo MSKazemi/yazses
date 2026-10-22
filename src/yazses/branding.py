@@ -20,8 +20,6 @@ import math
 import os
 import re
 import sys
-from importlib.metadata import PackageNotFoundError
-from importlib.metadata import version as _pkg_version
 from typing import Callable, Iterable, Sequence, TextIO
 
 APP_NAME = "YazSes"
@@ -84,6 +82,11 @@ FEATURES = "https://github.com/MSKazemi/yazses/issues/new"
 def version() -> str:
     """Installed package version, or ``dev`` when running from a source tree
     without an installed distribution."""
+    # Imported here, not at module scope: every CLI invocation imports this module
+    # for the banner constants, and `importlib.metadata` was ~30 ms of that start.
+    from importlib.metadata import PackageNotFoundError
+    from importlib.metadata import version as _pkg_version
+
     try:
         return _pkg_version("yazses")
     except PackageNotFoundError:

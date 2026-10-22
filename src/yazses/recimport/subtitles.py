@@ -2,8 +2,21 @@
 
 Group word-level timestamps into caption segments and emit SRT/VTT. Pure and deterministic; the
 STT backend that produces the words lives elsewhere.
+
+Script-aware since #501: words are joined with :func:`yazses.postprocess.cjk.join_pieces`
+(no space between two Han characters), lengths are measured in display columns (a Han
+character is two), and a Chinese caption is broken between characters rather than only
+at spaces it does not have. Text without CJK takes exactly the old path.
 """
 from __future__ import annotations
+
+from yazses.postprocess.cjk import (
+    break_units,
+    contains_cjk,
+    display_width,
+    join_pieces,
+    render_units,
+)
 
 
 def format_timestamp(seconds: float, style: str = "srt") -> str:
@@ -24,7 +37,9 @@ def merge_word_timestamps(words, max_gap: float = 0.8, max_chars: int = 80):
     """Group ``(word, start, end)`` triples into ``(start, end, text)`` caption segments. Pure.
 
     Starts a new segment on a silence gap larger than ``max_gap`` or when the line would exceed
-    ``max_chars``.
+    ``max_chars`` display columns. Words are joined script-aware: a Mandarin decode's
+    per-character words come back as ``你好``, not ``你 好``. For text without CJK the
+    join is ``" ".join`` and the width is ``len``, exactly as before.
     """
     segments: list[tuple[float, float, str]] = []
     cur: list[str] = []
@@ -38,15 +53,14 @@ def merge_word_timestamps(words, max_gap: float = 0.8, max_chars: int = 80):
         if not cur:
             cur, seg_start, last_end = [word], start, end
             continue
-        line_len = len(" ".join(cur))
-        if (start - last_end) > max_gap or line_len + 1 + len(word) > max_chars:
-            segments.append((seg_start, last_end, " ".join(cur)))
+        if (start - last_end) > max_gap or display_width(join_pieces([*cur, word])) > max_chars:
+            segments.append((seg_start, last_end, join_pieces(cur)))
             cur, seg_start = [word], start
         else:
             cur.append(word)
         last_end = end
     if cur:
-        segments.append((seg_start, last_end, " ".join(cur)))
+        segments.append((seg_start, last_end, join_pieces(cur)))
     return segments
 
 
@@ -77,7 +91,13 @@ def wrap_caption(text: str, width: int = CAPTION_LINE_CHARS,
     Text that cannot fit is wrapped onto further lines rather than truncated. A caption
     that loses words is worse than one that is too tall, and callers already cap the
     segment length -- overflow here means that cap changed, not that the text is expendable.
+
+    Chinese and Japanese have no spaces to break at, so a caption holding CJK is broken
+    between characters (never before a closing mark such as ``，`` or after an opening
+    one such as ``「``) and measured in display columns, where a Han character is two.
     """
+    if contains_cjk(text or ""):
+        return _wrap_cjk_caption(text, width, max_lines)
     words = (text or "").split()
     if not words:
         return ""
@@ -109,6 +129,40 @@ def wrap_caption(text: str, width: int = CAPTION_LINE_CHARS,
             cur = candidate
     if cur:
         lines.append(cur)
+    return "\n".join(lines)
+
+
+def _wrap_cjk_caption(text: str, width: int, max_lines: int) -> str:
+    """:func:`wrap_caption` for text holding CJK: the same policy over break units."""
+    units = break_units(text)
+    if not units:
+        return ""
+    whole = render_units(units)
+    if display_width(whole) <= width:
+        return whole
+
+    if max_lines >= 2:
+        total = display_width(whole)
+        best = None
+        for i in range(1, len(units)):
+            head, tail = render_units(units[:i]), render_units(units[i:])
+            if display_width(head) <= width and display_width(tail) <= width:
+                skew = abs(display_width(head) - total / 2)
+                if best is None or skew < best[0]:
+                    best = (skew, head, tail)
+        if best is not None:
+            return f"{best[1]}\n{best[2]}"
+
+    lines: list[str] = []
+    cur: list[tuple[str, str]] = []
+    for unit in units:
+        if cur and display_width(render_units([*cur, unit])) > width:
+            lines.append(render_units(cur))
+            cur = [unit]
+        else:
+            cur.append(unit)
+    if cur:
+        lines.append(render_units(cur))
     return "\n".join(lines)
 
 

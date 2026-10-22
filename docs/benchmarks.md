@@ -764,8 +764,25 @@ large and consistent; the exact percentages are not precise to the point given.
 | `small.en` | 1,340 MB | 1,340 MB | 520 MB |
 
 The 820 MB baseline is the Python process with its dependencies loaded, before any
-model. This is the honest cost of a Python daemon — it is why the requirements say
-4 GB minimum and 8 GB comfortable.
+model, measured on 2026-08-06. This is the honest cost of a Python daemon — it is why the
+requirements say 4 GB minimum and 8 GB comfortable.
+
+**Re-measured 2026-10-21.** The baseline has since fallen to about 70 MB: features that
+are switched off no longer import their libraries at start. The setup was faster-whisper
+1.2.1, ctranslate2 4.8.1, int8 on the CPU, on an AMD Ryzen 5 PRO 4650U under Linux 7.0.
+Each row is a fresh process that imports `yazses.core.daemon`, loads the model from the
+local cache with `HF_HUB_OFFLINE=1`, and decodes `data/librispeech-sample/jfk.wav` (11 s,
+beam 1). Each process was run twice, and the two runs agreed within 4 MB:
+
+| Model | Baseline (daemon imported) | RSS after load | Peak RSS (`ru_maxrss`) |
+|---|---|---|---|
+| `tiny.en` | 42–46 MB | 165 MB | 272 MB |
+| `base.en` | 42 MB | 202 MB | 342–344 MB |
+| `small.en` | 42 MB | 384 MB | 618 MB |
+
+This covers the module import plus the model, not a running daemon. A daemon also loads
+whatever switched-on features load at start. A bare `faster_whisper.WhisperModel` with no
+YazSes import peaks 7 MB lower.
 
 ## Voice-activity gate
 
@@ -935,6 +952,27 @@ against the idle-host FLEURS figures rather than comparable to them. Caveat carr
 over: the ZWNJ references in this split contain zero U+200C to begin with, so this
 corpus cannot re-test the §7 normalizer question — `steja` emitted none, `small`
 emitted 5 unmatched.
+
+### Recorded, not measured: one skip and two exclusions
+
+FA-05 ([#514](https://github.com/MSKazemi/yazses/issues/514)) asks for failures and
+unsupported combinations to be recorded rather than omitted. The candidates below
+were considered and **not decoded**, so no result file exists for them and the tables
+above cannot show them. Each figure comes from the issue comment linked in its row,
+not from an archived artifact;
+[`paper/results/MANIFEST.md`](https://github.com/MSKazemi/yazses/blob/main/paper/results/MANIFEST.md)
+lists the same three under "Recorded without an artifact".
+
+| Candidate | Disposition | Reason | Source |
+|---|---|---|---|
+| `nezamisafa/whisper-persian-v4` (Apache-2.0, rev `b84fc89f`, `large-v3` fine-tune) | **SKIP**: memory gate, conversion not attempted | 6.17 GB of fp32 weights (two safetensors shards, 4.99 + 1.18 GB); loading them for conversion needs ≥ 6.2 GB RAM, and the 4 vCPU / 8 GB FA-05 host had 4.80–5.15 GB available | [#514 comment](https://github.com/MSKazemi/yazses/issues/514#issuecomment-5961845919) |
+| Every other Persian Whisper fine-tune in the Hub survey (about 70 repositories searched), including the medium-class ytcv-persian, farbodbij and colloquial/telephony series | **Excluded**: no licence declared | #514 admits a Persian-specific checkpoint only with a documented licence; only `steja/whisper-small-persian` (measured above) and `nezamisafa/whisper-persian-v4` declared one | [#514 comment](https://github.com/MSKazemi/yazses/issues/514#issuecomment-5951777490) |
+| Qwen3-ASR, NeMo Canary | **Excluded**: outside scope | Not Whisper-family; #514's matrix is Whisper-family only | [#514 comment](https://github.com/MSKazemi/yazses/issues/514#issuecomment-5946394603) |
+
+The `nezamisafa` skip is the same boundary as the stock `large-v3` row in the
+50-utterance table above (skipped: 5.2 GB free < 6.0 GB needed), now on a
+fine-tune of that model. It says this 8 GB host class cannot convert the
+checkpoint. It says nothing about the model's accuracy, which remains unmeasured.
 
 ## Community results
 
@@ -1438,21 +1476,21 @@ not a benchmark:
 - **No real-world dictation WER.** Everything above uses read audiobook speech.
   Spontaneous speech into a laptop microphone in a normal room is harder, and we do
   not have a licensed corpus to quantify it.
-- **No diarization accuracy on *real* meeting audio.** There is now a number — see
-  [Diarization](#diarization-meeting-mode) below — but it comes from a synthetic
-  corpus, so it is a floor rather than a field figure. AMI and VoxConverse remain
-  unscored: the first is 100+ GB, and the second's audio is pulled from YouTube
-  under terms that forbid redistribution, so neither can become a fixture here.
-- **No macOS or Windows figures yet.** Every number above was measured on Linux
-  x86_64. The harness itself is cross-platform as of the `Benchmarks` workflow
-  (`.github/workflows/benchmark.yml`), which runs it on Linux x86_64, Linux arm64,
-  macOS arm64, macOS x86_64 and Windows — but it is dispatched by hand and has not
-  been run yet, so there is nothing to publish here. This bullet becomes a table,
-  not a promise, once it has.
-- **No arm64 figures.** The `.deb`, the snap and the docker image all ship for
-  arm64 and not one published number comes from the architecture.
-- **Single machine.** One CPU model, one run. There is no variance estimate across
-  machines.
+- **Diarization is scored on AMI (headset mix) and VoxConverse dev only.** See
+  [Diarization](#diarization-meeting-mode) above. Far-field AMI, other meeting corpora
+  and non-English meetings are unscored, and neither corpus can be redistributed as a
+  fixture here: AMI is 100+ GB, and VoxConverse's audio is pulled from YouTube under
+  terms that forbid redistribution.
+- **No macOS or Windows timings.** WER has been measured on macOS arm64 and Windows
+  x86_64 (see [The same code on four instruction sets](#the-same-code-on-four-instruction-sets)),
+  but the timings from that dispatch are not comparable (the macOS runner was heavily
+  overloaded) and are not quoted, so every timing on this page is from Linux x86_64.
+- **No arm64 timings.** arm64 WER is published (Neoverse-N2 and Apple M1, above);
+  latency and memory have not been measured on arm64.
+- **No cross-machine variance for timings.** Timings come from a few Linux x86_64
+  hosts (the reference laptop, a 16-vCPU Xeon for the engine matrix, a 4-vCPU EPYC for
+  Persian), and no timing is repeated across machines. WER has a cross-ISA spread (four
+  runners, above) but no repeated-run variance across machines.
 
 When those runs do land, latency and RTF get **one table per host and are never
 merged**: latency is a property of the machine. Word error rate is *nearly* a

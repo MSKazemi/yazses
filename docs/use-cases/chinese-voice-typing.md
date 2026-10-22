@@ -29,7 +29,14 @@ speech they produce fluent-looking English nonsense rather than an error, which 
 worst possible failure mode. YazSes warns about this at start-up, but you still have to
 change the setting yourself.
 
-In `~/.config/yazses/config.toml`:
+The quickest route is one command that writes every key, installs what is missing and
+fetches the model:
+
+```sh
+yazses language set zh-CN      # or zh-TW; add --dry-run to preview the plan
+```
+
+To do it by hand instead, in `~/.config/yazses/config.toml`:
 
 ```toml
 [stt]
@@ -93,6 +100,39 @@ dictation key; in dedicated command mode it remains unmatched and is not execute
 Chinese Tier-1 path also does not fall through to the English SLM router — which is
 opt-in and off unless `[commands] slm_model_path` names a local model anyway — so
 ordinary Chinese prose cannot become a fuzzy English command.
+
+## Getting Chinese characters into the app
+
+Recognising Mandarin is half the job; the other half is typing 汉字 into whatever window
+has focus, and that depends on your platform's injection backend. What each one does
+with a Han character, from the code — **none of this has yet been confirmed on real
+hardware for Chinese text**, which is tracked in
+[#501](https://github.com/MSKazemi/yazses/issues/501):
+
+| Platform / backend | How a Han character is sent | Known limitation |
+|---|---|---|
+| Windows (`SendInput`) | One Unicode key event per UTF-16 unit; characters outside the BMP (such as 𠮷) as a surrogate pair | Some applications ignore Unicode key events — see the "one app gets `????`" entry in [Troubleshooting](../troubleshooting.md) |
+| macOS (Quartz) | Unicode key events in chunks of 20 UTF-16 units, never splitting a surrogate pair | Needs the Accessibility permission, like all typing |
+| Linux X11 (`xdotool`) | `xdotool type`, which handles characters missing from the keyboard layout itself | — |
+| Linux Wayland (`ydotool`, the usual default) | ASCII through `ydotool`; anything else through a layout-aware key press | A Latin keyboard layout has **no key for any Han character**, so a burst containing Chinese is **pasted from the clipboard** instead (`[injection] fallback_to_clipboard`, on by default). That overwrites your clipboard and does nothing in most terminals. |
+| Linux Wayland (`wtype`, wlroots compositors) | `wtype`, which sends any character | — |
+| GNOME Wayland (RemoteDesktop portal) | One Unicode keysym per character | Whether the compositor accepts a keysym your layout lacks is unverified |
+
+On the `ydotool` path, a burst that mixes English and Chinese — `YazSes 版本 v2.0` — is now
+checked **before the first keystroke**: if any character cannot be typed, nothing is typed
+and the whole burst is pasted once. Earlier versions typed the English part, failed on the
+first Han character, and then pasted the whole burst after it, so the English appeared
+twice.
+
+Spacing follows Chinese typography: no space is inserted between two consecutive Chinese
+dictation bursts, or after full-width punctuation such as `，` and `。`. A space is kept
+where Chinese meets a Latin word or a number spoken as a separate burst (`测试 YazSes`).
+
+Numbers in commands are bounded and exact. Counts ("撤销三次", "删除最后两行") run from 0 to 99,
+and line numbers ("转到第一百二十三行", "前往第 150 行") from 0 to 999. A form outside that
+set — 一千, the elided 一百一, 两十 — is typed as text, not guessed. Deletion only fires on
+the explicit "删除最后 … 词/行" form. Every Mandarin command phrase is **provisional**
+until a native Mandarin speaker has reviewed it; until then, treat the set as a preview.
 
 ## How accurate is it really?
 

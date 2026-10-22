@@ -3,12 +3,32 @@
 | Field | Value |
 |---|---|
 | **Slug** | `voiceprint-mind` |
-| **Status** | Proposed |
+| **Status** | Proposed (2026-06-14 design) · current: P1 biasing shipped, LoRA layer deferred — see [Delivery status](#delivery-status-current) |
 | **Date** | 2026-06-14 |
 | **Extends** | ADR-012 (opt-in, local, encrypted self-improvement loop) |
 | **Honours** | ADR-011 (zero telemetry, nothing leaves the machine, off by default) |
 | **Modules** | `src/yazses/stt/faster_whisper.py`, `src/yazses/commands/lsp_context.py`, `src/yazses/learning/` (new `personalize.py`, `biasing.py`), `src/yazses/config.py`, `src/yazses/cli.py` |
 | **Vision card** | the Voiceprint Mind vision card (internal) |
+
+---
+
+## Delivery status (current)
+
+> Checked **2026-10-21** against `main` at `3245f848` (latest tag v2.43.2). This section
+> states what the code does today; everything below it is the original design, kept as
+> written. Where the two disagree, this section is the current statement. Status words:
+> **shipped** (wired and reachable), **partial**, **blocked** (names its gate),
+> **deferred** (no delivery promise), **rejected**, **out of scope**. "No tracker" means
+> no issue or campaign task exists for that remainder; it is not scheduled.
+
+| Phase | Status | Evidence | Tracking |
+|---|---|---|---|
+| P1 — Layer A biasing | **Shipped**, off by default (`[personalize]`, slug `personalize`): vocabulary plus corpus-mined n-grams compose Whisper's `initial_prompt`. Built as `personalize/prompt_builder.py`, not the planned `learning/biasing.py`; the planned `yazses personalize` command group does not exist | `core/daemon.py` `_effective_initial_prompt`, `_personal_bias_terms` | The held-out biased / un-biased A/B has no recorded result. No tracker |
+| P1.5 — TCPGen neural biasing | **Not built**, deferred | no TCPGen code under `src/yazses/` | No tracker |
+| P2.0 — LoRA → CTranslate2 conversion spike | **Not run** — no result recorded | — | No tracker |
+| P2 — nightly LoRA adapter | **Deferred, not built; compute-gated.** Only the pure held-out promotion gate exists; there is no train / merge / convert / schedule code, and the `[personalize] lora*` keys are inert | `personalize/adapter_gate.py`; `docs/configuration.md` (⚠️ inert); the 2026-10-15 status block in [ROADMAP.md](../v2-cognitive-layer/ROADMAP.md) | No tracker; not scheduled |
+| P3 — Rust port | **Deferred** — no delivery promise | — | No tracker |
+| Online / continuous learning | **Out of scope** (unchanged) | *Out of scope* below | — |
 
 ---
 

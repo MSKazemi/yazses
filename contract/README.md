@@ -36,7 +36,7 @@ contract/
   VERSION                    semver for the contract itself
   semantic/                  MEANING — hand-authored, never regenerated (see below)
     dimensions.json          conserved dimensions + extraction patterns
-    invariants.json          19 cases: invariants + minimal pairs
+    invariants.json          30 cases: invariants + minimal pairs
   vectors/                   PARITY — generated from the shipped implementation
     clean_text.json          postprocess.clean_text        Whisper artefact stripping
     disfluency.json          filters.disfluency            filler / repetition / self-correction
@@ -45,9 +45,10 @@ contract/
     vocabulary.json          stt.vocabulary                initial_prompt merge
     grammar.json             commands.grammar              dictate vs command classification
     activation.json          sources.activation            onset/offset/intent -> act|confirm|reject
+    vad_gate.json            audio.vad_gate                calibrated silence gate
 ```
 
-**191 parity cases across six units, plus 19 semantic invariants.** Together they cover
+**312 parity cases across eight units, plus 30 semantic invariants** (contract 7.1.0). Together they cover
 everything the Android
 `:core:postprocess` ([#86](https://github.com/MSKazemi/yazses/issues/86)) and
 `:core:commands` / `:core:vocab` ([#94](https://github.com/MSKazemi/yazses/issues/94))

@@ -71,14 +71,14 @@
     {
       "type": "library",
       "name": "aiohttp",
-      "version": "3.14.3",
-      "purl": "pkg:pypi/aiohttp@3.14.3",
-      "bom-ref": "pkg:pypi/aiohttp@3.14.3",
+      "version": "3.14.5",
+      "purl": "pkg:pypi/aiohttp@3.14.5",
+      "bom-ref": "pkg:pypi/aiohttp@3.14.5",
       "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "9491196535a88924a60afd5b5f434b5b203b6cc616250878dbdb223a8f7844bc"
+          "content": "5558a7f5a05af9ecf744af91e5baefc436f93c9333e656c27ec253f9a6bbe178"
         }
       ]
     },
@@ -345,14 +345,14 @@
     {
       "type": "library",
       "name": "certifi",
-      "version": "2026.6.17",
-      "purl": "pkg:pypi/certifi@2026.6.17",
-      "bom-ref": "pkg:pypi/certifi@2026.6.17",
+      "version": "2026.10.19",
+      "purl": "pkg:pypi/certifi@2026.10.19",
+      "bom-ref": "pkg:pypi/certifi@2026.10.19",
       "scope": "required",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "024c88eeec92ca068db80f02b8b07c9cef7b9fe261d1d535abfd5abd6f6af432"
+          "content": "035c1e85572b141bf1c3a3eff0e33a8eb74917522f2559075ff8d2fea780a1ae"
         }
       ]
     },
@@ -517,30 +517,6 @@
       "purl": "pkg:pypi/ctranslate2@4.8.1",
       "bom-ref": "pkg:pypi/ctranslate2@4.8.1",
       "scope": "required"
-    },
-    {
-      "type": "library",
-      "name": "cuda-bindings",
-      "version": "13.3.1",
-      "purl": "pkg:pypi/cuda-bindings@13.3.1",
-      "bom-ref": "pkg:pypi/cuda-bindings@13.3.1",
-      "scope": "optional"
-    },
-    {
-      "type": "library",
-      "name": "cuda-pathfinder",
-      "version": "1.5.6",
-      "purl": "pkg:pypi/cuda-pathfinder@1.5.6",
-      "bom-ref": "pkg:pypi/cuda-pathfinder@1.5.6",
-      "scope": "optional"
-    },
-    {
-      "type": "library",
-      "name": "cuda-toolkit",
-      "version": "13.0.3.0",
-      "purl": "pkg:pypi/cuda-toolkit@13.0.3.0",
-      "bom-ref": "pkg:pypi/cuda-toolkit@13.0.3.0",
-      "scope": "optional"
     },
     {
       "type": "library",
@@ -1676,126 +1652,6 @@
     },
     {
       "type": "library",
-      "name": "nvidia-cublas",
-      "version": "13.1.1.3",
-      "purl": "pkg:pypi/nvidia-cublas@13.1.1.3",
-      "bom-ref": "pkg:pypi/nvidia-cublas@13.1.1.3",
-      "scope": "optional"
-    },
-    {
-      "type": "library",
-      "name": "nvidia-cuda-cupti",
-      "version": "13.0.85",
-      "purl": "pkg:pypi/nvidia-cuda-cupti@13.0.85",
-      "bom-ref": "pkg:pypi/nvidia-cuda-cupti@13.0.85",
-      "scope": "optional"
-    },
-    {
-      "type": "library",
-      "name": "nvidia-cuda-nvrtc",
-      "version": "13.0.88",
-      "purl": "pkg:pypi/nvidia-cuda-nvrtc@13.0.88",
-      "bom-ref": "pkg:pypi/nvidia-cuda-nvrtc@13.0.88",
-      "scope": "optional"
-    },
-    {
-      "type": "library",
-      "name": "nvidia-cuda-runtime",
-      "version": "13.0.96",
-      "purl": "pkg:pypi/nvidia-cuda-runtime@13.0.96",
-      "bom-ref": "pkg:pypi/nvidia-cuda-runtime@13.0.96",
-      "scope": "optional"
-    },
-    {
-      "type": "library",
-      "name": "nvidia-cudnn-cu13",
-      "version": "9.20.0.48",
-      "purl": "pkg:pypi/nvidia-cudnn-cu13@9.20.0.48",
-      "bom-ref": "pkg:pypi/nvidia-cudnn-cu13@9.20.0.48",
-      "scope": "optional"
-    },
-    {
-      "type": "library",
-      "name": "nvidia-cufft",
-      "version": "12.0.0.61",
-      "purl": "pkg:pypi/nvidia-cufft@12.0.0.61",
-      "bom-ref": "pkg:pypi/nvidia-cufft@12.0.0.61",
-      "scope": "optional"
-    },
-    {
-      "type": "library",
-      "name": "nvidia-cufile",
-      "version": "1.15.1.6",
-      "purl": "pkg:pypi/nvidia-cufile@1.15.1.6",
-      "bom-ref": "pkg:pypi/nvidia-cufile@1.15.1.6",
-      "scope": "optional"
-    },
-    {
-      "type": "library",
-      "name": "nvidia-curand",
-      "version": "10.4.0.35",
-      "purl": "pkg:pypi/nvidia-curand@10.4.0.35",
-      "bom-ref": "pkg:pypi/nvidia-curand@10.4.0.35",
-      "scope": "optional"
-    },
-    {
-      "type": "library",
-      "name": "nvidia-cusolver",
-      "version": "12.0.4.66",
-      "purl": "pkg:pypi/nvidia-cusolver@12.0.4.66",
-      "bom-ref": "pkg:pypi/nvidia-cusolver@12.0.4.66",
-      "scope": "optional"
-    },
-    {
-      "type": "library",
-      "name": "nvidia-cusparse",
-      "version": "12.6.3.3",
-      "purl": "pkg:pypi/nvidia-cusparse@12.6.3.3",
-      "bom-ref": "pkg:pypi/nvidia-cusparse@12.6.3.3",
-      "scope": "optional"
-    },
-    {
-      "type": "library",
-      "name": "nvidia-cusparselt-cu13",
-      "version": "0.8.1",
-      "purl": "pkg:pypi/nvidia-cusparselt-cu13@0.8.1",
-      "bom-ref": "pkg:pypi/nvidia-cusparselt-cu13@0.8.1",
-      "scope": "optional"
-    },
-    {
-      "type": "library",
-      "name": "nvidia-nccl-cu13",
-      "version": "2.29.7",
-      "purl": "pkg:pypi/nvidia-nccl-cu13@2.29.7",
-      "bom-ref": "pkg:pypi/nvidia-nccl-cu13@2.29.7",
-      "scope": "optional"
-    },
-    {
-      "type": "library",
-      "name": "nvidia-nvjitlink",
-      "version": "13.3.33",
-      "purl": "pkg:pypi/nvidia-nvjitlink@13.3.33",
-      "bom-ref": "pkg:pypi/nvidia-nvjitlink@13.3.33",
-      "scope": "optional"
-    },
-    {
-      "type": "library",
-      "name": "nvidia-nvshmem-cu13",
-      "version": "3.4.5",
-      "purl": "pkg:pypi/nvidia-nvshmem-cu13@3.4.5",
-      "bom-ref": "pkg:pypi/nvidia-nvshmem-cu13@3.4.5",
-      "scope": "optional"
-    },
-    {
-      "type": "library",
-      "name": "nvidia-nvtx",
-      "version": "13.0.85",
-      "purl": "pkg:pypi/nvidia-nvtx@13.0.85",
-      "bom-ref": "pkg:pypi/nvidia-nvtx@13.0.85",
-      "scope": "optional"
-    },
-    {
-      "type": "library",
       "name": "onnx-asr",
       "version": "0.12.0",
       "purl": "pkg:pypi/onnx-asr@0.12.0",
@@ -2065,14 +1921,14 @@
     {
       "type": "library",
       "name": "pillow",
-      "version": "12.3.0",
-      "purl": "pkg:pypi/pillow@12.3.0",
-      "bom-ref": "pkg:pypi/pillow@12.3.0",
+      "version": "13.0.0",
+      "purl": "pkg:pypi/pillow@13.0.0",
+      "bom-ref": "pkg:pypi/pillow@13.0.0",
       "scope": "required",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "3b8182a766685eaa002637e28b4ec8d6b18819a0c71f579bf0dbaa5830297cce"
+          "content": "cdcd1ba258178f7356d74170c9a81ba4eab6a5d55748bc402a5a2a6fe6be3510"
         }
       ]
     },
@@ -2685,14 +2541,14 @@
     {
       "type": "library",
       "name": "pytorch-lightning",
-      "version": "2.6.5",
-      "purl": "pkg:pypi/pytorch-lightning@2.6.5",
-      "bom-ref": "pkg:pypi/pytorch-lightning@2.6.5",
+      "version": "2.6.6",
+      "purl": "pkg:pypi/pytorch-lightning@2.6.6",
+      "bom-ref": "pkg:pypi/pytorch-lightning@2.6.6",
       "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "1c32cefa76a1a9c4c5250338272d961d1e48b180e68396849efe128538ddb28e"
+          "content": "52c52b20522dd3d3feb3bb3aae2dbe3f291e8e836d4111a74cfd72e9df018834"
         }
       ]
     },
@@ -3325,9 +3181,17 @@
     {
       "type": "library",
       "name": "torch",
-      "version": "2.13.0",
-      "purl": "pkg:pypi/torch@2.13.0",
-      "bom-ref": "pkg:pypi/torch@2.13.0",
+      "version": "2.14.1",
+      "purl": "pkg:pypi/torch@2.14.1",
+      "bom-ref": "pkg:pypi/torch@2.14.1",
+      "scope": "optional"
+    },
+    {
+      "type": "library",
+      "name": "torch",
+      "version": "2.14.1+cpu",
+      "purl": "pkg:pypi/torch@2.14.1%2Bcpu",
+      "bom-ref": "pkg:pypi/torch@2.14.1%2Bcpu",
       "scope": "optional"
     },
     {
@@ -3368,6 +3232,14 @@
     },
     {
       "type": "library",
+      "name": "torchaudio",
+      "version": "2.11.0+cpu",
+      "purl": "pkg:pypi/torchaudio@2.11.0%2Bcpu",
+      "bom-ref": "pkg:pypi/torchaudio@2.11.0%2Bcpu",
+      "scope": "optional"
+    },
+    {
+      "type": "library",
       "name": "torchcodec",
       "version": "0.16.0",
       "purl": "pkg:pypi/torchcodec@0.16.0",
@@ -3401,14 +3273,6 @@
           "content": "19829c9673638f2a0b8617da4cdcb927e831cd88bcfcb6e78d42a4d1af131520"
         }
       ]
-    },
-    {
-      "type": "library",
-      "name": "triton",
-      "version": "3.7.1",
-      "purl": "pkg:pypi/triton@3.7.1",
-      "bom-ref": "pkg:pypi/triton@3.7.1",
-      "scope": "optional"
     },
     {
       "type": "library",
@@ -3721,14 +3585,14 @@
     {
       "type": "library",
       "name": "yarl",
-      "version": "1.24.5",
-      "purl": "pkg:pypi/yarl@1.24.5",
-      "bom-ref": "pkg:pypi/yarl@1.24.5",
+      "version": "1.25.1",
+      "purl": "pkg:pypi/yarl@1.25.1",
+      "bom-ref": "pkg:pypi/yarl@1.25.1",
       "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "e81b83143bee16329c23db3c1b2d82b29892fcbcb849186d2f6e98a5abe9a57f"
+          "content": "03dd38de09bc213e9a8b29761eec33ee1d5318dac0e49d8af36e4d27830e23a7"
         }
       ]
     }

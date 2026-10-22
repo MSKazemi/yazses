@@ -125,6 +125,10 @@ def test_a_windows_installer_install_prints_steps_and_succeeds(monkeypatch):
     # and is the one that matters, that nothing is shelled out to at all.
     ran = []
     monkeypatch.setattr(updater, "run_upgrade_checked", _fake_upgrade(ran))
+    # No one-click launcher: this is the manual fallback (any OS but Windows, or a
+    # Windows machine where the hand-off is unavailable). Pinned rather than inherited,
+    # so the test means the same thing on a Windows runner (ADR-027).
+    monkeypatch.setattr(cli, "_update_launcher", lambda: None)
     result = runner.invoke(cli.app, ["update"])
     assert result.exit_code == 0
     assert "releases" in result.output

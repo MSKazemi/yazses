@@ -19,6 +19,12 @@
   <span class="yz-ic" aria-hidden="true">{% include ".icons/material/" ~ name ~ ".svg" %}</span>
 {%- endmacro %}
 
+{#- The page title already names the product; Material's default would append
+    " - YazSes" a second time ("YazSes — offline … Windows - YazSes"). -#}
+{% block htmltitle %}
+  <title>{{ page.meta.title if page.meta and page.meta.title else config.site_name }}</title>
+{% endblock %}
+
 {% block tabs %}
 {{ super() }}
 <div class="yz-landing">
@@ -68,7 +74,7 @@
         </div>
 
         <div class="yzl-cta">
-          <a class="yzl-btn yzl-btn--primary" href="#install">{{ ic("rocket-launch") }}Get started</a>
+          <a class="yzl-btn yzl-btn--primary" href="#quick-start">{{ ic("rocket-launch") }}Get started</a>
           <a class="yzl-btn" href="{{ 'architecture.html' | url }}">{{ ic("sitemap") }}How it works</a>
           <a class="yzl-btn yzl-btn--ghost" href="https://github.com/MSKazemi/yazses" rel="noopener">{{ ic("github") }}Star on GitHub</a>
         </div>
@@ -130,6 +136,76 @@
     </div>
   </section>
 
+  {# ========================================================= QUICK START #}
+  {% include "partials/yz-quickstart.html" %}
+
+  {# ======================================================== BUILDING NOW
+     Every value below comes from hooks/project_status.py, which reads CHANGELOG.md and
+     docs/releases/ at build time. Nothing in this section is typed by hand. #}
+  {% set st = config.extra.yazses_status %}
+  {% if st and st.latest %}
+  <section class="yzl-now" id="building-now" aria-labelledby="yzl-now-h">
+    <div class="yzl-wrap">
+      <header class="yzl-head yzl-reveal">
+        <p class="yzl-kicker">In development</p>
+        <h2 id="yzl-now-h">What we’re building right now</h2>
+        <p>Generated from the changelog on every build, so this section can’t drift from the code.
+          Development is open: every change lands with its tests, and every decision is written down.</p>
+      </header>
+
+      <div class="yzl-now__grid">
+        <article class="yzl-card yzl-now__latest yzl-reveal">
+          <p class="yzl-now__label">{{ ic("tag-outline") }}Latest release</p>
+          <p class="yzl-now__ver">v{{ st.latest.version }}</p>
+          <p class="yzl-now__date"><time datetime="{{ st.latest.date }}">{{ st.latest.date }}</time></p>
+          {% if st.latest.headline %}<h3>“{{ st.latest.headline }}”</h3>{% endif %}
+          {% if st.latest.description %}<p class="yzl-now__desc">{{ st.latest.description }}</p>{% endif %}
+          <p class="yzl-now__links">
+            {% if st.latest.note %}<a href="{{ st.latest.note | url }}">Release notes {{ ic("arrow-right") }}</a>{% endif %}
+            <a href="{{ 'releases/index.html' | url }}">All releases {{ ic("arrow-right") }}</a>
+          </p>
+        </article>
+
+        <article class="yzl-card yzl-now__main yzl-reveal" style="--n:1">
+          <p class="yzl-now__label">{{ ic("source-branch") }}On <code>main</code>, not yet released</p>
+          <p class="yzl-now__count"><b>{{ st.unreleased_count }}</b> changes waiting for the next release</p>
+          <ul class="yzl-now__kinds" aria-label="Changes by kind">
+            {% for kind, n in st.unreleased_kinds.items() %}<li class="is-{{ kind | lower }}">{{ kind }} <b>{{ n }}</b></li>{% endfor %}
+          </ul>
+          <ol class="yzl-now__list">
+            {% for e in st.unreleased_top %}
+            <li><span class="yzl-now__kind is-{{ e.kind | lower }}">{{ e.kind }}</span>{{ e.text }}</li>
+            {% endfor %}
+          </ol>
+          <p class="yzl-now__links"><a href="{{ 'now.html' | url }}">Everything in progress {{ ic("arrow-right") }}</a>
+            <a href="https://github.com/MSKazemi/yazses/commits/main" rel="noopener">Commit history {{ ic("arrow-right") }}</a></p>
+        </article>
+
+        <article class="yzl-card yzl-now__recent yzl-reveal" style="--n:2">
+          <p class="yzl-now__label">{{ ic("history") }}Recent releases</p>
+          <ol class="yzl-now__timeline">
+            {% for r in st.recent[1:] %}
+            <li>
+              {% if r.note %}<a href="{{ r.note | url }}"><b>v{{ r.version }}</b></a>{% else %}<b>v{{ r.version }}</b>{% endif %}
+              <time datetime="{{ r.date }}">{{ r.date }}</time>
+              {% if r.headline %}<span>{{ r.headline }}</span>{% endif %}
+            </li>
+            {% endfor %}
+          </ol>
+          <p class="yzl-now__links"><a href="{{ 'feed_rss_created.xml' | url }}">{{ ic("rss") }} Follow by RSS</a></p>
+        </article>
+      </div>
+
+      <div class="yzl-now__dev yzl-reveal">
+        <a href="{{ 'now.html' | url }}#how-yazses-is-built">{{ ic("test-tube") }}<span><b>Tested on every change</b>the suite runs on Linux, macOS &amp; Windows per push</span></a>
+        <a href="{{ 'design/adr/index.html' | url }}">{{ ic("file-document-check-outline") }}<span><b>Decisions in the open</b>architecture decision records</span></a>
+        <a href="https://github.com/MSKazemi/yazses/milestones" rel="noopener">{{ ic("flag-checkered") }}<span><b>Milestones</b>pick up work that fits you</span></a>
+        <a href="{{ 'contribute/start.html' | url }}">{{ ic("hand-heart-outline") }}<span><b>Contribute</b>many tasks need no code</span></a>
+      </div>
+    </div>
+  </section>
+  {% endif %}
+
   {# ======================================================== ARCHITECTURE #}
   <section class="yzl-arch" id="architecture-at-a-glance" aria-labelledby="yzl-arch-h">
     <div class="yzl-wrap">
@@ -146,7 +222,7 @@
           ("microphone", "Capture", "audio", "The microphone is recorded into an in-memory buffer for exactly as long as you hold. Nothing is written to disk.", "audio/recorder.py"),
           ("radar", "VAD gate", "0.063 ms", "A calibrated voice-activity check discards a burst that is mostly silence, so an accidental tap never produces a phantom transcript.", "audio/vad_calibrated.py"),
           ("timer-sand", "Padding", "lead-in", "A short silent lead-in is prepended so the decoder never clips your first word.", "audio/padding.py"),
-          ("chip", "STT decode", "1 561 ms", "faster-whisper (int8, CPU) by default, or NVIDIA Parakeet TDT — behind one SttEngine protocol, so an engine is a config change, not a fork.", "stt/base.py"),
+          ("chip", "STT decode", "1 561 ms", "faster-whisper (int8, CPU) by default, or NVIDIA Parakeet TDT or Moonshine — behind one SttEngine protocol, so an engine is a config change, not a fork.", "stt/base.py"),
           ("broom", "Clean", "0.005 ms", "Strips Whisper artefacts such as [BLANK_AUDIO] and stray leading punctuation.", "postprocess/cleaner.py"),
           ("filter-variant", "Disfluency", "0.147 ms", "Three passes: fillers out, repeated words collapsed, self-corrections rolled back.", "stt/filters/disfluency.py"),
           ("source-branch", "Classify", "0.075 ms", "A Tier 1 regex grammar decides: dictation, or a command like “undo that” or “go to line 42”. An optional local SLM gets a second look at the unsure case.", "commands/grammar.py"),
@@ -187,7 +263,7 @@
           <div class="yzl-layer yzl-layer--os" style="--d:3">
             <div class="yzl-os">
               <span>{{ ic("linux") }}Linux</span><span>{{ ic("apple") }}macOS</span>
-              <span>{{ ic("microsoft-windows") }}Windows</span><span class="is-next">{{ ic("android") }}Android · in design</span>
+              <span>{{ ic("microsoft-windows") }}Windows</span><span class="is-next">{{ ic("android") }}Android · early build</span>
             </div>
           </div>
         </div>
@@ -228,7 +304,7 @@
         <article class="yzl-card yzl-seam yzl-reveal">
           {{ ic("chip") }}
           <h3>Engine seam</h3>
-          <p><code>SttEngine</code> made Parakeet a config change, not a fork. Anything that turns audio into
+          <p><code>SttEngine</code> made Parakeet and Moonshine config changes, not a fork. Anything that turns audio into
             words plugs in here.</p>
         </article>
         <article class="yzl-card yzl-seam yzl-reveal">
@@ -253,17 +329,17 @@
           encrypted on-device, and off until you turn it on.</p>
       </header>
 
-      <div class="yzl-eras" data-yzl-eras style="--progress:.42">
+      <div class="yzl-eras" data-yzl-eras style="--progress:.55">
         <div class="yzl-eras__rail" aria-hidden="true"><span></span></div>
         {% set eras = [
           ("shipped", "Foundation", "Shipped", "a tool that works", "history",
             ["Hold-to-talk dictation into any app", "Linux, macOS and Windows", "Voice commands & macros", "Encrypted on-device learning loop"]),
-          ("now", "Perception", "Shipping now", "it hears and sees well", "ear-hearing",
-            ["Meeting Mode with speaker labels", "Second engine: Parakeet TDT", "Gaze targeting & EMG activation", "Sotto-voce command channel"]),
-          ("next", "Understanding", "Next", "it knows what you mean", "brain",
-            ["Offline command mode over selected text", "Vocabulary biasing in every engine", "Android dictation keyboard", "Settings that install what they enable"]),
+          ("now", "Perception", "Shipped · hands-free maturing", "it hears and sees well", "ear-hearing",
+            ["Meeting Mode with speaker labels", "Parakeet TDT and Moonshine engines", "Gaze targeting & EMG activation", "Head-Pointer & face switch (experimental)"]),
+          ("next", "Understanding", "Next · under way", "it knows what you mean", "brain",
+            ["Offline command mode over selected text (shipped)", "Settings that install what they enable", "Windows add-ons for Parakeet & speaker labels", "Android dictation keyboard"]),
           ("horizon", "Recall", "The horizon", "it remembers for you", "message-text-clock",
-            ["Spoken recall over everything you dictated", "An ambient scribe you control", "A computer you talk with — that stays yours"]),
+            ["Recall by meaning over everything you dictated", "An ambient scribe you control", "A computer you talk with — that stays yours"]),
         ] %}
         {% for key, name, status, tag, icon, items in eras %}
         <article class="yzl-era yzl-era--{{ key }} yzl-reveal" style="--n:{{ loop.index0 }}">
@@ -310,12 +386,12 @@
       <h3 class="yzl-sub yzl-reveal">Join a milestone</h3>
       <div class="yzl-miles">
         {% set miles = [
-          ("cog-outline", "Settings GUI", "Configure everything from a window", "Desktop · Qt", "https://github.com/MSKazemi/yazses/milestone/5"),
+          ("eye-outline", "Hands-free", "Eyes, head and voice instead of hands", "Perception · a11y", "https://github.com/MSKazemi/yazses/milestone/10"),
           ("rocket-launch", "Install anywhere", "One command on every distro and OS", "Packaging", "https://github.com/MSKazemi/yazses/milestone/6"),
           ("ear-hearing", "Hear better", "Accuracy measured, not asserted", "Speech · ML", "https://github.com/MSKazemi/yazses/milestone/7"),
           ("account-voice", "Voice control", "Git, files, windows — commanded", "Systems · HCI", "https://github.com/MSKazemi/yazses/milestone/8"),
           ("account-group", "Welcome mat", "An easy first hour and first PR", "Docs · no-code", "https://github.com/MSKazemi/yazses/milestone/9"),
-          ("android", "Android", "An offline keyboard in your pocket", "Mobile · Kotlin", "https://github.com/MSKazemi/yazses/milestones"),
+          ("android", "Android", "An offline keyboard in your pocket", "Mobile · Kotlin", "https://github.com/MSKazemi/yazses/milestone/2"),
         ] %}
         {% for icon, name, promise, flavour, href in miles %}
         <a class="yzl-mile yzl-reveal" href="{{ href }}" rel="noopener" style="--n:{{ loop.index0 }}">
@@ -339,7 +415,7 @@
       </header>
       <div class="yzl-hub">
         {% set hub = [
-          ("rocket-launch", "Get started", "Install on Linux, macOS or Windows and dictate in minutes.", "install-linux.html",
+          ("rocket-launch", "Get started", "Install on Linux, macOS or Windows and dictate in minutes.", "get-started.html",
             [("Linux", "install-linux.html"), ("macOS", "macos-install.html"), ("Windows", "windows-install.html")]),
           ("compass-outline", "Use cases", "Wayland, coding by voice, confidential work, accessibility.", "use-cases/index.html",
             [("Wayland", "use-cases/voice-dictation-wayland.html"), ("Coding", "use-cases/voice-coding.html"), ("RSI", "use-cases/accessibility-rsi-hands-free.html")]),
@@ -386,7 +462,7 @@
     <h2 id="yzl-final-h">Your voice is yours. Keep it that way.</h2>
     <p>Free, open source, and fully offline — on the machine you already own.</p>
     <div class="yzl-cta">
-      <a class="yzl-btn yzl-btn--primary" href="#install">{{ ic("rocket-launch") }}Install YazSes</a>
+      <a class="yzl-btn yzl-btn--primary" href="#quick-start">{{ ic("rocket-launch") }}Install YazSes</a>
       <a class="yzl-btn yzl-btn--ghost" href="https://github.com/MSKazemi/yazses" rel="noopener">{{ ic("star") }}Star on GitHub</a>
       <a class="yzl-btn yzl-btn--ghost" href="https://arxiv.org/abs/2607.28878" rel="noopener">{{ ic("flask-outline") }}Read the paper</a>
     </div>

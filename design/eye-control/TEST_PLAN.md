@@ -121,7 +121,9 @@ Already covered in CI:
 - route only above confidence threshold;
 - fallback to focused window;
 - preserve burst gaze snapshot for deixis;
-- destructive confirmation.
+- destructive confirmation;
+- the same model options, camera device, numbers and decisions on the legacy and shared-source paths
+  (#396; the four layers are listed in `design/specs/eye-shared-perception.md`).
 
 Hardware metrics to collect:
 
@@ -162,7 +164,23 @@ Pure gates:
 - movement after re-centre uses new neutral;
 - dwell resets after moving beyond radius;
 - exactly one click per dwell until re-armed;
-- pausing suppresses both motion and dwell click.
+- pausing suppresses both motion and dwell click;
+- every state transition (each pair of held states stacked and unwound, close, recenter and
+  dwell toggling from every state) acts on nothing while held and settles one frame on release,
+  and any sample/control sequence keeps the no-motion, arming and shown-before-firing rules
+  (`tests/test_headpointer_state_matrix.py`).
+
+Daemon reachability (`tests/test_headpointer_reachability.py`, #404). This uses the real `_build_pipeline()`,
+with only the camera, the face model, the pointer sink and the clock faked:
+
+- enabling `[headpointer]` alone is what builds a runner, and the shipped config builds none;
+- a head turn reaches the platform `PointerSink`;
+- face loss and camera failure each give zero motion;
+- with dwell live, startup and face re-acquisition never click, and an aim-and-rest clicks once;
+- `headpointer/` imports only `perception/signals.py`, never camera-owning code.
+
+The registry's import-closure honesty test cannot stand in for these tests. The daemon imports the package from
+places that build no pointer.
 
 Hardware observations:
 

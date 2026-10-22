@@ -1,6 +1,6 @@
 ---
 title: Stop a misheard command from running — the Command Safety Gate
-description: YazSes can hold a destructive dictated command (rm -rf, mkfs, dd, curl to sh, git push --force) until you say confirm, so a misrecognition cannot fire it. How to turn it on, what it catches, and what it deliberately does not.
+description: YazSes can hold a destructive dictated command (rm -rf, mkfs, dd, curl to sh, git push --force) until you say confirm, so a misrecognition cannot fire it. On in a fresh install; what it catches, and what it deliberately does not.
 ---
 
 # Stop a misheard command from running
@@ -20,7 +20,9 @@ yazses features enable cmdsafety
 yazses restart
 ```
 
-Off by default, like every feature that changes what happens to your keystrokes.
+It is already on in a fresh install: the first start writes `[cmdsafety] enabled = true`
+as part of the recommended set. If your config predates that, or you turned it off, the
+two commands above turn it on (`yazses features disable cmdsafety` turns it off).
 
 ## What it does
 

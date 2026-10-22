@@ -13,19 +13,19 @@ numbers, not estimates, so you can decide before you start.
 | What | Size | Notes |
 |---|---|---|
 | YazSes, headless (no desktop extra) | **414 MB** | `pip install yazses` — enough for `transcribe`. 42 distributions; 84% of it is four binary wheels that arrive with faster-whisper |
-
-*The 414 MB is measured on **Linux x86_64, CPython 3.12**. Expect it to differ by a few
-tens of MB elsewhere: the platform-conditional dependencies are not the same set —
-Linux compiles `evdev`, macOS pulls four `pyobjc` frameworks plus `rumps`, Windows pulls
-`pywin32`, `pystray` and Pillow. The four wheels that dominate the total are the same
-everywhere.*
 | YazSes + the `desktop` extra | **1.1 GB** | what `install.sh`, the `.deb` and the Snap install |
 | ↳ of which **PySide6 (Qt)** | **648 MB** | the overlay and the tray — now optional, see below |
 | Speech model — `tiny.en` | 75 MB | fastest, least accurate |
 | Speech model — `base.en` | **141 MB** | **the default** |
 | Speech model — `small.en` | 464 MB | most accurate of the three |
 | Speaker diarization models | ~45 MB | only if you use `--diarize` |
-| Docker image (transcription only) | 833 MB | no Qt |
+| Docker image (transcription only) | 1.14 GB unpacked (387 MB download) | no Qt |
+
+*The 414 MB is measured on **Linux x86_64, CPython 3.12**. Expect it to differ by a few
+tens of MB elsewhere: the platform-conditional dependencies are not the same set —
+Linux compiles `evdev`, macOS pulls four `pyobjc` frameworks plus `rumps`, Windows pulls
+`pywin32`, `pystray` and Pillow. The four wheels that dominate the total are the same
+everywhere.*
 
 **A normal desktop install is therefore about 1.25 GB**: 1.1 GB of program plus the
 141 MB default model. A **headless** install is roughly **555 MB** all-in. Only one
@@ -55,7 +55,7 @@ model is downloaded — the one you configure.
     It now lives in the **`desktop` extra**:
 
     ```sh
-    pip install yazses              # headless: transcribe, meetings, the CLI
+    pip install yazses              # headless: dictation, transcribe, the CLI
     pip install 'yazses[desktop]'   # adds the overlay and the tray
     ```
 
@@ -79,11 +79,11 @@ before it fetches anything.
 | `cocktail`, `multiprofile`, `voiceguard` (speaker voiceprint) | **~3.4 GB** | 39 |
 | `stt-parakeet` | ~604 MB | 1 |
 | `read-back`, `readback_clone` (Kokoro TTS) | ~352 MB | 23 |
-| `overlay`, `tray` (Qt) | ~256 MB | 4 |
-| `gaze`, `facegesture` (mediapipe + OpenCV) | ~224 MB | 12 |
+| `overlay`, `tray` (Qt) | ~268 MB | 6 |
+| `gaze`, `facegesture` (mediapipe + OpenCV) | ~227 MB | 13 |
 | `stt-moonshine` | ~113 MB+ | 18 |
-| `llm-cleanup` (llama.cpp) | ~75 MB | 4 |
-| `diarize`, `meeting`, `recimport` (sherpa-onnx) | ~62 MB | 2 |
+| `llm-cleanup` (llama.cpp) | ~77 MB | 4 |
+| `diarize`, `meeting`, `recimport` (sherpa-onnx) | ~63 MB | 2 |
 | `prosody`, `voicehealth` | ~11 MB | 1 |
 | `agent` (MCP) | ~4.5 MB | 20 |
 | `chinese-script` | ~0.5 MB | 1 |
@@ -93,17 +93,27 @@ feature fetches weights whose size is not established here, so the figure is a f
 Every number is `yazses features`' own, so the page and the command cannot drift —
 `tests/test_install_cost_page_matches_the_tool.py` fails the build if they do.
 
-!!! warning "The voiceprint features cost 3.1 GB, and it is worth knowing why"
+!!! warning "The voiceprint features are the heavy ones, and it is worth knowing why"
 
     `cocktail`, `multiprofile` and `voiceguard` all need a speaker-embedding model, and
-    the default backend (`speechbrain`) resolves to **PyTorch and the full NVIDIA CUDA
-    stack** — cuDNN, NCCL, cuSPARSE, cuSOLVER — none of which YazSes uses, because
-    everything here runs on the CPU. That is a dependency of a dependency, not a choice
-    this project makes, and it is **7× the size of YazSes itself**.
+    the default backend (`speechbrain`) resolves to **PyTorch**. On Linux, PyPI's PyTorch
+    is the CUDA build, and the figure in the table was measured that way: PyTorch plus
+    the full NVIDIA CUDA stack — cuDNN, NCCL, cuSPARSE, cuSOLVER — none of which YazSes
+    uses, because everything here runs on the CPU. That was a dependency of a dependency,
+    not a choice this project made, and it was **7× the size of YazSes itself**.
 
-    If you want speaker features without it, `[voiceprint] backend = "resemblyzer"` is
-    the lighter alternative. Otherwise, leave them off — all three are off by default
-    and `cocktail` is experimental besides.
+    Since 2026-10-21 YazSes installs the torch stack on Linux from the PyTorch project's
+    **CPU-only wheel index** instead: `yazses features enable cocktail` (and the other
+    two) passes that index to the installer, and a source checkout's `uv sync --extra
+    voiceprint` resolves it from the lockfile, so the 15 `nvidia-*` packages are no
+    longer downloaded. A bare `pip install "yazses[voiceprint]"` reads neither; on Linux
+    add `--extra-index-url https://download.pytorch.org/whl/cpu` to it yourself. The
+    table above still shows the pre-change measurement until the Linux figure is
+    re-measured; macOS was always CPU-only on PyPI and is unaffected.
+
+    If you want speaker features without PyTorch at all, `[voiceprint] backend =
+    "resemblyzer"` is the lighter alternative. Otherwise, leave them off — all three are
+    off by default and `cocktail` is experimental besides.
 
 These are **download** sizes for the fully resolved dependency set, measured on Linux
 x86_64 against a clean base install, so they will not match a `du` afterwards. A feature
@@ -117,11 +127,28 @@ decides for you:
 
 | How you installed | Pulls the `desktop` extra (Qt, 648 MB)? | You get | Roughly |
 |---|---|---|---|
-| `pip install yazses` / `pipx install yazses` | **No** | The CLI, dictation, `transcribe`, meetings | **414 MB** |
+| `pip install yazses` / `pipx install yazses` | **No** | The CLI, dictation, `transcribe` (Meeting Mode is a ~63 MB opt-in via `yazses features enable meeting`) | **414 MB** |
 | `install.sh` (the Linux one-liner) | **Yes** | …plus the tray and the voice-activity overlay | ~1.1 GB |
 | The `.deb` | **Yes** (`yazses[desktop]`) | Same as above | ~1.1 GB |
 | The Snap | **Yes** (bundled) | Same, in a confined package | ~1.1 GB |
-| The Docker image | **No** — it has no display | `transcribe` + diarization only | 833 MB |
+| The Docker image | **No** — it has no display | `transcribe` + diarization only | 1.14 GB (387 MB download) |
+| The Windows installer (`.exe`) | **Yes** (bundled) | Same, plus the Parakeet engine's library and Chinese script conversion built in; speaker diarization as a download-on-request add-on | ~188 MB download (v2.43.2) |
+
+**What the Windows installer carries.** It is a frozen bundle, so it cannot `pip install`
+a feature later. From the release after v2.43.2 it also carries two small libraries that
+used to need a Python install: `onnx-asr`, the engine behind `stt-parakeet` (MIT, about
+4 MB), and `opencc-python-reimplemented`, behind `chinese-script` (Apache-2.0, about
+0.5 MB). Together they add about 4.5 MB, roughly 2.4% of the v2.43.2 installer. Those
+figures are the wheels' sizes
+([ADR-028](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-028-feature-addon-packs.md),
+question 1), not a measurement of a built installer, which has not run yet. Parakeet's
+model (about 600 MB) still downloads the first time you use it, as on every other
+install. Speaker diarization (`diarize`, `meeting`, `recimport`) is the first
+**add-on**: a separate download you start from Settings or with
+`yazses packs install diarization`, only when you want it. A release publishes it only
+after it passes its checks inside the frozen app, so `yazses packs` is the authority on
+whether your build has it. See
+[Windows install](windows-install.md#features-that-need-extra-libraries).
 
 **If you want the smallest install, `pip install yazses` already is it.** There is no
 `minimal` extra to ask for, because the base install *is* the minimum — see the box
@@ -173,7 +200,7 @@ On Linux, a full dictation install touches these and nothing else:
 | Enables **`ydotoold`** (Wayland only) | the only way to inject keystrokes on GNOME/KDE Wayland | yes — `systemctl --user disable --now ydotoold` |
 | Writes config to `~/.config/yazses/` | your settings | yes — delete it |
 | Writes data to `~/.local/share/yazses/` | logs, PID, learning corpus if enabled | yes — delete it |
-| Optional systemd **user** unit | start at login, if you ask for it | yes — `yazses autostart disable` |
+| systemd **user** unit | start at login — enabled by the first `yazses start` | yes — `yazses autostart disable` |
 
 !!! note "The `input` group is the one real security consideration, and it is worth understanding"
     Membership lets any program you run read raw input events — which is how the
@@ -189,7 +216,8 @@ On Linux, a full dictation install touches these and nothing else:
   code in the project at all. Downloads on PyPI are the only number the project can see,
   and that is PyPI's counter, not ours.
 - **No background network access** after the model is downloaded.
-- **No autostart unless you run `yazses autostart enable`.**
+- **Autostart is turned on the first time you run `yazses start`** (it says so once). Skip it
+  with `yazses start --no-autostart`, or undo it with `yazses autostart disable`.
 
 ## Getting it back off
 

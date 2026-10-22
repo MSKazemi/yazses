@@ -30,3 +30,57 @@ is the lazy extra; the rule is pure. OFF by default.
 - Distinct from Auto-Stop (extends vs fixed silence) and Self-Repair (timing vs content).
 - Privacy (ADR-011): local features only.
 - Caveat: heuristic thresholds; a persistent hesitater could feel slower (tunable); off by default.
+
+## Amendment (2026-10-21) — PROPOSED, for the owner's review
+
+**Status of this amendment: proposed, not accepted.** It records what was built toward wiring
+(#164, WIRE-HESITATION-001). When it was written nothing below was wired; the wiring
+amendment that follows records how it now is. `[hesitation]` stays off by default.
+
+**What was missing.** `is_filled_pause` takes an F0 series and a spectral-stability value, and
+nothing on main produced either from live audio. A shared numpy YIN tracker with per-frame
+spectral flux now does (`src/yazses/audio/pitch.py`, also used by ADR-v2-103; no optional
+extra), and `src/yazses/hesitation/stream.py` adapts it:
+
+- "the trailing vocalization" is the 400 ms of frames ending at the most recent *voiced* frame.
+  Silence and room noise are both unvoiced, so the window does not rest on an energy threshold;
+- stability is `1 - mean(spectral flux)` over that window;
+- **added condition:** the window must hold at least 300 ms of voiced frames, so the flat last
+  syllable of an ordinary word does not extend the endpoint (AGENTS.md rule 9);
+- `HesitationMonitor` queues chunks from the audio thread under a short queue-only lock and
+  analyses them on the reader's thread outside it, then answers `endpoint_decision` for the
+  caller's silence. If nobody reads for 2 s, the oldest audio is dropped and the last verdict is
+  cleared with it (commit at the plain threshold).
+
+Open points for the owner: (a) hold-to-talk ends on key release, so the hold only changes
+anything in a hands-free (`[autostop]`) turn — wiring there means `[hesitation] commit_ms` and
+`[autostop] silence_timeout_ms` both describe the plain commit threshold, and one must win;
+(b) the 300 ms / 400 ms / 25 Hz / 0.7 thresholds were checked on synthetic tones only.
+
+## Amendment (2026-10-21, wiring) — owner decision applied
+
+The open point (a) above is decided by the owner: **`[autostop] silence_timeout_ms` is the
+base threshold, and hesitation only extends it**, by `[hesitation] hold_extra_ms`, after a
+detected filled pause. Wired for #164 (WIRE-HESITATION-001):
+
+- `src/yazses/hesitation/handsfree.py::build_monitor` builds a `HesitationMonitor` only when
+  both `[hesitation]` and `[autostop]` are enabled. Its commit threshold is the auto-stop
+  timeout, with the same `MIN_SILENCE_TIMEOUT_MS` floor the turn applies.
+- `[hesitation] commit_ms` now defaults to `0`, meaning "use the auto-stop timeout"; any other
+  value is ignored with a warning, so there are never two competing thresholds. A negative or
+  non-finite `hold_extra_ms` reads as `0`: the feature can only lengthen a turn.
+- Daemon hooks: `_build_autostop` passes `monitor.decision` as `AutoStopTurn`'s `endpoint`;
+  `_on_audio_chunk` queues chunks only while a hands-free turn is latched (a copy under the
+  monitor's queue lock, no analysis); `_on_hold_start` resets the monitor for a new turn (not
+  on the swallowed second tap). YIN runs on the auto-stop watcher thread, inside
+  `AutoStopTurn.tick`, so a hotkey press can wait for at most one analysis of the queued
+  audio (bounded at 2 s). The analysis is not incremental: the turn consults the judge only
+  after it has heard speech and at least `MIN_SILENCE_TIMEOUT_MS` (300 ms) of silence, so while
+  someone speaks the queue fills to `MAX_PENDING_S` (2 s), drops its oldest audio and resets
+  the tracker, and the first consultation runs YIN over one block of up to 2 s in a single
+  watcher tick. The block still holds the trailing vocalization the verdict is about.
+- With `[hesitation]` on and `[autostop]` off the daemon builds nothing and logs why, and
+  `yazses features enable hesitation` prints a caveat naming `yazses features enable autostop`.
+- Hold-to-talk is untouched: it ends on key release and never feeds the monitor.
+- The feature is registered as **experimental**. Point (b) still stands: the thresholds were
+  checked on synthetic tones only.

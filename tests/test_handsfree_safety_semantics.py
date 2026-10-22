@@ -246,7 +246,13 @@ def test_only_the_human_initiated_entry_points_can_rearm_or_clear_a_fault():
     assert _calls_on_a_gate("clear_fault") == {
         ("headpointer/controller.py", "HeadPointerController.resume"),
     }
-    assert _calls_on_a_gate("shutdown") == {("core/daemon.py", "Daemon._shutdown")}
+    # Two callers, one decision: `Daemon.shutdown` (the stop request) closes the gate before it
+    # stops any activation source, and `Daemon._shutdown` (the teardown every exit path runs)
+    # closes it again before the pointer and camera backends. Both are the daemon going away.
+    assert _calls_on_a_gate("shutdown") == {
+        ("core/daemon.py", "Daemon.shutdown"),
+        ("core/daemon.py", "Daemon._shutdown"),
+    }
 
 
 def test_no_face_or_chord_action_can_resume_so_a_stop_is_never_undone_by_the_camera():
@@ -699,9 +705,20 @@ def test_speech_only_dictation_does_not_consult_the_hands_free_gate():
             for n in ast.walk(fn)
         )
     }
+    # `_build_vocaljoystick` is the one microphone-driven reader, recorded here on purpose
+    # (#164): it hands the Vocal Joystick the gate's `user_paused` flag *only*, so a face
+    # switch's or a chord's pause also closes that mic. It is not a gate source -- it never
+    # samples, gates, arms or resumes (the R-24 inventory above stays unchanged) -- and
+    # dictation still never reads the gate.
     assert mentioning == {
         "_build_pipeline", "_build_face_gesture_source", "_build_headpointer", "_build_gesture",
-        "_handsfree_payload", "_handle_handsfree", "_shutdown",
+        "_handsfree_payload", "_handle_handsfree", "shutdown", "_shutdown",
+        "_build_vocaljoystick",
+
+        # The Voice Mouse Grid's builder hands the gate to the grid so a pause stops the
+        # pointer; the grid itself is reached from `_on_hold_end` only through its runtime,
+        # which never consults the gate for dictation (it returns None for non-grid speech).
+        "_build_mousegrid",
     }
     for dictation in ("_on_hold_start", "_on_hold_end", "_on_command_hold_start",
                       "_on_command_hold_end"):

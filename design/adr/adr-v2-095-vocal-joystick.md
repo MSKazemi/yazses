@@ -33,3 +33,49 @@ default.
 - Privacy (ADR-011): local audio only; nothing stored or sent.
 - Caveat: needs a formant/pitch tracker for live use; the direction thresholds are speaker-general
   (per-speaker calibration is a later tier); off by default.
+
+## Implementation note (2026-10-21) — the producer
+
+The tracker turned out not to need an extra. `vocaljoystick/formants.py` is pure numpy (a base
+dependency): F1/F2 by autocorrelation LPC (pre-emphasis, Hamming window, Levinson-Durbin, root
+bandwidth filter), loudness as RMS dBFS mapped onto `[0, 1]`, and pitch from the shared YIN
+tracker in `audio/pitch.py` (no second pitch tracker). It emits one `VocalFrame` per 10 ms hop
+whose `joystick_args()` are exactly `VocalJoystick.feed`'s arguments. Checked only on synthetic
+source-filter vowels (Peterson & Barney 1952 male formants, F0 100-200 Hz); real speech, high
+voices and per-speaker calibration are unmeasured. Connecting it to the producer exposed a core
+defect, fixed alongside: a click was measured from the `0.0` pitch of an unvoiced frame, so any
+voice at or above `click_pitch` clicked on onset; the jump is now measured from the last voiced
+pitch within `click_gap_frames`. Pointer wiring (recorder → tracker → joystick → pointer
+backend) remains open.
+
+## Implementation note (2026-10-21) — the wiring
+
+The chain is reachable: `vocaljoystick/runtime.py` owns a dedicated microphone stream, a worker
+thread and the platform's `PointerSink` (ADR-v2-146), and the daemon builds it only while
+`[vocaljoystick] enabled`. There is no new command and no implicit start: the stream is opened
+by the existing hands-free re-arm, `yazses handsfree resume`, and closed by `yazses handsfree
+pause`, the spoken stop phrase, a pause that begins at the `[handsfree_safety]` gate (when that
+gate is on, e.g. a face switch's `pause_pointer`) and shutdown. Nothing is steered while dictation
+is recording, transcribing or typing, and the device-change monitor does not reinit PortAudio
+while the joystick's stream is open (the daemon stays IDLE, so it has to be told).
+
+The joystick **reads** the gate's pause flag and is **not** a gate source: it never samples,
+arms or re-arms the gate. Two reasons. ADR-v2-148 R-24 keeps re-arming with the human entry
+points, and a source that closed itself on a fault would otherwise sit in the gate with a stale
+sample and report the whole hands-free system as FAULTED while the Head-Pointer works. A fault
+(pointer output failed, analysis error) is logged once and shown as a desktop notification that
+names `yazses handsfree resume`; `handsfree resume` replies with the "clicks are off" caveat
+when the pointer backend has no left button.
+
+`vocaljoystick/drive.py` sits between the integrator and the pointer and holds the misfire
+guards, each a specific signal (ADR-021): motion needs one direction held for 150 ms and a
+loudness of at least 0.25 (about -50 dBFS); a click needs 150 ms of held voicing, then a pitch
+that stays at or above `click_pitch` for 50 ms after the jump (a YIN octave error is dropped),
+and clicks are at least 0.5 s apart. These values are tuned on synthetic source-filter vowels
+only.
+
+**Correction to the Context above.** "eee"→up was never what the mapping does. /i/ is close
+(low F1 → up) *and* front (high F2 → left), so `vowel_to_direction` returns `nw`: "eee" moves
+up-left, "ooo" (/u/, close and back) up-right, and "ahh" (/a/, open and back) down-right
+(`tests/test_vocaljoystick_formants.py` pins all three). The registry and `docs/v2-features.md`
+now say so.

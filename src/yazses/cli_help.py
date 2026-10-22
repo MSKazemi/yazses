@@ -21,17 +21,37 @@ covers the sections somebody remembered, and this repo has been bitten by that s
 often enough to have a rule about it. Deriving it also makes the escape exact: it can
 only ever match a real section, so a genuine `[bold]` tag — `cli.py` uses three — is
 untouched by construction rather than by a caveat.
+
+**Derived once, at generation time, not on every start.** `apply` runs on every CLI
+invocation -- `--version`, `status`, shell completion -- and deriving the names there
+imported the whole of `yazses.config` (about 66 ms, measured) to escape help text that
+most invocations never render. So the escape reads `config_sections.SECTION_NAMES`,
+which `scripts/gen-docs.py` writes from `config_section_names()` below, and
+`tests/test_gen_docs.py` fails the day the two disagree -- the derivation is still the
+authority, it is just not re-run per process.
 """
 from __future__ import annotations
 
 import dataclasses
 import functools
+import re
 from typing import Any
+
+from yazses.config_sections import SECTION_NAMES
+
+#: A bracketed name that *could* be a section: `[meeting]`, `[filters.disfluency]`.
+#: Membership in `SECTION_NAMES` decides; `[bold]` matches here and is left alone there.
+_BRACKETED = re.compile(r"\[([A-Za-z_][A-Za-z0-9_.]*)\]")
 
 
 @functools.lru_cache(maxsize=1)
 def config_section_names() -> frozenset[str]:
-    """Every `[section]` a `config.toml` can contain, from the dataclass itself."""
+    """Every `[section]` a `config.toml` can contain, from the dataclass itself.
+
+    The derivation, kept for the generator and the tests. Runtime code reads the
+    precomputed `config_sections.SECTION_NAMES` instead, which does not import
+    `yazses.config`.
+    """
     from yazses.config import Config
 
     names = set()
@@ -47,13 +67,11 @@ def config_section_names() -> frozenset[str]:
 
 def escape_config_sections(text: str | None) -> str | None:
     """Backslash-escape `[section]` so Rich prints it instead of parsing it."""
-    if not text:
+    if not text or "[" not in text:
         return text
-    for name in config_section_names():
-        token = f"[{name}]"
-        if token in text:
-            text = text.replace(token, f"\\{token}")
-    return text
+    return _BRACKETED.sub(
+        lambda m: "\\" + m.group(0) if m.group(1) in SECTION_NAMES else m.group(0), text
+    )
 
 
 def _escape_params(func: Any) -> None:

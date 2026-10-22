@@ -25,7 +25,7 @@ from dataclasses import dataclass, field
 from yazses.config import Config
 from yazses.language.service import LanguageApplyResult, PreparedLanguageChange
 from yazses.system.deps import install_blocked_reason, missing_modules
-from yazses.system.features import EXPERIMENTAL, find_feature
+from yazses.system.features import EXPERIMENTAL, PRESET_SLUG, enable_refusal, find_feature
 
 # Same shape as configedit.set_config_key(path, section, key, value, quote=...),
 # with the path already bound by the caller.
@@ -34,6 +34,8 @@ ConfigLoader = Callable[[], Config]
 DepsProbe = Callable[[Iterable[str]], list[str]]
 # Why this environment can never supply a feature's libraries, or None.
 BlockedProbe = Callable[[Sequence[str]], str | None]
+# The user's config file as parsed (no preset applied), or None when it cannot be read.
+RawConfigLoader = Callable[[], Mapping[str, object] | None]
 LanguagePreviewer = Callable[..., PreparedLanguageChange]
 LanguageApplier = Callable[..., LanguageApplyResult]
 
@@ -157,9 +159,12 @@ class SettingsController:
         blocked_probe: BlockedProbe | None = None,
         language_previewer: LanguagePreviewer | None = None,
         language_applier: LanguageApplier | None = None,
+        raw_config_loader: RawConfigLoader | None = None,
     ) -> None:
         self._load_config = load_config
         self._writer = writer
+        # Only the hands-free preset's gate reads it. Absent, that gate refuses (fail closed).
+        self._raw_config_loader = raw_config_loader
         self._deps_probe = deps_probe or missing_modules
         self._blocked_probe = blocked_probe or install_blocked_reason
         self._language_previewer = language_previewer
@@ -330,14 +335,17 @@ class SettingsController:
         if not cleaned:
             return ToggleResult(ok=False, error="Pick a model — an empty name has no default here.")
 
+        try:
+            cfg = self._load_config()
+        except Exception as exc:  # pragma: no cover - load_config is total
+            return ToggleResult(ok=False, error=f"Could not read the config: {exc}")
         if language is None:
-            try:
-                cfg = self._load_config()
-            except Exception as exc:  # pragma: no cover - load_config is total
-                return ToggleResult(ok=False, error=f"Could not read the config: {exc}")
             language = getattr(getattr(cfg, "stt", None), "language", "") or ""
+        # Judged on the configured engine too (#515): Parakeet and Moonshine load
+        # their own English-only checkpoint whatever `[stt] model` says.
+        engine = getattr(getattr(cfg, "stt", None), "engine", "") or ""
 
-        problem = language_model_problem(cleaned, language)
+        problem = language_model_problem(cleaned, language, engine)
         if problem:
             return ToggleResult(ok=False, error=problem)
 
@@ -361,14 +369,15 @@ class SettingsController:
         from yazses.stt.download import language_model_problem
 
         cleaned = (code or "").strip()
+        try:
+            cfg = self._load_config()
+        except Exception as exc:  # pragma: no cover - load_config is total
+            return ToggleResult(ok=False, error=f"Could not read the config: {exc}")
         if model is None:
-            try:
-                cfg = self._load_config()
-            except Exception as exc:  # pragma: no cover - load_config is total
-                return ToggleResult(ok=False, error=f"Could not read the config: {exc}")
             model = getattr(getattr(cfg, "stt", None), "model", "") or "base.en"
+        engine = getattr(getattr(cfg, "stt", None), "engine", "") or ""
 
-        problem = language_model_problem(model, cleaned)
+        problem = language_model_problem(model, cleaned, engine)
         if problem:
             return ToggleResult(ok=False, error=problem)
 
@@ -577,6 +586,11 @@ class SettingsController:
             blocked = self._blocked_reason(feat)
             if blocked is not None:
                 return ToggleResult(ok=False, error=f"{feat.name}: {blocked}")
+            # The same gate `yazses features enable` applies (ADR-v2-148): the hands-free
+            # preset refuses, writing nothing, over a file that weakens its safety floor.
+            refusal = enable_refusal(feat.slug, self._raw_config()) if feat.slug == PRESET_SLUG else ""
+            if refusal:
+                return ToggleResult(ok=False, error=f"{feat.name} not enabled. {refusal}")
 
         writes = feat.on_writes if desired else feat.off_writes
         for index, (section, key, value, quote) in enumerate(writes):
@@ -616,6 +630,14 @@ class SettingsController:
             else:
                 report.errors.append(result.error or f"{slug}: unknown error")
         return report
+
+    def _raw_config(self) -> Mapping[str, object] | None:
+        if self._raw_config_loader is None:
+            return None
+        try:
+            return self._raw_config_loader()
+        except Exception:  # noqa: BLE001 - an unreadable file is "cannot check", never a raise
+            return None
 
     def _blocked_reason(self, feat) -> str | None:
         """Why this environment can never install *feat*'s libraries, or ``None``.

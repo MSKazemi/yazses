@@ -202,7 +202,29 @@ def gather_panel_inputs(
         fps=_int_or(getattr(face, "fps", 15), 15),
         baseline=baseline,
         release_issues=release_issues,
+        stop_phrase=str(
+            getattr(getattr(cfg, "handsfree_safety", None), "stop_phrase", "") or ""
+        ),
+        stop_chords=_stop_chords(cfg),
     )
+
+
+def _stop_chords(cfg: Any) -> tuple[str, ...]:
+    """The ``[gesture.chords]`` chords bound to ``pause_pointer``, when chords are on.
+
+    Read through `gesture/engine.py`'s own parser, so a chord the daemon would refuse (an
+    unknown token, a collision) is not offered as a way to stop. Never raises.
+    """
+    gesture = getattr(cfg, "gesture", None)
+    if gesture is None or not getattr(gesture, "enabled", False):
+        return ()
+    try:
+        from yazses.gesture.engine import parse_chords
+
+        bound, _problems = parse_chords(getattr(gesture, "chords", None))
+    except Exception:
+        return ()
+    return tuple(sorted(chord for chord, action in bound.items() if action == "pause_pointer"))
 
 
 def _camera_gate(cfg: Any, platform: Any) -> Any | None:

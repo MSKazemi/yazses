@@ -11,8 +11,8 @@ back is an extension.
 
 !!! info "Verified on"
 
-    Ubuntu 24.04 · GNOME Shell 46.0 · X11 · YazSes 2.18.2. The GNOME section was
-    confirmed on that machine; the other desktops are described from their own
+    Ubuntu 24.04 · GNOME Shell 46.0 · X11 · YazSes 2.18.2 (Aug 2026); output may
+    differ in later versions. The GNOME section was confirmed on that machine; the other desktops are described from their own
     documentation and are marked where they were not tested.
 
 ## First: is it even running?
@@ -35,8 +35,10 @@ Two different problems hide behind one symptom, and this tells them apart:
 
 ## Run it by hand to see the real error
 
-The daemon launches the tray in the background, so its error message goes nowhere
-you would look. Run it in a terminal instead:
+The daemon launches the tray in the background and keeps the last tray's error output
+in `tray-stderr.log` in the data directory (`~/.local/share/yazses/tray-stderr.log` on
+Linux); when it relaunches or gives up on the tray it also quotes that error in the
+daemon log (`yazses logs`). Running the tray in a terminal shows the error live:
 
 ```bash
 yazses tray
@@ -45,7 +47,9 @@ yazses tray
 This blocks and prints. The two failures worth knowing:
 
 - `ModuleNotFoundError: No module named 'PySide6'` — the Linux tray is Qt.
-  `uv sync` / `pipx install yazses` include it; a minimal install may not.
+  PySide6 is not a base dependency: run `yazses features enable tray`, which
+  installs it, or install the `desktop` extra (`pipx install 'yazses[desktop]'` /
+  `uv tool install 'yazses[desktop]'`).
 - It starts, prints nothing, and no icon appears → the process is fine and the
   desktop is not showing it. That is the next section.
 

@@ -1,0 +1,5 @@
+[
+  {"number": 1, "title": "Outcome A", "state": "open"},
+  {"number": 2, "title": "Outcome B", "state": "open"},
+  {"number": 3, "title": "Finished outcome", "state": "closed"}
+]

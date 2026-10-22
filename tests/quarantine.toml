@@ -1,0 +1,22 @@
+# Quarantine registry (#538, .github/CI_POLICY.md section 9.3).
+#
+# Every test marked `@pytest.mark.quarantine(...)` must have an entry here with the SAME
+# issue, owner, reason and expires. tests/test_flake_policy.py fails the build on a marker
+# without an entry, an entry without a marker, a disagreement, a missing field, or an expiry
+# that has passed or is more than 90 days away. An expired or unregistered quarantine is not
+# honoured: the test runs as an ordinary blocking test again.
+#
+# Empty on purpose. The policy is "quarantine only when a real, explained flake needs it",
+# not a list of pre-approved exceptions. Do not add an entry to make a red run green: read
+# section 9 first -- most red runs are deterministic failures or runner incidents, and
+# neither belongs here.
+#
+# Shape of an entry (`test` is the node id without a parameter suffix; a class name covers
+# every test in the class):
+#
+# [[quarantine]]
+# test = "tests/test_example.py::test_reads_the_socket"
+# issue = 1234                       # the GitHub issue that tracks the flake (label ci:flaky-test)
+# owner = "MSKazemi"                 # GitHub login responsible for closing it
+# reason = "Times out about 1 run in 40 on windows-latest; root cause unknown, see the issue."
+# expires = 2026-12-01               # review date; at most 90 days ahead

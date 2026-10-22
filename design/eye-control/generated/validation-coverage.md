@@ -4,7 +4,7 @@
 
 # Eye / camera validation coverage
 
-Generated from [`validation-slots.json`](../validation-slots.json) (schema version 1). Do not hand-edit this file: edit the registry and run `uv run python scripts/gen-eye-validation-dashboard.py`.
+Generated from [`validation-slots.json`](../validation-slots.json) (schema version 2). Do not hand-edit this file: edit the registry and run `uv run python scripts/gen-eye-validation-dashboard.py`.
 
 ## How to read this page
 
@@ -49,26 +49,26 @@ Rows are the test packs and columns the environments in the registry's own vocab
 
 ## Every registered cell
 
-One row per registered cell, in pack then environment then slot order. The issue link is derived from the registry, so it cannot disagree with the cell it represents.
+One row per registered cell, in pack then environment then slot order. The issue link and its title code come from the registry's declared issue list, which the validator checks against the cell, so they cannot disagree with the cell they represent.
 
-| Cell | Session | Slot | State | Runnable today? | Issue | Reported evidence | Sessions planned | Blocked by |
-|---|---|---|---|---|---|---|---:|---|
-| `T0-WIN-A` | Windows 11 | A | PLANNED | no | [#428](https://github.com/MSKazemi/yazses/issues/428) | awaiting first report | 1 | — + a condition below |
-| `T0-WIN-B` | Windows 11 | B | PLANNED | no | [#429](https://github.com/MSKazemi/yazses/issues/429) | awaiting first report | 1 | — + a condition below |
-| `T0-MAC-A` | macOS Apple Silicon | A | PLANNED | no | [#430](https://github.com/MSKazemi/yazses/issues/430) | awaiting first report | 1 | — + a condition below |
-| `T0-MAC-B` | macOS Apple Silicon | B | PLANNED | no | [#431](https://github.com/MSKazemi/yazses/issues/431) | awaiting first report | 1 | — + a condition below |
-| `T0-GNOME-A` | Ubuntu/GNOME Wayland | A | PLANNED | no | [#432](https://github.com/MSKazemi/yazses/issues/432) | awaiting first report | 1 | — + a condition below |
-| `T0-GNOME-B` | Ubuntu/GNOME Wayland | B | PLANNED | no | [#433](https://github.com/MSKazemi/yazses/issues/433) | awaiting first report | 1 | — + a condition below |
-| `T0-KDE-A` | KDE Plasma Wayland | A | PLANNED | no | [#434](https://github.com/MSKazemi/yazses/issues/434) | awaiting first report | 1 | — + a condition below |
-| `T0-KDE-B` | KDE Plasma Wayland | B | PLANNED | no | [#438](https://github.com/MSKazemi/yazses/issues/438) | awaiting first report | 1 | — + a condition below |
-| `T0-X11-A` | Linux X11 | A | PLANNED | no | [#435](https://github.com/MSKazemi/yazses/issues/435) | awaiting first report | 1 | — + a condition below |
-| `T0-X11-B` | Linux X11 | B | PLANNED | no | [#439](https://github.com/MSKazemi/yazses/issues/439) | awaiting first report | 1 | — + a condition below |
-| `T1-X11-A` | Linux X11 | A | PLANNED | no | none yet | awaiting first report | 1 | [#422](https://github.com/MSKazemi/yazses/issues/422) + a condition below |
-| `T1-X11-B` | Linux X11 | B | PLANNED | no | none yet | awaiting first report | 1 | [#422](https://github.com/MSKazemi/yazses/issues/422) + a condition below |
-| `T1-HIDPI-A` | HiDPI / multi-monitor | A | PLANNED | no | none yet | awaiting first report | 1 | [#422](https://github.com/MSKazemi/yazses/issues/422) + a condition below |
-| `T1-ANY-REPEAT` | any platform where T1 is actually supported | repeat | PLANNED | no | [#437](https://github.com/MSKazemi/yazses/issues/437) | awaiting first report | 3 | — + a condition below |
-| `T5-HIDPI-A` | HiDPI / multi-monitor | A | PLANNED | no | [#436](https://github.com/MSKazemi/yazses/issues/436) | awaiting first report | 1 | — + a condition below |
-| `T5-HIDPI-B` | HiDPI / multi-monitor | B | PLANNED | no | [#440](https://github.com/MSKazemi/yazses/issues/440) | awaiting first report | 1 | — + a condition below |
+| Cell | Session | Slot | State | Runnable today? | Hardware needed | Issue | Reported evidence | Sessions planned | Blocked by |
+|---|---|---|---|---|---|---|---|---:|---|
+| `T0-WIN-A` | Windows 11 | A | PLANNED | no | a webcam | [#428](https://github.com/MSKazemi/yazses/issues/428) `EYE-QA-WIN-A` | awaiting first report | 1 | — + a condition below |
+| `T0-WIN-B` | Windows 11 | B | PLANNED | no | a webcam | [#429](https://github.com/MSKazemi/yazses/issues/429) `EYE-QA-WIN-B` | awaiting first report | 1 | — + a condition below |
+| `T0-MAC-A` | macOS Apple Silicon | A | PLANNED | no | a webcam | [#430](https://github.com/MSKazemi/yazses/issues/430) `EYE-QA-MAC-A` | awaiting first report | 1 | — + a condition below |
+| `T0-MAC-B` | macOS Apple Silicon | B | PLANNED | no | a webcam | [#431](https://github.com/MSKazemi/yazses/issues/431) `EYE-QA-MAC-B` | awaiting first report | 1 | — + a condition below |
+| `T0-GNOME-A` | Ubuntu/GNOME Wayland | A | PLANNED | no | a webcam | [#432](https://github.com/MSKazemi/yazses/issues/432) `EYE-QA-GNOME-A` | awaiting first report | 1 | — + a condition below |
+| `T0-GNOME-B` | Ubuntu/GNOME Wayland | B | PLANNED | no | a webcam | [#433](https://github.com/MSKazemi/yazses/issues/433) `EYE-QA-GNOME-B` | awaiting first report | 1 | — + a condition below |
+| `T0-KDE-A` | KDE Plasma Wayland | A | PLANNED | no | a webcam | [#434](https://github.com/MSKazemi/yazses/issues/434) `EYE-QA-KDE-A` | awaiting first report | 1 | — + a condition below |
+| `T0-KDE-B` | KDE Plasma Wayland | B | PLANNED | no | a webcam | [#438](https://github.com/MSKazemi/yazses/issues/438) `EYE-QA-KDE-B` | awaiting first report | 1 | — + a condition below |
+| `T0-X11-A` | Linux X11 | A | PLANNED | no | a webcam | [#435](https://github.com/MSKazemi/yazses/issues/435) `EYE-QA-X11-A` | awaiting first report | 1 | — + a condition below |
+| `T0-X11-B` | Linux X11 | B | PLANNED | no | a webcam | [#439](https://github.com/MSKazemi/yazses/issues/439) `EYE-QA-X11-B` | awaiting first report | 1 | — + a condition below |
+| `T1-X11-A` | Linux X11 | A | PLANNED | no | a webcam | none yet | awaiting first report | 1 | [#422](https://github.com/MSKazemi/yazses/issues/422) + a condition below |
+| `T1-X11-B` | Linux X11 | B | PLANNED | no | a webcam | none yet | awaiting first report | 1 | [#422](https://github.com/MSKazemi/yazses/issues/422) + a condition below |
+| `T1-HIDPI-A` | HiDPI / multi-monitor | A | PLANNED | no | a webcam + non-100% scale or a second monitor | none yet | awaiting first report | 1 | [#422](https://github.com/MSKazemi/yazses/issues/422) + a condition below |
+| `T1-ANY-REPEAT` | any platform where T1 is actually supported | repeat | PLANNED | no | a webcam | [#437](https://github.com/MSKazemi/yazses/issues/437) `EYE-QA-REPEAT-A` | awaiting first report | 3 | — + a condition below |
+| `T5-HIDPI-A` | HiDPI / multi-monitor | A | PLANNED | no | a webcam + non-100% scale or a second monitor | [#436](https://github.com/MSKazemi/yazses/issues/436) `EYE-QA-HIDPI-A` | awaiting first report | 1 | — + a condition below |
+| `T5-HIDPI-B` | HiDPI / multi-monitor | B | PLANNED | no | a webcam + non-100% scale or a second monitor | [#440](https://github.com/MSKazemi/yazses/issues/440) `EYE-QA-HIDPI-B` | awaiting first report | 1 | — + a condition below |
 
 ## Unmet blockers
 

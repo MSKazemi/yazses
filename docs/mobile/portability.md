@@ -72,7 +72,7 @@ It is genuinely attractive (a phone is a better microphone than most laptops) bu
 network, so it does nothing for the phone-only user who is the reason for the port. It is
 tracked as a post-M3 candidate, and if it happens it needs an ADR covering pairing,
 authentication and the fact that it puts recognised text on a network — which is a
-meaningful change to the [[adr-011]] posture and cannot be enabled by default.
+meaningful change to the [ADR-011](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-011.md) posture and cannot be enabled by default.
 
 ## Things the phone gets that the desktop never had
 

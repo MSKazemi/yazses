@@ -13,7 +13,7 @@ terminal or chat. Linux itself has no equivalent built-in system-wide dictation.
 ```sh
 bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install.sh)
 yazses doctor               # check mic, keyboard access and text injection
-yazses enroll               # calibrate to your voice and room (~30 s)
+yazses mic-level --set      # measure your room and voice, set the threshold
 yazses start                # hold the hotkey, speak, release
 ```
 
@@ -25,7 +25,7 @@ Three separate problems have to be solved, and most tools only solve one:
 |---|---|---|
 | **Recognition** | Turning audio into text without a cloud API | On-device [faster-whisper](https://github.com/SYSTRAN/faster-whisper), CPU int8 — no GPU, no network |
 | **Triggering** | Detecting a held key globally, across every window | Reads keyboard events directly, and listens on **all** connected keyboards (laptop + external) |
-| **Injection** | Getting text *into* the focused app — the part Wayland broke | Runtime probe picks `ydotool`, `wtype`, `xdotool` or clipboard paste |
+| **Injection** | Getting text *into* the focused app — the part Wayland broke | Runtime probe picks `ydotool`, the desktop portal, `wtype`, `xdotool` or clipboard paste |
 
 That third row is the one that trips up most Linux dictation projects. Wayland
 deliberately prevents one application from synthesising input into another, so
@@ -37,15 +37,18 @@ YazSes probes your session at runtime and selects a working injection backend
 rather than assuming one:
 
 - **X11** — `xdotool`. Works out of the box on most distributions.
-- **Wayland (GNOME, KDE, sway)** — `ydotool` (via the `ydotoold` daemon) or
-  `wtype`. `yazses setup` provisions these for you; `yazses doctor` tells you
-  which backend was selected and whether it is functional.
+- **Wayland** — `ydotool` (via the `ydotoold` daemon) on every compositor;
+  `wtype` on wlroots compositors only (sway, Hyprland), because GNOME and KDE do
+  not implement its protocol; the xdg-desktop-portal RemoteDesktop API if you
+  allow it (`[injection] portal_consent`), and always in the Snap. `yazses setup`
+  provisions these for you; `yazses doctor` tells you which backend was selected
+  and whether it is functional.
 
 You can pin the choice explicitly if the automatic probe picks badly:
 
 ```toml
 [injection]
-backend = "auto"   # auto | type | clipboard | wtype
+backend = "auto"   # auto | type (= ydotool) | portal | wtype | xdotool | unicode | clipboard
 ```
 
 On Wayland, typing (rather than clipboard pasting) is the default because it also
@@ -93,7 +96,8 @@ In brief:
 
 ## What "offline" actually means here
 
-The model is downloaded once at install time. After that, dictation works with
+The model is downloaded once, on first start (or ahead of time with
+`yazses model download base.en`). After that, dictation works with
 the network cable unplugged. No audio, no transcript, and no telemetry leave the
 machine — see the [privacy statement](../privacy-statement.md) for the specifics
 of what is stored and where.
@@ -135,8 +139,8 @@ default, so it keeps working without an internet connection.
 
 ### Does voice dictation work on Ubuntu and Wayland?
 
-Yes. Ubuntu on X11 uses `xdotool`; Ubuntu on Wayland can use `ydotool` or
-`wtype`. The [Linux install guide](../install-linux.md) and `yazses setup`
+Yes. Ubuntu on X11 uses `xdotool`; Ubuntu on Wayland (GNOME) uses `ydotool` or
+the desktop portal — `wtype` does not work on GNOME. The [Linux install guide](../install-linux.md) and `yazses setup`
 provision the required backend, while `yazses doctor` verifies it.
 
 ### Can speech-to-text type into any Linux application?

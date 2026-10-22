@@ -77,8 +77,8 @@ _EN = {
     ),
     "privacy_heading": "Privacy",
     "privacy": (
-        "Audio is transcribed on your machine and is never sent anywhere. There is "
-        "no telemetry and no cloud path."
+        "By default, audio is transcribed on your machine and is not sent anywhere. "
+        "There is no telemetry and no cloud path."
     ),
     "more_heading": "More",
     "more": "The rest of the documentation is in English for now.",
@@ -117,7 +117,7 @@ LOCALES: dict[str, dict] = {
         does_3=("Transcreva um arquivo de áudio ou capture uma reunião inteira com "
                 "identificação de quem falou — tudo offline."),
         privacy_heading="Privacidade",
-        privacy=("O áudio é transcrito na sua máquina e nunca é enviado a lugar nenhum. "
+        privacy=("Por padrão, o áudio é transcrito na sua máquina e não é enviado a lugar nenhum. "
                  "Não há telemetria nem caminho para a nuvem."),
         more_heading="Mais", more="O restante da documentação está em inglês por enquanto.",
         link_docs="Documentação", link_readme="README completo em inglês",
@@ -143,7 +143,7 @@ LOCALES: dict[str, dict] = {
         does_3=("Transcrivez un fichier audio, ou capturez une réunion entière avec "
                 "identification des intervenants — entièrement hors ligne."),
         privacy_heading="Confidentialité",
-        privacy=("L'audio est transcrit sur votre machine et n'est jamais envoyé ailleurs. "
+        privacy=("Par défaut, l'audio est transcrit sur votre machine et n'est envoyé nulle part. "
                  "Aucune télémétrie, aucun passage par le nuage."),
         more_heading="Pour aller plus loin",
         more="Le reste de la documentation est pour l'instant en anglais.",
@@ -170,7 +170,7 @@ LOCALES: dict[str, dict] = {
         does_3=("Transkribieren Sie eine Audiodatei oder nehmen Sie eine ganze Besprechung "
                 "mit Sprecherkennung auf — vollständig offline."),
         privacy_heading="Datenschutz",
-        privacy=("Audio wird auf Ihrem Rechner transkribiert und niemals irgendwohin "
+        privacy=("Standardmäßig wird Audio auf Ihrem Rechner transkribiert und nirgendwohin "
                  "gesendet. Es gibt keine Telemetrie und keinen Cloud-Pfad."),
         more_heading="Mehr", more="Die übrige Dokumentation ist derzeit auf Englisch.",
         link_docs="Dokumentation", link_readme="Die vollständige englische README",
@@ -222,7 +222,7 @@ LOCALES: dict[str, dict] = {
         does_3=("Transcribeer een audiobestand of neem een hele vergadering op met "
                 "sprekerlabels — volledig offline."),
         privacy_heading="Privacy",
-        privacy=("Audio wordt op je eigen machine getranscribeerd en nooit ergens "
+        privacy=("Standaard wordt audio op je eigen machine getranscribeerd en nergens "
                  "naartoe gestuurd. Er is geen telemetrie en geen route naar de cloud."),
         more_heading="Meer", more="De rest van de documentatie is voorlopig in het Engels.",
         link_docs="Documentatie", link_readme="De volledige Engelse README",
@@ -248,7 +248,7 @@ LOCALES: dict[str, dict] = {
         does_3=("Przepisz plik audio albo nagraj całe spotkanie z oznaczeniem mówiących — "
                 "w całości offline."),
         privacy_heading="Prywatność",
-        privacy=("Dźwięk jest przetwarzany na twoim komputerze i nigdy nigdzie nie jest "
+        privacy=("Domyślnie dźwięk jest przetwarzany na twoim komputerze i nigdzie nie jest "
                  "wysyłany. Nie ma telemetrii ani żadnej ścieżki do chmury."),
         more_heading="Więcej", more="Reszta dokumentacji jest na razie po angielsku.",
         link_docs="Dokumentacja", link_readme="Pełny README po angielsku",
@@ -274,8 +274,8 @@ LOCALES: dict[str, dict] = {
         does_3=("Přepište zvukový soubor nebo zaznamenejte celou schůzku s označením "
                 "mluvčích — zcela offline."),
         privacy_heading="Soukromí",
-        privacy=("Zvuk se přepisuje na vašem počítači a nikam se neodesílá. Není zde "
-                 "žádná telemetrie ani cesta do cloudu."),
+        privacy=("Ve výchozím nastavení se zvuk přepisuje na vašem počítači a nikam se "
+                 "neodesílá. Není zde žádná telemetrie ani cesta do cloudu."),
         more_heading="Další", more="Zbytek dokumentace je zatím v angličtině.",
         link_docs="Dokumentace", link_readme="Úplný anglický README",
         link_issues="Hlášení a dotazy")},
@@ -300,8 +300,8 @@ LOCALES: dict[str, dict] = {
         does_3=("Transkribera en ljudfil eller spela in ett helt möte med talaretiketter — "
                 "helt offline."),
         privacy_heading="Integritet",
-        privacy=("Ljudet transkriberas på din dator och skickas aldrig någonstans. Det "
-                 "finns ingen telemetri och ingen väg till molnet."),
+        privacy=("Som standard transkriberas ljudet på din dator och skickas inte någonstans. "
+                 "Det finns ingen telemetri och ingen väg till molnet."),
         more_heading="Mer", more="Resten av dokumentationen är på engelska tills vidare.",
         link_docs="Dokumentation", link_readme="Den fullständiga engelska README-filen",
         link_issues="Ärenden och frågor")},
@@ -326,8 +326,8 @@ LOCALES: dict[str, dict] = {
         does_3=("Απομαγνητοφωνήστε ένα αρχείο ήχου ή καταγράψτε μια ολόκληρη σύσκεψη με "
                 "σήμανση ομιλητών — όλα εκτός σύνδεσης."),
         privacy_heading="Ιδιωτικότητα",
-        privacy=("Ο ήχος απομαγνητοφωνείται στον υπολογιστή σας και δεν αποστέλλεται ποτέ "
-                 "πουθενά. Δεν υπάρχει τηλεμετρία ούτε διαδρομή προς το νέφος."),
+        privacy=("Από προεπιλογή, ο ήχος απομαγνητοφωνείται στον υπολογιστή σας και δεν "
+                 "αποστέλλεται πουθενά. Δεν υπάρχει τηλεμετρία ούτε διαδρομή προς το νέφος."),
         more_heading="Περισσότερα",
         more="Η υπόλοιπη τεκμηρίωση είναι προς το παρόν στα αγγλικά.",
         link_docs="Τεκμηρίωση", link_readme="Το πλήρες αγγλικό README",
@@ -353,7 +353,7 @@ LOCALES: dict[str, dict] = {
         does_3=("Розшифруйте аудіофайл або запишіть цілу нараду з позначенням мовців — "
                 "усе офлайн."),
         privacy_heading="Приватність",
-        privacy=("Звук розшифровується на вашому комп’ютері й ніколи нікуди не "
+        privacy=("За замовчуванням звук розшифровується на вашому комп’ютері й нікуди не "
                  "надсилається. Немає ані телеметрії, ані шляху до хмари."),
         more_heading="Докладніше", more="Решта документації наразі англійською.",
         link_docs="Документація", link_readme="Повний README англійською",
@@ -379,7 +379,7 @@ LOCALES: dict[str, dict] = {
         does_3=("音声ファイルを文字起こししたり、会議全体を話者ラベル付きで記録したり"
                 "できます。すべてオフラインです。"),
         privacy_heading="プライバシー",
-        privacy=("音声はあなたのマシン上で文字起こしされ、どこにも送信されません。"
+        privacy=("既定では、音声はあなたのマシン上で文字起こしされ、どこにも送信されません。"
                  "テレメトリもクラウド経路もありません。"),
         more_heading="さらに詳しく", more="残りのドキュメントは現時点では英語です。",
         link_docs="ドキュメント", link_readme="英語版の完全な README",
@@ -405,7 +405,7 @@ LOCALES: dict[str, dict] = {
         does_3=("Transkripsikan berkas audio, atau rekam seluruh rapat dengan penandaan "
                 "pembicara — semuanya luring."),
         privacy_heading="Privasi",
-        privacy=("Audio ditranskripsikan di komputer Anda dan tidak pernah dikirim ke mana "
+        privacy=("Secara default, audio ditranskripsikan di komputer Anda dan tidak dikirim ke mana "
                  "pun. Tidak ada telemetri dan tidak ada jalur ke awan."),
         more_heading="Selengkapnya", more="Dokumentasi selebihnya untuk saat ini berbahasa Inggris.",
         link_docs="Dokumentasi", link_readme="README lengkap dalam bahasa Inggris",
@@ -431,7 +431,7 @@ LOCALES: dict[str, dict] = {
         does_3=("Chuyển một tệp âm thanh thành văn bản, hoặc ghi lại cả cuộc họp kèm nhãn "
                 "người nói — tất cả đều ngoại tuyến."),
         privacy_heading="Quyền riêng tư",
-        privacy=("Âm thanh được chuyển thành văn bản ngay trên máy bạn và không bao giờ "
+        privacy=("Theo mặc định, âm thanh được chuyển thành văn bản ngay trên máy bạn và không "
                  "được gửi đi đâu. Không có đo từ xa và không có đường ra đám mây."),
         more_heading="Thêm nữa", more="Phần tài liệu còn lại hiện vẫn bằng tiếng Anh.",
         link_docs="Tài liệu", link_readme="README đầy đủ bằng tiếng Anh",
@@ -457,7 +457,7 @@ LOCALES: dict[str, dict] = {
         does_3=("ถอดความไฟล์เสียง หรือบันทึกการประชุมทั้งครั้งพร้อมป้ายชื่อผู้พูด "
                 "ทั้งหมดนี้ทำแบบออฟไลน์"),
         privacy_heading="ความเป็นส่วนตัว",
-        privacy=("เสียงจะถูกถอดความบนเครื่องของคุณและไม่เคยถูกส่งไปที่ใด "
+        privacy=("โดยค่าเริ่มต้น เสียงจะถูกถอดความบนเครื่องของคุณและไม่ถูกส่งไปที่ใด "
                  "ไม่มีการเก็บข้อมูลการใช้งานและไม่มีเส้นทางไปยังคลาวด์"),
         more_heading="เพิ่มเติม", more="เอกสารส่วนที่เหลือยังเป็นภาษาอังกฤษในขณะนี้",
         link_docs="เอกสาร", link_readme="README ฉบับเต็มภาษาอังกฤษ",
@@ -480,7 +480,7 @@ LOCALES: dict[str, dict] = {
         does_3_title="會議與錄音",
         does_3=("把音訊檔轉成文字，或錄下整場會議並標示發言者，全部離線完成。"),
         privacy_heading="隱私",
-        privacy=("音訊在你自己的電腦上轉寫，永遠不會傳送到任何地方。沒有遙測，也沒有"
+        privacy=("預設情況下，音訊在你自己的電腦上轉寫，不會傳送到任何地方。沒有遙測，也沒有"
                  "任何通往雲端的路徑。"),
         more_heading="更多", more="其餘文件目前為英文。",
         link_docs="說明文件", link_readme="完整的英文 README",
@@ -506,7 +506,7 @@ LOCALES: dict[str, dict] = {
         does_3=("একটি অডিও ফাইল প্রতিলিপি করুন, বা পুরো মিটিং রেকর্ড করুন কে কী বলল তার "
                 "চিহ্নসহ — সবই অফলাইনে।"),
         privacy_heading="গোপনীয়তা",
-        privacy=("অডিও আপনার কম্পিউটারেই লেখায় রূপান্তরিত হয় এবং কোথাও পাঠানো হয় না। "
+        privacy=("ডিফল্টভাবে, অডিও আপনার কম্পিউটারেই লেখায় রূপান্তরিত হয় এবং কোথাও পাঠানো হয় না। "
                  "কোনো টেলিমেট্রি নেই, ক্লাউডে যাওয়ার কোনো পথও নেই।"),
         more_heading="আরও", more="বাকি নথিপত্র আপাতত ইংরেজিতে।",
         link_docs="নথিপত্র", link_readme="সম্পূর্ণ ইংরেজি README",
@@ -558,7 +558,7 @@ LOCALES: dict[str, dict] = {
         does_3=("فرِّغ ملفًا صوتيًا إلى نص، أو سجّل اجتماعًا كاملًا مع تمييز المتحدثين — "
                 "كل ذلك دون اتصال."),
         privacy_heading="الخصوصية",
-        privacy=("يُفرَّغ الصوت على جهازك ولا يُرسل إلى أي مكان. لا توجد قياسات عن بُعد "
+        privacy=("افتراضيًا، يُفرَّغ الصوت على جهازك ولا يُرسل إلى أي مكان. لا توجد قياسات عن بُعد "
                  "ولا أي مسار إلى السحابة."),
         more_heading="المزيد", more="بقية التوثيق بالإنجليزية في الوقت الحالي.",
         link_docs="التوثيق", link_readme="ملف README الإنجليزي الكامل",
@@ -584,7 +584,7 @@ LOCALES: dict[str, dict] = {
         does_3=("یک فایل صوتی را پیاده‌سازی کنید، یا کل یک جلسه را همراه با مشخص‌کردن "
                 "گویندگان ضبط کنید — همه به‌صورت آفلاین."),
         privacy_heading="حریم خصوصی",
-        privacy=("صدا روی رایانهٔ خودتان به متن تبدیل می‌شود و هرگز به جایی فرستاده "
+        privacy=("به‌طور پیش‌فرض، صدا روی رایانهٔ خودتان به متن تبدیل می‌شود و به جایی فرستاده "
                  "نمی‌شود. نه تله‌متری وجود دارد و نه هیچ مسیری به ابر."),
         more_heading="بیشتر", more="بقیهٔ مستندات فعلاً به انگلیسی است.",
         link_docs="مستندات", link_readme="‏README کامل انگلیسی",
@@ -610,7 +610,7 @@ LOCALES: dict[str, dict] = {
         does_3=("کسی آڈیو فائل کو متن میں بدلیں، یا پوری میٹنگ بولنے والوں کی نشاندہی کے "
                 "ساتھ ریکارڈ کریں — سب آف لائن۔"),
         privacy_heading="رازداری",
-        privacy=("آواز آپ ہی کے کمپیوٹر پر متن میں بدلتی ہے اور کبھی کہیں نہیں بھیجی جاتی۔ "
+        privacy=("بطورِ ڈیفالٹ، آواز آپ ہی کے کمپیوٹر پر متن میں بدلتی ہے اور کہیں نہیں بھیجی جاتی۔ "
                  "نہ کوئی ٹیلی میٹری ہے اور نہ کلاؤڈ تک کوئی راستہ۔"),
         more_heading="مزید", more="باقی دستاویزات فی الحال انگریزی میں ہیں۔",
         link_docs="دستاویزات", link_readme="مکمل انگریزی README",

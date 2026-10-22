@@ -134,6 +134,27 @@ When no camera feature is enabled:
 Optional dependencies remain behind the existing gaze/camera feature installation path unless a later
 ADR changes packaging.
 
+## Permission and packaging contract (EYE-PERM-001, #414)
+
+Whether this install may open the camera at all is decided once, in `src/yazses/cameraperm/`, before
+any consumer leases the source. The order is fixed: feature switch, then install format, then camera
+runtime, then OS permission. The OS is asked only after the first three allow it, so a default install
+never raises a camera prompt.
+
+The install-format half is the checked-in matrix `cameraperm.matrix.PACKAGE_PROFILES`. Today only a
+source/PyPI install and a distribution package can run a camera feature. The macOS `.app`, the Windows
+`.exe` (also what Chocolatey, Scoop and WinGet install), the MSIX, the snap and the flatpak cannot. They
+ship no `mediapipe`/`opencv-python` and cannot add a package later, so none of them declares a camera
+capability (R-21). `tests/test_camera_packaging_matrix.py` and `tests/test_camera_packaging_guards.py`
+hold each row against the real manifest.
+
+The same matrix row (`can_add_runtime`) is what `system.deps.install_blocked_reason` reads. So every
+enablement surface (`features enable`, `handsfree enable`, the Settings window and the Hands-free panel)
+refuses a camera feature in a fixed-payload format *before* writing config, rather than switching on a
+feature the package cannot run. A refused, undetermined or absent camera never reaches dictation: the
+daemon builds its engine, injector and hotkey with every camera feature on and no camera runtime
+(`tests/test_perception_daemon_lifecycle.py`).
+
 ## Model lifecycle
 
 Reuse the existing FaceLandmarker model asset/download policy.
@@ -173,7 +194,10 @@ Expose derived state sufficient for `doctor`/daemon status:
 - backend/model name;
 - last sample age;
 - active consumer names/count if safe;
-- failure reason;
+- failure reason, and its kind (`camera`, `dependency`, `model`, `processing`), so a blocked
+  model download is not reported as an unavailable camera (#416);
+- a running source whose newest sample is older than the stale window is reported `stale`,
+  never as tracking valid;
 - no biometric detail.
 
 ## Acceptance criteria
@@ -187,6 +211,23 @@ Expose derived state sufficient for `doctor`/daemon status:
 - Given missing head transform, gaze sample still survives.
 - Given failed camera, ordinary daemon path remains usable.
 - Existing gaze behavior remains unchanged after #396.
+
+## Equivalence evidence for Glance-Type (#396)
+
+"Existing gaze behavior remains unchanged" is pinned at four layers, each by a different file:
+
+| Layer | Claim | Test |
+|---|---|---|
+| Inputs | same FaceLandmarker options (asset, mode, face count, detection/presence/tracking floors) and same capture device on both paths; only the blendshape/transform outputs differ | `tests/test_gaze_glance_type_same_inputs.py` |
+| Numbers | same `(x, y, confidence)` from the same landmarks | `tests/test_gaze_glance_type_unchanged.py` |
+| Decisions | same route/fallback/deixis-snapshot decision, down both whole paths | `tests/test_gaze_glance_type_end_to_end.py` |
+| Ownership | one camera open for every consumer; legacy path unchanged unless a source is supplied | `tests/test_gaze_shared_source.py` |
+
+Documented differences, each tested: a face that has just left the frame keeps routing for at most
+`MAX_SAMPLE_AGE_S` (`src/yazses/gaze/shared.py`). A non-finite landmark is "no gaze", where it used to be a
+NaN sample; both fall back to the focused window. One difference is not pinned. The daemon gives the
+shared model `[gaze] model_path`, or else `[facegesture] model_path`. A config that leaves the gaze path empty
+but sets the face-switch one therefore runs gaze on the face-switch model once `[perception]` is on.
 
 ## Required tests
 

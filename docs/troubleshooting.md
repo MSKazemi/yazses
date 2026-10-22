@@ -59,9 +59,11 @@ that types on your behalf — dictation, accessibility software, automation — 
 the same door, and inherits the name it was given for its original purpose, screen
 sharing. The confirm button says **Share** for the same reason.
 
-What YazSes actually requests is the keyboard and nothing else:
+What YazSes actually requests is the keyboard, and nothing else unless you ask for it:
 
-- it asks the portal for `KEYBOARD` devices only, never the pointer;
+- it asks the portal for `KEYBOARD` devices only — the pointer is added to the same request
+  only while a pointer feature you turned on (the head pointer) needs it, and the dialog
+  wording says so;
 - it never touches the ScreenCast interface, so no screen capture is possible with it;
 - the calls are local D-Bus to your own desktop — no network, consistent with YazSes
   being offline by design.
@@ -253,6 +255,32 @@ Two settings are worth checking first, because both change how dictation feels w
 - **`[streaming] enabled = true`** runs a transcription pass every 300 ms during the hold, on top of the final one. On a CPU-only machine that competes with the transcription that actually produces your text. It is off by default for this reason.
 - **`[accessibility] vad_threshold`** decides what counts as silence. Too high and quiet speech is dropped with `Silent audio -- discarding`; too low and room noise is transcribed. It is specific to your microphone and room — run `yazses mic-level --set` rather than copying a value from someone else.
 
+## A feature is on, but it does nothing (`◐ ON`)
+
+Some capabilities need an optional library (Parakeet needs `onnx-asr`, noise
+suppression needs `noisereduce`, the camera features need `mediapipe`). If the
+capability is switched on but its library is missing, `yazses features` shows it as
+**`◐ ON`**, and the daemon says so when it starts. This happens when the install
+failed, when you used `--no-install`, when you edited `config.toml` by hand, or when
+an older version's update removed the library. The daemon's notification has an
+**Install now** button, and `yazses start`/`restart` offer the install in a terminal.
+Or install every one in a single step — it shows the download and asks first:
+
+```sh
+yazses features install            # or: yazses features install <name>
+yazses restart
+```
+
+`yazses features enable <name>` (add `--force` for an experimental one) does the same
+for one feature and is safe to run again. If an install fails part-way or you press
+Ctrl-C, whatever it had changed is undone, and an install that would move one of
+YazSes's own libraries (numpy, say) out of range is refused before anything changes.
+
+`yazses doctor` prints one row for each such feature. Updating with `yazses update`
+or the tray's **Install update** keeps the libraries of every feature that works,
+including ones an older version installed (only the `uv tool` install method ever
+dropped them).
+
 ## YazSes typed a sentence I never said
 
 Speech models do not return "I heard nothing". Given near-silence they return their best
@@ -282,7 +310,7 @@ only reliable way to stop it inventing. `Speech` is the one that fires when room
 clears the gate: it runs a speech detector on what was actually recorded, so a quiet room
 is named as a quiet room rather than transcribed into a confident word.
 
-After v2.43.1 the daemon also asks a speech detector about every burst that clears the gate,
+Since v2.43.2 the daemon also asks a speech detector about every burst that clears the gate,
 before it is decoded. A burst that is loud but holds no speech (a fan, a chair, the hotkey
 itself) is discarded with a line like `No speech in a 1.2s burst (level 0.0300 cleared
 vad_threshold 0.0100, but the speech detector found none) -- discarding.` Without that,

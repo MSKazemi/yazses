@@ -33,7 +33,7 @@ the general case, and it names the fix for anything missing.
 | Voice-activity overlay | ✅ | ✅ | ✅ | ✅ |
 | Autostart at login | ✅ systemd | ✅ systemd | ✅ launchd | ✅ HKCU\\Run |
 | Offline transcription (`transcribe`) | ✅ | ✅ | ✅ | ✅ |
-| Meeting Mode, diarization | ✅ | ✅ | ✅ | ✅ |
+| Meeting Mode, diarization | ✅ | ✅ | ✅⁴ | ✅⁴ |
 | **Voice window focus** ("focus the browser") | ✅ xdotool | ❌ **not possible** | ❌ | ❌ |
 | **Glance-Type gaze routing** | ✅ | ❌ **not possible** | ❌ | ❌ |
 | EMG / BrainFlow activation | ✅ | ✅ | ✅ | ✅ |
@@ -43,6 +43,11 @@ The macOS and Windows trays render through `rumps`/`pystray` and repaint far les
 so the ring would lag the thing it reports. The **earcons** carry the same information on
 every platform, and audio is the channel that works when the tray is not being looked at
 anyway.
+
+⁴ This applies to installs made with pip, pipx or uv. The macOS `.dmg` and the Windows `.exe` cannot add
+the speaker-label libraries afterwards, so Meeting Mode and diarization need the PyPI
+install there today. A Windows diarization add-on is prepared on `main` but not
+released: its sherpa-onnx binaries embed GPL code, so it is held back.
 
 ¹ Wayland needs `ydotool` **and** a running `ydotoold`; `wtype` works only on
 wlroots compositors and is blocked on GNOME and KDE. For a non-Snap install,
@@ -74,6 +79,23 @@ So on Wayland there is no gaze target. Look-to-pane stays off, your dictation go
 the window you already have focused, and nothing is guessed. `yazses gaze status` and
 `yazses doctor` say so, with the reason, instead of showing a feature that silently does
 nothing. To use look-to-pane, log in to an X11 session (on GNOME, "GNOME on Xorg").
+
+Exactly what Glance-Type does and does not do on a Wayland session (GNOME, KDE Plasma,
+Sway, Hyprland and the rest):
+
+| | On Wayland |
+|---|---|
+| Send dictation to the window you look at | **No.** Dictation goes to the window that already has focus. |
+| Focus or raise the window you look at | **No.** |
+| "close this" / "minimize this" / "focus that" | **Refused, with a notification.** Nothing is closed, and the command is never sent to the focused window instead. |
+| Gaze calibration (`yazses gaze calibrate`) | **Refused**, because nothing could use the result. |
+| Head-Pointer (moving the pointer with your head) | A separate feature. It uses the Remote Desktop permission, and granting that permission does not create a gaze target. |
+
+`yazses gaze status` prints the row for your session, for example `screen position: no;
+other windows' geometry: compositor-specific only; focus another window: compositor-specific
+only; pointer injection (separate, not a target): with permission`. "Compositor-specific
+only" means a desktop offers the capability only through its own private interface, such
+as KWin scripting or a GNOME Shell extension. YazSes does not depend on any of those.
 
 ## Linux: which session am I in?
 
@@ -126,6 +148,11 @@ code in that download could do.
 
 **If you need the camera features, install from PyPI** — `pipx install 'yazses[gaze]'`
 — and then `yazses features enable gaze`.
+
+In those five formats `yazses features enable gaze` (and `facegesture`, `headpointer`,
+`yazses handsfree enable`, and the tray's Hands-free panel) refuses **before it writes
+your config**. It says the package cannot add libraries and names the PyPI install. The
+camera feature is never switched on in a package that could not run it.
 
 `yazses doctor` grows a **Camera** row as soon as a camera feature is enabled, and it
 tells the four causes apart: a package that cannot run one, a missing `mediapipe` /

@@ -41,7 +41,7 @@ Le premier lancement télécharge un modèle vocal une seule fois (environ 148 M
 
 ## Confidentialité
 
-L'audio est transcrit sur votre machine et n'est jamais envoyé ailleurs. Aucune télémétrie, aucun passage par le nuage.
+Par défaut, l'audio est transcrit sur votre machine et n'est envoyé nulle part. Aucune télémétrie, aucun passage par le nuage.
 
 ## Pour aller plus loin
 

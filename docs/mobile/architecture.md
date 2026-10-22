@@ -1,11 +1,13 @@
 ---
-description: "Reference architecture for the YazSes Android app — the document to read after the ADRs and before a first pull request. Design stage, governed by ADR-MOB-001 to 010."
+description: "Reference architecture for the YazSes Android app — the document to read after the ADRs and before a first pull request. Skeleton and first pure-Kotlin cores built; no app yet. Governed by ADR-MOB-001 to 010."
 ---
 
 # YazSes for Android — architecture
 
-**Status:** design, no code yet · governed by `docs/mobile/adr/adr-mob-001..010`
-**Last updated:** 2026-08-07
+**Status:** reference design; the module skeleton and the first pure `:core:*` ports exist
+under `android/`, with no app yet (progress: [programme overview](index.md)) · governed by
+`docs/mobile/adr/adr-mob-001..010`
+**Last updated:** 2026-10-22
 
 This is the reference architecture for the Android app. It is the document a new
 contributor reads after the ADRs and before their first PR. Where it says **MUST**, the
@@ -77,7 +79,7 @@ emulator (ADR-MOB-002 §3). That rule is what keeps the test suite fast and the 
 
 | Module | Type | Responsibility | Desktop analogue |
 |---|---|---|---|
-| `:core:config` | JVM | settings model, defaults, TOML import/export, validation against `contract/schema/config.schema.json` | `config.py`, `system/configedit.py` |
+| `:core:config` | JVM | settings model, defaults, TOML import/export, validation against `contract/schema/config.schema.json` (planned; not yet in `contract/`) | `config.py`, `system/configedit.py` |
 | `:core:audio` | JVM | ring buffer, pre-speech padding, resampling, PCM utilities (capture itself is injected) | `audio/padding.py`, `audio/recorder.py` |
 | `:core:vad` | JVM | `VoiceActivityGate` interface + calibrated RMS gate; silent-burst discard | `audio/vad_calibrated.py` |
 | `:core:stt` | JVM | `SttEngine` interface, `DecodeOptions`, `Transcript`, engine factory | `stt/base.py`, `stt/factory.py` |
@@ -154,7 +156,7 @@ inert.
 4. **Robolectric** where it saves an emulator round trip, never as a substitute for the IME
    integration test.
 5. **`:bench`** — on-device performance/battery, producing the public device matrix.
-6. **Audio fixtures** live in `contract/audio/` (short, licence-clean clips) so a contributor
+6. **Audio fixtures** will live in `contract/audio/` (short, licence-clean clips, not yet created) so a contributor
    with no microphone can still exercise the pipeline end to end.
 
 ## 8. What is deliberately not in wave 1

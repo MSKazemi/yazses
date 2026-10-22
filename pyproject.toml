@@ -102,7 +102,9 @@ dependencies = [
     # Windows
     'pywin32>=312; sys_platform == "win32"',
     'pystray>=0.19.5; sys_platform == "win32"',
-    'Pillow>=12.3.0; sys_platform == "win32"',
+    # 13.0.0 is the floor because it closes nine decoder advisories (#116); see the
+    # "Known advisories" section of .github/SECURITY.md.
+    'Pillow>=13.0.0; sys_platform == "win32"',
     # NOTE: onnx-asr is deliberately NOT here. It is the `parakeet` extra
     # (`onnx-asr[cpu,hub]`), imported lazily by stt/parakeet.py; stt/factory.py falls
     # back to faster-whisper with a warning when it is absent, and
@@ -211,6 +213,16 @@ denoise = [
 # v2 cognitive layer — speaker voiceprint (Cocktail Filter + Voiceprint Mind)
 voiceprint = [
     "speechbrain>=1.1",
+    # torch and torchaudio are speechbrain's own requirements; they are spelled out
+    # here for one reason. `[tool.uv.sources]` (end of file) routes them to the
+    # PyTorch project's CPU-only index on Linux, and uv applies a source only to a
+    # *direct* dependency -- measured on uv 0.12.21: with the source declared and
+    # these two lines absent, `uv lock --upgrade-package torch` re-resolved torch
+    # from pypi.org, CUDA build, 15 `nvidia-*` packages, no warning. The floors are
+    # the current stable releases on both indexes and narrow nothing speechbrain
+    # allows. Remove these and the lock silently goes back to 4.22 GB of CUDA.
+    "torch>=2.14.1",
+    "torchaudio>=2.11.0",
 ]
 # The alternative embedder behind `[voiceprint] backend = "resemblyzer"`: GE2E
 # 256-d d-vectors, ~17 MB of weights. Declared separately from `voiceprint`
@@ -376,6 +388,8 @@ all = [
     "onnxruntime>=1.23.2,<1.24; sys_platform == 'darwin' and platform_machine == 'x86_64'",
     "soundfile>=0.14.0",
     "speechbrain>=1.1",
+    "torch>=2.14.1",
+    "torchaudio>=2.11.0",
     "onnx-asr[cpu,hub]>=0.12",
     "sherpa-onnx>=1.13.6",
     "sherpa-onnx-core>=1.13.6",
@@ -406,7 +420,7 @@ dev = [
     # Pillow is a win32-only runtime dep (the pystray tray), but the brand-mark
     # renderer and `scripts/gen-icons.py` need it on every platform so the icon
     # assets can be regenerated and unit-tested on the Linux CI leg too.
-    "Pillow>=12.3.0",
+    "Pillow>=13.0.0",
     # Declared because the suite imports them, not because anything here is new.
     # Thirteen test files `import yaml` at module scope and one imports `click`,
     # and both were arriving only as transitive dependencies of mkdocs and
@@ -574,3 +588,33 @@ artifacts = ["src/yazses/overlay/**"]
 constraint-dependencies = [
     "onnxruntime<1.24; sys_platform == 'darwin' and platform_machine == 'x86_64'",
 ]
+
+# On Linux, PyPI's `torch` is the CUDA build. `speechbrain>=1.1` -- the one line in
+# the `voiceprint` extra -- resolved there to torch plus 15 `nvidia-*` distributions,
+# 4.22 GB of wheels under a 527 MB torch wheel (this lock, 2026-10-21), for a tool
+# that never touches a GPU: gap 7 of
+# design/research/2026-10-21-pay-for-what-you-enable.md. The PyTorch project
+# publishes CPU-only wheels on its own index; resolved there, the same closure is 39
+# distributions instead of 58, no `nvidia-*`, and every non-torch package at the
+# identical version (`uv pip install --dry-run`, both ways, same day).
+#
+# `explicit = true` is the whole safety story: the mirror also hosts stale copies of
+# numpy, setuptools (<= 78.1.0, below the patched 83.0.0 that
+# tests/test_dependency_advisories.py holds this lock to), requests and urllib3, and
+# only an explicit index is barred from ever serving them. It serves exactly the
+# packages `[tool.uv.sources]` routes to it, nothing else.
+#
+# Linux only, and that is the whole marker. PyPI's macOS wheels are already CPU-only,
+# so macOS stays on PyPI. Windows stays on PyPI too: its PyPI wheel carries no CUDA
+# dependencies, and ADR-028 Q2 keeps voiceprint PyPI-only there (torch's
+# libiomp5md.dll clashes with ctranslate2's), so there is nothing to protect.
+# `system/deps.py` carries the same index to an *installed* yazses, which never sees
+# this lock; its `TORCH_CPU_INDEX` spells the URL below and a test holds them equal.
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]
+torchaudio = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]

@@ -83,6 +83,20 @@ def test_nothing_at_run_time_reads_the_handsfree_section():
     assert offenders == []
 
 
+def test_the_one_named_reader_of_the_section_is_called_only_by_the_features_registry():
+    """`config.handsfree_preset` exists so `yazses features` can show the switch as on or off.
+
+    It is a status read. A daemon, runtime or backend module calling it would be exactly the
+    run-time branch the test above forbids, spelled so that test cannot see it.
+    """
+    callers = sorted(
+        path.relative_to(SRC).as_posix()
+        for path in SRC.rglob("*.py")
+        if path != SRC / "config.py" and "handsfree_preset(" in path.read_text(encoding="utf-8")
+    )
+    assert callers == ["system/features.py"]
+
+
 def test_the_loader_is_the_only_caller_of_the_expander():
     callers = [
         path.relative_to(SRC).as_posix()

@@ -125,6 +125,9 @@ For `fa-en`:
 - Persian-token CER;
 - span-language classification accuracy where observable.
 
+The exact definitions, categories, consent template and held-out split are frozen in
+[persian-code-switch-evaluation.md](persian-code-switch-evaluation.md) (`fa-en-cs-v1`).
+
 ### Performance
 
 - real-time factor;
@@ -154,6 +157,25 @@ Safe evaluation normalization may include:
 Any digit or punctuation normalization must be separately reported because it can materially alter WER/CER.
 
 Historical result files must retain the normalizer version used at generation time.
+
+Tokenisation (stamped into each result as `metrics.tokenisation`): WER tokens are the
+whitespace-separated words of the normalized text, so a ZWNJ-joined compound is one token;
+CER is over Unicode code points, spaces and ZWNJ included; both are case-sensitive. In
+`fa-eval-v1` the ZWNJ is kept, Persian/Arabic-Indic/Latin digits are not folded into one
+another, and Arabic presentation forms, tashkeel, tatweel and bidi marks are not stripped;
+the rule-by-rule rationale is in `paper/benchmark/persian_metrics.py`. Changing any of these
+is a new normalizer version, never an edit to `fa-eval-v1`. Evaluation normalization is for
+metrics only and is never applied to text a user receives.
+
+### 6.1 Manifest contract
+
+Each manifest row has `id`, `audio`, `reference`, and optionally `speaker` and `session`
+(opaque pseudonyms, `[A-Za-z0-9_-]{1,64}`). A `license` and a `consent` value are required
+for every row, from the row or from the `<manifest>.meta.json` sidecar. The harness refuses
+to run when either is missing or a placeholder, and when an audio path resolves outside the
+manifest directory or the explicit `--audio-root`. It checks that the claims are made; it
+cannot verify them. Subset selection (`--limit`, `--seed`) is recorded in the sidecar and
+copied into the result's `selection` block.
 
 ## 7. Result schema
 
@@ -229,6 +251,11 @@ Publish the full table. The preset is the project default recommendation, not a 
 ## 10. Cross-platform injection validation
 
 Use a deterministic target harness that captures received Unicode text.
+
+The harness is `scripts/injectmatrix/` (#517): a Tk receiver that records arriving code points,
+a driver that types each fixture through `yazses inject`, a comparator that reports the first
+divergence, and a result format that names OS, session, backend and versions. The procedure and
+the results table are in `docs/contribute/persian-injection-matrix.md`.
 
 Matrix:
 

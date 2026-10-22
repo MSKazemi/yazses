@@ -32,11 +32,47 @@ explicit calibration describes a setup the user has just replaced.
 
 A file written before ``source`` existed is read as ``"explicit"`` — that is what every
 such file was.
+
+## The schema version is read, not just written
+
+Every writer since the first has stored an integer ``version``. It is checked on load:
+
+* **Absent** reads as 1 (only a hand-written file lacks it). **Present but not a positive
+  integer** -- ``"3"``, ``true``, ``0``, ``2.5`` -- is damage, and the file is unreadable,
+  like any other damaged field (#415).
+* **Newer than this build** (``version > SCHEMA_VERSION``, e.g. after a downgrade) still
+  *routes*: the map and its coordinate space are checked on their own, and a schema that
+  changed what ``A`` means would also change ``space``, which already reads as STALE. But
+  :func:`promote_refinement` **refuses to rewrite it**: re-encoding a newer file in this
+  build's schema would silently drop every field this build cannot see, and the rollback
+  copy would then be the only place they survived.
+
+## A damaged file never reads as a valid one (#415)
+
+Three layers, each refusing rather than guessing:
+
+* **The map.** ``A`` must be exactly two rows of three finite JSON numbers. ``NaN`` and
+  ``Infinity`` are legal to Python's ``json`` module and would route every gaze sample to
+  a NaN coordinate; strings and booleans would be silently coerced by numpy. Any of them
+  makes the whole file unreadable, so there is no map to route with.
+* **The binding.** Every writer since ADR-v2-149 stores ``context_fingerprint`` beside the
+  context. On load the *stored* context is hashed exactly as it was at save time and must
+  match; a mismatch, a fingerprint whose context is gone, or a context the strict
+  constructors refuse all mark the binding damaged -- UNVERIFIED with that reason, never
+  VALID. (Hashing the stored dict rather than a rebuilt one is what keeps a file from an
+  older schema verifiable: its fingerprint covered its own fields, not today's.)
+* **The space.** A file whose top-level ``space`` names a different coordinate space holds
+  coefficients that mean something else, and is STALE.
+
+A file that exists but cannot be read at all yields no map and a STALE verdict that says
+so, rather than the "never calibrated" a missing file gets. Nothing here raises: a
+corrupt file costs a recalibration, never the daemon.
 """
 from __future__ import annotations
 
 import contextlib
 import json
+import math
 import os
 import tempfile
 from dataclasses import dataclass
@@ -53,6 +89,7 @@ from yazses.gaze.topology import (
     ContextCheck,
     Validity,
     check_context,
+    digest,
 )
 
 FILENAME = "gaze_calibration.json"
@@ -119,6 +156,11 @@ class CalibrationRecord:
     #: before YazSes recorded which screens it was made on" about a file that did record
     #: them would be false, and would hide that something damaged the binding.
     context_unreadable: bool = False
+    #: The coordinate space the file says ``A`` maps into. Files that predate the field
+    #: (schema 1) read as the canonical one -- it is the only space there has ever been.
+    space: str = CANONICAL_SPACE
+    #: The schema version the file was written with (1 when the field is absent).
+    version: int = SCHEMA_VERSION
 
 
 def calibration_path(data_dir: Path) -> Path:
@@ -245,6 +287,12 @@ def promote_refinement(
     record = _parse(current_bytes)
     if record is None:
         raise CalibrationWriteError("the stored calibration is unreadable; refusing to replace it")
+    if record.version > SCHEMA_VERSION:
+        raise CalibrationWriteError(
+            f"the stored calibration was written by a newer YazSes (schema {record.version}, "
+            f"this build writes {SCHEMA_VERSION}); rewriting it here would drop what this "
+            "build cannot read, so it is left as it is"
+        )
     if expected_baseline is not None and not np.allclose(
         record.calibration.A, expected_baseline.A, rtol=1e-9, atol=1e-9
     ):
@@ -325,33 +373,85 @@ def load_calibration_record(data_dir: Path) -> CalibrationRecord | None:
     return _parse(data)
 
 
+def _matrix(raw: Any) -> np.ndarray | None:
+    """``A`` as a 2x3 float64 matrix, or None unless it is exactly 2 rows of 3 finite numbers.
+
+    Checked element by element *before* numpy sees it: ``np.array(..., dtype="float64")``
+    converts ``"1e999"`` to infinity and ``true`` to 1.0 without complaint, and ``json``
+    itself accepts the bare tokens ``NaN`` and ``Infinity``.
+    """
+    if not isinstance(raw, list) or len(raw) != 2:
+        return None
+    for row in raw:
+        if not isinstance(row, list) or len(row) != 3:
+            return None
+        for value in row:
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                return None
+            if not math.isfinite(value):
+                return None
+    return np.array(raw, dtype="float64")
+
+
+def _version(raw: Any) -> int | None:
+    """The schema version as a positive int, or None when it is not one (a damaged file).
+
+    ``bool`` is excluded explicitly (``True`` is an ``int`` to Python), and so is an
+    integral float: no writer has ever stored one, so ``3.0`` is a hand edit or damage.
+    """
+    if isinstance(raw, bool) or not isinstance(raw, int) or raw < 1:
+        return None
+    return raw
+
+
+#: The exceptions a hostile-shaped but bounded file can raise while being decoded or
+#: rebuilt. RecursionError: ``[[[[...]]]]`` nested past the interpreter's limit.
+#: OverflowError: ``int(float("inf"))`` and kin. Anything else is a bug and should surface.
+_DECODE_ERRORS = (ValueError, KeyError, TypeError, RecursionError, OverflowError)
+
+
 def _parse(data: bytes) -> CalibrationRecord | None:
     try:
         raw = json.loads(data.decode("utf-8"))
-        A = np.array(raw["A"], dtype="float64")
-    except (OSError, ValueError, KeyError, TypeError):
-        # TypeError: the file may hold valid JSON that is not an object -- `"a string"["A"]`
-        # raises "string indices must be integers". The docstring already promises None for
-        # anything unreadable; a well-formed document of the wrong shape is unreadable too.
+    except _DECODE_ERRORS:
+        # UnicodeDecodeError and json.JSONDecodeError are ValueErrors.
         return None
-    if A.shape != (2, 3):
+    if not isinstance(raw, dict):
+        # Valid JSON of the wrong shape (a string, a list) is unreadable too.
+        return None
+    A = _matrix(raw.get("A"))
+    if A is None:
+        return None
+    version = _version(raw.get("version", 1))
+    if version is None:
         return None
     context = None
     context_unreadable = False
-    stored = raw.get("context") if isinstance(raw, dict) else None
+    stored = raw.get("context")
+    recorded = raw.get("context_fingerprint")
     if stored is not None:
         try:
             context = CalibrationContext.from_dict(stored)
-        except (ValueError, KeyError, TypeError):
+            # Hash what is on disk, not a rebuild of it: a file from an older context
+            # schema was fingerprinted over *its* fields, and today's as_dict() would add
+            # defaults it never had. Absent (only hand-written files lack it): nothing to
+            # compare, the strict rebuild above is the whole check.
+            if recorded is not None and recorded != digest(stored):
+                raise ValueError("the stored context does not match its recorded fingerprint")
+        except _DECODE_ERRORS:
             context = None
             context_unreadable = True
-    source = raw.get("source") if isinstance(raw, dict) else None
-    saved_at = raw.get("saved_at") if isinstance(raw, dict) else None
+    elif recorded is not None:
+        # A fingerprint with no context beside it: the binding was written and is gone.
+        context_unreadable = True
+    space = raw.get("space", CANONICAL_SPACE)
+    source = raw.get("source")
+    saved_at = raw.get("saved_at")
     refinement = None
-    if isinstance(raw, dict) and raw.get("refinement") is not None:
+    if raw.get("refinement") is not None:
         try:
             refinement = RefinementInfo.from_dict(raw["refinement"])
-        except (ValueError, KeyError, TypeError):
+        except _DECODE_ERRORS:
             refinement = None
     return CalibrationRecord(
         calibration=CalibrationMap(A=A),
@@ -362,6 +462,10 @@ def _parse(data: bytes) -> CalibrationRecord | None:
         saved_at=saved_at if isinstance(saved_at, str) else "",
         refinement=refinement,
         context_unreadable=context_unreadable,
+        # A non-string space is not a space anyone wrote; record it as unknown so the
+        # comparison below refuses it rather than it reading as the canonical one.
+        space=space if isinstance(space, str) else "?",
+        version=version,
     )
 
 
@@ -373,12 +477,32 @@ def calibration_state(
     One call for every caller that needs both halves — the daemon deciding whether
     to build a targeter and ``yazses gaze status`` printing why it did not. Returns
     ``(None, verdict)`` when there is no calibration at all; the verdict is still
-    meaningful (it reports what could be checked).
+    meaningful (it reports what could be checked). When the file *exists* but cannot be
+    read, the verdict is STALE and says the file is damaged, so no caller can tell the user
+    they never calibrated.
     """
     record = load_calibration_record(data_dir)
-    stored = record.context if record is not None else None
-    check = check_context(stored, current)
-    if record is not None and record.context_unreadable:
+    if record is None:
+        path = calibration_path(data_dir)
+        if path.exists():
+            # Present but unreadable is not "never calibrated": the user did calibrate, and
+            # being sent to a wizard with no reason reads as YazSes forgetting it. No map is
+            # returned, so nothing routes with it either way.
+            return None, ContextCheck(
+                Validity.STALE,
+                f"the stored calibration ({path.name}) is damaged or unreadable and is not "
+                "used; run `yazses gaze calibrate` to replace it",
+            )
+        return None, check_context(None, current)
+    if record.space != CANONICAL_SPACE:
+        return record.calibration, ContextCheck(
+            Validity.STALE,
+            f"the calibration maps into the {record.space!r} coordinate space, not "
+            f"{CANONICAL_SPACE!r}; its coefficients mean something else here",
+            (f"the coordinate space changed {record.space} -> {CANONICAL_SPACE}",),
+        )
+    check = check_context(record.context, current)
+    if record.context_unreadable:
         # Still UNVERIFIED (losing the binding is a smaller harm than losing the map), but
         # the reason must be the true one: the binding existed and is damaged.
         check = ContextCheck(
@@ -386,4 +510,4 @@ def calibration_state(
             "the screen layout recorded with this calibration is damaged or unreadable, so "
             "it cannot be checked against this desktop; recalibrate to bind it",
         )
-    return (record.calibration if record is not None else None), check
+    return record.calibration, check

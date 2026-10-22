@@ -89,11 +89,20 @@ def classify(
         match = rule.pattern.match(normalised)
         if match:
             args: dict[str, str] = {}
+            rejected = False
             for i, name in enumerate(rule.arg_names, 1):
                 try:
-                    args[name] = grammar.normalise_arg(name, match.group(i).strip())
+                    value = grammar.normalise_arg(name, match.group(i).strip())
                 except IndexError:
-                    pass
+                    continue
+                if value is None:
+                    # The grammar refused this argument (e.g. a numeral outside its
+                    # explicit range): the rule does not apply. Never pass raw text on.
+                    rejected = True
+                    break
+                args[name] = value
+            if rejected:
+                continue
             return CommandIntent(
                 intent=rule.intent,
                 action=rule.action,

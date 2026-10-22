@@ -249,9 +249,103 @@ def _prosody_check(enabled: bool) -> _Check | None:
             "prosody extra (parselmouth)",
             "WARN",
             "not installed — emphasis disabled, pause→¶ still works "
-            "(uv sync --extra prosody)",
+            "(install it: yazses features enable prosody)",
         )
     return ("prosody extra (parselmouth)", "OK", "importable")
+
+
+#: Dormant capabilities with a dedicated doctor row that says more than "missing"
+#: (prosody degrades to pause-only rather than doing nothing), so the generic row
+#: would only repeat it.
+_DORMANT_REPORTED_ELSEWHERE = frozenset({"prosody"})
+
+
+def _dormant_feature_checks(cfg, *, dormant=None) -> list[_Check]:
+    """One WARN row per enabled capability whose libraries are not installed.
+
+    Silent when there are none — which is every clean install — so doctor does not
+    grow a row per optional feature. *dormant* is injectable for tests.
+    """
+    if dormant is None:
+        try:
+            from yazses.system.dormant import dormant_features
+
+            dormant = dormant_features(cfg)
+        except Exception:  # noqa: BLE001 - doctor must survive its own probes
+            return []
+    return [
+        (f"{d.name} [{d.slug}]", "WARN",
+         f"on, but {d.what()} — dormant. {d.remedy}")
+        for d in dormant
+        if d.slug not in _DORMANT_REPORTED_ELSEWHERE
+    ]
+
+
+def _click_observer_check(cfg, platform) -> _Check | None:
+    """One row for implicit gaze refinement's click producer, only while it is on (#607).
+
+    Silent on a default install (``[gaze_refine] enabled = false``), so this costs nothing
+    for anyone who did not ask. For somebody who did, the row answers the one question the
+    daemon log otherwise answers alone: can clicks be observed on *this* session? OK when
+    the platform registered a backend (X11 today); WARN with the platform's own sentence
+    when it did not -- on Wayland that is "no global click stream", which is not a missing
+    package to go and fetch. Reads two attributes and opens nothing.
+    """
+    try:
+        if not bool(cfg.gaze_refine.enabled):
+            return None
+    except AttributeError:
+        return None
+    factory = getattr(platform, "click_observer_factory", None)
+    if factory is not None:
+        return ("Click observer [gaze_refine]", "OK",
+                "a desktop click observer is registered for this session; the daemon starts "
+                "it with implicit refinement (`yazses gaze status` shows what it learned)")
+    reason = (getattr(platform, "click_observer_unavailable_reason", None)
+              or "this platform has no click observer yet")
+    return ("Click observer [gaze_refine]", "WARN",
+            f"on, but no clicks can be observed here — {reason}. Implicit refinement stays "
+            "dormant; dictation and gaze routing are unaffected.")
+
+
+def _opencv_check(*, versions=None, broken=None, repair=None) -> _Check | None:
+    """Is OpenCV (``cv2``) whole? Shown only when an OpenCV distribution is installed.
+
+    The camera features installed two OpenCV builds up to 2.43.2, and removing either
+    one (an older YazSes's ``uv tool upgrade``, ``uv sync``, ``pip uninstall``) leaves
+    ``cv2`` a husk that still imports -- so no import probe sees it, and the camera
+    feature fails later. FAIL carries the pinned repair ``yazses update`` would print
+    (``updater.cv2_repair_here``). The decision is ``opencv_health.cv2_half_deleted``,
+    the same one the daemon's start-up check uses, and ``cv2`` is never imported.
+    Every probe is injectable for tests; a diagnostic, so it never raises.
+    """
+    try:
+        from yazses.system import opencv_health
+
+        found = (versions or opencv_health.installed_cv2_versions)()
+        if not found:
+            return None
+        owners = ", ".join(f"{d} {v}" for d, v in sorted(found.items()))
+        if not (broken or opencv_health.cv2_half_deleted)():
+            return ("OpenCV", "OK", f"cv2 is whole ({owners})")
+        from yazses.system.dormant import CV2_HALF_DELETED, cv2_repair_remedy
+
+        if repair is None:
+            from yazses.system.updater import cv2_repair_here
+
+            repair = cv2_repair_here
+        try:
+            argv = repair()
+        except Exception:  # noqa: BLE001 - the finding stands without its command
+            argv = None
+        return (
+            "OpenCV", "FAIL",
+            f"{CV2_HALF_DELETED}: removing one of two OpenCV builds deleted the files "
+            f"they share, so cv2.VideoCapture is gone (installed: {owners}). Camera "
+            f"features will fail. {cv2_repair_remedy(argv)}  Then restart YazSes.",
+        )
+    except Exception:  # noqa: BLE001 - doctor must survive its own probes
+        return None
 
 
 def _extra_check(label: str, enabled: bool, module: str, hint: str) -> _Check | None:
@@ -477,6 +571,12 @@ def _daemon_check(platform) -> tuple[_Check, dict]:
         stale = _stale_daemon_note(str(info.get("version") or ""))
         if stale:
             return ("Daemon", "WARN", f"{_RUNNING_PREFIX} (PID {pid}{suffix}) — {stale}"), info
+        from yazses.system.permission_alerts import stale_grant_note
+
+        grants = info.get("stale_permissions")
+        if isinstance(grants, list) and grants:
+            note = stale_grant_note([str(g) for g in grants])
+            return ("Daemon", "WARN", f"{_RUNNING_PREFIX} (PID {pid}{suffix}) — {note}"), info
         # A matching version is not a matching build -- see `divergent_build_note`.
         split = divergent_build_note(sys.prefix, _daemon_install_prefix(pid))
         if split:
@@ -658,10 +758,56 @@ def _autostart_check(platform) -> _Check | None:
             return ("Starts at login", "OK", f"yes — {mechanism}")
     except Exception as exc:  # noqa: BLE001 — never let a probe break doctor
         return ("Starts at login", "WARN", f"could not be determined ({exc})")
+    paths = getattr(platform, "paths", None)
+    if paths is not None:
+        from yazses.system.autostart_choice import opted_out
+
+        if opted_out(paths.data_dir):
+            # The user's decision, not a fault: a FAIL here would sit in every doctor
+            # run, forever, and teach them to skim past the FAIL lines that matter.
+            return (
+                "Starts at login", "SKIP",
+                "off — you turned it off (`yazses autostart disable`). "
+                "To turn it back on: `yazses autostart enable`",
+            )
     return (
         "Starts at login", "FAIL",
         "no — YazSes will NOT come back after a reboot. Fix: `yazses autostart enable`",
     )
+
+
+def _speech_language_checks(cfg) -> list[_Check]:
+    """One row: speech language, engine, model, multilingual capability, verdict (#515).
+
+    Shown for every config, English included, because "can this model hear my
+    language?" is a question the default install answers too (base.en: English only).
+    The verdict is `language/capability.py::check`, the cited table the engine
+    factory refuses on, so this row and the daemon cannot disagree. Pure config
+    inspection: no model import, no cache probe.
+    """
+    try:
+        from yazses.language import derive_status
+
+        status = derive_status(cfg)
+    except Exception as exc:  # noqa: BLE001 — doctor must survive anything
+        return [("Speech language", "WARN", f"could not be checked ({exc})")]
+    speech = status.speech_language or "auto-detect"
+    model = status.effective_model or status.model
+    if status.multilingual is None:
+        capability = "language coverage unknown (custom checkpoint)"
+    elif status.multilingual:
+        capability = "multilingual"
+    else:
+        capability = "English-only"
+    head = f"{speech} — {status.engine} / {model} ({capability})"
+    if status.language_support == "unsupported":
+        return [(
+            "Speech language", "FAIL",
+            f"{head} — NOT SUPPORTED, dictation is refused: {status.support_reason}",
+        )]
+    if status.language_support == "unknown":
+        return [("Speech language", "WARN", f"{head} — unverified: {status.support_reason}")]
+    return [("Speech language", "OK", f"{head} — supported")]
 
 
 def _language_profile_checks(cfg) -> list[_Check]:
@@ -702,6 +848,7 @@ def _language_profile_checks(cfg) -> list[_Check]:
             "OK",
             "en — English speech; Han-script normalisation off",
         ))
+        out.extend(_command_grammar_checks(status))
         return out
 
     if not status.output_script:
@@ -736,14 +883,38 @@ def _language_profile_checks(cfg) -> list[_Check]:
             f"OpenCC available — {status.output_script} output can be enforced",
         ))
 
-    if bool(getattr(cfg.commands, "enabled", True)):
-        out.append((
-            "Mandarin commands",
-            "WARN",
-            "dictation can be Mandarin, but Tier-1 spoken command grammar is still "
-            "English-only in this build; Mandarin command localization is not yet wired",
-        ))
+    out.extend(_command_grammar_checks(status, report_ok=True))
     return out
+
+
+def _command_grammar_checks(status, *, report_ok: bool = False) -> list[_Check]:
+    """The Tier-1 grammar the daemon will select, from the same resolver it calls.
+
+    A row for the default English install appears only when something is off, so the
+    shipped `doctor` output is unchanged; a Mandarin profile always gets one, because
+    "which commands do I say?" is the question that profile raises.
+    """
+
+    if not status.commands_enabled:
+        return []
+    if status.warnings:
+        return [("Command grammar", "WARN", "; ".join(status.warnings))]
+    if not status.command_grammar_available:
+        return [(
+            "Command grammar",
+            "WARN",
+            f"no Tier-1 grammar is registered for {status.command_language or '<auto>'!r}; "
+            "spoken commands fall through to dictation",
+        )]
+    if not report_ok:
+        return []
+    pinned = "pinned" if status.command_language_pinned else "auto from speech"
+    detail = (
+        "Mandarin Tier-1 grammar (edit/navigation subset)"
+        if status.command_language == "zh"
+        else "English Tier-1 grammar"
+    )
+    return [("Command grammar", "OK", f"{status.command_language} ({pinned}) — {detail}")]
 
 def _config_validity(config_file: Path) -> list[_Check]:
     """Report values the loader had to repair or fall back on.
@@ -766,14 +937,20 @@ def _config_validity(config_file: Path) -> list[_Check]:
 
     out: list[_Check] = []
     defaulted = [p for p in problems if not p.repaired]
+    refused = [p for p in defaulted if getattr(p, "refused", False)]
     status = "FAIL" if defaulted else "WARN"
+    refused_text = f", {len(refused)} refused" if refused else ""
     out.append((
         "Config validity", status,
         f"{len(problems)} problem(s): {len(problems) - len(defaulted)} repaired, "
-        f"{len(defaulted)} using defaults — fix them in {config_file}",
+        f"{len(defaulted) - len(refused)} using defaults{refused_text} — fix them in "
+        f"{config_file}",
     ))
     for problem in problems:
-        verb = "repaired" if problem.repaired else "using default"
+        if getattr(problem, "refused", False):
+            verb = "refused"
+        else:
+            verb = "repaired" if problem.repaired else "using default"
         out.append((f"  └ {verb}", "WARN" if problem.repaired else "FAIL", str(problem)))
     return out
 
@@ -853,6 +1030,51 @@ def _corpus_redaction_check(cfg) -> list[_Check]:
     )]
 
 
+def _hotwords_optin_check(cfg) -> _Check | None:
+    """Why a `[hotwords] enabled = true` this config carries is not active, or ``None``.
+
+    First-run setup in v2.11.0-dev.9 through v2.13.0 seeded that line into every new
+    config while hotwords was unwired. Now that it is wired it runs only with the opt-in
+    `yazses features enable hotwords` writes, so for those configs the file says `true`
+    and the feature is off. SKIP, not WARN: nothing is broken and nothing needs fixing
+    unless the user wants it, so it must not turn the verdict into "optional warnings".
+    Silent for every other config.
+    """
+    from yazses.system.features import inactive_reason
+
+    reason = inactive_reason("hotwords", cfg)
+    if not reason:
+        return None
+    return ("Hotwords", "SKIP", f"{reason} Turn it on:\n    yazses features enable hotwords")
+
+
+def _voiceguard_check(cfg, data_dir: Path) -> _Check | None:
+    """Whether an enabled Voice Guard can judge anything, or ``None`` while it is off.
+
+    WARN when it cannot -- no voiceprint enrolled, `[voiceprint]` off, or fail-closed with
+    no anti-spoof model -- because the daemon then lets every burst through rather than
+    refusing them all, and that must not happen without a line saying so. Reads only
+    whether the encrypted voiceprint file exists; it decrypts and loads nothing.
+    """
+    if not getattr(getattr(cfg, "voiceguard", None), "enabled", False):
+        return None
+    from yazses.voiceguard.admission import inactive_reason
+
+    reason = inactive_reason(
+        cfg, embedder_ready=None, enrolled=(data_dir / "voiceprint.enc").exists()
+    )
+    if reason is not None:
+        return ("Voice Guard", "WARN", f"enabled but inactive: {reason}.")
+    return ("Voice Guard", "OK", (
+        f"on -- refuses a burst whose voiceprint similarity is under "
+        f"{cfg.voiceguard.match_threshold:.2f}. Speaker match only: no anti-spoof model "
+        "ships yet, so a recording of your voice is admitted. A voiceprint file is "
+        "present; doctor does not decrypt it, and the daemon log warns once if it cannot "
+        "load it or score a burst with it (the guard then lets bursts through). The "
+        "threshold is tuned on synthetic signals only"
+    ))
+
+
 def _config_summary(
     cfg, config_file: Path, *, live_hotkey: str = "", platform_default: str = ""
 ) -> list[_Check]:
@@ -866,6 +1088,7 @@ def _config_summary(
             f"{config_file} (absent — using built-in defaults)",
         ))
     out.extend(_config_validity(config_file))
+    out.extend(_speech_language_checks(cfg))
     out.extend(_language_profile_checks(cfg))
     out.extend(_llm_endpoint_check(cfg))
     out.extend(_corpus_redaction_check(cfg))
@@ -1553,6 +1776,77 @@ def _service_health_checks() -> list[_Check]:
     return [("Service health", "FAIL", detail)]
 
 
+def packs_row(use, scope: str) -> _Check | None:
+    """The ``Add-ons`` row (ADR-028, owner answer to question 4). Pure.
+
+    ``use`` is a :class:`yazses.packs.manage.DiskUse`; ``scope`` is the update launcher's
+    ``install_scope()`` (``"user"``, ``"machine"`` or ``"unknown"``). Two facts earn a
+    row, and both name ``yazses packs remove --all`` with what it frees:
+
+    * add-ons this copy never loads (another build's packs, or the leftovers of an
+      unfinished install) — WARN, since that is disk held for nothing;
+    * an all-users install while this user has add-ons — OK, a statement: Windows runs an
+      all-users uninstaller as the administrator, whose profile is not this user's, so
+      the uninstaller cannot remove them (the per-user uninstaller does).
+
+    Nothing at all when neither holds, which is every install without add-ons and every
+    install that is not the Windows installer build.
+    """
+    from yazses.packs.policy import human_bytes
+
+    mine = use.total
+    unused = use.unused
+    all_users = scope == "machine" and mine > 0
+    if unused <= 0 and not all_users:
+        return None
+    lines: list[str] = []
+    if unused > 0:
+        frees = f"frees {human_bytes(mine)}"
+        if use.this_build:
+            frees += (
+                f", including this build's {human_bytes(use.this_build)}, which you then "
+                "reinstall with `yazses packs install <name>`"
+            )
+        lines.append(
+            f"{human_bytes(unused)} of add-ons are not used by this copy of YazSes (another "
+            "build's, or an unfinished install's).\n"
+            f"     Free the space:  yazses packs remove --all   ({frees})"
+        )
+    if all_users:
+        lines.append(
+            "YazSes is installed for all users, so uninstalling it cannot remove your "
+            "add-ons (Windows runs that uninstaller as the administrator).\n"
+            "     Before uninstalling, each user who added some runs:  yazses packs "
+            f"remove --all   (frees {human_bytes(mine)} for you)"
+        )
+    return ("Add-ons", "WARN" if unused > 0 else "OK", "\n     ".join(lines))
+
+
+def _packs_check(platform) -> _Check | None:
+    """Gather the facts for :func:`packs_row`. A diagnostic: never raises."""
+    try:
+        from yazses.packs.context import load_context
+        from yazses.packs.layout import PackLayout
+        from yazses.packs.manage import disk_use
+        from yazses.platform.factory import get_pack_paths
+
+        data_dir = get_pack_paths().data_dir
+        # The common case, and every OS but Windows: no pack folder, no row, no work.
+        if not PackLayout.under(data_dir).root.is_dir():
+            return None
+        use = disk_use(load_context(data_dir=data_dir))
+        scope = "unknown"
+        launcher = getattr(platform, "update_launcher", None)
+        if launcher is not None:
+            try:
+                scope = str(launcher.install_scope())
+            except Exception:  # noqa: BLE001 - an unknown scope only drops a sentence
+                scope = "unknown"
+        return packs_row(use, scope)
+    except Exception:  # noqa: BLE001 - a diagnostic must not take doctor down
+        return None
+
+
 def _install_consistency_checks() -> list[_Check]:
     """Catch the deployment traps that make a daemon silently run wrong/old code:
     multiple installs on PATH, and a systemd ExecStart that points at a missing
@@ -1820,6 +2114,11 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
     # points at a missing/different binary (the silent "restart starts nothing").
     checks.extend(_install_consistency_checks())
     checks.extend(_service_health_checks())
+    # Windows installer build only (ADR-028): add-ons this copy never loads, and the
+    # all-users uninstall that cannot remove a user's add-ons. No pack folder, no row.
+    packs = _packs_check(platform)
+    if packs is not None:
+        checks.append(packs)
 
     # Snap interface connections. Before keyboard capture on purpose: a
     # disconnected `raw-input` is the *cause* of the capture failure reported
@@ -1890,6 +2189,12 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
     camera = _camera_check(perms, cfg)
     if camera is not None:
         checks.append(camera)
+    # OpenCV, beside the camera it serves -- whenever an OpenCV build is installed, not
+    # only while a camera feature is on: a half-deleted cv2 is found before the user
+    # switches one on and wonders why it crashes.
+    opencv = _opencv_check()
+    if opencv is not None:
+        checks.append(opencv)
 
     # Hands-free health, directly below the camera row that decides whether any of it can
     # run at all (#416). Nothing on an ordinary install; for somebody who enabled a camera
@@ -1902,6 +2207,11 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
         checks.append(("Hands-free health", "SKIP",
                        "unknown — the hands-free health probe itself failed; please report "
                        "this with the rest of this output"))
+    # Implicit refinement's click producer (#607), beside the hands-free rows it feeds.
+    # Nothing on a default install; two attribute reads otherwise.
+    click_observer = _click_observer_check(cfg, platform)
+    if click_observer is not None:
+        checks.append(click_observer)
 
     # Linux-specific injection tools
     if sys.platform == "linux":
@@ -1992,12 +2302,19 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
             from importlib.util import find_spec
 
             has_bleak = find_spec("bleak") is not None
+            if has_bleak:
+                ble_detail = cfg.emg.ble_address
+            else:
+                from yazses.system.remedy import install_hint
+
+                ble_detail = (
+                    f"{cfg.emg.ble_address} — bleak is not installed, so nothing will "
+                    f"connect. {install_hint('ble')}"
+                ).rstrip()
             checks.append((
                 "EMG BLE address",
                 "OK" if has_bleak else "WARN",
-                cfg.emg.ble_address if has_bleak else
-                f"{cfg.emg.ble_address} — bleak is not installed, so nothing will "
-                f"connect. Install it with: pip install 'yazses[ble]'",
+                ble_detail,
             ))
         prosody = _prosody_check(cfg.prosody.enabled)
         if prosody is not None:
@@ -2005,22 +2322,23 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
         dysfluency = _dysfluency_check(cfg.accessibility.dysfluency_friendly)
         if dysfluency is not None:
             checks.append(dysfluency)
-        # v2 cognitive-layer extras (report only when the feature is enabled).
-        for chk in (
-            _extra_check("tts extra (kokoro-onnx)", cfg.tts.enabled,
-                         "kokoro_onnx", "uv sync --extra tts"),
-            _extra_check("voiceprint extra (speechbrain)",
-                         cfg.voiceprint.enabled or cfg.cocktail.enabled,
-                         "speechbrain", "uv sync --extra voiceprint"),
-            _extra_check("gaze extra (l2cs)", cfg.gaze.enabled,
-                         "l2cs", "pip install l2cs mediapipe opencv-python"),
-            _extra_check("agent extra (Spoken MCP)", cfg.agent.enabled,
-                         "mcp", "uv sync --extra agent"),
-            _extra_check("pilot (AT-SPI)", cfg.pilot.enabled,
-                         "pyatspi", "apt install python3-pyatspi gir1.2-atspi-2.0"),
-        ):
-            if chk is not None:
-                checks.append(chk)
+        hotwords = _hotwords_optin_check(cfg)
+        if hotwords is not None:
+            checks.append(hotwords)
+        voiceguard = _voiceguard_check(cfg, paths.data_dir)
+        if voiceguard is not None:
+            checks.append(voiceguard)
+        # Every enabled capability whose optional libraries are missing, from the
+        # feature registry rather than a hand-kept list. The list this replaced named
+        # four features, told end users to run `uv sync --extra …` (a command that
+        # only does anything inside a source checkout), and probed `l2cs` for gaze,
+        # whose default backend is mediapipe — a WARN on a working install.
+        checks.extend(_dormant_feature_checks(cfg))
+        # AT-SPI is a system package, not a pip extra, so the registry cannot know it.
+        pilot = _extra_check("pilot (AT-SPI)", cfg.pilot.enabled,
+                             "pyatspi", "apt install python3-pyatspi gir1.2-atspi-2.0")
+        if pilot is not None:
+            checks.append(pilot)
         # v2 features gated on config (not a module): report when half-configured.
         if cfg.agent.enabled and not cfg.agent.slm_model_path:
             checks.append(("agent planner", "WARN",

@@ -1,0 +1,12 @@
+{"id": "fa-en-0001", "category": "fa_with_en_term", "reference": "این فایل را در GitHub گذاشتم", "hypothesis": "این فایل را در گیت‌هاب گذاشتم"}
+{"id": "fa-en-0002", "category": "fa_with_en_term", "reference": "خروجی API را بررسی کن", "hypothesis": "خروجی API را بررسی کن"}
+{"id": "fa-en-0003", "category": "product_names", "reference": "برای نصب از pip و uv استفاده کن", "hypothesis": "برای نصب از Pip و uv استفاده کن"}
+{"id": "fa-en-0004", "category": "product_names", "reference": "پروژه را با VS Code باز کردم", "hypothesis": "پروژه را با VS Code باز کردم"}
+{"id": "fa-en-0005", "category": "numbers_versions", "reference": "می‌خواهم Python 3.12 را نصب کنم", "hypothesis": "مي‌خواهم Python 3.12 را نصب کنم"}
+{"id": "fa-en-0006", "category": "numbers_versions", "reference": "کتابخانه numpy 2.1 را آپدیت کن", "hypothesis": "کتابخانه نامپای 2.1 را آپدیت کن"}
+{"id": "fa-en-0007", "category": "en_clause_in_fa", "reference": "گفت that's not a bug و رفت", "hypothesis": "گفت that's not a bug و رفت"}
+{"id": "fa-en-0008", "category": "en_clause_in_fa", "reference": "مدیر گفت let's ship it و جلسه تمام شد", "hypothesis": "مدیر گفت lets ship it و جلسه تمام شد"}
+{"id": "fa-en-0009", "category": "fa_clause_in_en", "reference": "I told him خیلی ممنون and left", "hypothesis": "I told him kheili mamnoon and left"}
+{"id": "fa-en-0010", "category": "fa_clause_in_en", "reference": "The meeting is فردا صبح at nine", "hypothesis": "The meeting is فردا صبح at nine"}
+{"id": "fa-en-0011", "category": "rapid_switch", "reference": "این PR را merge کن", "hypothesis": "این پی‌آر را merge کن"}
+{"id": "fa-en-0012", "category": "rapid_switch", "reference": "لطفاً branch را rebase و بعد push کن", "hypothesis": "لطفاً branch را rebase و بعد push کن"}

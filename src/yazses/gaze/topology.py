@@ -63,6 +63,32 @@ topology. Neither is evidence of a change, and refusing there would delete worki
 to prove a point -- so both report :data:`Validity.UNVERIFIED`, which keeps routing alive
 and says out loud that the binding could not be checked.
 
+## Conversions, in one place
+
+Three spaces meet here, and each conversion has exactly one function:
+
+* **canonical desktop** -- the space above;
+* **display-physical** -- pixels of one panel, origin at that panel's top-left
+  (:meth:`Display.to_physical` / :meth:`Display.from_physical`, and
+  :meth:`DisplayTopology.to_physical` / :meth:`DisplayTopology.from_physical` when the
+  display has to be found first);
+* **desktop-relative** -- canonical coordinates shifted so the union's top-left is
+  ``(0, 0)`` (:meth:`DisplayTopology.to_desktop_relative`), for anything that indexes a
+  buffer covering the whole desktop. Its offset is :attr:`DisplayTopology.origin`, which
+  is negative where the OS puts a monitor left of or above the main one.
+
+A point in a gap between monitors belongs to no display and converts to ``None``, never
+to the nearest panel: snapping is a placement decision (``calibrate.targets_on_displays``),
+not a unit conversion.
+
+## A damaged record is never a valid one
+
+Everything rebuilt from disk goes through the ``from_dict`` constructors, and those are
+strict: a coordinate must be an integer (``1.5``, ``true`` and ``"12"`` are refused, not
+truncated or coerced), a scale a finite positive number, a rotation one of the four words,
+an identifier unique within its topology. A refused record raises ``ValueError``, which
+``gaze/store.py`` reports as a damaged binding -- never as VALID.
+
 Pure: stdlib only, no numpy, no display server, no camera. Fabricate a topology and the
 whole decision is testable.
 """
@@ -70,6 +96,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import time
 from dataclasses import dataclass, field
 from enum import Enum
@@ -85,6 +112,50 @@ CONTEXT_VERSION = 1
 #: Identifier of the calibration model the context belongs to (gaze/calibrate.py's
 #: 2x3 affine map). A different model is a different meaning for the coefficients.
 CALIBRATION_MODEL = "affine-2x3-v1"
+
+
+#: The rotations a display may report. Anything else in a stored record is damage.
+ROTATIONS = frozenset({"normal", "left", "right", "inverted"})
+
+
+def _strict_int(value: Any, what: str) -> int:
+    """An integer from a parsed JSON value, refusing anything that would have to be guessed.
+
+    ``int()`` alone turns ``1.7`` into ``1``, ``True`` into ``1`` and ``"12"`` into ``12``,
+    so a damaged record would quietly rebuild into a *different* desktop -- and a different
+    desktop that happens to equal the current one makes a damaged map read as VALID. An
+    integral float (``1920.0``) is accepted: it is the same number, not a guess.
+    """
+    if isinstance(value, bool):
+        raise ValueError(f"{what} is a boolean, not an integer")
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float) and math.isfinite(value) and value.is_integer():
+        return int(value)
+    raise ValueError(f"{what} is not an integer: {value!r}")
+
+
+def _strict_float(value: Any, what: str) -> float:
+    """A finite number from a parsed JSON value (``bool`` and strings refused)."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"{what} is not a number: {value!r}")
+    out = float(value)
+    if not math.isfinite(out):
+        raise ValueError(f"{what} is not finite: {value!r}")
+    return out
+
+
+def digest(payload: Any) -> str:
+    """Stable short hash of a JSON value: sha256 over sorted-key, space-free JSON.
+
+    The one hashing rule, used both to fingerprint a context and to check that a stored
+    context still hashes to the fingerprint saved beside it. Unsalted (``hash()`` is
+    salted per process), so the run that saves and the run that loads agree. It detects
+    accidental damage; it is not a signature -- anyone who can edit the file can
+    recompute it. Raises ``ValueError`` on NaN/infinity, which no valid record contains.
+    """
+    blob = json.dumps(payload, sort_keys=True, separators=(",", ":"), allow_nan=False)
+    return hashlib.sha256(blob.encode("utf-8")).hexdigest()[:16]
 
 
 class Validity(Enum):
@@ -125,8 +196,12 @@ class Display:
     def __post_init__(self) -> None:
         if self.width <= 0 or self.height <= 0:
             raise ValueError(f"display {self.identifier!r} has non-positive size")
-        if self.scale <= 0:
-            raise ValueError(f"display {self.identifier!r} has non-positive scale")
+        if not (math.isfinite(self.scale) and self.scale > 0):
+            # NaN slips past `<= 0` (every comparison with NaN is False) and would make
+            # every converted coordinate NaN; infinity would make them all infinite.
+            raise ValueError(f"display {self.identifier!r} has a non-finite or non-positive scale")
+        if self.rotation not in ROTATIONS:
+            raise ValueError(f"display {self.identifier!r} has unknown rotation {self.rotation!r}")
 
     # ---- geometry ------------------------------------------------------
 
@@ -173,15 +248,24 @@ class Display:
         """Rebuild from :meth:`as_dict`. Raises on anything malformed."""
         if not isinstance(raw, dict):
             raise ValueError("display entry is not an object")
+        identifier = raw["id"]
+        if not isinstance(identifier, str) or not identifier:
+            raise ValueError("display id is not a non-empty string")
+        primary = raw.get("primary", False)
+        if not isinstance(primary, bool):
+            raise ValueError(f"display {identifier!r} 'primary' is not a boolean")
+        rotation = raw.get("rotation", "normal")
+        if not isinstance(rotation, str):
+            raise ValueError(f"display {identifier!r} 'rotation' is not a string")
         return cls(
-            identifier=str(raw["id"]),
-            x=int(raw["x"]),
-            y=int(raw["y"]),
-            width=int(raw["w"]),
-            height=int(raw["h"]),
-            scale=float(raw.get("scale", 1.0)),
-            primary=bool(raw.get("primary", False)),
-            rotation=str(raw.get("rotation", "normal")),
+            identifier=identifier,
+            x=_strict_int(raw["x"], "display x"),
+            y=_strict_int(raw["y"], "display y"),
+            width=_strict_int(raw["w"], "display width"),
+            height=_strict_int(raw["h"], "display height"),
+            scale=_strict_float(raw.get("scale", 1.0), "display scale"),
+            primary=primary,
+            rotation=rotation,
         )
 
     def describe(self) -> str:
@@ -241,6 +325,64 @@ class DisplayTopology:
                 return d
         return None
 
+    # ---- conversions between spaces (see the module docstring) -------------
+
+    @property
+    def origin(self) -> tuple[int, int] | None:
+        """Top-left of the union rectangle: the virtual desktop's origin. May be negative."""
+        bounds = self.bounds()
+        return None if bounds is None else (bounds[0], bounds[1])
+
+    def to_physical(self, x: float, y: float) -> PhysicalPoint | None:
+        """Canonical desktop point -> physical pixels on the display it lands on.
+
+        ``None`` when the point is in a gap between monitors or off the desktop: it is on
+        no panel, so it has no physical pixel, and inventing the nearest one would hide a
+        routing error rather than report it.
+        """
+        display = self.display_at(x, y)
+        if display is None:
+            return None
+        px, py = display.to_physical(x, y)
+        return PhysicalPoint(display.identifier, px, py)
+
+    def from_physical(self, identifier: str, px: float, py: float) -> tuple[float, float] | None:
+        """Physical pixels on display *identifier* -> canonical desktop point.
+
+        ``None`` for a display this topology does not have, or a pixel outside that panel's
+        physical size. Either means the caller holds geometry from a different layout, which
+        is exactly what must not be converted as if it were current.
+        """
+        for display in self.displays:
+            if display.identifier != identifier:
+                continue
+            inside = (
+                0 <= px < display.width * display.scale
+                and 0 <= py < display.height * display.scale
+            )
+            return display.from_physical(px, py) if inside else None
+        return None
+
+    def to_desktop_relative(self, x: float, y: float) -> tuple[float, float] | None:
+        """Canonical point -> offset from the virtual desktop's top-left.
+
+        Never negative for a point on the desktop, whatever the OS origin. ``None`` for an
+        unknown topology, which has no origin to subtract.
+        """
+        origin = self.origin
+        if origin is None:
+            return None
+        return (x - origin[0], y - origin[1])
+
+    def from_desktop_relative(self, rx: float, ry: float) -> tuple[float, float] | None:
+        """Inverse of :meth:`to_desktop_relative`. ``None`` for an unknown topology."""
+        origin = self.origin
+        if origin is None:
+            return None
+        return (rx + origin[0], ry + origin[1])
+
+    # ---- serialisation -------------------------------------------------
+
     def as_dict(self) -> dict[str, Any]:
         return {"space": CANONICAL_SPACE, "displays": [d.as_dict() for d in self.displays]}
 
@@ -252,7 +394,23 @@ class DisplayTopology:
         entries = raw.get("displays", [])
         if not isinstance(entries, list):
             raise ValueError("topology 'displays' is not a list")
-        return cls(displays=tuple(Display.from_dict(e) for e in entries))
+        displays = tuple(Display.from_dict(e) for e in entries)
+        # Changes are described by matching identifiers, so two entries with one name
+        # would collapse into one there while still counting twice in the fingerprint.
+        # No reader produces that; in a stored record it is damage.
+        names = [d.identifier for d in displays]
+        if len(set(names)) != len(names):
+            raise ValueError("topology lists the same display identifier twice")
+        return cls(displays=displays)
+
+
+@dataclass(frozen=True)
+class PhysicalPoint:
+    """A point in one display's physical pixels, origin at that display's top-left."""
+
+    display: str
+    x: float
+    y: float
 
 
 #: A topology nobody could read. Distinct from "no monitors", which cannot happen.
@@ -298,14 +456,19 @@ class CalibrationContext:
         camera = raw.get("camera", {})
         if not isinstance(camera, dict):
             raise ValueError("calibration context 'camera' is not an object")
+        camera_id = camera.get("id", "")
+        model = raw.get("model", CALIBRATION_MODEL)
+        space = raw.get("space", CANONICAL_SPACE)
+        if not all(isinstance(v, str) for v in (camera_id, model, space)):
+            raise ValueError("calibration context camera id, model and space must be strings")
         return cls(
             topology=DisplayTopology.from_dict(raw.get("topology", {})),
-            camera_id=str(camera.get("id", "")),
-            camera_width=int(camera.get("w", 0)),
-            camera_height=int(camera.get("h", 0)),
-            model=str(raw.get("model", CALIBRATION_MODEL)),
-            space=str(raw.get("space", CANONICAL_SPACE)),
-            version=int(raw.get("version", CONTEXT_VERSION)),
+            camera_id=camera_id,
+            camera_width=_strict_int(camera.get("w", 0), "camera width"),
+            camera_height=_strict_int(camera.get("h", 0), "camera height"),
+            model=model,
+            space=space,
+            version=_strict_int(raw.get("version", CONTEXT_VERSION), "context version"),
         )
 
     def fingerprint(self) -> str:
@@ -316,8 +479,7 @@ class CalibrationContext:
         than from `hash()`, which is salted per process and would differ between the
         run that saved and the run that loads.
         """
-        blob = json.dumps(self.as_dict(), sort_keys=True, separators=(",", ":"))
-        return hashlib.sha256(blob.encode("utf-8")).hexdigest()[:16]
+        return digest(self.as_dict())
 
 
 @dataclass(frozen=True)

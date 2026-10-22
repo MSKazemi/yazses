@@ -1,6 +1,6 @@
 ---
 title: The Settings window — every capability as a checkbox
-description: Configure YazSes from a window instead of a config file — how to open it, what the recommendation tiers mean, how features that need extra packages are installed, and why it asks to restart.
+description: Configure YazSes from a window instead of a config file — how to open it, what the recommendation tiers mean, how features that need extra packages are installed, how to check for and install updates, and why it asks to restart.
 ---
 
 # The Settings window
@@ -42,7 +42,7 @@ accuracy and correction, accessibility, and so on — and each row carries a
 | Tier | Meaning |
 |---|---|
 | **on by default** | shipped on; leave it unless you have a reason |
-| **recommended** | safe and useful, worth turning on |
+| **recommended** | switched on in the config a fresh install writes; safe and useful — leave it unless you have a reason |
 | **optional** | enable it if you want that capability |
 | **experimental** | known rough edges, not advised yet |
 
@@ -62,7 +62,7 @@ itself, not a feature.
 
 ## Finding a capability
 
-There are around two hundred rows, so the box at the top filters them. It matches
+There are about 150 rows, so the box at the top filters them. It matches
 the name you can see, the toggle name the CLI uses, the category heading, **and
 the description** — so typing `stutter` finds *Dysfluency-Friendly*, whose label
 contains neither word. Several words narrow rather than widen.
@@ -83,7 +83,7 @@ visibility only: a hidden row keeps any change you staged, and **Apply** and
 ## What does this option actually do?
 
 A checkbox and a name answer "is it on?" and nothing else, which is not enough
-when there are around two hundred of them. So every row explains itself, three
+when there are about 150 of them. So every row explains itself, three
 ways — because any single way excludes someone:
 
 - **A one-line summary, always visible**, under the label: the tier, then the
@@ -132,7 +132,7 @@ Three things it will not do:
 - **It only touches feature switches.** Your hotkey, your microphone, your VAD
   threshold, your vocabulary and every setting you hand-edited are left exactly
   as they are. This is a reset of the switchboard, not of `config.toml`.
-- **It only writes what actually differs.** Rewriting all ~200 keys to change
+- **It only writes what actually differs.** Rewriting all ~150 keys to change
   three of them would churn the whole file, comments included.
 
 No graphical session? `yazses features reset` is the same operation in a
@@ -145,7 +145,7 @@ difference between "you can turn this on" and "we suggest you do".
 
 ## Features that need extra packages
 
-Roughly fifteen capabilities need an optional Python package — gaze needs
+About twenty capabilities need an optional Python package — gaze needs
 mediapipe, Cocktail Filter needs speechbrain, and so on. Ticking one installs it
 for you, on a worker thread, through the identical `system/deps.py` call that
 `yazses features enable` uses. The two cannot drift on what "enabled" means.
@@ -156,6 +156,57 @@ un-ticking a box you just ticked discards your intent and leaves no trace of why
 Instead the capability is recorded as on and reported as *dormant until its
 packages arrive*, a state `yazses doctor` and `yazses features` already model and
 that you can fix by retrying.
+
+### Installing a feature that is on but dormant
+
+A feature can be switched on while its libraries are missing: you edited
+`config.toml` by hand, an install failed and the switch stayed on, or an update
+rebuilt the environment without them. The **About and updates** box near the top of
+the window lists each one, with an **Install now** button that carries the download
+size (for example *Install now (~224 MB)*).
+
+The button runs the same install as `yazses features install`, on a worker thread,
+so the window keeps responding. Its progress shows under the button. The install is
+a transaction: if it fails part-way, everything it changed is undone, and the window
+says which of three things happened:
+
+- **installed** — it offers to restart YazSes so the feature switches on;
+- **failed, nothing changed** or **failed and undone** — YazSes is exactly as it was,
+  and the feature stays on but dormant until you retry;
+- **failed and not fully undone** — a warning lists the commands that put the
+  environment back. This should not happen; please report it.
+
+Where an install can never work, the button is greyed out and its tooltip says why
+and what to do instead: a snap, the Homebrew cask, the macOS `.app`, the MSIX package,
+or a system Python that your distribution manages (PEP 668; install YazSes with
+`pipx install yazses` instead). The Windows installer build is the exception: there the
+button downloads and installs the feature's **add-on** (ADR-028), the same as
+`yazses packs install <name>`, and shows the add-on's download and on-disk size.
+
+## Checking for updates
+
+The **About and updates** box shows the version you are running. **Check for updates**
+asks the place YazSes was installed from (PyPI, GitHub or the snap store) for its newest
+version, off the window's thread, then shows the installed and available versions and
+the one thing that can be done:
+
+| How YazSes is installed | What **Install update…** does |
+|---|---|
+| Windows `.exe` installer (per-user), winget, Chocolatey, Scoop | The one-click update ([Windows install › Updating](windows-install.md#updating)): it asks once, downloads and checks the installer (or runs the package manager), then **this window closes**, YazSes updates in place and starts again by itself. Staged changes you have not applied are named in the question, because closing discards them. |
+| `uv tool`, `pipx`, `pip` | Runs the upgrade command shown, keeping the libraries of the features you have switched on (and, on `uv tool`, OpenCV whole), then checks the version really changed and offers to restart the daemon. If the version did not move (a pinned install), it says so instead; if OpenCV stopped loading, it shows the repair command. See [the update did nothing](how-to/update-did-nothing.md). |
+| Windows, installed for all users | Not offered: it would run a downloaded file with administrator rights. The window says so, lists the steps, and **Open download page** opens the releases page. Run the installer from there; it upgrades in place, with no uninstall. |
+| macOS `.app` | **Open download page**: open the new `.dmg` and replace the app. |
+| Snap | Shows `sudo snap refresh yazses` to run in a terminal (it needs your password). |
+| Microsoft Store / MSIX | Shows the Store steps. The releases page carries no `.msix`. |
+
+Nothing is downloaded until you confirm. With no network the check says so, lists the
+manual steps, and YazSes keeps working.
+
+What is verified: the window's flows are tested headless with fakes for every effect
+(`tests/test_settingsui_maintenance_panel.py`), including that the check and the install
+run off the window's thread. The one-click hand-off itself is the same code the tray
+and `yazses update` use; it has not yet been tried from this window on a real Windows
+machine.
 
 ## Apply, and the restart
 

@@ -1,8 +1,8 @@
 """Vocal-joystick mapping + velocity integrator (pure) — ADR-v2-095.
 
 Map (F1, F2) formants to a direction, direction+loudness to a velocity, and integrate frames into a
-position with click-on-pitch-jump. Pure and deterministic; the formant/pitch tracker is the lazy
-extra.
+position with click-on-pitch-jump. Pure and deterministic; the per-frame producer that feeds it is
+``vocaljoystick.formants`` (numpy only, no optional extra).
 """
 from __future__ import annotations
 
@@ -61,23 +61,37 @@ class VocalJoystick:
     """Integrates per-frame (direction, loudness, pitch) into a position. Pure state."""
 
     def __init__(self, max_speed: float = 20.0, click_pitch: float = 250.0,
-                 click_jump: float = 30.0) -> None:
+                 click_jump: float = 30.0, click_gap_frames: int = 5) -> None:
         self._x = 0.0
         self._y = 0.0
         self._max = max_speed
         self._click_pitch = click_pitch
         self._click_jump = click_jump
-        self._prev_pitch = None
+        self._click_gap = int(click_gap_frames)
+        self._last_voiced: float | None = None
+        self._gap = 0
 
     def position(self):
         return (self._x, self._y)
 
     def feed(self, vowel_dir, loudness, pitch=0.0) -> ControlEvent:
-        """Consume one frame and emit a :class:`ControlEvent`. Pure state."""
-        prev = self._prev_pitch
-        self._prev_pitch = pitch
-        if prev is not None and pitch >= self._click_pitch and pitch - prev > self._click_jump:
-            return ControlEvent("click", 0.0, 0.0)
+        """Consume one frame and emit a :class:`ControlEvent`. Pure state.
+
+        ``pitch`` is ``0.0`` for an unvoiced frame (the ``audio.pitch`` convention). A click
+        is a jump from the *last voiced* pitch, provided at most ``click_gap_frames`` unvoiced
+        frames separate them: a pitch tracker drops a frame or two across a sharp step, but a
+        voice starting after a pause is an onset, not a gesture. Measuring the jump from the
+        ``0.0`` of an unvoiced frame made every voice at or above ``click_pitch`` click on its
+        first voiced frame.
+        """
+        if pitch <= 0.0:
+            self._gap += 1
+        else:
+            prev, gap = self._last_voiced, self._gap
+            self._last_voiced, self._gap = pitch, 0
+            if (prev is not None and gap <= self._click_gap and pitch >= self._click_pitch
+                    and pitch - prev > self._click_jump):
+                return ControlEvent("click", 0.0, 0.0)
         vx, vy = vocal_control_vector(vowel_dir, loudness, pitch, self._max)
         if vx == 0.0 and vy == 0.0:
             return ControlEvent("idle", 0.0, 0.0)

@@ -84,6 +84,9 @@ CAPTURE_PROVING_DISCARDS = frozenset({
     # A destructive deixis command was refused because gaze could not pick the window and
     # `[gaze] refuse_destructive_fallback` is on: heard and decoded, refused downstream.
     "deixis_gaze_unavailable",
+    # A deixis command on a session where gaze can never name a window (Wayland, #418):
+    # heard, decoded and parsed, then refused because no gaze target can exist there.
+    "deixis_no_gaze_target",
     # A spoken capability (ADR-v2-131) produced text and a policy declined to type it:
     # the safety gate held it for a confirm, or the injector refused it. Both mean the
     # microphone was heard and decoded — the failure is downstream of capture.
@@ -92,6 +95,9 @@ CAPTURE_PROVING_DISCARDS = frozenset({
     # Field-Aware Dictation refused the *destination* (a password box). The audio was
     # captured, decoded and shaped; only the target was wrong.
     "fieldaware_refused",
+    # The Voice Mouse Grid (ADR-v2-030) claimed the utterance: a grid phrase was heard,
+    # decoded and parsed, whatever the pointer then did.
+    "mousegrid",
 })
 
 
@@ -108,6 +114,8 @@ CAPTURE_DOUBTING_DISCARDS = frozenset({
     "no_speech",        # loud enough, but a speech detector found none; dropped before decode
     "hallucination",    # words fabricated from non-speech — evidence *against* the audio
     "post_filter",      # the transcript was disfluency only; same doubt as above
+    "acoustic_floor",   # flat room noise under the profile gate; no transcript, no proof
+    "voiceguard_rejected",  # not the enrolled speaker; dropped before any decode
 })
 
 

@@ -86,6 +86,8 @@ from yazses.eyeeval.tasks import (
     check_task,
     dump_task,
     generate_task,
+    record_text_vocabulary,
+    task_from_protocol,
     validate_task,
 )
 
@@ -143,10 +145,12 @@ __all__ = [
     "generate_task",
     "local_identifiers",
     "privacy_problems",
+    "record_text_vocabulary",
     "safe_settings",
     "summarize",
     "synthetic_records",
     "tally",
+    "task_from_protocol",
     "validate_result",
     "validate_result_file",
     "validate_result_text",

@@ -465,3 +465,122 @@ def test_a_scroll_of_exactly_ten_lines_is_one_event() -> None:
     api, quartz = _api()
     api.scroll(0.0, 10.0)
     assert len(quartz.posted) == 1
+
+
+# --------------------------------------------------------------------------- #
+# Open-time refusal: the platform factory asks before the first head movement
+# --------------------------------------------------------------------------- #
+
+
+class _RaisingPreflightQuartz(_FakeQuartz):
+    """A bridge whose preflight raises, as a PyObjC bridge error would."""
+
+    def CGPreflightPostEventAccess(self) -> bool:  # noqa: N802 - Apple's spelling
+        raise OSError("bridge exploded")
+
+
+def test_the_factory_refuses_a_denied_process_at_open_time_and_posts_nothing() -> None:
+    """The Head-Pointer opens its sink when it is built so a missing backend is known up
+    front. A bare constructor cannot refuse, so a denial used to surface only on the
+    user's first head movement. The factory must refuse before any event is posted."""
+    from yazses.platform.macos.pointer import POST_ACCESS_DENIED, build_macos_pointer_sink
+
+    quartz = _PermissiveQuartz(allowed=False)
+    with pytest.raises(PointerBackendError) as caught:
+        build_macos_pointer_sink(load_quartz=lambda: quartz)
+    assert str(caught.value) == POST_ACCESS_DENIED
+    assert "Accessibility" in str(caught.value)
+    assert quartz.preflight_calls == 1
+    assert quartz.posted == []
+
+
+def test_the_factory_opens_an_approved_sink_without_asking_again_or_posting() -> None:
+    from yazses.platform.macos.pointer import build_macos_pointer_sink
+    from yazses.pointer.base import PointerSink
+
+    quartz = _PermissiveQuartz(allowed=True)
+    sink = build_macos_pointer_sink(load_quartz=lambda: quartz)
+    assert isinstance(sink, MacosPointerSink)
+    assert isinstance(sink, PointerSink)
+    assert quartz.posted == [], "opening a sink must not move the pointer"
+    sink.move_absolute(3.0, 4.0)
+    assert len(quartz.posted) == 1
+    assert quartz.preflight_calls == 1, "the open-time grant is the one the first move uses"
+
+
+def test_the_factory_reports_a_missing_quartz_bridge_as_unsupported() -> None:
+    """Permanent for this install, so the permanent error, not a transient one."""
+    from yazses.platform.macos.pointer import build_macos_pointer_sink
+
+    def _missing() -> Any:
+        raise ModuleNotFoundError("No module named 'Quartz'")
+
+    with pytest.raises(PointerUnsupportedError) as caught:
+        build_macos_pointer_sink(load_quartz=_missing)
+    assert "pyobjc-framework-Quartz" in str(caught.value)
+
+
+def test_the_factory_default_loader_is_resolved_at_call_time(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import yazses.platform.macos.pointer as backend
+
+    quartz = _PermissiveQuartz(allowed=False)
+    monkeypatch.setattr(backend, "_load_quartz", lambda: quartz)
+    with pytest.raises(PointerBackendError):
+        backend.build_macos_pointer_sink()
+    assert quartz.preflight_calls == 1
+
+
+def test_a_preflight_that_raises_is_a_backend_error_not_a_crash() -> None:
+    from yazses.platform.macos.pointer import build_macos_pointer_sink
+
+    quartz = _RaisingPreflightQuartz()
+    with pytest.raises(PointerBackendError) as caught:
+        build_macos_pointer_sink(load_quartz=lambda: quartz)
+    assert "bridge exploded" in str(caught.value)
+    assert isinstance(caught.value.__cause__, OSError)
+
+
+def test_the_factory_opens_on_a_bridge_without_the_preflight_symbol() -> None:
+    """Unknown is not denied, at open time exactly as per operation."""
+    from yazses.platform.macos.pointer import build_macos_pointer_sink
+
+    quartz = _FakeQuartz()
+    sink = build_macos_pointer_sink(load_quartz=lambda: quartz)
+    sink.move_absolute(1.0, 1.0)
+    assert len(quartz.posted) == 1
+
+
+def test_the_macos_platform_bundle_hands_out_the_refusing_factory(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Without this the open-time check exists and nothing calls it."""
+    import yazses.platform.macos.pointer as backend
+    from yazses.platform.macos import build_platform
+
+    sentinel = object()
+    monkeypatch.setattr(backend, "build_macos_pointer_sink", sentinel)
+    assert build_platform().pointer_factory is sentinel
+
+
+def test_a_denied_mac_gives_the_head_pointer_a_reason_with_the_pane_and_the_restart() -> None:
+    """End to end through `build_headpointer`: the denial becomes the status reason, and
+    the runtime's 200-character cap does not cut off what the user must do."""
+    from types import SimpleNamespace
+
+    from yazses.headpointer.runtime import build_headpointer
+    from yazses.platform.macos.pointer import build_macos_pointer_sink
+
+    quartz = _PermissiveQuartz(allowed=False)
+    runtime = build_headpointer(
+        SimpleNamespace(enabled=True),
+        perception=object(),
+        pointer_factory=lambda: build_macos_pointer_sink(load_quartz=lambda: quartz),
+        thread=False,
+    )
+    assert not runtime.active
+    assert runtime.reason.startswith("no pointer output: PointerBackendError")
+    assert "Privacy & Security > Accessibility" in runtime.reason
+    assert runtime.reason.endswith("restart YazSes."), runtime.reason
+    assert quartz.posted == []

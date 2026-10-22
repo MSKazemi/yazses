@@ -25,6 +25,8 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Callable
 
+from yazses.postprocess.cjk import is_han
+
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from yazses.config import SttConfig
 
@@ -60,9 +62,6 @@ _ALIASES = {
 # which is a different and more opinionated job than the one asked for here.
 _OPENCC_CONFIG = {SIMPLIFIED: "t2s", TRADITIONAL: "s2t"}
 
-# CJK Unified Ideographs (+ Extension A) and the compatibility block. Enough to
-# answer "is there any Han here at all", which is all the fast path needs.
-_HAN_RANGES = ((0x3400, 0x4DBF), (0x4E00, 0x9FFF), (0xF900, 0xFAFF))
 
 
 def resolve_script(value: str | None) -> str:
@@ -91,10 +90,11 @@ def contains_han(text: str) -> bool:
     The fast path for the common case: an English dictation burst should not pay
     for a conversion that cannot change it.
     """
-    return any(
-        any(lo <= ord(ch) <= hi for lo, hi in _HAN_RANGES)
-        for ch in text
-    )
+    # One definition of "Han" for the whole pipeline (`postprocess/cjk.py`). It covers
+    # the astral extensions too: a BMP-only check called a name written with 𠮷
+    # (U+20BB7) "not Chinese", so neither the script normaliser nor the hallucination
+    # guard's Han carve-out ran on it (#501).
+    return any(is_han(ch) for ch in text)
 
 
 def build_han_normaliser(stt: "SttConfig") -> Callable[[str], str] | None:

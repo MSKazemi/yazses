@@ -58,22 +58,22 @@ bachelor/master thesis:
 
 | Project | Where it stands | Flavour |
 |---|---|---|
-| Gaze-aware target selection for dictation ("Glance-Type") | open — [research background](eye-control.md) | HCI / multimodal |
-| Dysfluency-friendly transcription for stuttered speech | open — [accessibility use case](../use-cases/accessibility-rsi-hands-free.md) | accessibility / NLP |
-| Persian and RTL portable contract vectors | open — [#512](https://github.com/MSKazemi/yazses/issues/512) | evaluation / i18n |
+| Measure Glance-Type's real gaze accuracy on ordinary webcams | open — [#104](https://github.com/MSKazemi/yazses/issues/104) · [background](eye-control.md) | HCI / multimodal |
+| Evaluate Dysfluency-Friendly mode with people who stutter | open — [#255](https://github.com/MSKazemi/yazses/issues/255) · [use case](../use-cases/accessibility-rsi-hands-free.md) | accessibility / NLP |
 
-The six seams below shipped in August 2026. They are no longer open work, but the
+The seams below shipped between August and September 2026. They are no longer open work, but the
 issue behind each one records the design argument and the measurements that settled
 it, which is the useful starting point if you want to extend or re-evaluate one:
 
 | Shipped seam | Design record | Flavour |
 |---|---|---|
 | STT benchmark harness — WER/RTF methodology + community results | [#72](https://github.com/MSKazemi/yazses/issues/72) | empirical / reproducibility |
-| Vocabulary biasing for transducer STT (Parakeet ignores prompts) | [#73](https://github.com/MSKazemi/yazses/issues/73) | speech ML, open design |
+| Vocabulary correction after decoding (Parakeet ignores prompts) | [#73](https://github.com/MSKazemi/yazses/issues/73) | speech ML, open design |
 | Streaming STT: Moonshine engine + latency study | [#74](https://github.com/MSKazemi/yazses/issues/74) | systems / real-time |
 | Noise suppression in the dictation hot path (DeepFilterNet) | [#69](https://github.com/MSKazemi/yazses/issues/69) | audio DSP |
 | Speaker-embedding reliability on sub-second windows | [#70](https://github.com/MSKazemi/yazses/issues/70) | speaker modelling |
 | Diarization accuracy vs speed trade-off (pyannote vs sherpa) | [#71](https://github.com/MSKazemi/yazses/issues/71) | evaluation |
+| Persian and RTL portable contract vectors | [#512](https://github.com/MSKazemi/yazses/issues/512) | evaluation / i18n |
 
 Supervisors: if you want to run one of these as a course assignment or thesis,
 open a Discussion — scoping a variant for your semester is exactly the

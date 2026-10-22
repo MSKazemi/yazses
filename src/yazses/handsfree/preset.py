@@ -48,7 +48,9 @@ __all__ = [
     "Resolved",
     "Setting",
     "apply",
+    "enable_refusal",
     "expand",
+    "floor_unmet",
     "render",
     "resolve_raw",
 ]
@@ -300,8 +302,8 @@ def _notes(components: HandsfreeConfig, raw: Mapping[str, Any]) -> list[str]:
     out: list[str] = [
         "PROVISIONAL -- every value the preset supplies is an unmeasured starting value; no field "
         "evidence exists to tune them from (design/eye-control/GOVERNANCE.md).",
-        "Not composed: the Voice Mouse Grid ([mousegrid]) is designed but not wired into this build, "
-        "so the precision fallback is not part of the preset; no face-switch gesture is bound to "
+        "Not composed: the Voice Mouse Grid ([mousegrid]) is experimental and the preset does not "
+        "turn it on, so the precision fallback is yours to enable; no face-switch gesture is bound to "
         "select / confirm / cancel by the preset, so the commit is dwell-click unless you add a "
         "[[facegesture.switches]] entry yourself.",
     ]
@@ -349,6 +351,36 @@ def resolve_raw(raw: Mapping[str, Any]) -> tuple[dict[str, Any], Expansion]:
     """``(raw with the preset applied, the expansion)`` -- the one call the loader makes."""
     expansion = expand(raw)
     return apply(raw, expansion), expansion
+
+
+def enable_refusal(raw: Mapping[str, Any]) -> str:
+    """Why turning the preset on over this raw file must be refused, or ``""``. Pure.
+
+    The safety-floor gate every way of switching the preset on goes through (`yazses handsfree
+    enable`, `yazses features enable handsfree`, the settings window), so they cannot disagree.
+    """
+    return expand(raw if isinstance(raw, Mapping) else {}, assume_enabled=True).refusal
+
+
+def floor_unmet(components: HandsfreeConfig, config: Any) -> tuple[str, ...]:
+    """Every safety-floor setting a *resolved* config does not hold, as section-and-key text. Pure.
+
+    Empty when the preset is off. When it is on, an applied preset leaves every protected key at
+    the preset's value (set by it, or already the user's), and a refused one applies nothing
+    while some user value contradicts the floor -- so a non-empty answer is exactly "the file
+    asks for the preset and the loader refused it". Reads attributes off ``config`` by name only;
+    it never imports the daemon or a backend.
+    """
+    if not components.enabled:
+        return ()
+    out: list[str] = []
+    for setting in settings_for(components):
+        if not setting.protected:
+            continue
+        section = getattr(config, setting.section, None)
+        if getattr(section, setting.key, None) != setting.value:
+            out.append(f"[{setting.section}] {setting.key}")
+    return tuple(out)
 
 
 # ------------------------------------------------------------------------- explain

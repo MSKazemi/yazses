@@ -25,16 +25,23 @@ most useful part, because it tells you which arguments have already been had.
 
 ## Reading notes
 
-- **`[[adr-011]]`, `[[adr-v2-129]]` and similar links** point into the desktop ADR series,
-  which is an internal maintainer document and is not published. Where a desktop ADR is
-  load-bearing for a mobile decision, the mobile ADR restates what it says, so you never
+- **Links to ADR-011, ADR-v2-129 and similar** point into the desktop ADR series, which is
+  public under [`design/adr/`](https://github.com/MSKazemi/yazses/tree/main/design/adr) and
+  published on this site under Engineering (design) → Decision records. Where a desktop ADR
+  is load-bearing for a mobile decision, the mobile ADR restates what it says, so you never
   need the original. The most important one, **ADR-011 (zero telemetry, offline by default,
   no cloud fallback, no ambient capture)**, is published in user-facing form as the
   [privacy statement](../../privacy-statement.md), and it governs the Android app
   unchanged.
-- **"Accepted" here means the decision is binding, not that the code exists.** As of
-  2026-08-07 there is no Android code at all. See [the programme overview](../index.md) for
-  what actually ships today (nothing) and what M0–M4 mean.
+- **"Accepted" here means the decision is binding, not that the code exists.** Some of
+  these decisions are now partly implemented under
+  [`android/`](https://github.com/MSKazemi/yazses/tree/main/android): the module skeleton
+  and its layering and privacy gates, and the first pure-Kotlin cores that pass the shared
+  contract vectors. The others have no code yet, and there is still no app to install.
+  Where an ADR's own status line says "design only, no code yet", it records the state on
+  the day it was accepted (2026-08-07), not today's. See
+  [the programme overview](../index.md) for what exists today and where each milestone
+  stands.
 - **To change a decision**, open a PR adding a new ADR that supersedes the old one. Do not
   edit an accepted ADR to say something different from what was decided; the point of the
   series is that the reasoning survives the decision.

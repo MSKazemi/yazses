@@ -253,3 +253,47 @@ def test_reset_releases_a_held_tilt_and_is_idempotent():
 
 def test_the_token_vocabulary_is_exactly_what_the_detector_can_emit():
     assert set(HEAD_TOKENS) == {"nod", "shake", "tilt"}
+
+
+# --------------------------------------------------------------------------- #
+# discard_pending: the head side of #417 (a stop or a re-arm cuts a half-made gesture)
+# --------------------------------------------------------------------------- #
+def test_discard_pending_forgets_half_a_nod():
+    det = HeadGestureDetector()
+    nod = oscillate("pitch", 0.2, 2)
+    half = len(nod) // 2
+    first, t = run(det, nod[:half])
+    det.discard_pending()
+    second, _ = run(det, nod[half:], start=t)
+    assert first == [] and second == []   # neither half is a nod on its own
+
+
+def test_without_discard_pending_the_same_two_halves_are_one_nod():
+    det = HeadGestureDetector()
+    nod = oscillate("pitch", 0.2, 2)
+    half = len(nod) // 2
+    _, t = run(det, nod[:half])
+    second, _ = run(det, nod[half:], start=t)
+    assert second == [("nod", PULSE)]     # the control: the fixture *is* a nod
+
+
+def test_discard_pending_restarts_a_tilt_that_was_still_building():
+    det = HeadGestureDetector(HeadMotionSettings(tilt_hold_s=0.4))
+    before, t = tilt_run(det, 0.5, 0.3)   # under tilt_hold_s
+    det.discard_pending()
+    after, t = tilt_run(det, 0.5, 0.3, start=t)
+    assert before == [] and after == []   # 0.6 s tilted in all, but never 0.4 s since the cut
+    rest, _ = tilt_run(det, 0.5, 0.3, start=t)
+    assert rest == [("tilt", PRESS)]
+
+
+def test_discard_pending_leaves_a_held_tilt_held_and_emits_nothing():
+    det = HeadGestureDetector()
+    pressed, t = tilt_run(det, 0.5, 1.0)
+    assert pressed == [("tilt", PRESS)]
+    det.discard_pending()
+    assert det.tilt_held
+    still, t = tilt_run(det, 0.5, 1.0, start=t)
+    assert still == []                    # no second press for the same tilt
+    back, _ = tilt_run(det, 0.0, 0.5, start=t)
+    assert back == [("tilt", RELEASE)]    # and its release still arrives

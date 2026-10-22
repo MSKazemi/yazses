@@ -65,8 +65,17 @@ under `NO_COLOR`, or in CI.
 ### `yazses update`
 
 Detects how YazSes was installed and checks the matching source — the tracked
-**snap** channel for snap installs, **PyPI** for pip / pipx / uv-tool — then
+**snap** channel for snap installs, **PyPI** for pip / pipx / uv-tool, the
+**GitHub release** for the Windows installer, Chocolatey, winget and Scoop — then
 upgrades only when the available version is strictly newer (never a downgrade).
+
+On **Windows** the update is one step ([ADR-027](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-027-one-click-windows-update.md)).
+For the `.exe` install it downloads the installer from the GitHub release and
+checks its SHA-256 against the release's `SHA256SUMS.txt`. It then closes YazSes,
+installs silently in place and starts YazSes again. Chocolatey, winget and Scoop
+installs run their own upgrade the same way. A failure prints the manual steps and
+exits 1. The installer is not code-signed yet, so the checksum is integrity, not
+authenticity.
 
 **Options:** `--check` (report only, don't install) · `--yes` / `-y` (install
 without prompting).
@@ -264,13 +273,14 @@ so `read-back` reads as `~352 MB` rather than as its 12 MB of packages. Blank me
 nothing to download, which is true of most capabilities. See
 [Install only what you need](how-to/install-only-what-you-need.md).
 
-Three states, not two:
+Four states, not two:
 
 | Badge | Meaning |
 |---|---|
 | `● ON` | On, and this build acts on it. |
 | `○ off` | Off. |
 | `◌ set` | Your config turns it on, but **nothing in this build reads it** — it is doing nothing. Clear the key with `yazses features disable <name>`. |
+| `◐ ON` | On, but **its libraries are not installed** (config edited by hand, `--no-install`, or an update rebuilt the environment) — dormant. `yazses features install` installs them, after asking. |
 
 `◌` only appears if you have one. It is not reachable from `yazses features enable`,
 which refuses a capability that is *planned — designed, not yet wired*; it comes from
@@ -298,6 +308,7 @@ side without ever being compared. Such a capability is **not** counted in a grou
 | `yazses features info <name>` | Describe one capability — what it does, a usage example, and how to toggle it. |
 | `yazses features enable <name>` | Turn a capability **on** (writes your config), then `yazses restart` to apply. |
 | `yazses features disable <name>` | Turn a capability **off**, then `yazses restart`. |
+| `yazses features install [<name>…]` | Install the libraries that **switched-on** features are missing (the `◐` rows), after showing the download and asking (`--yes` skips the question). Writes no config; undoes a failed or interrupted install. |
 | `yazses features reset` | Restore **every** capability to the state a fresh install ships with. |
 
 ```bash
@@ -309,6 +320,7 @@ yazses features info                     # describe ALL capabilities + usage exa
 yazses features info reflow              # describe one + show a usage example
 yazses features enable read-back         # turn one on  (use the TOGGLE NAME)
 yazses features disable cocktail         # turn one off
+yazses features install                  # install what switched-on features lack
 yazses features reset --dry-run          # what a reset would change; writes nothing
 yazses features reset                    # restore the defaults (asks first)
 yazses restart                           # apply
@@ -661,8 +673,9 @@ yazses enroll    # calibrate the mic/VAD thresholds to your voice
 
 Records a short sample of your voice, computes a speaker embedding, and stores it
 **encrypted on this machine** (never leaves it). Needed by Cocktail Filter and
-Voiceprint Mind. Requires `[voiceprint] enabled = true` and the voiceprint extra
-(`uv sync --extra voiceprint`). Run once; re-run to re-enroll.
+Voiceprint Mind. Requires `[voiceprint] enabled = true` and the speaker-embedding
+library (`yazses features enable cocktail --force` installs it; if it is missing the
+command prints the exact install step for your setup). Run once; re-run to re-enroll.
 
 ```bash
 yazses enroll-voice    # record a sample → save your speaker voiceprint
@@ -687,6 +700,37 @@ Manage the Tier 2 SLM intent-routing models.
 ```bash
 yazses model list                # show SLM models + which are downloaded
 yazses model download qwen2.5-0.5b  # download an SLM for intent routing
+```
+
+### `yazses packs` — add-ons (Windows installer build)
+
+The Windows installer build cannot `pip install` anything, so a heavy feature's
+libraries (Parakeet, speaker diarization) come as an **add-on**: one file published on
+the same GitHub release as your installer, checked against the SHA-256 built into your
+copy of YazSes, installed per user in `%LOCALAPPDATA%\yazses\packs\`, and loaded at the
+next start. `yazses features enable <name>` does all of this for you after showing the
+size and asking; these commands are for looking and tidying. On a PyPI install, the
+macOS app, the MSIX, the snap and the flatpak, `yazses packs` says add-ons are not used
+there. Add-ons are built for one exact build of YazSes, so after an update they are
+downloaded again (one click), and they are never loaded by a YazSes running as
+administrator. `YAZSES_NO_PACKS=1` starts YazSes with every add-on switched off.
+
+| Command | Description |
+|---|---|
+| `yazses packs` | List this build's add-ons: state, download size, size on disk, features. |
+| `yazses packs install <name>` | Download, verify and install one add-on (asks first; `--yes` skips). Writes no config. |
+| `yazses packs install --from <file>` | Install an add-on file you copied here, with no network request. Accepted only if the file name is one of this build's add-on files and its SHA-256 matches the one built into this copy. |
+| `yazses packs verify [name]` | Check every installed file's size and SHA-256; a damaged add-on is set aside in `quarantine\`. |
+| `yazses packs remove <name>` / `--all` | Delete an installed add-on, or every add-on of every build. Features that need it then read *waiting for add-on*. Run `--all` before uninstalling an all-users install: that uninstaller cannot remove each user's add-ons. |
+| `yazses packs clean` | Delete set-aside, half-finished and old builds' add-ons, keeping what an update rollback needs. |
+| `yazses packs path` | Print the add-on folder. |
+| `yazses packs probe <name> --staged <dir>` | Test-import an unpacked add-on in this app (used by the install and by the release build). |
+
+```bash
+yazses features enable stt-parakeet   # shows the size, asks, downloads, verifies, enables
+yazses packs                          # what is installed for this build
+yazses packs verify                   # after security software removed a file
+yazses packs install --from D:\YazSes-2.44.0-windows-x64-pack-diarization.yazpack   # offline
 ```
 
 ### `yazses vocab` — personal dictionary
@@ -1065,7 +1109,9 @@ with a `[[facegesture.switches]]` entry. `select` acts only while the Head-Point
 tracking, not paused, not clutched, and the hands-free gate is open, and at most once per second;
 otherwise it does nothing and `status` says why. `confirm` / `cancel` answer a command the daemon is
 holding for confirmation (the same hold the spoken "confirm" answers) and do nothing when none is
-waiting.
+waiting. `pause_pointer` pauses every hands-free input when `[handsfree_safety]` is on; with it off it
+pauses a running Head-Pointer only, as `yazses handsfree pause` does, and `yazses headpointer resume`
+undoes it. With neither, it does nothing and the daemon log says which setting to turn on.
 
 ### `yazses eye-eval` — scripted eye-control evaluation
 
@@ -2178,7 +2224,7 @@ aren't *you* before transcription. Enroll once (`yazses enroll-voice`), then:
 
 ```toml
 [voiceprint]
-enabled = true             # speaker embedder (uv sync --extra voiceprint)
+enabled = true             # speaker embedder (installed by `features enable cocktail`)
 [cocktail]
 enabled = true             # mode = "gate" (P1); "suppress" (P2) is gated on a model
 target_threshold = 0.6     # higher = stricter "is this me?"

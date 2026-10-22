@@ -28,6 +28,11 @@ everything else".
 [benchmarks page](../benchmarks.md). Real dictation is harder than that benchmark;
 treat WER as a comparison *between* models, not a promise.
 
+The peak figures above and the 2026-10-21 re-measurement on the
+[models page](../models.md) (peak 272 / 344 / 618 MB on an AMD Ryzen 5 PRO 4650U) were
+taken on different machines, and agree within about 20 %. An older ~874 MB figure for
+`base.en` included an ~820 MB import baseline that the current code no longer has.
+
 **Resident memory is roughly twice the file on disk.** That surprises people who
 size a machine from the download.
 
@@ -73,8 +78,12 @@ recovers from swapping a model in and out.
 - **`[stt] cpu_threads`** changes CPU use, not memory — see
   [CPU and battery](cpu-and-battery.md). Measured: 363–373 MB across every thread
   setting, i.e. no effect.
-- **Turning off features** helps only if they load their *own* model. The optional
-  ones that do are LLM cleanup, gaze and Cocktail Filter; the rest are pure logic.
+- **Turning off features** helps only if they load their *own* model. The ones that
+  do include the Adaptive Latency Governor (`latency`, switched on in the config a
+  fresh install writes: a second Whisper model, ~75 MB for `tiny.en`, once load is
+  high), LLM cleanup, gaze and the camera features, Cocktail Filter and voiceprints,
+  speaker labels and Meeting Mode, and the Parakeet and Moonshine engines.
+  `yazses features disable latency` is the one worth knowing on a small machine.
 
 ## The multilingual models
 

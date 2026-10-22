@@ -180,7 +180,19 @@ class TrayController:
         """
         from yazses.tray.updates import check_updates
 
-        return check_updates()
+        status = check_updates()
+        if not (status.available and status.command):
+            return status
+        # Resolved here, before the dialog shows it, so the command the tray displays
+        # is the one `install_update` runs (`run_upgrade_checked` resolves it again,
+        # idempotently) -- the same as `yazses update` and the Settings window.
+        try:
+            from yazses.system.updater import resolve_upgrade_command
+
+            return resolve_upgrade_command(status)
+        except Exception:
+            log.exception("tray could not resolve the upgrade command")
+            return status
 
     def install_update(self, status):
         """Run the upgrade for ``status`` and verify it (blocking).

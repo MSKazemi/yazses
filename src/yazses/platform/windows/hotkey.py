@@ -22,12 +22,26 @@ silently replaced by an OS setting. Arming a ``threading.Timer`` on the initial
 press — the same approach the X11 backend uses in
 ``platform/linux/hotkey_xgrab.py`` — makes the threshold mean what it says on
 every key and every machine.
+
+**The daemon's callbacks never run on the hook thread.** Windows calls a
+low-level hook synchronously, once per keystroke, for *every* application, and
+waits up to ``LowLevelHooksTimeout`` (about 300 ms by default) before giving up
+on it. ``on_hold_end`` transcribes, which takes seconds. Run inline, it froze
+the whole keyboard for that long: measured on Windows 11 22H2, every key typed
+in any application waited the full timeout, one after another — ten keys typed
+during a 4 s transcription arrived 3.5 s late — and other programs' hooks
+(AutoHotkey, PowerToys) never saw those keys at all, because a timed-out event
+skips the rest of the chain. The hook now only updates the press/hold state and
+hands the callbacks to one worker thread, which runs them in order: a hold
+always starts before it ends, as it does on Linux, where evdev buffers events
+while the listener thread is busy.
 """
 
 from __future__ import annotations
 
 import ctypes
 import logging
+import queue
 import threading
 import time
 from collections.abc import Callable
@@ -152,6 +166,53 @@ def _load_kernel32():
     return kernel32
 
 
+class _CallbackWorker:
+    """Runs the hold callbacks in order, on one thread that is not the hook's.
+
+    Started on first use rather than in ``run()``, so the press/hold state
+    machine behaves the same whether or not a hook is installed. ``close()``
+    lets queued work finish — a release already seen still gets its
+    transcription — and a later ``submit`` starts a fresh thread with a fresh
+    queue, so nothing from before a restart leaks into it.
+    """
+
+    def __init__(self, name: str) -> None:
+        self._name = name
+        self._lock = threading.Lock()
+        self._queue: queue.SimpleQueue | None = None
+        self._thread: threading.Thread | None = None
+
+    def submit(self, fn: Callable[..., None], *args) -> None:
+        with self._lock:
+            work = self._queue
+            if work is None:
+                work = self._queue = queue.SimpleQueue()
+                self._thread = threading.Thread(
+                    target=self._loop, args=(work,), name=self._name, daemon=True
+                )
+                self._thread.start()
+            work.put((fn, args))
+
+    def close(self) -> None:
+        with self._lock:
+            if self._queue is not None:
+                self._queue.put(None)
+            self._thread = None
+            self._queue = None
+
+    @staticmethod
+    def _loop(work: queue.SimpleQueue) -> None:
+        while True:
+            item = work.get()
+            if item is None:
+                return
+            fn, args = item
+            try:
+                fn(*args)
+            except Exception:
+                log.exception("Hotkey callback raised")
+
+
 class WindowsHotkey:
     """HotkeyBackend implementation for Windows."""
 
@@ -176,6 +237,7 @@ class WindowsHotkey:
         self._recording = False
         self._timer: threading.Timer | None = None
         self._state_lock = threading.Lock()
+        self._callbacks = _CallbackWorker(f"yazses-hotkey-{self._key_id}")
 
         self._user32 = None
         self._hook_handle: int | None = None
@@ -300,7 +362,7 @@ class WindowsHotkey:
                 on_start = None
 
         if on_start is not None:
-            on_start(0)
+            self._callbacks.submit(on_start, 0)
         elif self._timer is not None:
             self._timer.start()
 
@@ -312,16 +374,20 @@ class WindowsHotkey:
             self._press_time = None
             self._leaked_count = 0
         if was_recording:
-            self._on_hold_end()
+            self._callbacks.submit(self._on_hold_end)
 
     def _fire_hold_start(self) -> None:
-        """Timer callback: the key has now been held for the full threshold."""
+        """Timer callback: the key has now been held for the full threshold.
+
+        Queued like every other callback rather than run on the timer thread,
+        so a release that lands while it is starting cannot overtake it.
+        """
         with self._state_lock:
             if self._press_time is None or self._recording:
                 return  # released before the threshold, or already recording
             self._recording = True
             leaked = self._leaked_count if self._produces_char else 0
-        self._on_hold_start(leaked)
+        self._callbacks.submit(self._on_hold_start, leaked)
 
     def _cancel_timer(self) -> None:
         with self._state_lock:
@@ -340,3 +406,4 @@ class WindowsHotkey:
             self._hook_handle = None
         self._hook_thread_id = None
         self._hook_proc = None
+        self._callbacks.close()

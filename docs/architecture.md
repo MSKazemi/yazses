@@ -203,6 +203,17 @@ reconciled the venv back to a receipt that never listed it, and removed it.
 extra in its receipt instead, merged with whatever was already there, so a
 second feature enabled later cannot silently drop the first.
 
+That protects installs made *after* the fix, not the ones made before it. So the
+upgrade side closes the rest: when an enabled feature's libraries are installed but
+missing from the receipt, `yazses update` and the tray's "Install update" issue
+`uv tool install --upgrade --with <recorded> --with <missing> <target>` instead of
+`uv tool upgrade` — the same version move, with the requirements recorded so the
+next plain upgrade keeps them too (`system/deps.py::uv_tool_upgrade_command`).
+Only *working* features are carried; a dormant one is reported, not silently
+downloaded during an update. The receipt round-trip also keeps environment markers,
+which an earlier version dropped — turning the Intel-Mac-only `onnxruntime<1.24`
+into a ceiling for every platform the next time a feature was enabled.
+
 Neither Parakeet nor Moonshine supports `initial_prompt`, so the personal
 dictionary reaches them a different way: `postprocess/vocab_correct.py` (#73)
 recovers mis-heard vocabulary *after* decoding, which is why it was built
@@ -249,12 +260,58 @@ features` already model and a user can fix by retrying. Enabling records intent;
 satisfying it is a separate, retryable step, and the gap between the two is
 always visible.
 
+"Always visible" is enforced, not assumed. `system/dormant.py` derives, from the
+feature registry, every enabled capability whose libraries cannot be imported — however
+it got that way: a failed install, `--no-install`, a hand-edited `config.toml`, or an
+upgrade that rebuilt the environment without the extra. A camera feature also counts
+when its libraries import but OpenCV is half-deleted (`system/opencv_health.py`: `cv2`
+left as a folder without its native module after one of two OpenCV builds was removed).
+That finding gets the exact repair command and no install button, since installing would
+change nothing. The daemon logs each at start
+and shows one rate-limited notification with the fix; `yazses doctor` prints a row per
+feature; `yazses features` draws it as `◐ ON` with the command beside it. And a failed
+`features enable`, `features reset` or `handsfree enable` exits non-zero and says
+*dormant*, rather than printing "Apply it: yazses restart" over the installer's error.
+
+Two static guards keep a new feature from making the base install heavy or broken:
+`tests/test_no_module_imports_an_extra_at_module_scope.py` scans every module (not only
+the daemon's import graph) for a module-scope import of any extra's packages, derived
+from `scripts/check_dependency_budget.py::EXTRA_MODULES`, transitively; and
+`tests/test_every_extra_has_an_install_path.py` fails when an extra exists that no
+feature installs and no stated exemption explains.
+
+**A feature's libraries arrive when it is needed, by one action, and never half.**
+Every surface that finds a dormant feature now offers its install instead of a
+sentence: the daemon's start-up notification carries an **Install now** button, `yazses
+start`/`restart` in a terminal ask once (default no), and `yazses features install`
+does all of them (`system/ondemand.py`). Consent is unchanged — nothing downloads
+without that click, yes or command — and an environment that can never take the
+libraries (a snap, a frozen bundle, the distribution's own Python) gets the reason and
+no button. The install itself (`system/deps.py::install_packages`, shared by the CLI,
+the settings window and the toast) is a transaction (`system/install_txn.py`):
+
+- it goes to the channel that *records* it — the `uv tool` receipt, `pipx inject`
+  (a package pip-installed into a pipx venv is dropped by `pipx reinstall`), or the
+  venv; a source checkout is told that `uv sync` will remove it and how to keep it;
+- YazSes's own requirements are passed as `--constraint` (a dry run first, for pipx,
+  which would otherwise *store* the temporary path and replay it on reinstall), so a
+  feature that would downgrade numpy or ctranslate2 is refused before anything moves;
+- the installed set is snapshotted; a failed, interrupted, or base-breaking install
+  is undone, and the report says whether the undo was complete;
+- `features enable` and the toast then check that the feature's modules import.
+
+The registry → extra → installer contract is closed in both directions by tests:
+`tests/test_every_import_is_declared.py` fails when any module imports a third-party
+package that neither the base install nor an extra declares, and
+`tests/test_feature_imports_are_installable.py` fails when a feature's own package
+imports an extra's module that its `_FEATURE_DEPS` entry would not install.
+
 The four blocks in the bottom band are the ones people most often assume are
 already there. Each is a recorded decision rather than an omission:
 
 | Designed, not built | Why it isn't in the build | Where the decision lives |
 |---|---|---|
-| **Android dictation keyboard** | Architecture and portability matrix are done; the app is not written. iOS follows Android because an iOS keyboard extension cannot use the microphone. | [The mobile programme](mobile/index.md) |
+| **Android dictation keyboard** | The architecture is decided, the module skeleton and first pure-Kotlin ports are built (M0), and there is no app yet: no engine, keyboard or APK. iOS follows Android because an iOS keyboard extension cannot use the microphone. | [The mobile programme](mobile/index.md) |
 | **Cloud escalation** | Fully designed with guardrails, and deliberately **not implemented**, so "nothing leaves your machine" is never quietly weakened. | [Roadmap — designed, but explicitly deferred](roadmap.md#future-work) |
 | **Personal speech adapters (LoRA)** | On-device fine-tuning for your voice, including atypical speech. Gated on a measured accuracy win on held-out data — prompt-level personalization from your own corpus already ships. | `[personalize] lora` in the [configuration reference](configuration.md) |
 | **Code-switch models** | The language-routing layer ships (`src/yazses/polyglot/`); the code-switch-adapted acoustic model does not, and the feature stays dormant until `adapter_path` is set. | [v2 features preview](v2-features.md) |
@@ -718,7 +775,9 @@ The tray's poller now restarts it, under the same shape as the supervisor above:
 attempts, spaced by a cooldown, then stop and say how to see the real error. The one
 distinction worth the code is *dead* versus *wedged* — a daemon that is alive but not
 answering still holds the single-instance lock, so replacing it is impossible and red is
-the honest answer.
+the honest answer. The other is *crashed* versus *stopped*: `yazses stop` leaves a note
+first (`system/stop_request.py`), and a tray that finds the daemon gone and a note newer
+than itself closes instead of restarting it, so a stop stays a stop.
 
 The user-facing inventory of every one of these — what triggers it, what bounds it,
 and the failures deliberately left alone — is
@@ -768,8 +827,8 @@ shipping code:
   burst" as a plug-in. A keyboard key and an EMG squeeze are already two
   implementations of the same contract; a wake word, a switch, or a
   brain-computer interface would be a third without touching the pipeline.
-- **The engine seam.** `SttEngine` made a second engine (Parakeet) a config
-  change rather than a fork. Anything that turns audio into words plugs in here.
+- **The engine seam.** `SttEngine` made Parakeet and Moonshine config
+  changes rather than forks. Anything that turns audio into words plugs in here.
 - **The platform seam.** Every OS-specific concern is a Protocol, which is what
   makes the Android programme a port rather than a rewrite.
 
@@ -778,7 +837,7 @@ is. Cloud escalation is fully specified and stays unimplemented so the offline
 promise cannot erode by increments; personal speech adapters wait on a measured
 win against held-out data rather than shipping on the strength of the idea. See
 the [roadmap](roadmap.md) for the full account, including the speculative
-directions — spoken recall over your own corpus is the one the project exists
+directions — semantic recall over your own corpus is the one the project exists
 for.
 
 ## Privacy posture
@@ -794,7 +853,7 @@ For the full commitment and details, see the
 
 ## How these figures are made
 
-The four figures on this page are generated, not drawn:
+The five figures on this page are generated, not drawn:
 
 ```bash
 uv run python scripts/gen-arch-figures.py

@@ -1,8 +1,9 @@
 # Explicit exceptions to the LIVE traceability audit (scripts/check-traceability-live.py).
 #
-# EMPTY BY DEFAULT, on purpose. The milestone policy for active vs evergreen issues is being
-# decided in #480; until it is, the live audit enforces only the checks listed in #487 and
-# invents no exemption classes. When #480 decides, encode its exceptions here, one item each.
+# EMPTY BY DEFAULT, on purpose. The milestone policy for active vs evergreen issues (#480,
+# design/milestone-policy.md) does NOT live here: its exemptions are `evergreen:<class>` and
+# `epic` labels on the issues themselves, checked by scripts/milestone_policy.py. This file
+# is only for a deliberate, reasoned exception to one of the manifest-entry rules below.
 #
 # Every item must say WHY and which issue justifies it, so an exception can be reviewed and
 # retired rather than left to rot. An item that matches nothing is reported by the audit, and
@@ -19,5 +20,16 @@
 #     reason: "Epic intentionally spans several milestones."
 #     tracker: 480                    # the issue that justifies the exception
 #     expires: 2027-01-31             # optional YYYY-MM-DD
+#
+# `issue_policy` tunes the ADVISORY per-issue drift report (it never changes the exit code).
+# #480 is decided (design/milestone-policy.md, option B): the audit classifies every open
+# issue with scripts/milestone_policy.py, so `epic` and `evergreen:<class>` issues are
+# already exempt from UNMILESTONED_UNCLASSIFIED and need NO entry here. Topic labels such as
+# `research` or `documentation` never exempt. `exempt_labels` is only for an EXTRA label a
+# maintainer deliberately treats as exempt on top of the policy, and stays empty unless one
+# is agreed. A label listed here that no open issue carries is reported, so this list cannot
+# rot either.
 version: 1
 exceptions: []
+issue_policy:
+  exempt_labels: []

@@ -187,6 +187,9 @@ def test_with_the_written_config_a_blink_does_not_dictate_and_a_held_closure_doe
     assert 1.0 + 0.7 <= t_open <= 1.0 + 0.9            # ~0.8 s after closing
     assert any(e == "close" and 3.0 <= t <= 3.3 for e, t in events)
     # jaw open was unmapped by the second Set: opening the mouth at t > 5 s did nothing above
-    # The same blinks under the shipped 3-frame hold do open it -- the defect this guards.
+    # The same blinks under the shipped 3-frame hold used to open it twice -- the defect the
+    # panel's frame floor guarded. Since #406 the detector itself needs EYES_CLOSED_MIN_HOLD_S
+    # of sample time for eyes_closed, so the frame count is no longer what stands between a
+    # blink and the microphone: a config the panel never wrote is protected too.
     opens, _ = run(replace(face, min_hold_frames=3), blink)
-    assert len(opens) == 2
+    assert opens == [], "a blink opened the microphone under a 3-frame hold"

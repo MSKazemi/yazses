@@ -27,6 +27,12 @@
             "YazSes"
         ]
     ],
+    "pre_uninstall": [
+        "$run = 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Run'",
+        "$entry = (Get-ItemProperty -Path $run -Name 'YazSes' -ErrorAction SilentlyContinue).YazSes",
+        "$appRoot = (Split-Path $dir -Parent) + '\\'",
+        "if ($entry -and $entry.ToLower().Contains($appRoot.ToLower())) { Remove-ItemProperty -Path $run -Name 'YazSes' }"
+    ],
     "checkver": {
         "github": "https://github.com/MSKazemi/yazses"
     },

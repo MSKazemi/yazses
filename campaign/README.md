@@ -16,7 +16,7 @@ credits, enable overages, or incur cloud costs. See
 
 | File | What it is |
 |---|---|
-| `tasks.json` | The inventory. Hand-maintained; the source of truth. |
+| `tasks.json` | The inventory. Hand-maintained and the source of truth — except its eye-validation rows (`source` names an `eye-validation slot`), which `--generate` derives from [`design/eye-control/validation-slots.json`](../design/eye-control/validation-slots.json): one task per READY slot, none for a PLANNED one. |
 | `schemas/task.schema.json` | **Generated.** Derived from `FIELD_SPEC` in `scripts/campaign.py`. |
 | `generated/open-tasks.md` | **Generated.** The browsable list. |
 | `generated/stats.json` | **Generated.** Counts, and the review cost if everything merged. |
@@ -116,7 +116,9 @@ separate from generic readiness metadata.
 
 ## Adding a task
 
-Append to `tasks.json`, run `--generate`, commit both. The validator will refuse a task
+Append to `tasks.json`, run `--generate`, commit both. (Eye/camera validation tasks are the
+exception: flip the slot to READY in `design/eye-control/validation-slots.json` and run
+`--generate`; a hand-written row naming a slot is replaced by the derived one.) The validator will refuse a task
 that has no stated value, no bounded paths, no validation command, a duplicate id, or an
 estimate longer than one sitting. Those refusals are the point: an unbounded task is one a
 newcomer cannot finish and a reviewer cannot cheaply check.

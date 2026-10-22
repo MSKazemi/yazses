@@ -28,6 +28,23 @@ Every quantitative statement must remain traceable to the public benchmark archi
 
 Tables currently written inline are marked for replacement by generated LaTeX from issue #508.
 
+### Generated tables and figure data (`generated/`)
+
+`generated/` is written by `scripts/gen-paper-v2-tables.py` from the committed result files under
+`paper/results/` and is **never edited by hand**:
+
+```bash
+uv run python scripts/gen-paper-v2-tables.py            # regenerate
+uv run python scripts/gen-paper-v2-tables.py --check    # fail if a committed output is stale
+```
+
+Each `.tex` file is a complete `table` environment (`\input{generated/clean_asr}` replaces the inline
+table of the same label); each `.csv` is plot data for pgfplots (`comment chars={\#}`). Every file starts
+with the source artifacts and their sha256. Where the archive holds two runs of one measurement, both are
+shown; caveats (sample size, host load, unpaired ratios, multiplicity) are carried into the table notes.
+`tests/test_gen_paper_v2_tables.py` enforces all of this. A table is *provisional* while its input is: the
+clean engine matrix awaits the frozen artifact from #495.
+
 ## Draft policy
 
 This is a working draft, not an approved publication. Author names/order are intentionally not frozen here; the title page uses **YazSes Contributors** until the authorship process in issue #484 reaches the appropriate gate.

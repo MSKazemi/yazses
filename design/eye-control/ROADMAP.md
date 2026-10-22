@@ -177,9 +177,22 @@ replace a better baseline in tests.
 
 **Delivered 2026-10-12 (#396–#399), with one gap.** Glance-Type leases the shared source; click+gaze capture, the
 held-out gate, atomic apply and `yazses gaze rollback` exist, and `yazses gaze measure` emits the
-privacy-safe report. **Not met:** no OS ships a click observer, so the runtime cannot yet collect a
-real sample outside tests. The exit gate is therefore satisfied for the guard (a refinement can never
-replace a better baseline, mutation-checked) and open for collection.
+privacy-safe report. **Partly met (collection), per OS:**
+
+- **Linux X11 — implemented, awaiting live evidence** (#607, `platform/linux/click_observer_x11.py`):
+  XInput2 `XI_RawButtonPress` on the root window for all devices, no grab, position from
+  `QueryPointer` in root-window pixels (the X11 canonical space), `time.monotonic` stamps, buttons
+  1–3 only. Hermetic tests against a faked python-xlib; **no real-desktop smoke report yet**, so the
+  refiner is not described as working on X11 until one exists.
+- **Linux Wayland — not available, by design:** `click_observer_factory` is `None` and
+  `click_observer_unavailable_reason` says why — a native Wayland session has no global click stream
+  (button events reach only the focused client, the compositor APIs are private, and the XDG
+  RemoteDesktop portal only sends input, it never reports it). XInput2 through XWayland would see only X
+  clients' clicks, a plausible partial stream the refiner must not be fed. `yazses doctor` and the
+  daemon log repeat the reason.
+
+The exit gate is therefore satisfied for the guard (a refinement can never replace a better baseline,
+mutation-checked) and open for collection until a real-device sample exists on at least one OS.
 
 ## Phase 3 — pointer-output substrate
 
@@ -492,6 +505,13 @@ Implement ADR-v2-149.
 **Gate:** calibration/window hit-testing use one coordinate space; incompatible display/camera
 topology makes calibration stale instead of silently wrong.
 
+**Delivered (fixtures only, X11 provider only):** `gaze/topology.py` names the canonical space and owns
+every canonical↔physical↔desktop-relative conversion (negative origins, 1.0/1.25/2.0 scale); the
+calibration file carries a versioned context fingerprint that is verified on load, a damaged file or
+binding is never VALID, a material change is STALE, and `SessionTopologyGuard` suspends routing on a
+mid-session change. **Not met:** a topology provider for Wayland/macOS/Windows (gaze routing runs on
+X11 only), and runtime use of the conversions by implicit calibration (#397/#398).
+
 ### X3 — Observability (#416)
 
 Add privacy-safe health to `doctor`/status.
@@ -519,6 +539,17 @@ reason, and `gaze status`, `doctor`, `status` and the settings panel print it. A
 `WAYLAND_DISPLAY` no longer lets `xdotool`/`xrandr` answer through XWayland. **Not met:** the research half -- what
 AT-SPI exposes on real GNOME and KDE Wayland sessions, and whether a supported focus path exists -- is not
 investigated, so no supported target path and no platform matrix from measurements exist yet.
+
+**Delivered 2026-10-20 (desk research, fakes only):** the capability model and the platform matrix.
+`gaze/target_capabilities.py` records, per session, whether an ordinary client gets screen position, other windows'
+geometry, focus, and pointer injection (kept separate), and cites the protocol docs and toolkit source for each
+answer. A target requires all three target capabilities as plain `yes`, so a compositor-specific path (KWin
+scripting, a GNOME Shell extension, wlroots IPC) can never become a default requirement. Where no target can exist,
+a gaze command such as "close this" is refused with a notification and never sent to the focused window. The
+matrix, the findings and the remaining hardware check are in
+[`design/specs/eye-wayland-gaze-target.md`](../specs/eye-wayland-gaze-target.md). **Still owed:** observing the
+GNOME and KDE refusals on live sessions. The only candidate supported path (KDE, via KWin scripting) is a separate
+opt-in child, not part of #418.
 
 ### X6 — Accessibility co-design and fatigue (#419)
 

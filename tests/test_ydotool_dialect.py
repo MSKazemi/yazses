@@ -348,6 +348,9 @@ def test_mixed_text_on_an_0_1_x_machine_uses_both_paths(monkeypatch):
     class _RecordingUnicodeInjector:
         closed = False
 
+        def ensure_producible(self, text):
+            pass
+
         def inject(self, text):
             typed.append(("unicode", text))
 

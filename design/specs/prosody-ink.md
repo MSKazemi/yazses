@@ -3,11 +3,29 @@
 | Field | Value |
 |---|---|
 | **ID** | spec-prosody-ink |
-| **Status** | Proposed |
+| **Status** | Proposed (2026-06-14 design) · current: Phase 1 shipped, Phase 2 code behind an extra with its gate unmeasured, Phases 3–4 not built — see [Delivery status](#delivery-status-current) |
 | **Date** | 2026-06-14 |
 | **Module** | `src/yazses/postprocess/prosody.py` (new) |
 | **Vision card** | the Prosody Ink vision card (internal) |
 | **Maturity** | Experimental (ship pause→¶ + stress→bold; pitch→question gated) |
+
+---
+
+## Delivery status (current)
+
+> Checked **2026-10-21** against `main` at `3245f848` (latest tag v2.43.2). This section
+> states what the code does today; everything below it is the original design, kept as
+> written. Where the two disagree, this section is the current statement. Status words:
+> **shipped** (wired and reachable), **partial**, **blocked** (names its gate),
+> **deferred** (no delivery promise), **rejected**, **out of scope**. "No tracker" means
+> no issue or campaign task exists for that remainder; it is not scheduled.
+
+| Phase | Status | Evidence | Tracking |
+|---|---|---|---|
+| 1 — pause → paragraph | **Shipped**, off by default (`[prosody]`, slug `prosody`); batch dictation only, skipped while streaming. Also adds pause → sentence period (`pause_sentence_ms`, ADR-v2-002), which this spec did not plan | `postprocess/prosody.py` (`format_prosody`, `annotate`); `core/daemon.py` requests word timings only when `[prosody] enabled` and not streaming; `tests/test_prosody.py` | — |
+| 2 — stress → bold | **Code shipped behind the `prosody` extra; its merge gate is unmeasured.** Prominence scoring runs only with `format = "markdown"` and parselmouth installed, and is skipped when it is absent. No p95 latency (LOFA-1, ≤ 150 ms on a 4-core CPU) or own-voice agreement (LOFA-3, ≥ 80 %) result is recorded. The latency valve only logs a warning; it does not auto-degrade to pause-only as `max_latency_ms` describes | `postprocess/prosody.py` `_prominence_scores`; the `prosody` extra (`praat-parselmouth`); the `max_latency_ms` check in `core/daemon.py` | No tracker |
+| 3 — pitch → "?" | **Not built**; stays dark. `experimental_pitch_question` is accepted and inert | `docs/configuration.md` (⚠️ inert) | No tracker; no delivery promise |
+| 4 — more output formats | **Deferred** — only `none` and `markdown` exist | `ProsodyConfig.format` | No tracker |
 
 ---
 

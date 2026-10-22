@@ -27,10 +27,13 @@ from yazses.tray.menu import (
     MEETING_STOP_LABEL,
     SETTINGS_LABEL,
     UPDATE_LABEL,
+    MeetingEntry,
     icon_spec,
+    meeting_entries,
+    meeting_notice,
     status_from_model,
 )
-from yazses.tray.updates import describe_update
+from yazses.tray.updates import describe_update, pending_update_report
 
 log = logging.getLogger(__name__)
 
@@ -72,6 +75,27 @@ class WindowsTray:
         self._icon: Any = None
         self._on_quit: Callable[[], None] | None = None
         self._lock = threading.Lock()
+        # The last status the poller pushed. The meeting entries read it each time
+        # pystray rebuilds the menu, and `_menu_key` says when that is worth doing.
+        self._status: dict = status_from_model(TrayModel())
+        self._menu_key = self._meeting_menu_key()
+
+    # ---- Meeting Mode entries ------------------------------------------------
+    #
+    # pystray evaluates a callable `enabled`/`visible`/text whenever it rebuilds the
+    # menu, and `update_menu()` makes it rebuild. So the Windows menu can grey out a
+    # click that would fail and say why, as the Linux tray does, instead of leaving
+    # both entries clickable and answering with a refusal toast.
+
+    def _meeting_entry(self, action: str) -> MeetingEntry:
+        return next(e for e in meeting_entries(self._status) if e.action == action)
+
+    def _meeting_notice(self) -> str | None:
+        return meeting_notice(meeting_entries(self._status))
+
+    def _meeting_menu_key(self) -> tuple:
+        entries = meeting_entries(self._status)
+        return (tuple(e.enabled for e in entries), meeting_notice(entries))
 
     def run(self, on_quit: Callable[[], None]) -> None:
         try:
@@ -125,8 +149,7 @@ class WindowsTray:
             _notify(icon, "YazSes", "Checking for updates…")
 
             def _work() -> None:
-                title, body = describe_update()
-                _notify(icon, title, body)
+                _run_update(icon, _notify)
 
             threading.Thread(target=_work, name="tray-update-check", daemon=True).start()
 
@@ -156,14 +179,28 @@ class WindowsTray:
             # The same entry the Linux and macOS trays have (#63).
             pystray.MenuItem(SETTINGS_LABEL, _settings_clicked),
             pystray.Menu.SEPARATOR,
-            # Meeting Mode. Both entries are always present and always clickable: a
-            # pystray menu is built once here and cannot be re-derived per open the way
-            # the Qt tray's is, so the daemon's refusal ("a meeting is already running")
-            # is what tells the user which of the two applied.
-            pystray.MenuItem(MEETING_START_LABEL, _meeting_clicked("meeting_start")),
-            pystray.MenuItem(MEETING_STOP_LABEL, _meeting_clicked("meeting_stop")),
+            # Meeting Mode, from the same `meeting_entries` the Linux tray uses: the
+            # entry that cannot work is greyed out and the note above says why. The
+            # click still goes to the daemon, which has the final say.
+            pystray.MenuItem(
+                lambda _item: self._meeting_notice() or "",
+                None,
+                enabled=False,
+                visible=lambda _item: self._meeting_notice() is not None,
+            ),
+            pystray.MenuItem(
+                MEETING_START_LABEL,
+                _meeting_clicked("meeting_start"),
+                enabled=lambda _item: self._meeting_entry("meeting_start").enabled,
+            ),
+            pystray.MenuItem(
+                MEETING_STOP_LABEL,
+                _meeting_clicked("meeting_stop"),
+                enabled=lambda _item: self._meeting_entry("meeting_stop").enabled,
+            ),
             pystray.Menu.SEPARATOR,
-            pystray.MenuItem("Pause hotkey", None, enabled=False),
+            # No "Pause hotkey" here any more: it was a greyed-out placeholder with
+            # nothing behind it, the kind of entry this menu already dropped once (Help).
             pystray.MenuItem(HELP_LABEL, help_menu),
             pystray.MenuItem(ABOUT_LABEL, _about_clicked),
             pystray.MenuItem(UPDATE_LABEL, _update_clicked),
@@ -180,9 +217,22 @@ class WindowsTray:
             tooltip[:_TOOLTIP_MAX],
             menu,
         )
+        def _setup(icon) -> None:  # noqa: ANN001
+            # pystray's default setup only shows the icon; this also reports, once, what
+            # the last one-click update did — the job that ran it could not tell anyone,
+            # because YazSes had to be closed for it to run (ADR-027).
+            icon.visible = True
+
+            def _report() -> None:
+                message = pending_update_report(_update_launcher())
+                if message is not None:
+                    _notify(icon, *message)
+
+            threading.Thread(target=_report, name="tray-update-report", daemon=True).start()
+
         log.info("Launching pystray tray (blocks the calling thread)")
         try:
-            self._icon.run()
+            self._icon.run(setup=_setup)
         finally:
             if self._on_quit is not None:
                 self._on_quit()
@@ -195,6 +245,7 @@ class WindowsTray:
         # members that fell through to idle blue.
         status = status_from_model(model)
         with self._lock:
+            self._status = status
             if self._icon is None:
                 return
             try:
@@ -203,6 +254,15 @@ class WindowsTray:
                 self._icon.title = tooltip[:_TOOLTIP_MAX]
             except Exception:
                 log.exception("Tray icon update failed")
+            # Rebuild the menu only when the meeting entries would change: the poller
+            # calls this four times a second, and the menu rarely moves.
+            key = self._meeting_menu_key()
+            if key != self._menu_key:
+                self._menu_key = key
+                try:
+                    self._icon.update_menu()
+                except Exception:
+                    log.debug("tray menu update failed", exc_info=True)
 
     def notify(self, title: str, body: str) -> None:
         """Show a balloon toast from the tray icon.
@@ -233,6 +293,106 @@ class WindowsTray:
                     self._icon.stop()
                 except Exception:
                     log.exception("Tray stop raised")
+
+
+def _update_launcher():
+    """The Windows update launcher. Built here rather than through `get_platform()`,
+    which would construct the hotkey and IPC stacks just to answer a menu click."""
+    from yazses.platform.windows.update_handoff import WindowsUpdateLauncher
+
+    return WindowsUpdateLauncher()
+
+
+def confirm_dialog(title: str, text: str) -> bool:
+    """A native Yes/No box. Anything but an explicit *Yes* — including a failure to show
+    the box at all — answers False: nothing is downloaded without that click."""
+    try:
+        import ctypes
+
+        mb_yesno, mb_iconquestion, mb_setforeground, mb_topmost, idyes = (
+            0x4, 0x20, 0x10000, 0x40000, 6,
+        )
+        user32 = getattr(ctypes, "windll").user32
+        answer = user32.MessageBoxW(
+            None, text, title, mb_yesno | mb_iconquestion | mb_setforeground | mb_topmost
+        )
+        return int(answer) == idyes
+    except Exception:
+        log.warning("could not show the update confirmation", exc_info=True)
+        return False
+
+
+#: Seconds the "closing to install" balloon stays up before the icon (and with it the
+#: balloon) goes away. The update job waits for this process anyway.
+_HANDOFF_NOTICE_S = 4.0
+
+
+def _run_update(icon, notify, *, launcher=None, confirm=None, sleep=None) -> None:  # noqa: ANN001
+    """Check → confirm → download → verify → install → relaunch, from one click.
+
+    Where the one-click path does not apply (no update, no network, a method without
+    it), this is exactly the old behaviour: `describe_update` reports, and opens the
+    download page when there is nothing to run. Where it applies and fails, the user
+    is told why, the download page is opened, and YazSes keeps running.
+    """
+    import time
+
+    from yazses.system.installer_update import confirmation_prompt, one_click_offer
+    from yazses.system.updater import RELEASES_URL
+    from yazses.tray.updates import (
+        check_updates,
+        record_update_consent,
+        run_one_click,
+        update_addons,
+    )
+
+    status = check_updates()
+    launcher = launcher if launcher is not None else _update_launcher()
+    offer = one_click_offer(status, launcher)
+    if offer is None:
+        notify(icon, *describe_update(status=status))
+        return
+    if not offer.ok:
+        # It applies but cannot deliver now (an all-users install, a package feed that
+        # has not caught up). Say why, and hand over the page that does work.
+        opened = open_link(RELEASES_URL)
+        tail = "Opening the download page." if opened else f"Download page: {RELEASES_URL}"
+        notify(
+            icon,
+            "Update available",
+            f"YazSes {status.current} → {status.latest}\n{offer.reason}\n{tail}",
+        )
+        return
+    # The add-ons installed now, from this build's own index: the question names them,
+    # and a yes is the consent the new version's first start acts on (ADR-028 Q3).
+    addons = update_addons()
+    try:
+        title, prompt = confirmation_prompt(status, all_users=offer.all_users, addons=addons)
+    except Exception:
+        notify(icon, *describe_update(status=status))
+        return
+    if not (confirm or confirm_dialog)(title, prompt):
+        notify(icon, "YazSes", "Update skipped. Check for updates again whenever you like.")
+        return
+
+    def _progress(message: str, fraction) -> None:  # noqa: ANN001
+        # Stage changes only: a balloon per 10 % would replace itself faster than it
+        # can be read.
+        if fraction is None:
+            notify(icon, "YazSes", message)
+
+    result = run_one_click(status, launcher, progress=_progress)
+    if result.ok:
+        record_update_consent(status, addons)
+        notify(icon, result.title, result.message)
+        (sleep or time.sleep)(_HANDOFF_NOTICE_S)
+        # Quit → `on_quit` sends the daemon `shutdown`; the update job is waiting for
+        # both processes to exit before it starts the installer.
+        icon.stop()
+        return
+    opened = open_link(RELEASES_URL)
+    tail = "Opening the download page." if opened else f"Download page: {RELEASES_URL}"
+    notify(icon, result.title, f"{result.message}\n{tail}")
 
 
 def open_link(url: str) -> bool:

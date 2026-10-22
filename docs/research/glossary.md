@@ -35,13 +35,16 @@ decoder rather than after it.
 vocabulary. YazSes uses it for the personal dictionary and for the app name itself.
 
 **Hotword / contextual biasing** — the same goal at decode time rather than as a prompt.
-Stronger, and engine-specific; the reason `hotwords` is still unwired.
+Stronger, and engine-specific. YazSes does not do this: `hotwords` repairs mis-heard
+vocabulary after decoding instead, because the decoder it uses exposes no N-best list to re-rank.
 
 ## Capture
 
 **VAD — voice activity detection.** Deciding which audio contains speech. YazSes's default
-is an energy gate: `mean(|samples|)` against a threshold. Cheap, and the thing most often
-misconfigured — below your voice and everything is discarded, above the room and nothing is.
+is an energy gate — `mean(|samples|)` against a threshold — followed by a Silero
+speech-presence check that discards a loud burst with no speech in it. The energy gate is the
+thing most often misconfigured — below your voice and everything is discarded, above the
+room and nothing is.
 
 **Endpointing** — deciding *when you stopped speaking*. Distinct from VAD, which decides
 whether a moment is speech. Endpointing is what makes release feel instant or laggy.
@@ -120,7 +123,7 @@ a result cannot be reverse-engineered from what the data happened to show.
 
 **Wired / unwired** — whether a capability in the registry is reachable from a real entry
 point. An unwired capability may be fully implemented and tested; it simply has no door.
-Roughly 62 of 144 are unwired, and the count is
+30 of 149 are unwired (October 2026), and the count is
 [enforced by a test](https://github.com/MSKazemi/yazses/blob/main/tests/test_feature_wiring_honesty.py)
 so the catalogue cannot overstate itself.
 

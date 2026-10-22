@@ -14,6 +14,11 @@ once — a registry entry that nothing reads, documentation that contradicts the
 a test fails if the committed schema is stale. External tools get a real schema; there is
 still only one place to change a rule.
 
+**Eye-validation rows are derived, not written.** Every task whose `source` names an
+eye-validation slot is generated from `design/eye-control/validation-slots.json`: one per
+READY slot, none for a PLANNED one. `--generate` rewrites those rows in `tasks.json`;
+`--check` fails when they disagree with the registry in either direction (#456).
+
 **No new dependencies.** Validation is hand-rolled rather than using `jsonschema`,
 because YazSes runs a deliberate 18-package base budget and campaign tooling is not a
 reason to widen it.
@@ -277,6 +282,166 @@ def load_tasks(path: Path = TASKS_JSON) -> list[dict[str, Any]]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def dump_tasks(tasks: list[dict[str, Any]]) -> str:
+    """The inventory's on-disk form: two-space JSON, UTF-8 kept literal, trailing newline."""
+    return json.dumps(tasks, indent=2, ensure_ascii=False) + "\n"
+
+
+# ── Eye/camera validation slots (#456) ────────────────────────────────────────
+#
+# The eye-control validation slot registry (design/eye-control/validation-slots.json,
+# #454) is the single source of truth for which no-code eye/camera checks a contributor
+# can run. This section turns every READY slot into exactly one campaign task and
+# nothing else: a PLANNED slot is future work, not available work, so it never reaches
+# the inventory. `--generate` writes the derived rows into tasks.json, so the finder,
+# check-task.py and the claim queue all see them through the file they already read,
+# and `--check` reports tasks.json as stale when the two disagree in either direction.
+#
+# Every task whose `source` names a slot is owned by this derivation: a hand-written
+# one is replaced, never merged with. The derivation adds no campaign field and relaxes
+# no campaign rule -- a slot task is a `measurement` task, so `validate_task` already
+# forces `cloud_agent_ready` false -- and its output is re-checked by the registry's own
+# `validate_campaign_exposure` before anything is written.
+
+EYE_SLOTS_JSON = ROOT / "design" / "eye-control" / "validation-slots.json"
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import check_eye_validation_slots as eye_slots  # noqa: E402  (sibling script, not a package)
+
+#: Plain-language names for the test packs, from the headings of
+#: design/eye-control/VALIDATION_MATRIX.md. A test pins this to the registry's pack
+#: vocabulary, so a new pack cannot reach the finder with no name.
+EYE_PACK_LABELS = {
+    "T0": "camera lifecycle and privacy",
+    "T1": "coarse four-target gaze",
+    "T2": "Head-Pointer large target",
+    "T3": "face-switch activation",
+    "T4": "safety, pause and recovery",
+    "T5": "display topology",
+    "T6": "semantic grounding",
+    "T7": "hands-free workflow",
+}
+
+#: What a contributor must physically have, per registry `hardware_class` -- the
+#: camera/display need #456 requires be visible before claiming. Shown in the finder's
+#: "You need" column.
+_EYE_HARDWARE_NEEDS = {
+    "none": {},
+    "camera": {"hardware": "a webcam (built-in or USB)"},
+    "camera_display_topology": {
+        "hardware": "a webcam (built-in or USB)",
+        "display": "a second monitor or non-100% display scaling",
+    },
+}
+
+#: The one file a pull request for a slot task may touch. The result itself is reported
+#: through the "No-code eye-control test" issue form, not a pull request; the campaign
+#: contract still bounds every task, and a fix to the tester guide the contributor just
+#: followed is the only edit such a task can legitimately produce.
+_EYE_ALLOWED_PATHS = ["design/eye-control/BEGINNER_TESTING.md"]
+_EYE_VALIDATION = ["uv run python scripts/check_eye_validation_slots.py"]
+
+
+def eye_slot_task_id(slot_id: str) -> str:
+    """The campaign id of the task advertising registry slot *slot_id*."""
+    return f"MEASURE-EYE-{slot_id.upper()}"
+
+
+def _names_eye_slot(task: Any) -> bool:
+    source = task.get("source") if isinstance(task, dict) else None
+    return isinstance(source, str) and eye_slots._SLOT_REF.search(source) is not None
+
+
+def eye_slot_task(slot: dict[str, Any]) -> dict[str, Any]:
+    """The campaign task for one READY slot. Assumes the registry validated clean."""
+    pack, session, issue = slot["pack"], slot["session"], slot["issue"]
+    sessions = slot.get("sessions", 1)
+    per_session = slot["time_estimate_minutes"]["max"]
+    label = EYE_PACK_LABELS[pack]
+    if slot["slot"] == "repeat":
+        when = f"repeated in {sessions} separate sittings"
+    else:
+        when = f"slot {slot['slot']}"
+    evidence = [
+        f"the PASS / PARTIAL / FAIL / BLOCKED result of pack {pack} exactly as issue "
+        f"#{issue} specifies it, posted with the 'No-code eye-control test' issue form "
+        f"linked to #{issue}",
+        "YazSes version, OS and desktop session, broad computer model, camera category, "
+        "display scaling and the generated counts the form asks for -- copied by hand, "
+        "never a whole log",
+        "if the issue names a `yazses eye-eval` run, its result file is already schema- "
+        "and privacy-checked before it is written; copy only the fields the form asks for",
+        "nothing identifying and no research consent: no face image, webcam frame, "
+        "hostname, serial number, email or raw log (design/eye-control/DATA_SHARING.md); "
+        "the report is community_qa engineering QA",
+    ]
+    if sessions > 1:
+        evidence.insert(1, f"one report per sitting, {sessions} sittings recorded separately")
+    return {
+        "id": eye_slot_task_id(slot["id"]),
+        "family": "measurement",
+        "title": f"{pack} {label} on {session}: {when}, issue #{issue}, no coding",
+        "value": (
+            f"Independent {session} evidence for the {pack} {label} pack "
+            f"({slot['requirement']}). A FAIL, PARTIAL or BLOCKED report is a completed "
+            "contribution too -- it is the evidence the project lacks."
+        ),
+        "risk": "L1",
+        # Honest: the slot's upper estimate for every session it asks for.
+        "minutes": per_session * sessions,
+        "skills": [],
+        "requires": {"session": session, **_EYE_HARDWARE_NEEDS[slot["hardware_class"]]},
+        # A human must observe the real camera; validate_task enforces this for the
+        # measurement family, and validate_campaign_exposure checks it again.
+        "cloud_agent_ready": False,
+        "allowed_paths": list(_EYE_ALLOWED_PATHS),
+        "validation": list(_EYE_VALIDATION),
+        "evidence": evidence,
+        "state": "open",
+        "source": (
+            f"eye-validation slot {slot['id']} (issue #{issue}; "
+            "design/eye-control/validation-slots.json)"
+        ),
+    }
+
+
+def eye_slot_tasks(registry: dict[str, Any]) -> list[dict[str, Any]]:
+    """One task per READY slot, in registry order. PLANNED slots yield nothing."""
+    return [
+        eye_slot_task(slot)
+        for slot in registry["slots"]
+        if isinstance(slot, dict) and slot.get("state") == "ready"
+    ]
+
+
+def sync_eye_slot_tasks(
+    tasks: list[dict[str, Any]], registry: dict[str, Any]
+) -> list[dict[str, Any]]:
+    """*tasks* with every slot-naming row replaced by the registry's derivation.
+
+    Non-slot rows keep their order; the derived rows follow them in registry order. A
+    no-op on an inventory that is already in sync, so `--generate` leaves tasks.json
+    byte-identical when nothing in the registry changed.
+    """
+    return [t for t in tasks if not _names_eye_slot(t)] + eye_slot_tasks(registry)
+
+
+def load_eye_registry(path: Path | None = None) -> tuple[dict[str, Any] | None, list[str]]:
+    """Read and validate the slot registry: (registry, errors).
+
+    Unreadable input and an invalid registry -- including an empty one, which the
+    registry validator refuses -- both come back as errors, never as an empty document:
+    a derivation over nothing would silently drop every READY task from the finder.
+    """
+    path = EYE_SLOTS_JSON if path is None else path
+    try:
+        registry = eye_slots.load_registry(path)
+    except eye_slots.RegistryError as exc:
+        return None, [str(exc)]
+    errors = eye_slots.validate_registry(registry)
+    return (None, errors) if errors else (registry, [])
+
+
 # ── Generated artifacts ───────────────────────────────────────────────────────
 
 def stats(tasks: list[dict[str, Any]]) -> dict[str, Any]:
@@ -322,8 +487,9 @@ def render_open_tasks(tasks: list[dict[str, Any]]) -> str:
         f"{s['cloud_agent_ready']} work in a browser container · "
         f"{s['hardware_required']} need your own machine.",
         "",
-        "You do not need permission and nothing is assigned. Pick one, say so on the linked",
-        "issue so nobody doubles up, and open the PR. A coding agent is welcome — you remain",
+        "You do not need permission and nothing is assigned. Pick one, say so in your pull",
+        "request's first line (or on [#22](https://github.com/MSKazemi/yazses/issues/22)) so",
+        "nobody doubles up, and open the PR. A coding agent is welcome — you remain",
         "the author, and you are expected to have read every line you send.",
         "",
         "Agent-ready or cloud-ready describes technical suitability only; it is **not**",
@@ -463,7 +629,8 @@ description: Filter {len(openable)} open YazSes contributor tasks by what you ha
 # Find a task that fits you
 
 Filter by what you actually have. Nothing is assigned and you need no permission — pick one,
-say so on the issue it links to, and open the pull request.
+say so in your pull request's first line (or on [#22](https://github.com/MSKazemi/yazses/issues/22))
+so nobody doubles up, and open the pull request.
 [How to make your first contribution](start.md) if you want the short version.
 
 Coding agents are optional. "Cloud-ready" means the task can run in that environment; it does
@@ -595,8 +762,22 @@ def main(argv: list[str] | None = None) -> int:
         ap.print_help()
         return 2
 
-    tasks = load_tasks()
-    errors = validate_inventory(tasks)
+    on_disk = load_tasks()
+    registry, registry_errors = load_eye_registry()
+    if registry is None:
+        shown = (
+            EYE_SLOTS_JSON.relative_to(ROOT).as_posix()
+            if EYE_SLOTS_JSON.is_relative_to(ROOT)
+            else str(EYE_SLOTS_JSON)
+        )
+        print(f"✗ cannot derive eye-validation tasks from {shown}:", file=sys.stderr)
+        for e in registry_errors:
+            print(f"  - {e}", file=sys.stderr)
+        return 1
+    tasks = sync_eye_slot_tasks(on_disk, registry)
+    # The registry's own check is the post-condition: the derived inventory must
+    # advertise every READY slot exactly once and no PLANNED slot at all.
+    errors = validate_inventory(tasks) + eye_slots.validate_campaign_exposure(registry, tasks)
     if errors:
         print(f"✗ {len(errors)} problem(s) in {TASKS_JSON.relative_to(ROOT)}:", file=sys.stderr)
         for e in errors:
@@ -604,6 +785,8 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     wanted = generate(tasks)
+    if tasks != on_disk:
+        wanted = {TASKS_JSON: dump_tasks(tasks), **wanted}
     if args.generate:
         for path, content in wanted.items():
             path.parent.mkdir(parents=True, exist_ok=True)

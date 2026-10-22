@@ -50,21 +50,23 @@ one. `yazses doctor` prints the choice and whether it is functional.
 | Backend | Mechanism | GNOME | KDE Plasma | sway / Hyprland | Types into terminals? |
 |---|---|---|---|---|---|
 | **`ydotool`** *(default on Wayland)* | Kernel `uinput` virtual keyboard — below the compositor | ✅ | ✅ | ✅ | ✅ |
-| `wtype` | `virtual-keyboard-v1` Wayland protocol | ❌ *(GNOME does not implement the protocol)* | ✅ | ✅ | ✅ |
+| `portal` | xdg-desktop-portal RemoteDesktop session — asks once for permission, shows a screen-sharing indicator while active | ✅ | ✅ | depends on your portal backend | ✅ |
+| `wtype` | `virtual-keyboard-v1` Wayland protocol | ❌ *(GNOME does not implement the protocol)* | ❌ *(KWin does not implement the protocol)* | ✅ | ✅ |
 | `clipboard` | Copies text, sends paste | ✅ | ✅ | ✅ | ❌ *(terminals use a different paste binding)* |
 | `xdotool` | X11 `XTEST` | X11 only | X11 only | X11 only | ✅ |
 
-The practical consequence: **`ydotool` is the only backend that works on all
-four compositors including GNOME**, which is why it is the default. `wtype` is
-cleaner but GNOME has declined to implement `virtual-keyboard-v1`, so it is not
-a general answer.
+The practical consequence: **`ydotool` is the only backend that works on every
+compositor including GNOME and KDE**, which is why it is the default. `wtype` is
+cleaner but works on wlroots compositors (sway, Hyprland) only, so it is not a
+general answer. The portal is used when you allow it (`[injection] portal_consent`),
+and always inside the Snap, where it is the only way to type on Wayland.
 
 Pin a backend explicitly if the probe picks badly:
 
 ```toml
 # ~/.config/yazses/config.toml
 [injection]
-backend = "wtype"     # auto | type | clipboard | wtype
+backend = "wtype"     # auto | type (= ydotool) | portal | wtype | xdotool | unicode | clipboard
 ```
 
 ## How do I set up ydotool?
@@ -117,7 +119,8 @@ Work down this list; `yazses doctor` answers most of it for you.
 1. **Confirm the session** — `echo $XDG_SESSION_TYPE` should say `wayland`.
 2. **Confirm the backend** — `yazses doctor` reports which injector was selected
    and whether it passed its functional check.
-3. **Is `ydotoold` running?** — `systemctl status ydotoold`. Without the daemon,
+3. **Is `ydotoold` running?** — `systemctl --user status ydotoold` (`yazses setup` installs it as a user
+   service). Without the daemon,
    `ydotool` fails silently.
 4. **`/dev/uinput` permissions** — the daemon needs write access; `yazses setup`
    fixes this.

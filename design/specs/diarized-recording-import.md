@@ -3,12 +3,32 @@
 | Field | Value |
 |---|---|
 | **ID** | spec-diarized-recording-import |
-| **Status** | Proposed |
+| **Status** | Proposed (2026-07-04 design) · current: Phases 1–3 shipped, Phase 4 deferred — see [Delivery status](#delivery-status-current) |
 | **Date** | 2026-07-04 |
 | **ADRs** | [[adr-v2-125-diarized-recording-import]] (completes [[adr-v2-083-recording-import]]), [[adr-v2-126-cloud-escalation]] (deferred) |
 | **Research** | the diarized recording import research note (internal) |
 | **Module** | `src/yazses/recimport/` (extend: `pipeline.py`, `audio_io.py`, `align.py`, `diarizer.py`, `factory.py`, `naming.py` new; `subtitles.py` reused) |
 | **Maturity** | Wave O opener; OFF by default; CPU-only, offline |
+
+---
+
+## Delivery status (current)
+
+> Checked **2026-10-21** against `main` at `3245f848` (latest tag v2.43.2). This section
+> states what the code does today; everything below it is the original design, kept as
+> written. Where the two disagree, this section is the current statement. Status words:
+> **shipped** (wired and reachable), **partial**, **blocked** (names its gate),
+> **deferred** (no delivery promise), **rejected**, **out of scope**. "No tracker" means
+> no issue or campaign task exists for that remainder; it is not scheduled.
+
+| Phase | Status | Evidence | Tracking |
+|---|---|---|---|
+| 1 — transcribe a file, no diarization | **Shipped**, off by default (`[recimport]`, slug `recimport`) | `yazses transcribe <file>` writing txt / md / srt / vtt / json; `recimport/audio_io.py`, `recimport/pipeline.py` | — |
+| 2 — diarization + alignment | **Shipped**, opt-in (`--diarize`, `diarization` extra). Also an optional pyannote backend this spec did not plan | `recimport/diarizer.py` (sherpa-onnx), `recimport/align.py`, `--speakers`; `recimport/pyannote_backend.py` | This phase's gate (DER + CPU RTF on real audio) has no result recorded in this spec. A DER harness exists (`paper/benchmark/bench_diarization.py`, synthetic and VoxConverse corpora); far-field evaluation of the same diarizer in Meeting Mode is [#502](https://github.com/MSKazemi/yazses/issues/502) |
+| 3 — voiceprint naming | **Shipped** | `recimport/naming.py` (`min_speaker_seconds = 3.0`, `name_threshold = 0.5`, no auto-enroll); `--names` / `--rename`; `yazses transcribe` prints that naming uses voiceprints stored only on this machine | — |
+| 4 — forced-alignment extra | **Deferred**, not built | no wav2vec2 / CTC alignment code under `src/yazses/recimport/` | No tracker; no delivery promise |
+| 4 — Parakeet for file transcription | **Deferred** for this path. Parakeet ships as a *live-dictation* engine (`[stt] engine`, slug `stt-parakeet`), but `yazses transcribe` always builds a faster-whisper engine | `recimport/pipeline.py` `_build_engine` | No tracker |
+| 4 — cloud escalation | **Deferred — design-only.** ADR-v2-126 is "Proposed — design-only, not scheduled for implementation"; no escalation code exists | [ADR-v2-126](../adr/adr-v2-126-cloud-escalation.md) | None, by design: audio would leave the machine |
 
 ---
 

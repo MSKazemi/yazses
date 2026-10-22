@@ -5,9 +5,9 @@ description: YazSes reported 'Update installed', you restarted, and it came back
 
 # The update said it worked, but the version did not change
 
-You ran `yazses update` (or clicked **Check for updates…** in the tray), it said the
-update was installed, you restarted the daemon — and it came back on exactly the
-version you had. Possibly more than once.
+You ran `yazses update` (or clicked **Check for updates…** in the tray, or **Install
+update…** in the Settings window), it said the update was installed, you restarted the
+daemon — and it came back on exactly the version you had. Possibly more than once.
 
 Nothing is corrupted, and nothing needs uninstalling. **The upgrade command ran, did
 nothing, and reported success.** This page is the way out.
@@ -84,8 +84,15 @@ detected.
 
 === "Windows"
 
-    There is no command that upgrades the installer channel — the upgrade **is** a
-    download. Get the current `YazSes-<version>-windows-<arch>.exe` from the
+    Since the one-click update ([ADR-027](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-027-one-click-windows-update.md)),
+    tray → *Check for updates…* or `yazses update --yes` downloads the installer,
+    verifies it and installs it for you. The notification on the next start says
+    whether the version really moved. If it did not, it gives the reason (a declined
+    administrator prompt, a cancelled install, an installer exit code) and the log
+    path, `%TEMP%\yazses-update\update.log`.
+
+    The way out that always works is still a download. Get the current
+    `YazSes-<version>-windows-<arch>.exe` from the
     [releases page](https://github.com/MSKazemi/yazses/releases/latest) and run it. It
     upgrades in place and keeps your settings and models.
 
@@ -141,11 +148,82 @@ And confirm, in a new terminal, that the number actually moved:
 yazses --version
 ```
 
+## The update finished, but the camera features stopped working
+
+If YazSes says *"The upgrade to YazSes X finished, but OpenCV (cv2), which the camera
+features use, does not load any more"*, the version did move. What broke is OpenCV.
+
+The camera features (gaze, face gestures, head pointer, hand gestures, hands-free)
+install two OpenCV builds today, `opencv-python` and `opencv-contrib-python`. They share
+the same `cv2/` folder. A future release will drop `opencv-python`; a `uv tool` upgrade
+to it removes that package, and removing it deletes the files the two builds shared.
+`import cv2` still succeeds afterwards, but `cv2.VideoCapture` is missing.
+
+The protection below is not in 2.43.2. It ships in the first release after 2.43.2, one
+release ahead of that change, because an upgrade runs the YazSes you already have.
+From that release on, `yazses update`, the tray and the Settings window prevent this on a
+`uv tool` install:
+when both builds are present, they add `--reinstall-package opencv-contrib-python` to the
+upgrade command they show and run. After every `uv`, `pipx` or `pip` upgrade they also
+check that `cv2` still works. If it does not, they print the exact repair for your
+install.
+
+Other routes reach the same broken state without going through that check: an upgrade
+run by an older YazSes, `uv sync` in a source checkout, or `pip uninstall opencv-python`.
+For those, YazSes checks again whenever it starts and whenever you run `yazses doctor`:
+
+- **At start**, each camera feature that is switched on and has a half-deleted `cv2` is
+  reported as not ready, the same way as a feature whose libraries are missing. The
+  notification says *"OpenCV (cv2) is half-deleted"* and gives the repair command. It has
+  no **Install now** button, because installing a package that is already installed does
+  not repair it.
+- **`yazses doctor`** shows an **OpenCV** row whenever an OpenCV build is installed:
+  `OK` when `cv2` is whole, and `FAIL` with the repair command when it is not.
+
+The check does not import OpenCV. It looks for OpenCV's native module inside the `cv2/`
+folder, and it reads the package list only when that module is missing. So it adds
+almost nothing to start-up, and it does not run at all unless a camera feature is
+switched on (doctor checks whenever an OpenCV build is installed).
+
+The repair has this shape, pinned to the version that is installed now:
+
+=== "uv"
+
+    ```bash
+    uv pip install --python <your YazSes environment's python> --reinstall --no-deps opencv-contrib-python==<version>
+    ```
+
+=== "pipx"
+
+    ```bash
+    pipx runpip yazses install --force-reinstall --no-deps opencv-contrib-python==<version>
+    ```
+
+=== "pip"
+
+    ```bash
+    <your YazSes environment's python> -m pip install --force-reinstall --no-deps opencv-contrib-python==<version>
+    ```
+
+Copy the command YazSes printed rather than these templates, because it already has the
+right interpreter path and version. Then restart the daemon (`yazses restart`).
+
+In a virtual environment that has no pip (uv does not install pip into the environments
+it creates, including a source checkout's `.venv`), YazSes prints the `uv` form instead,
+because `python -m pip` would fail there.
+
+The `uv` repair was run on Linux against an environment broken this way, and it worked.
+The start-up and doctor check was also run there: it reported the broken environment as
+half-deleted and the whole one as healthy, and after the repair it reported the repaired
+one as healthy. The `pipx` and `pip` forms were not run, and Windows and macOS were not
+tested.
+
 ## Your settings, models and vocabulary are not affected
 
 None of the commands above touch your data. Configuration lives in
-`~/.config/yazses/` (`%LOCALAPPDATA%\yazses\` on Windows), models and the learning corpus
-in `~/.local/share/yazses/` — all outside the installed package. A reinstall replaces
+`~/.config/yazses/` (`%LOCALAPPDATA%\yazses\` on Windows), the learning corpus in
+`~/.local/share/yazses/`, and speech models in the Hugging Face cache
+(`~/.cache/huggingface/hub`) — all outside the installed package. A reinstall replaces
 code only.
 
 ## See also

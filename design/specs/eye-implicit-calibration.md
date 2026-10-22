@@ -71,6 +71,16 @@ Use bounded state/history consistent with existing incremental design and privac
 Candidate may become active only when `refined_if_better`/equivalent held-out gate wins by the
 defined margin/sample requirement.
 
+As built (#398) the verdict is the pure function `gaze.refine.decide_promotion(baseline,
+candidate, holdout, *, train_samples, policy)`: no I/O, clock or state, arguments unmodified.
+It returns `insufficient_data` below `min_train_samples`/`min_holdout_samples`, otherwise
+`applied` only when both held-out mean errors are finite, the candidate's is strictly lower,
+and `baseline − candidate ≥ min_improvement_px` (policy-enforced `> 0`); anything else —
+including a baseline compared with itself — is `kept_baseline`. `applied` is the verdict, not
+the deed: the refiner still confirms the context and writes atomically, reporting
+`stale_context` or `persist_failed` if either fails. The split is the pure
+`gaze.refine.routes_to_holdout(index, holdout_every)`, by position only.
+
 ## Persistence
 
 Calibration artifact includes:
@@ -85,6 +95,16 @@ Write atomically.
 A failed candidate leaves the prior artifact exactly valid.
 
 Keep enough metadata to report/rollback the previous accepted map if rollback is a supported command.
+
+As built (#398): one level of history, `gaze_calibration.previous.json`, byte-identical to
+the artifact the last promotion replaced; `yazses gaze rollback` restores it byte for byte;
+a new explicit calibration removes it. The `version` field is read on load: absent = 1;
+present but not a positive integer = damaged (STALE, as #415). A file from a newer schema
+still routes (its map and `space` are checked on their own) but `promote_refinement`
+refuses to re-encode it, since that would drop fields this build cannot read. The stored
+key set is pinned by a golden test (`tests/test_gaze_calibration_promotion_contract.py`):
+map coefficients, source, version, space, timestamp, context + fingerprint and, for an
+implicit map, four scalar evidence numbers — no samples, clicks, frames or screen content.
 
 ## Context/topology
 
@@ -112,6 +132,65 @@ Status reports:
 - no raw personal data.
 
 A user can disable refinement without deleting explicit calibration.
+
+## Backends
+
+One `ClickObserver` (`src/yazses/gaze/clicks.py`) per display server, under
+`src/yazses/platform/<os>/`, registered as `Platform.click_observer_factory`. Where a session has
+none, the factory is `None` and `Platform.click_observer_unavailable_reason` carries the sentence
+the daemon log, `yazses doctor` and `yazses gaze status` repeat. Every backend emits only
+`(time.monotonic() timestamp, x, y)` in the canonical desktop space; a backend is constructed by the
+factory but opens nothing until `start`, which only the refinement runtime calls, only when
+`[gaze_refine] enabled = true`. Each OS has its own subsection below.
+
+### Linux
+
+- **X11** — `platform/linux/click_observer_x11.py` (#607). XInput2 `XI_RawButtonPress` selected on
+  the root window for `XIAllDevices`: delivered for a press in any window, takes no grab, and the raw
+  event carries no window at all. Position is `QueryPointer` on the root at event time, in root-window
+  (framebuffer) pixels — the same space `gaze/display.py` reads from `xrandr` with `scale=1.0`, so no
+  conversion. Buttons 1–3 only; the wheel (4–7) and extra buttons are dropped before the pointer is
+  queried. Own daemon thread on a separate display connection; the loop waits in `select` on the
+  display socket (≤ 0.25 s) so `stop()` is a flag plus a join. `start` raises `ClickObserverError`
+  with the reason for: no `DISPLAY`, no python-xlib, no `XInputExtension`, XInput < 2, a refused
+  connection. Status: implemented and hermetically tested; **no real-desktop smoke report yet**.
+- **Wayland** — none, by design. `click_observer_factory = None` with the reason: a native Wayland
+  session exposes no global click stream (button events reach only the focused client, the compositor
+  APIs that could report them are private, and the XDG RemoteDesktop portal is output-only). The
+  bundle classifies the session with `gaze/target_semantics.classify_session`, so `WAYLAND_DISPLAY`
+  with no `XDG_SESSION_TYPE` is Wayland too — XInput2 on XWayland would otherwise register and see only
+  X clients' clicks.
+
+### Windows
+
+`platform/windows/click_observer.py` (#607) installs a `WH_MOUSE_LL` low-level mouse hook on
+a dedicated thread with its own message loop, the shape `platform/windows/hotkey.py` already
+uses. `WM_LBUTTONDOWN`, `WM_RBUTTONDOWN` and `WM_MBUTTONDOWN` each become one
+`ClickEvent(time.monotonic(), x, y)`; wheel, move, button-up and X-button messages produce
+nothing. The event names no button, no window and no text — the value has no field for them —
+and `MSLLHOOKSTRUCT.pt` is read as the hook reports it (primary-origin, negative left/above;
+the DPI factor belongs to the still-missing Windows topology provider, see the module
+docstring). The hook procedure only enqueues and returns `CallNextHookEx` — never `1` — because
+`LowLevelHooksTimeout` (300 ms default) silently removes a slow hook; the callback runs on a
+second thread. `start()` raises `ClickObserverError` naming `GetLastError` when the hook is
+refused. Hermetic tests: `tests/test_click_observer_windows.py`. **No real-Windows evidence
+yet**: a hook has not been installed on a Windows desktop by this code; that smoke report is
+still owed before the refiner is described as working there.
+
+### macOS
+
+As built (#607): `src/yazses/platform/macos/click_observer.py`, `MacClickObserver`, registered as
+`click_observer_factory` in `src/yazses/platform/macos/__init__.py`. A `CGEventTap` created with
+`kCGEventTapOptionListenOnly` on a dedicated daemon thread's run loop, masked to the three
+mouse-down types only; listen-only means it can never swallow, delay or alter a click, and the
+test pins the exact option constant. It emits `ClickEvent(monotonic, x, y)` with the location
+passed through unchanged (CoreGraphics global points are already the ADR-v2-149 space here: main
+display top-left, y down, negative left/above) and emits nothing for mouse-up, motion, scroll or a
+tap-disabled notification, which it answers by re-enabling. It needs the same Input Monitoring +
+Accessibility grants as the dictation key; a NULL tap raises `ClickObserverError` naming both
+panes and `yazses doctor`, so dictation keeps working and the refiner stays dormant with the
+reason surfaced. Live evidence on real hardware is pending: nothing here has run against a real
+`CGEventTapCreate`, and a CI runner's TCC is permissive, so a runner `[OK]` proves nothing.
 
 ## Acceptance criteria
 

@@ -3,12 +3,30 @@
 | Field | Value |
 |---|---|
 | **ID** | spec-cocktail-filter |
-| **Status** | Proposed |
+| **Status** | Proposed (2026-06-14 design) · current: P1 gate wired but experimental, P2 blocked — see [Delivery status](#delivery-status-current) |
 | **Date** | 2026-06-14 |
 | **Module** | `src/yazses/audio/target_speaker.py` (new) |
 | **Vision card** | the Cocktail Filter vision card (internal) |
 | **SoA dossier** | the 2026-06-14 ten-feature SoA dossier (internal) (Feature 6) |
 | **Verdict** | ready-now (gate, P1) · partial (suppression, P2) · out-of-scope (full separation) |
+
+---
+
+## Delivery status (current)
+
+> Checked **2026-10-21** against `main` at `3245f848` (latest tag v2.43.2). This section
+> states what the code does today; everything below it is the original design, kept as
+> written. Where the two disagree, this section is the current statement. Status words:
+> **shipped** (wired and reachable), **partial**, **blocked** (names its gate),
+> **deferred** (no delivery promise), **rejected**, **out of scope**. "No tracker" means
+> no issue or campaign task exists for that remainder; it is not scheduled.
+
+| Phase | Status | Evidence | Tracking |
+|---|---|---|---|
+| Shared voiceprint enrollment | **Shipped** | `src/yazses/voiceprint/` (ECAPA and Resemblyzer embedders, encrypted store); `yazses enroll-voice` | — |
+| P1 — personal-VAD gate (`mode = "gate"`) | **Shipped, experimental — not usable as shipped.** Wired and off by default, but the one recorded live test failed this spec's own P1 kill criterion: at 500 ms windows it dropped about 90 % of the enrolled user's *own* speech | `audio/personal_vad.py` (`gate`); `core/daemon.py` `_maybe_cocktail_gate` runs it before STT only with `[cocktail] enabled`, `mode = "gate"`, an enrolled voiceprint and an embedder; registry slug `cocktail` is `EXPERIMENTAL` ("over-rejects your OWN voice"); the 2026-06-19 live finding in [02-cocktail-filter.md](../v2-cognitive-layer/02-cocktail-filter.md); the `window_ms` comment in `config.py` keeps 500 ms deliberately unchanged | **No tracker.** The recorded revisit paths (1–1.5 s windows with a live-tuned threshold, cohort scoring, or a real target-speaker model) are unscheduled |
+| P2 — suppression (`mode = "suppress"`) | **Blocked** on an open, permissively-licensed, CPU-real-time target-speaker model. Not implemented: any `mode` other than `gate` makes the gate a no-op | `_maybe_cocktail_gate` returns the audio unchanged unless `mode == "gate"`; no suppression code under `src/yazses/audio/` | No tracker; not scheduled |
+| Full source separation | **Out of scope** (unchanged) | Scope boundary below | — |
 
 ---
 

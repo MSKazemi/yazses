@@ -11,6 +11,8 @@ on:
       - 'packaging/windows/**'
       - 'assets/**'
       - 'scripts/build-windows.ps1'
+      - 'scripts/build-packs.py'
+      - 'packaging/packs/**'
       - 'scripts/gen-icons.py'
       - 'src/yazses/brandmark.py'
       - '.github/workflows/build-windows.yml'
@@ -60,6 +62,9 @@ jobs:
             experimental: false
     name: build (windows-${{ matrix.arch }})
     runs-on: ${{ matrix.runner }}
+    # PROMOTE WHEN: a re-added `experimental: true` leg (win_arm64, once ctranslate2 ships
+    # the wheel) has built green -- set it to false. No leg is experimental today, so this
+    # evaluates to false on every leg.
     continue-on-error: ${{ matrix.experimental }}
     timeout-minutes: 45
 
@@ -293,6 +298,33 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+      # ADR-028 add-on packs. build-windows.ps1 writes dist/packs/ only when at least one
+      # pack passed every build check AND the frozen probe; otherwise the release ships the
+      # base installer alone and the build log says which pack was withheld and why.
+      - name: Locate add-on packs
+        id: packs
+        shell: pwsh
+        run: |
+          $index = Get-ChildItem "dist\packs\YazSes-*-windows-${{ matrix.arch }}-packs.json" -ErrorAction SilentlyContinue |
+            Select-Object -First 1
+          if ($index) {
+            Write-Host "Add-on pack index: $($index.Name)"
+            Get-ChildItem dist\packs | Format-Table Name, Length
+            echo "present=true" >> $env:GITHUB_OUTPUT
+          } else {
+            Write-Host "No add-on packs passed their checks; the release carries none."
+            echo "present=false" >> $env:GITHUB_OUTPUT
+          }
+
+      - name: Upload add-on packs
+        if: steps.packs.outputs.present == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: yazses-windows-${{ matrix.arch }}-packs-${{ github.sha }}
+          path: dist/packs/
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Attest build provenance for the .exe
         id: attest
         # Skipped on a PR from a fork, which is the one context where this cannot
@@ -340,4 +372,42 @@ jobs:
           files: |
             dist/YazSes-*-windows-${{ matrix.arch }}.exe
             dist/YazSes-*-windows-${{ matrix.arch }}.intoto.jsonl
+          fail_on_unmatched_files: true
+
+      # One attestation over every pack and the index (ADR-028 §3.4), attached as
+      # YazSes-<v>-windows-<arch>-packs.intoto.jsonl. Same fork condition as the .exe.
+      # scripts/verify-provenance.py derives `.yazpack` and `.json` from these lines, so
+      # release-complete.yml then requires a servable attestation for each of them.
+      - name: Attest build provenance for the add-on packs
+        id: attest-packs
+        if: >-
+          steps.packs.outputs.present == 'true' &&
+          (github.event_name != 'pull_request' ||
+           github.event.pull_request.head.repo.fork != true)
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            dist/packs/YazSes-*-windows-${{ matrix.arch }}-pack-*.yazpack
+            dist/packs/YazSes-*-windows-${{ matrix.arch }}-packs.json
+
+      - name: Attach the add-on packs provenance bundle as a release asset
+        if: startsWith(github.ref, 'refs/tags/v') && steps.packs.outputs.present == 'true'
+        shell: pwsh
+        run: |
+          $version = $env:GITHUB_REF_NAME -replace '^v', ''
+          Copy-Item "${{ steps.attest-packs.outputs.bundle-path }}" `
+            "dist/packs/YazSes-$version-windows-${{ matrix.arch }}-packs.intoto.jsonl"
+
+      # After the .exe, so a pack upload problem can never cost the release its
+      # installer. checksums.yml waits for this whole workflow run, so SHA256SUMS.txt
+      # still covers these files; release-complete.yml checks every pack in the
+      # published index is attached and listed there.
+      - name: Attach add-on packs to release (tag builds only)
+        if: startsWith(github.ref, 'refs/tags/v') && steps.packs.outputs.present == 'true'
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        with:
+          files: |
+            dist/packs/YazSes-*-windows-${{ matrix.arch }}-pack-*.yazpack
+            dist/packs/YazSes-*-windows-${{ matrix.arch }}-packs.json
+            dist/packs/YazSes-*-windows-${{ matrix.arch }}-packs.intoto.jsonl
           fail_on_unmatched_files: true

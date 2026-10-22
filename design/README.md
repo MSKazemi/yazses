@@ -12,7 +12,7 @@ site](https://mskazemi.com/yazses/) instead. This directory answers the other qu
 
 | Path | What it holds |
 |---|---|
-| [`adr/`](adr/) | ~150 Architecture Decision Records — one per real decision, with the context, the options, and the consequence. The primary record. |
+| [`adr/`](adr/) | ~180 Architecture Decision Records — one per real decision, with the context, the options, and the consequence. The primary record. |
 | [`specs/`](specs/) | Implementation-ready feature specs in ADR house style. |
 | [`research/`](research/) | The scientific layer: the [105-reference HCI corpus](research/2026-08-11-hci-reference-corpus.md), the [research agenda](research/2026-08-11-hci-research-agenda.md), literature sweeps, and [`hci-corpus.bib`](research/hci-corpus.bib). |
 | [`research/studies/`](research/studies/) | State-of-the-art studies: scope, SoA matrix, gap analysis, capability cards. |
@@ -42,8 +42,10 @@ and a new file's status is never ambiguous.
 | `.claude/` | **Private** | Coding-agent artifacts: plans, memory, project-local skills. |
 
 Enforced in three places, all of which must agree: `.gitignore`,
-`.git/hooks/pre-commit`, and `hooks/design_tier.py` — the hook that mirrors this tree onto
-the documentation site. Changing one without the others is a bug.
+`.git/hooks/pre-commit` (the maintainer's local hook; a fresh clone has none, so
+`tests/test_private_tiers_stay_private.py` is what guards a contributor's commit), and
+`hooks/design_tier.py` — the hook that mirrors this tree onto the documentation site.
+Changing one without the others is a bug.
 
 The third one used to be the odd one out, and the way it failed is worth recording. It
 carried its own list of directories to publish, so `packaging/`, `v2-cognitive-layer/`,
@@ -73,8 +75,9 @@ documents stand alone.
 ## No third-party PDFs. Ever.
 
 Papers we cite are downloaded for personal research use. **Redistributing them would
-violate the authors' copyright**, so no PDF is committed to this repository — the
-pre-commit hook blocks `*.pdf` outright.
+violate the authors' copyright**, so no PDF is committed to this repository: `.gitignore`
+excludes `*.pdf`, `tests/test_citation_hygiene.py` fails the build if one is tracked, and
+the maintainer's local pre-commit hook blocks it too.
 
 What we publish instead is strictly better for the reader anyway:
 
@@ -82,8 +85,12 @@ What we publish instead is strictly better for the reader anyway:
 - **our own summary** of what the work establishes and which decision it drives.
 
 If you want to add a reference, put it in
-[`research/hci-corpus.bib`](research/hci-corpus.bib), verify it with
-[`research/verify_refs.py`](research/verify_refs.py), and cite it. Do not commit the paper.
+[`research/hci-corpus.bib`](research/hci-corpus.bib), then verify it: write a one-item JSON
+list such as `[{"key": "...", "section": "...", "title": "...", "author": "<surname>",
+"doi": "..."}]` (or `"arxiv": "2401.01234"` in place of `doi`), and run
+`python design/research/verify_refs.py candidates.json out.json`. It needs the network,
+because it queries Crossref and DataCite. Only an entry that comes back `OK` goes in, and
+then you cite it. Do not commit the paper.
 
 **Link the landing page, not the file.** A URL ending in `.pdf` is the wrong citation
 even though linking is not redistribution: it skips the abstract or publisher page that
@@ -121,9 +128,20 @@ Live GitHub facts such as whether an issue is still open or a milestone still ex
 intentionally checked separately; the ordinary test suite must remain fully offline. The
 scheduled `.github/workflows/traceability.yml` workflow runs
 `scripts/check-traceability-live.py` (read-only; exit 1 = violation, 2 = GitHub unreadable,
-3 = misconfigured). Deliberate exceptions go in
-[`traceability-exceptions.yml`](traceability-exceptions.yml), empty until the milestone
-policy in #480 is decided.
+3 = misconfigured). Deliberate exceptions to *that* audit go in
+[`traceability-exceptions.yml`](traceability-exceptions.yml). The same run also reports
+**advisory** tracker drift: open issues with no milestone and no exempt class, stale "do not
+start" banners whose numbered blockers have all closed, and closed issues still listed beside
+an open tracker. This drift appears in the job summary and the `traceability-live` artifact
+and never changes the exit code.
+
+Which open issues must carry a milestone is decided by the
+[milestone policy](milestone-policy.md) (#480): delivery issues carry exactly one, epics carry
+the one their sub-issues share, and evergreen issues carry an `evergreen:<class>` label and
+none. `scripts/milestone_policy.py` checks an issue snapshot against it offline, alone or via
+`scripts/check-traceability.py --issues issues.json`. The scheduled live audit applies the same
+module to its own issue listing and reports the policy's violations, advisory, in their own
+section of the job summary.
 
 ## Contributing to the design record
 

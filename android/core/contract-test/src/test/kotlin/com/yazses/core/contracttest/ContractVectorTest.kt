@@ -57,6 +57,9 @@ class ContractVectorTest {
     private fun JsonObject.optionBool(key: String): Boolean =
         this["options"]?.jsonObject?.get(key)?.jsonPrimitive?.content?.toBoolean() ?: false
 
+    private fun JsonObject.optionString(key: String): String =
+        this["options"]?.jsonObject?.get(key)?.jsonPrimitive?.content ?: ""
+
     /**
      * One dynamic test per case. [apply] receives the case so a unit with options
      * can read them; the id and description go into the failure message, because
@@ -80,7 +83,11 @@ class ContractVectorTest {
     @TestFactory
     fun `continuation spacing matches the contract`(): List<DynamicTest> =
         vectorTests("spacing.json") {
-            continuationPrefix(it.str("input"), it.optionBool("had_recent_injection"))
+            continuationPrefix(
+                it.str("input"),
+                it.optionBool("had_recent_injection"),
+                previousTail = it.optionString("previous_tail"),
+            )
         }
 
     @TestFactory

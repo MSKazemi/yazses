@@ -3,6 +3,7 @@ import logging
 import numpy as np
 from faster_whisper import WhisperModel
 
+from yazses.postprocess.cjk import glue_word_tokens, join_pieces
 from yazses.stt.vocabulary import PROMPT_TOKEN_BUDGET
 
 log = logging.getLogger(__name__)
@@ -201,7 +202,10 @@ class FasterWhisperEngine:
         kwargs: dict = self._decode_kwargs(task)
         kwargs.update(self._prompt_kwargs(initial_prompt))
         segments, _ = self._model.transcribe(audio, **kwargs)
-        return " ".join(seg.text.strip() for seg in segments).strip()
+        # Script-aware: a Mandarin decode split into two segments must not come back
+        # with a space at the seam (#501 F5). Byte-identical to `" ".join` for any
+        # text without CJK.
+        return join_pieces([seg.text.strip() for seg in segments]).strip()
 
     def transcribe_words(
         self,
@@ -225,19 +229,24 @@ class FasterWhisperEngine:
         kwargs: dict = {"word_timestamps": True}
         kwargs.update(self._decode_kwargs(task))
         kwargs.update(self._prompt_kwargs(initial_prompt))
-        segments, _ = self._model.transcribe(audio, **kwargs)
+        segments, info = self._model.transcribe(audio, **kwargs)
+        unspaced = _decoded_unspaced(info, getattr(self, "_language", ""))
         texts: list[str] = []
         words: list[Word] = []
         for seg in segments:
             texts.append(seg.text.strip())
-            for w in getattr(seg, "words", None) or []:
+            seg_words = list(getattr(seg, "words", None) or [])
+            if unspaced:
+                words.extend(_glued_words(seg_words, Word))
+                continue
+            for w in seg_words:
                 words.append(Word(
                     text=w.word.strip(),
                     start=float(w.start),
                     end=float(w.end),
                     probability=float(getattr(w, "probability", 0.0) or 0.0),
                 ))
-        return " ".join(texts).strip(), words
+        return join_pieces(texts).strip(), words
 
     def decode_window(self, audio: np.ndarray) -> str:
         """Plain fast decode of a rolling streaming window (LocalAgreement, ADR-002).
@@ -249,4 +258,46 @@ class FasterWhisperEngine:
         user's rolling window isn't forced through English.
         """
         segments, _ = self._model.transcribe(audio, **self._decode_kwargs(None))
-        return " ".join(s.text.strip() for s in segments).strip()
+        return join_pieces([s.text.strip() for s in segments]).strip()
+
+
+#: Languages faster-whisper splits into word tokens on code-point boundaries rather than
+#: on spaces (``Tokenizer.split_to_word_tokens``, faster-whisper 1.2.1). Mirrored here
+#: so the glue below runs for exactly the decodes whose word tokens need it.
+_UNSPACED_DECODE_LANGUAGES = frozenset({"zh", "ja", "th", "lo", "my", "yue"})
+
+
+def _decoded_unspaced(info, configured: str) -> bool:
+    """True when this decode's word tokens were split without regard to spaces.
+
+    The language faster-whisper actually decoded in is ``info.language`` -- the
+    detected one when ``[stt] language`` is unset -- and that is the one its tokenizer
+    used. A fake model in tests may return no ``info``; the configured language is then
+    the best answer available.
+    """
+    lang = getattr(info, "language", None)
+    if not isinstance(lang, str) or not lang:
+        lang = configured or ""
+    return lang.strip().lower() in _UNSPACED_DECODE_LANGUAGES
+
+
+def _glued_words(seg_words, word_cls):
+    """Regroup one segment's raw word tokens (see ``cjk.glue_word_tokens``).
+
+    A Latin word or number decoded in BPE pieces inside Mandarin comes back whole,
+    spanning its first piece's start to its last piece's end, with the lowest piece
+    probability (the group is only as certain as its least certain piece).
+    """
+    raws = [str(getattr(w, "word", "") or "") for w in seg_words]
+    out = []
+    for group in glue_word_tokens(raws):
+        first, last = seg_words[group[0]], seg_words[group[-1]]
+        out.append(word_cls(
+            text="".join(raws[i].strip() for i in group),
+            start=float(first.start),
+            end=float(last.end),
+            probability=min(
+                float(getattr(seg_words[i], "probability", 0.0) or 0.0) for i in group
+            ),
+        ))
+    return out

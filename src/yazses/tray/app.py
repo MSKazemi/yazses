@@ -72,6 +72,8 @@ class PollDecision:
     # gone — a wedged one still holds its single-instance lock, so a replacement
     # would exit as a duplicate and achieve nothing but noise.
     relaunch: bool = False
+    # Close the tray: the user ran `yazses stop`, which means all of YazSes.
+    close_tray: bool = False
 
 
 def unreachable_decision(
@@ -82,6 +84,7 @@ def unreachable_decision(
     relaunches: int = 0,
     since_relaunch_s: float | None = None,
     max_relaunches: int = MAX_DAEMON_RELAUNCHES,
+    stop_requested: bool = False,
 ) -> PollDecision:
     """Decide how to react to an unreachable daemon. Pure, so it unit-tests directly.
 
@@ -104,7 +107,16 @@ def unreachable_decision(
     bounded and spaced by ``since_relaunch_s`` for the same reason the tray supervisor
     bounds its own: a daemon that dies on boot every time is broken in a way respawning
     cannot fix, and hammering it would just bury the real error.
+
+    ``stop_requested`` comes first: `yazses stop` left a note after this tray started
+    (``system/stop_request.py``), so the daemon is gone on purpose and the tray goes
+    with it. Restarting it, as this used to, undid the stop within seconds. A daemon
+    still shutting down is waited for, not answered.
     """
+    if stop_requested:
+        if daemon_running:
+            return PollDecision(give_up=False, last_error="daemon stopping")
+        return PollDecision(give_up=True, close_tray=True)
     if not ever_connected:
         if waiting_s > _DAEMON_BOOT_TIMEOUT_S:
             return PollDecision(give_up=True)
@@ -140,6 +152,47 @@ def unreachable_decision(
     )
 
 
+#: How often the tray looks for a one-click update started by another process. A stat
+#: and a small JSON read; the job waits minutes for the tray, so a second is plenty.
+_UPDATE_WATCH_INTERVAL_S = 1.0
+
+
+class UpdateHandoffWatch:
+    """Whether this tray must close for a one-click update another process started.
+
+    Inert where the platform has no ``UpdateLauncher`` (everything but Windows). Never
+    raises: a check that fails answers "no", and the tray keeps running.
+    """
+
+    def __init__(self, launcher, *, clock=time.monotonic, wall=time.time, own_pid=None,
+                 interval_s: float = _UPDATE_WATCH_INTERVAL_S) -> None:  # noqa: ANN001
+        import os
+
+        self._launcher = launcher
+        self._clock = clock
+        self._since = wall()
+        self._own_pid = os.getpid() if own_pid is None else own_pid
+        self._interval = interval_s
+        self._next = clock()
+
+    def should_close(self) -> bool:
+        if self._launcher is None:
+            return False
+        now = self._clock()
+        if now < self._next:
+            return False
+        self._next = now + self._interval
+        try:
+            from yazses.system.installer_update import handoff_started_elsewhere
+
+            return handoff_started_elsewhere(
+                self._launcher.staging_dir(), since=self._since, own_pid=self._own_pid
+            )
+        except Exception:
+            log.debug("could not check for an update hand-off", exc_info=True)
+            return False
+
+
 def run() -> None:
     """Entry point — the `yazses-tray` GUI script."""
     # A GUI script has no console on Windows, so sys.stderr is None and
@@ -167,11 +220,17 @@ def run() -> None:
     tray = platform.tray_factory()
     client = platform.ipc_client_factory(platform.paths.ipc_socket)
 
+    # Wall clock, because `yazses stop` writes its note from another process: only a
+    # note left after this moment can close this tray (see system/stop_request.py).
+    tray_started_wall = time.time()
+    from yazses.system.stop_request import stop_requested_since
+
     if not platform.lifecycle.is_running():
         log.info("Daemon not running; spawning.")
         platform.lifecycle.start_daemon_detached()
 
     stop_event = threading.Event()
+    update_watch = UpdateHandoffWatch(getattr(platform, "update_launcher", None))
 
     def _poller() -> None:
         started = time.monotonic()
@@ -181,6 +240,14 @@ def run() -> None:
         last_relaunch: float | None = None
         while not stop_event.is_set():
             interval = _POLL_INTERVAL_S
+            if update_watch.should_close():
+                # `yazses update` (or another surface) handed off a one-click update and
+                # its job is waiting for this process to exit (ADR-027). Closing runs
+                # `_on_quit`, which stops the poll *before* it asks the daemon to shut
+                # down, so the daemon is not respawned behind the installer's back.
+                log.info("A YazSes update was started elsewhere; closing the tray for it.")
+                tray.stop()
+                return
             try:
                 info = client.call("status")
                 ever_connected = True
@@ -236,7 +303,14 @@ def run() -> None:
                     daemon_running=_daemon_running(platform),
                     relaunches=relaunches,
                     since_relaunch_s=(None if last_relaunch is None else now - last_relaunch),
+                    stop_requested=stop_requested_since(
+                        platform.paths.data_dir, tray_started_wall
+                    ),
                 )
+                if decision.close_tray:
+                    log.info("`yazses stop` stopped the daemon; closing the tray too.")
+                    tray.stop()
+                    return
                 if decision.give_up:
                     log.warning("Daemon never became reachable; stopping poll.")
                     return
@@ -268,6 +342,7 @@ def run() -> None:
 
     poll_thread = threading.Thread(target=_poller, name="tray-poller", daemon=True)
     poll_thread.start()
+    start_addon_refetch(tray, stop_event)
 
     def _on_quit() -> None:
         stop_event.set()
@@ -282,6 +357,58 @@ def run() -> None:
         tray.run(_on_quit)
     finally:
         stop_event.set()
+
+
+#: Seconds the add-on re-download waits after the tray starts, so the daemon and the icon
+#: come up first (and a balloon has an icon to hang from).
+_ADDON_REFETCH_DELAY_S = 5.0
+
+
+def _pack_install(ctx, entry):  # noqa: ANN001
+    from yazses.packs.manage import install
+
+    return install(ctx, entry)
+
+
+def _pack_verify(ctx, name):  # noqa: ANN001
+    from yazses.packs.manage import verify
+
+    return verify(ctx, name, set_aside=True)
+
+
+def start_addon_refetch(tray: object, stop_event: threading.Event, *,
+                        delay_s: float = _ADDON_REFETCH_DELAY_S, refetch=None) -> threading.Thread:
+    """After an update the user agreed to, download this version's copies of the add-ons
+    they had (ADR-028 Q3), on a worker thread, and say how it went once.
+
+    The downloader is bound here, in the tray's entry point, and nowhere the daemon can
+    import: ``tray.updates`` and ``packs.refetch`` only receive it. Never blocks start-up
+    (it waits ``delay_s`` first, and returns at once without a consent) and never raises.
+    """
+    def _job() -> None:
+        if stop_event.wait(delay_s):
+            return
+        try:
+            if refetch is None:
+                from yazses.tray.updates import refetch_after_update as run_job
+            else:
+                run_job = refetch
+            message = run_job(install=_pack_install, verify=_pack_verify)
+        except Exception:
+            log.warning("add-on re-download after the update failed", exc_info=True)
+            return
+        if message is None or stop_event.is_set():
+            return
+        show = getattr(tray, "notify", None)
+        if callable(show):
+            try:
+                show(*message)
+            except Exception:
+                log.debug("add-on re-download notice failed", exc_info=True)
+
+    thread = threading.Thread(target=_job, name="tray-addon-refetch", daemon=True)
+    thread.start()
+    return thread
 
 
 def _show_notifications(tray: object, raw: object) -> None:

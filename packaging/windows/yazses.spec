@@ -32,7 +32,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PyInstaller.utils.hooks import copy_metadata
+from PyInstaller.utils.hooks import collect_data_files, collect_submodules, copy_metadata
 
 REPO = Path(SPECPATH).resolve().parents[1]
 ENTRY = str(REPO / "src" / "yazses" / "__main__.py")
@@ -59,8 +59,18 @@ a = Analysis(
     # `doctor`, `update` and the diagnostic report all read — every one of them
     # raised PackageNotFoundError inside the bundle. The installer smoke test
     # caught this on its first run.
-    datas=copy_metadata("yazses"),
+    #
+    # onnx-asr (the `parakeet` extra, bundled per ADR-028 Q1) needs both as well: its
+    # __init__ calls importlib.metadata.version("onnx-asr") at import time, and its
+    # preprocessors read onnx_asr/preprocessors/data/*.onnx through importlib.resources.
+    # Neither is found by import analysis, and no contrib hook covers it. opencc (the
+    # `chinese` extra) is covered by pyinstaller-hooks-contrib's hook-opencc.
+    datas=copy_metadata("yazses") + copy_metadata("onnx-asr")
+    + collect_data_files("onnx_asr"),
     hiddenimports=[
+        # onnx-asr, bundled (ADR-028 Q1); yazses imports it lazily in stt/parakeet.py.
+        *collect_submodules("onnx_asr"),
+        "opencc",
         # pywin32 sub-modules used by the named-pipe IPC.
         "win32pipe",
         "win32file",
@@ -77,7 +87,8 @@ a = Analysis(
     ],
     hookspath=[],
     hooksconfig={},
-    runtime_hooks=[],
+    # ADR-028: mounts verified add-on packs before main runs (never when elevated).
+    runtime_hooks=[str(Path(SPECPATH) / "rthook_yazses_packs.py")],
     excludes=[
         "evdev",
         "yazses.platform.linux",

@@ -41,7 +41,7 @@ Beim ersten Start wird einmalig ein Sprachmodell heruntergeladen (etwa 148 MB). 
 
 ## Datenschutz
 
-Audio wird auf Ihrem Rechner transkribiert und niemals irgendwohin gesendet. Es gibt keine Telemetrie und keinen Cloud-Pfad.
+Standardmäßig wird Audio auf Ihrem Rechner transkribiert und nirgendwohin gesendet. Es gibt keine Telemetrie und keinen Cloud-Pfad.
 
 ## Mehr
 

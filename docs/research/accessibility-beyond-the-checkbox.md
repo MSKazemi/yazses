@@ -60,9 +60,9 @@ the same information, delivered through the channel the user actually has.
 
 ## 2. Verifying a transcript you cannot read
 
-**What breaks.** Correction assumes reading. `proofback` (interruptible proofreading) and
-`echo` (replay your own recording of the last utterance) exist as designed modules with no
-caller. Without them, a blind user's only verification is to paste elsewhere and have a
+**What breaks.** Correction assumes reading. `echo` (replay your own recording of the last
+utterance) is wired; `proofback` (interruptible proofreading) is still a designed module with
+no caller. Before `echo`, a blind user's only verification was to paste elsewhere and have a
 screen reader read it back — a workflow measured in tens of seconds per utterance.
 
 **The insight worth keeping:** `echo` replays **your own audio**, not the transcript. If the
@@ -70,7 +70,8 @@ recogniser misheard, reading the transcript back tells you what it thinks you sa
 your own voice tells you what you actually said. Those are different diagnostics and the
 second is the useful one.
 
-**Status:** designed, unwired. `proofback/align.py` and `echo/span.py`.
+**Status:** `echo` is wired, off by default (`echo/span.py`); `proofback/align.py` is
+designed, unwired.
 
 ## 3. Two things talking at once
 
@@ -79,7 +80,7 @@ re-reads the changed region, mid-sentence, over itself. This is the most common 
 about combining voice input with a screen reader, and it is a *scheduling* problem, not a
 speech problem.
 
-**Status:** designed, unwired — `srpace/schedule.py`. It is the least glamorous entry here
+**Status:** wired, off by default — `srpace/schedule.py`. It is the least glamorous entry here
 and possibly the highest daily value for the people affected.
 
 ## 4. Vocal strain — the injury that replaces the first one
@@ -97,7 +98,7 @@ a session and suggests a break.
 exactly why it is worth doing, and why it is credible coming from a tool with nothing to
 sell.
 
-**Status:** designed, unwired. Needs the `prosody` extra (praat-parselmouth, ~11 MB).
+**Status:** wired, off by default. Needs the `prosody` extra (praat-parselmouth, ~11 MB).
 
 ## 5. Input for people who cannot reliably produce words
 
@@ -110,7 +111,8 @@ control) and `morsevox` (hum patterns as Morse) all treat the voice as a **signa
 language. That is a genuinely different interaction model, and it is the one commercial
 dictation cannot serve, because its entire value is transcription.
 
-**Status:** all three designed, all three unwired. `contour/` (pitch gestures) too.
+**Status:** `vocaljoystick` and `contour/` (pitch gestures) are wired, off by default;
+`mouthswitch` and `morsevox` are designed, unwired.
 
 **The honest caveat:** these need evaluation *with* the people they are for, which is
 [agenda question 6](agenda.md) and
@@ -121,10 +123,10 @@ guessing about people whose needs are not guessable.
 
 ## What this list says
 
-Five capabilities, and **four are already designed, tested, and unreachable.** That is not
-an accident of this page — it is the same finding as
-[the 62 unwired capabilities](directions.md): in this project the missing piece is almost
-never the algorithm.
+Five capabilities: one built first, and most of the rest wired since — what is still
+unreachable is `proofback`, `mouthswitch` and `morsevox`. That is not an accident of this
+page — it is the same finding as [the 30 unwired capabilities](directions.md): in this
+project the missing piece is almost never the algorithm.
 
 It also explains why `earcon` was the one to build first. It needed no new dependency, no
 new research, and no participant recruitment — and it closes the gap that makes every other
@@ -133,7 +135,7 @@ listening cannot use any of the rest of it.**
 
 ## If you want to work on one
 
-Every entry names its module. `srpace` and `echo` are the cheapest, and both would be a
+Every entry names its module. `proofback` is the cheapest still unwired, and would be a
 first contribution someone could finish in a weekend —
 [how to claim one](get-involved.md). For anything in §5, please
 [open a research issue](https://github.com/MSKazemi/yazses/issues/new?template=research_idea.yml)

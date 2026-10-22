@@ -337,8 +337,8 @@ It is not:
 
 ### Selecting the first upstream smoke issue
 
-**Do not use #448 as the smoke task.** #448 is the eligibility checker that must exist before the
-central smoke run.
+**Do not use #448 as the smoke task.** It delivered the eligibility checker,
+`uv run python scripts/check-jules-issue.py <issue>`, which the smoke issue must pass first.
 
 The smoke issue must pass the current #447 requirements and the read-only pre-trigger checker.
 In the initial central deployment it should be small, cloud-completable, trusted/maintainer-approved,

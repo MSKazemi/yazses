@@ -243,10 +243,21 @@ Allow enabling experimental features.
 .TP
 \fB\-\-no\-install\fR
 Don't auto-install the feature's optional deps.
+.TP
+\fB\-\-yes, \-y\fR
+Don't ask before downloading an add-on (Windows installer build only).
 .RE
 .TP
 \fByazses features info\fR \fINAME\fR
 Describe a capability \(em what it does, a usage example, and how to toggle it.
+.TP
+\fByazses features install\fR \fINAMES\fR
+Install the libraries that switched-on features are missing.
+.RS
+.TP
+\fB\-\-yes, \-y\fR
+Install without asking first.
+.RE
 .TP
 \fByazses features reset\fR
 Restore every capability to the state a fresh install ships with.
@@ -502,7 +513,7 @@ Apply the displayed plan without an interactive confirmation.
 .RE
 .TP
 \fByazses language status\fR
-Show the effective speech language, Han script, model, and profile coherence.
+Show the speech language, Han script, engine/model, multilingual support, and coherence.
 .RS
 .TP
 \fB\-\-json\fR
@@ -637,6 +648,44 @@ markdown | opml.
 .RE
 .SS "yazses overlay"
 Run the sonar voice-activity overlay (needs the `overlay` extra: PySide6).
+.SS "yazses packs"
+Add-ons: a feature's libraries, downloaded and verified (Windows installer build).
+.TP
+\fByazses packs clean\fR
+Delete set-aside, half-finished and old builds' add-ons (keeps what rollback needs).
+.TP
+\fByazses packs install\fR \fINAME\fR
+Download, verify and install one add-on for this build. Writes no config.
+.RS
+.TP
+\fB\-\-yes, \-y\fR
+Don't ask before downloading.
+.TP
+\fB\-\-from\fR
+Install this .yazpack file instead of downloading (offline). Its name and SHA-256 must match this build's built-in add-on list.
+.RE
+.TP
+\fByazses packs path\fR
+Print the folder add-ons are installed in.
+.TP
+\fByazses packs probe\fR \fINAME\fR
+Mount one unpacked add-on and import its entry modules (used by install and CI).
+.RS
+.TP
+\fB\-\-staged\fR
+The unpacked add-on folder to test.
+.RE
+.TP
+\fByazses packs remove\fR \fINAME\fR
+Delete an installed add-on. Features that need it then read *waiting for add-on*.
+.RS
+.TP
+\fB\-\-all\fR
+Remove every add-on of every build.
+.RE
+.TP
+\fByazses packs verify\fR \fINAME\fR
+Check every installed file's size and SHA-256. A damaged add-on is set aside.
 .SS "yazses punch-in"
 Correct the last dictation by re-speaking just the wrong phrase.
 .RS
@@ -779,7 +828,7 @@ Show daemon status. Queries the daemon over IPC when reachable.
 Output status as JSON for scripts and status bars.
 .RE
 .SS "yazses stop"
-Stop the running daemon.
+Stop YazSes: the daemon, and the tray icon with it.
 .RS
 .TP
 \fB\-\-force\fR

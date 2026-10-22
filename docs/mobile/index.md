@@ -1,18 +1,71 @@
 ---
-description: "The YazSes Android programme: status, milestones, and what has to be true before the app exists. Design is complete and no code ships yet."
+description: "The YazSes Android programme: what exists under android/ today, which milestone is active, what remains before a first APK, and why iOS is a later wave. There is no app to install yet."
 ---
 
 # YazSes Mobile — programme overview
 
-**Status (2026-08-07): design complete, no code yet.** Nothing in this directory ships
-today. The Android app does not exist; these documents are what has to be true before it
-does, and they are deliberately written before the first line of Kotlin so that the work
-can be done by many people at once.
+**Status: M0 foundations are built and the first M1 work has landed, but there is no app.**
+There is no APK and nothing to install. What exists is the module skeleton, the build
+rules it enforces, and the first pure-Kotlin ports of desktop logic, all under
+[`android/`](https://github.com/MSKazemi/yazses/tree/main/android). The design documents
+below were written before that code, so that many people can build it at once.
 
 > **Honesty rule.** Nothing here may be described in the README, the docs site, the store
 > listings or a release note as "supported" until it is wired, tested and shipped. The
-> project's existing rule — 148 capabilities, 110 wired and 38 honestly marked *planned* —
+> project's existing rule — 149 capabilities, 119 wired and 30 honestly marked *planned* —
 > applies to mobile without exception.
+
+### What exists in `android/` now
+
+- **The Gradle skeleton** ([#84](https://github.com/MSKazemi/yazses/issues/84)): every
+  module from [architecture.md §3](architecture.md#3-module-map) exists and compiles.
+  `checkLayering` fails the build when a `:core:*` module depends on a `:feature:*` one,
+  and `:core:*` modules are plain JVM modules, so an `android.*` import does not compile.
+- **The privacy gates** ([#85](https://github.com/MSKazemi/yazses/issues/85)):
+  `checkPrivacy` diffs the merged manifest against `privacy/manifest-golden.txt`, bans
+  analytics and crash SDKs, keeps network code inside `:model`, and fails on a log call
+  that carries a transcript. The *Android* CI workflow runs these gates plus
+  `./gradlew test` and lint.
+- **Pure-Kotlin cores that pass the shared contract vectors:** `:core:postprocess`
+  (cleanText, disfluency, spacing, voice punctuation —
+  [#86](https://github.com/MSKazemi/yazses/issues/86)), `:core:commands` and `:core:vocab`
+  ([#94](https://github.com/MSKazemi/yazses/issues/94)), and `:core:audio` (pre-speech
+  padding) with `:core:vad` (the silence gate) from
+  [#88](https://github.com/MSKazemi/yazses/issues/88). `:core:contract-test` runs the
+  same `contract/vectors/*.json` files the Python suite uses.
+- **Microphone capture, written but never run:** `:platform:audio` has the `AudioRecord`
+  shim. It compiles and has not run on a device, which is why #88 is still open.
+- **Placeholders only:** `:app`, `:model`, `:bench`, every `:feature:*` module (including
+  the keyboard), both `:native:*` engines, and `:core:stt`, `:core:session`,
+  `:core:config` and `:core:features`. No speech engine is connected yet.
+
+### Where each milestone stands
+
+The milestones are the four GitHub milestones *M0 — Mobile foundations* and *M1/M2/M3 —
+Android*; the issue states below were read from them, and the
+[tracking epic, #81](https://github.com/MSKazemi/yazses/issues/81), carries the full work
+breakdown. No milestone has a date.
+
+| Milestone | Shipped | In progress | Remaining |
+|---|---|---|---|
+| **M0** Foundations | contract/ (#82), edge-case vectors (#83), Gradle skeleton (#84), privacy gate (#85) | — | the design review #98 is kept open in it (the epic #81 spans M0–M3, so it carries no milestone) |
+| **M1** It types what I say | `:core:postprocess` (#86) | capture and silence gate (#88): cores done, device check open | engine seam and whisper.cpp bridge (#87), keyboard (#89), model download (#90), onboarding (#91), `:bench` (#92) |
+| **M2** It's actually good | command grammar and personal dictionary (#94), ported ahead of M1 | — | `RecognitionService` (#93), generated settings (#95), F-Droid build and submission (#96) |
+| **M3** Beyond dictation | — | — | the meeting foreground-service spike (#97); the rest of M3 has no issue yet |
+
+**Active milestone: M0**, which is still open on GitHub. All four of its build issues are
+closed. It stays open because it holds the standing design-review invitation (#98).
+The epic, #81, spans M0–M3, so it carries no milestone of its own.
+M1 has started alongside it, but its done-statement, a signed APK dictating on a real
+phone, is several issues away: there is no engine, no keyboard and no model download yet.
+
+### Why iOS is not current work
+
+[ADR-MOB-010](adr/adr-mob-010-apple-second-wave.md) is an **accepted decision with deferred
+execution**. The direction is fixed: iOS forbids microphone access in keyboard extensions,
+so the Apple app must be a different product shape. Execution waits until Android M2 ships,
+and M2 has not shipped. No iOS code exists and no iOS issue is open, so iOS should not be
+presented as implementation work.
 
 ---
 
@@ -99,8 +152,10 @@ Three ways in that need **no Android device and no Kotlin**:
 1. **Contract vectors** — Python; write the ugly cases for a unit and generate its
    expectations. M0 built the mechanism and it ships in
    [`contract/`](https://github.com/MSKazemi/yazses/tree/main/contract); adding a
-   language or an edge case to it is still a good first issue, such as
-   [#512](https://github.com/MSKazemi/yazses/issues/512).
+   language or an edge case to it is still a good first issue. New ones are filed under
+   the [`contract` label](https://github.com/MSKazemi/yazses/issues?q=label%3Acontract);
+   [#512](https://github.com/MSKazemi/yazses/issues/512), the Persian and RTL vectors, is
+   a finished example of the shape.
 2. **Device reports** — run the benchmark on your phone (once `:bench` exists,
    [#92](https://github.com/MSKazemi/yazses/issues/92)) and file the JSON; the performance
    matrix is community-built by design.

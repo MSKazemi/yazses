@@ -48,6 +48,15 @@ ENTRY_MODULES = {
     # `scripts/replay_face_switch_trace.py`; the daemon must not import it (it reaches
     # `facegesture`, never the reverse). An evaluation entry point, not debt.
     "eyeeval.switch_replay",
+    # The descriptive eye-evaluation analysis (#426). Its caller is
+    # `scripts/analyze_eye_eval.py`; it reads result files offline and must not be imported
+    # at daemon start. An evaluation entry point, not debt.
+    "eyeeval.analysis",
+    # The ADR-028 pack mounter. Its caller is the PyInstaller runtime hook
+    # `packaging/windows/rthook_yazses_packs.py`, which runs before any yazses import in
+    # the frozen app; nothing in the package may import it (packs must be on sys.path
+    # before the modules that need them load). An entry point, not debt.
+    "packs.mount",
 }
 
 #: The known orphans, each with what is missing. An entry here is a debt that has
@@ -61,6 +70,20 @@ KNOWN_ORPHANS = {
         "personalize is wired through prompt_builder; the P2 LoRA gate is not.",
     "platform.emg.brainflow_source":
         "A second EMG source, tested but never constructed by the factory.",
+    "biasing.trie":
+        "Retired with the `hotwords` N-best rescorer (ADR-v2-069, Wiring): faster-whisper "
+        "exposes no N-best list, so rescore_nbest has no producer. `hotwords` now switches on "
+        "vocab_correct instead. Kept as a tested reference for an in-decoder biasing tier.",
+    "packs.catalog":
+        "ADR-028 build/test-time catalogue check (tests/test_packs_catalog.py). "
+        "scripts/build-packs.py `validate` still carries its own copy of the same check; "
+        "make the script call catalogue_problems so there is one.",
+    "system.residency":
+        "ADR-029 (Proposed) runtime-residency policy: idle unload, LRU cap, worker "
+        "placement, the nightly RSS check. Pure and tested (tests/test_residency.py); "
+        "its consumers are the daemon's engine load/unload hooks and the feature model "
+        "owners listed under the ADR's 'Integration hand-offs', which land separately. "
+        "Delete this entry in the change that wires core/daemon.py to it.",
 }
 
 

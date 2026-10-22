@@ -752,6 +752,8 @@ def test_the_status_carries_no_biometric_detail() -> None:
     assert set(vars(status)) == {
         "state", "backend", "consumers", "opens", "channels",
         "last_sample_age_s", "failure_reason",
+        # A word from `FAILURE_KINDS` -- which stage failed, never a value (#416).
+        "failure_kind",
     }
     text = repr(status)
     for leak in ("jawOpen", "raw_x", "yaw", "0.4", "blendshape"):

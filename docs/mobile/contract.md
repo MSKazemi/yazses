@@ -1,5 +1,5 @@
 ---
-description: "The shared behaviour contract every YazSes implementation must satisfy: six units and 191 cases, live and enforced in CI, so desktop and mobile cannot silently diverge."
+description: "The shared behaviour contract every YazSes implementation must satisfy: eight units and 312 cases, live and enforced in CI, so desktop and mobile cannot silently diverge."
 ---
 
 # The YazSes core contract — one behaviour, many implementations
@@ -7,10 +7,10 @@ description: "The shared behaviour contract every YazSes implementation must sat
 **Status:** **shipped and enforced in CI** (2026-08-07) · normative decision in
 [ADR-MOB-008](adr/adr-mob-008-cross-platform-contract.md)
 **Implements:** [`contract/`](https://github.com/MSKazemi/yazses/blob/main/contract/README.md)
-— six units live (`clean_text`, `disfluency`, `voice_punctuation`, `spacing`,
-`vocabulary`, `grammar`; 191 cases), guarded by `tests/test_contract_vectors.py`. The
-hold detector and the VAD gate land with the implementations that need them.
-**Last updated:** 2026-08-09
+— eight units live (`clean_text`, `disfluency`, `voice_punctuation`, `spacing`,
+`vocabulary`, `grammar`, `activation`, `vad_gate`; 312 cases at contract 7.1.0), guarded by
+`tests/test_contract_vectors.py`.
+**Last updated:** 2026-10-22
 
 > **It earned its keep on day one.** The first 54 cases surfaced **three real bugs** in
 > shipped code: `"that is likely correct"` became `"that is ly correct"`, `basically_fn`
@@ -33,25 +33,24 @@ correct when `contract/vectors/<your-file>.json` is green.** You do not need to 
 ```
 contract/
   README.md                 how to run and extend the contract
-  VERSION                   semver, e.g. 4.0.0
-  schema/
-    config.schema.json      every config section, key, type, default
-    features.schema.json    capability-registry shape
-    transcript.schema.json  Transcript / segment / token-confidence shape
+  VERSION                   semver (7.1.0 at the time of writing)
   vectors/                  PARITY — generated from the shipped implementation
+    activation.json         onset/offset/intent trace -> hold, act, confirm or reject
     clean_text.json
     disfluency.json
     voice_punctuation.json
     spacing.json
     vocabulary.json
-    grammar_classify.json
-    hold_detector.json
+    grammar.json            dictate vs command classification
     vad_gate.json
-  semantic/                 MEANING — hand-authored, never regenerated (§8)
+  semantic/                 MEANING — hand-authored, never regenerated (§7; ADR-MOB-008 §8)
+    README.md
     dimensions.json         conserved dimensions + extraction patterns
     invariants.json         invariants + minimal pairs
-  audio/                    short licence-clean clips for end-to-end fixtures
 ```
+
+Planned, not yet present: `schema/` (config, capability-registry and transcript shapes) and
+`audio/` (short licence-clean clips for end-to-end fixtures).
 
 ## 2. Vector format
 
@@ -86,9 +85,9 @@ Rules:
 
 - `id` is stable and kebab-case; renaming an id is a breaking change to the vector file.
 - `options` carries only the config keys the unit actually reads, using the **shared key
-  names** from `schema/config.schema.json`.
-- `input`/`expected` are JSON values, not necessarily strings — `hold_detector` takes an
-  event trace, `grammar_classify` returns an intent object.
+  names** from the desktop's `src/yazses/config.py` (a `schema/config.schema.json` is planned).
+- `input`/`expected` are JSON values, not necessarily strings — `activation` takes an
+  event trace, `grammar` returns an intent object.
 - Every unit MUST include the ugly cases: empty, whitespace-only, punctuation-only,
   unicode and RTL (Persian is a first-class test language for this project), very long
   input, repeated-word input, and the adversarial sequences the disfluency filter exists

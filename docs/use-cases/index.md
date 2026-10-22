@@ -46,10 +46,28 @@ falls short.
 
     ---
 
-    Spoken symbols, cased identifiers, LaTeX maths, and voice-driven git — with
-    a safety gate before anything destructive runs.
+    Spoken symbols, LaTeX maths, git phrases turned into git commands, and a
+    safety gate before a destructive shell command runs.
 
     [:octicons-arrow-right-24: Voice coding](voice-coding.md)
+
+-   :material-code-tags:{ .lg .middle } **Code and technical vocabulary**
+
+    ---
+
+    Get identifiers, jargon and punctuation right — personal vocabulary,
+    `initial_prompt`, vocabulary correction and spoken punctuation.
+
+    [:octicons-arrow-right-24: Dictating code](dictating-code.md)
+
+-   :material-scale-balance:{ .lg .middle } **Law, medicine & journalism**
+
+    ---
+
+    Dictation and transcription under a confidentiality duty, where the audio
+    may not leave the building — what it does, and what it does not promise.
+
+    [:octicons-arrow-right-24: Confidential professions](confidential-professions.md)
 
 -   :material-microphone-message:{ .lg .middle } **Controlling the computer**
 
@@ -78,6 +96,15 @@ falls short.
 
     [:octicons-arrow-right-24: Offline transcription](transcribe-audio-offline.md)
 
+-   :material-school:{ .lg .middle } **Research interviews**
+
+    ---
+
+    A tool-neutral guide for qualitative researchers: why cloud transcription
+    raises consent and ethics questions, and the free local options.
+
+    [:octicons-arrow-right-24: Research interview transcription](research-interview-transcription.md)
+
 -   :material-account-group:{ .lg .middle } **Meetings & minutes**
 
     ---
@@ -100,10 +127,28 @@ falls short.
 
     ---
 
-    Dictating in a non-English language, or naturally mixing two languages in
-    one sentence.
+    Dictating in a non-English language with a multilingual Whisper model you
+    choose — a how-to, not a support claim.
 
     [:octicons-arrow-right-24: Multilingual dictation](multilingual-dictation.md)
+
+-   :material-ideogram-cjk:{ .lg .middle } **Chinese & Mandarin**
+
+    ---
+
+    Point YazSes at a multilingual model for Mandarin, and avoid the
+    Simplified/Traditional trap.
+
+    [:octicons-arrow-right-24: Chinese voice typing](chinese-voice-typing.md)
+
+-   :material-earth:{ .lg .middle } **Hindi & Indian languages**
+
+    ---
+
+    Configure a multilingual Whisper model for Hindi and other Indian languages,
+    and what to expect when Devanagari is typed.
+
+    [:octicons-arrow-right-24: Hindi voice typing](hindi-voice-typing.md)
 
 </div>
 
