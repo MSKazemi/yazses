@@ -41,7 +41,7 @@ It stays listed so contributors can pick it up; see the matching design/adr/ ent
 ```
 
 They stay listed because that is where a contributor picks one up — each has a matching
-`design/adr/` entry. **30 of the 122 rows below are ◌ today.** Rows without the mark are
+`design/adr/` entry. **29 of the 122 rows below are ◌ today.** Rows without the mark are
 wired and can be turned on.
 
 ### "Hold the command key" — what that means
@@ -296,10 +296,10 @@ The lowest-bandwidth input methods and new text-intelligence layers.
 | **Screenplay Auto-Format** | `screenplay` | Formats dictated scenes/dialogue as Fountain screenplay markup. |
 | **Spaced-Repetition Capture** | `srscap` | "remember that X is Y" → a local Anki cloze card (SM-2). |
 | **Diagrams-as-Code by Voice** | `diagramvox` | Dictate a flowchart → Mermaid/Graphviz source, no canvas. |
-| ◌ **Interruptible Proofreading** | `proofback` | Interrupt the read-back and land the cursor on the exact word. |
+| **Interruptible Proofreading** (exp) | `proofback` | Hold the key during the read-back of a dictation: what you say next replaces the text from the word being read. Needs Read-Back on. |
 
-Wave M: eight of its ten features are wired; `checkdigit` is switched on by a fresh
-install's config and the rest are off by default. The two marked ◌ are designed but not
+Wave M: nine of its ten features are wired; `checkdigit` is switched on by a fresh
+install's config and the rest are off by default. The one marked ◌ is designed but not
 yet wired.
 
 ## Structural editing, i18n & accessibility-output (Wave N)

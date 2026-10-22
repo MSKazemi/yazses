@@ -144,8 +144,19 @@ yazses features enable read-back
 The transcript is spoken back to you with an on-device TTS model (downloaded on
 first use — still no cloud). Complementary capabilities include Earcon Feedback
 for non-speech audio cues and Screen-Reader Pacing to cooperate with a screen
-reader. Interruptible Proofreading (`proofback`) is planned — designed, not yet
-wired, so `yazses features enable` refuses it.
+reader.
+
+Interruptible Proofreading (`proofback`, experimental) builds on read-back: while a
+dictation is being read to you, hold the dictation key at the word you want to change
+and say the correction. Everything from that word to the end of that dictation is
+replaced by what you say. It only ever deletes text YazSes itself just typed (with
+backspaces from the end, as "scratch that" does); when it cannot be sure where that
+text is, it types your correction as ordinary dictation instead. Word timing is
+estimated, and it is untested on real hardware.
+
+```sh
+yazses features enable proofback --force
+```
 
 ## Driving the pointer by voice
 
