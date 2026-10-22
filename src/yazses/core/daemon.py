@@ -100,6 +100,13 @@ from yazses.system.uptime import monotonic_including_suspend
 
 log = logging.getLogger(__name__)
 
+#: Daemon states in which Vocal Morse may listen and type (ADR-v2-105). Every other state
+#: means the microphone or the user is busy with something else -- a hold-to-talk
+#: recording, a meeting, read-back speaking aloud, enrollment -- and Morse mode yields.
+#: TRANSCRIBING and INJECTING are included because that is the state the spoken
+#: "morse mode" command is heard in: excluding them would end the mode as it began.
+_MORSE_QUIET_STATES = frozenset({TrayState.IDLE, TrayState.TRANSCRIBING, TrayState.INJECTING})
+
 
 class _SilentEarcon:
     """What ``Daemon._earcon`` is while ``[earcon]`` is off.
@@ -333,6 +340,8 @@ class Daemon:
     _headpointer = None
     _handsfree_safety = None
     _vocaljoystick = None
+    #: Vocal Morse (ADR-v2-105): the level-stream runner, or None -- the default.
+    _morsevox = None
     # The face switch's select/confirm/cancel outcome log and the actions bound to it
     # (facegesture/actions.py). None / empty until a face switch is built.
     _switch_outcomes = None
@@ -709,6 +718,7 @@ class Daemon:
             self._start_portal_idle_reaper()
             self._start_headpointer()
             self._start_gesture()
+            self._start_morsevox()
             self._hotkey.run()
         finally:
             self._shutdown()
@@ -1491,6 +1501,8 @@ class Daemon:
         self._handsfree_safety = self._build_handsfree_safety(cfg)
         self._headpointer = self._build_headpointer(cfg)
         self._vocaljoystick = self._build_vocaljoystick(cfg)
+        # Vocal Morse (ADR-v2-105): None unless `[morsevox] enabled`; building opens no mic.
+        self._morsevox = self._build_morsevox(cfg)
         # Gesture Chords (ADR-v2-043): face/head tokens from the same shared camera, resolved
         # by gesture/chords.py. Dormant unless `[gesture] enabled` *and* a chord is bound.
         self._gesture = self._build_gesture(cfg)
@@ -2450,6 +2462,143 @@ class Daemon:
             log.warning("Vocal Joystick init failed; it stays off", exc_info=True)
             return None
 
+    def _build_morsevox(self, cfg):
+        """Vocal Morse (ADR-v2-105), or None while `[morsevox]` is off (the default).
+
+        Building opens no microphone; `_start_morsevox` does, and only when the long-hum
+        entry is on. The import sits behind the ``enabled`` check, so a default start loads
+        nothing from ``yazses.morsevox``. Never raises.
+        """
+        if not cfg.morsevox.enabled:
+            return None
+        try:
+            from yazses.morsevox.runtime import build_morse_runner
+
+            sr = cfg.audio.sample_rate
+            gate = self._handsfree_safety
+            runner, notes = build_morse_runner(
+                cfg.morsevox,
+                # The same level metric and threshold as the dictation VAD gate.
+                threshold=cfg.accessibility.vad_threshold,
+                recorder_factory=lambda on_chunk: AudioRecorder(
+                    sample_rate=sr, max_seconds=0, on_chunk=on_chunk, accumulate=False,
+                    device=self._config.audio.device or None,
+                ),
+                inject=self._morse_inject,
+                # Read without the daemon lock: `status` holds that lock while it asks the
+                # runner for its state, so taking it here could deadlock.
+                busy=lambda: self._state.state not in _MORSE_QUIET_STATES,
+                # Read-only, as the Vocal Joystick does: a gate pause ends Morse mode.
+                stop_requested=None if gate is None else lambda: gate.status().user_paused,
+                on_change=self._on_morse_mode,
+                on_level=self._on_morse_level,
+            )
+        except Exception:
+            log.warning("Vocal Morse init failed; it stays off", exc_info=True)
+            return None
+        for note in notes:
+            log.warning("[morsevox] %s.", note)
+        if runner is None:
+            log.warning("[morsevox] is enabled but inactive.")
+            return None
+        if runner.listens_for_hum:
+            log.info("Vocal Morse enabled: hum steadily for %.1f s, or say \"morse mode\", "
+                     "to start; %.1f s of silence ends it.",
+                     runner.config.entry_hum_ms / 1000.0, runner.config.exit_silence_ms / 1000.0)
+        else:
+            log.info("Vocal Morse enabled: say \"morse mode\" to start; %.1f s of silence "
+                     "ends it.", runner.config.exit_silence_ms / 1000.0)
+        return runner
+
+    def _start_morsevox(self) -> None:
+        """Open the level stream that listens for the entry hum, if the hum entry is on."""
+        runner = self._morsevox
+        if runner is None:
+            return
+        try:
+            ok, reason = runner.start()
+        except Exception:
+            log.exception("Vocal Morse start raised")
+            return
+        if not ok:
+            log.warning("Vocal Morse is enabled but not listening: %s", reason)
+
+    def _try_morse_mode(self, text: str, event: dict) -> bool:
+        """Enter Morse mode when the WHOLE utterance is "morse mode". True = consumed.
+
+        Whole-utterance equality (`morsevox/mode.is_enter_phrase`, the stop word's rule), so
+        dictation that merely contains the words is typed. Consumed whether or not the mode
+        could start: a control phrase is never typed into the user's document.
+        """
+        runner = self._morsevox
+        if runner is None:
+            return False
+        try:
+            from yazses.morsevox.mode import is_enter_phrase
+
+            if not is_enter_phrase(text):
+                return False
+        except Exception:
+            log.debug("Morse-mode phrase check failed; treating as dictation.", exc_info=True)
+            return False
+        event["intent_type"] = "morse_mode"
+        event["intent_action"] = "enter"
+        # An instruction, not dictation (outcomes.py), as the voice stop word is.
+        event["command_mode"] = True
+        try:
+            ok, reason = runner.enter_by_command()
+        except Exception:
+            log.exception("Vocal Morse: entering by command raised")
+            ok, reason = False, "it failed; see the daemon log"
+        if not ok:
+            log.info("Vocal Morse: heard the command but did not start: %s", reason)
+            self._earcon.play("error")
+            try:
+                from yazses.system.notify import notify
+
+                notify("YazSes — Vocal Morse", f"Heard \"morse mode\" but did not start: {reason}.")
+            except Exception:  # pragma: no cover - feedback is never load-bearing
+                log.debug("Vocal Morse feedback failed", exc_info=True)
+        return True
+
+    def _morse_inject(self, text: str) -> None:
+        """Type decoded Morse through the normal injector. Runs on the Morse worker thread."""
+        # INFO: metadata only; DEBUG: the characters (ADR-011, as for dictation).
+        log.info("Vocal Morse: typing %d char(s).", len(text))
+        log.debug("Vocal Morse typing: %r", text)
+        self._active_injector().inject(text)
+
+    def _on_morse_level(self, level: float) -> None:
+        """Publish the Morse stream's level so the overlay's rings follow the hums."""
+        with self._lock:
+            if self._state.state in _MORSE_QUIET_STATES:
+                self._state.audio_level = level
+
+    def _on_morse_mode(self, active: bool, reason: str) -> None:
+        """Morse mode began or ended: say so by earcon and notification. Never raises."""
+        log.info("Vocal Morse mode %s (%s).", "on" if active else "off", reason)
+        if not active:
+            with self._lock:
+                if self._state.state in _MORSE_QUIET_STATES:
+                    self._state.audio_level = 0.0
+        if active:
+            body = "Morse mode on: short hum = dot, long hum = dash. Stay silent to leave it."
+        else:
+            body = {
+                "silence": "Morse mode off (silence).",
+                "dictation": "Morse mode off: dictation started.",
+                "paused": "Morse mode off: hands-free input paused.",
+                "no_release": "Morse mode off: the sound never stopped, so there was "
+                              "nothing to decode.",
+            }.get(reason, "Morse mode off.")
+        try:
+            self._earcon.play("recording_start" if active else "recording_stop")
+            from yazses.system.notify import notify
+
+            notify("YazSes — Vocal Morse", body)
+        except Exception:  # pragma: no cover - feedback is never load-bearing
+            log.debug("Vocal Morse feedback failed", exc_info=True)
+
     def _start_headpointer(self) -> None:
         """Take the camera lease and start polling, if there is anything to start."""
         runtime = self._headpointer
@@ -3214,6 +3363,12 @@ class Daemon:
             # phrase -> pause every hands-free input and type nothing. Ahead of every
             # handler below on purpose: nothing may type, hold or reinterpret a stop.
             if self._try_voice_stop(text, event):
+                if stream_injector is not None:
+                    stream_injector.cancel()
+                return
+            # Vocal Morse (ADR-v2-105): the whole utterance "morse mode" enters Morse mode
+            # and types nothing. No-op (nothing imported) while `[morsevox]` is off.
+            if self._try_morse_mode(text, event):
                 if stream_injector is not None:
                     stream_injector.cancel()
                 return
@@ -4024,7 +4179,12 @@ class Daemon:
         # The Vocal Joystick keeps the daemon IDLE while its own stream is open; a PortAudio
         # reinit under that stream would close it, so the monitor waits while it is open.
         joystick = self._vocaljoystick
-        return idle and not (joystick is not None and joystick.mic_open)
+        morse = self._morsevox  # the same for Vocal Morse's level stream
+        return (
+            idle
+            and not (joystick is not None and joystick.mic_open)
+            and not (morse is not None and morse.mic_open)
+        )
 
     def _active_device_name(self) -> str | None:
         """The mic capture would currently use: the pin, else the OS default."""
@@ -6727,6 +6887,10 @@ class Daemon:
                 # Acoustic Context Profiles: the room scene and the gate in force, or None
                 # while the feature is off or has judged no burst. Numbers and a label only.
                 "acoustic": self._acoustic.status() if self._acoustic is not None else None,
+                # Vocal Morse (ADR-v2-105): whether Morse mode is on and how it was entered,
+                # for the CLI and the overlay. None while `[morsevox]` is off. States, flags
+                # and a character count -- never a decoded character.
+                "morse": self._morsevox.status() if self._morsevox is not None else None,
             }
 
     def _headpointer_payload(self) -> dict[str, object] | None:
@@ -6915,6 +7079,8 @@ class Daemon:
                         scope.append("Head-Pointer only")
                 if (joystick := getattr(self, "_vocaljoystick", None)) is not None:
                     joystick.toggle("pause", scope, reasons)  # closes its microphone
+                if (morse := getattr(self, "_morsevox", None)) is not None:
+                    morse.toggle("pause", scope, reasons)  # ends Morse mode, closes its mic
                 if not scope:
                     return {
                         "ok": False,
@@ -6935,6 +7101,9 @@ class Daemon:
             if (joystick := getattr(self, "_vocaljoystick", None)) is not None:
                 # Opens its microphone; it is no gate source, so the gate re-arms nothing for it.
                 ok = joystick.toggle("resume", scope, reasons) and ok
+            if (morse := getattr(self, "_morsevox", None)) is not None:
+                # Reopens the level stream that listens for the entry hum, if that is on.
+                ok = morse.toggle("resume", scope, reasons) and ok
             if gate is not None:
                 rearm = gate.resume()
                 scope.extend(n for n in rearm.armed if n not in scope)
@@ -7353,6 +7522,11 @@ class Daemon:
                 self._vocaljoystick.stop()  # microphone stream closed, pointer sink released
             except Exception:
                 log.exception("Vocal Joystick stop raised")
+        if self._morsevox is not None:
+            try:
+                self._morsevox.stop()  # Morse mode ended, microphone stream closed
+            except Exception:
+                log.exception("Vocal Morse stop raised")
 
         if self._mousegrid is not None:
             try:

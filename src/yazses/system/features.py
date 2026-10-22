@@ -565,8 +565,12 @@ def _registry() -> list[_Def]:
              "after, and warns about acronyms you never defined. Off by default.",
              lambda c: c.acronyms.enabled, ac_on, ac_off),
         _Def("morsevox", "Vocal Morse", "[morsevox] — two-tone Morse text entry", EXPERIMENTAL,
-             "Type by Morse using two vocal sounds (short/long) — full text from a single reliable "
-             "vocalization, with adaptive timing. For locked-in/minimal-ability users. Off by default.",
+             "Type by Morse with your voice: a short hum is a dot, a long hum a dash, and each "
+             "decoded letter is typed (speech-to-text is not run). Start it hands-free by "
+             "humming one long steady tone (1.5 s) or by saying 'morse mode'; 3 s of silence "
+             "ends it. Adapts the dot/dash timing to your rhythm. With the hum entry on, the "
+             "microphone stays open (a level only). For minimal-ability users. Experimental: "
+             "timings tuned on synthetic signals only. Off by default.",
              lambda c: c.morsevox.enabled, mv_on, mv_off),
         _Def("checkdigit", "Checksum-Validated Entry", "[checkdigit] — verify dictated ID numbers",
              RECOMMENDED,
@@ -1234,7 +1238,7 @@ def feature_packages(slug: str) -> tuple[str, ...]:
 # without wiring it fails CI.
 _UNWIRED: frozenset[str] = frozenset({
     "affect", "agent", "audioguard", "breath", "bridge", "cmdspotter",
-    "codec", "compose", "crowdproof", "hatselect", "interpret", "langroute", "lipread", "loadguard", "morsevox", "mouthswitch",
+    "codec", "compose", "crowdproof", "hatselect", "interpret", "langroute", "lipread", "loadguard", "mouthswitch",
     "multiprofile", "pilot", "predict", "pronunciation", "proofback", "rag", "readback_clone",
     "screengrounded", "scribe", "scrub", "sentiment", "sign", "spatialvad", "wakeword",
 })
@@ -1825,6 +1829,25 @@ def enable_caveat(slug: str, cfg) -> str | None:
                 "fail_open = true."
             )
         return advice
+    if slug == "morsevox":
+        # The long-hum entry is what lets a user who cannot press a key start Morse mode,
+        # and it can only hear a hum through a stream that is already open. That is a
+        # microphone left on while the daemon runs -- worth saying before, not after.
+        hum = getattr(getattr(cfg, "morsevox", None), "entry_hum_s", 1.5)
+        try:
+            # Only an exact 0 turns the hum off; anything unusable (negative, NaN) is
+            # repaired to the default by `morsevox.mode.resolve`, which listens.
+            listening = float(hum) != 0.0
+        except (TypeError, ValueError, OverflowError):
+            listening = True
+        if listening:
+            return (
+                "Heads up: to hear the long hum that starts Morse mode, the microphone "
+                "stays open while the daemon runs (only a level is read; nothing is "
+                "recorded or transcribed). Set [morsevox] entry_hum_s = 0 to start it only "
+                "by saying \"morse mode\"; `yazses handsfree pause` closes it. Timings "
+                "are untested on a real voice."
+            )
     if slug == "corrdict":
         # The table is mined from corpus events, and the corpus is off by default
         # (ADR-011). Enabling corrdict alone is the same "toggle that lies" shape:

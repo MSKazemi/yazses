@@ -4400,6 +4400,12 @@ def status(
                 line += f", raised from {room['base_gate']}"
             line += ")"
         typer.echo(line)
+    # Vocal Morse (ADR-v2-105): absent while `[morsevox]` is off and on an older daemon.
+    morse = info.get("morse")
+    if isinstance(morse, dict):
+        from yazses.morsevox.mode import describe_status
+
+        typer.echo(f"  morse:    {describe_status(morse)}")
     if info.get("silent_streak"):
         typer.echo(
             f"  ⚠ mic:    {info['silent_streak']} silent clips in a row — "

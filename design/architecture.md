@@ -678,6 +678,30 @@ Four advanced features. Each follows the optional-extra + dormant-factory patter
 
 New config sections: `[voiceprint]`, `[cocktail]`, `[personalize]`, `[gaze]`, `[perception]`, `[polyglot]` (all off by default). New extras: `voiceprint` (speechbrain); `gaze` deps are manual-install (l2cs pins an old torch). `doctor` reports each enabled extra's importability.
 
+### `src/yazses/morsevox/` (Vocal Morse, ADR-v2-105 — experimental, off by default)
+
+Text entry from timed hums for a user who cannot produce intelligible speech. It is the
+second microphone reader beside dictation (the Vocal Joystick is the first), and it never
+reaches speech-to-text: only one level per audio chunk (`mean(|samples|)`, the VAD gate's
+metric) leaves the stream callback.
+
+| File | Role |
+|---|---|
+| `decode.py` | Pure. `classify_pulse` / `classify_gap`, `MorseDecoder` (international table), `adapt_dot_threshold` |
+| `segment.py` | Pure. `PulseSegmenter` (hysteresis + debounce over a `(t_ms, level)` stream) and `MorseStream` (segmenter → decoder, letter at the letter gap, optional adaptive dot/dash threshold) |
+| `mode.py` | Pure, clock-injected. `MorseMode`: idle → armed → morse → idle. `HumDetector` is the entry trigger: an unbroken run above the threshold for `entry_hum_s` whose level coefficient of variation is ≤ 0.25 (ADR-021: speech has dips and syllabic modulation, so it fails one rule or the other); it fires at most once per continuous sound. Exit on `exit_silence_s` with no accepted pulse, forced above the word gap. `is_enter_phrase` is the whole-utterance "morse mode" match (the stop word's rule). Thresholds synthetic-only. |
+| `runtime.py` | The impure shell: owns the level stream (`recorder_factory`), a worker thread, the clock, and the daemon callbacks (`inject`, `on_change`, `on_level`). `status()` carries flags and a count, never a decoded character. |
+
+Daemon glue (`core/daemon.py`): `_build_morsevox` (lazy import behind `[morsevox] enabled`),
+`_start_morsevox` (opens the stream at start only when the hum entry is on),
+`_try_morse_mode` (right after the voice stop word in `_on_hold_end`; consumes the phrase),
+`_morse_inject` (the normal injector), `_on_morse_mode` (earcon + notification). The mode
+yields to every daemon state outside `_MORSE_QUIET_STATES` (IDLE / TRANSCRIBING /
+INJECTING), reads the hands-free gate's `user_paused` only, and is paused and resumed by the
+`handsfree` IPC. `status` carries a `morse` block; the overlay draws its rings while
+`morse.active` is true. While the stream is open the device monitor does not reinit
+PortAudio, so a device change is not detected while the hum entry listens.
+
 ### `src/yazses/overlay/` (voice-activity overlay, `yazses-overlay`)
 
 Standalone process (separate from the daemon, which is blocked by the hotkey
@@ -690,7 +714,7 @@ layer (PySide6, optional `overlay` extra) is thin and smoke-tested offscreen.
 | `envelope.py` | `EnvelopeFollower` — attack/release smoothing of mic level → 0..1 intensity (no Qt) |
 | `animation.py` | `SonarModel` — emits/ages expanding rings given `(now, intensity)` (no Qt) |
 | `position.py` | `place_near_cursor` / `place_fixed` — clamped on-screen placement (no Qt) |
-| `poller.py` | `StatusPoller` — adaptive-cadence background poll of `status` (fast while recording) |
+| `poller.py` | `StatusPoller` — adaptive-cadence background poll of `status` (fast while recording, a dwell builds, or Vocal Morse mode is on) |
 | `app.py` | `compute_frame` (pure per-tick decision) + `run` (the Qt shell / `yazses-overlay` entry) |
 | `widget.py` | `SonarWidget` — frameless, translucent, click-through `QWidget`; `QPainter` ring render |
 

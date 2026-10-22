@@ -68,11 +68,15 @@ _USER_TEXT = frozenset({"preview"})
 #: `headpointer` (#404) is the same by the same construction: `headpointer/runtime.py`'s
 #: `status_dict` is a state name, a few flags, a sample age, a 0..1 dwell fraction and the
 #: backend's own failure message -- no pose, no position, and a test pins that it has none.
+#:
+#: `morse` (ADR-v2-105) is `MorseRunner.status()`: a state name, flags, how the mode was
+#: entered and a count of typed characters -- never a decoded character, which
+#: `tests/test_morsevox_runtime.py` pins.
 _MACHINE_FACTS = frozenset({
     "acoustic", "audio_level", "bursts", "command_mode", "commands_enabled", "confidence_enabled",
     "decode_latency", "enabled", "handsfree", "headpointer", "hotkey", "injection_backend", "input_device",
     "last_error", "last_good_device", "low_confidence_last", "meeting_active",
-    "meeting_enabled", "meeting_finalizing", "modality_roles", "model", "notifications",
+    "meeting_enabled", "meeting_finalizing", "modality_roles", "model", "morse", "notifications",
     "outcomes", "platform", "read_back", "ready", "remote_connected", "silent_streak",
     "silent_streak_threshold", "spoken_commit", "staged", "state", "streaming_enabled",
     "stale_permissions", "summary", "target_ok", "tts_backend", "uptime_s", "vad_threshold", "version",

@@ -41,7 +41,7 @@ It stays listed so contributors can pick it up; see the matching design/adr/ ent
 ```
 
 They stay listed because that is where a contributor picks one up — each has a matching
-`design/adr/` entry. **29 of the 122 rows below are ◌ today.** Rows without the mark are
+`design/adr/` entry. **28 of the 122 rows below are ◌ today.** Rows without the mark are
 wired and can be turned on.
 
 ### "Hold the command key" — what that means
@@ -287,7 +287,7 @@ The lowest-bandwidth input methods and new text-intelligence layers.
 
 | Feature | `features` name | What it does |
 |---|---|---|
-| ◌ **Vocal Morse** | `morsevox` | Type by Morse using two vocal sounds (short/long); adaptive timing. Experimental. |
+| **Vocal Morse** | `morsevox` | Type by Morse with your voice: a short hum is a dot, a long hum a dash, and each decoded letter is typed (speech-to-text is not run); adaptive timing. Start it by saying "morse mode" or by humming one long steady tone (`[morsevox] entry_hum_s`, 1.5 s); `exit_silence_s` (3 s) of silence ends it. With the hum entry on, the microphone stays open while the daemon runs (a level only, nothing recorded); `yazses handsfree pause` closes it. Thresholds tuned on synthetic signals only. Experimental. |
 | **Checksum-Validated Entry** | `checkdigit` | Verifies dictated account/ID numbers (Luhn/ISBN/Verhoeff) and suggests fixes. |
 | **Semantic Line Breaks** | `sembr` | Breaks prose one clause per source line so git diffs stay clean. |
 | **Acronym & Glossary Manager** | `acronyms` | Expands acronyms on first use, contracts after, warns on undefined. |
@@ -298,8 +298,8 @@ The lowest-bandwidth input methods and new text-intelligence layers.
 | **Diagrams-as-Code by Voice** | `diagramvox` | Dictate a flowchart → Mermaid/Graphviz source, no canvas. |
 | ◌ **Interruptible Proofreading** | `proofback` | Interrupt the read-back and land the cursor on the exact word. |
 
-Wave M: eight of its ten features are wired; `checkdigit` is switched on by a fresh
-install's config and the rest are off by default. The two marked ◌ are designed but not
+Wave M: nine of its ten features are wired; `checkdigit` is switched on by a fresh
+install's config and the rest are off by default. The one marked ◌ is designed but not
 yet wired.
 
 ## Structural editing, i18n & accessibility-output (Wave N)

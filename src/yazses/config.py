@@ -1951,11 +1951,24 @@ class InvoluntaryConfig:
 
 @dataclass
 class MorsevoxConfig:
-    """v2.9 Wave M — Vocal Morse two-tone AAC (ADR-v2-105). OFF by default."""
+    """v2.9 Wave M — Vocal Morse two-tone AAC (ADR-v2-105). OFF by default. Experimental.
+
+    Morse mode is entered by saying "morse mode" (the whole utterance) or by humming one
+    long, steady tone for ``entry_hum_s`` seconds, and left after ``exit_silence_s`` of
+    silence. While it is on, short hums are dots, long hums are dashes, and the decoded
+    characters are typed; speech-to-text is not run. ``entry_hum_s = 0`` turns the hum
+    entry off — the microphone then opens only when the spoken command enters the mode.
+    With it on, the microphone stays open (a level only, nothing recorded) while the
+    daemon runs. Both timings are provisional and untested on a real voice.
+    """
     enabled: bool = False
     dot_max_ms: float = 200.0
     letter_gap_ms: float = 600.0
     word_gap_ms: float = 1400.0
+    #: Seconds of one steady, unbroken hum that enter Morse mode. 0 = only the spoken "morse mode" enters.
+    entry_hum_s: float = 1.5
+    #: Seconds of silence that leave Morse mode. Raised above the word gap if set at or below it.
+    exit_silence_s: float = 3.0
 
 
 @dataclass
