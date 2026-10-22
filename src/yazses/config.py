@@ -1685,6 +1685,13 @@ class McpConfig:
     #: Spoken questions allowed per rolling hour, shared across every caller — it
     #: protects the person, not each agent's fair share. 0 = never.
     ask_human_per_hour: int = 3
+    #: Seconds of quiet after you have started answering that end the answer, so a
+    #: two-word reply frees the microphone in about a second instead of holding it for
+    #: the agent's whole wait. Never below 0.3 s (a between-word pause).
+    ask_human_end_silence_s: float = 1.2
+    #: Seconds to wait for you to start answering before returning no answer. 0 waits
+    #: for the caller's whole timeout instead.
+    ask_human_no_speech_s: float = 8.0
 
 
 @dataclass

@@ -100,6 +100,10 @@ from yazses.system.uptime import monotonic_including_suspend
 
 log = logging.getLogger(__name__)
 
+#: How often the ask_human listener reads the mic level: the hands-free watcher's
+#: cadence (`_autostop_watch`), well under the 0.3 s silence floor.
+_ASK_HUMAN_POLL_S = 0.05
+
 
 class _SilentEarcon:
     """What ``Daemon._earcon`` is while ``[earcon]`` is off.
@@ -7186,7 +7190,16 @@ class Daemon:
 
         The recorder is always stopped, including on failure — leaving the stream
         open would hold the microphone against the next real dictation.
+
+        It ends when the answer does (#640): after speech and then
+        ``[mcp] ask_human_end_silence_s`` of quiet, with no answer when nothing is said
+        within ``ask_human_no_speech_s``, and at the caller's timeout at the latest.
+        Speech is the dictation gate the hands-free watcher polls: the live level from
+        ``_on_audio_chunk`` against ``[accessibility] vad_threshold``. The decision
+        itself is :class:`yazses.endpoint.answer.AnswerEndpoint`, which is pure.
         """
+        from yazses.endpoint.answer import NO_SPEECH, AnswerEndpoint
+
         recorder, engine = self._recorder, self._engine
         if recorder is None or engine is None:
             # Both are built during startup. An empty answer is the honest result
@@ -7195,11 +7208,33 @@ class Daemon:
             log.warning("Cannot ask for a spoken answer before capture and STT are ready.")
             return ""
 
+        mcp = self._config.mcp
+        threshold = self._config.accessibility.vad_threshold
+        started = time.monotonic()
+        judge = AnswerEndpoint(
+            started_at=started,
+            timeout_s=timeout_s,
+            end_silence_s=mcp.ask_human_end_silence_s,
+            no_speech_s=mcp.ask_human_no_speech_s,
+        )
+        outcome: str | None = None
         recorder.start()
         try:
-            time.sleep(max(1.0, float(timeout_s)))
+            while outcome is None:
+                time.sleep(_ASK_HUMAN_POLL_S)
+                with self._lock:
+                    level = self._state.audio_level
+                outcome = judge.observe(time.monotonic(), level >= threshold)
         finally:
             audio = recorder.stop()
+            with self._lock:
+                self._state.audio_level = 0.0  # the answer is over; the overlay calms down
+        log.info("ask_human: listening ended (%s) after %.1f s.", outcome,
+                 time.monotonic() - started)
+        if outcome == NO_SPEECH:
+            # Nothing crossed the gate, so there is nothing to decode -- and decoding a
+            # quiet room is how Whisper hands back the words it was primed with (#598).
+            return ""
         if audio is None or not len(audio):
             return ""
         return (engine.transcribe(audio) or "").strip()
