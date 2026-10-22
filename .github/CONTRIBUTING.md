@@ -80,6 +80,12 @@ minutes rather than seconds — that is expected, not a hang. While you work, na
 file you changed (`uv run python -m pytest tests/test_foo.py`, or `-k pattern`) and leave the
 full run for before you push.
 
+If a single test really does hang, it fails after five minutes and prints every thread's
+stack (pytest-timeout), rather than leaving the run silent. A test that legitimately needs
+longer says so with `@pytest.mark.timeout(N)`. The run is strict: a misspelt marker or an
+unknown key in `[tool.pytest.ini_options]` is an error, and an `xfail` that starts passing
+fails. Take the `xfail` off, because whatever it marked is fixed.
+
 **mypy is clean and advisory.** `uv run mypy src` reports **no issues** on the plain
 `uv sync` above — you do not need to install anything else first. So if you see an error,
 you almost certainly just introduced it. It is not a CI gate — only `ruff` and `pytest`

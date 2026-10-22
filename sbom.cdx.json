@@ -2512,6 +2512,20 @@
     },
     {
       "type": "library",
+      "name": "pytest-timeout",
+      "version": "2.4.0",
+      "purl": "pkg:pypi/pytest-timeout@2.4.0",
+      "bom-ref": "pkg:pypi/pytest-timeout@2.4.0",
+      "scope": "excluded",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "7e68e90b01f9eff71332b25001f85c75495fc4e3a836701876183c4bcfd0540a"
+        }
+      ]
+    },
+    {
+      "type": "library",
       "name": "pytest-xdist",
       "version": "3.8.0",
       "purl": "pkg:pypi/pytest-xdist@3.8.0",

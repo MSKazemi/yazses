@@ -74,6 +74,13 @@ owner, a reason and an expiry. The suite fails on any quarantine missing one of 
 success from a change looking correct. The suite is offline and mocks audio and model
 layers, so no microphone, network, or Whisper model download is required.
 
+**The pytest config is strict, and `tests/test_pytest_config.py` enforces it.** It has
+`--strict-markers`, `--strict-config` and `xfail_strict`, plus a 300 s per-test `timeout`
+from pytest-timeout. `required_plugins` names the plugins the suite needs. Add a new one
+to the `dev` group **and** to the FreeBSD leg's `pip install` line in `test.yml`, which
+installs test dependencies by name. Never raise the global timeout to make a slow test
+pass. Mark that test `@pytest.mark.timeout(N)` instead, or make it faster.
+
 **mypy is clean and advisory.** `uv run mypy src` reports **no issues** on the plain
 `uv sync` above — no backlog, no accepted errors, nothing you have to install first. So if
 it reports an error, you almost certainly just introduced it — fix it rather than reporting

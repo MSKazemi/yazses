@@ -409,6 +409,10 @@ dev = [
     "pytest>=9.1.1",
     "pytest-mock>=3.15.1",
     "pytest-cov>=7.1.0",
+    # Turns a hung test into a failure with every thread's stack, instead of a CI job
+    # that prints one test name and then nothing until the runner is killed. Named in
+    # `required_plugins` below, so an environment without it refuses to start.
+    "pytest-timeout>=2.4.0",
     "hypothesis>=6.165.2",
     "useful-moonshine-onnx>=20251121",
     # Lint + type gates. CONTRIBUTING.md and the README tell contributors to run
@@ -465,6 +469,30 @@ docs = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+minversion = "9.0"
+# The FreeBSD leg installs test dependencies by name rather than from the `dev` group,
+# so it is the one place a plugin can go missing. Without this, a missing
+# pytest-timeout means `timeout` below is an unknown key, and a missing pytest-mock
+# means hundreds of "fixture 'mocker' not found" errors. With it, the run stops at
+# startup and names the plugin. `tests/test_pytest_config.py` checks that every plugin
+# listed here is also installed by that leg.
+required_plugins = ["pytest-mock>=3.15.1", "pytest-timeout>=2.4.0", "hypothesis>=6.165.2"]
+# --strict-markers: a misspelt marker (`@pytest.mark.quarantined`) is an error rather
+#   than a silently ignored decorator that leaves the test unquarantined.
+# --strict-config: an unknown key in this table is an error rather than a setting that
+#   quietly does nothing.
+addopts = ["--strict-markers", "--strict-config"]
+# An `xfail` that starts passing fails the run: either the bug was fixed and the
+# marker should go, or the test no longer reaches the bug. Both xfails in the suite
+# already say `strict=True`; this makes it the default for the next one.
+xfail_strict = true
+# Per-test ceiling. The slowest test takes well under a minute on a loaded laptop, so
+# this only ever fires on a hang. A Windows leg once printed one test name and then
+# nothing for 2 h 30 m (a real `MessageBoxW` waiting for a click); with this it fails
+# after five minutes with every thread's stack. The method is left to pytest-timeout:
+# SIGALRM on POSIX, a watchdog thread on Windows, which has no SIGALRM. Override for one
+# test with `@pytest.mark.timeout(N)`.
+timeout = 300
 
 # Lint gate. Deliberately a small, high-signal core (pyflakes + the serious pycodestyle
 # checks + import ordering) so `uv run ruff check src tests` is green and a contributor's

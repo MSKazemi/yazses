@@ -585,7 +585,10 @@ jobs:
             # typer, which dropped it at 0.27.2. This leg is the only environment
             # that installs test dependencies by name instead of from the `dev`
             # group, so it is the only one where such a drop shows up as red.
-            python -m pip install platformdirs typer click pytest pytest-mock pytest-xdist hypothesis pyyaml
+            # pytest-timeout is named by `required_plugins` in pyproject.toml, so
+            # pytest refuses to start without it; tests/test_pytest_config.py
+            # keeps this line and that list in step.
+            python -m pip install platformdirs typer click pytest pytest-mock pytest-xdist pytest-timeout hypothesis pyyaml
             # `cryptography` is the learning corpus's AES-256-GCM cipher, and 151
             # tests reach it. There is no FreeBSD wheel, so it builds through
             # maturin — which is what the `rust` package above is for — in about
