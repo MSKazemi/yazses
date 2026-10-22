@@ -7,7 +7,7 @@ description: Where YazSes is going — the vision of keyboard-optional, fully pr
 
 YazSes is a fully-offline, hold-to-talk voice dictation daemon for Linux,
 macOS, and Windows — no cloud, no account, nothing leaves your machine.
-**The current stable release is v2.43.2**, published on PyPI, GitHub
+**The current stable release is v2.44.0**, published on PyPI, GitHub
 Releases (Windows, macOS and Linux installers), Snap, the APT repository and more —
 see [platform support](platform-support.md). For what is landing *this week*, see
 [what we're building now](now.md), which is generated from the changelog on every build.
@@ -26,6 +26,46 @@ an epic carries the one its sub-issues share (none if they span several), and ev
 issues — research questions, "test it on your machine" calls, translation reviews,
 contributor invitations — carry an `evergreen:*` label and no milestone. An issue with
 neither a milestone nor a class label is a violation the policy check reports.
+
+## The focus now — the offline microphone for the agent era
+
+Decided on 2026-10-22 in
+[ADR-030](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-030-agent-era-direction.md).
+YazSes grew in every direction at once. For the coming months it grows in one:
+
+> **Offline, keyboard-level voice input for the agent era — Linux-first, correct on
+> Wayland, usable hands-free — that any AI tool can plug into.**
+
+More and more of what people type goes into AI coding agents and chat apps: long prompts,
+with pauses to think. YazSes already fits that work. Hold-to-talk does not cut you off
+mid-thought, [staged dictation](features.md#staged-dictation) lets you review a prompt before it is
+typed, and nothing you say leaves your computer. See
+[voice input for AI coding agents](use-cases/voice-input-for-ai-agents.md).
+
+**What we are working on, in order:**
+
+1. **Make every claim true before adding anything.** Dictation confirmed by a named person
+   on current macOS and Windows builds (both stay labelled *preview* until then), Wayland
+   confirmed on real hardware, the most accurate engine made easy to choose, and no
+   feature advertised that `yazses features enable` cannot actually turn on.
+2. **Two small bridges to the AI tools you already use**, both off by default:
+   - *send to*: hand a dictated prompt to the Claude or Codex desktop app, already filled in
+     and **never sent**. You press Enter. Proposed in
+     [ADR-031](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-031-send-to-prefill-handoff.md).
+   - *a discoverable MCP server*: one-click install of `yazses mcp-server` in an MCP client,
+     and an `ask_human` that stops listening when you stop talking. Proposed in
+     [ADR-032](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-032-mcp-discoverability.md).
+
+**What we are deliberately not building:** a cloud assistant that routes what you say to
+online services, an always-listening wake word, or anything that sends a message on your
+behalf.
+
+**A pause on new capabilities.** Once the work already in progress lands, no new capability
+waves start until the first issue arrives from someone outside the contributor community.
+Bug fixes, wiring of capabilities that are already advertised, tests, packaging and docs
+continue as normal. The hands-free and eye-control features stay available and maintained,
+but get nothing new until someone is observed using them day to day. If that is you,
+[tell us](https://github.com/MSKazemi/yazses/issues/new/choose): it changes the plan.
 
 ## The destination
 
@@ -105,14 +145,18 @@ them (see the note at the top of this page). Pick the one that sounds like you:
 
 | Milestone | The promise | Flavour |
 |---|---|---|
-| [Settings GUI — click, not config](https://github.com/MSKazemi/yazses/milestone/5) | Configure everything from a window and a tray icon (complete — its last work is on `main`, unreleased) | Desktop / Python / Qt |
-| [Install anywhere](https://github.com/MSKazemi/yazses/milestone/6) | One command on every distro and OS — you own a channel | Packaging |
-| [Hear better — speech intelligence](https://github.com/MSKazemi/yazses/milestone/7) | Accuracy measured, not asserted: benchmarks, denoising, new engines | Speech / ML |
+| [Verified everywhere](https://github.com/MSKazemi/yazses/milestone/13) | Every platform we advertise is confirmed by a person dictating on real hardware — Linux first, then macOS and Windows | Testing / platforms |
+| [Agent-era mic — the offline mic for every AI](https://github.com/MSKazemi/yazses/milestone/14) | Your dictated prompts reach the AI tools you already use — offline, and never sent for you ([ADR-030](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-030-agent-era-direction.md)) | MCP / Python / desktop integration |
+| [Install anywhere — every OS and package manager](https://github.com/MSKazemi/yazses/milestone/6) | One command on every distro and OS — you own a channel | Packaging |
+| [Speech accuracy — measured engines and models](https://github.com/MSKazemi/yazses/milestone/7) | Accuracy measured, not asserted: benchmarks, denoising, new engines | Speech / ML |
 | [Voice control — beyond dictation](https://github.com/MSKazemi/yazses/milestone/8) | Git, files, windows, and symbols — commanded, not typed | Systems / HCI |
-| [Welcome mat](https://github.com/MSKazemi/yazses/milestone/9) | The first hour is easy, the first contribution is likely | Docs / testing / no-code |
+| [Contributor experience — docs, testing and community](https://github.com/MSKazemi/yazses/milestone/9) | The first hour is easy, the first contribution is likely | Docs / testing / no-code |
 | [Hands-free — perception & accessibility](https://github.com/MSKazemi/yazses/milestone/10) | Eye, muscle and whisper input maturing into a complete hands-free stack, on Linux first | Perception / accessibility |
-| [Silent input — EMG commands](https://github.com/MSKazemi/yazses/milestone/11) | EMG as a first-class command channel, with no cost to anyone who never enables it (complete — reopens when new EMG work is filed) | Hardware / signal processing |
-| [M0–M3 — Android](https://github.com/MSKazemi/yazses/milestone/2) | An offline dictation keyboard in your pocket, designed in the open | Mobile / Kotlin |
+| [Android M0–M3](https://github.com/MSKazemi/yazses/issues/81) | An offline dictation keyboard in your pocket, designed in the open — community-led, no dates | Mobile / Kotlin |
+
+Completed and closed: [Settings GUI — click, not config](https://github.com/MSKazemi/yazses/milestone/5?closed=1)
+and [Silent input — EMG commands](https://github.com/MSKazemi/yazses/milestone/11?closed=1). A closed milestone
+reopens when new work for it is filed.
 
 Start at the [pinned contributor guide](https://github.com/MSKazemi/yazses/issues/22),
 or — for research-shaped work — at

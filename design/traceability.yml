@@ -174,30 +174,6 @@ entries:
       task: "WIRE-LOADGUARD-001"
       milestone: 9
     remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
-  - id: "capability:morsevox"
-    kind: capability
-    title: "Vocal Morse"
-    source: "design/adr/adr-v2-105-vocal-morse.md"
-    decision_status: accepted
-    delivery_status: designed
-    tracking:
-      kind: campaign
-      issues: [164]
-      task: "WIRE-MORSEVOX-001"
-      milestone: 9
-    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
-  - id: "capability:mouthswitch"
-    kind: capability
-    title: "Mouth-Sound Switch Access"
-    source: "design/adr/adr-v2-097-mouth-sound-switch-access.md"
-    decision_status: accepted
-    delivery_status: designed
-    tracking:
-      kind: campaign
-      issues: [164]
-      task: "WIRE-MOUTHSWITCH-001"
-      milestone: 9
-    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
   - id: "capability:multiprofile"
     kind: capability
     title: "Multi-User Voiceprint Profiles"
@@ -210,30 +186,18 @@ entries:
       task: "WIRE-MULTIPROFILE-001"
       milestone: 9
     remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
-  - id: "capability:pilot"
+  - id: "capability:polyglot"
     kind: capability
-    title: "AT-SPI Voice Pilot"
-    source: "design/adr/adr-v2-007-atspi-voice-pilot.md"
+    title: "True Code-Switch Dictation"
+    source: "design/adr/adr-v2-008-code-switch.md"
     decision_status: accepted
     delivery_status: designed
     tracking:
       kind: campaign
       issues: [164]
-      task: "WIRE-PILOT-001"
+      task: "WIRE-POLYGLOT-001"
       milestone: 9
-    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
-  - id: "capability:predict"
-    kind: capability
-    title: "Predictive Completion"
-    source: "design/adr/adr-v2-016-predictive-completion.md"
-    decision_status: accepted
-    delivery_status: designed
-    tracking:
-      kind: campaign
-      issues: [164]
-      task: "WIRE-PREDICT-001"
-      milestone: 9
-    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
+    remaining: "Needs a producer of per-span language IDs (an STT engine capability or a new Protocol method) and a rule for splitting a burst into spans; then wire PolyglotRouter.should_route into the decode path."
   - id: "capability:pronunciation"
     kind: capability
     title: "Pronunciation Feedback"
@@ -244,18 +208,6 @@ entries:
       kind: campaign
       issues: [164]
       task: "WIRE-PRONUNCIATION-001"
-      milestone: 9
-    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
-  - id: "capability:proofback"
-    kind: capability
-    title: "Interruptible Read-Back Proofreading"
-    source: "design/adr/adr-v2-108-interruptible-readback-proofreading.md"
-    decision_status: accepted
-    delivery_status: designed
-    tracking:
-      kind: campaign
-      issues: [164]
-      task: "WIRE-PROOFBACK-001"
       milestone: 9
     remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
   - id: "capability:rag"
@@ -280,18 +232,6 @@ entries:
       kind: campaign
       issues: [164]
       task: "WIRE-READBACK-CLONE-001"
-      milestone: 9
-    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
-  - id: "capability:screengrounded"
-    kind: capability
-    title: "Screen-Grounded Dictation"
-    source: "design/adr/adr-v2-051-screen-grounded-dictation.md"
-    decision_status: accepted
-    delivery_status: designed
-    tracking:
-      kind: campaign
-      issues: [164]
-      task: "WIRE-SCREENGROUNDED-001"
       milestone: 9
     remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
   - id: "capability:scribe"
@@ -583,3 +523,38 @@ entries:
       task: null
       milestone: null
     gate: "Declined unless a real isolation boundary changes the trust model."
+  - id: "decision:adr-030-agent-era-direction"
+    kind: decision
+    title: "Direction: the offline microphone for the agent era, and a breadth freeze"
+    source: "design/adr/adr-030-agent-era-direction.md"
+    decision_status: accepted
+    delivery_status: in-progress
+    tracking:
+      kind: issue
+      # Pillar 1 and Pillar 2 children span milestones 7, 9, 13 and 14, so the decision
+      # carries none (design/milestone-policy.md); the bridges are tracked below.
+      issues: [642, 643, 644, 645, 646, 504]
+      task: null
+      milestone: null
+  - id: "decision:adr-031-send-to"
+    kind: decision
+    title: "Send to: hand dictated text to a desktop AI client, pre-filled and never sent"
+    source: "design/adr/adr-031-send-to-prefill-handoff.md"
+    decision_status: proposed
+    delivery_status: scheduled
+    tracking:
+      kind: issue
+      issues: [637]
+      task: null
+      milestone: 14
+  - id: "decision:adr-032-mcp-discoverability"
+    kind: decision
+    title: "Make the MCP server discoverable, and let ask_human stop when the user does"
+    source: "design/adr/adr-032-mcp-discoverability.md"
+    decision_status: proposed
+    delivery_status: scheduled
+    tracking:
+      kind: issue
+      issues: [638, 639, 640, 641]
+      task: null
+      milestone: 14

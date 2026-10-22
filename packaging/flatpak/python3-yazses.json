@@ -262,8 +262,8 @@
     },
     {
       "type": "file",
-      "url": "https://files.pythonhosted.org/packages/34/af/0c5fbfa79b43ee79942550af9fb77fc473ba06112d58f188e398212f09e9/yazses-2.43.1-py3-none-any.whl",
-      "sha256": "25d17110b1fc142674f830be8b93a1d89681015ea63af660b66f33e0b2919bd0"
+      "url": "https://files.pythonhosted.org/packages/db/5a/7abd64c92a7938e3d0d88dfded3de56866afeb585cc42264b88a4732a0c7/yazses-2.43.2-py3-none-any.whl",
+      "sha256": "c1eb932248f464b6f28f5be79238c0b3eee8022829ae80a430247474612d6a77"
     }
   ]
 }

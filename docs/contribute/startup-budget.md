@@ -173,6 +173,8 @@ daemon row for its module counts. The CLI rows are clear. `yazses.config` alone 
 
 Two disabled packages are still imported by `import yazses.main`, `cmdsafety` and `staged`.
 The reason for each is in `KNOWN_EAGER`. A default daemon's `_build_pipeline` also imports
-`gesture`, `perception`, `handsfree`, `headpointer` and `polyglot` directly, and
+`gesture`, `perception`, `handsfree` and `headpointer` directly, and
 `facegesture` and `gaze` through them. Those are listed in
 `tests/test_dormant_features_stay_unimported.py` as the next things to make lazy.
+(`polyglot` left that list when the daemon stopped building a code-switch router that
+nothing consulted; it now reads `[polyglot] enabled` only, to warn.)

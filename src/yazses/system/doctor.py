@@ -1030,6 +1030,27 @@ def _corpus_redaction_check(cfg) -> list[_Check]:
     )]
 
 
+def _polyglot_check(cfg) -> _Check | None:
+    """One WARN row while `[polyglot] enabled = true`, saying nothing reads it; else ``None``.
+
+    This row used to fire only when `adapter_path` was empty, telling the user to set
+    it -- which implied that setting it would turn code-switch routing on. Nothing
+    routes with or without an adapter: no decode path produces the per-span language
+    IDs the ADR-v2-008 router needs, so `polyglot` is registered as not wired. The row
+    therefore fires on `enabled` alone and names the one useful action.
+    """
+    try:
+        if not bool(cfg.polyglot.enabled):
+            return None
+    except AttributeError:
+        return None
+    return (
+        "Polyglot Switch [polyglot]", "WARN",
+        "on, but not wired in this build — every burst is decoded by the [stt] model "
+        "and pair/adapter_path are not used. Clear it:\n    yazses features disable polyglot",
+    )
+
+
 def _hotwords_optin_check(cfg) -> _Check | None:
     """Why a `[hotwords] enabled = true` this config carries is not active, or ``None``.
 
@@ -1182,6 +1203,7 @@ def _config_summary(
         prompt_summary(
             cfg.stt.initial_prompt, words, env_terms,
             mined=mined, context=bool(cfg.context.enabled),
+            screen=bool(cfg.screengrounded.enabled),
         ),
     ))
     return out
@@ -2343,9 +2365,9 @@ def run_doctor(check_mic: bool = False, mic_seconds: float = 2.0) -> None:
         if cfg.agent.enabled and not cfg.agent.slm_model_path:
             checks.append(("agent planner", "WARN",
                            "dormant — set [agent] slm_model_path"))
-        if cfg.polyglot.enabled and not cfg.polyglot.adapter_path:
-            checks.append(("polyglot adapter", "WARN",
-                           "dormant — set [polyglot] adapter_path (out-of-band CS model)"))
+        polyglot = _polyglot_check(cfg)
+        if polyglot is not None:
+            checks.append(polyglot)
         if cfg.bridge.enabled:
             checks.append(("glasses↔desktop bridge", "OK",
                            f"will listen on port {cfg.bridge.listen_port}"))

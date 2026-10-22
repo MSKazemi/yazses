@@ -142,11 +142,14 @@ model = "small"
 language = ""          # auto-detect
 ```
 
-`[polyglot]` (`yazses features enable polyglot`, with `pair = "fa-en"`) is not a
-working answer yet. It is a code-switch hook for a separately trained adapter
-(`[polyglot] adapter_path`); with none set it does nothing, and `yazses doctor`
-reports it as dormant. Even with an adapter set, the daemon does not route any
-speech to it yet, so turning it on changes no transcript.
+`[polyglot]` is **planned — not yet wired**, so `yazses features enable polyglot`
+refuses it. The design (ADR-v2-008) routes a burst that mixes the two languages of
+a declared pair (`pair = "fa-en"`) to a code-switch adapter you train separately
+(`[polyglot] adapter_path`). What is missing is the input that decision needs:
+nothing yet tells the daemon which parts of a burst are in which language, so
+every burst is decoded by the `[stt]` model, with or without an adapter. If an
+older config of yours turns it on, the daemon log and `yazses doctor` say so;
+`yazses features disable polyglot` clears it.
 
 ## Per-application language switching
 
@@ -297,9 +300,9 @@ never needs your words to diagnose anything.
   well-resourced languages and noticeably weaker in low-resource ones. No amount
   of surrounding tooling changes that. Test with your own speech before relying
   on it.
-- **Code-switching is not routed yet.** `[polyglot] adapter_path` names a
-  code-switch-adapted model you train out-of-band, and the feature stays dormant
-  until you set it; even then the daemon does not route speech to it yet. For
+- **Code-switching is not routed yet.** `[polyglot]` is planned, not wired:
+  setting `adapter_path` to a code-switch model you trained does not change any
+  transcript, because nothing yet detects where a burst switches language. For
   mixed-language speech today, use a multilingual model with auto-detection.
 - **Multilingual models are larger and slower** than the English-only ones. On a
   modest CPU expect noticeably more latency than `base.en`. See [performance

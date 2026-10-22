@@ -1,4 +1,4 @@
-.TH YAZSES 1 "2026-10-18" "yazses 2.43.2" "User Commands"
+.TH YAZSES 1 "2026-10-23" "yazses 2.44.0" "User Commands"
 .SH NAME
 yazses \- Local, offline-by-default voice dictation \(em hold a key, speak, release.
 .SH SYNOPSIS
@@ -257,6 +257,17 @@ Install the libraries that switched-on features are missing.
 .TP
 \fB\-\-yes, \-y\fR
 Install without asking first.
+.RE
+.TP
+\fByazses features repair\fR
+Repair every switched-on feature whose libraries are missing (shown as ON, not installed).
+.RS
+.TP
+\fB\-\-yes, \-y\fR
+Install without asking first.
+.TP
+\fB\-\-dry\-run\fR
+List the dormant features and their packages; install nothing.
 .RE
 .TP
 \fByazses features reset\fR
