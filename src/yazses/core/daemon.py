@@ -2216,6 +2216,7 @@ class Daemon:
         if self._cmdsafety_dispatch_held():
             return  # a held COMMAND: re-dispatched with its Return
         text = str(held)
+        self._recheck_input_block()  # the window may have changed since it was held
         with self._lock:
             target_ok = self._state.target_ok
         if (

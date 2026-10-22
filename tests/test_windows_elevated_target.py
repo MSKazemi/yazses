@@ -209,3 +209,19 @@ def test_a_recheck_that_raises_changes_nothing(mocker):
     d._recheck_input_block()
     assert (d._state.target_ok, d._state.target_block) == (None, None)
 
+
+
+def test_a_switch_confirmed_held_item_is_checked_again_before_typing(mocker):
+    # A held item released by a switch types like a dictation does, so it must ask the
+    # same question just before typing: the window may have become elevated meanwhile.
+    d = _daemon(mocker, "clipboard")
+    d._state.target_ok, d._state.target_block = None, None  # fine when it was held
+    d._input_block_probe = lambda: "elevated"               # elevated by release
+    d._notify_cmdsafety = mocker.MagicMock()
+    mocker.patch.object(d, "_cmdsafety_dispatch_held", return_value=False)
+    injector = mocker.MagicMock()
+    mocker.patch.object(d, "_active_injector", return_value=injector)
+    set_clip = mocker.patch("yazses.system.clipboard.set_clipboard", return_value=True)
+    d._switch_release_held("rm -rf build")
+    injector.inject.assert_not_called()
+    set_clip.assert_called_once_with("rm -rf build")
