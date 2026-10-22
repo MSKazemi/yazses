@@ -574,6 +574,9 @@ class Daemon:
         # burst with no field focused is warned (yellow tray) + saved to the clipboard
         # instead of typed into the wrong place. None until built ([injection] target_guard).
         self._target_detector: TargetDetector | None = None
+        # The platform's "will the window in front take our input?" check, asked again
+        # just before typing (see `_recheck_input_block`). None when the guard is off.
+        self._input_block_probe: Callable[[], str | None] | None = None
         # True once we've auto-healed for the current silent streak, so a device that
         # is genuinely gone doesn't re-trigger the switch on every subsequent clip.
         self._healed_this_streak = False
@@ -1445,6 +1448,7 @@ class Daemon:
             # Windows' answer to "will the window even take our input?" (UIPI); None
             # on platforms that cannot be blocked that way or cannot tell.
             block_probe = getattr(self._platform, "input_block_probe", None)
+            self._input_block_probe = block_probe
             tracker = AtspiFocusTracker()
             if tracker.available() and tracker.start():
                 self._target_detector = TargetDetector(atspi=tracker, block_probe=block_probe)
@@ -3870,6 +3874,7 @@ class Daemon:
 
                 # "No text target" guard: if there was no editable field focused, don't
                 # type into the wrong place — copy to the clipboard + notify (or warn only).
+                self._recheck_input_block()
                 with self._lock:
                     target_ok = self._state.target_ok
                 if (
@@ -4327,6 +4332,29 @@ class Daemon:
             )
         else:
             log.info("Unpinned input device — following OS default.")
+
+    def _recheck_input_block(self) -> None:
+        """Ask the platform again, just before typing, whether the window will take it.
+
+        The hold-start answer can be stale: the user may click into an administrator
+        window while speaking, and a dictation can start without the hotkey at all
+        (hands-free switches, the tray). So this is the check that decides. A block
+        found now overrides; a block that has since gone clears the verdict it caused.
+        """
+        probe = self._input_block_probe
+        if probe is None or self._config.injection.target_guard == "off":
+            return
+        try:
+            reason = probe()
+        except Exception:
+            return  # cannot tell is not a block
+        with self._lock:
+            if reason:
+                self._state.target_ok = False
+                self._state.target_block = reason
+            elif self._state.target_block is not None:
+                self._state.target_ok = None
+                self._state.target_block = None
 
     def _detect_target_async(self) -> None:
         """Resolve whether there's a text target for this burst, off the hot path."""

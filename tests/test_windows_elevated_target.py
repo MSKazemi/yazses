@@ -159,3 +159,53 @@ def test_the_detector_reason_reaches_the_daemon_state(mocker):
     while d._state.target_ok is None and time.monotonic() < deadline:
         time.sleep(0.01)
     assert (d._state.target_ok, d._state.target_block) == (False, "elevated")
+
+
+# ---- checked again just before typing ------------------------------------------
+#
+# The hold-start answer can be stale: the user clicks into an administrator window
+# while speaking, or the dictation began without the hotkey (switch, tray).
+
+
+def test_a_window_that_became_elevated_mid_dictation_is_caught_before_typing(mocker):
+    d = _daemon(mocker, "clipboard")
+    d._state.target_ok, d._state.target_block = None, None  # fine at hold start
+    d._input_block_probe = lambda: "elevated"               # elevated by release
+    d._recheck_input_block()
+    assert (d._state.target_ok, d._state.target_block) == (False, "elevated")
+
+
+def test_a_block_that_has_gone_by_release_no_longer_stops_typing(mocker):
+    d = _daemon(mocker, "clipboard")                         # blocked at hold start
+    d._input_block_probe = lambda: None                      # ordinary window now
+    d._recheck_input_block()
+    assert (d._state.target_ok, d._state.target_block) == (None, None)
+
+
+def test_an_unrelated_no_target_verdict_is_left_alone(mocker):
+    d = _daemon(mocker, "clipboard")
+    d._state.target_ok, d._state.target_block = False, None  # "no text field", not a block
+    d._input_block_probe = lambda: None
+    d._recheck_input_block()
+    assert d._state.target_ok is False
+
+
+def test_the_recheck_does_nothing_with_the_guard_off(mocker):
+    d = _daemon(mocker, "off")
+    d._state.target_ok, d._state.target_block = None, None
+    d._input_block_probe = lambda: "elevated"
+    d._recheck_input_block()
+    assert d._state.target_ok is None
+
+
+def test_a_recheck_that_raises_changes_nothing(mocker):
+    d = _daemon(mocker, "clipboard")
+    d._state.target_ok, d._state.target_block = None, None
+
+    def boom():
+        raise OSError("token gone")
+
+    d._input_block_probe = boom
+    d._recheck_input_block()
+    assert (d._state.target_ok, d._state.target_block) == (None, None)
+
