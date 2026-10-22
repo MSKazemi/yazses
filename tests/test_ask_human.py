@@ -271,3 +271,81 @@ def test_the_listener_releases_the_microphone_even_on_failure(monkeypatch) -> No
     with pytest.raises(KeyboardInterrupt):
         d._ask_human_listener(1.0)
     assert d._recorder.stopped == 1, "the microphone was left open"
+
+
+# --- the listener ends when the answer does (#640) -----------------------------------
+
+
+class _Clock:
+    """Stands in for the daemon module's `time`: sleeping advances it, and each step
+    sets the live mic level the way `_on_audio_chunk` would, from a script."""
+
+    def __init__(self, daemon, speaking) -> None:
+        self.now = 1000.0
+        self._start = self.now
+        self._daemon = daemon
+        self._speaking = speaking
+
+    def monotonic(self) -> float:
+        return self.now
+
+    def sleep(self, seconds: float) -> None:
+        self.now += seconds
+        loud = self._speaking(self.now - self._start)
+        threshold = self._daemon._config.accessibility.vad_threshold
+        self._daemon._state.audio_level = threshold * (3.0 if loud else 0.1)
+
+    @property
+    def elapsed(self) -> float:
+        return self.now - self._start
+
+
+def _listen(monkeypatch, speaking, timeout_s=60.0):
+    import yazses.core.daemon as daemon_mod
+
+    d = _daemon()
+    decoded: list[int] = []
+    real = d._engine.transcribe
+    d._engine.transcribe = lambda audio, **kw: (decoded.append(1), real(audio))[1]
+    clock = _Clock(d, speaking)
+    monkeypatch.setattr(daemon_mod, "time", clock)
+    answer = d._ask_human_listener(timeout_s)
+    return d, answer, clock.elapsed, decoded
+
+
+def test_a_two_word_answer_frees_the_microphone_in_about_a_second(monkeypatch) -> None:
+    """It used to hold the mic for the caller's whole wait: 60 s here, up to 120."""
+    d, answer, elapsed, decoded = _listen(monkeypatch, lambda t: 0.4 <= t < 1.2)
+    assert answer == "the answer" and decoded == [1]
+    assert elapsed == pytest.approx(1.2 + 1.2, abs=0.11)
+    assert d._recorder.started == 1 and d._recorder.stopped == 1
+
+
+def test_no_answer_ends_after_the_grace_without_decoding(monkeypatch) -> None:
+    """Decoding a quiet room is how Whisper returns the words it was primed with (#598)."""
+    d, answer, elapsed, decoded = _listen(monkeypatch, lambda t: False)
+    assert answer == "" and decoded == []
+    assert elapsed == pytest.approx(d._config.mcp.ask_human_no_speech_s, abs=0.11)
+    assert d._recorder.stopped == 1
+
+
+def test_the_callers_timeout_still_bounds_a_long_answer(monkeypatch) -> None:
+    d, answer, elapsed, decoded = _listen(monkeypatch, lambda t: True, timeout_s=5)
+    assert answer == "the answer" and decoded == [1]
+    assert elapsed == pytest.approx(5.0, abs=0.11)
+
+
+def test_the_settings_shape_the_listening(monkeypatch) -> None:
+    import yazses.core.daemon as daemon_mod
+
+    d = _daemon()
+    object.__setattr__(d._config.mcp, "ask_human_end_silence_s", 3.0)
+    clock = _Clock(d, lambda t: 0.4 <= t < 1.0)
+    monkeypatch.setattr(daemon_mod, "time", clock)
+    d._ask_human_listener(60)
+    assert clock.elapsed == pytest.approx(1.0 + 3.0, abs=0.11)
+
+
+def test_the_overlay_level_is_cleared_when_listening_ends(monkeypatch) -> None:
+    d, _answer, _elapsed, _decoded = _listen(monkeypatch, lambda t: 0.4 <= t < 1.2)
+    assert d._state.audio_level == 0.0

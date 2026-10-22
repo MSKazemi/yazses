@@ -6,6 +6,26 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed — `ask_human` stops listening when you stop speaking ([#640](https://github.com/MSKazemi/yazses/issues/640))
+
+A spoken answer to an agent's `ask_human` question was recorded for the agent's whole
+wait, up to two minutes, so a two-word "yes, go ahead" held the microphone and blocked
+dictation until the timeout ran out. The listener now ends the way an answer does:
+
+- after you have spoken and then been quiet for `[mcp] ask_human_end_silence_s` (default
+  1.2 s, never below the 0.3 s hands-free floor);
+- with no answer, and **without decoding**, if you say nothing within
+  `[mcp] ask_human_no_speech_s` (default 8 s; 0 waits for the caller's timeout). Decoding a
+  quiet room is how Whisper returns the words it was primed with (#598);
+- at the caller's timeout at the latest, as before.
+
+"Speech" is the dictation gate the hands-free auto-stop already uses: the live mic level
+against `[accessibility] vad_threshold`. The decision is the new pure
+`endpoint/answer.py::AnswerEndpoint`, built on `endpoint/autostop.py::should_stop` rather
+than a copy of it, and tested with a clock and frames, no microphone. The ADR-020
+restraints (off by default, the hourly budget, never during a hold, the caller named, the
+answer returned rather than typed) are untouched.
+
 ### Added — Persian text injection measured on Windows: every fixture arrives exactly ([#517](https://github.com/MSKazemi/yazses/issues/517))
 
 The first real run of the Persian injection matrix, on Windows 11 22H2 with both typing
