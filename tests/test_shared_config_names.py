@@ -34,6 +34,8 @@ from pathlib import Path
 from tests.scan_cache import scan_once
 
 ROOT = Path(__file__).resolve().parent.parent
+#: The feature registry, relative to ROOT -- see `_attributable_reads`.
+REGISTRY = "src/yazses/system/features.py"
 
 
 def _load(name: str):
@@ -92,6 +94,12 @@ def _attributable_reads(section: str, field: str, code: str) -> list[str]:
     Two shapes, both unambiguous: the section-qualified path, and a `getattr` naming
     the key inside the subsystem the section configures. Anything looser would match
     the sibling read that caused the problem in the first place.
+
+    One line is not a consumer and is skipped: the feature registry's status lambda
+    (`lambda c: c.<section>.<field>` in `system/features.py`), which is how
+    `yazses features` *displays* a switch's state. A toggle read only there changes
+    nothing, which is exactly what `[gitvoice] enabled` and `[chords] enabled` are.
+    Only that exact shape in that one file is skipped; any other read still counts.
     """
     pats = [
         re.compile(rf"\.{re.escape(section)}\.{re.escape(field)}\b"),
@@ -99,10 +107,15 @@ def _attributable_reads(section: str, field: str, code: str) -> list[str]:
             rf"getattr\(\s*[A-Za-z_][\w.]*\s*,\s*[\"']{re.escape(field)}[\"']"
         ),
     ]
+    registry_display = re.compile(
+        rf"lambda c: c\.{re.escape(section)}\.{re.escape(field)}\s*,"
+    )
     package = f"src/yazses/{section}/"
     hits = []
     for rel, _name, text in _stripped_sources():
         for i, line in enumerate(text.splitlines(), 1):
+            if rel == REGISTRY and registry_display.search(line):
+                continue
             if pats[0].search(line):
                 hits.append(f"{rel}:{i}: {line.strip()}")
             elif package in rel and pats[1].search(line):

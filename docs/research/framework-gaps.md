@@ -226,5 +226,5 @@ on this page measures an unknown configuration on unrepeatable data.
 
 **Three of the ten are already half-built.** Entries 4, 6 and 9 each compose modules that
 exist and have never been joined. That is the same pattern as the
-[30 designed-but-unwired capabilities](directions.md): in this project the missing piece is
+[<!-- registry:unwired -->25<!-- /registry --> designed-but-unwired capabilities](directions.md): in this project the missing piece is
 usually the connection, not the component.

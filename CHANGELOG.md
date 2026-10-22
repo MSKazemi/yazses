@@ -6,6 +6,31 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Docs — the feature pages list only what `features enable` turns on (#646)
+
+`docs/v2-features.md` kept its 24 designed-but-unbuilt capabilities inside the wave
+tables, marked ◌, beside the ones that work — and missed a 25th, Multi-User Profiles,
+whose row named a config key instead of its slug. All 25 now sit in one labelled
+**Designed, not built** section, each linked to its design record; the wave tables hold
+only wired capabilities, and a test compares both sets with the registry. Capability
+counts on hand-written pages (`ROADMAP.md`, the mobile, architecture and research pages)
+are now written by `scripts/gen-docs.py` from the registry; four were wrong ("30 of them
+are not reachable" against 25 today, "~200 capabilities" against 149). A test fails on
+a stale count and on any count typed by hand on a user-facing page. The `[polyglot]`
+entry in the CLI reference, and the Breath-Paced Dictation row on the accessibility
+page, now say they are designed, not built. ADR-030 Pillar 1.4.
+
+### Fixed — `chords` and `gitvoice` no longer tell you to switch on a key nothing reads
+
+`[chords] enabled` and `[gitvoice] enabled` are read by no code: both capabilities are
+command-line tools (`yazses chords`, `yazses gitvoice`) that work with the switch on or
+off. The feature reference told you to `features enable` them and restart; it now says
+how each is actually used, `docs/configuration.md` marks both keys ⚠️ inert, and
+`features enable chords` says the switch changes nothing. The chords entry also claimed
+"say any shortcut and it's pressed": nothing presses it — `yazses chords` prints the key
+combo (`ctrl+shift+p`) for you to review or bind — and the catalog, the v2 features page
+and the voice-commands page now say so.
+
 ## [2.44.0] - 2026-10-23
 
 ### Fixed — the settings-window code no longer says it has "~200 rows"

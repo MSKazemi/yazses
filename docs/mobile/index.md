@@ -12,7 +12,7 @@ below were written before that code, so that many people can build it at once.
 
 > **Honesty rule.** Nothing here may be described in the README, the docs site, the store
 > listings or a release note as "supported" until it is wired, tested and shipped. The
-> project's existing rule — 149 capabilities, 124 wired and 25 honestly marked *planned* —
+> project's existing rule — <!-- registry:total -->149<!-- /registry --> capabilities, <!-- registry:wired -->124<!-- /registry --> wired and <!-- registry:unwired -->25<!-- /registry --> honestly marked *planned* —
 > applies to mobile without exception.
 
 ### What exists in `android/` now

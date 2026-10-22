@@ -93,7 +93,7 @@ Related capabilities worth knowing about:
 
 | Capability | Enable with | What it gives you |
 |---|---|---|
-| Chorded Shortcut Synthesis | `yazses features enable chords` | Speak a modifier chord instead of contorting your hand |
+| Chorded Shortcut Synthesis | `yazses chords "<phrase>"` | Turn a spoken shortcut (*"press control shift P"*) into its key-combo text (`ctrl+shift+p`) to review or bind; it presses nothing |
 | Voice Snippets | `yazses features enable snippets` | Hold the command key and say *"insert \<trigger\>"* to expand it into boilerplate |
 | Voice Git Choreographer | `yazses gitvoice "<phrase>"` | Turn a spoken git phrase into a git command; destructive ones need `--yes` |
 | Spoken Shell Pipeline Builder | `yazses features enable shellpipe` | Compose a shell pipeline by speaking it |
