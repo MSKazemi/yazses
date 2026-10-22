@@ -40,7 +40,7 @@ flowchart TB
   end
 
   CFG[("config.toml · config.py")]
-  FEAT[("features.py — 149 capabilities (120 wired)")]
+  FEAT[("features.py — 149 capabilities (124 wired)")]
   CFG -. reads .-> DAEMON
   FEAT -. drives .-> CLI
 

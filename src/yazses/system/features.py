@@ -879,8 +879,9 @@ _Def("chords", "Chorded Shortcut Synthesis", "[chords] — any keyboard shortcut
              "and typed. Needs a webcam (sign extra). Off by default.",
              lambda c: c.sign.enabled, sn2_on, sn2_off),
         _Def("screengrounded", "Screen-Grounded Dictation", "[screengrounded] — bias from screen", OPTIONAL,
-             "Primes Whisper with names visible on screen so they transcribe right the first "
-             "time — works in any app. Accessibility/clipboard now; OCR via extra. Off by default.",
+             "Primes Whisper with names visible in the focused window so they transcribe right "
+             "the first time. Reads labels via AT-SPI at the start of each hold (Linux + "
+             "pyatspi); no OCR yet. Experimental. Off by default.",
              lambda c: c.screengrounded.enabled, sg_on, sg_off),
         _Def("headpointer", "Head-Pointer", "[headpointer] — cursor by head pose", OPTIONAL,
              "Move and click the mouse by tilting your head, and pair it with voice for a "
@@ -1060,8 +1061,9 @@ _Def("chords", "Chorded Shortcut Synthesis", "[chords] — any keyboard shortcut
              "ask first. Needs the 'agent' extra + a local planner model. Off by default.",
              lambda c: c.agent.enabled, ag_on, ag_off),
         _Def("pilot", "Voice Pilot (AT-SPI)", "[pilot] — click by voice", OPTIONAL,
-             "Drive the desktop by voice via the accessibility tree ('click Save', "
-             "'focus the terminal'). Linux + pyatspi; labels only, no screenshots. Off by default.",
+             "Click controls in the focused window by voice in command mode ('click Save', "
+             "'toggle dark mode'). Acts on one exact match only; anything else asks you to "
+             "confirm. Linux + pyatspi; labels only, no screenshots. Experimental. Off by default.",
              lambda c: c.pilot.enabled, pi_on, pi_off),
         _Def("cocktail", "Cocktail Filter (voice focus)", "[cocktail] — experimental", EXPERIMENTAL,
              "Tries to focus on your voice and reject other speakers. Currently "
@@ -1264,8 +1266,8 @@ def feature_packages(slug: str) -> tuple[str, ...]:
 _UNWIRED: frozenset[str] = frozenset({
     "affect", "agent", "audioguard", "breath", "bridge", "cmdspotter",
     "codec", "compose", "crowdproof", "hatselect", "interpret", "langroute", "lipread", "loadguard",
-    "multiprofile", "pilot", "polyglot", "pronunciation", "rag", "readback_clone",
-    "screengrounded", "scribe", "scrub", "sentiment", "sign", "spatialvad", "wakeword",
+    "multiprofile", "polyglot", "pronunciation", "rag", "readback_clone",
+    "scribe", "scrub", "sentiment", "sign", "spatialvad", "wakeword",
 })
 
 
@@ -1274,7 +1276,7 @@ _UNWIRED: frozenset[str] = frozenset({
 #: once here rather than repeated in the CLI, the caveat and the tests.
 SPOKEN_COMMAND_SLUGS: frozenset[str] = frozenset({
     "spelling", "code", "math", "spokenregex", "snippets", "voicetimer",
-    "condense", "diagramvox", "spreadsheet", "echo", "bookmarks",
+    "condense", "diagramvox", "spreadsheet", "echo", "bookmarks", "pilot",
 })
 
 
@@ -1961,6 +1963,25 @@ def enable_caveat(slug: str, cfg) -> str | None:
                 "changes nothing. Turn read-back on first: "
                 "`yazses features enable read-back`, then `yazses restart`."
             )
+    if slug in ("pilot", "screengrounded"):
+        # Both read the focused window through the platform's accessibility backend, and
+        # the only one that exists is Linux AT-SPI. Located, not imported: `find_spec`
+        # answers "is the binding installed?" without loading GObject into the CLI.
+        try:
+            import importlib.util
+
+            located = importlib.util.find_spec("pyatspi") is not None
+        except Exception:
+            located = True  # cannot tell -- say nothing rather than something wrong
+        if not located:
+            return (
+                "Heads up: this reads the focused window through AT-SPI, and the pyatspi "
+                "bindings are not installed here — so it stays inactive and the daemon "
+                "log says why. On Linux install them from your distribution (Debian/"
+                "Ubuntu: apt install python3-pyatspi gir1.2-atspi-2.0). macOS and "
+                "Windows have no accessibility backend for this yet."
+            )
+
     if slug == "hesitation" and not getattr(getattr(cfg, "autostop", None), "enabled", False):
         # Hesitation-hold only lengthens a hands-free turn's silence timeout; hold-to-talk
         # ends on key release, so with [autostop] off the toggle would change nothing.

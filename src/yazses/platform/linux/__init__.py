@@ -175,9 +175,12 @@ def build_platform() -> Platform:
     from yazses.platform.linux.lifecycle import LinuxLifecycle
     from yazses.platform.linux.permissions import LinuxPermissions
 
+    from yazses.platform.linux.accessibility import accessibility_route
+
     paths = build_paths()
     route = _InjectorRoute(LinuxInjector)
     click_observer_factory, click_observer_reason = _click_observer_route()
+    accessibility_factory, accessibility_reason = accessibility_route()
     return Platform(
         name=LINUX_PLATFORM_NAME,
         default_hotkey="right_alt",
@@ -197,6 +200,10 @@ def build_platform() -> Platform:
         # Wayland, with the reason, rather than an observer that sees only XWayland clients.
         click_observer_factory=click_observer_factory,
         click_observer_unavailable_reason=click_observer_reason,
+        # AT-SPI (#164): a factory, so nothing touches the accessibility bus here; None
+        # with the reason when there is no desktop session or no pyatspi binding.
+        accessibility_factory=accessibility_factory,
+        accessibility_unavailable_reason=accessibility_reason,
     )
 
 

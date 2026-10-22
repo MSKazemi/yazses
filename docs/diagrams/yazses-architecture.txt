@@ -54,7 +54,7 @@ ASCII so it renders in any terminal, code review, or the master reference PDF.
 
  ── Cross-cutting ────────────────────────────────────────────────────────────────
  CONFIG        config.toml / config.py  ── every section has defaults ──► daemon
- FEATURES      system/features.py — 149 capabilities, 120 wired (9 cats) ─► CLI
+ FEATURES      system/features.py — 149 capabilities, 124 wired (9 cats) ─► CLI
  PLATFORM      platform/base.py Protocols  →  linux · macos · windows · emg
                (HotkeyBackend · InjectorBackend · LifecycleBackend ·
                 IpcServer/Client · PermissionsBackend · TrayBackend)

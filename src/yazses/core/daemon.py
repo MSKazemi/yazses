@@ -42,10 +42,12 @@ if TYPE_CHECKING:
     from yazses.learning.edit_watch import EditWatcher
     from yazses.meeting.controller import MeetingController
     from yazses.perception import SharedPerceptionSource
+    from yazses.pilot.service import PilotService
     from yazses.predict.runtime import PredictRuntime
     from yazses.predict.session import Suggestion
     from yazses.proofback.bargein import ProofbackController, ProofTarget, ReadbackSession
     from yazses.reask.gate import ReaskGate
+    from yazses.screengrounded.sampler import ScreenTermSampler
     from yazses.stt.resident import IdleUnloadEngine
     from yazses.styleguard.rules import Rule as StyleRule
     from yazses.system.single_instance import SingleInstanceLock
@@ -538,6 +540,13 @@ class Daemon:
         # daemon whose user never says "set a timer" should not have one.
         self._timers: TimerService | None = None
         self._bookmarks: BookmarkService | None = None  # built on first "bookmark" phrase
+        # Voice Pilot (ADR-v2-007) and Screen-Grounded Dictation (ADR-v2-051), the two
+        # consumers of the platform's accessibility backend (#164). Built on first use --
+        # the first pilot phrase, the first hold -- so a daemon with both off, the
+        # default, never touches the accessibility bus.
+        self._pilot: PilotService | None = None
+        self._screen_terms: ScreenTermSampler | None = None
+        self._screen_terms_probed = False
         self._edit_watcher: EditWatcher | None = None
         self._cleaner: LlmCleaner | None = None
         # Read-Back Loop TTS backend (None when [tts] disabled — dormant).
@@ -3135,6 +3144,12 @@ class Daemon:
         # and lets _on_hold_end save to the clipboard instead of typing into the wrong place.
         self._detect_target_async()
 
+        # Screen-Grounded Dictation (ADR-v2-051): read the focused window's labels on a
+        # background thread now, so its terms are ready to prime this burst's decode.
+        # Off by default; never blocks recording onset.
+        if self._config.screengrounded.enabled:
+            self._begin_screen_terms()
+
         # Glance-Type: focus the looked-at window now (while the user is looking
         # at their target) so this burst's injection lands there. Best-effort.
         # With only deixis on (route_dictation off), snapshot the decision
@@ -3803,6 +3818,15 @@ class Daemon:
                 # Checked ahead of every handler for that reason.
                 if self._config.cmdsafety.enabled and self._cmdsafety.pending is not None:
                     if self._cmdsafety_answer(text, event):
+                        if stream_injector is not None:
+                            stream_injector.cancel()
+                        return
+                # The same, for a click the Voice Pilot is holding for confirmation
+                # (ADR-v2-007, ADR-021): "confirm" must reach it before command mode
+                # discards an unclassifiable burst. Anything else drops the held click
+                # and carries on below as if nothing had been held.
+                if self._pilot is not None and self._pilot.pending:
+                    if self._pilot_answer(text, event):
                         if stream_injector is not None:
                             stream_injector.cancel()
                         return
@@ -5736,6 +5760,19 @@ class Daemon:
                     base = f"{base}. {extra}" if base else extra
             except Exception:
                 pass  # context priming is best-effort; never break dictation
+        # Screen-Grounded Dictation (ADR-v2-051): the names visible in the focused window,
+        # read at hold start. Taken (and forgotten) here, so one hold's screen never
+        # biases another's; never logged, never stored. Guarded like [context] above.
+        if self._config.screengrounded.enabled:
+            sampler = getattr(self, "_screen_terms", None)
+            if sampler is not None:
+                try:
+                    terms = sampler.take()
+                    if terms:
+                        extra = ", ".join(terms)
+                        base = f"{base}. {extra}" if base else extra
+                except Exception:
+                    log.debug("screen-grounded priming failed; ignoring", exc_info=True)
         # Always prime the coined app name so Whisper spells "YazSes".
         return merge_initial_prompt(base)
 
@@ -6236,6 +6273,13 @@ class Daemon:
                 label = str(argument) if argument else None
                 self._notify_spoken(self._bookmarks.add(label) if name == "bookmark_add"
                                     else self._bookmarks.goto(label))
+            elif name == "pilot":
+                # Voice Pilot (ADR-v2-007): read the focused window, then click only a
+                # specific, checkable match -- anything less is held for "confirm".
+                outcome = self._pilot_service().command(str(argument or ""))
+                event["pilot_verdict"] = outcome.verdict
+                if outcome.message:
+                    self._notify_spoken(outcome.message)
             elif name == "keys":
                 # Spoken grid movement (`spreadsheet`). This is the one action that
                 # reaches the focused window rather than reporting, so it goes through
@@ -6301,6 +6345,96 @@ class Daemon:
             notify("YazSes", message)
         except Exception:
             log.debug("Spoken notification failed", exc_info=True)
+
+    # -- accessibility consumers (#164): Voice Pilot + Screen-Grounded Dictation --------
+
+    def _accessibility_reader(self, feature: str):
+        """``(OnScreenReader, reason)`` over this platform's accessibility backend.
+
+        *reason* is ``None`` when the platform offers a backend. Otherwise it is the
+        platform's own sentence (no desktop session, no pyatspi) or the generic "this OS
+        has none yet", logged once as the feature's inert warning, and the reader is one
+        that can never read -- so a consumer always gets a reader and never a branch on
+        the OS. Nothing is opened here: the factory runs on the reader's first use.
+        """
+        from yazses.grounding.onscreen import OnScreenReader
+        from yazses.platform.base import NO_ACCESSIBILITY_BACKEND_REASON
+
+        factory = getattr(self._platform, "accessibility_factory", None)
+        if factory is None:
+            reason = (getattr(self._platform, "accessibility_unavailable_reason", None)
+                      or NO_ACCESSIBILITY_BACKEND_REASON)
+            self._warn_feature_inert(feature, reason)
+            return OnScreenReader(lambda: None), reason
+        return OnScreenReader(factory), None
+
+    def _pilot_service(self) -> PilotService:
+        """The session's Voice Pilot, built on the first pilot phrase (ADR-v2-007)."""
+        if self._pilot is None:
+            from yazses.grounding.onscreen import OnScreenReader
+            from yazses.pilot.service import PilotService
+
+            cfg = self._config.pilot
+            if (cfg.backend or "").strip().lower() == "none":
+                reason: str | None = '[pilot] backend is "none"'
+                reader = OnScreenReader(lambda: None)
+                self._warn_feature_inert("pilot", reason)
+            else:
+                reader, reason = self._accessibility_reader("pilot")
+            self._pilot = PilotService(
+                reader,
+                threshold=float(cfg.match_threshold),
+                confirm_ambiguous=bool(cfg.confirm_ambiguous),
+                # The Command Safety Gate's words, so "confirm" means one thing everywhere.
+                confirm_words=list(self._config.cmdsafety.confirm_words or ()),
+                cancel_words=list(self._config.cmdsafety.cancel_words or ()),
+                unavailable_reason=reason,
+            )
+        return self._pilot
+
+    def _pilot_answer(self, text: str, event: dict) -> bool:
+        """Is this command-mode burst the answer to a click the pilot is holding?
+
+        True when it was consumed (confirmed or cancelled). False when it was not an
+        answer: the held click has then been dropped, and the burst carries on down the
+        command path untouched. Never raises.
+        """
+        pilot = self._pilot
+        if pilot is None:
+            return False
+        try:
+            outcome = pilot.answer(text)
+        except Exception:
+            log.exception("Voice Pilot answer failed")
+            return False
+        if outcome.verdict != "none":
+            event["pilot_verdict"] = outcome.verdict
+        if outcome.message:
+            self._notify_spoken(outcome.message)
+        return bool(outcome.consumed)
+
+    def _begin_screen_terms(self) -> None:
+        """Start this hold's on-screen read for Screen-Grounded Dictation. Never raises.
+
+        The sampler is built on the first hold; when the platform has no accessibility
+        backend the reason is logged once and no sampler is ever built, so later holds
+        pay one attribute check.
+        """
+        try:
+            if self._screen_terms is None:
+                if self._screen_terms_probed:
+                    return
+                self._screen_terms_probed = True
+                from yazses.screengrounded.sampler import ScreenTermSampler
+
+                reader, reason = self._accessibility_reader("screengrounded")
+                if reason is not None:
+                    return
+                self._screen_terms = ScreenTermSampler(
+                    reader, max_terms=int(self._config.screengrounded.max_terms))
+            self._screen_terms.begin()
+        except Exception:
+            log.debug("screen-grounded read could not start", exc_info=True)
 
     def _try_rewrite(self, phrase: str, event: dict) -> bool:
         """Rewrite the current selection with the local model (#99).

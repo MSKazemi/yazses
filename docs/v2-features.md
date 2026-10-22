@@ -41,7 +41,7 @@ It stays listed so contributors can pick it up; see the matching design/adr/ ent
 ```
 
 They stay listed because that is where a contributor picks one up — each has a matching
-`design/adr/` entry. **28 of the 122 rows below are ◌ today.** Rows without the mark are
+`design/adr/` entry. **24 of the 122 rows below are ◌ today.** Rows without the mark are
 wired and can be turned on.
 
 ### "Hold the command key" — what that means
@@ -104,7 +104,7 @@ doing nothing.
 | **Spoken Recall & Scratch** | `recall` | Search your past dictations (`yazses recall <query>`) and capture spoken notes-to-self (`yazses scratch`). Corpus-local. |
 | ◌ **True Code-Switch** | `polyglot` | Would decode a burst that mixes the two languages of a declared `[polyglot] pair` with a code-switch adapter you train yourself. Not wired: nothing yet tells the daemon which parts of a burst are in which language, so every burst is decoded by the `[stt]` model with or without an adapter. |
 | ◌ **Voice-to-Tool (Spoken MCP)** | `agent` | Run allowlisted tools by voice via MCP; state-changing tools ask first. Needs the `agent` extra + a local planner model. |
-| ◌ **Voice Pilot (AT-SPI)** | `pilot` | Drive the desktop by voice via the accessibility tree — "click Save", "focus the terminal". Reads labels only, **no screenshots**. |
+| **Voice Pilot (AT-SPI)** | `pilot` | Hold the command key and say "click Save", "press OK" or "toggle dark mode": the focused window's accessibility tree is read and the control clicked. It acts at once only on **one exact match**; a partial match, a tie or a destructive label ("Delete", "Send") waits for a spoken **confirm**. Reads labels only, **no screenshots**. Linux with `python3-pyatspi`; experimental, untested on real hardware. |
 
 ## Experimental (Wave C — `--force` to enable)
 
@@ -183,7 +183,7 @@ All OFF by default. Pure logic ships now; heavy models load only when you enable
 | **Corpus Voiceprint Scrub** | `corpus_scrub` | Speaker-anonymizes stored learning audio (keeps content, not voice). |
 | ◌ **Compose-in-Target-Language** | `compose` | Speak your strongest language, inject in a target language. |
 | **Grammar Repair** | `gec` | Minimal-edit article/agreement fixes for non-native dictation. |
-| ◌ **Screen-Grounded Dictation** | `screengrounded` | Primes STT with names visible on screen so they transcribe right. |
+| **Screen-Grounded Dictation** | `screengrounded` | Primes STT with names visible in the focused window so they transcribe right. The window's labels are read through AT-SPI when you press the key, used for that one burst, and never stored or logged. Linux with `python3-pyatspi`; no OCR yet; experimental, untested on real hardware. |
 | **Head-Pointer** | `headpointer` | Move + click the cursor by head pose; pairs with voice. Experimental: not yet validated with users. |
 | ◌ **Silent Lip-Reading** | `lipread` | Dictate with no audible voice; a webcam reads your lips. |
 | ◌ **Sign-Language Input** | `sign` | Deaf/HoH signers sign to the webcam; ASL is recognized and typed. |

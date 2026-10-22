@@ -80,7 +80,6 @@ KNOWN_UNREAD = {
     "PersonalizeConfig.lora_min_events",
     "PersonalizeConfig.lora_min_improvement",
     "PhoneticConfig.max_distance",
-    "PilotConfig.confirm_ambiguous",
     "PolyglotConfig.lid",  # see the note beside GazeConfig.zones
     "PronunciationConfig.good_threshold",
     "ProsodyConfig.experimental_pitch_question",
@@ -139,7 +138,6 @@ AMBIGUOUS_UNREAD = {
     "CiteConfig.style",
     # `.max_terms` occurs only as a local parameter of `personalize.prompt_builder`.
     "ContextConfig.max_terms",
-    "ScreengroundedConfig.max_terms",
     # `.format` is read once, for `[prosody]`; every other hit is `str.format`.
     "OutlineConfig.format",
     # `.source` is never read from any config: the hits are a RAG chunk's attribute,

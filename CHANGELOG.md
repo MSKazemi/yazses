@@ -203,6 +203,29 @@ only, nothing recorded); `entry_hum_s = 0` turns that off, and `yazses handsfree
 closes it. `yazses status` and the overlay show when Morse mode is on. All thresholds were
 tuned on synthetic signals only and are untested on a real voice.
 
+### Added — Voice Pilot and Screen-Grounded Dictation can be turned on (experimental, off by default, Linux only)
+
+Both had a tested core and no caller (#164); both needed the same missing piece, a reader
+for what the focused window shows. That reader now exists once, behind a new optional
+`Platform.accessibility_factory`: AT-SPI on Linux, using the `python3-pyatspi` binding the
+text-target guard already uses, with no new dependency. It reads only the active window,
+only what is showing, and stops at 600 nodes, 32 levels or 0.3 s, under a 1 s wall-clock
+deadline. It never reads the text of a password field, a terminal or an editable field,
+and it logs counts, never labels. macOS and Windows have no backend yet, so both features
+stay inactive there and the daemon log says why.
+
+- **`pilot`** — hold the command key and say "click Save", "press OK" or "toggle dark
+  mode". YazSes clicks at once only when exactly one control's label matches exactly. A
+  partial match, a tie, or a label such as "Delete", "Send" or "Log out" waits for the
+  Command Safety Gate's confirm word ("confirm"), expires after 30 s, and is dropped by
+  anything else you say. "focus …" and "activate …" stay with the window-focus grammar.
+- **`screengrounded`** — when you press the key, the focused window's labels are read in
+  the background and the names among them prime that one burst's decode. Menu and toolbar
+  words are skipped. The terms are never stored or logged, and `yazses doctor` lists the
+  source in its STT prompt row. No OCR tier yet.
+
+Neither has been tried on a real desktop yet; the AT-SPI backend is tested against a fake.
+
 ### Changed — every CI test job now has a time limit that fits the parallel suite
 
 With no `timeout-minutes`, `repo-hygiene` sat in a hung `apt-get update` for 78 minutes
