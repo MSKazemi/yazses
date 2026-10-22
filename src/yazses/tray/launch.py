@@ -71,8 +71,43 @@ def settings_command(
     )
 
 
-def tray_dependency_available() -> bool:
-    """Whether PySide6 is importable (base dep, but stays optional on old distros)."""
+#: What a tray backend that declares nothing is assumed to need: the Qt tray (Linux, BSD).
+_DEFAULT_TRAY_MODULES: tuple[str, ...] = ("PySide6",)
+
+
+def tray_runtime_modules(platform=None) -> tuple[str, ...]:  # noqa: ANN001
+    """The modules this platform's tray backend imports.
+
+    Each backend declares ``RUNTIME_MODULES``; one that does not (the Qt tray, built
+    through a factory function) is assumed to be the Qt tray. The answer used to be
+    PySide6 everywhere, which is wrong for the two trays that never touch Qt: Windows
+    (pystray + Pillow) and macOS (rumps), both base dependencies on their platforms.
+    """
+    if platform is None:
+        try:
+            from yazses.platform import get_platform
+
+            platform = get_platform()
+        except Exception:  # noqa: BLE001 - an unknown platform keeps the old answer
+            return _DEFAULT_TRAY_MODULES
+    factory = getattr(platform, "tray_factory", None)
+    return tuple(getattr(factory, "RUNTIME_MODULES", _DEFAULT_TRAY_MODULES))
+
+
+def missing_tray_modules(platform=None) -> list[str]:  # noqa: ANN001
+    """The tray backend's modules that are not importable here; empty when it can run."""
     import importlib.util
 
-    return importlib.util.find_spec("PySide6") is not None
+    return [m for m in tray_runtime_modules(platform) if importlib.util.find_spec(m) is None]
+
+
+def tray_dependency_available(platform=None) -> bool:  # noqa: ANN001
+    """Whether this platform's tray backend has what it imports.
+
+    On Windows that decides more than whether an icon appears. The tray is what
+    restarts a crashed daemon there (the ``HKCU\\Run`` autostart fires once, at
+    sign-in), so when this said "PySide6 is missing" on a pip, pipx or uv install,
+    which ships pystray but not Qt, the daemon skipped the tray and a crash meant no
+    dictation until the next sign-in.
+    """
+    return not missing_tray_modules(platform)

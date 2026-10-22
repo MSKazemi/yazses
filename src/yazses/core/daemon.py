@@ -839,14 +839,18 @@ class Daemon:
 
     def _maybe_launch_tray(self) -> None:
         """Spawn the system-tray indicator as a detached process when configured."""
-        from yazses.tray.launch import should_launch_tray, tray_dependency_available
+        from yazses.tray.launch import missing_tray_modules, should_launch_tray
 
         if not should_launch_tray(self._config, os.environ):
             return
-        if not tray_dependency_available():
+        # The platform's own tray backend says what it needs. On Windows that is
+        # pystray, not Qt, and the tray is also what restarts a crashed daemon there.
+        missing = missing_tray_modules(self._platform)
+        if missing:
             log.info(
-                "Tray is enabled but PySide6 is not installed; skipping. "
-                "Install it with: yazses features enable tray"
+                "Tray is enabled but %s %s not installed; skipping. "
+                "Install it with: yazses features enable tray",
+                " and ".join(missing), "is" if len(missing) == 1 else "are",
             )
             return
         try:

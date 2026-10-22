@@ -6,6 +6,20 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — on Windows, a crashed daemon is restarted on pip, pipx and uv installs too
+
+On Windows the tray is what restarts a crashed daemon: the start-at-login entry fires once,
+at sign-in. But YazSes decided whether it could launch the tray by checking for PySide6,
+and the Windows tray doesn't use PySide6. It uses pystray and Pillow, which every Windows
+install already has. So on a pip, pipx or uv install, `yazses start` never launched the
+tray: no icon, and no recovery, so a crash meant no dictation until the next sign-in. You
+were also offered a ~268 MB PySide6 download for a tray that never uses it. Each
+platform's tray now declares what it imports (Windows: pystray and Pillow; macOS: rumps,
+the same mistake there; Linux: PySide6), and the tray launch and the "switched on but not
+installed" check both ask it. Measured on Windows 11 22H2 with PySide6 absent, killing the
+daemon to simulate a crash: before, dictation did not come back within 45 seconds; after,
+the tray launched and brought it back in 7 seconds.
+
 ### Fixed — `scoop update yazses` no longer turns off start-at-login ([#79](https://github.com/MSKazemi/yazses/issues/79))
 
 The Scoop manifest's cleanup step, which removes the start-at-login entry on

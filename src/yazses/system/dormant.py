@@ -181,6 +181,7 @@ def dormant_features(
     graphical: Callable[[], bool] | None = None,
     cv2_broken: Callable[[], bool] | None = None,
     cv2_repair: Callable[[], Sequence[str] | None] | None = None,
+    tray_modules: Callable[[], Sequence[str]] | None = None,
 ) -> list[DormantFeature]:
     """Every enabled capability in *cfg* whose optional libraries are not importable
     -- or, for a camera feature, whose ``cv2`` imports only as a half-deleted husk.
@@ -201,6 +202,11 @@ def dormant_features(
     The repair command is built only when a husk is found. A caller that injects
     *missing* describes a hypothetical environment, so the real ``cv2`` is consulted
     only if *cv2_broken* is injected too.
+
+    The tray row is checked against what *this platform's* tray imports
+    (``tray/launch.py::tray_runtime_modules``), not the registry's PySide6. Windows
+    and macOS trays never touch Qt, so their users were told to download 268 MB of it
+    for a tray whose libraries were already installed.
     """
     if features is None:
         from yazses.system.features import feature_status
@@ -222,7 +228,14 @@ def dormant_features(
     for feat in features:
         if not _runs_here(feat):
             continue
-        absent = tuple(probe(feat.check_modules))
+        modules = feat.check_modules
+        if feat.slug == "tray":
+            if tray_modules is None:
+                from yazses.tray.launch import tray_runtime_modules
+
+                tray_modules = tray_runtime_modules
+            modules = tuple(tray_modules())
+        absent = tuple(probe(modules))
         if not absent:
             if uses_cv2(feat):
                 if husk is None:
