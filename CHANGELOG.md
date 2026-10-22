@@ -6,6 +6,25 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `yazses status` names the speech engine actually decoding, and says when it fell back ([#644](https://github.com/MSKazemi/yazses/issues/644))
+
+With `[stt] engine = "parakeet"` (or `"moonshine"`) and that engine missing or failing to
+load, YazSes falls back to faster-whisper and logs it. But `yazses status` printed
+`model: <[stt] model>`, so it showed `nemo-parakeet-tdt-0.6b-v2` while `base.en` decoded every
+word, and the daemon's status reply had no engine field at all. `yazses doctor` catches a
+missing package but cannot see a load failure.
+
+- `yazses status` now prints `model: base.en (faster-whisper)`, the checkpoint and engine
+  that came up. After a fallback it adds a `FALLBACK:` line naming the engine asked for and
+  why it is not running: the missing package with its `features enable` fix, a load error
+  (the exception's type only, never its message, which can hold a path), or an unknown
+  engine name.
+- The daemon's status reply gains `engine`, `engine_model` and `engine_fallback`. `model`
+  keeps its meaning, `[stt] model` as configured, because other code reads it. The
+  settings window's "Running (…)" line now names the checkpoint that decodes.
+- `tests/test_status_reports_active_engine.py` covers both fallback causes, the unknown
+  engine, the wrappers, the status handler and the printed lines.
+
 ### Fixed — on Windows, a dictation into an administrator window is no longer lost without a word
 
 Windows blocks a normal program from typing into a window that runs as administrator

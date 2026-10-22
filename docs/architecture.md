@@ -194,7 +194,11 @@ with the exact `features enable` fix whenever the configured non-default
 engine's dependency cannot actually be found, distinct from `_stt_engine_check`
 above it (which only asks whether faster-whisper itself, the universal
 fallback, can load — `OK` in both the healthy and the silently-downgraded
-case). The dependency loss that triggered this was `system/deps.py::install_packages`
+case). Doctor reads the environment, so it cannot see an engine whose package is
+installed but whose model fails at load; the running daemon can. Since #644 the
+built engine says what it is (`engine_name`, `model_name`), the factory stamps a
+fallback with its cause, and `yazses status` prints the engine and checkpoint that
+actually decode, with a `FALLBACK:` line naming the engine asked for and why. The dependency loss that triggered this was `system/deps.py::install_packages`
 installing a feature's extra via a bare `uv pip install`, which never touches a
 `uv tool install`'s own receipt — so `uv tool upgrade` (what the tray's
 "Install update" and `yazses update` both run for that install method)

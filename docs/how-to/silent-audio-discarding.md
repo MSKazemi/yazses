@@ -237,7 +237,7 @@ yazses status
 YazSes is running (PID 4084).
   state:    idle
   hotkey:   right_ctrl
-  model:    base.en
+  model:    base.en (faster-whisper)
   backend:  XdotoolInjector
   mic:      default
   uptime:   2h 14m

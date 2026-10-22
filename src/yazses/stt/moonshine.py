@@ -56,6 +56,14 @@ _SAMPLE_RATE = 16000
 class MoonshineEngine:
     """`SttEngine` implementation over `useful-moonshine-onnx`."""
 
+    #: For `yazses status` (#644), beside :attr:`model_name`.
+    engine_name = "moonshine"
+
+    @property
+    def model_name(self) -> str:
+        """The checkpoint this engine loads, which `[stt] model` may not name."""
+        return self._model_name
+
     def __init__(self, config: "SttConfig") -> None:
         name = (getattr(config, "model", "") or "").strip()
         # `[stt] model` may still hold another engine's checkpoint when the user

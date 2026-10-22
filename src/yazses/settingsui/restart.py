@@ -66,7 +66,8 @@ def describe_status(status: dict | None) -> str:
     if not status:
         return ""
     state = str(status.get("state") or "").strip()
-    model = str(status.get("model") or "").strip()
+    # The checkpoint actually decoding when the daemon says (#644), not `[stt] model`.
+    model = str(status.get("engine_model") or status.get("model") or "").strip()
     parts = [p for p in (f"state {state}" if state else "", f"model {model}" if model else "") if p]
     return f"Running ({', '.join(parts)})." if parts else "Running."
 

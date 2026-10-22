@@ -44,6 +44,14 @@ _NATIVE_SAMPLE_RATE = 16000
 class ParakeetEngine:
     """:class:`yazses.stt.base.SttEngine` backend over onnx-asr Parakeet TDT."""
 
+    #: For `yazses status` (#644), beside :attr:`model_name`.
+    engine_name = "parakeet"
+
+    @property
+    def model_name(self) -> str:
+        """The checkpoint this engine loaded, which `[stt] model` may not name."""
+        return self._model_name
+
     def __init__(self, config: "SttConfig") -> None:
         model_name = (getattr(config, "model", "") or "").strip()
         if "parakeet" not in model_name.lower():

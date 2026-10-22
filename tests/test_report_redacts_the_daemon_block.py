@@ -75,9 +75,14 @@ _USER_TEXT = frozenset({"preview"})
 #: `morse` (ADR-v2-105) is `MorseRunner.status()`: a state name, flags, how the mode was
 #: entered and a count of typed characters -- never a decoded character, which
 #: `tests/test_morsevox_runtime.py` pins.
+#:
+#: `engine`, `engine_model` and `engine_fallback` (#644) name the decoder that came up, its
+#: checkpoint and, after a fallback, the engine asked for and why it is not running. The
+#: reason holds an exception's *type* only (`stt/factory.py::_load_error_reason`), never
+#: its message, so no path or name can reach it.
 _MACHINE_FACTS = frozenset({
     "acoustic", "audio_level", "bursts", "command_mode", "commands_enabled", "confidence_enabled",
-    "decode_latency", "enabled", "handsfree", "headpointer", "hotkey", "injection_backend", "input_device",
+    "decode_latency", "enabled", "engine", "engine_fallback", "engine_model", "handsfree", "headpointer", "hotkey", "injection_backend", "input_device",
     "last_error", "last_good_device", "low_confidence_last", "meeting_active",
     "meeting_enabled", "meeting_finalizing", "modality_roles", "model", "morse", "mouthswitch",
     "notifications",
