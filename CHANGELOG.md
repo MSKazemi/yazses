@@ -131,6 +131,13 @@ deadlines from its shell and fails when the limit is less than 10 minutes above 
 first draft of this change gave `docker` 10 minutes from its run times alone, and the test
 caught it.
 
+### Fixed — a fake `huggingface_hub.constants` no longer leaks between tests
+
+`tests/test_hfcache_restores_offline_flag.py` put its fake module into `sys.modules` directly.
+When the real hub had not been imported yet, nothing removed the fake, and a later test in the
+same xdist worker failed with `has no attribute 'HF_HUB_CACHE'`. The fake now goes in through
+`monkeypatch`, and a test checks that it is gone after teardown. Nothing a user sees changes.
+
 ## [2.44.0] - 2026-10-23
 
 ### Fixed — the settings-window code no longer says it has "~200 rows"
