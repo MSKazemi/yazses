@@ -34,6 +34,7 @@ import pathlib
 
 import pytest
 
+from tests.scan_cache import scan_once
 from yazses.config import InjectionConfig
 from yazses.inject.auto import apply_injection_config, describe_injector
 
@@ -44,6 +45,7 @@ SRC = ROOT / "src" / "yazses"
 _MIN_BUILDERS = 4
 
 
+@scan_once
 def _builders() -> list[tuple[str, str, bool]]:
     """Every function that calls `injector_factory()`, and whether it bridges first."""
     out = []

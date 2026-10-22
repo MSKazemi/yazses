@@ -131,18 +131,30 @@ def test_the_gate_needs_nothing_that_does_not_exist(jobs: dict, gate: dict) -> N
     assert GATE not in needs
 
 
-def test_no_blocking_job_can_skip(jobs: dict) -> None:
-    """The gate fails a ``skipped`` need, so a job-level ``if:`` would fail it.
+#: The one skip the gate allows (#535): a full-lane job on a run whose lane decision is
+#: literally ``false``. tests/test_ci_lanes.py proves the verdict script forgives exactly
+#: the jobs gated this way.
+FULL_LANE_IF = "needs.changes.outputs.full != 'false'"
+
+
+def test_no_blocking_job_can_skip_except_by_the_lane_decision(jobs: dict) -> None:
+    """The gate fails a ``skipped`` need, so any other job-level ``if:`` would fail it.
 
     That is the safe reading of "skipped unexpectedly". A blocking job that has to
     be conditional, for example path-scoped, needs an explicit, tested skip
     allowance in the gate first. It should not be discovered as a red gate on the
-    first PR that does not match the condition.
+    first PR that does not match the condition. The full lane is the one allowance
+    so far.
     """
-    conditional = sorted(name for name in blocking_jobs(jobs) if "if" in jobs[name])
+    conditional = sorted(
+        name
+        for name in blocking_jobs(jobs)
+        if "if" in jobs[name] and jobs[name]["if"] != FULL_LANE_IF
+    )
     assert not conditional, (
-        f"blocking job(s) {conditional} have a job-level `if:`; ci-gate treats their "
-        "skip as a failure. Extend the gate deliberately before adding one."
+        f"blocking job(s) {conditional} have a job-level `if:` the gate does not know; "
+        "ci-gate treats their skip as a failure. Extend the gate deliberately before "
+        "adding one."
     )
 
 
@@ -208,18 +220,22 @@ def test_the_gate_executes_nothing_from_the_checkout(gate: dict) -> None:
 def test_results_reach_the_script_as_data_not_as_code(gate: dict) -> None:
     step = _verdict_step(gate)
     assert step["env"]["NEEDS_JSON"] == "${{ toJSON(needs) }}"
+    assert step["env"]["FULL"] == "${{ needs.changes.outputs.full }}"
     assert "${{" not in step["run"], "no expression interpolation inside the script"
     assert step.get("shell") == "python3 {0}", (
         "the verdict tests below run the script with Python; keep the shell matching"
     )
 
 
-def _run_verdict(gate: dict, tmp_path: Path, needs_json: str | None):
+def _run_verdict(gate: dict, tmp_path: Path, needs_json: str | None, full: str = "true"):
+    """Run the embedded script. ``full="true"`` (the full lane) by default, the lane
+    on which every need must succeed; tests/test_ci_lanes.py covers ``"false"``."""
     script = tmp_path / "ci_gate_verdict.py"
     script.write_text(_verdict_step(gate)["run"], encoding="utf-8")
-    env = {k: v for k, v in os.environ.items() if k != "NEEDS_JSON"}
+    env = {k: v for k, v in os.environ.items() if k not in {"NEEDS_JSON", "FULL"}}
     if needs_json is not None:
         env["NEEDS_JSON"] = needs_json
+    env["FULL"] = full
     return subprocess.run(
         [sys.executable, str(script)],
         env=env,

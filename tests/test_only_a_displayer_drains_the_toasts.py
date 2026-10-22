@@ -33,6 +33,7 @@ from __future__ import annotations
 import ast
 import pathlib
 
+from tests.scan_cache import scan_once
 from yazses.config import Config
 from yazses.core.daemon import Daemon
 from yazses.ipc.protocol import Request
@@ -45,6 +46,7 @@ SRC = pathlib.Path(__file__).resolve().parents[1] / "src" / "yazses"
 _DISPLAYERS = frozenset({"tray/app.py"})
 
 
+@scan_once
 def _status_call_sites() -> list[tuple[str, int, bool]]:
     """Every `…call("status", …)` in `src/`, with whether it opts out.
 

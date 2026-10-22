@@ -165,6 +165,12 @@ found defects that no amount of reading the code here would have surfaced.
   ([#228](https://github.com/MSKazemi/yazses/issues/228) →
   [#590](https://github.com/MSKazemi/yazses/pull/590)); also see
   **Testing & field reports** above
+- [@filip-dzivy](https://github.com/filip-dzivy) — split pull-request CI into a fast lane and
+  a full cross-platform lane, so a docs-only PR stops spending about four runner-hours on a
+  matrix it cannot affect, and added `ci-gate`, the single stable status a branch rule can
+  require ([#535](https://github.com/MSKazemi/yazses/issues/535) →
+  [#603](https://github.com/MSKazemi/yazses/pull/603)). Checked it the hard way: broke the
+  change seven different ways and confirmed each one turned a test red
 - [@Guruharishb](https://github.com/Guruharishb) — native-speaker review of the Tamil
   page (`docs/ta/index.md`), extending it well past a wording pass to full parity with
   the current English docs site — the "Why YazSes", use-cases, "when not to use it",

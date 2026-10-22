@@ -1,4 +1,5 @@
 import importlib
+import itertools
 import logging
 import os
 import sys
@@ -23,8 +24,36 @@ def silent_audio_1s():
     return np.zeros(16000, dtype=np.float32)
 
 
+@pytest.fixture(scope="session")
+def _fresh_dir(tmp_path_factory):
+    """Make a new, empty directory for one test. Constant cost, unlike `mktemp`.
+
+    The autouse fixtures below each want a private directory for every test. They used
+    to call `tmp_path_factory.mktemp()`, and that cost the suite minutes. `mktemp` picks
+    its number by scanning *every* entry in the session's base temp directory, and two
+    autouse calls per test add two entries per test to that directory, so each call is
+    slower than the last. Measured on 3,000 no-op tests: 11 s without these fixtures,
+    66 s with them. Every test that takes `tmp_path` paid the same growing scan too,
+    since it shares that directory.
+
+    One numbered parent per session, then a counter: one `mkdir` per directory, and the
+    base temp directory gains one entry, not two per test. Each test still gets a
+    directory that exists, is empty, and is its own. Under xdist every worker has its
+    own base temp directory, so the counter needs no lock.
+    """
+    root = tmp_path_factory.mktemp("isolated")
+    counter = itertools.count()
+
+    def make(prefix: str) -> Path:
+        path = root / f"{prefix}{next(counter)}"
+        path.mkdir()
+        return path
+
+    return make
+
+
 @pytest.fixture(autouse=True)
-def _no_test_may_write_the_real_portal_token(monkeypatch, tmp_path_factory):
+def _no_test_may_write_the_real_portal_token(monkeypatch, _fresh_dir):
     """Point the portal restore token at a throwaway directory for every test.
 
     `inject.portal.token_path()` falls back to the developer's real data directory, and
@@ -35,7 +64,7 @@ def _no_test_may_write_the_real_portal_token(monkeypatch, tmp_path_factory):
     for the whole suite means a file that forgets to sandbox is safe by default; a test
     that wants its own directory still overrides it with `monkeypatch.setenv`.
     """
-    monkeypatch.setenv("YAZSES_DATA_DIR", str(tmp_path_factory.mktemp("yazses_data")))
+    monkeypatch.setenv("YAZSES_DATA_DIR", str(_fresh_dir("yazses_data")))
 
 
 @pytest.fixture(autouse=True)
@@ -357,7 +386,7 @@ def sandbox_paths(tmp_path, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
-def _no_test_may_read_the_users_real_config(tmp_path_factory, monkeypatch):
+def _no_test_may_read_the_users_real_config(_fresh_dir, monkeypatch):
     """A test must not read the machine it runs on either.
 
     The write guard below is only half the relationship. `load_config(None)` means
@@ -379,7 +408,7 @@ def _no_test_may_read_the_users_real_config(tmp_path_factory, monkeypatch):
     returns dataclass defaults for it, and unlike `HOME`/`XDG_CONFIG_HOME` it works
     the same on Windows and macOS, where `Path.home()` does not read those at all.
     """
-    empty = tmp_path_factory.mktemp("no-user-config") / "config.toml"
+    empty = _fresh_dir("no-user-config") / "config.toml"
     monkeypatch.setattr("yazses.config.default_config_path", lambda: empty)
     yield
 

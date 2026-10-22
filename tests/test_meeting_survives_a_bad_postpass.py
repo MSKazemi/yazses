@@ -60,7 +60,15 @@ class _HealthyEngine:
         # 4400 distinct words against the 40 minutes `_run` feeds = 110 wpm, the rate a
         # real meeting decodes at. A smaller number here would trip the `thin` check and
         # make every "healthy" assertion below pass or fail for the wrong reason.
-        text = " ".join(f"word{'a' * i}" for i in range(4400))
+        #
+        # Distinct and alphabetic, because the quality tokenizer drops digits, so
+        # `word12` would count as `word`. The index is spelt with letters (12 -> "bc")
+        # rather than `word` + "a" * i: that made the text 9.7 million characters long,
+        # and tokenizing it took five seconds per test. Both versions give identical
+        # `quality.assess` output.
+        text = " ".join(
+            "word" + "".join(chr(ord("a") + int(d)) for d in str(i)) for i in range(4400)
+        )
         words = [
             Word(w, i * 0.3, i * 0.3 + 0.25, 0.9) for i, w in enumerate(text.split())
         ]

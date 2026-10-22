@@ -28,6 +28,7 @@ import re
 
 import pytest
 
+from tests.scan_cache import scan_once
 from yazses.config import Config
 from yazses.system.features import grouped_features
 
@@ -129,6 +130,7 @@ def test_no_help_text_names_a_config_key_without_its_command() -> None:
 # --- surface 2: what the daemon and CLI print at runtime ----------------------------
 
 
+@scan_once
 def _runtime_messages() -> list[tuple[str, int, str]]:
     """String literals a user can actually be shown.
 
