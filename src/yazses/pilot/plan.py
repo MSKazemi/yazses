@@ -19,6 +19,12 @@ _ACTIONS = {
     "toggle": "toggle", "check": "toggle", "uncheck": "toggle",
 }
 
+# "check" and "uncheck" run the same backend action as "toggle" -- AT-SPI has no "set
+# checked" -- so the state they ask for is kept separately, and :func:`decide` acts only
+# when the control's *read* state differs from it. Without this, "uncheck X" on an
+# already-unchecked box clicked it, and so checked it.
+_WANT_CHECKED = {"check": True, "uncheck": False}
+
 _ORDINALS = {
     "first": 0, "second": 1, "third": 2, "fourth": 3, "fifth": 4,
     "1st": 0, "2nd": 1, "3rd": 2, "4th": 3, "5th": 4,
@@ -33,6 +39,9 @@ class Element:
     label: str
     role: str = ""
     actions: tuple[str, ...] = ()     # supported actions (empty = unknown/any)
+    # Whether the control is checked, as the accessibility tree reported it; ``None``
+    # when it is not a checkable control or its state could not be read.
+    checked: bool | None = None
     # The snapshot id the backend acts on (``SemanticCandidate.entity_id``). Empty for a
     # hand-built element; :func:`decide` never needs it, the service that acts does.
     entity_id: str = ""
@@ -43,6 +52,9 @@ class PilotCommand:
     action: str
     target: str
     ordinal: int | None = None
+    # The state "check" (True) or "uncheck" (False) asks for; ``None`` for every other
+    # verb, including "toggle", which flips whatever the state is.
+    want_checked: bool | None = None
 
 
 @dataclass(frozen=True)
@@ -76,7 +88,8 @@ def parse_command(phrase) -> PilotCommand | None:
     target = " ".join(w for w in kept if w not in _STOP).strip()
     if not target:
         return None
-    return PilotCommand(action=action, target=target, ordinal=ordinal)
+    return PilotCommand(action=action, target=target, ordinal=ordinal,
+                        want_checked=_WANT_CHECKED.get(words[0]))
 
 
 def _score(target: str, label: str) -> float:
@@ -127,6 +140,7 @@ def plan_action(phrase, elements, *, threshold: float = 0.5) -> PilotPlan | None
 ACT = "act"            # one exact, safe match: carry it out
 CONFIRM = "confirm"    # a plausible match that must be confirmed out loud first
 NO_MATCH = "none"      # nothing to act on; say so and do nothing
+ALREADY = "already"    # "check"/"uncheck" on a control already in that state: do nothing
 
 #: Backend action names that carry out each canonical verb, in preference order.
 #: AT-SPI names them per toolkit ("click" in GTK, "press" in Qt, "jump" on a link);
@@ -188,7 +202,9 @@ class PilotDecision:
     """What to do with one spoken pilot command, and why. Pure data.
 
     ``reason`` is one of ``exact``, ``ordinal``, ``destructive``, ``ambiguous``,
-    ``weak``, ``no_match``, ``ordinal_out_of_range``. ``matches`` counts the candidates
+    ``weak``, ``no_match``, ``ordinal_out_of_range``, ``state_unknown`` (a "check" or
+    "uncheck" whose control's checked state could not be read), and -- with verdict
+    ALREADY -- ``already_checked`` / ``already_unchecked``. ``matches`` counts the candidates
     at or above the threshold, so a message can say "3 controls match".
     """
 
@@ -219,6 +235,14 @@ def decide(phrase, elements, *, threshold: float = 0.5,
     Only elements that offer an action able to carry out the verb are considered, so a
     static label that happens to read "Save" is never picked over the button. Focusing
     a control changes nothing, so ``focus`` never needs the destructive confirmation.
+
+    **"check" and "uncheck" are idempotent.** Their backend action is a toggle, so the
+    chosen control's read state (:attr:`Element.checked`) decides. Already in the asked
+    state is ALREADY: nothing is done, whatever the match quality, because confirming it
+    would flip the box the wrong way. The other state goes on exactly as above. An
+    unreadable state (``None``) is never ACT -- an exact match becomes CONFIRM with reason
+    ``state_unknown`` -- because a toggle on a guess can do the opposite of what was said
+    (ADR-021: act only on a specific, checkable signal). "toggle" flips regardless.
     """
     cmd = parse_command(phrase)
     if cmd is None:
@@ -230,6 +254,13 @@ def decide(phrase, elements, *, threshold: float = 0.5,
     exact = [(e, s) for e, s in cands if s >= _EXACT]
 
     def outcome(elem: Element, score: float, verdict: str, reason: str) -> PilotDecision:
+        if cmd.want_checked is not None:
+            if elem.checked is cmd.want_checked:
+                return PilotDecision(
+                    ALREADY, "already_checked" if cmd.want_checked else "already_unchecked",
+                    cmd, elem, None, score, len(cands))
+            if elem.checked is None and verdict == ACT:
+                verdict, reason = CONFIRM, "state_unknown"
         if verdict == ACT and cmd.action != "focus" and is_destructive_label(elem.label):
             verdict, reason = CONFIRM, "destructive"
         return PilotDecision(verdict, reason, cmd, elem,

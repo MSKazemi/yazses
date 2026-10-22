@@ -288,6 +288,11 @@ class SemanticCandidate:
     exists so an intent hint like "click Save" has something to match, and the spec's
     privacy rule forbids publishing it in evaluation reports. It is never copied into
     :class:`GroundingEvidence`.
+
+    ``checked`` is the control's checked state, one of the "value" concepts the spec
+    allows: ``True``/``False`` only when the source read it from a checkable control,
+    ``None`` when the control is not checkable or the state could not be read. A consumer
+    that would flip a toggle must treat ``None`` as "unknown", never as "unchecked".
     """
 
     source: SemanticSourceKind
@@ -299,6 +304,7 @@ class SemanticCandidate:
     bounds: Rect | None = None
     label: str | None = None
     actions: tuple[str, ...] = ()
+    checked: bool | None = None
 
     def __post_init__(self) -> None:
         _check_identifier("SemanticCandidate.entity_id", self.entity_id)
@@ -314,6 +320,10 @@ class SemanticCandidate:
             raise ValueError("SemanticCandidate.actions entries must be strings")
         if self.label is not None and not isinstance(self.label, str):
             raise ValueError("SemanticCandidate.label must be a string or None")
+        # A truthy non-bool (1, "yes") is refused rather than read: a consumer decides
+        # whether to click on this value, and ``None`` is the only "unknown".
+        if self.checked is not None and not isinstance(self.checked, bool):
+            raise ValueError("SemanticCandidate.checked must be a bool or None")
         if self.bounds is not None and self.space is None:
             raise ValueError(
                 "SemanticCandidate.space is required when bounds is present — "

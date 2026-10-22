@@ -6,6 +6,17 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — Voice Pilot "uncheck X" no longer checks an unchecked box (Linux, experimental)
+
+"check" and "uncheck" ran the same click as "toggle", so "uncheck Dark mode" on a box
+that was already unchecked checked it, and "check" on a checked box unchecked it. The
+AT-SPI backend now reads each checkable control's checked state with the snapshot. A box
+already in the state you asked for is left alone and you are told so; a box in the other
+state is clicked as before. When the state cannot be read (a toggle button that reports
+no checked state, a half-checked box), the click waits for a spoken "confirm" instead of
+guessing. "toggle" still flips the box whatever its state. The Voice Pilot is off by
+default (`[pilot] enabled`), Linux-only, and untested on real hardware.
+
 ## [2.44.0] - 2026-10-23
 
 ### Fixed — the settings-window code no longer says it has "~200 rows"

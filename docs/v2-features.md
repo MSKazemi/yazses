@@ -104,7 +104,7 @@ doing nothing.
 | **Spoken Recall & Scratch** | `recall` | Search your past dictations (`yazses recall <query>`) and capture spoken notes-to-self (`yazses scratch`). Corpus-local. |
 | ◌ **True Code-Switch** | `polyglot` | Would decode a burst that mixes the two languages of a declared `[polyglot] pair` with a code-switch adapter you train yourself. Not wired: nothing yet tells the daemon which parts of a burst are in which language, so every burst is decoded by the `[stt]` model with or without an adapter. |
 | ◌ **Voice-to-Tool (Spoken MCP)** | `agent` | Run allowlisted tools by voice via MCP; state-changing tools ask first. Needs the `agent` extra + a local planner model. |
-| **Voice Pilot (AT-SPI)** | `pilot` | Hold the command key and say "click Save", "press OK" or "toggle dark mode": the focused window's accessibility tree is read and the control clicked. It acts at once only on **one exact match**; a partial match, a tie or a destructive label ("Delete", "Send") waits for a spoken **confirm**. Reads labels only, **no screenshots**. Linux with `python3-pyatspi`; experimental, untested on real hardware. |
+| **Voice Pilot (AT-SPI)** | `pilot` | Hold the command key and say "click Save", "press OK" or "toggle dark mode": the focused window's accessibility tree is read and the control clicked. It acts at once only on **one exact match**; a partial match, a tie or a destructive label ("Delete", "Send") waits for a spoken **confirm**. "check X" / "uncheck X" leave a box that is already in that state alone, and wait for a confirm when its state cannot be read. Reads labels only, **no screenshots**. Linux with `python3-pyatspi`; experimental, untested on real hardware. |
 
 ## Experimental (Wave C — `--force` to enable)
 
