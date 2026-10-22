@@ -18,6 +18,75 @@ The visual (bidi) check, other applications, Linux and macOS are still to do. Th
 now labels Windows 11 as Windows 11 (Python before 3.12 reports it as "10"), and the
 procedure warns that a slow receiver can make a long paragraph look as if nothing arrived.
 
+### Changed — every CI test job now has a time limit that fits the parallel suite
+
+With no `timeout-minutes`, `repo-hygiene` sat in a hung `apt-get update` for 78 minutes
+on PR #625, and a hang there or in `benchmark-harness` could hold a runner for GitHub's
+six-hour default. Both now stop after 10 minutes; healthy runs take under one. The `test`
+matrix and the Linux baseline drop from 60 to 30 minutes: in parallel their slowest leg
+took 15 minutes, and 3–5 once the suite was sped up. `tests/test_ci_job_timeouts.py`
+reads the job list from `test.yml` and fails if any job lacks a limit.
+
+### Fixed — a repo-hygiene guard had been skipped on every run, so it checked nothing
+
+`tests/test_repo_hygiene_source_order_needles.py` checks that every `getsource(...).index(needle)`
+in the suite searches for a needle that occurs once. To read those sources it imports the
+other test modules, and passes over any that fail with `except Exception`. But
+`test_bench_diarization_profile.py` calls `pytest.skip` at import when the optional
+`benchmark` group is missing, and that exception derives from BaseException. It escaped
+the guard and skipped the guard's whole module at collection, in every default run and in
+every CI job that runs it. The guard's own "found at least 12 sites" floor was skipped too.
+It had been off since 802873da (2026-08-24), which added that module-level skip: the
+commit before, its 20 checks ran and passed; from 802873da, the module skipped.
+The one visible symptom was that a serial run counted one more skip than `-n auto`, which
+does not count a module skipped at collection.
+
+- The guard now passes over a module that skips at import, and runs again: its 35 tests
+  pass, so no ambiguous needle slipped in while it was off.
+- `tests/test_repo_hygiene_guards_are_collected.py` imports every `test_repo_hygiene_*.py`
+  as collection does and fails if one skips. A test inside a module cannot see its own
+  module being skipped. With the old `except` clause restored, this check fails and
+  names the guard.
+
+### Tests — the suite runs about five times faster, and a hung test now fails instead of stalling CI
+
+The full suite was measured twice on one laptop, under the same load, on 2026-10-22: before
+these changes it took 40 min 49 s, after them 7 min 38 s. No assertion was removed or relaxed.
+
+- **The fixed cost per test is gone.** Two autouse fixtures in `tests/conftest.py` each
+  called `tmp_path_factory.mktemp()` for every test. That call numbers its directory by
+  scanning the session's whole temp directory, and these two calls added two entries to it
+  per test, so every call took longer than the one before. The fixtures now share one
+  directory per session and number theirs with a counter. On 3,000 empty tests the cost
+  fell from 66 s to 18.5 s (11 s with no fixtures at all).
+  `tests/test_conftest_per_test_cost.py` now fails if an autouse fixture asks for
+  `tmp_path` or calls `mktemp()` per test, directly or through another fixture. Run
+  against the old conftest, it names exactly the two fixtures that caused this.
+- **A source scan runs once per session, not once per test.** `tests/scan_cache.py` adds
+  `scan_once`: a guard that parses the whole tree caches its answer and hands each test a
+  private copy. `test_egress_inventory.py` used to parse all ~680 modules a dozen times;
+  that file went from 64 s to 13 s. Nine guard modules use it.
+- **Guards skip files that cannot match.** Before parsing, they check whether the file
+  even contains the name they are looking for, such as `os.kill`, `glob`,
+  `detect_install_method` or `mark.quarantine`. Each guard was re-checked with a planted
+  violation and still fails on it. The `os.kill` scan went from 20 s to 1.2 s.
+- **One fixture was 9.7 million characters.** A "healthy meeting" stub in
+  `test_meeting_survives_a_bad_postpass.py` made its 4,400 distinct words distinct by
+  making them up to 4,400 letters long. Spelling the index in letters gives identical
+  `quality.assess` output, and the file went from 31 s to 1.9 s.
+- **A hung test fails after five minutes** with every thread's stack, via
+  `pytest-timeout`. A Windows leg once printed one test name and then nothing for 2 h 30 m.
+  Override per test with `@pytest.mark.timeout(N)`. It works under xdist: on Linux and
+  macOS the hung test fails and the run carries on. On Windows, where the timeout has to
+  exit the process, xdist reports the worker as crashed on that test, starts a new one
+  and carries on; a serial Windows run stops at the hang.
+- **The pytest config is strict.** `--strict-markers`, `--strict-config` and
+  `xfail_strict` are on, so a misspelt marker or config key is an error, and so is an
+  `xfail` that starts passing. `required_plugins` refuses to start a run without
+  pytest-mock, pytest-timeout, pytest-xdist or Hypothesis. `tests/test_pytest_config.py`
+  checks all of this, including a real hang, serially and under xdist with each timeout
+  method, that must come back as a failure.
+
 ### Fixed — the macOS app no longer claims macOS 11, and the Homebrew cask puts `yazses` on your PATH
 
 - **The real minimum is macOS 14 (Sonoma).** The bundle declared macOS 11, and the cask
@@ -54,6 +123,22 @@ multi-factor authentication and a fixed credit line; the old page had none of th
 - The README gains a **Code signing policy** section; every website page's footer, the
   Windows install page and the GitHub release notes link to it.
 - `tests/test_code_signing_policy_page.py` pins each required piece to the file that holds it.
+
+### Changed — the test suite runs on every core, locally and in CI
+
+The suite (about 29,800 tests) ran one test at a time. In CI the slowest leg, Windows on
+Python 3.12, took 77 minutes on 92ad3c89; the FreeBSD leg was cut off by its 45-minute
+limit on 6 of the 9 pushes to `main` from 92ad3c89 to 09e4488d. `pytest-xdist` now
+spreads it over every core: on a 12-core laptop with four workers (`-n 4 --dist
+worksteal`) the whole suite took 11.5 minutes, 29,838 passed.
+
+- **CI.** Every leg of the test matrix, and the Linux baseline that runs on every PR,
+  runs `-n auto --dist worksteal` and prints its 30 slowest tests. Both jobs get a
+  60-minute limit; they had none, so a hang held a runner for GitHub's six-hour
+  default. The FreeBSD VM gets the host's four cores.
+- **Locally.** `uv run python -m pytest tests/ -n auto` runs the whole suite in parallel.
+- **The first parallel run found a real bug**: a test that deleted the developer's own
+  running daemon's pid file. It is fixed separately (see the entry below).
 
 ### Fixed — running the test suite no longer deletes your running daemon's pid file
 
@@ -2018,6 +2103,22 @@ A hold-to-talk setup for Discord (`right_ctrl`, `auto` injection, which is SendI
 microphone: dictation into a Discord web channel and a DM arrived intact, and `right_ctrl` clashes with neither
 Discord's Push to Talk nor its overlay keybind. The desktop app, Linux and macOS are unverified, and the file says so.
 `scripts/check-app-profile.py` passes for all 20 profiles.
+
+### Changed — a docs-only pull request no longer waits for the cross-platform matrix (#535)
+
+`test.yml` now routes each pull request through `scripts/classify_changes.py` (#534). Every PR runs a fast lane
+(repository hygiene, ruff, the dependency budget, the CI-contract and generated-file drift tests) and the whole suite
+on one Linux leg. The rest of the OS/interpreter matrix, the Qt, extras and benchmark-harness jobs, and the advisory
+FreeBSD leg run unless every changed path is docs/design or Android. For a docs typo that skips about four
+runner-hours (measured on a recent `main` run), including two ~45-minute Windows legs. Unknown paths, runtime, tests,
+workflows, packaging and release changes still take the full lane, as do changes to the classifier
+itself, pushes to `main`, manual runs and PRs labelled `ci:full`. The `ci-gate` job, the single stable status
+a ruleset requires (#462), now knows the lanes: it still fails when any blocking job fails or is cancelled, and it
+accepts a skip only from a full-lane job on a run whose lane decision is literally `false`. A missing or garbled
+decision fails it. The verdict still runs inline from the `needs` context, with nothing checked out. The eight
+fixtures the issue asked for are pinned in `tests/test_ci_lanes.py` and tabled in `.github/CI_POLICY.md` section 5.
+The new advisory Windows update hand-off job also takes the full lane only. Thanks to
+[@filip-dzivy](https://github.com/filip-dzivy) ([#603](https://github.com/MSKazemi/yazses/pull/603)).
 
 ### Tests — the shared camera owner is now held to its contract at the daemon, not only on its own (#394)
 

@@ -37,6 +37,7 @@ import pytest
 # line fails loudly on that platform instead of silently reducing coverage (#306).
 pytest.importorskip("faster_whisper", reason="the decoder stack has no FreeBSD build")
 
+from tests.scan_cache import scan_once
 from yazses.config import MeetingConfig, RecimportConfig
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -47,6 +48,7 @@ SRC = ROOT / "src" / "yazses"
 _MIN_SITES = 3
 
 
+@scan_once
 def _construction_sites() -> list[tuple[str, int, set[str]]]:
     """Every `FasterWhisperEngine(...)` call in the package, with its keyword names."""
     sites = []

@@ -5,7 +5,11 @@ on:
     branches: ["main"]
   pull_request:
     branches: ["main"]
+  # The manual escape hatch: a dispatched run always takes the full lane.
+  workflow_dispatch:
 
+# Fast and full lanes, and the `ci-gate` status: see .github/CI_POLICY.md section 5.
+#
 # A rapid PR update should spend runners only on the newest head. Pushes to main are
 # deliberately unique and never cancelled: every merged commit still gets its own run.
 concurrency:
@@ -24,10 +28,60 @@ env:
   QT_QPA_PLATFORM: offscreen
 
 jobs:
+  changes:
+    # Decides the lane. Standard library only, so no `uv sync` stands between a PR and
+    # the decision. Any doubt resolves to the full lane, never the fast one: a non-PR
+    # event, the `ci:full` label, a diff that cannot be listed, an empty diff, or a path
+    # the classifier does not know.
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      full: ${{ steps.lanes.outputs.full }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          # A PR is checked out as its merge commit. Depth 2 brings its first parent,
+          # the base branch tip it merges into, so HEAD^1..HEAD is exactly what the
+          # PR would change on main today, not what changed since it forked.
+          fetch-depth: 2
+
+      - name: Choose the lanes
+        id: lanes
+        # Explicit, for pipefail: GitHub's default shell has none, and a classifier
+        # that crashed behind `tee` would otherwise end this step green.
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          FULL_LABEL: ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'ci:full') }}
+        run: |
+          if [ "$EVENT_NAME" != "pull_request" ]; then
+            echo "::notice::$EVENT_NAME run: taking the full lane"
+            echo "full=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ "$FULL_LABEL" = "true" ]; then
+            echo "::notice::labelled ci:full: taking the full lane"
+            echo "full=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # --no-renames: a file moved out of src/ must count as a src/ change too.
+          if ! changed=$(git diff --name-only --no-renames HEAD^1 HEAD); then
+            echo "::warning::could not list the changed files: taking the full lane"
+            echo "full=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          printf '%s\n' "$changed"
+          printf '%s\n' "$changed" \
+            | python3 scripts/classify_changes.py --github-output \
+            | tee -a "$GITHUB_OUTPUT"
+
   repo-hygiene:
     # Cheap and Linux-only: a large file costs every future clone permanently, and the
     # only inexpensive moment to catch one is before the commit lands.
     runs-on: ubuntu-latest
+    # Healthy runs take under a minute. With no limit, a hung `apt-get update` held a
+    # runner for 78 minutes on PR #625 before it was cancelled by hand (CI_POLICY.md §8).
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: No oversized files in the repo
@@ -73,8 +127,73 @@ jobs:
           fi
           uv run python scripts/check_dependency_budget.py
 
-  test:
+      - name: CI contract and generated-file drift
+        # The fast lane's share of the suite: the tests that pin the classifier, the
+        # gate and the workflows, and the generators whose drift once turned every
+        # matrix leg red at once. Seconds, not minutes. The full suite still runs them.
+        run: |
+          uv run python -m pytest -q \
+            tests/test_classify_changes.py \
+            tests/test_ci_lanes.py \
+            tests/test_workflow_concurrency.py \
+            tests/test_gen_docs.py \
+            tests/test_gen_man.py \
+            tests/test_adr_index_is_current.py
+
+  # The matrix's ubuntu/3.12 leg, moved out so the whole suite runs on every PR, even
+  # when the full lane is skipped. tests/test_ci_lanes.py keeps its steps equal to `test`'s.
+  test-linux:
+    name: test (${{ matrix.os }}, ${{ matrix.python-version }})
     runs-on: ${{ matrix.os }}
+    # The same limit as `test`, for the same reason: without one a hang holds a runner
+    # for GitHub's 6-hour default (CI_POLICY.md §8).
+    timeout-minutes: 30
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        python-version: ["3.12"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          filter: blob:none
+
+      - name: Install system dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libportaudio2 \
+            libegl1 libgl1 libxkbcommon0 libdbus-1-3 libfontconfig1 \
+            libxcb-cursor0 libxcb-xinerama0 libxcb-icccm4 libxcb-image0 \
+            libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-shape0 \
+            desktop-file-utils \
+            xdotool
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          version: "latest"
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Run tests
+        # Must stay identical to `test`'s step; the comment there says why.
+        run: uv run pytest tests/ -n auto --dist worksteal -rfE --durations=30
+
+  test:
+    # Full lane: the rest of the OS/interpreter matrix.
+    needs: changes
+    if: needs.changes.outputs.full != 'false'
+    runs-on: ${{ matrix.os }}
+    # The suite runs on every core (pytest-xdist, below). Serial, the slowest leg --
+    # windows-latest, 3.12 -- took 77 minutes on 92ad3c89 and this job had no limit at
+    # all, so a hang held a runner for GitHub's 6-hour default (CI_POLICY.md §8).
+    # In parallel the slowest leg took 15 minutes (e0463500) and 3-5 minutes once the
+    # suite itself was sped up (96e98ffe, c1a9ab56), so 30 is twice the worst healthy run.
+    timeout-minutes: 30
     # Legs without `experimental` are blocking; only a leg that explicitly opts
     # out is allowed to fail. Written this way round so that adding a new leg
     # makes it blocking by default rather than silently non-blocking.
@@ -93,6 +212,10 @@ jobs:
         # only: the failure mode being caught is interpreter behaviour, not OS
         # behaviour, and a full 3x5 matrix buys nothing for the runtime it costs.
         python-version: ["3.11", "3.12"]
+        # Runs as `test-linux` above, on every PR, so it is not repeated here.
+        exclude:
+          - os: ubuntu-latest
+            python-version: "3.12"
         include:
           - os: ubuntu-latest
             python-version: "3.13"
@@ -165,7 +288,12 @@ jobs:
         run: uv sync
 
       - name: Run tests
-        run: uv run pytest tests/ -v
+        # One worker per core (`-n auto`). `worksteal` rebalances as workers finish,
+        # because test durations are very uneven -- a few whole-tree scans take 10-45 s
+        # while most tests take milliseconds. Same tests, same assertions: only the
+        # scheduling changes. `--durations=30` names the slowest tests in every log, so
+        # a regression in suite time shows up as a name, not as a slower job.
+        run: uv run pytest tests/ -n auto --dist worksteal -rfE --durations=30
 
   gui:
     # The windowed surfaces — settings window, tray, overlay — on the two OSes
@@ -185,6 +313,8 @@ jobs:
     # the run fails if PySide6 is missing, because a silent skip here would
     # restore exactly the hole this job closes.
     name: GUI (Qt) — ${{ matrix.os }}
+    needs: changes
+    if: needs.changes.outputs.full != 'false'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     strategy:
@@ -285,6 +415,8 @@ jobs:
     # Linux only: these extras are pure Python or platform-independent, and the
     # OS matrix in the main job already covers the code around them.
     name: Optional extras
+    needs: changes
+    if: needs.changes.outputs.full != 'false'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -332,6 +464,10 @@ jobs:
     # not be able to turn `main` red on its first PR. Promote it to blocking —
     # and upgrade the ⚗️ row in docs/platform-support.md to ✅ — once it is
     # reliably passing.
+    #
+    # Advisory, so it is not one of ci-gate's dependencies.
+    needs: changes
+    if: needs.changes.outputs.full != 'false'
     runs-on: ubuntu-latest
     # PROMOTE WHEN: green on several consecutive runs with #306 resolved -- delete this,
     # add the job to ci-gate's needs and upgrade its row in docs/platform-support.md.
@@ -344,6 +480,9 @@ jobs:
         uses: vmactions/freebsd-vm@a2f9a41fa97f6848b8c3b791087dfcdaa5b473ff # v1.5.8
         with:
           usesh: true
+          # The ubuntu-latest host has 4 vCPUs; give them to the VM so `-n auto` below
+          # has cores to use. The action leaves `cpu` unset by default.
+          cpu: 4
           # Derived, not pinned. The first run of this job found two independent
           # reasons the obvious spelling cannot work:
           #   * `py311-pip` is not in the binary repo — 3.12 is the ports default
@@ -451,7 +590,10 @@ jobs:
             # typer, which dropped it at 0.27.2. This leg is the only environment
             # that installs test dependencies by name instead of from the `dev`
             # group, so it is the only one where such a drop shows up as red.
-            python -m pip install platformdirs typer click pytest pytest-mock hypothesis pyyaml
+            # pytest-timeout is named by `required_plugins` in pyproject.toml, so
+            # pytest refuses to start without it; tests/test_pytest_config.py
+            # keeps this line and that list in step.
+            python -m pip install platformdirs typer click pytest pytest-mock pytest-xdist pytest-timeout hypothesis pyyaml
             # `cryptography` is the learning corpus's AES-256-GCM cipher, and 151
             # tests reach it. There is no FreeBSD wheel, so it builds through
             # maturin — which is what the `rust` package above is for — in about
@@ -529,7 +671,11 @@ jobs:
             # every backspace on a FreeBSD Wayland desktop; and it is the only
             # environment in CI that installs the test dependencies by name, which
             # is how `click` disappearing from typer's dependency list was caught.
-            python -m pytest tests/ -q -rf
+            #
+            # In parallel, like the matrix above: run serially this leg reached
+            # 98% and was killed by its 45-minute limit (6a57a468; again on 92ad3c89
+            # and b237c1bc).
+            python -m pytest tests/ -q -rf -n auto --dist worksteal
 
   # The benchmark harness's own tests. `uv sync` installs the base dependencies
   # only, so `psutil`, `jiwer` and `whisper-normalizer` -- all in the `benchmark`
@@ -545,7 +691,11 @@ jobs:
   # so the tests that guard the harness actually execute on every push.
   benchmark-harness:
     name: Benchmark harness tests
+    needs: changes
+    if: needs.changes.outputs.full != 'false'
     runs-on: ubuntu-latest
+    # Healthy runs take under a minute; the limit only ends a hang (CI_POLICY.md §8).
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
@@ -589,8 +739,14 @@ jobs:
   # (CI_POLICY.md section 9). PROMOTE it -- delete `continue-on-error` and add it to
   # ci-gate's `needs` -- once it has passed on three consecutive pushes to main.
   # Owner of a persistent failure: whoever owns ADR-027.
+  #
+  # Full lane only (CI_POLICY.md section 5), like the advisory `freebsd` leg: a
+  # docs-only PR has nothing this job could catch. Pushes to main always take the
+  # full lane, so the three-pushes promotion rule above still counts every push.
   windows-update-handoff:
     name: Windows one-click update hand-off (real PowerShell)
+    needs: changes
+    if: needs.changes.outputs.full != 'false'
     runs-on: windows-latest
     # PROMOTE WHEN: passed on three consecutive pushes to main -- delete this and add the
     # job to ci-gate's needs (see the comment above the job).
@@ -629,10 +785,17 @@ jobs:
   #   "Using conditions to control job execution"), so a gate that can skip is a
   #   gate that can pass without evidence. With always() it runs whatever
   #   happened upstream and reports a real verdict.
-  # * It passes only when every need's result is literally `success`. `failure`,
-  #   `cancelled` and `skipped` all fail it: a blocking job that skipped proved
-  #   nothing. (A superseded PR head's run is cancelled, so its gate fails on the
-  #   OLD commit; the ruleset only ever reads the gate on the current head.)
+  # * It passes only when every need's result is literally `success`, with ONE
+  #   exception: a full-lane job (one whose `if:` is exactly
+  #   `needs.changes.outputs.full != 'false'`) may be `skipped` when the lane
+  #   decision is literally `false` (#535, CI_POLICY.md section 5). `failure` and
+  #   `cancelled` always fail it, and so does any other skip: a blocking job that
+  #   skipped when it should have run proved nothing. A decision that is neither
+  #   `true` nor `false` (the classifier crashed or printed nothing) fails it too.
+  #   (A superseded PR head's run is cancelled, so its gate fails on the OLD
+  #   commit; the ruleset only ever reads the gate on the current head.)
+  #   tests/test_ci_lanes.py checks the script's FULL_LANE set against the jobs
+  #   that are actually gated on the decision.
   # * This workflow has no `paths`/`paths-ignore` filter, so the gate is present
   #   on every PR to main and can never sit "pending" waiting for a run that a
   #   filter suppressed. Do not add one (CI_POLICY.md sections 4 and 6).
@@ -649,7 +812,9 @@ jobs:
     name: ci-gate
     if: always()
     needs:
+      - changes
       - repo-hygiene
+      - test-linux
       - test
       - gui
       - extras
@@ -662,11 +827,22 @@ jobs:
         # `${{ }}` inside the script body (CI_POLICY.md section 7, rule 4).
         env:
           NEEDS_JSON: ${{ toJSON(needs) }}
+          FULL: ${{ needs.changes.outputs.full }}
         shell: python3 {0}
         run: |
           import json
           import os
           import sys
+
+          # The jobs that run only on the full lane, so may skip when it is off.
+          FULL_LANE = {"test", "gui", "extras", "benchmark-harness"}
+
+          full = os.environ.get("FULL", "")
+          if full not in ("true", "false"):
+              # A classifier that crashed or printed nothing must not read as
+              # "the fast lane was enough".
+              print(f"::error::the lane decision is {full!r}, not 'true' or 'false'")
+              sys.exit(1)
 
           try:
               needs = json.loads(os.environ.get("NEEDS_JSON") or "null")
@@ -683,10 +859,14 @@ jobs:
               entry = needs[job]
               result = entry.get("result") if isinstance(entry, dict) else None
               print(f"{job}: {result}")
-              if result != "success":
-                  failed.append(f"{job}={result}")
+              if result == "success":
+                  continue
+              if result == "skipped" and job in FULL_LANE and full == "false":
+                  continue
+              failed.append(f"{job}={result}")
 
           if failed:
               print("::error::blocking job(s) did not succeed: " + ", ".join(failed))
               sys.exit(1)
-          print(f"ci-gate: all {len(needs)} blocking jobs succeeded.")
+          lane = "full" if full == "true" else "fast + Linux baseline"
+          print(f"ci-gate: all {len(needs)} blocking jobs succeeded or were not selected ({lane}).")

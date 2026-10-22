@@ -35,6 +35,8 @@ import importlib.util
 import re
 from pathlib import Path
 
+from tests.scan_cache import scan_once
+
 ROOT = Path(__file__).resolve().parent.parent
 
 
@@ -55,7 +57,8 @@ KNOWN_UNREAD = _status.KNOWN_UNREAD
 #: above stay on `KNOWN_UNREAD` alone: they gate the *detector*, and widening them
 #: would demand it find what it cannot. See `tests/test_shared_config_names.py`.
 LEDGER = KNOWN_UNREAD | _status.AMBIGUOUS_UNREAD
-_unread = _status.unread_fields
+# Searches the whole tree, and three tests below ask for the same answer.
+_unread = scan_once(_status.unread_fields)
 _without_comments = _status.without_comments
 
 REFERENCE = ROOT / "docs" / "configuration.md"

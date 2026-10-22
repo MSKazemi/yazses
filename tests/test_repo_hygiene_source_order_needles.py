@@ -63,8 +63,12 @@ def _load(path: Path):
     module = importlib.util.module_from_spec(spec)
     try:
         spec.loader.exec_module(module)
-    except Exception:
-        return None  # Qt, a missing extra, an env assumption — not our business here
+    except (Exception, pytest.skip.Exception):
+        # Qt, a missing extra, an env assumption — not our business here. The skip has to
+        # be named: it derives from BaseException, so a module that skips at import (a
+        # benchmark test without `psutil`) used to escape this and skip *this whole
+        # module* at collection, and the guard ran nowhere.
+        return None
     return module
 
 
@@ -141,6 +145,23 @@ def test_the_scan_resolved_enough_sites() -> None:
         f"suite. Check that test modules still import and that the getsource idiom is "
         f"unchanged."
     )
+
+
+def test_a_module_that_skips_at_import_is_passed_over(tmp_path: Path) -> None:
+    """A test module that skips on import must not take this guard down with it.
+
+    `pytest.skip` raises an exception derived from BaseException, which `except
+    Exception` does not catch. `test_bench_diarization_profile.py` skips at import
+    wherever the `benchmark` group is absent, which is every default run and every CI
+    job that runs this file. That skip escaped `_load` and skipped this whole module at
+    collection, so neither the floor above nor any needle check ever ran. Serially it
+    showed only as one more skip in the count, and under xdist not even that.
+    """
+    target = tmp_path / "test_skips_at_import.py"
+    target.write_text(
+        'import pytest\npytest.skip("an optional extra is missing")\n', encoding="utf-8"
+    )
+    assert _load(target) is None
 
 
 @pytest.mark.parametrize(

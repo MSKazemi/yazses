@@ -413,6 +413,16 @@
       "contributions": [
         "translation"
       ]
+    },
+    {
+      "login": "filip-dzivy",
+      "name": "filip-dzivy",
+      "avatar_url": "https://avatars.githubusercontent.com/u/206750379?v=4",
+      "profile": "https://github.com/filip-dzivy",
+      "contributions": [
+        "infra",
+        "test"
+      ]
     }
   ]
 }

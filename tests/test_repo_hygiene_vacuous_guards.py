@@ -77,7 +77,12 @@ def _vacuous_loops(source: str) -> list[str]:
 def test_no_guard_asserts_over_a_glob_it_never_proved_non_empty() -> None:
     offenders: list[str] = []
     for path in sorted(TESTS.glob("test_*.py")):
-        for name in _vacuous_loops(path.read_text(encoding="utf-8")):
+        source = path.read_text(encoding="utf-8")
+        # Only a file that says `glob` can loop over one. Skipping the rest avoids
+        # parsing the whole suite, which was nearly all of this test's runtime.
+        if "glob" not in source:
+            continue
+        for name in _vacuous_loops(source):
             offenders.append(f"{path.name}::{name}")
 
     assert not offenders, (

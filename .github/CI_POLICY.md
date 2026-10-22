@@ -78,7 +78,7 @@ publishable shape before the event that has permission to publish it.
 
 The classifier is `scripts/classify_changes.py` (#534): a standard-library script that maps the
 changed paths of a pull request to the classes below, pinned by `tests/test_classify_changes.py`.
-It only classifies. No workflow reads its output yet; routing lanes by it is CI-SCALE-002.
+`test.yml` reads its one routing decision, `full`, to choose the lane (section 5, #535).
 Callers must list changed files with `git diff --name-only --no-renames`, or a file moved out of
 `src/` would show only its new name and lose its runtime scope.
 
@@ -145,6 +145,46 @@ Full validation is required when:
 
 Optimization must preserve evidence, not redefine green.
 
+### How `test.yml` implements it (#535)
+
+| Job | Lane | Runs when |
+|---|---|---|
+| `changes` | fast | every run; decides `full` |
+| `repo-hygiene` (size, translations, ruff, dependency budget, CI contract and generated-file drift tests) | fast | every run |
+| `test-linux`: the whole suite on ubuntu-latest / 3.12 | Linux baseline | every run |
+| `test` (the rest of the OS/interpreter matrix), `gui`, `extras`, `benchmark-harness` | full | `full` is not `false` |
+| `freebsd`, `windows-update-handoff` (both advisory) | full | `full` is not `false` |
+| `ci-gate` | aggregate | always; see section 6 |
+
+`full` is `false` only when every changed path classifies as `docs_design` or `android`
+(`BASELINE_ONLY` in `scripts/classify_changes.py`). Everything else takes the full lane:
+`unknown`, runtime, tests, workflows, packaging, release. So does a push to main, a
+manual `workflow_dispatch` run (the escape hatch), and a PR labelled `ci:full`. The label
+is read from the event, so after adding it, push a commit or close and reopen the PR.
+The classifier is itself `workflow_security`, and so is `test.yml`, which holds the
+gate's verdict, so a change to the code that picks the lane or judges it always takes the
+full lane.
+A change that skips the full lane loses no test: the Linux baseline still runs the whole
+suite, including every test that reads `docs/`, `design/` or `android/`.
+
+The fixtures below are pinned by `tests/test_ci_lanes.py`. Every row also runs the fast
+lane, the Linux baseline and `ci-gate`, plus the workflows that have no path filter
+(CodeQL, dependency review, the labeler, campaign preflight).
+
+| Fixture | Scopes | Full lane | Path-filtered workflows | Why |
+|---|---|---|---|---|
+| Typo-only docs PR | `docs_design` | no | `docs.yml` | the strict site build and the Linux suite cover it |
+| New ADR / design page | `docs_design` | no | `docs.yml` | same |
+| Python runtime change | `python_core` | yes | — | runtime behaviour differs by OS and interpreter |
+| Test-only change | `tests` | yes | — | a changed test can change what the matrix proves |
+| Windows packaging change | `windows`, `packaging` | yes | `build-windows.yml`, `msix-validate.yml` | packaging is not baseline-only |
+| Android change | `android` | no | `android-test.yml` | no Python behaviour changes; Gradle tests run |
+| Workflow/security change | `workflow_security` | yes | — | CI policy changes get full validation |
+| Previously unseen top-level path | `unknown` | yes | — | unknown means more validation |
+
+A root file such as `README.md` is `unknown` (#534), so a docs PR that also touches one
+takes the full lane.
+
 ---
 
 ## 6. Stable branch-protection surface
@@ -152,7 +192,8 @@ Optimization must preserve evidence, not redefine green.
 Do not require dozens of matrix-generated job names individually in repository rules.
 
 The target is one stable aggregate status, tracked in #462, whose result reflects all
-blocking jobs selected for that change.
+blocking jobs selected for that change. For `test.yml` that status is `ci-gate`
+(#462; lane-aware since #535). Making it required in the live ruleset is #462's Part B.
 
 That aggregate gate must:
 
@@ -174,8 +215,8 @@ check name is `ci-gate`, reported by the GitHub Actions app (integration id `153
 |---|---|
 | Stable name | `name: ci-gate`, no matrix. No other workflow may report a check of that name. |
 | Depends on, does not re-run | `needs:` lists the blocking jobs; the one step reads `toJSON(needs)` from an env var and checks nothing out. |
-| Blocking vs advisory | A job is **advisory exactly when it declares a literal `continue-on-error: true`** (today: `freebsd`). Every other job in `test.yml` is blocking and must be a need. |
-| Fails on failure, cancellation, skip | It passes only when every need's `result` is `success`. Empty or unparsable input fails too. |
+| Blocking vs advisory | A job is **advisory exactly when it declares a literal `continue-on-error: true`** (today: `freebsd` and `windows-update-handoff`). Every other job in `test.yml` is blocking and must be a need. |
+| Fails on failure, cancellation, skip | It passes only when every need's `result` is `success`, except that a full-lane job may be `skipped` when the lane decision (`needs.changes.outputs.full`) is literally `false` (section 5). A decision that is neither `true` nor `false`, and empty or unparsable input, fail it too. |
 | Cannot itself skip | `if: always()`. A skipped required check counts as passed ([GitHub docs][skip]), so `!cancelled()` or a path condition would let it pass without evidence. |
 | Never pending forever | `test.yml` has no `paths`/`paths-ignore` filter, so every PR to `main` gets the check. Path-scoped workflows (docs, Android, macOS, Windows packaging) stay outside the gate and are not required. |
 
@@ -192,7 +233,11 @@ Rules for changing it:
   `continue-on-error: true` plus the reason and promotion condition that §9 requires.
 - **Making a blocking job conditional** (a job-level `if:`, such as path scoping): the gate
   fails a skipped need, so first teach the gate which skip is legitimate and add a test.
-  The suite rejects a conditional blocking job until then.
+  The suite rejects a conditional blocking job until then. The one such allowance today
+  is the full lane (#535): a job whose `if:` is exactly
+  `needs.changes.outputs.full != 'false'` is in the verdict script's `FULL_LANE` set, and
+  `tests/test_ci_lanes.py` fails if the set and the gated jobs disagree in either
+  direction.
 - **Advisory legs inside a blocking matrix:** the `test` matrix's arm64 leg uses an
   expression-valued `continue-on-error`, so the `test` job is still a need. GitHub does
   not document how such a leg's failure appears in `needs.test.result`. If it appears as
