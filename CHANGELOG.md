@@ -1090,6 +1090,18 @@ Every threshold was tuned on synthetic signals only. ADR-v2-101 and ADR-v2-103 c
   counts; CJK cleaner and Han-script vectors; and fuzz seeds for every command-grammar rule
   (SEC-005).
 
+### Fixed — Windows reports a revoked microphone as denied, not OK
+
+With *Settings → Privacy & Security → Microphone* (or "Let desktop apps access your
+microphone") switched off, `yazses doctor` printed `Microphone: OK` and the daemon started
+without a word, then recorded silence. The check only asked whether any input device existed,
+and Windows keeps listing every microphone after access is revoked. It now reads the same three
+ConsentStore switches the camera check reads (device, user, desktop apps), and any `Deny`
+makes the row fail with the Settings remedy and triggers the start-up notification. An empty
+device list still reports denied, as before. The registry layout for both microphone and camera
+was checked on a real Windows 11 machine, and the camera read, which had never run on Windows,
+returned granted there.
+
 ### Fixed — the one-click Windows update never ran the installer (unreleased feature)
 
 The first real run of the update hand-off on a Windows machine (CI, `windows-latest`) showed
