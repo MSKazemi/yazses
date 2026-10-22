@@ -241,8 +241,8 @@ a guard that silently stops protecting on a whole display server is worse than n
 
 | File | Role |
 |---|---|
-| `base.py` | Protocol interfaces: `HotkeyBackend`, `InjectorBackend`, `LifecycleBackend`, `IpcServer`, `IpcClient`, `PermissionsBackend`, `TrayBackend`. Also `Platform.pointer_factory` — the optional `PointerSinkFactory` a bundle registers, `None` on an OS with no pointer backend yet (a factory, so nothing is constructed and no permission asked until a pointer consumer is enabled) |
-| `factory.py` | `get_platform()` — detects `sys.platform`, returns `Platform` dataclass |
+| `base.py` | Protocol interfaces: `HotkeyBackend`, `InjectorBackend`, `LifecycleBackend`, `IpcServer`, `IpcClient`, `PermissionsBackend`, `TrayBackend`, `FileOpener` (opens a file with the default app; one per OS family, the BSDs share Linux's). Also `Platform.pointer_factory` — the optional `PointerSinkFactory` a bundle registers, `None` on an OS with no pointer backend yet (a factory, so nothing is constructed and no permission asked until a pointer consumer is enabled) |
+| `factory.py` | `get_platform()` — detects `sys.platform`, returns `Platform` dataclass. `get_file_opener()` — the `FileOpener` for this OS, without building a `Platform` (`yazses fileopen`) |
 | `*/permissions.py` | Keyboard capture, microphone and (ADR-v2-145 / #414) **camera**. `check_camera()` returns a `CameraPermission`, never a bare boolean, and returns `NOT_DETERMINED` — never `GRANTED` — when it cannot answer |
 | `emg/backend.py` | `EMGBackend` — `HotkeyBackend` over USB CDC serial YESP protocol (v0.4.0); requires `pyserial` optional dep |
 | `linux/` | evdev hotkey, LinuxInjector (xdotool/ydotool/wtype/clipboard), systemd lifecycle, Unix socket IPC |

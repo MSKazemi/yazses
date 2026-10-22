@@ -6,6 +6,7 @@ import sys
 from functools import lru_cache
 
 from yazses.platform.base import (
+    FileOpener,
     HostInfo,
     PackRuntime,
     Paths,
@@ -86,6 +87,29 @@ def describe_host() -> HostInfo:
     # absent, and every one of its reads is optional.
     from yazses.platform.linux.host import LinuxHost
     return LinuxHost().describe()
+
+
+def get_file_opener() -> FileOpener:
+    """The "open with the default app" backend for this OS, for ``yazses fileopen``.
+
+    Like :func:`describe_host`, a seam of its own rather than a field of `Platform`:
+    opening a file needs no hotkey, injector or IPC stack, so building one should not
+    import them. The BSDs share the Linux opener, as they share the rest of the Linux
+    backend. An OS with no backend is refused with ``NotImplementedError`` naming
+    ``sys.platform``, which is what ``yazses fileopen`` has always raised there.
+    """
+    from yazses.platform.bsd import is_bsd
+
+    if sys.platform.startswith("linux") or is_bsd():
+        from yazses.platform.linux.fileopen import LinuxFileOpener
+        return LinuxFileOpener()
+    if sys.platform == "darwin":
+        from yazses.platform.macos.fileopen import MacosFileOpener
+        return MacosFileOpener()
+    if sys.platform == "win32":
+        from yazses.platform.windows.fileopen import WindowsFileOpener
+        return WindowsFileOpener()
+    raise NotImplementedError(f"Unsupported platform: {sys.platform}")
 
 
 def get_pack_runtime() -> PackRuntime:
