@@ -97,10 +97,16 @@ def test_context_priming_is_named_only_when_it_is_on():
     assert "active window" in prompt_summary("", _WORDS, context=True)
 
 
+def test_screen_grounding_is_named_only_when_it_is_on():
+    assert "focused window" not in prompt_summary("", _WORDS, screen=False)
+    assert "[screengrounded] on" in prompt_summary("", _WORDS, screen=True)
+
+
 def test_every_source_appears_when_every_source_is_present():
-    detail = prompt_summary("helm", _WORDS, ["acme"], mined=True, context=True)
+    detail = prompt_summary("helm", _WORDS, ["acme"], mined=True, context=True, screen=True)
     for expected in (
         "initial_prompt", "yazses vocab", "YAZSES_VOCABULARY", "mined", "active window",
+        "[screengrounded] on",
     ):
         assert expected in detail
 
@@ -149,11 +155,15 @@ _SOURCES = (
     "YAZSES_VOCABULARY",
     "_personal_bias_terms",
     "compose_context_prompt",
+    # Screen-Grounded Dictation (ADR-v2-051, #164) — the sixth source: the focused
+    # window's labels, read at hold start and taken once at decode. A gate again.
+    "_screen_terms",
 )
 
 _DOCTOR_EQUIVALENT = {
     "_personal_bias_terms": "personalize.enabled",
     "compose_context_prompt": "context.enabled",
+    "_screen_terms": "screengrounded.enabled",
 }
 
 

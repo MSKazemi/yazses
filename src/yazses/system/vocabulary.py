@@ -84,6 +84,7 @@ def prompt_summary(
     *,
     mined: bool = False,
     context: bool = False,
+    screen: bool = False,
 ) -> str:
     """One line naming everything that really reaches Whisper's ``initial_prompt``.
 
@@ -99,9 +100,10 @@ def prompt_summary(
     ``test_doctor_names_every_prompt_source``. Kept here rather than in ``stt/`` so a
     diagnostic can import it without pulling a speech engine in behind it.
 
-    ``mined`` and ``context`` are passed as *gates*, not terms. Mining reads the
-    encrypted corpus and context priming reads the focused window, the selection and the
-    clipboard — far too much work for a status row, and both are transient by design, so
+    ``mined``, ``context`` and ``screen`` are passed as *gates*, not terms. Mining reads
+    the encrypted corpus, context priming reads the focused window, the selection and the
+    clipboard, and screen grounding reads the focused window's accessibility tree — far
+    too much work for a status row, and all are transient by design, so
     naming any particular term would be a lie by the time it was printed. Whether they
     contribute at all is decidable from config, and that is the part worth reporting.
     """
@@ -123,6 +125,9 @@ def prompt_summary(
         parts.append("terms mined from your corpus ([personalize] on)")
     if context:
         parts.append("salient terms from the active window ([context] on)")
+    if screen:
+        # A gate too: the labels are read at each hold and discarded after its decode.
+        parts.append("names visible in the focused window ([screengrounded] on)")
     if not parts:
         return "app name only — add words with `yazses vocab add <word>`"
     return "app name + " + "; ".join(parts)

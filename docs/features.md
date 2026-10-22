@@ -193,7 +193,7 @@ YazSes ships **149 capabilities**. All but the core are **off by default** — t
 
 ### Adaptive Latency Governor
 
-- **Toggle:** `latency`  ·  **Tier:** recommended  ·  **Config:** `[latency] — load-aware decode`
+- **Toggle:** `latency`  ·  **Tier:** optional  ·  **Config:** `[latency] — load-aware decode`
 - **What it does:** Adapts decoding to system load: while the 1-minute load average is at or above [latency] high_load it decodes with [latency] light_model at a greedy beam, and otherwise with your normal model. The light model loads in the background the first time that happens and then stays resident (~75 MB for tiny.en). POSIX only — Windows exposes no load average, and there the governor says so and stays off. The speculative-decoding half of ADR-v2-073 is designed but not built. Off by default.
 - **Use when:** When your CPU is busy and dictation lags, but you still want fast response when it's idle.
 - **Example:** Dictation stays snappy when your CPU is busy, faster when it's idle.
@@ -325,11 +325,11 @@ YazSes ships **149 capabilities**. All but the core are **off by default** — t
 
 ### Screen-Grounded Dictation
 
-- **Toggle:** `screengrounded`  ·  **Tier:** planned — designed, not yet wired  ·  **Config:** `[screengrounded] — bias from screen`
-- **What it does:** Primes Whisper with names visible on screen so they transcribe right the first time — works in any app. Accessibility/clipboard now; OCR via extra. Off by default.
+- **Toggle:** `screengrounded`  ·  **Tier:** optional  ·  **Config:** `[screengrounded] — bias from screen`
+- **What it does:** Primes Whisper with names visible in the focused window so they transcribe right the first time. Reads labels via AT-SPI at the start of each hold (Linux + pyatspi); no OCR yet. Experimental. Off by default.
 - **Use when:** When names visible on your screen keep getting mis-transcribed in replies and chats.
 - **Example:** A name shown on screen transcribes right the first time.
-- **Activate:** not possible yet — designed but not wired into this build (`yazses features enable` refuses it; contributions welcome)
+- **Activate:** `yazses features enable screengrounded` then `yazses restart`
 
 ### Grammar Repair
 
@@ -622,9 +622,9 @@ YazSes ships **149 capabilities**. All but the core are **off by default** — t
 ### Spoken Code Mode
 
 - **Toggle:** `code`  ·  **Tier:** optional  ·  **Config:** `[code] — dictate code syntax`
-- **What it does:** Dictate code: spoken symbols become punctuation and word-groups become cased identifiers (snake/camel/pascal). Activate via a command key. Off by default.
+- **What it does:** Dictate code: spoken symbols become punctuation, and a style phrase plus words becomes one identifier ('code self dot camel case user name' -> self.userName; camel/pascal/snake/kebab/constant case). The identifier ends at the next symbol, the next style phrase, 'end case', or the end of the phrase. Hold the command key and start with 'code'; needs [hotkey] command_key bound. Off by default.
 - **Use when:** When you're writing code by voice and need spoken symbols and cased identifiers, not prose.
-- **Example:** Dictate 'def foo open paren' → 'def foo(' in code mode.
+- **Example:** Say 'code self dot camel case user name' → 'self.userName' in code mode.
 - **Activate:** `yazses features enable code` then `yazses restart`
 
 ### Spoken Math (LaTeX)
@@ -790,9 +790,9 @@ YazSes ships **149 capabilities**. All but the core are **off by default** — t
 ### Voice Git Choreographer
 
 - **Toggle:** `gitvoice`  ·  **Tier:** optional  ·  **Config:** `[gitvoice] — safe git by voice`
-- **What it does:** Drive git by voice via a structured grammar; destructive ops (force-push, reset --hard) wait for a spoken confirm and the undo is always spoken. Off by default.
-- **Use when:** When driving git hands-free and you want destructive commands gated behind a spoken confirm.
-- **Example:** Say 'force push' and it waits for confirm, and tells you the undo.
+- **What it does:** Run `yazses gitvoice "<spoken git command>"` — 'commit with message …', 'create branch feature slash login', 'push to main' → it prints the git command and how to undo it. `--run` runs it; a destructive one (force-push, reset --hard, branch -D, discarding changes) also needs `--yes`. A command-line tool: nothing is spoken, there is no spoken confirm, and dictation never runs git. The command works whether or not [gitvoice] enabled is set — nothing reads that key.
+- **Use when:** When you want a spoken git phrase turned into the exact git command, shown before anything runs.
+- **Example:** `yazses gitvoice "force push" --run` prints the command and its undo, and refuses without --yes.
 - **Activate:** `yazses features enable gitvoice` then `yazses restart`
 
 ### Command Safety Gate
@@ -855,11 +855,11 @@ YazSes ships **149 capabilities**. All but the core are **off by default** — t
 
 ### Voice Pilot (AT-SPI)
 
-- **Toggle:** `pilot`  ·  **Tier:** planned — designed, not yet wired  ·  **Config:** `[pilot] — click by voice`
-- **What it does:** Drive the desktop by voice via the accessibility tree ('click Save', 'focus the terminal'). Linux + pyatspi; labels only, no screenshots. Off by default.
+- **Toggle:** `pilot`  ·  **Tier:** optional  ·  **Config:** `[pilot] — click by voice`
+- **What it does:** Click controls in the focused window by voice in command mode ('click Save', 'toggle dark mode'). Acts on one exact match only; anything else asks you to confirm. Linux + pyatspi; labels only, no screenshots. Experimental. Off by default.
 - **Use when:** When you want a hands-free desktop, clicking buttons by their labels on Linux.
 - **Example:** Say 'click the Save button' to drive the focused app via AT-SPI.
-- **Activate:** not possible yet — designed but not wired into this build (`yazses features enable` refuses it; contributions welcome)
+- **Activate:** `yazses features enable pilot` then `yazses restart`
 
 ## Multilingual
 
@@ -867,11 +867,11 @@ YazSes ships **149 capabilities**. All but the core are **off by default** — t
 
 ### Polyglot Switch
 
-- **Toggle:** `polyglot`  ·  **Tier:** optional  ·  **Config:** `[polyglot] — mixed-language`
-- **What it does:** Handles dictation that mixes two languages.
+- **Toggle:** `polyglot`  ·  **Tier:** planned — designed, not yet wired  ·  **Config:** `[polyglot] — mixed-language`
+- **What it does:** Would decode a burst that mixes the two languages of a declared pair with a code-switch adapter you train yourself (ADR-v2-008). Not wired: no decode path produces the per-span language IDs the router needs, so every burst is decoded by the [stt] model whatever [polyglot] says.
 - **Use when:** When you naturally mix two languages in one sentence and need both transcribed correctly.
-- **Example:** Set [polyglot] pair='fa-en'; dictate mixing the two languages.
-- **Activate:** `yazses features enable polyglot` then `yazses restart`
+- **Example:** Planned: set [polyglot] pair='fa-en' and adapter_path; mixed fa/en bursts would use the adapter.
+- **Activate:** not possible yet — designed but not wired into this build (`yazses features enable` refuses it; contributions welcome)
 
 ### Transliteration
 
@@ -976,27 +976,27 @@ YazSes ships **149 capabilities**. All but the core are **off by default** — t
 
 ### Interruptible Proofreading
 
-- **Toggle:** `proofback`  ·  **Tier:** planned — designed, not yet wired  ·  **Config:** `[proofback] — barge-in read-back editing`
-- **What it does:** Interrupt the spoken read-back ('stop — change that') and the cursor lands on the exact word being read — eyes-free proofreading. Off by default.
+- **Toggle:** `proofback`  ·  **Tier:** experimental — not advised yet  ·  **Config:** `[proofback] — barge-in read-back editing`
+- **What it does:** Hold the dictation key while a dictation is being read back: the word being read is marked, and what you say next replaces the text from that word to the end of that dictation — eyes-free proofreading. Needs Read-Back on. Experimental: word timing is estimated, untested on real hardware. Off by default.
 - **Use when:** When you're proofreading a long dictation eyes-free and need to jump to a mistake as you hear it.
-- **Example:** Interrupt the read-back and the cursor lands on the word being read.
-- **Activate:** not possible yet — designed but not wired into this build (`yazses features enable` refuses it; contributions welcome)
+- **Example:** Hold the key while a dictation is read back, then say the fix: it replaces the text from the word you interrupted.
+- **Activate:** `yazses features enable proofback` then `yazses restart`
 
 ### Vocal Morse
 
-- **Toggle:** `morsevox`  ·  **Tier:** planned — designed, not yet wired  ·  **Config:** `[morsevox] — two-tone Morse text entry`
-- **What it does:** Type by Morse using two vocal sounds (short/long) — full text from a single reliable vocalization, with adaptive timing. For locked-in/minimal-ability users. Off by default.
+- **Toggle:** `morsevox`  ·  **Tier:** experimental — not advised yet  ·  **Config:** `[morsevox] — two-tone Morse text entry`
+- **What it does:** Type by Morse with your voice: a short hum is a dot, a long hum a dash, and each decoded letter is typed (speech-to-text is not run). Start it hands-free by humming one long steady tone (1.5 s) or by saying 'morse mode'; 3 s of silence ends it. Adapts the dot/dash timing to your rhythm. With the hum entry on, the microphone stays open (a level only). For minimal-ability users. Experimental: timings tuned on synthetic signals only. Off by default.
 - **Use when:** When you can produce only one or two reliable vocal sounds and need a full-alphabet entry path.
 - **Example:** One short hum, one long — spell a whole word by voice-Morse.
-- **Activate:** not possible yet — designed but not wired into this build (`yazses features enable` refuses it; contributions welcome)
+- **Activate:** `yazses features enable morsevox` then `yazses restart`
 
 ### Mouth-Sound Switch Access
 
-- **Toggle:** `mouthswitch`  ·  **Tier:** planned — designed, not yet wired  ·  **Config:** `[mouthswitch] — scan-and-select by mouth sounds`
-- **What it does:** Drive a scanning selector with non-verbal mouth sounds ('pop' = advance, cluck = select) — the switch-access method for people who can't produce reliable speech. Off by default.
+- **Toggle:** `mouthswitch`  ·  **Tier:** experimental — not advised yet  ·  **Config:** `[mouthswitch] — scan-and-select by mouth sounds`
+- **What it does:** Single-switch scanning with non-verbal mouth sounds, for people who can't produce reliable speech: a lip pop starts (or stops) a highlight in the overlay that steps through Enter, Undo, Scroll up, Scroll down and Click every 1.2 s, and a tongue click runs the lit one. Armed by `yazses handsfree resume`, stopped by `handsfree pause`; needs the overlay. Thresholds tuned on synthetic sounds only. Off by default.
 - **Use when:** When you can't produce reliable speech and need to drive a scanning selector with mouth sounds.
-- **Example:** Pop your lips to move the highlight, cluck to select — no words.
-- **Activate:** not possible yet — designed but not wired into this build (`yazses features enable` refuses it; contributions welcome)
+- **Example:** Pop your lips to start the scan, click your tongue when 'Undo' lights up — no words.
+- **Activate:** `yazses features enable mouthswitch` then `yazses restart`
 
 ### Pitch-Contour Gestures
 
@@ -1187,11 +1187,12 @@ YazSes ships **149 capabilities**. All but the core are **off by default** — t
 
 ### Predictive Completion
 
-- **Toggle:** `predict`  ·  **Tier:** planned — designed, not yet wired  ·  **Config:** `[predict] — voice autosuggest`
-- **What it does:** A tiny local model suggests the rest of your sentence; accept by voice. Needs the predict extra + a model. Off by default.
+- **Toggle:** `predict`  ·  **Tier:** experimental — not advised yet  ·  **Config:** `[predict] — voice autosuggest, experimental`
+- **What it does:** After a dictation is typed, a local model proposes the rest of the sentence in a notification; say "accept" or "take it" within 10 seconds to type it. Anything else you say dismisses it, and nothing is typed without the accept. Needs llama-cpp-python (the slm extra) and a local GGUF model at [predict] model_path. Off by default.
 - **Use when:** When you want the daemon to finish your sentence so you can speak less.
-- **Example:** Accept the greyed-ahead completion by continuing to speak.
-- **Activate:** not possible yet — designed but not wired into this build (`yazses features enable` refuses it; contributions welcome)
+- **Example:** Dictate 'the meeting is moved to', then say 'accept' to type the suggested rest.
+- **Download:** ~77 MB
+- **Activate:** `yazses features enable predict` then `yazses restart`
 
 ### Spoken Recall & Scratch
 

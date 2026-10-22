@@ -363,7 +363,7 @@ disclosure as an anonymous one.
 
 Apart from model downloads, YazSes reaches the network only when you ask it to:
 `yazses update` (or *Check for updates* in the tray or the Settings window);
-`yazses features enable` / `features install` or a dormant feature's **Install now**, which
+`yazses features enable` / `features install` / `features repair` or a dormant feature's **Install now**, which
 installs that feature's Python packages from PyPI (and, for the PyTorch-based features on
 Linux, from download.pytorch.org); `yazses setup`, which runs your package manager; and a
 dictated git command that you run with `--run`, which reaches your own git remote. None of

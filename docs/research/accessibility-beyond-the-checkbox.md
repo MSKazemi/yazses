@@ -61,8 +61,7 @@ the same information, delivered through the channel the user actually has.
 ## 2. Verifying a transcript you cannot read
 
 **What breaks.** Correction assumes reading. `echo` (replay your own recording of the last
-utterance) is wired; `proofback` (interruptible proofreading) is still a designed module with
-no caller. Before `echo`, a blind user's only verification was to paste elsewhere and have a
+utterance) is wired, and so, since 2026-10, is `proofback` (interruptible proofreading). Before `echo`, a blind user's only verification was to paste elsewhere and have a
 screen reader read it back — a workflow measured in tens of seconds per utterance.
 
 **The insight worth keeping:** `echo` replays **your own audio**, not the transcript. If the
@@ -70,8 +69,9 @@ recogniser misheard, reading the transcript back tells you what it thinks you sa
 your own voice tells you what you actually said. Those are different diagnostics and the
 second is the useful one.
 
-**Status:** `echo` is wired, off by default (`echo/span.py`); `proofback/align.py` is
-designed, unwired.
+**Status:** `echo` is wired, off by default (`echo/span.py`). `proofback` is wired,
+off by default and experimental: pressing the hotkey during a read-back marks the word being
+spoken, and the next dictation replaces the text from that word on. Untested on real hardware.
 
 ## 3. Two things talking at once
 
@@ -111,8 +111,11 @@ control) and `morsevox` (hum patterns as Morse) all treat the voice as a **signa
 language. That is a genuinely different interaction model, and it is the one commercial
 dictation cannot serve, because its entire value is transcription.
 
-**Status:** `vocaljoystick` and `contour/` (pitch gestures) are wired, off by default;
-`mouthswitch` and `morsevox` are designed, unwired.
+**Status:** `vocaljoystick`, `contour/` (pitch gestures) and `morsevox` are wired, off by
+default (Morse mode starts on a long steady hum or the spoken "morse mode"; its thresholds
+are synthetic-only); `mouthswitch` is wired too, off by default and experimental: a lip pop
+starts a single-switch scan over a few commands and a tongue click selects the lit one,
+with thresholds tuned on synthetic sounds only.
 
 **The honest caveat:** these need evaluation *with* the people they are for, which is
 [agenda question 6](agenda.md) and
@@ -123,9 +126,9 @@ guessing about people whose needs are not guessable.
 
 ## What this list says
 
-Five capabilities: one built first, and most of the rest wired since — what is still
-unreachable is `proofback`, `mouthswitch` and `morsevox`. That is not an accident of this
-page — it is the same finding as [the 30 unwired capabilities](directions.md): in this
+Five capabilities: one built first, and the rest wired since — the last two, `proofback`
+and `mouthswitch`, in 2026-10. That is not an accident of this
+page — it is the same finding as [the unwired capabilities](directions.md): in this
 project the missing piece is almost never the algorithm.
 
 It also explains why `earcon` was the one to build first. It needed no new dependency, no
@@ -135,8 +138,7 @@ listening cannot use any of the rest of it.**
 
 ## If you want to work on one
 
-Every entry names its module. `proofback` is the cheapest still unwired, and would be a
-first contribution someone could finish in a weekend —
+Every entry names its module. The unwired ones each have a `WIRE-*` task —
 [how to claim one](get-involved.md). For anything in §5, please
 [open a research issue](https://github.com/MSKazemi/yazses/issues/new?template=research_idea.yml)
 rather than a pull request first: the design question is bigger than the code.

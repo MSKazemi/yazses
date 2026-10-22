@@ -80,8 +80,10 @@ already meets or exceeds your threshold (which would cause spurious triggers).
 
 Two features help when the CPU is busy:
 
-- **Adaptive Latency Governor (`latency`)** — *recommended, and switched on in the
-  config a fresh install writes on first start.* While the 1-minute load average is
+- **Adaptive Latency Governor (`latency`)** — *optional, off by default.* It costs a
+  second resident model (about 116 MB of RAM for `tiny.en`), so a fresh install no
+  longer switches it on; configs that already have `[latency] enabled = true` keep
+  it. While the 1-minute load average is
   at or above `[latency] high_load` (default `85.0`, as a percentage of all your
   cores) it decodes the next utterance with `[latency] light_model` (default
   `tiny.en`) at a narrow beam, and otherwise with your normal model. The light model

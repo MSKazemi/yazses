@@ -67,10 +67,19 @@ def tighten_code(text: str) -> str:
 
 
 def _code() -> SpokenHandler:
-    from yazses.code.spoken import spoken_symbols
+    """"code <spoken code>" types code: symbols, then cased identifiers, then spacing.
+
+    The order is the grammar, not a detail. `spoken_symbols` runs first so that a
+    symbol word ("equals", "comma", "open paren") is already punctuation when
+    `spoken_identifiers` looks for where an identifier ends — "camel case user name
+    equals none" is ``userName = none``. Reversed, the identifier would swallow the
+    symbol words and type ``userNameEqualsNone``. `tighten_code` runs last because it
+    closes up around the punctuation both of the others leave behind.
+    """
+    from yazses.code.spoken import spoken_identifiers, spoken_symbols
 
     def convert(body: str) -> str:
-        return tighten_code(spoken_symbols(body))
+        return tighten_code(spoken_identifiers(spoken_symbols(body)))
 
     return prefixed("code", ("code", "code mode"), convert)
 
@@ -221,6 +230,34 @@ def _bookmarks() -> SpokenHandler:
     return SpokenHandler(slug="bookmarks", match=match, types=False)
 
 
+def _pilot() -> SpokenHandler:
+    """"click Save" / "press OK" / "toggle dark mode" -> an accessibility action (ADR-v2-007).
+
+    Types nothing, so ``types=False``: clicking a button is most useful precisely when no
+    text field has focus. The handler only *claims* the phrase -- the grammar is
+    `pilot/plan.py::parse_command`, which needs a leading verb from a closed set and
+    a target after it -- and hands the tidied phrase to the daemon, which reads the
+    focused window and decides whether to act (`pilot/service.py`).
+
+    Like `bookmarks`, it declines any phrase the window-focus grammar claims. "focus the
+    terminal" and "activate Firefox" are window commands there, and `_try_window_focus`
+    runs earlier; claiming them here would make one phrase mean two things depending on
+    whether `[windowctl]` is on.
+    """
+    from yazses.pilot.plan import parse_command
+    from yazses.windowctl.focus import parse_focus_command
+
+    def match(text: str) -> SpokenResult | None:
+        phrase = tidy(text)
+        if parse_focus_command(phrase) is not None:
+            return None
+        if parse_command(phrase) is None:
+            return None
+        return SpokenResult(slug="pilot", action=("pilot", phrase))
+
+    return SpokenHandler(slug="pilot", match=match, types=False)
+
+
 def _echo() -> SpokenHandler:
     """"play that back" / "play the word 'report'" replays your own captured audio.
 
@@ -301,6 +338,9 @@ def _specs(config):
         ("spreadsheet", config.spreadsheet.enabled, _spreadsheet),
         ("echo", config.echo.enabled, _echo),
         ("bookmarks", config.bookmarks.enabled, _bookmarks),
+        # Last: its verbs ("click", "press", "check", "select", "toggle") are disjoint
+        # from every verb above, and a catch-all position keeps it that way if one grows.
+        ("pilot", config.pilot.enabled, _pilot),
     )
 
 
