@@ -20,7 +20,7 @@ $ yazses features
 │         NAME                             TOGGLE NAME            DOWNLOAD  ADVICE
 │  ○ off  Voice-activity overlay           overlay                ~268 MB   optional
 │  ○ off  Read-Back Loop                   read-back              ~352 MB   optional
-│  ○ off  Glance-Type (camera)             gaze                   ~227 MB   experimental — not advised yet
+│  ○ off  Glance-Type (camera)             gaze                   ~228 MB   experimental — not advised yet
 │  ○ off  Cocktail Filter (voice focus)    cocktail               ~3.4 GB   experimental — not advised yet
 │  ○ off  Dictation Reflow                 reflow                           optional
 ```
