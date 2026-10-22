@@ -12,7 +12,7 @@ It asks one narrow question: **when a backend types a Persian string, does the r
 application get exactly those code points?** It does not test speech recognition, and it does
 not test whether YazSes produced the right words. The strings are fixed before anything is typed.
 
-!!! warning "Status: the harness exists, the matrix has not been run"
+!!! warning "Status: run on Windows; Linux and macOS not yet"
 
     The harness, the fixtures, the result format and the comparator are built and unit-tested
     (`tests/test_injectmatrix.py`). **Windows has been run** (2026-10-22, Windows 11 22H2, both
