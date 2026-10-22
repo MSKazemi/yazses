@@ -60,6 +60,20 @@ ADR-019's `system/deps.py` row gains a trigger but no new outbound path. The pla
 logic is pure (`ondemand.repair_plan`) and unit-tested with the installer replaced. No
 real install has been run through this command yet.
 
+### Fixed — Spoken Code Mode now cases identifiers, as its feature card always said
+
+`yazses features info code` promised that word-groups become cased identifiers, but
+`to_case` had no caller: "code def get user name open paren user id close paren colon"
+typed `def get user name(user id):`. A new pure grammar, `spoken_identifiers` in
+`code/spoken.py`, now runs in the `code …` handler after the symbols are converted. Say
+a style phrase and then the words: "code self dot camel case user name" types
+`self.userName`; pascal, snake, kebab and constant (or "screaming snake") case work the
+same way. The identifier ends at the next symbol, the next style phrase, the spoken
+"end case" (not typed), or the end of the phrase. A style phrase with no word after it,
+or followed by a number or punctuation, is typed unchanged. This applies only inside a
+`code …` phrase on the command key, and code mode stays off by default. Unit-tested
+only; not yet tried with a real microphone.
+
 ### Changed — every CI test job now has a time limit that fits the parallel suite
 
 With no `timeout-minutes`, `repo-hygiene` sat in a hung `apt-get update` for 78 minutes

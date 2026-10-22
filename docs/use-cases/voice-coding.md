@@ -7,7 +7,8 @@ description: Write code by voice on Linux, macOS and Windows. Spoken symbols bec
 
 **Short answer:** prose dictation is bad at code, because code is mostly symbols
 and identifiers rather than sentences. YazSes has a dedicated **Spoken Code Mode**
-that converts spoken symbols into punctuation, plus a git-phrase translator and a
+that converts spoken symbols into punctuation and spoken words into cased
+identifiers, plus a git-phrase translator and a
 safety gate for the terminal. All of it runs offline.
 
 ## Why ordinary dictation fails at code
@@ -33,10 +34,40 @@ yazses restart
 Then hold the command key and start the phrase with *"code"*: *"code def sync open
 paren self close paren colon"* types `def sync(self):`.
 
-Code mode does **not** join words into identifiers: *"code def get user name open
-paren user id close paren colon"* types `def get user name(user id):`. Re-case the
-words afterwards with `yazses case` (or the Voice Case Transform capability below),
-or add the identifiers to your [personal vocabulary](../how-to/personal-vocabulary.md).
+### Identifiers: say the style, then the words
+
+Words stay words unless you name a case style in front of them. Say the style
+phrase, then the words of the identifier:
+
+| Say | Types |
+|---|---|
+| *"camel case user name"* | `userName` |
+| *"pascal case http server"* | `HttpServer` |
+| *"snake case max retries"* | `max_retries` |
+| *"kebab case main menu"* | `main-menu` |
+| *"constant case max size"* (or *"screaming snake case …"*) | `MAX_SIZE` |
+
+So *"code def snake case get user name open paren snake case user id close paren
+colon"* types `def get_user_name(user_id):`.
+
+The identifier ends at the **first** of these:
+
+- **a symbol** — *"camel case user name equals none"* types `userName = none`.
+  Symbol words are converted first, so a word such as *"dot"* or *"star"* can never
+  be part of an identifier;
+- **another style phrase** — *"snake case user id camel case account name"* types
+  `user_id accountName`;
+- **"end case"**, which is not typed — *"return camel case user name end case if
+  ready"* types `return userName if ready`;
+- **the end of the phrase**.
+
+Words are lower-cased before casing, so *"pascal case HTTP server"* is `HttpServer`.
+A style phrase with no word after it, or followed by a number or punctuation, is
+typed as you said it. This only happens inside a *"code …"* phrase on the command
+key; ordinary dictation that mentions "camel case" is never touched. For existing
+text, `yazses case` (or the Voice Case Transform capability below) re-cases a
+selection. The grammar is unit-tested but has not yet been tried with a real
+microphone, so check what Whisper hears for the style phrase if one does not fire.
 
 ```sh
 yazses features info code   # what it does and how to trigger it

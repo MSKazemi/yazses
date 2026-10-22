@@ -145,7 +145,7 @@ accessibility tree. See `design/adr/adr-v2-023/024` (internal).
 | **Multi-User Profiles** | `voiceprint` `multi_profile` | Loads each enrolled speaker's own vocab/hotkey/cleanup from their voiceprint. |
 | **Hands-Free Auto-Stop** | `autostop` | Tap once and speak; recording auto-stops when you finish. A longer hold is still hold-to-talk. |
 | **Voice Mouse Grid** (exp) | `mousegrid` | Say "mouse grid", then cell numbers, then "click" to drive the cursor and click by voice via a numbered grid, on any pixels. Needs absolute pointer motion (X11 or macOS). |
-| **Spoken Code Mode** | `code` | Dictate code: spoken symbols → punctuation ("code def sync open paren self close paren colon" → `def sync(self):`). It does not join words into identifiers; `yazses case` does that. Hold the command key. |
+| **Spoken Code Mode** | `code` | Dictate code: spoken symbols → punctuation ("code def sync open paren self close paren colon" → `def sync(self):`), and a style phrase plus words → one identifier ("code self dot camel case user name" → `self.userName`; camel/pascal/snake/kebab/constant case). The identifier ends at the next symbol, the next style phrase, "end case", or the end of the phrase. Hold the command key. |
 | **Spoken Math (LaTeX)** | `math` | Dictate equations → LaTeX ("x squared plus y squared" → `x^{2} + y^{2}`). Hold the command key. |
 | ◌ **Wake-Word Activation** (exp) | `wakeword` | Start dictation hands-free on a keyword. Always-listening, local-only, `--force`. |
 | **Vocal-Strain Guard** (exp) | `voicehealth` | Advises a break when your voice shows rising strain over a session (advisory only; thresholds tuned on synthetic signals). Needs the `prosody` extra, `--force`. |

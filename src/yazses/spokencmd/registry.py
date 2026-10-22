@@ -67,10 +67,19 @@ def tighten_code(text: str) -> str:
 
 
 def _code() -> SpokenHandler:
-    from yazses.code.spoken import spoken_symbols
+    """"code <spoken code>" types code: symbols, then cased identifiers, then spacing.
+
+    The order is the grammar, not a detail. `spoken_symbols` runs first so that a
+    symbol word ("equals", "comma", "open paren") is already punctuation when
+    `spoken_identifiers` looks for where an identifier ends — "camel case user name
+    equals none" is ``userName = none``. Reversed, the identifier would swallow the
+    symbol words and type ``userNameEqualsNone``. `tighten_code` runs last because it
+    closes up around the punctuation both of the others leave behind.
+    """
+    from yazses.code.spoken import spoken_identifiers, spoken_symbols
 
     def convert(body: str) -> str:
-        return tighten_code(spoken_symbols(body))
+        return tighten_code(spoken_identifiers(spoken_symbols(body)))
 
     return prefixed("code", ("code", "code mode"), convert)
 
