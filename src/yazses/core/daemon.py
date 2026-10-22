@@ -41,7 +41,6 @@ if TYPE_CHECKING:
     from yazses.learning.edit_watch import EditWatcher
     from yazses.meeting.controller import MeetingController
     from yazses.perception import SharedPerceptionSource
-    from yazses.polyglot.router import PolyglotRouter
     from yazses.reask.gate import ReaskGate
     from yazses.styleguard.rules import Rule as StyleRule
     from yazses.system.single_instance import SingleInstanceLock
@@ -99,6 +98,15 @@ from yazses.system.uptime import monotonic_including_suspend
 # docs/contribute/startup-budget.md).
 
 log = logging.getLogger(__name__)
+
+#: What the daemon logs at start when `[polyglot] enabled = true`. Code-switch routing
+#: (ADR-v2-008) has no producer for the per-span language IDs it needs, so nothing
+#: routes; this replaced a log line that announced routing as "active".
+POLYGLOT_NOT_WIRED_WARNING = (
+    "[polyglot] is enabled, but code-switch routing is not wired in this build: every "
+    "burst is decoded by the [stt] model, and [polyglot] pair, adapter_path and mer_gate "
+    "are not used. Clear it with `yazses features disable polyglot`."
+)
 
 
 class _SilentEarcon:
@@ -1518,24 +1526,15 @@ class Daemon:
 
             self._corpus = build_writer(self._platform.paths.data_dir, cfg.learning)
 
-        # True Code-Switch routing (ADR-v2-008). Dormant unless [polyglot] is
-        # fully configured with an out-of-band adapter; surface a hint otherwise.
-        self._polyglot: PolyglotRouter | None = None
-        try:
-            from yazses.polyglot.router import PolyglotRouter
-            self._polyglot = PolyglotRouter.from_config(cfg.polyglot)
-            # `active` already implies a parsed pair, but bind it locally so the
-            # unpacking below is provably safe rather than relying on that.
-            pair = self._polyglot.pair
-            if self._polyglot.active and pair is not None:
-                log.info("Polyglot code-switch routing active (pair %s-%s).", *pair)
-            else:
-                reason = self._polyglot.status_reason()
-                if reason:
-                    log.warning("Polyglot enabled but dormant: %s.", reason)
-        except Exception:
-            self._polyglot = None
-            log.debug("Polyglot router init failed; skipping", exc_info=True)
+        # Code-switch routing (ADR-v2-008) is designed but NOT wired. The router in
+        # `polyglot/router.py` decides from per-span language IDs, and no decode path
+        # produces them: the `SttEngine` seam returns text only, and faster-whisper
+        # reports one language per call. Until something does, nothing consults a
+        # router, so the daemon must not build one and announce it as "active" -- it
+        # says what really happens instead. Reads config only: `yazses.polyglot` stays
+        # unimported, which is what keeps `polyglot` honestly in `_UNWIRED`.
+        if cfg.polyglot.enabled:
+            log.warning(POLYGLOT_NOT_WIRED_WARNING)
 
         # Opt-in post-dictation edit capture (signal b). Reads the editor line
         # back after a dictation; never logs keystrokes. Disabled unless a

@@ -432,7 +432,10 @@ def _registry() -> list[_Def]:
              "Biases STT toward terms you use often. Local only.",
              lambda c: c.personalize.enabled, pe_on, pe_off),
         _Def("polyglot", "Polyglot Switch", "[polyglot] — mixed-language", OPTIONAL,
-             "Handles dictation that mixes two languages.",
+             "Would decode a burst that mixes the two languages of a declared pair with a "
+             "code-switch adapter you train yourself (ADR-v2-008). Not wired: no decode path "
+             "produces the per-span language IDs the router needs, so every burst is decoded "
+             "by the [stt] model whatever [polyglot] says.",
              lambda c: c.polyglot.enabled, pg_on, pg_off),
         _Def("streaming", "Streaming transcription", "[streaming]", OPTIONAL,
              "Injects words live as you speak (overtype). Off by default because "
@@ -1245,7 +1248,7 @@ def feature_packages(slug: str) -> tuple[str, ...]:
 _UNWIRED: frozenset[str] = frozenset({
     "affect", "agent", "audioguard", "breath", "bridge", "cmdspotter",
     "codec", "compose", "crowdproof", "hatselect", "interpret", "langroute", "lipread", "loadguard", "morsevox", "mouthswitch",
-    "multiprofile", "pilot", "predict", "pronunciation", "proofback", "rag", "readback_clone",
+    "multiprofile", "pilot", "polyglot", "predict", "pronunciation", "proofback", "rag", "readback_clone",
     "screengrounded", "scribe", "scrub", "sentiment", "sign", "spatialvad", "wakeword",
 })
 
@@ -1286,7 +1289,7 @@ _EXAMPLES: dict[str, str] = {
     "macros": "Say your trigger word to expand canned text (configure [macros]).",
     "read-back": "yazses features enable read-back — then it speaks the transcript back.",
     "personalize": "yazses features enable personalize — biases STT to your frequent terms.",
-    "polyglot": "Set [polyglot] pair='fa-en'; dictate mixing the two languages.",
+    "polyglot": "Planned: set [polyglot] pair='fa-en' and adapter_path; mixed fa/en bursts would use the adapter.",
     "streaming": "yazses features enable streaming — text appears as you speak.",
     "stt-parakeet": "yazses features enable stt-parakeet — same hotkey, sharper transcripts.",
     "stt-moonshine": "yazses features enable stt-moonshine — a smaller, faster engine for short bursts.",

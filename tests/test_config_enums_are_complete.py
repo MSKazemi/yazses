@@ -66,8 +66,8 @@ _UNENFORCEABLE: dict[str, str] = {
     "polyglot.lid": (
         "inert: nothing in src/ reads it. `polyglot/router.py` imports the `lid` "
         "*module* -- which is what hid this one from the unread-key detector too -- "
-        "and picks its own primitives; the whole section stays dormant until "
-        "`[polyglot] adapter_path` names a trained adapter, which is not shipped."
+        "and picks its own primitives, and nothing calls the router: `polyglot` is "
+        "registered as not wired, adapter or no adapter."
     ),
 }
 
