@@ -136,6 +136,14 @@ Ctrl+G go to line, Ctrl+Shift+K delete line, Ctrl+Shift+O go to symbol, F2 renam
 VS Code and the editors that copied its bindings get the right keys. Other editors
 may not.
 
+**On macOS** the same commands send the Mac's keys: Cmd+Z undo, Cmd+C copy,
+Cmd+V paste, Cmd+S save, Cmd+A select all, Cmd+/ comment, Cmd+Shift+K delete line,
+Cmd+Shift+O go to symbol, Cmd+P go to file, Cmd+L select line. The word and line
+commands use the Mac's own keys too: Option+Delete deletes a word, Cmd+Left and
+Cmd+Right go to the start and end of the line, and Shift+Cmd+Down selects to the end.
+"Go to line" stays Ctrl+G, because VS Code and Sublime Text bind it to Ctrl+G on a Mac
+as well. This has not yet been tested on a real Mac.
+
 **Editor command profiles** (experimental, off by default) send the keys the
 focused editor binds instead:
 
@@ -164,9 +172,15 @@ there is no such source yet. There every command keeps the default keys, and the
 daemon log says so once. A pinned `profile` works everywhere, because it does not
 need to know the application.
 
-**Limits.** The bindings come from each editor's *default* keymap on Linux and
-Windows. They have not yet been tested by sending keys to a running editor. If you
-remapped a key, or you use a macOS keymap, you get the default keys. There is no
+On macOS each profile uses that editor's macOS keymap instead. For JetBrains that
+means delete line Cmd+Delete, go to class Cmd+O, go to file Cmd+Shift+O, go to
+function Cmd+F12 and go to line Cmd+L. "Select lines" is refused there, because Cmd+L
+is Go to Line in that keymap. For Sublime Text it means delete line Ctrl+Shift+K and
+go to function/class Cmd+R.
+
+**Limits.** The bindings come from each editor's *default* keymap. They have not yet
+been tested by sending keys to a running editor, and the macOS ones have not been
+tested on a real Mac. If you remapped a key, you get the default keys. There is no
 Vim profile: Vim is modal, so a key chord means something different in each mode.
 For any other app-specific action, use a [macro](../how-to/macros-and-snippets.md).
 

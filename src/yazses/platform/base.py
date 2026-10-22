@@ -49,6 +49,15 @@ WINDOWS_PLATFORM_NAME = "win32"
 #: documented command, caught only by the bundle smoke test.
 BSD_PREFIXES = ("freebsd", "openbsd", "netbsd", "dragonfly")
 
+#: The modifier an OS's own application shortcuts are built on -- undo, copy, paste,
+#: save, select all. Ctrl on Linux, Windows and the BSDs; Cmd on macOS, where Ctrl is a
+#: different modifier with different meanings (Ctrl+A moves to the start of the line in
+#: a Cocoa text field, Ctrl+Up opens Mission Control). `Platform.primary_modifier` holds
+#: one of these, and `commands/dispatch.py` picks its keymap from it, so the dispatcher
+#: never has to ask which OS it is on.
+PRIMARY_MODIFIER_CTRL = "ctrl"
+PRIMARY_MODIFIER_CMD = "cmd"
+
 
 class UnsupportedPlatformError(RuntimeError):
     """Raised when the current sys.platform has no YazSes backend."""
@@ -614,4 +623,8 @@ class Platform:
     # running above our integrity level, and SendInput reports success while it does.
     # The "no text target" guard reads it, so the words go to the clipboard instead.
     input_block_probe: InputBlockProbe | None = None
+    # The modifier this OS's application shortcuts use (`PRIMARY_MODIFIER_CTRL` or
+    # `PRIMARY_MODIFIER_CMD`). macOS sets Cmd; every other bundle keeps the Ctrl default,
+    # which is what keeps their spoken-command keys exactly what they always were.
+    primary_modifier: str = PRIMARY_MODIFIER_CTRL
     extras: dict[str, Any] = field(default_factory=dict)

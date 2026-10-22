@@ -20,6 +20,66 @@ _CHUNK = 20
 
 KVK_DELETE = 0x33  # macOS "Delete" / "Backspace"
 
+# macOS virtual keycodes (Carbon `HIToolbox/Events.h`, kVK_*) for the key names the
+# command dispatcher and the spoken capabilities send. Those names are X11-style and
+# capitalised ("Return", "BackSpace", "Page_Down"), so the table is keyed lower-case
+# and every lookup is lower-cased to match -- as `platform/windows/injector.py` does.
+# It used to be keyed "Return"/"Left"/"BackSpace" and looked up lower-cased, so every
+# named key missed and fell back to keycode 0, which is the "a" key.
+_KEYCODE: dict[str, int] = {
+    "return": 0x24, "enter": 0x24,
+    "tab": 0x30,
+    "space": 0x31,
+    "backspace": KVK_DELETE,
+    "escape": 0x35, "esc": 0x35,
+    "delete": 0x75,  # kVK_ForwardDelete
+    "left": 0x7B, "right": 0x7C, "down": 0x7D, "up": 0x7E,
+    "home": 0x73, "end": 0x77,
+    "page_up": 0x74, "prior": 0x74,
+    "page_down": 0x79, "next": 0x79,
+    "f1": 0x7A, "f2": 0x78, "f3": 0x63, "f4": 0x76, "f5": 0x60, "f6": 0x61,
+    "f7": 0x62, "f8": 0x64, "f9": 0x65, "f10": 0x6D, "f11": 0x67, "f12": 0x6F,
+    "a": 0x00, "b": 0x0B, "c": 0x08, "d": 0x02, "e": 0x0E,
+    "f": 0x03, "g": 0x05, "h": 0x04, "i": 0x22, "j": 0x26,
+    "k": 0x28, "l": 0x25, "m": 0x2E, "n": 0x2D, "o": 0x1F,
+    "p": 0x23, "q": 0x0C, "r": 0x0F, "s": 0x01, "t": 0x11,
+    "u": 0x20, "v": 0x09, "w": 0x0D, "x": 0x07, "y": 0x10, "z": 0x06,
+    "slash": 0x2C,
+    "0": 0x1D, "1": 0x12, "2": 0x13, "3": 0x14, "4": 0x15,
+    "5": 0x17, "6": 0x16, "7": 0x1A, "8": 0x1C, "9": 0x19,
+}
+
+# Modifier names -> the four CGEvent flag roles. "meta"/"super" are the Command key,
+# which sits where a PC keyboard has Super/Windows; "option" is Alt.
+_MODIFIER: dict[str, str] = {
+    "ctrl": "ctrl", "control": "ctrl",
+    "shift": "shift",
+    "alt": "alt", "option": "alt",
+    "cmd": "cmd", "command": "cmd", "meta": "cmd", "super": "cmd",
+}
+
+
+def resolve_key_combo(combo: str) -> tuple[int, tuple[str, ...]] | None:
+    """Resolve ``"cmd+shift+Down"`` to ``(0x7D, ("cmd", "shift"))``. Pure.
+
+    ``None`` when the key or a modifier is unknown, so the caller skips the combo
+    rather than pressing keycode 0 (the "a" key).
+    """
+    parts = [p for p in combo.split("+") if p]
+    if not parts:
+        return None
+    keycode = _KEYCODE.get(parts[-1].lower())
+    if keycode is None:
+        return None
+    mods: list[str] = []
+    for raw in parts[:-1]:
+        mod = _MODIFIER.get(raw.lower())
+        if mod is None:
+            return None
+        if mod not in mods:
+            mods.append(mod)
+    return keycode, tuple(mods)
+
 
 def _utf16_chunks(text: str) -> list[list[int]]:
     """Split *text* into chunks of UTF-16 code units, never splitting a
@@ -93,41 +153,24 @@ class MacosInjector:
             kCGHIDEventTap,
         )
 
-        # macOS virtual keycodes for special keys.
-        _KEYCODE: dict[str, int] = {
-            "Return": 0x24,
-            "Left": 0x7B,
-            "Right": 0x7C,
-            "Down": 0x7D,
-            "Up": 0x7E,
-            "BackSpace": KVK_DELETE,
-            "Tab": 0x30,
-            "Escape": 0x35,
-            "a": 0x00, "b": 0x0B, "c": 0x08, "d": 0x02, "e": 0x0E,
-            "f": 0x03, "g": 0x05, "h": 0x04, "i": 0x22, "j": 0x26,
-            "k": 0x28, "l": 0x25, "m": 0x2E, "n": 0x2D, "o": 0x1F,
-            "p": 0x23, "q": 0x0C, "r": 0x0F, "s": 0x01, "t": 0x11,
-            "u": 0x20, "v": 0x09, "w": 0x0D, "x": 0x07, "y": 0x10, "z": 0x06,
-            "slash": 0x2C,
-            "0": 0x1D, "1": 0x12, "2": 0x13, "3": 0x14, "4": 0x15,
-            "5": 0x17, "6": 0x16, "7": 0x1A, "8": 0x1C, "9": 0x19,
-        }
-        _MOD_FLAGS: dict[str, int] = {
+        flag_for = {
             "ctrl": kCGEventFlagMaskControl,
             "shift": kCGEventFlagMaskShift,
             "alt": kCGEventFlagMaskAlternate,
-            "meta": kCGEventFlagMaskCommand,
             "cmd": kCGEventFlagMaskCommand,
         }
 
         for combo in keys:
-            parts = combo.split("+")
-            key_name = parts[-1].lower()
-            mods = parts[:-1]
-            keycode = _KEYCODE.get(key_name, 0)
+            resolved = resolve_key_combo(combo)
+            if resolved is None:
+                # Skipped, never sent as keycode 0: that is the "a" key, so an unknown
+                # name used to type a stray "a" (or Cmd+A) into the focused app.
+                log.warning("macOS injector: cannot express key %r; skipped", combo)
+                continue
+            keycode, mods = resolved
             flags = 0
             for mod in mods:
-                flags |= _MOD_FLAGS.get(mod.lower(), 0)
+                flags |= flag_for[mod]
             for is_down in (True, False):
                 event = CGEventCreateKeyboardEvent(None, keycode, is_down)
                 if event is None:

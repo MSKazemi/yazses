@@ -8,7 +8,7 @@ a Linux dev machine) doesn't fail just from the package import.
 
 from __future__ import annotations
 
-from yazses.platform.base import MACOS_PLATFORM_NAME, Platform
+from yazses.platform.base import MACOS_PLATFORM_NAME, PRIMARY_MODIFIER_CMD, Platform
 from yazses.platform.macos.paths import build_paths
 
 
@@ -47,6 +47,9 @@ def build_platform() -> Platform:
         # only on start(), which the refiner calls solely under `[gaze_refine] enabled`.
         # A NULL tap (no Input Monitoring / Accessibility) raises there with the reason.
         click_observer_factory=MacClickObserver,
+        # Undo, copy, paste, save, select all are Cmd chords here, not Ctrl ones;
+        # `commands/dispatch.py` sends its macOS keymap because of this one field.
+        primary_modifier=PRIMARY_MODIFIER_CMD,
     )
 
 

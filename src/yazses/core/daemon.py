@@ -73,7 +73,13 @@ from yazses.config import Config, load_config
 from yazses.inject.streaming import StreamingInjector
 from yazses.ipc.protocol import Request
 from yazses.platform import Platform, get_platform
-from yazses.platform.base import HotkeyBackend, InjectorBackend, IpcServer, TrayState
+from yazses.platform.base import (
+    PRIMARY_MODIFIER_CTRL,
+    HotkeyBackend,
+    InjectorBackend,
+    IpcServer,
+    TrayState,
+)
 from yazses.postprocess.cleaner import clean_text
 from yazses.postprocess.llm_cleanup import LlmCleaner, build_cleaner
 from yazses.postprocess.prosody import Word, annotate
@@ -2407,7 +2413,7 @@ class Daemon:
         try:
             from yazses.commands.profiles import load_profiles
 
-            registry = load_profiles(cfg.commands)
+            registry = load_profiles(cfg.commands, self._primary_modifier())
         except Exception:
             log.warning("Editor command profiles init failed; commands keep the "
                         "default keys.", exc_info=True)
@@ -2449,6 +2455,17 @@ class Daemon:
                 return None
             self._profile_detector = detector
         return detector.get_app_class
+
+    def _primary_modifier(self) -> str:
+        """This OS's shortcut modifier (`Platform.primary_modifier`): Cmd on macOS.
+
+        Read through ``getattr`` because a test may hand the daemon a stand-in platform
+        built before the field existed (or none, on a ``Daemon.__new__`` rig); that is a
+        Ctrl platform, as every non-Mac is.
+        """
+        platform = getattr(self, "_platform", None)
+        value = getattr(platform, "primary_modifier", PRIMARY_MODIFIER_CTRL)
+        return value if isinstance(value, str) else PRIMARY_MODIFIER_CTRL
 
     def _command_keymap(self, event: dict | None = None) -> Keymap | None:
         """The focused editor's key overrides for one command, or None for the defaults.
@@ -3046,7 +3063,8 @@ class Daemon:
 
         # A failing command must not fall back to typing its own name (see no_echo_injector).
         cmd_dispatch(intent, no_echo_injector(self._active_injector(), intent.raw_text),
-                     keymap=self._command_keymap())
+                     keymap=self._command_keymap(),
+                     primary_modifier=self._primary_modifier())
 
     def _start_gesture(self) -> None:
         """Take the camera lease and start polling, if there is anything to start."""
@@ -4375,7 +4393,8 @@ class Daemon:
                 cmd_dispatch(intent, injector,
                              macro_table=self._macro_table,
                              macro_context=self._build_macro_context(),
-                             keymap=self._command_keymap(event))
+                             keymap=self._command_keymap(event),
+                             primary_modifier=self._primary_modifier())
             else:
                 # Command Safety Gate (ADR-v2-065): a dictated `rm -rf` waits for a
                 # spoken "confirm" instead of typing straight into a shell. Runs
@@ -5224,7 +5243,8 @@ class Daemon:
         cmd_dispatch(intent, self._active_injector(),
                      macro_table=self._macro_table,
                      macro_context=self._build_macro_context(),
-                     keymap=self._command_keymap())
+                     keymap=self._command_keymap(),
+                     primary_modifier=self._primary_modifier())
         return True
 
     def _cmdsafety_answer(self, text: str, event: dict) -> bool:
@@ -6443,8 +6463,15 @@ class Daemon:
             elif name == "keys":
                 # Spoken grid movement (`spreadsheet`). This is the one action that
                 # reaches the focused window rather than reporting, so it goes through
-                # the active injector exactly as `commands/dispatch.py` does.
-                self._active_injector().inject_key_sequence(list(argument or ()))
+                # the active injector exactly as `commands/dispatch.py` does. Its only
+                # Ctrl chords (top/bottom of column) are the shortcut modifier, so on a
+                # Mac they go out as Cmd -- Ctrl+Up there opens Mission Control.
+                from yazses.commands.dispatch import primary_combo
+
+                primary = self._primary_modifier()
+                self._active_injector().inject_key_sequence(
+                    [primary_combo(str(k), primary) for k in (argument or ())]
+                )
             else:
                 log.debug("Unknown spoken action %r", name)
                 return
