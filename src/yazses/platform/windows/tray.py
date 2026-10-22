@@ -70,6 +70,10 @@ def _make_icon(color_hex: str):
 class WindowsTray:
     """TrayBackend implementation for Windows, backed by pystray."""
 
+    #: What this tray imports: pystray for the icon, Pillow (``PIL``) to draw it. Both
+    #: are win32 base dependencies, so no Qt is involved (`tray/launch.py`).
+    RUNTIME_MODULES: tuple[str, ...] = ("pystray", "PIL")
+
     def __init__(self) -> None:
         # pystray is imported lazily, so the concrete Icon type is not nameable here.
         self._icon: Any = None

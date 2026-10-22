@@ -35,6 +35,10 @@ _ICON_PX = 64
 class LinuxTray:
     """TrayBackend for Linux, backed by a PySide6 QSystemTrayIcon."""
 
+    #: What this tray imports (`tray/launch.py`). Linux reaches it through a factory
+    #: function, which declares nothing, so the same default applies there.
+    RUNTIME_MODULES: tuple[str, ...] = ("PySide6",)
+
     def __init__(self) -> None:
         # The Qt objects are typed ``Any`` on purpose: PySide6 is imported lazily
         # inside run(), so naming QApplication/QSystemTrayIcon here would drag the

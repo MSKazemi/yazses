@@ -59,6 +59,9 @@ _GLYPH = {
 class MacosTray:
     """TrayBackend implementation for macOS, backed by rumps."""
 
+    #: What this tray imports: rumps, a darwin base dependency (`tray/launch.py`).
+    RUNTIME_MODULES: tuple[str, ...] = ("rumps",)
+
     def __init__(self) -> None:
         # rumps is imported lazily, so the concrete _App type is not nameable here.
         self._app: Any = None
