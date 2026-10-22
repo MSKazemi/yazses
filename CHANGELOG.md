@@ -6,6 +6,18 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — Persian text injection measured on Windows: every fixture arrives exactly ([#517](https://github.com/MSKazemi/yazses/issues/517))
+
+The first real run of the Persian injection matrix, on Windows 11 22H2 with both typing
+backends (`SendInput` and the clipboard), into the harness's Tk window. All 19 fixtures
+arrived code point for code point: Persian, mixed Persian and English, ZWNJ inside words,
+doubled and at both ends, URLs and paths, Persian, Arabic-Indic and ASCII digits,
+punctuation and guillemets, multiline text, and emoji including ZWJ sequences, variation
+selectors and skin tones. The result files are in `scripts/injectmatrix/results/2.43.2/`.
+The visual (bidi) check, other applications, Linux and macOS are still to do. The harness
+now labels Windows 11 as Windows 11 (Python before 3.12 reports it as "10"), and the
+procedure warns that a slow receiver can make a long paragraph look as if nothing arrived.
+
 ### Documentation — a code signing policy that meets the SignPath Foundation's published terms
 
 The Windows installer is still unsigned while the SignPath Foundation reviews the
