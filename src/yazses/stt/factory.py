@@ -79,42 +79,116 @@ def _build_raw_engine(stt: "SttConfig") -> "SttEngine":
 
             return ParakeetEngine(stt)
         except ModuleNotFoundError as exc:
+            missing = exc.name or "onnx_asr"
             log.warning(
                 "[stt] engine = \"parakeet\" but its optional dependency (%s) is not "
                 "installed — falling back to faster-whisper for now. Fix: "
                 "yazses features enable stt-parakeet",
-                exc.name or "onnx_asr",
+                missing,
             )
-        except Exception:
+            reason = (f"its optional dependency {missing} is not installed "
+                      "(yazses features enable stt-parakeet)")
+        except Exception as exc:
             # e.g. a failed model download. Dictation must still come up.
             log.exception(
                 "Parakeet STT engine failed to load — falling back to faster-whisper"
             )
-        return _build_faster_whisper(stt, fallback_from="parakeet")
+            reason = _load_error_reason(exc)
+        return _mark_fallback(_build_faster_whisper(stt, fallback_from="parakeet"),
+                              "parakeet", reason)
     if name == "moonshine":
         try:
             from yazses.stt.moonshine import MoonshineEngine
 
             return MoonshineEngine(stt)
         except ModuleNotFoundError as exc:
+            missing = exc.name or "moonshine_onnx"
             log.warning(
                 "[stt] engine = \"moonshine\" but its optional dependency (%s) is not "
                 "installed — falling back to faster-whisper for now. Fix: "
                 "yazses features enable stt-moonshine",
-                exc.name or "moonshine_onnx",
+                missing,
             )
-        except Exception:
+            reason = (f"its optional dependency {missing} is not installed "
+                      "(yazses features enable stt-moonshine)")
+        except Exception as exc:
             log.exception(
                 "Moonshine STT engine failed to load — falling back to faster-whisper"
             )
-        return _build_faster_whisper(stt, fallback_from="moonshine")
+            reason = _load_error_reason(exc)
+        return _mark_fallback(_build_faster_whisper(stt, fallback_from="moonshine"),
+                              "moonshine", reason)
     if name not in ("", DEFAULT_ENGINE):
         log.warning(
             "Unknown [stt] engine %r — falling back to %s "
             "(valid engines: faster-whisper, parakeet, moonshine)",
             name, DEFAULT_ENGINE,
         )
+        return _mark_fallback(_build_faster_whisper(stt), name,
+                              "it is not an engine YazSes knows")
     return _build_faster_whisper(stt)
+
+
+def _load_error_reason(exc: BaseException) -> str:
+    """The exception's type only: its message can carry a local path or a user name,
+    and `yazses status` output gets pasted into bug reports. The log has the detail."""
+    return f"it failed to load ({type(exc).__name__}; see `yazses logs`)"
+
+
+def _mark_fallback(engine: "SttEngine", requested: str, reason: str) -> "SttEngine":
+    """Record on the fallback engine which engine was asked for and why it is not running.
+
+    `yazses status` reads these through :func:`describe_active_engine` (#644). Never
+    raises: an engine that cannot take attributes (a test double) is returned as is,
+    because a fallback exists to keep dictation up.
+    """
+    try:
+        engine.fallback_from = requested  # type: ignore[attr-defined]
+        engine.fallback_reason = reason  # type: ignore[attr-defined]
+    except (AttributeError, TypeError):
+        pass
+    return engine
+
+
+def describe_active_engine(engine: object) -> dict[str, str] | None:
+    """What *engine* is, the checkpoint it loaded, and the fallback that put it there.
+
+    ``None`` when the engine does not say (a test double, or a third-party engine), so
+    a caller reports "unknown" instead of echoing `[stt] engine` as if it had been
+    verified. The wrapper engines forward attribute lookups to the engine they wrap.
+    """
+    name = getattr(engine, "engine_name", None)
+    if not isinstance(name, str) or not name:
+        return None
+    model = getattr(engine, "model_name", "")
+    fallback_from = getattr(engine, "fallback_from", "")
+    fallback_reason = getattr(engine, "fallback_reason", "")
+    return {
+        "engine": name,
+        "model": model if isinstance(model, str) else "",
+        "fallback_from": fallback_from if isinstance(fallback_from, str) else "",
+        "fallback_reason": fallback_reason if isinstance(fallback_reason, str) else "",
+    }
+
+
+def render_engine_status_lines(status: dict) -> list[str]:
+    """`yazses status` lines for the decoder, from the daemon's status reply.
+
+    A daemon older than #644 sends no ``engine`` field; it gets the old single
+    ``model:`` line, unchanged, rather than a guess.
+    """
+    engine = status.get("engine")
+    if not engine:
+        return [f"  model:    {status.get('model')}"]
+    model = status.get("engine_model") or status.get("model")
+    lines = [f"  model:    {model} ({engine})"]
+    fallback = status.get("engine_fallback")
+    if isinstance(fallback, dict) and fallback.get("from"):
+        lines.append(
+            f"  FALLBACK: [stt] engine = {fallback['from']} is not running, because "
+            f"{fallback.get('reason') or 'it did not load'}. {engine} decodes instead."
+        )
+    return lines
 
 
 def _build_faster_whisper(stt: "SttConfig", fallback_from: str = "") -> "SttEngine":

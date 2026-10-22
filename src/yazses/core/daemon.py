@@ -85,7 +85,7 @@ from yazses.staged.buffer import describe as staged_describe
 from yazses.stt.base import SttEngine
 from yazses.stt.endpoint import EndpointAnticipator
 from yazses.stt.errors import ModelUnavailableError
-from yazses.stt.factory import build_engine
+from yazses.stt.factory import build_engine, describe_active_engine
 from yazses.stt.filters.disfluency import filter_transcript
 from yazses.stt.latency import LatencyWindow
 from yazses.stt.streaming import StreamingEngine
@@ -4986,6 +4986,27 @@ class Daemon:
             words = merge_terms(words, self._config.hotwords.terms)
         return words
 
+    def _active_engine_fields(self) -> dict:
+        """The engine and checkpoint decoding right now, and the fallback if one happened.
+
+        ``None`` values mean "not known": the model is still loading, or the engine does
+        not describe itself. They are never filled in from config, because a status
+        that repeats the config is exactly what hid a failed Parakeet load (#644).
+        """
+        info = describe_active_engine(self._engine) if self._engine is not None else None
+        if info is None:
+            return {"engine": None, "engine_model": None, "engine_fallback": None}
+        fallback = (
+            {"from": info["fallback_from"], "reason": info["fallback_reason"]}
+            if info["fallback_from"]
+            else None
+        )
+        return {
+            "engine": info["engine"],
+            "engine_model": info["model"] or None,
+            "engine_fallback": fallback,
+        }
+
     def _effective_initial_prompt(self) -> str | None:
         """The STT ``initial_prompt``, biased toward the user (Voiceprint Mind P1).
 
@@ -6633,6 +6654,9 @@ class Daemon:
                 if self._state.started_at
                 else 0.0
             )
+            # Literal keys below, not `**` merged: the report redactor's guard
+            # classifies every key it can see in this return (#644).
+            active = self._active_engine_fields()
             return {
                 "state": self._state.state.value,
                 "ready": self._state.ready,
@@ -6642,7 +6666,13 @@ class Daemon:
                 # disagreeing until `yazses restart` -- and nothing could see that
                 # before this field existed.
                 "version": _running_version(),
+                # `[stt] model` as configured. What actually decodes can differ: a
+                # Parakeet or Moonshine that is missing or fails to load falls back to
+                # Whisper, and the engine below is the one that came up (#644).
                 "model": self._config.stt.model,
+                "engine": active["engine"],
+                "engine_model": active["engine_model"],
+                "engine_fallback": active["engine_fallback"],
                 "hotkey": self._resolved_hotkey(),
                 "injection_backend": self._injection_backend_name(),
                 "last_error": self._state.last_error,

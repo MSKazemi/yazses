@@ -96,6 +96,11 @@ class FasterWhisperEngine:
     #: The last prompt we warned about, so an over-long vocabulary is reported once
     #: rather than on every burst. Class-level for the same reason as the above.
     _prompt_warned: str = ""
+    #: What this engine is and which checkpoint it loaded, for `yazses status` (#644):
+    #: a status that echoes `[stt] model` names a Parakeet checkpoint while this
+    #: engine decodes as the fallback. Class-level so a partial engine still answers.
+    engine_name: str = "faster-whisper"
+    model_name: str = ""
 
     def __init__(
         self,
@@ -109,6 +114,7 @@ class FasterWhisperEngine:
     ) -> None:
         log.info("Loading STT model '%s' on %s (%s)...", model_name, device, compute_type)
         self._model = _load_model(model_name, device, compute_type, cpu_threads)
+        self.model_name = model_name
         # `[stt] language`; "" means auto-detect, expressed to faster-whisper by
         # omitting the kwarg entirely (passing language=None means the same thing
         # but relies on an undocumented default — omission is the explicit form).

@@ -68,9 +68,14 @@ _USER_TEXT = frozenset({"preview"})
 #: `headpointer` (#404) is the same by the same construction: `headpointer/runtime.py`'s
 #: `status_dict` is a state name, a few flags, a sample age, a 0..1 dwell fraction and the
 #: backend's own failure message -- no pose, no position, and a test pins that it has none.
+#:
+#: `engine`, `engine_model` and `engine_fallback` (#644) name the decoder that came up, its
+#: checkpoint and, after a fallback, the engine asked for and why it is not running. The
+#: reason holds an exception's *type* only (`stt/factory.py::_load_error_reason`), never
+#: its message, so no path or name can reach it.
 _MACHINE_FACTS = frozenset({
     "acoustic", "audio_level", "bursts", "command_mode", "commands_enabled", "confidence_enabled",
-    "decode_latency", "enabled", "handsfree", "headpointer", "hotkey", "injection_backend", "input_device",
+    "decode_latency", "enabled", "engine", "engine_fallback", "engine_model", "handsfree", "headpointer", "hotkey", "injection_backend", "input_device",
     "last_error", "last_good_device", "low_confidence_last", "meeting_active",
     "meeting_enabled", "meeting_finalizing", "modality_roles", "model", "notifications",
     "outcomes", "platform", "read_back", "ready", "remote_connected", "silent_streak",

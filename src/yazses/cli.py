@@ -4358,7 +4358,11 @@ def status(
     typer.echo(f"YazSes is running (PID {pid}).")
     typer.echo(f"  state:    {info.get('state')}")
     typer.echo(f"  hotkey:   {info.get('hotkey')}")
-    typer.echo(f"  model:    {info.get('model')}")
+    # The model and engine actually decoding, and a fallback if one happened (#644).
+    from yazses.stt.factory import render_engine_status_lines
+
+    for line in render_engine_status_lines(info):
+        typer.echo(line)
     typer.echo(f"  backend:  {info.get('injection_backend')}")
     # Whether dictation is leaving this machine. The daemon has published
     # `remote_connected` all along and nothing read it -- not `status`, not the tray -- so
