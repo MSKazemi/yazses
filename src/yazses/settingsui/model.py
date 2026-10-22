@@ -128,7 +128,7 @@ def build_settings_model(cfg: Config) -> SettingsModel:
     language_profile = derive_status(cfg).profile_match or ""
 
     # Built once, not per row: `default_state()` walks the whole registry, and
-    # there are ~200 rows.
+    # there is one row per registry capability, so per row it would be quadratic.
     defaults = default_state()
     groups = tuple(
         SettingsGroup(

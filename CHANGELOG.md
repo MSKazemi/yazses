@@ -6,6 +6,13 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the settings-window code no longer says it has "~200 rows"
+
+Comments and docstrings in `settingsui/` said the window has about 200 rows. It has one
+row per capability in the feature registry, which has well under 200 entries. The text
+now states that relationship instead of a number that goes stale, and a test pins it.
+Nothing a user sees changes.
+
 ### Fixed — a source comment no longer says Windows defaults to Right Alt
 
 The comment above the list of supported hotkeys said `right_alt` is the default "on Linux

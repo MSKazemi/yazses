@@ -1,7 +1,7 @@
-"""Filtering the settings window's ~200 rows. Pure — no Qt, no I/O.
+"""Filtering the settings window's rows, one per capability. Pure — no Qt, no I/O.
 
 `yazses features` has had `--on`, `--tier` and `--category` since it was written,
-because a flat list of two hundred capabilities is not browsable. The window
+because a flat list of well over a hundred capabilities is not browsable. The window
 shipped without any of it, so the only way to find a row was to scroll past every
 other one — which is also the reason its per-row help went unread: you have to
 reach a row before it can explain itself.
