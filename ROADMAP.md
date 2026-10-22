@@ -4,8 +4,9 @@
 > [Roadmap — eras, milestones, and the destination](https://mskazemi.com/yazses/roadmap.html)
 > (`docs/roadmap.md`). Delivery work is filed under one
 > [GitHub milestone](https://github.com/MSKazemi/yazses/milestones) —
-> Settings GUI · Install anywhere · Hear better · Voice control · Welcome mat ·
-> Hands-free · Silent input · Android M0–M3. Epics and evergreen issues (research
+> Verified everywhere · Install anywhere · Speech accuracy · Voice control ·
+> Contributor experience · Hands-free · Paper 2 · Android M0–M3 (Settings GUI and
+> Silent input are complete and closed). Epics and evergreen issues (research
 > questions, test-report calls, translation reviews, invitations) follow the
 > [milestone policy](design/milestone-policy.md) instead. This file is the
 > contributor-facing changelog-style detail.
