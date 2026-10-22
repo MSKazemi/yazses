@@ -6,6 +6,17 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `scoop update yazses` no longer turns off start-at-login ([#79](https://github.com/MSKazemi/yazses/issues/79))
+
+The Scoop manifest's cleanup step, which removes the start-at-login entry on
+`scoop uninstall yazses`, also ran on `scoop update yazses`, because Scoop runs
+`pre_uninstall` before replacing the old version. So every update silently turned
+autostart off. It now runs only on uninstall, using the `$cmd` check that Scoop's own
+buckets use for this. Watched on Windows 11 22H2: a bucket install of 2.43.1 updated
+cleanly to 2.43.2 and kept starting at sign-in, and `scoop uninstall yazses` still
+removed the entry. This was also the last open item of #79: the Scoop update path, on
+real hardware.
+
 ### Fixed — the macOS app no longer claims macOS 11, and the Homebrew cask puts `yazses` on your PATH
 
 - **The real minimum is macOS 14 (Sonoma).** The bundle declared macOS 11, and the cask
