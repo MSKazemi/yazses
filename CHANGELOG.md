@@ -6,6 +6,27 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `[polyglot]` no longer claims code-switch routing is active when nothing routes
+
+With `[polyglot] enabled`, a valid `pair` and an `adapter_path`, the daemon logged
+"Polyglot code-switch routing active", and `yazses features enable polyglot` succeeded.
+Nothing routed: the router's `should_route` had no caller, because no decode path
+produces the per-span language IDs it decides from (the STT engine seam returns text
+only, and faster-whisper reports one language per call). Every burst was, and still
+is, decoded by the `[stt]` model. Building that input is new design, so instead of
+inventing it the feature now says what it does:
+
+- `polyglot` is registered as **planned — not yet wired**: `features enable polyglot`
+  refuses it, `features info polyglot` says so, and `features disable polyglot`
+  still clears an old config.
+- The daemon no longer builds the router. With `[polyglot] enabled = true` it logs a
+  warning that routing is not wired and that the `[stt]` model decodes every burst.
+- `yazses doctor` warns whenever `[polyglot]` is on. It used to warn only when
+  `adapter_path` was empty, which implied that setting it would make routing work.
+- The v2 features page, the multilingual and Hindi use-case pages (English and Hindi),
+  and the architecture pages say the same. The Hindi page had still described
+  `[polyglot]` as a working routing layer.
+
 ### Changed — every CI test job now has a time limit that fits the parallel suite
 
 With no `timeout-minutes`, `repo-hygiene` sat in a hung `apt-get update` for 78 minutes

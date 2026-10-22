@@ -41,7 +41,7 @@ It stays listed so contributors can pick it up; see the matching design/adr/ ent
 ```
 
 They stay listed because that is where a contributor picks one up — each has a matching
-`design/adr/` entry. **29 of the 122 rows below are ◌ today.** Rows without the mark are
+`design/adr/` entry. **30 of the 122 rows below are ◌ today.** Rows without the mark are
 wired and can be turned on.
 
 ### "Hold the command key" — what that means
@@ -102,7 +102,7 @@ doing nothing.
 |---|---|---|
 | **Personal Adapter** | `personalize` | Biases the recognizer toward *your* jargon and names, mined from your local corpus. Nothing leaves the machine. |
 | **Spoken Recall & Scratch** | `recall` | Search your past dictations (`yazses recall <query>`) and capture spoken notes-to-self (`yazses scratch`). Corpus-local. |
-| **True Code-Switch** | `polyglot` | Checks a `[polyglot]` language pair and a code-switch adapter you supply (`yazses doctor` reports it as dormant without one). The daemon does not route any speech to the adapter yet, so turning it on changes no transcript. |
+| ◌ **True Code-Switch** | `polyglot` | Would decode a burst that mixes the two languages of a declared `[polyglot] pair` with a code-switch adapter you train yourself. Not wired: nothing yet tells the daemon which parts of a burst are in which language, so every burst is decoded by the `[stt]` model with or without an adapter. |
 | ◌ **Voice-to-Tool (Spoken MCP)** | `agent` | Run allowlisted tools by voice via MCP; state-changing tools ask first. Needs the `agent` extra + a local planner model. |
 | ◌ **Voice Pilot (AT-SPI)** | `pilot` | Drive the desktop by voice via the accessibility tree — "click Save", "focus the terminal". Reads labels only, **no screenshots**. |
 
