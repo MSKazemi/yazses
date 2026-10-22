@@ -242,6 +242,13 @@ Install the libraries that switched-on features are missing.
 - **Arguments:** `names`
 - `--yes`, `-y` — Install without asking first.
 
+### `yazses features repair`
+
+Repair every switched-on feature whose libraries are missing (the ◐ rows).
+
+- `--yes`, `-y` — Install without asking first.
+- `--dry-run` — List the dormant features and their packages; install nothing.
+
 ### `yazses features reset`
 
 Restore every capability to the state a fresh install ships with.
