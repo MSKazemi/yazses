@@ -327,7 +327,9 @@ def test_status_never_carries_what_was_typed():
             assert value in {"idle", "armed", "morse", "hum", "command", ""}, value
     assert "sos" not in repr(status)
     assert status["active"] is True and status["entered_by"] == "hum"
-    assert status["typed_chars"] == 3
+    # The trailing quiet is a word gap, so the decoder types "sos " -- the count is
+    # every character typed, not the letters alone.
+    assert status["typed_chars"] == len("".join(typed))
 
 
 # --------------------------------------------------------------------------- #

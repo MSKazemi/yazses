@@ -1,6 +1,6 @@
 ---
 title: Find a task that fits you
-description: Filter 148 open YazSes contributor tasks by what you have — a browser, a laptop, specific hardware — how much time, and whether you want to write code.
+description: Filter 149 open YazSes contributor tasks by what you have — a browser, a laptop, specific hardware — how much time, and whether you want to write code.
 ---
 
 # Find a task that fits you
@@ -39,7 +39,7 @@ Coding agents are optional. "Cloud-ready" means the task can run in that environ
   </label>
 </div>
 
-<p id="yz-count"><strong>148</strong> tasks shown.</p>
+<p id="yz-count"><strong>149</strong> tasks shown.</p>
 
 <table class="yz-table">
 <thead><tr><th>Task</th><th>You need</th><th>Skills</th></tr></thead>
@@ -182,6 +182,7 @@ Coding agents are optional. "Cloud-ready" means the task can run in that environ
 <tr class="yz-row" data-env="local" data-family="feature-wiring" data-minutes="90" data-skills="python" data-text="wire the `lipread` capability so it is reachable from the daemon or cli a local clone"><td><strong>Wire the `lipread` capability so it is reachable from the daemon or CLI</strong><br><code>WIRE-LIPREAD-001</code> · L2 · 90 min</td><td>a local clone</td><td>python</td></tr>
 <tr class="yz-row" data-env="local" data-family="feature-wiring" data-minutes="90" data-skills="python" data-text="wire the `loadguard` capability so it is reachable from the daemon or cli a local clone"><td><strong>Wire the `loadguard` capability so it is reachable from the daemon or CLI</strong><br><code>WIRE-LOADGUARD-001</code> · L2 · 90 min</td><td>a local clone</td><td>python</td></tr>
 <tr class="yz-row" data-env="local" data-family="feature-wiring" data-minutes="90" data-skills="python" data-text="wire the `multiprofile` capability so it is reachable from the daemon or cli a local clone"><td><strong>Wire the `multiprofile` capability so it is reachable from the daemon or CLI</strong><br><code>WIRE-MULTIPROFILE-001</code> · L2 · 90 min</td><td>a local clone</td><td>python</td></tr>
+<tr class="yz-row" data-env="local" data-family="feature-wiring" data-minutes="90" data-skills="python" data-text="wire the `polyglot` capability so it is reachable from the daemon or cli a local clone"><td><strong>Wire the `polyglot` capability so it is reachable from the daemon or CLI</strong><br><code>WIRE-POLYGLOT-001</code> · L2 · 90 min</td><td>a local clone</td><td>python</td></tr>
 <tr class="yz-row" data-env="local" data-family="feature-wiring" data-minutes="90" data-skills="python" data-text="wire the `pronunciation` capability so it is reachable from the daemon or cli a local clone"><td><strong>Wire the `pronunciation` capability so it is reachable from the daemon or CLI</strong><br><code>WIRE-PRONUNCIATION-001</code> · L2 · 90 min</td><td>a local clone</td><td>python</td></tr>
 <tr class="yz-row" data-env="local" data-family="feature-wiring" data-minutes="90" data-skills="python" data-text="wire the `rag` capability so it is reachable from the daemon or cli a local clone"><td><strong>Wire the `rag` capability so it is reachable from the daemon or CLI</strong><br><code>WIRE-RAG-001</code> · L2 · 90 min</td><td>a local clone</td><td>python</td></tr>
 <tr class="yz-row" data-env="local" data-family="feature-wiring" data-minutes="90" data-skills="python" data-text="wire the `readback_clone` capability so it is reachable from the daemon or cli a local clone"><td><strong>Wire the `readback_clone` capability so it is reachable from the daemon or CLI</strong><br><code>WIRE-READBACK-CLONE-001</code> · L2 · 90 min</td><td>a local clone</td><td>python</td></tr>

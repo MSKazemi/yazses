@@ -81,7 +81,7 @@ def test_nothing_in_src_reads_the_toggle_except_the_registry():
     something, and the catalog text above must change in the same commit.
     """
     readers = sorted(
-        str(path.relative_to(SRC))
+        path.relative_to(SRC).as_posix()
         for path in SRC.rglob("*.py")
         if re.search(r"gitvoice\.enabled|\[\s*[\"']gitvoice[\"']\s*\]",
                      path.read_text(encoding="utf-8"))

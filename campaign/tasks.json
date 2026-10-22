@@ -390,6 +390,32 @@
     "source": "issue #164 (45 designed capabilities awaiting wiring, 2026-09-20)"
   },
   {
+    "id": "WIRE-POLYGLOT-001",
+    "family": "feature-wiring",
+    "title": "Wire the `polyglot` capability so it is reachable from the daemon or CLI",
+    "value": "`polyglot` has a tested routing core (`polyglot/router.py`) that decides when a code-switch adapter should decode a burst, but nothing produces the per-span language IDs it needs: the STT engines return text only and nothing splits a burst into spans. `yazses features enable` refuses it until a producer exists (ADR-v2-008 follow-up: where span languages come from, and how a burst is split).",
+    "risk": "L2",
+    "minutes": 90,
+    "skills": [
+      "python"
+    ],
+    "cloud_agent_ready": false,
+    "allowed_paths": [
+      "src/yazses/**",
+      "tests/**",
+      "docs/features.md"
+    ],
+    "validation": [
+      "uv run python -m pytest tests/test_features_write_targets.py -q",
+      "uv run python -m pytest tests/ -q"
+    ],
+    "evidence": [
+      "the feature enabled and observed doing something on your machine"
+    ],
+    "state": "open",
+    "source": "2026-10-22: found inert while wiring (the daemon logged \"routing active\" with no caller); see ADR-v2-008"
+  },
+  {
     "id": "WIRE-PRONUNCIATION-001",
     "family": "feature-wiring",
     "title": "Wire the `pronunciation` capability so it is reachable from the daemon or CLI",

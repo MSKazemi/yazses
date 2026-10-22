@@ -2842,7 +2842,7 @@ def features_repair(
         False, "--dry-run", help="List the dormant features and their packages; install nothing."
     ),
 ) -> None:
-    """Repair every switched-on feature whose libraries are missing (the ◐ rows).
+    """Repair every switched-on feature whose libraries are missing (shown as ON, not installed).
 
     Lists each dormant feature and the packages it needs — including any this
     install can never take (a snap, a frozen .app/.exe), with the reason — then

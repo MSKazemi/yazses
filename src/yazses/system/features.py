@@ -1158,6 +1158,8 @@ _FEATURE_DEPS: dict[str, tuple[tuple[str, ...], tuple[str, ...]]] = {
     "readback_clone": (("kokoro_onnx", "onnxruntime", "soundfile"),
                        ("kokoro-onnx>=0.5.0", *_ONNXRUNTIME, "soundfile>=0.14.0")),
     "llm-cleanup": (("llama_cpp",), ("llama-cpp-python>=0.3.33",)),
+    # Predictive Completion runs its own local completion model through the same binding.
+    "predict": (("llama_cpp",), ("llama-cpp-python>=0.3.33",)),
     "agent": (("mcp",), ("mcp>=1.28.1",)),
     "cocktail": (("speechbrain",), ("speechbrain>=1.1",)),
     "multiprofile": (("speechbrain",), ("speechbrain>=1.1",)),

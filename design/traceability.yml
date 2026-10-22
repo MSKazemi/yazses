@@ -186,6 +186,18 @@ entries:
       task: "WIRE-MULTIPROFILE-001"
       milestone: 9
     remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
+  - id: "capability:polyglot"
+    kind: capability
+    title: "True Code-Switch Dictation"
+    source: "design/adr/adr-v2-008-code-switch.md"
+    decision_status: accepted
+    delivery_status: designed
+    tracking:
+      kind: campaign
+      issues: [164]
+      task: "WIRE-POLYGLOT-001"
+      milestone: 9
+    remaining: "Needs a producer of per-span language IDs (an STT engine capability or a new Protocol method) and a rule for splitting a burst into spans; then wire PolyglotRouter.should_route into the decode path."
   - id: "capability:pronunciation"
     kind: capability
     title: "Pronunciation Feedback"
