@@ -214,7 +214,7 @@ class MouthSwitchRunner:
             try:
                 self._queue.put_nowait(None)
             except queue.Full:
-                pass
+                pass  # a full queue still ends it: the recorder is cleared, so the worker returns at its next item
             if worker is not threading.current_thread():
                 worker.join(timeout=2.0)
 

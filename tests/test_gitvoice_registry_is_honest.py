@@ -86,7 +86,7 @@ def test_nothing_in_src_reads_the_toggle_except_the_registry():
         if re.search(r"gitvoice\.enabled|\[\s*[\"']gitvoice[\"']\s*\]",
                      path.read_text(encoding="utf-8"))
     )
-    assert readers == [str(Path("system") / "features.py")], readers
+    assert readers == ["system/features.py"], readers
 
 
 def test_the_command_runs_with_the_toggle_off(sandbox_paths):

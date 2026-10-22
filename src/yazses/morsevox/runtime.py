@@ -166,7 +166,7 @@ class MorseRunner:
             try:
                 self._queue.put_nowait(None)
             except queue.Full:
-                pass
+                pass  # a full queue still ends it: the recorder is cleared, so the worker returns at its next item
             if worker is not threading.current_thread():
                 worker.join(timeout=2.0)
 
@@ -278,7 +278,7 @@ class MorseRunner:
             try:
                 self._queue.put_nowait(None)
             except queue.Full:
-                pass
+                pass  # a full queue still ends it: the recorder is cleared, so the worker returns at its next item
         if recorder is not None:
             # Never stop a stream from inside its own callback: hand it to a thread.
             def _stop() -> None:

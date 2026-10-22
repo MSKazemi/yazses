@@ -215,7 +215,12 @@ def test_repair_installs_through_the_features_install_path(monkeypatch, tmp_path
 
 
 def test_repair_has_help_with_examples():
-    result = runner.invoke(cli.app, ["features", "repair", "--help"])
+    # Plain, wide help: CI sets a colour terminal, and Rich would split "--dry-run" across
+    # ANSI sequences (the same environment tests/test_cli_help.py uses).
+    result = runner.invoke(
+        cli.app, ["features", "repair", "--help"],
+        env={"COLUMNS": "220", "TERM": "dumb", "NO_COLOR": "1"},
+    )
     assert result.exit_code == 0
     assert "--dry-run" in result.output and "--yes" in result.output
     assert "Example" in result.output

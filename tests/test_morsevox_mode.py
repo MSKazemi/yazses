@@ -374,8 +374,10 @@ def test_an_explicit_exit_drops_a_half_keyed_letter():
     m.enter(0.0)
     samples, _ = levels([(200, QUIET), (100, LOUD), (100, QUIET)])  # one dot, no letter gap yet
     drive(m, samples)
-    assert m.exit(400.0, "paused") == ModeStep(exited="paused")
-    assert m.exit(420.0) == ModeStep()  # already idle
+    step = m.exit(400.0, "paused")
+    assert step == ModeStep(exited="paused")
+    step = m.exit(420.0)
+    assert step == ModeStep()  # already idle
     m.enter(440.0)
     samples, _ = levels([(200, QUIET), (350, LOUD), (1000, QUIET)], t0=460.0)
     text, _ = drive(m, samples)
