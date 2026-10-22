@@ -106,6 +106,7 @@ Useful narrower runs:
 ```sh
 uv run python -m pytest tests/test_foo.py -v
 uv run python -m pytest -k "pattern"
+uv run python -m pytest tests/ -n auto   # the whole suite on every core (pytest-xdist)
 ```
 
 **Two things the ordinary run cannot see, and how to see them.**

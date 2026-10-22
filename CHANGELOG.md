@@ -43,6 +43,22 @@ multi-factor authentication and a fixed credit line; the old page had none of th
   Windows install page and the GitHub release notes link to it.
 - `tests/test_code_signing_policy_page.py` pins each required piece to the file that holds it.
 
+### Changed — the test suite runs on every core, locally and in CI
+
+The suite (about 29,800 tests) ran one test at a time. In CI the slowest leg, Windows on
+Python 3.12, took 77 minutes on 92ad3c89; the FreeBSD leg was cut off by its 45-minute
+limit on 6 of the 9 pushes to `main` from 92ad3c89 to 09e4488d. `pytest-xdist` now
+spreads it over every core: on a 12-core laptop with four workers (`-n 4 --dist
+worksteal`) the whole suite took 11.5 minutes, 29,838 passed.
+
+- **CI.** Every leg of the test matrix, and the Linux baseline that runs on every PR,
+  runs `-n auto --dist worksteal` and prints its 30 slowest tests. Both jobs get a
+  60-minute limit; they had none, so a hang held a runner for GitHub's six-hour
+  default. The FreeBSD VM gets the host's four cores.
+- **Locally.** `uv run python -m pytest tests/ -n auto` runs the whole suite in parallel.
+- **The first parallel run found a real bug**: a test that deleted the developer's own
+  running daemon's pid file. It is fixed separately (see the entry below).
+
 ### Fixed — running the test suite no longer deletes your running daemon's pid file
 
 `tests/test_voicehealth_wiring.py` (added with the voice-health wiring) built its daemons

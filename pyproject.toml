@@ -431,6 +431,7 @@ dev = [
     # thirteen collection errors to one the moment it stopped inheriting them.
     "click>=8.4.2",
     "PyYAML>=6.0.3",
+    "pytest-xdist>=3.8.0",
 ]
 # Reproducible benchmark harness behind docs/benchmarks.md and the arXiv paper
 # (paper/benchmark/). Build-only; never shipped in the wheel. `uv sync --group

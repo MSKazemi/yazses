@@ -142,6 +142,9 @@ jobs:
   test-linux:
     name: test (${{ matrix.os }}, ${{ matrix.python-version }})
     runs-on: ${{ matrix.os }}
+    # The same limit as `test`, for the same reason: without one a hang holds a runner
+    # for GitHub's 6-hour default (CI_POLICY.md §8).
+    timeout-minutes: 60
     strategy:
       matrix:
         os: [ubuntu-latest]
@@ -174,13 +177,18 @@ jobs:
         run: uv sync
 
       - name: Run tests
-        run: uv run pytest tests/ -v
+        # Must stay identical to `test`'s step; the comment there says why.
+        run: uv run pytest tests/ -n auto --dist worksteal -rfE --durations=30
 
   test:
     # Full lane: the rest of the OS/interpreter matrix.
     needs: changes
     if: needs.changes.outputs.full != 'false'
     runs-on: ${{ matrix.os }}
+    # The suite runs on every core (pytest-xdist, below). Serial, the slowest leg --
+    # windows-latest, 3.12 -- took 77 minutes on 92ad3c89 and this job had no limit at
+    # all, so a hang held a runner for GitHub's 6-hour default (CI_POLICY.md §8).
+    timeout-minutes: 60
     # Legs without `experimental` are blocking; only a leg that explicitly opts
     # out is allowed to fail. Written this way round so that adding a new leg
     # makes it blocking by default rather than silently non-blocking.
@@ -275,7 +283,12 @@ jobs:
         run: uv sync
 
       - name: Run tests
-        run: uv run pytest tests/ -v
+        # One worker per core (`-n auto`). `worksteal` rebalances as workers finish,
+        # because test durations are very uneven -- a few whole-tree scans take 10-45 s
+        # while most tests take milliseconds. Same tests, same assertions: only the
+        # scheduling changes. `--durations=30` names the slowest tests in every log, so
+        # a regression in suite time shows up as a name, not as a slower job.
+        run: uv run pytest tests/ -n auto --dist worksteal -rfE --durations=30
 
   gui:
     # The windowed surfaces — settings window, tray, overlay — on the two OSes
@@ -462,6 +475,9 @@ jobs:
         uses: vmactions/freebsd-vm@a2f9a41fa97f6848b8c3b791087dfcdaa5b473ff # v1.5.8
         with:
           usesh: true
+          # The ubuntu-latest host has 4 vCPUs; give them to the VM so `-n auto` below
+          # has cores to use. The action leaves `cpu` unset by default.
+          cpu: 4
           # Derived, not pinned. The first run of this job found two independent
           # reasons the obvious spelling cannot work:
           #   * `py311-pip` is not in the binary repo — 3.12 is the ports default
@@ -569,7 +585,7 @@ jobs:
             # typer, which dropped it at 0.27.2. This leg is the only environment
             # that installs test dependencies by name instead of from the `dev`
             # group, so it is the only one where such a drop shows up as red.
-            python -m pip install platformdirs typer click pytest pytest-mock hypothesis pyyaml
+            python -m pip install platformdirs typer click pytest pytest-mock pytest-xdist hypothesis pyyaml
             # `cryptography` is the learning corpus's AES-256-GCM cipher, and 151
             # tests reach it. There is no FreeBSD wheel, so it builds through
             # maturin — which is what the `rust` package above is for — in about
@@ -647,7 +663,11 @@ jobs:
             # every backspace on a FreeBSD Wayland desktop; and it is the only
             # environment in CI that installs the test dependencies by name, which
             # is how `click` disappearing from typer's dependency list was caught.
-            python -m pytest tests/ -q -rf
+            #
+            # In parallel, like the matrix above: run serially this leg reached
+            # 98% and was killed by its 45-minute limit (6a57a468; again on 92ad3c89
+            # and b237c1bc).
+            python -m pytest tests/ -q -rf -n auto --dist worksteal
 
   # The benchmark harness's own tests. `uv sync` installs the base dependencies
   # only, so `psutil`, `jiwer` and `whisper-normalizer` -- all in the `benchmark`

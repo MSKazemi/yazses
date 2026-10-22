@@ -640,6 +640,20 @@
     },
     {
       "type": "library",
+      "name": "execnet",
+      "version": "2.1.2",
+      "purl": "pkg:pypi/execnet@2.1.2",
+      "bom-ref": "pkg:pypi/execnet@2.1.2",
+      "scope": "excluded",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "63d83bfdd9a23e35b9c6a3261412324f964c2ec8dcd8d3c6916ee9373e0befcd"
+        }
+      ]
+    },
+    {
+      "type": "library",
       "name": "faster-whisper",
       "version": "1.2.1",
       "purl": "pkg:pypi/faster-whisper@1.2.1",
@@ -2493,6 +2507,20 @@
         {
           "alg": "SHA-256",
           "content": "5a8395528b8f498205f3718f575228d0edaed7425fff638f87d1a6c3e0383636"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "pytest-xdist",
+      "version": "3.8.0",
+      "purl": "pkg:pypi/pytest-xdist@3.8.0",
+      "bom-ref": "pkg:pypi/pytest-xdist@3.8.0",
+      "scope": "excluded",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "7e578125ec9bc6050861aa93f2d59f1d8d085595d6551c2c90b6f4fad8d3a9f1"
         }
       ]
     },
