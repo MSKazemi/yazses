@@ -1,6 +1,6 @@
 # ADR-031 — "Send to": hand dictated text to a desktop AI client, pre-filled and never sent
 
-**Status:** Proposed (2026-10-22)
+**Status:** Accepted (2026-10-23)
 **Deciders:** Mohsen Seyedkazemi Ardebili
 **Context links:** [[adr-030-agent-era-direction]] (Pillar 2, bridge 1),
 [[adr-019-egress-inventory-and-escalation]] (*Reached by handing a URL to another program*),
@@ -106,13 +106,17 @@ removed in the next release and the release notes say why.
   *preview* until a validation row exists.
 - The agent-era docs page can show "dictate, review, send to Claude" as one flow.
 
-## Open questions for the decider
+## Decisions (2026-10-23)
 
-1. Spoken phrases: *"send to Claude"* / *"send to Codex"*, or a single *"send that to …"*
-   with the target name? (Staged mode's own commit phrase is opt-in for the reason
-   ADR-v2-132 gives; the same caution applies.)
-2. Should `claude-code` be a separate target or a sub-mode of `claude`?
-3. Is the CLI form (`yazses send-to`) wanted in the first release, or only the spoken one?
+The decider answered the three questions this record left open when it was proposed.
+
+1. **Spoken phrases: one fixed phrase per target** — *"send to Claude"*, *"send to Claude
+   Code"*, *"send to Codex"*. Each is a whole utterance, anchored at both ends like staged
+   mode's commit grammar; there is no *"send that to <name>"* pattern with a slot.
+2. **`claude-code` is a separate target**, reached by *"send to Claude Code"* and opening
+   `claude://code/new?q=`, not a sub-mode of `claude`.
+3. **The CLI form `yazses send-to <client> [TEXT]` ships in the first release**, beside the
+   spoken one.
 
 ## Alternatives considered
 
