@@ -115,6 +115,16 @@ watch a green icon type nothing.
     **Pinning removes the question entirely**: `yazses audio use <name>` means nothing
     can take capture away in the first place.
 
+**With a hands-free mode listening.** Vocal Morse, the Mouth-Sound Switch and the Vocal
+Joystick are experimental and off by default. Each keeps a microphone stream open while
+YazSes is otherwise idle. The watcher never re-scans the devices under that stream. Between
+re-scans it reads the default input without touching the stream, and that read is enough
+to notice a switch wherever `wpctl` can see through the alias. Every 30 seconds, or as soon
+as that read sees a change, it closes the stream, re-scans and reopens it. It waits while
+you are in Morse mode, running a scan or holding a joystick vowel, and it never does this
+during a hold-to-talk recording. Before this fix it skipped every check while such a stream
+was open, so with Vocal Morse on it never checked at all. Not yet tested on real hardware.
+
 Controlled by `[audio] auto_heal_device` (on by default). Each heal raises a
 desktop notification with **[Re-calibrate] / [Pin this mic] / [Ignore]**, because
 a silent fix is only half useful — you need to know the device moved. Pin one for

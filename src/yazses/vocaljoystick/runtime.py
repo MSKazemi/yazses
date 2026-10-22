@@ -37,12 +37,14 @@ from __future__ import annotations
 import logging
 import queue
 import threading
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Protocol
 
 import numpy as np
 
+from yazses.audio.device_monitor import audio_is_live
 from yazses.pointer.base import PointerButton, PointerError, PointerSink
 from yazses.vocaljoystick.control import VocalJoystick
 from yazses.vocaljoystick.drive import PointerIntent, SustainedVowelDriver
@@ -96,6 +98,7 @@ class VocalJoystickRunner:
         stop_requested: Callable[[], bool] | None = None,
         on_fault: Callable[[str], None] | None = None,
         thread: bool = True,
+        clock: Callable[[], float] = time.monotonic,
     ) -> None:
         self._sink = sink
         self._recorder_factory = recorder_factory
@@ -103,6 +106,11 @@ class VocalJoystickRunner:
         self._stop_requested = stop_requested
         self._on_fault = on_fault
         self._use_thread = thread
+        self._clock = clock
+        #: When the stream last delivered a chunk (``clock`` time), or None.
+        self._last_audio_at: float | None = None
+        #: Set when a device re-scan closed the stream; any other stop clears it.
+        self._rescan_hold = False
         self._tracker = VocalFrameTracker(sample_rate)
         self._driver = SustainedVowelDriver(
             VocalJoystick(max_speed=max_speed, click_pitch=click_pitch),
@@ -124,40 +132,87 @@ class VocalJoystickRunner:
     def active(self) -> bool:
         return self._recorder is not None
 
+    @property
+    def engaged(self) -> bool:
+        """A vowel is being held (or a click confirmed) on a stream that is still delivering.
+
+        The device monitor defers a re-scan while this is true. A stream that stopped
+        delivering (the microphone was unplugged mid-vowel) is not engaged, whatever state
+        the driver froze in, so it cannot hold the re-scan off.
+        """
+        return (
+            self._recorder is not None
+            and self._driver.engaged
+            and audio_is_live(self._last_audio_at, self._clock())
+        )
+
     # ------------------------------------------------------------------ lifecycle
 
     def start(self) -> tuple[bool, str]:
         """Open the microphone and start acting on it. Idempotent; never raises."""
         with self._lock:
-            if self._recorder is not None:
-                return True, ""
-            self.fault = ""
-            self._complained = False
-            self._reset_locked()
-            self._queue = queue.Queue(maxsize=_QUEUE_CHUNKS)
-            # A stop already in force when the user resumes is not a new stop: `handsfree
-            # resume` clears it right after this. Only a pause that begins later closes us.
-            self._stop_seen = self._stop_flag()
-            try:
-                recorder = self._recorder_factory(self._on_chunk)
-                recorder.start()
-            except Exception as exc:
-                log.warning("Vocal Joystick could not open the microphone", exc_info=True)
-                return False, f"could not open the microphone: {type(exc).__name__}"
-            self._recorder = recorder
-            if self._use_thread and self._worker is None:
-                self._worker = threading.Thread(
-                    target=self._work, args=(self._queue,), name="vocaljoystick", daemon=True
-                )
-                self._worker.start()
+            return self._start_locked()
+
+    def _start_locked(self) -> tuple[bool, str]:
+        if self._recorder is not None:
             return True, ""
+        self.fault = ""
+        self._complained = False
+        self._rescan_hold = False
+        self._reset_locked()
+        self._queue = queue.Queue(maxsize=_QUEUE_CHUNKS)
+        # A stop already in force when the user resumes is not a new stop: `handsfree
+        # resume` clears it right after this. Only a pause that begins later closes us.
+        self._stop_seen = self._stop_flag()
+        try:
+            recorder = self._recorder_factory(self._on_chunk)
+            recorder.start()
+        except Exception as exc:
+            log.warning("Vocal Joystick could not open the microphone", exc_info=True)
+            return False, f"could not open the microphone: {type(exc).__name__}"
+        self._recorder = recorder
+        if self._use_thread and self._worker is None:
+            self._worker = threading.Thread(
+                target=self._work, args=(self._queue,), name="vocaljoystick", daemon=True
+            )
+            self._worker.start()
+        return True, ""
 
     def stop(self) -> None:
         """Close the microphone and stop the worker. Idempotent; never raises."""
+        self._close(rescan=False)
+
+    def release_for_rescan(self) -> bool:
+        """Close the stream so the device monitor can re-init PortAudio. Never raises.
+
+        True when a stream was open and is now closed. Only a stream closed here is
+        reopened by :meth:`reacquire_after_rescan`.
+        """
+        return self._close(rescan=True)
+
+    def reacquire_after_rescan(self) -> tuple[bool, str]:
+        """Reopen a stream :meth:`release_for_rescan` closed. Never raises.
+
+        Reopens nothing when anything else closed the stream since -- ``handsfree pause``,
+        the spoken stop phrase, a fault, shutdown -- or when the hands-free gate's stop is
+        in force: a re-scan never re-arms what a user or a fault disarmed.
+        """
+        with self._lock:
+            if not self._rescan_hold:
+                return True, ""
+            self._rescan_hold = False
+            if self._stop_flag():
+                return True, ""
+            return self._start_locked()
+
+    def _close(self, *, rescan: bool) -> bool:
         with self._lock:
             recorder, self._recorder = self._recorder, None
             worker, self._worker = self._worker, None
             self._reset_locked()
+            # Under the lock, so a pause racing a re-scan always wins: any stop that is
+            # not a re-scan cancels a pending reopen.
+            self._rescan_hold = rescan and recorder is not None
         if recorder is not None:
             try:
                 recorder.stop()
@@ -170,6 +225,7 @@ class VocalJoystickRunner:
                 pass
             if worker is not threading.current_thread():
                 worker.join(timeout=2.0)
+        return recorder is not None
 
     def close(self) -> None:
         """Stop and release the pointer sink. Idempotent; never raises."""
@@ -183,6 +239,7 @@ class VocalJoystickRunner:
 
     def _on_chunk(self, chunk: np.ndarray) -> None:
         """The stream callback: enqueue only (or process inline when there is no thread)."""
+        self._last_audio_at = self._clock()
         if not self._use_thread:
             self.process(chunk)
             return
@@ -296,6 +353,23 @@ class VocalJoystickRuntime:
     def mic_open(self) -> bool:
         """True while the runner holds a live microphone stream (the device monitor's cue)."""
         return self.runner is not None and self.runner.active
+
+    # The device monitor's `LevelStreamOwner` surface (audio/device_monitor.py).
+
+    @property
+    def mic_engaged(self) -> bool:
+        """A vowel is being steered with right now: the device monitor defers a re-scan."""
+        return self.runner is not None and self.runner.engaged
+
+    def release_mic_for_rescan(self) -> bool:
+        """Close the stream for a device re-scan; True when one was closed."""
+        return self.runner is not None and self.runner.release_for_rescan()
+
+    def reacquire_mic_after_rescan(self) -> object:
+        """Reopen the stream a re-scan closed, unless a pause or fault closed it since."""
+        if self.runner is None:
+            return True, ""
+        return self.runner.reacquire_after_rescan()
 
     def command(self, action: str) -> dict[str, object]:
         """``status | pause | resume`` -- reached through the ``handsfree`` IPC, not its own."""

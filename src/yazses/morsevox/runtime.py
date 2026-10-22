@@ -17,7 +17,10 @@ shipped value) the stream opens when the daemon starts and stays open, because a
 cannot press a key has to be heard to start; ``yazses handsfree pause`` (and the spoken
 stop phrase) closes it and ``handsfree resume`` reopens it. With ``entry_hum_s = 0`` the
 stream opens only when the spoken "morse mode" command enters the mode, and closes again
-when the mode ends.
+when the mode ends. The audio device monitor briefly closes and reopens the listening
+stream for a device re-scan (``release_mic_for_rescan`` / ``reacquire_mic_after_rescan``),
+never while Morse mode is on and audio is arriving, so an unplugged or switched microphone
+is noticed while the hum entry listens.
 
 **It never competes with dictation.** ``busy()`` is asked for every chunk; while it is
 true (a hold-to-talk recording, a meeting) the hum is not listened for and an active Morse
@@ -38,6 +41,7 @@ from typing import Any, Protocol
 
 import numpy as np
 
+from yazses.audio.device_monitor import audio_is_live
 from yazses.morsevox.mode import ModeConfig, ModeStep, MorseMode, resolve
 
 __all__ = ["MorseRunner", "build_morse_runner"]
@@ -92,6 +96,10 @@ class MorseRunner:
         self._worker: threading.Thread | None = None
         #: Set by an explicit pause (`handsfree pause`); cleared by `resume`.
         self._paused = False
+        #: When the stream last delivered a chunk (``clock`` time, seconds), or None.
+        self._last_audio_at: float | None = None
+        #: Set when a device re-scan closed the stream; any other stop clears it.
+        self._rescan_hold = False
         self._inject_complained = False
         self.fault = ""
         self.typed_chars = 0
@@ -113,6 +121,47 @@ class MorseRunner:
     @property
     def active(self) -> bool:
         return self._mode.active
+
+    # The device monitor's `LevelStreamOwner` surface (audio/device_monitor.py).
+
+    @property
+    def mic_engaged(self) -> bool:
+        """Morse mode is on and the stream is still delivering: defer a device re-scan.
+
+        Listening for the entry hum is *not* engaged -- that is the state the stream sits in
+        all session, and a re-scan cutting a hum short costs one retry. A stream that stopped
+        delivering (the microphone was unplugged mid-letter) is not engaged either, so a
+        mode frozen by the silence cannot hold the re-scan off.
+        """
+        return (
+            self._recorder is not None
+            and self._mode.active
+            and audio_is_live(self._last_audio_at, float(self._clock()))
+        )
+
+    def release_mic_for_rescan(self) -> bool:
+        """Close the stream so the device monitor can re-init PortAudio. Never raises.
+
+        True when a stream was open and is now closed. Like any stop it ends an active Morse
+        mode; the monitor asks only while :attr:`mic_engaged` is false, bar its backstop.
+        """
+        return self._close(rescan=True)
+
+    def reacquire_mic_after_rescan(self) -> tuple[bool, str]:
+        """Reopen a stream :meth:`release_mic_for_rescan` closed. Never raises.
+
+        Reopens nothing when anything else closed the stream since (``handsfree pause``,
+        the spoken stop phrase, a fault, shutdown), while paused or under the hands-free
+        gate's stop, or without the hum trigger (that stream existed only for a mode the
+        close has ended).
+        """
+        with self._lock:
+            if not self._rescan_hold:
+                return True, ""
+            self._rescan_hold = False
+            if self._paused or self._stop_flag() or not self.listens_for_hum:
+                return True, ""
+            return self._open()
 
     def status(self) -> dict[str, object]:
         """Privacy-safe state for `yazses status`: names, flags and a count, never text."""
@@ -152,10 +201,16 @@ class MorseRunner:
 
     def stop(self) -> None:
         """Close the stream, end the mode, stop the worker. Idempotent; never raises."""
+        self._close(rescan=False)
+
+    def _close(self, *, rescan: bool) -> bool:
         with self._lock:
             step = self._mode.exit(self._now_ms(), "stopped")
             recorder, self._recorder = self._recorder, None
             worker, self._worker = self._worker, None
+            # Under the lock, so a pause racing a re-scan always wins: any stop that is
+            # not a re-scan cancels a pending reopen.
+            self._rescan_hold = rescan and recorder is not None
         self._report(step)
         if recorder is not None:
             try:
@@ -169,6 +224,7 @@ class MorseRunner:
                 pass  # a full queue still ends it: the recorder is cleared, so the worker returns at its next item
             if worker is not threading.current_thread():
                 worker.join(timeout=2.0)
+        return recorder is not None
 
     def toggle(self, action: str, scope: list[str], reasons: list[str]) -> bool:
         """``handsfree pause|resume`` for Vocal Morse: add to ``scope`` or ``reasons``.
@@ -205,6 +261,7 @@ class MorseRunner:
             if self._paused:
                 return False, "paused"
             self.fault = ""
+            self._rescan_hold = False  # opened by anyone: a pending re-scan reopen is moot
             self._queue = queue.Queue(maxsize=_QUEUE_SAMPLES)
             try:
                 recorder = self._recorder_factory(self._on_chunk)
@@ -223,6 +280,7 @@ class MorseRunner:
     def _on_chunk(self, chunk: np.ndarray) -> None:
         """The stream callback: reduce to one level, timestamp it, hand it on. Audio is dropped."""
         t_ms = self._now_ms()
+        self._last_audio_at = t_ms / 1000.0
         level = float(np.abs(chunk).mean()) if chunk.size else 0.0
         if not self._use_thread:
             self.process(t_ms, level)
@@ -274,6 +332,7 @@ class MorseRunner:
         with self._lock:
             recorder, self._recorder = self._recorder, None
             worker, self._worker = self._worker, None
+            self._rescan_hold = False
         if worker is not None:
             try:
                 self._queue.put_nowait(None)

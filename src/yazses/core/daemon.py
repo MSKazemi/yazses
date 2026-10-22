@@ -1630,9 +1630,21 @@ class Daemon:
 
             self._device_monitor = DeviceMonitor(
                 poll_fn=_poll_default,
+                # Asked right before every re-init: nothing records and no stream is open.
                 is_idle=self._audio_idle,
                 on_change=self._on_default_device_changed,
                 interval_s=cfg.audio.device_poll_interval_s,
+                # The hands-free level streams (Vocal Morse, the Mouth-Sound Switch, the
+                # Vocal Joystick) stay open while the daemon is IDLE. Skipping every poll
+                # while one was open left the watcher blind for the whole session whenever
+                # `[morsevox]` was on; the monitor now closes them for a re-scan and lets
+                # them reopen (`plan_device_poll`). Read at poll time: built further down.
+                level_streams=self._level_stream_owners,
+                recording=self._recording_in_flight,
+                # Between re-scans, read the default without a re-init -- safe under an
+                # open stream, and on PipeWire `wpctl` sees a switch PortAudio's start-up
+                # device list cannot.
+                peek_fn=effective_default_input_name,
             )
 
         # "No text target" guard: build the detector (AT-SPI focus tracker when available,
@@ -4607,12 +4619,36 @@ class Daemon:
 
     # ---- Audio-input resilience (device change + silent-streak) -------------
 
+    def _recording_in_flight(self) -> bool:
+        """True while the daemon is anything but IDLE: the device monitor touches nothing."""
+        with self._lock:
+            return self._state.state != TrayState.IDLE
+
+    def _level_stream_owners(self) -> list:
+        """The hands-free features that may hold a level stream while the daemon is IDLE.
+
+        Each answers the device monitor's `LevelStreamOwner` surface (`mic_open`,
+        `mic_engaged`, `release_mic_for_rescan`, `reacquire_mic_after_rescan`), so the
+        monitor can close their streams for a PortAudio re-init and let them reopen.
+        """
+        owners = (
+            self._vocaljoystick,
+            getattr(self, "_mouthswitch", None),
+            self._morsevox,
+        )
+        return [owner for owner in owners if owner is not None]
+
     def _audio_idle(self) -> bool:
-        """True when no recording is in flight — safe to poll/reinit the mic."""
+        """True when no recording is in flight and no stream is open — safe to reinit now.
+
+        The device monitor asks this immediately before every PortAudio re-init. When a
+        level stream is open it does not simply wait any more: it asks the owners to close
+        (`_level_stream_owners`), asks this again, re-inits, and lets them reopen.
+        """
         with self._lock:
             idle = self._state.state == TrayState.IDLE
         # The Vocal Joystick keeps the daemon IDLE while its own stream is open; a PortAudio
-        # reinit under that stream would close it, so the monitor waits while it is open.
+        # reinit under that stream would close it, so this is False while it is open.
         joystick = self._vocaljoystick
         switch = getattr(self, "_mouthswitch", None)  # the same, for the Mouth-Sound Switch
         morse = self._morsevox  # the same for Vocal Morse's level stream

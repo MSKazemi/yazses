@@ -201,6 +201,23 @@ how each is actually used, `docs/configuration.md` marks both keys ⚠️ inert,
 combo (`ctrl+shift+p`) for you to review or bind — and the catalog, the v2 features page
 and the voice-commands page now say so.
 
+### Fixed — the microphone watcher no longer goes blind while a hands-free mode listens
+
+Affects only users who turned on one of the experimental, off-by-default hands-free modes:
+Vocal Morse (`[morsevox]`), the Mouth-Sound Switch (`[mouthswitch]`) or the Vocal Joystick
+(`[vocaljoystick]`). Each keeps a microphone stream open while YazSes is otherwise idle.
+Vocal Morse does so all session by default, because it listens for its entry hum. The
+audio-device watcher skipped every check while such a stream was open, so it never checked
+at all. An unplugged microphone, a new default input or a Bluetooth headset switch went
+unnoticed, and the next hold-to-talk recorded from a device that was gone. Now, while one
+of those streams is open, the watcher reads the default input without touching the audio
+system. Every 30 seconds, or as soon as that read sees a change, it closes the streams,
+re-scans the devices and reopens them. It never does this during a hold-to-talk recording,
+and it waits while you are in Morse mode, running a switch scan or holding a joystick vowel
+on a microphone that is still delivering sound. A re-scan never reopens a stream that you
+paused, or that a fault closed, while it ran. Covered by unit tests with fake streams and
+a fake clock; untested on real hardware.
+
 ## [2.44.0] - 2026-10-23
 
 ### Fixed — the settings-window code no longer says it has "~200 rows"
