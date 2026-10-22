@@ -118,6 +118,37 @@ The decider answered the three questions this record left open when it was propo
 3. **The CLI form `yazses send-to <client> [TEXT]` ships in the first release**, beside the
    spoken one.
 
+## Implementation notes (first build, 2026-10-23)
+
+Where the first build differs from §1–§5, or chose something the record left open:
+
+- **No `platform/base.py` seam yet (§3).** The opener is an injectable callable in
+  `sendto/handoff.py` whose default is `system/browser.py::open_url(url, log_url=False)`,
+  the hand-off ADR-019 already inventories. So Linux uses `xdg-open` and its argv
+  exposure, and macOS and Windows use what Python's `webbrowser` does there; none of them
+  passes the URL by `NSWorkspace` or `ShellExecuteW` directly yet. Moving the opener onto
+  a platform Protocol is follow-up work, kept out of this change because another branch
+  is editing `platform/base.py`.
+- **Limits (§4).** Claude and Claude Code refuse over 14,000 characters. Codex documents
+  no limit, so it gets the same 14,000 (the narrowest choice). Every target also refuses
+  an encoded URL over 32,000 characters, which keeps the URL inside Windows' command-line
+  ceiling and Linux's per-argument one; text in non-Latin scripts reaches it sooner.
+  Text with control characters other than tab, newline and carriage return, or that is
+  not valid Unicode,
+  is refused rather than altered.
+- **Which text (§1).** With staged mode on, the buffer only: an empty buffer is refused,
+  not replaced by an older burst. With staged mode off, the last burst the daemon typed,
+  kept in memory only while `[sendto] enabled` is on. It has already been typed by then:
+  a whole-utterance phrase cannot come before the words it sends.
+- **The CLI with TEXT** hands off in the CLI's own process; the IPC method `send_to` takes
+  a target name only, so no local caller can make the daemon open a URL with text of its
+  choosing.
+- **No `features` registry entry yet (§5).** The switch is `[sendto] enabled` in
+  `config.toml`; a registry slug (and the per-client verified-version line in
+  `features info`) waits for the validation rows.
+- **Unverified:** no hand-off has yet been tried against a real Claude or Codex install on
+  any platform.
+
 ## Alternatives considered
 
 - **Type into the client (today).** Kept — it remains the default and works everywhere.

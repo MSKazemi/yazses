@@ -3467,6 +3467,83 @@ def staged_undo() -> None:
     typer.echo((info.get("pending") or {}).get("summary") or "Removed.")
 
 
+def _send_to_call(client: str) -> dict | None:
+    """Ask the daemon to hand its staged buffer or last burst to *client* (ADR-031)."""
+    platform = get_platform()
+    if not platform.lifecycle.is_running():
+        typer.echo(
+            "YazSes is not running, so there is no staged buffer or last burst to send. "
+            "Start it with `yazses start`, or give the text after the app name."
+        )
+        return None
+    client_ipc = platform.ipc_client_factory(platform.paths.ipc_socket)
+    try:
+        return client_ipc.call("send_to", target=client)
+    except IpcUnreachableError:
+        typer.echo("YazSes is starting up — try again in a moment.")
+        return None
+    except IpcCallError:
+        # A daemon started before this version has no `send_to` method.
+        typer.echo("The running daemon is older than this command — run `yazses restart`.")
+        return None
+
+
+@app.command(
+    "send-to",
+    rich_help_panel=_DICTATION,
+    epilog=_examples(
+        "yazses send-to claude    open Claude with the staged buffer (or last burst) filled in",
+        "yazses send-to claude-code    the same, as a new Claude Code session",
+        'yazses send-to codex "explain the failing test"    open Codex with this prompt filled in',
+    ),
+)
+def send_to(
+    client: str = typer.Argument(..., help="Which app: claude, claude-code or codex."),
+    text: Optional[str] = typer.Argument(
+        None,
+        help="The prompt. Leave it out to send the staged buffer, or the last dictation "
+        "burst when staged mode is off.",
+    ),
+) -> None:
+    """Open a desktop AI app with your text filled in — never sent; you press Enter.
+
+    Hands the text to the Claude desktop app (`claude`, `claude-code`) or the Codex app
+    (`codex`) through its own link scheme, so a new conversation opens with the prompt
+    box already filled. YazSes does not send it, and there is no web fallback: if the app
+    is not installed, nothing opens. Text over the app's limit (about 14,000 characters)
+    is refused, never cut. Saying "send to Claude", "send to Claude Code" or "send to
+    Codex" does the same while dictating.
+
+    Off by default: requires `enabled = true` under [sendto] in config.toml. Not yet
+    tried against the real desktop apps.
+    """
+    from yazses.config import load_config
+    from yazses.sendto.handoff import DISABLED_MESSAGE, hand_off
+    from yazses.sendto.targets import resolve_target, target_names
+
+    if resolve_target(client) is None:
+        typer.echo(
+            f"Unknown app {client!r} — choose one of: {', '.join(target_names())}.", err=True
+        )
+        raise typer.Exit(2)
+    cfg = load_config(get_platform().paths.config_file)
+    if not cfg.sendto.enabled:
+        typer.echo(DISABLED_MESSAGE, err=True)
+        raise typer.Exit(1)
+    info: dict | None
+    if text is not None:
+        # Explicit text is handed off here, in this process: it never travels to the
+        # daemon, and it is never echoed back — only its length is.
+        info = hand_off(client, text).as_dict()
+    else:
+        info = _send_to_call(client)
+    if info is None:
+        raise typer.Exit(1)
+    typer.echo(str(info.get("message") or ("Handed off." if info.get("ok") else "Not handed off.")))
+    if not info.get("ok"):
+        raise typer.Exit(1)
+
+
 cliphistory_app = typer.Typer(
     name="cliphistory",
     help="A persistent clipboard history you can recall by voice-style reference — offline.",

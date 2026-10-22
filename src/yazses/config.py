@@ -917,6 +917,21 @@ class StagedConfig:
 
 
 @dataclass
+class SendtoConfig:
+    """Send to (ADR-031) — hand dictated text to a desktop AI client, pre-filled, never sent.
+
+    "send to Claude", "send to Claude Code" or "send to Codex" (or `yazses send-to`)
+    opens that client's new-conversation screen with the staged buffer — or, without
+    staged mode, the last burst — already in the prompt box. The user presses Enter.
+
+    Deliberately a single switch. The targets are a closed table in `sendto/targets.py`
+    and no key here can name a URL or a scheme: a configurable template would be a
+    configurable exfiltration endpoint. OFF by default.
+    """
+    enabled: bool = False
+
+
+@dataclass
 class ConfidenceConfig:
     """v2.0.0 Wave A — Confidence Ink & Voice Re-pick (ADR-v2-001).
 
@@ -2247,6 +2262,7 @@ class Config:
     # v2.0.0 Wave A (Voice-First Interaction Layer)
     confidence: ConfidenceConfig = field(default_factory=ConfidenceConfig)
     staged: StagedConfig = field(default_factory=StagedConfig)
+    sendto: SendtoConfig = field(default_factory=SendtoConfig)
     context: ContextConfig = field(default_factory=ContextConfig)
     recall: RecallConfig = field(default_factory=RecallConfig)
     agent: AgentConfig = field(default_factory=AgentConfig)

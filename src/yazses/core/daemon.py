@@ -506,6 +506,12 @@ class Daemon:
         # Staged dictation (#294): when on, a burst lands here for review instead
         # of typing straight into the focused app. Off by default.
         self._staged = StagedBuffer()
+        # Send to (ADR-031): the last burst this daemon typed, kept only while
+        # [sendto] is on, so "send to Claude" without staged mode has a text to hand
+        # over. In memory, one burst, never logged. The opener is the injectable seam
+        # (None = sendto.handoff.default_opener) so tests never launch a program.
+        self._sendto_last_burst = ""
+        self._sendto_opener: Callable[[str], bool] | None = None
         # Command Safety Gate (ADR-v2-065): holds one dangerous dictated command
         # pending a spoken confirm. Always constructed — it is a couple of fields and
         # stays inert unless [cmdsafety] enabled, which keeps `_on_hold_end` free of
@@ -1818,6 +1824,9 @@ class Daemon:
         # default one — a spoken commit can be produced by the mis-transcription
         # the buffer exists to catch.
         server.register("staged", self._handle_staged)
+        # Send to (ADR-031): `yazses send-to <client>` without TEXT hands the staged
+        # buffer or the last burst to a desktop AI client, pre-filled and never sent.
+        server.register("send_to", self._handle_send_to)
         server.register("shutdown", self._handle_shutdown)
         server.register("inject", self._handle_inject)
         server.register("remote_start", self._handle_remote_start)
@@ -4052,6 +4061,26 @@ class Daemon:
                 log.info("Mid-thought undo: scratched %d chars.", n)
                 return
 
+            # Send to (ADR-031): "send to Claude", "send to Claude Code" or "send to
+            # Codex" — one fixed phrase per target, whole utterance, anchored — hands the
+            # staged buffer (or, without staged mode, the last burst) to that desktop
+            # client PRE-FILLED. Nothing is sent and the phrase itself is never typed.
+            # Before staged dictation on purpose, which would otherwise swallow the
+            # phrase as one more burst. No target-guard check: this types nothing into
+            # the focused window. Off by default; imported only when switched on.
+            if is_dictation and self._config.sendto.enabled:
+                from yazses.sendto.targets import parse_send_phrase
+
+                send_target = parse_send_phrase(text)
+                if send_target is not None:
+                    if use_streaming and stream_injector is not None:
+                        stream_injector.cancel()
+                    outcome = self._send_to(send_target)
+                    event["intent_type"] = "send_to"
+                    event["sendto_target"] = send_target
+                    event["sendto_ok"] = bool(outcome.get("ok"))
+                    return
+
             with self._lock:
                 app_class = self._state.app_class
 
@@ -4468,6 +4497,10 @@ class Daemon:
                     self._ledger.record(text)
                 if self._timeline is not None:
                     self._timeline.record(text)
+                # Send to (ADR-031): the burst "send to Claude" hands over when staged
+                # mode is off. Only while the feature is on — off, nothing is kept.
+                if self._config.sendto.enabled:
+                    self._sendto_last_burst = text
                 # Read-Back Loop: speak the final transcript back (dictation only).
                 self._maybe_read_back(text)
                 # Predictive Completion (ADR-v2-016): ask for the rest of the sentence.
@@ -4974,6 +5007,57 @@ class Daemon:
             "preview": self._staged.preview(),
             "summary": staged_describe(self._staged),
         }
+
+    def _send_to(self, target: str) -> dict[str, object]:
+        """Hand the staged buffer or the last burst to *target*, pre-filled (ADR-031).
+
+        The text is chosen by `sendto.targets.choose_text`: the staged buffer when
+        staged mode is on — "send to Claude" is then a commit target beside typing it —
+        otherwise the last burst this daemon typed. The buffer is cleared only after
+        a successful hand-off; every refusal (too long, nothing staged, the client did
+        not open) leaves it exactly as it was.
+
+        Returns a dict with no text in it: target, label, character count, the reason
+        on refusal and the user-facing message. `sendto.handoff` logs the target and
+        the length, never the text.
+        """
+        from yazses.sendto.handoff import hand_off
+        from yazses.sendto.targets import choose_text
+
+        choice = choose_text(
+            staged_enabled=self._config.staged.enabled,
+            staged_text=self._staged.text,
+            last_burst=self._sendto_last_burst,
+        )
+        result = hand_off(target, choice.text, opener=self._sendto_opener,
+                          staged=choice.source == "staged")
+        if result.ok and choice.source == "staged":
+            self._staged.discard()
+        self._notify_sendto(result.message)
+        return {**result.as_dict(), "source": choice.source}
+
+    def _handle_send_to(self, request: Request) -> dict[str, object]:
+        """`yazses send-to <client>` (no TEXT) over IPC. Refuses while the feature is off.
+
+        Takes a target name only. Explicit text from the CLI is handed off in the CLI's
+        own process and never travels over this socket, so no caller can use the daemon
+        to open a URL with text of its choosing.
+        """
+        from yazses.sendto.handoff import disabled_result
+
+        target = str((request.params or {}).get("target") or "")
+        if not self._config.sendto.enabled:
+            return {**disabled_result(target).as_dict(), "source": ""}
+        return self._send_to(target)
+
+    def _notify_sendto(self, message: str) -> None:
+        """Say what the hand-off did. The message holds counts, never the text."""
+        try:
+            from yazses.system.notify import notify
+
+            notify("YazSes — send to", message, log_body=False)
+        except Exception:  # pragma: no cover - notification is never load-bearing
+            log.debug("Send-to notification failed", exc_info=True)
 
     def _mic_answer_gate(self, text: str, event: dict) -> str | None:
         """Spoken answer to the mic guard's toast. The text to type, or None.

@@ -579,6 +579,26 @@ a person signs it. The runtime does not re-check licences.
 | `agent.py` | `yazses-agent` entry point — asyncio TCP server, handles `inject`/`ping` JSON-RPC |
 | `inject.py` | `get_remote_injector()` — same probe as `inject/auto.py` but zero faster-whisper imports |
 
+### `src/yazses/sendto/` (Send to, [ADR-031](adr/adr-031-send-to-prefill-handoff.md) — off by default)
+
+Hands dictated text to a desktop AI client **pre-filled, never sent**: the Claude desktop
+app (`claude`, `claude-code`) or the Codex app (`codex`) opens a new conversation with the
+text in the prompt box, and the user presses Enter. Reached by the whole-utterance phrases
+"send to Claude / Claude Code / Codex" in `daemon.py::_on_hold_end` (after "scratch that",
+**before** the staged buffer, which would otherwise swallow the phrase), by the IPC method
+`send_to`, and by `yazses send-to <client> [TEXT]`.
+
+| File | Role |
+|---|---|
+| `targets.py` | Pure. The **closed** target table (custom schemes only — no `https://`, nothing configurable), `parse_send_phrase` (anchored at both ends), hand-rolled percent-encoding pinned to `urllib.parse.quote` by the tests, `plan_handoff` (refuses over 14,000 characters or a 32,000-character URL, empty text, control characters, invalid Unicode — never truncates), and `choose_text` (the staged buffer when staged mode is on, else the last burst) |
+| `handoff.py` | The opener seam (`Callable[[str], bool]`, injected) and `hand_off`. The default opener is `system/browser.py::open_url(url, log_url=False)` — the hand-off ADR-019 already inventories — so this package adds no outbound primitive. Logs the target and the length, never the text or the URL, including when the opener raises |
+
+Invariants: the staged buffer is cleared only after a successful hand-off; the last burst
+is kept in memory only while `[sendto] enabled` is on; the IPC method takes a target name
+and no text, and explicit CLI text is handed off in the CLI's own process. On Linux the
+URL is an `xdg-open` argument while it opens (visible to local users through `/proc`) —
+the exposure ADR-031 §3 records; a platform-Protocol opener is follow-up work.
+
 ### `src/yazses/audio/`
 
 | File | Role |
@@ -782,6 +802,7 @@ from the tree, so a method added to the daemon, or a caller added or removed, fa
 | `inject` | CLI | Inject text directly (debug / remote agent) |
 | `staged` | CLI | `yazses staged status\|commit\|discard\|undo` -- the verb is a parameter, so this is one method rather than four |
 | `scratch` | CLI | Drop the most recent staged burst ("scratch that") |
+| `send_to` | CLI | Send to ([ADR-031](adr/adr-031-send-to-prefill-handoff.md)): hand the staged buffer, or the last burst, to `target` (`claude`, `claude-code`, `codex`) pre-filled and never sent. Takes no text; replies with the target, character count and a message, never the text. Refuses with `reason: disabled` while `[sendto]` is off (`yazses send-to <client>` without TEXT) |
 | `recall` | CLI | Query the recall index |
 | `punch_in` | CLI | Re-record over a selected span |
 | `readback_speak` | CLI | Speak a phrase through the read-back TTS |

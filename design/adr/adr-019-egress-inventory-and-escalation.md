@@ -147,7 +147,11 @@ a connection itself, and one of its callers puts a payload in that URL: the pre-
 issue report reaches github.com when the page opens. It carries no dictated text — the
 body is `report.collect`'s redacted output — but it is a transmission, and counting it as
 "not ours because the browser makes the request" is the reasoning this ADR exists to
-refuse. See *Reached by handing a URL to another program* above.
+refuse. A second caller, "send to" (ADR-031), does put dictated text in a URL, but hands it
+to a locally installed client through a custom scheme, never to a web address: the text
+reaches a program on this machine, as it does when YazSes types into that program, and
+nothing is transmitted until the user presses Enter there. See *Reached by handing a URL
+to another program* below.
 
 **This is the sentence the project can defend:** *two code paths can send your words
 anywhere, one is confined to your own machine, and the other goes only where you
@@ -162,8 +166,21 @@ the payload.
 | Module | Program | What crosses the wire | Trigger |
 |---|---|---|---|
 | `system/browser.py` | the default browser | a fixed docs/release URL, **or** a pre-filled issue report | a tray menu item, or the "Report this" toast button |
+| `sendto/handoff.py` (through `system/browser.py`, [ADR-031](adr-031-send-to-prefill-handoff.md)) | a locally installed AI client (`claude://`, `codex://`) | **dictated text → a local program; nothing is transmitted by YazSes** | `[sendto] enabled`, then "send to Claude / Claude Code / Codex" or `yazses send-to` |
 
-Every caller but one passes a constant URL. The exception is
+**"Send to" (ADR-031, added 2026-10-23)** is the second caller with a payload, and the
+payload is dictated text. It is classified like the issue report: a URL handed to another
+program. The difference that keeps it out of Class B is the destination. The targets are a
+closed table of **custom schemes** (`sendto/targets.py`), each resolved by the operating
+system to a program on this machine, which shows the text pre-filled and transmits it only
+when the user presses Enter — exactly what that program does with text YazSes types into
+it. There is no `https://` target and no configurable URL; a web URL would carry the text
+to a server in the request that opens the page, and that would be a send. Two local
+exposures remain and are recorded in ADR-031 §3 rather than waved away: on Linux the URL
+is an argument to `xdg-open` while it runs, and so readable through `/proc` by other local
+users; and the URL is never logged (`open_url(..., log_url=False)`).
+
+Every other caller passes a constant URL. The issue report is
 `core/daemon.py::_open_issue_report`, which calls `report.issue_url(title, body)`: the
 diagnostic report is percent-encoded into the query string, so **it reaches github.com
 when the page opens, not when the user presses submit**. Pressing submit files the issue;

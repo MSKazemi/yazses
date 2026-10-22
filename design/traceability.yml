@@ -541,7 +541,7 @@ entries:
     title: "Send to: hand dictated text to a desktop AI client, pre-filled and never sent"
     source: "design/adr/adr-031-send-to-prefill-handoff.md"
     decision_status: accepted
-    delivery_status: scheduled
+    delivery_status: in-progress
     tracking:
       kind: issue
       issues: [637]

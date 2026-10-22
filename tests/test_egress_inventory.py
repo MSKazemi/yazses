@@ -93,7 +93,11 @@ HANDOFF = {
         "URL: the diagnostic report travels to github.com percent-encoded in the query "
         "string **when the page opens**, not when the user presses submit. The body is "
         "`report.collect`'s redacted output — the same redaction `yazses report` uses, "
-        "so no dictation is in it — but it is a real transmission and belongs here"
+        "so no dictation is in it — but it is a real transmission and belongs here. "
+        "The second payload caller is `sendto/handoff.py` (ADR-031): it puts dictated "
+        "text in a `claude://` or `codex://` URL, a custom scheme the OS resolves to a "
+        "locally installed client that shows it pre-filled; nothing is transmitted by "
+        "YazSes, and the closed target table has no https:// entry"
     ),
 }
 #: Reaches the network by SPAWNING A PROGRAM, not by importing a network primitive.
