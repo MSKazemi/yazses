@@ -131,10 +131,44 @@ best match. Two behaviours are deliberate:
 
 ## Per-application behaviour
 
-Different apps want different commands, but command key sequences are fixed to
-common editor bindings (Ctrl+S save, Ctrl+G go to line, Ctrl+Shift+K delete line,
-Ctrl+Shift+O go to symbol). Per-application remapping is not implemented yet; use a
-[macro](../how-to/macros-and-snippets.md) for an app-specific action.
+By default a command sends VS Code's key bindings in every application: Ctrl+S save,
+Ctrl+G go to line, Ctrl+Shift+K delete line, Ctrl+Shift+O go to symbol, F2 rename.
+VS Code and the editors that copied its bindings get the right keys. Other editors
+may not.
+
+**Editor command profiles** (experimental, off by default) send the keys the
+focused editor binds instead:
+
+```toml
+[commands]
+editor_profiles = true   # pick the keys from the application in focus
+profile = "auto"         # or pin one: "default", "vscode", "jetbrains", "sublime"
+```
+
+Restart the daemon (`yazses restart`) after changing either key.
+
+| Profile | Chosen when the focused app is | What changes |
+|---|---|---|
+| `jetbrains` | IntelliJ IDEA, PyCharm, WebStorm, CLion, GoLand, Rider, Android Studio, … | delete line Ctrl+Y · go to class Ctrl+N · go to file Ctrl+Shift+N · go to function Ctrl+F12 (File Structure) · rename Shift+F6, then the new name, without Ctrl+A |
+| `sublime` | Sublime Text | go to function/class Ctrl+R · **rename is refused** |
+| `vscode` / `default` | VS Code, VSCodium, and anything not recognised | nothing |
+
+A **refused** command sends no keys and types nothing. Sublime Text has no built-in
+rename, and its F2 jumps to the next bookmark. The default rename (F2, Ctrl+A, type
+the name) would select the whole file there and type over it.
+
+**How the application is found.** YazSes reads the focused application through
+AT-SPI or, on an X11 session, `xdotool`. That is the same probe the "no text
+target" guard uses. On macOS, on Windows and on a Wayland session without AT-SPI
+there is no such source yet. There every command keeps the default keys, and the
+daemon log says so once. A pinned `profile` works everywhere, because it does not
+need to know the application.
+
+**Limits.** The bindings come from each editor's *default* keymap on Linux and
+Windows. They have not yet been tested by sending keys to a running editor. If you
+remapped a key, or you use a macOS keymap, you get the default keys. There is no
+Vim profile: Vim is modal, so a key chord means something different in each mode.
+For any other app-specific action, use a [macro](../how-to/macros-and-snippets.md).
 
 ## Honest limits
 

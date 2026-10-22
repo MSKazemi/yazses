@@ -288,6 +288,7 @@ feature installs and no stated exemption explains.
 Every surface that finds a dormant feature now offers its install instead of a
 sentence: the daemon's start-up notification carries an **Install now** button, `yazses
 start`/`restart` in a terminal ask once (default no), and `yazses features install`
+(or `features repair`, which lists every one first and ends with a per-feature summary)
 does all of them (`system/ondemand.py`). Consent is unchanged — nothing downloads
 without that click, yes or command — and an environment that can never take the
 libraries (a snap, a frozen bundle, the distribution's own Python) gets the reason and
@@ -318,7 +319,7 @@ already there. Each is a recorded decision rather than an omission:
 | **Android dictation keyboard** | The architecture is decided, the module skeleton and first pure-Kotlin ports are built (M0), and there is no app yet: no engine, keyboard or APK. iOS follows Android because an iOS keyboard extension cannot use the microphone. | [The mobile programme](mobile/index.md) |
 | **Cloud escalation** | Fully designed with guardrails, and deliberately **not implemented**, so "nothing leaves your machine" is never quietly weakened. | [Roadmap — designed, but explicitly deferred](roadmap.md#future-work) |
 | **Personal speech adapters (LoRA)** | On-device fine-tuning for your voice, including atypical speech. Gated on a measured accuracy win on held-out data — prompt-level personalization from your own corpus already ships. | `[personalize] lora` in the [configuration reference](configuration.md) |
-| **Code-switch models** | The language-routing layer ships (`src/yazses/polyglot/`); the code-switch-adapted acoustic model does not, and the feature stays dormant until `adapter_path` is set. | [v2 features preview](v2-features.md) |
+| **Code-switch models** | A pure routing decision exists (`src/yazses/polyglot/`) but nothing calls it: no decode path produces the per-span language IDs it needs, and no code-switch-adapted model ships. Setting `adapter_path` changes nothing. | [v2 features preview](v2-features.md) |
 
 The same subsystem map ships in three other formats under
 [`docs/diagrams/`](diagrams/index.md): [Mermaid](diagrams/yazses-architecture.mmd)

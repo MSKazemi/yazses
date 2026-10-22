@@ -38,15 +38,16 @@ committed budget, each breach with the amount over, and a run that measured noth
 failure rather than a clean pass (a guard that iterates an empty set is green for the
 wrong reason). The seconds and the megabytes here are the ADR's proposals, labelled in
 its text as engineering judgement; the nightly table is what will replace them with
-measurements. This module adds no config key — the ADR names the keys, the integration
-change adds them.
+measurements. This module defines no config key; :func:`with_stt_idle_unload` is how
+``[stt] idle_unload_s`` (the one key wired so far, the dictation engine's opt-in) becomes
+a policy row, and :func:`unload_tick_s` how often the daemon asks.
 """
 
 from __future__ import annotations
 
 import math
 from collections.abc import Callable, Iterable, Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Literal
 
 Placement = Literal["in_process", "worker"]
@@ -207,6 +208,44 @@ DEFAULT_POLICY = ResidencyPolicy(
     # read-back together keeps both; a third asks the least recently used one to leave.
     max_resident=3,
 )
+
+
+#: The dictation engine's residency unit, named once for the daemon and the engine wrapper.
+STT_UNIT = "stt"
+
+
+def with_stt_idle_unload(
+    idle_unload_s: float, policy: ResidencyPolicy = DEFAULT_POLICY,
+) -> ResidencyPolicy:
+    """*policy* with the dictation engine's keep-alive taken from ``[stt] idle_unload_s``.
+
+    ``0`` is "never unload" and returns *policy* unchanged, so the engine stays pinned —
+    the default, and the behaviour before the key existed. A positive value replaces the
+    ``stt`` row's ``None`` with that many seconds, which also takes the engine out of
+    :meth:`ResidencyPolicy.pinned`: an engine that may unload is no longer one the cap
+    must never choose. Negative, NaN and infinite values raise, like every other number
+    here; the config loader has already refused a negative before it gets this far.
+    """
+    seconds = _finite_non_negative(idle_unload_s, "[stt] idle_unload_s")
+    if seconds == 0:
+        return policy
+    entries = tuple(
+        replace(e, keep_alive_s=seconds) if e.feature == STT_UNIT else e
+        for e in policy.entries
+    )
+    return ResidencyPolicy(entries=entries, max_resident=policy.max_resident)
+
+
+def unload_tick_s(keep_alive_s: float) -> float:
+    """How often a housekeeping thread should ask :meth:`IdleTracker.due_for_unload`.
+
+    A quarter of the keep-alive, so an unload lands at most 25 % late, clamped to
+    [1 s, 30 s]: under a second is polling for nothing, and over thirty would leave a
+    ten-minute keep-alive's memory held minutes past its time. The same quarter-period
+    shape as the portal idle reaper in ``core/daemon.py``.
+    """
+    seconds = _finite_non_negative(keep_alive_s, "keep_alive_s")
+    return min(30.0, max(1.0, seconds / 4))
 
 
 class _MonotonicInput:

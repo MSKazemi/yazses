@@ -86,8 +86,9 @@ coding, leave it off for prose. The full word list is in the
 Brackets and other code symbols come from **Spoken Code Mode** instead. Turn it on
 with `yazses features enable code`, bind a command key (`yazses hotkey command
 right_ctrl`, or any key other than your dictation key), then hold that key and say
-"code def sync open paren self close paren colon" — it types `def sync(self):`. See
-[coding by voice](voice-coding.md).
+"code def sync open paren self close paren colon" — it types `def sync(self):`.
+Name a case style before the words of an identifier — "code self dot camel case user
+name" types `self.userName`. See [coding by voice](voice-coding.md).
 
 ## 4. Prime one-off context — `[stt] initial_prompt`
 

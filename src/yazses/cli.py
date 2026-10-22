@@ -2828,6 +2828,65 @@ def features_install(
         raise typer.Exit(1)
 
 
+@features_app.command(
+    "repair",
+    epilog=_examples(
+        "yazses features repair              list every dormant feature, ask once, install",
+        "yazses features repair --dry-run    only list them and what each needs",
+        "yazses features repair --yes        no question (scripts)",
+    ),
+)
+def features_repair(
+    yes: bool = typer.Option(False, "--yes", "-y", help="Install without asking first."),
+    dry_run: bool = typer.Option(
+        False, "--dry-run", help="List the dormant features and their packages; install nothing."
+    ),
+) -> None:
+    """Repair every switched-on feature whose libraries are missing (shown as ON, not installed).
+
+    Lists each dormant feature and the packages it needs — including any this
+    install can never take (a snap, a frozen .app/.exe), with the reason — then
+    asks once and installs them the same way `yazses features install` does: into
+    whatever YazSes was installed with (`uv tool`, `pipx inject`, a venv), recorded
+    so the next update keeps it, a failed install undone. Ends with one line per
+    feature. Exits 0 when nothing was dormant or everything was repaired, 1 when any
+    install failed, could not run here, or you said no. `--dry-run` only lists, and
+    exits 0. Writes no config.
+    """
+    from yazses.config import load_config
+    from yazses.system import ondemand
+    from yazses.system.dormant import dormant_features
+
+    platform = get_platform()
+    cfg = load_config(platform.paths.config_file)
+    plan = ondemand.repair_plan(dormant_features(cfg))
+    if plan.empty:
+        typer.echo("Every switched-on feature has its libraries. Nothing to repair.")
+        return
+    typer.echo(ondemand.repair_text(plan))
+    for item in plan.blocked:
+        typer.echo(f"Can't install for {item.name}: {item.remedy}", err=True)
+    if dry_run:
+        typer.echo("\nDry run: nothing was installed.")
+        if plan.install:
+            typer.echo("Install them:  yazses features repair")
+        return
+    if not plan.install:
+        raise typer.Exit(1)
+    if not yes and not typer.confirm("\nInstall them now?", default=False):
+        typer.echo("Nothing installed. They stay dormant until you do.")
+        raise typer.Exit(1)
+    failed = ondemand.install_all(plan.install, echo=typer.echo)
+    typer.echo("\nRepair summary:")
+    for line in ondemand.repair_summary(plan, failed):
+        typer.echo(line)
+    if len(failed) < len(plan.install):
+        typer.echo("Apply it:  yazses restart")
+    code = ondemand.repair_exit_code(plan, failed)
+    if code:
+        raise typer.Exit(code)
+
+
 def _offer_dormant_install(platform) -> None:
     """At the moment of need — starting the daemon — offer the install, once.
 
@@ -4404,6 +4463,12 @@ def status(
                 line += f", raised from {room['base_gate']}"
             line += ")"
         typer.echo(line)
+    # Vocal Morse (ADR-v2-105): absent while `[morsevox]` is off and on an older daemon.
+    morse = info.get("morse")
+    if isinstance(morse, dict):
+        from yazses.morsevox.mode import describe_status
+
+        typer.echo(f"  morse:    {describe_status(morse)}")
     if info.get("silent_streak"):
         typer.echo(
             f"  ⚠ mic:    {info['silent_streak']} silent clips in a row — "

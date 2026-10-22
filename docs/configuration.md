@@ -13,7 +13,7 @@ Prefer `yazses features enable/disable <toggle>` over hand-editing — it writes
 
 **Match the Type column exactly.** In TOML only `str` values take quotes; `int`, `float` and `bool` must be bare. Writing `vad_threshold = "0.004"` instead of `vad_threshold = 0.004` loads without complaint and then fails at runtime, because the value stays a string where a number is expected. See [Troubleshooting](troubleshooting.md#dictation-stopped-working-right-after-i-edited-configtoml).
 
-**66 of these 526 keys are inert**, and they are marked ⚠️ inert in the Status column. The loader accepts them, `configcheck` validates them and they have a documented default — but nothing acts on them, so setting one loads without complaint and changes nothing. Most belong to capabilities that are registered but not yet wired; see [`yazses features`](cli-reference.md) for what is actually switchable. Both numbers here are counted at generation time, and the list of inert keys is the same one the test suite gates on, so neither can quietly fall out of date.
+**63 of these 531 keys are inert**, and they are marked ⚠️ inert in the Status column. The loader accepts them, `configcheck` validates them and they have a documented default — but nothing acts on them, so setting one loads without complaint and changes nothing. Most belong to capabilities that are registered but not yet wired; see [`yazses features`](cli-reference.md) for what is actually switchable. Both numbers here are counted at generation time, and the list of inert keys is the same one the test suite gates on, so neither can quietly fall out of date.
 
 This has bitten before: `[injection] fallback_to_clipboard` was documented in seventeen places and defaulted to `true` while nothing read it, so anyone who turned it off was silently overruled.
 
@@ -33,6 +33,7 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 | `beam_size` | int | `0` |  | Decoder beam width. 0 keeps faster-whisper's own default (5). 1 is greedy decoding; it is here so the Adaptive Latency Governor (`[latency]`) can ask for it on a loaded machine, and so a user who wants that trade permanently can take it without one. What the trade actually costs, measured on 200 LibriSpeech utterances per cell (`docs/benchmarks.md`): greedy costs `base.en` 0.38 WER points on clean audio and 1.07 on hard audio, and is 11-16% faster — a smaller speed gain than "greedy" suggests. On `small.en` and clean audio it is *better* (2.53% against 2.66%), so "worse" is a property of the model and the audio, not of beam search. Beams 2, 5 and 8 score identically on `base.en`; the default is 5 because it is the well-trodden setting and beam 2 would save about 20 ms on a five-second burst, which nobody can perceive. Ignored by engines that do not decode with a beam. |
 | `chinese_script` | str | `""` |  | Which Han script Chinese output is written in: "simplified" (简体, mainland) \| "traditional" (繁體, Taiwan/Hong Kong) \| "" to leave the model's own choice alone. Whisper picks a script per utterance and is not consistent about it, so a mainland user gets Traditional characters back for a large share of correct transcriptions (postprocess/han_script.py has the measurements). Empty by default because the right answer is regional, not universal. Needs the `chinese` extra; without it the setting warns once and no-ops. |
 | `persian_normalisation` | bool | `false` |  | Conservative Persian Unicode normalisation of the transcript (NFC, Arabic Yeh/Kaf -> Persian Yeh/Keheh, ZWNJ tidying, bidi-control strip; see postprocess/persian_text.py and design/specs/persian-text-and-rtl.md). Off by default: the normaliser changes the text a Persian user already gets, so an upgrade must not switch it on for them. It only acts when `language` is also Persian ("fa"); set on its own it warns once and no-ops. |
+| `idle_unload_s` | int | `0` |  | Release the speech model after this many seconds without a decode, and load it again on the next press (ADR-029). 0 (default) = never: the model stays loaded for as long as the daemon runs, which is what makes the first word fast. A positive value trades that for memory on a small machine: base.en holds about 190-220 MB once loaded. The reload starts when you press the key and runs while you speak; your audio is recorded either way, but the first words after a long pause arrive a few seconds late, and the tray shows "loading" while they do. Values under a few minutes mean most presses pay the reload. How much memory an unload hands back to the OS is not yet measured: CTranslate2 may keep some of it. |
 
 ## `[hotkey]`
 
@@ -127,7 +128,7 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 | Key | Type | Default | Status | Notes |
 |---|---|---|---|---|
 | `enabled` | bool | `true` |  |  |
-| `profile` | str | `"auto"` |  |  |
+| `profile` | str | `"auto"` |  | Which editor's keys a spoken command sends. Read only when `editor_profiles` is on: "auto" follows the focused application; default, vscode, jetbrains or sublime pins that profile for every application (commands/profiles.py). |
 | `language` | str | `"auto"` |  | auto \| en \| zh |
 | `custom` | list | `[]` |  |  |
 | `slm_model_path` | str | `""` |  | path to GGUF file; empty = disabled |
@@ -141,6 +142,7 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 | `self_repair` | bool | `false` |  | v2.4 Wave H — Mid-Utterance Self-Repair (ADR-v2-058): "email Sarah no I mean Sara"→"Sara". Off by default: editing phrases also occur in ordinary speech. |
 | `spoken_edit` | bool | `false` |  | v2.0.0 Wave A — Spoken Edit Mode (ADR-v2-003): open-ended voice editing of the last-injected span ("change X to Y", "delete the last sentence"). Command-key gated to avoid dictate-vs-command ambiguity. OFF by default. |
 | `spoken_edit_destructive` | bool | `false` |  | Allow destructive spoken edits (delete last sentence/words). OFF by default; when on, a destructive edit still updates the ledger so "scratch that" undoes it. Requires spoken_edit. (ADR-v2-003) |
+| `editor_profiles` | bool | `false` |  | Editor command profiles: send the keys the focused editor binds — Ctrl+Y, not Ctrl+Shift+K, to delete a line in a JetBrains IDE — and refuse a command the editor has no safe key for. OFF by default; off, every application gets the VS Code-style keys. The focused app is read via AT-SPI or X11 xdotool only. |
 
 ## `[macros]`
 
@@ -417,7 +419,7 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 | `enabled` | bool | `false` |  |  |
 | `backend` | str | `"atspi"` |  | atspi \| none |
 | `match_threshold` | float | `0.5` |  | min label-match similarity to act |
-| `confirm_ambiguous` | bool | `true` | ⚠️ inert | ask when several elements tie |
+| `confirm_ambiguous` | bool | `true` |  | ask when several elements tie |
 
 ## `[modality]`
 
@@ -700,7 +702,7 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 | Key | Type | Default | Status | Notes |
 |---|---|---|---|---|
 | `enabled` | bool | `false` |  |  |
-| `max_terms` | int | `32` | ⚠️ inert |  |
+| `max_terms` | int | `32` |  |  |
 
 ## `[headpointer]`
 
@@ -1125,7 +1127,8 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 | Key | Type | Default | Status | Notes |
 |---|---|---|---|---|
 | `enabled` | bool | `false` |  |  |
-| `dwell_s` | float | `1.2` | ⚠️ inert |  |
+| `dwell_s` | float | `1.2` |  | Seconds per highlight step (clamped to 0.5-10 by mouthswitch/scanner.py). |
+| `scan_items` | list | `['enter', 'undo', 'scroll up', 'scroll down', 'click']` |  | What the scan offers, in order. "click", "scroll up" and "scroll down" are pointer operations; anything else is a command phrase the command grammar must know and run without confirmation, or it is dropped (with a log line) when the daemon starts. |
 
 ## `[involuntary]`
 
@@ -1141,6 +1144,8 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 | `dot_max_ms` | float | `200.0` |  |  |
 | `letter_gap_ms` | float | `600.0` |  |  |
 | `word_gap_ms` | float | `1400.0` |  |  |
+| `entry_hum_s` | float | `1.5` |  | Seconds of one steady, unbroken hum that enter Morse mode. 0 = only the spoken "morse mode" enters. |
+| `exit_silence_s` | float | `3.0` |  | Seconds of silence that leave Morse mode. Raised above the word gap if set at or below it. |
 
 ## `[checkdigit]`
 
