@@ -404,3 +404,53 @@ def test_the_module_is_stdlib_only() -> None:
         elif isinstance(node, ast.ImportFrom) and node.module:
             names.add(node.module.split(".")[0])
     assert names <= {"__future__", "collections", "dataclasses", "math", "typing"}, names
+
+
+# ---- `[stt] idle_unload_s` becomes the stt row (ADR-029 §1, the first wired step) ----
+
+
+def test_an_idle_unload_of_zero_leaves_the_engine_pinned() -> None:
+    """0 is the default and means "never": the policy object itself comes back."""
+    assert residency.with_stt_idle_unload(0) is DEFAULT_POLICY
+    assert residency.with_stt_idle_unload(0.0).get("stt").keep_alive_s is None
+    assert "stt" in residency.with_stt_idle_unload(0).pinned()
+
+
+def test_a_positive_idle_unload_becomes_the_stt_keep_alive_and_unpins_it() -> None:
+    policy = residency.with_stt_idle_unload(600)
+    assert policy.get("stt").keep_alive_s == 600.0
+    assert "stt" not in policy.pinned()
+    # Only the stt row moves; every other unit, and the cap, are the defaults.
+    others = {e.feature: e for e in policy.entries if e.feature != "stt"}
+    assert others == {e.feature: e for e in DEFAULT_POLICY.entries if e.feature != "stt"}
+    assert policy.max_resident == DEFAULT_POLICY.max_resident
+    # The default table itself is untouched (frozen rows, a new policy object).
+    assert DEFAULT_POLICY.get("stt").keep_alive_s is None
+
+
+def test_the_stt_keep_alive_fires_at_the_configured_boundary() -> None:
+    tracker = IdleTracker(residency.with_stt_idle_unload(60))
+    tracker.mark_loaded("stt", now=0.0)
+    assert tracker.due_for_unload(now=59.999) == []
+    assert tracker.due_for_unload(now=60.0) == ["stt"]
+
+
+@pytest.mark.parametrize("bad", [-1, math.nan, math.inf])
+def test_a_bad_idle_unload_is_refused(bad: float) -> None:
+    with pytest.raises(ValueError):
+        residency.with_stt_idle_unload(bad)
+
+
+@pytest.mark.parametrize(
+    ("keep_alive", "tick"),
+    [(0.0, 1.0), (2.0, 1.0), (4.0, 1.0), (60.0, 15.0), (120.0, 30.0), (3600.0, 30.0)],
+)
+def test_the_unload_tick_is_a_quarter_of_the_keep_alive_clamped(
+    keep_alive: float, tick: float,
+) -> None:
+    assert residency.unload_tick_s(keep_alive) == tick
+
+
+def test_the_unload_tick_refuses_a_nan() -> None:
+    with pytest.raises(ValueError):
+        residency.unload_tick_s(math.nan)

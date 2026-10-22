@@ -42,6 +42,7 @@ if TYPE_CHECKING:
     from yazses.meeting.controller import MeetingController
     from yazses.perception import SharedPerceptionSource
     from yazses.reask.gate import ReaskGate
+    from yazses.stt.resident import IdleUnloadEngine
     from yazses.styleguard.rules import Rule as StyleRule
     from yazses.system.single_instance import SingleInstanceLock
     from yazses.timeline.history import InjectionTimeline
@@ -355,6 +356,11 @@ class Daemon:
     _autostop: AutoStopTurn | None = None
     #: Hesitation-hold (ADR-v2-101): the filled-pause judge of a latched turn, or None.
     _hesitation: HesitationMonitor | None = None
+    #: `[stt] idle_unload_s` (ADR-029): the engine wrapper that may release the model, or
+    #: None -- the default, and the only value a partial daemon in a test ever sees. Set
+    #: by `_with_idle_unload`; the residency helpers read this, never `self._engine`, so a
+    #: test double standing in for the engine can never be mistaken for one.
+    _idle_unload_engine: "IdleUnloadEngine | None" = None
 
     def __init__(
         self,
@@ -715,6 +721,7 @@ class Daemon:
             self._announce_dormant_features()
             self._warm_portal_session()
             self._start_portal_idle_reaper()
+            self._start_stt_idle_unloader()
             self._start_headpointer()
             self._start_gesture()
             self._hotkey.run()
@@ -1282,6 +1289,122 @@ class Daemon:
 
         threading.Thread(target=_reap, name="portal-idle-reaper", daemon=True).start()
 
+    # ---- Runtime residency: `[stt] idle_unload_s` (ADR-029 §1) ---------------------
+
+    def _with_idle_unload(self, engine: SttEngine) -> SttEngine:
+        """Wrap *engine* so its model can be released after idle, when the user asked.
+
+        ``[stt] idle_unload_s = 0`` (the default) returns *engine* itself: no wrapper,
+        no thread, no lock on the decode path -- an existing install is unchanged. A
+        positive value wraps it in `stt.resident.IdleUnloadEngine`, which reloads through
+        the same `build_engine` call, so the language check and the output wrappers apply
+        to the second load exactly as to the first.
+        """
+        seconds = int(getattr(self._config.stt, "idle_unload_s", 0) or 0)
+        if seconds <= 0:
+            return engine
+        from yazses.stt.resident import IdleUnloadEngine
+
+        stt = self._config.stt
+        log.info(
+            "[stt] idle_unload_s = %d: the speech model is released after %d s without "
+            "a decode and reloaded on the next press.", seconds, seconds,
+        )
+        wrapped = IdleUnloadEngine(
+            lambda: build_engine(stt),
+            seconds,
+            engine=engine,
+            on_loaded=self._on_stt_engine_loaded,
+        )
+        self._idle_unload_engine = wrapped
+        return wrapped
+
+    def _start_stt_idle_unloader(self) -> None:
+        """Run the idle-unload tick beside the portal reaper. Dormant at the default.
+
+        `_idle_unload_engine` is set only by `_with_idle_unload`; with
+        ``idle_unload_s = 0`` it stays None and no thread is started.
+        """
+        engine = self._idle_unload_engine
+        if engine is None:
+            return
+        from yazses.system.residency import unload_tick_s
+
+        tick = unload_tick_s(engine.idle_unload_s)
+
+        def _loop() -> None:
+            while not self._stop_event.wait(tick):
+                try:
+                    self._stt_idle_unload_tick()
+                except Exception:  # noqa: BLE001 — housekeeping outlives its errors
+                    log.debug("stt idle-unload tick failed", exc_info=True)
+
+        threading.Thread(target=_loop, name="stt-idle-unload", daemon=True).start()
+
+    def _stt_idle_unload_tick(self) -> bool:
+        """Release the speech model if it is due and nothing is using it. True if released.
+
+        The daemon state is checked under ``self._lock``, the same lock `_on_hold_start`
+        takes to enter RECORDING, so a press cannot slip in between "idle" and the
+        unload. `detach_if_idle` never blocks and refuses while any decode is counted in,
+        so a decode outside the hold path (a meeting chunk, a spoken answer, a streaming
+        window) is never cut short either. The model is dropped after the lock is
+        released: its native destructor is not instant, and a press must not wait on it.
+        """
+        engine = self._idle_unload_engine
+        if engine is None:
+            return False
+        with self._lock:
+            if not self._state.ready or self._state.state not in (
+                TrayState.IDLE, TrayState.PAUSED,
+            ):
+                return False
+            released = engine.detach_if_idle()
+        if released is None:
+            return False
+        del released
+        import gc
+
+        gc.collect()
+        log.info(
+            "Speech model released after %s s idle ([stt] idle_unload_s); it reloads "
+            "on the next press.", engine.idle_unload_s,
+        )
+        return True
+
+    def _prefetch_stt_engine(self) -> None:
+        """At a press: restart the keep-alive, or start the reload if the model is out.
+
+        Capture never waits for this -- the recorder does not touch the engine -- so the
+        reload overlaps the user speaking instead of following the release. A no-op with
+        the plain engine.
+        """
+        engine = self._idle_unload_engine
+        if engine is None:
+            return
+        try:
+            engine.prefetch()
+        except Exception:  # noqa: BLE001 — a failed prefetch must not cost the burst
+            log.debug("Speech-model prefetch failed", exc_info=True)
+
+    def _stt_reload_pending(self) -> bool:
+        """Whether this burst's decode will first wait for the speech model to load."""
+        engine = self._idle_unload_engine
+        if engine is None:
+            return False
+        return engine.is_loading or not engine.is_resident
+
+    def _on_stt_engine_loaded(self) -> None:
+        """A reload finished (or failed): leave the burst's "loading" state for transcribing.
+
+        Called by `IdleUnloadEngine` with none of its own locks held. Only the LOADING a
+        reload put up is touched -- `ready` is False during start-up, whose LOADING is
+        `run()`'s to end.
+        """
+        with self._lock:
+            if self._state.ready and self._state.state == TrayState.LOADING:
+                self._state.state = TrayState.TRANSCRIBING
+
     def _start_update_watcher(self) -> None:
         """Start the opt-in "a newer YazSes is out" watcher.
 
@@ -1377,7 +1500,7 @@ class Daemon:
         cfg = self._config
         log.info("Loading STT engine %r (model %r)...", cfg.stt.engine, cfg.stt.model)
         self._announce_model_download(cfg)
-        self._engine = build_engine(cfg.stt)
+        self._engine = self._with_idle_unload(build_engine(cfg.stt))
 
         # [injection] backend selects the Linux injector (type | ydotool |
         # clipboard | wtype | auto), and fallback_to_clipboard the runtime fallback.
@@ -2721,6 +2844,13 @@ class Daemon:
                 from yazses.system.diagnosis import CAPTURE
 
                 self._report_failure(exc, CAPTURE)
+                return
+
+        # `[stt] idle_unload_s` (ADR-029): after the recorder is already running, so
+        # capture never waits on it. Restarts the model's keep-alive, or -- if an idle
+        # unload released it -- starts the reload in the background while the user
+        # speaks. A no-op on a default install.
+        self._prefetch_stt_engine()
 
     # Evdev/ydotool keycodes for the hold-to-talk hotkeys (Linux input-event-codes;
     # ydotool uses the same numbers). Mirrors platform/linux/hotkey.py's keymap.
@@ -2846,7 +2976,14 @@ class Daemon:
             # miss. (A recorder that cannot say whether it holds a clip is treated as before.)
             return
         with self._lock:
-            self._state.state = TrayState.TRANSCRIBING
+            # `[stt] idle_unload_s` (ADR-029): when the model is still coming back from
+            # an idle unload, the first words will be late, and the tray says why rather
+            # than sitting on "transcribing". `_on_stt_engine_loaded` turns it back into
+            # TRANSCRIBING when the load ends, success or failure. Always False on a
+            # default install.
+            self._state.state = (
+                TrayState.LOADING if self._stt_reload_pending() else TrayState.TRANSCRIBING
+            )
 
         stream_injector = self._stream_injector
         self._stream_injector = None
@@ -3997,7 +4134,12 @@ class Daemon:
                 self._edit_watcher.watch(event["final_text"])
             with self._lock:
                 self._state.audio_level = 0.0  # recording done — overlay calms down
-                if self._state.state in (TrayState.TRANSCRIBING, TrayState.INJECTING):
+                if self._state.state in (TrayState.TRANSCRIBING, TrayState.INJECTING) or (
+                    # A burst that put up the idle-unload reload's LOADING and returned
+                    # before the load ended (a silent discard). Start-up's own LOADING
+                    # has `ready` False and is never touched here.
+                    self._state.state == TrayState.LOADING and self._state.ready
+                ):
                     self._state.state = TrayState.IDLE
 
     def _on_audio_chunk(self, chunk: np.ndarray) -> None:

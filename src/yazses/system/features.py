@@ -745,7 +745,10 @@ _Def("chords", "Chorded Shortcut Synthesis", "[chords] — any keyboard shortcut
              "is spoken, there is no spoken confirm, and dictation never runs git. The "
              "command works whether or not [gitvoice] enabled is set — nothing reads that key.",
              lambda c: c.gitvoice.enabled, gv_on, gv_off),
-        _Def("latency", "Adaptive Latency Governor", "[latency] — load-aware decode", RECOMMENDED,
+        # OPTIONAL, not RECOMMENDED: first run seeds the RECOMMENDED tier, and this row
+        # would then load a second Whisper model (~116 MB RSS for tiny.en, ADR-029) on
+        # every new install whose own description says "Off by default".
+        _Def("latency", "Adaptive Latency Governor", "[latency] — load-aware decode", OPTIONAL,
              "Adapts decoding to system load: while the 1-minute load average is at or above "
              "[latency] high_load it decodes with [latency] light_model at a greedy beam, and "
              "otherwise with your normal model. The light model loads in the background the first "
