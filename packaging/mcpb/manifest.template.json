@@ -1,0 +1,45 @@
+{
+  "manifest_version": "0.2",
+  "name": "yazses",
+  "display_name": "YazSes",
+  "version": "@VERSION@",
+  "description": "Offline speech-to-text for your agent: transcribe audio and video files on this machine. Needs YazSes installed first: https://mskazemi.com/yazses/get-started.html",
+  "long_description": "This bundle does not contain YazSes. It runs the `yazses mcp-server` command of the YazSes already installed on this machine, so the speech model, your settings and the microphone permission stay with that install. If the command is not found, install YazSes first (https://mskazemi.com/yazses/get-started.html), make sure `yazses` is on your PATH, and restart the client.\n\nThe server speaks MCP over stdin/stdout only. It opens no port, and transcription runs on this machine; nothing is uploaded.\n\n`transcribe` is always offered. `ask_human`, which lets an agent ask you a question out loud and get your spoken answer back, is offered only after you set `[mcp] ask_human = true` in the YazSes config. It needs the YazSes daemon running, and an hourly budget limits how often it may interrupt you.",
+  "author": {
+    "name": "Mohsen Seyedkazemi Ardebili",
+    "url": "https://github.com/MSKazemi"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MSKazemi/yazses"
+  },
+  "homepage": "https://mskazemi.com/yazses/",
+  "documentation": "https://mskazemi.com/yazses/how-to/connect-mcp-client.html",
+  "support": "https://github.com/MSKazemi/yazses/issues",
+  "icon": "icon.png",
+  "server": {
+    "type": "binary",
+    "entry_point": "yazses",
+    "mcp_config": {
+      "command": "yazses",
+      "args": ["mcp-server"],
+      "env": {}
+    }
+  },
+  "tools": [
+    {
+      "name": "transcribe",
+      "description": "Transcribe an audio or video file to text, entirely on this machine. Nothing is uploaded. Optionally tag who said what."
+    },
+    {
+      "name": "ask_human",
+      "description": "Ask the person at this machine a question out loud and return their spoken answer. Use it when you are stuck on a decision only a human can make — authorisation, ambiguity, taste. Interrupts are rate-limited and may be refused; read the reply rather than retrying."
+    }
+  ],
+  "tools_generated": false,
+  "keywords": ["speech-to-text", "transcription", "offline", "voice", "dictation", "whisper"],
+  "license": "Apache-2.0",
+  "compatibility": {
+    "platforms": ["darwin", "win32", "linux"]
+  }
+}

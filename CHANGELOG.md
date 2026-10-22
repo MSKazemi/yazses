@@ -6,6 +6,20 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — a one-click MCP bundle (`.mcpb`) for `yazses mcp-server`
+
+`python3 scripts/build-mcpb.py` builds `dist/yazses-<version>.mcpb`, an MCP Bundle a
+desktop client can install by double-click or drag-and-drop. The bundle contains no
+copy of YazSes: its manifest runs the `yazses mcp-server` command already installed, so
+the model, the config and the microphone permission stay with that install, and its
+description links the install page for a machine without it (ADR-032 §1,
+[#638](https://github.com/MSKazemi/yazses/issues/638)). The build is byte-for-byte
+reproducible and uses only the standard library. A new guide,
+[Connect YazSes to an MCP client](docs/how-to/connect-mcp-client.md), covers the bundle
+and the manual config. Not yet attached to releases (that needs a release-workflow
+step), not yet tried in a real client, and some manifest fields are still to be checked
+against the MCPB specification; the tests are written but not yet run.
+
 ### Fixed — `yazses mcp-server --help` no longer says `ask_human` is not offered
 
 The help said `ask_human` "is not offered yet". The server has offered it since
