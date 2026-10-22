@@ -75,7 +75,6 @@ KNOWN_UNREAD = {
     "HotkeyConfig.evdev_device",
     "HotwordsConfig.boost",
     "LipreadConfig.mouth_threshold",
-    "MouthswitchConfig.dwell_s",
     "PersonalizeConfig.lora",
     "PersonalizeConfig.lora_base_model",
     "PersonalizeConfig.lora_min_events",

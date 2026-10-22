@@ -1957,9 +1957,21 @@ class WhispermodeConfig:
 
 @dataclass
 class MouthswitchConfig:
-    """v2.8 Wave L — Mouth-Sound Switch Access (ADR-v2-097). OFF by default."""
+    """v2.8 Wave L — Mouth-Sound Switch Access (ADR-v2-097). OFF by default.
+
+    Single-switch scanning: a lip pop starts/stops a highlight that steps through
+    ``scan_items`` every ``dwell_s`` seconds; a tongue click runs the lit item. Armed by
+    `yazses handsfree resume`, and needs the overlay to draw the highlight.
+    """
     enabled: bool = False
+    # Seconds per highlight step (clamped to 0.5-10 by mouthswitch/scanner.py).
     dwell_s: float = 1.2
+    # What the scan offers, in order. "click", "scroll up" and "scroll down" are pointer
+    # operations; anything else is a command phrase the command grammar must know and run
+    # without confirmation, or it is dropped (with a log line) when the daemon starts.
+    scan_items: list[str] = field(
+        default_factory=lambda: ["enter", "undo", "scroll up", "scroll down", "click"]
+    )
 
 
 @dataclass

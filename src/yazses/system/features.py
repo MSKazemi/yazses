@@ -581,9 +581,12 @@ def _registry() -> list[_Def]:
              lambda c: c.checkdigit.enabled, ckd_on, ckd_off),
         _Def("mouthswitch", "Mouth-Sound Switch Access", "[mouthswitch] — scan-and-select by mouth sounds",
              EXPERIMENTAL,
-             "Drive a scanning selector with non-verbal mouth sounds ('pop' = advance, cluck = "
-             "select) — the switch-access method for people who can't produce reliable speech. Off "
-             "by default.",
+             "Single-switch scanning with non-verbal mouth sounds, for people who can't produce "
+             "reliable speech: a lip pop starts (or stops) a highlight in the overlay that steps "
+             "through Enter, Undo, Scroll up, Scroll down and Click every 1.2 s, and a tongue "
+             "click runs the lit one. Armed by `yazses handsfree resume`, stopped by `handsfree "
+             "pause`; needs the overlay. Thresholds tuned on synthetic sounds only. Off by "
+             "default.",
              lambda c: c.mouthswitch.enabled, ms_on, ms_off),
         _Def("involuntary", "Involuntary-Vocalization Excision", "[involuntary] — drop coughs & sneezes",
              OPTIONAL,
@@ -1256,7 +1259,7 @@ def feature_packages(slug: str) -> tuple[str, ...]:
 # without wiring it fails CI.
 _UNWIRED: frozenset[str] = frozenset({
     "affect", "agent", "audioguard", "breath", "bridge", "cmdspotter",
-    "codec", "compose", "crowdproof", "hatselect", "interpret", "langroute", "lipread", "loadguard", "morsevox", "mouthswitch",
+    "codec", "compose", "crowdproof", "hatselect", "interpret", "langroute", "lipread", "loadguard", "morsevox",
     "multiprofile", "pilot", "polyglot", "pronunciation", "rag", "readback_clone",
     "screengrounded", "scribe", "scrub", "sentiment", "sign", "spatialvad", "wakeword",
 })
@@ -1330,7 +1333,7 @@ _EXAMPLES: dict[str, str] = {
     "acronyms": "Say 'WHO' the first time and it writes out the full name for you.",
     "morsevox": "One short hum, one long — spell a whole word by voice-Morse.",
     "checkdigit": "Dictate a card number and a mis-heard digit is caught instantly.",
-    "mouthswitch": "Pop your lips to move the highlight, cluck to select — no words.",
+    "mouthswitch": "Pop your lips to start the scan, click your tongue when 'Undo' lights up — no words.",
     "involuntary": "Cough mid-sentence and it's dropped before it reaches the text.",
     "breath": "Take a breath and YazSes commits that phrase and starts a new one.",
     "whispermode": "Drop to a whisper and it turns up the gain so it still hears you.",

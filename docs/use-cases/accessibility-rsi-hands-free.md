@@ -177,12 +177,45 @@ and an experimental camera-based Glance-Type mode that focuses the window you lo
 off by default, neither has been validated with users yet, and every speed and dwell
 setting is a provisional starting value — please report what works for you.
 
+## Switch scanning with mouth sounds
+
+If you cannot speak reliably at all, Mouth-Sound Switch Access gives you a few actions
+from two short mouth sounds. It is single-switch scanning, the common switch-access method
+in AAC. It is **experimental**, so `features enable` asks for `--force`. The overlay draws
+the highlight, so `[overlay]` must be on and the `desktop` extra installed:
+
+```sh
+yazses features enable mouthswitch --force
+yazses restart
+yazses handsfree resume      # opens the microphone; nothing listens before this
+```
+
+**Pop your lips** and a row of items appears across the top of the screen: Enter, Undo,
+Scroll up, Scroll down, Click. One item is lit at a time, and the light moves on every
+1.2 s (`[mouthswitch] dwell_s`). **Click your tongue** to run the lit item. Pop again to
+stop without choosing.
+
+- Each scan runs one item, then stops. Pop again for the next one.
+- A tongue click does nothing unless a scan is running.
+- A scan you ignore stops after three passes.
+- Nothing is heard while you dictate.
+- "Click" and "Scroll" act on the pointer where it already is. Enter and Undo work like the
+  spoken commands. You can change the list with `[mouthswitch] scan_items`. A phrase YazSes
+  does not know, or one that would need a confirmation (such as "save"), is left out when
+  the daemon starts, and the log says so.
+- `yazses handsfree pause`, or your stop phrase if you set one, closes the microphone.
+
+It has not been tried with real mouth sounds yet. Its thresholds were tuned on synthetic
+clicks and pops. A keyboard tap or a knock on the desk may count as a tongue click, so a
+click during a scan can run the lit item. It does not run on a native Wayland session,
+because the overlay is not started there. Please report what works for you.
+
 ## Honest limits
 
-- Two of the more exotic input modalities, the vocal joystick (`vocaljoystick`) and
-  pitch-contour gestures (`contour`), are wired but marked **experimental — not
-  advised yet** in `yazses features`: they need `--force`, and their thresholds were
-  tuned on synthetic signals only. Mouth-sound switch access, lip-reading and
+- Three of the more exotic input modalities, the vocal joystick (`vocaljoystick`),
+  pitch-contour gestures (`contour`) and mouth-sound switch access (`mouthswitch`), are
+  wired but marked **experimental — not advised yet** in `yazses features`: they need
+  `--force`, and their thresholds were tuned on synthetic signals only. Lip-reading and
   sign-language input are **planned — designed, not yet wired**, so
   `yazses features enable` refuses them. The CLI says which is which rather than
   pretending otherwise.

@@ -166,6 +166,29 @@ for it. Without the model or the package the daemon says why once in its log and
 dormant. The suggestion is kept out of the log above DEBUG. Untested with a real model and on
 real hardware; `yazses features enable predict --force`.
 
+### Added — Mouth-Sound Switch Access can now be turned on (experimental, off by default)
+
+`[mouthswitch]` had a tested sound detector and no caller. It is now single-switch scanning.
+Enable it, run `yazses handsfree resume`, and pop your lips. The overlay then shows a row of
+items across the top of the screen (Enter, Undo, Scroll up, Scroll down, Click) and lights
+the next one every `dwell_s` (1.2 s). A tongue click runs the item that was lit when the
+click began. A second pop stops the scan.
+
+- A command item goes through the activation policy, the command grammar and the
+  dispatcher, the same path Gesture Chords use. "Click" and "Scroll up/down" are single
+  calls on the existing pointer backend. `[mouthswitch] scan_items` changes the list. An
+  item the grammar does not know, or one that would need a confirmation (such as "save"),
+  is dropped at start-up and logged.
+- A select needs a detected click inside a running scan, and each scan selects once and then
+  stops. A click with no scan running does nothing. A scan nobody uses stops after three
+  passes. Nothing is heard while you dictate.
+- Without the overlay there is no switch: `handsfree resume` says why. The overlay is not
+  started on a native Wayland session.
+- `yazses handsfree pause`, the stop phrase, a global hands-free pause and shutdown close the
+  microphone.
+- The detector's thresholds were tuned on synthetic sounds only. The feature is untested on
+  a real microphone, and keyboard taps or desk knocks may read as a click.
+
 ### Changed — every CI test job now has a time limit that fits the parallel suite
 
 With no `timeout-minutes`, `repo-hygiene` sat in a hung `apt-get update` for 78 minutes

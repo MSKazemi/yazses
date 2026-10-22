@@ -274,12 +274,12 @@ phonate but not articulate discrete words, and for word-free eyes-free control.
 | **Pitch-Contour Gestures** | `contour` | Hum a shape — rise=confirm, fall=cancel, rise-fall=undo; a flat hum does nothing. Word-free, and only on an empty or hum-only transcript. Tuned on synthetic tones only. Experimental. |
 | ◌ **Breath-Paced Dictation** | `breath` | Segments dictation by your natural breath groups, not silence. |
 | **Whisper-Aware Mode** | `whispermode` | Detects whispered speech (no fundamental frequency — pure DSP, no model). With `command_channel` (default on): *whisper* a phrase and it runs as a command, speak normally and it types — a hands-free, socially-silent mode switch on a plain microphone. |
-| ◌ **Mouth-Sound Switch Access** | `mouthswitch` | Non-verbal mouth sounds drive a scan-and-select selector (AAC switch access). Experimental. |
+| **Mouth-Sound Switch Access** | `mouthswitch` | Single-switch scanning without words: a lip pop starts (or stops) a highlight in the overlay that steps through Enter, Undo, Scroll up, Scroll down and Click every `dwell_s` (1.2 s); a tongue click runs the item lit when the click began. One selection per scan. Armed by `yazses handsfree resume`, stopped by `yazses handsfree pause` or the stop phrase; needs the overlay. Thresholds tuned on synthetic sounds only, untested on real hardware. Experimental. |
 | **Involuntary-Vocalization Excision** | `involuntary` | Drops cough/throat-clear/sneeze before they corrupt the transcript. |
 
-Wave L: seven of its ten features are wired and off by default, and three of those
-(`vocaljoystick`, `hesitation`, `contour`) are experimental and need `--force`. The three
-marked ◌ are designed but not yet wired.
+Wave L: eight of its ten features are wired and off by default, and four of those
+(`vocaljoystick`, `hesitation`, `contour`, `mouthswitch`) are experimental and need `--force`.
+The two marked ◌ are designed but not yet wired.
 
 ## Minimal-bandwidth AAC & text-intelligence (Wave M)
 

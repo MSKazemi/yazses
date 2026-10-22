@@ -753,7 +753,7 @@ from the tree, so a method added to the daemon, or a caller added or removed, fa
 
 | Method | Reached from | Description |
 |---|---|---|
-| `status` | CLI, tray, overlay, settings window, `doctor` | Current state, model, hotkey, backend, uptime; plus `audio_level` (live `mean(\|samples\|)` while recording, else 0) and `vad_threshold` for the overlay |
+| `status` | CLI, tray, overlay, settings window, `doctor` | Current state, model, hotkey, backend, uptime; plus `audio_level` (live `mean(\|samples\|)` while recording, else 0) and `vad_threshold` for the overlay, and `mouthswitch` (the Mouth-Sound Switch's item labels and lit index, which the overlay draws as its scan strip; `null` while the feature is off) |
 | `shutdown` | tray, Windows service controller | Graceful shutdown. `yazses stop` does **not** come through here; it goes to the lifecycle backend (systemd / launchd / SCM) |
 | `inject` | CLI | Inject text directly (debug / remote agent) |
 | `staged` | CLI | `yazses staged status\|commit\|discard\|undo` -- the verb is a parameter, so this is one method rather than four |
