@@ -284,6 +284,7 @@ feature installs and no stated exemption explains.
 Every surface that finds a dormant feature now offers its install instead of a
 sentence: the daemon's start-up notification carries an **Install now** button, `yazses
 start`/`restart` in a terminal ask once (default no), and `yazses features install`
+(or `features repair`, which lists every one first and ends with a per-feature summary)
 does all of them (`system/ondemand.py`). Consent is unchanged — nothing downloads
 without that click, yes or command — and an environment that can never take the
 libraries (a snap, a frozen bundle, the distribution's own Python) gets the reason and

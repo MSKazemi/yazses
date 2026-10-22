@@ -107,6 +107,24 @@ To see the packages without fetching anything (this still switches the capabilit
 yazses features enable read-back --no-install
 ```
 
+## Switched on, but nothing installed (`◐`)
+
+A capability turned on with `--no-install`, by editing `config.toml`, or before an
+update rebuilt the environment shows as `◐ ON` in `yazses features`: on, but dormant,
+because its packages are missing. To see every one of them and what each needs, then
+install them all after one question:
+
+```bash
+yazses features repair --dry-run   # list only; installs nothing
+yazses features repair             # install them, then a summary line per feature
+yazses restart
+```
+
+It installs into whatever YazSes was installed with — the `uv tool` receipt, `pipx
+inject`, or your venv — so the next update keeps them. A snap or a frozen `.app`/`.exe`
+cannot take extra packages; `repair` names the reason and exits non-zero instead of
+trying.
+
 ## Keeping an install small
 
 - **Ask what it costs first** — `yazses features --category access` or `--tier opt`
