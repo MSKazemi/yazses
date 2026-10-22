@@ -75,6 +75,7 @@ def test_the_version_is_the_project_version(server: dict) -> None:
 def test_the_package_is_the_one_this_repository_publishes_to_pypi(server: dict) -> None:
     package = _package(server)
     assert package["registryType"] == "pypi"
+    assert package["registryBaseUrl"] == "https://pypi.org"
     assert package["identifier"] == _pyproject()["name"]
 
 
