@@ -77,6 +77,7 @@ AREAS = [
     (".github/workflows/test.yml", {"workflow_security"}),
     (".github/codeql/codeql-config.yml", {"workflow_security"}),
     (".github/dependabot.yml", {"workflow_security"}),
+    ("scripts/classify_changes.py", {"workflow_security"}),
     (".github/release.yml", {"release"}),
     ("CITATION.cff", {"release"}),
     ("sbom.cdx.json", {"release"}),
@@ -162,7 +163,7 @@ def _pull_request_paths(workflow: Path) -> list[str] | None:
 
 
 def test_the_scope_names_are_the_ones_workflows_will_read() -> None:
-    """CI-SCALE-002 will read these as `steps.<id>.outputs.<scope>`. A renamed scope makes
+    """Workflows read these as `steps.<id>.outputs.<scope>`. A renamed scope makes
     that expression empty, which reads as false and skips the lane, so the names and
     their output order are part of the contract."""
     assert classifier.SCOPES == (
@@ -333,7 +334,8 @@ def test_a_lane_scope_covers_its_workflow_paths_filter(workflow: str) -> None:
 def test_json_output_lists_scopes_in_fixed_order(capsys: pytest.CaptureFixture[str]) -> None:
     assert classifier.main(["src/yazses/platform/macos/__init__.py", "docs/index.md"]) == 0
     assert json.loads(capsys.readouterr().out) == {
-        "scopes": ["docs_design", "python_core", "macos"]
+        "scopes": ["docs_design", "python_core", "macos"],
+        "full": True,
     }
 
 
@@ -342,10 +344,10 @@ def test_paths_are_read_from_stdin_when_none_are_given(
 ) -> None:
     monkeypatch.setattr(sys, "stdin", io.StringIO("docs/index.md\r\nREADME.md\r\n"))
     assert classifier.main([]) == 0
-    assert json.loads(capsys.readouterr().out) == {"scopes": ["docs_design", "unknown"]}
+    assert json.loads(capsys.readouterr().out) == {"scopes": ["docs_design", "unknown"], "full": True}
 
 
-def test_github_output_has_one_boolean_per_scope_and_the_list(
+def test_github_output_has_one_boolean_per_scope_the_decision_and_the_list(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     """The output is appended to `$GITHUB_OUTPUT`, so it must end in a newline: without
@@ -364,6 +366,7 @@ def test_github_output_has_one_boolean_per_scope_and_the_list(
         "workflow_security=false",
         "release=false",
         "unknown=false",
+        "full=false",
         'scopes=["docs_design"]',
     ]
 

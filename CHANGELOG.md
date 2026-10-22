@@ -2007,6 +2007,22 @@ microphone: dictation into a Discord web channel and a DM arrived intact, and `r
 Discord's Push to Talk nor its overlay keybind. The desktop app, Linux and macOS are unverified, and the file says so.
 `scripts/check-app-profile.py` passes for all 20 profiles.
 
+### Changed — a docs-only pull request no longer waits for the cross-platform matrix (#535)
+
+`test.yml` now routes each pull request through `scripts/classify_changes.py` (#534). Every PR runs a fast lane
+(repository hygiene, ruff, the dependency budget, the CI-contract and generated-file drift tests) and the whole suite
+on one Linux leg. The rest of the OS/interpreter matrix, the Qt, extras and benchmark-harness jobs, and the advisory
+FreeBSD leg run unless every changed path is docs/design or Android. For a docs typo that skips about four
+runner-hours (measured on a recent `main` run), including two ~45-minute Windows legs. Unknown paths, runtime, tests,
+workflows, packaging and release changes still take the full lane, as do changes to the classifier
+itself, pushes to `main`, manual runs and PRs labelled `ci:full`. The `ci-gate` job, the single stable status
+a ruleset requires (#462), now knows the lanes: it still fails when any blocking job fails or is cancelled, and it
+accepts a skip only from a full-lane job on a run whose lane decision is literally `false`. A missing or garbled
+decision fails it. The verdict still runs inline from the `needs` context, with nothing checked out. The eight
+fixtures the issue asked for are pinned in `tests/test_ci_lanes.py` and tabled in `.github/CI_POLICY.md` section 5.
+The new advisory Windows update hand-off job also takes the full lane only. Thanks to
+[@filip-dzivy](https://github.com/filip-dzivy) ([#603](https://github.com/MSKazemi/yazses/pull/603)).
+
 ### Tests — the shared camera owner is now held to its contract at the daemon, not only on its own (#394)
 
 The single camera owner (`src/yazses/perception/source.py`, ADR-v2-145) was already proven on the source object: one
