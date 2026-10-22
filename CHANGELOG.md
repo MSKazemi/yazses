@@ -6,6 +6,16 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the daemon log and `yazses gaze status` say why a session cannot see clicks ([#607](https://github.com/MSKazemi/yazses/issues/607))
+
+With `[gaze_refine]` on and no click observer, the daemon log said "this platform has no
+click observer yet" even on a Wayland desktop, where the platform already knows the real
+reason: there is no global click stream. The daemon now passes that reason through, so
+the dormant line names the session rather than a backend that has not been written.
+`yazses gaze status` gains a `click observer` line while refinement is on, with the same
+reason `yazses doctor` shows; it reads two platform attributes and opens nothing. Nothing
+changes on a default install.
+
 ### Fixed — the website's home page renders in under two seconds on a throttled phone, not nine
 
 Lighthouse 12.8.2, mobile, the same build served with gzip, two runs each (2026-10-22).
