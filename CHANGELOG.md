@@ -6,6 +6,15 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `yazses mcp-server --help` no longer says `ask_human` is not offered
+
+The help said `ask_human` "is not offered yet". The server has offered it since
+`[mcp] ask_human = true` was added. The help now lists both tools and says `ask_human`
+appears only with that setting on. A test reads the tool list from the server's own
+registration and fails if the help lists a different set, so the two cannot drift
+again ([#641](https://github.com/MSKazemi/yazses/issues/641), ADR-032 §4). Written in a
+code-only pass; the test has not been run yet.
+
 ## [2.44.0] - 2026-10-23
 
 ### Fixed — the settings-window code no longer says it has "~200 rows"
