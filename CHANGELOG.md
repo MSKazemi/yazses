@@ -6,6 +6,17 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `yazses features info gitvoice` no longer promises a spoken confirm that does not exist
+
+The feature catalog said git commands could be driven by voice, that destructive ones
+"wait for a spoken confirm" and that "the undo is always spoken". None of that exists.
+Git by voice is the `yazses gitvoice "<phrase>"` command: it prints the git command and
+how to undo it, runs it only with `--run`, and a destructive one only with `--yes` as
+well. Nothing is spoken, no dictation path runs git, and nothing reads
+`[gitvoice] enabled`, so the command works with the toggle on or off. The catalog text,
+its example and its "use when" line now say that, and `yazses features enable gitvoice`
+says so too. `docs/features.md` picks the new text up on the next `make docs`.
+
 ### Fixed — `yazses gitvoice` refuses a branch name it cannot read, instead of guessing one
 
 `yazses gitvoice "push the frobnicator please"` printed `git push origin the` and exited 0:

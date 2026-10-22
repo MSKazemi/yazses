@@ -1384,6 +1384,10 @@ Turn a spoken git command into a git command, fully offline. It **always prints
 the resolved command and how to undo it**, which is the point — you see exactly
 what you are about to run before anything happens.
 
+It is a command-line tool and needs no setup: nothing reads `[gitvoice] enabled`
+(the `yazses features` toggle only records a choice), no dictation path runs git, and
+nothing is spoken back — there is no spoken confirm.
+
 **Options:** `--run` (execute instead of only printing) · `--yes` (confirm a
 destructive command so `--run` will run it).
 

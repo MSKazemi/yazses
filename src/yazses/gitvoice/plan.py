@@ -8,7 +8,8 @@ from __future__ import annotations
 
 import re
 
-# argv tuples (without the leading "git") that require a spoken confirm before running.
+# argv tuples (without the leading "git") classified "confirm": `yazses gitvoice --run`
+# refuses them without `--yes`.
 _DESTRUCTIVE = (
     ("push", "--force"), ("reset", "--hard"), ("branch", "-D"),
     ("clean", "-fd"), ("checkout", "--"),

@@ -731,9 +731,16 @@ _Def("chords", "Chorded Shortcut Synthesis", "[chords] — any keyboard shortcut
              "'spell capital alpha bravo double lima' → 'Abll'. Handles digits and symbols. "
              "Needs [hotkey] command_key bound. Off by default.",
              lambda c: c.spelling.enabled, spl_on, spl_off),
+        # A command-line tool, not a voice path: `yazses gitvoice` is the only way in, and
+        # it never consults `[gitvoice] enabled`. This text used to promise a spoken
+        # confirm and a spoken undo; neither exists (2026-10-21 docs audit).
         _Def("gitvoice", "Voice Git Choreographer", "[gitvoice] — safe git by voice", OPTIONAL,
-             "Drive git by voice via a structured grammar; destructive ops (force-push, reset "
-             "--hard) wait for a spoken confirm and the undo is always spoken. Off by default.",
+             "Run `yazses gitvoice \"<spoken git command>\"` — 'commit with message …', "
+             "'create branch feature slash login', 'push to main' → it prints the git command "
+             "and how to undo it. `--run` runs it; a destructive one (force-push, reset --hard, "
+             "branch -D, discarding changes) also needs `--yes`. A command-line tool: nothing "
+             "is spoken, there is no spoken confirm, and dictation never runs git. The "
+             "command works whether or not [gitvoice] enabled is set — nothing reads that key.",
              lambda c: c.gitvoice.enabled, gv_on, gv_off),
         _Def("latency", "Adaptive Latency Governor", "[latency] — load-aware decode", RECOMMENDED,
              "Adapts decoding to system load: while the 1-minute load average is at or above "
@@ -1338,7 +1345,7 @@ _EXAMPLES: dict[str, str] = {
     "reask": "An unsure 'their/there' pops a quick pick instead of guessing wrong.",
     "verbatim": "Say 'dictate verbatim' and 'one hundred dollars' types literally.",
     "spelling": "Say 'capital alpha bravo double lima' to type 'Abll' exactly.",
-    "gitvoice": "Say 'force push' and it waits for confirm, and tells you the undo.",
+    "gitvoice": "`yazses gitvoice \"force push\" --run` prints the command and its undo, and refuses without --yes.",
     "latency": "Dictation stays snappy when your CPU is busy, faster when it's idle.",
     "diarize": "A two-person chat is typed as **Alice:** … **Bob:** … you can rename by voice.",
     "cite": "Say 'cite Vaswani 2017' to insert a citation from your .bib.",
@@ -1508,7 +1515,7 @@ _USE_CASES: dict[str, str] = {
     "reask": "When one word is often guessed wrong and you'd rather confirm it than retype the whole line.",
     "verbatim": "When you need exact literal capture (a quote, a code block) with no auto-formatting applied.",
     "spelling": "When dictating a password, code, or ID that has to be character-exact.",
-    "gitvoice": "When driving git hands-free and you want destructive commands gated behind a spoken confirm.",
+    "gitvoice": "When you want a spoken git phrase turned into the exact git command, shown before anything runs.",
     "latency": "When your CPU is busy and dictation lags, but you still want fast response when it's idle.",
     "diarize": "When capturing a live multi-speaker conversation you need attributed to each person.",
     "cite": "When writing a paper by voice and you want citations pulled from your local BibTeX library.",
@@ -1807,6 +1814,18 @@ def enable_caveat(slug: str, cfg) -> str | None:
                 "changes nothing you can trigger. Bind one first, e.g. "
                 "`yazses hotkey command right_ctrl`, then `yazses restart`."
             )
+    if slug == "gitvoice":
+        # The toggle records a choice and nothing more: `yazses gitvoice` never consults
+        # `[gitvoice] enabled`, and no dictation path runs git. Saying "Enabled" and
+        # "Apply it: yazses restart" without this would suggest the daemon now listens
+        # for git commands. It does not.
+        return (
+            "Heads up: this capability is the `yazses gitvoice \"<phrase>\"` command, and "
+            "it works whether or not this is enabled — nothing reads [gitvoice] enabled. "
+            "Dictation never runs git, and nothing is spoken back: the command prints the "
+            "git command and its undo, runs it only with --run, and a destructive one "
+            "only with --yes as well."
+        )
     if slug == "voiceguard":
         # Enabling writes [voiceprint] enabled too, but no write can enroll a voice, and
         # fail_open = false is refused outright (no anti-spoof score exists). Either way
