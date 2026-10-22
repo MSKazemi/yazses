@@ -429,6 +429,10 @@ class Daemon:
         self._warned_inert: set[str] = set()
         self._injector: InjectorBackend | None = None
         self._engine: SttEngine | None = None
+        # The engine's own description, taken while its model is loaded, keyed by the
+        # engine object: `[stt] idle_unload_s` releases the model and the live lookup then
+        # says nothing, which would hide a fallback again (#644).
+        self._engine_info: tuple[int, dict[str, str]] | None = None
         # Adaptive Latency Governor (ADR-v2-073). None unless `[latency] enabled`
         # and this platform reports a load average; see `_decode_engine`.
         self._governor: "EnginePool | None" = None
@@ -1566,6 +1570,7 @@ class Daemon:
         log.info("Loading STT engine %r (model %r)...", cfg.stt.engine, cfg.stt.model)
         self._announce_model_download(cfg)
         self._engine = self._with_idle_unload(build_engine(cfg.stt))
+        self._remember_engine_info()
 
         # [injection] backend selects the Linux injector (type | ydotool |
         # clipboard | wtype | auto), and fallback_to_clipboard the runtime fallback.
@@ -5797,6 +5802,12 @@ class Daemon:
             words = merge_terms(words, self._config.hotwords.terms)
         return words
 
+    def _remember_engine_info(self) -> None:
+        """Keep the engine's description from while its model is loaded (see `_engine_info`)."""
+        engine = self._engine
+        info = describe_active_engine(engine) if engine is not None else None
+        self._engine_info = (id(engine), info) if info is not None else None
+
     def _active_engine_fields(self) -> dict:
         """The engine and checkpoint decoding right now, and the fallback if one happened.
 
@@ -5804,7 +5815,13 @@ class Daemon:
         not describe itself. They are never filled in from config, because a status
         that repeats the config is exactly what hid a failed Parakeet load (#644).
         """
-        info = describe_active_engine(self._engine) if self._engine is not None else None
+        engine = self._engine
+        info = describe_active_engine(engine) if engine is not None else None
+        if info is not None:
+            self._engine_info = (id(engine), info)
+        elif engine is not None and self._engine_info is not None \
+                and self._engine_info[0] == id(engine):
+            info = self._engine_info[1]  # the model is unloaded; it was this engine
         if info is None:
             return {"engine": None, "engine_model": None, "engine_fallback": None}
         fallback = (

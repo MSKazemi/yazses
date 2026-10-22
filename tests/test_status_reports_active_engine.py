@@ -221,3 +221,56 @@ def test_yazses_status_prints_the_fallback(monkeypatch):
 def test_the_settings_window_names_the_checkpoint_that_decodes():
     status = {"state": "idle", "model": "nemo-parakeet-tdt-0.6b-v2", "engine_model": "base.en"}
     assert describe_status(status) == "Running (state idle, model base.en)."
+
+
+# ---- a status reply never fails, and survives an idle unload ----------------------------
+
+
+class _Refuses:
+    """An engine double whose attribute lookups raise something other than AttributeError."""
+
+    def __getattr__(self, name):
+        raise AssertionError(f"the engine was asked for {name}")
+
+
+def test_an_engine_whose_lookups_raise_is_unknown_not_a_crash():
+    assert describe_active_engine(_Refuses()) is None
+
+
+def test_the_status_reply_survives_an_engine_whose_lookups_raise():
+    d = _daemon()
+    d._engine = _Refuses()
+    status = d._handle_status(None)
+    assert (status["engine"], status["engine_model"], status["engine_fallback"]) == (None, None, None)
+
+
+class _Unloadable:
+    """Describes itself while loaded; raises AttributeError once the model is released,
+    as `stt/resident.py`'s IdleUnloadEngine does under `[stt] idle_unload_s`."""
+
+    def __init__(self) -> None:
+        self.loaded = True
+
+    def __getattr__(self, name):
+        if not self.__dict__.get("loaded"):
+            raise AttributeError(name)
+        return {"engine_name": "faster-whisper", "model_name": "base.en",
+                "fallback_from": "parakeet", "fallback_reason": "it failed to load"}[name]
+
+
+def test_a_fallback_is_still_reported_after_the_model_is_unloaded():
+    d = _daemon()
+    d._engine = _Unloadable()
+    d._remember_engine_info()          # what _build_pipeline does once the engine exists
+    d._engine.loaded = False           # idle unload released the model
+    status = d._handle_status(None)
+    assert status["engine"] == "faster-whisper"
+    assert status["engine_fallback"] == {"from": "parakeet", "reason": "it failed to load"}
+
+
+def test_a_remembered_description_never_outlives_its_engine():
+    d = _daemon()
+    d._engine = _Unloadable()
+    d._remember_engine_info()
+    d._engine = _Refuses()             # a different engine object, which says nothing
+    assert d._handle_status(None)["engine"] is None

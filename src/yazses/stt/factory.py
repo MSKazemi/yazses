@@ -157,12 +157,17 @@ def describe_active_engine(engine: object) -> dict[str, str] | None:
     a caller reports "unknown" instead of echoing `[stt] engine` as if it had been
     verified. The wrapper engines forward attribute lookups to the engine they wrap.
     """
-    name = getattr(engine, "engine_name", None)
-    if not isinstance(name, str) or not name:
+    # A status reply must never fail because of an engine object: a double, a wrapper or a
+    # third-party engine may raise something other than AttributeError from a lookup.
+    try:
+        name = getattr(engine, "engine_name", None)
+        if not isinstance(name, str) or not name:
+            return None
+        model = getattr(engine, "model_name", "")
+        fallback_from = getattr(engine, "fallback_from", "")
+        fallback_reason = getattr(engine, "fallback_reason", "")
+    except Exception:
         return None
-    model = getattr(engine, "model_name", "")
-    fallback_from = getattr(engine, "fallback_from", "")
-    fallback_reason = getattr(engine, "fallback_reason", "")
     return {
         "engine": name,
         "model": model if isinstance(model, str) else "",
