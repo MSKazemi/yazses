@@ -6,6 +6,18 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — Predictive Completion can be turned on (experimental, off by default)
+
+`predict` had a tested core and no caller. Now, with `[predict] enabled = true` and a local
+GGUF model at `[predict] model_path`, each typed dictation is followed by a suggested rest of
+the sentence in a notification. Say "accept" or "take it" within 10 seconds to type it, or
+"discard" to drop it; anything else you say dismisses it and is dictated as usual. Nothing is
+typed without the accept, and the word "accept" is never typed in its place. The model runs
+on a background thread through llama-cpp-python (the `slm` extra), so dictation never waits
+for it. Without the model or the package the daemon says why once in its log and stays
+dormant. The suggestion is kept out of the log above DEBUG. Untested with a real model and on
+real hardware; `yazses features enable predict --force`.
+
 ### Changed — every CI test job now has a time limit that fits the parallel suite
 
 With no `timeout-minutes`, `repo-hygiene` sat in a hung `apt-get update` for 78 minutes

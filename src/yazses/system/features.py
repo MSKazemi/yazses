@@ -1009,9 +1009,13 @@ _Def("chords", "Chorded Shortcut Synthesis", "[chords] — any keyboard shortcut
              "numpy<2.0 against this project's numpy>=2.4.6) and passes audio through. "
              "Off by default.",
              lambda c: c.denoise.enabled, dn_on, dn_off),
-        _Def("predict", "Predictive Completion", "[predict] — voice autosuggest", OPTIONAL,
-             "A tiny local model suggests the rest of your sentence; accept by voice. "
-             "Needs the predict extra + a model. Off by default.",
+        _Def("predict", "Predictive Completion", "[predict] — voice autosuggest, experimental",
+             EXPERIMENTAL,
+             "After a dictation is typed, a local model proposes the rest of the sentence "
+             "in a notification; say \"accept\" or \"take it\" within 10 seconds to type it. "
+             "Anything else you say dismisses it, and nothing is typed without the accept. "
+             "Needs llama-cpp-python (the slm extra) and a local GGUF model at "
+             "[predict] model_path. Off by default.",
              lambda c: c.predict.enabled, pd_on, pd_off),
         _Def("affect", "Tone-Aware Formatting", "[affect] — tone → !/?", OPTIONAL,
              "Adds ! or ? based on your vocal tone (excited/question), beyond pause "
@@ -1235,7 +1239,7 @@ def feature_packages(slug: str) -> tuple[str, ...]:
 _UNWIRED: frozenset[str] = frozenset({
     "affect", "agent", "audioguard", "breath", "bridge", "cmdspotter",
     "codec", "compose", "crowdproof", "hatselect", "interpret", "langroute", "lipread", "loadguard", "morsevox", "mouthswitch",
-    "multiprofile", "pilot", "predict", "pronunciation", "proofback", "rag", "readback_clone",
+    "multiprofile", "pilot", "pronunciation", "proofback", "rag", "readback_clone",
     "screengrounded", "scribe", "scrub", "sentiment", "sign", "spatialvad", "wakeword",
 })
 
@@ -1398,7 +1402,7 @@ _EXAMPLES: dict[str, str] = {
     "rag": "Ask 'what did I note about the budget?' → a cited answer from your local docs.",
     "scribe": "Meeting mode: turns are diarized into a labelled transcript.",
     "denoise": "yazses features enable denoise — background noise is filtered pre-STT.",
-    "predict": "Accept the greyed-ahead completion by continuing to speak.",
+    "predict": "Dictate 'the meeting is moved to', then say 'accept' to type the suggested rest.",
     "affect": "Excited speech → an exclamation mark; questions → a question mark.",
     "translate": "yazses features enable translate — speak any language, type English.",
     "recall": "yazses recall 'the address I dictated yesterday'.",
@@ -1825,6 +1829,24 @@ def enable_caveat(slug: str, cfg) -> str | None:
                 "fail_open = true."
             )
         return advice
+    if slug == "predict":
+        # Enabling writes `[predict] enabled` only. Which model to run is the user's
+        # choice, and the toggle installs nothing, so with no model path or no
+        # llama-cpp-python the daemon says so once in its log and offers nothing.
+        try:
+            from yazses.predict.generator import dormant_reason
+
+            pd = getattr(cfg, "predict", None)
+            reason = dormant_reason(str(getattr(pd, "model_path", "") or ""))
+        except Exception:
+            reason = None
+        if reason:
+            return (
+                f"Heads up: Predictive Completion stays dormant until it can run a local "
+                f"model, and right now {reason}. Set [predict] model_path to a small GGUF "
+                "completion model and install llama-cpp-python (the `slm` extra), then "
+                "`yazses restart`."
+            )
     if slug == "corrdict":
         # The table is mined from corpus events, and the corpus is off by default
         # (ADR-011). Enabling corrdict alone is the same "toggle that lies" shape:

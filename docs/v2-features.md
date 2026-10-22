@@ -41,7 +41,7 @@ It stays listed so contributors can pick it up; see the matching design/adr/ ent
 ```
 
 They stay listed because that is where a contributor picks one up — each has a matching
-`design/adr/` entry. **29 of the 122 rows below are ◌ today.** Rows without the mark are
+`design/adr/` entry. **28 of the 122 rows below are ◌ today.** Rows without the mark are
 wired and can be turned on.
 
 ### "Hold the command key" — what that means
@@ -124,7 +124,7 @@ A fresh 2026 state-of-the-art round. Manage them with `yazses features enable/di
 |---|---|---|
 | **Speech Translation** | `translate` | Dictate in another language, type English — uses Whisper's built-in translate (X→English, no extra download); other targets via the `seamless` backend. |
 | ◌ **Tone-Aware Formatting** | `affect` | Adds `!`/`?` from your vocal tone (beyond pause punctuation). Conservative by default. No `affect` extra exists yet — the tone-detection dependency ships with the implementation. |
-| ◌ **Predictive Completion** | `predict` | A tiny on-device model suggests the rest of your sentence; accept by voice. No `predict` extra exists yet. |
+| **Predictive Completion** (experimental) | `predict` | After a dictation is typed, a small local model suggests the rest of the sentence in a notification; say "accept" or "take it" within 10 seconds to type it, "discard" to drop it, or just keep talking. Nothing is typed without the accept. Needs llama-cpp-python (the `slm` extra) and a GGUF model at `[predict] model_path`; without them it stays dormant and says why once in the daemon log. `--force`; untested with a real model. |
 | **Noise Suppression** | `denoise` | Cleans background noise/echo before transcription so dictation works in noisy rooms. Needs the `denoise` extra, which installs the **spectral** backend (`noisereduce`). DeepFilterNet is *not* installable here — every release of it caps `numpy<2.0` while YazSes needs `numpy>=2.4.6`. |
 | ◌ **Meeting Scribe** | `scribe` | On-device "who said what" transcript — you are tagged **You**, others **Speaker N**. No `scribe` extra exists; the shipped diarization path is `yazses transcribe --diarize` behind the `diarization` extra. |
 | ◌ **Ask My Notes (voice RAG)** | `rag` | Ask a question by voice, get an answer grounded in and citing your own local notes/docs. No `rag` extra exists yet. |

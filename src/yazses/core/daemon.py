@@ -42,6 +42,8 @@ if TYPE_CHECKING:
     from yazses.meeting.controller import MeetingController
     from yazses.perception import SharedPerceptionSource
     from yazses.polyglot.router import PolyglotRouter
+    from yazses.predict.runtime import PredictRuntime
+    from yazses.predict.session import Suggestion
     from yazses.reask.gate import ReaskGate
     from yazses.styleguard.rules import Rule as StyleRule
     from yazses.system.single_instance import SingleInstanceLock
@@ -451,6 +453,11 @@ class Daemon:
         self._last_low_confidence_words: int = 0
         # Confidence-Gated Re-Ask (ADR-v2-077): built on first use, only when [reask] is on.
         self._reask: ReaskGate | None = None
+        # Predictive Completion (ADR-v2-016): built after the first dictation typed with
+        # [predict] on, and only when its model can load (`_predict_runtime`). A missing
+        # model or llama-cpp-python sets `_predict_dormant` so the check runs once.
+        self._predict: PredictRuntime | None = None
+        self._predict_dormant = False
         # Recent decode times per model, for the p50/p95 in `yazses status`
         # (#296). Bounded and in-memory: a diagnostic must not depend on the
         # opt-in learning corpus, and it must not write anything to disk.
@@ -2642,6 +2649,10 @@ class Daemon:
             return  # a second tap while latched: its release ends the turn
         if self._hesitation is not None:
             self._hesitation.reset()  # ADR-v2-101: each turn's filled-pause verdict starts empty
+        if self._predict is not None:
+            # ADR-v2-016: a completion still being generated for the previous burst is
+            # stale now. An offered one survives -- this burst may be its "accept".
+            self._predict.begin_burst()
         # Barge-in: a new hold during read-back cancels TTS playback immediately
         # so the user's speech is never recorded over the spoken transcript. The
         # sequence is bumped first and under the lock, so a read-back that has been
@@ -3438,6 +3449,17 @@ class Daemon:
                         intent = None
                 is_dictation = intent is None or intent.intent == IntentType.DICTATE
 
+            # Predictive Completion (ADR-v2-016): the burst after an offered suggestion
+            # answers it. Only a whole-utterance accept or decline is consumed; anything
+            # else withdraws the offer and is dictated below as usual. First among the
+            # whole-utterance handlers so "scratch that" or "undo" also withdraws it --
+            # a suggestion for text that is being removed must not stay acceptable.
+            if is_dictation and self._predict is not None:
+                if self._predict_answer(
+                    text, event, injector, stream_injector if use_streaming else None
+                ):
+                    return
+
             # Voice Undo/Redo Timeline (ADR-v2-089): a whole-utterance "undo the last
             # word" / "redo" replays YazSes's own injection history, in the same shape
             # as "scratch that" above — backspaces and retypes only what this daemon
@@ -3930,6 +3952,11 @@ class Daemon:
                     self._timeline.record(text)
                 # Read-Back Loop: speak the final transcript back (dictation only).
                 self._maybe_read_back(text)
+                # Predictive Completion (ADR-v2-016): ask for the rest of the sentence.
+                # Returns at once -- the model runs on its own thread, and a result that
+                # arrives after the next hold has started is dropped unseen.
+                if self._config.predict.enabled:
+                    self._predict_submit(text, event)
 
         except Exception as exc:
             # Recorded for the outcome gauge: nothing reached the window, and
@@ -3980,6 +4007,20 @@ class Daemon:
             # that contained three good captures.
             if event.get("raw_text") and capture_proved(event.get("discard_reason")):
                 self._note_good_capture()
+            # Predictive Completion (ADR-v2-016): a burst that produced words and did not
+            # end in dictation typed (or in an answer to the offer) changed the screen in
+            # some other way -- a command, an undo, a refusal. What the model was shown no
+            # longer matches it, so the offer and the context both go. A silent burst
+            # produced no words and leaves the offer standing.
+            if (
+                self._predict is not None
+                and event.get("raw_text")
+                and not event.get("predict_continues")
+            ):
+                try:
+                    self._predict.interrupt()
+                except Exception:
+                    log.debug("Predictive completion reset failed", exc_info=True)
             if self._corpus is not None and (
                 event.get("raw_text") or event.get("discard_reason")
             ):
@@ -4699,6 +4740,159 @@ class Daemon:
             )
         except Exception:  # pragma: no cover - notification is never load-bearing
             log.debug("Re-ask expiry notification failed", exc_info=True)
+
+    def _predict_answer(self, text: str, event: dict, injector, stream_injector) -> bool:
+        """Predictive Completion (ADR-v2-016). True when this burst answered the offer.
+
+        The decision is ``PredictSession.resolve``'s; this applies it. An accept types the
+        suggestion -- never the word "accept" -- through the same checks the scratch-that
+        branch uses: no editable target means nothing is typed, and Field-Aware
+        Dictation still gets to refuse a password box. A decline, or an accept that
+        arrives after the offer expired, types nothing at all.
+
+        A held dangerous command or an open re-ask keeps first claim on the utterance,
+        exactly as `_reask_gate` steps aside for the command gate: "cancel that" and
+        "never mind" are the command gate's words too. The offer is then withdrawn by
+        the ``finally`` block of `_on_hold_end`, because the burst did not answer it.
+        """
+        runtime = self._predict
+        if runtime is None or runtime.pending is None:
+            return False
+        if self._cmdsafety.pending is not None or (
+            self._reask is not None and self._reask.pending
+        ):
+            return False
+        from yazses.predict.session import ACCEPT, DECLINE
+
+        try:
+            res = runtime.resolve(text)
+        except Exception:  # an offer must never be the reason dictation stops
+            log.exception("Predictive completion: resolving the offer failed")
+            return False
+        event["predict_action"] = res.action
+        if not res.consumed:
+            return False
+        if stream_injector is not None:
+            stream_injector.cancel()
+        # An instruction, not dictation: keep it out of the dictation rate, as the
+        # mouse grid does. An accept is counted as what it is -- typed text.
+        event["command_mode"] = res.action != ACCEPT
+
+        if res.action == DECLINE:
+            event["predict_continues"] = True  # the screen is unchanged
+            log.info("Predictive completion: suggestion declined.")
+            return True
+        if res.action != ACCEPT:
+            event["predict_continues"] = True
+            log.info("Predictive completion: the suggestion had expired; nothing typed.")
+            self._notify_predict("That suggestion had expired, so nothing was typed.")
+            return True
+
+        typed = res.typed
+        if self._state.target_ok is False:
+            event["discard_reason"] = "predict_no_text_target"
+            log.info("Predictive completion: no editable target, so the accepted "
+                     "suggestion was not typed.")
+            self._notify_predict("No text field is focused, so the suggestion was not typed.")
+            return True
+        if self._config.fieldaware.enabled:
+            shaped = self._fieldaware_shape(typed, event)
+            if shaped is None:
+                return True
+            typed = shaped
+        injector.inject(typed)
+        event["predict_continues"] = True
+        event["intent_type"] = "predict_accept"
+        self._last_dictation_monotonic = time.monotonic()
+        self._last_dictation_tail = typed[-1:]
+        # Recorded like any dictated burst, so "scratch that" and "undo" remove it.
+        if self._config.revise.enabled:
+            self._ledger.record(typed)
+        if self._timeline is not None:
+            self._timeline.record(typed)
+        log.info("Predictive completion: accepted, typed %d chars.", len(typed))
+        return True
+
+    def _predict_submit(self, text: str, event: dict) -> None:
+        """Hand a typed burst to the completion worker. Never blocks, never raises."""
+        runtime = self._predict_runtime()
+        if runtime is None:
+            return
+        with self._lock:
+            app = self._state.app_class
+        try:
+            if runtime.submit(text, app):
+                event["predict_requested"] = True
+        except Exception:
+            log.debug("Predictive completion submit failed", exc_info=True)
+        event["predict_continues"] = True
+
+    def _predict_runtime(self) -> PredictRuntime | None:
+        """The completion worker, built on first use; None while off or dormant.
+
+        Dormant means the model cannot run -- no ``[predict] model_path``, no
+        llama-cpp-python, or a path that is not a file. That is said once, with the
+        install command when a package is what is missing, and then nothing is retried
+        until the daemon restarts: the dictation path does not pay a filesystem probe
+        per burst for a feature that cannot work.
+        """
+        if self._predict is not None:
+            return self._predict
+        if self._predict_dormant or not self._config.predict.enabled:
+            return None
+        cfg = self._config.predict
+        try:
+            from yazses.predict.generator import LlamaCompleter, dormant_reason
+
+            reason = dormant_reason(cfg.model_path)
+            if reason is not None:
+                self._predict_dormant = True
+                self._warn_feature_inert("predict", reason + "; no suggestions are offered")
+                return None
+            from yazses.predict.runtime import PredictRuntime
+
+            self._predict = PredictRuntime(
+                LlamaCompleter(cfg.model_path, cfg.max_tokens), self._offer_prediction
+            )
+        except Exception:
+            self._predict_dormant = True
+            log.exception("Predictive completion could not start; staying dormant")
+            return None
+        return self._predict
+
+    def _offer_prediction(self, suggestion: Suggestion) -> None:
+        """Worker thread: show an offered completion on the notification surface.
+
+        The one notification whose body is derived from dictation, deliberately: the
+        suggestion is the feature, and it has to be read to be accepted. It is kept off
+        the log -- ``log_body=False`` for the no-libnotify path, and only its word count
+        at INFO here -- and the toast expires with the offer.
+        """
+        from yazses.predict.session import SUGGESTION_TTL_S
+
+        log.info("Predictive completion: offering %d word(s).", suggestion.words)
+        log.debug("Predictive completion offer: %r", suggestion.display)
+        try:
+            from yazses.system.notify import notify
+
+            notify(
+                "YazSes \u2014 suggestion",
+                f"\u2026{suggestion.display}\n"
+                "Say \u201caccept\u201d to type it; keep talking to dismiss it.",
+                expire_ms=int(SUGGESTION_TTL_S * 1000),
+                log_body=False,
+            )
+        except Exception:  # pragma: no cover - notification is never load-bearing
+            log.debug("Predictive completion notification failed", exc_info=True)
+
+    def _notify_predict(self, message: str) -> None:
+        """Say what happened to an offer. Best-effort; never raises into dictation."""
+        try:
+            from yazses.system.notify import notify
+
+            notify("YazSes \u2014 suggestion", message)
+        except Exception:  # pragma: no cover - notification is never load-bearing
+            log.debug("Predictive completion notification failed", exc_info=True)
 
     def _notify_cmdsafety(self, message: str) -> None:
         """Say what the gate did. Best-effort; never raises into dictation."""
@@ -7281,6 +7475,11 @@ class Daemon:
                 self._voicehealth.close()
             except Exception:
                 log.exception("Vocal-Strain Guard close raised")
+        if self._predict is not None:
+            try:
+                self._predict.close()  # stops the worker; never waits on a generation
+            except Exception:
+                log.exception("Predictive completion close raised")
         if self._timers is not None:
             # A pending voice timer has nothing to report to a desktop that is
             # going away, and its thread must not hold the process open.
