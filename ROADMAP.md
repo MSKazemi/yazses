@@ -4,7 +4,7 @@
 > [Roadmap — eras, milestones, and the destination](https://mskazemi.com/yazses/roadmap.html)
 > (`docs/roadmap.md`). Delivery work is filed under one
 > [GitHub milestone](https://github.com/MSKazemi/yazses/milestones) —
-> Verified everywhere · Install anywhere · Speech accuracy · Voice control ·
+> Verified everywhere · Agent-era mic · Install anywhere · Speech accuracy · Voice control ·
 > Contributor experience · Hands-free · Paper 2 · Android M0–M3 (Settings GUI and
 > Silent input are complete and closed). Epics and evergreen issues (research
 > questions, test-report calls, translation reviews, invitations) follow the
