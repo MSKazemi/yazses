@@ -34,12 +34,16 @@ these changes it took 40 min 49 s, after them 7 min 38 s. No assertion was remov
   `quality.assess` output, and the file went from 31 s to 1.9 s.
 - **A hung test fails after five minutes** with every thread's stack, via
   `pytest-timeout`. A Windows leg once printed one test name and then nothing for 2 h 30 m.
-  Override per test with `@pytest.mark.timeout(N)`.
+  Override per test with `@pytest.mark.timeout(N)`. It works under xdist: on Linux and
+  macOS the hung test fails and the run carries on. On Windows, where the timeout has to
+  exit the process, xdist reports the worker as crashed on that test, starts a new one
+  and carries on; a serial Windows run stops at the hang.
 - **The pytest config is strict.** `--strict-markers`, `--strict-config` and
   `xfail_strict` are on, so a misspelt marker or config key is an error, and so is an
   `xfail` that starts passing. `required_plugins` refuses to start a run without
-  pytest-mock, pytest-timeout or Hypothesis. `tests/test_pytest_config.py` checks all of
-  this, including a real hang that must come back as a failure.
+  pytest-mock, pytest-timeout, pytest-xdist or Hypothesis. `tests/test_pytest_config.py`
+  checks all of this, including a real hang, serially and under xdist with each timeout
+  method, that must come back as a failure.
 
 ### Fixed — the macOS app no longer claims macOS 11, and the Homebrew cask puts `yazses` on your PATH
 

@@ -80,6 +80,9 @@ from pytest-timeout. `required_plugins` names the plugins the suite needs. Add a
 to the `dev` group **and** to the FreeBSD leg's `pip install` line in `test.yml`, which
 installs test dependencies by name. Never raise the global timeout to make a slow test
 pass. Mark that test `@pytest.mark.timeout(N)` instead, or make it faster.
+On Windows pytest-timeout has no signal to use, so a hang exits the process: a serial run
+stops there, while under `-n auto` only that worker dies and xdist reports the test as
+crashed and carries on.
 
 **mypy is clean and advisory.** `uv run mypy src` reports **no issues** on the plain
 `uv sync` above — no backlog, no accepted errors, nothing you have to install first. So if

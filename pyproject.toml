@@ -476,7 +476,12 @@ minversion = "9.0"
 # means hundreds of "fixture 'mocker' not found" errors. With it, the run stops at
 # startup and names the plugin. `tests/test_pytest_config.py` checks that every plugin
 # listed here is also installed by that leg.
-required_plugins = ["pytest-mock>=3.15.1", "pytest-timeout>=2.4.0", "hypothesis>=6.165.2"]
+required_plugins = [
+    "pytest-mock>=3.15.1",
+    "pytest-timeout>=2.4.0",
+    "pytest-xdist>=3.8.0",
+    "hypothesis>=6.165.2",
+]
 # --strict-markers: a misspelt marker (`@pytest.mark.quarantined`) is an error rather
 #   than a silently ignored decorator that leaves the test unquarantined.
 # --strict-config: an unknown key in this table is an error rather than a setting that

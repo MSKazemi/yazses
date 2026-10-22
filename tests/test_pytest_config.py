@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import pathlib
 import re
+import signal
 import subprocess
 import sys
 import textwrap
@@ -90,16 +91,43 @@ def test_every_required_plugin_is_installed_on_the_freebsd_leg() -> None:
     )
 
 
+#: (extra pytest args, text the output must contain, whether the run goes on to the next
+#: test). The suite runs serially for contributors and with `-n auto` in CI, and
+#: pytest-timeout picks SIGALRM on POSIX and a watchdog thread on Windows, so all four
+#: combinations reach a real run somewhere. The thread method cannot interrupt the hung
+#: thread, so it dumps every stack and exits the process. Serially, that ends the whole
+#: run at the hang. Under xdist it ends one worker, which xdist reports as a crash
+#: naming the test and replaces, and the run carries on, but the stack dump is lost
+#: with the worker.
+_HANG_RUNS = {
+    "serial-signal": ([], "Timeout", True),
+    "serial-thread": (["--timeout-method", "thread"], "Timeout", False),
+    "xdist-signal": (["-n", "2"], "Timeout", True),
+    "xdist-thread": (["-n", "2", "--timeout-method", "thread"], "crashed while running", True),
+}
+
+
 @pytest.mark.timeout(120)
-def test_a_hung_test_comes_back_as_a_failure(tmp_path: pathlib.Path) -> None:
+@pytest.mark.parametrize(
+    "extra, expected, carries_on", list(_HANG_RUNS.values()), ids=list(_HANG_RUNS)
+)
+def test_a_hung_test_comes_back_as_a_failure(
+    tmp_path: pathlib.Path, extra: list[str], expected: str, carries_on: bool
+) -> None:
     """Run a test that blocks for a minute under this repository's config, with the
     ceiling lowered to two seconds, and check that pytest-timeout ends it.
 
     The child pytest is given this repository's `pyproject.toml` with `-c`, so it runs
     the same `addopts`, `required_plugins` and timeout method the suite does. Only the
     number is overridden. The hang is a blocking wait rather than a busy loop, because
-    the incident this guards against was a blocking call.
+    the incident this guards against was a blocking call. A second, passing test shows
+    whether the run carries on after the hang is ended.
     """
+    if extra[:1] == ["-n"]:
+        pytest.importorskip("xdist")
+    if "thread" not in extra and not hasattr(signal, "SIGALRM"):
+        # Windows: the default method there is already the thread one, covered above.
+        pytest.skip("the signal method needs SIGALRM, which this OS does not have")
     hang_seconds = 60
     (tmp_path / "test_hang.py").write_text(
         textwrap.dedent(
@@ -108,6 +136,9 @@ def test_a_hung_test_comes_back_as_a_failure(tmp_path: pathlib.Path) -> None:
 
             def test_blocks():
                 threading.Event().wait({hang_seconds})
+
+            def test_after_the_hang():
+                pass
             """
         ),
         encoding="utf-8",
@@ -120,6 +151,7 @@ def test_a_hung_test_comes_back_as_a_failure(tmp_path: pathlib.Path) -> None:
             "--rootdir", str(tmp_path),
             "-p", "no:cacheprovider",
             "--timeout", "2",
+            *extra,
             str(tmp_path / "test_hang.py"),
         ],
         capture_output=True,
@@ -130,7 +162,9 @@ def test_a_hung_test_comes_back_as_a_failure(tmp_path: pathlib.Path) -> None:
     elapsed = time.monotonic() - started
     output = result.stdout + result.stderr
     assert result.returncode != 0, f"the hung test passed:\n{output}"
-    assert "Timeout" in output, f"the run failed, but not on the timeout:\n{output}"
+    assert expected in output, f"the run failed, but not on the timeout:\n{output}"
+    if carries_on:
+        assert "1 failed, 1 passed" in output, f"the run stopped at the hang:\n{output}"
     assert elapsed < hang_seconds, (
         f"the child took {elapsed:.0f}s, so the hang ran to completion instead of being "
         f"interrupted:\n{output}"

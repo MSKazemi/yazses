@@ -82,7 +82,9 @@ full run for before you push.
 
 If a single test really does hang, it fails after five minutes and prints every thread's
 stack (pytest-timeout), rather than leaving the run silent. A test that legitimately needs
-longer says so with `@pytest.mark.timeout(N)`. The run is strict: a misspelt marker or an
+longer says so with `@pytest.mark.timeout(N)`. On Windows a hang ends the whole run there,
+because the timeout can only exit the process; run with `-n auto` and only that test's
+worker is lost. The run is strict: a misspelt marker or an
 unknown key in `[tool.pytest.ini_options]` is an error, and an `xfail` that starts passing
 fails. Take the `xfail` off, because whatever it marked is fixed.
 
