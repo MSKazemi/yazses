@@ -15,7 +15,8 @@ repo_name: MSKazemi/yazses
 repo_url: https://github.com/MSKazemi/yazses
 edit_uri: edit/main/docs/
 copyright: >-
-  Copyright &copy; Mohsen Seyedkazemi Ardebili — Apache-2.0 licensed.
+  Copyright &copy; Mohsen Seyedkazemi Ardebili — Apache-2.0 licensed. ·
+  <a href="https://mskazemi.com/yazses/code-signing.html#code-signing-policy">Code signing policy</a>
 
 docs_dir: docs
 
@@ -398,7 +399,7 @@ nav:
       - Reliability & self-healing: reliability.md
       - Privacy statement: privacy-statement.md
       - Offline-inference challenge: launch/offline-challenge.md
-      - Code signing & verification: code-signing.md
+      - Code signing policy & verification: code-signing.md
       - Microsoft Store submission: store-submission.md
       - Architecture:
           - Overview: architecture.md

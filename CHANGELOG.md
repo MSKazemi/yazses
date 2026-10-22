@@ -6,6 +6,21 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Documentation — a code signing policy that meets the SignPath Foundation's published terms
+
+The Windows installer is still unsigned while the SignPath Foundation reviews the
+application. Their terms (signpath.org/terms) ask for a policy under the exact term "Code
+signing policy" on the home, download and release pages, with team roles, a privacy link,
+multi-factor authentication and a fixed credit line; the old page had none of those.
+
+- `docs/code-signing.md` now has a **Code signing policy** section: committers and
+  reviewers, approvers, the multi-factor requirement, the privacy statement and egress
+  inventory, and the SignPath credit line, placed in an *Application pending* note so it
+  does not claim signing that has not happened.
+- The README gains a **Code signing policy** section; every website page's footer, the
+  Windows install page and the GitHub release notes link to it.
+- `tests/test_code_signing_policy_page.py` pins each required piece to the file that holds it.
+
 ### Fixed — the website's home page renders in under two seconds on a throttled phone, not nine
 
 Lighthouse 12.8.2, mobile, the same build served with gzip, two runs each (2026-10-22).

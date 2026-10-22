@@ -831,6 +831,14 @@ YazSes is described in a preprint. If it is useful in your research or projects,
 
 See [CITATION.cff](CITATION.cff) for machine-readable metadata (CFF 1.2.0).
 
+## Code signing policy
+
+Windows builds are not code-signed yet: YazSes has applied to the
+[SignPath Foundation](https://signpath.org) free programme for open-source projects and is
+awaiting approval. The [code signing policy](https://mskazemi.com/yazses/code-signing.html#code-signing-policy)
+(what gets signed, team roles, who approves each signing request, privacy) and how to verify
+a download today are on the website.
+
 ## License
 
 Apache 2.0 — see [LICENSE](LICENSE).
