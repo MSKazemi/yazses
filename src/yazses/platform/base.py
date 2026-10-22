@@ -6,7 +6,7 @@ in platform/factory.py picks the right one based on sys.platform.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -19,6 +19,7 @@ if TYPE_CHECKING:
     # Type-only: importing it at module level made every CLI start load the whole `gaze`
     # package (and, through it, `statistics`/`decimal`/`fractions`) for the sake of an annotation.
     from yazses.gaze.clicks import ClickObserver
+    from yazses.grounding.contracts import Rect, SemanticCandidate
 
 #: The value each bundle puts in `Platform.name`. These are `sys.platform`
 #: strings, not friendly words, and anything that branches on `Platform.name`
@@ -469,6 +470,44 @@ class PackRuntime(Protocol):
         ...
 
 
+@runtime_checkable
+class AccessibilityBackend(Protocol):
+    """Read the focused window's accessibility tree; act on one node of the last read.
+
+    The producer behind Screen-Grounded Dictation and the Voice Pilot (#164). Linux
+    implements it over AT-SPI (`platform/linux/accessibility.py`); macOS (AX) and
+    Windows (UI Automation) have no implementation yet, so `Platform.accessibility_factory`
+    is ``None`` there and both features stay dormant with a stated reason.
+
+    `snapshot` is ADR-v2-151's ``SemanticSource.snapshot``: it returns *copies*
+    (`SemanticCandidate`), never a live node, and its ``entity_id`` values are valid only
+    until this same instance's next `snapshot`. `perform` is the one method that changes
+    anything on screen, and it acts only on a node of the latest snapshot -- an id from an
+    older one, or one the backend does not know, is refused rather than guessed.
+    """
+
+    def snapshot(
+        self,
+        *,
+        window_id: str | None = None,
+        region: Rect | None = None,
+    ) -> Sequence[SemanticCandidate]:
+        """Labelled, showing nodes of the focused window, bounded; empty when unknown."""
+        ...
+
+    def perform(self, entity_id: str, action: str) -> bool:
+        """Run *action* (a backend action name, or ``"focus"``) on one node. True on success."""
+        ...
+
+
+#: Why `Platform.accessibility_factory` is ``None`` when a backend sets no reason of its
+#: own: the OS simply has no accessibility-tree backend yet.
+NO_ACCESSIBILITY_BACKEND_REASON = (
+    "this OS has no accessibility-tree backend yet (only Linux AT-SPI is implemented), "
+    "so nothing on screen can be read or clicked"
+)
+
+
 HotkeyFactory = Callable[[str, int, Callable[[int], None], Callable[[], None]], HotkeyBackend]
 """Args: key_id, threshold_ms, on_hold_start(leaked_count), on_hold_end."""
 
@@ -485,6 +524,13 @@ requested only when a pointer consumer is enabled, so nothing may be constructed
 `get_platform()` merely runs; and not every platform has a backend yet, so `None` here is
 the honest answer for one that does not rather than a sink that accepts everything and
 moves nothing.
+"""
+
+
+AccessibilityFactory = Callable[[], AccessibilityBackend]
+"""Builds one accessibility backend (#164). A factory, and optional, for the pointer's
+reasons: nothing may touch the accessibility bus while `get_platform()` merely runs, and
+each consumer builds its *own* instance so the two never share a snapshot's handle map.
 """
 
 
@@ -528,4 +574,12 @@ class Platform:
     # None where an update cannot be handed to a detached installer (everything except
     # Windows today). `yazses update` and the tray then keep the manual steps (ADR-027).
     update_launcher: UpdateLauncher | None = None
+    # None where this OS/session cannot read an accessibility tree (#164). Linux sets it
+    # when a desktop session exists and the AT-SPI bindings are installed; everywhere
+    # else Screen-Grounded Dictation and the Voice Pilot stay dormant and say why.
+    accessibility_factory: AccessibilityFactory | None = None
+    # Why `accessibility_factory` is None, in a sentence the daemon log can repeat -- or
+    # None when it is set, or when the OS never had a backend
+    # (`NO_ACCESSIBILITY_BACKEND_REASON` then applies).
+    accessibility_unavailable_reason: str | None = None
     extras: dict[str, Any] = field(default_factory=dict)

@@ -1182,6 +1182,7 @@ def _config_summary(
         prompt_summary(
             cfg.stt.initial_prompt, words, env_terms,
             mined=mined, context=bool(cfg.context.enabled),
+            screen=bool(cfg.screengrounded.enabled),
         ),
     ))
     return out

@@ -210,18 +210,6 @@ entries:
       task: "WIRE-MULTIPROFILE-001"
       milestone: 9
     remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
-  - id: "capability:pilot"
-    kind: capability
-    title: "AT-SPI Voice Pilot"
-    source: "design/adr/adr-v2-007-atspi-voice-pilot.md"
-    decision_status: accepted
-    delivery_status: designed
-    tracking:
-      kind: campaign
-      issues: [164]
-      task: "WIRE-PILOT-001"
-      milestone: 9
-    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
   - id: "capability:predict"
     kind: capability
     title: "Predictive Completion"
@@ -280,18 +268,6 @@ entries:
       kind: campaign
       issues: [164]
       task: "WIRE-READBACK-CLONE-001"
-      milestone: 9
-    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
-  - id: "capability:screengrounded"
-    kind: capability
-    title: "Screen-Grounded Dictation"
-    source: "design/adr/adr-v2-051-screen-grounded-dictation.md"
-    decision_status: accepted
-    delivery_status: designed
-    tracking:
-      kind: campaign
-      issues: [164]
-      task: "WIRE-SCREENGROUNDED-001"
       milestone: 9
     remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
   - id: "capability:scribe"
