@@ -1405,6 +1405,13 @@ Reads the `TEXT` argument, or standard input when omitted, and **exits non-zero
 if it cannot parse the utterance** — so a misheard command produces an error, not
 a plausible wrong command.
 
+**A branch name it cannot read is refused, not guessed.** A push has to read as
+`push [to] [remote] [branch]` with every word accounted for: `push the frobnicator
+please` is refused rather than turned into `git push origin the`. Words like *the*,
+*it*, *to* and *please* are never taken as a branch name, and a word starting with
+`-` is never passed through as an option. A trailing *please*, *now*, *thank you* or
+full stop is ignored, so `Push to main, please.` still gives `git push origin main`.
+
 **A branch you name reaches the command.** `push to main` renders
 `git push origin main`, not a bare `git push` — which would push whichever branch
 you happen to be standing on. Say the remote too (`push to upstream develop`) and it
