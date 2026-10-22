@@ -309,6 +309,7 @@ side without ever being compared. Such a capability is **not** counted in a grou
 | `yazses features enable <name>` | Turn a capability **on** (writes your config), then `yazses restart` to apply. |
 | `yazses features disable <name>` | Turn a capability **off**, then `yazses restart`. |
 | `yazses features install [<name>…]` | Install the libraries that **switched-on** features are missing (the `◐` rows), after showing the download and asking (`--yes` skips the question). Writes no config; undoes a failed or interrupted install. |
+| `yazses features repair` | The same install for **every** `◐` row at once, after listing each dormant feature and the packages it needs — including any this install can never take (a snap, a frozen `.app`/`.exe`), with the reason. One question (`--yes` skips it), then one summary line per feature. `--dry-run` only lists. Exits 0 when nothing was dormant or everything was repaired, 1 otherwise. |
 | `yazses features reset` | Restore **every** capability to the state a fresh install ships with. |
 
 ```bash
@@ -321,6 +322,8 @@ yazses features info reflow              # describe one + show a usage example
 yazses features enable read-back         # turn one on  (use the TOGGLE NAME)
 yazses features disable cocktail         # turn one off
 yazses features install                  # install what switched-on features lack
+yazses features repair --dry-run         # list every dormant feature + what it needs
+yazses features repair                   # install them all, one question, per-feature summary
 yazses features reset --dry-run          # what a reset would change; writes nothing
 yazses features reset                    # restore the defaults (asks first)
 yazses restart                           # apply

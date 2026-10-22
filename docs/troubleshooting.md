@@ -271,6 +271,10 @@ yazses features install            # or: yazses features install <name>
 yazses restart
 ```
 
+`yazses features repair` does the same for all of them and ends with one line per
+feature saying whether it was installed. `yazses features repair --dry-run` only lists
+what is dormant and what each needs, and installs nothing.
+
 `yazses features enable <name>` (add `--force` for an experimental one) does the same
 for one feature and is safe to run again. If an install fails part-way or you press
 Ctrl-C, whatever it had changed is undone, and an install that would move one of

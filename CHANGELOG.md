@@ -6,6 +6,19 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — `yazses features repair` installs every dormant feature, with a summary
+
+`yazses features repair` lists every switched-on feature whose libraries are missing (the
+`◐ ON` rows) and the packages each needs, asks once, then installs them through the same
+path as `yazses features install`: the `uv tool` receipt, `pipx inject`, or the venv, with
+a failed install undone. It ends with one line per feature and exits 1 if any install
+failed. `--dry-run` only lists; `--yes` skips the question. A snap or a frozen
+`.app`/`.exe` cannot take extra packages, so there it prints the same refusal as `features
+install` and exits 1. It downloads only when you run it, like `features install`, so
+ADR-019's `system/deps.py` row gains a trigger but no new outbound path. The planning
+logic is pure (`ondemand.repair_plan`) and unit-tested with the installer replaced. No
+real install has been run through this command yet.
+
 ### Changed — every CI test job now has a time limit that fits the parallel suite
 
 With no `timeout-minutes`, `repo-hygiene` sat in a hung `apt-get update` for 78 minutes

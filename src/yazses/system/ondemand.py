@@ -13,7 +13,10 @@ So each surface that discovers dormancy now *offers* the install as one action:
   (:func:`toast_actions`, :func:`handle_action`);
 * ``yazses start`` / ``restart`` in a terminal ask once, before starting
   (:func:`prompt_text`);
-* ``yazses features install`` does all of them, or the ones named.
+* ``yazses features install`` does all of them, or the ones named;
+* ``yazses features repair`` does all of them after listing every one — those an
+  install cannot fix here too — with ``--dry-run`` to stop at the list, and ends with
+  a per-feature summary (:func:`repair_plan`, :func:`repair_summary`).
 
 What does **not** change is consent. Nothing here installs on its own: the toast
 installs on a click, the prompt on a typed yes, the command because it was typed
@@ -30,6 +33,7 @@ from __future__ import annotations
 import logging
 import threading
 from collections.abc import Callable, Iterable, Sequence
+from dataclasses import dataclass
 
 log = logging.getLogger(__name__)
 
@@ -174,3 +178,108 @@ def install_all(
         if not install_one(item, install=install, echo=echo):
             failed.append(item.slug)
     return failed
+
+
+# ---- `yazses features repair`: the whole set, planned before anything runs ----------
+
+
+@dataclass(frozen=True)
+class RepairPlan:
+    """What ``yazses features repair`` will do, decided before any download.
+
+    :attr:`install` holds the dormant features an install can fix here; :attr:`blocked`
+    the ones it cannot — a snap, a frozen ``.app``/``.exe``, the distribution's own
+    Python, or a half-deleted ``cv2`` — each carrying ``dormant.py``'s remedy. Kept
+    apart so the command can list both, ask once about the first, and still fail
+    loudly on the second instead of reporting a repair that did not happen.
+    """
+
+    install: tuple = ()
+    blocked: tuple = ()
+
+    @property
+    def empty(self) -> bool:
+        return not self.install and not self.blocked
+
+
+def repair_plan(items: Iterable) -> RepairPlan:
+    """Split *items* (``dormant.dormant_features`` output) into install and blocked.
+
+    Pure: no probe, no installer. A slug seen twice is planned once, so one feature
+    is never installed twice in a run.
+    """
+    unique = list({d.slug: d for d in items}.values())
+    can = installable(unique)
+    return RepairPlan(
+        install=tuple(can),
+        blocked=tuple(d for d in unique if d not in can),
+    )
+
+
+def _what(item) -> str:
+    what = getattr(item, "what", None)
+    if callable(what):
+        return str(what())
+    return f"{', '.join(item.missing)} not installed"
+
+
+def repair_text(plan: RepairPlan) -> str:
+    """The listing ``features repair`` prints before asking (and all ``--dry-run`` does).
+
+    Every dormant feature, with the packages each needs and what that costs; the
+    ones no install can fix here are listed too, so the list is the whole truth
+    rather than the part this command can act on. Empty when nothing is dormant.
+    """
+    if plan.empty:
+        return ""
+    lines = ["Switched on, but dormant — their libraries are missing:"]
+    for item in plan.install:
+        note = _size_note(item)
+        lines.append(
+            f"  {item.name} [{item.slug}]: {', '.join(item.packages)}"
+            + (f"  ({note})" if note else "")
+        )
+    for item in plan.blocked:
+        lines.append(
+            f"  {item.name} [{item.slug}]: {_what(item)} — an install cannot fix it here"
+        )
+    return "\n".join(lines)
+
+
+#: Per-feature outcomes in the summary ``features repair`` ends with.
+REPAIRED = "installed"
+FAILED = "FAILED, still dormant"
+BLOCKED = "not installable here"
+
+
+def repair_outcomes(plan: RepairPlan, failed: Iterable[str]) -> list[tuple[str, str]]:
+    """``(slug, outcome)`` for every feature in *plan*, install order then blocked."""
+    lost = set(failed)
+    out = [(d.slug, FAILED if d.slug in lost else REPAIRED) for d in plan.install]
+    out.extend((d.slug, BLOCKED) for d in plan.blocked)
+    return out
+
+
+def repair_summary(plan: RepairPlan, failed: Iterable[str]) -> list[str]:
+    """One line per feature: what happened to it, and for a failure how to retry."""
+    by_slug = {d.slug: d for d in (*plan.install, *plan.blocked)}
+    lines: list[str] = []
+    for slug, outcome in repair_outcomes(plan, failed):
+        item = by_slug[slug]
+        line = f"  {item.name} [{slug}]: {outcome}"
+        if outcome == FAILED:
+            retry = getattr(item, "command", "") or f"yazses features enable {slug}"
+            line += f".  Retry:  {retry}"
+        elif outcome == BLOCKED:
+            line += " (see above)"
+        lines.append(line)
+    return lines
+
+
+def repair_exit_code(plan: RepairPlan, failed: Iterable[str]) -> int:
+    """0 when every dormant feature was repaired (or none was dormant), else 1.
+
+    A feature this environment cannot install counts against the run: the user
+    asked for everything to be repaired, and it was not.
+    """
+    return 1 if (set(failed) or plan.blocked) else 0
