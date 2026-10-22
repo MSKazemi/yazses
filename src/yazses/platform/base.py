@@ -336,6 +336,19 @@ class HostBackend(Protocol):
         ...
 
 
+@runtime_checkable
+class FileOpener(Protocol):
+    """Opens a file with the user's default application. One implementation per OS family."""
+
+    def open(self, path: str) -> None:
+        """Hand *path* to the OS's own "open with the default app" mechanism.
+
+        Raises whatever that mechanism raises (``CalledProcessError``, ``OSError``); the
+        caller decides what a failure means. It never picks the application itself.
+        """
+        ...
+
+
 @dataclass(frozen=True)
 class UpdateHandoff:
     """What a detached updater must do once YazSes itself has exited (ADR-027).
