@@ -20,15 +20,23 @@ import webbrowser
 log = logging.getLogger(__name__)
 
 
-def open_url(url: str, *, opener=webbrowser.open) -> bool:
+def open_url(url: str, *, opener=webbrowser.open, log_url: bool = True) -> bool:
     """Open ``url`` in the default browser. Returns whether it was handed off.
 
     ``opener`` is injected so this is testable without launching a real browser.
+
+    ``log_url=False`` is for a URL that carries a payload the log must not hold — "send
+    to" (ADR-031) puts the user's dictation in the query string. The failure is then
+    logged by exception *type* only: no URL, and no traceback, whose exception message
+    can quote the argument it was given.
     """
     if not url:
         return False
     try:
         return bool(opener(url))
-    except Exception:
-        log.exception("could not open %s in a browser", url)
+    except Exception as exc:
+        if log_url:
+            log.exception("could not open %s in a browser", url)
+        else:
+            log.warning("could not hand a URL to the desktop (%s)", type(exc).__name__)
         return False

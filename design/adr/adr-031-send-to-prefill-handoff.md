@@ -1,6 +1,6 @@
 # ADR-031 — "Send to": hand dictated text to a desktop AI client, pre-filled and never sent
 
-**Status:** Proposed (2026-10-22)
+**Status:** Accepted (2026-10-23)
 **Deciders:** Mohsen Seyedkazemi Ardebili
 **Context links:** [[adr-030-agent-era-direction]] (Pillar 2, bridge 1),
 [[adr-019-egress-inventory-and-escalation]] (*Reached by handing a URL to another program*),
@@ -106,13 +106,48 @@ removed in the next release and the release notes say why.
   *preview* until a validation row exists.
 - The agent-era docs page can show "dictate, review, send to Claude" as one flow.
 
-## Open questions for the decider
+## Decisions (2026-10-23)
 
-1. Spoken phrases: *"send to Claude"* / *"send to Codex"*, or a single *"send that to …"*
-   with the target name? (Staged mode's own commit phrase is opt-in for the reason
-   ADR-v2-132 gives; the same caution applies.)
-2. Should `claude-code` be a separate target or a sub-mode of `claude`?
-3. Is the CLI form (`yazses send-to`) wanted in the first release, or only the spoken one?
+The decider answered the three questions this record left open when it was proposed.
+
+1. **Spoken phrases: one fixed phrase per target** — *"send to Claude"*, *"send to Claude
+   Code"*, *"send to Codex"*. Each is a whole utterance, anchored at both ends like staged
+   mode's commit grammar; there is no *"send that to <name>"* pattern with a slot.
+2. **`claude-code` is a separate target**, reached by *"send to Claude Code"* and opening
+   `claude://code/new?q=`, not a sub-mode of `claude`.
+3. **The CLI form `yazses send-to <client> [TEXT]` ships in the first release**, beside the
+   spoken one.
+
+## Implementation notes (first build, 2026-10-23)
+
+Where the first build differs from §1–§5, or chose something the record left open:
+
+- **No `platform/base.py` seam yet (§3).** The opener is an injectable callable in
+  `sendto/handoff.py` whose default is `system/browser.py::open_url(url, log_url=False)`,
+  the hand-off ADR-019 already inventories. So Linux uses `xdg-open` and its argv
+  exposure, and macOS and Windows use what Python's `webbrowser` does there; none of them
+  passes the URL by `NSWorkspace` or `ShellExecuteW` directly yet. Moving the opener onto
+  a platform Protocol is follow-up work, kept out of this change because another branch
+  is editing `platform/base.py`.
+- **Limits (§4).** Claude and Claude Code refuse over 14,000 characters. Codex documents
+  no limit, so it gets the same 14,000 (the narrowest choice). Every target also refuses
+  an encoded URL over 32,000 characters, which keeps the URL inside Windows' command-line
+  ceiling and Linux's per-argument one; text in non-Latin scripts reaches it sooner.
+  Text with control characters other than tab, newline and carriage return, or that is
+  not valid Unicode,
+  is refused rather than altered.
+- **Which text (§1).** With staged mode on, the buffer only: an empty buffer is refused,
+  not replaced by an older burst. With staged mode off, the last burst the daemon typed,
+  kept in memory only while `[sendto] enabled` is on. It has already been typed by then:
+  a whole-utterance phrase cannot come before the words it sends.
+- **The CLI with TEXT** hands off in the CLI's own process; the IPC method `send_to` takes
+  a target name only, so no local caller can make the daemon open a URL with text of its
+  choosing.
+- **No `features` registry entry yet (§5).** The switch is `[sendto] enabled` in
+  `config.toml`; a registry slug (and the per-client verified-version line in
+  `features info`) waits for the validation rows.
+- **Unverified:** no hand-off has yet been tried against a real Claude or Codex install on
+  any platform.
 
 ## Alternatives considered
 

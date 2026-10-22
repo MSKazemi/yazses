@@ -236,6 +236,24 @@ and BSD send exactly the keys they sent before, and a test pins every one. This 
 has no Mac, so none of this has been run on macOS. Only a stand-in for Quartz has
 checked it.
 
+### Added — "send to Claude": open the Claude or Codex app with your prompt filled in, never sent (off by default)
+
+Say "send to Claude", "send to Claude Code" or "send to Codex" as a whole utterance, or
+run `yazses send-to claude|claude-code|codex [TEXT]`, and that desktop app opens a new
+conversation with the text already in its prompt box. You read it and press Enter
+yourself; YazSes does not send it. The text is the staged buffer when staged mode is on
+(cleared only if the app opened), otherwise the last burst YazSes typed, or the TEXT you
+give. It goes through the apps' own `claude://` and `codex://` links: the three apps are a
+fixed list, there is no web fallback and no setting that changes the address. Text over
+14,000 characters is refused, not cut, and stays in the staged buffer. The log records
+the app and the character count, never the words. Turn it on with `enabled = true` under
+`[sendto]` in `config.toml`. This is [ADR-031](design/adr/adr-031-send-to-prefill-handoff.md),
+accepted on 2026-10-23. Experimental: it has **not yet been tried against the real Claude
+or Codex desktop apps** on any platform, so whether each app pre-fills without sending is
+documented by the vendors, not yet observed here. On Linux the link passes through
+`xdg-open`, where other users of the same machine could read it in the process list
+while it opens. Written in a code-only pass; its tests have not been run yet.
+
 ## [2.44.0] - 2026-10-23
 
 ### Fixed — the settings-window code no longer says it has "~200 rows"

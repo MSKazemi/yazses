@@ -241,6 +241,36 @@ utterances, so "git commit -m fix" is staged rather than obeyed.
 While something is pending, **"scratch that" edits the buffer**, not the document —
 the buffer is what you are looking at.
 
+### `yazses send-to`
+
+**Open a desktop AI app with your text already in the prompt box — never sent.** The
+Claude desktop app (`claude`, or `claude-code` for a new Claude Code session) or the
+Codex app (`codex`) opens a new conversation with the text filled in. You read it and
+press Enter yourself; YazSes does not send it. Off by default, and not yet tried
+against the real desktop apps.
+
+```bash
+# config.toml:  [sendto]  enabled = true
+yazses send-to claude                          # the staged buffer, or the last burst
+yazses send-to claude-code                     # the same, as a Claude Code session
+yazses send-to codex "explain the failing test"  # this text instead
+```
+
+Without TEXT, the running daemon hands over the staged buffer when staged mode is on
+(and clears it only if the app opened), otherwise the last burst it typed. While
+dictating, the whole utterance "send to Claude", "send to Claude Code" or "send to
+Codex" does the same, and the phrase itself is not typed.
+
+- **Only these three apps**, through their own `claude://` and `codex://` links. There is
+  no web fallback and no setting that changes the address: a web address would send the
+  text to a server before you had read it. If the app is not installed, nothing opens.
+- **Long text is refused, never cut.** The limit is 14,000 characters. Text in non-Latin
+  scripts can be refused sooner, because the link it becomes is capped at 32,000
+  characters.
+- **The log records the app and the length, never the text.** On Linux the link is
+  passed to `xdg-open` as an argument while it opens, so other users on the same machine
+  could read it from the process list for that moment.
+
 ### `yazses tray`
 
 Show a **microphone icon in the top bar** with a click-menu — a no-terminal way to
