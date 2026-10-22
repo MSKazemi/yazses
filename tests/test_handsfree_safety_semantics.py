@@ -716,6 +716,10 @@ def test_speech_only_dictation_does_not_consult_the_hands_free_gate():
         "_build_pipeline", "_build_face_gesture_source", "_build_headpointer", "_build_gesture",
         "_handsfree_payload", "_handle_handsfree", "shutdown", "_shutdown",
         "_build_vocaljoystick",
+        # The Mouth-Sound Switch's builder does exactly what `_build_vocaljoystick` does with
+        # the gate: hands the runner the `user_paused` flag so a gate pause closes its mic.
+        # Read-only, never a source.
+        "_build_mouthswitch",
 
         # The Voice Mouse Grid's builder hands the gate to the grid so a pause stops the
         # pointer; the grid itself is reached from `_on_hold_end` only through its runtime,

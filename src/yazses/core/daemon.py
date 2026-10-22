@@ -333,6 +333,8 @@ class Daemon:
     _headpointer = None
     _handsfree_safety = None
     _vocaljoystick = None
+    #: Mouth-Sound Switch Access (ADR-v2-097): the runtime, or None -- the default.
+    _mouthswitch = None
     # The face switch's select/confirm/cancel outcome log and the actions bound to it
     # (facegesture/actions.py). None / empty until a face switch is built.
     _switch_outcomes = None
@@ -1491,6 +1493,8 @@ class Daemon:
         self._handsfree_safety = self._build_handsfree_safety(cfg)
         self._headpointer = self._build_headpointer(cfg)
         self._vocaljoystick = self._build_vocaljoystick(cfg)
+        # Mouth-Sound Switch (ADR-v2-097): None unless `[mouthswitch] enabled`; opens no mic.
+        self._mouthswitch = self._build_mouthswitch(cfg)
         # Gesture Chords (ADR-v2-043): face/head tokens from the same shared camera, resolved
         # by gesture/chords.py. Dormant unless `[gesture] enabled` *and* a chord is bound.
         self._gesture = self._build_gesture(cfg)
@@ -2448,6 +2452,63 @@ class Daemon:
             )
         except Exception:
             log.warning("Vocal Joystick init failed; it stays off", exc_info=True)
+            return None
+
+    def _build_mouthswitch(self, cfg):
+        """Mouth-Sound Switch Access (ADR-v2-097), or None while `[mouthswitch]` is off.
+
+        Imported only when enabled, so a default daemon never loads `yazses.mouthswitch`.
+        Building opens no microphone: `handsfree resume` opens it and every pause closes it
+        (`_handle_handsfree`), exactly as for the Vocal Joystick. A selected item runs through
+        the activation policy and the ordinary command grammar and dispatcher -- the path a
+        Gesture Chord's command takes -- or one call on the platform's pointer sink. Never
+        raises.
+        """
+        if not cfg.mouthswitch.enabled:
+            return None
+        try:
+            from yazses.activation.intent import ActivationIntent
+            from yazses.activation.pipeline import handle_intent
+            from yazses.mouthswitch.runtime import (
+                SOURCE_NAME,
+                build_mouthswitch,
+                notify_mouthswitch_fault,
+            )
+
+            def run_command(phrase: str) -> object:
+                # Confidence 1.0: a detected click is deterministic. Whether it was *meant*
+                # is what the detector's guards and the one-select-per-scan rule answer.
+                return handle_intent(
+                    ActivationIntent(label=phrase, confidence=1.0, source=SOURCE_NAME),
+                    (phrase,),
+                    classify=self._gesture_classify,
+                    dispatch=self._gesture_dispatch,
+                )
+
+            sr = cfg.audio.sample_rate
+            return build_mouthswitch(
+                cfg.mouthswitch,
+                pointer_factory=self._platform.pointer_factory,
+                recorder_factory=lambda on_chunk: AudioRecorder(
+                    sample_rate=sr, max_seconds=0, on_chunk=on_chunk, accumulate=False,
+                    device=self._config.audio.device or None,
+                ),
+                run_command=run_command,
+                classify=self._gesture_classify,
+                # A select must never land on an item nobody can see: no overlay, no switch.
+                highlight_available=(
+                    should_launch_overlay(cfg, os.environ) and overlay_dependency_available()
+                ),
+                sample_rate=sr,
+                # Never listen for a switch while dictation records, transcribes or types.
+                busy=lambda: self._state.state is not TrayState.IDLE,
+                # Read-only: a gate pause (face switch, chord) closes the mic. Never a source.
+                stop_requested=None if (gate := self._handsfree_safety) is None
+                else lambda: gate.status().user_paused,
+                on_fault=notify_mouthswitch_fault,  # the switch never stops silently
+            )
+        except Exception:
+            log.warning("Mouth-Sound Switch init failed; it stays off", exc_info=True)
             return None
 
     def _start_headpointer(self) -> None:
@@ -4024,7 +4085,10 @@ class Daemon:
         # The Vocal Joystick keeps the daemon IDLE while its own stream is open; a PortAudio
         # reinit under that stream would close it, so the monitor waits while it is open.
         joystick = self._vocaljoystick
-        return idle and not (joystick is not None and joystick.mic_open)
+        switch = getattr(self, "_mouthswitch", None)  # the same, for the Mouth-Sound Switch
+        return idle and not (joystick is not None and joystick.mic_open) and not (
+            switch is not None and switch.mic_open
+        )
 
     def _active_device_name(self) -> str | None:
         """The mic capture would currently use: the pin, else the OS default."""
@@ -6727,7 +6791,21 @@ class Daemon:
                 # Acoustic Context Profiles: the room scene and the gate in force, or None
                 # while the feature is off or has judged no burst. Numbers and a label only.
                 "acoustic": self._acoustic.status() if self._acoustic is not None else None,
+                # Mouth-Sound Switch scan state, for the overlay's highlight: flags, an index
+                # and the configured item labels -- never audio. None while the feature is off.
+                "mouthswitch": self._mouthswitch_payload(),
             }
+
+    def _mouthswitch_payload(self) -> dict[str, object] | None:
+        """The Mouth-Sound Switch's scan state for `status`, or None when it has no runner."""
+        runtime = getattr(self, "_mouthswitch", None)
+        if runtime is None:
+            return None
+        try:
+            return runtime.status_payload()
+        except Exception:  # pragma: no cover - defensive
+            log.debug("mouth-switch status payload failed", exc_info=True)
+            return None
 
     def _headpointer_payload(self) -> dict[str, object] | None:
         """The Head-Pointer's privacy-safe state for `status`, or None when it is not running.
@@ -6915,6 +6993,8 @@ class Daemon:
                         scope.append("Head-Pointer only")
                 if (joystick := getattr(self, "_vocaljoystick", None)) is not None:
                     joystick.toggle("pause", scope, reasons)  # closes its microphone
+                if (switch := getattr(self, "_mouthswitch", None)) is not None:
+                    switch.toggle("pause", scope, reasons)  # closes its microphone, ends a scan
                 if not scope:
                     return {
                         "ok": False,
@@ -6935,6 +7015,9 @@ class Daemon:
             if (joystick := getattr(self, "_vocaljoystick", None)) is not None:
                 # Opens its microphone; it is no gate source, so the gate re-arms nothing for it.
                 ok = joystick.toggle("resume", scope, reasons) and ok
+            if (switch := getattr(self, "_mouthswitch", None)) is not None:
+                # Opens its microphone and listens for a pop; no scan starts until one is heard.
+                ok = switch.toggle("resume", scope, reasons) and ok
             if gate is not None:
                 rearm = gate.resume()
                 scope.extend(n for n in rearm.armed if n not in scope)
@@ -7353,6 +7436,11 @@ class Daemon:
                 self._vocaljoystick.stop()  # microphone stream closed, pointer sink released
             except Exception:
                 log.exception("Vocal Joystick stop raised")
+        if self._mouthswitch is not None:
+            try:
+                self._mouthswitch.stop()  # microphone stream closed, scan ended, sink released
+            except Exception:
+                log.exception("Mouth-Sound Switch stop raised")
 
         if self._mousegrid is not None:
             try:

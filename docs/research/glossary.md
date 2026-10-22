@@ -123,7 +123,7 @@ a result cannot be reverse-engineered from what the data happened to show.
 
 **Wired / unwired** — whether a capability in the registry is reachable from a real entry
 point. An unwired capability may be fully implemented and tested; it simply has no door.
-30 of 149 are unwired (October 2026), and the count is
+29 of 149 are unwired (October 2026), and the count is
 [enforced by a test](https://github.com/MSKazemi/yazses/blob/main/tests/test_feature_wiring_honesty.py)
 so the catalogue cannot overstate itself.
 
