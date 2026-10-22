@@ -170,12 +170,11 @@ class _InjectorRoute:
 
 
 def build_platform() -> Platform:
+    from yazses.platform.linux.accessibility import accessibility_route
     from yazses.platform.linux.injector import LinuxInjector
     from yazses.platform.linux.ipc import UnixSocketIpcClient, UnixSocketIpcServer
     from yazses.platform.linux.lifecycle import LinuxLifecycle
     from yazses.platform.linux.permissions import LinuxPermissions
-
-    from yazses.platform.linux.accessibility import accessibility_route
 
     paths = build_paths()
     route = _InjectorRoute(LinuxInjector)
