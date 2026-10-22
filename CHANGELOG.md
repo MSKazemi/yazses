@@ -6,6 +6,26 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — spoken commands can send the focused editor's own keys (experimental, off by default)
+
+Editor command profiles were documented and never ran: `commands/profiles.py` had a
+registry and a loader that nothing called, so every application got VS Code's keys.
+In a JetBrains IDE *"delete the last line"* sent Ctrl+Shift+K, which is not delete
+line there. In Sublime Text *"rename this to user_id"* sent F2 (next bookmark), then
+Ctrl+A, then typed the name over the whole file.
+
+`[commands] editor_profiles = true` now picks the keys from the application in focus
+when the command is sent. JetBrains IDEs get Ctrl+Y to delete a line, Shift+F6 to
+rename, and Ctrl+N, Ctrl+Shift+N and Ctrl+F12 to navigate. Sublime Text gets Ctrl+R
+to go to a symbol, and rename is refused, so nothing is sent or typed.
+`[commands] profile` pins one profile (`default`, `vscode`, `jetbrains` or `sublime`)
+instead of following focus. The focused application is read through AT-SPI or, on
+X11, xdotool. macOS, Windows and Wayland without AT-SPI have neither, so they keep
+the default keys and the daemon log says why, once. The bindings come from each
+editor's default keymap and have not been tested by sending keys to a running editor.
+With the setting off, which is the default, every command sends the same keys as
+before.
+
 ### Changed — every CI test job now has a time limit that fits the parallel suite
 
 With no `timeout-minutes`, `repo-hygiene` sat in a hung `apt-get update` for 78 minutes

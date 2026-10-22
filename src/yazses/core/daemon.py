@@ -30,6 +30,7 @@ if TYPE_CHECKING:
     # so the `X | None` attribute annotations resolve for the type checker.
     from yazses.acoustic.gate import AcousticGate
     from yazses.bookmarks.service import BookmarkService
+    from yazses.commands.profiles import Keymap, ProfileRegistry
     from yazses.earcon.play import EarconPlayer
     from yazses.endpoint.autostop import AutoStopTurn
     from yazses.gaze.refine_runtime import RefinementRuntime
@@ -328,6 +329,18 @@ class Daemon:
     #: an instance-only attribute. A missing router must degrade to Tier 1, and an
     #: AttributeError raised mid-burst does the opposite: it loses the words.
     _slm_router = None
+    #: Editor command profiles (`commands/profiles.py`), or None -- the default, and
+    #: what `[commands] editor_profiles = false` keeps it. Class-level for the same
+    #: partial-daemon reason as `_slm_router`: every command dispatch reads it.
+    _command_profiles: ProfileRegistry | None = None
+    #: Returns the focused application's class for the profile lookup, or None when
+    #: nothing can. Injected, so a test hands in a lambda instead of a desktop.
+    _focused_app_class: Callable[[], str] | None = None
+    #: A detector built only for the profile lookup (when `[injection] target_guard`
+    #: is "off" and the guard built none), so `_shutdown` can stop its AT-SPI thread.
+    _profile_detector: TargetDetector | None = None
+    #: Set once the "could not read the focused app" reason has been logged.
+    _command_profile_blind_logged: bool = False
     #: Same reason: `_shutdown` and the IPC handler read these on paths that a partial
     #: daemon (a test, a startup that failed early) never assigned them on.
     _headpointer = None
@@ -1510,6 +1523,9 @@ class Daemon:
         # Tier 2 natural-language intent fallback (ADR: commands/slm_router.py).
         # None unless `[commands] slm_model_path` names a usable model.
         self._slm_router = self._build_slm_router(cfg)
+        # Editor command profiles. After the text-target guard above, whose detector
+        # is reused for the focused-app lookup. None unless `[commands] editor_profiles`.
+        self._command_profiles = self._build_command_profiles(cfg)
 
         # Opt-in self-improvement corpus (ADR-012). Dormant unless enabled.
         self._corpus = None
@@ -2171,6 +2187,97 @@ class Daemon:
                         exc_info=True)
             return None
 
+    def _build_command_profiles(self, cfg: Config) -> ProfileRegistry | None:
+        """Editor command profiles (`commands/profiles.py`), or None -- the default.
+
+        `load_profiles` existed with a test and no caller, and `dispatch.py` carried a
+        comment pointing at it, so `[commands] profile` was a documented setting that
+        changed no key a command sent. Off unless `[commands] editor_profiles`, so a
+        default install dispatches exactly as it always has.
+
+        With `profile = "auto"` the choice follows the focused application, read at
+        dispatch time through `_focused_app_class` -- the same detector the
+        text-target guard uses. A pinned profile needs no lookup and builds none.
+        """
+        # A plain attribute read, for `scripts/config_status.py` (see `_build_slm_router`).
+        if not cfg.commands.editor_profiles:
+            return None
+        try:
+            from yazses.commands.profiles import load_profiles
+
+            registry = load_profiles(cfg.commands)
+        except Exception:
+            log.warning("Editor command profiles init failed; commands keep the "
+                        "default keys.", exc_info=True)
+            return None
+        for problem in registry.problems:
+            log.warning("config.toml: %s", problem)
+        if registry.needs_focused_app:
+            self._focused_app_class = self._build_focused_app_source()
+            log.info("Editor command profiles on (following the focused application).")
+        else:
+            log.info("Editor command profiles on (pinned to %r).", registry.pinned)
+        return registry
+
+    def _build_focused_app_source(self) -> Callable[[], str] | None:
+        """A callable returning the focused application's class, or None.
+
+        Reuses the text-target guard's detector (AT-SPI, else X11 xdotool) when the
+        guard built one. With `[injection] target_guard = "off"` there is none, so one
+        is built here for the profile lookup alone -- kept apart from
+        `_target_detector`, whose presence is what switches the guard on.
+
+        Neither source exists on macOS, on Windows, or in a Wayland session without
+        AT-SPI. There the callable answers "" and `_command_keymap` falls back to the
+        default keys and says why, once. No platform check here: the detector's own
+        probes decide, as they already do for the guard.
+        """
+        detector = self._target_detector
+        if detector is None:
+            try:
+                from yazses.inject.target import AtspiFocusTracker, TargetDetector
+
+                tracker = AtspiFocusTracker()
+                if tracker.available() and tracker.start():
+                    detector = TargetDetector(atspi=tracker)
+                else:
+                    detector = TargetDetector()
+            except Exception:
+                log.debug("focused-application detector init failed", exc_info=True)
+                return None
+            self._profile_detector = detector
+        return detector.get_app_class
+
+    def _command_keymap(self, event: dict | None = None) -> Keymap | None:
+        """The focused editor's key overrides for one command, or None for the defaults.
+
+        None whenever `[commands] editor_profiles` is off -- `_command_profiles` is then
+        never built -- so `cmd_dispatch` sends exactly the keys it always has. Read at
+        dispatch time, not at hold-start: the window that receives the keys is the one
+        focused now, and command mode skips the hold-start target probe anyway.
+        """
+        registry = self._command_profiles
+        if registry is None:
+            return None
+        app_class = ""
+        if registry.needs_focused_app:
+            source = self._focused_app_class
+            if source is not None:
+                try:
+                    app_class = source() or ""
+                except Exception:
+                    log.debug("focused-application lookup failed", exc_info=True)
+                    app_class = ""
+        choice = registry.choose(app_class)
+        if event is not None:
+            event["command_profile"] = choice.name
+        if choice.reason == "no_app" and not self._command_profile_blind_logged:
+            from yazses.commands.profiles import NO_FOCUSED_APP_REASON
+
+            self._command_profile_blind_logged = True
+            log.info(NO_FOCUSED_APP_REASON)
+        return choice.keymap
+
     def _build_gaze_targeter(self, cfg):
         """Build the look-to-pane targeter, or None when any piece is missing.
 
@@ -2543,7 +2650,8 @@ class Daemon:
         from yazses.gesture.runtime import no_echo_injector
 
         # A failing command must not fall back to typing its own name (see no_echo_injector).
-        cmd_dispatch(intent, no_echo_injector(self._active_injector(), intent.raw_text))
+        cmd_dispatch(intent, no_echo_injector(self._active_injector(), intent.raw_text),
+                     keymap=self._command_keymap())
 
     def _start_gesture(self) -> None:
         """Take the camera lease and start polling, if there is anything to start."""
@@ -3807,7 +3915,8 @@ class Daemon:
                         return
                 cmd_dispatch(intent, injector,
                              macro_table=self._macro_table,
-                             macro_context=self._build_macro_context())
+                             macro_context=self._build_macro_context(),
+                             keymap=self._command_keymap(event))
             else:
                 # Command Safety Gate (ADR-v2-065): a dictated `rm -rf` waits for a
                 # spoken "confirm" instead of typing straight into a shell. Runs
@@ -4563,7 +4672,8 @@ class Daemon:
             return False
         cmd_dispatch(intent, self._active_injector(),
                      macro_table=self._macro_table,
-                     macro_context=self._build_macro_context())
+                     macro_context=self._build_macro_context(),
+                     keymap=self._command_keymap())
         return True
 
     def _cmdsafety_answer(self, text: str, event: dict) -> bool:
@@ -7298,8 +7408,10 @@ class Daemon:
                 self._device_monitor.stop()
             except Exception:
                 log.exception("Device monitor stop raised")
-        if self._target_detector is not None:
-            tracker = getattr(self._target_detector, "_atspi", None)
+        for detector in (self._target_detector, self._profile_detector):
+            if detector is None:
+                continue
+            tracker = getattr(detector, "_atspi", None)
             if tracker is not None:
                 try:
                     tracker.stop()

@@ -63,10 +63,6 @@ ENTRY_MODULES = {
 #: The known orphans, each with what is missing. An entry here is a debt that has
 #: been *looked at and written down*, not one that is hidden.
 KNOWN_ORPHANS = {
-    "commands.profiles":
-        "Per-editor grammar config. commands/dispatch.py has a comment pointing at "
-        "this module and still never imports it; load_profiles would return an "
-        "empty registry anyway.",
     "personalize.adapter_gate":
         "personalize is wired through prompt_builder; the P2 LoRA gate is not.",
     "platform.emg.brainflow_source":

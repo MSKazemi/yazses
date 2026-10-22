@@ -542,8 +542,8 @@ a person signs it. The runtime does not re-check licences.
 | `revise.py` | Mid-Thought Undo (spec-mid-thought-undo): `parse_revise` (whole-utterance "scratch that" family) + `DictationLedger` (LIFO of injected-burst char counts **and text** via `last_text()`/`replace_last()` — the latter feeds Punch-In); daemon backspaces the last burst |
 | `slm_router.py` | `SLMRouter` — Tier 2 llama-cpp-python classifier (v0.4.0); disabled when `slm_model_path` unset |
 | `lsp_context.py` | `LspContextProvider` — reads editor context via `EditorBridge` (NeovimBridge, NullBridge); 50 ms timeout |
-| `dispatch.py` | Routes `DICTATE` to `inject()`, `MACRO` to expand-and-inject (+caret `Left`), all others to `inject_key_sequence()` via `ACTION_KEYS` map |
-| `profiles.py` | `ProfileRegistry` — loads `[commands.profiles.*]` TOML sections |
+| `dispatch.py` | Routes `DICTATE` to `inject()`, `MACRO` to expand-and-inject (+caret `Left`), all others to `inject_key_sequence()` via `DEFAULT_KEYMAP` (`ACTION_KEYS` + the `LEAD_KEYS` that open structured actions). An optional `keymap=` (an editor profile) overrides per action; an override of `None` raises `CommandRefused` before any key is sent, and nothing is typed |
+| `profiles.py` | Editor command profiles (pure): built-in `jetbrains`/`sublime`/`vscode`/`default` key overrides, `match_app(app_class)`, `ProfileRegistry.choose(app_class) -> ProfileChoice`, `load_profiles(CommandsConfig)`. **Wired** only when `[commands] editor_profiles`: `Daemon._build_command_profiles` builds the registry at start; `_command_keymap` reads the focused app at dispatch time through the text-target guard's detector (AT-SPI / X11 xdotool; none on macOS, Windows, Wayland-without-AT-SPI → default keys, reason logged once) and passes the profile to all three `cmd_dispatch` call sites |
 
 ### `src/yazses/remote/`
 
@@ -809,7 +809,8 @@ dysfluency_friendly = false # ADR-015 preset: enables both collapse_* + widens o
 
 [commands]
 enabled = true
-profile = "auto"           # auto | default | vscode | vim
+profile = "auto"           # auto | default | vscode | jetbrains | sublime (read only with editor_profiles)
+editor_profiles = false    # opt-in: command keys follow the focused editor (commands/profiles.py)
 
 [injection]
 backend = "auto"               # auto | xdotool | ydotool | wtype | clipboard

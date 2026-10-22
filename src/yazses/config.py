@@ -442,6 +442,9 @@ class TtsConfig:
 @dataclass
 class CommandsConfig:
     enabled: bool = True
+    # Which editor's keys a spoken command sends. Read only when `editor_profiles`
+    # is on: "auto" follows the focused application; default, vscode, jetbrains or
+    # sublime pins that profile for every application (commands/profiles.py).
     profile: str = "auto"
     # Spoken Tier-1 grammar; explicit language can decouple commands from STT.
     # "auto" follows [stt] language; an explicit value overrides it.
@@ -478,6 +481,11 @@ class CommandsConfig:
     # when on, a destructive edit still updates the ledger so "scratch that" undoes
     # it. Requires spoken_edit. (ADR-v2-003)
     spoken_edit_destructive: bool = False
+    # Editor command profiles: send the keys the focused editor binds — Ctrl+Y, not
+    # Ctrl+Shift+K, to delete a line in a JetBrains IDE — and refuse a command the
+    # editor has no safe key for. OFF by default; off, every application gets the
+    # VS Code-style keys. The focused app is read via AT-SPI or X11 xdotool only.
+    editor_profiles: bool = False
 
 
 @dataclass
