@@ -142,6 +142,40 @@ no checked state, a half-checked box), the click waits for a spoken "confirm" in
 guessing. "toggle" still flips the box whatever its state. The Voice Pilot is off by
 default (`[pilot] enabled`), Linux-only, and untested on real hardware.
 
+### Added — the files to list `yazses mcp-server` in the official MCP registry
+
+`python3 scripts/render-mcp-server-json.py` writes `dist/server.json` for the MCP
+registry: PyPI's `yazses` at the project version, over stdio, with the argument
+`mcp-server` (ADR-032 §2, [#639](https://github.com/MSKazemi/yazses/issues/639)).
+Nothing is published. Listing needs an ownership line in the README, a release that
+carries it, and a hand-run `mcp-publisher publish` by the maintainer; the steps are in
+`packaging/README.md`, and the MCP guide says the entry is not listed yet. The template's
+field names are still to be checked against the registry's current schema; the tests
+are written but not yet run.
+
+### Added — a one-click MCP bundle (`.mcpb`) for `yazses mcp-server`
+
+`python3 scripts/build-mcpb.py` builds `dist/yazses-<version>.mcpb`, an MCP Bundle a
+desktop client can install by double-click or drag-and-drop. The bundle contains no
+copy of YazSes: its manifest runs the `yazses mcp-server` command already installed, so
+the model, the config and the microphone permission stay with that install, and its
+description links the install page for a machine without it (ADR-032 §1,
+[#638](https://github.com/MSKazemi/yazses/issues/638)). The build is byte-for-byte
+reproducible and uses only the standard library. A new guide,
+[Connect YazSes to an MCP client](docs/how-to/connect-mcp-client.md), covers the bundle
+and the manual config. Not yet attached to releases (that needs a release-workflow
+step), not yet tried in a real client, and some manifest fields are still to be checked
+against the MCPB specification; the tests are written but not yet run.
+
+### Fixed — `yazses mcp-server --help` no longer says `ask_human` is not offered
+
+The help said `ask_human` "is not offered yet". The server has offered it since
+`[mcp] ask_human = true` was added. The help now lists both tools and says `ask_human`
+appears only with that setting on. A test reads the tool list from the server's own
+registration and fails if the help lists a different set, so the two cannot drift
+again ([#641](https://github.com/MSKazemi/yazses/issues/641), ADR-032 §4). Written in a
+code-only pass; the test has not been run yet.
+
 ## [2.44.0] - 2026-10-23
 
 ### Fixed — the settings-window code no longer says it has "~200 rows"

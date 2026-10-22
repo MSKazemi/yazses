@@ -1,0 +1,26 @@
+{
+  "name": "io.github.MSKazemi/yazses",
+  "description": "Offline speech-to-text: transcribe files locally, or (opt-in) ask the user a question aloud.",
+  "repository": {
+    "url": "https://github.com/MSKazemi/yazses",
+    "source": "github"
+  },
+  "version": "@VERSION@",
+  "packages": [
+    {
+      "registryType": "pypi",
+      "registryBaseUrl": "https://pypi.org",
+      "identifier": "yazses",
+      "version": "@VERSION@",
+      "transport": {
+        "type": "stdio"
+      },
+      "packageArguments": [
+        {
+          "type": "positional",
+          "value": "mcp-server"
+        }
+      ]
+    }
+  ]
+}

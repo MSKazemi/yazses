@@ -355,6 +355,7 @@ nav:
       - After a distro upgrade: how-to/after-a-distro-upgrade.md
       - The update did not change the version: how-to/update-did-nothing.md
       - Over SSH and Remote-SSH editors: how-to/ssh-and-remote.md
+      - Connect an MCP client: how-to/connect-mcp-client.md
       - Remote dictation: how-to/remote-dictation.md
       - Performance tuning: how-to/performance-tuning.md
       - Per-app tone profiles: how-to/app-profiles.md

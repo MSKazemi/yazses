@@ -483,3 +483,41 @@ https://aur.archlinux.org and pushing the PKGBUILD to
 Already shipping — see `../scripts/build-deb.sh`,
 `../scripts/update-apt-repo.sh`, the `Snap` workflow, and the `Launchpad PPA`
 workflow.
+
+## MCP bundle and MCP registry — `yazses mcp-server` (ADR-032)
+
+Two ways for an MCP client to find `yazses mcp-server`. Neither ships a second copy of
+YazSes, and neither is published yet. The user-facing page is
+[`../docs/how-to/connect-mcp-client.md`](../docs/how-to/connect-mcp-client.md).
+
+**The `.mcpb` bundle.** `python3 scripts/build-mcpb.py` writes
+`dist/yazses-<version>.mcpb` from `mcpb/manifest.template.json`. The build is
+reproducible, so a release job can attach it and add it to `SHA256SUMS.txt`; no
+workflow does that yet. Built and unit-tested only, not yet installed in a real client.
+
+**The MCP registry entry.** `python3 scripts/render-mcp-server-json.py` writes
+`dist/server.json` from `mcp-registry/server.template.json`. It points at PyPI's
+`yazses` at the project version, over stdio, with the argument `mcp-server`. Publishing
+is an outward-facing step the owner runs by hand:
+
+1. **Ownership marker.** The registry accepts a PyPI package only if its PyPI
+   description (our `README.md`) contains the line `mcp-name: io.github.MSKazemi/yazses`,
+   for example as an HTML comment, `<!-- mcp-name: io.github.MSKazemi/yazses -->`. Add
+   it, and cut a release so a version on PyPI carries it.
+2. **Check out that release tag** and run `python3 scripts/render-mcp-server-json.py`.
+   `server.json` takes its version from `pyproject.toml`, and the registry rejects a
+   version that is not on PyPI.
+3. **Check the fields against the registry's current schema.** Install `mcp-publisher`
+   as the [registry's publishing guide](https://github.com/modelcontextprotocol/registry)
+   describes, run `mcp-publisher init` in an empty scratch directory, and compare the
+   file it writes with `dist/server.json`. Copy its `$schema` line in, and fix any
+   field name that has changed in `mcp-registry/server.template.json` too. The template
+   has no `$schema` line because the schema version could not be confirmed offline.
+4. **Log in** from `dist/` with `mcp-publisher login github`, as the `MSKazemi` account.
+   The `io.github.MSKazemi/` namespace is tied to that GitHub account.
+5. **Publish** with `mcp-publisher publish`, still in `dist/`.
+6. **Verify** by searching for `io.github.MSKazemi/yazses` in the registry. Then update
+   the docs page, which still says the entry is not listed.
+
+Each later release needs steps 2, 4 and 5 again with the new version. That can join the
+release workflow only after the owner approves it, under `.github/CI_POLICY.md`.
