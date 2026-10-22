@@ -6,6 +6,8 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.44.0] - 2026-10-23
+
 ### Fixed — the settings-window code no longer says it has "~200 rows"
 
 Comments and docstrings in `settingsui/` said the window has about 200 rows. It has one
@@ -45,7 +47,7 @@ no longer deletes a branch called `please`. It also closes a worse hole: a word 
 with `-` landed in the branch slot as an option, so "push -f" gave `git push origin -f`,
 a force push that was classed as safe and would have run under `--run` without `--yes`.
 Those are refused now. Written in a code-only pass; the new tests in
-`tests/test_gitvoice_refuses_unreadable_refs.py` have not been run yet.
+`tests/test_gitvoice_refuses_unreadable_refs.py` pass.
 
 ### Added — `yazses features repair` installs every dormant feature, with a summary
 
@@ -164,7 +166,9 @@ typed without the accept, and the word "accept" is never typed in its place. The
 on a background thread through llama-cpp-python (the `slm` extra), so dictation never waits
 for it. Without the model or the package the daemon says why once in its log and stays
 dormant. The suggestion is kept out of the log above DEBUG. Untested with a real model and on
-real hardware; `yazses features enable predict --force`.
+real hardware; `yazses features enable predict --force`. Enabling it now installs
+llama-cpp-python, the same binding and pin `llm-cleanup` installs (the llama.cpp row of the
+install-cost page), so no separate install step is needed for the binding.
 
 ### Added — Mouth-Sound Switch Access can now be turned on (experimental, off by default)
 
