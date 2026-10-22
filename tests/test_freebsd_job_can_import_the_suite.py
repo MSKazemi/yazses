@@ -26,9 +26,12 @@ cannot quietly describe packages the job stopped installing.
 from __future__ import annotations
 
 import ast
+import functools
 import pathlib
 import re
 import sys
+from collections.abc import Mapping
+from types import MappingProxyType
 
 import pytest
 import yaml
@@ -112,17 +115,25 @@ def _available_modules() -> set[str]:
     return modules
 
 
-def _module_scope_imports() -> dict[str, list[str]]:
+@functools.cache
+def _module_scope_imports() -> Mapping[str, list[str]]:
     """Third-party modules imported at module scope, and where.
 
     `pytest.importorskip("x")` anywhere in the file exempts `x`: at module scope it
     skips the whole module before the import line is reached, which is the pattern
     PySide6, Pillow and evdev already use here.
+
+    Cached, and read-only so the cache cannot be edited by a caller. It parses every test
+    file, and it was called at least four times per session. Two of those calls build
+    `parametrize` lists at import time, so a run of any single test that imports this
+    module paid for the scan too. A file whose text never says `importorskip` cannot
+    call it, so only those that do are walked node by node.
     """
     imports: dict[str, list[str]] = {}
     for path in sorted(TESTS.glob("*.py")):
-        tree = ast.parse(path.read_text(encoding="utf-8"))
-        guarded = {
+        source = path.read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        guarded = set() if "importorskip" not in source else {
             node.args[0].value.split(".")[0]
             for node in ast.walk(tree)
             if isinstance(node, ast.Call)
@@ -145,7 +156,7 @@ def _module_scope_imports() -> dict[str, list[str]]:
                 if name == "tests" or (TESTS / f"{name}.py").exists():
                     continue  # a sibling test module, not a dependency
                 imports.setdefault(name, []).append(path.name)
-    return imports
+    return MappingProxyType(imports)
 
 
 def test_the_probe_finds_the_job_and_its_packages() -> None:

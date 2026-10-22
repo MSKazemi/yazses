@@ -6,6 +6,38 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Tests — the suite runs about five times faster, and a hung test now fails instead of stalling CI
+
+The full suite was measured twice on one laptop, under the same load, on 2026-10-22: before
+these changes it took 40 min 49 s, after them 7 min 38 s. No assertion was removed or relaxed.
+
+- **The fixed cost per test is gone.** Two autouse fixtures in `tests/conftest.py` each
+  called `tmp_path_factory.mktemp()` for every test. That call numbers its directory by
+  scanning the session's whole temp directory, and these two calls added two entries to it
+  per test, so every call took longer than the one before. The fixtures now share one
+  directory per session and number theirs with a counter. On 3,000 empty tests the cost
+  fell from 66 s to 18.5 s (11 s with no fixtures at all).
+- **A source scan runs once per session, not once per test.** `tests/scan_cache.py` adds
+  `scan_once`: a guard that parses the whole tree caches its answer and hands each test a
+  private copy. `test_egress_inventory.py` used to parse all ~680 modules a dozen times;
+  that file went from 64 s to 13 s. Nine guard modules use it.
+- **Guards skip files that cannot match.** Before parsing, they check whether the file
+  even contains the name they are looking for, such as `os.kill`, `glob`,
+  `detect_install_method` or `mark.quarantine`. Each guard was re-checked with a planted
+  violation and still fails on it. The `os.kill` scan went from 20 s to 1.2 s.
+- **One fixture was 9.7 million characters.** A "healthy meeting" stub in
+  `test_meeting_survives_a_bad_postpass.py` made its 4,400 distinct words distinct by
+  making them up to 4,400 letters long. Spelling the index in letters gives identical
+  `quality.assess` output, and the file went from 31 s to 1.9 s.
+- **A hung test fails after five minutes** with every thread's stack, via
+  `pytest-timeout`. A Windows leg once printed one test name and then nothing for 2 h 30 m.
+  Override per test with `@pytest.mark.timeout(N)`.
+- **The pytest config is strict.** `--strict-markers`, `--strict-config` and
+  `xfail_strict` are on, so a misspelt marker or config key is an error, and so is an
+  `xfail` that starts passing. `required_plugins` refuses to start a run without
+  pytest-mock, pytest-timeout or Hypothesis. `tests/test_pytest_config.py` checks all of
+  this, including a real hang that must come back as a failure.
+
 ### Fixed — the macOS app no longer claims macOS 11, and the Homebrew cask puts `yazses` on your PATH
 
 - **The real minimum is macOS 14 (Sonoma).** The bundle declared macOS 11, and the cask

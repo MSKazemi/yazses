@@ -28,6 +28,7 @@ import ast
 from pathlib import Path
 
 import yazses
+from tests.scan_cache import scan_once
 from yazses.system.features import _UNWIRED, feature_packages
 
 SRC = Path(yazses.__file__).parent
@@ -91,6 +92,7 @@ def _module_name(path: Path) -> str:
     return ".".join(path.relative_to(SRC).with_suffix("").parts)
 
 
+@scan_once
 def _imported_names() -> set[str]:
     """Every `yazses.*` module named by an import anywhere in the package.
 
