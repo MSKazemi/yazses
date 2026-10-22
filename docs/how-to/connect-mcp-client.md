@@ -1,6 +1,6 @@
 ---
 title: Connect YazSes to an MCP client
-description: Let an AI agent transcribe files on your machine, and optionally ask you a question out loud, by connecting yazses mcp-server to Claude Desktop, Claude Code or any other MCP client.
+description: Let an AI agent transcribe files on your machine, and optionally ask you a question out loud, by connecting yazses mcp-server to Claude Desktop, Claude Code or any other MCP client — by bundle, by hand, or from the MCP registry.
 ---
 
 # Connect YazSes to an MCP client
@@ -69,6 +69,19 @@ With Claude Code, one command does the same:
 ```bash
 claude mcp add yazses -- yazses mcp-server
 ```
+
+## Route 3: the MCP registry
+
+The official [MCP registry](https://registry.modelcontextprotocol.io) lists servers that
+clients can search for. YazSes is **not listed yet**. Once it is, it will appear as
+`io.github.MSKazemi/yazses`, pointing at the `yazses` package on PyPI with the argument
+`mcp-server`.
+
+A client that installs from the registry may fetch its own copy of the `yazses` package,
+for example with `uvx`, rather than use the one you installed. That copy reads the same
+`config.toml`, but it can be a different version, and it has none of the optional
+features you added to your own install, such as another speech engine. To use the
+install you already have, prefer route 1 or route 2.
 
 ## If the client says `yazses` was not found
 

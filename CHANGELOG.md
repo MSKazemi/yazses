@@ -6,6 +6,17 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — the files to list `yazses mcp-server` in the official MCP registry
+
+`python3 scripts/render-mcp-server-json.py` writes `dist/server.json` for the MCP
+registry: PyPI's `yazses` at the project version, over stdio, with the argument
+`mcp-server` (ADR-032 §2, [#639](https://github.com/MSKazemi/yazses/issues/639)).
+Nothing is published. Listing needs an ownership line in the README, a release that
+carries it, and a hand-run `mcp-publisher publish` by the maintainer; the steps are in
+`packaging/README.md`, and the MCP guide says the entry is not listed yet. The template's
+field names are still to be checked against the registry's current schema; the tests
+are written but not yet run.
+
 ### Added — a one-click MCP bundle (`.mcpb`) for `yazses mcp-server`
 
 `python3 scripts/build-mcpb.py` builds `dist/yazses-<version>.mcpb`, an MCP Bundle a

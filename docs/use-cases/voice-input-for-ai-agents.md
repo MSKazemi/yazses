@@ -82,7 +82,8 @@ It offers `transcribe`, which turns an audio or video file into text on your mac
 With `[mcp] ask_human = true` it also offers `ask_human`: an agent that needs a decision
 only you can make asks you out loud, and gets your spoken answer back instead of having
 it typed into your editor. A budget limits how often agents may interrupt you. Details
-are in the [CLI reference](../cli-reference.md#yazses-mcp-server).
+are in the [CLI reference](../cli-reference.md#yazses-mcp-server), and setup for each
+client is in [Connect YazSes to an MCP client](../how-to/connect-mcp-client.md).
 
 ## What is planned
 
@@ -95,7 +96,7 @@ Two small additions are proposed. Both will be off by default:
   registry, and an `ask_human` that stops listening when you stop talking
   ([ADR-032](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-032-mcp-discoverability.md)).
 
-Neither is built yet. The [roadmap](../roadmap.md) explains why this is where YazSes is
+Neither has shipped in a release yet. The [roadmap](../roadmap.md) explains why this is where YazSes is
 going next.
 
 ## What YazSes will not do
