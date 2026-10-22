@@ -176,6 +176,9 @@ hooks:
   # Keeps design-tier bodies and preview release notes out of the in-browser search
   # index, which every page downloads at high priority (6.1 MB measured 2026-10-22).
   - hooks/search_scope.py
+  # Material titles the home page's share card with the bare site name; this sets
+  # og:title / twitter:title to the page title there (see the file).
+  - hooks/home_social_title.py
 
 plugins:
   - search

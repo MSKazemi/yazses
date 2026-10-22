@@ -14,12 +14,16 @@
 
 from __future__ import annotations
 
+import platform
 import tomllib
 from pathlib import Path
 
 from PyInstaller.utils.hooks import copy_metadata
 
 REPO = Path(SPECPATH).resolve().parents[1]
+
+# Per-architecture LSMinimumSystemVersion; see the Info.plist entry below.
+MIN_MACOS = {"arm64": "14.0", "x86_64": "14.0"}
 ENTRY = str(REPO / "src" / "yazses" / "__main__.py")
 ICON = REPO / "assets" / "yazses.icns"
 # A hard failure, not `icon=... if ICON.exists() else None`. assets/ never existed,
@@ -150,8 +154,19 @@ app = BUNDLE(
         # No Dock icon — tray-only app.
         "LSUIElement": True,
 
-        # Minimum macOS supporting PyObjC 11 + Apple Silicon.
-        "LSMinimumSystemVersion": "11.0",
+        # The oldest macOS the bundled binaries load on, per architecture. It is
+        # set by the newest library the dictation path imports, read from the
+        # Mach-O LC_BUILD_VERSION of the wheels uv.lock pins:
+        #   arm64  -- PyAV 18, onnxruntime 1.28 and numpy 2.4 are built for 14.0,
+        #             and `import faster_whisper` imports PyAV at module load;
+        #   x86_64 -- numpy 2.4's macOS 14 (Accelerate) wheel, which uv picks on the
+        #             macOS 15 Intel runner over its 10.13 one.
+        # PyObjC alone would allow 11.0; that is what this used to claim, and the
+        # arm64 app could not have dictated there. Qt (Settings window, overlay)
+        # needs 15.0, so on older systems those two features are unavailable.
+        # tests/test_macos_minimum_covers_bundled_wheels.py re-derives both
+        # values from uv.lock and fails when a dependency bump raises them.
+        "LSMinimumSystemVersion": MIN_MACOS[platform.machine()],
 
         # Permission prompt strings. Without these the OS rejects access without
         # showing a prompt to the user.

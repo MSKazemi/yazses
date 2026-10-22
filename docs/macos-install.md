@@ -13,7 +13,8 @@ description: "Install YazSes on macOS for private, on-device dictation: pipx ins
 
 ## Requirements
 
-- macOS 11 (Big Sur) or later
+- macOS 14 (Sonoma) or later for the `.dmg` and the Homebrew app; the Settings window
+  and the on-screen overlay need macOS 15 (Sequoia). On an older Mac, `pipx install yazses` may still work, because pip falls back to older builds of those libraries, but that route has not been tested there.
 - **Either architecture** — releases carry an Apple Silicon `.dmg` and an Intel
   one; only the *Homebrew cask* is Apple Silicon only (see the note below)
 - ~500 MB free disk: a 101 MB `.dmg` (2.43.2, Apple Silicon), the installed app,
@@ -251,7 +252,17 @@ The `.app` ships a CLI alongside the tray:
 /Applications/YazSes.app/Contents/MacOS/YazSes --cli status
 ```
 
-(For convenience, you can symlink it: `sudo ln -s /Applications/YazSes.app/Contents/MacOS/YazSes /usr/local/bin/yazses` and then run `yazses --cli doctor`.)
+**Installed with Homebrew?** From the release after 2.43.2 the cask links a `yazses`
+command onto your `PATH` that runs this CLI, so `yazses doctor` works directly. With the
+`.dmg`, or on 2.43.2, make the same shortcut yourself:
+
+```sh
+printf '#!/bin/sh\nexec /Applications/YazSes.app/Contents/MacOS/YazSes --cli "$@"\n' | sudo tee /usr/local/bin/yazses >/dev/null
+sudo chmod +x /usr/local/bin/yazses
+```
+
+A bare symlink named `yazses` would open the menu-bar app instead, because the
+executable picks its mode from its own name; the script passes `--cli` explicitly.
 
 ## Troubleshooting
 

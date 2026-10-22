@@ -294,8 +294,8 @@ yazses start             # start the dictation daemon
 
 On **macOS** (Homebrew or `.dmg`) and **Windows** (winget or the installer) there is
 nothing to type: open YazSes, grant the permissions it asks for, and it runs from the
-menu bar or system tray. The macOS app puts no `yazses` command on your `PATH`; its CLI
-is `/Applications/YazSes.app/Contents/MacOS/YazSes --cli doctor`.
+menu bar or system tray. From the release after 2.43.2 the Homebrew cask puts a `yazses` command on your
+`PATH`; with the `.dmg`, the CLI is `/Applications/YazSes.app/Contents/MacOS/YazSes --cli doctor`.
 
 Hold the hotkey (Right Alt on Linux, Right Option on macOS, Right Ctrl on Windows), speak, release — the text appears in the focused app within one to two seconds on a laptop CPU. The [quick start](get-started.md) walks through each OS step by step.
 

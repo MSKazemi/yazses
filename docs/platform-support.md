@@ -136,7 +136,7 @@ Both X11 and Wayland are supported. See [Install on Linux](install-linux.md).
 
 ## macOS
 
-macOS 11 (Big Sur) or newer.
+macOS 14 (Sonoma) or newer for the app (`.dmg` or Homebrew). The libraries the app bundles are built for macOS 14: PyAV, onnxruntime and numpy declare it in their binaries. The Settings window and the on-screen overlay use Qt, which needs macOS 15. On an older Mac, `pipx install yazses` may still work, because pip falls back to older builds of those libraries, but that route has not been tested there.
 
 | CPU | `pipx` (PyPI) | Homebrew | `.dmg` app bundle |
 |---|---|---|---|
