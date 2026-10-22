@@ -6,6 +6,21 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — `[stt] idle_unload_s`: release the speech model when you are not dictating (experimental, off by default)
+
+The speech model stays in memory for as long as the daemon runs. `base.en` holds about
+190–220 MB once loaded. With `[stt] idle_unload_s` set to a number of seconds, YazSes
+releases the model after that long without a decode and loads it again at the next press.
+The reload starts when you press the key and runs while you speak, so no audio is lost.
+If the model is not ready when you let go, the tray shows *loading*, and the first words
+after a long pause arrive a few seconds late. The default, `0`, never unloads, so
+existing installs are unchanged. An unload never interrupts a decode, a meeting or a file
+transcription. How much memory CTranslate2 actually hands back to the OS is not measured
+yet. The feature has unit tests but has not been tried on real hardware. This is the first
+step of ADR-029 (runtime residency), now accepted. Unloading the heavier optional models,
+running them in separate processes and a RAM budget are still to come. See
+[Choosing a model on a low-RAM machine](docs/how-to/low-ram-models.md#release-the-model-when-idle).
+
 ### Changed — a fresh install no longer switches on the Adaptive Latency Governor
 
 `latency` loads a second Whisper model (about 116 MB of RAM for `tiny.en`, ADR-029) the

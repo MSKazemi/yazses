@@ -152,6 +152,16 @@ class SttConfig:
     # so an upgrade must not switch it on for them. It only acts when
     # `language` is also Persian ("fa"); set on its own it warns once and no-ops.
     persian_normalisation: bool = False
+    # Release the speech model after this many seconds without a decode, and load it
+    # again on the next press (ADR-029). 0 (default) = never: the model stays loaded
+    # for as long as the daemon runs, which is what makes the first word fast. A
+    # positive value trades that for memory on a small machine: base.en holds about
+    # 190-220 MB once loaded. The reload starts when you press the key and runs while
+    # you speak; your audio is recorded either way, but the first words after a long
+    # pause arrive a few seconds late, and the tray shows "loading" while they do.
+    # Values under a few minutes mean most presses pay the reload. How much memory an
+    # unload hands back to the OS is not yet measured: CTranslate2 may keep some of it.
+    idle_unload_s: int = 0
 
 
 @dataclass
