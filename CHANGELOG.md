@@ -6,6 +6,22 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — `yazses gitvoice` refuses a branch name it cannot read, instead of guessing one
+
+`yazses gitvoice "push the frobnicator please"` printed `git push origin the` and exited 0:
+the first word after "push" was taken as the branch, whatever it was, and the rest was
+dropped. A push now has to read as `push [to] [remote] [branch]` with every word
+accounted for, or the command is refused ("Could not parse", exit 1). Articles, pronouns,
+prepositions and politeness ("the", "it", "to", "please", ...) are never taken as a
+branch. Trailing "please", "now", "thank you" and a trailing full stop are ignored, so
+"Push to main, please." still gives `git push origin main`. The same check covers
+`create branch`, `delete branch`, `switch to` and `merge`, so "delete branch old please"
+no longer deletes a branch called `please`. It also closes a worse hole: a word starting
+with `-` landed in the branch slot as an option, so "push -f" gave `git push origin -f`,
+a force push that was classed as safe and would have run under `--run` without `--yes`.
+Those are refused now. Written in a code-only pass; the new tests in
+`tests/test_gitvoice_refuses_unreadable_refs.py` have not been run yet.
+
 ### Changed — every CI test job now has a time limit that fits the parallel suite
 
 With no `timeout-minutes`, `repo-hygiene` sat in a hung `apt-get update` for 78 minutes

@@ -44,6 +44,66 @@ _SPOKEN_SEPARATORS = (
 )
 
 
+#: Words that are never a ref. An utterance is not a branch name just because a word
+#: sits where a branch name would: "push the frobnicator please" rendered
+#: ``git push origin the`` and exited 0, because the first word after "push" was taken
+#: as the branch whatever it was. Articles, determiners, pronouns, prepositions and
+#: politeness are what fill that slot in ordinary speech, and none of them is a
+#: plausible branch name -- so a ref that is one of these is refused, not guessed.
+#:
+#: Only function words belong here. A content word ("changes", "fix") can be a real
+#: branch, and refusing it would make a real branch unreachable by voice.
+_NOT_A_REF = frozenset({
+    "a", "an", "the", "this", "that", "these", "those", "some", "all", "every",
+    "it", "its", "my", "our", "your", "their", "his", "her", "me", "us", "them",
+    "to", "up", "for", "of", "on", "in", "into", "onto", "with", "and", "or", "from",
+    "please", "now", "thanks", "thank", "you",
+})
+
+#: Courtesy a speaker appends to a command: "push to main please", "push now".
+#: Stripped from the END of a ref-reading utterance only, so it can neither become the
+#: ref nor push the ref out of the position the grammar reads it from.
+_TRAILING_COURTESY = re.compile(r"[\s,]+(?:please|now|thanks|thank\s+you)$", re.IGNORECASE)
+
+#: Sentence punctuation a speech model appends ("Push to main."). Only when it follows
+#: a word character: a lone "." is a real pathspec (`discard changes in .`).
+_TRAILING_PUNCT = re.compile(r"(?<=\w)[.,!?;:]+$")
+
+
+def strip_courtesy(raw: str) -> str:
+    """Drop trailing sentence punctuation and politeness from a ref utterance. Pure.
+
+    Never applied to a commit message -- "commit with message fix it now" must keep
+    its last word -- only where a ref or pathspec is read.
+    """
+    text = (raw or "").strip()
+    prev = None
+    while prev != text:
+        prev = text
+        text = _TRAILING_PUNCT.sub("", text).rstrip()
+        text = _TRAILING_COURTESY.sub("", text).rstrip()
+    return text
+
+
+def is_clean_ref(token: str) -> bool:
+    """Whether *token* can be read as a git ref without guessing. Pure.
+
+    Refused: a function word (:data:`_NOT_A_REF`); anything outside ``[\\w./-]``; and
+    the shapes ``git check-ref-format`` rejects that the character class lets through
+    -- a leading ``.`` or ``/``, a trailing ``.`` or ``/``, ``..``, ``//`` and a
+    ``.lock`` suffix. A leading ``-`` is refused above all: in a ref position it is an
+    OPTION, so "push -f" rendered ``git push origin -f`` -- a force push that
+    :func:`reversibility` classified ``safe``.
+    """
+    if not re.fullmatch(r"\w[\w./-]*", token or ""):
+        return False
+    if token.lower() in _NOT_A_REF:
+        return False
+    if token.endswith((".", "/", ".lock")) or ".." in token or "//" in token:
+        return False
+    return True
+
+
 def despeak_ref(raw: str) -> str:
     """Turn spoken separators into the punctuation they name. Pure.
 
@@ -60,14 +120,14 @@ def despeak_ref(raw: str) -> str:
 
 
 def ref_src_for_push(raw: str) -> str:
-    """The push utterance with the force words removed, refs de-spoken.
+    """The push utterance with courtesy and force words removed, refs de-spoken.
 
     "force" must go before the ref is read, or "push force" yields a branch called
     ``force``. Spoken separators are resolved by :func:`despeak_ref` for the same reason
     they are further down: `feature/login` and `fix-tray-crash` are how branches are
     named, and both are spoken rather than typed.
     """
-    text = despeak_ref(raw)
+    text = despeak_ref(strip_courtesy(raw))
     # `-{0,2}\bforce\b` rather than `\b--?force\b`: there is no word boundary before
     # a leading dash, so the latter stripped only the word and left `--` behind — which
     # `[\w./-]+` happily accepted as a branch name, rendering `git push --force origin --`.
@@ -76,29 +136,37 @@ def ref_src_for_push(raw: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
-def _push_target(cleaned: str) -> list[str]:
-    """The ``[remote, ref]`` (or ``[]``) trailing a push utterance. Pure.
+def _push_target(cleaned: str) -> list[str] | None:
+    """The ``[remote, ref]`` (or ``[]``) trailing a push utterance, or ``None``. Pure.
 
     Bare "push" keeps its bare `git push`: with nothing named, the current branch and
     its upstream are exactly what the user meant, and adding a guess there would change
     a correct command into a guessed one.
+
+    ``None`` means a target was spoken but cannot be read cleanly, and the whole command
+    is refused. The grammar is ``push [to] [remote] [ref]`` and every word after "push"
+    must be accounted for by it. Taking the first word and silently dropping the rest
+    is how "push the frobnicator please" became ``git push origin the`` -- a command
+    built from a word nobody meant as a branch, which exited 0.
     """
     m = re.search(r"\bpush\b(?:\s+to)?\s*(?P<rest>.*)$", cleaned, re.IGNORECASE)
     if not m:
         return []
     # `\w` is required somewhere in the token: a leftover `--` or `-` is punctuation,
-    # not a ref, and passing it through would aim the push at a name git cannot resolve.
-    tokens = [
-        tok for tok in m.group("rest").split()
-        if re.fullmatch(r"[\w./-]+", tok) and re.search(r"\w", tok)
-    ]
+    # not a word the user said, so it is dropped rather than read. Every other token
+    # must be read by the grammar below, or the command is refused.
+    tokens = [tok for tok in m.group("rest").split() if re.search(r"\w", tok)]
     if not tokens:
         return []
-    if len(tokens) >= 2 and tokens[0].lower() in _KNOWN_REMOTES:
-        return [tokens[0], tokens[1]]
     if tokens[0].lower() in _KNOWN_REMOTES:
-        return [tokens[0]]
-    return [_DEFAULT_REMOTE, tokens[0]]
+        remote, refs = tokens[0], tokens[1:]
+    else:
+        remote, refs = _DEFAULT_REMOTE, tokens
+    if not refs:
+        return [remote]
+    if len(refs) > 1 or not is_clean_ref(refs[0]):
+        return None
+    return [remote, refs[0]]
 
 
 def build_git_argv(text: str):
@@ -137,8 +205,11 @@ def build_git_argv(text: str):
     # wrong guess beats an invisible right-looking one.
     forced = bool(re.search(r"\b(force\s+push|push\s+force|push\s+--?force)\b", t))
     if forced or re.search(r"^push\b", t) or re.fullmatch(r"push", t):
+        target = _push_target(ref_src_for_push(raw))
+        if target is None:
+            return None
         argv = ["git", "push"] + (["--force"] if forced else [])
-        return argv + _push_target(ref_src_for_push(raw))
+        return argv + target
     if re.search(r"^pull\b", t):
         return ["git", "pull"]
     if re.search(r"\bstatus\b", t):
@@ -164,14 +235,19 @@ def build_git_argv(text: str):
     #
     # Applied only here, after the commit-message branch has already returned, so a
     # message containing the word is untouched.
-    ref_src = despeak_ref(raw)
+    #
+    # Trailing courtesy and sentence punctuation go first, for the reason push needs it:
+    # "delete branch old please" must not delete a branch called `please`.
+    ref_src = despeak_ref(strip_courtesy(raw))
 
     m = re.search(r"\b(?:create|new)\s+branch\s+([\w./-]+)\s*$", ref_src, re.IGNORECASE)
     if m:
-        return ["git", "checkout", "-b", m.group(1)]
+        return _with_ref(["git", "checkout", "-b"], m.group(1))
     m = re.search(r"\bdelete\s+branch\s+([\w./-]+)\s*$", ref_src, re.IGNORECASE)
     if m:
-        return ["git", "branch", "-D", m.group(1)]
+        return _with_ref(["git", "branch", "-D"], m.group(1))
+    # A pathspec, not a ref: `.` is a legitimate answer here and it sits after `--`, so
+    # a leading dash cannot become an option. The ref checks do not apply.
     m = re.search(r"\bdiscard\s+(?:changes|edits)\s+(?:in|to|on)\s+([\w./-]+)\s*$",
                   ref_src, re.IGNORECASE)
     if m:
@@ -179,11 +255,21 @@ def build_git_argv(text: str):
     m = re.search(r"\b(?:checkout|switch\s+to|switch)\s+(?:branch\s+)?([\w./-]+)\s*$",
                   ref_src, re.IGNORECASE)
     if m:
-        return ["git", "checkout", m.group(1)]
+        return _with_ref(["git", "checkout"], m.group(1))
     m = re.search(r"\bmerge\s+([\w./-]+)\s*$", ref_src, re.IGNORECASE)
     if m:
-        return ["git", "merge", m.group(1)]
+        return _with_ref(["git", "merge"], m.group(1))
     return None
+
+
+def _with_ref(prefix: list[str], ref: str) -> list[str] | None:
+    """*prefix* + *ref*, or ``None`` when *ref* cannot be read cleanly. Pure.
+
+    Refusing is the point: "switch to the" rendered ``git checkout the``, and
+    "checkout -f" rendered ``git checkout -f`` -- which throws away local changes while
+    :func:`reversibility` called it ``safe``.
+    """
+    return [*prefix, ref] if is_clean_ref(ref) else None
 
 
 def reversibility(argv) -> str:
