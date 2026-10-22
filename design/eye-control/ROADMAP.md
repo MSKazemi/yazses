@@ -184,6 +184,19 @@ privacy-safe report. **Partly met (collection), per OS:**
   `QueryPointer` in root-window pixels (the X11 canonical space), `time.monotonic` stamps, buttons
   1–3 only. Hermetic tests against a faked python-xlib; **no real-desktop smoke report yet**, so the
   refiner is not described as working on X11 until one exists.
+- **Windows — implemented, click producer smoke-tested on hardware** (#607,
+  `platform/windows/click_observer.py`): a `WH_MOUSE_LL` hook on its own thread, handing each
+  press to a worker thread so a slow consumer can never stall input. First run 2026-10-22 on
+  Windows 11 22H2: the hook was granted to Python; left, right and middle presses gave one
+  `(time, x, y)` event each, at the exact cursor position; releases and moves gave none; no click
+  was swallowed; and with a callback sleeping 1.5 s a click still reached its window in 0 ms. This
+  shows the producer works on Windows. It does not show a calibration sample: real clicks paired
+  with gaze in a camera session, a second monitor and a non-100 % scale are still unmeasured, so
+  the refiner is not described as working on Windows yet.
+- **macOS — implemented, awaiting live evidence** (#607, `platform/macos/click_observer.py`): a
+  listen-only Quartz event tap (it structurally cannot swallow or delay a click), needing Input
+  Monitoring and Accessibility like the dictation key. Written from Apple's documentation and
+  never executed on a Mac.
 - **Linux Wayland — not available, by design:** `click_observer_factory` is `None` and
   `click_observer_unavailable_reason` says why — a native Wayland session has no global click stream
   (button events reach only the focused client, the compositor APIs are private, and the XDG

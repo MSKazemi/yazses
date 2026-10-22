@@ -45,11 +45,19 @@ wrong one here would quietly teach the refiner a wrong map on a HiDPI desktop. W
 writes the Windows topology provider owns filling this function in; until then the
 calibration fingerprint, not this backend, is what guards a HiDPI user.
 
-**Never executed on Windows yet.** ctypes packs and reads the real struct on Linux, so the
-tests exercise the procedure, the queue, the lifecycle and the sign of a negative
-coordinate; whether `SetWindowsHookExW` grants a hook to a Python process on a given
-desktop (it does not in services, and not over every remote-desktop configuration) is a
-fact only a Windows machine can report.
+**First run on Windows: 2026-10-22, Windows 11 22H2, one 100 %-scale monitor.** Built
+through ``get_platform().click_observer_factory`` as the daemon builds it, with synthetic
+presses sent inside a test window of its own. `SetWindowsHookExW` granted the hook to the
+Python process. Left, right and middle presses gave one `ClickEvent` each (`timestamp_s`,
+`x`, `y` and nothing else) at exactly the cursor position. Button releases and a mouse move
+gave none. Every click still reached the window, so nothing is swallowed. With a callback that
+slept 1.5 s, a click reached the window in 0 ms, which is the worker split above doing its
+job. `stop()` returned at once and nothing was observed after it. Still not measured: a second
+monitor (negative coordinates), a scale other than 100 % (see :func:`to_canonical`), remote
+desktop, and real human clicks paired with gaze in a calibration session. ctypes packs and
+reads the real struct on Linux too, so the hermetic tests cover the procedure, the queue,
+the lifecycle and the sign of a negative coordinate on every OS. A service session still
+gets no hook.
 """
 
 from __future__ import annotations
