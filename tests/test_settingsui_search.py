@@ -1,6 +1,6 @@
 """Filtering the settings window's rows — pure, so it runs without PySide6.
 
-The window has ~200 rows. These tests pin the two properties that make its filter
+The window has one row per capability. These tests pin the two properties that make its filter
 box worth having: it finds a capability by what it *does*, not only by its name,
 and it takes the same words `yazses features --on/--tier` takes.
 """

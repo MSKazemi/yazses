@@ -69,19 +69,17 @@ KNOWN_UNREAD = {
     # `[gaze] zones` names a zone scheme (`grid3x3 | grid2x2 | windows`) and the only
     # caller, `targeter.resolve_window`, resolves the looked-at *window* and never
     # consults a grid at all -- `zones.grid_zone` exists, is tested, and has no caller.
-    # `[polyglot] lid` names a language-ID granularity for a router that stays dormant
-    # until `[polyglot] adapter_path` points at a trained adapter that is not shipped.
+    # `[polyglot] lid` names a language-ID granularity for a router nothing calls:
+    # `polyglot` is registered as not wired (no decode path produces span languages).
     "GazeConfig.zones",
     "HotkeyConfig.evdev_device",
     "HotwordsConfig.boost",
     "LipreadConfig.mouth_threshold",
-    "MouthswitchConfig.dwell_s",
     "PersonalizeConfig.lora",
     "PersonalizeConfig.lora_base_model",
     "PersonalizeConfig.lora_min_events",
     "PersonalizeConfig.lora_min_improvement",
     "PhoneticConfig.max_distance",
-    "PilotConfig.confirm_ambiguous",
     "PolyglotConfig.lid",  # see the note beside GazeConfig.zones
     "PronunciationConfig.good_threshold",
     "ProsodyConfig.experimental_pitch_question",
@@ -140,7 +138,6 @@ AMBIGUOUS_UNREAD = {
     "CiteConfig.style",
     # `.max_terms` occurs only as a local parameter of `personalize.prompt_builder`.
     "ContextConfig.max_terms",
-    "ScreengroundedConfig.max_terms",
     # `.format` is read once, for `[prosody]`; every other hit is `str.format`.
     "OutlineConfig.format",
     # `.source` is never read from any config: the hits are a RAG chunk's attribute,

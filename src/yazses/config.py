@@ -152,6 +152,16 @@ class SttConfig:
     # so an upgrade must not switch it on for them. It only acts when
     # `language` is also Persian ("fa"); set on its own it warns once and no-ops.
     persian_normalisation: bool = False
+    # Release the speech model after this many seconds without a decode, and load it
+    # again on the next press (ADR-029). 0 (default) = never: the model stays loaded
+    # for as long as the daemon runs, which is what makes the first word fast. A
+    # positive value trades that for memory on a small machine: base.en holds about
+    # 190-220 MB once loaded. The reload starts when you press the key and runs while
+    # you speak; your audio is recorded either way, but the first words after a long
+    # pause arrive a few seconds late, and the tray shows "loading" while they do.
+    # Values under a few minutes mean most presses pay the reload. How much memory an
+    # unload hands back to the OS is not yet measured: CTranslate2 may keep some of it.
+    idle_unload_s: int = 0
 
 
 @dataclass
@@ -442,6 +452,9 @@ class TtsConfig:
 @dataclass
 class CommandsConfig:
     enabled: bool = True
+    # Which editor's keys a spoken command sends. Read only when `editor_profiles`
+    # is on: "auto" follows the focused application; default, vscode, jetbrains or
+    # sublime pins that profile for every application (commands/profiles.py).
     profile: str = "auto"
     # Spoken Tier-1 grammar; explicit language can decouple commands from STT.
     # "auto" follows [stt] language; an explicit value overrides it.
@@ -478,6 +491,11 @@ class CommandsConfig:
     # when on, a destructive edit still updates the ledger so "scratch that" undoes
     # it. Requires spoken_edit. (ADR-v2-003)
     spoken_edit_destructive: bool = False
+    # Editor command profiles: send the keys the focused editor binds — Ctrl+Y, not
+    # Ctrl+Shift+K, to delete a line in a JetBrains IDE — and refuse a command the
+    # editor has no safe key for. OFF by default; off, every application gets the
+    # VS Code-style keys. The focused app is read via AT-SPI or X11 xdotool only.
+    editor_profiles: bool = False
 
 
 @dataclass
@@ -1080,9 +1098,10 @@ class DenoiseConfig:
 class PredictConfig:
     """v2.1 Wave D — Predictive dictation completion (ADR-v2-016).
 
-    A tiny on-device LLM proposes the rest of a phrase; accept by voice. The
-    generator (llama.cpp) is opt-in behind the ``predict`` extra and runs in a
-    background thread. OFF by default.
+    A tiny on-device LLM proposes the rest of a phrase after a dictation is typed;
+    say "accept" to type it. The generator reuses llama.cpp (``llama-cpp-python``,
+    the ``slm`` extra), loads ``model_path`` lazily on a background thread, and stays
+    dormant -- saying why once in the log -- when either is missing. OFF by default.
     """
     enabled: bool = False
     model_path: str = ""             # local planner/completion GGUF; empty = disabled
@@ -1938,9 +1957,21 @@ class WhispermodeConfig:
 
 @dataclass
 class MouthswitchConfig:
-    """v2.8 Wave L — Mouth-Sound Switch Access (ADR-v2-097). OFF by default."""
+    """v2.8 Wave L — Mouth-Sound Switch Access (ADR-v2-097). OFF by default.
+
+    Single-switch scanning: a lip pop starts/stops a highlight that steps through
+    ``scan_items`` every ``dwell_s`` seconds; a tongue click runs the lit item. Armed by
+    `yazses handsfree resume`, and needs the overlay to draw the highlight.
+    """
     enabled: bool = False
+    # Seconds per highlight step (clamped to 0.5-10 by mouthswitch/scanner.py).
     dwell_s: float = 1.2
+    # What the scan offers, in order. "click", "scroll up" and "scroll down" are pointer
+    # operations; anything else is a command phrase the command grammar must know and run
+    # without confirmation, or it is dropped (with a log line) when the daemon starts.
+    scan_items: list[str] = field(
+        default_factory=lambda: ["enter", "undo", "scroll up", "scroll down", "click"]
+    )
 
 
 @dataclass
@@ -1951,11 +1982,24 @@ class InvoluntaryConfig:
 
 @dataclass
 class MorsevoxConfig:
-    """v2.9 Wave M — Vocal Morse two-tone AAC (ADR-v2-105). OFF by default."""
+    """v2.9 Wave M — Vocal Morse two-tone AAC (ADR-v2-105). OFF by default. Experimental.
+
+    Morse mode is entered by saying "morse mode" (the whole utterance) or by humming one
+    long, steady tone for ``entry_hum_s`` seconds, and left after ``exit_silence_s`` of
+    silence. While it is on, short hums are dots, long hums are dashes, and the decoded
+    characters are typed; speech-to-text is not run. ``entry_hum_s = 0`` turns the hum
+    entry off — the microphone then opens only when the spoken command enters the mode.
+    With it on, the microphone stays open (a level only, nothing recorded) while the
+    daemon runs. Both timings are provisional and untested on a real voice.
+    """
     enabled: bool = False
     dot_max_ms: float = 200.0
     letter_gap_ms: float = 600.0
     word_gap_ms: float = 1400.0
+    #: Seconds of one steady, unbroken hum that enter Morse mode. 0 = only the spoken "morse mode" enters.
+    entry_hum_s: float = 1.5
+    #: Seconds of silence that leave Morse mode. Raised above the word gap if set at or below it.
+    exit_silence_s: float = 3.0
 
 
 @dataclass
@@ -2032,7 +2076,12 @@ class DiagramvoxConfig:
 
 @dataclass
 class ProofbackConfig:
-    """v2.9 Wave M — Interruptible Read-Back Proofreading (ADR-v2-108). OFF by default."""
+    """v2.9 Wave M — Interruptible Read-Back Proofreading (ADR-v2-108). OFF by default.
+
+    Rides on the Read-Back Loop (``[tts] enabled`` and ``[accessibility] read_back``):
+    holding the dictation key while a dictated burst is read back marks the word being
+    read, and the next dictated burst replaces the text from that word to the burst's end.
+    """
     enabled: bool = False
 
 

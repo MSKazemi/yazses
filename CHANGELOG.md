@@ -6,6 +6,226 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the settings-window code no longer says it has "~200 rows"
+
+Comments and docstrings in `settingsui/` said the window has about 200 rows. It has one
+row per capability in the feature registry, which has well under 200 entries. The text
+now states that relationship instead of a number that goes stale, and a test pins it.
+Nothing a user sees changes.
+
+### Fixed — a source comment no longer says Windows defaults to Right Alt
+
+The comment above the list of supported hotkeys said `right_alt` is the default "on Linux
+and Windows". Windows binds `right_ctrl`, as the configuration reference already said;
+only the comment was wrong, and no behaviour changes. A test now reads each platform's
+default from its source and checks it against the list.
+
+### Fixed — `yazses features info gitvoice` no longer promises a spoken confirm that does not exist
+
+The feature catalog said git commands could be driven by voice, that destructive ones
+"wait for a spoken confirm" and that "the undo is always spoken". None of that exists.
+Git by voice is the `yazses gitvoice "<phrase>"` command: it prints the git command and
+how to undo it, runs it only with `--run`, and a destructive one only with `--yes` as
+well. Nothing is spoken, no dictation path runs git, and nothing reads
+`[gitvoice] enabled`, so the command works with the toggle on or off. The catalog text,
+its example and its "use when" line now say that, and `yazses features enable gitvoice`
+says so too. `docs/features.md` picks the new text up on the next `make docs`.
+
+### Fixed — `yazses gitvoice` refuses a branch name it cannot read, instead of guessing one
+
+`yazses gitvoice "push the frobnicator please"` printed `git push origin the` and exited 0:
+the first word after "push" was taken as the branch, whatever it was, and the rest was
+dropped. A push now has to read as `push [to] [remote] [branch]` with every word
+accounted for, or the command is refused ("Could not parse", exit 1). Articles, pronouns,
+prepositions and politeness ("the", "it", "to", "please", ...) are never taken as a
+branch. Trailing "please", "now", "thank you" and a trailing full stop are ignored, so
+"Push to main, please." still gives `git push origin main`. The same check covers
+`create branch`, `delete branch`, `switch to` and `merge`, so "delete branch old please"
+no longer deletes a branch called `please`. It also closes a worse hole: a word starting
+with `-` landed in the branch slot as an option, so "push -f" gave `git push origin -f`,
+a force push that was classed as safe and would have run under `--run` without `--yes`.
+Those are refused now. Written in a code-only pass; the new tests in
+`tests/test_gitvoice_refuses_unreadable_refs.py` have not been run yet.
+
+### Added — `yazses features repair` installs every dormant feature, with a summary
+
+`yazses features repair` lists every switched-on feature whose libraries are missing (the
+`◐ ON` rows) and the packages each needs, asks once, then installs them through the same
+path as `yazses features install`: the `uv tool` receipt, `pipx inject`, or the venv, with
+a failed install undone. It ends with one line per feature and exits 1 if any install
+failed. `--dry-run` only lists; `--yes` skips the question. A snap or a frozen
+`.app`/`.exe` cannot take extra packages, so there it prints the same refusal as `features
+install` and exits 1. It downloads only when you run it, like `features install`, so
+ADR-019's `system/deps.py` row gains a trigger but no new outbound path. The planning
+logic is pure (`ondemand.repair_plan`) and unit-tested with the installer replaced. No
+real install has been run through this command yet.
+
+### Fixed — Spoken Code Mode now cases identifiers, as its feature card always said
+
+`yazses features info code` promised that word-groups become cased identifiers, but
+`to_case` had no caller: "code def get user name open paren user id close paren colon"
+typed `def get user name(user id):`. A new pure grammar, `spoken_identifiers` in
+`code/spoken.py`, now runs in the `code …` handler after the symbols are converted. Say
+a style phrase and then the words: "code self dot camel case user name" types
+`self.userName`; pascal, snake, kebab and constant (or "screaming snake") case work the
+same way. The identifier ends at the next symbol, the next style phrase, the spoken
+"end case" (not typed), or the end of the phrase. A style phrase with no word after it,
+or followed by a number or punctuation, is typed unchanged. This applies only inside a
+`code …` phrase on the command key, and code mode stays off by default. Unit-tested
+only; not yet tried with a real microphone.
+
+### Fixed — `[polyglot]` no longer claims code-switch routing is active when nothing routes
+
+With `[polyglot] enabled`, a valid `pair` and an `adapter_path`, the daemon logged
+"Polyglot code-switch routing active", and `yazses features enable polyglot` succeeded.
+Nothing routed: the router's `should_route` had no caller, because no decode path
+produces the per-span language IDs it decides from (the STT engine seam returns text
+only, and faster-whisper reports one language per call). Every burst was, and still
+is, decoded by the `[stt]` model. Building that input is new design, so instead of
+inventing it the feature now says what it does:
+
+- `polyglot` is registered as **planned — not yet wired**: `features enable polyglot`
+  refuses it, `features info polyglot` says so, and `features disable polyglot`
+  still clears an old config.
+- The daemon no longer builds the router. With `[polyglot] enabled = true` it logs a
+  warning that routing is not wired and that the `[stt]` model decodes every burst.
+- `yazses doctor` warns whenever `[polyglot]` is on. It used to warn only when
+  `adapter_path` was empty, which implied that setting it would make routing work.
+- The v2 features page, the multilingual and Hindi use-case pages (English and Hindi),
+  and the architecture pages say the same. The Hindi page had still described
+  `[polyglot]` as a working routing layer.
+
+### Added — `[stt] idle_unload_s`: release the speech model when you are not dictating (experimental, off by default)
+
+The speech model stays in memory for as long as the daemon runs. `base.en` holds about
+190–220 MB once loaded. With `[stt] idle_unload_s` set to a number of seconds, YazSes
+releases the model after that long without a decode and loads it again at the next press.
+The reload starts when you press the key and runs while you speak, so no audio is lost.
+If the model is not ready when you let go, the tray shows *loading*, and the first words
+after a long pause arrive a few seconds late. The default, `0`, never unloads, so
+existing installs are unchanged. An unload never interrupts a decode, a meeting or a file
+transcription. How much memory CTranslate2 actually hands back to the OS is not measured
+yet. The feature has unit tests but has not been tried on real hardware. This is the first
+step of ADR-029 (runtime residency), now accepted. Unloading the heavier optional models,
+running them in separate processes and a RAM budget are still to come. See
+[Choosing a model on a low-RAM machine](docs/how-to/low-ram-models.md#release-the-model-when-idle).
+
+### Changed — a fresh install no longer switches on the Adaptive Latency Governor
+
+`latency` loads a second Whisper model (about 116 MB of RAM for `tiny.en`, ADR-029) the
+first time the CPU is busy, and keeps it. Its own description, its config docstring and
+`yazses features info latency` all said "Off by default", but its registry row sat in the
+recommended tier that first run writes into a new `config.toml`, so every new install had
+it on. It is now optional: a new install leaves it off, `yazses features enable latency`
+turns it on, and an existing config is not rewritten — if yours has
+`[latency] enabled = true`, it stays on until you disable it. `features reset` and the
+settings window's Restore defaults now treat off as its default.
+
+### Added — spoken commands can send the focused editor's own keys (experimental, off by default)
+
+Editor command profiles were documented and never ran: `commands/profiles.py` had a
+registry and a loader that nothing called, so every application got VS Code's keys.
+In a JetBrains IDE *"delete the last line"* sent Ctrl+Shift+K, which is not delete
+line there. In Sublime Text *"rename this to user_id"* sent F2 (next bookmark), then
+Ctrl+A, then typed the name over the whole file.
+
+`[commands] editor_profiles = true` now picks the keys from the application in focus
+when the command is sent. JetBrains IDEs get Ctrl+Y to delete a line, Shift+F6 to
+rename, and Ctrl+N, Ctrl+Shift+N and Ctrl+F12 to navigate. Sublime Text gets Ctrl+R
+to go to a symbol, and rename is refused, so nothing is sent or typed.
+`[commands] profile` pins one profile (`default`, `vscode`, `jetbrains` or `sublime`)
+instead of following focus. The focused application is read through AT-SPI or, on
+X11, xdotool. macOS, Windows and Wayland without AT-SPI have neither, so they keep
+the default keys and the daemon log says why, once. The bindings come from each
+editor's default keymap and have not been tested by sending keys to a running editor.
+With the setting off, which is the default, every command sends the same keys as
+before.
+
+### Added — Interruptible Proofreading: correct a dictation while it is read back (experimental, off by default)
+
+`proofback` is now wired (ADR-v2-108). With Read-Back on, hold the dictation key while a
+dictation is being read to you: playback stops, the word being read is identified from the
+per-word playback timeline, and the next thing you dictate replaces the text from that word
+to the end of that dictation. It deletes only text YazSes itself just typed, with backspaces
+from the end, as "scratch that" does, and never moves the caret. When it cannot place the
+word safely, it logs the word's position and types your correction as ordinary dictation.
+That happens when the read-back was cut short by `max_readback_chars`, the window has no
+text field, streaming is on, or something else was typed since. Word timing is estimated
+from the TTS chunk lengths, and the feature is untested on real hardware. Turn it on with
+`yazses features enable proofback --force`.
+
+### Added — Predictive Completion can be turned on (experimental, off by default)
+
+`predict` had a tested core and no caller. Now, with `[predict] enabled = true` and a local
+GGUF model at `[predict] model_path`, each typed dictation is followed by a suggested rest of
+the sentence in a notification. Say "accept" or "take it" within 10 seconds to type it, or
+"discard" to drop it; anything else you say dismisses it and is dictated as usual. Nothing is
+typed without the accept, and the word "accept" is never typed in its place. The model runs
+on a background thread through llama-cpp-python (the `slm` extra), so dictation never waits
+for it. Without the model or the package the daemon says why once in its log and stays
+dormant. The suggestion is kept out of the log above DEBUG. Untested with a real model and on
+real hardware; `yazses features enable predict --force`.
+
+### Added — Mouth-Sound Switch Access can now be turned on (experimental, off by default)
+
+`[mouthswitch]` had a tested sound detector and no caller. It is now single-switch scanning.
+Enable it, run `yazses handsfree resume`, and pop your lips. The overlay then shows a row of
+items across the top of the screen (Enter, Undo, Scroll up, Scroll down, Click) and lights
+the next one every `dwell_s` (1.2 s). A tongue click runs the item that was lit when the
+click began. A second pop stops the scan.
+
+- A command item goes through the activation policy, the command grammar and the
+  dispatcher, the same path Gesture Chords use. "Click" and "Scroll up/down" are single
+  calls on the existing pointer backend. `[mouthswitch] scan_items` changes the list. An
+  item the grammar does not know, or one that would need a confirmation (such as "save"),
+  is dropped at start-up and logged.
+- A select needs a detected click inside a running scan, and each scan selects once and then
+  stops. A click with no scan running does nothing. A scan nobody uses stops after three
+  passes. Nothing is heard while you dictate.
+- Without the overlay there is no switch: `handsfree resume` says why. The overlay is not
+  started on a native Wayland session.
+- `yazses handsfree pause`, the stop phrase, a global hands-free pause and shutdown close the
+  microphone.
+- The detector's thresholds were tuned on synthetic sounds only. The feature is untested on
+  a real microphone, and keyboard taps or desk knocks may read as a click.
+
+### Added — Vocal Morse is wired: type by humming Morse, started hands-free (experimental, off by default)
+
+`[morsevox]` had a decoder and a level-stream segmenter and nothing that called them. Now,
+with `yazses features enable morsevox --force`, Morse mode starts when you say "morse mode"
+(the whole utterance) or hum one long, steady tone for `entry_hum_s` (1.5 s), and ends
+after `exit_silence_s` (3 s) of silence. While it is on, a short hum is a dot, a long hum
+a dash, each decoded letter is typed through the normal injector, and speech-to-text is
+not run. The hum trigger fires only on an unbroken tone whose level barely varies, so
+speech, which dips between syllables or wobbles at the syllable rate, does not start it
+(ADR-021). With the hum entry on, the microphone stays open while the daemon runs (a level
+only, nothing recorded); `entry_hum_s = 0` turns that off, and `yazses handsfree pause`
+closes it. `yazses status` and the overlay show when Morse mode is on. All thresholds were
+tuned on synthetic signals only and are untested on a real voice.
+
+### Added — Voice Pilot and Screen-Grounded Dictation can be turned on (experimental, off by default, Linux only)
+
+Both had a tested core and no caller (#164); both needed the same missing piece, a reader
+for what the focused window shows. That reader now exists once, behind a new optional
+`Platform.accessibility_factory`: AT-SPI on Linux, using the `python3-pyatspi` binding the
+text-target guard already uses, with no new dependency. It reads only the active window,
+only what is showing, and stops at 600 nodes, 32 levels or 0.3 s, under a 1 s wall-clock
+deadline. It never reads the text of a password field, a terminal or an editable field,
+and it logs counts, never labels. macOS and Windows have no backend yet, so both features
+stay inactive there and the daemon log says why.
+
+- **`pilot`** — hold the command key and say "click Save", "press OK" or "toggle dark
+  mode". YazSes clicks at once only when exactly one control's label matches exactly. A
+  partial match, a tie, or a label such as "Delete", "Send" or "Log out" waits for the
+  Command Safety Gate's confirm word ("confirm"), expires after 30 s, and is dropped by
+  anything else you say. "focus …" and "activate …" stay with the window-focus grammar.
+- **`screengrounded`** — when you press the key, the focused window's labels are read in
+  the background and the names among them prime that one burst's decode. Menu and toolbar
+  words are skipped. The terms are never stored or logged, and `yazses doctor` lists the
+  source in its STT prompt row. No OCR tier yet.
+
+Neither has been tried on a real desktop yet; the AT-SPI backend is tested against a fake.
+
 ### Docs — the direction: the offline microphone for the agent era (ADR-030)
 
 [ADR-030](design/adr/adr-030-agent-era-direction.md) (Accepted) records where YazSes goes

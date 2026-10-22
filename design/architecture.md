@@ -177,7 +177,18 @@ Daemon owns the state machine and IPC server:
   REMOTE_SETUP → REMOTE_ACTIVE
   ENROLLING
   PAUSED
+
+  Opt-in [stt] idle_unload_s > 0 (ADR-029), model released while idle:
+  RECORDING → LOADING (ready=true) → TRANSCRIBING   while the reload finishes
 ```
+
+**The speech model is resident for the daemon's life by default.** With `[stt] idle_unload_s`
+positive, `stt/resident.py::IdleUnloadEngine` wraps the engine and the model may be released
+after that many idle seconds; every holder of the engine (`StreamingEngine`, the latency
+governor's `EnginePool`, meeting capture) keeps the wrapper, so nothing has to be rebuilt and a
+decode reloads it transparently. An unload never races a decode: decodes count themselves in, and
+the release happens only at zero, from the `stt-idle-unload` tick, while the daemon state is
+IDLE or PAUSED under `_lock`.
 
 **DICTATE-path post-process chain (`core/daemon.py::_on_hold_end`).** After `clean_dictation`,
 the cleaned transcript flows through a chain of **opt-in, OFF-by-default** text transforms, each
@@ -216,6 +227,19 @@ Each is judged on **how rarely it fires**. A guard that interrupts a house numbe
 the user to dismiss it, and a dismissed guard costs attention while catching nothing —
 so each holds only on a specific, checkable signal, never a heuristic.
 
+**Predictive Completion's answer step** (`predict/`, ADR-v2-016, experimental, off by
+default) is not a guard but consumes control utterances the same way, so its place is
+fixed too. After a dictated burst is typed, `predict/runtime.py` asks a local llama.cpp
+model (`predict/generator.py`) for the rest of the sentence on its own worker thread,
+and the offer is shown in a notification. The next burst is resolved by the pure
+`predict/session.py` **before** the timeline and "scratch that" handlers: a whole-utterance
+accept types the suggestion (never the word), a decline types nothing, anything else
+withdraws the offer and is dictated. It steps aside while a `cmdsafety` hold or a re-ask
+is pending, which own "cancel that" and "never mind". Invariants: nothing is typed
+without an accept; a result for an older burst is never offered (an epoch moves on every
+hold start); the offer expires after 10 s; and its notification body, the one derived
+from dictation, is kept out of the log (`notify(..., log_body=False)`).
+
 `cmdsafety` judges the *command text* and deliberately **not** the focused window: focus
 detection needs AT-SPI or X11, so on Wayland without AT-SPI the window class is empty, and
 a guard that silently stops protecting on a whole display server is worse than none.
@@ -233,7 +257,7 @@ a guard that silently stops protecting on a whole display server is worse than n
 | `system/depsize.py` | What enabling a feature will download — *marginal* against what is installed, from a committed table of resolved closures, plus the model files it fetches on first run (ADR-018) |
 | `system/dormant.py` | Which **enabled** capabilities cannot run because their optional libraries are missing — derived from the feature registry, never a hand-kept list — with the one command that fixes each (`yazses features enable <slug>`, `--force` when experimental; the refusal reason in a snap or frozen bundle). Desktop-only rows (`tray`, `overlay`) are not findings without a graphical session. A camera feature (its registry row checks for `cv2`) whose libraries all import is also not ready when `opencv_health` finds `cv2` half-deleted; that finding is `installable=False` (no **Install now**), carries `problem`, and its remedy is the pinned repair from `updater.cv2_repair_here`. Read by the daemon at start (log + one rate-limited toast), `yazses doctor` and the `yazses features` ◐ marker; `preserved_requirements` feeds the uv-tool upgrade. Pure apart from injected probes; installs nothing |
 | `system/opencv_health.py` | Is `cv2` half-deleted? `cv2_half_deleted` is the one decision the start-up dormant check and `yazses doctor`'s **OpenCV** row share: an OpenCV distribution is installed and `cv2` is a namespace package, or a package without its native module (left behind when removing one of two OpenCV builds deletes the files they share). Never imports `cv2`; a whole install costs one `find_spec` and one directory listing, and package metadata is read only when the directory already looks broken. Owns `CV2_DISTRIBUTIONS` / `installed_cv2_versions`, which `updater.py` re-uses. Stdlib only, never raises |
-| `system/ondemand.py` | The one-action install for a dormant feature: the daemon toast's **Install now** / **Not now** buttons and their handler (one install at a time), the `yazses start`/`restart` terminal prompt, and `yazses features install`. Installs only on a click, a typed yes or the command; no button where `dormant.py` says nothing can install |
+| `system/ondemand.py` | The one-action install for a dormant feature: the daemon toast's **Install now** / **Not now** buttons and their handler (one install at a time), the `yazses start`/`restart` terminal prompt, `yazses features install`, and `yazses features repair` (`repair_plan` splits the dormant set into installable and blocked before anything runs; `repair_summary`/`repair_exit_code` report per feature). Installs only on a click, a typed yes or the command; no button where `dormant.py` says nothing can install |
 | `settingsui/maintenance.py`, `settingsui/maintenance_panel.py` | The Settings window's **About and updates** box. `maintenance.py` (pure) turns an update check plus `installer_update.one_click_offer` into one action (one-click hand-off, verified pip-family upgrade, open the releases page, or none) and routes each dormant feature to the install that can work here (`ondemand.install_one`, an ADR-028 pack via `packs.manage.install` in a frozen build, or a disabled button with `dormant.py`'s reason); it reads the transaction's undo outcome from `deps._undo`'s own lines. `maintenance_panel.py` owns the widgets and runs every check, hand-off, upgrade and install on a `QThread`, delivering results through a UI-thread `QObject` relay (a signal connected to a plain callable would run it on the worker thread). Implements no update or install logic: it calls `tray.updates.check_updates`/`hand_off_outside_tray`, `updater.run_upgrade_checked` and the functions above |
 | `system/install_txn.py` | Pure decisions for a feature install as a transaction: the install channel (`uv-tool`, `pipx`, `editable`, `venv`, `system`, `snap`, `frozen`) and `METHOD_CHANNELS` from every `updater` install method; YazSes's base requirements as `--constraint` lines; markers evaluated for pipx (which ignores them); snapshot/diff of the installed set and the undo specs. `system/deps.py` runs the subprocesses |
 
@@ -241,11 +265,11 @@ a guard that silently stops protecting on a whole display server is worse than n
 
 | File | Role |
 |---|---|
-| `base.py` | Protocol interfaces: `HotkeyBackend`, `InjectorBackend`, `LifecycleBackend`, `IpcServer`, `IpcClient`, `PermissionsBackend`, `TrayBackend`. Also `Platform.pointer_factory` — the optional `PointerSinkFactory` a bundle registers, `None` on an OS with no pointer backend yet (a factory, so nothing is constructed and no permission asked until a pointer consumer is enabled) |
+| `base.py` | Protocol interfaces: `HotkeyBackend`, `InjectorBackend`, `LifecycleBackend`, `IpcServer`, `IpcClient`, `PermissionsBackend`, `TrayBackend`. Also `Platform.pointer_factory` — the optional `PointerSinkFactory` a bundle registers, `None` on an OS with no pointer backend yet (a factory, so nothing is constructed and no permission asked until a pointer consumer is enabled). And `Platform.accessibility_factory` (#164) — the optional `AccessibilityFactory` building an `AccessibilityBackend` (`snapshot()` = ADR-v2-151's `SemanticSource.snapshot` over the focused window, plus `perform(entity_id, action)` on a node of the latest snapshot only); `None` with `accessibility_unavailable_reason` where it cannot work, and `None` on every OS but Linux (`NO_ACCESSIBILITY_BACKEND_REASON`) |
 | `factory.py` | `get_platform()` — detects `sys.platform`, returns `Platform` dataclass |
 | `*/permissions.py` | Keyboard capture, microphone and (ADR-v2-145 / #414) **camera**. `check_camera()` returns a `CameraPermission`, never a bare boolean, and returns `NOT_DETERMINED` — never `GRANTED` — when it cannot answer |
 | `emg/backend.py` | `EMGBackend` — `HotkeyBackend` over USB CDC serial YESP protocol (v0.4.0); requires `pyserial` optional dep |
-| `linux/` | evdev hotkey, LinuxInjector (xdotool/ydotool/wtype/clipboard), systemd lifecycle, Unix socket IPC |
+| `linux/` | evdev hotkey, LinuxInjector (xdotool/ydotool/wtype/clipboard), systemd lifecycle, Unix socket IPC. `accessibility.py` decides at bundle build whether AT-SPI can work (a desktop session and a locatable `pyatspi`, found with `find_spec`, never imported there) and says why not; `atspi_tree.py` is the backend, imported on first use: the active window only, showing nodes only, names/roles/action names, text content only for an unnamed node and never from a password field, a terminal or an editable field, bounded by `grounding/treewalk.py`, ids prefixed per snapshot so a stale id is refused |
 | `macos/` | CGEventTap hotkey, MacosInjector (CGEvent Unicode), launchd lifecycle, rumps tray, `pointer.py` (`MacosPointerSink` over CoreGraphics) |
 | `windows/` | WH_KEYBOARD_LL hotkey, WindowsInjector (SendInput UTF-16), named-pipe IPC, pystray tray, `pointer.py` (`WindowsPointerSink` over SendInput mouse events), `update_handoff.py` (`WindowsUpdateLauncher`: the `UpdateLauncher` Protocol — a detached `-EncodedCommand` PowerShell job that waits for YazSes to exit — and installs nothing if it has not within 300 s — re-checks the installer's SHA-256, runs the silent, never-elevated in-place upgrade or the choco/winget/scoop command by absolute path, records the exit code and relaunches YazSes either way; also reads the Inno uninstall key for the install scope and asks each package manager which version its feed carries; ADR-027) |
 
@@ -443,6 +467,7 @@ outstanding for both.
 |---|---|
 | `faster_whisper.py` | `FasterWhisperEngine` — wrapper around `faster_whisper.WhisperModel`; accepts `initial_prompt` for LSP context (v0.4.0) |
 | `vocabulary.py` | Built-in STT vocabulary. `merge_initial_prompt(*parts)` always primes the coined app name `YazSes` (`BUILTIN_PROMPT`), placed **after** the configured/personal vocab because faster-whisper keeps only the last `PROMPT_TOKEN_BUDGET` = 223 tokens of a prompt and silently drops the front — first meant first to be discarded, so a large vocabulary cost exactly the priming this module exists for. Single chokepoint used by `daemon._effective_initial_prompt`, which also merges the user's personal dictionary (`system/vocabulary.py`, `yazses vocab`) |
+| `resident.py` | `IdleUnloadEngine` — `[stt] idle_unload_s` (ADR-029 §1, off by default: `0` builds no wrapper). Wraps the built engine; decodes count in/out under one condition (never held across a decode, so decodes still run side by side); one thread reloads through the daemon's `build_engine` while others wait; `detach_if_idle()` never blocks and hands back the engine only when the residency `IdleTracker` says it is due and nothing is in flight; `prefetch()` at a press starts the reload in the background while the user speaks. Delegates unknown attributes to a resident engine without loading one |
 | `streaming.py` | `StreamingEngine` — background decode thread, LocalAgreement stable-prefix policy (ADR-002). `prefix_stable_for_ms()` accessor + `prewarm()` feed Ghost Ahead endpoint anticipation |
 | `filters/disfluency.py` | Disfluency filter: filler removal → 2-gram dedup → **opt-in collapse pass (Rule B.5, ADR-015): sub-word repetition + prolongation collapse for Dysfluency-Friendly Mode, off by default, `_is_protected`-guarded** → self-correction rollback |
 | `endpoint.py` | Ghost Ahead pivot (spec-ghost-ahead): `EndpointAnticipator` (with debounce) — predicts end-of-utterance from partial-transcript stability + trailing silence. **Wired** into `_partial_poll_loop` via `daemon._endpoint_prewarm_tick`: on a likely endpoint, pre-warm (eager, discardable decode); `[endpoint]` off by default. Speculative finalize (Phase 2) gated |
@@ -542,8 +567,8 @@ a person signs it. The runtime does not re-check licences.
 | `revise.py` | Mid-Thought Undo (spec-mid-thought-undo): `parse_revise` (whole-utterance "scratch that" family) + `DictationLedger` (LIFO of injected-burst char counts **and text** via `last_text()`/`replace_last()` — the latter feeds Punch-In); daemon backspaces the last burst |
 | `slm_router.py` | `SLMRouter` — Tier 2 llama-cpp-python classifier (v0.4.0); disabled when `slm_model_path` unset |
 | `lsp_context.py` | `LspContextProvider` — reads editor context via `EditorBridge` (NeovimBridge, NullBridge); 50 ms timeout |
-| `dispatch.py` | Routes `DICTATE` to `inject()`, `MACRO` to expand-and-inject (+caret `Left`), all others to `inject_key_sequence()` via `ACTION_KEYS` map |
-| `profiles.py` | `ProfileRegistry` — loads `[commands.profiles.*]` TOML sections |
+| `dispatch.py` | Routes `DICTATE` to `inject()`, `MACRO` to expand-and-inject (+caret `Left`), all others to `inject_key_sequence()` via `DEFAULT_KEYMAP` (`ACTION_KEYS` + the `LEAD_KEYS` that open structured actions). An optional `keymap=` (an editor profile) overrides per action; an override of `None` raises `CommandRefused` before any key is sent, and nothing is typed |
+| `profiles.py` | Editor command profiles (pure): built-in `jetbrains`/`sublime`/`vscode`/`default` key overrides, `match_app(app_class)`, `ProfileRegistry.choose(app_class) -> ProfileChoice`, `load_profiles(CommandsConfig)`. **Wired** only when `[commands] editor_profiles`: `Daemon._build_command_profiles` builds the registry at start; `_command_keymap` reads the focused app at dispatch time through the text-target guard's detector (AT-SPI / X11 xdotool; none on macOS, Windows, Wayland-without-AT-SPI → default keys, reason logged once) and passes the profile to all three `cmd_dispatch` call sites |
 
 ### `src/yazses/remote/`
 
@@ -658,6 +683,8 @@ Read-Back Loop (spec-read-back-loop): offline TTS that speaks the transcript bac
 
 Wired in `core/daemon.py`: built at startup; after a **dictation** injection, `_maybe_read_back` truncates to `max_readback_chars` and `_speak_readback` enters the `READBACK` state and speaks on a background thread. Commands are never read back. `yazses say` / `readback_speak` IPC speak on demand. `status` exposes `read_back` + `tts_backend`.
 
+**Interruptible Proofreading** (`src/yazses/proofback/`, ADR-v2-108, `[proofback]` off, experimental): `timeline.py` turns the backend's optional playback listener (`KokoroTtsBackend.set_playback_listener`) into a per-word timeline; `bargein.py` (pure, clock-injected) decides whether a hold during `READBACK` of a dictated burst is a barge-in, which word it hit, and the replacement span — always from that word to the end of the burst, so the edit is backspaces from the end (never a caret move). `_on_hold_start` arms it, `_on_hold_end` takes it for exactly the next burst, and `_proofback_prepare` erases the span and rewrites the ledger/`[timeline]` record; any refusal types the burst as ordinary dictation.
+
 ### v2 perceptual & personalization layer (off by default; `design/v2-cognitive-layer/`)
 
 Four advanced features. Each follows the optional-extra + dormant-factory pattern; the dependency-free cores are fully tested, the model/sensor/training parts are behind extras and gated.
@@ -673,10 +700,34 @@ Four advanced features. Each follows the optional-extra + dormant-factory patter
 | `src/yazses/facegesture/` | **Face-gesture switch** (ADR-v2-135, ADR-v2-147). `detector.py` — `GestureSwitch` with separate hold/release thresholds, debounce, refractory window, an optional per-user neutral baseline and a confidence floor that is a distinct input; `gesture_reading()` turns a shared-perception `FaceSignal` into a reading (NaN, stale or missing channel = no reading, a release candidate). `calibration.py` — baseline capture and JSON persistence of derived numbers only (`yazses facegesture calibrate\|reset`). `switches.py` — `SwitchIntent`, `parse_bindings`, `SwitchMapper`: `backend.py` emits intents only, hold-to-talk is one binding among several, an unmapped gesture reaches no daemon action (a test forbids `facegesture/*.py` importing the daemon, injector, commands or pointer). `actions.py` — the pure decisions behind `select` / `confirm` / `cancel` (`select_refusal`, `SelectLimiter`, `perform_select`, `resolve_confirmation`, `SwitchOutcomeLog`): `select` is one left click through the Head-Pointer's own sink (`HeadPointerController.commit_click`), only when it is running, tracking, unpaused, unclutched and the hands-free gate is open, rate-limited to one per `SELECT_MIN_INTERVAL_S` (provisional); `confirm` / `cancel` answer the daemon's existing `ConfirmGate` hold and are a no-op when nothing is pending. Every outcome (done / refused with a reason / no-op) is kept and shown by `yazses facegesture status` and the hands-free state; the daemon's handlers (`_switch_select`, `_switch_confirm`, `_switch_cancel`) are glue only. `pause_pointer` pauses the global gate when `[handsfree_safety]` is on, otherwise a running Head-Pointer only (the `handsfree pause` rule, `_switch_pause_pointer`), otherwise it stays unwired and the daemon logs which setting would wire it; the two holds enter through the hotkey's own `_on_hold_start` / `_on_command_hold_start`, so the cmdsafety confirmation still applies to a command made with a face. The landmarker reports no per-frame confidence, so a floor above 0.5 blocks every frame on the backend's own camera path. `levels.py` — the pure *active-level* capture (`calibrate --active --talk`): derives hold/release between the user's rest and active levels, keeps hold above a recorded speech peak, and returns a specific reason instead of thresholds for every degenerate case (opt-in `use_active_levels`). The backend leases the shared camera when `[perception]` is on and the camera indexes match. |
 | `src/yazses/gesture/` | **Gesture Chords from sensor tokens** (WIRE-GESTURE-001, #408). Pure: `chords.py` (the resolver), `headmotion.py` (nod / shake / tilt from `HeadPoseSignal` over a window; stale or non-finite pose yields no token), `engine.py` (`ChordEngine`, which freezes the Head-Pointer through its public clutch from the first disturbed frame until 300 ms after, names the camera frame that began the freeze so the clutch can take back the controller's own step for that frame (`since_s`/`max_rewind_s`, never past `REWIND_LIMIT_S`; face tokens only), and makes the `hold` token itself from the clock the caller passes in: the held tokens, unchanged for `hold_s`), `sensors.py` (face tokens through the face switch's own `GestureSwitch`). `runtime.py` leases the shared camera. A chord may name only `pause_pointer`, `recenter` or `command:<phrase>`; an unmapped token and any action under a global pause reach nothing; non-reversible actions are refused. |
 | `src/yazses/eyeeval/switch_replay.py` | **False-activation replay** (#409). Pure replay of numeric face-switch traces (`switch_trace.py` is the versioned document + validator, structurally no place for frames) reporting phantom actions per non-deliberate hour with an exact Poisson upper bound, recall, latency and chatter, plus a threshold sweep. Refuses empty input; a zero denominator is a missing marker, never 0.0. The activation policy is injected (`Detector`: a name plus a factory, default the shipped `GestureSwitch` built as the backend builds it), so a candidate detector is scored over the same traces by the same rules. |
-| `src/yazses/grounding/` | **Grounded target resolution** (ADR-v2-151, spec-eye-grounded-targets). `contracts.py` — frozen vocabulary (`TargetSnapshot`, `SemanticCandidate`, `IntentHint`, tri-state `GroundingResult`, the `SemanticSource` Protocol) with no thresholds in it; `resolver.py` — the deterministic `TargetResolver` that enforces the spatial envelope, lets an intent hint *filter* what survived it, ranks lexicographically (focus > source > containment > geometry) and abstains when nothing separates the winner from a runner-up. Pure: no pyatspi/AX/UIA, no screen capture, no clock, no randomness; every number is a field on `ResolutionPolicy` and none of the defaults is measured. Turns a coarse pointing region into one exact control so webcam gaze does not have to pretend to be pixel-precise. `trace.py` — a versioned, privacy-safe trace document (target + candidates + intent hint + ground-truth entity id, and structurally nowhere to put a screenshot or a window title) with a pure validator; `replay.py` — the P4 evaluation harness that replays those cases through the same resolver under a `window_only` and a `semantic_grounding` strategy and reports grounded-correct/wrong, ambiguity, abstention, the target-source vs semantic-source split and the candidate-count distribution around an intent hint. An empty trace is refused rather than reported on, a zero denominator is a missing marker rather than `0.0`, and no product threshold may be read off a synthetic fixture. Run it with `scripts/replay_grounding_trace.py`; the committed report is `tests/fixtures/grounding_replay_report.json`. Wired from `gaze/grounded.py` (#443) as an optional, absent-by-default seam — nothing in the daemon constructs a grounder, and no platform adapter exists yet, so the spec's coverage study (P3) comes first. The package's `__init__` deliberately does not re-export the harness. |
-| `src/yazses/polyglot/` | **Polyglot Switch** (spec-polyglot-switch). `lid.py` — `parse_pair`/`dominant_language`/`is_code_switched` routing scaffolding (`[polyglot]`); the per-pair CS adapter is trained out-of-band and gated. |
+| `src/yazses/grounding/` | **Grounded target resolution** (ADR-v2-151, spec-eye-grounded-targets). `contracts.py` — frozen vocabulary (`TargetSnapshot`, `SemanticCandidate`, `IntentHint`, tri-state `GroundingResult`, the `SemanticSource` Protocol) with no thresholds in it; `resolver.py` — the deterministic `TargetResolver` that enforces the spatial envelope, lets an intent hint *filter* what survived it, ranks lexicographically (focus > source > containment > geometry) and abstains when nothing separates the winner from a runner-up. Pure: no pyatspi/AX/UIA, no screen capture, no clock, no randomness; every number is a field on `ResolutionPolicy` and none of the defaults is measured. Turns a coarse pointing region into one exact control so webcam gaze does not have to pretend to be pixel-precise. `trace.py` — a versioned, privacy-safe trace document (target + candidates + intent hint + ground-truth entity id, and structurally nowhere to put a screenshot or a window title) with a pure validator; `replay.py` — the P4 evaluation harness that replays those cases through the same resolver under a `window_only` and a `semantic_grounding` strategy and reports grounded-correct/wrong, ambiguity, abstention, the target-source vs semantic-source split and the candidate-count distribution around an intent hint. An empty trace is refused rather than reported on, a zero denominator is a missing marker rather than `0.0`, and no product threshold may be read off a synthetic fixture. Run it with `scripts/replay_grounding_trace.py`; the committed report is `tests/fixtures/grounding_replay_report.json`. Wired from `gaze/grounded.py` (#443) as an optional, absent-by-default seam — nothing in the daemon constructs a grounder, so the spec's coverage study (P3) comes first. `treewalk.py` — the pure, bounded accessibility-tree walk (node count, depth and an injected-clock budget; hidden subtrees skipped; reading order; reports which bound stopped it) that produces `SemanticCandidate` copies through a per-toolkit `NodeOps`; `onscreen.py` — `OnScreenReader`, one backend per consumer, probed on first use, every read and action under a wall-clock deadline with at most one call outstanding. Together with `platform/linux/atspi_tree.py` they are the one producer behind the Voice Pilot and Screen-Grounded Dictation (#164); the gaze grounder does not use it yet. The package's `__init__` deliberately does not re-export the harness. |
+| `src/yazses/polyglot/` | **Polyglot Switch** (spec-polyglot-switch) — **not wired**. `lid.py` — `parse_pair`/`dominant_language`/`is_code_switched` routing scaffolding (`[polyglot]`); the per-pair CS adapter is trained out-of-band and gated. Nothing imports the package at runtime: no decode path produces the per-span language IDs `PolyglotRouter.should_route` needs. |
 
 New config sections: `[voiceprint]`, `[cocktail]`, `[personalize]`, `[gaze]`, `[perception]`, `[polyglot]` (all off by default). New extras: `voiceprint` (speechbrain); `gaze` deps are manual-install (l2cs pins an old torch). `doctor` reports each enabled extra's importability.
+
+### `src/yazses/morsevox/` (Vocal Morse, ADR-v2-105 — experimental, off by default)
+
+Text entry from timed hums for a user who cannot produce intelligible speech. It is the
+second microphone reader beside dictation (the Vocal Joystick is the first), and it never
+reaches speech-to-text: only one level per audio chunk (`mean(|samples|)`, the VAD gate's
+metric) leaves the stream callback.
+
+| File | Role |
+|---|---|
+| `decode.py` | Pure. `classify_pulse` / `classify_gap`, `MorseDecoder` (international table), `adapt_dot_threshold` |
+| `segment.py` | Pure. `PulseSegmenter` (hysteresis + debounce over a `(t_ms, level)` stream) and `MorseStream` (segmenter → decoder, letter at the letter gap, optional adaptive dot/dash threshold) |
+| `mode.py` | Pure, clock-injected. `MorseMode`: idle → armed → morse → idle. `HumDetector` is the entry trigger: an unbroken run above the threshold for `entry_hum_s` whose level coefficient of variation is ≤ 0.25 (ADR-021: speech has dips and syllabic modulation, so it fails one rule or the other); it fires at most once per continuous sound. Exit on `exit_silence_s` with no accepted pulse, forced above the word gap. `is_enter_phrase` is the whole-utterance "morse mode" match (the stop word's rule). Thresholds synthetic-only. |
+| `runtime.py` | The impure shell: owns the level stream (`recorder_factory`), a worker thread, the clock, and the daemon callbacks (`inject`, `on_change`, `on_level`). `status()` carries flags and a count, never a decoded character. |
+
+Daemon glue (`core/daemon.py`): `_build_morsevox` (lazy import behind `[morsevox] enabled`),
+`_start_morsevox` (opens the stream at start only when the hum entry is on),
+`_try_morse_mode` (right after the voice stop word in `_on_hold_end`; consumes the phrase),
+`_morse_inject` (the normal injector), `_on_morse_mode` (earcon + notification). The mode
+yields to every daemon state outside `_MORSE_QUIET_STATES` (IDLE / TRANSCRIBING /
+INJECTING), reads the hands-free gate's `user_paused` only, and is paused and resumed by the
+`handsfree` IPC. `status` carries a `morse` block; the overlay draws its rings while
+`morse.active` is true. While the stream is open the device monitor does not reinit
+PortAudio, so a device change is not detected while the hum entry listens.
 
 ### `src/yazses/overlay/` (voice-activity overlay, `yazses-overlay`)
 
@@ -690,7 +741,7 @@ layer (PySide6, optional `overlay` extra) is thin and smoke-tested offscreen.
 | `envelope.py` | `EnvelopeFollower` — attack/release smoothing of mic level → 0..1 intensity (no Qt) |
 | `animation.py` | `SonarModel` — emits/ages expanding rings given `(now, intensity)` (no Qt) |
 | `position.py` | `place_near_cursor` / `place_fixed` — clamped on-screen placement (no Qt) |
-| `poller.py` | `StatusPoller` — adaptive-cadence background poll of `status` (fast while recording) |
+| `poller.py` | `StatusPoller` — adaptive-cadence background poll of `status` (fast while recording, a dwell builds, or Vocal Morse mode is on) |
 | `app.py` | `compute_frame` (pure per-tick decision) + `run` (the Qt shell / `yazses-overlay` entry) |
 | `widget.py` | `SonarWidget` — frameless, translucent, click-through `QWidget`; `QPainter` ring render |
 
@@ -708,7 +759,7 @@ Host-side helpers and the CLI-facing config/diagnostics surface (no daemon neede
 | `single_instance.py` | `SingleInstanceLock` — one-daemon guard (`daemon.lock`) preventing duplicate daemons (double-typing) |
 | `updater.py` | `check_update`/`run_upgrade` backing `yazses update` (snap channel / PyPI by install method). `resolve_upgrade_command` is the one upgrade command `yazses update`, the Settings window, the Linux tray and `run_upgrade_checked` all show and run: first `preserve_enabled_features` (which matches only the plain `uv tool upgrade yazses`), then `keep_cv2_whole` (adds `--reinstall-package opencv-contrib-python` when two `cv2` owners are installed). `run_upgrade_checked` verifies the version moved and, where OpenCV was in use, that `cv2` still loads; otherwise it returns the repair command. `cv2_repair_here` builds the same pinned repair for the running environment (the `uv pip` form in a pip-less venv) for `dormant.py` and doctor. The Windows/macOS tray balloon (`tray.updates.describe_update`) shows the resolved command too, or a pointer to `yazses update` when it would overrun the 255-character balloon |
 | `installer_update.py` | One-click Windows update ([ADR-027](adr/adr-027-one-click-windows-update.md)). Pure: pick the installer asset for the machine's arch from the release JSON, allowlist `github.com/MSKazemi/yazses/releases/download/` URLs and redirects, parse `SHA256SUMS.txt`, gate on strictly newer. I/O: capped, deadline-bound download verified by SHA-256 before anything runs. Then builds an `UpdateHandoff` for the platform's `UpdateLauncher` and reports the result on the next start by the version actually running. ADR-019 FETCH |
-| `residency.py` | Runtime residency policy ([ADR-029](adr/adr-029-runtime-residency.md), Proposed): which models stay in memory, for how long, and in which process — as pure arithmetic over **residency units** (`UNIT_OF_SLUG` folds `gaze`/`facegesture`/`headpointer`/`gesture` into one MediaPipe unit, the three voiceprint slugs into one torch unit, and so on). `IdleTracker.due_for_unload(now)` is *unload after idle* with a per-unit keep-alive (`DEFAULT_POLICY`: the dictation engine `None` = resident while enabled; the heavy units 120–600 s), firing at the boundary and never for a `None` row; `ResidencyBudget.admit(unit, now)` is the LRU cap on resident heavy models with pinned units never evicted; `placement(unit)` is the out-of-process table (`WORKER_UNITS`: gaze, llm, voiceprint, diarize) and raises for an unknown unit; `check_rss`/`unmeasured` are the nightly RSS budget's verdict, refusing an empty run. Stdlib only; the clock is injected or `now` is passed; NaN, infinite, negative or backwards time raises. **Not yet wired** — the daemon hooks are listed in the ADR's *Integration hand-offs* and the module is in `test_orphan_modules.py`'s ledger until they land |
+| `residency.py` | Runtime residency policy ([ADR-029](adr/adr-029-runtime-residency.md), Accepted): which models stay in memory, for how long, and in which process — as pure arithmetic over **residency units** (`UNIT_OF_SLUG` folds `gaze`/`facegesture`/`headpointer`/`gesture` into one MediaPipe unit, the three voiceprint slugs into one torch unit, and so on). `IdleTracker.due_for_unload(now)` is *unload after idle* with a per-unit keep-alive (`DEFAULT_POLICY`: the dictation engine `None` = resident while enabled; the heavy units 120–600 s), firing at the boundary and never for a `None` row; `ResidencyBudget.admit(unit, now)` is the LRU cap on resident heavy models with pinned units never evicted; `placement(unit)` is the out-of-process table (`WORKER_UNITS`: gaze, llm, voiceprint, diarize) and raises for an unknown unit; `check_rss`/`unmeasured` are the nightly RSS budget's verdict, refusing an empty run. Stdlib only; the clock is injected or `now` is passed; NaN, infinite, negative or backwards time raises. `with_stt_idle_unload(s)` turns `[stt] idle_unload_s` into the `stt` row's keep-alive and `unload_tick_s` sets the daemon's tick. **Wired for the dictation engine only** (`stt/resident.py`); the heavy units' unload hooks, the LRU cap and the workers are still the ADR's *Integration hand-offs* |
 | `pid.py` | PID-file management at `~/.local/share/yazses/daemon.pid` |
 | `backends.py` | `probe_backend`/`BackendStatus` — honest availability reporting for lazily-imported, pluggable backends. Distinguishes "the optional dependency is missing" (installing the named extra fixes it) from "the adapter was never shipped in this build" (nothing can fix it), so a factory never sends users after an extra that cannot supply the backend. Used by `denoise/frontend.py`, `voiceprint/factory.py`, `recimport/factory.py` |
 
@@ -726,7 +777,7 @@ from the tree, so a method added to the daemon, or a caller added or removed, fa
 
 | Method | Reached from | Description |
 |---|---|---|
-| `status` | CLI, tray, overlay, settings window, `doctor` | Current state, model, hotkey, backend, uptime; plus `audio_level` (live `mean(\|samples\|)` while recording, else 0) and `vad_threshold` for the overlay |
+| `status` | CLI, tray, overlay, settings window, `doctor` | Current state, model, hotkey, backend, uptime; plus `audio_level` (live `mean(\|samples\|)` while recording, else 0) and `vad_threshold` for the overlay, and `mouthswitch` (the Mouth-Sound Switch's item labels and lit index, which the overlay draws as its scan strip; `null` while the feature is off) |
 | `shutdown` | tray, Windows service controller | Graceful shutdown. `yazses stop` does **not** come through here; it goes to the lifecycle backend (systemd / launchd / SCM) |
 | `inject` | CLI | Inject text directly (debug / remote agent) |
 | `staged` | CLI | `yazses staged status\|commit\|discard\|undo` -- the verb is a parameter, so this is one method rather than four |
@@ -809,7 +860,8 @@ dysfluency_friendly = false # ADR-015 preset: enables both collapse_* + widens o
 
 [commands]
 enabled = true
-profile = "auto"           # auto | default | vscode | vim
+profile = "auto"           # auto | default | vscode | jetbrains | sublime (read only with editor_profiles)
+editor_profiles = false    # opt-in: command keys follow the focused editor (commands/profiles.py)
 
 [injection]
 backend = "auto"               # auto | xdotool | ydotool | wtype | clipboard
@@ -911,9 +963,10 @@ an internal design note.
 | `commands/context.py`, `system/context_read.py` | Context-Primed Dictation | v2-004 |
 | `personalize/prompt_builder.py` (mine_ngrams/mine_personal) | Personal Adapter P1 | v2-009 |
 | `recall/` (query, scratch) | Spoken Recall & Ambient Scratch | v2-005 |
-| `polyglot/router.py` | True Code-Switch routing | v2-008 |
+| `polyglot/router.py` | True Code-Switch routing decision (not wired — nothing calls `should_route`) | v2-008 |
 | `agent/plan.py` | Voice-to-Tool / Spoken MCP planner + guard | v2-006 |
-| `pilot/plan.py` | AT-SPI Voice Pilot | v2-007 |
+| `pilot/plan.py`, `pilot/service.py` | AT-SPI Voice Pilot: `plan.decide` acts only on one exact actionable match (ordinal over exact matches allowed) and holds a partial match, a tie or a destructive label for the Command Safety Gate's confirm words; `service.PilotService` reads, decides, acts or holds (expires after 30 s, dropped by any other utterance). Command mode, via `spokencmd/registry.py` | v2-007 |
+| `screengrounded/harvest.py`, `screengrounded/sampler.py` | Screen-Grounded Dictation: the focused window's labels are read at hold start on a background thread (window chrome skipped), mined by `harvest_terms`, taken once at decode and forgotten; never logged or stored | v2-051 |
 | `modality/router.py` | Modality Role Router | v2-011 |
 | `continuum/whisper_mode.py` | Accessibility Continuum (Whisper Mode) | v2-012 |
 | `gaze/route.py` | Gaze-Routed Dictation | v2-010 |
@@ -922,12 +975,13 @@ an internal design note.
 
 ### Daemon integration points (`core/daemon.py`)
 
-- `_effective_initial_prompt` — Context-Primed terms + Personal Adapter corpus-mined bias.
+- `_effective_initial_prompt` — Context-Primed terms + Personal Adapter corpus-mined bias + Screen-Grounded terms (`[screengrounded]`, taken from the sampler `_on_hold_start` began).
 - decode path — Confidence Ink count (metadata only); Whisper-Mode effective VAD threshold.
 - `_on_hold_end` command mode — Ambient Scratch capture, Spoken Edit (`_try_spoken_edit`).
 - IPC — `recall`, `scratch` methods; `_handle_status` exposes `confidence_enabled` +
   `low_confidence_last`.
-- startup — `PolyglotRouter` seam (dormant unless a CS adapter is set).
+- startup — `[polyglot] enabled` only logs that code-switch routing is not wired; the daemon
+  builds no router, because no decode path produces the span languages one would need.
 
 ### Waves D–O (`v2.1`–`v2.11` developer preview)
 

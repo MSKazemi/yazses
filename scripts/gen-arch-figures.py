@@ -281,7 +281,7 @@ PLANNED_BLOCKS = [
     ("Android keyboard", "in design", "docs/mobile/"),
     ("Cloud escalation", "deliberately unbuilt", "roadmap: designed, deferred"),
     ("Speech adapters", "LoRA, gated on a win", "[personalize] lora"),
-    ("Code-switch", "routing ships, not models", "src/yazses/polyglot/"),
+    ("Code-switch", "router unwired, no model", "src/yazses/polyglot/"),
 ]
 
 

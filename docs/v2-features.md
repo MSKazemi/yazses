@@ -41,7 +41,7 @@ It stays listed so contributors can pick it up; see the matching design/adr/ ent
 ```
 
 They stay listed because that is where a contributor picks one up — each has a matching
-`design/adr/` entry. **29 of the 122 rows below are ◌ today.** Rows without the mark are
+`design/adr/` entry. **24 of the 122 rows below are ◌ today.** Rows without the mark are
 wired and can be turned on.
 
 ### "Hold the command key" — what that means
@@ -102,9 +102,9 @@ doing nothing.
 |---|---|---|
 | **Personal Adapter** | `personalize` | Biases the recognizer toward *your* jargon and names, mined from your local corpus. Nothing leaves the machine. |
 | **Spoken Recall & Scratch** | `recall` | Search your past dictations (`yazses recall <query>`) and capture spoken notes-to-self (`yazses scratch`). Corpus-local. |
-| **True Code-Switch** | `polyglot` | Checks a `[polyglot]` language pair and a code-switch adapter you supply (`yazses doctor` reports it as dormant without one). The daemon does not route any speech to the adapter yet, so turning it on changes no transcript. |
+| ◌ **True Code-Switch** | `polyglot` | Would decode a burst that mixes the two languages of a declared `[polyglot] pair` with a code-switch adapter you train yourself. Not wired: nothing yet tells the daemon which parts of a burst are in which language, so every burst is decoded by the `[stt]` model with or without an adapter. |
 | ◌ **Voice-to-Tool (Spoken MCP)** | `agent` | Run allowlisted tools by voice via MCP; state-changing tools ask first. Needs the `agent` extra + a local planner model. |
-| ◌ **Voice Pilot (AT-SPI)** | `pilot` | Drive the desktop by voice via the accessibility tree — "click Save", "focus the terminal". Reads labels only, **no screenshots**. |
+| **Voice Pilot (AT-SPI)** | `pilot` | Hold the command key and say "click Save", "press OK" or "toggle dark mode": the focused window's accessibility tree is read and the control clicked. It acts at once only on **one exact match**; a partial match, a tie or a destructive label ("Delete", "Send") waits for a spoken **confirm**. Reads labels only, **no screenshots**. Linux with `python3-pyatspi`; experimental, untested on real hardware. |
 
 ## Experimental (Wave C — `--force` to enable)
 
@@ -124,7 +124,7 @@ A fresh 2026 state-of-the-art round. Manage them with `yazses features enable/di
 |---|---|---|
 | **Speech Translation** | `translate` | Dictate in another language, type English — uses Whisper's built-in translate (X→English, no extra download); other targets via the `seamless` backend. |
 | ◌ **Tone-Aware Formatting** | `affect` | Adds `!`/`?` from your vocal tone (beyond pause punctuation). Conservative by default. No `affect` extra exists yet — the tone-detection dependency ships with the implementation. |
-| ◌ **Predictive Completion** | `predict` | A tiny on-device model suggests the rest of your sentence; accept by voice. No `predict` extra exists yet. |
+| **Predictive Completion** (experimental) | `predict` | After a dictation is typed, a small local model suggests the rest of the sentence in a notification; say "accept" or "take it" within 10 seconds to type it, "discard" to drop it, or just keep talking. Nothing is typed without the accept. Needs llama-cpp-python (the `slm` extra) and a GGUF model at `[predict] model_path`; without them it stays dormant and says why once in the daemon log. `--force`; untested with a real model. |
 | **Noise Suppression** | `denoise` | Cleans background noise/echo before transcription so dictation works in noisy rooms. Needs the `denoise` extra, which installs the **spectral** backend (`noisereduce`). DeepFilterNet is *not* installable here — every release of it caps `numpy<2.0` while YazSes needs `numpy>=2.4.6`. |
 | ◌ **Meeting Scribe** | `scribe` | On-device "who said what" transcript — you are tagged **You**, others **Speaker N**. No `scribe` extra exists; the shipped diarization path is `yazses transcribe --diarize` behind the `diarization` extra. |
 | ◌ **Ask My Notes (voice RAG)** | `rag` | Ask a question by voice, get an answer grounded in and citing your own local notes/docs. No `rag` extra exists yet. |
@@ -145,7 +145,7 @@ accessibility tree. See `design/adr/adr-v2-023/024` (internal).
 | **Multi-User Profiles** | `voiceprint` `multi_profile` | Loads each enrolled speaker's own vocab/hotkey/cleanup from their voiceprint. |
 | **Hands-Free Auto-Stop** | `autostop` | Tap once and speak; recording auto-stops when you finish. A longer hold is still hold-to-talk. |
 | **Voice Mouse Grid** (exp) | `mousegrid` | Say "mouse grid", then cell numbers, then "click" to drive the cursor and click by voice via a numbered grid, on any pixels. Needs absolute pointer motion (X11 or macOS). |
-| **Spoken Code Mode** | `code` | Dictate code: spoken symbols → punctuation ("code def sync open paren self close paren colon" → `def sync(self):`). It does not join words into identifiers; `yazses case` does that. Hold the command key. |
+| **Spoken Code Mode** | `code` | Dictate code: spoken symbols → punctuation ("code def sync open paren self close paren colon" → `def sync(self):`), and a style phrase plus words → one identifier ("code self dot camel case user name" → `self.userName`; camel/pascal/snake/kebab/constant case). The identifier ends at the next symbol, the next style phrase, "end case", or the end of the phrase. Hold the command key. |
 | **Spoken Math (LaTeX)** | `math` | Dictate equations → LaTeX ("x squared plus y squared" → `x^{2} + y^{2}`). Hold the command key. |
 | ◌ **Wake-Word Activation** (exp) | `wakeword` | Start dictation hands-free on a keyword. Always-listening, local-only, `--force`. |
 | **Vocal-Strain Guard** (exp) | `voicehealth` | Advises a break when your voice shows rising strain over a session (advisory only; thresholds tuned on synthetic signals). Needs the `prosody` extra, `--force`. |
@@ -183,7 +183,7 @@ All OFF by default. Pure logic ships now; heavy models load only when you enable
 | **Corpus Voiceprint Scrub** | `corpus_scrub` | Speaker-anonymizes stored learning audio (keeps content, not voice). |
 | ◌ **Compose-in-Target-Language** | `compose` | Speak your strongest language, inject in a target language. |
 | **Grammar Repair** | `gec` | Minimal-edit article/agreement fixes for non-native dictation. |
-| ◌ **Screen-Grounded Dictation** | `screengrounded` | Primes STT with names visible on screen so they transcribe right. |
+| **Screen-Grounded Dictation** | `screengrounded` | Primes STT with names visible in the focused window so they transcribe right. The window's labels are read through AT-SPI when you press the key, used for that one burst, and never stored or logged. Linux with `python3-pyatspi`; no OCR yet; experimental, untested on real hardware. |
 | **Head-Pointer** | `headpointer` | Move + click the cursor by head pose; pairs with voice. Experimental: not yet validated with users. |
 | ◌ **Silent Lip-Reading** | `lipread` | Dictate with no audible voice; a webcam reads your lips. |
 | ◌ **Sign-Language Input** | `sign` | Deaf/HoH signers sign to the webcam; ASL is recognized and typed. |
@@ -207,7 +207,7 @@ All OFF by default. Pure logic ships now; heavy models load only when you enable
 
 ## Wave I — safety, patterns & power tools (v2.5)
 
-All OFF in the built-in defaults; `cmdsafety` and `latency` are in the recommended set a fresh install switches on. Pure logic ships now; heavy models load only when you enable the feature.
+All OFF in the built-in defaults; `cmdsafety` is in the recommended set a fresh install switches on. `latency` was too until it was moved out, because it loads a second model (about 116 MB of RAM). Pure logic ships now; heavy models load only when you enable the feature.
 
 | Feature | `features` name | What it does |
 |---|---|---|
@@ -274,12 +274,12 @@ phonate but not articulate discrete words, and for word-free eyes-free control.
 | **Pitch-Contour Gestures** | `contour` | Hum a shape — rise=confirm, fall=cancel, rise-fall=undo; a flat hum does nothing. Word-free, and only on an empty or hum-only transcript. Tuned on synthetic tones only. Experimental. |
 | ◌ **Breath-Paced Dictation** | `breath` | Segments dictation by your natural breath groups, not silence. |
 | **Whisper-Aware Mode** | `whispermode` | Detects whispered speech (no fundamental frequency — pure DSP, no model). With `command_channel` (default on): *whisper* a phrase and it runs as a command, speak normally and it types — a hands-free, socially-silent mode switch on a plain microphone. |
-| ◌ **Mouth-Sound Switch Access** | `mouthswitch` | Non-verbal mouth sounds drive a scan-and-select selector (AAC switch access). Experimental. |
+| **Mouth-Sound Switch Access** | `mouthswitch` | Single-switch scanning without words: a lip pop starts (or stops) a highlight in the overlay that steps through Enter, Undo, Scroll up, Scroll down and Click every `dwell_s` (1.2 s); a tongue click runs the item lit when the click began. One selection per scan. Armed by `yazses handsfree resume`, stopped by `yazses handsfree pause` or the stop phrase; needs the overlay. Thresholds tuned on synthetic sounds only, untested on real hardware. Experimental. |
 | **Involuntary-Vocalization Excision** | `involuntary` | Drops cough/throat-clear/sneeze before they corrupt the transcript. |
 
-Wave L: seven of its ten features are wired and off by default, and three of those
-(`vocaljoystick`, `hesitation`, `contour`) are experimental and need `--force`. The three
-marked ◌ are designed but not yet wired.
+Wave L: eight of its ten features are wired and off by default, and four of those
+(`vocaljoystick`, `hesitation`, `contour`, `mouthswitch`) are experimental and need `--force`.
+The two marked ◌ are designed but not yet wired.
 
 ## Minimal-bandwidth AAC & text-intelligence (Wave M)
 
@@ -287,7 +287,7 @@ The lowest-bandwidth input methods and new text-intelligence layers.
 
 | Feature | `features` name | What it does |
 |---|---|---|
-| ◌ **Vocal Morse** | `morsevox` | Type by Morse using two vocal sounds (short/long); adaptive timing. Experimental. |
+| **Vocal Morse** | `morsevox` | Type by Morse with your voice: a short hum is a dot, a long hum a dash, and each decoded letter is typed (speech-to-text is not run); adaptive timing. Start it by saying "morse mode" or by humming one long steady tone (`[morsevox] entry_hum_s`, 1.5 s); `exit_silence_s` (3 s) of silence ends it. With the hum entry on, the microphone stays open while the daemon runs (a level only, nothing recorded); `yazses handsfree pause` closes it. Thresholds tuned on synthetic signals only. Experimental. |
 | **Checksum-Validated Entry** | `checkdigit` | Verifies dictated account/ID numbers (Luhn/ISBN/Verhoeff) and suggests fixes. |
 | **Semantic Line Breaks** | `sembr` | Breaks prose one clause per source line so git diffs stay clean. |
 | **Acronym & Glossary Manager** | `acronyms` | Expands acronyms on first use, contracts after, warns on undefined. |
@@ -296,10 +296,10 @@ The lowest-bandwidth input methods and new text-intelligence layers.
 | **Screenplay Auto-Format** | `screenplay` | Formats dictated scenes/dialogue as Fountain screenplay markup. |
 | **Spaced-Repetition Capture** | `srscap` | "remember that X is Y" → a local Anki cloze card (SM-2). |
 | **Diagrams-as-Code by Voice** | `diagramvox` | Dictate a flowchart → Mermaid/Graphviz source, no canvas. |
-| ◌ **Interruptible Proofreading** | `proofback` | Interrupt the read-back and land the cursor on the exact word. |
+| **Interruptible Proofreading** (exp) | `proofback` | Hold the key during the read-back of a dictation: what you say next replaces the text from the word being read. Needs Read-Back on. |
 
-Wave M: eight of its ten features are wired; `checkdigit` is switched on by a fresh
-install's config and the rest are off by default. The two marked ◌ are designed but not
+Wave M: nine of its ten features are wired; `checkdigit` is switched on by a fresh
+install's config and the rest are off by default. The one marked ◌ is designed but not
 yet wired.
 
 ## Structural editing, i18n & accessibility-output (Wave N)
