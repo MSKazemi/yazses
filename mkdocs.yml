@@ -62,9 +62,11 @@ theme:
     repo: fontawesome/brands/github
     edit: material/pencil
     view: material/eye
-  font:
-    text: Inter
-    code: JetBrains Mono
+  # System fonts, not web fonts. With Inter and JetBrains Mono the home page's largest
+  # paint waited on font downloads: Lighthouse mobile LCP 8.8–9.0 s, performance 63–64.
+  # With the platform's own UI and monospace stacks it was 1.6–2.2 s and 85 (2026-10-22,
+  # same build, gzip server, two runs each). One less asset class to self-host, too.
+  font: false
   palette:
     # Palette toggle — light mode
     - media: "(prefers-color-scheme: light)"

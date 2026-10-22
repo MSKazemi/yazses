@@ -6,6 +6,21 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the website's home page renders in under two seconds on a throttled phone, not nine
+
+Lighthouse 12.8.2, mobile, the same build served with gzip, two runs each (2026-10-22).
+An A/B test of three builds showed the remaining delay was the web fonts, not the search
+index: with no search index the largest paint was 5.1 s, with system fonts 1.6–2.2 s.
+
+- **System fonts.** The site uses the platform's own UI and monospace font stacks instead
+  of downloading Inter and JetBrains Mono (`theme.font: false`). Home: performance 63–64 →
+  85–87, largest paint 8.8–9.0 s → 1.5–1.6 s. Get started: 90–95, 2.2–2.3 s. Accessibility
+  stays at 100.
+- **The hero waveform** animated `height`, re-laying out its 28 bars on every frame. It
+  now animates `transform`, which is composited.
+- **Quick start.** The Copy button is opaque, so a long command scrolled under it no longer
+  shows through, and command boxes get a dark scrollbar instead of a white one.
+
 ### Fixed — the website loads in a fraction of the bytes on a phone and passes every Lighthouse accessibility check
 
 Measured with Lighthouse 12.8.2 (mobile, simulated throttling) on 2026-10-22. The live
