@@ -1,15 +1,30 @@
 # YazSes
 
-## Hold a key, speak, release. Your words are typed into any app.
+**Offline voice typing for Linux, macOS and Windows.** Hold a key, speak, release, and your
+words are typed into whatever app you are using.
 
-**Free, open-source voice typing for Linux, macOS and Windows that works without internet.**
-The speech recognition runs on your own computer, so your voice never leaves it. No account,
-no subscription, no API key.
+Speech recognition runs on your own computer, so your voice never leaves it. There is no
+account, no subscription and no API key. YazSes is free and open source under Apache 2.0.
+
+[![Tests](https://github.com/MSKazemi/yazses/actions/workflows/test.yml/badge.svg)](https://github.com/MSKazemi/yazses/actions/workflows/test.yml)
+[![PyPI](https://img.shields.io/pypi/v/yazses)](https://pypi.org/project/yazses/)
+[![PyPI Downloads](https://static.pepy.tech/personalized-badge/yazses?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/yazses)
+[![Snap Status](https://snapcraft.io/yazses/badge.svg)](https://snapcraft.io/yazses)
+[![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21856271.svg)](https://doi.org/10.5281/zenodo.21856271)
+[![Documentation](https://img.shields.io/badge/docs-mskazemi.com%2Fyazses-5e35b1)](https://mskazemi.com/yazses/)
+[![Open Source Helpers](https://www.codetriage.com/mskazemi/yazses/badges/users.svg)](https://www.codetriage.com/mskazemi/yazses)
+[![All Contributors](https://img.shields.io/badge/all_contributors-42-orange.svg?style=flat-square)](#contributors)
 
 ![YazSes — hold a key, speak, release; the text is typed into the focused app](docs/screenshots/yazses-reel.gif)
 
-*40-second tour: the core loop, the command line, and the system tray. Terminal output is real; the command-line typing is re-enacted for legibility.*
-▶️ **[Watch it on YouTube](https://www.youtube.com/watch?v=nn8WUKsCvZ4)** — same reel with chapters.
+*A 40-second tour of dictation, the command line and the system tray. The terminal output is
+real; the command-line typing was re-enacted so it is easier to read.*
+▶️ **[Watch it on YouTube](https://www.youtube.com/watch?v=nn8WUKsCvZ4)**, with chapters.
+
+**[Install](#-install)** · **[Quick start](#quick-start)** · **[Voice commands](#what-you-can-say)** ·
+**[Compare](#comparison--alternatives)** · **[FAQ](#faq)** · **[Documentation](https://mskazemi.com/yazses/)** ·
+**[Contribute](#-help-build-yazses)**
 
 <details>
 <summary>🌐 Read this in other languages (27)</summary>
@@ -18,206 +33,203 @@ no subscription, no API key.
 
 </details>
 
-[![Tests](https://github.com/MSKazemi/yazses/actions/workflows/test.yml/badge.svg)](https://github.com/MSKazemi/yazses/actions/workflows/test.yml)
-[![Snap Status](https://snapcraft.io/yazses/badge.svg)](https://snapcraft.io/yazses)
-[![PyPI](https://img.shields.io/pypi/v/yazses)](https://pypi.org/project/yazses/)
-[![PyPI Downloads](https://static.pepy.tech/personalized-badge/yazses?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/yazses)
-[![PyPI Downloads](https://img.shields.io/pypi/dm/yazses)](https://pypi.org/project/yazses/)
-[![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21856271.svg)](https://doi.org/10.5281/zenodo.21856271)
-[![Documentation](https://img.shields.io/badge/docs-mskazemi.com%2Fyazses-5e35b1)](https://mskazemi.com/yazses/)
-[![Open Source Helpers](https://www.codetriage.com/mskazemi/yazses/badges/users.svg)](https://www.codetriage.com/mskazemi/yazses)
-[![All Contributors](https://img.shields.io/badge/all_contributors-42-orange.svg?style=flat-square)](#contributors)
-
 ## ✨ What it does
 
 | | |
 |---|---|
-| 🎙️ **Type with your voice** | Hold your hotkey, speak, release. The text appears in whatever window you are using: email, browser, chat, editor, terminal. |
-| 🗣️ **Voice commands** | Say *"scratch that"*, *"new line"* or *"go to line 42"* and YazSes does it instead of typing the words. |
+| 🎙️ **Type with your voice** | Hold your hotkey, speak, release. The text appears in the window you are using: email, browser, chat, editor or terminal. |
+| 🗣️ **Voice commands** | Say *"scratch that"*, *"new line"* or *"go to line 42"* and YazSes carries out the action instead of typing the words. |
 | 📄 **Transcribe recordings** | `yazses transcribe interview.m4a` turns an audio or video file into text, optionally with **who said what**. |
-| 👥 **Meeting notes** | `yazses meeting start` … `yazses meeting stop` records a meeting in the room and gives you a **speaker-labelled transcript**, plus optional minutes from a local AI model. |
-| 🔒 **Private by default** | Everything runs on your CPU. No audio and no text leave your computer by default. |
+| 👥 **Meeting notes** | `yazses meeting start` … `yazses meeting stop` records a meeting in the room and produces a **speaker-labelled transcript**, plus optional minutes from a local AI model. |
+| 🔒 **Private by default** | Everything runs on your CPU. By default, no audio and no text leave your computer. |
+
+**Also included:** multi-step voice **macros** and a personal **vocabulary** for words it
+mishears · **Dysfluency-Friendly Mode**, which collapses stutters and repeats
+(`b-b-because` → `because`) · opt-in, encrypted **on-device learning**, where `yazses tune`
+proposes accuracy fixes from your own corrections · **editor navigation** through your
+editor's LSP (`yazses jump`, Neovim bridge, opt-in) · **EMG (muscle-sensor) triggering** and
+mic calibration for accessibility · an optional **voice-activity overlay** near the cursor.
+The [feature catalog](docs/features.md) lists every capability and how to turn it on.
 
 > **What's optional:** dictation works out of the box. Speaker labels need the
 > diarization extra (`pipx install 'yazses[diarization]'`, ~45 MB of models, downloaded
-> once); meeting minutes additionally need the `notes` extra plus a local GGUF model you
-> point at. Both are off by default — see [offline meeting notes](docs/meeting-notes-offline.md).
+> once). Meeting minutes also need the `notes` extra and a local GGUF model that you supply.
+> Both are off by default. See [offline meeting notes](docs/meeting-notes-offline.md).
 
 ## ⬇️ Install
 
-Pick your computer. Each install is one command, then a short first-run setup.
+Choose your operating system. Each install is one command followed by a short first-run setup.
 
-**🐧 Linux** — the most tested platform
+**🐧 Linux** (the most tested platform)
 
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install.sh)
 ```
 
-Then **log out and back in once** (this gives YazSes access to the keyboard), and run
+Then **log out and back in once**, which gives YazSes access to the keyboard, and run
 `yazses start`. [Full Linux guide →](https://mskazemi.com/yazses/install-linux.html)
 
-**🍎 Mac with Apple chip (M1 or newer)** — preview
+**🍎 macOS, Apple silicon (M1 or newer)** (preview)
 
 ```bash
 brew tap MSKazemi/yazses && brew trust MSKazemi/yazses && brew install --cask yazses
 ```
 
-Open YazSes from Applications. macOS blocks unsigned apps, so click **Open Anyway** in
-System Settings → Privacy & Security, then allow **Microphone**, **Accessibility** and
-**Input Monitoring** when asked. Intel Mac: download the `-macos-x86_64.dmg` from
-[Releases](https://github.com/MSKazemi/yazses/releases/latest). The Homebrew cask puts a `yazses` command on
-your PATH from the release after 2.43.2; with the `.dmg` (or on 2.43.2), run the CLI as
+Open YazSes from Applications. The app is not signed yet, so macOS blocks it the first time:
+click **Open Anyway** in System Settings → Privacy & Security, then allow **Microphone**,
+**Accessibility** and **Input Monitoring** when asked. On an Intel Mac, download the
+`-macos-x86_64.dmg` from [Releases](https://github.com/MSKazemi/yazses/releases/latest)
+instead. Releases after 2.43.2 put a `yazses` command on your PATH through the Homebrew cask;
+with the `.dmg`, or on 2.43.2, run the CLI as
 `/Applications/YazSes.app/Contents/MacOS/YazSes --cli doctor`.
 [Full macOS guide →](https://mskazemi.com/yazses/macos-install.html)
 
-**🪟 Windows** — preview
+**🪟 Windows** (preview)
 
 ```powershell
 winget install MSKazemi.YazSes
 ```
 
-winget may trail the newest release; the [installer](https://github.com/MSKazemi/yazses/releases/latest),
-Scoop and Chocolatey track every release. If Windows SmartScreen warns, click
-**More info → Run anyway** (the installer is not code-signed yet). Then open YazSes from the Start menu.
+winget can lag behind the newest release; the
+[installer](https://github.com/MSKazemi/yazses/releases/latest), Scoop and Chocolatey track
+every release. The installer is not code-signed yet, so if Windows SmartScreen warns you,
+click **More info → Run anyway**. Then open YazSes from the Start menu.
 [Full Windows guide →](https://mskazemi.com/yazses/windows-install.html)
 
-**Then talk:** hold your hotkey, speak, and release. The default hotkey is **Right Alt** on
-Linux, **Right Option** on macOS and **Right Ctrl** on Windows; `yazses hotkey set <key>`
-changes it. If nothing happens, run **`yazses doctor`**: it checks your microphone, hotkey
-and typing, and tells you what to fix.
+**Then start talking.** Hold your hotkey, speak and release. The default hotkey is
+**Right Alt** on Linux, **Right Option** on macOS and **Right Ctrl** on Windows;
+`yazses hotkey set <key>` changes it. If nothing happens, run **`yazses doctor`**. It checks
+your microphone, hotkey and typing, and tells you what to fix.
 
-> **macOS and Windows are previews.** Linux has the most reports from real machines. The macOS
-> and Windows builds are newer, and the [validation matrix](docs/validation-matrix.md) shows
-> exactly what has and has not been confirmed on real hardware. If you try one, a short report
-> is one of the most useful contributions you can make.
+> **macOS and Windows are previews.** Linux has the most reports from real machines. The
+> macOS and Windows builds are newer, and the [validation matrix](docs/validation-matrix.md)
+> shows exactly what has and has not been confirmed on real hardware. If you try one, a short
+> report is one of the most useful contributions you can make.
 
-Not sure yet? **[Try it without installing](https://mskazemi.com/yazses/try-without-installing.html)**
-(runs in Docker or your browser), or read
-[what installing actually costs](https://mskazemi.com/yazses/install-cost.html) first.
-Other ways to install (APT, Snap, pipx, `.dmg`, `.exe`) are under
+**Not ready to install?** [Try it without installing](https://mskazemi.com/yazses/try-without-installing.html)
+in Docker or your browser, or read [what installing actually costs](https://mskazemi.com/yazses/install-cost.html)
+first. APT, Snap, pipx, `.dmg` and `.exe` are covered under
 [all install options](#all-install-options).
 
 ## 🙌 Help build YazSes
 
-**New to open source? You are welcome here.** You do not need any speech or AI background, and
+**New to open source? You are welcome here.** You need no speech or AI background, and
 several tasks need no Python at all:
 
-- **Test it** on your computer and [tell us what happened](https://mskazemi.com/yazses/contribute/start.html).
+- **Test it** on your computer and [report what happened](https://mskazemi.com/yazses/contribute/start.html).
 - **Translate or review** the README [in your language](https://github.com/MSKazemi/yazses/issues/18).
 - **Add your microphone** to the [known-good list](https://github.com/MSKazemi/yazses/blob/main/docs/known-good-microphones.md).
 - **Write code:** pick a [good first issue](https://github.com/MSKazemi/yazses/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22). The test suite is fully offline, so you need no microphone, model or GPU.
 
-**[Start here](https://mskazemi.com/yazses/contribute/start.html)** — one page: pick the row that matches what you have and finish in 15–45 minutes. No permission is needed and nothing is assigned. Coding agents are welcome, but **AI tools are optional and you never need to pay for one**; if you use one, read the [safe agent guide](docs/contribute/ai-agents.md) first. [#22](https://github.com/MSKazemi/yazses/issues/22) lists everything open.
+**[Start here](https://mskazemi.com/yazses/contribute/start.html):** one page where you pick
+the row that matches what you have and finish in 15–45 minutes. No permission is needed and
+nothing is assigned. [#22](https://github.com/MSKazemi/yazses/issues/22) lists everything
+open, and [Contributing](#contributing) below covers the development workflow.
 
-We'll help you through your first PR — see [CONTRIBUTING](.github/CONTRIBUTING.md).
-
-> ⭐ **If YazSes is useful to you, a star is how other people find it.** There's no company and
-> no ad budget behind this — word of mouth is the entire distribution strategy.
+> ⭐ **If YazSes is useful to you, a star is how other people find it.** There is no company
+> and no advertising budget behind this project; word of mouth is how it reaches people.
 
 ---
 
 ## About YazSes
 
-YazSes is a free, open-source, offline voice dictation and speech-to-text daemon for **Linux (X11 & Wayland), macOS, and Windows**, built on [faster-whisper](https://github.com/SYSTRAN/faster-whisper). Use it when audio must not be sent to Google, Apple, Microsoft, or Otter — because the meeting is confidential, the machine is air-gapped, or you simply don't want a subscription. Unlike cloud dictation such as Wispr Flow, YazSes runs entirely on-device; unlike Talon Voice, it aims at plug-and-play use rather than advanced scripting; and unlike the other free on-device tools (Handy, OpenWhispr), it adds voice **commands**, speaker-labelled meeting capture and published benchmarks. YazSes is **not** recommended if you need a conversational AI agent, non-English models out of the box, or a mobile/web app.
+YazSes is a free, open-source, offline voice dictation and speech-to-text daemon for
+**Linux (X11 and Wayland), macOS and Windows**, built on
+[faster-whisper](https://github.com/SYSTRAN/faster-whisper). Use it when audio must not be
+sent to Google, Apple, Microsoft or Otter: because the meeting is confidential, because the
+machine is air-gapped, or because you do not want a subscription.
 
-📖 **Full documentation: [mskazemi.com/yazses](https://mskazemi.com/yazses/)** — install guides, CLI reference, configuration, features, and troubleshooting.
+- **Compared with cloud dictation** such as Wispr Flow, YazSes runs entirely on-device.
+- **Compared with Talon Voice**, it aims at plug-and-play use rather than advanced scripting.
+- **Compared with other free on-device tools** (Handy, OpenWhispr), it adds voice
+  **commands**, speaker-labelled meeting capture and published benchmarks.
+- **It is not the right tool** if you need a conversational AI agent, non-English models out
+  of the box, or a mobile or web app.
 
-**How it works:** you hold a key → YazSes records → [faster-whisper](https://github.com/SYSTRAN/faster-whisper)
-transcribes it on your CPU → the text is typed into whatever window has focus. There is no
-network call at any step, no account, and no API key.
-
-**How to change it:** `yazses hotkey set <key>` picks the hold-to-talk key, `yazses features`
-lists every capability and turns it on or off, and `yazses doctor` tells you what is missing.
-Settings live in `~/.config/yazses/config.toml` — see the
-[configuration reference](https://mskazemi.com/yazses/configuration.html).
-
-*On Apple Silicon, Intel macOS, ARM64 Windows, a Raspberry Pi, or another less common CPU?*
-The **[platform support matrix](https://mskazemi.com/yazses/platform-support.html)** lists the
-tested install channel for each OS/architecture combination. `pipx install yazses` remains a
-portable fallback on supported Python/platform combinations, but the native package is the
-better desktop experience when one is available.
+📖 **Full documentation: [mskazemi.com/yazses](https://mskazemi.com/yazses/)**, with install
+guides, the CLI reference, configuration, features and troubleshooting.
 
 ![yazses doctor — all green, fully offline by default](docs/screenshots/yazses-doctor.png)
 
-Prefer text over video? **[Watch the CLI in your browser](https://mskazemi.com/yazses/watch-the-cli.html)**
-— an asciinema recording of the happy path (`-h` → `about` → `quickstart` → `features` →
-`status`), where every byte is real command output and nothing is hand-typed. The player is
-served from the docs site itself, not a CDN, so reading it does not report you to anyone.
-In your own terminal: `asciinema play docs/demo/yazses-cli.cast`.
-
-[![Get it from the Snap Store](https://snapcraft.io/en/light/install.svg)](https://snapcraft.io/yazses) **Two `snap connect` lines are required after install — see [§Snap](docs/install-linux.md#3e-what-the-snap-can-and-cannot-do).**
+**Prefer text to video?** [Watch the CLI in your browser](https://mskazemi.com/yazses/watch-the-cli.html):
+an asciinema recording of the happy path (`-h` → `about` → `quickstart` → `features` →
+`status`) in which every byte is real command output. The player is served from the docs site
+itself, not a CDN, so watching it does not report you to anyone. In your own terminal, run
+`asciinema play docs/demo/yazses-cli.cast`.
 
 ---
 
 ## Quick Start
 
-> **Want to hear how accurate it is before installing anything?**
-> Run it in Docker or in your browser — no install, nothing left behind:
-> **[Try it without installing](https://mskazemi.com/yazses/try-without-installing.html)**.
-> A clip ships with the repo, and `--network none` proves the transcription is really
-> happening on your own machine.
+> **Want to hear how accurate it is first?** [Try it without installing](https://mskazemi.com/yazses/try-without-installing.html)
+> in Docker or your browser. A sample clip ships with the repository, and `--network none`
+> proves the transcription happens on your own machine.
 
-**Step 1 — Install** — the commands are at the [top of this page](#-install);
-[all install options](#all-install-options) covers every platform and package manager.
+### Step 1 — Install
 
-The **recommended** Linux one-liner installs `uv` if needed, installs the latest YazSes,
-provisions every system prerequisite (audio, keystroke injection, clipboard, `input` group,
-Wayland `ydotoold`), and finishes by running **`yazses doctor`** so any missing tool surfaces
-*during* install. The APT script
-(`bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install-apt.sh)`)
-and `pipx` paths install the last tagged release. There is also a
-[Snap Store](https://snapcraft.io/yazses) build, which works on X11 and — via the
-`xdg-desktop-portal` RemoteDesktop API — on GNOME and KDE Wayland. It needs two
-`snap connect` lines after install, because a snap cannot grant itself
-permissions. The Linux installer remains the most-tested path.
+Use the command for your system in [Install](#-install) above, or any route in
+[all install options](#all-install-options).
 
-**Just want to transcribe a recording?** There is a container for that — no install at
-all: `docker run --rm -v "$PWD:/data" ghcr.io/mskazemi/yazses transcribe /data/talk.m4a
---diarize`. It does file→transcript with speaker labels and **not** hold-to-talk
-dictation, which needs a real desktop session; see [the Docker page](https://mskazemi.com/yazses/docker.html).
+The **recommended** Linux one-liner installs `uv` if needed, installs the latest YazSes, sets
+up every system prerequisite (audio, keystroke injection, clipboard, the `input` group and
+Wayland `ydotoold`), and finishes by running **`yazses doctor`** so that any missing tool
+shows up during the install rather than later.
 
-> **Piping a script from the internet into your shell?** Fair. Add `--dry-run` and it
-> inspects your machine, prints every change it would make, and exits without making any
-> of them:
+> **Wary of piping a script from the internet into your shell?** Add `--dry-run`. The script
+> inspects your machine, prints every change it would make, and exits without making any:
 > `bash <(curl -fsSL .../install.sh) --dry-run`
 >
-> Before you commit: **[what installing actually costs](https://mskazemi.com/yazses/install-cost.html)**
+> Both [what installing actually costs](https://mskazemi.com/yazses/install-cost.html)
 > (1.1 GB plus a 141 MB model, and what it changes on your system) and
-> **[how to uninstall](https://mskazemi.com/yazses/uninstall.html)** — both published up
-> front on purpose.
+> [how to uninstall](https://mskazemi.com/yazses/uninstall.html) are published up front.
 
+**Only need to transcribe a recording?** The container needs no install at all:
+`docker run --rm -v "$PWD:/data" ghcr.io/mskazemi/yazses transcribe /data/talk.m4a
+--diarize`. It produces a transcript with speaker labels. It does **not** do hold-to-talk
+dictation, which needs a real desktop session; see [the Docker page](https://mskazemi.com/yazses/docker.html).
 
-**Shell completion:** `yazses --install-completion` (or `yazses --show-completion` to print the script). See the [CLI reference](docs/cli-reference.md).
+### Step 2 — Prepare the system (Linux only)
 
-**Step 2 — Provision the system** *(non-Snap Linux installs — the APT install does it automatically)*
+The one-liner and the APT install do this for you, and the Snap does not need it. After a
+`pipx` or source install, run:
 
 ```sh
 yazses setup        # installs audio + injection deps, joins the input group, sets up ydotoold
 # then log out and back in (the input-group change needs a fresh login)
 ```
 
-`yazses setup` ends by printing a numbered **finish-installing checklist** of the
-steps only you can do — the `input`-group re-login, calibrate your voice
-(`yazses mic-level --set`), and `yazses start` — and offers to run the mic
-calibration for you right away.
+`yazses setup` is safe to re-run and only does what is missing. It ends with a numbered
+checklist of the steps only you can do (the re-login, voice calibration with
+`yazses mic-level --set`, and `yazses start`) and offers to run the calibration right away.
 
-> **The log-out/in is mandatory and one-time.** Joining the `input` group only
-> takes effect in a *new login session* — opening another terminal tab is **not**
-> enough, because it inherits the old session's groups and the hotkey stays dead.
-> `yazses start` will warn you if this re-login is still pending. To dictate
-> immediately without logging out, bridge the group for one session:
-> `sg input -c "yazses restart"`. After a real re-login, plain `yazses start` just works.
+> **The log-out and log-in is required, once.** Joining the `input` group only takes effect
+> in a *new login session*. Opening another terminal tab is **not** enough, because it
+> inherits the old session's groups and the hotkey stays dead. `yazses start` warns you while
+> the re-login is still pending. To dictate immediately without logging out, bridge the group
+> for one session with `sg input -c "yazses restart"`.
 
-`yazses setup` fixes everything dictation needs and is safe to re-run — it only does what's missing:
-- **`libportaudio2`** — audio capture (without it the daemon crashes on start with `OSError: PortAudio library not found`).
-- **injection backends** — `xdotool`/`xclip` (X11) and `wtype`/`ydotool`/`wl-clipboard` (Wayland).
-- **`input` group** — required to read the hold-to-talk hotkey from the kernel.
-- **`ydotoold`** — the virtual-input daemon. On **GNOME/KDE Wayland** this is the *only* way to inject keystrokes (`wtype` is blocked there), so `setup` installs and enables it.
+<details>
+<summary>What <code>yazses setup</code> installs, and how to do it by hand</summary>
 
-> Prefer to do it by hand? `sudo apt install libportaudio2 xdotool ydotool wtype xclip wl-clipboard pipx && sudo usermod -aG input "$USER"`, then enable `ydotoold` (see [install-linux](docs/install-linux.md)). Verify anytime with `yazses doctor` — you want `[OK] Keyboard capture`, `[OK] Microphone`, and `[OK] Injection`. macOS/Windows skip this step (grant Accessibility/permissions when prompted — see below).
+- **`libportaudio2`** for audio capture. Without it the daemon crashes on start with
+  `OSError: PortAudio library not found`.
+- **Injection backends:** `xdotool` and `xclip` on X11; `wtype`, `ydotool` and
+  `wl-clipboard` on Wayland.
+- **The `input` group**, which is required to read the hold-to-talk hotkey from the kernel.
+- **`ydotoold`**, the virtual-input daemon. On **GNOME and KDE Wayland** it is the *only* way
+  to inject keystrokes (`wtype` is blocked there), so `setup` installs and enables it.
 
-**Step 3 — Set up**
+By hand: `sudo apt install libportaudio2 xdotool ydotool wtype xclip wl-clipboard pipx && sudo usermod -aG input "$USER"`,
+then enable `ydotoold` (see [install-linux](docs/install-linux.md)). Check the result at any
+time with `yazses doctor`; you want `[OK] Keyboard capture`, `[OK] Microphone` and
+`[OK] Injection`.
+
+</details>
+
+On macOS and Windows, skip this step and grant the Accessibility and Microphone permissions
+when prompted.
+
+### Step 3 — Calibrate and start
 
 ```sh
 yazses quickstart           # not sure what's next? a 3-step guide tailored to your machine
@@ -229,27 +241,34 @@ yazses start                # start the dictation daemon
 yazses verify               # speak once and prove the whole pipeline works
 ```
 
-> New to YazSes? Run **`yazses quickstart`** anytime — it looks at what's already set up and tells you exactly what to do next. It changes nothing.
+`yazses quickstart` is safe to run at any time. It looks at what is already set up, tells you
+what to do next, and changes nothing.
 
-**Step 4 — Use it** — hold the hotkey, speak, release. The text is typed into the focused app.
+### Step 4 — Dictate
 
-| OS | Hold this key | Say… |
-|---|---|---|
-| Linux | `Right Alt` | *"the quick brown fox"* (types it) · *"go to line 42"* · *"run the tests"* |
-| macOS | `Right Option` | *"delete the last word"* · *"save file"* · *"new function parse config"* |
-| Windows | `Right Ctrl` | *"undo that"* · *"select all"* · *"comment this line"* |
+Hold the hotkey, speak and release. The text is typed into the focused app.
 
-Release the key — YazSes transcribes and acts. On a modern laptop CPU that is a median of **1.6 s** with the default `base.en` model, or **0.9 s** with `tiny.en` ([measured](docs/benchmarks.md)).
+| OS | Default hotkey |
+|---|---|
+| Linux | `Right Alt` |
+| macOS | `Right Option` |
+| Windows | `Right Ctrl` |
 
-> **First time on macOS?** The `.app` is still unsigned: right-click the app → Open (Gatekeeper), then grant Accessibility + Microphone when prompted.
->
-> **First time on Windows?** If SmartScreen warns you, click **More info → Run anyway**.
+Try *"the quick brown fox"* (typed as text), then *"undo that"*, *"go to line 42"* or
+*"run the tests"* (carried out as commands). On a modern laptop CPU, the time from releasing
+the key to seeing text is a median of **1.6 s** with the default `base.en` model, or
+**0.9 s** with `tiny.en` ([measured](docs/benchmarks.md)).
+
+**Shell completion:** `yazses --install-completion`, or `yazses --show-completion` to print
+the script. See the [CLI reference](docs/cli-reference.md).
 
 ---
 
 ## What you can say
 
-Hold the key and just **talk** — by default everything you say is typed at the cursor. YazSes also recognises a set of **voice commands** (a fast regex grammar; a ~0.5B SLM router for phrasings the grammar misses is designed but **not wired yet**) that map to editor/terminal **key sequences** instead of being typed:
+Hold the key and **talk**: by default, everything you say is typed at the cursor. YazSes also
+recognises a set of **voice commands** and turns them into editor and terminal **key
+sequences** instead of typing them:
 
 | Say something like… | What happens |
 |---|---|
@@ -264,7 +283,8 @@ Hold the key and just **talk** — by default everything you say is typed at the
 | *"run the tests"* / *"run the build"* | Runs the editor/terminal action |
 | *"rename this to user_id"* | Renames the symbol |
 
-You can also define multi-step **macros** and a personal **vocabulary** of mis-heard words — see the [CLI reference](docs/cli-reference.md).
+Commands are recognised by a fast regex grammar. You can add multi-step **macros** and a
+personal **vocabulary** of misheard words; see the [CLI reference](docs/cli-reference.md).
 
 ---
 
@@ -276,14 +296,27 @@ Hold hotkey → record audio → VAD gate → faster-whisper (CPU) → clean + d
             → dictate? type the text   ·   command? send the key sequence
 ```
 
-Everything runs on your CPU — no GPU, no network. Transcription uses **faster-whisper** (int8). A fast regex grammar classifies each utterance as dictation or a command. A ~0.5B SLM router was designed to take a second look when confidence is low; the seam exists (`grammar.classify()` accepts it) but nothing constructs one, so **Tier 1 decides every utterance today**.
+Everything runs on your CPU, with no GPU and no network. **faster-whisper** (int8) transcribes
+the audio, and a regex grammar decides whether each utterance is dictation or a command. A
+~0.5B SLM router was designed to take a second look when confidence is low. Its seam exists
+(`grammar.classify()` accepts one), but nothing constructs it yet, so **the regex grammar
+decides every utterance today**.
 
-Measured on a 13th-gen Core i7 laptop, int8 on CPU: **4.07 % WER** on LibriSpeech test-clean with the default `base.en`, a **1.56 s median** decode, and **0.29 ms** of total non-decode pipeline overhead — i.e. essentially all the latency is the speech model. Everything, including the method and the commands to reproduce it, is on the [benchmarks page](docs/benchmarks.md).
+**Performance.** Measured on a 13th-gen Core i7 laptop, int8 on CPU: **4.07 % WER** on
+LibriSpeech test-clean with the default `base.en`, a **1.56 s median** decode, and **0.29 ms**
+of total non-decode pipeline overhead. Almost all of the latency is the speech model. The
+method and the commands to reproduce these numbers are on the [benchmarks page](docs/benchmarks.md).
 
-**Models:**
-- **Speech-to-text:** faster-whisper — `tiny.en` (fast) / `base.en` / `small.en` (more accurate), int8 on CPU
-- **Command routing (not wired):** Qwen2.5-0.5B SLM for Tier 2 intent classification. `yazses model download` can fetch it, but **nothing loads it yet** — downloading it today gains you nothing. (The command is still the right way to pre-fetch a *speech* model behind a firewall.)
-- **Dictation cleanup (optional, off by default):** a small offline LLM can tidy grammar/punctuation; length- and token-preservation guards stop it rewriting meaning
+**Models**
+
+- **Speech-to-text:** faster-whisper `tiny.en` (fastest), `base.en` (default) or `small.en`
+  (most accurate), int8 on CPU.
+- **Dictation cleanup** (optional, off by default): a small offline LLM can tidy grammar and
+  punctuation. Length and token-preservation guards stop it from changing your meaning.
+- **Command routing** (not wired yet): a Qwen2.5-0.5B SLM for Tier 2 intent classification.
+  `yazses model download` can fetch it, but **nothing loads it yet**, so downloading it today
+  gains you nothing. The command is still the right way to pre-fetch a *speech* model behind
+  a firewall.
 
 ---
 
@@ -297,45 +330,34 @@ Measured on a 13th-gen Core i7 laptop, int8 on CPU: **4.07 % WER** on LibriSpeec
 | **CPU** | 2+ cores · no GPU required |
 | **Mic** | Any USB or built-in microphone |
 
----
-
-## Key features
-
-- **Fully offline** — no audio, no text, nothing leaves the machine by default; no cloud, API key, or subscription
-- **Hold-to-talk dictation** — type into any focused app on Linux, macOS, or Windows
-- **Meeting Mode** — hands-free whole-meeting capture → speaker-labelled transcript, plus optional local-LLM minutes (summary, decisions, action items); audio is deleted after transcription unless you keep it
-- **Offline file transcription** — `yazses transcribe <file>` turns any audio/video into txt/md/srt/vtt/json, with optional *who-said-what* speaker tags
-- **Voice commands** — editor/terminal actions (undo, save, go-to-line, run tests, rename…) via regex grammar + an optional SLM router
-- **Macros & personal vocabulary** — define multi-step commands and teach YazSes your mis-heard words
-- **Dysfluency-Friendly Mode** — opt-in collapse of stutters/repeats (`b-b-because` → `because`) for stuttered or dysarthric speech
-- **Self-improving** — opt-in, encrypted on-device learning corpus; `yazses tune` proposes accuracy fixes from your own corrections (nothing leaves the machine)
-- **Editor navigation** — `yazses jump "go to function parse_config"` resolves the symbol
-  through your editor's LSP (Neovim bridge; opt-in). *Feeding LSP symbols into the
-  transcription prompt is designed but **not wired** — the daemon builds its prompt from
-  your vocabulary and mined terms only, so it does not yet improve identifier accuracy.*
-- **Accessibility** — VAD calibration wizard, mic-level tuning, and EMG (muscle-sensor) trigger support for motor-disability use
-- **Voice-activity overlay** — optional sonar rings near the cursor while you speak
+Using Apple silicon, an Intel Mac, ARM64 Windows, a Raspberry Pi or another less common CPU?
+The [platform support matrix](https://mskazemi.com/yazses/platform-support.html) lists the
+tested install channel for each OS and architecture. `pipx install yazses` is a portable
+fallback on supported Python and platform combinations, but a native package gives a better
+desktop experience where one exists.
 
 ---
 
 ## Use cases
 
-- **Writers & journalists** — draft long-form text hands-free without your words leaving the machine.
-- **Developers working on remote machines** — because text is injected at the OS level rather than inside an app, dictation works in **VS Code / Cursor Remote-SSH panes, integrated terminals running a remote shell, `tmux`, and container shells** — where the voice input built into editors and AI coding tools usually stops. No setup; see [dictation over SSH](https://mskazemi.com/yazses/how-to/remote-dictation.html).
-- **Developers** — dictate code comments and commit messages, and drive the editor/terminal by voice (undo, save, go-to-line, run tests, rename a symbol).
-- **Privacy-conscious professionals** — dictate in fields like law, medicine, or research where audio must never touch a cloud service.
-- **Teams with confidential meetings** — record and summarise internal, clinical, legal, or pre-publication research meetings without uploading them to a note-taking SaaS or inviting a bot into the call.
-- **Researchers & journalists with recordings** — batch-transcribe interviews, lectures, and field recordings offline, with speaker tags, under your own retention rules.
-- **Accessibility & motor-disability users** — hold-to-talk or EMG (muscle-sensor) triggering for hands-free input, with Dysfluency-Friendly Mode for stuttered or dysarthric speech.
-- **Offline / air-gapped environments** — dictation on machines with no reliable internet or where external network calls are disallowed.
+| Who | Why YazSes fits |
+|---|---|
+| **Writers and journalists** | Draft long-form text hands-free, without your words leaving the machine. |
+| **Developers** | Dictate comments and commit messages, and drive the editor or terminal by voice: undo, save, go to line, run tests, rename a symbol. |
+| **Developers on remote machines** | Text is injected at the OS level, so dictation works in **VS Code or Cursor Remote-SSH panes, terminals running a remote shell, `tmux` and container shells**, where built-in voice input usually stops. See [dictation over SSH](https://mskazemi.com/yazses/how-to/remote-dictation.html). |
+| **Privacy-conscious professionals** | Dictate in law, medicine or research, where audio must never touch a cloud service. |
+| **Teams with confidential meetings** | Record and summarise internal, clinical, legal or pre-publication meetings without a note-taking SaaS or a bot in the call. |
+| **Researchers with recordings** | Batch-transcribe interviews, lectures and field recordings offline, with speaker labels, under your own retention rules. |
+| **People with motor disabilities** | Hold-to-talk or EMG (muscle-sensor) triggering for hands-free input, with Dysfluency-Friendly Mode for stuttered or dysarthric speech. |
+| **Offline and air-gapped sites** | Dictation on machines with no reliable internet, or where outbound network calls are not allowed. |
 
-**In depth, with setup steps for each:**
-[voice typing on Linux (X11 & Wayland)](https://mskazemi.com/yazses/use-cases/voice-dictation-linux.html) ·
+**Guides with setup steps:**
+[voice typing on Linux (X11 and Wayland)](https://mskazemi.com/yazses/use-cases/voice-dictation-linux.html) ·
 [voice dictation on Wayland](https://mskazemi.com/yazses/use-cases/voice-dictation-wayland.html) ·
-[dictation over SSH & Remote-SSH](https://mskazemi.com/yazses/how-to/remote-dictation.html) ·
-[private & confidential work](https://mskazemi.com/yazses/use-cases/private-offline-dictation.html) ·
+[dictation over SSH and Remote-SSH](https://mskazemi.com/yazses/how-to/remote-dictation.html) ·
+[private and confidential work](https://mskazemi.com/yazses/use-cases/private-offline-dictation.html) ·
 [coding by voice](https://mskazemi.com/yazses/use-cases/voice-coding.html) ·
-[accessibility & RSI](https://mskazemi.com/yazses/use-cases/accessibility-rsi-hands-free.html) ·
+[accessibility and RSI](https://mskazemi.com/yazses/use-cases/accessibility-rsi-hands-free.html) ·
 [transcribing recordings](https://mskazemi.com/yazses/use-cases/transcribe-audio-offline.html) ·
 [multilingual dictation](https://mskazemi.com/yazses/use-cases/multilingual-dictation.html)
 
@@ -343,22 +365,33 @@ Measured on a 13th-gen Core i7 laptop, int8 on CPU: **4.07 % WER** on LibriSpeec
 
 ## Limitations / when *not* to use YazSes
 
-- **Not an LLM agent.** YazSes dictates text, transcribes recordings, and runs editor/terminal commands. It does **not** browse, reason over your files, set timers, or hold a conversation — that was the paused [Rust exploration](#rust-hci-exploration-archived).
-- **Speaker labels and minutes are extras, not defaults.** `--diarize` and meeting minutes each need an opt-in extra (and, for minutes, a local GGUF model you supply). Plain dictation and plain transcription need neither.
-- **CPU faster-whisper, not a cloud service.** For the absolute lowest word-error rate on a noisy mic, a cloud STT may still beat it; the trade-off is that nothing leaves your machine.
-- **English-tuned by default.** It ships with `*.en` Whisper models; other languages need a different model.
-- **Desktop only, today.** There is no mobile or web build you can install. An **Android app is in design** — the architecture and its ten decision records are public at [docs/mobile](docs/mobile/index.md), and it is being built in the open by contributors. iOS/iPadOS follows Android; macOS is already supported by this desktop app.
+- **It is not an LLM agent.** YazSes dictates text, transcribes recordings and runs editor and
+  terminal commands. It does **not** browse, reason over your files, set timers or hold a
+  conversation; that was the paused [Rust exploration](#rust-hci-exploration-archived).
+- **Speaker labels and minutes are extras, not defaults.** `--diarize` and meeting minutes
+  each need an opt-in extra, and minutes also need a local GGUF model that you supply. Plain
+  dictation and plain transcription need neither.
+- **It uses faster-whisper on the CPU, not a cloud service.** On a noisy microphone, a cloud
+  speech service may still achieve a lower word-error rate. The trade-off is that nothing
+  leaves your machine.
+- **It is tuned for English by default.** It ships with `*.en` Whisper models; other
+  languages need a different model.
+- **It is desktop only, for now.** There is no mobile or web build. An **Android app is in
+  design**: the architecture and its ten decision records are public at
+  [docs/mobile](docs/mobile/index.md), and contributors are building it in the open. iOS and
+  iPadOS will follow Android.
 
 ---
 
 ## Comparison & alternatives
 
-An honest comparison with other voice-dictation tools. All claims are about publicly documented behaviour; each tool has strengths YazSes does not.
+An honest comparison with other voice-dictation tools. Every claim is about publicly
+documented behaviour, and each tool has strengths YazSes does not.
 
 | | **YazSes** | **Dragon** | **Talon Voice** | **Windows Voice Access** | **Wispr Flow** |
 |---|---|---|---|---|---|
 | Runs offline / on-device | ✅ | ✅ | ✅ | ✅ | ❌ (cloud) |
-| Voice commands | ✅ regex grammar + optional SLM | ✅ | ✅ advanced scripting | ✅ | limited |
+| Voice commands | ✅ regex grammar | ✅ | ✅ advanced scripting | ✅ | limited |
 | Linux | ✅ | ❌ | ✅ | ❌ | ❌ |
 | macOS | ✅ | ❌ (discontinued) | ✅ | ❌ | ✅ |
 | Windows | ✅ | ✅ | ✅ | ✅ (built in) | ✅ |
@@ -367,9 +400,8 @@ An honest comparison with other voice-dictation tools. All claims are about publ
 
 ### The open-source, local, free ones
 
-The table above is the paid and cloud landscape. There is now an active wave of
-tools that share YazSes's licence model and its privacy model, and leaving them out
-would make this section evasive to exactly the readers who already know about them.
+A growing group of tools shares YazSes's licence model and privacy model. Leaving them out
+would make this comparison evasive to exactly the readers who already know about them.
 
 | | **YazSes** | **Handy** | **OpenWhispr** | **FluidVoice** | **VoiceInk** |
 |---|---|---|---|---|---|
@@ -383,68 +415,90 @@ would make this section evasive to exactly the readers who already know about th
 | Meeting capture with **speaker labels** | ✅ | ❌ | transcription, no diarization documented | ❌ | ❌ |
 | **Published benchmarks** with method | ✅ | ❌ | ❌ | ❌ | ❌ |
 
-**Handy is the closest comparison** — MIT, free, genuinely cross-platform, on-device,
-and the same hold-a-key-and-speak loop. If you want dictation and nothing else, it is
-an excellent choice and considerably smaller than YazSes.
+**Handy is the closest alternative.** It is MIT-licensed, free, cross-platform and on-device,
+with the same hold-a-key-and-speak loop. If you want dictation and nothing else, it is an
+excellent choice and considerably smaller than YazSes.
 
-**These are honest reasons to pick another one:**
-- **Handy** — you want dictation only, with the smallest possible install.
-- **OpenWhispr** — you want a polished Electron app, and being able to fall back to a
-  cloud model with your own API key is a feature rather than a dealbreaker.
-- **FluidVoice** — you are on macOS and want voice control of the OS itself (launching
-  apps, running Shortcuts), which is broader than YazSes's editor-oriented commands.
-- **VoiceInk** — you are on macOS, want a native app, and prefer paying once for it.
-- **Talon Voice** — you want deep, scriptable voice control and will learn its scripting
-  model. YazSes and Talon can coexist.
-- **Windows Voice Access** — Windows 11 only, zero install, OS-native.
-- **Dragon** — a mature, professionally supported Windows product, and you can pay.
-- **Wispr Flow** — you prefer a polished cloud service and are comfortable sending
-  audio off-device.
+**Good reasons to choose another tool:**
+
+- **Handy:** you want dictation only, with the smallest possible install.
+- **OpenWhispr:** you want a polished Electron app, and falling back to a cloud model with
+  your own API key is a feature for you rather than a dealbreaker.
+- **FluidVoice:** you are on macOS and want voice control of the OS itself (launching apps,
+  running Shortcuts), which goes beyond YazSes's editor-oriented commands.
+- **VoiceInk:** you are on macOS, want a native app, and prefer paying once.
+- **Talon Voice:** you want deep, scriptable voice control and are willing to learn its
+  scripting model. YazSes and Talon can run side by side.
+- **Windows Voice Access:** you are on Windows 11 and want zero install and OS integration.
+- **Dragon:** you want a mature, professionally supported Windows product and can pay for it.
+- **Wispr Flow:** you prefer a polished cloud service and are comfortable sending audio
+  off-device.
 
 ### So what is actually different about YazSes?
 
-"Open source, local, cross-platform, free" **no longer separates YazSes from the
-field** — Handy and OpenWhispr share all four. The honest differentiators are
-narrower, and they are these:
+Being open source, local, cross-platform and free **no longer sets YazSes apart**: Handy and
+OpenWhispr are all four. The real differences are narrower:
 
-1. **Voice commands as well as dictation**, with a documented grammar — most of the
-   tools above are dictation only.
+1. **Voice commands as well as dictation**, with a documented grammar. Most of the tools
+   above do dictation only.
 2. **Linux as a first-class target**, not a port: X11 and Wayland injection, evdev
-   hold-to-talk, systemd autostart, a `.deb`, an APT repo and a snap.
+   hold-to-talk, systemd autostart, a `.deb`, an APT repository and a snap.
 3. **Meeting capture with speaker labels**, entirely on-device.
-4. **Published benchmarks with a stated method** — and an explicit list of what was
-   *not* measured. See [benchmarks](https://mskazemi.com/yazses/benchmarks.html).
-5. **Accessibility as a design constraint**, not a feature: dysfluency-friendly
-   filtering, calibrated silence gates, and non-keyboard activation seams.
+4. **Published benchmarks with a stated method**, plus an explicit list of what was *not*
+   measured. See [benchmarks](https://mskazemi.com/yazses/benchmarks.html).
+5. **Accessibility as a design constraint**, not an add-on: dysfluency-friendly filtering,
+   calibrated silence gates, and activation that does not depend on a keyboard.
 
-> **How current is this?** Compiled from each project's own documentation in August
-> 2026 and **not** from testing each tool. This space moves quickly; if a row is out
-> of date, [tell us](https://github.com/MSKazemi/yazses/issues) — a comparison that
-> flatters us by being stale is worth less than no comparison at all.
+> **How current is this?** It was compiled from each project's own documentation in August
+> 2026, **not** from testing each tool. This space moves quickly. If a row is out of date,
+> [tell us](https://github.com/MSKazemi/yazses/issues); a comparison that flatters us by
+> being stale is worth less than no comparison at all.
 
 ---
 
 ## FAQ
 
-**What is YazSes?** YazSes is an open-source, offline hold-to-talk voice-dictation daemon for Linux, macOS, and Windows. You hold a key, speak, and release; your speech is transcribed on-device with faster-whisper and typed into the focused application, with support for editor and terminal voice commands and macros.
+**What is YazSes?**
+An open-source, offline hold-to-talk voice-dictation daemon for Linux, macOS and Windows. You
+hold a key, speak and release; your speech is transcribed on-device with faster-whisper and
+typed into the focused application. It also supports editor and terminal voice commands and
+macros.
 
-**Is there a good offline voice-dictation tool for Linux?** Yes — YazSes runs natively on Linux (X11 and Wayland), transcribes locally on the CPU, and needs no cloud service or API key. It installs via an APT script or `pipx`.
+**Is there a good offline voice-dictation tool for Linux?**
+Yes. YazSes runs natively on Linux (X11 and Wayland), transcribes locally on the CPU, and needs
+no cloud service or API key. It installs with a one-line script, APT, Snap or `pipx`.
 
-**YazSes vs Talon?** Both are cross-platform and work offline. YazSes focuses on plug-and-play dictation plus a practical command grammar (with an optional small SLM router). Talon offers far more advanced, scriptable voice control. They can be used side by side.
+**How does YazSes compare with Talon?**
+Both are cross-platform and work offline. YazSes focuses on plug-and-play dictation plus a
+practical command grammar. Talon offers far more advanced, scriptable voice control. You can
+use them side by side.
 
-**Does it work without internet?** Yes. Transcription runs locally with faster-whisper, and no audio or text is sent anywhere by default. YazSes works fully offline and on air-gapped machines.
+**Does it work without internet?**
+Yes. Transcription runs locally with faster-whisper, and by default no audio or text is sent
+anywhere. YazSes works fully offline, including on air-gapped machines.
 
-**Is it free and open source?** Yes — YazSes is released under the Apache 2.0 license, with no subscription or API key.
+**Is it free and open source?**
+Yes. YazSes is released under the Apache 2.0 licence, with no subscription or API key.
 
-**What hardware do I need?** No GPU. It runs on CPU with 4 GB RAM minimum (8 GB comfortable) and any USB or built-in microphone.
+**What hardware do I need?**
+No GPU. It runs on the CPU with 4 GB of RAM at minimum (8 GB is comfortable) and any USB or
+built-in microphone.
 
-**Is it an AI agent?** No. YazSes dictates text and runs editor/terminal voice commands; it does not browse, reason over your files, or hold a conversation. (An agentic version was prototyped in the archived Rust branch but is not shipped.)
+**Is it an AI agent?**
+No. YazSes dictates text and runs editor and terminal voice commands; it does not browse,
+reason over your files or hold a conversation. An agentic version was prototyped in the
+archived Rust branch but has not shipped.
 
-More in the **[full FAQ](https://mskazemi.com/yazses/faq.html)** and a side-by-side in **[Comparison & alternatives](https://mskazemi.com/yazses/comparison.html)** (YazSes vs Talon, Dragon, Wispr Flow, nerd-dictation…).
+More in the **[full FAQ](https://mskazemi.com/yazses/faq.html)** and the side-by-side
+**[comparison page](https://mskazemi.com/yazses/comparison.html)** (YazSes vs Talon, Dragon,
+Wispr Flow, nerd-dictation and others).
 
 ---
 
 ## CLI commands
+
+The most common commands. Run `yazses --help`, or see the [CLI reference](docs/cli-reference.md),
+for everything else.
 
 | Command | Description |
 |---|---|
@@ -475,7 +529,7 @@ More in the **[full FAQ](https://mskazemi.com/yazses/faq.html)** and a side-by-s
 
 ## Configuration
 
-Config file location:
+The settings file lives here:
 
 | OS | Path |
 |---|---|
@@ -483,7 +537,8 @@ Config file location:
 | macOS | `~/Library/Application Support/yazses/config.toml` |
 | Windows | `%LOCALAPPDATA%\yazses\config.toml` |
 
-Prefer `yazses features` / `yazses hotkey` / `yazses vocab` to edit config safely (they preserve comments). Essential settings:
+You rarely need to edit it by hand. `yazses features`, `yazses hotkey` and `yazses vocab`
+change it safely and keep your comments. The essential settings are:
 
 ```toml
 [stt]
@@ -510,11 +565,13 @@ backend = "auto"            # auto | type | ydotool | wtype | clipboard
 vad_threshold = 0.01        # lower for quiet speech, raise if room noise triggers (yazses mic-level --set)
 ```
 
-See the [CLI reference](docs/cli-reference.md) and [`examples/config.example.toml`](examples/config.example.toml) for all options.
+Every option is documented in the [configuration reference](https://mskazemi.com/yazses/configuration.html)
+and in [`examples/config.example.toml`](examples/config.example.toml).
 
 ### Microphone not working?
 
-If YazSes does nothing and the log shows `Silent audio -- discarding`, your speech is below the VAD threshold:
+If YazSes does nothing and the log shows `Silent audio -- discarding`, your speech is below
+the voice-activity threshold. Measure your voice, set the threshold, and restart:
 
 ```sh
 yazses mic-level --set   # measure your voice and set the right threshold
@@ -525,40 +582,50 @@ yazses restart
 
 ## All install options
 
-### Install or upgrade to the latest version
+### Upgrading
 
-`pipx install yazses` always pulls the **latest published release** from PyPI. If you
-already have YazSes installed, upgrade in place:
+`pipx install yazses` always installs the **latest published release** from PyPI. To upgrade
+an existing install in place:
 
 ```bash
 pipx upgrade yazses          # upgrade an existing install to the latest release
 pipx install --force yazses  # reinstall the latest (if upgrade reports "already at latest")
 ```
 
-Pin an exact version if you need one: `pipx install yazses==2.15.0`. Check what you have
-with `yazses --version` (or `yazses doctor`, which also reports the running daemon).
+To pin an exact version, use `pipx install yazses==2.15.0`. Check what you have with:
+
+```sh
+yazses --version
+```
+
+`yazses doctor` also reports the version of the running daemon.
 
 ### Linux
 
-```bash
-# APT script — Debian / Ubuntu (tracks tagged releases; the universal script above is the recommended route)
-bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install-apt.sh)
+**APT** (Debian and Ubuntu). This tracks tagged releases; the one-line installer
+[above](#-install) remains the recommended route.
 
-# pipx — any distro with Python ≥ 3.11
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/MSKazemi/yazses/main/install-apt.sh)
+```
+
+**pipx** (any distribution with Python ≥ 3.11):
+
+```bash
 sudo apt install pipx build-essential python3-dev   # evdev is compiled from source
 pipx install 'yazses[desktop]'                      # [desktop] adds the tray + overlay (Qt)
 yazses setup                                        # audio/injection deps, input group, ydotoold
 # then log out and back in once (the input-group change needs a new login)
+```
 
-# From source (contributors) — one command does the whole loop:
-# editable install + `yazses setup` provisioning + start (bridges the input
-# group so you can test before logging out).
-bash scripts/dev-install.sh
+[![Get it from the Snap Store](https://snapcraft.io/en/light/install.svg)](https://snapcraft.io/yazses)
 
-# Snap Store — X11, and Wayland via the desktop portal (GNOME/KDE).
-# All three privileged lines are required. A snap cannot connect its own interfaces, and the
-# daemon starts and looks healthy without them — it just never hears you, or never
-# sees the key.
+**Snap** works on X11, and on GNOME and KDE Wayland through the `xdg-desktop-portal`
+RemoteDesktop API. Both `snap connect` lines are required. A snap cannot connect its own
+interfaces, and without them the daemon starts and looks healthy but never hears you or never
+sees the key. See [what the snap can and cannot do](docs/install-linux.md#3e-what-the-snap-can-and-cannot-do).
+
+```bash
 sudo snap install yazses
 sudo snap connect yazses:audio-record   # microphone; without it, no audio
 sudo snap connect yazses:raw-input      # hold-to-talk key; without it, nothing fires
@@ -566,11 +633,18 @@ yazses doctor                           # says if anything is still missing
 yazses start
 ```
 
-`yazses setup` is not required for a Snap install. Strict confinement prevents it
-from changing host packages, groups, or services, so current builds only use it to
-print the manual permission checklist; the snap already bundles its X11 dependencies.
-Run `yazses doctor` and all other YazSes commands as your normal desktop user,
-never through `sudo`.
+A Snap install does not need `yazses setup`. Strict confinement stops it from changing host
+packages, groups or services, so current builds only use it to print the manual permission
+checklist; the snap already bundles its X11 dependencies. Run `yazses doctor` and every other
+YazSes command as your normal desktop user, never through `sudo`.
+
+**From source** (for contributors). One command does the whole loop: an editable install,
+`yazses setup` provisioning, and a start that bridges the `input` group so you can test
+before logging out.
+
+```bash
+bash scripts/dev-install.sh
+```
 
 ### macOS
 
@@ -587,20 +661,18 @@ pipx install yazses
 # https://github.com/MSKazemi/yazses/releases/latest
 ```
 
-> **On an Intel Mac, take the `-macos-x86_64.dmg` or use pipx — not Homebrew.** Since
-> v2.22.0 the `.dmg` is built as a per-architecture matrix, so releases carry both
-> `…-macos-arm64.dmg` and `…-macos-x86_64.dmg`. The **cask** is still Apple Silicon
-> only: it declares `arch: :arm64` and refuses rather than installing a broken app.
-> Details in [docs/macos-install.md](docs/macos-install.md).
+> **On an Intel Mac, use the `-macos-x86_64.dmg` or pipx, not Homebrew.** Since v2.22.0 each
+> release carries both `…-macos-arm64.dmg` and `…-macos-x86_64.dmg`. The Homebrew **cask** is
+> still Apple silicon only: it declares `arch: :arm64` and refuses to install rather than
+> installing a broken app. Details in [docs/macos-install.md](docs/macos-install.md).
 >
-> ⚠ **Intel Macs have a Python ceiling, and it is not ours.** `pipx install yazses`
-> needs **Python 3.11–3.13** there, and `yazses[all]` needs **3.11–3.12**. Upstream
-> stopped building Intel macOS wheels: `onnxruntime` published none after 1.23.2
-> (which has no Python 3.14 build) and `torch` none after 2.4.1 (no 3.13 build).
-> On Python 3.14 the install fails with a resolver error naming `onnxruntime` — it
-> looks like a YazSes bug and is not one. `yazses doctor` prints your position
-> against this ceiling on an Intel Mac, so you learn it *before* an upgrade, not
-> after. Apple Silicon is unaffected.
+> ⚠ **Intel Macs have a Python ceiling set upstream.** `pipx install yazses` needs
+> **Python 3.11–3.13** there, and `yazses[all]` needs **3.11–3.12**, because upstream stopped
+> building Intel macOS wheels: `onnxruntime` published none after 1.23.2 (which has no
+> Python 3.14 build) and `torch` none after 2.4.1 (no 3.13 build). On Python 3.14 the install
+> fails with a resolver error naming `onnxruntime`. It looks like a YazSes bug but is not one.
+> On an Intel Mac, `yazses doctor` shows where you stand against this ceiling, so you learn
+> about it *before* an upgrade. Apple silicon is unaffected.
 
 ### Windows
 
@@ -616,31 +688,65 @@ pipx install yazses                             # Python ≥ 3.11
 
 ## Documentation
 
-**→ Full documentation site: [mskazemi.com/yazses](https://mskazemi.com/yazses/)** — searchable, with install guides, the complete CLI & configuration reference, feature catalog, architecture, and troubleshooting.
+**[mskazemi.com/yazses](https://mskazemi.com/yazses/)** is the full, searchable documentation
+site: install guides, the complete CLI and configuration reference, the feature catalog,
+architecture and troubleshooting.
 
-Quick links:
-
-| | |
+| Guide | What it covers |
 |---|---|
-| [Install on Linux](docs/install-linux.md) | Detailed Linux guide — permissions, injection backends, service setup |
-| [Install on macOS](docs/macos-install.md) | Gatekeeper, Accessibility, Microphone permissions |
+| [Install on Linux](docs/install-linux.md) | Permissions, injection backends, service setup |
+| [Install on macOS](docs/macos-install.md) | Gatekeeper, Accessibility and Microphone permissions |
 | [Install on Windows](docs/windows-install.md) | SmartScreen, antivirus exceptions, privacy settings |
-| [CLI reference](docs/cli-reference.md) | All commands and flags (incl. macros & vocabulary for custom voice commands) |
-| [Privacy statement](docs/privacy-statement.md) | What stays on-device, what is never collected |
-| [Research: the science of post-keyboard input](docs/research/index.md) | Cited surveys of eye, voice and muscle/brain input — every design decision traced to a measurement |
-| [Students, researchers & industry](docs/research/get-involved.md) | Thesis-sized projects with open issues, the research platform, how to cite |
-| [Record your own demo GIF](docs/demo-guide.md) | How to capture a short hold-to-talk demo GIF |
+| [CLI reference](docs/cli-reference.md) | Every command and flag, including macros and vocabulary |
+| [Privacy statement](docs/privacy-statement.md) | What stays on-device and what is never collected |
+| [Research: the science of post-keyboard input](docs/research/index.md) | Cited surveys of eye, voice and muscle/brain input, with every design decision traced to a measurement |
+| [Students, researchers and industry](docs/research/get-involved.md) | Thesis-sized projects with open issues, the research platform, how to cite |
+| [Record your own demo GIF](docs/demo-guide.md) | How to capture a short hold-to-talk demo |
 
-A man page ships in the Debian package, so `man yazses` works after an
-`apt`/`.deb` install. From a source checkout, read it with `man -l man/yazses.1`
-(regenerate with `make man`). `pipx`/`pip` and Snap installs do not place man
-pages on the system man path — use `yazses --help` there.
+**Man page:** the Debian package installs one, so `man yazses` works after an APT or `.deb`
+install. In a source checkout, read it with `man -l man/yazses.1` (regenerate it with
+`make man`). `pipx`, `pip` and Snap installs do not put man pages on the system path; use
+`yazses --help` there.
 
 ---
 
-## Development
+## Contributing
 
-YazSes (Part 1) is a Python project managed with `uv`:
+Contributions of every kind are welcome: bug reports, documentation, translations, packaging
+and code.
+
+**There is nothing to sign.** No CLA, no DCO, no sign-off line, no bot to authorise, and no
+account beyond GitHub. Opening the pull request is the whole contract; section 5 of the
+Apache 2.0 licence already covers the licence grant.
+
+**Ways to start**
+
+- 🚀 **First time?** [Start here](https://mskazemi.com/yazses/contribute/start.html). Pick the
+  row that matches what you have in front of you and finish in 15–45 minutes.
+- 🎯 **Want the full list?** [Filter the open tasks](https://mskazemi.com/yazses/contribute/find.html)
+  by what you have (a browser, a terminal, a specific app or unusual hardware), how much time
+  you have, and whether you want to write code. Each task names the files you may touch, the
+  command that says you are done, and an honest time estimate.
+- ⏱️ **Fifteen minutes and no Python?** [Browser-only tasks](https://github.com/MSKazemi/yazses/issues?q=is%3Aopen+label%3Abrowser-only)
+  can be done entirely in the GitHub web editor, with no clone and no install. Several are
+  open to many contributors at once:
+  [translate the README](https://github.com/MSKazemi/yazses/issues/18) (the introduction and
+  Quick Start alone make a complete PR),
+  [add your microphone](https://github.com/MSKazemi/yazses/blob/main/docs/known-good-microphones.md),
+  [share a config for your app or editor](https://github.com/MSKazemi/yazses/blob/main/docs/how-to/app-profiles.md), or
+  [add your setup to SHOWCASE.md](https://github.com/MSKazemi/yazses/edit/main/SHOWCASE.md).
+- 🐞 **Found a bug or have an idea?** Open an [issue](https://github.com/MSKazemi/yazses/issues/new/choose)
+  (the output of `yazses doctor` resolves most reports on its own) or ask in
+  [Discussions](https://github.com/MSKazemi/yazses/discussions).
+
+**AI coding tools are optional, and you never need to pay for one.** If you use one, read the
+[safe agent guide](docs/contribute/ai-agents.md) first, and do not assume YazSes authorises or
+reimburses its costs. Using Google Jules? [Connect Jules to your fork](docs/contribute/jules.md);
+no upstream collaborator access is needed, and direct upstream Jules remains gated by #447.
+
+### Development setup
+
+YazSes is a Python 3.11+ project managed with [`uv`](https://docs.astral.sh/uv/):
 
 ```bash
 git clone https://github.com/MSKazemi/yazses
@@ -650,9 +756,27 @@ uv run python -m pytest tests/ -v
 bash scripts/install-local.sh        # install locally + run as a user service
 ```
 
-**Install the latest dev build from source** (ahead of the published PyPI release —
-this is how a working copy is installed system-wide as an unconfined `uv` tool — the way
-to run unreleased code, since the snap only ever carries a published release):
+Before you open a pull request, run the same gates as CI (see [CONTRIBUTING.md](.github/CONTRIBUTING.md)):
+
+```bash
+uv run python -m pytest tests/   # tests — must be green
+uv run ruff check src tests scripts paper/benchmark   # lint — must be green
+uv run mypy src                  # types — advisory (currently clean; don't add errors)
+```
+
+`make check` runs the tests, lint and the hygiene check in one step. Everything is fully
+offline: no microphone, model download or optional extras are needed. The suite is large, so
+a full run takes minutes rather than seconds; that is normal, not a hang. While you work,
+narrow it with `uv run python -m pytest tests/test_foo.py` or `-k pattern`.
+
+**No local setup?** The repository ships a [Dev Container](.devcontainer/devcontainer.json),
+so [opening it in GitHub Codespaces](https://codespaces.new/MSKazemi/yazses) gives you a
+ready environment in the browser. Documentation, configuration, tests and pure-logic changes
+work fully there; anything that needs a real microphone, hotkey device or window focus needs
+a local machine.
+
+**Running unreleased code.** To install your working tree as the system-wide `yazses`
+command (the Snap only ever carries a published release):
 
 ```bash
 uv tool install --from . yazses --force   # (re)install the working tree as the `yazses` command
@@ -660,12 +784,17 @@ yazses restart                            # restart the daemon onto the new buil
 yazses --version                          # confirm the installed build
 ```
 
+YazSes is offline-first. Please do not add network calls or telemetry.
+
 ### Rust HCI exploration (archived)
 
-This repo holds **one product** with **two implementations** — two generations of the same
-idea, not two apps. The one you install and run is the **Python** implementation on `main`.
-The early-stage Rust rewrite lives on the **`archive/rust-hci-v1`** branch and is not built,
-installed, or depended on by anything here.
+This repository holds **one product** with **two implementations**: two generations of the
+same idea, not two apps. The one you install and run is the **Python** implementation on
+`main`. An early-stage Rust rewrite lives on the **`archive/rust-hci-v1`** branch. Nothing
+here builds, installs or depends on it.
+
+<details>
+<summary>How the two implementations compare</summary>
 
 | | **Python** · `main` | **Rust HCI exploration** · `archive/rust-hci-v1` |
 |---|---|---|
@@ -681,68 +810,23 @@ installed, or depended on by anything here.
 | Screen-reader integration (AT-SPI / NVDA) | ❌ | ✅ |
 | Packaged & distributed (PyPI, snap, APT) | ✅ | ❌ |
 
-Revisiting the Rust effort is a deliberate future decision, not part of day-to-day work
-here. To look at it:
+Revisiting the Rust effort is a deliberate future decision, not part of day-to-day work here.
+To look at it:
 
 ```bash
 git checkout archive/rust-hci-v1
 cargo build && cargo test --workspace   # optional backends: whisper, moonshine, llama-cpp, ollama, silero
 ```
 
----
-
-## Contributing
-
-Contributions are very welcome — bug reports, docs, packaging, and code.
-
-**There is nothing to sign.** No CLA, no DCO, no sign-off line, no bot to authorise, no
-account beyond GitHub. Opening the pull request is the whole contract — Apache-2.0 section 5
-already covers the licence grant.
-
-- 🌱 **New here?** Start with a [good first issue](https://github.com/MSKazemi/yazses/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) — each is small and self-contained, and we're happy to help you through your first PR.
-- 🚀 **First time? [Start here](https://mskazemi.com/yazses/contribute/start.html)** — one page, pick the row matching what you have in front of you, finish in 15–45 minutes. No permission needed, nothing is assigned, and coding agents are welcome (there's a copy-paste prompt). AI tools are optional; [use them safely](docs/contribute/ai-agents.md) and do not assume YazSes authorizes or reimburses their costs.
-- 🤖 **Using Google Jules?** [Connect Jules to your fork step by step](docs/contribute/jules.md). No upstream collaborator access is needed; direct upstream Jules remains gated by #447.
-- 🎯 **Want the full list?** [**Filter the open tasks**](https://mskazemi.com/yazses/contribute/find.html) by what you have, your time, and whether you want to write code
-  — each one names the exact files you may touch, the command that says you're done, and an
-  honest time estimate. Filter by what you actually have: a browser, a terminal, a specific
-  app, or unusual hardware nobody else can test.
-- ⏱️ **Got 15 minutes and no Python?** [**Browser-only tasks**](https://github.com/MSKazemi/yazses/issues?q=is%3Aopen+label%3Abrowser-only)
-  — doable entirely in the GitHub web editor, no clone and no install. These need only a text
-  editor, take one PR each, and
-  several hold many contributors at once — no permission needed, and the two that are a
-  page rather than an issue take a pull request directly:
-  [translate the README](https://github.com/MSKazemi/yazses/issues/18) (the lede and Quick
-  Start alone is a complete PR),
-  [add your microphone](https://github.com/MSKazemi/yazses/blob/main/docs/known-good-microphones.md),
-  [share a config for your app or editor](https://github.com/MSKazemi/yazses/blob/main/docs/how-to/app-profiles.md), or
-  [add your setup to SHOWCASE.md](https://github.com/MSKazemi/yazses/edit/main/SHOWCASE.md).
-- 🐞 **Found a bug or have an idea?** Open an [issue](https://github.com/MSKazemi/yazses/issues/new/choose) (the `yazses doctor` output resolves most reports on its own) or ask in [Discussions](https://github.com/MSKazemi/yazses/discussions).
-- 🔧 **Sending a PR?** See [CONTRIBUTING.md](.github/CONTRIBUTING.md). The gates are quick:
-
-```bash
-uv run python -m pytest tests/   # tests — must be green
-uv run ruff check src tests scripts paper/benchmark   # lint — must be green
-uv run mypy src                  # types — advisory (currently clean; don't add errors)
-```
-
-Or just `make check`, which runs the same tests plus lint and the hygiene check. Everything
-is fully offline — no microphone, model download, or optional extras needed. It is a large
-suite, so a full run takes minutes rather than seconds; that is normal, not a hang. While
-you work, narrow it to what you changed with `uv run python -m pytest tests/test_foo.py` or
-`-k pattern`.
-
-**No local setup?** The repo ships a [Dev Container](.devcontainer/devcontainer.json), so
-[opening it in GitHub Codespaces](https://codespaces.new/MSKazemi/yazses) gives you a ready
-environment in the browser. Docs, config, tests, and pure-logic changes work fully there;
-anything needing a real microphone, hotkey device, or window focus needs a local machine.
-
-Everything is offline-first — please don't add network calls or telemetry.
+</details>
 
 ---
 
 ## Contributors
 
-Thanks to these people for helping build YazSes ✨ — every bug report, doc fix, and patch counts. Contribution types follow the [all-contributors emoji key](https://allcontributors.org/reference/emoji-key/) (💻 code · 📖 docs · 🌍 translation · ⚠️ tests · 🛡️ security · 🚧 maintenance):
+Thank you to everyone who has helped build YazSes ✨. Every bug report, documentation fix and
+patch counts. Contribution types follow the [all-contributors emoji key](https://allcontributors.org/reference/emoji-key/)
+(💻 code · 📖 docs · 🌍 translation · ⚠️ tests · 🛡️ security · 🚧 maintenance):
 
 <!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
 <!-- prettier-ignore-start -->
@@ -811,7 +895,8 @@ Thanks to these people for helping build YazSes ✨ — every bug report, doc fi
 
 <!-- ALL-CONTRIBUTORS-LIST:END -->
 
-Want on this wall? Grab a [good first issue](https://github.com/MSKazemi/yazses/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) — first PR merged earns your spot.
+Want to be on this list? Pick a [good first issue](https://github.com/MSKazemi/yazses/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22);
+your first merged pull request adds you.
 
 ---
 
@@ -835,17 +920,18 @@ See [CITATION.cff](CITATION.cff) for machine-readable metadata (CFF 1.2.0).
 
 ## Code signing policy
 
-Windows builds are not code-signed yet: YazSes has applied to the
+Windows builds are not code-signed yet. YazSes has applied to the
 [SignPath Foundation](https://signpath.org) free programme for open-source projects and is
 awaiting approval. The [code signing policy](https://mskazemi.com/yazses/code-signing.html#code-signing-policy)
-(what gets signed, team roles, who approves each signing request, privacy) and how to verify
-a download today are on the website.
+on the website covers what gets signed, team roles, who approves each signing request and
+privacy, and explains how to verify a download today.
 
 ## License
 
-Apache 2.0 — see [LICENSE](LICENSE).
+Apache 2.0. See [LICENSE](LICENSE).
 
-If YazSes is useful to you, a ⭐ on GitHub and a mention in your project, blog, or talk is the best way to support continued development.
+If YazSes is useful to you, a ⭐ on GitHub or a mention in your project, blog or talk is the
+best way to support its development.
 
 <!-- legal-notice: start -->
 ### Legal notice and responsible use
