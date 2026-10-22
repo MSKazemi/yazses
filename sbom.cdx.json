@@ -1739,112 +1739,140 @@
     {
       "type": "library",
       "name": "opentelemetry-api",
-      "version": "1.44.0",
-      "purl": "pkg:pypi/opentelemetry-api@1.44.0",
-      "bom-ref": "pkg:pypi/opentelemetry-api@1.44.0",
+      "version": "1.45.1",
+      "purl": "pkg:pypi/opentelemetry-api@1.45.1",
+      "bom-ref": "pkg:pypi/opentelemetry-api@1.45.1",
       "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "67647e5e9566edcf421166fdf022b3537f818635daa852b289e34604dc6fb33a"
+          "content": "aa38ed19bcc084ba42782a73255b3582283eced7ad6dddbd6695189e69adfb75"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "opentelemetry-exporter-http-transport",
+      "version": "0.66b1",
+      "purl": "pkg:pypi/opentelemetry-exporter-http-transport@0.66b1",
+      "bom-ref": "pkg:pypi/opentelemetry-exporter-http-transport@0.66b1",
+      "scope": "optional",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "443080203bf52586ce0b2ad901e8951c61833eab1aa539ae6f1f16fe9e8e7952"
         }
       ]
     },
     {
       "type": "library",
       "name": "opentelemetry-exporter-otlp",
-      "version": "1.44.0",
-      "purl": "pkg:pypi/opentelemetry-exporter-otlp@1.44.0",
-      "bom-ref": "pkg:pypi/opentelemetry-exporter-otlp@1.44.0",
+      "version": "1.45.1",
+      "purl": "pkg:pypi/opentelemetry-exporter-otlp@1.45.1",
+      "bom-ref": "pkg:pypi/opentelemetry-exporter-otlp@1.45.1",
       "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "af1cde7c33ea8ed624bf04ac49a885730fe44c1f1ad698656e592c38f70ce106"
+          "content": "d0ac35592e77663a9fabf2740b4818c57196b1b764e0c8449d0d7bb2c7b2bc67"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "opentelemetry-exporter-otlp-common",
+      "version": "0.66b1",
+      "purl": "pkg:pypi/opentelemetry-exporter-otlp-common@0.66b1",
+      "bom-ref": "pkg:pypi/opentelemetry-exporter-otlp-common@0.66b1",
+      "scope": "optional",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "6b1403487a2185ac1feb45fd5546fdf8630ce71c36bcefaadf51e2130e9e23f9"
         }
       ]
     },
     {
       "type": "library",
       "name": "opentelemetry-exporter-otlp-proto-common",
-      "version": "1.44.0",
-      "purl": "pkg:pypi/opentelemetry-exporter-otlp-proto-common@1.44.0",
-      "bom-ref": "pkg:pypi/opentelemetry-exporter-otlp-proto-common@1.44.0",
+      "version": "1.45.1",
+      "purl": "pkg:pypi/opentelemetry-exporter-otlp-proto-common@1.45.1",
+      "bom-ref": "pkg:pypi/opentelemetry-exporter-otlp-proto-common@1.45.1",
       "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "dc87a5a5bc58f149a56d1547e4691588fa12994cdc3bc039a694ccb3375862ac"
+          "content": "2e4adcc3a67bcf57804fc49514f0ef64974ca7590aa3491da389852b4a0628f6"
         }
       ]
     },
     {
       "type": "library",
       "name": "opentelemetry-exporter-otlp-proto-grpc",
-      "version": "1.44.0",
-      "purl": "pkg:pypi/opentelemetry-exporter-otlp-proto-grpc@1.44.0",
-      "bom-ref": "pkg:pypi/opentelemetry-exporter-otlp-proto-grpc@1.44.0",
+      "version": "1.45.1",
+      "purl": "pkg:pypi/opentelemetry-exporter-otlp-proto-grpc@1.45.1",
+      "bom-ref": "pkg:pypi/opentelemetry-exporter-otlp-proto-grpc@1.45.1",
       "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "40d1ae9e03fcc36de3cbac610cc99f35894938bff9cfd90fc4ec68bd85448463"
+          "content": "3b3dcfbfdcb4e35149fcf309972282054b45228f5c10547d0095d6578510a9a0"
         }
       ]
     },
     {
       "type": "library",
       "name": "opentelemetry-exporter-otlp-proto-http",
-      "version": "1.44.0",
-      "purl": "pkg:pypi/opentelemetry-exporter-otlp-proto-http@1.44.0",
-      "bom-ref": "pkg:pypi/opentelemetry-exporter-otlp-proto-http@1.44.0",
+      "version": "1.45.1",
+      "purl": "pkg:pypi/opentelemetry-exporter-otlp-proto-http@1.45.1",
+      "bom-ref": "pkg:pypi/opentelemetry-exporter-otlp-proto-http@1.45.1",
       "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "c633d7270ad6b57cd4cfbe8b0007a9e2e7c0cb50bd6c50fe2a7b245f721a09d8"
+          "content": "45c218405ce3fd879596924b1874bf9a8f6880206d61065c5a912c8e5c297fb7"
         }
       ]
     },
     {
       "type": "library",
       "name": "opentelemetry-proto",
-      "version": "1.44.0",
-      "purl": "pkg:pypi/opentelemetry-proto@1.44.0",
-      "bom-ref": "pkg:pypi/opentelemetry-proto@1.44.0",
+      "version": "1.45.1",
+      "purl": "pkg:pypi/opentelemetry-proto@1.45.1",
+      "bom-ref": "pkg:pypi/opentelemetry-proto@1.45.1",
       "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "c547a79c2f8c0c515d31509154682e5921c7cfd5ca67b70e1f9266e2c3e103f3"
+          "content": "79e0fb95e4616691a469439238aa9224d75779b3e108e895d1aa125ab29ca77c"
         }
       ]
     },
     {
       "type": "library",
       "name": "opentelemetry-sdk",
-      "version": "1.44.0",
-      "purl": "pkg:pypi/opentelemetry-sdk@1.44.0",
-      "bom-ref": "pkg:pypi/opentelemetry-sdk@1.44.0",
+      "version": "1.45.1",
+      "purl": "pkg:pypi/opentelemetry-sdk@1.45.1",
+      "bom-ref": "pkg:pypi/opentelemetry-sdk@1.45.1",
       "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "cebe7f65dc12f26ead75c6064de12fd2a9052e5060c0272d402cfa203aae123b"
+          "content": "63d24a6ca645019a631e6a51999c73e93adcac1196ca640b8ae78a7cc4762bf3"
         }
       ]
     },
     {
       "type": "library",
       "name": "opentelemetry-semantic-conventions",
-      "version": "0.65b0",
-      "purl": "pkg:pypi/opentelemetry-semantic-conventions@0.65b0",
-      "bom-ref": "pkg:pypi/opentelemetry-semantic-conventions@0.65b0",
+      "version": "0.66b1",
+      "purl": "pkg:pypi/opentelemetry-semantic-conventions@0.66b1",
+      "bom-ref": "pkg:pypi/opentelemetry-semantic-conventions@0.66b1",
       "scope": "optional",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "f9b2b81e9d5b64f11bc952075e7e9c7fb0aab075c7fd1c46d597f1b919852d60"
+          "content": "497ca63bf383723411e8eaf60c8779e9877633c936bb641080adab59d0eb6ec8"
         }
       ]
     },
