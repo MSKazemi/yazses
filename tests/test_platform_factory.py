@@ -114,14 +114,16 @@ def test_windows_paths_are_machine_local_not_roaming():
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="Windows-specific bundle")
-def test_windows_ipc_is_a_per_user_named_pipe():
+def test_windows_ipc_is_a_per_user_named_pipe(monkeypatch):
     import getpass
 
     from yazses.platform.windows.ipc import _pipe_name_from_path
 
+    # Patched, not read: the CI account is a generic `runner`, so a value read from the
+    # host would make this mean something different there (test_repo_hygiene_host_reading).
+    monkeypatch.setattr(getpass, "getuser", lambda: "ada")
     name = _pipe_name_from_path(get_platform().paths.ipc_socket)
-    assert name.startswith(r"\\.\pipe\yazses-")
-    assert getpass.getuser() in name
+    assert name.startswith(r"\\.\pipe\yazses-ada-")
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="Windows-specific bundle")
