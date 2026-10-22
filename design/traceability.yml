@@ -174,18 +174,6 @@ entries:
       task: "WIRE-LOADGUARD-001"
       milestone: 9
     remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
-  - id: "capability:morsevox"
-    kind: capability
-    title: "Vocal Morse"
-    source: "design/adr/adr-v2-105-vocal-morse.md"
-    decision_status: accepted
-    delivery_status: designed
-    tracking:
-      kind: campaign
-      issues: [164]
-      task: "WIRE-MORSEVOX-001"
-      milestone: 9
-    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
   - id: "capability:multiprofile"
     kind: capability
     title: "Multi-User Voiceprint Profiles"

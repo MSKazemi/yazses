@@ -40,10 +40,15 @@ class StatusSnapshot:
     def scanning(self) -> bool:
         return 0 <= self.scan_index < len(self.scan_items)
 
+    #: True while Vocal Morse mode is on (ADR-v2-105). The daemon stays IDLE then, so this
+    #: is the only way the overlay can show that the hums are being listened to.
+    morse_active: bool = False
+
 
 def next_interval(
     state: str, dwell_progress: float = 0.0, dwell_armed: bool = False,
     scanning: bool = False,
+    morse_active: bool = False,
 ) -> float:
     """Seconds to wait before the next poll, given the current daemon state.
 
@@ -56,8 +61,11 @@ def next_interval(
     And fast while a Mouth-Sound Switch scan runs (``scanning``): the user clicks on the item
     they *see* lit, and the daemon selects the one lit when the click began, so every
     millisecond the drawn highlight lags the real one is a window for selecting the wrong item.
+
+    And fast in Vocal Morse mode (``morse_active``), where the rings follow each hum the
+    way they follow speech while recording.
     """
-    if state == "recording" or dwell_progress > 0.0 or dwell_armed or scanning:
+    if state == "recording" or dwell_progress > 0.0 or dwell_armed or scanning or morse_active:
         return _FAST_INTERVAL_S
     return _SLOW_INTERVAL_S
 
@@ -100,6 +108,12 @@ def _scan(info: dict) -> tuple[tuple[str, ...], int]:
     return tuple(items), index
 
 
+def _morse_active(info: dict) -> bool:
+    """Whether Vocal Morse mode is on, from a ``status`` reply. Strictly ``True`` only."""
+    block = info.get("morse")
+    return isinstance(block, dict) and block.get("active") is True
+
+
 def parse_status(info: dict) -> StatusSnapshot:
     """Convert a ``status`` reply dict into a :class:`StatusSnapshot` (defensive)."""
     def _f(key: str, default: float) -> float:
@@ -119,6 +133,7 @@ def parse_status(info: dict) -> StatusSnapshot:
         dwell_armed=_dwell_armed(info),
         scan_items=scan_items,
         scan_index=scan_index,
+        morse_active=_morse_active(info),
     )
 
 
@@ -163,7 +178,8 @@ class StatusPoller:
                 self._set(snap)
                 booted = True
                 interval = next_interval(
-                    snap.state, snap.dwell_progress, snap.dwell_armed, snap.scanning
+                    snap.state, snap.dwell_progress, snap.dwell_armed, snap.scanning,
+                    morse_active=snap.morse_active,
                 )
             except Exception:
                 # Daemon not up yet (or a transient error). Keep trying until the

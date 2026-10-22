@@ -86,7 +86,9 @@ def compute_frame(
     answering it means asking the desktop's settings daemon and this runs sixty
     times a second.
     """
-    recording = snap.state == "recording"
+    # Vocal Morse mode listens with the daemon IDLE; its rings follow the hums as they
+    # follow speech while recording, which is how the user sees the mode is on.
+    recording = snap.state == "recording" or snap.morse_active
     envelope.threshold = snap.vad_threshold
 
     if recording and cfg.react_to_voice:

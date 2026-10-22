@@ -189,6 +189,20 @@ click began. A second pop stops the scan.
 - The detector's thresholds were tuned on synthetic sounds only. The feature is untested on
   a real microphone, and keyboard taps or desk knocks may read as a click.
 
+### Added — Vocal Morse is wired: type by humming Morse, started hands-free (experimental, off by default)
+
+`[morsevox]` had a decoder and a level-stream segmenter and nothing that called them. Now,
+with `yazses features enable morsevox --force`, Morse mode starts when you say "morse mode"
+(the whole utterance) or hum one long, steady tone for `entry_hum_s` (1.5 s), and ends
+after `exit_silence_s` (3 s) of silence. While it is on, a short hum is a dot, a long hum
+a dash, each decoded letter is typed through the normal injector, and speech-to-text is
+not run. The hum trigger fires only on an unbroken tone whose level barely varies, so
+speech, which dips between syllables or wobbles at the syllable rate, does not start it
+(ADR-021). With the hum entry on, the microphone stays open while the daemon runs (a level
+only, nothing recorded); `entry_hum_s = 0` turns that off, and `yazses handsfree pause`
+closes it. `yazses status` and the overlay show when Morse mode is on. All thresholds were
+tuned on synthetic signals only and are untested on a real voice.
+
 ### Changed — every CI test job now has a time limit that fits the parallel suite
 
 With no `timeout-minutes`, `repo-hygiene` sat in a hung `apt-get update` for 78 minutes

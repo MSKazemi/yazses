@@ -111,8 +111,9 @@ control) and `morsevox` (hum patterns as Morse) all treat the voice as a **signa
 language. That is a genuinely different interaction model, and it is the one commercial
 dictation cannot serve, because its entire value is transcription.
 
-**Status:** `vocaljoystick` and `contour/` (pitch gestures) are wired, off by default;
-`mouthswitch` and `morsevox` are designed, unwired.
+**Status:** `vocaljoystick`, `contour/` (pitch gestures) and `morsevox` are wired, off by
+default (Morse mode starts on a long steady hum or the spoken "morse mode"; its thresholds
+are synthetic-only); `mouthswitch` is designed, unwired.
 
 **The honest caveat:** these need evaluation *with* the people they are for, which is
 [agenda question 6](agenda.md) and
@@ -124,7 +125,7 @@ guessing about people whose needs are not guessable.
 ## What this list says
 
 Five capabilities: one built first, and most of the rest wired since — what is still
-unreachable is `proofback`, `mouthswitch` and `morsevox`. That is not an accident of this
+unreachable is `proofback` and `mouthswitch`. That is not an accident of this
 page — it is the same finding as [the 30 unwired capabilities](directions.md): in this
 project the missing piece is almost never the algorithm.
 
