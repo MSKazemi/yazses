@@ -6,6 +6,27 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — a repo-hygiene guard had been skipped on every run, so it checked nothing
+
+`tests/test_repo_hygiene_source_order_needles.py` checks that every `getsource(...).index(needle)`
+in the suite searches for a needle that occurs once. To read those sources it imports the
+other test modules, and passes over any that fail with `except Exception`. But
+`test_bench_diarization_profile.py` calls `pytest.skip` at import when the optional
+`benchmark` group is missing, and that exception derives from BaseException. It escaped
+the guard and skipped the guard's whole module at collection, in every default run and in
+every CI job that runs it. The guard's own "found at least 12 sites" floor was skipped too.
+It had been off since 802873da (2026-08-24), which added that module-level skip: the
+commit before, its 20 checks ran and passed; from 802873da, the module skipped.
+The one visible symptom was that a serial run counted one more skip than `-n auto`, which
+does not count a module skipped at collection.
+
+- The guard now passes over a module that skips at import, and runs again: its 35 tests
+  pass, so no ambiguous needle slipped in while it was off.
+- `tests/test_repo_hygiene_guards_are_collected.py` imports every `test_repo_hygiene_*.py`
+  as collection does and fails if one skips. A test inside a module cannot see its own
+  module being skipped. With the old `except` clause restored, this check fails and
+  names the guard.
+
 ### Tests — the suite runs about five times faster, and a hung test now fails instead of stalling CI
 
 The full suite was measured twice on one laptop, under the same load, on 2026-10-22: before
