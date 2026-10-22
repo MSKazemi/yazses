@@ -12,7 +12,7 @@ below were written before that code, so that many people can build it at once.
 
 > **Honesty rule.** Nothing here may be described in the README, the docs site, the store
 > listings or a release note as "supported" until it is wired, tested and shipped. The
-> project's existing rule — 149 capabilities, 119 wired and 30 honestly marked *planned* —
+> project's existing rule — 149 capabilities, 124 wired and 25 honestly marked *planned* —
 > applies to mobile without exception.
 
 ### What exists in `android/` now
@@ -41,8 +41,8 @@ below were written before that code, so that many people can build it at once.
 
 ### Where each milestone stands
 
-The milestones are the four GitHub milestones *M0 — Mobile foundations* and *M1/M2/M3 —
-Android*; the issue states below were read from them, and the
+The milestones are the four GitHub milestones *Android M0 — Foundations* through
+*Android M3 — Beyond dictation*; the issue states below were read from them, and the
 [tracking epic, #81](https://github.com/MSKazemi/yazses/issues/81), carries the full work
 breakdown. No milestone has a date.
 

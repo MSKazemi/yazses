@@ -31,10 +31,24 @@ class StatusSnapshot:
     #: True while a dwell-click can start building: dwell is on and the pointer has travelled
     #: since the last click. The ring is not on screen yet, but it may be within one frame.
     dwell_armed: bool = False
+    #: Mouth-Sound Switch scan: the item labels and the lit index while a scan runs, else
+    #: ``()`` and ``-1``. A click selects what is lit, so this is polled fast while scanning.
+    scan_items: tuple[str, ...] = ()
+    scan_index: int = -1
+
+    @property
+    def scanning(self) -> bool:
+        return 0 <= self.scan_index < len(self.scan_items)
+
+    #: True while Vocal Morse mode is on (ADR-v2-105). The daemon stays IDLE then, so this
+    #: is the only way the overlay can show that the hums are being listened to.
+    morse_active: bool = False
 
 
 def next_interval(
-    state: str, dwell_progress: float = 0.0, dwell_armed: bool = False
+    state: str, dwell_progress: float = 0.0, dwell_armed: bool = False,
+    scanning: bool = False,
+    morse_active: bool = False,
 ) -> float:
     """Seconds to wait before the next poll, given the current daemon state.
 
@@ -43,8 +57,15 @@ def next_interval(
     start building (``dwell_armed``): polling at the slow rate until progress was already above
     zero meant the ring could be first seen up to a slow interval after it began -- for a short
     dwell, after the click it was meant to announce.
+
+    And fast while a Mouth-Sound Switch scan runs (``scanning``): the user clicks on the item
+    they *see* lit, and the daemon selects the one lit when the click began, so every
+    millisecond the drawn highlight lags the real one is a window for selecting the wrong item.
+
+    And fast in Vocal Morse mode (``morse_active``), where the rings follow each hum the
+    way they follow speech while recording.
     """
-    if state == "recording" or dwell_progress > 0.0 or dwell_armed:
+    if state == "recording" or dwell_progress > 0.0 or dwell_armed or scanning or morse_active:
         return _FAST_INTERVAL_S
     return _SLOW_INTERVAL_S
 
@@ -69,6 +90,30 @@ def _dwell_armed(info: dict) -> bool:
     return isinstance(block, dict) and block.get("dwell_armed") is True
 
 
+def _scan(info: dict) -> tuple[tuple[str, ...], int]:
+    """``(labels, lit index)`` from a ``status`` reply's ``mouthswitch`` block. Defensive.
+
+    Anything malformed reads as *no scan* -- ``((), -1)`` -- so a bad reply can only hide
+    the highlight, never light a wrong item.
+    """
+    block = info.get("mouthswitch")
+    if not isinstance(block, dict) or block.get("scanning") is not True:
+        return (), -1
+    items = block.get("items")
+    index = block.get("index")
+    if not isinstance(items, (list, tuple)) or not all(isinstance(i, str) for i in items):
+        return (), -1
+    if isinstance(index, bool) or not isinstance(index, int) or not 0 <= index < len(items):
+        return (), -1
+    return tuple(items), index
+
+
+def _morse_active(info: dict) -> bool:
+    """Whether Vocal Morse mode is on, from a ``status`` reply. Strictly ``True`` only."""
+    block = info.get("morse")
+    return isinstance(block, dict) and block.get("active") is True
+
+
 def parse_status(info: dict) -> StatusSnapshot:
     """Convert a ``status`` reply dict into a :class:`StatusSnapshot` (defensive)."""
     def _f(key: str, default: float) -> float:
@@ -78,6 +123,7 @@ def parse_status(info: dict) -> StatusSnapshot:
             return default
 
     state = info.get("state")
+    scan_items, scan_index = _scan(info)
     return StatusSnapshot(
         state=state if isinstance(state, str) else "idle",
         audio_level=_f("audio_level", 0.0),
@@ -85,6 +131,9 @@ def parse_status(info: dict) -> StatusSnapshot:
         reachable=True,
         dwell_progress=_dwell_progress(info),
         dwell_armed=_dwell_armed(info),
+        scan_items=scan_items,
+        scan_index=scan_index,
+        morse_active=_morse_active(info),
     )
 
 
@@ -128,7 +177,10 @@ class StatusPoller:
                 snap = parse_status(info if isinstance(info, dict) else {})
                 self._set(snap)
                 booted = True
-                interval = next_interval(snap.state, snap.dwell_progress, snap.dwell_armed)
+                interval = next_interval(
+                    snap.state, snap.dwell_progress, snap.dwell_armed, snap.scanning,
+                    morse_active=snap.morse_active,
+                )
             except Exception:
                 # Daemon not up yet (or a transient error). Keep trying until the
                 # boot window closes, then mark unreachable and slow-poll forever.

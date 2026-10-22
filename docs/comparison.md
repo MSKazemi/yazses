@@ -117,7 +117,8 @@ muscle sensor as an alternative to pressing a key at all.
 Voice In and Google voice typing have none; Windows, Apple and Wispr Flow dictation
 have a limited set (see the table above). Here, the same burst can type
 prose or fire *"undo that"*, *"save file"*, *"go to line 42"* as real key
-sequences, with per-editor grammar profiles and a personal dictionary for words
+sequences, with opt-in per-editor key profiles (JetBrains IDEs, Sublime Text;
+experimental) and a personal dictionary for words
 Whisper keeps mis-hearing.
 *Check it:* `src/yazses/commands/grammar.py`, and `uv run yazses vocab add <word>`.
 

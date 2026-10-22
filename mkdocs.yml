@@ -326,6 +326,7 @@ nav:
       - Private & confidential work: use-cases/private-offline-dictation.md
       - Law, medicine & journalism: use-cases/confidential-professions.md
       - Coding by voice: use-cases/voice-coding.md
+      - Voice input for AI agents: use-cases/voice-input-for-ai-agents.md
       - Control your computer by voice: use-cases/voice-commands.md
       - Dictating code and technical vocabulary: use-cases/dictating-code.md
       - Accessibility & RSI: use-cases/accessibility-rsi-hands-free.md
