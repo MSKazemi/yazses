@@ -523,3 +523,38 @@ entries:
       task: null
       milestone: null
     gate: "Declined unless a real isolation boundary changes the trust model."
+  - id: "decision:adr-030-agent-era-direction"
+    kind: decision
+    title: "Direction: the offline microphone for the agent era, and a breadth freeze"
+    source: "design/adr/adr-030-agent-era-direction.md"
+    decision_status: accepted
+    delivery_status: in-progress
+    tracking:
+      kind: issue
+      # Pillar 1 and Pillar 2 children span milestones 7, 9, 13 and 14, so the decision
+      # carries none (design/milestone-policy.md); the bridges are tracked below.
+      issues: [642, 643, 644, 645, 646, 504]
+      task: null
+      milestone: null
+  - id: "decision:adr-031-send-to"
+    kind: decision
+    title: "Send to: hand dictated text to a desktop AI client, pre-filled and never sent"
+    source: "design/adr/adr-031-send-to-prefill-handoff.md"
+    decision_status: proposed
+    delivery_status: scheduled
+    tracking:
+      kind: issue
+      issues: [637]
+      task: null
+      milestone: 14
+  - id: "decision:adr-032-mcp-discoverability"
+    kind: decision
+    title: "Make the MCP server discoverable, and let ask_human stop when the user does"
+    source: "design/adr/adr-032-mcp-discoverability.md"
+    decision_status: proposed
+    delivery_status: scheduled
+    tracking:
+      kind: issue
+      issues: [638, 639, 640, 641]
+      task: null
+      milestone: 14

@@ -41,8 +41,8 @@ below were written before that code, so that many people can build it at once.
 
 ### Where each milestone stands
 
-The milestones are the four GitHub milestones *M0 — Mobile foundations* and *M1/M2/M3 —
-Android*; the issue states below were read from them, and the
+The milestones are the four GitHub milestones *Android M0 — Foundations* through
+*Android M3 — Beyond dictation*; the issue states below were read from them, and the
 [tracking epic, #81](https://github.com/MSKazemi/yazses/issues/81), carries the full work
 breakdown. No milestone has a date.
 
