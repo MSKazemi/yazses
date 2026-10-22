@@ -227,6 +227,19 @@ Each is judged on **how rarely it fires**. A guard that interrupts a house numbe
 the user to dismiss it, and a dismissed guard costs attention while catching nothing —
 so each holds only on a specific, checkable signal, never a heuristic.
 
+**Predictive Completion's answer step** (`predict/`, ADR-v2-016, experimental, off by
+default) is not a guard but consumes control utterances the same way, so its place is
+fixed too. After a dictated burst is typed, `predict/runtime.py` asks a local llama.cpp
+model (`predict/generator.py`) for the rest of the sentence on its own worker thread,
+and the offer is shown in a notification. The next burst is resolved by the pure
+`predict/session.py` **before** the timeline and "scratch that" handlers: a whole-utterance
+accept types the suggestion (never the word), a decline types nothing, anything else
+withdraws the offer and is dictated. It steps aside while a `cmdsafety` hold or a re-ask
+is pending, which own "cancel that" and "never mind". Invariants: nothing is typed
+without an accept; a result for an older burst is never offered (an epoch moves on every
+hold start); the offer expires after 10 s; and its notification body, the one derived
+from dictation, is kept out of the log (`notify(..., log_body=False)`).
+
 `cmdsafety` judges the *command text* and deliberately **not** the focused window: focus
 detection needs AT-SPI or X11, so on Wayland without AT-SPI the window class is empty, and
 a guard that silently stops protecting on a whole display server is worse than none.

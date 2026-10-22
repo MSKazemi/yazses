@@ -1098,9 +1098,10 @@ class DenoiseConfig:
 class PredictConfig:
     """v2.1 Wave D — Predictive dictation completion (ADR-v2-016).
 
-    A tiny on-device LLM proposes the rest of a phrase; accept by voice. The
-    generator (llama.cpp) is opt-in behind the ``predict`` extra and runs in a
-    background thread. OFF by default.
+    A tiny on-device LLM proposes the rest of a phrase after a dictation is typed;
+    say "accept" to type it. The generator reuses llama.cpp (``llama-cpp-python``,
+    the ``slm`` extra), loads ``model_path`` lazily on a background thread, and stays
+    dormant -- saying why once in the log -- when either is missing. OFF by default.
     """
     enabled: bool = False
     model_path: str = ""             # local planner/completion GGUF; empty = disabled
