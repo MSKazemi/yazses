@@ -675,14 +675,20 @@ def _registry() -> list[_Def]:
              "Balances brackets/quotes in dictated code and wraps a selection ('wrap this in "
              "parens'). Off by default.",
              lambda c: c.autopair.enabled, apr_on, apr_off),
-                # OPTIONAL, not RECOMMENDED. The recommended tier is what `firstrun` writes into
+        # OPTIONAL, not RECOMMENDED. The recommended tier is what `firstrun` writes into
         # a fresh config, and nothing reads `[chords] enabled` -- `yazses chords` is a CLI
         # command that renders a chord and never consults it. Seeding it made every new
         # install carry a key that does nothing while `yazses features` listed the
         # capability as ON, and contradicted this entry's own "Off by default".
-_Def("chords", "Chorded Shortcut Synthesis", "[chords] — any keyboard shortcut by voice", OPTIONAL,
-             "Say any shortcut and it's pressed — 'press control shift P', 'escape twice', 'hit "
-             "F5' — no macro registration needed. Off by default.",
+        # The text used to say "Say any shortcut and it's pressed": no dictation path
+        # parses a chord and nothing presses one (`chords/parse.py` is imported by the
+        # CLI command alone), so it now describes the command that exists.
+        _Def("chords", "Chorded Shortcut Synthesis", "[chords] — spoken shortcut → key-combo text", OPTIONAL,
+             "Run `yazses chords \"<spoken shortcut>\"` — 'press control shift P', 'escape "
+             "twice', 'hit F5' → it prints the key combo (ctrl+shift+p), one per line, to "
+             "review, script or bind. A command-line tool: it presses nothing, and dictation "
+             "does not recognise spoken shortcuts. The command works whether or not "
+             "[chords] enabled is set — nothing reads that key.",
              lambda c: c.chords.enabled, chd_on, chd_off),
         _Def("compute", "Inline Compute", "[compute] — types the answer", RECOMMENDED,
              "Say 'what's 15% of 240' and it types 36. On-device arithmetic and percentages, no "
@@ -1287,6 +1293,37 @@ def unwired_slugs() -> frozenset[str]:
     return _UNWIRED
 
 
+# Wired capabilities whose `features enable` switch is read by NOTHING: the capability
+# is a command-line tool that works whether the switch is on or off. Keyed by slug, the
+# value says how the capability is actually used. The generated feature reference
+# prints it in place of "Activate: `yazses features enable <slug>` then `yazses
+# restart`", which for these is an instruction that changes nothing.
+#
+# The other half of the fact lives in `scripts/config_status.py`: each slug's toggle
+# key is listed in `AMBIGUOUS_UNREAD` there, so `docs/configuration.md` marks it inert.
+# tests/test_unread_toggles_are_flagged.py holds the two equal, so wiring a toggle
+# later forces removing it from both, and a new unread toggle cannot hide in one.
+_TOGGLE_NOT_READ: dict[str, str] = {
+    "gitvoice": (
+        "run `yazses gitvoice \"<spoken git command>\"`; it prints the git command and "
+        "its undo, `--run` runs it, and a destructive one also needs `--yes`"
+    ),
+    "chords": (
+        "run `yazses chords \"<spoken shortcut>\"`; it prints the key combo (e.g. "
+        "`ctrl+shift+p`) and presses nothing"
+    ),
+}
+
+
+def unread_toggle_usage(slug: str) -> str:
+    """How a capability whose switch nothing reads is really used, or ``""``.
+
+    Non-empty means `features enable <slug>` would write a key that no code consults:
+    the capability is reached some other way, and this says which.
+    """
+    return _TOGGLE_NOT_READ.get((slug or "").strip().lower(), "")
+
+
 # A concrete "how to use it" example per capability, keyed by slug. Kept beside the
 # registry (still a single source of truth) and enforced complete by
 # tests/test_features_examples.py so every new feature ships with a usage example.
@@ -1359,7 +1396,7 @@ _EXAMPLES: dict[str, str] = {
     "bookmarks": "Say 'bookmark here', then 'jump to my last bookmark' after a break.",
     "casetransform": "Select a name, say 'make this snake_case', and it rewrites.",
     "autopair": "Dictate '(a plus b' and it closes to '(a plus b)'.",
-    "chords": "Say 'press control shift P' and the command palette opens.",
+    "chords": "`yazses chords \"press control shift P\"` prints ctrl+shift+p; nothing is pressed.",
     "compute": "Say \"what's 15% of 240\" and it types 36.",
     "recimport": "Drop in a lecture recording and get a searchable .srt transcript.",
     "meeting": "Hit start, put the phone down, and get who-said-what minutes at the end.",
@@ -1529,7 +1566,7 @@ _USE_CASES: dict[str, str] = {
     "bookmarks": "When you're in a long dictation session and want named checkpoints to jump back to after a break.",
     "casetransform": "When you need to recase a selection to snake_case, camelCase, or Title Case without retyping.",
     "autopair": "When you dictate code by voice and keep leaving brackets or quotes unbalanced, or need to wrap.",
-    "chords": "When you want to fire arbitrary keyboard shortcuts hands-free without registering each as a macro.",
+    "chords": "When you want the exact key-combo string for a spoken shortcut, to review, script or bind it.",
     "compute": "When you need a quick sum or percentage typed straight into your text without a calculator.",
     "recimport": "When you have existing voice memos, lectures, or meeting recordings to batch-transcribe offline.",
     "meeting": "When you're in a live meeting and want a hands-free, speaker-labelled transcript and notes afterwards.",
@@ -1851,6 +1888,17 @@ def enable_caveat(slug: str, cfg) -> str | None:
             "Dictation never runs git, and nothing is spoken back: the command prints the "
             "git command and its undo, runs it only with --run, and a destructive one "
             "only with --yes as well."
+        )
+    if slug == "chords":
+        # Same shape as gitvoice: `yazses chords` never consults `[chords] enabled`, and
+        # no dictation path parses or presses a chord. Without this, "Enabled" plus
+        # "Apply it: yazses restart" would suggest saying "press control shift P" now
+        # presses it. It does not.
+        return (
+            "Heads up: this capability is the `yazses chords \"<spoken shortcut>\"` "
+            "command, and it works whether or not this is enabled — nothing reads "
+            "[chords] enabled. It prints the key combo (e.g. ctrl+shift+p) and presses "
+            "nothing; dictation does not recognise spoken shortcuts."
         )
     if slug == "voiceguard":
         # Enabling writes [voiceprint] enabled too, but no write can enroll a voice, and

@@ -178,7 +178,12 @@ def test_capability_counts_match_the_registry():
     wired = total - planned
 
     for relpath in ("ROADMAP.md", "docs/mobile/index.md"):
-        text = (ROOT / relpath).read_text(encoding="utf-8")
+        # The numbers sit inside `<!-- registry:KIND -->N<!-- /registry -->` markers
+        # that `scripts/gen-docs.py` fills; the reader sees only N, so match that.
+        text = re.sub(
+            r"<!-- /?registry(?::[a-z]+)? -->", "",
+            (ROOT / relpath).read_text(encoding="utf-8"),
+        )
         match = re.search(
             r"([0-9]+) capabilities[,)]?\s*\(?\*{0,2}([0-9]+) wired\s*/\s*([0-9]+)"
             r"|([0-9]+) capabilities, ([0-9]+) wired and ([0-9]+)",

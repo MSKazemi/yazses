@@ -22,7 +22,7 @@ available everywhere without opening anything.
 | Shape | Desktop app you open | Background daemon |
 | Engines | whisper.cpp, faster-whisper, VOSK, Coqui STT, april-asr | faster-whisper; Parakeet optional |
 | Text to speech | **Yes** | Read-back only |
-| Translation | **Yes** | Not a feature |
+| Translation | **Yes** | Into English only — speak another language, English is typed (`[translate]`, off by default) |
 | Insert into focused window | Yes (X11 native; `ydotool` on Wayland) | Yes (runtime backend probe) |
 | Global shortcut | Via XDG portal — KDE Plasma and GNOME | Any desktop; evdev on Linux |
 | Voice commands | No | **Yes** |
@@ -43,8 +43,8 @@ on which desktop you run.
 ## Where Speech Note is clearly ahead
 
 - **It does more kinds of language work.** Text-to-speech and offline translation
-  are first-class features. YazSes has read-back but is not a TTS or translation
-  tool.
+  are first-class features. YazSes has read-back and can translate what you say into
+  English as it types, but it is not a TTS or general translation tool.
 - **More engines, including april-asr and Coqui.** If you want to compare engines
   on your own accent, Speech Note is the better laboratory.
 - **A real GUI for working with text.** If your task is *"produce a transcript and

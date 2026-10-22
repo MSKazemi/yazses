@@ -2257,16 +2257,13 @@ camera_index = 0
 
 The camera is used in-RAM during a hold only — frames are never stored or sent.
 
-**Polyglot Switch — mixed-language dictation (`[polyglot]`).** Transcribe speech
-that mixes two languages (e.g. `fa-en`). Needs a trained code-switch adapter for
-the pair; the routing is scaffolded and the adapter is gated on a held-out MER win.
-
-```toml
-[polyglot]
-enabled = true
-pair = "fa-en"
-adapter_path = ""          # path to the trained CS adapter; empty = dormant
-```
+**Polyglot Switch — mixed-language dictation (`[polyglot]`): planned — designed, not
+built.** It would transcribe speech that mixes two languages (e.g. `fa-en`) with a
+code-switch adapter trained for the pair. No decode path uses `[polyglot]` yet,
+because nothing knows which part of a burst is in which language, so
+`yazses features enable polyglot` refuses it, and setting the keys by hand changes
+nothing about what is typed (`yazses doctor` warns when it is on). See
+[Designed, not built](v2-features.md#designed-not-built).
 
 ---
 

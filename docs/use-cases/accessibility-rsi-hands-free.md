@@ -52,10 +52,13 @@ Related capabilities worth knowing about:
 | Capability | Enable with | For |
 |---|---|---|
 | Hesitation-Hold Endpointing | `yazses features enable hesitation --force` *(experimental; needs `autostop`)* | Not being cut off mid-sentence when you pause |
-| Breath-Paced Dictation | `yazses features enable breath` *(planned — not yet wired)* | Pacing around breath, not clock timeouts |
 | Whisper-Aware Mode | `yazses features enable whispermode` | Speaking quietly, or with limited volume |
 | Involuntary-Vocalization Excision | `yazses features enable involuntary` | Filtering involuntary sounds |
 | Vocal-Strain Guard | `yazses features enable voicehealth --force` *(experimental; needs the `prosody` extra)* | A break suggestion when your voice shows rising strain |
+
+Breath-Paced Dictation — pacing around breath rather than clock timeouts — is planned:
+[designed, not built](../v2-features.md#designed-not-built), so `yazses features enable
+breath` refuses it in this build.
 
 ## Calibrating to your voice
 
