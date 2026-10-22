@@ -946,8 +946,11 @@ _Def("chords", "Chorded Shortcut Synthesis", "[chords] — any keyboard shortcut
              "only. Needs the `prosody` extra. Off by default.",
              lambda c: c.voicehealth.enabled, vh_on, vh_off),
         _Def("code", "Spoken Code Mode", "[code] — dictate code syntax", OPTIONAL,
-             "Dictate code: spoken symbols become punctuation and word-groups become cased "
-             "identifiers (snake/camel/pascal). Activate via a command key. Off by default.",
+             "Dictate code: spoken symbols become punctuation, and a style phrase plus words "
+             "becomes one identifier ('code self dot camel case user name' -> self.userName; "
+             "camel/pascal/snake/kebab/constant case). The identifier ends at the next symbol, "
+             "the next style phrase, 'end case', or the end of the phrase. Hold the command "
+             "key and start with 'code'; needs [hotkey] command_key bound. Off by default.",
              lambda c: c.code.enabled, co_on2, co_off2),
         _Def("math", "Spoken Math (LaTeX)", "[math] — dictate equations", OPTIONAL,
              "Dictate math and inject LaTeX: hold the command key and say 'math x squared "
@@ -1380,7 +1383,7 @@ _EXAMPLES: dict[str, str] = {
     "scrub": "Say a word to replay its audio or re-dictate just that word.",
     "coach": "yazses features enable coach — see filler rate + words-per-minute.",
     "voicehealth": "Get a break reminder when your voice shows rising strain.",
-    "code": "Dictate 'def foo open paren' → 'def foo(' in code mode.",
+    "code": "Say 'code self dot camel case user name' → 'self.userName' in code mode.",
     "math": "Say 'x squared plus y squared' → 'x^{2} + y^{2}'.",
     "autostop": "Tap once and speak; recording stops when you finish.",
     "mousegrid": "Say a grid number to move the cursor, then 'click'.",
