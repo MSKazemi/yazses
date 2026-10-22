@@ -66,8 +66,9 @@ brew tap MSKazemi/yazses && brew trust MSKazemi/yazses && brew install --cask ya
 Open YazSes from Applications. macOS blocks unsigned apps, so click **Open Anyway** in
 System Settings → Privacy & Security, then allow **Microphone**, **Accessibility** and
 **Input Monitoring** when asked. Intel Mac: download the `-macos-x86_64.dmg` from
-[Releases](https://github.com/MSKazemi/yazses/releases/latest). There is no `yazses` command on
-your PATH on a Mac: run the CLI as `/Applications/YazSes.app/Contents/MacOS/YazSes --cli doctor`.
+[Releases](https://github.com/MSKazemi/yazses/releases/latest). The Homebrew cask puts a `yazses` command on
+your PATH from the release after 2.43.2; with the `.dmg` (or on 2.43.2), run the CLI as
+`/Applications/YazSes.app/Contents/MacOS/YazSes --cli doctor`.
 [Full macOS guide →](https://mskazemi.com/yazses/macos-install.html)
 
 **🪟 Windows** — preview
@@ -290,7 +291,7 @@ Measured on a 13th-gen Core i7 laptop, int8 on CPU: **4.07 % WER** on LibriSpeec
 
 | | |
 |---|---|
-| **OS** | Linux (primary) · macOS 11+ · Windows 10 (21H2)+ |
+| **OS** | Linux (primary) · macOS 14+ · Windows 10 (21H2)+ |
 | **RAM** | 4 GB minimum · 8 GB comfortable |
 | **Disk** | ~250 MB–1 GB for the faster-whisper model (downloaded on first run) |
 | **CPU** | 2+ cores · no GPU required |
@@ -830,6 +831,14 @@ YazSes is described in a preprint. If it is useful in your research or projects,
 ```
 
 See [CITATION.cff](CITATION.cff) for machine-readable metadata (CFF 1.2.0).
+
+## Code signing policy
+
+Windows builds are not code-signed yet: YazSes has applied to the
+[SignPath Foundation](https://signpath.org) free programme for open-source projects and is
+awaiting approval. The [code signing policy](https://mskazemi.com/yazses/code-signing.html#code-signing-policy)
+(what gets signed, team roles, who approves each signing request, privacy) and how to verify
+a download today are on the website.
 
 ## License
 

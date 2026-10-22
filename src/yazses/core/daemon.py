@@ -2294,6 +2294,11 @@ class Daemon:
                 perception=self._perception,
                 gaze_on_shared_source=self._gaze_on_shared_source,
                 observer_factory=getattr(self._platform, "click_observer_factory", None),
+                # #607: why there is no factory, when the platform knows ("no global click
+                # stream" on Wayland), so the dormant line names the session, not a backend.
+                observer_unavailable_reason=getattr(
+                    self._platform, "click_observer_unavailable_reason", None
+                ),
                 data_dir=self._platform.paths.data_dir,
                 calibration_verified=verified,
                 context_valid=context_valid,

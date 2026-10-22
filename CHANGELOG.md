@@ -20,6 +20,64 @@ installed" check both ask it. Measured on Windows 11 22H2 with PySide6 absent, k
 daemon to simulate a crash: before, dictation did not come back within 45 seconds; after,
 the tray launched and brought it back in 7 seconds.
 
+### Fixed — the macOS app no longer claims macOS 11, and the Homebrew cask puts `yazses` on your PATH
+
+- **The real minimum is macOS 14 (Sonoma).** The bundle declared macOS 11, and the cask
+  and every install guide repeated it. But the `.dmg` bundles PyAV 18, onnxruntime 1.28 and
+  numpy 2.4, which declare a minimum of macOS 14.0 in their Mach-O `LC_BUILD_VERSION`
+  (read from the wheels `uv.lock` pins, 2026-10-22). `import faster_whisper` loads PyAV,
+  so the Apple Silicon app could not have dictated on macOS 11–13. The Intel `.dmg` needs
+  14.0 too, because uv on the macOS 15 Intel runner installs numpy's macOS 14 wheel. The
+  Settings window and the on-screen overlay use Qt, whose binaries need macOS 15.
+  - `LSMinimumSystemVersion` is now 14.0 for both architectures, and the cask declares
+    `depends_on macos: :sonoma`, so an older Mac gets a clean refusal instead of an app
+    that cannot dictate.
+  - The new `tests/test_macos_minimum_covers_bundled_wheels.py` re-derives the floor from
+    `uv.lock`, so a dependency bump that raises it fails CI instead of shipping.
+- **`yazses` on PATH after a Homebrew install.** The cask installed only the `.app`,
+  while every guide says to run `yazses doctor`. It now links a small shim, `yazses`,
+  that runs the bundle's CLI with `--cli`. The macOS smoke job installs the real cask
+  against the `.dmg` it has just built, runs `yazses --version` from PATH, and uninstalls
+  it again. The fix reaches users when the next release publishes the cask.
+- **The home page's share card** now carries the page title instead of the bare site name
+  (`hooks/home_social_title.py`).
+
+### Documentation — a code signing policy that meets the SignPath Foundation's published terms
+
+The Windows installer is still unsigned while the SignPath Foundation reviews the
+application. Their terms (signpath.org/terms) ask for a policy under the exact term "Code
+signing policy" on the home, download and release pages, with team roles, a privacy link,
+multi-factor authentication and a fixed credit line; the old page had none of those.
+
+- `docs/code-signing.md` now has a **Code signing policy** section: committers and
+  reviewers, approvers, the multi-factor requirement, the privacy statement and egress
+  inventory, and the SignPath credit line, placed in an *Application pending* note so it
+  does not claim signing that has not happened.
+- The README gains a **Code signing policy** section; every website page's footer, the
+  Windows install page and the GitHub release notes link to it.
+- `tests/test_code_signing_policy_page.py` pins each required piece to the file that holds it.
+
+### Fixed — running the test suite no longer deletes your running daemon's pid file
+
+`tests/test_voicehealth_wiring.py` (added with the voice-health wiring) built its daemons
+on the real platform, and each `Daemon._shutdown()` ended in the real `clear_pid()`. A
+developer who ran the suite while their own daemon was running lost
+`~/.local/share/yazses/daemon.pid`, after which `yazses stop` and `yazses status` could not
+find the daemon. The host guard in `tests/conftest.py` flags this only while a daemon is
+running, so CI could never see it; a parallel run caught it, with the file vanishing 0.09 s
+into the first test that shuts a daemon down. The tests now stub `clear_pid`, as every
+other daemon-shutdown test already did.
+
+### Fixed — the daemon log and `yazses gaze status` say why a session cannot see clicks ([#607](https://github.com/MSKazemi/yazses/issues/607))
+
+With `[gaze_refine]` on and no click observer, the daemon log said "this platform has no
+click observer yet" even on a Wayland desktop, where the platform already knows the real
+reason: there is no global click stream. The daemon now passes that reason through, so
+the dormant line names the session rather than a backend that has not been written.
+`yazses gaze status` gains a `click observer` line while refinement is on, with the same
+reason `yazses doctor` shows; it reads two platform attributes and opens nothing. Nothing
+changes on a default install.
+
 ### Fixed — the website's home page renders in under two seconds on a throttled phone, not nine
 
 Lighthouse 12.8.2, mobile, the same build served with gzip, two runs each (2026-10-22).

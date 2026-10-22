@@ -117,13 +117,16 @@ class FakePerception:
         return self.lease
 
 
-def _daemon(*, observer: FakeObserver | None = None, enabled: bool = True) -> Daemon:
+def _daemon(
+    *, observer: FakeObserver | None = None, enabled: bool = True, reason: str | None = None
+) -> Daemon:
     cfg = Config()
     cfg.gaze_refine.enabled = enabled
     cfg.gaze_refine.min_train_samples = 20
     platform = dataclasses.replace(
         get_platform(),
         click_observer_factory=(None if observer is None else (lambda: observer)),
+        click_observer_unavailable_reason=reason,
     )
     daemon = Daemon(config=cfg, platform=platform)
     daemon._gaze_targeter = types.SimpleNamespace(calibration=IDENT, set_calibration=lambda m: None)
@@ -142,11 +145,21 @@ def test_a_default_install_builds_no_refinement_and_logs_nothing(caplog) -> None
 
 def test_enabled_but_unable_to_run_says_why_in_the_log(caplog) -> None:
     """The symptomless failure this project keeps paying for: on, and doing nothing."""
-    daemon = _daemon(observer=None)  # no platform click observer — true on every OS today
+    daemon = _daemon(observer=None)  # no click observer, and no platform sentence for why
     with caplog.at_level(logging.WARNING, logger="yazses.core.daemon"):
         assert daemon._build_gaze_refinement(daemon._config) is None
     messages = " ".join(r.getMessage() for r in caplog.records)
     assert "enabled but dormant" in messages and "no click observer" in messages
+
+
+def test_the_dormant_line_names_the_platforms_own_reason_not_a_missing_backend(caplog) -> None:
+    """#607: on Wayland the log must say why this session has no clicks, not "not yet"."""
+    daemon = _daemon(observer=None, reason="a native Wayland session exposes no global click stream")
+    with caplog.at_level(logging.WARNING, logger="yazses.core.daemon"):
+        assert daemon._build_gaze_refinement(daemon._config) is None
+    messages = " ".join(r.getMessage() for r in caplog.records)
+    assert "no global click stream" in messages
+    assert "no click observer yet" not in messages
 
 
 def test_when_every_precondition_holds_the_daemon_starts_refinement_and_stop_gives_both_back() -> None:
@@ -202,15 +215,16 @@ def test_the_daemons_shutdown_stops_refinement_before_it_closes_the_gaze_camera(
 # --------------------------------------------------------------------------- #
 
 
-def _platform(tmp_path: Path):
+def _platform(tmp_path: Path, **attrs):
     return types.SimpleNamespace(
-        paths=types.SimpleNamespace(config_file=tmp_path / "config.toml", data_dir=tmp_path)
+        paths=types.SimpleNamespace(config_file=tmp_path / "config.toml", data_dir=tmp_path),
+        **attrs,
     )
 
 
-def _status(monkeypatch, tmp_path: Path):
-    monkeypatch.setattr(cli, "get_platform", lambda: _platform(tmp_path))
-    monkeypatch.setattr("yazses.config.load_config", lambda _p: Config())
+def _status(monkeypatch, tmp_path: Path, *, cfg: Config | None = None, **platform_attrs):
+    monkeypatch.setattr(cli, "get_platform", lambda: _platform(tmp_path, **platform_attrs))
+    monkeypatch.setattr("yazses.config.load_config", lambda _p: cfg or Config())
     monkeypatch.setattr("yazses.gaze.factory.build_gaze", lambda _cfg: None)
     monkeypatch.setattr("yazses.gaze.desktop.build_desktop", lambda: object())
     return runner.invoke(cli.app, ["gaze", "status"])
@@ -236,6 +250,44 @@ def test_status_says_when_the_active_map_was_refined_and_how_it_earned_it(monkey
     assert "implicitly refined from clicks" in result.output
     assert "140.0 px → 12.5 px over 60+20 click pairs" in result.output
     assert "`yazses gaze rollback` restores it exactly" in result.output
+
+
+def _refine_on() -> Config:
+    cfg = Config()
+    cfg.gaze_refine.enabled = True
+    return cfg
+
+
+def test_status_has_no_click_observer_line_while_refinement_is_off(monkeypatch, tmp_path) -> None:
+    save_calibration(IDENT, tmp_path)
+    result = _status(monkeypatch, tmp_path)
+    assert result.exit_code == 0, result.output
+    assert "click observer" not in result.output, "a default install is not told about clicks"
+
+
+def test_status_says_a_click_observer_is_registered(monkeypatch, tmp_path) -> None:
+    save_calibration(IDENT, tmp_path)
+    result = _status(monkeypatch, tmp_path, cfg=_refine_on(), click_observer_factory=object)
+    assert result.exit_code == 0, result.output
+    assert "✓ click observer: registered for this session" in result.output
+
+
+def test_status_names_why_this_session_has_no_click_observer(monkeypatch, tmp_path) -> None:
+    save_calibration(IDENT, tmp_path)
+    result = _status(
+        monkeypatch, tmp_path, cfg=_refine_on(), click_observer_factory=None,
+        click_observer_unavailable_reason="a native Wayland session exposes no global click stream",
+    )
+    assert result.exit_code == 0, result.output
+    assert ("✗ click observer: none -- a native Wayland session exposes no global click stream; "
+            "implicit refinement stays dormant") in result.output
+
+
+def test_status_without_a_platform_reason_falls_back_to_the_generic_sentence(monkeypatch, tmp_path) -> None:
+    save_calibration(IDENT, tmp_path)
+    result = _status(monkeypatch, tmp_path, cfg=_refine_on())
+    assert result.exit_code == 0, result.output
+    assert "✗ click observer: none -- this platform has no click observer yet" in result.output
 
 
 def test_rollback_restores_the_exact_previous_file(monkeypatch, tmp_path) -> None:

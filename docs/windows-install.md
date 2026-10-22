@@ -11,7 +11,8 @@ description: "Install YazSes on Windows for offline speech-to-text: winget insta
 
 > **Developer preview.** Windows builds are **unsigned**. Windows SmartScreen
 > warns on first launch; the steps below show how to bypass it safely. Code
-> signing lands before public beta.
+> signing is pending approval by the SignPath Foundation; see the
+> [code signing policy](code-signing.md#code-signing-policy).
 
 ## Requirements
 

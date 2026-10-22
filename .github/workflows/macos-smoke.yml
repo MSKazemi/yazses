@@ -24,6 +24,7 @@ on:
       - 'src/yazses/platform/macos/**'
       - 'src/yazses/__main__.py'
       - 'packaging/macos/**'
+      - 'packaging/homebrew/**'
       - 'scripts/build-macos.sh'
   workflow_dispatch:
 
@@ -86,13 +87,55 @@ jobs:
             exit 1
           fi
 
+      - name: The cask installs this build and puts `yazses` on PATH
+        # Every guide tells a Mac user to run `yazses doctor`, and for years a Homebrew
+        # install put no `yazses` anywhere: the cask shipped the .app and nothing else.
+        # The cask now links a --cli shim. This installs the real cask stanzas (shim,
+        # macOS floor, uninstall) against the .dmg built above, through a throwaway
+        # local tap whose copy only swaps the download URL and hash, so what is tested
+        # is what the next release publishes.
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1"
+          HOMEBREW_NO_INSTALL_FROM_API: "1"
+          HOMEBREW_NO_ANALYTICS: "1"
+        run: |
+          set -euo pipefail
+          VERSION=$(python3 -c "import tomllib;print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+          DMG="$PWD/dist/YazSes-${VERSION}-macos-arm64.dmg"
+          SHA=$(shasum -a 256 "$DMG" | cut -d' ' -f1)
+          brew tap-new --no-git yazses-ci/local
+          TAP="$(brew --repository yazses-ci/local)"
+          mkdir -p "$TAP/Casks"
+          sed -e "s|^  url \".*|  url \"file://${DMG}\"|" \
+              -e '/^      verified: /d' \
+              -e "s|^  sha256 \".*\"|  sha256 \"${SHA}\"|" \
+              packaging/homebrew/yazses.rb > "$TAP/Casks/yazses.rb"
+          grep -n 'url \|sha256 \|binary ' "$TAP/Casks/yazses.rb"
+          # Homebrew requires an explicit trust for a third-party tap since 7.0;
+          # older Homebrew has no such command and needs none.
+          brew trust yazses-ci/local 2>/dev/null || true
+          brew install --cask yazses-ci/local/yazses
+          # An unsigned build carries the quarantine flag; a user clears it once via
+          # Open Anyway, which a runner cannot click.
+          xattr -dr com.apple.quarantine /Applications/YazSes.app || true
+          command -v yazses
+          GOT=$(yazses --version 2>&1 | tr -d '\r')
+          echo "yazses --version -> $GOT"
+          grep -qF "$VERSION" <<<"$GOT"
+          brew uninstall --cask yazses-ci/local/yazses
+          if command -v yazses >/dev/null 2>&1; then
+            echo "::error::brew uninstall left \`yazses\` on PATH"
+            exit 1
+          fi
+
       - name: Say what was NOT covered
         if: always()
         run: |
           {
             echo "### macOS smoke test — coverage boundary"
             echo
-            echo "Checked: the bundle names its own version; no interpreter re-entry."
+            echo "Checked: the bundle names its own version; no interpreter re-entry;"
+            echo "the cask installs this build, puts \`yazses\` on PATH, and uninstalls cleanly."
             echo
             echo "**Not** checked: TCC permission prompts (Accessibility, Input"
             echo "Monitoring, Microphone), Gatekeeper, notarisation, real dictation,"
