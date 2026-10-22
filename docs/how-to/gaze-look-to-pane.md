@@ -110,6 +110,12 @@ camera, the status line `calibration matches this desktop` turns to `[stale]` an
 changed; routing stays off (dictation stays in the focused window) until you run
 `yazses gaze calibrate` again. `[unverified]` means the layout could not be read (or the
 calibration is older than this check): routing keeps working, and nothing was compared.
+
+If you turned on implicit refinement (`[gaze_refine] enabled = true`, off by default), the
+status also has a `click observer` line. Refinement learns only from your clicks, so `✗`
+means it stays dormant on this session, and the line says why. On a Wayland desktop, for
+example, there is no global click stream to observe. Dictation and gaze routing are not
+affected.
 `yazses gaze rollback` tells you the same about the calibration it restores. The camera is
 identified by its index only, so swapping a different webcam onto the same index is not
 detected.

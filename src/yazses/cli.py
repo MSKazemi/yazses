@@ -6499,6 +6499,15 @@ def gaze_status() -> None:
                     "  ✓ the previous calibration is kept — `yazses gaze rollback` restores it exactly"
                 )
         typer.echo(f"  {mark(cfg.gaze_refine.enabled)} [gaze_refine] enabled = {cfg.gaze_refine.enabled}")
+        if cfg.gaze_refine.enabled:
+            # #607: refinement learns only from clicks, so say whether this session can see
+            # one -- the same two attributes `yazses doctor` reads; nothing is opened.
+            if getattr(platform, "click_observer_factory", None) is not None:
+                typer.echo("  ✓ click observer: registered for this session")
+            else:
+                reason = (getattr(platform, "click_observer_unavailable_reason", None)
+                          or "this platform has no click observer yet")
+                typer.echo(f"  ✗ click observer: none -- {reason}; implicit refinement stays dormant")
     ready = all((
         enabled,
         cfg.gaze.route_dictation,
