@@ -26,7 +26,7 @@ buckets it is in, and states what would move it.
 <figcaption>Three gates in series. Most ideas fail the first one.</figcaption>
 </figure>
 
-The first gate does most of the work. YazSes ships **144 capabilities and 64 of them are
+The first gate does most of the work. YazSes ships **149 capabilities and 30 of them are
 not reachable from any entry point** — the project's constraint has never been ideas, it
 has been finishing them. So an idea that cannot name the problem it answers does not get
 built, however good it sounds.
@@ -78,18 +78,19 @@ a cost, and cost-weighted error rate is that sum.
 ### 2. A hands-free mode that is actually a mode
 
 **Problem: A3.** You can dictate a paragraph but you cannot open the file, fix the fourth
-word, switch window or answer a dialog. Each of those exists as a designed, tested,
-unwired module — `mousegrid`, `headpointer`, `pilot` (AT-SPI), `vocaljoystick`,
-`mouthswitch`, `hatselect`.
+word, switch window or answer a dialog. The experimental hands-free preset
+(`yazses features enable handsfree --force`) now joins voice, gaze, the head pointer and a
+face switch under one stop; `mousegrid` and `vocaljoystick` are wired too, while `pilot`
+(AT-SPI), `mouthswitch` and `hatselect` remain designed, tested and unwired.
 
 **Why it is not done.** Every piece is individually unglamorous and only valuable in
 combination, which is exactly the shape a feature-driven roadmap never delivers. The
 measurement is also different: not word accuracy but **task completion** — can someone
 finish a real workflow with no keyboard and no mouse, and how much slower is it.
 
-**What would make it real.** Wire three of them together and run one person through a
-scripted workflow. That is an afternoon of integration and an hour of observation, and it
-would produce the first evidence anyone has about this project's accessibility claims.
+**What would make it real.** Run one person through a scripted workflow with the preset
+on. That is an hour of observation, and it would produce the first evidence anyone has
+about this project's accessibility claims.
 
 **Architectural direction from 2026 platform research.** Google's Magic Pointer and
 Apple's Siri AI / Visual Intelligence stack suggest that these modules should not be joined
@@ -166,7 +167,7 @@ showing that is cheaper than any correction mechanism. Whether it *helps* is unm
 per-word confidence could reduce correction time, or it could add visual noise to every
 sentence and slow reading down.
 
-**Status:** agenda question 5. `confidence/` exists; the study does not.
+**Status:** agenda question 5. `postprocess/confidence.py` exists; the study does not.
 
 ---
 

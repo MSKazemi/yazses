@@ -1,12 +1,10 @@
 # Contributing to YazSes
 
 Thank you for your interest in contributing. YazSes is a **Python** project on the `main`
-branch — that is where every contribution goes. (An early-stage Rust prototype is parked on
-`archive/rust-hci-v1`; it is not built, installed, or maintained, and you can safely ignore
-it.)
+branch — that is where every contribution goes.
 
 **Want a concrete task rather than an issue to interpret?**
-[`campaign/generated/open-tasks.md`](../campaign/generated/open-tasks.md) lists 130 open tasks
+[`campaign/generated/open-tasks.md`](../campaign/generated/open-tasks.md) lists the open tasks
 — each with the exact files it may touch, the command that decides it is done, and an
 honest time estimate. Run `uv run python scripts/check-task.py <ID>` before you push and it
 tells you what CI will say.
@@ -31,8 +29,8 @@ be nothing to run. When a slot is READY you run one named test pack, report
 Those public reports are engineering QA, not automatic enrollment in a research study. The guide
 also says exactly what technical data is useful and what must never be posted publicly.
 
-No camera hardware? #449 becomes a tiny first contribution as soon as the eye-control planning docs
-are merged: read the beginner instructions and report the first confusing step.
+No camera hardware? [#449](https://github.com/MSKazemi/yazses/issues/449) is a tiny first
+contribution: read the beginner instructions and report the first confusing step.
 
 ## Getting started
 
@@ -148,7 +146,7 @@ never need you to leave the browser.
 
 ## The dependency budget
 
-16 base dependencies, 140+ features — heavy capabilities live behind an extra in
+17 base dependencies, ~150 capabilities — heavy capabilities live behind an extra in
 `[project.optional-dependencies]` and are imported lazily, inside the function that
 needs them, so a plain-dictation install never downloads mediapipe or llama-cpp. CI
 enforces this with `scripts/check_dependency_budget.py` (part of the `repo-hygiene`
@@ -197,9 +195,10 @@ If you are adding support for a new platform or injection backend, implement all
 ## Contributing to the Android app
 
 The Android port is a separate, **community-built** programme with its own architecture,
-its own decision records and its own contribution ladder. As of 2026-08-07 there is **no
-Android code yet** — the design was written first, on purpose, so that many people can build
-it at once. That means the ground floor is open.
+its own decision records and its own contribution ladder. The module skeleton under
+[`android/`](../android/README.md) exists and its `:core:*` modules build and test green, but
+there is **no app and no APK yet**. The design was written first, on purpose, so that many
+people can build it at once, so most of the ground floor is still open.
 
 - **Start here:** [`docs/mobile/index.md`](../docs/mobile/index.md) — what we are building, why
   Android before iOS, and the M0–M4 milestones.
@@ -212,8 +211,8 @@ it at once. That means the ground floor is open.
 - **Find work:** issues labelled [`android`](https://github.com/MSKazemi/yazses/labels/android),
   coordinated by [the Android epic, #81](https://github.com/MSKazemi/yazses/issues/81).
   Comment to claim one. M0 has landed — [`contract/`](../contract/README.md) holds the
-  golden vectors it produced — and extending them is still Python work in this repository,
-  for example [#512](https://github.com/MSKazemi/yazses/issues/512).
+  golden vectors it produced — and extending them is still Python work in this repository:
+  see the open `contract-vector` tasks in [the task list](../docs/contribute/tasks.md).
 
 Two things worth knowing before you decide it is not for you:
 
@@ -233,8 +232,8 @@ suggestion to ignore.
 Translations are tracked in [#18](https://github.com/MSKazemi/yazses/issues/18) — one
 language each, one PR each, no permission needed. Two things worth knowing before you start:
 
-- **Translating the lede through Quick Start is a complete contribution.** It is roughly the
-  first 120 lines of a 581-line file. That is what the Hindi translation did, and it was
+- **Translating the lede through Quick Start is a complete contribution.** It is the opening
+  of the file down to the end of Quick Start, about a third of it. That is what the Hindi translation did, and it was
   merged. Leaving the rest in English is expected, not unfinished — say where you stopped in
   the status banner at the top of your file so the next reader and the next translator know.
 - **Some things are never translated:** command names (`yazses start`), config keys

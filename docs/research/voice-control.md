@@ -13,7 +13,8 @@ description: The year local speech recognition passed the cloud — measured wor
     **153 WPM spoken vs 52 WPM typed** in a head-to-head lab study
     ([Ruan et al.](#ref-ruan)). As of 2026 the best accuracy-per-CPU-cycle
     model runs **on your laptop**, not in a datacenter, and a 5-second burst
-    decodes in about 170 ms. The remaining hard problem is not accuracy — it
+    decodes in about a quarter of a second
+    ([measured](../benchmarks.md)). The remaining hard problem is not accuracy — it
     is *modes*: telling "write this down" apart from "delete that".
 
 For a decade the deal was: accurate speech recognition lives in a datacenter.
@@ -91,7 +92,7 @@ sequenceDiagram
     Note over D: audio buffered live<br/>(zero decode cost at ~30x RT)
     U->>D: release key
     D->>E: decode 5 s burst
-    Note over E: whisper small: ~600 ms<br/>Parakeet TDT: ~170 ms
+    Note over E: whisper small.en: ~460 ms<br/>Parakeet TDT: ~250 ms (measured)
     E->>D: text
     D->>U: typed into the focused window
 ```
@@ -173,7 +174,7 @@ an accessibility problem disguised as an engineering problem.
 ## Open questions
 
 **[Discuss →](https://github.com/MSKazemi/yazses/discussions)** ·
-**[Benchmark harness issue →](https://github.com/MSKazemi/yazses/issues/72)**
+**[Benchmarks — add your machine →](../benchmarks.md)**
 
 1. **Whisper-detection thresholds across voices.** Our voicing/tilt gate ships
    with literature-derived defaults. How do they hold up across quiet talkers,
@@ -181,9 +182,11 @@ an accessibility problem disguised as an engineering problem.
    "whispered" verdict silently eats a sentence — what's the measured false
    positive rate in the wild?
 2. **Phrase boosting on ONNX transducers.** TurboBias lives in NeMo; the
-   lightweight `onnx-asr` path has no boosting hook yet. What is the cheapest
-   faithful reimplementation — and does edit-distance post-correction get 80%
-   of the win for 5% of the work ([Lall & Tan](#ref-contextual))?
+   lightweight `onnx-asr` path has no boosting hook yet. YazSes ships the cheap
+   alternative — guarded edit-distance post-correction (`[stt] vocab_correction`,
+   off by default) — so the open question is measurable: how much of decode-time
+   boosting's win does it get ([Lall & Tan](#ref-contextual)), and what would a
+   faithful reimplementation cost?
 3. **Latency benchmarking as a feature — partly answered, and it cut against us.**
    We now publish measured speech-end→text times per model, fed at real time,
    reproducible from the repo ([benchmarks](../benchmarks.md)). The result

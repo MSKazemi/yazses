@@ -12,7 +12,7 @@ Pick the row that matches what you have in front of you right now.
 | What you have | Do this | Time |
 |---|---|---|
 | **A browser, nothing else** | [Review a draft README translation](../localization/STATUS.md) in a language you speak — the matrix names each draft's own review issue, and correcting the prose is a much smaller job than translating one. [Languages with no draft yet](https://github.com/MSKazemi/yazses/issues/18) are still open to translate. | 20–45 min |
-| **A laptop, any OS** | [Install YazSes and report what happened](https://github.com/MSKazemi/yazses/issues?q=is%3Aopen+%22Test+YazSes+on%22+in%3Atitle) — one issue per OS and desktop, working *or* broken; or [add your setup to SHOWCASE.md](https://github.com/MSKazemi/yazses/issues/42) | 20 min |
+| **A laptop, any OS** | [Install YazSes and report what happened](https://github.com/MSKazemi/yazses/issues?q=is%3Aopen+%22Test+YazSes+on%22+in%3Atitle) — one issue per OS and desktop, working *or* broken; or [add your setup to SHOWCASE.md](https://github.com/MSKazemi/yazses/edit/main/SHOWCASE.md) | 20 min |
 | **Windows, macOS, GNOME/KDE Wayland, X11, or HiDPI hardware** | **[Eye/camera validation programme](https://github.com/MSKazemi/yazses/blob/main/design/eye-control/BEGINNER_TESTING.md)** — no code. The slots open as the code they test lands; take one only if its issue carries `help wanted` | 15–20 min, once a slot is open |
 | **A microphone you like** | [Add it to the known-good list](../known-good-microphones.md) with its measured level | 15 min |
 | **An editor or terminal you use daily** | [Share a config for it](../how-to/app-profiles.md) | 30 min |
@@ -22,7 +22,7 @@ Want to narrow it yourself instead? **[Filter the full list](find.md)** by what 
 how long you've got, and whether you want to write code.
 
 Still undecided? Take the second row. **Nobody can test YazSes on your machine but you**, and
-that is the single most useful thing the project is missing — 297 environments are listed and
+that is the single most useful thing the project is missing — 301 environments are listed and
 almost none are covered.
 
 ## The two rules

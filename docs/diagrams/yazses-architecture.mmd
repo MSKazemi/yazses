@@ -12,7 +12,7 @@ flowchart TB
   subgraph UI["User-facing control"]
     direction LR
     CLI["yazses CLI<br/>(67 commands · 133 with subcommands)"]:::ui
-    TRAY["yazses-tray<br/>(macOS/Windows)"]:::ui
+    TRAY["yazses-tray<br/>(all platforms)"]:::ui
   end
 
   UI -->|"JSON-RPC 2.0 · newline-delimited<br/>Unix socket / Windows named pipe"| IPC[["IPC server (ipc/)"]]:::core
@@ -20,11 +20,11 @@ flowchart TB
 
   subgraph DAEMON["yazses-daemon — orchestrator (core/daemon.py)"]
     direction TB
-    HK["1 · Hotkey backend<br/>keyboard hook OR EMG (USB serial)"]:::stage
+    HK["1 · Hotkey backend<br/>keyboard hook OR EMG (USB serial / BLE)"]:::stage
     AUD["2 · Audio<br/>recorder → VAD (calibrated) → pre-speech padding"]:::stage
     STT["3 · STT<br/>faster-whisper (CPU int8) · streaming · disfluency filter"]:::stage
     PP["4 · Post-process<br/>cleaner · voice-punctuation · continuation spacing · LLM cleanup"]:::stage
-    CMD["5 · Commands<br/>Tier1 regex grammar · LSP context<br/>(Tier2 SLM router: opt-in)"]:::stage
+    CMD["5 · Commands<br/>Tier1 regex grammar<br/>(Tier2 SLM router: opt-in)"]:::stage
     DIS{"6 · dispatch()"}:::core
     HK --> AUD --> STT --> PP --> CMD --> DIS
   end

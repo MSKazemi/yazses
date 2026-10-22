@@ -1,10 +1,21 @@
 /* YazSes docs — brand polish on top of Material for MkDocs. */
 
-:root {
+:root,
+/* Material's own `[data-md-color-primary=deep-purple]` rule is more specific than
+   :root and was overriding the brand violet with #7e56c2, where the header's
+   translucent tab and repo-stat text measured 3.4:1 against it, below the 4.5:1
+   WCAG AA floor (Lighthouse, 2026-10-21). On #5e35b1 the same text is 5.3:1. */
+[data-md-color-primary="deep-purple"] {
   --md-primary-fg-color:        #5e35b1;
   --md-primary-fg-color--light: #7c4dff;
   --md-primary-fg-color--dark:  #4527a0;
   --md-accent-fg-color:         #7c4dff;
+}
+
+/* Code comments: Material's light-scheme grey (#717171 on #f5f5f5) is 4.47:1, a hair
+   under AA. #616161 is 5.7:1. The dark scheme already passes. */
+[data-md-color-scheme="default"] {
+  --md-code-hl-comment-color: #616161;
 }
 
 /* Slightly tighter, more modern typography */
@@ -314,4 +325,13 @@
 [data-md-color-scheme="slate"] .md-typeset .yz-tag--plan {
   color: #16110d;
   background: #d95926;
+}
+
+/* Links inside running text are underlined. With the brand violet on body text they
+   measure 2:1 against the surrounding #212121, below the 3:1 a colour-only link needs
+   (Lighthouse link-in-text-block, 2026-10-22); an underline makes colour unnecessary. */
+.md-typeset :is(p, li, td, dd) > a:not(.md-button) {
+  text-decoration: underline;
+  text-decoration-thickness: 0.06em;
+  text-underline-offset: 0.18em;
 }

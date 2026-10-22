@@ -31,13 +31,13 @@ something that quietly weakens the privacy posture — including our own.
 Four properties, all of them deliberate design choices, not accidents:
 
 1. **The definition of "correct" is a JSON file, not a person.** Shared logic is verified by
-   `contract/vectors/*.json` (ADR-MOB-008). "Port the disfluency filter" means "make these
-   60 cases pass". You do not need to read Python, guess at intent, or wait for a reviewer
+   `contract/vectors/*.json` (ADR-MOB-008). "Port the disfluency filter" means "make the cases in
+   `contract/vectors/disfluency.json` pass". You do not need to read Python, guess at intent, or wait for a reviewer
    to tell you whether an edge case was meant to work that way.
 2. **You do not need a device — or a microphone — for most of the work.** `:core:*` modules
    are pure-Kotlin JVM modules (ADR-MOB-002 §3): `./gradlew :core:postprocess:test` needs no
-   emulator, no model, no phone. Audio fixtures live in `contract/audio/` for the parts that
-   do need sound.
+   emulator, no model, no phone. Audio fixtures for the parts that do need sound are planned
+   under `contract/audio/` (not yet created).
 3. **Modules are independent by construction.** The module map in
    [`architecture.md`](architecture.md#3-module-map) has one-way dependencies
    and interface boundaries, so ten people can work at once without stepping on each other.
@@ -142,6 +142,7 @@ privacy-first speech stack that people actually use.
 ## 10. Where the first ten issues are
 
 [The epic, #81](https://github.com/MSKazemi/yazses/issues/81), carries the full work breakdown and is the current state of play.
-The M0 tasks (#82, #83) are Python-only and can start today; the Gradle skeleton (#84)
-unblocks all of M1. Not sure where to start? [#98](https://github.com/MSKazemi/yazses/issues/98)
+M0 is done — the contract (#82, #83) and the Gradle skeleton (#84) are merged, and the first
+pure-Kotlin ports (#86, #94) pass the contract vectors. Open work carries the `android` label
+under the epic. Not sure where to start? [#98](https://github.com/MSKazemi/yazses/issues/98)
 asks you to read the ADRs and tell us what is wrong with them — no code, no device.

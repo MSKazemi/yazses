@@ -64,7 +64,9 @@ MacKenzie — metrics that count what the *user* had to do, including the correc
 never sees.
 
 **The capability.** Given a presented phrase, a transcribed result and the correction
-actions, compute the standard set. This is arithmetic on data the system already has.
+actions, compute the standard set. This is arithmetic on data the system already has, and
+`paper/benchmark/bench_throughput.py` already reports the uncorrected error rate — the
+corrected and MSD rates are what is missing.
 
 **Seam:** `paper/benchmark/bench_wer.py` is the natural home. **Size:** days.
 **Why it matters for publishing:** a paper reporting only WER will be asked for these in
@@ -194,7 +196,7 @@ study also needs the software to be *driveable* without a person and a room.
 how the software is resourced, supported and shared, and concludes that quality and
 **discoverability** are what research software engineers believe drives sustainability.
 That maps onto an uncomfortable observation about this project: the intrinsic half is in
-reasonable shape (a seam behind every scientifically interesting component, ~5,000 tests),
+reasonable shape (a seam behind every scientifically interesting component, over 13,000 test functions),
 and the extrinsic half is where the ten gaps sit. Nothing here is blocked on architecture.
 
 **Comparable projects**, surveyed separately in the
@@ -224,5 +226,5 @@ on this page measures an unknown configuration on unrepeatable data.
 
 **Three of the ten are already half-built.** Entries 4, 6 and 9 each compose modules that
 exist and have never been joined. That is the same pattern as the
-[62 designed-but-unwired capabilities](directions.md): in this project the missing piece is
+[30 designed-but-unwired capabilities](directions.md): in this project the missing piece is
 usually the connection, not the component.

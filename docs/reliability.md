@@ -205,6 +205,11 @@ see and hear. Discards *above* the gate produce no suggestion at all — a muted
 microphone produces exactly the same symptom, and guessing wrong there would
 raise the gate on a user who is already not being heard.
 
+Lowering is not entirely free: a gate below your room's noise lets hiss through to the
+recogniser. What stops that hiss from being typed as invented words is the speech-presence
+check described under [A recording that holds no speech](#a-recording-that-holds-no-speech).
+If you see words you never said, run `yazses mic-level --set`.
+
 ## The config is broken
 
 Loading is **total**: no config file can stop the daemon starting. Values that can
@@ -241,7 +246,8 @@ seconds of faint room hiss decodes to **"You"**. So an empty recording does not
 produce an empty transcript — it produces a short, confident, completely invented
 one, and no check on the *output* can tell it from a real short utterance.
 
-Both file paths measure the **input** instead, and they ask two separate questions:
+Live dictation and both file paths measure the **input** instead. The file paths ask two
+separate questions:
 
 | Verdict | What it means | Where to look |
 |---|---|---|
@@ -251,6 +257,11 @@ Both file paths measure the **input** instead, and they ask two separate questio
 The detector is Silero, which `faster-whisper` already ships as a bundled ONNX
 asset — nothing is downloaded and nothing leaves the machine.
 
+- **Dictation** runs the same speech check on every burst that clears the silence gate,
+  and discards a burst with no speech in it instead of typing what Whisper invented for
+  it. It is `[accessibility] speech_presence_check`, on by default. Turn it off if very
+  quiet or whispered speech is being dropped. Whisper Mode, Dysfluency-Friendly Mode and
+  the sotto-voce command channel are exempt.
 - `yazses transcribe` prints the matching note and still writes the transcript. The
   text is the evidence; deleting it would only hide the problem.
 - A **meeting** records the verdict in its `meeting.json` and `yazses meeting list`

@@ -44,6 +44,7 @@ The current repository already contains the same architectural pattern in severa
 |---|---|---|
 | Coarse visual reference | `src/yazses/gaze/` | gaze point/window routing with confidence |
 | Deictic speech | `src/yazses/gaze/deixis.py` | resolves words such as "this" and "that" |
+| Grounded target | `src/yazses/grounding/`, `gaze/grounded.py` | pure TargetSnapshot + tri-state resolver (ADR-v2-151, Proposed); no source wired |
 | Screen/application context | `system/context_read.py`, `commands/context.py` | collects active context |
 | Accessibility-aware planning | `src/yazses/pilot/` | pure planning exists; runtime remains limited/planned |
 | Tool planning | `src/yazses/agent/plan.py` | deterministic tool matching + confirmation policy |

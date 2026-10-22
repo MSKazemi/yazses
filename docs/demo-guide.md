@@ -143,7 +143,7 @@ version number on it undercuts the one thing it is there to say.
 
 ```sh
 wf-recorder -g "$(slurp)" -f demo.mp4          # select a region, record, Ctrl-C to stop
-ffmpeg -i demo.mp4 -vf "fps=12,scale=900:-1" -f gif - | gifski -o demo.gif -
+ffmpeg -i demo.mp4 -vf "fps=12,scale=900:-1" -f yuv4mpegpipe - | gifski -o demo.gif -
 ```
 
 `gifski` produces noticeably better GIFs than ffmpeg's own encoder at the same size.

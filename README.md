@@ -701,11 +701,11 @@ already covers the licence grant.
 - 🌱 **New here?** Start with a [good first issue](https://github.com/MSKazemi/yazses/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) — each is small and self-contained, and we're happy to help you through your first PR.
 - 🚀 **First time? [Start here](https://mskazemi.com/yazses/contribute/start.html)** — one page, pick the row matching what you have in front of you, finish in 15–45 minutes. No permission needed, nothing is assigned, and coding agents are welcome (there's a copy-paste prompt). AI tools are optional; [use them safely](docs/contribute/ai-agents.md) and do not assume YazSes authorizes or reimburses their costs.
 - 🤖 **Using Google Jules?** [Connect Jules to your fork step by step](docs/contribute/jules.md). No upstream collaborator access is needed; direct upstream Jules remains gated by #447.
-- 🎯 **Want the full list?** [**Filter 130 open tasks**](https://mskazemi.com/yazses/contribute/find.html) by what you have, your time, and whether you want to write code
+- 🎯 **Want the full list?** [**Filter the open tasks**](https://mskazemi.com/yazses/contribute/find.html) by what you have, your time, and whether you want to write code
   — each one names the exact files you may touch, the command that says you're done, and an
   honest time estimate. Filter by what you actually have: a browser, a terminal, a specific
   app, or unusual hardware nobody else can test.
-- ⏱️ **Got 15 minutes and no Python?** [**27 tasks are `browser-only`**](https://github.com/MSKazemi/yazses/issues?q=is%3Aopen+label%3Abrowser-only)
+- ⏱️ **Got 15 minutes and no Python?** [**Browser-only tasks**](https://github.com/MSKazemi/yazses/issues?q=is%3Aopen+label%3Abrowser-only)
   — doable entirely in the GitHub web editor, no clone and no install. These need only a text
   editor, take one PR each, and
   several hold many contributors at once — no permission needed, and the two that are a
@@ -714,7 +714,7 @@ already covers the licence grant.
   Start alone is a complete PR),
   [add your microphone](https://github.com/MSKazemi/yazses/blob/main/docs/known-good-microphones.md),
   [share a config for your app or editor](https://github.com/MSKazemi/yazses/blob/main/docs/how-to/app-profiles.md), or
-  [add your setup to SHOWCASE.md](https://github.com/MSKazemi/yazses/issues/42).
+  [add your setup to SHOWCASE.md](https://github.com/MSKazemi/yazses/edit/main/SHOWCASE.md).
 - 🐞 **Found a bug or have an idea?** Open an [issue](https://github.com/MSKazemi/yazses/issues/new/choose) (the `yazses doctor` output resolves most reports on its own) or ask in [Discussions](https://github.com/MSKazemi/yazses/discussions).
 - 🔧 **Sending a PR?** See [CONTRIBUTING.md](.github/CONTRIBUTING.md). The gates are quick:
 

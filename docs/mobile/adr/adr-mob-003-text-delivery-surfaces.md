@@ -1,9 +1,13 @@
+---
+description: "ADR-MOB-003: dictated text reaches other apps through the YazSes keyboard (IME) first, a RecognitionService second, and share or clipboard as the fallback; the keyboard does not do typing."
+---
+
 # ADR-MOB-003 — Text delivery: IME first, RecognitionService second, share/clipboard fallback
 
 **Status:** Accepted (2026-08-07) · design only, no code yet
 **Deciders:** Mohsen Seyedkazemi Ardebili
-**Context links:** [[adr-mob-001]], [[adr-mob-002]], [[adr-mob-004]] (activation),
-[[adr-011]] (no ambient capture), desktop analogue: `src/yazses/inject/`
+**Context links:** [ADR-MOB-001](adr-mob-001-android-first-monorepo.md), [ADR-MOB-002](adr-mob-002-native-kotlin-stack.md), [ADR-MOB-004](adr-mob-004-activation-model.md) (activation),
+[ADR-011](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-011.md) (no ambient capture), desktop analogue: `src/yazses/inject/`
 
 ---
 
@@ -65,7 +69,7 @@ It is rejected below.
    continuation spacing between consecutive bursts, voice punctuation, disfluency
    filtering and command-vs-dictation classification all run in `:core:postprocess` /
    `:core:commands` before delivery, validated by the shared golden vectors
-   ([[adr-mob-008]]).
+   ([ADR-MOB-008](adr-mob-008-cross-platform-contract.md)).
 
 ## Consequences
 
@@ -76,7 +80,7 @@ It is rejected below.
   network permission in the recognition path, and its source is public.
 - Because the IME window is visible while recording, the app is "in use" for the
   while-in-use `RECORD_AUDIO` rule and needs no microphone foreground service for
-  hold-to-talk. Meeting Mode does need one — see [[adr-mob-007]].
+  hold-to-talk. Meeting Mode does need one — see [ADR-MOB-007](adr-mob-007-privacy-permissions-lifecycle.md).
 - Password fields (`InputType` variations with `TYPE_TEXT_VARIATION_PASSWORD`) must
   disable the mic entirely and say why. This is both a privacy duty and a
   no-surprises rule.

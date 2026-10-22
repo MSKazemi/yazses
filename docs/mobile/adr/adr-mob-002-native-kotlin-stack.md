@@ -1,9 +1,13 @@
+---
+description: "ADR-MOB-002: the Android app is native Kotlin with Jetpack Compose and a multi-module Gradle build, its logic in pure-Kotlin cores and no cross-platform runtime in between."
+---
+
 # ADR-MOB-002 — Native Kotlin + Jetpack Compose, pure-Kotlin cores, no cross-platform runtime
 
 **Status:** Accepted (2026-08-07) · design only, no code yet
 **Deciders:** Mohsen Seyedkazemi Ardebili
-**Context links:** [[adr-mob-001]] (Android first, monorepo), [[adr-mob-003]] (IME),
-[[adr-mob-005]] (STT runtime), [[adr-mob-008]] (contract), [[adr-mob-010]] (Apple wave)
+**Context links:** [ADR-MOB-001](adr-mob-001-android-first-monorepo.md) (Android first, monorepo), [ADR-MOB-003](adr-mob-003-text-delivery-surfaces.md) (IME),
+[ADR-MOB-005](adr-mob-005-stt-runtime.md) (STT runtime), [ADR-MOB-008](adr-mob-008-cross-platform-contract.md) (contract), [ADR-MOB-010](adr-mob-010-apple-second-wave.md) (Apple wave)
 
 ---
 
@@ -28,7 +32,7 @@ Android/NDK build; Chaquopy adds a licensing and APK-size burden and is unusable
 F-Droid; a Kivy/BeeWare app cannot register an IME. The Python tree is reusable as
 *specification*, not as *implementation*.
 
-The second question is iOS-shaped: if the Apple wave ([[adr-mob-010]]) is real, should the
+The second question is iOS-shaped: if the Apple wave ([ADR-MOB-010](adr-mob-010-apple-second-wave.md)) is real, should the
 Android app be written in Kotlin Multiplatform (KMP) now so `commonMain` can be shared with
 an iOS app later? Paying for KMP tooling, dependency constraints and slower builds at M0 —
 before a single line of the app exists, and for a second platform whose product shape is
@@ -46,9 +50,9 @@ known to differ — is speculative generality. But *foreclosing* KMP would be a 
 3. **The `:core:*` modules are pure-Kotlin JVM modules** (`kotlin("jvm")`, *not*
    `com.android.library`) and must not import `android.*`. Consequences, all deliberate:
    - they are unit-testable on the JVM with no emulator, no device, no mic — the same
-     property that makes the desktop suite runnable in 15 s and is the single biggest
-     lever on contributor throughput;
-   - they are exactly the code the golden contract vectors ([[adr-mob-008]]) validate;
+     property that keeps the desktop suite runnable offline with no microphone or model,
+     and is the single biggest lever on contributor throughput;
+   - they are exactly the code the golden contract vectors ([ADR-MOB-008](adr-mob-008-cross-platform-contract.md)) validate;
    - converting them to KMP `commonMain` for the Apple wave is a build-file change, not a
      rewrite. **This is the KMP option, bought at near-zero cost and exercised later.**
    Anything needing `Context`, `AudioRecord`, `SharedPreferences` or the manifest lives in
@@ -61,12 +65,12 @@ known to differ — is speculative generality. But *foreclosing* KMP would be a 
 5. **Dependency budget.** Additions to `:core:*` need an ADR-level justification; the
    `:app`/`:feature:*` budget is AndroidX + Compose + `kotlinx.serialization` +
    `kotlinx.coroutines` + WorkManager + DataStore. **No Firebase, no Crashlytics, no
-   analytics SDK of any kind, ever** — [[adr-011]] forbids it and F-Droid would reject it
-   ([[adr-mob-009]]).
+   analytics SDK of any kind, ever** — [ADR-011](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-011.md) forbids it and F-Droid would reject it
+   ([ADR-MOB-009](adr-mob-009-distribution-and-signing.md)).
 
 ## Consequences
 
-- One language for the whole app tree; the only C/C++ is behind `:native:*` ([[adr-mob-005]]).
+- One language for the whole app tree; the only C/C++ is behind `:native:*` ([ADR-MOB-005](adr-mob-005-stt-runtime.md)).
 - The JVM-testable core means the contribution ladder starts at "write a pure function and
   a JUnit test", which needs no Android device — see `docs/mobile/contributing.md`.
 - `:core:*` modules cannot take Android conveniences, which will occasionally feel
@@ -84,14 +88,14 @@ known to differ — is speculative generality. But *foreclosing* KMP would be a 
 - **Chaquopy / Kivy / BeeWare (run the Python daemon on Android).** Cannot implement an
   IME or a `RecognitionService`; no CTranslate2 for Android so faster-whisper is
   unavailable anyway; large APK; poor battery behaviour; incompatible with F-Droid
-  packaging. The Python tree stays the *specification* via [[adr-mob-008]].
+  packaging. The Python tree stays the *specification* via [ADR-MOB-008](adr-mob-008-cross-platform-contract.md).
 - **Flutter / React Native.** The product is OS integration; both would still require
   native IME, native `RecognitionService`, native foreground service and a JNI STT bridge —
   i.e. all of the hard parts — plus a second runtime, a second toolchain for contributors,
   and a harder F-Droid build. Zero shared code with the existing Python desktop, so the
   usual "write once" argument does not even apply here.
 - **KMP from day one.** Deferred, not rejected on the merits: the pure-Kotlin `:core:*`
-  rule keeps the door open and [[adr-mob-010]] is where it gets decided, with the contract
+  rule keeps the door open and [ADR-MOB-010](adr-mob-010-apple-second-wave.md) is where it gets decided, with the contract
   already proven by two implementations.
 - **Java.** No.
 - **A WebView/PWA front end.** No mic-to-any-app path exists on Android for a web app.

@@ -853,7 +853,7 @@ For the full commitment and details, see the
 
 ## How these figures are made
 
-The four figures on this page are generated, not drawn:
+The five figures on this page are generated, not drawn:
 
 ```bash
 uv run python scripts/gen-arch-figures.py

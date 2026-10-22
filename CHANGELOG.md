@@ -20,6 +20,74 @@ Ctrl+V"). The check reads a fact Windows itself enforces, so it never fires on a
 window, and anything it cannot read counts as "fine". Checked live against an elevated Task
 Manager and an ordinary window.
 
+### Fixed — the website's home page renders in under two seconds on a throttled phone, not nine
+
+Lighthouse 12.8.2, mobile, the same build served with gzip, two runs each (2026-10-22).
+An A/B test of three builds showed the remaining delay was the web fonts, not the search
+index: with no search index the largest paint was 5.1 s, with system fonts 1.6–2.2 s.
+
+- **System fonts.** The site uses the platform's own UI and monospace font stacks instead
+  of downloading Inter and JetBrains Mono (`theme.font: false`). Home: performance 63–64 →
+  85–87, largest paint 8.8–9.0 s → 1.5–1.6 s. Get started: 90–95, 2.2–2.3 s. Accessibility
+  stays at 100.
+- **The hero waveform** animated `height`, re-laying out its 28 bars on every frame. It
+  now animates `transform`, which is composited.
+- **Quick start.** The Copy button is opaque, so a long command scrolled under it no longer
+  shows through, and command boxes get a dark scrollbar instead of a white one.
+
+### Fixed — the website loads in a fraction of the bytes on a phone and passes every Lighthouse accessibility check
+
+Measured with Lighthouse 12.8.2 (mobile, simulated throttling) on 2026-10-22. The live
+home page fetched 7.3 MB and scored 91 for accessibility.
+
+- **The 40-second reel** was a 4.8 MB GIF that every visitor downloaded before anything
+  below it. It is now a 1.4 MB animated WebP with the same 220 frames and 40,010 ms. It
+  loads only when scrolled into view, and its size is declared so the page doesn't jump.
+- **The site-search index**, fetched at high priority on every page, was 6.1 MB (1.8 MB
+  gzipped). 57 % of it was design-tier bodies and development-preview release notes.
+  `hooks/search_scope.py` leaves those out of the in-browser index; it is now 2.6 MB
+  (0.78 MB gzipped). Each section's index page stays searchable, and the pages stay
+  published, in the nav and in the sitemap.
+- **The hero headline**, the page's largest paint, is drawn at once instead of fading in
+  from opacity 0.
+- **Accessibility, from 91 to 100 on mobile and desktop.** `extra.css` set the brand violet
+  on `:root`, but Material's more specific `[data-md-color-primary=deep-purple]` rule
+  overrode it. The header's tab text therefore sat at 3.4:1; it is now 5.3:1. Code comments
+  were 4.47:1 and are now 5.7:1. Links in running text are underlined, because colour
+  alone was 2:1 against body text. Material's search dialog and progress bar get
+  accessible names (`assets/a11y.js`).
+
+### Fixed — the rest of the docs: the privacy statement, contributor guides, research and mobile pages
+
+The second half of the 2026-10-21 audit covered every remaining page: 47 reference, mobile
+and research pages, plus 17 contributor and development files. Every documented dev
+command was also run. Fixes:
+
+- **Privacy statement.**
+  - It said SSH remote was the only outbound path. Two opt-in features can send what you
+    said (remote mode and Ollama cleanup), matching the egress inventory that
+    `tests/test_egress_inventory.py` enforces, and every other connection is now listed
+    with its trigger.
+  - A new **Camera** section covers the webcam features. Frames stay in memory, and only
+    numeric calibration files are saved.
+  - The Windows model-cache path is corrected, and `corpus destroy` now shows the
+    `--i-mean-it` it requires.
+- **Code signing.** Release attestations and PyPI provenance are verified as published for
+  v2.43.2. The page no longer claims that pip verifies them automatically.
+- **Contributor pages.**
+  - REVIEWING.md said a PR needs no AI-tool disclosure, which contradicted the PR template
+    and ADR-024 §7.
+  - AGENTS.md listed the hand-written `cli-reference.md` as generated.
+  - CONTRIBUTING named a branch that doesn't exist and said there was no Android code.
+  - Several pages offered closed issues (#42, #512, #448, #579) as open work. Counts are
+    corrected.
+- **Mobile ADRs.** 104 literal `[[adr-…]]` wiki-links become real links. The ten ADRs gain
+  descriptions, and `contract.md` and `contract/README.md` now count 312 cases in 8 units.
+- **Research pages.** "Unwired" counts now come from the registry (30 of 149), features
+  wired since are marked as wired, and latency figures follow `benchmarks.md`.
+- **Diagrams.** All four hand-drawn renderings drop "LSP" from the commands stage: the
+  daemon passes `use_lsp=False`.
+
 ### Fixed — the docs' memory and Docker-image figures are re-measured, and four stale status lines corrected
 
 - **Model memory.** `models.md` gave `base.en` an 874 MB footprint. The low-RAM guide gave

@@ -32,7 +32,7 @@
   --yzl-line-dark: rgba(185, 164, 255, 0.16);
   --yzl-radius: 18px;
   --yzl-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
-  font-family: var(--md-text-font-family, Inter, system-ui, sans-serif);
+  font-family: var(--md-text-font-family, system-ui, sans-serif);
   -webkit-font-smoothing: antialiased;
 }
 
@@ -220,6 +220,8 @@ body:has(.yz-landing) .md-grid { max-width: 76rem; }
   color: #e9e4ff;
   background: none; padding: 0;
   scrollbar-width: thin;
+  /* A dark track, so a command too long for the box does not get a white bar. */
+  scrollbar-color: rgba(185, 164, 255, 0.35) transparent;
 }
 .yzl-copy {
   display: inline-flex; align-items: center; gap: 0.35rem;
@@ -315,13 +317,18 @@ body:has(.yz-landing) .md-grid { max-width: 76rem; }
   box-shadow: 0 1px 0 #0b3d1f, 0 0 22px rgba(34, 197, 94, 0.55);
 }
 .yzl-wave { flex: 1; display: flex; align-items: center; gap: 3px; height: 2.2rem; min-width: 0; }
+/* The bars are full height and scaled, not resized: animating `height` re-laid out the
+   whole row on every frame for 28 elements (Lighthouse: 2.3 s of style and layout on a
+   throttled phone). `transform` is composited and costs no layout. */
 .yzl-wave span {
   flex: 1;
-  height: 12%;
+  height: 100%;
   border-radius: 3px;
   background: linear-gradient(180deg, var(--yzl-cyan), var(--yzl-violet));
   opacity: 0.35;
-  transition: height 200ms, opacity 200ms;
+  transform: scaleY(0.12);
+  transition: transform 200ms, opacity 200ms;
+  will-change: transform;
 }
 .yzl-demo.is-rec .yzl-wave span {
   opacity: 1;
@@ -329,13 +336,13 @@ body:has(.yz-landing) .md-grid { max-width: 76rem; }
   animation-delay: calc(var(--i) * -73ms);
 }
 @keyframes yzl-bar {
-  0% { height: 14%; }
-  30% { height: 85%; }
-  60% { height: 38%; }
-  100% { height: 66%; }
+  0% { transform: scaleY(0.14); }
+  30% { transform: scaleY(0.85); }
+  60% { transform: scaleY(0.38); }
+  100% { transform: scaleY(0.66); }
 }
 .yzl-demo.is-think .yzl-wave span { opacity: 0.7; animation: yzl-scan 1.1s linear infinite; animation-delay: calc(var(--i) * 40ms); }
-@keyframes yzl-scan { 0%, 100% { height: 12%; } 50% { height: 48%; } }
+@keyframes yzl-scan { 0%, 100% { transform: scaleY(0.12); } 50% { transform: scaleY(0.48); } }
 .yzl-demo__status { flex: none; font-size: 0.66rem; color: var(--yzl-on-dark-2); min-width: 8.5rem; text-align: right; }
 .yzl-demo__cap {
   display: flex; flex-wrap: wrap; justify-content: center; gap: 0.5rem 1rem;
@@ -851,6 +858,7 @@ body:has(.yz-landing) .md-grid { max-width: 76rem; }
 .yzl-qs__step h3 { margin: 0.2rem 0 0 !important; }
 .yzl-qs__step p { margin: 0; font-size: 0.78rem; line-height: 1.6; color: var(--md-default-fg-color--light); }
 .yzl-qs__step pre {
+  scrollbar-width: thin; scrollbar-color: rgba(185, 164, 255, 0.35) transparent;
   margin: 0; padding: 0.7rem 0.85rem; border-radius: 10px; overflow-x: auto;
   background: var(--yzl-ink); color: #e9e4ff;
   font-family: var(--md-code-font-family, monospace); font-size: 0.7rem; line-height: 1.6;
@@ -862,8 +870,10 @@ body:has(.yz-landing) .md-grid { max-width: 76rem; }
   position: absolute; top: 0.45rem; right: 0.45rem;
   padding: 0.2rem 0.55rem; border-radius: 6px; cursor: pointer;
   font: inherit; font-size: 0.62rem; font-weight: 600;
-  color: var(--yzl-on-dark); background: rgba(255, 255, 255, 0.08);
+  /* Opaque, so a long command scrolled under it does not show through. */
+  color: var(--yzl-on-dark); background: #2a2148;
   border: 1px solid rgba(185, 164, 255, 0.28);
+  box-shadow: -0.6rem 0 0.6rem var(--yzl-ink);
 }
 .yzl-qs__copy:hover { border-color: var(--yzl-lilac); }
 .yzl-qs__step kbd { font-size: 0.75rem; }
@@ -974,6 +984,9 @@ body:has(.yz-landing) .md-grid { max-width: 76rem; }
 }
 .yzl-js .yzl-reveal.is-in { opacity: 1; transform: none; }
 .yzl-hero__copy > * { animation: yzl-rise 900ms var(--yzl-ease) both; }
+/* The headline is the page's largest contentful paint: it is drawn at once rather than
+   faded in from opacity 0, which held LCP back on a throttled phone CPU. */
+.yzl-hero__copy > .yzl-hero__title { animation: none; }
 .yzl-hero__copy > :nth-child(2) { animation-delay: 80ms; }
 .yzl-hero__copy > :nth-child(3) { animation-delay: 160ms; }
 .yzl-hero__copy > :nth-child(4) { animation-delay: 240ms; }

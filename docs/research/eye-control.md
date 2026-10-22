@@ -157,6 +157,10 @@ self-contained study; bring results to the
    explicit calibration ([Sugano et al.](#ref-sugano)). How stable is that
    across laptop lids, docking stations, and glasses-wearers? Nobody has
    published longitudinal desktop data.
+   YazSes now carries the machinery to collect it: `[gaze_refine]` (off by default)
+   pairs clicks with gaze, promotes a refinement only if it wins on held-out clicks,
+   and `yazses gaze rollback` undoes it, with click observers for X11, Windows and
+   macOS (none on Wayland). None of those observers has yet run on real hardware.
 2. **Eye-agreement confidence vs ground truth.** Our per-frame confidence is
    a proxy. How well does left/right iris-offset divergence actually correlate
    with gaze error across faces, lighting, and webcams?
@@ -170,7 +174,8 @@ self-contained study; bring results to the
 !!! tip "Want to measure one of these?"
 
     You need a webcam and about an afternoon. `yazses gaze calibrate` fits the
-    map, `yazses gaze status` reports live confidence, and the
+    map, `yazses gaze status` says whether look-to-pane is ready, `yazses gaze measure`
+    checks the saved calibration at each target and writes a shareable report, and the
     [setup guide](../how-to/gaze-look-to-pane.md) covers the rest. Post what
     you find — negative results are just as publishable here.
 

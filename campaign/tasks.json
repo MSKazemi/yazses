@@ -22700,7 +22700,7 @@
     "validation": [
       "uv run python -m pytest tests/ -q"
     ],
-    "state": "open",
+    "state": "expired",
     "source": "open bug reports",
     "evidence": []
   },

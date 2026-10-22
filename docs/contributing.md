@@ -26,7 +26,7 @@ These are genuinely useful and need no Python:
 | 🌍 **[Translate the README](https://github.com/MSKazemi/yazses/issues/18)** | One language each — 24 listed, any other welcome. No install needed. |
 | 🎙️ **[Add your microphone](known-good-microphones.md)** | Run `yazses mic-level` and add one row to the table, alphabetically. **Bad results are wanted too.** |
 | ⚙️ **[Share a config](how-to/app-profiles.md)** | The settings that work for your editor or app. |
-| 🖥️ **[Add your setup](https://github.com/MSKazemi/yazses/issues/42)** | A line in `SHOWCASE.md` — a genuine two-minute pull request. |
+| 🖥️ **[Add your setup](https://github.com/MSKazemi/yazses/edit/main/SHOWCASE.md)** | A line in `SHOWCASE.md` — a genuine two-minute pull request. |
 | 🧪 **Run it and report** | On [macOS](https://github.com/MSKazemi/yazses/issues/24), [Windows](https://github.com/MSKazemi/yazses/issues/66), or the [snap](https://github.com/MSKazemi/yazses/issues/142). Telling us what broke is how most bugs here get found. |
 | 👁️ **[Eye/camera no-code validation](https://github.com/MSKazemi/yazses/blob/main/design/eye-control/BEGINNER_TESTING.md)** | Small hardware test packs for Windows, macOS, Wayland, X11 and HiDPI. The slots open one at a time as the code they test lands, so take one **only** if its issue carries `help wanted`; if none does yet, none is open. PASS, FAIL and BLOCKED are all useful answers. |
 
@@ -40,6 +40,7 @@ git clone https://github.com/MSKazemi/yazses
 cd yazses
 uv sync
 uv run python -m pytest tests/ -v
+uv run ruff check src tests scripts paper/benchmark   # lint (must be green)
 ```
 
 !!! warning "On Linux, install a compiler first"
@@ -84,7 +85,7 @@ scientific record lives in
 [`design/`](https://github.com/MSKazemi/yazses/tree/main/design) and is Apache-2.0 like
 the code:
 
-- **[~150 Architecture Decision Records](https://github.com/MSKazemi/yazses/tree/main/design/adr)**
+- **[~180 Architecture Decision Records](https://github.com/MSKazemi/yazses/tree/main/design/adr)**
   — one per real decision, with the context, the options and the consequence. If you are
   about to change behaviour, there is probably an ADR explaining why it is that way.
 - **[Feature specs](https://github.com/MSKazemi/yazses/tree/main/design/specs)** and the
@@ -100,7 +101,7 @@ more than a rushed implementation. Start with
 One rule worth knowing before you add a citation: **we never commit PDFs of other
 people's papers.** They are downloaded for personal research use, and republishing them
 would violate the authors' copyright — so we publish the citation and our own summary.
-The pre-commit hook blocks `*.pdf` outright.
+`.gitignore` excludes `*.pdf`, and `tests/test_citation_hygiene.py` fails the build if one is tracked (the maintainer's local pre-commit hook blocks it too).
 
 ## The rules that will not bend
 
