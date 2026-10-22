@@ -33,6 +33,7 @@ from pathlib import Path, PureWindowsPath
 import pytest
 
 import yazses
+from tests.scan_cache import scan_once
 
 SRC = Path(yazses.__file__).resolve().parent
 
@@ -240,6 +241,7 @@ _NETWORK_ROOTS = {"urllib", "http", "socket", "requests", "httpx", "aiohttp", "f
                   "smtplib", "asyncio", "webbrowser"}
 
 
+@scan_once
 def _modules_with_network_imports() -> dict[str, list[str]]:
     """Every `yazses` module importing a network primitive, and which."""
     found: dict[str, list[str]] = {}
@@ -271,6 +273,7 @@ def _modules_with_network_imports() -> dict[str, list[str]]:
     return found
 
 
+@scan_once
 def _modules_shelling_out_to_network_tools() -> dict[str, list[str]]:
     """Every `yazses` module that names a network-capable program and uses subprocess.
 
@@ -527,6 +530,7 @@ def test_the_git_path_is_declared_as_carrying_repository_content():
     assert "gitvoice/plan.py" not in SEND
 
 
+@scan_once
 def _modules_fetching_through_a_dependency() -> dict[str, list[str]]:
     """Every `yazses` module that asks a dependency to load a model by name.
 
@@ -670,6 +674,7 @@ _RELEASE_DOWNLOADERS = frozenset({"download_verified", "fetch_checksums", "fetch
 _DOWNLOADER_HOME = "system/installer_update.py"
 
 
+@scan_once
 def _modules_calling_the_release_downloader() -> dict[str, list[str]]:
     """Every `yazses` module, other than the downloader's own, that calls one of
     `_RELEASE_DOWNLOADERS`. Keyed and spelled like the other scans."""

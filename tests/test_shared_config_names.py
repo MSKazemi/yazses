@@ -31,6 +31,8 @@ import importlib.util
 import re
 from pathlib import Path
 
+from tests.scan_cache import scan_once
+
 ROOT = Path(__file__).resolve().parent.parent
 
 
@@ -47,12 +49,28 @@ AMBIGUOUS_UNREAD = _status.AMBIGUOUS_UNREAD
 KNOWN_UNREAD = _status.KNOWN_UNREAD
 
 
+@scan_once
+def _stripped_sources() -> tuple[tuple[str, str, str], ...]:
+    """`(path from ROOT, file name, text without comments)` for every module, read once.
+
+    The wiring check searches the whole tree once per ledger entry. Stripping comments
+    from every file again for each entry cost this module most of its runtime.
+    """
+    return tuple(
+        (
+            path.relative_to(ROOT).as_posix(),
+            path.name,
+            _status.without_comments(path.read_text(encoding="utf-8", errors="ignore")),
+        )
+        for path in sorted((ROOT / "src" / "yazses").rglob("*.py"))
+    )
+
+
 def _code() -> str:
-    src = ROOT / "src" / "yazses"
     return "\n".join(
-        _status.without_comments(p.read_text(encoding="utf-8", errors="ignore"))
-        for p in sorted(src.rglob("*.py"))
-        if p.name not in ("config.py", "configcheck.py")
+        text
+        for _rel, name, text in _stripped_sources()
+        if name not in ("config.py", "configcheck.py")
     )
 
 
@@ -83,9 +101,7 @@ def _attributable_reads(section: str, field: str, code: str) -> list[str]:
     ]
     package = f"src/yazses/{section}/"
     hits = []
-    for path in sorted((ROOT / "src" / "yazses").rglob("*.py")):
-        rel = path.relative_to(ROOT).as_posix()
-        text = _status.without_comments(path.read_text(encoding="utf-8", errors="ignore"))
+    for rel, _name, text in _stripped_sources():
         for i, line in enumerate(text.splitlines(), 1):
             if pats[0].search(line):
                 hits.append(f"{rel}:{i}: {line.strip()}")

@@ -272,6 +272,12 @@ def _marker_fields(call: ast.AST) -> tuple[dict[str, object], list[str]]:
 
 def scan_source(relpath: str, source: str) -> list[MarkerUse]:
     """Find every quarantine marker in one test file's source."""
+    if MARKER not in source:
+        # `mark.quarantine` is spelt out wherever it is used, so a file that never says
+        # `quarantine` has none. The policy test calls this for every test file, and
+        # parsing all of them was nearly all of its runtime. A file that does not parse
+        # still fails, at collection.
+        return []
     tree = ast.parse(source, filename=relpath)
     uses: list[MarkerUse] = []
     consumed: set[int] = set()

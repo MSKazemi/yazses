@@ -87,6 +87,10 @@ def test_no_test_asserts_against_a_value_read_from_the_host() -> None:
         if path.name == _SELF:
             continue
         source = path.read_text(encoding="utf-8")
+        # Only a file that names one of the calls can make it. Skipping the rest
+        # avoids parsing the whole suite.
+        if not any(name in source for name in _HOST_CALLS):
+            continue
         try:
             tree = ast.parse(source)
         except SyntaxError:  # pragma: no cover - fails loudly elsewhere
