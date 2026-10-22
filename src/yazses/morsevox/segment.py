@@ -20,8 +20,9 @@ as the silence after it reaches ``letter_gap_ms`` rather than waiting for the ne
 pulse, and (optionally) re-fits the dot/dash threshold to the user's own rhythm with
 :func:`~yazses.morsevox.decode.adapt_dot_threshold`.
 
-Everything here is deterministic, pure state; time comes only from the caller. It is
-not wired into the daemon: nothing constructs it at runtime yet.
+Everything here is deterministic, pure state; time comes only from the caller. At
+runtime it is constructed by :class:`~yazses.morsevox.mode.MorseMode` once Morse mode is
+entered, fed by the level stream in `morsevox/runtime.py`.
 """
 from __future__ import annotations
 

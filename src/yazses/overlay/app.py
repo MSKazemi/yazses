@@ -86,7 +86,9 @@ def compute_frame(
     answering it means asking the desktop's settings daemon and this runs sixty
     times a second.
     """
-    recording = snap.state == "recording"
+    # Vocal Morse mode listens with the daemon IDLE; its rings follow the hums as they
+    # follow speech while recording, which is how the user sees the mode is on.
+    recording = snap.state == "recording" or snap.morse_active
     envelope.threshold = snap.vad_threshold
 
     if recording and cfg.react_to_voice:
@@ -184,12 +186,28 @@ def run() -> None:  # pragma: no cover - thin Qt shell around compute_frame
         grid_poller.start()
         grid_widget = GridWidget(cfg.accent)
 
+    # Mouth-Sound Switch (ADR-v2-097): the scan strip, drawn from the `mouthswitch` block of
+    # the `status` reply the poller above already fetches -- no IPC of its own. Built only
+    # when `[mouthswitch] enabled`, so an overlay without the feature imports nothing more.
+    scan_widget = None
+    if full_cfg.mouthswitch.enabled:
+        from yazses.overlay.scan_widget import ScanWidget
+
+        scan_widget = ScanWidget(cfg.accent)
+
     def _tick() -> None:
         if grid_widget is not None and grid_poller is not None:
             grid_widget.show_grid(grid_poller.latest())
+        snap = poller.latest()
+        if scan_widget is not None:
+            primary = QGuiApplication.primaryScreen().geometry()
+            scan_widget.show_scan(
+                snap.scan_items, snap.scan_index,
+                (primary.x(), primary.y(), primary.width(), primary.height()),
+            )
         cursor = QCursor.pos()
         frame = compute_frame(
-            poller.latest(),
+            snap,
             cfg,
             envelope,
             model,

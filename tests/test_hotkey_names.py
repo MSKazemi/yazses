@@ -74,6 +74,33 @@ def test_a_plain_key_is_returned_unchanged() -> None:
     assert canonical("right_ctrl") == "right_ctrl"
 
 
+def _default_hotkey(platform: str) -> str:
+    """`default_hotkey=` in one platform's `build_platform`, parsed from the source."""
+    text = (ROOT / "src" / "yazses" / "platform" / platform / "__init__.py").read_text(
+        encoding="utf-8"
+    )
+    match = re.search(r'default_hotkey="([a-z_]+)"', text)
+    assert match, f"platform/{platform}/__init__.py no longer sets default_hotkey"
+    return match.group(1)
+
+
+@pytest.mark.parametrize("platform", PLATFORMS)
+def test_every_platform_default_is_an_offered_key(platform: str) -> None:
+    """`auto` resolves to this key; a picker must be able to show it."""
+    assert canonical(_default_hotkey(platform)) in SUPPORTED_HOTKEYS
+
+
+def test_the_first_offered_key_is_the_linux_default_and_not_the_windows_one() -> None:
+    """What the comment above `SUPPORTED_HOTKEYS` claims.
+
+    It used to say `right_alt` is the default "on Linux and Windows". Windows binds
+    `right_ctrl`, as `docs/configuration.md` and the `[hotkey] key` docs already said.
+    """
+    assert SUPPORTED_HOTKEYS[0] == _default_hotkey("linux") == "right_alt"
+    assert _default_hotkey("windows") == "right_ctrl"
+    assert canonical(_default_hotkey("macos")) == SUPPORTED_HOTKEYS[0]
+
+
 def test_every_alias_points_at_something_offered() -> None:
     """An alias resolving to a key nobody offers would be a dead entry."""
     for name, target in ALIASES.items():

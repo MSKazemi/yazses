@@ -57,8 +57,6 @@ KNOWN_AT_START: dict[str, str] = {
     "unconditionally; the gate it builds is inert while `[handsfree_safety]` is off.",
     "headpointer": "`_build_handsfree_safety` imports `headpointer.controller.SOURCE_NAME`, "
     "a string constant, unconditionally.",
-    "polyglot": "`_build_pipeline` imports `PolyglotRouter` and builds it from config "
-    "unconditionally; the router is inactive while `[polyglot]` is off.",
 }
 
 

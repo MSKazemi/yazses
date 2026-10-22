@@ -31,10 +31,47 @@ accessibility-critical part) is pure and testable with a fake clock. OFF by defa
 - Caveat: single/dual-switch scanning is slower than speech (inherent to the paradigm); off by
   default.
 
-## Implementation status (2026-10-21, WIRE-MOUTHSWITCH-001, #164)
+## Wiring (2026-10-22, WIRE-MOUTHSWITCH-001, #164) — untested on real hardware
 
-**Still unwired.** `mouthswitch` remains in `_UNWIRED` in `system/features.py`; nothing in the
-daemon constructs any of the code below, so `[mouthswitch] enabled = true` changes nothing yet.
+**Wired; experimental; off by default.** `mouthswitch` is no longer in `_UNWIRED`. Owner
+decision (2026-10-22): **single-switch scanning**, not the pop-advance / cluck-select pair
+above. The mapping the runtime passes to the detector is `pop` → `toggle`, `click` → `select`;
+`sh` stays unmapped.
+
+- **Scan items and timing** — `mouthswitch/scanner.py`, pure, every method takes `now`.
+  `SwitchScanner` lights item `floor((t - start) / dwell_s) mod n`; a pop starts or stops the
+  scan; a click selects the item lit **at the click's onset**, not at the moment the detector
+  reports it (≥150 ms later). Each scan selects at most once, then stops. A click outside the
+  scan, or reported more than 2 s after its onset, selects nothing. A scan stops by itself
+  after three passes. `dwell_s` is clamped to 0.5–10 s.
+- **Items** — new key `[mouthswitch] scan_items`, default `enter, undo, scroll up, scroll
+  down, click`. A command item is a phrase that must classify in the existing grammar
+  *and* be in the activation policy's reversible set. Otherwise the policy would ask for a
+  confirmation that a single switch cannot give, so the item is dropped at build time with
+  a log line. `click` / `scroll up` / `scroll down` are one call each on the platform's
+  existing `PointerSink` (`click(LEFT)`, `scroll(0, ∓3)`), offered only if the backend can
+  do them. No new action exists.
+- **Runtime** — `mouthswitch/runtime.py`, modelled on `vocaljoystick/runtime.py`: the
+  runner's own `AudioRecorder` stream (wiring item (1) above), opened by `yazses handsfree
+  resume` and closed by `handsfree pause`, the stop phrase, a pause of the global gate
+  (read-only) and shutdown. Chunks are dropped, the detector reset and the scan stopped
+  while dictation is busy. A selected command runs through
+  `activation/pipeline.handle_intent` → `commands.grammar.classify` → `commands.dispatch`
+  (the Gesture Chords path, with the no-echo injector).
+- **Highlight** — the overlay draws a click-through strip (`overlay/scanstrip.py` pure layout,
+  `overlay/scan_widget.py` Qt). It reads the scan from a new `mouthswitch` block in the
+  existing `status` reply, which it already polls, and it polls fast (50 ms) while a scan
+  runs. **No new IPC method.** Without the overlay (`[overlay]` off, no `desktop` extra, or a
+  native Wayland session, where the overlay is not started) the runtime refuses to build,
+  and `handsfree resume` reports why. A switch must never select an item nobody can see.
+- **Still not done:** sensitivity / mapping config keys (item (3) above); an earcon or
+  spoken cue for auditory scanning; any measurement on recorded mouth sounds, keyboard taps or
+  desk knocks. All thresholds remain synthetic-only.
+
+### Before the wiring (2026-10-21)
+
+**Unwired then.** `mouthswitch` was in `_UNWIRED` in `system/features.py`; nothing in the
+daemon constructed any of the code below.
 
 - **Done — the producer.** `classify_mouth_sound` took `duration_ms` / `centroid_hz` / `zcr` /
   `burst` and nothing computed them. `mouthswitch/detect.py` now does, with numpy only (no

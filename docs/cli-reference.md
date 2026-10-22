@@ -309,6 +309,7 @@ side without ever being compared. Such a capability is **not** counted in a grou
 | `yazses features enable <name>` | Turn a capability **on** (writes your config), then `yazses restart` to apply. |
 | `yazses features disable <name>` | Turn a capability **off**, then `yazses restart`. |
 | `yazses features install [<name>…]` | Install the libraries that **switched-on** features are missing (the `◐` rows), after showing the download and asking (`--yes` skips the question). Writes no config; undoes a failed or interrupted install. |
+| `yazses features repair` | The same install for **every** `◐` row at once, after listing each dormant feature and the packages it needs — including any this install can never take (a snap, a frozen `.app`/`.exe`), with the reason. One question (`--yes` skips it), then one summary line per feature. `--dry-run` only lists. Exits 0 when nothing was dormant or everything was repaired, 1 otherwise. |
 | `yazses features reset` | Restore **every** capability to the state a fresh install ships with. |
 
 ```bash
@@ -321,6 +322,8 @@ yazses features info reflow              # describe one + show a usage example
 yazses features enable read-back         # turn one on  (use the TOGGLE NAME)
 yazses features disable cocktail         # turn one off
 yazses features install                  # install what switched-on features lack
+yazses features repair --dry-run         # list every dormant feature + what it needs
+yazses features repair                   # install them all, one question, per-feature summary
 yazses features reset --dry-run          # what a reset would change; writes nothing
 yazses features reset                    # restore the defaults (asks first)
 yazses restart                           # apply
@@ -1384,6 +1387,10 @@ Turn a spoken git command into a git command, fully offline. It **always prints
 the resolved command and how to undo it**, which is the point — you see exactly
 what you are about to run before anything happens.
 
+It is a command-line tool and needs no setup: nothing reads `[gitvoice] enabled`
+(the `yazses features` toggle only records a choice), no dictation path runs git, and
+nothing is spoken back — there is no spoken confirm.
+
 **Options:** `--run` (execute instead of only printing) · `--yes` (confirm a
 destructive command so `--run` will run it).
 
@@ -1400,6 +1407,13 @@ undo: recover via: git reflog / your editor's local history (uncommitted changes
 Reads the `TEXT` argument, or standard input when omitted, and **exits non-zero
 if it cannot parse the utterance** — so a misheard command produces an error, not
 a plausible wrong command.
+
+**A branch name it cannot read is refused, not guessed.** A push has to read as
+`push [to] [remote] [branch]` with every word accounted for: `push the frobnicator
+please` is refused rather than turned into `git push origin the`. Words like *the*,
+*it*, *to* and *please* are never taken as a branch name, and a word starting with
+`-` is never passed through as an option. A trailing *please*, *now*, *thank you* or
+full stop is ignored, so `Push to main, please.` still gives `git push origin main`.
 
 **A branch you name reaches the command.** `push to main` renders
 `git push origin main`, not a bare `git push` — which would push whichever branch

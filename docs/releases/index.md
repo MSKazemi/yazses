@@ -23,10 +23,10 @@ software itself runs on.
 
 ## Current stable
 
-**[YazSes 2.43.2](v2.43.2.md)** — speech models no longer type words nobody said. A burst of fan or
-keyboard noise that clears the volume gate used to come back as the vocabulary prompt, "The app is called
-YazSes."; the daemon now checks that a burst holds speech before it decodes it. Eyes-closed dictation also
-stops re-typing the previous sentence on a stray release, and re-arms after a glance away.
+**[YazSes 2.44.0](v2.44.0.md)** — your words land where you meant them. Dictation over `yazses remote`
+is typed on the remote host instead of this machine, the Windows keyboard no longer lags while a dictation
+transcribes, and a language an English-only model cannot transcribe is refused instead of typed as English.
+`yazses gitvoice` refuses a force push it cannot read, and a batch of experimental features can be switched on.
 
 Install it with:
 
@@ -37,6 +37,7 @@ pipx upgrade yazses          # upgrade an existing install
 
 ### Recent stable releases
 
+- [v2.44.0](v2.44.0.md) — your words land where you meant them: dictation over `yazses remote` reaches the remote host, the Windows keyboard no longer lags during a transcription, a non-English language on an English-only model is refused instead of typed as English (#515), `yazses gitvoice` refuses a force push it cannot read, `yazses stop` stays stopped on Windows, and experimental features (all off by default) can be switched on.
 - [v2.43.2](v2.43.2.md) — a loud burst with no speech in it is no longer decoded into the vocabulary prompt (`[accessibility] speech_presence_check`), a stray hold-release no longer re-types the previous dictation, eyes-closed dictation re-arms after a glance away and no longer fires on a blink, and a gaze-grounding edge case is fixed.
 - [v2.43.1](v2.43.1.md) — fixes from the first macOS reports: a newer daemon replaces an older one after an upgrade, macOS Quit stops the daemon, the tray's Re-calibrate measures room and voice, and Windows on ARM uses the x64 installer.
 - [v2.43.0](v2.43.0.md) — a second keyboard works: a keyboard plugged in after YazSes started now works for hold-to-talk on Linux, and five designed features can be switched on with `yazses features enable`.

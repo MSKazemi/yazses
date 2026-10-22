@@ -51,6 +51,15 @@ falls short.
 
     [:octicons-arrow-right-24: Voice coding](voice-coding.md)
 
+-   :material-robot-outline:{ .lg .middle } **Prompts for AI coding agents**
+
+    ---
+
+    Dictate long prompts into Claude Code, Codex or a chat app. Hold-to-talk
+    never cuts you off mid-thought, and nothing leaves your machine.
+
+    [:octicons-arrow-right-24: Voice input for AI agents](voice-input-for-ai-agents.md)
+
 -   :material-code-tags:{ .lg .middle } **Code and technical vocabulary**
 
     ---

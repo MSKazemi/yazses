@@ -18,7 +18,8 @@ text that was chunked: ``tts.chunking.sentence_chunks`` splits only at whitespac
 strips each piece, so concatenating the chunks' ``split()`` lists reproduces the
 original's. That is what lets a caller turn an index back into a place in the text.
 
-Dependency-free (stdlib only). Nothing calls this yet; ``[proofback]`` stays dormant.
+Dependency-free (stdlib only). ``proofback/bargein.py`` consumes it; the daemon feeds it
+from the TTS playback listener only while ``[proofback]`` is on.
 """
 from __future__ import annotations
 

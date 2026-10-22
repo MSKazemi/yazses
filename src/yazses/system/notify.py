@@ -251,6 +251,7 @@ def notify(
     actions_supported: bool | None = None,
     spawn: bool = True,
     expire_ms: int | None = None,
+    log_body: bool = True,
 ) -> None:
     """Show a desktop notification; never raises.
 
@@ -265,6 +266,11 @@ def notify(
     ``_kill_inflight``. ``available``/``actions_supported`` override the capability
     probes (for tests); ``spawn=False`` runs the actionable path inline instead of on
     a thread (for tests).
+
+    ``log_body=False`` keeps the body out of the log lines written when there is no
+    ``notify-send``: those lines reach the file ``yazses logs`` shows and ``yazses
+    report`` bundles, and a body derived from what the user dictated (a predictive
+    completion) belongs on screen only. The log still records that a toast was sent.
     """
     avail = notifier_available() if available is None else available
     if not avail:
@@ -272,10 +278,11 @@ def notify(
         # (the mic auto-heal, a VAD retune, a silent streak) used to be written to
         # a log file the user never opens. Hand it to whatever sink is registered
         # so the tray can surface it natively; the log line stays either way.
+        shown = body if log_body else f"(body withheld, {len(body)} chars)"
         if _deliver_to_fallback(title, body):
-            log.info("Desktop notification (via fallback sink): %s — %s", title, body)
+            log.info("Desktop notification (via fallback sink): %s — %s", title, shown)
         else:
-            log.info("Desktop notification (notify-send unavailable): %s — %s", title, body)
+            log.info("Desktop notification (notify-send unavailable): %s — %s", title, shown)
         return
 
     use_actions = bool(actions) and (
