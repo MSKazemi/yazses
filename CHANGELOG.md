@@ -6,6 +6,13 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — a source comment no longer says Windows defaults to Right Alt
+
+The comment above the list of supported hotkeys said `right_alt` is the default "on Linux
+and Windows". Windows binds `right_ctrl`, as the configuration reference already said;
+only the comment was wrong, and no behaviour changes. A test now reads each platform's
+default from its source and checks it against the list.
+
 ### Fixed — `yazses features info gitvoice` no longer promises a spoken confirm that does not exist
 
 The feature catalog said git commands could be driven by voice, that destructive ones
