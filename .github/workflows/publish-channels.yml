@@ -86,6 +86,7 @@ jobs:
     # Every channel below needs the released binaries -- their checksums are what
     # the manifests carry. On a tag push the builds are still running.
     runs-on: ubuntu-latest
+    timeout-minutes: 95   # its own waits run to 30 + 50 min; this must not cut them short (CI_POLICY §8)
     outputs:
       version: ${{ steps.resolve.outputs.version }}
     env:
@@ -177,6 +178,7 @@ jobs:
     needs: wait-for-assets
     if: github.event.inputs.channel == '' || github.event.inputs.channel == 'all' || github.event.inputs.channel == 'winget'
     runs-on: windows-latest
+    timeout-minutes: 30   # no measured publish yet (CI_POLICY §8)
     env:
       HAVE_SECRET: ${{ secrets.WINGET_TOKEN != '' && 'yes' || 'no' }}
       VERSION: ${{ needs.wait-for-assets.outputs.version }}
@@ -256,6 +258,7 @@ jobs:
     needs: wait-for-assets
     if: github.event.inputs.channel == '' || github.event.inputs.channel == 'all' || github.event.inputs.channel == 'chocolatey'
     runs-on: windows-latest
+    timeout-minutes: 30   # no measured publish yet (CI_POLICY §8)
     env:
       HAVE_SECRET: ${{ secrets.CHOCO_API_KEY != '' && 'yes' || 'no' }}
       VERSION: ${{ needs.wait-for-assets.outputs.version }}
@@ -309,6 +312,7 @@ jobs:
     needs: wait-for-assets
     if: github.event.inputs.channel == '' || github.event.inputs.channel == 'all' || github.event.inputs.channel == 'homebrew'
     runs-on: ubuntu-latest
+    timeout-minutes: 30   # no measured publish yet (CI_POLICY §8)
     env:
       HAVE_SECRET: ${{ secrets.TAP_TOKEN != '' && 'yes' || 'no' }}
       VERSION: ${{ needs.wait-for-assets.outputs.version }}
@@ -352,6 +356,7 @@ jobs:
     needs: wait-for-assets
     if: github.event.inputs.channel == '' || github.event.inputs.channel == 'all' || github.event.inputs.channel == 'aur'
     runs-on: ubuntu-latest
+    timeout-minutes: 30   # no measured publish yet (CI_POLICY §8)
     env:
       HAVE_SECRET: ${{ secrets.AUR_SSH_KEY != '' && 'yes' || 'no' }}
       VERSION: ${{ needs.wait-for-assets.outputs.version }}
@@ -446,6 +451,7 @@ jobs:
     needs: [wait-for-assets, winget, chocolatey, homebrew, aur]
     if: always()
     runs-on: ubuntu-latest
+    timeout-minutes: 10   # slowest of the last 2 runs: 0.1 min (CI_POLICY §8)
     steps:
       - name: Say what published and what is still waiting on a credential
         env:

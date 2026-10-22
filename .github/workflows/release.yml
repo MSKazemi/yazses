@@ -20,6 +20,7 @@ env:
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 65   # slowest of the last 15 runs: 20.4 min (serial suite) (CI_POLICY §8)
     permissions:
       contents: read
     steps:
@@ -45,6 +46,7 @@ jobs:
 
   publish-pypi:
     runs-on: ubuntu-latest
+    timeout-minutes: 10   # slowest of the last 15 runs: 0.7 min (CI_POLICY §8)
     needs: test
     environment: pypi
     permissions:
@@ -100,6 +102,7 @@ jobs:
             runner: ubuntu-24.04-arm
     name: build-deb (${{ matrix.arch }})
     runs-on: ${{ matrix.runner }}
+    timeout-minutes: 10   # slowest of the last 15 runs: 0.6 min (CI_POLICY §8)
     needs: test
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -151,6 +154,7 @@ jobs:
     # action-gh-release would race on the same tag.
     if: github.ref_type == 'tag'
     runs-on: ubuntu-latest
+    timeout-minutes: 10   # slowest of the last 15 runs: 0.2 min (CI_POLICY §8)
     needs: build-deb
     permissions:
       contents: write      # softprops/action-gh-release creates the Release

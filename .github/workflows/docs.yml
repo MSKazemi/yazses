@@ -58,6 +58,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 25   # slowest of the last 15 runs: 7.6 min (CI_POLICY §8)
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -158,6 +159,7 @@ jobs:
     if: ${{ github.event_name != 'pull_request' }}
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 10   # slowest of the last 15 runs: 2.7 min (CI_POLICY §8)
     permissions:
       contents: read
       pages: write      # required by actions/deploy-pages

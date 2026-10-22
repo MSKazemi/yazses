@@ -44,6 +44,7 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 35   # on a release its own pip wait runs to 20 min; this must not cut it short (CI_POLICY §8)
     permissions:
       contents: read
       packages: write

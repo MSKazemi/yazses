@@ -24,6 +24,7 @@ jobs:
   analyze:
     name: Analyze (${{ matrix.language }})
     runs-on: ubuntu-latest
+    timeout-minutes: 15   # slowest of the last 15 runs: 4.0 min (CI_POLICY §8)
     permissions:
       security-events: write
       actions: read

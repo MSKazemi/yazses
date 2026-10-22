@@ -42,6 +42,7 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    timeout-minutes: 65   # its own wait runs to 50 min; this must not cut it short (CI_POLICY §8)
     permissions:
       contents: write # may demote an incomplete release to pre-release
     env:

@@ -18,6 +18,7 @@ permissions:
 jobs:
   dependency-review:
     runs-on: ubuntu-latest
+    timeout-minutes: 10   # slowest of the last 15 runs: 0.4 min (CI_POLICY §8)
     permissions:
       contents: read
       pull-requests: write

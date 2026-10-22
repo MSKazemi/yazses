@@ -56,6 +56,7 @@ jobs:
     name: Regenerate the Python dependency modules
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.regenerate }}
     runs-on: ubuntu-latest
+    timeout-minutes: 10   # slowest of the last 15 runs: 0.3 min (CI_POLICY §8)
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
@@ -117,6 +118,7 @@ jobs:
     # the manifest references a file that does not exist and the build cannot run.
     if: ${{ github.event_name != 'workflow_dispatch' || !inputs.regenerate }}
     runs-on: ubuntu-latest
+    timeout-minutes: 20   # slowest of the last 15 runs: 5.4 min (CI_POLICY §8)
     container:
       image: ghcr.io/flathub-infra/flatpak-github-actions:kde-6.7
       options: --privileged

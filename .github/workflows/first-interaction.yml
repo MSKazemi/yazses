@@ -35,6 +35,7 @@ jobs:
       # ...and on a first pull request. The action treats them as separate scopes.
       pull-requests: write
     runs-on: ubuntu-latest
+    timeout-minutes: 10   # slowest of the last 15 runs: 0.5 min (CI_POLICY §8)
     steps:
       - uses: actions/first-interaction@1c4688942c71f71d4f5502a26ea67c331730fa4d # v3.1.0
         with:

@@ -15,6 +15,7 @@ permissions:
 jobs:
   preflight:
     runs-on: ubuntu-latest
+    timeout-minutes: 30   # no run to measure yet (CI_POLICY §8)
     env:
       GITHUB_TOKEN: ${{ github.token }}
       ISSUE_NUMBER: ${{ inputs.issue_number }}

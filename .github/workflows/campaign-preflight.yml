@@ -32,6 +32,7 @@ concurrency:
 jobs:
   preflight:
     runs-on: ubuntu-latest
+    timeout-minutes: 10   # slowest of the last 15 runs: 0.2 min (CI_POLICY §8)
     steps:
       # SHA-pinned to match every other workflow here; the repo runs OpenSSF Scorecard,
       # which scores exactly this.
