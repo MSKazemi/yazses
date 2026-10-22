@@ -17,6 +17,9 @@ these changes it took 40 min 49 s, after them 7 min 38 s. No assertion was remov
   per test, so every call took longer than the one before. The fixtures now share one
   directory per session and number theirs with a counter. On 3,000 empty tests the cost
   fell from 66 s to 18.5 s (11 s with no fixtures at all).
+  `tests/test_conftest_per_test_cost.py` now fails if an autouse fixture asks for
+  `tmp_path` or calls `mktemp()` per test, directly or through another fixture. Run
+  against the old conftest, it names exactly the two fixtures that caused this.
 - **A source scan runs once per session, not once per test.** `tests/scan_cache.py` adds
   `scan_once`: a guard that parses the whole tree caches its answer and hands each test a
   private copy. `test_egress_inventory.py` used to parse all ~680 modules a dozen times;
