@@ -2032,7 +2032,12 @@ class DiagramvoxConfig:
 
 @dataclass
 class ProofbackConfig:
-    """v2.9 Wave M — Interruptible Read-Back Proofreading (ADR-v2-108). OFF by default."""
+    """v2.9 Wave M — Interruptible Read-Back Proofreading (ADR-v2-108). OFF by default.
+
+    Rides on the Read-Back Loop (``[tts] enabled`` and ``[accessibility] read_back``):
+    holding the dictation key while a dictated burst is read back marks the word being
+    read, and the next dictated burst replaces the text from that word to the burst's end.
+    """
     enabled: bool = False
 
 

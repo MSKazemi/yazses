@@ -246,18 +246,6 @@ entries:
       task: "WIRE-PRONUNCIATION-001"
       milestone: 9
     remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
-  - id: "capability:proofback"
-    kind: capability
-    title: "Interruptible Read-Back Proofreading"
-    source: "design/adr/adr-v2-108-interruptible-readback-proofreading.md"
-    decision_status: accepted
-    delivery_status: designed
-    tracking:
-      kind: campaign
-      issues: [164]
-      task: "WIRE-PROOFBACK-001"
-      milestone: 9
-    remaining: "Wire the existing designed/tested core into a reachable runtime entry point; remove the slug from _UNWIRED when reachability is real."
   - id: "capability:rag"
     kind: capability
     title: "Voice-Grounded RAG"

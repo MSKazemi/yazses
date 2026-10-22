@@ -535,9 +535,11 @@ def _registry() -> list[_Def]:
              "just one edge. Off by default.",
              lambda c: c.diagramvox.enabled, dv_on, dv_off),
         _Def("proofback", "Interruptible Proofreading", "[proofback] — barge-in read-back editing",
-             OPTIONAL,
-             "Interrupt the spoken read-back ('stop — change that') and the cursor lands on the exact "
-             "word being read — eyes-free proofreading. Off by default.",
+             EXPERIMENTAL,
+             "Hold the dictation key while a dictation is being read back: the word being read is "
+             "marked, and what you say next replaces the text from that word to the end of that "
+             "dictation — eyes-free proofreading. Needs Read-Back on. Experimental: word timing "
+             "is estimated, untested on real hardware. Off by default.",
              lambda c: c.proofback.enabled, pb_on, pb_off),
         _Def("screenplay", "Screenplay Auto-Format", "[screenplay] — dialogue → Fountain", OPTIONAL,
              "Formats dictated scenes and dialogue as Fountain screenplay markup (scene headings, "
@@ -1235,7 +1237,7 @@ def feature_packages(slug: str) -> tuple[str, ...]:
 _UNWIRED: frozenset[str] = frozenset({
     "affect", "agent", "audioguard", "breath", "bridge", "cmdspotter",
     "codec", "compose", "crowdproof", "hatselect", "interpret", "langroute", "lipread", "loadguard", "morsevox", "mouthswitch",
-    "multiprofile", "pilot", "predict", "pronunciation", "proofback", "rag", "readback_clone",
+    "multiprofile", "pilot", "predict", "pronunciation", "rag", "readback_clone",
     "screengrounded", "scribe", "scrub", "sentiment", "sign", "spatialvad", "wakeword",
 })
 
@@ -1299,7 +1301,7 @@ _EXAMPLES: dict[str, str] = {
     "echo": "Say 'play that back' and hear your own recording of the last words.",
     "srpace": "Dictate a paragraph and your screen reader keeps up, clause by clause.",
     "diagramvox": "Say 'A goes to B and C, B goes to D' and get a three-edge Mermaid flowchart.",
-    "proofback": "Interrupt the read-back and the cursor lands on the word being read.",
+    "proofback": "Hold the key while a dictation is read back, then say the fix: it replaces the text from the word you interrupted.",
     "screenplay": "Dictate a scene and it lands as proper INT./EXT. Fountain markup.",
     "srscap": "Say 'remember that the capital of France is Paris' → a flashcard.",
     "styleguard": "Say 'email' and your style sheet rewrites it to 'e-mail' automatically.",
@@ -1871,6 +1873,18 @@ def enable_caveat(slug: str, cfg) -> str | None:
         except Exception:
             pass
 
+    if slug == "proofback":
+        # Proofreading interrupts the read-back; with read-back off there is nothing to
+        # interrupt, and the toggle would be a true key with no effect.
+        tts_on = bool(getattr(getattr(cfg, "tts", None), "enabled", False))
+        mode = (getattr(getattr(cfg, "accessibility", None), "read_back", "off") or "off")
+        if not tts_on or mode.strip().lower() == "off":
+            return (
+                "Heads up: proofreading interrupts the spoken read-back, and read-back is "
+                "off ([tts] enabled / [accessibility] read_back) — so enabling it now "
+                "changes nothing. Turn read-back on first: "
+                "`yazses features enable read-back`, then `yazses restart`."
+            )
     if slug == "hesitation" and not getattr(getattr(cfg, "autostop", None), "enabled", False):
         # Hesitation-hold only lengthens a hands-free turn's silence timeout; hold-to-talk
         # ends on key release, so with [autostop] off the toggle would change nothing.

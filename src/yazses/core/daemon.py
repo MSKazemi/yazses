@@ -42,6 +42,7 @@ if TYPE_CHECKING:
     from yazses.meeting.controller import MeetingController
     from yazses.perception import SharedPerceptionSource
     from yazses.polyglot.router import PolyglotRouter
+    from yazses.proofback.bargein import ProofbackController, ProofTarget, ReadbackSession
     from yazses.reask.gate import ReaskGate
     from yazses.styleguard.rules import Rule as StyleRule
     from yazses.system.single_instance import SingleInstanceLock
@@ -538,6 +539,17 @@ class Daemon:
             from yazses.timeline.history import InjectionTimeline as _InjectionTimeline
 
             self._timeline = _InjectionTimeline()
+        # Interruptible Proofreading (ADR-v2-108) — None when [proofback] is off. A hold
+        # during the read-back of a dictated burst arms "replace from the word being
+        # read"; the next dictated burst is typed in that span's place. See
+        # `_proofback_barge_in` and `_proofback_prepare`.
+        self._proofback: ProofbackController | None = None
+        if self._config.proofback.enabled:
+            from yazses.proofback.bargein import ProofbackController as _ProofbackController
+
+            # Kokoro stamps each chunk with time.monotonic(); the barge-in must read
+            # the same clock or the word lookup compares two unrelated timelines.
+            self._proofback = _ProofbackController(clock=time.monotonic)
         # Meeting Mode (ADR-v2-127): active controller + its dedicated mic recorder,
         # None when no meeting is running. `_meeting_finalizing` guards the post-pass.
         self._meeting_controller: MeetingController | None = None
@@ -2648,13 +2660,21 @@ class Daemon:
         # requested but whose worker has not run yet is cancelled too -- that is the
         # common case, not the exotic one, because a user dictating a second
         # sentence re-holds the key before the worker is ever scheduled.
+        proofback = getattr(self, "_proofback", None)
         if self._tts is not None:
             with self._lock:
                 self._readback_seq += 1
+                reading = self._state.state == TrayState.READBACK
+            # Interruptible Proofreading (ADR-v2-108): read the clock BEFORE the cancel,
+            # so the word identified is the one playing when the key went down.
+            if proofback is not None:
+                self._proofback_barge_in(proofback, reading)
             try:
                 self._tts.cancel()
             except Exception:
                 pass
+        elif proofback is not None:
+            proofback.disarm()
         with self._lock:
             self._state.state = TrayState.RECORDING
         log.info("Recording started (cleaning up %d leaked char(s))", leaked)
@@ -2851,6 +2871,12 @@ class Daemon:
 
         stream_injector = self._stream_injector
         self._stream_injector = None
+
+        # Interruptible Proofreading (ADR-v2-108): a target armed by this burst's
+        # barge-in applies to this burst and no other. Taken here, so a burst that
+        # turns out to be a command, a discard or a gated utterance consumes it too.
+        _proofback = getattr(self, "_proofback", None)
+        proof_target = _proofback.take_armed() if _proofback is not None else None
 
         # Learning corpus event accumulated across the pipeline; written once in
         # the finally block when capture is enabled. None-safe and never blocking.
@@ -3914,6 +3940,15 @@ class Daemon:
                         text = _lead + to_criticmarkup("insert", _body)
                         event["suggestmode"] = True
                         event["final_text"] = text
+
+                # Interruptible Proofreading (ADR-v2-108): a barge-in during the last
+                # read-back armed "replace from the word being read". Last before the
+                # injection so every gate above has already had its say; the erase
+                # happens only now that there is a replacement to type.
+                if proof_target is not None:
+                    text = self._proofback_prepare(
+                        proof_target, text, injector, event, streaming=use_streaming
+                    )
 
                 if use_streaming:
                     assert stream_injector is not None
@@ -6399,18 +6434,34 @@ class Daemon:
         if cap and len(rb) > cap:
             rb = rb[:cap].rstrip() + "…"
         if rb:
-            self._speak_readback(rb)
+            proofback = getattr(self, "_proofback", None)
+            if proofback is None:
+                self._speak_readback(rb)
+            else:
+                # Interruptible Proofreading (ADR-v2-108): this read-back is of a burst
+                # YazSes just typed, so a barge-in during it can address that text.
+                session = proofback.start_readback(
+                    injected=text, spoken=rb, stamp=self._last_dictation_monotonic
+                )
+                self._speak_readback(rb, proofback_session=session)
 
-    def _speak_readback(self, text: str) -> None:
+    def _speak_readback(
+        self, text: str, proofback_session: ReadbackSession | None = None
+    ) -> None:
         """Enter READBACK and speak *text* on a background thread.
 
         Runs off the hotkey loop so playback never blocks recording. The recorder
         is push-to-talk, so TTS audio is never auto-captured (echo-loop interlock);
         a hold during playback is treated as barge-in in ``_on_hold_start``.
+
+        With ``[proofback]`` on, *proofback_session* is the read-back of a dictated
+        burst; its timeline is fed by the backend's optional playback listener. Any
+        other utterance (``yazses say``) passes ``None`` and can never be edited.
         """
         if self._tts is None:
             return
         tts = self._tts
+        proofback = getattr(self, "_proofback", None)
         with self._lock:
             seq = self._readback_seq
 
@@ -6428,17 +6479,110 @@ class Daemon:
                         begin()
                     except Exception:  # noqa: BLE001 - a claim must never break read-back
                         log.debug("Read-back claim failed", exc_info=True)
+                if proofback is not None:
+                    # Inside the same section as READBACK, so a barge-in that sees
+                    # READBACK also sees this utterance as the one playing.
+                    set_listener = getattr(tts, "set_playback_listener", None)
+                    if set_listener is not None:
+                        try:
+                            set_listener(
+                                proofback_session.on_chunk
+                                if proofback_session is not None else None
+                            )
+                        except Exception:  # noqa: BLE001 - never break read-back
+                            log.debug("Read-back listener failed", exc_info=True)
+                    proofback.playback_started(proofback_session)
                 self._state.state = TrayState.READBACK
             try:
                 tts.speak(text)
             except Exception as exc:
                 log.debug("Read-back error: %s", exc)
             finally:
+                if proofback is not None:
+                    proofback.playback_finished(proofback_session)
                 with self._lock:
                     if self._state.state == TrayState.READBACK:
                         self._state.state = TrayState.IDLE
 
         threading.Thread(target=_run, daemon=True, name="readback").start()
+
+    def _proofback_barge_in(self, proofback: ProofbackController, reading: bool) -> None:
+        """A hold started: arm a proofreading target if it interrupted a read-back.
+
+        *reading* is whether the tray was in READBACK when the key went down. Only
+        then is the hold a barge-in (ADR-021: a specific signal, never a guess);
+        every other hold disarms, so no target outlives the hold that made it.
+        """
+        try:
+            if not reading:
+                proofback.disarm()
+                return
+            result = proofback.barge_in()
+        except Exception:  # noqa: BLE001 - proofreading must never block recording
+            log.debug("Proofback barge-in failed", exc_info=True)
+            return
+        if result.target is not None:
+            log.info("Proofback: read-back interrupted at word %d; the next burst "
+                     "replaces the text from that word on.", result.word_index)
+        elif result.word_index >= 0:
+            # The fallback: the word is known but its place in the typed text is not
+            # (a truncated read-back), so nothing is erased.
+            log.info("Proofback: read-back interrupted at word %d, which cannot be "
+                     "located in the typed text; dictation will not replace it.",
+                     result.word_index)
+        else:
+            log.debug("Proofback: hold during read-back armed nothing (%s).", result.reason)
+        log.debug("Proofback: interrupted word %r (%s).", result.word, result.reason)
+
+    def _proofback_prepare(
+        self,
+        target: ProofTarget,
+        text: str,
+        injector: InjectorBackend,
+        event: dict,
+        *,
+        streaming: bool,
+    ) -> str:
+        """Erase the interrupted span of the last burst and return what to type instead.
+
+        Only backspaces from the end of the burst YazSes typed — the "scratch that"
+        mechanism — so no caret is moved. When :func:`plan_replacement` refuses, *text*
+        comes back unchanged and is typed as ordinary dictation: the word was
+        reported, and nothing the user already has is deleted.
+        """
+        from yazses.proofback.bargein import plan_replacement
+
+        with self._lock:
+            target_ok = self._state.target_ok
+        plan = plan_replacement(
+            target,
+            text,
+            current_stamp=self._last_dictation_monotonic,
+            streaming=streaming,
+            target_ok=target_ok,
+        )
+        event["proofback_word_index"] = target.word_index
+        event["proofback_result"] = plan.reason
+        if not plan.apply:
+            log.info("Proofback: interrupted word %d not replaced (%s); typing the "
+                     "burst as ordinary dictation.", target.word_index, plan.reason)
+            return text
+        injector.inject_backspaces(plan.erase_count)
+        event["final_text"] = plan.text
+        # The burst on screen is now `kept`. Keep the undo records in step, but only
+        # when their newest entry is that burst — otherwise leave them alone rather
+        # than rewrite a record of something else.
+        if self._ledger.last_text() == target.original:
+            if target.kept:
+                self._ledger.replace_last(target.kept)
+            else:
+                self._ledger.scratch_last()
+        timeline = getattr(self, "_timeline", None)
+        if timeline is not None:
+            timeline.replace_last(target.original, target.kept)
+        log.info("Proofback: replaced %d chars from word %d.",
+                 plan.erase_count, target.word_index)
+        return plan.text
 
     def _active_injector(self) -> InjectorBackend:
         """Return the remote injector while a remote session is up, else the local one.

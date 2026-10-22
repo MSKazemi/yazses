@@ -6,6 +6,19 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — Interruptible Proofreading: correct a dictation while it is read back (experimental, off by default)
+
+`proofback` is now wired (ADR-v2-108). With Read-Back on, hold the dictation key while a
+dictation is being read to you: playback stops, the word being read is identified from the
+per-word playback timeline, and the next thing you dictate replaces the text from that word
+to the end of that dictation. It deletes only text YazSes itself just typed, with backspaces
+from the end, as "scratch that" does, and never moves the caret. When it cannot place the
+word safely, it logs the word's position and types your correction as ordinary dictation.
+That happens when the read-back was cut short by `max_readback_chars`, the window has no
+text field, streaming is on, or something else was typed since. Word timing is estimated
+from the TTS chunk lengths, and the feature is untested on real hardware. Turn it on with
+`yazses features enable proofback --force`.
+
 ### Changed — every CI test job now has a time limit that fits the parallel suite
 
 With no `timeout-minutes`, `repo-hygiene` sat in a hung `apt-get update` for 78 minutes

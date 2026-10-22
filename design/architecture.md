@@ -658,6 +658,8 @@ Read-Back Loop (spec-read-back-loop): offline TTS that speaks the transcript bac
 
 Wired in `core/daemon.py`: built at startup; after a **dictation** injection, `_maybe_read_back` truncates to `max_readback_chars` and `_speak_readback` enters the `READBACK` state and speaks on a background thread. Commands are never read back. `yazses say` / `readback_speak` IPC speak on demand. `status` exposes `read_back` + `tts_backend`.
 
+**Interruptible Proofreading** (`src/yazses/proofback/`, ADR-v2-108, `[proofback]` off, experimental): `timeline.py` turns the backend's optional playback listener (`KokoroTtsBackend.set_playback_listener`) into a per-word timeline; `bargein.py` (pure, clock-injected) decides whether a hold during `READBACK` of a dictated burst is a barge-in, which word it hit, and the replacement span — always from that word to the end of the burst, so the edit is backspaces from the end (never a caret move). `_on_hold_start` arms it, `_on_hold_end` takes it for exactly the next burst, and `_proofback_prepare` erases the span and rewrites the ledger/`[timeline]` record; any refusal types the burst as ordinary dictation.
+
 ### v2 perceptual & personalization layer (off by default; `design/v2-cognitive-layer/`)
 
 Four advanced features. Each follows the optional-extra + dormant-factory pattern; the dependency-free cores are fully tested, the model/sensor/training parts are behind extras and gated.
