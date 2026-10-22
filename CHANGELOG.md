@@ -43,6 +43,17 @@ multi-factor authentication and a fixed credit line; the old page had none of th
   Windows install page and the GitHub release notes link to it.
 - `tests/test_code_signing_policy_page.py` pins each required piece to the file that holds it.
 
+### Fixed — running the test suite no longer deletes your running daemon's pid file
+
+`tests/test_voicehealth_wiring.py` (added with the voice-health wiring) built its daemons
+on the real platform, and each `Daemon._shutdown()` ended in the real `clear_pid()`. A
+developer who ran the suite while their own daemon was running lost
+`~/.local/share/yazses/daemon.pid`, after which `yazses stop` and `yazses status` could not
+find the daemon. The host guard in `tests/conftest.py` flags this only while a daemon is
+running, so CI could never see it; a parallel run caught it, with the file vanishing 0.09 s
+into the first test that shuts a daemon down. The tests now stub `clear_pid`, as every
+other daemon-shutdown test already did.
+
 ### Fixed — the daemon log and `yazses gaze status` say why a session cannot see clicks ([#607](https://github.com/MSKazemi/yazses/issues/607))
 
 With `[gaze_refine]` on and no click observer, the daemon log said "this platform has no

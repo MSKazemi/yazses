@@ -215,6 +215,20 @@ class _Injector:
         pass
 
 
+@pytest.fixture(autouse=True)
+def _keep_the_hosts_pid_file(monkeypatch):
+    """`Daemon._shutdown()` ends in the real lifecycle backend's `clear_pid()`.
+
+    `_daemon` builds on `get_platform()`, so without this every `_shutdown()` below
+    deleted ~/.local/share/yazses/daemon.pid -- the pid file of the developer's own
+    running daemon, which `yazses stop` and `yazses status` then could not find. The
+    conftest host guard only notices while a daemon is running, so CI never could.
+    """
+    from yazses.platform import get_platform
+
+    monkeypatch.setattr(get_platform().lifecycle, "clear_pid", lambda: None)
+
+
 def _speech() -> np.ndarray:
     return utterance(silence(0.2), vowel(0.8), silence(0.2))
 
