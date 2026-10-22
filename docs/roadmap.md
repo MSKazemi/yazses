@@ -27,6 +27,46 @@ issues — research questions, "test it on your machine" calls, translation revi
 contributor invitations — carry an `evergreen:*` label and no milestone. An issue with
 neither a milestone nor a class label is a violation the policy check reports.
 
+## The focus now — the offline microphone for the agent era
+
+Decided on 2026-10-22 in
+[ADR-030](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-030-agent-era-direction.md).
+YazSes grew in every direction at once. For the coming months it grows in one:
+
+> **Offline, keyboard-level voice input for the agent era — Linux-first, correct on
+> Wayland, usable hands-free — that any AI tool can plug into.**
+
+More and more of what people type goes into AI coding agents and chat apps: long prompts,
+with pauses to think. YazSes already fits that work. Hold-to-talk does not cut you off
+mid-thought, [staged dictation](features.md#staged-dictation) lets you review a prompt before it is
+typed, and nothing you say leaves your computer. See
+[voice input for AI coding agents](use-cases/voice-input-for-ai-agents.md).
+
+**What we are working on, in order:**
+
+1. **Make every claim true before adding anything.** Dictation confirmed by a named person
+   on current macOS and Windows builds (both stay labelled *preview* until then), Wayland
+   confirmed on real hardware, the most accurate engine made easy to choose, and no
+   feature advertised that `yazses features enable` cannot actually turn on.
+2. **Two small bridges to the AI tools you already use**, both off by default:
+   - *send to*: hand a dictated prompt to the Claude or Codex desktop app, already filled in
+     and **never sent**. You press Enter. Proposed in
+     [ADR-031](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-031-send-to-prefill-handoff.md).
+   - *a discoverable MCP server*: one-click install of `yazses mcp-server` in an MCP client,
+     and an `ask_human` that stops listening when you stop talking. Proposed in
+     [ADR-032](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-032-mcp-discoverability.md).
+
+**What we are deliberately not building:** a cloud assistant that routes what you say to
+online services, an always-listening wake word, or anything that sends a message on your
+behalf.
+
+**A pause on new capabilities.** Once the work already in progress lands, no new capability
+waves start until the first issue arrives from someone outside the contributor community.
+Bug fixes, wiring of capabilities that are already advertised, tests, packaging and docs
+continue as normal. The hands-free and eye-control features stay available and maintained,
+but get nothing new until someone is observed using them day to day. If that is you,
+[tell us](https://github.com/MSKazemi/yazses/issues/new/choose): it changes the plan.
+
 ## The destination
 
 The keyboard is a 150-year-old constraint, not a law of nature. YazSes exists

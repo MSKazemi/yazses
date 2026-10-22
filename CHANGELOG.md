@@ -6,6 +6,33 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Docs — the direction: the offline microphone for the agent era (ADR-030)
+
+[ADR-030](design/adr/adr-030-agent-era-direction.md) (Accepted) records where YazSes goes
+next. It is offline, keyboard-level voice input for the agent era: Linux-first, correct on
+Wayland, usable hands-free, and open to any agent. It makes four commitments:
+
+- the advertised surface is made true before anything new is added;
+- two small bridges to AI tools are added, both off by default;
+- distribution comes before new material;
+- decisions follow evidence from people outside the contributor community.
+
+It also starts a pause on new capability waves once the work already in progress lands.
+Two Proposed ADRs design the bridges:
+
+- [ADR-031](design/adr/adr-031-send-to-prefill-handoff.md) hands a dictated prompt to the
+  Claude or Codex desktop app through its documented URL scheme. The prompt arrives
+  pre-filled and is never sent, and the ADR rules out any `https://` fallback, which would
+  transmit before review.
+- [ADR-032](design/adr/adr-032-mcp-discoverability.md) proposes an `.mcpb` bundle and an MCP
+  registry entry for `yazses mcp-server`, an `ask_human` that stops listening when the
+  user stops speaking (today it waits out the caller's whole timeout), and a fix for the
+  `--help` text that still says `ask_human` is not offered.
+
+The roadmap opens with the new focus, and a new use-case page,
+[voice input for AI coding agents](docs/use-cases/voice-input-for-ai-agents.md), describes
+only what exists today.
+
 ### Changed — every CI test job now has a time limit that fits the parallel suite
 
 With no `timeout-minutes`, `repo-hygiene` sat in a hung `apt-get update` for 78 minutes
