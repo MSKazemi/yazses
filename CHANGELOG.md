@@ -6,6 +6,17 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed — a fresh install no longer switches on the Adaptive Latency Governor
+
+`latency` loads a second Whisper model (about 116 MB of RAM for `tiny.en`, ADR-029) the
+first time the CPU is busy, and keeps it. Its own description, its config docstring and
+`yazses features info latency` all said "Off by default", but its registry row sat in the
+recommended tier that first run writes into a new `config.toml`, so every new install had
+it on. It is now optional: a new install leaves it off, `yazses features enable latency`
+turns it on, and an existing config is not rewritten — if yours has
+`[latency] enabled = true`, it stays on until you disable it. `features reset` and the
+settings window's Restore defaults now treat off as its default.
+
 ### Changed — every CI test job now has a time limit that fits the parallel suite
 
 With no `timeout-minutes`, `repo-hygiene` sat in a hung `apt-get update` for 78 minutes

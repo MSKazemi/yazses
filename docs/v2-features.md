@@ -207,7 +207,7 @@ All OFF by default. Pure logic ships now; heavy models load only when you enable
 
 ## Wave I — safety, patterns & power tools (v2.5)
 
-All OFF in the built-in defaults; `cmdsafety` and `latency` are in the recommended set a fresh install switches on. Pure logic ships now; heavy models load only when you enable the feature.
+All OFF in the built-in defaults; `cmdsafety` is in the recommended set a fresh install switches on. `latency` was too until it was moved out, because it loads a second model (about 116 MB of RAM). Pure logic ships now; heavy models load only when you enable the feature.
 
 | Feature | `features` name | What it does |
 |---|---|---|
