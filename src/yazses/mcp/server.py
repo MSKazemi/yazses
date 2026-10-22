@@ -131,7 +131,10 @@ def ask_human_tool(config) -> ToolSpec:
                 "question": {"type": "string", "description": "Asked aloud, verbatim."},
                 "timeout_s": {
                     "type": "number",
-                    "description": "How long to listen for an answer. Capped by the daemon.",
+                    "description": (
+                        "The longest to wait for an answer. Listening ends earlier when "
+                        "the user stops speaking. Capped by the daemon."
+                    ),
                 },
             },
             "required": ["question"],
