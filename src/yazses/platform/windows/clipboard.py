@@ -255,10 +255,10 @@ class WindowsClipboardInjector:
         sent = user32.SendInput(len(inputs), inputs, ctypes.sizeof(_INPUT))
         if sent != len(inputs):
             err = ctypes.get_last_error()
+            # As in WindowsInjector.inject: an elevated window never shows up here.
             log.warning(
-                "SendInput sent %d/%d Ctrl+V events (lastError=%d). Error 5 "
-                "(ACCESS_DENIED) means the focused window runs elevated and UIPI "
-                "blocks input from this process -- run YazSes as administrator.",
+                "SendInput sent %d/%d Ctrl+V events (lastError=%d): keyboard input is "
+                "blocked right now (another program, or the secure desktop).",
                 sent, len(inputs), err,
             )
 

@@ -6,6 +6,21 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — on Windows, a dictation into an administrator window is no longer lost without a word
+
+Windows blocks a normal program from typing into a window that runs as administrator
+(Task Manager, an elevated PowerShell, many installers), and it does not report it.
+`SendInput` says every key was sent. Measured on Windows 11 22H2 with an elevated Task
+Manager in front: 2 of 2 events "sent", no error, nothing typed. So the dictation vanished
+with no notification and not even a log line, and the log message written for this case
+could never appear. YazSes now checks, right before typing, whether the window in front runs
+above its own privilege level. That includes a window you click into while speaking. If it
+does, the existing "no place to type" guard copies the
+dictation to the clipboard and says why ("This window runs as administrator… paste it with
+Ctrl+V"). The check reads a fact Windows itself enforces, so it never fires on an ordinary
+window, and anything it cannot read counts as "fine". Checked live against an elevated Task
+Manager and an ordinary window.
+
 ### Fixed — on Windows, a crashed daemon is restarted on pip, pipx and uv installs too
 
 On Windows the tray is what restarts a crashed daemon: the start-at-login entry fires once,

@@ -556,6 +556,14 @@ platform ships one yet. `None` is the honest answer for "not here" -- the daemon
 and implicit refinement stays dormant, rather than a no-op observer that never delivers a click.
 """
 
+InputBlockProbe = Callable[[], str | None]
+"""Says why the focused window will not receive synthetic input, or returns None.
+
+The answer is a short reason slug (Windows: ``"elevated"``). Called once per dictation,
+off the hot path. It must be cheap and must never raise; None also covers "cannot tell",
+because the guard it feeds must fire only on a specific, checkable signal (ADR-021).
+"""
+
 
 @dataclass(frozen=True)
 class Platform:
@@ -595,4 +603,9 @@ class Platform:
     # None when it is set, or when the OS never had a backend
     # (`NO_ACCESSIBILITY_BACKEND_REASON` then applies).
     accessibility_unavailable_reason: str | None = None
+    # Why the focused window will not receive what YazSes types, or None when nothing
+    # stops it (or this OS cannot tell). Windows sets it: UIPI drops input into a window
+    # running above our integrity level, and SendInput reports success while it does.
+    # The "no text target" guard reads it, so the words go to the clipboard instead.
+    input_block_probe: InputBlockProbe | None = None
     extras: dict[str, Any] = field(default_factory=dict)
