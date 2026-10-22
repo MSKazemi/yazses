@@ -7,15 +7,18 @@ Two independent signals feed the daemon's notify + auto-heal policy:
 * ``DeviceMonitor`` — a background thread that watches PortAudio's default input device
   and fires a callback when it changes, so a silent switch is never invisible.
 
-The pure pieces (``SilentStreakTracker``, ``device_changed``, ``DeviceMonitor.poll_once``)
-take injected callables and hold no hardware or timing dependency, so they unit-test
-without an audio backend or real threads.
+The pure pieces (``SilentStreakTracker``, ``device_changed``, ``plan_device_poll``,
+``audio_is_live``, ``DeviceMonitor.poll_once``) take injected callables and an injected
+clock and hold no hardware dependency, so they unit-test without an audio backend or real
+threads.
 """
 from __future__ import annotations
 
 import logging
 import threading
-from collections.abc import Callable
+import time
+from collections.abc import Callable, Sequence
+from typing import Protocol
 
 log = logging.getLogger(__name__)
 
@@ -189,13 +192,121 @@ def device_changed(prev: str | None, cur: str | None) -> bool:
     return bool(prev) and bool(cur) and prev != cur
 
 
+# ---- Level streams: the hands-free features that hold the microphone while idle ----------
+#
+# Vocal Morse (listening for its entry hum -- the default whenever `[morsevox]` is on), the
+# Mouth-Sound Switch and the Vocal Joystick (while armed) keep a level stream open while the
+# daemon itself is IDLE. Re-initialising PortAudio closes every open stream, so the monitor
+# used to treat any of them as "not idle" and skip the poll -- which, with Vocal Morse on,
+# meant it never polled at all: an unplugged mic, a new default device or a Bluetooth headset
+# switch went unnoticed for the whole session, and the next hold-to-talk recorded from a dead
+# device. The monitor now coordinates instead (`plan_device_poll`): it reads the default
+# without a re-init while the streams are open, and every `LEVEL_STREAM_RESCAN_S` (or as soon
+# as that read sees a change) it asks each owner to close its stream, re-inits, and lets each
+# reopen -- never while dictation records, and not while a user is in the middle of using one
+# of those streams.
+
+#: Poll actions :func:`plan_device_poll` chooses between.
+SKIP = "skip"  #: touch nothing (a hold-to-talk recording is in flight)
+RESCAN = "rescan"  #: re-init PortAudio and read the default (no stream is open: the old path)
+PEEK = "peek"  #: read the default *without* a re-init; safe with streams open
+CYCLE = "cycle"  #: close the level streams, re-init and read, reopen them
+
+#: How often the open level streams are cycled for a full re-scan when nothing else asks for
+#: one. A cycle is a short gap in a hands-free stream, so it is far rarer than the 3 s poll;
+#: the PEEK in between still notices a switch on PipeWire, where the name is read through the
+#: ``default`` alias by ``wpctl`` rather than from PortAudio's start-up device list.
+LEVEL_STREAM_RESCAN_S = 30.0
+
+#: The longest an owner that says it is in use can hold off a re-scan. A backstop for a
+#: sound that never ends (a fan read as one endless Morse pulse), not the normal path:
+#: :func:`audio_is_live` already stops a dead stream from counting as in use.
+ENGAGED_DEFER_MAX_S = 600.0
+
+#: An owner counts as "in use" only while its stream has delivered audio this recently. A
+#: microphone unplugged mid-gesture stops the callbacks and freezes the gesture's state;
+#: without this the frozen state would hold the re-scan off -- the very blindness fixed here.
+ENGAGED_AUDIO_FRESH_S = 2.0
+
+
+def audio_is_live(
+    last_audio_at: float | None, now: float, fresh_s: float = ENGAGED_AUDIO_FRESH_S
+) -> bool:
+    """Has a stream delivered audio within ``fresh_s`` of ``now``? Pure."""
+    return last_audio_at is not None and 0.0 <= now - last_audio_at <= fresh_s
+
+
+def plan_device_poll(
+    *,
+    recording: bool,
+    streams_open: bool,
+    engaged: bool,
+    now: float,
+    last_rescan_at: float,
+    engaged_since: float | None,
+    rebind_pending: bool,
+    can_peek: bool,
+    rescan_every_s: float = LEVEL_STREAM_RESCAN_S,
+    max_defer_s: float = ENGAGED_DEFER_MAX_S,
+) -> str:
+    """Decide what one device-monitor poll may do. Pure: every input is a value.
+
+    * ``recording`` -- a hold-to-talk recording (anything but IDLE) is in flight. Nothing
+      is touched, ever: :data:`SKIP`.
+    * no level stream open -- the old path, :data:`RESCAN` (re-init, then read).
+    * level streams open -- :data:`CYCLE` when one is due (``rebind_pending``: a peek saw
+      the device change and the streams are still bound to the old one; or
+      ``rescan_every_s`` has passed since ``last_rescan_at``) and no owner is ``engaged``.
+      An engaged owner defers the cycle, for at most ``max_defer_s`` since
+      ``engaged_since``. Otherwise :data:`PEEK`, or :data:`SKIP` with no peek reader.
+    """
+    if recording:
+        return SKIP
+    if not streams_open:
+        return RESCAN
+    due = rebind_pending or now - last_rescan_at >= rescan_every_s
+    if due:
+        if not engaged:
+            return CYCLE
+        if engaged_since is not None and now - engaged_since >= max_defer_s:
+            return CYCLE
+    return PEEK if can_peek else SKIP
+
+
+class LevelStreamOwner(Protocol):
+    """A feature that holds a microphone stream while the daemon is IDLE.
+
+    ``mic_open``: the stream is open. ``mic_engaged``: a user is using it right now (a
+    Morse mode, a scan, a held vowel) *and* audio is still arriving.
+    ``release_mic_for_rescan`` closes the stream (True when it closed one) and remembers to
+    reopen it; ``reacquire_mic_after_rescan`` reopens it only if nothing else -- a pause, a
+    fault, a shutdown -- closed it in between. Neither raises.
+    """
+
+    @property
+    def mic_open(self) -> bool: ...
+
+    @property
+    def mic_engaged(self) -> bool: ...
+
+    def release_mic_for_rescan(self) -> bool: ...
+
+    def reacquire_mic_after_rescan(self) -> object: ...
+
+
 class DeviceMonitor:
     """Poll the default input device on a cadence and fire ``on_change`` on a change.
 
     Mirrors the daemon's existing poll-thread pattern (a ``threading.Event`` stop flag +
-    a daemon thread). ``poll_fn`` returns the current default input name; ``is_idle``
-    gates polling so PortAudio is never re-initialised mid-recording; ``on_change`` is
-    called with ``(prev_name, new_name)``. Injecting all three keeps the loop testable.
+    a daemon thread). ``poll_fn`` re-initialises the audio backend and returns the current
+    default input name; ``is_idle`` says whether that is safe *right now* (nothing records,
+    no stream is open) and is asked immediately before every ``poll_fn``; ``on_change`` is
+    called with ``(prev_name, new_name)``. Injecting all of them keeps the loop testable.
+
+    The level-stream coordination is opt-in through ``level_streams`` (the
+    :class:`LevelStreamOwner` objects), ``recording`` (a dictation is in flight: touch
+    nothing), ``peek_fn`` (read the default without a re-init) and ``clock`` (monotonic).
+    Without them the monitor behaves as it always has: skip unless ``is_idle``.
     """
 
     def __init__(
@@ -205,28 +316,139 @@ class DeviceMonitor:
         is_idle: Callable[[], bool],
         on_change: Callable[[str | None, str | None], None],
         interval_s: float = 3.0,
+        level_streams: Callable[[], Sequence[LevelStreamOwner | None]] | None = None,
+        recording: Callable[[], bool] | None = None,
+        peek_fn: Callable[[], str | None] | None = None,
+        clock: Callable[[], float] = time.monotonic,
+        rescan_every_s: float = LEVEL_STREAM_RESCAN_S,
+        max_defer_s: float = ENGAGED_DEFER_MAX_S,
     ) -> None:
         self._poll_fn = poll_fn
         self._is_idle = is_idle
         self._on_change = on_change
         self._interval_s = interval_s
+        self._level_streams = level_streams
+        self._recording = recording
+        self._peek_fn = peek_fn
+        self._clock = clock
+        self._rescan_every_s = rescan_every_s
+        self._max_defer_s = max_defer_s
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
         self._last: str | None = None
+        # PortAudio was initialised about now: the daemon builds this at start-up.
+        self._last_rescan_at = float(clock())
+        self._engaged_since: float | None = None
+        self._rebind_pending = False
+        #: The action the last poll chose (one of SKIP/RESCAN/PEEK/CYCLE), for tests and logs.
+        self.last_action = SKIP
 
     def poll_once(self) -> bool:
         """Run one poll iteration. Returns True when a change fired ``on_change``.
 
-        Skips entirely while not idle (never touches the audio backend during a
-        recording). The first successful poll establishes the baseline silently.
+        Never touches the audio backend during a recording, and never re-initialises it
+        under an open stream. The first successful poll establishes the baseline silently.
+        See :func:`plan_device_poll` for what a poll may do while level streams are open.
         """
         try:
-            if not self._is_idle():
-                return False
-            cur = self._poll_fn()
+            owners = self._owners()
+            open_owners = [o for o in owners if o.mic_open]
+            engaged = any(o.mic_engaged for o in open_owners)
+            if self._recording is not None:
+                recording = bool(self._recording())
+            else:
+                recording = not self._is_idle()
+            now = float(self._clock())
         except Exception as exc:
             log.debug("device poll failed: %s", exc)
             return False
+        if open_owners and engaged:
+            if self._engaged_since is None:
+                self._engaged_since = now
+        else:
+            self._engaged_since = None
+        action = plan_device_poll(
+            recording=recording,
+            streams_open=bool(open_owners),
+            engaged=engaged,
+            now=now,
+            last_rescan_at=self._last_rescan_at,
+            engaged_since=self._engaged_since,
+            rebind_pending=self._rebind_pending,
+            can_peek=self._peek_fn is not None,
+            rescan_every_s=self._rescan_every_s,
+            max_defer_s=self._max_defer_s,
+        )
+        self.last_action = action
+        if action == SKIP:
+            return False
+        try:
+            if action == RESCAN:
+                if not self._is_idle():
+                    return False
+                cur = self._poll_fn()
+                self._last_rescan_at = now
+                self._rebind_pending = False
+            elif action == PEEK:
+                peek = self._peek_fn
+                if peek is None:  # plan_device_poll never picks PEEK without one
+                    return False
+                cur = peek()
+            else:
+                ran, cur = self._cycle(open_owners, now)
+                if not ran:
+                    return False
+        except Exception as exc:
+            log.debug("device poll failed: %s", exc)
+            return False
+        changed = self._observe(cur)
+        if changed and action == PEEK:
+            # Seen without a re-init: the open streams are still bound to the old device.
+            # Cycle them at the next poll that may.
+            self._rebind_pending = True
+        return changed
+
+    def _owners(self) -> list[LevelStreamOwner]:
+        if self._level_streams is None:
+            return []
+        return [o for o in self._level_streams() if o is not None]
+
+    def _cycle(self, owners: list[LevelStreamOwner], now: float) -> tuple[bool, str | None]:
+        """Close every open level stream, re-init and read, then reopen what was closed.
+
+        Returns ``(ran, name)``; ``ran`` is False when the re-init could not run (a
+        recording began, or a stream would not close). What was closed is reopened either
+        way, and a failed attempt still counts as an attempt, so a stream that will not
+        close is retried at the rescan cadence rather than on every poll.
+        """
+        released: list[LevelStreamOwner] = []
+        self._last_rescan_at = now
+        try:
+            for owner in owners:
+                try:
+                    if owner.release_mic_for_rescan():
+                        released.append(owner)
+                except Exception:
+                    log.debug("A level stream would not close for a device re-scan",
+                              exc_info=True)
+            # Asked again after the close: a hold-to-talk may have begun meanwhile, and a
+            # stream that would not close must not have PortAudio re-initialised under it.
+            if not self._is_idle():
+                return False, None
+            cur = self._poll_fn()
+            self._rebind_pending = False
+            log.debug("Device re-scan with %d level stream(s) briefly closed.", len(released))
+            return True, cur
+        finally:
+            for owner in released:
+                try:
+                    owner.reacquire_mic_after_rescan()
+                except Exception:
+                    log.warning("A hands-free level stream did not reopen after a device "
+                                "re-scan", exc_info=True)
+
+    def _observe(self, cur: str | None) -> bool:
+        """Compare ``cur`` with the baseline; fire ``on_change`` on a real change."""
         if device_changed(self._last, cur):
             prev = self._last
             self._last = cur

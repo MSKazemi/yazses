@@ -587,6 +587,7 @@ a person signs it. The runtime does not re-check licences.
 | `vad.py` | `is_silent(audio)` — RMS-based silence gate (hardcoded threshold) |
 | `vad_calibrated.py` | `is_silent_calibrated(audio, config)` — uses `config.vad_threshold` |
 | `padding.py` | `PreSpeechRingBuffer` — fixed-capacity ring buffer, `prepend_padding(audio)` for voice-onset recovery |
+| `device_monitor.py` | `SilentStreakTracker` and `DeviceMonitor` (the default-input watcher). Invariant: PortAudio is never re-initialised while dictation records or under an open stream. When a hands-free level stream (`LevelStreamOwner`) is open, the pure `plan_device_poll` picks a peek without re-init, or a cycle that closes the streams, re-inits and reopens them — deferred while a user is mid-gesture on a stream still delivering audio |
 
 ### `src/yazses/accessibility/`
 
@@ -726,8 +727,12 @@ Daemon glue (`core/daemon.py`): `_build_morsevox` (lazy import behind `[morsevox
 yields to every daemon state outside `_MORSE_QUIET_STATES` (IDLE / TRANSCRIBING /
 INJECTING), reads the hands-free gate's `user_paused` only, and is paused and resumed by the
 `handsfree` IPC. `status` carries a `morse` block; the overlay draws its rings while
-`morse.active` is true. While the stream is open the device monitor does not reinit
-PortAudio, so a device change is not detected while the hum entry listens.
+`morse.active` is true. The device monitor never re-inits PortAudio under the open stream:
+between re-scans it reads the default without a re-init, and every 30 s (or as soon as that
+read sees a change) it closes the stream through `release_mic_for_rescan`, re-inits, and
+reopens it through `reacquire_mic_after_rescan` — not while Morse mode is on and audio is
+still arriving, and never while dictation records. The Mouth-Sound Switch and the Vocal
+Joystick answer the same `LevelStreamOwner` surface (`audio/device_monitor.py`).
 
 ### `src/yazses/overlay/` (voice-activity overlay, `yazses-overlay`)
 
