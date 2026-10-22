@@ -6,6 +6,28 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the macOS app no longer claims macOS 11, and the Homebrew cask puts `yazses` on your PATH
+
+- **The real minimum is macOS 14 (Sonoma).** The bundle declared macOS 11, and the cask
+  and every install guide repeated it. But the `.dmg` bundles PyAV 18, onnxruntime 1.28 and
+  numpy 2.4, which declare a minimum of macOS 14.0 in their Mach-O `LC_BUILD_VERSION`
+  (read from the wheels `uv.lock` pins, 2026-10-22). `import faster_whisper` loads PyAV,
+  so the Apple Silicon app could not have dictated on macOS 11–13. The Intel `.dmg` needs
+  14.0 too, because uv on the macOS 15 Intel runner installs numpy's macOS 14 wheel. The
+  Settings window and the on-screen overlay use Qt, whose binaries need macOS 15.
+  - `LSMinimumSystemVersion` is now 14.0 for both architectures, and the cask declares
+    `depends_on macos: :sonoma`, so an older Mac gets a clean refusal instead of an app
+    that cannot dictate.
+  - The new `tests/test_macos_minimum_covers_bundled_wheels.py` re-derives the floor from
+    `uv.lock`, so a dependency bump that raises it fails CI instead of shipping.
+- **`yazses` on PATH after a Homebrew install.** The cask installed only the `.app`,
+  while every guide says to run `yazses doctor`. It now links a small shim, `yazses`,
+  that runs the bundle's CLI with `--cli`. The macOS smoke job installs the real cask
+  against the `.dmg` it has just built, runs `yazses --version` from PATH, and uninstalls
+  it again. The fix reaches users when the next release publishes the cask.
+- **The home page's share card** now carries the page title instead of the bare site name
+  (`hooks/home_social_title.py`).
+
 ### Documentation — a code signing policy that meets the SignPath Foundation's published terms
 
 The Windows installer is still unsigned while the SignPath Foundation reviews the

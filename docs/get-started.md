@@ -9,7 +9,7 @@ YazSes types what you say into whatever app has focus, and it does all of the sp
 recognition on your own computer. This page takes you from nothing to your first dictated
 sentence. Then it shows the three things most people try next.
 
-**What you need:** Linux, macOS 11 or later, or Windows 10/11, with 4 GB of RAM (8 GB is
+**What you need:** Linux, macOS 14 or later, or Windows 10/11, with 4 GB of RAM (8 GB is
 comfortable) and a microphone. You do not need a GPU, an account or an API key. The
 [platform support page](platform-support.md) lists every OS and CPU in detail.
 

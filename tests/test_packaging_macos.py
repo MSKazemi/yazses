@@ -147,8 +147,13 @@ def test_spec_minimum_system_version_matches_cask(
     correct cask into a failure and says nothing about the invariant it exists
     to guard. `test_cask_macos_dependency_form.py` is what pins the spelling.
     """
-    spec_min = re.search(r'"LSMinimumSystemVersion":\s*"([\d.]+)"', spec_text)
-    assert spec_min is not None
+    # The floor is per architecture (MIN_MACOS in the spec); the cask ships only the
+    # Apple Silicon .dmg (`depends_on arch: :arm64`), so it must match the arm64 one.
+    spec_min = re.search(r'MIN_MACOS\s*=\s*\{[^}]*"arm64":\s*"([\d.]+)"', spec_text)
+    assert spec_min is not None, "could not read MIN_MACOS['arm64'] from the spec"
+    assert re.search(r'"LSMinimumSystemVersion":\s*MIN_MACOS\[platform\.machine\(\)\]', spec_text), (
+        "the Info.plist floor no longer comes from MIN_MACOS"
+    )
     cask_min = re.search(
         r"depends_on\s+macos:\s*(?:\">=\s*:(\w+)\"|:(\w+))", cask_text
     )
@@ -159,7 +164,7 @@ def test_spec_minimum_system_version_matches_cask(
     )
     cask_floor = cask_min.group(1) or cask_min.group(2)
 
-    macos_names = {"11.0": "big_sur", "12.0": "monterey", "13.0": "ventura"}
+    macos_names = {"11.0": "big_sur", "12.0": "monterey", "13.0": "ventura", "14.0": "sonoma", "15.0": "sequoia"}
     expected = macos_names.get(spec_min.group(1))
     assert expected is not None, (
         f"unmapped LSMinimumSystemVersion {spec_min.group(1)!r}; extend macos_names"
