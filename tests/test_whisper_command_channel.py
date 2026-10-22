@@ -117,7 +117,10 @@ def test_whispered_burst_routes_to_command_mode():
     d, inj = _daemon(_whispered(), "undo")
     d._on_hold_end()
     assert inj.texts == []                 # never typed literally
-    assert inj.keys == [["ctrl+z"]]        # dispatched as a command
+    # Dispatched as a command: Ctrl+Z, or Cmd+Z when the suite runs on macOS.
+    from yazses.commands.dispatch import default_keymap
+
+    assert inj.keys == [default_keymap(d._platform.primary_modifier)["undo"]]
 
 
 def test_whispered_burst_with_unmatched_phrase_is_discarded_not_typed():

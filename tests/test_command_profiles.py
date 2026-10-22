@@ -382,7 +382,10 @@ def test_the_same_command_with_profiles_off_sends_what_it_always_did():
 
     _burst(d, "delete the last line", command_mode=True)
 
-    assert ["ctrl+shift+k"] in inj.calls
+    # Ctrl+Shift+K -- Cmd+Shift+K when the suite runs on macOS, a Cmd platform.
+    from yazses.commands.dispatch import default_keymap
+
+    assert default_keymap(d._platform.primary_modifier)["delete_lines"] in inj.calls
     assert ["ctrl+y"] not in inj.calls
 
 

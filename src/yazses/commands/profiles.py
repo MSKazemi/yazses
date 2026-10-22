@@ -19,9 +19,12 @@ reads the desktop, and nothing is stored.
 OFF by default (`[commands] editor_profiles = false`). With it off the daemon never
 builds a registry, and every application gets the default keymap exactly as before.
 
-Every binding below is taken from the editor's own *default* Linux/Windows keymap.
-None of them has been verified by injecting into a running editor yet; a user who
-has remapped a key, or who uses the macOS keymap, gets the default's keys.
+Every binding in `BUILTIN_PROFILES` is taken from the editor's own *default*
+Linux/Windows keymap, and every binding in `BUILTIN_CMD_PROFILES` from its default
+macOS keymap -- the registry is built from the second on a platform whose shortcut
+modifier is Cmd (`Platform.primary_modifier`). None of them has been verified by
+injecting into a running editor yet, and no macOS one on a real Mac; a user who has
+remapped a key gets the default's keys.
 """
 from __future__ import annotations
 
@@ -30,6 +33,7 @@ from dataclasses import dataclass, field
 from types import MappingProxyType
 
 from yazses.config import CommandsConfig
+from yazses.platform.base import PRIMARY_MODIFIER_CMD, PRIMARY_MODIFIER_CTRL
 
 DEFAULT_PROFILE = "default"
 
@@ -73,6 +77,51 @@ BUILTIN_PROFILES: dict[str, dict[str, tuple[str, ...] | None]] = {
         "rename_symbol": None,
     },
 }
+
+#: The same profiles on macOS, from each editor's default macOS keymap. An action a
+#: profile does not name falls back to the dispatcher's macOS default
+#: (`dispatch.CMD_DEFAULT_KEYMAP`, VS Code's macOS keys) -- so a row is needed wherever
+#: the editor disagrees with *that*, not with the Linux/Windows row above.
+#: `tests/test_macos_command_shortcuts.py` fails if a profile here does not decide
+#: every action its Linux/Windows twin overrides.
+BUILTIN_CMD_PROFILES: dict[str, dict[str, tuple[str, ...] | None]] = {
+    DEFAULT_PROFILE: {},
+    # The macOS default keymap is VS Code's macOS keymap.
+    "vscode": {},
+    # The JetBrains "macOS" keymap (the default on a Mac).
+    "jetbrains": {
+        "delete_lines": ("cmd+BackSpace",),    # Delete Line
+        "go_to_function": ("cmd+F12",),        # File Structure popup
+        "go_to_class": ("cmd+o",),
+        "go_to_file": ("cmd+shift+o",),
+        "go_to_line": ("cmd+l",),              # Navigate > Line/Column
+        "rename_symbol": ("shift+F6",),
+        "rename_select": (),
+        # Cmd+Down is Jump to Source here; Shift+Cmd+End is "text end with selection".
+        "select_to_end": ("cmd+shift+End",),
+        # The default's Cmd+L is Go to Line in this keymap, so "select N lines" would
+        # open a dialog and send Shift+Down into it. Refused rather than guessed.
+        "select_lines": None,
+    },
+    # Sublime Text's default OSX keymap.
+    "sublime": {
+        "delete_lines": ("ctrl+shift+k",),     # Ctrl, not Cmd, in the OSX keymap
+        "go_to_function": ("cmd+r",),          # Goto Symbol
+        "go_to_class": ("cmd+r",),
+        # No built-in rename (F2 is next bookmark), as on Linux/Windows.
+        "rename_symbol": None,
+    },
+}
+
+
+def builtin_profiles(
+    primary_modifier: str = PRIMARY_MODIFIER_CTRL,
+) -> dict[str, dict[str, tuple[str, ...] | None]]:
+    """The built-in profile tables for a platform's primary shortcut modifier. Pure."""
+    if primary_modifier == PRIMARY_MODIFIER_CMD:
+        return BUILTIN_CMD_PROFILES
+    return BUILTIN_PROFILES
+
 
 #: Substrings of the focused application's class, lower-cased, that pick a profile.
 #: First match wins. X11 reports JetBrains IDEs as `jetbrains-<product>`, Sublime as
@@ -165,8 +214,14 @@ class ProfileRegistry:
         return ProfileChoice(name, self.keymap(name), reason)
 
 
-def load_profiles(config: CommandsConfig) -> ProfileRegistry:
+def load_profiles(config: CommandsConfig,
+                  primary_modifier: str = PRIMARY_MODIFIER_CTRL) -> ProfileRegistry:
     """Build a ProfileRegistry from CommandsConfig.
+
+    ``primary_modifier`` is the platform's (`Platform.primary_modifier`): ``"cmd"``
+    fills the registry from `BUILTIN_CMD_PROFILES`, the editors' macOS keymaps. The
+    profile names are the same on every platform, so one `[commands] profile` value
+    works everywhere.
 
     `[commands] profile = "auto"` (the default) follows the focused application. A
     profile name pins that profile for every application. Any other value is reported
@@ -176,7 +231,7 @@ def load_profiles(config: CommandsConfig) -> ProfileRegistry:
     Does not read `editor_profiles`: the daemon decides whether to build a registry at
     all, so this stays a plain function of the values it is given.
     """
-    registry = ProfileRegistry()
+    registry = ProfileRegistry(keymaps=dict(builtin_profiles(primary_modifier)))
     wanted = (config.profile or "").strip().lower()
     if wanted in ("", AUTO):
         return registry

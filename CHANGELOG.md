@@ -6,6 +6,24 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — spoken commands on macOS send Cmd shortcuts, not Ctrl ones (untested on a real Mac)
+
+On macOS, "undo", "copy", "paste", "save" and "select all" sent Ctrl+Z, Ctrl+C,
+Ctrl+V, Ctrl+S and Ctrl+A. Most Mac apps ignore those, and Ctrl+A in a Cocoa text
+field moves the caret to the start of the line. The macOS platform now declares Cmd
+as its shortcut modifier, and the command dispatcher sends a macOS keymap: Cmd+Z/C/V/X/S/A,
+Cmd+/ comment, Option+Delete for "delete words", Cmd+Left/Right for line start and end,
+and Shift+Cmd+Down for "select to end". "Go to line" stays Ctrl+G, which is what VS Code
+and Sublime Text bind on a Mac. With `[commands] editor_profiles` on, the JetBrains and
+Sublime profiles use those editors' macOS keymaps. The spoken spreadsheet moves "top of
+column" and "bottom of column" send Cmd+Up/Down instead of Ctrl+Up/Down, which opens
+Mission Control on a Mac. The macOS injector also stops sending the "a" key for every
+named key. "Return", "BackSpace" and the arrows were looked up in the wrong case and fell
+back to keycode 0, and a key it cannot express is now skipped and logged. Linux, Windows
+and BSD send exactly the keys they sent before, and a test pins every one. This project
+has no Mac, so none of this has been run on macOS. Only a stand-in for Quartz has
+checked it.
+
 ## [2.44.0] - 2026-10-23
 
 ### Fixed — the settings-window code no longer says it has "~200 rows"

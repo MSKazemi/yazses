@@ -6,7 +6,7 @@ from collections.abc import Mapping, Sequence
 
 from yazses.commands.grammar import CommandIntent, IntentType
 from yazses.commands.macros import MacroContext, expand
-from yazses.platform.base import InjectorBackend
+from yazses.platform.base import PRIMARY_MODIFIER_CMD, PRIMARY_MODIFIER_CTRL, InjectorBackend
 
 log = logging.getLogger(__name__)
 
@@ -59,7 +59,77 @@ LEAD_KEYS: dict[str, list[str]] = {
 }
 
 #: Every action's default keys: what a command sends when no profile overrides it.
+#: This is the Linux / Windows / BSD keymap -- a platform whose primary shortcut
+#: modifier is Ctrl -- and it is sent exactly as written there.
 DEFAULT_KEYMAP: dict[str, list[str]] = {**ACTION_KEYS, **LEAD_KEYS}
+
+# macOS: where the default keymap says something else on a Cmd platform. The tables
+# above are Ctrl-everything, and on a Mac Ctrl is not the shortcut modifier: Ctrl+Z,
+# Ctrl+C and Ctrl+S do nothing in most apps, and Ctrl+A in a Cocoa text field moves
+# the caret to the start of the line rather than selecting anything. Each row is a
+# decision, not a blanket Ctrl->Cmd swap -- some Ctrl chords really are Ctrl on a Mac
+# (VS Code's and Sublime's Go to Line is Ctrl+G there too), and the word-wise modifier
+# is Option, not Cmd. An action not named here sends the same keys on every platform.
+# Sources: Apple's "Mac keyboard shortcuts" (document and text editing) and VS Code's
+# macOS default keybindings, the keymap DEFAULT_KEYMAP already follows elsewhere.
+# None of these has been injected into a running Mac app yet.
+CMD_KEYS: dict[str, list[str]] = {
+    "undo":           ["cmd+z"],
+    "undo_n":         ["cmd+z"],          # sent once per step
+    "save":           ["cmd+s"],
+    "copy":           ["cmd+c"],
+    "paste":          ["cmd+v"],
+    "cut":            ["cmd+x"],
+    "select_all":     ["cmd+a"],
+    "comment":        ["cmd+slash"],
+    # Shift+Cmd+Down is "select to end of document" in Cocoa text and in VS Code; a
+    # Mac's End key scrolls without moving the caret, and most Mac keyboards lack one.
+    "select_to_end":  ["cmd+shift+Down"],
+    # Cmd+Left / Cmd+Right are the Mac's line start / line end; Home and End scroll.
+    "line_home":      ["cmd+Left"],
+    "line_end":       ["cmd+Right"],
+    # Option is the Mac's word modifier: Option+Delete deletes the previous word.
+    "delete_words":   ["alt+BackSpace"],  # sent once per word
+    "delete_lines":   ["cmd+shift+k"],    # VS Code; sent once per line
+    "go_to_function": ["cmd+shift+o"],
+    "go_to_class":    ["cmd+shift+o"],
+    "go_to_file":     ["cmd+p"],
+    "rename_select":  ["cmd+a"],
+    "select_lines":   ["cmd+l"],
+    # Kept as Ctrl on purpose: "go_to_line" is Ctrl+G in VS Code and Sublime on macOS.
+}
+
+#: The default keymap on a Cmd platform (macOS).
+CMD_DEFAULT_KEYMAP: dict[str, list[str]] = {**DEFAULT_KEYMAP, **CMD_KEYS}
+
+
+def default_keymap(primary_modifier: str = PRIMARY_MODIFIER_CTRL) -> dict[str, list[str]]:
+    """The default keymap for a platform whose shortcut modifier is ``primary_modifier``.
+
+    Anything but Cmd gets `DEFAULT_KEYMAP` itself -- the very object, so the keys Linux,
+    Windows and the BSDs send cannot drift from the table they always sent. Pure.
+    """
+    if primary_modifier == PRIMARY_MODIFIER_CMD:
+        return CMD_DEFAULT_KEYMAP
+    return DEFAULT_KEYMAP
+
+
+def primary_combo(combo: str, primary_modifier: str = PRIMARY_MODIFIER_CTRL) -> str:
+    """``combo`` with its ``ctrl`` modifier read as the platform's primary modifier.
+
+    For a key list in which every Ctrl *is* the shortcut modifier -- the spoken
+    spreadsheet moves ("top of column" is Ctrl+Up on a PC and Cmd+Up on a Mac, where
+    Ctrl+Up opens Mission Control). Not for the command keymap above, where some Ctrl
+    chords stay Ctrl on a Mac. Unchanged on anything but a Cmd platform. Pure.
+    """
+    if primary_modifier != PRIMARY_MODIFIER_CMD:
+        return combo
+    parts = combo.split("+")
+    if len(parts) < 2:
+        return combo
+    mods = [PRIMARY_MODIFIER_CMD if m.lower() in ("ctrl", "control") else m
+            for m in parts[:-1]]
+    return "+".join([*mods, parts[-1]])
 
 
 class CommandRefused(Exception):
@@ -69,9 +139,11 @@ class CommandRefused(Exception):
     """
 
 
-def _keys(action: str, keymap: Mapping[str, Sequence[str] | None] | None) -> list[str] | None:
+def _keys(action: str, keymap: Mapping[str, Sequence[str] | None] | None,
+          defaults: Mapping[str, list[str]] = DEFAULT_KEYMAP) -> list[str] | None:
     """The keys for ``action``: the profile's override if it has one, else the default.
 
+    ``defaults`` is the platform's default keymap (`default_keymap`).
     ``None`` for an action no table names (the caller's "unknown action" path).
     Raises `CommandRefused` when the profile maps the action to ``None``.
     """
@@ -80,7 +152,7 @@ def _keys(action: str, keymap: Mapping[str, Sequence[str] | None] | None) -> lis
         if override is None:
             raise CommandRefused(action)
         return list(override)
-    default = DEFAULT_KEYMAP.get(action)
+    default = defaults.get(action)
     return None if default is None else list(default)
 
 
@@ -92,7 +164,8 @@ def _send(injector: InjectorBackend, keys: list[str] | None) -> None:
 
 def dispatch(intent: CommandIntent, injector: InjectorBackend, notify_fn=None,
              macro_table=None, macro_context=None,
-             keymap: Mapping[str, Sequence[str] | None] | None = None) -> None:
+             keymap: Mapping[str, Sequence[str] | None] | None = None,
+             primary_modifier: str = PRIMARY_MODIFIER_CTRL) -> None:
     """Execute a CommandIntent via the injector.
 
     For DICTATE, calls injector.inject(raw_text).
@@ -104,9 +177,15 @@ def dispatch(intent: CommandIntent, injector: InjectorBackend, notify_fn=None,
     overrides of `DEFAULT_KEYMAP`, where ``None`` refuses the action. ``None`` -- the
     default, and all a daemon with `[commands] editor_profiles` off ever passes --
     sends the default keys exactly as before profiles existed.
+
+    ``primary_modifier`` is the platform's (`Platform.primary_modifier`): ``"cmd"``
+    picks the macOS default keymap (`CMD_KEYS`); the default, ``"ctrl"``, sends
+    `DEFAULT_KEYMAP` unchanged. A profile's ``keymap`` is already the platform's own
+    (`commands/profiles.py` builds a Cmd registry on macOS), so it is not translated.
     """
     try:
-        _execute(intent, injector, macro_table, macro_context, keymap)
+        _execute(intent, injector, macro_table, macro_context, keymap,
+                 default_keymap(primary_modifier))
         if notify_fn and intent.intent != IntentType.DICTATE:
             notify_fn("command_dispatched", {
                 "intent": intent.intent.value,
@@ -127,7 +206,8 @@ def dispatch(intent: CommandIntent, injector: InjectorBackend, notify_fn=None,
 
 def _execute(intent: CommandIntent, injector: InjectorBackend,
              macro_table=None, macro_context=None,
-             keymap: Mapping[str, Sequence[str] | None] | None = None) -> None:
+             keymap: Mapping[str, Sequence[str] | None] | None = None,
+             defaults: Mapping[str, list[str]] = DEFAULT_KEYMAP) -> None:
     if intent.intent == IntentType.DICTATE:
         injector.inject(intent.raw_text)
         return
@@ -140,12 +220,12 @@ def _execute(intent: CommandIntent, injector: InjectorBackend,
     args = intent.args
     # Both resolved before anything is sent, so a refused step (CommandRefused) can
     # never leave half an action behind -- rename's selection step included.
-    keys = _keys(action, keymap)
-    select = _keys("rename_select", keymap) if action == "rename_symbol" else None
+    keys = _keys(action, keymap, defaults)
+    select = _keys("rename_select", keymap, defaults) if action == "rename_symbol" else None
 
     if action == "delete_words":
         n = int(args.get("n", "1"))
-        # ctrl+BackSpace deletes one word at a time
+        # ctrl+BackSpace (Option+Delete on a Mac) deletes one word at a time
         for _ in range(n):
             _send(injector, keys)
         return
