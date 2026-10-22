@@ -272,11 +272,28 @@ def detect_environment() -> dict[str, Any]:
     if os_name == "macos":
         os_version = f"macOS {platform.mac_ver()[0]}"
     elif os_name == "windows":
-        os_version = f"Windows {platform.release()} {platform.version()}"
+        os_version = windows_version_label(platform.release(), platform.version())
     else:
         os_version = _linux_pretty_name() or f"Linux {platform.release()}"
     return {"os": os_name, "os_version": os_version, "session": session,
             "python_version": platform.python_version()}
+
+
+def windows_version_label(release: str, version: str) -> str:
+    """``"Windows 11 10.0.22621"`` for a Windows 11 build. Pure.
+
+    Windows 11 still calls itself NT 10.0, and Python before 3.12 reports
+    ``platform.release()`` as ``"10"`` there, so the first Windows result read
+    "Windows 10 10.0.22621" on a Windows 11 machine. Build 22000 is the first Windows 11
+    release, which is how Microsoft's own documentation tells the two apart.
+    """
+    try:
+        build = int(version.split(".")[2])
+    except (IndexError, ValueError):
+        build = 0
+    if release == "10" and build >= 22000:
+        release = "11"
+    return f"Windows {release} {version}"
 
 
 def _linux_pretty_name() -> str:

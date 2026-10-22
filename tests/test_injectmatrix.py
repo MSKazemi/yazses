@@ -582,3 +582,23 @@ def test_harness_is_stdlib_only_and_has_no_network() -> None:
             names.add(node.module.split(".")[0])
     assert names <= set(sys.stdlib_module_names) | {"__future__"}, names
     assert not names & {"socket", "urllib", "http", "ssl", "ftplib", "smtplib"}
+
+
+# ---- Windows 11 is not Windows 10 -----------------------------------------------
+#
+# Windows 11 reports NT 10.0, and Python before 3.12 gives platform.release() == "10"
+# there, so the first Windows result was labelled "Windows 10 10.0.22621".
+
+
+@pytest.mark.parametrize(
+    "release, version, label",
+    [
+        ("10", "10.0.22621", "Windows 11 10.0.22621"),   # 11 22H2, as Python 3.11 reports it
+        ("10", "10.0.22000", "Windows 11 10.0.22000"),   # the first Windows 11 build
+        ("11", "10.0.26100", "Windows 11 10.0.26100"),   # Python 3.12+ already says 11
+        ("10", "10.0.19045", "Windows 10 10.0.19045"),   # 10 22H2 stays 10
+        ("10", "garbled", "Windows 10 garbled"),         # unparsable: leave it alone
+    ],
+)
+def test_windows_version_label(release, version, label) -> None:
+    assert im.windows_version_label(release, version) == label

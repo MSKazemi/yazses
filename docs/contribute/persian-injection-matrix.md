@@ -14,10 +14,12 @@ not test whether YazSes produced the right words. The strings are fixed before a
 
 !!! warning "Status: the harness exists, the matrix has not been run"
 
-    Every cell in the [results table](#results) is **UNVERIFIED**. The harness, the fixtures, the
-    result format and the comparator are built and unit-tested
-    (`tests/test_injectmatrix.py`), but nobody has yet run them on a real Linux, macOS or
-    Windows machine. That is the part a contributor can do, and it can be split by OS.
+    The harness, the fixtures, the result format and the comparator are built and unit-tested
+    (`tests/test_injectmatrix.py`). **Windows has been run** (2026-10-22, Windows 11 22H2, both
+    backends): all 19 fixtures arrived code point for code point, in the Tk receiver only, with
+    the visual check still pending. The result files are in
+    `scripts/injectmatrix/results/2.43.2/`. Every Linux and macOS cell is still **UNVERIFIED**.
+    That is the part a contributor can do, and it can be split by OS.
 
 ## Two different bugs, two different fields
 
@@ -85,7 +87,10 @@ python scripts/injectmatrix/injectmatrix.py drive --out timeline.jsonl
 If YazSes is not on `PATH` as `yazses`, pass the command, for example
 `--yazses "uv run yazses"`. The driver waits seven seconds between fixtures so the receiver can
 tell them apart, and it records which backend `yazses inject` reported. Do not type in the
-receiver while it runs. When the driver finishes, close the receiver window.
+receiver while it runs. When the driver finishes, **wait until the receiver has stopped changing
+before you close it.** Tk 8.6 lays a growing block of Persian out slowly: on the Windows run the
+929-character `fa-long-paragraph` took about 16 seconds to appear after it was typed, and closing
+the window sooner records it as `NOTHING`, which reads as a backend failure but isn't one.
 
 **4. Assemble the result:**
 
@@ -180,5 +185,5 @@ failure. Cells use the words of the [evidence standard](validation.md).
 | Linux | wayland | clipboard | — | — | UNVERIFIED | UNVERIFIED | UNVERIFIED | UNVERIFIED | UNVERIFIED | UNVERIFIED | UNVERIFIED | UNVERIFIED | UNVERIFIED |
 | macOS | none | native | — | — | UNVERIFIED | UNVERIFIED | UNVERIFIED | UNVERIFIED | UNVERIFIED | UNVERIFIED | UNVERIFIED | UNVERIFIED | UNVERIFIED |
 | macOS | none | clipboard | — | — | Blocked | Blocked | Blocked | Blocked | Blocked | Blocked | Blocked | Blocked | Blocked |
-| Windows | none | native | — | — | UNVERIFIED | UNVERIFIED | UNVERIFIED | UNVERIFIED | UNVERIFIED | UNVERIFIED | UNVERIFIED | UNVERIFIED | UNVERIFIED |
-| Windows | none | clipboard | — | — | UNVERIFIED | UNVERIFIED | UNVERIFIED | UNVERIFIED | UNVERIFIED | UNVERIFIED | UNVERIFIED | UNVERIFIED | UNVERIFIED |
+| Windows 11 10.0.22621 | none | WindowsInjector | yazses 2.43.2+main.e224b67e (source checkout) | Tk text box (injectmatrix receiver) | EXACT | EXACT | EXACT | EXACT | EXACT | EXACT | EXACT | EXACT | pending |
+| Windows 11 10.0.22621 | none | WindowsClipboardInjector | yazses 2.43.2+main.e224b67e (source checkout) | Tk text box (injectmatrix receiver) | EXACT | EXACT | EXACT | EXACT | EXACT | EXACT | EXACT | EXACT | pending |
