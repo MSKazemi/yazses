@@ -105,6 +105,7 @@ GNOME and KDE Wayland and needs no /dev/uinput.
 - Voice dictation on Wayland (GNOME, KDE Plasma, sway, Hyprland): https://mskazemi.com/yazses/use-cases/voice-dictation-wayland.html
 - Private/confidential dictation with no cloud (clinical, legal, air-gapped): https://mskazemi.com/yazses/use-cases/private-offline-dictation.html
 - Coding by voice (spoken symbols, cased identifiers, LaTeX, git): https://mskazemi.com/yazses/use-cases/voice-coding.html
+- Offline voice input for AI coding agents (Claude Code, Codex, chat apps; MCP server): https://mskazemi.com/yazses/use-cases/voice-input-for-ai-agents.html
 - Controlling the computer by voice (commands, macros, shortcuts): https://mskazemi.com/yazses/use-cases/voice-commands.html
 - Accessibility, RSI and hands-free use (incl. dysfluency-friendly mode): https://mskazemi.com/yazses/use-cases/accessibility-rsi-hands-free.html
 - Transcribing recordings offline with speaker labels: https://mskazemi.com/yazses/use-cases/transcribe-audio-offline.html

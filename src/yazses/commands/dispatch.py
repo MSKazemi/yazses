@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Mapping, Sequence
 
 from yazses.commands.grammar import CommandIntent, IntentType
 from yazses.commands.macros import MacroContext, expand
@@ -39,24 +40,85 @@ ACTION_KEYS: dict[str, list[str]] = {
     "arrow_right":     ["Right"],
 }
 
+# The keys that OPEN each structured action. The rest of the action -- typing a line
+# number or a name, pressing Return, repeating N times -- is the same in every editor;
+# this part is not, which is why it is a table an editor profile can override
+# (commands/profiles.py) rather than a literal in `_execute` below.
+LEAD_KEYS: dict[str, list[str]] = {
+    "delete_words":   ["ctrl+BackSpace"],   # sent once per word
+    # VS Code / Sublime "delete line"; a JetBrains IDE binds it to ctrl+y.
+    "delete_lines":   ["ctrl+shift+k"],     # sent once per line
+    "undo_n":         ["ctrl+z"],           # sent once per step
+    "go_to_line":     ["ctrl+g"],           # then the number, then Return
+    "go_to_function": ["ctrl+shift+o"],     # then the name
+    "go_to_class":    ["ctrl+shift+o"],     # then the name
+    "go_to_file":     ["ctrl+p"],           # then the name
+    "rename_symbol":  ["F2"],               # then rename_select, the name, Return
+    "rename_select":  ["ctrl+a"],           # select the old name in the rename box
+    "select_lines":   ["ctrl+l"],           # then shift+Down for each further line
+}
+
+#: Every action's default keys: what a command sends when no profile overrides it.
+DEFAULT_KEYMAP: dict[str, list[str]] = {**ACTION_KEYS, **LEAD_KEYS}
+
+
+class CommandRefused(Exception):
+    """The active editor profile has no safe binding for this action.
+
+    Raised before any key is sent, so a refused command leaves the window untouched.
+    """
+
+
+def _keys(action: str, keymap: Mapping[str, Sequence[str] | None] | None) -> list[str] | None:
+    """The keys for ``action``: the profile's override if it has one, else the default.
+
+    ``None`` for an action no table names (the caller's "unknown action" path).
+    Raises `CommandRefused` when the profile maps the action to ``None``.
+    """
+    if keymap is not None and action in keymap:
+        override = keymap[action]
+        if override is None:
+            raise CommandRefused(action)
+        return list(override)
+    default = DEFAULT_KEYMAP.get(action)
+    return None if default is None else list(default)
+
+
+def _send(injector: InjectorBackend, keys: list[str] | None) -> None:
+    """Send ``keys`` unless there are none -- a profile may bind a step to nothing."""
+    if keys:
+        injector.inject_key_sequence(keys)
+
 
 def dispatch(intent: CommandIntent, injector: InjectorBackend, notify_fn=None,
-             macro_table=None, macro_context=None) -> None:
+             macro_table=None, macro_context=None,
+             keymap: Mapping[str, Sequence[str] | None] | None = None) -> None:
     """Execute a CommandIntent via the injector.
 
     For DICTATE, calls injector.inject(raw_text).
     For MACRO, expands the matched macro (via macro_table/macro_context) and injects.
     For all others, dispatches key sequences or shell commands.
     notify_fn(event_name, data) is called if provided (for IPC notifications).
+
+    ``keymap`` is the focused editor's profile (commands/profiles.py): per-action
+    overrides of `DEFAULT_KEYMAP`, where ``None`` refuses the action. ``None`` -- the
+    default, and all a daemon with `[commands] editor_profiles` off ever passes --
+    sends the default keys exactly as before profiles existed.
     """
     try:
-        _execute(intent, injector, macro_table, macro_context)
+        _execute(intent, injector, macro_table, macro_context, keymap)
         if notify_fn and intent.intent != IntentType.DICTATE:
             notify_fn("command_dispatched", {
                 "intent": intent.intent.value,
                 "action": intent.action,
                 "args": intent.args,
             })
+    except CommandRefused:
+        # Deliberately NOT the raw-text fallback below: the phrase was understood as a
+        # command, and typing "rename this to user_id" into the editor is no better
+        # than the keys the profile just refused to send.
+        log.info("The focused editor's command profile has no binding for %r; "
+                 "nothing was sent.", intent.action)
     except Exception as exc:
         log.error("dispatch failed for action %r: %s", intent.action, exc)
         # Fall back to raw text injection on error
@@ -64,7 +126,8 @@ def dispatch(intent: CommandIntent, injector: InjectorBackend, notify_fn=None,
 
 
 def _execute(intent: CommandIntent, injector: InjectorBackend,
-             macro_table=None, macro_context=None) -> None:
+             macro_table=None, macro_context=None,
+             keymap: Mapping[str, Sequence[str] | None] | None = None) -> None:
     if intent.intent == IntentType.DICTATE:
         injector.inject(intent.raw_text)
         return
@@ -75,56 +138,48 @@ def _execute(intent: CommandIntent, injector: InjectorBackend,
 
     action = intent.action
     args = intent.args
-    keys = ACTION_KEYS.get(action)
+    # Both resolved before anything is sent, so a refused step (CommandRefused) can
+    # never leave half an action behind -- rename's selection step included.
+    keys = _keys(action, keymap)
+    select = _keys("rename_select", keymap) if action == "rename_symbol" else None
 
     if action == "delete_words":
         n = int(args.get("n", "1"))
         # ctrl+BackSpace deletes one word at a time
         for _ in range(n):
-            injector.inject_key_sequence(["ctrl+BackSpace"])
+            _send(injector, keys)
         return
 
     if action == "delete_lines":
         n = int(args.get("n", "1"))
         for _ in range(n):
-            # ctrl+shift+k is the VS Code / JetBrains "delete line" binding. A
-            # per-editor alternative (e.g. ctrl+d in Sublime) belongs in
-            # commands/profiles.py, not in a dead conditional here.
-            injector.inject_key_sequence(["ctrl+shift+k"])
+            # ctrl+shift+k by default (VS Code, Sublime). An editor that binds
+            # "delete line" elsewhere overrides it in commands/profiles.py.
+            _send(injector, keys)
         return
 
     if action == "undo_n":
         n = int(args.get("n", "1"))
         for _ in range(n):
-            injector.inject_key_sequence(["ctrl+z"])
+            _send(injector, keys)
         return
 
     if action == "go_to_line":
-        injector.inject_key_sequence(["ctrl+g"])
+        _send(injector, keys)
         injector.inject(args.get("n", ""))
         injector.inject_key_sequence(["Return"])
         return
 
-    if action == "go_to_function":
-        injector.inject_key_sequence(["ctrl+shift+o"])
-        injector.inject(args.get("name", ""))
-        return
-
-    if action == "go_to_class":
-        injector.inject_key_sequence(["ctrl+shift+o"])
-        injector.inject(args.get("name", ""))
-        return
-
-    if action == "go_to_file":
-        injector.inject_key_sequence(["ctrl+p"])
+    if action in ("go_to_function", "go_to_class", "go_to_file"):
+        _send(injector, keys)
         injector.inject(args.get("name", ""))
         return
 
     if action == "rename_symbol":
-        injector.inject_key_sequence(["F2"])
+        _send(injector, keys)
         name = args.get("name", "")
         if name:
-            injector.inject_key_sequence(["ctrl+a"])
+            _send(injector, select)
             injector.inject(name)
             injector.inject_key_sequence(["Return"])
         return
@@ -140,7 +195,7 @@ def _execute(intent: CommandIntent, injector: InjectorBackend,
 
     if action == "select_lines":
         n = int(args.get("n", "1"))
-        injector.inject_key_sequence(["ctrl+l"])
+        _send(injector, keys)
         for _ in range(n - 1):
             injector.inject_key_sequence(["shift+Down"])
         return

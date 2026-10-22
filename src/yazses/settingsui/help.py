@@ -2,7 +2,7 @@
 
 A checkbox and a tier label answer "is it on?", never "what will this do to my
 dictation, when would I want it, and what does ticking it actually change?".
-That gap is why a switchboard of ~200 capabilities is unusable without help
+That gap is why a switchboard of well over a hundred capabilities is unusable without help
 text: the label alone is a guess.
 
 The answer already exists. The registry carries a description, a "use when"
@@ -14,7 +14,7 @@ describe a capability differently.
 One source, three renderings, because one is never enough:
 
 * :func:`summary_line` — the line under the checkbox. Always visible, so it must
-  stay short; ~200 paragraphs is a wall, not documentation.
+  stay short; a paragraph per row is a wall, not documentation.
 * :func:`help_html` — the hover tooltip and the "?" details dialog, as Qt rich
   text (a small HTML subset that renders identically on X11, Wayland and
   Windows — no CSS, no web engine, nothing that varies by Qt build).

@@ -32,9 +32,46 @@ from the existing hold/mouth-sound stream. OFF by default.
 - Privacy (ADR-011): local timing only.
 - Caveat: Morse is slow and has a learning curve (inherent); off by default.
 
-## Implementation status (2026-10-21, WIRE-MORSEVOX-001)
+## Implementation status (2026-10-22, WIRE-MORSEVOX-001) — wired, experimental
 
-**Still unwired.** `morsevox` remains in `_UNWIRED` in `system/features.py`; nothing in the
+**Wired, off by default, untested on a real voice.** `morsevox` is out of `_UNWIRED`. The
+owner answered the open questions below on 2026-10-22:
+
+- **Start, hands-free.** Either the spoken command "morse mode" (whole utterance, the voice
+  stop word's matching rule, checked right after the stop word in `_on_hold_end`, so it is
+  heard through the ordinary dictation path and never typed), or a **long steady hum**:
+  `[morsevox] entry_hum_s` (default 1.5 s) of one unbroken tone above the voice threshold
+  whose level coefficient of variation is at most 0.25. Per ADR-021 the trigger is a
+  specific, checkable signal: speech dips below the threshold between syllables or words
+  (rule 1), and running speech that does not dip is amplitude-modulated at the syllable
+  rate (rule 2). A continuous sound fires it at most once. `entry_hum_s = 0` disables it.
+- **Stop.** `[morsevox] exit_silence_s` (default 3 s) with no accepted pulse, raised above
+  the word gap if set at or below it. The decoder defines no stop/cancel prosign, so there
+  is no exit sequence. A hold-to-talk recording, `yazses handsfree pause` (and the spoken
+  stop phrase), a pause of the hands-free gate, and shutdown also end it.
+- **Kept away from STT.** Morse mode reads its own level-only stream
+  (`morsevox/runtime.py`); no audio sample is kept and speech-to-text is never invoked.
+  Decoded characters go through the daemon's normal injector.
+- **Listening.** With the hum entry on, that stream is open while the daemon runs — the
+  microphone indicator stays on — because a user who cannot press a key must be heard to
+  start. With `entry_hum_s = 0` it opens only when "morse mode" enters and closes when
+  the mode ends.
+- **`on_level`** is `[accessibility] vad_threshold`, read at start; `off_level` is 0.6 × that.
+  It is tuned for speech, not hums — the first thing a real-voice test should check.
+- **`adapt`** is on and not user-visible: the dot/dash threshold refits once the recent
+  pulses form two clusters.
+- **Visible state.** `status` gains a `morse` block (flags and a count, never text);
+  `yazses status` prints a `morse:` line; the overlay draws its rings while Morse mode is
+  on; entering and leaving play the recording earcons and post a notification.
+
+The pure state machine is `morsevox/mode.py`, tested in `tests/test_morsevox_mode.py`;
+the runtime in `tests/test_morsevox_runtime.py`; the daemon glue in
+`tests/test_morsevox_wiring.py`. **Every threshold is synthetic-only** — the steadiness
+limit, the 1.5 s hum and the 3 s exit need measuring with the people this is for (#255).
+
+## Implementation status (2026-10-21, WIRE-MORSEVOX-001) — superseded above
+
+**Still unwired** (at that date). `morsevox` remains in `_UNWIRED` in `system/features.py`; nothing in the
 daemon constructs any of the code below, so `[morsevox] enabled = true` changes nothing yet.
 
 - **Done — the producer.** The "pulse timing from the existing stream" in the Decision had

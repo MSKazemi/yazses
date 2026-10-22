@@ -5,9 +5,10 @@ description: Measured memory footprint of each Whisper model in YazSes, what the
 
 # Choosing a model on a low-RAM machine
 
-The model is loaded once and stays resident for as long as the daemon runs, so on a
-small machine the question is not "how fast is it" but "does it fit alongside
-everything else".
+By default the model is loaded once and stays resident for as long as the daemon runs,
+so on a small machine the question is not "how fast is it" but "does it fit alongside
+everything else". If you dictate in bursts with long gaps between them, you can also
+[release the model while you are not using it](#release-the-model-when-idle).
 
 !!! info "Measured here"
 
@@ -71,6 +72,38 @@ free -m                                              # is `swap used` climbing?
 If `swap used` grows while you dictate, drop a model size. No amount of tuning
 recovers from swapping a model in and out.
 
+## Release the model when idle
+
+!!! warning "Experimental, off by default"
+
+    `[stt] idle_unload_s` has unit tests but has not yet been tried on real hardware.
+
+```toml
+[stt]
+idle_unload_s = 600     # release the model after 10 minutes without a decode; 0 = never (default)
+```
+
+Then `yazses restart`. After that many seconds with no dictation, YazSes releases the
+speech model. The next time you press the key it loads the model again:
+
+- **Your audio is not lost.** Recording starts at the press, as always. The reload starts
+  at the same moment and runs while you speak.
+- **The first words after a long pause arrive late.** If the model is still loading when
+  you let go, the tray shows *loading* until it is ready. Then the burst is transcribed and
+  typed as usual. Loading `base.en` takes a few seconds; on a slow disk it takes longer.
+- **Short values cost more than they save.** Below a few minutes, most presses pay for a
+  reload. Start at 300–600 seconds.
+
+The daemon only releases the model when it is idle or paused. A dictation, a meeting or a
+file transcription in progress is never cut short.
+
+**How much memory comes back is not measured yet.** CTranslate2, the library that runs
+Whisper, may keep part of its memory after the model is released, so the drop you see in
+`ps` can be smaller than the figures in the table above. If you try it, please
+[report what `ps` shows](https://github.com/MSKazemi/yazses/issues) before and after an
+unload. That measurement decides whether a future version runs the model in a separate
+process instead.
+
 ## What does *not* reduce memory
 
 - **`[stt] compute_type`** is already `int8`, which is the smallest option that
@@ -79,9 +112,9 @@ recovers from swapping a model in and out.
   [CPU and battery](cpu-and-battery.md). Measured: 363–373 MB across every thread
   setting, i.e. no effect.
 - **Turning off features** helps only if they load their *own* model. The ones that
-  do include the Adaptive Latency Governor (`latency`, switched on in the config a
-  fresh install writes: a second Whisper model, ~75 MB for `tiny.en`, once load is
-  high), LLM cleanup, gaze and the camera features, Cocktail Filter and voiceprints,
+  do include the Adaptive Latency Governor (`latency`: a second Whisper model, about
+  116 MB of RAM for `tiny.en`, once load is high — off by default, but configs written
+  by first run before it was moved out of the recommended set have it on), LLM cleanup, gaze and the camera features, Cocktail Filter and voiceprints,
   speaker labels and Meeting Mode, and the Parakeet and Moonshine engines.
   `yazses features disable latency` is the one worth knowing on a small machine.
 

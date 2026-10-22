@@ -1,7 +1,7 @@
 """`yazses features info <name>` shows an example. The ones that promise an output must keep it.
 
 The feature registry gives every capability an ``example``. Most are prose ("Hold your
-hotkey and speak"), but eighteen assert a concrete transformation with an arrow, and nine
+hotkey and speak"), but eighteen assert a concrete transformation with an arrow, and ten
 of those name an input and an output precisely enough to check:
 
     convert            'twenty miles in kilometers' → '32.19 kilometers'
@@ -12,8 +12,10 @@ of those name an input and an output precisely enough to check:
     voice-punctuation  'hello comma world period' → 'hello, world.'
     wordfind           'the word for when water turns to gas' → evaporation
     dysfluency         'b-b-because' → 'because'
+    code               'code self dot camel case user name' → 'self.userName'
 
-All nine hold today — checked by running each against its real implementation. Nothing
+The first nine held when this file was written — checked by running each against its
+real implementation. `code` joined when code mode's identifier casing was wired. Nothing
 enforced them, so a refactor could have turned `yazses features info` into a liar with no
 test failing, which is the same family as the guards on documented flags, commands and
 config keys.
@@ -62,6 +64,17 @@ def _itn(text: str) -> str:
     return normalize_entities(text)
 
 
+def _code(text: str) -> str:
+    """Through the real `code ...` handler, so the symbols → identifiers order is what runs."""
+    from yazses.spokencmd.registry import build_handlers
+    from yazses.spokencmd.router import route
+
+    cfg = Config()
+    cfg.code.enabled = True
+    result = route(text, build_handlers(cfg))
+    return (result.text or "") if result is not None else ""
+
+
 def _math(text: str) -> str:
     from yazses.math.latex import spoken_to_latex
 
@@ -107,6 +120,7 @@ def _dysfluency(text: str) -> str:
 #: (slug, spoken input, the output its example promises, the real implementation)
 PROMISES = [
     ("convert", "twenty miles in kilometers", "32.19 kilometers", _convert),
+    ("code", "code self dot camel case user name", "self.userName", _code),
     ("itn", "john dot doe at gmail dot com", "john.doe@gmail.com", _itn),
     ("math", "x squared plus y squared", "x^{2} + y^{2}", _math),
     ("self_repair", "email Sarah no I mean Sara", "email Sara", _self_repair),

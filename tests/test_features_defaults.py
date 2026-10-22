@@ -86,3 +86,22 @@ def test_shipped_on_capabilities_default_to_on(slug):
 @pytest.mark.parametrize("slug", ["streaming", "learning", "cocktail", "gaze"])
 def test_opt_in_capabilities_default_to_off(slug):
     assert default_state()[slug] is False
+
+
+def test_the_latency_governor_is_not_switched_on_for_a_fresh_install():
+    """`latency` loads a second Whisper model (~116 MB RSS for tiny.en, ADR-029).
+
+    Its registry text, its config docstring and `features info latency` all say "Off by
+    default", and it sat in the RECOMMENDED tier that first run seeds — so every new
+    install got the model anyway. The tier is what decides, so pin the tier and every
+    set derived from it.
+    """
+    from yazses.system.features import DEFAULT_ON, RECOMMENDED, default_enabled_writes
+
+    feat = find_feature(Config(), "latency")
+    assert feat is not None
+    assert feat.tier not in (DEFAULT_ON, RECOMMENDED)
+    assert "latency" not in default_enabled_slugs()
+    assert not [w for w in default_enabled_writes() if w[0] == "latency"]
+    assert default_state()["latency"] is False
+    assert Config().latency.enabled is False

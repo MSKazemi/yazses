@@ -57,3 +57,41 @@ Open questions, deliberately undecided:
    share a word prefix.
 4. **How is the cursor moved?** `resolve_target` returns `{word_index, intent}`. Turning
    that into keystrokes in an app that has since received other input is not designed.
+
+## Addendum (2026-10-22) — wired; the post-barge-in decisions
+
+Owner decision (2026-10-22): a barge-in marks the word being read, and the next dictated
+burst replaces the text **from that word to the end of the burst**. Implemented in the pure,
+clock-injected `proofback/bargein.py` and wired in `core/daemon.py`. The four open questions
+above are answered as follows:
+
+1. **Which word?** The word playing when the key goes down, `lag_s = 0.0`. The clock is read
+   before the TTS is cancelled. The reaction-time lag is still unmeasured, so it is not a
+   config key yet.
+2. **Playback after the edit?** It stops, as any hold already did. The replacement burst is
+   read back like any other dictation, so it can be proofread in turn.
+3. **What does the index address?** A word of the *spoken* text. It is used only when the
+   spoken and the typed text agree word for word up to and including that word. A word cut
+   by `max_readback_chars` ("hel…") is reported, never replaced.
+4. **How is the cursor moved?** It is not. The span always ends where the burst ends, so the
+   erase is backspaces from the end of the text YazSes typed, the "scratch that" and
+   Punch-In mechanism. Replacing only the one word would need a caret move or a re-type of
+   the words after it. It would also need a guess at how many words the correction covers.
+
+The guard (ADR-021) is checkable signals only. A hold is a barge-in only while the tray
+is in `READBACK`, the utterance is the read-back of a dictated burst (not `yazses say`), and
+at least one of its words has started playing. The armed target lives for exactly the next
+burst. That burst erases nothing, and is typed as ordinary dictation, when:
+
+- streaming is on, because live text already follows the old tail;
+- the target is known not to be a text field;
+- YazSes typed anything since the read-back;
+- the burst is empty.
+
+"Starts speaking" is not a barge-in signal: the recorder is push-to-talk and does not listen
+during playback. Every hold source (keyboard, EMG, face switch) goes through `_on_hold_start`
+and counts. The Mid-Thought-Undo ledger and the `[timeline]` history are rewritten to the
+shortened burst, so "scratch that" and "undo burst" never press too many backspaces.
+
+The feature is experimental and off by default. Word timing is estimated, and it has not been
+observed on real hardware.

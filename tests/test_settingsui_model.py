@@ -95,3 +95,16 @@ def test_the_model_carries_the_defaults_a_reset_targets():
     model = build_settings_model(Config())
     assert model.defaults == default_state()
     assert set(model.defaults) <= {row.slug for row in model.rows()}
+
+
+def test_one_row_per_registry_capability():
+    """What the model's comments now say instead of a hard-coded "~200 rows".
+
+    The registry had well under 200 entries when a docs audit (2026-10-21) found the
+    figure; the text now states the relationship, and this pins it.
+    """
+    from yazses.system.features import feature_status
+
+    slugs = [row.slug for row in build_settings_model(Config()).rows()]
+    assert sorted(slugs) == sorted(f.slug for f in feature_status(Config()))
+    assert len(slugs) == len(set(slugs)), "a capability appears twice"

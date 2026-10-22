@@ -17,8 +17,8 @@
       "unpriced": []
     },
     "denoise": {
-      "download_mb": 61.8,
-      "packages": 12,
+      "download_mb": 62.0,
+      "packages": 13,
       "unpriced": []
     },
     "diarize": {
@@ -27,28 +27,28 @@
       "unpriced": []
     },
     "facegesture": {
-      "download_mb": 223.7,
-      "packages": 13,
+      "download_mb": 223.9,
+      "packages": 14,
       "unpriced": []
     },
     "gaze": {
-      "download_mb": 223.7,
-      "packages": 13,
+      "download_mb": 223.9,
+      "packages": 14,
       "unpriced": []
     },
     "gesture": {
-      "download_mb": 223.7,
-      "packages": 13,
+      "download_mb": 223.9,
+      "packages": 14,
       "unpriced": []
     },
     "handsfree": {
-      "download_mb": 223.7,
-      "packages": 13,
+      "download_mb": 223.9,
+      "packages": 14,
       "unpriced": []
     },
     "headpointer": {
-      "download_mb": 223.7,
-      "packages": 13,
+      "download_mb": 223.9,
+      "packages": 14,
       "unpriced": []
     },
     "llm-cleanup": {
@@ -69,6 +69,11 @@
     "overlay": {
       "download_mb": 268.3,
       "packages": 6,
+      "unpriced": []
+    },
+    "predict": {
+      "download_mb": 76.7,
+      "packages": 4,
       "unpriced": []
     },
     "prosody": {

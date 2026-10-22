@@ -98,6 +98,12 @@ _IRREVERSIBLE_ACTIONS: frozenset[str] = frozenset({
     "save",            # writes over the file; not in the editor's undo stack
     "delete_lines",    # multi-line removal; recoverable only if undo is reached first
     "delete_words",
+    # Editor navigation and refactors. These were unclassified -- so confirmed -- before
+    # the keymap table made them visible to the classification test; naming them here
+    # keeps that behaviour. Moving any of them to the reversible list is a separate
+    # decision (rename_symbol edits every file that uses the symbol).
+    "go_to_function", "go_to_class", "go_to_file",
+    "rename_symbol", "rename_select", "select_lines",
 })
 
 
