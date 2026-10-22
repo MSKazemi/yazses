@@ -110,9 +110,36 @@ Get-AuthenticodeSignature .\YazSes-<version>-windows-x64.exe | Format-List
 
 You want `Status: Valid` and a signer certificate issued to **SignPath Foundation**.
 
-## Signing policy
+## Code signing policy
 
 This is the policy the project commits to for every signed release.
+
+!!! note "Application pending"
+
+    YazSes has applied to the [SignPath Foundation](https://signpath.org) programme and
+    is not yet approved, so no release is signed today. Once it is, every signed release
+    carries this credit:
+
+    *Free code signing provided by [SignPath.io](https://about.signpath.io), certificate
+    by [SignPath Foundation](https://signpath.org).*
+
+**Team roles.**
+
+| Role | Who |
+|---|---|
+| Committers and reviewers | [Maintainers](https://github.com/MSKazemi/yazses/blob/main/.github/CODEOWNERS) — currently [@MSKazemi](https://github.com/MSKazemi) |
+| Approvers | [Owner](https://github.com/MSKazemi) — [@MSKazemi](https://github.com/MSKazemi) |
+
+Committers are the people trusted to modify the source in this repository. Every change
+proposed by someone who is not a committer, such as a pull request from a fork, is
+reviewed by a committer before it is merged. Every team member is required to use
+multi-factor authentication on both GitHub and SignPath.
+
+**Privacy.** See the [privacy statement](privacy-statement.md). YazSes sends nothing you
+say anywhere by default. Every network connection it can make, and the third-party
+services involved (model downloads from Hugging Face, package installs from PyPI,
+update checks against GitHub Releases), is listed with its trigger in the
+[egress inventory](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-019-egress-inventory-and-escalation.md).
 
 **What gets signed.** Only artifacts built by the project's own GitHub Actions workflow
 ([`build-windows.yml`](https://github.com/MSKazemi/yazses/blob/main/.github/workflows/build-windows.yml))
