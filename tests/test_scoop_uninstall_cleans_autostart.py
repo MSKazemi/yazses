@@ -9,6 +9,12 @@ by installing and uninstalling through the bucket.
 The manifest's `pre_uninstall` deletes the value, but only when it points inside this
 Scoop app's folder: an entry written by the `.exe` installer, or by anything else, is
 not Scoop's to remove.
+
+And only on `scoop uninstall`. Scoop runs `pre_uninstall` on `scoop update` too, before
+it removes the old version, so without the `$cmd -eq 'uninstall'` guard every update
+silently turned autostart off. Watched on Windows 11: a bucket install of 2.43.1 updated
+to 2.43.2 cleanly, and printed "Running pre_uninstall script... Done.", and the entry was
+gone. `$cmd` is the convention Scoop's own buckets use for exactly this.
 """
 
 from __future__ import annotations
@@ -36,6 +42,8 @@ def test_pre_uninstall_removes_only_the_yazses_run_value_inside_this_app():
     script = "\n".join(_pre_uninstall())
     assert r"CurrentVersion\Run" in script
     assert "Remove-ItemProperty" in script and "'YazSes'" in script
+    # Uninstall only: Scoop runs pre_uninstall on `scoop update` as well.
+    assert "$cmd -eq 'uninstall'" in script
     # Scoped to this Scoop app's folder; an unconditional delete would remove the
     # .exe installer's entry too.
     assert "Split-Path $dir" in script and ".Contains(" in script
@@ -71,7 +79,7 @@ def test_a_release_refresh_keeps_pre_uninstall():
 _APPS = r"C:\Users\ada\scoop\apps\yazses"
 
 
-def _run_pre_uninstall(entry: str | None) -> str | None:
+def _run_pre_uninstall(entry: str | None, cmd: str = "uninstall") -> str | None:
     """Run the manifest's lines with Scoop's $dir set, against a temporary key
     standing in for HKCU\\...\\Run. Returns the value left behind."""
     key = rf"HKCU:\Software\YazSesTest-{uuid.uuid4().hex}"
@@ -87,6 +95,7 @@ def _run_pre_uninstall(entry: str | None) -> str | None:
             "$ErrorActionPreference = 'Stop'",
             *setup,
             rf"$dir = '{_APPS}\2.43.2'",
+            f"$cmd = '{cmd}'",  # the Scoop command running the hook
             f"$run = '{key}'",
             *lines[1:],
             f"$left = (Get-ItemProperty -Path '{key}' -Name 'YazSes' -ErrorAction SilentlyContinue).YazSes",
@@ -123,3 +132,11 @@ def test_the_installer_entry_is_left_alone():
 @windows_only
 def test_no_entry_is_not_an_error():
     assert _run_pre_uninstall(None) is None
+
+
+@windows_only
+def test_scoop_update_keeps_the_entry():
+    """The regression: `scoop update` runs pre_uninstall before replacing the version,
+    and the entry (which names ...\\current\\, the same after the update) was deleted."""
+    ours = rf'"{_APPS}\current\YazSesApp.exe" --tray'
+    assert _run_pre_uninstall(ours, cmd="update") == ours

@@ -95,7 +95,9 @@ together rather than the checksum going stale.
 carries the x64 installer (ARM PCs run it under emulation), and has been installed end-to-end on a clean Windows
 host: `yazses update --check` correctly reports the install as `via scoop` and
 offers `scoop update yazses`. The direct installer above is verified the same way
-(`via windows-installer`).
+(`via windows-installer`). The update itself has been watched on Windows 11 too:
+`scoop update yazses` took a bucket install from 2.43.1 to 2.43.2 cleanly and kept
+YazSes starting at sign-in, and `scoop uninstall yazses` removes that sign-in entry.
 
 **winget works.** The submission to `microsoft/winget-pkgs` was
 moderator-approved and merged on 2026-09-10, so `winget install MSKazemi.YazSes`
