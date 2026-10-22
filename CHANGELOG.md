@@ -6,6 +6,18 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Documentation — the README reads as one path, from what it does to how to contribute
+
+The README explained installation three times, contributing twice and features twice, and a
+newcomer had to scroll past all of it to find the next step. Each now has one home: install
+commands under **Install**, the first-run steps under **Quick Start** (numbered, with the
+Linux-only `yazses setup` step labelled as such and its package list collapsed),
+contribution routes and the development workflow under **Contributing**, and the smaller
+features folded into **What it does**. A navigation line under the demo links the main
+sections, the Snap, APT, pipx and from-source routes each get their own block, and the
+archived Rust comparison table is collapsed. Every heading the translation map cites, every
+command the translations quote, and the generated contributors wall are unchanged.
+
 ### Changed — every job in every workflow has a time limit, and a release job cannot be cut short by one
 
 `test.yml` got its limits in 2.44.0 (#631). Thirty-one jobs in 21 other workflows had none,
