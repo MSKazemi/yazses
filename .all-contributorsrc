@@ -138,7 +138,8 @@
       "avatar_url": "https://avatars.githubusercontent.com/u/64578610?v=4",
       "profile": "https://github.com/Mr-Neutr0n",
       "contributions": [
-        "doc"
+        "doc",
+        "example"
       ]
     },
     {
@@ -149,7 +150,8 @@
       "contributions": [
         "infra",
         "doc",
-        "test"
+        "test",
+        "example"
       ]
     },
     {
@@ -213,7 +215,8 @@
         "doc",
         "userTesting",
         "bug",
-        "platform"
+        "platform",
+        "example"
       ]
     },
     {
@@ -244,7 +247,8 @@
       "contributions": [
         "code",
         "test",
-        "platform"
+        "platform",
+        "research"
       ]
     },
     {
