@@ -1191,6 +1191,7 @@ YazSes ships **149 capabilities**. All but the core are **off by default** — t
 - **What it does:** After a dictation is typed, a local model proposes the rest of the sentence in a notification; say "accept" or "take it" within 10 seconds to type it. Anything else you say dismisses it, and nothing is typed without the accept. Needs llama-cpp-python (the slm extra) and a local GGUF model at [predict] model_path. Off by default.
 - **Use when:** When you want the daemon to finish your sentence so you can speak less.
 - **Example:** Dictate 'the meeting is moved to', then say 'accept' to type the suggested rest.
+- **Download:** ~77 MB
 - **Activate:** `yazses features enable predict` then `yazses restart`
 
 ### Spoken Recall & Scratch
