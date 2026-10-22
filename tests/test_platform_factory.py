@@ -1,4 +1,4 @@
-"""Tests for the platform factory and the Linux platform bundle."""
+"""Tests for the platform factory and the Linux and Windows platform bundles."""
 
 from __future__ import annotations
 
@@ -68,3 +68,68 @@ def test_unsupported_platform_raises(monkeypatch):
     reset_platform_cache()
     with pytest.raises(UnsupportedPlatformError):
         get_platform()
+
+
+# ---- The Windows bundle -------------------------------------------------------
+#
+# The four tests above only ever ran on Linux, so on the windows-latest legs the
+# factory's real Windows bundle was never built by a test at all.
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows-specific bundle")
+def test_factory_returns_windows_platform():
+    from yazses.platform.base import WINDOWS_PLATFORM_NAME
+
+    p = get_platform()
+    assert isinstance(p, Platform)
+    assert p.name == WINDOWS_PLATFORM_NAME
+    # Right Alt is AltGr on many layouts; Right Ctrl types nothing (docs/windows-install.md).
+    assert p.default_hotkey == "right_ctrl"
+    assert p.tray_factory is not None
+    assert p.tray_default_enabled is True
+    # The Windows-only capabilities this bundle is the one place to wire up.
+    assert p.update_launcher is not None
+    assert p.pointer_factory is not None
+    assert p.click_observer_factory is not None
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows-specific bundle")
+def test_windows_factory_is_cached():
+    assert get_platform() is get_platform()
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows-specific bundle")
+def test_windows_paths_are_machine_local_not_roaming():
+    """platform/windows/paths.py: a roaming profile would sync the PID file to another
+    PC, and `yazses status` there would report on a daemon that is not running."""
+    import os
+    from pathlib import Path
+
+    p = get_platform()
+    local = Path(os.environ["LOCALAPPDATA"]).resolve()
+    for d in (p.paths.config_dir, p.paths.state_dir, p.paths.data_dir):
+        assert d.resolve().is_relative_to(local), f"{d} is not under %LOCALAPPDATA%"
+    assert p.paths.config_file.name == "config.toml"
+    assert p.paths.pid_file.name == "daemon.pid"
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows-specific bundle")
+def test_windows_ipc_is_a_per_user_named_pipe(monkeypatch):
+    import getpass
+
+    from yazses.platform.windows.ipc import _pipe_name_from_path
+
+    # Patched, not read: the CI account is a generic `runner`, so a value read from the
+    # host would make this mean something different there (test_repo_hygiene_host_reading).
+    monkeypatch.setattr(getpass, "getuser", lambda: "ada")
+    name = _pipe_name_from_path(get_platform().paths.ipc_socket)
+    assert name.startswith(r"\\.\pipe\yazses-ada-")
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows-specific bundle")
+def test_windows_permissions_return_known_states():
+    p = get_platform()
+    known = {PermissionState.OK, PermissionState.DENIED, PermissionState.UNKNOWN}
+    assert p.permissions.check_keyboard_capture() in known
+    # Keyboard capture needs no grant on Windows; the remedy is about elevation.
+    assert "administrator" in p.permissions.how_to_grant().lower()
