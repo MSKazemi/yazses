@@ -47,6 +47,7 @@ concurrency:
 jobs:
   watch:
     runs-on: ubuntu-latest
+    timeout-minutes: 10   # slowest of the last 15 runs: 0.4 min (CI_POLICY §8)
     permissions:
       contents: read
       issues: write # the report is an issue, kept current rather than reposted

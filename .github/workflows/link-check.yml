@@ -33,6 +33,7 @@ concurrency:
 jobs:
   links:
     runs-on: ubuntu-latest
+    timeout-minutes: 10   # slowest of the last 15 runs: 0.6 min (CI_POLICY §8)
     # PROMOTE WHEN: never -- advisory by design (see the header): a remote host's outage
     # must not block a merge. A red run is read and the dead link fixed by hand.
     continue-on-error: true

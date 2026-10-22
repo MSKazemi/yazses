@@ -65,6 +65,7 @@ jobs:
       github.event_name == 'workflow_dispatch' ||
       github.event.pull_request.user.login == 'dependabot[bot]'
     runs-on: ubuntu-latest
+    timeout-minutes: 10   # slowest of the last 15 runs: 0.2 min (CI_POLICY §8)
     steps:
       # Resolve *and authorise* the target before anything is checked out. On the
       # `pull_request_target` path the job-level `if` has already established the

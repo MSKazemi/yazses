@@ -20,6 +20,7 @@ jobs:
   analysis:
     name: Scorecard analysis
     runs-on: ubuntu-latest
+    timeout-minutes: 10   # slowest of the last 15 runs: 1.2 min (CI_POLICY §8)
     permissions:
       security-events: write   # upload the SARIF result to code scanning
       id-token: write          # publish results so the badge can be generated

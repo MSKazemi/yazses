@@ -44,6 +44,7 @@ permissions:
 jobs:
   checksums:
     runs-on: ubuntu-latest
+    timeout-minutes: 100   # its own waits run to 45 + 40 min; this must not cut them short (CI_POLICY §8)
     permissions:
       contents: write # uploads SHA256SUMS.txt onto the existing Release
     env:

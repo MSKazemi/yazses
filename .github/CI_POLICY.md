@@ -369,6 +369,25 @@ The timeout should be:
 
 Do not raise a timeout to hide a hang without identifying why runtime changed.
 
+**How the number is chosen.** Every job in every workflow declares one, set by the first
+rule that fits, and its comment in the workflow says which:
+
+1. **A job that waits for other workflows by design** (`checksums`, `publish-channels`'
+   `wait-for-assets`, `release-complete`, `docker` on a release): the sum of its own wait
+   deadlines plus 15 minutes, rounded up to 5. Its deadline decides what a slow build
+   costs (`checksums` hashes what arrived rather than failing), so the runner must never
+   cancel the job first.
+2. **A job that does its own work:** three times its slowest successful run among the last
+   15, rounded up to 5, and never under 10 minutes.
+3. **A job with no measured run of its real work yet** (a publish step still waiting on
+   its credential, a dispatch-only job that has not run): 30 minutes, revisited once it
+   has runs.
+
+`test.yml` jobs also stay at or under 60. `tests/test_ci_job_timeouts.py` fails for any job
+without a limit, and for a waiting job whose limit is less than 10 minutes above its own
+deadlines. It reads those deadlines from the step shell (`SECONDS + N`, and `seq 1 N`
+around a `sleep`), so lengthening a wait without the limit fails there, not on a release.
+
 ### Caches
 
 A cache key must include every property that changes compatibility, including as relevant:

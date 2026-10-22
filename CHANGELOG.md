@@ -6,6 +6,28 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed — every job in every workflow has a time limit, and a release job cannot be cut short by one
+
+The test workflow got its limits above. Thirty-one jobs in 21 other workflows had none,
+so a hang there could hold a runner for GitHub's six-hour default. Each now has one, chosen
+by a single rule now written in `.github/CI_POLICY.md` §8 and named in the comment beside
+it ([#537](https://github.com/MSKazemi/yazses/issues/537)):
+
+- A job that does its own work gets three times its slowest successful run among the last
+  15, never under 10 minutes. Most finish in under 5.
+- A job that waits for other workflows by design gets its own deadlines plus 15 minutes:
+  `checksums` 100, `publish-channels`' `wait-for-assets` 95, `release-complete` 65, and
+  `docker` 35 (on a release it waits up to 20 minutes for pip to resolve the new version).
+  A lower limit would cancel the job before its own deadline decided what a slow build
+  costs.
+- A publish job that has never run for real gets 30 minutes until there is a run to
+  measure.
+
+`tests/test_ci_job_timeouts.py` now covers every workflow. It also reads each job's wait
+deadlines from its shell and fails when the limit is less than 10 minutes above them. The
+first draft of this change gave `docker` 10 minutes from its run times alone, and the test
+caught it.
+
 ### Changed — every CI test job now has a time limit that fits the parallel suite
 
 With no `timeout-minutes`, `repo-hygiene` sat in a hung `apt-get update` for 78 minutes

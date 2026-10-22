@@ -40,6 +40,7 @@ permissions:
 jobs:
   pack:
     runs-on: windows-latest
+    timeout-minutes: 10   # slowest of the last 15 runs: 1.0 min (CI_POLICY §8)
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
