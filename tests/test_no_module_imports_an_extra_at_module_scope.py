@@ -38,6 +38,8 @@ ALLOWED_LEAVES: dict[str, str] = {
     "yazses.overlay.widget": "the Qt widget itself; overlay/app.py imports it lazily",
     "yazses.overlay.grid_widget": "the mouse-grid Qt window; overlay/app.py imports it lazily, "
     "and only when [mousegrid] is enabled",
+    "yazses.overlay.scan_widget": "the mouth-switch scan strip; overlay/app.py imports it "
+    "lazily, and only when [mouthswitch] is enabled",
     "yazses.platform.emg.backend": "try/except-guarded pyserial; built lazily by the daemon",
     "yazses.platform.emg.ble_backend": "try/except-guarded bleak; built lazily by the daemon",
 }

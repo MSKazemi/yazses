@@ -1,6 +1,7 @@
 # ADR-029 — Runtime residency: RAM and CPU proportional to what is enabled
 
-**Status:** Proposed (2026-10-21)
+**Status:** Accepted (2026-10-22). Proposed 2026-10-21. First step implemented: the
+dictation engine's opt-in idle unload, `[stt] idle_unload_s` (see *Implementation status*).
 **Deciders:** Mohsen Seyedkazemi Ardebili
 **Context links:** [[adr-016-dependency-budget]] (features pay for themselves — in bytes
 and imports; this ADR extends it to RAM and CPU), [[adr-018-feature-packs-and-the-plugin-question]]
@@ -213,7 +214,8 @@ diff.
   run stops switching on a second model whose own description says "Off by default"
   (research note §4 gap 2; the row is `_Def("latency", ...)` near line 728,
   `_DEFAULT_ENABLED_TIERS` near line 1849). Its test asserts `latency` is not in the
-  default-on set.
+  default-on set. Done 2026-10-22: the row is OPTIONAL, pinned by
+  `tests/test_features_defaults.py`.
 
 **Daemon engine load/unload (the `core/daemon.py` owner):**
 
@@ -254,7 +256,43 @@ as §1). Regenerate `docs/configuration.md` with `scripts/gen-docs.py`.
 
 Until the daemon hook lands, `system/residency.py` has no importer in `src/` and is
 recorded in `tests/test_orphan_modules.py::KNOWN_ORPHANS` with this ADR as the reason;
-that entry must be deleted in the same change that wires it.
+that entry must be deleted in the same change that wires it. (Done 2026-10-22 with the
+`[stt] idle_unload_s` step.)
+
+## Implementation status
+
+**2026-10-22, step 1: `[stt] idle_unload_s`.** The key exists (`SttConfig.idle_unload_s`,
+int seconds, default `0` = never, so an existing install is unchanged).
+`stt/resident.py::IdleUnloadEngine` wraps the engine only when the value is positive.
+This step differs from the hand-off text above in one respect:
+
+- **The daemon does not set `self._engine` to `None` or rebuild `self._stream_engine`.** The
+  wrapper stays in place for the daemon's life and only its *inner* engine comes and goes.
+  `StreamingEngine`, `EnginePool` (as its base engine) and meeting capture all hold the
+  wrapper, so they reload through it and nothing needs rebuilding. Setting the attribute to
+  `None` would also have made every `self._engine is None` guard read an idle unload as
+  "not started" and drop the burst.
+
+How it meets the rest of §1:
+
+- **The decision** is `system/residency.py`: `with_stt_idle_unload(s)` gives the `stt` row
+  a keep-alive of `s` (which also unpins it), `IdleTracker` decides when it is due, and
+  `unload_tick_s` sets the tick to a quarter of the keep-alive, clamped to 1–30 s.
+- **The tick** is a thread beside the portal reaper (`Daemon._start_stt_idle_unloader`).
+  It releases the model only while the daemon state is IDLE or PAUSED, checked under
+  `Daemon._lock`. `IdleUnloadEngine.detach_if_idle()` never blocks and refuses while any
+  decode is counted in.
+- **The reload** starts at the press (`prefetch`), after the recorder is already running,
+  so capture never waits and the press's audio is kept. If the model is still loading at
+  release, the burst shows the existing LOADING state, and it returns to TRANSCRIBING when
+  the load ends.
+
+Not done in this step and still open: `ResidencyBudget` and `[residency] max_resident`;
+`[residency] keep_alive_s` and the unload hooks for `latency`, `diarize`, `gaze`, `tts`,
+`llm` and `voiceprint`; the worker processes (§2); the nightly RSS, idle-CPU and
+release-after-unload jobs (§4); and the consent-time RAM figures (§5). Also open: how much
+RSS an `stt` unload actually returns. CTranslate2 may keep its arena, and the nightly
+"release" row is what measures that.
 
 ## Consequences
 

@@ -73,6 +73,9 @@ CAPTURE_PROVING_DISCARDS = frozenset({
     "command_no_text_target",
     "timeline_no_text_target",
     "revise_no_text_target",
+    # "accept" was heard and decoded; the predicted suggestion was not typed because
+    # no text field had focus -- the same downstream refusal as the three above.
+    "predict_no_text_target",
     "no_target",
     "window_focus_no_match",
     # A layout command parsed and the window manager would not carry it out (no

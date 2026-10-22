@@ -33,6 +33,24 @@ class InjectionTimeline:
         """The concatenation of live events (for inspection/tests)."""
         return "".join(self._events)
 
+    def replace_last(self, old: str, new: str) -> bool:
+        """Rewrite the newest event from *old* to *new* (``""`` removes it).
+
+        For an edit made outside this timeline that shortened the newest burst on
+        screen (Interruptible Proofreading erases its tail). Without it the next
+        "undo burst" would press as many backspaces as the burst *used* to have and
+        delete text before it. Applies only when the newest event is exactly *old*;
+        returns whether it did. Clears the redo stack, as :meth:`record` does.
+        """
+        if not self._events or self._events[-1] != old:
+            return False
+        if new:
+            self._events[-1] = new
+        else:
+            self._events.pop()
+        self._redo.clear()
+        return True
+
     def _trailing_count(self, last: str, scope: str) -> int:
         if scope in ("last", "burst", "all"):
             return len(last)

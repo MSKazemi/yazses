@@ -110,11 +110,11 @@ Whisper then detects one language per burst rather than switching inside it, so
 mixed sentences come out best when the model is large enough to transcribe the
 English words in Hindi context.
 
-`[polyglot]` is not the answer yet. It is a code-switch hook for a separately trained
-adapter (`[polyglot] pair = "hi-en"` plus `[polyglot] adapter_path`); with no adapter
-set it does nothing, and `yazses doctor` reports it as dormant. Even with one set,
-the daemon does not route any speech to it yet, so turning it on changes no
-transcript.
+`[polyglot]` is not the answer yet: it is planned, not wired. Its design routes a
+burst that mixes a declared pair (`[polyglot] pair = "hi-en"`) to a separately trained
+code-switch adapter (`[polyglot] adapter_path`), but nothing yet detects where a burst
+switches language. Every burst is decoded by the `[stt]` model, with or without an
+adapter, so turning it on changes no transcript.
 
 ## Will Devanagari actually type into my applications?
 

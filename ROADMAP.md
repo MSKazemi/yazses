@@ -4,7 +4,7 @@
 > [Roadmap — eras, milestones, and the destination](https://mskazemi.com/yazses/roadmap.html)
 > (`docs/roadmap.md`). Delivery work is filed under one
 > [GitHub milestone](https://github.com/MSKazemi/yazses/milestones) —
-> Verified everywhere · Install anywhere · Speech accuracy · Voice control ·
+> Verified everywhere · Agent-era mic · Install anywhere · Speech accuracy · Voice control ·
 > Contributor experience · Hands-free · Paper 2 · Android M0–M3 (Settings GUI and
 > Silent input are complete and closed). Epics and evergreen issues (research
 > questions, test-report calls, translation reviews, invitations) follow the
@@ -18,12 +18,12 @@
 What is landing right now — the latest release and every unreleased change on `main` — is
 generated from the changelog at [mskazemi.com/yazses/now.html](https://mskazemi.com/yazses/now.html).
 
-**Stable release: v2.43.2**, published on PyPI, GitHub Releases, Snap, and the APT repo, with
+**Stable release: v2.44.0**, published on PyPI, GitHub Releases, Snap, and the APT repo, with
 Windows `.exe`, macOS `.dmg`, and Debian `.deb` installers attached to the GitHub release (all
 release workflows fire on `v*` tags). The v2 line is delivered as a long series of research
 waves, each a fresh state-of-the-art sweep → ADRs → pure, 100%-covered, off-by-default cores.
 
-On `main` (v2.43.2 plus the unreleased frontier): **149 capabilities (119 wired / 30 honestly
+On `main` (v2.44.0 plus the unreleased frontier): **149 capabilities (124 wired / 25 honestly
 marked "planned")**, **14800+ tests green**, ADRs `adr-v2-001..151`, and the per-wave
 state-of-the-art research notes. The counts come from the feature registry
 (`yazses.system.features`) and from running the suite, not from counting by hand — every one

@@ -432,7 +432,10 @@ def _registry() -> list[_Def]:
              "Biases STT toward terms you use often. Local only.",
              lambda c: c.personalize.enabled, pe_on, pe_off),
         _Def("polyglot", "Polyglot Switch", "[polyglot] — mixed-language", OPTIONAL,
-             "Handles dictation that mixes two languages.",
+             "Would decode a burst that mixes the two languages of a declared pair with a "
+             "code-switch adapter you train yourself (ADR-v2-008). Not wired: no decode path "
+             "produces the per-span language IDs the router needs, so every burst is decoded "
+             "by the [stt] model whatever [polyglot] says.",
              lambda c: c.polyglot.enabled, pg_on, pg_off),
         _Def("streaming", "Streaming transcription", "[streaming]", OPTIONAL,
              "Injects words live as you speak (overtype). Off by default because "
@@ -535,9 +538,11 @@ def _registry() -> list[_Def]:
              "just one edge. Off by default.",
              lambda c: c.diagramvox.enabled, dv_on, dv_off),
         _Def("proofback", "Interruptible Proofreading", "[proofback] — barge-in read-back editing",
-             OPTIONAL,
-             "Interrupt the spoken read-back ('stop — change that') and the cursor lands on the exact "
-             "word being read — eyes-free proofreading. Off by default.",
+             EXPERIMENTAL,
+             "Hold the dictation key while a dictation is being read back: the word being read is "
+             "marked, and what you say next replaces the text from that word to the end of that "
+             "dictation — eyes-free proofreading. Needs Read-Back on. Experimental: word timing "
+             "is estimated, untested on real hardware. Off by default.",
              lambda c: c.proofback.enabled, pb_on, pb_off),
         _Def("screenplay", "Screenplay Auto-Format", "[screenplay] — dialogue → Fountain", OPTIONAL,
              "Formats dictated scenes and dialogue as Fountain screenplay markup (scene headings, "
@@ -565,8 +570,12 @@ def _registry() -> list[_Def]:
              "after, and warns about acronyms you never defined. Off by default.",
              lambda c: c.acronyms.enabled, ac_on, ac_off),
         _Def("morsevox", "Vocal Morse", "[morsevox] — two-tone Morse text entry", EXPERIMENTAL,
-             "Type by Morse using two vocal sounds (short/long) — full text from a single reliable "
-             "vocalization, with adaptive timing. For locked-in/minimal-ability users. Off by default.",
+             "Type by Morse with your voice: a short hum is a dot, a long hum a dash, and each "
+             "decoded letter is typed (speech-to-text is not run). Start it hands-free by "
+             "humming one long steady tone (1.5 s) or by saying 'morse mode'; 3 s of silence "
+             "ends it. Adapts the dot/dash timing to your rhythm. With the hum entry on, the "
+             "microphone stays open (a level only). For minimal-ability users. Experimental: "
+             "timings tuned on synthetic signals only. Off by default.",
              lambda c: c.morsevox.enabled, mv_on, mv_off),
         _Def("checkdigit", "Checksum-Validated Entry", "[checkdigit] — verify dictated ID numbers",
              RECOMMENDED,
@@ -576,9 +585,12 @@ def _registry() -> list[_Def]:
              lambda c: c.checkdigit.enabled, ckd_on, ckd_off),
         _Def("mouthswitch", "Mouth-Sound Switch Access", "[mouthswitch] — scan-and-select by mouth sounds",
              EXPERIMENTAL,
-             "Drive a scanning selector with non-verbal mouth sounds ('pop' = advance, cluck = "
-             "select) — the switch-access method for people who can't produce reliable speech. Off "
-             "by default.",
+             "Single-switch scanning with non-verbal mouth sounds, for people who can't produce "
+             "reliable speech: a lip pop starts (or stops) a highlight in the overlay that steps "
+             "through Enter, Undo, Scroll up, Scroll down and Click every 1.2 s, and a tongue "
+             "click runs the lit one. Armed by `yazses handsfree resume`, stopped by `handsfree "
+             "pause`; needs the overlay. Thresholds tuned on synthetic sounds only. Off by "
+             "default.",
              lambda c: c.mouthswitch.enabled, ms_on, ms_off),
         _Def("involuntary", "Involuntary-Vocalization Excision", "[involuntary] — drop coughs & sneezes",
              OPTIONAL,
@@ -731,11 +743,21 @@ _Def("chords", "Chorded Shortcut Synthesis", "[chords] — any keyboard shortcut
              "'spell capital alpha bravo double lima' → 'Abll'. Handles digits and symbols. "
              "Needs [hotkey] command_key bound. Off by default.",
              lambda c: c.spelling.enabled, spl_on, spl_off),
+        # A command-line tool, not a voice path: `yazses gitvoice` is the only way in, and
+        # it never consults `[gitvoice] enabled`. This text used to promise a spoken
+        # confirm and a spoken undo; neither exists (2026-10-21 docs audit).
         _Def("gitvoice", "Voice Git Choreographer", "[gitvoice] — safe git by voice", OPTIONAL,
-             "Drive git by voice via a structured grammar; destructive ops (force-push, reset "
-             "--hard) wait for a spoken confirm and the undo is always spoken. Off by default.",
+             "Run `yazses gitvoice \"<spoken git command>\"` — 'commit with message …', "
+             "'create branch feature slash login', 'push to main' → it prints the git command "
+             "and how to undo it. `--run` runs it; a destructive one (force-push, reset --hard, "
+             "branch -D, discarding changes) also needs `--yes`. A command-line tool: nothing "
+             "is spoken, there is no spoken confirm, and dictation never runs git. The "
+             "command works whether or not [gitvoice] enabled is set — nothing reads that key.",
              lambda c: c.gitvoice.enabled, gv_on, gv_off),
-        _Def("latency", "Adaptive Latency Governor", "[latency] — load-aware decode", RECOMMENDED,
+        # OPTIONAL, not RECOMMENDED: first run seeds the RECOMMENDED tier, and this row
+        # would then load a second Whisper model (~116 MB RSS for tiny.en, ADR-029) on
+        # every new install whose own description says "Off by default".
+        _Def("latency", "Adaptive Latency Governor", "[latency] — load-aware decode", OPTIONAL,
              "Adapts decoding to system load: while the 1-minute load average is at or above "
              "[latency] high_load it decodes with [latency] light_model at a greedy beam, and "
              "otherwise with your normal model. The light model loads in the background the first "
@@ -857,8 +879,9 @@ _Def("chords", "Chorded Shortcut Synthesis", "[chords] — any keyboard shortcut
              "and typed. Needs a webcam (sign extra). Off by default.",
              lambda c: c.sign.enabled, sn2_on, sn2_off),
         _Def("screengrounded", "Screen-Grounded Dictation", "[screengrounded] — bias from screen", OPTIONAL,
-             "Primes Whisper with names visible on screen so they transcribe right the first "
-             "time — works in any app. Accessibility/clipboard now; OCR via extra. Off by default.",
+             "Primes Whisper with names visible in the focused window so they transcribe right "
+             "the first time. Reads labels via AT-SPI at the start of each hold (Linux + "
+             "pyatspi); no OCR yet. Experimental. Off by default.",
              lambda c: c.screengrounded.enabled, sg_on, sg_off),
         _Def("headpointer", "Head-Pointer", "[headpointer] — cursor by head pose", OPTIONAL,
              "Move and click the mouse by tilting your head, and pair it with voice for a "
@@ -946,8 +969,11 @@ _Def("chords", "Chorded Shortcut Synthesis", "[chords] — any keyboard shortcut
              "only. Needs the `prosody` extra. Off by default.",
              lambda c: c.voicehealth.enabled, vh_on, vh_off),
         _Def("code", "Spoken Code Mode", "[code] — dictate code syntax", OPTIONAL,
-             "Dictate code: spoken symbols become punctuation and word-groups become cased "
-             "identifiers (snake/camel/pascal). Activate via a command key. Off by default.",
+             "Dictate code: spoken symbols become punctuation, and a style phrase plus words "
+             "becomes one identifier ('code self dot camel case user name' -> self.userName; "
+             "camel/pascal/snake/kebab/constant case). The identifier ends at the next symbol, "
+             "the next style phrase, 'end case', or the end of the phrase. Hold the command "
+             "key and start with 'code'; needs [hotkey] command_key bound. Off by default.",
              lambda c: c.code.enabled, co_on2, co_off2),
         _Def("math", "Spoken Math (LaTeX)", "[math] — dictate equations", OPTIONAL,
              "Dictate math and inject LaTeX: hold the command key and say 'math x squared "
@@ -1009,9 +1035,13 @@ _Def("chords", "Chorded Shortcut Synthesis", "[chords] — any keyboard shortcut
              "numpy<2.0 against this project's numpy>=2.4.6) and passes audio through. "
              "Off by default.",
              lambda c: c.denoise.enabled, dn_on, dn_off),
-        _Def("predict", "Predictive Completion", "[predict] — voice autosuggest", OPTIONAL,
-             "A tiny local model suggests the rest of your sentence; accept by voice. "
-             "Needs the predict extra + a model. Off by default.",
+        _Def("predict", "Predictive Completion", "[predict] — voice autosuggest, experimental",
+             EXPERIMENTAL,
+             "After a dictation is typed, a local model proposes the rest of the sentence "
+             "in a notification; say \"accept\" or \"take it\" within 10 seconds to type it. "
+             "Anything else you say dismisses it, and nothing is typed without the accept. "
+             "Needs llama-cpp-python (the slm extra) and a local GGUF model at "
+             "[predict] model_path. Off by default.",
              lambda c: c.predict.enabled, pd_on, pd_off),
         _Def("affect", "Tone-Aware Formatting", "[affect] — tone → !/?", OPTIONAL,
              "Adds ! or ? based on your vocal tone (excited/question), beyond pause "
@@ -1031,8 +1061,9 @@ _Def("chords", "Chorded Shortcut Synthesis", "[chords] — any keyboard shortcut
              "ask first. Needs the 'agent' extra + a local planner model. Off by default.",
              lambda c: c.agent.enabled, ag_on, ag_off),
         _Def("pilot", "Voice Pilot (AT-SPI)", "[pilot] — click by voice", OPTIONAL,
-             "Drive the desktop by voice via the accessibility tree ('click Save', "
-             "'focus the terminal'). Linux + pyatspi; labels only, no screenshots. Off by default.",
+             "Click controls in the focused window by voice in command mode ('click Save', "
+             "'toggle dark mode'). Acts on one exact match only; anything else asks you to "
+             "confirm. Linux + pyatspi; labels only, no screenshots. Experimental. Off by default.",
              lambda c: c.pilot.enabled, pi_on, pi_off),
         _Def("cocktail", "Cocktail Filter (voice focus)", "[cocktail] — experimental", EXPERIMENTAL,
              "Tries to focus on your voice and reject other speakers. Currently "
@@ -1127,6 +1158,8 @@ _FEATURE_DEPS: dict[str, tuple[tuple[str, ...], tuple[str, ...]]] = {
     "readback_clone": (("kokoro_onnx", "onnxruntime", "soundfile"),
                        ("kokoro-onnx>=0.5.0", *_ONNXRUNTIME, "soundfile>=0.14.0")),
     "llm-cleanup": (("llama_cpp",), ("llama-cpp-python>=0.3.33",)),
+    # Predictive Completion runs its own local completion model through the same binding.
+    "predict": (("llama_cpp",), ("llama-cpp-python>=0.3.33",)),
     "agent": (("mcp",), ("mcp>=1.28.1",)),
     "cocktail": (("speechbrain",), ("speechbrain>=1.1",)),
     "multiprofile": (("speechbrain",), ("speechbrain>=1.1",)),
@@ -1234,9 +1267,9 @@ def feature_packages(slug: str) -> tuple[str, ...]:
 # without wiring it fails CI.
 _UNWIRED: frozenset[str] = frozenset({
     "affect", "agent", "audioguard", "breath", "bridge", "cmdspotter",
-    "codec", "compose", "crowdproof", "hatselect", "interpret", "langroute", "lipread", "loadguard", "morsevox", "mouthswitch",
-    "multiprofile", "pilot", "predict", "pronunciation", "proofback", "rag", "readback_clone",
-    "screengrounded", "scribe", "scrub", "sentiment", "sign", "spatialvad", "wakeword",
+    "codec", "compose", "crowdproof", "hatselect", "interpret", "langroute", "lipread", "loadguard",
+    "multiprofile", "polyglot", "pronunciation", "rag", "readback_clone",
+    "scribe", "scrub", "sentiment", "sign", "spatialvad", "wakeword",
 })
 
 
@@ -1245,7 +1278,7 @@ _UNWIRED: frozenset[str] = frozenset({
 #: once here rather than repeated in the CLI, the caveat and the tests.
 SPOKEN_COMMAND_SLUGS: frozenset[str] = frozenset({
     "spelling", "code", "math", "spokenregex", "snippets", "voicetimer",
-    "condense", "diagramvox", "spreadsheet", "echo", "bookmarks",
+    "condense", "diagramvox", "spreadsheet", "echo", "bookmarks", "pilot",
 })
 
 
@@ -1276,7 +1309,7 @@ _EXAMPLES: dict[str, str] = {
     "macros": "Say your trigger word to expand canned text (configure [macros]).",
     "read-back": "yazses features enable read-back — then it speaks the transcript back.",
     "personalize": "yazses features enable personalize — biases STT to your frequent terms.",
-    "polyglot": "Set [polyglot] pair='fa-en'; dictate mixing the two languages.",
+    "polyglot": "Planned: set [polyglot] pair='fa-en' and adapter_path; mixed fa/en bursts would use the adapter.",
     "streaming": "yazses features enable streaming — text appears as you speak.",
     "stt-parakeet": "yazses features enable stt-parakeet — same hotkey, sharper transcripts.",
     "stt-moonshine": "yazses features enable stt-moonshine — a smaller, faster engine for short bursts.",
@@ -1299,7 +1332,7 @@ _EXAMPLES: dict[str, str] = {
     "echo": "Say 'play that back' and hear your own recording of the last words.",
     "srpace": "Dictate a paragraph and your screen reader keeps up, clause by clause.",
     "diagramvox": "Say 'A goes to B and C, B goes to D' and get a three-edge Mermaid flowchart.",
-    "proofback": "Interrupt the read-back and the cursor lands on the word being read.",
+    "proofback": "Hold the key while a dictation is read back, then say the fix: it replaces the text from the word you interrupted.",
     "screenplay": "Dictate a scene and it lands as proper INT./EXT. Fountain markup.",
     "srscap": "Say 'remember that the capital of France is Paris' → a flashcard.",
     "styleguard": "Say 'email' and your style sheet rewrites it to 'e-mail' automatically.",
@@ -1308,7 +1341,7 @@ _EXAMPLES: dict[str, str] = {
     "acronyms": "Say 'WHO' the first time and it writes out the full name for you.",
     "morsevox": "One short hum, one long — spell a whole word by voice-Morse.",
     "checkdigit": "Dictate a card number and a mis-heard digit is caught instantly.",
-    "mouthswitch": "Pop your lips to move the highlight, cluck to select — no words.",
+    "mouthswitch": "Pop your lips to start the scan, click your tongue when 'Undo' lights up — no words.",
     "involuntary": "Cough mid-sentence and it's dropped before it reaches the text.",
     "breath": "Take a breath and YazSes commits that phrase and starts a new one.",
     "whispermode": "Drop to a whisper and it turns up the gain so it still hears you.",
@@ -1338,7 +1371,7 @@ _EXAMPLES: dict[str, str] = {
     "reask": "An unsure 'their/there' pops a quick pick instead of guessing wrong.",
     "verbatim": "Say 'dictate verbatim' and 'one hundred dollars' types literally.",
     "spelling": "Say 'capital alpha bravo double lima' to type 'Abll' exactly.",
-    "gitvoice": "Say 'force push' and it waits for confirm, and tells you the undo.",
+    "gitvoice": "`yazses gitvoice \"force push\" --run` prints the command and its undo, and refuses without --yes.",
     "latency": "Dictation stays snappy when your CPU is busy, faster when it's idle.",
     "diarize": "A two-person chat is typed as **Alice:** … **Bob:** … you can rename by voice.",
     "cite": "Say 'cite Vaswani 2017' to insert a citation from your .bib.",
@@ -1380,7 +1413,7 @@ _EXAMPLES: dict[str, str] = {
     "scrub": "Say a word to replay its audio or re-dictate just that word.",
     "coach": "yazses features enable coach — see filler rate + words-per-minute.",
     "voicehealth": "Get a break reminder when your voice shows rising strain.",
-    "code": "Dictate 'def foo open paren' → 'def foo(' in code mode.",
+    "code": "Say 'code self dot camel case user name' → 'self.userName' in code mode.",
     "math": "Say 'x squared plus y squared' → 'x^{2} + y^{2}'.",
     "autostop": "Tap once and speak; recording stops when you finish.",
     "mousegrid": "Say a grid number to move the cursor, then 'click'.",
@@ -1398,7 +1431,7 @@ _EXAMPLES: dict[str, str] = {
     "rag": "Ask 'what did I note about the budget?' → a cited answer from your local docs.",
     "scribe": "Meeting mode: turns are diarized into a labelled transcript.",
     "denoise": "yazses features enable denoise — background noise is filtered pre-STT.",
-    "predict": "Accept the greyed-ahead completion by continuing to speak.",
+    "predict": "Dictate 'the meeting is moved to', then say 'accept' to type the suggested rest.",
     "affect": "Excited speech → an exclamation mark; questions → a question mark.",
     "translate": "yazses features enable translate — speak any language, type English.",
     "recall": "yazses recall 'the address I dictated yesterday'.",
@@ -1508,7 +1541,7 @@ _USE_CASES: dict[str, str] = {
     "reask": "When one word is often guessed wrong and you'd rather confirm it than retype the whole line.",
     "verbatim": "When you need exact literal capture (a quote, a code block) with no auto-formatting applied.",
     "spelling": "When dictating a password, code, or ID that has to be character-exact.",
-    "gitvoice": "When driving git hands-free and you want destructive commands gated behind a spoken confirm.",
+    "gitvoice": "When you want a spoken git phrase turned into the exact git command, shown before anything runs.",
     "latency": "When your CPU is busy and dictation lags, but you still want fast response when it's idle.",
     "diarize": "When capturing a live multi-speaker conversation you need attributed to each person.",
     "cite": "When writing a paper by voice and you want citations pulled from your local BibTeX library.",
@@ -1807,6 +1840,18 @@ def enable_caveat(slug: str, cfg) -> str | None:
                 "changes nothing you can trigger. Bind one first, e.g. "
                 "`yazses hotkey command right_ctrl`, then `yazses restart`."
             )
+    if slug == "gitvoice":
+        # The toggle records a choice and nothing more: `yazses gitvoice` never consults
+        # `[gitvoice] enabled`, and no dictation path runs git. Saying "Enabled" and
+        # "Apply it: yazses restart" without this would suggest the daemon now listens
+        # for git commands. It does not.
+        return (
+            "Heads up: this capability is the `yazses gitvoice \"<phrase>\"` command, and "
+            "it works whether or not this is enabled — nothing reads [gitvoice] enabled. "
+            "Dictation never runs git, and nothing is spoken back: the command prints the "
+            "git command and its undo, runs it only with --run, and a destructive one "
+            "only with --yes as well."
+        )
     if slug == "voiceguard":
         # Enabling writes [voiceprint] enabled too, but no write can enroll a voice, and
         # fail_open = false is refused outright (no anti-spoof score exists). Either way
@@ -1825,6 +1870,43 @@ def enable_caveat(slug: str, cfg) -> str | None:
                 "fail_open = true."
             )
         return advice
+    if slug == "predict":
+        # Enabling writes `[predict] enabled` only. Which model to run is the user's
+        # choice, and the toggle installs nothing, so with no model path or no
+        # llama-cpp-python the daemon says so once in its log and offers nothing.
+        try:
+            from yazses.predict.generator import dormant_reason
+
+            pd = getattr(cfg, "predict", None)
+            reason = dormant_reason(str(getattr(pd, "model_path", "") or ""))
+        except Exception:
+            reason = None
+        if reason:
+            return (
+                f"Heads up: Predictive Completion stays dormant until it can run a local "
+                f"model, and right now {reason}. Set [predict] model_path to a small GGUF "
+                "completion model and install llama-cpp-python (the `slm` extra), then "
+                "`yazses restart`."
+            )
+    if slug == "morsevox":
+        # The long-hum entry is what lets a user who cannot press a key start Morse mode,
+        # and it can only hear a hum through a stream that is already open. That is a
+        # microphone left on while the daemon runs -- worth saying before, not after.
+        hum = getattr(getattr(cfg, "morsevox", None), "entry_hum_s", 1.5)
+        try:
+            # Only an exact 0 turns the hum off; anything unusable (negative, NaN) is
+            # repaired to the default by `morsevox.mode.resolve`, which listens.
+            listening = float(hum) != 0.0
+        except (TypeError, ValueError, OverflowError):
+            listening = True
+        if listening:
+            return (
+                "Heads up: to hear the long hum that starts Morse mode, the microphone "
+                "stays open while the daemon runs (only a level is read; nothing is "
+                "recorded or transcribed). Set [morsevox] entry_hum_s = 0 to start it only "
+                "by saying \"morse mode\"; `yazses handsfree pause` closes it. Timings "
+                "are untested on a real voice."
+            )
     if slug == "corrdict":
         # The table is mined from corpus events, and the corpus is off by default
         # (ADR-011). Enabling corrdict alone is the same "toggle that lies" shape:
@@ -1870,6 +1952,37 @@ def enable_caveat(slug: str, cfg) -> str | None:
                 )
         except Exception:
             pass
+
+    if slug == "proofback":
+        # Proofreading interrupts the read-back; with read-back off there is nothing to
+        # interrupt, and the toggle would be a true key with no effect.
+        tts_on = bool(getattr(getattr(cfg, "tts", None), "enabled", False))
+        mode = (getattr(getattr(cfg, "accessibility", None), "read_back", "off") or "off")
+        if not tts_on or mode.strip().lower() == "off":
+            return (
+                "Heads up: proofreading interrupts the spoken read-back, and read-back is "
+                "off ([tts] enabled / [accessibility] read_back) — so enabling it now "
+                "changes nothing. Turn read-back on first: "
+                "`yazses features enable read-back`, then `yazses restart`."
+            )
+    if slug in ("pilot", "screengrounded"):
+        # Both read the focused window through the platform's accessibility backend, and
+        # the only one that exists is Linux AT-SPI. Located, not imported: `find_spec`
+        # answers "is the binding installed?" without loading GObject into the CLI.
+        try:
+            import importlib.util
+
+            located = importlib.util.find_spec("pyatspi") is not None
+        except Exception:
+            located = True  # cannot tell -- say nothing rather than something wrong
+        if not located:
+            return (
+                "Heads up: this reads the focused window through AT-SPI, and the pyatspi "
+                "bindings are not installed here — so it stays inactive and the daemon "
+                "log says why. On Linux install them from your distribution (Debian/"
+                "Ubuntu: apt install python3-pyatspi gir1.2-atspi-2.0). macOS and "
+                "Windows have no accessibility backend for this yet."
+            )
 
     if slug == "hesitation" and not getattr(getattr(cfg, "autostop", None), "enabled", False):
         # Hesitation-hold only lengthens a hands-free turn's silence timeout; hold-to-talk

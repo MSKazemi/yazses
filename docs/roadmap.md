@@ -7,7 +7,7 @@ description: Where YazSes is going — the vision of keyboard-optional, fully pr
 
 YazSes is a fully-offline, hold-to-talk voice dictation daemon for Linux,
 macOS, and Windows — no cloud, no account, nothing leaves your machine.
-**The current stable release is v2.43.2**, published on PyPI, GitHub
+**The current stable release is v2.44.0**, published on PyPI, GitHub
 Releases (Windows, macOS and Linux installers), Snap, the APT repository and more —
 see [platform support](platform-support.md). For what is landing *this week*, see
 [what we're building now](now.md), which is generated from the changelog on every build.
@@ -146,6 +146,7 @@ them (see the note at the top of this page). Pick the one that sounds like you:
 | Milestone | The promise | Flavour |
 |---|---|---|
 | [Verified everywhere](https://github.com/MSKazemi/yazses/milestone/13) | Every platform we advertise is confirmed by a person dictating on real hardware — Linux first, then macOS and Windows | Testing / platforms |
+| [Agent-era mic — the offline mic for every AI](https://github.com/MSKazemi/yazses/milestone/14) | Your dictated prompts reach the AI tools you already use — offline, and never sent for you ([ADR-030](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-030-agent-era-direction.md)) | MCP / Python / desktop integration |
 | [Install anywhere — every OS and package manager](https://github.com/MSKazemi/yazses/milestone/6) | One command on every distro and OS — you own a channel | Packaging |
 | [Speech accuracy — measured engines and models](https://github.com/MSKazemi/yazses/milestone/7) | Accuracy measured, not asserted: benchmarks, denoising, new engines | Speech / ML |
 | [Voice control — beyond dictation](https://github.com/MSKazemi/yazses/milestone/8) | Git, files, windows, and symbols — commanded, not typed | Systems / HCI |

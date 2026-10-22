@@ -43,6 +43,9 @@ OPT_IN_PACKAGES = (
     "yazses.prosodypunct",
     "yazses.involuntary",
     "yazses.acoustic",
+    # The two consumers of the accessibility backend (#164): built on first use only.
+    "yazses.pilot",
+    "yazses.screengrounded",
 )
 
 _PROBE = """
