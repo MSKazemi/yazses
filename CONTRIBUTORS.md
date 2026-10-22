@@ -150,7 +150,13 @@ found defects that no amount of reading the code here would have surfaced.
   vectors for the portable contract ([#552](https://github.com/MSKazemi/yazses/pull/552)),
   the reproducible Persian benchmark harness
   ([#558](https://github.com/MSKazemi/yazses/pull/558)) and its pinned FLEURS and Common
-  Voice corpus adapters ([#559](https://github.com/MSKazemi/yazses/pull/559))
+  Voice corpus adapters ([#559](https://github.com/MSKazemi/yazses/pull/559)); then the
+  FA-05 model comparison that runs on them: an auditable Hugging Face → CTranslate2
+  conversion ([#570](https://github.com/MSKazemi/yazses/pull/570)) and archived result cells
+  for large-v3-turbo, a Persian fine-tune and the Common Voice domain shift
+  ([#571](https://github.com/MSKazemi/yazses/pull/571),
+  [#573](https://github.com/MSKazemi/yazses/pull/573),
+  [#576](https://github.com/MSKazemi/yazses/pull/576))
 - [@doeil1614-ops](https://github.com/doeil1614-ops) — native-speaker review of the Korean
   page, read in full against the English source and `i18n/glossary.yml`, with commands, code,
   the project name and the contributor-wall markup deliberately left untouched
