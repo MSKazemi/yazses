@@ -12,6 +12,10 @@ are the Command Safety Gate's own (``[cmdsafety] confirm_words`` / ``cancel_word
 matched by ``cmdsafety/spoken.py``), so the user learns one vocabulary for "yes, do the
 risky thing", not two.
 
+"check X" and "uncheck X" are idempotent: a box already in the asked state is left alone
+and the user is told so, and a box whose state the backend could not read is held for
+"confirm" rather than toggled on a guess (``plan.decide``).
+
 The pending action follows the gate's rules, deliberately:
 
 * **Anything else discards it.** There is no modal state that swallows dictation until
@@ -34,7 +38,16 @@ from dataclasses import dataclass
 from yazses.bidi import wrap_user_text
 from yazses.cmdsafety.spoken import match_control
 from yazses.grounding.onscreen import OnScreenReader
-from yazses.pilot.plan import ACT, CONFIRM, Element, PilotDecision, decide, parse_command
+from yazses.pilot.plan import (
+    ACT,
+    ALREADY,
+    CONFIRM,
+    Element,
+    PilotCommand,
+    PilotDecision,
+    decide,
+    parse_command,
+)
 
 log = logging.getLogger(__name__)
 
@@ -51,7 +64,8 @@ _LABEL_CHARS = 60
 class PilotOutcome:
     """What one utterance did. ``consumed`` False means "not mine -- carry on with it"."""
 
-    verdict: str          # act | confirm | none | confirmed | cancelled | discarded | failed
+    # act | already | confirm | none | confirmed | cancelled | discarded | failed
+    verdict: str
     message: str | None
     consumed: bool = True
 
@@ -71,8 +85,11 @@ def elements_from_candidates(candidates: Iterable) -> list[Element]:
         label = getattr(c, "label", None) or ""
         if not label:
             continue
+        checked = getattr(c, "checked", None)
         out.append(Element(label=label, role=getattr(c, "role", "") or "",
                            actions=tuple(getattr(c, "actions", ()) or ()),
+                           # Only a real bool is a state; anything else is "unknown".
+                           checked=checked if isinstance(checked, bool) else None,
                            entity_id=getattr(c, "entity_id", "") or ""))
     return out
 
@@ -86,6 +103,19 @@ def _show(label: str) -> str:
 
 _VERB_PAST = {"activate": "Clicked", "toggle": "Toggled", "focus": "Focused"}
 _VERB_NOW = {"activate": "click", "toggle": "toggle", "focus": "focus"}
+
+
+def _verb_now(cmd: PilotCommand, *, state_known: bool = True) -> str:
+    """"check"/"uncheck" when the command asked for a state that was read, else the verb."""
+    if cmd.want_checked is not None and state_known:
+        return "check" if cmd.want_checked else "uncheck"
+    return _VERB_NOW.get(cmd.action, "activate")
+
+
+def _verb_past(cmd: PilotCommand) -> str:
+    if cmd.want_checked is not None:
+        return "Checked" if cmd.want_checked else "Unchecked"
+    return _VERB_PAST.get(cmd.action, "Activated")
 
 
 class PilotService:
@@ -125,7 +155,7 @@ class PilotService:
 
     # -- a new command -----------------------------------------------------------
     def command(self, phrase: str) -> PilotOutcome:
-        """Handle "click/press/toggle/check <label>". Always consumed once routed here."""
+        """Handle "click/press/toggle/check/uncheck <label>". Consumed once routed here."""
         self._pending = None  # a new command replaces whatever was held
         if parse_command(phrase) is None:
             return PilotOutcome("none", None, consumed=False)
@@ -145,15 +175,26 @@ class PilotService:
             return self._act(decision)
         if decision.verdict == CONFIRM:
             return self._hold(decision)
+        if decision.verdict == ALREADY:
+            return self._already(decision)
         return PilotOutcome("none", self._no_match_message(decision))
+
+    @staticmethod
+    def _already(decision: PilotDecision) -> PilotOutcome:
+        """"check X" on a checked box, "uncheck X" on an unchecked one: touch nothing."""
+        elem = decision.element
+        assert elem is not None
+        state = "checked" if decision.command.want_checked else "unchecked"
+        return PilotOutcome("already", f"{_show(elem.label)} is already {state}; "
+                                       "nothing was changed.")
 
     def _act(self, decision: PilotDecision) -> PilotOutcome:
         elem = decision.element
         assert elem is not None and decision.action_name is not None
-        verb = decision.command.action
+        cmd = decision.command
         if self._reader.perform(elem.entity_id, decision.action_name):
-            return PilotOutcome("act", f"{_VERB_PAST.get(verb, 'Activated')} {_show(elem.label)}.")
-        return PilotOutcome("failed", f"Could not {_VERB_NOW.get(verb, 'activate')} "
+            return PilotOutcome("act", f"{_verb_past(cmd)} {_show(elem.label)}.")
+        return PilotOutcome("failed", f"Could not {_verb_now(cmd)} "
                                       f"{_show(elem.label)}: the control did not respond.")
 
     def _hold(self, decision: PilotDecision) -> PilotOutcome:
@@ -161,9 +202,12 @@ class PilotService:
         assert elem is not None and decision.action_name is not None
         self._pending = _Pending(elem.entity_id, decision.action_name, elem.label,
                                  self._clock())
-        verb = _VERB_NOW.get(decision.command.action, "activate")
+        # With the state unread, what a confirm does is flip it, so say "toggle".
+        verb = _verb_now(decision.command, state_known=elem.checked is not None)
         what = f"{verb} {_show(elem.label)}"
-        if decision.reason == "destructive":
+        if decision.reason == "state_unknown":
+            lead = f"Could not read whether {_show(elem.label)} is checked."
+        elif decision.reason == "destructive":
             lead = f"{_show(elem.label)} may not be undoable."
         elif decision.reason == "ambiguous":
             lead = (f"{decision.matches} controls match. The first is {_show(elem.label)};"

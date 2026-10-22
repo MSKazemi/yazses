@@ -15,8 +15,10 @@ What it reads, and what it refuses to:
 
 * The **active window** only (the top-level whose state includes ``ACTIVE``), never
   every window on the desktop.
-* Each node's accessible **name**, **role**, the names of its **actions**, and whether
-  it is **showing**. Text *content* is read only for a node with no name, and never from
+* Each node's accessible **name**, **role**, the names of its **actions**, whether
+  it is **showing**, and -- for a checkable control -- whether it is **checked**, so
+  "uncheck X" can leave an unchecked box alone instead of toggling it on. Text
+  *content* is read only for a node with no name, and never from
   a password field or an editable field -- a secret typed into one must not be able to
   reach a prompt, a match or a notification.
 * Bounded by ``grounding/treewalk.py`` (nodes, depth, time) and, around that, by the
@@ -60,6 +62,14 @@ _MAX_WINDOWS = 32
 #: The pseudo-action that means "give this node keyboard focus" (Component.grabFocus).
 FOCUS_ACTION = "focus"
 
+#: Roles whose checked state *is* ``STATE_CHECKED``, so its absence means "unchecked".
+#: Deliberately not "toggle button" or "switch": some toolkits report those as
+#: ``STATE_PRESSED`` instead, and reading a pressed toggle as unchecked would make
+#: "check X" flip it off -- the bug this state exists to prevent. Such a control still
+#: counts as checkable when the toolkit says so with ``STATE_CHECKABLE``.
+_CHECKABLE_ROLES = frozenset({"check box", "check menu item", "radio button",
+                              "radio menu item"})
+
 
 def _state_has(state: Any, mod: Any, name: str) -> bool:
     flag = getattr(mod, name, None)
@@ -69,6 +79,25 @@ def _state_has(state: Any, mod: Any, name: str) -> bool:
         return bool(state.contains(flag))
     except Exception:
         return False
+
+
+def _checked(state: Any, mod: Any, role: str) -> bool | None:
+    """The node's checked state, or ``None`` when it is not a specific, readable signal.
+
+    ``True`` when the toolkit reports ``STATE_CHECKED``; ``False`` only for a control
+    known to be checkable (by its role, or ``STATE_CHECKABLE``) that does not; ``None``
+    for a half-checked (``STATE_INDETERMINATE``) box, for a binding without the flag,
+    and for anything else -- "not reported checked" is not the same as "unchecked".
+    """
+    if getattr(mod, "STATE_CHECKED", None) is None:
+        return None
+    if _state_has(state, mod, "STATE_INDETERMINATE"):
+        return None
+    if _state_has(state, mod, "STATE_CHECKED"):
+        return True
+    if role.strip().lower() in _CHECKABLE_ROLES or _state_has(state, mod, "STATE_CHECKABLE"):
+        return False
+    return None
 
 
 class PyatspiOps:
@@ -105,7 +134,8 @@ class PyatspiOps:
             and not _state_has(state, mod, "STATE_EDITABLE")
         ):
             text = self._text(node, limits.max_text_chars)
-        return NodeFacts(name=name, role=role, showing=True, actions=actions, text=text)
+        return NodeFacts(name=name, role=role, showing=True, actions=actions, text=text,
+                         checked=_checked(state, mod, role))
 
     def children(self, node: Any) -> Iterable[Any]:
         try:

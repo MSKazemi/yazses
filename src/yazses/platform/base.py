@@ -497,6 +497,12 @@ class AccessibilityBackend(Protocol):
     until this same instance's next `snapshot`. `perform` is the one method that changes
     anything on screen, and it acts only on a node of the latest snapshot -- an id from an
     older one, or one the backend does not know, is refused rather than guessed.
+
+    A candidate's ``checked`` is ``True``/``False`` only when the backend read the state
+    of a checkable control, and ``None`` otherwise. The Voice Pilot's "check X" and
+    "uncheck X" act only when it differs from the asked state, and hold for a spoken
+    confirm when it is ``None`` -- so a backend must never report ``False`` for a state
+    it merely did not see.
     """
 
     def snapshot(
