@@ -743,9 +743,9 @@ metric) leaves the stream callback.
 
 | File | Role |
 |---|---|
-| `decode.py` | Pure. `classify_pulse` / `classify_gap`, `MorseDecoder` (international table), `adapt_dot_threshold` |
+| `decode.py` | Pure. `classify_pulse` / `classify_gap`, `MorseDecoder` (international table, plus the prosign SK `...-.-` matched only as one whole character between letter gaps and never typed), `adapt_dot_threshold` |
 | `segment.py` | Pure. `PulseSegmenter` (hysteresis + debounce over a `(t_ms, level)` stream) and `MorseStream` (segmenter → decoder, letter at the letter gap, optional adaptive dot/dash threshold) |
-| `mode.py` | Pure, clock-injected. `MorseMode`: idle → armed → morse → idle. `HumDetector` is the entry trigger: an unbroken run above the threshold for `entry_hum_s` whose level coefficient of variation is ≤ 0.25 (ADR-021: speech has dips and syllabic modulation, so it fails one rule or the other); it fires at most once per continuous sound. Exit on `exit_silence_s` with no accepted pulse, forced above the word gap. `is_enter_phrase` is the whole-utterance "morse mode" match (the stop word's rule). Thresholds synthetic-only. |
+| `mode.py` | Pure, clock-injected. `MorseMode`: idle → armed → morse → idle. `HumDetector` is the entry trigger: an unbroken run above the threshold for `entry_hum_s` whose level coefficient of variation is ≤ 0.25 (ADR-021: speech has dips and syllabic modulation, so it fails one rule or the other); it fires at most once per continuous sound. Exit on `exit_silence_s` with no accepted pulse, forced above the word gap, or on the prosign SK (reason `prosign`, at the letter gap after it). `is_enter_phrase` is the whole-utterance "morse mode" match (the stop word's rule). Thresholds synthetic-only. |
 | `runtime.py` | The impure shell: owns the level stream (`recorder_factory`), a worker thread, the clock, and the daemon callbacks (`inject`, `on_change`, `on_level`). `status()` carries flags and a count, never a decoded character. |
 
 Daemon glue (`core/daemon.py`): `_build_morsevox` (lazy import behind `[morsevox] enabled`),

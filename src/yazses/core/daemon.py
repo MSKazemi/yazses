@@ -2994,10 +2994,12 @@ class Daemon:
                 if self._state.state in _MORSE_QUIET_STATES:
                     self._state.audio_level = 0.0
         if active:
-            body = "Morse mode on: short hum = dot, long hum = dash. Stay silent to leave it."
+            body = ("Morse mode on: short hum = dot, long hum = dash. Stay silent, or send "
+                    "SK (...-.-), to leave it.")
         else:
             body = {
                 "silence": "Morse mode off (silence).",
+                "prosign": "Morse mode off (SK, end of work).",
                 "dictation": "Morse mode off: dictation started.",
                 "paused": "Morse mode off: hands-free input paused.",
                 "no_release": "Morse mode off: the sound never stopped, so there was "

@@ -575,7 +575,8 @@ def _registry() -> list[_Def]:
              "Type by Morse with your voice: a short hum is a dot, a long hum a dash, and each "
              "decoded letter is typed (speech-to-text is not run). Start it hands-free by "
              "humming one long steady tone (1.5 s) or by saying 'morse mode'; 3 s of silence "
-             "ends it. Adapts the dot/dash timing to your rhythm. With the hum entry on, the "
+             "ends it, and so does the end-of-work prosign SK (...-.-, keyed as one "
+             "character), which is not typed. Adapts the dot/dash timing to your rhythm. With the hum entry on, the "
              "microphone stays open (a level only). For minimal-ability users. Experimental: "
              "timings tuned on synthetic signals only. Off by default.",
              lambda c: c.morsevox.enabled, mv_on, mv_off),

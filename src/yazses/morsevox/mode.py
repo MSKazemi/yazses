@@ -11,7 +11,8 @@ key to say so. This module is that decision, as a small state machine over the s
   sound to stop, so the entry hum itself is never decoded as a dash.
 * **morse** — every sample goes to a fresh :class:`~yazses.morsevox.segment.MorseStream`
   and the text it completes is returned for the caller to type. A silence of
-  ``exit_silence_ms`` with no accepted pulse returns to idle.
+  ``exit_silence_ms`` with no accepted pulse returns to idle, and so does the
+  end-of-work prosign SK (``...-.-`` keyed as one character).
 
 **The entry hum must not fire on ordinary speech (ADR-021, AGENTS.md rule 9).** A guard
 that fires on a sentence teaches people to switch it off, so the rule is a specific,
@@ -34,9 +35,13 @@ first thing to measure before anyone relies on this.
 
 **Exit.** A silence of ``exit_silence_ms`` with no accepted pulse. It must be longer than
 the word gap, or every space between words would end the mode; :func:`resolve` raises it
-when it is not. The Morse table in `decode.py` defines no stop or cancel prosign, so
-there is no exit *sequence*; the caller can also end the mode explicitly
-(:meth:`MorseMode.exit`) — when dictation starts, on a hands-free pause, at shutdown.
+when it is not. Or the prosign **SK** (``...-.-``, end of work), keyed as one character
+with no letter gap between S and K: it is not typed, and the mode ends with reason
+``"prosign"`` as soon as the letter gap after it elapses, without waiting out the exit
+silence. SK is matched only as a whole character, so "s" and "k" keyed with a letter gap
+between them are still typed (the rule is in `decode.py`'s docstring). The caller can
+also end the mode explicitly (:meth:`MorseMode.exit`) — when dictation starts, on a
+hands-free pause, at shutdown.
 
 Pure: no audio, no numpy, no clock, no daemon. Same shape as `segment.py`.
 """
@@ -287,8 +292,8 @@ class ModeStep:
     text: str = ""
     #: ``"hum"`` or ``"command"`` when this step entered the mode, else None.
     entered: str | None = None
-    #: Why this step left the mode (``"silence"``, ``"dictation"``, ``"paused"``,
-    #: ``"no_release"``, ``"stopped"``), else None.
+    #: Why this step left the mode (``"silence"``, ``"prosign"``, ``"dictation"``,
+    #: ``"paused"``, ``"no_release"``, ``"stopped"``), else None.
     exited: str | None = None
 
 
@@ -376,12 +381,17 @@ class MorseMode:
         stream, seg = self._stream, self._seg
         assert stream is not None and seg is not None
         text = stream.push(t_ms, level)
+        if stream.take_prosign() == "SK":
+            # End of work: SK itself typed nothing; letters before it were typed already.
+            self._leave()
+            return ModeStep(text=text, exited="prosign")
         if seg.in_pulse:
             self._last_activity = t_ms
         if not seg.in_pulse and t_ms - self._last_activity >= cfg.exit_silence_ms:
             text += stream.flush(t_ms)
+            reason = "prosign" if stream.take_prosign() == "SK" else "silence"
             self._leave()
-            return ModeStep(text=text, exited="silence")
+            return ModeStep(text=text, exited=reason)
         return ModeStep(text=text)
 
     # ---- internals ---------------------------------------------------------

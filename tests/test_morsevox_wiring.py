@@ -28,9 +28,10 @@ import numpy as np
 import pytest
 
 from tests.test_dormant_features_stay_unimported import started, tripwire  # noqa: F401
-from tests.test_morsevox_mode import LOUD, QUIET, levels, morse_runs
+from tests.test_morsevox_mode import LOUD, QUIET, code_runs, levels, morse_runs
 from yazses.config import Config
 from yazses.ipc.protocol import Request
+from yazses.morsevox.decode import SK
 from yazses.platform import get_platform
 from yazses.platform.base import TrayState
 from yazses.system.features import feature_status, unwired_slugs
@@ -243,6 +244,20 @@ def test_a_long_hum_enters_and_the_letters_reach_the_daemons_injector(morse_daem
     assert titles == ["YazSes — Vocal Morse"] * 2  # on, then off
     assert "Morse mode on" in morse_daemon.told[0][1]
     assert "silence" in morse_daemon.told[1][1]
+
+
+def test_the_sk_prosign_ends_the_mode_types_nothing_and_says_so(morse_daemon):
+    daemon = morse_daemon()
+    daemon._start_morsevox()
+    samples, _ = levels([(500, QUIET), (2000, LOUD)] + morse_runs("so", tail=900.0)
+                        + code_runs([SK], lead=0.0) + [(3500, QUIET)])
+    _drive(daemon, samples)
+    assert "".join(daemon._injector.typed) == "so"   # SK itself is never typed
+    assert not daemon._morsevox.active
+    bodies = [body for _, body in morse_daemon.told]
+    assert len(bodies) == 2 and "Morse mode on" in bodies[0]
+    assert "SK" in bodies[0], "the entry notification says how to leave"
+    assert "SK" in bodies[1] and "silence" not in bodies[1]
 
 
 @pytest.mark.parametrize("said", ["morse mode", "Morse mode.", "MORSE-MODE"])
