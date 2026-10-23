@@ -18,7 +18,8 @@ Six claims:
   stretch of the speech stand-in run nothing.
 * **Seen or heard, never neither.** Without the overlay that draws the scan, each step is
   announced instead -- an earcon cue and/or the item's name in the offline voice -- from the
-  same timeline a click selects from, and an item stays lit until its name has been said.
+  same timeline a click selects from, and an item stays lit until its name has been said
+  and then for the detector's post-voice deafness on top, so a click can still be heard.
 * **No highlight and no announcement, no switch.** With neither, the feature refuses to build
   and `handsfree resume` says why.
 
@@ -408,10 +409,21 @@ def _walk(d: Drive, until: float, chunk: float = 0.05) -> None:
         d.advance(chunk)
 
 
+def _deaf() -> float:
+    from yazses.mouthswitch.runtime import post_voice_deaf_s
+
+    return post_voice_deaf_s()
+
+
+def _step() -> float:
+    """A heard step with no long name: the 1.0 s dwell plus the detector's deafness."""
+    return 1.0 + _deaf()
+
+
 def test_without_the_overlay_each_step_is_announced_as_it_lights():
     runner, ears, _ran, d = _audible()
     d.advance(0.3, pop_at(0.1))           # the scan starts at 0.3 s: "enter" is heard at once
-    _walk(d, 3.4)
+    _walk(d, 0.3 + 3 * _step() + 0.1)
     assert [name for name, _, _ in ears.names] == ["enter", "undo", "scroll up", "scroll down"]
     # Every name was said while that very item was the lit one.
     labels = [item.label for item in runner.items]
@@ -424,36 +436,75 @@ def test_without_the_overlay_each_step_is_announced_as_it_lights():
 def test_the_item_heard_when_the_click_began_is_the_item_selected():
     runner, ears, ran, d = _audible()
     d.advance(0.3, pop_at(0.1))
-    _walk(d, 2.4)                          # "scroll up" was announced at about 2.3 s
-    # The click began at 2.25 s -- after "undo" was announced, before "scroll up" was -- and
-    # is reported at 2.5 s, with "scroll up" lit by then.
-    d.advance(0.1, click_at(2.25))
-    assert ears.heard_before(2.25) == "undo"
+    scroll_up_at = 0.3 + 2 * _step()       # when "scroll up" lights and is announced
+    _walk(d, scroll_up_at + 0.1)
+    # The click began just before that -- after "undo" was announced, before "scroll up"
+    # was -- and is reported a quarter-second later, with "scroll up" lit by then.
+    onset = scroll_up_at - 0.05
+    d.advance(0.1, click_at(onset))
+    assert ears.heard_before(onset) == "undo"
     assert ran == ["undo"]
 
 
 def test_a_name_longer_than_the_dwell_holds_the_highlight_until_it_is_said():
     runner, ears, ran, d = _audible(duration=lambda text: 1.6 if text == "undo" else 0.0)
     d.advance(0.3, pop_at(0.1))
-    _walk(d, 3.5)
+    _walk(d, 0.3 + _step() + 1.6 + _deaf() + 0.1)
     times = {name: when for name, when, _ in ears.names}
-    # "undo" lit at about 1.3 s; "scroll up" no earlier than 1.6 s later, not after 1.0 s.
-    assert times["scroll up"] - times["undo"] >= 1.6 - 0.05
-    # A click that began 1.3 s into "undo" -- past the plain 1.0 s dwell -- still means "undo".
-    d.advance(0.1, click_at(times["undo"] + 1.3))
+    # "undo" stays lit for its 1.6 s name plus the deafness behind it -- not the plain step.
+    assert times["scroll up"] - times["undo"] >= 1.6 + _deaf() - 0.05
+    # A click that began past the plain step (dwell + deafness) still means "undo".
+    d.advance(0.1, click_at(times["undo"] + _step() + 0.1))
     assert ran == ["undo"]
+
+
+def test_a_heard_step_still_runs_after_the_name_and_the_deafness_behind_it():
+    """A name shorter than the dwell: the detector hears again before the step ends.
+
+    The step is lit for max(1.0, 0.5) + deafness, so after the 0.5 s name and the deafness
+    behind it, 1.0 - 0.5 s of the step is left in which a click is heard -- the whole
+    point of adding the window. (By the same formula, a name as long as the dwell leaves
+    no such stretch at all; that case is pinned by nothing here on purpose.)
+    """
+    runner, ears, ran, d = _audible(duration=lambda text: 0.5 if text == "undo" else 0.0)
+    d.advance(0.3, pop_at(0.1))
+    _walk(d, 0.3 + _step() + 0.05)
+    undo_at = {name: when for name, when, _ in ears.names}["undo"]
+    heard_again = undo_at + 0.5 + _deaf()  # the name has ended and the detector hears again
+    _walk(d, heard_again + 0.1)
+    assert runner.view()["index"] == 1     # "undo" is still the lit item
+    d.advance(0.1, click_at(heard_again + 0.05))
+    assert ran == ["undo"]
+
+
+def test_the_post_voice_window_is_the_detectors_own_constant(monkeypatch):
+    """Derived, never restated: change the detector's window and the heard step follows."""
+    import yazses.mouthswitch.detect as detect_mod
+    from yazses.mouthswitch.runtime import post_voice_deaf_s
+
+    assert post_voice_deaf_s() == pytest.approx(detect_mod.CONTEXT_MS / 1000.0)
+    monkeypatch.setattr(detect_mod, "CONTEXT_MS", detect_mod.CONTEXT_MS + 200)
+    runner, _ears, _ran, _d = _audible()
+    assert runner._scanner.dwells[0] == pytest.approx(1.0 + detect_mod.CONTEXT_MS / 1000.0)
+
+
+def test_a_seen_scan_keeps_its_plain_steps():
+    """The overlay's scan makes no sound, so no deafness is added: dwell_s, exactly."""
+    runner, _sink, _made, _ran, _d = _started()
+    assert runner._scanner.dwells == (1.0,) * len(runner.items)
 
 
 def test_after_a_selection_the_item_is_announced_again_and_stays_for_a_step():
     runner, ears, ran, d = _audible()
     d.advance(0.3, pop_at(0.1))
-    _walk(d, 1.5)                          # "enter" at 0.3 s, "undo" at about 1.3 s
-    d.advance(0.1, click_at(1.45))           # selects "undo" at 1.6 s
-    _walk(d, 2.7)
+    undo_at = 0.3 + _step()                # "enter" at 0.3 s, "undo" one heard step later
+    _walk(d, undo_at + 0.2)
+    d.advance(0.1, click_at(undo_at + 0.15))  # selects "undo" 0.3 s after it lit
+    _walk(d, undo_at + 0.3 + _step() + 0.1)
     assert ran == ["undo"]
     assert [name for name, _, _ in ears.names] == ["enter", "undo", "undo", "scroll up"]
     times = [when for name, when, _ in ears.names]
-    assert times[3] - times[2] >= 1.0 - 1e-9  # the re-lit "undo" kept its whole dwell
+    assert times[3] - times[2] >= _step() - 1e-9  # the re-lit "undo" kept its whole step
 
 
 class FakeAnnouncer:

@@ -227,7 +227,11 @@ using what you have turned on:
 What you hear is what a click selects: the item announced when your click began is the item
 that runs. With neither earcons nor read-back on, the switch does not start, and
 `handsfree resume` says why. Headphones are a good idea. The scan's microphone also hears
-the speakers, and a click that starts while a name is still sounding may not be detected.
+the speakers, and a click is not detected while a tick or a name is sounding, or for
+0.4 s after it ends. So when the scan is announced, each item stays lit 0.4 s longer than it
+otherwise would, and the best moment to click is after the name has finished. If a name
+takes about as long to say as `dwell_s` (at the 1.2 s default, "scroll down" nearly
+does), there is little time left after it: raise `dwell_s` if clicks on it are missed.
 
 It has not been tried with real mouth sounds yet. Its thresholds were tuned on synthetic
 clicks and pops. A keyboard tap or a knock on the desk may count as a tongue click, so a

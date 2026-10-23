@@ -43,6 +43,18 @@ matched". The clipboard rescue needs `wl-copy`, `xclip` or `xsel`, as for proofr
 A successful spoken edit now also updates the `[timeline]` record, which still held the
 pre-edit text. Tested with a simulated text field only, not on real hardware.
 
+### Fixed — a heard Mouth-Sound Switch step leaves time for a click after the cue and the name (experimental, off by default)
+
+The click detector ignores any click that follows a voiced sound by less than 400 ms, and
+where the scan is announced, the step tick and the spoken name are voiced and reach the
+microphone through the speakers. So part of every announced step could never hear a click.
+Where the scan is announced, each step now stays lit for that long on top: the longer of
+`dwell_s` and the spoken name, plus the detector's own window (read from the detector, not
+restated). A scan the overlay draws makes no sound and keeps its plain `dwell_s` steps. When
+a name takes about as long to say as `dwell_s` ("scroll down" at the 1.2 s default), little
+or no time is left after it in which a click is heard, so raise `dwell_s` if a click on such
+an item is missed. Tested with simulated clicks only, not on real hardware.
+
 ### Changed — the Mouth-Sound Switch keeps scanning after a selection (experimental, off by default)
 
 One tongue click used to end the scan, so scrolling down twice took pop, click, pop, click.

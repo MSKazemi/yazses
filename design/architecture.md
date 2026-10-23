@@ -772,7 +772,7 @@ click *began*. A third microphone reader beside dictation; nothing reaches speec
 | File | Role |
 |---|---|
 | `detect.py` | Pure numpy. `MouthSoundDetector`: isolated, short, unvoiced onsets → classified sound → switch action. Thresholds synthetic-only. |
-| `scanner.py` | Pure, clock-injected. `SwitchScanner`: the highlight as a function of time, select-at-onset, the inactivity stop. An injected `announce_s` holds an item lit until its name has been said. |
+| `scanner.py` | Pure, clock-injected. `SwitchScanner`: the highlight as a function of time, select-at-onset, the inactivity stop. An injected `announce_s` holds an item lit until its name has been said; an injected `post_voice_s` (a heard scan only) adds the detector's post-voice deafness to every step. |
 | `announce.py` | `ScanAnnouncer`: an earcon cue per step and the item's name in the read-back voice, both injected callables. Used only where the overlay will not run. |
 | `runtime.py` | The impure shell: microphone stream, worker thread, pointer sink, command runner, and the build rules. |
 
@@ -781,7 +781,11 @@ the scan strip from the `status` reply's `mouthswitch` block. Where it will not 
 daemon (`_mouthswitch_announcer`) builds an announcer from the earcon player and the
 read-back voice the user already turned on (a voice degraded to the null backend does not
 count). With neither, `build_mouthswitch` refuses and `handsfree resume` says why.
-Announcements read the same scanner timeline a click selects from.
+Announcements read the same scanner timeline a click selects from. A heard step is lit for
+`max(dwell_s, announcement) + post_voice_deaf_s()`, the last term derived from
+`detect.CONTEXT_MS` (the detector rejects a click with voiced audio in that run-up, and the
+cue and name are voiced and reach the microphone through the speakers). A drawn scan makes
+no sound and keeps its plain `dwell_s` steps.
 
 **A selection does not end the scan.** It re-anchors the timeline at the moment of the
 selection, on the selected item, so that item stays lit for a full dwell and a second click

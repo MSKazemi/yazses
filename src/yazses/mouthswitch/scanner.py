@@ -22,6 +22,13 @@ long that announcement takes (``announce_s``), and an item stays lit for the lon
 ``dwell_s`` and its announcement, so the highlight never advances mid-word. The timeline
 is still a pure function of time: per-item dwells are fixed when the scanner is built.
 
+**A heard scan also waits out the detector's deafness.** The cue and the spoken name are
+voiced, they reach the microphone through the speakers, and the click detector rejects any
+click whose run-up holds voiced audio (``detect.CONTEXT_MS``). So when the scan is heard,
+the caller also injects ``post_voice_s`` -- that window, derived from the detector, never
+written here -- and each step is lit for ``max(dwell_s, announcement) + post_voice_s``. A
+scan drawn by the overlay makes no sound and passes nothing: its steps are unchanged.
+
 **A click selects what was highlighted when the click began, not when it was recognised.**
 The detector reports a sound only after ``POST_QUIET_MS`` of quiet behind it, so by the time
 the event reaches the scanner the highlight may already have moved on. :meth:`select` takes
@@ -51,6 +58,7 @@ __all__ = [
     "MAX_ANNOUNCE_S",
     "MAX_INTERVAL_S",
     "MAX_LOOPS",
+    "MAX_POST_VOICE_S",
     "MAX_SELECT_LAG_S",
     "MIN_INTERVAL_S",
     "POINTER_ITEMS",
@@ -90,6 +98,9 @@ MAX_SELECT_LAG_S = 2.0
 #: The longest an announcement may hold one item lit. A label that would take longer to
 #: say is a configuration mistake, and a scan that never moves is worse than a clipped word.
 MAX_ANNOUNCE_S = MAX_INTERVAL_S
+#: The longest post-voice deafness a step may be lengthened by. The real value comes from the
+#: detector and is far shorter; anything longer is a mis-wired caller, not a reason to freeze.
+MAX_POST_VOICE_S = MAX_INTERVAL_S
 
 
 @dataclass(frozen=True)
@@ -180,6 +191,17 @@ def _announce_seconds(announce_s: Callable[[ScanItem], float] | None, item: Scan
     return min(MAX_ANNOUNCE_S, seconds)
 
 
+def _post_voice_seconds(value: object) -> float:
+    """The injected post-voice deafness, sanitised: ``0.0`` for anything unusable. Pure."""
+    try:
+        seconds = float(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError, OverflowError):
+        return 0.0
+    if not math.isfinite(seconds) or seconds <= 0.0:
+        return 0.0
+    return min(MAX_POST_VOICE_S, seconds)
+
+
 def scan_interval(value: object) -> float:
     """``dwell_s`` as seconds per highlight step, clamped to a usable range. Pure."""
     try:
@@ -200,17 +222,26 @@ class SwitchScanner:
 
     ``announce_s`` (optional) says how long announcing an item takes; that item then stays
     lit for ``max(interval_s, announce_s(item))``. Without it every item gets ``interval_s``.
+
+    ``post_voice_s`` (optional, default ``0.0``) is how long the click detector stays deaf
+    after a voiced sound ends. A caller whose scan is *heard* passes it, and every step is
+    lengthened by it, so the part of ``interval_s`` left after the announcement is time in
+    which a click can actually be heard.
     """
 
     def __init__(self, items: Sequence[ScanItem], interval_s: float = DEFAULT_INTERVAL_S,
                  max_loops: int = MAX_LOOPS,
-                 announce_s: Callable[[ScanItem], float] | None = None) -> None:
+                 announce_s: Callable[[ScanItem], float] | None = None,
+                 post_voice_s: float = 0.0) -> None:
         self._items = tuple(items)
         self._interval = scan_interval(interval_s)
         self._max_loops = max(1, int(max_loops))
-        #: Seconds each item stays lit: never shorter than the interval, never mid-word.
+        deaf = _post_voice_seconds(post_voice_s)
+        #: Seconds each item stays lit: never shorter than the interval, never mid-word, and
+        #: when heard, never without the detector's post-voice deafness on top.
         self._dwells = tuple(
-            max(self._interval, _announce_seconds(announce_s, item)) for item in self._items
+            max(self._interval, _announce_seconds(announce_s, item)) + deaf
+            for item in self._items
         )
         #: Every item on the plain interval: the original fixed-step arithmetic applies.
         self._uniform = all(d == self._interval for d in self._dwells)
