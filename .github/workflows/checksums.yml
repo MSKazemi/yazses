@@ -200,12 +200,17 @@ jobs:
           # this file as a second, independent check -- so a pack missing here could not
           # be installed at all. tests/test_checksums_cover_packs.py derives the names
           # from scripts/build-packs.py and fails if a pattern here stops matching them.
-          for pat in '*.deb' '*.dmg' '*.exe' '*.intoto.jsonl' '*.yazpack' '*-packs.json'; do
+          #
+          # `*.mcpb` is the ADR-032 MCP bundle release.yml builds from the tag. Its build
+          # is reproducible, so this line is what lets anyone rebuild it from the tag and
+          # compare. tests/test_release_ships_mcpb.py derives its name from
+          # scripts/build-mcpb.py and fails if a pattern here stops matching it.
+          for pat in '*.deb' '*.dmg' '*.exe' '*.intoto.jsonl' '*.yazpack' '*-packs.json' '*.mcpb'; do
             gh release download "$TAG" --clobber --pattern "$pat" || \
               echo "note: no asset matched $pat"
           done
           shopt -s nullglob
-          files=(*.deb *.dmg *.exe *.intoto.jsonl *.yazpack *-packs.json)
+          files=(*.deb *.dmg *.exe *.intoto.jsonl *.yazpack *-packs.json *.mcpb)
           if (( ${#files[@]} == 0 )); then
             echo "::error::No release assets found for $TAG -- nothing to checksum."
             exit 1
@@ -237,7 +242,7 @@ jobs:
             exit 1
           fi
           newer=$(jq -r --arg t "$sums_at" \
-            '.assets[] | select(.name|test("\\.(exe|dmg|deb|yazpack)$|-packs\\.json$")) | select(.updatedAt > $t) | .name' \
+            '.assets[] | select(.name|test("\\.(exe|dmg|deb|yazpack|mcpb)$|-packs\\.json$")) | select(.updatedAt > $t) | .name' \
             <<<"$json")
           if [ -n "$newer" ]; then
             echo "::error::written AFTER SHA256SUMS.txt, so it cannot describe them:"

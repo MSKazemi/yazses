@@ -176,6 +176,41 @@ def test_a_non_release_version_is_refused(tmp_path: Path, bad: str) -> None:
         mcpb.build(tmp_path / "out", root=root)
 
 
+# --- the release build refuses a tag that is not the version -----------------
+
+
+def test_a_matching_tag_builds(tmp_path: Path) -> None:
+    root = _fake_tree(tmp_path, "97.5.3")
+    bundle = mcpb.build(tmp_path / "out", root=root, expect_tag="v97.5.3")
+    assert bundle.name == "yazses-97.5.3.mcpb"
+
+
+@pytest.mark.parametrize("tag", ["v97.5.4", "97.5.3", "v97.5.3-rc1", "V97.5.3", ""])
+def test_a_tag_that_is_not_v_version_is_refused_and_nothing_is_written(
+    tmp_path: Path, tag: str
+) -> None:
+    """The release job passes the pushed tag; a tag on an unbumped commit must not ship
+    a bundle whose manifest names the previous release."""
+    root = _fake_tree(tmp_path, "97.5.3")
+    out = tmp_path / "out"
+    with pytest.raises(ValueError, match="does not match"):
+        mcpb.build(out, root=root, expect_tag=tag)
+    assert not out.exists() or not any(out.iterdir())
+
+
+def test_main_reports_a_tag_mismatch_without_a_traceback(tmp_path: Path, capsys) -> None:
+    tag = f"v{_pyproject_version()}.0"  # never a valid X.Y.Z tag, so never a match
+    assert mcpb.main(["--out-dir", str(tmp_path), "--expect-tag", tag]) == 1
+    assert "does not match" in capsys.readouterr().err
+    assert not list(tmp_path.glob("*.mcpb"))
+
+
+def test_main_with_the_matching_tag_writes_the_bundle(tmp_path: Path, capsys) -> None:
+    tag = f"v{_pyproject_version()}"
+    assert mcpb.main(["--out-dir", str(tmp_path), "--expect-tag", tag]) == 0
+    assert Path(capsys.readouterr().out.strip()).name == f"yazses-{_pyproject_version()}.mcpb"
+
+
 # --- the template -------------------------------------------------------------
 
 

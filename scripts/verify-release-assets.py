@@ -41,7 +41,8 @@ from pathlib import Path
 SUMS = "SHA256SUMS.txt"
 #: `.yazpack` and `-packs.json` are the ADR-028 add-on packs and their index; the app
 #: cross-checks a pack against SHA256SUMS.txt, so a stale line there blocks the install.
-ARTIFACT_SUFFIXES = (".exe", ".dmg", ".deb", ".yazpack", "-packs.json")
+#: `.mcpb` is the ADR-032 MCP bundle `release.yml` builds from the tag.
+ARTIFACT_SUFFIXES = (".exe", ".dmg", ".deb", ".yazpack", "-packs.json", ".mcpb")
 
 
 def _gh(*args: str) -> str:

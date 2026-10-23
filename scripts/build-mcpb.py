@@ -16,6 +16,11 @@ Usage
 -----
     python3 scripts/build-mcpb.py                  # -> dist/yazses-<version>.mcpb
     python3 scripts/build-mcpb.py --out-dir /tmp/x
+    python3 scripts/build-mcpb.py --out-dir . --expect-tag v2.45.0   # the release job
+
+``--expect-tag`` is what the release job passes (``release.yml``, job
+``release-linux``): it refuses to build unless ``pyproject.toml``'s version is the
+tag's, so a bundle attached to ``v2.45.0`` can never say it is 2.44.0.
 
 **Deterministic.** Entries are written in sorted order, stored (not deflated, so the
 bytes do not depend on the zlib build), with a fixed 1980-01-01 timestamp and fixed
@@ -127,9 +132,29 @@ def write_bundle(path: Path, entries: dict[str, bytes]) -> Path:
     return path
 
 
-def build(out_dir: Path, root: Path = ROOT) -> Path:
-    """Build ``<out_dir>/yazses-<version>.mcpb`` from the tree at ``root``."""
+def check_tag(version: str, tag: str) -> None:
+    """Refuse unless ``tag`` is exactly ``v<version>``. Pure.
+
+    The release job builds from the tagged checkout, and this is the proof that the
+    checkout really is the release: a tag pushed on a commit whose ``pyproject.toml``
+    was never bumped would otherwise ship a bundle whose manifest names the previous
+    version, and every client would show that number.
+    """
+    if tag != f"v{version}":
+        raise ValueError(
+            f"tag {tag!r} does not match pyproject version {version!r} "
+            f"(expected 'v{version}'); refusing to build the release bundle"
+        )
+
+
+def build(out_dir: Path, root: Path = ROOT, expect_tag: str | None = None) -> Path:
+    """Build ``<out_dir>/yazses-<version>.mcpb`` from the tree at ``root``.
+
+    With ``expect_tag``, nothing is written unless the tree's version is that tag's.
+    """
     version = project_version(root / "pyproject.toml")
+    if expect_tag is not None:
+        check_tag(version, expect_tag)
     return write_bundle(out_dir / f"yazses-{version}.mcpb", bundle_entries(root, version))
 
 
@@ -139,8 +164,16 @@ def main(argv: list[str] | None = None) -> int:
         "--out-dir", type=Path, default=ROOT / "dist",
         help="where to write yazses-<version>.mcpb (default: dist/)",
     )
+    parser.add_argument(
+        "--expect-tag", metavar="TAG", default=None,
+        help="refuse to build unless pyproject's version is this tag's (e.g. v2.45.0)",
+    )
     args = parser.parse_args(argv)
-    path = build(args.out_dir)
+    try:
+        path = build(args.out_dir, expect_tag=args.expect_tag)
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
     print(path)
     return 0
 
