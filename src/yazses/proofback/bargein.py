@@ -22,6 +22,10 @@ its own:
 When any check fails the answer is "report the word, change nothing": the replacement
 burst is then typed exactly as an ordinary dictation would be.
 
+4. *What if the correction cannot be typed after the erase landed?* The erased words
+   are typed back, or failing that put on the clipboard with a notice, and the undo
+   records are kept to what is on screen (:func:`settle_replacement`).
+
 Dependency-free (stdlib only). The clock is injected so every decision is testable
 without sleeping.
 """
@@ -30,6 +34,7 @@ from __future__ import annotations
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass
+from typing import Any
 
 from yazses.proofback.align import resolve_target
 from yazses.proofback.timeline import PlaybackTimeline, Weight, char_weight
@@ -80,6 +85,11 @@ class ProofTarget:
     original: str
     stamp: float | None
     intent: str = REPLACE_FROM
+
+    @property
+    def erased(self) -> str:
+        """The text the replacement erases: ``original[char_offset:]``."""
+        return self.original[self.char_offset:]
 
 
 def resolve_barge_in(
@@ -179,6 +189,165 @@ def plan_replacement(
     # The kept prefix ends at the start of a word, so it already carries the space
     # before it (or is empty): the continuation space dictation prepends is dropped.
     return Replacement(True, target.erase_count, body, "applied")
+
+
+# ---- Applying a replacement, and what to do when it fails -------------------------
+#
+# Applying a plan is two keyboard steps: erase the tail, then type the correction. The
+# erase can succeed and the typing fail (a backend raises, reports failure, or the
+# window refuses input part-way), and then the words the user dictated are gone with
+# nothing in their place. The daemon therefore runs up to two recovery steps, and the
+# functions below decide what each combination of results means:
+#
+#   1. restore — re-type the erased text through the same injector. It is known
+#      exactly: it is the tail of the burst the target was armed on.
+#   2. rescue  — if that fails too, put the erased text on the clipboard and say so.
+#
+# The undo records ("scratch that", the [timeline]) must describe what is on screen.
+# When the screen is uncertain they never claim a longer burst than is certainly there
+# (after a lost tail, only the kept prefix): undo deletes by count, so it can then
+# delete too little, which the user sees and finishes by hand, but never more than
+# YazSes typed, which would delete the user's own text.
+
+#: The correction replaced the erased tail.
+REPLACED = "replaced"
+#: The correction could not be typed; the erased tail was typed back.
+RESTORED = "restored"
+#: Neither the correction nor the restore landed; the erased tail is on the clipboard.
+RESCUED = "clipboard"
+#: As :data:`RESCUED`, but the clipboard copy failed too.
+UNSAVED = "clipboard_failed"
+
+
+@dataclass(frozen=True)
+class ReplacementOutcome:
+    """What applying a replacement left behind, and what the user must be told.
+
+    ``screen`` is the burst as YazSes believes it stands on screen. ``screen_known`` is
+    false when a keyboard call failed: whether it delivered part of its text before
+    failing cannot be seen from here. A failed erase may have deleted fewer characters
+    than asked, and a failed type may have left a fragment of the correction (before
+    the restored words, when they were typed back). Either way the burst on screen is
+    *at least as long* as ``record``, which is what the newest undo record for the
+    burst becomes (``""`` drops it): undo deletes by count, so it can then delete too
+    little, never text before the burst.
+    ``typed`` is true only when the correction landed, and the caller then records it
+    as a burst of its own. ``notice`` is ``(title, body)`` for the user, or ``None``.
+    Neither carries the transcript: dictated words stay out of notifications.
+    """
+
+    result: str
+    screen: str
+    screen_known: bool
+    record: str
+    typed: bool
+    notice: tuple[str, str] | None
+
+
+_CLIPBOARD_HINT = "paste them (Ctrl+V) where they were"
+_APP_UNDO_HINT = "Your application's own undo (Ctrl+Z) may bring them back."
+
+
+def rescue_text(
+    target: ProofTarget, *, erased: bool, typed: bool, restored: bool
+) -> str | None:
+    """The text to put on the clipboard after the keyboard steps, or ``None``.
+
+    Needed when the erase failed (some of the tail may be gone and the correction was
+    never typed) or when the correction and the restore both failed (the tail is gone).
+    """
+    if erased and (typed or restored):
+        return None
+    return target.erased or None
+
+
+def settle_replacement(
+    target: ProofTarget,
+    correction: str,
+    *,
+    erased: bool,
+    typed: bool = False,
+    restored: bool = False,
+    copied: bool = False,
+) -> ReplacementOutcome:
+    """Map the results of erase → type → restore → clipboard onto records and a notice.
+
+    A step that was not attempted is passed as ``False``: *typed* is ignored when the
+    erase failed (the correction is never typed over an erase that stopped at an
+    unknown point), *restored* when the correction landed, and *copied* when no
+    rescue was needed.
+    """
+    kept = target.kept
+    if erased and typed:
+        return ReplacementOutcome(REPLACED, kept + correction, True, kept, True, None)
+    if erased and restored:
+        # The restore put back exactly the erased words, so the records stand as they
+        # were. Unknown: whether the failed call typed a fragment of the correction
+        # first (that would sit before the restored words, and only lengthen the burst).
+        return ReplacementOutcome(
+            RESTORED,
+            target.original,
+            False,
+            target.original,
+            False,
+            (
+                "⌨ Correction not typed",
+                "YazSes could not type your correction, so it typed back the words it "
+                "had erased. Dictate the correction again.",
+            ),
+        )
+    if not erased:
+        what = (
+            "YazSes could not finish erasing the text from the word you interrupted, "
+            "so it did not type your correction. Some of those words may be gone."
+        )
+    else:
+        what = (
+            "YazSes erased the text from the word you interrupted, then could not type "
+            "your correction or type the erased words back."
+        )
+    if copied:
+        result = RESCUED
+        body = f"{what} The erased words are on the clipboard — {_CLIPBOARD_HINT}."
+        title = "⌨ Erased words copied to the clipboard"
+    else:
+        result = UNSAVED
+        body = f"{what} The clipboard copy failed too. {_APP_UNDO_HINT}"
+        title = "⌨ Erased words could not be saved"
+    # The screen past `kept` is unknown: a failed erase may have stopped early, and a
+    # failed type or restore may have typed part of its text. `kept` is certain: the
+    # erase sent at most `erase_count` backspaces, and the restore deleted only
+    # characters of the correction that had certainly landed.
+    return ReplacementOutcome(result, kept, False, kept, False, (title, body))
+
+
+class InjectionTally:
+    """An injector wrapper that counts what it delivered and makes failure an exception.
+
+    ``typed`` counts the characters of :meth:`inject` calls that returned, so after a
+    failure part-way through a paced (multi-call) correction the caller knows how much
+    of it certainly reached the window. A backend that reports failure by returning
+    ``False`` instead of raising is turned into an exception here, so every step has
+    one failure signal. The call that failed is not counted: whether it typed part of
+    its text is unknowable from here.
+    """
+
+    def __init__(self, injector: Any) -> None:
+        self._injector = injector
+        self.typed = 0
+
+    def inject(self, text: str) -> None:
+        if self._injector.inject(text) is False:
+            raise RuntimeError("the injector reported that typing failed")
+        self.typed += len(text)
+
+    def inject_backspaces(self, count: int) -> None:
+        if self._injector.inject_backspaces(count) is False:
+            raise RuntimeError("the injector reported that the backspaces failed")
+
+    def inject_key_sequence(self, keys: list[str]) -> None:
+        if self._injector.inject_key_sequence(keys) is False:
+            raise RuntimeError("the injector reported that the key sequence failed")
 
 
 @dataclass(eq=False)
