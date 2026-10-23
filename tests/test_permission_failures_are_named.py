@@ -16,6 +16,7 @@ a permission or hits an error, say so with a reason the user can act on".
 
 from __future__ import annotations
 
+import threading
 import types
 
 import pytest
@@ -122,12 +123,18 @@ class _Ledger:
     def __init__(self, text):
         self._text = text
         self.replaced = None
+        self.scratched = 0
 
     def last_text(self):
         return self._text
 
     def replace_last(self, text):
         self.replaced = text
+
+    def scratch_last(self):
+        self.scratched += 1
+        self._text = ""
+        return 0
 
 
 def _daemon(reported, ledger_text="the foo is here"):
@@ -137,25 +144,44 @@ def _daemon(reported, ledger_text="the foo is here"):
     )
     ledger = _Ledger(ledger_text)
     injector = _Injector()
-    return types.SimpleNamespace(
+    daemon = types.SimpleNamespace(
         _config=config,
         _ledger=ledger,
         _active_injector=lambda: injector,
         _report_failure=lambda exc, where: reported.append((str(exc), where)),
         _last_dictation_monotonic=0.0,
+        _lock=threading.Lock(),
+        _state=types.SimpleNamespace(last_error=None),
+        notices=[],
+        # Never the host clipboard: the restore fails here too, so the recovery
+        # reaches the clipboard step, and a test must not overwrite the developer's.
+        _rescue_to_clipboard=lambda _rescued: False,
+        _log_replacement_steps=Daemon._log_replacement_steps,
     )
+    daemon._notify_mic = lambda title, body, **_kw: daemon.notices.append((title, body))
+    daemon._replace_last_burst = types.MethodType(Daemon._replace_last_burst, daemon)
+    daemon._rewrite_undo_records = types.MethodType(Daemon._rewrite_undo_records, daemon)
+    return daemon
 
 
 def test_spoken_edit_tells_the_user_when_the_retype_fails():
     reported: list[tuple] = []
     daemon = _daemon(reported)
+    event: dict = {}
 
-    handled = Daemon._try_spoken_edit(daemon, "replace foo with bar", {})
+    handled = Daemon._try_spoken_edit(daemon, "replace foo with bar", event)
 
     assert daemon._active_injector().backspaced > 0, "the erase is what makes this destructive"
     assert reported, "the user watched their text vanish and was told nothing"
     assert reported[0][1] == "inject"
-    assert handled is False
+    # And told where the words are (here: nowhere — this injector cannot even type them
+    # back and the clipboard is refused), never silence.
+    assert len(daemon.notices) == 1 and "could not be saved" in daemon.notices[0][0]
+    # Handled: it WAS an edit command. It used to return False, and the caller then
+    # filed the burst as "no command matched" — a second false statement on top of
+    # the lost words.
+    assert handled is True
+    assert event["discard_reason"] == "spoken_edit_not_typed"
 
 
 def test_spoken_edit_does_not_record_a_replacement_that_never_landed():
@@ -167,3 +193,6 @@ def test_spoken_edit_does_not_record_a_replacement_that_never_landed():
     Daemon._try_spoken_edit(daemon, "replace foo with bar", {})
 
     assert daemon._ledger.replaced is None
+    # Nor may it keep counting the erased burst: what is on screen is unknown, so the
+    # record is dropped and "scratch that" cannot reach past this dictation.
+    assert daemon._ledger.scratched == 1

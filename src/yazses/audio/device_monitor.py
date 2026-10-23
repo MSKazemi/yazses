@@ -101,6 +101,9 @@ CAPTURE_PROVING_DISCARDS = frozenset({
     # An Interruptible Proofreading correction (ADR-v2-108) was decoded and could not be
     # typed after the erase: the injector failed, downstream of capture.
     "proofback_not_typed",
+    # A Spoken Edit ("change X to Y") was decoded, parsed and applied to the ledger's
+    # last burst, and could not be typed after the erase: downstream of capture.
+    "spoken_edit_not_typed",
     # Field-Aware Dictation refused the *destination* (a password box). The audio was
     # captured, decoded and shaped; only the target was wrong.
     "fieldaware_refused",

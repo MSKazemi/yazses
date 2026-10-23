@@ -36,6 +36,7 @@ if TYPE_CHECKING:
     from yazses.gaze.refine_runtime import RefinementRuntime
     from yazses.gaze.targeter import GazeTargeter
     from yazses.hesitation.stream import HesitationMonitor
+    from yazses.inject.replace import InjectionTally, ReplacementOutcome, ReplacementSteps, Wording
     from yazses.inject.target import TargetDetector
     from yazses.latency.pool import EnginePool
     from yazses.learning.capture import CorpusWriter
@@ -6398,20 +6399,30 @@ class Daemon:
                 "ok": False, "applied": False, "old": last, "new": corrected,
                 "candidates": cand_view,
             }
-        injector = self._active_injector()
-        injector.inject_backspaces(len(last))
-        try:
-            injector.inject(corrected)
-        except Exception as exc:
-            # Same erase-then-retype hazard as `_try_spoken_edit`, which documents
-            # itself as reusing this mechanism. Here the exception does reach an IPC
-            # caller, so `yazses punch-in` shows something -- but a correction
-            # triggered by voice or from the tray had no caller to show it to, and
-            # the erased text was gone in silence.
-            self._report_failure(exc, where="inject")
-            return {"ok": False, "applied": False, "reason": "could not type the correction",
+        from yazses.inject.replace import RESCUED, RESTORED, Wording
+
+        # The same erase-then-retype as `_try_spoken_edit`, under the same recovery
+        # rule (Interruptible Proofreading's, decided 2026-10-23): a correction that
+        # cannot be typed after the erase has the erased words typed back, or put on
+        # the clipboard with a notice, or — if even that fails — a notice pointing at
+        # the application's own undo. A partial erase is never typed over, and the
+        # ledger and [timeline] follow the screen, so "scratch that" never reaches past
+        # this dictation. The notice matters as much as the IPC reply: a correction
+        # triggered from the tray has no CLI to print the reason.
+        outcome = self._replace_last_burst(
+            last, corrected, self._active_injector(), label="Punch-In",
+            wording=Wording(noun="correction", span="your last dictation",
+                            retry="Try the correction again."),
+        )
+        if not outcome.typed:
+            fate = {
+                RESTORED: "the original text was typed back",
+                RESCUED: "the erased text is on the clipboard",
+            }.get(outcome.result, "the erased text could not be saved")
+            return {"ok": False, "applied": False,
+                    "reason": f"could not type the correction; {fate}",
+                    "result": outcome.result,
                     "old": last, "new": corrected, "candidates": cand_view}
-        self._ledger.replace_last(corrected)
         self._last_dictation_monotonic = time.monotonic()
         self._last_dictation_tail = corrected[-1:]
         log.info("Punch-In: corrected %d chars.", len(last))
@@ -7156,8 +7167,10 @@ class Daemon:
         immediately; destructive ops (delete) apply only when
         ``[commands] spoken_edit_destructive`` is on (and then remain undoable via
         "scratch that", since the ledger is updated) — otherwise they are
-        recognised but skipped, never typed literally. Guarded so it can never
-        break dictation.
+        recognised but skipped, never typed literally. An edit that cannot be typed
+        after the erase is still handled (True): the erased words are recovered by
+        `_replace_last_burst` and the burst is filed as ``spoken_edit_not_typed``.
+        Guarded so it can never break dictation.
         """
         try:
             from yazses.commands.edit_ops import DESTRUCTIVE, apply_edit, parse_edit
@@ -7177,26 +7190,33 @@ class Daemon:
             result = apply_edit(last, phrase)
             if not result.changed:
                 return False
-            injector = self._active_injector()
-            injector.inject_backspaces(len(last))
-            try:
-                injector.inject(result.text)
-            except Exception as exc:
-                # The erase has already landed. Swallowing here is what made this
-                # path destructive rather than merely broken: the user watches the
-                # sentence they dictated disappear and nothing replace it, and the
-                # only record is a `log.debug` nobody reads. No blind restore --
-                # a failed `inject` may have typed part of the replacement, and
-                # re-typing the original on top of a partial write corrupts it
-                # further. Reporting is the honest move; the text itself stays out
-                # of the notification, because transcripts do not leave the daemon.
-                self._report_failure(exc, where="inject")
-                return False
-            self._ledger.replace_last(result.text)
-            self._last_dictation_monotonic = time.monotonic()
-            self._last_dictation_tail = result.text[-1:]
+            from yazses.inject.replace import Wording
+
+            # Erase, then type the edited burst. If the typing fails after the erase,
+            # the erased words are typed back; failing that they go on the clipboard
+            # with a notice; failing that the notice points at the app's own undo. An
+            # erase that stopped part-way is never typed over. This used to be "no
+            # blind restore": a failed `inject` may have typed part of the edit, and
+            # re-typing the original after it leaves a fragment. That trade-off was
+            # decided the other way (2026-10-23, as for Interruptible Proofreading): a
+            # visible, editable fragment is better than the user's words gone. The
+            # ledger and [timeline] follow the screen in every outcome, so a later
+            # "scratch that" never deletes text before this dictation.
+            outcome = self._replace_last_burst(
+                last, result.text, self._active_injector(), label="Spoken Edit",
+                wording=Wording(noun="edit", span="your last dictation",
+                                retry="Say the edit again."),
+            )
             event["intent_type"] = "spoken_edit"
             event["spoken_edit_op"] = op
+            if not outcome.typed:
+                # Handled — it was an edit command — so the caller must not file it
+                # as "no command matched". Nothing new was typed.
+                event["spoken_edit_result"] = outcome.result
+                event["discard_reason"] = "spoken_edit_not_typed"
+                return True
+            self._last_dictation_monotonic = time.monotonic()
+            self._last_dictation_tail = result.text[-1:]
             log.info("Spoken Edit: %s applied (%d -> %d chars).",
                      op, len(last), len(result.text))
             return True
@@ -7720,7 +7740,8 @@ class Daemon:
         """Erase the interrupted span, type *correction*, and recover if typing fails.
 
         Only backspaces from the end of the burst YazSes typed — the "scratch that"
-        mechanism — so no caret is moved. The steps, each run only if needed:
+        mechanism — so no caret is moved. :func:`yazses.inject.replace.run_replacement`
+        runs the steps, each only if needed:
 
         1. erase ``target.erase_count`` characters;
         2. type the correction (paced under ``[srpace]``, as dictation is);
@@ -7729,62 +7750,28 @@ class Daemon:
         4. if the erase or the restore failed: put the erased words on the clipboard.
 
         :func:`settle_replacement` turns the step results into the undo records and the
-        notice; this method only runs the steps and applies its answer. Returns whether
-        the correction landed. Never raises.
+        notice; this method applies its answer. Returns whether the correction landed.
+        Never raises.
         """
-        from yazses.proofback.bargein import (
-            REPLACED,
-            InjectionTally,
-            rescue_text,
-            settle_replacement,
+        from yazses.inject.replace import run_replacement
+        from yazses.proofback.bargein import REPLACED, settle_replacement
+
+        def type_text(text: str, tally: InjectionTally) -> None:
+            if self._config.srpace.enabled:
+                self._inject_paced(text, tally, event)
+            else:
+                tally.inject(text)
+
+        steps = run_replacement(
+            target, correction, injector, type_text=type_text, copy=self._rescue_to_clipboard
         )
-
-        erased = typed = restored = copied = False
-        try:
-            InjectionTally(injector).inject_backspaces(target.erase_count)
-            erased = True
-        except Exception as exc:
-            log.warning("Proofback: erasing the interrupted span failed (%s).",
-                        type(exc).__name__)
-            log.debug("Proofback: erase failure", exc_info=True)
-        if erased:
-            tally = InjectionTally(injector)
-            try:
-                if self._config.srpace.enabled:
-                    self._inject_paced(correction, tally, event)
-                else:
-                    tally.inject(correction)
-                typed = True
-            except Exception as exc:
-                # The exception's type only: a backend's message can quote the text.
-                log.warning("Proofback: typing the correction failed after the erase "
-                            "(%d of %d chars delivered; %s).",
-                            tally.typed, len(correction), type(exc).__name__)
-                log.debug("Proofback: correction failure", exc_info=True)
-            if not typed:
-                try:
-                    restore = InjectionTally(injector)
-                    if tally.typed:
-                        restore.inject_backspaces(tally.typed)
-                    restore.inject(target.erased)
-                    restored = True
-                except Exception as exc:
-                    log.warning("Proofback: typing the erased words back failed (%s).",
-                                type(exc).__name__)
-                    log.debug("Proofback: restore failure", exc_info=True)
-        rescue = rescue_text(target, erased=erased, typed=typed, restored=restored)
-        if rescue:
-            try:
-                from yazses.system.clipboard import set_clipboard
-
-                copied = bool(set_clipboard(rescue))
-            except Exception:  # noqa: BLE001 - recovery must never raise
-                log.debug("Proofback: clipboard copy failed", exc_info=True)
+        self._log_replacement_steps("Proofback", steps, len(correction))
         outcome = settle_replacement(
-            target, correction, erased=erased, typed=typed, restored=restored, copied=copied
+            target, correction, erased=steps.erased, typed=steps.typed,
+            restored=steps.restored, copied=steps.copied,
         )
         event["proofback_result"] = outcome.result
-        self._proofback_rewrite_records(target.original, outcome.record)
+        self._rewrite_undo_records(target.original, outcome.record)
         if outcome.result == REPLACED:
             event["final_text"] = correction
             log.info("Proofback: replaced %d chars from word %d.",
@@ -7795,15 +7782,95 @@ class Daemon:
         # Lengths only: the words themselves stay out of the log above DEBUG.
         log.warning("Proofback: correction not typed (%s); %d erased chars %s.",
                     outcome.result, target.erase_count,
-                    "typed back" if restored else
-                    "copied to the clipboard" if copied else "NOT saved")
+                    "typed back" if steps.restored else
+                    "copied to the clipboard" if steps.copied else "NOT saved")
         with self._lock:
             self._state.last_error = f"proofreading correction not typed ({outcome.result})"
         if outcome.notice is not None:
             self._notify_mic(*outcome.notice, actions=False)
         return False
 
-    def _proofback_rewrite_records(self, original: str, record: str) -> None:
+    def _replace_last_burst(
+        self, last: str, new: str, injector: InjectorBackend, *, label: str, wording: Wording
+    ) -> ReplacementOutcome:
+        """Retype the whole last burst *last* as *new* — Spoken Edit and Punch-In.
+
+        The same recovery rule as Interruptible Proofreading
+        (:mod:`yazses.inject.replace`): if *new* cannot be typed after the erase, the
+        erased words are typed back; failing that they go on the clipboard with a
+        notice; failing that the notice points at the application's own undo. An erase
+        that stopped part-way is never typed over. The ledger and ``[timeline]`` then
+        say what is on screen — *new* when it landed, *last* when it was typed back,
+        and nothing (the record is dropped) when the screen is uncertain, so the next
+        "scratch that" can delete too little but never text before the dictation.
+
+        Returns the :class:`~yazses.inject.replace.ReplacementOutcome`. Never raises.
+        A failure is also passed to ``_report_failure``, which names its cause (a
+        missing tool, a permission) and is rate-limited; the outcome notice that
+        follows says where the words are. Neither quotes them.
+        """
+        from yazses.inject.replace import Span, run_replacement, settle_replacement
+
+        span = Span(last)
+        steps = run_replacement(span, new, injector, copy=self._rescue_to_clipboard)
+        self._log_replacement_steps(label, steps, len(new))
+        outcome = settle_replacement(
+            span, new, erased=steps.erased, typed=steps.typed, restored=steps.restored,
+            copied=steps.copied, wording=wording,
+        )
+        # `outcome.record` excludes the new text; for a whole-burst replacement the
+        # new text simply takes the burst's place (`kept` is "").
+        self._rewrite_undo_records(last, outcome.record + new if outcome.typed else outcome.record)
+        if outcome.typed:
+            return outcome
+        if steps.error is not None:
+            self._report_failure(steps.error, where="inject")
+        log.warning("%s: not typed (%s); %d erased chars %s.", label, outcome.result,
+                    len(last),
+                    "typed back" if steps.restored else
+                    "copied to the clipboard" if steps.copied else "NOT saved")
+        try:
+            with self._lock:
+                self._state.last_error = f"{label.lower()} not typed ({outcome.result})"
+        except Exception:  # noqa: BLE001 - bookkeeping must never break recovery
+            log.debug("%s: last_error update failed", label, exc_info=True)
+        if outcome.notice is not None:
+            self._notify_mic(*outcome.notice, actions=False)
+        return outcome
+
+    @staticmethod
+    def _rescue_to_clipboard(rescued: str) -> bool:
+        """Put erased words on the clipboard for the user to paste back. Never raises."""
+        try:
+            from yazses.system.clipboard import set_clipboard
+
+            return bool(set_clipboard(rescued))
+        except Exception:  # noqa: BLE001 - recovery must never raise
+            log.debug("Replacement: clipboard copy failed", exc_info=True)
+            return False
+
+    @staticmethod
+    def _log_replacement_steps(label: str, steps: ReplacementSteps, replacement_len: int) -> None:
+        """Log each failed replacement step by exception type — never its message.
+
+        A backend's message can quote the text it was typing, so the message goes to
+        DEBUG only, with the traceback.
+        """
+        if steps.erase_error is not None:
+            log.warning("%s: erasing the old text failed (%s).", label,
+                        type(steps.erase_error).__name__)
+            log.debug("%s: erase failure", label, exc_info=steps.erase_error)
+        if steps.type_error is not None:
+            log.warning("%s: typing the new text failed after the erase "
+                        "(%d of %d chars delivered; %s).", label, steps.delivered,
+                        replacement_len, type(steps.type_error).__name__)
+            log.debug("%s: typing failure", label, exc_info=steps.type_error)
+        if steps.restore_error is not None:
+            log.warning("%s: typing the erased words back failed (%s).", label,
+                        type(steps.restore_error).__name__)
+            log.debug("%s: restore failure", label, exc_info=steps.restore_error)
+
+    def _rewrite_undo_records(self, original: str, record: str) -> None:
         """Make the newest undo records for the burst *original* say *record*.
 
         ``""`` drops the burst. Only when the newest entry *is* that burst — otherwise
@@ -7821,7 +7888,7 @@ class Daemon:
             if timeline is not None:
                 timeline.replace_last(original, record)
         except Exception:  # noqa: BLE001 - bookkeeping must never break the burst
-            log.debug("Proofback: undo-record rewrite failed", exc_info=True)
+            log.debug("Undo-record rewrite failed", exc_info=True)
 
     def _active_injector(self) -> InjectorBackend:
         """Return the remote injector while a remote session is up, else the local one.

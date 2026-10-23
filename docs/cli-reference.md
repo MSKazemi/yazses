@@ -1485,6 +1485,10 @@ records a short window, aligns the respoken phrase against the last burst it
 typed, then deletes that burst and retypes it corrected. Because pure respeak
 fixes only ~35% on the first try (Suhm 2001), the alignment surfaces the top
 candidates rather than silently splicing. Requires `[punch_in] enabled = true`.
+If the correction cannot be typed after the old burst was erased, YazSes types the
+old words back; if that fails too, it puts them on the clipboard and tells you, and
+the command's error line says which happened. Spoken Edit ("change X to Y") follows
+the same rule.
 
 **Options:** `--dry-run` (list candidate spans without editing, so you can confirm
 first) · `--choose` / `-n N` (apply the candidate at rank `N`; `0` = best,
