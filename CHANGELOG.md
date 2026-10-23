@@ -178,9 +178,14 @@ description links the install page for a machine without it (ADR-032 §1,
 [#638](https://github.com/MSKazemi/yazses/issues/638)). The build is byte-for-byte
 reproducible and uses only the standard library. A new guide,
 [Connect YazSes to an MCP client](docs/how-to/connect-mcp-client.md), covers the bundle
-and the manual config. Not yet attached to releases (that needs a release-workflow
-step), not yet tried in a real client, and some manifest fields are still to be checked
-against the MCPB specification; the tests are written but not yet run.
+and the manual config. Every tagged release now builds the bundle from the tagged
+source (`release.yml` refuses a tag that is not `v<pyproject version>`), attests it as
+`yazses-<version>-mcpb.intoto.jsonl`, attaches both files, and lists the bundle in
+`SHA256SUMS.txt`; the release audits (`verify-release-assets.py`, `verify-provenance.py`)
+cover it, and `tests/test_release_ships_mcpb.py` pins the wiring. The next release is the
+first to carry it, and no release has run those steps yet. Not yet tried in a real
+client, and some manifest fields are still to be checked against the MCPB
+specification; the tests are written but not yet run.
 
 ### Fixed — `yazses mcp-server --help` no longer says `ask_human` is not offered
 

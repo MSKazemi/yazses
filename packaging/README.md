@@ -487,13 +487,20 @@ workflow.
 ## MCP bundle and MCP registry — `yazses mcp-server` (ADR-032)
 
 Two ways for an MCP client to find `yazses mcp-server`. Neither ships a second copy of
-YazSes, and neither is published yet. The user-facing page is
+YazSes. The bundle is attached to releases from the first one after v2.44.0; the
+registry entry is not published yet. The user-facing page is
 [`../docs/how-to/connect-mcp-client.md`](../docs/how-to/connect-mcp-client.md).
 
 **The `.mcpb` bundle.** `python3 scripts/build-mcpb.py` writes
 `dist/yazses-<version>.mcpb` from `mcpb/manifest.template.json`. The build is
-reproducible, so a release job can attach it and add it to `SHA256SUMS.txt`; no
-workflow does that yet. Built and unit-tested only, not yet installed in a real client.
+reproducible. On every tag, `release.yml`'s `release-linux` job builds it from the
+tagged checkout with `--expect-tag`, which refuses a tag that is not
+`v<pyproject version>`. The job then attests it (`yazses-<version>-mcpb.intoto.jsonl`)
+and attaches both files to the GitHub Release; `checksums.yml` adds the bundle to
+`SHA256SUMS.txt`. To check a release by hand, rebuild from the tag
+(`python3 scripts/build-mcpb.py --out-dir /tmp/mcpb` in a checkout of `v<version>`) and
+compare `sha256sum /tmp/mcpb/*.mcpb` with the published line. Not yet installed in a
+real client.
 
 **The MCP registry entry.** `python3 scripts/render-mcp-server-json.py` writes
 `dist/server.json` from `mcp-registry/server.template.json`. It points at PyPI's

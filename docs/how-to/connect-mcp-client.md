@@ -34,10 +34,15 @@ The YazSes bundle, `yazses-<version>.mcpb`, contains no copy of YazSes: it tells
 client to run `yazses mcp-server`, so your model, your settings and your microphone
 permission stay with the install you already have.
 
-1. Get the bundle. From the release that first ships it, it is attached to the
-   [GitHub release](https://github.com/MSKazemi/yazses/releases) beside the other
-   downloads and listed in `SHA256SUMS.txt`. Until then, build it from a checkout of the
-   repository with `python3 scripts/build-mcpb.py`; it is written to `dist/`.
+1. Get the bundle. It ships from the **next release after v2.44.0** on: download
+   `yazses-<version>.mcpb` from the
+   [GitHub release](https://github.com/MSKazemi/yazses/releases), where it sits beside
+   the other downloads. Each release builds it from its own tagged source, lists it in
+   `SHA256SUMS.txt`, and attaches its build provenance as
+   `yazses-<version>-mcpb.intoto.jsonl`. You can check both as
+   [Code signing & verification](../code-signing.md) describes. v2.44.0 and earlier
+   releases do not include it. For those, build it from a checkout of the repository
+   with `python3 scripts/build-mcpb.py`. The file is written to `dist/`.
 2. Open the file with your client: double-click it, or drag it onto the client's
    extension settings.
 3. Restart the client if it asks you to, then check that the YazSes tools appear.

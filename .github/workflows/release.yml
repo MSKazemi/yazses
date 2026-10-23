@@ -173,8 +173,21 @@ jobs:
           pattern: deb-package-*
           merge-multiple: true
 
+      # ADR-032 §1: the one-click MCP bundle. Built here, from the tagged checkout
+      # above (this job runs on tags only), by a standard-library script under the
+      # runner's own python3, so nothing is installed and no new action is needed.
+      # The build is byte-for-byte reproducible, which is what lets SHA256SUMS.txt
+      # (checksums.yml) vouch for it. `--expect-tag` refuses to build unless
+      # pyproject.toml's version is this tag's: a tag on an unbumped commit would
+      # otherwise ship a bundle whose manifest names the previous release.
+      - name: Build the MCP bundle (.mcpb) from the tagged source
+        run: |
+          set -euo pipefail
+          python3 scripts/build-mcpb.py --out-dir . --expect-tag "$GITHUB_REF_NAME"
+          test -f "yazses-${GITHUB_REF_NAME#v}.mcpb"
+
       - name: Show what will be attached
-        run: ls -lh *.deb
+        run: ls -lh *.deb *.mcpb
 
       - name: Attest build provenance for every .deb
         id: attest
@@ -193,11 +206,29 @@ jobs:
       - name: Attach the provenance bundle as a release asset
         run: cp "${{ steps.attest.outputs.bundle-path }}" "yazses-${GITHUB_REF_NAME#v}-deb.intoto.jsonl"
 
+      # Its own attestation and its own bundle, as each platform's assets have, so
+      # `-deb.intoto.jsonl` keeps meaning what its name says. scripts/verify-provenance.py
+      # derives the attested suffixes from these `subject-path:` lines, so
+      # release-complete.yml now requires a servable attestation for the .mcpb too.
+      # The .deb bundle is copied above before this step runs, so it cannot matter
+      # whether the action reuses one bundle path between steps.
+      - name: Attest build provenance for the MCP bundle
+        id: attest-mcpb
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: "*.mcpb"
+
+      - name: Attach the MCP bundle's provenance as a release asset
+        env:
+          BUNDLE: ${{ steps.attest-mcpb.outputs.bundle-path }}
+        run: cp "$BUNDLE" "yazses-${GITHUB_REF_NAME#v}-mcpb.intoto.jsonl"
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
           files: |
             *.deb
+            *.mcpb
             *.intoto.jsonl
           generate_release_notes: true
           body: |
@@ -277,3 +308,11 @@ jobs:
 
             Default hotkey on Linux: **Right Alt** (configurable). Default config lives
             at `~/.config/yazses/config.toml`.
+
+            ## AI assistants (MCP)
+
+            `yazses-<version>.mcpb` in the Assets below connects YazSes to a desktop MCP
+            client: open the file with the client. It contains no copy of YazSes; it runs
+            the `yazses mcp-server` command of the YazSes you installed above, so install
+            that first. If your client does not accept the bundle, add the server by hand.
+            Guide: `docs/how-to/connect-mcp-client.md`.

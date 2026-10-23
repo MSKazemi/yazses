@@ -68,6 +68,10 @@ key for anyone to leak or steal.
 gh attestation verify yazses_2.43.2_amd64.deb --repo MSKazemi/yazses
 ```
 
+From the first release after v2.44.0, the MCP bundle (`yazses-<version>.mcpb`, see
+[Connect YazSes to an MCP client](how-to/connect-mcp-client.md)) is attested too, and
+its bundle is attached as `yazses-<version>-mcpb.intoto.jsonl`.
+
 A pass tells you the file came out of this repository's CI and has not been altered
 since. That is a different guarantee from a code signature, and for now a stronger
 one here: **the binaries are not yet code-signed**, so provenance is the only
