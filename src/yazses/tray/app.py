@@ -284,6 +284,20 @@ def run() -> None:
                             if isinstance(info.get("stt_residency"), dict)
                             else None
                         ),
+                        # The decoder that actually came up (#644), for the menus'
+                        # status line. Never filled in from `model`: a status that
+                        # repeats the config is what hid a failed Parakeet load.
+                        engine=(
+                            str(info["engine"]) if info.get("engine") else None
+                        ),
+                        engine_model=(
+                            str(info["engine_model"]) if info.get("engine_model") else None
+                        ),
+                        engine_fallback=(
+                            info.get("engine_fallback")
+                            if isinstance(info.get("engine_fallback"), dict)
+                            else None
+                        ),
                     )
                 )
                 # Toasts the daemon could not show itself (no libnotify — Windows,
@@ -322,7 +336,10 @@ def run() -> None:
                     log.warning("Daemon never became reachable; stopping poll.")
                     return
                 tray.set_state(
-                    TrayModel(state=decision.state, last_error=decision.last_error)
+                    # `model=""`: no daemon answered, so no model is known. The
+                    # dataclass default ("tiny.en") would otherwise be shown as the
+                    # model on the macOS menu's status line.
+                    TrayModel(state=decision.state, last_error=decision.last_error, model="")
                 )
                 if decision.relaunch:
                     relaunches += 1
@@ -341,7 +358,9 @@ def run() -> None:
                         log.exception("Restarting the daemon failed")
             except IpcCallError as exc:
                 log.warning("status RPC failed: %s", exc)
-                tray.set_state(TrayModel(state=TrayState.ERROR, last_error=str(exc)))
+                tray.set_state(
+                    TrayModel(state=TrayState.ERROR, last_error=str(exc), model="")
+                )
             except Exception:
                 log.exception("Tray poller crashed")
                 return

@@ -109,8 +109,8 @@ one more line under the model:
 The tray tooltip (and the Linux tray menu) shows the same phrase as `Speech model: …`.
 `yazses status --json` carries it as `stt_residency`, with `idle_unload_s`, `loaded`,
 `loading` and `idle_s` (seconds since the last dictation, `null` while unloaded). At the
-default of `0` that field is `null` and no line is printed. The macOS menu-bar icon shows
-only a state glyph, so it does not show this line.
+default of `0` that field is `null` and no line is printed. On macOS the line appears
+near the top of the menu-bar menu, under the engine line (not yet tested on a real Mac).
 
 **How much memory comes back is not measured yet.** CTranslate2, the library that runs
 Whisper, may keep part of its memory after the model is released, so the drop you see in
