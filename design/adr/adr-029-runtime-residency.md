@@ -287,6 +287,17 @@ How it meets the rest of §1:
   release, the burst shows the existing LOADING state, and it returns to TRANSCRIBING when
   the load ends.
 
+**2026-10-23, step 1b: status.** The daemon's `status` reply carries `stt_residency`
+(`IdleUnloadEngine.residency_snapshot`: `idle_unload_s`, `loaded`, `loading`, `idle_s`),
+`null` while the key is `0`. `yazses status` and the tray render it through
+`residency.describe_stt_residency`. The read only *tries* the engine lock and uses
+`IdleTracker.last_use`, which reads no clock, so a status poll never waits on a decode.
+A follow-up the same day added `unloaded_after_s` and `unloaded_for_s`. `detach_if_idle`
+stamps the release time and the idle time it measured, so "unloaded after N s idle" is
+what happened, not the configured keep-alive, which a late tick overshoots. The
+snapshot reads both stamps the same lock-free way, and it reads "how long ago" from the
+wrapper's clock directly, never through the tracker's monotonic check.
+
 Not done in this step and still open: `ResidencyBudget` and `[residency] max_resident`;
 `[residency] keep_alive_s` and the unload hooks for `latency`, `diarize`, `gaze`, `tts`,
 `llm` and `voiceprint`; the worker processes (§2); the nightly RSS, idle-CPU and

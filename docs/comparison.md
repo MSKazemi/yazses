@@ -6,7 +6,7 @@ description: "An honest comparison of offline voice dictation tools for Linux, m
 # YazSes vs. other dictation tools
 
 **Short answer:** YazSes is the tool to pick when you want **hold-to-talk voice
-dictation that runs fully offline on Linux (and macOS/Windows), is free and
+dictation that runs fully offline on Linux (and, in preview, macOS/Windows), is free and
 open-source, and also does voice commands** — without sending your voice to any
 cloud service. If you need cloud-grade AI reformatting, professional
 medical/legal accuracy, or deep voice-coding scripting, one of the alternatives
@@ -17,7 +17,7 @@ wins.
 
 | Tool | Runs offline | Voice commands | Linux | macOS / Windows | Cost | Open source |
 |---|---|---|---|---|---|---|
-| **YazSes** | **Yes** (on-device faster-whisper; Parakeet/Moonshine optional) | **Yes** (regex grammar) | **Yes** (X11 & Wayland) | **Yes** | **Free** | **Yes (Apache-2.0)** |
+| **YazSes** | **Yes** (on-device faster-whisper; Parakeet/Moonshine optional) | **Yes** (regex grammar) | **Yes** (X11 & Wayland) | **Yes** (preview) | **Free** | **Yes (Apache-2.0)** |
 | **Handy** | Yes (whisper.cpp) | No | Yes | Yes | Free | Yes (MIT) |
 | **OpenWhispr** | Yes (Whisper/Parakeet; cloud optional) | Spoken instructions | Yes | Yes | Free | Yes (MIT) |
 | **FluidVoice** | Yes (Parakeet) | Yes (Command Mode) | Announced | macOS (Windows community port) | Free | Yes (GPLv3) |
@@ -32,6 +32,10 @@ wins.
 | Windows Voice Typing | No (cloud) | Limited | No | Windows only | Free | No |
 | Apple Dictation | Partial | Limited | No | macOS only | Free | No |
 | Whisper + DIY scripts | Yes | No (you build it) | Yes | Yes | Free | Yes |
+
+YazSes on macOS and Windows is in *preview*: supported and installable, not yet verified on
+hardware by a person on a current build. The [validation matrix](validation-matrix.md) shows
+what testers have confirmed.
 
 > **Looking for meeting notes rather than dictation?** YazSes also records whole
 > meetings and transcribes existing recordings offline. That is a different
@@ -283,7 +287,7 @@ medical/legal dictation on Windows and a commercial license is acceptable. Drago
 is a mature, paid, Windows-focused product with specialist vocabularies YazSes
 does not ship.
 
-**Choose YazSes** if you are on Linux or macOS (Dragon is Windows-only), if a
+**Choose YazSes** if you are on Linux, or on macOS in preview (Dragon is Windows-only), if a
 per-seat commercial licence is a blocker, or if you want the source to be
 auditable. On accuracy for general prose the gap is much smaller than it used to
 be; on specialist terminology it is not.
@@ -311,7 +315,7 @@ you customise output by writing Python string operations.
 lowest possible resource footprint, or you like configuring behaviour in code.
 
 **Choose YazSes** if you want a hold-to-talk key instead of begin/end commands,
-Whisper-class accuracy rather than VOSK, macOS/Windows support (nerd-dictation is
+Whisper-class accuracy rather than VOSK, macOS/Windows support in preview (nerd-dictation is
 Linux-only), or the packaged extras — voice commands, macros, personal
 vocabulary, file transcription, meeting capture.
 
@@ -327,7 +331,7 @@ Intel and NVIDIA.
 **Choose Vocalinux** if you have a capable GPU and want to use it, or you want to
 pick between three recognition engines.
 
-**Choose YazSes** if you need macOS or Windows too (Vocalinux is Linux-only), if
+**Choose YazSes** if you need macOS or Windows too, in preview (Vocalinux is Linux-only), if
 you want the same install to also transcribe recordings and capture meetings with
 speaker labels, or if you need the accessibility-oriented pieces —
 dysfluency-friendly mode, EMG triggering, VAD calibration — and the opt-in
@@ -346,7 +350,7 @@ zero-config AppImage with optional GPU acceleration.
 **Choose TalkType** if you want a single-file AppImage with nothing to configure,
 and Linux is the only machine you dictate on.
 
-**Choose YazSes** if you also work on macOS or Windows, if you want the same
+**Choose YazSes** if you also work on macOS or Windows (in preview), if you want the same
 install to transcribe existing recordings and capture meetings with speaker
 labels, or if you need the accessibility and voice-command layers.
 
@@ -529,7 +533,7 @@ not a claim that YazSes wins every case.
 
 **Is there a good open-source, offline alternative to Dragon or Wispr Flow on
 Linux?** Yes — YazSes is an open-source (Apache-2.0), fully offline dictation tool
-that runs on Linux, macOS, and Windows and needs no cloud account.
+that runs on Linux, and in preview on macOS and Windows, and needs no cloud account.
 
 **What's the best free voice dictation for Linux that also does commands?** YazSes
 combines on-device transcription with a voice-command grammar, so the same
@@ -567,7 +571,9 @@ trade-offs honestly.
 **Does YazSes work on Wayland?** Yes. It probes the session at runtime and injects
 text through `ydotool` or `wtype` on Wayland and `xdotool` on X11. This is the
 part that most Linux dictation tools struggle with — see
-[voice dictation on Linux](use-cases/voice-dictation-linux.md).
+[voice dictation on Linux](use-cases/voice-dictation-linux.md). A hardware-verified
+record on GNOME and KDE Wayland is still to come
+([#643](https://github.com/MSKazemi/yazses/issues/643)).
 
 **Is there an alternative to Dragon NaturallySpeaking for Linux?** Dragon does not
 run on Linux at all. The closest open-source options are YazSes, Talon Voice,

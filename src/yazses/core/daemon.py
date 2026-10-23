@@ -36,6 +36,7 @@ if TYPE_CHECKING:
     from yazses.gaze.refine_runtime import RefinementRuntime
     from yazses.gaze.targeter import GazeTargeter
     from yazses.hesitation.stream import HesitationMonitor
+    from yazses.inject.replace import InjectionTally, ReplacementOutcome, ReplacementSteps, Wording
     from yazses.inject.target import TargetDetector
     from yazses.latency.pool import EnginePool
     from yazses.learning.capture import CorpusWriter
@@ -73,7 +74,13 @@ from yazses.config import Config, load_config
 from yazses.inject.streaming import StreamingInjector
 from yazses.ipc.protocol import Request
 from yazses.platform import Platform, get_platform
-from yazses.platform.base import HotkeyBackend, InjectorBackend, IpcServer, TrayState
+from yazses.platform.base import (
+    PRIMARY_MODIFIER_CTRL,
+    HotkeyBackend,
+    InjectorBackend,
+    IpcServer,
+    TrayState,
+)
 from yazses.postprocess.cleaner import clean_text
 from yazses.postprocess.llm_cleanup import LlmCleaner, build_cleaner
 from yazses.postprocess.prosody import Word, annotate
@@ -359,8 +366,8 @@ class Daemon:
     #: what `[commands] editor_profiles = false` keeps it. Class-level for the same
     #: partial-daemon reason as `_slm_router`: every command dispatch reads it.
     _command_profiles: ProfileRegistry | None = None
-    #: Returns the focused application's class for the profile lookup, or None when
-    #: nothing can. Injected, so a test hands in a lambda instead of a desktop.
+    #: Returns the focused application's identifier (an X11 class / AT-SPI name, a macOS
+    #: bundle id, a Windows image name) for the profile lookup, or None when nothing can. Injected, so a test hands in a lambda instead of a desktop.
     _focused_app_class: Callable[[], str] | None = None
     #: A detector built only for the profile lookup (when `[injection] target_guard`
     #: is "off" and the guard built none), so `_shutdown` can stop its AT-SPI thread.
@@ -516,6 +523,12 @@ class Daemon:
         # Staged dictation (#294): when on, a burst lands here for review instead
         # of typing straight into the focused app. Off by default.
         self._staged = StagedBuffer()
+        # Send to (ADR-031): the last burst this daemon typed, kept only while
+        # [sendto] is on, so "send to Claude" without staged mode has a text to hand
+        # over. In memory, one burst, never logged. The opener is the injectable seam
+        # (None = sendto.handoff.default_opener) so tests never launch a program.
+        self._sendto_last_burst = ""
+        self._sendto_opener: Callable[[str], bool] | None = None
         # Command Safety Gate (ADR-v2-065): holds one dangerous dictated command
         # pending a spoken confirm. Always constructed — it is a couple of fields and
         # stays inert unless [cmdsafety] enabled, which keeps `_on_hold_end` free of
@@ -1435,9 +1448,12 @@ class Daemon:
         import gc
 
         gc.collect()
+        idle = engine.released_after_s
         log.info(
-            "Speech model released after %s s idle ([stt] idle_unload_s); it reloads "
-            "on the next press.", engine.idle_unload_s,
+            "Speech model released after %.0f s idle ([stt] idle_unload_s = %d); it "
+            "reloads on the next press.",
+            idle if idle is not None else engine.idle_unload_s,
+            int(round(engine.idle_unload_s)),
         )
         return True
 
@@ -1462,6 +1478,27 @@ class Daemon:
         if engine is None:
             return False
         return engine.is_loading or not engine.is_resident
+
+    def _stt_residency_payload(self) -> dict[str, object] | None:
+        """The engine's residency for `status`, or None when `[stt] idle_unload_s` is 0.
+
+        None rather than ``{"loaded": True, ...}`` at the default: without the wrapper
+        nothing tracks residency, and before `_build_pipeline` finishes there is no model
+        at all, so a ``loaded: true`` would be the config repeated as a fact -- the shape
+        that hid a failed Parakeet load (#644). It also leaves the reply, and `yazses
+        status`, unchanged for every install that has not opted in.
+
+        Called under ``self._lock``; `IdleUnloadEngine.residency_snapshot` only *tries*
+        the engine lock, so a status poll never waits behind a decode or a reload.
+        """
+        engine = self._idle_unload_engine
+        if engine is None:
+            return None
+        try:
+            return engine.residency_snapshot()
+        except Exception:  # noqa: BLE001 — a status reply must not fail on a status row
+            log.debug("stt residency snapshot failed", exc_info=True)
+            return None
 
     def _on_stt_engine_loaded(self) -> None:
         """A reload finished (or failed): leave the burst's "loading" state for transcribing.
@@ -1630,9 +1667,25 @@ class Daemon:
 
             self._device_monitor = DeviceMonitor(
                 poll_fn=_poll_default,
+                # Asked right before every re-init: nothing records and no stream is open.
                 is_idle=self._audio_idle,
                 on_change=self._on_default_device_changed,
                 interval_s=cfg.audio.device_poll_interval_s,
+                # The hands-free level streams (Vocal Morse, the Mouth-Sound Switch, the
+                # Vocal Joystick) stay open while the daemon is IDLE. Skipping every poll
+                # while one was open left the watcher blind for the whole session whenever
+                # `[morsevox]` was on; the monitor now closes them for a re-scan and lets
+                # them reopen (`plan_device_poll`). Read at poll time: built further down.
+                level_streams=self._level_stream_owners,
+                recording=self._recording_in_flight,
+                # Between re-scans, read the default without a re-init -- safe under an
+                # open stream, and on PipeWire `wpctl` sees a switch PortAudio's start-up
+                # device list cannot.
+                peek_fn=effective_default_input_name,
+                # How often the open streams are cycled for a full re-scan, and the longest
+                # a user mid-gesture can hold that off. Shipped defaults 30 s / 600 s.
+                rescan_every_s=cfg.audio.level_stream_rescan_s,
+                max_defer_s=cfg.audio.level_stream_in_use_max_s,
             )
 
         # "No text target" guard: build the detector (AT-SPI focus tracker when available,
@@ -1698,8 +1751,8 @@ class Daemon:
         self._handsfree_safety = self._build_handsfree_safety(cfg)
         self._headpointer = self._build_headpointer(cfg)
         self._vocaljoystick = self._build_vocaljoystick(cfg)
-        # Mouth-Sound Switch (ADR-v2-097): None unless `[mouthswitch] enabled`; opens no mic.
-        self._mouthswitch = self._build_mouthswitch(cfg)
+        # The Mouth-Sound Switch is built further down, after the read-back voice: without
+        # the overlay it announces each scan step through that voice (ADR-v2-097).
         # Vocal Morse (ADR-v2-105): None unless `[morsevox] enabled`; building opens no mic.
         self._morsevox = self._build_morsevox(cfg)
         # Gesture Chords (ADR-v2-043): face/head tokens from the same shared camera, resolved
@@ -1722,7 +1775,8 @@ class Daemon:
         # None unless `[commands] slm_model_path` names a usable model.
         self._slm_router = self._build_slm_router(cfg)
         # Editor command profiles. After the text-target guard above, whose detector
-        # is reused for the focused-app lookup. None unless `[commands] editor_profiles`.
+        # is reused for the focused-app lookup on Linux (macOS and Windows use the
+        # platform's own provider). None unless `[commands] editor_profiles`.
         self._command_profiles = self._build_command_profiles(cfg)
 
         # Opt-in self-improvement corpus (ADR-012). Dormant unless enabled.
@@ -1774,6 +1828,10 @@ class Daemon:
                 "Read-back TTS enabled (backend=%s, mode=%s)",
                 self._tts.name, cfg.accessibility.read_back,
             )
+
+        # Mouth-Sound Switch (ADR-v2-097): None unless `[mouthswitch] enabled`; opens no mic.
+        # Built after the read-back voice above, which it may use to announce the scan.
+        self._mouthswitch = self._build_mouthswitch(cfg)
 
         # Cocktail Filter / Voiceprint Mind: build the speaker embedder and load the
         # enrolled voiceprint when either feature is on (dormant/None otherwise).
@@ -1842,6 +1900,9 @@ class Daemon:
         # default one — a spoken commit can be produced by the mis-transcription
         # the buffer exists to catch.
         server.register("staged", self._handle_staged)
+        # Send to (ADR-031): `yazses send-to <client>` without TEXT hands the staged
+        # buffer or the last burst to a desktop AI client, pre-filled and never sent.
+        server.register("send_to", self._handle_send_to)
         server.register("shutdown", self._handle_shutdown)
         server.register("inject", self._handle_inject)
         server.register("remote_start", self._handle_remote_start)
@@ -2386,8 +2447,9 @@ class Daemon:
         default install dispatches exactly as it always has.
 
         With `profile = "auto"` the choice follows the focused application, read at
-        dispatch time through `_focused_app_class` -- the same detector the
-        text-target guard uses. A pinned profile needs no lookup and builds none.
+        dispatch time through `_focused_app_class` -- the platform's provider on macOS
+        and Windows, the text-target guard's detector on Linux
+        (`_build_focused_app_source`). A pinned profile needs no lookup and builds none.
         """
         # A plain attribute read, for `scripts/config_status.py` (see `_build_slm_router`).
         if not cfg.commands.editor_profiles:
@@ -2395,7 +2457,7 @@ class Daemon:
         try:
             from yazses.commands.profiles import load_profiles
 
-            registry = load_profiles(cfg.commands)
+            registry = load_profiles(cfg.commands, self._primary_modifier())
         except Exception:
             log.warning("Editor command profiles init failed; commands keep the "
                         "default keys.", exc_info=True)
@@ -2410,18 +2472,24 @@ class Daemon:
         return registry
 
     def _build_focused_app_source(self) -> Callable[[], str] | None:
-        """A callable returning the focused application's class, or None.
+        """A callable returning the focused application's identifier, or None.
 
-        Reuses the text-target guard's detector (AT-SPI, else X11 xdotool) when the
-        guard built one. With `[injection] target_guard = "off"` there is none, so one
-        is built here for the profile lookup alone -- kept apart from
-        `_target_detector`, whose presence is what switches the guard on.
+        The platform's own provider first (`Platform.focused_app_factory`): macOS
+        answers the frontmost app's bundle id, Windows the foreground window's process
+        image name. Linux and the BSDs have none, and there the text-target guard's
+        detector (AT-SPI, else X11 xdotool) is reused when the guard built one. With
+        `[injection] target_guard = "off"` there is none, so one is built here for the
+        profile lookup alone -- kept apart from `_target_detector`, whose presence is
+        what switches the guard on.
 
-        Neither source exists on macOS, on Windows, or in a Wayland session without
-        AT-SPI. There the callable answers "" and `_command_keymap` falls back to the
-        default keys and says why, once. No platform check here: the detector's own
-        probes decide, as they already do for the guard.
+        Where nothing can answer (a Wayland session without AT-SPI, a Mac without the
+        AppKit bridge) the callable answers "" and `_command_keymap` falls back to the
+        default keys and says why, once. No platform check here: the bundle declares
+        its provider, and the detector's own probes decide, as they do for the guard.
         """
+        provided = self._platform_focused_app_source()
+        if provided is not None:
+            return provided
         detector = self._target_detector
         if detector is None:
             try:
@@ -2437,6 +2505,40 @@ class Daemon:
                 return None
             self._profile_detector = detector
         return detector.get_app_class
+
+    def _platform_focused_app_source(self) -> Callable[[], str] | None:
+        """``app_id`` of the platform's `FocusedAppProvider`, or None when it has none.
+
+        Read through ``getattr`` for the same stand-in-platform reason as
+        `_primary_modifier`. A factory that raises (macOS without AppKit) is logged with
+        its reason and treated as absent, so the caller falls back to the detector.
+        """
+        platform = getattr(self, "_platform", None)
+        factory = getattr(platform, "focused_app_factory", None)
+        if factory is None:
+            reason = getattr(platform, "focused_app_unavailable_reason", None)
+            if isinstance(reason, str) and reason:
+                log.info("Editor command profiles: %s", reason)
+            return None
+        try:
+            provider = factory()
+        except Exception as exc:
+            log.info("Editor command profiles: %s", exc)
+            log.debug("focused-application provider init failed", exc_info=True)
+            return None
+        app_id = getattr(provider, "app_id", None)
+        return app_id if callable(app_id) else None
+
+    def _primary_modifier(self) -> str:
+        """This OS's shortcut modifier (`Platform.primary_modifier`): Cmd on macOS.
+
+        Read through ``getattr`` because a test may hand the daemon a stand-in platform
+        built before the field existed (or none, on a ``Daemon.__new__`` rig); that is a
+        Ctrl platform, as every non-Mac is.
+        """
+        platform = getattr(self, "_platform", None)
+        value = getattr(platform, "primary_modifier", PRIMARY_MODIFIER_CTRL)
+        return value if isinstance(value, str) else PRIMARY_MODIFIER_CTRL
 
     def _command_keymap(self, event: dict | None = None) -> Keymap | None:
         """The focused editor's key overrides for one command, or None for the defaults.
@@ -2454,10 +2556,12 @@ class Daemon:
             source = self._focused_app_class
             if source is not None:
                 try:
-                    app_class = source() or ""
+                    app = source()
                 except Exception:
                     log.debug("focused-application lookup failed", exc_info=True)
-                    app_class = ""
+                    app = ""
+                # Only a string is an answer; anything else (None, a stand-in) is "no app".
+                app_class = app if isinstance(app, str) else ""
         choice = registry.choose(app_class)
         if event is not None:
             event["command_profile"] = choice.name
@@ -2742,6 +2846,8 @@ class Daemon:
                 stop_requested=None if (gate := self._handsfree_safety) is None
                 else lambda: gate.status().user_paused,
                 on_fault=notify_vocaljoystick_fault,  # the cursor never stops silently
+                # A held vowel defers a device re-scan only while audio is this fresh.
+                engaged_fresh_s=cfg.audio.level_stream_fresh_s,
             )
         except Exception:
             log.warning("Vocal Joystick init failed; it stays off", exc_info=True)
@@ -2770,7 +2876,7 @@ class Daemon:
 
             def run_command(phrase: str) -> object:
                 # Confidence 1.0: a detected click is deterministic. Whether it was *meant*
-                # is what the detector's guards and the one-select-per-scan rule answer.
+                # is what the detector's guards and the one-select-per-click rule answer.
                 return handle_intent(
                     ActivationIntent(label=phrase, confidence=1.0, source=SOURCE_NAME),
                     (phrase,),
@@ -2779,6 +2885,7 @@ class Daemon:
                 )
 
             sr = cfg.audio.sample_rate
+            highlight = should_launch_overlay(cfg, os.environ) and overlay_dependency_available()
             return build_mouthswitch(
                 cfg.mouthswitch,
                 pointer_factory=self._platform.pointer_factory,
@@ -2788,10 +2895,10 @@ class Daemon:
                 ),
                 run_command=run_command,
                 classify=self._gesture_classify,
-                # A select must never land on an item nobody can see: no overlay, no switch.
-                highlight_available=(
-                    should_launch_overlay(cfg, os.environ) and overlay_dependency_available()
-                ),
+                # A select must never land on an item nobody can see or hear: no overlay
+                # and no announcement, no switch.
+                highlight_available=highlight,
+                announcer=None if highlight else self._mouthswitch_announcer(cfg),
                 sample_rate=sr,
                 # Never listen for a switch while dictation records, transcribes or types.
                 busy=lambda: self._state.state is not TrayState.IDLE,
@@ -2799,10 +2906,102 @@ class Daemon:
                 stop_requested=None if (gate := self._handsfree_safety) is None
                 else lambda: gate.status().user_paused,
                 on_fault=notify_mouthswitch_fault,  # the switch never stops silently
+                # A running scan defers a device re-scan only while audio is this fresh.
+                engaged_fresh_s=cfg.audio.level_stream_fresh_s,
             )
         except Exception:
             log.warning("Mouth-Sound Switch init failed; it stays off", exc_info=True)
             return None
+
+    def _mouthswitch_announcer(self, cfg):
+        """The scan's audible stand-in for the overlay, or None when nothing can sound.
+
+        Two existing outputs, each used only when the user already turned it on: the earcon
+        player (`[earcon]`) for a cue at every step, and the read-back voice (`[tts]`) for
+        the item's name. A voice that degraded to the silent null backend does not count:
+        a name nobody hears is no announcement. With read-back off (`self._tts` is None)
+        and `[mouthswitch] speak_names` on, the names come from a voice built for the
+        switch alone (`_mouthswitch_voice`); read-back itself stays off. Never raises.
+        """
+        try:
+            from yazses.mouthswitch.announce import (
+                ScanAnnouncer,
+                cue_duration_s,
+                speech_duration_s,
+            )
+
+            earcon = self._earcon
+            cue: Callable[[str], None] | None = earcon.play if earcon.enabled else None
+            speak: Callable[[str], None] | None = None
+            cancel: Callable[[], None] | None = None
+            begin: Callable[[], None] | None = None
+            tts = self._tts
+            if tts is None and cfg.mouthswitch.speak_names:
+                tts = self._mouthswitch_voice(cfg)
+            if tts is not None and tts.name != "null":
+                speak, cancel = tts.speak, tts.cancel
+                begin = getattr(tts, "begin", None)
+            if cue is None and speak is None:
+                return None
+            speed = cfg.tts.speed
+            return ScanAnnouncer(
+                cue=cue, speak=speak, cancel=cancel, begin=begin,
+                duration_s=lambda text: speech_duration_s(text, speed),
+                # The tick is voiced too: a cue-only step waits for it to end.
+                cue_s=cue_duration_s() if cue is not None else 0.0,
+            )
+        except Exception:
+            log.warning("Mouth-Sound Switch announcer init failed", exc_info=True)
+            return None
+
+    def _mouthswitch_voice(self, cfg):
+        """A voice for the switch's item names alone (`[mouthswitch] speak_names`), or None.
+
+        Reached only with the overlay unavailable and read-back off. Built lazily, here and
+        only here, through the factory read-back uses, from a copy of `[tts]` with
+        `enabled` on -- `self._tts` stays None, so dictation is never read back. Never
+        downloads the voice model (`switch_voice`). Without a voice the scan is announced
+        with earcons only, and one log line says why. Never raises.
+        """
+        try:
+            from yazses.mouthswitch.announce import SWITCH_VOICE_PURPOSE, switch_voice
+            from yazses.tts.factory import build_tts
+
+            voice, why = switch_voice(
+                cfg.tts,
+                build=lambda tts_cfg: build_tts(tts_cfg, purpose=SWITCH_VOICE_PURPOSE),
+                files_present=lambda: self._tts_model_on_disk(cfg.tts),
+            )
+        except Exception as exc:
+            voice, why = None, f"the offline voice could not be built ({type(exc).__name__})"
+        if voice is None and why:
+            log.warning("[mouthswitch] speak_names: %s. Scan steps are announced with "
+                        "earcons only, if [earcon] is on.", why)
+        return voice
+
+    @staticmethod
+    def _tts_model_on_disk(tts_cfg) -> bool:
+        """Whether the voice files `[tts]` resolves to are already local. No network.
+
+        Mirrors `KokoroTtsBackend._resolve_models`: a configured path wins, else the shared
+        cache. An engine other than Kokoro has no model of ours to fetch, so the factory
+        alone decides whether it can speak.
+        """
+        engine = str(getattr(tts_cfg, "engine", "kokoro") or "kokoro")
+        if engine != "kokoro":
+            return True
+        from pathlib import Path
+
+        model = str(getattr(tts_cfg, "model_path", "") or "")
+        voices = str(getattr(tts_cfg, "voices_path", "") or "")
+        if not (model and voices):
+            from yazses.tts.download import model_paths
+
+            default_model, default_voices = model_paths()
+            model = model or str(default_model)
+            voices = voices or str(default_voices)
+        return Path(model).exists() and Path(voices).exists()
+
     def _build_morsevox(self, cfg):
         """Vocal Morse (ADR-v2-105), or None while `[morsevox]` is off (the default).
 
@@ -2833,6 +3032,8 @@ class Daemon:
                 stop_requested=None if gate is None else lambda: gate.status().user_paused,
                 on_change=self._on_morse_mode,
                 on_level=self._on_morse_level,
+                # Morse mode defers a device re-scan only while audio is this fresh.
+                engaged_fresh_s=cfg.audio.level_stream_fresh_s,
             )
         except Exception:
             log.warning("Vocal Morse init failed; it stays off", exc_info=True)
@@ -2923,10 +3124,12 @@ class Daemon:
                 if self._state.state in _MORSE_QUIET_STATES:
                     self._state.audio_level = 0.0
         if active:
-            body = "Morse mode on: short hum = dot, long hum = dash. Stay silent to leave it."
+            body = ("Morse mode on: short hum = dot, long hum = dash. Stay silent, or send "
+                    "SK (...-.-), to leave it.")
         else:
             body = {
                 "silence": "Morse mode off (silence).",
+                "prosign": "Morse mode off (SK, end of work).",
                 "dictation": "Morse mode off: dictation started.",
                 "paused": "Morse mode off: hands-free input paused.",
                 "no_release": "Morse mode off: the sound never stopped, so there was "
@@ -3034,7 +3237,8 @@ class Daemon:
 
         # A failing command must not fall back to typing its own name (see no_echo_injector).
         cmd_dispatch(intent, no_echo_injector(self._active_injector(), intent.raw_text),
-                     keymap=self._command_keymap())
+                     keymap=self._command_keymap(),
+                     primary_modifier=self._primary_modifier())
 
     def _start_gesture(self) -> None:
         """Take the camera lease and start polling, if there is anything to start."""
@@ -4077,6 +4281,26 @@ class Daemon:
                 log.info("Mid-thought undo: scratched %d chars.", n)
                 return
 
+            # Send to (ADR-031): "send to Claude", "send to Claude Code" or "send to
+            # Codex" — one fixed phrase per target, whole utterance, anchored — hands the
+            # staged buffer (or, without staged mode, the last burst) to that desktop
+            # client PRE-FILLED. Nothing is sent and the phrase itself is never typed.
+            # Before staged dictation on purpose, which would otherwise swallow the
+            # phrase as one more burst. No target-guard check: this types nothing into
+            # the focused window. Off by default; imported only when switched on.
+            if is_dictation and self._config.sendto.enabled:
+                from yazses.sendto.targets import parse_send_phrase
+
+                send_target = parse_send_phrase(text)
+                if send_target is not None:
+                    if use_streaming and stream_injector is not None:
+                        stream_injector.cancel()
+                    outcome = self._send_to(send_target)
+                    event["intent_type"] = "send_to"
+                    event["sendto_target"] = send_target
+                    event["sendto_ok"] = bool(outcome.get("ok"))
+                    return
+
             with self._lock:
                 app_class = self._state.app_class
 
@@ -4363,7 +4587,8 @@ class Daemon:
                 cmd_dispatch(intent, injector,
                              macro_table=self._macro_table,
                              macro_context=self._build_macro_context(),
-                             keymap=self._command_keymap(event))
+                             keymap=self._command_keymap(event),
+                             primary_modifier=self._primary_modifier())
             else:
                 # Command Safety Gate (ADR-v2-065): a dictated `rm -rf` waits for a
                 # spoken "confirm" instead of typing straight into a shell. Runs
@@ -4474,14 +4699,26 @@ class Daemon:
 
                 # Interruptible Proofreading (ADR-v2-108): a barge-in during the last
                 # read-back armed "replace from the word being read". Last before the
-                # injection so every gate above has already had its say; the erase
-                # happens only now that there is a replacement to type.
+                # injection so every gate above has already had its say — the
+                # no-text-target guard included, so a window that cannot take text
+                # refuses before anything is erased. The erase happens only now that
+                # there is a replacement to type, and the correction is typed by the
+                # same call, which knows how to recover the erased words if it fails.
+                proof_typed = False
                 if proof_target is not None:
-                    text = self._proofback_prepare(
+                    proofed = self._proofback_prepare(
                         proof_target, text, injector, event, streaming=use_streaming
                     )
+                    if proofed is None:
+                        # The correction did not land. The erased words were typed
+                        # back or put on the clipboard, the undo records follow the
+                        # screen, and the user has been told. Nothing new to record.
+                        return
+                    text, proof_typed = proofed
 
-                if use_streaming:
+                if proof_typed:
+                    pass  # typed by `_proofback_apply`, right after its erase
+                elif use_streaming:
                     assert stream_injector is not None
                     stream_injector.commit(text)
                 elif self._config.srpace.enabled:
@@ -4494,6 +4731,10 @@ class Daemon:
                     self._ledger.record(text)
                 if self._timeline is not None:
                     self._timeline.record(text)
+                # Send to (ADR-031): the burst "send to Claude" hands over when staged
+                # mode is off. Only while the feature is on — off, nothing is kept.
+                if self._config.sendto.enabled:
+                    self._sendto_last_burst = text
                 # Read-Back Loop: speak the final transcript back (dictation only).
                 self._maybe_read_back(text)
                 # Predictive Completion (ADR-v2-016): ask for the rest of the sentence.
@@ -4607,12 +4848,36 @@ class Daemon:
 
     # ---- Audio-input resilience (device change + silent-streak) -------------
 
+    def _recording_in_flight(self) -> bool:
+        """True while the daemon is anything but IDLE: the device monitor touches nothing."""
+        with self._lock:
+            return self._state.state != TrayState.IDLE
+
+    def _level_stream_owners(self) -> list:
+        """The hands-free features that may hold a level stream while the daemon is IDLE.
+
+        Each answers the device monitor's `LevelStreamOwner` surface (`mic_open`,
+        `mic_engaged`, `release_mic_for_rescan`, `reacquire_mic_after_rescan`), so the
+        monitor can close their streams for a PortAudio re-init and let them reopen.
+        """
+        owners = (
+            self._vocaljoystick,
+            getattr(self, "_mouthswitch", None),
+            self._morsevox,
+        )
+        return [owner for owner in owners if owner is not None]
+
     def _audio_idle(self) -> bool:
-        """True when no recording is in flight — safe to poll/reinit the mic."""
+        """True when no recording is in flight and no stream is open — safe to reinit now.
+
+        The device monitor asks this immediately before every PortAudio re-init. When a
+        level stream is open it does not simply wait any more: it asks the owners to close
+        (`_level_stream_owners`), asks this again, re-inits, and lets them reopen.
+        """
         with self._lock:
             idle = self._state.state == TrayState.IDLE
         # The Vocal Joystick keeps the daemon IDLE while its own stream is open; a PortAudio
-        # reinit under that stream would close it, so the monitor waits while it is open.
+        # reinit under that stream would close it, so this is False while it is open.
         joystick = self._vocaljoystick
         switch = getattr(self, "_mouthswitch", None)  # the same, for the Mouth-Sound Switch
         morse = self._morsevox  # the same for Vocal Morse's level stream
@@ -5028,6 +5293,57 @@ class Daemon:
             "summary": staged_describe(self._staged),
         }
 
+    def _send_to(self, target: str) -> dict[str, object]:
+        """Hand the staged buffer or the last burst to *target*, pre-filled (ADR-031).
+
+        The text is chosen by `sendto.targets.choose_text`: the staged buffer when
+        staged mode is on — "send to Claude" is then a commit target beside typing it —
+        otherwise the last burst this daemon typed. The buffer is cleared only after
+        a successful hand-off; every refusal (too long, nothing staged, the client did
+        not open) leaves it exactly as it was.
+
+        Returns a dict with no text in it: target, label, character count, the reason
+        on refusal and the user-facing message. `sendto.handoff` logs the target and
+        the length, never the text.
+        """
+        from yazses.sendto.handoff import hand_off
+        from yazses.sendto.targets import choose_text
+
+        choice = choose_text(
+            staged_enabled=self._config.staged.enabled,
+            staged_text=self._staged.text,
+            last_burst=self._sendto_last_burst,
+        )
+        result = hand_off(target, choice.text, opener=self._sendto_opener,
+                          staged=choice.source == "staged")
+        if result.ok and choice.source == "staged":
+            self._staged.discard()
+        self._notify_sendto(result.message)
+        return {**result.as_dict(), "source": choice.source}
+
+    def _handle_send_to(self, request: Request) -> dict[str, object]:
+        """`yazses send-to <client>` (no TEXT) over IPC. Refuses while the feature is off.
+
+        Takes a target name only. Explicit text from the CLI is handed off in the CLI's
+        own process and never travels over this socket, so no caller can use the daemon
+        to open a URL with text of its choosing.
+        """
+        from yazses.sendto.handoff import disabled_result
+
+        target = str((request.params or {}).get("target") or "")
+        if not self._config.sendto.enabled:
+            return {**disabled_result(target).as_dict(), "source": ""}
+        return self._send_to(target)
+
+    def _notify_sendto(self, message: str) -> None:
+        """Say what the hand-off did. The message holds counts, never the text."""
+        try:
+            from yazses.system.notify import notify
+
+            notify("YazSes — send to", message, log_body=False)
+        except Exception:  # pragma: no cover - notification is never load-bearing
+            log.debug("Send-to notification failed", exc_info=True)
+
     def _mic_answer_gate(self, text: str, event: dict) -> str | None:
         """Spoken answer to the mic guard's toast. The text to type, or None.
 
@@ -5188,7 +5504,8 @@ class Daemon:
         cmd_dispatch(intent, self._active_injector(),
                      macro_table=self._macro_table,
                      macro_context=self._build_macro_context(),
-                     keymap=self._command_keymap())
+                     keymap=self._command_keymap(),
+                     primary_modifier=self._primary_modifier())
         return True
 
     def _cmdsafety_answer(self, text: str, event: dict) -> bool:
@@ -5329,15 +5646,19 @@ class Daemon:
         """Predictive Completion (ADR-v2-016). True when this burst answered the offer.
 
         The decision is ``PredictSession.resolve``'s; this applies it. An accept types the
-        suggestion -- never the word "accept" -- through the same checks the scratch-that
+        suggestion -- never the words "take it" -- through the same checks the scratch-that
         branch uses: no editable target means nothing is typed, and Field-Aware
         Dictation still gets to refuse a password box. A decline, or an accept that
         arrives after the offer expired, types nothing at all.
 
         A held dangerous command or an open re-ask keeps first claim on the utterance,
-        exactly as `_reask_gate` steps aside for the command gate: "cancel that" and
-        "never mind" are the command gate's words too. The offer is then withdrawn by
-        the ``finally`` block of `_on_hold_end`, because the burst did not answer it.
+        exactly as `_reask_gate` steps aside for the command gate. The offer is then
+        withdrawn by the ``finally`` block of `_on_hold_end`, because the burst did not
+        answer it.
+
+        Only "accept suggestion", "take it" and "discard" answer an offer. A one-word
+        "No.", "Decline." or "Keep it." is not an answer: it is dropped (``DROPPED``),
+        the offer goes, and the words are dictated like any other burst.
         """
         runtime = self._predict
         if runtime is None or runtime.pending is None:
@@ -5462,7 +5783,8 @@ class Daemon:
             notify(
                 "YazSes \u2014 suggestion",
                 f"\u2026{suggestion.display}\n"
-                "Say \u201caccept\u201d to type it; keep talking to dismiss it.",
+                "Say \u201ctake it\u201d or \u201caccept suggestion\u201d to type it; "
+                "keep talking to dismiss it.",
                 expire_ms=int(SUGGESTION_TTL_S * 1000),
                 log_body=False,
             )
@@ -6187,20 +6509,30 @@ class Daemon:
                 "ok": False, "applied": False, "old": last, "new": corrected,
                 "candidates": cand_view,
             }
-        injector = self._active_injector()
-        injector.inject_backspaces(len(last))
-        try:
-            injector.inject(corrected)
-        except Exception as exc:
-            # Same erase-then-retype hazard as `_try_spoken_edit`, which documents
-            # itself as reusing this mechanism. Here the exception does reach an IPC
-            # caller, so `yazses punch-in` shows something -- but a correction
-            # triggered by voice or from the tray had no caller to show it to, and
-            # the erased text was gone in silence.
-            self._report_failure(exc, where="inject")
-            return {"ok": False, "applied": False, "reason": "could not type the correction",
+        from yazses.inject.replace import RESCUED, RESTORED, Wording
+
+        # The same erase-then-retype as `_try_spoken_edit`, under the same recovery
+        # rule (Interruptible Proofreading's, decided 2026-10-23): a correction that
+        # cannot be typed after the erase has the erased words typed back, or put on
+        # the clipboard with a notice, or — if even that fails — a notice pointing at
+        # the application's own undo. A partial erase is never typed over, and the
+        # ledger and [timeline] follow the screen, so "scratch that" never reaches past
+        # this dictation. The notice matters as much as the IPC reply: a correction
+        # triggered from the tray has no CLI to print the reason.
+        outcome = self._replace_last_burst(
+            last, corrected, self._active_injector(), label="Punch-In",
+            wording=Wording(noun="correction", span="your last dictation",
+                            retry="Try the correction again."),
+        )
+        if not outcome.typed:
+            fate = {
+                RESTORED: "the original text was typed back",
+                RESCUED: "the erased text is on the clipboard",
+            }.get(outcome.result, "the erased text could not be saved")
+            return {"ok": False, "applied": False,
+                    "reason": f"could not type the correction; {fate}",
+                    "result": outcome.result,
                     "old": last, "new": corrected, "candidates": cand_view}
-        self._ledger.replace_last(corrected)
         self._last_dictation_monotonic = time.monotonic()
         self._last_dictation_tail = corrected[-1:]
         log.info("Punch-In: corrected %d chars.", len(last))
@@ -6407,8 +6739,15 @@ class Daemon:
             elif name == "keys":
                 # Spoken grid movement (`spreadsheet`). This is the one action that
                 # reaches the focused window rather than reporting, so it goes through
-                # the active injector exactly as `commands/dispatch.py` does.
-                self._active_injector().inject_key_sequence(list(argument or ()))
+                # the active injector exactly as `commands/dispatch.py` does. Its only
+                # Ctrl chords (top/bottom of column) are the shortcut modifier, so on a
+                # Mac they go out as Cmd -- Ctrl+Up there opens Mission Control.
+                from yazses.commands.dispatch import primary_combo
+
+                primary = self._primary_modifier()
+                self._active_injector().inject_key_sequence(
+                    [primary_combo(str(k), primary) for k in (argument or ())]
+                )
             else:
                 log.debug("Unknown spoken action %r", name)
                 return
@@ -6938,8 +7277,10 @@ class Daemon:
         immediately; destructive ops (delete) apply only when
         ``[commands] spoken_edit_destructive`` is on (and then remain undoable via
         "scratch that", since the ledger is updated) — otherwise they are
-        recognised but skipped, never typed literally. Guarded so it can never
-        break dictation.
+        recognised but skipped, never typed literally. An edit that cannot be typed
+        after the erase is still handled (True): the erased words are recovered by
+        `_replace_last_burst` and the burst is filed as ``spoken_edit_not_typed``.
+        Guarded so it can never break dictation.
         """
         try:
             from yazses.commands.edit_ops import DESTRUCTIVE, apply_edit, parse_edit
@@ -6959,26 +7300,33 @@ class Daemon:
             result = apply_edit(last, phrase)
             if not result.changed:
                 return False
-            injector = self._active_injector()
-            injector.inject_backspaces(len(last))
-            try:
-                injector.inject(result.text)
-            except Exception as exc:
-                # The erase has already landed. Swallowing here is what made this
-                # path destructive rather than merely broken: the user watches the
-                # sentence they dictated disappear and nothing replace it, and the
-                # only record is a `log.debug` nobody reads. No blind restore --
-                # a failed `inject` may have typed part of the replacement, and
-                # re-typing the original on top of a partial write corrupts it
-                # further. Reporting is the honest move; the text itself stays out
-                # of the notification, because transcripts do not leave the daemon.
-                self._report_failure(exc, where="inject")
-                return False
-            self._ledger.replace_last(result.text)
-            self._last_dictation_monotonic = time.monotonic()
-            self._last_dictation_tail = result.text[-1:]
+            from yazses.inject.replace import Wording
+
+            # Erase, then type the edited burst. If the typing fails after the erase,
+            # the erased words are typed back; failing that they go on the clipboard
+            # with a notice; failing that the notice points at the app's own undo. An
+            # erase that stopped part-way is never typed over. This used to be "no
+            # blind restore": a failed `inject` may have typed part of the edit, and
+            # re-typing the original after it leaves a fragment. That trade-off was
+            # decided the other way (2026-10-23, as for Interruptible Proofreading): a
+            # visible, editable fragment is better than the user's words gone. The
+            # ledger and [timeline] follow the screen in every outcome, so a later
+            # "scratch that" never deletes text before this dictation.
+            outcome = self._replace_last_burst(
+                last, result.text, self._active_injector(), label="Spoken Edit",
+                wording=Wording(noun="edit", span="your last dictation",
+                                retry="Say the edit again."),
+            )
             event["intent_type"] = "spoken_edit"
             event["spoken_edit_op"] = op
+            if not outcome.typed:
+                # Handled — it was an edit command — so the caller must not file it
+                # as "no command matched". Nothing new was typed.
+                event["spoken_edit_result"] = outcome.result
+                event["discard_reason"] = "spoken_edit_not_typed"
+                return True
+            self._last_dictation_monotonic = time.monotonic()
+            self._last_dictation_tail = result.text[-1:]
             log.info("Spoken Edit: %s applied (%d -> %d chars).",
                      op, len(last), len(result.text))
             return True
@@ -7466,13 +7814,14 @@ class Daemon:
         event: dict,
         *,
         streaming: bool,
-    ) -> str:
-        """Erase the interrupted span of the last burst and return what to type instead.
+    ) -> tuple[str, bool] | None:
+        """Replace the interrupted span of the last burst with *text*, if allowed.
 
-        Only backspaces from the end of the burst YazSes typed — the "scratch that"
-        mechanism — so no caret is moved. When :func:`plan_replacement` refuses, *text*
-        comes back unchanged and is typed as ordinary dictation: the word was
-        reported, and nothing the user already has is deleted.
+        Returns ``(text_to_type, False)`` when :func:`plan_replacement` refuses: nothing
+        was erased, and the caller types the burst as ordinary dictation. Otherwise the
+        replacement is applied here (:meth:`_proofback_apply`) and the result is
+        ``(correction, True)`` when the correction landed — already typed, for the caller
+        to record — or ``None`` when it did not.
         """
         from yazses.proofback.bargein import plan_replacement
 
@@ -7490,23 +7839,174 @@ class Daemon:
         if not plan.apply:
             log.info("Proofback: interrupted word %d not replaced (%s); typing the "
                      "burst as ordinary dictation.", target.word_index, plan.reason)
-            return text
-        injector.inject_backspaces(plan.erase_count)
-        event["final_text"] = plan.text
-        # The burst on screen is now `kept`. Keep the undo records in step, but only
-        # when their newest entry is that burst — otherwise leave them alone rather
-        # than rewrite a record of something else.
-        if self._ledger.last_text() == target.original:
-            if target.kept:
-                self._ledger.replace_last(target.kept)
+            return text, False
+        if self._proofback_apply(target, plan.text, injector, event):
+            return plan.text, True
+        return None
+
+    def _proofback_apply(
+        self, target: ProofTarget, correction: str, injector: InjectorBackend, event: dict
+    ) -> bool:
+        """Erase the interrupted span, type *correction*, and recover if typing fails.
+
+        Only backspaces from the end of the burst YazSes typed — the "scratch that"
+        mechanism — so no caret is moved. :func:`yazses.inject.replace.run_replacement`
+        runs the steps, each only if needed:
+
+        1. erase ``target.erase_count`` characters;
+        2. type the correction (paced under ``[srpace]``, as dictation is);
+        3. if that failed: delete what of it certainly landed, and type the erased
+           words back — they are known exactly, ``target.erased``;
+        4. if the erase or the restore failed: put the erased words on the clipboard.
+
+        :func:`settle_replacement` turns the step results into the undo records and the
+        notice; this method applies its answer. Returns whether the correction landed.
+        Never raises.
+
+        A failure is also passed to ``_report_failure`` first, as Spoken Edit and
+        Punch-In do (:meth:`_replace_last_burst`): it names the cause (a permission, a
+        missing tool) and is rate-limited through the same record, so one broken
+        injector is one cause toast whichever of the three features hit it. The outcome
+        notice that follows says where the words are. Neither quotes them.
+        """
+        from yazses.inject.replace import run_replacement
+        from yazses.proofback.bargein import REPLACED, settle_replacement
+
+        def type_text(text: str, tally: InjectionTally) -> None:
+            if self._config.srpace.enabled:
+                self._inject_paced(text, tally, event)
             else:
-                self._ledger.scratch_last()
-        timeline = getattr(self, "_timeline", None)
-        if timeline is not None:
-            timeline.replace_last(target.original, target.kept)
-        log.info("Proofback: replaced %d chars from word %d.",
-                 plan.erase_count, target.word_index)
-        return plan.text
+                tally.inject(text)
+
+        steps = run_replacement(
+            target, correction, injector, type_text=type_text, copy=self._rescue_to_clipboard
+        )
+        self._log_replacement_steps("Proofback", steps, len(correction))
+        outcome = settle_replacement(
+            target, correction, erased=steps.erased, typed=steps.typed,
+            restored=steps.restored, copied=steps.copied,
+        )
+        event["proofback_result"] = outcome.result
+        self._rewrite_undo_records(target.original, outcome.record)
+        if outcome.result == REPLACED:
+            event["final_text"] = correction
+            log.info("Proofback: replaced %d chars from word %d.",
+                     target.erase_count, target.word_index)
+            return True
+        event["injected"] = False
+        event["discard_reason"] = "proofback_not_typed"
+        if steps.error is not None:
+            self._report_failure(steps.error, where="inject")
+        # Lengths only: the words themselves stay out of the log above DEBUG.
+        log.warning("Proofback: correction not typed (%s); %d erased chars %s.",
+                    outcome.result, target.erase_count,
+                    "typed back" if steps.restored else
+                    "copied to the clipboard" if steps.copied else "NOT saved")
+        with self._lock:
+            self._state.last_error = f"proofreading correction not typed ({outcome.result})"
+        if outcome.notice is not None:
+            self._notify_mic(*outcome.notice, actions=False)
+        return False
+
+    def _replace_last_burst(
+        self, last: str, new: str, injector: InjectorBackend, *, label: str, wording: Wording
+    ) -> ReplacementOutcome:
+        """Retype the whole last burst *last* as *new* — Spoken Edit and Punch-In.
+
+        The same recovery rule as Interruptible Proofreading
+        (:mod:`yazses.inject.replace`): if *new* cannot be typed after the erase, the
+        erased words are typed back; failing that they go on the clipboard with a
+        notice; failing that the notice points at the application's own undo. An erase
+        that stopped part-way is never typed over. The ledger and ``[timeline]`` then
+        say what is on screen — *new* when it landed, *last* when it was typed back,
+        and nothing (the record is dropped) when the screen is uncertain, so the next
+        "scratch that" can delete too little but never text before the dictation.
+
+        Returns the :class:`~yazses.inject.replace.ReplacementOutcome`. Never raises.
+        A failure is also passed to ``_report_failure``, which names its cause (a
+        missing tool, a permission) and is rate-limited; the outcome notice that
+        follows says where the words are. Neither quotes them.
+        """
+        from yazses.inject.replace import Span, run_replacement, settle_replacement
+
+        span = Span(last)
+        steps = run_replacement(span, new, injector, copy=self._rescue_to_clipboard)
+        self._log_replacement_steps(label, steps, len(new))
+        outcome = settle_replacement(
+            span, new, erased=steps.erased, typed=steps.typed, restored=steps.restored,
+            copied=steps.copied, wording=wording,
+        )
+        # `outcome.record` excludes the new text; for a whole-burst replacement the
+        # new text simply takes the burst's place (`kept` is "").
+        self._rewrite_undo_records(last, outcome.record + new if outcome.typed else outcome.record)
+        if outcome.typed:
+            return outcome
+        if steps.error is not None:
+            self._report_failure(steps.error, where="inject")
+        log.warning("%s: not typed (%s); %d erased chars %s.", label, outcome.result,
+                    len(last),
+                    "typed back" if steps.restored else
+                    "copied to the clipboard" if steps.copied else "NOT saved")
+        try:
+            with self._lock:
+                self._state.last_error = f"{label.lower()} not typed ({outcome.result})"
+        except Exception:  # noqa: BLE001 - bookkeeping must never break recovery
+            log.debug("%s: last_error update failed", label, exc_info=True)
+        if outcome.notice is not None:
+            self._notify_mic(*outcome.notice, actions=False)
+        return outcome
+
+    @staticmethod
+    def _rescue_to_clipboard(rescued: str) -> bool:
+        """Put erased words on the clipboard for the user to paste back. Never raises."""
+        try:
+            from yazses.system.clipboard import set_clipboard
+
+            return bool(set_clipboard(rescued))
+        except Exception:  # noqa: BLE001 - recovery must never raise
+            log.debug("Replacement: clipboard copy failed", exc_info=True)
+            return False
+
+    @staticmethod
+    def _log_replacement_steps(label: str, steps: ReplacementSteps, replacement_len: int) -> None:
+        """Log each failed replacement step by exception type — never its message.
+
+        A backend's message can quote the text it was typing, so the message goes to
+        DEBUG only, with the traceback.
+        """
+        if steps.erase_error is not None:
+            log.warning("%s: erasing the old text failed (%s).", label,
+                        type(steps.erase_error).__name__)
+            log.debug("%s: erase failure", label, exc_info=steps.erase_error)
+        if steps.type_error is not None:
+            log.warning("%s: typing the new text failed after the erase "
+                        "(%d of %d chars delivered; %s).", label, steps.delivered,
+                        replacement_len, type(steps.type_error).__name__)
+            log.debug("%s: typing failure", label, exc_info=steps.type_error)
+        if steps.restore_error is not None:
+            log.warning("%s: typing the erased words back failed (%s).", label,
+                        type(steps.restore_error).__name__)
+            log.debug("%s: restore failure", label, exc_info=steps.restore_error)
+
+    def _rewrite_undo_records(self, original: str, record: str) -> None:
+        """Make the newest undo records for the burst *original* say *record*.
+
+        ``""`` drops the burst. Only when the newest entry *is* that burst — otherwise
+        it is a record of something else and is left alone. Never raises.
+        """
+        if record == original:
+            return
+        try:
+            if self._ledger.last_text() == original:
+                if record:
+                    self._ledger.replace_last(record)
+                else:
+                    self._ledger.scratch_last()
+            timeline = getattr(self, "_timeline", None)
+            if timeline is not None:
+                timeline.replace_last(original, record)
+        except Exception:  # noqa: BLE001 - bookkeeping must never break the burst
+            log.debug("Undo-record rewrite failed", exc_info=True)
 
     def _active_injector(self) -> InjectorBackend:
         """Return the remote injector while a remote session is up, else the local one.
@@ -7720,6 +8220,14 @@ class Daemon:
                 "engine": active["engine"],
                 "engine_model": active["engine_model"],
                 "engine_fallback": active["engine_fallback"],
+                # `[stt] idle_unload_s` (ADR-029): whether the model above is in memory
+                # now, and how long it has been idle. None at the default of 0, where the
+                # model is never released and there is nothing to report -- the same
+                # null-when-off shape as `handsfree` and `morse`. A block of its own
+                # rather than more flat `engine_*` keys: those say *which* decoder came
+                # up, this says whether it is resident, and the later ADR-029 units
+                # (`latency`, `tts`, ...) report residency facts of the same kind.
+                "stt_residency": self._stt_residency_payload(),
                 "hotkey": self._resolved_hotkey(),
                 "injection_backend": self._injection_backend_name(),
                 "last_error": self._state.last_error,

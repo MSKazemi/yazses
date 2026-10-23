@@ -22,6 +22,10 @@ its own:
 When any check fails the answer is "report the word, change nothing": the replacement
 burst is then typed exactly as an ordinary dictation would be.
 
+4. *What if the correction cannot be typed after the erase landed?* The erased words
+   are typed back, or failing that put on the clipboard with a notice, and the undo
+   records are kept to what is on screen (:func:`settle_replacement`).
+
 Dependency-free (stdlib only). The clock is injected so every decision is testable
 without sleeping.
 """
@@ -31,6 +35,8 @@ import threading
 from collections.abc import Callable
 from dataclasses import dataclass
 
+from yazses.inject import replace as _replace
+from yazses.inject.replace import ReplacementOutcome, Wording
 from yazses.proofback.align import resolve_target
 from yazses.proofback.timeline import PlaybackTimeline, Weight, char_weight
 
@@ -80,6 +86,11 @@ class ProofTarget:
     original: str
     stamp: float | None
     intent: str = REPLACE_FROM
+
+    @property
+    def erased(self) -> str:
+        """The text the replacement erases: ``original[char_offset:]``."""
+        return self.original[self.char_offset:]
 
 
 def resolve_barge_in(
@@ -179,6 +190,65 @@ def plan_replacement(
     # The kept prefix ends at the start of a word, so it already carries the space
     # before it (or is empty): the continuation space dictation prepends is dropped.
     return Replacement(True, target.erase_count, body, "applied")
+
+
+# ---- Applying a replacement, and what to do when it fails -------------------------
+#
+# Applying a plan is two keyboard steps: erase the tail, then type the correction. The
+# erase can succeed and the typing fail, and then the words the user dictated are gone
+# with nothing in their place. The recovery rule — type the erased words back, else
+# the clipboard and a notice, else point at the application's undo; never type over a
+# partial erase; never let the undo records claim more than is on screen — is shared
+# with Spoken Edit and Punch-In, which erase and retype the same way, and lives in
+# :mod:`yazses.inject.replace`. Re-exported here so proofback's callers and tests keep
+# their imports; only the wording of the notices is proofback's own.
+
+REPLACED = _replace.REPLACED
+RESTORED = _replace.RESTORED
+RESCUED = _replace.RESCUED
+UNSAVED = _replace.UNSAVED
+InjectionTally = _replace.InjectionTally
+
+#: How the proofreading notices name the correction and the erased span.
+PROOFBACK_WORDING = Wording(
+    noun="correction",
+    span="the text from the word you interrupted",
+    retry="Dictate the correction again.",
+)
+
+
+def rescue_text(
+    target: ProofTarget, *, erased: bool, typed: bool, restored: bool
+) -> str | None:
+    """The text to put on the clipboard after the keyboard steps, or ``None``.
+
+    Needed when the erase failed (some of the tail may be gone and the correction was
+    never typed) or when the correction and the restore both failed (the tail is gone).
+    """
+    return _replace.rescue_text(target, erased=erased, typed=typed, restored=restored)
+
+
+def settle_replacement(
+    target: ProofTarget,
+    correction: str,
+    *,
+    erased: bool,
+    typed: bool = False,
+    restored: bool = False,
+    copied: bool = False,
+) -> ReplacementOutcome:
+    """Map the results of erase → type → restore → clipboard onto records and a notice.
+
+    :func:`yazses.inject.replace.settle_replacement` with proofback's wording. A step
+    that was not attempted is passed as ``False``: *typed* is ignored when the erase
+    failed (the correction is never typed over an erase that stopped at an unknown
+    point), *restored* when the correction landed, and *copied* when no rescue was
+    needed.
+    """
+    return _replace.settle_replacement(
+        target, correction, erased=erased, typed=typed, restored=restored, copied=copied,
+        wording=PROOFBACK_WORDING,
+    )
 
 
 @dataclass(eq=False)

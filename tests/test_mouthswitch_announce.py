@@ -1,0 +1,364 @@
+"""The audible stand-in for the scan strip (`yazses.mouthswitch.announce`) — fakes only.
+
+Where the overlay cannot draw the highlight, each step is announced: an earcon cue at once
+and the item's name in the offline voice. These pin the parts a user who cannot see the
+screen depends on:
+
+* the estimate the scanner lengthens a step by is total and grows with the label;
+* each announce plays the right cue and says the label, and a scan that stops cuts the
+  voice -- but never cancels a voice it is not using (that would cut someone's read-back);
+* a new step cuts a name still being said instead of queueing behind it;
+* nothing raises into the audio worker, whatever the cue or the voice does;
+* the ``speak_names`` voice is built from a copy of ``[tts]`` (read-back stays off), never
+  downloads its model, and a silent or failing voice is no voice.
+"""
+from __future__ import annotations
+
+import math
+import threading
+import time
+
+import pytest
+
+from yazses.mouthswitch.announce import (
+    FIRST_CUE,
+    SPEECH_LEAD_S,
+    STEP_CUE,
+    ScanAnnouncer,
+    speech_duration_s,
+)
+from yazses.mouthswitch.scanner import ScanItem
+
+ENTER = ScanItem("enter", "command")
+SCROLL_DOWN = ScanItem("scroll down", "pointer", op="scroll", dy=3)
+
+
+class FakeVoice:
+    """Records what it was asked to say, and every claim and cancel, in order."""
+
+    def __init__(self) -> None:
+        self.events: list[tuple[str, str]] = []
+
+    def speak(self, text: str) -> None:
+        self.events.append(("speak", text))
+
+    def cancel(self) -> None:
+        self.events.append(("cancel", ""))
+
+    def begin(self) -> None:
+        self.events.append(("begin", ""))
+
+    @property
+    def said(self) -> list[str]:
+        return [text for kind, text in self.events if kind == "speak"]
+
+    @property
+    def cancels(self) -> int:
+        return sum(1 for kind, _ in self.events if kind == "cancel")
+
+
+def _inline(voice: FakeVoice | None = None, cues: list[str] | None = None) -> ScanAnnouncer:
+    return ScanAnnouncer(
+        cue=cues.append if cues is not None else None,
+        speak=voice.speak if voice else None,
+        cancel=voice.cancel if voice else None,
+        begin=voice.begin if voice else None,
+        thread=False,
+    )
+
+
+# ---- the estimate ----------------------------------------------------------------------------
+
+
+def test_the_estimate_grows_with_the_label_and_starts_after_the_lead():
+    short, long = speech_duration_s("undo"), speech_duration_s("scroll down")
+    assert SPEECH_LEAD_S < short < long
+
+
+def test_the_estimate_is_whitespace_blind():
+    assert speech_duration_s("  scroll \t down ") == speech_duration_s("scroll down")
+
+
+@pytest.mark.parametrize("text", ["", "   ", None, 7])
+def test_nothing_to_say_takes_no_time(text):
+    assert speech_duration_s(text) == 0.0
+
+
+def test_a_faster_voice_takes_less_time_and_the_speed_is_clamped():
+    assert speech_duration_s("scroll down", 2.0) < speech_duration_s("scroll down", 1.0)
+    assert speech_duration_s("scroll down", 50.0) == speech_duration_s("scroll down", 2.0)
+    assert speech_duration_s("scroll down", 0.01) == speech_duration_s("scroll down", 0.5)
+
+
+@pytest.mark.parametrize("speed", ["fast", None, float("nan"), float("inf"), -1.0, 0.0])
+def test_an_unusable_speed_reads_as_normal(speed):
+    value = speech_duration_s("enter", speed)
+    assert math.isfinite(value) and value == speech_duration_s("enter", 1.0)
+
+
+# ---- what an announcer can do ----------------------------------------------------------------
+
+
+def test_modes_follow_the_outputs_it_was_given():
+    assert _inline(FakeVoice(), []).mode == "speech"
+    assert _inline(None, []).mode == "earcon"
+    assert _inline(FakeVoice(), None).mode == "speech"
+    nothing = _inline(None, None)
+    assert nothing.mode == "" and nothing.can_announce is False
+
+
+def test_without_a_voice_an_announcement_takes_no_time():
+    assert _inline(None, []).announcement_s(SCROLL_DOWN) == 0.0
+    assert _inline(FakeVoice(), []).announcement_s(SCROLL_DOWN) == speech_duration_s(
+        "scroll down")
+
+
+def test_an_estimate_that_raises_reads_as_no_time():
+    def boom(text):
+        raise RuntimeError("estimate failed")
+
+    announcer = ScanAnnouncer(speak=lambda text: None, duration_s=boom, thread=False)
+    assert announcer.announcement_s(ENTER) == 0.0
+
+
+# ---- announcing ------------------------------------------------------------------------------
+
+
+def test_each_step_plays_its_cue_and_says_the_label():
+    voice, cues = FakeVoice(), []
+    announcer = _inline(voice, cues)
+    announcer.announce(ENTER, first=True)
+    announcer.announce(SCROLL_DOWN, first=False)
+    assert cues == [FIRST_CUE, STEP_CUE]
+    assert voice.said == ["enter", "scroll down"]
+    # The voice is claimed before each name, so a stop after the claim is never lost.
+    assert voice.events[:2] == [("begin", ""), ("speak", "enter")]
+
+
+def test_cues_only_says_nothing_and_still_counts_steps():
+    cues: list[str] = []
+    announcer = _inline(None, cues)
+    for first in (True, False, False, True):
+        announcer.announce(ENTER, first=first)
+    assert cues == [FIRST_CUE, STEP_CUE, STEP_CUE, FIRST_CUE]
+
+
+def test_a_stop_with_nothing_being_said_cancels_nothing():
+    """The voice is shared with read-back: an idle stop must not cut someone else's speech."""
+    voice = FakeVoice()
+    announcer = _inline(voice, [])
+    announcer.announce(ENTER, first=True)  # said and finished, inline
+    announcer.stop()
+    announcer.stop()
+    assert voice.cancels == 0
+
+
+def test_a_broken_cue_or_voice_never_raises_into_the_worker():
+    def boom(*_args):
+        raise OSError("no audio device")
+
+    announcer = ScanAnnouncer(cue=boom, speak=boom, cancel=boom, begin=boom, thread=False)
+    announcer.announce(ENTER, first=True)
+    announcer.stop()
+    announcer.close()
+
+
+def test_after_close_nothing_is_announced():
+    voice, cues = FakeVoice(), []
+    announcer = _inline(voice, cues)
+    announcer.close()
+    announcer.announce(ENTER, first=True)
+    assert cues == [] and voice.said == []
+
+
+# ---- the speech thread -----------------------------------------------------------------------
+
+
+class BlockingVoice(FakeVoice):
+    """``speak`` holds until cancelled (or released), like a real voice mid-word."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.speaking = threading.Event()
+        self.release = threading.Event()
+
+    def speak(self, text: str) -> None:
+        self.events.append(("speak", text))
+        self.speaking.set()
+        self.release.wait(timeout=2.0)
+        self.speaking.clear()
+
+    def cancel(self) -> None:
+        self.events.append(("cancel", ""))
+        self.release.set()
+
+    def begin(self) -> None:
+        self.events.append(("begin", ""))
+        self.release.clear()
+
+
+def _threaded(voice: FakeVoice) -> ScanAnnouncer:
+    return ScanAnnouncer(speak=voice.speak, cancel=voice.cancel, begin=voice.begin)
+
+
+def _wait_for(predicate, timeout: float = 2.0) -> bool:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if predicate():
+            return True
+        threading.Event().wait(0.005)
+    return predicate()
+
+
+def test_announce_returns_at_once_and_the_name_is_said_on_its_own_thread():
+    voice = BlockingVoice()
+    announcer = _threaded(voice)
+    announcer.announce(ENTER, first=True)  # returns while the voice is still speaking
+    assert voice.speaking.wait(timeout=2.0)
+    assert voice.said == ["enter"]
+    announcer.close()
+
+
+def test_a_new_step_cuts_the_name_still_being_said():
+    voice = BlockingVoice()
+    announcer = _threaded(voice)
+    announcer.announce(ENTER, first=True)
+    assert voice.speaking.wait(timeout=2.0)
+    announcer.announce(SCROLL_DOWN, first=False)
+    assert _wait_for(lambda: voice.said == ["enter", "scroll down"])
+    # The cut came before the next name claimed the voice.
+    kinds = [kind for kind, _ in voice.events]
+    assert kinds.index("cancel") < len(kinds) - 1 - kinds[::-1].index("begin")
+    announcer.close()
+
+
+def test_a_stop_cuts_the_name_being_said_and_close_ends_the_thread():
+    voice = BlockingVoice()
+    announcer = _threaded(voice)
+    announcer.announce(ENTER, first=True)
+    assert voice.speaking.wait(timeout=2.0)
+    announcer.stop()
+    assert voice.cancels == 1
+    announcer.close()
+    assert announcer._worker is None
+
+
+def test_the_step_cues_are_their_own_short_motifs_not_the_idle_fallback():
+    """`earcon_for` answers an unknown event with the idle tone; these must be known."""
+    from yazses.earcon.tones import earcon_for
+
+    step, first = earcon_for(STEP_CUE), earcon_for(FIRST_CUE)
+    assert step != earcon_for("idle") and first != earcon_for("idle")
+    assert step != first  # the first item sounds different, so the steps can be counted
+    assert all(tone.dur_ms <= 60 for tone in step + first)
+
+
+# ---- `[mouthswitch] speak_names`: a voice for the switch alone ------------------------------
+
+
+class _Voice:
+    def __init__(self, name: str = "kokoro") -> None:
+        self.name = name
+
+
+def test_the_switch_voice_is_built_from_a_copy_of_tts_with_enabled_on():
+    from yazses.config import TtsConfig
+    from yazses.mouthswitch.announce import switch_voice
+
+    tts = TtsConfig(enabled=False, voice="bf_emma", speed=1.3)
+    seen: list[object] = []
+
+    def build(cfg):
+        seen.append(cfg)
+        return _Voice()
+
+    voice, why = switch_voice(tts, build=build, files_present=lambda: True)
+    assert isinstance(voice, _Voice) and why == ""
+    (built,) = seen
+    assert built.enabled is True
+    assert (built.voice, built.speed) == ("bf_emma", 1.3)  # the user's own [tts] settings
+    # The [tts] the daemon holds stays off, so nothing that reads it -- read-back -- turns on.
+    assert tts.enabled is False and built is not tts
+
+
+def test_without_the_model_on_disk_there_is_no_voice_and_nothing_is_built():
+    """speak_names never downloads: the ADR-019 trigger for that is enabling read-back."""
+    from yazses.config import TtsConfig
+    from yazses.mouthswitch.announce import switch_voice
+
+    built: list[object] = []
+    voice, why = switch_voice(TtsConfig(), build=built.append, files_present=lambda: False)
+    assert voice is None and built == []
+    assert "never" in why and "download" in why and "read-back" in why
+
+
+def test_a_voice_that_degraded_to_the_null_backend_is_no_voice():
+    """The factory logged why (the tts extra missing, say), so `why` stays empty: one line."""
+    from yazses.config import TtsConfig
+    from yazses.mouthswitch.announce import switch_voice
+
+    voice, why = switch_voice(TtsConfig(), build=lambda cfg: _Voice("null"),
+                              files_present=lambda: True)
+    assert voice is None and why == ""
+    voice, why = switch_voice(TtsConfig(), build=lambda cfg: None, files_present=lambda: True)
+    assert voice is None and why == ""
+
+
+def test_a_factory_or_check_that_raises_never_raises_out():
+    from yazses.config import TtsConfig
+    from yazses.mouthswitch.announce import switch_voice
+
+    def boom(*_args):
+        raise RuntimeError("no audio device")
+
+    voice, why = switch_voice(TtsConfig(), build=boom, files_present=lambda: True)
+    assert voice is None and "RuntimeError" in why
+    voice, why = switch_voice(TtsConfig(), build=lambda cfg: _Voice(), files_present=boom)
+    assert voice is None and "RuntimeError" in why
+
+
+def test_the_switch_voice_names_itself_not_read_back_in_the_factory_log():
+    from yazses.mouthswitch.announce import SWITCH_VOICE_PURPOSE
+
+    assert "speak_names" in SWITCH_VOICE_PURPOSE
+    assert "read-back" not in SWITCH_VOICE_PURPOSE.lower()
+
+
+# ---- the cue is voiced too: it counts toward the announcement --------------------------------
+
+
+def test_the_cue_duration_is_read_from_the_earcon_table():
+    from yazses.earcon.tones import earcon_for
+    from yazses.mouthswitch.announce import cue_duration_s
+
+    longest = max(sum(t.dur_ms for t in earcon_for(e)) for e in (FIRST_CUE, STEP_CUE))
+    assert cue_duration_s() == pytest.approx(longest / 1000.0)
+    assert 0.0 < cue_duration_s() <= 0.1  # a short tick, not a jingle
+
+
+def test_a_cue_only_announcement_takes_the_cue_s_length():
+    announcer = ScanAnnouncer(cue=lambda event: None, cue_s=0.03, thread=False)
+    assert announcer.announcement_s(ENTER) == pytest.approx(0.03)
+
+
+def test_with_a_voice_the_announcement_is_the_longer_of_cue_and_name():
+    voice = FakeVoice()
+    announcer = ScanAnnouncer(cue=lambda event: None, speak=voice.speak, cancel=voice.cancel,
+                              cue_s=0.03, thread=False)
+    assert announcer.announcement_s(ENTER) == pytest.approx(speech_duration_s("enter"))
+    quick = ScanAnnouncer(cue=lambda event: None, speak=voice.speak, cancel=voice.cancel,
+                          duration_s=lambda text: 0.01, cue_s=0.03, thread=False)
+    assert quick.announcement_s(ENTER) == pytest.approx(0.03)
+
+
+def test_cue_s_without_a_cue_counts_for_nothing():
+    voice = FakeVoice()
+    announcer = ScanAnnouncer(speak=voice.speak, duration_s=lambda text: 0.0, cue_s=0.03,
+                              thread=False)
+    assert announcer.announcement_s(ENTER) == 0.0
+
+
+@pytest.mark.parametrize("bad", [float("nan"), float("inf"), -1.0, "soon", None])
+def test_an_unusable_cue_s_counts_for_nothing(bad):
+    announcer = ScanAnnouncer(cue=lambda event: None, cue_s=bad, thread=False)
+    assert announcer.announcement_s(ENTER) == 0.0

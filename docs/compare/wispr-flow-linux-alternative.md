@@ -24,7 +24,7 @@ give up.
 | Account required | Yes | **No** |
 | Cost | Freemium (a weekly word allowance, then Flow Pro) | **Free** |
 | Licence | Proprietary | **Apache-2.0** |
-| macOS / Windows | Yes | Yes |
+| macOS / Windows | Yes | Yes (preview — see the [validation matrix](../validation-matrix.md)) |
 | Mobile | iPhone and Android | No |
 
 ## What Wispr Flow does better — this is the real trade

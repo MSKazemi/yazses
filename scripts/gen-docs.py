@@ -13,7 +13,11 @@ are regenerated (never hand-edited) so they stay in lockstep with the registry a
 CLI. Run:  uv run python scripts/gen-docs.py
 
 The prose docs (architecture, roadmap, troubleshooting, how-to) are hand-written
-and live alongside these.
+and live alongside these. The one part of them this script touches is a registry
+count: a hand-written page that states how many capabilities exist, are wired, or are
+designed but not built writes the number between `<!-- registry:KIND -->` and
+`<!-- /registry -->`, and `fill_registry_counts` rewrites only that number (see
+`REGISTRY_COUNT_PAGES`).
 """
 from __future__ import annotations
 
@@ -21,7 +25,9 @@ import ast
 import dataclasses
 import functools
 import io
+import re
 import sys
+from collections.abc import Mapping
 from pathlib import Path
 
 import click
@@ -29,7 +35,7 @@ import typer
 
 from yazses import branding
 from yazses.config import Config
-from yazses.system.features import grouped_features
+from yazses.system.features import feature_status, grouped_features, unread_toggle_usage
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from config_status import inert_dotted_keys  # noqa: E402  (sibling script, not a package)
@@ -80,8 +86,22 @@ def _front(title: str, desc: str) -> str:
 # --------------------------------------------------------------------------- #
 # docs/features.md
 # --------------------------------------------------------------------------- #
+def unread_toggle_keys(feature, inert: set[str]) -> list[str]:
+    """The `[section] key` names a wired feature's switch writes, when nothing reads any.
+
+    Empty when the switch is read (the normal case) or writes nothing (core). *inert*
+    is `config_status.inert_dotted_keys`, the same ledger `docs/configuration.md` marks
+    with ⚠️ inert, so the two pages cannot disagree about which switches do nothing.
+    """
+    keys = [(str(w[0]), str(w[1])) for w in feature.on_writes]
+    if not keys or not all(f"{s}.{k}" in inert for s, k in keys):
+        return []
+    return [f"[{s}] {k}" for s, k in keys]
+
+
 def gen_features() -> str:
     cfg = Config()
+    inert = inert_dotted_keys(cfg)
     groups = grouped_features(cfg)
     total = sum(len(f) for _c, _b, f in groups)
 
@@ -126,11 +146,21 @@ def gen_features() -> str:
             _mb = _download_mb(f.slug)
             if _mb:
                 out.write(f"- **Download:** {_format_mb(_mb)}\n")
+            unread = unread_toggle_keys(f, inert) if f.wired else []
             if not f.wired:
                 out.write(
                     "- **Activate:** not possible yet — designed but not wired "
                     "into this build (`yazses features enable` refuses it; "
                     "contributions welcome)\n"
+                )
+            elif unread:
+                # "Activate: features enable X then restart" would be an instruction
+                # that changes nothing: no code reads the key the switch writes.
+                usage = unread_toggle_usage(f.slug) or "see What it does above"
+                named = ", ".join(f"`{k}`" for k in unread)
+                out.write(
+                    f"- **Activate:** nothing to switch on — {usage}. Nothing reads "
+                    f"{named}, so `yazses features enable {f.slug}` changes nothing.\n"
                 )
             elif f.toggleable:
                 out.write(
@@ -477,6 +507,73 @@ def gen_config_sections() -> str:
     return "\n".join(lines)
 
 
+# --------------------------------------------------------------------------- #
+# registry counts inside hand-written pages
+# --------------------------------------------------------------------------- #
+#: Hand-written pages that state how many capabilities the registry holds, how many
+#: are wired, or how many are designed but not built. Every such number sits between
+#: `<!-- registry:KIND -->` and `<!-- /registry -->`, and `main` rewrites only that
+#: number; the prose around it stays hand-owned.
+#:
+#: Each of these had a hand-typed number, and four were wrong when this was written:
+#: `docs/research/directions.md` said 30 unwired, `framework-gaps.md` 30,
+#: `glossary.md` 29, `docs/architecture.md` "~200" capabilities, against a registry of
+#: 149 with 25 unwired -- every one overstating what is unbuilt or what exists, and
+#: none checked by anything. `tests/test_registry_counts_in_docs.py` fails on a stale
+#: marker and on a count phrase written *outside* a marker on any user-facing page.
+#:
+#: The hand-drawn diagrams under `docs/diagrams/` are not here: a marker would break a
+#: Mermaid block, and `tests/test_gen_arch_figures.py` already checks their counts.
+REGISTRY_COUNT_PAGES: tuple[str, ...] = (
+    "ROADMAP.md",
+    "docs/architecture.md",
+    "docs/mobile/index.md",
+    "docs/research/directions.md",
+    "docs/research/framework-gaps.md",
+    "docs/research/glossary.md",
+    "docs/v2-features.md",
+)
+
+#: One counted number. KIND is `total`, `wired` or `unwired`; the digits between the
+#: two comments are the generated part. HTML comments render as nothing on GitHub and
+#: on the docs site, inline or not.
+REGISTRY_MARKER = re.compile(r"<!-- registry:(total|wired|unwired) -->([0-9]*)<!-- /registry -->")
+
+
+def registry_counts() -> dict[str, int]:
+    """`total`, `wired` and `unwired`, counted from the live registry.
+
+    `wired` is the registry's own flag (`Feature.wired`, i.e. not in `_UNWIRED`), the
+    same one `features enable` refuses on -- so a page can only ever say what the
+    switchboard will actually do.
+    """
+    feats = feature_status(Config())
+    unwired = sum(1 for f in feats if not f.wired)
+    return {"total": len(feats), "wired": len(feats) - unwired, "unwired": unwired}
+
+
+def fill_registry_counts(text: str, counts: Mapping[str, int]) -> str:
+    """*text* with every registry marker's number replaced by the live count."""
+    return REGISTRY_MARKER.sub(
+        lambda m: f"<!-- registry:{m.group(1)} -->{counts[m.group(1)]}<!-- /registry -->",
+        text,
+    )
+
+
+def update_registry_count_pages() -> list[str]:
+    """Rewrite the markers in `REGISTRY_COUNT_PAGES`; return the pages that changed."""
+    counts = registry_counts()
+    changed: list[str] = []
+    for rel in REGISTRY_COUNT_PAGES:
+        path = ROOT / rel
+        old = path.read_text(encoding="utf-8")
+        new = fill_registry_counts(old, counts)
+        if new != old:
+            path.write_text(new, encoding="utf-8")
+            changed.append(rel)
+    return changed
+
+
 def main() -> None:
     DOCS.mkdir(exist_ok=True)
     targets = {
@@ -491,6 +588,8 @@ def main() -> None:
     CONFIG_SECTIONS.write_text(sections, encoding="utf-8")
     print(f"wrote {CONFIG_SECTIONS.relative_to(ROOT).as_posix()}  "
           f"({sections.count(chr(10))} lines)")
+    for rel in update_registry_count_pages():
+        print(f"updated registry counts in {rel}")
     print(f"YazSes {branding.version()} — reference docs regenerated.")
 
 

@@ -172,7 +172,12 @@ def test_command_mode_dispatches_matching_command_not_text():
     d._command_mode = True
     d._on_hold_end()
     inj = d._injector
-    assert ["ctrl+s"] in inj.key_calls   # 'save' fired Ctrl+S
+    # 'save' fired Ctrl+S -- Cmd+S when the suite runs on macOS, whose platform
+    # declares Cmd as its shortcut modifier (pinned literally in
+    # tests/test_macos_command_shortcuts.py).
+    from yazses.commands.dispatch import default_keymap
+
+    assert default_keymap(d._platform.primary_modifier)["save"] in inj.key_calls
     assert inj.calls == []               # nothing was typed as literal text
     # flag is consumed so the next burst is normal dictation
     assert d._command_mode is False

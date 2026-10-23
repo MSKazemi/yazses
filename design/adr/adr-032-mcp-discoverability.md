@@ -1,6 +1,6 @@
 # ADR-032 — Make the MCP server discoverable, and let `ask_human` stop when the user does
 
-**Status:** Proposed (2026-10-22)
+**Status:** Accepted (2026-10-23)
 **Deciders:** Mohsen Seyedkazemi Ardebili
 **Context links:** [[adr-030-agent-era-direction]] (Pillar 2, bridge 2),
 [[adr-020-agent-protocols]] (§1 an MCP server, stdio only, two tools; §2 no HTTP; §4 the

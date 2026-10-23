@@ -6,19 +6,30 @@ generator is lazy and lives elsewhere; this layer is pure and testable.
 """
 from __future__ import annotations
 
-_ACCEPT = frozenset(
-    ["accept", "accept that", "take it", "yes take it", "keep it", "use that"]
-)
-_DECLINE = frozenset(
-    ["no", "decline", "discard", "reject", "cancel that", "never mind"]
-)
+#: The phrases that act on an open offer, and nothing else. Both sets are consumed, so a
+#: phrase here is a phrase the user can never dictate as a whole utterance while an offer
+#: is open -- each one has to be worth that cost.
+#:
+#: Narrowed on 2026-10-23 (owner decision). Wave 5 removed "no" and "never mind" from the
+#: declines; the same reasoning took out every other phrase a person says as ordinary
+#: one-utterance dictation: "accept", "accept that", "yes take it", "keep it" and
+#: "use that" no longer accept, and "decline", "reject" and "cancel that" no longer
+#: decline. "Keep it." or "Decline." replying to a message is now typed, and it
+#: dismisses the offer like any other speech. What is left addresses the suggestion
+#: itself ("accept suggestion") or is the short form the notification names ("take it").
+#: Declining is optional anyway -- any other speech dismisses the offer and is
+#: dictated -- so a missing decline word costs nothing, while a wrong one costs the
+#: user's text.
+_ACCEPT = frozenset(["accept suggestion", "take it"])
+_DECLINE = frozenset(["discard"])
 
 
 def parse_accept(phrase) -> str | None:
     """Return ``"accept"``, ``"decline"``, or ``None`` (not a control phrase).
 
     ``None`` means "keep talking" — the phrase is ordinary dictation, not a
-    response to a suggestion. Outer punctuation/case are ignored.
+    response to a suggestion. Only the whole utterance counts ("take it easy" is
+    dictation); outer punctuation and case are ignored.
     """
     p = (phrase or "").strip().lower().strip(".!?,")
     if not p:

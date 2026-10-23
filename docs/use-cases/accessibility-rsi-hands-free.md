@@ -52,10 +52,13 @@ Related capabilities worth knowing about:
 | Capability | Enable with | For |
 |---|---|---|
 | Hesitation-Hold Endpointing | `yazses features enable hesitation --force` *(experimental; needs `autostop`)* | Not being cut off mid-sentence when you pause |
-| Breath-Paced Dictation | `yazses features enable breath` *(planned — not yet wired)* | Pacing around breath, not clock timeouts |
 | Whisper-Aware Mode | `yazses features enable whispermode` | Speaking quietly, or with limited volume |
 | Involuntary-Vocalization Excision | `yazses features enable involuntary` | Filtering involuntary sounds |
 | Vocal-Strain Guard | `yazses features enable voicehealth --force` *(experimental; needs the `prosody` extra)* | A break suggestion when your voice shows rising strain |
+
+Breath-Paced Dictation — pacing around breath rather than clock timeouts — is planned:
+[designed, not built](../v2-features.md#designed-not-built), so `yazses features enable
+breath` refuses it in this build.
 
 ## Calibrating to your voice
 
@@ -151,8 +154,10 @@ dictation is being read to you, hold the dictation key at the word you want to c
 and say the correction. Everything from that word to the end of that dictation is
 replaced by what you say. It only ever deletes text YazSes itself just typed (with
 backspaces from the end, as "scratch that" does); when it cannot be sure where that
-text is, it types your correction as ordinary dictation instead. Word timing is
-estimated, and it is untested on real hardware.
+text is, it types your correction as ordinary dictation instead. If the correction
+cannot be typed after the old words were erased, YazSes types them back. If that fails
+too, it puts them on the clipboard and tells you. Word timing is estimated, and it is
+untested on real hardware.
 
 ```sh
 yazses features enable proofback --force
@@ -182,7 +187,8 @@ setting is a provisional starting value — please report what works for you.
 If you cannot speak reliably at all, Mouth-Sound Switch Access gives you a few actions
 from two short mouth sounds. It is single-switch scanning, the common switch-access method
 in AAC. It is **experimental**, so `features enable` asks for `--force`. The overlay draws
-the highlight, so `[overlay]` must be on and the `desktop` extra installed:
+the highlight when `[overlay]` is on and the `desktop` extra is installed. Where the overlay
+cannot run, you can hear the scan instead (see below):
 
 ```sh
 yazses features enable mouthswitch --force
@@ -193,11 +199,13 @@ yazses handsfree resume      # opens the microphone; nothing listens before this
 **Pop your lips** and a row of items appears across the top of the screen: Enter, Undo,
 Scroll up, Scroll down, Click. One item is lit at a time, and the light moves on every
 1.2 s (`[mouthswitch] dwell_s`). **Click your tongue** to run the lit item. Pop again to
-stop without choosing.
+stop the scan, whether or not you chose anything.
 
-- Each scan runs one item, then stops. Pop again for the next one.
+- After a click the scan keeps going. The item you chose stays lit for one more step, so
+  clicking again runs it again: scroll down, then scroll down once more, with no pop in
+  between. Then the light moves on as before.
 - A tongue click does nothing unless a scan is running.
-- A scan you ignore stops after three passes.
+- A scan stops after three passes with no click, counted from your last click.
 - Nothing is heard while you dictate.
 - "Click" and "Scroll" act on the pointer where it already is. Enter and Undo work like the
   spoken commands. You can change the list with `[mouthswitch] scan_items`. A phrase YazSes
@@ -205,10 +213,74 @@ stop without choosing.
   the daemon starts, and the log says so.
 - `yazses handsfree pause`, or your stop phrase if you set one, closes the microphone.
 
+**Hearing the scan instead of seeing it.** The overlay is not started on a native Wayland
+session, and it needs the `desktop` extra. Without it, YazSes announces each step instead,
+using what you have turned on:
+
+- with earcons on (`yazses features enable earcon`), a short tick plays at every step. The
+  first item has a lower tick, so you can count the steps;
+- with read-back on (`yazses features enable read-back`), the offline voice also says the
+  item's name ("enter", "undo", "scroll down"). An item stays lit until its name has been
+  said, however long that takes. Read-back needs the `tts` extra,
+  fetches its voice model on first use, and also reads your dictation back;
+- to hear the names **without** your dictation being read back, leave read-back off and
+  set `speak_names = true` under `[mouthswitch]`. The switch then builds the same offline
+  voice for itself, using your `[tts]` voice and speed. It needs the `tts` extra and a
+  voice model that is already on this computer, because it never downloads one. To fetch
+  the model, turn read-back on once, start YazSes, then turn read-back off again. Without
+  the extra or the model, the steps are announced with earcon ticks only, and the log
+  says why.
+
+```toml
+[mouthswitch]
+enabled = true
+speak_names = true   # say each item's name; your dictation is still not read back
+```
+
+What you hear is what a click selects: the item announced when your click began is the item
+that runs. With neither earcons nor a voice, the switch does not start, and
+`handsfree resume` says why. Headphones are a good idea. The scan's microphone also hears
+the speakers, and a click is not detected while a tick or a name is sounding, or for
+0.4 s after it ends. So when the scan is announced, each item stays lit for its tick or
+name, then those 0.4 s, then a full `dwell_s` in which your click is heard: click after
+the name has finished. A long name makes the scan slower, not the time to click shorter.
+With names on and the default 1.2 s, a step takes about 2.3 to 2.8 s instead of 1.2 s (by
+the estimate of how long each name takes to say), so a pass over the five default items
+takes about 12 s; lower `dwell_s` if that is slower than you need. A click
+right at the very end of a step may still be missed if the next item's tick starts on top
+of it.
+
 It has not been tried with real mouth sounds yet. Its thresholds were tuned on synthetic
 clicks and pops. A keyboard tap or a knock on the desk may count as a tongue click, so a
-click during a scan can run the lit item. It does not run on a native Wayland session,
-because the overlay is not started there. Please report what works for you.
+click during a scan can run the lit item. Because the scan keeps going after a click, pop
+to stop it when you are done. The spoken announcements have only been tested
+with a simulated voice, and how long a name takes to say is estimated, not measured.
+Please report what works for you.
+
+## Typing by Morse with your voice
+
+If you can make one sound reliably but not words, Vocal Morse lets you type every letter
+and digit with it. A short hum is a dot, a long hum is a dash, and each decoded letter is
+typed. Speech-to-text is not run. It is **experimental** and off by default:
+
+```sh
+yazses features enable morsevox --force
+yazses restart
+```
+
+- **Start:** hum one long, steady tone (1.5 s, `[morsevox] entry_hum_s`), or say
+  "morse mode".
+- **Letters and words:** a pause of about 0.6 s ends a letter, and about 1.4 s adds a space.
+- **Stop:** stay silent for 3 s (`[morsevox] exit_silence_s`), or send **SK**, the
+  end-of-work prosign: `...-.-`, keyed as one character with no letter pause between the
+  S and the K. SK is not typed, and Morse mode ends as soon as the letter pause after it
+  has passed.
+- SK counts only as one whole character. "S", a letter pause, then "K" types the letters
+  `sk`. If you send SK in the middle of a word, the letters before it stay typed and
+  the mode ends there.
+
+The timings were tuned on synthetic signals only, not on a real voice or a real room.
+Please report what works for you.
 
 ## Honest limits
 

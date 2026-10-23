@@ -102,7 +102,7 @@ def test_resolve_accept_returns_the_completion():
     rt.submit(CONTEXT)
     rt.run_pending()
     clock.t += 3.0
-    res = rt.resolve("accept")
+    res = rt.resolve("take it")
     assert res.action == ACCEPT and res.typed == " three pm on Friday"
 
 

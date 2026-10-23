@@ -703,6 +703,12 @@ Format dictated lines as Fountain screenplay markup — fully offline.
 
 - **Arguments:** `text`
 
+## `yazses send-to`
+
+Open a desktop AI app with your text filled in — never sent; you press Enter.
+
+- **Arguments:** `client`, `text`
+
 ## `yazses settings`
 
 Open the Settings window — every capability as a toggle, grouped by category.

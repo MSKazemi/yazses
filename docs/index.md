@@ -216,6 +216,10 @@ hide:
 
 === ":material-apple: macOS"
 
+    **Preview:** supported and installable, not yet verified on hardware by a
+    person on a current build. The [validation matrix](validation-matrix.md)
+    shows what testers have confirmed so far.
+
     On Apple Silicon, Homebrew is the recommended route:
 
     ```sh
@@ -229,6 +233,10 @@ hide:
     Accessibility/Microphone permissions.
 
 === ":material-microsoft-windows: Windows"
+
+    **Preview:** supported and installable, not yet verified on hardware by a
+    person on a current build. Two testers have reported dictating on Windows 11;
+    the [validation matrix](validation-matrix.md) shows what has been confirmed.
 
     ```powershell
     winget install MSKazemi.YazSes
@@ -367,6 +375,8 @@ a real [asciinema](https://asciinema.org) recording of `-h` → `about` → `qui
 **Does it work on Wayland?** Yes. Unconfined installs use `wtype`/`ydotool`;
 the strictly confined Snap uses the `xdg-desktop-portal` RemoteDesktop API on
 GNOME/KDE Wayland. The universal installer remains the most-tested Linux path.
+A hardware-verified record on GNOME and KDE Wayland is still to come
+([#643](https://github.com/MSKazemi/yazses/issues/643)).
 
 **Is it a replacement for Talon?** YazSes focuses on offline dictation plus a practical command grammar. Talon has far more advanced scripting. They can coexist.
 

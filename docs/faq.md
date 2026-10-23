@@ -37,7 +37,9 @@ model on your own CPU instead.
 
 Yes — YazSes runs natively on Linux (both **X11 and Wayland**), transcribes
 locally on the CPU, and needs no cloud service or API key. Install it with the
-APT script or `pipx install yazses`. It also runs on macOS and Windows.
+APT script or `pipx install yazses`. It also runs on macOS and Windows, both in
+**preview**: supported and installable, not yet verified on hardware by a person on a
+current build (see the [validation matrix](validation-matrix.md)).
 
 ## Is there an open-source, offline alternative to Dragon or Wispr Flow?
 
@@ -149,7 +151,9 @@ the app and back. Android's `InputMethodService` has no such restriction, so it 
 reproduce YazSes' hold-to-talk model exactly. iOS is planned as a deliberately
 different product shape — see [ADR-MOB-010](mobile/adr/adr-mob-010-apple-second-wave.md).
 
-**macOS is already supported** by the desktop app today.
+**macOS already has a desktop app today**, in preview — supported and installable, not
+yet verified on hardware by a person on a current build (see the
+[validation matrix](validation-matrix.md)).
 
 ## How do I install YazSes?
 

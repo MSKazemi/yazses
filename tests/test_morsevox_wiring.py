@@ -13,7 +13,8 @@ Claims pinned here, all with fakes (no microphone, no model, no injector, no not
   opens the level stream; a hum or the spoken command enters; the decoded letters reach the
   daemon's injector; the STT engine is never asked.
 * **It yields.** A hold-to-talk recording ends Morse mode; `handsfree pause` closes the stream
-  and `resume` reopens it; shutdown closes it; the device monitor waits while it is open.
+  and `resume` reopens it; shutdown closes it; the device monitor never re-inits PortAudio
+  under it, and closes and reopens it for a re-scan instead of going blind.
 * **It is visible.** `status` reports the mode (never the text), the overlay draws its rings,
   and entering and leaving are announced.
 """
@@ -27,9 +28,10 @@ import numpy as np
 import pytest
 
 from tests.test_dormant_features_stay_unimported import started, tripwire  # noqa: F401
-from tests.test_morsevox_mode import LOUD, QUIET, levels, morse_runs
+from tests.test_morsevox_mode import LOUD, QUIET, code_runs, levels, morse_runs
 from yazses.config import Config
 from yazses.ipc.protocol import Request
+from yazses.morsevox.decode import SK
 from yazses.platform import get_platform
 from yazses.platform.base import TrayState
 from yazses.system.features import feature_status, unwired_slugs
@@ -244,6 +246,20 @@ def test_a_long_hum_enters_and_the_letters_reach_the_daemons_injector(morse_daem
     assert "silence" in morse_daemon.told[1][1]
 
 
+def test_the_sk_prosign_ends_the_mode_types_nothing_and_says_so(morse_daemon):
+    daemon = morse_daemon()
+    daemon._start_morsevox()
+    samples, _ = levels([(500, QUIET), (2000, LOUD)] + morse_runs("so", tail=900.0)
+                        + code_runs([SK], lead=0.0) + [(3500, QUIET)])
+    _drive(daemon, samples)
+    assert "".join(daemon._injector.typed) == "so"   # SK itself is never typed
+    assert not daemon._morsevox.active
+    bodies = [body for _, body in morse_daemon.told]
+    assert len(bodies) == 2 and "Morse mode on" in bodies[0]
+    assert "SK" in bodies[0], "the entry notification says how to leave"
+    assert "SK" in bodies[1] and "silence" not in bodies[1]
+
+
 @pytest.mark.parametrize("said", ["morse mode", "Morse mode.", "MORSE-MODE"])
 def test_the_spoken_command_enters_and_types_nothing(morse_daemon, said):
     daemon = morse_daemon(_cfg(entry_hum_s=0))
@@ -348,6 +364,80 @@ def test_the_device_monitor_waits_while_the_stream_is_open(morse_daemon):
     assert daemon._audio_idle() is False
     daemon._handle_handsfree(Request("handsfree", {"action": "pause"}))
     assert daemon._audio_idle() is True
+
+
+def _monitor_like_the_daemon(daemon, poll, clock):
+    """A `DeviceMonitor` wired to the daemon's own idle, recording and owner callbacks."""
+    from yazses.audio.device_monitor import DeviceMonitor
+
+    fired: list[tuple] = []
+    monitor = DeviceMonitor(
+        poll_fn=poll,
+        is_idle=daemon._audio_idle,
+        on_change=lambda prev, cur: fired.append((prev, cur)),
+        level_streams=daemon._level_stream_owners,
+        recording=daemon._recording_in_flight,
+        clock=lambda: clock[0],
+    )
+    return monitor, fired
+
+
+def test_the_device_monitor_re_scans_while_the_hum_entry_listens(morse_daemon):
+    """The reported bug: with `[morsevox]` on, the watcher never re-scanned all session."""
+    from yazses.audio.device_monitor import LEVEL_STREAM_RESCAN_S
+
+    daemon = morse_daemon()
+    daemon._start_morsevox()
+    assert daemon._level_stream_owners() == [daemon._morsevox]
+    device = ["MicA"]
+    reinit_under_open_stream: list[bool] = []
+
+    def poll():
+        reinit_under_open_stream.append(any(r.open for r in FakeRecorder.instances))
+        return device[0]
+
+    clock = [0.0]
+    monitor, fired = _monitor_like_the_daemon(daemon, poll, clock)
+    clock[0] = LEVEL_STREAM_RESCAN_S
+    monitor.poll_once()  # the baseline, through a close / re-init / reopen
+    device[0] = "Bluetooth headset"
+    clock[0] = 2 * LEVEL_STREAM_RESCAN_S
+    assert monitor.poll_once() is True
+    assert fired == [("MicA", "Bluetooth headset")]
+    assert reinit_under_open_stream == [False, False]
+    assert len(FakeRecorder.instances) == 3  # the first stream, then one per re-scan
+    assert FakeRecorder.instances[-1].open and daemon._morsevox.mic_open
+
+
+def test_the_device_monitor_touches_nothing_while_dictation_records(morse_daemon):
+    from yazses.audio.device_monitor import LEVEL_STREAM_RESCAN_S
+
+    daemon = morse_daemon()
+    daemon._start_morsevox()
+    polled: list[int] = []
+    clock = [10 * LEVEL_STREAM_RESCAN_S]
+    monitor, _ = _monitor_like_the_daemon(daemon, lambda: polled.append(1) or "MicA", clock)
+    daemon._state.state = TrayState.RECORDING
+    assert monitor.poll_once() is False
+    assert polled == [] and len(FakeRecorder.instances) == 1
+    assert FakeRecorder.instances[0].open, "a hold-to-talk never loses the hum listener"
+
+
+def test_the_daemon_hands_the_monitor_its_level_streams():
+    """`_build_pipeline` must pass the owners, the recording check and the peek reader."""
+    from yazses.core.daemon import Daemon
+
+    tree = ast.parse(textwrap.dedent(inspect.getsource(Daemon._build_pipeline)))
+    call = next(
+        n for n in ast.walk(tree)
+        if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)
+        and n.func.id == "DeviceMonitor"
+    )
+    keywords = {kw.arg: ast.unparse(kw.value) for kw in call.keywords}
+    assert keywords["is_idle"] == "self._audio_idle"
+    assert keywords["level_streams"] == "self._level_stream_owners"
+    assert keywords["recording"] == "self._recording_in_flight"
+    assert keywords["peek_fn"] == "effective_default_input_name"
 
 
 def test_shutdown_closes_the_stream(morse_daemon):

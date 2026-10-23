@@ -206,6 +206,24 @@ class AudioConfig:
     # Cadence of the background default-input-device watcher, in seconds. 0 disables
     # the watcher (the silent-streak detector still works, being on the hot path).
     device_poll_interval_s: float = 3.0
+    # While a hands-free feature holds the microphone open (Vocal Morse listening for its
+    # entry hum, the Mouth-Sound Switch or the Vocal Joystick while armed), the watcher
+    # cannot re-scan the audio devices without briefly closing that stream. It does so
+    # every this many seconds, closing the stream for a moment and reopening it; between
+    # re-scans it only reads the current default, which on PipeWire already notices a
+    # switch. Lower it to notice an unplugged mic sooner on macOS and Windows, raise it if
+    # the short gap in the hands-free stream bothers you. 5 to 3600.
+    level_stream_rescan_s: float = field(default=30.0, metadata={"min": 5.0, "max": 3600.0})
+    # A re-scan waits while you are in the middle of using one of those streams (Morse
+    # mode on, a switch scan running, a held joystick vowel), so it never cuts a letter or
+    # a highlight short. This is the longest it waits: a backstop for a sound that never
+    # ends, such as a fan read as one endless Morse pulse. 10 to 3600.
+    level_stream_in_use_max_s: float = field(default=600.0, metadata={"min": 10.0, "max": 3600.0})
+    # A hands-free stream counts as "in use" only while it has delivered audio within
+    # this many seconds. A microphone unplugged mid-gesture stops delivering, so after
+    # this long the frozen gesture no longer holds the re-scan off and the dead device is
+    # noticed. 0.5 to 60.
+    level_stream_fresh_s: float = field(default=2.0, metadata={"min": 0.5, "max": 60.0})
     # Answer the mic guard's [Re-calibrate]/[Pin this mic]/[Ignore] toast by SAYING one
     # of them (ADR-022, Spec 1). Without this the daemon asks a question about your
     # microphone that can only be answered with a pointer -- and the person seeing it is
@@ -494,7 +512,8 @@ class CommandsConfig:
     # Editor command profiles: send the keys the focused editor binds — Ctrl+Y, not
     # Ctrl+Shift+K, to delete a line in a JetBrains IDE — and refuse a command the
     # editor has no safe key for. OFF by default; off, every application gets the
-    # VS Code-style keys. The focused app is read via AT-SPI or X11 xdotool only.
+    # VS Code-style keys. The focused app is read via AT-SPI or X11 xdotool on Linux,
+    # the frontmost app's bundle id on macOS, the foreground program's name on Windows.
     editor_profiles: bool = False
 
 
@@ -917,6 +936,21 @@ class StagedConfig:
 
 
 @dataclass
+class SendtoConfig:
+    """Send to (ADR-031) — hand dictated text to a desktop AI client, pre-filled, never sent.
+
+    "send to Claude", "send to Claude Code" or "send to Codex" (or `yazses send-to`)
+    opens that client's new-conversation screen with the staged buffer — or, without
+    staged mode, the last burst — already in the prompt box. The user presses Enter.
+
+    Deliberately a single switch. The targets are a closed table in `sendto/targets.py`
+    and no key here can name a URL or a scheme: a configurable template would be a
+    configurable exfiltration endpoint. OFF by default.
+    """
+    enabled: bool = False
+
+
+@dataclass
 class ConfidenceConfig:
     """v2.0.0 Wave A — Confidence Ink & Voice Re-pick (ADR-v2-001).
 
@@ -1099,9 +1133,10 @@ class PredictConfig:
     """v2.1 Wave D — Predictive dictation completion (ADR-v2-016).
 
     A tiny on-device LLM proposes the rest of a phrase after a dictation is typed;
-    say "accept" to type it. The generator reuses llama.cpp (``llama-cpp-python``,
-    the ``slm`` extra), loads ``model_path`` lazily on a background thread, and stays
-    dormant -- saying why once in the log -- when either is missing. OFF by default.
+    say "take it" (or "accept suggestion") to type it. The generator reuses llama.cpp
+    (``llama-cpp-python``, the ``slm`` extra), loads ``model_path`` lazily on a
+    background thread, and stays dormant -- saying why once in the log -- when either
+    is missing. OFF by default.
     """
     enabled: bool = False
     model_path: str = ""             # local planner/completion GGUF; empty = disabled
@@ -1968,11 +2003,22 @@ class MouthswitchConfig:
 
     Single-switch scanning: a lip pop starts/stops a highlight that steps through
     ``scan_items`` every ``dwell_s`` seconds; a tongue click runs the lit item. Armed by
-    `yazses handsfree resume`, and needs the overlay to draw the highlight.
+    `yazses handsfree resume`. The overlay draws the highlight; where it cannot run, each
+    step is announced instead when ``[earcon]`` or ``[tts]`` is on (an announced step is
+    lit for its tick or name, the detector's deaf window after it, then ``dwell_s``, so a
+    full ``dwell_s`` to click always follows the name). ``speak_names`` speaks the
+    item names in the offline voice without turning on read-back of your dictation.
     """
     enabled: bool = False
-    # Seconds per highlight step (clamped to 0.5-10 by mouthswitch/scanner.py).
+    # Seconds per highlight step (clamped to 0.5-10 by mouthswitch/scanner.py). Where the
+    # scan is announced, it is the time left to click after the item's tick or name and the
+    # detector's deaf window behind it, so those steps run longer.
     dwell_s: float = 1.2
+    # Where the overlay cannot draw the scan, say each item's name in the offline [tts]
+    # voice even with read-back off; your dictation is still not read back. Needs the tts
+    # extra and its voice model already on disk (never downloaded for this); without
+    # them the steps are announced with earcons only, and the log says why once.
+    speak_names: bool = False
     # What the scan offers, in order. "click", "scroll up" and "scroll down" are pointer
     # operations; anything else is a command phrase the command grammar must know and run
     # without confirmation, or it is dropped (with a log line) when the daemon starts.
@@ -2254,6 +2300,7 @@ class Config:
     # v2.0.0 Wave A (Voice-First Interaction Layer)
     confidence: ConfidenceConfig = field(default_factory=ConfidenceConfig)
     staged: StagedConfig = field(default_factory=StagedConfig)
+    sendto: SendtoConfig = field(default_factory=SendtoConfig)
     context: ContextConfig = field(default_factory=ContextConfig)
     recall: RecallConfig = field(default_factory=RecallConfig)
     agent: AgentConfig = field(default_factory=AgentConfig)

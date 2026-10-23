@@ -9,10 +9,12 @@ description: "YazSes vs Handy, two free offline open-source dictation tools: Way
 you want dictation and nothing else, with the smoothest install and a large,
 active community behind it. YazSes is the better choice if you want **voice
 commands**, **offline transcription of existing recordings**, **meeting capture
-with speaker labels**, or **full Wayland support** — or if accessibility features
+with speaker labels**, or **Wayland without extra setup** — or if accessibility features
 are the reason you are looking.
 
-Both are free, open source, and run entirely offline on Linux, macOS and Windows.
+Both are free, open source, and run entirely offline on Linux, macOS and Windows. YazSes on
+macOS and Windows is in preview: supported, not yet verified on hardware by a person on a
+current build (see the [validation matrix](../validation-matrix.md)).
 Handy is by far the more popular project. This page is about which fits your job,
 not which has more stars.
 
@@ -24,11 +26,11 @@ not which has more stars.
 | Built with | Tauri (Rust) + React | Python |
 | Models | Whisper (GPU when available), Parakeet V3 | faster-whisper (CPU int8); Parakeet optional |
 | Activation | Hotkey, or push-to-talk | Hold-to-talk |
-| Linux Wayland | Limited — needs `wtype` or `dotool` | **Full** — runtime backend probe |
+| Linux Wayland | Limited — needs `wtype` or `dotool` | Runtime backend probe picks a working injector; not yet verified on GNOME and KDE hardware ([#643](https://github.com/MSKazemi/yazses/issues/643)) |
 | Voice commands | No | **Yes** (regex grammar → key sequences) |
 | Transcribe existing files | No | **Yes** (`yazses transcribe`) |
 | Meeting capture + speaker labels | No | **Yes** (`yazses meeting`) |
-| macOS / Windows | Yes | Yes |
+| macOS / Windows | Yes | Yes (preview) |
 
 ## Where Handy is the better tool
 
@@ -51,10 +53,11 @@ answer.
 - **Voice commands.** Spoken phrases mapped by a fast regex grammar to real key
   sequences — *"undo that"*, *"save file"*, *"go to line 42"*. Handy is dictation
   only.
-- **Wayland without caveats.** Handy documents *limited* Wayland support requiring
+- **Wayland without extra setup.** Handy documents *limited* Wayland support requiring
   external tools. YazSes probes the session at runtime and selects a working
   injection backend — `ydotool`, `wtype`, `xdotool`, or clipboard paste — and
-  `yazses doctor` reports which one it picked.
+  `yazses doctor` reports which one it picked. A hardware-verified record on GNOME and KDE
+  Wayland is still to come ([#643](https://github.com/MSKazemi/yazses/issues/643)).
 - **Existing recordings.** `yazses transcribe <file>` turns any audio or video file
   into text, Markdown, SRT, WebVTT or JSON, optionally with speaker diarization.
 - **Whole meetings.** `yazses meeting` captures hands-free and produces a

@@ -14,6 +14,7 @@ import logging
 
 from yazses.cameraperm.contract import CameraPermission
 from yazses.platform.base import PermissionState
+from yazses.platform.windows import host as _winhost
 
 log = logging.getLogger(__name__)
 
@@ -124,27 +125,56 @@ _CONSENT_ROOT = (
 )
 
 
-def _consent_reads(capability: str) -> tuple[tuple[str, str], ...]:
+def _packaged() -> bool:
+    """True on the MSIX (Store) build. Never raises: a failed probe is "not packaged",
+    which keeps the long-standing .exe behaviour rather than inventing a new one."""
+    try:
+        return bool(_winhost._msix_packaged())
+    except Exception:  # noqa: BLE001 - describing the host must never fail a check
+        return False
+
+
+def _consent_reads(
+    capability: str, *, packaged: bool | None = None
+) -> tuple[tuple[str, str], ...]:
     """``(hive attribute name, subkey)`` for one capability, in decreasing scope.
 
     The device-wide switch, this user's switch, and "Let desktop apps access
     your camera/microphone" -- the last of which is the one that governs YazSes
-    installed from the .exe, and the one that is most often off while the other
-    two look fine.
+    installed from the .exe (or pip, Scoop, winget, Chocolatey), and the one that
+    is most often off while the other two look fine.
+
+    ``NonPackaged`` is read **only for an unpackaged install** (#653). The MSIX
+    build is a packaged app: Windows governs it by its own per-app entry in the
+    Settings list, not by the desktop-apps switch, so a ``Deny`` there says
+    nothing about it -- reading it gave a Store user with that switch off but
+    YazSes allowed a false ``doctor`` FAIL and a start-up notification. Where the
+    per-app entry lives is not documented by Microsoft (this whole store is
+    undocumented, see :data:`_CONSENT_ROOT`), so it is not read: a packaged
+    install learns only from the two broader switches, which do apply to it.
+    ``packaged=None`` asks :func:`yazses.platform.windows.host._msix_packaged`.
     """
+    if packaged is None:
+        packaged = _packaged()
     subkey = rf"{_CONSENT_ROOT}\{capability}"
-    return (
+    reads = (
         ("HKEY_LOCAL_MACHINE", subkey),
         ("HKEY_CURRENT_USER", subkey),
-        ("HKEY_CURRENT_USER", subkey + r"\NonPackaged"),
     )
+    if packaged:
+        return reads
+    return (*reads, ("HKEY_CURRENT_USER", subkey + r"\NonPackaged"))
 
 
-def _read_consent(capability: str) -> tuple[str | None, ...]:
-    """The three ConsentStore values for `capability`; ``None`` for each unreadable one.
+def _read_consent(
+    capability: str, *, packaged: bool | None = None
+) -> tuple[str | None, ...]:
+    """The ConsentStore values for `capability`; ``None`` for each unreadable one.
 
-    An empty tuple means `winreg` is not importable at all (not Windows), which
-    every mapping below already treats as "nothing recorded".
+    Three values for an unpackaged install, two for the MSIX build (see
+    :func:`_consent_reads`). An empty tuple means `winreg` is not importable at
+    all (not Windows), which every mapping below already treats as "nothing
+    recorded".
     """
     try:
         import winreg  # type: ignore[import-not-found]
@@ -157,7 +187,7 @@ def _read_consent(capability: str) -> tuple[str | None, ...]:
     # adding this module to the `disable_error_code` block in pyproject.toml,
     # so a real attribute mistake anywhere else in the file still fails.
     values: list[str | None] = []
-    for hive_name, path in _consent_reads(capability):
+    for hive_name, path in _consent_reads(capability, packaged=packaged):
         try:
             hive = getattr(winreg, hive_name)
             with winreg.OpenKey(hive, path) as key:  # type: ignore[attr-defined]
@@ -168,7 +198,9 @@ def _read_consent(capability: str) -> tuple[str | None, ...]:
     return tuple(values)
 
 
-def camera_consent_state(values: tuple[str | None, ...]) -> CameraPermission:
+def camera_consent_state(
+    values: tuple[str | None, ...], *, packaged: bool = False
+) -> CameraPermission:
     """Map the ConsentStore values onto a camera state. Pure, so it is testable.
 
     Split out from the registry read for the reason this whole contract exists:
@@ -187,9 +219,17 @@ def camera_consent_state(values: tuple[str | None, ...]) -> CameraPermission:
 
     The asymmetry in the last two arms is deliberate: this probe is allowed to
     under-claim and is not allowed to over-claim.
+
+    ``packaged`` (the MSIX build, #653): the decision that governs a packaged app
+    is its own per-app entry, which is not read (see :func:`_consent_reads`). A
+    ``Deny`` on a broader switch still refuses it, but no ``Allow`` the probe can
+    see is that app's decision, so ``GRANTED`` is unreachable there and the
+    answer is ``NOT_DETERMINED``.
     """
     if any(v == "Deny" for v in values):
         return CameraPermission.DENIED
+    if packaged:
+        return CameraPermission.NOT_DETERMINED
     if any(v == "Allow" for v in values):
         return CameraPermission.GRANTED
     return CameraPermission.NOT_DETERMINED
@@ -206,6 +246,12 @@ def microphone_permission_state(
       reported as OK while the daemon recorded silence.
     * otherwise a device -> ``OK``; no device -> ``DENIED``, the long-standing
       answer for an empty list (`how_to_grant_microphone` names both causes).
+
+    On the MSIX build `consent` holds two values, not three (#653): its per-app
+    entry is unread, which this mapping already treats like any unreadable
+    switch -- not a refusal, so the device list decides. That is the same
+    standard the .exe build has always met when ``NonPackaged`` is absent; it
+    means a per-app ``Deny`` on the Store build is not detected here.
     """
     if any(v == "Deny" for v in consent):
         return PermissionState.DENIED
@@ -227,7 +273,7 @@ class WindowsPermissions:
     def check_microphone(self) -> PermissionState:
         # The switches first: a revoked one is the answer even when the device
         # query below would fail, and it is the only signal of a revocation.
-        consent = _read_consent("microphone")
+        consent = _read_consent("microphone", packaged=_packaged())
         if any(v == "Deny" for v in consent):
             return PermissionState.DENIED
         try:
@@ -269,10 +315,17 @@ class WindowsPermissions:
         an empty device list, which is the same symptom as an unplugged microphone,
         so the message names both rather than asserting one of them.
         """
+        # The Store build is a packaged app: it has its own toggle in the list, and
+        # the desktop-apps switch does not govern it (#653).
+        which = (
+            "and make sure YazSes is switched on in the list of apps there.\n"
+            if _packaged()
+            else "and make sure 'Let desktop apps access your microphone' is on too.\n"
+        )
         return (
             "Allow microphone access in:\n"
             "  Settings → Privacy & Security → Microphone\n"
-            "and make sure 'Let desktop apps access your microphone' is on too.\n"
+            f"{which}"
             "Or open the pane directly:\n"
             "  start ms-settings:privacy-microphone\n"
             "Already allowed? Then Windows sees no input device — check it is\n"
@@ -296,9 +349,12 @@ class WindowsPermissions:
 
         The registry read has run on one real Windows 11 machine with every switch
         on, and answered ``GRANTED``. A ``Deny`` has still only been exercised by
-        the mapping tests.
+        the mapping tests. The MSIX (packaged) arm has run on no real install.
         """
-        return camera_consent_state(_read_consent("webcam"))
+        packaged = _packaged()
+        return camera_consent_state(
+            _read_consent("webcam", packaged=packaged), packaged=packaged
+        )
 
     def how_to_grant_camera(self) -> str:
         """Settings -> Privacy & Security -> Camera, and the switch under it.

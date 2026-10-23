@@ -123,10 +123,11 @@ different problems. YazSes has to synthesise keystrokes into whatever window has
 focus, and not every method can produce characters that are absent from your
 physical keyboard layout.
 
-- **Linux on X11 — verified working.** Devanagari types correctly through the
-  `xdotool` backend, which maps each character to an X keysym rather than to a
-  physical key. This was tested end-to-end: `नमस्ते हिंदी` dictated in, `नमस्ते हिंदी`
-  received by the target application, byte for byte.
+- **Linux on X11 — works in the project's own end-to-end test.** Devanagari types
+  correctly through the `xdotool` backend, which maps each character to an X keysym
+  rather than to a physical key: `नमस्ते हिंदी` dictated in, `नमस्ते हिंदी` received by
+  the target application, byte for byte. That run is not yet a dated, versioned record
+  in the [validation matrix](../validation-matrix.md) ([#642](https://github.com/MSKazemi/yazses/issues/642)).
 - **Any platform — the clipboard backend works by construction.** It passes UTF-8
   text straight through, so script is irrelevant to it:
 

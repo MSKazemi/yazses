@@ -68,6 +68,28 @@ above. The mapping the runtime passes to the detector is `pop` → `toggle`, `cl
   spoken cue for auditory scanning; any measurement on recorded mouth sounds, keyboard taps or
   desk knocks. All thresholds remain synthetic-only.
 
+### Amendment (2026-10-23, owner-approved; written untested in code-only wave 5)
+
+Two changes to the wiring above. The bullets above are kept as the record of what shipped
+in 2.44.0.
+
+- **Auditory scanning where the overlay will not run.** The "no overlay, no switch" rule
+  becomes "seen or heard, never neither". Without the overlay, `mouthswitch/announce.py`
+  announces each step with the earcon player (`scan_step`, and `scan_first` on the first
+  item) when `[earcon]` is on, and speaks the item's label in the read-back voice when
+  `[tts]` is on and not degraded to the null backend. With neither, the runtime still
+  refuses. `SwitchScanner` takes an injected announcement duration and holds an item lit
+  for `max(dwell_s, duration)`, so the highlight never advances mid-word. Announcements read
+  the same timeline the select-at-onset rule reads. The spoken-duration estimate is
+  provisional, and speaker output reaching the scan microphone is unmeasured.
+- **A selection no longer ends the scan.** It re-anchors the timeline on the selected item
+  at the moment of selection: that item stays lit for a full dwell, then the scan steps on.
+  The inactivity stop counts three passes from the last selection. "Each scan selects at
+  most once" becomes "each click selects at most once": a click whose onset is not later
+  than the last selection's selects nothing. The stale-click guard (2 s) is unchanged. The
+  trade-off against ADR-021: a stray click-like sound can now run an item while a scan the
+  user has already used is still running. The scan still stops on a pop, so the user ends it.
+
 ### Before the wiring (2026-10-21)
 
 **Unwired then.** `mouthswitch` was in `_UNWIRED` in `system/features.py`; nothing in the

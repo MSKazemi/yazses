@@ -8,7 +8,7 @@ description: "YazSes vs Vocalinux, two offline open-source Linux dictation tools
 **Short answer:** [Vocalinux](https://github.com/VocaHQ/vocalinux) is the better
 choice if you have a capable GPU and want to use it, or if you want to pick
 between three recognition engines. YazSes is the better choice if you also need
-**macOS or Windows**, if you want the same install to transcribe recordings and
+**macOS or Windows** (in preview), if you want the same install to transcribe recordings and
 capture meetings, or if you need the accessibility-oriented pieces.
 
 Both are free, open source, run entirely offline on Linux, and work on X11 and
@@ -23,7 +23,7 @@ different, defensible choices rather than one being behind the other.
 | Engines | whisper.cpp (default), Whisper, VOSK | faster-whisper; Parakeet or Moonshine optional |
 | Hardware target | GPU-accelerated | CPU int8 |
 | Activation | Toggle **or** push-to-talk | Hold-to-talk |
-| Platforms | Linux only | Linux, macOS, Windows |
+| Platforms | Linux only | Linux; macOS and Windows in preview |
 | X11 and Wayland | Yes | Yes |
 | Transcribe existing files | Not its focus | `yazses transcribe` |
 | Meeting capture + speaker labels | Not its focus | `yazses meeting` |
@@ -79,7 +79,7 @@ These are outside Vocalinux's scope rather than places it falls short:
   sensor is an existing alternative implementation for people who cannot hold a key.
 - **An opt-in on-device learning loop.** `yazses tune` reads an encrypted local
   corpus of your own corrections and proposes concrete config changes.
-- **macOS and Windows**, with the same configuration file.
+- **macOS and Windows**, with the same configuration file, in preview (see the [validation matrix](../validation-matrix.md)).
 
 ## When to choose Vocalinux
 

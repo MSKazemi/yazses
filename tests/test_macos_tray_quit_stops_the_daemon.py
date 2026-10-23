@@ -50,8 +50,17 @@ def _install_fake_rumps(monkeypatch, *, quit_returns: bool):
             if not quit_returns:
                 raise SystemExit(0)
 
+    class MenuItem:
+        # The menu's status lines are MenuItems built in `_App.__init__`; only what
+        # `_apply_status_lines` touches is modelled.
+        def __init__(self, title, callback=None, key=None):
+            self.title = title
+            self.callback = callback
+            self.hidden = False
+
     rumps = types.ModuleType("rumps")
     rumps.App = App
+    rumps.MenuItem = MenuItem
     rumps.events = events
     rumps.clicked = lambda *a, **k: (lambda f: f)
     monkeypatch.setitem(sys.modules, "rumps", rumps)

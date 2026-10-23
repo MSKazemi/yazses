@@ -1,6 +1,6 @@
 # ADR-031 — "Send to": hand dictated text to a desktop AI client, pre-filled and never sent
 
-**Status:** Proposed (2026-10-22)
+**Status:** Accepted (2026-10-23)
 **Deciders:** Mohsen Seyedkazemi Ardebili
 **Context links:** [[adr-030-agent-era-direction]] (Pillar 2, bridge 1),
 [[adr-019-egress-inventory-and-escalation]] (*Reached by handing a URL to another program*),
@@ -106,13 +106,122 @@ removed in the next release and the release notes say why.
   *preview* until a validation row exists.
 - The agent-era docs page can show "dictate, review, send to Claude" as one flow.
 
-## Open questions for the decider
+## Decisions (2026-10-23)
 
-1. Spoken phrases: *"send to Claude"* / *"send to Codex"*, or a single *"send that to …"*
-   with the target name? (Staged mode's own commit phrase is opt-in for the reason
-   ADR-v2-132 gives; the same caution applies.)
-2. Should `claude-code` be a separate target or a sub-mode of `claude`?
-3. Is the CLI form (`yazses send-to`) wanted in the first release, or only the spoken one?
+The decider answered the three questions this record left open when it was proposed.
+
+1. **Spoken phrases: one fixed phrase per target** — *"send to Claude"*, *"send to Claude
+   Code"*, *"send to Codex"*. Each is a whole utterance, anchored at both ends like staged
+   mode's commit grammar; there is no *"send that to <name>"* pattern with a slot.
+2. **`claude-code` is a separate target**, reached by *"send to Claude Code"* and opening
+   `claude://code/new?q=`, not a sub-mode of `claude`.
+3. **The CLI form `yazses send-to <client> [TEXT]` ships in the first release**, beside the
+   spoken one.
+
+## Implementation notes (2026-10-23)
+
+Where the build differs from §1–§5, or chose something the record left open:
+
+- **The opener seam (§3) now exists (second build, 2026-10-23).** The first build had
+  none — its default opener was `system/browser.py::open_url(url, log_url=False)`, so
+  Linux used `webbrowser`'s `xdg-open` and macOS and Windows whatever `webbrowser` does
+  there — because another branch was editing `platform/base.py`. That branch (#649, the
+  `FileOpener` seam) has landed, and `platform/base.py` now has a `UrlOpener` Protocol
+  beside it: `open_url(url)`, one backend per OS family in `platform/<os>/fileopen.py`,
+  chosen by `platform.get_url_opener()` without building a `Platform`. The default opener
+  in `sendto/handoff.py` calls it only for a scheme in the closed target table (an
+  allow-list), and every backend first refuses a web, file or script scheme, a URL
+  without a scheme, and whitespace or control characters
+  (`platform/base.py::require_local_scheme`, a deny-list behind the allow-list), before
+  it starts anything. No backend logs the URL, sends the child's output anywhere but
+  `/dev/null`, or raises an exception whose message quotes it.
+  - **Linux and the BSDs, first: the desktop portal (third build, 2026-10-23).**
+    `org.freedesktop.portal.OpenURI.OpenURI("", url, {handle_token})` on
+    `org.freedesktop.portal.Desktop` `/org/freedesktop/portal/desktop`, over the session
+    bus through `jeepney` (the client `inject/portal.py` uses), in
+    `platform/linux/fileopen.py`. The URL travels in a D-Bus message body and no process
+    of ours is started with it. The `Response` match rule is installed before the call;
+    the opener waits up to 5 s for `Response`: 0 is a hand-off, 1 (the app chooser was
+    cancelled) is a failed hand-off, and 2 falls back to `xdg-open` once (below). No answer
+    in 5 s is a hand-off still pending —
+    a background thread holds the connection up to 120 s, because the portal may close an
+    open chooser when its caller disconnects. A Request handle other than the one predicted
+    from `handle_token` (a portal older than that scheme) counts as accepted, unwaited.
+  - **Linux and the BSDs, fallback: `xdg-open <url>`**, the URL one argv element, no
+    shell — **only when nothing received the URL from the portal attempt**: `jeepney`
+    missing, no session bus, the bus refusing the match rule, or the call answered by
+    `ServiceUnknown`, `NameHasNoOwner`, `UnknownMethod`, `UnknownInterface`,
+    `UnknownObject` or a `Spawn.*` activation failure — and **once** after `Response` 2.
+    Waits up to 5 s for its status:
+    non-zero (4 = no program for the scheme) is a failed hand-off; still running is a
+    hand-off, left alone and reaped in the background.
+  - **Once the portal has the URL there is no fallback, except after `Response` 2.** Any
+    other D-Bus error (a `org.freedesktop.portal.Error.*`, `NoReply`, `AccessDenied`), no
+    reply to the call, a dropped bus, or `Response` 1 is a failed hand-off, not a second
+    attempt: the portal may already have started the client or be showing a chooser, so
+    `xdg-open` could open it twice with the same prompt, would overrule a user who pressed
+    Cancel, and would put the text in an argv.
+  - **`Response` 2 falls back to `xdg-open` exactly once (fourth build, 2026-10-23,
+    approved by the decider).** 2 is the portal's "the interaction was ended some other
+    way": it has answered, and the answer is that it did not open the client, so one
+    `xdg-open` cannot open it twice, and no user pressed Cancel. The connection is closed
+    first, `xdg-open` is not retried and the portal is not asked again; its non-zero status
+    is the failed hand-off. On that attempt the URL carries the `xdg-open` argv exposure
+    below, as on the no-portal fallback. **Unverified:** which real portal failures answer
+    2 rather than a D-Bus error, and whether `xdg-open` then succeeds where the portal did
+    not (it resolves the scheme through the same `mimeapps.list`); pinned only by the fake
+    connection. The log names the path taken (portal, with its outcome;
+    or xdg-open, with the reason the portal was unavailable) and, on errors, the D-Bus
+    error *name* only — never its message, which may quote the URI.
+    **Unverified against a real portal:** that GNOME's and KDE's `xdg-desktop-portal`
+    answer `OpenURI` for `claude://`/`codex://` with `Response` 0 after launching the
+    client, whether they show an app chooser for an unsandboxed caller the first time,
+    and whether closing the connection really cancels a pending chooser. Pinned only by
+    `tests/test_platform_url_opener_seam.py` with a fake connection.
+  - **macOS:** `NSWorkspace.sharedWorkspace().openURL_` in-process, as §3 asks; if
+    PyObjC cannot be imported, `open <url>`. **Unverified:** no Mac, and whether
+    `openURL_` may be called off the main thread, as the daemon does, is not established.
+  - **Windows:** `os.startfile`, i.e. `ShellExecuteW` in-process. Unverified on Windows.
+- **The local exposure that remains, stated (§3).** On **Linux through the portal**, no
+  argument list of ours holds the URL. It crosses the user's own session bus, which other
+  local users cannot connect to; a process of the *same* user can still watch it there
+  (`dbus-monitor` — the stock session-bus policy allows it). On **Linux on the `xdg-open`
+  fallback** (no portal, or the single attempt after portal `Response` 2, see above) the
+  exposure is unchanged: `xdg-open` takes the URL as
+  a command-line argument, so while it runs the text is in `/proc/<pid>/cmdline`, readable
+  by every process of the same user and, unless `/proc` is mounted with `hidepid=`, by
+  every other local user. On both paths the client the desktop starts receives the URL as
+  an argument (the `%u` of its `.desktop` entry), so if the hand-off *starts* the client,
+  the text stays in that process's argument list for as long as it runs; that half
+  belongs to the client. On **Windows** YazSes starts no
+  child, but the shell starts the client with the URL as its `%1` argument — the same
+  second half. On **macOS** through `NSWorkspace` the URL travels as an Apple Event and
+  no argument list holds it, except on the `open` fallback, briefly.
+- **Limits (§4).** Claude and Claude Code refuse over 14,000 characters. Codex documents
+  no limit, so it gets the same 14,000 (the narrowest choice). Every target also refuses
+  an encoded URL over 32,000 characters, which keeps the URL inside Windows' command-line
+  ceiling and Linux's per-argument one; text in non-Latin scripts reaches it sooner.
+  Text with control characters other than tab, newline and carriage return, or that is
+  not valid Unicode,
+  is refused rather than altered.
+- **Which text (§1).** With staged mode on, the buffer only: an empty buffer is refused,
+  not replaced by an older burst. With staged mode off, the last burst the daemon typed,
+  kept in memory only while `[sendto] enabled` is on. It has already been typed by then:
+  a whole-utterance phrase cannot come before the words it sends.
+- **The CLI with TEXT** hands off in the CLI's own process; the IPC method `send_to` takes
+  a target name only, so no local caller can make the daemon open a URL with text of its
+  choosing.
+- **The registry slug (§1, §5).** The first build had none; the second adds `sendto` to
+  `system/features.py`: tier *optional* (enable only if you want it — *experimental*
+  would make `features enable sendto` demand `--force`, and no rough edge is known),
+  category *Commands & automation*, no optional dependencies, and on/off writers for
+  `[sendto] enabled` alone. It is wired (not in `_UNWIRED`). Its description says
+  exactly what happens — the three phrases, the CLI, pre-filled and never sent, no web
+  fallback, the 14,000-character refusal — and that it is **not yet verified** against
+  any real client. The per-client verified-version line §5 asks `features info` to carry
+  waits for the validation rows: there is no version to name yet.
+- **Unverified:** no hand-off has yet been tried against a real Claude or Codex install on
+  any platform.
 
 ## Alternatives considered
 

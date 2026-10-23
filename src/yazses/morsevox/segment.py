@@ -228,6 +228,10 @@ class MorseStream:
     seen live (:meth:`PulseSegmenter.silence_ms`) or only when the next pulse closes the gap.
     A letter whose code is not in the Morse table is dropped, as ``MorseDecoder`` does.
 
+    A prosign (SK, see `decode.py`) types nothing and no space after it. The sample that
+    completes it stops there: any segment after it in that same sample is not decoded, and
+    :meth:`take_prosign` reports it once, so the caller can end the mode.
+
     With ``adapt=True`` the dot/dash threshold is re-fitted after each pulse from the last
     ``window`` pulse durations — but only once ``min_samples`` are in hand and the long half
     averages at least ``min_ratio`` times the short half. That guard matters: a run of
@@ -250,17 +254,27 @@ class MorseStream:
         self._durations: deque[float] = deque(maxlen=window)
         self._letter_sent = False
         self._word_sent = False
+        self._prosign: str | None = None      # reported once by take_prosign()
+        self._closed_prosign = False          # a prosign closed during this push/flush
 
     @property
     def calib(self) -> MorseCalib:
         """The current timing thresholds (changes over time when ``adapt`` is on)."""
         return self._calib
 
+    def take_prosign(self) -> str | None:
+        """The prosign (``"SK"``) decoded since the last call, once; else None."""
+        prosign, self._prosign = self._prosign, None
+        return prosign
+
     def push(self, t_ms: float, level: float) -> str:
-        """Feed one level sample; return any text it completed."""
+        """Feed one level sample; return any text it completed (up to a prosign)."""
         text = []
+        self._closed_prosign = False
         for seg in self._seg.push(t_ms, level):
             text.append(self._on_segment(seg))
+            if self._closed_prosign:
+                return "".join(text)
         silence = self._seg.silence_ms(t_ms)
         if silence is not None:
             text.append(self._on_silence(silence))
@@ -268,16 +282,25 @@ class MorseStream:
 
     def flush(self, t_ms: float) -> str:
         """End of stream: close any pulse and emit the pending letter (no trailing space)."""
+        self._closed_prosign = False
         text = [self._on_segment(seg) for seg in self._seg.flush(t_ms)]
+        after_prosign = self._closed_prosign
         if not self._letter_sent:
-            text.append(self._feed("gap_letter"))   # empty buffer -> ""
+            tail = self._feed("gap_letter")         # empty buffer -> ""
+            if not after_prosign:                   # nothing keyed after SK is typed
+                text.append(tail)
         self._letter_sent = self._word_sent = False
         return "".join(text)
 
     # ---- internals ---------------------------------------------------------
 
     def _feed(self, token: str) -> str:
-        return self._decoder.feed(token) or ""
+        out = self._decoder.feed(token) or ""
+        prosign = self._decoder.take_prosign()
+        if prosign is not None:
+            self._prosign = prosign
+            self._closed_prosign = True
+        return out
 
     def _on_segment(self, seg: Segment) -> str:
         if seg.kind == "gap":
@@ -298,6 +321,8 @@ class MorseStream:
         if kind in ("gap_letter", "gap_word") and not self._letter_sent:
             out += self._feed("gap_letter")
             self._letter_sent = True
+            if self._closed_prosign:
+                self._word_sent = True  # a prosign is followed by no space
         if kind == "gap_word" and not self._word_sent:
             # The letter is already out, so the decoder's buffer is empty and gap_word
             # yields just the space.

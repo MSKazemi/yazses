@@ -6,6 +6,156 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — The macOS menu-bar menu has status lines (untested on a real Mac)
+
+The macOS menu-bar icon showed only a state glyph. It had no tooltip and no status
+line, so a Mac user could not see which speech engine was running, whether the speech
+model was in memory, or any warning. The top of its menu now has up to three greyed-out
+lines: the state and the engine that actually came up (`YazSes — idle · base.en
+(faster-whisper)`), the speech model's memory state (only with `[stt] idle_unload_s`
+set), and the most important warning (a daemon error, then a fallback engine, then
+silent recordings). The lines use the existing wording of `yazses status`, the Linux
+menu and the Windows tooltip, through shared helpers in `tray/menu.py` and
+`stt/factory.py`. They are refreshed on the same poll as the glyph, and the menu items
+are changed on the main thread. Tested against a fake rumps only. No one has opened this
+menu on a Mac yet.
+
+### Added — Vocal Morse: the SK prosign ends Morse mode (experimental, off by default)
+
+Morse mode used to end only after 3 s of silence. Now the end-of-work prosign SK
+(`...-.-`, keyed as one character with no letter gap between the S and the K) ends it
+too, as soon as the letter gap after it has passed. SK is not typed, and the earcon and
+notification work as for the other exits (reason `prosign`). SK counts only as a whole
+character: "s" and "k" keyed with a normal letter gap are still typed as `sk`. In the
+middle of a word, the letters before SK stay typed and nothing after it is decoded.
+Tested on synthetic level streams only, not with a real voice.
+
+### Changed — Predictive Completion answers only to "take it", "accept suggestion" and "discard" (experimental, off by default)
+
+While a suggestion was offered, a whole utterance that matched a control phrase was
+consumed and nothing was typed. Several of those phrases are ordinary replies, so a
+dictated "No.", "Keep it." or "Decline." vanished. Now only three phrases answer an offer:
+"take it" and "accept suggestion" type it, and "discard" drops it. Every other phrase
+that used to count is dictated like any other speech and dismisses the offer: "accept",
+"accept that", "yes take it", "keep it", "use that", "decline", "reject", "cancel that",
+"no" and "never mind". A phrase counts only as the whole utterance, so "take it easy" is
+typed. Declining was always optional, because anything else you say dismisses the offer.
+If you said "accept" to take a suggestion, say "take it" now. Tested with a fake model
+and injector only, not on real hardware.
+
+### Fixed — a failed proofreading correction names its cause, as Spoken Edit and Punch-In do (experimental, off by default)
+
+When an Interruptible Proofreading correction could not be typed, YazSes said where your
+words were, but not why typing failed. Spoken Edit and Punch-In use the same replacement
+code and also named the cause, such as "YazSes is not allowed to type" with the command
+that fixes it. Proofreading now does too. The cause comes first, then the notice about
+your words. All three features share one rate limit, so one broken injector shows one
+cause notification, not one per feature. Neither notification quotes your words. Tested
+with a fake injector only, not on real hardware.
+
+### Fixed — Spoken Edit and Punch-In no longer lose your words when the new text cannot be typed (off by default)
+
+Spoken Edit ("change X to Y") and Punch-In both erase the last dictation with backspaces
+and then type the edited version. If typing failed after the erase, they reported the
+failure but left the words gone. The "scratch that" record still counted the whole
+erased dictation, so the next "scratch that" deleted text from before it. They now follow
+the same recovery rule as Interruptible Proofreading, through one shared module
+(`inject/replace.py`). YazSes types the erased words back. If that fails, or the erase
+stopped part-way, it puts them on the clipboard and tells you. If the copy also fails,
+the notification suggests the application's own undo. A partial erase is never typed
+over. The "scratch that" and `[timeline]` records follow what is on screen in every
+outcome, so an undo never reaches past the dictation. An edit cut off mid-word may leave
+that fragment before the restored words. `yazses punch-in` now says which of these
+happened. A failed spoken edit is logged as `spoken_edit_not_typed`, not as "no command
+matched". The clipboard rescue needs `wl-copy`, `xclip` or `xsel`, as for proofreading.
+A successful spoken edit now also updates the `[timeline]` record, which still held the
+pre-edit text. Tested with a simulated text field only, not on real hardware.
+
+### Added — the Mouth-Sound Switch can say item names without reading your dictation back (experimental, off by default)
+
+New key `[mouthswitch] speak_names` (default `false`). Where the overlay cannot draw the
+scan, the item names used to be spoken only if read-back (`[tts]`) was on, and read-back
+also reads every dictation back. With `speak_names = true` and read-back off, the switch
+builds the same offline voice for itself, from your `[tts]` voice and speed, and your
+dictation is still not read back. It never downloads the voice model: it needs the `tts`
+extra and a model already on this computer. Without them, the steps are announced with
+earcon ticks only, and one log line says why. Existing installs are unchanged. Tested with
+a simulated voice only, not on real hardware.
+
+### Fixed — a heard Mouth-Sound Switch step leaves a full dwell to click after the name (experimental, off by default)
+
+The click detector ignores any click that follows a voiced sound by less than 400 ms, and
+where the scan is announced, the step tick and the spoken name are voiced and reach the
+microphone through the speakers. So part of every announced step could never hear a click,
+and an item whose name took about as long to say as `dwell_s` ("scroll down" at the 1.2 s
+default) left almost no time to click at all. Where the scan is announced, each step is now
+lit for its tick or name, then the detector's own window (read from the detector, not
+restated), then a full `dwell_s` in which a click is heard. A long name makes the scan
+slower instead: with names on, a pass over the five default items takes about 12 s rather
+than 6 s, so lower `dwell_s` if that is slower than you need. A scan the overlay draws makes
+no sound and keeps its plain `dwell_s` steps. Tested with simulated clicks only, not on real
+hardware.
+
+### Changed — the Mouth-Sound Switch keeps scanning after a selection (experimental, off by default)
+
+One tongue click used to end the scan, so scrolling down twice took pop, click, pop, click.
+Now the scan carries on. The item you chose stays lit for one more step, so a second click
+runs it again, and then the highlight moves on as before. The scan still stops on a pop,
+on `handsfree pause`, while you dictate, at shutdown, and after three passes with no click,
+now counted from your last click. Each click still selects at most once, a click reported
+too late still selects nothing, and a click is still matched to the item lit when it began.
+A stray sound that reads as a click, such as a keyboard tap, can now run an item while a
+scan you have used is still going, so pop when you are done. Tested with simulated clicks
+only, not on real hardware.
+
+### Changed — the Mouth-Sound Switch works without the overlay: you hear each step (experimental, off by default)
+
+The switch used to refuse to start where the overlay cannot draw its highlight: on a native
+Wayland session, or without the `desktop` extra. Now it announces each step there instead,
+using what you have turned on. With `[earcon]` on, a short tick plays at every step, and a
+lower tick marks the first item. With read-back (`[tts]`) on, the offline voice also says
+the item's name. A name that takes longer to say than `dwell_s` keeps its item lit until it
+has been said. The announcement comes from the same timeline the click is matched against,
+so the item announced when a click began is the item that click runs. With neither earcons
+nor read-back on, the switch still refuses, and `handsfree resume` says why. Speaker sound
+reaches the scan's microphone, so headphones are advised. How long a name takes to say is
+estimated, not measured. Tested with a simulated voice and earcon player only, not on real
+hardware.
+
+### Fixed — Interruptible Proofreading no longer loses your words when the correction cannot be typed (experimental, off by default)
+
+A proofreading correction (`proofback`) erases the text from the interrupted word with
+backspaces and then types what you said. If typing failed after the backspaces had
+landed (the injector raised or reported failure, or the window stopped taking input),
+the erased words were gone with nothing in their place. The "scratch that" and
+`[timeline]` records still described them, so the next undo could delete text before
+that dictation. Now YazSes types the erased words back through the same injector and
+tells you the correction was not typed. If
+that fails too, or the erase itself stopped part-way, it puts them on the clipboard and
+a notification says so. If the clipboard copy also fails, the notification says nothing
+was saved and suggests the application's own undo. The undo records follow what is on
+screen in every case, and when that is uncertain they under-count, so an undo can never
+reach past the dictation. A correction cut off mid-word may leave that fragment before
+the restored words. The no-text-target guard still runs before anything is erased. The
+clipboard rescue uses the guard's clipboard path, which needs `wl-copy`, `xclip` or
+`xsel`. On macOS and Windows it cannot copy yet, so the notification reports the failed copy.
+Tested with a simulated text field only, not on real hardware.
+
+### Fixed — the Windows Store (MSIX) build no longer reads the desktop-apps microphone switch as a refusal ([#653](https://github.com/MSKazemi/yazses/issues/653))
+
+The Windows microphone and camera checks read three privacy switches: device-wide, per-user,
+and "Let desktop apps access your microphone/camera". The last one governs the .exe, pip,
+Scoop, winget and Chocolatey installs. It does not govern a packaged app: the MSIX build
+gets its own entry in the Settings app list. So a Store user with the desktop-apps switch
+off and YazSes allowed would have seen a false `doctor` FAIL and a "microphone denied"
+notification at start-up. The MSIX build now skips that switch. Windows does not document
+where it stores a packaged app's own setting, so YazSes does not read it. On the Store
+build the microphone check relies on the two broader switches and the device list, so a
+YazSes-only refusal there is not detected. The camera check answers "undetermined" rather
+than "granted". On the Store build, the microphone advice points to YazSes's toggle in the
+app list instead of the desktop-apps switch. Unpackaged installs behave exactly as before.
+The Store build is not published yet, and this has not run on a real MSIX install.
+
 ### Added — assigning an issue moves its card to In Progress on the project board
 
 The [project board](https://github.com/users/MSKazemi/projects/8) moves cards by itself when
@@ -50,6 +200,24 @@ missing package but cannot see a load failure.
   settings window's "Running (…)" line now names the checkpoint that decodes.
 - `tests/test_status_reports_active_engine.py` covers both fallback causes, the unknown
   engine, the wrappers, the status handler and the printed lines.
+
+### Added — `yazses status` and the tray say whether the speech model is loaded, under `[stt] idle_unload_s` (experimental, off by default)
+
+With `[stt] idle_unload_s` set, YazSes releases the speech model after that many idle
+seconds, and the first words after a pause are late while it reloads. Nothing said which
+state you were in. Now `yazses status` prints one `memory:` line under the model, for
+example `speech model loaded, idle 45 s of 300 s` or `speech model unloaded after 312 s
+idle, 3 min ago — reloads on the next press`. The unloaded figure is the idle time measured
+when the model was released, not the setting: the release can come later, because YazSes
+checks only every quarter of `idle_unload_s` and waits while you dictate. The tray tooltip
+and the Linux tray menu show the same phrase. The macOS menu bar does not, because it
+shows only a glyph. The daemon's status reply gains `stt_residency` (`idle_unload_s`,
+`loaded`, `loading`, `idle_s`, `unloaded_after_s`, `unloaded_for_s`). It is `null` at the
+default of `0`, so an install that has not opted in sees no change. The daemon log's
+"released after" line gives the measured time too. Reading it never waits
+on the engine's lock, so a status poll cannot queue behind a decode or a reload.
+`tests/test_status_stt_residency.py` covers each state, the lock, the printed line and
+the tray. Untested on real hardware.
 
 ### Fixed — on Windows, a dictation into an administrator window is no longer lost without a word
 
@@ -156,6 +324,229 @@ it ([#537](https://github.com/MSKazemi/yazses/issues/537)):
 deadlines from its shell and fails when the limit is less than 10 minutes above them. The
 first draft of this change gave `docker` 10 minutes from its run times alone, and the test
 caught it.
+
+### Fixed — Voice Pilot "uncheck X" no longer checks an unchecked box (Linux, experimental)
+
+"check" and "uncheck" ran the same click as "toggle", so "uncheck Dark mode" on a box
+that was already unchecked checked it, and "check" on a checked box unchecked it. The
+AT-SPI backend now reads each checkable control's checked state with the snapshot. A box
+already in the state you asked for is left alone and you are told so; a box in the other
+state is clicked as before. When the state cannot be read (a toggle button that reports
+no checked state, a half-checked box), the click waits for a spoken "confirm" instead of
+guessing. "toggle" still flips the box whatever its state. The Voice Pilot is off by
+default (`[pilot] enabled`), Linux-only, and untested on real hardware.
+
+### Fixed — a confirmed Voice Pilot "check X" no longer acts on a reading that is 30 s old (Linux, experimental)
+
+A "check X" or "uncheck X" that waited for a spoken "confirm" (its state could not be
+read, or the match was partial or tied) ran its toggle on the reading taken when it was
+held. If you had ticked the box yourself in the meantime, "confirm" unticked it again;
+if the window had changed, it acted on a control that no longer meant the same thing.
+Now "confirm" reads the window again and finds the same control by its label and role.
+It clicks only if the control is still in the other state. If the box is already as you
+asked, nothing is clicked and you are told so. If the control is gone, if the number of
+identical controls changed so it is unclear which one you meant, or if its state was
+readable before and is not now, nothing is clicked and you are told why. Every other
+held click is now re-checked the same way (next entry). The Voice Pilot is off by default
+(`[pilot] enabled`), Linux-only, and untested on real hardware.
+
+### Fixed — a confirmed Voice Pilot click can no longer land on a different control than the one it named (Linux, experimental)
+
+A click held for a spoken "confirm" (a label that may not be undoable such as "Delete",
+"Send" or "Log out", a partial match, or a tie between identical buttons) waited up to
+30 s and then clicked the control it had first matched, by the id from the earlier read.
+If the window changed during the wait, that could be a different control or one that was
+gone, and if a second identical "Delete" appeared there was no telling which one you had
+confirmed. Now every held click works like a held "check X": "confirm" reads the window
+again and looks for the same control, with the same label (ignoring only case and
+spacing, so "Delete" never becomes "Delete all"), the same kind of control, still
+clickable, and the same number of identical ones. If it is there, it is clicked once. If
+it is gone, renamed, a different kind of control, no longer clickable, or there is now one
+identical control more or fewer, nothing is clicked and you are told why. The Voice Pilot
+is off by default (`[pilot] enabled`), Linux-only, and untested on real hardware.
+
+### Fixed — Voice Pilot "uncheck X" on a radio button no longer reports a change it did not make (Linux, experimental)
+
+A radio button cannot be unchecked by clicking it: a click selects it, and it is turned
+off by choosing another option. "uncheck X" on a selected radio button clicked it anyway,
+which changes nothing in most toolkits, and then said "Unchecked 'X'". On a radio button
+whose state could not be read, a confirmed "uncheck" would even have selected it. Now
+"uncheck" on a radio button or radio menu item clicks nothing and says why: "a radio
+button is turned off by choosing another option". "check" on a selected radio button
+says it is already checked. The Voice Pilot is off by default (`[pilot] enabled`),
+Linux-only, and untested on real hardware.
+
+### Added — the files to list `yazses mcp-server` in the official MCP registry
+
+`python3 scripts/render-mcp-server-json.py` writes `dist/server.json` for the MCP
+registry: PyPI's `yazses` at the project version, over stdio, with the argument
+`mcp-server` (ADR-032 §2, [#639](https://github.com/MSKazemi/yazses/issues/639)).
+Nothing is published. Listing needs an ownership line in the README, a release that
+carries it, and a hand-run `mcp-publisher publish` by the maintainer; the steps are in
+`packaging/README.md`, and the MCP guide says the entry is not listed yet. The template's
+field names are still to be checked against the registry's current schema; the tests
+are written but not yet run.
+
+### Added — a one-click MCP bundle (`.mcpb`) for `yazses mcp-server`
+
+`python3 scripts/build-mcpb.py` builds `dist/yazses-<version>.mcpb`, an MCP Bundle a
+desktop client can install by double-click or drag-and-drop. The bundle contains no
+copy of YazSes: its manifest runs the `yazses mcp-server` command already installed, so
+the model, the config and the microphone permission stay with that install, and its
+description links the install page for a machine without it (ADR-032 §1,
+[#638](https://github.com/MSKazemi/yazses/issues/638)). The build is byte-for-byte
+reproducible and uses only the standard library. A new guide,
+[Connect YazSes to an MCP client](docs/how-to/connect-mcp-client.md), covers the bundle
+and the manual config. Every tagged release now builds the bundle from the tagged
+source (`release.yml` refuses a tag that is not `v<pyproject version>`), attests it as
+`yazses-<version>-mcpb.intoto.jsonl`, attaches both files, and lists the bundle in
+`SHA256SUMS.txt`; the release audits (`verify-release-assets.py`, `verify-provenance.py`)
+cover it, and `tests/test_release_ships_mcpb.py` pins the wiring. The next release is the
+first to carry it, and no release has run those steps yet. Not yet tried in a real
+client, and some manifest fields are still to be checked against the MCPB
+specification; the tests are written but not yet run.
+
+### Fixed — `yazses mcp-server --help` no longer says `ask_human` is not offered
+
+The help said `ask_human` "is not offered yet". The server has offered it since
+`[mcp] ask_human = true` was added. The help now lists both tools and says `ask_human`
+appears only with that setting on. A test reads the tool list from the server's own
+registration and fails if the help lists a different set, so the two cannot drift
+again ([#641](https://github.com/MSKazemi/yazses/issues/641), ADR-032 §4). Written in a
+code-only pass; the test has not been run yet.
+
+### Docs — macOS and Windows are labelled preview wherever YazSes's support is stated
+
+The README comparison tables, the home page, platform support, the quick start, the FAQ,
+the comparison pages and `llms.txt` listed macOS and Windows with a plain ✅ or "Yes",
+while the [validation matrix](docs/validation-matrix.md) has no hardware-verified
+dictation on either. Each now says **preview**: supported and installable, not yet
+verified on hardware by a person on a current build, with a link to the matrix. Linux
+X11 is no longer called "verified" or "tested" without a dated record (#642), the
+Wayland answers say GNOME and KDE hardware verification is still to come (#643), and
+the reviewed Hindi, Russian and Simplified Chinese pages now state macOS 14, not 11. A
+new test reads the matrix and fails if a page calls an unverified OS more than preview,
+calls X11 verified, or says "full Wayland" — the label comes off per OS the day the
+matrix records it. ADR-030 Pillar 1.1 and 1.2.
+
+### Docs — the feature pages list only what `features enable` turns on (#646)
+
+`docs/v2-features.md` kept its 24 designed-but-unbuilt capabilities inside the wave
+tables, marked ◌, beside the ones that work — and missed a 25th, Multi-User Profiles,
+whose row named a config key instead of its slug. All 25 now sit in one labelled
+**Designed, not built** section, each linked to its design record; the wave tables hold
+only wired capabilities, and a test compares both sets with the registry. Capability
+counts on hand-written pages (`ROADMAP.md`, the mobile, architecture and research pages)
+are now written by `scripts/gen-docs.py` from the registry; four were wrong ("30 of them
+are not reachable" against 25 today, "~200 capabilities" against 149). A test fails on
+a stale count and on any count typed by hand on a user-facing page. The `[polyglot]`
+entry in the CLI reference, and the Breath-Paced Dictation row on the accessibility
+page, now say they are designed, not built. ADR-030 Pillar 1.4.
+
+### Fixed — `chords` and `gitvoice` no longer tell you to switch on a key nothing reads
+
+`[chords] enabled` and `[gitvoice] enabled` are read by no code: both capabilities are
+command-line tools (`yazses chords`, `yazses gitvoice`) that work with the switch on or
+off. The feature reference told you to `features enable` them and restart; it now says
+how each is actually used, `docs/configuration.md` marks both keys ⚠️ inert, and
+`features enable chords` says the switch changes nothing. The chords entry also claimed
+"say any shortcut and it's pressed": nothing presses it — `yazses chords` prints the key
+combo (`ctrl+shift+p`) for you to review or bind — and the catalog, the v2 features page
+and the voice-commands page now say so.
+
+### Fixed — the microphone watcher no longer goes blind while a hands-free mode listens
+
+Affects only users who turned on one of the experimental, off-by-default hands-free modes:
+Vocal Morse (`[morsevox]`), the Mouth-Sound Switch (`[mouthswitch]`) or the Vocal Joystick
+(`[vocaljoystick]`). Each keeps a microphone stream open while YazSes is otherwise idle.
+Vocal Morse does so all session by default, because it listens for its entry hum. The
+audio-device watcher skipped every check while such a stream was open, so it never checked
+at all. An unplugged microphone, a new default input or a Bluetooth headset switch went
+unnoticed, and the next hold-to-talk recorded from a device that was gone. Now, while one
+of those streams is open, the watcher reads the default input without touching the audio
+system. Every 30 seconds, or as soon as that read sees a change, it closes the streams,
+re-scans the devices and reopens them. It never does this during a hold-to-talk recording,
+and it waits while you are in Morse mode, running a switch scan or holding a joystick vowel
+on a microphone that is still delivering sound. A re-scan never reopens a stream that you
+paused, or that a fault closed, while it ran. Covered by unit tests with fake streams and
+a fake clock; untested on real hardware.
+
+### Added — the watcher's hands-free timings are `[audio]` settings
+
+The three timings in the entry above can now be set in `[audio]`:
+`level_stream_rescan_s` (how often the streams are closed for a re-scan, default 30 s),
+`level_stream_in_use_max_s` (the longest a gesture in progress can delay a re-scan, default
+600 s) and `level_stream_fresh_s` (how recently audio must have arrived for a gesture to
+count as in progress, default 2 s). The defaults are the old fixed values, so nothing
+changes unless you set them. A value outside its range is reported by `yazses doctor` and
+the default is used. Covered by unit tests with fake streams; untested on real hardware.
+
+### Fixed — spoken commands on macOS send Cmd shortcuts, not Ctrl ones (untested on a real Mac)
+
+On macOS, "undo", "copy", "paste", "save" and "select all" sent Ctrl+Z, Ctrl+C,
+Ctrl+V, Ctrl+S and Ctrl+A. Most Mac apps ignore those, and Ctrl+A in a Cocoa text
+field moves the caret to the start of the line. The macOS platform now declares Cmd
+as its shortcut modifier, and the command dispatcher sends a macOS keymap: Cmd+Z/C/V/X/S/A,
+Cmd+/ comment, Option+Delete for "delete words", Cmd+Left/Right for line start and end,
+and Shift+Cmd+Down for "select to end". "Go to line" stays Ctrl+G, which is what VS Code
+and Sublime Text bind on a Mac. With `[commands] editor_profiles` on, the JetBrains and
+Sublime profiles use those editors' macOS keymaps. The spoken spreadsheet moves "top of
+column" and "bottom of column" send Cmd+Up/Down instead of Ctrl+Up/Down, which opens
+Mission Control on a Mac. The macOS injector also stops sending the "a" key for every
+named key. "Return", "BackSpace" and the arrows were looked up in the wrong case and fell
+back to keycode 0, and a key it cannot express is now skipped and logged. Linux, Windows
+and BSD send exactly the keys they sent before, and a test pins every one. This project
+has no Mac, so none of this has been run on macOS. Only a stand-in for Quartz has
+checked it.
+
+### Fixed — editor command profiles follow the focused app on macOS and Windows too (experimental, off by default, untested on a real Mac or Windows desktop)
+
+With `[commands] editor_profiles = true`, `profile = "auto"` is documented to send the
+focused editor's keys, for example Ctrl+Y to delete a line in a JetBrains IDE. Only Linux
+could tell which app was in focus, through AT-SPI or `xdotool`. On macOS and Windows
+nothing read the focused app, so every command quietly used the default VS Code-style
+keys. Each platform can now name the focused app. macOS reads the frontmost app's bundle
+id (`com.microsoft.VSCode`, `com.jetbrains.pycharm`, `com.sublimetext.4`). Windows reads
+the program file of the window in front (`Code.exe`, `idea64.exe`, `sublime_text.exe`).
+Neither reads a window title or anything else on screen. The profile matcher now
+recognises the macOS and Windows names of VS Code, the JetBrains IDEs, Android Studio and
+Sublime Text, and a test covers each one. On macOS the matched profile uses that editor's
+macOS keymap. Linux works as before. Neither lookup has run on a real Mac or Windows
+machine yet; the tests use stand-ins for AppKit and Win32.
+
+### Added — "send to Claude": open the Claude or Codex app with your prompt filled in, never sent (off by default)
+
+Say "send to Claude", "send to Claude Code" or "send to Codex" as a whole utterance, or
+run `yazses send-to claude|claude-code|codex [TEXT]`, and that desktop app opens a new
+conversation with the text already in its prompt box. You read it and press Enter
+yourself; YazSes does not send it. The text is the staged buffer when staged mode is on
+(cleared only if the app opened), otherwise the last burst YazSes typed, or the TEXT you
+give. It goes through the apps' own `claude://` and `codex://` links: the three apps are a
+fixed list, there is no web fallback and no setting that changes the address. Text over
+14,000 characters is refused, not cut, and stays in the staged buffer. The log records
+the app and the character count, never the words. Turn it on with
+`yazses features enable sendto` (it writes `enabled = true` under `[sendto]` in
+`config.toml`); `yazses features` lists it under Commands & automation. This is
+[ADR-031](design/adr/adr-031-send-to-prefill-handoff.md), accepted on 2026-10-23.
+Unverified: it has **not yet been tried against the real Claude or Codex desktop apps**
+on any platform, so whether each app pre-fills without sending is
+documented by the vendors, not yet observed here. The link goes through a per-OS opener
+behind the platform layer (on Linux the desktop portal over D-Bus, then `xdg-open`;
+`NSWorkspace` on macOS; `ShellExecute` on Windows) that refuses any web address before it
+starts anything. On Linux the link goes to the desktop portal (`xdg-desktop-portal`'s
+OpenURI) over the session bus, so it is in no process list of YazSes's; only where there is
+no portal does it fall back to `xdg-open`, whose argument it is while it opens, so other
+processes on the same machine could read it in the process list. Once the portal has the
+link, an error, a cancelled app chooser or no answer is reported as a failed hand-off and
+never retried through `xdg-open`, which could open the app twice. The one exception is the
+portal's "failed some other way" answer (response 2): it means the portal did not open
+the app, so YazSes tries `xdg-open` once, and the link is in its argument list while it
+runs. On every path the app gets the
+link as an argument if this starts it. The portal path is untested against a real portal,
+and macOS and Windows are untested. Written in a code-only pass; its tests have not been
+run yet.
+
+### Security — the GitPython advisory (GHSA-83vg-56qc-22m7) is assessed, not yet patchable
 
 ### Security — GitPython is on 3.2.1, which fixes GHSA-83vg-56qc-22m7
 

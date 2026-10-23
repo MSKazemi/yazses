@@ -151,6 +151,8 @@ def test_the_keys_action_reaches_the_injector_as_a_key_sequence() -> None:
             inject=typed.append, inject_key_sequence=keys.append
         ),
         _notify_spoken=lambda message: None,
+        # The action reads the platform's shortcut modifier (Cmd on macOS); Ctrl here.
+        _primary_modifier=lambda: "ctrl",
     )
     event: dict = {}
     Daemon._run_spoken_action(

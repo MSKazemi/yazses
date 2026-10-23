@@ -26,6 +26,7 @@ self-contained — pick the one that matches what you want to do.
 | [The update said it worked but the version did not change](update-did-nothing.md) | A package manager can exit 0 without upgrading anything — the reinstall command per install method. |
 | [Stop a misheard command from running](command-safety.md) | Hold `rm -rf`, `mkfs`, `curl \| sh` until you say confirm — on in a fresh install. |
 | [Over SSH and in Remote-SSH editors](ssh-and-remote.md) | Why dictation into an SSH session needs no setup, and when the remote agent is needed. |
+| [Connect YazSes to an MCP client](connect-mcp-client.md) | Let an agent transcribe files on your machine, and optionally ask you a question out loud: the one-click bundle or the manual config. |
 | [Install only what you need](install-only-what-you-need.md) | Read the DOWNLOAD column before you turn a capability on, and keep an install small. |
 | [Choose a model on a low-RAM machine](low-ram-models.md) | Measured memory per Whisper model, and which features load a model of their own. |
 | [Reduce CPU use and battery drain](cpu-and-battery.md) | What dictation costs on a laptop, and the settings that actually lower it. |

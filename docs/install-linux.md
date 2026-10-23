@@ -7,7 +7,9 @@ description: Step-by-step install of YazSes offline voice dictation on Linux —
 
 This guide installs the Python daemon as a global command and starts it
 automatically at login. It targets the reliable batch (transcribe-on-release)
-configuration. Tested on X11 + PipeWire.
+configuration. Most reports from real machines are on X11 + PipeWire; the
+[validation matrix](validation-matrix.md) lists them, and a dated, versioned
+hardware record for X11 is still to come ([#642](https://github.com/MSKazemi/yazses/issues/642)).
 
 ## 1. Install — one command
 

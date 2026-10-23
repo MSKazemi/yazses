@@ -48,6 +48,8 @@ PLATFORM_BASE: dict[str, str] = {
     "Quartz": "pyobjc-framework-quartz",
     "AppKit": "pyobjc-framework-cocoa",
     "CoreFoundation": "pyobjc-framework-cocoa",
+    "Foundation": "pyobjc-framework-cocoa",
+    "PyObjCTools": "pyobjc-framework-cocoa",  # AppHelper ships in the Cocoa wrapper
     "ApplicationServices": "pyobjc-framework-applicationservices",
     "AVFoundation": "pyobjc-framework-avfoundation",
     "pywintypes": "pywin32",

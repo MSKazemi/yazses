@@ -49,6 +49,15 @@ WINDOWS_PLATFORM_NAME = "win32"
 #: documented command, caught only by the bundle smoke test.
 BSD_PREFIXES = ("freebsd", "openbsd", "netbsd", "dragonfly")
 
+#: The modifier an OS's own application shortcuts are built on -- undo, copy, paste,
+#: save, select all. Ctrl on Linux, Windows and the BSDs; Cmd on macOS, where Ctrl is a
+#: different modifier with different meanings (Ctrl+A moves to the start of the line in
+#: a Cocoa text field, Ctrl+Up opens Mission Control). `Platform.primary_modifier` holds
+#: one of these, and `commands/dispatch.py` picks its keymap from it, so the dispatcher
+#: never has to ask which OS it is on.
+PRIMARY_MODIFIER_CTRL = "ctrl"
+PRIMARY_MODIFIER_CMD = "cmd"
+
 
 class UnsupportedPlatformError(RuntimeError):
     """Raised when the current sys.platform has no YazSes backend."""
@@ -111,6 +120,20 @@ class TrayModel:
     meeting_enabled: bool | None = None
     meeting_active: bool = False
     meeting_finalizing: bool = False
+    # `[stt] idle_unload_s` (ADR-029): the daemon's `stt_residency` block -- whether the
+    # speech model is in memory and how long it has been idle -- or None at the default
+    # of 0 and on an older daemon. `tray/menu.py::residency_line` turns it into the one
+    # tooltip and menu line. Left out of the generated hash because a dict cannot be
+    # hashed; equality still compares it.
+    stt_residency: dict[str, Any] | None = field(default=None, hash=False)
+    # The decoder actually running (#644): `engine` and `engine_model` name it, and
+    # `engine_fallback` ({"from", "reason"}) says why the configured one is not it. None
+    # while the model loads and on an older daemon. The tray menus' status line reads
+    # them through `tray/menu.py::engine_line`, with the wording `yazses status` uses.
+    # `engine_fallback` is left out of the hash for the reason `stt_residency` is.
+    engine: str | None = None
+    engine_model: str | None = None
+    engine_fallback: dict[str, Any] | None = field(default=None, hash=False)
 
 
 @dataclass(frozen=True)
@@ -349,6 +372,115 @@ class FileOpener(Protocol):
         ...
 
 
+#: Schemes a :class:`UrlOpener` refuses before anything is started. Each would make the
+#: hand-off something other than "give this to a locally installed program": a web or
+#: socket scheme is fetched by a browser, which transmits whatever the URL carries in the
+#: request that opens the page (ADR-019; ADR-031 §2 "no https:// fallback, ever"), and the
+#: rest open local files or run code. A deny-list, so it is defence in depth only: the
+#: closed allow-list of targets lives with the caller (``sendto/targets.py``).
+WEB_SCHEMES: frozenset[str] = frozenset({
+    "http", "https", "ftp", "ftps", "sftp", "ws", "wss", "gopher",
+    "file", "data", "javascript", "vbscript", "blob", "about",
+})
+
+_SCHEME_FIRST = frozenset("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz")
+_SCHEME_REST = _SCHEME_FIRST | frozenset("0123456789+-.")
+
+
+class UrlOpenRefused(ValueError):
+    """A :class:`UrlOpener` refused a URL before starting anything.
+
+    The message names the reason, never the URL: a hand-off URL can carry the user's
+    dictation (ADR-031), and an exception message is one ``log.exception`` from a log file.
+    """
+
+
+def url_scheme(url: str) -> str:
+    """The lower-cased scheme of *url* (RFC 3986 §3.1), or ``""`` when it has none.
+
+    Pure and hand-rolled: ``urllib`` is a network import as far as ADR-019's egress scan
+    is concerned, and this module must not appear in that inventory.
+    """
+    head, sep, _rest = (url or "").partition(":")
+    if not sep or not head or head[0] not in _SCHEME_FIRST:
+        return ""
+    if any(char not in _SCHEME_REST for char in head):
+        return ""
+    return head.lower()
+
+
+def require_local_scheme(url: str) -> None:
+    """Raise :class:`UrlOpenRefused` unless *url* is one token with a non-web scheme.
+
+    Every :class:`UrlOpener` calls this first, so a refusal starts no process and calls
+    no OS API. Whitespace and control characters are refused too: a URL is one argument,
+    and a percent-encoded one never contains them.
+    """
+    if any(char.isspace() or ord(char) < 0x20 or ord(char) == 0x7F for char in url or ""):
+        raise UrlOpenRefused("the URL contains whitespace or control characters")
+    scheme = url_scheme(url)
+    if not scheme:
+        raise UrlOpenRefused("the URL has no scheme")
+    if scheme in WEB_SCHEMES:
+        raise UrlOpenRefused(
+            f"a {scheme}: URL is not handed to the desktop through this seam -- it would "
+            "be fetched, not given to a local program"
+        )
+
+
+@runtime_checkable
+class UrlOpener(Protocol):
+    """Hands a custom-scheme URL to the program the OS registered for that scheme.
+
+    One implementation per OS family, beside :class:`FileOpener` (ADR-031 §3). Built for
+    "send to", whose URL *is* the user's dictation, percent-encoded, so every
+    implementation keeps three rules:
+
+    * **Refuse before starting anything** -- :func:`require_local_scheme` first. This seam
+      never opens a web URL; a browser hand-off goes through ``system/browser.py``, which
+      ADR-019's egress inventory can see.
+    * **Never a shell, and the URL is one argument** where a child process is used.
+    * **Nothing that can carry the URL is written anywhere**: no log line, the child's
+      stdout/stderr go to ``/dev/null`` (``xdg-open`` echoes its argument in its error
+      messages, and the daemon's stderr is its log), and a raised exception's message
+      names a status or an errno, never the URL.
+
+    The method is ``open_url``, not ``open``, so that a :class:`FileOpener` can never pass
+    an ``isinstance`` check for this Protocol by accident.
+    """
+
+    def open_url(self, url: str) -> None:
+        """Hand *url* to its scheme's registered program; return once it is handed off.
+
+        Raises :class:`UrlOpenRefused` for a URL :func:`require_local_scheme` rejects, and
+        ``OSError`` when the OS reports that it could not hand the URL off (no program
+        registered, the opener missing or failing). "Handed off" is the OS's answer, not
+        the client's: whether the client then shows the text is outside this seam.
+        """
+        ...
+
+
+@runtime_checkable
+class FocusedAppProvider(Protocol):
+    """Names the application that has the keyboard focus -- and nothing else about it.
+
+    Read by the editor command profiles (`commands/profiles.py`) when a spoken command is
+    dispatched with `[commands] profile = "auto"`, so "delete the last line" sends the
+    focused editor's own keys. The answer is an *identifier* only: a bundle id on macOS
+    (``com.microsoft.VSCode``), a process image name on Windows (``Code.exe``). Never a
+    window title, a document name, a path, or any text on screen -- the same privacy line
+    as the click observer, which reports a time and a place and nothing more.
+    """
+
+    def app_id(self) -> str:
+        """The focused application's identifier now, or ``""`` when it cannot be read.
+
+        Called once per dispatched command, on the daemon's thread: it must be cheap and
+        must never raise.
+        """
+        ...
+
+
 @dataclass(frozen=True)
 class UpdateHandoff:
     """What a detached updater must do once YazSes itself has exited (ADR-027).
@@ -497,6 +629,12 @@ class AccessibilityBackend(Protocol):
     until this same instance's next `snapshot`. `perform` is the one method that changes
     anything on screen, and it acts only on a node of the latest snapshot -- an id from an
     older one, or one the backend does not know, is refused rather than guessed.
+
+    A candidate's ``checked`` is ``True``/``False`` only when the backend read the state
+    of a checkable control, and ``None`` otherwise. The Voice Pilot's "check X" and
+    "uncheck X" act only when it differs from the asked state, and hold for a spoken
+    confirm when it is ``None`` -- so a backend must never report ``False`` for a state
+    it merely did not see.
     """
 
     def snapshot(
@@ -556,6 +694,15 @@ platform ships one yet. `None` is the honest answer for "not here" -- the daemon
 and implicit refinement stays dormant, rather than a no-op observer that never delivers a click.
 """
 
+FocusedAppFactory = Callable[[], FocusedAppProvider]
+"""Builds this platform's focused-application provider for the editor command profiles.
+
+A factory, and optional, for the pointer's reasons: nothing OS-specific is imported while
+`get_platform()` merely runs, and a platform with no provider says so with `None` rather
+than one that always answers "". It may raise when the OS facility it needs is missing
+(macOS without the AppKit bridge); the message is the reason the daemon logs.
+"""
+
 InputBlockProbe = Callable[[], str | None]
 """Says why the focused window will not receive synthetic input, or returns None.
 
@@ -608,4 +755,18 @@ class Platform:
     # running above our integrity level, and SendInput reports success while it does.
     # The "no text target" guard reads it, so the words go to the clipboard instead.
     input_block_probe: InputBlockProbe | None = None
+    # Builds the provider that names the focused application (`FocusedAppProvider`), for
+    # `[commands] profile = "auto"`. macOS (NSWorkspace) and Windows (the foreground
+    # window's process) set it. Linux and the BSDs leave it None on purpose: there the
+    # daemon reads the focused application through the text-target guard's detector
+    # (AT-SPI, else X11 xdotool), which already existed before this seam did.
+    focused_app_factory: FocusedAppFactory | None = None
+    # Why `focused_app_factory` is None where a platform knows it cannot have one, in a
+    # sentence the daemon log can repeat -- or None when it is set, or when the platform
+    # reads the focused application some other way (Linux, above).
+    focused_app_unavailable_reason: str | None = None
+    # The modifier this OS's application shortcuts use (`PRIMARY_MODIFIER_CTRL` or
+    # `PRIMARY_MODIFIER_CMD`). macOS sets Cmd; every other bundle keeps the Ctrl default,
+    # which is what keeps their spoken-command keys exactly what they always were.
+    primary_modifier: str = PRIMARY_MODIFIER_CTRL
     extras: dict[str, Any] = field(default_factory=dict)

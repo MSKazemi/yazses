@@ -62,6 +62,42 @@ Bind `yazses staged commit` to a key if you use it often. Saying "commit that" c
 turned on with `[staged] spoken_commit`. It is off by default because, when recognition
 goes wrong, the commit phrase is exactly what can be misheard.
 
+## Hand a prompt to the Claude or Codex app: send to
+
+If the agent is the Claude desktop app or the Codex app, YazSes can open it with your
+prompt already in the box, so you do not have to focus its input before you speak. It
+fills the box and stops there: you read the prompt and press Enter yourself. It is off
+by default and has not yet been tried against the real desktop apps.
+
+Turn it on, then restart the daemon so it listens for the phrases:
+
+```sh
+yazses features enable sendto
+yazses restart
+```
+
+That writes `enabled = true` under `[sendto]` in `config.toml`, which you can also set by
+hand.
+
+Then dictate, review, and send it over:
+
+1. With staged mode on, dictate the prompt into the buffer.
+2. Say **"send to Claude"**, **"send to Claude Code"** or **"send to Codex"** as a whole
+   utterance, or run `yazses send-to claude` (or `claude-code`, `codex`).
+3. The app opens a new conversation with the prompt filled in. Read it, edit it, and
+   press Enter there.
+
+Without staged mode, the phrase hands over the last burst YazSes typed. To send text
+from a script or a key binding, give it directly: `yazses send-to codex "explain the
+failing test"`.
+
+A few limits are deliberate. Only those three apps can be targets, through their own
+`claude://` and `codex://` links; there is no web fallback, because opening a web page
+would send the text to a server before you had read it. A prompt over 14,000 characters
+is refused rather than cut, and stays in the staged buffer. The log records which app and
+how many characters, never the words. Details are in the
+[CLI reference](../cli-reference.md#yazses-send-to).
+
 ## Technical vocabulary
 
 Agents need the names in your codebase spelled correctly. Add the project's identifiers,
@@ -82,21 +118,21 @@ It offers `transcribe`, which turns an audio or video file into text on your mac
 With `[mcp] ask_human = true` it also offers `ask_human`: an agent that needs a decision
 only you can make asks you out loud, and gets your spoken answer back instead of having
 it typed into your editor. A budget limits how often agents may interrupt you. Details
-are in the [CLI reference](../cli-reference.md#yazses-mcp-server).
+are in the [CLI reference](../cli-reference.md#yazses-mcp-server), and setup for each
+client is in [Connect YazSes to an MCP client](../how-to/connect-mcp-client.md).
 
-## What is planned
+## Not released yet
 
-Two small additions are proposed. Both will be off by default:
+One more piece is built but not yet in a release:
 
-- **Send to**: hand a dictated prompt to the Claude or Codex desktop app, already filled in
-  and never sent, so you review it and press Enter yourself
-  ([ADR-031](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-031-send-to-prefill-handoff.md)).
 - **One-click MCP**: install the MCP server from a client's extension screen or the MCP
   registry, and an `ask_human` that stops listening when you stop talking
   ([ADR-032](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-032-mcp-discoverability.md)).
 
-Neither is built yet. The [roadmap](../roadmap.md) explains why this is where YazSes is
-going next.
+The bundle and the registry entry are built but have not shipped in a release yet, and the
+registry listing waits for a manual publish. *Send to*, the other bridge, is described above
+([ADR-031](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-031-send-to-prefill-handoff.md)).
+The [roadmap](../roadmap.md) explains why this is where YazSes is going next.
 
 ## What YazSes will not do
 

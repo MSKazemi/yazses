@@ -122,6 +122,7 @@ SECTION_NAMES: frozenset[str] = frozenset({
     "scribe",
     "scrub",
     "sembr",
+    "sendto",
     "sentiment",
     "shellpipe",
     "sign",

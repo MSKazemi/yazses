@@ -12,14 +12,29 @@ are the Command Safety Gate's own (``[cmdsafety] confirm_words`` / ``cancel_word
 matched by ``cmdsafety/spoken.py``), so the user learns one vocabulary for "yes, do the
 risky thing", not two.
 
+"check X" and "uncheck X" are idempotent: a box already in the asked state is left alone
+and the user is told so, and a box whose state the backend could not read is held for
+"confirm" rather than toggled on a guess (``plan.decide``). "uncheck" on a radio button is
+refused with the reason: clicking one selects it, it is turned off by choosing another.
+
 The pending action follows the gate's rules, deliberately:
 
 * **Anything else discards it.** There is no modal state that swallows dictation until
   the magic word is said; a user who has moved on loses the click, never their speech.
 * **It expires** after :data:`PENDING_TTL_S`. A "confirm" said minutes later, about
   something else, must not click a button in a window the user has long left.
-* **It acts on the node that was matched**, through the same backend instance that read
-  it -- never on a fresh match of the same words, which could be a different control.
+* **It is decided again at confirm time, for every held verb.** The window can change
+  during the hold -- a dialog closes, another identical "Delete" row appears, the user
+  ticks the box themselves -- and the snapshot id held since the prompt then names a
+  different control, or none. So "confirm" re-reads the window through the same backend
+  instance, finds the held control again by its exact label (case and whitespace
+  folded), its role and its position among identical controls (``plan.redecide_held``),
+  and acts once on that control's *new* id. Gone, renamed, a different role, no longer
+  clickable, or a different number of identical controls so it is unclear which was
+  meant: nothing is clicked and the user is told why. It never falls back to a fresh
+  match of the spoken words, which could be a different control. A held "check" /
+  "uncheck" is also re-checked against the state it asked for: already in that state
+  now, nothing is clicked.
 
 Messages name the control's label (bidi-isolated, truncated); nothing here logs it.
 """
@@ -34,7 +49,22 @@ from dataclasses import dataclass
 from yazses.bidi import wrap_user_text
 from yazses.cmdsafety.spoken import match_control
 from yazses.grounding.onscreen import OnScreenReader
-from yazses.pilot.plan import ACT, CONFIRM, Element, PilotDecision, decide, parse_command
+from yazses.pilot.plan import (
+    ACT,
+    ALREADY,
+    CONFIRM,
+    HELD_AMBIGUOUS,
+    HELD_GONE,
+    REFUSED,
+    Element,
+    HeldTarget,
+    PilotCommand,
+    PilotDecision,
+    decide,
+    held_target,
+    parse_command,
+    redecide_held,
+)
 
 log = logging.getLogger(__name__)
 
@@ -51,16 +81,17 @@ _LABEL_CHARS = 60
 class PilotOutcome:
     """What one utterance did. ``consumed`` False means "not mine -- carry on with it"."""
 
-    verdict: str          # act | confirm | none | confirmed | cancelled | discarded | failed
+    # act | already | confirm | none | confirmed | cancelled | discarded | failed | refused
+    verdict: str
     message: str | None
     consumed: bool = True
 
 
 @dataclass(frozen=True)
 class _Pending:
-    entity_id: str
-    action_name: str
-    label: str
+    # What finds the held control again; the confirm re-reads and re-decides on it. No
+    # snapshot id is kept: the one read at hold time must never be acted on.
+    target: HeldTarget
     at: float
 
 
@@ -71,8 +102,11 @@ def elements_from_candidates(candidates: Iterable) -> list[Element]:
         label = getattr(c, "label", None) or ""
         if not label:
             continue
+        checked = getattr(c, "checked", None)
         out.append(Element(label=label, role=getattr(c, "role", "") or "",
                            actions=tuple(getattr(c, "actions", ()) or ()),
+                           # Only a real bool is a state; anything else is "unknown".
+                           checked=checked if isinstance(checked, bool) else None,
                            entity_id=getattr(c, "entity_id", "") or ""))
     return out
 
@@ -86,6 +120,19 @@ def _show(label: str) -> str:
 
 _VERB_PAST = {"activate": "Clicked", "toggle": "Toggled", "focus": "Focused"}
 _VERB_NOW = {"activate": "click", "toggle": "toggle", "focus": "focus"}
+
+
+def _verb_now(cmd: PilotCommand, *, state_known: bool = True) -> str:
+    """"check"/"uncheck" when the command asked for a state that was read, else the verb."""
+    if cmd.want_checked is not None and state_known:
+        return "check" if cmd.want_checked else "uncheck"
+    return _VERB_NOW.get(cmd.action, "activate")
+
+
+def _verb_past(cmd: PilotCommand) -> str:
+    if cmd.want_checked is not None:
+        return "Checked" if cmd.want_checked else "Unchecked"
+    return _VERB_PAST.get(cmd.action, "Activated")
 
 
 class PilotService:
@@ -125,7 +172,7 @@ class PilotService:
 
     # -- a new command -----------------------------------------------------------
     def command(self, phrase: str) -> PilotOutcome:
-        """Handle "click/press/toggle/check <label>". Always consumed once routed here."""
+        """Handle "click/press/toggle/check/uncheck <label>". Consumed once routed here."""
         self._pending = None  # a new command replaces whatever was held
         if parse_command(phrase) is None:
             return PilotOutcome("none", None, consumed=False)
@@ -134,7 +181,8 @@ class PilotService:
             reason = self._unavailable_reason or (
                 "the focused window's accessibility tree could not be read")
             return PilotOutcome("none", f"Voice Pilot did nothing: {reason}.")
-        decision = decide(phrase, elements_from_candidates(candidates),
+        elements = elements_from_candidates(candidates)
+        decision = decide(phrase, elements,
                           threshold=self._threshold,
                           confirm_ambiguous=self._confirm_ambiguous)
         if decision is None:  # pragma: no cover - parse_command already said yes
@@ -144,26 +192,55 @@ class PilotService:
         if decision.verdict == ACT:
             return self._act(decision)
         if decision.verdict == CONFIRM:
-            return self._hold(decision)
+            return self._hold(decision, held_target(decision, elements))
+        if decision.verdict == ALREADY:
+            return self._already(decision)
+        if decision.verdict == REFUSED:
+            return self._radio_uncheck(decision)
         return PilotOutcome("none", self._no_match_message(decision))
+
+    @staticmethod
+    def _radio_uncheck(decision: PilotDecision) -> PilotOutcome:
+        """"uncheck X" on a radio button: clicking it would select it, never clear it."""
+        elem = decision.element
+        assert elem is not None
+        return PilotOutcome("refused", f"Cannot uncheck {_show(elem.label)}: a radio button "
+                                       "is turned off by choosing another option. "
+                                       "Nothing was changed.")
+
+    @staticmethod
+    def _already(decision: PilotDecision) -> PilotOutcome:
+        """"check X" on a checked box, "uncheck X" on an unchecked one: touch nothing."""
+        elem = decision.element
+        assert elem is not None
+        state = "checked" if decision.command.want_checked else "unchecked"
+        return PilotOutcome("already", f"{_show(elem.label)} is already {state}; "
+                                       "nothing was changed.")
 
     def _act(self, decision: PilotDecision) -> PilotOutcome:
         elem = decision.element
         assert elem is not None and decision.action_name is not None
-        verb = decision.command.action
+        cmd = decision.command
         if self._reader.perform(elem.entity_id, decision.action_name):
-            return PilotOutcome("act", f"{_VERB_PAST.get(verb, 'Activated')} {_show(elem.label)}.")
-        return PilotOutcome("failed", f"Could not {_VERB_NOW.get(verb, 'activate')} "
+            return PilotOutcome("act", f"{_verb_past(cmd)} {_show(elem.label)}.")
+        return PilotOutcome("failed", f"Could not {_verb_now(cmd)} "
                                       f"{_show(elem.label)}: the control did not respond.")
 
-    def _hold(self, decision: PilotDecision) -> PilotOutcome:
+    def _hold(self, decision: PilotDecision,
+              target: HeldTarget | None) -> PilotOutcome:
         elem = decision.element
         assert elem is not None and decision.action_name is not None
-        self._pending = _Pending(elem.entity_id, decision.action_name, elem.label,
-                                 self._clock())
-        verb = _VERB_NOW.get(decision.command.action, "activate")
+        if target is None:  # pragma: no cover - decide() picked it from these elements
+            # Nothing could find it again at confirm time, so nothing may be held.
+            return PilotOutcome("none", f"Could not hold {_show(elem.label)} for a "
+                                        "confirm; nothing was clicked.")
+        self._pending = _Pending(target, self._clock())
+        # With the state unread, what a confirm does is flip it, so say "toggle".
+        verb = _verb_now(decision.command, state_known=elem.checked is not None)
         what = f"{verb} {_show(elem.label)}"
-        if decision.reason == "destructive":
+        if decision.reason == "state_unknown":
+            lead = f"Could not read whether {_show(elem.label)} is checked."
+        elif decision.reason == "destructive":
             lead = f"{_show(elem.label)} may not be undoable."
         elif decision.reason == "ambiguous":
             lead = (f"{decision.matches} controls match. The first is {_show(elem.label)};"
@@ -198,16 +275,59 @@ class PilotService:
         assert held is not None
         control = match_control(text, self._confirm_words, self._cancel_words)
         if control == "confirm":
-            if self._reader.perform(held.entity_id, held.action_name):
-                return PilotOutcome("confirmed", f"Done: {_show(held.label)}.")
-            return PilotOutcome("failed", f"Could not act on {_show(held.label)}: it is no "
-                                          "longer there or did not respond.")
+            return self._confirm(held.target)
         if control == "cancel":
             return PilotOutcome("cancelled", "Cancelled — nothing was clicked.")
         if parse_command(text) is not None:
             return PilotOutcome("discarded", None, consumed=False)
         return PilotOutcome("discarded", "Discarded the held click — it was not confirmed.",
                             consumed=False)
+
+    def _confirm(self, target: HeldTarget) -> PilotOutcome:
+        """Carry out a confirmed held click only if a fresh read still finds its control.
+
+        Every held verb comes here -- a destructive label, a partial match, a tie, a
+        "check" on an unread state. The id held since the prompt belongs to the old
+        snapshot; the re-read replaces it, so the click goes once to the same control as
+        it is *now* -- or nowhere, with the reason told.
+        """
+        shown = _show(target.label)
+        candidates = self._reader.read()
+        if candidates is None:
+            return PilotOutcome("refused", f"Could not re-read the window to find "
+                                           f"{shown} again; nothing was changed.")
+        decision = redecide_held(target, elements_from_candidates(candidates))
+        log.info("Voice Pilot confirm: %s (%s), %d candidate(s) re-read.",
+                 decision.verdict, decision.reason, len(candidates))
+        if decision.verdict == REFUSED:
+            return self._radio_uncheck(decision)
+        if decision.verdict == ALREADY:
+            state = "checked" if target.command.want_checked else "unchecked"
+            return PilotOutcome("already", f"{shown} is already {state} now; "
+                                           "nothing was changed.")
+        if decision.verdict == ACT:
+            elem = decision.element
+            assert elem is not None and decision.action_name is not None
+            if target.command.want_checked is None:
+                done = f"Done: {shown}."
+            else:
+                # Unread then and now: what the user confirmed was a toggle, so say so.
+                verb = (_verb_past(target.command) if elem.checked is not None
+                        else _VERB_PAST["toggle"])
+                done = f"Done: {verb.lower()} {shown}."
+            if self._reader.perform(elem.entity_id, decision.action_name):
+                return PilotOutcome("confirmed", done)
+            return PilotOutcome("failed", f"Could not act on {shown}: it did not respond.")
+        if decision.reason == HELD_GONE:
+            # Vanished, renamed, a different role, or no longer clickable: the prompt
+            # named a control that is not there any more as itself.
+            why = f"{shown} is no longer in the window as the same control"
+        elif decision.reason == HELD_AMBIGUOUS:
+            why = (f"the window changed and it is no longer clear which {shown} "
+                   "was meant")
+        else:  # state_lost
+            why = f"whether {shown} is checked can no longer be read"
+        return PilotOutcome("refused", f"Did not act: {why}. Nothing was changed.")
 
 
 __all__ = ["PENDING_TTL_S", "PilotOutcome", "PilotService", "elements_from_candidates"]

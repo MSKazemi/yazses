@@ -12,6 +12,7 @@ from yazses.platform.base import (
     Paths,
     Platform,
     UnsupportedPlatformError,
+    UrlOpener,
 )
 
 # What still works when there is no OS backend at all. Roughly half of YazSes
@@ -109,6 +110,31 @@ def get_file_opener() -> FileOpener:
     if sys.platform == "win32":
         from yazses.platform.windows.fileopen import WindowsFileOpener
         return WindowsFileOpener()
+    raise NotImplementedError(f"Unsupported platform: {sys.platform}")
+
+
+def get_url_opener() -> UrlOpener:
+    """The "hand this URL to its registered program" backend for this OS (ADR-031 §3).
+
+    Built for "send to", whose URL carries the user's dictation; see
+    :class:`~yazses.platform.base.UrlOpener` for the rules every backend keeps. A seam of
+    its own, like :func:`get_file_opener` and for the same reason: a CLI hand-off should
+    not import the hotkey, injector or IPC stacks. The BSDs share the Linux opener
+    (the desktop portal's ``OpenURI``, then ``xdg-open``). An OS with no backend is refused with ``NotImplementedError`` naming
+    ``sys.platform`` -- the caller reports that as a failed hand-off, never as a fallback
+    to a browser.
+    """
+    from yazses.platform.bsd import is_bsd
+
+    if sys.platform.startswith("linux") or is_bsd():
+        from yazses.platform.linux.fileopen import LinuxUrlOpener
+        return LinuxUrlOpener()
+    if sys.platform == "darwin":
+        from yazses.platform.macos.fileopen import MacosUrlOpener
+        return MacosUrlOpener()
+    if sys.platform == "win32":
+        from yazses.platform.windows.fileopen import WindowsUrlOpener
+        return WindowsUrlOpener()
     raise NotImplementedError(f"Unsupported platform: {sys.platform}")
 
 

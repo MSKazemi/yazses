@@ -23,19 +23,18 @@ Windows `.exe`, macOS `.dmg`, and Debian `.deb` installers attached to the GitHu
 release workflows fire on `v*` tags). The v2 line is delivered as a long series of research
 waves, each a fresh state-of-the-art sweep → ADRs → pure, 100%-covered, off-by-default cores.
 
-On `main` (v2.44.0 plus the unreleased frontier): **149 capabilities (124 wired / 25 honestly
+On `main` (v2.44.0 plus the unreleased frontier): **<!-- registry:total -->150<!-- /registry --> capabilities (<!-- registry:wired -->125<!-- /registry --> wired / <!-- registry:unwired -->25<!-- /registry --> honestly
 marked "planned")**, **14800+ tests green**, ADRs `adr-v2-001..151`, and the per-wave
 state-of-the-art research notes. The counts come from the feature registry
 (`yazses.system.features`) and from running the suite, not from counting by hand — every one
 of them had gone stale again by 2026-08-14, and again in the direction of understating what
 had shipped. All three are now pinned by
 `tests/test_docs_current_version_claims.py`, so they fail CI rather than rotting
-quietly. Re-derive them, do not edit them:
+quietly. The capability counts are written by the docs generator, between the
+`registry` markers; the test figure is re-derived by hand. Do not edit either:
 
 ```bash
-uv run python -c "from yazses.system import features as F; \
-    print(len(F._CATEGORIES), 'total;', len(F._CATEGORIES) - len(F._UNWIRED), 'wired;', \
-          len(F._UNWIRED), 'planned')"
+uv run python scripts/gen-docs.py          # rewrites the capability counts (make docs)
 uv run python -m pytest tests/ -q | tail -1
 ```
 
@@ -53,8 +52,8 @@ gets embarrassing; the guard fails if the suite ever drops below it.
   real per-frame eye-agreement confidence replacing a hard-coded 1.0); the **sotto-voce
   command channel** (whisper a phrase → command, speak → dictation; pure DSP); the
   **activation-source seam** that finally constructs the EMG squeeze-to-talk backend; and
-  **registry honesty** (`features enable` refuses the 72 designed-but-unwired entries
-  instead of silently doing nothing). Of the candidates the 2026-08-07 study named
+  **registry honesty** (`features enable` refuses the designed-but-unwired entries —
+  72 of them in v2.14.0 — instead of silently doing nothing). Of the candidates the 2026-08-07 study named
   next, offline Command Mode on selected text and Moonshine (as a third engine) shipped in
   v2.19.0, and a hands-free preset in v2.43.0; decode-time hotword boosting was retired in
   v2.43.0 in favour of engine-agnostic post-decode correction.

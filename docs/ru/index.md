@@ -213,7 +213,7 @@ Measured on a 13th-gen Core i7 laptop, int8 on CPU: **4.07 % WER** on LibriSpeec
 
 | | |
 |---|---|
-| **OS** | Linux (primary) · macOS 11+ · Windows 10 (21H2)+ |
+| **OS** | Linux (primary) · macOS 14+ (preview) · Windows 10 (21H2)+ (preview) |
 | **RAM** | 4 GB minimum · 8 GB comfortable |
 | **Disk** | ~250 MB–1 GB for the faster-whisper model (downloaded on first run) |
 | **CPU** | 2+ cores · no GPU required |
@@ -279,8 +279,8 @@ An honest comparison with other voice-dictation tools. All claims are about publ
 | Runs offline / on-device | ✅ | ✅ | ✅ | ✅ | ❌ (cloud) |
 | Voice commands | ✅ regex grammar + optional SLM | ✅ | ✅ advanced scripting | ✅ | limited |
 | Linux | ✅ | ❌ | ✅ | ❌ | ❌ |
-| macOS | ✅ | ❌ (discontinued) | ✅ | ❌ | ✅ |
-| Windows | ✅ | ✅ | ✅ | ✅ (built in) | ✅ |
+| macOS | ✅ preview | ❌ (discontinued) | ✅ | ❌ | ✅ |
+| Windows | ✅ preview | ✅ | ✅ | ✅ (built in) | ✅ |
 | Price | Free, Apache-2.0 | Paid | Free (paid beta features) | Free (built into Windows 11) | Paid subscription |
 | Open source | ✅ | ❌ | ❌ | ❌ | ❌ |
 

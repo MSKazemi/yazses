@@ -98,6 +98,15 @@ class SustainedVowelDriver:
         self._pending: int | None = None
         self._since_click = self._refractory
 
+    @property
+    def engaged(self) -> bool:
+        """True while a sound is held (a directed run, a voiced run) or a click is pending.
+
+        The device monitor reads it so a re-scan never cuts into a vowel the user is
+        steering with. Silence clears it within ``VOICING_GAP_FRAMES`` frames.
+        """
+        return self._run > 0 or self._voiced_run > 0 or self._pending is not None
+
     def feed(self, frame: VocalFrame) -> PointerIntent | None:
         """Consume one frame; return the pointer intent for it, or ``None`` for nothing."""
         loud = frame.loudness >= self._min_loudness

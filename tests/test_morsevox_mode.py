@@ -16,8 +16,8 @@ import math
 
 import pytest
 
-from tests.test_morsevox_segment import timeline
-from yazses.morsevox.decode import MorseCalib
+from tests.test_morsevox_segment import code_timeline, timeline
+from yazses.morsevox.decode import SK, MorseCalib
 from yazses.morsevox.mode import (
     ARMED,
     ARMED_TIMEOUT_MS,
@@ -58,6 +58,11 @@ def levels(runs, *, t0: float = 0.0):
 def morse_runs(text: str, **kw):
     """`timeline` (is_on, ms) runs -> (ms, level) runs."""
     return [(dur, LOUD if on else QUIET) for on, dur in timeline(text, **kw)]
+
+
+def code_runs(codes: list[str], **kw):
+    """`code_timeline` (one character per code, e.g. the prosign SK) -> (ms, level) runs."""
+    return [(dur, LOUD if on else QUIET) for on, dur in code_timeline(codes, **kw)]
 
 
 def drive(machine, samples, *, busy=lambda t: False):
@@ -270,6 +275,43 @@ def test_the_mode_ends_after_the_exit_silence_and_not_before():
     assert step.exited == "silence"
     pulse_end = 300.0
     assert pulse_end + 3000.0 <= t_exit <= pulse_end + 3000.0 + 100.0
+
+
+def _last_pulse_end(samples) -> float:
+    return max(t for t, lv in samples if lv == LOUD) + STEP
+
+
+def test_the_sk_prosign_ends_the_mode_at_its_letter_gap_and_types_nothing():
+    m = MorseMode(cfg())
+    m.enter(0.0)
+    samples, _ = levels(code_runs([SK]) + [(4000, QUIET)])
+    text, changes = drive(m, samples)
+    assert text == ""
+    (t_exit, step), = changes
+    assert step == ModeStep(exited="prosign")
+    assert m.state == IDLE
+    # It does not wait out the 3 s exit silence: the 0.6 s letter gap ends SK.
+    sk_end = _last_pulse_end(samples)
+    assert sk_end + 600.0 <= t_exit <= sk_end + 600.0 + 100.0
+
+
+def test_s_and_k_with_a_letter_gap_are_typed_and_the_mode_stays_on_until_silence():
+    m = MorseMode(cfg())
+    m.enter(0.0)
+    samples, _ = levels(morse_runs("sk") + [(3500, QUIET)])
+    text, changes = drive(m, samples)
+    assert text == "sk "
+    assert [s.exited for _, s in changes] == ["silence"]
+
+
+def test_sk_mid_word_keeps_the_letters_before_it_and_decodes_nothing_after():
+    m = MorseMode(cfg())
+    m.enter(0.0)
+    samples, _ = levels(code_runs([".-", "-...", SK, "-.-.", "-.."]) + [(3500, QUIET)])
+    text, changes = drive(m, samples)
+    assert text == "ab"
+    assert [s.exited for _, s in changes] == ["prosign"]
+    assert m.state == IDLE
 
 
 def test_the_spoken_command_enters_armed_then_decodes_once_it_is_quiet():

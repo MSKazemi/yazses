@@ -162,6 +162,17 @@ AMBIGUOUS_UNREAD = {
     # what keeps the page saying so. `tests/test_shared_config_names.py` holds it
     # to the stricter, section-attributed search, which finds no read of it.
     "AudioConfig.channels",
+    # `.enabled` is the most shared name of all -- nearly every section has one -- so
+    # the detector can never see that these two are read by nobody. Each capability is
+    # a command-line tool that works with its switch on or off: `yazses gitvoice` and
+    # `yazses chords` never consult it, and no dictation path runs git or presses a
+    # chord. The registry's own status lambda (`lambda c: c.gitvoice.enabled`) only
+    # *displays* the switch. `system/features.py::_TOGGLE_NOT_READ` carries the same
+    # two slugs, so the feature reference says how each is really used instead of
+    # "Activate: `yazses features enable ...`"; tests/test_unread_toggles_are_flagged.py
+    # holds the two lists equal.
+    "ChordsConfig.enabled",
+    "GitvoiceConfig.enabled",
 }
 
 

@@ -97,6 +97,9 @@ class NodeFacts:
     showing: bool = True
     actions: tuple[str, ...] = ()
     text: str = ""
+    #: The checked state, when the adapter could read one from a checkable control;
+    #: ``None`` otherwise. Copied to ``SemanticCandidate.checked``.
+    checked: bool | None = None
 
 
 class NodeOps(Protocol):
@@ -189,6 +192,8 @@ def walk(
                     confidence=1.0,
                     label=label,
                     actions=tuple(a for a in facts.actions if isinstance(a, str) and a),
+                    # Anything but a real bool is "unknown", never coerced to a state.
+                    checked=facts.checked if isinstance(facts.checked, bool) else None,
                 ))
                 handles[entity_id] = node
             except ValueError:

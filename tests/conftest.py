@@ -122,6 +122,32 @@ def _no_test_may_pop_a_toast_on_the_users_desktop(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _no_test_may_hand_a_url_to_the_real_desktop_portal():
+    """A test must not reach the real xdg-desktop-portal `OpenURI`.
+
+    `LinuxUrlOpener` ("send to", ADR-031) tries the portal over the session bus before it
+    falls back to `xdg-open`. The tests that fake `Popen` to pin the fallback would, on a
+    developer's desktop with jeepney and a running portal, take the portal path instead
+    and really open `claude://...` -- launching the Claude app with a test prompt in it.
+    So the bus connection is refused for every test, which is the production "no session
+    bus" path; the tests of the portal path replace `_open_session_bus` themselves.
+
+    Not built on the ``monkeypatch`` fixture, for the reason
+    `_fake_audio_is_not_judged_for_speech` gives: requesting it from an autouse fixture
+    changes when its teardown runs relative to `_no_test_may_leak_the_injector_env`.
+    """
+    from yazses.platform.linux import fileopen as linux_fileopen
+
+    def _no_session_bus():
+        raise linux_fileopen.PortalUnavailable("no session bus in the test suite")
+
+    original = linux_fileopen._open_session_bus
+    linux_fileopen._open_session_bus = _no_session_bus
+    yield
+    linux_fileopen._open_session_bus = original
+
+
+@pytest.fixture(autouse=True)
 def _no_test_may_pop_a_windows_message_box(monkeypatch):
     """A test must not reach the real `user32.MessageBoxW`.
 

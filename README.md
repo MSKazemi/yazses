@@ -324,7 +324,7 @@ method and the commands to reproduce these numbers are on the [benchmarks page](
 
 | | |
 |---|---|
-| **OS** | Linux (primary) · macOS 14+ · Windows 10 (21H2)+ |
+| **OS** | Linux (primary) · macOS 14+ (preview) · Windows 10 (21H2)+ (preview) |
 | **RAM** | 4 GB minimum · 8 GB comfortable |
 | **Disk** | ~250 MB–1 GB for the faster-whisper model (downloaded on first run) |
 | **CPU** | 2+ cores · no GPU required |
@@ -366,8 +366,8 @@ desktop experience where one exists.
 ## Limitations / when *not* to use YazSes
 
 - **It is not an LLM agent.** YazSes dictates text, transcribes recordings and runs editor and
-  terminal commands. It does **not** browse, reason over your files, set timers or hold a
-  conversation; that was the paused [Rust exploration](#rust-hci-exploration-archived).
+  terminal commands. It does **not** browse, reason over your files or hold a conversation
+  (it can set an offline timer by voice, opt-in); that was the paused [Rust exploration](#rust-hci-exploration-archived).
 - **Speaker labels and minutes are extras, not defaults.** `--diarize` and meeting minutes
   each need an opt-in extra, and minutes also need a local GGUF model that you supply. Plain
   dictation and plain transcription need neither.
@@ -393,10 +393,14 @@ documented behaviour, and each tool has strengths YazSes does not.
 | Runs offline / on-device | ✅ | ✅ | ✅ | ✅ | ❌ (cloud) |
 | Voice commands | ✅ regex grammar | ✅ | ✅ advanced scripting | ✅ | limited |
 | Linux | ✅ | ❌ | ✅ | ❌ | ❌ |
-| macOS | ✅ | ❌ (discontinued) | ✅ | ❌ | ✅ |
-| Windows | ✅ | ✅ | ✅ | ✅ (built in) | ✅ |
+| macOS | ✅ preview | ❌ (discontinued) | ✅ | ❌ | ✅ |
+| Windows | ✅ preview | ✅ | ✅ | ✅ (built in) | ✅ |
 | Price | Free, Apache-2.0 | Paid | Free (paid beta features) | Free (built into Windows 11) | Paid subscription |
 | Open source | ✅ | ❌ | ❌ | ❌ | ❌ |
+
+*Preview* means supported and installable, but not yet verified on hardware by a person on a
+current build; the [validation matrix](docs/validation-matrix.md) shows what testers have
+confirmed so far.
 
 ### The open-source, local, free ones
 
@@ -407,8 +411,8 @@ would make this comparison evasive to exactly the readers who already know about
 |---|---|---|---|---|---|
 | Runs offline / on-device | ✅ | ✅ | ✅ (cloud optional, BYOK) | ✅ | ✅ |
 | Linux | ✅ | ✅ | ✅ | ❌ (announced) | ❌ |
-| macOS | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Windows | ✅ | ✅ | ✅ | community port | ❌ |
+| macOS | ✅ preview | ✅ | ✅ | ✅ | ✅ |
+| Windows | ✅ preview | ✅ | ✅ | community port | ❌ |
 | Price | Free | Free | Free | Free | Paid (from $29) |
 | Licence | Apache-2.0 | MIT | MIT | GPLv3 | open source |
 | Voice **commands**, not just dictation | ✅ | ❌ | ✅ spoken instructions | ✅ Command Mode | limited |
@@ -510,7 +514,7 @@ for everything else.
 | `yazses doctor` | Check prerequisites (version, daemon, model, mic, injection backend, permissions) — ends with a ✓/▲/✗ verdict |
 | `yazses enroll` | Calibrate your microphone — tunes `vad_threshold` for your voice and room |
 | `yazses mic-level` | Measure mic speech level and recommend (or `--set`) the VAD threshold |
-| `yazses features` | List capabilities and toggle them (`enable`/`disable <name>`) |
+| `yazses features` | List capabilities and toggle them (`enable`/`disable <name>`). Designed but unbuilt ones are listed [separately](https://mskazemi.com/yazses/v2-features.html#designed-not-built) |
 | `yazses settings` | The same switchboard as a window — every capability as a checkbox (needs a display). [Guide](https://mskazemi.com/yazses/settings-gui.html) · `--install-launcher` adds it to your app grid |
 | `yazses vocab` | Personal dictionary of mis-heard words (`add`/`list`/`remove`) |
 | `yazses hotkey` | Show or change the hold-to-talk key (`set`) and the dedicated command key (`command`) |

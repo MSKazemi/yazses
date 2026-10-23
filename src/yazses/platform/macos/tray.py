@@ -30,8 +30,11 @@ from yazses.tray.menu import (
     MEETING_STOP_LABEL,
     REPORT_BUG_LABEL,
     SETTINGS_LABEL,
+    STATUS_LINE_SLOTS,
     TROUBLESHOOTING_LABEL,
     UPDATE_LABEL,
+    status_from_model,
+    status_lines,
 )
 from yazses.tray.updates import describe_update
 
@@ -55,6 +58,15 @@ _GLYPH = {
     TrayState.ERROR: "⚠️",
 }
 
+# The status lines at the top of the menu: engine, speech-model memory, the top warning
+# (`tray/menu.py::status_lines`). A rumps menu is built once, so the slots exist from the
+# start and each tick retitles them, hiding the ones with nothing to say. rumps keys a
+# MenuItem by its title *when it is added*, so each slot starts under a distinct
+# placeholder key; the title shown is set before the menu is ever opened.
+_STATUS_SLOT_KEYS: tuple[str, ...] = tuple(
+    f"yazses-status-{i}" for i in range(STATUS_LINE_SLOTS)
+)
+
 
 class MacosTray:
     """TrayBackend implementation for macOS, backed by rumps."""
@@ -67,6 +79,10 @@ class MacosTray:
         self._app: Any = None
         self._on_quit: Callable[[], None] | None = None
         self._lock = threading.Lock()
+        # The disabled status MenuItems (see `_STATUS_SLOT_KEYS`), and the lines they
+        # last showed, so an unchanged tick does not queue work on the main thread.
+        self._status_items: list[Any] = []
+        self._shown_lines: list[str] | None = None
 
     def run(self, on_quit: Callable[[], None]) -> None:
         try:
@@ -78,14 +94,24 @@ class MacosTray:
             ) from exc
 
         self._on_quit = on_quit
+        tray = self
 
         class _App(rumps.App):
             def __init__(self_inner) -> None:
                 super().__init__("YazSes", icon=None, title=_GLYPH[TrayState.IDLE])
+                # Status lines first: the glyph is all a Mac user saw, so the engine,
+                # whether the speech model is in memory, and any warning were invisible
+                # here while Linux showed them in its menu and Windows in its tooltip.
+                # No callback, so rumps greys them out: they inform, they do not act.
+                # Retitled only after they are in the menu (below), because rumps keys
+                # an item by its title at the moment it is added.
+                status_items = [rumps.MenuItem(key) for key in _STATUS_SLOT_KEYS]
                 # "Settings…" opens the graphical settings window — the same
                 # entry the Linux tray has, so the menu means the same thing
                 # on every OS (#63). Help/About/updates likewise.
                 self_inner.menu = [
+                    *status_items,
+                    None,
                     SETTINGS_LABEL,
                     None,
                     # Meeting Mode. Both entries always present: a rumps menu is built
@@ -100,6 +126,12 @@ class MacosTray:
                     ABOUT_LABEL,
                     UPDATE_LABEL,
                 ]
+                # "loading" until the first poll retitles them. Still on the main
+                # thread here, before the run loop starts, so no dispatch is needed.
+                _apply_status_lines(
+                    status_items, status_lines({"state": TrayState.LOADING.value})
+                )
+                tray._status_items = status_items
 
             @rumps.clicked(SETTINGS_LABEL)
             def _on_settings(self_inner, _sender) -> None:
@@ -198,6 +230,17 @@ class MacosTray:
                 self._app.title = glyph
             except Exception:
                 log.exception("Tray title update failed")
+            # The status lines, on the same tick as the glyph. Worked out here, on the
+            # poller thread, from the shared helpers; only the AppKit mutation itself
+            # goes to the main thread, and only when a line actually changed.
+            items = list(self._status_items)
+            if not items:
+                return
+            lines = status_lines(status_from_model(model))
+            if lines == self._shown_lines:
+                return
+            if _on_main_thread(_apply_status_lines, items, lines):
+                self._shown_lines = lines
 
     def notify(self, title: str, body: str) -> None:
         """Show a Notification Center banner relayed from the daemon.
@@ -220,6 +263,46 @@ class MacosTray:
             rumps.quit_application()
         except Exception:
             log.exception("Tray stop raised")
+
+
+def _apply_status_lines(items: list[Any], lines: list[str]) -> None:
+    """Show *lines* in the status slots, in order, and hide the slots left over.
+
+    Must run on the main thread: these are AppKit menu items. Module-level, like
+    ``_launch_settings``, so it is testable without rumps on a Linux runner. A hidden
+    slot keeps its old title (``hidden`` needs rumps 0.4.0, the declared floor); one
+    failing item must not leave the others stale, so each is guarded on its own.
+    """
+    for index, item in enumerate(items):
+        text = lines[index] if index < len(lines) else None
+        try:
+            if text is None:
+                item.hidden = True
+            else:
+                item.title = text
+                item.hidden = False
+        except Exception:
+            log.debug("tray status line update failed", exc_info=True)
+
+
+def _on_main_thread(func: Callable[..., None], *args: Any) -> bool:
+    """Queue ``func(*args)`` on the Cocoa main thread; ``False`` if it could not be queued.
+
+    The status poll calls ``set_state`` from its own thread, and AppKit objects may only
+    be mutated on the main one. `PyObjCTools.AppHelper.callAfter` (pyobjc-framework-Cocoa,
+    which rumps depends on) posts the call to the main run loop: no timer of our own, and
+    the poll stays the one clock. When it is unavailable the update is skipped rather
+    than made from the wrong thread, and the next tick tries again (``set_state`` records
+    the lines as shown only when they were queued).
+    """
+    try:
+        from PyObjCTools import AppHelper  # type: ignore[import-not-found]
+
+        AppHelper.callAfter(func, *args)
+    except Exception:
+        log.debug("could not queue a tray update on the main thread", exc_info=True)
+        return False
+    return True
 
 
 def _run_meeting(action: str) -> None:

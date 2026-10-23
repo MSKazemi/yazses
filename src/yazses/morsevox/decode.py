@@ -2,6 +2,23 @@
 
 Classify pulse/gap durations into Morse tokens, decode them to text, and re-fit the dot/dash
 threshold to the user's rhythm. Pure and deterministic; pulse timing is supplied upstream.
+
+**Prosigns.** A prosign is a procedural signal keyed as ONE character: its letters run
+together with only symbol gaps between them, no letter gap. This decoder already splits
+characters on timing alone (a letter ends at a silence of ``letter_gap_ms``), so a prosign
+needs no special segmentation: it arrives as one longer code between two letter gaps.
+The only one recognised is **SK** (``...-.-``, end of work), which ends Morse mode. The
+rule, so it never swallows ordinary letters:
+
+* SK is matched only as a *whole* character: exactly the six symbols ``...-.-`` with a
+  letter gap (or a word gap, or the start of the mode) on each side.
+* "S" and "K" keyed with a normal letter gap between them are two characters, ``...``
+  and ``-.-``, and decode to the letters ``"sk"`` as before.
+* A longer run that merely starts with ``...-.-`` is a different, unknown code and is
+  dropped like any other unknown code.
+* SK is never typed, and no space follows it. Letters decoded before it were already
+  emitted at their own letter gaps, so in the middle of a word ("ab", then SK) the "ab"
+  stays typed and the mode ends; nothing keyed after SK is decoded.
 """
 from __future__ import annotations
 
@@ -16,6 +33,11 @@ _MORSE = {
     "-----": "0", ".----": "1", "..---": "2", "...--": "3", "....-": "4",
     ".....": "5", "-....": "6", "--...": "7", "---..": "8", "----.": "9",
 }
+
+#: The end-of-work prosign SK, keyed as one character (no letter gap between S and K).
+SK = "...-.-"
+#: Prosign code -> its name. Disjoint from :data:`_MORSE`, so no letter is shadowed.
+PROSIGNS = {SK: "SK"}
 
 
 @dataclass(frozen=True)
@@ -41,10 +63,15 @@ def classify_gap(silence_ms: float, calib: MorseCalib) -> str:
 
 
 class MorseDecoder:
-    """Accumulate dot/dash tokens and emit decoded characters at letter/word gaps. Pure state."""
+    """Accumulate dot/dash tokens and emit decoded characters at letter/word gaps. Pure state.
+
+    A prosign (see the module docstring) closed by a gap returns ``None`` (nothing to type,
+    not even the word gap's space) and is reported once through :meth:`take_prosign`.
+    """
 
     def __init__(self) -> None:
         self._buf = ""
+        self._prosign: str | None = None
 
     def feed(self, symbol: str):
         """Feed a token (``dot``/``dash``/``gap_letter``/``gap_word``); return a char/word or None. Pure state."""
@@ -55,12 +82,21 @@ class MorseDecoder:
             self._buf += "-"
             return None
         if symbol in ("gap_letter", "gap_word"):
-            char = _MORSE.get(self._buf, "") if self._buf else ""
-            self._buf = ""
+            code, self._buf = self._buf, ""
+            prosign = PROSIGNS.get(code) if code else None
+            if prosign is not None:
+                self._prosign = prosign
+                return None
+            char = _MORSE.get(code, "") if code else ""
             if symbol == "gap_word":
                 return char + " "
             return char or None
         return None
+
+    def take_prosign(self) -> str | None:
+        """The prosign (``"SK"``) the last gap closed, once; then None until another."""
+        prosign, self._prosign = self._prosign, None
+        return prosign
 
 
 def adapt_dot_threshold(durations, calib: MorseCalib, alpha: float = 0.3) -> MorseCalib:

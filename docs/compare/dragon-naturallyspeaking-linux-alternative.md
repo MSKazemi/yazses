@@ -52,7 +52,7 @@ All of these run offline and are free and open source.
 
 | Tool | Licence | Engine | Activation | Also macOS / Windows |
 |---|---|---|---|---|
-| **YazSes** | Apache-2.0 | faster-whisper (CPU int8) | Hold-to-talk key | **Yes** |
+| **YazSes** | Apache-2.0 | faster-whisper (CPU int8) | Hold-to-talk key | **Yes** (preview) |
 | [Vocalinux](https://github.com/VocaHQ/vocalinux) | AGPL-3.0 | whisper.cpp / Whisper / VOSK | Toggle or push-to-talk | No |
 | [Speech Note](https://github.com/mkiol/dsnote) | MPL-2.0 | whisper.cpp / faster-whisper / VOSK / Coqui / april-asr | Global shortcut | No (also Sailfish OS) |
 | [nerd-dictation](https://github.com/ideasman42/nerd-dictation) | GPL-3.0 | VOSK | `begin` / `end` commands | No |

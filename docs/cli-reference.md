@@ -241,6 +241,40 @@ utterances, so "git commit -m fix" is staged rather than obeyed.
 While something is pending, **"scratch that" edits the buffer**, not the document —
 the buffer is what you are looking at.
 
+### `yazses send-to`
+
+**Open a desktop AI app with your text already in the prompt box — never sent.** The
+Claude desktop app (`claude`, or `claude-code` for a new Claude Code session) or the
+Codex app (`codex`) opens a new conversation with the text filled in. You read it and
+press Enter yourself; YazSes does not send it. Off by default, and not yet tried
+against the real desktop apps.
+
+```bash
+yazses features enable sendto                  # once: writes [sendto] enabled = true
+yazses send-to claude                          # the staged buffer, or the last burst
+yazses send-to claude-code                     # the same, as a Claude Code session
+yazses send-to codex "explain the failing test"  # this text instead
+```
+
+Without TEXT, the running daemon hands over the staged buffer when staged mode is on
+(and clears it only if the app opened), otherwise the last burst it typed. While
+dictating, the whole utterance "send to Claude", "send to Claude Code" or "send to
+Codex" does the same, and the phrase itself is not typed.
+
+- **Only these three apps**, through their own `claude://` and `codex://` links. There is
+  no web fallback and no setting that changes the address: a web address would send the
+  text to a server before you had read it. If the app is not installed, nothing opens.
+- **Long text is refused, never cut.** The limit is 14,000 characters. Text in non-Latin
+  scripts can be refused sooner, because the link it becomes is capped at 32,000
+  characters.
+- **The log records the app and the length, never the text.** On Linux the link goes to
+  the desktop portal (`xdg-desktop-portal`) over D-Bus, so no process YazSes starts holds
+  it; only when no portal is running does it fall back to `xdg-open`, which takes it as
+  an argument while it opens, where other processes on the same machine could read it
+  from the process list. Either way, the app gets it as an argument if this starts it.
+  On Windows the app receives it as an argument the same way; on macOS it is passed
+  without one. The portal path, macOS and Windows are untested.
+
 ### `yazses tray`
 
 Show a **microphone icon in the top bar** with a click-menu — a no-terminal way to
@@ -1451,6 +1485,10 @@ records a short window, aligns the respoken phrase against the last burst it
 typed, then deletes that burst and retypes it corrected. Because pure respeak
 fixes only ~35% on the first try (Suhm 2001), the alignment surfaces the top
 candidates rather than silently splicing. Requires `[punch_in] enabled = true`.
+If the correction cannot be typed after the old burst was erased, YazSes types the
+old words back; if that fails too, it puts them on the clipboard and tells you, and
+the command's error line says which happened. Spoken Edit ("change X to Y") follows
+the same rule.
 
 **Options:** `--dry-run` (list candidate spans without editing, so you can confirm
 first) · `--choose` / `-n N` (apply the candidate at rank `N`; `0` = best,
@@ -2257,16 +2295,13 @@ camera_index = 0
 
 The camera is used in-RAM during a hold only — frames are never stored or sent.
 
-**Polyglot Switch — mixed-language dictation (`[polyglot]`).** Transcribe speech
-that mixes two languages (e.g. `fa-en`). Needs a trained code-switch adapter for
-the pair; the routing is scaffolded and the adapter is gated on a held-out MER win.
-
-```toml
-[polyglot]
-enabled = true
-pair = "fa-en"
-adapter_path = ""          # path to the trained CS adapter; empty = dormant
-```
+**Polyglot Switch — mixed-language dictation (`[polyglot]`): planned — designed, not
+built.** It would transcribe speech that mixes two languages (e.g. `fa-en`) with a
+code-switch adapter trained for the pair. No decode path uses `[polyglot]` yet,
+because nothing knows which part of a burst is in which language, so
+`yazses features enable polyglot` refuses it, and setting the keys by hand changes
+nothing about what is typed (`yazses doctor` warns when it is on). See
+[Designed, not built](v2-features.md#designed-not-built).
 
 ---
 

@@ -265,8 +265,8 @@ a guard that silently stops protecting on a whole display server is worse than n
 
 | File | Role |
 |---|---|
-| `base.py` | Protocol interfaces: `HotkeyBackend`, `InjectorBackend`, `LifecycleBackend`, `IpcServer`, `IpcClient`, `PermissionsBackend`, `TrayBackend`, `FileOpener` (opens a file with the default app; one per OS family, the BSDs share Linux's). Also `Platform.pointer_factory` — the optional `PointerSinkFactory` a bundle registers, `None` on an OS with no pointer backend yet (a factory, so nothing is constructed and no permission asked until a pointer consumer is enabled). And `Platform.accessibility_factory` (#164) — the optional `AccessibilityFactory` building an `AccessibilityBackend` (`snapshot()` = ADR-v2-151's `SemanticSource.snapshot` over the focused window, plus `perform(entity_id, action)` on a node of the latest snapshot only); `None` with `accessibility_unavailable_reason` where it cannot work, and `None` on every OS but Linux (`NO_ACCESSIBILITY_BACKEND_REASON`) |
-| `factory.py` | `get_platform()` — detects `sys.platform`, returns `Platform` dataclass. `get_file_opener()` — the `FileOpener` for this OS, without building a `Platform` (`yazses fileopen`) |
+| `base.py` | Protocol interfaces: `HotkeyBackend`, `InjectorBackend`, `LifecycleBackend`, `IpcServer`, `IpcClient`, `PermissionsBackend`, `TrayBackend`, `FileOpener` (opens a file with the default app; one per OS family, the BSDs share Linux's), `UrlOpener` (hands a custom-scheme URL to its registered program for "send to", [ADR-031](adr/adr-031-send-to-prefill-handoff.md): on Linux and the BSDs the xdg-desktop-portal `OpenURI` over the session bus via `jeepney`, falling back to `xdg-open` only when no portal received the URL, or once after the portal's `Response` 2 / `NSWorkspace` / `os.startfile`, in the same `platform/<os>/fileopen.py`; `require_local_scheme` refuses web, file and script schemes before anything starts). Also `Platform.pointer_factory` — the optional `PointerSinkFactory` a bundle registers, `None` on an OS with no pointer backend yet (a factory, so nothing is constructed and no permission asked until a pointer consumer is enabled). And `Platform.accessibility_factory` (#164) — the optional `AccessibilityFactory` building an `AccessibilityBackend` (`snapshot()` = ADR-v2-151's `SemanticSource.snapshot` over the focused window, plus `perform(entity_id, action)` on a node of the latest snapshot only); `None` with `accessibility_unavailable_reason` where it cannot work, and `None` on every OS but Linux (`NO_ACCESSIBILITY_BACKEND_REASON`). And `Platform.primary_modifier` — the modifier the OS's application shortcuts use (`PRIMARY_MODIFIER_CTRL` by default, `PRIMARY_MODIFIER_CMD` on macOS); `commands/dispatch.py` and `commands/profiles.py` pick their macOS keymaps from it, so neither branches on the OS. And `Platform.focused_app_factory` — the optional `FocusedAppFactory` building a `FocusedAppProvider` whose `app_id()` names the focused application and nothing else (an identifier, never a title or path): macOS `macos/focused_app.py` (NSWorkspace frontmost app's bundle id, AppKit imported lazily, the factory raises with its reason without it), Windows `windows/focused_app.py` (foreground window's process image name via `QueryFullProcessImageNameW`, basename only); `None` on Linux and the BSDs, where the text-target detector answers instead, with `focused_app_unavailable_reason` for a platform that knows it cannot |
+| `factory.py` | `get_platform()` — detects `sys.platform`, returns `Platform` dataclass. `get_file_opener()` — the `FileOpener` for this OS, without building a `Platform` (`yazses fileopen`). `get_url_opener()` — the `UrlOpener` likewise (`sendto/handoff.py`) |
 | `*/permissions.py` | Keyboard capture, microphone and (ADR-v2-145 / #414) **camera**. `check_camera()` returns a `CameraPermission`, never a bare boolean, and returns `NOT_DETERMINED` — never `GRANTED` — when it cannot answer |
 | `emg/backend.py` | `EMGBackend` — `HotkeyBackend` over USB CDC serial YESP protocol (v0.4.0); requires `pyserial` optional dep |
 | `linux/` | evdev hotkey, LinuxInjector (xdotool/ydotool/wtype/clipboard), systemd lifecycle, Unix socket IPC. `accessibility.py` decides at bundle build whether AT-SPI can work (a desktop session and a locatable `pyatspi`, found with `find_spec`, never imported there) and says why not; `atspi_tree.py` is the backend, imported on first use: the active window only, showing nodes only, names/roles/action names, text content only for an unnamed node and never from a password field, a terminal or an editable field, bounded by `grounding/treewalk.py`, ids prefixed per snapshot so a stale id is refused |
@@ -348,6 +348,7 @@ closes it again (idempotent) before the pointer and camera backends.
 | `portal.py` | Wayland via the XDG RemoteDesktop portal (`PortalInjector`), the only path a strictly confined snap can type on. Holds the one `_PortalSession` — consent copy, restore token, idle release — and, per ADR-v2-146 rule 6, the pointer backend `PortalPointerSink` that extends that same session |
 | `clipboard.py` | Universal fallback via clipboard + Ctrl+V |
 | `streaming.py` | `StreamingInjector` — tracks partial char count, correction-on-commit via Shift+Left |
+| `replace.py` | Pure. Replacing text YazSes typed (erase with backspaces, then type), shared by Interruptible Proofreading, Spoken Edit and Punch-In. `run_replacement` runs erase → type → restore → clipboard with the injector and clipboard passed in; `settle_replacement` maps the results onto the undo record and the notice. Invariants: a failed retype types the erased words back; an erase that stopped part-way is never typed over; the ledger/`[timeline]` record never claims more characters than are certainly on screen; no notice quotes the dictation |
 | `payload.py` | Pure. `hide_payload()` / `describe_argv()`: a failed or timed-out tool call re-raises with every argument after `--` (the text being typed) described by its length, so the exception that `LinuxInjector` and the daemon log at WARNING, and `last_error` keeps, never quotes the transcript |
 
 ### `src/yazses/pointer/` (pointer output boundary, ADR-v2-146)
@@ -568,7 +569,7 @@ a person signs it. The runtime does not re-check licences.
 | `slm_router.py` | `SLMRouter` — Tier 2 llama-cpp-python classifier (v0.4.0); disabled when `slm_model_path` unset |
 | `lsp_context.py` | `LspContextProvider` — reads editor context via `EditorBridge` (NeovimBridge, NullBridge); 50 ms timeout |
 | `dispatch.py` | Routes `DICTATE` to `inject()`, `MACRO` to expand-and-inject (+caret `Left`), all others to `inject_key_sequence()` via `DEFAULT_KEYMAP` (`ACTION_KEYS` + the `LEAD_KEYS` that open structured actions). An optional `keymap=` (an editor profile) overrides per action; an override of `None` raises `CommandRefused` before any key is sent, and nothing is typed |
-| `profiles.py` | Editor command profiles (pure): built-in `jetbrains`/`sublime`/`vscode`/`default` key overrides, `match_app(app_class)`, `ProfileRegistry.choose(app_class) -> ProfileChoice`, `load_profiles(CommandsConfig)`. **Wired** only when `[commands] editor_profiles`: `Daemon._build_command_profiles` builds the registry at start; `_command_keymap` reads the focused app at dispatch time through the text-target guard's detector (AT-SPI / X11 xdotool; none on macOS, Windows, Wayland-without-AT-SPI → default keys, reason logged once) and passes the profile to all three `cmd_dispatch` call sites |
+| `profiles.py` | Editor command profiles (pure): built-in `jetbrains`/`sublime`/`vscode`/`default` key overrides, `match_app(app_class)` (exact `APP_IDENTIFIERS` — macOS bundle ids, Windows image names — then keywords), `ProfileRegistry.choose(app_class) -> ProfileChoice`, `load_profiles(CommandsConfig)`. **Wired** only when `[commands] editor_profiles`: `Daemon._build_command_profiles` builds the registry at start; `_command_keymap` reads the focused app at dispatch time through the platform's `FocusedAppProvider` (macOS, Windows) or else the text-target guard's detector (AT-SPI / X11 xdotool; none on Wayland-without-AT-SPI → default keys, reason logged once) and passes the profile to all three `cmd_dispatch` call sites |
 
 ### `src/yazses/remote/`
 
@@ -579,6 +580,35 @@ a person signs it. The runtime does not re-check licences.
 | `agent.py` | `yazses-agent` entry point — asyncio TCP server, handles `inject`/`ping` JSON-RPC |
 | `inject.py` | `get_remote_injector()` — same probe as `inject/auto.py` but zero faster-whisper imports |
 
+### `src/yazses/sendto/` (Send to, [ADR-031](adr/adr-031-send-to-prefill-handoff.md) — off by default)
+
+Hands dictated text to a desktop AI client **pre-filled, never sent**: the Claude desktop
+app (`claude`, `claude-code`) or the Codex app (`codex`) opens a new conversation with the
+text in the prompt box, and the user presses Enter. Reached by the whole-utterance phrases
+"send to Claude / Claude Code / Codex" in `daemon.py::_on_hold_end` (after "scratch that",
+**before** the staged buffer, which would otherwise swallow the phrase), by the IPC method
+`send_to`, and by `yazses send-to <client> [TEXT]`. Switched on by the registry slug
+`sendto` (`yazses features enable sendto` writes `[sendto] enabled`).
+
+| File | Role |
+|---|---|
+| `targets.py` | Pure. The **closed** target table (custom schemes only — no `https://`, nothing configurable), `parse_send_phrase` (anchored at both ends), hand-rolled percent-encoding pinned to `urllib.parse.quote` by the tests, `plan_handoff` (refuses over 14,000 characters or a 32,000-character URL, empty text, control characters, invalid Unicode — never truncates), and `choose_text` (the staged buffer when staged mode is on, else the last burst) |
+| `handoff.py` | The opener seam (`Callable[[str], bool]`, injected) and `hand_off`. The default opener checks the scheme against the closed table, then calls `platform.get_url_opener().open_url(url)` — the platform `UrlOpener` seam — so this package spawns nothing and imports no network primitive itself. Logs the target and the length, never the text or the URL, including when the opener raises |
+
+Invariants: the staged buffer is cleared only after a successful hand-off; the last burst
+is kept in memory only while `[sendto] enabled` is on; the IPC method takes a target name
+and no text, and explicit CLI text is handed off in the CLI's own process; the opener
+never accepts a web scheme (the closed table, then the seam's own refusal). On Linux the
+URL goes to the desktop portal's `OpenURI` over the session bus, so no argument list of
+ours holds it; once the portal has it, an error, a cancelled chooser or no answer is a
+failed hand-off and never a second attempt through `xdg-open`, which could open the client
+twice. Only when no portal received it (no `jeepney`, no session bus, no portal service or
+method), or once after the portal answered `Response` 2 (it did not open the client), is
+it an `xdg-open` argument while it opens (visible through `/proc` to the user's
+processes, and to other local users unless `/proc` has `hidepid=`). On every path it is
+the client's argument if the hand-off starts it — the exposure ADR-031 §3 records. macOS
+passes it in-process (`NSWorkspace`), Windows through `ShellExecuteW`.
+
 ### `src/yazses/audio/`
 
 | File | Role |
@@ -587,6 +617,7 @@ a person signs it. The runtime does not re-check licences.
 | `vad.py` | `is_silent(audio)` — RMS-based silence gate (hardcoded threshold) |
 | `vad_calibrated.py` | `is_silent_calibrated(audio, config)` — uses `config.vad_threshold` |
 | `padding.py` | `PreSpeechRingBuffer` — fixed-capacity ring buffer, `prepend_padding(audio)` for voice-onset recovery |
+| `device_monitor.py` | `SilentStreakTracker` and `DeviceMonitor` (the default-input watcher). Invariant: PortAudio is never re-initialised while dictation records or under an open stream. When a hands-free level stream (`LevelStreamOwner`) is open, the pure `plan_device_poll` picks a peek without re-init, or a cycle that closes the streams, re-inits and reopens them — deferred while a user is mid-gesture on a stream still delivering audio |
 
 ### `src/yazses/accessibility/`
 
@@ -714,9 +745,9 @@ metric) leaves the stream callback.
 
 | File | Role |
 |---|---|
-| `decode.py` | Pure. `classify_pulse` / `classify_gap`, `MorseDecoder` (international table), `adapt_dot_threshold` |
+| `decode.py` | Pure. `classify_pulse` / `classify_gap`, `MorseDecoder` (international table, plus the prosign SK `...-.-` matched only as one whole character between letter gaps and never typed), `adapt_dot_threshold` |
 | `segment.py` | Pure. `PulseSegmenter` (hysteresis + debounce over a `(t_ms, level)` stream) and `MorseStream` (segmenter → decoder, letter at the letter gap, optional adaptive dot/dash threshold) |
-| `mode.py` | Pure, clock-injected. `MorseMode`: idle → armed → morse → idle. `HumDetector` is the entry trigger: an unbroken run above the threshold for `entry_hum_s` whose level coefficient of variation is ≤ 0.25 (ADR-021: speech has dips and syllabic modulation, so it fails one rule or the other); it fires at most once per continuous sound. Exit on `exit_silence_s` with no accepted pulse, forced above the word gap. `is_enter_phrase` is the whole-utterance "morse mode" match (the stop word's rule). Thresholds synthetic-only. |
+| `mode.py` | Pure, clock-injected. `MorseMode`: idle → armed → morse → idle. `HumDetector` is the entry trigger: an unbroken run above the threshold for `entry_hum_s` whose level coefficient of variation is ≤ 0.25 (ADR-021: speech has dips and syllabic modulation, so it fails one rule or the other); it fires at most once per continuous sound. Exit on `exit_silence_s` with no accepted pulse, forced above the word gap, or on the prosign SK (reason `prosign`, at the letter gap after it). `is_enter_phrase` is the whole-utterance "morse mode" match (the stop word's rule). Thresholds synthetic-only. |
 | `runtime.py` | The impure shell: owns the level stream (`recorder_factory`), a worker thread, the clock, and the daemon callbacks (`inject`, `on_change`, `on_level`). `status()` carries flags and a count, never a decoded character. |
 
 Daemon glue (`core/daemon.py`): `_build_morsevox` (lazy import behind `[morsevox] enabled`),
@@ -726,8 +757,49 @@ Daemon glue (`core/daemon.py`): `_build_morsevox` (lazy import behind `[morsevox
 yields to every daemon state outside `_MORSE_QUIET_STATES` (IDLE / TRANSCRIBING /
 INJECTING), reads the hands-free gate's `user_paused` only, and is paused and resumed by the
 `handsfree` IPC. `status` carries a `morse` block; the overlay draws its rings while
-`morse.active` is true. While the stream is open the device monitor does not reinit
-PortAudio, so a device change is not detected while the hum entry listens.
+`morse.active` is true. The device monitor never re-inits PortAudio under the open stream:
+between re-scans it reads the default without a re-init, and every 30 s (or as soon as that
+read sees a change) it closes the stream through `release_mic_for_rescan`, re-inits, and
+reopens it through `reacquire_mic_after_rescan` — not while Morse mode is on and audio is
+still arriving, and never while dictation records. The Mouth-Sound Switch and the Vocal
+Joystick answer the same `LevelStreamOwner` surface (`audio/device_monitor.py`).
+
+### `src/yazses/mouthswitch/` (Mouth-Sound Switch Access, ADR-v2-097 — experimental, off by default)
+
+Single-switch scanning from two mouth sounds: a lip pop starts or stops a highlight that
+steps through `[mouthswitch] scan_items`, and a tongue click runs the item lit when the
+click *began*. A third microphone reader beside dictation; nothing reaches speech-to-text.
+
+| File | Role |
+|---|---|
+| `detect.py` | Pure numpy. `MouthSoundDetector`: isolated, short, unvoiced onsets → classified sound → switch action. Thresholds synthetic-only. |
+| `scanner.py` | Pure, clock-injected. `SwitchScanner`: the highlight as a function of time, select-at-onset, the inactivity stop. A heard scan injects `announce_s` and `post_voice_s`, and each step is lit for announcement + post-voice deafness + a full interval. |
+| `announce.py` | `ScanAnnouncer`: an earcon cue per step and the item's name in the read-back voice, both injected callables. Used only where the overlay will not run. `switch_voice`: the `speak_names` voice, built through an injected factory, never downloaded. |
+| `runtime.py` | The impure shell: microphone stream, worker thread, pointer sink, command runner, and the build rules. |
+
+**Invariant: a select lands only on an item the user can see or hear.** The overlay draws
+the scan strip from the `status` reply's `mouthswitch` block. Where it will not run, the
+daemon (`_mouthswitch_announcer`) builds an announcer from the earcon player and the
+read-back voice the user already turned on (a voice degraded to the null backend does not
+count). With read-back off and `[mouthswitch] speak_names` on, `_mouthswitch_voice` builds
+a voice for the switch alone through `build_tts`, from a copy of `[tts]` with `enabled`
+forced on; `self._tts` stays None, so dictation is never read back. It never downloads
+the model (`announce.switch_voice` requires the files on disk), keeping ADR-019's trigger
+for that download "user enables read-back". With neither, `build_mouthswitch` refuses and `handsfree resume` says why.
+Announcements read the same scanner timeline a click selects from. A heard step is lit for
+`announcement + post_voice_deaf_s() + dwell_s`: the announcement is the longer of the cue
+(`announce.cue_duration_s`, from the earcon table) and the name estimate, and
+`post_voice_deaf_s()` is derived from `detect.CONTEXT_MS` (the detector rejects a click with
+voiced audio in that run-up, and the cue and name are voiced and reach the microphone
+through the speakers). **Invariant: a full `dwell_s` in which a click is heard follows
+every announcement**; a long name slows the scan, never shortens that window. A drawn scan makes
+no sound and keeps its plain `dwell_s` steps.
+
+**A selection does not end the scan.** It re-anchors the timeline at the moment of the
+selection, on the selected item, so that item stays lit for a full dwell and a second click
+repeats it. The scanner keeps the recent segments, so select-at-onset stays exact for any
+non-stale click. One click selects at most once. The scan stops on a pop, on pause or
+dictation, and after three passes with no selection, counted from the last one.
 
 ### `src/yazses/overlay/` (voice-activity overlay, `yazses-overlay`)
 
@@ -782,6 +854,7 @@ from the tree, so a method added to the daemon, or a caller added or removed, fa
 | `inject` | CLI | Inject text directly (debug / remote agent) |
 | `staged` | CLI | `yazses staged status\|commit\|discard\|undo` -- the verb is a parameter, so this is one method rather than four |
 | `scratch` | CLI | Drop the most recent staged burst ("scratch that") |
+| `send_to` | CLI | Send to ([ADR-031](adr/adr-031-send-to-prefill-handoff.md)): hand the staged buffer, or the last burst, to `target` (`claude`, `claude-code`, `codex`) pre-filled and never sent. Takes no text; replies with the target, character count and a message, never the text. Refuses with `reason: disabled` while `[sendto]` is off (`yazses send-to <client>` without TEXT) |
 | `recall` | CLI | Query the recall index |
 | `punch_in` | CLI | Re-record over a selected span |
 | `readback_speak` | CLI | Speak a phrase through the read-back TTS |
@@ -965,7 +1038,7 @@ an internal design note.
 | `recall/` (query, scratch) | Spoken Recall & Ambient Scratch | v2-005 |
 | `polyglot/router.py` | True Code-Switch routing decision (not wired — nothing calls `should_route`) | v2-008 |
 | `agent/plan.py` | Voice-to-Tool / Spoken MCP planner + guard | v2-006 |
-| `pilot/plan.py`, `pilot/service.py` | AT-SPI Voice Pilot: `plan.decide` acts only on one exact actionable match (ordinal over exact matches allowed) and holds a partial match, a tie or a destructive label for the Command Safety Gate's confirm words; `service.PilotService` reads, decides, acts or holds (expires after 30 s, dropped by any other utterance). Command mode, via `spokencmd/registry.py` | v2-007 |
+| `pilot/plan.py`, `pilot/service.py` | AT-SPI Voice Pilot: `plan.decide` acts only on one exact actionable match (ordinal over exact matches allowed) and holds a partial match, a tie or a destructive label for the Command Safety Gate's confirm words; `service.PilotService` reads, decides, acts or holds (expires after 30 s, dropped by any other utterance). Every held click -- destructive, partial, tied, or a "check"/"uncheck" -- is decided again at confirm: the confirm re-reads the window, finds the held control again by its exact label (case/whitespace folded), role, an action able to carry out the verb and its position among identical controls (`plan.redecide_held`, one pure function for every verb), and acts once on its new snapshot id; gone, relabelled, a different role, no longer actionable or a changed count of identical controls is refused with the reason told, and a "check"/"uncheck" also needs the state still to differ. The hold-time id is never acted on. Command mode, via `spokencmd/registry.py` | v2-007 |
 | `screengrounded/harvest.py`, `screengrounded/sampler.py` | Screen-Grounded Dictation: the focused window's labels are read at hold start on a background thread (window chrome skipped), mined by `harvest_terms`, taken once at decode and forgotten; never logged or stored | v2-051 |
 | `modality/router.py` | Modality Role Router | v2-011 |
 | `continuum/whisper_mode.py` | Accessibility Continuum (Whisper Mode) | v2-012 |

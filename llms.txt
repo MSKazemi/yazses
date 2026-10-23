@@ -36,7 +36,7 @@ A separate, **paused/archived Rust exploration** (`archive/rust-hci-v1` branch) 
 | Whisper + scripts | ✅ | ❌ | ✅ | ✅ |
 
 YazSes's distinguishing combination: it is the only one of these that is **both**
-cross-platform (Linux + macOS + Windows) **and** covers live dictation, offline file
+cross-platform (Linux, plus macOS and Windows in preview) **and** covers live dictation, offline file
 transcription, and whole-meeting capture with speaker labels from one install.
 nerd-dictation is more minimal; Vocalinux has GPU acceleration; Talon is more powerful
 for voice control; Dragon is more accurate on specialist medical/legal vocabulary.
@@ -96,7 +96,8 @@ yazses start      # start the dictation daemon
 **Does it work with Wayland?** Yes. Installed with the universal installer, APT
 or pipx it uses ydotool (or wtype on wlroots compositors). The strictly confined
 Snap uses the xdg-desktop-portal RemoteDesktop API instead, which works on
-GNOME and KDE Wayland and needs no /dev/uinput.
+GNOME and KDE Wayland and needs no /dev/uinput. A hardware-verified record on GNOME and
+KDE Wayland is still to come (https://github.com/MSKazemi/yazses/issues/643).
 
 **Can it type in any app?** Yes — browsers, terminals, IDEs, chat apps, anything with a focused text field.
 

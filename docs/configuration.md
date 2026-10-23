@@ -13,7 +13,7 @@ Prefer `yazses features enable/disable <toggle>` over hand-editing — it writes
 
 **Match the Type column exactly.** In TOML only `str` values take quotes; `int`, `float` and `bool` must be bare. Writing `vad_threshold = "0.004"` instead of `vad_threshold = 0.004` loads without complaint and then fails at runtime, because the value stays a string where a number is expected. See [Troubleshooting](troubleshooting.md#dictation-stopped-working-right-after-i-edited-configtoml).
 
-**63 of these 533 keys are inert**, and they are marked ⚠️ inert in the Status column. The loader accepts them, `configcheck` validates them and they have a documented default — but nothing acts on them, so setting one loads without complaint and changes nothing. Most belong to capabilities that are registered but not yet wired; see [`yazses features`](cli-reference.md) for what is actually switchable. Both numbers here are counted at generation time, and the list of inert keys is the same one the test suite gates on, so neither can quietly fall out of date.
+**65 of these 538 keys are inert**, and they are marked ⚠️ inert in the Status column. The loader accepts them, `configcheck` validates them and they have a documented default — but nothing acts on them, so setting one loads without complaint and changes nothing. Most belong to capabilities that are registered but not yet wired; see [`yazses features`](cli-reference.md) for what is actually switchable. Both numbers here are counted at generation time, and the list of inert keys is the same one the test suite gates on, so neither can quietly fall out of date.
 
 This has bitten before: `[injection] fallback_to_clipboard` was documented in seventeen places and defaulted to `true` while nothing read it, so anyone who turned it off was silently overruled.
 
@@ -58,6 +58,9 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 | `silent_streak_threshold` | int | `3` |  | How many silent-discards in a row trigger the notify + auto-heal. |
 | `auto_heal_device` | bool | `true` |  | On a device change / silent streak, automatically switch capture back to the last device that produced usable audio ("last-good"), then notify what changed. |
 | `device_poll_interval_s` | float | `3.0` |  | Cadence of the background default-input-device watcher, in seconds. 0 disables the watcher (the silent-streak detector still works, being on the hot path). |
+| `level_stream_rescan_s` | float | `30.0` |  | While a hands-free feature holds the microphone open (Vocal Morse listening for its entry hum, the Mouth-Sound Switch or the Vocal Joystick while armed), the watcher cannot re-scan the audio devices without briefly closing that stream. It does so every this many seconds, closing the stream for a moment and reopening it; between re-scans it only reads the current default, which on PipeWire already notices a switch. Lower it to notice an unplugged mic sooner on macOS and Windows, raise it if the short gap in the hands-free stream bothers you. 5 to 3600. |
+| `level_stream_in_use_max_s` | float | `600.0` |  | A re-scan waits while you are in the middle of using one of those streams (Morse mode on, a switch scan running, a held joystick vowel), so it never cuts a letter or a highlight short. This is the longest it waits: a backstop for a sound that never ends, such as a fan read as one endless Morse pulse. 10 to 3600. |
+| `level_stream_fresh_s` | float | `2.0` |  | A hands-free stream counts as "in use" only while it has delivered audio within this many seconds. A microphone unplugged mid-gesture stops delivering, so after this long the frozen gesture no longer holds the re-scan off and the dead device is noticed. 0.5 to 60. |
 | `voice_answer` | bool | `false` |  | Answer the mic guard's [Re-calibrate]/[Pin this mic]/[Ignore] toast by SAYING one of them (ADR-022, Spec 1). Without this the daemon asks a question about your microphone that can only be answered with a pointer -- and the person seeing it is the one whose dictation just stopped working. OFF by default like the other utterance-consuming guards (`[cmdsafety]`, `[checkdigit]`): it swallows a burst that would otherwise be typed, and that is a behaviour change to opt into. |
 | `voice_answer_window_s` | float | `45.0` |  | How long the toast stays answerable by voice. Bounded on purpose -- "ignore" is an ordinary word, and an unbounded window arms it for the rest of the session. |
 
@@ -142,7 +145,7 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 | `self_repair` | bool | `false` |  | v2.4 Wave H — Mid-Utterance Self-Repair (ADR-v2-058): "email Sarah no I mean Sara"→"Sara". Off by default: editing phrases also occur in ordinary speech. |
 | `spoken_edit` | bool | `false` |  | v2.0.0 Wave A — Spoken Edit Mode (ADR-v2-003): open-ended voice editing of the last-injected span ("change X to Y", "delete the last sentence"). Command-key gated to avoid dictate-vs-command ambiguity. OFF by default. |
 | `spoken_edit_destructive` | bool | `false` |  | Allow destructive spoken edits (delete last sentence/words). OFF by default; when on, a destructive edit still updates the ledger so "scratch that" undoes it. Requires spoken_edit. (ADR-v2-003) |
-| `editor_profiles` | bool | `false` |  | Editor command profiles: send the keys the focused editor binds — Ctrl+Y, not Ctrl+Shift+K, to delete a line in a JetBrains IDE — and refuse a command the editor has no safe key for. OFF by default; off, every application gets the VS Code-style keys. The focused app is read via AT-SPI or X11 xdotool only. |
+| `editor_profiles` | bool | `false` |  | Editor command profiles: send the keys the focused editor binds — Ctrl+Y, not Ctrl+Shift+K, to delete a line in a JetBrains IDE — and refuse a command the editor has no safe key for. OFF by default; off, every application gets the VS Code-style keys. The focused app is read via AT-SPI or X11 xdotool on Linux, the frontmost app's bundle id on macOS, the foreground program's name on Windows. |
 
 ## `[macros]`
 
@@ -383,6 +386,12 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 | `spoken_commit` | bool | `false` |  | also accept "commit that" / "discard that" by voice |
 | `show_in_overlay` | bool | `true` | ⚠️ inert | show the pending text while you speak |
 | `max_chunks` | int | `200` |  | a runaway buffer is a bug, not a workflow |
+
+## `[sendto]`
+
+| Key | Type | Default | Status | Notes |
+|---|---|---|---|---|
+| `enabled` | bool | `false` |  |  |
 
 ## `[context]`
 
@@ -890,7 +899,7 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 
 | Key | Type | Default | Status | Notes |
 |---|---|---|---|---|
-| `enabled` | bool | `false` |  |  |
+| `enabled` | bool | `false` | ⚠️ inert |  |
 
 ## `[reask]`
 
@@ -1002,7 +1011,7 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 
 | Key | Type | Default | Status | Notes |
 |---|---|---|---|---|
-| `enabled` | bool | `false` |  |  |
+| `enabled` | bool | `false` | ⚠️ inert |  |
 
 ## `[compute]`
 
@@ -1129,7 +1138,8 @@ This has bitten before: `[injection] fallback_to_clipboard` was documented in se
 | Key | Type | Default | Status | Notes |
 |---|---|---|---|---|
 | `enabled` | bool | `false` |  |  |
-| `dwell_s` | float | `1.2` |  | Seconds per highlight step (clamped to 0.5-10 by mouthswitch/scanner.py). |
+| `dwell_s` | float | `1.2` |  | Seconds per highlight step (clamped to 0.5-10 by mouthswitch/scanner.py). Where the scan is announced, it is the time left to click after the item's tick or name and the detector's deaf window behind it, so those steps run longer. |
+| `speak_names` | bool | `false` |  | Where the overlay cannot draw the scan, say each item's name in the offline [tts] voice even with read-back off; your dictation is still not read back. Needs the tts extra and its voice model already on disk (never downloaded for this); without them the steps are announced with earcons only, and the log says why once. |
 | `scan_items` | list | `['enter', 'undo', 'scroll up', 'scroll down', 'click']` |  | What the scan offers, in order. "click", "scroll up" and "scroll down" are pointer operations; anything else is a command phrase the command grammar must know and run without confirmation, or it is dropped (with a log line) when the daemon starts. |
 
 ## `[involuntary]`

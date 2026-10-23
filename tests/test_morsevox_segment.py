@@ -16,7 +16,7 @@ import random
 
 import pytest
 
-from yazses.morsevox.decode import _MORSE, MorseCalib
+from yazses.morsevox.decode import _MORSE, SK, MorseCalib
 from yazses.morsevox.segment import (
     MorseStream,
     PulseSegmenter,
@@ -47,6 +47,25 @@ def timeline(text: str, *, dot=100.0, dash=350.0, sym_gap=150.0, letter_gap=800.
                 runs.append((False, letter_gap))
         if wi < len(words) - 1:
             runs.append((False, word_gap))
+    runs.append((False, tail))
+    return runs
+
+
+def code_timeline(codes: list[str], *, dot=100.0, dash=350.0, sym_gap=150.0,
+                  letter_gap=800.0, lead=500.0, tail=2000.0):
+    """Morse *codes* of one word -> (is_on, duration_ms) runs, as `timeline` builds them.
+
+    Each code is keyed as ONE character (symbol gaps only inside it, a letter gap between
+    codes), which is how a prosign such as SK (``...-.-``) is sent.
+    """
+    runs: list[tuple[bool, float]] = [(False, lead)]
+    for ci, code in enumerate(codes):
+        for si, sym in enumerate(code):
+            runs.append((True, dot if sym == "." else dash))
+            if si < len(code) - 1:
+                runs.append((False, sym_gap))
+        if ci < len(codes) - 1:
+            runs.append((False, letter_gap))
     runs.append((False, tail))
     return runs
 
@@ -323,3 +342,39 @@ def test_adaptation_is_off_unless_asked():
     st = stream()
     decode(sample(_slow("aaaa")), st)
     assert st.calib == MorseCalib()
+
+
+# ---- the end-of-work prosign SK -----------------------------------------------
+
+def test_sk_keyed_as_one_character_types_nothing_not_even_a_space():
+    # The 2 s tail outlasts the word gap: an ordinary letter would be followed by " ".
+    st = stream()
+    assert decode(sample(code_timeline([SK])), st) == ""
+    assert st.take_prosign() == "SK"
+    assert st.take_prosign() is None
+
+
+def test_s_and_k_with_a_letter_gap_are_typed_as_sk():
+    st = stream()
+    assert decode(sample(timeline("sk")), st) == "sk "
+    assert st.take_prosign() is None
+
+
+def test_letters_before_sk_in_the_same_word_are_typed_and_sk_is_not():
+    st = stream()
+    assert decode(sample(code_timeline([".-", "-...", SK])), st) == "ab"
+    assert st.take_prosign() == "SK"
+
+
+def test_sk_is_reported_live_once_the_letter_gap_after_it_elapses():
+    samples = sample(code_timeline([SK]))
+    st = stream()
+    sk_end = 500.0 + 4 * 100.0 + 2 * 350.0 + 5 * 150.0   # lead + 4 dots + 2 dashes + 5 gaps
+    seen_at = None
+    for t, lv in samples:
+        assert st.push(t, lv) == ""
+        if st.take_prosign() == "SK":
+            seen_at = t
+            break
+    assert seen_at is not None
+    assert sk_end + 600.0 - STEP <= seen_at <= sk_end + 600.0 + 60.0 + 2 * STEP

@@ -13,10 +13,14 @@ description: "Install YazSes on Windows for offline speech-to-text: winget insta
 > warns on first launch; the steps below show how to bypass it safely. Code
 > signing is pending approval by the SignPath Foundation; see the
 > [code signing policy](code-signing.md#code-signing-policy).
+> Preview also means that testers have reported dictating on Windows 11, but no
+> report yet meets the [evidence standard](contribute/validation.md) on a current
+> build; the [validation matrix](validation-matrix.md) shows what has been confirmed.
 
 ## Requirements
 
-- Windows 10 21H2 or later, 64-bit (Windows 11 also fine)
+- Windows 10 21H2 or later, 64-bit. The hardware reports so far are from Windows 11;
+  a Windows 10 report is still wanted ([#217](https://github.com/MSKazemi/yazses/issues/217))
 - ~500 MB free disk for the app (about 190 MB) and the default Whisper model (about 150 MB), downloaded on first use
 - A microphone
 
@@ -153,6 +157,12 @@ Settings → Privacy & Security → Microphone → "Let desktop apps access your
 ```
 
 (or run `start ms-settings:privacy-microphone`.)
+
+Installed from the Microsoft Store / MSIX package? That build is a packaged app,
+so the desktop-apps switch does not apply to it. Turn on **YazSes** in the list
+of apps on the same page instead. Windows does not document where it stores
+that per-app setting, so `yazses doctor` cannot read it there. If dictation
+records silence on the Store build, check that toggle first.
 
 ## Verify with the CLI
 
@@ -417,7 +427,8 @@ update you may need to re-allow.
 **"`doctor` says the microphone is denied."** Allow it in *Settings → Privacy &
 Security → Microphone*, and check **"Let desktop apps access your microphone"** is
 on as well — that second switch is separate and gates YazSes even when the first
-one is on. The pane opens directly with:
+one is on. (On the Store / MSIX build that switch does not apply; turn on YazSes
+in the app list on the same page instead.) The pane opens directly with:
 
 ```
 start ms-settings:privacy-microphone

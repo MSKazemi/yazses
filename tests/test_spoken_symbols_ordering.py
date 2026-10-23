@@ -22,8 +22,10 @@ the bug.
 `test_no_phrase_shadows_a_later_one` is the real guard here: it is a property over the
 whole table, so it fails on a bad *addition*, not only on today's known pair.
 
-`code` is in `features._UNWIRED` — nothing calls this yet, so it reaches whoever wires it
-rather than a user today. That is the reason to fix it now: they would inherit it.
+`code` is wired: in command mode, "code <spoken code>" runs `spoken_symbols` first
+(`spokencmd/registry.py::_code`), so this order decides what reaches the keyboard. When
+this fix landed `code` was still in `features._UNWIRED`; it was wired on 2026-10-22, and a
+user now gets whatever the table does.
 """
 
 from __future__ import annotations

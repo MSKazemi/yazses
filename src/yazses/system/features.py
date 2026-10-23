@@ -303,6 +303,8 @@ def _registry() -> list[_Def]:
     tbl_on, tbl_off = _bool("tablecsv")
     wg_on, wg_off = _bool("wordgoal")
     vt_on, vt_off = _bool("voicetimer")
+    # "Send to" (ADR-031): one switch; the targets are a closed table, nothing else to set.
+    snd_on, snd_off = _bool("sendto")
     fp_on, fp_off = _bool("focusprofile")
     vj_on, vj_off = _bool("vocaljoystick")
     ec_on, ec_off = _bool("earcon")
@@ -573,7 +575,8 @@ def _registry() -> list[_Def]:
              "Type by Morse with your voice: a short hum is a dot, a long hum a dash, and each "
              "decoded letter is typed (speech-to-text is not run). Start it hands-free by "
              "humming one long steady tone (1.5 s) or by saying 'morse mode'; 3 s of silence "
-             "ends it. Adapts the dot/dash timing to your rhythm. With the hum entry on, the "
+             "ends it, and so does the end-of-work prosign SK (...-.-, keyed as one "
+             "character), which is not typed. Adapts the dot/dash timing to your rhythm. With the hum entry on, the "
              "microphone stays open (a level only). For minimal-ability users. Experimental: "
              "timings tuned on synthetic signals only. Off by default.",
              lambda c: c.morsevox.enabled, mv_on, mv_off),
@@ -588,9 +591,12 @@ def _registry() -> list[_Def]:
              "Single-switch scanning with non-verbal mouth sounds, for people who can't produce "
              "reliable speech: a lip pop starts (or stops) a highlight in the overlay that steps "
              "through Enter, Undo, Scroll up, Scroll down and Click every 1.2 s, and a tongue "
-             "click runs the lit one. Armed by `yazses handsfree resume`, stopped by `handsfree "
-             "pause`; needs the overlay. Thresholds tuned on synthetic sounds only. Off by "
-             "default.",
+             "click runs the lit one; the scan keeps going on that item, so another click "
+             "repeats it. Armed by `yazses handsfree resume`, stopped by `handsfree "
+             "pause`. Where the overlay cannot run, each step is announced instead with an "
+             "earcon and, with [tts] on, the item's name; `[mouthswitch] speak_names` says "
+             "the names without turning on read-back of your dictation. Thresholds tuned on "
+             "synthetic sounds only. Off by default.",
              lambda c: c.mouthswitch.enabled, ms_on, ms_off),
         _Def("involuntary", "Involuntary-Vocalization Excision", "[involuntary] — drop coughs & sneezes",
              OPTIONAL,
@@ -675,14 +681,20 @@ def _registry() -> list[_Def]:
              "Balances brackets/quotes in dictated code and wraps a selection ('wrap this in "
              "parens'). Off by default.",
              lambda c: c.autopair.enabled, apr_on, apr_off),
-                # OPTIONAL, not RECOMMENDED. The recommended tier is what `firstrun` writes into
+        # OPTIONAL, not RECOMMENDED. The recommended tier is what `firstrun` writes into
         # a fresh config, and nothing reads `[chords] enabled` -- `yazses chords` is a CLI
         # command that renders a chord and never consults it. Seeding it made every new
         # install carry a key that does nothing while `yazses features` listed the
         # capability as ON, and contradicted this entry's own "Off by default".
-_Def("chords", "Chorded Shortcut Synthesis", "[chords] — any keyboard shortcut by voice", OPTIONAL,
-             "Say any shortcut and it's pressed — 'press control shift P', 'escape twice', 'hit "
-             "F5' — no macro registration needed. Off by default.",
+        # The text used to say "Say any shortcut and it's pressed": no dictation path
+        # parses a chord and nothing presses one (`chords/parse.py` is imported by the
+        # CLI command alone), so it now describes the command that exists.
+        _Def("chords", "Chorded Shortcut Synthesis", "[chords] — spoken shortcut → key-combo text", OPTIONAL,
+             "Run `yazses chords \"<spoken shortcut>\"` — 'press control shift P', 'escape "
+             "twice', 'hit F5' → it prints the key combo (ctrl+shift+p), one per line, to "
+             "review, script or bind. A command-line tool: it presses nothing, and dictation "
+             "does not recognise spoken shortcuts. The command works whether or not "
+             "[chords] enabled is set — nothing reads that key.",
              lambda c: c.chords.enabled, chd_on, chd_off),
         _Def("compute", "Inline Compute", "[compute] — types the answer", RECOMMENDED,
              "Say 'what's 15% of 240' and it types 36. On-device arithmetic and percentages, no "
@@ -1038,8 +1050,10 @@ _Def("chords", "Chorded Shortcut Synthesis", "[chords] — any keyboard shortcut
         _Def("predict", "Predictive Completion", "[predict] — voice autosuggest, experimental",
              EXPERIMENTAL,
              "After a dictation is typed, a local model proposes the rest of the sentence "
-             "in a notification; say \"accept\" or \"take it\" within 10 seconds to type it. "
-             "Anything else you say dismisses it, and nothing is typed without the accept. "
+             "in a notification; say \"take it\" or \"accept suggestion\" within 10 "
+             "seconds to type it, or \"discard\" to drop it. Anything else you say -- a "
+             "one-word \"No.\", \"Decline.\" or \"Keep it.\" included -- dismisses it and "
+             "is typed as usual, and nothing is typed without the accept. "
              "Needs llama-cpp-python (the slm extra) and a local GGUF model at "
              "[predict] model_path. Off by default.",
              lambda c: c.predict.enabled, pd_on, pd_off),
@@ -1065,6 +1079,22 @@ _Def("chords", "Chorded Shortcut Synthesis", "[chords] — any keyboard shortcut
              "'toggle dark mode'). Acts on one exact match only; anything else asks you to "
              "confirm. Linux + pyatspi; labels only, no screenshots. Experimental. Off by default.",
              lambda c: c.pilot.enabled, pi_on, pi_off),
+        # ADR-031. OPTIONAL, like `pilot`, rather than EXPERIMENTAL: no rough edge is known,
+        # and EXPERIMENTAL would make `features enable sendto` demand --force. But nothing
+        # is verified either -- §5 makes "never sent" something observed per client and OS,
+        # and no hand-off has been tried against a real Claude or Codex install -- so the
+        # text says so, and there is no verified client version to name yet.
+        _Def("sendto", "Send to Claude / Codex (pre-filled)",
+             "[sendto] — open an AI app with your prompt filled in, never sent", OPTIONAL,
+             "Say 'send to Claude', 'send to Claude Code' or 'send to Codex' as a whole "
+             "utterance, or run `yazses send-to claude|claude-code|codex [TEXT]`: that desktop "
+             "app opens a new conversation with the text in its prompt box, and YazSes types "
+             "nothing. The text is the staged buffer when staged mode is on, else the last "
+             "burst (already typed) or the TEXT you give. It is never sent: you press Enter "
+             "there. Only those three apps' own links, no web fallback; over 14,000 characters "
+             "is refused, never cut. Not yet verified against any real Claude or Codex app. "
+             "Off by default.",
+             lambda c: c.sendto.enabled, snd_on, snd_off),
         _Def("cocktail", "Cocktail Filter (voice focus)", "[cocktail] — experimental", EXPERIMENTAL,
              "Tries to focus on your voice and reject other speakers. Currently "
              "over-rejects your OWN voice — leave off until improved.",
@@ -1287,6 +1317,37 @@ def unwired_slugs() -> frozenset[str]:
     return _UNWIRED
 
 
+# Wired capabilities whose `features enable` switch is read by NOTHING: the capability
+# is a command-line tool that works whether the switch is on or off. Keyed by slug, the
+# value says how the capability is actually used. The generated feature reference
+# prints it in place of "Activate: `yazses features enable <slug>` then `yazses
+# restart`", which for these is an instruction that changes nothing.
+#
+# The other half of the fact lives in `scripts/config_status.py`: each slug's toggle
+# key is listed in `AMBIGUOUS_UNREAD` there, so `docs/configuration.md` marks it inert.
+# tests/test_unread_toggles_are_flagged.py holds the two equal, so wiring a toggle
+# later forces removing it from both, and a new unread toggle cannot hide in one.
+_TOGGLE_NOT_READ: dict[str, str] = {
+    "gitvoice": (
+        "run `yazses gitvoice \"<spoken git command>\"`; it prints the git command and "
+        "its undo, `--run` runs it, and a destructive one also needs `--yes`"
+    ),
+    "chords": (
+        "run `yazses chords \"<spoken shortcut>\"`; it prints the key combo (e.g. "
+        "`ctrl+shift+p`) and presses nothing"
+    ),
+}
+
+
+def unread_toggle_usage(slug: str) -> str:
+    """How a capability whose switch nothing reads is really used, or ``""``.
+
+    Non-empty means `features enable <slug>` would write a key that no code consults:
+    the capability is reached some other way, and this says which.
+    """
+    return _TOGGLE_NOT_READ.get((slug or "").strip().lower(), "")
+
+
 # A concrete "how to use it" example per capability, keyed by slug. Kept beside the
 # registry (still a single source of truth) and enforced complete by
 # tests/test_features_examples.py so every new feature ships with a usage example.
@@ -1359,7 +1420,7 @@ _EXAMPLES: dict[str, str] = {
     "bookmarks": "Say 'bookmark here', then 'jump to my last bookmark' after a break.",
     "casetransform": "Select a name, say 'make this snake_case', and it rewrites.",
     "autopair": "Dictate '(a plus b' and it closes to '(a plus b)'.",
-    "chords": "Say 'press control shift P' and the command palette opens.",
+    "chords": "`yazses chords \"press control shift P\"` prints ctrl+shift+p; nothing is pressed.",
     "compute": "Say \"what's 15% of 240\" and it types 36.",
     "recimport": "Drop in a lecture recording and get a searchable .srt transcript.",
     "meeting": "Hit start, put the phone down, and get who-said-what minutes at the end.",
@@ -1431,12 +1492,17 @@ _EXAMPLES: dict[str, str] = {
     "rag": "Ask 'what did I note about the budget?' → a cited answer from your local docs.",
     "scribe": "Meeting mode: turns are diarized into a labelled transcript.",
     "denoise": "yazses features enable denoise — background noise is filtered pre-STT.",
-    "predict": "Dictate 'the meeting is moved to', then say 'accept' to type the suggested rest.",
+    "predict": "Dictate 'the meeting is moved to', then say 'take it' to type the suggested rest.",
     "affect": "Excited speech → an exclamation mark; questions → a question mark.",
     "translate": "yazses features enable translate — speak any language, type English.",
     "recall": "yazses recall 'the address I dictated yesterday'.",
     "agent": "Say 'create a calendar event tomorrow at 3' (allowlisted tools).",
     "pilot": "Say 'click the Save button' to drive the focused app via AT-SPI.",
+    "sendto": (
+        "Dictate a prompt into the staged buffer, then say 'send to Claude': the Claude app "
+        "opens with it pre-filled, and you press Enter. Or run `yazses send-to codex "
+        "\"explain the failing test\"`."
+    ),
     "cocktail": "yazses features enable cocktail --force — filters other voices (experimental).",
     "voiceguard": "yazses features enable voiceguard --force — another speaker's burst is not typed.",
     "bridge": "Pair smart glasses to relay audio to the desktop (experimental).",
@@ -1511,7 +1577,7 @@ _USE_CASES: dict[str, str] = {
     "acronyms": "When you write reports full of acronyms and need each defined on first use and kept consistent.",
     "morsevox": "When you can produce only one or two reliable vocal sounds and need a full-alphabet entry path.",
     "checkdigit": "When you dictate a card, IBAN, or ID number where one mis-heard digit would be costly to miss.",
-    "mouthswitch": "When you can't produce reliable speech and need to drive a scanning selector with mouth sounds.",
+    "mouthswitch": "When you can't produce reliable speech and need to drive a scanning selector with mouth sounds, on screen or by ear (speak_names says each item).",
     "involuntary": "When a cough, throat-clear, or sneeze keeps turning into garbage tokens in your dictation.",
     "breath": "When you dictate in long continuous runs and want sentences segmented by breathing, not silence.",
     "whispermode": "When you're in a shared or quiet space and must dictate under your breath without losing accuracy.",
@@ -1529,7 +1595,7 @@ _USE_CASES: dict[str, str] = {
     "bookmarks": "When you're in a long dictation session and want named checkpoints to jump back to after a break.",
     "casetransform": "When you need to recase a selection to snake_case, camelCase, or Title Case without retyping.",
     "autopair": "When you dictate code by voice and keep leaving brackets or quotes unbalanced, or need to wrap.",
-    "chords": "When you want to fire arbitrary keyboard shortcuts hands-free without registering each as a macro.",
+    "chords": "When you want the exact key-combo string for a spoken shortcut, to review, script or bind it.",
     "compute": "When you need a quick sum or percentage typed straight into your text without a calculator.",
     "recimport": "When you have existing voice memos, lectures, or meeting recordings to batch-transcribe offline.",
     "meeting": "When you're in a live meeting and want a hands-free, speaker-labelled transcript and notes afterwards.",
@@ -1603,6 +1669,10 @@ _USE_CASES: dict[str, str] = {
     "recall": "When you want to search things you dictated earlier or leave yourself spoken notes-to-self.",
     "agent": "When you want to run allowlisted tools or actions by voice through a local planner.",
     "pilot": "When you want a hands-free desktop, clicking buttons by their labels on Linux.",
+    "sendto": (
+        "When you dictate a prompt for the Claude or Codex desktop app and want to read it "
+        "there before it is sent, without first focusing the app's input box."
+    ),
     "cocktail": "When others are talking nearby and you want only your own voice to reach STT (still rough).",
     "voiceguard": "When other people talk near your microphone and only your own voice should type (a recording of you still gets through).",
     "bridge": "When you want to dictate from a paired phone or glasses mic while your desktop does STT.",
@@ -1666,6 +1736,7 @@ _CATEGORIES: dict[str, str] = {
     "cmdsafety": CAT_COMMANDS, "cmdspotter": CAT_COMMANDS, "slotfill": CAT_COMMANDS,
     "snippets": CAT_COMMANDS, "macros": CAT_COMMANDS, "agent": CAT_COMMANDS,
     "pilot": CAT_COMMANDS, "gesture": CAT_COMMANDS, "audioguard": CAT_COMMANDS,
+    "sendto": CAT_COMMANDS,
     # Multilingual.
     "polyglot": CAT_LANG, "translit": CAT_LANG, "langroute": CAT_LANG,
     "translate": CAT_LANG, "compose": CAT_LANG, "interpret": CAT_LANG,
@@ -1851,6 +1922,17 @@ def enable_caveat(slug: str, cfg) -> str | None:
             "Dictation never runs git, and nothing is spoken back: the command prints the "
             "git command and its undo, runs it only with --run, and a destructive one "
             "only with --yes as well."
+        )
+    if slug == "chords":
+        # Same shape as gitvoice: `yazses chords` never consults `[chords] enabled`, and
+        # no dictation path parses or presses a chord. Without this, "Enabled" plus
+        # "Apply it: yazses restart" would suggest saying "press control shift P" now
+        # presses it. It does not.
+        return (
+            "Heads up: this capability is the `yazses chords \"<spoken shortcut>\"` "
+            "command, and it works whether or not this is enabled — nothing reads "
+            "[chords] enabled. It prints the key combo (e.g. ctrl+shift+p) and presses "
+            "nothing; dictation does not recognise spoken shortcuts."
         )
     if slug == "voiceguard":
         # Enabling writes [voiceprint] enabled too, but no write can enroll a voice, and
