@@ -21,7 +21,7 @@ from yazses.sendto.targets import CLAUDE_MAX_CHARS
 
 runner = CliRunner()
 
-SECRET = "SECRET-PROMPT-zebra-7731"
+PROMPT_MARKER = "PROMPT_MARKER-PROMPT-zebra-7731"
 
 
 class _Opener:
@@ -67,7 +67,7 @@ def test_an_unknown_app_is_refused_before_anything_else(monkeypatch, tmp_path, o
 
 def test_it_refuses_while_the_feature_is_off(monkeypatch, tmp_path, opener):
     _platform(monkeypatch, tmp_path, "")
-    result = runner.invoke(app, ["send-to", "claude", SECRET])
+    result = runner.invoke(app, ["send-to", "claude", PROMPT_MARKER])
     assert result.exit_code == 1
     assert "Send to is off" in result.output
     assert opener.calls == []
@@ -75,11 +75,11 @@ def test_it_refuses_while_the_feature_is_off(monkeypatch, tmp_path, opener):
 
 def test_explicit_text_is_handed_off_and_never_echoed(monkeypatch, tmp_path, opener):
     _platform(monkeypatch, tmp_path, ON)
-    result = runner.invoke(app, ["send-to", "claude", SECRET])
+    result = runner.invoke(app, ["send-to", "claude", PROMPT_MARKER])
     assert result.exit_code == 0, result.output
-    assert opener.calls == [f"claude://claude.ai/new?q={SECRET}"]
-    assert SECRET not in result.output
-    assert f"Opened Claude with {len(SECRET)} characters" in result.output
+    assert opener.calls == [f"claude://claude.ai/new?q={PROMPT_MARKER}"]
+    assert PROMPT_MARKER not in result.output
+    assert f"Opened Claude with {len(PROMPT_MARKER)} characters" in result.output
     assert "press Enter" in result.output
 
 

@@ -37,7 +37,7 @@ from yazses.sendto.targets import CLAUDE_MAX_CHARS
 from yazses.system.browser import open_url
 
 #: Only RFC 3986 unreserved characters, so it is identical inside the encoded URL.
-SECRET = "SECRET-PROMPT-zebra-7731"
+PROMPT_MARKER = "PROMPT_MARKER-PROMPT-zebra-7731"
 
 
 class _Opener:
@@ -64,23 +64,23 @@ def logs(caplog):
 
 def test_a_hand_off_opens_the_planned_url_once():
     opener = _Opener()
-    result = hand_off("claude", f"fix {SECRET}", opener=opener)
+    result = hand_off("claude", f"fix {PROMPT_MARKER}", opener=opener)
     assert result.ok
-    assert opener.calls == [f"claude://claude.ai/new?q=fix%20{SECRET}"]
-    assert (result.target, result.label, result.chars) == ("claude", "Claude", 4 + len(SECRET))
+    assert opener.calls == [f"claude://claude.ai/new?q=fix%20{PROMPT_MARKER}"]
+    assert (result.target, result.label, result.chars) == ("claude", "Claude", 4 + len(PROMPT_MARKER))
 
 
 def test_the_message_says_it_was_not_sent_and_holds_no_text():
-    result = hand_off("codex", SECRET, opener=_Opener())
+    result = hand_off("codex", PROMPT_MARKER, opener=_Opener())
     assert "press Enter" in result.message and "did not send" in result.message
-    assert SECRET not in result.message
-    assert SECRET not in repr(result.as_dict())
+    assert PROMPT_MARKER not in result.message
+    assert PROMPT_MARKER not in repr(result.as_dict())
 
 
 def test_success_logs_the_target_and_length_but_never_the_text(logs):
-    hand_off("claude-code", SECRET, opener=_Opener())
-    assert SECRET not in logs.text
-    assert "claude-code" in logs.text and str(len(SECRET)) in logs.text
+    hand_off("claude-code", PROMPT_MARKER, opener=_Opener())
+    assert PROMPT_MARKER not in logs.text
+    assert "claude-code" in logs.text and str(len(PROMPT_MARKER)) in logs.text
 
 
 # ---- refusals never open anything -----------------------------------------------
@@ -106,14 +106,14 @@ def test_a_refusal_never_calls_the_opener(target, text, reason):
 
 
 def test_a_refusal_logs_no_text(logs):
-    hand_off("claude", SECRET * 1000, opener=_Opener())
-    assert SECRET not in logs.text
+    hand_off("claude", PROMPT_MARKER * 1000, opener=_Opener())
+    assert PROMPT_MARKER not in logs.text
 
 
 def test_an_unknown_target_name_is_not_logged_as_typed(logs):
     """A CLI argument is free text: a slip could put a prompt where the name goes."""
-    hand_off(SECRET, "hello", opener=_Opener())
-    assert SECRET not in logs.text
+    hand_off(PROMPT_MARKER, "hello", opener=_Opener())
+    assert PROMPT_MARKER not in logs.text
 
 
 def test_a_staged_refusal_says_the_text_is_still_staged():
@@ -127,7 +127,7 @@ def test_a_staged_refusal_says_the_text_is_still_staged():
 
 
 def test_an_opener_that_reports_false_is_a_failed_hand_off():
-    result = hand_off("codex", SECRET, opener=_Opener(result=False))
+    result = hand_off("codex", PROMPT_MARKER, opener=_Opener(result=False))
     assert not result.ok
     assert result.reason == "open_failed"
     assert "Nothing was sent" in result.message
@@ -135,11 +135,11 @@ def test_an_opener_that_reports_false_is_a_failed_hand_off():
 
 def test_an_opener_that_raises_with_the_url_in_its_message_leaks_nothing(logs):
     """An exception's message can quote its argument, and its argument is the text."""
-    url_echo = RuntimeError(f"cannot open claude://claude.ai/new?q={SECRET}")
-    result = hand_off("claude", SECRET, opener=_Opener(exc=url_echo))
+    url_echo = RuntimeError(f"cannot open claude://claude.ai/new?q={PROMPT_MARKER}")
+    result = hand_off("claude", PROMPT_MARKER, opener=_Opener(exc=url_echo))
     assert not result.ok
     assert result.reason == "open_failed"
-    assert SECRET not in logs.text
+    assert PROMPT_MARKER not in logs.text
     assert "RuntimeError" in logs.text
 
 
@@ -174,12 +174,12 @@ def test_the_default_opener_goes_through_the_platform_url_opener(monkeypatch):
 @pytest.mark.parametrize(
     "url",
     [
-        f"https://claude.ai/new?q={SECRET}",
-        f"http://claude.ai/new?q={SECRET}",
-        f"file:///tmp/{SECRET}",
-        f"javascript:alert('claude://{SECRET}')",
-        f"chatgpt://new?q={SECRET}",
-        SECRET,
+        f"https://claude.ai/new?q={PROMPT_MARKER}",
+        f"http://claude.ai/new?q={PROMPT_MARKER}",
+        f"file:///tmp/{PROMPT_MARKER}",
+        f"javascript:alert('claude://{PROMPT_MARKER}')",
+        f"chatgpt://new?q={PROMPT_MARKER}",
+        PROMPT_MARKER,
     ],
 )
 def test_the_default_opener_refuses_a_scheme_outside_the_target_table(monkeypatch, logs, url):
@@ -188,7 +188,7 @@ def test_the_default_opener_refuses_a_scheme_outside_the_target_table(monkeypatc
     monkeypatch.setattr("yazses.platform.factory.get_url_opener", lambda: fake)
     assert default_opener(url) is False
     assert fake.urls == []
-    assert SECRET not in logs.text
+    assert PROMPT_MARKER not in logs.text
 
 
 def test_the_target_schemes_are_exactly_the_closed_table_s():
@@ -198,20 +198,20 @@ def test_the_target_schemes_are_exactly_the_closed_table_s():
 @pytest.mark.parametrize(
     "exc",
     [
-        OSError(f"xdg-open could not open claude://claude.ai/new?q={SECRET}"),
+        OSError(f"xdg-open could not open claude://claude.ai/new?q={PROMPT_MARKER}"),
         NotImplementedError("Unsupported platform: aix7"),
-        ValueError(f"refused claude://claude.ai/new?q={SECRET}"),
+        ValueError(f"refused claude://claude.ai/new?q={PROMPT_MARKER}"),
     ],
 )
 def test_a_platform_failure_is_a_failed_hand_off_that_leaks_nothing(monkeypatch, logs, exc):
     """No backend for this OS, no registered program, a refusal: all reported by type."""
     monkeypatch.setattr("yazses.platform.factory.get_url_opener",
                         lambda: _FakeUrlOpener(exc=exc))
-    result = hand_off("claude", SECRET)
+    result = hand_off("claude", PROMPT_MARKER)
     assert not result.ok
     assert result.reason == "open_failed"
-    assert SECRET not in logs.text
-    assert SECRET not in repr(result.as_dict())
+    assert PROMPT_MARKER not in logs.text
+    assert PROMPT_MARKER not in repr(result.as_dict())
     assert type(exc).__name__ in logs.text
 
 
@@ -220,10 +220,10 @@ def test_an_os_with_no_url_opener_is_a_failed_hand_off_not_a_browser(monkeypatch
     import sys
 
     monkeypatch.setattr(sys, "platform", "aix7")
-    result = hand_off("codex", SECRET)
+    result = hand_off("codex", PROMPT_MARKER)
     assert not result.ok and result.reason == "open_failed"
     assert "NotImplementedError" in logs.text
-    assert SECRET not in logs.text
+    assert PROMPT_MARKER not in logs.text
 
 
 def test_hand_off_without_an_opener_uses_the_default(monkeypatch):
@@ -234,13 +234,13 @@ def test_hand_off_without_an_opener_uses_the_default(monkeypatch):
 
 
 def test_open_url_with_log_url_off_does_not_log_the_url(logs):
-    url = f"claude://claude.ai/new?q={SECRET}"
+    url = f"claude://claude.ai/new?q={PROMPT_MARKER}"
 
     def boom(u: str) -> bool:
         raise OSError(f"no handler for {u}")
 
     assert open_url(url, opener=boom, log_url=False) is False
-    assert SECRET not in logs.text
+    assert PROMPT_MARKER not in logs.text
     assert "OSError" in logs.text
 
 
