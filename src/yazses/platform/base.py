@@ -358,6 +358,27 @@ class FileOpener(Protocol):
         ...
 
 
+@runtime_checkable
+class FocusedAppProvider(Protocol):
+    """Names the application that has the keyboard focus -- and nothing else about it.
+
+    Read by the editor command profiles (`commands/profiles.py`) when a spoken command is
+    dispatched with `[commands] profile = "auto"`, so "delete the last line" sends the
+    focused editor's own keys. The answer is an *identifier* only: a bundle id on macOS
+    (``com.microsoft.VSCode``), a process image name on Windows (``Code.exe``). Never a
+    window title, a document name, a path, or any text on screen -- the same privacy line
+    as the click observer, which reports a time and a place and nothing more.
+    """
+
+    def app_id(self) -> str:
+        """The focused application's identifier now, or ``""`` when it cannot be read.
+
+        Called once per dispatched command, on the daemon's thread: it must be cheap and
+        must never raise.
+        """
+        ...
+
+
 @dataclass(frozen=True)
 class UpdateHandoff:
     """What a detached updater must do once YazSes itself has exited (ADR-027).
@@ -571,6 +592,15 @@ platform ships one yet. `None` is the honest answer for "not here" -- the daemon
 and implicit refinement stays dormant, rather than a no-op observer that never delivers a click.
 """
 
+FocusedAppFactory = Callable[[], FocusedAppProvider]
+"""Builds this platform's focused-application provider for the editor command profiles.
+
+A factory, and optional, for the pointer's reasons: nothing OS-specific is imported while
+`get_platform()` merely runs, and a platform with no provider says so with `None` rather
+than one that always answers "". It may raise when the OS facility it needs is missing
+(macOS without the AppKit bridge); the message is the reason the daemon logs.
+"""
+
 InputBlockProbe = Callable[[], str | None]
 """Says why the focused window will not receive synthetic input, or returns None.
 
@@ -623,6 +653,16 @@ class Platform:
     # running above our integrity level, and SendInput reports success while it does.
     # The "no text target" guard reads it, so the words go to the clipboard instead.
     input_block_probe: InputBlockProbe | None = None
+    # Builds the provider that names the focused application (`FocusedAppProvider`), for
+    # `[commands] profile = "auto"`. macOS (NSWorkspace) and Windows (the foreground
+    # window's process) set it. Linux and the BSDs leave it None on purpose: there the
+    # daemon reads the focused application through the text-target guard's detector
+    # (AT-SPI, else X11 xdotool), which already existed before this seam did.
+    focused_app_factory: FocusedAppFactory | None = None
+    # Why `focused_app_factory` is None where a platform knows it cannot have one, in a
+    # sentence the daemon log can repeat -- or None when it is set, or when the platform
+    # reads the focused application some other way (Linux, above).
+    focused_app_unavailable_reason: str | None = None
     # The modifier this OS's application shortcuts use (`PRIMARY_MODIFIER_CTRL` or
     # `PRIMARY_MODIFIER_CMD`). macOS sets Cmd; every other bundle keeps the Ctrl default,
     # which is what keeps their spoken-command keys exactly what they always were.

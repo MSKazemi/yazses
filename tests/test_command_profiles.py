@@ -102,6 +102,85 @@ def test_known_editors_are_recognised(app_class, profile):
     assert match_app(app_class) == profile
 
 
+#: What the macOS (bundle id) and Windows (process image name) providers report for each
+#: editor, written out literally so deleting a row from `APP_IDENTIFIERS` fails here.
+_MACOS_WINDOWS_IDS = [
+    # Windows
+    ("Code.exe", "vscode"),
+    ("Code - Insiders.exe", "vscode"),
+    ("VSCodium.exe", "vscode"),
+    ("idea64.exe", "jetbrains"),
+    ("idea.exe", "jetbrains"),
+    ("pycharm64.exe", "jetbrains"),
+    ("webstorm64.exe", "jetbrains"),
+    ("phpstorm64.exe", "jetbrains"),
+    ("clion64.exe", "jetbrains"),
+    ("goland64.exe", "jetbrains"),
+    ("rider64.exe", "jetbrains"),
+    ("rubymine64.exe", "jetbrains"),
+    ("datagrip64.exe", "jetbrains"),
+    ("rustrover64.exe", "jetbrains"),
+    ("studio64.exe", "jetbrains"),
+    ("sublime_text.exe", "sublime"),
+    # macOS
+    ("com.microsoft.VSCode", "vscode"),
+    ("com.microsoft.VSCodeInsiders", "vscode"),
+    ("com.vscodium", "vscode"),
+    ("com.visualstudio.code.oss", "vscode"),
+    ("com.jetbrains.intellij", "jetbrains"),
+    ("com.jetbrains.intellij.ce", "jetbrains"),
+    ("com.jetbrains.pycharm", "jetbrains"),
+    ("com.jetbrains.pycharm.ce", "jetbrains"),
+    ("com.jetbrains.WebStorm", "jetbrains"),
+    ("com.jetbrains.PhpStorm", "jetbrains"),
+    ("com.jetbrains.CLion", "jetbrains"),
+    ("com.jetbrains.goland", "jetbrains"),
+    ("com.jetbrains.rider", "jetbrains"),
+    ("com.jetbrains.rubymine", "jetbrains"),
+    ("com.jetbrains.datagrip", "jetbrains"),
+    ("com.jetbrains.rustrover", "jetbrains"),
+    ("com.google.android.studio", "jetbrains"),
+    ("com.sublimetext.4", "sublime"),
+    ("com.sublimetext.3", "sublime"),
+    # macOS fallback when an app has no bundle id: its localised name
+    ("Visual Studio Code", "vscode"),
+    ("IntelliJ IDEA", "jetbrains"),
+    ("Sublime Text", "sublime"),
+]
+
+
+@pytest.mark.parametrize("app_id,profile", _MACOS_WINDOWS_IDS)
+def test_macos_and_windows_identifiers_are_recognised(app_id, profile):
+    assert match_app(app_id) == profile
+    assert match_app(app_id.upper()) == profile, "case must not matter"
+    assert match_app(f"  {app_id} ") == profile
+
+
+def test_every_listed_identifier_is_tested_and_names_a_real_profile():
+    """The table and the literal list above agree both ways, and every row is stored
+    lower-cased (the matcher lower-cases its input) and names a built-in profile."""
+    from yazses.commands.profiles import APP_IDENTIFIERS
+
+    listed = {app_id.lower() for app_id, _ in _MACOS_WINDOWS_IDS}
+    assert set(APP_IDENTIFIERS) <= listed, sorted(set(APP_IDENTIFIERS) - listed)
+    for app_id, profile in APP_IDENTIFIERS.items():
+        assert app_id == app_id.strip().lower(), app_id
+        assert profile in BUILTIN_PROFILES, (app_id, profile)
+
+
+@pytest.mark.parametrize("app_id", [
+    "com.apple.dt.Xcode",     # Xcode is not VS Code, though "code" is in its name
+    "Xcode.exe",
+    "notepad.exe",
+    "explorer.exe",
+    "com.apple.Terminal",
+    "com.apple.TextEdit",
+    "WindowsTerminal.exe",
+])
+def test_other_macos_and_windows_apps_are_not_guessed_at(app_id):
+    assert match_app(app_id) is None
+
+
 @pytest.mark.parametrize("app_class", ["", "   ", "firefox", "kitty", "Xcode", "gedit"])
 def test_anything_else_is_not_guessed_at(app_class):
     """`code` is matched whole, not as a substring -- `Xcode` is not VS Code."""
@@ -277,6 +356,15 @@ class _FakeDetector:
 
 
 def _daemon(*, editor_profiles: bool, profile: str = "auto"):
+    """A daemon on this host's platform bundle, minus its focused-app provider.
+
+    These tests pin the Linux path (the text-target guard's detector). The macOS and
+    Windows bundles declare a provider that the daemon prefers, so it is removed here
+    to keep that path under test on every CI leg; `test_focused_app_provider.py` covers
+    the provider path.
+    """
+    import dataclasses
+
     from yazses.core.daemon import Daemon
     from yazses.platform import get_platform
 
@@ -287,7 +375,9 @@ def _daemon(*, editor_profiles: bool, profile: str = "auto"):
     cfg.commands.profile = profile
     cfg.streaming.enabled = False
     cfg.injection.continuation_window_ms = 0
-    d = Daemon(config=cfg, platform=get_platform())
+    platform = dataclasses.replace(get_platform(), focused_app_factory=None,
+                                   focused_app_unavailable_reason=None)
+    d = Daemon(config=cfg, platform=platform)
     d._recorder = _FakeRecorder(np.full(16000, 0.5, dtype="float32"))
     d._engine = _FakeEngine()
     d._padding_buffer = None
