@@ -1679,6 +1679,10 @@ class Daemon:
                 # open stream, and on PipeWire `wpctl` sees a switch PortAudio's start-up
                 # device list cannot.
                 peek_fn=effective_default_input_name,
+                # How often the open streams are cycled for a full re-scan, and the longest
+                # a user mid-gesture can hold that off. Shipped defaults 30 s / 600 s.
+                rescan_every_s=cfg.audio.level_stream_rescan_s,
+                max_defer_s=cfg.audio.level_stream_in_use_max_s,
             )
 
         # "No text target" guard: build the detector (AT-SPI focus tracker when available,
@@ -2839,6 +2843,8 @@ class Daemon:
                 stop_requested=None if (gate := self._handsfree_safety) is None
                 else lambda: gate.status().user_paused,
                 on_fault=notify_vocaljoystick_fault,  # the cursor never stops silently
+                # A held vowel defers a device re-scan only while audio is this fresh.
+                engaged_fresh_s=cfg.audio.level_stream_fresh_s,
             )
         except Exception:
             log.warning("Vocal Joystick init failed; it stays off", exc_info=True)
@@ -2897,6 +2903,8 @@ class Daemon:
                 stop_requested=None if (gate := self._handsfree_safety) is None
                 else lambda: gate.status().user_paused,
                 on_fault=notify_mouthswitch_fault,  # the switch never stops silently
+                # A running scan defers a device re-scan only while audio is this fresh.
+                engaged_fresh_s=cfg.audio.level_stream_fresh_s,
             )
         except Exception:
             log.warning("Mouth-Sound Switch init failed; it stays off", exc_info=True)
@@ -2963,6 +2971,8 @@ class Daemon:
                 stop_requested=None if gate is None else lambda: gate.status().user_paused,
                 on_change=self._on_morse_mode,
                 on_level=self._on_morse_level,
+                # Morse mode defers a device re-scan only while audio is this fresh.
+                engaged_fresh_s=cfg.audio.level_stream_fresh_s,
             )
         except Exception:
             log.warning("Vocal Morse init failed; it stays off", exc_info=True)

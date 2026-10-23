@@ -211,6 +211,10 @@ def device_changed(prev: str | None, cur: str | None) -> bool:
 # as that read sees a change) it asks each owner to close its stream, re-inits, and lets each
 # reopen -- never while dictation records, and not while a user is in the middle of using one
 # of those streams.
+#
+# The three timings below are the shipped defaults of `[audio] level_stream_rescan_s`,
+# `level_stream_in_use_max_s` and `level_stream_fresh_s`. The daemon passes the configured
+# values in as parameters (to `DeviceMonitor` and to each runner); nothing here reads config.
 
 #: Poll actions :func:`plan_device_poll` chooses between.
 SKIP = "skip"  #: touch nothing (a hold-to-talk recording is in flight)
@@ -313,6 +317,9 @@ class DeviceMonitor:
     :class:`LevelStreamOwner` objects), ``recording`` (a dictation is in flight: touch
     nothing), ``peek_fn`` (read the default without a re-init) and ``clock`` (monotonic).
     Without them the monitor behaves as it always has: skip unless ``is_idle``.
+    ``rescan_every_s`` and ``max_defer_s`` are handed to :func:`plan_device_poll` on every
+    poll; the daemon sets them from ``[audio] level_stream_rescan_s`` and
+    ``level_stream_in_use_max_s``.
     """
 
     def __init__(

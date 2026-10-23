@@ -206,6 +206,24 @@ class AudioConfig:
     # Cadence of the background default-input-device watcher, in seconds. 0 disables
     # the watcher (the silent-streak detector still works, being on the hot path).
     device_poll_interval_s: float = 3.0
+    # While a hands-free feature holds the microphone open (Vocal Morse listening for its
+    # entry hum, the Mouth-Sound Switch or the Vocal Joystick while armed), the watcher
+    # cannot re-scan the audio devices without briefly closing that stream. It does so
+    # every this many seconds, closing the stream for a moment and reopening it; between
+    # re-scans it only reads the current default, which on PipeWire already notices a
+    # switch. Lower it to notice an unplugged mic sooner on macOS and Windows, raise it if
+    # the short gap in the hands-free stream bothers you. 5 to 3600.
+    level_stream_rescan_s: float = field(default=30.0, metadata={"min": 5.0, "max": 3600.0})
+    # A re-scan waits while you are in the middle of using one of those streams (Morse
+    # mode on, a switch scan running, a held joystick vowel), so it never cuts a letter or
+    # a highlight short. This is the longest it waits: a backstop for a sound that never
+    # ends, such as a fan read as one endless Morse pulse. 10 to 3600.
+    level_stream_in_use_max_s: float = field(default=600.0, metadata={"min": 10.0, "max": 3600.0})
+    # A hands-free stream counts as "in use" only while it has delivered audio within
+    # this many seconds. A microphone unplugged mid-gesture stops delivering, so after
+    # this long the frozen gesture no longer holds the re-scan off and the dead device is
+    # noticed. 0.5 to 60.
+    level_stream_fresh_s: float = field(default=2.0, metadata={"min": 0.5, "max": 60.0})
     # Answer the mic guard's [Re-calibrate]/[Pin this mic]/[Ignore] toast by SAYING one
     # of them (ADR-022, Spec 1). Without this the daemon asks a question about your
     # microphone that can only be answered with a pointer -- and the person seeing it is

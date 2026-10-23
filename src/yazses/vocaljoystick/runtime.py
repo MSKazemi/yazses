@@ -44,7 +44,7 @@ from typing import Any, Protocol
 
 import numpy as np
 
-from yazses.audio.device_monitor import audio_is_live
+from yazses.audio.device_monitor import ENGAGED_AUDIO_FRESH_S, audio_is_live
 from yazses.pointer.base import PointerButton, PointerError, PointerSink
 from yazses.vocaljoystick.control import VocalJoystick
 from yazses.vocaljoystick.drive import PointerIntent, SustainedVowelDriver
@@ -99,6 +99,7 @@ class VocalJoystickRunner:
         on_fault: Callable[[str], None] | None = None,
         thread: bool = True,
         clock: Callable[[], float] = time.monotonic,
+        engaged_fresh_s: float = ENGAGED_AUDIO_FRESH_S,
     ) -> None:
         self._sink = sink
         self._recorder_factory = recorder_factory
@@ -107,6 +108,9 @@ class VocalJoystickRunner:
         self._on_fault = on_fault
         self._use_thread = thread
         self._clock = clock
+        #: `[audio] level_stream_fresh_s`: how recent audio must be for a held vowel to
+        #: count as in use and hold a device re-scan off.
+        self._engaged_fresh_s = float(engaged_fresh_s)
         #: When the stream last delivered a chunk (``clock`` time), or None.
         self._last_audio_at: float | None = None
         #: Set when a device re-scan closed the stream; any other stop clears it.
@@ -143,7 +147,7 @@ class VocalJoystickRunner:
         return (
             self._recorder is not None
             and self._driver.engaged
-            and audio_is_live(self._last_audio_at, self._clock())
+            and audio_is_live(self._last_audio_at, self._clock(), self._engaged_fresh_s)
         )
 
     # ------------------------------------------------------------------ lifecycle
@@ -422,6 +426,7 @@ def build_vocaljoystick(
     stop_requested: Callable[[], bool] | None = None,
     on_fault: Callable[[str], None] | None = None,
     thread: bool = True,
+    engaged_fresh_s: float = ENGAGED_AUDIO_FRESH_S,
 ) -> VocalJoystickRuntime:
     """The Vocal Joystick for ``[vocaljoystick]``, or a runtime that says why there is none.
 
@@ -458,5 +463,6 @@ def build_vocaljoystick(
         stop_requested=stop_requested,
         on_fault=on_fault,
         thread=thread,
+        engaged_fresh_s=engaged_fresh_s,
     )
     return VocalJoystickRuntime(runner=runner, notice=notice)

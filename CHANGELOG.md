@@ -398,6 +398,16 @@ on a microphone that is still delivering sound. A re-scan never reopens a stream
 paused, or that a fault closed, while it ran. Covered by unit tests with fake streams and
 a fake clock; untested on real hardware.
 
+### Added — the watcher's hands-free timings are `[audio]` settings
+
+The three timings in the entry above can now be set in `[audio]`:
+`level_stream_rescan_s` (how often the streams are closed for a re-scan, default 30 s),
+`level_stream_in_use_max_s` (the longest a gesture in progress can delay a re-scan, default
+600 s) and `level_stream_fresh_s` (how recently audio must have arrived for a gesture to
+count as in progress, default 2 s). The defaults are the old fixed values, so nothing
+changes unless you set them. A value outside its range is reported by `yazses doctor` and
+the default is used. Covered by unit tests with fake streams; untested on real hardware.
+
 ### Fixed — spoken commands on macOS send Cmd shortcuts, not Ctrl ones (untested on a real Mac)
 
 On macOS, "undo", "copy", "paste", "save" and "select all" sent Ctrl+Z, Ctrl+C,
