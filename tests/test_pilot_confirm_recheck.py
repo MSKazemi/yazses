@@ -11,6 +11,9 @@ re-runs the decision on the fresh reading. Pinned here: the pure re-decision, th
 over a fake reader whose snapshots change between the prompt and the answer, and the
 whole path through a real :class:`OnScreenReader` over a fake backend that, like AT-SPI,
 refuses an id from an older snapshot.
+
+The same re-decision now covers every held click (a destructive label, a partial match,
+a tie); `test_pilot_confirm_recheck_all_clicks.py` pins those.
 """
 
 from __future__ import annotations
@@ -54,12 +57,18 @@ def held_for(phrase: str, elements: list[Element]) -> HeldTarget:
 # ---- the pure re-decision ------------------------------------------------------------------
 
 
-def test_only_a_held_check_or_uncheck_gets_a_held_target():
+def test_every_held_verb_gets_a_held_target_and_only_a_held_one():
     els = [box("Delete", None, role="push button")]
     d = decide("click delete", els)
     assert d.verdict == CONFIRM
-    assert held_target(d, els) is None, "a held click keeps acting on the node it matched"
+    t = held_target(d, els)
+    assert t is not None, "a held click must be found again at confirm, not acted on blind"
+    assert (t.label, t.role, t.occurrence, t.occurrences) == ("Delete", "push button", 0, 1)
+    # Not among the elements it is described over: nothing to find again.
     assert held_target(decide("check delete", [box("Delete", False)]), []) is None
+    # Not held at all (an exact, safe match acts at once): no target.
+    save = [box("Save", None, role="push button")]
+    assert held_target(decide("click save", save), save) is None
 
 
 def test_held_target_records_label_role_state_and_position():
@@ -258,13 +267,14 @@ def test_service_an_unreadable_window_at_confirm_is_refused():
     assert "Could not re-read the window" in out.message
 
 
-def test_a_held_plain_click_still_acts_on_the_node_it_matched_without_a_re_read():
-    reader = ChangingReader((cand("Delete", "s1n0", None, role="push button"),))
+def test_a_held_plain_click_is_re_read_and_acts_on_the_new_id():
+    reader = ChangingReader((cand("Delete", "s1n0", None, role="push button"),),
+                            (cand("Delete", "s2n0", None, role="push button"),))
     s = PilotService(reader)
     assert s.command("click delete").verdict == "confirm"
     assert s.answer("confirm").verdict == "confirmed"
-    assert reader.reads == 1
-    assert reader.performed == [("s1n0", "click")]
+    assert reader.reads == 2, "confirm must re-read the window for every held click"
+    assert reader.performed == [("s2n0", "click")]
 
 
 def test_cancel_on_a_held_check_reads_nothing_and_clicks_nothing():

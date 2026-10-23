@@ -186,9 +186,24 @@ Now "confirm" reads the window again and finds the same control by its label and
 It clicks only if the control is still in the other state. If the box is already as you
 asked, nothing is clicked and you are told so. If the control is gone, if the number of
 identical controls changed so it is unclear which one you meant, or if its state was
-readable before and is not now, nothing is clicked and you are told why. Other held
-clicks are unchanged. The Voice Pilot is off by default (`[pilot] enabled`), Linux-only,
-and untested on real hardware.
+readable before and is not now, nothing is clicked and you are told why. Every other
+held click is now re-checked the same way (next entry). The Voice Pilot is off by default
+(`[pilot] enabled`), Linux-only, and untested on real hardware.
+
+### Fixed — a confirmed Voice Pilot click can no longer land on a different control than the one it named (Linux, experimental)
+
+A click held for a spoken "confirm" (a label that may not be undoable such as "Delete",
+"Send" or "Log out", a partial match, or a tie between identical buttons) waited up to
+30 s and then clicked the control it had first matched, by the id from the earlier read.
+If the window changed during the wait, that could be a different control or one that was
+gone, and if a second identical "Delete" appeared there was no telling which one you had
+confirmed. Now every held click works like a held "check X": "confirm" reads the window
+again and looks for the same control, with the same label (ignoring only case and
+spacing, so "Delete" never becomes "Delete all"), the same kind of control, still
+clickable, and the same number of identical ones. If it is there, it is clicked once. If
+it is gone, renamed, a different kind of control, no longer clickable, or there is now one
+identical control more or fewer, nothing is clicked and you are told why. The Voice Pilot
+is off by default (`[pilot] enabled`), Linux-only, and untested on real hardware.
 
 ### Fixed — Voice Pilot "uncheck X" on a radio button no longer reports a change it did not make (Linux, experimental)
 

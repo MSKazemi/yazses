@@ -311,36 +311,49 @@ def decide(phrase, elements, *, threshold: float = 0.5,
 
 
 # --------------------------------------------------------------------------- #
-# A held "check"/"uncheck", re-decided at confirm time.
+# A held click, re-decided at confirm time.
 # --------------------------------------------------------------------------- #
 #
-# A "check X" held for "confirm" (state unreadable, a partial match, a tie) may wait up
-# to 30 s. In that time the user can click the box themselves, or the window can change
-# under it, and a toggle run on the old reading then does the opposite of what was said.
-# So the confirm re-reads the window and decides again, on the *new* reading. Snapshot
-# ids are per-snapshot, so the held control is found again by what does not change
-# between reads: its label, its role, and an action able to carry out the verb.
+# Every click held for "confirm" -- a destructive label ("Delete", "Send", "Log out"), a
+# partial match, a tie, a "check" whose state could not be read -- may wait up to 30 s.
+# In that time the window can change under it: a dialog closes and another control takes
+# the old one's place, a second identical "Delete" row appears, or the user ticks the box
+# themselves. Clicking the node first matched would then press a control the prompt never
+# named, and a toggle run on the old reading could do the opposite of what was said. So
+# the confirm re-reads the window and decides again, on the *new* reading. Snapshot ids
+# are per-snapshot, so the held control is found again by what does not change between
+# reads: its label (exactly, up to case and whitespace -- never a fuzzy match, so a held
+# "Delete" can never be confirmed onto "Delete all"), its role, and an action able to
+# carry out the verb. One function decides this for every held verb.
 
 #: Reasons :func:`redecide_held` gives with verdict NO_MATCH: nothing is performed.
-HELD_GONE = "target_gone"            # no control with that label and role any more
+HELD_GONE = "target_gone"            # no actionable control with that label and role
 HELD_AMBIGUOUS = "target_ambiguous"  # the number of such controls changed: which one?
-HELD_STATE_LOST = "state_lost"       # it was read at hold time and cannot be read now
+HELD_STATE_LOST = "state_lost"       # "check"/"uncheck": read at hold time, unreadable now
 
 
 def _identity(elem: Element) -> tuple[str, str]:
-    """What finds the same control again in a later snapshot: label and role."""
+    """What finds the same control again in a later snapshot: label and role.
+
+    Both are compared exactly after folding case and collapsing whitespace, so
+    ``"Log  out"`` is ``"log out"`` but ``"Log out"`` is never ``"Log out all"``.
+    """
     return (" ".join((elem.label or "").split()).casefold(),
             " ".join((elem.role or "").split()).casefold())
 
 
 @dataclass(frozen=True)
 class HeldTarget:
-    """A held "check"/"uncheck", described by attributes that survive a re-read. Pure data.
+    """A held click, described by attributes that survive a re-read. Pure data.
 
+    ``command`` is what was said (its verb, and for "check"/"uncheck" the asked state).
+    ``label`` and ``role`` are the *held control's*, not the spoken words: a partial
+    match "click save copy" held on "Save As" is found again as "Save As".
     ``occurrence`` is the held control's index among the actionable controls sharing its
     label and role, in reading order, and ``occurrences`` how many there were -- so the
-    second of two identical "Notify" boxes is found again only while there are still
-    exactly two. ``checked`` is the state read when it was held.
+    first of two identical "Save" buttons is found again only while there are still
+    exactly two. ``checked`` is the state read when it was held (``None`` when unread or
+    not checkable).
     """
 
     command: PilotCommand
@@ -359,12 +372,13 @@ def _same_controls(cmd: PilotCommand, ident: tuple[str, str], elements) -> list[
 def held_target(decision: PilotDecision, elements) -> HeldTarget | None:
     """The :class:`HeldTarget` for a CONFIRM *decision* made over *elements*. Pure.
 
-    ``None`` when the decision is not a held "check"/"uncheck" (every other held click
-    keeps acting on the node it matched) or its element is not among *elements*.
+    Every held verb gets one -- a destructive click, a partial match, a tie, a "check"
+    on an unread state -- because every one is re-decided at confirm time. ``None`` only
+    when *decision* is not a CONFIRM with an element, or its element is not among
+    *elements* (the caller then has nothing it could safely act on later).
     """
     elem = decision.element
-    if (decision.verdict != CONFIRM or elem is None
-            or decision.command.want_checked is None):
+    if decision.verdict != CONFIRM or elem is None:
         return None
     same = _same_controls(decision.command, _identity(elem), elements)
     index = next((i for i, e in enumerate(same) if e is elem), None)
@@ -377,21 +391,30 @@ def held_target(decision: PilotDecision, elements) -> HeldTarget | None:
 
 
 def redecide_held(held: HeldTarget, elements) -> PilotDecision:
-    """Decide a confirmed "check"/"uncheck" again on a fresh read, *elements*. Pure.
+    """Decide a confirmed held click again on a fresh read, *elements*. Pure.
 
     The user said "confirm" to a prompt about the window as it was. This acts only if
-    the same control is still specifically there and still in the other state:
+    the same control is still specifically there:
 
-    * **NO_MATCH** ``target_gone`` -- no actionable control with that label and role.
+    * **NO_MATCH** ``target_gone`` -- no control with that exact label and role offers an
+      action able to carry out the verb any more: it vanished, its label or role
+      changed, or it can no longer be clicked.
     * **NO_MATCH** ``target_ambiguous`` -- the number of such controls changed, so which
       one was meant cannot be told (ADR-021: never a guess).
+
+    and, for "check"/"uncheck" only, whose effect depends on a state the user can change
+    during the hold:
+
+    * **REFUSED** ``radio_uncheck`` -- "uncheck" on a radio button, as in :func:`decide`.
     * **ALREADY** -- it is now in the asked state (the user, or the app, changed it
       during the hold); a toggle would undo that.
     * **NO_MATCH** ``state_lost`` -- its state was read at hold time and cannot be read
       now; the prompt promised a check, and a blind toggle might uncheck it.
-    * **ACT** -- otherwise: the state still differs from the asked one, or it was
-      unreadable then and is now (the prompt said "toggle" and the user confirmed that).
-      ``element`` is the control in the *new* read, carrying its new snapshot id.
+
+    Otherwise **ACT** ``confirmed``: ``element`` is the control in the *new* read,
+    carrying its new snapshot id, and ``action_name`` the backend action it offers now.
+    A destructive label stays held to the same exact label by the identity above, so a
+    confirm can never land on a different control.
     """
     cmd = held.command
     want = cmd.want_checked
@@ -402,12 +425,13 @@ def redecide_held(held: HeldTarget, elements) -> PilotDecision:
     if len(same) != held.occurrences or not 0 <= held.occurrence < len(same):
         return PilotDecision(NO_MATCH, HELD_AMBIGUOUS, cmd, matches=len(same))
     elem = same[held.occurrence]
-    if want is False and is_radio_role(elem.role):
-        return PilotDecision(REFUSED, "radio_uncheck", cmd, elem, None, 1.0, len(same))
-    if want is not None and elem.checked is want:
-        return PilotDecision(ALREADY, "already_checked" if want else "already_unchecked",
-                             cmd, elem, None, 1.0, len(same))
-    if elem.checked is None and held.checked is not None:
-        return PilotDecision(NO_MATCH, HELD_STATE_LOST, cmd, elem, None, 1.0, len(same))
+    if want is not None:
+        if want is False and is_radio_role(elem.role):
+            return PilotDecision(REFUSED, "radio_uncheck", cmd, elem, None, 1.0, len(same))
+        if elem.checked is want:
+            return PilotDecision(ALREADY, "already_checked" if want else "already_unchecked",
+                                 cmd, elem, None, 1.0, len(same))
+        if elem.checked is None and held.checked is not None:
+            return PilotDecision(NO_MATCH, HELD_STATE_LOST, cmd, elem, None, 1.0, len(same))
     return PilotDecision(ACT, "confirmed", cmd, elem,
                          resolve_action_name(cmd.action, elem.actions), 1.0, len(same))
