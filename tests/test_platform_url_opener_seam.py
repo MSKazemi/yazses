@@ -6,11 +6,12 @@ implementation per OS family in `platform/<os>/fileopen.py`, dispatched by
 so this file pins, per backend and with every process and OS call faked:
 
 * **the mechanism** -- Linux and the BSDs ask the desktop portal's `OpenURI` over the
-  session bus first and, only when no portal received the URL, run `xdg-open` with it as
+  session bus first and, only when no portal received the URL -- or once, after the
+  portal answered `Response` 2 (it did not open the client) -- run `xdg-open` with it as
   one argv element and no shell; macOS calls `NSWorkspace` in-process and falls back to
   `open`; Windows calls `os.startfile` (`ShellExecuteW`, in-process);
-* **no argv once the portal has it** -- a portal success, failure, cancel or late answer
-  starts no process, so the URL is in no `/proc/<pid>/cmdline` of ours (the portal tests
+* **no argv once the portal has it** -- a portal success, D-Bus error, cancel or late
+  answer starts no process, so the URL is in no `/proc/<pid>/cmdline` of ours (the portal tests
   are at the bottom, with a fake jeepney connection);
 * **refusal before anything starts** -- a web, file or script scheme, a URL without a
   scheme, or one with whitespace or control characters starts no process and calls no
@@ -672,10 +673,12 @@ def test_a_portal_error_is_refused_without_xdg_open_or_the_url(jeepney, monkeypa
     assert bus.closed == 1
 
 
-@pytest.mark.parametrize(("code", "word"), [(1, "cancelled"), (2, "2")])
-def test_a_cancelled_or_failed_response_is_refused_without_xdg_open(jeepney, monkeypatch,
-                                                                    code, word) -> None:
-    """1 is the user pressing Cancel on the app chooser: a fallback would overrule them."""
+@pytest.mark.parametrize(("code", "word"), [(1, "cancelled"), (3, "3")])
+def test_a_cancelled_or_unknown_response_is_refused_without_xdg_open(jeepney, monkeypatch,
+                                                                     code, word) -> None:
+    """1 is the user pressing Cancel on the app chooser: a fallback would overrule them.
+    A code the portal spec does not define (3) is not 2, so it is refused too: only the
+    one answer that says "not opened" earns the fallback."""
     bus = _FakeBus(responses=[code])
     _use_bus(monkeypatch, bus)
     spawned = _record_spawns(monkeypatch)
@@ -684,6 +687,55 @@ def test_a_cancelled_or_failed_response_is_refused_without_xdg_open(jeepney, mon
     assert spawned == []
     assert word in str(info.value)
     assert SECRET not in str(info.value)
+
+
+# -- Response 2: the portal answered "not opened", so xdg-open is tried exactly once -------
+
+
+def test_response_2_falls_back_to_xdg_open_exactly_once(jeepney, monkeypatch) -> None:
+    """2 is "the interaction was ended some other way": the portal answered, and did not
+    open the client, so one xdg-open cannot open it twice and overrules nobody."""
+    bus = _FakeBus(responses=[2])
+    opened = _use_bus(monkeypatch, bus)
+    closed_at_spawn: list[int] = []
+    spawned: list[list] = []
+
+    def fake_popen(cmdline, **kwargs):
+        spawned.append(list(cmdline))
+        closed_at_spawn.append(bus.closed)
+        return _Proc(0)
+
+    monkeypatch.setattr(linux_fileopen.subprocess, "Popen", fake_popen)
+    LinuxUrlOpener().open_url(URL)  # no exception: xdg-open handed it off
+    assert spawned == [["xdg-open", URL]], "exactly one xdg-open, the URL as one argument"
+    assert opened == [1] and len(bus.openuri_calls()) == 1, "the portal is not asked again"
+    assert bus.waits == [linux_fileopen.PORTAL_RESPONSE_WAIT_S]
+    assert closed_at_spawn == [1], "the portal's connection is closed before xdg-open runs"
+
+
+def test_response_2_then_a_failing_xdg_open_is_not_retried(jeepney, monkeypatch) -> None:
+    bus = _FakeBus(responses=[2])
+    _use_bus(monkeypatch, bus)
+    proc = _Proc(4)  # 4: no program registered for the scheme
+    spawned = _fake_popen(monkeypatch, proc)
+    with pytest.raises(OSError) as info:
+        LinuxUrlOpener().open_url(URL)
+    assert [cmd for cmd, _ in spawned] == [["xdg-open", URL]], "never a second attempt"
+    assert len(bus.openuri_calls()) == 1
+    assert "status 4" in str(info.value)
+    assert SECRET not in f"{info.value!s} {info.value!r} {info.value.__cause__!r}"
+
+
+def test_response_2_logs_the_fallback_without_the_url(jeepney, monkeypatch, caplog) -> None:
+    caplog.set_level(logging.DEBUG)
+    _use_bus(monkeypatch, _FakeBus(responses=[2]))
+    _record_spawns(monkeypatch)
+    LinuxUrlOpener().open_url(URL)
+    assert "portal response 2" in caplog.text
+    assert "xdg-open once" in caplog.text
+    for record in caplog.records:
+        assert SECRET not in record.getMessage(), record.getMessage()
+        assert SECRET not in repr(record.args)
 
 
 @pytest.mark.parametrize("exc", [TimeoutError(), ConnectionResetError(104, f"reset {URL}")])

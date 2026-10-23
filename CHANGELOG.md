@@ -454,8 +454,11 @@ starts anything. On Linux the link goes to the desktop portal (`xdg-desktop-port
 OpenURI) over the session bus, so it is in no process list of YazSes's; only where there is
 no portal does it fall back to `xdg-open`, whose argument it is while it opens, so other
 processes on the same machine could read it in the process list. Once the portal has the
-link, a failure or a cancelled app chooser is reported as a failed hand-off and never
-retried through `xdg-open`, which could open the app twice. On every path the app gets the
+link, an error, a cancelled app chooser or no answer is reported as a failed hand-off and
+never retried through `xdg-open`, which could open the app twice. The one exception is the
+portal's "failed some other way" answer (response 2): it means the portal did not open
+the app, so YazSes tries `xdg-open` once, and the link is in its argument list while it
+runs. On every path the app gets the
 link as an argument if this starts it. The portal path is untested against a real portal,
 and macOS and Windows are untested. Written in a code-only pass; its tests have not been
 run yet.

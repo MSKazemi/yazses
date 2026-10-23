@@ -17,19 +17,25 @@ else can read it.
    (``dbus-monitor``; the stock session-bus policy allows that), and the client the portal
    starts usually receives the URL as an argument (the ``%u`` in its ``.desktop`` file) --
    that second half is the client's, not ours.
-2. **``xdg-open <url>`` (fallback only).** Used only when nothing received the URL from the
+2. **``xdg-open <url>`` (fallback only).** Used when nothing received the URL from the
    portal attempt: ``jeepney`` missing, no session bus, no portal service, or no
-   ``OpenURI`` on it. ``xdg-open`` takes the URL as a command-line argument, so while it
-   runs the text is in ``/proc/<pid>/cmdline``: readable by every process of the same user
-   and -- unless ``/proc`` is mounted with ``hidepid=`` -- by every local user.
+   ``OpenURI`` on it -- and once, when the portal answered ``Response`` 2 (below).
+   ``xdg-open`` takes the URL as a command-line argument, so while it runs the text is in
+   ``/proc/<pid>/cmdline``: readable by every process of the same user and -- unless
+   ``/proc`` is mounted with ``hidepid=`` -- by every local user.
 
-**Once the portal has the URL, there is no fallback.** If the portal accepted the call and
-then reports a failure, a cancelled app chooser, or does not answer in time, the URL is
-already with the desktop: running ``xdg-open`` as well could open the client twice with the
-same prompt, would override a user who pressed Cancel, and would put the text in an argv
-for an attempt that resolves the scheme through the same ``mimeapps.list`` the portal just
-used. So those cases are a failed (or, for "no answer yet", a pending) hand-off, never a
-second one.
+**Once the portal has the URL, there is no fallback -- with one exception.** If the portal
+accepted the call and then reports a D-Bus error, a cancelled app chooser (``Response``
+1), or does not answer in time, the URL may already be with the desktop: running
+``xdg-open`` as well could open the client twice with the same prompt, would override a
+user who pressed Cancel, and would put the text in an argv. So those cases are a failed
+(or, for "no answer yet", a pending) hand-off, never a second one.
+
+The exception is ``Response`` 2, "the interaction was ended some other way": the portal
+has answered, and its answer is that it did *not* open the client. One ``xdg-open``
+attempt cannot open it twice, and no user pressed Cancel, so it is tried exactly once --
+with the argv exposure of the fallback path for that attempt. Never twice, and never
+after any other answer.
 
 Neither path logs the URL, and no exception raised here quotes it: a D-Bus error's *name*
 may be reported (it is restricted to ``[A-Za-z0-9_.]``), its message never is, because a
@@ -77,6 +83,7 @@ PORTAL_LINGER_S = 120.0
 #: cancelled the interaction, 2 the interaction ended some other way.
 RESPONSE_SUCCESS = 0
 RESPONSE_CANCELLED = 1
+RESPONSE_OTHER = 2
 
 #: D-Bus errors that mean "there is no portal to ask" -- the message was never delivered
 #: to anything that could act on the URL, so falling back to ``xdg-open`` cannot open
@@ -104,6 +111,14 @@ class PortalUnavailable(Exception):
     """
 
 
+class PortalDidNotOpen(Exception):
+    """The portal answered ``Response`` 2: it had the URL and did not open the client.
+
+    The one portal answer after which ``xdg-open`` may be tried -- once. Its message is a
+    fixed phrase, never the URL.
+    """
+
+
 class LinuxFileOpener:
     def open(self, path: str) -> None:
         subprocess.run(["xdg-open", path], check=True)
@@ -118,6 +133,16 @@ class LinuxUrlOpener:
             logger.info(
                 "Send to: the desktop portal is unavailable (%s); opening the link "
                 "with xdg-open, whose argument list holds it while it runs.",
+                why,
+            )
+            _xdg_open(url)
+            return
+        except PortalDidNotOpen as why:
+            # Exactly one attempt: `_xdg_open` is not retried, and the portal is not
+            # asked again.
+            logger.info(
+                "Send to: the desktop portal did not open the link (%s); trying "
+                "xdg-open once, whose argument list holds it while it runs.",
                 why,
             )
             _xdg_open(url)
@@ -160,8 +185,10 @@ def _portal_open_uri(url: str) -> str:
       chooser may be on screen); a background thread keeps the connection open for it.
 
     Raises :class:`PortalUnavailable` only when the URL reached nothing that could act on
-    it, so the caller may fall back. Raises :class:`OSError` -- never quoting the URL --
-    once the portal has the URL and failed, was cancelled, or did not reply.
+    it, so the caller may fall back. Raises :class:`PortalDidNotOpen` on ``Response`` 2,
+    after which the caller may try ``xdg-open`` once. Raises :class:`OSError` -- never
+    quoting the URL -- once the portal has the URL and otherwise failed, was cancelled,
+    or did not reply.
     """
     try:
         from jeepney import DBusAddress, HeaderFields, MatchRule, MessageType, new_method_call
@@ -233,6 +260,8 @@ def _portal_open_uri(url: str) -> str:
             return "opened"
         if code == RESPONSE_CANCELLED:
             raise OSError("the desktop's app chooser was cancelled (portal response 1)")
+        if code == RESPONSE_OTHER:
+            raise PortalDidNotOpen("portal response 2")
         raise OSError(f"the desktop portal could not open the link (portal response {code})")
     finally:
         if not lingering:

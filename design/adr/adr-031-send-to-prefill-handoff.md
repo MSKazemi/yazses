@@ -142,7 +142,8 @@ Where the build differs from §1–§5, or chose something the record left open:
     `platform/linux/fileopen.py`. The URL travels in a D-Bus message body and no process
     of ours is started with it. The `Response` match rule is installed before the call;
     the opener waits up to 5 s for `Response`: 0 is a hand-off, 1 (the app chooser was
-    cancelled) and 2 are failed hand-offs. No answer in 5 s is a hand-off still pending —
+    cancelled) is a failed hand-off, and 2 falls back to `xdg-open` once (below). No answer
+    in 5 s is a hand-off still pending —
     a background thread holds the connection up to 120 s, because the portal may close an
     open chooser when its caller disconnects. A Request handle other than the one predicted
     from `handle_token` (a portal older than that scheme) counts as accepted, unwaited.
@@ -150,16 +151,26 @@ Where the build differs from §1–§5, or chose something the record left open:
     shell — **only when nothing received the URL from the portal attempt**: `jeepney`
     missing, no session bus, the bus refusing the match rule, or the call answered by
     `ServiceUnknown`, `NameHasNoOwner`, `UnknownMethod`, `UnknownInterface`,
-    `UnknownObject` or a `Spawn.*` activation failure. Waits up to 5 s for its status:
+    `UnknownObject` or a `Spawn.*` activation failure — and **once** after `Response` 2.
+    Waits up to 5 s for its status:
     non-zero (4 = no program for the scheme) is a failed hand-off; still running is a
     hand-off, left alone and reaped in the background.
-  - **Once the portal has the URL there is no fallback.** Any other D-Bus error (a
-    `org.freedesktop.portal.Error.*`, `NoReply`, `AccessDenied`), no reply to the call, a
-    dropped bus, or `Response` 1 or 2 is a failed hand-off, not a second attempt: the
-    portal may already have started the client or be showing a chooser, so `xdg-open`
-    could open it twice with the same prompt, would overrule a user who pressed Cancel,
-    and resolves the scheme through the same `mimeapps.list` the portal just used — while
-    putting the text in an argv. The log names the path taken (portal, with its outcome;
+  - **Once the portal has the URL there is no fallback, except after `Response` 2.** Any
+    other D-Bus error (a `org.freedesktop.portal.Error.*`, `NoReply`, `AccessDenied`), no
+    reply to the call, a dropped bus, or `Response` 1 is a failed hand-off, not a second
+    attempt: the portal may already have started the client or be showing a chooser, so
+    `xdg-open` could open it twice with the same prompt, would overrule a user who pressed
+    Cancel, and would put the text in an argv.
+  - **`Response` 2 falls back to `xdg-open` exactly once (fourth build, 2026-10-23,
+    approved by the decider).** 2 is the portal's "the interaction was ended some other
+    way": it has answered, and the answer is that it did not open the client, so one
+    `xdg-open` cannot open it twice, and no user pressed Cancel. The connection is closed
+    first, `xdg-open` is not retried and the portal is not asked again; its non-zero status
+    is the failed hand-off. On that attempt the URL carries the `xdg-open` argv exposure
+    below, as on the no-portal fallback. **Unverified:** which real portal failures answer
+    2 rather than a D-Bus error, and whether `xdg-open` then succeeds where the portal did
+    not (it resolves the scheme through the same `mimeapps.list`); pinned only by the fake
+    connection. The log names the path taken (portal, with its outcome;
     or xdg-open, with the reason the portal was unavailable) and, on errors, the D-Bus
     error *name* only — never its message, which may quote the URI.
     **Unverified against a real portal:** that GNOME's and KDE's `xdg-desktop-portal`
@@ -175,7 +186,8 @@ Where the build differs from §1–§5, or chose something the record left open:
   argument list of ours holds the URL. It crosses the user's own session bus, which other
   local users cannot connect to; a process of the *same* user can still watch it there
   (`dbus-monitor` — the stock session-bus policy allows it). On **Linux on the `xdg-open`
-  fallback** (no portal, see above) the exposure is unchanged: `xdg-open` takes the URL as
+  fallback** (no portal, or the single attempt after portal `Response` 2, see above) the
+  exposure is unchanged: `xdg-open` takes the URL as
   a command-line argument, so while it runs the text is in `/proc/<pid>/cmdline`, readable
   by every process of the same user and, unless `/proc` is mounted with `hidepid=`, by
   every other local user. On both paths the client the desktop starts receives the URL as
