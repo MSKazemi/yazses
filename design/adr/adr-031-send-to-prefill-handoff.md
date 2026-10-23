@@ -135,21 +135,53 @@ Where the build differs from §1–§5, or chose something the record left open:
   (`platform/base.py::require_local_scheme`, a deny-list behind the allow-list), before
   it starts anything. No backend logs the URL, sends the child's output anywhere but
   `/dev/null`, or raises an exception whose message quotes it.
-  - **Linux and the BSDs:** `xdg-open <url>`, the URL one argv element, no shell. Waits
-    up to 5 s for its status: non-zero (4 = no program for the scheme) is a failed
-    hand-off; still running is a hand-off, left alone and reaped in the background.
+  - **Linux and the BSDs, first: the desktop portal (third build, 2026-10-23).**
+    `org.freedesktop.portal.OpenURI.OpenURI("", url, {handle_token})` on
+    `org.freedesktop.portal.Desktop` `/org/freedesktop/portal/desktop`, over the session
+    bus through `jeepney` (the client `inject/portal.py` uses), in
+    `platform/linux/fileopen.py`. The URL travels in a D-Bus message body and no process
+    of ours is started with it. The `Response` match rule is installed before the call;
+    the opener waits up to 5 s for `Response`: 0 is a hand-off, 1 (the app chooser was
+    cancelled) and 2 are failed hand-offs. No answer in 5 s is a hand-off still pending —
+    a background thread holds the connection up to 120 s, because the portal may close an
+    open chooser when its caller disconnects. A Request handle other than the one predicted
+    from `handle_token` (a portal older than that scheme) counts as accepted, unwaited.
+  - **Linux and the BSDs, fallback: `xdg-open <url>`**, the URL one argv element, no
+    shell — **only when nothing received the URL from the portal attempt**: `jeepney`
+    missing, no session bus, the bus refusing the match rule, or the call answered by
+    `ServiceUnknown`, `NameHasNoOwner`, `UnknownMethod`, `UnknownInterface`,
+    `UnknownObject` or a `Spawn.*` activation failure. Waits up to 5 s for its status:
+    non-zero (4 = no program for the scheme) is a failed hand-off; still running is a
+    hand-off, left alone and reaped in the background.
+  - **Once the portal has the URL there is no fallback.** Any other D-Bus error (a
+    `org.freedesktop.portal.Error.*`, `NoReply`, `AccessDenied`), no reply to the call, a
+    dropped bus, or `Response` 1 or 2 is a failed hand-off, not a second attempt: the
+    portal may already have started the client or be showing a chooser, so `xdg-open`
+    could open it twice with the same prompt, would overrule a user who pressed Cancel,
+    and resolves the scheme through the same `mimeapps.list` the portal just used — while
+    putting the text in an argv. The log names the path taken (portal, with its outcome;
+    or xdg-open, with the reason the portal was unavailable) and, on errors, the D-Bus
+    error *name* only — never its message, which may quote the URI.
+    **Unverified against a real portal:** that GNOME's and KDE's `xdg-desktop-portal`
+    answer `OpenURI` for `claude://`/`codex://` with `Response` 0 after launching the
+    client, whether they show an app chooser for an unsandboxed caller the first time,
+    and whether closing the connection really cancels a pending chooser. Pinned only by
+    `tests/test_platform_url_opener_seam.py` with a fake connection.
   - **macOS:** `NSWorkspace.sharedWorkspace().openURL_` in-process, as §3 asks; if
     PyObjC cannot be imported, `open <url>`. **Unverified:** no Mac, and whether
     `openURL_` may be called off the main thread, as the daemon does, is not established.
   - **Windows:** `os.startfile`, i.e. `ShellExecuteW` in-process. Unverified on Windows.
-- **The local exposure that remains, stated (§3).** On **Linux**, `xdg-open` takes the URL
-  as a command-line argument, so while it runs the text is in `/proc/<pid>/cmdline`:
-  readable by every process of the same user and, unless `/proc` is mounted with
-  `hidepid=`, by every other local user. The client the desktop starts receives the URL
-  as an argument too (the `%u` of its `.desktop` entry), so if the hand-off *starts* the
-  client, the text stays in that process's argument list for as long as it runs. A
-  D-Bus hand-off through the desktop portal's `OpenURI` would remove the first half and
-  is not built; the second half belongs to the client. On **Windows** YazSes starts no
+- **The local exposure that remains, stated (§3).** On **Linux through the portal**, no
+  argument list of ours holds the URL. It crosses the user's own session bus, which other
+  local users cannot connect to; a process of the *same* user can still watch it there
+  (`dbus-monitor` — the stock session-bus policy allows it). On **Linux on the `xdg-open`
+  fallback** (no portal, see above) the exposure is unchanged: `xdg-open` takes the URL as
+  a command-line argument, so while it runs the text is in `/proc/<pid>/cmdline`, readable
+  by every process of the same user and, unless `/proc` is mounted with `hidepid=`, by
+  every other local user. On both paths the client the desktop starts receives the URL as
+  an argument (the `%u` of its `.desktop` entry), so if the hand-off *starts* the client,
+  the text stays in that process's argument list for as long as it runs; that half
+  belongs to the client. On **Windows** YazSes starts no
   child, but the shell starts the client with the URL as its `%1` argument — the same
   second half. On **macOS** through `NSWorkspace` the URL travels as an Apple Event and
   no argument list holds it, except on the `open` fallback, briefly.

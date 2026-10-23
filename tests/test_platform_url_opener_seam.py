@@ -5,9 +5,13 @@ implementation per OS family in `platform/<os>/fileopen.py`, dispatched by
 `platform/factory.py`. The URL it is given *is* the user's dictation, percent-encoded,
 so this file pins, per backend and with every process and OS call faked:
 
-* **the mechanism** -- Linux and the BSDs run `xdg-open` with the URL as one argv
-  element and no shell; macOS calls `NSWorkspace` in-process and falls back to `open`;
-  Windows calls `os.startfile` (`ShellExecuteW`, in-process);
+* **the mechanism** -- Linux and the BSDs ask the desktop portal's `OpenURI` over the
+  session bus first and, only when no portal received the URL, run `xdg-open` with it as
+  one argv element and no shell; macOS calls `NSWorkspace` in-process and falls back to
+  `open`; Windows calls `os.startfile` (`ShellExecuteW`, in-process);
+* **no argv once the portal has it** -- a portal success, failure, cancel or late answer
+  starts no process, so the URL is in no `/proc/<pid>/cmdline` of ours (the portal tests
+  are at the bottom, with a fake jeepney connection);
 * **refusal before anything starts** -- a web, file or script scheme, a URL without a
   scheme, or one with whitespace or control characters starts no process and calls no
   OS API (the deny-list behind `sendto`'s closed allow-list);
@@ -18,14 +22,19 @@ so this file pins, per backend and with every process and OS call faked:
   `sys.platform` (AGENTS.md rule 6).
 
 Not covered, and cannot be from here: that each OS really resolves `claude://` and
-`codex://` to the installed client. Nothing here has run on a real Mac or Windows box.
+`codex://` to the installed client, and that a real xdg-desktop-portal answers `OpenURI`
+for a custom scheme the way the fake below does. Nothing here has run on a real Mac or
+Windows box, or against a real portal. `tests/conftest.py` refuses the session bus to every
+test, so the `xdg-open` tests here are the fallback path and never reach a real desktop.
 """
 from __future__ import annotations
 
 import ast
+import logging
 import os
 import subprocess
 import sys
+from collections import deque
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -388,3 +397,422 @@ def test_windows_strips_the_url_from_the_startfile_error(monkeypatch) -> None:
     assert info.value.filename is None
     assert info.value.__context__ is None or info.value.__suppress_context__
     assert info.value.errno == 22
+
+
+# ---- Linux and the BSDs: the desktop portal's OpenURI, before xdg-open --------------------
+#
+# The D-Bus layer is replaced at one seam, `fileopen._open_session_bus`, by `_FakeBus`: a
+# stand-in for jeepney's blocking connection that opens nothing and answers with *real*
+# jeepney messages (`new_method_return`, `new_error`, `new_signal`), so the message the
+# opener builds is serialised and its match rule is tested against a real `Response`.
+# Hence `jeepney` is needed, as `test_pointer_portal.py`'s one serialising test needs it;
+# off Linux and the BSDs it is not installed and these skip.
+
+SENDER = ":1.42"
+REQUEST_PREFIX = f"{linux_fileopen.PORTAL_PATH}/request/1_42/"
+
+
+@pytest.fixture
+def jeepney():
+    return pytest.importorskip("jeepney", reason="the D-Bus client is a Linux/BSD dependency")
+
+
+class _FakeBus:
+    """A jeepney session-bus connection that records instead of writing to a socket.
+
+    ``openuri`` is what the portal does with the call: ``"handle"`` returns the predicted
+    Request handle, ``"other-handle"`` an unpredicted one, an error name returns that D-Bus
+    error (whose text quotes the URI, as a real portal's may), and an exception is raised.
+    ``responses`` are what successive waits for the Request's ``Response`` get: a code, or
+    an exception (``TimeoutError`` = no answer yet).
+    """
+
+    unique_name = SENDER
+
+    def __init__(self, *, openuri: object = "handle", responses: list | None = None,
+                 refuse_match: bool = False) -> None:
+        self.openuri = openuri
+        self.responses = list(responses if responses is not None else [0])
+        self.refuse_match = refuse_match
+        self.sent: list = []
+        self.filters: list = []
+        self.waits: list[float | None] = []
+        self.closed = 0
+        self.request_path = ""
+
+    def members(self) -> list[str]:
+        from jeepney import HeaderFields
+
+        return [m.header.fields[HeaderFields.member] for m in self.sent]
+
+    def openuri_calls(self) -> list:
+        from jeepney import HeaderFields
+
+        return [m for m in self.sent if m.header.fields[HeaderFields.member] == "OpenURI"]
+
+    def send_and_get_reply(self, msg, timeout=None):
+        from jeepney import HeaderFields, new_error, new_method_return
+
+        self.sent.append(msg)
+        member = msg.header.fields[HeaderFields.member]
+        if member in ("AddMatch", "RemoveMatch"):
+            if self.refuse_match:
+                return new_error(msg, "org.freedesktop.DBus.Error.LimitsExceeded")
+            return new_method_return(msg)
+        assert member == "OpenURI", member
+        token = msg.body[2]["handle_token"][1]
+        self.request_path = REQUEST_PREFIX + token
+        if isinstance(self.openuri, BaseException):
+            raise self.openuri
+        if self.openuri == "handle":
+            return new_method_return(msg, "o", (self.request_path,))
+        if self.openuri == "other-handle":
+            return new_method_return(msg, "o", (REQUEST_PREFIX + "somethingelse",))
+        return new_error(msg, self.openuri, "s", (f"could not open {msg.body[1]}",))
+
+    def filter(self, rule):
+        handle = SimpleNamespace(rule=rule, queue=deque(), close=lambda: None)
+        self.filters.append(handle)
+        return handle
+
+    def recv_until_filtered(self, queue, timeout=None):
+        from jeepney import DBusAddress, new_signal
+
+        self.waits.append(timeout)
+        outcome = self.responses.pop(0) if self.responses else TimeoutError()
+        if isinstance(outcome, BaseException):
+            raise outcome
+        signal = new_signal(
+            DBusAddress(self.request_path, interface=linux_fileopen.REQUEST_IFACE),
+            "Response", "ua{sv}", (outcome, {}),
+        )
+        assert self.filters and self.filters[-1].rule.matches(signal), (
+            "the opener's match rule must catch the portal's real Response signal"
+        )
+        assert self.filters[-1].queue is queue
+        return signal
+
+    def close(self) -> None:
+        self.closed += 1
+
+
+def _use_bus(monkeypatch, bus: _FakeBus) -> list[int]:
+    """Route the opener to *bus*; returns a list that counts connections opened."""
+    opened: list[int] = []
+
+    def connect():
+        opened.append(1)
+        return bus
+
+    monkeypatch.setattr(linux_fileopen, "_open_session_bus", connect)
+    return opened
+
+
+def _record_spawns(monkeypatch) -> list[list]:
+    spawned: list[list] = []
+
+    def fake_popen(cmdline, **kwargs):
+        spawned.append(list(cmdline))
+        return _Proc(0)
+
+    monkeypatch.setattr(linux_fileopen.subprocess, "Popen", fake_popen)
+    monkeypatch.setattr(linux_fileopen.subprocess, "run",
+                        lambda cmdline, **k: spawned.append(list(cmdline)))
+    return spawned
+
+
+def _record_threads(monkeypatch) -> list[dict]:
+    """Replace `threading.Thread` in the opener; each entry is one thread's kwargs."""
+    threads: list[dict] = []
+
+    class _Thread:
+        def __init__(self, **kwargs):
+            threads.append(kwargs)
+
+        def start(self):
+            threads[-1]["started"] = True
+
+    monkeypatch.setattr(linux_fileopen.threading, "Thread", _Thread)
+    return threads
+
+
+def test_portal_success_starts_no_process(jeepney, monkeypatch) -> None:
+    """The point of the portal path: the URL reaches the desktop and no argv holds it."""
+    bus = _FakeBus(responses=[0])
+    opened = _use_bus(monkeypatch, bus)
+    spawned = _record_spawns(monkeypatch)
+    LinuxUrlOpener().open_url(URL)
+    assert spawned == [], "with the portal answering, no process may be started with the URL"
+    assert opened == [1]
+    assert len(bus.openuri_calls()) == 1
+    assert bus.waits == [linux_fileopen.PORTAL_RESPONSE_WAIT_S]
+    assert bus.closed == 1
+
+
+def test_portal_call_is_openuri_with_the_url_in_the_body(jeepney, monkeypatch) -> None:
+    from jeepney import HeaderFields
+
+    bus = _FakeBus()
+    _use_bus(monkeypatch, bus)
+    _record_spawns(monkeypatch)
+    LinuxUrlOpener().open_url(URL)
+    (msg,) = bus.openuri_calls()
+    fields = msg.header.fields
+    assert fields[HeaderFields.destination] == "org.freedesktop.portal.Desktop"
+    assert fields[HeaderFields.path] == "/org/freedesktop/portal/desktop"
+    assert fields[HeaderFields.interface] == "org.freedesktop.portal.OpenURI"
+    assert fields[HeaderFields.signature] == "ssa{sv}"
+    parent_window, uri, options = msg.body
+    assert parent_window == ""
+    assert uri == URL
+    assert set(options) == {"handle_token"}
+    kind, token = options["handle_token"]
+    assert kind == "s" and token.startswith("yazses") and token.isalnum()
+    assert msg.serialise(serial=1), "a signature/body mismatch would raise here"
+
+
+def test_portal_match_rule_is_installed_before_the_call(jeepney, monkeypatch) -> None:
+    """The portal may answer before its method reply lands; subscribe-after-send loses it."""
+    bus = _FakeBus()
+    _use_bus(monkeypatch, bus)
+    _record_spawns(monkeypatch)
+    LinuxUrlOpener().open_url(URL)
+    assert bus.members() == ["AddMatch", "OpenURI"]
+    assert len(bus.filters) == 1
+
+
+def test_each_call_uses_a_fresh_handle_token(jeepney, monkeypatch) -> None:
+    paths = []
+    for _ in range(2):
+        bus = _FakeBus()
+        _use_bus(monkeypatch, bus)
+        _record_spawns(monkeypatch)
+        LinuxUrlOpener().open_url(URL)
+        paths.append(bus.request_path)
+    assert paths[0] != paths[1]
+
+
+# -- unavailable: nothing received the URL, so xdg-open is the fallback ------------------
+
+
+def test_no_session_bus_falls_back_to_xdg_open(monkeypatch) -> None:
+    """conftest's default: the bus is refused, exactly as on a machine without one."""
+    spawned = _record_spawns(monkeypatch)
+    LinuxUrlOpener().open_url(URL)
+    assert spawned == [["xdg-open", URL]]
+
+
+def test_without_jeepney_the_bus_is_never_opened_and_xdg_open_is_used(monkeypatch) -> None:
+    monkeypatch.setitem(sys.modules, "jeepney", None)  # `import jeepney` -> ImportError
+    opened = _use_bus(monkeypatch, _FakeBus())
+    spawned = _record_spawns(monkeypatch)
+    LinuxUrlOpener().open_url(URL)
+    assert opened == []
+    assert spawned == [["xdg-open", URL]]
+
+
+@pytest.mark.parametrize(
+    "error_name",
+    [
+        "org.freedesktop.DBus.Error.ServiceUnknown",
+        "org.freedesktop.DBus.Error.NameHasNoOwner",
+        "org.freedesktop.DBus.Error.UnknownMethod",
+        "org.freedesktop.DBus.Error.UnknownInterface",
+        "org.freedesktop.DBus.Error.UnknownObject",
+        "org.freedesktop.DBus.Error.Spawn.ExecFailed",
+        "org.freedesktop.DBus.Error.Spawn.ServiceNotFound",
+    ],
+)
+def test_no_portal_service_or_method_falls_back_to_xdg_open(jeepney, monkeypatch,
+                                                            error_name) -> None:
+    bus = _FakeBus(openuri=error_name)
+    _use_bus(monkeypatch, bus)
+    spawned = _record_spawns(monkeypatch)
+    LinuxUrlOpener().open_url(URL)
+    assert spawned == [["xdg-open", URL]]
+    assert bus.waits == [], "no Request exists to wait on"
+    assert bus.closed == 1
+
+
+def test_a_refused_match_rule_falls_back_before_the_url_is_sent(jeepney, monkeypatch) -> None:
+    bus = _FakeBus(refuse_match=True)
+    _use_bus(monkeypatch, bus)
+    spawned = _record_spawns(monkeypatch)
+    LinuxUrlOpener().open_url(URL)
+    assert bus.openuri_calls() == [], "the URL never left for the bus"
+    assert spawned == [["xdg-open", URL]]
+
+
+# -- the portal had the URL: a failure is a failed hand-off, never a second one -----------
+
+
+@pytest.mark.parametrize(
+    "error_name",
+    [
+        "org.freedesktop.portal.Error.NotAllowed",
+        "org.freedesktop.portal.Error.InvalidArgument",
+        "org.freedesktop.portal.Error.Failed",
+        "org.freedesktop.DBus.Error.NoReply",
+        "org.freedesktop.DBus.Error.AccessDenied",
+    ],
+)
+def test_a_portal_error_is_refused_without_xdg_open_or_the_url(jeepney, monkeypatch,
+                                                               error_name) -> None:
+    """The error's *text* quotes the URI (the fake does, as a real portal may); only the
+    error's *name* may reach the exception."""
+    bus = _FakeBus(openuri=error_name)
+    _use_bus(monkeypatch, bus)
+    spawned = _record_spawns(monkeypatch)
+    with pytest.raises(OSError) as info:
+        LinuxUrlOpener().open_url(URL)
+    assert spawned == []
+    assert error_name in str(info.value)
+    assert SECRET not in str(info.value)
+    assert info.value.__cause__ is None
+    assert bus.closed == 1
+
+
+@pytest.mark.parametrize(("code", "word"), [(1, "cancelled"), (2, "2")])
+def test_a_cancelled_or_failed_response_is_refused_without_xdg_open(jeepney, monkeypatch,
+                                                                    code, word) -> None:
+    """1 is the user pressing Cancel on the app chooser: a fallback would overrule them."""
+    bus = _FakeBus(responses=[code])
+    _use_bus(monkeypatch, bus)
+    spawned = _record_spawns(monkeypatch)
+    with pytest.raises(OSError) as info:
+        LinuxUrlOpener().open_url(URL)
+    assert spawned == []
+    assert word in str(info.value)
+    assert SECRET not in str(info.value)
+
+
+@pytest.mark.parametrize("exc", [TimeoutError(), ConnectionResetError(104, f"reset {URL}")])
+def test_no_reply_to_the_call_is_refused_without_xdg_open(jeepney, monkeypatch, exc) -> None:
+    """The portal may already have the URL; a fallback could open the client twice."""
+    bus = _FakeBus(openuri=exc)
+    _use_bus(monkeypatch, bus)
+    spawned = _record_spawns(monkeypatch)
+    with pytest.raises(OSError) as info:
+        LinuxUrlOpener().open_url(URL)
+    assert spawned == []
+    assert SECRET not in str(info.value)
+    assert info.value.__context__ is None or info.value.__suppress_context__
+    assert bus.closed == 1
+
+
+def test_a_bus_failure_while_waiting_is_refused_without_xdg_open(jeepney, monkeypatch) -> None:
+    bus = _FakeBus(responses=[ConnectionResetError(104, f"reset {URL}")])
+    _use_bus(monkeypatch, bus)
+    spawned = _record_spawns(monkeypatch)
+    with pytest.raises(OSError) as info:
+        LinuxUrlOpener().open_url(URL)
+    assert spawned == []
+    assert SECRET not in str(info.value)
+
+
+def test_an_unpredicted_request_handle_counts_as_accepted(jeepney, monkeypatch) -> None:
+    """A portal older than `handle_token` names its own Request path; its Response cannot
+    be matched safely, but the call succeeded, so the portal has the URL."""
+    bus = _FakeBus(openuri="other-handle")
+    _use_bus(monkeypatch, bus)
+    spawned = _record_spawns(monkeypatch)
+    LinuxUrlOpener().open_url(URL)
+    assert spawned == []
+    assert bus.waits == []
+    assert bus.closed == 1
+
+
+def test_no_response_yet_is_a_hand_off_and_the_connection_is_kept(jeepney, monkeypatch) -> None:
+    """An app chooser may be on screen. Closing the connection could close it, so a
+    background thread keeps it open for the late answer, then closes it."""
+    bus = _FakeBus(responses=[TimeoutError(), 0])
+    _use_bus(monkeypatch, bus)
+    spawned = _record_spawns(monkeypatch)
+    threads = _record_threads(monkeypatch)
+    LinuxUrlOpener().open_url(URL)  # no exception: handed off
+    assert spawned == []
+    assert len(threads) == 1 and threads[0]["started"] is True and threads[0]["daemon"] is True
+    assert bus.closed == 0, "the connection belongs to the waiting thread now"
+
+    threads[0]["target"]()  # what the thread does
+    assert bus.waits == [linux_fileopen.PORTAL_RESPONSE_WAIT_S, linux_fileopen.PORTAL_LINGER_S]
+    assert bus.closed == 1
+
+
+def test_the_linger_thread_closes_the_connection_with_no_answer(jeepney, monkeypatch) -> None:
+    bus = _FakeBus(responses=[TimeoutError(), TimeoutError()])
+    _use_bus(monkeypatch, bus)
+    _record_spawns(monkeypatch)
+    threads = _record_threads(monkeypatch)
+    LinuxUrlOpener().open_url(URL)
+    threads[0]["target"]()
+    assert bus.closed == 1
+
+
+def test_a_refused_scheme_never_opens_the_bus(monkeypatch) -> None:
+    opened = _use_bus(monkeypatch, _FakeBus())
+    with pytest.raises(UrlOpenRefused):
+        LinuxUrlOpener().open_url(f"https://claude.ai/new?q={SECRET}")
+    assert opened == []
+
+
+# -- never the URL in a log, on any path ----------------------------------------------------
+
+
+_SCENARIOS: dict[str, dict] = {
+    "portal-opened": {"responses": [0]},
+    "portal-cancelled": {"responses": [1]},
+    "portal-failed": {"responses": [2]},
+    "portal-pending": {"responses": [TimeoutError(), TimeoutError()]},
+    "portal-refused": {"openuri": "org.freedesktop.portal.Error.NotAllowed"},
+    "portal-absent": {"openuri": "org.freedesktop.DBus.Error.ServiceUnknown"},
+    "portal-no-reply": {"openuri": TimeoutError()},
+}
+
+
+@pytest.mark.parametrize("scenario", sorted(_SCENARIOS))
+def test_no_log_record_or_exception_carries_the_url(jeepney, monkeypatch, caplog,
+                                                    scenario) -> None:
+    caplog.set_level(logging.DEBUG)
+    bus = _FakeBus(**_SCENARIOS[scenario])
+    _use_bus(monkeypatch, bus)
+    _record_spawns(monkeypatch)
+    threads = _record_threads(monkeypatch)
+    raised = ""
+    try:
+        LinuxUrlOpener().open_url(URL)
+    except OSError as exc:
+        raised = f"{exc!s} {exc!r} {exc.__cause__!r}"
+    for thread in threads:
+        thread["target"]()  # the late-answer path logs too
+    assert SECRET not in raised
+    for record in caplog.records:
+        assert SECRET not in record.getMessage(), record.getMessage()
+        assert SECRET not in repr(record.args)
+
+
+def test_the_log_names_the_path_taken(jeepney, monkeypatch, caplog) -> None:
+    caplog.set_level(logging.INFO, logger=linux_fileopen.logger.name)
+    _use_bus(monkeypatch, _FakeBus(responses=[0]))
+    _record_spawns(monkeypatch)
+    LinuxUrlOpener().open_url(URL)
+    assert "desktop portal (OpenURI, opened)" in caplog.text
+
+    caplog.clear()
+    _use_bus(monkeypatch, _FakeBus(openuri="org.freedesktop.DBus.Error.ServiceUnknown"))
+    LinuxUrlOpener().open_url(URL)
+    assert "with xdg-open" in caplog.text
+    assert "org.freedesktop.DBus.Error.ServiceUnknown" in caplog.text
+
+
+@pytest.mark.parametrize(
+    ("name", "shown"),
+    [
+        ("org.freedesktop.portal.Error.NotAllowed", "org.freedesktop.portal.Error.NotAllowed"),
+        (f"not a name {SECRET} claude://x", "unnamed D-Bus error"),
+        (None, "unnamed D-Bus error"),
+        ("x" * 256, "unnamed D-Bus error"),
+    ],
+)
+def test_only_a_well_formed_error_name_is_ever_reported(name, shown) -> None:
+    assert linux_fileopen._safe_error_name(name) == shown

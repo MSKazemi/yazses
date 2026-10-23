@@ -99,8 +99,14 @@ HANDOFF = {
 #: "Send to" (ADR-031) also hands a URL to another program, and its URL carries dictated
 #: text — but it no longer goes through `system/browser.py`, so no import above can see
 #: it. It reaches its client through the platform `UrlOpener` seam
-#: (`platform/*/fileopen.py`: `xdg-open`, `NSWorkspace`, `os.startfile`), which imports no
-#: network primitive and spawns no network tool, so none of this file's scans fire on it.
+#: (`platform/*/fileopen.py`: on Linux and the BSDs the desktop portal's `OpenURI` over the
+#: session bus, `xdg-open` only when no portal is there; `NSWorkspace`; `os.startfile`),
+#: which imports no network primitive and spawns no network tool, so none of this file's
+#: scans fire on it. The D-Bus call goes through `jeepney`, which is not in `_NETWORK_ROOTS`
+#: and is not scanned for anywhere: the session bus is an AF_UNIX socket owned by the user,
+#: the same transport `inject/portal.py` already uses for RemoteDesktop, which no table in
+#: this file lists either. What crosses it here is the URL, to the desktop's own portal
+#: service -- still the "URL handed to another program" class, not a new mechanism.
 #: It is recorded in ADR-019's *Reached by handing a URL to another program* table
 #: instead, and held to that classification by two guards rather than by this inventory:
 #: `sendto/targets.py`'s closed table of custom schemes (no `https://`), and the seam's

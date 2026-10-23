@@ -176,16 +176,21 @@ system to a program on this machine, which shows the text pre-filled and transmi
 when the user presses Enter — exactly what that program does with text YazSes types into
 it. There is no `https://` target and no configurable URL; a web URL would carry the text
 to a server in the request that opens the page, and that would be a send. Two local
-exposures remain and are recorded in ADR-031 §3 rather than waved away: on Linux the URL
-is an argument to `xdg-open` while it runs (and to the client, if the hand-off starts it),
-and so readable through `/proc` by the user's own processes and, unless `/proc` is mounted
-with `hidepid=`, by other local users; and the URL is never logged, nor written by the
-child to the daemon's stderr. Since 2026-10-23 the hand-off no longer goes through
-`system/browser.py`: it uses the platform `UrlOpener` seam (`platform/base.py`, one backend
-per OS — `xdg-open`, `NSWorkspace`, `os.startfile`), which refuses every web, file and
-script scheme before it starts anything. No import scan can see that seam, because it
-imports no network primitive and spawns no network tool; this row and those two guards
-(the closed table, the seam's refusal) are what hold it.
+exposures remain and are recorded in ADR-031 §3 rather than waved away: on Linux, when no
+desktop portal is available, the URL is an argument to `xdg-open` while it runs (and to the
+client, if the hand-off starts it), and so readable through `/proc` by the user's own
+processes and, unless `/proc` is mounted with `hidepid=`, by other local users; and the URL
+is never logged, nor written by the child to the daemon's stderr. Since 2026-10-23 the
+hand-off no longer goes through `system/browser.py`: it uses the platform `UrlOpener` seam
+(`platform/base.py`, one backend per OS — on Linux and the BSDs the xdg-desktop-portal
+`OpenURI` method over the session bus first, `xdg-open` only when no portal received the
+URL; `NSWorkspace`; `os.startfile`), which refuses every web, file and script scheme before
+it starts anything. The D-Bus call is the same mechanism `inject/portal.py` uses — an
+AF_UNIX session bus owned by the user, carrying the URL to the desktop's own portal
+service — so it is this row's class, a URL handed to another program, not a new one. No
+import scan can see that seam, because it imports no network primitive and spawns no
+network tool; this row and those two guards (the closed table, the seam's refusal) are
+what hold it.
 
 Every other caller passes a constant URL. The issue report is
 `core/daemon.py::_open_issue_report`, which calls `report.issue_url(title, body)`: the

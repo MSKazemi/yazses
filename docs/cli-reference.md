@@ -267,11 +267,13 @@ Codex" does the same, and the phrase itself is not typed.
 - **Long text is refused, never cut.** The limit is 14,000 characters. Text in non-Latin
   scripts can be refused sooner, because the link it becomes is capped at 32,000
   characters.
-- **The log records the app and the length, never the text.** On Linux the link is
-  passed to `xdg-open` as an argument while it opens (and to the app, if this starts
-  it), so other processes on the same machine could read it from the process list.
+- **The log records the app and the length, never the text.** On Linux the link goes to
+  the desktop portal (`xdg-desktop-portal`) over D-Bus, so no process YazSes starts holds
+  it; only when no portal is running does it fall back to `xdg-open`, which takes it as
+  an argument while it opens, where other processes on the same machine could read it
+  from the process list. Either way, the app gets it as an argument if this starts it.
   On Windows the app receives it as an argument the same way; on macOS it is passed
-  without one. Both are untested.
+  without one. The portal path, macOS and Windows are untested.
 
 ### `yazses tray`
 

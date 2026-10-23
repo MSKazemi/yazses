@@ -302,11 +302,17 @@ the app and the character count, never the words. Turn it on with
 Unverified: it has **not yet been tried against the real Claude or Codex desktop apps**
 on any platform, so whether each app pre-fills without sending is
 documented by the vendors, not yet observed here. The link goes through a per-OS opener
-behind the platform layer (`xdg-open` on Linux, `NSWorkspace` on macOS, `ShellExecute` on
-Windows) that refuses any web address before it starts anything. On Linux the link is an
-argument to `xdg-open` while it opens, and to the app if this starts it, so other
-processes on the same machine could read it in the process list. macOS and Windows are
-untested. Written in a code-only pass; its tests have not been run yet.
+behind the platform layer (on Linux the desktop portal over D-Bus, then `xdg-open`;
+`NSWorkspace` on macOS; `ShellExecute` on Windows) that refuses any web address before it
+starts anything. On Linux the link goes to the desktop portal (`xdg-desktop-portal`'s
+OpenURI) over the session bus, so it is in no process list of YazSes's; only where there is
+no portal does it fall back to `xdg-open`, whose argument it is while it opens, so other
+processes on the same machine could read it in the process list. Once the portal has the
+link, a failure or a cancelled app chooser is reported as a failed hand-off and never
+retried through `xdg-open`, which could open the app twice. On every path the app gets the
+link as an argument if this starts it. The portal path is untested against a real portal,
+and macOS and Windows are untested. Written in a code-only pass; its tests have not been
+run yet.
 
 ### Security — the GitPython advisory (GHSA-83vg-56qc-22m7) is assessed, not yet patchable
 
