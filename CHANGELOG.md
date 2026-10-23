@@ -16,14 +16,18 @@ character: "s" and "k" keyed with a normal letter gap are still typed as `sk`. I
 middle of a word, the letters before SK stay typed and nothing after it is decoded.
 Tested on synthetic level streams only, not with a real voice.
 
-### Fixed — Predictive Completion no longer eats a dictated "No." (experimental, off by default)
+### Changed — Predictive Completion answers only to "take it", "accept suggestion" and "discard" (experimental, off by default)
 
-While a suggestion was offered, a whole-utterance "no" or "never mind" counted as declining
-it, so the word was consumed and nothing was typed. Both are ordinary replies, so they are
-now dictated like any other speech: the word is typed and the offer is dismissed. Only
-phrases that address the suggestion decline it: "discard", "decline", "reject" and
-"cancel that". Declining was always optional, because anything else you say dismisses the
-offer. Tested with a fake model and injector only, not on real hardware.
+While a suggestion was offered, a whole utterance that matched a control phrase was
+consumed and nothing was typed. Several of those phrases are ordinary replies, so a
+dictated "No.", "Keep it." or "Decline." vanished. Now only three phrases answer an offer:
+"take it" and "accept suggestion" type it, and "discard" drops it. Every other phrase
+that used to count is dictated like any other speech and dismisses the offer: "accept",
+"accept that", "yes take it", "keep it", "use that", "decline", "reject", "cancel that",
+"no" and "never mind". A phrase counts only as the whole utterance, so "take it easy" is
+typed. Declining was always optional, because anything else you say dismisses the offer.
+If you said "accept" to take a suggestion, say "take it" now. Tested with a fake model
+and injector only, not on real hardware.
 
 ### Fixed — Spoken Edit and Punch-In no longer lose your words when the new text cannot be typed (off by default)
 

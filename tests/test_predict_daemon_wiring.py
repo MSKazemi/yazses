@@ -8,10 +8,12 @@ test calls `run_pending()` where the background thread would — the same code p
 What is pinned, in the user's terms:
 
 * a dictated burst is typed, then a suggestion is offered in a notification;
-* saying "accept" types the suggestion — never the word "accept";
+* saying "take it" or "accept suggestion" types the suggestion — never those words;
+* only those two and "discard" answer an offer: "Decline.", "Keep it." or "accept"
+  said alone is dictated and dismisses it;
 * a decline, an expired offer, or no editable target types nothing;
 * anything else said withdraws the offer and is dictated as usual;
-* "scratch that" withdraws it too, so a later "accept" cannot type a suggestion for
+* "scratch that" withdraws it too, so a later "take it" cannot type a suggestion for
   text that is gone;
 * with no model the feature says so once in the log and stays dormant;
 * the suggestion never reaches the log above DEBUG.
@@ -22,6 +24,7 @@ import inspect
 import logging
 
 import numpy as np
+import pytest
 
 from yazses.config import Config
 from yazses.core.daemon import Daemon
@@ -153,16 +156,16 @@ def test_a_typed_burst_is_offered_a_completion_in_a_notification(monkeypatch):
     title, body, kw = shown[-1]
     assert "suggestion" in title
     assert SUGGESTED.strip() in body
-    assert "accept" in body
+    assert "take it" in body and "accept suggestion" in body
     assert kw.get("log_body") is False, "the suggestion must not be written to the log"
     assert kw.get("expire_ms") == int(SUGGESTION_TTL_S * 1000)
 
 
-def test_accept_types_the_suggestion_and_not_the_word(monkeypatch):
+def test_accept_suggestion_types_the_suggestion_and_not_the_words(monkeypatch):
     d, inj, _shown, clock, _ = _daemon(monkeypatch)
     _offer(d)
     clock.t += 2.0
-    _say(d, "accept")
+    _say(d, "Accept suggestion.")
     assert inj.calls == [FIRST, SUGGESTED]
     assert all("accept" not in call.lower() for call in inj.calls)
     assert d._predict.pending is None
@@ -173,6 +176,31 @@ def test_take_it_works_too(monkeypatch):
     _offer(d)
     _say(d, "Take it.")
     assert inj.calls == [FIRST, SUGGESTED]
+    assert all("take it" not in call.lower() for call in inj.calls)
+
+
+# Lowercase and unpunctuated, as "accept" is in the scratch-that test below, so the
+# assertion is about the predict gate and not about the text filters.
+@pytest.mark.parametrize("phrase", ["decline", "keep it", "accept", "use that", "reject"])
+def test_a_removed_control_phrase_is_typed_and_dismisses_the_offer(monkeypatch, phrase):
+    # Narrowed 2026-10-23: these used to answer the offer and were consumed, so a
+    # one-word reply vanished. They are dictation now -- typed, and the offer is gone,
+    # so a later "take it" cannot type the old suggestion.
+    d, inj, _shown, _clock, _ = _daemon(monkeypatch)
+    _offer(d)
+    _say(d, phrase)
+    assert inj.calls == [FIRST, phrase]
+    assert d._predict.pending is None
+    _say(d, "take it")
+    assert SUGGESTED not in inj.calls, "a dismissed suggestion was typed"
+
+
+def test_take_it_inside_a_longer_utterance_is_dictation(monkeypatch):
+    d, inj, _shown, _clock, _ = _daemon(monkeypatch)
+    _offer(d)
+    _say(d, "take it easy")
+    assert inj.calls == [FIRST, "take it easy"]
+    assert d._predict.pending is None
 
 
 def test_decline_types_nothing(monkeypatch):
@@ -197,13 +225,13 @@ def test_other_speech_dismisses_the_offer_and_is_dictated(monkeypatch):
 def test_a_dictated_no_is_typed_and_dismisses_the_offer(monkeypatch):
     # "No." used to be a decline phrase and was eaten: the user said a word and nothing
     # appeared. It is ordinary dictation now -- typed, and the offer is gone, so a later
-    # "accept" cannot type the old suggestion.
+    # "take it" cannot type the old suggestion.
     d, inj, _shown, _clock, _ = _daemon(monkeypatch)
     _offer(d)
     _say(d, "No.")
     assert inj.calls == [FIRST, "No."]
     assert d._predict.pending is None
-    _say(d, "accept")
+    _say(d, "take it")
     assert SUGGESTED not in inj.calls, "a dismissed suggestion was typed"
 
 
@@ -211,8 +239,8 @@ def test_an_accept_after_the_offer_expired_types_nothing(monkeypatch):
     d, inj, shown, clock, _ = _daemon(monkeypatch)
     _offer(d)
     clock.t += SUGGESTION_TTL_S + 1.0
-    _say(d, "accept")
-    assert inj.calls == [FIRST], "neither the stale suggestion nor the word was typed"
+    _say(d, "take it")
+    assert inj.calls == [FIRST], "neither the stale suggestion nor the words were typed"
     assert "expired" in shown[-1][1]
 
 
@@ -220,7 +248,7 @@ def test_no_editable_target_means_the_suggestion_is_not_typed(monkeypatch):
     d, inj, shown, _clock, _ = _daemon(monkeypatch)
     _offer(d)
     d._state.target_ok = False
-    _say(d, "accept")
+    _say(d, "take it")
     assert inj.calls == [FIRST]
     assert "not typed" in shown[-1][1]
 
@@ -231,15 +259,15 @@ def test_scratch_that_withdraws_the_offer_so_a_later_accept_is_just_a_word(monke
     _say(d, "scratch that")
     assert inj.key_sequences == [["BackSpace"] * len(FIRST)]
     assert d._predict.pending is None
-    _say(d, "accept")
+    _say(d, "take it")
     assert SUGGESTED not in inj.calls, "a suggestion for scratched text was typed"
-    assert inj.calls[-1] == "accept"
+    assert inj.calls[-1] == "take it"
 
 
 def test_an_accepted_suggestion_can_be_scratched_like_any_burst(monkeypatch):
     d, inj, _shown, _clock, _ = _daemon(monkeypatch, revise=True)
     _offer(d)
-    _say(d, "accept")
+    _say(d, "take it")
     _say(d, "scratch that")
     assert inj.key_sequences[-1] == ["BackSpace"] * len(SUGGESTED)
 

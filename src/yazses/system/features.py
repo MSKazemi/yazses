@@ -1049,10 +1049,10 @@ def _registry() -> list[_Def]:
         _Def("predict", "Predictive Completion", "[predict] — voice autosuggest, experimental",
              EXPERIMENTAL,
              "After a dictation is typed, a local model proposes the rest of the sentence "
-             "in a notification; say \"accept\" or \"take it\" within 10 seconds to type it, "
-             "or \"discard\" to drop it. Anything else you say -- a one-word \"No.\" "
-             "included -- dismisses it and is typed as usual, and nothing is typed "
-             "without the accept. "
+             "in a notification; say \"take it\" or \"accept suggestion\" within 10 "
+             "seconds to type it, or \"discard\" to drop it. Anything else you say -- a "
+             "one-word \"No.\", \"Decline.\" or \"Keep it.\" included -- dismisses it and "
+             "is typed as usual, and nothing is typed without the accept. "
              "Needs llama-cpp-python (the slm extra) and a local GGUF model at "
              "[predict] model_path. Off by default.",
              lambda c: c.predict.enabled, pd_on, pd_off),
@@ -1491,7 +1491,7 @@ _EXAMPLES: dict[str, str] = {
     "rag": "Ask 'what did I note about the budget?' → a cited answer from your local docs.",
     "scribe": "Meeting mode: turns are diarized into a labelled transcript.",
     "denoise": "yazses features enable denoise — background noise is filtered pre-STT.",
-    "predict": "Dictate 'the meeting is moved to', then say 'accept' to type the suggested rest.",
+    "predict": "Dictate 'the meeting is moved to', then say 'take it' to type the suggested rest.",
     "affect": "Excited speech → an exclamation mark; questions → a question mark.",
     "translate": "yazses features enable translate — speak any language, type English.",
     "recall": "yazses recall 'the address I dictated yesterday'.",

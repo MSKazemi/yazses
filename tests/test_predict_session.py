@@ -7,7 +7,7 @@ it expires. No thread, no model, no clock — so each rule is pinned here direct
 The properties that matter most, because each one is a way to type something the user
 did not ask for:
 
-* nothing is typed without a whole-utterance accept;
+* nothing is typed without a whole-utterance accept ("take it" or "accept suggestion");
 * a result for an older burst is never offered;
 * an offer expires, and an accept after expiry types nothing (and is not typed as the
   literal word either, for a short grace period);
@@ -166,7 +166,7 @@ def test_new_typed_text_withdraws_the_previous_offer():
 
 
 def test_begin_burst_keeps_an_offer_already_shown():
-    # The burst that begins may be the very "accept" that claims it.
+    # The burst that begins may be the very "take it" that claims it.
     s, sug = _offered()
     s.begin_burst()
     assert s.pending == sug
@@ -187,12 +187,13 @@ def test_an_offer_that_only_repeats_the_screen_is_dropped():
 
 # ---- resolve ---------------------------------------------------------------------
 
-def test_accept_types_the_suggestion_not_the_word():
+@pytest.mark.parametrize("phrase", ["Accept suggestion.", "take it", "Take it."])
+def test_accept_types_the_suggestion_not_the_words(phrase):
     s, sug = _offered()
-    res = s.resolve("Accept.", 105.0)
+    res = s.resolve(phrase, 105.0)
     assert res.action == ACCEPT and res.consumed
     assert res.typed == " three pm on Friday" == sug.completion
-    assert "accept" not in res.typed.lower()
+    assert "accept" not in res.typed.lower() and "take it" not in res.typed.lower()
 
 
 def test_accept_extends_the_context_with_what_was_typed():
@@ -208,11 +209,32 @@ def test_decline_is_consumed_and_types_nothing():
     assert s.pending is None
 
 
-@pytest.mark.parametrize("phrase", ["discard", "Decline.", "reject", "cancel that"])
-def test_each_explicit_decline_phrase_is_consumed(phrase):
+@pytest.mark.parametrize("phrase", ["discard", "Discard.", "DISCARD!"])
+def test_discard_is_the_decline_phrase(phrase):
     s, _ = _offered()
     res = s.resolve(phrase, 105.0)
     assert res.action == DECLINE and res.consumed and res.typed == ""
+
+
+# Narrowed 2026-10-23 (owner decision): each was a control phrase and is consumed no
+# longer. A one-word "Decline." or "Keep it." replying to a message is now typed.
+@pytest.mark.parametrize("phrase", [
+    "accept", "Accept.", "accept that", "yes take it", "Keep it.", "use that",
+    "Decline.", "reject", "cancel that",
+])
+def test_a_removed_control_phrase_is_dictation_and_dismisses_the_offer(phrase):
+    s, _ = _offered()
+    res = s.resolve(phrase, 105.0)
+    assert res.action == DROPPED
+    assert res.consumed is False and res.typed == ""
+    assert s.pending is None
+
+
+@pytest.mark.parametrize("phrase", ["take it easy", "Take it easy.", "accept suggestion now"])
+def test_a_control_phrase_inside_a_longer_utterance_is_dictation(phrase):
+    s, _ = _offered()
+    res = s.resolve(phrase, 105.0)
+    assert res.action == DROPPED and res.consumed is False
 
 
 @pytest.mark.parametrize("reply", ["No.", "no", "Never mind."])
@@ -226,11 +248,18 @@ def test_a_one_word_no_is_dictation_not_a_decline(reply):
     assert s.pending is None
 
 
-def test_a_no_after_expiry_is_dictated_not_swallowed_by_the_grace_period():
-    # The late-grace window consumes only control phrases; "No." is not one.
+@pytest.mark.parametrize("reply", ["No.", "Decline.", "Keep it."])
+def test_a_reply_after_expiry_is_dictated_not_swallowed_by_the_grace_period(reply):
+    # The late-grace window consumes only control phrases; these are not.
     s, _ = _offered(now=100.0)
-    res = s.resolve("No.", 100.0 + SUGGESTION_TTL_S + 1.0)
+    res = s.resolve(reply, 100.0 + SUGGESTION_TTL_S + 1.0)
     assert res.action == EXPIRED and res.consumed is False
+
+
+def test_a_discard_after_expiry_is_still_consumed_in_the_grace_period():
+    s, _ = _offered(now=100.0)
+    res = s.resolve("discard", 100.0 + SUGGESTION_TTL_S + 1.0)
+    assert res.action == LATE and res.consumed is True and res.typed == ""
 
 
 def test_any_other_utterance_drops_the_offer_and_is_dictated():
@@ -244,32 +273,32 @@ def test_any_other_utterance_drops_the_offer_and_is_dictated():
 def test_accept_inside_a_sentence_is_ordinary_dictation():
     # Anchored: only the whole utterance is a control phrase (ADR-021).
     s, _ = _offered()
-    assert s.resolve("I accept the terms", 105.0).action == DROPPED
+    assert s.resolve("I take it you agree", 105.0).action == DROPPED
 
 
 def test_an_offer_is_answered_at_most_once():
     s, _ = _offered()
-    assert s.resolve("accept", 105.0).action == ACCEPT
-    second = s.resolve("accept", 106.0)
+    assert s.resolve("take it", 105.0).action == ACCEPT
+    second = s.resolve("take it", 106.0)
     assert second.action == NONE and second.consumed is False
 
 
 def test_nothing_pending_means_nothing_is_consumed():
     s = PredictSession()
-    res = s.resolve("accept", 1.0)
+    res = s.resolve("take it", 1.0)
     assert res.action == NONE and res.consumed is False and res.typed == ""
 
 
 def test_an_accept_after_expiry_types_nothing_but_is_still_consumed():
     s, _ = _offered(now=100.0)
-    res = s.resolve("accept", 100.0 + SUGGESTION_TTL_S + 1.0)
+    res = s.resolve("take it", 100.0 + SUGGESTION_TTL_S + 1.0)
     assert res.action == LATE
     assert res.consumed is True and res.typed == ""
 
 
 def test_long_after_expiry_an_accept_is_just_a_word():
     s, _ = _offered(now=100.0)
-    res = s.resolve("accept", 100.0 + SUGGESTION_TTL_S + LATE_GRACE_S + 1.0)
+    res = s.resolve("take it", 100.0 + SUGGESTION_TTL_S + LATE_GRACE_S + 1.0)
     assert res.action == EXPIRED and res.consumed is False
 
 

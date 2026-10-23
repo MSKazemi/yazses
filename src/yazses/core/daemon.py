@@ -5575,18 +5575,19 @@ class Daemon:
         """Predictive Completion (ADR-v2-016). True when this burst answered the offer.
 
         The decision is ``PredictSession.resolve``'s; this applies it. An accept types the
-        suggestion -- never the word "accept" -- through the same checks the scratch-that
+        suggestion -- never the words "take it" -- through the same checks the scratch-that
         branch uses: no editable target means nothing is typed, and Field-Aware
         Dictation still gets to refuse a password box. A decline, or an accept that
         arrives after the offer expired, types nothing at all.
 
         A held dangerous command or an open re-ask keeps first claim on the utterance,
-        exactly as `_reask_gate` steps aside for the command gate: "cancel that" is the
-        command gate's word too. The offer is then withdrawn by the ``finally`` block of
-        `_on_hold_end`, because the burst did not answer it.
+        exactly as `_reask_gate` steps aside for the command gate. The offer is then
+        withdrawn by the ``finally`` block of `_on_hold_end`, because the burst did not
+        answer it.
 
-        A one-word "No." is not a decline: it is dropped (``DROPPED``), the offer goes,
-        and the word is dictated like any other burst.
+        Only "accept suggestion", "take it" and "discard" answer an offer. A one-word
+        "No.", "Decline." or "Keep it." is not an answer: it is dropped (``DROPPED``),
+        the offer goes, and the words are dictated like any other burst.
         """
         runtime = self._predict
         if runtime is None or runtime.pending is None:
@@ -5711,7 +5712,8 @@ class Daemon:
             notify(
                 "YazSes \u2014 suggestion",
                 f"\u2026{suggestion.display}\n"
-                "Say \u201caccept\u201d to type it; keep talking to dismiss it.",
+                "Say \u201ctake it\u201d or \u201caccept suggestion\u201d to type it; "
+                "keep talking to dismiss it.",
                 expire_ms=int(SUGGESTION_TTL_S * 1000),
                 log_body=False,
             )

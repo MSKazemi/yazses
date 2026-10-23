@@ -18,14 +18,15 @@ no model and no clock of its own, so every rule is a plain unit test:
   word costs one suggestion, not a stuck dictation path.
 * **How long an offer stands.** :data:`SUGGESTION_TTL_S`. An accept that arrives
   after that does not type a suggestion the user may no longer be looking at; it is
-  still consumed for a short grace period (:data:`LATE_GRACE_S`) so the word "accept"
-  is not typed into the document instead.
+  still consumed for a short grace period (:data:`LATE_GRACE_S`) so the words "take
+  it" are not typed into the document instead.
 
 Per ADR-021 the trigger is specific and checkable: a suggestion is offered only after
 real dictated text (at least :data:`MIN_CONTEXT_WORDS` words of it), only when the
 model proposes at least :data:`MIN_SUGGESTION_WORDS` new words, and an accept or
 decline is recognised only as a whole utterance (``parse_accept``) while an offer is
-open. The thresholds are module constants, not config keys: exposing them is an owner
+open, and only three phrases count: "accept suggestion" and "take it" accept,
+"discard" declines. The thresholds are module constants, not config keys: exposing them is an owner
 decision this wiring did not take.
 """
 from __future__ import annotations
@@ -203,7 +204,7 @@ class PredictSession:
         """A new burst started: any request still in flight is stale.
 
         The *offered* suggestion survives — the burst that just started may be the
-        very "accept" that claims it.
+        very "take it" that claims it.
         """
         self._epoch += 1
 

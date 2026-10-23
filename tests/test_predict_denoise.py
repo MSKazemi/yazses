@@ -11,13 +11,15 @@ from yazses.predict.complete import merge_completion, parse_accept
 
 # ---- predictive completion -------------------------------------------------
 
-def test_parse_accept_variants():
-    assert parse_accept("accept") == "accept"
-    assert parse_accept("Take it.") == "accept"
-    assert parse_accept("discard") == "decline"
-    assert parse_accept("Decline.") == "decline"
-    assert parse_accept("reject") == "decline"
-    assert parse_accept("cancel that") == "decline"
+@pytest.mark.parametrize("phrase", ["take it", "Take it.", "TAKE IT!",
+                                    "accept suggestion", "Accept suggestion."])
+def test_parse_accept_the_two_accept_phrases(phrase):
+    assert parse_accept(phrase) == "accept"
+
+
+@pytest.mark.parametrize("phrase", ["discard", "Discard.", "DISCARD!"])
+def test_parse_accept_the_one_decline_phrase(phrase):
+    assert parse_accept(phrase) == "decline"
 
 
 @pytest.mark.parametrize("reply", ["no", "No.", "no!", "never mind", "Never mind."])
@@ -25,6 +27,24 @@ def test_parse_accept_ordinary_replies_are_not_a_decline(reply):
     # A one-word "No." is dictation (a reply to a chat message), not an answer to the
     # suggestion. Eating it as a decline typed nothing where the user expected a word.
     assert parse_accept(reply) is None
+
+
+# Narrowed 2026-10-23: each of these was a control phrase and is ordinary dictation now.
+REMOVED_ACCEPTS = ["accept", "Accept.", "accept that", "yes take it", "keep it",
+                   "Keep it.", "use that"]
+REMOVED_DECLINES = ["decline", "Decline.", "reject", "cancel that", "Cancel that."]
+
+
+@pytest.mark.parametrize("phrase", REMOVED_ACCEPTS + REMOVED_DECLINES)
+def test_parse_accept_removed_phrases_are_dictation(phrase):
+    assert parse_accept(phrase) is None
+
+
+@pytest.mark.parametrize("phrase", ["take it easy", "I will take it", "take it, please",
+                                    "accept suggestion now", "please discard",
+                                    "discard the draft"])
+def test_parse_accept_matches_only_the_whole_utterance(phrase):
+    assert parse_accept(phrase) is None
 
 
 def test_parse_accept_ordinary_speech_is_none():
