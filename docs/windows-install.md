@@ -13,10 +13,14 @@ description: "Install YazSes on Windows for offline speech-to-text: winget insta
 > warns on first launch; the steps below show how to bypass it safely. Code
 > signing is pending approval by the SignPath Foundation; see the
 > [code signing policy](code-signing.md#code-signing-policy).
+> Preview also means that testers have reported dictating on Windows 11, but no
+> report yet meets the [evidence standard](contribute/validation.md) on a current
+> build; the [validation matrix](validation-matrix.md) shows what has been confirmed.
 
 ## Requirements
 
-- Windows 10 21H2 or later, 64-bit (Windows 11 also fine)
+- Windows 10 21H2 or later, 64-bit. The hardware reports so far are from Windows 11;
+  a Windows 10 report is still wanted ([#217](https://github.com/MSKazemi/yazses/issues/217))
 - ~500 MB free disk for the app (about 190 MB) and the default Whisper model (about 150 MB), downloaded on first use
 - A microphone
 

@@ -12,7 +12,9 @@ commands**, **offline transcription of existing recordings**, **meeting capture
 with speaker labels**, or **Wayland without extra setup** — or if accessibility features
 are the reason you are looking.
 
-Both are free, open source, and run entirely offline on Linux, macOS and Windows.
+Both are free, open source, and run entirely offline on Linux, macOS and Windows. YazSes on
+macOS and Windows is in preview: supported, not yet verified on hardware by a person on a
+current build (see the [validation matrix](../validation-matrix.md)).
 Handy is by far the more popular project. This page is about which fits your job,
 not which has more stars.
 
@@ -28,7 +30,7 @@ not which has more stars.
 | Voice commands | No | **Yes** (regex grammar → key sequences) |
 | Transcribe existing files | No | **Yes** (`yazses transcribe`) |
 | Meeting capture + speaker labels | No | **Yes** (`yazses meeting`) |
-| macOS / Windows | Yes | Yes |
+| macOS / Windows | Yes | Yes (preview) |
 
 ## Where Handy is the better tool
 

@@ -324,7 +324,7 @@ method and the commands to reproduce these numbers are on the [benchmarks page](
 
 | | |
 |---|---|
-| **OS** | Linux (primary) · macOS 14+ · Windows 10 (21H2)+ |
+| **OS** | Linux (primary) · macOS 14+ (preview) · Windows 10 (21H2)+ (preview) |
 | **RAM** | 4 GB minimum · 8 GB comfortable |
 | **Disk** | ~250 MB–1 GB for the faster-whisper model (downloaded on first run) |
 | **CPU** | 2+ cores · no GPU required |
@@ -393,10 +393,14 @@ documented behaviour, and each tool has strengths YazSes does not.
 | Runs offline / on-device | ✅ | ✅ | ✅ | ✅ | ❌ (cloud) |
 | Voice commands | ✅ regex grammar | ✅ | ✅ advanced scripting | ✅ | limited |
 | Linux | ✅ | ❌ | ✅ | ❌ | ❌ |
-| macOS | ✅ | ❌ (discontinued) | ✅ | ❌ | ✅ |
-| Windows | ✅ | ✅ | ✅ | ✅ (built in) | ✅ |
+| macOS | ✅ preview | ❌ (discontinued) | ✅ | ❌ | ✅ |
+| Windows | ✅ preview | ✅ | ✅ | ✅ (built in) | ✅ |
 | Price | Free, Apache-2.0 | Paid | Free (paid beta features) | Free (built into Windows 11) | Paid subscription |
 | Open source | ✅ | ❌ | ❌ | ❌ | ❌ |
+
+*Preview* means supported and installable, but not yet verified on hardware by a person on a
+current build; the [validation matrix](docs/validation-matrix.md) shows what testers have
+confirmed so far.
 
 ### The open-source, local, free ones
 
@@ -407,8 +411,8 @@ would make this comparison evasive to exactly the readers who already know about
 |---|---|---|---|---|---|
 | Runs offline / on-device | ✅ | ✅ | ✅ (cloud optional, BYOK) | ✅ | ✅ |
 | Linux | ✅ | ✅ | ✅ | ❌ (announced) | ❌ |
-| macOS | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Windows | ✅ | ✅ | ✅ | community port | ❌ |
+| macOS | ✅ preview | ✅ | ✅ | ✅ | ✅ |
+| Windows | ✅ preview | ✅ | ✅ | community port | ❌ |
 | Price | Free | Free | Free | Free | Paid (from $29) |
 | Licence | Apache-2.0 | MIT | MIT | GPLv3 | open source |
 | Voice **commands**, not just dictation | ✅ | ❌ | ✅ spoken instructions | ✅ Command Mode | limited |
