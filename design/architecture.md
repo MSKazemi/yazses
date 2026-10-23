@@ -348,6 +348,7 @@ closes it again (idempotent) before the pointer and camera backends.
 | `portal.py` | Wayland via the XDG RemoteDesktop portal (`PortalInjector`), the only path a strictly confined snap can type on. Holds the one `_PortalSession` — consent copy, restore token, idle release — and, per ADR-v2-146 rule 6, the pointer backend `PortalPointerSink` that extends that same session |
 | `clipboard.py` | Universal fallback via clipboard + Ctrl+V |
 | `streaming.py` | `StreamingInjector` — tracks partial char count, correction-on-commit via Shift+Left |
+| `replace.py` | Pure. Replacing text YazSes typed (erase with backspaces, then type), shared by Interruptible Proofreading, Spoken Edit and Punch-In. `run_replacement` runs erase → type → restore → clipboard with the injector and clipboard passed in; `settle_replacement` maps the results onto the undo record and the notice. Invariants: a failed retype types the erased words back; an erase that stopped part-way is never typed over; the ledger/`[timeline]` record never claims more characters than are certainly on screen; no notice quotes the dictation |
 | `payload.py` | Pure. `hide_payload()` / `describe_argv()`: a failed or timed-out tool call re-raises with every argument after `--` (the text being typed) described by its length, so the exception that `LinuxInjector` and the daemon log at WARNING, and `last_error` keeps, never quotes the transcript |
 
 ### `src/yazses/pointer/` (pointer output boundary, ADR-v2-146)

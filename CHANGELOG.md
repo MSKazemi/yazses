@@ -6,6 +6,24 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — Spoken Edit and Punch-In no longer lose your words when the new text cannot be typed (off by default)
+
+Spoken Edit ("change X to Y") and Punch-In both erase the last dictation with backspaces
+and then type the edited version. If typing failed after the erase, they reported the
+failure but left the words gone. The "scratch that" record still counted the whole
+erased dictation, so the next "scratch that" deleted text from before it. They now follow
+the same recovery rule as Interruptible Proofreading, through one shared module
+(`inject/replace.py`). YazSes types the erased words back. If that fails, or the erase
+stopped part-way, it puts them on the clipboard and tells you. If the copy also fails,
+the notification suggests the application's own undo. A partial erase is never typed
+over. The "scratch that" and `[timeline]` records follow what is on screen in every
+outcome, so an undo never reaches past the dictation. An edit cut off mid-word may leave
+that fragment before the restored words. `yazses punch-in` now says which of these
+happened. A failed spoken edit is logged as `spoken_edit_not_typed`, not as "no command
+matched". The clipboard rescue needs `wl-copy`, `xclip` or `xsel`, as for proofreading.
+A successful spoken edit now also updates the `[timeline]` record, which still held the
+pre-edit text. Tested with a simulated text field only, not on real hardware.
+
 ### Fixed — Interruptible Proofreading no longer loses your words when the correction cannot be typed (experimental, off by default)
 
 A proofreading correction (`proofback`) erases the text from the interrupted word with
