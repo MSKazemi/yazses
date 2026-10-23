@@ -18,7 +18,8 @@ Six claims:
   stretch of the speech stand-in run nothing.
 * **Seen or heard, never neither.** Without the overlay that draws the scan, each step is
   announced instead -- an earcon cue and/or the item's name in the offline voice -- from the
-  same timeline a click selects from, and an item stays lit until its name has been said.
+  same timeline a click selects from, and an item stays lit until its name has been said,
+  then through the detector's post-voice deafness, then for a full dwell to click.
 * **No highlight and no announcement, no switch.** With neither, the feature refuses to build
   and `handsfree resume` says why.
 
@@ -28,6 +29,8 @@ case below uses the same synthetic click and pop, not recorded sounds.
 from __future__ import annotations
 
 import dataclasses
+import logging
+import threading
 import types
 from dataclasses import dataclass
 
@@ -408,10 +411,21 @@ def _walk(d: Drive, until: float, chunk: float = 0.05) -> None:
         d.advance(chunk)
 
 
+def _deaf() -> float:
+    from yazses.mouthswitch.runtime import post_voice_deaf_s
+
+    return post_voice_deaf_s()
+
+
+def _step() -> float:
+    """A heard step with no long name: the 1.0 s dwell plus the detector's deafness."""
+    return 1.0 + _deaf()
+
+
 def test_without_the_overlay_each_step_is_announced_as_it_lights():
     runner, ears, _ran, d = _audible()
     d.advance(0.3, pop_at(0.1))           # the scan starts at 0.3 s: "enter" is heard at once
-    _walk(d, 3.4)
+    _walk(d, 0.3 + 3 * _step() + 0.1)
     assert [name for name, _, _ in ears.names] == ["enter", "undo", "scroll up", "scroll down"]
     # Every name was said while that very item was the lit one.
     labels = [item.label for item in runner.items]
@@ -424,36 +438,96 @@ def test_without_the_overlay_each_step_is_announced_as_it_lights():
 def test_the_item_heard_when_the_click_began_is_the_item_selected():
     runner, ears, ran, d = _audible()
     d.advance(0.3, pop_at(0.1))
-    _walk(d, 2.4)                          # "scroll up" was announced at about 2.3 s
-    # The click began at 2.25 s -- after "undo" was announced, before "scroll up" was -- and
-    # is reported at 2.5 s, with "scroll up" lit by then.
-    d.advance(0.1, click_at(2.25))
-    assert ears.heard_before(2.25) == "undo"
+    scroll_up_at = 0.3 + 2 * _step()       # when "scroll up" lights and is announced
+    _walk(d, scroll_up_at + 0.1)
+    # The click began just before that -- after "undo" was announced, before "scroll up"
+    # was -- and is reported a quarter-second later, with "scroll up" lit by then.
+    onset = scroll_up_at - 0.05
+    d.advance(0.1, click_at(onset))
+    assert ears.heard_before(onset) == "undo"
     assert ran == ["undo"]
 
 
 def test_a_name_longer_than_the_dwell_holds_the_highlight_until_it_is_said():
     runner, ears, ran, d = _audible(duration=lambda text: 1.6 if text == "undo" else 0.0)
     d.advance(0.3, pop_at(0.1))
-    _walk(d, 3.5)
+    undo_step = 1.6 + _deaf() + 1.0        # the name, the deafness, then the whole dwell
+    _walk(d, 0.3 + _step() + undo_step + 0.1)
     times = {name: when for name, when, _ in ears.names}
-    # "undo" lit at about 1.3 s; "scroll up" no earlier than 1.6 s later, not after 1.0 s.
-    assert times["scroll up"] - times["undo"] >= 1.6 - 0.05
-    # A click that began 1.3 s into "undo" -- past the plain 1.0 s dwell -- still means "undo".
-    d.advance(0.1, click_at(times["undo"] + 1.3))
+    assert times["scroll up"] - times["undo"] >= undo_step - 0.05
+    # A click that began near the end of that step -- long past the plain one -- means "undo".
+    d.advance(0.1, click_at(times["undo"] + undo_step - 0.1))
     assert ran == ["undo"]
+
+
+def test_a_heard_step_still_runs_after_the_name_and_the_deafness_behind_it():
+    """A name shorter than the dwell: after it and the deafness, the whole dwell is left.
+
+    The step is lit for 0.5 + deafness + 1.0, so a click most of a dwell after the
+    detector hears again still selects the announced item.
+    """
+    runner, ears, ran, d = _audible(duration=lambda text: 0.5 if text == "undo" else 0.0)
+    d.advance(0.3, pop_at(0.1))
+    _walk(d, 0.3 + _step() + 0.05)
+    undo_at = {name: when for name, when, _ in ears.names}["undo"]
+    heard_again = undo_at + 0.5 + _deaf()  # the name has ended and the detector hears again
+    _walk(d, heard_again + 0.8)
+    assert runner.view()["index"] == 1     # "undo" is still the lit item
+    d.advance(0.1, click_at(heard_again + 0.75))
+    assert ran == ["undo"]
+
+
+def test_a_long_name_still_leaves_a_full_dwell_to_click():
+    """"scroll down" takes longer to say than this 1.0 s dwell: the scan slows down instead.
+
+    After the name (the real estimate) and the deaf window behind it, a whole dwell is left,
+    and a click that begins just before that dwell runs out still selects "scroll down".
+    """
+    from yazses.mouthswitch.announce import speech_duration_s
+
+    runner, ears, ran, d = _audible(duration=speech_duration_s)
+    dwells = runner._scanner.dwells
+    k = [item.label for item in runner.items].index("scroll down")
+    name_s = speech_duration_s("scroll down")
+    assert name_s > 1.0                    # longer than the dwell: the case this pins
+    assert dwells[k] - name_s - _deaf() == pytest.approx(1.0)
+    d.advance(0.3, pop_at(0.1))            # the scan starts at 0.3 s
+    lit_at = 0.3 + sum(dwells[:k])
+    window_end = lit_at + dwells[k]        # the full dwell after the deafness ends here
+    _walk(d, window_end - 0.05)
+    assert ears.heard_before(window_end - 0.05) == "scroll down"
+    d.advance(0.1, click_at(window_end - 0.03))
+    assert ran == ["scroll down"]
+
+
+def test_the_post_voice_window_is_the_detectors_own_constant(monkeypatch):
+    """Derived, never restated: change the detector's window and the heard step follows."""
+    import yazses.mouthswitch.detect as detect_mod
+    from yazses.mouthswitch.runtime import post_voice_deaf_s
+
+    assert post_voice_deaf_s() == pytest.approx(detect_mod.CONTEXT_MS / 1000.0)
+    monkeypatch.setattr(detect_mod, "CONTEXT_MS", detect_mod.CONTEXT_MS + 200)
+    runner, _ears, _ran, _d = _audible()
+    assert runner._scanner.dwells[0] == pytest.approx(1.0 + detect_mod.CONTEXT_MS / 1000.0)
+
+
+def test_a_seen_scan_keeps_its_plain_steps():
+    """The overlay's scan makes no sound, so no deafness is added: dwell_s, exactly."""
+    runner, _sink, _made, _ran, _d = _started()
+    assert runner._scanner.dwells == (1.0,) * len(runner.items)
 
 
 def test_after_a_selection_the_item_is_announced_again_and_stays_for_a_step():
     runner, ears, ran, d = _audible()
     d.advance(0.3, pop_at(0.1))
-    _walk(d, 1.5)                          # "enter" at 0.3 s, "undo" at about 1.3 s
-    d.advance(0.1, click_at(1.45))           # selects "undo" at 1.6 s
-    _walk(d, 2.7)
+    undo_at = 0.3 + _step()                # "enter" at 0.3 s, "undo" one heard step later
+    _walk(d, undo_at + 0.2)
+    d.advance(0.1, click_at(undo_at + 0.15))  # selects "undo" 0.3 s after it lit
+    _walk(d, undo_at + 0.3 + _step() + 0.1)
     assert ran == ["undo"]
     assert [name for name, _, _ in ears.names] == ["enter", "undo", "undo", "scroll up"]
     times = [when for name, when, _ in ears.names]
-    assert times[3] - times[2] >= 1.0 - 1e-9  # the re-lit "undo" kept its whole dwell
+    assert times[3] - times[2] >= _step() - 1e-9  # the re-lit "undo" kept its whole step
 
 
 class FakeAnnouncer:
@@ -851,6 +925,22 @@ def test_without_the_overlay_the_daemon_announces_with_its_earcons(monkeypatch):
         daemon._mouthswitch.stop()
 
 
+def test_a_cue_only_step_counts_the_tick_the_deafness_and_a_full_dwell(monkeypatch):
+    from yazses.mouthswitch.announce import cue_duration_s
+    from yazses.mouthswitch.runtime import post_voice_deaf_s
+
+    daemon, cfg = _no_overlay_daemon(monkeypatch)
+    daemon._earcon = FakeEarcon()
+    daemon._mouthswitch = daemon._build_mouthswitch(cfg)
+    try:
+        dwells = daemon._mouthswitch.runner._scanner.dwells
+        step = cue_duration_s() + post_voice_deaf_s() + cfg.mouthswitch.dwell_s
+        assert cue_duration_s() > 0.0
+        assert dwells == pytest.approx((step,) * len(dwells))
+    finally:
+        daemon._mouthswitch.stop()
+
+
 def test_without_the_overlay_the_daemon_speaks_the_names_with_its_voice(monkeypatch):
     daemon, cfg = _no_overlay_daemon(monkeypatch)
     daemon._tts = FakeVoice()
@@ -870,6 +960,171 @@ def test_a_read_back_voice_that_degraded_to_silence_announces_nothing(monkeypatc
     daemon._mouthswitch = daemon._build_mouthswitch(cfg)
     assert daemon._mouthswitch.runner is None
     assert "overlay" in daemon._mouthswitch.reason
+
+
+class SwitchVoice(FakeVoice):
+    """The voice the factory hands `speak_names`; signals when it has said something."""
+
+    name = "kokoro"
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.spoke = threading.Event()
+
+    def speak(self, text: str) -> None:
+        super().speak(text)
+        self.spoke.set()
+
+
+def _speak_names_daemon(monkeypatch, *, voice=None, model_on_disk=True):
+    """No overlay, read-back off, `speak_names` on; the TTS factory and model check faked.
+
+    Returns the daemon, its config, the voice the factory hands out, and the factory's calls
+    as ``(config it was given, purpose)``.
+    """
+    import yazses.tts.factory as factory
+
+    daemon, cfg = _no_overlay_daemon(monkeypatch)
+    cfg.mouthswitch.speak_names = True
+    voice = SwitchVoice() if voice is None else voice
+    calls: list[tuple[object, str]] = []
+
+    def build_tts(tts_cfg, *, purpose="Read-back"):
+        calls.append((tts_cfg, purpose))
+        return voice
+
+    monkeypatch.setattr(factory, "build_tts", build_tts)
+    monkeypatch.setattr(daemon, "_tts_model_on_disk", lambda tts_cfg: model_on_disk)
+    return daemon, cfg, voice, calls
+
+
+def test_speak_names_says_the_names_with_read_back_off(monkeypatch):
+    from yazses.mouthswitch.announce import SWITCH_VOICE_PURPOSE
+    from yazses.mouthswitch.scanner import ScanItem
+
+    daemon, cfg, voice, calls = _speak_names_daemon(monkeypatch)
+    assert cfg.tts.enabled is False and daemon._tts is None  # read-back is off
+    announcer = daemon._mouthswitch_announcer(cfg)
+    assert announcer is not None and announcer.mode == "speech"
+    announcer.announce(ScanItem("undo", "command"), first=False)
+    assert voice.spoke.wait(timeout=2.0)
+    announcer.close()
+    assert voice.said == ["undo"]
+    # Built through the read-back factory, from [tts] with `enabled` on, under its own name.
+    ((built, purpose),) = calls
+    assert built.enabled is True and purpose == SWITCH_VOICE_PURPOSE
+
+
+def test_speak_names_leaves_read_back_off(monkeypatch):
+    daemon, cfg, voice, _calls = _speak_names_daemon(monkeypatch)
+    daemon._mouthswitch = daemon._build_mouthswitch(cfg)
+    try:
+        assert daemon._mouthswitch.available
+        assert daemon._mouthswitch_payload()["announce"] == "speech"
+        # Read-back is still off: no read-back voice, and a dictation is not read back.
+        assert daemon._tts is None and cfg.tts.enabled is False
+        daemon._maybe_read_back("this dictation must not be spoken")
+        assert voice.said == []
+        reply = daemon._handle_readback_speak(Request("say", {"text": "hello"}))
+        assert reply["ok"] is False and voice.said == []
+    finally:
+        daemon._mouthswitch.stop()
+
+
+def test_speak_names_without_the_tts_extra_falls_back_to_earcons(monkeypatch):
+    from yazses.tts.null import NullTtsBackend
+
+    daemon, cfg, _voice, calls = _speak_names_daemon(monkeypatch, voice=NullTtsBackend())
+    daemon._earcon = FakeEarcon()
+    daemon._mouthswitch = daemon._build_mouthswitch(cfg)
+    try:
+        assert len(calls) == 1
+        assert daemon._mouthswitch.available
+        assert daemon._mouthswitch_payload()["announce"] == "earcon"
+    finally:
+        daemon._mouthswitch.stop()
+
+
+def test_speak_names_without_the_model_never_builds_a_voice_and_says_why_once(
+    monkeypatch, caplog
+):
+    caplog.set_level(logging.WARNING, logger="yazses.core.daemon")
+    daemon, cfg, _voice, calls = _speak_names_daemon(monkeypatch, model_on_disk=False)
+    daemon._earcon = FakeEarcon()
+    daemon._mouthswitch = daemon._build_mouthswitch(cfg)
+    try:
+        assert calls == []                 # never constructed, so never downloaded
+        assert daemon._mouthswitch_payload()["announce"] == "earcon"
+        lines = [r.getMessage() for r in caplog.records if "speak_names" in r.getMessage()]
+        assert len(lines) == 1 and "earcons only" in lines[0]
+    finally:
+        daemon._mouthswitch.stop()
+
+
+def test_speak_names_with_no_voice_and_no_earcon_is_still_no_switch(monkeypatch):
+    from yazses.tts.null import NullTtsBackend
+
+    daemon, cfg, _voice, _calls = _speak_names_daemon(monkeypatch, voice=NullTtsBackend())
+    daemon._mouthswitch = daemon._build_mouthswitch(cfg)
+    assert daemon._mouthswitch.runner is None
+    assert "cannot see or hear" in daemon._mouthswitch.reason
+
+
+def test_speak_names_off_builds_no_voice(monkeypatch):
+    """The shipped default: read-back off and speak_names off is exactly what it was."""
+    daemon, cfg, _voice, calls = _speak_names_daemon(monkeypatch)
+    cfg.mouthswitch.speak_names = False
+    assert Config().mouthswitch.speak_names is False
+    daemon._mouthswitch = daemon._build_mouthswitch(cfg)
+    assert calls == [] and daemon._mouthswitch.runner is None
+
+
+def test_speak_names_is_read_from_the_config_file(tmp_path):
+    from yazses.config import load_config
+
+    path = tmp_path / "config.toml"
+    path.write_text("[mouthswitch]\nenabled = true\nspeak_names = true\n", encoding="utf-8")
+    loaded = load_config(path)
+    assert loaded.mouthswitch.speak_names is True
+    assert loaded.tts.enabled is False  # it does not switch read-back on behind your back
+
+
+def test_speak_names_with_read_back_on_uses_the_read_back_voice(monkeypatch):
+    daemon, cfg, _voice, calls = _speak_names_daemon(monkeypatch)
+    daemon._tts = FakeVoice()
+    daemon._mouthswitch = daemon._build_mouthswitch(cfg)
+    try:
+        assert calls == []                 # no second voice beside read-back's own
+        assert daemon._mouthswitch_payload()["announce"] == "speech"
+    finally:
+        daemon._mouthswitch.stop()
+
+
+def test_the_model_check_honours_configured_paths_and_other_engines(tmp_path):
+    from yazses.config import TtsConfig
+    from yazses.core.daemon import Daemon
+
+    model, voices = tmp_path / "m.onnx", tmp_path / "v.bin"
+    cfg = TtsConfig(model_path=str(model), voices_path=str(voices))
+    assert Daemon._tts_model_on_disk(cfg) is False
+    model.write_bytes(b"")
+    assert Daemon._tts_model_on_disk(cfg) is False  # both files are needed
+    voices.write_bytes(b"")
+    assert Daemon._tts_model_on_disk(cfg) is True
+    # No model of ours to fetch for another engine: the factory alone decides.
+    assert Daemon._tts_model_on_disk(TtsConfig(engine="melo")) is True
+
+
+def test_the_factory_names_what_the_voice_is_for(caplog):
+    from yazses.config import TtsConfig
+    from yazses.tts.factory import build_tts
+
+    caplog.set_level(logging.WARNING, logger="yazses.tts.factory")
+    assert build_tts(TtsConfig(enabled=True, engine="melo"), purpose="Speaking X").name == "null"
+    assert "Speaking X is enabled" in caplog.text and "Read-back" not in caplog.text
+    caplog.clear()
+    build_tts(TtsConfig(enabled=True, engine="melo"))
+    assert "Read-back is enabled" in caplog.text  # the default wording is unchanged
 
 
 def test_with_the_overlay_the_daemon_builds_no_announcer(monkeypatch):

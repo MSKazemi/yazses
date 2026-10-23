@@ -8,7 +8,9 @@ screen depends on:
 * each announce plays the right cue and says the label, and a scan that stops cuts the
   voice -- but never cancels a voice it is not using (that would cut someone's read-back);
 * a new step cuts a name still being said instead of queueing behind it;
-* nothing raises into the audio worker, whatever the cue or the voice does.
+* nothing raises into the audio worker, whatever the cue or the voice does;
+* the ``speak_names`` voice is built from a copy of ``[tts]`` (read-back stays off), never
+  downloads its model, and a silent or failing voice is no voice.
 """
 from __future__ import annotations
 
@@ -249,3 +251,114 @@ def test_the_step_cues_are_their_own_short_motifs_not_the_idle_fallback():
     assert step != earcon_for("idle") and first != earcon_for("idle")
     assert step != first  # the first item sounds different, so the steps can be counted
     assert all(tone.dur_ms <= 60 for tone in step + first)
+
+
+# ---- `[mouthswitch] speak_names`: a voice for the switch alone ------------------------------
+
+
+class _Voice:
+    def __init__(self, name: str = "kokoro") -> None:
+        self.name = name
+
+
+def test_the_switch_voice_is_built_from_a_copy_of_tts_with_enabled_on():
+    from yazses.config import TtsConfig
+    from yazses.mouthswitch.announce import switch_voice
+
+    tts = TtsConfig(enabled=False, voice="bf_emma", speed=1.3)
+    seen: list[object] = []
+
+    def build(cfg):
+        seen.append(cfg)
+        return _Voice()
+
+    voice, why = switch_voice(tts, build=build, files_present=lambda: True)
+    assert isinstance(voice, _Voice) and why == ""
+    (built,) = seen
+    assert built.enabled is True
+    assert (built.voice, built.speed) == ("bf_emma", 1.3)  # the user's own [tts] settings
+    # The [tts] the daemon holds stays off, so nothing that reads it -- read-back -- turns on.
+    assert tts.enabled is False and built is not tts
+
+
+def test_without_the_model_on_disk_there_is_no_voice_and_nothing_is_built():
+    """speak_names never downloads: the ADR-019 trigger for that is enabling read-back."""
+    from yazses.config import TtsConfig
+    from yazses.mouthswitch.announce import switch_voice
+
+    built: list[object] = []
+    voice, why = switch_voice(TtsConfig(), build=built.append, files_present=lambda: False)
+    assert voice is None and built == []
+    assert "never" in why and "download" in why and "read-back" in why
+
+
+def test_a_voice_that_degraded_to_the_null_backend_is_no_voice():
+    """The factory logged why (the tts extra missing, say), so `why` stays empty: one line."""
+    from yazses.config import TtsConfig
+    from yazses.mouthswitch.announce import switch_voice
+
+    voice, why = switch_voice(TtsConfig(), build=lambda cfg: _Voice("null"),
+                              files_present=lambda: True)
+    assert voice is None and why == ""
+    voice, why = switch_voice(TtsConfig(), build=lambda cfg: None, files_present=lambda: True)
+    assert voice is None and why == ""
+
+
+def test_a_factory_or_check_that_raises_never_raises_out():
+    from yazses.config import TtsConfig
+    from yazses.mouthswitch.announce import switch_voice
+
+    def boom(*_args):
+        raise RuntimeError("no audio device")
+
+    voice, why = switch_voice(TtsConfig(), build=boom, files_present=lambda: True)
+    assert voice is None and "RuntimeError" in why
+    voice, why = switch_voice(TtsConfig(), build=lambda cfg: _Voice(), files_present=boom)
+    assert voice is None and "RuntimeError" in why
+
+
+def test_the_switch_voice_names_itself_not_read_back_in_the_factory_log():
+    from yazses.mouthswitch.announce import SWITCH_VOICE_PURPOSE
+
+    assert "speak_names" in SWITCH_VOICE_PURPOSE
+    assert "read-back" not in SWITCH_VOICE_PURPOSE.lower()
+
+
+# ---- the cue is voiced too: it counts toward the announcement --------------------------------
+
+
+def test_the_cue_duration_is_read_from_the_earcon_table():
+    from yazses.earcon.tones import earcon_for
+    from yazses.mouthswitch.announce import cue_duration_s
+
+    longest = max(sum(t.dur_ms for t in earcon_for(e)) for e in (FIRST_CUE, STEP_CUE))
+    assert cue_duration_s() == pytest.approx(longest / 1000.0)
+    assert 0.0 < cue_duration_s() <= 0.1  # a short tick, not a jingle
+
+
+def test_a_cue_only_announcement_takes_the_cue_s_length():
+    announcer = ScanAnnouncer(cue=lambda event: None, cue_s=0.03, thread=False)
+    assert announcer.announcement_s(ENTER) == pytest.approx(0.03)
+
+
+def test_with_a_voice_the_announcement_is_the_longer_of_cue_and_name():
+    voice = FakeVoice()
+    announcer = ScanAnnouncer(cue=lambda event: None, speak=voice.speak, cancel=voice.cancel,
+                              cue_s=0.03, thread=False)
+    assert announcer.announcement_s(ENTER) == pytest.approx(speech_duration_s("enter"))
+    quick = ScanAnnouncer(cue=lambda event: None, speak=voice.speak, cancel=voice.cancel,
+                          duration_s=lambda text: 0.01, cue_s=0.03, thread=False)
+    assert quick.announcement_s(ENTER) == pytest.approx(0.03)
+
+
+def test_cue_s_without_a_cue_counts_for_nothing():
+    voice = FakeVoice()
+    announcer = ScanAnnouncer(speak=voice.speak, duration_s=lambda text: 0.0, cue_s=0.03,
+                              thread=False)
+    assert announcer.announcement_s(ENTER) == 0.0
+
+
+@pytest.mark.parametrize("bad", [float("nan"), float("inf"), -1.0, "soon", None])
+def test_an_unusable_cue_s_counts_for_nothing(bad):
+    announcer = ScanAnnouncer(cue=lambda event: None, cue_s=bad, thread=False)
+    assert announcer.announcement_s(ENTER) == 0.0

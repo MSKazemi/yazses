@@ -7,7 +7,10 @@ there *audibly* instead, with two existing outputs the daemon hands in:
 
 * an **earcon cue** at every step (``[earcon]``, ADR-v2-096): ``scan_first`` when the scan
   is back at the first item, ``scan_step`` for every other item, so the steps can be counted;
-* the item's **name, spoken** by the offline read-back voice (``[tts]``), when it can speak.
+* the item's **name, spoken** by the offline read-back voice (``[tts]``), when it can speak
+  -- or, with ``[mouthswitch] speak_names`` and read-back off, by a voice built for the
+  switch alone (:func:`switch_voice`), so the names are heard without your dictation being
+  read back.
 
 Either one is enough to run; with neither, ``build_mouthswitch`` still refuses.
 
@@ -23,10 +26,13 @@ voice are callables, so the tests run on fakes.
 """
 from __future__ import annotations
 
+import copy
+import dataclasses
 import logging
 import math
 import threading
 from collections.abc import Callable
+from typing import Any
 
 from yazses.mouthswitch.scanner import ScanItem
 
@@ -35,8 +41,11 @@ __all__ = [
     "SPEECH_LEAD_S",
     "SPEECH_S_PER_CHAR",
     "STEP_CUE",
+    "SWITCH_VOICE_PURPOSE",
     "ScanAnnouncer",
+    "cue_duration_s",
     "speech_duration_s",
+    "switch_voice",
 ]
 
 log = logging.getLogger(__name__)
@@ -53,6 +62,78 @@ SPEECH_LEAD_S = 0.35
 SPEECH_S_PER_CHAR = 0.075
 _MIN_SPEED = 0.5
 _MAX_SPEED = 2.0
+
+#: What the switch-only voice is called in the TTS factory's log line, so a user who never
+#: turned read-back on is not told that read-back is on.
+SWITCH_VOICE_PURPOSE = "Speaking the Mouth-Sound Switch's item names ([mouthswitch] speak_names)"
+
+
+def _enabled_copy(tts_config: Any) -> Any:
+    """A copy of ``[tts]`` with ``enabled`` on; the config the daemon holds is untouched."""
+    if dataclasses.is_dataclass(tts_config) and not isinstance(tts_config, type):
+        return dataclasses.replace(tts_config, enabled=True)
+    clone = copy.copy(tts_config)
+    clone.enabled = True
+    return clone
+
+
+def switch_voice(
+    tts_config: Any,
+    *,
+    build: Callable[[Any], Any],
+    files_present: Callable[[], bool],
+) -> tuple[Any | None, str]:
+    """A voice for the switch's item names alone, or ``(None, why)``. Never raises.
+
+    For ``[mouthswitch] speak_names`` with read-back off. ``build`` is the factory read-back
+    uses (``tts.factory.build_tts``), handed a *copy* of ``[tts]`` with ``enabled`` on: the
+    voice, speed and model paths are the user's own ``[tts]`` settings, and ``[tts]`` itself
+    stays off, so nothing that reads it -- dictation read-back above all -- turns on.
+
+    It never fetches anything. The voice model's download is registered (ADR-019) as
+    something enabling read-back does; ``speak_names`` is not that, so the model must
+    already be on disk (``files_present``) or there is no voice. A backend that degraded to
+    the silent null one (the ``tts`` extra missing, say) is no voice either; ``why`` is then
+    ``""``, because the factory has already logged the reason, once.
+    """
+    try:
+        present = bool(files_present())
+    except Exception as exc:
+        return None, f"could not check for the offline voice model ({type(exc).__name__})"
+    if not present:
+        return None, (
+            "the offline voice model is not on this machine, and speak_names never "
+            "downloads it; turn read-back on once to fetch it (`yazses features enable "
+            "read-back`, then off again), or copy it in by hand (docs/how-to/air-gapped.md)"
+        )
+    try:
+        voice = build(_enabled_copy(tts_config))
+    except Exception as exc:
+        return None, f"the offline voice could not start ({type(exc).__name__})"
+    if voice is None or getattr(voice, "name", "null") == "null":
+        return None, ""
+    return voice, ""
+
+
+def _seconds(value: object) -> float:
+    """A duration, sanitised: ``0.0`` for anything that is not a finite positive number."""
+    try:
+        seconds = float(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError, OverflowError):
+        return 0.0
+    return seconds if math.isfinite(seconds) and seconds > 0.0 else 0.0
+
+
+def cue_duration_s() -> float:
+    """How long the longer of the two step cues sounds, in seconds. Pure.
+
+    The sum of its tones' durations: ``earcon/tones.py`` renders a motif's tones back to
+    back. Read from the earcon table, never restated here. The audio device's own start-up
+    latency is not counted -- it is not known, and the cue is tens of milliseconds.
+    """
+    from yazses.earcon.tones import earcon_for
+
+    return max(sum(t.dur_ms for t in earcon_for(e)) for e in (FIRST_CUE, STEP_CUE)) / 1000.0
 
 
 def speech_duration_s(text: object, speed: object = 1.0) -> float:
@@ -81,8 +162,9 @@ class ScanAnnouncer:
     ``cue(event)`` plays an earcon and must not block (``EarconPlayer.play``). ``speak(text)``
     blocks until the text has been said (``TtsBackend.speak``); ``cancel()`` stops it, and
     ``begin()`` (Kokoro's, optional) claims the next utterance so a cancel issued after the
-    claim is never lost. ``duration_s(text)`` is the estimate the scanner lengthens a step by.
-    With ``thread=False`` the name is spoken inline -- the test path.
+    claim is never lost. ``duration_s(text)`` is the estimate the scanner lengthens a step by;
+    ``cue_s`` is how long the cue itself sounds (:func:`cue_duration_s`), counted when the
+    cue plays, so a cue-only step also waits for its own tick to end. With ``thread=False`` the name is spoken inline -- the test path.
     """
 
     def __init__(
@@ -93,9 +175,11 @@ class ScanAnnouncer:
         cancel: Callable[[], None] | None = None,
         begin: Callable[[], None] | None = None,
         duration_s: Callable[[str], float] = speech_duration_s,
+        cue_s: float = 0.0,
         thread: bool = True,
     ) -> None:
         self._cue = cue
+        self._cue_s = _seconds(cue_s)
         self._speak = speak
         self._cancel = cancel
         self._begin = begin
@@ -125,14 +209,19 @@ class ScanAnnouncer:
         return "earcon" if self._cue is not None else ""
 
     def announcement_s(self, item: ScanItem) -> float:
-        """How long announcing ``item`` takes: its spoken name, or ``0.0`` without a voice."""
+        """How long announcing ``item`` takes: the longer of its cue and its spoken name.
+
+        Both start as the step begins. ``0.0`` with neither (or an estimate that fails).
+        """
+        cue = self._cue_s if self._cue is not None else 0.0
         if self._speak is None:
-            return 0.0
+            return cue
         try:
-            return float(self._duration(item.label))
+            speech = _seconds(self._duration(item.label))
         except Exception:
             log.debug("Mouth-Sound Switch: announcement estimate raised", exc_info=True)
-            return 0.0
+            speech = 0.0
+        return max(cue, speech)
 
     def announce(self, item: ScanItem, *, first: bool) -> None:
         """A step began on ``item``. Never blocks (threaded), never raises."""

@@ -10,9 +10,11 @@ claims that matter for a user who cannot correct a wrong action quickly:
   nothing; and a scan nobody is using stops by itself;
 * a selection does not end the scan: the highlight stays on the selected item for a dwell,
   so a second click repeats it, and the inactivity stop counts from the last selection;
-* when the scan is announced aloud, an item stays lit until its name has been said (the
-  injected ``announce_s``), so the highlight never advances mid-word -- and select-at-onset
-  stays exact on that longer timeline.
+* when the scan is heard, each step is lit for its announcement (the injected
+  ``announce_s``), the detector's post-voice deafness (``post_voice_s``), and then a full
+  interval -- so a long name slows the scan but never shortens the time to click, the
+  highlight never advances mid-word, and select-at-onset stays exact on that longer
+  timeline; a scan that passes neither keeps its plain steps.
 """
 from __future__ import annotations
 
@@ -24,6 +26,7 @@ from yazses.mouthswitch.scanner import (
     MAX_ANNOUNCE_S,
     MAX_INTERVAL_S,
     MAX_LOOPS,
+    MAX_POST_VOICE_S,
     MAX_SELECT_LAG_S,
     MIN_INTERVAL_S,
     SCROLL_NOTCHES,
@@ -273,37 +276,31 @@ def test_a_restarted_scan_begins_at_the_first_item_and_can_select_again():
     assert s.select(5.2, 5.4) == ScanItem("item 0", "command")
 
 
-# ---- an announced scan: never advance mid-word ---------------------------------------------
+# ---- an announced scan: the name, the deafness, then a full interval to click -------------
 
 
-def _announced(seconds: dict[str, float], n: int = 3, interval: float = 1.0) -> SwitchScanner:
+def _announced(seconds: dict[str, float], n: int = 3, interval: float = 1.0,
+               post_voice_s: float = 0.0) -> SwitchScanner:
     items = [ScanItem(f"item {i}", "command") for i in range(n)]
-    return SwitchScanner(items, interval, announce_s=lambda item: seconds.get(item.label, 0.0))
+    return SwitchScanner(items, interval, announce_s=lambda item: seconds.get(item.label, 0.0),
+                         post_voice_s=post_voice_s)
 
 
-def test_an_announcement_shorter_than_the_interval_changes_nothing():
-    s = _announced({"item 0": 0.4, "item 1": 0.9, "item 2": 1.0})
-    assert s.dwells == (1.0, 1.0, 1.0)
-    s.start(10.0)
-    assert [s.tick(t) for t in (10.0, 10.99, 11.0, 12.5, 13.0, 14.2)] == [0, 0, 1, 2, 0, 1]
-    assert s.span_s == MAX_LOOPS * 3 * 1.0
-
-
-def test_an_item_whose_name_takes_longer_than_the_interval_stays_lit_until_it_is_said():
-    s = _announced({"item 1": 1.75})
-    assert s.dwells == (1.0, 1.75, 1.0)
+def test_an_announced_step_is_its_announcement_then_a_full_interval():
+    """Never the longer of the two: a full interval always follows, however long the name."""
+    s = _announced({"item 0": 0.4, "item 1": 1.75})
+    assert s.dwells == pytest.approx((1.4, 2.75, 1.0))
     s.start(0.0)
-    # item 0 for [0, 1), item 1 for [1, 2.75) -- not [1, 2) -- then item 2 for [2.75, 3.75).
-    assert [s.tick(t) for t in (0.5, 1.0, 1.99, 2.5, 2.74, 2.75, 3.74, 3.75)] == [
-        0, 1, 1, 1, 1, 2, 2, 0]
+    # item 0 for [0, 1.4), item 1 for [1.4, 4.15), item 2 for [4.15, 5.15), then item 0.
+    assert [s.tick(t) for t in (1.39, 1.41, 4.14, 4.16, 5.14, 5.16)] == [0, 1, 1, 2, 2, 0]
     # The next pass keeps the same per-item dwells.
-    assert [s.tick(t) for t in (3.75 + 1.0, 3.75 + 2.74, 3.75 + 2.75)] == [1, 1, 2]
+    assert [s.tick(t) for t in (5.15 + 1.41, 5.15 + 4.14, 5.15 + 4.16)] == [1, 1, 2]
 
 
 def test_the_inactivity_stop_counts_whole_passes_of_the_longer_timeline():
     s = _announced({"item 1": 1.75})
     s.start(0.0)
-    assert s.span_s == pytest.approx(MAX_LOOPS * 3.75)
+    assert s.span_s == pytest.approx(MAX_LOOPS * (1.0 + 2.75 + 1.0))
     assert s.tick(s.span_s - 0.01) == 2
     assert s.tick(s.span_s) is None and s.scanning is False
 
@@ -311,8 +308,8 @@ def test_the_inactivity_stop_counts_whole_passes_of_the_longer_timeline():
 def test_select_at_onset_stays_exact_on_a_lengthened_step():
     s = _announced({"item 1": 1.75})
     s.start(0.0)
-    # Began at 2.6 s: still item 1 (it is lit until 2.75 s), reported at 2.9 s (item 2 lit).
-    assert s.select(onset=2.6, now=2.9) == ScanItem("item 1", "command")
+    # Began at 3.6 s: still item 1 (lit until 3.75 s), reported at 3.9 s (item 2 lit).
+    assert s.select(onset=3.6, now=3.9) == ScanItem("item 1", "command")
 
 
 @pytest.mark.parametrize("bad", [float("nan"), float("inf"), -2.0, 0.0, "soon", None])
@@ -332,7 +329,80 @@ def test_an_estimate_that_raises_falls_back_to_the_interval():
 def test_an_absurdly_long_announcement_is_capped_so_the_scan_still_moves():
     s = SwitchScanner([ScanItem("a", "command"), ScanItem("b", "command")], 1.0,
                       announce_s=lambda item: 600.0)
-    assert s.dwells == (MAX_ANNOUNCE_S, MAX_ANNOUNCE_S)
+    assert s.dwells == (MAX_ANNOUNCE_S + 1.0, MAX_ANNOUNCE_S + 1.0)
+
+
+# ---- a heard scan: wait out the detector's post-voice deafness ------------------------------
+
+
+def test_a_heard_step_is_announcement_plus_deafness_plus_a_full_interval():
+    s = _announced({"item 0": 0.4, "item 1": 1.75}, post_voice_s=0.4)
+    assert s.dwells == pytest.approx((1.8, 3.15, 1.4))
+    s.start(0.0)
+    # item 0 for [0, 1.8), item 1 for [1.8, 4.95), item 2 for [4.95, 6.35), then item 0.
+    assert [s.tick(t) for t in (1.79, 1.81, 4.94, 4.96, 6.34, 6.36)] == [0, 1, 1, 2, 2, 0]
+    assert s.span_s == pytest.approx(MAX_LOOPS * (1.8 + 3.15 + 1.4))
+
+
+@pytest.mark.parametrize("edge", ["opens", "closes"])
+def test_a_long_name_still_leaves_a_full_dwell_to_click_after_the_deafness(edge):
+    """"scroll down" at the default 1.2 s dwell takes about as long to say as the dwell.
+
+    After the name and the deaf window behind it, a whole 1.2 s is left, and a click
+    anywhere in it -- just after it opens or just before it closes -- selects that item.
+    """
+    from yazses.mouthswitch.announce import speech_duration_s
+
+    items, _ = parse_scan_items(list(DEFAULT_SCAN_ITEMS))
+    s = SwitchScanner(items, 1.2, announce_s=lambda item: speech_duration_s(item.label),
+                      post_voice_s=0.4)
+    k = [item.label for item in items].index("scroll down")
+    name_s = speech_duration_s("scroll down")
+    assert name_s >= 1.0  # the case this pins: a name about as long as the dwell
+    assert s.dwells[k] == pytest.approx(name_s + 0.4 + 1.2)
+    lit_at = sum(s.dwells[:k])
+    heard_from = lit_at + name_s + 0.4      # the name has ended and the detector hears again
+    window_end = lit_at + s.dwells[k]
+    assert window_end - heard_from == pytest.approx(1.2)
+    s.start(0.0)
+    onset = heard_from + 0.01 if edge == "opens" else window_end - 0.01
+    assert s.select(onset=onset, now=onset + 0.3) == items[k]
+
+
+def test_a_cue_only_step_waits_for_its_tick_and_the_deafness():
+    """No spoken name, but the tick is voiced too: its length and the window still apply."""
+    s = SwitchScanner([ScanItem("a", "command"), ScanItem("b", "command")], 1.2,
+                      announce_s=lambda item: 0.03, post_voice_s=0.4)
+    assert s.dwells == pytest.approx((1.63, 1.63))
+    s.start(0.0)
+    assert [s.tick(t) for t in (1.62, 1.64, 3.25, 3.27)] == [0, 1, 1, 0]
+
+
+def test_without_a_post_voice_window_the_steps_are_unchanged():
+    """The overlay's silent scan passes nothing: the plain fixed-step timeline, exactly."""
+    items = [ScanItem(f"item {i}", "command") for i in range(3)]
+    assert SwitchScanner(items, 1.0).dwells == (1.0, 1.0, 1.0)
+    assert SwitchScanner(items, 1.0, post_voice_s=0.0).dwells == (1.0, 1.0, 1.0)
+
+
+def test_a_click_in_the_interval_after_the_deafness_selects_the_item_still_lit():
+    s = SwitchScanner([ScanItem(f"item {i}", "command") for i in range(3)], 1.0,
+                      post_voice_s=0.4)
+    s.start(0.0)
+    # Item 0 is lit for [0, 1.4): deaf until 0.4 s, then a full 1.0 s to click. This click
+    # began at 1.3 s, inside that interval, and was reported at 1.6 s with item 1 lit.
+    assert s.select(onset=1.3, now=1.6) == ScanItem("item 0", "command")
+
+
+@pytest.mark.parametrize("bad", [float("nan"), float("inf"), -0.4, "soon", None])
+def test_an_unusable_post_voice_window_adds_nothing(bad):
+    s = SwitchScanner([ScanItem("a", "command")], 1.0, post_voice_s=bad)
+    assert s.dwells == (1.0,)
+
+
+def test_an_absurd_post_voice_window_is_capped_so_the_scan_still_moves():
+    s = SwitchScanner([ScanItem("a", "command")], 1.0, post_voice_s=600.0)
+    assert s.dwells == (1.0 + MAX_POST_VOICE_S,)
 
 
 def test_the_view_counts_steps_even_when_the_index_repeats():
@@ -347,7 +417,8 @@ def test_the_view_counts_steps_even_when_the_index_repeats():
 def test_steps_count_across_lengthened_passes():
     s = _announced({"item 1": 1.75})
     s.start(0.0)
-    assert [s.view(t).step for t in (0.5, 1.5, 3.0, 4.0, 5.0, 7.0)] == [0, 1, 2, 3, 4, 5]
+    # Dwells (1.0, 2.75, 1.0): item 1 is lit for [1.0, 3.75), so the steps land here.
+    assert [s.view(t).step for t in (0.5, 1.5, 4.0, 5.0, 6.0, 8.6)] == [0, 1, 2, 3, 4, 5]
 
 
 def test_each_start_is_a_new_generation():

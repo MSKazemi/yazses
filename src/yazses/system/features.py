@@ -594,8 +594,9 @@ def _registry() -> list[_Def]:
              "click runs the lit one; the scan keeps going on that item, so another click "
              "repeats it. Armed by `yazses handsfree resume`, stopped by `handsfree "
              "pause`. Where the overlay cannot run, each step is announced instead with an "
-             "earcon and, with [tts] on, the item's name. Thresholds tuned on synthetic sounds "
-             "only. Off by default.",
+             "earcon and, with [tts] on, the item's name; `[mouthswitch] speak_names` says "
+             "the names without turning on read-back of your dictation. Thresholds tuned on "
+             "synthetic sounds only. Off by default.",
              lambda c: c.mouthswitch.enabled, ms_on, ms_off),
         _Def("involuntary", "Involuntary-Vocalization Excision", "[involuntary] — drop coughs & sneezes",
              OPTIONAL,
@@ -1576,7 +1577,7 @@ _USE_CASES: dict[str, str] = {
     "acronyms": "When you write reports full of acronyms and need each defined on first use and kept consistent.",
     "morsevox": "When you can produce only one or two reliable vocal sounds and need a full-alphabet entry path.",
     "checkdigit": "When you dictate a card, IBAN, or ID number where one mis-heard digit would be costly to miss.",
-    "mouthswitch": "When you can't produce reliable speech and need to drive a scanning selector with mouth sounds.",
+    "mouthswitch": "When you can't produce reliable speech and need to drive a scanning selector with mouth sounds, on screen or by ear (speak_names says each item).",
     "involuntary": "When a cough, throat-clear, or sneeze keeps turning into garbage tokens in your dictation.",
     "breath": "When you dictate in long continuous runs and want sentences segmented by breathing, not silence.",
     "whispermode": "When you're in a shared or quiet space and must dictate under your breath without losing accuracy.",

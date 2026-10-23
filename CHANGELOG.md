@@ -71,6 +71,31 @@ matched". The clipboard rescue needs `wl-copy`, `xclip` or `xsel`, as for proofr
 A successful spoken edit now also updates the `[timeline]` record, which still held the
 pre-edit text. Tested with a simulated text field only, not on real hardware.
 
+### Added — the Mouth-Sound Switch can say item names without reading your dictation back (experimental, off by default)
+
+New key `[mouthswitch] speak_names` (default `false`). Where the overlay cannot draw the
+scan, the item names used to be spoken only if read-back (`[tts]`) was on, and read-back
+also reads every dictation back. With `speak_names = true` and read-back off, the switch
+builds the same offline voice for itself, from your `[tts]` voice and speed, and your
+dictation is still not read back. It never downloads the voice model: it needs the `tts`
+extra and a model already on this computer. Without them, the steps are announced with
+earcon ticks only, and one log line says why. Existing installs are unchanged. Tested with
+a simulated voice only, not on real hardware.
+
+### Fixed — a heard Mouth-Sound Switch step leaves a full dwell to click after the name (experimental, off by default)
+
+The click detector ignores any click that follows a voiced sound by less than 400 ms, and
+where the scan is announced, the step tick and the spoken name are voiced and reach the
+microphone through the speakers. So part of every announced step could never hear a click,
+and an item whose name took about as long to say as `dwell_s` ("scroll down" at the 1.2 s
+default) left almost no time to click at all. Where the scan is announced, each step is now
+lit for its tick or name, then the detector's own window (read from the detector, not
+restated), then a full `dwell_s` in which a click is heard. A long name makes the scan
+slower instead: with names on, a pass over the five default items takes about 12 s rather
+than 6 s, so lower `dwell_s` if that is slower than you need. A scan the overlay draws makes
+no sound and keeps its plain `dwell_s` steps. Tested with simulated clicks only, not on real
+hardware.
+
 ### Changed — the Mouth-Sound Switch keeps scanning after a selection (experimental, off by default)
 
 One tongue click used to end the scan, so scrolling down twice took pop, click, pop, click.

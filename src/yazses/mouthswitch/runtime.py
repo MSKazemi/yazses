@@ -40,7 +40,13 @@ native Wayland session, no ``desktop`` extra), the scan is *announced* instead
 (``announce.py``): an earcon cue at every step when ``[earcon]`` is on, and the item's name
 spoken by the offline read-back voice when ``[tts]`` can speak. The announcement comes from
 the same timeline the select-at-onset rule reads, and an item stays lit until its name has
-been said, so the item announced when a click began is the item that click selects.
+been said, so the item announced when a click began is the item that click selects. The cue
+and the name are voiced and reach the microphone through the speakers, and the detector
+cannot hear a click for ``detect.CONTEXT_MS`` after a voiced sound (:func:`post_voice_deaf_s`).
+So a heard step is lit for the announcement, then that deaf window, then a whole
+``dwell_s`` in which a click is heard: a long name slows the scan, it never shortens the
+time to click. A scan the overlay draws makes no sound, and its steps are plain
+``dwell_s``.
 
 **Dormant unless asked, and the microphone closed unless armed.** :func:`build_mouthswitch`
 returns a runtime with no runner while ``[mouthswitch]`` is off (the shipped state), when
@@ -65,6 +71,7 @@ from typing import Any, Protocol
 import numpy as np
 
 from yazses.audio.device_monitor import ENGAGED_AUDIO_FRESH_S, audio_is_live
+from yazses.mouthswitch import detect as detect_module
 from yazses.mouthswitch.announce import ScanAnnouncer
 from yazses.mouthswitch.detect import MouthSoundDetector
 from yazses.mouthswitch.scanner import ScanItem, SwitchScanner, parse_scan_items, scan_interval
@@ -78,6 +85,7 @@ __all__ = [
     "build_mouthswitch",
     "command_refusal",
     "notify_mouthswitch_fault",
+    "post_voice_deaf_s",
 ]
 
 log = logging.getLogger(__name__)
@@ -102,6 +110,17 @@ class _Detector(Protocol):
     def feed(self, chunk: Any) -> list[Any]: ...
 
     def reset(self) -> None: ...
+
+
+def post_voice_deaf_s() -> float:
+    """Seconds after a voiced sound ends during which the detector cannot hear a click.
+
+    The detector rejects a click when the ``CONTEXT_MS`` of audio before its onset holds
+    voiced frames (``detect.py``, "not after speech"). A heard scan's cue and spoken name are
+    voiced, so that window follows every announcement. Read from the detector each time,
+    never restated here, so the scan's timing and the detector's guard cannot drift apart.
+    """
+    return float(detect_module.CONTEXT_MS) / 1000.0
 
 
 def command_refusal(label: str, classify: Callable[[str], object]) -> str:
@@ -172,6 +191,9 @@ class MouthSwitchRunner:
         self._scanner = SwitchScanner(
             items, interval_s,
             announce_s=announcer.announcement_s if announcer is not None else None,
+            # Heard, not seen: every step also waits out the detector's post-voice
+            # deafness, or part of each step could never hear the click meant for it.
+            post_voice_s=post_voice_deaf_s() if announcer is not None else 0.0,
         )
         #: Guards the scanner: the worker moves it, the status IPC reads it.
         self._scan_lock = threading.Lock()
