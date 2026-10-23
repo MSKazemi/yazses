@@ -95,6 +95,7 @@ def test_success_logs_the_target_and_length_but_never_the_text(logs):
         ("claude", "a\x00b", "invalid_text"),
         ("claude", "🎤" * 3000, "url_too_long"),
     ],
+    ids=["too_long", "empty", "unknown_target", "invalid_text", "url_too_long"],
 )
 def test_a_refusal_never_calls_the_opener(target, text, reason):
     opener = _Opener()

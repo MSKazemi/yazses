@@ -30,9 +30,9 @@ from yazses.config import Config, load_config
 from yazses.sendto import handoff
 from yazses.sendto.targets import CLAUDE_MAX_CHARS, parse_send_phrase, target_names
 from yazses.system.features import (
+    _UNWIRED,
     CAT_COMMANDS,
     OPTIONAL,
-    _UNWIRED,
     _registry,
     default_enabled_slugs,
     feature_packages,

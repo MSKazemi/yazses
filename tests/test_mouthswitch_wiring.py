@@ -497,7 +497,9 @@ def test_a_long_name_still_leaves_a_full_dwell_to_click():
     _walk(d, window_end - 0.05)
     assert ears.heard_before(window_end - 0.05) == "scroll down"
     d.advance(0.1, click_at(window_end - 0.03))
-    assert ran == ["scroll down"]
+    # A pointer item scrolls the sink; it never reaches the command path that `ran` records.
+    assert [(a.x, a.y) for a in _scrolls(runner._sink)] == [(0.0, 3.0)]
+    assert ran == []
 
 
 def test_the_post_voice_window_is_the_detectors_own_constant(monkeypatch):
