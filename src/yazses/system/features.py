@@ -575,7 +575,8 @@ def _registry() -> list[_Def]:
              "Type by Morse with your voice: a short hum is a dot, a long hum a dash, and each "
              "decoded letter is typed (speech-to-text is not run). Start it hands-free by "
              "humming one long steady tone (1.5 s) or by saying 'morse mode'; 3 s of silence "
-             "ends it. Adapts the dot/dash timing to your rhythm. With the hum entry on, the "
+             "ends it, and so does the end-of-work prosign SK (...-.-, keyed as one "
+             "character), which is not typed. Adapts the dot/dash timing to your rhythm. With the hum entry on, the "
              "microphone stays open (a level only). For minimal-ability users. Experimental: "
              "timings tuned on synthetic signals only. Off by default.",
              lambda c: c.morsevox.enabled, mv_on, mv_off),
@@ -1046,8 +1047,10 @@ def _registry() -> list[_Def]:
         _Def("predict", "Predictive Completion", "[predict] — voice autosuggest, experimental",
              EXPERIMENTAL,
              "After a dictation is typed, a local model proposes the rest of the sentence "
-             "in a notification; say \"accept\" or \"take it\" within 10 seconds to type it. "
-             "Anything else you say dismisses it, and nothing is typed without the accept. "
+             "in a notification; say \"accept\" or \"take it\" within 10 seconds to type it, "
+             "or \"discard\" to drop it. Anything else you say -- a one-word \"No.\" "
+             "included -- dismisses it and is typed as usual, and nothing is typed "
+             "without the accept. "
              "Needs llama-cpp-python (the slm extra) and a local GGUF model at "
              "[predict] model_path. Off by default.",
              lambda c: c.predict.enabled, pd_on, pd_off),

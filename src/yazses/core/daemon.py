@@ -3015,10 +3015,12 @@ class Daemon:
                 if self._state.state in _MORSE_QUIET_STATES:
                     self._state.audio_level = 0.0
         if active:
-            body = "Morse mode on: short hum = dot, long hum = dash. Stay silent to leave it."
+            body = ("Morse mode on: short hum = dot, long hum = dash. Stay silent, or send "
+                    "SK (...-.-), to leave it.")
         else:
             body = {
                 "silence": "Morse mode off (silence).",
+                "prosign": "Morse mode off (SK, end of work).",
                 "dictation": "Morse mode off: dictation started.",
                 "paused": "Morse mode off: hands-free input paused.",
                 "no_release": "Morse mode off: the sound never stopped, so there was "
@@ -5541,9 +5543,12 @@ class Daemon:
         arrives after the offer expired, types nothing at all.
 
         A held dangerous command or an open re-ask keeps first claim on the utterance,
-        exactly as `_reask_gate` steps aside for the command gate: "cancel that" and
-        "never mind" are the command gate's words too. The offer is then withdrawn by
-        the ``finally`` block of `_on_hold_end`, because the burst did not answer it.
+        exactly as `_reask_gate` steps aside for the command gate: "cancel that" is the
+        command gate's word too. The offer is then withdrawn by the ``finally`` block of
+        `_on_hold_end`, because the burst did not answer it.
+
+        A one-word "No." is not a decline: it is dropped (``DROPPED``), the offer goes,
+        and the word is dictated like any other burst.
         """
         runtime = self._predict
         if runtime is None or runtime.pending is None:

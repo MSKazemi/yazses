@@ -6,6 +6,25 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — Vocal Morse: the SK prosign ends Morse mode (experimental, off by default)
+
+Morse mode used to end only after 3 s of silence. Now the end-of-work prosign SK
+(`...-.-`, keyed as one character with no letter gap between the S and the K) ends it
+too, as soon as the letter gap after it has passed. SK is not typed, and the earcon and
+notification work as for the other exits (reason `prosign`). SK counts only as a whole
+character: "s" and "k" keyed with a normal letter gap are still typed as `sk`. In the
+middle of a word, the letters before SK stay typed and nothing after it is decoded.
+Tested on synthetic level streams only, not with a real voice.
+
+### Fixed — Predictive Completion no longer eats a dictated "No." (experimental, off by default)
+
+While a suggestion was offered, a whole-utterance "no" or "never mind" counted as declining
+it, so the word was consumed and nothing was typed. Both are ordinary replies, so they are
+now dictated like any other speech: the word is typed and the offer is dismissed. Only
+phrases that address the suggestion decline it: "discard", "decline", "reject" and
+"cancel that". Declining was always optional, because anything else you say dismisses the
+offer. Tested with a fake model and injector only, not on real hardware.
+
 ### Fixed — Interruptible Proofreading no longer loses your words when the correction cannot be typed (experimental, off by default)
 
 A proofreading correction (`proofback`) erases the text from the interrupted word with

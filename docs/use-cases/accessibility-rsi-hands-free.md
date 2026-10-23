@@ -215,6 +215,31 @@ clicks and pops. A keyboard tap or a knock on the desk may count as a tongue cli
 click during a scan can run the lit item. It does not run on a native Wayland session,
 because the overlay is not started there. Please report what works for you.
 
+## Typing by Morse with your voice
+
+If you can make one sound reliably but not words, Vocal Morse lets you type every letter
+and digit with it. A short hum is a dot, a long hum is a dash, and each decoded letter is
+typed. Speech-to-text is not run. It is **experimental** and off by default:
+
+```sh
+yazses features enable morsevox --force
+yazses restart
+```
+
+- **Start:** hum one long, steady tone (1.5 s, `[morsevox] entry_hum_s`), or say
+  "morse mode".
+- **Letters and words:** a pause of about 0.6 s ends a letter, and about 1.4 s adds a space.
+- **Stop:** stay silent for 3 s (`[morsevox] exit_silence_s`), or send **SK**, the
+  end-of-work prosign: `...-.-`, keyed as one character with no letter pause between the
+  S and the K. SK is not typed, and Morse mode ends as soon as the letter pause after it
+  has passed.
+- SK counts only as one whole character. "S", a letter pause, then "K" types the letters
+  `sk`. If you send SK in the middle of a word, the letters before it stay typed and
+  the mode ends there.
+
+The timings were tuned on synthetic signals only, not on a real voice or a real room.
+Please report what works for you.
+
 ## Honest limits
 
 - Three of the more exotic input modalities, the vocal joystick (`vocaljoystick`),

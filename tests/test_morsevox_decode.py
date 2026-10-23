@@ -13,6 +13,8 @@ import pytest
 
 from yazses.morsevox.decode import (
     _MORSE,
+    PROSIGNS,
+    SK,
     MorseCalib,
     MorseDecoder,
     adapt_dot_threshold,
@@ -83,3 +85,38 @@ def test_adapt_ignores_non_positive_durations_and_none():
     assert adapt_dot_threshold([0, -5, 120], c) is c              # one usable value
     with_junk = adapt_dot_threshold([0, -1, 100, 500], c, alpha=1.0)
     assert with_junk.dot_max_ms == pytest.approx(300.0)
+
+
+# ---- the end-of-work prosign SK ---------------------------------------------
+
+def test_sk_is_the_itu_code_and_shadows_no_letter():
+    assert SK == "...-.-" and PROSIGNS == {SK: "SK"}
+    assert not set(PROSIGNS) & set(_MORSE)
+
+
+@pytest.mark.parametrize("gap", ["gap_letter", "gap_word"])
+def test_sk_keyed_as_one_character_types_nothing_and_is_reported_once(gap):
+    dec = MorseDecoder()
+    assert _feed_code(dec, SK, gap) is None          # not typed, and no word-gap space
+    assert dec.take_prosign() == "SK"
+    assert dec.take_prosign() is None                # reported once
+
+
+def test_s_and_k_with_a_letter_gap_are_the_letters_sk():
+    dec = MorseDecoder()
+    assert _feed_code(dec, "...") == "s"
+    assert _feed_code(dec, "-.-") == "k"
+    assert dec.take_prosign() is None
+
+
+def test_a_longer_run_that_starts_like_sk_is_an_unknown_code_not_sk():
+    dec = MorseDecoder()
+    assert _feed_code(dec, SK + ".") is None
+    assert dec.take_prosign() is None
+
+
+def test_letters_before_sk_are_still_decoded():
+    dec = MorseDecoder()
+    assert _feed_code(dec, ".-") == "a"
+    assert _feed_code(dec, SK) is None
+    assert dec.take_prosign() == "SK"
