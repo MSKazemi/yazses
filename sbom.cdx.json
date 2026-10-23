@@ -755,14 +755,14 @@
     {
       "type": "library",
       "name": "gitpython",
-      "version": "3.1.62",
-      "purl": "pkg:pypi/gitpython@3.1.62",
-      "bom-ref": "pkg:pypi/gitpython@3.1.62",
+      "version": "3.2.1",
+      "purl": "pkg:pypi/gitpython@3.2.1",
+      "bom-ref": "pkg:pypi/gitpython@3.2.1",
       "scope": "excluded",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "1791de66309bc0c7cfca40bf8d2e3de7ca091cbf94e6051be1ad0722c61062af"
+          "content": "0f1229ec5c057bdabdeeda8bda4f17bda679ab33dbccc00f24e6a480553c8613"
         }
       ]
     },

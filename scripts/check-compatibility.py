@@ -13,7 +13,8 @@ It also refuses an entry containing a home path, an email or a token. People pas
 `yazses doctor` output into these, and that output contains their username.
 
 This deliberately checks *shape*, never truth. Whether the report is honest is a human
-judgement and stays one.
+judgement and stays one. The one exception is mechanical: an entry whose "How you use
+YazSes" text is word for word another entry's is a copy, not a report (#548).
 """
 from __future__ import annotations
 
@@ -39,7 +40,8 @@ REQUIRED_FIELDS = ("OS / desktop", "Mic", "Apps you dictate into", "How you use 
 #: the platforms that can answer it; the requirement itself is unchanged for Linux.
 SESSIONLESS_OS_RE = re.compile(r"\b(windows|macos|mac ?os ?x?|osx|darwin)\b", re.I)
 
-ENTRY_RE = re.compile(r"^###\s+(.+?)\s*$", re.M)
+#: Up to three spaces of indent is still a heading in Markdown (#548 hid a copy that way).
+ENTRY_RE = re.compile(r"^ {0,3}###\s+(.+?)\s*$", re.M)
 #: The instructions contain a fenced template that looks exactly like a real entry.
 FENCE_RE = re.compile(r"```.*?```", re.S)
 
@@ -84,6 +86,41 @@ def check_entry(heading: str, body: str) -> list[str]:
     return problems
 
 
+#: Shorter than this, two identical answers are a common phrase, not a copy.
+MIN_COPY_CHARS = 40
+
+#: The answer ends at the next field, a blank line, or the end of the entry.
+USE_RE = re.compile(r"\*\*How you use YazSes:\*\*(.*?)(?=\n-\s+\*\*|\n[ \t]*\n|\Z)", re.S)
+COMMENT_RE = re.compile(r"<!--.*?-->", re.S)
+
+
+def _normalised_use(body: str) -> str:
+    m = USE_RE.search(COMMENT_RE.sub("", body))
+    return " ".join(m.group(1).split()).lower() if m else ""
+
+
+def copied_entries(found: list[tuple[str, str]]) -> list[str]:
+    """A problem for every entry whose "How you use YazSes" text repeats an earlier one.
+
+    A setup report is credited to its author as testing, so it has to be theirs. Case and
+    line wrapping are ignored; anything shorter than ``MIN_COPY_CHARS`` is not judged.
+    """
+    seen: dict[str, str] = {}
+    problems: list[str] = []
+    for heading, body in found:
+        use = _normalised_use(body)
+        if len(use) < MIN_COPY_CHARS:
+            continue
+        if use in seen:
+            problems.append(
+                f"{heading}: the \"How you use YazSes\" text is word for word {seen[use]}'s. "
+                "Describe your own setup in your own words."
+            )
+        else:
+            seen[use] = heading
+    return problems
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--file", type=Path, default=SHOWCASE)
@@ -91,6 +128,7 @@ def main(argv: list[str] | None = None) -> int:
 
     found = entries(args.file.read_text(encoding="utf-8"))
     problems = [p for heading, body in found for p in check_entry(heading, body)]
+    problems += copied_entries(found)
 
     if problems:
         print(f"✗ {len(problems)} problem(s) across {len(found)} entries:\n", file=sys.stderr)

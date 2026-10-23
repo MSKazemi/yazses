@@ -156,6 +156,32 @@ than "granted". On the Store build, the microphone advice points to YazSes's tog
 app list instead of the desktop-apps switch. Unpackaged installs behave exactly as before.
 The Store build is not published yet, and this has not run on a real MSIX install.
 
+### Added — assigning an issue moves its card to In Progress on the project board
+
+The [project board](https://github.com/users/MSKazemi/projects/8) moves cards by itself when
+an issue is closed, reopened or linked to a pull request, but GitHub has no built-in rule for
+assignment, which is how someone claims an issue. `.github/workflows/project-status.yml` now
+runs on `issues: [assigned, unassigned]`: an open issue that gains an assignee moves from Todo
+to In Progress, and one whose last assignee leaves moves back to Todo unless an open pull
+request still references it. A card someone moved by hand is never dragged back. The rule is
+`scripts/project_status.py`, pinned by `tests/test_project_status.py`.
+
+It needs a personal token with the `project` scope in the `PROJECT_TOKEN` repository secret,
+because the repository's own token cannot write to a user-owned project. Until that secret
+exists the run ends green with a notice. Only an issue event triggers it, so no pull
+request's code runs next to the token.
+
+### Changed — a SHOWCASE entry has to be the tester's own, and a copy is flagged on the PR
+
+A real test report is credited on the contributors wall, so it has to describe the
+contributor's own setup in their own words. `scripts/check-compatibility.py` now refuses an
+entry whose "How you use YazSes" text matches another entry's word for word, ignoring case
+and line wrapping and anything under 40 characters. It also reads a heading indented by up
+to three spaces as a heading, as Markdown does. #548 hid a verbatim copy under `  ### `, and
+the old pattern folded it into the entry above, so every check passed. The rule is
+written into `SHOWCASE.md` and `docs/contributing.md`. `tests/test_showcase_copy_rule.py`
+includes #548's exact shape.
+
 ### Fixed — `yazses status` names the speech engine actually decoding, and says when it fell back ([#644](https://github.com/MSKazemi/yazses/issues/644))
 
 With `[stt] engine = "parakeet"` (or `"moonshine"`) and that engine missing or failing to
@@ -522,14 +548,15 @@ run yet.
 
 ### Security — the GitPython advisory (GHSA-83vg-56qc-22m7) is assessed, not yet patchable
 
-`gitpython` 3.2.1 fixes a submodule clone into `.git/hooks`, and the lock cannot take it:
-`mkdocs-rss-plugin` 1.19.0, its newest release, caps `GitPython<3.2`, and every 3.1.x is
-affected. `.github/SECURITY.md` now says why it does not reach anyone: `gitpython` comes only
-from the `docs` dependency group, so no install of YazSes contains it, and nothing calls
-`Repo.create_submodule`. `tests/test_dependency_advisories.py` checks the first fact against
-the lock's dependency graph, checks that no code here imports GitPython, and fails once the
-lock reaches 3.2.1 so the entry is retired. The OpenTelemetry alert was closed by upgrading
-`opentelemetry-api` to 1.45.1 (#629).
+### Security — GitPython is on 3.2.1, which fixes GHSA-83vg-56qc-22m7
+
+`gitpython` 3.2.1 fixes a submodule clone into `.git/hooks`, and every 3.1.x is affected.
+`mkdocs-rss-plugin` 1.19.0, its newest release, caps `GitPython<3.2`, so `pyproject.toml` now
+overrides that cap with `[tool.uv] override-dependencies = ["gitpython>=3.2.1"]`. The plugins use
+nothing that changed in 3.2, and the Docs job builds with it. GitPython comes only from the `docs`
+dependency group, so no install of YazSes ever contained it. `.github/SECURITY.md` records the
+advisory as resolved, and `tests/test_dependency_advisories.py` fails if the lock drops below
+3.2.1. The OpenTelemetry alert was closed by upgrading `opentelemetry-api` to 1.45.1 (#629).
 
 ### Fixed — a fake `huggingface_hub.constants` no longer leaks between tests
 

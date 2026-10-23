@@ -356,8 +356,10 @@ entries:
     kind: programme
     title: "Planning traceability"
     source: "design/README.md"
-    decision_status: proposed
-    delivery_status: in-progress
+    # #377 closed as complete on 2026-10-22: manifest (#479), milestone policy (#480) and
+    # the nightly live audit (#487) are all enforced, not described.
+    decision_status: accepted
+    delivery_status: shipped
     tracking:
       kind: issue
       issues: [377]
@@ -533,7 +535,7 @@ entries:
       kind: issue
       # Pillar 1 and Pillar 2 children span milestones 7, 9, 13 and 14, so the decision
       # carries none (design/milestone-policy.md); the bridges are tracked below.
-      issues: [642, 643, 644, 645, 646, 504]
+      issues: [642, 643, 645, 646, 504]  # #644 shipped in #651
       task: null
       milestone: null
   - id: "decision:adr-031-send-to"
@@ -555,6 +557,6 @@ entries:
     delivery_status: scheduled
     tracking:
       kind: issue
-      issues: [638, 639, 640, 641]
+      issues: [638, 639, 641]  # #640 shipped in #652
       task: null
       milestone: 14
