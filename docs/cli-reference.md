@@ -268,8 +268,10 @@ Codex" does the same, and the phrase itself is not typed.
   scripts can be refused sooner, because the link it becomes is capped at 32,000
   characters.
 - **The log records the app and the length, never the text.** On Linux the link is
-  passed to `xdg-open` as an argument while it opens, so other users on the same machine
-  could read it from the process list for that moment.
+  passed to `xdg-open` as an argument while it opens (and to the app, if this starts
+  it), so other processes on the same machine could read it from the process list.
+  On Windows the app receives it as an argument the same way; on macOS it is passed
+  without one. Both are untested.
 
 ### `yazses tray`
 

@@ -250,9 +250,12 @@ the app and the character count, never the words. Turn it on with `enabled = tru
 `[sendto]` in `config.toml`. This is [ADR-031](design/adr/adr-031-send-to-prefill-handoff.md),
 accepted on 2026-10-23. Experimental: it has **not yet been tried against the real Claude
 or Codex desktop apps** on any platform, so whether each app pre-fills without sending is
-documented by the vendors, not yet observed here. On Linux the link passes through
-`xdg-open`, where other users of the same machine could read it in the process list
-while it opens. Written in a code-only pass; its tests have not been run yet.
+documented by the vendors, not yet observed here. The link goes through a per-OS opener
+behind the platform layer (`xdg-open` on Linux, `NSWorkspace` on macOS, `ShellExecute` on
+Windows) that refuses any web address before it starts anything. On Linux the link is an
+argument to `xdg-open` while it opens, and to the app if this starts it, so other
+processes on the same machine could read it in the process list. macOS and Windows are
+untested. Written in a code-only pass; its tests have not been run yet.
 
 ### Security — the GitPython advisory (GHSA-83vg-56qc-22m7) is assessed, not yet patchable
 

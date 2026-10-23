@@ -12,31 +12,33 @@ opens the URL and reports what happened, under two rules that do not bend:
 ## The opener seam
 
 The opener is any ``Callable[[str], bool]`` — "was the URL handed off?" — injected so the
-tests never launch anything. The default reuses ``system/browser.py::open_url``, the
-hand-off ADR-019 already inventories under *Reached by handing a URL to another program*,
-with ``log_url=False`` so its failure path does not write the URL. No new outbound
-primitive is added: this module imports neither ``webbrowser`` nor ``subprocess``.
+tests never launch anything. The default goes through the platform layer's
+:class:`~yazses.platform.base.UrlOpener` (``platform.get_url_opener()``), one
+implementation per OS beside the ``FileOpener`` seam, as ADR-031 §3 asks. Before calling
+it, the default checks the URL's scheme against the closed target table once more, so
+even a caller that bypassed :func:`plan_handoff` could not open anything else. This
+package imports neither ``subprocess`` nor ``webbrowser`` nor ``os``; the one process or
+OS call happens behind the seam.
 
-What the default does per platform is the standard library's choice, and it is recorded
-here because ADR-031 §3 asks for it to be written down:
+What each backend does, and the local exposure each leaves (ADR-031 §3 asks for it to be
+written down):
 
-* **Linux:** ``webbrowser`` runs ``xdg-open <url>`` as a child process (``BROWSER``, when
-  set, is tried first). The URL — and so the text — is in that process's argument list
-  while it runs, readable by other local users through ``/proc``. ADR-031 records this
-  exposure rather than waving it away; a desktop-portal opener that avoids it needs the
-  platform seam the ADR describes, which is not built yet.
-* **macOS:** ``webbrowser`` pipes an AppleScript to ``osascript`` on its standard input,
-  so the URL is not in an argument list. Python 3.13's script is ``open location``, which
-  goes to the scheme's registered app; Python 3.14's sends a URL that is not ``http(s)``
-  to the default *browser* application instead (read in both versions' ``webbrowser``
-  source), and the browser may ask before it opens the client — unverified on a real Mac.
-* **Windows:** ``os.startfile``, which calls ``ShellExecuteW`` in-process.
+* **Linux and the BSDs:** ``xdg-open <url>`` as a child process — one argv element, no
+  shell, its output discarded. While it runs, the URL — and so the text — is in its
+  argument list, readable through ``/proc`` by the user's own processes and, unless
+  ``/proc`` is mounted with ``hidepid=``, by every local user. A client that the hand-off
+  *starts* usually gets the URL as an argument too, for as long as it runs.
+* **macOS:** ``NSWorkspace.openURL_`` in-process, so no argument list holds the URL; if
+  PyObjC cannot be imported, ``open <url>``, which does put it in one briefly.
+  Unverified on a real Mac.
+* **Windows:** ``os.startfile``, which calls ``ShellExecuteW`` in-process; the client the
+  shell starts gets the URL as its ``%1`` argument.
 
 **Unverified, and said so:** whether each client pre-fills without submitting has not been
 observed on a real Claude or Codex install on any platform (ADR-031 §5 requires a
-validation row per client and OS). And on Linux, "handed off" means ``xdg-open`` was
-started — it cannot tell whether a program is registered for ``claude://``, so a missing
-client is reported by the desktop, not here.
+validation row per client and OS). On Linux, "handed off" means ``xdg-open`` exited 0 or
+was still running after a few seconds; a status such as 4 (no program registered for the
+scheme) is reported as a failed hand-off.
 """
 from __future__ import annotations
 
@@ -44,7 +46,7 @@ import logging
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from yazses.sendto.targets import Plan, Refusal, plan_handoff
+from yazses.sendto.targets import TARGETS, Plan, Refusal, plan_handoff
 
 log = logging.getLogger(__name__)
 
@@ -57,15 +59,27 @@ DISABLED_MESSAGE = (
 )
 
 
+#: The only schemes the default opener hands to the desktop: those of the closed table.
+_TARGET_SCHEMES: frozenset[str] = frozenset(t.scheme for t in TARGETS.values())
+
+
 def default_opener(url: str) -> bool:
-    """Hand *url* to the desktop through the inventoried browser hand-off, quietly.
+    """Hand *url* to the program registered for its scheme, through the platform seam.
 
-    ``log_url=False`` is the point: ``open_url``'s default failure log names the URL,
-    and this URL is the user's dictation.
+    Refuses (returns False, opens nothing) a URL whose scheme is not one of the closed
+    target table's — the allow-list; the platform seam's own web-scheme refusal is the
+    deny-list behind it. Any exception from the platform layer (no backend for this OS,
+    no program registered, the opener failing) propagates to :func:`hand_off`, which
+    reports it by type only.
     """
-    from yazses.system.browser import open_url
+    scheme = url.partition("://")[0].lower() if "://" in url else ""
+    if scheme not in _TARGET_SCHEMES:
+        log.warning("Send to: refused to open a URL outside the target table.")
+        return False
+    from yazses.platform.factory import get_url_opener
 
-    return open_url(url, log_url=False)
+    get_url_opener().open_url(url)
+    return True
 
 
 @dataclass(frozen=True)
