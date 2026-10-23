@@ -7,13 +7,16 @@ the tray showed "idle" either way.
 
 The daemon's status reply now carries one block, `stt_residency`:
 
-    {"idle_unload_s": int, "loaded": bool, "loading": bool, "idle_s": float | None}
+    {"idle_unload_s": int, "loaded": bool, "loading": bool, "idle_s": float | None,
+     "unloaded_after_s": float | None, "unloaded_for_s": float | None}
 
 or `None` at the default of `0`, which leaves the reply, `yazses status` and the tray
 unchanged for every install that has not opted in. These tests pin:
 
 * the payload in each state -- off, loaded and idle, in use, unloaded, reloading -- read
   from a real `IdleUnloadEngine` over a counting fake model and a hand-driven clock;
+* that "unloaded after N s idle" is the idle time measured at the release, not the
+  configured keep-alive, which a late unload tick overshoots;
 * that reading it never waits on the engine lock, so a tray polling four times a second
   cannot queue behind a decode or a reload;
 * the one phrase `yazses status` and the tray print, from one shared builder;
@@ -24,6 +27,7 @@ No model loads, no thread sleeps, and no microphone opens.
 
 from __future__ import annotations
 
+import logging
 import math
 import threading
 
@@ -34,7 +38,7 @@ from typer.testing import CliRunner
 from yazses.config import Config
 from yazses.core.daemon import Daemon
 from yazses.platform import get_platform
-from yazses.platform.base import TrayModel
+from yazses.platform.base import TrayModel, TrayState
 from yazses.stt.factory import render_engine_status_lines
 from yazses.stt.resident import IdleUnloadEngine
 from yazses.system.report import redact_status
@@ -47,7 +51,9 @@ from yazses.system.residency import (
 from yazses.tray.menu import build_menu_model, icon_spec, residency_line, status_from_model
 
 AUDIO = np.zeros(1600, dtype=np.float32)
-_KEYS = {"idle_unload_s", "loaded", "loading", "idle_s"}
+_KEYS = {"idle_unload_s", "loaded", "loading", "idle_s", "unloaded_after_s", "unloaded_for_s"}
+#: The two release fields, as they read while the model is loaded.
+_LOADED_NO_RELEASE = {"unloaded_after_s": None, "unloaded_for_s": None}
 
 
 class _Model:
@@ -108,7 +114,8 @@ def _daemon(rig: _Rig | None = None) -> Daemon:
 def test_a_loaded_model_reports_how_long_it_has_been_idle() -> None:
     rig = _Rig(300)
     snap = rig.at(45.0).residency_snapshot()
-    assert snap == {"idle_unload_s": 300, "loaded": True, "loading": False, "idle_s": 45.0}
+    assert snap == {"idle_unload_s": 300, "loaded": True, "loading": False, "idle_s": 45.0,
+                    **_LOADED_NO_RELEASE}
 
 
 def test_idle_counts_from_the_end_of_the_last_decode() -> None:
@@ -127,14 +134,74 @@ def test_a_decode_in_flight_is_in_use_not_idle() -> None:
 
     rig.first.during = _look
     rig.at(10.0).transcribe(AUDIO)
-    assert seen == [{"idle_unload_s": 300, "loaded": True, "loading": False, "idle_s": 0.0}]
+    assert seen == [{"idle_unload_s": 300, "loaded": True, "loading": False, "idle_s": 0.0,
+                     **_LOADED_NO_RELEASE}]
 
 
 def test_an_unloaded_model_reports_no_idle_countdown() -> None:
     rig = _Rig(300)
     assert rig.at(300.0).detach_if_idle() is rig.first
     snap = rig.at(900.0).residency_snapshot()
-    assert snap == {"idle_unload_s": 300, "loaded": False, "loading": False, "idle_s": None}
+    assert snap == {"idle_unload_s": 300, "loaded": False, "loading": False, "idle_s": None,
+                    "unloaded_after_s": 300.0, "unloaded_for_s": 600.0}
+
+
+def test_the_release_reports_the_real_idle_time_not_the_keep_alive() -> None:
+    """The tick runs a quarter keep-alive apart and skips a busy turn, so a 300 s
+    keep-alive is released later than 300 s. The status says when it really was."""
+    rig = _Rig(300)
+    rig.at(100.0).transcribe(AUDIO)             # last use ends at 100
+    assert rig.at(412.0).detach_if_idle() is not None
+    snap = rig.at(457.0).residency_snapshot()
+    assert snap["unloaded_after_s"] == 312.0, "idle at release, measured from the last use"
+    assert snap["unloaded_for_s"] == 45.0, "seconds since the release"
+    assert rig.engine.released_after_s == 312.0
+    assert describe_stt_residency(snap) == (
+        "unloaded after 312 s idle, 45 s ago — reloads on the next press"
+    )
+
+
+def test_a_reload_clears_the_release_and_a_later_release_restamps_it() -> None:
+    rig = _Rig(300)
+    rig.at(330.0).detach_if_idle()
+    rig.at(400.0).transcribe(AUDIO)             # reload; last use ends at 400
+    assert rig.engine.released_after_s is None
+    assert rig.at(410.0).residency_snapshot()["unloaded_after_s"] is None
+    assert rig.at(1000.0).detach_if_idle() is not None
+    snap = rig.at(1010.0).residency_snapshot()
+    assert (snap["unloaded_after_s"], snap["unloaded_for_s"]) == (600.0, 10.0)
+
+
+def test_a_failed_reload_keeps_the_release_it_failed_to_undo() -> None:
+    rig = _Rig(300)
+    rig.at(350.0).detach_if_idle()
+
+    def _fail():
+        raise RuntimeError("no model on disk")
+
+    rig.engine._load = _fail
+    with pytest.raises(RuntimeError):
+        rig.at(400.0).transcribe(AUDIO)
+    snap = rig.at(420.0).residency_snapshot()
+    assert snap["loaded"] is False and snap["loading"] is False
+    assert (snap["unloaded_after_s"], snap["unloaded_for_s"]) == (350.0, 70.0)
+
+
+def test_a_wrapper_that_never_held_a_model_reports_no_release() -> None:
+    engine = IdleUnloadEngine(_Model, 300, clock=lambda: 5.0, spawn=lambda fn: None)
+    snap = engine.residency_snapshot()
+    assert snap["loaded"] is False
+    assert (snap["unloaded_after_s"], snap["unloaded_for_s"]) == (None, None)
+    assert describe_stt_residency(snap) == "unloaded — reloads on the next press"
+
+
+def test_reading_an_unloaded_snapshot_does_not_disturb_the_trackers_clock_check() -> None:
+    """The "how long ago" reads the clock directly, never through the tracker's check."""
+    rig = _Rig(300)
+    rig.at(300.0).detach_if_idle()
+    rig.at(900.0).residency_snapshot()
+    rig.now[0] = 500.0
+    rig.engine.touch()          # earlier than the snapshot's reading: must not raise
 
 
 def test_a_reload_in_flight_reports_loading_and_not_loaded() -> None:
@@ -142,10 +209,12 @@ def test_a_reload_in_flight_reports_loading_and_not_loaded() -> None:
     rig.at(300.0).detach_if_idle()
     rig.at(400.0).transcribe(AUDIO)             # the press after the unload reloads
     assert rig.seen_during_load == [
-        {"idle_unload_s": 300, "loaded": False, "loading": True, "idle_s": None}
+        {"idle_unload_s": 300, "loaded": False, "loading": True, "idle_s": None,
+         "unloaded_after_s": 300.0, "unloaded_for_s": 100.0}
     ]
     assert rig.at(401.0).residency_snapshot() == {
         "idle_unload_s": 300, "loaded": True, "loading": False, "idle_s": 1.0,
+        **_LOADED_NO_RELEASE,
     }
 
 
@@ -168,7 +237,33 @@ def test_the_snapshot_never_waits_on_the_engine_lock() -> None:
     finally:
         release.set()
         holder.join(timeout=10)
-    assert snap == {"idle_unload_s": 300, "loaded": True, "loading": False, "idle_s": 60.0}
+    assert snap == {"idle_unload_s": 300, "loaded": True, "loading": False, "idle_s": 60.0,
+                    **_LOADED_NO_RELEASE}
+
+
+def test_an_unloaded_snapshot_never_waits_on_the_engine_lock_either() -> None:
+    """The release stamps are read without the lock too, and are already set."""
+    rig = _Rig(300)
+    rig.at(320.0).detach_if_idle()
+    held, release = threading.Event(), threading.Event()
+
+    def _hold() -> None:
+        with rig.engine._cond:
+            held.set()
+            release.wait(timeout=10)
+
+    holder = threading.Thread(target=_hold, daemon=True)
+    holder.start()
+    try:
+        assert held.wait(timeout=10)
+        snap = rig.at(380.0).residency_snapshot()
+        assert not release.is_set()
+    finally:
+        release.set()
+        holder.join(timeout=10)
+    assert (snap["loaded"], snap["unloaded_after_s"], snap["unloaded_for_s"]) == (
+        False, 320.0, 60.0,
+    )
 
 
 def test_the_snapshot_does_not_disturb_the_trackers_clock_check() -> None:
@@ -210,11 +305,28 @@ def test_the_status_reply_carries_each_state() -> None:
     rig.at(45.0)
     assert d._handle_status(None)["stt_residency"] == {
         "idle_unload_s": 300, "loaded": True, "loading": False, "idle_s": 45.0,
+        **_LOADED_NO_RELEASE,
     }
-    rig.at(300.0).detach_if_idle()
+    rig.at(318.0).detach_if_idle()
+    rig.at(330.0)
     assert d._handle_status(None)["stt_residency"] == {
         "idle_unload_s": 300, "loaded": False, "loading": False, "idle_s": None,
+        "unloaded_after_s": 318.0, "unloaded_for_s": 12.0,
     }
+
+
+def test_the_unload_log_line_says_the_real_idle_time(caplog) -> None:
+    rig = _Rig(300)
+    d = _daemon(rig)
+    with d._lock:
+        d._state.ready = True
+        d._state.state = TrayState.IDLE
+    rig.at(337.0)
+    with caplog.at_level(logging.INFO, logger="yazses.core.daemon"):
+        assert d._stt_idle_unload_tick() is True
+    messages = [r.getMessage() for r in caplog.records]
+    assert any("released after 337 s idle" in m and "idle_unload_s = 300" in m
+               for m in messages), messages
 
 
 def test_the_status_reply_is_never_held_up_by_the_engine_lock() -> None:
@@ -281,8 +393,23 @@ def test_nothing_is_said_when_idle_unload_is_off_or_the_shape_is_unknown(block) 
 def test_the_phrase_for_each_state() -> None:
     base = {"idle_unload_s": 300, "loaded": True, "loading": False, "idle_s": 45.4}
     assert describe_stt_residency(base) == "loaded, idle 45 s of 300 s"
+    unloaded = {**base, "loaded": False, "idle_s": None,
+                "unloaded_after_s": 312.4, "unloaded_for_s": 45.0}
+    assert describe_stt_residency(unloaded) == (
+        "unloaded after 312 s idle, 45 s ago — reloads on the next press"
+    )
+    # A figure the daemon did not send is left out -- never filled in with the keep-alive.
     assert describe_stt_residency({**base, "loaded": False, "idle_s": None}) == (
-        "unloaded after 300 s idle — reloads on the next press"
+        "unloaded — reloads on the next press"
+    )
+    assert describe_stt_residency({**unloaded, "unloaded_for_s": None}) == (
+        "unloaded after 312 s idle — reloads on the next press"
+    )
+    assert describe_stt_residency({**unloaded, "unloaded_after_s": math.nan}) == (
+        "unloaded, 45 s ago — reloads on the next press"
+    )
+    assert describe_stt_residency({**unloaded, "unloaded_after_s": "312"}) == (
+        "unloaded, 45 s ago — reloads on the next press"
     )
     assert describe_stt_residency({**base, "loaded": False, "loading": True, "idle_s": None}) == (
         "reloading — the next words wait for it"
@@ -290,6 +417,18 @@ def test_the_phrase_for_each_state() -> None:
     # Loaded but no idle figure (e.g. a NaN): the keep-alive, never a made-up number.
     assert describe_stt_residency({**base, "idle_s": math.nan}) == (
         "loaded, released after 300 s idle"
+    )
+
+
+@pytest.mark.parametrize(("seconds", "said"), [
+    (0.0, "0 s"), (45.9, "45 s"), (119.9, "119 s"), (120.0, "2 min"), (7199.0, "119 min"),
+    (7200.0, "2 h"), (90_000.0, "25 h"),
+])
+def test_how_long_ago_is_rounded_down_into_one_unit(seconds, said) -> None:
+    block = {"idle_unload_s": 300, "loaded": False, "loading": False, "idle_s": None,
+             "unloaded_after_s": 300.0, "unloaded_for_s": seconds}
+    assert describe_stt_residency(block) == (
+        f"unloaded after 300 s idle, {said} ago — reloads on the next press"
     )
 
 
@@ -307,9 +446,11 @@ def test_the_status_lines_add_one_memory_line_only_under_idle_unload() -> None:
     ]
     lines = render_engine_status_lines({**reply, "stt_residency": {
         "idle_unload_s": 300, "loaded": False, "loading": False, "idle_s": None,
+        "unloaded_after_s": 312.0, "unloaded_for_s": 45.0,
     }})
     assert lines[-1] == (
-        "  memory:   speech model unloaded after 300 s idle — reloads on the next press"
+        "  memory:   speech model unloaded after 312 s idle, 45 s ago — reloads on the "
+        "next press"
     )
 
 
@@ -321,7 +462,8 @@ def test_yazses_status_prints_the_memory_line(monkeypatch) -> None:
         "injection_backend": "WtypeInjector", "uptime_s": 5.0, "ready": True,
         "engine": "faster-whisper", "engine_model": "base.en", "engine_fallback": None,
         "stt_residency": {"idle_unload_s": 300, "loaded": False, "loading": False,
-                          "idle_s": None},
+                          "idle_s": None, "unloaded_after_s": 312.0,
+                          "unloaded_for_s": 600.0},
     }
 
     class _Client:
@@ -351,7 +493,8 @@ def test_yazses_status_prints_the_memory_line(monkeypatch) -> None:
 
     monkeypatch.setattr(cli, "get_platform", lambda: _Platform())
     out = CliRunner().invoke(cli.app, ["status"]).output
-    assert "memory:   speech model unloaded after 300 s idle — reloads on the next press" in out
+    assert ("memory:   speech model unloaded after 312 s idle, 10 min ago — reloads on the "
+            "next press") in out
 
     reply["stt_residency"] = None
     out = CliRunner().invoke(cli.app, ["status"]).output

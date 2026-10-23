@@ -16,14 +16,18 @@ character: "s" and "k" keyed with a normal letter gap are still typed as `sk`. I
 middle of a word, the letters before SK stay typed and nothing after it is decoded.
 Tested on synthetic level streams only, not with a real voice.
 
-### Fixed — Predictive Completion no longer eats a dictated "No." (experimental, off by default)
+### Changed — Predictive Completion answers only to "take it", "accept suggestion" and "discard" (experimental, off by default)
 
-While a suggestion was offered, a whole-utterance "no" or "never mind" counted as declining
-it, so the word was consumed and nothing was typed. Both are ordinary replies, so they are
-now dictated like any other speech: the word is typed and the offer is dismissed. Only
-phrases that address the suggestion decline it: "discard", "decline", "reject" and
-"cancel that". Declining was always optional, because anything else you say dismisses the
-offer. Tested with a fake model and injector only, not on real hardware.
+While a suggestion was offered, a whole utterance that matched a control phrase was
+consumed and nothing was typed. Several of those phrases are ordinary replies, so a
+dictated "No.", "Keep it." or "Decline." vanished. Now only three phrases answer an offer:
+"take it" and "accept suggestion" type it, and "discard" drops it. Every other phrase
+that used to count is dictated like any other speech and dismisses the offer: "accept",
+"accept that", "yes take it", "keep it", "use that", "decline", "reject", "cancel that",
+"no" and "never mind". A phrase counts only as the whole utterance, so "take it easy" is
+typed. Declining was always optional, because anything else you say dismisses the offer.
+If you said "accept" to take a suggestion, say "take it" now. Tested with a fake model
+and injector only, not on real hardware.
 
 ### Fixed — a failed proofreading correction names its cause, as Spoken Edit and Punch-In do (experimental, off by default)
 
@@ -137,11 +141,15 @@ missing package but cannot see a load failure.
 With `[stt] idle_unload_s` set, YazSes releases the speech model after that many idle
 seconds, and the first words after a pause are late while it reloads. Nothing said which
 state you were in. Now `yazses status` prints one `memory:` line under the model, for
-example `speech model loaded, idle 45 s of 300 s` or `speech model unloaded after 300 s
-idle — reloads on the next press`. The tray tooltip and the Linux tray menu show the same
-phrase. The macOS menu bar does not, because it shows only a glyph. The daemon's status reply gains
-`stt_residency` (`idle_unload_s`, `loaded`, `loading`, `idle_s`). It is `null` at the
-default of `0`, so an install that has not opted in sees no change. Reading it never waits
+example `speech model loaded, idle 45 s of 300 s` or `speech model unloaded after 312 s
+idle, 3 min ago — reloads on the next press`. The unloaded figure is the idle time measured
+when the model was released, not the setting: the release can come later, because YazSes
+checks only every quarter of `idle_unload_s` and waits while you dictate. The tray tooltip
+and the Linux tray menu show the same phrase. The macOS menu bar does not, because it
+shows only a glyph. The daemon's status reply gains `stt_residency` (`idle_unload_s`,
+`loaded`, `loading`, `idle_s`, `unloaded_after_s`, `unloaded_for_s`). It is `null` at the
+default of `0`, so an install that has not opted in sees no change. The daemon log's
+"released after" line gives the measured time too. Reading it never waits
 on the engine's lock, so a status poll cannot queue behind a decode or a reload.
 `tests/test_status_stt_residency.py` covers each state, the lock, the printed line and
 the tray. Untested on real hardware.
