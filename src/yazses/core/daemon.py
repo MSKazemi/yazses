@@ -1744,8 +1744,8 @@ class Daemon:
         self._handsfree_safety = self._build_handsfree_safety(cfg)
         self._headpointer = self._build_headpointer(cfg)
         self._vocaljoystick = self._build_vocaljoystick(cfg)
-        # Mouth-Sound Switch (ADR-v2-097): None unless `[mouthswitch] enabled`; opens no mic.
-        self._mouthswitch = self._build_mouthswitch(cfg)
+        # The Mouth-Sound Switch is built further down, after the read-back voice: without
+        # the overlay it announces each scan step through that voice (ADR-v2-097).
         # Vocal Morse (ADR-v2-105): None unless `[morsevox] enabled`; building opens no mic.
         self._morsevox = self._build_morsevox(cfg)
         # Gesture Chords (ADR-v2-043): face/head tokens from the same shared camera, resolved
@@ -1821,6 +1821,10 @@ class Daemon:
                 "Read-back TTS enabled (backend=%s, mode=%s)",
                 self._tts.name, cfg.accessibility.read_back,
             )
+
+        # Mouth-Sound Switch (ADR-v2-097): None unless `[mouthswitch] enabled`; opens no mic.
+        # Built after the read-back voice above, which it may use to announce the scan.
+        self._mouthswitch = self._build_mouthswitch(cfg)
 
         # Cocktail Filter / Voiceprint Mind: build the speaker embedder and load the
         # enrolled voiceprint when either feature is on (dormant/None otherwise).
@@ -2863,7 +2867,7 @@ class Daemon:
 
             def run_command(phrase: str) -> object:
                 # Confidence 1.0: a detected click is deterministic. Whether it was *meant*
-                # is what the detector's guards and the one-select-per-scan rule answer.
+                # is what the detector's guards and the one-select-per-click rule answer.
                 return handle_intent(
                     ActivationIntent(label=phrase, confidence=1.0, source=SOURCE_NAME),
                     (phrase,),
@@ -2872,6 +2876,7 @@ class Daemon:
                 )
 
             sr = cfg.audio.sample_rate
+            highlight = should_launch_overlay(cfg, os.environ) and overlay_dependency_available()
             return build_mouthswitch(
                 cfg.mouthswitch,
                 pointer_factory=self._platform.pointer_factory,
@@ -2881,10 +2886,10 @@ class Daemon:
                 ),
                 run_command=run_command,
                 classify=self._gesture_classify,
-                # A select must never land on an item nobody can see: no overlay, no switch.
-                highlight_available=(
-                    should_launch_overlay(cfg, os.environ) and overlay_dependency_available()
-                ),
+                # A select must never land on an item nobody can see or hear: no overlay
+                # and no announcement, no switch.
+                highlight_available=highlight,
+                announcer=None if highlight else self._mouthswitch_announcer(cfg),
                 sample_rate=sr,
                 # Never listen for a switch while dictation records, transcribes or types.
                 busy=lambda: self._state.state is not TrayState.IDLE,
@@ -2896,6 +2901,38 @@ class Daemon:
         except Exception:
             log.warning("Mouth-Sound Switch init failed; it stays off", exc_info=True)
             return None
+
+    def _mouthswitch_announcer(self, cfg):
+        """The scan's audible stand-in for the overlay, or None when nothing can sound.
+
+        Two existing outputs, each used only when the user already turned it on: the earcon
+        player (`[earcon]`) for a cue at every step, and the read-back voice (`[tts]`) for
+        the item's name. A voice that degraded to the silent null backend does not count:
+        a name nobody hears is no announcement. Never raises.
+        """
+        try:
+            from yazses.mouthswitch.announce import ScanAnnouncer, speech_duration_s
+
+            earcon = self._earcon
+            cue: Callable[[str], None] | None = earcon.play if earcon.enabled else None
+            speak: Callable[[str], None] | None = None
+            cancel: Callable[[], None] | None = None
+            begin: Callable[[], None] | None = None
+            tts = self._tts
+            if tts is not None and tts.name != "null":
+                speak, cancel = tts.speak, tts.cancel
+                begin = getattr(tts, "begin", None)
+            if cue is None and speak is None:
+                return None
+            speed = cfg.tts.speed
+            return ScanAnnouncer(
+                cue=cue, speak=speak, cancel=cancel, begin=begin,
+                duration_s=lambda text: speech_duration_s(text, speed),
+            )
+        except Exception:
+            log.warning("Mouth-Sound Switch announcer init failed", exc_info=True)
+            return None
+
     def _build_morsevox(self, cfg):
         """Vocal Morse (ADR-v2-105), or None while `[morsevox]` is off (the default).
 

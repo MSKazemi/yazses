@@ -16,23 +16,39 @@ drives it with plain numbers:
   :class:`ScanItem` values (a pointer item, or a command phrase for the existing grammar).
 * :func:`scan_interval` -- ``dwell_s`` clamped to a usable range.
 
+**A spoken item is never cut off by the next step.** When the scan is heard rather than
+seen (``announce.py``), each item's name is spoken as it lights. The caller injects how
+long that announcement takes (``announce_s``), and an item stays lit for the longer of
+``dwell_s`` and its announcement, so the highlight never advances mid-word. The timeline
+is still a pure function of time: per-item dwells are fixed when the scanner is built.
+
 **A click selects what was highlighted when the click began, not when it was recognised.**
 The detector reports a sound only after ``POST_QUIET_MS`` of quiet behind it, so by the time
 the event reaches the scanner the highlight may already have moved on. :meth:`select` takes
 the sound's onset time and answers for that instant. A click whose onset lies outside the
-scan it is meant for (before it began, after it stopped) selects nothing, and one scan
-selects at most once: after a selection the scan stops, so a stray second click cannot run
-a second item (AGENTS.md rule 9 / ADR-021).
+scan it is meant for (before it began, after it stopped) selects nothing, a click reported
+more than :data:`MAX_SELECT_LAG_S` after it began selects nothing, and one click selects at
+most once: a click whose onset is not later than the last selection's selects nothing
+(AGENTS.md rule 9 / ADR-021).
+
+**A selection does not end the scan (owner decision, 2026-10-23).** Repeating "scroll down"
+used to need a pop before every click. Now the highlight stays on the selected item for its
+full dwell, measured from the moment the selection was made, and then steps on as before,
+so a second click repeats the item. The scan still stops on a pop, on pause, and after
+:data:`MAX_LOOPS` passes with no selection -- counted from the *last* selection. The
+timeline becomes a short list of segments, each re-anchored at a selection, and "what was
+lit at ``t``?" stays exact for any ``t`` a non-stale click can ask about.
 """
 from __future__ import annotations
 
 import math
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
 __all__ = [
     "DEFAULT_INTERVAL_S",
     "DEFAULT_SCAN_ITEMS",
+    "MAX_ANNOUNCE_S",
     "MAX_INTERVAL_S",
     "MAX_LOOPS",
     "MAX_SELECT_LAG_S",
@@ -71,6 +87,9 @@ MAX_INTERVAL_S = 10.0
 MAX_LOOPS = 3
 #: A click reported this long after its onset is stale (a stalled worker), and selects nothing.
 MAX_SELECT_LAG_S = 2.0
+#: The longest an announcement may hold one item lit. A label that would take longer to
+#: say is a configuration mistake, and a scan that never moves is worse than a clipped word.
+MAX_ANNOUNCE_S = MAX_INTERVAL_S
 
 
 @dataclass(frozen=True)
@@ -90,11 +109,17 @@ class ScanItem:
 
 @dataclass(frozen=True)
 class ScanView:
-    """What the scan shows at one instant. ``index`` is ``-1`` while not scanning."""
+    """What the scan shows at one instant. ``index`` is ``-1`` while not scanning.
+
+    ``step`` counts highlight steps since the scan started (``-1`` while not scanning), so a
+    caller can tell "a new step began" from "the same item is still lit" even when the
+    index repeats -- a one-item scan, say.
+    """
 
     scanning: bool
     index: int
     item: ScanItem | None
+    step: int = -1
 
 
 def normalise_label(raw: object) -> str:
@@ -142,6 +167,19 @@ def parse_scan_items(raw: object) -> tuple[list[ScanItem], list[str]]:
     return items, problems
 
 
+def _announce_seconds(announce_s: Callable[[ScanItem], float] | None, item: ScanItem) -> float:
+    """How long announcing ``item`` takes, sanitised: ``0.0`` for anything unusable. Pure."""
+    if announce_s is None:
+        return 0.0
+    try:
+        seconds = float(announce_s(item))
+    except Exception:  # an estimate that fails must not stop the scan from being built
+        return 0.0
+    if not math.isfinite(seconds) or seconds <= 0.0:
+        return 0.0
+    return min(MAX_ANNOUNCE_S, seconds)
+
+
 def scan_interval(value: object) -> float:
     """``dwell_s`` as seconds per highlight step, clamped to a usable range. Pure."""
     try:
@@ -159,18 +197,34 @@ class SwitchScanner:
     Pure state; every method takes the time it is asked about. The highlighted index is a
     function of time since :meth:`start`, so asking "what was lit at ``t``?" for a moment
     in the recent past is exact, not an estimate.
+
+    ``announce_s`` (optional) says how long announcing an item takes; that item then stays
+    lit for ``max(interval_s, announce_s(item))``. Without it every item gets ``interval_s``.
     """
 
     def __init__(self, items: Sequence[ScanItem], interval_s: float = DEFAULT_INTERVAL_S,
-                 max_loops: int = MAX_LOOPS) -> None:
+                 max_loops: int = MAX_LOOPS,
+                 announce_s: Callable[[ScanItem], float] | None = None) -> None:
         self._items = tuple(items)
         self._interval = scan_interval(interval_s)
         self._max_loops = max(1, int(max_loops))
+        #: Seconds each item stays lit: never shorter than the interval, never mid-word.
+        self._dwells = tuple(
+            max(self._interval, _announce_seconds(announce_s, item)) for item in self._items
+        )
+        #: Every item on the plain interval: the original fixed-step arithmetic applies.
+        self._uniform = all(d == self._interval for d in self._dwells)
+        self._cycle = sum(self._dwells)
+        #: Bumped by every :meth:`start`, so a caller can tell one scan from the next.
+        self._generation = 0
         #: The latest scan as ``[start, end)``; ``end`` is None while it runs.
         self._start: float | None = None
         self._end: float | None = None
-        #: True once the latest scan has produced its one selection.
-        self._spent = False
+        #: The latest scan's timeline: ``(t0, first index, first step)`` per segment, oldest
+        #: first. A scan starts with one at item 0; every selection adds one at its item.
+        self._segments: list[tuple[float, int, int]] = []
+        #: The onset of the latest scan's last selection: one click selects at most once.
+        self._last_onset: float | None = None
 
     @property
     def items(self) -> tuple[ScanItem, ...]:
@@ -181,13 +235,25 @@ class SwitchScanner:
         return self._interval
 
     @property
+    def dwells(self) -> tuple[float, ...]:
+        """Seconds each item stays lit, in item order."""
+        return self._dwells
+
+    @property
+    def generation(self) -> int:
+        """How many scans have been started; identifies the latest one."""
+        return self._generation
+
+    @property
     def scanning(self) -> bool:
         return self._start is not None and self._end is None
 
     @property
     def span_s(self) -> float:
-        """How long a scan runs with no selection before it stops by itself."""
-        return self._max_loops * len(self._items) * self._interval
+        """How long a scan runs after its start, or its last selection, before it stops."""
+        if self._uniform:
+            return self._max_loops * len(self._items) * self._interval
+        return self._max_loops * self._cycle
 
     # ------------------------------------------------------------------ start / stop
 
@@ -195,7 +261,9 @@ class SwitchScanner:
         """Start a fresh scan at the first item. False (and nothing starts) with no items."""
         if not self._items:
             return False
-        self._start, self._end, self._spent = float(now), None, False
+        self._start, self._end, self._last_onset = float(now), None, None
+        self._segments = [(float(now), 0, 0)]
+        self._generation += 1
         return True
 
     def stop(self, now: float) -> None:
@@ -213,20 +281,62 @@ class SwitchScanner:
 
     # ------------------------------------------------------------------ time
 
+    def _anchor(self) -> float | None:
+        """When the latest scan last started or selected: its passes count from here."""
+        return self._segments[-1][0] if self._segments else None
+
     def _expire(self, now: float) -> None:
         """End a scan that has run its loops; the end is when it ran out, not when asked."""
-        start = self._start
-        if start is not None and self._end is None and now - start >= self.span_s:
-            self._end = start + self.span_s
+        anchor = self._anchor()
+        if anchor is not None and self._end is None and now - anchor >= self.span_s:
+            self._end = anchor + self.span_s
+
+    def _locate(self, elapsed: float, base: int = 0) -> tuple[int, int]:
+        """``(index, step)`` lit ``elapsed`` seconds (>= 0) into a segment lit at ``base``. Pure.
+
+        ``step`` counts from the segment's start: its first item is step 0.
+        """
+        n = len(self._items)
+        if self._uniform:
+            step = int(elapsed // self._interval)
+            return (base + step) % n, step
+        loops = int(elapsed // self._cycle)
+        offset = elapsed - loops * self._cycle
+        reached = 0.0
+        for j in range(n):
+            reached += self._dwells[(base + j) % n]
+            if offset < reached:
+                return (base + j) % n, loops * n + j
+        # Float rounding at the very end of a cycle: that instant belongs to the next one.
+        return base % n, (loops + 1) * n
+
+    def _position(self, t: float) -> tuple[int, int] | None:
+        """``(index, step)`` lit at ``t`` in the latest scan, or None if it did not cover ``t``.
+
+        ``step`` counts from the scan's start and only ever grows, across segments.
+        """
+        if self._start is None or not self._items or not self._segments:
+            return None
+        anchor = self._segments[-1][0]
+        end = self._end if self._end is not None else anchor + self.span_s
+        if t < self._start or t >= end:
+            return None
+        for t0, base, step0 in reversed(self._segments):
+            if t >= t0:
+                index, step = self._locate(t - t0, base)
+                return index, step0 + step
+        return None  # older than the history kept (see `_prune`): no live click asks that
+
+    def _prune(self, now: float) -> None:
+        """Forget segments only a stale click could ask about; always keep the latest."""
+        horizon = now - 2 * MAX_SELECT_LAG_S
+        while len(self._segments) > 1 and self._segments[1][0] <= horizon:
+            del self._segments[0]
 
     def index_at(self, t: float) -> int | None:
         """The item lit at time ``t`` in the latest scan, or None if no scan covered ``t``."""
-        if self._start is None or not self._items:
-            return None
-        end = self._end if self._end is not None else self._start + self.span_s
-        if t < self._start or t >= end:
-            return None
-        return int((t - self._start) // self._interval) % len(self._items)
+        position = self._position(t)
+        return None if position is None else position[0]
 
     def tick(self, now: float) -> int | None:
         """Bring the scan up to ``now``; the lit index, or None when not scanning."""
@@ -234,27 +344,41 @@ class SwitchScanner:
         return self.index_at(now) if self.scanning else None
 
     def view(self, now: float) -> ScanView:
-        """What to draw at ``now``."""
-        index = self.tick(now)
-        if index is None:
+        """What to draw (or announce) at ``now``."""
+        self._expire(now)
+        position = self._position(now) if self.scanning else None
+        if position is None:
             return ScanView(False, -1, None)
-        return ScanView(True, index, self._items[index])
+        index, step = position
+        return ScanView(True, index, self._items[index], step)
 
     # ------------------------------------------------------------------ select
 
     def select(self, onset: float, now: float) -> ScanItem | None:
-        """The item lit when the click began, or None; a selection stops the scan.
+        """The item lit when the click began, or None.
 
         None when: no scan covered ``onset`` (the click began before the scan or after it
-        stopped), this scan already selected once, or the click is reported more than
-        :data:`MAX_SELECT_LAG_S` after it began.
+        stopped), the click is reported more than :data:`MAX_SELECT_LAG_S` after it began,
+        or its onset is not later than the last selection's (one click, one select).
+
+        A selection made while the scan runs re-anchors it at ``now`` on the selected item:
+        that item stays lit for its full dwell, then the highlight steps on, and the
+        inactivity stop counts its passes from here. A click that began just before a stop
+        still lands, but does not restart a scan that was stopped.
         """
         self._expire(now)
-        if self._spent or now - onset > MAX_SELECT_LAG_S:
+        if now - onset > MAX_SELECT_LAG_S:
             return None
-        index = self.index_at(onset)
-        if index is None:
+        if self._last_onset is not None and onset <= self._last_onset:
             return None
-        self._spent = True
-        self.stop(now)
+        position = self._position(onset)
+        if position is None:
+            return None
+        index = position[0]
+        self._last_onset = onset
+        if self.scanning:
+            current = self._position(now)
+            next_step = (current[1] if current is not None else position[1]) + 1
+            self._segments.append((max(float(now), self._segments[-1][0]), index, next_step))
+            self._prune(now)
         return self._items[index]

@@ -1,7 +1,7 @@
 """Mouth-Sound Switch Access is reachable -- single-switch scanning, armed by the existing
 hands-free toggle (WIRE-MOUTHSWITCH-001, #164, ADR-v2-097).
 
-Five claims:
+Six claims:
 
 * **A default install is unchanged.** `[mouthswitch]` ships off, so the daemon imports nothing
   from `yazses.mouthswitch`, asks for no pointer sink, opens no microphone, and `status`
@@ -11,12 +11,16 @@ Five claims:
   phrase) and a pause of the global gate close it, and so does shutdown.
 * **A pop starts the scan; a click runs the item lit when the click began** -- through the
   existing command path (activation policy → grammar → dispatcher) for a command item, one
-  call on the existing pointer sink for "click" / "scroll".
+  call on the existing pointer sink for "click" / "scroll". The scan then carries on with the
+  selected item still lit, so a second click repeats it without a pop.
 * **A select comes only from a detected click inside a running scan** (ADR-021): a click with
-  no scan, a second click, a click while dictation is busy and a stretch of the speech
-  stand-in run nothing.
-* **No highlight, no switch.** Without the overlay that draws the scan, the feature refuses to
-  build and `handsfree resume` says why.
+  no scan, a click after a pop stopped the scan, a click while dictation is busy and a
+  stretch of the speech stand-in run nothing.
+* **Seen or heard, never neither.** Without the overlay that draws the scan, each step is
+  announced instead -- an earcon cue and/or the item's name in the offline voice -- from the
+  same timeline a click selects from, and an item stays lit until its name has been said.
+* **No highlight and no announcement, no switch.** With neither, the feature refuses to build
+  and `handsfree resume` says why.
 
 Detector thresholds are synthetic-only (`tests/test_mouthswitch_detect.py`); the end-to-end
 case below uses the same synthetic click and pop, not recorded sounds.
@@ -191,6 +195,9 @@ def test_the_registry_describes_single_switch_scanning_not_pop_to_advance():
     assert "handsfree resume" in definition.why and "overlay" in definition.why
     assert "synthetic" in definition.why
     assert "move the highlight" not in _EXAMPLES["mouthswitch"]
+    # What it does now: keeps scanning after a select, and is heard where it cannot be seen.
+    assert "repeats" in definition.why
+    assert "announced" in definition.why and "needs the overlay" not in definition.why
 
 
 # --------------------------------------------------------------------------- #
@@ -204,8 +211,46 @@ def test_a_pop_starts_the_scan_and_a_click_runs_the_lit_command():
     assert runner.view()["index"] == 1
     d.advance(0.3, click_at(1.9))
     assert ran == ["undo"]
-    assert runner.view()["scanning"] is False  # one selection per scan
+    # The scan carries on, with the highlight still on what was just selected.
+    view = runner.view()
+    assert view["scanning"] is True and view["index"] == 1
     assert runner.selections == 1 and runner.last_selected == "undo"
+
+
+def test_after_a_selection_a_second_click_repeats_it_without_a_pop():
+    """Scrolling down twice used to need pop, click, pop, click."""
+    runner, sink, _made, ran, d = _started(items=["enter", "scroll down"])
+    d.advance(0.3, pop_at(0.1))              # scan from 0.3 s: "enter", then "scroll down"
+    d.advance(1.2)                        # now 1.5 s: "scroll down" lit (from 1.3 s)
+    d.advance(0.3, click_at(1.6))            # selected at 1.8 s; it stays lit until 2.8 s
+    d.advance(0.5, click_at(2.1))            # a second click, no pop: scrolls again
+    assert [(a.x, a.y) for a in _scrolls(sink)] == [(0.0, 3.0), (0.0, 3.0)]
+    assert runner.selections == 2 and runner.view()["scanning"] is True
+    assert ran == []
+
+
+def test_a_continuing_scan_stops_after_three_passes_with_no_selection():
+    runner, _sink, _made, ran, d = _started()
+    d.advance(0.3, pop_at(0.1))
+    d.advance(1.5)
+    d.advance(0.3, click_at(1.9))            # "undo", selected at 2.1 s
+    span = 3 * 5 * 1.0                     # 3 passes x 5 items x 1.0 s
+    d.advance(span - 0.2)                   # now 2.1 + span - 0.2: still scanning
+    assert runner.view()["scanning"] is True
+    d.advance(0.3)                          # past three passes since the selection
+    assert runner.view()["scanning"] is False
+    assert ran == ["undo"]
+
+
+def test_a_pop_stops_a_scan_that_has_already_selected():
+    runner, _sink, _made, ran, d = _started()
+    d.advance(0.3, pop_at(0.1))
+    d.advance(1.5)
+    d.advance(0.3, click_at(1.9))
+    d.advance(0.5, pop_at(2.3))
+    assert runner.view()["scanning"] is False
+    d.advance(0.5, click_at(2.9))
+    assert ran == ["undo"]
 
 
 def test_the_click_selects_what_was_lit_when_it_began_not_when_it_was_heard():
@@ -251,9 +296,10 @@ def test_the_pointer_items_use_the_existing_sink():
     assert ran == []
     assert [a.button for a in _presses(sink)] == [PointerButton.LEFT]
 
-    d.advance(0.3, pop_at(5.1))              # a fresh scan from 5.3 s; "scroll down" is item 3
-    d.advance(3.2)                        # now 8.5 s
-    d.advance(0.3, click_at(8.7))            # 3.4 s into the scan: "scroll down"
+    # The scan carries on from "click", re-lit at 5.0 s for one step: then "enter" (6.0 s),
+    # "undo" (7.0 s), "scroll up" (8.0 s), "scroll down" (9.0 s).
+    d.advance(4.3)                        # now 9.3 s
+    d.advance(0.3, click_at(9.4))            # began on "scroll down" (reported at 9.6 s)
     assert [(a.x, a.y) for a in _scrolls(sink)] == [(0.0, 3.0)]
 
 
@@ -316,6 +362,153 @@ def test_stop_closes_the_stream_and_ends_the_scan():
     runner.close()
     assert not made[0].open and runner.view()["scanning"] is False
     assert sink.closed
+
+
+# --------------------------------------------------------------------------- #
+# Heard, not seen: the scan announced where the overlay cannot draw it
+# --------------------------------------------------------------------------- #
+class Ears:
+    """A fake earcon player and voice. Records what was heard, when, and what was lit then."""
+
+    def __init__(self) -> None:
+        self.runner = None
+        self.cues: list[str] = []
+        self.names: list[tuple[str, float, int]] = []
+        self.cancels = 0
+
+    def cue(self, event: str) -> None:
+        self.cues.append(event)
+
+    def speak(self, text: str) -> None:
+        # Asked from inside the announcement: the same scanner a click selects from.
+        view = self.runner.view()
+        self.names.append((text, self.runner.test_clock.t, view["index"]))
+
+    def cancel(self) -> None:
+        self.cancels += 1
+
+    def heard_before(self, t: float) -> str:
+        """The last name heard at or before ``t``."""
+        return [name for name, when, _ in self.names if when <= t][-1]
+
+
+def _audible(duration=lambda text: 0.0, **kwargs):
+    from yazses.mouthswitch.announce import ScanAnnouncer
+
+    ears = Ears()
+    announcer = ScanAnnouncer(cue=ears.cue, speak=ears.speak, cancel=ears.cancel,
+                              duration_s=duration, thread=False)
+    runner, _sink, _made, ran, d = _started(announcer=announcer, **kwargs)
+    ears.runner = runner
+    return runner, ears, ran, d
+
+
+def _walk(d: Drive, until: float, chunk: float = 0.05) -> None:
+    while d.clock.t + chunk <= until + 1e-9:
+        d.advance(chunk)
+
+
+def test_without_the_overlay_each_step_is_announced_as_it_lights():
+    runner, ears, _ran, d = _audible()
+    d.advance(0.3, pop_at(0.1))           # the scan starts at 0.3 s: "enter" is heard at once
+    _walk(d, 3.4)
+    assert [name for name, _, _ in ears.names] == ["enter", "undo", "scroll up", "scroll down"]
+    # Every name was said while that very item was the lit one.
+    labels = [item.label for item in runner.items]
+    assert all(labels[index] == name for name, _, index in ears.names)
+    # A distinct cue on the first item, so the steps can be counted without a voice too.
+    assert ears.cues[:4] == ["scan_first", "scan_step", "scan_step", "scan_step"]
+    assert runner.view()["announce"] == "speech"
+
+
+def test_the_item_heard_when_the_click_began_is_the_item_selected():
+    runner, ears, ran, d = _audible()
+    d.advance(0.3, pop_at(0.1))
+    _walk(d, 2.4)                          # "scroll up" was announced at about 2.3 s
+    # The click began at 2.25 s -- after "undo" was announced, before "scroll up" was -- and
+    # is reported at 2.5 s, with "scroll up" lit by then.
+    d.advance(0.1, click_at(2.25))
+    assert ears.heard_before(2.25) == "undo"
+    assert ran == ["undo"]
+
+
+def test_a_name_longer_than_the_dwell_holds_the_highlight_until_it_is_said():
+    runner, ears, ran, d = _audible(duration=lambda text: 1.6 if text == "undo" else 0.0)
+    d.advance(0.3, pop_at(0.1))
+    _walk(d, 3.5)
+    times = {name: when for name, when, _ in ears.names}
+    # "undo" lit at about 1.3 s; "scroll up" no earlier than 1.6 s later, not after 1.0 s.
+    assert times["scroll up"] - times["undo"] >= 1.6 - 0.05
+    # A click that began 1.3 s into "undo" -- past the plain 1.0 s dwell -- still means "undo".
+    d.advance(0.1, click_at(times["undo"] + 1.3))
+    assert ran == ["undo"]
+
+
+def test_after_a_selection_the_item_is_announced_again_and_stays_for_a_step():
+    runner, ears, ran, d = _audible()
+    d.advance(0.3, pop_at(0.1))
+    _walk(d, 1.5)                          # "enter" at 0.3 s, "undo" at about 1.3 s
+    d.advance(0.1, click_at(1.45))           # selects "undo" at 1.6 s
+    _walk(d, 2.7)
+    assert ran == ["undo"]
+    assert [name for name, _, _ in ears.names] == ["enter", "undo", "undo", "scroll up"]
+    times = [when for name, when, _ in ears.names]
+    assert times[3] - times[2] >= 1.0 - 1e-9  # the re-lit "undo" kept its whole dwell
+
+
+class FakeAnnouncer:
+    """Stands in for `ScanAnnouncer`; records the calls the runner makes."""
+
+    mode = "earcon"
+    can_announce = True
+
+    def __init__(self) -> None:
+        self.calls: list[str] = []
+
+    def announcement_s(self, item) -> float:
+        return 0.0
+
+    def announce(self, item, *, first: bool) -> None:
+        self.calls.append(f"announce {item.label}")
+
+    def stop(self) -> None:
+        self.calls.append("stop")
+
+    def close(self) -> None:
+        self.calls.append("close")
+
+
+def test_stopping_the_scan_silences_the_announcement():
+    announcer = FakeAnnouncer()
+    _r, _sink, _made, _ran, d = _started(announcer=announcer)
+    d.advance(0.3, pop_at(0.1))
+    d.advance(0.2, pop_at(0.4))            # a second pop stops the scan
+    assert announcer.calls == ["announce enter", "stop"]
+    d.advance(0.5)
+    assert announcer.calls == ["announce enter", "stop"]  # silence, not a stop per chunk
+
+
+def test_dictation_starting_silences_the_announcement():
+    busy = {"on": False}
+    announcer = FakeAnnouncer()
+    _r, _sink, _made, _ran, d = _started(announcer=announcer, busy=lambda: busy["on"])
+    d.advance(0.3, pop_at(0.1))
+    busy["on"] = True
+    d.advance(0.1)
+    assert announcer.calls == ["announce enter", "stop"]
+
+
+def test_closing_the_switch_closes_the_announcer():
+    announcer = FakeAnnouncer()
+    runner, _sink, _made, _ran, d = _started(announcer=announcer)
+    d.advance(0.3, pop_at(0.1))
+    runner.close()
+    assert announcer.calls[-2:] == ["stop", "close"]
+
+
+def test_with_no_announcer_the_view_says_so():
+    runner, _sink, _made, _ran, _d = _started()
+    assert runner.view()["announce"] == ""
 
 
 # --------------------------------------------------------------------------- #
@@ -404,6 +597,34 @@ def test_without_the_overlay_there_is_no_switch_and_the_reason_says_why():
     runtime = _build(_cfg(), highlight_available=False)
     assert runtime.runner is None
     assert "overlay" in runtime.reason and "cannot see" in runtime.reason
+    assert "[earcon]" in runtime.reason and "[tts]" in runtime.reason
+
+
+def test_without_the_overlay_an_announcement_lets_the_switch_run():
+    from yazses.mouthswitch.announce import ScanAnnouncer
+
+    cues: list[str] = []
+    runtime = _build(_cfg(), highlight_available=False,
+                     announcer=ScanAnnouncer(cue=cues.append, thread=False))
+    assert runtime.available
+    assert runtime.status_payload()["announce"] == "earcon"
+    runtime.stop()
+
+
+def test_an_announcer_that_can_make_no_sound_does_not_count():
+    from yazses.mouthswitch.announce import ScanAnnouncer
+
+    runtime = _build(_cfg(), highlight_available=False, announcer=ScanAnnouncer(thread=False))
+    assert runtime.runner is None and "cannot see or hear" in runtime.reason
+
+
+def test_with_the_overlay_the_announcer_is_not_used():
+    from yazses.mouthswitch.announce import ScanAnnouncer
+
+    runtime = _build(_cfg(), highlight_available=True,
+                     announcer=ScanAnnouncer(cue=lambda event: None, thread=False))
+    assert runtime.available and runtime.status_payload()["announce"] == ""
+    runtime.stop()
 
 
 def test_the_default_items_all_build_with_a_full_pointer_backend():
@@ -582,3 +803,83 @@ def test_without_the_overlay_resume_says_why(monkeypatch):
     assert reply["ok"] is False
     assert "overlay" in str(reply["reason"])
     assert daemon._mouthswitch_payload() is None
+
+
+# --------------------------------------------------------------------------- #
+# The daemon's announcer: built from the earcon player and read-back voice it has
+# --------------------------------------------------------------------------- #
+class FakeEarcon:
+    enabled = True
+
+    def __init__(self) -> None:
+        self.played: list[str] = []
+
+    def play(self, event: str, confidence: float | None = None) -> None:
+        self.played.append(event)
+
+
+class FakeVoice:
+    name = "fake"
+
+    def __init__(self) -> None:
+        self.said: list[str] = []
+
+    def speak(self, text: str) -> None:
+        self.said.append(text)
+
+    def cancel(self) -> None:
+        pass
+
+
+def _no_overlay_daemon(monkeypatch):
+    import yazses.core.daemon as daemon_mod
+
+    monkeypatch.setattr(daemon_mod, "should_launch_overlay", lambda cfg, env: False)
+    cfg = Config()
+    cfg.mouthswitch.enabled = True
+    return _daemon(cfg, FakePointerSink()), cfg
+
+
+def test_without_the_overlay_the_daemon_announces_with_its_earcons(monkeypatch):
+    daemon, cfg = _no_overlay_daemon(monkeypatch)
+    daemon._earcon = FakeEarcon()
+    daemon._mouthswitch = daemon._build_mouthswitch(cfg)
+    try:
+        assert daemon._mouthswitch is not None and daemon._mouthswitch.available
+        assert daemon._mouthswitch_payload()["announce"] == "earcon"
+    finally:
+        daemon._mouthswitch.stop()
+
+
+def test_without_the_overlay_the_daemon_speaks_the_names_with_its_voice(monkeypatch):
+    daemon, cfg = _no_overlay_daemon(monkeypatch)
+    daemon._tts = FakeVoice()
+    daemon._mouthswitch = daemon._build_mouthswitch(cfg)
+    try:
+        assert daemon._mouthswitch.available
+        assert daemon._mouthswitch_payload()["announce"] == "speech"
+    finally:
+        daemon._mouthswitch.stop()
+
+
+def test_a_read_back_voice_that_degraded_to_silence_announces_nothing(monkeypatch):
+    from yazses.tts.null import NullTtsBackend
+
+    daemon, cfg = _no_overlay_daemon(monkeypatch)
+    daemon._tts = NullTtsBackend()
+    daemon._mouthswitch = daemon._build_mouthswitch(cfg)
+    assert daemon._mouthswitch.runner is None
+    assert "overlay" in daemon._mouthswitch.reason
+
+
+def test_with_the_overlay_the_daemon_builds_no_announcer(monkeypatch):
+    _overlay_on(monkeypatch)
+    cfg = Config()
+    cfg.mouthswitch.enabled = True
+    daemon = _daemon(cfg, FakePointerSink())
+    daemon._earcon = FakeEarcon()
+    daemon._mouthswitch = daemon._build_mouthswitch(cfg)
+    try:
+        assert daemon._mouthswitch_payload()["announce"] == ""
+    finally:
+        daemon._mouthswitch.stop()

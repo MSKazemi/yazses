@@ -43,6 +43,32 @@ matched". The clipboard rescue needs `wl-copy`, `xclip` or `xsel`, as for proofr
 A successful spoken edit now also updates the `[timeline]` record, which still held the
 pre-edit text. Tested with a simulated text field only, not on real hardware.
 
+### Changed — the Mouth-Sound Switch keeps scanning after a selection (experimental, off by default)
+
+One tongue click used to end the scan, so scrolling down twice took pop, click, pop, click.
+Now the scan carries on. The item you chose stays lit for one more step, so a second click
+runs it again, and then the highlight moves on as before. The scan still stops on a pop,
+on `handsfree pause`, while you dictate, at shutdown, and after three passes with no click,
+now counted from your last click. Each click still selects at most once, a click reported
+too late still selects nothing, and a click is still matched to the item lit when it began.
+A stray sound that reads as a click, such as a keyboard tap, can now run an item while a
+scan you have used is still going, so pop when you are done. Tested with simulated clicks
+only, not on real hardware.
+
+### Changed — the Mouth-Sound Switch works without the overlay: you hear each step (experimental, off by default)
+
+The switch used to refuse to start where the overlay cannot draw its highlight: on a native
+Wayland session, or without the `desktop` extra. Now it announces each step there instead,
+using what you have turned on. With `[earcon]` on, a short tick plays at every step, and a
+lower tick marks the first item. With read-back (`[tts]`) on, the offline voice also says
+the item's name. A name that takes longer to say than `dwell_s` keeps its item lit until it
+has been said. The announcement comes from the same timeline the click is matched against,
+so the item announced when a click began is the item that click runs. With neither earcons
+nor read-back on, the switch still refuses, and `handsfree resume` says why. Speaker sound
+reaches the scan's microphone, so headphones are advised. How long a name takes to say is
+estimated, not measured. Tested with a simulated voice and earcon player only, not on real
+hardware.
+
 ### Fixed — Interruptible Proofreading no longer loses your words when the correction cannot be typed (experimental, off by default)
 
 A proofreading correction (`proofback`) erases the text from the interrupted word with

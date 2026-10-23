@@ -6,8 +6,13 @@ claims that matter for a user who cannot correct a wrong action quickly:
 * the highlight steps through the items on a fixed interval and wraps;
 * a click selects the item lit **when the click began**, even if the detector reports it
   after the highlight has moved on;
-* a click outside the scan it is meant for, a second click in the same scan, and a stale
-  report select nothing; and a scan nobody is using stops by itself.
+* a click outside the scan it is meant for, the same click twice, and a stale report select
+  nothing; and a scan nobody is using stops by itself;
+* a selection does not end the scan: the highlight stays on the selected item for a dwell,
+  so a second click repeats it, and the inactivity stop counts from the last selection;
+* when the scan is announced aloud, an item stays lit until its name has been said (the
+  injected ``announce_s``), so the highlight never advances mid-word -- and select-at-onset
+  stays exact on that longer timeline.
 """
 from __future__ import annotations
 
@@ -16,6 +21,7 @@ import pytest
 from yazses.mouthswitch.scanner import (
     DEFAULT_INTERVAL_S,
     DEFAULT_SCAN_ITEMS,
+    MAX_ANNOUNCE_S,
     MAX_INTERVAL_S,
     MAX_LOOPS,
     MAX_SELECT_LAG_S,
@@ -137,12 +143,84 @@ def test_a_click_selects_the_item_lit_when_it_began_not_when_it_was_heard():
     assert s.select(onset=0.9, now=1.2) == ScanItem("item 0", "command")
 
 
-def test_a_selection_stops_the_scan_and_a_second_click_selects_nothing():
+def test_a_selection_keeps_the_scan_going_with_the_highlight_on_the_selected_item():
+    s = _scanner(3, 1.0)
+    s.start(0.0)
+    assert s.select(onset=1.5, now=1.7) == ScanItem("item 1", "command")
+    assert s.scanning is True
+    # Item 1 stays lit for a full dwell from the selection (1.7 s), where the old timeline
+    # would have moved to item 2 at 2.0 s; then the highlight steps on as before.
+    assert [s.tick(t) for t in (1.7, 2.0, 2.69, 2.7, 3.7, 4.7)] == [1, 1, 1, 2, 0, 1]
+
+
+def test_a_second_click_on_the_same_item_repeats_it():
+    s = _scanner(3, 1.0)
+    s.start(0.0)
+    assert s.select(1.5, 1.7) == ScanItem("item 1", "command")
+    assert s.select(2.2, 2.4) == ScanItem("item 1", "command")  # still lit: selected again
+    assert s.tick(3.39) == 1 and s.tick(3.4) == 2               # and re-anchored again
+
+
+def test_one_click_selects_at_most_once():
+    """The same click reported twice, or a click older than the last selection, is ignored."""
     s = _scanner(3, 1.0)
     s.start(0.0)
     assert s.select(1.5, 1.7) is not None
-    assert s.scanning is False
-    assert s.select(1.6, 1.8) is None
+    assert s.select(1.5, 1.8) is None   # the same onset again
+    assert s.select(1.4, 1.8) is None   # began before the click that already selected
+
+
+def test_a_click_that_began_before_the_re_anchor_selects_what_was_lit_then():
+    """Select-at-onset holds across a selection: the old timeline answers for its own past."""
+    s = _scanner(3, 1.0)
+    s.start(0.0)
+    assert s.select(0.9, 1.4) == ScanItem("item 0", "command")  # re-anchored on item 0 at 1.4
+    # This click began at 1.2 s, when the strip still showed item 1 (the re-anchor came at
+    # 1.4 s), and is reported at 1.6 s, when item 0 is lit again.
+    assert s.select(1.2, 1.6) == ScanItem("item 1", "command")
+
+
+def test_the_inactivity_stop_counts_passes_since_the_last_selection():
+    s = _scanner(3, 1.0)
+    s.start(0.0)
+    span = s.span_s                     # 3 passes x 3 items x 1.0 s = 9 s
+    assert s.select(8.4, 8.5) is not None
+    assert s.tick(8.5 + span - 0.01) is not None
+    assert s.tick(8.5 + span) is None and s.scanning is False
+
+
+def test_a_pop_still_stops_a_scan_that_has_selected():
+    s = _scanner(3, 1.0)
+    s.start(0.0)
+    s.select(1.5, 1.7)
+    assert s.toggle(2.0) is False and s.scanning is False
+    assert s.select(2.1, 2.3) is None
+
+
+def test_a_click_that_lands_after_a_stop_does_not_restart_the_scan():
+    s = _scanner(3, 1.0)
+    s.start(0.0)
+    s.stop(2.0)
+    assert s.select(1.95, 2.2) == ScanItem("item 1", "command")
+    assert s.scanning is False and s.tick(2.3) is None
+
+
+def test_steps_keep_counting_up_across_a_selection():
+    s = _scanner(3, 1.0)
+    s.start(0.0)
+    assert s.view(1.6).step == 1
+    s.select(1.5, 1.7)
+    steps = [s.view(t).step for t in (1.7, 2.69, 2.7)]
+    assert steps == [2, 2, 3]  # the re-anchored item is a new step: it is announced again
+
+
+def test_a_long_run_of_selections_keeps_a_bounded_history():
+    s = _scanner(3, 1.0)
+    s.start(0.0)
+    for k in range(1, 200):
+        assert s.select(k - 0.2, float(k)) is not None
+    assert len(s._segments) <= 2 * int(MAX_SELECT_LAG_S) + 3
+    assert s.scanning is True
 
 
 def test_a_click_with_no_scan_selects_nothing():
@@ -193,3 +271,89 @@ def test_a_restarted_scan_begins_at_the_first_item_and_can_select_again():
     s.start(5.0)
     assert s.tick(5.1) == 0
     assert s.select(5.2, 5.4) == ScanItem("item 0", "command")
+
+
+# ---- an announced scan: never advance mid-word ---------------------------------------------
+
+
+def _announced(seconds: dict[str, float], n: int = 3, interval: float = 1.0) -> SwitchScanner:
+    items = [ScanItem(f"item {i}", "command") for i in range(n)]
+    return SwitchScanner(items, interval, announce_s=lambda item: seconds.get(item.label, 0.0))
+
+
+def test_an_announcement_shorter_than_the_interval_changes_nothing():
+    s = _announced({"item 0": 0.4, "item 1": 0.9, "item 2": 1.0})
+    assert s.dwells == (1.0, 1.0, 1.0)
+    s.start(10.0)
+    assert [s.tick(t) for t in (10.0, 10.99, 11.0, 12.5, 13.0, 14.2)] == [0, 0, 1, 2, 0, 1]
+    assert s.span_s == MAX_LOOPS * 3 * 1.0
+
+
+def test_an_item_whose_name_takes_longer_than_the_interval_stays_lit_until_it_is_said():
+    s = _announced({"item 1": 1.75})
+    assert s.dwells == (1.0, 1.75, 1.0)
+    s.start(0.0)
+    # item 0 for [0, 1), item 1 for [1, 2.75) -- not [1, 2) -- then item 2 for [2.75, 3.75).
+    assert [s.tick(t) for t in (0.5, 1.0, 1.99, 2.5, 2.74, 2.75, 3.74, 3.75)] == [
+        0, 1, 1, 1, 1, 2, 2, 0]
+    # The next pass keeps the same per-item dwells.
+    assert [s.tick(t) for t in (3.75 + 1.0, 3.75 + 2.74, 3.75 + 2.75)] == [1, 1, 2]
+
+
+def test_the_inactivity_stop_counts_whole_passes_of_the_longer_timeline():
+    s = _announced({"item 1": 1.75})
+    s.start(0.0)
+    assert s.span_s == pytest.approx(MAX_LOOPS * 3.75)
+    assert s.tick(s.span_s - 0.01) == 2
+    assert s.tick(s.span_s) is None and s.scanning is False
+
+
+def test_select_at_onset_stays_exact_on_a_lengthened_step():
+    s = _announced({"item 1": 1.75})
+    s.start(0.0)
+    # Began at 2.6 s: still item 1 (it is lit until 2.75 s), reported at 2.9 s (item 2 lit).
+    assert s.select(onset=2.6, now=2.9) == ScanItem("item 1", "command")
+
+
+@pytest.mark.parametrize("bad", [float("nan"), float("inf"), -2.0, 0.0, "soon", None])
+def test_an_unusable_announcement_estimate_falls_back_to_the_interval(bad):
+    s = SwitchScanner([ScanItem("a", "command")], 1.0, announce_s=lambda item: bad)
+    assert s.dwells == (1.0,)
+
+
+def test_an_estimate_that_raises_falls_back_to_the_interval():
+    def boom(item):
+        raise RuntimeError("no voice")
+
+    s = SwitchScanner([ScanItem("a", "command")], 1.0, announce_s=boom)
+    assert s.dwells == (1.0,)
+
+
+def test_an_absurdly_long_announcement_is_capped_so_the_scan_still_moves():
+    s = SwitchScanner([ScanItem("a", "command"), ScanItem("b", "command")], 1.0,
+                      announce_s=lambda item: 600.0)
+    assert s.dwells == (MAX_ANNOUNCE_S, MAX_ANNOUNCE_S)
+
+
+def test_the_view_counts_steps_even_when_the_index_repeats():
+    """A one-item scan lights item 0 every step; the step number still moves on."""
+    s = SwitchScanner([ScanItem("only", "command")], 1.0)
+    s.start(0.0)
+    assert [(v.index, v.step) for v in (s.view(0.1), s.view(1.1), s.view(2.1))] == [
+        (0, 0), (0, 1), (0, 2)]
+    assert s.view(-1.0).step == -1  # a moment before the scan: no step at all
+
+
+def test_steps_count_across_lengthened_passes():
+    s = _announced({"item 1": 1.75})
+    s.start(0.0)
+    assert [s.view(t).step for t in (0.5, 1.5, 3.0, 4.0, 5.0, 7.0)] == [0, 1, 2, 3, 4, 5]
+
+
+def test_each_start_is_a_new_generation():
+    s = _scanner()
+    assert s.generation == 0
+    s.start(0.0)
+    s.stop(1.0)
+    s.start(2.0)
+    assert s.generation == 2
