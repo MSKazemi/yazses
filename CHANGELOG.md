@@ -6,6 +6,8 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.45.0] - 2026-10-23
+
 ### Fixed — the camera features installed OpenCV twice
 
 The `gaze` extra (and `features enable` for gaze, facegesture, headpointer, gesture and

@@ -23,10 +23,10 @@ software itself runs on.
 
 ## Current stable
 
-**[YazSes 2.44.0](v2.44.0.md)** — your words land where you meant them. Dictation over `yazses remote`
-is typed on the remote host instead of this machine, the Windows keyboard no longer lags while a dictation
-transcribes, and a language an English-only model cannot transcribe is refused instead of typed as English.
-`yazses gitvoice` refuses a force push it cannot read, and a batch of experimental features can be switched on.
+**[YazSes 2.45.0](v2.45.0.md)** — your words no longer go missing. A dictation into a Windows administrator
+window is copied to the clipboard instead of lost, a crashed Windows daemon comes back on pip, pipx and uv installs,
+and a failed Spoken Edit or Punch-In gives your words back. New and off by default: "send to Claude" opens the Claude
+or Codex app with your prompt filled in, never sent, and every release now attaches a one-click MCP bundle.
 
 Install it with:
 
@@ -37,6 +37,7 @@ pipx upgrade yazses          # upgrade an existing install
 
 ### Recent stable releases
 
+- [v2.45.0](v2.45.0.md) — your words no longer go missing: Windows administrator windows, crash restarts on pip/pipx/uv installs and `scoop update` autostart are fixed, failed Spoken Edit, Punch-In and proofreading corrections give your words back, `yazses status` names the engine actually decoding (#644), camera features download OpenCV once, and the new off-by-default "send to Claude" and a one-click MCP bundle.
 - [v2.44.0](v2.44.0.md) — your words land where you meant them: dictation over `yazses remote` reaches the remote host, the Windows keyboard no longer lags during a transcription, a non-English language on an English-only model is refused instead of typed as English (#515), `yazses gitvoice` refuses a force push it cannot read, `yazses stop` stays stopped on Windows, and experimental features (all off by default) can be switched on.
 - [v2.43.2](v2.43.2.md) — a loud burst with no speech in it is no longer decoded into the vocabulary prompt (`[accessibility] speech_presence_check`), a stray hold-release no longer re-types the previous dictation, eyes-closed dictation re-arms after a glance away and no longer fires on a blink, and a gaze-grounding edge case is fixed.
 - [v2.43.1](v2.43.1.md) — fixes from the first macOS reports: a newer daemon replaces an older one after an upgrade, macOS Quit stops the daemon, the tray's Re-calibrate measures room and voice, and Windows on ARM uses the x64 installer.

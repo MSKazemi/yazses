@@ -396,7 +396,7 @@ After installing, `yazses doctor` will still ask you to join the `input` group
 needs a full logout.
 
 > **Status:** live, but hand-published — it serves 2.36.0 while the current
-> release is 2.44.0.
+> release is 2.45.0.
 
 ## 4. Start at login
 
