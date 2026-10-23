@@ -6,6 +6,20 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed — the Mouth-Sound Switch works without the overlay: you hear each step (experimental, off by default)
+
+The switch used to refuse to start where the overlay cannot draw its highlight: on a native
+Wayland session, or without the `desktop` extra. Now it announces each step there instead,
+using what you have turned on. With `[earcon]` on, a short tick plays at every step, and a
+lower tick marks the first item. With read-back (`[tts]`) on, the offline voice also says
+the item's name. A name that takes longer to say than `dwell_s` keeps its item lit until it
+has been said. The announcement comes from the same timeline the click is matched against,
+so the item announced when a click began is the item that click runs. With neither earcons
+nor read-back on, the switch still refuses, and `handsfree resume` says why. Speaker sound
+reaches the scan's microphone, so headphones are advised. How long a name takes to say is
+estimated, not measured. Tested with a simulated voice and earcon player only, not on real
+hardware.
+
 ### Fixed — Interruptible Proofreading no longer loses your words when the correction cannot be typed (experimental, off by default)
 
 A proofreading correction (`proofback`) erases the text from the interrupted word with

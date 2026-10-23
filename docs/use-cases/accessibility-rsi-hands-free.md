@@ -187,7 +187,8 @@ setting is a provisional starting value — please report what works for you.
 If you cannot speak reliably at all, Mouth-Sound Switch Access gives you a few actions
 from two short mouth sounds. It is single-switch scanning, the common switch-access method
 in AAC. It is **experimental**, so `features enable` asks for `--force`. The overlay draws
-the highlight, so `[overlay]` must be on and the `desktop` extra installed:
+the highlight when `[overlay]` is on and the `desktop` extra is installed. Where the overlay
+cannot run, you can hear the scan instead (see below):
 
 ```sh
 yazses features enable mouthswitch --force
@@ -210,10 +211,27 @@ stop without choosing.
   the daemon starts, and the log says so.
 - `yazses handsfree pause`, or your stop phrase if you set one, closes the microphone.
 
+**Hearing the scan instead of seeing it.** The overlay is not started on a native Wayland
+session, and it needs the `desktop` extra. Without it, YazSes announces each step instead,
+using what you have turned on:
+
+- with earcons on (`yazses features enable earcon`), a short tick plays at every step. The
+  first item has a lower tick, so you can count the steps;
+- with read-back on (`yazses features enable read-back`), the offline voice also says the
+  item's name ("enter", "undo", "scroll down"). An item stays lit until its name has been
+  said, even when that takes longer than `dwell_s`. Read-back needs the `tts` extra,
+  fetches its voice model on first use, and also reads your dictation back.
+
+What you hear is what a click selects: the item announced when your click began is the item
+that runs. With neither earcons nor read-back on, the switch does not start, and
+`handsfree resume` says why. Headphones are a good idea. The scan's microphone also hears
+the speakers, and a click that starts while a name is still sounding may not be detected.
+
 It has not been tried with real mouth sounds yet. Its thresholds were tuned on synthetic
 clicks and pops. A keyboard tap or a knock on the desk may count as a tongue click, so a
-click during a scan can run the lit item. It does not run on a native Wayland session,
-because the overlay is not started there. Please report what works for you.
+click during a scan can run the lit item. The spoken announcements have only been tested
+with a simulated voice, and how long a name takes to say is estimated, not measured.
+Please report what works for you.
 
 ## Honest limits
 

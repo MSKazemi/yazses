@@ -762,6 +762,26 @@ reopens it through `reacquire_mic_after_rescan` — not while Morse mode is on a
 still arriving, and never while dictation records. The Mouth-Sound Switch and the Vocal
 Joystick answer the same `LevelStreamOwner` surface (`audio/device_monitor.py`).
 
+### `src/yazses/mouthswitch/` (Mouth-Sound Switch Access, ADR-v2-097 — experimental, off by default)
+
+Single-switch scanning from two mouth sounds: a lip pop starts or stops a highlight that
+steps through `[mouthswitch] scan_items`, and a tongue click runs the item lit when the
+click *began*. A third microphone reader beside dictation; nothing reaches speech-to-text.
+
+| File | Role |
+|---|---|
+| `detect.py` | Pure numpy. `MouthSoundDetector`: isolated, short, unvoiced onsets → classified sound → switch action. Thresholds synthetic-only. |
+| `scanner.py` | Pure, clock-injected. `SwitchScanner`: the highlight as a function of time, select-at-onset, the inactivity stop. An injected `announce_s` holds an item lit until its name has been said. |
+| `announce.py` | `ScanAnnouncer`: an earcon cue per step and the item's name in the read-back voice, both injected callables. Used only where the overlay will not run. |
+| `runtime.py` | The impure shell: microphone stream, worker thread, pointer sink, command runner, and the build rules. |
+
+**Invariant: a select lands only on an item the user can see or hear.** The overlay draws
+the scan strip from the `status` reply's `mouthswitch` block. Where it will not run, the
+daemon (`_mouthswitch_announcer`) builds an announcer from the earcon player and the
+read-back voice the user already turned on (a voice degraded to the null backend does not
+count). With neither, `build_mouthswitch` refuses and `handsfree resume` says why.
+Announcements read the same scanner timeline a click selects from.
+
 ### `src/yazses/overlay/` (voice-activity overlay, `yazses-overlay`)
 
 Standalone process (separate from the daemon, which is blocked by the hotkey

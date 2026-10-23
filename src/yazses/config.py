@@ -1984,7 +1984,9 @@ class MouthswitchConfig:
 
     Single-switch scanning: a lip pop starts/stops a highlight that steps through
     ``scan_items`` every ``dwell_s`` seconds; a tongue click runs the lit item. Armed by
-    `yazses handsfree resume`, and needs the overlay to draw the highlight.
+    `yazses handsfree resume`. The overlay draws the highlight; where it cannot run, each
+    step is announced instead when ``[earcon]`` or ``[tts]`` is on (a spoken name holds
+    its item lit for longer than ``dwell_s`` if it needs to).
     """
     enabled: bool = False
     # Seconds per highlight step (clamped to 0.5-10 by mouthswitch/scanner.py).

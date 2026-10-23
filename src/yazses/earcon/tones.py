@@ -25,6 +25,11 @@ _EARCONS = {
     "low_confidence": [ToneSpec(220, 150, "buzz")],               # muted buzz
     "error": [ToneSpec(160, 200, "buzz")],
     "idle": [ToneSpec(440, 60)],
+    # Mouth-Sound Switch without the overlay (mouthswitch/announce.py): one short tick per
+    # scan step, a lower one when the scan is back at its first item, so steps can be
+    # counted. Short on purpose: the scan's own microphone hears them too.
+    "scan_step": [ToneSpec(1320, 30)],
+    "scan_first": [ToneSpec(880, 30)],
 }
 _LOW_CONFIDENCE = 0.5
 

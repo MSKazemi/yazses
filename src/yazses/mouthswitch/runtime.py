@@ -30,10 +30,17 @@ command is not reversible is refused at build time (it would need a confirmation
 switch cannot give). A pointer item is one call on the platform's existing ``PointerSink``:
 ``click(LEFT)`` or ``scroll(0, ±3)``.
 
+**Seen or heard, never neither.** The overlay draws the highlight. Where it will not run (a
+native Wayland session, no ``desktop`` extra), the scan is *announced* instead
+(``announce.py``): an earcon cue at every step when ``[earcon]`` is on, and the item's name
+spoken by the offline read-back voice when ``[tts]`` can speak. The announcement comes from
+the same timeline the select-at-onset rule reads, and an item stays lit until its name has
+been said, so the item announced when a click began is the item that click selects.
+
 **Dormant unless asked, and the microphone closed unless armed.** :func:`build_mouthswitch`
-returns a runtime with no runner while ``[mouthswitch]`` is off (the shipped state), when the
-overlay that draws the highlight will not run (a switch must never select an item nobody can
-see), or when no item can run on this machine. Building opens no microphone; ``yazses
+returns a runtime with no runner while ``[mouthswitch]`` is off (the shipped state), when
+neither the overlay nor an announcement can show the highlight (a switch must never select
+an item nobody can see or hear), or when no item can run on this machine. Building opens no microphone; ``yazses
 handsfree resume`` opens it, and ``handsfree pause``, the spoken stop phrase, a pause of the
 global hands-free gate and shutdown close it.
 
@@ -53,6 +60,7 @@ from typing import Any, Protocol
 import numpy as np
 
 from yazses.audio.device_monitor import audio_is_live
+from yazses.mouthswitch.announce import ScanAnnouncer
 from yazses.mouthswitch.detect import MouthSoundDetector
 from yazses.mouthswitch.scanner import ScanItem, SwitchScanner, parse_scan_items, scan_interval
 from yazses.pointer.base import PointerButton, PointerError, PointerSink
@@ -134,6 +142,7 @@ class MouthSwitchRunner:
         clock: Callable[[], float] = time.monotonic,
         detector: _Detector | None = None,
         thread: bool = True,
+        announcer: ScanAnnouncer | None = None,
     ) -> None:
         self._sink = sink
         self._recorder_factory = recorder_factory
@@ -147,7 +156,14 @@ class MouthSwitchRunner:
         self._detector: _Detector = detector if detector is not None else MouthSoundDetector(
             self._sample_rate, actions=SWITCH_ACTIONS
         )
-        self._scanner = SwitchScanner(items, interval_s)
+        #: Speaks / cues each step when the overlay cannot draw it; None when it can.
+        self._announcer = announcer
+        #: ``(scan generation, step)`` last announced, so each step is announced once.
+        self._announced: tuple[int, int] | None = None
+        self._scanner = SwitchScanner(
+            items, interval_s,
+            announce_s=announcer.announcement_s if announcer is not None else None,
+        )
         #: Guards the scanner: the worker moves it, the status IPC reads it.
         self._scan_lock = threading.Lock()
         self._lock = threading.Lock()
@@ -275,6 +291,8 @@ class MouthSwitchRunner:
     def close(self) -> None:
         """Stop and release the pointer sink, if there is one. Idempotent; never raises."""
         self.stop()
+        if self._announcer is not None:
+            self._announcer.close()
         if self._sink is not None:
             try:
                 self._sink.close()
@@ -339,6 +357,7 @@ class MouthSwitchRunner:
                 self._handle(event, onset, now)
             with self._scan_lock:
                 self._scanner.tick(now)
+            self._announce(now)
         except PointerError as exc:
             self._fail(f"pointer output failed: {type(exc).__name__}: {exc}"[:200])
         except Exception as exc:
@@ -386,6 +405,34 @@ class MouthSwitchRunner:
             log.warning("Mouth-Sound Switch: %r was not run (%s).", item.label,
                         getattr(outcome, "rejection", None) or getattr(outcome, "decision", ""))
 
+    def _announce(self, now: float) -> None:
+        """Announce a step the moment the scan enters it; silence the voice when it stops.
+
+        Read from the same scanner, at the same ``now``, that :meth:`_handle` selects
+        from, so what is heard is what a click selects. Never blocks: the cue is fire and
+        forget and the name is handed to the announcer's own thread.
+        """
+        announcer = self._announcer
+        if announcer is None:
+            return
+        with self._scan_lock:
+            view = self._scanner.view(now)
+            generation = self._scanner.generation
+        if not view.scanning or view.item is None:
+            self._silence()
+            return
+        key = (generation, view.step)
+        if key == self._announced:
+            return
+        self._announced = key
+        announcer.announce(view.item, first=view.index == 0)
+
+    def _silence(self) -> None:
+        """Forget the last announced step and cut any name still being said."""
+        if self._announcer is not None and self._announced is not None:
+            self._announced = None
+            self._announcer.stop()
+
     # ------------------------------------------------------------------ state
 
     def view(self) -> dict[str, object]:
@@ -401,11 +448,14 @@ class MouthSwitchRunner:
             "interval_s": self._scanner.interval_s,
             "fault": self.fault,
             "selections": self.selections,
+            # How the scan reaches the user without the overlay: "speech", "earcon" or "".
+            "announce": self._announcer.mode if self._announcer is not None else "",
         }
 
     def _stop_scan(self, now: float | None = None) -> None:
         with self._scan_lock:
             self._scanner.stop(self._clock() if now is None else now)
+        self._silence()
 
     def _reset_audio(self) -> None:
         self._detector.reset()
@@ -544,6 +594,7 @@ def build_mouthswitch(
     run_command: Callable[[str], object],
     classify: Callable[[str], object],
     highlight_available: bool,
+    announcer: ScanAnnouncer | None = None,
     sample_rate: int = 16000,
     busy: Callable[[], bool] = lambda: False,
     stop_requested: Callable[[], bool] | None = None,
@@ -554,17 +605,24 @@ def build_mouthswitch(
     """The switch for ``[mouthswitch]``, or a runtime that says why there is none.
 
     ``highlight_available`` is whether the overlay that draws the scan will be on screen.
-    Building opens no microphone. It opens the pointer sink only when a pointer item is
+    Without it, ``announcer`` (an earcon cue and/or the offline voice) makes the scan
+    audible instead; with neither, there is no switch. An announcer is used only when the
+    overlay is unavailable. Building opens no microphone. It opens the pointer sink only when a pointer item is
     configured, as the Vocal Joystick does, so a missing backend is known at start-up.
     """
     if not getattr(config, "enabled", False):
         return MouthSwitchRuntime()
-    if not highlight_available:
+    audible = announcer is not None and announcer.can_announce
+    if not highlight_available and not audible:
         return MouthSwitchRuntime(
             reason="the scan highlight is drawn by the overlay, which will not run here "
             "(enable [overlay] and install the desktop extra; on a native Wayland session "
-            "the overlay is not started) -- a switch must never select an item you cannot see"
+            "the overlay is not started), and neither [earcon] nor a working [tts] voice "
+            "is on to announce the items instead -- a switch must never select an item you "
+            "cannot see or hear"
         )
+    if highlight_available:
+        announcer = None
     items, notes = parse_scan_items(getattr(config, "scan_items", None))
     usable: list[ScanItem] = []
     for item in items:
@@ -590,6 +648,9 @@ def build_mouthswitch(
         )
     for note in notes:
         log.warning("[mouthswitch] %s", note)
+    if announcer is not None:
+        log.info("[mouthswitch] no overlay here; each scan step is announced (%s).",
+                 announcer.mode)
     runner = MouthSwitchRunner(
         usable,
         recorder_factory=recorder_factory,
@@ -602,6 +663,7 @@ def build_mouthswitch(
         on_fault=on_fault,
         clock=clock,
         thread=thread,
+        announcer=announcer,
     )
     return MouthSwitchRuntime(runner=runner, notice="; ".join(notes))
 

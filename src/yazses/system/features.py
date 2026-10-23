@@ -591,8 +591,9 @@ def _registry() -> list[_Def]:
              "reliable speech: a lip pop starts (or stops) a highlight in the overlay that steps "
              "through Enter, Undo, Scroll up, Scroll down and Click every 1.2 s, and a tongue "
              "click runs the lit one. Armed by `yazses handsfree resume`, stopped by `handsfree "
-             "pause`; needs the overlay. Thresholds tuned on synthetic sounds only. Off by "
-             "default.",
+             "pause`. Where the overlay cannot run, each step is announced instead with an "
+             "earcon and, with [tts] on, the item's name. Thresholds tuned on synthetic sounds "
+             "only. Off by default.",
              lambda c: c.mouthswitch.enabled, ms_on, ms_off),
         _Def("involuntary", "Involuntary-Vocalization Excision", "[involuntary] — drop coughs & sneezes",
              OPTIONAL,
