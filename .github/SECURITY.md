@@ -224,29 +224,27 @@ installed on your machine.
 
 ### `GitPython` ≤ 3.2.0 (CVE-2026-114145, GHSA-83vg-56qc-22m7) — submodule cloned into `.git/hooks`
 
-**A patched release exists (3.2.1) and this repository cannot take it yet.** The
-lock resolves `gitpython` 3.1.62 because `mkdocs-rss-plugin` — 1.19.0, its newest
-release — declares `GitPython<3.2`, and 3.2.1 is the only fixed version: every 3.1.x
-is affected. Overriding the cap would build the documentation against a GitPython
-that plugin has not released support for, to fix a code path the build never runs.
+**Resolved — the lock now takes 3.2.1.** `mkdocs-rss-plugin` — 1.19.0, its newest release —
+declares `GitPython<3.2`, and 3.2.1 is the only fixed version: every 3.1.x is affected. So
+`[tool.uv] override-dependencies` in `pyproject.toml` replaces that cap with
+`gitpython>=3.2.1`. That is safe for this plugin: 3.2.0 dropped Python 3.7 and deprecated the
+pure-Python `GitDB` backend, and both docs plugins open the existing checkout with
+`Repo(path, search_parent_directories=True)` and read history with `git.log` and `git.tag`,
+none of which changed. The Docs job builds the site with it. The override goes when the plugin
+lifts its cap.
 
 The vulnerability is in `Repo.create_submodule(name, path, url)`: it clones before it
-validates `path`, so a `path` of `.git/hooks` plants an executable hook. What bounds it:
+validates `path`, so a `path` of `.git/hooks` plants an executable hook. It never reached a
+user even before the upgrade:
 
-1. **No user ever installs it.** `gitpython` is reachable only from the `docs`
-   dependency group, through `mkdocs-rss-plugin` and
-   `mkdocs-git-revision-date-localized-plugin`. It is in no extra and not in the base
-   dependencies, so no PyPI install, installer, package or container of YazSes
-   contains it. It exists only on a machine that builds this documentation.
-2. **The submodule API is never called.** Both plugins open the existing checkout with
-   `Repo(path, search_parent_directories=True)` and read history with `git.log` and
-   `git.tag` (read from their 1.19.0 and 1.5.4 wheels). Nothing in this repository
-   imports GitPython, and the repository has no submodules.
+1. **No user ever installs it.** `gitpython` is reachable only from the `docs` dependency
+   group. It is in no extra and not in the base dependencies, so no PyPI install, installer,
+   package or container of YazSes contains it.
+2. **The submodule API is never called.** Nothing in this repository imports GitPython, and
+   the repository has no submodules.
 
-The tests pin fact 1 against the lock's dependency graph, the second half of fact 2
-against this repository's own code, and the version: once the lock reaches 3.2.1 the
-suite fails until this entry is marked resolved. The plugins' code cannot be pinned
-offline; recheck it when either plugin is upgraded.
+The tests pin the version floor, so removing the override while the plugin still caps the
+version fails the suite, and they pin fact 1 and the second half of fact 2.
 
 ### `setuptools` < 83.0.0 — `MANIFEST.in` exclusion bypass when building an sdist
 

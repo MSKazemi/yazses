@@ -157,16 +157,15 @@ deadlines from its shell and fails when the limit is less than 10 minutes above 
 first draft of this change gave `docker` 10 minutes from its run times alone, and the test
 caught it.
 
-### Security — the GitPython advisory (GHSA-83vg-56qc-22m7) is assessed, not yet patchable
+### Security — GitPython is on 3.2.1, which fixes GHSA-83vg-56qc-22m7
 
-`gitpython` 3.2.1 fixes a submodule clone into `.git/hooks`, and the lock cannot take it:
-`mkdocs-rss-plugin` 1.19.0, its newest release, caps `GitPython<3.2`, and every 3.1.x is
-affected. `.github/SECURITY.md` now says why it does not reach anyone: `gitpython` comes only
-from the `docs` dependency group, so no install of YazSes contains it, and nothing calls
-`Repo.create_submodule`. `tests/test_dependency_advisories.py` checks the first fact against
-the lock's dependency graph, checks that no code here imports GitPython, and fails once the
-lock reaches 3.2.1 so the entry is retired. The OpenTelemetry alert was closed by upgrading
-`opentelemetry-api` to 1.45.1 (#629).
+`gitpython` 3.2.1 fixes a submodule clone into `.git/hooks`, and every 3.1.x is affected.
+`mkdocs-rss-plugin` 1.19.0, its newest release, caps `GitPython<3.2`, so `pyproject.toml` now
+overrides that cap with `[tool.uv] override-dependencies = ["gitpython>=3.2.1"]`. The plugins use
+nothing that changed in 3.2, and the Docs job builds with it. GitPython comes only from the `docs`
+dependency group, so no install of YazSes ever contained it. `.github/SECURITY.md` records the
+advisory as resolved, and `tests/test_dependency_advisories.py` fails if the lock drops below
+3.2.1. The OpenTelemetry alert was closed by upgrading `opentelemetry-api` to 1.45.1 (#629).
 
 ### Fixed — a fake `huggingface_hub.constants` no longer leaks between tests
 
