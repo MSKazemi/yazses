@@ -137,7 +137,7 @@ See [troubleshooting](../troubleshooting.md) for the full matrix.
 
 | Tool | Wayland | Offline | Platforms | Notes |
 |---|---|---|---|---|
-| **YazSes** | ✅ `ydotool` | ✅ always | Linux, macOS, Windows | Also does file transcription and meeting capture in one install |
+| **YazSes** | ✅ `ydotool` | ✅ always | Linux; macOS and Windows in preview | Also does file transcription and meeting capture in one install |
 | Vocalinux | ✅ | ✅ | Linux only | Vulkan GPU acceleration; larger community |
 | nerd-dictation | ⚠️ via `ydotool`/`wtype` | ✅ | Linux only | Single Python file, no background process — minimal by design |
 | VOXD | ✅ | ✅ | Linux only | Wayland-focused |

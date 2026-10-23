@@ -128,3 +128,8 @@ microphone but no version or build, so they are not counted as evidence in any c
 * `tests/test_validation_matrix.py` fails the build when a cell uses a word outside the table above,
   claims evidence without an `E<n>` that exists in the log, or when the log holds a row without a
   link.
+* The rest of the documentation may not claim more than this page. `tests/test_docs_platform_claims_match_matrix.py`
+  reads the macOS, Windows and Linux tables: until a row grades both *Capture + transcription*
+  and *Text injection* **Verified (HW)** with a version, that OS stays labelled **preview**
+  everywhere, X11 is not called verified, and no page says "full Wayland" before both a GNOME
+  and a KDE Wayland row do.

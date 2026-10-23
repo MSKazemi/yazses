@@ -196,6 +196,20 @@ registration and fails if the help lists a different set, so the two cannot drif
 again ([#641](https://github.com/MSKazemi/yazses/issues/641), ADR-032 §4). Written in a
 code-only pass; the test has not been run yet.
 
+### Docs — macOS and Windows are labelled preview wherever YazSes's support is stated
+
+The README comparison tables, the home page, platform support, the quick start, the FAQ,
+the comparison pages and `llms.txt` listed macOS and Windows with a plain ✅ or "Yes",
+while the [validation matrix](docs/validation-matrix.md) has no hardware-verified
+dictation on either. Each now says **preview**: supported and installable, not yet
+verified on hardware by a person on a current build, with a link to the matrix. Linux
+X11 is no longer called "verified" or "tested" without a dated record (#642), the
+Wayland answers say GNOME and KDE hardware verification is still to come (#643), and
+the reviewed Hindi, Russian and Simplified Chinese pages now state macOS 14, not 11. A
+new test reads the matrix and fails if a page calls an unverified OS more than preview,
+calls X11 verified, or says "full Wayland" — the label comes off per OS the day the
+matrix records it. ADR-030 Pillar 1.1 and 1.2.
+
 ### Docs — the feature pages list only what `features enable` turns on (#646)
 
 `docs/v2-features.md` kept its 24 designed-but-unbuilt capabilities inside the wave

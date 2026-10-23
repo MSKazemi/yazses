@@ -11,7 +11,9 @@ sentence. Then it shows the three things most people try next.
 
 **What you need:** Linux, macOS 14 or later, or Windows 10/11, with 4 GB of RAM (8 GB is
 comfortable) and a microphone. You do not need a GPU, an account or an API key. The
-[platform support page](platform-support.md) lists every OS and CPU in detail.
+[platform support page](platform-support.md) lists every OS and CPU in detail. macOS and
+Windows are supported in **preview**: not yet verified on hardware by a person on a current
+build. The [validation matrix](validation-matrix.md) shows what testers have confirmed.
 
 ## 1. Install
 

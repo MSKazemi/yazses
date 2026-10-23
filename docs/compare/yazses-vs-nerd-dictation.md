@@ -10,7 +10,8 @@ the better choice if you want maximum minimalism, the smallest possible resource
 footprint, and you enjoy configuring behaviour by writing Python. YazSes is the
 better choice if you want a **hold-to-talk key** instead of explicit begin/end
 commands, **Whisper-class accuracy** instead of VOSK, and the same install to work
-on **macOS and Windows** as well as Linux.
+on **macOS and Windows** (in preview: supported, not yet verified on hardware by a person
+on a current build — see the [validation matrix](../validation-matrix.md)) as well as Linux.
 
 Both are free, open source, and run entirely offline. Neither sends your voice
 anywhere. This page is for people who already run nerd-dictation and are deciding
@@ -24,7 +25,7 @@ whether switching buys them anything.
 | Recognition engine | VOSK | faster-whisper (CPU int8) |
 | Activation | Explicit `begin` / `end` commands | Hold a key, speak, release |
 | Background process | None by design | A daemon (`yazses start`) |
-| Platforms | Linux only | Linux, macOS, Windows |
+| Platforms | Linux only | Linux; macOS and Windows in preview |
 | Customisation | Python string operations | TOML config + personal vocabulary |
 | Footprint | Very small VOSK models | Larger Whisper models |
 
@@ -86,7 +87,7 @@ the honest reason to switch if any of them matter to you:
   ~45 MB model download: `yazses features enable meeting`.
 - **Accessibility work** — VAD calibration, dysfluency-friendly filtering, alternative
   activation hardware.
-- **macOS and Windows** — the same configuration, on all three systems.
+- **macOS and Windows** (preview) — the same configuration, on all three systems.
 
 If you want none of these, that is a legitimate reason to stay on nerd-dictation.
 A smaller tool that does one thing is not a worse tool.

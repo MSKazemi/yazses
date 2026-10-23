@@ -10,6 +10,10 @@ description: "Install YazSes on macOS for private, on-device dictation: pipx ins
 > **Developer preview.** macOS builds are **unsigned** and **not notarized**.
 > macOS will warn you on first launch; the steps below show how to bypass
 > Gatekeeper safely. Signing and notarization land before public beta.
+> Preview also means dictation on a current build has not yet been verified on
+> hardware by a person: the [validation matrix](validation-matrix.md) shows what
+> Mac testers have confirmed, and the label comes off when it records a
+> *Verified (HW)* dictation on a current release.
 
 ## Requirements
 

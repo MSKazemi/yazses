@@ -26,7 +26,7 @@ YazSes is a hold-to-talk voice daemon that replaces cloud dictation tools. When 
 
 | Tool | Offline | Voice commands | Linux | macOS/Windows | Free | Open source |
 |---|---|---|---|---|---|---|
-| YazSes | yes | yes (grammar + optional SLM) | yes (X11 & Wayland) | yes | yes | yes (Apache-2.0) |
+| YazSes | yes | yes (grammar + optional SLM) | yes (X11 & Wayland) | yes (preview) | yes | yes (Apache-2.0) |
 | Dragon NaturallySpeaking | yes | yes | no | Windows | no | no |
 | Talon Voice | yes | yes (advanced scripting) | yes | yes | freemium | no |
 | nerd-dictation | yes (VOSK) | via Python config | yes | no | yes | yes (GPLv3) |
@@ -37,7 +37,7 @@ YazSes is a hold-to-talk voice daemon that replaces cloud dictation tools. When 
 | Whisper + scripts | yes | no | yes | yes | yes | yes |
 
 YazSes's distinguishing combination: it is the only one of these that is **both**
-cross-platform (Linux + macOS + Windows) **and** covers live dictation, offline file
+cross-platform (Linux, plus macOS and Windows in preview) **and** covers live dictation, offline file
 transcription, and whole-meeting capture with speaker labels from one install.
 nerd-dictation is more minimal; Vocalinux has GPU acceleration; Talon is more powerful
 for voice control; Dragon is more accurate on specialist medical/legal vocabulary.
@@ -91,7 +91,8 @@ Step-by-step for every OS: https://mskazemi.com/yazses/get-started.html
 **Does it work with Wayland?** Yes. Installed with the universal installer, APT
 or pipx it uses ydotool (or wtype on wlroots compositors). The strictly confined
 Snap uses the xdg-desktop-portal RemoteDesktop API instead, which works on
-GNOME and KDE Wayland and needs no /dev/uinput.
+GNOME and KDE Wayland and needs no /dev/uinput. A hardware-verified record on GNOME and
+KDE Wayland is still to come (https://github.com/MSKazemi/yazses/issues/643).
 
 **Is it a replacement for Talon?** YazSes focuses on offline dictation plus a practical command grammar. Talon has far more advanced scripting. They can coexist.
 

@@ -26,7 +26,7 @@ available everywhere without opening anything.
 | Insert into focused window | Yes (X11 native; `ydotool` on Wayland) | Yes (runtime backend probe) |
 | Global shortcut | Via XDG portal — KDE Plasma and GNOME | Any desktop; evdev on Linux |
 | Voice commands | No | **Yes** |
-| Platforms | Linux, Sailfish OS | Linux, macOS, Windows |
+| Platforms | Linux, Sailfish OS | Linux; macOS and Windows in preview |
 
 ## The difference that actually decides it
 
@@ -58,7 +58,7 @@ on which desktop you run.
   is no window to focus first, which is the entire point of a daemon.
 - **Voice commands** mapped to real key sequences.
 - **Meeting capture** with speaker labels and optional local-LLM minutes.
-- **macOS and Windows** with the same configuration.
+- **macOS and Windows** with the same configuration, in preview (see the [validation matrix](../validation-matrix.md)).
 - **Accessibility architecture** — VAD calibration, dysfluency-friendly filtering,
   and a replaceable activation channel including an EMG muscle sensor.
 

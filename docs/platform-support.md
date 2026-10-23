@@ -132,9 +132,19 @@ not a decision we can reverse in this repository.
     (Arch) first. The universal script checks for this before it starts; the snap
     bundles a prebuilt `evdev` and needs none of it.
 
-Both X11 and Wayland are supported. See [Install on Linux](install-linux.md).
+Both X11 and Wayland are supported. See [Install on Linux](install-linux.md). Which
+desktops a person has actually dictated on is in the
+[validation matrix](validation-matrix.md); a hardware-verified record on GNOME and KDE
+Wayland is still to come ([#643](https://github.com/MSKazemi/yazses/issues/643)).
 
 ## macOS
+
+!!! warning "Preview"
+
+    macOS is supported, in **preview**: the builds below are published and installable,
+    but dictation on a current build has not yet been verified on hardware by a person.
+    The label comes off when the [validation matrix](validation-matrix.md) records a
+    *Verified (HW)* dictation on a current release.
 
 macOS 14 (Sonoma) or newer for the app (`.dmg` or Homebrew). The libraries the app bundles are built for macOS 14: PyAV, onnxruntime and numpy declare it in their binaries. The Settings window and the on-screen overlay use Qt, which needs macOS 15. On an older Mac, `pipx install yazses` may still work, because pip falls back to older builds of those libraries, but that route has not been tested there.
 
@@ -225,6 +235,13 @@ right-click → **Open**. Grant **Accessibility**, **Input Monitoring** and
 **Microphone**. See [Install on macOS](macos-install.md).
 
 ## Windows
+
+!!! warning "Preview"
+
+    Windows is supported, in **preview**: the builds below are published and installable,
+    and testers have reported dictating on Windows 11, but no report yet meets the
+    [evidence standard](contribute/validation.md) on a current build. The label comes off
+    when the [validation matrix](validation-matrix.md) records a *Verified (HW)* dictation.
 
 Windows 10 (21H2) or newer.
 
