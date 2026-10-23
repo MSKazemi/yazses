@@ -6,6 +6,30 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the camera features installed OpenCV twice
+
+The `gaze` extra (and `features enable` for gaze, facegesture, headpointer, gesture and
+handsfree) declared `opencv-python`, while `mediapipe` 1.0.1, which the same features
+install, requires `opencv-contrib-python`. Both are separate distributions that write the
+same `cv2/` package, so every camera install downloaded OpenCV twice and `cv2` came from
+whichever installed last. The camera features now name `opencv-contrib-python`, the build
+mediapipe already requires. Contrib is a superset of the plain build, and YazSes calls only
+`VideoCapture` and `cvtColor`. The measured Linux x86_64 download for each camera feature
+drops from about 224 MB (14 distributions) to about 150 MB (13). The `all` extra makes the
+same change. A new test walks `uv.lock` for every extra and group on six platforms and fails
+if any install set holds two OpenCV builds.
+
+**If you installed a camera feature with 2.44.0 or older**, your environment has both builds.
+The tray's Install update (2.44.0 and later) reinstalls `opencv-contrib-python` in the same
+step and checks `cv2` afterwards, so an in-app upgrade needs nothing more.
+Removing the now-unneeded `opencv-python` (for example `uv sync` in a source checkout, or
+`pip uninstall opencv-python`) deletes `cv2` files that `opencv-contrib-python` also owns,
+and `cv2` stops working. Reinstall contrib afterwards to repair it:
+`pip install --force-reinstall --no-deps opencv-contrib-python`
+(or `uv pip install --reinstall-package opencv-contrib-python opencv-contrib-python`).
+The breakage and both repairs were reproduced with the 5.0.0.93 wheels in a Linux Python 3.12
+environment. Windows, macOS and `uv tool upgrade` were not tested.
+
 ### Added — The macOS menu-bar menu has status lines (untested on a real Mac)
 
 The macOS menu-bar icon showed only a state glyph. It had no tooltip and no status
@@ -385,7 +409,7 @@ Nothing is published. Listing needs an ownership line in the README, a release t
 carries it, and a hand-run `mcp-publisher publish` by the maintainer; the steps are in
 `packaging/README.md`, and the MCP guide says the entry is not listed yet. The template's
 field names are still to be checked against the registry's current schema; the tests
-are written but not yet run.
+pass.
 
 ### Added — a one-click MCP bundle (`.mcpb`) for `yazses mcp-server`
 
@@ -404,7 +428,7 @@ source (`release.yml` refuses a tag that is not `v<pyproject version>`), attests
 cover it, and `tests/test_release_ships_mcpb.py` pins the wiring. The next release is the
 first to carry it, and no release has run those steps yet. Not yet tried in a real
 client, and some manifest fields are still to be checked against the MCPB
-specification; the tests are written but not yet run.
+specification; the tests pass.
 
 ### Fixed — `yazses mcp-server --help` no longer says `ask_human` is not offered
 
@@ -412,8 +436,7 @@ The help said `ask_human` "is not offered yet". The server has offered it since
 `[mcp] ask_human = true` was added. The help now lists both tools and says `ask_human`
 appears only with that setting on. A test reads the tool list from the server's own
 registration and fails if the help lists a different set, so the two cannot drift
-again ([#641](https://github.com/MSKazemi/yazses/issues/641), ADR-032 §4). Written in a
-code-only pass; the test has not been run yet.
+again ([#641](https://github.com/MSKazemi/yazses/issues/641), ADR-032 §4).
 
 ### Docs — macOS and Windows are labelled preview wherever YazSes's support is stated
 
@@ -543,10 +566,7 @@ portal's "failed some other way" answer (response 2): it means the portal did no
 the app, so YazSes tries `xdg-open` once, and the link is in its argument list while it
 runs. On every path the app gets the
 link as an argument if this starts it. The portal path is untested against a real portal,
-and macOS and Windows are untested. Written in a code-only pass; its tests have not been
-run yet.
-
-### Security — the GitPython advisory (GHSA-83vg-56qc-22m7) is assessed, not yet patchable
+and macOS and Windows are untested; the unit tests pass.
 
 ### Security — GitPython is on 3.2.1, which fixes GHSA-83vg-56qc-22m7
 

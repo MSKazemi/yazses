@@ -22,33 +22,33 @@
       "unpriced": []
     },
     "diarize": {
-      "download_mb": 17.8,
+      "download_mb": 17.4,
       "packages": 2,
       "unpriced": []
     },
     "facegesture": {
-      "download_mb": 223.9,
-      "packages": 14,
+      "download_mb": 150.1,
+      "packages": 13,
       "unpriced": []
     },
     "gaze": {
-      "download_mb": 223.9,
-      "packages": 14,
+      "download_mb": 150.1,
+      "packages": 13,
       "unpriced": []
     },
     "gesture": {
-      "download_mb": 223.9,
-      "packages": 14,
+      "download_mb": 150.1,
+      "packages": 13,
       "unpriced": []
     },
     "handsfree": {
-      "download_mb": 223.9,
-      "packages": 14,
+      "download_mb": 150.1,
+      "packages": 13,
       "unpriced": []
     },
     "headpointer": {
-      "download_mb": 223.9,
-      "packages": 14,
+      "download_mb": 150.1,
+      "packages": 13,
       "unpriced": []
     },
     "llm-cleanup": {
@@ -57,7 +57,7 @@
       "unpriced": []
     },
     "meeting": {
-      "download_mb": 17.8,
+      "download_mb": 17.4,
       "packages": 2,
       "unpriced": []
     },
@@ -92,7 +92,7 @@
       "unpriced": []
     },
     "recimport": {
-      "download_mb": 17.8,
+      "download_mb": 17.4,
       "packages": 2,
       "unpriced": []
     },

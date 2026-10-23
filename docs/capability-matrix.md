@@ -129,7 +129,7 @@ raise a camera permission prompt.
 Turning one on raises a second question that has nothing to do with permissions:
 **can the copy of YazSes you installed run a camera feature at all?** Frozen and
 confined packages cannot. The `.dmg`, the Windows `.exe`, the MSIX, the snap and the
-flatpak are all built without `mediapipe` and `opencv-python`, and none of them can
+flatpak are all built without `mediapipe` and `opencv-contrib-python`, and none of them can
 install a Python package afterwards.
 
 That is why none of them asks for camera access. A camera capability a package cannot
@@ -156,7 +156,7 @@ camera feature is never switched on in a package that could not run it.
 
 `yazses doctor` grows a **Camera** row as soon as a camera feature is enabled, and it
 tells the four causes apart: a package that cannot run one, a missing `mediapipe` /
-`opencv-python`, no camera device, and a refused or not-yet-granted OS permission. It
+`opencv-contrib-python`, no camera device, and a refused or not-yet-granted OS permission. It
 never reports access it could not confirm — an undetermined permission is reported as
 undetermined, not as granted.
 

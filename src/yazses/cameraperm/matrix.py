@@ -18,7 +18,7 @@ directions:
 
 Today every frozen or confined format sits on the first side of that rule: none
 of the four (macOS ``.app``, Windows ``.exe``, Windows MSIX, snap, flatpak)
-carries ``mediapipe``/``opencv-python``, and none of them can install a package
+carries ``mediapipe``/``opencv-contrib-python``, and none of them can install a package
 after the fact. Camera features are reachable only from a source/PyPI install,
 where there is no manifest to declare anything in and the OS prompt -- on macOS
 -- belongs to the Python interpreter's own bundle, not to YazSes.
@@ -46,7 +46,7 @@ __all__ = [
 CAMERA_MODULES = ("cv2", "mediapipe")
 
 #: The requirements that supply them, spelled as `pyproject.toml` spells them.
-CAMERA_PACKAGES = ("mediapipe>=0.10.35", "opencv-python>=5.0")
+CAMERA_PACKAGES = ("mediapipe>=0.10.35", "opencv-contrib-python>=5.0")
 
 
 @dataclass(frozen=True)
@@ -92,7 +92,7 @@ PACKAGE_PROFILES: tuple[PackageProfile, ...] = (
         can_add_runtime=True,
         declaration=None,
         declares_camera=False,
-        remedy="yazses features enable gaze   # installs mediapipe + opencv-python",
+        remedy="yazses features enable gaze   # installs mediapipe + opencv-contrib-python",
         why=(
             "A virtualenv can install the camera extra on demand, so the runtime is "
             "opt-in rather than absent. There is no application manifest: on macOS the "
@@ -108,7 +108,7 @@ PACKAGE_PROFILES: tuple[PackageProfile, ...] = (
         declaration=None,
         declares_camera=False,
         remedy=(
-            "install mediapipe and opencv-python with the same tool that installed "
+            "install mediapipe and opencv-contrib-python with the same tool that installed "
             "YazSes, or use pipx install 'yazses[gaze]'"
         ),
         why=(
@@ -131,7 +131,7 @@ PACKAGE_PROFILES: tuple[PackageProfile, ...] = (
         remedy="pipx install 'yazses[gaze]'   # the camera features need a real Python",
         why=(
             "scripts/build-macos.sh syncs only `--extra desktop`, so neither mediapipe "
-            "nor opencv-python is inside the bundle, and a frozen .app has no pip to "
+            "nor opencv-contrib-python is inside the bundle, and a frozen .app has no pip to "
             "add them. Declaring NSCameraUsageDescription would put YazSes in the "
             "Camera pane for a capability the bundle cannot use. The signed build runs "
             "under the hardened runtime (build-macos.yml passes --options runtime with "

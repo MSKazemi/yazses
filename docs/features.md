@@ -833,7 +833,7 @@ YazSes ships **150 capabilities**. All but the core are **off by default** — t
 - **What it does:** Bind chords of face and head gestures (jaw open, brow raise, nod, shake, tilt) to abstract actions like pause or recenter the pointer. Needs a webcam (OpenCV + MediaPipe, shared with Glance-Type) and binds nothing until you add a chord. Experimental: no false-activation study exists yet. Off by default.
 - **Use when:** When your hands are busy and you want to pause or recenter the pointer with a face-and-head gesture, not a word.
 - **Example:** Raise your brows and nod to recenter the pointer (bind chords in [gesture.chords]).
-- **Download:** ~224 MB
+- **Download:** ~150 MB
 - **Activate:** `yazses features enable gesture` then `yazses restart`
 
 ### Voice Snippets
@@ -1068,7 +1068,7 @@ YazSes ships **150 capabilities**. All but the core are **off by default** — t
 - **What it does:** Move and click the mouse by tilting your head, and pair it with voice for a hands-free desktop. Experimental: it has not been validated with users, and its speed caps and dwell time are provisional. Needs a webcam (OpenCV + MediaPipe, shared with Glance-Type) and a pointer backend. Off by default.
 - **Use when:** When your hands are unavailable and you need mouse cursor control from head movement.
 - **Example:** Tilt your head to move the cursor; dwell to click.
-- **Download:** ~224 MB
+- **Download:** ~150 MB
 - **Activate:** `yazses features enable headpointer` then `yazses restart`
 
 ### Personal Read-Back Voice
@@ -1111,7 +1111,7 @@ YazSes ships **150 capabilities**. All but the core are **off by default** — t
 - **What it does:** Uses the webcam to route dictation to the pane you look at. Experimental; needs a webcam + X11.
 - **Use when:** When you have several panes open and want dictation to land in whichever one you look at.
 - **Example:** Glance at a screen zone to choose where the next dictation lands.
-- **Download:** ~224 MB
+- **Download:** ~150 MB
 - **Activate:** `yazses features enable gaze` then `yazses restart`
 
 ### Face-Gesture Switch (camera)
@@ -1120,7 +1120,7 @@ YazSes ships **150 capabilities**. All but the core are **off by default** — t
 - **What it does:** Opens the mic while you hold a facial movement (jaw open, brows raised) instead of a key — switch access for people who can speak but cannot press one. Needs a webcam; experimental. Off by default.
 - **Use when:** When you cannot hold a key — a facial movement becomes the hotkey, using only the webcam.
 - **Example:** Open your jaw to start dictating, close it to stop — no key at all.
-- **Download:** ~224 MB
+- **Download:** ~150 MB
 - **Activate:** `yazses features enable facegesture` then `yazses restart`
 
 ### Hands-Free Preset
@@ -1129,7 +1129,7 @@ YazSes ships **150 capabilities**. All but the core are **off by default** — t
 - **What it does:** One switch that turns on Glance-Type, Head-Pointer with dwell-click, the face switch, Gesture Chords and a voice stop word together, under one global stop. No new engine: it sets their ordinary keys (`yazses handsfree explain`). Every value is provisional. Needs a webcam. Off by default.
 - **Use when:** When you want voice, gaze, head pointer and a face switch working together, with one stop.
 - **Example:** yazses handsfree explain — read what it sets; yazses features enable handsfree --force, yazses restart, then yazses handsfree resume to arm it.
-- **Download:** ~224 MB
+- **Download:** ~150 MB
 - **Activate:** `yazses features enable handsfree` then `yazses restart`
 
 ## Learning, memory & analytics
@@ -1220,7 +1220,7 @@ YazSes ships **150 capabilities**. All but the core are **off by default** — t
 - **What it does:** Run `yazses transcribe <file>` to batch-transcribe voice memos/lectures/meetings offline to .txt/.md/.srt/.vtt/.json. Add --diarize to tag who said what ('Speaker 1: …'), --names/--rename or an enrolled voiceprint for real names. Needs the diarization extra for speaker tags. Off by default.
 - **Use when:** When you have existing voice memos, lectures, or meeting recordings to batch-transcribe offline.
 - **Example:** Drop in a lecture recording and get a searchable .srt transcript.
-- **Download:** ~18 MB
+- **Download:** ~17 MB
 - **Activate:** `yazses features enable recimport` then `yazses restart`
 
 ### Meeting Mode
@@ -1229,7 +1229,7 @@ YazSes ships **150 capabilities**. All but the core are **off by default** — t
 - **What it does:** `yazses meeting start` records a whole meeting hands-free (no key to hold), streams a live transcript, and at `yazses meeting stop` writes a speaker-labelled transcript ('Alice: …', 'You: …') plus opt-in notes. Speakers are found by voice embedding + clustering (auto count); fix a miscount with `yazses meeting relabel`. Needs the diarization extra for speaker tags. On-device; off by default.
 - **Use when:** When you're in a live meeting and want a hands-free, speaker-labelled transcript and notes afterwards.
 - **Example:** Hit start, put the phone down, and get who-said-what minutes at the end.
-- **Download:** ~18 MB
+- **Download:** ~17 MB
 - **Activate:** `yazses features enable meeting` then `yazses restart`
 
 ### Crowd-Proof Dictation
@@ -1246,7 +1246,7 @@ YazSes ships **150 capabilities**. All but the core are **off by default** — t
 - **What it does:** Capture a live conversation as attributed Markdown (**Alice:** …) and rename speakers by voice ('call speaker two Alice'). Needs the diarize extra. Off by default.
 - **Use when:** When capturing a live multi-speaker conversation you need attributed to each person.
 - **Example:** A two-person chat is typed as **Alice:** … **Bob:** … you can rename by voice.
-- **Download:** ~18 MB
+- **Download:** ~17 MB
 - **Activate:** `yazses features enable diarize` then `yazses restart`
 
 ### Meeting Scribe
