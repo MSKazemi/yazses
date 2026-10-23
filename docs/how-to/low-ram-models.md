@@ -97,6 +97,21 @@ speech model. The next time you press the key it loads the model again:
 The daemon only releases the model when it is idle or paused. A dictation, a meeting or a
 file transcription in progress is never cut short.
 
+**To see which state you are in,** run `yazses status`. With `idle_unload_s` set it prints
+one more line under the model:
+
+```text
+  memory:   speech model loaded, idle 45 s of 600 s
+  memory:   speech model unloaded after 600 s idle — reloads on the next press
+  memory:   speech model reloading — the next words wait for it
+```
+
+The tray tooltip (and the Linux tray menu) shows the same phrase as `Speech model: …`.
+`yazses status --json` carries it as `stt_residency`, with `idle_unload_s`, `loaded`,
+`loading` and `idle_s` (seconds since the last dictation, `null` while unloaded). At the
+default of `0` that field is `null` and no line is printed. The macOS menu-bar icon shows
+only a state glyph, so it does not show this line.
+
 **How much memory comes back is not measured yet.** CTranslate2, the library that runs
 Whisper, may keep part of its memory after the model is released, so the drop you see in
 `ps` can be smaller than the figures in the table above. If you try it, please

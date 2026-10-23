@@ -339,6 +339,10 @@ class LinuxTray:
         header.setEnabled(False)
         mic = menu.addAction(model.mic_line)
         mic.setEnabled(False)
+        if model.residency:
+            # `[stt] idle_unload_s` only: whether the speech model is in memory.
+            residency = menu.addAction(model.residency)
+            residency.setEnabled(False)
         if model.warning:
             warn = menu.addAction(model.warning)
             warn.setEnabled(False)

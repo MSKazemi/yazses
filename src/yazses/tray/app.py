@@ -277,6 +277,13 @@ def run() -> None:
                         meeting_enabled=info.get("meeting_enabled"),
                         meeting_active=bool(info.get("meeting_active")),
                         meeting_finalizing=bool(info.get("meeting_finalizing")),
+                        # `[stt] idle_unload_s` (ADR-029): None at the default and on
+                        # an older daemon; `residency_line` ignores any other shape.
+                        stt_residency=(
+                            info.get("stt_residency")
+                            if isinstance(info.get("stt_residency"), dict)
+                            else None
+                        ),
                     )
                 )
                 # Toasts the daemon could not show itself (no libnotify — Windows,
