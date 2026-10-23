@@ -303,6 +303,8 @@ def _registry() -> list[_Def]:
     tbl_on, tbl_off = _bool("tablecsv")
     wg_on, wg_off = _bool("wordgoal")
     vt_on, vt_off = _bool("voicetimer")
+    # "Send to" (ADR-031): one switch; the targets are a closed table, nothing else to set.
+    snd_on, snd_off = _bool("sendto")
     fp_on, fp_off = _bool("focusprofile")
     vj_on, vj_off = _bool("vocaljoystick")
     ec_on, ec_off = _bool("earcon")
@@ -1071,6 +1073,22 @@ def _registry() -> list[_Def]:
              "'toggle dark mode'). Acts on one exact match only; anything else asks you to "
              "confirm. Linux + pyatspi; labels only, no screenshots. Experimental. Off by default.",
              lambda c: c.pilot.enabled, pi_on, pi_off),
+        # ADR-031. OPTIONAL, like `pilot`, rather than EXPERIMENTAL: no rough edge is known,
+        # and EXPERIMENTAL would make `features enable sendto` demand --force. But nothing
+        # is verified either -- §5 makes "never sent" something observed per client and OS,
+        # and no hand-off has been tried against a real Claude or Codex install -- so the
+        # text says so, and there is no verified client version to name yet.
+        _Def("sendto", "Send to Claude / Codex (pre-filled)",
+             "[sendto] — open an AI app with your prompt filled in, never sent", OPTIONAL,
+             "Say 'send to Claude', 'send to Claude Code' or 'send to Codex' as a whole "
+             "utterance, or run `yazses send-to claude|claude-code|codex [TEXT]`: that desktop "
+             "app opens a new conversation with the text in its prompt box, and YazSes types "
+             "nothing. The text is the staged buffer when staged mode is on, else the last "
+             "burst (already typed) or the TEXT you give. It is never sent: you press Enter "
+             "there. Only those three apps' own links, no web fallback; over 14,000 characters "
+             "is refused, never cut. Not yet verified against any real Claude or Codex app. "
+             "Off by default.",
+             lambda c: c.sendto.enabled, snd_on, snd_off),
         _Def("cocktail", "Cocktail Filter (voice focus)", "[cocktail] — experimental", EXPERIMENTAL,
              "Tries to focus on your voice and reject other speakers. Currently "
              "over-rejects your OWN voice — leave off until improved.",
@@ -1474,6 +1492,11 @@ _EXAMPLES: dict[str, str] = {
     "recall": "yazses recall 'the address I dictated yesterday'.",
     "agent": "Say 'create a calendar event tomorrow at 3' (allowlisted tools).",
     "pilot": "Say 'click the Save button' to drive the focused app via AT-SPI.",
+    "sendto": (
+        "Dictate a prompt into the staged buffer, then say 'send to Claude': the Claude app "
+        "opens with it pre-filled, and you press Enter. Or run `yazses send-to codex "
+        "\"explain the failing test\"`."
+    ),
     "cocktail": "yazses features enable cocktail --force — filters other voices (experimental).",
     "voiceguard": "yazses features enable voiceguard --force — another speaker's burst is not typed.",
     "bridge": "Pair smart glasses to relay audio to the desktop (experimental).",
@@ -1640,6 +1663,10 @@ _USE_CASES: dict[str, str] = {
     "recall": "When you want to search things you dictated earlier or leave yourself spoken notes-to-self.",
     "agent": "When you want to run allowlisted tools or actions by voice through a local planner.",
     "pilot": "When you want a hands-free desktop, clicking buttons by their labels on Linux.",
+    "sendto": (
+        "When you dictate a prompt for the Claude or Codex desktop app and want to read it "
+        "there before it is sent, without first focusing the app's input box."
+    ),
     "cocktail": "When others are talking nearby and you want only your own voice to reach STT (still rough).",
     "voiceguard": "When other people talk near your microphone and only your own voice should type (a recording of you still gets through).",
     "bridge": "When you want to dictate from a paired phone or glasses mic while your desktop does STT.",
@@ -1703,6 +1730,7 @@ _CATEGORIES: dict[str, str] = {
     "cmdsafety": CAT_COMMANDS, "cmdspotter": CAT_COMMANDS, "slotfill": CAT_COMMANDS,
     "snippets": CAT_COMMANDS, "macros": CAT_COMMANDS, "agent": CAT_COMMANDS,
     "pilot": CAT_COMMANDS, "gesture": CAT_COMMANDS, "audioguard": CAT_COMMANDS,
+    "sendto": CAT_COMMANDS,
     # Multilingual.
     "polyglot": CAT_LANG, "translit": CAT_LANG, "langroute": CAT_LANG,
     "translate": CAT_LANG, "compose": CAT_LANG, "interpret": CAT_LANG,

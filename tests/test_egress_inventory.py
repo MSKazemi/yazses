@@ -93,13 +93,21 @@ HANDOFF = {
         "URL: the diagnostic report travels to github.com percent-encoded in the query "
         "string **when the page opens**, not when the user presses submit. The body is "
         "`report.collect`'s redacted output — the same redaction `yazses report` uses, "
-        "so no dictation is in it — but it is a real transmission and belongs here. "
-        "The second payload caller is `sendto/handoff.py` (ADR-031): it puts dictated "
-        "text in a `claude://` or `codex://` URL, a custom scheme the OS resolves to a "
-        "locally installed client that shows it pre-filled; nothing is transmitted by "
-        "YazSes, and the closed target table has no https:// entry"
+        "so no dictation is in it — but it is a real transmission and belongs here"
     ),
 }
+#: "Send to" (ADR-031) also hands a URL to another program, and its URL carries dictated
+#: text — but it no longer goes through `system/browser.py`, so no import above can see
+#: it. It reaches its client through the platform `UrlOpener` seam
+#: (`platform/*/fileopen.py`: `xdg-open`, `NSWorkspace`, `os.startfile`), which imports no
+#: network primitive and spawns no network tool, so none of this file's scans fire on it.
+#: It is recorded in ADR-019's *Reached by handing a URL to another program* table
+#: instead, and held to that classification by two guards rather than by this inventory:
+#: `sendto/targets.py`'s closed table of custom schemes (no `https://`), and the seam's
+#: own refusal of every web, file and script scheme before anything starts
+#: (`platform/base.py::require_local_scheme`, pinned in
+#: `tests/test_platform_url_opener_seam.py`). The client shows the text pre-filled and
+#: transmits it only when the user presses Enter, as it does with text YazSes types.
 #: Reaches the network by SPAWNING A PROGRAM, not by importing a network primitive.
 #: The import scan cannot see these, which is how the most consequential transport in
 #: the product stayed invisible to a guard written to enumerate exactly that.

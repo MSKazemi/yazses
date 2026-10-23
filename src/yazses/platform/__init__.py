@@ -15,13 +15,21 @@ from yazses.platform.base import (
     TrayModel,
     TrayState,
     UnsupportedPlatformError,
+    UrlOpener,
 )
-from yazses.platform.factory import describe_host, get_file_opener, get_paths, get_platform
+from yazses.platform.factory import (
+    describe_host,
+    get_file_opener,
+    get_paths,
+    get_platform,
+    get_url_opener,
+)
 
 __all__ = [
     "describe_host",
     "FileOpener",
     "get_file_opener",
+    "get_url_opener",
     "HostBackend",
     "HostInfo",
     "get_paths",
@@ -39,4 +47,5 @@ __all__ = [
     "TrayModel",
     "Platform",
     "UnsupportedPlatformError",
+    "UrlOpener",
 ]

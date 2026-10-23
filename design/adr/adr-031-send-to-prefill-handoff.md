@@ -118,17 +118,41 @@ The decider answered the three questions this record left open when it was propo
 3. **The CLI form `yazses send-to <client> [TEXT]` ships in the first release**, beside the
    spoken one.
 
-## Implementation notes (first build, 2026-10-23)
+## Implementation notes (2026-10-23)
 
-Where the first build differs from §1–§5, or chose something the record left open:
+Where the build differs from §1–§5, or chose something the record left open:
 
-- **No `platform/base.py` seam yet (§3).** The opener is an injectable callable in
-  `sendto/handoff.py` whose default is `system/browser.py::open_url(url, log_url=False)`,
-  the hand-off ADR-019 already inventories. So Linux uses `xdg-open` and its argv
-  exposure, and macOS and Windows use what Python's `webbrowser` does there; none of them
-  passes the URL by `NSWorkspace` or `ShellExecuteW` directly yet. Moving the opener onto
-  a platform Protocol is follow-up work, kept out of this change because another branch
-  is editing `platform/base.py`.
+- **The opener seam (§3) now exists (second build, 2026-10-23).** The first build had
+  none — its default opener was `system/browser.py::open_url(url, log_url=False)`, so
+  Linux used `webbrowser`'s `xdg-open` and macOS and Windows whatever `webbrowser` does
+  there — because another branch was editing `platform/base.py`. That branch (#649, the
+  `FileOpener` seam) has landed, and `platform/base.py` now has a `UrlOpener` Protocol
+  beside it: `open_url(url)`, one backend per OS family in `platform/<os>/fileopen.py`,
+  chosen by `platform.get_url_opener()` without building a `Platform`. The default opener
+  in `sendto/handoff.py` calls it only for a scheme in the closed target table (an
+  allow-list), and every backend first refuses a web, file or script scheme, a URL
+  without a scheme, and whitespace or control characters
+  (`platform/base.py::require_local_scheme`, a deny-list behind the allow-list), before
+  it starts anything. No backend logs the URL, sends the child's output anywhere but
+  `/dev/null`, or raises an exception whose message quotes it.
+  - **Linux and the BSDs:** `xdg-open <url>`, the URL one argv element, no shell. Waits
+    up to 5 s for its status: non-zero (4 = no program for the scheme) is a failed
+    hand-off; still running is a hand-off, left alone and reaped in the background.
+  - **macOS:** `NSWorkspace.sharedWorkspace().openURL_` in-process, as §3 asks; if
+    PyObjC cannot be imported, `open <url>`. **Unverified:** no Mac, and whether
+    `openURL_` may be called off the main thread, as the daemon does, is not established.
+  - **Windows:** `os.startfile`, i.e. `ShellExecuteW` in-process. Unverified on Windows.
+- **The local exposure that remains, stated (§3).** On **Linux**, `xdg-open` takes the URL
+  as a command-line argument, so while it runs the text is in `/proc/<pid>/cmdline`:
+  readable by every process of the same user and, unless `/proc` is mounted with
+  `hidepid=`, by every other local user. The client the desktop starts receives the URL
+  as an argument too (the `%u` of its `.desktop` entry), so if the hand-off *starts* the
+  client, the text stays in that process's argument list for as long as it runs. A
+  D-Bus hand-off through the desktop portal's `OpenURI` would remove the first half and
+  is not built; the second half belongs to the client. On **Windows** YazSes starts no
+  child, but the shell starts the client with the URL as its `%1` argument — the same
+  second half. On **macOS** through `NSWorkspace` the URL travels as an Apple Event and
+  no argument list holds it, except on the `open` fallback, briefly.
 - **Limits (§4).** Claude and Claude Code refuse over 14,000 characters. Codex documents
   no limit, so it gets the same 14,000 (the narrowest choice). Every target also refuses
   an encoded URL over 32,000 characters, which keeps the URL inside Windows' command-line
@@ -143,9 +167,15 @@ Where the first build differs from §1–§5, or chose something the record left
 - **The CLI with TEXT** hands off in the CLI's own process; the IPC method `send_to` takes
   a target name only, so no local caller can make the daemon open a URL with text of its
   choosing.
-- **No `features` registry entry yet (§5).** The switch is `[sendto] enabled` in
-  `config.toml`; a registry slug (and the per-client verified-version line in
-  `features info`) waits for the validation rows.
+- **The registry slug (§1, §5).** The first build had none; the second adds `sendto` to
+  `system/features.py`: tier *optional* (enable only if you want it — *experimental*
+  would make `features enable sendto` demand `--force`, and no rough edge is known),
+  category *Commands & automation*, no optional dependencies, and on/off writers for
+  `[sendto] enabled` alone. It is wired (not in `_UNWIRED`). Its description says
+  exactly what happens — the three phrases, the CLI, pre-filled and never sent, no web
+  fallback, the 14,000-character refusal — and that it is **not yet verified** against
+  any real client. The per-client verified-version line §5 asks `features info` to carry
+  waits for the validation rows: there is no version to name yet.
 - **Unverified:** no hand-off has yet been tried against a real Claude or Codex install on
   any platform.
 

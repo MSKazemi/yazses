@@ -358,6 +358,94 @@ class FileOpener(Protocol):
         ...
 
 
+#: Schemes a :class:`UrlOpener` refuses before anything is started. Each would make the
+#: hand-off something other than "give this to a locally installed program": a web or
+#: socket scheme is fetched by a browser, which transmits whatever the URL carries in the
+#: request that opens the page (ADR-019; ADR-031 §2 "no https:// fallback, ever"), and the
+#: rest open local files or run code. A deny-list, so it is defence in depth only: the
+#: closed allow-list of targets lives with the caller (``sendto/targets.py``).
+WEB_SCHEMES: frozenset[str] = frozenset({
+    "http", "https", "ftp", "ftps", "sftp", "ws", "wss", "gopher",
+    "file", "data", "javascript", "vbscript", "blob", "about",
+})
+
+_SCHEME_FIRST = frozenset("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz")
+_SCHEME_REST = _SCHEME_FIRST | frozenset("0123456789+-.")
+
+
+class UrlOpenRefused(ValueError):
+    """A :class:`UrlOpener` refused a URL before starting anything.
+
+    The message names the reason, never the URL: a hand-off URL can carry the user's
+    dictation (ADR-031), and an exception message is one ``log.exception`` from a log file.
+    """
+
+
+def url_scheme(url: str) -> str:
+    """The lower-cased scheme of *url* (RFC 3986 §3.1), or ``""`` when it has none.
+
+    Pure and hand-rolled: ``urllib`` is a network import as far as ADR-019's egress scan
+    is concerned, and this module must not appear in that inventory.
+    """
+    head, sep, _rest = (url or "").partition(":")
+    if not sep or not head or head[0] not in _SCHEME_FIRST:
+        return ""
+    if any(char not in _SCHEME_REST for char in head):
+        return ""
+    return head.lower()
+
+
+def require_local_scheme(url: str) -> None:
+    """Raise :class:`UrlOpenRefused` unless *url* is one token with a non-web scheme.
+
+    Every :class:`UrlOpener` calls this first, so a refusal starts no process and calls
+    no OS API. Whitespace and control characters are refused too: a URL is one argument,
+    and a percent-encoded one never contains them.
+    """
+    if any(char.isspace() or ord(char) < 0x20 or ord(char) == 0x7F for char in url or ""):
+        raise UrlOpenRefused("the URL contains whitespace or control characters")
+    scheme = url_scheme(url)
+    if not scheme:
+        raise UrlOpenRefused("the URL has no scheme")
+    if scheme in WEB_SCHEMES:
+        raise UrlOpenRefused(
+            f"a {scheme}: URL is not handed to the desktop through this seam -- it would "
+            "be fetched, not given to a local program"
+        )
+
+
+@runtime_checkable
+class UrlOpener(Protocol):
+    """Hands a custom-scheme URL to the program the OS registered for that scheme.
+
+    One implementation per OS family, beside :class:`FileOpener` (ADR-031 §3). Built for
+    "send to", whose URL *is* the user's dictation, percent-encoded, so every
+    implementation keeps three rules:
+
+    * **Refuse before starting anything** -- :func:`require_local_scheme` first. This seam
+      never opens a web URL; a browser hand-off goes through ``system/browser.py``, which
+      ADR-019's egress inventory can see.
+    * **Never a shell, and the URL is one argument** where a child process is used.
+    * **Nothing that can carry the URL is written anywhere**: no log line, the child's
+      stdout/stderr go to ``/dev/null`` (``xdg-open`` echoes its argument in its error
+      messages, and the daemon's stderr is its log), and a raised exception's message
+      names a status or an errno, never the URL.
+
+    The method is ``open_url``, not ``open``, so that a :class:`FileOpener` can never pass
+    an ``isinstance`` check for this Protocol by accident.
+    """
+
+    def open_url(self, url: str) -> None:
+        """Hand *url* to its scheme's registered program; return once it is handed off.
+
+        Raises :class:`UrlOpenRefused` for a URL :func:`require_local_scheme` rejects, and
+        ``OSError`` when the OS reports that it could not hand the URL off (no program
+        registered, the opener missing or failing). "Handed off" is the OS's answer, not
+        the client's: whether the client then shows the text is outside this seam.
+        """
+        ...
+
+
 @dataclass(frozen=True)
 class UpdateHandoff:
     """What a detached updater must do once YazSes itself has exited (ADR-027).

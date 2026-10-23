@@ -265,8 +265,8 @@ a guard that silently stops protecting on a whole display server is worse than n
 
 | File | Role |
 |---|---|
-| `base.py` | Protocol interfaces: `HotkeyBackend`, `InjectorBackend`, `LifecycleBackend`, `IpcServer`, `IpcClient`, `PermissionsBackend`, `TrayBackend`, `FileOpener` (opens a file with the default app; one per OS family, the BSDs share Linux's). Also `Platform.pointer_factory` — the optional `PointerSinkFactory` a bundle registers, `None` on an OS with no pointer backend yet (a factory, so nothing is constructed and no permission asked until a pointer consumer is enabled). And `Platform.accessibility_factory` (#164) — the optional `AccessibilityFactory` building an `AccessibilityBackend` (`snapshot()` = ADR-v2-151's `SemanticSource.snapshot` over the focused window, plus `perform(entity_id, action)` on a node of the latest snapshot only); `None` with `accessibility_unavailable_reason` where it cannot work, and `None` on every OS but Linux (`NO_ACCESSIBILITY_BACKEND_REASON`). And `Platform.primary_modifier` — the modifier the OS's application shortcuts use (`PRIMARY_MODIFIER_CTRL` by default, `PRIMARY_MODIFIER_CMD` on macOS); `commands/dispatch.py` and `commands/profiles.py` pick their macOS keymaps from it, so neither branches on the OS |
-| `factory.py` | `get_platform()` — detects `sys.platform`, returns `Platform` dataclass. `get_file_opener()` — the `FileOpener` for this OS, without building a `Platform` (`yazses fileopen`) |
+| `base.py` | Protocol interfaces: `HotkeyBackend`, `InjectorBackend`, `LifecycleBackend`, `IpcServer`, `IpcClient`, `PermissionsBackend`, `TrayBackend`, `FileOpener` (opens a file with the default app; one per OS family, the BSDs share Linux's), `UrlOpener` (hands a custom-scheme URL to its registered program for "send to", [ADR-031](adr/adr-031-send-to-prefill-handoff.md): `xdg-open` / `NSWorkspace` / `os.startfile`, in the same `platform/<os>/fileopen.py`; `require_local_scheme` refuses web, file and script schemes before anything starts). Also `Platform.pointer_factory` — the optional `PointerSinkFactory` a bundle registers, `None` on an OS with no pointer backend yet (a factory, so nothing is constructed and no permission asked until a pointer consumer is enabled). And `Platform.accessibility_factory` (#164) — the optional `AccessibilityFactory` building an `AccessibilityBackend` (`snapshot()` = ADR-v2-151's `SemanticSource.snapshot` over the focused window, plus `perform(entity_id, action)` on a node of the latest snapshot only); `None` with `accessibility_unavailable_reason` where it cannot work, and `None` on every OS but Linux (`NO_ACCESSIBILITY_BACKEND_REASON`). And `Platform.primary_modifier` — the modifier the OS's application shortcuts use (`PRIMARY_MODIFIER_CTRL` by default, `PRIMARY_MODIFIER_CMD` on macOS); `commands/dispatch.py` and `commands/profiles.py` pick their macOS keymaps from it, so neither branches on the OS |
+| `factory.py` | `get_platform()` — detects `sys.platform`, returns `Platform` dataclass. `get_file_opener()` — the `FileOpener` for this OS, without building a `Platform` (`yazses fileopen`). `get_url_opener()` — the `UrlOpener` likewise (`sendto/handoff.py`) |
 | `*/permissions.py` | Keyboard capture, microphone and (ADR-v2-145 / #414) **camera**. `check_camera()` returns a `CameraPermission`, never a bare boolean, and returns `NOT_DETERMINED` — never `GRANTED` — when it cannot answer |
 | `emg/backend.py` | `EMGBackend` — `HotkeyBackend` over USB CDC serial YESP protocol (v0.4.0); requires `pyserial` optional dep |
 | `linux/` | evdev hotkey, LinuxInjector (xdotool/ydotool/wtype/clipboard), systemd lifecycle, Unix socket IPC. `accessibility.py` decides at bundle build whether AT-SPI can work (a desktop session and a locatable `pyatspi`, found with `find_spec`, never imported there) and says why not; `atspi_tree.py` is the backend, imported on first use: the active window only, showing nodes only, names/roles/action names, text content only for an unnamed node and never from a password field, a terminal or an editable field, bounded by `grounding/treewalk.py`, ids prefixed per snapshot so a stale id is refused |
@@ -586,18 +586,22 @@ app (`claude`, `claude-code`) or the Codex app (`codex`) opens a new conversatio
 text in the prompt box, and the user presses Enter. Reached by the whole-utterance phrases
 "send to Claude / Claude Code / Codex" in `daemon.py::_on_hold_end` (after "scratch that",
 **before** the staged buffer, which would otherwise swallow the phrase), by the IPC method
-`send_to`, and by `yazses send-to <client> [TEXT]`.
+`send_to`, and by `yazses send-to <client> [TEXT]`. Switched on by the registry slug
+`sendto` (`yazses features enable sendto` writes `[sendto] enabled`).
 
 | File | Role |
 |---|---|
 | `targets.py` | Pure. The **closed** target table (custom schemes only — no `https://`, nothing configurable), `parse_send_phrase` (anchored at both ends), hand-rolled percent-encoding pinned to `urllib.parse.quote` by the tests, `plan_handoff` (refuses over 14,000 characters or a 32,000-character URL, empty text, control characters, invalid Unicode — never truncates), and `choose_text` (the staged buffer when staged mode is on, else the last burst) |
-| `handoff.py` | The opener seam (`Callable[[str], bool]`, injected) and `hand_off`. The default opener is `system/browser.py::open_url(url, log_url=False)` — the hand-off ADR-019 already inventories — so this package adds no outbound primitive. Logs the target and the length, never the text or the URL, including when the opener raises |
+| `handoff.py` | The opener seam (`Callable[[str], bool]`, injected) and `hand_off`. The default opener checks the scheme against the closed table, then calls `platform.get_url_opener().open_url(url)` — the platform `UrlOpener` seam — so this package spawns nothing and imports no network primitive itself. Logs the target and the length, never the text or the URL, including when the opener raises |
 
 Invariants: the staged buffer is cleared only after a successful hand-off; the last burst
 is kept in memory only while `[sendto] enabled` is on; the IPC method takes a target name
-and no text, and explicit CLI text is handed off in the CLI's own process. On Linux the
-URL is an `xdg-open` argument while it opens (visible to local users through `/proc`) —
-the exposure ADR-031 §3 records; a platform-Protocol opener is follow-up work.
+and no text, and explicit CLI text is handed off in the CLI's own process; the opener
+never accepts a web scheme (the closed table, then the seam's own refusal). On Linux the
+URL is an `xdg-open` argument while it opens, and the client's if the hand-off starts it
+(visible through `/proc` to the user's processes, and to other local users unless `/proc`
+has `hidepid=`) — the exposure ADR-031 §3 records. macOS passes it in-process
+(`NSWorkspace`), Windows through `ShellExecuteW`.
 
 ### `src/yazses/audio/`
 

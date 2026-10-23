@@ -7,11 +7,14 @@ launched. Three promises are pinned:
   opener raises an exception whose message quotes the URL. The URL *is* the text,
   percent-encoded, so a test text made only of unreserved characters appears verbatim in
   it and any leak is visible to a plain substring check.
-* **The opener is the inventoried browser hand-off**, called with `log_url=False`, and
-  the package imports no network primitive and spawns nothing itself (ADR-019).
-* **How Linux opens it** — `webbrowser`'s `xdg-open` launcher gets the URL as one argv
-  element with no shell. That is the argv exposure ADR-031 §3 records; this pins it
-  against the standard library rather than describing it from memory.
+* **The default opener is the platform seam** — `platform.get_url_opener()`, the
+  `UrlOpener` beside `FileOpener` (ADR-031 §3) — reached only for a scheme from the closed
+  target table, and the package imports no network primitive and spawns nothing itself
+  (ADR-019).
+* **How Linux opens it** — `LinuxUrlOpener` gets the planned URL, hostile text and all,
+  and passes it to `xdg-open` as one argv element with no shell. That is the argv
+  exposure ADR-031 §3 records; the per-OS backends are pinned in
+  `test_platform_url_opener_seam.py`.
 
 Not covered, and cannot be from here: whether a real Claude or Codex install pre-fills
 without submitting. ADR-031 §5 requires a validation row per client and OS for that.
@@ -144,19 +147,80 @@ def test_disabled_result_opens_nothing_and_names_the_key():
     assert "[sendto]" in DISABLED_MESSAGE and "enabled = true" in DISABLED_MESSAGE
 
 
-# ---- the default opener is the inventoried browser hand-off -------------------------
+# ---- the default opener is the platform seam --------------------------------------
 
 
-def test_the_default_opener_is_open_url_with_logging_of_the_url_off(monkeypatch):
-    seen: list[tuple[str, dict]] = []
+class _FakeUrlOpener:
+    def __init__(self, exc: Exception | None = None):
+        self.urls: list[str] = []
+        self._exc = exc
 
-    def fake_open_url(url, **kwargs):
-        seen.append((url, kwargs))
-        return True
+    def open_url(self, url: str) -> None:
+        self.urls.append(url)
+        if self._exc is not None:
+            raise self._exc
 
-    monkeypatch.setattr("yazses.system.browser.open_url", fake_open_url)
+
+def test_the_default_opener_goes_through_the_platform_url_opener(monkeypatch):
+    fake = _FakeUrlOpener()
+    monkeypatch.setattr("yazses.platform.factory.get_url_opener", lambda: fake)
     assert default_opener("claude://claude.ai/new?q=x") is True
-    assert seen == [("claude://claude.ai/new?q=x", {"log_url": False})]
+    assert fake.urls == ["claude://claude.ai/new?q=x"]
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        f"https://claude.ai/new?q={SECRET}",
+        f"http://claude.ai/new?q={SECRET}",
+        f"file:///tmp/{SECRET}",
+        f"javascript:alert('claude://{SECRET}')",
+        f"chatgpt://new?q={SECRET}",
+        SECRET,
+    ],
+)
+def test_the_default_opener_refuses_a_scheme_outside_the_target_table(monkeypatch, logs, url):
+    """The allow-list at the caller: the platform seam is never even asked."""
+    fake = _FakeUrlOpener()
+    monkeypatch.setattr("yazses.platform.factory.get_url_opener", lambda: fake)
+    assert default_opener(url) is False
+    assert fake.urls == []
+    assert SECRET not in logs.text
+
+
+def test_the_target_schemes_are_exactly_the_closed_table_s():
+    assert handoff._TARGET_SCHEMES == {"claude", "codex"}
+
+
+@pytest.mark.parametrize(
+    "exc",
+    [
+        OSError(f"xdg-open could not open claude://claude.ai/new?q={SECRET}"),
+        NotImplementedError("Unsupported platform: aix7"),
+        ValueError(f"refused claude://claude.ai/new?q={SECRET}"),
+    ],
+)
+def test_a_platform_failure_is_a_failed_hand_off_that_leaks_nothing(monkeypatch, logs, exc):
+    """No backend for this OS, no registered program, a refusal: all reported by type."""
+    monkeypatch.setattr("yazses.platform.factory.get_url_opener",
+                        lambda: _FakeUrlOpener(exc=exc))
+    result = hand_off("claude", SECRET)
+    assert not result.ok
+    assert result.reason == "open_failed"
+    assert SECRET not in logs.text
+    assert SECRET not in repr(result.as_dict())
+    assert type(exc).__name__ in logs.text
+
+
+def test_an_os_with_no_url_opener_is_a_failed_hand_off_not_a_browser(monkeypatch, logs):
+    """The real factory on an OS it has no backend for: refused, and nothing else tried."""
+    import sys
+
+    monkeypatch.setattr(sys, "platform", "aix7")
+    result = hand_off("codex", SECRET)
+    assert not result.ok and result.reason == "open_failed"
+    assert "NotImplementedError" in logs.text
+    assert SECRET not in logs.text
 
 
 def test_hand_off_without_an_opener_uses_the_default(monkeypatch):
@@ -190,40 +254,45 @@ def test_open_url_still_logs_the_url_for_everyone_else(logs):
 
 
 def test_the_linux_launcher_gets_the_url_as_one_argv_element_and_no_shell(monkeypatch):
-    """`webbrowser` registers `xdg-open` as a BackgroundBrowser on an X11/Wayland desktop.
+    """Through the real `default_opener` and the real factory, with only `Popen` faked.
 
     The URL is one argument — so hostile text cannot become a second argument or a shell
     command — and it IS in the child's argument list, the local exposure ADR-031 §3
-    records. The standard library is exercised for real; only `Popen` is replaced.
+    records. Its output goes to /dev/null: `xdg-open` quotes its argument when it fails.
     """
-    import webbrowser
+    import subprocess
+    import sys
+
+    from yazses.platform.linux import fileopen as linux_fileopen
 
     spawned: list[tuple[list, dict]] = []
 
     class _Proc:
-        def poll(self):
-            return None  # still running: webbrowser reports that as handed off
+        def wait(self, timeout=None):
+            return 0
 
     def fake_popen(cmdline, **kwargs):
         spawned.append((list(cmdline), kwargs))
         return _Proc()
 
-    monkeypatch.setattr(webbrowser.subprocess, "Popen", fake_popen)
+    monkeypatch.setattr(sys, "platform", "linux")
+    monkeypatch.setattr(linux_fileopen.subprocess, "Popen", fake_popen)
     url = handoff.plan_handoff("claude", "a; rm -rf ~ && echo $HOME `id`\n#x").url
-    launcher = webbrowser.BackgroundBrowser("xdg-open")
 
-    assert open_url(url, opener=launcher.open, log_url=False) is True
+    assert default_opener(url) is True
     assert len(spawned) == 1
     argv, kwargs = spawned[0]
     assert argv == ["xdg-open", url]
     assert not kwargs.get("shell")
+    assert kwargs["stdout"] is subprocess.DEVNULL and kwargs["stderr"] is subprocess.DEVNULL
 
 
 # ---- no new egress primitive ----------------------------------------------------
 
 
 def test_the_package_imports_no_network_primitive_and_spawns_nothing():
-    """ADR-019: reuse the inventoried hand-off; add no outbound primitive of its own."""
+    """ADR-019: no outbound primitive of its own — processes and OS calls stay behind the
+    platform seam, where `sys.platform` may be read."""
     forbidden = {"webbrowser", "subprocess", "urllib", "socket", "http", "requests",
                  "httpx", "asyncio", "os"}
     package_dir = Path(sendto_pkg.__file__).parent

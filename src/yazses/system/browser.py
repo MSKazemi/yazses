@@ -25,10 +25,11 @@ def open_url(url: str, *, opener=webbrowser.open, log_url: bool = True) -> bool:
 
     ``opener`` is injected so this is testable without launching a real browser.
 
-    ``log_url=False`` is for a URL that carries a payload the log must not hold — "send
-    to" (ADR-031) puts the user's dictation in the query string. The failure is then
-    logged by exception *type* only: no URL, and no traceback, whose exception message
-    can quote the argument it was given.
+    ``log_url=False`` is for a URL that carries a payload the log must not hold. The
+    failure is then logged by exception *type* only: no URL, and no traceback, whose
+    exception message can quote the argument it was given. It was added for "send to"
+    (ADR-031), which has since moved to the platform ``UrlOpener`` seam, so no caller
+    passes it today; it stays for the next payload-carrying caller.
     """
     if not url:
         return False

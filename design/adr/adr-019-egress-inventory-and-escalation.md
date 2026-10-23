@@ -147,8 +147,8 @@ a connection itself, and one of its callers puts a payload in that URL: the pre-
 issue report reaches github.com when the page opens. It carries no dictated text — the
 body is `report.collect`'s redacted output — but it is a transmission, and counting it as
 "not ours because the browser makes the request" is the reasoning this ADR exists to
-refuse. A second caller, "send to" (ADR-031), does put dictated text in a URL, but hands it
-to a locally installed client through a custom scheme, never to a web address: the text
+refuse. A second hand-off, "send to" (ADR-031), does put dictated text in a URL, but hands
+it to a locally installed client through a custom scheme, never to a web address: the text
 reaches a program on this machine, as it does when YazSes types into that program, and
 nothing is transmitted until the user presses Enter there. See *Reached by handing a URL
 to another program* below.
@@ -166,9 +166,9 @@ the payload.
 | Module | Program | What crosses the wire | Trigger |
 |---|---|---|---|
 | `system/browser.py` | the default browser | a fixed docs/release URL, **or** a pre-filled issue report | a tray menu item, or the "Report this" toast button |
-| `sendto/handoff.py` (through `system/browser.py`, [ADR-031](adr-031-send-to-prefill-handoff.md)) | a locally installed AI client (`claude://`, `codex://`) | **dictated text → a local program; nothing is transmitted by YazSes** | `[sendto] enabled`, then "send to Claude / Claude Code / Codex" or `yazses send-to` |
+| `sendto/handoff.py` (through the platform `UrlOpener` seam in `platform/*/fileopen.py`, [ADR-031](adr-031-send-to-prefill-handoff.md)) | a locally installed AI client (`claude://`, `codex://`) | **dictated text → a local program; nothing is transmitted by YazSes** | `[sendto] enabled`, then "send to Claude / Claude Code / Codex" or `yazses send-to` |
 
-**"Send to" (ADR-031, added 2026-10-23)** is the second caller with a payload, and the
+**"Send to" (ADR-031, added 2026-10-23)** is the second hand-off with a payload, and the
 payload is dictated text. It is classified like the issue report: a URL handed to another
 program. The difference that keeps it out of Class B is the destination. The targets are a
 closed table of **custom schemes** (`sendto/targets.py`), each resolved by the operating
@@ -177,8 +177,15 @@ when the user presses Enter — exactly what that program does with text YazSes 
 it. There is no `https://` target and no configurable URL; a web URL would carry the text
 to a server in the request that opens the page, and that would be a send. Two local
 exposures remain and are recorded in ADR-031 §3 rather than waved away: on Linux the URL
-is an argument to `xdg-open` while it runs, and so readable through `/proc` by other local
-users; and the URL is never logged (`open_url(..., log_url=False)`).
+is an argument to `xdg-open` while it runs (and to the client, if the hand-off starts it),
+and so readable through `/proc` by the user's own processes and, unless `/proc` is mounted
+with `hidepid=`, by other local users; and the URL is never logged, nor written by the
+child to the daemon's stderr. Since 2026-10-23 the hand-off no longer goes through
+`system/browser.py`: it uses the platform `UrlOpener` seam (`platform/base.py`, one backend
+per OS — `xdg-open`, `NSWorkspace`, `os.startfile`), which refuses every web, file and
+script scheme before it starts anything. No import scan can see that seam, because it
+imports no network primitive and spawns no network tool; this row and those two guards
+(the closed table, the seam's refusal) are what hold it.
 
 Every other caller passes a constant URL. The issue report is
 `core/daemon.py::_open_issue_report`, which calls `report.issue_url(title, body)`: the
