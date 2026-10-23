@@ -52,10 +52,12 @@ log = logging.getLogger(__name__)
 
 Opener = Callable[[str], bool]
 
-#: Shown when `[sendto] enabled` is false. Names the key, because there is no
-#: `yazses features enable` switch for this capability.
+#: Shown when `[sendto] enabled` is false. Names the switch and the key it writes, so a
+#: user who edits config.toml by hand is told the same thing.
 DISABLED_MESSAGE = (
-    "Send to is off. Turn it on with `enabled = true` under `[sendto]` in config.toml."
+    "Send to is off. Turn it on with `yazses features enable sendto` (it sets "
+    "`enabled = true` under `[sendto]` in config.toml), then `yazses restart` for the "
+    "spoken phrases."
 )
 
 

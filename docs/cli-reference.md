@@ -250,7 +250,7 @@ press Enter yourself; YazSes does not send it. Off by default, and not yet tried
 against the real desktop apps.
 
 ```bash
-# config.toml:  [sendto]  enabled = true
+yazses features enable sendto                  # once: writes [sendto] enabled = true
 yazses send-to claude                          # the staged buffer, or the last burst
 yazses send-to claude-code                     # the same, as a Claude Code session
 yazses send-to codex "explain the failing test"  # this text instead

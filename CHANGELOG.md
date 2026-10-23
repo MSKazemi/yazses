@@ -246,10 +246,12 @@ yourself; YazSes does not send it. The text is the staged buffer when staged mod
 give. It goes through the apps' own `claude://` and `codex://` links: the three apps are a
 fixed list, there is no web fallback and no setting that changes the address. Text over
 14,000 characters is refused, not cut, and stays in the staged buffer. The log records
-the app and the character count, never the words. Turn it on with `enabled = true` under
-`[sendto]` in `config.toml`. This is [ADR-031](design/adr/adr-031-send-to-prefill-handoff.md),
-accepted on 2026-10-23. Experimental: it has **not yet been tried against the real Claude
-or Codex desktop apps** on any platform, so whether each app pre-fills without sending is
+the app and the character count, never the words. Turn it on with
+`yazses features enable sendto` (it writes `enabled = true` under `[sendto]` in
+`config.toml`); `yazses features` lists it under Commands & automation. This is
+[ADR-031](design/adr/adr-031-send-to-prefill-handoff.md), accepted on 2026-10-23.
+Unverified: it has **not yet been tried against the real Claude or Codex desktop apps**
+on any platform, so whether each app pre-fills without sending is
 documented by the vendors, not yet observed here. The link goes through a per-OS opener
 behind the platform layer (`xdg-open` on Linux, `NSWorkspace` on macOS, `ShellExecute` on
 Windows) that refuses any web address before it starts anything. On Linux the link is an

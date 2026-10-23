@@ -3514,8 +3514,8 @@ def send_to(
     is refused, never cut. Saying "send to Claude", "send to Claude Code" or "send to
     Codex" does the same while dictating.
 
-    Off by default: requires `enabled = true` under [sendto] in config.toml. Not yet
-    tried against the real desktop apps.
+    Off by default: `yazses features enable sendto` turns it on (it sets `enabled = true`
+    under [sendto] in config.toml). Not yet tried against the real desktop apps.
     """
     from yazses.config import load_config
     from yazses.sendto.handoff import DISABLED_MESSAGE, hand_off

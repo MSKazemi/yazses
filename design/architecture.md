@@ -586,7 +586,8 @@ app (`claude`, `claude-code`) or the Codex app (`codex`) opens a new conversatio
 text in the prompt box, and the user presses Enter. Reached by the whole-utterance phrases
 "send to Claude / Claude Code / Codex" in `daemon.py::_on_hold_end` (after "scratch that",
 **before** the staged buffer, which would otherwise swallow the phrase), by the IPC method
-`send_to`, and by `yazses send-to <client> [TEXT]`.
+`send_to`, and by `yazses send-to <client> [TEXT]`. Switched on by the registry slug
+`sendto` (`yazses features enable sendto` writes `[sendto] enabled`).
 
 | File | Role |
 |---|---|

@@ -167,9 +167,15 @@ Where the build differs from §1–§5, or chose something the record left open:
 - **The CLI with TEXT** hands off in the CLI's own process; the IPC method `send_to` takes
   a target name only, so no local caller can make the daemon open a URL with text of its
   choosing.
-- **No `features` registry entry yet (§5).** The switch is `[sendto] enabled` in
-  `config.toml`; a registry slug (and the per-client verified-version line in
-  `features info`) waits for the validation rows.
+- **The registry slug (§1, §5).** The first build had none; the second adds `sendto` to
+  `system/features.py`: tier *optional* (enable only if you want it — *experimental*
+  would make `features enable sendto` demand `--force`, and no rough edge is known),
+  category *Commands & automation*, no optional dependencies, and on/off writers for
+  `[sendto] enabled` alone. It is wired (not in `_UNWIRED`). Its description says
+  exactly what happens — the three phrases, the CLI, pre-filled and never sent, no web
+  fallback, the 14,000-character refusal — and that it is **not yet verified** against
+  any real client. The per-client verified-version line §5 asks `features info` to carry
+  waits for the validation rows: there is no version to name yet.
 - **Unverified:** no hand-off has yet been tried against a real Claude or Codex install on
   any platform.
 

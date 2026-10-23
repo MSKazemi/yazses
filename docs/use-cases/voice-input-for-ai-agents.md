@@ -69,12 +69,15 @@ prompt already in the box, so you do not have to focus its input before you spea
 fills the box and stops there: you read the prompt and press Enter yourself. It is off
 by default and has not yet been tried against the real desktop apps.
 
-Turn it on in `config.toml`:
+Turn it on, then restart the daemon so it listens for the phrases:
 
-```toml
-[sendto]
-enabled = true
+```sh
+yazses features enable sendto
+yazses restart
 ```
+
+That writes `enabled = true` under `[sendto]` in `config.toml`, which you can also set by
+hand.
 
 Then dictate, review, and send it over:
 
