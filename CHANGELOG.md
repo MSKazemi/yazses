@@ -43,6 +43,17 @@ matched". The clipboard rescue needs `wl-copy`, `xclip` or `xsel`, as for proofr
 A successful spoken edit now also updates the `[timeline]` record, which still held the
 pre-edit text. Tested with a simulated text field only, not on real hardware.
 
+### Added — the Mouth-Sound Switch can say item names without reading your dictation back (experimental, off by default)
+
+New key `[mouthswitch] speak_names` (default `false`). Where the overlay cannot draw the
+scan, the item names used to be spoken only if read-back (`[tts]`) was on, and read-back
+also reads every dictation back. With `speak_names = true` and read-back off, the switch
+builds the same offline voice for itself, from your `[tts]` voice and speed, and your
+dictation is still not read back. It never downloads the voice model: it needs the `tts`
+extra and a model already on this computer. Without them, the steps are announced with
+earcon ticks only, and one log line says why. Existing installs are unchanged. Tested with
+a simulated voice only, not on real hardware.
+
 ### Fixed — a heard Mouth-Sound Switch step leaves time for a click after the cue and the name (experimental, off by default)
 
 The click detector ignores any click that follows a voiced sound by less than 400 ms, and

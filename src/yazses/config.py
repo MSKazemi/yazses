@@ -1986,11 +1986,17 @@ class MouthswitchConfig:
     ``scan_items`` every ``dwell_s`` seconds; a tongue click runs the lit item. Armed by
     `yazses handsfree resume`. The overlay draws the highlight; where it cannot run, each
     step is announced instead when ``[earcon]`` or ``[tts]`` is on (a spoken name holds
-    its item lit for longer than ``dwell_s`` if it needs to).
+    its item lit for longer than ``dwell_s`` if it needs to). ``speak_names`` speaks the
+    item names in the offline voice without turning on read-back of your dictation.
     """
     enabled: bool = False
     # Seconds per highlight step (clamped to 0.5-10 by mouthswitch/scanner.py).
     dwell_s: float = 1.2
+    # Where the overlay cannot draw the scan, say each item's name in the offline [tts]
+    # voice even with read-back off; your dictation is still not read back. Needs the tts
+    # extra and its voice model already on disk (never downloaded for this); without
+    # them the steps are announced with earcons only, and the log says why once.
+    speak_names: bool = False
     # What the scan offers, in order. "click", "scroll up" and "scroll down" are pointer
     # operations; anything else is a command phrase the command grammar must know and run
     # without confirmation, or it is dropped (with a log line) when the daemon starts.

@@ -7,7 +7,10 @@ there *audibly* instead, with two existing outputs the daemon hands in:
 
 * an **earcon cue** at every step (``[earcon]``, ADR-v2-096): ``scan_first`` when the scan
   is back at the first item, ``scan_step`` for every other item, so the steps can be counted;
-* the item's **name, spoken** by the offline read-back voice (``[tts]``), when it can speak.
+* the item's **name, spoken** by the offline read-back voice (``[tts]``), when it can speak
+  -- or, with ``[mouthswitch] speak_names`` and read-back off, by a voice built for the
+  switch alone (:func:`switch_voice`), so the names are heard without your dictation being
+  read back.
 
 Either one is enough to run; with neither, ``build_mouthswitch`` still refuses.
 
@@ -23,10 +26,13 @@ voice are callables, so the tests run on fakes.
 """
 from __future__ import annotations
 
+import copy
+import dataclasses
 import logging
 import math
 import threading
 from collections.abc import Callable
+from typing import Any
 
 from yazses.mouthswitch.scanner import ScanItem
 
@@ -35,8 +41,10 @@ __all__ = [
     "SPEECH_LEAD_S",
     "SPEECH_S_PER_CHAR",
     "STEP_CUE",
+    "SWITCH_VOICE_PURPOSE",
     "ScanAnnouncer",
     "speech_duration_s",
+    "switch_voice",
 ]
 
 log = logging.getLogger(__name__)
@@ -53,6 +61,57 @@ SPEECH_LEAD_S = 0.35
 SPEECH_S_PER_CHAR = 0.075
 _MIN_SPEED = 0.5
 _MAX_SPEED = 2.0
+
+#: What the switch-only voice is called in the TTS factory's log line, so a user who never
+#: turned read-back on is not told that read-back is on.
+SWITCH_VOICE_PURPOSE = "Speaking the Mouth-Sound Switch's item names ([mouthswitch] speak_names)"
+
+
+def _enabled_copy(tts_config: Any) -> Any:
+    """A copy of ``[tts]`` with ``enabled`` on; the config the daemon holds is untouched."""
+    if dataclasses.is_dataclass(tts_config) and not isinstance(tts_config, type):
+        return dataclasses.replace(tts_config, enabled=True)
+    clone = copy.copy(tts_config)
+    clone.enabled = True
+    return clone
+
+
+def switch_voice(
+    tts_config: Any,
+    *,
+    build: Callable[[Any], Any],
+    files_present: Callable[[], bool],
+) -> tuple[Any | None, str]:
+    """A voice for the switch's item names alone, or ``(None, why)``. Never raises.
+
+    For ``[mouthswitch] speak_names`` with read-back off. ``build`` is the factory read-back
+    uses (``tts.factory.build_tts``), handed a *copy* of ``[tts]`` with ``enabled`` on: the
+    voice, speed and model paths are the user's own ``[tts]`` settings, and ``[tts]`` itself
+    stays off, so nothing that reads it -- dictation read-back above all -- turns on.
+
+    It never fetches anything. The voice model's download is registered (ADR-019) as
+    something enabling read-back does; ``speak_names`` is not that, so the model must
+    already be on disk (``files_present``) or there is no voice. A backend that degraded to
+    the silent null one (the ``tts`` extra missing, say) is no voice either; ``why`` is then
+    ``""``, because the factory has already logged the reason, once.
+    """
+    try:
+        present = bool(files_present())
+    except Exception as exc:
+        return None, f"could not check for the offline voice model ({type(exc).__name__})"
+    if not present:
+        return None, (
+            "the offline voice model is not on this machine, and speak_names never "
+            "downloads it; turn read-back on once to fetch it (`yazses features enable "
+            "read-back`, then off again), or copy it in by hand (docs/how-to/air-gapped.md)"
+        )
+    try:
+        voice = build(_enabled_copy(tts_config))
+    except Exception as exc:
+        return None, f"the offline voice could not start ({type(exc).__name__})"
+    if voice is None or getattr(voice, "name", "null") == "null":
+        return None, ""
+    return voice, ""
 
 
 def speech_duration_s(text: object, speed: object = 1.0) -> float:

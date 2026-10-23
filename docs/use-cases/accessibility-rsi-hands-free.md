@@ -222,10 +222,23 @@ using what you have turned on:
 - with read-back on (`yazses features enable read-back`), the offline voice also says the
   item's name ("enter", "undo", "scroll down"). An item stays lit until its name has been
   said, even when that takes longer than `dwell_s`. Read-back needs the `tts` extra,
-  fetches its voice model on first use, and also reads your dictation back.
+  fetches its voice model on first use, and also reads your dictation back;
+- to hear the names **without** your dictation being read back, leave read-back off and
+  set `speak_names = true` under `[mouthswitch]`. The switch then builds the same offline
+  voice for itself, using your `[tts]` voice and speed. It needs the `tts` extra and a
+  voice model that is already on this computer, because it never downloads one. To fetch
+  the model, turn read-back on once, start YazSes, then turn read-back off again. Without
+  the extra or the model, the steps are announced with earcon ticks only, and the log
+  says why.
+
+```toml
+[mouthswitch]
+enabled = true
+speak_names = true   # say each item's name; your dictation is still not read back
+```
 
 What you hear is what a click selects: the item announced when your click began is the item
-that runs. With neither earcons nor read-back on, the switch does not start, and
+that runs. With neither earcons nor a voice, the switch does not start, and
 `handsfree resume` says why. Headphones are a good idea. The scan's microphone also hears
 the speakers, and a click is not detected while a tick or a name is sounding, or for
 0.4 s after it ends. So when the scan is announced, each item stays lit 0.4 s longer than it

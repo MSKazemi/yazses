@@ -2908,7 +2908,9 @@ class Daemon:
         Two existing outputs, each used only when the user already turned it on: the earcon
         player (`[earcon]`) for a cue at every step, and the read-back voice (`[tts]`) for
         the item's name. A voice that degraded to the silent null backend does not count:
-        a name nobody hears is no announcement. Never raises.
+        a name nobody hears is no announcement. With read-back off (`self._tts` is None)
+        and `[mouthswitch] speak_names` on, the names come from a voice built for the
+        switch alone (`_mouthswitch_voice`); read-back itself stays off. Never raises.
         """
         try:
             from yazses.mouthswitch.announce import ScanAnnouncer, speech_duration_s
@@ -2919,6 +2921,8 @@ class Daemon:
             cancel: Callable[[], None] | None = None
             begin: Callable[[], None] | None = None
             tts = self._tts
+            if tts is None and cfg.mouthswitch.speak_names:
+                tts = self._mouthswitch_voice(cfg)
             if tts is not None and tts.name != "null":
                 speak, cancel = tts.speak, tts.cancel
                 begin = getattr(tts, "begin", None)
@@ -2932,6 +2936,54 @@ class Daemon:
         except Exception:
             log.warning("Mouth-Sound Switch announcer init failed", exc_info=True)
             return None
+
+    def _mouthswitch_voice(self, cfg):
+        """A voice for the switch's item names alone (`[mouthswitch] speak_names`), or None.
+
+        Reached only with the overlay unavailable and read-back off. Built lazily, here and
+        only here, through the factory read-back uses, from a copy of `[tts]` with
+        `enabled` on -- `self._tts` stays None, so dictation is never read back. Never
+        downloads the voice model (`switch_voice`). Without a voice the scan is announced
+        with earcons only, and one log line says why. Never raises.
+        """
+        try:
+            from yazses.mouthswitch.announce import SWITCH_VOICE_PURPOSE, switch_voice
+            from yazses.tts.factory import build_tts
+
+            voice, why = switch_voice(
+                cfg.tts,
+                build=lambda tts_cfg: build_tts(tts_cfg, purpose=SWITCH_VOICE_PURPOSE),
+                files_present=lambda: self._tts_model_on_disk(cfg.tts),
+            )
+        except Exception as exc:
+            voice, why = None, f"the offline voice could not be built ({type(exc).__name__})"
+        if voice is None and why:
+            log.warning("[mouthswitch] speak_names: %s. Scan steps are announced with "
+                        "earcons only, if [earcon] is on.", why)
+        return voice
+
+    @staticmethod
+    def _tts_model_on_disk(tts_cfg) -> bool:
+        """Whether the voice files `[tts]` resolves to are already local. No network.
+
+        Mirrors `KokoroTtsBackend._resolve_models`: a configured path wins, else the shared
+        cache. An engine other than Kokoro has no model of ours to fetch, so the factory
+        alone decides whether it can speak.
+        """
+        engine = str(getattr(tts_cfg, "engine", "kokoro") or "kokoro")
+        if engine != "kokoro":
+            return True
+        from pathlib import Path
+
+        model = str(getattr(tts_cfg, "model_path", "") or "")
+        voices = str(getattr(tts_cfg, "voices_path", "") or "")
+        if not (model and voices):
+            from yazses.tts.download import model_paths
+
+            default_model, default_voices = model_paths()
+            model = model or str(default_model)
+            voices = voices or str(default_voices)
+        return Path(model).exists() and Path(voices).exists()
 
     def _build_morsevox(self, cfg):
         """Vocal Morse (ADR-v2-105), or None while `[morsevox]` is off (the default).

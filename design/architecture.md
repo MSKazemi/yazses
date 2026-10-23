@@ -773,14 +773,18 @@ click *began*. A third microphone reader beside dictation; nothing reaches speec
 |---|---|
 | `detect.py` | Pure numpy. `MouthSoundDetector`: isolated, short, unvoiced onsets → classified sound → switch action. Thresholds synthetic-only. |
 | `scanner.py` | Pure, clock-injected. `SwitchScanner`: the highlight as a function of time, select-at-onset, the inactivity stop. An injected `announce_s` holds an item lit until its name has been said; an injected `post_voice_s` (a heard scan only) adds the detector's post-voice deafness to every step. |
-| `announce.py` | `ScanAnnouncer`: an earcon cue per step and the item's name in the read-back voice, both injected callables. Used only where the overlay will not run. |
+| `announce.py` | `ScanAnnouncer`: an earcon cue per step and the item's name in the read-back voice, both injected callables. Used only where the overlay will not run. `switch_voice`: the `speak_names` voice, built through an injected factory, never downloaded. |
 | `runtime.py` | The impure shell: microphone stream, worker thread, pointer sink, command runner, and the build rules. |
 
 **Invariant: a select lands only on an item the user can see or hear.** The overlay draws
 the scan strip from the `status` reply's `mouthswitch` block. Where it will not run, the
 daemon (`_mouthswitch_announcer`) builds an announcer from the earcon player and the
 read-back voice the user already turned on (a voice degraded to the null backend does not
-count). With neither, `build_mouthswitch` refuses and `handsfree resume` says why.
+count). With read-back off and `[mouthswitch] speak_names` on, `_mouthswitch_voice` builds
+a voice for the switch alone through `build_tts`, from a copy of `[tts]` with `enabled`
+forced on; `self._tts` stays None, so dictation is never read back. It never downloads
+the model (`announce.switch_voice` requires the files on disk), keeping ADR-019's trigger
+for that download "user enables read-back". With neither, `build_mouthswitch` refuses and `handsfree resume` says why.
 Announcements read the same scanner timeline a click selects from. A heard step is lit for
 `max(dwell_s, announcement) + post_voice_deaf_s()`, the last term derived from
 `detect.CONTEXT_MS` (the detector rejects a click with voiced audio in that run-up, and the

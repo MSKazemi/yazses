@@ -29,6 +29,8 @@ case below uses the same synthetic click and pop, not recorded sounds.
 from __future__ import annotations
 
 import dataclasses
+import logging
+import threading
 import types
 from dataclasses import dataclass
 
@@ -921,6 +923,171 @@ def test_a_read_back_voice_that_degraded_to_silence_announces_nothing(monkeypatc
     daemon._mouthswitch = daemon._build_mouthswitch(cfg)
     assert daemon._mouthswitch.runner is None
     assert "overlay" in daemon._mouthswitch.reason
+
+
+class SwitchVoice(FakeVoice):
+    """The voice the factory hands `speak_names`; signals when it has said something."""
+
+    name = "kokoro"
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.spoke = threading.Event()
+
+    def speak(self, text: str) -> None:
+        super().speak(text)
+        self.spoke.set()
+
+
+def _speak_names_daemon(monkeypatch, *, voice=None, model_on_disk=True):
+    """No overlay, read-back off, `speak_names` on; the TTS factory and model check faked.
+
+    Returns the daemon, its config, the voice the factory hands out, and the factory's calls
+    as ``(config it was given, purpose)``.
+    """
+    import yazses.tts.factory as factory
+
+    daemon, cfg = _no_overlay_daemon(monkeypatch)
+    cfg.mouthswitch.speak_names = True
+    voice = SwitchVoice() if voice is None else voice
+    calls: list[tuple[object, str]] = []
+
+    def build_tts(tts_cfg, *, purpose="Read-back"):
+        calls.append((tts_cfg, purpose))
+        return voice
+
+    monkeypatch.setattr(factory, "build_tts", build_tts)
+    monkeypatch.setattr(daemon, "_tts_model_on_disk", lambda tts_cfg: model_on_disk)
+    return daemon, cfg, voice, calls
+
+
+def test_speak_names_says_the_names_with_read_back_off(monkeypatch):
+    from yazses.mouthswitch.announce import SWITCH_VOICE_PURPOSE
+    from yazses.mouthswitch.scanner import ScanItem
+
+    daemon, cfg, voice, calls = _speak_names_daemon(monkeypatch)
+    assert cfg.tts.enabled is False and daemon._tts is None  # read-back is off
+    announcer = daemon._mouthswitch_announcer(cfg)
+    assert announcer is not None and announcer.mode == "speech"
+    announcer.announce(ScanItem("undo", "command"), first=False)
+    assert voice.spoke.wait(timeout=2.0)
+    announcer.close()
+    assert voice.said == ["undo"]
+    # Built through the read-back factory, from [tts] with `enabled` on, under its own name.
+    ((built, purpose),) = calls
+    assert built.enabled is True and purpose == SWITCH_VOICE_PURPOSE
+
+
+def test_speak_names_leaves_read_back_off(monkeypatch):
+    daemon, cfg, voice, _calls = _speak_names_daemon(monkeypatch)
+    daemon._mouthswitch = daemon._build_mouthswitch(cfg)
+    try:
+        assert daemon._mouthswitch.available
+        assert daemon._mouthswitch_payload()["announce"] == "speech"
+        # Read-back is still off: no read-back voice, and a dictation is not read back.
+        assert daemon._tts is None and cfg.tts.enabled is False
+        daemon._maybe_read_back("this dictation must not be spoken")
+        assert voice.said == []
+        reply = daemon._handle_readback_speak(Request("say", {"text": "hello"}))
+        assert reply["ok"] is False and voice.said == []
+    finally:
+        daemon._mouthswitch.stop()
+
+
+def test_speak_names_without_the_tts_extra_falls_back_to_earcons(monkeypatch):
+    from yazses.tts.null import NullTtsBackend
+
+    daemon, cfg, _voice, calls = _speak_names_daemon(monkeypatch, voice=NullTtsBackend())
+    daemon._earcon = FakeEarcon()
+    daemon._mouthswitch = daemon._build_mouthswitch(cfg)
+    try:
+        assert len(calls) == 1
+        assert daemon._mouthswitch.available
+        assert daemon._mouthswitch_payload()["announce"] == "earcon"
+    finally:
+        daemon._mouthswitch.stop()
+
+
+def test_speak_names_without_the_model_never_builds_a_voice_and_says_why_once(
+    monkeypatch, caplog
+):
+    caplog.set_level(logging.WARNING, logger="yazses.core.daemon")
+    daemon, cfg, _voice, calls = _speak_names_daemon(monkeypatch, model_on_disk=False)
+    daemon._earcon = FakeEarcon()
+    daemon._mouthswitch = daemon._build_mouthswitch(cfg)
+    try:
+        assert calls == []                 # never constructed, so never downloaded
+        assert daemon._mouthswitch_payload()["announce"] == "earcon"
+        lines = [r.getMessage() for r in caplog.records if "speak_names" in r.getMessage()]
+        assert len(lines) == 1 and "earcons only" in lines[0]
+    finally:
+        daemon._mouthswitch.stop()
+
+
+def test_speak_names_with_no_voice_and_no_earcon_is_still_no_switch(monkeypatch):
+    from yazses.tts.null import NullTtsBackend
+
+    daemon, cfg, _voice, _calls = _speak_names_daemon(monkeypatch, voice=NullTtsBackend())
+    daemon._mouthswitch = daemon._build_mouthswitch(cfg)
+    assert daemon._mouthswitch.runner is None
+    assert "cannot see or hear" in daemon._mouthswitch.reason
+
+
+def test_speak_names_off_builds_no_voice(monkeypatch):
+    """The shipped default: read-back off and speak_names off is exactly what it was."""
+    daemon, cfg, _voice, calls = _speak_names_daemon(monkeypatch)
+    cfg.mouthswitch.speak_names = False
+    assert Config().mouthswitch.speak_names is False
+    daemon._mouthswitch = daemon._build_mouthswitch(cfg)
+    assert calls == [] and daemon._mouthswitch.runner is None
+
+
+def test_speak_names_is_read_from_the_config_file(tmp_path):
+    from yazses.config import load_config
+
+    path = tmp_path / "config.toml"
+    path.write_text("[mouthswitch]\nenabled = true\nspeak_names = true\n", encoding="utf-8")
+    loaded = load_config(path)
+    assert loaded.mouthswitch.speak_names is True
+    assert loaded.tts.enabled is False  # it does not switch read-back on behind your back
+
+
+def test_speak_names_with_read_back_on_uses_the_read_back_voice(monkeypatch):
+    daemon, cfg, _voice, calls = _speak_names_daemon(monkeypatch)
+    daemon._tts = FakeVoice()
+    daemon._mouthswitch = daemon._build_mouthswitch(cfg)
+    try:
+        assert calls == []                 # no second voice beside read-back's own
+        assert daemon._mouthswitch_payload()["announce"] == "speech"
+    finally:
+        daemon._mouthswitch.stop()
+
+
+def test_the_model_check_honours_configured_paths_and_other_engines(tmp_path):
+    from yazses.config import TtsConfig
+    from yazses.core.daemon import Daemon
+
+    model, voices = tmp_path / "m.onnx", tmp_path / "v.bin"
+    cfg = TtsConfig(model_path=str(model), voices_path=str(voices))
+    assert Daemon._tts_model_on_disk(cfg) is False
+    model.write_bytes(b"")
+    assert Daemon._tts_model_on_disk(cfg) is False  # both files are needed
+    voices.write_bytes(b"")
+    assert Daemon._tts_model_on_disk(cfg) is True
+    # No model of ours to fetch for another engine: the factory alone decides.
+    assert Daemon._tts_model_on_disk(TtsConfig(engine="melo")) is True
+
+
+def test_the_factory_names_what_the_voice_is_for(caplog):
+    from yazses.config import TtsConfig
+    from yazses.tts.factory import build_tts
+
+    caplog.set_level(logging.WARNING, logger="yazses.tts.factory")
+    assert build_tts(TtsConfig(enabled=True, engine="melo"), purpose="Speaking X").name == "null"
+    assert "Speaking X is enabled" in caplog.text and "Read-back" not in caplog.text
+    caplog.clear()
+    build_tts(TtsConfig(enabled=True, engine="melo"))
+    assert "Read-back is enabled" in caplog.text  # the default wording is unchanged
 
 
 def test_with_the_overlay_the_daemon_builds_no_announcer(monkeypatch):

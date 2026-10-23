@@ -44,8 +44,13 @@ def _build(engine: str, config) -> TtsBackend:
     return KokoroTtsBackend(config)
 
 
-def build_tts(config) -> TtsBackend | None:
-    """Return a TTS backend for *config*, or None when ``[tts]`` is disabled."""
+def build_tts(config, *, purpose: str = "Read-back") -> TtsBackend | None:
+    """Return a TTS backend for *config*, or None when ``[tts]`` is disabled.
+
+    ``purpose`` names what the voice is for in the log line a degraded backend writes.
+    Read-back is the default; the Mouth-Sound Switch's ``speak_names`` passes its own, so
+    a user who never turned read-back on is not told it is on.
+    """
     if not getattr(config, "enabled", False):
         return None
 
@@ -58,7 +63,7 @@ def build_tts(config) -> TtsBackend | None:
     )
     if not status.available:
         log.warning(
-            "Read-back is enabled but %s. No speech will be produced.", status.message
+            "%s is enabled but %s. No speech will be produced.", purpose, status.message
         )
         return NullTtsBackend()
 
@@ -70,10 +75,10 @@ def build_tts(config) -> TtsBackend | None:
         # audio device -- both of which the error itself names, so it is passed
         # through rather than summarised away.
         log.warning(
-            "Read-back is enabled and the %r backend is installed, but it could not "
+            "%s is enabled and the %r backend is installed, but it could not "
             "start: %s. The voice model is downloaded on first use, so a blocked or "
             "interrupted download is the usual cause; `docs/how-to/air-gapped.md` "
-            "covers installing it by hand. Read-back will be silent.",
-            engine, exc,
+            "covers installing it by hand. %s will be silent.",
+            purpose, engine, exc, purpose,
         )
         return NullTtsBackend()
