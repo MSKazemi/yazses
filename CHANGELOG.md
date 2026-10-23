@@ -6,6 +6,21 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — assigning an issue moves its card to In Progress on the project board
+
+The [project board](https://github.com/users/MSKazemi/projects/8) moves cards by itself when
+an issue is closed, reopened or linked to a pull request, but GitHub has no built-in rule for
+assignment, which is how someone claims an issue. `.github/workflows/project-status.yml` now
+runs on `issues: [assigned, unassigned]`: an open issue that gains an assignee moves from Todo
+to In Progress, and one whose last assignee leaves moves back to Todo unless an open pull
+request still references it. A card someone moved by hand is never dragged back. The rule is
+`scripts/project_status.py`, pinned by `tests/test_project_status.py`.
+
+It needs a personal token with the `project` scope in the `PROJECT_TOKEN` repository secret,
+because the repository's own token cannot write to a user-owned project. Until that secret
+exists the run ends green with a notice. Only an issue event triggers it, so no pull
+request's code runs next to the token.
+
 ### Fixed — `yazses status` names the speech engine actually decoding, and says when it fell back ([#644](https://github.com/MSKazemi/yazses/issues/644))
 
 With `[stt] engine = "parakeet"` (or `"moonshine"`) and that engine missing or failing to

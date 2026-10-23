@@ -1,0 +1,44 @@
+name: Project board status on assignment
+
+# Assignment is how someone claims an issue, but GitHub's built-in project workflows do not
+# react to it, so the board's "In Progress" column missed exactly the work people had said
+# they were doing. This moves the issue's card on https://github.com/users/MSKazemi/projects/8
+# when an assignee is added or the last one leaves. The rule lives in
+# `scripts/project_status.py`, pinned by `tests/test_project_status.py`.
+#
+# SECURITY: the repository's own GITHUB_TOKEN cannot write to a user-owned project, so this
+# needs a personal token with the `project` scope in the PROJECT_TOKEN secret. It is safe to
+# hand that secret to this job because the only trigger is an issue event: it runs the
+# default branch's code, never a pull request's, and fork PRs cannot reach it. Do not add a
+# pull_request or pull_request_target trigger to this file.
+on:
+  issues:
+    types: [assigned, unassigned]
+
+# The job talks to the project with PROJECT_TOKEN only; GITHUB_TOKEN just checks out the
+# default branch.
+permissions:
+  contents: read
+
+# Assign-then-unassign in quick succession queues rather than races; the script reads the
+# issue's live state, so the last run settles on what is true.
+concurrency:
+  group: project-status-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  status:
+    if: github.repository == 'MSKazemi/yazses'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30   # no run to measure yet (CI_POLICY §8)
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Move the card
+        env:
+          GH_TOKEN: ${{ secrets.PROJECT_TOKEN }}
+          PROJECT_OWNER: MSKazemi
+          PROJECT_NUMBER: "8"
+        run: python3 scripts/project_status.py
