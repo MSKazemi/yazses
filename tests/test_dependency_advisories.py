@@ -692,3 +692,120 @@ def test_the_sweep_is_actually_published():
         f"{missing} are guarded here but not listed in .github/SECURITY.md, so a "
         "reader holding Scorecard's list cannot find what happened to them."
     )
+
+
+# ---------------------------------------------------------------------------
+# GHSA-83vg-56qc-22m7 -- `GitPython <= 3.2.0`, submodule cloned into `.git/hooks`
+#
+# A fix exists (3.2.1) and the lock cannot take it: `mkdocs-rss-plugin` 1.19.0,
+# its newest release, declares `GitPython<3.2`. The published assessment rests on
+# GitPython being a documentation-build tool that no user installs, and on nothing
+# here calling `Repo.create_submodule`. Both are pinned below, and so is the version,
+# so the entry is retired the day the lock moves past the fix.
+# ---------------------------------------------------------------------------
+
+#: The first release that fixes GHSA-83vg-56qc-22m7.
+GITPYTHON_PATCHED = (3, 2, 1)
+
+
+def _lock_graph() -> dict[str, dict]:
+    """name -> {"deps": [...], "extras": {extra: [...]}} merged across platform forks."""
+    lock = tomllib.loads((ROOT / "uv.lock").read_text(encoding="utf-8"))
+    graph: dict[str, dict] = {}
+    for pkg in lock["package"]:
+        node = graph.setdefault(pkg["name"], {"deps": [], "extras": {}})
+        node["deps"] += pkg.get("dependencies", [])
+        for extra, deps in pkg.get("optional-dependencies", {}).items():
+            node["extras"].setdefault(extra, []).extend(deps)
+    return graph
+
+
+def _reachable(graph: dict[str, dict], roots: list[dict]) -> set[str]:
+    seen: set[str] = set()
+    todo = list(roots)
+    while todo:
+        dep = todo.pop()
+        node = graph.get(dep["name"])
+        if node is None:
+            continue
+        if dep["name"] not in seen:
+            seen.add(dep["name"])
+            todo += node["deps"]
+        for extra in dep.get("extra", []):
+            todo += node["extras"].get(extra, [])
+    return seen
+
+
+def test_gitpython_reaches_no_user_install():
+    """Fact 1: base dependencies plus every extra, on every platform, never pull it in."""
+    graph = _lock_graph()
+    project = graph["yazses"]
+    shipped = _reachable(
+        graph, project["deps"] + [d for deps in project["extras"].values() for d in deps]
+    )
+    assert "gitpython" not in shipped, (
+        "an installable extra (or the base install) now pulls in gitpython, which "
+        "carries GHSA-83vg-56qc-22m7 below 3.2.1. .github/SECURITY.md says no user "
+        "ever installs it. Either drop that dependency or rewrite the assessment."
+    )
+
+
+def test_gitpython_still_arrives_through_the_docs_group():
+    """Guard the guard: if gitpython left the lock, the test above proves nothing."""
+    lock = tomllib.loads((ROOT / "uv.lock").read_text(encoding="utf-8"))
+    project = next(p for p in lock["package"] if p["name"] == "yazses")
+    docs = project.get("dev-dependencies", {}).get("docs", [])
+    assert "gitpython" in _reachable(_lock_graph(), docs), (
+        "gitpython is no longer reached from the docs group. If it left the lock, "
+        "delete its entry from .github/SECURITY.md and these tests."
+    )
+
+
+def _gitpython_imports() -> list[str]:
+    hits = []
+    for base in ("src", "scripts", "tests"):
+        for path in sorted((ROOT / base).rglob("*.py")):
+            tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+            for node in ast.walk(tree):
+                names = []
+                if isinstance(node, ast.Import):
+                    names = [a.name for a in node.names]
+                elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+                    names = [node.module]
+                if any(n == "git" or n.startswith("git.") for n in names):
+                    hits.append(f"{path.relative_to(ROOT)}:{node.lineno}")
+    return hits
+
+
+def test_nothing_here_imports_gitpython():
+    """Fact 2, the half this repository controls: no code of ours calls GitPython."""
+    hits = _gitpython_imports()
+    assert not hits, (
+        f"{hits} import GitPython, whose `Repo.create_submodule` is GHSA-83vg-56qc-22m7. "
+        ".github/SECURITY.md says nothing here uses it; rewrite that entry, and never "
+        "pass it a path or URL you did not write yourself."
+    )
+
+
+def test_the_gitpython_import_detector_can_fire():
+    tree = ast.parse("import git\nfrom git.repo import Repo\n")
+    modules = [a.name for n in ast.walk(tree) if isinstance(n, ast.Import) for a in n.names]
+    modules += [n.module for n in ast.walk(tree) if isinstance(n, ast.ImportFrom)]
+    assert modules == ["git", "git.repo"]
+
+
+def test_the_gitpython_assessment_retires_when_the_lock_takes_the_fix():
+    """Once the lock reaches 3.2.1, the entry describes a hold that no longer exists."""
+    got = _locked_version("gitpython")
+    assert got < GITPYTHON_PATCHED, (
+        f"uv.lock now resolves gitpython {'.'.join(map(str, got))}, which fixes "
+        "GHSA-83vg-56qc-22m7. Mark the GitPython entry in .github/SECURITY.md resolved, "
+        "and delete these GitPython tests."
+    )
+
+
+def test_the_gitpython_assessment_is_actually_published():
+    text = SECURITY_POLICY.read_text(encoding="utf-8")
+    assert "GHSA-83vg-56qc-22m7" in text and "mkdocs-rss-plugin" in text, (
+        "the GitPython advisory is guarded here but not assessed in .github/SECURITY.md"
+    )

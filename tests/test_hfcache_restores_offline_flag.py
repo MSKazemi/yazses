@@ -43,19 +43,26 @@ def no_hub(monkeypatch):
     monkeypatch.delenv("TRANSFORMERS_OFFLINE", raising=False)
 
 
-def _import_hub_now() -> types.ModuleType:
-    """Mimic huggingface_hub being imported: it reads the env var *at import*."""
+def _import_hub_now(monkeypatch) -> types.ModuleType:
+    """Mimic huggingface_hub being imported: it reads the env var *at import*.
+
+    Installed through `monkeypatch`, never by assigning `sys.modules` directly. `no_hub`
+    deletes the real module with `delitem(..., raising=False)`, which records nothing
+    when the hub was never imported -- so a fake planted by assignment outlived the
+    test, and a later `from huggingface_hub import constants` in the same worker got it
+    (`test_hub_cache_dir_is_the_platform_default` failed under `-n auto`).
+    """
     module = types.ModuleType(_CONSTANTS)
     module.HF_HUB_OFFLINE = hfcache._truthy(  # noqa: SLF001 - mirroring the library
         __import__("os").environ.get("HF_HUB_OFFLINE")
     )
-    sys.modules[_CONSTANTS] = module
+    monkeypatch.setitem(sys.modules, _CONSTANTS, module)
     return module
 
 
-def test_a_hub_imported_inside_the_window_is_restored_to_online(no_hub):
+def test_a_hub_imported_inside_the_window_is_restored_to_online(no_hub, monkeypatch):
     with hfcache.cache_first():
-        constants = _import_hub_now()
+        constants = _import_hub_now(monkeypatch)
         assert constants.HF_HUB_OFFLINE is True, "the window must forbid hub requests"
 
     assert constants.HF_HUB_OFFLINE is False, (
@@ -70,14 +77,14 @@ def test_a_user_who_asked_for_offline_still_has_it_afterwards(no_hub, monkeypatc
     monkeypatch.setenv("HF_HUB_OFFLINE", "1")
 
     with hfcache.cache_first():
-        constants = _import_hub_now()
+        constants = _import_hub_now(monkeypatch)
 
     assert constants.HF_HUB_OFFLINE is True
     assert hfcache.offline_requested() is True
 
 
-def test_a_hub_already_imported_is_restored_to_its_prior_value(no_hub):
-    constants = _import_hub_now()
+def test_a_hub_already_imported_is_restored_to_its_prior_value(no_hub, monkeypatch):
+    constants = _import_hub_now(monkeypatch)
     assert constants.HF_HUB_OFFLINE is False
 
     with hfcache.cache_first():
@@ -86,7 +93,9 @@ def test_a_hub_already_imported_is_restored_to_its_prior_value(no_hub):
     assert constants.HF_HUB_OFFLINE is False
 
 
-def test_a_cache_miss_still_downloads_when_the_hub_imports_inside_the_window(no_hub):
+def test_a_cache_miss_still_downloads_when_the_hub_imports_inside_the_window(
+    no_hub, monkeypatch
+):
     """The end-to-end shape of the Parakeet failure, with no network involved.
 
     First call misses (the loader is offline and the model is not cached); the
@@ -96,7 +105,7 @@ def test_a_cache_miss_still_downloads_when_the_hub_imports_inside_the_window(no_
     seen: list[bool] = []
 
     def load():
-        constants = sys.modules.get(_CONSTANTS) or _import_hub_now()
+        constants = sys.modules.get(_CONSTANTS) or _import_hub_now(monkeypatch)
         offline = bool(constants.HF_HUB_OFFLINE)
         seen.append(offline)
         if offline:
@@ -107,3 +116,26 @@ def test_a_cache_miss_still_downloads_when_the_hub_imports_inside_the_window(no_
     assert seen == [True, False], (
         f"expected a cache-first attempt then an online retry, got offline={seen}"
     )
+
+
+
+def test_the_fake_hub_does_not_outlive_its_test():
+    """Teardown must remove the fake even when the real hub was never imported.
+
+    That is the state of an xdist worker that reaches this file before anything has
+    imported huggingface_hub, and the only state in which the old direct assignment
+    leaked. Reproduce it, run one test's worth of patching, and undo it as pytest would.
+    """
+    real = sys.modules.pop(_CONSTANTS, None)
+    try:
+        with pytest.MonkeyPatch.context() as mp:
+            mp.delitem(sys.modules, _CONSTANTS, raising=False)  # what `no_hub` does
+            fake = _import_hub_now(mp)
+            assert sys.modules[_CONSTANTS] is fake
+        assert _CONSTANTS not in sys.modules, (
+            "the fake huggingface_hub.constants survived teardown; the next "
+            "`from huggingface_hub import constants` in this worker would get it"
+        )
+    finally:
+        if real is not None:
+            sys.modules[_CONSTANTS] = real
