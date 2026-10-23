@@ -6,6 +6,21 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the Windows Store (MSIX) build no longer reads the desktop-apps microphone switch as a refusal ([#653](https://github.com/MSKazemi/yazses/issues/653))
+
+The Windows microphone and camera checks read three privacy switches: device-wide, per-user,
+and "Let desktop apps access your microphone/camera". The last one governs the .exe, pip,
+Scoop, winget and Chocolatey installs. It does not govern a packaged app: the MSIX build
+gets its own entry in the Settings app list. So a Store user with the desktop-apps switch
+off and YazSes allowed would have seen a false `doctor` FAIL and a "microphone denied"
+notification at start-up. The MSIX build now skips that switch. Windows does not document
+where it stores a packaged app's own setting, so YazSes does not read it. On the Store
+build the microphone check relies on the two broader switches and the device list, so a
+YazSes-only refusal there is not detected. The camera check answers "undetermined" rather
+than "granted". On the Store build, the microphone advice points to YazSes's toggle in the
+app list instead of the desktop-apps switch. Unpackaged installs behave exactly as before.
+The Store build is not published yet, and this has not run on a real MSIX install.
+
 ### Fixed — `yazses status` names the speech engine actually decoding, and says when it fell back ([#644](https://github.com/MSKazemi/yazses/issues/644))
 
 With `[stt] engine = "parakeet"` (or `"moonshine"`) and that engine missing or failing to

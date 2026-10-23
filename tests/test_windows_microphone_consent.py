@@ -18,10 +18,13 @@ import types
 
 import pytest
 
+from yazses.cameraperm.contract import CameraPermission
 from yazses.platform.base import PermissionState
+from yazses.platform.windows import host as winhost
 from yazses.platform.windows import permissions as winperms
 from yazses.platform.windows.permissions import (
     WindowsPermissions,
+    camera_consent_state,
     microphone_permission_state,
 )
 
@@ -148,3 +151,167 @@ def test_the_camera_and_microphone_read_the_same_three_switches() -> None:
         ]
         assert reads[0][1].endswith(rf"\ConsentStore\{capability}")
         assert reads[2][1].endswith(rf"\ConsentStore\{capability}\NonPackaged")
+
+
+# ---- #653: the Store (MSIX) build is a packaged app ---------------------------
+#
+# "Let desktop apps access your microphone/camera" (the ``NonPackaged`` key) governs
+# the .exe, pip, Scoop, winget and Chocolatey installs. A packaged app is governed by
+# its own per-app entry instead, so on the Store build a ``Deny`` on the desktop-apps
+# switch is evidence about other apps, and reading it gave a false `doctor` FAIL and a
+# start-up notification. The per-app entry's location is not documented by Microsoft,
+# so it is not read: the packaged build learns only from the two broader switches.
+# None of this has run on a real MSIX install.
+
+
+def _packaged(monkeypatch, value: bool) -> None:
+    monkeypatch.setattr(winhost, "_msix_packaged", lambda: value)
+
+
+def _recording_winreg(values: dict[str, str], opened: list[str]) -> types.ModuleType:
+    """`_fake_winreg`, plus a log of every subkey tail the probe tried to open."""
+    mod = _fake_winreg(values)
+    key_cls = mod.OpenKey  # type: ignore[attr-defined]
+
+    def open_key(hive: str, path: str):
+        opened.append(path.rsplit("\\ConsentStore\\", 1)[1])
+        return key_cls(hive, path)
+
+    mod.OpenKey = open_key  # type: ignore[attr-defined]
+    return mod
+
+
+@pytest.mark.parametrize("capability", ["microphone", "webcam"])
+def test_a_packaged_build_skips_the_desktop_apps_switch(capability) -> None:
+    packaged = winperms._consent_reads(capability, packaged=True)
+    assert [hive for hive, _ in packaged] == ["HKEY_LOCAL_MACHINE", "HKEY_CURRENT_USER"]
+    assert all(not path.endswith("NonPackaged") for _, path in packaged)
+    assert all(path.endswith(rf"\ConsentStore\{capability}") for _, path in packaged)
+    # ...and the unpackaged install still reads all three, in the same order.
+    unpackaged = winperms._consent_reads(capability, packaged=False)
+    assert unpackaged[:2] == packaged
+    assert unpackaged[2] == ("HKEY_CURRENT_USER", packaged[1][1] + r"\NonPackaged")
+
+
+def test_the_default_asks_the_host_whether_this_is_the_msix_build(monkeypatch) -> None:
+    _packaged(monkeypatch, True)
+    assert len(winperms._consent_reads("microphone")) == 2
+    _packaged(monkeypatch, False)
+    assert len(winperms._consent_reads("microphone")) == 3
+
+
+def test_the_real_msix_detector_drives_the_reads(monkeypatch, tmp_path) -> None:
+    """Not a stubbed boolean: a frozen executable with an AppxManifest.xml beside it,
+    which is what `host._msix_packaged` recognises as the Store build."""
+    (tmp_path / "AppxManifest.xml").write_text("<Package/>", encoding="utf-8")
+    monkeypatch.setattr(sys, "executable", str(tmp_path / "yazses.exe"))
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    assert all(
+        not path.endswith("NonPackaged") for _, path in winperms._consent_reads("webcam")
+    )
+    monkeypatch.delattr(sys, "frozen")
+    assert winperms._consent_reads("webcam")[-1][1].endswith("NonPackaged")
+
+
+def test_a_detector_that_raises_keeps_the_unpackaged_reads(monkeypatch) -> None:
+    def boom() -> bool:
+        raise RuntimeError("no host")
+
+    monkeypatch.setattr(winhost, "_msix_packaged", boom)
+    assert len(winperms._consent_reads("microphone")) == 3
+
+
+def test_packaged_a_revoked_desktop_app_switch_is_not_a_refusal(monkeypatch) -> None:
+    """The bug: desktop-apps switch off, YazSes allowed, microphone plugged in."""
+    registry = {**_ALLOWED, "HKCU:microphone\\NonPackaged": "Deny"}
+    opened: list[str] = []
+    monkeypatch.setitem(sys.modules, "winreg", _recording_winreg(registry, opened))
+    monkeypatch.setitem(sys.modules, "sounddevice", _fake_sounddevice(_MIC))
+
+    _packaged(monkeypatch, True)
+    assert WindowsPermissions().check_microphone() is PermissionState.OK
+    assert opened == ["microphone", "microphone"], "the NonPackaged key must not be read"
+
+    # The same registry on an unpackaged install is still the refusal it always was.
+    _packaged(monkeypatch, False)
+    assert WindowsPermissions().check_microphone() is PermissionState.DENIED
+
+
+@pytest.mark.parametrize("revoked", ["HKLM:microphone", "HKCU:microphone"])
+def test_packaged_the_broader_switches_still_refuse(monkeypatch, revoked) -> None:
+    """Device-wide and per-user access apply to packaged apps too."""
+    monkeypatch.setitem(sys.modules, "winreg", _fake_winreg({**_ALLOWED, revoked: "Deny"}))
+    monkeypatch.setitem(sys.modules, "sounddevice", _fake_sounddevice(_MIC))
+    _packaged(monkeypatch, True)
+    assert WindowsPermissions().check_microphone() is PermissionState.DENIED
+
+
+def test_packaged_the_device_list_still_decides(monkeypatch) -> None:
+    monkeypatch.setitem(sys.modules, "winreg", _fake_winreg(_ALLOWED))
+    _packaged(monkeypatch, True)
+    monkeypatch.setitem(sys.modules, "sounddevice", _fake_sounddevice([]))
+    assert WindowsPermissions().check_microphone() is PermissionState.DENIED
+    monkeypatch.setitem(sys.modules, "sounddevice", _fake_sounddevice(OSError("boom")))
+    assert WindowsPermissions().check_microphone() is PermissionState.UNKNOWN
+
+
+_CAMERA_ALLOWED = {
+    "HKLM:webcam": "Allow",
+    "HKCU:webcam": "Allow",
+    "HKCU:webcam\\NonPackaged": "Allow",
+}
+
+
+def test_packaged_the_camera_ignores_the_desktop_apps_switch(monkeypatch) -> None:
+    registry = {**_CAMERA_ALLOWED, "HKCU:webcam\\NonPackaged": "Deny"}
+    opened: list[str] = []
+    monkeypatch.setitem(sys.modules, "winreg", _recording_winreg(registry, opened))
+
+    _packaged(monkeypatch, True)
+    # Not DENIED (that switch does not govern a packaged app) and not GRANTED either:
+    # the per-app decision that does govern it was never read.
+    assert WindowsPermissions().check_camera() is CameraPermission.NOT_DETERMINED
+    assert "webcam\\NonPackaged" not in opened
+
+    _packaged(monkeypatch, False)
+    assert WindowsPermissions().check_camera() is CameraPermission.DENIED
+
+
+def test_packaged_the_camera_still_honours_a_broader_refusal(monkeypatch) -> None:
+    monkeypatch.setitem(
+        sys.modules, "winreg", _fake_winreg({**_CAMERA_ALLOWED, "HKLM:webcam": "Deny"})
+    )
+    _packaged(monkeypatch, True)
+    assert WindowsPermissions().check_camera() is CameraPermission.DENIED
+
+
+def test_unpackaged_the_camera_mapping_is_unchanged(monkeypatch) -> None:
+    monkeypatch.setitem(sys.modules, "winreg", _fake_winreg(_CAMERA_ALLOWED))
+    _packaged(monkeypatch, False)
+    assert WindowsPermissions().check_camera() is CameraPermission.GRANTED
+
+
+@pytest.mark.parametrize(
+    ("values", "expected"),
+    [
+        (("Allow", "Allow"), CameraPermission.NOT_DETERMINED),
+        (("Deny", "Allow"), CameraPermission.DENIED),
+        (("Allow", "Deny"), CameraPermission.DENIED),
+        ((None, None), CameraPermission.NOT_DETERMINED),
+        ((), CameraPermission.NOT_DETERMINED),
+    ],
+)
+def test_the_packaged_camera_mapping_never_grants(values, expected) -> None:
+    assert camera_consent_state(values, packaged=True) is expected
+
+
+def test_the_microphone_remedy_names_the_switch_that_governs_this_build(monkeypatch) -> None:
+    _packaged(monkeypatch, True)
+    packaged = WindowsPermissions().how_to_grant_microphone()
+    assert "Let desktop apps" not in packaged
+    assert "YazSes" in packaged
+    assert "ms-settings:privacy-microphone" in packaged
+
+    _packaged(monkeypatch, False)
+    unpackaged = WindowsPermissions().how_to_grant_microphone()
+    assert "Let desktop apps access your microphone" in unpackaged

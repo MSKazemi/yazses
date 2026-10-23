@@ -154,6 +154,12 @@ Settings → Privacy & Security → Microphone → "Let desktop apps access your
 
 (or run `start ms-settings:privacy-microphone`.)
 
+Installed from the Microsoft Store / MSIX package? That build is a packaged app,
+so the desktop-apps switch does not apply to it. Turn on **YazSes** in the list
+of apps on the same page instead. Windows does not document where it stores
+that per-app setting, so `yazses doctor` cannot read it there. If dictation
+records silence on the Store build, check that toggle first.
+
 ## Verify with the CLI
 
 The installer puts `yazses` on your PATH, so the CLI works from any shell:
@@ -417,7 +423,8 @@ update you may need to re-allow.
 **"`doctor` says the microphone is denied."** Allow it in *Settings → Privacy &
 Security → Microphone*, and check **"Let desktop apps access your microphone"** is
 on as well — that second switch is separate and gates YazSes even when the first
-one is on. The pane opens directly with:
+one is on. (On the Store / MSIX build that switch does not apply; turn on YazSes
+in the app list on the same page instead.) The pane opens directly with:
 
 ```
 start ms-settings:privacy-microphone
