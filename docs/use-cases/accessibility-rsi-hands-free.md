@@ -154,8 +154,10 @@ dictation is being read to you, hold the dictation key at the word you want to c
 and say the correction. Everything from that word to the end of that dictation is
 replaced by what you say. It only ever deletes text YazSes itself just typed (with
 backspaces from the end, as "scratch that" does); when it cannot be sure where that
-text is, it types your correction as ordinary dictation instead. Word timing is
-estimated, and it is untested on real hardware.
+text is, it types your correction as ordinary dictation instead. If the correction
+cannot be typed after the old words were erased, YazSes types them back. If that fails
+too, it puts them on the clipboard and tells you. Word timing is estimated, and it is
+untested on real hardware.
 
 ```sh
 yazses features enable proofback --force

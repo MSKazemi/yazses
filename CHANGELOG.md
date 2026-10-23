@@ -6,6 +6,25 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — Interruptible Proofreading no longer loses your words when the correction cannot be typed (experimental, off by default)
+
+A proofreading correction (`proofback`) erases the text from the interrupted word with
+backspaces and then types what you said. If typing failed after the backspaces had
+landed (the injector raised or reported failure, or the window stopped taking input),
+the erased words were gone with nothing in their place. The "scratch that" and
+`[timeline]` records still described them, so the next undo could delete text before
+that dictation. Now YazSes types the erased words back through the same injector and
+tells you the correction was not typed. If
+that fails too, or the erase itself stopped part-way, it puts them on the clipboard and
+a notification says so. If the clipboard copy also fails, the notification says nothing
+was saved and suggests the application's own undo. The undo records follow what is on
+screen in every case, and when that is uncertain they under-count, so an undo can never
+reach past the dictation. A correction cut off mid-word may leave that fragment before
+the restored words. The no-text-target guard still runs before anything is erased. The
+clipboard rescue uses the guard's clipboard path, which needs `wl-copy`, `xclip` or
+`xsel`. On macOS and Windows it cannot copy yet, so the notification reports the failed copy.
+Tested with a simulated text field only, not on real hardware.
+
 ### Fixed — the Windows Store (MSIX) build no longer reads the desktop-apps microphone switch as a refusal ([#653](https://github.com/MSKazemi/yazses/issues/653))
 
 The Windows microphone and camera checks read three privacy switches: device-wide, per-user,

@@ -98,6 +98,9 @@ CAPTURE_PROVING_DISCARDS = frozenset({
     # microphone was heard and decoded — the failure is downstream of capture.
     "cmdsafety_held",
     "spoken_inject_failed",
+    # An Interruptible Proofreading correction (ADR-v2-108) was decoded and could not be
+    # typed after the erase: the injector failed, downstream of capture.
+    "proofback_not_typed",
     # Field-Aware Dictation refused the *destination* (a password box). The audio was
     # captured, decoded and shaped; only the target was wrong.
     "fieldaware_refused",
