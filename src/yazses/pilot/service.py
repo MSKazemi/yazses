@@ -14,7 +14,8 @@ risky thing", not two.
 
 "check X" and "uncheck X" are idempotent: a box already in the asked state is left alone
 and the user is told so, and a box whose state the backend could not read is held for
-"confirm" rather than toggled on a guess (``plan.decide``).
+"confirm" rather than toggled on a guess (``plan.decide``). "uncheck" on a radio button is
+refused with the reason: clicking one selects it, it is turned off by choosing another.
 
 The pending action follows the gate's rules, deliberately:
 
@@ -49,6 +50,7 @@ from yazses.pilot.plan import (
     CONFIRM,
     HELD_AMBIGUOUS,
     HELD_GONE,
+    REFUSED,
     Element,
     HeldTarget,
     PilotCommand,
@@ -190,7 +192,18 @@ class PilotService:
             return self._hold(decision, held_target(decision, elements))
         if decision.verdict == ALREADY:
             return self._already(decision)
+        if decision.verdict == REFUSED:
+            return self._radio_uncheck(decision)
         return PilotOutcome("none", self._no_match_message(decision))
+
+    @staticmethod
+    def _radio_uncheck(decision: PilotDecision) -> PilotOutcome:
+        """"uncheck X" on a radio button: clicking it would select it, never clear it."""
+        elem = decision.element
+        assert elem is not None
+        return PilotOutcome("refused", f"Cannot uncheck {_show(elem.label)}: a radio button "
+                                       "is turned off by choosing another option. "
+                                       "Nothing was changed.")
 
     @staticmethod
     def _already(decision: PilotDecision) -> PilotOutcome:
@@ -283,6 +296,8 @@ class PilotService:
         decision = redecide_held(target, elements_from_candidates(candidates))
         log.info("Voice Pilot confirm: %s (%s), %d candidate(s) re-read.",
                  decision.verdict, decision.reason, len(candidates))
+        if decision.verdict == REFUSED:
+            return self._radio_uncheck(decision)
         if decision.verdict == ALREADY:
             state = "checked" if target.command.want_checked else "unchecked"
             return PilotOutcome("already", f"{shown} is already {state} now; "

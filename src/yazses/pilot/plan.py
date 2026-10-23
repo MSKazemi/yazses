@@ -141,6 +141,12 @@ ACT = "act"            # one exact, safe match: carry it out
 CONFIRM = "confirm"    # a plausible match that must be confirmed out loud first
 NO_MATCH = "none"      # nothing to act on; say so and do nothing
 ALREADY = "already"    # "check"/"uncheck" on a control already in that state: do nothing
+REFUSED = "refused"    # a verb the control cannot honour ("uncheck" a radio): do nothing
+
+#: Roles a click turns on but never off. Clicking a selected radio button changes nothing
+#: in most toolkits, so "uncheck" on one would click, do nothing and report "Unchecked" --
+#: and on one whose state is unread, a confirmed click would *select* it.
+_RADIO_ROLES = frozenset({"radio button", "radio menu item"})
 
 #: Backend action names that carry out each canonical verb, in preference order.
 #: AT-SPI names them per toolkit ("click" in GTK, "press" in Qt, "jump" on a link);
@@ -189,6 +195,11 @@ def resolve_action_name(action: str, available) -> str | None:
     return None
 
 
+def is_radio_role(role: str) -> bool:
+    """Whether *role* names a radio button or radio menu item. Pure."""
+    return " ".join((role or "").replace("_", " ").lower().split()) in _RADIO_ROLES
+
+
 def is_destructive_label(label: str) -> bool:
     """Whether activating a control labelled *label* is hard to undo. Pure."""
     words = re.findall(r"[a-z0-9]+", (label or "").lower())
@@ -204,7 +215,8 @@ class PilotDecision:
     ``reason`` is one of ``exact``, ``ordinal``, ``destructive``, ``ambiguous``,
     ``weak``, ``no_match``, ``ordinal_out_of_range``, ``state_unknown`` (a "check" or
     "uncheck" whose control's checked state could not be read), and -- with verdict
-    ALREADY -- ``already_checked`` / ``already_unchecked``. :func:`redecide_held` adds
+    ALREADY -- ``already_checked`` / ``already_unchecked``, and -- with verdict REFUSED --
+    ``radio_uncheck`` ("uncheck" on a radio button). :func:`redecide_held` adds
     ``confirmed`` (ACT) and ``target_gone`` / ``target_ambiguous`` / ``state_lost``
     (NO_MATCH). ``matches`` counts the candidates at or above the threshold, so a message
     can say "3 controls match".
@@ -245,6 +257,11 @@ def decide(phrase, elements, *, threshold: float = 0.5,
     unreadable state (``None``) is never ACT -- an exact match becomes CONFIRM with reason
     ``state_unknown`` -- because a toggle on a guess can do the opposite of what was said
     (ADR-021: act only on a specific, checkable signal). "toggle" flips regardless.
+
+    **A radio button cannot be unchecked.** Clicking one selects it; it is turned off by
+    choosing another option. So "uncheck" on a radio button or radio menu item is
+    REFUSED (``radio_uncheck``) whatever its state, and "check" on a selected one is
+    ALREADY like any checked box.
     """
     cmd = parse_command(phrase)
     if cmd is None:
@@ -256,6 +273,8 @@ def decide(phrase, elements, *, threshold: float = 0.5,
     exact = [(e, s) for e, s in cands if s >= _EXACT]
 
     def outcome(elem: Element, score: float, verdict: str, reason: str) -> PilotDecision:
+        if cmd.want_checked is False and is_radio_role(elem.role):
+            return PilotDecision(REFUSED, "radio_uncheck", cmd, elem, None, score, len(cands))
         if cmd.want_checked is not None:
             if elem.checked is cmd.want_checked:
                 return PilotDecision(
@@ -383,6 +402,8 @@ def redecide_held(held: HeldTarget, elements) -> PilotDecision:
     if len(same) != held.occurrences or not 0 <= held.occurrence < len(same):
         return PilotDecision(NO_MATCH, HELD_AMBIGUOUS, cmd, matches=len(same))
     elem = same[held.occurrence]
+    if want is False and is_radio_role(elem.role):
+        return PilotDecision(REFUSED, "radio_uncheck", cmd, elem, None, 1.0, len(same))
     if want is not None and elem.checked is want:
         return PilotDecision(ALREADY, "already_checked" if want else "already_unchecked",
                              cmd, elem, None, 1.0, len(same))

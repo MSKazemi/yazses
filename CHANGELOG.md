@@ -171,6 +171,17 @@ readable before and is not now, nothing is clicked and you are told why. Other h
 clicks are unchanged. The Voice Pilot is off by default (`[pilot] enabled`), Linux-only,
 and untested on real hardware.
 
+### Fixed — Voice Pilot "uncheck X" on a radio button no longer reports a change it did not make (Linux, experimental)
+
+A radio button cannot be unchecked by clicking it: a click selects it, and it is turned
+off by choosing another option. "uncheck X" on a selected radio button clicked it anyway,
+which changes nothing in most toolkits, and then said "Unchecked 'X'". On a radio button
+whose state could not be read, a confirmed "uncheck" would even have selected it. Now
+"uncheck" on a radio button or radio menu item clicks nothing and says why: "a radio
+button is turned off by choosing another option". "check" on a selected radio button
+says it is already checked. The Voice Pilot is off by default (`[pilot] enabled`),
+Linux-only, and untested on real hardware.
+
 ### Added — the files to list `yazses mcp-server` in the official MCP registry
 
 `python3 scripts/render-mcp-server-json.py` writes `dist/server.json` for the MCP
