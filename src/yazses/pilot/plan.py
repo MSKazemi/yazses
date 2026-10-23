@@ -204,8 +204,10 @@ class PilotDecision:
     ``reason`` is one of ``exact``, ``ordinal``, ``destructive``, ``ambiguous``,
     ``weak``, ``no_match``, ``ordinal_out_of_range``, ``state_unknown`` (a "check" or
     "uncheck" whose control's checked state could not be read), and -- with verdict
-    ALREADY -- ``already_checked`` / ``already_unchecked``. ``matches`` counts the candidates
-    at or above the threshold, so a message can say "3 controls match".
+    ALREADY -- ``already_checked`` / ``already_unchecked``. :func:`redecide_held` adds
+    ``confirmed`` (ACT) and ``target_gone`` / ``target_ambiguous`` / ``state_lost``
+    (NO_MATCH). ``matches`` counts the candidates at or above the threshold, so a message
+    can say "3 controls match".
     """
 
     verdict: str
@@ -287,3 +289,104 @@ def decide(phrase, elements, *, threshold: float = 0.5,
             return PilotDecision(NO_MATCH, "ambiguous", cmd, matches=len(cands))
         return outcome(top_elem, top_score, CONFIRM, "ambiguous")
     return outcome(top_elem, top_score, CONFIRM, "weak")
+
+
+# --------------------------------------------------------------------------- #
+# A held "check"/"uncheck", re-decided at confirm time.
+# --------------------------------------------------------------------------- #
+#
+# A "check X" held for "confirm" (state unreadable, a partial match, a tie) may wait up
+# to 30 s. In that time the user can click the box themselves, or the window can change
+# under it, and a toggle run on the old reading then does the opposite of what was said.
+# So the confirm re-reads the window and decides again, on the *new* reading. Snapshot
+# ids are per-snapshot, so the held control is found again by what does not change
+# between reads: its label, its role, and an action able to carry out the verb.
+
+#: Reasons :func:`redecide_held` gives with verdict NO_MATCH: nothing is performed.
+HELD_GONE = "target_gone"            # no control with that label and role any more
+HELD_AMBIGUOUS = "target_ambiguous"  # the number of such controls changed: which one?
+HELD_STATE_LOST = "state_lost"       # it was read at hold time and cannot be read now
+
+
+def _identity(elem: Element) -> tuple[str, str]:
+    """What finds the same control again in a later snapshot: label and role."""
+    return (" ".join((elem.label or "").split()).casefold(),
+            " ".join((elem.role or "").split()).casefold())
+
+
+@dataclass(frozen=True)
+class HeldTarget:
+    """A held "check"/"uncheck", described by attributes that survive a re-read. Pure data.
+
+    ``occurrence`` is the held control's index among the actionable controls sharing its
+    label and role, in reading order, and ``occurrences`` how many there were -- so the
+    second of two identical "Notify" boxes is found again only while there are still
+    exactly two. ``checked`` is the state read when it was held.
+    """
+
+    command: PilotCommand
+    label: str
+    role: str
+    occurrence: int = 0
+    occurrences: int = 1
+    checked: bool | None = None
+
+
+def _same_controls(cmd: PilotCommand, ident: tuple[str, str], elements) -> list[Element]:
+    return [e for e in elements
+            if _identity(e) == ident and resolve_action_name(cmd.action, e.actions)]
+
+
+def held_target(decision: PilotDecision, elements) -> HeldTarget | None:
+    """The :class:`HeldTarget` for a CONFIRM *decision* made over *elements*. Pure.
+
+    ``None`` when the decision is not a held "check"/"uncheck" (every other held click
+    keeps acting on the node it matched) or its element is not among *elements*.
+    """
+    elem = decision.element
+    if (decision.verdict != CONFIRM or elem is None
+            or decision.command.want_checked is None):
+        return None
+    same = _same_controls(decision.command, _identity(elem), elements)
+    index = next((i for i, e in enumerate(same) if e is elem), None)
+    if index is None:
+        index = next((i for i, e in enumerate(same) if e == elem), None)
+    if index is None:
+        return None
+    return HeldTarget(command=decision.command, label=elem.label, role=elem.role,
+                      occurrence=index, occurrences=len(same), checked=elem.checked)
+
+
+def redecide_held(held: HeldTarget, elements) -> PilotDecision:
+    """Decide a confirmed "check"/"uncheck" again on a fresh read, *elements*. Pure.
+
+    The user said "confirm" to a prompt about the window as it was. This acts only if
+    the same control is still specifically there and still in the other state:
+
+    * **NO_MATCH** ``target_gone`` -- no actionable control with that label and role.
+    * **NO_MATCH** ``target_ambiguous`` -- the number of such controls changed, so which
+      one was meant cannot be told (ADR-021: never a guess).
+    * **ALREADY** -- it is now in the asked state (the user, or the app, changed it
+      during the hold); a toggle would undo that.
+    * **NO_MATCH** ``state_lost`` -- its state was read at hold time and cannot be read
+      now; the prompt promised a check, and a blind toggle might uncheck it.
+    * **ACT** -- otherwise: the state still differs from the asked one, or it was
+      unreadable then and is now (the prompt said "toggle" and the user confirmed that).
+      ``element`` is the control in the *new* read, carrying its new snapshot id.
+    """
+    cmd = held.command
+    want = cmd.want_checked
+    ident = _identity(Element(label=held.label, role=held.role))
+    same = _same_controls(cmd, ident, elements)
+    if not same:
+        return PilotDecision(NO_MATCH, HELD_GONE, cmd)
+    if len(same) != held.occurrences or not 0 <= held.occurrence < len(same):
+        return PilotDecision(NO_MATCH, HELD_AMBIGUOUS, cmd, matches=len(same))
+    elem = same[held.occurrence]
+    if want is not None and elem.checked is want:
+        return PilotDecision(ALREADY, "already_checked" if want else "already_unchecked",
+                             cmd, elem, None, 1.0, len(same))
+    if elem.checked is None and held.checked is not None:
+        return PilotDecision(NO_MATCH, HELD_STATE_LOST, cmd, elem, None, 1.0, len(same))
+    return PilotDecision(ACT, "confirmed", cmd, elem,
+                         resolve_action_name(cmd.action, elem.actions), 1.0, len(same))

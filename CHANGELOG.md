@@ -157,6 +157,20 @@ no checked state, a half-checked box), the click waits for a spoken "confirm" in
 guessing. "toggle" still flips the box whatever its state. The Voice Pilot is off by
 default (`[pilot] enabled`), Linux-only, and untested on real hardware.
 
+### Fixed — a confirmed Voice Pilot "check X" no longer acts on a reading that is 30 s old (Linux, experimental)
+
+A "check X" or "uncheck X" that waited for a spoken "confirm" (its state could not be
+read, or the match was partial or tied) ran its toggle on the reading taken when it was
+held. If you had ticked the box yourself in the meantime, "confirm" unticked it again;
+if the window had changed, it acted on a control that no longer meant the same thing.
+Now "confirm" reads the window again and finds the same control by its label and role.
+It clicks only if the control is still in the other state. If the box is already as you
+asked, nothing is clicked and you are told so. If the control is gone, if the number of
+identical controls changed so it is unclear which one you meant, or if its state was
+readable before and is not now, nothing is clicked and you are told why. Other held
+clicks are unchanged. The Voice Pilot is off by default (`[pilot] enabled`), Linux-only,
+and untested on real hardware.
+
 ### Added — the files to list `yazses mcp-server` in the official MCP registry
 
 `python3 scripts/render-mcp-server-json.py` writes `dist/server.json` for the MCP
