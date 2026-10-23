@@ -77,6 +77,9 @@ class TrayMenuModel:
     # "Settings…" — opens the graphical settings window. Defaulted so a caller that
     # builds the model directly (a platform tray, a test) keeps working.
     settings_label: str = SETTINGS_LABEL
+    # `[stt] idle_unload_s` (ADR-029): "Speech model: loaded, idle 45 s of 300 s", or None
+    # at the default of 0 and on an older daemon. Defaulted for the same reason.
+    residency: str | None = None
 
 
 def build_menu_model(
@@ -120,7 +123,23 @@ def build_menu_model(
         warning=warning,
         devices=items,
         settings_label=SETTINGS_LABEL,
+        residency=residency_line(status),
     )
+
+
+def residency_line(status: dict) -> str | None:
+    """The speech model's residency as one tray line, or None when there is nothing to say.
+
+    Only under `[stt] idle_unload_s` (ADR-029): the daemon then reports whether the model
+    is in memory, and the first press after an unload is slow, so the tray says why
+    before the user wonders. ``None`` at the default of ``0``, on an older daemon, and for
+    any shape the shared phrase builder does not recognise. The phrase is the one
+    `yazses status` prints, from `system/residency.py`, so the two cannot disagree.
+    """
+    from yazses.system.residency import describe_stt_residency
+
+    phrase = describe_stt_residency(status.get("stt_residency"))
+    return f"Speech model: {phrase}" if phrase is not None else None
 
 
 @dataclass(frozen=True)
@@ -337,6 +356,11 @@ def icon_spec(status: dict) -> tuple[str, str]:
         tooltip += f"\n⚠ {streak} silent clip(s) in a row"
     if state in _RECORDING_STATES and not command_mode and target_ok is False:
         tooltip += "\n⚠ no text field focused — will save to clipboard"
+    # Last, after the warnings: the Windows shell cuts a tooltip at 127 characters, and a
+    # warning matters more than how long the model has been idle.
+    residency = residency_line(status)
+    if residency is not None:
+        tooltip += f"\n{residency}"
     return color, tooltip
 
 
@@ -375,6 +399,9 @@ def status_from_model(model: TrayModel) -> dict:
         "meeting_enabled": model.meeting_enabled,
         "meeting_active": model.meeting_active,
         "meeting_finalizing": model.meeting_finalizing,
+        # `[stt] idle_unload_s` (ADR-029): the tooltip and the menu read it through
+        # `residency_line`. In the shared bridge for the reason the meeting keys are.
+        "stt_residency": model.stt_residency,
     }
 
 

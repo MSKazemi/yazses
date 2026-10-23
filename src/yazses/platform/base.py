@@ -120,6 +120,12 @@ class TrayModel:
     meeting_enabled: bool | None = None
     meeting_active: bool = False
     meeting_finalizing: bool = False
+    # `[stt] idle_unload_s` (ADR-029): the daemon's `stt_residency` block -- whether the
+    # speech model is in memory and how long it has been idle -- or None at the default
+    # of 0 and on an older daemon. `tray/menu.py::residency_line` turns it into the one
+    # tooltip and menu line. Left out of the generated hash because a dict cannot be
+    # hashed; equality still compares it.
+    stt_residency: dict[str, Any] | None = field(default=None, hash=False)
 
 
 @dataclass(frozen=True)

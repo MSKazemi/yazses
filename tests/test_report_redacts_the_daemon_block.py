@@ -80,6 +80,10 @@ _USER_TEXT = frozenset({"preview"})
 #: checkpoint and, after a fallback, the engine asked for and why it is not running. The
 #: reason holds an exception's *type* only (`stt/factory.py::_load_error_reason`), never
 #: its message, so no path or name can reach it.
+#:
+#: `stt_residency` (ADR-029, `[stt] idle_unload_s`) is `IdleUnloadEngine.residency_snapshot`:
+#: an int keep-alive, two booleans and a float of seconds, or None while the key is 0. It
+#: has no string field at all, which `tests/test_status_stt_residency.py` pins.
 _MACHINE_FACTS = frozenset({
     "acoustic", "audio_level", "bursts", "command_mode", "commands_enabled", "confidence_enabled",
     "decode_latency", "enabled", "engine", "engine_fallback", "engine_model", "handsfree", "headpointer", "hotkey", "injection_backend", "input_device",
@@ -88,7 +92,7 @@ _MACHINE_FACTS = frozenset({
     "notifications",
     "outcomes", "platform", "read_back", "ready", "remote_connected", "silent_streak",
     "silent_streak_threshold", "spoken_commit", "staged", "state", "streaming_enabled",
-    "stale_permissions", "summary", "target_ok", "tts_backend", "uptime_s", "vad_threshold", "version",
+    "stale_permissions", "stt_residency", "summary", "target_ok", "tts_backend", "uptime_s", "vad_threshold", "version",
     "words",
 })
 

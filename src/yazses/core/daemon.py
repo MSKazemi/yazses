@@ -1475,6 +1475,27 @@ class Daemon:
             return False
         return engine.is_loading or not engine.is_resident
 
+    def _stt_residency_payload(self) -> dict[str, object] | None:
+        """The engine's residency for `status`, or None when `[stt] idle_unload_s` is 0.
+
+        None rather than ``{"loaded": True, ...}`` at the default: without the wrapper
+        nothing tracks residency, and before `_build_pipeline` finishes there is no model
+        at all, so a ``loaded: true`` would be the config repeated as a fact -- the shape
+        that hid a failed Parakeet load (#644). It also leaves the reply, and `yazses
+        status`, unchanged for every install that has not opted in.
+
+        Called under ``self._lock``; `IdleUnloadEngine.residency_snapshot` only *tries*
+        the engine lock, so a status poll never waits behind a decode or a reload.
+        """
+        engine = self._idle_unload_engine
+        if engine is None:
+            return None
+        try:
+            return engine.residency_snapshot()
+        except Exception:  # noqa: BLE001 — a status reply must not fail on a status row
+            log.debug("stt residency snapshot failed", exc_info=True)
+            return None
+
     def _on_stt_engine_loaded(self) -> None:
         """A reload finished (or failed): leave the burst's "loading" state for transcribing.
 
@@ -8009,6 +8030,14 @@ class Daemon:
                 "engine": active["engine"],
                 "engine_model": active["engine_model"],
                 "engine_fallback": active["engine_fallback"],
+                # `[stt] idle_unload_s` (ADR-029): whether the model above is in memory
+                # now, and how long it has been idle. None at the default of 0, where the
+                # model is never released and there is nothing to report -- the same
+                # null-when-off shape as `handsfree` and `morse`. A block of its own
+                # rather than more flat `engine_*` keys: those say *which* decoder came
+                # up, this says whether it is resident, and the later ADR-029 units
+                # (`latency`, `tts`, ...) report residency facts of the same kind.
+                "stt_residency": self._stt_residency_payload(),
                 "hotkey": self._resolved_hotkey(),
                 "injection_backend": self._injection_backend_name(),
                 "last_error": self._state.last_error,

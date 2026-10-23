@@ -181,18 +181,28 @@ def render_engine_status_lines(status: dict) -> list[str]:
 
     A daemon older than #644 sends no ``engine`` field; it gets the old single
     ``model:`` line, unchanged, rather than a guess.
+
+    Under ``[stt] idle_unload_s`` (ADR-029) one more line says whether that model is in
+    memory now. It is absent at the default of ``0``, when the daemon sends
+    ``stt_residency: null``, and on a daemon too old to send it.
     """
     engine = status.get("engine")
     if not engine:
-        return [f"  model:    {status.get('model')}"]
-    model = status.get("engine_model") or status.get("model")
-    lines = [f"  model:    {model} ({engine})"]
-    fallback = status.get("engine_fallback")
-    if isinstance(fallback, dict) and fallback.get("from"):
-        lines.append(
-            f"  FALLBACK: [stt] engine = {fallback['from']} is not running, because "
-            f"{fallback.get('reason') or 'it did not load'}. {engine} decodes instead."
-        )
+        lines = [f"  model:    {status.get('model')}"]
+    else:
+        model = status.get("engine_model") or status.get("model")
+        lines = [f"  model:    {model} ({engine})"]
+        fallback = status.get("engine_fallback")
+        if isinstance(fallback, dict) and fallback.get("from"):
+            lines.append(
+                f"  FALLBACK: [stt] engine = {fallback['from']} is not running, because "
+                f"{fallback.get('reason') or 'it did not load'}. {engine} decodes instead."
+            )
+    from yazses.system.residency import describe_stt_residency
+
+    residency = describe_stt_residency(status.get("stt_residency"))
+    if residency is not None:
+        lines.append(f"  memory:   speech model {residency}")
     return lines
 
 

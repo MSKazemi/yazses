@@ -95,6 +95,7 @@ class IdleUnloadEngine:
         self._inner: SttEngine | None = engine
         self._inflight = 0
         self._loading = False
+        self._clock = clock
         self._tracker = IdleTracker(with_stt_idle_unload(self.idle_unload_s), clock=clock)
         #: Counters for status rows and tests: how many loads (after the first) and unloads.
         self.reloads = 0
@@ -119,6 +120,40 @@ class IdleUnloadEngine:
         """Seconds since the last decode finished, or ``None`` while unloaded."""
         with self._cond:
             return self._tracker.idle_s(STT_UNIT)
+
+    def residency_snapshot(self) -> dict[str, object]:
+        """The model's residency for the daemon's ``status`` reply. Never waits on a lock.
+
+        ``{"idle_unload_s": int, "loaded": bool, "loading": bool, "idle_s": float | None}``.
+        ``idle_s`` is seconds since the last decode finished, ``0.0`` while one is in
+        flight (the model is in use, not idle), and ``None`` while no model is loaded.
+
+        The daemon builds its status reply under its own state lock, and the tray polls it
+        four times a second, so this must not queue behind the engine lock. It *tries*
+        the lock, for a consistent read when it is free -- which is nearly always, since
+        nobody holds it across a decode or a load -- and otherwise reads the same fields
+        without it. Each is one attribute load, and the tracker's :meth:`last_use` reads
+        no clock and records nothing, so the unlocked read can at worst be one transition
+        stale, never an error. :meth:`idle_s` is not used here for exactly that reason.
+        """
+        locked = self._cond.acquire(blocking=False)
+        try:
+            inner = self._inner
+            loading = self._loading
+            inflight = self._inflight
+            last = self._tracker.last_use(STT_UNIT)
+        finally:
+            if locked:
+                self._cond.release()
+        idle: float | None = None
+        if inner is not None and last is not None:
+            idle = 0.0 if inflight else round(max(0.0, self._clock() - last), 1)
+        return {
+            "idle_unload_s": int(round(self.idle_unload_s)),
+            "loaded": inner is not None,
+            "loading": bool(loading),
+            "idle_s": idle,
+        }
 
     # ---- use ---------------------------------------------------------------------
 

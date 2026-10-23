@@ -59,6 +59,20 @@ missing package but cannot see a load failure.
 - `tests/test_status_reports_active_engine.py` covers both fallback causes, the unknown
   engine, the wrappers, the status handler and the printed lines.
 
+### Added — `yazses status` and the tray say whether the speech model is loaded, under `[stt] idle_unload_s` (experimental, off by default)
+
+With `[stt] idle_unload_s` set, YazSes releases the speech model after that many idle
+seconds, and the first words after a pause are late while it reloads. Nothing said which
+state you were in. Now `yazses status` prints one `memory:` line under the model, for
+example `speech model loaded, idle 45 s of 300 s` or `speech model unloaded after 300 s
+idle — reloads on the next press`. The tray tooltip and the Linux tray menu show the same
+phrase. The macOS menu bar does not, because it shows only a glyph. The daemon's status reply gains
+`stt_residency` (`idle_unload_s`, `loaded`, `loading`, `idle_s`). It is `null` at the
+default of `0`, so an install that has not opted in sees no change. Reading it never waits
+on the engine's lock, so a status poll cannot queue behind a decode or a reload.
+`tests/test_status_stt_residency.py` covers each state, the lock, the printed line and
+the tray. Untested on real hardware.
+
 ### Fixed — on Windows, a dictation into an administrator window is no longer lost without a word
 
 Windows blocks a normal program from typing into a window that runs as administrator

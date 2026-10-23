@@ -236,6 +236,38 @@ def with_stt_idle_unload(
     return ResidencyPolicy(entries=entries, max_resident=policy.max_resident)
 
 
+def describe_stt_residency(block: object) -> str | None:
+    """The dictation engine's residency as one phrase, for `yazses status` and the tray.
+
+    *block* is the daemon's ``stt_residency`` status field (``Daemon._stt_residency_payload``):
+    ``{"idle_unload_s": int, "loaded": bool, "loading": bool, "idle_s": float | None}``,
+    or ``None`` while ``[stt] idle_unload_s`` is ``0``. Returns ``None`` -- print nothing --
+    for ``None``, a daemon too old to send the field, a keep-alive that is not a positive
+    number, or any other shape: a status line that guesses is worse than a missing one.
+
+    The three states the user can be in, in the words they need:
+
+    * loading -- the model is coming back, so the next words are late;
+    * unloaded -- it was released after the keep-alive and the next press reloads it;
+    * loaded -- how long it has been idle, out of how long it may be.
+    """
+    if not isinstance(block, Mapping):
+        return None
+    keep = block.get("idle_unload_s")
+    if not isinstance(keep, (int, float)) or isinstance(keep, bool):
+        return None
+    if not math.isfinite(keep) or keep <= 0:
+        return None
+    if block.get("loading") is True:
+        return "reloading — the next words wait for it"
+    if block.get("loaded") is not True:
+        return f"unloaded after {keep:.0f} s idle — reloads on the next press"
+    idle = block.get("idle_s")
+    if isinstance(idle, (int, float)) and not isinstance(idle, bool) and math.isfinite(idle):
+        return f"loaded, idle {max(0.0, idle):.0f} s of {keep:.0f} s"
+    return f"loaded, released after {keep:.0f} s idle"
+
+
 def unload_tick_s(keep_alive_s: float) -> float:
     """How often a housekeeping thread should ask :meth:`IdleTracker.due_for_unload`.
 
@@ -317,6 +349,17 @@ class IdleTracker(_MonotonicInput):
     def is_loaded(self, unit: str) -> bool:
         self._check(unit)
         return unit in self._loaded
+
+    def last_use(self, unit: str) -> float | None:
+        """The clock reading of the unit's last use, or ``None`` when it is not loaded.
+
+        Reads the clock not at all and records nothing, unlike :meth:`idle_s`, whose
+        ``now`` advances the monotonic check. That makes it the one accessor a status
+        reader may call without holding the owner's lock: a racing ``touch`` cannot turn
+        it into a "time ran backwards" error, and a dict lookup is atomic.
+        """
+        self._check(unit)
+        return self._loaded.get(unit)
 
     def idle_s(self, unit: str, now: float | None = None) -> float | None:
         """Seconds since last use, or ``None`` when the unit is not loaded. For status rows."""
