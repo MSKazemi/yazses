@@ -165,12 +165,20 @@ A **refused** command sends no keys and types nothing. Sublime Text has no built
 rename, and its F2 jumps to the next bookmark. The default rename (F2, Ctrl+A, type
 the name) would select the whole file there and type over it.
 
-**How the application is found.** YazSes reads the focused application through
-AT-SPI or, on an X11 session, `xdotool`. That is the same probe the "no text
-target" guard uses. On macOS, on Windows and on a Wayland session without AT-SPI
-there is no such source yet. There every command keeps the default keys, and the
-daemon log says so once. A pinned `profile` works everywhere, because it does not
-need to know the application.
+**How the application is found.** YazSes reads only *which* application is in
+focus, never a window title or anything on screen:
+
+- **Linux:** through AT-SPI or, on an X11 session, `xdotool`. That is the same probe
+  the "no text target" guard uses.
+- **macOS:** the frontmost application's bundle id, for example
+  `com.microsoft.VSCode`, `com.jetbrains.pycharm` or `com.sublimetext.4`.
+- **Windows:** the program file of the window in front, for example `Code.exe`,
+  `idea64.exe`, `pycharm64.exe` or `sublime_text.exe`.
+
+The macOS and Windows lookups have not yet been tested on a real Mac or Windows
+desktop. A Wayland session without AT-SPI has no source. There every command keeps
+the default keys, and the daemon log says so once. A pinned `profile` works
+everywhere, because it does not need to know the application.
 
 On macOS each profile uses that editor's macOS keymap instead. For JetBrains that
 means delete line Cmd+Delete, go to class Cmd+O, go to file Cmd+Shift+O, go to

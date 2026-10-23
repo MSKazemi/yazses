@@ -365,8 +365,8 @@ class Daemon:
     #: what `[commands] editor_profiles = false` keeps it. Class-level for the same
     #: partial-daemon reason as `_slm_router`: every command dispatch reads it.
     _command_profiles: ProfileRegistry | None = None
-    #: Returns the focused application's class for the profile lookup, or None when
-    #: nothing can. Injected, so a test hands in a lambda instead of a desktop.
+    #: Returns the focused application's identifier (an X11 class / AT-SPI name, a macOS
+    #: bundle id, a Windows image name) for the profile lookup, or None when nothing can. Injected, so a test hands in a lambda instead of a desktop.
     _focused_app_class: Callable[[], str] | None = None
     #: A detector built only for the profile lookup (when `[injection] target_guard`
     #: is "off" and the guard built none), so `_shutdown` can stop its AT-SPI thread.
@@ -1746,7 +1746,8 @@ class Daemon:
         # None unless `[commands] slm_model_path` names a usable model.
         self._slm_router = self._build_slm_router(cfg)
         # Editor command profiles. After the text-target guard above, whose detector
-        # is reused for the focused-app lookup. None unless `[commands] editor_profiles`.
+        # is reused for the focused-app lookup on Linux (macOS and Windows use the
+        # platform's own provider). None unless `[commands] editor_profiles`.
         self._command_profiles = self._build_command_profiles(cfg)
 
         # Opt-in self-improvement corpus (ADR-012). Dormant unless enabled.
@@ -2413,8 +2414,9 @@ class Daemon:
         default install dispatches exactly as it always has.
 
         With `profile = "auto"` the choice follows the focused application, read at
-        dispatch time through `_focused_app_class` -- the same detector the
-        text-target guard uses. A pinned profile needs no lookup and builds none.
+        dispatch time through `_focused_app_class` -- the platform's provider on macOS
+        and Windows, the text-target guard's detector on Linux
+        (`_build_focused_app_source`). A pinned profile needs no lookup and builds none.
         """
         # A plain attribute read, for `scripts/config_status.py` (see `_build_slm_router`).
         if not cfg.commands.editor_profiles:
@@ -2437,18 +2439,24 @@ class Daemon:
         return registry
 
     def _build_focused_app_source(self) -> Callable[[], str] | None:
-        """A callable returning the focused application's class, or None.
+        """A callable returning the focused application's identifier, or None.
 
-        Reuses the text-target guard's detector (AT-SPI, else X11 xdotool) when the
-        guard built one. With `[injection] target_guard = "off"` there is none, so one
-        is built here for the profile lookup alone -- kept apart from
-        `_target_detector`, whose presence is what switches the guard on.
+        The platform's own provider first (`Platform.focused_app_factory`): macOS
+        answers the frontmost app's bundle id, Windows the foreground window's process
+        image name. Linux and the BSDs have none, and there the text-target guard's
+        detector (AT-SPI, else X11 xdotool) is reused when the guard built one. With
+        `[injection] target_guard = "off"` there is none, so one is built here for the
+        profile lookup alone -- kept apart from `_target_detector`, whose presence is
+        what switches the guard on.
 
-        Neither source exists on macOS, on Windows, or in a Wayland session without
-        AT-SPI. There the callable answers "" and `_command_keymap` falls back to the
-        default keys and says why, once. No platform check here: the detector's own
-        probes decide, as they already do for the guard.
+        Where nothing can answer (a Wayland session without AT-SPI, a Mac without the
+        AppKit bridge) the callable answers "" and `_command_keymap` falls back to the
+        default keys and says why, once. No platform check here: the bundle declares
+        its provider, and the detector's own probes decide, as they do for the guard.
         """
+        provided = self._platform_focused_app_source()
+        if provided is not None:
+            return provided
         detector = self._target_detector
         if detector is None:
             try:
@@ -2464,6 +2472,29 @@ class Daemon:
                 return None
             self._profile_detector = detector
         return detector.get_app_class
+
+    def _platform_focused_app_source(self) -> Callable[[], str] | None:
+        """``app_id`` of the platform's `FocusedAppProvider`, or None when it has none.
+
+        Read through ``getattr`` for the same stand-in-platform reason as
+        `_primary_modifier`. A factory that raises (macOS without AppKit) is logged with
+        its reason and treated as absent, so the caller falls back to the detector.
+        """
+        platform = getattr(self, "_platform", None)
+        factory = getattr(platform, "focused_app_factory", None)
+        if factory is None:
+            reason = getattr(platform, "focused_app_unavailable_reason", None)
+            if isinstance(reason, str) and reason:
+                log.info("Editor command profiles: %s", reason)
+            return None
+        try:
+            provider = factory()
+        except Exception as exc:
+            log.info("Editor command profiles: %s", exc)
+            log.debug("focused-application provider init failed", exc_info=True)
+            return None
+        app_id = getattr(provider, "app_id", None)
+        return app_id if callable(app_id) else None
 
     def _primary_modifier(self) -> str:
         """This OS's shortcut modifier (`Platform.primary_modifier`): Cmd on macOS.
@@ -2492,10 +2523,12 @@ class Daemon:
             source = self._focused_app_class
             if source is not None:
                 try:
-                    app_class = source() or ""
+                    app = source()
                 except Exception:
                     log.debug("focused-application lookup failed", exc_info=True)
-                    app_class = ""
+                    app = ""
+                # Only a string is an answer; anything else (None, a stand-in) is "no app".
+                app_class = app if isinstance(app, str) else ""
         choice = registry.choose(app_class)
         if event is not None:
             event["command_profile"] = choice.name

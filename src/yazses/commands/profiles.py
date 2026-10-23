@@ -13,8 +13,9 @@ to the dispatcher. An override is either the keys to send instead or ``None``,
 which means "this app has no safe binding": the command is refused — nothing is
 sent and nothing is typed — rather than guessed.
 
-Pure. The daemon passes the focused application's class string in; nothing here
-reads the desktop, and nothing is stored.
+Pure. The daemon passes the focused application's identifier in -- an X11 class or
+AT-SPI name on Linux, a bundle id on macOS, a process image name on Windows
+(`Platform.focused_app_factory`); nothing here reads the desktop, and nothing is stored.
 
 OFF by default (`[commands] editor_profiles = false`). With it off the daemon never
 builds a registry, and every application gets the default keymap exactly as before.
@@ -123,9 +124,61 @@ def builtin_profiles(
     return BUILTIN_PROFILES
 
 
+#: Whole application identifiers, lower-cased, that pick a profile: what the macOS and
+#: Windows providers report (`Platform.focused_app_factory`) -- a bundle id on macOS, a
+#: process image name on Windows. Checked before the keywords below. Several share no
+#: keyword with the editor's name (`idea64.exe`, `rider64.exe`, `studio64.exe`,
+#: `com.microsoft.vscode`), and `code.exe` must match whole because `code` is inside
+#: `xcode`. The ones a keyword would also catch (`pycharm64.exe`, `com.jetbrains.goland`,
+#: `com.sublimetext.4`) are listed anyway, so every identifier the docs promise is pinned
+#: by `tests/test_command_profiles.py` and keeps matching if a keyword changes.
+#: Taken from each vendor's shipped launcher names and bundle ids, not read off a
+#: running machine; an unlisted JetBrains or Sublime bundle id still matches by keyword
+#: (`com.jetbrains.*`, `com.sublimetext.*`).
+APP_IDENTIFIERS: dict[str, str] = {
+    # -- Windows: the process image name of the foreground window --------------------
+    "code.exe": "vscode",
+    "code - insiders.exe": "vscode",
+    "vscodium.exe": "vscode",
+    "idea64.exe": "jetbrains",          # IntelliJ IDEA (Ultimate and Community)
+    "idea.exe": "jetbrains",
+    "pycharm64.exe": "jetbrains",
+    "webstorm64.exe": "jetbrains",
+    "phpstorm64.exe": "jetbrains",
+    "clion64.exe": "jetbrains",
+    "goland64.exe": "jetbrains",
+    "rider64.exe": "jetbrains",
+    "rubymine64.exe": "jetbrains",
+    "datagrip64.exe": "jetbrains",
+    "rustrover64.exe": "jetbrains",
+    "studio64.exe": "jetbrains",        # Android Studio
+    "sublime_text.exe": "sublime",
+    # -- macOS: the frontmost application's bundle identifier ------------------------
+    "com.microsoft.vscode": "vscode",
+    "com.microsoft.vscodeinsiders": "vscode",
+    "com.vscodium": "vscode",
+    "com.visualstudio.code.oss": "vscode",
+    "com.jetbrains.intellij": "jetbrains",
+    "com.jetbrains.intellij.ce": "jetbrains",
+    "com.jetbrains.pycharm": "jetbrains",
+    "com.jetbrains.pycharm.ce": "jetbrains",
+    "com.jetbrains.webstorm": "jetbrains",
+    "com.jetbrains.phpstorm": "jetbrains",
+    "com.jetbrains.clion": "jetbrains",
+    "com.jetbrains.goland": "jetbrains",
+    "com.jetbrains.rider": "jetbrains",
+    "com.jetbrains.rubymine": "jetbrains",
+    "com.jetbrains.datagrip": "jetbrains",
+    "com.jetbrains.rustrover": "jetbrains",
+    "com.google.android.studio": "jetbrains",
+    "com.sublimetext.4": "sublime",
+    "com.sublimetext.3": "sublime",
+}
+
 #: Substrings of the focused application's class, lower-cased, that pick a profile.
 #: First match wins. X11 reports JetBrains IDEs as `jetbrains-<product>`, Sublime as
-#: `sublime_text`, VS Code as `Code`; AT-SPI reports the application's name.
+#: `sublime_text`, VS Code as `Code`; AT-SPI reports the application's name, and so
+#: does macOS for an app without a bundle id.
 _APP_KEYWORDS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("jetbrains", (
         "jetbrains", "intellij", "pycharm", "webstorm", "phpstorm", "clion", "goland",
@@ -141,19 +194,26 @@ _APP_EXACT: dict[str, str] = {"code": "vscode"}
 #: on. Here, not in the daemon, so the wording is pinned by a test.
 NO_FOCUSED_APP_REASON = (
     "Editor command profiles: the focused application could not be read, so spoken "
-    "commands use the default (VS Code-style) keys. The only sources are AT-SPI and, "
-    "on an X11 session, xdotool; macOS, Windows and a Wayland session without AT-SPI "
-    "have none yet. Set [commands] profile to a profile name to choose one by hand."
+    "commands use the default (VS Code-style) keys. The sources are AT-SPI and, on an "
+    "X11 session, xdotool on Linux; the frontmost application on macOS; the foreground "
+    "window's process on Windows. A Wayland session without AT-SPI has none. Set "
+    "[commands] profile to a profile name to choose one by hand."
 )
 
 
 def match_app(app_class: str) -> str | None:
-    """The built-in profile for a focused application's class, or ``None``. Pure."""
+    """The built-in profile for a focused application's identifier, or ``None``. Pure.
+
+    ``app_class`` is whatever the platform reports: an X11 class or AT-SPI name, a macOS
+    bundle id, a Windows image name. Case is ignored.
+    """
     name = (app_class or "").strip().lower()
     if not name:
         return None
     if name in _APP_EXACT:
         return _APP_EXACT[name]
+    if name in APP_IDENTIFIERS:
+        return APP_IDENTIFIERS[name]
     for profile, keywords in _APP_KEYWORDS:
         if any(k in name for k in keywords):
             return profile

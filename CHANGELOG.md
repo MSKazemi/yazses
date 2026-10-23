@@ -270,6 +270,21 @@ and BSD send exactly the keys they sent before, and a test pins every one. This 
 has no Mac, so none of this has been run on macOS. Only a stand-in for Quartz has
 checked it.
 
+### Fixed — editor command profiles follow the focused app on macOS and Windows too (experimental, off by default, untested on a real Mac or Windows desktop)
+
+With `[commands] editor_profiles = true`, `profile = "auto"` is documented to send the
+focused editor's keys, for example Ctrl+Y to delete a line in a JetBrains IDE. Only Linux
+could tell which app was in focus, through AT-SPI or `xdotool`. On macOS and Windows
+nothing read the focused app, so every command quietly used the default VS Code-style
+keys. Each platform can now name the focused app. macOS reads the frontmost app's bundle
+id (`com.microsoft.VSCode`, `com.jetbrains.pycharm`, `com.sublimetext.4`). Windows reads
+the program file of the window in front (`Code.exe`, `idea64.exe`, `sublime_text.exe`).
+Neither reads a window title or anything else on screen. The profile matcher now
+recognises the macOS and Windows names of VS Code, the JetBrains IDEs, Android Studio and
+Sublime Text, and a test covers each one. On macOS the matched profile uses that editor's
+macOS keymap. Linux works as before. Neither lookup has run on a real Mac or Windows
+machine yet; the tests use stand-ins for AppKit and Win32.
+
 ### Added — "send to Claude": open the Claude or Codex app with your prompt filled in, never sent (off by default)
 
 Say "send to Claude", "send to Claude Code" or "send to Codex" as a whole utterance, or

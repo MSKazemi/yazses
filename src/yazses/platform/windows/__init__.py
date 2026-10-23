@@ -59,6 +59,7 @@ def build_injector():
 
 def build_platform() -> Platform:
     from yazses.platform.windows.click_observer import WindowsClickObserver
+    from yazses.platform.windows.focused_app import WindowsFocusedApp
     from yazses.platform.windows.hotkey import WindowsHotkey
     from yazses.platform.windows.integrity import foreground_input_block
     from yazses.platform.windows.ipc import (
@@ -95,6 +96,9 @@ def build_platform() -> Platform:
         click_observer_factory=WindowsClickObserver,
         update_launcher=WindowsUpdateLauncher(),
         input_block_probe=foreground_input_block,
+        # The foreground window's process image name ("Code.exe"), for editor command
+        # profiles under `[commands] profile = "auto"`. Constructing it reads nothing.
+        focused_app_factory=WindowsFocusedApp,
     )
 
 

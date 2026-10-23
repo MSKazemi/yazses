@@ -494,7 +494,8 @@ class CommandsConfig:
     # Editor command profiles: send the keys the focused editor binds — Ctrl+Y, not
     # Ctrl+Shift+K, to delete a line in a JetBrains IDE — and refuse a command the
     # editor has no safe key for. OFF by default; off, every application gets the
-    # VS Code-style keys. The focused app is read via AT-SPI or X11 xdotool only.
+    # VS Code-style keys. The focused app is read via AT-SPI or X11 xdotool on Linux,
+    # the frontmost app's bundle id on macOS, the foreground program's name on Windows.
     editor_profiles: bool = False
 
 

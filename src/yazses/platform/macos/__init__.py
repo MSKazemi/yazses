@@ -14,6 +14,7 @@ from yazses.platform.macos.paths import build_paths
 
 def build_platform() -> Platform:
     from yazses.platform.macos.click_observer import MacClickObserver
+    from yazses.platform.macos.focused_app import build_macos_focused_app
     from yazses.platform.macos.hotkey import MacosHotkey
     from yazses.platform.macos.injector import MacosInjector
     from yazses.platform.macos.ipc import UnixSocketIpcClient, UnixSocketIpcServer
@@ -47,6 +48,10 @@ def build_platform() -> Platform:
         # only on start(), which the refiner calls solely under `[gaze_refine] enabled`.
         # A NULL tap (no Input Monitoring / Accessibility) raises there with the reason.
         click_observer_factory=MacClickObserver,
+        # The frontmost app's bundle id ("com.microsoft.VSCode"), for editor command
+        # profiles under `[commands] profile = "auto"`. AppKit is imported only when the
+        # daemon builds it, and its absence raises with the reason the daemon logs.
+        focused_app_factory=build_macos_focused_app,
         # Undo, copy, paste, save, select all are Cmd chords here, not Ctrl ones;
         # `commands/dispatch.py` sends its macOS keymap because of this one field.
         primary_modifier=PRIMARY_MODIFIER_CMD,
