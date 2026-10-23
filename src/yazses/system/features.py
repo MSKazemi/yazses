@@ -1046,8 +1046,10 @@ def _registry() -> list[_Def]:
         _Def("predict", "Predictive Completion", "[predict] — voice autosuggest, experimental",
              EXPERIMENTAL,
              "After a dictation is typed, a local model proposes the rest of the sentence "
-             "in a notification; say \"accept\" or \"take it\" within 10 seconds to type it. "
-             "Anything else you say dismisses it, and nothing is typed without the accept. "
+             "in a notification; say \"accept\" or \"take it\" within 10 seconds to type it, "
+             "or \"discard\" to drop it. Anything else you say -- a one-word \"No.\" "
+             "included -- dismisses it and is typed as usual, and nothing is typed "
+             "without the accept. "
              "Needs llama-cpp-python (the slm extra) and a local GGUF model at "
              "[predict] model_path. Off by default.",
              lambda c: c.predict.enabled, pd_on, pd_off),

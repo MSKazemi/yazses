@@ -6,6 +6,15 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — Predictive Completion no longer eats a dictated "No." (experimental, off by default)
+
+While a suggestion was offered, a whole-utterance "no" or "never mind" counted as declining
+it, so the word was consumed and nothing was typed. Both are ordinary replies, so they are
+now dictated like any other speech: the word is typed and the offer is dismissed. Only
+phrases that address the suggestion decline it: "discard", "decline", "reject" and
+"cancel that". Declining was always optional, because anything else you say dismisses the
+offer. Tested with a fake model and injector only, not on real hardware.
+
 ### Fixed — Interruptible Proofreading no longer loses your words when the correction cannot be typed (experimental, off by default)
 
 A proofreading correction (`proofback`) erases the text from the interrupted word with

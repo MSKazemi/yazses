@@ -194,6 +194,19 @@ def test_other_speech_dismisses_the_offer_and_is_dictated(monkeypatch):
     assert nxt is not None
 
 
+def test_a_dictated_no_is_typed_and_dismisses_the_offer(monkeypatch):
+    # "No." used to be a decline phrase and was eaten: the user said a word and nothing
+    # appeared. It is ordinary dictation now -- typed, and the offer is gone, so a later
+    # "accept" cannot type the old suggestion.
+    d, inj, _shown, _clock, _ = _daemon(monkeypatch)
+    _offer(d)
+    _say(d, "No.")
+    assert inj.calls == [FIRST, "No."]
+    assert d._predict.pending is None
+    _say(d, "accept")
+    assert SUGGESTED not in inj.calls, "a dismissed suggestion was typed"
+
+
 def test_an_accept_after_the_offer_expired_types_nothing(monkeypatch):
     d, inj, shown, clock, _ = _daemon(monkeypatch)
     _offer(d)

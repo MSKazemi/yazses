@@ -9,8 +9,15 @@ from __future__ import annotations
 _ACCEPT = frozenset(
     ["accept", "accept that", "take it", "yes take it", "keep it", "use that"]
 )
+#: Only words that address the suggestion itself. A decline is consumed, so a phrase
+#: here is a phrase the user can never dictate as a whole utterance while an offer is
+#: open. "no" and "never mind" were here and were removed (2026-10-23): both are
+#: ordinary one-utterance replies ("No." to a chat message), and eating them typed
+#: nothing where the user expected their word. Declining is optional anyway -- any
+#: other speech dismisses the offer and is dictated -- so a missing decline word costs
+#: nothing, while a wrong one costs the user's text.
 _DECLINE = frozenset(
-    ["no", "decline", "discard", "reject", "cancel that", "never mind"]
+    ["decline", "discard", "reject", "cancel that"]
 )
 
 

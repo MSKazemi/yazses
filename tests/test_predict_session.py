@@ -208,6 +208,31 @@ def test_decline_is_consumed_and_types_nothing():
     assert s.pending is None
 
 
+@pytest.mark.parametrize("phrase", ["discard", "Decline.", "reject", "cancel that"])
+def test_each_explicit_decline_phrase_is_consumed(phrase):
+    s, _ = _offered()
+    res = s.resolve(phrase, 105.0)
+    assert res.action == DECLINE and res.consumed and res.typed == ""
+
+
+@pytest.mark.parametrize("reply", ["No.", "no", "Never mind."])
+def test_a_one_word_no_is_dictation_not_a_decline(reply):
+    # "No." is an ordinary reply. It dismisses the offer like any other speech, and is
+    # not consumed, so the daemon types it.
+    s, _ = _offered()
+    res = s.resolve(reply, 105.0)
+    assert res.action == DROPPED
+    assert res.consumed is False and res.typed == ""
+    assert s.pending is None
+
+
+def test_a_no_after_expiry_is_dictated_not_swallowed_by_the_grace_period():
+    # The late-grace window consumes only control phrases; "No." is not one.
+    s, _ = _offered(now=100.0)
+    res = s.resolve("No.", 100.0 + SUGGESTION_TTL_S + 1.0)
+    assert res.action == EXPIRED and res.consumed is False
+
+
 def test_any_other_utterance_drops_the_offer_and_is_dictated():
     s, _ = _offered()
     res = s.resolve("and bring the slides", 105.0)
