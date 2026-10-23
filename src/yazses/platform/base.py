@@ -126,6 +126,14 @@ class TrayModel:
     # tooltip and menu line. Left out of the generated hash because a dict cannot be
     # hashed; equality still compares it.
     stt_residency: dict[str, Any] | None = field(default=None, hash=False)
+    # The decoder actually running (#644): `engine` and `engine_model` name it, and
+    # `engine_fallback` ({"from", "reason"}) says why the configured one is not it. None
+    # while the model loads and on an older daemon. The tray menus' status line reads
+    # them through `tray/menu.py::engine_line`, with the wording `yazses status` uses.
+    # `engine_fallback` is left out of the hash for the reason `stt_residency` is.
+    engine: str | None = None
+    engine_model: str | None = None
+    engine_fallback: dict[str, Any] | None = field(default=None, hash=False)
 
 
 @dataclass(frozen=True)

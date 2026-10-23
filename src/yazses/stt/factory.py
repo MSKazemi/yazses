@@ -176,6 +176,40 @@ def describe_active_engine(engine: object) -> dict[str, str] | None:
     }
 
 
+def engine_phrase(status: dict) -> str | None:
+    """The decoder as one phrase, from the daemon's status reply: ``"base.en (faster-whisper)"``.
+
+    The one wording for the engine, shared by `yazses status` (below) and the tray menus
+    (`tray/menu.py::engine_line`), so the two cannot come to name it differently. A
+    daemon that reports no ``engine`` -- older than #644, or still loading -- gets the
+    configured ``[stt] model`` alone, which is what `yazses status` has always printed
+    for it; ``None`` when there is not even that.
+    """
+    engine = status.get("engine")
+    if not engine:
+        model = status.get("model")
+        return str(model) if model else None
+    model = status.get("engine_model") or status.get("model")
+    return f"{model} ({engine})"
+
+
+def fallback_phrase(status: dict) -> str | None:
+    """Why the configured engine is not the one decoding, or ``None`` if it is.
+
+    Shared by `yazses status` (its ``FALLBACK:`` line) and the tray menus' warning line,
+    for the reason `engine_phrase` is shared. ``None`` when no engine is reported, when
+    there was no fallback, and for any shape other than the daemon's own.
+    """
+    engine = status.get("engine")
+    fallback = status.get("engine_fallback")
+    if not engine or not isinstance(fallback, dict) or not fallback.get("from"):
+        return None
+    return (
+        f"[stt] engine = {fallback['from']} is not running, because "
+        f"{fallback.get('reason') or 'it did not load'}. {engine} decodes instead."
+    )
+
+
 def render_engine_status_lines(status: dict) -> list[str]:
     """`yazses status` lines for the decoder, from the daemon's status reply.
 
@@ -190,14 +224,10 @@ def render_engine_status_lines(status: dict) -> list[str]:
     if not engine:
         lines = [f"  model:    {status.get('model')}"]
     else:
-        model = status.get("engine_model") or status.get("model")
-        lines = [f"  model:    {model} ({engine})"]
-        fallback = status.get("engine_fallback")
-        if isinstance(fallback, dict) and fallback.get("from"):
-            lines.append(
-                f"  FALLBACK: [stt] engine = {fallback['from']} is not running, because "
-                f"{fallback.get('reason') or 'it did not load'}. {engine} decodes instead."
-            )
+        lines = [f"  model:    {engine_phrase(status)}"]
+        fallback = fallback_phrase(status)
+        if fallback is not None:
+            lines.append(f"  FALLBACK: {fallback}")
     from yazses.system.residency import describe_stt_residency
 
     residency = describe_stt_residency(status.get("stt_residency"))

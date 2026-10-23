@@ -114,8 +114,8 @@ The tray tooltip (and the Linux tray menu) shows the same phrase as `Speech mode
 loaded. The release can come later than `idle_unload_s`: YazSes checks every quarter of
 it (and at least every 30 s), and it waits while you are dictating. So the unloaded line
 shows the measured time, not the setting. At the default of `0` the whole field is `null`
-and no line is printed. The macOS menu-bar icon shows only a state glyph, so it does not
-show this line.
+and no line is printed. On macOS the line appears near the top of the menu-bar menu,
+under the engine line (not yet tested on a real Mac).
 
 **How much memory comes back is not measured yet.** CTranslate2, the library that runs
 Whisper, may keep part of its memory after the model is released, so the drop you see in

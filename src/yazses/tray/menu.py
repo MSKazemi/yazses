@@ -91,18 +91,14 @@ def build_menu_model(
     device whose resolution matches the pin is checked; when nothing is pinned the
     "Follow OS default" entry is checked instead.
     """
-    state = str(status.get("state") or "idle")
-    header = f"YazSes — {state}"
+    header = header_line(status)
 
     # Device names come from the OS, in the desktop's script: display copies are
     # isolated (#516); `DeviceItem.device` keeps the raw name the pin is written from.
     input_device = wrap_user_text(status.get("input_device") or "default")
     mic_line = f"Mic: {input_device}"
 
-    streak = int(status.get("silent_streak") or 0)
-    warning = (
-        f"⚠ {streak} silent clip{'s' if streak != 1 else ''} in a row" if streak else None
-    )
+    warning = silent_streak_warning(status)
 
     pinned = (pinned or "").strip()
     resolved_index = resolve_input_device(pinned, devices) if pinned else None
@@ -140,6 +136,98 @@ def residency_line(status: dict) -> str | None:
 
     phrase = describe_stt_residency(status.get("stt_residency"))
     return f"Speech model: {phrase}" if phrase is not None else None
+
+
+def header_line(status: dict) -> str:
+    """The daemon's state in words, the first menu line: ``"YazSes — idle"``."""
+    state = str(status.get("state") or "idle")
+    return f"YazSes — {state}"
+
+
+def silent_streak_warning(status: dict) -> str | None:
+    """``"⚠ 2 silent clips in a row"`` while a silent streak is live, else ``None``."""
+    streak = int(status.get("silent_streak") or 0)
+    if not streak:
+        return None
+    return f"⚠ {streak} silent clip{'s' if streak != 1 else ''} in a row"
+
+
+def engine_line(status: dict) -> str:
+    """The state and the decoder on one line: ``"YazSes — idle · base.en (faster-whisper)"``.
+
+    The decoder phrase is the one `yazses status` prints, from `stt/factory.py`, so the
+    two cannot name it differently. It is the engine that actually came up (#644), which
+    after a fallback is not the one configured. While the model is still loading, and on
+    a daemon too old to say, the configured ``[stt] model`` stands in, as it does in
+    `yazses status`. Just the state when there is neither.
+    """
+    from yazses.stt.factory import engine_phrase
+
+    header = header_line(status)
+    phrase = engine_phrase(status)
+    return f"{header} · {phrase}" if phrase else header
+
+
+#: A menu line is as wide as its text, and a warning can carry an exception message of
+#: any length. Cut it, so one long reason cannot stretch the whole menu across the screen.
+_WARNING_MAX = 110
+
+
+def top_warning(status: dict) -> str | None:
+    """The one warning a status line has room for, most important first. Pure.
+
+    1. The daemon is in **error** and said why (``last_error``): nothing works.
+    2. The configured engine **fell back** to another (#644): dictation works, but not
+       with the engine the user chose, and nothing else on the menu says so.
+    3. A live **silent streak**: the microphone may not be hearing anything.
+
+    ``None`` when none applies. The wording of 2 and 3 is shared: `fallback_phrase` is
+    `yazses status`'s ``FALLBACK:`` line, and `silent_streak_warning` is the Linux menu's
+    warning line. The result is one line (whitespace collapsed) of at most
+    ``_WARNING_MAX`` characters.
+    """
+    from yazses.stt.factory import fallback_phrase
+
+    state = str(status.get("state") or "idle")
+    error = status.get("last_error")
+    fallback = fallback_phrase(status)
+    if state == "error" and error:
+        text = f"⚠ {error}"
+    elif fallback is not None:
+        text = f"⚠ {fallback}"
+    else:
+        text = silent_streak_warning(status) or ""
+    text = " ".join(text.split())
+    if not text:
+        return None
+    if len(text) > _WARNING_MAX:
+        text = text[: _WARNING_MAX - 1].rstrip() + "…"
+    return text
+
+
+def status_lines(status: dict) -> list[str]:
+    """The informational, non-clickable lines at the top of a static tray menu. Pure.
+
+    Always the engine line (`engine_line`); then the speech-model memory line, only
+    under ``[stt] idle_unload_s`` (`residency_line`); then the most important warning,
+    if any (`top_warning`). In that order, never more than ``STATUS_LINE_SLOTS``.
+
+    Built for the macOS menu bar, where a glyph is otherwise all the user sees. Every
+    phrase comes from a helper the Linux menu, the Windows tooltip or `yazses status`
+    already uses, so this adds no wording of its own.
+    """
+    lines = [engine_line(status)]
+    residency = residency_line(status)
+    if residency is not None:
+        lines.append(residency)
+    warning = top_warning(status)
+    if warning is not None:
+        lines.append(warning)
+    return lines
+
+
+#: The most lines `status_lines` returns; a menu built once reserves this many items.
+STATUS_LINE_SLOTS = 3
 
 
 @dataclass(frozen=True)
@@ -402,6 +490,13 @@ def status_from_model(model: TrayModel) -> dict:
         # `[stt] idle_unload_s` (ADR-029): the tooltip and the menu read it through
         # `residency_line`. In the shared bridge for the reason the meeting keys are.
         "stt_residency": model.stt_residency,
+        # The decoder that came up and the reason for any fallback (#644), plus the
+        # daemon's error text: the static menus' status lines read them through
+        # `status_lines`. In the shared bridge for the reason the meeting keys are.
+        "engine": model.engine,
+        "engine_model": model.engine_model,
+        "engine_fallback": model.engine_fallback,
+        "last_error": model.last_error,
     }
 
 

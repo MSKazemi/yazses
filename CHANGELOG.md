@@ -6,6 +6,20 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — The macOS menu-bar menu has status lines (untested on a real Mac)
+
+The macOS menu-bar icon showed only a state glyph. It had no tooltip and no status
+line, so a Mac user could not see which speech engine was running, whether the speech
+model was in memory, or any warning. The top of its menu now has up to three greyed-out
+lines: the state and the engine that actually came up (`YazSes — idle · base.en
+(faster-whisper)`), the speech model's memory state (only with `[stt] idle_unload_s`
+set), and the most important warning (a daemon error, then a fallback engine, then
+silent recordings). The lines use the existing wording of `yazses status`, the Linux
+menu and the Windows tooltip, through shared helpers in `tray/menu.py` and
+`stt/factory.py`. They are refreshed on the same poll as the glyph, and the menu items
+are changed on the main thread. Tested against a fake rumps only. No one has opened this
+menu on a Mac yet.
+
 ### Added — Vocal Morse: the SK prosign ends Morse mode (experimental, off by default)
 
 Morse mode used to end only after 3 s of silence. Now the end-of-work prosign SK

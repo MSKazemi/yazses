@@ -247,6 +247,32 @@ model = "base.en"   # the default; "tiny.en" is faster and less accurate, "small
 The first transcription downloads the default Whisper model (`base.en`, ~147 MB)
 into `~/.cache/huggingface/hub/` (the shared Hugging Face cache). Subsequent dictations are fully offline.
 
+### The menu-bar menu
+
+The menu-bar icon is a glyph for the current state (🎤 ready, 🔴 recording, ⚠️ a
+problem). Click it and the top of the menu shows up to three greyed-out status lines.
+They are information only, so clicking them does nothing:
+
+```text
+YazSes — idle · base.en (faster-whisper)
+Speech model: loaded, idle 45 s of 300 s
+⚠ 2 silent clips in a row
+```
+
+- The **first line** is always there. It shows the state and the speech engine that is
+  actually running, in the same words as `yazses status`. If the engine you configured
+  failed to load and another one took over, this line names the one that took over.
+- The **second line** appears only if you set `[stt] idle_unload_s` (see
+  [Release the model when idle](how-to/low-ram-models.md#release-the-model-when-idle)).
+  It says whether the speech model is in memory.
+- The **third line** shows only the most important warning: why the daemon is in
+  error, then a fallback engine, then a run of silent recordings.
+
+The memory line and the silent-recordings warning use the same words as the Linux tray
+menu and the Windows tooltip. The engine and the fallback warning use the same words as
+`yazses status`. Below the status lines are Settings, Meeting Mode, Pause hotkey, Help, About and Check
+for updates, in that order. *This menu has not been tested on a real Mac yet.*
+
 ## Verify with the CLI
 
 The `.app` ships a CLI alongside the tray:
