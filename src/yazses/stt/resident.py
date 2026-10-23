@@ -100,6 +100,13 @@ class IdleUnloadEngine:
         #: Counters for status rows and tests: how many loads (after the first) and unloads.
         self.reloads = 0
         self.unloads = 0
+        #: When the model was last released (a ``clock`` reading) and how long it had
+        #: really been idle then, both ``None`` while it is loaded or was never released.
+        #: The idle time is measured, not the keep-alive: the unload tick runs a quarter
+        #: of the keep-alive apart and skips a turn while the daemon is busy, so a model
+        #: kept for 300 s is released at anything from 300 s to well past it.
+        self._released_at: float | None = None
+        self._released_after_s: float | None = None
         if engine is not None:
             self._tracker.mark_loaded(STT_UNIT)
 
@@ -116,6 +123,15 @@ class IdleUnloadEngine:
         with self._cond:
             return self._loading
 
+    @property
+    def released_after_s(self) -> float | None:
+        """Seconds the model had been idle when it was last released; ``None`` while loaded.
+
+        One attribute read, no lock: the daemon logs it just after `detach_if_idle`
+        returned, from the thread that called it.
+        """
+        return self._released_after_s
+
     def idle_s(self) -> float | None:
         """Seconds since the last decode finished, or ``None`` while unloaded."""
         with self._cond:
@@ -124,9 +140,14 @@ class IdleUnloadEngine:
     def residency_snapshot(self) -> dict[str, object]:
         """The model's residency for the daemon's ``status`` reply. Never waits on a lock.
 
-        ``{"idle_unload_s": int, "loaded": bool, "loading": bool, "idle_s": float | None}``.
+        ``{"idle_unload_s": int, "loaded": bool, "loading": bool, "idle_s": float | None,
+        "unloaded_after_s": float | None, "unloaded_for_s": float | None}``.
         ``idle_s`` is seconds since the last decode finished, ``0.0`` while one is in
         flight (the model is in use, not idle), and ``None`` while no model is loaded.
+        While no model is loaded, ``unloaded_after_s`` is how long it had really been
+        idle when it was released and ``unloaded_for_s`` how long ago that was; both are
+        ``None`` while it is loaded, and before any release (a wrapper built with no
+        engine). They are measured, not the configured keep-alive.
 
         The daemon builds its status reply under its own state lock, and the tray polls it
         four times a second, so this must not queue behind the engine lock. It *tries*
@@ -135,6 +156,8 @@ class IdleUnloadEngine:
         without it. Each is one attribute load, and the tracker's :meth:`last_use` reads
         no clock and records nothing, so the unlocked read can at worst be one transition
         stale, never an error. :meth:`idle_s` is not used here for exactly that reason.
+        The release stamps are plain attributes read the same way, and the "how long
+        ago" reads ``clock`` directly -- not through the tracker -- so it records nothing.
         """
         locked = self._cond.acquire(blocking=False)
         try:
@@ -142,17 +165,29 @@ class IdleUnloadEngine:
             loading = self._loading
             inflight = self._inflight
             last = self._tracker.last_use(STT_UNIT)
+            released_at = self._released_at
+            released_after = self._released_after_s
         finally:
             if locked:
                 self._cond.release()
         idle: float | None = None
-        if inner is not None and last is not None:
-            idle = 0.0 if inflight else round(max(0.0, self._clock() - last), 1)
+        unloaded_after: float | None = None
+        unloaded_for: float | None = None
+        if inner is not None:
+            if last is not None:
+                idle = 0.0 if inflight else round(max(0.0, self._clock() - last), 1)
+        else:
+            if released_after is not None:
+                unloaded_after = round(released_after, 1)
+            if released_at is not None:
+                unloaded_for = round(max(0.0, self._clock() - released_at), 1)
         return {
             "idle_unload_s": int(round(self.idle_unload_s)),
             "loaded": inner is not None,
             "loading": bool(loading),
             "idle_s": idle,
+            "unloaded_after_s": unloaded_after,
+            "unloaded_for_s": unloaded_for,
         }
 
     # ---- use ---------------------------------------------------------------------
@@ -171,8 +206,12 @@ class IdleUnloadEngine:
                 self._cond.wait()
         # This thread is the loader. Outside the lock: a load takes seconds, and the
         # housekeeping tick must be able to see "busy" without waiting for it.
-        log.info("Reloading the speech model (it was unloaded after %.0f s idle).",
-                 self.idle_unload_s)
+        released_after = self._released_after_s
+        if released_after is not None:
+            log.info("Reloading the speech model (it was unloaded after %.0f s idle).",
+                     released_after)
+        else:
+            log.info("Loading the speech model.")
         try:
             engine = self._load()
         except BaseException:
@@ -186,6 +225,8 @@ class IdleUnloadEngine:
             self._loading = False
             self._inflight += 1
             self._tracker.mark_loaded(STT_UNIT)
+            self._released_at = None
+            self._released_after_s = None
             self.reloads += 1
             self._cond.notify_all()
         self._notify_loaded()
@@ -288,8 +329,14 @@ class IdleUnloadEngine:
         try:
             if self._inner is None or self._inflight or self._loading:
                 return None
-            if STT_UNIT not in self._tracker.due_for_unload():
+            now = self._clock()
+            if STT_UNIT not in self._tracker.due_for_unload(now):
                 return None
+            last = self._tracker.last_use(STT_UNIT)
+            # Stamped before the engine is dropped, so a snapshot read without the lock
+            # that already sees "unloaded" also sees when, not a blank.
+            self._released_at = now
+            self._released_after_s = None if last is None else max(0.0, now - last)
             engine, self._inner = self._inner, None
             self._tracker.mark_unloaded(STT_UNIT)
             self.unloads += 1

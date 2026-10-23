@@ -131,11 +131,15 @@ missing package but cannot see a load failure.
 With `[stt] idle_unload_s` set, YazSes releases the speech model after that many idle
 seconds, and the first words after a pause are late while it reloads. Nothing said which
 state you were in. Now `yazses status` prints one `memory:` line under the model, for
-example `speech model loaded, idle 45 s of 300 s` or `speech model unloaded after 300 s
-idle — reloads on the next press`. The tray tooltip and the Linux tray menu show the same
-phrase. The macOS menu bar does not, because it shows only a glyph. The daemon's status reply gains
-`stt_residency` (`idle_unload_s`, `loaded`, `loading`, `idle_s`). It is `null` at the
-default of `0`, so an install that has not opted in sees no change. Reading it never waits
+example `speech model loaded, idle 45 s of 300 s` or `speech model unloaded after 312 s
+idle, 3 min ago — reloads on the next press`. The unloaded figure is the idle time measured
+when the model was released, not the setting: the release can come later, because YazSes
+checks only every quarter of `idle_unload_s` and waits while you dictate. The tray tooltip
+and the Linux tray menu show the same phrase. The macOS menu bar does not, because it
+shows only a glyph. The daemon's status reply gains `stt_residency` (`idle_unload_s`,
+`loaded`, `loading`, `idle_s`, `unloaded_after_s`, `unloaded_for_s`). It is `null` at the
+default of `0`, so an install that has not opted in sees no change. The daemon log's
+"released after" line gives the measured time too. Reading it never waits
 on the engine's lock, so a status poll cannot queue behind a decode or a reload.
 `tests/test_status_stt_residency.py` covers each state, the lock, the printed line and
 the tray. Untested on real hardware.

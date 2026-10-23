@@ -236,11 +236,33 @@ def with_stt_idle_unload(
     return ResidencyPolicy(entries=entries, max_resident=policy.max_resident)
 
 
+def _seconds(value: object) -> float | None:
+    """A non-negative finite number of seconds from a status field, else ``None``."""
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        return None
+    if not math.isfinite(value):
+        return None
+    return max(0.0, float(value))
+
+
+def _span(seconds: float) -> str:
+    """A rough "how long ago": seconds under two minutes, then minutes, then hours.
+
+    Rounded down, so a span never reads longer than it was and never jumps a unit early.
+    """
+    if seconds < 120:
+        return f"{int(seconds)} s"
+    if seconds < 7200:
+        return f"{int(seconds // 60)} min"
+    return f"{int(seconds // 3600)} h"
+
+
 def describe_stt_residency(block: object) -> str | None:
     """The dictation engine's residency as one phrase, for `yazses status` and the tray.
 
     *block* is the daemon's ``stt_residency`` status field (``Daemon._stt_residency_payload``):
-    ``{"idle_unload_s": int, "loaded": bool, "loading": bool, "idle_s": float | None}``,
+    ``{"idle_unload_s": int, "loaded": bool, "loading": bool, "idle_s": float | None,
+    "unloaded_after_s": float | None, "unloaded_for_s": float | None}``,
     or ``None`` while ``[stt] idle_unload_s`` is ``0``. Returns ``None`` -- print nothing --
     for ``None``, a daemon too old to send the field, a keep-alive that is not a positive
     number, or any other shape: a status line that guesses is worse than a missing one.
@@ -248,7 +270,10 @@ def describe_stt_residency(block: object) -> str | None:
     The three states the user can be in, in the words they need:
 
     * loading -- the model is coming back, so the next words are late;
-    * unloaded -- it was released after the keep-alive and the next press reloads it;
+    * unloaded -- it was released after it had really been idle that long (measured at
+      the release, not the keep-alive, which the release can overshoot), how long ago,
+      and that the next press reloads it. A missing figure is left out, never replaced
+      by the keep-alive;
     * loaded -- how long it has been idle, out of how long it may be.
     """
     if not isinstance(block, Mapping):
@@ -261,7 +286,12 @@ def describe_stt_residency(block: object) -> str | None:
     if block.get("loading") is True:
         return "reloading — the next words wait for it"
     if block.get("loaded") is not True:
-        return f"unloaded after {keep:.0f} s idle — reloads on the next press"
+        after = _seconds(block.get("unloaded_after_s"))
+        since = _seconds(block.get("unloaded_for_s"))
+        head = "unloaded" if after is None else f"unloaded after {after:.0f} s idle"
+        if since is not None:
+            head += f", {_span(since)} ago"
+        return f"{head} — reloads on the next press"
     idle = block.get("idle_s")
     if isinstance(idle, (int, float)) and not isinstance(idle, bool) and math.isfinite(idle):
         return f"loaded, idle {max(0.0, idle):.0f} s of {keep:.0f} s"

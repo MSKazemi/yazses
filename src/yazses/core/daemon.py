@@ -1448,9 +1448,12 @@ class Daemon:
         import gc
 
         gc.collect()
+        idle = engine.released_after_s
         log.info(
-            "Speech model released after %s s idle ([stt] idle_unload_s); it reloads "
-            "on the next press.", engine.idle_unload_s,
+            "Speech model released after %.0f s idle ([stt] idle_unload_s = %d); it "
+            "reloads on the next press.",
+            idle if idle is not None else engine.idle_unload_s,
+            int(round(engine.idle_unload_s)),
         )
         return True
 

@@ -82,8 +82,9 @@ _USER_TEXT = frozenset({"preview"})
 #: its message, so no path or name can reach it.
 #:
 #: `stt_residency` (ADR-029, `[stt] idle_unload_s`) is `IdleUnloadEngine.residency_snapshot`:
-#: an int keep-alive, two booleans and a float of seconds, or None while the key is 0. It
-#: has no string field at all, which `tests/test_status_stt_residency.py` pins.
+#: an int keep-alive, two booleans and three floats of seconds (idle, idle at the last
+#: release, time since it), or None while the key is 0. It has no string field at all,
+#: which `tests/test_status_stt_residency.py` pins.
 _MACHINE_FACTS = frozenset({
     "acoustic", "audio_level", "bursts", "command_mode", "commands_enabled", "confidence_enabled",
     "decode_latency", "enabled", "engine", "engine_fallback", "engine_model", "handsfree", "headpointer", "hotkey", "injection_backend", "input_device",

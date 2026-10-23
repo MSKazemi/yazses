@@ -102,15 +102,20 @@ one more line under the model:
 
 ```text
   memory:   speech model loaded, idle 45 s of 600 s
-  memory:   speech model unloaded after 600 s idle — reloads on the next press
+  memory:   speech model unloaded after 642 s idle, 3 min ago — reloads on the next press
   memory:   speech model reloading — the next words wait for it
 ```
 
 The tray tooltip (and the Linux tray menu) shows the same phrase as `Speech model: …`.
 `yazses status --json` carries it as `stt_residency`, with `idle_unload_s`, `loaded`,
-`loading` and `idle_s` (seconds since the last dictation, `null` while unloaded). At the
-default of `0` that field is `null` and no line is printed. The macOS menu-bar icon shows
-only a state glyph, so it does not show this line.
+`loading`, `idle_s` (seconds since the last dictation, `null` while unloaded),
+`unloaded_after_s` (how long the model had really been idle when it was released) and
+`unloaded_for_s` (how long ago that was); the last two are `null` while the model is
+loaded. The release can come later than `idle_unload_s`: YazSes checks every quarter of
+it (and at least every 30 s), and it waits while you are dictating. So the unloaded line
+shows the measured time, not the setting. At the default of `0` the whole field is `null`
+and no line is printed. The macOS menu-bar icon shows only a state glyph, so it does not
+show this line.
 
 **How much memory comes back is not measured yet.** CTranslate2, the library that runs
 Whisper, may keep part of its memory after the model is released, so the drop you see in
