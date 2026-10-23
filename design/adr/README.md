@@ -72,8 +72,8 @@ Binding for v1.0. Supersede with a new ADR; do not edit in place.
 | [adr-028-feature-addon-packs](adr-028-feature-addon-packs.md) | Feature add-on packs: a frozen install fetches a feature's libraries when it is turned on | Proposed |
 | [adr-029-runtime-residency](adr-029-runtime-residency.md) | Runtime residency: RAM and CPU proportional to what is enabled | Accepted |
 | [adr-030-agent-era-direction](adr-030-agent-era-direction.md) | Direction: the offline microphone for the agent era, and a breadth freeze | Accepted |
-| [adr-031-send-to-prefill-handoff](adr-031-send-to-prefill-handoff.md) | "Send to": hand dictated text to a desktop AI client, pre-filled and never sent | Proposed |
-| [adr-032-mcp-discoverability](adr-032-mcp-discoverability.md) | Make the MCP server discoverable, and let `ask_human` stop when the user does | Proposed |
+| [adr-031-send-to-prefill-handoff](adr-031-send-to-prefill-handoff.md) | "Send to": hand dictated text to a desktop AI client, pre-filled and never sent | Accepted |
+| [adr-032-mcp-discoverability](adr-032-mcp-discoverability.md) | Make the MCP server discoverable, and let `ask_human` stop when the user does | Accepted |
 
 ### v0.4 series
 

@@ -26,7 +26,7 @@ buckets it is in, and states what would move it.
 <figcaption>Three gates in series. Most ideas fail the first one.</figcaption>
 </figure>
 
-The first gate does most of the work. YazSes ships **<!-- registry:total -->149<!-- /registry --> capabilities and <!-- registry:unwired -->25<!-- /registry --> of them are
+The first gate does most of the work. YazSes ships **<!-- registry:total -->150<!-- /registry --> capabilities and <!-- registry:unwired -->25<!-- /registry --> of them are
 not reachable from any entry point** — the project's constraint has never been ideas, it
 has been finishing them. So an idea that cannot name the problem it answers does not get
 built, however good it sounds.
