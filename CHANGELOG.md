@@ -6,6 +6,17 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed — a SHOWCASE entry has to be the tester's own, and a copy is flagged on the PR
+
+A real test report is credited on the contributors wall, so it has to describe the
+contributor's own setup in their own words. `scripts/check-compatibility.py` now refuses an
+entry whose "How you use YazSes" text matches another entry's word for word, ignoring case
+and line wrapping and anything under 40 characters. It also reads a heading indented by up
+to three spaces as a heading, as Markdown does. #548 hid a verbatim copy under `  ### `, and
+the old pattern folded it into the entry above, so every check passed. The rule is
+written into `SHOWCASE.md` and `docs/contributing.md`. `tests/test_showcase_copy_rule.py`
+includes #548's exact shape.
+
 ### Fixed — `yazses status` names the speech engine actually decoding, and says when it fell back ([#644](https://github.com/MSKazemi/yazses/issues/644))
 
 With `[stt] engine = "parakeet"` (or `"moonshine"`) and that engine missing or failing to

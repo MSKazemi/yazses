@@ -75,8 +75,9 @@ and we will help you read it.
 
 Every contributor is credited on the wall in the
 [README](https://github.com/MSKazemi/yazses#contributors), including for work with no commit
-behind it — design review, research and bug reports count, and a script checks nobody with
-merged work is missing.
+behind it — design review, research, bug reports and real test reports count, and a script
+checks nobody with merged work is missing. A report has to be your own: an entry copied from
+someone else's is closed, not merged.
 
 ## The design record is public
 

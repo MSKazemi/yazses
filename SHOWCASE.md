@@ -3,6 +3,10 @@
 A community list of real YazSes setups. Seeing how others dictate helps newcomers get started —
 and adding yours is a friendly **first contribution**.
 
+A real test report is real work: once your entry is merged you are credited as a tester on the
+contributors wall. It has to be **your own setup, in your own words**. An entry copied from
+another one is closed without merging, and `scripts/check-compatibility.py` flags it on the PR.
+
 ## Add yours (a 2-minute PR)
 
 1. Copy the block below to the **bottom** of this file (new entries go last to avoid conflicts).
