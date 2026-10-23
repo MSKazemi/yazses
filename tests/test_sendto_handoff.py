@@ -11,10 +11,12 @@ launched. Three promises are pinned:
   `UrlOpener` beside `FileOpener` (ADR-031 §3) — reached only for a scheme from the closed
   target table, and the package imports no network primitive and spawns nothing itself
   (ADR-019).
-* **How Linux opens it** — `LinuxUrlOpener` gets the planned URL, hostile text and all,
-  and passes it to `xdg-open` as one argv element with no shell. That is the argv
-  exposure ADR-031 §3 records; the per-OS backends are pinned in
-  `test_platform_url_opener_seam.py`.
+* **How Linux opens it without a portal** — `LinuxUrlOpener` tries the desktop portal's
+  `OpenURI` over D-Bus first (no argv holds the URL); `tests/conftest.py` refuses the
+  session bus to every test, so here it takes the fallback, passing the planned URL,
+  hostile text and all, to `xdg-open` as one argv element with no shell. That fallback is
+  the argv exposure ADR-031's implementation notes record; the portal path and the other
+  per-OS backends are pinned in `test_platform_url_opener_seam.py`.
 
 Not covered, and cannot be from here: whether a real Claude or Codex install pre-fills
 without submitting. ADR-031 §5 requires a validation row per client and OS for that.
@@ -256,9 +258,10 @@ def test_open_url_still_logs_the_url_for_everyone_else(logs):
 def test_the_linux_launcher_gets_the_url_as_one_argv_element_and_no_shell(monkeypatch):
     """Through the real `default_opener` and the real factory, with only `Popen` faked.
 
-    The URL is one argument — so hostile text cannot become a second argument or a shell
-    command — and it IS in the child's argument list, the local exposure ADR-031 §3
-    records. Its output goes to /dev/null: `xdg-open` quotes its argument when it fails.
+    With no session bus (conftest's default, and the production fallback) the URL is one
+    argument — so hostile text cannot become a second argument or a shell command — and
+    it IS in the child's argument list, the local exposure ADR-031 records for the
+    fallback. Its output goes to /dev/null: `xdg-open` quotes its argument when it fails.
     """
     import subprocess
     import sys

@@ -23,11 +23,15 @@ OS call happens behind the seam.
 What each backend does, and the local exposure each leaves (ADR-031 §3 asks for it to be
 written down):
 
-* **Linux and the BSDs:** ``xdg-open <url>`` as a child process — one argv element, no
-  shell, its output discarded. While it runs, the URL — and so the text — is in its
-  argument list, readable through ``/proc`` by the user's own processes and, unless
-  ``/proc`` is mounted with ``hidepid=``, by every local user. A client that the hand-off
-  *starts* usually gets the URL as an argument too, for as long as it runs.
+* **Linux and the BSDs:** the desktop portal's ``OpenURI`` over the session bus first,
+  so no argument list of ours holds the URL (a process of the same user can still watch
+  the bus). Only when no portal received it — no ``jeepney``, no session bus, no portal
+  service or method — ``xdg-open <url>`` as a child process: one argv element, no shell,
+  its output discarded; while it runs the URL — and so the text — is in its argument
+  list, readable through ``/proc`` by the user's own processes and, unless ``/proc`` is
+  mounted with ``hidepid=``, by every local user. Once the portal has the URL, a failure
+  is never retried through ``xdg-open``. A client that the hand-off *starts* usually gets
+  the URL as an argument, for as long as it runs, on either path.
 * **macOS:** ``NSWorkspace.openURL_`` in-process, so no argument list holds the URL; if
   PyObjC cannot be imported, ``open <url>``, which does put it in one briefly.
   Unverified on a real Mac.
@@ -36,9 +40,11 @@ written down):
 
 **Unverified, and said so:** whether each client pre-fills without submitting has not been
 observed on a real Claude or Codex install on any platform (ADR-031 §5 requires a
-validation row per client and OS). On Linux, "handed off" means ``xdg-open`` exited 0 or
-was still running after a few seconds; a status such as 4 (no program registered for the
-scheme) is reported as a failed hand-off.
+validation row per client and OS). On Linux, "handed off" means the portal answered
+``Response`` 0 or had not answered after a few seconds (an app chooser may be open), or,
+on the fallback, ``xdg-open`` exited 0 or was still running after a few seconds; a
+cancelled chooser, a portal error, or an ``xdg-open`` status such as 4 (no program
+registered for the scheme) is reported as a failed hand-off.
 """
 from __future__ import annotations
 

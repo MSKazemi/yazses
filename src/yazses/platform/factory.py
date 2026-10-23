@@ -120,7 +120,7 @@ def get_url_opener() -> UrlOpener:
     :class:`~yazses.platform.base.UrlOpener` for the rules every backend keeps. A seam of
     its own, like :func:`get_file_opener` and for the same reason: a CLI hand-off should
     not import the hotkey, injector or IPC stacks. The BSDs share the Linux opener
-    (``xdg-open``). An OS with no backend is refused with ``NotImplementedError`` naming
+    (the desktop portal's ``OpenURI``, then ``xdg-open``). An OS with no backend is refused with ``NotImplementedError`` naming
     ``sys.platform`` -- the caller reports that as a failed hand-off, never as a fallback
     to a browser.
     """
