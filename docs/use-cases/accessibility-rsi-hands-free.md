@@ -221,7 +221,7 @@ using what you have turned on:
   first item has a lower tick, so you can count the steps;
 - with read-back on (`yazses features enable read-back`), the offline voice also says the
   item's name ("enter", "undo", "scroll down"). An item stays lit until its name has been
-  said, even when that takes longer than `dwell_s`. Read-back needs the `tts` extra,
+  said, however long that takes. Read-back needs the `tts` extra,
   fetches its voice model on first use, and also reads your dictation back;
 - to hear the names **without** your dictation being read back, leave read-back off and
   set `speak_names = true` under `[mouthswitch]`. The switch then builds the same offline
@@ -241,10 +241,14 @@ What you hear is what a click selects: the item announced when your click began 
 that runs. With neither earcons nor a voice, the switch does not start, and
 `handsfree resume` says why. Headphones are a good idea. The scan's microphone also hears
 the speakers, and a click is not detected while a tick or a name is sounding, or for
-0.4 s after it ends. So when the scan is announced, each item stays lit 0.4 s longer than it
-otherwise would, and the best moment to click is after the name has finished. If a name
-takes about as long to say as `dwell_s` (at the 1.2 s default, "scroll down" nearly
-does), there is little time left after it: raise `dwell_s` if clicks on it are missed.
+0.4 s after it ends. So when the scan is announced, each item stays lit for its tick or
+name, then those 0.4 s, then a full `dwell_s` in which your click is heard: click after
+the name has finished. A long name makes the scan slower, not the time to click shorter.
+With names on and the default 1.2 s, a step takes about 2.3 to 2.8 s instead of 1.2 s (by
+the estimate of how long each name takes to say), so a pass over the five default items
+takes about 12 s; lower `dwell_s` if that is slower than you need. A click
+right at the very end of a step may still be missed if the next item's tick starts on top
+of it.
 
 It has not been tried with real mouth sounds yet. Its thresholds were tuned on synthetic
 clicks and pops. A keyboard tap or a knock on the desk may count as a tongue click, so a

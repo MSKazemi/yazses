@@ -2913,7 +2913,11 @@ class Daemon:
         switch alone (`_mouthswitch_voice`); read-back itself stays off. Never raises.
         """
         try:
-            from yazses.mouthswitch.announce import ScanAnnouncer, speech_duration_s
+            from yazses.mouthswitch.announce import (
+                ScanAnnouncer,
+                cue_duration_s,
+                speech_duration_s,
+            )
 
             earcon = self._earcon
             cue: Callable[[str], None] | None = earcon.play if earcon.enabled else None
@@ -2932,6 +2936,8 @@ class Daemon:
             return ScanAnnouncer(
                 cue=cue, speak=speak, cancel=cancel, begin=begin,
                 duration_s=lambda text: speech_duration_s(text, speed),
+                # The tick is voiced too: a cue-only step waits for it to end.
+                cue_s=cue_duration_s() if cue is not None else 0.0,
             )
         except Exception:
             log.warning("Mouth-Sound Switch announcer init failed", exc_info=True)

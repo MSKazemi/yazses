@@ -42,11 +42,11 @@ spoken by the offline read-back voice when ``[tts]`` can speak. The announcement
 the same timeline the select-at-onset rule reads, and an item stays lit until its name has
 been said, so the item announced when a click began is the item that click selects. The cue
 and the name are voiced and reach the microphone through the speakers, and the detector
-cannot hear a click for ``detect.CONTEXT_MS`` after a voiced sound; so a heard step is lit
-for that much longer (:func:`post_voice_deaf_s`), so the time ``dwell_s`` leaves after a
-short name is time in which a click is heard. A name as long as ``dwell_s`` leaves none: a
-larger ``dwell_s`` is the remedy. A scan the overlay draws makes no sound, and its steps
-are unchanged.
+cannot hear a click for ``detect.CONTEXT_MS`` after a voiced sound (:func:`post_voice_deaf_s`).
+So a heard step is lit for the announcement, then that deaf window, then a whole
+``dwell_s`` in which a click is heard: a long name slows the scan, it never shortens the
+time to click. A scan the overlay draws makes no sound, and its steps are plain
+``dwell_s``.
 
 **Dormant unless asked, and the microphone closed unless armed.** :func:`build_mouthswitch`
 returns a runtime with no runner while ``[mouthswitch]`` is off (the shipped state), when

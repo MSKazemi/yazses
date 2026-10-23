@@ -18,8 +18,8 @@ Six claims:
   stretch of the speech stand-in run nothing.
 * **Seen or heard, never neither.** Without the overlay that draws the scan, each step is
   announced instead -- an earcon cue and/or the item's name in the offline voice -- from the
-  same timeline a click selects from, and an item stays lit until its name has been said
-  and then for the detector's post-voice deafness on top, so a click can still be heard.
+  same timeline a click selects from, and an item stays lit until its name has been said,
+  then through the detector's post-voice deafness, then for a full dwell to click.
 * **No highlight and no announcement, no switch.** With neither, the feature refuses to build
   and `handsfree resume` says why.
 
@@ -451,32 +451,53 @@ def test_the_item_heard_when_the_click_began_is_the_item_selected():
 def test_a_name_longer_than_the_dwell_holds_the_highlight_until_it_is_said():
     runner, ears, ran, d = _audible(duration=lambda text: 1.6 if text == "undo" else 0.0)
     d.advance(0.3, pop_at(0.1))
-    _walk(d, 0.3 + _step() + 1.6 + _deaf() + 0.1)
+    undo_step = 1.6 + _deaf() + 1.0        # the name, the deafness, then the whole dwell
+    _walk(d, 0.3 + _step() + undo_step + 0.1)
     times = {name: when for name, when, _ in ears.names}
-    # "undo" stays lit for its 1.6 s name plus the deafness behind it -- not the plain step.
-    assert times["scroll up"] - times["undo"] >= 1.6 + _deaf() - 0.05
-    # A click that began past the plain step (dwell + deafness) still means "undo".
-    d.advance(0.1, click_at(times["undo"] + _step() + 0.1))
+    assert times["scroll up"] - times["undo"] >= undo_step - 0.05
+    # A click that began near the end of that step -- long past the plain one -- means "undo".
+    d.advance(0.1, click_at(times["undo"] + undo_step - 0.1))
     assert ran == ["undo"]
 
 
 def test_a_heard_step_still_runs_after_the_name_and_the_deafness_behind_it():
-    """A name shorter than the dwell: the detector hears again before the step ends.
+    """A name shorter than the dwell: after it and the deafness, the whole dwell is left.
 
-    The step is lit for max(1.0, 0.5) + deafness, so after the 0.5 s name and the deafness
-    behind it, 1.0 - 0.5 s of the step is left in which a click is heard -- the whole
-    point of adding the window. (By the same formula, a name as long as the dwell leaves
-    no such stretch at all; that case is pinned by nothing here on purpose.)
+    The step is lit for 0.5 + deafness + 1.0, so a click most of a dwell after the
+    detector hears again still selects the announced item.
     """
     runner, ears, ran, d = _audible(duration=lambda text: 0.5 if text == "undo" else 0.0)
     d.advance(0.3, pop_at(0.1))
     _walk(d, 0.3 + _step() + 0.05)
     undo_at = {name: when for name, when, _ in ears.names}["undo"]
     heard_again = undo_at + 0.5 + _deaf()  # the name has ended and the detector hears again
-    _walk(d, heard_again + 0.1)
+    _walk(d, heard_again + 0.8)
     assert runner.view()["index"] == 1     # "undo" is still the lit item
-    d.advance(0.1, click_at(heard_again + 0.05))
+    d.advance(0.1, click_at(heard_again + 0.75))
     assert ran == ["undo"]
+
+
+def test_a_long_name_still_leaves_a_full_dwell_to_click():
+    """"scroll down" takes longer to say than this 1.0 s dwell: the scan slows down instead.
+
+    After the name (the real estimate) and the deaf window behind it, a whole dwell is left,
+    and a click that begins just before that dwell runs out still selects "scroll down".
+    """
+    from yazses.mouthswitch.announce import speech_duration_s
+
+    runner, ears, ran, d = _audible(duration=speech_duration_s)
+    dwells = runner._scanner.dwells
+    k = [item.label for item in runner.items].index("scroll down")
+    name_s = speech_duration_s("scroll down")
+    assert name_s > 1.0                    # longer than the dwell: the case this pins
+    assert dwells[k] - name_s - _deaf() == pytest.approx(1.0)
+    d.advance(0.3, pop_at(0.1))            # the scan starts at 0.3 s
+    lit_at = 0.3 + sum(dwells[:k])
+    window_end = lit_at + dwells[k]        # the full dwell after the deafness ends here
+    _walk(d, window_end - 0.05)
+    assert ears.heard_before(window_end - 0.05) == "scroll down"
+    d.advance(0.1, click_at(window_end - 0.03))
+    assert ran == ["scroll down"]
 
 
 def test_the_post_voice_window_is_the_detectors_own_constant(monkeypatch):
@@ -900,6 +921,22 @@ def test_without_the_overlay_the_daemon_announces_with_its_earcons(monkeypatch):
     try:
         assert daemon._mouthswitch is not None and daemon._mouthswitch.available
         assert daemon._mouthswitch_payload()["announce"] == "earcon"
+    finally:
+        daemon._mouthswitch.stop()
+
+
+def test_a_cue_only_step_counts_the_tick_the_deafness_and_a_full_dwell(monkeypatch):
+    from yazses.mouthswitch.announce import cue_duration_s
+    from yazses.mouthswitch.runtime import post_voice_deaf_s
+
+    daemon, cfg = _no_overlay_daemon(monkeypatch)
+    daemon._earcon = FakeEarcon()
+    daemon._mouthswitch = daemon._build_mouthswitch(cfg)
+    try:
+        dwells = daemon._mouthswitch.runner._scanner.dwells
+        step = cue_duration_s() + post_voice_deaf_s() + cfg.mouthswitch.dwell_s
+        assert cue_duration_s() > 0.0
+        assert dwells == pytest.approx((step,) * len(dwells))
     finally:
         daemon._mouthswitch.stop()
 

@@ -322,3 +322,43 @@ def test_the_switch_voice_names_itself_not_read_back_in_the_factory_log():
 
     assert "speak_names" in SWITCH_VOICE_PURPOSE
     assert "read-back" not in SWITCH_VOICE_PURPOSE.lower()
+
+
+# ---- the cue is voiced too: it counts toward the announcement --------------------------------
+
+
+def test_the_cue_duration_is_read_from_the_earcon_table():
+    from yazses.earcon.tones import earcon_for
+    from yazses.mouthswitch.announce import cue_duration_s
+
+    longest = max(sum(t.dur_ms for t in earcon_for(e)) for e in (FIRST_CUE, STEP_CUE))
+    assert cue_duration_s() == pytest.approx(longest / 1000.0)
+    assert 0.0 < cue_duration_s() <= 0.1  # a short tick, not a jingle
+
+
+def test_a_cue_only_announcement_takes_the_cue_s_length():
+    announcer = ScanAnnouncer(cue=lambda event: None, cue_s=0.03, thread=False)
+    assert announcer.announcement_s(ENTER) == pytest.approx(0.03)
+
+
+def test_with_a_voice_the_announcement_is_the_longer_of_cue_and_name():
+    voice = FakeVoice()
+    announcer = ScanAnnouncer(cue=lambda event: None, speak=voice.speak, cancel=voice.cancel,
+                              cue_s=0.03, thread=False)
+    assert announcer.announcement_s(ENTER) == pytest.approx(speech_duration_s("enter"))
+    quick = ScanAnnouncer(cue=lambda event: None, speak=voice.speak, cancel=voice.cancel,
+                          duration_s=lambda text: 0.01, cue_s=0.03, thread=False)
+    assert quick.announcement_s(ENTER) == pytest.approx(0.03)
+
+
+def test_cue_s_without_a_cue_counts_for_nothing():
+    voice = FakeVoice()
+    announcer = ScanAnnouncer(speak=voice.speak, duration_s=lambda text: 0.0, cue_s=0.03,
+                              thread=False)
+    assert announcer.announcement_s(ENTER) == 0.0
+
+
+@pytest.mark.parametrize("bad", [float("nan"), float("inf"), -1.0, "soon", None])
+def test_an_unusable_cue_s_counts_for_nothing(bad):
+    announcer = ScanAnnouncer(cue=lambda event: None, cue_s=bad, thread=False)
+    assert announcer.announcement_s(ENTER) == 0.0

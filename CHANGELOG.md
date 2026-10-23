@@ -54,17 +54,19 @@ extra and a model already on this computer. Without them, the steps are announce
 earcon ticks only, and one log line says why. Existing installs are unchanged. Tested with
 a simulated voice only, not on real hardware.
 
-### Fixed — a heard Mouth-Sound Switch step leaves time for a click after the cue and the name (experimental, off by default)
+### Fixed — a heard Mouth-Sound Switch step leaves a full dwell to click after the name (experimental, off by default)
 
 The click detector ignores any click that follows a voiced sound by less than 400 ms, and
 where the scan is announced, the step tick and the spoken name are voiced and reach the
-microphone through the speakers. So part of every announced step could never hear a click.
-Where the scan is announced, each step now stays lit for that long on top: the longer of
-`dwell_s` and the spoken name, plus the detector's own window (read from the detector, not
-restated). A scan the overlay draws makes no sound and keeps its plain `dwell_s` steps. When
-a name takes about as long to say as `dwell_s` ("scroll down" at the 1.2 s default), little
-or no time is left after it in which a click is heard, so raise `dwell_s` if a click on such
-an item is missed. Tested with simulated clicks only, not on real hardware.
+microphone through the speakers. So part of every announced step could never hear a click,
+and an item whose name took about as long to say as `dwell_s` ("scroll down" at the 1.2 s
+default) left almost no time to click at all. Where the scan is announced, each step is now
+lit for its tick or name, then the detector's own window (read from the detector, not
+restated), then a full `dwell_s` in which a click is heard. A long name makes the scan
+slower instead: with names on, a pass over the five default items takes about 12 s rather
+than 6 s, so lower `dwell_s` if that is slower than you need. A scan the overlay draws makes
+no sound and keeps its plain `dwell_s` steps. Tested with simulated clicks only, not on real
+hardware.
 
 ### Changed — the Mouth-Sound Switch keeps scanning after a selection (experimental, off by default)
 

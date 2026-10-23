@@ -16,18 +16,18 @@ drives it with plain numbers:
   :class:`ScanItem` values (a pointer item, or a command phrase for the existing grammar).
 * :func:`scan_interval` -- ``dwell_s`` clamped to a usable range.
 
-**A spoken item is never cut off by the next step.** When the scan is heard rather than
-seen (``announce.py``), each item's name is spoken as it lights. The caller injects how
-long that announcement takes (``announce_s``), and an item stays lit for the longer of
-``dwell_s`` and its announcement, so the highlight never advances mid-word. The timeline
-is still a pure function of time: per-item dwells are fixed when the scanner is built.
-
-**A heard scan also waits out the detector's deafness.** The cue and the spoken name are
-voiced, they reach the microphone through the speakers, and the click detector rejects any
-click whose run-up holds voiced audio (``detect.CONTEXT_MS``). So when the scan is heard,
-the caller also injects ``post_voice_s`` -- that window, derived from the detector, never
-written here -- and each step is lit for ``max(dwell_s, announcement) + post_voice_s``. A
-scan drawn by the overlay makes no sound and passes nothing: its steps are unchanged.
+**A heard step gives a full dwell to click, after the name.** When the scan is heard rather
+than seen (``announce.py``), each item is announced as it lights: a cue, and its name. The
+cue and the name are voiced, they reach the microphone through the speakers, and the click
+detector rejects any click whose run-up holds voiced audio (``detect.CONTEXT_MS``). So the
+caller injects how long the announcement takes (``announce_s``) and that deaf window
+(``post_voice_s`` -- derived from the detector, never written here), and each step is lit
+for ``announcement + post_voice_s + dwell_s``: the name is said, the detector hears again,
+and then the user has a whole ``dwell_s`` in which a click is heard and selects this item.
+A long name makes the scan slower, never the click window shorter, and the highlight never
+advances mid-word. A scan drawn by the overlay makes no sound and passes neither: its steps
+are plain ``dwell_s``. The timeline is still a pure function of time: per-item dwells are
+fixed when the scanner is built.
 
 **A click selects what was highlighted when the click began, not when it was recognised.**
 The detector reports a sound only after ``POST_QUIET_MS`` of quiet behind it, so by the time
@@ -220,13 +220,11 @@ class SwitchScanner:
     function of time since :meth:`start`, so asking "what was lit at ``t``?" for a moment
     in the recent past is exact, not an estimate.
 
-    ``announce_s`` (optional) says how long announcing an item takes; that item then stays
-    lit for ``max(interval_s, announce_s(item))``. Without it every item gets ``interval_s``.
-
-    ``post_voice_s`` (optional, default ``0.0``) is how long the click detector stays deaf
-    after a voiced sound ends. A caller whose scan is *heard* passes it, and every step is
-    lengthened by it, so the part of ``interval_s`` left after the announcement is time in
-    which a click can actually be heard.
+    A caller whose scan is *heard* passes ``announce_s`` (how long announcing an item takes)
+    and ``post_voice_s`` (how long the click detector stays deaf after a voiced sound ends);
+    each item is then lit for ``announce_s(item) + post_voice_s + interval_s``, so a full
+    ``interval_s`` to click always follows the announcement and the deafness. Without them
+    every item gets ``interval_s``.
     """
 
     def __init__(self, items: Sequence[ScanItem], interval_s: float = DEFAULT_INTERVAL_S,
@@ -237,10 +235,10 @@ class SwitchScanner:
         self._interval = scan_interval(interval_s)
         self._max_loops = max(1, int(max_loops))
         deaf = _post_voice_seconds(post_voice_s)
-        #: Seconds each item stays lit: never shorter than the interval, never mid-word, and
-        #: when heard, never without the detector's post-voice deafness on top.
+        #: Seconds each item stays lit: the announcement, the detector's deafness after it,
+        #: then a whole interval in which a click is heard. Unheard: the interval alone.
         self._dwells = tuple(
-            max(self._interval, _announce_seconds(announce_s, item)) + deaf
+            _announce_seconds(announce_s, item) + deaf + self._interval
             for item in self._items
         )
         #: Every item on the plain interval: the original fixed-step arithmetic applies.

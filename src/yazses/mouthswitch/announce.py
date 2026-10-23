@@ -43,6 +43,7 @@ __all__ = [
     "STEP_CUE",
     "SWITCH_VOICE_PURPOSE",
     "ScanAnnouncer",
+    "cue_duration_s",
     "speech_duration_s",
     "switch_voice",
 ]
@@ -114,6 +115,27 @@ def switch_voice(
     return voice, ""
 
 
+def _seconds(value: object) -> float:
+    """A duration, sanitised: ``0.0`` for anything that is not a finite positive number."""
+    try:
+        seconds = float(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError, OverflowError):
+        return 0.0
+    return seconds if math.isfinite(seconds) and seconds > 0.0 else 0.0
+
+
+def cue_duration_s() -> float:
+    """How long the longer of the two step cues sounds, in seconds. Pure.
+
+    The sum of its tones' durations: ``earcon/tones.py`` renders a motif's tones back to
+    back. Read from the earcon table, never restated here. The audio device's own start-up
+    latency is not counted -- it is not known, and the cue is tens of milliseconds.
+    """
+    from yazses.earcon.tones import earcon_for
+
+    return max(sum(t.dur_ms for t in earcon_for(e)) for e in (FIRST_CUE, STEP_CUE)) / 1000.0
+
+
 def speech_duration_s(text: object, speed: object = 1.0) -> float:
     """How long the offline voice takes to say ``text``, estimated. Pure, total.
 
@@ -140,8 +162,9 @@ class ScanAnnouncer:
     ``cue(event)`` plays an earcon and must not block (``EarconPlayer.play``). ``speak(text)``
     blocks until the text has been said (``TtsBackend.speak``); ``cancel()`` stops it, and
     ``begin()`` (Kokoro's, optional) claims the next utterance so a cancel issued after the
-    claim is never lost. ``duration_s(text)`` is the estimate the scanner lengthens a step by.
-    With ``thread=False`` the name is spoken inline -- the test path.
+    claim is never lost. ``duration_s(text)`` is the estimate the scanner lengthens a step by;
+    ``cue_s`` is how long the cue itself sounds (:func:`cue_duration_s`), counted when the
+    cue plays, so a cue-only step also waits for its own tick to end. With ``thread=False`` the name is spoken inline -- the test path.
     """
 
     def __init__(
@@ -152,9 +175,11 @@ class ScanAnnouncer:
         cancel: Callable[[], None] | None = None,
         begin: Callable[[], None] | None = None,
         duration_s: Callable[[str], float] = speech_duration_s,
+        cue_s: float = 0.0,
         thread: bool = True,
     ) -> None:
         self._cue = cue
+        self._cue_s = _seconds(cue_s)
         self._speak = speak
         self._cancel = cancel
         self._begin = begin
@@ -184,14 +209,19 @@ class ScanAnnouncer:
         return "earcon" if self._cue is not None else ""
 
     def announcement_s(self, item: ScanItem) -> float:
-        """How long announcing ``item`` takes: its spoken name, or ``0.0`` without a voice."""
+        """How long announcing ``item`` takes: the longer of its cue and its spoken name.
+
+        Both start as the step begins. ``0.0`` with neither (or an estimate that fails).
+        """
+        cue = self._cue_s if self._cue is not None else 0.0
         if self._speak is None:
-            return 0.0
+            return cue
         try:
-            return float(self._duration(item.label))
+            speech = _seconds(self._duration(item.label))
         except Exception:
             log.debug("Mouth-Sound Switch: announcement estimate raised", exc_info=True)
-            return 0.0
+            speech = 0.0
+        return max(cue, speech)
 
     def announce(self, item: ScanItem, *, first: bool) -> None:
         """A step began on ``item``. Never blocks (threaded), never raises."""
