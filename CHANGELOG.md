@@ -25,6 +25,16 @@ phrases that address the suggestion decline it: "discard", "decline", "reject" a
 "cancel that". Declining was always optional, because anything else you say dismisses the
 offer. Tested with a fake model and injector only, not on real hardware.
 
+### Fixed — a failed proofreading correction names its cause, as Spoken Edit and Punch-In do (experimental, off by default)
+
+When an Interruptible Proofreading correction could not be typed, YazSes said where your
+words were, but not why typing failed. Spoken Edit and Punch-In use the same replacement
+code and also named the cause, such as "YazSes is not allowed to type" with the command
+that fixes it. Proofreading now does too. The cause comes first, then the notice about
+your words. All three features share one rate limit, so one broken injector shows one
+cause notification, not one per feature. Neither notification quotes your words. Tested
+with a fake injector only, not on real hardware.
+
 ### Fixed — Spoken Edit and Punch-In no longer lose your words when the new text cannot be typed (off by default)
 
 Spoken Edit ("change X to Y") and Punch-In both erase the last dictation with backspaces

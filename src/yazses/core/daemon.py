@@ -7789,6 +7789,12 @@ class Daemon:
         :func:`settle_replacement` turns the step results into the undo records and the
         notice; this method applies its answer. Returns whether the correction landed.
         Never raises.
+
+        A failure is also passed to ``_report_failure`` first, as Spoken Edit and
+        Punch-In do (:meth:`_replace_last_burst`): it names the cause (a permission, a
+        missing tool) and is rate-limited through the same record, so one broken
+        injector is one cause toast whichever of the three features hit it. The outcome
+        notice that follows says where the words are. Neither quotes them.
         """
         from yazses.inject.replace import run_replacement
         from yazses.proofback.bargein import REPLACED, settle_replacement
@@ -7816,6 +7822,8 @@ class Daemon:
             return True
         event["injected"] = False
         event["discard_reason"] = "proofback_not_typed"
+        if steps.error is not None:
+            self._report_failure(steps.error, where="inject")
         # Lengths only: the words themselves stay out of the log above DEBUG.
         log.warning("Proofback: correction not typed (%s); %d erased chars %s.",
                     outcome.result, target.erase_count,

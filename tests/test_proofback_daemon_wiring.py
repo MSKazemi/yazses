@@ -18,6 +18,7 @@ import pytest
 
 from yazses.config import Config
 from yazses.core.daemon import Daemon
+from yazses.inject.replace import RESTORED, Wording
 from yazses.platform import TrayState, get_platform
 from yazses.proofback.bargein import ProofbackController
 from yazses.system.features import EXPERIMENTAL, _registry, enable_caveat, unwired_slugs
@@ -330,8 +331,9 @@ class _ScreenInjector(_Injector):
     """A text field. ``fail[(kind, n)]`` scripts the n-th call of ``kind`` (0-based).
 
     ``"raise"`` raises having delivered nothing, ``"false"`` returns False having
-    delivered nothing, and an int delivers that many characters (or backspaces) and
-    then raises — a backend cut off part-way.
+    delivered nothing, ``"denied"`` raises the ``PermissionError`` a ``/dev/uinput``
+    denial raises, and an int delivers that many characters (or backspaces) and then
+    raises — a backend cut off part-way.
     """
 
     def __init__(self, fail: dict | None = None) -> None:
@@ -348,6 +350,8 @@ class _ScreenInjector(_Injector):
     def inject(self, text):
         mode = self._mode("type")
         self.ops.append(("type", text))
+        if mode == "denied":
+            raise PermissionError(13, "Permission denied", "/dev/uinput")
         if mode == "raise":
             raise RuntimeError("typing refused")
         if mode == "false":
@@ -361,6 +365,8 @@ class _ScreenInjector(_Injector):
     def inject_backspaces(self, n):
         mode = self._mode("backspace")
         self.ops.append(("backspace", n))
+        if mode == "denied":
+            raise PermissionError(13, "Permission denied", "/dev/uinput")
         if mode == "raise":
             raise RuntimeError("backspaces refused")
         if mode == "false":
@@ -520,3 +526,94 @@ def test_the_no_text_target_guard_refuses_before_anything_is_erased(monkeypatch)
     assert not [op for op in inj.ops if op[0] == "backspace"]
     assert inj.screen == FIRST
     assert copied == [RIGHT]
+
+
+# ---- The cause is named, as Spoken Edit and Punch-In name it --------------------------
+#
+# Spoken Edit and Punch-In pass a failed retype to `_report_failure`, which diagnoses the
+# cause (here: `/dev/uinput` refused -> "YazSes is not allowed to type", with the command
+# that fixes it) and rate-limits by diagnosis slug. A failed proofreading correction used
+# to show only the outcome notice, so the same denial was named by two of the three
+# features that share `inject/replace.py` and not by the third. These run the REAL
+# `_report_failure`; only the desktop notifier is replaced, by a recorder.
+
+PERMISSION_TITLE = "YazSes is not allowed to type"
+
+
+def _record_causes_and_notices(monkeypatch, d) -> list[tuple[str, str]]:
+    """One ordered list of ("cause", title) and ("outcome", title) entries."""
+    seen: list[tuple[str, str]] = []
+
+    def _toast(title, body, **_kw):
+        seen.append(("cause", title))
+        # Neither the dictation nor the correction may reach a toast.
+        assert "wrong" not in f"{title} {body}".lower()
+        assert "right file" not in f"{title} {body}".lower()
+
+    monkeypatch.setattr("yazses.system.notify.notify", _toast)
+    monkeypatch.setattr(d, "_notify_mic", lambda title, body, **kw: seen.append(("outcome", title)))
+    return seen
+
+
+@pytest.mark.parametrize(
+    "fail",
+    [
+        {("type", 1): "denied"},       # the correction is refused after the erase
+        {("backspace", 0): "denied"},  # the erase itself is refused
+    ],
+    ids=["typing-denied", "erase-denied"],
+)
+def test_a_denied_correction_names_the_cause_once_then_the_outcome(monkeypatch, fail):
+    d, _inj, _notes, _copied = _armed_daemon(monkeypatch, fail)
+    seen = _record_causes_and_notices(monkeypatch, d)
+    _correct(d)
+    assert [kind for kind, _ in seen] == ["cause", "outcome"], (
+        "the cause first, then where the words are — the order Spoken Edit and "
+        "Punch-In use"
+    )
+    assert seen[0][1] == PERMISSION_TITLE
+    assert "inject-permission" in d._diagnosed_at
+
+
+def test_a_correction_that_lands_names_no_cause(monkeypatch):
+    d, inj, _notes, _copied = _armed_daemon(monkeypatch)
+    seen = _record_causes_and_notices(monkeypatch, d)
+    _correct(d)
+    assert inj.screen == "send the right file"
+    assert seen == []
+
+
+def test_a_cause_already_named_is_not_repeated_but_the_outcome_still_is(monkeypatch):
+    """The rate limit is the daemon's one record, not a per-feature one: the same
+    denial just reported for an ordinary burst is not toasted again by proofreading,
+    while the outcome notice — where the user's words are — always shows."""
+    d, inj, _notes, _copied = _armed_daemon(monkeypatch, {("type", 1): "denied"})
+    seen = _record_causes_and_notices(monkeypatch, d)
+    assert d._report_failure(PermissionError(13, "Permission denied", "/dev/uinput"),
+                             "inject") is not None
+    assert seen == [("cause", PERMISSION_TITLE)]
+    _correct(d)
+    assert [kind for kind, _ in seen] == ["cause", "outcome"]
+    assert inj.screen == FIRST, "the erased words were still typed back"
+
+
+def test_proofback_and_punch_in_share_one_rate_limit(monkeypatch):
+    """A denied proofreading correction, then a denied Punch-In on the same daemon:
+    one cause toast between them, and an outcome notice for each."""
+    # type #0 FIRST, #1 the correction (denied), #2 its restore, #3 the Punch-In
+    # retype (denied), #4 its restore.
+    d, inj, _notes, _copied = _armed_daemon(
+        monkeypatch, {("type", 1): "denied", ("type", 3): "denied"}
+    )
+    seen = _record_causes_and_notices(monkeypatch, d)
+    _correct(d)
+    assert inj.screen == FIRST
+    outcome = d._replace_last_burst(
+        FIRST, "send the right file", inj, label="Punch-In",
+        wording=Wording(noun="correction", span="your last dictation",
+                        retry="Try the correction again."),
+    )
+    assert outcome.result == RESTORED
+    assert inj.screen == FIRST
+    assert [kind for kind, _ in seen] == ["cause", "outcome", "outcome"]
+    assert seen[0][1] == PERMISSION_TITLE
