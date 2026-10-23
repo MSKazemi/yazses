@@ -207,3 +207,34 @@ def test_serve_reads_the_streams_it_is_given() -> None:
 
     assert code == 0
     assert '"jsonrpc"' in stdout.getvalue(), stdout.getvalue()
+
+
+# --- the --help text names exactly what build_tools can offer -----------------
+
+
+def test_mcp_server_help_matches_the_offered_tools() -> None:
+    """ADR-032 §4: `ask_human` is offered when `[mcp] ask_human = true`, so the
+    help must not claim it is missing. This pins the docstring to build_tools:
+    every tool name the server can offer appears in the help, and the help
+    states the switch that turns ask_human on."""
+    from typer.testing import CliRunner
+
+    from yazses.cli import app
+    from yazses.config import Config
+    from yazses.mcp.server import build_tools
+
+    offered = {t.name for t in build_tools(Config())}
+    cfg = Config()
+    object.__setattr__(cfg.mcp, "ask_human", True)
+    offered |= {t.name for t in build_tools(cfg)}
+    assert offered == {"transcribe", "ask_human"}
+
+    # A wide COLUMNS keeps rich from reflowing the docstring under the runner.
+    result = CliRunner(env={"COLUMNS": "200"}).invoke(app, ["mcp-server", "--help"])
+    assert result.exit_code == 0, result.output
+    # rich still wraps lines, so match the prose with whitespace normalised.
+    flat = " ".join(result.output.split())
+    for name in offered:
+        assert name in flat
+    assert "[mcp] ask_human = true" in flat
+    assert "not offered yet" not in flat

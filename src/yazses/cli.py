@@ -7983,10 +7983,9 @@ def mcp_server() -> None:
     own Unix-socket IPC, which is why ADR-020 chose stdio over HTTP for a daemon
     that holds a live microphone.
 
-    One tool today: `transcribe`, which turns an audio file into text on this
-    machine. `ask_human` — an agent asking you a question out loud — is specified
-    in ADR-020 and needs the daemon, so it is not offered yet rather than offered
-    and broken.
+    Two tools: `transcribe`, which turns an audio file into text on this
+    machine, and `ask_human` — an agent asking you a question out loud
+    (ADR-032) — offered only when `\[mcp] ask_human = true` in config.toml.
 
     Point an MCP client at it with:
 
