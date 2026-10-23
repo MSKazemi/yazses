@@ -199,11 +199,13 @@ yazses handsfree resume      # opens the microphone; nothing listens before this
 **Pop your lips** and a row of items appears across the top of the screen: Enter, Undo,
 Scroll up, Scroll down, Click. One item is lit at a time, and the light moves on every
 1.2 s (`[mouthswitch] dwell_s`). **Click your tongue** to run the lit item. Pop again to
-stop without choosing.
+stop the scan, whether or not you chose anything.
 
-- Each scan runs one item, then stops. Pop again for the next one.
+- After a click the scan keeps going. The item you chose stays lit for one more step, so
+  clicking again runs it again: scroll down, then scroll down once more, with no pop in
+  between. Then the light moves on as before.
 - A tongue click does nothing unless a scan is running.
-- A scan you ignore stops after three passes.
+- A scan stops after three passes with no click, counted from your last click.
 - Nothing is heard while you dictate.
 - "Click" and "Scroll" act on the pointer where it already is. Enter and Undo work like the
   spoken commands. You can change the list with `[mouthswitch] scan_items`. A phrase YazSes
@@ -229,7 +231,8 @@ the speakers, and a click that starts while a name is still sounding may not be 
 
 It has not been tried with real mouth sounds yet. Its thresholds were tuned on synthetic
 clicks and pops. A keyboard tap or a knock on the desk may count as a tongue click, so a
-click during a scan can run the lit item. The spoken announcements have only been tested
+click during a scan can run the lit item. Because the scan keeps going after a click, pop
+to stop it when you are done. The spoken announcements have only been tested
 with a simulated voice, and how long a name takes to say is estimated, not measured.
 Please report what works for you.
 

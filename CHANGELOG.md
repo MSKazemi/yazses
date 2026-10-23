@@ -6,6 +6,18 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed — the Mouth-Sound Switch keeps scanning after a selection (experimental, off by default)
+
+One tongue click used to end the scan, so scrolling down twice took pop, click, pop, click.
+Now the scan carries on. The item you chose stays lit for one more step, so a second click
+runs it again, and then the highlight moves on as before. The scan still stops on a pop,
+on `handsfree pause`, while you dictate, at shutdown, and after three passes with no click,
+now counted from your last click. Each click still selects at most once, a click reported
+too late still selects nothing, and a click is still matched to the item lit when it began.
+A stray sound that reads as a click, such as a keyboard tap, can now run an item while a
+scan you have used is still going, so pop when you are done. Tested with simulated clicks
+only, not on real hardware.
+
 ### Changed — the Mouth-Sound Switch works without the overlay: you hear each step (experimental, off by default)
 
 The switch used to refuse to start where the overlay cannot draw its highlight: on a native

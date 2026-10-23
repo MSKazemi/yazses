@@ -590,7 +590,8 @@ def _registry() -> list[_Def]:
              "Single-switch scanning with non-verbal mouth sounds, for people who can't produce "
              "reliable speech: a lip pop starts (or stops) a highlight in the overlay that steps "
              "through Enter, Undo, Scroll up, Scroll down and Click every 1.2 s, and a tongue "
-             "click runs the lit one. Armed by `yazses handsfree resume`, stopped by `handsfree "
+             "click runs the lit one; the scan keeps going on that item, so another click "
+             "repeats it. Armed by `yazses handsfree resume`, stopped by `handsfree "
              "pause`. Where the overlay cannot run, each step is announced instead with an "
              "earcon and, with [tts] on, the item's name. Thresholds tuned on synthetic sounds "
              "only. Off by default.",

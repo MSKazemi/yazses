@@ -2845,7 +2845,7 @@ class Daemon:
 
             def run_command(phrase: str) -> object:
                 # Confidence 1.0: a detected click is deterministic. Whether it was *meant*
-                # is what the detector's guards and the one-select-per-scan rule answer.
+                # is what the detector's guards and the one-select-per-click rule answer.
                 return handle_intent(
                     ActivationIntent(label=phrase, confidence=1.0, source=SOURCE_NAME),
                     (phrase,),

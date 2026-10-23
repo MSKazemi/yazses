@@ -16,8 +16,13 @@ are used, each for one thing:
 ``sh`` is not used: a sustained hiss is the kind most easily confused with room noise
 (``detect.py``). The click is the select because it is the sound the owner named; the pop,
 the other short burst, is the toggle. Starting a scan only lights the highlight, so a false
-pop costs a glance; a select needs a pop *and then* a click inside the same scan, and a scan
-selects at most once, then stops (ADR-021: a guard is judged on how rarely it fires).
+pop costs a glance; a select needs a pop *and then* a click inside a running scan, and each
+click selects at most once (ADR-021: a guard is judged on how rarely it fires).
+
+**A selection keeps the scan going (owner decision, 2026-10-23).** After a click the
+highlight stays on the selected item for one dwell and then steps on, so a second click
+repeats it ("scroll down", twice) without a pop in between. The scan stops on a pop, on
+pause, on dictation, and after three passes with no selection, counted from the last one.
 
 **A select comes from a detected click, never from speech.** Nothing here reads a transcript.
 The detector rejects any voiced sound and any release just after speech, and while dictation
@@ -40,9 +45,9 @@ been said, so the item announced when a click began is the item that click selec
 **Dormant unless asked, and the microphone closed unless armed.** :func:`build_mouthswitch`
 returns a runtime with no runner while ``[mouthswitch]`` is off (the shipped state), when
 neither the overlay nor an announcement can show the highlight (a switch must never select
-an item nobody can see or hear), or when no item can run on this machine. Building opens no microphone; ``yazses
-handsfree resume`` opens it, and ``handsfree pause``, the spoken stop phrase, a pause of the
-global hands-free gate and shutdown close it.
+an item nobody can see or hear), or when no item can run on this machine. Building opens no
+microphone; ``yazses handsfree resume`` opens it, and ``handsfree pause``, the spoken stop
+phrase, a pause of the global hands-free gate and shutdown close it.
 
 The detector's thresholds were tuned on synthetic signals only (``detect.py``,
 ``tests/test_mouthswitch_detect.py``); nothing here has been run against a real microphone.
@@ -607,8 +612,9 @@ def build_mouthswitch(
     ``highlight_available`` is whether the overlay that draws the scan will be on screen.
     Without it, ``announcer`` (an earcon cue and/or the offline voice) makes the scan
     audible instead; with neither, there is no switch. An announcer is used only when the
-    overlay is unavailable. Building opens no microphone. It opens the pointer sink only when a pointer item is
-    configured, as the Vocal Joystick does, so a missing backend is known at start-up.
+    overlay is unavailable. Building opens no microphone. It opens the pointer sink only
+    when a pointer item is configured, as the Vocal Joystick does, so a missing backend is
+    known at start-up.
     """
     if not getattr(config, "enabled", False):
         return MouthSwitchRuntime()

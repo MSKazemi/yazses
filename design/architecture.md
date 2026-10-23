@@ -782,6 +782,12 @@ read-back voice the user already turned on (a voice degraded to the null backend
 count). With neither, `build_mouthswitch` refuses and `handsfree resume` says why.
 Announcements read the same scanner timeline a click selects from.
 
+**A selection does not end the scan.** It re-anchors the timeline at the moment of the
+selection, on the selected item, so that item stays lit for a full dwell and a second click
+repeats it. The scanner keeps the recent segments, so select-at-onset stays exact for any
+non-stale click. One click selects at most once. The scan stops on a pop, on pause or
+dictation, and after three passes with no selection, counted from the last one.
+
 ### `src/yazses/overlay/` (voice-activity overlay, `yazses-overlay`)
 
 Standalone process (separate from the daemon, which is blocked by the hotkey

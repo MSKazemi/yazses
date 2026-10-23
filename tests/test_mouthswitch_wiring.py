@@ -11,10 +11,11 @@ Six claims:
   phrase) and a pause of the global gate close it, and so does shutdown.
 * **A pop starts the scan; a click runs the item lit when the click began** -- through the
   existing command path (activation policy → grammar → dispatcher) for a command item, one
-  call on the existing pointer sink for "click" / "scroll".
+  call on the existing pointer sink for "click" / "scroll". The scan then carries on with the
+  selected item still lit, so a second click repeats it without a pop.
 * **A select comes only from a detected click inside a running scan** (ADR-021): a click with
-  no scan, a second click, a click while dictation is busy and a stretch of the speech
-  stand-in run nothing.
+  no scan, a click after a pop stopped the scan, a click while dictation is busy and a
+  stretch of the speech stand-in run nothing.
 * **Seen or heard, never neither.** Without the overlay that draws the scan, each step is
   announced instead -- an earcon cue and/or the item's name in the offline voice -- from the
   same timeline a click selects from, and an item stays lit until its name has been said.
@@ -194,6 +195,9 @@ def test_the_registry_describes_single_switch_scanning_not_pop_to_advance():
     assert "handsfree resume" in definition.why and "overlay" in definition.why
     assert "synthetic" in definition.why
     assert "move the highlight" not in _EXAMPLES["mouthswitch"]
+    # What it does now: keeps scanning after a select, and is heard where it cannot be seen.
+    assert "repeats" in definition.why
+    assert "announced" in definition.why and "needs the overlay" not in definition.why
 
 
 # --------------------------------------------------------------------------- #
@@ -207,8 +211,46 @@ def test_a_pop_starts_the_scan_and_a_click_runs_the_lit_command():
     assert runner.view()["index"] == 1
     d.advance(0.3, click_at(1.9))
     assert ran == ["undo"]
-    assert runner.view()["scanning"] is False  # one selection per scan
+    # The scan carries on, with the highlight still on what was just selected.
+    view = runner.view()
+    assert view["scanning"] is True and view["index"] == 1
     assert runner.selections == 1 and runner.last_selected == "undo"
+
+
+def test_after_a_selection_a_second_click_repeats_it_without_a_pop():
+    """Scrolling down twice used to need pop, click, pop, click."""
+    runner, sink, _made, ran, d = _started(items=["enter", "scroll down"])
+    d.advance(0.3, pop_at(0.1))              # scan from 0.3 s: "enter", then "scroll down"
+    d.advance(1.2)                        # now 1.5 s: "scroll down" lit (from 1.3 s)
+    d.advance(0.3, click_at(1.6))            # selected at 1.8 s; it stays lit until 2.8 s
+    d.advance(0.5, click_at(2.1))            # a second click, no pop: scrolls again
+    assert [(a.x, a.y) for a in _scrolls(sink)] == [(0.0, 3.0), (0.0, 3.0)]
+    assert runner.selections == 2 and runner.view()["scanning"] is True
+    assert ran == []
+
+
+def test_a_continuing_scan_stops_after_three_passes_with_no_selection():
+    runner, _sink, _made, ran, d = _started()
+    d.advance(0.3, pop_at(0.1))
+    d.advance(1.5)
+    d.advance(0.3, click_at(1.9))            # "undo", selected at 2.1 s
+    span = 3 * 5 * 1.0                     # 3 passes x 5 items x 1.0 s
+    d.advance(span - 0.2)                   # now 2.1 + span - 0.2: still scanning
+    assert runner.view()["scanning"] is True
+    d.advance(0.3)                          # past three passes since the selection
+    assert runner.view()["scanning"] is False
+    assert ran == ["undo"]
+
+
+def test_a_pop_stops_a_scan_that_has_already_selected():
+    runner, _sink, _made, ran, d = _started()
+    d.advance(0.3, pop_at(0.1))
+    d.advance(1.5)
+    d.advance(0.3, click_at(1.9))
+    d.advance(0.5, pop_at(2.3))
+    assert runner.view()["scanning"] is False
+    d.advance(0.5, click_at(2.9))
+    assert ran == ["undo"]
 
 
 def test_the_click_selects_what_was_lit_when_it_began_not_when_it_was_heard():
@@ -254,9 +296,10 @@ def test_the_pointer_items_use_the_existing_sink():
     assert ran == []
     assert [a.button for a in _presses(sink)] == [PointerButton.LEFT]
 
-    d.advance(0.3, pop_at(5.1))              # a fresh scan from 5.3 s; "scroll down" is item 3
-    d.advance(3.2)                        # now 8.5 s
-    d.advance(0.3, click_at(8.7))            # 3.4 s into the scan: "scroll down"
+    # The scan carries on from "click", re-lit at 5.0 s for one step: then "enter" (6.0 s),
+    # "undo" (7.0 s), "scroll up" (8.0 s), "scroll down" (9.0 s).
+    d.advance(4.3)                        # now 9.3 s
+    d.advance(0.3, click_at(9.4))            # began on "scroll down" (reported at 9.6 s)
     assert [(a.x, a.y) for a in _scrolls(sink)] == [(0.0, 3.0)]
 
 
@@ -399,6 +442,18 @@ def test_a_name_longer_than_the_dwell_holds_the_highlight_until_it_is_said():
     # A click that began 1.3 s into "undo" -- past the plain 1.0 s dwell -- still means "undo".
     d.advance(0.1, click_at(times["undo"] + 1.3))
     assert ran == ["undo"]
+
+
+def test_after_a_selection_the_item_is_announced_again_and_stays_for_a_step():
+    runner, ears, ran, d = _audible()
+    d.advance(0.3, pop_at(0.1))
+    _walk(d, 1.5)                          # "enter" at 0.3 s, "undo" at about 1.3 s
+    d.advance(0.1, click_at(1.45))           # selects "undo" at 1.6 s
+    _walk(d, 2.7)
+    assert ran == ["undo"]
+    assert [name for name, _, _ in ears.names] == ["enter", "undo", "undo", "scroll up"]
+    times = [when for name, when, _ in ears.names]
+    assert times[3] - times[2] >= 1.0 - 1e-9  # the re-lit "undo" kept its whole dwell
 
 
 class FakeAnnouncer:
