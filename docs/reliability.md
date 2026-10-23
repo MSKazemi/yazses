@@ -125,6 +125,25 @@ you are in Morse mode, running a scan or holding a joystick vowel, and it never 
 during a hold-to-talk recording. Before this fix it skipped every check while such a stream
 was open, so with Vocal Morse on it never checked at all. Not yet tested on real hardware.
 
+The three timings in that paragraph are settings in `[audio]`. The defaults below are the
+values described above, so leaving them out changes nothing:
+
+```toml
+[audio]
+level_stream_rescan_s = 30.0      # close, re-scan and reopen the stream this often (5 to 3600)
+level_stream_in_use_max_s = 600.0 # the longest "in use" can hold a re-scan off (10 to 3600)
+level_stream_fresh_s = 2.0        # "in use" only while audio arrived this recently (0.5 to 60)
+```
+
+Lower `level_stream_rescan_s` to notice an unplugged microphone sooner where `wpctl` cannot
+read through the alias (macOS, Windows, plain ALSA). Each re-scan is a short gap in the
+hands-free stream, so raise it if those gaps get in your way. `level_stream_in_use_max_s` is
+a backstop for a sound that never ends, such as a fan heard as one endless Morse pulse.
+`level_stream_fresh_s` decides when a frozen gesture stops counting: a microphone unplugged
+mid-letter delivers no more audio, so after this many seconds the re-scan goes ahead and
+finds the dead device. A value outside its range is reported by `yazses doctor` and the
+default is used instead.
+
 Controlled by `[audio] auto_heal_device` (on by default). Each heal raises a
 desktop notification with **[Re-calibrate] / [Pin this mic] / [Ignore]**, because
 a silent fix is only half useful — you need to know the device moved. Pin one for

@@ -41,7 +41,7 @@ from typing import Any, Protocol
 
 import numpy as np
 
-from yazses.audio.device_monitor import audio_is_live
+from yazses.audio.device_monitor import ENGAGED_AUDIO_FRESH_S, audio_is_live
 from yazses.morsevox.mode import ModeConfig, ModeStep, MorseMode, resolve
 
 __all__ = ["MorseRunner", "build_morse_runner"]
@@ -80,6 +80,7 @@ class MorseRunner:
         on_level: Callable[[float], None] | None = None,
         clock: Callable[[], float] = time.monotonic,
         thread: bool = True,
+        engaged_fresh_s: float = ENGAGED_AUDIO_FRESH_S,
     ) -> None:
         self._mode = MorseMode(config)
         self._recorder_factory = recorder_factory
@@ -90,6 +91,9 @@ class MorseRunner:
         self._on_level = on_level
         self._clock = clock
         self._use_thread = thread
+        #: `[audio] level_stream_fresh_s`: how recent audio must be for Morse mode to count
+        #: as in use and hold a device re-scan off.
+        self._engaged_fresh_s = float(engaged_fresh_s)
         self._lock = threading.RLock()
         self._recorder: _Recorder | None = None
         self._queue: queue.Queue[tuple[float, float] | None] = queue.Queue(maxsize=_QUEUE_SAMPLES)
@@ -136,7 +140,7 @@ class MorseRunner:
         return (
             self._recorder is not None
             and self._mode.active
-            and audio_is_live(self._last_audio_at, float(self._clock()))
+            and audio_is_live(self._last_audio_at, float(self._clock()), self._engaged_fresh_s)
         )
 
     def release_mic_for_rescan(self) -> bool:
@@ -402,6 +406,7 @@ def build_morse_runner(
     on_level: Callable[[float], None] | None = None,
     clock: Callable[[], float] = time.monotonic,
     thread: bool = True,
+    engaged_fresh_s: float = ENGAGED_AUDIO_FRESH_S,
 ) -> tuple[MorseRunner | None, list[str]]:
     """The runner for ``[morsevox]``, or None, plus every note worth logging. Never raises.
 
@@ -430,5 +435,6 @@ def build_morse_runner(
         on_level=on_level,
         clock=clock,
         thread=thread,
+        engaged_fresh_s=engaged_fresh_s,
     )
     return runner, notes

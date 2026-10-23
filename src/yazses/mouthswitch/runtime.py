@@ -64,7 +64,7 @@ from typing import Any, Protocol
 
 import numpy as np
 
-from yazses.audio.device_monitor import audio_is_live
+from yazses.audio.device_monitor import ENGAGED_AUDIO_FRESH_S, audio_is_live
 from yazses.mouthswitch.announce import ScanAnnouncer
 from yazses.mouthswitch.detect import MouthSoundDetector
 from yazses.mouthswitch.scanner import ScanItem, SwitchScanner, parse_scan_items, scan_interval
@@ -148,6 +148,7 @@ class MouthSwitchRunner:
         detector: _Detector | None = None,
         thread: bool = True,
         announcer: ScanAnnouncer | None = None,
+        engaged_fresh_s: float = ENGAGED_AUDIO_FRESH_S,
     ) -> None:
         self._sink = sink
         self._recorder_factory = recorder_factory
@@ -158,6 +159,9 @@ class MouthSwitchRunner:
         self._on_fault = on_fault
         self._clock = clock
         self._use_thread = thread
+        #: `[audio] level_stream_fresh_s`: how recent audio must be for a running scan to
+        #: count as in use and hold a device re-scan off.
+        self._engaged_fresh_s = float(engaged_fresh_s)
         self._detector: _Detector = detector if detector is not None else MouthSoundDetector(
             self._sample_rate, actions=SWITCH_ACTIONS
         )
@@ -207,7 +211,7 @@ class MouthSwitchRunner:
         now = self._clock()
         with self._scan_lock:
             scanning = self._scanner.view(now).scanning
-        return scanning and audio_is_live(self._last_audio_at, now)
+        return scanning and audio_is_live(self._last_audio_at, now, self._engaged_fresh_s)
 
     @property
     def items(self) -> tuple[ScanItem, ...]:
@@ -606,6 +610,7 @@ def build_mouthswitch(
     on_fault: Callable[[str], None] | None = None,
     clock: Callable[[], float] = time.monotonic,
     thread: bool = True,
+    engaged_fresh_s: float = ENGAGED_AUDIO_FRESH_S,
 ) -> MouthSwitchRuntime:
     """The switch for ``[mouthswitch]``, or a runtime that says why there is none.
 
@@ -670,6 +675,7 @@ def build_mouthswitch(
         clock=clock,
         thread=thread,
         announcer=announcer,
+        engaged_fresh_s=engaged_fresh_s,
     )
     return MouthSwitchRuntime(runner=runner, notice="; ".join(notes))
 
