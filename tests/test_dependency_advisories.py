@@ -697,11 +697,12 @@ def test_the_sweep_is_actually_published():
 # ---------------------------------------------------------------------------
 # GHSA-83vg-56qc-22m7 -- `GitPython <= 3.2.0`, submodule cloned into `.git/hooks`
 #
-# A fix exists (3.2.1) and the lock cannot take it: `mkdocs-rss-plugin` 1.19.0,
-# its newest release, declares `GitPython<3.2`. The published assessment rests on
-# GitPython being a documentation-build tool that no user installs, and on nothing
-# here calling `Repo.create_submodule`. Both are pinned below, and so is the version,
-# so the entry is retired the day the lock moves past the fix.
+# Resolved by an override: `mkdocs-rss-plugin` 1.19.0, its newest release, declares
+# `GitPython<3.2`, and `[tool.uv] override-dependencies` lifts the lock to 3.2.1, the only
+# fixed version. The floor is pinned below, so dropping the override while the plugin still
+# caps the version fails here instead of quietly reopening the advisory. The two facts that
+# kept it from ever reaching a user -- a documentation-build tool nobody installs, and no
+# code here calling `Repo.create_submodule` -- stay pinned too.
 # ---------------------------------------------------------------------------
 
 #: The first release that fixes GHSA-83vg-56qc-22m7.
@@ -794,13 +795,13 @@ def test_the_gitpython_import_detector_can_fire():
     assert modules == ["git", "git.repo"]
 
 
-def test_the_gitpython_assessment_retires_when_the_lock_takes_the_fix():
-    """Once the lock reaches 3.2.1, the entry describes a hold that no longer exists."""
+def test_the_resolved_gitpython_is_at_or_above_the_patched_release():
+    """The override must keep the lock on a fixed GitPython, on every platform."""
     got = _locked_version("gitpython")
-    assert got < GITPYTHON_PATCHED, (
-        f"uv.lock now resolves gitpython {'.'.join(map(str, got))}, which fixes "
-        "GHSA-83vg-56qc-22m7. Mark the GitPython entry in .github/SECURITY.md resolved, "
-        "and delete these GitPython tests."
+    assert got >= GITPYTHON_PATCHED, (
+        f"uv.lock resolves gitpython {'.'.join(map(str, got))}, below 3.2.1, so "
+        "GHSA-83vg-56qc-22m7 is open again. `mkdocs-rss-plugin` caps it below 3.2; keep "
+        "`gitpython>=3.2.1` in `[tool.uv] override-dependencies` until the plugin lifts the cap."
     )
 
 

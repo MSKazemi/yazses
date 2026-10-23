@@ -623,6 +623,17 @@ constraint-dependencies = [
     "onnxruntime<1.24; sys_platform == 'darwin' and platform_machine == 'x86_64'",
 ]
 
+# `mkdocs-rss-plugin` 1.19.0, its newest release, declares `GitPython<3.2`, and only 3.2.1
+# fixes GHSA-83vg-56qc-22m7 (every 3.1.x is affected; 3.2.0 fixed six more advisories). An
+# override replaces that cap rather than adding to it. It is safe for this plugin: 3.2.0
+# dropped Python 3.7 and deprecated the pure-Python `GitDB` backend, and both docs plugins
+# use the default `Repo(path)` with `git.log`/`git.tag`, which did not change. The Docs job
+# builds with it. Remove this when the plugin lifts its cap; tests/test_dependency_advisories.py
+# holds the lock at or above 3.2.1 either way. The `docs` group is the only path to gitpython.
+override-dependencies = [
+    "gitpython>=3.2.1",
+]
+
 # On Linux, PyPI's `torch` is the CUDA build. `speechbrain>=1.1` -- the one line in
 # the `voiceprint` extra -- resolved there to torch plus 15 `nvidia-*` distributions,
 # 4.22 GB of wheels under a 527 MB torch wheel (this lock, 2026-10-21), for a tool
