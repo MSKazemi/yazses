@@ -1525,7 +1525,7 @@ yazses headpointer dwell off     # move only; never click
 
 ### `yazses handsfree`
 
-Stop, re-arm and inspect every camera-driven hands-free input at once (the same panel the settings window's "Hands-free controls…" button opens). Each subcommand takes no coordinate, so none needs the pointer that may be misbehaving. `status` never opens the camera.
+Stop, re-arm and inspect every camera-driven hands-free input at once (the same panel the button on the settings window's Hands-free page opens). Each subcommand takes no coordinate, so none needs the pointer that may be misbehaving. `status` never opens the camera.
 
 | Command | What it does |
 |---|---|

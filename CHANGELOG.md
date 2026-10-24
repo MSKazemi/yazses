@@ -6,6 +6,30 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed — the Settings window is a sidebar of pages, and the Features list can finally be seen
+
+The window stacked every control in one column and gave the capability list the height that
+was left over, which at the default size was about 70 px. The largest part of the product was
+a slit at the bottom of the window.
+
+It now has a sidebar with six pages: **General** (the hold-to-talk key), **Speech**,
+**Audio**, **Features**, **Hands-free** and **Updates**. The Features page uses the whole
+window: a search box on top, a category list with how many capabilities are on in each
+(`6/23`), and the rows beside it. While you search, the category numbers become match counts
+and a category with nothing left leaves the list. `Ctrl+1` to `Ctrl+6` jump to a page and
+`Ctrl+F` goes straight to the search. **Restore defaults** and **Apply** sit in a footer that
+never scrolls away, and the snap-permission warning stays pinned above every page.
+
+A dot beside a page name means it holds changes you have not applied (a ticked capability or
+a moved value), and a staged capability row gets a coloured bar on its left edge. The dot
+goes when you press **Apply** or put the value back.
+
+Nothing about what the window does has changed: staging, Apply, the restart offer, installs,
+the experimental confirmation and Restore defaults behave as before, and no config key or
+command changed. The old window's tests pass unmodified. The filter syntax (`tier:rec`,
+`on:`, `off:`) is now written under the search box instead of living only in a tooltip, and
+the hands-free button reads "Open hands-free controls…" on its own page.
+
 ### Fixed — the Docker and Chocolatey release jobs no longer race what they depend on
 
 Both failed on v2.44.0 and again on v2.45.0, and each was cleared by one rerun, so they were

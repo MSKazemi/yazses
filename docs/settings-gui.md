@@ -9,7 +9,7 @@ Everything YazSes can do is a switch, and this is the switchboard. It writes the
 same `config.toml` keys as `yazses features enable/disable`, so the window and the
 CLI can never disagree about what is on.
 
-![The YazSes Settings window: a filter box at the top, then the Core dictation group with each capability as a checkbox, its recommendation tier and a one-line description underneath, a ? button per row, and Restore defaults / Apply along the bottom](screenshots/settings-window.png)
+![The YazSes Settings window on its Features page: a sidebar with General, Speech, Audio, Features, Hands-free and Updates; a search box; a category list with how many capabilities are on in each; the Core dictation capabilities as checkboxes with a one-line description and a ? button each; and Restore defaults / Apply pinned along the bottom](screenshots/settings-window.png)
 
 ## Opening it
 
@@ -32,6 +32,32 @@ Three ways, all the same window:
 
 It needs a graphical session but **not** a system tray. On a headless or SSH
 machine use `yazses features` instead, which does the same job in text.
+
+## The layout
+
+A sidebar on the left holds six pages, and one shows at a time:
+
+| Page | What is on it | Jump |
+|---|---|---|
+| **General** | the hold-to-talk key | `Ctrl+1` |
+| **Speech** | model, language, vocabulary, text injection and the rest of [Speech and text output](#speech-and-text-output) | `Ctrl+2` |
+| **Audio** | microphone, silence threshold and the live level meter | `Ctrl+3` |
+| **Features** | every capability as a checkbox, with search and a category list | `Ctrl+4` |
+| **Hands-free** | the entry to the camera-driven hands-free controls | `Ctrl+5` |
+| **Updates** | the version you run, **Check for updates**, and **Install now** for dormant features | `Ctrl+6` |
+
+`Ctrl+F` goes straight to the capability search from any page.
+
+Three things stay put whichever page you are on. **Restore defaults** and **Apply** sit in
+a footer that never scrolls away. The line above them says what is staged. And if a
+snap is missing a permission YazSes needs to hear you, the warning banner stays pinned at
+the top of the window, because it matters more than any page.
+
+**A dot beside a page name** means that page holds changes you have not applied yet: a
+capability you ticked, or a value you moved in a form. The dot goes when you press
+**Apply**, or when you put the value back. Staged capability rows also get a coloured bar
+on their left edge, and the numbers beside each category (`6/23` is six on out of
+twenty-three) follow your ticks before anything is written.
 
 ## Reading the window
 
@@ -62,7 +88,8 @@ itself, not a feature.
 
 ## Finding a capability
 
-There are about 150 rows, so the box at the top filters them. It matches
+There are about 150 rows, so the **Search** box at the top of the Features page filters
+them, and the category list beside it narrows by category. The search matches
 the name you can see, the toggle name the CLI uses, the category heading, **and
 the description** — so typing `stutter` finds *Dysfluency-Friendly*, whose label
 contains neither word. Several words narrow rather than widen.
@@ -76,8 +103,10 @@ vocabulary:
 | `tier:rec` | only one tier — `core`, `on`, `rec`, `opt`, `exp` |
 | `on: meeting` | combine freely |
 
-A category with nothing left in it disappears with its rows. Filtering is
-visibility only: a hidden row keeps any change you staged, and **Apply** and
+While you search, the numbers in the category list become match counts, and a category
+with nothing left in it leaves the list and the page. Pick a category, then search for
+something it does not contain, and the view falls back to *All capabilities* rather than
+showing a blank pane. Filtering is visibility only: a hidden row keeps any change you staged, and **Apply** and
 **Restore defaults** both act on every capability, not just the visible ones.
 
 ## What does this option actually do?
@@ -161,8 +190,7 @@ that you can fix by retrying.
 
 A feature can be switched on while its libraries are missing: you edited
 `config.toml` by hand, an install failed and the switch stayed on, or an update
-rebuilt the environment without them. The **About and updates** box near the top of
-the window lists each one, with an **Install now** button that carries the download
+rebuilt the environment without them. The **Updates** page lists each one, with an **Install now** button that carries the download
 size (for example *Install now (~224 MB)*).
 
 The button runs the same install as `yazses features install`, on a worker thread,
@@ -185,7 +213,7 @@ button downloads and installs the feature's **add-on** (ADR-028), the same as
 
 ## Checking for updates
 
-The **About and updates** box shows the version you are running. **Check for updates**
+The **Updates** page shows the version you are running. **Check for updates**
 asks the place YazSes was installed from (PyPI, GitHub or the snap store) for its newest
 version, off the window's thread, then shows the installed and available versions and
 the one thing that can be done:
@@ -256,7 +284,7 @@ which would read as "your microphone is silent".
 
 ## Changing the hold-to-talk key
 
-The dropdown at the top of the window sets the key you hold to dictate. It offers
+The dropdown on the **General** page sets the key you hold to dictate. It offers
 the same choices as `yazses hotkey set`, including **`auto`** — the shipped
 default, meaning "the usual key for this operating system".
 
@@ -276,7 +304,7 @@ offers, because the key is bound when the daemon starts.
 
 ## Speech and text output
 
-The **Speech** group holds what YazSes hears, how it decodes it, and how the text
+The **Speech** page holds what YazSes hears, how it decodes it, and how the text
 gets out. Several of these refuse a value rather than saving it, and the refusals
 are the reason they belong in a window rather than a text editor — each one fails
 in a way that does not look like the setting that caused it.
