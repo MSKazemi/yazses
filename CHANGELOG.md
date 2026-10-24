@@ -44,6 +44,22 @@ The `docker` job's time limit goes from 35 to 45 minutes to cover the retry. Tes
 `tests/test_release_publish_waits_for_the_builders.py` run both shell scripts against stubbed
 `gh` and `pip`; four of them fail on the old files.
 
+### Fixed — "Apply and restart" (and the tray's Restart) stopped YazSes and never started it
+
+On a systemd install, `yazses restart` begins with `systemctl --user stop yazses`. When the
+restart was launched from the tray or the Settings window it was itself a descendant of the
+daemon, so it sat in the `yazses.service` cgroup, and systemd killed it with the rest of the
+unit before it reached the `start` step. The daemon stayed down, because `Restart=on-failure`
+does not revive a clean exit. The Settings window died in the same stop, so it could never
+report the outcome. Typing `yazses stop` then `yazses start` in a terminal worked because a
+terminal is outside the unit.
+
+The tray now starts Settings and its Restart item in a `systemd-run --scope` of their own, so
+the window survives the restart and can confirm that the daemon came back. As a second layer,
+`yazses restart` and `yazses start` (which restarts a running daemon) detect that they are
+inside `yazses.service` and re-run themselves the same way, keeping the environment and exit
+code. Without `systemd-run`, off Linux, or from a terminal, nothing changes.
+
 ## [2.45.0] - 2026-10-23
 
 ### Fixed — the camera features installed OpenCV twice
