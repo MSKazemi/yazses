@@ -6,6 +6,20 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the Docker and Chocolatey release jobs no longer race what they depend on
+
+Both failed on v2.44.0 and again on v2.45.0, and each was cleared by one rerun, so they were
+defects and not bad luck. The `docker` job's own `pip` resolved the new version, and the `pip`
+inside the image build, two minutes later, still listed only the previous release: the check
+ran near the tool, not in it. The Dockerfile's install now retries inside the same `RUN`, only
+when pip says no such version, for up to 10 minutes. A compile error or any other failure still
+ends the build on the first attempt. The Chocolatey job fetched `SHA256SUMS.txt` 26 seconds
+before the checksums workflow uploaded it and died on a 404, because the asset wait looked only
+for the `.exe` and `.dmg`. It now waits for the checksums file too, inside the same deadline.
+The `docker` job's time limit goes from 35 to 45 minutes to cover the retry. Tests in
+`tests/test_release_publish_waits_for_the_builders.py` run both shell scripts against stubbed
+`gh` and `pip`; four of them fail on the old files.
+
 ## [2.45.0] - 2026-10-23
 
 ### Fixed — the camera features installed OpenCV twice

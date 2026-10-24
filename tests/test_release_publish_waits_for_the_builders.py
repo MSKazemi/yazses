@@ -231,3 +231,150 @@ def test_an_unfinished_state_is_never_read_as_finished(tmp_path, states):
     # printed "has finished" for a run that was not.
     stdout, _ = _harness(tmp_path, f"echo {states}")
     assert "has finished" not in stdout, stdout
+
+
+# --------------------------------------------------------------------------
+# v2.44.0 and v2.45.0: the same two races, each cleared by one rerun both times
+# --------------------------------------------------------------------------
+#
+# * Chocolatey: the asset wait passed on the .exe and .dmg, and render-chocolatey.py
+#   fetched SHA256SUMS.txt 26 s before the checksums workflow uploaded it (HTTP 404).
+# * Docker: the workflow's pip resolved the new version, and the pip INSIDE the build
+#   container, two minutes later, still listed only the previous release.
+
+DOCKERFILE = ROOT / "packaging" / "docker" / "Dockerfile"
+
+
+def _asset_wait_run() -> str:
+    return _step(PUBLISH, "wait-for-assets", "Wait for the release to carry")["run"]
+
+
+def test_the_asset_wait_requires_the_checksums_file():
+    run = _asset_wait_run()
+    assert "SHA256SUMS.txt" in run, (
+        "the Chocolatey job reads SHA256SUMS.txt from the release; the checksums "
+        "workflow uploads it after the builds, so waiting for the binaries alone "
+        "lets the job run first (v2.44.0, v2.45.0)"
+    )
+
+
+def _asset_wait(tmp_path: Path, listings: list[str]) -> tuple[subprocess.CompletedProcess, int]:
+    """Run the asset wait with a `gh` that answers each call from *listings* in turn."""
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    state = tmp_path / "n"
+    state.write_text("0", encoding="utf-8")
+    answers = tmp_path / "answers"
+    answers.mkdir()
+    for i, text in enumerate(listings):
+        (answers / str(i)).write_text(text, encoding="utf-8")
+    gh = bin_dir / "gh"
+    gh.write_text(
+        "#!/usr/bin/env bash\n"
+        f'n=$(cat "{state}"); echo $((n + 1)) > "{state}"\n'
+        f'last=$(( $(ls "{answers}" | wc -l) - 1 ))\n'
+        f'(( n > last )) && n=$last\n'
+        f'cat "{answers}/$n"\n',
+        encoding="utf-8",
+    )
+    gh.chmod(gh.stat().st_mode | stat.S_IEXEC)
+    slp = bin_dir / "sleep"
+    slp.write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+    slp.chmod(slp.stat().st_mode | stat.S_IEXEC)
+    script = tmp_path / "assets.sh"
+    script.write_text(_asset_wait_run().replace("${{ steps.resolve.outputs.version }}", "9.9.9"),
+                      encoding="utf-8")
+    env = dict(os.environ, PATH=f"{bin_dir}{os.pathsep}{os.environ['PATH']}")
+    out = subprocess.run(["bash", str(script)], capture_output=True, text=True, env=env, timeout=60)
+    return out, int(state.read_text(encoding="utf-8"))
+
+
+_BINARIES = "YazSes-9.9.9-windows-x64.exe\nYazSes-9.9.9-macos-arm64.dmg\n"
+
+
+@_needs_posix
+def test_the_asset_wait_does_not_pass_on_the_binaries_alone(tmp_path):
+    # Binaries on the first two listings, the checksums only on the third: passing
+    # earlier is exactly the Chocolatey 404.
+    out, calls = _asset_wait(tmp_path, [_BINARIES, _BINARIES, _BINARIES + "SHA256SUMS.txt\n"])
+    assert out.returncode == 0, out.stderr
+    assert calls == 3, (calls, out.stdout)
+
+
+@_needs_posix
+def test_the_asset_wait_passes_at_once_when_everything_is_there(tmp_path):
+    out, calls = _asset_wait(tmp_path, [_BINARIES + "SHA256SUMS.txt\n"])
+    assert out.returncode == 0, out.stderr
+    assert calls == 1, (calls, out.stdout)
+
+
+def _dockerfile_pip_run() -> str:
+    """The Dockerfile's `RUN` that installs yazses, exactly as Docker hands it to sh."""
+    lines = DOCKERFILE.read_text(encoding="utf-8").splitlines()
+    for i, line in enumerate(lines):
+        if line.startswith("RUN ") and "pip install" in "\n".join(_run_block(lines, i)):
+            return "\n".join(_run_block(lines, i))[len("RUN "):]
+    raise AssertionError("no RUN instruction installs yazses in the Dockerfile")
+
+
+def _run_block(lines: list[str], start: int) -> list[str]:
+    block = [lines[start]]
+    while block[-1].rstrip().endswith("\\") and start + len(block) < len(lines):
+        block.append(lines[start + len(block)])
+    return block
+
+
+def _run_pip(tmp_path: Path, behaviour: str, version: str = "9.9.9") -> tuple[int, int, str]:
+    """Run the install RUN under /bin/sh with a stub `pip`; return (exit, pip calls, stdout)."""
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    calls = tmp_path / "calls"
+    calls.write_text("", encoding="utf-8")
+    pip = bin_dir / "pip"
+    pip.write_text(f"#!/bin/sh\necho x >> \"{calls}\"\n{behaviour}\n", encoding="utf-8")
+    pip.chmod(pip.stat().st_mode | stat.S_IEXEC)
+    slp = bin_dir / "sleep"
+    slp.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    slp.chmod(slp.stat().st_mode | stat.S_IEXEC)
+    body = _dockerfile_pip_run().replace("/tmp/pip-install.log", str(tmp_path / "pip.log"))
+    env = dict(os.environ, PATH=f"{bin_dir}{os.pathsep}{os.environ['PATH']}", YAZSES_VERSION=version)
+    out = subprocess.run(["/bin/sh", "-c", body], capture_output=True, text=True, env=env, timeout=60)
+    return out.returncode, len(calls.read_text(encoding="utf-8").split()), out.stdout + out.stderr
+
+
+_NOT_YET = (
+    'n=$(wc -l < "{c}"); if [ "$n" -ge {ok} ]; then echo installed; exit 0; fi; '
+    "echo 'ERROR: Could not find a version that satisfies the requirement yazses==9.9.9' >&2; "
+    "echo 'ERROR: No matching distribution found for yazses==9.9.9' >&2; exit 1"
+)
+
+
+@_needs_posix
+def test_the_docker_install_retries_until_the_new_version_resolves(tmp_path):
+    behaviour = _NOT_YET.format(c=tmp_path / "calls", ok=3)
+    code, calls, text = _run_pip(tmp_path, behaviour)
+    assert code == 0, text
+    assert calls == 3, (calls, text)
+
+
+@_needs_posix
+def test_the_docker_install_does_not_retry_a_real_build_failure(tmp_path):
+    code, calls, text = _run_pip(
+        tmp_path, "echo \"error: command 'gcc' failed with exit code 1\" >&2; exit 1"
+    )
+    assert code != 0, text
+    assert calls == 1, f"a compile error was retried {calls}x: {text}"
+
+
+@_needs_posix
+def test_the_docker_install_gives_up_and_fails_if_the_version_never_appears(tmp_path):
+    code, calls, text = _run_pip(tmp_path, _NOT_YET.format(c=tmp_path / "calls", ok=10**6))
+    assert code != 0, text
+    assert calls == 20, (calls, text)
+
+
+@_needs_posix
+def test_the_docker_install_without_a_version_still_installs_the_latest(tmp_path):
+    code, calls, text = _run_pip(tmp_path, "echo \"$@\"; exit 0", version="")
+    assert code == 0 and calls == 1, text
+    assert "yazses[diarization]==" not in text
