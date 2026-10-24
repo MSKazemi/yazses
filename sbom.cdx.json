@@ -2899,14 +2899,14 @@
     {
       "type": "library",
       "name": "setuptools",
-      "version": "84.0.0",
-      "purl": "pkg:pypi/setuptools@84.0.0",
-      "bom-ref": "pkg:pypi/setuptools@84.0.0",
+      "version": "84.1.0",
+      "purl": "pkg:pypi/setuptools@84.1.0",
+      "bom-ref": "pkg:pypi/setuptools@84.1.0",
       "scope": "required",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "f4695c21257f0d9b537ec2692c941d02ee143b7cc1276941349a546573b2ef73"
+          "content": "23657205b63d4d31395ab917815247f694aafad28cd21316bf5fd45a51048ea0"
         }
       ]
     },
