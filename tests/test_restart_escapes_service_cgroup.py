@@ -70,12 +70,17 @@ def test_scope_argv_is_a_scope_so_environment_stdio_and_exit_code_survive():
     assert "--pipe" not in argv and "--wait" not in argv
 
 
-def test_current_process_inside_unit_reads_the_cgroup_through_the_seam():
+def test_current_process_inside_unit_reads_the_cgroup_through_the_seam(monkeypatch):
+    # The function answers False off Linux before it reads anything, so pin the platform:
+    # without this the test passed on Linux and failed on the macOS and Windows runners.
+    monkeypatch.setattr(service_escape.sys, "platform", "linux")
     assert service_escape.current_process_inside_unit(lambda: V2_IN_UNIT)
     assert not service_escape.current_process_inside_unit(lambda: V2_IN_SESSION)
 
 
-def test_current_process_inside_unit_is_false_when_the_cgroup_is_unreadable():
+def test_current_process_inside_unit_is_false_when_the_cgroup_is_unreadable(monkeypatch):
+    monkeypatch.setattr(service_escape.sys, "platform", "linux")
+
     def unreadable():
         raise OSError("no /proc")
 
