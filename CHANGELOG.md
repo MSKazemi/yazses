@@ -6,6 +6,29 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — installing a new YazSes over a running one no longer stops at "unable to automatically close all applications"
+
+Run the installer while YazSes was in the tray and Setup listed `YazSesApp.exe` twice, then
+failed with "Setup was unable to automatically close all applications" (silently: exit code 5,
+nothing installed, the old version untouched). YazSes is a tray process plus a windowless
+`--daemon` child; Windows' Restart Manager, which `CloseApplications` relies on, has no window
+to ask in either, so it gives up. Only the in-app one-click update avoided this, because it
+waits for YazSes to exit before it starts the installer. A manual download, `winget upgrade`,
+`choco upgrade`, `scoop update`, and anyone updating from a release older than the one-click
+update all hit it.
+
+The installer now closes YazSes itself before it looks for files in use: the tray first (it
+would otherwise relaunch the daemon the moment the daemon went away), then `yazses stop`, which
+asks the daemon to shut down and waits, so a meeting being saved is saved rather than killed. It
+only touches processes running from the install directory it is replacing, and it still never
+force-closes. A silent upgrade that closed a tray starts it again; the in-app update, which
+passes `/NORESTARTAPPLICATIONS` and relaunches itself, is left alone, as is the interactive
+installer's "Launch YazSes now" box. Checked on Windows 11 with a real tray and daemon: the old
+script failed with exit code 5 and left both running; the new one upgraded cleanly with the tray
+running, with only an orphaned daemon running, and brought the tray back after a silent upgrade.
+The test that kept `Exec` out of the installer's code now allows exactly the three programs this
+step starts.
+
 ### Changed — the Settings window is a sidebar of pages, and the Features list can finally be seen
 
 The window stacked every control in one column and gave the capability list the height that
