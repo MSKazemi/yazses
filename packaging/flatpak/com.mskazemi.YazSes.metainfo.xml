@@ -82,7 +82,7 @@
   <screenshots>
     <screenshot type="default">
       <caption>Configure every feature from the settings window</caption>
-      <image type="source" width="820" height="860">https://raw.githubusercontent.com/MSKazemi/yazses/main/docs/screenshots/settings-window.png</image>
+      <image type="source" width="900" height="640">https://raw.githubusercontent.com/MSKazemi/yazses/main/docs/screenshots/settings-window.png</image>
     </screenshot>
     <screenshot>
       <caption>Hold the key and speak — the overlay shows it is recording</caption>

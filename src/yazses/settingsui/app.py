@@ -45,7 +45,17 @@ from yazses.settingsui.help import (
 from yazses.settingsui.launch import has_display, pyside_available
 from yazses.settingsui.maintenance_panel import attach_maintenance
 from yazses.settingsui.model import SettingRow, SettingsModel, build_settings_model
+from yazses.settingsui.pages import (
+    PAGES,
+    category_entries,
+    category_item_text,
+    category_selectable,
+    dirty_page_keys,
+    effective_selection,
+    section_visible,
+)
 from yazses.settingsui.search import describe_filter, matches, visible_counts
+from yazses.settingsui.shell import SettingsShell, build_page
 from yazses.settingsui.theme import muted_style_for
 from yazses.system.relaunch import Mode, command_for
 
@@ -185,18 +195,93 @@ def _rich_text():
     return Qt.TextFormat.RichText
 
 
+def _top_aligned(*items):
+    """A widget holding *items* at the top, so a short page does not stretch its controls."""
+    from PySide6.QtWidgets import QVBoxLayout, QWidget
+
+    holder = QWidget()
+    layout = QVBoxLayout(holder)
+    layout.setContentsMargins(0, 0, 0, 0)
+    for item in items:
+        layout.addWidget(item)
+    layout.addStretch(1)
+    return holder
+
+
+def _unframe(box):
+    """Drop a group box's frame and title: the page's own heading says what it is.
+
+    Only the page-level boxes (Speech, Audio, About and updates) go through here. The
+    capability categories keep their titled `QGroupBox`, which is what the filter hides
+    and what the ampersand guard reads.
+    """
+    box.setTitle("")
+    box.setStyleSheet("QGroupBox { border: 0; margin: 0; padding: 0; }")
+    return box
+
+
+#: Stylesheets for a capability row's holder. The divider keeps a long list scannable; the
+#: left bar marks a row whose switch has been moved but not yet applied — the one thing the
+#: window never showed, so a staged change was invisible until you scrolled back to it.
+#: Pixels a category line may use for its text: the column's width less the item padding
+#: and the frame, with a little slack so a measured line is never wider than a drawn one.
+_CATEGORY_TEXT_WIDTH = 214
+
+_ROW_STYLE = "#featureRow { border: 0; border-bottom: 1px solid palette(midlight); }"
+_ROW_STYLE_STAGED = (
+    "#featureRow { border: 0; border-bottom: 1px solid palette(midlight);"
+    " border-left: 3px solid palette(highlight); }"
+)
+
+
+def _read_text(widget):
+    return widget.currentText().strip()
+
+
+def _read_data(widget):
+    return widget.currentData()
+
+
+def _read_line(widget):
+    return widget.text()
+
+
+def _read_number(widget):
+    return int(widget.value())
+
+
+def _read_profile(widget):
+    return str(widget.currentData() or "")
+
+
+#: ``(baseline attribute, widget attribute, reader)`` for every form control Apply writes.
+#: The baseline names are the keys of :data:`yazses.settingsui.pages.FIELD_PAGES`, and a
+#: test fails if the window grows a baseline either table does not list.
+_FORM_FIELDS = (
+    ("_hotkey_baseline", "_hotkey_box", _read_text),
+    ("_profile_baseline", "_profile_box", _read_profile),
+    ("_model_baseline", "_model_box", _read_text),
+    ("_language_baseline", "_language_box", _read_data),
+    ("_compute_baseline", "_compute_box", _read_text),
+    ("_prompt_baseline", "_prompt_edit", _read_line),
+    ("_backend_baseline", "_backend_box", _read_text),
+    ("_consent_baseline", "_consent_box", _read_data),
+    ("_guard_baseline", "_guard_box", _read_data),
+    ("_padding_baseline", "_padding_spin", _read_number),
+    ("_mic_baseline", "_mic_box", _read_data),
+    ("_vad_baseline_pos", "_vad_slider", _read_number),
+)
+
+
 class SettingsWindow:
     """The settings window itself. Only imports Qt when instantiated."""
 
     def __init__(self, model: SettingsModel, controller: SettingsController) -> None:
         from PySide6.QtWidgets import (
             QCheckBox,
-            QGroupBox,
             QLabel,
             QMainWindow,
             QPushButton,
-            QScrollArea,
-            QVBoxLayout,
             QWidget,
         )
 
@@ -216,71 +301,50 @@ class SettingsWindow:
 
         self._win = QMainWindow()
         self._win.setWindowTitle("YazSes Settings")
-        self._win.resize(680, 760)
+        self._win.resize(900, 640)
+        self._win.setMinimumSize(760, 520)
 
         central = QWidget()
-        outer = QVBoxLayout(central)
+        self._shell = SettingsShell(central, self._win)
 
         # A snap missing `audio-record` or `raw-input` starts normally and never
         # hears a word. This window is the only surface a GUI user reaches --
         # they came from the app grid, not a terminal -- so it is the only place
-        # that can tell them. Above the tooltip hint on purpose: it is the one
-        # thing that matters more than discovering hovering.
-        self._add_snap_banner(outer)
+        # that can tell them. Pinned above every page, so no page hides it.
+        self._add_snap_banner(self._shell.banner_layout)
 
-        # Tooltips are invisible until you already suspect they exist, so say so
-        # once at the top rather than hoping every user discovers hovering.
-        intro = QLabel(
-            "Hover any capability for the full description, or click ? for its "
-            "details, examples and the exact config keys it writes."
-        )
-        intro.setWordWrap(True)
-        intro.setStyleSheet(muted_style_for(intro))
-        outer.addWidget(intro)
+        self._selected_category: str | None = None
+        #: ``{slug: holder}`` for every capability row, so the staged accent and the
+        #: category counts can reach a row without walking widgets.
+        self._row_holders: dict[str, Any] = {}
+        self._staged_rows: set[str] = set()
 
-        outer.addWidget(self._build_handsfree_button())
-        outer.addLayout(self._build_hotkey_row(model.hotkey))
-        outer.addWidget(self._build_speech_rows(model))
-        outer.addWidget(self._build_audio_rows(model))
-        outer.addWidget(attach_maintenance(self))  # Check for updates; Install now
-        outer.addLayout(self._build_filter_box())
-
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        body = QWidget()
-        body_layout = QVBoxLayout(body)
-
-        # (group_box, category, [(slug, row_widget), ...]) — everything the filter
-        # needs to hide a row and, when a whole category empties, its heading too.
-        self._group_widgets: list[tuple[Any, str, list[tuple[str, Any]]]] = []
-        for group in model.groups:
-            # "Commands & automation": a bare & is a Qt mnemonic marker and rendered as "_a".
-            box = QGroupBox(group.category.replace("&", "&&"))
-            box_layout = QVBoxLayout(box)
-            if group.blurb:
-                blurb = QLabel(group.blurb)
-                blurb.setWordWrap(True)
-                blurb.setStyleSheet(muted_style_for(blurb))
-                box_layout.addWidget(blurb)
-            members: list[tuple[str, Any]] = []
-            for row in group.rows:
-                # A QWidget per row, not a bare layout: Qt can hide a widget, and
-                # there is no equivalent for a layout short of walking its items.
-                holder = QWidget()
-                holder.setLayout(self._build_row(row))
-                box_layout.addWidget(holder)
-                members.append((row.slug, holder))
-            self._group_widgets.append((box, group.category, members))
-            body_layout.addWidget(box)
-        body_layout.addStretch(1)
-
-        scroll.setWidget(body)
-        outer.addWidget(scroll)
+        # The pages. Each builder is the one the single-column window already used; only
+        # where its widget lands has changed, so every control keeps its behaviour.
+        general = self._build_general_page(model)
+        speech = self._build_speech_rows(model)
+        audio = self._build_audio_rows(model)
+        handsfree = self._build_handsfree_page()
+        updates = attach_maintenance(self)  # Check for updates; Install now
+        features = self._build_features_page(model)
+        contents = {
+            "general": _top_aligned(general),
+            "speech": _top_aligned(_unframe(speech)),
+            "audio": _top_aligned(_unframe(audio)),
+            "features": features,
+            "handsfree": _top_aligned(handsfree),
+            "updates": _top_aligned(_unframe(updates)),
+        }
+        for spec in PAGES:
+            self._shell.add_page(
+                build_page(spec, contents[spec.key], scrollable=spec.key != "features")
+            )
+        self._shell.finish()
 
         self._hint = QLabel("")
         self._hint.setWordWrap(True)
         self._hint.setStyleSheet(muted_style_for(self._hint))
-        outer.addWidget(self._hint)
+        self._shell.footer_layout.addWidget(self._hint)
 
         from PySide6.QtWidgets import QHBoxLayout
 
@@ -322,9 +386,12 @@ class SettingsWindow:
         self._profile_syncing = False
         apply_btn.clicked.connect(self._on_apply)
         buttons.addWidget(apply_btn)
-        outer.addLayout(buttons)
+        self._shell.footer_layout.addLayout(buttons)
 
         self._win.setCentralWidget(central)
+        self._install_shortcuts()
+        self._wire_dirty_markers()
+        self._refresh_markers()
 
     def _add_snap_banner(self, outer) -> None:
         """Show the missing-permission banner, if there is one. Never raises."""
@@ -351,12 +418,53 @@ class SettingsWindow:
         )
         outer.addWidget(banner)
 
+    def _build_general_page(self, model: SettingsModel):
+        """The hold-to-talk key, and the one thing about this window worth knowing up front."""
+        from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
+
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addLayout(self._build_hotkey_row(model.hotkey))
+
+        note = QLabel(
+            "Changes are staged, not saved: nothing is written until you click Apply, and "
+            "most take effect after a restart. A dot beside a page in the sidebar means it "
+            "holds changes you have not applied yet."
+        )
+        note.setWordWrap(True)
+        note.setStyleSheet(muted_style_for(note, "margin-top: 8px;"))
+        layout.addWidget(note)
+        return page
+
+    def _build_handsfree_page(self):
+        """The hands-free entry: what the controls window is for, then the button that opens it.
+
+        The button keeps its 48 px target and its accessible description, and it is the
+        first thing a keyboard user reaches by Ctrl+5 — the person who needs it most is the
+        one who cannot hunt for it.
+        """
+        from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
+
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(0, 0, 0, 0)
+        about = QLabel(
+            "Pause, resume, recenter and recover the camera-driven hands-free inputs, and "
+            "see whether they are healthy. Opening the controls does not open the camera."
+        )
+        about.setWordWrap(True)
+        about.setStyleSheet(muted_style_for(about, "margin-bottom: 6px;"))
+        layout.addWidget(about)
+        layout.addWidget(self._build_handsfree_button())
+        return page
+
     def _build_handsfree_button(self):
         """The entry to the hands-free controls window (#420). First thing after the intro,
         because the person who needs it most is the one who cannot scroll to find it."""
         from PySide6.QtWidgets import QPushButton
 
-        btn = QPushButton("&Hands-free controls…")
+        btn = QPushButton("&Open hands-free controls…")
         btn.setMinimumHeight(48)
         btn.setAccessibleDescription(
             "Pause, resume and recover the camera-driven hands-free inputs, and see whether "
@@ -893,11 +1001,12 @@ class SettingsWindow:
         from PySide6.QtWidgets import QHBoxLayout, QLabel, QLineEdit, QVBoxLayout
 
         wrap = QVBoxLayout()
+        wrap.setContentsMargins(16, 0, 16, 4)
         line = QHBoxLayout()
-        line.addWidget(QLabel("Filter:"))
+        line.addWidget(QLabel("Search:"))
 
         box = QLineEdit()
-        box.setPlaceholderText("name, category, or what it does — e.g. stutter, tier:rec, on:")
+        box.setPlaceholderText("Search capabilities — name, category, or what it does (Ctrl+F)")
         box.setClearButtonEnabled(True)
         box.setToolTip(
             "Matches the name, the toggle name, the category and the description,"
@@ -911,6 +1020,11 @@ class SettingsWindow:
         line.addWidget(box, 1)
         wrap.addLayout(line)
 
+        # The syntax used to live only in a tooltip, which nobody finds unprompted.
+        syntax = QLabel("Narrow it down:  tier:rec   tier:exp   on:   off:   — or just type a word.")
+        syntax.setStyleSheet(muted_style_for(syntax))
+        wrap.addWidget(syntax)
+
         self._filter_status = QLabel("")
         self._filter_status.setWordWrap(True)
         self._filter_status.setStyleSheet(muted_style_for(self._filter_status))
@@ -923,15 +1037,255 @@ class SettingsWindow:
         Only visibility changes. A hidden row keeps its staged state, so filtering
         mid-edit can never quietly discard a change or exclude one from Apply.
         """
-        for box, category, members in self._group_widgets:
-            visible = 0
+        self._refresh_features_view()
+
+    def _build_features_page(self, model: SettingsModel):
+        """The capability list: a category column beside the rows, the filter on top.
+
+        The rows scroll on their own, in the page's full height. Before this they were the
+        last child of a single column and got whatever the controls above left over —
+        about 70 px at the default window size — which is why the largest part of the
+        product could not be seen.
+        """
+        from PySide6.QtCore import Qt
+        from PySide6.QtWidgets import (
+            QFrame,
+            QGroupBox,
+            QHBoxLayout,
+            QLabel,
+            QListWidget,
+            QListWidgetItem,
+            QScrollArea,
+            QVBoxLayout,
+            QWidget,
+        )
+
+        page = QWidget()
+        outer = QVBoxLayout(page)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.addLayout(self._build_filter_box())
+
+        split = QHBoxLayout()
+        split.setContentsMargins(0, 0, 0, 0)
+
+        cats = QListWidget()
+        cats.setFixedWidth(244)
+        cats.setFrameShape(QFrame.Shape.NoFrame)
+        # Long names ("Conversation & recording capture") wrap instead of clipping, and a
+        # horizontal scrollbar would only ever mean something was cut off.
+        cats.setWordWrap(True)
+        cats.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        cats.setTextElideMode(Qt.TextElideMode.ElideNone)
+        cats.setStyleSheet(
+            "QListWidget { background: transparent; outline: 0; }"
+            "QListWidget::item { padding: 6px 8px; border-radius: 5px; }"
+            "QListWidget::item:selected { background: palette(highlight);"
+            " color: palette(highlighted-text); }"
+        )
+        cats.setAccessibleName("Capability categories")
+        cats.setAccessibleDescription(
+            "Show one category of capabilities, or All. The numbers are how many are on "
+            "out of how many; while you filter they are how many match."
+        )
+        cats.setToolTip("Pick a category to show only its capabilities.")
+        self._category_list = cats
+        everything = QListWidgetItem("All capabilities")
+        everything.setData(Qt.ItemDataRole.UserRole, "")
+        cats.addItem(everything)
+        for group in model.groups:
+            item = QListWidgetItem(group.category)
+            item.setData(Qt.ItemDataRole.UserRole, group.category)
+            if group.blurb:
+                item.setToolTip(group.blurb)
+            cats.addItem(item)
+        cats.setCurrentRow(0)
+        cats.currentRowChanged.connect(self._on_category_selected)
+        split.addWidget(cats)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self._feature_scroll = scroll
+        body = QWidget()
+        body_layout = QVBoxLayout(body)
+        body_layout.setContentsMargins(4, 0, 4, 0)
+
+        # (group_box, category, [(slug, row_widget), ...]) — everything the filter
+        # needs to hide a row and, when a whole category empties, its heading too.
+        self._group_widgets: list[tuple[Any, str, list[tuple[str, Any]]]] = []
+        for group in model.groups:
+            # "Commands & automation": a bare & is a Qt mnemonic marker and rendered as "_a".
+            box = QGroupBox(group.category.replace("&", "&&"))
+            box_layout = QVBoxLayout(box)
+            if group.blurb:
+                blurb = QLabel(group.blurb)
+                blurb.setWordWrap(True)
+                blurb.setStyleSheet(muted_style_for(blurb))
+                box_layout.addWidget(blurb)
+            members: list[tuple[str, Any]] = []
+            for row in group.rows:
+                # A QWidget per row, not a bare layout: Qt can hide a widget, and
+                # there is no equivalent for a layout short of walking its items.
+                holder = QWidget()
+                holder.setObjectName("featureRow")
+                holder.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+                holder.setStyleSheet(_ROW_STYLE)
+                layout = self._build_row(row)
+                layout.setContentsMargins(6, 4, 6, 4)
+                holder.setLayout(layout)
+                box_layout.addWidget(holder)
+                members.append((row.slug, holder))
+                self._row_holders[row.slug] = holder
+            self._group_widgets.append((box, group.category, members))
+            body_layout.addWidget(box)
+        body_layout.addStretch(1)
+        scroll.setWidget(body)
+        split.addWidget(scroll, 1)
+        outer.addLayout(split, 1)
+
+        self._refresh_features_view()
+        return page
+
+    def _on_category_selected(self, row: int) -> None:
+        item = self._category_list.item(row) if row >= 0 else None
+        value = str(item.data(self._user_role()) or "") if item is not None else ""
+        self._selected_category = value or None
+        self._refresh_features_view()
+        self._feature_scroll.verticalScrollBar().setValue(0)
+
+    @staticmethod
+    def _user_role():
+        from PySide6.QtCore import Qt
+
+        return Qt.ItemDataRole.UserRole
+
+    def _refresh_features_view(self) -> None:
+        """Re-judge what the Features page shows: the filter, the category, and the counts.
+
+        One function owns every visibility decision on the page, because two controls (the
+        filter and the category column) hide the same section widgets, and two writers to
+        one `setVisible` is how a category the filter had emptied came back. Only
+        visibility changes — a hidden row keeps its staged state.
+        """
+        from PySide6.QtCore import QSize, Qt
+
+        query = self._filter_box.text()
+        filtering = bool(query.strip())
+        entries = category_entries(
+            self._model.groups, lambda slug: self._checkboxes[slug].isChecked(), query
+        )
+        selected = effective_selection(self._selected_category, entries, filtering=filtering)
+
+        cats = self._category_list
+        cats.blockSignals(True)
+        try:
+            all_item = cats.item(0)
+            total_on = sum(e.enabled for e in entries)
+            total = sum(e.total for e in entries)
+            matching_all = sum(e.matching for e in entries)
+            all_item.setText(
+                f"All capabilities · {matching_all} match" if filtering
+                else f"All capabilities · {total_on}/{total}"
+            )
+            for index, entry in enumerate(entries, start=1):
+                item = cats.item(index)
+                item.setText(category_item_text(entry, filtering=filtering))
+                # Hidden, not greyed: a disabled item's text was unreadable on a light
+                # theme, and a category the filter emptied has nothing to offer anyway.
+                item.setHidden(not category_selectable(entry, filtering=filtering))
+            target = 0 if selected is None else 1 + next(
+                i for i, e in enumerate(entries) if e.category == selected
+            )
+            if cats.currentRow() != target:
+                cats.setCurrentRow(target)
+            # New text can need a second line. Qt sizes a wrapped item from the text it was
+            # first laid out with, and in practice clipped "Commands & automation · 0/13"
+            # to "…"; so each item's height is measured from its own wrapped text.
+            metrics = cats.fontMetrics()
+            for index in range(cats.count()):
+                item = cats.item(index)
+                wrapped = metrics.boundingRect(
+                    0, 0, _CATEGORY_TEXT_WIDTH, 10_000,
+                    int(Qt.TextFlag.TextWordWrap), item.text(),
+                )
+                item.setSizeHint(QSize(0, wrapped.height() + 14))
+            cats.doItemsLayout()
+        finally:
+            cats.blockSignals(False)
+
+        for (box, category, members), entry in zip(self._group_widgets, entries, strict=True):
             for slug, holder in members:
-                shown = matches(self._rows[slug], query, category=category)
-                holder.setVisible(shown)
-                visible += int(shown)
-            box.setVisible(visible > 0)
-        matching, total = visible_counts(self._model.groups, query)
-        self._filter_status.setText(describe_filter(matching, total, query))
+                holder.setVisible(matches(self._rows[slug], query, category=category))
+            box.setVisible(
+                section_visible(category, selected=selected, matching=entry.matching)
+            )
+        matching, total_rows = visible_counts(self._model.groups, query)
+        status = describe_filter(matching, total_rows, query)
+        self._filter_status.setText(status)
+        # Empty, it would still reserve a line of space between the search box and the list.
+        self._filter_status.setVisible(bool(status))
+
+    def _install_shortcuts(self) -> None:
+        """Ctrl+F: jump to the capability search. (Ctrl+1..6 are installed by the shell.)"""
+        from PySide6.QtGui import QKeySequence, QShortcut
+
+        self._find_shortcut = QShortcut(QKeySequence.StandardKey.Find, self._win)
+        self._find_shortcut.activated.connect(self._focus_filter)
+
+    def _focus_filter(self) -> None:
+        self._shell.select("features")
+        self._filter_box.setFocus()
+        self._filter_box.selectAll()
+
+    def _wire_dirty_markers(self) -> None:
+        """Re-judge the sidebar marks whenever a form control moves."""
+        for _baseline, widget_attr, _read in _FORM_FIELDS:
+            widget = getattr(self, widget_attr, None)
+            if widget is None:  # pragma: no cover - the rows are always built
+                continue
+            for signal in ("currentIndexChanged", "valueChanged", "textChanged"):
+                if hasattr(widget, signal):
+                    getattr(widget, signal).connect(lambda *_a: self._refresh_markers())
+                    break
+
+    def _changed_fields(self) -> list[str]:
+        """Baseline names of the form controls whose value differs from what is saved."""
+        changed: list[str] = []
+        for baseline_attr, widget_attr, read in _FORM_FIELDS:
+            widget = getattr(self, widget_attr, None)
+            if widget is None:  # pragma: no cover - the rows are always built
+                continue
+            value = read(widget)
+            # Same rule as Apply: no answer, or an empty hotkey, means "nothing chosen" and
+            # Apply skips it — so it must not light a marker for a change Apply would not make.
+            if value is None or (baseline_attr == "_hotkey_baseline" and not value):
+                continue
+            if value != getattr(self, baseline_attr, value):
+                changed.append(baseline_attr)
+        return changed
+
+    def _refresh_markers(self) -> None:
+        """Repaint what mirrors unapplied state: the sidebar dots and the staged-row accents.
+
+        Cheap enough to run on every slider tick. The category counts are not here — they
+        follow the capability boxes and are redone by :meth:`_refresh_staged_views`.
+        """
+        self._shell.mark(
+            dirty_page_keys(
+                staged_features=len(self._pending), changed_fields=self._changed_fields()
+            )
+        )
+        staged = {slug for slug, _desired in self._pending.items()}
+        for slug in staged ^ self._staged_rows:
+            holder = self._row_holders.get(slug)
+            if holder is not None:
+                holder.setStyleSheet(_ROW_STYLE_STAGED if slug in staged else _ROW_STYLE)
+        self._staged_rows = staged
+
+    def _refresh_staged_views(self) -> None:
+        """After a capability box moved, was reset, or was applied: marks and counts."""
+        self._refresh_markers()
+        self._refresh_features_view()
 
     def _build_row(self, row: SettingRow):
         from PySide6.QtWidgets import (
@@ -1020,6 +1374,7 @@ class SettingsWindow:
             f"{count} change(s) staged — click Apply, then restart the daemon."
             if count else ""
         )
+        self._refresh_staged_views()
 
     def _on_restore_defaults(self) -> None:
         """Move every switch back to its shipped state — staged, not written.
@@ -1236,6 +1591,9 @@ class SettingsWindow:
         for slug in self._checkboxes:
             if slug not in still_staged:
                 self._set_checked_silently(slug, self._pending.baseline(slug))
+        # The baselines moved (hotkey, speech, audio) and the staged set emptied: the
+        # sidebar dots, the row accents and the category counts must follow.
+        self._refresh_staged_views()
 
         summary = self._summarise(report)
         if hotkey_changed:
@@ -1309,6 +1667,7 @@ class SettingsWindow:
             self._profile_model_user_choice = False
             self._model_baseline = candidate.model
             self._language_baseline = candidate.language
+            self._refresh_markers()  # the baselines just moved to what was saved
             language_summary = f"Language profile set to {profile}."
             if self._restart_when_installed is not None:
                 self._restart_when_installed = (
