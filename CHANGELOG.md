@@ -6,6 +6,8 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.46.0] - 2026-10-24
+
 ### Changed — the Settings window is a sidebar of pages, and the Features list can finally be seen
 
 The window stacked every control in one column and gave the capability list the height that
@@ -30,6 +32,13 @@ command changed. The old window's tests pass unmodified. The filter syntax (`tie
 `on:`, `off:`) is now written under the search box instead of living only in a tooltip, and
 the hands-free button reads "Open hands-free controls…" on its own page.
 
+### Changed — the Thai page was reviewed by a native speaker
+
+`docs/th/index.md` was a machine-assisted draft. A native Thai reader reworded it so it reads
+naturally (for example "ถอดความ", which in Thai means to paraphrase, now says "transcribe"), and it
+is marked reviewed instead of draft. Thank you, [@Warayuth014](https://github.com/Warayuth014)
+([#665](https://github.com/MSKazemi/yazses/pull/665), [#353](https://github.com/MSKazemi/yazses/issues/353)).
+
 ### Fixed — the Docker and Chocolatey release jobs no longer race what they depend on
 
 Both failed on v2.44.0 and again on v2.45.0, and each was cleared by one rerun, so they were
@@ -43,6 +52,22 @@ for the `.exe` and `.dmg`. It now waits for the checksums file too, inside the s
 The `docker` job's time limit goes from 35 to 45 minutes to cover the retry. Tests in
 `tests/test_release_publish_waits_for_the_builders.py` run both shell scripts against stubbed
 `gh` and `pip`; four of them fail on the old files.
+
+### Fixed — "Apply and restart" (and the tray's Restart) stopped YazSes and never started it
+
+On a systemd install, `yazses restart` begins with `systemctl --user stop yazses`. When the
+restart was launched from the tray or the Settings window it was itself a descendant of the
+daemon, so it sat in the `yazses.service` cgroup, and systemd killed it with the rest of the
+unit before it reached the `start` step. The daemon stayed down, because `Restart=on-failure`
+does not revive a clean exit. The Settings window died in the same stop, so it could never
+report the outcome. Typing `yazses stop` then `yazses start` in a terminal worked because a
+terminal is outside the unit.
+
+The tray now starts Settings and its Restart item in a `systemd-run --scope` of their own, so
+the window survives the restart and can confirm that the daemon came back. As a second layer,
+`yazses restart` and `yazses start` (which restarts a running daemon) detect that they are
+inside `yazses.service` and re-run themselves the same way, keeping the environment and exit
+code. Without `systemd-run`, off Linux, or from a terminal, nothing changes.
 
 ## [2.45.0] - 2026-10-23
 

@@ -113,9 +113,12 @@ class TrayController:
         rather than reporting a restart that never began.
         """
         try:
+            from yazses.system.service_escape import detached_argv
             from yazses.tray.launch import settings_command
 
-            self._spawn(settings_command("restart"))
+            # The tray lives inside the daemon's unit, and a restart stops that unit: left
+            # there, the restart is killed between its stop and its start.
+            self._spawn(detached_argv(settings_command("restart")))
             return True
         except Exception:
             log.exception("tray restart failed")
@@ -128,9 +131,12 @@ class TrayController:
         nothing is indistinguishable from a frozen tray, so the caller reports it.
         """
         try:
+            from yazses.system.service_escape import detached_argv
             from yazses.tray.launch import settings_command
 
-            self._spawn(settings_command())
+            # Outside the unit, so Apply's restart does not close the window that is about
+            # to report whether the daemon came back.
+            self._spawn(detached_argv(settings_command()))
             return True
         except Exception:
             log.exception("tray settings launch failed")

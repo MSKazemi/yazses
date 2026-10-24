@@ -1711,6 +1711,7 @@ def start(
     when you next sit down instead of silently absent after a reboot. Pass
     `--no-autostart` to skip that, or undo it later with `yazses autostart disable`.
     """
+    _leave_service_cgroup("start", *(["--no-autostart"] if no_autostart else []))
     platform = get_platform()
     _warn_unmet_prereqs()
     _offer_dormant_install(platform)
@@ -1729,6 +1730,29 @@ def start(
     _report_start_outcome(platform, outcome, info)
     if not no_autostart and outcome in ("ready", "loading"):
         _ensure_autostart(platform)
+
+
+def _in_service_cgroup() -> bool:
+    """True when this process is inside the daemon's own systemd unit (Linux only)."""
+    from yazses.system import service_escape
+
+    return service_escape.current_process_inside_unit()
+
+
+def _leave_service_cgroup(*args: str) -> None:
+    """Re-run `yazses <args>` in a scope of its own and exit with its code.
+
+    A `restart` started from the tray or Settings is a descendant of the daemon, and
+    stopping the unit kills it before it gets to the start. See system/service_escape.py.
+    Does nothing when not inside the unit, or when `systemd-run` is unavailable.
+    """
+    if not _in_service_cgroup():
+        return
+    from yazses.system import service_escape
+
+    code = service_escape.run_outside_service(command_for(Mode.CLI, *args))
+    if code is not None:
+        raise typer.Exit(code)
 
 
 def _clear_stop_request(platform) -> None:
@@ -1798,6 +1822,7 @@ def restart(
 
     Use this if dictation is being typed twice (a sign of duplicate daemons).
     """
+    _leave_service_cgroup("restart", *(["--force"] if force else []))
     platform = get_platform()
     _refuse_while_finalizing(platform, "Restarting", force)
     _warn_unmet_prereqs()

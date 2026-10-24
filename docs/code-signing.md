@@ -10,7 +10,7 @@ that you can check a download is genuine before you run it.
 
 !!! info "Current status — releases are not yet code-signed"
 
-    As of **v2.45.0**, the Windows `.exe` and macOS `.dmg` are **unsigned**. Windows
+    As of **v2.46.0**, the Windows `.exe` and macOS `.dmg` are **unsigned**. Windows
     SmartScreen and macOS Gatekeeper will warn you. Code signing through the
     [SignPath Foundation](https://signpath.org) programme for open-source projects is
     being set up; this page documents the policy that governs it. Until then, verify
