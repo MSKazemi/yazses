@@ -234,3 +234,92 @@ begin
   if CurUninstallStep = usPostUninstall then
     RemovePath(ExpandConstant('{app}'));
 end;
+
+{ ---- Closing a running YazSes before its files are replaced ------------------
+
+  CloseApplications hands this to the Restart Manager, and the Restart Manager
+  cannot do it: YazSes is a tray process plus a windowless `--daemon` child, so
+  neither has a main window to ask, and Setup stops with "unable to automatically
+  close all applications" (silent: exit code 5, nothing installed). That is every
+  upgrade that starts while YazSes is running, other than the in-app one-click
+  update, which waits for YazSes to exit before it starts this installer.
+
+  So close it here, before Setup looks. Order matters. The tray goes first, and
+  forcibly: it holds no user data, and while it lives it relaunches the daemon
+  whenever the daemon disappears. Then `yazses-cli stop`, which asks the daemon
+  to shut down and waits for it, so a meeting being saved is saved, not killed.
+  Whatever survives that is left to the Restart Manager, which can still refuse:
+  a daemon that will not stop is a reason not to install, not to kill it.
+
+  Only processes running from this install's own directory are touched. }
+
+var
+  TrayWasRunning: Boolean;
+
+function PsQuote(const S: string): string;
+var
+  T: string;
+begin
+  T := S;
+  StringChangeEx(T, '''', '''''', True);
+  Result := '''' + T + '''';
+end;
+
+function StopRunningYazSes: Boolean;
+var
+  AppDir, Script: string;
+  ResultCode: Integer;
+begin
+  Result := False;
+  AppDir := ExpandConstant('{app}');
+  if not FileExists(AppDir + '\{#MyAppExeName}') then
+    exit;  { first install: nothing of ours can be running }
+
+  { Exit code 1 = a tray was found (and stopped), 0 = none. No double quotes in the
+    script: it travels inside one -Command "..." argument. }
+  Script :=
+    '$d = ' + PsQuote(AppDir + '\') + '; ' +
+    '$t = @(Get-CimInstance Win32_Process | Where-Object { ' +
+      '$_.Name -eq ''{#MyAppExeName}'' -and $_.ExecutablePath -and ' +
+      '$_.ExecutablePath.StartsWith($d, [StringComparison]::OrdinalIgnoreCase) -and ' +
+      '$_.CommandLine -match ''--tray'' }); ' +
+    '$t | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }; ' +
+    'exit [int]($t.Count -gt 0)';
+  if Exec(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'),
+          '-NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden -Command "' +
+          Script + '"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+    Result := ResultCode = 1;
+
+  if FileExists(AppDir + '\yazses-cli.exe') then
+    Exec(AppDir + '\yazses-cli.exe', 'stop', AppDir, SW_HIDE, ewWaitUntilTerminated, ResultCode);
+end;
+
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+begin
+  TrayWasRunning := StopRunningYazSes;
+  Result := '';  { never blocks the install: the Restart Manager is still the backstop }
+end;
+
+function RestartApplicationsRefused: Boolean;
+var
+  I: Integer;
+begin
+  Result := False;
+  for I := 1 to ParamCount do
+    if CompareText(ParamStr(I), '/NORESTARTAPPLICATIONS') = 0 then
+      Result := True;
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+var
+  ResultCode: Integer;
+begin
+  { A silent upgrade (winget, choco, scoop, a script) has no "Launch YazSes now" box
+    ([Run] is skipifsilent), so a tray we closed would stay closed. The in-app update
+    passes /NORESTARTAPPLICATIONS and starts YazSes itself, so it is left alone. An
+    interactive install keeps its finish-page checkbox. }
+  if (CurStep = ssDone) and TrayWasRunning and WizardSilent
+     and not RestartApplicationsRefused then
+    ExecAsOriginalUser(ExpandConstant('{app}\{#MyAppExeName}'), '--tray',
+                       ExpandConstant('{app}'), SW_SHOWNORMAL, ewNoWait, ResultCode);
+end;

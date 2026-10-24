@@ -14,6 +14,7 @@ These assert the contract on Linux CI, where the whole suite actually runs.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
@@ -353,5 +354,14 @@ def test_no_upgrade_path_deletes_packs():
     code = " ".join(_iss_section("Code")).lower()
     assert "expandconstant('{app}')" in code, "the parser must keep constants in strings"
     for forbidden in ("deltree", "deletefile", "removedir", "packs", "unins000",
-                      "{uninstallexe}", "localappdata", "exec(", "shellexec("):
+                      "{uninstallexe}", "localappdata", "shellexec("):
         assert forbidden not in code, f"[Code] contains {forbidden!r}"
+    # Starting a program is allowed for exactly one job -- closing the YazSes being
+    # upgraded (PrepareToInstall) and bringing its tray back after a silent upgrade --
+    # and for nothing else. What may be started is pinned to the three programs that
+    # job needs, so the uninstaller or an arbitrary tool cannot slip in unnoticed.
+    allowed = ("powershell.exe", "yazses-cli.exe", "{#myappexename}")
+    started = re.findall(r"\bexec(?:asoriginaluser)?\(\s*([^,]+),", code)
+    assert started, "the close-the-running-app step is gone from [Code]"
+    for program in started:
+        assert any(a in program for a in allowed), f"[Code] starts {program!r}"
