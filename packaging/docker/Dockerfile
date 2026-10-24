@@ -48,11 +48,33 @@ ENV PATH="/opt/venv/bin:$PATH"
 # `diarization` is the extra that makes `--diarize` work (sherpa-onnx int8 ONNX).
 # Without it the flag is accepted and silently produces an un-attributed
 # transcript, which is exactly the failure this image should not ship with.
-RUN if [ -n "$YAZSES_VERSION" ]; then \
-        pip install "yazses[diarization]==${YAZSES_VERSION}"; \
+#
+# The pip that fails is this one, so the retry for a release still propagating through
+# PyPI's CDN lives here too. On v2.44.0 and v2.45.0 the workflow's own pip resolved the
+# new version and, two minutes later, this pip -- a different network, a different CDN
+# edge -- listed only the previous release. A step that asks pip somewhere else cannot
+# promise what this one will see. Only "no such version" is retried: a compile error or
+# any other failure still ends the build on the first attempt, with pip's own output.
+RUN set -eu; \
+    if [ -n "$YAZSES_VERSION" ]; then \
+        spec="yazses[diarization]==${YAZSES_VERSION}"; \
     else \
-        pip install "yazses[diarization]"; \
-    fi
+        spec="yazses[diarization]"; \
+    fi; \
+    for attempt in $(seq 1 20); do \
+        if pip install "$spec" > /tmp/pip-install.log 2>&1; then \
+            cat /tmp/pip-install.log; \
+            exit 0; \
+        fi; \
+        cat /tmp/pip-install.log; \
+        if ! grep -q -E 'No matching distribution found|Could not find a version' /tmp/pip-install.log; then \
+            exit 1; \
+        fi; \
+        echo "pip cannot resolve ${spec} yet; retrying in 30s (${attempt}/20)."; \
+        sleep 30; \
+    done; \
+    echo "pip never resolved ${spec}" >&2; \
+    exit 1
 
 # ---- final stage -----------------------------------------------------------
 # Same digest as the build stage above, deliberately: two stages resolving the same

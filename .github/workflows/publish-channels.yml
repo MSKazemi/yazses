@@ -147,7 +147,7 @@ jobs:
             done
           done
 
-      - name: Wait for the release to carry its Windows and macOS artifacts
+      - name: Wait for the release to carry its Windows and macOS artifacts and its checksums
         run: |
           set -euo pipefail
           tag="v${{ steps.resolve.outputs.version }}"
@@ -164,14 +164,19 @@ jobs:
               # file that has not attached yet.
               exe=$(grep -c 'windows-x64\.exe$'  <<<"$names" || true)
               dmg=$(grep -c 'macos-arm64\.dmg$'  <<<"$names" || true)
-              echo "windows-x64.exe=$exe macos-arm64.dmg=$dmg (${SECONDS}s)"
-              (( exe > 0 && dmg > 0 )) && exit 0
+              # SHA256SUMS.txt is uploaded by the checksums workflow AFTER the builds,
+              # and the Chocolatey job reads it (render-chocolatey.py). On v2.44.0 and
+              # v2.45.0 that job fetched it 26 s before it existed and died on a 404,
+              # because the .exe and .dmg were already attached.
+              sums=$(grep -c '^SHA256SUMS\.txt$' <<<"$names" || true)
+              echo "windows-x64.exe=$exe macos-arm64.dmg=$dmg SHA256SUMS.txt=$sums (${SECONDS}s)"
+              (( exe > 0 && dmg > 0 && sums > 0 )) && exit 0
             else
               echo "release $tag not created yet (${SECONDS}s)"
             fi
             sleep 60
           done
-          echo "::error::$tag never gained YazSes-*-windows-x64.exe and/or YazSes-*-macos-arm64.dmg -- refusing to publish manifests with no artifact behind them. (A cross-architecture bundle attaching is not a substitute: no manifest points at one.)"
+          echo "::error::$tag never gained YazSes-*-windows-x64.exe, YazSes-*-macos-arm64.dmg and/or SHA256SUMS.txt -- refusing to publish manifests with no artifact behind them. (A cross-architecture bundle attaching is not a substitute: no manifest points at one.)"
           exit 1
 
   winget:

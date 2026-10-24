@@ -44,7 +44,7 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 35   # on a release its own pip wait runs to 20 min; this must not cut it short (CI_POLICY §8)
+    timeout-minutes: 45   # on a release its own pip wait runs to 20 min and the Dockerfile's retry to 10; this must not cut them short (CI_POLICY §8)
     permissions:
       contents: read
       packages: write

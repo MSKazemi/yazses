@@ -376,7 +376,8 @@ rule that fits, and its comment in the workflow says which:
    `wait-for-assets`, `release-complete`, `docker` on a release): the sum of its own wait
    deadlines plus 15 minutes, rounded up to 5. Its deadline decides what a slow build
    costs (`checksums` hashes what arrived rather than failing), so the runner must never
-   cancel the job first.
+   cancel the job first. The `docker` job's limit also covers the Dockerfile's own 10-minute pip retry,
+   which is not in a step shell, so the test cannot read it: change them together.
 2. **A job that does its own work:** three times its slowest successful run among the last
    15, rounded up to 5, and never under 10 minutes.
 3. **A job with no measured run of its real work yet** (a publish step still waiting on

@@ -227,7 +227,9 @@ def test_the_container_image_installs_no_camera_extra() -> None:
     """File transcription only, no device passthrough: camera is not applicable there.
     If an image ever ships `gaze`, it needs a `--device /dev/video*` story first."""
     text = DOCKERFILE.read_text(encoding="utf-8")
-    installs = re.findall(r'pip install "yazses\[([^\]]+)\]', text)
+    # Two spellings: a direct `pip install "yazses[...]"`, and the `spec="yazses[...]..."`
+    # the install RUN assigns before its retry loop passes it to pip.
+    installs = re.findall(r'(?:pip install |spec=)"yazses\[([^\]]+)\]', text)
     assert installs, "no `pip install yazses[...]` found; the scan is blind"
     for group in installs:
         extras = {e.strip() for e in group.split(",")}
