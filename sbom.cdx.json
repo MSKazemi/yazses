@@ -663,14 +663,14 @@
     {
       "type": "library",
       "name": "filelock",
-      "version": "3.29.7",
-      "purl": "pkg:pypi/filelock@3.29.7",
-      "bom-ref": "pkg:pypi/filelock@3.29.7",
+      "version": "4.2.1",
+      "purl": "pkg:pypi/filelock@4.2.1",
+      "bom-ref": "pkg:pypi/filelock@4.2.1",
       "scope": "required",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "5b481979797ae69e72f0b389d89a80bdd585c260c5b3f1fb9c0a5ba9bb3f195d"
+          "content": "c4c937ccac2a813cee448e662a56366cfb374c0f8702e75f295c412cc1c5d5a3"
         }
       ]
     },
