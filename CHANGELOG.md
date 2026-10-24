@@ -6,6 +6,8 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [2.46.0] - 2026-10-24
+
 ### Changed — the Settings window is a sidebar of pages, and the Features list can finally be seen
 
 The window stacked every control in one column and gave the capability list the height that
@@ -29,6 +31,13 @@ the experimental confirmation and Restore defaults behave as before, and no conf
 command changed. The old window's tests pass unmodified. The filter syntax (`tier:rec`,
 `on:`, `off:`) is now written under the search box instead of living only in a tooltip, and
 the hands-free button reads "Open hands-free controls…" on its own page.
+
+### Changed — the Thai page was reviewed by a native speaker
+
+`docs/th/index.md` was a machine-assisted draft. A native Thai reader reworded it so it reads
+naturally (for example "ถอดความ", which in Thai means to paraphrase, now says "transcribe"), and it
+is marked reviewed instead of draft. Thank you, [@Warayuth014](https://github.com/Warayuth014)
+([#665](https://github.com/MSKazemi/yazses/pull/665), [#353](https://github.com/MSKazemi/yazses/issues/353)).
 
 ### Fixed — the Docker and Chocolatey release jobs no longer race what they depend on
 
