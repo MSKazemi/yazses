@@ -6,6 +6,15 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — Android: the speech-engine seam (`:core:stt`)
+
+The Android app now has the interface every speech engine will sit behind: `SttEngine`
+(`transcribe`, `decodeWindow`, `close`), `DecodeOptions`, `Transcript`, and a factory that picks an
+engine by the same `[stt] engine` name the desktop uses. It is pure Kotlin with no Android imports,
+and an unknown engine name is refused instead of falling back to another engine. There is no
+engine behind it yet: the whisper.cpp bridge is the rest of
+[#87](https://github.com/MSKazemi/yazses/issues/87). Nothing changes for an existing install.
+
 ## [2.46.0] - 2026-10-24
 
 ### Changed — the Settings window is a sidebar of pages, and the Features list can finally be seen
