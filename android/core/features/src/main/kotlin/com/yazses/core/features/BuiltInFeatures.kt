@@ -13,7 +13,8 @@ public val BUILT_IN_FEATURES: List<Feature> = listOf(
     Feature(
         slug = "commands",
         displayName = "Voice commands",
-        // Matches the desktop default; the Android grammar has no separate opt-in switch.
+        // On by default because the desktop default is commands.enabled = True (src/yazses/config.py),
+        // a deliberate exception to the off-by-default rule. Its only switch is this same key.
         enabled = true,
         tier = Tier.DEFAULT_ON,
         availability = Availability.Available,

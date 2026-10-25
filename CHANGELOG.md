@@ -13,7 +13,8 @@ new capability can never be missing from it. The registry is in: each feature ha
 recommendation tier, the config keys that switching it on or off must write, and whether this
 build can supply it at all (available, an optional dependency missing, or never shipped in this
 build). Switching on a feature the build cannot supply is refused with the reason instead of
-reporting success. It starts with the two features the Android code already has (voice commands,
+reporting success; enabling an experimental feature returns a typed "needs confirmation" result
+until the user confirms. It starts with the two features the Android code already has (voice commands,
 off-by-default voice punctuation). The screen itself, diagnostics and `config.toml` import are the
 rest of [#95](https://github.com/MSKazemi/yazses/issues/95). Nothing changes for an existing install.
 

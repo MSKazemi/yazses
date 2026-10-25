@@ -19,12 +19,33 @@ public sealed interface ToggleError {
     public data class MissingOptionalDependency(override val slug: String, val reason: String) : ToggleError
 }
 
-/** The outcome of [FeatureRegistry.toggle]: either the exact config writes, or a typed refusal. */
+/**
+ * The outcome of [FeatureRegistry.toggle]: the exact config writes, a typed refusal, or a request
+ * for an explicit confirmation before an experimental feature is enabled.
+ */
 public sealed interface ToggleResult {
-    /** The config writes that make the feature [on]. Pure data; nothing has been written. */
-    public data class Writes(val slug: String, val on: Boolean, val writes: Map<String, String>) : ToggleResult
+    /**
+     * The config writes that set the feature to [on]. Pure data; nothing has been written.
+     * [writes] is an unmodifiable copy, so the caller cannot change what the registry would write.
+     */
+    public class Writes(public val slug: String, public val on: Boolean, writes: Map<String, String>) : ToggleResult {
+        public val writes: Map<String, String> = frozenCopy(writes)
+
+        override fun equals(other: Any?): Boolean =
+            other is Writes && other.slug == slug && other.on == on && other.writes == writes
+
+        override fun hashCode(): Int = (slug.hashCode() * 31 + on.hashCode()) * 31 + writes.hashCode()
+
+        override fun toString(): String = "Writes(slug=$slug, on=$on, writes=$writes)"
+    }
 
     public data class Refused(val error: ToggleError) : ToggleResult
+
+    /**
+     * Enabling an [Tier.EXPERIMENTAL] feature needs an explicit confirmation. Nothing is written;
+     * call [FeatureRegistry.toggle] again with `confirmed = true` once the user has agreed.
+     */
+    public data class NeedsConfirmation(val slug: String) : ToggleResult
 }
 
 /**
@@ -54,22 +75,27 @@ public class FeatureRegistry(features: List<Feature>) {
         ordered.groupBy { it.tier }.toSortedMap(compareBy { it.ordinal })
 
     /**
-     * The config writes that set [slug] to [on], or a typed refusal.
+     * The config writes that set [slug] to [on], or a typed refusal, or [ToggleResult.NeedsConfirmation].
      *
-     * Refuses with [ToggleError.NotInThisBuild] or [ToggleError.MissingOptionalDependency] when the
-     * feature cannot run in this build, because writing its keys would claim a change that
-     * does nothing. Enabling and disabling are both refused for such a feature, since the
-     * state it would report is not one the build can honour.
+     * - Switching **off** a known feature is always allowed, whatever its availability: a user
+     *   whose imported config has it on must be able to turn it off in a build that lacks it.
+     * - Switching **on** is refused with [ToggleError.NotInThisBuild] or
+     *   [ToggleError.MissingOptionalDependency] when the feature cannot run in this build, because
+     *   writing its keys would claim a change that does nothing.
+     * - Switching **on** an [Tier.EXPERIMENTAL] feature returns [ToggleResult.NeedsConfirmation]
+     *   unless [confirmed] is true. Switching off never needs confirmation.
      */
-    public fun toggle(slug: String, on: Boolean): ToggleResult {
+    public fun toggle(slug: String, on: Boolean, confirmed: Boolean = false): ToggleResult {
         val feature = bySlug[slug] ?: return ToggleResult.Refused(ToggleError.UnknownFeature(slug))
-        return when (val availability = feature.availability) {
-            is Availability.Available ->
-                ToggleResult.Writes(slug, on, if (on) feature.onWrites else feature.offWrites)
+        if (!on) return ToggleResult.Writes(slug, on = false, writes = feature.offWrites)
+        when (val availability = feature.availability) {
+            is Availability.Available -> Unit
             is Availability.NotInThisBuild ->
-                ToggleResult.Refused(ToggleError.NotInThisBuild(slug, availability.flavour))
+                return ToggleResult.Refused(ToggleError.NotInThisBuild(slug, availability.flavour))
             is Availability.MissingOptionalDependency ->
-                ToggleResult.Refused(ToggleError.MissingOptionalDependency(slug, availability.reason))
+                return ToggleResult.Refused(ToggleError.MissingOptionalDependency(slug, availability.reason))
         }
+        if (feature.tier == Tier.EXPERIMENTAL && !confirmed) return ToggleResult.NeedsConfirmation(slug)
+        return ToggleResult.Writes(slug, on = true, writes = feature.onWrites)
     }
 }

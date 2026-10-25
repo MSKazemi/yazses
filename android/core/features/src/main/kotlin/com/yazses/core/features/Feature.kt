@@ -1,5 +1,7 @@
 package com.yazses.core.features
 
+import java.util.Collections
+
 /**
  * The shipped flavours of the Android app (ADR-MOB-009 §2).
  *
@@ -47,9 +49,15 @@ public class Feature(
     public val enabled: Boolean,
     public val tier: Tier,
     public val availability: Availability,
-    public val onWrites: Map<String, String>,
-    public val offWrites: Map<String, String>,
+    onWrites: Map<String, String>,
+    offWrites: Map<String, String>,
 ) {
+    /** An unmodifiable copy: mutating the map the caller passed in later cannot change this feature. */
+    public val onWrites: Map<String, String> = frozenCopy(onWrites)
+
+    /** An unmodifiable copy, as [onWrites]. */
+    public val offWrites: Map<String, String> = frozenCopy(offWrites)
+
     init {
         require(slug.isNotBlank()) { "feature slug must not be blank" }
         require(onWrites.isNotEmpty() && offWrites.isNotEmpty()) {
@@ -62,3 +70,10 @@ public class Feature(
 
     override fun toString(): String = "Feature(slug=$slug, enabled=$enabled, availability=$availability)"
 }
+
+/**
+ * An unmodifiable copy of [source]. `Map.toMap()` is not enough: it returns a mutable map for two or
+ * more entries and an immutable singleton for one, so the mutability would depend on the size.
+ */
+internal fun frozenCopy(source: Map<String, String>): Map<String, String> =
+    Collections.unmodifiableMap(LinkedHashMap(source))

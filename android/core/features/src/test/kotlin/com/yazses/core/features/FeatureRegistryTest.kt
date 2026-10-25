@@ -4,6 +4,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
+import kotlin.test.assertNotEquals
 import kotlin.test.assertNull
 import kotlin.test.assertSame
 
@@ -24,29 +25,58 @@ class FeatureRegistryTest {
         offWrites = mapOf("section.$slug" to "false"),
     )
 
-    // --- availability states -------------------------------------------------
+    /** A deep copy of everything the registry exposes, so later mutation cannot hide in a shared reference. */
+    private fun snapshot(registry: FeatureRegistry): Pair<List<List<Any?>>, Map<Tier, List<String>>> =
+        registry.features.map { f ->
+            listOf(f.slug, f.enabled, f.tier, f.availability, f.onWrites.toMap(), f.offWrites.toMap())
+        } to registry.groupedByTier().mapValues { (_, v) -> v.map { it.slug } }
+
+    // --- availability decides the outcome of switching on --------------------
 
     @Test
-    fun `an available feature keeps Available and is reported as such`() {
-        val registry = FeatureRegistry(listOf(feature("a")))
-        assertEquals(Availability.Available, registry.find("a")?.availability)
+    fun `availability alone decides the outcome of switching on, one state at a time`() {
+        val registry = FeatureRegistry(
+            listOf(
+                feature("ok"),
+                feature("vad", availability = Availability.MissingOptionalDependency("needs onnxruntime")),
+                feature("diar", availability = Availability.NotInThisBuild(Flavour.FULL)),
+            ),
+        )
+        assertIs<ToggleResult.Writes>(registry.toggle("ok", on = true))
+        assertEquals(
+            ToggleResult.Refused(ToggleError.MissingOptionalDependency("vad", "needs onnxruntime")),
+            registry.toggle("vad", on = true),
+        )
+        assertEquals(
+            ToggleResult.Refused(ToggleError.NotInThisBuild("diar", Flavour.FULL)),
+            registry.toggle("diar", on = true),
+        )
     }
 
     @Test
-    fun `a missing optional dependency carries its reason`() {
-        val missing = Availability.MissingOptionalDependency("needs onnxruntime")
-        val registry = FeatureRegistry(listOf(feature("a", availability = missing)))
-        assertEquals("needs onnxruntime", (registry.find("a")?.availability as Availability.MissingOptionalDependency).reason)
+    fun `a NotInThisBuild refusal carries the flavour the build was made as`() {
+        val registry = FeatureRegistry(
+            listOf(feature("diar", availability = Availability.NotInThisBuild(Flavour.FULL))),
+        )
+        val error = assertIs<ToggleResult.Refused>(registry.toggle("diar", on = true)).error
+        val notInBuild = assertIs<ToggleError.NotInThisBuild>(error)
+        assertEquals(Flavour.FULL, notInBuild.flavour)
     }
 
     @Test
-    fun `NotInThisBuild names the flavour and is distinct from a missing dependency`() {
-        val notHere = Availability.NotInThisBuild(Flavour.FOSS)
-        assertEquals(Flavour.FOSS, (notHere as Availability.NotInThisBuild).flavour)
-        assertEquals(false, notHere == Availability.MissingOptionalDependency("x"))
+    fun `a NotInThisBuild refusal is a different error from a missing dependency`() {
+        val registry = FeatureRegistry(
+            listOf(
+                feature("diar", availability = Availability.NotInThisBuild(Flavour.FOSS)),
+                feature("vad", availability = Availability.MissingOptionalDependency("needs onnxruntime")),
+            ),
+        )
+        val notHere = assertIs<ToggleResult.Refused>(registry.toggle("diar", on = true)).error
+        val missing = assertIs<ToggleResult.Refused>(registry.toggle("vad", on = true)).error
+        assertNotEquals(notHere, missing)
     }
 
-    // --- toggle --------------------------------------------------------------
+    // --- toggle: writes ------------------------------------------------------
 
     @Test
     fun `toggling an available feature returns exactly its on writes`() {
@@ -64,25 +94,64 @@ class FeatureRegistryTest {
     }
 
     @Test
-    fun `toggle does not mutate the registry`() {
-        val registry = FeatureRegistry(listOf(feature("a")))
+    fun `a sequence of toggles leaves the registry snapshot identical`() {
+        val registry = FeatureRegistry(
+            listOf(
+                feature("a"),
+                feature("vad", availability = Availability.MissingOptionalDependency("needs onnxruntime")),
+                feature("diar", availability = Availability.NotInThisBuild(Flavour.FOSS)),
+                feature("exp", tier = Tier.EXPERIMENTAL),
+            ),
+        )
+        val before = snapshot(registry)
         registry.toggle("a", on = true)
-        assertEquals(false, registry.find("a")?.enabled)
+        registry.toggle("a", on = false)
+        registry.toggle("vad", on = true)
+        registry.toggle("diar", on = false)
+        registry.toggle("exp", on = true)
+        registry.toggle("exp", on = true, confirmed = true)
+        registry.toggle("nope", on = true)
+        assertEquals(before, snapshot(registry))
+    }
+
+    // --- switching OFF is always allowed for a known feature (item 2) --------
+
+    @Test
+    fun `switching OFF a NotInThisBuild feature is allowed and writes the off keys`() {
+        val registry = FeatureRegistry(
+            listOf(feature("diar", enabled = true, availability = Availability.NotInThisBuild(Flavour.FOSS))),
+        )
+        val result = assertIs<ToggleResult.Writes>(registry.toggle("diar", on = false))
+        assertEquals(false, result.on)
+        assertEquals(mapOf("section.diar" to "false"), result.writes)
     }
 
     @Test
-    fun `toggle refuses a NotInThisBuild feature in both directions`() {
+    fun `switching OFF a feature with a missing optional dependency is allowed`() {
+        val registry = FeatureRegistry(
+            listOf(
+                feature(
+                    "vad",
+                    enabled = true,
+                    availability = Availability.MissingOptionalDependency("needs onnxruntime"),
+                ),
+            ),
+        )
+        val result = assertIs<ToggleResult.Writes>(registry.toggle("vad", on = false))
+        assertEquals(mapOf("section.vad" to "false"), result.writes)
+    }
+
+    @Test
+    fun `switching ON a NotInThisBuild feature is still refused`() {
         val registry = FeatureRegistry(
             listOf(feature("diar", availability = Availability.NotInThisBuild(Flavour.FOSS))),
         )
-        for (on in listOf(true, false)) {
-            val refused = assertIs<ToggleResult.Refused>(registry.toggle("diar", on))
-            assertEquals(ToggleError.NotInThisBuild("diar", Flavour.FOSS), refused.error)
-        }
+        val refused = assertIs<ToggleResult.Refused>(registry.toggle("diar", on = true))
+        assertEquals(ToggleError.NotInThisBuild("diar", Flavour.FOSS), refused.error)
     }
 
     @Test
-    fun `toggle refuses a feature with a missing optional dependency`() {
+    fun `switching ON a feature with a missing optional dependency is still refused`() {
         val registry = FeatureRegistry(
             listOf(feature("vad", availability = Availability.MissingOptionalDependency("needs onnxruntime"))),
         )
@@ -95,6 +164,87 @@ class FeatureRegistryTest {
         val registry = FeatureRegistry(listOf(feature("a")))
         val refused = assertIs<ToggleResult.Refused>(registry.toggle("nope", on = true))
         assertEquals(ToggleError.UnknownFeature("nope"), refused.error)
+        val refusedOff = assertIs<ToggleResult.Refused>(registry.toggle("nope", on = false))
+        assertEquals(ToggleError.UnknownFeature("nope"), refusedOff.error)
+    }
+
+    // --- experimental features need explicit confirmation (item 3) -----------
+
+    @Test
+    fun `enabling an experimental feature without confirmation needs confirmation and writes nothing`() {
+        val registry = FeatureRegistry(listOf(feature("exp", tier = Tier.EXPERIMENTAL)))
+        assertEquals(ToggleResult.NeedsConfirmation("exp"), registry.toggle("exp", on = true))
+        assertEquals(ToggleResult.NeedsConfirmation("exp"), registry.toggle("exp", on = true, confirmed = false))
+    }
+
+    @Test
+    fun `enabling an experimental feature with confirmed = true returns its on writes`() {
+        val registry = FeatureRegistry(listOf(feature("exp", tier = Tier.EXPERIMENTAL)))
+        val result = assertIs<ToggleResult.Writes>(registry.toggle("exp", on = true, confirmed = true))
+        assertEquals(true, result.on)
+        assertEquals(mapOf("section.exp" to "true"), result.writes)
+    }
+
+    @Test
+    fun `disabling an experimental feature never needs confirmation`() {
+        val registry = FeatureRegistry(listOf(feature("exp", tier = Tier.EXPERIMENTAL, enabled = true)))
+        val result = assertIs<ToggleResult.Writes>(registry.toggle("exp", on = false))
+        assertEquals(mapOf("section.exp" to "false"), result.writes)
+    }
+
+    @Test
+    fun `an unavailable experimental feature is refused rather than asked to confirm`() {
+        val registry = FeatureRegistry(
+            listOf(
+                feature(
+                    "exp",
+                    tier = Tier.EXPERIMENTAL,
+                    availability = Availability.NotInThisBuild(Flavour.FOSS),
+                ),
+            ),
+        )
+        val refused = assertIs<ToggleResult.Refused>(registry.toggle("exp", on = true))
+        assertEquals(ToggleError.NotInThisBuild("exp", Flavour.FOSS), refused.error)
+    }
+
+    // --- defensive copies (item 4) --------------------------------------------
+
+    @Test
+    fun `mutating the maps passed to the constructor afterwards does not change toggle output`() {
+        val on = mutableMapOf("section.a" to "true")
+        val off = mutableMapOf("section.a" to "false")
+        val registry = FeatureRegistry(
+            listOf(
+                Feature(
+                    slug = "a",
+                    displayName = "A",
+                    enabled = false,
+                    tier = Tier.OPTIONAL,
+                    availability = Availability.Available,
+                    onWrites = on,
+                    offWrites = off,
+                ),
+            ),
+        )
+        on["section.a"] = "hacked"
+        on["section.extra"] = "x"
+        off["section.a"] = "hacked"
+
+        assertEquals(mapOf("section.a" to "true"), assertIs<ToggleResult.Writes>(registry.toggle("a", on = true)).writes)
+        assertEquals(mapOf("section.a" to "false"), assertIs<ToggleResult.Writes>(registry.toggle("a", on = false)).writes)
+    }
+
+    @Test
+    fun `mutating the writes returned by toggle does not change what the registry writes next`() {
+        val registry = FeatureRegistry(listOf(feature("a")))
+        val first = assertIs<ToggleResult.Writes>(registry.toggle("a", on = true))
+        @Suppress("UNCHECKED_CAST")
+        val alias = first.writes as MutableMap<String, String>
+        // The writes are an unmodifiable copy: a write through the alias must be rejected, not applied.
+        assertFailsWith<UnsupportedOperationException> { alias["section.a"] = "hacked" }
+
+        val second = assertIs<ToggleResult.Writes>(registry.toggle("a", on = true))
+        assertEquals(mapOf("section.a" to "true"), second.writes)
     }
 
     // --- lookup --------------------------------------------------------------
