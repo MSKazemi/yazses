@@ -108,8 +108,9 @@ measurement is now fixed before any phone is involved: a result record with sche
 `yazses.bench.android/1`, a deterministic JSON writer, word and character error rate, real-time
 factor, and a validator that rejects an inconsistent record. A reading that was not measured is
 written as `null` with a reason, never as `0`. It is pure Kotlin tested on synthetic data; no
-performance number is claimed. The word-error-rate normaliser is simpler than the desktop's, so
-Android and desktop WER are not comparable yet. The on-device runner is the rest of
+performance number is claimed. The default word-error-rate normaliser is simpler than the desktop's,
+so WER under that default is not comparable with the desktop's; the next entry adds the desktop's
+normaliser. The on-device runner is the rest of
 [#92](https://github.com/MSKazemi/yazses/issues/92). Nothing changes for an existing install.
 
 A strict reader now validates records read back from disk. `BenchJson.read` returns either the
@@ -125,7 +126,21 @@ null and a reason, never as zero, and a measured peak of zero is refused. A reco
 accepts everything the writer produces. `write` also refuses a value the format cannot store
 exactly (a duration or rate finer than six decimals, a negative zero, a lone surrogate), rather
 than rounding it: every record `write` accepts reads back equal to itself. The word-error-rate
-normaliser caveat above still stands.
+default-normaliser caveat above still stands.
+
+### Added — Android: Whisper's English normaliser in `:core:bench`
+
+`:core:bench` can now normalise English text the way the desktop benchmark does. `Wer.wer`,
+`Wer.normalise` and `Wer.corpusWer` take a `TextNormalizer`, and `TextNormalizer.WHISPER_ENGLISH`
+runs `EnglishTextNormalizer`, a line-by-line Kotlin port of the English normaliser in
+whisper-normalizer 0.1.15 (MIT), the package that `paper/benchmark/bench_wer.py` uses. The port
+matches the package on all 598 vectors that were generated from the package itself (598/598), and
+the replay test fails the build on any mismatch. Two differences remain. Character properties come
+from the JDK's Unicode tables, which are Unicode 13 on the JDK 17 toolchain, while the oracle runs
+Python 3.14 with Unicode 16, so a character assigned after Unicode 13 (for example a recent emoji)
+is kept where the oracle drops it; a 4,000-input stress run outside the repository differed on 79
+inputs, all of them containing such a character. The default, `TextNormalizer.SIMPLE`, is unchanged
+and still not comparable with the desktop, so existing WER results do not move.
 
 ## [2.46.0] - 2026-10-24
 

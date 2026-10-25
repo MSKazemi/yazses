@@ -721,7 +721,8 @@ jobs:
             tests/test_bench_diarization_scoring.py \
             tests/test_bench_persian.py \
             tests/test_bench_persian_manifest.py \
-            tests/test_fa_manifest.py
+            tests/test_fa_manifest.py \
+            tests/test_wer_normalizer_vectors.py
 
   # ADR-027's one-click Windows update, executed for real. The unit tests prove the
   # job's decisions and text with an injected launcher, opener and spawn -- and the

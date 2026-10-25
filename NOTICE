@@ -40,6 +40,7 @@ libraries below. All are OSI-approved open source; none is proprietary.
 | Pillow | MIT-CMU | https://github.com/python-pillow/Pillow |
 | pywin32 (Windows) | PSF | https://github.com/mhammond/pywin32 |
 | **pystray (Windows)** | **LGPL-3.0** | https://github.com/moses-palmer/pystray |
+| whisper-normalizer (ported to Kotlin, `:core:bench`) | MIT | https://github.com/kurianbenoy/whisper_normalizer |
 
 ### A note on pystray and the LGPL
 
