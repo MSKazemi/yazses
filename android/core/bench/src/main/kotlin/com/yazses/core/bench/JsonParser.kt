@@ -27,9 +27,10 @@ internal class JsonNumber(val raw: String) {
 }
 
 /**
- * Strict, dependency-free recursive-descent JSON parser (RFC 8259) for the bench record. It throws
- * [JsonSyntaxError] and nothing else on any input: lone surrogates, raw control characters, bad
- * escapes, NaN/Infinity, duplicate keys, trailing text and nesting past [maxDepth] are all errors.
+ * Strict, dependency-free recursive-descent JSON parser (RFC 8259) for the bench record. On malformed
+ * text it throws [JsonSyntaxError]: lone surrogates, raw control characters, bad escapes,
+ * NaN/Infinity, duplicate keys, trailing text and nesting past [maxDepth] are all errors. On
+ * well-formed text over a size limit it throws [JsonLimitError]. It throws nothing else on any input.
  *
  * Values: `Map<String, Any?>` (insertion-ordered), `List<Any?>`, `String`, [JsonNumber], `Boolean`,
  * and Kotlin `null` for JSON null. Absent and null are told apart with `containsKey`.

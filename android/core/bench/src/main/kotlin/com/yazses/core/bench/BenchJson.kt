@@ -15,6 +15,14 @@ sealed interface ReadResult {
  * Two runs over the same record produce byte-identical output.
  *
  * A not-measured reading is written as `null` with a sibling `*_reason` key. It is never 0.
+ *
+ * Ceiling: [write] refuses, with [IllegalArgumentException], any record that [BenchValidator]
+ * refuses, and any record whose text would exceed [MAX_READ_CHARS] characters. A record holds at most
+ * [MAX_CLIPS] clips. So every record [write] accepts is one [read] accepts.
+ *
+ * Round trip: `read(write(x))` equals `x` for every record `x` that [write] accepts. A value the
+ * format cannot store exactly is refused rather than rounded: a duration or rate finer than six
+ * decimals, a negative zero, a lone surrogate in a string, and a measured peak of 0.
  */
 object BenchJson {
 
@@ -26,11 +34,10 @@ object BenchJson {
      * [MAX_PROBLEMS] + 1 of them. Keys and numbers echoed in a message are cut to [ECHO_CHARS]
      * characters. A record that is accepted has passed [BenchValidator].
      *
-     * Round trip: `read(write(x))` equals `x` for every record `x` already at the writer's resolution,
-     * that is, durations and rates with at most six decimals (a finer value is rounded by the writer).
-     * `write(read(t))` equals `t` only when `t` is what [write] produces: the reader also accepts text
-     * [write] never prints, such as an integer-valued duration as `2` or `2E0` rather than `2.000000`.
-     * Integer fields refuse `-0`.
+     * Round trip: `read(write(x))` equals `x` for every record `x` that [write] accepts (see the class
+     * note). `write(read(t))` equals `t` only when `t` is what [write] produces: the reader also accepts
+     * text [write] never prints, such as an integer-valued duration as `2` or `2E0` rather than
+     * `2.000000`. Integer fields refuse `-0`.
      */
     fun read(text: String): ReadResult {
         if (text.length > MAX_READ_CHARS) {
@@ -65,6 +72,11 @@ object BenchJson {
         val sb = StringBuilder()
         render(tree(result), 0, sb)
         sb.append('\n')
+        if (sb.length > MAX_READ_CHARS) {
+            throw IllegalArgumentException(
+                "record encodes to ${sb.length} characters, over the reader's limit of $MAX_READ_CHARS",
+            )
+        }
         return sb.toString()
     }
 
@@ -162,8 +174,8 @@ object BenchJson {
     }
 
     /**
-     * A lone surrogate has no UTF-8 encoding, so it is written as U+FFFD rather than raw; a valid
-     * surrogate pair is kept as written.
+     * A valid surrogate pair is kept as written. A lone surrogate never reaches here: [BenchValidator]
+     * refuses it, since it has no UTF-8 encoding.
      */
     private fun quote(s: String, sb: StringBuilder) {
         sb.append('"')

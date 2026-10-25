@@ -142,4 +142,40 @@ class ValidatorTest {
         val e = assertFailsWith<IllegalArgumentException> { BenchValidator.require(valid.copy(schema = "")) }
         assertContains(e.message.orEmpty(), "schema: missing")
     }
+
+    @Test
+    fun `a measured zero peak is rejected, because a running process always has some resident memory`() {
+        val v = BenchValidator.violations(valid.copy(peakRssBytes = Reading.Measured(0L)))
+        assertContains(v.joinToString("\n"), "peak_rss_bytes must be positive when measured; use null with a reason")
+    }
+
+    @Test
+    fun `more than 5000 clips is a violation, the most one record can hold`() {
+        val clips = (0..MAX_CLIPS).map { ClipResult("c$it", 2.0, 1.0, 0.5) }
+        assertContains(BenchValidator.violations(valid.copy(clips = clips)).joinToString("\n"), "more than 5000 clips")
+    }
+
+    @Test
+    fun `a duration with more than six decimals is a violation, since the format cannot store it`() {
+        val v = BenchValidator.violations(withClip(ClipResult("c", 1.0000001, 1.0, 1.0)))
+        assertTrue(v.any { "finer than" in it || "6 decimals" in it }, v.joinToString("\n"))
+    }
+
+    @Test
+    fun `an rtf with more than six decimals is a violation`() {
+        val v = BenchValidator.violations(withClip(ClipResult("c", 3.0, 1.0, 0.3333333333)))
+        assertTrue(v.any { "rtf" in it && "6 decimals" in it }, v.joinToString("\n"))
+    }
+
+    @Test
+    fun `negative zero is a violation, because it does not survive the round trip`() {
+        val v = BenchValidator.violations(withClip(ClipResult("c", 2.0, -0.0, 0.0)))
+        assertTrue(v.any { "negative zero" in it }, v.joinToString("\n"))
+    }
+
+    @Test
+    fun `a lone surrogate in a stored string is a violation`() {
+        val v = BenchValidator.violations(valid.copy(engineId = "syn\uD800thetic"))
+        assertContains(v.joinToString("\n"), "lone surrogate")
+    }
 }

@@ -160,6 +160,11 @@ class JsonReaderTest {
                 "is blank",
             ),
             Case(
+                "peak measured zero",
+                edit("\"peak_rss_bytes\":null,\"peak_rss_reason\":\"synthetic: no memory probe\"", "\"peak_rss_bytes\":0,\"peak_rss_reason\":null"),
+                "must be positive when measured",
+            ),
+            Case(
                 "peak negative",
                 edit("\"peak_rss_bytes\":null,\"peak_rss_reason\":\"synthetic: no memory probe\"", "\"peak_rss_bytes\":-1,\"peak_rss_reason\":null"),
                 "negative",

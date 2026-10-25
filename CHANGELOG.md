@@ -70,7 +70,12 @@ format does not define or a missing one are refused by name. Text over 1 MiB of 
 more than 1,000 members in one object and more than 200,000 values are refused before the tree is
 built. The reported problems are capped at 100 with one summary entry, and echoed keys and numbers
 are cut to 64 characters. A reading is not measured only when the file says so with an explicit
-null and a reason, never as zero. The word-error-rate normaliser caveat above still stands.
+null and a reason, never as zero, and a measured peak of zero is refused. A record holds at most
+5,000 clips, and `write` refuses a record whose text would exceed the 1 MiB limit, so the reader
+accepts everything the writer produces. `write` also refuses a value the format cannot store
+exactly (a duration or rate finer than six decimals, a negative zero, a lone surrogate), rather
+than rounding it: every record `write` accepts reads back equal to itself. The word-error-rate
+normaliser caveat above still stands.
 
 ## [2.46.0] - 2026-10-24
 

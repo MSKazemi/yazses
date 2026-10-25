@@ -9,6 +9,9 @@ import java.math.RoundingMode
  */
 internal const val MAX_READ_CHARS = 1_048_576
 
+/** Most clips one record holds. Sized so that the largest such record fits in [MAX_READ_CHARS]. */
+internal const val MAX_CLIPS = 5_000
+
 /** Deepest nesting [BenchJson.read] parses. The record itself nests three levels. */
 internal const val MAX_READ_DEPTH = 64
 
@@ -74,6 +77,7 @@ internal class BenchDecoder {
         val peak = reading(top, "", "peak_rss_bytes", "peak_rss_reason", "an integer") { v ->
             (v as? JsonNumber)?.raw?.let(::wholeNumber)
         }
+        if (peak is Reading.Measured && peak.value == 0L) add(BenchValidator.PEAK_ZERO_PROBLEM)
         val device = child(top, "", "device", DEVICE_KEYS)?.let { d ->
             DeviceFields(
                 model = str(d, "device", "model"),
@@ -168,6 +172,10 @@ internal class BenchDecoder {
         }
         val raw = top["clips"] as? List<*> ?: run {
             add("clips: expected an array")
+            return null
+        }
+        if (raw.size > MAX_CLIPS) {
+            add("clips: more than $MAX_CLIPS clips, the most one record can hold")
             return null
         }
         val out = raw.mapIndexedNotNull { idx, item -> clip(item, "clips[$idx]") }

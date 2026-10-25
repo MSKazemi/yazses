@@ -114,10 +114,9 @@ class JsonWriterTest {
     }
 
     @Test
-    fun `a lone surrogate in a string is replaced, so the output is valid UTF-8 text`() {
-        val json = BenchJson.write(record(device = "SYN\uD800THETIC"))
-        assertTrue("\"model\": \"SYN\uFFFDTHETIC\"" in json, json)
-        assertFalse('\uD800' in json)
+    fun `a lone surrogate in a string is refused, since the format cannot store it`() {
+        val e = assertFailsWith<IllegalArgumentException> { BenchJson.write(record(device = "SYN\uD800THETIC")) }
+        assertContains(e.message.orEmpty(), "lone surrogate")
     }
 
     @Test

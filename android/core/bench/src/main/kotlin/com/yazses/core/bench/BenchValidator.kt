@@ -10,6 +10,30 @@ object BenchValidator {
 
     private val SHA256 = Regex("[0-9a-f]{64}")
 
+    /** Refused for a measured peak of 0: a process that was measured has some resident memory. */
+    internal const val PEAK_ZERO_PROBLEM = "peak_rss_bytes must be positive when measured; use null with a reason"
+
+    /** A duration or rate the format cannot store exactly: finer than six decimals, or negative zero. */
+    internal fun storable(x: Double): Boolean = x.isFinite() && written(x).toRawBits() == x.toRawBits()
+
+    /** True when [s] has an unpaired UTF-16 surrogate, which has no UTF-8 encoding and so cannot be stored. */
+    internal fun loneSurrogate(s: String): Boolean {
+        var i = 0
+        while (i < s.length) {
+            val c = s[i]
+            when {
+                Character.isHighSurrogate(c) && i + 1 < s.length && Character.isLowSurrogate(s[i + 1]) -> i += 2
+                Character.isSurrogate(c) -> return true
+                else -> i++
+            }
+        }
+        return false
+    }
+
+    private fun text(value: String, name: String, out: MutableList<String>) {
+        if (loneSurrogate(value)) out += "$name: contains a lone surrogate, which the format cannot store"
+    }
+
     /** Human-readable violations; empty when the record is publishable. */
     fun violations(r: BenchResult): List<String> {
         val v = mutableListOf<String>()
@@ -20,24 +44,34 @@ object BenchValidator {
         }
 
         blank(r.device.device, "device.device", v)
+        text(r.device.device, "device.device", v)
         blank(r.device.androidVersion, "device.androidVersion", v)
-        checkReading(r.device.soc, "device.soc", v) { if (it.isBlank()) v += "device.soc: measured value is blank" }
+        text(r.device.androidVersion, "device.androidVersion", v)
+        checkReading(r.device.soc, "device.soc", v) {
+            if (it.isBlank()) v += "device.soc: measured value is blank"
+            else text(it, "device.soc", v)
+        }
         blank(r.engineId, "engineId", v)
+        text(r.engineId, "engineId", v)
         blank(r.modelId, "modelId", v)
+        text(r.modelId, "modelId", v)
         if (!SHA256.matches(r.modelSha256)) v += "modelSha256: must be 64 lowercase hex characters"
         if (r.threads < 1) v += "threads: must be >= 1, got ${r.threads}"
 
         checkReading(r.peakRssBytes, "peakRssBytes", v) {
             if (it < 0) v += "peakRssBytes: negative (${it})"
+            else if (it == 0L) v += PEAK_ZERO_PROBLEM
         }
 
         if (r.clips.isEmpty()) v += "clips: no clips"
+        if (r.clips.size > MAX_CLIPS) v += "clips: more than $MAX_CLIPS clips, the most one record can hold"
 
         val seen = HashSet<String>()
         for (c in r.clips) {
             val at = "clip '${c.clipId}'"
             val before = v.size
             if (c.clipId.isBlank()) v += "clip: id is blank"
+            else if (loneSurrogate(c.clipId)) v += "clip: id contains a lone surrogate, which the format cannot store"
             else if (!seen.add(c.clipId)) v += "$at: duplicate clip id"
             if (!c.audioS.isFinite() || c.audioS < 0) v += "$at: audio_s must be finite and >= 0, got ${c.audioS}"
             if (!c.wallS.isFinite() || c.wallS < 0) v += "$at: wall_s must be finite and >= 0, got ${c.wallS}"
@@ -51,6 +85,9 @@ object BenchValidator {
                 v += "$at: wall_s ${c.wallS} is below the 1 microsecond resolution of the format"
                 continue
             }
+            if (!storable(c.audioS)) v += "$at: audio_s ${c.audioS} is finer than the 6 decimals the format keeps, or negative zero"
+            if (!storable(c.wallS)) v += "$at: wall_s ${c.wallS} is finer than the 6 decimals the format keeps, or negative zero"
+            c.rtf?.let { if (it.isFinite() && !storable(it)) v += "$at: rtf $it is finer than the 6 decimals the format keeps, or negative zero" }
             if (c.audioS == 0.0) {
                 if (c.rtf != null) v += "$at: rtf must be null when audio_s is 0, got ${c.rtf}"
             } else {
@@ -112,6 +149,7 @@ object BenchValidator {
             is Reading.Measured -> checkMeasured(reading.value)
             is Reading.NotMeasured ->
                 if (reading.reason.isBlank()) out += "$name: not measured but no reason given"
+                else text(reading.reason, "$name reason", out)
         }
     }
 }
