@@ -45,6 +45,8 @@ include(":core:commands")
 include(":core:vocab")
 include(":core:session")
 include(":core:features")
+// Result model, deterministic JSON writer, WER/CER/RTF and validator for :bench. Pure; no device code.
+include(":core:bench")
 // Runs contract/vectors/*.json against the cores. JVM test module.
 include(":core:contract-test")
 
