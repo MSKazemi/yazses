@@ -11,6 +11,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicReference
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -268,6 +269,83 @@ class DecodeDispatcherTest {
         assertTrue(failure.cause is IllegalStateException, "cause was ${failure.cause}")
         assertEquals(0, engine.started.size)
         assertEquals(1, engine.closeCalls.get())
+    }
+
+    @Test
+    fun `closeAsync returns while a decode is running, and the engine closes once after it`() {
+        val engine = RecordingEngine()
+        val dispatcher = DecodeDispatcher(engine)
+        val gate = engine.hold(0)
+        val running = dispatcher.submitTranscribe(request(0), DecodeOptions())
+        engine.awaitStarted(0)
+        val queued = dispatcher.submitTranscribe(request(1), DecodeOptions())
+
+        val caller = Thread { dispatcher.closeAsync() }
+        try {
+            caller.start()
+            // The gate is still held here, so a blocking closeAsync would never return.
+            caller.join(WAIT_MS)
+            assertFalse(caller.isAlive, "closeAsync blocked on the running decode")
+            assertFailsWith<CancellationException> { queued.await(WAIT_MS) }
+            assertEquals(0, engine.closeCalls.get(), "engine closed while a decode was running")
+        } finally {
+            gate.countDown()
+        }
+        assertEquals("decoded-0", running.await(WAIT_MS).text)
+        dispatcher.close()
+        assertEquals(1, engine.closeCalls.get())
+        assertEquals(1, engine.decodesWhenClosed.get(), "engine.close ran before the last decode finished")
+        assertEquals("yazses-decode", engine.closeThreads.single().name)
+    }
+
+    @Test
+    fun `close with a timeout returns false while a decode is held, then the engine still closes once`() {
+        val engine = RecordingEngine()
+        val dispatcher = DecodeDispatcher(engine)
+        val gate = engine.hold(0)
+        val running = dispatcher.submitTranscribe(request(0), DecodeOptions())
+        engine.awaitStarted(0)
+        try {
+            assertFalse(dispatcher.close(timeoutMs = 50), "close(timeoutMs) reported finished while a decode was held")
+            assertEquals(0, engine.closeCalls.get())
+        } finally {
+            gate.countDown()
+        }
+        assertEquals("decoded-0", running.await(WAIT_MS).text)
+        assertTrue(dispatcher.close(timeoutMs = WAIT_MS), "close(timeoutMs) did not finish after the decode ended")
+        assertEquals(1, engine.closeCalls.get())
+        assertEquals(1, engine.decodesWhenClosed.get())
+        assertTrue(dispatcher.close(timeoutMs = WAIT_MS))
+        assertEquals(1, engine.closeCalls.get())
+    }
+
+    @Test
+    fun `an interrupted close still closes the engine and the thread, and keeps the interrupt flag`() {
+        val engine = RecordingEngine()
+        val dispatcher = DecodeDispatcher(engine)
+        val gate = engine.hold(0)
+        val running = dispatcher.submitTranscribe(request(0), DecodeOptions())
+        engine.awaitStarted(0)
+        val queued = dispatcher.submitTranscribe(request(1), DecodeOptions())
+        val flagAfterClose = AtomicReference<Boolean?>(null)
+        val closer = Thread {
+            dispatcher.close()
+            flagAfterClose.set(Thread.currentThread().isInterrupted)
+        }
+        closer.start()
+        // Only a cancelled handle can produce this: close() has begun and is waiting.
+        assertFailsWith<CancellationException> { queued.await(WAIT_MS) }
+        closer.interrupt()
+        gate.countDown()
+        closer.join(WAIT_MS)
+
+        assertFalse(closer.isAlive, "close() did not return after an interrupt")
+        assertEquals(true, flagAfterClose.get(), "close() must restore the interrupt flag")
+        assertEquals("decoded-0", running.await(WAIT_MS).text)
+        assertEquals(1, engine.closeCalls.get())
+        val thread = engine.closeThreads.single()
+        thread.join(WAIT_MS)
+        assertFalse(thread.isAlive, "the decode thread leaked after an interrupted close()")
     }
 
     @Test

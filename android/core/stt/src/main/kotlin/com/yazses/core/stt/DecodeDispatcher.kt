@@ -15,7 +15,8 @@ import java.util.concurrent.TimeUnit
  *
  * A native engine is not thread-safe and one decode must never overlap another
  * (architecture.md §4). The single thread gives that guarantee without a lock held
- * across a decode. Work is never run on `Dispatchers.Default` or the caller's thread.
+ * across a decode. The thread is a plain `java.util.concurrent` executor thread, not a
+ * coroutine dispatcher. Work is never run on `Dispatchers.Default` or the caller's thread.
  *
  * Failure isolation: an exception thrown by the engine fails only the handle of the
  * request that caused it. The thread keeps running and later requests are unaffected.
@@ -29,7 +30,9 @@ import java.util.concurrent.TimeUnit
  *
  * Closing: [close] refuses new work, cancels queued requests, lets the running decode
  * finish, calls [SttEngine.close] exactly once on the decode thread, and waits until
- * that thread has ended.
+ * that thread has ended. [closeAsync] does the same without waiting, and
+ * [close] with a timeout waits at most that long. A dispatcher dropped without
+ * closing leaks its engine (native memory) and, once a request has run, its daemon thread.
  *
  * The pcm arrays passed to the submit methods must not be modified until their handle
  * is done.
@@ -45,8 +48,11 @@ public class DecodeDispatcher(private val engine: SttEngine) : AutoCloseable {
     /** Requests submitted and not yet claimed by the worker. Guarded by [lock]. */
     private val queued = LinkedHashSet<FutureTask<Transcript>>()
 
-    /** Guarded by [lock]. Set once by the first [close]. */
+    /** Guarded by [lock]. Set once by the first close. */
     private var closed = false
+
+    /** Guarded by [lock]. The engine-close task, until a waiting close has reported its failure. */
+    private var engineCloseTask: FutureTask<Unit>? = null
 
     @Volatile
     private var workerThread: Thread? = null
@@ -68,7 +74,7 @@ public class DecodeDispatcher(private val engine: SttEngine) : AutoCloseable {
     /**
      * Queue a whole-utterance decode ([SttEngine.transcribe]).
      *
-     * After [close], returns a handle that is already failed: [DecodeHandle.await]
+     * After a close, returns a handle that is already failed: [DecodeHandle.await]
      * throws [ExecutionException] whose cause is an [IllegalStateException].
      */
     public fun submitTranscribe(pcm: FloatArray, opts: DecodeOptions): DecodeHandle =
@@ -82,43 +88,114 @@ public class DecodeDispatcher(private val engine: SttEngine) : AutoCloseable {
         submit { engine.decodeWindow(pcm, opts) }
 
     /**
-     * Stop accepting work and release the engine. Blocks until the running decode (if
-     * any) has returned, the engine has been closed and the decode thread has ended.
+     * Stop accepting work and release the engine, and return at once.
+     *
+     * Queued requests are cancelled. A running decode finishes, then the engine is closed
+     * exactly once on the decode thread. Use [close] or [close] with a timeout to wait
+     * for that. Never blocks, so it is safe on the main thread. Idempotent.
+     */
+    public fun closeAsync() {
+        val cancelled: List<FutureTask<Transcript>>
+        synchronized(lock) {
+            if (closed) return
+            closed = true
+            cancelled = queued.toList()
+            queued.clear()
+            cancelled.forEach { it.cancel(false) }
+            engineCloseTask = FutureTask(Callable { engine.close() }).also { executor.execute(it) }
+            executor.shutdown()
+        }
+        cancelled.forEach { executor.remove(it) }
+    }
+
+    /**
+     * Stop accepting work, release the engine, and block until it is done: the running
+     * decode has returned, [SttEngine.close] has run once, and the decode thread has ended.
+     *
+     * This blocks for as long as the running decode takes, which can be seconds for a
+     * native engine. **Never call it from the main thread** (an ANR in an input method
+     * takes the keyboard down): use [closeAsync], or [close] with a timeout, there.
+     *
+     * An interrupt does not stop the shutdown. It is remembered while the wait continues,
+     * and the interrupt flag is restored before this returns.
      *
      * Idempotent: later calls wait for the same shutdown and do not close the engine
      * again. Must not be called from the decode thread, because it would wait for itself.
      *
      * @throws IllegalStateException when called from the decode thread.
      * @throws RuntimeException the engine's own exception if [SttEngine.close] threw.
-     *   Only the first call sees it.
+     *   Only the first waiting close reports it.
      */
     override fun close() {
+        finishClose(Long.MAX_VALUE)
+    }
+
+    /**
+     * Like [close], but waits at most [timeoutMs] milliseconds.
+     *
+     * Returns true when the engine has been closed and the decode thread has ended.
+     * Returns false when the running decode did not finish in time. The shutdown still
+     * completes in the background: the engine is closed exactly once when the decode returns.
+     * A later close or close with a timeout reports the result.
+     *
+     * @throws IllegalArgumentException when [timeoutMs] is negative.
+     * @throws IllegalStateException when called from the decode thread.
+     */
+    public fun close(timeoutMs: Long): Boolean {
+        require(timeoutMs >= 0) { "timeoutMs must not be negative, was $timeoutMs" }
+        return finishClose(TimeUnit.MILLISECONDS.toNanos(timeoutMs))
+    }
+
+    private fun finishClose(timeoutNanos: Long): Boolean {
         check(Thread.currentThread() !== workerThread) {
             "DecodeDispatcher.close() must not be called from the $THREAD_NAME thread"
         }
-        val cancelled: List<FutureTask<Transcript>>
-        var closeTask: FutureTask<Unit>? = null
-        synchronized(lock) {
-            if (closed) {
-                cancelled = emptyList()
-            } else {
-                closed = true
-                cancelled = queued.toList()
-                queued.clear()
-                cancelled.forEach { it.cancel(false) }
-                closeTask = FutureTask(Callable { engine.close() }).also { executor.execute(it) }
-                executor.shutdown()
-            }
-        }
-        cancelled.forEach { executor.remove(it) }
-        executor.awaitTermination(Long.MAX_VALUE, TimeUnit.MILLISECONDS)
-        workerThread?.join()
-        closeTask?.let { task ->
+        closeAsync()
+        if (!awaitShutdown(timeoutNanos)) return false
+        val failedTask = synchronized(lock) { engineCloseTask.also { engineCloseTask = null } }
+        if (failedTask != null) {
             try {
-                task.get()
+                failedTask.get()
             } catch (failure: ExecutionException) {
                 throw failure.cause ?: failure
             }
+        }
+        return true
+    }
+
+    /**
+     * Waits until the executor has terminated and the worker thread has ended, or until
+     * [timeoutNanos] has passed (Long.MAX_VALUE waits without a limit). Interrupts are
+     * remembered and restored on return, so the wait itself never stops early.
+     */
+    private fun awaitShutdown(timeoutNanos: Long): Boolean {
+        val start = System.nanoTime()
+        fun remaining(): Long =
+            if (timeoutNanos == Long.MAX_VALUE) Long.MAX_VALUE else timeoutNanos - (System.nanoTime() - start)
+        var interrupted = false
+        try {
+            while (!executor.isTerminated) {
+                val left = remaining()
+                if (left <= 0) return false
+                try {
+                    executor.awaitTermination(left, TimeUnit.NANOSECONDS)
+                } catch (_: InterruptedException) {
+                    interrupted = true
+                }
+            }
+            val worker = workerThread
+            while (worker != null && worker.isAlive) {
+                val left = remaining()
+                if (left <= 0) return false
+                try {
+                    worker.join(maxOf(1L, TimeUnit.NANOSECONDS.toMillis(left)))
+                } catch (_: InterruptedException) {
+                    interrupted = true
+                }
+            }
+            return true
+        } finally {
+            if (interrupted) Thread.currentThread().interrupt()
         }
     }
 
@@ -133,7 +210,7 @@ public class DecodeDispatcher(private val engine: SttEngine) : AutoCloseable {
             }
             lateinit var job: FutureTask<Transcript>
             job = FutureTask(Callable {
-                // Claim the request. If cancel() or close() got to it first it is not
+                // Claim the request. If cancel() or close got to it first it is not
                 // queued any more, so the engine is not called.
                 val claimed = synchronized(lock) { queued.remove(job) }
                 if (!claimed) throw CancellationException("request was cancelled before it started")

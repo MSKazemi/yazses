@@ -21,8 +21,9 @@ at a time, in submission order, on one daemon thread named `yazses-decode`, and 
 a `DecodeHandle`. A request that has not started can be cancelled and never reaches the engine. A
 running request can be cancelled too, but its native decode cannot be interrupted yet, because
 `SttEngine` has no in-flight cancel: the result is discarded and the next request waits for the decode
-to return. `close()` cancels queued work, waits for the running decode, then closes the engine once. Nothing
-uses the dispatcher yet; the whisper.cpp bridge will be its first caller.
+to return. `close()` cancels queued work, waits for the running decode, then closes the engine once; `closeAsync()`
+and `close(timeoutMs)` do the same without an unbounded wait. A dispatcher dropped without closing leaks
+its engine and daemon thread. Nothing uses the dispatcher yet; the whisper.cpp bridge will be its first caller.
 
 ### Added — Android: the feature registry (`:core:features`)
 

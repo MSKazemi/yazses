@@ -69,8 +69,10 @@ LOADING → IDLE ⇄ RECORDING → TRANSCRIBING → DELIVERING → IDLE
    plus: MEETING (long capture), ERROR
 ```
 
-A burst is cancellable at every stage; cancelling MUST stop the native decode, not just
-drop its result.
+A burst is cancellable at every stage. Today a running native decode cannot be cancelled:
+`SttEngine` has no in-flight cancel yet, so cancelling discards the result and the decode
+runs to completion. Once the interface gains one, cancelling MUST stop the native decode,
+not just drop its result.
 
 ## 3. Module map
 
@@ -112,7 +114,7 @@ network dependency are build failures (ADR-MOB-007 B).
 
 - **Capture thread** — a dedicated thread reading `AudioRecord` into the ring buffer. Never
   blocked by decode.
-- **Decode dispatcher** — a single-threaded coroutine dispatcher; thread count inside
+- **Decode dispatcher** — a single-thread `java.util.concurrent` executor (`DecodeDispatcher`), not coroutines; thread count inside
   whisper.cpp capped (performance cores only). Never `Dispatchers.Default`.
 - **UI/IME thread** — key handling and `commitText` only. **No native call and no file I/O
   on the main thread**; an ANR inside an IME takes the user's keyboard down.
