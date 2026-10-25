@@ -6,6 +6,15 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — Android: the hold-to-talk state machine (`:core:session`)
+
+The decision logic of the dictation keyboard is in, as pure Kotlin tested without an emulator: a
+hold shorter than the debounce (500 ms by default, the desktop's `hold_threshold_ms`) starts
+nothing; a burst the voice-activity gate calls silent delivers nothing; text is never delivered
+into a password field or when blank; and the last insert can be undone exactly once. Time is
+injected, so the tests are deterministic. The keyboard service, key bar and audio wiring are the
+rest of [#89](https://github.com/MSKazemi/yazses/issues/89). Nothing changes for an existing install.
+
 ## [2.46.0] - 2026-10-24
 
 ### Changed — the Settings window is a sidebar of pages, and the Features list can finally be seen
