@@ -51,6 +51,17 @@ real model checksum is recorded anywhere in the repository yet, and none was inv
 download job, the file picker and the storage screen are the rest of
 [#90](https://github.com/MSKazemi/yazses/issues/90). Nothing changes for an existing install.
 
+### Added — Android: the benchmark result format and error-rate helpers (`:core:bench`)
+
+Every claim about speed on a phone has to come from a measurement, so the format of that
+measurement is now fixed before any phone is involved: a result record with schema
+`yazses.bench.android/1`, a deterministic JSON writer, word and character error rate, real-time
+factor, and a validator that rejects an inconsistent record. A reading that was not measured is
+written as `null` with a reason, never as `0`. It is pure Kotlin tested on synthetic data; no
+performance number is claimed. The word-error-rate normaliser is simpler than the desktop's, so
+Android and desktop WER are not comparable yet. The on-device runner is the rest of
+[#92](https://github.com/MSKazemi/yazses/issues/92). Nothing changes for an existing install.
+
 ## [2.46.0] - 2026-10-24
 
 ### Changed — the Settings window is a sidebar of pages, and the Features list can finally be seen

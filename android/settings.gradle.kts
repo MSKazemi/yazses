@@ -47,6 +47,8 @@ include(":core:session")
 include(":core:features")
 // Catalogue + SHA-256 verification, pure. The Android :model module consumes it.
 include(":core:model")
+// Result model, deterministic JSON writer, WER/CER/RTF and validator for :bench. Pure; no device code.
+include(":core:bench")
 // Runs contract/vectors/*.json against the cores. JVM test module.
 include(":core:contract-test")
 
