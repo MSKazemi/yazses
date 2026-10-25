@@ -14,7 +14,7 @@ account, no subscription and no API key. YazSes is free and open source under Ap
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21856271.svg)](https://doi.org/10.5281/zenodo.21856271)
 [![Documentation](https://img.shields.io/badge/docs-mskazemi.com%2Fyazses-5e35b1)](https://mskazemi.com/yazses/)
 [![Open Source Helpers](https://www.codetriage.com/mskazemi/yazses/badges/users.svg)](https://www.codetriage.com/mskazemi/yazses)
-[![All Contributors](https://img.shields.io/badge/all_contributors-43-orange.svg?style=flat-square)](#contributors)
+[![All Contributors](https://img.shields.io/badge/all_contributors-44-orange.svg?style=flat-square)](#contributors)
 
 ![YazSes — hold a key, speak, release; the text is typed into the focused app](docs/screenshots/yazses-reel.gif)
 
@@ -893,6 +893,7 @@ patch counts. Contribution types follow the [all-contributors emoji key](https:/
     </tr>
     <tr>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/yoreva-01"><img src="https://avatars.githubusercontent.com/u/195282707?v=4?s=100" width="100px;" alt="Yusuf Orçan"/><br /><sub><b>Yusuf Orçan</b></sub></a><br /><a href="#data-yoreva-01" title="Data">🔣</a> <a href="https://github.com/MSKazemi/yazses/commits?author=yoreva-01" title="Tests">⚠️</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/Warayuth014"><img src="https://avatars.githubusercontent.com/u/124881432?v=4?s=100" width="100px;" alt="Warayut Bunbanlu"/><br /><sub><b>Warayut Bunbanlu</b></sub></a><br /><a href="#translation-Warayuth014" title="Translation">🌍</a></td>
     </tr>
   </tbody>
 </table>

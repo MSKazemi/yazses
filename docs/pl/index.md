@@ -116,6 +116,7 @@ Reszta dokumentacji jest na razie po angielsku.
     </tr>
     <tr>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/yoreva-01"><img src="https://avatars.githubusercontent.com/u/195282707?v=4?s=100" width="100px;" alt="Yusuf Orçan"/><br /><sub><b>Yusuf Orçan</b></sub></a><br /><a href="#data-yoreva-01" title="Data">🔣</a> <a href="https://github.com/MSKazemi/yazses/commits?author=yoreva-01" title="Tests">⚠️</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/Warayuth014"><img src="https://avatars.githubusercontent.com/u/124881432?v=4?s=100" width="100px;" alt="Warayut Bunbanlu"/><br /><sub><b>Warayut Bunbanlu</b></sub></a><br /><a href="#translation-Warayuth014" title="Translation">🌍</a></td>
     </tr>
   </tbody>
 </table>

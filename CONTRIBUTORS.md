@@ -262,6 +262,12 @@ found defects that no amount of reading the code here would have surfaced.
   silently dropped now type correctly
   ([#329](https://github.com/MSKazemi/yazses/issues/329) →
   [#364](https://github.com/MSKazemi/yazses/pull/364))
+- [@Warayuth014](https://github.com/Warayuth014) (Warayut Bunbanlu) — native-speaker review of the
+  Thai page (`docs/th/index.md`), which had been a machine-assisted draft. Reworded it so it reads
+  naturally, catching things only a Thai reader would — for example "ถอดความ", which in Thai means to
+  paraphrase and now says *transcribe* — and the page is marked reviewed instead of draft
+  ([#353](https://github.com/MSKazemi/yazses/issues/353) →
+  [#665](https://github.com/MSKazemi/yazses/pull/665))
 - [@waterlemonnn](https://github.com/MSKazemi/yazses/commits?author=waterlemonnn)
 - [@yangjie-AE](https://github.com/yangjie-AE) — completed the sentence that stopped at
   "那么" ("then") in the Chinese page's description, checking the wording against the English
