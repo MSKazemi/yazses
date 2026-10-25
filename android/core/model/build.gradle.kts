@@ -23,4 +23,7 @@ dependencies {
 
 tasks.test {
     useJUnitPlatform()
+    // The shipped catalogue is read by path, so Gradle cannot see it as an input. Without this a
+    // contributor who edits models.json and runs the tests gets a stale "UP-TO-DATE" pass.
+    inputs.file("../../app/src/main/assets/models.json").withPropertyName("shippedModelCatalogue")
 }
