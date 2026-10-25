@@ -1,6 +1,7 @@
 package com.yazses.core.bench
 
 import kotlin.test.Test
+import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
@@ -47,14 +48,16 @@ class JsonWriterTest {
                 "clips": 1,
                 "audio_s": 2.000000,
                 "wall_s": 1.000000,
-                "rtf": 0.500000
+                "rtf": 0.500000,
+                "rtf_reason": null
               },
               "clips": [
                 {
                   "id": "c1",
                   "audio_s": 2.000000,
                   "wall_s": 1.000000,
-                  "rtf": 0.500000
+                  "rtf": 0.500000,
+                  "rtf_reason": null
                 }
               ]
             }
@@ -85,6 +88,51 @@ class JsonWriterTest {
     fun `quotes and backslashes in strings are escaped`() {
         val json = BenchJson.write(record(device = "SYN\"THETIC\\x"))
         assertTrue("\"model\": \"SYN\\\"THETIC\\\\x\"" in json)
+    }
+
+    @Test
+    fun `a clip with no audio writes rtf null with a reason, never a bare null`() {
+        val r = record().copy(clips = listOf(ClipResult("z", 0.0, 0.0, null)))
+        val expected = listOf(
+            "  \"clips\": [",
+            "    {",
+            "      \"id\": \"z\",",
+            "      \"audio_s\": 0.000000,",
+            "      \"wall_s\": 0.000000,",
+            "      \"rtf\": null,",
+            "      \"rtf_reason\": \"no audio\"",
+            "    }",
+            "  ]",
+        ).joinToString("\n")
+        assertTrue(expected in BenchJson.write(r), BenchJson.write(r))
+    }
+
+    @Test
+    fun `an aggregate with no audio writes rtf null with a reason`() {
+        val r = record().copy(clips = listOf(ClipResult("z", 0.0, 0.0, null)))
+        assertTrue("\"rtf\": null,\n    \"rtf_reason\": \"no audio\"\n  },\n  \"clips\"" in BenchJson.write(r), BenchJson.write(r))
+    }
+
+    @Test
+    fun `a lone surrogate in a string is replaced, so the output is valid UTF-8 text`() {
+        val json = BenchJson.write(record(device = "SYN\uD800THETIC"))
+        assertTrue("\"model\": \"SYN\uFFFDTHETIC\"" in json, json)
+        assertFalse('\uD800' in json)
+    }
+
+    @Test
+    fun `a valid surrogate pair in a string is kept as written`() {
+        val pair = String(Character.toChars(0x2A700))
+        assertTrue("\"model\": \"$pair\"" in BenchJson.write(record(device = pair)))
+    }
+
+    @Test
+    fun `a record whose sums overflow is refused with the validator's error, not a NumberFormatException`() {
+        val big = Double.MAX_VALUE
+        val r = record().copy(clips = listOf(ClipResult("x", big, 1.0, 1.0 / big), ClipResult("y", big, 1.0, 1.0 / big)))
+        // NumberFormatException is an IllegalArgumentException too, so the message is what proves the validator ran.
+        val e = assertFailsWith<IllegalArgumentException> { BenchJson.write(r) }
+        assertContains(e.message.orEmpty(), "aggregate audio_s is not finite")
     }
 
     @Test

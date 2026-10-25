@@ -14,6 +14,9 @@ object BenchJson {
 
     private class Raw(val text: String)
 
+    /** Reason written beside an rtf that is null: the only way a validated record has none is no audio. */
+    private const val NO_AUDIO = "no audio"
+
     fun write(result: BenchResult): String {
         BenchValidator.require(result)
         val sb = StringBuilder()
@@ -27,6 +30,7 @@ object BenchJson {
         val (peakValue, peakReason) = split(r.peakRssBytes)
         val audioTotal = r.clips.sumOf { it.audioS }
         val wallTotal = r.clips.sumOf { it.wallS }
+        val aggregateRtf = Rtf.of(wallTotal, audioTotal)
         return linkedMapOf(
             "schema" to r.schema,
             "device" to linkedMapOf(
@@ -47,7 +51,8 @@ object BenchJson {
                 "clips" to r.clips.size,
                 "audio_s" to num(audioTotal),
                 "wall_s" to num(wallTotal),
-                "rtf" to Rtf.of(wallTotal, audioTotal)?.let { num(it) },
+                "rtf" to aggregateRtf?.let { num(it) },
+                "rtf_reason" to if (aggregateRtf == null) NO_AUDIO else null,
             ),
             "clips" to r.clips.map { c ->
                 linkedMapOf(
@@ -55,6 +60,7 @@ object BenchJson {
                     "audio_s" to num(c.audioS),
                     "wall_s" to num(c.wallS),
                     "rtf" to c.rtf?.let { num(it) },
+                    "rtf_reason" to if (c.rtf == null) NO_AUDIO else null,
                 )
             },
         )
@@ -112,10 +118,22 @@ object BenchJson {
         repeat(depth) { sb.append("  ") }
     }
 
+    /**
+     * A lone surrogate has no UTF-8 encoding, so it is written as U+FFFD rather than raw; a valid
+     * surrogate pair is kept as written.
+     */
     private fun quote(s: String, sb: StringBuilder) {
         sb.append('"')
-        for (ch in s) {
+        var i = 0
+        while (i < s.length) {
+            val ch = s[i]
+            if (Character.isHighSurrogate(ch) && i + 1 < s.length && Character.isLowSurrogate(s[i + 1])) {
+                sb.append(ch).append(s[i + 1])
+                i += 2
+                continue
+            }
             when {
+                Character.isSurrogate(ch) -> sb.append('\uFFFD')
                 ch == '"' -> sb.append("\\\"")
                 ch == '\\' -> sb.append("\\\\")
                 ch == '\n' -> sb.append("\\n")
@@ -124,6 +142,7 @@ object BenchJson {
                 ch < ' ' -> sb.append(String.format("\\u%04x", ch.code))
                 else -> sb.append(ch)
             }
+            i++
         }
         sb.append('"')
     }

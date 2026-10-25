@@ -84,6 +84,57 @@ class MetricsTest {
     }
 
     @Test
+    fun `an apostrophe is deleted, so a contraction matches its unpunctuated form`() {
+        // SYNTHETIC: "don't" is one token in the reference, so the two spellings cost nothing.
+        val r = Wer.wer("I don't know", "I dont know")
+        assertEquals(0, r.errors)
+        assertEquals(3, r.refLength)
+    }
+
+    @Test
+    fun `a typographic apostrophe is deleted too`() {
+        assertEquals(listOf("dont"), Wer.wordTokens(Wer.normalise("don\u2019t")))
+    }
+
+    @Test
+    fun `a decimal point between digits keeps the number as one token`() {
+        assertEquals(listOf("3.5"), Wer.wordTokens(Wer.normalise("3.5")))
+        assertEquals(listOf("1,000"), Wer.wordTokens(Wer.normalise("1,000")))
+        // a decimal must not score as the integer with the point dropped
+        assertEquals(1, Wer.wer("it costs 3.5", "it costs 35").errors)
+    }
+
+    @Test
+    fun `a hyphen between letters keeps the word as one token`() {
+        assertEquals(listOf("email"), Wer.wordTokens(Wer.normalise("e-mail")))
+    }
+
+    @Test
+    fun `initialisms with internal periods stay one token`() {
+        assertEquals(listOf("us"), Wer.wordTokens(Wer.normalise("U.S.")))
+    }
+
+    @Test
+    fun `a comma or hyphen followed by a space still separates words`() {
+        assertEquals(listOf("hello", "world"), Wer.wordTokens(Wer.normalise("hello, world")))
+        assertEquals(listOf("a", "b"), Wer.wordTokens(Wer.normalise("a - b")))
+    }
+
+    @Test
+    fun `astral cjk ideographs in extensions C and G each count once`() {
+        val ext_c = String(Character.toChars(0x2A700))
+        val ext_g = String(Character.toChars(0x30000))
+        assertEquals(listOf(ext_c, ext_g), Wer.wordTokens(Wer.normalise(ext_c + ext_g)))
+    }
+
+    @Test
+    fun `a compatibility supplement ideograph is one token, scored as its canonical form`() {
+        // U+2F800 canonically decomposes to U+4E3D under NFC, so it is scored as that character.
+        val supplement = String(Character.toChars(0x2F800))
+        assertEquals(listOf("\u4E3D"), Wer.wordTokens(Wer.normalise(supplement)))
+    }
+
+    @Test
     fun `rtf is wall over audio and not applicable without audio`() {
         assertEquals(0.5, Rtf.of(wallS = 2.0, audioS = 4.0))
         assertNull(Rtf.of(wallS = 1.0, audioS = 0.0))

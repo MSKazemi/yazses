@@ -2,8 +2,9 @@ package com.yazses.core.bench
 
 /**
  * Rejects a record that must not be published: missing or unknown schema, negative or
- * non-finite durations, an RTF that disagrees with its own wall and audio seconds, and a
- * "not measured" reading without a reason.
+ * non-finite durations, durations finer than the 6-decimal resolution the writer applies, an
+ * RTF that disagrees with the durations as they will be written, sums that overflow, no clips,
+ * and a "not measured" reading without a reason.
  */
 object BenchValidator {
 
@@ -30,14 +31,26 @@ object BenchValidator {
             if (it < 0) v += "peakRssBytes: negative (${it})"
         }
 
+        if (r.clips.isEmpty()) v += "clips: no clips"
+
         val seen = HashSet<String>()
         for (c in r.clips) {
             val at = "clip '${c.clipId}'"
+            val before = v.size
             if (c.clipId.isBlank()) v += "clip: id is blank"
             else if (!seen.add(c.clipId)) v += "$at: duplicate clip id"
             if (!c.audioS.isFinite() || c.audioS < 0) v += "$at: audio_s must be finite and >= 0, got ${c.audioS}"
             if (!c.wallS.isFinite() || c.wallS < 0) v += "$at: wall_s must be finite and >= 0, got ${c.wallS}"
-            if (v.any { it.startsWith(at) }) continue
+            // Judged per clip by count, not by name: a clip whose id is a prefix of another's must not be skipped.
+            if (v.size > before) continue
+            if (roundsToZero(c.audioS)) {
+                v += "$at: audio_s ${c.audioS} is below the 1 microsecond resolution of the format"
+                continue
+            }
+            if (roundsToZero(c.wallS)) {
+                v += "$at: wall_s ${c.wallS} is below the 1 microsecond resolution of the format"
+                continue
+            }
             if (c.audioS == 0.0) {
                 if (c.rtf != null) v += "$at: rtf must be null when audio_s is 0, got ${c.rtf}"
             } else {
@@ -45,11 +58,24 @@ object BenchValidator {
                 if (rtf == null) {
                     v += "$at: rtf missing for audio_s ${c.audioS}"
                 } else {
-                    val expected = c.wallS / c.audioS
-                    if (!rtf.isFinite() || Math.abs(rtf - expected) > tolerance(expected)) {
+                    // Checked against the durations as the writer will print them: a value finer
+                    // than 6 decimals cannot be recovered from the file, so its rtf must agree with that.
+                    val expected = written(c.wallS) / written(c.audioS)
+                    if (!rtf.isFinite() || !expected.isFinite() || Math.abs(rtf - expected) > tolerance(expected)) {
                         v += "$at: rtf $rtf is inconsistent with wall_s/audio_s = $expected"
                     }
                 }
+            }
+        }
+
+        if (r.clips.all { it.audioS.isFinite() && it.wallS.isFinite() }) {
+            val audioSum = r.clips.sumOf { it.audioS }
+            val wallSum = r.clips.sumOf { it.wallS }
+            if (!audioSum.isFinite()) v += "aggregate audio_s is not finite (the sum overflows)"
+            if (!wallSum.isFinite()) v += "aggregate wall_s is not finite (the sum overflows)"
+            if (audioSum.isFinite() && wallSum.isFinite()) {
+                val agg = Rtf.of(wallSum, audioSum)
+                if (agg != null && !agg.isFinite()) v += "aggregate rtf is not finite"
             }
         }
         return v
@@ -64,6 +90,13 @@ object BenchValidator {
 
     /** Covers the 6-decimal rounding the writer applies to wall, audio and rtf. */
     internal fun tolerance(expected: Double): Double = maxOf(1e-5, 1e-4 * Math.abs(expected))
+
+    /** A duration as the writer prints it: rounded half-up to 6 decimals, the same rounding BenchJson uses. */
+    private fun written(seconds: Double): Double =
+        java.math.BigDecimal(seconds).setScale(6, java.math.RoundingMode.HALF_UP).toDouble()
+
+    /** Non-zero but printed as 0.000000, so the file would say the clip took no time. */
+    private fun roundsToZero(seconds: Double): Boolean = seconds != 0.0 && written(seconds) == 0.0
 
     private fun blank(value: String, name: String, out: MutableList<String>) {
         if (value.isBlank()) out += "$name: is blank"

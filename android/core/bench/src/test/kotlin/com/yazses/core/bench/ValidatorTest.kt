@@ -106,6 +106,38 @@ class ValidatorTest {
     }
 
     @Test
+    fun `a clip whose name is a prefix of a reported clip still has its rtf checked`() {
+        // SYNTHETIC: "a'b" has negative audio (reported); "a" has rtf 99.0 where 0.5 is expected.
+        val r = valid.copy(clips = listOf(ClipResult("a'b", -1.0, 1.0, null), ClipResult("a", 2.0, 1.0, 99.0)))
+        assertTrue(BenchValidator.violations(r).any { it.startsWith("clip 'a': rtf 99.0") })
+    }
+
+    @Test
+    fun `a record with no clips is rejected`() {
+        assertContains(BenchValidator.violations(valid.copy(clips = emptyList())), "clips: no clips")
+    }
+
+    @Test
+    fun `a duration that rounds to zero at 6 decimals is rejected`() {
+        val v = BenchValidator.violations(withClip(ClipResult("c", 4e-7, 1.0, null)))
+        assertTrue(v.any { "below the 1 microsecond resolution" in it }, v.joinToString("\n"))
+    }
+
+    @Test
+    fun `a clip whose written durations disagree with its rtf is rejected`() {
+        // SYNTHETIC: 1.5e-6 s is written as 0.000002, so 1.0 / 0.000002 = 500000, not 666666.67.
+        val v = BenchValidator.violations(withClip(ClipResult("c", 1.5e-6, 1.0, 666666.67)))
+        assertTrue(v.any { "inconsistent with" in it }, v.joinToString("\n"))
+    }
+
+    @Test
+    fun `aggregate sums that overflow to infinity are rejected before the writer sees them`() {
+        val big = Double.MAX_VALUE
+        val r = valid.copy(clips = listOf(ClipResult("x", big, 1.0, 1.0 / big), ClipResult("y", big, 1.0, 1.0 / big)))
+        assertTrue(BenchValidator.violations(r).any { "aggregate audio_s is not finite" in it })
+    }
+
+    @Test
     fun `require throws and names the violations`() {
         val e = assertFailsWith<IllegalArgumentException> { BenchValidator.require(valid.copy(schema = "")) }
         assertContains(e.message.orEmpty(), "schema: missing")

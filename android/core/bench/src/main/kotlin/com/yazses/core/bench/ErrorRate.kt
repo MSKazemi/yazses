@@ -22,24 +22,50 @@ data class ErrorRate(val errors: Int, val refLength: Int) {
  * (paper/benchmark/mandarin_metrics.py:69-71, :140, :186-190).
  *
  * Deliberate simplification: the desktop WER normalises with whisper_normalizer's
- * EnglishTextNormalizer (bench_wer.py:36). This port lowercases, drops Unicode punctuation and
- * collapses whitespace. It is NOT the same normaliser, so WER here is not a drop-in replacement
- * for a desktop number until the normaliser is ported and checked against shared vectors.
+ * EnglishTextNormalizer (bench_wer.py:36). This is NOT whisper_normalizer. The rule below is the
+ * whole of it, so WER numbers from this module are not comparable with the desktop's until the
+ * normaliser is ported and checked against shared vectors. Numbers in particular (see the limits).
  */
 object Wer {
 
-    /** NFC, lowercase, punctuation removed, whitespace collapsed. */
+    /**
+     * Normalises text to space-separated tokens. Rule, applied to the NFC, lowercased code points:
+     * 1. An apostrophe (U+0027, U+2019) is deleted with no space, so "don't" and "dont" match.
+     * 2. A period, comma or hyphen (U+002D, U+2010, U+2011) directly between two letters or digits
+     *    is deleted, so "e-mail" is one token and "U.S." is "us". The exception is a period or
+     *    comma between two DIGITS, which is kept, so "3.5" and "1,000" stay distinct from "35"
+     *    and "1000".
+     * 3. Any other Unicode punctuation becomes a space, which separates words.
+     * 4. Whitespace is collapsed. CJK is not split here; see [wordTokens].
+     *
+     * Limits: a sentence written without a space after its period ("end.Next") joins into one
+     * token, and a list like "1,2,3" keeps its commas. Rule 1
+     * deletes every apostrophe, including a quotation mark, so 'hello' and hello are one token.
+     */
     fun normalise(text: String): String {
         val nfc = Normalizer.normalize(text, Normalizer.Form.NFC).lowercase(Locale.ROOT)
+        val cps = nfc.codePoints().toArray()
         val sb = StringBuilder(nfc.length)
-        nfc.codePoints().forEach { cp ->
+        for (i in cps.indices) {
+            val cp = cps[i]
             when {
+                cp in APOSTROPHES -> Unit
+                cp in DIGIT_SEPARATORS && i > 0 && i < cps.lastIndex &&
+                    Character.isDigit(cps[i - 1]) && Character.isDigit(cps[i + 1]) -> sb.appendCodePoint(cp)
+                cp in JOINERS && i > 0 && i < cps.lastIndex &&
+                    isAlnum(cps[i - 1]) && isAlnum(cps[i + 1]) -> Unit
                 isPunctuation(Character.getType(cp)) -> sb.append(' ')
                 else -> sb.appendCodePoint(cp)
             }
         }
         return sb.toString().trim().split(Regex("\\s+")).filter { it.isNotEmpty() }.joinToString(" ")
     }
+
+    private val APOSTROPHES = setOf(0x27, 0x2019)
+    private val DIGIT_SEPARATORS = setOf('.'.code, ','.code)
+    private val JOINERS = setOf('.'.code, ','.code, '-'.code, 0x2010, 0x2011)
+
+    private fun isAlnum(cp: Int): Boolean = Character.isLetterOrDigit(cp)
 
     /** Word tokens. Each CJK character is its own token, so a Chinese/Japanese WER counts characters. */
     fun wordTokens(normalised: String): List<String> {
@@ -124,5 +150,6 @@ object Wer {
         cp in 0x3400..0x4DBF ||   // CJK Ext A
         cp in 0x4E00..0x9FFF ||   // CJK Unified
         cp in 0xF900..0xFAFF ||   // CJK compatibility
-        cp in 0x20000..0x2A6DF    // CJK Ext B
+        cp in 0x20000..0x2FA1F ||  // CJK Ext B-F (to 0x2EBEF) and the Compatibility Supplement
+        cp in 0x30000..0x323AF    // CJK Ext G (0x30000..0x3134F) and Ext H (0x31350..0x323AF)
 }
