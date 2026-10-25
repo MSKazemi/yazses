@@ -10,7 +10,12 @@ public data class Transcript(
     val text: String,
     val segments: List<Segment> = emptyList(),
 ) {
-    /** One timed span of [text]. Times are seconds from the start of the PCM. */
+    /**
+     * One timed span of [text]. Times are seconds from the start of the PCM.
+     *
+     * @throws IllegalArgumentException unless both times are finite, the start is
+     *   not negative and the end is not before the start.
+     */
     public data class Segment(
         val startSec: Double,
         val endSec: Double,
@@ -19,8 +24,11 @@ public data class Transcript(
         val confidence: Float? = null,
     ) {
         init {
-            require(startSec >= 0.0 && endSec >= startSec) {
-                "segment times must satisfy 0 <= start <= end, was $startSec..$endSec"
+            require(startSec.isFinite() && endSec.isFinite() && startSec >= 0.0 && endSec >= startSec) {
+                "segment times must be finite and satisfy 0 <= start <= end, was $startSec..$endSec"
+            }
+            require(confidence == null || confidence in 0f..1f) {
+                "segment confidence must be in 0..1 or null, was $confidence"
             }
         }
     }

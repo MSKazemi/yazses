@@ -1,24 +1,31 @@
 package com.yazses.core.stt
 
 /**
- * A scripted engine for tests: returns [scripted] for any non-silent buffer and
- * [Transcript.EMPTY] for silence, the way a well-behaved gate would. It records
- * [closeCount] and enforces the [SttEngine.close] contract (use after close throws).
+ * A scripted reference engine for tests: returns [scripted] for any non-silent buffer
+ * and [Transcript.EMPTY] for an all-zero buffer, the way a well-behaved gate would.
+ *
+ * It implements the [SttEngine.close] contract exactly: the first close releases
+ * the (simulated) resources and later closes do nothing, so [releaseCount] is 0
+ * before close and 1 after it, however many times close is called. Decoding after
+ * close throws [IllegalStateException].
  */
 class FakeSttEngine(
     override val id: String = "fake",
     private val scripted: String = "hello world",
 ) : SttEngine {
-    var closeCount: Int = 0
+    /** How many times the simulated native resources were released. Never above 1. */
+    var releaseCount: Int = 0
         private set
-    val isClosed: Boolean get() = closeCount > 0
+
+    val isClosed: Boolean get() = releaseCount > 0
 
     override fun transcribe(pcm: FloatArray, opts: DecodeOptions): Transcript = decode(pcm)
 
     override fun decodeWindow(pcm: FloatArray, opts: DecodeOptions): Transcript = decode(pcm)
 
     override fun close() {
-        closeCount++
+        if (isClosed) return
+        releaseCount++
     }
 
     private fun decode(pcm: FloatArray): Transcript {

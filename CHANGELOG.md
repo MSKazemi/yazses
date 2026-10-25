@@ -10,8 +10,9 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 The Android app now has the interface every speech engine will sit behind: `SttEngine`
 (`transcribe`, `decodeWindow`, `close`), `DecodeOptions`, `Transcript`, and a factory that picks an
-engine by the same `[stt] engine` name the desktop uses. It is pure Kotlin with no Android imports,
-and an unknown engine name is refused instead of falling back to another engine. There is no
+engine by id (`whisper-cpp`, `sherpa-onnx`). Those ids are not the desktop's `[stt] engine` values
+(`faster-whisper`, `parakeet`, `moonshine`). The factory refuses an unknown or empty name, where the
+desktop falls back to faster-whisper. It is pure Kotlin with no Android imports. There is no
 engine behind it yet: the whisper.cpp bridge is the rest of
 [#87](https://github.com/MSKazemi/yazses/issues/87). Nothing changes for an existing install.
 

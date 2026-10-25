@@ -59,4 +59,44 @@ class SttEngineFactoryTest {
     fun `knownIds lists the registered ids sorted`() {
         assertEquals(listOf("sherpa-onnx", "whisper-cpp"), factory.knownIds.toList())
     }
+
+    @Test
+    fun `the engine built for a name reports that name, normalised, as its id`() {
+        val engine = factory.create("  WHISPER-cpp ")
+        assertEquals("whisper-cpp", engine.id)
+    }
+
+    @Test
+    fun `two keys that normalise to the same id are rejected at construction, naming both`() {
+        val error = assertFailsWith<IllegalArgumentException> {
+            SttEngineFactory(
+                mapOf(
+                    "Whisper-CPP" to { FakeSttEngine(id = "whisper-cpp") },
+                    "whisper-cpp" to { FakeSttEngine(id = "whisper-cpp") },
+                ),
+            )
+        }
+        val message = error.message!!
+        assertTrue(message.contains("\"Whisper-CPP\""), message)
+        assertTrue(message.contains("\"whisper-cpp\""), message)
+    }
+
+    @Test
+    fun `a blank registry key is rejected at construction`() {
+        assertFailsWith<IllegalArgumentException> {
+            SttEngineFactory(mapOf("  " to { FakeSttEngine(id = "") }))
+        }
+    }
+
+    @Test
+    fun `an engine whose id differs from its key is refused, and closed`() {
+        var built: FakeSttEngine? = null
+        val mismatched = SttEngineFactory(
+            mapOf("whisper-cpp" to { FakeSttEngine(id = "sherpa-onnx").also { built = it } }),
+        )
+        val error = assertFailsWith<IllegalStateException> { mismatched.create("whisper-cpp") }
+        assertTrue(error.message!!.contains("\"whisper-cpp\""), error.message)
+        assertTrue(error.message!!.contains("\"sherpa-onnx\""), error.message)
+        assertTrue(built!!.isClosed, "the mismatched engine must be closed, not leaked")
+    }
 }

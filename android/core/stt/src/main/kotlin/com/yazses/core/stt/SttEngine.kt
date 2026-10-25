@@ -10,10 +10,18 @@ package com.yazses.core.stt
  *
  * Implementations own their native resources. Callers must invoke [close] when
  * done (see the contract on [close]).
+ *
+ * Cancelling an in-flight decode is NOT part of this interface yet. The
+ * architecture requires it (burst-abort) for the native engine, and it is to be
+ * added together with that engine, not speculatively here. Until then a call to
+ * [transcribe] or [decodeWindow] runs to completion.
  */
 public interface SttEngine {
 
-    /** Stable engine id, the value `[stt] engine` selects: `"whisper-cpp"` or `"sherpa-onnx"`. */
+    /**
+     * Stable engine id, the key an [SttEngineFactory] registers this engine under:
+     * `"whisper-cpp"` or `"sherpa-onnx"` for the planned engines.
+     */
     public val id: String
 
     /** Decode a whole utterance. Silence or an empty buffer yields [Transcript.EMPTY]. */
