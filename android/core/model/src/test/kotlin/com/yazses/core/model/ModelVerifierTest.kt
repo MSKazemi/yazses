@@ -1,11 +1,13 @@
 package com.yazses.core.model
 
 import java.io.ByteArrayInputStream
+import java.io.File
 import java.security.MessageDigest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
+import kotlin.test.assertTrue
 
 class ModelVerifierTest {
 
@@ -36,6 +38,75 @@ class ModelVerifierTest {
         val oneShot = MessageDigest.getInstance("SHA-256").digest(bytes)
             .joinToString("") { "%02x".format(it) }
         assertEquals(oneShot, ModelVerifier.sha256Hex(ByteArrayInputStream(bytes)))
+    }
+
+    @Test
+    fun `no java API newer than Android API 26 is referenced in the module`() {
+        // The JVM test run cannot see an API-level crash (the JDK has every class), so this
+        // scans main sources only. Gradle runs tests with the module directory as the working directory.
+        val forbidden = listOf(
+            "HexFormat", "java.util.stream", "java.util.Optional", "java.nio.file",
+            "java.time", "java.util.concurrent.Flow", ".readString(", "List.of(", "Map.of(", "Set.of(",
+        )
+        val sources = File("src/main").walk().filter { it.isFile && it.extension == "kt" }.toList()
+        assertTrue(sources.isNotEmpty(), "no main sources found under ${File(".").absolutePath}")
+        val hits = sources.flatMap { file ->
+            file.readLines().mapIndexedNotNull { i, line ->
+                forbidden.firstOrNull { it in line }?.let { "${file.path}:${i + 1} uses $it" }
+            }
+        }
+        assertEquals(emptyList(), hits)
+    }
+
+    @Test
+    fun `the hand-written hex encoder matches sha256sum for hello`() {
+        assertEquals(helloSha, ModelVerifier.sha256Hex(stream("hello")))
+    }
+
+    @Test
+    fun `an empty stream has the well-known empty-input digest`() {
+        assertEquals(
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            ModelVerifier.sha256Hex(ByteArrayInputStream(ByteArray(0))),
+        )
+    }
+
+    @Test
+    fun `a 200 KB repeating pattern streams to the same digest as a one-shot hash`() {
+        val pattern = byteArrayOf(0x00, 0x7F, -0x80, -0x01, 0x42)
+        val bytes = ByteArray(200 * 1024) { pattern[it % pattern.size] }
+        val oneShot = MessageDigest.getInstance("SHA-256").digest(bytes)
+            .joinToString("") { "%02x".format(it) }
+        assertEquals(oneShot, ModelVerifier.sha256Hex(ByteArrayInputStream(bytes)))
+    }
+
+    @Test
+    fun `an upper-case digest never verifies, even against the right model`() {
+        val result = ModelVerifier.verifyDigest(catalogue, helloSha.uppercase(), expected = hello)
+        assertIs<VerifyResult.InvalidDigest>(result)
+        assertEquals(helloSha.uppercase(), result.actual)
+    }
+
+    @Test
+    fun `an upper-case digest with the unverified marker is not an unknown sideload`() {
+        val result = ModelVerifier.verifyDigest(
+            catalogue, abcSha.uppercase(), unverified = UnverifiedAcknowledgement,
+        )
+        assertIs<VerifyResult.InvalidDigest>(result)
+    }
+
+    @Test
+    fun `an empty digest with the unverified marker fails closed`() {
+        val result = ModelVerifier.verifyDigest(catalogue, "", unverified = UnverifiedAcknowledgement)
+        assertIs<VerifyResult.InvalidDigest>(result)
+    }
+
+    @Test
+    fun `a short or non-hex digest fails closed`() {
+        for (bad in listOf(abcSha.take(63), abcSha + "0", abcSha.dropLast(1) + "g")) {
+            val result = ModelVerifier.verifyDigest(catalogue, bad, unverified = UnverifiedAcknowledgement)
+            assertIs<VerifyResult.InvalidDigest>(result, "accepted '$bad'")
+        }
     }
 
     @Test

@@ -113,6 +113,77 @@ class ModelCatalogueTest {
         assertTrue(problemsOf(text).single().contains("schemaVersion 2"))
     }
 
+    private fun idProblems(id: String): List<String> =
+        problemsOf(catalogue(model(id = id))).filter { "model id" in it }
+
+    @Test
+    fun `an id that would escape the storage directory is rejected`() {
+        assertTrue(idProblems("../../../x").isNotEmpty(), "traversal accepted")
+        assertTrue(idProblems("..").isNotEmpty(), "bare dot-dot accepted")
+        assertTrue(idProblems("a..b").isNotEmpty(), "embedded dot-dot accepted")
+    }
+
+    @Test
+    fun `an id with a slash is rejected`() {
+        assertTrue(idProblems("a/b").isNotEmpty(), "slash accepted")
+        // The fixture embeds the id raw in JSON, so "\\\\" here is one escaped backslash there.
+        assertTrue(idProblems("a\\\\b").isNotEmpty(), "backslash accepted")
+    }
+
+    @Test
+    fun `an id with an upper-case letter is rejected`() {
+        assertTrue(idProblems("Whisper-Base").isNotEmpty(), "upper-case accepted")
+    }
+
+    @Test
+    fun `an empty id is rejected`() {
+        assertTrue(idProblems("").isNotEmpty(), "empty accepted")
+    }
+
+    @Test
+    fun `an id with a leading dot is rejected`() {
+        assertTrue(idProblems(".hidden").isNotEmpty(), "leading dot accepted")
+    }
+
+    @Test
+    fun `an id longer than 64 characters is rejected`() {
+        assertTrue(idProblems("a".repeat(65)).isNotEmpty(), "65 characters accepted")
+        ModelCatalogue.parse(catalogue(model(id = "a".repeat(64))))
+    }
+
+    @Test
+    fun `a valid id is accepted`() {
+        ModelCatalogue.parse(catalogue(model(id = "whisper-base.en-q5")))
+    }
+
+    @Test
+    fun `a url with userinfo is rejected`() {
+        val problems = problemsOf(catalogue(model(url = "https://user:pw@example.invalid/a.bin")))
+        assertTrue(problems.any { "url" in it && "credentials" in it }, "got $problems")
+    }
+
+    @Test
+    fun `localhost and loopback hosts are rejected`() {
+        for (url in listOf(
+            "https://localhost/a.bin",
+            "https://LOCALHOST./a.bin",
+            "https://sub.localhost/a.bin",
+            "https://127.0.0.1/a.bin",
+            "https://[::1]/a.bin",
+        )) {
+            val problems = problemsOf(catalogue(model(url = url)))
+            assertTrue(problems.any { "url" in it }, "accepted '$url': $problems")
+        }
+    }
+
+    @Test
+    fun `a bare IP literal is rejected as a host`() {
+        for (url in listOf("https://10.0.0.5/a.bin", "https://93.184.216.34/a.bin")) {
+            val problems = problemsOf(catalogue(model(url = url)))
+            assertTrue(problems.any { "url" in it }, "accepted '$url': $problems")
+        }
+    }
+
     @Test
     fun `every problem is reported at once`() {
         val problems = problemsOf(

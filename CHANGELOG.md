@@ -11,9 +11,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Before the Android app downloads or imports a speech model it has to decide whether the file is the
 one it expected. That decision is now written and tested as pure Kotlin with no network code: the
 catalogue (`models.json`) is parsed and validated (HTTPS only, unique ids, a 64-character SHA-256,
-a positive size), and a file is checked against it by streaming the hash. A checksum mismatch is
-reported as a security event, never retried; a file the catalogue does not know is accepted only
-with an explicit "unverified — you supplied this" marker. The catalogue ships empty on purpose: no
+a positive size), and a file is checked against it by streaming the hash. A checksum mismatch
+returns a distinct result that the caller must treat as a security event and must not retry; a
+file the catalogue does not know is accepted only with an explicit "unverified — you supplied
+this" marker. The catalogue ships empty on purpose: no
 real model checksum is recorded anywhere in the repository yet, and none was invented. The
 download job, the file picker and the storage screen are the rest of
 [#90](https://github.com/MSKazemi/yazses/issues/90). Nothing changes for an existing install.
