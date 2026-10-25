@@ -62,6 +62,14 @@ performance number is claimed. The word-error-rate normaliser is simpler than th
 Android and desktop WER are not comparable yet. The on-device runner is the rest of
 [#92](https://github.com/MSKazemi/yazses/issues/92). Nothing changes for an existing install.
 
+A strict reader now validates records read back from disk. `BenchJson.read` returns either the
+record or every reason it was refused, and it never throws: truncated or malformed JSON, wrong
+types, duplicate keys, NaN or Infinity, bad escapes, lone surrogates, nesting past 64 levels and
+text over 8 MiB are all refused. The reader is strict about shape: a key the format requires but the
+file lacks, and a key the format does not define, are each refused by name. A reading is not
+measured only when the file says so with an explicit null and a reason, never as zero. The
+word-error-rate normaliser caveat above still stands.
+
 ## [2.46.0] - 2026-10-24
 
 ### Changed — the Settings window is a sidebar of pages, and the Features list can finally be seen

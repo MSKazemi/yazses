@@ -10,12 +10,44 @@ import java.math.RoundingMode
  *
  * A not-measured reading is written as `null` with a sibling `*_reason` key. It is never 0.
  */
+/** Outcome of [BenchJson.read]: a record that passed validation, or every reason it did not. */
+sealed interface ReadResult {
+    data class Ok(val result: BenchResult) : ReadResult
+    data class Rejected(val problems: List<String>) : ReadResult
+}
+
 object BenchJson {
+
+    /**
+     * Strict reader for the format [write] produces. Never throws: malformed JSON, a wrong type, too
+     * deep or too large an input, and an inconsistent record all come back as [ReadResult.Rejected]
+     * with the reasons. A record that is accepted has passed [BenchValidator].
+     */
+    fun read(text: String): ReadResult {
+        if (text.length > MAX_READ_CHARS) {
+            return ReadResult.Rejected(listOf("text is ${text.length} characters, over the $MAX_READ_CHARS limit"))
+        }
+        if (text.isNotEmpty() && text[0] == '﻿') {
+            return ReadResult.Rejected(listOf("text starts with a byte order mark, which the format does not allow"))
+        }
+        val root = try {
+            JsonParser(text, MAX_READ_DEPTH).parseDocument()
+        } catch (e: JsonSyntaxError) {
+            return ReadResult.Rejected(listOf("not valid JSON: ${e.message}"))
+        }
+        val decoder = BenchDecoder()
+        val record = decoder.decode(root)
+        return if (record != null) {
+            ReadResult.Ok(record)
+        } else {
+            ReadResult.Rejected(decoder.problems.ifEmpty { listOf("record could not be read") })
+        }
+    }
 
     private class Raw(val text: String)
 
     /** Reason written beside an rtf that is null: the only way a validated record has none is no audio. */
-    private const val NO_AUDIO = "no audio"
+    internal const val NO_AUDIO = "no audio"
 
     fun write(result: BenchResult): String {
         BenchValidator.require(result)
