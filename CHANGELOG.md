@@ -130,17 +130,7 @@ default-normaliser caveat above still stands.
 
 ### Added — Android: Whisper's English normaliser in `:core:bench`
 
-`:core:bench` can now normalise English text the way the desktop benchmark does. `Wer.wer`,
-`Wer.normalise` and `Wer.corpusWer` take a `TextNormalizer`, and `TextNormalizer.WHISPER_ENGLISH`
-runs `EnglishTextNormalizer`, a line-by-line Kotlin port of the English normaliser in
-whisper-normalizer 0.1.15 (MIT), the package that `paper/benchmark/bench_wer.py` uses. The port
-matches the package on all 598 vectors that were generated from the package itself (598/598), and
-the replay test fails the build on any mismatch. Two differences remain. Character properties come
-from the JDK's Unicode tables, which are Unicode 13 on the JDK 17 toolchain, while the oracle runs
-Python 3.14 with Unicode 16, so a character assigned after Unicode 13 (for example a recent emoji)
-is kept where the oracle drops it; a 4,000-input stress run outside the repository differed on 79
-inputs, all of them containing such a character. The default, `TextNormalizer.SIMPLE`, is unchanged
-and still not comparable with the desktop, so existing WER results do not move.
+`:core:bench` can now normalise English text the way the desktop benchmark does. `Wer.wer`, `Wer.normalise` and `Wer.corpusWer` take a `TextNormalizer`, and `TextNormalizer.WHISPER_ENGLISH` runs `EnglishTextNormalizer`, a line-by-line Kotlin port of the English normaliser in whisper-normalizer 0.1.15 (MIT), the package that `paper/benchmark/bench_wer.py` uses. Under this mode words are split as jiwer splits them (on the ASCII space only, so an unspaced run of CJK characters is one word), and a reference that is empty after Python's `strip()` is skipped, as the desktop skips it. For ordinary English text the port matches the oracle exactly: the replay of 614 vectors generated from the package passes 614/614, and an independent differential review of about 250,000 inputs found no mismatch outside the Unicode case below. The one documented difference is the age of the Unicode tables. The JDK 17 toolchain has Unicode 13 and CPython 3.14 has Unicode 16; they differ on 11,141 code points, 11,139 unassigned in Unicode 13 plus U+1734 and U+1171E, which were reclassified. For those, the port does not treat about 9,787 letters as word characters, so `\b` is wrong beside `um` or `mr`; it does not treat about 110 decimal digits as digits; it keeps about 950 symbols and 208 marks that Python drops, and 59 punctuation marks that Python makes spaces; and it keeps emoji from as early as Unicode 14 (for example U+1F979). On Android the normaliser runs on the operating system's tables, which vary by version; that is not tested. The desktop result also depends on the Unicode version of the Python that runs it. Two further limits: the `\s+'` rule takes time quadratic in the length of a whitespace run in both implementations, and the port is about 20 times slower in that pathological case (20,000 spaces take about 15 s against about 0.7 s in Python; realistic text takes about 18 ms per 1,000 characters); and CPython raises AssertionError on a digit token longer than 4,300 characters, where the port returns the text. The default, `TextNormalizer.SIMPLE`, keeps its normaliser. Its one change is that a reference which is only whitespace under Python's definition (for example a no-break space) is now skipped in every mode, as the desktop skips it.
 
 ## [2.46.0] - 2026-10-24
 

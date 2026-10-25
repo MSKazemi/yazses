@@ -1143,6 +1143,102 @@
       "expected": "family ‍ ‍"
     },
     {
+      "id": "astral-math-script-um",
+      "description": "an astral letter before a hesitation",
+      "input": "𝒜um",
+      "expected": "Aum"
+    },
+    {
+      "id": "astral-math-bold-mr",
+      "description": "an astral letter before a title",
+      "input": "𝐀mr",
+      "expected": "Amr"
+    },
+    {
+      "id": "astral-cjk-extb-um",
+      "description": "a CJK Extension B ideograph before a hesitation",
+      "input": "𠀀um",
+      "expected": "𠀀um"
+    },
+    {
+      "id": "astral-math-digit-um",
+      "description": "an astral digit before a hesitation",
+      "input": "𝟏um",
+      "expected": "one um"
+    },
+    {
+      "id": "astral-math-digit-num",
+      "description": "an astral digit before a number word",
+      "input": "𝟏one",
+      "expected": "11"
+    },
+    {
+      "id": "astral-then-space-um",
+      "description": "an astral letter, then a space, then a hesitation",
+      "input": "𝒜 um",
+      "expected": "A"
+    },
+    {
+      "id": "astral-after-um",
+      "description": "a hesitation, then an astral letter",
+      "input": "um𝒜",
+      "expected": "umA"
+    },
+    {
+      "id": "astral-between",
+      "description": "astral letters on both sides",
+      "input": "𝒜um𝒜",
+      "expected": "AumA"
+    },
+    {
+      "id": "astral-mixed-sentence",
+      "description": "an astral letter inside a sentence",
+      "input": "see 𝒜mr smith um today",
+      "expected": "see Amr smith today"
+    },
+    {
+      "id": "astral-deseret",
+      "description": "Deseret letters",
+      "input": "𐐀um 𐐨st",
+      "expected": "𐐨um 𐐨st"
+    },
+    {
+      "id": "sym-dollar-percent",
+      "description": "symbols that normalise to a lone space",
+      "input": "$%",
+      "expected": " "
+    },
+    {
+      "id": "sym-pound-percent",
+      "description": "pound sign and percent",
+      "input": "£%",
+      "expected": " "
+    },
+    {
+      "id": "sym-cent-percent",
+      "description": "cent sign and percent",
+      "input": "¢%",
+      "expected": " "
+    },
+    {
+      "id": "space-nbsp",
+      "description": "a no-break space between words",
+      "input": "a b",
+      "expected": "a b"
+    },
+    {
+      "id": "space-ideographic",
+      "description": "an ideographic space between words",
+      "input": "a　b",
+      "expected": "a b"
+    },
+    {
+      "id": "space-line-separator",
+      "description": "a line separator",
+      "input": "a b",
+      "expected": "a b"
+    },
+    {
       "id": "dict-email",
       "description": "an email address spoken",
       "input": "send it to john dot smith at example dot com",

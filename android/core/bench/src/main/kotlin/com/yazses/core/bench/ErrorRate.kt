@@ -23,9 +23,9 @@ data class ErrorRate(val errors: Int, val refLength: Int) {
  * [WHISPER_ENGLISH] is [EnglishTextNormalizer], a port of the whisper-normalizer package that the
  * desktop benchmark uses (paper/benchmark/bench_wer.py:36). WER computed with it on English text is
  * comparable with the desktop benchmark's. It is verified against the package's own outputs
- * (EnglishTextNormalizerVectorsTest, 598 of 598). Known difference: a character assigned after the
- * JDK's Unicode version (13 on the JDK 17 toolchain) is treated as unassigned, so a symbol added
- * later, such as a recent emoji, is kept where the desktop drops it. See [EnglishTextNormalizer].
+ * (EnglishTextNormalizerVectorsTest: 614 of 614 vectors pass). For ordinary English text the two agree
+ * exactly. The documented difference is the age of the Unicode tables, which is what the
+ * [EnglishTextNormalizer] KDoc describes.
  */
 enum class TextNormalizer { SIMPLE, WHISPER_ENGLISH }
 
@@ -91,7 +91,11 @@ object Wer {
 
     private fun isAlnum(cp: Int): Boolean = Character.isLetterOrDigit(cp)
 
-    /** Word tokens. Each CJK character is its own token, so a Chinese/Japanese WER counts characters. */
+    /**
+     * Legacy word tokens, used by [TextNormalizer.SIMPLE]. Each CJK character is its own token, so a
+     * Chinese/Japanese WER counts characters. [TextNormalizer.WHISPER_ENGLISH] does not split CJK; see
+     * [whisperWordTokens].
+     */
     fun wordTokens(normalised: String): List<String> {
         val out = mutableListOf<String>()
         val run = StringBuilder()
@@ -109,6 +113,19 @@ object Wer {
         return out
     }
 
+    /**
+     * Word tokens for [TextNormalizer.WHISPER_ENGLISH]: the same tokens jiwer's default transform
+     * makes. jiwer strips the string, collapses runs of whitespace, then splits on the ASCII space and
+     * drops empty pieces: `RemoveMultipleSpaces` (`\s\s+` to a space), `Strip`, then
+     * `ReduceToListOfListOfWords` (`s.split(" ")` keeping `len(w) >= 1`), applied by
+     * `wer_default` (transformations.py:40-46; transforms.py:440-458, :464-481, :150-179). The
+     * desktop scores WER through that default (bench_wer.py:227 calls jiwer.process_words with
+     * no transform argument), so a Chinese or Japanese run with spaces is one token, not one per character.
+     * The normalised text has no other whitespace: [EnglishTextNormalizer] collapses all of it.
+     */
+    fun whisperWordTokens(normalised: String): List<String> =
+        normalised.split(" ").filter { it.isNotEmpty() }
+
     /** Code points with whitespace and punctuation removed (zh-eval-v1 view, mandarin_metrics.py). */
     fun charTokens(text: String): List<String> {
         val out = mutableListOf<String>()
@@ -125,9 +142,14 @@ object Wer {
         hypothesis: String,
         normalizer: TextNormalizer = TextNormalizer.SIMPLE,
     ): ErrorRate {
-        val ref = wordTokens(normalise(reference, normalizer))
-        val hyp = wordTokens(normalise(hypothesis, normalizer))
+        val ref = tokens(normalise(reference, normalizer), normalizer)
+        val hyp = tokens(normalise(hypothesis, normalizer), normalizer)
         return ErrorRate(editDistance(ref, hyp), ref.size)
+    }
+
+    private fun tokens(normalised: String, normalizer: TextNormalizer): List<String> = when (normalizer) {
+        TextNormalizer.SIMPLE -> wordTokens(normalised)
+        TextNormalizer.WHISPER_ENGLISH -> whisperWordTokens(normalised)
     }
 
     fun cer(reference: String, hypothesis: String): ErrorRate {
@@ -137,14 +159,18 @@ object Wer {
     }
 
     /**
-     * Corpus WER: total errors over total reference tokens. Pairs with an empty reference are
-     * skipped, as bench_wer.py:223-224 does (`if r.strip()`), after normalisation as there.
+     * Corpus WER: total errors over total reference tokens. A pair whose normalised reference is empty
+     * after a Python-style `strip()` is skipped, as the desktop does: bench_wer.py:224 filters the
+     * normalised references (appended at :212) with `if r.strip()`. [pyStrip] is used rather than
+     * `isBlank()`, because Python's strip removes Unicode whitespace such as U+00A0 that `isBlank()`
+     * keeps. The check applies in every mode. For [TextNormalizer.SIMPLE] the normalised text is
+     * already trimmed, so the result is unchanged.
      */
     fun corpusWer(
         pairs: List<Pair<String, String>>,
         normalizer: TextNormalizer = TextNormalizer.SIMPLE,
     ): ErrorRate =
-        pairs.filter { normalise(it.first, normalizer).isNotEmpty() }
+        pairs.filter { pyStrip(normalise(it.first, normalizer)).isNotEmpty() }
             .fold(ErrorRate.ZERO) { acc, (r, h) -> acc + wer(r, h, normalizer) }
 
     fun editDistance(a: List<String>, b: List<String>): Int {

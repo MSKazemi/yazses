@@ -129,6 +129,18 @@ class EnglishTextNormalizerRulesTest {
     }
 
     @Test
+    fun `a digit token of 4300 characters converts, as in CPython`() {
+        // CPython raises AssertionError at 4301 digits (int() limit); the port does not refuse, so it
+        // returns the text. 4300 digits is the oracle's own output.
+        assertEquals("1".repeat(4300), EnglishTextNormalizer.normalize("1".repeat(4300)))
+    }
+
+    @Test
+    fun `a digit token of 4301 characters is returned, where CPython raises`() {
+        assertEquals("1".repeat(4301), EnglishTextNormalizer.normalize("1".repeat(4301)))
+    }
+
+    @Test
     fun `python split and strip use the Python whitespace set`() {
         assertEquals(listOf("a", "b", "c"), pySplit(" a b\u001Cc\t"))
         assertEquals("b", pyStrip("\u001C b  "))

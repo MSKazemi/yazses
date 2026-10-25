@@ -36,11 +36,27 @@ package com.yazses.core.bench
  * measured on a phone is computed on the same text. Output is lower-case, space-separated, with
  * numbers written as digits and British spellings replaced by American ones.
  *
- * Known difference from the oracle: character properties (general category, NFKD decomposition)
- * come from the JDK, whose Unicode version is 13 on the JDK 17 toolchain this module builds with;
- * the oracle uses Python 3.14, which has Unicode 16. A character assigned after the JDK's version,
- * such as a recent emoji, is treated as unassigned, so it is kept where the oracle drops it.
- * The vector replay does not contain such a character; see EnglishTextNormalizerVectorsTest.
+ * For ordinary English text the port matches the oracle exactly: all 614 vectors generated from the
+ * package pass, and an independent differential review of about 250,000 inputs found no mismatch
+ * outside the Unicode bucket below.
+ *
+ * The one documented difference is the age of the Unicode tables. The JDK 17 toolchain has Unicode 13;
+ * CPython 3.14 (the oracle) has Unicode 16. They differ on 11,141 code points: 11,139 unassigned in
+ * Unicode 13, plus U+1734 and U+1171E, which were reclassified. For those code points:
+ * - letters (about 9,787) are not word characters, so `\b` is wrong beside `um`, `mr` and the like;
+ * - about 110 decimal digits are not digits;
+ * - about 950 symbols and 208 marks are kept where Python drops them, and 59 punctuation marks are kept
+ *   where Python makes them spaces;
+ * - emoji from as early as Unicode 14 (for example U+1F979) are kept.
+ * On Android the normaliser runs on the operating system's tables, which vary by version; that is not
+ * tested. The desktop result also depends on the Unicode version of the Python that runs it.
+ *
+ * Two more differences:
+ * - The `\s+'` rule takes time quadratic in the length of a whitespace run, in both implementations. The
+ *   Kotlin port is about 20 times slower in that pathological case (20,000 spaces: about 15 s against
+ *   about 0.7 s in Python). Realistic text is linear, about 18 ms per 1,000 characters.
+ * - CPython raises AssertionError on a digit token longer than 4,300 characters (its integer conversion
+ *   limit). The port returns the text instead.
  */
 object EnglishTextNormalizer {
 

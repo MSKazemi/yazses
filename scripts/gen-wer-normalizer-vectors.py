@@ -238,6 +238,25 @@ HAND: list[tuple[str, str, str]] = [
     ("script-arabic", "Arabic", "مرحبا hello"),
     ("emoji-simple", "emoji", "great job \U0001F44D"),
     ("emoji-zwj", "zero-width joiner sequence", "family \U0001F468‍\U0001F469‍\U0001F467"),
+    # --- supplementary-plane letters and digits next to word-boundary rules ----------------
+    # Found by an independent differential test: a lookbehind that steps back one UTF-16 unit
+    # sees a lone low surrogate after an astral letter, so \b is wrong before um / mr / st.
+    ("astral-math-script-um", "an astral letter before a hesitation", "\U0001D49Cum"),
+    ("astral-math-bold-mr", "an astral letter before a title", "\U0001D400mr"),
+    ("astral-cjk-extb-um", "a CJK Extension B ideograph before a hesitation", "\U00020000um"),
+    ("astral-math-digit-um", "an astral digit before a hesitation", "\U0001D7CFum"),
+    ("astral-math-digit-num", "an astral digit before a number word", "\U0001D7CFone"),
+    ("astral-then-space-um", "an astral letter, then a space, then a hesitation", "\U0001D49C um"),
+    ("astral-after-um", "a hesitation, then an astral letter", "um\U0001D49C"),
+    ("astral-between", "astral letters on both sides", "\U0001D49Cum\U0001D49C"),
+    ("astral-mixed-sentence", "an astral letter inside a sentence", "see \U0001D49Cmr smith um today"),
+    ("astral-deseret", "Deseret letters", "\U00010400um \U00010428st"),
+    ("sym-dollar-percent", "symbols that normalise to a lone space", "$%"),
+    ("sym-pound-percent", "pound sign and percent", "\u00a3%"),
+    ("sym-cent-percent", "cent sign and percent", "\u00a2%"),
+    ("space-nbsp", "a no-break space between words", "a\u00a0b"),
+    ("space-ideographic", "an ideographic space between words", "a\u3000b"),
+    ("space-line-separator", "a line separator", "a\u2028b"),
     # --- real-looking dictation -------------------------------------------------------
     ("dict-email", "an email address spoken", "send it to john dot smith at example dot com"),
     ("dict-url", "a url", "go to www.example.com/path?x=1"),

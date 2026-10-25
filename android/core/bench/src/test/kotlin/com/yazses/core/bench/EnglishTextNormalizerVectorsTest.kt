@@ -33,7 +33,7 @@ class EnglishTextNormalizerVectorsTest {
 
     @Test
     fun `summary counts every vector and the known differences are exactly the real mismatches`() {
-        assertEquals(598, vectors.size, "the vector file must hold all 598 cases")
+        assertEquals(614, vectors.size, "the vector file must hold all 614 cases")
         val failing = vectors.mapNotNull { v ->
             val actual = EnglishTextNormalizer.normalize(v.input)
             if (actual == v.expected) null else Mismatch(v, actual)

@@ -19,8 +19,19 @@ internal const val PY_WS = "[\\t\\n\\u000B\\f\\r \\u001C-\\u001F\\u0085\\u00A0\\
 /** `\w` as Python matches it: `str.isalnum()` or underscore. Letters (L*) plus numbers (N*). */
 internal const val PY_WORD = "[\\p{L}\\p{Nd}\\p{Nl}\\p{No}_]"
 
+/**
+ * The body of a lookbehind that tests the character before a position as a word character.
+ *
+ * Java computes a lookbehind's length from the class, which is one char, so it only ever steps back
+ * one UTF-16 unit. After a supplementary character that unit is a lone low surrogate, which is not a
+ * letter, so an astral letter (a math alphanumeric, CJK Ext B) would count as a non-word character. The
+ * dead branch `(?!)[\s\S][\s\S]` never matches, but it is two units long, so Java also tries the step
+ * back of two units, where the class reads the whole code point.
+ */
+internal const val PY_WORD_BEHIND = "$PY_WORD|(?!)[\\s\\S][\\s\\S]"
+
 /** `\b` as Python matches it. Java's own `\b` would use a different word definition. */
-internal const val PY_B = "(?:(?<=$PY_WORD)(?!$PY_WORD)|(?<!$PY_WORD)(?=$PY_WORD))"
+internal const val PY_B = "(?:(?<=$PY_WORD_BEHIND)(?!$PY_WORD)|(?<!$PY_WORD_BEHIND)(?=$PY_WORD))"
 
 /** Python `$` without MULTILINE: end of string, or just before a newline that ends the string. */
 internal const val PY_DOLLAR = "(?=\\n?\\z)"
