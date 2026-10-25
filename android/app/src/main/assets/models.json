@@ -1,0 +1,5 @@
+{
+  "_schema": "Each model: id (unique), displayName, engine, sizeBytes (>0), sha256 (64 lower-case hex), licence, url (https://). Parsed and validated by com.yazses.core.model.ModelCatalogue. Empty until each checksum can be taken from a real, checkable source.",
+  "schemaVersion": 1,
+  "models": []
+}

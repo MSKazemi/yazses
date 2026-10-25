@@ -6,6 +6,18 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — Android: the model catalogue and its checksum check (`:core:model`)
+
+Before the Android app downloads or imports a speech model it has to decide whether the file is the
+one it expected. That decision is now written and tested as pure Kotlin with no network code: the
+catalogue (`models.json`) is parsed and validated (HTTPS only, unique ids, a 64-character SHA-256,
+a positive size), and a file is checked against it by streaming the hash. A checksum mismatch is
+reported as a security event, never retried; a file the catalogue does not know is accepted only
+with an explicit "unverified — you supplied this" marker. The catalogue ships empty on purpose: no
+real model checksum is recorded anywhere in the repository yet, and none was invented. The
+download job, the file picker and the storage screen are the rest of
+[#90](https://github.com/MSKazemi/yazses/issues/90). Nothing changes for an existing install.
+
 ## [2.46.0] - 2026-10-24
 
 ### Changed — the Settings window is a sidebar of pages, and the Features list can finally be seen
