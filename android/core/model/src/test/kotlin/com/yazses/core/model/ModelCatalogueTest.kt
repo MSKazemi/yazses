@@ -37,6 +37,38 @@ class ModelCatalogueTest {
         assertTrue(catalogue.models.all { it.url.startsWith("https://") })
     }
 
+    // A Hugging Face "resolve" URL names a revision. A branch name ("main") moves when upstream
+    // replaces the file; only a full 40-hex commit is immutable (#683).
+    private val pinnedHuggingFace =
+        Regex("^https://huggingface\\.co/[^/]+/[^/]+/resolve/[0-9a-f]{40}/[^/?#]+$")
+
+    @Test
+    fun `every shipped url is pinned to a commit, never a moving ref`() {
+        val shipped = File("../../app/src/main/assets/models.json")
+        val urls = ModelCatalogue.parse(shipped.readText()).models.map { it.url }
+        assertTrue(urls.isNotEmpty(), "this guard is vacuous on an empty catalogue")
+        for (url in urls) {
+            assertTrue(
+                pinnedHuggingFace.matches(url),
+                "$url is not pinned to a 40-hex Hugging Face commit. A new host needs its own " +
+                    "immutable-revision rule here before it can ship.",
+            )
+        }
+    }
+
+    @Test
+    fun `the pin rule rejects branch names and short hashes and accepts a full commit`() {
+        val commit = "5359861c739e955e79d9a303bcbc70fb988958b1"
+        val base = "https://huggingface.co/ggerganov/whisper.cpp/resolve"
+        assertTrue(pinnedHuggingFace.matches("$base/$commit/ggml-tiny.en.bin"))
+        assertTrue(!pinnedHuggingFace.matches("$base/main/ggml-tiny.en.bin"))
+        assertTrue(!pinnedHuggingFace.matches("$base/master/ggml-tiny.en.bin"))
+        assertTrue(!pinnedHuggingFace.matches("$base/5359861/ggml-tiny.en.bin"))
+        assertTrue(!pinnedHuggingFace.matches("$base/${commit.uppercase()}/ggml-tiny.en.bin"))
+        assertTrue(!pinnedHuggingFace.matches("$base/${commit}0/ggml-tiny.en.bin"))
+        assertTrue(!pinnedHuggingFace.matches("https://example.invalid/resolve/$commit/x.bin"))
+    }
+
     @Test
     fun `a valid entry parses and can be looked up by id`() {
         val parsed = ModelCatalogue.parse(catalogue(model()))

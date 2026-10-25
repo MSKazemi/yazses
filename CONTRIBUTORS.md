@@ -278,7 +278,10 @@ found defects that no amount of reading the code here would have surfaced.
   upstream release, cross-checked them against the published SHA-1, and said where each number came
   from instead of asking us to believe it
   ([#675](https://github.com/MSKazemi/yazses/issues/675) →
-  [#682](https://github.com/MSKazemi/yazses/pull/682))
+  [#682](https://github.com/MSKazemi/yazses/pull/682)). Then took the follow-up unprompted and
+  pinned both URLs to an upstream commit, so a replaced file cannot change what is downloaded
+  ([#683](https://github.com/MSKazemi/yazses/issues/683) →
+  [#684](https://github.com/MSKazemi/yazses/pull/684))
 - [@YuuGR1337](https://github.com/YuuGR1337) (Elkero) — found that the "improving this
   translation is a welcome first contribution" link on **every** draft translation page pointed
   at that locale's *closed* `Translate the README` issue, so the one line whose whole job is to

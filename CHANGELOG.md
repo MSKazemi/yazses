@@ -6,6 +6,17 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed — Android: the model URLs are pinned to a commit
+
+The two catalogue entries pointed at `resolve/main/`, a branch that moves if upstream replaces a
+file. The checksum would have caught that and the app would have refused the file, but a download
+that fails for no visible reason is a poor first run. Both URLs now name the exact Hugging Face
+commit (`5359861c`) at which each file's SHA-256 and size are the ones in the catalogue, which I
+re-checked against the Git-LFS pointers at that commit. A new test fails the build if any shipped
+URL is not pinned to a full 40-hex commit, so a later entry cannot bring a moving ref back. Thank
+you, [@yoreva-01](https://github.com/yoreva-01)
+([#684](https://github.com/MSKazemi/yazses/pull/684), [#683](https://github.com/MSKazemi/yazses/issues/683)).
+
 ### Added — Android: the model catalogue has its first two models
 
 `models.json` shipped empty on purpose: no real model checksum was recorded anywhere in the
