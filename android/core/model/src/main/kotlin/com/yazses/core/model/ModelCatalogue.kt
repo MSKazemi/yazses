@@ -61,6 +61,12 @@ public class ModelCatalogue private constructor(public val models: List<ModelEnt
         // lower-case slug: no separators, no leading dot, no upper case, bounded length.
         private val ID_PATTERN = Regex("^[a-z0-9][a-z0-9._-]*$")
         private const val MAX_ID_LENGTH = 64
+
+        /**
+         * Suffix of every temporary download file ([InstallPlan.begin]). An id may not end with it,
+         * so no final model file can share a name with a file a download is still writing.
+         */
+        public const val TEMP_SUFFIX: String = ".part"
         private val IPV4_LITERAL = Regex("^\\d{1,3}(\\.\\d{1,3}){3}$")
         private val json = Json { ignoreUnknownKeys = true }
 
@@ -91,6 +97,8 @@ public class ModelCatalogue private constructor(public val models: List<ModelEnt
          * - ids are unique, and so are digests (two entries with one digest make
          *   a sideloaded file's identity ambiguous)
          * - `id` matches `^[a-z0-9][a-z0-9._-]*$`, is at most 64 characters and has no `..`
+         * - `id` does not end with [TEMP_SUFFIX]: `tiny` downloads to `tiny.<sha12>.part`, and a
+         *   final model named `tiny.part` (or any `.part` name) must never collide with it
          * - `sha256` is 64 lower-case hex characters
          * - `sizeBytes` is positive
          * - `url` is `https://` with a DNS host, no userinfo, and not localhost, a loopback
@@ -110,6 +118,9 @@ public class ModelCatalogue private constructor(public val models: List<ModelEnt
                 if (!ID_PATTERN.matches(e.id) || e.id.length > MAX_ID_LENGTH || ".." in e.id) {
                     problems += "model id '${e.id}' must match ^[a-z0-9][a-z0-9._-]*\$, be at most " +
                         "$MAX_ID_LENGTH characters, and not contain '..'"
+                }
+                if (e.id.endsWith(TEMP_SUFFIX)) {
+                    problems += "model id '${e.id}' must not end with '$TEMP_SUFFIX': that suffix is reserved for temporary downloads"
                 }
                 if (e.displayName.isBlank()) problems += "$where: displayName is blank"
                 if (e.engine.isBlank()) problems += "$where: engine is blank"
