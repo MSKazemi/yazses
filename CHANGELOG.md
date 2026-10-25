@@ -108,8 +108,9 @@ measurement is now fixed before any phone is involved: a result record with sche
 `yazses.bench.android/1`, a deterministic JSON writer, word and character error rate, real-time
 factor, and a validator that rejects an inconsistent record. A reading that was not measured is
 written as `null` with a reason, never as `0`. It is pure Kotlin tested on synthetic data; no
-performance number is claimed. The word-error-rate normaliser is simpler than the desktop's, so
-Android and desktop WER are not comparable yet. The on-device runner is the rest of
+performance number is claimed. The default word-error-rate normaliser is simpler than the desktop's,
+so WER under that default is not comparable with the desktop's; the next entry adds the desktop's
+normaliser. The on-device runner is the rest of
 [#92](https://github.com/MSKazemi/yazses/issues/92). Nothing changes for an existing install.
 
 A strict reader now validates records read back from disk. `BenchJson.read` returns either the
@@ -125,7 +126,11 @@ null and a reason, never as zero, and a measured peak of zero is refused. A reco
 accepts everything the writer produces. `write` also refuses a value the format cannot store
 exactly (a duration or rate finer than six decimals, a negative zero, a lone surrogate), rather
 than rounding it: every record `write` accepts reads back equal to itself. The word-error-rate
-normaliser caveat above still stands.
+default-normaliser caveat above still stands.
+
+### Added — Android: Whisper's English normaliser in `:core:bench`
+
+`:core:bench` can now normalise English text the way the desktop benchmark does. `Wer.wer`, `Wer.normalise` and `Wer.corpusWer` take a `TextNormalizer`, and `TextNormalizer.WHISPER_ENGLISH` runs `EnglishTextNormalizer`, a line-by-line Kotlin port of the English normaliser in whisper-normalizer 0.1.15 (MIT), the package that `paper/benchmark/bench_wer.py` uses. Under this mode words are split as jiwer splits them (on the ASCII space only, so an unspaced run of CJK characters is one word), and a reference that is empty after Python's `strip()` is skipped, as the desktop skips it. For ordinary English text the port matches the oracle exactly: the replay of 614 vectors generated from the package passes 614/614, and an independent differential review of about 250,000 inputs found no mismatch outside the Unicode case below. The one documented difference is the age of the Unicode tables. The JDK 17 toolchain has Unicode 13 and CPython 3.14 has Unicode 16; they differ on 11,141 code points, 11,139 unassigned in Unicode 13 plus U+1734 and U+1171E, which were reclassified. For those, the port does not treat about 9,787 letters as word characters, so `\b` is wrong beside `um` or `mr`; it does not treat about 110 decimal digits as digits; it keeps about 950 symbols and 208 marks that Python drops, and 59 punctuation marks that Python makes spaces; and it keeps emoji from as early as Unicode 14 (for example U+1F979). On Android the normaliser runs on the operating system's tables, which vary by version; that is not tested. The desktop result also depends on the Unicode version of the Python that runs it. Two further limits: the `\s+'` rule takes time quadratic in the length of a whitespace run in both implementations, and the port is about 20 times slower in that pathological case (20,000 spaces take about 15 s against about 0.7 s in Python; realistic text takes about 18 ms per 1,000 characters); and CPython raises AssertionError on a digit token longer than 4,300 characters, where the port returns the text. The default, `TextNormalizer.SIMPLE`, keeps its normaliser. Its one change is that a reference which is only whitespace under Python's definition (for example a no-break space) is now skipped in every mode, as the desktop skips it.
 
 ## [2.46.0] - 2026-10-24
 

@@ -1,0 +1,3696 @@
+{
+  "unit": "bench.wer_normalizer",
+  "purpose": "Replay target for the Kotlin port of Whisper's English text normaliser (android :core:bench). Generated, frozen test data; not a contract/ family.",
+  "oracle": {
+    "package": "whisper-normalizer",
+    "version": "0.1.15",
+    "class": "whisper_normalizer.english.EnglishTextNormalizer"
+  },
+  "seed": 20261025,
+  "cases": [
+    {
+      "id": "empty",
+      "description": "an empty string stays empty",
+      "input": "",
+      "expected": ""
+    },
+    {
+      "id": "spaces-only",
+      "description": "whitespace alone collapses to nothing",
+      "input": "   \t \n  ",
+      "expected": ""
+    },
+    {
+      "id": "punctuation-only",
+      "description": "punctuation alone collapses to nothing",
+      "input": "?!.,;:--()[]{}",
+      "expected": ""
+    },
+    {
+      "id": "single-word",
+      "description": "a plain word is lower-cased",
+      "input": "Hello",
+      "expected": "hello"
+    },
+    {
+      "id": "mixed-case",
+      "description": "case is folded",
+      "input": "THE Quick bRoWn FoX",
+      "expected": "the quick brown fox"
+    },
+    {
+      "id": "extra-spaces",
+      "description": "runs of spaces collapse",
+      "input": "a    b     c",
+      "expected": "a b c"
+    },
+    {
+      "id": "square-brackets",
+      "description": "text in square brackets is dropped",
+      "input": "hello [inaudible] world",
+      "expected": "hello world"
+    },
+    {
+      "id": "round-brackets",
+      "description": "text in round brackets is dropped",
+      "input": "hello (laughs) world",
+      "expected": "hello world"
+    },
+    {
+      "id": "nested-brackets",
+      "description": "nested brackets",
+      "input": "a [b (c) d] e",
+      "expected": "a e"
+    },
+    {
+      "id": "unclosed-bracket",
+      "description": "an unclosed bracket",
+      "input": "a [b c",
+      "expected": "a b c"
+    },
+    {
+      "id": "hesitation-um",
+      "description": "um is removed",
+      "input": "well um I think so",
+      "expected": "well i think so"
+    },
+    {
+      "id": "hesitation-uh",
+      "description": "uh is removed",
+      "input": "uh yes uh no",
+      "expected": "yes no"
+    },
+    {
+      "id": "hesitation-hmm",
+      "description": "hmm and mm",
+      "input": "hmm mm yes",
+      "expected": "yes"
+    },
+    {
+      "id": "hesitation-mhm",
+      "description": "mhm and mmm",
+      "input": "mhm mmm okay",
+      "expected": "okay"
+    },
+    {
+      "id": "filler-after-space",
+      "description": "a filler at the start",
+      "input": "um hello",
+      "expected": "hello"
+    },
+    {
+      "id": "contraction-dont",
+      "description": "don't",
+      "input": "I don't know",
+      "expected": "i do not know"
+    },
+    {
+      "id": "contraction-cant",
+      "description": "can't",
+      "input": "we can't go",
+      "expected": "we can not go"
+    },
+    {
+      "id": "contraction-wont",
+      "description": "won't",
+      "input": "they won't come",
+      "expected": "they will not come"
+    },
+    {
+      "id": "contraction-im",
+      "description": "I'm",
+      "input": "I'm here",
+      "expected": "i am here"
+    },
+    {
+      "id": "contraction-theyre",
+      "description": "they're",
+      "input": "they're late",
+      "expected": "they are late"
+    },
+    {
+      "id": "contraction-youve",
+      "description": "you've",
+      "input": "you've seen it",
+      "expected": "you have seen it"
+    },
+    {
+      "id": "possessive",
+      "description": "possessive 's",
+      "input": "John's book",
+      "expected": "john is book"
+    },
+    {
+      "id": "plural-possessive",
+      "description": "plural possessive",
+      "input": "the dogs' bowls",
+      "expected": "the dogs bowls"
+    },
+    {
+      "id": "curly-apostrophe",
+      "description": "typographic apostrophe",
+      "input": "don’t stop",
+      "expected": "don t stop"
+    },
+    {
+      "id": "quote-marks",
+      "description": "quotation marks",
+      "input": "he said \"yes\" and 'no'",
+      "expected": "he said yes and no"
+    },
+    {
+      "id": "contraction-letd",
+      "description": "let's",
+      "input": "let's go",
+      "expected": "let us go"
+    },
+    {
+      "id": "contraction-wouldve",
+      "description": "would've",
+      "input": "I would've gone",
+      "expected": "i would have gone"
+    },
+    {
+      "id": "contraction-whats",
+      "description": "what's",
+      "input": "what's that",
+      "expected": "what is that"
+    },
+    {
+      "id": "title-mr",
+      "description": "mr",
+      "input": "Mr. Smith arrived",
+      "expected": "mister smith arrived"
+    },
+    {
+      "id": "title-mrs",
+      "description": "mrs",
+      "input": "Mrs. Jones left",
+      "expected": "missus jones left"
+    },
+    {
+      "id": "title-ms",
+      "description": "ms",
+      "input": "Ms. Lee spoke",
+      "expected": "ms lee spoke"
+    },
+    {
+      "id": "title-dr",
+      "description": "dr",
+      "input": "Dr. Who is here",
+      "expected": "doctor who is here"
+    },
+    {
+      "id": "title-prof",
+      "description": "prof",
+      "input": "Prof. Brown teaches",
+      "expected": "professor brown teaches"
+    },
+    {
+      "id": "title-sr-jr",
+      "description": "senior and junior",
+      "input": "Smith Jr. and Smith Sr.",
+      "expected": "smith junior and smith senior"
+    },
+    {
+      "id": "title-st",
+      "description": "saint or street",
+      "input": "St. Louis on Main St.",
+      "expected": "saint louis on main saint"
+    },
+    {
+      "id": "abbrev-etc",
+      "description": "etc",
+      "input": "apples, pears, etc.",
+      "expected": "apples pears etc"
+    },
+    {
+      "id": "abbrev-eg",
+      "description": "e.g.",
+      "input": "fruit, e.g. apples",
+      "expected": "fruit e g apples"
+    },
+    {
+      "id": "abbrev-ie",
+      "description": "i.e.",
+      "input": "that is, i.e. this one",
+      "expected": "that is i e this one"
+    },
+    {
+      "id": "abbrev-vs",
+      "description": "vs",
+      "input": "red vs blue",
+      "expected": "red vs blue"
+    },
+    {
+      "id": "abbrev-am-pm",
+      "description": "a.m. and p.m.",
+      "input": "at 9 a.m. or 5 p.m.",
+      "expected": "at 9 a m or 5 p m"
+    },
+    {
+      "id": "abbrev-ok",
+      "description": "ok",
+      "input": "ok that's fine",
+      "expected": "ok that is fine"
+    },
+    {
+      "id": "abbrev-okay",
+      "description": "okay",
+      "input": "okay then",
+      "expected": "okay then"
+    },
+    {
+      "id": "abbrev-us",
+      "description": "U.S.",
+      "input": "the U.S. economy",
+      "expected": "the u s economy"
+    },
+    {
+      "id": "abbrev-no",
+      "description": "no.",
+      "input": "see no. 5",
+      "expected": "see no 5"
+    },
+    {
+      "id": "num-zero",
+      "description": "zero",
+      "input": "zero",
+      "expected": "0"
+    },
+    {
+      "id": "num-one",
+      "description": "one",
+      "input": "one",
+      "expected": "one"
+    },
+    {
+      "id": "num-teens",
+      "description": "teens",
+      "input": "thirteen fourteen fifteen sixteen seventeen eighteen nineteen",
+      "expected": "13141516171819"
+    },
+    {
+      "id": "num-tens",
+      "description": "tens",
+      "input": "twenty thirty forty fifty sixty seventy eighty ninety",
+      "expected": "2030405060708090"
+    },
+    {
+      "id": "num-twentyone",
+      "description": "compound",
+      "input": "twenty one",
+      "expected": "21"
+    },
+    {
+      "id": "num-twenty-hyphen",
+      "description": "hyphenated compound",
+      "input": "twenty-one",
+      "expected": "21"
+    },
+    {
+      "id": "num-ninety-nine",
+      "description": "ninety nine",
+      "input": "ninety nine",
+      "expected": "99"
+    },
+    {
+      "id": "num-hundred",
+      "description": "a hundred",
+      "input": "a hundred",
+      "expected": "a 100"
+    },
+    {
+      "id": "num-one-hundred",
+      "description": "one hundred",
+      "input": "one hundred",
+      "expected": "100"
+    },
+    {
+      "id": "num-hundred-and",
+      "description": "one hundred and five",
+      "input": "one hundred and five",
+      "expected": "105"
+    },
+    {
+      "id": "num-hundred-twenty-three",
+      "description": "one hundred twenty three",
+      "input": "one hundred twenty three",
+      "expected": "123"
+    },
+    {
+      "id": "num-two-hundred-fifty",
+      "description": "two hundred fifty",
+      "input": "two hundred fifty",
+      "expected": "250"
+    },
+    {
+      "id": "num-thousand",
+      "description": "one thousand",
+      "input": "one thousand",
+      "expected": "1000"
+    },
+    {
+      "id": "num-two-thousand-and-five",
+      "description": "two thousand and five",
+      "input": "two thousand and five",
+      "expected": "2005"
+    },
+    {
+      "id": "num-twelve-thousand",
+      "description": "twelve thousand three hundred",
+      "input": "twelve thousand three hundred forty five",
+      "expected": "12345"
+    },
+    {
+      "id": "num-million",
+      "description": "three million",
+      "input": "three million",
+      "expected": "3000000"
+    },
+    {
+      "id": "num-million-half",
+      "description": "two and a half million",
+      "input": "two and a half million",
+      "expected": "2500000"
+    },
+    {
+      "id": "num-billion",
+      "description": "five billion",
+      "input": "five billion",
+      "expected": "5000000000"
+    },
+    {
+      "id": "num-trillion",
+      "description": "one trillion",
+      "input": "one trillion",
+      "expected": "1000000000000"
+    },
+    {
+      "id": "num-a-thousand",
+      "description": "a thousand",
+      "input": "a thousand",
+      "expected": "a 1000"
+    },
+    {
+      "id": "num-a-million",
+      "description": "a million",
+      "input": "a million",
+      "expected": "a 1000000"
+    },
+    {
+      "id": "num-hundred-thousand",
+      "description": "one hundred thousand",
+      "input": "one hundred thousand",
+      "expected": "100000"
+    },
+    {
+      "id": "num-oh-one",
+      "description": "digit-by-digit with oh",
+      "input": "one oh one",
+      "expected": "101"
+    },
+    {
+      "id": "num-oh-seven",
+      "description": "oh seven",
+      "input": "oh seven",
+      "expected": "07"
+    },
+    {
+      "id": "num-digits-run",
+      "description": "digits spoken one by one",
+      "input": "five five five one two one two",
+      "expected": "5551212"
+    },
+    {
+      "id": "num-double",
+      "description": "double",
+      "input": "double oh seven",
+      "expected": "007"
+    },
+    {
+      "id": "num-triple",
+      "description": "triple",
+      "input": "triple five",
+      "expected": "555"
+    },
+    {
+      "id": "num-years-nineteen-eighty-four",
+      "description": "a year",
+      "input": "nineteen eighty four",
+      "expected": "1984"
+    },
+    {
+      "id": "num-years-twenty-twenty",
+      "description": "twenty twenty",
+      "input": "twenty twenty",
+      "expected": "2020"
+    },
+    {
+      "id": "num-years-two-thousand-ten",
+      "description": "two thousand ten",
+      "input": "two thousand ten",
+      "expected": "2010"
+    },
+    {
+      "id": "num-decade-eighties",
+      "description": "nineteen eighties",
+      "input": "in the nineteen eighties",
+      "expected": "in the 1980s"
+    },
+    {
+      "id": "num-decade-sixties",
+      "description": "the sixties",
+      "input": "the sixties",
+      "expected": "the 60s"
+    },
+    {
+      "id": "num-point",
+      "description": "decimal with point",
+      "input": "three point one four",
+      "expected": "3.14"
+    },
+    {
+      "id": "num-point-five",
+      "description": "point five",
+      "input": "point five",
+      "expected": ".5"
+    },
+    {
+      "id": "num-zero-point",
+      "description": "zero point two",
+      "input": "zero point two five",
+      "expected": "0.25"
+    },
+    {
+      "id": "num-and-a-half",
+      "description": "and a half",
+      "input": "two and a half",
+      "expected": "2.5"
+    },
+    {
+      "id": "num-quarter",
+      "description": "a quarter",
+      "input": "a quarter",
+      "expected": "a quarter"
+    },
+    {
+      "id": "num-three-quarters",
+      "description": "three quarters",
+      "input": "three quarters of the way",
+      "expected": "3 quarters of the way"
+    },
+    {
+      "id": "num-half",
+      "description": "a half",
+      "input": "half of it",
+      "expected": "half of it"
+    },
+    {
+      "id": "num-dozen",
+      "description": "a dozen",
+      "input": "a dozen eggs",
+      "expected": "a dozen eggs"
+    },
+    {
+      "id": "num-score",
+      "description": "a score",
+      "input": "four score and seven",
+      "expected": "4 score and 7"
+    },
+    {
+      "id": "num-couple",
+      "description": "a couple",
+      "input": "a couple of times",
+      "expected": "a couple of times"
+    },
+    {
+      "id": "num-negative",
+      "description": "minus",
+      "input": "minus five degrees",
+      "expected": "-5 degrees"
+    },
+    {
+      "id": "num-negative-word",
+      "description": "negative",
+      "input": "negative three",
+      "expected": "-3"
+    },
+    {
+      "id": "num-plus",
+      "description": "plus",
+      "input": "two plus two",
+      "expected": "2 +2"
+    },
+    {
+      "id": "ord-first",
+      "description": "first",
+      "input": "the first time",
+      "expected": "the 1st time"
+    },
+    {
+      "id": "ord-second",
+      "description": "second",
+      "input": "the second one",
+      "expected": "the 2nd one"
+    },
+    {
+      "id": "ord-third",
+      "description": "third",
+      "input": "third place",
+      "expected": "3rd place"
+    },
+    {
+      "id": "ord-fourth",
+      "description": "fourth",
+      "input": "fourth floor",
+      "expected": "4th floor"
+    },
+    {
+      "id": "ord-twenty-first",
+      "description": "twenty first",
+      "input": "twenty first century",
+      "expected": "21st century"
+    },
+    {
+      "id": "ord-thirty-first",
+      "description": "thirty-first",
+      "input": "thirty-first of may",
+      "expected": "31st of may"
+    },
+    {
+      "id": "ord-hundredth",
+      "description": "hundredth",
+      "input": "the hundredth day",
+      "expected": "the 100th day"
+    },
+    {
+      "id": "ord-thousandth",
+      "description": "thousandth",
+      "input": "the thousandth time",
+      "expected": "the 1000th time"
+    },
+    {
+      "id": "ord-digits-1st",
+      "description": "1st",
+      "input": "the 1st of May",
+      "expected": "the 1st of may"
+    },
+    {
+      "id": "ord-digits-2nd",
+      "description": "2nd",
+      "input": "the 2nd floor",
+      "expected": "the 2nd floor"
+    },
+    {
+      "id": "ord-digits-3rd",
+      "description": "3rd",
+      "input": "the 3rd time",
+      "expected": "the 3rd time"
+    },
+    {
+      "id": "ord-digits-21st",
+      "description": "21st",
+      "input": "the 21st century",
+      "expected": "the 21st century"
+    },
+    {
+      "id": "ord-digits-112th",
+      "description": "112th",
+      "input": "the 112th street",
+      "expected": "the 112th street"
+    },
+    {
+      "id": "digits-plain",
+      "description": "plain digits",
+      "input": "I have 3 cats",
+      "expected": "i have 3 cats"
+    },
+    {
+      "id": "digits-thousands-comma",
+      "description": "a thousands separator",
+      "input": "1,000 people",
+      "expected": "1000 people"
+    },
+    {
+      "id": "digits-thousands-comma-big",
+      "description": "bigger",
+      "input": "1,234,567 people",
+      "expected": "1234567 people"
+    },
+    {
+      "id": "digits-decimal",
+      "description": "a decimal",
+      "input": "pi is 3.14",
+      "expected": "pi is 3.14"
+    },
+    {
+      "id": "digits-decimal-lead",
+      "description": "leading decimal point",
+      "input": ".5 percent",
+      "expected": ".5 percent"
+    },
+    {
+      "id": "digits-trailing-dot",
+      "description": "a number ending a sentence",
+      "input": "it costs 5.",
+      "expected": "it costs 5"
+    },
+    {
+      "id": "digits-phone",
+      "description": "a phone number",
+      "input": "call 555-1212",
+      "expected": "call 555 1212"
+    },
+    {
+      "id": "digits-time",
+      "description": "a time",
+      "input": "at 10:30 tomorrow",
+      "expected": "at 10 30 tomorrow"
+    },
+    {
+      "id": "digits-time-ampm",
+      "description": "a time with am",
+      "input": "at 10:30am",
+      "expected": "at 10 30 am"
+    },
+    {
+      "id": "digits-time-oclock",
+      "description": "o'clock",
+      "input": "at ten o'clock",
+      "expected": "at 100 clock"
+    },
+    {
+      "id": "digits-date-slash",
+      "description": "a date with slashes",
+      "input": "on 12/25/2020",
+      "expected": "on 12 25 2020"
+    },
+    {
+      "id": "digits-ranges",
+      "description": "a range",
+      "input": "pages 10-20",
+      "expected": "pages 10 20"
+    },
+    {
+      "id": "digits-with-letters",
+      "description": "digits with a letter suffix",
+      "input": "a 4k screen and 5g",
+      "expected": "a 4 k screen and 5 g"
+    },
+    {
+      "id": "digits-k-suffix",
+      "description": "k suffix",
+      "input": "5k people",
+      "expected": "5 k people"
+    },
+    {
+      "id": "digits-m-suffix",
+      "description": "m suffix",
+      "input": "2m dollars",
+      "expected": "2 m dollars"
+    },
+    {
+      "id": "digits-b-suffix",
+      "description": "b suffix",
+      "input": "3b parameters",
+      "expected": "3 b parameters"
+    },
+    {
+      "id": "digits-km",
+      "description": "kilometres",
+      "input": "10 km away",
+      "expected": "10 km away"
+    },
+    {
+      "id": "digits-mixed",
+      "description": "digits and number words",
+      "input": "3 hundred and 5",
+      "expected": "300 5"
+    },
+    {
+      "id": "digits-zero-lead",
+      "description": "leading zero",
+      "input": "007 is a number",
+      "expected": "7 is a number"
+    },
+    {
+      "id": "digits-percent",
+      "description": "percent sign",
+      "input": "50% of them",
+      "expected": "50% of them"
+    },
+    {
+      "id": "digits-percent-word",
+      "description": "percent word",
+      "input": "fifty percent of them",
+      "expected": "50% of them"
+    },
+    {
+      "id": "digits-per-cent",
+      "description": "per cent",
+      "input": "ten per cent",
+      "expected": "10%"
+    },
+    {
+      "id": "cur-dollar-sign",
+      "description": "dollar sign",
+      "input": "it costs $5",
+      "expected": "it costs $5"
+    },
+    {
+      "id": "cur-dollar-decimal",
+      "description": "dollars and cents as digits",
+      "input": "$5.50 please",
+      "expected": "$5.50 please"
+    },
+    {
+      "id": "cur-dollar-thousands",
+      "description": "dollars with a comma",
+      "input": "$1,000 dollars",
+      "expected": "$1000"
+    },
+    {
+      "id": "cur-dollar-words",
+      "description": "dollars spelled",
+      "input": "five dollars",
+      "expected": "$5"
+    },
+    {
+      "id": "cur-dollars-and-cents",
+      "description": "dollars and cents spelled",
+      "input": "five dollars and fifty cents",
+      "expected": "$5.50"
+    },
+    {
+      "id": "cur-dollar-singular",
+      "description": "one dollar",
+      "input": "one dollar",
+      "expected": " one"
+    },
+    {
+      "id": "cur-cents",
+      "description": "cents spelled",
+      "input": "fifty cents",
+      "expected": "¢50"
+    },
+    {
+      "id": "cur-pound-sign",
+      "description": "pound sign",
+      "input": "it costs £5",
+      "expected": "it costs £5"
+    },
+    {
+      "id": "cur-pound-decimal",
+      "description": "pound with pence",
+      "input": "£5.50 only",
+      "expected": "£5.50 only"
+    },
+    {
+      "id": "cur-pounds-words",
+      "description": "pounds spelled",
+      "input": "five pounds and fifty pence",
+      "expected": "£5 and 50 pence"
+    },
+    {
+      "id": "cur-euro-sign",
+      "description": "euro sign",
+      "input": "€10 each",
+      "expected": "€10 each"
+    },
+    {
+      "id": "cur-euros-words",
+      "description": "euros spelled",
+      "input": "ten euros",
+      "expected": "€10"
+    },
+    {
+      "id": "cur-yen-sign",
+      "description": "yen sign",
+      "input": "¥500 each",
+      "expected": "500 each"
+    },
+    {
+      "id": "cur-million-dollars",
+      "description": "million dollars",
+      "input": "three million dollars",
+      "expected": "$3000000"
+    },
+    {
+      "id": "cur-dollar-million-sign",
+      "description": "dollar sign with million",
+      "input": "$3 million",
+      "expected": "$3000000"
+    },
+    {
+      "id": "cur-dollar-m-sign",
+      "description": "dollar sign with m",
+      "input": "$3m",
+      "expected": "$3 m"
+    },
+    {
+      "id": "cur-dollar-bn",
+      "description": "dollar sign with bn",
+      "input": "$2bn budget",
+      "expected": "$2 bn budget"
+    },
+    {
+      "id": "cur-cent-sign",
+      "description": "cent sign",
+      "input": "50¢",
+      "expected": "50¢"
+    },
+    {
+      "id": "spell-colour",
+      "description": "colour",
+      "input": "the colour red",
+      "expected": "the color red"
+    },
+    {
+      "id": "spell-favourite",
+      "description": "favourite",
+      "input": "my favourite song",
+      "expected": "my favorite song"
+    },
+    {
+      "id": "spell-organise",
+      "description": "organise",
+      "input": "we organise events",
+      "expected": "we organize events"
+    },
+    {
+      "id": "spell-realise",
+      "description": "realise",
+      "input": "I realise now",
+      "expected": "i realize now"
+    },
+    {
+      "id": "spell-centre",
+      "description": "centre",
+      "input": "the city centre",
+      "expected": "the city center"
+    },
+    {
+      "id": "spell-theatre",
+      "description": "theatre",
+      "input": "at the theatre",
+      "expected": "at the theater"
+    },
+    {
+      "id": "spell-grey",
+      "description": "grey",
+      "input": "a grey sky",
+      "expected": "a gray sky"
+    },
+    {
+      "id": "spell-defence",
+      "description": "defence",
+      "input": "national defence",
+      "expected": "national defense"
+    },
+    {
+      "id": "spell-licence",
+      "description": "licence",
+      "input": "a driving licence",
+      "expected": "a driving license"
+    },
+    {
+      "id": "spell-travelling",
+      "description": "travelling",
+      "input": "travelling abroad",
+      "expected": "traveling abroad"
+    },
+    {
+      "id": "spell-cancelled",
+      "description": "cancelled",
+      "input": "the flight was cancelled",
+      "expected": "the flight was canceled"
+    },
+    {
+      "id": "spell-programme",
+      "description": "programme",
+      "input": "the programme starts",
+      "expected": "the program starts"
+    },
+    {
+      "id": "spell-tyre",
+      "description": "tyre",
+      "input": "a flat tyre",
+      "expected": "a flat tire"
+    },
+    {
+      "id": "spell-aluminium",
+      "description": "aluminium",
+      "input": "aluminium foil",
+      "expected": "aluminum foil"
+    },
+    {
+      "id": "spell-mum",
+      "description": "mum",
+      "input": "my mum said",
+      "expected": "my mum said"
+    },
+    {
+      "id": "spell-whilst",
+      "description": "whilst",
+      "input": "whilst we wait",
+      "expected": "whilst we wait"
+    },
+    {
+      "id": "spell-already-american",
+      "description": "already american",
+      "input": "color center favorite",
+      "expected": "color center favorite"
+    },
+    {
+      "id": "sym-ampersand",
+      "description": "ampersand",
+      "input": "salt & pepper",
+      "expected": "salt pepper"
+    },
+    {
+      "id": "sym-at",
+      "description": "at sign",
+      "input": "email me @ home",
+      "expected": "email me home"
+    },
+    {
+      "id": "sym-hash",
+      "description": "hash",
+      "input": "number #5",
+      "expected": "number 5"
+    },
+    {
+      "id": "sym-plus-sign",
+      "description": "plus sign",
+      "input": "2+2",
+      "expected": "2 2"
+    },
+    {
+      "id": "sym-equals",
+      "description": "equals",
+      "input": "2 = 2",
+      "expected": "2 2"
+    },
+    {
+      "id": "sym-slash",
+      "description": "slash",
+      "input": "and/or",
+      "expected": "and or"
+    },
+    {
+      "id": "sym-hyphen-word",
+      "description": "hyphenated word",
+      "input": "well-known facts",
+      "expected": "well known facts"
+    },
+    {
+      "id": "sym-em-dash",
+      "description": "em dash",
+      "input": "wait—what",
+      "expected": "wait what"
+    },
+    {
+      "id": "sym-ellipsis",
+      "description": "ellipsis",
+      "input": "well… maybe",
+      "expected": "well . maybe"
+    },
+    {
+      "id": "sym-three-dots",
+      "description": "three dots",
+      "input": "well... maybe",
+      "expected": "well maybe"
+    },
+    {
+      "id": "sym-semicolon-colon",
+      "description": "semicolon and colon",
+      "input": "yes; no: maybe",
+      "expected": "yes no maybe"
+    },
+    {
+      "id": "sym-exclaim-question",
+      "description": "! and ?",
+      "input": "what?! really!",
+      "expected": "what really"
+    },
+    {
+      "id": "sym-underscore",
+      "description": "underscore",
+      "input": "snake_case name",
+      "expected": "snake case name"
+    },
+    {
+      "id": "sym-tilde-caret",
+      "description": "tilde and caret",
+      "input": "~5 ^2",
+      "expected": "5 2"
+    },
+    {
+      "id": "sym-degree",
+      "description": "degree sign",
+      "input": "20° outside",
+      "expected": "20 outside"
+    },
+    {
+      "id": "sym-copyright",
+      "description": "copyright",
+      "input": "© 2020",
+      "expected": "2020"
+    },
+    {
+      "id": "sym-guillemets",
+      "description": "guillemets",
+      "input": "«bonjour»",
+      "expected": "bonjour"
+    },
+    {
+      "id": "acc-cafe",
+      "description": "accented e",
+      "input": "café au lait",
+      "expected": "cafe au lait"
+    },
+    {
+      "id": "acc-naive",
+      "description": "diaeresis",
+      "input": "naïve idea",
+      "expected": "naive idea"
+    },
+    {
+      "id": "acc-zoe",
+      "description": "name with diaeresis",
+      "input": "Zoë said hi",
+      "expected": "zoe said hi"
+    },
+    {
+      "id": "acc-senor",
+      "description": "tilde n",
+      "input": "señor García",
+      "expected": "senor garcia"
+    },
+    {
+      "id": "acc-combining",
+      "description": "combining accent",
+      "input": "café time",
+      "expected": "cafe time"
+    },
+    {
+      "id": "acc-ligature",
+      "description": "ligature",
+      "input": "coöperate and æsthetic",
+      "expected": "cooperate and esthetic"
+    },
+    {
+      "id": "acc-sharp-s",
+      "description": "sharp s",
+      "input": "Straße",
+      "expected": "strasse"
+    },
+    {
+      "id": "acc-fullwidth",
+      "description": "full-width letters",
+      "input": "Ｈｅｌｌｏ",
+      "expected": "hello"
+    },
+    {
+      "id": "script-cjk",
+      "description": "CJK passes through",
+      "input": "你好 world",
+      "expected": "你好 world"
+    },
+    {
+      "id": "script-cyrillic",
+      "description": "Cyrillic",
+      "input": "привет mir",
+      "expected": "привет mir"
+    },
+    {
+      "id": "script-arabic",
+      "description": "Arabic",
+      "input": "مرحبا hello",
+      "expected": "مرحبا hello"
+    },
+    {
+      "id": "emoji-simple",
+      "description": "emoji",
+      "input": "great job 👍",
+      "expected": "great job"
+    },
+    {
+      "id": "emoji-zwj",
+      "description": "zero-width joiner sequence",
+      "input": "family 👨‍👩‍👧",
+      "expected": "family ‍ ‍"
+    },
+    {
+      "id": "astral-math-script-um",
+      "description": "an astral letter before a hesitation",
+      "input": "𝒜um",
+      "expected": "Aum"
+    },
+    {
+      "id": "astral-math-bold-mr",
+      "description": "an astral letter before a title",
+      "input": "𝐀mr",
+      "expected": "Amr"
+    },
+    {
+      "id": "astral-cjk-extb-um",
+      "description": "a CJK Extension B ideograph before a hesitation",
+      "input": "𠀀um",
+      "expected": "𠀀um"
+    },
+    {
+      "id": "astral-math-digit-um",
+      "description": "an astral digit before a hesitation",
+      "input": "𝟏um",
+      "expected": "one um"
+    },
+    {
+      "id": "astral-math-digit-num",
+      "description": "an astral digit before a number word",
+      "input": "𝟏one",
+      "expected": "11"
+    },
+    {
+      "id": "astral-then-space-um",
+      "description": "an astral letter, then a space, then a hesitation",
+      "input": "𝒜 um",
+      "expected": "A"
+    },
+    {
+      "id": "astral-after-um",
+      "description": "a hesitation, then an astral letter",
+      "input": "um𝒜",
+      "expected": "umA"
+    },
+    {
+      "id": "astral-between",
+      "description": "astral letters on both sides",
+      "input": "𝒜um𝒜",
+      "expected": "AumA"
+    },
+    {
+      "id": "astral-mixed-sentence",
+      "description": "an astral letter inside a sentence",
+      "input": "see 𝒜mr smith um today",
+      "expected": "see Amr smith today"
+    },
+    {
+      "id": "astral-deseret",
+      "description": "Deseret letters",
+      "input": "𐐀um 𐐨st",
+      "expected": "𐐨um 𐐨st"
+    },
+    {
+      "id": "sym-dollar-percent",
+      "description": "symbols that normalise to a lone space",
+      "input": "$%",
+      "expected": " "
+    },
+    {
+      "id": "sym-pound-percent",
+      "description": "pound sign and percent",
+      "input": "£%",
+      "expected": " "
+    },
+    {
+      "id": "sym-cent-percent",
+      "description": "cent sign and percent",
+      "input": "¢%",
+      "expected": " "
+    },
+    {
+      "id": "space-nbsp",
+      "description": "a no-break space between words",
+      "input": "a b",
+      "expected": "a b"
+    },
+    {
+      "id": "space-ideographic",
+      "description": "an ideographic space between words",
+      "input": "a　b",
+      "expected": "a b"
+    },
+    {
+      "id": "space-line-separator",
+      "description": "a line separator",
+      "input": "a b",
+      "expected": "a b"
+    },
+    {
+      "id": "dict-email",
+      "description": "an email address spoken",
+      "input": "send it to john dot smith at example dot com",
+      "expected": "send it to john dot smith at example dot com"
+    },
+    {
+      "id": "dict-url",
+      "description": "a url",
+      "input": "go to www.example.com/path?x=1",
+      "expected": "go to www example com path x one"
+    },
+    {
+      "id": "dict-code",
+      "description": "code spoken",
+      "input": "open paren x close paren",
+      "expected": "open paren x close paren"
+    },
+    {
+      "id": "dict-meeting",
+      "description": "a meeting sentence",
+      "input": "Let's meet on Tuesday the 3rd at 2:30 p.m. in room 4B.",
+      "expected": "let us meet on tuesday the 3rd at 2 30 p m in room 4 b"
+    },
+    {
+      "id": "dict-money",
+      "description": "a money sentence",
+      "input": "The total is $1,250.75, not £1,000.",
+      "expected": "the total is $1250.75 not £1000"
+    },
+    {
+      "id": "dict-list",
+      "description": "a list",
+      "input": "First, buy milk; second, buy eggs; third, call Dr. Patel.",
+      "expected": "1st buy milk 2nd buy eggs 3rd call doctor patel"
+    },
+    {
+      "id": "dict-long",
+      "description": "a longer paragraph",
+      "input": "So um, I was thinking that, you know, we could, uh, push the release to the twenty-first of March, which is roughly three and a half weeks from now, and that would give us about one hundred and fifty hours of testing at $45 an hour.",
+      "expected": "so i was thinking that you know we could push the release to the 21st of march which is roughly 3.5 weeks from now and that would give us about 150 hours of testing at $45 an hour"
+    },
+    {
+      "id": "dict-question",
+      "description": "a question",
+      "input": "Did you see Mr. O'Brien's colour proofs yesterday?",
+      "expected": "did you see mister 0 brien is color proofs yesterday"
+    },
+    {
+      "id": "dict-numbers-in-words",
+      "description": "numbers in running prose",
+      "input": "There were twenty five people, thirty two chairs and one hundred and one dalmatians.",
+      "expected": "there were 25 people 32 chairs and 101 dalmatians"
+    },
+    {
+      "id": "random-000",
+      "description": "seeded random sentence 0",
+      "input": "Thirteen twentieth uh point thirtieth tomorrow wouldn't here dollars cents - first three:",
+      "expected": "1320th 30th tomorrow would not here dollars cents 1st 3"
+    },
+    {
+      "id": "random-001",
+      "description": "seeded random sentence 1",
+      "input": "thirty fifteen nine million million also quite twenty eighty sixty fifth a 10 at - 555-1234 twelve twelfth twelve they're half sixty and nineteen",
+      "expected": "30159000000 also quite 208065th a 10 at 555 12341212th 12 they are half 60 and 19"
+    },
+    {
+      "id": "random-002",
+      "description": "seeded random sentence 2",
+      "input": "People oh fourth m 4th! 3.5%? sixty quarter fourteen hundred thousand",
+      "expected": "people 04th m 4th 3.5% 60 quarter 401000"
+    },
+    {
+      "id": "random-003",
+      "description": "seeded random sentence 3",
+      "input": "mm, m p.m. 12/25/2020 mhm! mm 21st St. seventy ninety thirteen one five thirteen sixth",
+      "expected": "m p m 12 25 2020 21st saint 70901315136th"
+    },
+    {
+      "id": "random-004",
+      "description": "seeded random sentence 4",
+      "input": "Mr. at, €20 of -- also St.. 0.25",
+      "expected": "mister at €20 of also saint 0.25"
+    },
+    {
+      "id": "random-005",
+      "description": "seeded random sentence 5",
+      "input": "colourized savoured 99 two ninety four dozen one",
+      "expected": "colorized savored 99294 dozen one"
+    },
+    {
+      "id": "random-006",
+      "description": "seeded random sentence 6",
+      "input": "hmm forty half eleventh yesterday",
+      "expected": "40 half 11th yesterday"
+    },
+    {
+      "id": "random-007",
+      "description": "seeded random sentence 7",
+      "input": "Budget hundredth ten thirteen eighty ten oh eleventh four five review reconnoitring twenty tenth a twelve tenth here",
+      "expected": "budget 100th 10138010011th 45 review reconnoitering 2010th a 1210th here"
+    },
+    {
+      "id": "random-008",
+      "description": "seeded random sentence 8",
+      "input": "sceptre [noise] dollars 101 often 5k hmm. tomorrow percent one thirty fifth half four: not fourth ninth personalised.",
+      "expected": "scepter dollars 101 often 5 k tomorrow percent 135th half 4 not 4th ninth personalized"
+    },
+    {
+      "id": "random-009",
+      "description": "seeded random sentence 9",
+      "input": "wouldn't I'm sceptic where percent per cent six hmm test a.m.",
+      "expected": "would not i am skeptic where percent per cent 6 test a m"
+    },
+    {
+      "id": "random-010",
+      "description": "seeded random sentence 10",
+      "input": "always hypothesised 19 21 seventy deadline 7, server theatres 1,000",
+      "expected": "always hypothesized 19 2170 deadline 7 server theaters 1000"
+    },
+    {
+      "id": "random-011",
+      "description": "seeded random sentence 11",
+      "input": "Fifteen seventy sixteen sixth fifteen 12 by -",
+      "expected": "1570166th 15 12 by"
+    },
+    {
+      "id": "random-012",
+      "description": "seeded random sentence 12",
+      "input": "2x vulgarising; 1990s 3/4 fifty twelfth double billion to project",
+      "expected": "2 x vulgarizing 1990s 3 45012th double 1000000000 to project"
+    },
+    {
+      "id": "random-013",
+      "description": "seeded random sentence 13",
+      "input": "so... mm twelve four; plan -- result a twentieth sixteen eleven [inaudible] fourth eighth sixty seventy fifth y'all m eighth three six on",
+      "expected": "so 124 plan result a 20th 16114th 8th 6075th you all m 8th 36 on"
+    },
+    {
+      "id": "random-014",
+      "description": "seeded random sentence 14",
+      "input": "then 21 Jr. 7b [noise] I'd",
+      "expected": "then 21 junior 7 b i would"
+    },
+    {
+      "id": "random-015",
+      "description": "seeded random sentence 15",
+      "input": "it's? hundred St. always p.m. - 7b test zero and nine one sixteen twelfth: ma'am... very people",
+      "expected": "it is 100 saint always p m 7 b test 0 and 911612th madam very people"
+    },
+    {
+      "id": "random-016",
+      "description": "seeded random sentence 16",
+      "input": "very Jr. today release o'clock a.m. £1.50 second five fifteen",
+      "expected": "very junior today release 0 clock a m one.502nd 515"
+    },
+    {
+      "id": "random-017",
+      "description": "seeded random sentence 17",
+      "input": "Seventh and? on who; anglicised, wouldn't",
+      "expected": "7th and on who anglicized would not"
+    },
+    {
+      "id": "random-018",
+      "description": "seeded random sentence 18",
+      "input": "update - [inaudible] five eighteen sixty",
+      "expected": "update 51860"
+    },
+    {
+      "id": "random-019",
+      "description": "seeded random sentence 19",
+      "input": "St.: in a seventh a fourteen... then -- which St. won't um",
+      "expected": "saint in a 7th a 14 then which saint will not"
+    },
+    {
+      "id": "random-020",
+      "description": "seeded random sentence 20",
+      "input": "fifth hundred seven twentieth oxidised euros a.m. [inaudible] £5 (laughs) a fifty eight; Mrs.! ma'am",
+      "expected": "5th 10720th oxidized euros a m £5 a 58 missus madam"
+    },
+    {
+      "id": "random-021",
+      "description": "seeded random sentence 21",
+      "input": "meeting per cent memorialises per cent Sr. sixth ninety fifteen fourth counselling per cent they're",
+      "expected": "meeting per cent memorializes per cent senior 6th 90154th counseling per cent they are"
+    },
+    {
+      "id": "random-022",
+      "description": "seeded random sentence 22",
+      "input": "I'm then it's satirise Mr. eleventh forty sixteen billion ninety o'clock sterilisers: bannisters point eighteen a double twenty fifty billion seventh",
+      "expected": "i am then it is satirize mister 11th 40160000000900 clock sterilizers banisters .18 a double 2050000000007th"
+    },
+    {
+      "id": "random-023",
+      "description": "seeded random sentence 23",
+      "input": "fifty fifth eighth 12/25/2020 Sr.",
+      "expected": "55th 8th 12 25 2020 senior"
+    },
+    {
+      "id": "random-024",
+      "description": "seeded random sentence 24",
+      "input": "who at budget result y'all... bn! of",
+      "expected": "who at budget result you all bn of"
+    },
+    {
+      "id": "random-025",
+      "description": "seeded random sentence 25",
+      "input": "third eight first zero k for? 19 sixty twentieth a fourth fourth 9:05 Prof.? on:",
+      "expected": "3rd 81st 0 k for 196020th a 4th 4th 9 5 professor on"
+    },
+    {
+      "id": "random-026",
+      "description": "seeded random sentence 26",
+      "input": "m £5 often hundredth half fourth hundred twentieth eight sixteen a: k very honouring [inaudible] Prof. ninety second triple tenth isn't",
+      "expected": "m £5 often 100th half 4th 120th 816 a k very honoring professor 92nd triple 10th is not"
+    },
+    {
+      "id": "random-027",
+      "description": "seeded random sentence 27",
+      "input": "or people in often hundredth seventh eight a eight Jr.",
+      "expected": "or people in often 100th 7th 8 a 8 junior"
+    },
+    {
+      "id": "random-028",
+      "description": "seeded random sentence 28",
+      "input": "Tomorrow an m wouldn't",
+      "expected": "tomorrow an m would not"
+    },
+    {
+      "id": "random-029",
+      "description": "seeded random sentence 29",
+      "input": "for 11th model 9:05 John's",
+      "expected": "for 11th model 9 5 john is"
+    },
+    {
+      "id": "random-030",
+      "description": "seeded random sentence 30",
+      "input": "fourteen thousand at... 3/4 nine three hundredth seventy eleven never third double ninth eighth twelfth;",
+      "expected": "14000 at 3 49300th 7011 never 3rd double ninth 8th 12th"
+    },
+    {
+      "id": "random-031",
+      "description": "seeded random sentence 31",
+      "input": "p.m. a ten ninety very dollars hypnotising release... 50% bn sentimentalises test pounds fifteen",
+      "expected": "p m a 1090 very dollars hypnotizing release 50% bn sentimentalizes test pounds 15"
+    },
+    {
+      "id": "random-032",
+      "description": "seeded random sentence 32",
+      "input": "you'll -- thirty two thirteen thirty seventy four twelfth an 99.9 there",
+      "expected": "you will 3213307412th an 99.9 there"
+    },
+    {
+      "id": "random-033",
+      "description": "seeded random sentence 33",
+      "input": "wouldn't naturalised 1/2 don't",
+      "expected": "would not naturalized one 2 do not"
+    },
+    {
+      "id": "random-034",
+      "description": "seeded random sentence 34",
+      "input": "civilised italicising at - euros where; really o'clock?",
+      "expected": "civilized italicizing at euros where really 0 clock"
+    },
+    {
+      "id": "random-035",
+      "description": "seeded random sentence 35",
+      "input": "10 a.m. nine ten fourteen today also Mr. dollars... um... still 10,000 12/25/2020 Dr.",
+      "expected": "10 a m 91014 today also mister dollars still 10000 12 25 2020 doctor"
+    },
+    {
+      "id": "random-036",
+      "description": "seeded random sentence 36",
+      "input": "1/2 version dollars Jr. o'clock who scrutinises colourants £5 pounds mhm never 0 meeting -",
+      "expected": "one 2 version dollars junior 0 clock who scrutinizes colorants £5 never 0 meeting"
+    },
+    {
+      "id": "random-037",
+      "description": "seeded random sentence 37",
+      "input": "Ms. I'd -- y'all 7b John's",
+      "expected": "ms i would you all 7 b john is"
+    },
+    {
+      "id": "random-038",
+      "description": "seeded random sentence 38",
+      "input": "here p.m. model meeting plan first really discs to um dehumanised seventy ninety",
+      "expected": "here p m model meeting plan 1st really disks to dehumanized 7090"
+    },
+    {
+      "id": "random-039",
+      "description": "seeded random sentence 39",
+      "input": "Seventy compartmentalises fifteen dozen two,",
+      "expected": "70 compartmentalizes 15 dozen 2"
+    },
+    {
+      "id": "random-040",
+      "description": "seeded random sentence 40",
+      "input": "fifty quarter third ninth Mrs. really. hmm Ms. mhm",
+      "expected": "50 quarter 3rd ninth missus really ms"
+    },
+    {
+      "id": "random-041",
+      "description": "seeded random sentence 41",
+      "input": "[inaudible] Sr. professionalising the seventh six ninth ninety or zero second seven dollars fifty release a.m. you'll,",
+      "expected": "senior professionalizing the 7th 6 ninth 90 or 02nd $7 50 release a m you will"
+    },
+    {
+      "id": "random-042",
+      "description": "seeded random sentence 42",
+      "input": "Mrs. version people fourteen never",
+      "expected": "missus version people 14 never"
+    },
+    {
+      "id": "random-043",
+      "description": "seeded random sentence 43",
+      "input": "the 5k 10,000 today",
+      "expected": "the 5 k 10000 today"
+    },
+    {
+      "id": "random-044",
+      "description": "seeded random sentence 44",
+      "input": "250 I'd k seventy first eighty thirteen 1/2 um m - on squirrelling",
+      "expected": "250 i would k 71st 8013 one 2 m on squirreling"
+    },
+    {
+      "id": "random-045",
+      "description": "seeded random sentence 45",
+      "input": "hundred eight and 3rd update 1,000",
+      "expected": "108 and 3rd update 1000"
+    },
+    {
+      "id": "random-046",
+      "description": "seeded random sentence 46",
+      "input": "four sixth... thirtieth 555-1234 -- people m 5k per cent often isn't mhm change",
+      "expected": "46th 30th 555 1234 people m 5 k per cent often is not change"
+    },
+    {
+      "id": "random-047",
+      "description": "seeded random sentence 47",
+      "input": "Or third, a Dr.",
+      "expected": "or 3rd a doctor"
+    },
+    {
+      "id": "random-048",
+      "description": "seeded random sentence 48",
+      "input": "yesterday; John's I'd um project Mr. euros",
+      "expected": "yesterday john is i would project mister euros"
+    },
+    {
+      "id": "random-049",
+      "description": "seeded random sentence 49",
+      "input": "hundred fourteen tenth half seventh update - result scandalise...",
+      "expected": "11410th half 7th update result scandalize ."
+    },
+    {
+      "id": "random-050",
+      "description": "seeded random sentence 50",
+      "input": "Prof. 11th twelfth eleven nineteen that's it's eighteen eleventh mm 7 Dr. 21st hmm eighteen zero",
+      "expected": "professor 11th 12th 1119 that is it is 1811th 7 doctor 21st 180"
+    },
+    {
+      "id": "random-051",
+      "description": "seeded random sentence 51",
+      "input": "towelled eleventh point who? particularises Ms. eleven a eighty hundred seventy... ninth one seventh sixth sixty on",
+      "expected": "toweled 11th point who particularizes ms 11 a 8070 ninth 17th 6th 60 on"
+    },
+    {
+      "id": "random-052",
+      "description": "seeded random sentence 52",
+      "input": "Privatises for five nineteen eleven ninth five hundred hundred version million oh seventh 555-1234 plan 80s 2nd fourteen nine eleven three percent",
+      "expected": "privatizes for 51911 ninth 50000 version 100000007th 555 1234 plan 80s 2nd 149113%"
+    },
+    {
+      "id": "random-053",
+      "description": "seeded random sentence 53",
+      "input": "Ms. per cent very review wouldn't - recognisance model never... always yesterday",
+      "expected": "ms per cent very review would not recognizance model never always yesterday"
+    },
+    {
+      "id": "random-054",
+      "description": "seeded random sentence 54",
+      "input": "oh six 2m at you'll I'm? 4th: to,",
+      "expected": "06 2 m at you will i am 4th to"
+    },
+    {
+      "id": "random-055",
+      "description": "seeded random sentence 55",
+      "input": "Three twelfth twentieth seventeen fifty fourteen quarter fifty sixty -- here very; of [noise]. thousand thirtieth six zero sixty o'clock here in! ten thirty quarter twenty o'clock, often. project --",
+      "expected": "312th 20th 175014 quarter 5060 here very of 1030th 60600 clock here in 1030 quarter 200 clock often project"
+    },
+    {
+      "id": "random-056",
+      "description": "seeded random sentence 56",
+      "input": "can't there 99 a.m. 0 $5 9:05 programme eulogising Sr. with... change moisturising... 2nd",
+      "expected": "can not there 99 a m 0 $5 9 5 program eulogizing senior with change moisturizing 2nd"
+    },
+    {
+      "id": "random-057",
+      "description": "seeded random sentence 57",
+      "input": "Woollens 1,000 ma'am",
+      "expected": "woolens 1000 madam"
+    },
+    {
+      "id": "random-058",
+      "description": "seeded random sentence 58",
+      "input": "eleventh meeting Prof. euros we've test: €20. 10:30 what 101",
+      "expected": "11th meeting professor euros we have test €20 10 30 what 101"
+    },
+    {
+      "id": "random-059",
+      "description": "seeded random sentence 59",
+      "input": "[inaudible]! then p.m. uh third six third womanises",
+      "expected": "then p m 3rd 63rd womanizes"
+    },
+    {
+      "id": "random-060",
+      "description": "seeded random sentence 60",
+      "input": "um percent 1990s release tenth two half k 100 percent y'all server 12",
+      "expected": "percent 1990s release 10th 2 half k 100% you all server 12"
+    },
+    {
+      "id": "random-061",
+      "description": "seeded random sentence 61",
+      "input": "[inaudible] isn't cents um sixth first fifteen one [inaudible]! it's: dozen eighth fifth... euros patronise! seventh at",
+      "expected": "is not cents 6th 1st 151 it is dozen 8th 5th euros patronize 7th at"
+    },
+    {
+      "id": "random-062",
+      "description": "seeded random sentence 62",
+      "input": "cypher Sr.! an? Mrs.",
+      "expected": "cipher senior an missus"
+    },
+    {
+      "id": "random-063",
+      "description": "seeded random sentence 63",
+      "input": "Cents change by £5 -",
+      "expected": "cents change by £5"
+    },
+    {
+      "id": "random-064",
+      "description": "seeded random sentence 64",
+      "input": "There! k Prof. baulk ninety? dollars on mm bn Sr. fifteen fifteen and ninth Mrs. 99.9",
+      "expected": "there k professor balk $90 on bn senior 1515 and ninth missus 99.9"
+    },
+    {
+      "id": "random-065",
+      "description": "seeded random sentence 65",
+      "input": "point ninety thirteen five million twenty fifth point of always...",
+      "expected": "90135025th point of always ."
+    },
+    {
+      "id": "random-066",
+      "description": "seeded random sentence 66",
+      "input": "release fifteen a quarter meeting seventeen dozen ten mhm at St. Mr. eleven fifteen forty tenth double sixteen thirteen fourth ninety and [noise] point ninety quarter sixth tenth",
+      "expected": "release 15 a quarter meeting 17 dozen 10 at saint mister 11154010th 1616134th 90 and .90 quarter 6th 10th"
+    },
+    {
+      "id": "random-067",
+      "description": "seeded random sentence 67",
+      "input": "Euros? mm... deadline one three forty triple - thirteen thirteen twenty 0 customer the o'clock version: hmm tenth",
+      "expected": "euros deadline 13401313131320 0 customer the 0 clock version 10th"
+    },
+    {
+      "id": "random-068",
+      "description": "seeded random sentence 68",
+      "input": "thirtieth with mm plan half first eleventh twelfth two ma'am Sr.? sixty: a.m. Jr. euros sixty one eleven eighth a hundred fourteen seventy,",
+      "expected": "30th with plan half 1st 11th 12th 2 madam senior 60 a m junior euros 61118th a 11470"
+    },
+    {
+      "id": "random-069",
+      "description": "seeded random sentence 69",
+      "input": "today... dehumanising result",
+      "expected": "today dehumanizing result"
+    },
+    {
+      "id": "random-070",
+      "description": "seeded random sentence 70",
+      "input": "with! Ms. commercialised 2nd! Mr. double third thirteen euros they're -- um -- k Prof. what",
+      "expected": "with ms commercialized 2nd mister double 3rd €13 they are k professor what"
+    },
+    {
+      "id": "random-071",
+      "description": "seeded random sentence 71",
+      "input": "[noise] on release still five four (laughs) Dr. (laughs) to the double dollars",
+      "expected": "on release still 54 doctor to the double dollars"
+    },
+    {
+      "id": "random-072",
+      "description": "seeded random sentence 72",
+      "input": "Also where: really report... (laughs) an dollars 1/2 hmm",
+      "expected": "also where really report an dollars one 2"
+    },
+    {
+      "id": "random-073",
+      "description": "seeded random sentence 73",
+      "input": "5k 12 £1.50 fourth dozen forty zero second what the it's arbours sermonised it's",
+      "expected": "5 k 12 one.504th dozen 4002nd what the it is arbors sermonized it is"
+    },
+    {
+      "id": "random-074",
+      "description": "seeded random sentence 74",
+      "input": "million billion point thirtieth on also thirty twelve eleventh eight seventeen really pounds hundredth sixth seventy fourth",
+      "expected": "1000030th on also 301211th 817 really pounds 100th 6th 74th"
+    },
+    {
+      "id": "random-075",
+      "description": "seeded random sentence 75",
+      "input": "you'll Mr. unfavourable still there... deadline people thirteen two twelfth also collectivises Mr. vaporises when",
+      "expected": "you will mister unfavorable still there deadline people 13212th also collectivizes mister vaporizes when"
+    },
+    {
+      "id": "random-076",
+      "description": "seeded random sentence 76",
+      "input": "won't -- today - in I'm today third hundred two billion file eighteen triple dozen hundred review. per cent point eighth triple very",
+      "expected": "will not today in i am today 3rd 102000000000 file 18 triple dozen 100 review per cent 8th triple very"
+    },
+    {
+      "id": "random-077",
+      "description": "seeded random sentence 77",
+      "input": "K mhm you'll - cannibalises 2x really 1990s lionisation 0.25 4th yesterday tenth four second seventeen per cent pounds",
+      "expected": "k you will cannibalizes 2 x really 1990s lionization 0.25 4th yesterday 10th 42nd 17% pounds"
+    },
+    {
+      "id": "random-078",
+      "description": "seeded random sentence 78",
+      "input": "11th 4th? oxidisation",
+      "expected": "11th 4th oxidization"
+    },
+    {
+      "id": "random-079",
+      "description": "seeded random sentence 79",
+      "input": "tenth fifth dollars um fourteen billion six thirty fifty mm fifty third dozen John's won't the still! emphasised",
+      "expected": "10th 5th dollars 14000000006305053rd dozen john is will not the still emphasized"
+    },
+    {
+      "id": "random-080",
+      "description": "seeded random sentence 80",
+      "input": "Very [inaudible] €20 Sr. forty half two eighteen o'clock? four file",
+      "expected": "very €20 senior 40 half 2180 clock 4 file"
+    },
+    {
+      "id": "random-081",
+      "description": "seeded random sentence 81",
+      "input": "Fifty double p.m. ma'am; urbanising really not - that's tenth sixty forty thousand: tomorrow 1,000 and",
+      "expected": "50 double p m madam urbanizing really not that is 10th 6040000 tomorrow 1000 and"
+    },
+    {
+      "id": "random-082",
+      "description": "seeded random sentence 82",
+      "input": "Eight! so: Ms. won't at of cavilling breathalysing hundredth first hundred project instal a hmm, so",
+      "expected": "8 so ms will not at of caviling breathalyzing 100th 1st 100 project install a so"
+    },
+    {
+      "id": "random-083",
+      "description": "seeded random sentence 83",
+      "input": "twelfth sixteen second bn often 2x... review tranquillized Prof. ma'am cents Mrs. anaesthetics here Ms. sixty a",
+      "expected": "12th 162nd bn often 2 x review tranquilized professor madam cents missus anesthetics here ms 60 a"
+    },
+    {
+      "id": "random-084",
+      "description": "seeded random sentence 84",
+      "input": "21st o'clock six won't? m and dozen oh seventeen.",
+      "expected": "21st 0 clock 6 will not m and dozen 017"
+    },
+    {
+      "id": "random-085",
+      "description": "seeded random sentence 85",
+      "input": "cents eleventh twelfth half cosies also tenth and seventh by Mrs.",
+      "expected": "cents 11th 12th half cozies also 10th and 7th by missus"
+    },
+    {
+      "id": "random-086",
+      "description": "seeded random sentence 86",
+      "input": "2nd model three second o'clock uh m -- won't fourteen sixty thirteen tenth",
+      "expected": "2nd model 32nd 0 clock m will not 14601310th"
+    },
+    {
+      "id": "random-087",
+      "description": "seeded random sentence 87",
+      "input": "where don't equalisers -- [noise] how in project report 100 seventh 1990s p.m. and half eighth hundredth 21",
+      "expected": "where do not equalizers how in project report 107th 1990s p m and half 8th 100th 21"
+    },
+    {
+      "id": "random-088",
+      "description": "seeded random sentence 88",
+      "input": "Won't $3m don't [inaudible]? Jr. 12/25/2020 but",
+      "expected": "will not $3 m do not junior 12 25 2020 but"
+    },
+    {
+      "id": "random-089",
+      "description": "seeded random sentence 89",
+      "input": "That's 0 emphasises mhm you'll. hmm model",
+      "expected": "that is 0 emphasizes you will model"
+    },
+    {
+      "id": "random-090",
+      "description": "seeded random sentence 90",
+      "input": "haematology - how... always",
+      "expected": "hematology how always"
+    },
+    {
+      "id": "random-091",
+      "description": "seeded random sentence 91",
+      "input": "they're [noise] ten one euros: Dr. you'll 2x",
+      "expected": "they are €101 doctor you will 2 x"
+    },
+    {
+      "id": "random-092",
+      "description": "seeded random sentence 92",
+      "input": "Result percent... percent. euros",
+      "expected": "result percent percent euros"
+    },
+    {
+      "id": "random-093",
+      "description": "seeded random sentence 93",
+      "input": "per cent 2nd version 99 $5.50",
+      "expected": "per cent 2nd version 99 $5.50"
+    },
+    {
+      "id": "random-094",
+      "description": "seeded random sentence 94",
+      "input": "hmm 21st; can't today [inaudible] 100 cents k p.m. bn 2,500",
+      "expected": "21st can not today ¢100 k p m bn 2500"
+    },
+    {
+      "id": "random-095",
+      "description": "seeded random sentence 95",
+      "input": "Team k and not",
+      "expected": "team k and not"
+    },
+    {
+      "id": "random-096",
+      "description": "seeded random sentence 96",
+      "input": "Prof. k not ninety, often a",
+      "expected": "professor k not 90 often a"
+    },
+    {
+      "id": "random-097",
+      "description": "seeded random sentence 97",
+      "input": "forty twelfth eleven [noise] you'll hundred hundred hundred 101 21st it's don't percent at how where",
+      "expected": "4012th 11 you will 10000 101 21st it is do not percent at how where"
+    },
+    {
+      "id": "random-098",
+      "description": "seeded random sentence 98",
+      "input": "still o'clock Jr.",
+      "expected": "still 0 clock junior"
+    },
+    {
+      "id": "random-099",
+      "description": "seeded random sentence 99",
+      "input": "7b verbalise desensitised server",
+      "expected": "7 b verbalize desensitized server"
+    },
+    {
+      "id": "random-100",
+      "description": "seeded random sentence 100",
+      "input": "Um not the dogs' dollars 2m Prof. Mr.: triple sixth -- report",
+      "expected": "not the dogs dollars 2 m professor mister triple 6th report"
+    },
+    {
+      "id": "random-101",
+      "description": "seeded random sentence 101",
+      "input": "Ms. server 2m eight fourth the quarter $3m; on project we've mhm six fourth twelve and double twelfth thousand fourth",
+      "expected": "ms server 2 m 84th the quarter $3 m on project we have 64th 12 and double 12th 1004th"
+    },
+    {
+      "id": "random-102",
+      "description": "seeded random sentence 102",
+      "input": "seventy thousand double thirteen two not of which what people - million nineteen seven -",
+      "expected": "7000013132 not of which what people 10000197"
+    },
+    {
+      "id": "random-103",
+      "description": "seeded random sentence 103",
+      "input": "2m -- Ms. always per cent to twentieth twelfth dozen third first people gaging just Dr.... then 0",
+      "expected": "2 m ms always per cent to 20th 12th dozen 3rd 1st people gauging just doctor then 0"
+    },
+    {
+      "id": "random-104",
+      "description": "seeded random sentence 104",
+      "input": "can't John's... hundred",
+      "expected": "can not john is 100"
+    },
+    {
+      "id": "random-105",
+      "description": "seeded random sentence 105",
+      "input": "Twelfth seventy and eight ninth m seventeen -- 101, point four thousand nine won't thirteen hundredth $5.50 globalises.",
+      "expected": "12th 70 and 8 ninth m 17 101409 will not 1300th $5.50 globalizes"
+    },
+    {
+      "id": "random-106",
+      "description": "seeded random sentence 106",
+      "input": "wouldn't double ninth seventeen percent eleven ninth; oh eighth also very: m yesterday; hmm; 21st 250",
+      "expected": "would not double ninth 17% 11 ninth 08th also very m yesterday 21st 250"
+    },
+    {
+      "id": "random-107",
+      "description": "seeded random sentence 107",
+      "input": "hundredth thousand fifteen point a.m. rationalises; deadline -- a twenty wouldn't?",
+      "expected": "100th 1015 point a m rationalizes deadline a 20 would not"
+    },
+    {
+      "id": "random-108",
+      "description": "seeded random sentence 108",
+      "input": "Mhm John's but [noise], politicises -- project... which Mrs. o'clock when test that's uh they're",
+      "expected": "john is but politicizes project which missus 0 clock when test that is they are"
+    },
+    {
+      "id": "random-109",
+      "description": "seeded random sentence 109",
+      "input": "idealising version flautist 0.25 tomorrow p.m. €20 Prof. 10,000 [noise] Sr.",
+      "expected": "idealizing version flutist 0.25 tomorrow p m €20 professor 10000 senior"
+    },
+    {
+      "id": "random-110",
+      "description": "seeded random sentence 110",
+      "input": "that's where 3/4; thirtieth one zero thirteen release of they're very a sixth eighty forty with [inaudible]",
+      "expected": "that is where 3 430th 1013 release of they are very a 6th 8040 with"
+    },
+    {
+      "id": "random-111",
+      "description": "seeded random sentence 111",
+      "input": "Eighteen €20 then thirteen seventy dollars maximisation tomorrow: review? seventy eleventh",
+      "expected": "18 €20 then $1370 maximization tomorrow review 7011th"
+    },
+    {
+      "id": "random-112",
+      "description": "seeded random sentence 112",
+      "input": "nine seventy quarter mm; 19",
+      "expected": "970 quarter 19"
+    },
+    {
+      "id": "random-113",
+      "description": "seeded random sentence 113",
+      "input": "St. to just, appetisingly can't 2m 19 9:05? Ms. we've 10 just - seventy",
+      "expected": "saint to just appetizingly can not 2 m 19 9 5 ms we have 10 just 70"
+    },
+    {
+      "id": "random-114",
+      "description": "seeded random sentence 114",
+      "input": "Deadline hmm; o'clock just seven - cents I'm temporises 11th always 99.9",
+      "expected": "deadline 0 clock just ¢7 i am temporizes 11th always 99.9"
+    },
+    {
+      "id": "random-115",
+      "description": "seeded random sentence 115",
+      "input": "What; accessorises 1 k quite y'all -- 3/4 model who",
+      "expected": "what accessorizes one k quite you all 3 4 model who"
+    },
+    {
+      "id": "random-116",
+      "description": "seeded random sentence 116",
+      "input": "1/2 Dr. deadline",
+      "expected": "one 2 doctor deadline"
+    },
+    {
+      "id": "random-117",
+      "description": "seeded random sentence 117",
+      "input": "sixty eight ma'am a.m.:",
+      "expected": "68 madam a m"
+    },
+    {
+      "id": "random-118",
+      "description": "seeded random sentence 118",
+      "input": "From fifteen fourteen six! cents and clamour 0.25 you'll 19 - militarised",
+      "expected": "from ¢15146 and clamor 0.25 you will 19 militarized"
+    },
+    {
+      "id": "random-119",
+      "description": "seeded random sentence 119",
+      "input": "3rd sixteen six Jr. what just. and twelve 50% Prof. often - version budget 100 per cent change?",
+      "expected": "3rd 166 junior what just and 12 50% professor often version budget 100% change"
+    },
+    {
+      "id": "random-120",
+      "description": "seeded random sentence 120",
+      "input": "k three pounds mouldings thirteen three sixteen billion fifteen... twentieth seven sixth Ms.",
+      "expected": "k £3 moldings 13316000000015 20th 76th ms"
+    },
+    {
+      "id": "random-121",
+      "description": "seeded random sentence 121",
+      "input": "Ms.. 4th 3rd don't then cents politicised",
+      "expected": "ms 4th 3rd do not then cents politicized"
+    },
+    {
+      "id": "random-122",
+      "description": "seeded random sentence 122",
+      "input": "Decriminalise. update triple third seven",
+      "expected": "decriminalize update triple 3rd 7"
+    },
+    {
+      "id": "random-123",
+      "description": "seeded random sentence 123",
+      "input": "isn't (laughs) an the dogs' four four double nineteen thirty gaolbird model plan...",
+      "expected": "is not an the dogs 44191930 jailbird model plan ."
+    },
+    {
+      "id": "random-124",
+      "description": "seeded random sentence 124",
+      "input": "And quarter y'all: $3m fifty one eighth Mr. ten ten -- anaesthetics and plan 3rd foetid [noise] fourteen eighteen from",
+      "expected": "and quarter you all $3 m 518th mister 1010 anesthetics and plan 3rd fetid 1418 from"
+    },
+    {
+      "id": "random-125",
+      "description": "seeded random sentence 125",
+      "input": "plan on that's pounds",
+      "expected": "plan on that is pounds"
+    },
+    {
+      "id": "random-126",
+      "description": "seeded random sentence 126",
+      "input": "Mhm caesareans half twelfth endeavoured -- per cent um 3.5% tomorrow not",
+      "expected": "cesareans half 12th endeavored per cent 3.5% tomorrow not"
+    },
+    {
+      "id": "random-127",
+      "description": "seeded random sentence 127",
+      "input": "very in isn't sixth ten twentieth twentieth seventh m",
+      "expected": "very in is not 6th 1020th 20th 7th m"
+    },
+    {
+      "id": "random-128",
+      "description": "seeded random sentence 128",
+      "input": "Euros sixth thirteen twenty and nineteen pounds",
+      "expected": "euros 6th 1320 and £19"
+    },
+    {
+      "id": "random-129",
+      "description": "seeded random sentence 129",
+      "input": "Oh y'all Sr.... uh oh dozen eighth Dr. forty nine won't. a:",
+      "expected": "0 you all senior 0 dozen 8th doctor 49 will not a"
+    },
+    {
+      "id": "random-130",
+      "description": "seeded random sentence 130",
+      "input": "prologue Ms. 11th! so fifteen; customer:",
+      "expected": "prolog ms 11th so 15 customer"
+    },
+    {
+      "id": "random-131",
+      "description": "seeded random sentence 131",
+      "input": "half four ninth eleventh a m dozen",
+      "expected": "half 4 ninth 11th a m dozen"
+    },
+    {
+      "id": "random-132",
+      "description": "seeded random sentence 132",
+      "input": "to gruellingly fourth hundred second ten Mrs. a.m.",
+      "expected": "to gruelingly 4th 102nd 10 missus a m"
+    },
+    {
+      "id": "random-133",
+      "description": "seeded random sentence 133",
+      "input": "12 - where often, for the the dogs' release. homogenise also. p.m. oh triple o'clock",
+      "expected": "12 where often for the the dogs release homogenize also p m 0000 clock"
+    },
+    {
+      "id": "random-134",
+      "description": "seeded random sentence 134",
+      "input": "one sixteen Jr. - who baptised fifty fifteen thirtieth o'clock fervour $3m really meeting? terrorising",
+      "expected": "116 junior who baptized 501530th 0 clock fervor $3 m really meeting terrorizing"
+    },
+    {
+      "id": "random-135",
+      "description": "seeded random sentence 135",
+      "input": "romanticising Sr. and!",
+      "expected": "romanticizing senior and"
+    },
+    {
+      "id": "random-136",
+      "description": "seeded random sentence 136",
+      "input": "Server seven fifteen eighteen thirtieth nine m change; on fourteen nineteen seventeen eighty seven fourth Prof. tomorrow; and don't from tomorrow. euros",
+      "expected": "server 7151830th 9 m change on 141917874th professor tomorrow and do not from tomorrow euros"
+    },
+    {
+      "id": "random-137",
+      "description": "seeded random sentence 137",
+      "input": "Half with Sr. five twenty hundred fourth point 0.",
+      "expected": "half with senior 52004th .0"
+    },
+    {
+      "id": "random-138",
+      "description": "seeded random sentence 138",
+      "input": "fourteen sixteen sixteen seventh eighth triple six fifteen thirty: 100 what model grovelled p.m.; $5 and hundred monopolises result sentimentalise fourth thirty",
+      "expected": "1416167th 8th 6661530 100 what model groveled p m $5 and 100 monopolizes result sentimentalize 4th 30"
+    },
+    {
+      "id": "random-139",
+      "description": "seeded random sentence 139",
+      "input": "update! third billion twentieth tenth 1,000 four dozen four seventy eleven fourth nineteen four fifteen eighteen moustache - and sixteen fifteen two a budget six billion sixth one three zero seventh percent",
+      "expected": "update 3rd 1000000020th 10th 1004 dozen 470114th 1941518 mustache and 16152 a budget 6000000006th 1307th percent"
+    },
+    {
+      "id": "random-140",
+      "description": "seeded random sentence 140",
+      "input": "on when! $3m eighteen fourth 0.25",
+      "expected": "on when $3 m 184th 0.25"
+    },
+    {
+      "id": "random-141",
+      "description": "seeded random sentence 141",
+      "input": "Uh at the 7b",
+      "expected": "at the 7 b"
+    },
+    {
+      "id": "random-142",
+      "description": "seeded random sentence 142",
+      "input": "sixty half two twelve 1 eight fourteen uh 21st",
+      "expected": "60 half 212 1814 21st"
+    },
+    {
+      "id": "random-143",
+      "description": "seeded random sentence 143",
+      "input": "customer 2,500 fifty project release 21st. a -- 3/4 manoeuvrings I'd...",
+      "expected": "customer 2550 project release 21st a 3 4 maneuverings i would ."
+    },
+    {
+      "id": "random-144",
+      "description": "seeded random sentence 144",
+      "input": "Sr. 9:05 thirtieth eleventh fifteen five five four double cents tenth sixth thousand fifth 10:30 o'clock won't",
+      "expected": "senior 9 530th 11th 15554 double cents 10th 6th 1005th 10 300 clock will not"
+    },
+    {
+      "id": "random-145",
+      "description": "seeded random sentence 145",
+      "input": "Prof. euros thirty sixth! y'all towelling: thousand! release; crystallising pencilled fifteen billion billion eight p.m. triple eighty seventh thirteen seventeen 80s",
+      "expected": "professor euros 36th you all toweling 1000 release crystallizing penciled 15000000008 p m triple 87th 1317 80s"
+    },
+    {
+      "id": "random-146",
+      "description": "seeded random sentence 146",
+      "input": "They're dollars Prof. collectivising here; how triple tenth hundredth eleventh sixty (laughs) ma'am fourteen tenth 21 here.",
+      "expected": "they are dollars professor collectivizing here how triple 10th 100th 11th 60 madam 1410th 21 here"
+    },
+    {
+      "id": "random-147",
+      "description": "seeded random sentence 147",
+      "input": "Thousand quarter hundredth eighteen thousand the patronise, Ms. sixteen eleven half remoulding update; that's here the euros? 2,500 euros",
+      "expected": "1000 quarter 100th 18000 the patronize ms 1611 half remolding update that is here the euros €2500"
+    },
+    {
+      "id": "random-148",
+      "description": "seeded random sentence 148",
+      "input": "plan six hundredth eleventh mhm...",
+      "expected": "plan 600th 11th ."
+    },
+    {
+      "id": "random-149",
+      "description": "seeded random sentence 149",
+      "input": "cents the uh pounds... first fifteen eighth ten triple second sixty twelfth tenth: Sr. zero second sixth eighty point twentieth 1,000",
+      "expected": "cents the pounds 1st 158th 10 triple 2nd 6012th 10th senior 02nd 6th 8020th 1000"
+    },
+    {
+      "id": "random-150",
+      "description": "seeded random sentence 150",
+      "input": "10,000 -- and version mhm a.m. per cent won't demonises - seven eleven nine €20 people!",
+      "expected": "10000 and version a m per cent will not demonizes 7119 €20 people"
+    },
+    {
+      "id": "random-151",
+      "description": "seeded random sentence 151",
+      "input": "M? mhm they're",
+      "expected": "m they are"
+    },
+    {
+      "id": "random-152",
+      "description": "seeded random sentence 152",
+      "input": "three and twelve seventy five criticised from 100? pounds Mr.",
+      "expected": "3 and 1275 criticized from £100 mister"
+    },
+    {
+      "id": "random-153",
+      "description": "seeded random sentence 153",
+      "input": "dollars. file point six seven thirteen eighty rumour 1st cents organisation! Jr. - mhm there tomorrow um six ninth first",
+      "expected": "dollars file .671380 rumor 1st cents organization junior there tomorrow 6 ninth 1st"
+    },
+    {
+      "id": "random-154",
+      "description": "seeded random sentence 154",
+      "input": "eleventh per cent you'll m quite bn micrometres twelve triple six four. a of thirteen eleventh Prof. how triple thirty eighteen twelve seven",
+      "expected": "11th per cent you will m quite bn micrometers 126664 a of 1311th professor how triple 3018127"
+    },
+    {
+      "id": "random-155",
+      "description": "seeded random sentence 155",
+      "input": "sixth eighth ninth hundredth 250 £5 we've thirty fourth eight memorises... subsidisation version nineteen: thirtieth twentieth hundredth euros dozen sixty twenty four seventeen 10:30",
+      "expected": "6th 8th ninth 100th 250 £5 we have 34th 8 memorizes subsidization version 1930th 20th 100th euros dozen 602417 10 30"
+    },
+    {
+      "id": "random-156",
+      "description": "seeded random sentence 156",
+      "input": "5k how review 99.9 of fourteen nine seventy nineteen thirtieth to and ten one the then St.? decentralise 2nd server",
+      "expected": "5 k how review 99.9 of 149701930th to and 101 the then saint decentralize 2nd server"
+    },
+    {
+      "id": "random-157",
+      "description": "seeded random sentence 157",
+      "input": "what Ms. also team -- often what by which also;",
+      "expected": "what ms also team often what by which also"
+    },
+    {
+      "id": "random-158",
+      "description": "seeded random sentence 158",
+      "input": "desensitises epicentre quite Dr. people St. mhm gruelling mm model; Dr. when isn't",
+      "expected": "desensitizes epicenter quite doctor people saint grueling model doctor when is not"
+    },
+    {
+      "id": "random-159",
+      "description": "seeded random sentence 159",
+      "input": "deadline 80s: a.m. -- 7b eight eleven twelve review budget yesterday St. never. test or triple ninth ninety - 1990s",
+      "expected": "deadline 80s a m 7 b 81112 review budget yesterday saint never test or triple ninth 90 1990s"
+    },
+    {
+      "id": "random-160",
+      "description": "seeded random sentence 160",
+      "input": "deadline team release sermonised billion half test",
+      "expected": "deadline team release sermonized 1000000000 half test"
+    },
+    {
+      "id": "random-161",
+      "description": "seeded random sentence 161",
+      "input": "never oh fifth five eight a half billion when -- Jr. for one five eighth but 21st? thirty twelfth nine twelfth oh model - meeting eight sixty seventy",
+      "expected": "never 05th 58 a half 1000000000 when junior for 158th but 21st 3012th 912th 0 model meeting 86070"
+    },
+    {
+      "id": "random-162",
+      "description": "seeded random sentence 162",
+      "input": "$1,000? and half million ninety model they're - eleventh billion twentieth six four hundred Sr. you'll never -- Sr.! point seventy billion where",
+      "expected": "$1000 and half 1000090 model they are 11th 1000000020th 6400 senior you will never senior 700000000 where"
+    },
+    {
+      "id": "random-163",
+      "description": "seeded random sentence 163",
+      "input": "Dollars seventy eleventh £1.50 on",
+      "expected": "dollars 7011th one.50 on"
+    },
+    {
+      "id": "random-164",
+      "description": "seeded random sentence 164",
+      "input": "here... what? sixty twelve forty one eleven bn oh eighteen fifth cancelling: then the dogs' result",
+      "expected": "here what 60124111 bn 0185th canceling then the dogs result"
+    },
+    {
+      "id": "random-165",
+      "description": "seeded random sentence 165",
+      "input": "amortise yesterday uh -- o'clock",
+      "expected": "amortize yesterday 0 clock"
+    },
+    {
+      "id": "random-166",
+      "description": "seeded random sentence 166",
+      "input": "St. deadline 555-1234 10 cents so 12 uh - six seventy zero rationalising I'd dozen ninety ninth forty just nineteen five oh thousand",
+      "expected": "saint deadline 555 1234 ¢10 so 126700 rationalizing i would dozen 90 ninth 40 just 1950000"
+    },
+    {
+      "id": "random-167",
+      "description": "seeded random sentence 167",
+      "input": "ten zero oh cents Mr. file o'clock [noise] fifth dozen",
+      "expected": "¢1000 mister file 0 clock 5th dozen"
+    },
+    {
+      "id": "random-168",
+      "description": "seeded random sentence 168",
+      "input": "uh - centigramme dollars (laughs)... you'll project",
+      "expected": "centigram dollars you will project"
+    },
+    {
+      "id": "random-169",
+      "description": "seeded random sentence 169",
+      "input": "$5 5k micrometres with 0... isn't; we've y'all Prof. can't very! Jr. compartmentalise 9:05",
+      "expected": "$5 5 k micrometers with 0 is not we have you all professor can not very junior compartmentalize 9 5"
+    },
+    {
+      "id": "random-170",
+      "description": "seeded random sentence 170",
+      "input": "to... don't meeting Mr. thirty four fifty first why Jr.: John's ma'am tenderising $5...",
+      "expected": "to do not meeting mister 3451st why junior john is madam tenderizing $5 ."
+    },
+    {
+      "id": "random-171",
+      "description": "seeded random sentence 171",
+      "input": "Twentieth ninth twelve third? 7b then second third million twentieth harbours 80s? twentieth twentieth",
+      "expected": "20th ninth 123rd 7 b then 2nd 3rd 1000020th harbors 80s 20th 20th"
+    },
+    {
+      "id": "random-172",
+      "description": "seeded random sentence 172",
+      "input": "dollars yesterday yesterday update seventy nineteen nine double oh quarter hundredth eight dozen thirteen a billion?",
+      "expected": "dollars yesterday yesterday update 7019900 quarter 100th 8 dozen 13 a 1000000000"
+    },
+    {
+      "id": "random-173",
+      "description": "seeded random sentence 173",
+      "input": "Seventeen ten third very 3.5",
+      "expected": "17103rd very 3.5"
+    },
+    {
+      "id": "random-174",
+      "description": "seeded random sentence 174",
+      "input": "rhapsodise; 80s compartmentalise p.m. also review server [noise] still, there",
+      "expected": "rhapsodize 80s compartmentalize p m also review server still there"
+    },
+    {
+      "id": "random-175",
+      "description": "seeded random sentence 175",
+      "input": "Oh nineteen one two fifty I'd one hundredth eight half o'clock? $3m won't model server twelve seventh hundred; we've 99.9 by",
+      "expected": "0191250 i would 100th 8 half 0 clock $3 m will not model server 127th 100 we have 99.9 by"
+    },
+    {
+      "id": "random-176",
+      "description": "seeded random sentence 176",
+      "input": "here point seventy seventeen sixteen 99 won't encyclopaedia clamoured Prof. file",
+      "expected": "here .701716 99 will not encyclopedia clamored professor file"
+    },
+    {
+      "id": "random-177",
+      "description": "seeded random sentence 177",
+      "input": "[noise] 21st; quarter",
+      "expected": "21st quarter"
+    },
+    {
+      "id": "random-178",
+      "description": "seeded random sentence 178",
+      "input": "percent... [noise]; naturalised Prof. model always 3rd six thirteen twentieth five ninety 100th plan deadline",
+      "expected": "percent naturalized professor model always 3rd 61320th 590 100th plan deadline"
+    },
+    {
+      "id": "random-179",
+      "description": "seeded random sentence 179",
+      "input": "canalise can't Sr. labelling deadline: 100 still. Prof. still zero and seventeen dozen six zero fourth a third? a.m. £1.50 1",
+      "expected": "canalize can not senior labeling deadline 100 still professor still 0 and 17 dozen 604th a 3rd a m one.50 one"
+    },
+    {
+      "id": "random-180",
+      "description": "seeded random sentence 180",
+      "input": "Plan with never",
+      "expected": "plan with never"
+    },
+    {
+      "id": "random-181",
+      "description": "seeded random sentence 181",
+      "input": "Version twelfth sixty fifth forty third 1;",
+      "expected": "version 12th 65th 43rd one"
+    },
+    {
+      "id": "random-182",
+      "description": "seeded random sentence 182",
+      "input": "a thirty one twenty eleventh 0! terrorises",
+      "expected": "a 312011th 0 terrorizes"
+    },
+    {
+      "id": "random-183",
+      "description": "seeded random sentence 183",
+      "input": "for Jr. satirising but; change Dr.",
+      "expected": "for junior satirizing but change doctor"
+    },
+    {
+      "id": "random-184",
+      "description": "seeded random sentence 184",
+      "input": "(laughs) - yesterday why 1990s 80s and point eighty oh nineteen euros where almanacks -- the dogs' 12",
+      "expected": "yesterday why 1990s 80s and .80019 where almanacs the dogs 12"
+    },
+    {
+      "id": "random-185",
+      "description": "seeded random sentence 185",
+      "input": "k but - panelling uh bn,",
+      "expected": "k but paneling bn"
+    },
+    {
+      "id": "random-186",
+      "description": "seeded random sentence 186",
+      "input": "100th waggons forty six seven there pounds",
+      "expected": "100th wagons 467 there pounds"
+    },
+    {
+      "id": "random-187",
+      "description": "seeded random sentence 187",
+      "input": "101... bn five twelfth two nine twelfth 101 from",
+      "expected": "101 bn 512th 2912th 101 from"
+    },
+    {
+      "id": "random-188",
+      "description": "seeded random sentence 188",
+      "input": "bn $3m model often 10,000 hmm five hundred million eighteen eighth also",
+      "expected": "bn $3 m model often 5000100188th also"
+    },
+    {
+      "id": "random-189",
+      "description": "seeded random sentence 189",
+      "input": "The dogs' but, Mr.. where just second ten dramatisations pyjamas",
+      "expected": "the dogs but mister where just 2nd 10 dramatizations pajamas"
+    },
+    {
+      "id": "random-190",
+      "description": "seeded random sentence 190",
+      "input": "twenty eighteen eleventh two third tenth quarter nineteen -- hundred",
+      "expected": "201811th 23rd 10th quarter 1900"
+    },
+    {
+      "id": "random-191",
+      "description": "seeded random sentence 191",
+      "input": "Dr. mhm twenty sensationalises just per cent 100th project o'clock 42",
+      "expected": "doctor 20 sensationalizes just per cent 100th project 0 clock 42"
+    },
+    {
+      "id": "random-192",
+      "description": "seeded random sentence 192",
+      "input": "um you'll percent",
+      "expected": "you will percent"
+    },
+    {
+      "id": "random-193",
+      "description": "seeded random sentence 193",
+      "input": "Release - 100 hundred twenty point 21 hmm unauthorised hmm won't. pounds server -- hundred dozen and 21",
+      "expected": "release 10020.21 unauthorized will not pounds server 100 dozen and 21"
+    },
+    {
+      "id": "random-194",
+      "description": "seeded random sentence 194",
+      "input": "here Ms. result phoney centimetres fossilises cents won't",
+      "expected": "here ms result phony centimeters fossilizes cents will not"
+    },
+    {
+      "id": "random-195",
+      "description": "seeded random sentence 195",
+      "input": "P.m. sixth sixth 50% mitre also thirtieth sixteen fifth k",
+      "expected": "p m 6th 6th 50% miter also 30th 165th k"
+    },
+    {
+      "id": "random-196",
+      "description": "seeded random sentence 196",
+      "input": "thousand ninety fifty five bn for 1 - mhm just mm twenty change",
+      "expected": "109055 bn for one just 20 change"
+    },
+    {
+      "id": "random-197",
+      "description": "seeded random sentence 197",
+      "input": "At by yesterday St. [noise] percent",
+      "expected": "at by yesterday saint percent"
+    },
+    {
+      "id": "random-198",
+      "description": "seeded random sentence 198",
+      "input": "and 50% percent fourth hundred eighth ten first um just characterise seventy twelfth hundredth magnetises the dogs' [noise],",
+      "expected": "and 50% percent 4th 108th 101st just characterize 7012th 100th magnetizes the dogs"
+    },
+    {
+      "id": "random-199",
+      "description": "seeded random sentence 199",
+      "input": "fourth ten second billion emphasising three tenth eighty sixty model? p.m. how satirise seventy tenth hundred ninth project 42 o'clock - report -",
+      "expected": "4th 102nd 1000000000 emphasizing 310th 8060 model p m how satirize 7010th 100 ninth project 420 clock report"
+    },
+    {
+      "id": "random-200",
+      "description": "seeded random sentence 200",
+      "input": "Um bn [noise]",
+      "expected": "bn"
+    },
+    {
+      "id": "random-201",
+      "description": "seeded random sentence 201",
+      "input": "9:05, so Jr.... um hundred tenth two eight quarter million triple ninety fourth thirteen",
+      "expected": "9 5 so junior 110th 28 quarter 1000000 triple 94th 13"
+    },
+    {
+      "id": "random-202",
+      "description": "seeded random sentence 202",
+      "input": "Hmm twelfth ten four first hundred - 100th? 80s percent -",
+      "expected": "12th 1041st 100 100th 80s percent"
+    },
+    {
+      "id": "random-203",
+      "description": "seeded random sentence 203",
+      "input": "percent eighteen ten twelfth Jr.",
+      "expected": "percent 181012th junior"
+    },
+    {
+      "id": "random-204",
+      "description": "seeded random sentence 204",
+      "input": "then -- today 1 3.5. for pounds fifth seventh point seventy triple? 12 percent really? publicised not thousand",
+      "expected": "then today one 3.5 for pounds 5th 7th .70 triple 12% really publicized not 1000"
+    },
+    {
+      "id": "random-205",
+      "description": "seeded random sentence 205",
+      "input": "victimised uh seventh oh eighth hundred fourteen Mrs.;",
+      "expected": "victimized 7th 08th 114 missus"
+    },
+    {
+      "id": "random-206",
+      "description": "seeded random sentence 206",
+      "input": "euros: sixteen deadline how misdemeanours meeting",
+      "expected": "euros 16 deadline how misdemeanors meeting"
+    },
+    {
+      "id": "random-207",
+      "description": "seeded random sentence 207",
+      "input": "Fifty sixty fourteen fifty billion four ninth billion two eighteen uh 3.5 it's today 0.25",
+      "expected": "50601450000000004 ninth 100000000218 3.5 it is today 0.25"
+    },
+    {
+      "id": "random-208",
+      "description": "seeded random sentence 208",
+      "input": "Sixteen zero how. eighty eighth four million and and three $1,000 wouldn't release hundredth half twelve eight twenty triple",
+      "expected": "160 how 88th 4000000 and 3 $1000 would not release 100th half 12820 triple"
+    },
+    {
+      "id": "random-209",
+      "description": "seeded random sentence 209",
+      "input": "Version £1.50 an; Mr. I'd? a.m. that's",
+      "expected": "version one.50 an mister i would a m that is"
+    },
+    {
+      "id": "random-210",
+      "description": "seeded random sentence 210",
+      "input": "Today won't 10 19 server sixth first $1,000 seventy triple seventeen two Mrs. so percent? deputise - m",
+      "expected": "today will not 10 19 server 6th 1st $10701717172 missus so percent deputize m"
+    },
+    {
+      "id": "random-211",
+      "description": "seeded random sentence 211",
+      "input": "epilogues bn ninth",
+      "expected": "epilogs bn ninth"
+    },
+    {
+      "id": "random-212",
+      "description": "seeded random sentence 212",
+      "input": "Per cent model harmonising hundredth three third seven there nine who -",
+      "expected": "per cent model harmonizing 100th 33rd 7 there 9 who"
+    },
+    {
+      "id": "random-213",
+      "description": "seeded random sentence 213",
+      "input": "Bn plan people project version which? caramelise",
+      "expected": "bn plan people project version which caramelize"
+    },
+    {
+      "id": "random-214",
+      "description": "seeded random sentence 214",
+      "input": "thirty three thousand 10,000 k thirteen nine half sixth - 1990s €20 dollars reveller um don't review what I'd -- Mrs.",
+      "expected": "33000 10000 k 139 half 6th 1990s $20 reveler do not review what i would missus"
+    },
+    {
+      "id": "random-215",
+      "description": "seeded random sentence 215",
+      "input": "sulphides forty; 555-1234 19 1/2 bastardises -- seventh hundredth million two four - one",
+      "expected": "sulfides 40 555 1234 19 one 2 bastardizes 7th 100th 100000241"
+    },
+    {
+      "id": "random-216",
+      "description": "seeded random sentence 216",
+      "input": "fifty the dogs' cents, dollars change twelfth thirtieth twenty ninety thousand: report y'all urbanised how two fourth, an billion",
+      "expected": "50 the dogs cents dollars change 12th 30th 2090000 report you all urbanized how 24th an 1000000000"
+    },
+    {
+      "id": "random-217",
+      "description": "seeded random sentence 217",
+      "input": "so 12/25/2020 cheques result",
+      "expected": "so 12 25 2020 checks result"
+    },
+    {
+      "id": "random-218",
+      "description": "seeded random sentence 218",
+      "input": "nineteen billion eighth review quite 2,500 thirty ten hundredth twenty sixth eighteen eighteen",
+      "expected": "19000000008th review quite 25301000th 26th 1818"
+    },
+    {
+      "id": "random-219",
+      "description": "seeded random sentence 219",
+      "input": "Plough often test, John's [inaudible] -",
+      "expected": "plow often test john is"
+    },
+    {
+      "id": "random-220",
+      "description": "seeded random sentence 220",
+      "input": "there euros don't really Sr.; sixteen nine thirteen eleven seventh double fifth pounds euros version hmm $3m project! twentieth fifteen",
+      "expected": "there euros do not really senior 16913117th double 5th pounds euros version $3 m project 20th 15"
+    },
+    {
+      "id": "random-221",
+      "description": "seeded random sentence 221",
+      "input": "uh euros fictionalisations can't",
+      "expected": "euros fictionalizations can not"
+    },
+    {
+      "id": "random-222",
+      "description": "seeded random sentence 222",
+      "input": "the dogs' second twelve hundredth seventy eighty ninety dozen... change there Mr.? analyse then 99.9 -- 250 ten I'd file - 1990s",
+      "expected": "the dogs 2nd 1200th 708090 dozen change there mister analyze then 99.9 25010 i would file 1990s"
+    },
+    {
+      "id": "random-223",
+      "description": "seeded random sentence 223",
+      "input": "seventy nineteen five sixteen seventy on very today 42 model 21 version",
+      "expected": "701951670 on very today 42 model 21 version"
+    },
+    {
+      "id": "random-224",
+      "description": "seeded random sentence 224",
+      "input": "nine four thirtieth sixteen they're (laughs)",
+      "expected": "9430th 16 they are"
+    },
+    {
+      "id": "random-225",
+      "description": "seeded random sentence 225",
+      "input": "Jr. 0.25 don't what ionises dollars project a dozen ten million eighth um for dozen oh two point sixteen -- $3m",
+      "expected": "junior 0.25 do not what ionizes dollars project a dozen 10000008th for dozen 02.16 $3 m"
+    },
+    {
+      "id": "random-226",
+      "description": "seeded random sentence 226",
+      "input": "Don't at so three thirteen seventy; thirteen eleventh eighteen",
+      "expected": "do not at so 313701311th 18"
+    },
+    {
+      "id": "random-227",
+      "description": "seeded random sentence 227",
+      "input": "really what cents wouldn't 99 tomorrow. 3.5%, seventy eighty zero six Prof.",
+      "expected": "really what cents would not 99 tomorrow 3.5% 708006 professor"
+    },
+    {
+      "id": "random-228",
+      "description": "seeded random sentence 228",
+      "input": "hmm sixteen hundred flavourings when eight twelfth forty twelfth fifty",
+      "expected": "1600 flavorings when 812th 4012th 50"
+    },
+    {
+      "id": "random-229",
+      "description": "seeded random sentence 229",
+      "input": "why four seven six Dr.... at ma'am £1.50 250. of; then per cent [inaudible] p.m.! the dogs'",
+      "expected": "why 476 doctor at madam one.50 250 of then per cent p m the dogs"
+    },
+    {
+      "id": "random-230",
+      "description": "seeded random sentence 230",
+      "input": "Ms. at! seven tenth - eighteen eighteen sixteen thirteen fourth ninth seven fifth first or forty who I'd release triple two",
+      "expected": "ms at 710th 181816134th ninth 75th 1st or 40 who i would release 222"
+    },
+    {
+      "id": "random-231",
+      "description": "seeded random sentence 231",
+      "input": "here: pharmacopoeia $5; Mrs. why a.m. zero dollars Dr.... mm just",
+      "expected": "here pharmacopeia $5 missus why a m $0 doctor just"
+    },
+    {
+      "id": "random-232",
+      "description": "seeded random sentence 232",
+      "input": "isn't! k (laughs); eighty one",
+      "expected": "is not k 81"
+    },
+    {
+      "id": "random-233",
+      "description": "seeded random sentence 233",
+      "input": "Sixty million euros chimaeras! cents westernising today",
+      "expected": "€60000000 chimeras cents westernizing today"
+    },
+    {
+      "id": "random-234",
+      "description": "seeded random sentence 234",
+      "input": "Mrs. billion I'm I'm - on - um dollars you'll marvelling; an euros",
+      "expected": "missus 1000000000 i am i am on dollars you will marveling an euros"
+    },
+    {
+      "id": "random-235",
+      "description": "seeded random sentence 235",
+      "input": "just Dr. why where sixteen thirty sixty six thousand 101 how percent: result",
+      "expected": "just doctor why where 163066000 101 how percent result"
+    },
+    {
+      "id": "random-236",
+      "description": "seeded random sentence 236",
+      "input": "which. bn ninth a thirtieth thirty eighteen and discolouring 11th -- offences dozen seventy hundredth",
+      "expected": "which bn ninth a 30th 3018 and discoloring 11th offenses dozen 7000th"
+    },
+    {
+      "id": "random-237",
+      "description": "seeded random sentence 237",
+      "input": "eleventh quarter forty triple... still ninth first colonisers - privatised I'd",
+      "expected": "11th quarter 40 triple still ninth 1st colonizers privatized i would"
+    },
+    {
+      "id": "random-238",
+      "description": "seeded random sentence 238",
+      "input": "twentieth eighth twentieth eleventh there Mr.! seventy criticised at Prof. Prof.... seventeen thirtieth aeroplane it's a first hundred fifty um",
+      "expected": "20th 8th 20th 11th there mister 70 criticized at professor professor 1730th airplane it is a 1st 150"
+    },
+    {
+      "id": "random-239",
+      "description": "seeded random sentence 239",
+      "input": "a.m. which 1st don't - gruelling when",
+      "expected": "a m which 1st do not grueling when"
+    },
+    {
+      "id": "random-240",
+      "description": "seeded random sentence 240",
+      "input": "Y'all a.m. pounds update thirtieth! privatises and uh people -- when hospitalise",
+      "expected": "you all a m pounds update 30th privatizes and people when hospitalize"
+    },
+    {
+      "id": "random-241",
+      "description": "seeded random sentence 241",
+      "input": "um [inaudible] oh fourteen a isn't plan with Mrs. nine a ninth plan 11th",
+      "expected": "014 a is not plan with missus 9 a ninth plan 11th"
+    },
+    {
+      "id": "random-242",
+      "description": "seeded random sentence 242",
+      "input": "dozen fourteen eleven 7 fifteen ninth seventh second economises p.m.? k m stabilised plan? eleventh fifteen sixth plan release seventeen dozen triple fifty forty 2,500",
+      "expected": "dozen 1411 715 ninth 7th 2nd economizes p m k m stabilized plan 11th 156th plan release 17 dozen triple 5040 2500"
+    },
+    {
+      "id": "random-243",
+      "description": "seeded random sentence 243",
+      "input": "chilli very, 3.5 four fifteen 3rd. systematisation",
+      "expected": "chili very 3.5415 3rd systematization"
+    },
+    {
+      "id": "random-244",
+      "description": "seeded random sentence 244",
+      "input": "pounds $1,000; three seventh hundredth hundredth ninth factorise Prof. -- sentimentalising result, zero hundredth a.m. yesterday and and tenth eighty Ms.;",
+      "expected": "pounds $10037th 100th 100th ninth factorize professor sentimentalizing result 0th a m yesterday and and 10th 80 ms"
+    },
+    {
+      "id": "random-245",
+      "description": "seeded random sentence 245",
+      "input": "report p.m. customer when [inaudible] where [inaudible] so the dogs' thousand a.m. - twenty seventh very and",
+      "expected": "report p m customer when where so the dogs 1000 a m 27th very and"
+    },
+    {
+      "id": "random-246",
+      "description": "seeded random sentence 246",
+      "input": "3rd sixty million eighth twentieth how 12 Prof. a; euros ninety seventeen fourth zero tenth three thousand the dogs'",
+      "expected": "3rd 60000008th 20th how 12 professor a euros 90174th 010th 3000 the dogs"
+    },
+    {
+      "id": "random-247",
+      "description": "seeded random sentence 247",
+      "input": "customer how? today gynaecology,",
+      "expected": "customer how today gynecology"
+    },
+    {
+      "id": "random-248",
+      "description": "seeded random sentence 248",
+      "input": "deputised for intellectualised seventeen fourth billion St. one thousand hundred seventy I'm but Prof. 1st we've at",
+      "expected": "deputized for intellectualized 174th 1000000000 saint 1070 i am but professor 1st we have at"
+    },
+    {
+      "id": "random-249",
+      "description": "seeded random sentence 249",
+      "input": "One a thirty forty seventh 100 a sixteen eighth thirtieth seven billion nine tenth John's... 10:30 really the there psychoanalysed quarter point point fourteen",
+      "expected": "one a 3047th 100 a 168th 30th 700000000910th john is 10 30 really the there psychoanalyzed quarter .14"
+    },
+    {
+      "id": "random-250",
+      "description": "seeded random sentence 250",
+      "input": "how double seven, first first you'll 2,500 per cent -- 1,000 555-1234... Mrs. p.m.;",
+      "expected": "how 771st 1st you will 2500% 1000 555 1234 missus p m"
+    },
+    {
+      "id": "random-251",
+      "description": "seeded random sentence 251",
+      "input": "they're team vocalisations sixteen per cent there ma'am then 21 report yesterday? mhm",
+      "expected": "they are team vocalizations 16% there madam then 21 report yesterday"
+    },
+    {
+      "id": "random-252",
+      "description": "seeded random sentence 252",
+      "input": "£5 tomorrow 2nd it's it's 1",
+      "expected": "£5 tomorrow 2nd it is it is one"
+    },
+    {
+      "id": "random-253",
+      "description": "seeded random sentence 253",
+      "input": "result 42 ninth and ninety aerogramme! it's, fourth six hundredth -- moulds 4th 99.9",
+      "expected": "result 42 ninth and 90 aerogram it is 4th 600th molds 4th 99.9"
+    },
+    {
+      "id": "random-254",
+      "description": "seeded random sentence 254",
+      "input": "Where, $5.50 $1,000 budget 99 per cent or you'll people Dr.",
+      "expected": "where $5.50 $1000 budget 99% or you will people doctor"
+    },
+    {
+      "id": "random-255",
+      "description": "seeded random sentence 255",
+      "input": "o'clock. twelfth oh (laughs) test... at file of quarter a forty seven eighty $3m... zero fifth two",
+      "expected": "0 clock 12th 0 test at file of quarter a 4780 $3 m 05th 2"
+    },
+    {
+      "id": "random-256",
+      "description": "seeded random sentence 256",
+      "input": "today: version also how; 101",
+      "expected": "today version also how 101"
+    },
+    {
+      "id": "random-257",
+      "description": "seeded random sentence 257",
+      "input": "point tenth triple feminising and Mr. Prof. the: sixteen thousand seventh fifteen thirty fourteen tenth ten o'clock... circularises project -- which k um",
+      "expected": "10th triple feminizing and mister professor the 16007th 15301410th 100 clock circularizes project which k"
+    },
+    {
+      "id": "random-258",
+      "description": "seeded random sentence 258",
+      "input": "Dr. hundred eighty Ms. 11th overemphasising dehumanisation result not; pounds [noise] per cent um server?",
+      "expected": "doctor 180 ms 11th overemphasizing dehumanization result not pounds per cent server"
+    },
+    {
+      "id": "random-259",
+      "description": "seeded random sentence 259",
+      "input": "which serialisations not",
+      "expected": "which serializations not"
+    },
+    {
+      "id": "random-260",
+      "description": "seeded random sentence 260",
+      "input": "Just... really result by",
+      "expected": "just really result by"
+    },
+    {
+      "id": "random-261",
+      "description": "seeded random sentence 261",
+      "input": "[inaudible] per cent! Dr.... mm Ms.",
+      "expected": "per cent doctor ms"
+    },
+    {
+      "id": "random-262",
+      "description": "seeded random sentence 262",
+      "input": "Dr. depersonalises a,",
+      "expected": "doctor depersonalizes a"
+    },
+    {
+      "id": "random-263",
+      "description": "seeded random sentence 263",
+      "input": "By per cent Sr. with sixth a oh",
+      "expected": "by per cent senior with 6th a 0"
+    },
+    {
+      "id": "random-264",
+      "description": "seeded random sentence 264",
+      "input": "for catalogued cents from",
+      "expected": "for cataloged cents from"
+    },
+    {
+      "id": "random-265",
+      "description": "seeded random sentence 265",
+      "input": "0.25: y'all: 555-1234 report thirtieth million 10:30 by one hundred ninth six model which mhm forty twentieth a sixth ten half five two ma'am",
+      "expected": "0.25 you all 555 1234 report 30th 1000000 10 30 by 100 ninth 6 model which 4020th a 6th 10 half 52 madam"
+    },
+    {
+      "id": "random-266",
+      "description": "seeded random sentence 266",
+      "input": "callipers, zero fourth twelfth forty cents four zero double four",
+      "expected": "calipers 04th 12th ¢40 4044"
+    },
+    {
+      "id": "random-267",
+      "description": "seeded random sentence 267",
+      "input": "not it's to of server there symbolise 12 Jr. thirteen fifth six eighteen first thousand thirteen people St.",
+      "expected": "not it is to of server there symbolize 12 junior 135th 6181st 1013 people saint"
+    },
+    {
+      "id": "random-268",
+      "description": "seeded random sentence 268",
+      "input": "so hmm Jr. review legalised what 3.5%: mhm 21? thirteen hundredth one: seventeen nineteen seventh fifty twelfth Jr.",
+      "expected": "so junior review legalized what 3.5% 211300th 117197th 5012th junior"
+    },
+    {
+      "id": "random-269",
+      "description": "seeded random sentence 269",
+      "input": "a.m. - euros - never for never demonise... eighty fourteen m 50% third fifth thirty hmm: just won't",
+      "expected": "a m euros never for never demonize 8014 m 50% 3rd 5th 30 just will not"
+    },
+    {
+      "id": "random-270",
+      "description": "seeded random sentence 270",
+      "input": "per cent unionises twenty a eleventh -- euros Mrs. fourth third triple point third stabilisation 21 7b",
+      "expected": "per cent unionizes 20 a 11th euros missus 4th 3rd triple 3rd stabilization 21 7 b"
+    },
+    {
+      "id": "random-271",
+      "description": "seeded random sentence 271",
+      "input": "result Jr. m",
+      "expected": "result junior m"
+    },
+    {
+      "id": "random-272",
+      "description": "seeded random sentence 272",
+      "input": "quite um 7b Mrs. team thousand fourteen six first fourth team and",
+      "expected": "quite 7 b missus team 101461st 4th team and"
+    },
+    {
+      "id": "random-273",
+      "description": "seeded random sentence 273",
+      "input": "£5. two seventh model $5.50, where of 99 very Ms. why",
+      "expected": "£527th model $5.50 where of 99 very ms why"
+    },
+    {
+      "id": "random-274",
+      "description": "seeded random sentence 274",
+      "input": "555-1234 fictionalisations so",
+      "expected": "555 1234 fictionalizations so"
+    },
+    {
+      "id": "random-275",
+      "description": "seeded random sentence 275",
+      "input": "wouldn't! twenty twelve eighth five thirtieth four point seventy dozen ninety um",
+      "expected": "would not 20128th 530th 4.70 dozen 90"
+    },
+    {
+      "id": "random-276",
+      "description": "seeded random sentence 276",
+      "input": "Utilisation people bn m Sr. 4th p.m. point: why 21 twenty seventy hundredth seventh sixty euros 2x where,",
+      "expected": "utilization people bn m senior 4th p m point why 21207000th 7th €60 2 x where"
+    },
+    {
+      "id": "random-277",
+      "description": "seeded random sentence 277",
+      "input": "21 10,000 point nineteen double billion half two sixth point fifteen... hmm percent sixty gryphon triple eleventh nineteen three cents twenty fifty thirtieth thousand m",
+      "expected": "21 10000.19 double 1000000000 half 26th .15 percent 60 griffin triple 11th ¢193 205030th 1000 m"
+    },
+    {
+      "id": "random-278",
+      "description": "seeded random sentence 278",
+      "input": "not seven seventeen from you'll so just - sixth seventeen p.m.",
+      "expected": "not 717 from you will so just 6th 17 p m"
+    },
+    {
+      "id": "random-279",
+      "description": "seeded random sentence 279",
+      "input": "tenth, St. and don't k from euros",
+      "expected": "10th saint and do not k from euros"
+    },
+    {
+      "id": "random-280",
+      "description": "seeded random sentence 280",
+      "input": "21 -- pounds 2nd [inaudible]",
+      "expected": "£21 2nd"
+    },
+    {
+      "id": "random-281",
+      "description": "seeded random sentence 281",
+      "input": "we've uh why -- never; Jr. where it's 80s 11th: can't chequebook",
+      "expected": "we have why never junior where it is 80s 11th can not checkbook"
+    },
+    {
+      "id": "random-282",
+      "description": "seeded random sentence 282",
+      "input": "Oh symbolising 10 never Mr....",
+      "expected": "0 symbolizing 10 never mister ."
+    },
+    {
+      "id": "random-283",
+      "description": "seeded random sentence 283",
+      "input": "yesterday - when m always - where Dr. plan",
+      "expected": "yesterday when m always where doctor plan"
+    },
+    {
+      "id": "random-284",
+      "description": "seeded random sentence 284",
+      "input": "how! billion, bn not point a where sixty second ten seventh Mrs. £5 m: very [inaudible]?",
+      "expected": "how 1000000000 bn not point a where 62nd 107th missus £5 m very"
+    },
+    {
+      "id": "random-285",
+      "description": "seeded random sentence 285",
+      "input": "m 42. often bn 12/25/2020 test p.m. eighty dozen thirty eleven third per cent mhm; we've percent report",
+      "expected": "m 42 often bn 12 25 2020 test p m 80 dozen 30113rd per cent we have percent report"
+    },
+    {
+      "id": "random-286",
+      "description": "seeded random sentence 286",
+      "input": "The -- what Sr.... 99.9",
+      "expected": "the what senior 99.9"
+    },
+    {
+      "id": "random-287",
+      "description": "seeded random sentence 287",
+      "input": "but localises! pedalling k nine nine ninety $3m fourth hundred ten m result 2nd never",
+      "expected": "but localizes pedaling k 9990 $3 m 4th 110 m result 2nd never"
+    },
+    {
+      "id": "random-288",
+      "description": "seeded random sentence 288",
+      "input": "$5! ninety seven seventeen eleven five fifty zero: of 100th what release marginalise seventy four zero billion um ghettoised twelve eleventh sixteen eighty thirteen",
+      "expected": "$59717115500 of 100th what release marginalize 740000000000 ghettoized 1211th 168013"
+    },
+    {
+      "id": "random-289",
+      "description": "seeded random sentence 289",
+      "input": "change Mrs. passivises p.m. a plan report Ms. um 99 deodorise 7",
+      "expected": "change missus passivizes p m a plan report ms 99 deodorize 7"
+    },
+    {
+      "id": "random-290",
+      "description": "seeded random sentence 290",
+      "input": "pounds eighty seventeen don't a.m. Jr. nine 19 - (laughs) 10,000;",
+      "expected": "pounds 8017 do not a m junior 9 19 10000"
+    },
+    {
+      "id": "random-291",
+      "description": "seeded random sentence 291",
+      "input": "and fourth thirteen seventeen dozen project £1.50 where so why 1 ninety so an isn't two four",
+      "expected": "and 4th 1317 dozen project one.50 where so why 190 so an is not 24"
+    },
+    {
+      "id": "random-292",
+      "description": "seeded random sentence 292",
+      "input": "percent... m; bn twelfth double forty triple mhm what yesterday",
+      "expected": "percent m bn 12th double 40 triple what yesterday"
+    },
+    {
+      "id": "random-293",
+      "description": "seeded random sentence 293",
+      "input": "o'clock foetus never very 2x. isn't but randomise Mrs. a test million double eighty per cent which",
+      "expected": "0 clock fetus never very 2 x is not but randomize missus a test 1000000 double 80% which"
+    },
+    {
+      "id": "random-294",
+      "description": "seeded random sentence 294",
+      "input": "Quite [noise] lustre",
+      "expected": "quite luster"
+    },
+    {
+      "id": "random-295",
+      "description": "seeded random sentence 295",
+      "input": "555-1234. or four seventh fifteen, not $3m: fifty ninth second point tenth: release",
+      "expected": "555 1234 or 47th 15 not $3 m 50 ninth 2nd 10th release"
+    },
+    {
+      "id": "random-296",
+      "description": "seeded random sentence 296",
+      "input": "moult Sr. and very. I'd Mrs. 7 and that's 2m in",
+      "expected": "molt senior and very i would missus 7 and that is 2 m in"
+    },
+    {
+      "id": "random-297",
+      "description": "seeded random sentence 297",
+      "input": "fourteen 19 m 2m; 1 3.5% per cent.",
+      "expected": "14 19 m 2 m one 3.5% per cent"
+    },
+    {
+      "id": "random-298",
+      "description": "seeded random sentence 298",
+      "input": "they're double; they're seven triple second four - which (laughs)",
+      "expected": "they are double they are 7 triple 2nd 4 which"
+    },
+    {
+      "id": "random-299",
+      "description": "seeded random sentence 299",
+      "input": "Glamorising release uh result 555-1234! on",
+      "expected": "glamorizing release result 555 1234 on"
+    },
+    {
+      "id": "random-300",
+      "description": "seeded random sentence 300",
+      "input": "Sixth thirteen thirtieth billion thirty; propagandises um... which Prof. -- percent Ms.! o'clock 3/4 anglicises --",
+      "expected": "6th 1330th 1000000030 propagandizes which professor percent ms 0 clock 3 4 anglicizes"
+    },
+    {
+      "id": "random-301",
+      "description": "seeded random sentence 301",
+      "input": "review authorises 0.25 demonises there don't o'clock mm twelve ten eighth zero fifth nine tomorrow eleven million half sixth thirtieth double",
+      "expected": "review authorizes 0.25 demonizes there do not 0 clock 12108th 05th 9 tomorrow 11000000 half 6th 30th double"
+    },
+    {
+      "id": "random-302",
+      "description": "seeded random sentence 302",
+      "input": "Five seventh o'clock release",
+      "expected": "57th 0 clock release"
+    },
+    {
+      "id": "random-303",
+      "description": "seeded random sentence 303",
+      "input": "Dr. fifth! deadline? Mrs. - four eighteen five eighteen half mm o'clock, €20 eleventh one twelfth million twentieth billion",
+      "expected": "doctor 5th deadline missus 418518 half 0 clock €2011th 112th 1000020th 1000000000"
+    },
+    {
+      "id": "random-304",
+      "description": "seeded random sentence 304",
+      "input": "£5 yesterday 3.5% 5k - we've four today plan 3/4",
+      "expected": "£5 yesterday 3.5% 5 k we have 4 today plan 3 4"
+    },
+    {
+      "id": "random-305",
+      "description": "seeded random sentence 305",
+      "input": "that's or eighty billion eighteen five a p.m. or two twenty thirty half twentieth utilising forty: mhm 4th: an result, sixth twelve nineteen oh",
+      "expected": "that is or 800000000185 a p m or 22030 half 20th utilizing 40 4th an result 6th 12190"
+    },
+    {
+      "id": "random-306",
+      "description": "seeded random sentence 306",
+      "input": "or seventh nineteen twelve ninth four (laughs) pounds! review m what",
+      "expected": "or 7th 1912 ninth £4 review m what"
+    },
+    {
+      "id": "random-307",
+      "description": "seeded random sentence 307",
+      "input": "[noise] thirteen ninth... for 2,500 o'clock isn't and people? six thirty twentieth",
+      "expected": "13 ninth for 25000 clock is not and people 63020th"
+    },
+    {
+      "id": "random-308",
+      "description": "seeded random sentence 308",
+      "input": "a.m.. 10,000 here triple ten four on per cent per cent? [inaudible]? don't which eight first and twentieth quarter tenth four p.m.:",
+      "expected": "a m 10000 here 1010104 on per cent per cent do not which 81st and 20th quarter 10th 4 p m"
+    },
+    {
+      "id": "random-309",
+      "description": "seeded random sentence 309",
+      "input": "Always -- per cent zero thousand nine eighty five",
+      "expected": "always per cent 985"
+    },
+    {
+      "id": "random-310",
+      "description": "seeded random sentence 310",
+      "input": "Quarter sixth dozen two fifteen eighth double eighty",
+      "expected": "quarter 6th dozen 2158th double 80"
+    },
+    {
+      "id": "random-311",
+      "description": "seeded random sentence 311",
+      "input": "£1.50 half thirtieth eighty point eight twelfth today here - 100th... by Dr. finalisation Mrs.; Ms. [noise]",
+      "expected": " one.50 half 30th 80.812th today here 100th by doctor finalization missus ms"
+    },
+    {
+      "id": "random-312",
+      "description": "seeded random sentence 312",
+      "input": "John's from. seven six seventy seven twenty ten triple by test dehumanisation -- uh economising",
+      "expected": "john is from 76772010 triple by test dehumanization economizing"
+    },
+    {
+      "id": "random-313",
+      "description": "seeded random sentence 313",
+      "input": "10 thirty zero they're? just",
+      "expected": "10300 they are just"
+    },
+    {
+      "id": "random-314",
+      "description": "seeded random sentence 314",
+      "input": "Neutralises yesterday colourizing Ms. meeting neighbourhoods just I'm of",
+      "expected": "neutralizes yesterday colorizing ms meeting neighborhoods just i am of"
+    },
+    {
+      "id": "random-315",
+      "description": "seeded random sentence 315",
+      "input": "Mr.. magnetised mhm pounds m seventeen three half a sixteen triple eight - nine eleventh second twelfth thirtieth",
+      "expected": "mister magnetized pounds m 173 half a 16888911th 2nd 12th 30th"
+    },
+    {
+      "id": "random-316",
+      "description": "seeded random sentence 316",
+      "input": "$5 bn two thousand hundred server sympathises Mr. can't release how mm! for um 10:30",
+      "expected": "$5 bn 2000 server sympathizes mister can not release how for 10 30"
+    },
+    {
+      "id": "random-317",
+      "description": "seeded random sentence 317",
+      "input": "Ninth six thirtieth double economising never: pounds o'clock Ms. o'clock Prof. just with twenty half first four sixth",
+      "expected": "ninth 630th double economizing never pounds 0 clock ms 0 clock professor just with 20 half 1st 46th"
+    },
+    {
+      "id": "random-318",
+      "description": "seeded random sentence 318",
+      "input": "eighty ninety thirtieth eleven seventy million fifteen third forty one by, [inaudible] an what nationalise £1.50 plan by 2x 1st seventeen seven sixteen fifth tenth",
+      "expected": "809030th 11700000153rd 41 by an what nationalize one.50 plan by 2 x 1st 177165th 10th"
+    },
+    {
+      "id": "random-319",
+      "description": "seeded random sentence 319",
+      "input": "but I'm 4th who",
+      "expected": "but i am 4th who"
+    },
+    {
+      "id": "random-320",
+      "description": "seeded random sentence 320",
+      "input": "Two hmm but epitomise triple first thirtieth fifty five Sr. there percent",
+      "expected": "2 but epitomize triple 1st 30th 55 senior there percent"
+    },
+    {
+      "id": "random-321",
+      "description": "seeded random sentence 321",
+      "input": "And sixteen epitomised -- euros um k; when £1.50: forty thirtieth $1,000 Sr. then;",
+      "expected": "and 16 epitomized euros k when one.504030th $1000 senior then"
+    },
+    {
+      "id": "random-322",
+      "description": "seeded random sentence 322",
+      "input": "tenth twelfth half seventeen forty forty five then eighty on 11th today [noise] ninth hundred five you'll",
+      "expected": "10th 12th half 174045 then 80 on 11th today ninth 105 you will"
+    },
+    {
+      "id": "random-323",
+      "description": "seeded random sentence 323",
+      "input": "Sixth Mr. 2,500 team subsidising... two hundredth forty quarter... never (laughs) people I'm; customer which normalises",
+      "expected": "6th mister 2500 team subsidizing 200th 40 quarter never people i am customer which normalizes"
+    },
+    {
+      "id": "random-324",
+      "description": "seeded random sentence 324",
+      "input": "fantasise vandalise - hospitalised m",
+      "expected": "fantasize vandalize hospitalized m"
+    },
+    {
+      "id": "random-325",
+      "description": "seeded random sentence 325",
+      "input": "Euros 2nd who there $5.50 per cent o'clock. eighteen a eight cents eleven thirty eight nine twentieth baptising 10 what",
+      "expected": "euros 2nd who there $5.50% 0 clock 18 a ¢8 1138920th baptizing 10 what"
+    },
+    {
+      "id": "random-326",
+      "description": "seeded random sentence 326",
+      "input": "Meeting Prof. odourless and model eighth eighth 19 ma'am ten nine two thousand twentieth five ten",
+      "expected": "meeting professor odorless and model 8th 8th 19 madam 1092020th 510"
+    },
+    {
+      "id": "random-327",
+      "description": "seeded random sentence 327",
+      "input": "archaeologists! one six -- 0. hmm",
+      "expected": "archeologists 16 0"
+    },
+    {
+      "id": "random-328",
+      "description": "seeded random sentence 328",
+      "input": "3rd of £1.50 third five six seven - which 2m o'clock double ten zero hundred you'll zero forty",
+      "expected": "3rd of one.503rd 567 which 2 m 0 clock 1010000 you will 040"
+    },
+    {
+      "id": "random-329",
+      "description": "seeded random sentence 329",
+      "input": "nine point rhapsodise magnetise very 3.5%",
+      "expected": "9 point rhapsodize magnetize very 3.5%"
+    },
+    {
+      "id": "random-330",
+      "description": "seeded random sentence 330",
+      "input": "Hmm Ms. there still test £1.50",
+      "expected": "ms there still test one.50"
+    },
+    {
+      "id": "random-331",
+      "description": "seeded random sentence 331",
+      "input": "m. St. fifteen quarter ten one.",
+      "expected": "m saint 15 quarter 101"
+    },
+    {
+      "id": "random-332",
+      "description": "seeded random sentence 332",
+      "input": "[noise] twenty six why organising percent percent - from filleting",
+      "expected": "26 why organizing percent percent from fileting"
+    },
+    {
+      "id": "random-333",
+      "description": "seeded random sentence 333",
+      "input": "Fifty one eight four seventh hundred zero twelve zero but. we've; percent glamorising, never 7 hundred eighteen triple double sixty fourth seventeen... project. quarter Mr. crystallises",
+      "expected": "51847th 1000120 but we have percent glamorizing never 718 triple double 64th 17 project quarter mister crystallizes"
+    },
+    {
+      "id": "random-334",
+      "description": "seeded random sentence 334",
+      "input": "Test appals ma'am euros - 3.5% a.m.:",
+      "expected": "test appalls madam euros 3.5% a m"
+    },
+    {
+      "id": "random-335",
+      "description": "seeded random sentence 335",
+      "input": "bn cents six nineteen 0",
+      "expected": "bn cents 619 0"
+    },
+    {
+      "id": "random-336",
+      "description": "seeded random sentence 336",
+      "input": "a zero nineteen! two sterilised St. 1990s Sr. wouldn't; Mr., $3m file always then k wouldn't",
+      "expected": "a 0192 sterilized saint 1990s senior would not mister $3 m file always then k would not"
+    },
+    {
+      "id": "random-337",
+      "description": "seeded random sentence 337",
+      "input": "then 19 seven sixty mhm. I'd result ninety zero six a twelve thirtieth I'd bn...",
+      "expected": "then 19760 i would result 9006 a 1230th i would bn ."
+    },
+    {
+      "id": "random-338",
+      "description": "seeded random sentence 338",
+      "input": "review to tenth mhm (laughs)!",
+      "expected": "review to 10th"
+    },
+    {
+      "id": "random-339",
+      "description": "seeded random sentence 339",
+      "input": "sixteen thousand unorganised where how a twelfth nineteen thirty seventy sixteen half 3.5 (laughs) dollars always pounds: and",
+      "expected": "16000 unorganized where how a 12th 19307016 half $3.5 always pounds and"
+    },
+    {
+      "id": "random-340",
+      "description": "seeded random sentence 340",
+      "input": "Third eighth thirtieth 100th fifty nineteen",
+      "expected": "3rd 8th 30th 100th 5019"
+    },
+    {
+      "id": "random-341",
+      "description": "seeded random sentence 341",
+      "input": "second hundred dozen thirty triple eighteen hundredth report meeting... o'clock billion oh. John's point hundredth fifteen 2,500 model 3.5% yesterday where",
+      "expected": "2nd 100 dozen 3018181800th report meeting 0 clock 10000000000 john is 100th 15 2500 model 3.5% yesterday where"
+    },
+    {
+      "id": "random-342",
+      "description": "seeded random sentence 342",
+      "input": "[inaudible] server [inaudible]",
+      "expected": "server"
+    },
+    {
+      "id": "random-343",
+      "description": "seeded random sentence 343",
+      "input": "hundred triple eleventh twelfth seventh the dogs' hundred hundredth tenth tenth hundredth; result pressurisation report seventeen sixteen pounds - to 9:05? quite.",
+      "expected": "100 triple 11th 12th 7th the dogs 10000th 10th 10th 100th result pressurization report £1716 to 9 5 quite"
+    },
+    {
+      "id": "random-344",
+      "description": "seeded random sentence 344",
+      "input": "$5 triple twenty ten they're hmm draughtswoman four sixteen fifth eight by cosiness oh twelve thirtieth in release then",
+      "expected": "$5 triple 2010 they are draftswoman 4165th 8 by coziness 01230th in release then"
+    },
+    {
+      "id": "random-345",
+      "description": "seeded random sentence 345",
+      "input": "Who ninth triple third sixty two twenty twelfth deadline (laughs) (laughs)! um there",
+      "expected": "who ninth triple 3rd 622012th deadline there"
+    },
+    {
+      "id": "random-346",
+      "description": "seeded random sentence 346",
+      "input": "eighty eight seven twelfth nineteen fifteen million fifteen file double hundred oh thirteen nineteen? hmm thirteen five you'll uh thirteen ten quite!",
+      "expected": "88712th 1915000015 file double 10001319135 you will 1310 quite"
+    },
+    {
+      "id": "random-347",
+      "description": "seeded random sentence 347",
+      "input": "release customer two two! Mr. very 10. isn't John's - seventh double second but percent",
+      "expected": "release customer 22 mister very 10 is not john is 7th double 2nd but percent"
+    },
+    {
+      "id": "random-348",
+      "description": "seeded random sentence 348",
+      "input": "€20 [noise] very -- archaeologists signalling - test quite",
+      "expected": "€20 very archeologists signaling test quite"
+    },
+    {
+      "id": "random-349",
+      "description": "seeded random sentence 349",
+      "input": "review thirteen and eighty seventy budget point eighty seventh nine",
+      "expected": "review 13 and 8070 budget .87th 9"
+    },
+    {
+      "id": "random-350",
+      "description": "seeded random sentence 350",
+      "input": "double cents mm release eight eleventh thirty deadline twelve thirtieth billion twelve fourth triple eighteen sixteen fifty nine ten 1/2 there and thirteen - m...",
+      "expected": "double cents release 811th 30 deadline 1230th 10000000124th 181818165910 one 2 there and 13 m ."
+    },
+    {
+      "id": "random-351",
+      "description": "seeded random sentence 351",
+      "input": "Customer wouldn't 21 100th budget",
+      "expected": "customer would not 21 100th budget"
+    },
+    {
+      "id": "random-352",
+      "description": "seeded random sentence 352",
+      "input": "Half nineteen stigmatised it's thirtieth twelve hundredth five zero thirteen eighth eight!",
+      "expected": "half 19 stigmatized it is 30th 1200th 50138th 8"
+    },
+    {
+      "id": "random-353",
+      "description": "seeded random sentence 353",
+      "input": "pounds test at seventh eleventh eighteen eighth",
+      "expected": "pounds test at 7th 11th 188th"
+    },
+    {
+      "id": "random-354",
+      "description": "seeded random sentence 354",
+      "input": "Pounds often then Mrs. team it's bn zero; bn percent always. bn",
+      "expected": "pounds often then missus team it is bn 0 bn percent always bn"
+    },
+    {
+      "id": "random-355",
+      "description": "seeded random sentence 355",
+      "input": "Ninth sixty - [noise] four sixth hundred eleven billion meeting demeanour double sixty six Mr. 21st",
+      "expected": "ninth 646th 111000000000 meeting demeanor double 66 mister 21st"
+    },
+    {
+      "id": "random-356",
+      "description": "seeded random sentence 356",
+      "input": "Belabour -- Mr. -- sixth sixth four fourteen and eighth Jr.",
+      "expected": "belabor mister 6th 6th 414 and 8th junior"
+    },
+    {
+      "id": "random-357",
+      "description": "seeded random sentence 357",
+      "input": "100 canonise never pounds",
+      "expected": "100 canonize never pounds"
+    },
+    {
+      "id": "random-358",
+      "description": "seeded random sentence 358",
+      "input": "100th hmm server",
+      "expected": "100th server"
+    },
+    {
+      "id": "random-359",
+      "description": "seeded random sentence 359",
+      "input": "Categorising! 0.25 won't here dollars? eleven fifty hundred five oh wouldn't",
+      "expected": "categorizing 0.25 will not here dollars 1150050 would not"
+    },
+    {
+      "id": "random-360",
+      "description": "seeded random sentence 360",
+      "input": "$1,000 $5 0.25? a fifth million never o'clock um plan computerised point thirteen second first: y'all that's uh at",
+      "expected": "$1000 $5 0.25 a 5th 1000000 never 0 clock plan computerized .132nd 1st you all that is at"
+    },
+    {
+      "id": "random-361",
+      "description": "seeded random sentence 361",
+      "input": "they're file $3m I'm m still eleven quarter point double twenty isn't spiralling",
+      "expected": "they are file $3 m i am m still 11 quarter double 20 is not spiraling"
+    },
+    {
+      "id": "random-362",
+      "description": "seeded random sentence 362",
+      "input": "very why Sr. hundred hundred fifteen oh $1,000? ma'am 4th people (laughs) o'clock",
+      "expected": "very why senior 100150 $1000 madam 4th people 0 clock"
+    },
+    {
+      "id": "random-363",
+      "description": "seeded random sentence 363",
+      "input": "meeting mhm wouldn't? 7 model flavours Prof. twentieth oh a thousand",
+      "expected": "meeting would not 7 model flavors professor 20th 0 a 1000"
+    },
+    {
+      "id": "random-364",
+      "description": "seeded random sentence 364",
+      "input": "Test server stabilised 2x",
+      "expected": "test server stabilized 2 x"
+    },
+    {
+      "id": "random-365",
+      "description": "seeded random sentence 365",
+      "input": "dollars team? the dogs' ghettoised and!",
+      "expected": "dollars team the dogs ghettoized and"
+    },
+    {
+      "id": "random-366",
+      "description": "seeded random sentence 366",
+      "input": "optimise don't? three twenty two zero sixty forty seventy! normalise -- twenty oh triple quarter discolouring: p.m.: half often bn",
+      "expected": "optimize do not 3220604070 normalize 200 triple quarter discoloring p m half often bn"
+    },
+    {
+      "id": "random-367",
+      "description": "seeded random sentence 367",
+      "input": "then - 2,500: report or hundredth third oh fourth half twelfth never um: per cent?",
+      "expected": "then 2500 report or 100th 3rd 04th half 12th never per cent"
+    },
+    {
+      "id": "random-368",
+      "description": "seeded random sentence 368",
+      "input": "a seventy and oh Mr. mechanise twenty two ninety fifty 99.9 where seventy second -- particularising eighteen eight three seven twelfth of seventh fifty fifty ninth seven thirteen eight fifteen hundred thirteen one seventh four twelve",
+      "expected": "a 70 and 0 mister mechanize 229050 99.9 where 72nd particularizing 1883712th of 7th 5050 ninth 7138151317th 412"
+    },
+    {
+      "id": "random-369",
+      "description": "seeded random sentence 369",
+      "input": "always how the",
+      "expected": "always how the"
+    },
+    {
+      "id": "random-370",
+      "description": "seeded random sentence 370",
+      "input": "Seven twentieth seven two hundredth? project, but and forty and ten eighteen thirty customer eleven thirty quarter cents; file",
+      "expected": "720th 7200th project but and 40 and 101830 customer 1130 quarter cents file"
+    },
+    {
+      "id": "random-371",
+      "description": "seeded random sentence 371",
+      "input": "also fervour o'clock but which double hundredth seventeen third thirty a",
+      "expected": "also fervor 0 clock but which double 100th 173rd 30 a"
+    },
+    {
+      "id": "random-372",
+      "description": "seeded random sentence 372",
+      "input": "test 99 1,000 of um crystallise homogenised; and! change",
+      "expected": "test 99 1000 of crystallize homogenized and change"
+    },
+    {
+      "id": "random-373",
+      "description": "seeded random sentence 373",
+      "input": "Point but on what isn't",
+      "expected": "point but on what is not"
+    },
+    {
+      "id": "random-374",
+      "description": "seeded random sentence 374",
+      "input": "when k to people ninth nine hundredth eight oh mhm? also Ms. euros -- 100 fourteen? ten sixteen",
+      "expected": "when k to people ninth 900th 80 also ms euros 1141016"
+    },
+    {
+      "id": "random-375",
+      "description": "seeded random sentence 375",
+      "input": "pasteurises collectivises k also yesterday bn and 10",
+      "expected": "pasteurizes collectivizes k also yesterday bn and 10"
+    },
+    {
+      "id": "random-376",
+      "description": "seeded random sentence 376",
+      "input": "p.m. um panellist 1st which 9:05 mhm",
+      "expected": "p m panelist 1st which 9 5"
+    },
+    {
+      "id": "random-377",
+      "description": "seeded random sentence 377",
+      "input": "vulgarises six thirteen twelve ten Sr., double ten 3.5 release with sixty six",
+      "expected": "vulgarizes 6131210 senior 1010 3.5 release with 66"
+    },
+    {
+      "id": "random-378",
+      "description": "seeded random sentence 378",
+      "input": "A euros how fourteen eight sixteen triple glamor to (laughs) to seventh point Sr. mm! team 2m",
+      "expected": "a euros how 14816 triple glamour to to 7th point senior team 2 m"
+    },
+    {
+      "id": "random-379",
+      "description": "seeded random sentence 379",
+      "input": "quite customer then unionise, denationalises you'll customer y'all",
+      "expected": "quite customer then unionize denationalizes you will customer you all"
+    },
+    {
+      "id": "random-380",
+      "description": "seeded random sentence 380",
+      "input": "twelfth three immortalise -- 42 the dogs' project",
+      "expected": "12th 3 immortalize 42 the dogs project"
+    },
+    {
+      "id": "random-381",
+      "description": "seeded random sentence 381",
+      "input": "Eleven how... 3/4 3/4 John's. 99.9 hypothesises... to",
+      "expected": "11 how 3 4 3 4 john is 99.9 hypothesizes to"
+    },
+    {
+      "id": "random-382",
+      "description": "seeded random sentence 382",
+      "input": "test, Jr.. I'm seventh thirteen seventy three a.m. wouldn't! release customer",
+      "expected": "test junior i am 7th 1373 a m would not release customer"
+    },
+    {
+      "id": "random-383",
+      "description": "seeded random sentence 383",
+      "input": "Can't 2,500 42 - [inaudible]! 250; 555-1234 or yesterday mm you'll: mhm, report... y'all eighth eleventh",
+      "expected": "can not 2500 42 250 555 1234 or yesterday you will report you all 8th 11th"
+    },
+    {
+      "id": "random-384",
+      "description": "seeded random sentence 384",
+      "input": "model seventy -- thirteen tenth one tenth! you'll fifty fifteen zero double seventeen six",
+      "expected": "model 701310th 110th you will 5015017176"
+    },
+    {
+      "id": "random-385",
+      "description": "seeded random sentence 385",
+      "input": "File ten here cents euros cents! homoeopaths where so - people panellist seventy fourth double",
+      "expected": "file 10 here cents euros cents homeopaths where so people panelist 74th double"
+    },
+    {
+      "id": "random-386",
+      "description": "seeded random sentence 386",
+      "input": "a €20 you'll; where; model... I'm - here! seventeen zero canalise I'd Dr. also - thirtieth eight nineteen eleven quarter one twelve eighth",
+      "expected": "a €20 you will where model i am here 170 canalize i would doctor also 30th 81911 quarter 1128th"
+    },
+    {
+      "id": "random-387",
+      "description": "seeded random sentence 387",
+      "input": "Always canonises thirtieth fifteen update recognises",
+      "expected": "always canonizes 30th 15 update recognizes"
+    },
+    {
+      "id": "random-388",
+      "description": "seeded random sentence 388",
+      "input": "project stabilised pounds, eleven zero nineteen fifteen! John's of in a.m. 9:05 fifth tenth seventy three",
+      "expected": "project stabilized pounds 1101915 john is of in a m 9 55th 10th 73"
+    },
+    {
+      "id": "random-389",
+      "description": "seeded random sentence 389",
+      "input": "Not there! 5k twentieth fifteen thirtieth mm -- review... six quarter euros customer",
+      "expected": "not there 5 k 20th 1530th review 6 quarter euros customer"
+    },
+    {
+      "id": "random-390",
+      "description": "seeded random sentence 390",
+      "input": "from dollars! eighth five point three seven 1990s a.m. ninety when and there eleven 101 p.m. seven twelve twenty eighteen seventeen eighteen",
+      "expected": "from dollars 8th 5.37 1990s a m 90 when and there 11 101 p m 71220181718"
+    },
+    {
+      "id": "random-391",
+      "description": "seeded random sentence 391",
+      "input": "first three eighth server yesterday per cent on sixty five fifty and eighteen eight nine ma'am Mr.",
+      "expected": "1st 38th server yesterday per cent on 6550 and 1889 madam mister"
+    },
+    {
+      "id": "random-392",
+      "description": "seeded random sentence 392",
+      "input": "dollars uh - 100 €20",
+      "expected": "dollars 100 €20"
+    },
+    {
+      "id": "random-393",
+      "description": "seeded random sentence 393",
+      "input": "um 7b... calibre traumatising and - ninth sixth sixth",
+      "expected": "7 b caliber traumatizing and ninth 6th 6th"
+    },
+    {
+      "id": "random-394",
+      "description": "seeded random sentence 394",
+      "input": "from I'd they're 21 um uh sixteen half eleventh third -- hundredth ma'am pounds, oh twenty eleven",
+      "expected": "from i would they are 2116 half 11th 3rd 100th madam pounds 02011"
+    },
+    {
+      "id": "random-395",
+      "description": "seeded random sentence 395",
+      "input": "Quite seventh fifth review Sr.",
+      "expected": "quite 7th 5th review senior"
+    },
+    {
+      "id": "random-396",
+      "description": "seeded random sentence 396",
+      "input": "tomorrow mhm Mrs. ninth six fifty",
+      "expected": "tomorrow missus ninth 650"
+    },
+    {
+      "id": "random-397",
+      "description": "seeded random sentence 397",
+      "input": "second thirtieth 99.9? $3m. fifty double twentieth thirty twenty, the I'd one ninety thirty eight million change billion second? and fifth two",
+      "expected": "2nd 30th 99.9 $3 m 50 double 20th 3020 the i would 19038000000 change 1000000002nd and 5th 2"
+    },
+    {
+      "id": "random-398",
+      "description": "seeded random sentence 398",
+      "input": "per cent tenth can't Sr. ninth ninth eleventh six",
+      "expected": "per cent 10th can not senior ninth ninth 11th 6"
+    },
+    {
+      "id": "random-399",
+      "description": "seeded random sentence 399",
+      "input": "Cents 1st sepulchres version a.m. update fifty million dozen billion hundred o'clock from two million zero thirtieth million wouldn't",
+      "expected": "cents 1st sepulchers version a m update 50000000 dozen 10000000000 clock from 2000000030th 1000000 would not"
+    }
+  ]
+}
