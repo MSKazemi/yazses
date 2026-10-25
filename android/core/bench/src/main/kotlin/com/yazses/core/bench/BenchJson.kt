@@ -3,25 +3,80 @@ package com.yazses.core.bench
 import java.math.BigDecimal
 import java.math.RoundingMode
 
+/** Outcome of [BenchJson.read]: a record that passed validation, or every reason it did not. */
+sealed interface ReadResult {
+    data class Ok(val result: BenchResult) : ReadResult
+    data class Rejected(val problems: List<String>) : ReadResult
+}
+
 /**
  * Deterministic JSON writer for [BenchResult]: fixed key order, 2-space indent, durations and
  * rates at 6 decimals (as desktop `round(x, 6)`, cost_meter.py:584-590), no locale, no timestamps.
  * Two runs over the same record produce byte-identical output.
  *
  * A not-measured reading is written as `null` with a sibling `*_reason` key. It is never 0.
+ *
+ * Ceiling: [write] refuses, with [IllegalArgumentException], any record that [BenchValidator]
+ * refuses, and any record whose text would exceed [MAX_READ_CHARS] characters. A record holds at most
+ * [MAX_CLIPS] clips. So every record [write] accepts is one [read] accepts.
+ *
+ * Round trip: `read(write(x))` equals `x` for every record `x` that [write] accepts. A value the
+ * format cannot store exactly is refused rather than rounded: a duration or rate finer than six
+ * decimals, a negative zero, a lone surrogate in a string, and a measured peak of 0.
  */
 object BenchJson {
+
+    /**
+     * Strict reader for the format [write] produces. Malformed JSON, a wrong type, an input over
+     * [MAX_READ_CHARS] characters, nesting past [MAX_READ_DEPTH], an array over [MAX_ARRAY_ELEMENTS]
+     * elements, an object over [MAX_OBJECT_MEMBERS] members, over [MAX_VALUES] values, and an
+     * inconsistent record all come back as [ReadResult.Rejected] with the reasons, and at most
+     * [MAX_PROBLEMS] + 1 of them. Keys and numbers echoed in a message are cut to [ECHO_CHARS]
+     * characters. A record that is accepted has passed [BenchValidator].
+     *
+     * Round trip: `read(write(x))` equals `x` for every record `x` that [write] accepts (see the class
+     * note). `write(read(t))` equals `t` only when `t` is what [write] produces: the reader also accepts
+     * text [write] never prints, such as an integer-valued duration as `2` or `2E0` rather than
+     * `2.000000`. Integer fields refuse `-0`.
+     */
+    fun read(text: String): ReadResult {
+        if (text.length > MAX_READ_CHARS) {
+            return ReadResult.Rejected(listOf("text is ${text.length} characters, over the $MAX_READ_CHARS limit"))
+        }
+        if (text.isNotEmpty() && text[0] == '\uFEFF') {
+            return ReadResult.Rejected(listOf("text starts with a byte order mark, which the format does not allow"))
+        }
+        val root = try {
+            JsonParser(text, MAX_READ_DEPTH).parseDocument()
+        } catch (e: JsonSyntaxError) {
+            return ReadResult.Rejected(listOf("not valid JSON: ${e.message}"))
+        } catch (e: JsonLimitError) {
+            return ReadResult.Rejected(listOf(e.message ?: "input exceeds a size limit"))
+        }
+        val decoder = BenchDecoder()
+        val record = decoder.decode(root)
+        return if (record != null) {
+            ReadResult.Ok(record)
+        } else {
+            ReadResult.Rejected(decoder.problems.ifEmpty { listOf("record could not be read") })
+        }
+    }
 
     private class Raw(val text: String)
 
     /** Reason written beside an rtf that is null: the only way a validated record has none is no audio. */
-    private const val NO_AUDIO = "no audio"
+    internal const val NO_AUDIO = "no audio"
 
     fun write(result: BenchResult): String {
         BenchValidator.require(result)
         val sb = StringBuilder()
         render(tree(result), 0, sb)
         sb.append('\n')
+        if (sb.length > MAX_READ_CHARS) {
+            throw IllegalArgumentException(
+                "record encodes to ${sb.length} characters, over the reader's limit of $MAX_READ_CHARS",
+            )
+        }
         return sb.toString()
     }
 
@@ -119,8 +174,8 @@ object BenchJson {
     }
 
     /**
-     * A lone surrogate has no UTF-8 encoding, so it is written as U+FFFD rather than raw; a valid
-     * surrogate pair is kept as written.
+     * A valid surrogate pair is kept as written. A lone surrogate never reaches here: [BenchValidator]
+     * refuses it, since it has no UTF-8 encoding.
      */
     private fun quote(s: String, sb: StringBuilder) {
         sb.append('"')

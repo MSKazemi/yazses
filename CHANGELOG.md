@@ -91,6 +91,21 @@ performance number is claimed. The word-error-rate normaliser is simpler than th
 Android and desktop WER are not comparable yet. The on-device runner is the rest of
 [#92](https://github.com/MSKazemi/yazses/issues/92). Nothing changes for an existing install.
 
+A strict reader now validates records read back from disk. `BenchJson.read` returns either the
+record or the reasons it was refused, and it does not throw on any input it is given. Malformed
+JSON, wrong types, duplicate keys, NaN or Infinity, bad escapes, lone surrogates, and any key the
+format does not define or a missing one are refused by name. Text over 1 MiB of UTF-16 code units
+(a UTF-8 file can be larger in bytes), nesting past 64 levels, more than 10,000 array elements,
+more than 1,000 members in one object and more than 200,000 values are refused before the tree is
+built. The reported problems are capped at 100 with one summary entry, and echoed keys and numbers
+are cut to 64 characters. A reading is not measured only when the file says so with an explicit
+null and a reason, never as zero, and a measured peak of zero is refused. A record holds at most
+5,000 clips, and `write` refuses a record whose text would exceed the 1 MiB limit, so the reader
+accepts everything the writer produces. `write` also refuses a value the format cannot store
+exactly (a duration or rate finer than six decimals, a negative zero, a lone surrogate), rather
+than rounding it: every record `write` accepts reads back equal to itself. The word-error-rate
+normaliser caveat above still stands.
+
 ## [2.46.0] - 2026-10-24
 
 ### Changed — the Settings window is a sidebar of pages, and the Features list can finally be seen
