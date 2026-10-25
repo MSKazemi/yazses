@@ -45,6 +45,8 @@ include(":core:commands")
 include(":core:vocab")
 include(":core:session")
 include(":core:features")
+// Catalogue + SHA-256 verification, pure. The Android :model module consumes it.
+include(":core:model")
 // Runs contract/vectors/*.json against the cores. JVM test module.
 include(":core:contract-test")
 
