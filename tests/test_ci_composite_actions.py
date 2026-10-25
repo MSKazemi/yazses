@@ -135,3 +135,16 @@ def test_every_local_reference_resolves_to_an_action() -> None:
             assert (target / "action.yml").is_file() or (target / "action.yaml").is_file(), (
                 f"{label} uses {uses!r}, but {target.relative_to(REPO)} has no action.yml"
             )
+
+
+def test_setup_uv_python_forwards_the_interpreter_to_setup_uv() -> None:
+    """`test_macos_uv_jobs_pin_the_interpreter.py` accepts a step whose `uses` contains
+    `setup-uv` and whose `with:` has `python-version`. For a job that calls the composite
+    that is true of the *caller*, so the guard is only right if the composite hands the
+    value on. Without this, deleting the forwarding would leave every macOS leg on
+    Homebrew's newest CPython while that guard stayed green."""
+    data = yaml.safe_load((ACTIONS / "setup-uv-python" / "action.yml").read_text(encoding="utf-8"))
+    setup = [s for s in data["runs"]["steps"] if "astral-sh/setup-uv@" in str(s.get("uses", ""))]
+    assert len(setup) == 1, "the composite must install uv through exactly one setup-uv step"
+    assert setup[0]["with"]["python-version"] == "${{ inputs.python-version }}"
+    assert data["inputs"]["python-version"].get("required") is True
