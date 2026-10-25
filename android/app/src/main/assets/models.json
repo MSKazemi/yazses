@@ -1,5 +1,24 @@
 {
-  "_schema": "Each model: id (unique), displayName, engine, sizeBytes (>0), sha256 (64 lower-case hex), licence, url (https://). Parsed and validated by com.yazses.core.model.ModelCatalogue. Empty until each checksum can be taken from a real, checkable source.",
+  "_schema": "Each model: id (unique), displayName, engine, sizeBytes (>0), sha256 (64 lower-case hex), licence, url (https://). Parsed and validated by com.yazses.core.model.ModelCatalogue. SHA-256 values computed with sha256sum on the file downloaded from the URL below; upstream SHA-1 in the ggerganov/whisper.cpp README is listed in the PR body for cross-check.",
   "schemaVersion": 1,
-  "models": []
+  "models": [
+    {
+      "id": "tiny.en",
+      "displayName": "Whisper tiny.en (ggml)",
+      "engine": "whisper.cpp",
+      "sizeBytes": 77704715,
+      "sha256": "921e4cf8686fdd993dcd081a5da5b6c365bfde1162e72b08d75ac75289920b1f",
+      "licence": "MIT",
+      "url": "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en.bin"
+    },
+    {
+      "id": "base.en",
+      "displayName": "Whisper base.en (ggml)",
+      "engine": "whisper.cpp",
+      "sizeBytes": 147964211,
+      "sha256": "a03779c86df3323075f5e796cb2ce5029f00ec8869eee3fdfb897afe36c6d002",
+      "licence": "MIT",
+      "url": "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin"
+    }
+  ]
 }

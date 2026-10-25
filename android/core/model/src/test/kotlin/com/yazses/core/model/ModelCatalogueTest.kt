@@ -29,7 +29,12 @@ class ModelCatalogueTest {
         // Gradle runs tests with the module directory as the working directory.
         val shipped = File("../../app/src/main/assets/models.json")
         val catalogue = ModelCatalogue.parse(shipped.readText())
-        assertEquals(emptyList(), catalogue.models, "no checksum is sourced yet, so the list is empty")
+        val ids = catalogue.models.map { it.id }
+        assertEquals(listOf("tiny.en", "base.en"), ids)
+        val lowerHex = Regex("^[0-9a-f]{64}$")
+        assertTrue(catalogue.models.all { lowerHex.matches(it.sha256) })
+        assertTrue(catalogue.models.all { it.sizeBytes > 0 })
+        assertTrue(catalogue.models.all { it.url.startsWith("https://") })
     }
 
     @Test
