@@ -16,6 +16,18 @@ desktop falls back to faster-whisper. It is pure Kotlin with no Android imports.
 engine behind it yet: the whisper.cpp bridge is the rest of
 [#87](https://github.com/MSKazemi/yazses/issues/87). Nothing changes for an existing install.
 
+### Added — Android: the feature registry (`:core:features`)
+
+The Android settings screen will be generated from a registry rather than hand-maintained, so a
+new capability can never be missing from it. The registry is in: each feature has a name, a
+recommendation tier, the config keys that switching it on or off must write, and whether this
+build can supply it at all (available, an optional dependency missing, or never shipped in this
+build). Switching on a feature the build cannot supply is refused with the reason instead of
+reporting success; enabling an experimental feature returns a typed "needs confirmation" result
+until the user confirms. It starts with the two features the Android code already has (voice commands,
+off-by-default voice punctuation). The screen itself, diagnostics and `config.toml` import are the
+rest of [#95](https://github.com/MSKazemi/yazses/issues/95). Nothing changes for an existing install.
+
 ## [2.46.0] - 2026-10-24
 
 ### Changed — the Settings window is a sidebar of pages, and the Features list can finally be seen
