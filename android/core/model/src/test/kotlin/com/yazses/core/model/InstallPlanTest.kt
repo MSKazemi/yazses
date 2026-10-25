@@ -35,10 +35,33 @@ class InstallPlanTest {
         InstallPlan.downloaded(InstallPlan.begin(catalogue, hello))
 
     @Test
-    fun `a download goes to a temporary name derived from the model id, never the final name`() {
+    fun `a download goes to a temporary name carrying the id and the first 12 digest characters`() {
         val step = InstallPlan.begin(catalogue, hello)
-        assertEquals(InstallStep.Downloading(hello, "synthetic-hello.part"), step)
+        assertEquals(InstallStep.Downloading(hello, "synthetic-hello.2cf24dba5fb0.part"), step)
         assertTrue(step.tempName != hello.id)
+    }
+
+    @Test
+    fun `a catalogue that changes the digest under the same id gets a different temporary name`() {
+        // Stale bytes from the old digest must never resume into the new model.
+        val changed = ModelCatalogue.parse(
+            """{"schemaVersion": 1, "models": [{"id": "synthetic-hello", "displayName": "Synthetic hello",
+               "engine": "whisper.cpp", "sizeBytes": 3, "sha256": "$abcSha", "licence": "MIT",
+               "url": "https://example.invalid/hello.bin"}]}""",
+        )
+        val before = InstallPlan.begin(catalogue, hello).tempName
+        val after = InstallPlan.begin(changed, changed.byId("synthetic-hello")!!).tempName
+        assertEquals("synthetic-hello.ba7816bf8f01.part", after)
+        assertTrue(before != after, "both digests produced $before")
+    }
+
+    @Test
+    fun `no temporary name equals any catalogue id, so a download cannot overwrite a model`() {
+        for (entry in catalogue.models) {
+            val temp = InstallPlan.begin(catalogue, entry).tempName
+            assertTrue(catalogue.models.none { it.id == temp }, "$temp is a catalogue id")
+            assertTrue(temp.endsWith(ModelCatalogue.TEMP_SUFFIX))
+        }
     }
 
     @Test

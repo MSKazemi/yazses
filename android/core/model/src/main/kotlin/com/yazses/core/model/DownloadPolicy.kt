@@ -27,7 +27,13 @@ public sealed interface DownloadDecision {
     public data class Refuse(val reason: RefuseReason) : DownloadDecision
 }
 
-public enum class WaitReason { NO_NETWORK, WAITING_FOR_WIFI, BATTERY_LOW }
+public enum class WaitReason {
+    /** The user has not tapped to start this download yet (ADR-MOB-006 section 2). */
+    NEEDS_CONFIRMATION,
+    NO_NETWORK,
+    WAITING_FOR_WIFI,
+    BATTERY_LOW,
+}
 
 public sealed interface RefuseReason {
     /** The URL fails the catalogue's own https/host rule ([ModelCatalogue]). */
@@ -35,14 +41,32 @@ public sealed interface RefuseReason {
 
     /** The entry is not, field for field, an entry of the catalogue it claims to come from. */
     public object NotInCatalogue : RefuseReason
+
+    /**
+     * The last attempt for this id ended in a checksum mismatch. A mismatch is a security event
+     * and is never retried automatically (ADR-MOB-006 section 3). The caller must clear the id
+     * only through a deliberate user action, which this module does not model.
+     */
+    public object PREVIOUS_MISMATCH : RefuseReason
 }
 
 /** Pure download policy (ADR-MOB-006 §3). Nothing here starts, schedules or performs I/O. */
 public object DownloadPolicy {
 
     /**
-     * Decides whether [entry] may be downloaded now. Source checks come first and cannot be
-     * overridden by any network or setting: a request that is refused is refused everywhere.
+     * Decides whether [entry] may be downloaded now, in this order:
+     *
+     * 1. Refusals, which no setting or network can override: an unsafe URL, an entry that is not
+     *    the catalogue's own, and an id in [previousMismatchFor].
+     * 2. [userConfirmed]: false gives [WaitReason.NEEDS_CONFIRMATION]. ADR-MOB-006 section 2
+     *    requires an explicit tap before the first download, and that includes mobile data. The
+     *    caller sets it to true only after the user has seen the size and tapped, and it must
+     *    never be inferred from a settings switch.
+     * 3. The network and battery conditions.
+     *
+     * There is no default for [userConfirmed] or [previousMismatchFor], so a caller cannot
+     * forget them. The policy stores nothing: the caller supplies the mismatch set from its own
+     * record of past attempts.
      */
     public fun decide(
         catalogue: ModelCatalogue,
@@ -50,9 +74,13 @@ public object DownloadPolicy {
         settings: DownloadSettings,
         network: NetworkKind,
         batteryLow: Boolean,
+        userConfirmed: Boolean,
+        previousMismatchFor: Set<String>,
     ): DownloadDecision {
         ModelCatalogue.urlProblem(entry.url)?.let { return DownloadDecision.Refuse(RefuseReason.UnsafeSource(it)) }
         if (catalogue.byId(entry.id) != entry) return DownloadDecision.Refuse(RefuseReason.NotInCatalogue)
+        if (entry.id in previousMismatchFor) return DownloadDecision.Refuse(RefuseReason.PREVIOUS_MISMATCH)
+        if (!userConfirmed) return DownloadDecision.Wait(WaitReason.NEEDS_CONFIRMATION)
         return when {
             network == NetworkKind.NONE -> DownloadDecision.Wait(WaitReason.NO_NETWORK)
             network == NetworkKind.METERED && settings.wifiOnly -> DownloadDecision.Wait(WaitReason.WAITING_FOR_WIFI)

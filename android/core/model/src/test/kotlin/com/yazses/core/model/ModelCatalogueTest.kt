@@ -191,4 +191,27 @@ class ModelCatalogueTest {
         )
         assertTrue(problems.size >= 3, "expected several problems, got $problems")
     }
+
+    @Test
+    fun `an id ending in dot-part is rejected, because that suffix names temporary downloads`() {
+        val problems = problemsOf(catalogue(model(id = "tiny.part")))
+        assertTrue(problems.any { "reserved" in it && "tiny.part" in it }, "accepted: $problems")
+    }
+
+    @Test
+    fun `a model cannot be installed over another model's temporary-file name`() {
+        // "tiny" downloads to a temporary name ending in ".part"; "tiny.part" as a final name would collide.
+        val problems = problemsOf(
+            catalogue(
+                model(id = "tiny", sha = "a".repeat(64)) + "," +
+                    model(id = "tiny.part", sha = "b".repeat(64)),
+            ),
+        )
+        assertTrue(problems.any { "tiny.part" in it && "reserved" in it }, "accepted: $problems")
+    }
+
+    @Test
+    fun `an id that merely contains dot-part before another suffix is still accepted`() {
+        ModelCatalogue.parse(catalogue(model(id = "tiny.partial")))
+    }
 }

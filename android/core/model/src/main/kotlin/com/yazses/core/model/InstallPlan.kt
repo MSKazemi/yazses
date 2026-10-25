@@ -21,8 +21,16 @@ public sealed interface InstallStep {
  * rename into place. Every [Rejected] outcome means the temporary file (or the user's
  * sideloaded file) must not be used, and a [Rejected.Mismatch] is also a security event.
  *
- * The [Installed] and [Rejected] subclasses have `internal` constructors, so only this
- * module's [InstallPlan] can produce them.
+ * What is guaranteed: [InstallPlan] produces [Installed] only from a [VerifyResult] it is
+ * handed that is [VerifyResult.Verified], or [VerifyResult.UnknownSideload] together with an
+ * [UnverifiedAcknowledgement]. The caller must obtain that result from [ModelVerifier].
+ *
+ * What is not guaranteed: the [Installed] and [Rejected] subclasses have `internal`
+ * constructors, which stops Kotlin code in other modules from building them directly. That
+ * is not a hard boundary, since bytecode and reflection can reach `internal` members, and
+ * [VerifyResult.Verified] has a public constructor, so any caller can build one with any
+ * entry and pass it in. The check is on the state machine's own paths, not on the provenance
+ * of the result.
  */
 public sealed interface InstallOutcome {
 
@@ -59,9 +67,6 @@ public sealed interface InstallOutcome {
  */
 public object InstallPlan {
 
-    /** Suffix of the temporary file, so a half-written model is never mistaken for a model. */
-    public const val TEMP_SUFFIX: String = ".part"
-
     /**
      * Starts a download of [entry]. The entry must be the catalogue's own and its URL must
      * pass the catalogue's https rule ([ModelCatalogue]). Both are programming errors when
@@ -74,8 +79,23 @@ public object InstallPlan {
         require(catalogue.byId(entry.id) == entry) {
             "entry '${entry.id}' is not an entry of this catalogue"
         }
-        return InstallStep.Downloading(entry, entry.id + TEMP_SUFFIX)
+        val tempName = tempNameFor(entry)
+        require(catalogue.models.none { it.id == tempName }) {
+            "temporary name '$tempName' would overwrite a model of the same name"
+        }
+        return InstallStep.Downloading(entry, tempName)
     }
+
+    /**
+     * `<id>.<first 12 digest characters>.part`. The digest prefix means a catalogue that changes
+     * the digest under the same id gets a new temporary name, so stale partial bytes are never
+     * resumed into a different model. The `.part` suffix is reserved by [ModelCatalogue.validate],
+     * so no final model name can equal this name.
+     */
+    public fun tempNameFor(entry: ModelEntry): String =
+        entry.id + "." + entry.sha256.take(TEMP_DIGEST_CHARS) + ModelCatalogue.TEMP_SUFFIX
+
+    private const val TEMP_DIGEST_CHARS: Int = 12
 
     /** The temporary file is complete; it is now checked. */
     public fun downloaded(step: InstallStep.Downloading): InstallStep.Verifying =
@@ -104,8 +124,9 @@ public object InstallPlan {
     }
 
     /**
-     * Maps any [VerifyResult] to its outcome. Only [VerifyResult.Verified], and an
-     * [VerifyResult.UnknownSideload] that comes with [ack], can produce [InstallOutcome.Installed].
+     * Maps any [VerifyResult] to its outcome. Only [VerifyResult.Verified], or an
+     * [VerifyResult.UnknownSideload] that comes with [ack], produce [InstallOutcome.Installed].
+     * The result must come from [ModelVerifier]; this function cannot check that it did.
      */
     public fun outcomeOf(result: VerifyResult, ack: UnverifiedAcknowledgement?): InstallOutcome = when (result) {
         is VerifyResult.Verified -> InstallOutcome.Installed.Verified(result.entry)

@@ -20,12 +20,17 @@ class DownloadPolicyTest {
            "url": "https://example.invalid/hello.bin"}]}""",
     )
 
+    // Test helper only: production callers must pass every argument, see DownloadPolicy.decide.
     private fun decide(
         settings: DownloadSettings = DownloadSettings(),
         network: NetworkKind = NetworkKind.UNMETERED,
         batteryLow: Boolean = false,
         entry: ModelEntry = hello,
-    ) = DownloadPolicy.decide(catalogue, entry, settings, network, batteryLow)
+        userConfirmed: Boolean = true,
+        previousMismatchFor: Set<String> = emptySet(),
+    ) = DownloadPolicy.decide(
+        catalogue, entry, settings, network, batteryLow, userConfirmed, previousMismatchFor,
+    )
 
     @Test
     fun `wifi-only is the default, as ADR-MOB-006 section 3 requires`() {
@@ -43,7 +48,7 @@ class DownloadPolicyTest {
     }
 
     @Test
-    fun `a metered network starts once the user turns wifi-only off`() {
+    fun `a metered network starts once the user turns wifi-only off and has confirmed`() {
         assertEquals(
             DownloadDecision.Start,
             decide(settings = DownloadSettings(wifiOnly = false), network = NetworkKind.METERED),
@@ -91,5 +96,82 @@ class DownloadPolicyTest {
     fun `a loopback url is refused even when it is not in the catalogue`() {
         val loopback = hello.copy(url = "https://127.0.0.1/hello.bin")
         assertIs<DownloadDecision.Refuse>(decide(entry = loopback))
+    }
+
+    // ADR-MOB-006 section 2: nothing is downloaded before an explicit tap.
+
+    @Test
+    fun `nothing starts before the user confirms, on an unmetered network`() {
+        assertEquals(
+            DownloadDecision.Wait(WaitReason.NEEDS_CONFIRMATION),
+            decide(userConfirmed = false),
+        )
+    }
+
+    @Test
+    fun `mobile data does not start on the strength of a wifi-only switch alone`() {
+        assertEquals(
+            DownloadDecision.Wait(WaitReason.NEEDS_CONFIRMATION),
+            decide(settings = DownloadSettings(wifiOnly = false), network = NetworkKind.METERED, userConfirmed = false),
+        )
+    }
+
+    @Test
+    fun `confirmation is checked before the network, so no-network is not reported first`() {
+        assertEquals(
+            DownloadDecision.Wait(WaitReason.NEEDS_CONFIRMATION),
+            decide(network = NetworkKind.NONE, userConfirmed = false),
+        )
+    }
+
+    @Test
+    fun `confirmation is checked before the battery`() {
+        assertEquals(
+            DownloadDecision.Wait(WaitReason.NEEDS_CONFIRMATION),
+            decide(batteryLow = true, userConfirmed = false),
+        )
+    }
+
+    @Test
+    fun `a refused source is refused before confirmation is asked for`() {
+        val plainHttp = hello.copy(url = "http://example.invalid/hello.bin")
+        assertIs<DownloadDecision.Refuse>(decide(entry = plainHttp, userConfirmed = false))
+        assertEquals(
+            DownloadDecision.Refuse(RefuseReason.NotInCatalogue),
+            decide(entry = hello.copy(sha256 = "a".repeat(64)), userConfirmed = false),
+        )
+    }
+
+    @Test
+    fun `a confirmed request on no network waits for the network, not for confirmation`() {
+        assertEquals(DownloadDecision.Wait(WaitReason.NO_NETWORK), decide(network = NetworkKind.NONE, userConfirmed = true))
+    }
+
+    // ADR-MOB-006 section 3 and the mismatch rule: a mismatch is never retried.
+
+    @Test
+    fun `an id whose last attempt was a mismatch is refused, even confirmed and on wifi`() {
+        assertEquals(
+            DownloadDecision.Refuse(RefuseReason.PREVIOUS_MISMATCH),
+            decide(previousMismatchFor = setOf("synthetic-hello")),
+        )
+    }
+
+    @Test
+    fun `a mismatch for another id does not refuse this one`() {
+        assertEquals(DownloadDecision.Start, decide(previousMismatchFor = setOf("some-other-model")))
+    }
+
+    @Test
+    fun `a previous mismatch outranks the confirmation wait`() {
+        assertEquals(
+            DownloadDecision.Refuse(RefuseReason.PREVIOUS_MISMATCH),
+            decide(previousMismatchFor = setOf("synthetic-hello"), userConfirmed = false),
+        )
+    }
+
+    @Test
+    fun `an empty set of previous mismatches refuses nothing`() {
+        assertEquals(DownloadDecision.Start, decide(previousMismatchFor = emptySet()))
     }
 }
