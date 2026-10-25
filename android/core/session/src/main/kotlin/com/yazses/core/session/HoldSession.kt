@@ -40,7 +40,11 @@ public sealed interface SessionEffect {
     /** Start recording. Audio captured from here on belongs to the burst. */
     public data object StartCapture : SessionEffect
 
-    /** Stop recording. The samples go back in through [HoldSession.onRelease]. */
+    /**
+     * Stop recording. After a normal stop the samples go back in through [HoldSession.onRelease].
+     * After a secure abort (emitted with [Refused]) the audio is discarded: nothing is decoded,
+     * and the matching [HoldSession.onRelease] is ignored.
+     */
     public data object StopCapture : SessionEffect
 
     /** Transcribe [samples]; report the outcome with onDecoded or onDecodeFailed. */
@@ -71,7 +75,7 @@ public sealed interface SessionEffect {
  */
 public class HoldSession(
     private val gate: VoiceActivityGate,
-    private val debounceMs: Long = DEFAULT_DEBOUNCE_MS,
+    public val debounceMs: Long = DEFAULT_DEBOUNCE_MS,
 ) {
     init {
         require(debounceMs >= 0) { "debounceMs must be >= 0, was $debounceMs" }
@@ -81,11 +85,21 @@ public class HoldSession(
     public var state: SessionState = SessionState.Idle
         private set
 
+    /** True when no burst is held, captured, decoded or delivered. Cheap; no allocation. */
+    public val isIdle: Boolean
+        get() = state == SessionState.Idle
+
     /** The last inserted text, for a single undo. Filled by [onDelivered]. */
     public val undo: UndoLastInsert = UndoLastInsert()
 
     /** Key events that arrived while a burst was decoding or delivering. */
     private val queued = ArrayDeque<Kind>()
+
+    /**
+     * The field state the caller most recently reported, through onPress, onTick, onDecoded,
+     * onDecodeFailed or onDelivered. Every path that can start a capture reads it.
+     */
+    private var fieldSecure = false
 
     private enum class Kind { PRESS, RELEASE }
 
@@ -96,7 +110,12 @@ public class HoldSession(
      * matching release then has nothing to do.
      */
     public fun onPress(atMs: Long, fieldIsSecure: Boolean = false): List<SessionEffect> {
-        if (fieldIsSecure) return listOf(SessionEffect.Refused(DeliveryGuard.Refusal.SECURE_FIELD))
+        fieldSecure = fieldIsSecure
+        if (fieldIsSecure) {
+            // A secure field aborts a burst that is waiting out its debounce or recording.
+            val aborted = observe(true)
+            return if (aborted.isEmpty()) listOf(SessionEffect.Refused(DeliveryGuard.Refusal.SECURE_FIELD)) else aborted
+        }
         return input(Kind.PRESS, atMs, NO_SAMPLES)
     }
 
@@ -115,7 +134,8 @@ public class HoldSession(
      * Time advanced to [nowMs] while the key is still down. Starts the burst at the
      * debounce. Ticks are mandatory: a held key must be ticked, or its burst never records.
      */
-    public fun onTick(nowMs: Long): List<SessionEffect> = advanceHold(nowMs)
+    public fun onTick(nowMs: Long, fieldIsSecure: Boolean? = null): List<SessionEffect> =
+        observe(fieldIsSecure) + advanceHold(nowMs)
 
     /**
      * Abandons whatever is in progress, from any state, and returns to [SessionState.Idle].
@@ -149,6 +169,10 @@ public class HoldSession(
      * burst state is still refused with [DeliveryGuard.Refusal.NOT_DECODING].
      */
     public fun onDecoded(text: String, fieldIsSecure: Boolean, nowMs: Long): List<SessionEffect> {
+        // Observe the field first: a stray result that reports a secure field while a new burst
+        // is recording aborts that burst, exactly as a tick would (no audio is decoded).
+        val aborted = observe(fieldIsSecure)
+        if (aborted.isNotEmpty()) return aborted + pump(nowMs)
         if (state == SessionState.Idle) return pump(nowMs)
         val out = mutableListOf<SessionEffect>()
         when (val decision = DeliveryGuard.decide(state, text, fieldIsSecure)) {
@@ -165,8 +189,9 @@ public class HoldSession(
     }
 
     /** The decoder failed on this burst. */
-    public fun onDecodeFailed(nowMs: Long): List<SessionEffect> {
+    public fun onDecodeFailed(nowMs: Long, fieldIsSecure: Boolean? = null): List<SessionEffect> {
         val out = mutableListOf<SessionEffect>()
+        out += observe(fieldIsSecure)
         if (state == SessionState.Decoding) {
             state = SessionState.Idle
             out += SessionEffect.DecodeFailed
@@ -178,7 +203,8 @@ public class HoldSession(
      * The caller finished inserting the text. [inserted] is false when the text went to
      * the clipboard instead (no input connection). Only an insert is undoable.
      */
-    public fun onDelivered(inserted: Boolean, nowMs: Long): List<SessionEffect> {
+    public fun onDelivered(inserted: Boolean, nowMs: Long, fieldIsSecure: Boolean? = null): List<SessionEffect> {
+        val observed = observe(fieldIsSecure)
         val delivering = state as? SessionState.Delivering
         if (delivering != null) {
             // A clipboard-only delivery, or any later insert, makes the earlier insert
@@ -186,7 +212,7 @@ public class HoldSession(
             if (inserted) undo.remember(delivering.text) else undo.invalidate()
             state = SessionState.Idle
         }
-        return pump(nowMs)
+        return observed + pump(nowMs)
     }
 
     private fun input(kind: Kind, atMs: Long, samples: FloatArray): List<SessionEffect> {
@@ -225,9 +251,43 @@ public class HoldSession(
         return out
     }
 
+    /**
+     * Reports the focused field on its own, without a key event. A secure report aborts a burst
+     * that is waiting out its debounce or recording, exactly as the other entry points do, and
+     * returns the same effects. A normal report only records the field.
+     */
+    public fun observeField(fieldIsSecure: Boolean): List<SessionEffect> = observe(fieldIsSecure)
+
+    /**
+     * Records the field state the caller just reported. A secure report aborts a burst that
+     * is waiting out its debounce (Holding) or recording (Capturing) and returns to Idle.
+     * The audio of an aborted capture is discarded, never decoded or delivered
+     * (architecture.md §6: mic disabled in a password field).
+     */
+    private fun observe(fieldIsSecure: Boolean?): List<SessionEffect> {
+        if (fieldIsSecure == null) return emptyList()
+        fieldSecure = fieldIsSecure
+        if (!fieldIsSecure) return emptyList()
+        return when (state) {
+            is SessionState.Holding -> {
+                state = SessionState.Idle
+                listOf(SessionEffect.Refused(DeliveryGuard.Refusal.SECURE_FIELD))
+            }
+            SessionState.Capturing -> {
+                state = SessionState.Idle
+                listOf(SessionEffect.StopCapture, SessionEffect.Refused(DeliveryGuard.Refusal.SECURE_FIELD))
+            }
+            else -> emptyList()
+        }
+    }
+
     private fun advanceHold(nowMs: Long): List<SessionEffect> {
         val holding = state as? SessionState.Holding ?: return emptyList()
         if (nowMs - holding.pressedAtMs >= debounceMs) {
+            if (fieldSecure) {
+                state = SessionState.Idle
+                return listOf(SessionEffect.Refused(DeliveryGuard.Refusal.SECURE_FIELD))
+            }
             state = SessionState.Capturing
             return listOf(SessionEffect.StartCapture)
         }
@@ -251,7 +311,14 @@ public class HoldSession(
     private fun pump(nowMs: Long): List<SessionEffect> {
         val out = mutableListOf<SessionEffect>()
         while (queued.isNotEmpty() && !state.isBusy()) {
-            out += handle(queued.removeFirst(), nowMs, NO_SAMPLES)
+            val kind = queued.removeFirst()
+            // A press that waited behind a decode must not open the mic in a field that is
+            // secure now. The queue remembers the key, not the field, so it is refused here.
+            if (kind == Kind.PRESS && fieldSecure) {
+                out += SessionEffect.Refused(DeliveryGuard.Refusal.SECURE_FIELD)
+                continue
+            }
+            out += handle(kind, nowMs, NO_SAMPLES)
         }
         return out
     }
