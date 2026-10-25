@@ -228,6 +228,10 @@ found defects that no amount of reading the code here would have surfaced.
   page's own "Dikte" heading
   ([#354](https://github.com/MSKazemi/yazses/issues/354) →
   [#372](https://github.com/MSKazemi/yazses/pull/372))
+- [@nuthakkikeerthi](https://github.com/nuthakkikeerthi) — reworded the second sentence of the
+  Telugu page's opening so it says plainly that the key is pressed, held and then released, and
+  that the words are typed as text into the app in use
+  ([#668](https://github.com/MSKazemi/yazses/pull/668))
 - [@Parinitha-26](https://github.com/Parinitha-26)
 - [@Prithvi4904](https://github.com/Prithvi4904) — first README translation (Hindi), and the
   language switcher that makes every later translation reachable

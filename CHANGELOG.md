@@ -6,6 +6,15 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed — Telugu page: the opening says the key is released
+
+The Telugu page's opening paragraph now says that the key is pressed, held and then released, and
+that the words are typed as text into the app in use, which is closer to the English README than
+the old wording. It keeps the offline, no cloud, no account and no subscription lead that the
+README opens with, and the front-matter description matches it. Thank you,
+[@nuthakkikeerthi](https://github.com/nuthakkikeerthi)
+([#668](https://github.com/MSKazemi/yazses/pull/668)).
+
 ### Changed — Android: the model URLs are pinned to a commit
 
 The two catalogue entries pointed at `resolve/main/`, a branch that moves if upstream replaces a
