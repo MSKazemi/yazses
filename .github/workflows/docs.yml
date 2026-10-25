@@ -71,14 +71,13 @@ jobs:
           sudo apt-get install -y libcairo2-dev libfreetype6-dev libffi-dev \
             libjpeg-dev libpng-dev libz-dev
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+      # Same uv, interpreter and sync as every Python job; the docs group and
+      # --no-install-project are the only difference (CI_POLICY.md §8).
+      - name: Install uv and the docs toolchain
+        uses: ./.github/actions/setup-uv-python
         with:
-          version: "latest"
           python-version: "3.12"
-
-      - name: Install docs toolchain
-        run: uv sync --group docs --no-install-project
+          sync-args: --group docs --no-install-project
 
       # The privacy plugin mirrors the Google webfonts into the site at build
       # time. Uncached, every run re-fetches ~26 woff2 files, and on 2026-08-11

@@ -170,14 +170,11 @@ jobs:
             desktop-file-utils \
             xdotool
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+      # Repository-owned composite: uv, the interpreter and `uv sync` (CI_POLICY.md §8).
+      - name: Install uv and dependencies
+        uses: ./.github/actions/setup-uv-python
         with:
-          version: "latest"
           python-version: ${{ matrix.python-version }}
-
-      - name: Install dependencies
-        run: uv sync
 
       - name: Run tests
         # Must stay identical to `test`'s step; the comment there says why.
@@ -278,14 +275,11 @@ jobs:
             desktop-file-utils \
             xdotool
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+      # Repository-owned composite: uv, the interpreter and `uv sync` (CI_POLICY.md §8).
+      - name: Install uv and dependencies
+        uses: ./.github/actions/setup-uv-python
         with:
-          version: "latest"
           python-version: ${{ matrix.python-version }}
-
-      - name: Install dependencies
-        run: uv sync
 
       - name: Run tests
         # One worker per core (`-n auto`). `worksteal` rebalances as workers finish,

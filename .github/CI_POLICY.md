@@ -412,6 +412,44 @@ steps explicit until a reusable boundary can preserve their security model clear
 
 The purpose of reuse is preventing policy drift, not minimizing line count.
 
+**The rule for new Python jobs.** A new CI job that installs the project uses the
+repository-owned composite action `.github/actions/setup-uv-python`. It installs uv, pins
+the interpreter with `python-version` (required, never left to the runner image), and runs
+`uv sync` with extra arguments in `sync-args`. The action holds no secret, no permission
+block and no cache, so the calling job keeps every decision about tokens and caches. A job
+that cannot use it says why in a comment beside its setup step.
+
+**The rule for caches and timeouts.** A cache decision has one rule: the key includes every
+property listed under "Caches" above, and it lives in the job that uses it. A timeout
+decision has one rule: the numbered rule under "Timeouts" above. A job that deviates from
+either states which property it changes in a comment beside the key or the limit.
+
+### Repeated setup
+
+Counted on `origin/main` (759f1fbc) with `git grep`. Each count is the number of matching
+lines across `.github/workflows/*.yml`, and the file count is how many files contain at
+least one:
+
+```sh
+git grep -h "uses: astral-sh/setup-uv@" origin/main -- .github/workflows | wc -l
+git grep -l "uses: astral-sh/setup-uv@" origin/main -- .github/workflows | wc -l
+```
+
+| Setup step | Lines | Files | Status |
+|---|---:|---:|---|
+| `uses: actions/checkout@` | 49 | 33 | Not extracted. `fetch-depth` and `filter` differ per job, and the comments beside them explain why. |
+| `uses: astral-sh/setup-uv@` | 19 | 10 | 3 migrated to the composite: `test-linux`, `test` and the `docs` build. The rest are macOS, Windows, release and publish legs, or have no `version` input (see below). |
+| `uv sync` in a command | 15 | 8 | The same 3 migrated. The others carry different extras, or sit in a release, build or Windows leg. |
+| `sudo apt-get update` | 8 | 5 | Not extracted. Each job's package list differs. |
+| `sudo apt-get install` | 10 | 6 | Not extracted, for the same reason. |
+| `uses: actions/setup-python@` | 4 | 4 | Not extracted in this pass. Those four jobs were not read in depth. |
+| `uses: actions/cache@` | 3 | 2 | Not extracted. Keys are job-specific and stay beside the job that uses them. |
+
+The composite's `uv-version` input defaults to `latest`, which matches the `version: "latest"`
+that the three migrated jobs set. The jobs with no `version` input, such as `benchmark-harness`,
+`extras` and `gui`, are not migrated: whether `astral-sh/setup-uv` with no `version` resolves
+to the same uv was not verified here. Migrate them after that is checked, not before.
+
 ---
 
 ## 9. Flakes, reruns, advisory jobs, and experimental legs
