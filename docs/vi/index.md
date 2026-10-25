@@ -114,6 +114,9 @@ Phần tài liệu còn lại hiện vẫn bằng tiếng Anh.
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/shashiharanramvanam-crypto"><img src="https://avatars.githubusercontent.com/u/226146568?v=4?s=100" width="100px;" alt="Vanam Shashi Haran Ram"/><br /><sub><b>Vanam Shashi Haran Ram</b></sub></a><br /><a href="#translation-shashiharanramvanam-crypto" title="Translation">🌍</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/filip-dzivy"><img src="https://avatars.githubusercontent.com/u/206750379?v=4?s=100" width="100px;" alt="filip-dzivy"/><br /><sub><b>filip-dzivy</b></sub></a><br /><a href="#infra-filip-dzivy" title="Infrastructure (Hosting, Build-Tools, etc)">🚇</a> <a href="https://github.com/MSKazemi/yazses/commits?author=filip-dzivy" title="Tests">⚠️</a></td>
     </tr>
+    <tr>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/yoreva-01"><img src="https://avatars.githubusercontent.com/u/195282707?v=4?s=100" width="100px;" alt="Yusuf Orçan"/><br /><sub><b>Yusuf Orçan</b></sub></a><br /><a href="#data-yoreva-01" title="Data">🔣</a> <a href="https://github.com/MSKazemi/yazses/commits?author=yoreva-01" title="Tests">⚠️</a></td>
+    </tr>
   </tbody>
 </table>
 

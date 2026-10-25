@@ -266,6 +266,13 @@ found defects that no amount of reading the code here would have surfaced.
 - [@yangjie-AE](https://github.com/yangjie-AE) — completed the sentence that stopped at
   "那么" ("then") in the Chinese page's description, checking the wording against the English
   "When not to use it" section ([#589](https://github.com/MSKazemi/yazses/pull/589))
+- [@yoreva-01](https://github.com/yoreva-01) (Yusuf Orçan) — filled the Android model catalogue
+  with its **first two real entries**, `tiny.en` and `base.en`, after the file had shipped empty on
+  purpose because no checksum in the repository could be trusted. Took the SHA-256 and size from the
+  upstream release, cross-checked them against the published SHA-1, and said where each number came
+  from instead of asking us to believe it
+  ([#675](https://github.com/MSKazemi/yazses/issues/675) →
+  [#682](https://github.com/MSKazemi/yazses/pull/682))
 - [@YuuGR1337](https://github.com/YuuGR1337) (Elkero) — found that the "improving this
   translation is a welcome first contribution" link on **every** draft translation page pointed
   at that locale's *closed* `Translate the README` issue, so the one line whose whole job is to

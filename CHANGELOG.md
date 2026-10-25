@@ -6,6 +6,16 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added — Android: the model catalogue has its first two models
+
+`models.json` shipped empty on purpose: no real model checksum was recorded anywhere in the
+repository and none was invented. It now lists two whisper.cpp models, `tiny.en` (77,704,715 bytes)
+and `base.en` (147,964,211 bytes), each with a SHA-256 taken from the upstream release and checked
+against the file size and the published SHA-1. Both are MIT-licensed. Nothing downloads them yet;
+the download job is the rest of [#90](https://github.com/MSKazemi/yazses/issues/90). Thank you,
+[@yoreva-01](https://github.com/yoreva-01)
+([#682](https://github.com/MSKazemi/yazses/pull/682), [#675](https://github.com/MSKazemi/yazses/issues/675)).
+
 ### Added — Android: the speech-engine seam (`:core:stt`)
 
 The Android app now has the interface every speech engine will sit behind: `SttEngine`

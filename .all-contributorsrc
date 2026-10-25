@@ -427,6 +427,16 @@
         "infra",
         "test"
       ]
+    },
+    {
+      "login": "yoreva-01",
+      "name": "Yusuf Orçan",
+      "avatar_url": "https://avatars.githubusercontent.com/u/195282707?v=4",
+      "profile": "https://github.com/yoreva-01",
+      "contributions": [
+        "data",
+        "test"
+      ]
     }
   ]
 }

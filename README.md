@@ -14,7 +14,7 @@ account, no subscription and no API key. YazSes is free and open source under Ap
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21856271.svg)](https://doi.org/10.5281/zenodo.21856271)
 [![Documentation](https://img.shields.io/badge/docs-mskazemi.com%2Fyazses-5e35b1)](https://mskazemi.com/yazses/)
 [![Open Source Helpers](https://www.codetriage.com/mskazemi/yazses/badges/users.svg)](https://www.codetriage.com/mskazemi/yazses)
-[![All Contributors](https://img.shields.io/badge/all_contributors-42-orange.svg?style=flat-square)](#contributors)
+[![All Contributors](https://img.shields.io/badge/all_contributors-43-orange.svg?style=flat-square)](#contributors)
 
 ![YazSes — hold a key, speak, release; the text is typed into the focused app](docs/screenshots/yazses-reel.gif)
 
@@ -890,6 +890,9 @@ patch counts. Contribution types follow the [all-contributors emoji key](https:/
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/mrCabez"><img src="https://avatars.githubusercontent.com/u/110625817?v=4?s=100" width="100px;" alt="mrCabez"/><br /><sub><b>mrCabez</b></sub></a><br /><a href="#translation-mrCabez" title="Translation">🌍</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/shashiharanramvanam-crypto"><img src="https://avatars.githubusercontent.com/u/226146568?v=4?s=100" width="100px;" alt="Vanam Shashi Haran Ram"/><br /><sub><b>Vanam Shashi Haran Ram</b></sub></a><br /><a href="#translation-shashiharanramvanam-crypto" title="Translation">🌍</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/filip-dzivy"><img src="https://avatars.githubusercontent.com/u/206750379?v=4?s=100" width="100px;" alt="filip-dzivy"/><br /><sub><b>filip-dzivy</b></sub></a><br /><a href="#infra-filip-dzivy" title="Infrastructure (Hosting, Build-Tools, etc)">🚇</a> <a href="https://github.com/MSKazemi/yazses/commits?author=filip-dzivy" title="Tests">⚠️</a></td>
+    </tr>
+    <tr>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/yoreva-01"><img src="https://avatars.githubusercontent.com/u/195282707?v=4?s=100" width="100px;" alt="Yusuf Orçan"/><br /><sub><b>Yusuf Orçan</b></sub></a><br /><a href="#data-yoreva-01" title="Data">🔣</a> <a href="https://github.com/MSKazemi/yazses/commits?author=yoreva-01" title="Tests">⚠️</a></td>
     </tr>
   </tbody>
 </table>
