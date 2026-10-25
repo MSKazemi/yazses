@@ -63,12 +63,14 @@ Android and desktop WER are not comparable yet. The on-device runner is the rest
 [#92](https://github.com/MSKazemi/yazses/issues/92). Nothing changes for an existing install.
 
 A strict reader now validates records read back from disk. `BenchJson.read` returns either the
-record or every reason it was refused, and it never throws: truncated or malformed JSON, wrong
-types, duplicate keys, NaN or Infinity, bad escapes, lone surrogates, nesting past 64 levels and
-text over 8 MiB are all refused. The reader is strict about shape: a key the format requires but the
-file lacks, and a key the format does not define, are each refused by name. A reading is not
-measured only when the file says so with an explicit null and a reason, never as zero. The
-word-error-rate normaliser caveat above still stands.
+record or the reasons it was refused, and it does not throw on any input it is given. Malformed
+JSON, wrong types, duplicate keys, NaN or Infinity, bad escapes, lone surrogates, and any key the
+format does not define or a missing one are refused by name. Text over 1 MiB of UTF-16 code units
+(a UTF-8 file can be larger in bytes), nesting past 64 levels, more than 10,000 array elements,
+more than 1,000 members in one object and more than 200,000 values are refused before the tree is
+built. The reported problems are capped at 100 with one summary entry, and echoed keys and numbers
+are cut to 64 characters. A reading is not measured only when the file says so with an explicit
+null and a reason, never as zero. The word-error-rate normaliser caveat above still stands.
 
 ## [2.46.0] - 2026-10-24
 

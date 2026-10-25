@@ -3,13 +3,29 @@ package com.yazses.core.bench
 import java.math.BigDecimal
 import java.math.RoundingMode
 
-/** Largest text [BenchJson.read] parses, in UTF-16 code units (8 MiB). */
-internal const val MAX_READ_CHARS = 8 * 1024 * 1024
+/**
+ * Largest text [BenchJson.read] parses, in UTF-16 code units: 1 MiB of characters. A UTF-8 file can
+ * be larger than this in bytes when it holds non-ASCII text. A real record is a few kilobytes.
+ */
+internal const val MAX_READ_CHARS = 1_048_576
 
 /** Deepest nesting [BenchJson.read] parses. The record itself nests three levels. */
 internal const val MAX_READ_DEPTH = 64
 
+/** Most problems [BenchJson.read] reports. A longer list ends with one "and N more problems" entry. */
+internal const val MAX_PROBLEMS = 100
+
+/** Longest single problem message kept, so no message can carry an unbounded copy of the input. */
+internal const val MAX_PROBLEM_CHARS = 300
+
 private val INTEGER = Regex("-?(0|[1-9][0-9]*)")
+
+/**
+ * The integer a JSON number spells, or null. Refuses `-0`: the writer never prints a negative zero
+ * for an integer field, so a file that has one was not written by it.
+ */
+private fun wholeNumber(raw: String): Long? =
+    if (raw == "-0" || !INTEGER.matches(raw)) null else raw.toLongOrNull()
 
 // The exact key set the writer emits at each level. Anything else is an unknown field, and any of
 // these that is absent is a missing field: the schema is versioned, so the shape is fixed.
@@ -22,18 +38,32 @@ private val AGGREGATE_KEYS = setOf("clips", "audio_s", "wall_s", "rtf", "rtf_rea
 private val CLIP_KEYS = setOf("id", "audio_s", "wall_s", "rtf", "rtf_reason")
 
 /**
- * Turns a parsed JSON tree into a [BenchResult]. Collects every problem it finds rather than
- * stopping at the first. Value rules are [BenchValidator]'s; this class checks shape (every key
- * present, no key unknown), the measured-or-reason pairing, and that the derived `aggregate` block
- * is what the writer would print.
+ * Turns a parsed JSON tree into a [BenchResult]. Collects problems rather than stopping at the
+ * first, but keeps at most [MAX_PROBLEMS] of them, so the list is bounded whatever the input. Value
+ * rules are [BenchValidator]'s; this class checks shape (every key present, no key unknown), the
+ * measured-or-reason pairing, and that the derived `aggregate` block is what the writer would print.
  */
 internal class BenchDecoder {
 
-    val problems = mutableListOf<String>()
+    private val kept = ArrayList<String>()
+    private var total = 0
+
+    private fun add(problem: String) {
+        total++
+        if (kept.size < MAX_PROBLEMS) {
+            kept += if (problem.length > MAX_PROBLEM_CHARS) problem.take(MAX_PROBLEM_CHARS) + "…" else problem
+        }
+    }
+
+    private val hasProblems: Boolean get() = total > 0
+
+    /** The kept problems, plus one summary entry with the exact count of the rest when there are more. */
+    val problems: List<String>
+        get() = if (total > MAX_PROBLEMS) kept + "and ${total - MAX_PROBLEMS} more problems" else kept.toList()
 
     fun decode(root: Any?): BenchResult? {
         if (root !is Map<*, *>) {
-            problems += "record: expected an object"
+            add("record: expected an object")
             return null
         }
         val top = map(root)
@@ -41,8 +71,8 @@ internal class BenchDecoder {
 
         val schema = str(top, "", "schema")
         val threads = intField(top, "", "threads")
-        val peak = reading(top, "", "peak_rss_bytes", "peak_rss_reason", "an integer") {
-            (it as? JsonNumber)?.raw?.takeIf { raw -> INTEGER.matches(raw) }?.toLongOrNull()
+        val peak = reading(top, "", "peak_rss_bytes", "peak_rss_reason", "an integer") { v ->
+            (v as? JsonNumber)?.raw?.let(::wholeNumber)
         }
         val device = child(top, "", "device", DEVICE_KEYS)?.let { d ->
             DeviceFields(
@@ -68,7 +98,7 @@ internal class BenchDecoder {
         }
         val clips = clipList(top)
 
-        if (problems.isNotEmpty()) return null
+        if (hasProblems) return null
         if (schema == null || threads == null || peak == null || device == null || engine == null ||
             aggregate == null || clips == null
         ) return null
@@ -91,11 +121,11 @@ internal class BenchDecoder {
             peakRssBytes = peak,
             schema = schema,
         )
-        problems += BenchValidator.violations(record)
-        if (problems.isNotEmpty()) return null
+        BenchValidator.violations(record).forEach { add(it) }
+        if (hasProblems) return null
 
         checkAggregate(record, aggregate.clips, aggregate.audioS, aggregate.wallS, aggregate.rtf)
-        return if (problems.isEmpty()) record else null
+        return if (hasProblems) null else record
     }
 
     /**
@@ -103,27 +133,27 @@ internal class BenchDecoder {
      * whose aggregate is not those values is not the writer's output, so it is refused.
      */
     private fun checkAggregate(r: BenchResult, clipCount: Int, audioS: Double, wallS: Double, rtf: Double?) {
-        if (clipCount != r.clips.size) problems += "aggregate.clips: $clipCount, but the record has ${r.clips.size} clips"
+        if (clipCount != r.clips.size) add("aggregate.clips: $clipCount, but the record has ${r.clips.size} clips")
         val audioSum = r.clips.sumOf { it.audioS }
         val wallSum = r.clips.sumOf { it.wallS }
         sameAtMicroseconds(audioS, audioSum, "aggregate.audio_s")
         sameAtMicroseconds(wallS, wallSum, "aggregate.wall_s")
         val expected = Rtf.of(wallSum, audioSum)
         when {
-            expected == null && rtf != null -> problems += "aggregate.rtf: there is no audio, so rtf must be null"
-            expected != null && rtf == null -> problems += "aggregate.rtf: missing for audio_s $audioSum"
+            expected == null && rtf != null -> add("aggregate.rtf: there is no audio, so rtf must be null")
+            expected != null && rtf == null -> add("aggregate.rtf: missing for audio_s $audioSum")
             expected != null && rtf != null -> sameAtMicroseconds(rtf, expected, "aggregate.rtf")
         }
     }
 
     private fun sameAtMicroseconds(file: Double, expected: Double, name: String) {
         if (!file.isFinite() || !expected.isFinite()) {
-            problems += "$name: value $file is not finite"
+            add("$name: value $file is not finite")
             return
         }
         val want = BigDecimal(expected).setScale(6, RoundingMode.HALF_UP)
         if (BigDecimal(file).setScale(6, RoundingMode.HALF_UP).compareTo(want) != 0) {
-            problems += "$name: $file does not match the value the record implies, ${want.toPlainString()}"
+            add("$name: $file does not match the value the record implies, ${want.toPlainString()}")
         }
     }
 
@@ -133,11 +163,11 @@ internal class BenchDecoder {
 
     private fun clipList(top: Map<String, Any?>): List<ClipResult>? {
         if (!top.containsKey("clips")) {
-            problems += "missing field: clips"
+            add("missing field: clips")
             return null
         }
         val raw = top["clips"] as? List<*> ?: run {
-            problems += "clips: expected an array"
+            add("clips: expected an array")
             return null
         }
         val out = raw.mapIndexedNotNull { idx, item -> clip(item, "clips[$idx]") }
@@ -146,7 +176,7 @@ internal class BenchDecoder {
 
     private fun clip(item: Any?, path: String): ClipResult? {
         if (item !is Map<*, *>) {
-            problems += "$path: expected an object"
+            add("$path: expected an object")
             return null
         }
         val m = map(item)
@@ -166,23 +196,23 @@ internal class BenchDecoder {
         val name = full(path, "rtf")
         val reasonName = full(path, "rtf_reason")
         var present = true
-        if (!m.containsKey("rtf")) { problems += "missing field: $name"; present = false }
-        if (!m.containsKey("rtf_reason")) { problems += "missing field: $reasonName"; present = false }
+        if (!m.containsKey("rtf")) { add("missing field: $name"); present = false }
+        if (!m.containsKey("rtf_reason")) { add("missing field: $reasonName"); present = false }
         if (!present) return null
         val value = m["rtf"]
         val reason = m["rtf_reason"]
         if (value != null) {
             if (reason != null) {
-                problems += "$name: measured, so $reasonName must be absent or null"
+                add("$name: measured, so $reasonName must be absent or null")
                 return null
             }
             if (value !is JsonNumber) {
-                problems += "$name: expected a number"
+                add("$name: expected a number")
                 return null
             }
             return value.asDouble
         }
-        if (reason != BenchJson.NO_AUDIO) problems += "$name: null needs $reasonName \"no audio\""
+        if (reason != BenchJson.NO_AUDIO) add("$name: null needs $reasonName \"no audio\"")
         return null
     }
 
@@ -202,52 +232,54 @@ internal class BenchDecoder {
         val valueName = full(path, key)
         val reasonName = full(path, reasonKey)
         var present = true
-        if (!m.containsKey(key)) { problems += "missing field: $valueName"; present = false }
-        if (!m.containsKey(reasonKey)) { problems += "missing field: $reasonName"; present = false }
+        if (!m.containsKey(key)) { add("missing field: $valueName"); present = false }
+        if (!m.containsKey(reasonKey)) { add("missing field: $reasonName"); present = false }
         if (!present) return null
         val value = m[key]
         val reason = m[reasonKey]
         if (reason != null && reason !is String) {
-            problems += "$reasonName: expected a string or null"
+            add("$reasonName: expected a string or null")
             return null
         }
         if (value != null) {
             if (reason != null) {
-                problems += "$valueName: measured, so $reasonName must be absent or null"
+                add("$valueName: measured, so $reasonName must be absent or null")
                 return null
             }
-            val parsed = parse(value) ?: run {
-                problems += "$valueName: expected $typeName"
+            val parsed = parse(value)
+            if (parsed == null) {
+                val got = (value as? JsonNumber)?.let { ", got ${echo(it.raw)}" } ?: ""
+                add("$valueName: expected $typeName$got")
                 return null
             }
             return Reading.Measured(parsed)
         }
         if (reason is String) {
             if (reason.isBlank()) {
-                problems += "$reasonName: is blank"
+                add("$reasonName: is blank")
                 return null
             }
             return Reading.NotMeasured(reason)
         }
-        problems += "$valueName is null but $reasonName gives no reason"
+        add("$valueName is null but $reasonName gives no reason")
         return null
     }
 
     /** Reports every key in [m] that the schema does not define at this level. */
     private fun checkFields(m: Map<String, Any?>, path: String, allowed: Set<String>) {
         for (key in m.keys) {
-            if (key !in allowed) problems += "unknown field: ${full(path, key)}"
+            if (key !in allowed) add("unknown field: ${echo(full(path, key))}")
         }
     }
 
     private fun str(m: Map<String, Any?>, path: String, key: String): String? {
         val name = full(path, key)
         if (!m.containsKey(key)) {
-            problems += "missing field: $name"
+            add("missing field: $name")
             return null
         }
         return m[key] as? String ?: run {
-            problems += "$name: expected a string"
+            add("$name: expected a string")
             null
         }
     }
@@ -255,12 +287,12 @@ internal class BenchDecoder {
     private fun child(m: Map<String, Any?>, path: String, key: String, allowed: Set<String>): Map<String, Any?>? {
         val name = full(path, key)
         if (!m.containsKey(key)) {
-            problems += "missing field: $name"
+            add("missing field: $name")
             return null
         }
         val v = m[key]
         if (v !is Map<*, *>) {
-            problems += "$name: expected an object"
+            add("$name: expected an object")
             return null
         }
         val out = map(v)
@@ -271,19 +303,19 @@ internal class BenchDecoder {
     private fun number(m: Map<String, Any?>, path: String, key: String): JsonNumber? {
         val name = full(path, key)
         if (!m.containsKey(key)) {
-            problems += "missing field: $name"
+            add("missing field: $name")
             return null
         }
         return m[key] as? JsonNumber ?: run {
-            problems += "$name: expected a number"
+            add("$name: expected a number")
             null
         }
     }
 
     private fun intField(m: Map<String, Any?>, path: String, key: String): Int? {
         val n = number(m, path, key) ?: return null
-        val v = n.raw.takeIf { INTEGER.matches(it) }?.toIntOrNull()
-        if (v == null) problems += "${full(path, key)}: expected an integer, got ${n.raw}"
+        val v = wholeNumber(n.raw)?.takeIf { it in Int.MIN_VALUE..Int.MAX_VALUE }?.toInt()
+        if (v == null) add("${full(path, key)}: expected an integer, got ${echo(n.raw)}")
         return v
     }
 

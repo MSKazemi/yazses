@@ -100,6 +100,13 @@ class JsonReaderTest {
         assertEquals(listOf("unknown field: future"), problems)
     }
 
+    @Test
+    fun `an integer-valued duration written without decimals is accepted, so write of read is not always identical to the input`() {
+        val text = edit("\"id\":\"c1\",\"audio_s\":2.000000", "\"id\":\"c1\",\"audio_s\":2")
+        assertEquals(record(), okOf(text))
+        assertTrue(BenchJson.write(okOf(text)) != text)
+    }
+
     /** The problems of a rejected text; fails the test if the text is accepted. */
     private fun okOrRejected(text: String): List<String> =
         assertIs<ReadResult.Rejected>(BenchJson.read(text), "expected Rejected").problems
@@ -116,7 +123,7 @@ class JsonReaderTest {
             Case("missing closing brace", base.dropLast(1), "unexpected end"),
             Case("trailing garbage", base + "x", "trailing"),
             Case("two documents", base + base, "trailing"),
-            Case("byte order mark", "﻿" + base, "byte order mark"),
+            Case("byte order mark", "\uFEFF" + base, "byte order mark"),
             Case("NaN token", edit("\"threads\":2", "\"threads\":NaN"), "unexpected character"),
             Case("Infinity token", edit("\"threads\":2", "\"threads\":Infinity"), "unexpected character"),
             Case("negative Infinity token", edit("\"threads\":2", "\"threads\":-Infinity"), "invalid number"),
@@ -135,6 +142,12 @@ class JsonReaderTest {
             Case("threads with a leading zero", edit("\"threads\":2", "\"threads\":02"), "expected"),
             Case("threads with a plus sign", edit("\"threads\":2", "\"threads\":+2"), "unexpected character"),
             Case("threads zero", edit("\"threads\":2", "\"threads\":0"), "threads: must be"),
+            Case("threads negative zero", edit("\"threads\":2", "\"threads\":-0"), "got -0"),
+            Case(
+                "peak negative zero",
+                edit("\"peak_rss_bytes\":null,\"peak_rss_reason\":\"synthetic: no memory probe\"", "\"peak_rss_bytes\":-0,\"peak_rss_reason\":null"),
+                "got -0",
+            ),
             Case("peak measured with a reason set", edit("\"peak_rss_bytes\":null", "\"peak_rss_bytes\":0"), "measured, so"),
             Case(
                 "peak null with no reason",
@@ -200,7 +213,7 @@ class JsonReaderTest {
             Case("extra field in aggregate", edit("\"rtf_reason\":null},\"clips\"", "\"rtf_reason\":null,\"extra\":1},\"clips\""), "unknown field: aggregate.extra"),
             Case("extra field in a clip", edit("\"rtf_reason\":null}]", "\"rtf_reason\":null,\"extra\":1}]"), "unknown field: clips[0].extra"),
             Case("extra field at top level", edit("\"threads\":2,", "\"threads\":2,\"future\":true,"), "unknown field: future"),
-            Case("text over the size limit", " ".repeat(8 * 1024 * 1024 + 1) + base, "over the"),
+            Case("text over the size limit", " ".repeat(MAX_READ_CHARS + 1) + base, "over the"),
         )
         for (c in cases) {
             val result = try {
@@ -241,7 +254,7 @@ class JsonReaderTest {
             BenchJson.write(record(peak = Reading.Measured(123L))),
             BenchJson.write(record(clips = listOf(ClipResult("z", 0.0, 0.0, null), ClipResult("p", 3.0, 1.0, 0.333333)))),
         )
-        val alphabet = "{}[]\":,.-+eE0123456789truefalsnNI \\\n\u0000𐀀﻿é测"
+        val alphabet = "{}[]\":,.-+eE0123456789truefalsnNI \\\n\u0000𐀀\uFEFFé测"
         val rnd = Random(92)
         var ok = 0
         var rejected = 0

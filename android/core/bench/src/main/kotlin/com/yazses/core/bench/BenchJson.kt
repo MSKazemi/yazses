@@ -3,6 +3,12 @@ package com.yazses.core.bench
 import java.math.BigDecimal
 import java.math.RoundingMode
 
+/** Outcome of [BenchJson.read]: a record that passed validation, or every reason it did not. */
+sealed interface ReadResult {
+    data class Ok(val result: BenchResult) : ReadResult
+    data class Rejected(val problems: List<String>) : ReadResult
+}
+
 /**
  * Deterministic JSON writer for [BenchResult]: fixed key order, 2-space indent, durations and
  * rates at 6 decimals (as desktop `round(x, 6)`, cost_meter.py:584-590), no locale, no timestamps.
@@ -10,30 +16,35 @@ import java.math.RoundingMode
  *
  * A not-measured reading is written as `null` with a sibling `*_reason` key. It is never 0.
  */
-/** Outcome of [BenchJson.read]: a record that passed validation, or every reason it did not. */
-sealed interface ReadResult {
-    data class Ok(val result: BenchResult) : ReadResult
-    data class Rejected(val problems: List<String>) : ReadResult
-}
-
 object BenchJson {
 
     /**
-     * Strict reader for the format [write] produces. Never throws: malformed JSON, a wrong type, too
-     * deep or too large an input, and an inconsistent record all come back as [ReadResult.Rejected]
-     * with the reasons. A record that is accepted has passed [BenchValidator].
+     * Strict reader for the format [write] produces. Malformed JSON, a wrong type, an input over
+     * [MAX_READ_CHARS] characters, nesting past [MAX_READ_DEPTH], an array over [MAX_ARRAY_ELEMENTS]
+     * elements, an object over [MAX_OBJECT_MEMBERS] members, over [MAX_VALUES] values, and an
+     * inconsistent record all come back as [ReadResult.Rejected] with the reasons, and at most
+     * [MAX_PROBLEMS] + 1 of them. Keys and numbers echoed in a message are cut to [ECHO_CHARS]
+     * characters. A record that is accepted has passed [BenchValidator].
+     *
+     * Round trip: `read(write(x))` equals `x` for every record `x` already at the writer's resolution,
+     * that is, durations and rates with at most six decimals (a finer value is rounded by the writer).
+     * `write(read(t))` equals `t` only when `t` is what [write] produces: the reader also accepts text
+     * [write] never prints, such as an integer-valued duration as `2` or `2E0` rather than `2.000000`.
+     * Integer fields refuse `-0`.
      */
     fun read(text: String): ReadResult {
         if (text.length > MAX_READ_CHARS) {
             return ReadResult.Rejected(listOf("text is ${text.length} characters, over the $MAX_READ_CHARS limit"))
         }
-        if (text.isNotEmpty() && text[0] == '﻿') {
+        if (text.isNotEmpty() && text[0] == '\uFEFF') {
             return ReadResult.Rejected(listOf("text starts with a byte order mark, which the format does not allow"))
         }
         val root = try {
             JsonParser(text, MAX_READ_DEPTH).parseDocument()
         } catch (e: JsonSyntaxError) {
             return ReadResult.Rejected(listOf("not valid JSON: ${e.message}"))
+        } catch (e: JsonLimitError) {
+            return ReadResult.Rejected(listOf(e.message ?: "input exceeds a size limit"))
         }
         val decoder = BenchDecoder()
         val record = decoder.decode(root)

@@ -3,6 +3,24 @@ package com.yazses.core.bench
 /** Thrown by [JsonParser] for any text that is not strict JSON. Caught by [BenchJson.read] and nowhere else. */
 internal class JsonSyntaxError(message: String) : Exception(message)
 
+/** Thrown by [JsonParser] when the input is well-formed but exceeds a size limit. Caught by [BenchJson.read]. */
+internal class JsonLimitError(message: String) : Exception(message)
+
+/** Most elements any one JSON array may hold. The format's only array is `clips`, a real record has a few. */
+internal const val MAX_ARRAY_ELEMENTS = 10_000
+
+/** Most members any one JSON object may hold. A real record's objects have at most five. */
+internal const val MAX_OBJECT_MEMBERS = 1_000
+
+/** Most JSON values (of any kind, nested or not) one document may hold. Bounds the parse tree itself. */
+internal const val MAX_VALUES = 200_000
+
+/** Longest run of an input copied into an error message before it is cut with an ellipsis. */
+internal const val ECHO_CHARS = 64
+
+/** [s] cut to [ECHO_CHARS] characters, with an ellipsis when it was longer. */
+internal fun echo(s: String): String = if (s.length > ECHO_CHARS) s.take(ECHO_CHARS) + "\u2026" else s
+
 /** A JSON number as written, so the reader can check its digits as well as its value. */
 internal class JsonNumber(val raw: String) {
     val asDouble: Double get() = raw.toDouble()
@@ -19,6 +37,7 @@ internal class JsonNumber(val raw: String) {
 internal class JsonParser(private val s: String, private val maxDepth: Int) {
 
     private var i = 0
+    private var values = 0
 
     fun parseDocument(): Any? {
         skipWhitespace()
@@ -29,6 +48,7 @@ internal class JsonParser(private val s: String, private val maxDepth: Int) {
     }
 
     private fun value(depth: Int): Any? {
+        if (++values > MAX_VALUES) throw JsonLimitError("more than $MAX_VALUES values in the record")
         if (i >= s.length) fail("unexpected end of text")
         return when (val c = s[i]) {
             '{' -> obj(depth + 1)
@@ -53,10 +73,11 @@ internal class JsonParser(private val s: String, private val maxDepth: Int) {
             if (peek() != '"') fail("expected a string key")
             val key = string()
             skipWhitespace()
-            if (peek() != ':') fail(if (i >= s.length) "unexpected end of text" else "expected ':' after key '$key'")
+            if (peek() != ':') fail(if (i >= s.length) "unexpected end of text" else "expected ':' after key '${echo(key)}'")
             i++
             skipWhitespace()
-            if (out.containsKey(key)) fail("duplicate key '$key'")
+            if (out.containsKey(key)) fail("duplicate key '${echo(key)}'")
+            if (out.size >= MAX_OBJECT_MEMBERS) throw JsonLimitError("object has more than $MAX_OBJECT_MEMBERS members")
             out[key] = value(depth)
             skipWhitespace()
             when (peek() ?: fail("unexpected end of text")) {
@@ -75,6 +96,7 @@ internal class JsonParser(private val s: String, private val maxDepth: Int) {
         if (peek() == ']') { i++; return out }
         while (true) {
             skipWhitespace()
+            if (out.size >= MAX_ARRAY_ELEMENTS) throw JsonLimitError("array has more than $MAX_ARRAY_ELEMENTS elements")
             out += value(depth)
             skipWhitespace()
             when (peek() ?: fail("unexpected end of text")) {
