@@ -51,6 +51,14 @@ real model checksum is recorded anywhere in the repository yet, and none was inv
 download job, the file picker and the storage screen are the rest of
 [#90](https://github.com/MSKazemi/yazses/issues/90). Nothing changes for an existing install.
 
+The download policy is in the same module, also pure and not wired to anything yet: a decision
+of start, wait or refuse from the user's settings (Wi-Fi-only by default, as ADR-MOB-006 §3
+requires), the network kind and the battery state; a resume plan from the partial file's length,
+which never resumes past the declared size; and the install ordering (download to a temporary
+name, verify, rename only on a verified result), in which a mismatch can never reach an installed
+outcome. Nothing calls these yet; the WorkManager job that will is the next part of
+[#90](https://github.com/MSKazemi/yazses/issues/90).
+
 ### Added — Android: the benchmark result format and error-rate helpers (`:core:bench`)
 
 Every claim about speed on a phone has to come from a measurement, so the format of that

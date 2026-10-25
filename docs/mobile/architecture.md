@@ -88,7 +88,7 @@ emulator (ADR-MOB-002 §3). That rule is what keeps the test suite fast and the 
 | `:core:vocab` | JVM | personal dictionary, `initial_prompt` merge (incl. built-in "YazSes") | `system/vocabulary.py`, `stt/vocabulary.py` |
 | `:core:session` | JVM | state machine, `ActivationSource`, burst orchestration | `core/daemon.py` (logic only) |
 | `:core:features` | JVM | capability registry: name, on/off, tier, config keys, availability-in-this-build | `system/features.py`, `system/backends.py` |
-| `:core:model` | JVM | model catalogue parse/validate (`models.json`), SHA-256 verify decision, sideload classification — no network | — |
+| `:core:model` | JVM | model catalogue parse/validate (`models.json`), SHA-256 verify decision, sideload classification, download policy, resume plan and install ordering (pure, dormant: nothing calls them yet) — no network | — |
 | `:core:bench` | JVM | pure result model (`yazses.bench.android/1`), deterministic JSON writer, WER/CER/RTF helpers and validator for `:bench` — no device code | `paper/benchmark/cost_meter.py`, `bench_wer.py`, `mandarin_metrics.py` |
 | `:core:contract-test` | JVM test | runs `contract/vectors/*.json` against the cores | `tests/test_contract_vectors.py` |
 | `:native:whispercpp` | Android lib + CMake | JNI bridge to whisper.cpp (submodule) | — |
