@@ -26,18 +26,20 @@ public class ActivationDriver(
         }
     }
 
-    /** True from a key-down until the next [onRelease]. */
+    /** True from a key-down until the next [onRelease] or [cancel]. */
     private var keyDown = false
 
     /**
-     * True when a secure refusal (or a secure abort) happened while the key was down. Set by
-     * [sync]; cleared by the next [onRelease], which is the key's onHoldEnd. While it is set,
-     * every [onPress] (a key-repeat of the refused press) is ignored, so a refused key cannot
-     * start a burst in a normal field until it has been released once.
+     * True when a secure refusal (or a secure abort) happened while the key was down. Set after
+     * each call; cleared by the next [onRelease], which is the key's onHoldEnd, or by [cancel].
+     * While it is set, every [onPress] (a key-repeat of the refused press) starts nothing.
      */
     private var refusedWhileDown = false
 
-    /** Why the most recent burst ended. Null until a burst ends, and cleared by the next start. */
+    /**
+     * Why the most recent burst ended. Null until a burst ends, and cleared by the next start.
+     * [EndCause.SECURE_ABORT] is set when a secure field ends a burst.
+     */
     public var lastEndCause: EndCause? = null
         private set
 
@@ -53,24 +55,30 @@ public class ActivationDriver(
         atMs: Long,
         fieldIsSecure: Boolean = false,
         snapshot: () -> FloatArray = NO_AUDIO,
-    ): List<SessionEffect> {
+    ): List<SessionEffect> = call {
         keyDown = true
-        if (refusedWhileDown) return emptyList() // key-repeat of a refused press
-        if (fieldIsSecure) return sync(session.onPress(atMs, fieldIsSecure = true))
-        // A tap while the session is idle is always a start, even if the session was
-        // cancelled behind the driver's back and the source still remembers a running burst.
-        if (session.isIdle) source.reset()
-        return sync(apply(source.onHoldStart(atMs), atMs, snapshot))
+        if (refusedWhileDown) {
+            // A key-repeat of a refused press starts nothing, but the field it reports still
+            // reaches the session: a secure report keeps the session's secure state current.
+            session.observeField(fieldIsSecure)
+        } else if (fieldIsSecure) {
+            session.onPress(atMs, fieldIsSecure = true)
+        } else {
+            // A tap while the session is idle is always a start, even if the session was
+            // cancelled behind the driver's back and the source still remembers a running burst.
+            if (session.isIdle) source.reset()
+            apply(source.onHoldStart(atMs), atMs, snapshot)
+        }
     }
 
     /**
      * The activation gesture ended at [atMs]: the key came up. A toggle source ignores it,
      * but the key is released here for both modes, which clears a refused-press block.
      */
-    public fun onRelease(atMs: Long, samples: FloatArray): List<SessionEffect> {
+    public fun onRelease(atMs: Long, samples: FloatArray): List<SessionEffect> = call {
         keyDown = false
         refusedWhileDown = false
-        return sync(apply(source.onHoldEnd(atMs), atMs) { samples })
+        apply(source.onHoldEnd(atMs), atMs) { samples }
     }
 
     /**
@@ -82,27 +90,45 @@ public class ActivationDriver(
         nowMs: Long,
         snapshot: () -> FloatArray = NO_AUDIO,
         fieldIsSecure: Boolean? = null,
-    ): List<SessionEffect> {
-        if (fieldIsSecure == true) return sync(session.onTick(nowMs, fieldIsSecure = true))
-        return sync(apply(source.onTick(nowMs), nowMs, snapshot) + session.onTick(nowMs, fieldIsSecure))
+    ): List<SessionEffect> = call {
+        if (fieldIsSecure == true) {
+            session.onTick(nowMs, fieldIsSecure = true)
+        } else {
+            apply(source.onTick(nowMs), nowMs, snapshot) + session.onTick(nowMs, fieldIsSecure)
+        }
     }
 
     /** The decoder produced [text]. Passed through to [HoldSession.onDecoded]. */
     public fun onDecoded(text: String, fieldIsSecure: Boolean, nowMs: Long): List<SessionEffect> =
-        sync(session.onDecoded(text, fieldIsSecure, nowMs))
+        call { session.onDecoded(text, fieldIsSecure, nowMs) }
 
     /** The decoder failed. Passed through to [HoldSession.onDecodeFailed]. */
     public fun onDecodeFailed(nowMs: Long, fieldIsSecure: Boolean? = null): List<SessionEffect> =
-        sync(session.onDecodeFailed(nowMs, fieldIsSecure))
+        call { session.onDecodeFailed(nowMs, fieldIsSecure) }
 
     /** The text was inserted, or went to the clipboard. Passed through to [HoldSession.onDelivered]. */
     public fun onDelivered(inserted: Boolean, nowMs: Long, fieldIsSecure: Boolean? = null): List<SessionEffect> =
-        sync(session.onDelivered(inserted, nowMs, fieldIsSecure))
+        call { session.onDelivered(inserted, nowMs, fieldIsSecure) }
 
-    /** Abandons the burst in the session and forgets the source's gesture. */
+    /**
+     * Abandons the burst in the session and forgets the source's gesture. Cancel is for a key-up
+     * that can no longer arrive, so it also clears the key state and the refused-press block:
+     * the next press is a new press.
+     */
     public fun cancel(nowMs: Long): List<SessionEffect> {
         source.reset()
+        keyDown = false
+        refusedWhileDown = false
         return session.cancel(nowMs)
+    }
+
+    /**
+     * Runs one session call and then the bookkeeping: [sync] needs the state from before the
+     * call, to tell a secure abort of a live burst from a refusal with nothing running.
+     */
+    private inline fun call(block: () -> List<SessionEffect>): List<SessionEffect> {
+        val before = session.state
+        return sync(before, block())
     }
 
     private fun apply(
@@ -132,12 +158,15 @@ public class ActivationDriver(
     /**
      * Runs after every call. A session that has returned to Idle holds no burst, so the source
      * must not remember one; resetting is idempotent for both sources. A secure refusal while
-     * the key is down sets [refusedWhileDown].
+     * the key is down sets [refusedWhileDown]. A secure refusal that ends a live burst (Holding,
+     * Capturing or Decoding) sets [lastEndCause] to [EndCause.SECURE_ABORT].
      */
-    private fun sync(effects: List<SessionEffect>): List<SessionEffect> {
+    private fun sync(before: SessionState, effects: List<SessionEffect>): List<SessionEffect> {
+        val secureRefusal = effects.contains(SessionEffect.Refused(DeliveryGuard.Refusal.SECURE_FIELD))
         if (session.isIdle) source.reset()
-        if (keyDown && effects.contains(SessionEffect.Refused(DeliveryGuard.Refusal.SECURE_FIELD))) {
-            refusedWhileDown = true
+        if (keyDown && secureRefusal) refusedWhileDown = true
+        if (secureRefusal && before != SessionState.Idle && session.isIdle) {
+            lastEndCause = EndCause.SECURE_ABORT
         }
         return effects
     }

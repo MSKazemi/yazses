@@ -40,7 +40,11 @@ public sealed interface SessionEffect {
     /** Start recording. Audio captured from here on belongs to the burst. */
     public data object StartCapture : SessionEffect
 
-    /** Stop recording. The samples go back in through [HoldSession.onRelease]. */
+    /**
+     * Stop recording. After a normal stop the samples go back in through [HoldSession.onRelease].
+     * After a secure abort (emitted with [Refused]) the audio is discarded: nothing is decoded,
+     * and the matching [HoldSession.onRelease] is ignored.
+     */
     public data object StopCapture : SessionEffect
 
     /** Transcribe [samples]; report the outcome with onDecoded or onDecodeFailed. */
@@ -165,7 +169,10 @@ public class HoldSession(
      * burst state is still refused with [DeliveryGuard.Refusal.NOT_DECODING].
      */
     public fun onDecoded(text: String, fieldIsSecure: Boolean, nowMs: Long): List<SessionEffect> {
-        fieldSecure = fieldIsSecure
+        // Observe the field first: a stray result that reports a secure field while a new burst
+        // is recording aborts that burst, exactly as a tick would (no audio is decoded).
+        val aborted = observe(fieldIsSecure)
+        if (aborted.isNotEmpty()) return aborted + pump(nowMs)
         if (state == SessionState.Idle) return pump(nowMs)
         val out = mutableListOf<SessionEffect>()
         when (val decision = DeliveryGuard.decide(state, text, fieldIsSecure)) {
@@ -243,6 +250,13 @@ public class HoldSession(
         }
         return out
     }
+
+    /**
+     * Reports the focused field on its own, without a key event. A secure report aborts a burst
+     * that is waiting out its debounce or recording, exactly as the other entry points do, and
+     * returns the same effects. A normal report only records the field.
+     */
+    public fun observeField(fieldIsSecure: Boolean): List<SessionEffect> = observe(fieldIsSecure)
 
     /**
      * Records the field state the caller just reported. A secure report aborts a burst that

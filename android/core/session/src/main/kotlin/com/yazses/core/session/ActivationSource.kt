@@ -31,6 +31,9 @@ public enum class EndCause {
 
     /** Toggle mode: the hard cap was reached and the burst was force-stopped. */
     CAP_REACHED,
+
+    /** A secure field aborted the burst, and its audio was discarded (architecture.md §6). */
+    SECURE_ABORT,
 }
 
 /**
