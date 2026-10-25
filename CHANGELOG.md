@@ -37,9 +37,12 @@ password field, and text is never delivered into one or when blank; `cancel` aba
 burst from any state; and the last insert can be undone exactly once. Time is
 injected, so the tests are deterministic. The activation seam (`ActivationSource`, ADR-MOB-004 §7)
 has a hold-key source and a toggle source: a tap starts, a second tap stops, and a hard cap
-(`[audio] max_record_seconds`, 300 s by default) force-stops a toggle burst. Both are pure and are
-not wired to a keyboard yet; nothing selects toggle mode unless a caller passes it. The keyboard
-service, key bar and audio wiring are the rest of [#89](https://github.com/MSKazemi/yazses/issues/89). Nothing changes for an existing install.
+(`[audio] max_record_seconds`, 300 s by default) force-stops a toggle burst. A secure field refuses
+the mic on every path that could start one, including a tap queued behind a decode. A secure focus
+change during a capture aborts it and discards the audio, and the UI can read why the last burst
+ended. Both sources are pure and are not wired to a keyboard yet; nothing
+selects toggle mode unless a caller passes it. The keyboard service, key bar and audio wiring are
+the rest of [#89](https://github.com/MSKazemi/yazses/issues/89). Nothing changes for an existing install.
 
 ### Added — Android: the model catalogue and its checksum check (`:core:model`)
 

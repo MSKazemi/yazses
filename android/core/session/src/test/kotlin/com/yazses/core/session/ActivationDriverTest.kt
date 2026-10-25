@@ -84,6 +84,7 @@ class ActivationDriverTest {
     fun `a refused secure tap does not consume the toggle, so the next normal tap starts`() {
         val driver = toggle()
         driver.onPress(0L, fieldIsSecure = true)
+        driver.onRelease(100L, SILENT_AUDIO) // the key comes up before the next tap
         assertEquals(listOf<SessionEffect>(SessionEffect.StartCapture), driver.onPress(2_000L))
     }
 

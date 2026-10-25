@@ -99,8 +99,10 @@ public class ToggleSource(public val maxBurstMs: Long = DEFAULT_MAX_BURST_MS) : 
             startedAtMs = atMs
             return listOf(ActivationEdge.HoldStart)
         }
+        // A tap after the cap, with no tick in between, still reports the cap, not the tap.
+        val cause = if (atMs - startedAtMs >= maxBurstMs) EndCause.CAP_REACHED else EndCause.SECOND_ACTIVATION
         running = false
-        return listOf(ActivationEdge.HoldEnd(EndCause.SECOND_ACTIVATION))
+        return listOf(ActivationEdge.HoldEnd(cause))
     }
 
     override fun onHoldEnd(atMs: Long): List<ActivationEdge> = emptyList()
