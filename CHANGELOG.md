@@ -10,8 +10,9 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 The decision logic of the dictation keyboard is in, as pure Kotlin tested without an emulator: a
 hold shorter than the debounce (500 ms by default, the desktop's `hold_threshold_ms`) starts
-nothing; a burst the voice-activity gate calls silent delivers nothing; text is never delivered
-into a password field or when blank; and the last insert can be undone exactly once. Time is
+nothing; a burst the voice-activity gate calls silent delivers nothing; the mic is refused in a
+password field, and text is never delivered into one or when blank; `cancel` abandons a stuck
+burst from any state; and the last insert can be undone exactly once. Time is
 injected, so the tests are deterministic. The keyboard service, key bar and audio wiring are the
 rest of [#89](https://github.com/MSKazemi/yazses/issues/89). Nothing changes for an existing install.
 

@@ -12,7 +12,7 @@ kotlin {
 }
 
 dependencies {
-    implementation(project(":core:vad"))
+    api(project(":core:vad"))
     testImplementation(libs.kotlin.test)
     testImplementation(libs.junit.jupiter)
     testRuntimeOnly(libs.junit.platform.launcher)

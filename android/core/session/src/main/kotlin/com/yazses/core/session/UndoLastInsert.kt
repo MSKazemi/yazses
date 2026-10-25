@@ -23,6 +23,11 @@ public class UndoLastInsert {
         return insert
     }
 
+    /** Forgets the last insert. Call when the user has typed or moved the cursor. */
+    public fun invalidate() {
+        last = null
+    }
+
     /** Returns the last insert and clears it. Null when there is nothing to undo. */
     public fun undo(): Insert? {
         val insert = last

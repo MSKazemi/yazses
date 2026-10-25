@@ -51,14 +51,13 @@ class HoldSessionTest {
     }
 
     @Test
-    fun `a release with no tick still counts as a burst once the debounce has passed`() {
+    fun `a release past the debounce with no tick never started capture so nothing is decoded`() {
         val session = session()
         session.onPress(0L)
+        // No onTick arrived, so the caller recorded no audio. The burst must not decode.
         val effects = session.onRelease(debounce, LOUD)
-        assertEquals(SessionEffect.StartCapture, effects[0])
-        assertEquals(SessionEffect.StopCapture, effects[1])
-        assertIs<SessionEffect.Decode>(effects[2])
-        assertEquals(SessionState.Decoding, session.state)
+        assertEquals(listOf<SessionEffect>(SessionEffect.NothingHeard), effects)
+        assertEquals(SessionState.Idle, session.state)
     }
 
     @Test
@@ -211,6 +210,110 @@ class HoldSessionTest {
     fun `a negative debounce is rejected`() {
         val failure = runCatching { HoldSession(CalibratedRmsGate(), debounceMs = -1L) }
         assertTrue(failure.isFailure)
+    }
+
+    @Test
+    fun `cancel stops a stuck capture when the key-up was lost, and the next press works`() {
+        val session = session()
+        session.onPress(0L)
+        session.onTick(debounce) // Capturing; the key-up never arrives
+        assertEquals(listOf<SessionEffect>(SessionEffect.StopCapture), session.cancel(600L))
+        assertEquals(SessionState.Idle, session.state)
+        assertEquals(emptyList(), session.onPress(10_000L))
+        assertEquals(SessionState.Holding(10_000L), session.state)
+        assertEquals(listOf<SessionEffect>(SessionEffect.StartCapture), session.onTick(10_000L + debounce))
+    }
+
+    @Test
+    fun `cancel frees a decode that never reports back, and its late result is ignored`() {
+        val session = session()
+        runToDecoding(session)
+        session.onPress(1_000L) // queued behind the stuck decode
+        assertEquals(emptyList(), session.cancel(1_100L))
+        assertEquals(SessionState.Idle, session.state)
+        // The late result of the cancelled decode must not be delivered, and must not
+        // replay the press that was queued before the cancel.
+        assertEquals(emptyList(), session.onDecoded("late", fieldIsSecure = false, nowMs = 1_200L))
+        assertEquals(SessionState.Idle, session.state)
+        assertEquals(emptyList(), session.onPress(2_000L))
+        assertEquals(SessionState.Holding(2_000L), session.state)
+    }
+
+    @Test
+    fun `cancel returns to idle from delivering and from holding without any effect`() {
+        val delivering = session()
+        runToDecoding(delivering)
+        delivering.onDecoded("hello", fieldIsSecure = false, nowMs = 950L)
+        assertEquals(emptyList(), delivering.cancel(960L))
+        assertEquals(SessionState.Idle, delivering.state)
+
+        val holding = session()
+        holding.onPress(0L)
+        assertEquals(emptyList(), holding.cancel(100L))
+        assertEquals(SessionState.Idle, holding.state)
+    }
+
+    @Test
+    fun `alternating presses and releases while stuck cannot grow the queue past its bound`() {
+        // Zero debounce so every replayed press starts a capture and every release
+        // reports NothingHeard: each queued event then shows up as an effect.
+        val session = HoldSession(CalibratedRmsGate(), debounceMs = 0L)
+        runToDecoding(session)
+        for (i in 0 until 10_000) {
+            session.onPress(1_000L + 2 * i)
+            session.onRelease(1_001L + 2 * i, SILENT)
+        }
+        session.onDecoded("hi", fieldIsSecure = false, nowMs = 40_000L)
+        val replayed = session.onDelivered(inserted = true, nowMs = 40_100L)
+        // Unbounded, all 20,000 events would replay as 30,000 effects.
+        assertTrue(
+            replayed.size <= 3 * HoldSession.MAX_QUEUED_EVENTS,
+            "replayed ${replayed.size} effects; the queue must be bounded",
+        )
+    }
+
+    @Test
+    fun `a secure field refuses the press, starts nothing, and the release delivers nothing`() {
+        val session = session()
+        assertEquals(
+            listOf<SessionEffect>(SessionEffect.Refused(DeliveryGuard.Refusal.SECURE_FIELD)),
+            session.onPress(0L, fieldIsSecure = true),
+        )
+        assertEquals(SessionState.Idle, session.state)
+        assertEquals(emptyList(), session.onTick(debounce))
+        assertEquals(emptyList(), session.onRelease(debounce + 100L, LOUD))
+        assertEquals(SessionState.Idle, session.state)
+        assertNull(session.undo.undo())
+    }
+
+    @Test
+    fun `a clipboard-only burst makes the earlier insert no longer undoable`() {
+        val session = session()
+        runToDecoding(session)
+        session.onDecoded("first", fieldIsSecure = false, nowMs = 950L)
+        session.onDelivered(inserted = true, nowMs = 960L)
+        runToDecoding(session, start = 1_000L)
+        session.onDecoded("second", fieldIsSecure = false, nowMs = 1_950L)
+        session.onDelivered(inserted = false, nowMs = 1_960L)
+        // Undo would delete the first burst's characters from wherever the cursor now is.
+        assertNull(session.undo.undo())
+    }
+
+    @Test
+    fun `invalidateUndo forgets the last insert, for example after the user typed`() {
+        val session = session()
+        runToDecoding(session)
+        session.onDecoded("hello", fieldIsSecure = false, nowMs = 950L)
+        session.onDelivered(inserted = true, nowMs = 960L)
+        session.invalidateUndo()
+        assertNull(session.undo.undo())
+    }
+
+    @Test
+    fun `a stray decode while idle is a silent no-op, not an error`() {
+        val session = session()
+        assertEquals(emptyList(), session.onDecoded("hi", fieldIsSecure = false, nowMs = 0L))
+        assertEquals(SessionState.Idle, session.state)
     }
 
     /** Presses, holds past the debounce, and releases with loud audio: leaves the session Decoding. */

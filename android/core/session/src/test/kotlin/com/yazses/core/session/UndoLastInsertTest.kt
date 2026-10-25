@@ -28,6 +28,14 @@ class UndoLastInsertTest {
     }
 
     @Test
+    fun `invalidate forgets the remembered insert so undo returns nothing`() {
+        val undo = UndoLastInsert()
+        undo.remember("hello")
+        undo.invalidate()
+        assertNull(undo.undo())
+    }
+
+    @Test
     fun `length counts UTF-16 code units as the input connection does`() {
         val undo = UndoLastInsert()
         undo.remember("😀") // one emoji, two UTF-16 units

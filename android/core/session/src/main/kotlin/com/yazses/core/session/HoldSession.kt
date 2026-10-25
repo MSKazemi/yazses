@@ -89,24 +89,67 @@ public class HoldSession(
 
     private enum class Kind { PRESS, RELEASE }
 
-    /** The key went down at [atMs]. */
-    public fun onPress(atMs: Long): List<SessionEffect> = input(Kind.PRESS, atMs, NO_SAMPLES)
+    /**
+     * The key went down at [atMs]. When [fieldIsSecure] is true (a password or secure
+     * field is focused) the mic is refused: this returns [SessionEffect.Refused] with
+     * [DeliveryGuard.Refusal.SECURE_FIELD], starts nothing, and queues nothing. The
+     * matching release then has nothing to do.
+     */
+    public fun onPress(atMs: Long, fieldIsSecure: Boolean = false): List<SessionEffect> {
+        if (fieldIsSecure) return listOf(SessionEffect.Refused(DeliveryGuard.Refusal.SECURE_FIELD))
+        return input(Kind.PRESS, atMs, NO_SAMPLES)
+    }
 
     /**
      * The key came up at [atMs]. [samples] is the audio recorded since
      * [SessionEffect.StartCapture], or empty when no capture ran.
+     *
+     * Capture starts only from [onTick]. The caller MUST call [onTick] while the key is
+     * held, so a release past the debounce with no prior tick means no audio was ever
+     * recorded: that burst reports [SessionEffect.NothingHeard] and decodes nothing.
      */
     public fun onRelease(atMs: Long, samples: FloatArray): List<SessionEffect> =
         input(Kind.RELEASE, atMs, samples)
 
-    /** Time advanced to [nowMs] while the key is still down. Starts the burst at the debounce. */
+    /**
+     * Time advanced to [nowMs] while the key is still down. Starts the burst at the
+     * debounce. Ticks are mandatory: a held key must be ticked, or its burst never records.
+     */
     public fun onTick(nowMs: Long): List<SessionEffect> = advanceHold(nowMs)
+
+    /**
+     * Abandons whatever is in progress, from any state, and returns to [SessionState.Idle].
+     * Use it when the key-up can no longer arrive (focus lost, IME hidden, mic taken) or
+     * when a decode never reports back. It clears the queued key events. Emits
+     * [SessionEffect.StopCapture] only when a capture was running. A decode result that
+     * arrives after a cancel is ignored.
+     */
+    public fun cancel(nowMs: Long): List<SessionEffect> {
+        val wasCapturing = state == SessionState.Capturing
+        state = SessionState.Idle
+        queued.clear()
+        return if (wasCapturing) listOf(SessionEffect.StopCapture) else emptyList()
+    }
+
+    /**
+     * Forgets the remembered insert, so [UndoLastInsert.undo] returns null. The caller
+     * must call it when the user types or moves the cursor, because the recorded length
+     * would then delete the user's own characters.
+     */
+    public fun invalidateUndo() {
+        undo.invalidate()
+    }
 
     /**
      * The decoder produced [text] for the burst. [fieldIsSecure] is whether the focused
      * field is a password or secure field. [nowMs] is when the caller observed this.
+     *
+     * A result that arrives while the session is [SessionState.Idle] (for example after a
+     * [cancel]) is a stray and is ignored silently. A result during any other non-decoding
+     * burst state is still refused with [DeliveryGuard.Refusal.NOT_DECODING].
      */
     public fun onDecoded(text: String, fieldIsSecure: Boolean, nowMs: Long): List<SessionEffect> {
+        if (state == SessionState.Idle) return pump(nowMs)
         val out = mutableListOf<SessionEffect>()
         when (val decision = DeliveryGuard.decide(state, text, fieldIsSecure)) {
             is DeliveryGuard.Decision.Deliver -> {
@@ -138,7 +181,9 @@ public class HoldSession(
     public fun onDelivered(inserted: Boolean, nowMs: Long): List<SessionEffect> {
         val delivering = state as? SessionState.Delivering
         if (delivering != null) {
-            if (inserted) undo.remember(delivering.text)
+            // A clipboard-only delivery, or any later insert, makes the earlier insert
+            // unsafe to undo: the cursor is no longer where that insert left it.
+            if (inserted) undo.remember(delivering.text) else undo.invalidate()
             state = SessionState.Idle
         }
         return pump(nowMs)
@@ -147,7 +192,11 @@ public class HoldSession(
     private fun input(kind: Kind, atMs: Long, samples: FloatArray): List<SessionEffect> {
         if (state.isBusy()) {
             // Dedupe consecutive repeats so an auto-repeating key does not flood the queue.
-            if (queued.lastOrNull() != kind) queued.addLast(kind)
+            // The bound is hard: a stuck decode with alternating events drops the oldest.
+            if (queued.lastOrNull() != kind) {
+                if (queued.size == MAX_QUEUED_EVENTS) queued.removeFirst()
+                queued.addLast(kind)
+            }
             return emptyList()
         }
         return handle(kind, atMs, samples) + pump(atMs)
@@ -161,16 +210,16 @@ public class HoldSession(
                 // A press during Holding or Capturing is a key-repeat and changes nothing.
                 out += advanceHold(atMs)
             }
-            Kind.RELEASE -> {
-                // A release late enough to have passed the debounce is a burst, even if
-                // no tick arrived in between.
-                out += advanceHold(atMs)
-                when (state) {
-                    // A tap: released before the debounce. Nothing was ever started.
-                    is SessionState.Holding -> state = SessionState.Idle
-                    SessionState.Capturing -> out += finishCapture(samples)
-                    else -> Unit
+            Kind.RELEASE -> when (val current = state) {
+                // Released before the debounce: a tap, nothing was ever started.
+                // Released after the debounce but never ticked: capture never started,
+                // so no audio exists to decode. Report it as heard nothing.
+                is SessionState.Holding -> {
+                    state = SessionState.Idle
+                    if (atMs - current.pressedAtMs >= debounceMs) out += SessionEffect.NothingHeard
                 }
+                SessionState.Capturing -> out += finishCapture(samples)
+                else -> Unit
             }
         }
         return out
@@ -213,6 +262,9 @@ public class HoldSession(
     public companion object {
         /** The desktop default: `[hotkey] hold_threshold_ms = 500`. */
         public const val DEFAULT_DEBOUNCE_MS: Long = 500L
+
+        /** The most key events kept while a burst is decoding or delivering. The oldest is dropped beyond this. */
+        public const val MAX_QUEUED_EVENTS: Int = 8
 
         private val NO_SAMPLES = FloatArray(0)
     }
