@@ -56,7 +56,7 @@ from yazses.settingsui.pages import (
 )
 from yazses.settingsui.search import describe_filter, matches, visible_counts
 from yazses.settingsui.shell import SettingsShell, build_page
-from yazses.settingsui.theme import muted_style_for
+from yazses.settingsui.theme import mute_label, muted_style_for
 from yazses.system.relaunch import Mode, command_for
 
 log = logging.getLogger(__name__)
@@ -433,7 +433,7 @@ class SettingsWindow:
             "holds changes you have not applied yet."
         )
         note.setWordWrap(True)
-        note.setStyleSheet(muted_style_for(note, "margin-top: 8px;"))
+        mute_label(note, "margin-top: 8px;")
         layout.addWidget(note)
         return page
 
@@ -449,12 +449,15 @@ class SettingsWindow:
         page = QWidget()
         layout = QVBoxLayout(page)
         layout.setContentsMargins(0, 0, 0, 0)
+        # The page heading already says "Pause, resume and recover the camera-driven
+        # hands-free inputs", so this adds only what it does not: recentring, the health
+        # view, and the reassurance that matters before a click.
         about = QLabel(
-            "Pause, resume, recenter and recover the camera-driven hands-free inputs, and "
-            "see whether they are healthy. Opening the controls does not open the camera."
+            "Recenter them and see whether they are healthy. Opening the controls does "
+            "not open the camera."
         )
         about.setWordWrap(True)
-        about.setStyleSheet(muted_style_for(about, "margin-bottom: 6px;"))
+        mute_label(about, "margin-bottom: 6px;")
         layout.addWidget(about)
         layout.addWidget(self._build_handsfree_button())
         return page

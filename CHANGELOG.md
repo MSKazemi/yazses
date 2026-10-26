@@ -6,6 +6,26 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed — the settings window looks finished on Windows 11
+
+Rendering the real window and looking at every page showed three things that read as
+unfinished. None changes what any setting does.
+
+- **Lighter dividers.** The lines between the sidebar, the page and the Apply bar were drawn
+  as a dark and a light line side by side, which the Windows 11 style shows as one heavy bar.
+  They are now 1 px in the theme's own `midlight`, the colour the feature list's row
+  dividers already used, in light and in dark. The divider also runs the full height of the
+  window: an empty strip reserved for the snap-permission banner had left an 8 px gap above
+  it. The strip keeps its margins whenever a banner is in it.
+- **Aligned page edges.** Every page's description, the General page's note and the
+  Hands-free text started about 6 px to the right of the heading and the labels above them.
+  A stylesheet `margin-*` makes Qt treat a `QLabel` as framed, and a framed label indents its
+  text by half an "x". `theme.mute_label()` sets the same colour as before and `setIndent(0)`.
+- **No repeated sentence.** The Hands-free page said "Pause, resume … the camera-driven
+  hands-free inputs" in its description and again, almost word for word, in the line below.
+  The second line now adds only what the first does not, including that opening the controls
+  does not open the camera.
+
 ### Changed — CI: uv and Python setup live in one composite action (#537)
 
 The repeated uv, interpreter and `uv sync` sequence now lives in `.github/actions/setup-uv-python`, a repository-owned composite action with no secrets, no permission block and no cache of its own. Three jobs use it: `test-linux`, `test` and the docs build. Their uv version, interpreter and sync are unchanged. The inventory of repeated setup, and the rule for new Python jobs and for caches and timeouts, are in `.github/CI_POLICY.md` section 8. `tests/test_ci_composite_actions.py` checks the action's contract statically. Timeouts were already handled by #632.
