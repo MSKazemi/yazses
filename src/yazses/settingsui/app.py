@@ -234,6 +234,20 @@ _ROW_STYLE_STAGED = (
 )
 
 
+def _offered_injection_backends():
+    """``Platform.injection_backends`` for this OS, or ``None`` (list everything).
+
+    ``None`` as well when the platform cannot be built: this only decides which rows to
+    show, and a settings window that will not open helps nobody on an unsupported OS.
+    """
+    try:
+        from yazses.platform import get_platform
+
+        return get_platform().injection_backends
+    except Exception:  # noqa: BLE001 - see above
+        return None
+
+
 def _read_text(widget):
     return widget.currentText().strip()
 
@@ -610,13 +624,14 @@ class SettingsWindow:
         )
 
         from yazses.settingsui.controls import (
-            INJECTION_BACKENDS,
             PADDING_MAX_MS,
             PADDING_MIN_MS,
             clamp_padding_ms,
             compute_type_choices,
+            injection_backend_choices,
             language_choices,
             model_choices,
+            portal_applies,
             portal_consent_choices,
             target_guard_choices,
         )
@@ -732,9 +747,13 @@ class SettingsWindow:
         form.addRow(QLabel("Vocabulary:"), prompt_edit)
 
         backend_box = QComboBox()
-        backend_box.addItems(INJECTION_BACKENDS)
-        if model.injection_backend in INJECTION_BACKENDS:
-            backend_box.setCurrentIndex(INJECTION_BACKENDS.index(model.injection_backend))
+        # Only what this OS acts on (Windows honours `auto` and `clipboard`; the
+        # Linux tools are logged and ignored there), plus the configured value.
+        offered = _offered_injection_backends()
+        backends = injection_backend_choices(offered, model.injection_backend)
+        backend_box.addItems(backends)
+        if model.injection_backend in backends:
+            backend_box.setCurrentIndex(backends.index(model.injection_backend))
         backend_box.setAccessibleName("Injection backend")
         backend_box.setToolTip(
             "How finished text reaches the focused window.\n"
@@ -762,6 +781,10 @@ class SettingsWindow:
         self._consent_box = consent_box
         self._consent_baseline = model.portal_consent
         form.addRow(QLabel("Desktop portal:"), consent_box)
+        if not portal_applies(offered):
+            # A Wayland permission. The widget stays built, so Apply still reads an
+            # unchanged value from it and writes nothing; only the row is hidden.
+            form.setRowVisible(consent_box, False)
 
         guards = target_guard_choices(current=model.target_guard)
         guard_box = QComboBox()

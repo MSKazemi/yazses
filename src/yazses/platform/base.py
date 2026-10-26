@@ -755,6 +755,12 @@ class Platform:
     # running above our integrity level, and SendInput reports success while it does.
     # The "no text target" guard reads it, so the words go to the clipboard instead.
     input_block_probe: InputBlockProbe | None = None
+    # The `[injection] backend` values this OS acts on, for the settings window's
+    # "Text injection" box. None means every value in the config's list, which is true on
+    # Linux and the BSDs; Windows names its two (`auto` types, `clipboard` pastes), because
+    # `ydotool`, `wtype` and the rest are Linux tools it logs and ignores. A listing only:
+    # the loader still accepts every value, so a shared config keeps loading.
+    injection_backends: tuple[str, ...] | None = None
     # Builds the provider that names the focused application (`FocusedAppProvider`), for
     # `[commands] profile = "auto"`. macOS (NSWorkspace) and Windows (the foreground
     # window's process) set it. Linux and the BSDs leave it None on purpose: there the
