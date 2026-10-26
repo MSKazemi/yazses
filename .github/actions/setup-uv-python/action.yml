@@ -1,0 +1,42 @@
+# Repository-owned composite action: install uv, pin the interpreter, and sync the
+# project (CI_POLICY.md §8, issue #537). It is the stable, non-secret part of the setup
+# that test.yml and docs.yml repeated.
+#
+# Deliberately absent, so the boundary stays obvious:
+#   * no secrets and no permission block -- a caller's job keeps whatever token scope it
+#     already has, and this action neither reads nor widens it;
+#   * no cache step -- cache keys stay where they are, in the calling job, so a reviewer
+#     sees every key that can cross an OS or interpreter boundary;
+#   * no system packages -- the apt lists differ per job and stay explicit there;
+#   * no release, signing or publishing work -- those jobs keep their own explicit steps.
+name: Set up uv, Python and dependencies
+description: Install uv, select the Python version, and run `uv sync` in the checkout.
+inputs:
+  python-version:
+    description: Interpreter passed to astral-sh/setup-uv. Required, so no job falls back to whatever the runner image ships.
+    required: true
+  uv-version:
+    description: uv version passed to astral-sh/setup-uv.
+    required: false
+    default: "latest"
+  sync-args:
+    description: Extra arguments for `uv sync`, for example `--group docs --no-install-project`.
+    required: false
+    default: ""
+runs:
+  using: composite
+  steps:
+    - name: Install uv
+      uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+      with:
+        version: ${{ inputs.uv-version }}
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install dependencies
+      shell: bash
+      env:
+        # Passed through the environment, not interpolated into the script: a caller's
+        # input is data, never shell text. Unquoted on purpose so that several
+        # arguments split into separate words.
+        SYNC_ARGS: ${{ inputs.sync-args }}
+      run: uv sync $SYNC_ARGS

@@ -6,6 +6,10 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed — CI: uv and Python setup live in one composite action (#537)
+
+The repeated uv, interpreter and `uv sync` sequence now lives in `.github/actions/setup-uv-python`, a repository-owned composite action with no secrets, no permission block and no cache of its own. Three jobs use it: `test-linux`, `test` and the docs build. Their uv version, interpreter and sync are unchanged. The inventory of repeated setup, and the rule for new Python jobs and for caches and timeouts, are in `.github/CI_POLICY.md` section 8. `tests/test_ci_composite_actions.py` checks the action's contract statically. Timeouts were already handled by #632.
+
 ### Changed — Telugu page: the opening says the key is released
 
 The Telugu page's opening paragraph now says that the key is pressed, held and then released, and
