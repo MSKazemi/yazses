@@ -44,6 +44,38 @@ VAD_SLIDER_STEPS = 1000
 #: accepts.
 INJECTION_BACKENDS: tuple[str, ...] = enum_values("injection", "backend") or ()
 
+
+def injection_backend_choices(
+    offered: tuple[str, ...] | None, current: str
+) -> tuple[str, ...]:
+    """The `[injection] backend` values to list on this OS, in the loader's order.
+
+    *offered* is ``Platform.injection_backends``: ``None`` lists everything (Linux, the
+    BSDs), a tuple lists only what the OS acts on. On Windows that stops the box offering
+    ``wtype`` or ``ydotool``, which are logged as "no meaning on Windows" and then
+    ignored, so a user who picked one believed they had changed how text is delivered.
+
+    The *current* value is always kept, even when this OS ignores it. A config shared
+    with a Linux machine can say ``ydotool``, and a box that silently dropped that value
+    would show another one and write it on the next Apply.
+    """
+    if offered is None:
+        return INJECTION_BACKENDS
+    listed = [value for value in INJECTION_BACKENDS if value in offered]
+    if current and current in INJECTION_BACKENDS and current not in listed:
+        listed.append(current)
+    return tuple(listed)
+
+
+def portal_applies(offered: tuple[str, ...] | None) -> bool:
+    """Whether the desktop-portal permission row means anything on this OS.
+
+    The portal is the Wayland route to typing into another window (`portal` in the
+    backend list). An OS that does not offer it has no portal to ask permission of.
+    """
+    return offered is None or "portal" in offered
+
+
 #: Same table the loader validates against, for the same reason the line above reads
 #: it: two hand-kept lists disagree the first time one is extended.
 PORTAL_CONSENT_VALUES: tuple[str, ...] = enum_values("injection", "portal_consent") or ("ask",)

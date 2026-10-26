@@ -567,7 +567,15 @@ def test_the_speech_group_exposes_profile_model_language_and_backend(qapp):
     assert win._profile_box.count() == 4
     assert win._model_box.count() > 5, "the model list should come from the registry"
     assert win._language_box.count() > 5
-    assert win._backend_box.count() >= 4
+    # The registry's list narrowed to what this OS acts on: Linux lists them all and
+    # Windows two. A bare count passed on Linux only, and failed on the Windows legs.
+    from yazses.settingsui.app import _offered_injection_backends
+    from yazses.settingsui.controls import injection_backend_choices
+
+    expected = injection_backend_choices(_offered_injection_backends(), "auto")
+    shown = [win._backend_box.itemText(i) for i in range(win._backend_box.count())]
+    assert shown == list(expected)
+    assert len(shown) >= 2
 
 
 def test_the_boxes_open_on_what_is_configured(qapp):

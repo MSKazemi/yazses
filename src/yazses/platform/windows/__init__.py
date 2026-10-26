@@ -24,6 +24,13 @@ _CLIPBOARD_NAMES = frozenset({"clipboard", "paste"})
 #: The Windows default: SendInput + KEYEVENTF_UNICODE.
 _TYPE_NAMES = frozenset({"auto", "", "type", "sendinput", "unicode", "windows"})
 
+#: The two `[injection] backend` values to *offer* on Windows: one per way of getting
+#: characters into a window. `type` and `unicode` also type, but they are the same
+#: SendInput path as `auto`, so listing them would present three names for one choice.
+#: Both are in the sets above, which a test pins, so this cannot drift from what
+#: `build_injector` accepts.
+INJECTION_BACKENDS = ("auto", "clipboard")
+
 
 def build_injector():
     """Honour ``[injection] backend`` on Windows.
@@ -96,6 +103,7 @@ def build_platform() -> Platform:
         click_observer_factory=WindowsClickObserver,
         update_launcher=WindowsUpdateLauncher(),
         input_block_probe=foreground_input_block,
+        injection_backends=INJECTION_BACKENDS,
         # The foreground window's process image name ("Code.exe"), for editor command
         # profiles under `[commands] profile = "auto"`. Constructing it reads nothing.
         focused_app_factory=WindowsFocusedApp,
