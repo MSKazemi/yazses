@@ -26,6 +26,24 @@ unfinished. None changes what any setting does.
   The second line now adds only what the first does not, including that opening the controls
   does not open the camera.
 
+### Fixed — on Windows the Speech page no longer offers settings that do nothing
+
+The settings window's **Text injection** box listed eight values on every OS: `auto`,
+`ydotool`, `type`, `portal`, `wtype`, `xdotool`, `unicode`, `clipboard`. Windows acts on two
+ways of getting characters into a window, typing with `SendInput` and pasting, and logs
+"has no meaning on Windows" for any other value. So picking `wtype` changed nothing, and
+nothing in the window said so. Below it, a **Desktop portal** row asked for a Wayland
+permission that does not exist on Windows.
+
+- On Windows the box now lists `auto` and `clipboard`, and the portal row is hidden. Linux,
+  the BSDs and macOS show what they showed before.
+- A value already in the config stays selected and is not rewritten, even if this OS ignores
+  it: a config shared with a Linux machine can say `ydotool`, and opening the window must
+  not change it.
+- The OS says what it acts on through a new `Platform.injection_backends` field (`None` =
+  everything), so the window does not branch on the OS itself. The config loader is
+  untouched and still accepts every value.
+
 ### Changed — CI: uv and Python setup live in one composite action (#537)
 
 The repeated uv, interpreter and `uv sync` sequence now lives in `.github/actions/setup-uv-python`, a repository-owned composite action with no secrets, no permission block and no cache of its own. Three jobs use it: `test-linux`, `test` and the docs build. Their uv version, interpreter and sync are unchanged. The inventory of repeated setup, and the rule for new Python jobs and for caches and timeouts, are in `.github/CI_POLICY.md` section 8. `tests/test_ci_composite_actions.py` checks the action's contract statically. Timeouts were already handled by #632.
