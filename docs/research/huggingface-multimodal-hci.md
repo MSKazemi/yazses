@@ -5,7 +5,7 @@ description: "An evidence-gated, local-first programme connecting YazSes speech,
 
 # Hugging Face × YazSes: multimodal HCI lab
 
-*Proposal dated 2026-10-27. **Research roadmap, not shipped product functionality.** [Coordination issue #692](https://github.com/MSKazemi/yazses/issues/692).*
+*Proposal dated 2026-10-27. **Research roadmap, not shipped product functionality.** [Epic #692](https://github.com/MSKazemi/yazses/issues/692).*
 
 YazSes is already a multimodal system: local speech recognition, gaze-routing, facial gestures, shared camera perception and EMG activation are documented and partly implemented. Hugging Face can make its **model artifacts, evaluation methods, documentation and demos reproducible**. It must **not** become a dependency of core offline dictation or an excuse to add unsupported claims about brain control.
 
@@ -14,7 +14,9 @@ YazSes is already a multimodal system: local speech recognition, gaze-routing, f
 
 ## Work items
 
-The implementation and research tasks are [synthetic browser demo #693](https://github.com/MSKazemi/yazses/issues/693), [HF artifact provenance #694](https://github.com/MSKazemi/yazses/issues/694), [gaze evaluation #695](https://github.com/MSKazemi/yazses/issues/695), and [EEG/EOG feasibility #696](https://github.com/MSKazemi/yazses/issues/696). These are proposals, not claims that prototypes have been completed.
+The programme is tracked under [epic #692](https://github.com/MSKazemi/yazses/issues/692). Existing tasks cover [static synthetic Space #693](https://github.com/MSKazemi/yazses/issues/693), [model provenance #694](https://github.com/MSKazemi/yazses/issues/694), [camera evaluation #695](https://github.com/MSKazemi/yazses/issues/695) and [EEG/EOG feasibility #696](https://github.com/MSKazemi/yazses/issues/696). Additional bounded tasks handle [publishing governance #698](https://github.com/MSKazemi/yazses/issues/698), [synthetic fixtures #699](https://github.com/MSKazemi/yazses/issues/699), [safe multimodal fusion replay #700](https://github.com/MSKazemi/yazses/issues/700) and [independent HF privacy preflight #701](https://github.com/MSKazemi/yazses/issues/701).
+
+See the [phased engineering roadmap](https://github.com/MSKazemi/yazses/blob/main/design/hci-huggingface/ROADMAP.md) for dependencies, milestones and acceptance criteria. Prototypes, published HF accounts/Spaces and validated biosignal capabilities remain **proposed**, not delivered.
 
 ## Five practical HF roles
 
@@ -114,5 +116,5 @@ First review actual license, model-format compatibility, hash and source. For an
 
 - [Hugging Face Hub: models](https://huggingface.co/docs/hub/models), [datasets](https://huggingface.co/docs/hub/datasets), [Spaces](https://huggingface.co/docs/hub/spaces-overview), [Hub client](https://huggingface.co/docs/huggingface_hub/index).
 - [MediaPipe Face Landmarker](https://ai.google.dev/edge/mediapipe/solutions/vision/face_landmarker/python).
-- [Eye/camera roadmap](../../design/eye-control/ROADMAP.md), [brain-control review](muscle-brain-control.md), [research coordination #692](https://github.com/MSKazemi/yazses/issues/692).
-- [Engineering and phased roadmap](../../design/hci-huggingface/ROADMAP.md).
+- [Eye/camera roadmap](https://github.com/MSKazemi/yazses/blob/main/design/eye-control/ROADMAP.md), [brain-control review](muscle-brain-control.md), [epic #692](https://github.com/MSKazemi/yazses/issues/692).
+- [Engineering and phased roadmap](https://github.com/MSKazemi/yazses/blob/main/design/hci-huggingface/ROADMAP.md).
