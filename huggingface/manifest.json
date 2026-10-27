@@ -13,11 +13,11 @@
     "org-card": {
       "repo_id": "yazses/README",
       "repo_type": "space",
-      "url": null,
+      "url": "https://huggingface.co/spaces/yazses/README",
       "source_dir": "huggingface/organization",
       "files": ["README.md"],
-      "status": "planned",
-      "owner_approved": false,
+      "status": "live",
+      "owner_approved": true,
       "card_only": true,
       "publisher": "yazses-org-card",
       "delete_remote_files": false,
@@ -27,11 +27,11 @@
     "showcase": {
       "repo_id": "yazses/showcase",
       "repo_type": "space",
-      "url": null,
+      "url": "https://huggingface.co/spaces/yazses/showcase",
       "source_dir": "huggingface/showcase",
       "files": ["README.md", "index.html", "styles.css", "assets/"],
-      "status": "planned",
-      "owner_approved": false,
+      "status": "live",
+      "owner_approved": true,
       "publisher": "yazses-showcase",
       "delete_remote_files": false,
       "max_file_bytes": 5242880,
@@ -40,12 +40,12 @@
     "benchmarks": {
       "repo_id": "yazses/yazses-benchmark-results",
       "repo_type": "dataset",
-      "url": null,
+      "url": "https://huggingface.co/datasets/yazses/yazses-benchmark-results",
       "source_dir": "huggingface/benchmarks",
       "files": ["README.md", "data/*.csv", "data/export-metadata.json",
         "data/SHA256SUMS"],
-      "status": "planned",
-      "owner_approved": false,
+      "status": "live",
+      "owner_approved": true,
       "publisher": "yazses-benchmarks",
       "delete_remote_files": false,
       "max_file_bytes": 5242880,
@@ -59,7 +59,7 @@
       "source_dir": "huggingface/space-demo",
       "files": ["README.md", "app.py", "requirements.txt", "validation.py"],
       "status": "live",
-      "owner_approved": false,
+      "owner_approved": true,
       "publisher": "yazses-demo-space",
       "delete_remote_files": false,
       "max_file_bytes": 1048576,
@@ -68,7 +68,7 @@
   },
   "collection": {
     "owner": "yazses",
-    "owner_approved": false,
+    "owner_approved": true,
     "title": "YazSes — Offline Speech Recognition Research",
     "description": "Offline, privacy-first voice dictation: the YazSes paper, demo, benchmark data and the Whisper models it runs on.",
     "private": false,
@@ -76,11 +76,11 @@
       {
         "type": "paper",
         "id": "2607.28878",
-        "status": "planned",
-        "url": null,
+        "status": "live",
+        "url": "https://huggingface.co/papers/2607.28878",
         "destination": null,
         "note": "YazSes: An Offline, Privacy-First, Cross-Platform Hold-to-Talk Voice-Dictation System (arXiv, 2026-07-30). Planned: the Hub returned 404 for hf.co/papers/2607.28878 on 2026-10-27, i.e. the paper page is not indexed yet.",
-        "evidence": "arxiv.org/abs/2607.28878 HTTP 200 on 2026-10-27; huggingface.co/api/papers/2607.28878 HTTP 404 on 2026-10-27"
+        "evidence": "arxiv.org/abs/2607.28878 HTTP 200 on 2026-10-27; huggingface.co/api/papers/2607.28878 HTTP 200 on 2026-10-28 (indexed after the dataset card cited the arXiv URL)"
       },
       {
         "type": "space",
@@ -94,20 +94,20 @@
       {
         "type": "space",
         "id": "yazses/showcase",
-        "status": "planned",
-        "url": null,
+        "status": "live",
+        "url": "https://huggingface.co/spaces/yazses/showcase",
         "destination": "showcase",
         "note": "Static showcase of the YazSes offline dictation project. Planned: not published yet.",
-        "evidence": "huggingface.co/api/spaces/yazses/showcase HTTP 401 on 2026-10-27 (repo and org do not exist)"
+        "evidence": "huggingface.co/api/spaces/yazses/showcase RUNNING, static, public on 2026-10-28"
       },
       {
         "type": "dataset",
         "id": "yazses/yazses-benchmark-results",
-        "status": "planned",
-        "url": null,
+        "status": "live",
+        "url": "https://huggingface.co/datasets/yazses/yazses-benchmark-results",
         "destination": "benchmarks",
         "note": "Word error rate and speed results behind the YazSes paper, as CSV with export metadata. Planned: not published yet.",
-        "evidence": "huggingface.co/api/datasets/yazses/yazses-benchmark-results HTTP 401 on 2026-10-27 (repo and org do not exist)"
+        "evidence": "huggingface.co/api/datasets/yazses/yazses-benchmark-results public, 14 configs, 18 files on 2026-10-28"
       },
       {
         "type": "model",

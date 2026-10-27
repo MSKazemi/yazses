@@ -117,6 +117,7 @@ first. APT, Snap, pipx, `.dmg` and `.exe` are covered under
 > [hosted demo](https://huggingface.co/spaces/mskazemi/yazses-offline-transcription-demo) is
 > a separate page that processes audio **on Hugging Face's servers**, so it is for judging
 > accuracy, not for private use. GitHub stays the home of the code and of contributions.
+> The project's Hugging Face organization is [huggingface.co/yazses](https://huggingface.co/yazses).
 > Details: [YazSes and Hugging Face](docs/hugging-face.md).
 
 ## 🙌 Help build YazSes

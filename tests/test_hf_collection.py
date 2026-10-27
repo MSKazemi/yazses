@@ -94,13 +94,30 @@ class FakeHub:
         return [c for c in self.calls if c[0] in hc.MUTATING_METHODS]
 
 
+#: Items the scenario below holds back as "planned", whatever the real manifest says today.
+SCENARIO_PLANNED = {"2607.28878", "yazses/showcase", "yazses/yazses-benchmark-results"}
+
+
+def _scenario(*, approved: bool) -> dict:
+    """The real manifest, forced into a fixed scenario: three items still planned.
+
+    These tests exercise the diff logic, so they must not depend on which Hub pages exist
+    today. Reading the real manifest's live state here made seven tests fail the day the
+    pages were published, although nothing in the script had changed."""
+    data = json.loads(pf.DEFAULT_MANIFEST.read_text(encoding="utf-8"))
+    data["collection"]["owner_approved"] = approved
+    for item in data["collection"]["items"]:
+        if item["id"] in SCENARIO_PLANNED:
+            item["status"] = "planned"
+            item["url"] = None
+    return data
+
+
 @pytest.fixture
 def manifest_path(tmp_path):
-    """The real manifest with the collection approved, so --apply is reachable."""
-    data = json.loads(pf.DEFAULT_MANIFEST.read_text(encoding="utf-8"))
-    data["collection"]["owner_approved"] = True
+    """The scenario with the collection approved, so --apply is reachable."""
     path = tmp_path / "manifest.json"
-    path.write_text(json.dumps(data), encoding="utf-8")
+    path.write_text(json.dumps(_scenario(approved=True)), encoding="utf-8")
     return path
 
 
@@ -130,11 +147,17 @@ LIVE_ITEMS = {
 }
 
 
-def test_the_manifest_has_the_expected_live_and_planned_items(manifest_path) -> None:
+def test_the_scenario_has_the_expected_live_and_planned_items(manifest_path) -> None:
     items = json.loads(manifest_path.read_text(encoding="utf-8"))["collection"]["items"]
     assert {(i["type"], i["id"]) for i in items if i["status"] == "live"} == LIVE_ITEMS
-    planned = {i["id"] for i in items if i["status"] == "planned"}
-    assert planned == {"2607.28878", "yazses/showcase", "yazses/yazses-benchmark-results"}
+    assert {i["id"] for i in items if i["status"] == "planned"} == SCENARIO_PLANNED
+
+
+def test_the_real_manifest_lists_every_scenario_item() -> None:
+    # Whatever is live today, the collection must still name the pages the scenario holds back.
+    items = json.loads(pf.DEFAULT_MANIFEST.read_text(encoding="utf-8"))["collection"]["items"]
+    assert SCENARIO_PLANNED <= {i["id"] for i in items}
+    assert {i["id"] for i in items if i["status"] == "live"} >= {i for _, i in LIVE_ITEMS}
 
 
 def test_first_apply_creates_the_collection_and_adds_only_live_items(manifest_path) -> None:
@@ -292,7 +315,9 @@ def test_apply_without_a_credential_is_a_clear_error_and_touches_nothing(manifes
 
 
 def test_apply_with_an_unapproved_collection_is_refused(tmp_path) -> None:
-    code, out, hub, factory_args = _run(pf.DEFAULT_MANIFEST, "--apply")
+    unapproved = tmp_path / "unapproved.json"
+    unapproved.write_text(json.dumps(_scenario(approved=False)), encoding="utf-8")
+    code, out, hub, factory_args = _run(unapproved, "--apply")
     assert code == 1
     assert "owner_approved is false" in out
     assert factory_args == [] and hub.calls == []

@@ -49,8 +49,10 @@ transcript there is an indication of accuracy, not a guarantee of what the app w
 It trims silence with the decoder's voice-activity filter, which the desktop app
 deliberately does not use, and it applies none of the app's text post-processing.
 
-The demo's code adds no logging or analytics of its own. It makes no promise about what
-Hugging Face itself logs or keeps; that is governed by Hugging Face's own policies.
+It accepts recordings of up to 60 seconds and 25 MB, and refuses longer or unreadable
+files with a message. Its code adds no logging or analytics of its own and stores no audio
+or transcripts. It makes no promise about what Hugging Face itself logs or keeps; that is
+governed by Hugging Face's own policies.
 
 ## 3. Research and source
 
@@ -65,21 +67,22 @@ Hugging Face itself logs or keeps; that is governed by Hugging Face's own polici
   machine each one was taken on. Two numbers are comparable only if their machine matches.
   The method and headline results are on [Benchmarks](benchmarks.md).
 
-## What is prepared but not published yet
+## The rest of the Hub presence
 
-The repository carries the source for a few more Hugging Face pages under
-[`huggingface/`](https://github.com/MSKazemi/yazses/tree/main/huggingface). **None of them
-is live, and nothing links to them as if it were:**
+The project's official organization is [huggingface.co/yazses](https://huggingface.co/yazses).
+It holds a short introduction and these pages:
 
-| Prepared | What it is |
+| Page | What it is |
 |---|---|
-| Organization card and a static showcase Space | A short introduction and a one-page overview, for an official `yazses` organization that has not been created |
-| Benchmark dataset | The archived results as plain CSV tables with provenance (machine, versions, corpus), under a dataset card. It contains no audio, no transcripts and no corpus text |
-| Research collection | A curated list: the paper, the demo, the dataset and the upstream models |
+| [Showcase Space](https://huggingface.co/spaces/yazses/showcase) | A static one-page overview. It does not run YazSes and processes no audio |
+| [Benchmark results dataset](https://huggingface.co/datasets/yazses/yazses-benchmark-results) | The archived results as plain CSV tables with provenance (machine, versions, corpus), under a dataset card. It contains no audio, no transcripts and no corpus text |
+| [Research collection](https://huggingface.co/collections/yazses/yazses-offline-speech-recognition-research) | A curated list: the paper, the demo, the showcase, the dataset and the upstream models |
+| [Paper page](https://huggingface.co/papers/2607.28878) | The Hub's page for the arXiv preprint, linked to the dataset and the Spaces that cite it |
 
-Publishing any of them is a manual decision by the maintainer. The files are checked
-offline by `scripts/hf_preflight.py` before anything can go out, and the benchmark tables
-are regenerated from the archive by `scripts/export_hf_benchmarks.py` (`--check` fails on
+These are published from the repository's [`huggingface/`](https://github.com/MSKazemi/yazses/tree/main/huggingface)
+directory, not edited by hand on the Hub. The files are checked offline by
+`scripts/hf_preflight.py` before anything can go out, and the benchmark tables are
+regenerated from the archive by `scripts/export_hf_benchmarks.py` (`--check` fails on
 drift). The publishing workflow is manual-only, uses Hugging Face Trusted Publishers with
 short-lived credentials rather than a stored token, and refuses any destination the
 maintainer has not approved in a reviewed commit.

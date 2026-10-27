@@ -128,12 +128,19 @@ def test_every_real_source_path_exists_and_passes_preflight(capsys) -> None:
     assert code == 0, capsys.readouterr().err
 
 
-def test_the_real_manifest_never_starts_approved() -> None:
-    """Approval is a deliberate, reviewed edit. Remove this test in the commit that
-    approves the first destination, not before."""
+def test_an_approved_destination_is_live_and_has_a_url() -> None:
+    """Approval is a deliberate, reviewed edit, and it only makes sense for a page that
+    exists: an approved destination must be live with a recorded URL, and the collection
+    cannot be approved while any destination it lists is still planned."""
     manifest = pf.load_manifest(pf.DEFAULT_MANIFEST)
-    assert all(d["owner_approved"] is False for d in manifest["destinations"].values())
-    assert manifest["collection"]["owner_approved"] is False
+    for name, dest in manifest["destinations"].items():
+        if dest["owner_approved"] is True:
+            assert dest["status"] == "live", name
+            assert dest["url"], name
+    if manifest["collection"]["owner_approved"] is True:
+        for item in manifest["collection"]["items"]:
+            if item.get("destination"):
+                assert manifest["destinations"][item["destination"]]["status"] == "live", item["id"]
 
 
 def test_planned_items_and_destinations_carry_no_url() -> None:

@@ -6,16 +6,17 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-### Added — a Hugging Face presence, prepared in `huggingface/` and published by hand
+### Added — a Hugging Face presence, kept in `huggingface/` and published from it
 
-Nothing here is live on the Hub yet, and nothing links to it as if it were.
+The `yazses` organization, a showcase Space, a benchmark-results dataset and a research
+collection are live on the Hub, and the hosted demo Space was updated. Everything is sourced
+from `huggingface/` in this repository.
 
 - **Source for the Hub pages**: an organization card, a static showcase Space, and the
   hardened hosted-demo Space (`huggingface/space-demo/`: upload size and duration limits,
   clear errors, the "audio is processed on Hugging Face infrastructure" notice above the
   audio widget, the arXiv link that lets Hugging Face Papers index the paper, and a table of
-  how the demo differs from the desktop pipeline). The live Space is unchanged until the
-  maintainer publishes it.
+  how the demo differs from the desktop pipeline).
 - **A benchmark dataset of results**, not audio: `scripts/export_hf_benchmarks.py` turns an
   allowlist of `paper/results/` files into 14 CSV tables with provenance (source hash and
   commit, machine, versions, corpus). Significance analyses stay in their own tables, a
@@ -28,6 +29,15 @@ Nothing here is live on the Hub yet, and nothing links to it as if it were.
   token). Every destination needs `owner_approved` in a reviewed commit.
 - **Docs**: [YazSes and Hugging Face](docs/hugging-face.md), which separates the installed
   app (local), the hosted demo (remote) and the Hub (model host).
+
+### Fixed — the hosted demo could not decode any audio after a rebuild
+
+`faster-whisper` 1.2.1 passes `metadata_errors=` to `av.open`, which PyAV 19.0.2 rejects, so
+a Space rebuild that resolved `av` fresh turned every file decode into a `TypeError`. The
+demo's requirements now cap `av` below 19 (`faster-whisper` itself only declares `av>=11`), and
+the visitor-facing error names the exception class so a server fault is distinguishable from a
+bad file. The desktop app is unaffected as far as checked: it hands `faster-whisper` audio
+arrays, not file paths.
 
 ### Fixed — the docs said the hosted demo gives "the accuracy you get"
 
