@@ -104,9 +104,11 @@ def transcribe(audio_path):
         if not ok:
             return message
         texts = [segment.text for segment in segments]
-    except Exception:  # noqa: BLE001 - never show a stack trace or the file path
+    except Exception as exc:  # noqa: BLE001 - never show a stack trace or the file path
+        # The class name alone says whether the file or the server is at fault, and it
+        # carries nothing the visitor submitted.
         return (
-            "This file could not be read as audio. Try one of: "
+            f"This file could not be read as audio ({type(exc).__name__}). Try one of: "
             + ", ".join(sorted(ext.lstrip(".").upper() for ext in ALLOWED_EXTENSIONS))
             + "."
         )

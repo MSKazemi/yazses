@@ -439,3 +439,11 @@ def test_page_header_does_not_call_the_hosted_page_offline() -> None:
     for sentence in re.split(r"(?<=\.)\s+", header):
         if "offline" in sentence.lower():
             assert "desktop" in sentence.lower(), sentence
+
+
+def test_requirements_cap_pyav_below_the_release_that_breaks_faster_whisper() -> None:
+    # faster-whisper 1.2.1 passes metadata_errors= to av.open, which PyAV 19 rejects, so an
+    # uncapped rebuild of the Space silently turns every decode into an error.
+    reqs = (SPACE / "requirements.txt").read_text(encoding="utf-8")
+    lines = [ln.strip() for ln in reqs.splitlines() if ln.strip() and not ln.startswith("#")]
+    assert any(ln.replace(" ", "").startswith("av>=") and "<19" in ln.replace(" ", "") for ln in lines), lines

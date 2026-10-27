@@ -1,6 +1,11 @@
 # The same speech engine YazSes runs locally. Pinned to the floor the project
 # itself declares in pyproject.toml so the demo cannot drift ahead of the product.
 faster-whisper>=1.2.1
+# faster-whisper 1.2.1 calls av.open(..., metadata_errors=...), which PyAV 19 rejects
+# (TypeError), so every file decode fails once a rebuild resolves av 19.0.2. This broke
+# the Space on 2026-10-28 when a rebuild pulled it. faster-whisper itself only declares
+# av>=11. Lift the cap only after a faster-whisper release that supports PyAV 19.
+av>=15,<19
 # README.md pins sdk_version 6.22.0, which is the Gradio the Space actually runs. This
 # floor matches it, so a rebuild cannot resolve an older major version that the app
 # code is not written against. Raise it together with sdk_version, not on its own.
