@@ -347,7 +347,7 @@ explores reproducible model evaluation, a **synthetic browser-only** demonstrati
 and carefully gated EEG/EOG feasibility work. No live Hugging Face webcam service,
 brain-reading feature or new capability wave is being advertised; core dictation
 remains offline. [Roadmap](roadmap.md) ·
-[Research coordination issue #692](https://github.com/MSKazemi/yazses/issues/692).
+[Research epic #692](https://github.com/MSKazemi/yazses/issues/692).
 
 ## When *not* to use it
 
