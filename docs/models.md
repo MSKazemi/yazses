@@ -61,7 +61,8 @@ yazses doctor        # confirms which model is configured and whether it is cach
 
 The model downloads once, on first use, and is cached in
 `~/.cache/huggingface/hub` (the same path on Linux, macOS and Windows). Only the
-model you configure is downloaded — there is no bundle of all three.
+model you configure is downloaded — there is no bundle of all three. (The Hub is only the
+download host: see [YazSes and Hugging Face](hugging-face.md) for what runs where.)
 
 ## Installing a model without network access
 

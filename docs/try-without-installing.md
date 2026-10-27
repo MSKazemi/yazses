@@ -104,9 +104,12 @@ which transcription never uses.
 
 **[Open the hosted demo →](https://huggingface.co/spaces/mskazemi/yazses-offline-transcription-demo)**
 
-Upload a file or record straight from the page. It runs the same engine and the same
-default model (`base.en`, int8) that YazSes uses on your machine, so the accuracy you see
-is the accuracy you get.
+Upload a file or record straight from the page. It runs the same engine family and the
+same default model size (`base.en`, int8) that YazSes uses on your machine, so it is a good
+indication of accuracy. It is not the identical pipeline: the demo filters silence with the
+decoder's voice-activity filter and applies none of the app's text post-processing, so the
+app can type slightly different text. [YazSes and Hugging Face](hugging-face.md) lists the
+differences.
 
 !!! warning "This one page is *not* private — and that is the point of saying so"
     The hosted demo runs on Hugging Face's servers, so audio you send to **it** does leave
