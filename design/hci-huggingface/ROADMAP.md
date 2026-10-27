@@ -6,6 +6,13 @@
 
 Maintain an **offline product / optional public research surface** boundary. The website advertises prospective studies, not an implemented HF integration or a proven BCI. Neither real sensor streams nor users' raw camera/microphone/EEG data go to Hugging Face. The existing camera owner `src/yazses/perception/` and EMG `src/yazses/platform/emg/` remain canonical. No feature registry entry, model download or config flag is added by this documentation programme.
 
+## Tracked work
+
+- [#693](https://github.com/MSKazemi/yazses/issues/693) — static synthetic Space (Contributor experience).
+- [#694](https://github.com/MSKazemi/yazses/issues/694) — pinned/licensed offline model provenance (Speech accuracy).
+- [#695](https://github.com/MSKazemi/yazses/issues/695) — gaze benchmark protocol (Hands-free).
+- [#696](https://github.com/MSKazemi/yazses/issues/696) — synthetic EEG/EOG feasibility protocol (Hands-free).
+
 ## Dependencies and phases
 
 | Phase | Priority | Deliverable | Gate | Responsibility |
