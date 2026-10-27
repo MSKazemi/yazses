@@ -1,17 +1,27 @@
 # Multimodal HCI Lab — Hugging Face integration roadmap
 
-**Status:** proposed research/documentation track (2026-10-27), **not a new product release wave**. Coordination [#692](https://github.com/MSKazemi/yazses/issues/692). Follow `AGENTS.md`, `design/milestone-policy.md`, ADR-011, ADR-019 and the shipping freeze in ADR-030.
+**Status:** proposed research/documentation track (2026-10-27), **not a new product release wave**. [Programme epic #692](https://github.com/MSKazemi/yazses/issues/692). Follow `AGENTS.md`, `design/milestone-policy.md`, ADR-011, ADR-019 and the shipping freeze in ADR-030.
 
 ## Decision and scope
 
 Maintain an **offline product / optional public research surface** boundary. The website advertises prospective studies, not an implemented HF integration or a proven BCI. Neither real sensor streams nor users' raw camera/microphone/EEG data go to Hugging Face. The existing camera owner `src/yazses/perception/` and EMG `src/yazses/platform/emg/` remain canonical. No feature registry entry, model download or config flag is added by this documentation programme.
 
-## Tracked work
+## Tracked epic and delivery tasks
 
-- [#693](https://github.com/MSKazemi/yazses/issues/693) — static synthetic Space (Contributor experience).
-- [#694](https://github.com/MSKazemi/yazses/issues/694) — pinned/licensed offline model provenance (Speech accuracy).
-- [#695](https://github.com/MSKazemi/yazses/issues/695) — gaze benchmark protocol (Hands-free).
-- [#696](https://github.com/MSKazemi/yazses/issues/696) — synthetic EEG/EOG feasibility protocol (Hands-free).
+**Parent:** [Epic #692 — Hugging Face × multimodal HCI](https://github.com/MSKazemi/yazses/issues/692). Delivery children span **three existing milestones** (#7 Speech accuracy, #9 Contributor experience, #10 Hands-free). The epic has **no milestone**, by policy. The issue descriptions cross-link the parent; **native GitHub sub-issue association must be completed separately in the Issues UI** before the traceability audit can verify parentage.
+
+| Stage | Issue | Outcome / blocking condition | Milestone |
+|---|---|---|---|
+| A | [#698 — HCI-HF-005](https://github.com/MSKazemi/yazses/issues/698) | HF publishing/ownership and model, dataset, Space card drafts; no account actions | #9 |
+| A | [#694 — HCI-HF-002](https://github.com/MSKazemi/yazses/issues/694) | Versioned model/license/hash inventory, air-gap proof; coordinate Android #683 | #7 |
+| A | [#699 — HCI-HF-006](https://github.com/MSKazemi/yazses/issues/699) | Synthetic fixture schema and offline validator used by Space and replay | #10 |
+| A | [#693 — HCI-HF-001](https://github.com/MSKazemi/yazses/issues/693) | Static, synthetic-only interactive Space source; review after #699 for final fixtures | #9 |
+| A | [#701 — HCI-HF-008](https://github.com/MSKazemi/yazses/issues/701) | Independent privacy/license/egress prepublication gate; needs #693, #694, #698 | #9 |
+| B | [#700 — HCI-HF-007](https://github.com/MSKazemi/yazses/issues/700) | Pure local replay for target grounding, abstention and confirmation; blocked by #699 | #10 |
+| B | [#695 — HCI-HF-003](https://github.com/MSKazemi/yazses/issues/695) | Camera/gaze evaluation protocol on shared source; existing eye-control gates #414–#420 | #10 |
+| C | [#696 — HCI-HF-004](https://github.com/MSKazemi/yazses/issues/696) | EEG/EOG synthetic-board feasibility; hardware/ethics gated | #10 |
+
+**Ready-to-scope sequence:** #698/#694/#699 can proceed independently; #693 then #701 for a publication-ready *synthetic* demo; #700 after #699; #695 and #696 remain evidence-gated. Completing this research programme does **not** require approving live EEG or camera changes.
 
 ## Dependencies and phases
 
