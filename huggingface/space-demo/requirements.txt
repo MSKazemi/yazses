@@ -1,0 +1,7 @@
+# The same speech engine YazSes runs locally. Pinned to the floor the project
+# itself declares in pyproject.toml so the demo cannot drift ahead of the product.
+faster-whisper>=1.2.1
+# README.md pins sdk_version 6.22.0, which is the Gradio the Space actually runs. This
+# floor matches it, so a rebuild cannot resolve an older major version that the app
+# code is not written against. Raise it together with sdk_version, not on its own.
+gradio>=6.22.0
