@@ -1,0 +1,141 @@
+{
+  "schema_version": 1,
+  "_comment": "Single source of truth for what YazSes puts on the Hugging Face Hub. Read by scripts/hf_preflight.py, scripts/hf_collection.py and .github/workflows/huggingface-publish.yml. Only the files listed under each destination are ever uploaded. owner_approved stays false until the owner flips it in a reviewed commit; a destination whose repo does not exist yet stays status=planned.",
+  "trusted_publisher": {
+    "provider": "github-actions",
+    "repository": "MSKazemi/yazses",
+    "branch": "main",
+    "workflow": "huggingface-publish.yml",
+    "environment": "huggingface-publish",
+    "docs": "https://huggingface.co/docs/hub/trusted-publishers"
+  },
+  "destinations": {
+    "org-card": {
+      "repo_id": "yazses/README",
+      "repo_type": "space",
+      "url": null,
+      "source_dir": "huggingface/organization",
+      "files": ["README.md"],
+      "status": "planned",
+      "owner_approved": false,
+      "card_only": true,
+      "publisher": "yazses-org-card",
+      "delete_remote_files": false,
+      "max_file_bytes": 1048576,
+      "required_card_keys": ["title", "sdk"]
+    },
+    "showcase": {
+      "repo_id": "yazses/showcase",
+      "repo_type": "space",
+      "url": null,
+      "source_dir": "huggingface/showcase",
+      "files": ["README.md", "index.html", "styles.css", "assets/"],
+      "status": "planned",
+      "owner_approved": false,
+      "publisher": "yazses-showcase",
+      "delete_remote_files": false,
+      "max_file_bytes": 5242880,
+      "required_card_keys": ["title", "sdk"]
+    },
+    "benchmarks": {
+      "repo_id": "yazses/yazses-benchmark-results",
+      "repo_type": "dataset",
+      "url": null,
+      "source_dir": "huggingface/benchmarks",
+      "files": ["README.md", "data/*.csv", "data/export-metadata.json",
+        "data/SHA256SUMS"],
+      "status": "planned",
+      "owner_approved": false,
+      "publisher": "yazses-benchmarks",
+      "delete_remote_files": false,
+      "max_file_bytes": 5242880,
+      "required_card_keys": ["license", "configs"],
+      "export_check": ["scripts/export_hf_benchmarks.py", "--check"]
+    },
+    "demo-space": {
+      "repo_id": "mskazemi/yazses-offline-transcription-demo",
+      "repo_type": "space",
+      "url": "https://huggingface.co/spaces/mskazemi/yazses-offline-transcription-demo",
+      "source_dir": "huggingface/space-demo",
+      "files": ["README.md", "app.py", "requirements.txt", "validation.py"],
+      "status": "live",
+      "owner_approved": false,
+      "publisher": "yazses-demo-space",
+      "delete_remote_files": false,
+      "max_file_bytes": 1048576,
+      "required_card_keys": ["title", "sdk", "app_file"]
+    }
+  },
+  "collection": {
+    "owner": "yazses",
+    "owner_approved": false,
+    "title": "YazSes — Offline Speech Recognition Research",
+    "description": "Offline, privacy-first voice dictation: the YazSes paper, demo, benchmark data and the Whisper models it runs on.",
+    "private": false,
+    "items": [
+      {
+        "type": "paper",
+        "id": "2607.28878",
+        "status": "planned",
+        "url": null,
+        "destination": null,
+        "note": "YazSes: An Offline, Privacy-First, Cross-Platform Hold-to-Talk Voice-Dictation System (arXiv, 2026-07-30). Planned: the Hub returned 404 for hf.co/papers/2607.28878 on 2026-10-27, i.e. the paper page is not indexed yet.",
+        "evidence": "arxiv.org/abs/2607.28878 HTTP 200 on 2026-10-27; huggingface.co/api/papers/2607.28878 HTTP 404 on 2026-10-27"
+      },
+      {
+        "type": "space",
+        "id": "mskazemi/yazses-offline-transcription-demo",
+        "status": "live",
+        "url": "https://huggingface.co/spaces/mskazemi/yazses-offline-transcription-demo",
+        "destination": "demo-space",
+        "note": "Hosted demo of YazSes offline speech transcription, built on the same faster-whisper models.",
+        "evidence": "huggingface.co/api/spaces/mskazemi/yazses-offline-transcription-demo HTTP 200 on 2026-10-27"
+      },
+      {
+        "type": "space",
+        "id": "yazses/showcase",
+        "status": "planned",
+        "url": null,
+        "destination": "showcase",
+        "note": "Static showcase of the YazSes offline dictation project. Planned: not published yet.",
+        "evidence": "huggingface.co/api/spaces/yazses/showcase HTTP 401 on 2026-10-27 (repo and org do not exist)"
+      },
+      {
+        "type": "dataset",
+        "id": "yazses/yazses-benchmark-results",
+        "status": "planned",
+        "url": null,
+        "destination": "benchmarks",
+        "note": "Word error rate and speed results behind the YazSes paper, as CSV with export metadata. Planned: not published yet.",
+        "evidence": "huggingface.co/api/datasets/yazses/yazses-benchmark-results HTTP 401 on 2026-10-27 (repo and org do not exist)"
+      },
+      {
+        "type": "model",
+        "id": "Systran/faster-whisper-tiny.en",
+        "status": "live",
+        "url": "https://huggingface.co/Systran/faster-whisper-tiny.en",
+        "destination": null,
+        "note": "Upstream faster-whisper (CTranslate2) conversion of Whisper tiny.en, one of the models YazSes downloads. 4.82% WER on 200 LibriSpeech test-clean utterances in the YazSes paper.",
+        "evidence": "huggingface.co/api/models/Systran/faster-whisper-tiny.en HTTP 200 on 2026-10-27; id from src/yazses/stt/download.py and docs/models.md"
+      },
+      {
+        "type": "model",
+        "id": "Systran/faster-whisper-base.en",
+        "status": "live",
+        "url": "https://huggingface.co/Systran/faster-whisper-base.en",
+        "destination": null,
+        "note": "Upstream faster-whisper (CTranslate2) conversion of Whisper base.en, one of the models YazSes downloads.",
+        "evidence": "huggingface.co/api/models/Systran/faster-whisper-base.en HTTP 200 on 2026-10-27; id from src/yazses/stt/download.py and docs/models.md"
+      },
+      {
+        "type": "model",
+        "id": "Systran/faster-whisper-small.en",
+        "status": "live",
+        "url": "https://huggingface.co/Systran/faster-whisper-small.en",
+        "destination": null,
+        "note": "Upstream faster-whisper (CTranslate2) conversion of Whisper small.en, one of the models YazSes downloads. 2.59% WER on 200 LibriSpeech test-clean utterances in the YazSes paper.",
+        "evidence": "huggingface.co/api/models/Systran/faster-whisper-small.en HTTP 200 on 2026-10-27; id from src/yazses/stt/download.py and docs/models.md"
+      }
+    ]
+  }
+}
