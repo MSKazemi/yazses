@@ -5,7 +5,7 @@ colorFrom: purple
 colorTo: indigo
 sdk: static
 pinned: false
-short_description: Free, open-source, offline voice typing for Linux, macOS and Windows.
+short_description: Free, open-source, offline voice typing.
 license: apache-2.0
 ---
 

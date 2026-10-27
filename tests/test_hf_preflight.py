@@ -679,3 +679,22 @@ def test_the_scripts_name_their_encoding_for_text_io() -> None:
     for name in ("hf_preflight.py", "hf_collection.py"):
         source = (SCRIPTS / name).read_text(encoding="utf-8")
         assert "read_text()" not in source and "write_text(" not in source, name
+
+
+def test_a_short_description_over_the_hubs_limit_is_rejected(tmp_path) -> None:
+    # The Hub answers "Too big: expected string to have <=60 characters" and refuses the
+    # push, so the preflight must say so first. 60 passes, 61 does not.
+    assert pf.MAX_SHORT_DESCRIPTION == 60
+    for length, ok in ((60, True), (61, False)):
+        root = tmp_path / str(length)
+        (root / "src").mkdir(parents=True)
+        (root / "src" / "README.md").write_text(
+            f"---\ntitle: T\nsdk: static\nshort_description: {'x' * length}\n---\n", encoding="utf-8"
+        )
+        dest = _dest(source_dir="src", files=["README.md", "index.html"], card_only=True)
+        report = pf.Report()
+        pf.check_card(root, "d", dest, dest["files"], report)
+        messages = [str(e) for e in report.errors]
+        assert (not messages) is ok, messages
+        if not ok:
+            assert any("short_description" in m for m in messages), messages

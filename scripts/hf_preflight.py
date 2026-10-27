@@ -113,6 +113,8 @@ ALLOWED_BASENAMES = frozenset({"SHA256SUMS"})
 TEXT_SUFFIXES = frozenset(
     {".md", ".html", ".css", ".js", ".json", ".csv", ".txt", ".py", ".yml", ".yaml", ".svg"}
 )
+#: The Hub validates a card's ``short_description`` at 60 characters and refuses the push.
+MAX_SHORT_DESCRIPTION = 60
 #: A manifest may lower a per-file limit but never raise it past this.
 HARD_MAX_FILE_BYTES = 25 * 1024 * 1024
 HARD_MAX_TOTAL_BYTES = 100 * 1024 * 1024
@@ -780,6 +782,14 @@ def check_card(root: Path, name: str, dest: dict, files: list[str], report: Repo
         if card.get(key) in (None, "", [], {}):
             report.error(where, f"{full}: front matter is missing required key {key!r}")
     kind = dest["repo_type"]
+    short = card.get("short_description")
+    if short is not None and (not isinstance(short, str) or len(short) > MAX_SHORT_DESCRIPTION):
+        # The Hub rejects the push ("Too big: expected string to have <=60 characters").
+        report.error(
+            where,
+            f"{full}: short_description must be a string of at most {MAX_SHORT_DESCRIPTION} "
+            f"characters (it is {len(short) if isinstance(short, str) else type(short).__name__})",
+        )
     if kind == "space":
         if not _is_str(card.get("title")):
             report.error(where, f"{full}: Space card needs a non-empty 'title'")
