@@ -12,6 +12,10 @@ YazSes is already a multimodal system: local speech recognition, gaze-routing, f
 !!! warning "Existing product prioritization remains binding"
     [ADR-030](https://github.com/MSKazemi/yazses/blob/main/design/adr/adr-030-agent-era-direction.md) pauses new capability waves pending reliability and external-user evidence. This page describes a **research and documentation track**, not a commitment to ship new sensors or cloud inference. No automatic model downloads on hot paths; no new daemon integration without a separately reviewed decision.
 
+## Work items
+
+The implementation and research tasks are [synthetic browser demo #693](https://github.com/MSKazemi/yazses/issues/693), [HF artifact provenance #694](https://github.com/MSKazemi/yazses/issues/694), [gaze evaluation #695](https://github.com/MSKazemi/yazses/issues/695), and [EEG/EOG feasibility #696](https://github.com/MSKazemi/yazses/issues/696). These are proposals, not claims that prototypes have been completed.
+
 ## Five practical HF roles
 
 | HF service | YazSes use | Boundary |
