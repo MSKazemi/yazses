@@ -22,12 +22,16 @@ def _collect(tmp_path, body: str):
 
 
 def test_a_payload_used_as_its_own_id_fails_collection(tmp_path) -> None:
+    # pytest up to 9.1 builds a case's id from its value, so a huge bytes payload became a huge
+    # node id. pytest 9.2 shortens such a value to `p0`, which removes the hazard but would also
+    # leave this test with nothing to collect. Give the id explicitly so the guard is exercised,
+    # with an id of the same length, on every pytest version.
     out = _collect(
         tmp_path,
         f"""
         import pytest
 
-        @pytest.mark.parametrize("p", [b"[" * {MAX_TEST_ID_CHARS + 10}])
+        @pytest.mark.parametrize("p", [pytest.param(0, id="[" * {MAX_TEST_ID_CHARS + 10})])
         def test_x(p):
             pass
         """,
