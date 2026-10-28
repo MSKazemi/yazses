@@ -25,7 +25,7 @@ Publication of any HCI artifact stays **BLOCKED** until all of these hold:
 | Gate | State on 2026-10-28 |
 |---|---|
 | Static demo reviewed by the owner (#693, draft PR #703) | BLOCKED: open draft, not reviewed |
-| Publication playbook (#698) | BLOCKED: not written |
+| Publication playbook (#698) | BLOCKED: [drafted](HF_PUBLICATION.md), not reviewed |
 | Model provenance inventory reviewed (#694, draft PR #704) | BLOCKED: open draft, not reviewed |
 | Every OPEN row below resolved or accepted by the owner in writing | BLOCKED: see the tables |
 | ADR-030 alignment confirmed for a public release | OPEN: owner decision |
@@ -73,7 +73,7 @@ project does not redistribute upstream weights.
 | B2 | The card names a revision, hash or result that was not measured | The draft contains no model revision or measured result; real revisions belong in the provenance inventory (#694) | PASS (static) |
 | B3 | Upstream licence or consent mismatch on anything redistributed | Nothing upstream is redistributed. For context, the inventory records that the Systran conversions declare `mit` while the upstream `openai/whisper-*` cards declare `apache-2.0`; that matters only if the project ever re-uploads a conversion | N/A for the Space and fixtures; recorded in #704 |
 | B4 | Real human data in a published dataset | Fixtures contain no audio, transcripts, face or eye video, voiceprints, learning-corpus material, EEG or EMG recordings | PASS (static): A6 |
-| B5 | Ability to withdraw | Setting a Space or dataset to private, or deleting it, takes it off the public Hub. Copies already fetched, mirrored or indexed by third parties may persist, so treat publication as irreversible in effect and publish nothing that would need withdrawing | OPEN: the unpublish and rollback steps belong in the playbook (#698) |
+| B5 | Ability to withdraw | Setting a Space or dataset to private, or deleting it, takes it off the public Hub. Copies already fetched, mirrored or indexed by third parties may persist, so treat publication as irreversible in effect and publish nothing that would need withdrawing | OPEN: the unpublish and rollback steps are drafted in [HF_PUBLICATION.md](HF_PUBLICATION.md) section 6, not yet reviewed |
 | B6 | Instructions embedded in a third-party model card or file are followed | No third-party model is loaded or fetched by the demo | N/A |
 
 ## C. Negative and abuse cases
@@ -97,4 +97,4 @@ project does not redistribute upstream weights.
 ## Cross-references
 
 Epic #692; prototype #693 (draft PR #703); provenance #694 (draft PR #704); fixtures #699;
-publication playbook #698; egress inventory ADR-019; `AGENTS.md`; direction ADR-030.
+publication playbook #698 ([HF_PUBLICATION.md](HF_PUBLICATION.md)); egress inventory ADR-019; `AGENTS.md`; direction ADR-030.
