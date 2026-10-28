@@ -6,6 +6,24 @@ project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed — the transcript-collapse detector could not see a loop of more than one word
+
+`meeting/quality.py` flags a late-onset decode collapse when one phrase repeats back-to-back at
+least 12 times. It counted a repeat only when an n-gram equalled its *immediate neighbour*, which
+is true of `hello hello hello …` and false of every loop longer than a word: the overlapping
+trigrams of `red blue green red blue green …` rotate through three different values, so the run
+never exceeded 1. A healthy 250-word start followed by that phrase said 16 times scored `ok`
+(top-trigram share 0.054, distinct ratio 0.855, run 1) — the case the check exists for, because
+the whole-transcript ratios stay inside their thresholds. Found by an outside review of the
+measurement paper, reproduced here before the change.
+
+`longest_repeat_run` now tries every period from 1 to `MAX_REPEAT_PERIOD` (8 words) and keeps the
+longest run; period 1 is the old count exactly, so single-word loops and every recorded threshold
+are unchanged. A looping unit longer than 8 words is still caught by the whole-transcript ratios
+once it dominates the text. Regression tests cover three multi-word phrases, a long phrase said
+only ten times (not a loop), the period limit, and the unchanged single-word case. Not validated
+on real multi-word collapses — none has been observed.
+
 ### Changed — the Settings window is a sidebar of pages, and the Features list can finally be seen
 
 The window stacked every control in one column and gave the capability list the height that
